@@ -9,7 +9,8 @@ key, token or `.env` value. Evidence records variable **names** and
 ## Preconditions
 
 - AIBUDGET-0033 is approved on `staging`, with Q1–Q9 (`spec.md`) recorded in
-  `approval-decision.md`.
+  `approval-decision.md` (approved by Vinh 2026-10-28; the Azure tier under
+  Q1 is still outstanding).
 - The Leader has confirmed migration number 333 (provisional; 327–330 are
   reserved, 331 is GIVEARCHIVE-0031, 332 is ADMINAAL2-0032). If the number
   changes, rename the file and every reference in one commit before T002.
@@ -20,13 +21,17 @@ key, token or `.env` value. Evidence records variable **names** and
 - Railway variables are set on the target environment **before** the
   enforcing backend deploys, because a missing or invalid total cap refuses
   all paid AI (FR-003):
-  `AI_BUDGET_MONTHLY_USD_TOTAL`, `AI_BUDGET_MONTHLY_USD_ANTHROPIC`, the
-  optional per-provider caps from Q1, `AI_KILL_SWITCH=off`, `AI_BUDGET_MODE`,
-  `OWNER_ALERT_EMAILS` and the email-provider key (shared with 0032 when it
-  has landed).
+  `AI_BUDGET_MONTHLY_USD_TOTAL`, `AI_BUDGET_MONTHLY_USD_ANTHROPIC` (100,
+  soft), `AI_BUDGET_MONTHLY_USD_GOOGLE` (20) and `AI_BUDGET_MONTHLY_USD_AZURE`
+  (20), the optional OpenAI and ElevenLabs caps from Q1, `AI_KILL_SWITCH=off`,
+  `AI_BUDGET_MODE`, `OWNER_ALERT_EMAILS` (the single owner address decided
+  under Q2) and the email-provider key (shared with 0032 when it has
+  landed). The code defaults match the decided values, so an unset Google
+  or Azure variable still applies $20.
 - The Anthropic Console monthly spend limit is confirmed at $200 for the
   production workspace by Vinh, with a screenshot naming the workspace and
-  no key. The app cap does not replace the provider cap; both are needed.
+  no key. The app budget for Anthropic is soft (FR-021), so the Console
+  limit is Anthropic's only hard stop; it is required.
 - Hard caps or alerts at the other providers (Google AI Studio/Cloud billing
   budget, OpenAI project limit, ElevenLabs plan, Azure budget) are recorded
   as set or explicitly waived by Vinh. This is out-of-app work (FR-019).
@@ -66,6 +71,16 @@ key, token or `.env` value. Evidence records variable **names** and
      still load (AC2).
    - Check that the 50/80/100% and daily alerts reach the staging recipient
      once each (V7).
+   - **Soft Anthropic budget (AC10).** Set a staging Anthropic budget just
+     above committed spend. A Claude-primary feature keeps working past
+     it, and the 100% alerts arrive once each.
+   - **Raise rehearsal (AC12).** With the Google scope at its staging cap,
+     an admin grants a 1-hour $1 raise from the panel. Check the email, the
+     panel's effective cap and that Gemini calls resume. Let it expire.
+     Check that the cap reverts and the expiry email arrives. Grant again
+     and end it early. Run V8. Before ADMINAAL2-0032's AAL2 check ships,
+     record that the route ran with AAL1. After it ships, also show that an
+     AAL1 admin is refused.
 4. **S4. Restore.** Set staging caps back to the production values. Keep
    `enforce`. Record the SHA, variable names (set/unset), outputs and
    timings in `verification.md`.
@@ -102,6 +117,8 @@ With Vinh's explicit authorisation at promotion:
   Before reverting, export the queued rows. Queued Speaking and Writing items
   remain saved but are not graded by the old backend. Re-deploy forward to
   drain them, or re-grade through the existing admin regrade route per item.
+- **Raise rollback:** end an active raise from the panel, or with
+  `fn_ai_budget_raise_end` as an operator. The cap reverts at once.
 - **Mode rollback:** `AI_BUDGET_MODE=shadow` keeps reservations and alerts
   but stops refusals. Use it only on Vinh's instruction, because it reopens
   the cost exposure.
@@ -132,7 +149,9 @@ With Vinh's explicit authorisation at promotion:
   - `[ai_budget] decision=allow|refuse|would_refuse reason=…
     scope=… feature=… reservation=…`
   - `[ai_budget] settle reservation=… estimate=… actual=…`
-  - `[ai_budget] sweeper expired=… alerts_sent=… jobs_drained=…`
+  - `[ai_budget] sweeper expired=… raises_expired=… alerts_sent=… jobs_drained=…`
+  - `[ai_budget] decision=allow_unrecorded scope=anthropic feature=…` (FR-021)
+  - `[ai_budget] raise granted|ended_early|expired raise=… scope=… amount=… actor=…`
 - Correlation: the reservation id is the ledger `usage_event_id` prefix,
   plus the existing `X-Request-ID`.
 - Metrics, read from tables by `GET /admin/ai/budget`: committed vs cap for
@@ -140,7 +159,8 @@ With Vinh's explicit authorisation at promotion:
   reservations, the last alert for each threshold, and the sweeper
   heartbeat.
 - Alerts go to `OWNER_ALERT_EMAILS` (Q2) at 50/80/100% of each monthly cap
-  and when a daily cap is reached. A sweeper heartbeat older than 15 minutes
+  (the soft Anthropic budget included), when a daily cap is reached, and for
+  each raise grant, early end and expiry. A sweeper heartbeat older than 15 minutes
   is shown on the admin panel. Emailing about it is Q4.
 - Owner: Vinh (product, budget). The implementing agent records T010/T011
   evidence on the PR.

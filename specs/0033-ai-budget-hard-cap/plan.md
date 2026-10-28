@@ -28,10 +28,26 @@ This plan is for implementation **after** AIBUDGET-0033 is approved on
   - `AI_BUDGET_MODE` is `enforce` by default and for any unrecognised
     value. `shadow` logs `would_refuse` and lets the call through (staging
     calibration only, Q6).
+  - **Soft scope (FR-021).** A line for `anthropic` is sent to the RPC with
+    `mode: "soft"`, which records it without a cap check. If the RPC fails
+    and **every** line in the request is soft, `guard` logs
+    `[ai_budget] decision=allow_unrecorded scope=anthropic feature=…` and
+    yields an unreserved handle whose settle and release are no-ops. If any
+    line is hard, the whole request raises
+    `AIBudgetRefused("budget_unavailable")` as before. The kill switch and a
+    closed `provider_spend_limit` day are checked for soft lines too.
 - **`services/ai_budget_config.py`** parses the `AI_BUDGET_*` variables and
   the existing per-user caps into scope caps and per-scope
   `config_invalid` flags (FR-003, FR-006). The values are logged at
   startup without secrets.
+  - Defaults: `ANTHROPIC` 100, `GOOGLE` 20, `AZURE` 20. `TOTAL` has no
+    default.
+  - `SCOPE_MODES = {"anthropic": "soft"}`, and every other scope is
+    `hard`. This is a constant, not a variable (FR-003). Changing it needs
+    a spec revision.
+  - An invalid Anthropic value marks the scope `config_invalid` for the
+    panel and sends `month`/`day` null with `mode: "soft"`, so no
+    threshold is evaluated and nothing is refused.
 - **`services/deferred_grading.py`** enqueues and drains Speaking jobs. It
   also drains budget-deferred Writing jobs and recomputes the session
   aggregate (FR-011, FR-013).
@@ -43,11 +59,25 @@ This plan is for implementation **after** AIBUDGET-0033 is approved on
 - **`scripts/ai_budget_sweep.py`**, the Railway cron entry point (Q8). Each
   run:
   1. expires stale reservations;
-  2. dispatches alerts;
-  3. drains the queue;
-  4. writes the heartbeat.
+  2. records expired raises (`fn_ai_budget_raise_expire_sweep`, FR-022);
+  3. dispatches alerts;
+  4. drains the queue;
+  5. writes the heartbeat.
 - **`routers/ai_budget.py`**: `GET /ai/status` (signed-in) and
   `GET /admin/ai/budget` (`require_admin`). Registered in `main.py`.
+  - `POST /admin/ai/budget/raises` and
+    `POST /admin/ai/budget/raises/{id}/end` (FR-022) use `require_admin`
+    plus `require_admin_aal2_for_money()`. Until ADMINAAL2-0032's AAL2
+    reader exists, that dependency is a no-op. Once the reader exists, it
+    returns 403 `mfa_required` for any token whose `aal` is not `aal2`,
+    whatever `ADMIN_AAL2_ENFORCE` is. A test pins that the dependency
+    switches on when the 0032 reader is importable.
+  - The routes delegate to `services/ai_budget_raise.py`.
+  - Input validation (whole dollars, 1–72 hours, a 1–500 character reason,
+    a known scope) happens in the route. The scope, cap and frequency
+    limits are enforced again in the SQL function, which is the authority.
+  - The route passes the base caps from `ai_budget_config` and the caller's
+    id and `aal`. It never trusts a client-sent cap.
 
 ### Changed call sites
 
@@ -197,13 +227,21 @@ transaction with `lock_timeout = 5s`.
    `(budget_deferred_at, id)` for rows where `budget_deferred_at` is not
    null and the status is `queued` or `running`.
 5. **`ai_budget_alerts`**
-   - Columns: `id uuid pk`, `scope`, `period_kind`, `period_start`,
-     `threshold int check (threshold in (50,80,100))`,
-     `trigger text check (trigger in ('crossing','cap_refusal','provider_spend_limit'))`,
+   - Columns: `id uuid pk`,
+     `kind text not null default 'threshold' check (kind in ('threshold','raise_granted','raise_ended','raise_expired'))`,
+     `raise_id uuid null references ai_budget_raises`, `scope`,
+     `period_kind`, `period_start`,
+     `threshold int null check (threshold in (50,80,100))`,
+     `trigger text null check (trigger in ('crossing','cap_refusal','provider_spend_limit'))`,
      `committed_usd`, `cap_usd`, `created_at`,
      `send_status text check (in ('pending','sent','failed')) default 'pending'`,
      `attempts int`, `next_attempt_at`, `sent_at`, `last_error`.
-   - Unique: `(scope, period_kind, period_start, threshold)` (FR-015).
+   - CHECK: `kind = 'threshold'` requires `threshold` and `trigger` and a
+     null `raise_id`. A raise kind requires `raise_id` and a null
+     `threshold`.
+   - Unique partial indexes: `(scope, period_kind, period_start,
+     threshold) where kind = 'threshold'` (FR-015), and `(raise_id, kind)
+     where kind <> 'threshold'` (FR-022).
    - `service_role`: SELECT and UPDATE of the send columns. Inserts happen
      only inside the reserve, settle and close-scope functions. Whichever
      trigger fires first owns the row, so each scope, period and
@@ -216,10 +254,17 @@ transaction with `lock_timeout = 5s`.
    - **`fn_ai_budget_reserve(p_request_key text, p_lines jsonb, p_caps jsonb, p_ttl_seconds int)`**
      - `p_lines` has the shape `[{line_no, provider, model, feature,
        operation, estimate_usd, user_id, resource_type, resource_id}]`.
-     - `p_caps` maps each scope to `{month, day}` (null means no
-       per-provider cap). It comes from the caller's environment.
-       FR-003 validation happens before the call; the function also
-       rejects caps of zero or less.
+     - `p_caps` maps each scope to `{month, day, mode}` (null `month`/`day`
+       means no per-provider cap). It comes from the caller's
+       environment. FR-003 validation happens before the call. The
+       function also rejects hard caps of zero or less.
+     - `mode = 'soft'` lines (FR-021) are inserted and counted on their
+       own scope's counters, but they are never compared with a cap and
+       are not added to `total`. Soft thresholds are still evaluated for
+       alerts when the scope's cap is not null.
+     - The effective cap of a hard scope is `p_caps` plus the `amount_usd`
+       of its active raise (item 10: `ended_at is null and expires_at >
+       now()`), read after the counter rows are locked.
      - First, if rows for `p_request_key` already exist, the function
        does not grant anything. It returns `{granted: false, replay: true,
        lines: [{provider, status}]}` without changing a counter (FR-012,
@@ -241,8 +286,9 @@ transaction with `lock_timeout = 5s`.
        period and locks them `FOR UPDATE` in `(scope, period_kind)`
        order.
      - It refuses the whole request, returning the reason and scope, if
-       any `closed_reason` is set or any `settled + reserved + Σestimate`
-       would exceed its cap.
+       any `closed_reason` is set (soft scopes included, FR-009) or any
+       hard scope's `settled + reserved + Σestimate` would exceed its
+       effective cap.
      - On a cap refusal it still commits one thing: a 100% alert row for
        each refusing scope and period (`trigger = 'cap_refusal'`,
        `ON CONFLICT DO NOTHING`). No reservation and no counter change are
@@ -415,7 +461,7 @@ transaction with `lock_timeout = 5s`.
      the route recomputes with that result, or the band is written
      unacknowledged and the sweeper owes the refresh.
 8. **Postconditions.** A `DO` block raises if any of the following does not
-   hold:
+   hold (item 10 objects included):
    - every table exists with RLS enabled;
    - `anon` and `authenticated` hold no privilege on any of the objects;
    - each function exists with `prosecdef` and the pinned `search_path`;
@@ -423,8 +469,47 @@ transaction with `lock_timeout = 5s`.
    - the item 4 `writing_jobs` columns exist.
 9. **Down script** (in the header, guarded). It aborts unless
    `ai_deferred_grading_jobs` has no `queued` or `running` rows,
-   no `completed` session owes a refresh in `ai_deferred_session_refresh`, and no `writing_jobs` row has
-   `budget_deferred_at` set while `queued` or `running`.
+   no `completed` session owes a refresh in `ai_deferred_session_refresh`, no `writing_jobs` row has
+   `budget_deferred_at` set while `queued` or `running`, and no raise is
+   active. It keeps `ai_budget_raise_events` as an exported audit record
+   before any drop.
+10. **Budget-raise objects (FR-022).** Created before item 5, because the
+    alerts reference them.
+    - **`ai_budget_raises`**: `id uuid pk`,
+      `scope text check (scope in ('total','google','azure','openai','elevenlabs'))`,
+      `amount_usd numeric(10,2) check (amount_usd >= 1 and amount_usd = trunc(amount_usd) and amount_usd <= 50)`,
+      `base_month_cap_usd numeric(12,4)`, `granted_at`,
+      `expires_at` (CHECK: between 1 and 72 hours after `granted_at`),
+      `granted_by uuid`, `granted_aal text`, `reason text` (CHECK:
+      1–500 characters), `ended_at null`, `ended_by null`,
+      `end_kind text null check (in ('ended_early','expired'))`,
+      `end_reason null`, `request_id`. There is a unique partial index
+      `(scope) where ended_at is null`. `service_role`: SELECT only.
+    - **`ai_budget_raise_events`**: append-only. `id`, `raise_id`,
+      `event text check (in ('granted','ended_early','expired'))`, `scope`,
+      `amount_usd`, `base_month_cap_usd`, `effective_month_cap_usd`,
+      `expires_at`, `actor_id null` (null for `expired`), `actor_aal`,
+      `request_id`, `reason`, `created_at`. It is unique on
+      `(raise_id, event)`. `service_role`: SELECT only. A trigger refuses
+      `UPDATE` and `DELETE` for every role.
+    - **`fn_ai_budget_raise_grant(p_scope, p_amount_usd, p_hours, p_reason, p_actor, p_actor_aal, p_base_caps jsonb, p_request_id)`**
+      upserts and locks the scope's current month counter row, the same
+      lock the reserve function takes. It ends any raise of that scope whose
+      `expires_at <= now()` as `expired`, with its event and alert. Then it
+      refuses `scope_not_raisable` (soft or unknown scope),
+      `scope_config_invalid` (null or ≤ 0 base cap),
+      `amount_out_of_range` (above the base monthly cap or $50),
+      `raise_active` or `raise_limit_reached` (three grants this UTC month).
+      Otherwise it inserts the raise, the `granted` event and the
+      `raise_granted` alert, and returns the raise with its effective
+      caps. Every refusal writes nothing.
+    - **`fn_ai_budget_raise_end(p_raise_id, p_actor, p_actor_aal, p_reason, p_request_id)`**
+      sets `ended_at`, `end_kind = 'ended_early'` and the event and alert
+      once. It returns `not_active` for an ended or expired raise.
+    - **`fn_ai_budget_raise_expire_sweep(p_now)`** ends every raise past
+      `expires_at` as `expired`, with its event and alert, and returns the
+      count. The cap reverts without it, because the reserve function
+      checks `expires_at` directly.
 
 N-1 compatibility: the deployed backend does not read these objects, and
 the `writing_jobs` columns are nullable or have a constant default, so
@@ -464,14 +549,29 @@ All shapes are published in OpenAPI and regenerated into
 
   ```json
   {"mode": "enforce|shadow", "kill_switch": false,
-   "scopes": [{"scope", "period_kind", "period_start", "cap_usd",
-               "settled_usd", "reserved_usd", "committed_usd", "percent",
-               "state", "config_error"}],
+   "scopes": [{"scope", "enforcement": "hard|soft", "period_kind",
+               "period_start", "base_cap_usd", "effective_cap_usd",
+               "cap_usd", "settled_usd", "reserved_usd", "committed_usd",
+               "percent", "state", "config_error"}],
+   "raises": {"active": [{"id", "scope", "amount_usd", "expires_at",
+                          "granted_by_email", "reason"}],
+              "used_this_month": {"<scope>": 0}},
    "queue": {"speaking_queued", "writing_deferred", "oldest_enqueued_at"},
    "reservations": {"open", "expired_last_24h"},
    "alerts": [{"scope", "period_start", "threshold", "send_status", "sent_at"}],
    "sweeper": {"last_run_at", "stale"}, "lookup_failed": false}
   ```
+
+  `cap_usd` equals `effective_cap_usd`, kept for the panel's percentage.
+  For the soft scope, `state` is `open` or `over_soft_budget` and never a
+  refusal state.
+- **`POST /admin/ai/budget/raises`** takes
+  `{scope, amount_usd, duration_hours, reason}` and returns 201 with the
+  raise and its effective caps. It returns 422 for input validation, 409
+  with `error_code` set to one of the item 10 refusals, 403 `mfa_required`
+  (FR-022), and 503 `budget_unavailable` on an RPC failure.
+  **`POST /admin/ai/budget/raises/{id}/end`** takes `{reason}` and returns
+  200, 409 `not_active`, 403 or 503 in the same way.
 
 ### Backward compatibility
 
@@ -493,7 +593,11 @@ See `ui-states.md`. Component ownership:
 - **Learner AI controls:** a shared `useAiStatus()` hook in
   `frontend/lib/ai-status.ts`, gated on sign-in after hydration.
 - **Instructor and admin:** the instructor banner in
-  `instructor-dashboard.tsx`; the admin panel in `admin-overview.tsx`.
+  `instructor-dashboard.tsx`; the admin panel in `admin-overview.tsx`; the
+  raise form and active-raise list in a new
+  `admin-ai-budget-raise.tsx` used by that panel. It confirms before
+  submitting and refetches `GET /admin/ai/budget` after every mutation,
+  with no optimistic state.
 
 ## Work decomposition
 
@@ -507,6 +611,7 @@ The order follows `tasks.md`. File ownership:
 | Quotas and flags | `services/rate_limit.py`, `routers/tts.py`, `routers/listening.py` (gist only), `services/runtime_flags.py` |
 | Deferred grading | `services/deferred_grading.py`, `routers/grading.py`, `routers/admin.py` (regrade extraction), `services/essay_service.py`, `routers/sessions.py` (aggregate hook), `scripts/ai_budget_sweep.py` |
 | Status APIs and alerts | `routers/ai_budget.py`, `main.py`, the email transport shared with 0032 |
+| Budget raise (FR-022) | `routers/ai_budget.py` (raise routes), `services/ai_budget_raise.py`, `frontend/app/(authed-admin-overview)/admin/admin-ai-budget-raise.tsx` |
 | Frontend | the files in UI and interaction, `frontend/types/api.d.ts`, `frontend/lib/browser-api.ts` |
 
 Router, provider, frontend and migration work can run in parallel once the
@@ -540,13 +645,20 @@ These run in CI with fake providers; no network.
 - **`backend/tests/test_ai_budget_service.py`**: kill-switch parsing,
   config validation, estimator bounds, the fail-closed RPC (raise, timeout,
   bad shape, missing function) and shadow vs enforce (FR-003 to FR-008,
-  AC2, AC5, AC9).
+  AC2, AC5, AC9). It also covers the soft scope: the defaults 100/20/20,
+  no refusal over budget, `allow_unrecorded` for a soft-only request on
+  an RPC failure, and refusal of a mixed bundle (FR-021, AC10, AC11).
 - **`backend/tests/test_migration_333_ai_budget.py`**, on PostgreSQL 16 and
   17:
   - catalog, grants, RLS, idempotent re-apply and N-1;
   - two connections racing 4N reservations for N slots (AC4);
   - replaying a request key (AC3);
   - settle, release and expire arithmetic;
+  - soft lines recorded without a cap check and excluded from `total`;
+    effective cap with an active raise, and the base cap the moment
+    `expires_at` passes; the raise function's refusals, the
+    one-active-raise index, three grants a month, and events that refuse
+    `UPDATE`/`DELETE` (FR-021, FR-022);
   - an alert exactly once under concurrent crossing (AC7);
   - the guarded down script.
 - **`backend/tests/test_ai_budget_fallback.py`**: `with_fallback`, the
@@ -594,6 +706,12 @@ These run in CI with fake providers; no network.
 - **`backend/tests/test_ai_budget_status_api.py`**: the status and admin
   shapes, `lookup_failed`, reason redaction for non-admins, and the admin
   refused like everyone else (FR-010, FR-016).
+- **`backend/tests/test_ai_budget_raise.py`**: the raise routes for a
+  learner, an instructor, an active admin, and an AAL1 versus an AAL2
+  admin once the 0032 reader is present. It covers every input and limit
+  refusal with no row, event or email; one alert row per grant, end and
+  expiry; the sweeper's expiry event; and an RPC failure → 503 with
+  nothing written (FR-022, AC12).
 - **Frontend**:
   - vitest for the Speaking classifier branch and the `useAiStatus` gating;
   - a Next-native verifier per surface in `ui-states.md` (stubbed API),
@@ -690,6 +808,17 @@ Supabase SQL editor or the runner, and print no secrets.
 - **V7 — alerts:**
 
   ```sql
-  select scope, period_kind, period_start, threshold, send_status, attempts, sent_at
+  select kind, scope, period_kind, period_start, threshold, send_status, attempts, sent_at
   from ai_budget_alerts order by created_at desc limit 50;
   ```
+- **V8 — raises (FR-022):**
+
+  ```sql
+  select r.scope, r.amount_usd, r.granted_at, r.expires_at, r.end_kind,
+         (select count(*) from ai_budget_raise_events e where e.raise_id = r.id) as events,
+         (select count(*) from ai_budget_alerts a where a.raise_id = r.id) as alerts
+  from ai_budget_raises r order by r.granted_at desc limit 20;
+  ```
+
+  Every ended raise has two events and two alerts, and an active raise
+  has one of each.

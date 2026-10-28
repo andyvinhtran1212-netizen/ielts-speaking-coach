@@ -1,7 +1,7 @@
 # Verification
 
-All rows are PENDING. This is a draft spec and nothing has been
-implemented. The tests named below are defined in `plan.md` §Verification
+All rows are PENDING. The spec is approved (2026-10-28), but nothing has
+been implemented yet. The tests named below are defined in `plan.md` §Verification
 strategy. V-queries are read-only.
 
 ## Requirement coverage
@@ -10,7 +10,7 @@ strategy. V-queries are read-only.
 | --- | --- | --- |
 | FR-001 | kind=test; ref=backend/tests/test_ai_budget_gate.py (every provider SDK call or endpoint in backend/ is inside a guarded wrapper; every SDK client sets max_retries=0; allow-list seeded from research.md §1) | PENDING |
 | FR-002 | kind=test; ref=backend/tests/test_migration_333_ai_budget.py (4N racing reservations from two connections grant exactly N; month and day, total and provider scopes; all-or-nothing bundle; two concurrent calls with the same request key → one granted, one replay, exactly one provider stub call; replay of a settled, released or expired key grants nothing; PostgreSQL 16 and 17) | PENDING |
-| FR-003 | kind=test; ref=backend/tests/test_ai_budget_service.py (cap parsing, daily = monthly ÷ 30 × 2, unset/0/negative/unparseable → config_invalid refuses; provider without its own cap bounded by total) | PENDING |
+| FR-003 | kind=test; ref=backend/tests/test_ai_budget_service.py (cap parsing, defaults Anthropic 100 / Google 20 / Azure 20, daily = monthly ÷ 30 × 2, unset/0/negative/unparseable → config_invalid refuses for hard scopes; an invalid Anthropic value shows config_invalid and refuses nothing; total excludes the soft scope; provider without its own cap bounded by total) | PENDING |
 | FR-004 | kind=test; ref=backend/tests/test_ai_budget_service.py (estimate ≥ actual for each catalog model at max_tokens; an unpriced model is refused; release only when not sent; settle at estimate on timeout and cancel) plus kind=query; ref=plan.md V3 ratio on staging | PENDING |
 | FR-005 | kind=test; ref=backend/tests/test_ai_budget_service.py (RPC raise, timeout, bad shape, missing function → refuse with zero stub calls; settle failure leaves the reservation open; ledger outage does not affect decisions) | PENDING |
 | FR-006 | kind=test; ref=backend/tests/test_ai_budget_quotas.py (grading, TTS and gist count errors refuse; caps ≤ 0 → config_invalid; runtime_flags on_error=False for paid-AI gates; non-AI flags unchanged) | PENDING |
@@ -28,10 +28,13 @@ strategy. V-queries are read-only.
 | FR-018 | kind=test; ref=backend/tests/test_migration_333_ai_budget.py (catalog, RLS, no anon/authenticated privileges, SECURITY DEFINER search_path, idempotent re-apply, N-1 backend unaffected, guarded down script) plus kind=query; ref=plan.md V2 on staging and production | PENDING |
 | FR-019 | kind=check; ref=rollout.md Preconditions (Anthropic Console $200 workspace limit and other provider caps or waivers recorded by Vinh, no key shown) | PENDING |
 | FR-020 | kind=test; ref=backend/tests/test_ai_budget_status_api.py (question generation, course Writing, course pronunciation, Advanced Vocabulary rewrite, gist and TTS refused with no attempt, quota row or session slot used; D1 background generation skipped and logged) | PENDING |
+| FR-021 | kind=test; ref=backend/tests/test_ai_budget_service.py and backend/tests/test_migration_333_ai_budget.py (AC10: Anthropic over its $100 monthly and daily budget is called and settled with one alert per threshold; soft-only request proceeds with allow_unrecorded on an RPC failure while hard and mixed requests are refused; kill switch and 402 still refuse; soft spend not in total) plus kind=journey; ref=rollout.md S3 soft-budget check | PENDING |
+| FR-022 | kind=test; ref=backend/tests/test_ai_budget_raise.py and backend/tests/test_migration_333_ai_budget.py (AC12: who may raise including AAL2 once the 0032 reader exists; amount, duration, reason, scope, one-active and three-a-month limits; append-only events; one alert and email per grant, end and expiry; effective cap reverts at expires_at without the sweeper; RPC failure writes nothing) plus kind=journey; ref=frontend/tooling/verify-ai-budget-raise.mjs and rollout.md S3 raise rehearsal plus kind=query; ref=plan.md V8 | PENDING |
 
 ## Contract evidence
 
-- OpenAPI/type drift: new `GET /ai/status` and `GET /admin/ai/budget`
+- OpenAPI/type drift: new `GET /ai/status`, `GET /admin/ai/budget`,
+  `POST /admin/ai/budget/raises` and `POST /admin/ai/budget/raises/{id}/end`
   schemas, the 503 detail model, and additive `grading_status` and
   `grading_pending` fields. `frontend/types/api.d.ts` must be regenerated
   in T009.
