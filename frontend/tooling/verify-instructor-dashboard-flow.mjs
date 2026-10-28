@@ -81,7 +81,11 @@ const fixtures = {
     { id: 'a1', prompt_id: 'p1', student_id: 's1', status: 'delivered', essay_id: 'e1', deadline: null, created_at: '2026-10-20T00:00:00Z' },
     { id: 'a0', prompt_id: 'p1', student_id: 's1', status: 'pending', essay_id: null, deadline: '2026-09-08T00:00:00Z', created_at: '2026-09-01T00:00:00Z' },
   ],
-  '/instructor/reviews/queue': [{ essay_id: 'e1', student_email: 'student@example.com', task_type: 'task2', review: { id: 'r1', status: 'queued' } }],
+  // PC-J36: two essays from the same student — rows must be told apart by essay id + submit time.
+  '/instructor/reviews/queue': [
+    { essay_id: 'e1', student_email: 'student@example.com', task_type: 'task2', submitted_at: '2026-10-28T07:05:00Z', review: { id: 'r1', status: 'queued' } },
+    { essay_id: 'ad8db313-3c59-4ffe-a665-1fe0fbc87804', student_email: 'student@example.com', task_type: 'task2', submitted_at: '2026-10-28T09:30:00Z', review: { id: 'r2', status: 'claimed' } },
+  ],
 };
 
 const page = await context.newPage();
@@ -295,7 +299,13 @@ check('BL-18: đề chưa ai nhận thì không hỏi xác nhận', dialogs.leng
   && JSON.stringify(previewPosts.at(-1)?.prompt_ids) === '["p2"]' && assignmentPosts.at(-1)?.body.prompt_ids?.[0] === 'p2', `${dialogs.length - dialogsBeforeFreshGive} dialogs, ${previewPosts.length - previewsBeforeFreshGive} previews`);
 
 await page.getByRole('button', { name: 'Chấm bài' }).click();
-check('hàng chờ chấm render đúng review canonical', await page.getByText('student@example.com', { exact: true }).count() === 1 && await page.getByRole('button', { name: 'Nhận chấm' }).count() === 1);
+// The student cell now also carries the PC-J36 identity line, so count rows by their first cell.
+const queueRows = page.locator('section[aria-labelledby="grade-title"] tbody tr');
+const queueCounts = [await queueRows.filter({ has: page.locator('td:first-child', { hasText: 'student@example.com' }) }).count(), await page.getByRole('button', { name: 'Nhận chấm' }).count(), await page.getByRole('button', { name: 'Chấm tiếp' }).count()];
+check('hàng chờ chấm render đúng review canonical', JSON.stringify(queueCounts) === '[2,1,1]', JSON.stringify(queueCounts));
+// The page runs in America/New_York; the identity line is still Vietnam time.
+const queueIdentities = await page.locator('section[aria-labelledby="grade-title"] .ins-cell-meta').allTextContents();
+check('PC-J36: 2 bài cùng học viên hiện mã bài + giờ nộp khác nhau', JSON.stringify(queueIdentities) === JSON.stringify(['e1 · 28/10/2026 14:05', 'ad8db313 · 28/10/2026 16:30']), JSON.stringify(queueIdentities));
 check('mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
 await page.setViewportSize({ width: 1440, height: 900 });
 check('desktop không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));

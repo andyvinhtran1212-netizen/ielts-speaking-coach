@@ -162,7 +162,7 @@ const reconcileWarning = page.getByText(/Chưa đối chiếu được một s�
 await reconcileWarning.waitFor({ state: 'visible' });
 check('reconcile failure được hiện thay vì bịa số chuẩn', await reconcileWarning.count() === 1);
 const unknownRow = page.locator('tr').filter({ hasText: 'Không rõ sổ nộp' });
-check('progress không đọc được không mở đường xoá', await unknownRow.getByText('Không đọc được', { exact: true }).count() === 1 && await unknownRow.getByRole('button', { name: 'Đóng bài' }).count() === 1 && await unknownRow.getByRole('button', { name: 'Xoá' }).count() === 0);
+check('progress không đọc được không mở đường xoá', await unknownRow.getByText('Không đọc được', { exact: true }).count() === 1 && await unknownRow.getByRole('button', { name: 'Đóng bài' }).count() === 1 && await unknownRow.getByRole('button', { name: 'Xóa' }).count() === 0);
 const markingButton = page.locator('tr').filter({ hasText: 'Grammar 1' }).getByRole('button', { name: 'Nhận bài' });
 check('marking mở bằng workspace native', await markingButton.count() === 1 && await page.locator('a[href*="/pages/admin/classes/index.html"]').count() === 0);
 
@@ -269,9 +269,9 @@ await page.getByText('Đã thêm 1 học viên vào bài này.', { exact: true }
 const classBackfillWrite = writes('POST', '/backfill').at(-1);
 check('backfill cả lớp gửi object rỗng thay vì subset giả', classBackfillWrite?.body === '{}' && hasReadAfter(classBackfillWrite), `${classBackfillWrite?.body || 'missing write'}; reload=${hasReadAfter(classBackfillWrite)}`);
 
-await page.locator('tr').filter({ hasText: 'Reading chưa làm' }).getByRole('button', { name: 'Xoá' }).click();
-await page.getByRole('dialog').getByRole('button', { name: 'Xoá bài giao' }).click();
-await page.getByText('Đã xoá bài giao chưa có bài nộp.', { exact: true }).waitFor({ state: 'visible' });
+await page.locator('tr').filter({ hasText: 'Reading chưa làm' }).getByRole('button', { name: 'Xóa' }).click();
+await page.getByRole('dialog').getByRole('button', { name: 'Xóa bài giao' }).click();
+await page.getByText('Đã xóa bài giao chưa có bài nộp.', { exact: true }).waitFor({ state: 'visible' });
 const deleteWrite = writes('DELETE', '/asg-delete').at(-1);
 check('delete chỉ qua confirmation và canonical reload', Boolean(deleteWrite) && hasReadAfter(deleteWrite));
 

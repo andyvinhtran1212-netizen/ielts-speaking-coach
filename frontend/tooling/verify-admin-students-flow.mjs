@@ -197,7 +197,7 @@ check('lookup lỗi không biến học viên đã xếp lớp thành chưa xế
   await page.locator('tr').filter({ hasText: 'Bình' }).getByText('Không đọc được tên lớp', { exact: true }).count() === 1
   && await page.locator('tr').filter({ hasText: 'Bình' }).getByText('Chưa xếp lớp', { exact: true }).count() === 0);
 check('payload độc hại được React escape', await page.locator('.asd-shell img, .asd-shell script').count() === 0);
-check('hard delete không được surface', await page.getByRole('button', { name: /xoá học viên/i }).count() === 0);
+check('hard delete không được surface', await page.getByRole('button', { name: /xoá học viên|xóa học viên/i }).count() === 0);
 
 await page.getByLabel('Tìm học viên').fill('slow');
 await page.waitForTimeout(360);

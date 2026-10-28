@@ -237,9 +237,9 @@ await page.getByText('Đã thêm buổi học.', { exact: true }).waitFor({ stat
 check('tạo buổi rồi canonical reload', await page.getByRole('heading', { name: 'Grammar 2' }).count() === 1 && hasCanonicalReadAfter('POST', new RegExp(`/admin/cohorts/${cohortId}/lessons$`), `/admin/cohorts/${cohortId}/lessons`));
 
 const grammar2 = page.locator('.acx-lesson').filter({ hasText: 'Grammar 2' });
-await grammar2.getByRole('button', { name: 'Xoá' }).click();
-await page.getByRole('dialog').getByRole('button', { name: 'Xoá buổi học' }).click();
-await page.getByText('Đã xoá buổi học. Bài tập từng gắn với buổi này vẫn được giữ.', { exact: true }).waitFor({ state: 'visible' });
+await grammar2.getByRole('button', { name: 'Xóa' }).click();
+await page.getByRole('dialog').getByRole('button', { name: 'Xóa buổi học' }).click();
+await page.getByText('Đã xóa buổi học. Bài tập từng gắn với buổi này vẫn được giữ.', { exact: true }).waitFor({ state: 'visible' });
 check('xoá buổi rồi canonical reload', await page.getByRole('heading', { name: 'Grammar 2' }).count() === 0 && hasCanonicalReadAfter('DELETE', /lessons\/lesson-new$/, `/admin/cohorts/${cohortId}/lessons`));
 
 await page.goto(`${BASE}/admin/classes/${cohortId}?tab=lessons`, { waitUntil: 'domcontentloaded' });

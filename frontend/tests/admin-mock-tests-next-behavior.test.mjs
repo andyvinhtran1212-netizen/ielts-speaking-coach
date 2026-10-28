@@ -143,7 +143,7 @@ describe('Admin Mock Tests native model', () => {
       'all_submitted', 'under_review', 'reviewed', 'released', 'void',
     ].map(mockSittingStatusLabel), [
       'Chưa vào phòng', 'Đã đăng ký', 'Đang làm LRW', 'Đã nộp LRW', 'Chờ thi Speaking',
-      'Đã nộp đủ', 'Đang chấm', 'Đã chấm', 'Đã trả kết quả', 'Đã huỷ lượt',
+      'Đã nộp đủ', 'Đang chấm', 'Đã chấm', 'Đã trả kết quả', 'Đã hủy lượt',
     ]);
     assert.equal(mockSittingStatusLabel('future-state'), 'Không rõ trạng thái');
   });

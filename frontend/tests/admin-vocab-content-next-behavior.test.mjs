@@ -59,7 +59,7 @@ describe('Admin Vocabulary Content native ownership', () => {
     assert.match(CLIENT, /VocabularyAudioButton/);
     assert.doesNotMatch(CLIENT, /SpeechSynthesisUtterance|generate-audio|elevenlabs|openai/);
     assert.match(CLIENT, /kind: 'bulk'; words: Word\[\]/);
-    assert.match(CLIENT, /Xoá \$\{confirmState\.words\.length\} từ đã chọn/);
+    assert.match(CLIENT, /Xóa \$\{confirmState\.words\.length\} từ đã chọn/);
     assert.match(CLIENT, /Kokoro · bf_emma/);
     assert.match(CLIENT, /<details className="avv-content-import" open=\{importOpen\} onToggle=/);
   });

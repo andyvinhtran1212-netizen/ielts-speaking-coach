@@ -2,7 +2,7 @@
 // uniquely named synthetic prompt is changed; no class assignments are made.
 // @ts-check
 const { test, expect } = require('@playwright/test');
-const { primeBypassCookie, identityEmail, STAGING_API, STAGING_SUPABASE, STAGING_ANON } = require('./helpers');
+const { primeBypassCookie, signInSession, STAGING_API, STAGING_SUPABASE } = require('./helpers');
 
 let cleanupPrompt;
 let cleanupContext;
@@ -29,14 +29,9 @@ test.afterEach(async ({ playwright }) => {
 test('Writing course allocation persists and is reused by the assignment picker', async ({ browser, request, baseURL }) => {
   test.setTimeout(120_000);
   expect(new URL(baseURL).hostname).toBe('staging.averlearning.com');
-  const password = process.env.E2E_PASSWORD;
-  if (!password) throw new Error('E2E_PASSWORD is required for staging Writing acceptance.');
-  const login = await request.post(`${STAGING_SUPABASE}/auth/v1/token?grant_type=password`, {
-    headers: { apikey: STAGING_ANON }, data: { email: identityEmail('admin'), password },
-  });
-  expect(login.status()).toBe(200);
-  const session = await login.json();
-  session.expires_at ||= Math.floor(Date.now() / 1000) + session.expires_in;
+  // One shared admin session (AAL2 once the TOTP secret is configured) for
+  // both the admin API calls and the browser storage injection (FR-016).
+  const session = await signInSession(request, 'admin');
   const headers = { Authorization: `Bearer ${session.access_token}` };
   const marker = `E2E Writing Courses ${process.env.RELEASE_SOURCE_SHA?.slice(0, 12) || Date.now()}`;
   const created = await request.post(`${STAGING_API}/admin/writing/prompts`, {
