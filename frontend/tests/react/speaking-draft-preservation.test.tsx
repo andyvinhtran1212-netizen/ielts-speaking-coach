@@ -3,7 +3,8 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { SpeakingBehavior } from '@/app/(authed-speaking)/speaking/speaking-behavior';
 import { SpeakingShell } from '@/app/(authed-speaking)/speaking/page-shell';
 import { LEARNER_DRAFT_KEY } from '@/lib/learner-tab-drafts.mjs';
-vi.mock('@/lib/learner-tab-draft-support.mjs',()=>({isLearnerTabPersistenceSupported:()=>true}));
+const support=vi.hoisted(()=>({ok:true}));
+vi.mock('@/lib/learner-tab-draft-support.mjs',()=>({isLearnerTabPersistenceSupported:()=>support.ok}));
 const auth=vi.hoisted(()=>({status:'signed-in',user:{id:'A'} as {id:string}|null}));
 vi.mock('@/lib/auth/auth-provider',()=>({useAuth:()=>auth}));
 const runtime=vi.hoisted(()=>({ready:vi.fn(async()=>true)}));
@@ -16,7 +17,7 @@ const edit=(id:string,value:string)=>fireEvent.input(input(id),{target:{value}})
 const mount=()=>render(<><SpeakingShell/><SpeakingBehavior/></>);
 let get:ReturnType<typeof vi.fn>, post:ReturnType<typeof vi.fn>, topics=true;
 beforeEach(()=>{
-  window.sessionStorage.clear(); window.name=''; auth.status='signed-in'; auth.user={id:'A'}; topics=true;
+  window.sessionStorage.clear(); window.name=''; support.ok=true; auth.status='signed-in'; auth.user={id:'A'}; topics=true;
   runtime.ready.mockReset().mockResolvedValue(true);
   get=vi.fn(async(path:string)=>path==='/auth/me'?{id:auth.user?.id,email:'a@example.com',permissions:['all']}:
     path.startsWith('/topics?')?(topics?[{title:'Approved topic',category:'Public'}]:[]):[]);
@@ -25,6 +26,26 @@ beforeEach(()=>{
 });
 afterEach(()=>{cleanup();vi.restoreAllMocks();window.sessionStorage.clear();window.name='';});
 const ready=()=>waitFor(()=>expect(get).toHaveBeenCalledWith('/auth/me'));
+const greeted=()=>waitFor(()=>expect(el('greeting-name').textContent).not.toBe('bạn'));
+it('opens with no draft bar or notice when nothing was edited or restored, on any browser',async()=>{
+  for(const ok of [true,false]){
+    support.ok=ok;const view=mount();await ready();await greeted();
+    expect(el('speaking-draft-controls').hidden).toBe(true);expect(el('speaking-draft-notice').textContent).toBe('');
+    mode('practice');edit('prac-custom-q','typed');
+    expect(el('speaking-draft-controls').hidden).toBe(false);
+    expect(el('speaking-draft-notice').textContent).toContain(ok?'đã được lưu':'chưa được lưu');
+    view.unmount();window.sessionStorage.clear();
+  }
+  support.ok=false;get.mockImplementation(async(path:string)=>{if(path==='/auth/me')throw Error('offline');return [];});
+  mount();await ready();await act(async()=>{});
+  expect(el('speaking-draft-controls').hidden).toBe(true);expect(el('speaking-draft-notice').textContent).toBe('');
+});
+it('shows the bar for a restored draft on a fresh load before any new edit',async()=>{
+  let view=mount();await ready();mode('practice');edit('prac-custom-q','restore me');view.unmount();
+  view=mount();await waitFor(()=>expect(input('prac-custom-q').value).toBe('restore me'));
+  expect(el('speaking-draft-controls').hidden).toBe(false);expect(el('speaking-draft-notice').textContent).toBe('Đã khôi phục nháp trong tab này.');
+  expect(input('speaking-draft-discard').disabled).toBe(false);expect(post).not.toHaveBeenCalled();
+});
 it('keeps the submitted Part when a later preparation edit precedes runtime readiness',async()=>{
   let release!:(value:boolean)=>void;
   runtime.ready.mockReturnValue(new Promise<boolean>(resolve=>{release=resolve}));
