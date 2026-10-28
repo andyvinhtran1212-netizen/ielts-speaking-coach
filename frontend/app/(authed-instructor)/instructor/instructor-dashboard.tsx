@@ -3,16 +3,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 
 import { getAuthorizationIdentity } from '@/lib/auth-api';
+import { postBrowserJsonAt } from '@/lib/browser-api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
   ASSIGNMENT_COPY,
+  AUTH_SETTLE_TIMEOUT_MS,
   assignmentTone,
   buildInstructorMatrix,
+  cohortOverlapConfirmMessage,
   duplicateGiveConfirmMessage,
   fanOutResultBanner,
   findExistingGive,
   instructorApiPath,
   instructorGradeHref,
+  matrixDeadlineLabel,
+  normalizeDuplicatesPreview,
   normalizeInstructorAssignments,
   normalizeInstructorCodes,
   normalizeInstructorCohorts,
@@ -127,6 +132,14 @@ export function InstructorDashboard() {
       return null;
     }
   }, []);
+
+  // W-12: a token refresh that never settles (GoTrue down/hanging) keeps the
+  // provider in initial-loading; fail closed to /login instead of waiting forever.
+  useEffect(() => {
+    if (status !== 'initial-loading') return undefined;
+    const timer = window.setTimeout(() => window.location.replace('/login'), AUTH_SETTLE_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [status]);
 
   useEffect(() => {
     if (status === 'signed-out') {
@@ -252,28 +265,61 @@ export function InstructorDashboard() {
     const deadline = deadlineValue ? `${deadlineValue}:00+07:00` : null;
     const analysisLevel = Number(values.get('analysis_level')) || 3;
     const gradingTier = String(values.get('grading_tier') || 'standard');
-    if (!promptId) return setBanner({ tone: 'danger', message: 'Chưa chọn đề bài.' });
+    // BL-19: the form is noValidate, so these app messages replace the browser's own bubble.
+    const missing = (field: string, message: string) => {
+      setBanner({ tone: 'danger', message });
+      (form.elements.namedItem(field) as HTMLElement | null)?.focus();
+    };
+    if (!promptId) return missing('prompt_id', 'Chưa chọn đề bài.');
     const promptTitle = data.prompts.find((prompt) => prompt.id === promptId)?.title || '';
     // W-06: re-giving is allowed (ALLOW + WARN) but must be a deliberate choice.
     const confirmRegive = (existing: unknown) => !existing || window.confirm(duplicateGiveConfirmMessage(existing, promptTitle, target as 'cohort' | 'student'));
     const resetOnSuccess = (ok: boolean | undefined) => { if (ok) { form.reset(); setAssignmentTarget('cohort'); } };
     if (target === 'cohort') {
       const cohortId = String(values.get('cohort_id') || '');
-      if (!cohortId) return setBanner({ tone: 'danger', message: 'Chưa chọn lớp.' });
-      if (!confirmRegive(findExistingGive(data.assignments, { promptId, cohortId }))) return;
+      if (!cohortId) return missing('cohort_id', 'Chưa chọn lớp.');
+      const sameClassGive = findExistingGive(data.assignments, { promptId, cohortId });
+      if (!confirmRegive(sameClassGive)) return;
       const body: Record<string, unknown> = { prompt_ids: [promptId], cohort_id: cohortId, analysis_level: analysisLevel, grading_tier: gradingTier };
       if (deadline) body.deadline = deadline;
       if (name) body.name = name;
-      void mutate('assignment', () => window.api.post(requestPath('/instructor/assignments/fan-out'), body), fanOutResultBanner).then(resetOnSuccess);
+      void (async () => {
+        // BL-18: members may hold the prompt from another give (individual, other
+        // class, admin). Ask with the same overlap the result banner reports,
+        // unless the re-give of this class was just confirmed above.
+        if (!sameClassGive && !(await confirmCohortOverlap(promptId, cohortId, promptTitle))) return false;
+        return mutate('assignment', () => window.api.post(requestPath('/instructor/assignments/fan-out'), body), fanOutResultBanner);
+      })().then(resetOnSuccess);
       return;
     }
     const studentId = String(values.get('student_id') || '');
-    if (!studentId) return setBanner({ tone: 'danger', message: 'Chưa chọn học viên.' });
+    if (!studentId) return missing('student_id', 'Chưa chọn học viên.');
     if (!confirmRegive(findExistingGive(data.assignments, { promptId, studentId }))) return;
     const body: Record<string, unknown> = { prompt_id: promptId, student_id: studentId, analysis_level: analysisLevel, grading_tier: gradingTier };
     if (deadline) body.deadline = deadline;
     if (name) body.name = name;
     void mutate('assignment', () => window.api.post(requestPath('/instructor/assignments'), body), ASSIGNMENT_COPY.studentSuccess).then(resetOnSuccess);
+  };
+
+  const confirmCohortOverlap = async (promptId: string, cohortId: string, promptTitle: string) => {
+    if (pending) return false;
+    const ownerId = accountRef.current;
+    setPending('assignment');
+    try {
+      const preview = normalizeDuplicatesPreview(await postBrowserJsonAt(
+        '/instructor/assignments/duplicates-preview',
+        requestPath('/instructor/assignments/duplicates-preview'), { prompt_ids: [promptId], cohort_id: cohortId },
+      ));
+      if (ownerId !== accountRef.current) return false;
+      const message = preview ? cohortOverlapConfirmMessage(preview, promptTitle) : null;
+      // An unreadable preview does not block the give: its result banner still
+      // reports duplicates_warning from the write itself.
+      return !message || window.confirm(message);
+    } catch {
+      return ownerId === accountRef.current;
+    } finally {
+      if (ownerId === accountRef.current) setPending(null);
+    }
   };
 
   const openStudent = async (studentId: string) => {
@@ -397,10 +443,10 @@ export function InstructorDashboard() {
         {tab === 'assign' && <section aria-labelledby="assign-title">
           <div className="ins-heading"><div><p>Writing workflow</p><h1 id="assign-title">Giao bài</h1></div></div>
           <div className="ins-grid">
-            <article className="ins-card"><h2>Giao một đề bài</h2>{!data.prompts.length && <p className="ins-empty">Tạo đề bài nhanh trước khi giao.</p>}<form className="ins-form" onSubmit={createAssignment}><label><span>Đề bài</span><select name="prompt_id" required><option value="">Chọn đề bài</option>{data.prompts.map((prompt) => <option key={prompt.id} value={prompt.id}>{prompt.title}</option>)}</select></label><label><span>Tên bài (học viên sẽ thấy)</span><input name="name" maxLength={200} placeholder="VD: Buổi 5 — Task 2" /></label><fieldset><legend>Giao cho</legend><label className="ins-radio"><input type="radio" name="target" value="cohort" checked={assignmentTarget === 'cohort'} onChange={() => setAssignmentTarget('cohort')} /> Cả lớp</label><label className="ins-radio"><input type="radio" name="target" value="student" checked={assignmentTarget === 'student'} onChange={() => setAssignmentTarget('student')} /> Học viên lẻ</label></fieldset>{assignmentTarget === 'cohort' ? <label><span>Lớp</span><select name="cohort_id"><option value="">Chọn lớp</option>{data.cohorts.map((cohort) => <option key={cohort.id} value={cohort.id}>{cohort.name}</option>)}</select></label> : <label><span>Học viên lẻ</span><select name="student_id"><option value="">Chọn học viên</option>{data.students.map((student) => <option key={student.id} value={student.id}>{student.fullName} ({student.studentCode})</option>)}</select></label>}<label><span>Hạn nộp (giờ Việt Nam)</span><input name="deadline" type="datetime-local" /></label><label><span>Độ sâu phản hồi</span><select name="analysis_level" defaultValue="3">{[1,2,3,4,5].map((level) => <option key={level} value={level}>L{level}</option>)}</select></label><label><span>AI chấm nháp trước khi bạn chấm</span><select name="grading_tier" defaultValue="standard"><option value="standard">Standard — 1 lượt AI</option><option value="deep">Deep — 3 lượt AI</option></select></label><p className="ins-note">Bài giao từ trang này luôn vào mục Chấm bài để bạn chấm và trả. Học viên thấy trạng thái “Giảng viên đang review bài” và chỉ thấy band khi bạn trả bài.</p><button type="submit" disabled={!!pending}>{pending === 'assignment' ? 'Đang giao…' : 'Giao bài'}</button></form></article>
+            <article className="ins-card"><h2>Giao một đề bài</h2>{!data.prompts.length && <p className="ins-empty">Tạo đề bài nhanh trước khi giao.</p>}<form className="ins-form" onSubmit={createAssignment} noValidate><label><span>Đề bài</span><select name="prompt_id" required><option value="">Chọn đề bài</option>{data.prompts.map((prompt) => <option key={prompt.id} value={prompt.id}>{prompt.title}</option>)}</select></label><label><span>Tên bài (học viên sẽ thấy)</span><input name="name" maxLength={200} placeholder="VD: Buổi 5 — Task 2" /></label><fieldset><legend>Giao cho</legend><label className="ins-radio"><input type="radio" name="target" value="cohort" checked={assignmentTarget === 'cohort'} onChange={() => setAssignmentTarget('cohort')} /> Cả lớp</label><label className="ins-radio"><input type="radio" name="target" value="student" checked={assignmentTarget === 'student'} onChange={() => setAssignmentTarget('student')} /> Học viên lẻ</label></fieldset>{assignmentTarget === 'cohort' ? <label><span>Lớp</span><select name="cohort_id"><option value="">Chọn lớp</option>{data.cohorts.map((cohort) => <option key={cohort.id} value={cohort.id}>{cohort.name}</option>)}</select></label> : <label><span>Học viên lẻ</span><select name="student_id"><option value="">Chọn học viên</option>{data.students.map((student) => <option key={student.id} value={student.id}>{student.fullName} ({student.studentCode})</option>)}</select></label>}<label><span>Hạn nộp (giờ Việt Nam)</span><input name="deadline" type="datetime-local" /></label><label><span>Độ sâu phản hồi</span><select name="analysis_level" defaultValue="3">{[1,2,3,4,5].map((level) => <option key={level} value={level}>L{level}</option>)}</select></label><label><span>AI chấm nháp trước khi bạn chấm</span><select name="grading_tier" defaultValue="standard"><option value="standard">Standard — 1 lượt AI</option><option value="deep">Deep — 3 lượt AI</option></select></label><p className="ins-note">Bài giao từ trang này luôn vào mục Chấm bài để bạn chấm và trả. Học viên thấy trạng thái “Giảng viên đang review bài” và chỉ thấy band khi bạn trả bài.</p><button type="submit" disabled={!!pending}>{pending === 'assignment' ? 'Đang giao…' : 'Giao bài'}</button></form></article>
             <article className="ins-card"><h2>Tạo đề bài nhanh</h2><form className="ins-form" onSubmit={createPrompt}><label><span>Tiêu đề</span><input name="title" required placeholder="VD: Task 2 — Technology" /></label><label><span>Dạng</span><select name="task_type" defaultValue="task2"><option value="task2">Task 2</option><option value="task1_academic">Task 1 (Academic)</option><option value="task1_general">Task 1 (General)</option></select></label><label><span>Đề bài</span><textarea name="prompt_text" rows={7} required /></label><button type="submit" disabled={!!pending}>{pending === 'prompt' ? 'Đang tạo…' : 'Tạo đề bài'}</button></form></article>
           </div>
-          <article className="ins-card"><h2>Ma trận nộp bài</h2><div className="ins-table-wrap"><table className="ins-table"><thead>{matrix.columns.length ? <tr><th>Học viên</th>{matrix.columns.map((column: any) => <th key={column.id}>{column.title}</th>)}</tr> : null}</thead><tbody>{matrix.columns.length ? matrix.rows.map((row: any) => <tr key={row.student.id}><td>{row.student.fullName}</td>{row.cells.map((cell: any, index: number) => { const status = assignmentTone(cell); return <td key={matrix.columns[index].id}><StatusPill tone={status.tone}>{status.label}</StatusPill></td>; })}</tr>) : <EmptyRow columns={1}>Chưa giao bài nào.</EmptyRow>}</tbody></table></div><p className="ins-note">Trạng thái lấy từ assignment canonical; “Trễ” chỉ áp dụng khi chưa nộp và deadline đã qua.</p></article>
+          <article className="ins-card"><h2>Ma trận nộp bài</h2><div className="ins-table-wrap"><table className="ins-table"><thead>{matrix.columns.length ? <tr><th>Học viên</th>{matrix.columns.map((column: any) => <th key={column.id}>{column.title}</th>)}</tr> : null}</thead><tbody>{matrix.columns.length ? matrix.rows.map((row: any) => <tr key={row.student.id}><td>{row.student.fullName}</td>{row.cells.map((cell: any, index: number) => { const status = assignmentTone(cell); const deadline = matrixDeadlineLabel(cell); return <td key={matrix.columns[index].id}><StatusPill tone={status.tone}>{status.label}</StatusPill>{deadline && <small className="ins-cell-deadline">{deadline}</small>}</td>; })}</tr>) : <EmptyRow columns={1}>Chưa giao bài nào.</EmptyRow>}</tbody></table></div><p className="ins-note">Trạng thái lấy từ assignment canonical; “Trễ” chỉ áp dụng khi chưa nộp và deadline đã qua.</p></article>
         </section>}
 
         {tab === 'grade' && <section aria-labelledby="grade-title">

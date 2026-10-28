@@ -15,7 +15,9 @@ async function launch() { try { return await chromium.launch(); } catch (error) 
 
 const hostile = '<img src=x onerror="window.__assignmentXss=1">';
 const assignment = (overrides = {}) => ({ id: 'a-old', status: 'pending', prompt_id: 'p1', student_id: 's1', assignment_group_id: 'g-old', name: hostile, deadline: null, instructions: null, created_at: '2026-08-13T00:00:00Z', submitted_at: null, graded_at: null, delivered_at: null, essay_id: null, allow_soft_check: false, is_timed: false, time_limit_minutes: null, auto_submitted: false, writing_prompts: { id: 'p1', title: 'Discuss public transport', task_type: 'task2', difficulty: 'intermediate' }, students: { id: 's1', student_code: 'S001', full_name: 'Lan' }, ...overrides });
-let rows = [assignment()]; let cohortSourceFails = true; const committedRequests = new Map();
+// a-done: handed in, so it is never offered for deletion (BL-05).
+let rows = [assignment(), assignment({ id: 'a-done', status: 'submitted', essay_id: 'e9', prompt_id: 'p9', assignment_group_id: 'g-done', name: 'Nhóm đã nộp', writing_prompts: { id: 'p9', title: 'Describe the chart', task_type: 'task1_academic', difficulty: null } })];
+let cohortSourceFails = true; const committedRequests = new Map(); const previewPosts = []; const deletes = [];
 
 const browser = await launch(); const context = await browser.newContext({ viewport: { width: 1440, height: 980 }, timezoneId: 'America/New_York' });
 await context.addInitScript(([key, value, injectedSession]) => {
@@ -56,6 +58,17 @@ await page.route('**/*', async (route) => {
     committedRequests.set(body.request_id, { created: [{ id: 'a-new' }], count: 1, group_id: 'g-new', duplicates_warning: ['s1'] });
     return json({ detail: 'fixture response lost after commit' }, 503);
   }
+  if (path === '/admin/writing/assignments/duplicates-preview' && method === 'POST') {
+    // Like the backend: target students who already hold any selected prompt.
+    const body = request.postDataJSON(); previewPosts.push(body); const targets = body.student_ids || ['s1', 's2'];
+    return json({ student_count: targets.length, duplicate_student_ids: [...new Set(rows.filter((row) => body.prompt_ids.includes(row.prompt_id) && targets.includes(row.student_id)).map((row) => row.student_id))] });
+  }
+  if (path.startsWith('/admin/writing/assignments/') && method === 'DELETE') {
+    const id = decodeURIComponent(path.split('/').pop()); deletes.push(id);
+    // a-new stands for a give whose draft the list cannot show: the A-08 guard refuses it.
+    if (id === 'a-new') return json({ detail: 'Học viên đã bắt đầu — không xoá được' }, 409);
+    rows = rows.filter((row) => row.id !== id); return json({ message: 'Assignment deleted', assignment_id: id });
+  }
   if (path.startsWith('/admin/writing/assignments/requests/') && method === 'GET') {
     const requestId = path.split('/').pop(); const receipt = committedRequests.get(requestId);
     return receipt ? json({ request_id: requestId, group_id: receipt.group_id, expected_count: receipt.count, assignment_ids: receipt.created.map((item) => item.id) }) : json({ detail: 'not found' }, 404);
@@ -67,6 +80,21 @@ await page.goto(`${BASE}/admin/writing/assignments`, { waitUntil: 'domcontentloa
 await page.getByRole('heading', { name: 'Bàn giao bài', exact: true }).waitFor(); await page.getByText(hostile, { exact: true }).waitFor();
 check('admin gate và list dùng canonical endpoints', requests.some((item) => item.path === '/auth/me') && requests.some((item) => item.path === '/admin/writing/assignments' && item.method === 'GET'));
 check('hostile group name hiển thị như text', await page.evaluate(() => window.__assignmentXss !== 1));
+
+// BL-04: at 1280px (and 1280px minus a 17px scrollbar) every row action and the
+// toolbar action stay inside the card instead of being clipped by its overflow.
+for (const width of [1280, 1263]) {
+  await page.setViewportSize({ width, height: 900 });
+  const fit = await page.evaluate(() => {
+    const card = document.querySelector('.awa-workspace').getBoundingClientRect();
+    const inside = (element) => { const box = element.getBoundingClientRect(); return box.width > 0 && box.left >= card.left - 0.5 && box.right <= card.right + 0.5; };
+    return { toolbar: inside(document.querySelector('.awa-toolbar > button')), actions: [...document.querySelectorAll('.awa-row')].every((row) => inside(row.lastElementChild)) };
+  });
+  check(`BL-04: cột thao tác và nút toolbar không bị cắt ở ${width}px`, fit.toolbar && fit.actions, JSON.stringify(fit));
+}
+await page.setViewportSize({ width: 1440, height: 980 });
+check('BL-05: chỉ bài chưa bắt đầu có nút Xoá', await page.locator('.awa-group').filter({ hasText: 'Nhóm đã nộp' }).getByRole('button', { name: /^Xoá bài giao/ }).count() === 0
+  && await page.locator('.awa-group').filter({ hasText: hostile }).getByRole('button', { name: /^Xoá bài giao/ }).count() === 1);
 
 await page.getByRole('button', { name: 'Giao bài mới' }).click(); await page.getByRole('dialog').waitFor();
 const dialogLayout = await page.getByRole('dialog').evaluate((element) => {
@@ -94,7 +122,13 @@ await dialog.getByRole('button', { name: 'Rà lại trước khi giao' }).click(
 await dialog.getByText('1', { exact: true }).first().waitFor();
 check('New York browser review preserves 23:00 Vietnam', await dialog.getByText('23:00 27/10/26', { exact: true }).count() === 1);
 check('review hiển thị phép tính đề × học viên', await dialog.getByText('1', { exact: true }).count() >= 3 && await dialog.getByText('bài sẽ tạo', { exact: true }).count() === 1);
-await dialog.getByRole('button', { name: 'Xác nhận giao 1 bài' }).click();
+// BL-18: Lan already holds this prompt (a-old) → ask before writing, not only in the receipt banner.
+await dialog.getByText('1 học viên từng có ít nhất một đề này.', { exact: true }).waitFor();
+const confirmGive = dialog.getByRole('button', { name: 'Xác nhận giao 1 bài' });
+check('BL-18: review đọc giao trùng trước khi ghi và khoá nút xác nhận', previewPosts.length === 1 && JSON.stringify(previewPosts[0]) === JSON.stringify({ prompt_ids: ['p1'], student_ids: ['s1'] })
+  && await confirmGive.isDisabled() && !requests.some((item) => item.path === '/admin/writing/assignments' && item.method === 'POST'));
+await dialog.getByRole('checkbox', { name: 'Vẫn giao thêm một lượt cho các học viên này' }).check();
+await confirmGive.click();
 await dialog.getByText(/Chưa nhận được biên nhận hoàn chỉnh/).waitFor();
 check('response mất sau commit giữ request idempotent để retry', requests.filter((item) => item.path === '/admin/writing/assignments' && item.method === 'POST').length === 1 && await page.evaluate((key) => Boolean(sessionStorage.getItem(key)), `awa-pending-request:${adminId}`));
 check('admin payload sends Vietnam offset from a New York browser', requests.find((item) => item.path === '/admin/writing/assignments' && item.method === 'POST').body.deadline === '2026-10-27T23:00:00+07:00');
@@ -110,6 +144,7 @@ check('replay ACK đối chiếu canonical và xoá cả pending states', reques
 await page.getByRole('button', { name: 'Giao bài mới' }).click(); await page.getByRole('dialog').waitFor();
 await dialog.getByText('Lan', { exact: true }).click(); await dialog.getByText('Discuss public transport', { exact: true }).click();
 await dialog.getByLabel('Tên nhóm (tuỳ chọn)').fill('Invalid request'); await dialog.getByRole('button', { name: 'Rà lại trước khi giao' }).click();
+await dialog.getByRole('checkbox', { name: 'Vẫn giao thêm một lượt cho các học viên này' }).check();
 await dialog.getByRole('button', { name: 'Xác nhận giao 1 bài' }).click(); await dialog.getByText(/Không có bài nào được tạo từ yêu cầu cũ/).waitFor();
 check('422 chắc chắn chưa ghi mở lại form và xoá pending request', await dialog.getByRole('button', { name: 'Rà lại trước khi giao' }).count() === 1 && !await page.evaluate((key) => sessionStorage.getItem(key), `awa-pending-request:${adminId}`));
 
@@ -165,6 +200,29 @@ const missingDialog = page.getByRole('dialog'); await missingDialog.waitFor();
 await missingDialog.getByText(/Không tìm thấy học viên/).waitFor();
 check('ID không tồn tại xoá toàn bộ prefill thay vì giữ riêng đề', await missingDialog.locator('input[type="checkbox"]:checked').count() === 0);
 await missingDialog.getByRole('button', { name: 'Đóng' }).click(); await missingDialog.waitFor({ state: 'hidden' });
+
+// BL-05: guarded delete with an in-app confirm; the list is re-read after both outcomes.
+await page.goto(`${BASE}/admin/writing/assignments`, { waitUntil: 'domcontentloaded' }); await page.getByText(hostile, { exact: true }).waitFor();
+const listReads = () => requests.filter((item) => item.path === '/admin/writing/assignments' && item.method === 'GET').length;
+const deleteButton = (groupText) => page.locator('.awa-group').filter({ hasText: groupText }).getByRole('button', { name: /^Xoá bài giao/ });
+await deleteButton('Buổi kiểm tra').click();
+const deleteDialog = page.getByRole('dialog', { name: 'Xoá bài giao?' }); await deleteDialog.waitFor();
+await deleteDialog.getByRole('button', { name: 'Huỷ' }).click(); await deleteDialog.waitFor({ state: 'hidden' });
+check('BL-05: huỷ xác nhận thì không gửi DELETE', deletes.length === 0);
+const readsBeforeDelete = listReads();
+await deleteButton(hostile).click(); await deleteDialog.waitFor();
+check('BL-05: hộp xác nhận nêu đúng đề và học viên', await deleteDialog.getByText('Discuss public transport', { exact: true }).count() === 1 && await deleteDialog.getByText('Lan', { exact: true }).count() === 1);
+await deleteDialog.getByRole('button', { name: 'Xoá bài giao', exact: true }).click();
+await page.getByText('Đã xoá bài giao.', { exact: true }).waitFor();
+check('BL-05: xoá gọi DELETE guarded rồi đọc lại danh sách chuẩn', JSON.stringify(deletes) === '["a-old"]' && listReads() === readsBeforeDelete + 1
+  && await page.getByText(hostile, { exact: true }).count() === 0 && await deleteDialog.count() === 0);
+const readsBefore409 = listReads();
+await deleteButton('Buổi kiểm tra').click(); await deleteDialog.waitFor();
+await deleteDialog.getByRole('button', { name: 'Xoá bài giao', exact: true }).click();
+await deleteDialog.getByText('Học viên đã bắt đầu — không xoá được', { exact: true }).waitFor();
+check('BL-05: backend 409 hiện trong hộp thoại, bài vẫn còn, danh sách được đọc lại', deletes.at(-1) === 'a-new' && listReads() === readsBefore409 + 1
+  && await page.locator('.awa-group').filter({ hasText: 'Buổi kiểm tra' }).count() === 1);
+await deleteDialog.getByRole('button', { name: 'Huỷ' }).click(); await deleteDialog.waitFor({ state: 'hidden' });
 
 await page.setViewportSize({ width: 390, height: 844 }); await page.getByText('Buổi kiểm tra', { exact: true }).waitFor();
 const mobile = await page.evaluate(() => ({ overflow: document.documentElement.scrollWidth > innerWidth, columns: getComputedStyle(document.querySelector('.awa-row')).gridTemplateColumns.split(' ').length }));

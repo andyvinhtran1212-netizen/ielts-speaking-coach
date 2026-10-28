@@ -171,6 +171,8 @@ button, input, select, textarea { font: inherit; }
 .ins-note { color: var(--av-text-muted); line-height: 1.55; }
 .ins-empty { padding: 22px !important; text-align: center !important; }
 .ins-note { margin: -6px 0 15px; font-size: .8rem; }
+/* W-12: each matrix cell carries its own give's deadline under the status. */
+.ins-cell-deadline { display: block; margin-top: 4px; color: var(--av-text-muted); font-size: .75rem; white-space: nowrap; }
 
 .ins-pill {
   display: inline-flex;

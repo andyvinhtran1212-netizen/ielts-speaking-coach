@@ -151,7 +151,42 @@ export const ASSIGNMENT_COPY = Object.freeze({
   confirmCohort: (title, when) => `Lớp này đã được giao đề '${title}' ${when}. Giao thêm một lượt nữa?`,
   confirmStudent: (title, when) => `Học viên này đã được giao đề '${title}' ${when}. Giao thêm một lượt nữa?`,
   duplicatesWarning: (count) => `Đã giao bài cho lớp. Lưu ý: ${count} học viên đã được giao đề này từ trước.`,
+  // BL-18: asked before the give, from the same overlap the banner reports.
+  confirmCohortOverlap: (title, count) => `${count} học viên trong lớp đã được giao đề '${title}' từ trước. Giao thêm một lượt nữa?`,
+  deadline: (when) => `Hạn ${when}`,
 });
+
+/**
+ * W-12 — how long the dashboard waits for the auth state to settle. A token
+ * refresh that never answers (GoTrue down or hanging) otherwise leaves the
+ * page on its loading line forever; past this bound it fails closed to
+ * /login, the same place a signed-out session goes.
+ */
+export const AUTH_SETTLE_TIMEOUT_MS = 15_000;
+
+/** BL-18 — `POST /instructor/assignments/duplicates-preview` → { studentCount, duplicateStudentIds } or null. */
+export function normalizeDuplicatesPreview(value) {
+  const row = objectRow(value);
+  const count = row?.student_count;
+  const ids = row?.duplicate_student_ids;
+  if (!Number.isInteger(count) || count < 0 || !Array.isArray(ids) || !ids.every((id) => text(id))) return null;
+  return Object.freeze({ studentCount: count, duplicateStudentIds: Object.freeze([...new Set(ids.map(text))]) });
+}
+
+/** BL-18 confirm text, or null when nobody in the class already holds the prompt. */
+export function cohortOverlapConfirmMessage(preview, promptTitle) {
+  const count = preview?.duplicateStudentIds?.length || 0;
+  return count > 0 ? ASSIGNMENT_COPY.confirmCohortOverlap(text(promptTitle) || '(chưa có tiêu đề)', count) : null;
+}
+
+/** W-12 — the matrix cell's deadline line ("Hạn dd/mm/yyyy HH:mm", Vietnam time), or null. */
+export function matrixDeadlineLabel(assignment) {
+  const parsed = assignment?.deadline ? new Date(assignment.deadline) : null;
+  if (!parsed || Number.isNaN(parsed.getTime())) return null;
+  return ASSIGNMENT_COPY.deadline(new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short',
+  }).format(parsed));
+}
 
 function formatGiveTime(value) {
   const parsed = value ? new Date(value) : null;
