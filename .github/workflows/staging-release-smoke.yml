@@ -72,6 +72,7 @@ jobs:
         env:
           STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          STAGING_E2E_ADMIN_TOTP_SECRET: ${{ secrets.STAGING_E2E_ADMIN_TOTP_SECRET }}
           RELEASE_SOURCE_SHA: ${{ steps.source_revision.outputs.sha }}
           RELEASE_PROVENANCE_REQUIRED: 'true'
         run: |
@@ -96,6 +97,7 @@ jobs:
         env:
           STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          STAGING_E2E_ADMIN_TOTP_SECRET: ${{ secrets.STAGING_E2E_ADMIN_TOTP_SECRET }}
           RELEASE_SOURCE_SHA: ${{ steps.source_revision.outputs.sha }}
         run: npm run test:e2e:staging
 
@@ -107,6 +109,7 @@ jobs:
         env:
           STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          STAGING_E2E_ADMIN_TOTP_SECRET: ${{ secrets.STAGING_E2E_ADMIN_TOTP_SECRET }}
           RELEASE_SOURCE_SHA: ${{ steps.source_revision.outputs.sha }}
           RELEASE_PROVENANCE_REQUIRED: 'true'
         run: node tooling/capture-staging-release-provenance.mjs

@@ -3,10 +3,11 @@
 // admin up to AAL2 when STAGING_E2E_ADMIN_TOTP_SECRET is set. A spec that
 // signs the admin in itself would keep an AAL1 session and turn red the day
 // ADMIN_AAL2_ENFORCE is switched on, so this PR-time contract refuses it.
-import { test } from 'node:test';
+import { test, mock } from 'node:test';
+import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
+import { createRequire, syncBuiltinESMExports } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
@@ -17,6 +18,17 @@ const HELPERS = 'helpers.js';
 const ADMIN_HELPERS = new Set(['signIn', 'signInSession']);
 const require = createRequire(import.meta.url);
 const helpers = require('./staging-e2e/helpers.js');
+const ROOT = path.resolve(HERE, '..', '..');
+
+test('every staging release authentication step receives the CI TOTP secret', () => {
+  const workflow = readFileSync(path.join(ROOT, '.github/workflows/staging-release-smoke.yml'), 'utf8');
+  const authSteps = workflow.split(/\n      - name: /).filter((step) => step.includes('E2E_PASSWORD:'));
+  assert.equal(authSteps.length, 3, 'both provenance steps and the browser suite must authenticate');
+  for (const step of authSteps) {
+    assert.match(step, /STAGING_E2E_ADMIN_TOTP_SECRET: \$\{\{ secrets\.STAGING_E2E_ADMIN_TOTP_SECRET \}\}/);
+  }
+});
+
 
 function stringValue(node) {
   if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
@@ -286,4 +298,91 @@ test('the secret without a verified factor points at the seed instead of falling
       await assert.rejects(helpers.signIn(request, 'admin'), /no verified TOTP factor; run backend\/scripts\/staging_seed\.py/);
     }
   });
+});
+
+
+// Exercise the executable provenance gate without network access or artifacts.
+async function captureProvenance({ aal = 'aal2', secret = SECRET, factors } = {}) {
+  const sha = 'a'.repeat(40);
+  const token = `header.${Buffer.from(JSON.stringify({ aal })).toString('base64url')}.signature`;
+  const script = [passwordStep(factors)];
+  if (secret && factors !== null) {
+    script.push(challengeStep(), verifyStep(200, { access_token: token, refresh_token: 'r2', expires_in: 3600 }));
+  } else if (!secret) {
+    script[0].body.access_token = token;
+  }
+  const authRequest = fakeRequest(script);
+  const output = [];
+  let evidence;
+  const savedExitCode = process.exitCode;
+  const mocks = [
+    mock.method(fs, 'mkdirSync', () => undefined),
+    mock.method(fs, 'writeFileSync', (_path, data) => { evidence = JSON.parse(data); }),
+    mock.method(console, 'log', (line) => output.push(line)),
+    mock.method(globalThis, 'fetch', async (url, options) => {
+      if (url.startsWith(`${helpers.STAGING_SUPABASE}/auth/v1/`)) {
+        const response = await authRequest.post(url, { headers: options.headers, data: JSON.parse(options.body) });
+        return { status: response.status(), json: response.json };
+      }
+      if (url === 'https://staging.averlearning.com/js/runtime-config.js') {
+        return { ok: true, text: async () => JSON.stringify({
+          environment: 'staging', release: sha, gitRef: 'staging', apiBase: helpers.STAGING_API,
+          supabaseUrl: helpers.STAGING_SUPABASE, supabaseAnonKey: 'public-staging-key',
+        }) };
+      }
+      assert.equal(url, `${helpers.STAGING_API}/health/runtime`);
+      assert.equal(options.headers.Authorization, `Bearer ${token}`);
+      return { ok: true, json: async () => ({ git_sha: sha, git_branch: 'staging', environment_name: 'staging' }) };
+    }),
+  ];
+  syncBuiltinESMExports();
+  try {
+    await withEnv({
+      E2E_PASSWORD: 'pw-secret', STAGING_BYPASS: 'bypass-secret',
+      STAGING_E2E_ADMIN_TOTP_SECRET: secret, RELEASE_SOURCE_SHA: sha, RELEASE_PROVENANCE_REQUIRED: 'true',
+    }, async () => {
+      const url = new URL('../tooling/capture-staging-release-provenance.mjs', import.meta.url);
+      url.searchParams.set('test', String(Math.random()));
+      await import(url.href);
+    });
+    return { evidence, output, calls: authRequest.calls, exitCode: process.exitCode };
+  } finally {
+    for (const mocked of mocks) mocked.mock.restore();
+    syncBuiltinESMExports();
+    process.exitCode = savedExitCode;
+  }
+}
+
+test('release provenance completes the shared MFA flow and records AAL2 without secrets', async () => {
+  const result = await captureProvenance();
+  assert.equal(result.evidence.ok, true);
+  assert.equal(result.evidence.admin_aal, 'aal2');
+  assert.equal(result.calls.length, 3, 'password, challenge, verify');
+  assert.ok(result.output.includes('Staging admin assurance: aal2'));
+  const recorded = JSON.stringify([result.evidence, result.output]);
+  for (const value of [SECRET, 'pw-secret', 'bypass-secret', 'header.', 'r2', result.calls[2].options.data.code]) {
+    assert.ok(!recorded.includes(value), 'provenance output must not contain credentials');
+  }
+});
+
+test('release provenance refuses a verify response that has not reached AAL2', async () => {
+  const result = await captureProvenance({ aal: 'aal1' });
+  assert.equal(result.evidence.ok, false);
+  assert.equal(result.evidence.error, 'admin-aal2-required');
+  assert.equal(result.exitCode, 1);
+});
+
+test('release provenance fails closed when the configured admin factor is missing', async () => {
+  const result = await captureProvenance({ factors: null });
+  assert.equal(result.evidence.ok, false);
+  assert.match(result.evidence.error, /no verified TOTP factor/);
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.calls.length, 1);
+});
+
+test('release provenance preserves AAL1 operation before the CI secret is configured', async () => {
+  const result = await captureProvenance({ aal: 'aal1', secret: '' });
+  assert.equal(result.evidence.ok, true);
+  assert.equal(result.evidence.admin_aal, 'aal1');
+  assert.equal(result.calls.length, 1);
 });

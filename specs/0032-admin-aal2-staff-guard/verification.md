@@ -103,26 +103,35 @@ its NOSUPERUSER owner role, with a stand-in `auth.audit_log_entries`.
   the enforcement switch time, AC1/AC2 on the owner's admin, and an
   audit/alert spot check.
 
-### T009 hand-off: Leader steps before T012 enforcement (staging only)
+### T009 operational follow-up: staging CI enrollment
 
-T009 (PC-J41) changed code only. Nobody has run the seed, enrolled a factor
-or set a secret yet. The steps below are for the Leader. Run them in this
-order, staging only. Never print the secret.
+PR #1880 delivered the shared admin MFA helper and seed support. The follow-up
+wires `STAGING_E2E_ADMIN_TOTP_SECRET` into both release-provenance steps and the
+live browser suite in `.github/workflows/staging-release-smoke.yml`.
+`capture-staging-release-provenance.mjs` uses the same `signInSession` helper,
+requires `aal2` when the secret is configured, and records only `admin_aal` in
+its evidence. The contract tests exercise successful MFA, missing factors,
+an AAL1 verify response, credential-free output, and operation before setup.
 
-1. **Seed the factor.** Run `python3 scripts/staging_seed.py --ns smoke --admin-totp-file /workspace/qa/creds/staging-e2e-admin-totp-smoke.env` from `backend/`.
-   - `E2E_PASSWORD` is the current secret value.
-   - `backend/.env.staging` has `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` and `SUPABASE_ANON_KEY`.
-   - Expected line: `+ e2e-admin-smoke@… TOTP factor enrolled and verified; secret written to …`. A rerun prints `= … TOTP factor kept`.
-   - The step's verify signs out every other AAL1 session of the admin (`research.md` §9.3), so do not run it while live Staging E2E is running.
-2. **Store the CI secret.** Run `gh secret set -f /workspace/qa/creds/staging-e2e-admin-totp-smoke.env`. The file is one dotenv line, `STAGING_E2E_ADMIN_TOTP_SECRET=…`, mode 0600.
-3. **Pass it to the smoke job.** Add `STAGING_E2E_ADMIN_TOTP_SECRET: ${{ secrets.STAGING_E2E_ADMIN_TOTP_SECRET }}` to the `Run live staging release smoke` step env in `.github/workflows/staging-release-smoke.yml`. That file is outside T009 `owns`, so it needs its own PR. While the variable is empty, `helpers.signInSession` keeps the AAL1 password session, which is valid only while `ADMIN_AAL2_ENFORCE` is off.
-4. **Check AAL2 with the flag still off.** Run live Staging E2E. It must be green, the admin seams must get an `aal2` token, and the CI log must contain no secret or token (FR-016 kind=check).
-5. **Rotation or loss.** Rerun step 1 with `--reset-admin-totp`. It deletes the admin's TOTP factors and enrolls a new one. Then repeat step 2.
+Operational enrollment is restricted to `e2e-admin-smoke@staging-e2e.averlearning.com`
+on Supabase project `zjphffoujxkpltixsbzj`:
 
-**Open gap for T012 (outside T009 `owns`).**
-`frontend/tooling/capture-staging-release-provenance.mjs` signs in the admin
-with a password only and reads `git_sha` from `GET /health/runtime`. That
-route uses the soft admin check (lot 03). Under enforcement an AAL1 admin is
-treated as a non-admin, so the release fingerprint is redacted and the
-provenance gate fails. Before `ADMIN_AAL2_ENFORCE=true`, the tool must step
-the admin up to AAL2 from the same secret, in its own PR.
+1. Wait until no live staging smoke is using the shared admin. A successful
+   factor verification revokes its other AAL1 sessions (`research.md` §9.3).
+2. Preserve the existing password. Do not run the full `staging_seed.py` against
+   this namespace: reseeding rotates existing passwords. Do not extract
+   `E2E_PASSWORD` from CI. A staging service credential can generate a short-lived
+   magic-link session for the existing account without sending email or changing
+   its password; exchange the token hash through GoTrue `/verify` in memory.
+3. Enroll through the user's normal GoTrue `/factors` endpoint. Write the seed
+   only to `/workspace/qa/creds/staging-e2e-admin-totp.env`, mode 0600, as
+   `STAGING_E2E_ADMIN_TOTP_SECRET=…`. Never print the response, QR URI or seed.
+4. Pass the seed directly to `gh secret set STAGING_E2E_ADMIN_TOTP_SECRET`
+   through stdin. Complete `/factors/{id}/challenge` and `/verify`, confirm the
+   returned session has `aal2`, and revoke only the temporary session locally.
+5. Run the staging release smoke with the updated workflow. Record the exact
+   staging SHA, run URL/result and `admin_aal: aal2` evidence in the follow-up PR.
+   Scan logs and artifacts in memory for credentials without printing matches.
+
+This follow-up does not enable enforcement. T012 still requires its separate
+rollout and recovery acceptance; the live CI evidence above is a prerequisite.

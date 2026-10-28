@@ -1,16 +1,16 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { signIn } from './supabase-session.mjs';
+import stagingHelpers from '../tests/staging-e2e/helpers.js';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const outputPath = path.join(FRONTEND, 'test-results', 'staging-release-provenance.json');
 const stagingOrigin = 'https://staging.averlearning.com';
 const expectedApi = 'https://ielts-speaking-coach-staging.up.railway.app';
 const expectedSupabase = 'https://zjphffoujxkpltixsbzj.supabase.co';
-const adminEmail = 'e2e-admin-smoke@staging-e2e.averlearning.com';
 const bypass = process.env.STAGING_BYPASS || '';
 const password = process.env.E2E_PASSWORD || '';
+const totpSecret = process.env.STAGING_E2E_ADMIN_TOTP_SECRET || '';
 const sourceSha = process.env.RELEASE_SOURCE_SHA || '';
 const shaPattern = /^[a-f0-9]{40}$/;
 
@@ -32,6 +32,7 @@ const evidence = {
   backend_release: null,
   backend_git_branch: null,
   backend_environment_name: null,
+  admin_aal: null,
   error: null,
 };
 
@@ -59,12 +60,24 @@ try {
     throw new Error('runtime-config-environment-or-origin-mismatch');
   }
 
-  const session = await signIn({
-    supabaseUrl,
-    anonKey: supabaseAnonKey,
-    email: adminEmail,
-    password,
-  });
+  // Adapt fetch to the shared E2E helper without Playwright's request diagnostics,
+  // which can include authentication headers in transport-error messages.
+  const authRequest = {
+    async post(url, { headers, data }) {
+      const response = await fetch(url, {
+        method: 'POST', headers, body: JSON.stringify(data), signal: AbortSignal.timeout(20000),
+      });
+      return { status: () => response.status, json: () => response.json() };
+    },
+  };
+  const session = await stagingHelpers.signInSession(authRequest, 'admin');
+  try {
+    const claims = JSON.parse(Buffer.from(session.access_token.split('.')[1], 'base64url').toString());
+    evidence.admin_aal = ['aal1', 'aal2'].includes(claims.aal) ? claims.aal : null;
+  } catch {
+    throw new Error('admin-session-invalid');
+  }
+  if (totpSecret && evidence.admin_aal !== 'aal2') throw new Error('admin-aal2-required');
   const runtimeHealth = await fetch(`${expectedApi}/health/runtime`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
     signal: AbortSignal.timeout(20000),
@@ -83,7 +96,7 @@ try {
   if (!evidence.ok) evidence.error = 'release-provenance-incomplete';
 } catch (error) {
   let message = String(error?.message || error);
-  for (const secret of [bypass, password]) {
+  for (const secret of [bypass, password, totpSecret]) {
     if (secret) message = message.replaceAll(secret, '[redacted]');
   }
   evidence.error = message;
@@ -92,6 +105,7 @@ try {
 mkdirSync(path.dirname(outputPath), { recursive: true });
 writeFileSync(outputPath, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
 console.log(`Staging release provenance: ${evidence.ok ? 'OK' : 'INVALID'}`);
+if (evidence.admin_aal) console.log(`Staging admin assurance: ${evidence.admin_aal}`);
 if (process.env.RELEASE_PROVENANCE_REQUIRED === 'true' && !evidence.ok) {
   process.exitCode = 1;
 }
