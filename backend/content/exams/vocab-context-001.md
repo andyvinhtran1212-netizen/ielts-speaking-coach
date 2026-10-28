@@ -164,7 +164,7 @@ questions:
       - {label: A, text: "second-hand"}
       - {label: B, text: "outdated"}
       - {label: C, text: "cutting-edge"}
-      - {label: D, text: "affordable"}
+      - {label: D, text: "widespread"}
     answer: "C"
     kp_focus: vocab
     solution:
@@ -184,8 +184,12 @@ questions:
         - action: confirm
           instruction_vi: "Công nghệ mới phát triển năm ngoái, hiếm nơi có → 'cutting-edge'. Đáp án C."
       distractor_analysis:
+        - option: A
+          why_wrong_vi: "'second-hand' = đồ đã qua sử dụng, không hợp với công nghệ 'developed only last year' và hiếm nơi có."
         - option: B
           why_wrong_vi: "'outdated' = lỗi thời — mâu thuẫn với 'developed only last year'."
+        - option: D
+          why_wrong_vi: "'widespread' = phổ biến rộng rãi, mâu thuẫn với 'found in only a handful of institutions'."
 
   - q_num: 7
     question_type: mcq_single

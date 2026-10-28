@@ -81,12 +81,12 @@ questions:
 
   - q_num: 3
     question_type: mcq_single
-    prompt: "In an IELTS essay, a writer used a comma between two independent clauses: 'Education is a fundamental right, all citizens deserve access to quality schools.' This error is called ____."
+    prompt: "In an IELTS essay, a writer wrote: 'Education is a fundamental right, all citizens deserve access to quality schools.' What is the error in this sentence called?"
     options:
-      - {label: A, text: "comma splice (nối hai mệnh đề độc lập chỉ bằng dấu phẩy)"}
+      - {label: A, text: "comma splice"}
       - {label: B, text: "semicolon error"}
-      - {label: C, text: "fragment"}
-      - {label: D, text: "dangling modifier (bổ ngữ treo)"}
+      - {label: C, text: "sentence fragment"}
+      - {label: D, text: "dangling modifier"}
     answer: "A"
     kp_focus: grammar
     grammar_slug: punctuation-for-writing
@@ -107,7 +107,11 @@ questions:
           instruction_vi: "Lỗi này gọi là comma splice. Đáp án A."
       distractor_analysis:
         - option: B
-          why_wrong_vi: "Semicolon error là lỗi dùng dấu chấm phẩy KHÔNG phù hợp; ở đây vấn đề là dùng sai dấu (dấu phẩy thay vì dấu chấm phẩy)."
+          why_wrong_vi: "Semicolon error là lỗi dùng sai dấu chấm phẩy; câu này không có dấu chấm phẩy nào. Lỗi ở đây là dùng dấu phẩy để nối hai mệnh đề độc lập."
+          kp_refs:
+            - {type: grammar, slug: punctuation-for-writing, anchor: punctuation-for-writing.pitfall}
+        - option: C
+          why_wrong_vi: "Fragment là câu thiếu chủ ngữ hoặc động từ chính; câu này có đủ hai mệnh đề hoàn chỉnh."
           kp_refs:
             - {type: grammar, slug: punctuation-for-writing, anchor: punctuation-for-writing.pitfall}
         - option: D
