@@ -470,6 +470,14 @@ async def request_id_middleware(request: Request, call_next):
     return response
 
 
+# SEC-20261028-01 — registered LAST so it is the outermost middleware: every
+# layer below (incl. the router's trailing-slash 307) sees the public https
+# scheme reported by the Railway edge instead of the internal http hop.
+from services.forwarded_proto import ForwardedProtoMiddleware
+
+app.add_middleware(ForwardedProtoMiddleware)
+
+
 # ── Sprint 12.3 — fire-and-forget error_logs INSERT ───────────────────
 def _insert_error_log_safely(payload: dict) -> None:
     """Persist a row to error_logs. Never raises — logging cannot
