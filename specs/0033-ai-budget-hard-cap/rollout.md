@@ -58,7 +58,7 @@ key, token or `.env` value. Evidence records variable **names** and
    `underestimated` count) and tune the estimator before S3.
 3. **S3. Enforce with a low cap.** Set `AI_BUDGET_MODE=enforce` and
    `AI_BUDGET_MONTHLY_USD_TOTAL` to a test value just above the period's
-   committed spend. Then run AC1–AC9 (`spec.md`) with E2E accounts.
+   committed spend. Then run AC1–AC12 (`spec.md`) with E2E accounts.
    - Submit Speaking and Writing work after the cap is reached. Check the
      "Đang chờ chấm" state, no provider call and no learner quota use.
    - Raise the cap and restart. Check that the queue drains in order and

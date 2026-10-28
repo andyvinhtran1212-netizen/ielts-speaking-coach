@@ -126,8 +126,9 @@ exist today.
 - Speaking and Writing submissions made while paused: the work is saved,
   shown as pending, not charged to learner quota, and graded exactly once
   in order after reopening.
-- Learner, instructor and admin UI states for the paused condition, and a
-  read-only admin budget panel.
+- Learner, instructor and admin UI states for the paused condition, and an
+  admin budget panel that is read-only except for the temporary raise
+  (FR-022).
 - Owner email alerts at 50/80/100% of each monthly cap and when a daily cap
   is reached, once per threshold per period.
 - A temporary, bounded, audited and emailed budget raise for hard scopes,

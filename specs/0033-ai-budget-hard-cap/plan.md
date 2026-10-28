@@ -625,7 +625,7 @@ See `rollout.md`. In summary:
 - Variables are set before deploy, because an invalid total cap means
   refuse.
 - Staging order: migration 333, then shadow calibration, then enforce with
-  a low cap through AC1–AC9 with E2E accounts, then restore production
+  a low cap through AC1–AC12 with E2E accounts, then restore production
   values.
 - Production: authorised promotion, with 333 applied under the advisory
   lock first. Enforce from the first deploy. A 7-day reconciliation
