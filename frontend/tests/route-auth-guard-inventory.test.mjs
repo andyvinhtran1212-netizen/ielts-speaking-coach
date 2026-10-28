@@ -132,9 +132,11 @@ describe('route auth-guard inventory (U-03)', () => {
     // created it, and the routes briefly rendered content or an error box
     // before the signed-out redirect. Behaviour: tests/react/learner-route-auth-boot.
     const checkup = code(GUARDED['/grammar-checkup']);
-    assert.match(checkup, /if \(status !== 'signed-in'\) return;\s*if \(booted\.current\) return;\s*booted\.current = true;/);
-    assert.match(checkup, /\}, \[assignmentItem, enterSession, requestedSession, requestedView, router, showReport, status\]\);/);
-    assert.match(checkup, /if \(status !== 'signed-in' \|\| phase === 'loading'\) return <main/);
+    // BL-08: boot once per signed-in account, not once per mount.
+    assert.match(checkup, /const account = status === 'signed-in' \? user\?\.id \|\| '' : '';/);
+    assert.match(checkup, /if \(!account \|\| bootedFor\.current === account\) return;\s*const switched = bootedFor\.current !== '';\s*bootedFor\.current = account;/);
+    assert.match(checkup, /\}, \[account, assignmentItem, enterSession, requestedSession, requestedView, router, showReport\]\);/);
+    assert.match(checkup, /if \(status !== 'signed-in' \|\| owner !== account \|\| phase === 'loading'\) return <main/);
     assert.match(code(GUARDED['/grammar-checkup/review/[routeId]']), /if \(status !== 'signed-in'\) return <main[^\n]*Đang mở tuyến ôn…/);
     const advanced = code(GUARDED['/advanced-vocabulary']);
     assert.match(advanced, /if \(status !== 'signed-in' \|\| loadedOnce\.current\) return;\s*loadedOnce\.current = true;\s*void load\(\);/);
@@ -193,8 +195,10 @@ describe('route auth-guard inventory (U-03)', () => {
 
   test('no built-server or staging journey navigates to a debug route', () => {
     // These suites run against `next start` builds or the deployed staging
-    // site, where both routes are 404 now. Only the staging ownership spec may
-    // name them, to assert that 404. The spike suite runs `next dev`.
+    // site, where both routes are 404 now. Only the staging ownership spec and
+    // the BL-01 browser check may name them, to assert that 404. The spike
+    // suite runs `next dev`.
+    const NOT_FOUND_CHECKS = ['tests/staging-e2e/legacy-alias-redirect.spec.js', 'tooling/verify-error-states-flow.mjs'];
     const scanned = [
       ...readdirSync(path.join(FRONTEND, 'tests/staging-e2e')).map((name) => `tests/staging-e2e/${name}`),
       ...readdirSync(path.join(FRONTEND, 'tests/speaking-regression')).map((name) => `tests/speaking-regression/${name}`),
@@ -205,12 +209,14 @@ describe('route auth-guard inventory (U-03)', () => {
     const offenders = scanned.filter((rel) => {
       const source = code(rel);
       if (!/\/next-probe|\/recorder-spike/.test(source)) return false;
-      if (rel !== 'tests/staging-e2e/legacy-alias-redirect.spec.js') return true;
+      if (!NOT_FOUND_CHECKS.includes(rel)) return true;
       return /goto\('\/(?:next-probe|recorder-spike)'|assign\('\/(?:next-probe|recorder-spike)'/.test(source);
     });
     assert.deepEqual(offenders, []);
     assert.match(read('tests/staging-e2e/legacy-alias-redirect.spec.js'),
       /for \(const route of \['\/next-probe', '\/recorder-spike'\]\)[\s\S]*?toBe\(404\)/);
+    assert.match(read('tooling/verify-error-states-flow.mjs'),
+      /for \(const route of \['\/next-probe', '\/recorder-spike'\]\)[\s\S]*?response\?\.status\(\) === 404/);
     assert.match(read('playwright.spike.config.js'), /command: 'npm run dev'/);
   });
 });
