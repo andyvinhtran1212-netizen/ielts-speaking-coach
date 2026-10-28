@@ -177,7 +177,7 @@ def _build_speaking(sb, user_id: str) -> Dict[str, Any]:
         "last_activity_at": last_activity,
         "last_band": float(last_band) if last_band is not None else None,
         "sessions_count": int(total),
-        "primary_cta": "Continue practice" if total else "Start practice",
+        "primary_cta": "Luyện tiếp" if total else "Bắt đầu luyện",
         # cutover /speaking 2026-08-05 — canonical là route Next. Backend CŨNG
         # sinh điều hướng: `home.js`/`home-behavior.tsx` đưa người dùng đi bằng
         # ĐÚNG giá trị này khi họ bấm thẻ Speaking ở trang chủ (bài học review
@@ -209,7 +209,7 @@ def _build_writing(sb, user_id: str, account_name: str = "") -> Dict[str, Any]:
             "last_band": None,
             "essays_count": 0,
             "essays_in_progress": 0,
-            "primary_cta": "Submit new essay",
+            "primary_cta": "Nộp bài viết mới",
             "primary_cta_url": "/writing/dashboard",
         }
 
@@ -280,7 +280,7 @@ def _build_writing(sb, user_id: str, account_name: str = "") -> Dict[str, Any]:
         "essays_count": int(total),
         "essays_in_progress": in_progress,
         "new_feedback_count": new_feedback,
-        "primary_cta": "Submit new essay",
+        "primary_cta": "Nộp bài viết mới",
         "primary_cta_url": "/writing/dashboard",
     }
 
@@ -326,7 +326,7 @@ def _build_grammar(sb, user_id: str) -> Dict[str, Any]:
         "status": "active",
         "last_activity_at": last_activity,
         "lessons_viewed": int(total),
-        "primary_cta": "Browse lessons",
+        "primary_cta": "Xem bài học",
         # [cutover /grammar 2026-08-03] route canonical. Thẻ Grammar ở trang
         # chủ học viên điều hướng bằng ĐÚNG giá trị này (home.js:277-287),
         # nên để nguyên bản legacy là một luồng chính vẫn mở trang cũ.
@@ -491,7 +491,7 @@ def _build_vocabulary(sb, user_id: str) -> Dict[str, Any]:
         "quiz_words_mastered": len(quiz["mastered"]),
         "quiz_words_missed": len(quiz["missed"]),
         "quiz_sessions": int(quiz["sessions"]),
-        "primary_cta": "Practice flashcards" if due_count else "Browse vocabulary",
+        "primary_cta": "Ôn flashcard" if due_count else "Xem từ vựng",
         "primary_cta_url": (
             "/vocabulary/hub#flashcards" if due_count
             else "/vocabulary/hub#vocab-topics"   # #my-vocab surface removed
@@ -519,7 +519,7 @@ def _build_reading(sb, user_id: str) -> Dict[str, Any]:
         "last_activity_at": last_activity,
         "last_band": float(last_band) if last_band is not None else None,
         "attempts_count": int(total),
-        "primary_cta": "Continue reading" if total else "Start reading",
+        "primary_cta": "Đọc tiếp" if total else "Bắt đầu luyện đọc",
         "primary_cta_url": "/reading/vocab",
     }
 
@@ -563,7 +563,7 @@ def _build_listening(sb, user_id: str) -> Dict[str, Any]:
         "last_activity_at": last_activity,
         "last_band": float(last_band) if last_band is not None else None,
         "attempts_count": int(total),
-        "primary_cta": "Continue listening" if total else "Start listening",
+        "primary_cta": "Nghe tiếp" if total else "Bắt đầu luyện nghe",
         "primary_cta_url": "/listening",
     }
 

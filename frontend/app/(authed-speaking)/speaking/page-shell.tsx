@@ -338,7 +338,7 @@ export function SpeakingShell() {
             </div>
           </header>
           <div className="speaking-setup-intro">
-            <p className="speaking-setup-kicker">Practice studio</p>
+            <p className="speaking-setup-kicker">Phòng luyện tập</p>
             <p className="speaking-setup-lede">Nhập câu hỏi của bạn hoặc chọn chủ đề từ thư viện để luyện nói.</p>
             <dl className="speaking-mode-facts" aria-label="Thông tin chế độ Luyện tập">
               <div><dt>Nhịp luyện</dt><dd>Từng câu một</dd></div>
@@ -455,7 +455,7 @@ export function SpeakingShell() {
             </div>
           </header>
           <div className="speaking-setup-intro">
-            <p className="speaking-setup-kicker">Part simulator</p>
+            <p className="speaking-setup-kicker">Luyện theo từng Part</p>
             <p className="speaking-setup-lede">Chọn Part để luyện tập có cấu trúc đầy đủ số câu hỏi theo IELTS.</p>
             <dl className="speaking-mode-facts" aria-label="Thông tin chế độ Luyện từng Part">
               <div><dt>Cấu trúc</dt><dd>Đúng format từng Part</dd></div>
@@ -557,7 +557,7 @@ export function SpeakingShell() {
             </div>
           </header>
           <div className="speaking-setup-intro">
-            <p className="speaking-setup-kicker">Exam simulation</p>
+            <p className="speaking-setup-kicker">Mô phỏng phòng thi</p>
             <p className="speaking-setup-lede">Mô phỏng kỳ thi IELTS Speaking thật: Part 1 → Part 2 → Part 3 liên tiếp.</p>
             <dl className="speaking-mode-facts" aria-label="Thông tin chế độ Full Test">
               <div><dt>Thời lượng</dt><dd>Khoảng 11–14 phút</dd></div>
@@ -594,7 +594,7 @@ export function SpeakingShell() {
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0" style={{ background: "rgba(15,118,110,0.2)" }}>🗒️</div>
                 <div>
                   <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--av-primary)" }}>Part 2</span>
-                  <span className="text-xs ml-2" style={{ color: "var(--av-text-secondary)" }}>1 cue card</span>
+                  <span className="text-xs ml-2" style={{ color: "var(--av-text-secondary)" }}>1 thẻ đề (cue card)</span>
                 </div>
               </div>
               <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--av-text-muted)" }}>

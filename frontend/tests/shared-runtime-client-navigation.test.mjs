@@ -95,6 +95,16 @@ describe('shared runtime survives App Router client navigation', () => {
     assert.match(CHROME, /const RUNTIME_READY_EVENT = 'aver:supabase-runtime-ready';/);
   });
 
+  test('supabase-js stays out of the hydration bundle of boundary-only routes', () => {
+    // A static import puts the ~60 KB SDK in every public route's initial JS
+    // (/grammar mobile LCP, q/30). The client is still created only after the
+    // bootstrap scripts, now through the lazily loaded module.
+    assert.doesNotMatch(RUNTIME_BOUNDARY, /^import[^;]*from ['"]@\/lib\/supabase-browser['"]/m);
+    assert.match(RUNTIME_BOUNDARY, /import\(['"]@\/lib\/supabase-browser['"]\)/);
+    assert.match(RUNTIME_BOUNDARY, /if \(!bootstrapReady\) return;[\s\S]*loadSupabaseBrowser\(\)\.then\(/);
+    assert.match(RUNTIME_BOUNDARY, /Supabase ESM client failed to load\./);
+  });
+
   test('body classes have a client-navigation owner and stale cleanup guard', () => {
     assert.match(BODY_BRIDGE, /useLayoutEffect/);
     assert.match(BODY_BRIDGE, /previous\.forEach\(\(token\) => body\.classList\.remove\(token\)\)/);

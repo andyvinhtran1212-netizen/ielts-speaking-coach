@@ -14,7 +14,10 @@ code deploy.
   Without it, an ordinary account could change its own role. That would be a
   separate incident, handled before this rollout.
 - **P3.** The email provider key and `OWNER_ALERT_EMAILS` are set in the
-  Railway backend and cron services of the environment. One test alert has
+  Railway backend and cron services of the environment. The
+  `averlearning.com` domain is verified in Resend, so alerts are sent from
+  `alerts@averlearning.com` (decision (a)); Gmail SMTP is not a fallback.
+  One test alert has
   been sent with `python -m scripts.staff_security_sweep --test-alert`, which
   sends a fixed "kiểm tra kênh cảnh báo" message.
 - **P4.** Readiness query (read-only; run as the runner role; the output is

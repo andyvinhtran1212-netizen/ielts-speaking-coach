@@ -473,11 +473,10 @@ const TEMPLATE = /* html */ `
         </button>
         <div class="user-menu-dropdown" role="menu" hidden>
           <a href="/profile" class="user-menu-item" role="menuitem">Hồ sơ</a>
-          <!-- W-6b: role-gated (instructor/admin) link to the instructor area.
-               setRole() un-hides it ONLY for instructor/admin (default-hidden =
-               mirrors the backend require_instructor guard). -->
-          <a href="/instructor" class="user-menu-item"
-             id="instructor-link" role="menuitem" hidden>Trang giảng viên</a>
+          <!-- W-6b / Q-40: the role-gated "Trang giảng viên" link (#instructor-link)
+               is NOT in this template — _applyRole() inserts it here, before
+               logout, ONLY for instructor/admin, so a learner's DOM never
+               carries <a href="/instructor"> (mirrors require_instructor). -->
           <button type="button" class="user-menu-item user-menu-item--danger"
                   id="user-menu-logout" role="menuitem">Đăng xuất</button>
         </div>
@@ -690,11 +689,11 @@ export class AverChrome extends HTMLElement {
   }
 
   /**
-   * W-2 — role-gate the "Trang Instructor" nav item. Shows ONLY for
-   * role 'instructor' or 'admin' (admin ⊃ instructor); hidden otherwise.
-   * The item is a disabled placeholder (no href) so it never 404s — the
-   * destination page lands in W-6. Stores the role so a pre-connect call
-   * (page bootstrap before the element upgrades) applies on connect.
+   * W-2 — role-gate the "Trang giảng viên" menu item. Rendered ONLY for
+   * role 'instructor' or 'admin' (admin ⊃ instructor); for any other role it
+   * is removed from the shadow DOM, not merely hidden (Q-40). Stores the role
+   * so a pre-connect call (page bootstrap before the element upgrades)
+   * applies on connect.
    */
   setRole(role) {
     this._role = role || null;
@@ -704,11 +703,22 @@ export class AverChrome extends HTMLElement {
   _applyRole() {
     const root = this.shadowRoot;
     if (!root) return; // pre-connect; connectedCallback re-applies
-    const link = root.getElementById('instructor-link');
-    if (!link) return;
+    const existing = root.getElementById('instructor-link');
     const show = this._role === 'instructor' || this._role === 'admin';
-    if (show) link.removeAttribute('hidden');
-    else link.setAttribute('hidden', '');
+    if (!show) {
+      existing?.remove();
+      return;
+    }
+    if (existing) return;
+    const logout = root.getElementById('user-menu-logout');
+    if (!logout) return;
+    const link = document.createElement('a');
+    link.href = '/instructor';
+    link.className = 'user-menu-item';
+    link.id = 'instructor-link';
+    link.setAttribute('role', 'menuitem');
+    link.textContent = 'Trang giảng viên';
+    logout.before(link);
   }
 
   /**
@@ -719,13 +729,13 @@ export class AverChrome extends HTMLElement {
    *
    * Called from the auto-populate path, which already runs only when:
    *   • a real Supabase session exists (logged-out → never reaches here →
-   *     link stays hidden, mirroring the backend require_instructor guard), and
+   *     link is never rendered, mirroring the backend require_instructor guard), and
    *   • the page hasn't taken over the pill (setUser → _userOverride short-
    *     circuits the whole auto path) — so speaking.html, which passes its own
    *     /auth/me role into setUser, does NOT trigger a second fetch here.
    *
    * Fail-closed: any non-OK response or network/parse error leaves the link
-   * hidden and never breaks the chrome. Uses a raw fetch (NOT window.api.get,
+   * unrendered and never breaks the chrome. Uses a raw fetch (NOT window.api.get,
    * which redirects to /login on 401) so a stale token can't bounce the page.
    */
   async _resolveRole(token) {
@@ -737,7 +747,7 @@ export class AverChrome extends HTMLElement {
     // for a SECOND /auth/me (the most expensive call on the page). The attribute
     // is synchronous at parse time, so it wins the race the _role guard cannot.
     if (this.getAttribute('role-source') === 'page') return;
-    if (!token) return;              // unauthenticated → link stays hidden
+    if (!token) return;              // unauthenticated → link never rendered
     const base = (typeof window !== 'undefined' && window.api && window.api.base) || '';
     if (!base) return;
     let role = null;
@@ -753,7 +763,7 @@ export class AverChrome extends HTMLElement {
       return; // network/parse error — fail closed, never break chrome
     }
     if (this._role !== null) return; // raced with a page setRole() during the await
-    this.setRole(role);              // non-instructor / null → link stays hidden
+    this.setRole(role);              // non-instructor / null → link never rendered
   }
 
 
