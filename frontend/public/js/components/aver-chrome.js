@@ -439,7 +439,7 @@ const TEMPLATE = /* html */ `
     <div class="nav-links" id="mobile-nav-menu">
       <a href="/home" data-tab="home">Trang chủ</a>
       <a href="/writing/dashboard" data-tab="writing">Writing</a>
-      <a href="/my-class" data-tab="class">MY CLASS</a>
+      <a href="/my-class" data-tab="class">Lớp học</a>
       <a href="/speaking" data-tab="speaking">Speaking</a>
       <a href="/listening" data-tab="listening">Listening</a>
       <a href="/grammar" data-tab="grammar">Grammar</a>

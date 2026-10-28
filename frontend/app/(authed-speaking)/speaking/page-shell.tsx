@@ -95,7 +95,7 @@ export function SpeakingShell() {
           <div id="dashboard-empty" className="hidden mb-10 rounded-2xl ds-empty" style={{ border: "1px dashed var(--av-border-default)" }}>
             <div className="ds-empty-icon">🎙️</div>
             <p className="ds-empty-title">Bắt đầu buổi học đầu tiên</p>
-            <p className="ds-empty-sub">Hoàn thành ít nhất một session để xem thống kê và biểu đồ tiến độ.</p>
+            <p className="ds-empty-sub">Hoàn thành ít nhất một buổi luyện để xem thống kê và biểu đồ tiến độ.</p>
             <button id="dash-empty-start" className="btn-start text-white text-sm font-semibold px-5 py-2.5 rounded-xl">Luyện tập ngay →</button>
           </div>
 
@@ -111,14 +111,14 @@ export function SpeakingShell() {
                   <canvas id="chart-line"></canvas>
                 </div>
                 <p id="line-chart-empty" className="hidden text-center text-sm py-16" style={{ color: "var(--av-text-muted)" }}>
-                  Cần ít nhất 2 sessions để hiện biểu đồ
+                  Cần ít nhất 2 buổi luyện để hiện biểu đồ
                 </p>
               </div>
 
               {/* Radar chart */}
               <div className="stat-card rounded-2xl p-5">
                 <p className="ds-section-head mb-1">Điểm mạnh yếu 4 tiêu chí
-                  <span className="ml-1 normal-case font-normal" style={{ color: "var(--av-text-muted)" }}>5 sessions gần nhất</span>
+                  <span className="ml-1 normal-case font-normal" style={{ color: "var(--av-text-muted)" }}>5 buổi gần nhất</span>
                 </p>
                 <div id="radar-chart-wrap" style={{ position: "relative", height: "235px" }}>
                   <canvas id="chart-radar"></canvas>
@@ -232,8 +232,8 @@ export function SpeakingShell() {
           {/* ── PART 3: Session history ──────────────────────────── */}
           <section>
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold">Lịch sử sessions</h2>
-              <span id="history-count" className="ds-badge">0 sessions</span>
+              <h2 className="text-lg font-bold">Lịch sử buổi luyện</h2>
+              <span id="history-count" className="ds-badge">0 buổi</span>
             </div>
 
             {/* Sprint 16.3 — aggregate soft-hide warning (filled by renderHistory). */}
@@ -289,7 +289,7 @@ export function SpeakingShell() {
               {/* Empty state (hidden until loadHistory confirms zero sessions) */}
               <div id="history-empty" className="ds-empty hidden">
                 <div className="ds-empty-icon">📭</div>
-                <p className="ds-empty-title">Bạn chưa có session nào.</p>
+                <p className="ds-empty-title">Bạn chưa có buổi luyện nào.</p>
                 <p className="ds-empty-sub">Hoàn thành buổi luyện đầu tiên để theo dõi tiến độ.</p>
                 <button id="grammar-cta-start" className="btn-start text-white text-sm font-semibold px-6 py-2.5 rounded-xl">
                   Bắt đầu ngay →

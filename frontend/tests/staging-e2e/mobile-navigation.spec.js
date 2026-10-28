@@ -58,7 +58,7 @@ test('mobile landing menu reaches Đăng nhập and restores keyboard focus', as
   await expect(page).toHaveURL(/\/login$/);
 });
 
-test('mobile app menu reaches MY CLASS, marks active links and keeps logout working', async ({ context, page }) => {
+test('mobile app menu reaches Lớp học, marks active links and keeps logout working', async ({ context, page }) => {
   await context.addInitScript(() => {
     let session = sessionStorage.getItem('u01-signout') ? null
       : { access_token: 'synthetic-u01-token', user: { id: 'u01', email: 'mobile@local' } };
@@ -89,7 +89,7 @@ test('mobile app menu reaches MY CLASS, marks active links and keeps logout work
   await expect(menu).toBeHidden();
   await expect(toggle).toBeFocused();
   await toggle.click();
-  await menu.getByRole('link', { name: 'MY CLASS', exact: true }).click();
+  await menu.getByRole('link', { name: 'Lớp học', exact: true }).click();
   await expect(page).toHaveURL(/\/my-class$/);
   // Next may retain the prior route in a hidden Activity tree.
   const classChrome = page.locator('aver-chrome[active="class"]');
