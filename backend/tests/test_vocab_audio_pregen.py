@@ -28,6 +28,14 @@ _ROW = {
 }
 
 
+@pytest.fixture(autouse=True)
+def _no_real_next_invalidation():
+    """_commit now notifies Next; keep every test off the network by default."""
+    with patch("scripts.pregen_vocab_audio.invalidate_vocabulary_cache",
+               return_value=True) as invalidate:
+        yield invalidate
+
+
 # ── tts_audio: hash-skip ────────────────────────────────────────────────
 
 
@@ -430,3 +438,105 @@ def test_batch_does_not_attach_old_audio_to_a_concurrently_edited_word():
         asyncio.run(pg._commit([dict(_ROW)], headword_only=False))
     assert ("headword", _ROW["headword"]) in [c.args for c in query.eq.call_args_list]
     assert ("example", _ROW["example"]) in [c.args for c in query.eq.call_args_list]
+
+
+# ── PC-J34: refresh deployed readers after --commit ─────────────────────
+
+
+def _commit_with_invalidation(rows, *, invalidate_result=True, invalidate=True):
+    db = _stamp_db()
+    goc = MagicMock(return_value=("https://x/clip.mp3", False))
+    inv = MagicMock(**({"side_effect": invalidate_result}
+                       if isinstance(invalidate_result, Exception)
+                       else {"return_value": invalidate_result}))
+    with patch("scripts.pregen_vocab_audio.supabase_admin", db), \
+         patch("scripts.pregen_vocab_audio.tts_audio.get_or_create_audio_sync", goc), \
+         patch("scripts.pregen_vocab_audio.vocab_service.reload"), \
+         patch("scripts.pregen_vocab_audio._expected", return_value="https://x/clip.mp3"), \
+         patch("scripts.pregen_vocab_audio.invalidate_vocabulary_cache", inv):
+        asyncio.run(pg._commit(rows, headword_only=False, invalidate=invalidate))
+    return inv
+
+
+def test_commit_invalidates_the_public_vocabulary_tag_like_the_admin_path(caplog):
+    with caplog.at_level("INFO"):
+        inv = _commit_with_invalidation([dict(_ROW)])
+    inv.assert_called_once_with()
+    assert "Next cache tag public:vocabulary invalidated." in caplog.text
+    # The deployed backend has no remote reload hook: the manual step is printed.
+    assert "PATCH /admin/vocabulary/{id}" in caplog.text
+
+
+def test_script_and_admin_path_share_the_vocabulary_invalidation_helper():
+    import routers.admin_vocab as admin_vocab
+    import services.public_cache_invalidation as cache
+    with patch("services.public_cache_invalidation.invalidate_public_cache",
+               return_value=True) as public:
+        assert cache.invalidate_vocabulary_cache() is True
+    public.assert_called_once_with(["public:vocabulary"])
+    assert pg.VOCABULARY_CACHE_TAG == cache.VOCABULARY_CACHE_TAG
+    assert admin_vocab.invalidate_vocabulary_cache is cache.invalidate_vocabulary_cache
+
+
+def test_dry_run_main_never_invalidates(_no_real_next_invalidation):
+    with patch.object(sys, "argv", ["pregen_vocab_audio"]), \
+         patch("scripts.pregen_vocab_audio._rows_needing_audio", return_value=[dict(_ROW)]), \
+         patch("scripts.pregen_vocab_audio.supabase_admin") as db:
+        pg.main()
+    _no_real_next_invalidation.assert_not_called()
+    db.table.assert_not_called()
+
+
+@pytest.mark.parametrize("argv, expected", [
+    (["--commit"], True),
+    (["--commit", "--no-invalidate"], False),
+])
+def test_cli_passes_the_invalidate_switch_to_commit(argv, expected):
+    with patch.object(sys, "argv", ["pregen_vocab_audio", *argv]), \
+         patch("scripts.pregen_vocab_audio._rows_needing_audio", return_value=[]), \
+         patch("scripts.pregen_vocab_audio._commit", new=AsyncMock()) as commit:
+        pg.main()
+    assert commit.await_args.kwargs["invalidate"] is expected
+
+
+def test_no_invalidate_skips_next_and_prints_the_manual_command(caplog):
+    with caplog.at_level("INFO"):
+        inv = _commit_with_invalidation([dict(_ROW)], invalidate=False)
+    inv.assert_not_called()
+    assert "--no-invalidate" in caplog.text
+    assert pg._MANUAL_NEXT_INVALIDATION in caplog.text
+
+
+def test_nothing_stamped_does_not_invalidate():
+    inv = _commit_with_invalidation([])
+    inv.assert_not_called()
+
+
+@pytest.mark.parametrize("failure", [False, RuntimeError("boom")])
+def test_failed_invalidation_warns_but_a_clean_batch_still_succeeds(caplog, failure):
+    with caplog.at_level("INFO"):
+        inv = _commit_with_invalidation([dict(_ROW)], invalidate_result=failure)
+    inv.assert_called_once_with()
+    warnings = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert any("NOT invalidated" in m and pg._MANUAL_NEXT_INVALIDATION in m for m in warnings)
+
+
+@pytest.mark.parametrize("failure", [False, RuntimeError("boom")])
+def test_failed_invalidation_keeps_the_row_error_exit(failure):
+    rows = [dict(_ROW), dict(_ROW, id="other-id", slug="other")]
+    db = _stamp_db()
+    # First row stamps, second row's guarded update finds no matching row.
+    db.table.return_value.update.return_value.execute.side_effect = [
+        MagicMock(data=[{"id": "test-id"}]), MagicMock(data=[]),
+    ]
+    inv = MagicMock(**({"side_effect": failure} if isinstance(failure, Exception)
+                       else {"return_value": failure}))
+    with patch("scripts.pregen_vocab_audio.supabase_admin", db), \
+         patch("scripts.pregen_vocab_audio.tts_audio.get_or_create_audio_sync",
+               return_value=("https://x/clip.mp3", False)), \
+         patch("scripts.pregen_vocab_audio.vocab_service.reload"), \
+         patch("scripts.pregen_vocab_audio._expected", return_value="https://x/clip.mp3"), \
+         patch("scripts.pregen_vocab_audio.invalidate_vocabulary_cache", inv), \
+         pytest.raises(RuntimeError, match="^1 Vocabulary audio row"):
+        asyncio.run(pg._commit(rows, headword_only=False))
+    inv.assert_called_once_with()   # the one written row is still published to Next
