@@ -40,14 +40,18 @@ def invalidate_public_cache(tags: list[str]) -> bool:
         return False
 
     body, signature = _signed_envelope(tags)
+    headers = {
+        "content-type": "application/json",
+        "x-aver-signature": signature,
+    }
+    bypass = settings.VERCEL_AUTOMATION_BYPASS_SECRET.strip()
+    if bypass:
+        headers["x-vercel-protection-bypass"] = bypass
     try:
         response = httpx.post(
             url,
             content=body,
-            headers={
-                "content-type": "application/json",
-                "x-aver-signature": signature,
-            },
+            headers=headers,
             timeout=_TIMEOUT_SECONDS,
         )
         response.raise_for_status()

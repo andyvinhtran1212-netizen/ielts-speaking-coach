@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     # values per environment; absent values make the notifier a safe no-op.
     NEXT_CACHE_REVALIDATION_URL: str = ""
     AVER_CACHE_REVALIDATION_SECRET: str = ""
+    # Vercel "Protection Bypass for Automation" secret. Set only where the
+    # frontend sits behind Vercel Authentication (staging); when non-empty it
+    # is sent as ``x-vercel-protection-bypass`` on the invalidation call so the
+    # signed request reaches the route instead of the SSO wall.
+    VERCEL_AUTOMATION_BYPASS_SECRET: str = ""
 
     # Supabase
     SUPABASE_URL: str = ""
