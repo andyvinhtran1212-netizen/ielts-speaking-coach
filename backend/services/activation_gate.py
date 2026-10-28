@@ -31,6 +31,11 @@ by ``routers.auth.get_supabase_user`` (no second Supabase Auth round-trip), and
 the ``is_active`` result is remembered for the request so the folded checks in
 ``sessions._require_permission`` / ``writing_student.require_writing_permission``
 add no query. Nothing is cached ACROSS requests.
+
+PC-J05 (D1a): the gate itself runs the ``a*`` variants below. With
+``USE_ASYNC_DB`` off they ARE the sync functions (same query, same client,
+same test seams); with it on the ``is_active`` read awaits the async client
+instead of blocking the event loop for one Supabase round-trip per request.
 """
 
 from __future__ import annotations
@@ -41,7 +46,9 @@ from typing import Optional
 
 from fastapi import HTTPException, Request
 
+from config import settings
 from database import supabase_admin
+from services.db_async import aexecute
 
 logger = logging.getLogger(__name__)
 
@@ -147,24 +154,40 @@ def remember_user(token: str, user: dict) -> None:
         memo["token"], memo["user"] = token, user
 
 
+def _is_active_query(user_id: str):
+    return lambda db: (
+        db.table("users").select("is_active").eq("id", str(user_id)).limit(1)
+    )
+
+
+def _lookup_failed(user_id: str, exc: Exception) -> HTTPException:
+    logger.warning("[activation_gate] is_active lookup failed user=%s: %s", user_id, exc)
+    return HTTPException(
+        status_code=503,
+        detail="Không kiểm tra được trạng thái tài khoản. Vui lòng thử lại.",
+    )
+
+
 def lookup_is_active(user_id: str) -> bool:
     """Canonical ``users.is_active`` read. A missing row is inactive (matches
     /auth/check-active). A DB failure fails CLOSED with 503 — a transient
     lookup error must not open paid endpoints."""
     try:
-        rows = (
-            supabase_admin.table("users")
-            .select("is_active")
-            .eq("id", str(user_id))
-            .limit(1)
-            .execute()
-        ).data or []
+        rows = _is_active_query(user_id)(supabase_admin).execute().data or []
     except Exception as exc:
-        logger.warning("[activation_gate] is_active lookup failed user=%s: %s", user_id, exc)
-        raise HTTPException(
-            status_code=503,
-            detail="Không kiểm tra được trạng thái tài khoản. Vui lòng thử lại.",
-        )
+        raise _lookup_failed(user_id, exc)
+    return bool(rows and rows[0].get("is_active"))
+
+
+async def alookup_is_active(user_id: str) -> bool:
+    """:func:`lookup_is_active` for async callers: identical result and 503
+    fail-closed contract; awaits the async client when ``USE_ASYNC_DB`` is on."""
+    if not settings.USE_ASYNC_DB:
+        return lookup_is_active(user_id)
+    try:
+        rows = (await aexecute(_is_active_query(user_id))).data or []
+    except Exception as exc:
+        raise _lookup_failed(user_id, exc)
     return bool(rows and rows[0].get("is_active"))
 
 
@@ -194,6 +217,25 @@ def ensure_account_active(user_id: str) -> None:
         raise HTTPException(status_code=403, detail=INACTIVE_DETAIL)
 
 
+async def aaccount_is_active(user_id: str) -> bool:
+    """Async :func:`account_is_active` (same per-request memo)."""
+    key = str(user_id)
+    if confirmed_active(key):
+        return True
+    if not await alookup_is_active(key):
+        return False
+    memo = _memo.get()
+    if memo is not None:
+        memo["active"].add(key)
+    return True
+
+
+async def aensure_account_active(user_id: str) -> None:
+    """Async :func:`ensure_account_active`."""
+    if not await aaccount_is_active(user_id):
+        raise HTTPException(status_code=403, detail=INACTIVE_DETAIL)
+
+
 async def _enforce(request: Request) -> None:
     route = request.scope.get("route")
     path = getattr(route, "path", None) or request.url.path
@@ -204,7 +246,7 @@ async def _enforce(request: Request) -> None:
         return  # anonymous: the handler's own auth answers (401 or public mode)
     from routers.auth import get_supabase_user  # local — routers.auth imports this module
     user = await get_supabase_user(authorization)
-    ensure_account_active(user["id"])
+    await aensure_account_active(user["id"])
 
 
 async def require_active_learner(request: Request) -> None:
