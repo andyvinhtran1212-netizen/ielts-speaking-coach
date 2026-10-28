@@ -96,7 +96,7 @@ it('D1: a hung /auth/me ends in the error state after the deadline and aborts th
   await elapse(1);
   const alert = screen.getByRole('alert');
   expect(alert.textContent).toContain('Không tải được phiên');
-  expect(alert.textContent).toContain('Máy chủ phản hồi quá lâu. Vui lòng thử lại.');
+  expect(alert.textContent).toContain('Tải dữ liệu quá lâu. Bạn kiểm tra kết nối mạng rồi thử lại nhé.');
   expect(screen.getByRole('button', { name: 'Tải lại' })).toBeTruthy();
   expect((fetch.mock.calls[0][1] as RequestInit).signal?.aborted).toBe(true);
 });
@@ -105,7 +105,7 @@ it('D1: a stuck Supabase token read (no fetch yet) still ends in the error state
   const { fetch } = d1Runtime({ getSession: never, me: never });
   render(<D1ExercisePlayer />);
   await elapse(D1_LOAD_TIMEOUT_MS);
-  expect(screen.getByRole('alert').textContent).toContain('Máy chủ phản hồi quá lâu. Vui lòng thử lại.');
+  expect(screen.getByRole('alert').textContent).toContain('Tải dữ liệu quá lâu. Bạn kiểm tra kết nối mạng rồi thử lại nhé.');
   expect(fetch).not.toHaveBeenCalled();
 });
 

@@ -33,8 +33,8 @@ export function useAlive() {
  * calls fetch, so the deadline races the whole read and ends in Retry.
  */
 export const VOCAB_READ_TIMEOUT_MS = 15000;
-export const VOCAB_READ_TIMEOUT_MESSAGE = 'Máy chủ phản hồi quá lâu. Vui lòng thử lại.';
-export const VOCAB_READ_EMPTY_MESSAGE = 'Không nhận được dữ liệu từ máy chủ. Vui lòng thử lại.';
+export const VOCAB_READ_TIMEOUT_MESSAGE = 'Tải dữ liệu quá lâu. Bạn kiểm tra kết nối mạng rồi thử lại nhé.';
+export const VOCAB_READ_EMPTY_MESSAGE = 'Chưa nhận được dữ liệu. Bạn thử lại nhé.';
 
 export function useVocabularyResource<P extends ApiGetPath>(path: P, endpoint: string) {
   const [data, setData] = useState<ApiGetJson<P> | null>(null);

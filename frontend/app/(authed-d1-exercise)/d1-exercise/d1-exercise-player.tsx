@@ -28,7 +28,7 @@ const shortSessionNotice = (count: number) => (
 // BL-17 / V-HUB — upper bound for the opening read (connection wait, /auth/me
 // and any resume reads). A read that never settles ends in the error state.
 export const D1_LOAD_TIMEOUT_MS = 15000;
-const D1_LOAD_TIMEOUT_MESSAGE = 'Máy chủ phản hồi quá lâu. Vui lòng thử lại.';
+const D1_LOAD_TIMEOUT_MESSAGE = 'Tải dữ liệu quá lâu. Bạn kiểm tra kết nối mạng rồi thử lại nhé.';
 
 function messageOf(caught: unknown) {
   return caught instanceof Error ? caught.message : String(caught);
@@ -311,7 +311,7 @@ export function D1ExercisePlayer() {
       const me = await requestForAccount(expectedAccount, '/auth/me', ownsGeneration, { signal: controller.signal }) as AuthMeWire | null;
       if (!ownsGeneration()) return;
       // An empty body is not "feature off": showing 'disabled' would misstate the account.
-      if (!me || typeof me !== 'object') throw new Error('Máy chủ không trả về thông tin tài khoản.');
+      if (!me || typeof me !== 'object') throw new Error('Chưa tải được thông tin tài khoản. Bạn bấm Tải lại nhé.');
       if (me.d1_enabled !== true) {
         setPhase('disabled');
         return;
