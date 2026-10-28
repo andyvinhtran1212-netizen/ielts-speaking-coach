@@ -142,17 +142,26 @@ describe('Sprint 20.10 D3 — palette grouped by Part 1 / Part 2 / Part 3', () =
 });
 
 
-// ── D1 reference — CORS allow_origin_regex shipped ────────────────────
+// ── D1 reference — CORS origins (regex retired by F11) ────────────────
 
 
-describe('Sprint 20.10 D1 — backend CORS regex safety net (reference)', () => {
+describe('Sprint 20.10 D1 — backend CORS origins (reference)', () => {
   // The test that actually exercises the live CORS middleware lives in
-  // backend/tests/test_cors_averlearning.py. This sentinel just pins the
-  // regex source string so a future refactor doesn't accidentally remove
-  // the safety net without anyone noticing.
-  test('main.py declares the averlearning regex on CORSMiddleware', () => {
+  // backend/tests/test_cors_averlearning.py. This sentinel used to pin the
+  // D1 `*.averlearning.com` regex safety net. F11 (2026-10-28) removed it on
+  // purpose: with allow_credentials=True it handed a credentialed CORS grant
+  // to ANY subdomain, including a dangling or taken-over one. The pin is
+  // inverted so the wildcard cannot quietly return, and the D1 hosts stay
+  // covered by the exact allowlist.
+  test('main.py uses an exact origin allowlist, no subdomain regex', () => {
     const py = read('backend/main.py');
-    assert.match(py, /allow_origin_regex\s*=\s*_AVERLEARNING_ORIGIN_REGEX/);
-    assert.match(py, /\^https:\/\/\(\?:\[a-z0-9-\]\+\\\.\)\?averlearning\\\.com\$/);
+    assert.doesNotMatch(py, /allow_origin_regex\s*=/);
+    for (const origin of [
+      'https://averlearning.com',
+      'https://www.averlearning.com',
+      'https://staging.averlearning.com',
+    ]) {
+      assert.ok(py.includes(`"${origin}",`), `${origin} missing from CORS allowlist`);
+    }
   });
 });
