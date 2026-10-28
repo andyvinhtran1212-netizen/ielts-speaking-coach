@@ -19,6 +19,13 @@ key, token or `.env` value. Evidence records variable **names** and
   T001 adds the S0 row (Q1, 16:26) before enforcement starts. A missing
   row would refuse every Azure call (FR-004), so Speaking would lose its
   pronunciation score (FR-023).
+- `ffprobe` is present in the staging and production Railway images,
+  read back with `ffprobe -version` through `railway ssh` or a one-off
+  run before the enforcing backend deploys. Speaking measures every
+  recording with it before Whisper (FR-004), so without it every
+  submission is refused in `enforce` (in `shadow` the S2 logs show it
+  as `would_refuse`). Railpack does not read `backend/nixpacks.toml`, so
+  the image is checked, not the file.
 - Railway variables are reviewed on the target environment **before** the
   enforcing backend deploys. A missing budget variable never blocks AI,
   because it takes its spec default (FR-003, decision (b)). A set but
@@ -62,14 +69,26 @@ key, token or `.env` value. Evidence records variable **names** and
    migration alone changes nothing (N-1 safe).
 2. **S2. Shadow.** Deploy the merged SHA with `AI_BUDGET_MODE=shadow` and
    staging caps that match production. Run the E2E Speaking, Writing,
-   Listening gist and TTS journeys. For each feature, compare the reservation
-   estimate with the settled actual cost (`plan.md` V3). Record the
-   estimate/actual ratio for each feature. The lower tail is the safety
-   check, so the **minimum** ratio must be at least 1.0. Zero settled
-   reservations may have `actual_usd > estimate_usd`, because FR-004 makes
-   the estimate an upper bound. The median must be at most 3.0, so the cap
-   is not reached early. Investigate any underestimate (V3
+   Listening gist and TTS journeys. For each feature and provider, compare
+   the reservation estimate with the settled actual cost (`plan.md` V3).
+   Record the estimate/actual ratio for each pair. The lower tail is the
+   safety check, so the **minimum** ratio must be at least 1.0. Zero
+   settled reservations may have `actual_usd > estimate_usd`, because
+   FR-004 makes the estimate an upper bound. The median must be at most
+   3.0, so the cap is not reached early. Investigate any underestimate (V3
    `underestimated` count) and tune the estimator before S3.
+   - Audio lines (Whisper and Azure) are sized from the measured duration
+     of the audio sent, plus 1 s (FR-004), not from
+     `MAX_AUDIO_DURATION_SECONDS`. A one-minute recording therefore gives
+     a ratio of about 61/60, so the same median gate holds for them, and
+     the minimum ≥ 1.0 still catches a measurement that runs short. An
+     audio median above 1.1 means a line was sized from a fixed maximum
+     or from the whole clip instead of the segment sent, and is fixed
+     before S3, not tuned down.
+   - The journeys include a one-minute Part 1 answer, a Part 2 answer
+     (segment sent to Azure) and a header-less MediaRecorder WebM from
+     Chrome, and a recording longer than 300 s that is rejected with no
+     `ai_budget_reservations` row and no provider ledger row.
 3. **S3. Enforce with a low cap.** Set `AI_BUDGET_MODE=enforce` and
    `AI_BUDGET_MONTHLY_USD_TOTAL` to a test value just above the period's
    committed spend. Then run AC1–AC14 (`spec.md`) with E2E accounts. For

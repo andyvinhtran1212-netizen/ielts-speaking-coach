@@ -206,12 +206,13 @@ caveat that Speaking is graded without P until the tier is known.
   Pronunciation Assessment add-on about $0.30 per audio hour per feature.
   That gives about $1.30 per hour, or $1.60 if prosody counts as a second
   feature.
-- **Reservation sizing.** FR-004 reserves at `MAX_AUDIO_DURATION_SECONDS`
-  (300 s), so one Azure line costs about $0.11 at $1.30 per hour, or $0.13
-  at $1.60. Settlement uses the real audio duration (`audio_seconds`), so a
-  one-minute answer settles at about $0.02. With the $1.33 daily cap, about
-  10–12 maximum-length estimates fit open at once, and about 50–60
-  one-minute answers settle in a day. The $20 monthly cap covers about
+- **Reservation sizing.** FR-004 reserves at the duration of the audio
+  sent to Azure plus 1 s (the Part 2 segment, or the whole answer), not at
+  `MAX_AUDIO_DURATION_SECONDS`. A one-minute answer reserves about $0.022
+  and settles at about $0.02 (`audio_seconds`); the largest possible line,
+  300 s, is about $0.11 at $1.30 per hour, or $0.13 at $1.60. With the
+  $1.33 daily cap, about 50–60 one-minute answers fit in a day, whether
+  open or settled. The $20 monthly cap covers about
   12.5–15 audio hours. The Full Test `POST /sessions/{id}/pronunciation/full`
   route assesses up to three samples, one per part, and reserves each
   sample as its own Azure line.

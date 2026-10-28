@@ -104,13 +104,33 @@ These are the call sites in research §1. Each wraps its provider request in
 - **`grading_orchestrator`**: re-raise `AIBudgetRefused` from every rung,
   and from the JSON-repair second run in `claude_grader.py:577-583`.
 - **`routers/grading.py`** (Speaking):
-  - After `read_file` and before Whisper, reserve one all-or-nothing
-    bundle: Whisper (OpenAI, `MAX_AUDIO_DURATION_SECONDS`), the grader
-    (Anthropic, primary model `max_tokens`) and the judge (Anthropic
-    Haiku). Each line is also recorded on `total`.
+  - After `read_file`, measure the recording locally before anything is
+    reserved or sent (FR-004). `services/audio_validation.py` adds
+    `measure_audio_seconds(audio_bytes)`, which decodes the bytes with
+    `ffprobe` and reads the last packet's end timestamp (`-show_entries
+    packet=pts_time,duration_time`), not `format=duration`, which a
+    MediaRecorder WebM leaves empty. It runs in a worker thread with a
+    timeout and returns `None` on any failure. Today's after-Whisper
+    duration check moves ahead of Whisper on this value:
+    - above `MAX_AUDIO_DURATION_SECONDS`: today's 422 "Audio quá dài"
+      message;
+    - `None`: 422 "Không đọc được bản ghi âm. Vui lòng ghi âm lại.";
+    - in both cases there is no provider call, no reservation, no
+      `grading_attempts` row and no storage upload. In `shadow`, the
+      `None` case logs `would_refuse` and continues at the maximum.
+
+    The check after Whisper stays as a second guard.
+  - Then reserve one all-or-nothing bundle: Whisper (OpenAI, the measured
+    duration rounded up plus 1 s), the grader (Anthropic, primary model
+    `max_tokens`) and the judge (Anthropic Haiku). Each line is also
+    recorded on `total`. The deferred job stores the measured
+    `audio_seconds`, so the drain reserves Whisper from the same value.
   - Pronunciation (Azure) is **not** in the bundle (FR-023). Once the
     bundle is granted, `_assess_pronunciation_safe` reserves the Azure line
-    as its own request. On `AIBudgetRefused` for any reason, or a
+    as its own request, after it has chosen the bytes to send. The
+    estimate is the duration of those bytes: the Part 2 segment length
+    when the segment is extracted, otherwise the Whisper-reported
+    duration of the whole recording (FR-004). On `AIBudgetRefused` for any reason, or a
     provider spend-limit response from Azure, it returns a
     `budget_skipped` result instead of calling Azure or raising.
     `_merge_pronunciation_into_grading` then takes its existing
@@ -139,6 +159,28 @@ These are the call sites in research §1. Each wraps its provider request in
     Lines already used stay settled. The drain skips Whisper when the
     stored transcript belongs to the same submission revision.
   - Unused lines are released when the response is persisted.
+- **`routers/pronunciation.py`** (`POST /sessions/{id}/pronunciation/full`):
+  - Each sample reserves its Azure line after `_prepare_assessment_audio`,
+    at the duration it returns for the bytes actually sent (the segment
+    length, or the stored Whisper duration when extraction falls back),
+    never at a fixed maximum. When that value is null, the route measures
+    the downloaded bytes with `measure_audio_seconds`. If it is still
+    unknown, that sample is not sent and its block shows P2, as for a
+    refusal (FR-004).
+  - Missing-P branch (FR-023). For a sampled response whose
+    `pronunciation_status` is `skipped_budget`, step 5b does not require a
+    feedback `band_p`. It derives P with `_pron_band_from_scores` (moved
+    from `routers/grading.py` to `services/pron_calibration.py`, so both
+    routes use one mapping) and writes, in one update, the Azure scores, `feedback.band_p`,
+    `final_band_p`, `p_feedback`, `pronunciation_source = 'azure'`, the
+    response's `overall_band` as the mean of the four criteria, and
+    `pronunciation_status = 'completed'`. The session is then re-aggregated
+    through `update_session_bands` (FR-024).
+  - `_upsert_pronunciation` is skipped for a `skipped_budget` response;
+    the branch above is its only writer. When Azure returns no usable
+    score, the response keeps `skipped_budget` and no Azure scores.
+  - A response with a feedback `band_p` keeps today's
+    `_compute_adjusted_band_p` path unchanged.
 - **`services/essay_service.py` and `gemini_writing_grader.py`**: on
   `AIBudgetRefused`, call `defer_writing_job(job_id)` (FR-011). The reaper
   at `essay_service.py:1245-1340` skips rows where `budget_deferred_at` is
@@ -730,7 +772,7 @@ The order follows `tasks.md`. File ownership:
 | Budget core | `services/ai_budget.py`, `services/ai_budget_config.py`, `config.py`, `services/ai_pricing.py` (Azure row) |
 | Router and providers | `services/ai_router.py`, `services/grading_orchestrator.py`, `services/grading_providers/*`, `services/claude_grader.py`, `services/whisper.py`, `services/tts_audio.py`, `services/azure_pronunciation.py`, `services/listening_*`, `services/gemini*.py`, `services/course_writing_grader.py`, `services/advanced_vocab_rewrite_grader.py`, `services/d1_*.py`, `services/vocab_enrichment.py`, `services/writing_prompt_analysis.py`, operator scripts |
 | Quotas and flags | `services/rate_limit.py`, `routers/tts.py`, `routers/listening.py` (gist only), `services/runtime_flags.py` |
-| Deferred grading | `services/deferred_grading.py`, `routers/grading.py`, `routers/admin.py` (regrade extraction), `services/essay_service.py`, `routers/sessions.py` (aggregate hook), `scripts/ai_budget_sweep.py` |
+| Deferred grading | `services/deferred_grading.py`, `routers/grading.py`, `routers/admin.py` (regrade extraction), `services/essay_service.py`, `routers/sessions.py` (aggregate hook), `routers/pronunciation.py` (Azure sizing and the missing-P branch), `services/audio_validation.py` (pre-send duration), `services/pron_calibration.py` (shared P mapping), `scripts/ai_budget_sweep.py` |
 | Status APIs and alerts | `routers/ai_budget.py`, `main.py`, the Resend email transport shared with 0032 (sender `alerts@averlearning.com` for this spec) |
 | Budget raise (FR-022) | `routers/ai_budget.py` (raise routes), `services/ai_budget_raise.py`, `frontend/app/(authed-admin-overview)/admin/admin-ai-budget-raise.tsx` |
 | Frontend | the files in UI and interaction, `frontend/types/api.d.ts`, `frontend/lib/browser-api.ts` |
@@ -804,6 +846,22 @@ These run in CI with fake providers; no network.
   still fall back, with a reservation for each attempt (AC1, AC8).
 - **`backend/tests/test_ai_budget_speaking_deferred.py`**:
   - refusal before Whisper, with zero stub calls;
+  - pre-send duration (FR-004): a 301-second recording under 50 MB and a
+    header-less MediaRecorder WebM fixture whose decoder fails each
+    return 422 with zero Whisper, grader, judge and Azure calls, no
+    reservation, no `grading_attempts` row and no upload; a 60-second
+    header-less WebM is measured at 60 s ± 0.1 and its Whisper line is
+    reserved at 61 s; in `shadow` the undecodable case proceeds and logs
+    `would_refuse`;
+  - Azure sizing: a Part 2 answer reserves the segment length and a
+    Part 1 answer its Whisper duration, never `MAX_AUDIO_DURATION_SECONDS`;
+  - the Full Test missing-P branch (FR-023): a test-mode response saved
+    as `skipped_budget` is sampled by `/pronunciation/full` once its Azure
+    line is granted; it gains `band_p`, `final_band_p` and a four-criterion
+    `overall_band`, becomes `completed`, and the session band includes P
+    after re-aggregation; with the line refused, or with no usable Azure
+    score, the response stays `skipped_budget` with no Azure scores; a
+    response with a feedback `band_p` keeps the adjusted-band result;
   - the recording stored and the row `awaiting_budget`;
   - one job, and no `grading_attempts` row;
   - a replay with the same `submission_id`;
@@ -904,12 +962,12 @@ Supabase SQL editor or the runner, and print no secrets.
    and ((c.period_kind = 'month' and r.month_start = c.period_start)
      or (c.period_kind = 'day' and r.day_start = c.period_start))
   group by 1, 2, 3, 4, 5;
-  -- ratio per feature
-  select feature,
+  -- ratio per feature and provider, so token lines do not hide audio lines
+  select feature, provider,
          min(estimate_usd / actual_usd) as min_ratio,              -- must be >= 1.0
          count(*) filter (where actual_usd > estimate_usd) as underestimated,  -- must be 0
          percentile_cont(0.5) within group (order by estimate_usd / actual_usd) as median_ratio  -- must be <= 3.0
-  from ai_budget_reservations where status = 'settled' and actual_usd > 0 group by 1;
+  from ai_budget_reservations where status = 'settled' and actual_usd > 0 group by 1, 2;
   ```
 
 - **V4 — stuck reservations (sweeper health):**
