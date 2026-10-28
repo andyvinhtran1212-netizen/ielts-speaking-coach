@@ -136,6 +136,16 @@ def test_bootstrap_is_owner_only_invoker_and_writes_its_own_single_row():
     assert "current_setting('aver.bootstrap', true), '') = 'on'" in audit
 
 
+def test_bootstrap_takes_its_own_advisory_key_before_the_admin_check():
+    fn = m326._function(CODE, "fn_bootstrap_admin_recovery")
+    guard = fn.index("IF current_setting('transaction_isolation') <> 'read committed' THEN")
+    lock = fn.index("PERFORM pg_advisory_xact_lock(332, 1);")
+    assert guard < lock < fn.index("ORDER BY id FOR UPDATE;") < fn.index("RAISE EXCEPTION 'admins_exist'")
+    # Not the runner's session key, and the RPC does not share it.
+    assert "173204" not in fn
+    assert "pg_advisory" not in m326._function(CODE, "fn_set_staff_privilege")
+
+
 def test_no_public_function_reaches_the_auth_schema():
     """Session revocation stays on the backend's direct connection (lot 06)."""
     assert not re.search(r"\bauth\.", CODE)
@@ -912,6 +922,40 @@ def test_bootstrap_clears_the_marker_of_a_suspended_target_and_validates_input(f
     assert _state(s, b) == {"role": "admin", "is_active": True, "suspended": False,
                             "suspended_by": None, "reason": None}
     assert _active_admins(s) == 1
+
+
+def test_concurrent_bootstraps_with_no_admin_row_recover_exactly_one(fresh):
+    """No users row has role='admin', so the two targets' row locks are
+    disjoint. Session B must wait for A's bootstrap, then see A's admin and
+    refuse admins_exist instead of recovering a second admin."""
+    s = fresh
+    x, y = _user(s, "instructor", True), _user(s, "instructor", False)
+    _user(s, "student", True)
+    assert psql(f"SELECT count(*) FROM {s}.users WHERE role = 'admin'") == "0"
+    audit_before = int(psql(f"SELECT count(*) FROM {s}.staff_security_audit"))
+    first, second = m331._timed_race(
+        f"SET ROLE {OWNER}; BEGIN; {_bootstrap_sql(s, x, reason='race A')} "
+        f"SELECT pg_sleep({m331.HOLD}); COMMIT;",
+        f"SET ROLE {OWNER}; {_bootstrap_sql(s, y, reason='race B')}")
+    assert first[0] == 0, first[2]
+    assert second[0] != 0 and re.search(r"ERROR:\s+admins_exist\b", second[2]), second
+    assert second[3] >= 1.0, f"the second bootstrap did not wait for the first ({second[3]:.2f}s)"
+    assert _active_admins(s) == 1 and _state(s, x)["role"] == "admin"
+    assert _state(s, y) == {"role": "instructor", "is_active": False, "suspended": False,
+                            "suspended_by": None, "reason": None}
+    assert int(psql(f"SELECT count(*) FROM {s}.staff_security_audit")) == audit_before + 1
+    assert [r["event"] for r in _audit(s, y)] == ["staff_row_inserted"]
+
+
+def test_bootstrap_refuses_a_repeatable_read_snapshot(fresh):
+    """A REPEATABLE READ snapshot is taken before the advisory wait, so it
+    could miss a concurrent bootstrap's admin; the function refuses it."""
+    s = fresh
+    target = _user(s, "instructor", True)
+    for level in ("REPEATABLE READ", "SERIALIZABLE"):
+        error = _fails(_owner, f"BEGIN ISOLATION LEVEL {level}; {_bootstrap_sql(s, target)} COMMIT;")
+        assert re.search(r"ERROR:\s+bootstrap_requires_read_committed\b", error), error
+    assert _active_admins(s) == 0 and _state(s, target)["role"] == "instructor"
 
 
 # ── PostgreSQL: preconditions, postconditions, rollback ─────────────────────

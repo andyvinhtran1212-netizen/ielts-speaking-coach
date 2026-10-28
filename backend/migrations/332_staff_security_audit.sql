@@ -39,9 +39,11 @@
 --      change, the marker and the audit attribution in one UPDATE. A repeat is
 --      a no-op with no second audit row.
 --   5b. fn_bootstrap_admin_recovery (SECURITY INVOKER, owner only; EXECUTE is
---      revoked from service_role too): rollout path (e). Refuses admins_exist
---      while any admin is active; otherwise restores exactly the target and
---      writes one bootstrap_recovery audit row and one outbox row.
+--      revoked from service_role too): rollout path (e). Serialized by the
+--      transaction advisory lock (332, 1) and READ COMMITTED only
+--      (bootstrap_requires_read_committed). Refuses admins_exist while any
+--      admin is active; otherwise restores exactly the target and writes one
+--      bootstrap_recovery audit row and one outbox row.
 --   6. Postconditions over columns, CHECK, triggers, RLS, grants and function
 --      ACLs; the transaction aborts on any mismatch.
 --
@@ -520,6 +522,17 @@ BEGIN
         RAISE EXCEPTION 'invalid_reason' USING ERRCODE = 'P0001';
     END IF;
 
+    -- With no admin row at all, two bootstraps on different targets lock
+    -- disjoint rows, so the row locks below cannot serialize them. One
+    -- transaction-level key does (class 332; 173204 is the migration runner's,
+    -- 306 the grammar quiz's). The waiter's next statement sees the committed
+    -- admin only under READ COMMITTED: a REPEATABLE READ snapshot predates the
+    -- wait. fn_set_staff_privilege needs no key: it requires an active admin
+    -- actor, which stays one, so it never moves the "any active admin" check.
+    IF current_setting('transaction_isolation') <> 'read committed' THEN
+        RAISE EXCEPTION 'bootstrap_requires_read_committed' USING ERRCODE = 'P0001';
+    END IF;
+    PERFORM pg_advisory_xact_lock(332, 1);
     PERFORM 1 FROM public.users WHERE role = 'admin' OR id = p_target ORDER BY id FOR UPDATE;
     IF EXISTS (SELECT 1 FROM public.users WHERE role = 'admin' AND is_active) THEN
         RAISE EXCEPTION 'admins_exist' USING ERRCODE = 'P0001';
