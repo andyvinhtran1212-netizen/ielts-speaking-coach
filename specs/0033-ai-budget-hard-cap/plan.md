@@ -1,0 +1,1155 @@
+# Implementation plan
+
+This plan is for implementation **after** AIBUDGET-0033 is approved on
+`staging`. Migration number 333 is confirmed for AI-BUDGET lot 02 (Q5,
+2026-10-28 09:35). Call-site citations are in `research.md`.
+
+## Architecture impact
+
+### New backend modules
+
+- **`services/ai_budget.py`**, the single chokepoint.
+  - `reserve(lines, *, request_key, feature, operation, user_id, resource)`
+    returns a `Reservation` or raises `AIBudgetRefused(reason, scope)`.
+  - `Reservation.settle(provider, usage)`, `.release(provider)` and
+    `.settle_at_estimate(provider)`.
+  - `guard(provider, model, feature, estimate, …)` is an async context
+    manager that reserves before the call and settles or releases on exit.
+    It is the form every call site uses.
+  - `kill_switch_on()` reads `os.environ["AI_KILL_SWITCH"]` per call and
+    never touches the DB (FR-007).
+  - `estimate(provider, model, *, input_chars, max_tokens, audio_seconds,
+    text_chars, images=())` uses `services/ai_pricing.py` (FR-004).
+    `images` is a sequence of `(width, height)` read from the decoded image
+    bytes. Each adds the provider's image-token bound from its catalog
+    rule to the input tokens. An image whose size cannot be read raises
+    `AIBudgetRefused("config_invalid")` before any call. Every call site
+    that sends image bytes (`gemini_writing_grader.py`, each attempt;
+    `ai_router` with `images=`; `writing_prompt_analysis.py`) passes them.
+  - `classify_provider_error(exc)` returns `provider_spend_limit` or
+    `transient`. It is fixture-driven (FR-009, research §6).
+  - The RPC call has a 2 s timeout. Any exception, unexpected shape or
+    missing object raises `AIBudgetRefused("budget_unavailable")`
+    (FR-005).
+  - `AI_BUDGET_MODE` is `enforce` by default and for any unrecognised
+    value. `shadow` logs `would_refuse` and lets the call through (staging
+    calibration only, Q6).
+  - **Soft scopes (FR-002, FR-021).** `anthropic` and `total` are soft.
+    The RPC records every line on its provider scope and on `total`. A soft
+    scope is never compared with a cap. If the RPC fails and the request's
+    **only** provider lines are `anthropic` (so every scope it touches is
+    soft), `guard` logs
+    `[ai_budget] decision=allow_unrecorded scope=anthropic feature=…` and
+    yields an unreserved handle whose settle and release are no-ops. If any
+    provider line is hard, the whole request raises
+    `AIBudgetRefused("budget_unavailable")` as before. The kill switch and a
+    closed `provider_spend_limit` day are checked for soft lines too.
+- **`services/ai_budget_config.py`** parses the `AI_BUDGET_*` variables and
+  the existing per-user caps into scope caps and per-scope
+  `config_invalid` flags (FR-003, FR-006). The values are logged at
+  startup without secrets.
+  - Defaults (FR-003, decision (b)): `TOTAL` 200, `ANTHROPIC` 100,
+    `GOOGLE` 20, `AZURE` 20, `OPENAI` 20 and `ELEVENLABS` 20. An unset or
+    empty variable takes its default and is never `config_invalid`, so a
+    missing configuration cannot block AI.
+  - `SCOPE_MODES = {"anthropic": "soft", "total": "soft"}`, and every other
+    scope is `hard`. This is a constant, not a variable (FR-003). Changing
+    it needs a spec revision.
+  - `MONTHLY_THRESHOLDS = {"anthropic": (80, 100)}`, and every other scope
+    uses `(50, 80, 100)` (FR-015, decision (f)). The thresholds are sent to
+    the RPC in `p_caps`.
+  - A set but invalid value for a soft scope marks it `config_invalid` for
+    the panel and sends `month`/`day` null with `mode: "soft"`, so no
+    threshold is evaluated and nothing is refused. A set but invalid value
+    for a hard scope marks that scope alone `config_invalid`, and it is
+    refused.
+- **`services/deferred_grading.py`** enqueues and drains Speaking jobs. It
+  also drains budget-deferred Writing jobs and recomputes the session
+  aggregate (FR-011, FR-013).
+  - The Speaking drain grades from the stored recording. It reuses the
+    admin regrade pipeline (`routers/admin.py:4303-4540`), which already
+    downloads, transcribes, grades and persists from storage. That
+    pipeline is extracted into a service function shared by both the
+    regrade route and the drain.
+- **`scripts/ai_budget_sweep.py`**, the Railway cron entry point (Q8). Each
+  run:
+  1. expires stale reservations;
+  2. records expired raises (`fn_ai_budget_raise_expire_sweep`, FR-022);
+  3. dispatches alerts through Resend, from `alerts@averlearning.com` to
+     `OWNER_ALERT_EMAILS` (FR-015, decision (a)). A Resend rejection, for
+     example while the domain is unverified, is recorded in `last_error`
+     and retried with backoff. There is no Gmail SMTP path and no other
+     sender;
+  4. drains the queue;
+  5. writes the heartbeat.
+- **`routers/ai_budget.py`**: `GET /ai/status` (signed-in) and
+  `GET /admin/ai/budget` (`require_admin`). Registered in `main.py`.
+  - `POST /admin/ai/budget/raises` and
+    `POST /admin/ai/budget/raises/{id}/end` (FR-022) use `require_admin`
+    plus `require_admin_aal2_for_money()`. Following decision (e), the
+    dependency always requires AAL2. It returns 403 `mfa_required` for any
+    token whose `aal` is not `aal2`, whatever `ADMIN_AAL2_ENFORCE` is. While
+    ADMINAAL2-0032's AAL2 reader is not importable, it returns 403
+    `mfa_required` for every caller (fail closed), never a pass. Tests pin
+    both states.
+  - The routes delegate to `services/ai_budget_raise.py`.
+  - Input validation (whole dollars, 1–24 hours, a 1–500 character reason,
+    a known scope) happens in the route. The scope, cap and frequency
+    limits are enforced again in the SQL function, which is the authority.
+  - The route passes the base caps from `ai_budget_config` and the caller's
+    id and `aal`. It never trusts a client-sent cap.
+
+### Changed call sites
+
+These are the call sites in research §1. Each wraps its provider request in
+`ai_budget.guard` and sets SDK `max_retries=0`.
+
+- **`ai_router.with_fallback`** and **`call_anthropic`**: re-raise
+  `AIBudgetRefused` before the generic `except Exception`. Map 402
+  `billing_error` to `provider_spend_limit` through the classifier.
+- **`grading_orchestrator`**: re-raise `AIBudgetRefused` from every rung,
+  and from the JSON-repair second run in `claude_grader.py:577-583`.
+- **`routers/grading.py`** (Speaking):
+  - After `read_file`, measure the recording locally before anything is
+    reserved or sent (FR-004). `services/audio_validation.py` adds
+    `measure_audio_seconds(audio_bytes)`, which decodes the bytes with
+    `ffprobe` and reads the last packet's end timestamp (`-show_entries
+    packet=pts_time,duration_time`), not `format=duration`, which a
+    MediaRecorder WebM leaves empty. It runs in a worker thread with a
+    timeout and returns `None` on any failure. Today's after-Whisper
+    duration check moves ahead of Whisper on this value:
+    - above `MAX_AUDIO_DURATION_SECONDS`: today's 422 "Audio quá dài"
+      message;
+    - `None`: 422 with the owner copy approved at 22:34 on 2026-10-28,
+      verbatim:
+      "Không đọc được bản ghi âm nên bài chưa được chấm và không bị trừ lượt. Vui lòng ghi âm lại.";
+    - in both cases there is no provider call, no reservation, no
+      `grading_attempts` row and no storage upload. In `shadow`, the
+      `None` case logs `would_refuse` and continues at the maximum.
+
+    The check after Whisper stays as a second guard.
+  - Then reserve one all-or-nothing bundle: Whisper (OpenAI, the measured
+    duration rounded up plus 1 s), the grader (Anthropic, primary model
+    `max_tokens`) and the judge (Anthropic Haiku). Each line is also
+    recorded on `total`. The deferred job stores the measured
+    `audio_seconds`, so the drain reserves Whisper from the same value.
+  - Pronunciation (Azure) is **not** in the bundle (FR-023). Once the
+    bundle is granted, `_assess_pronunciation_safe` reserves the Azure line
+    as its own request, after it has chosen the bytes to send. The
+    estimate is the duration of those bytes: the Part 2 segment length
+    when the segment is extracted, otherwise the Whisper-reported
+    duration of the whole recording (FR-004). On `AIBudgetRefused` for any reason, or a
+    provider spend-limit response from Azure, it returns a
+    `budget_skipped` result instead of calling Azure or raising.
+    `_merge_pronunciation_into_grading` then takes its existing
+    null-pronunciation branch. It sets `pronunciation_source =
+    'budget_skipped'`, `p_feedback` to P5 (test mode) and the response's
+    `pronunciation_status = 'skipped_budget'`. The overall band is the
+    existing mean of the criteria present (Q10 = A). The deferred drain
+    uses the same function, so a drained grade can also skip P.
+  - Move `record_grading_attempt` after the bundle is granted (FR-012).
+  - On refusal: upload the recording (`storage_upload` moves ahead of
+    Whisper only on this branch), then save the `responses` row with
+    `grading_status='awaiting_budget'` and its job together through
+    `fn_ai_deferred_save` (item 7), and return FR-010. The row and the
+    job are one transaction, so a crash leaves both or neither. With
+    neither, a retry with the same `submission_id` is a fresh submission;
+    with both, `check_submission` reports a replay and the readback finds
+    `awaiting_budget` with a job that the sweeper drains (Codex round 11
+    on #1773).
+  - A fallback rung reserves its own line at the moment it is tried.
+  - Any later budget refusal in the same request goes through the same
+    deferral as a refusal before Whisper, for example a refused fallback
+    line or a provider spend-limit response after the grant. The deferral:
+    1. stores the recording;
+    2. persists `awaiting_budget` with any transcript already obtained
+       and enqueues the job with the `grading_attempt_id` that request
+       recorded, both in one `fn_ai_deferred_save` call;
+    3. deletes that `grading_attempts` row (FR-012), with the sweeper
+       retrying the delete if it fails;
+    4. releases the unused lines.
+
+    Lines already used stay settled. The drain skips Whisper when the
+    stored transcript belongs to the same submission revision.
+  - Unused lines are released when the response is persisted.
+- **`routers/pronunciation.py`** (`POST /sessions/{id}/pronunciation/full`):
+  - Each sample reserves its Azure line after `_prepare_assessment_audio`,
+    at the duration it returns for the bytes actually sent (the segment
+    length, or the stored Whisper duration when extraction falls back),
+    never at a fixed maximum. When that value is null, the route measures
+    the downloaded bytes with `measure_audio_seconds`. If it is still
+    unknown, that sample is not sent and its block shows P2, as for a
+    refusal (FR-004).
+  - Missing-P branch (FR-023). For a sampled response whose
+    `pronunciation_status` is `skipped_budget`, step 5b does not require a
+    feedback `band_p`. It derives P with `_pron_band_from_scores` (moved
+    from `routers/grading.py` to `services/pron_calibration.py`, so both
+    routes use one mapping) and writes, in one update, the Azure scores, `feedback.band_p`,
+    `final_band_p`, `p_feedback`, `pronunciation_source = 'azure'`, the
+    response's `overall_band` as the mean of the four criteria, and
+    `pronunciation_status = 'completed'`. The session is then re-aggregated
+    through `update_session_bands` (FR-024).
+  - `_upsert_pronunciation` is skipped for a `skipped_budget` response;
+    the branch above is its only writer. When Azure returns no usable
+    score, the response keeps `skipped_budget` and no Azure scores.
+  - A response with a feedback `band_p` keeps today's
+    `_compute_adjusted_band_p` path unchanged.
+- **`services/essay_service.py` and `gemini_writing_grader.py`**: on
+  `AIBudgetRefused`, call `defer_writing_job(job_id)` (FR-011). The reaper
+  at `essay_service.py:1245-1340` skips rows where `budget_deferred_at` is
+  not null.
+- **`services/rate_limit.py`, `routers/tts.py`, `routers/listening.py`**:
+  - A count error raises `AIBudgetRefused("budget_unavailable")`.
+  - A cap of zero or less is `config_invalid`.
+  - The exercise (non-AI) limiter is unchanged (FR-006).
+- **`services/runtime_flags.py`**: add `is_enabled(key, default,
+  on_error=None)`. A paid-AI gate passes `on_error=False`. Existing callers
+  keep their current semantics (FR-006).
+- **Learner AI routes in FR-020**: map `AIBudgetRefused` to FR-010 before
+  any attempt, quota row or session slot is written.
+
+### Frontend
+
+The surfaces are in `ui-states.md`. They consume `GET /ai/status` and the
+new 503 detail through `frontend/lib/browser-api.ts` and the regenerated
+`frontend/types/api.d.ts`.
+
+## Data and contracts
+
+### Migration 333, `backend/migrations/333_ai_budget_hard_cap.sql`
+
+All objects live in `public`. RLS is enabled with no policies. Every
+privilege is revoked from `PUBLIC`, `anon` and `authenticated`.
+`service_role` gets only what is listed for each object. The migration is
+idempotent (`IF NOT EXISTS`, `CREATE OR REPLACE`) and runs in one
+transaction with `lock_timeout = 5s`.
+
+1. **`ai_budget_counters`**
+   - Columns: `scope text` (`total`, `anthropic`, `google`, `openai`,
+     `elevenlabs`, `azure`), `period_kind text` (`month`, `day`),
+     `period_start date`, `cap_usd numeric(12,4)` (the snapshot used by
+     the last decision), `settled_usd numeric(14,6) not null default 0`,
+     `reserved_usd numeric(14,6) not null default 0`,
+     `closed_reason text null` (`provider_spend_limit`),
+     `updated_at timestamptz`.
+   - Primary key: `(scope, period_kind, period_start)`.
+   - CHECK: `settled_usd >= 0 and reserved_usd >= 0`.
+   - `service_role`: SELECT only. Writes happen only through the functions
+     below.
+2. **`ai_budget_reservations`**
+   - Columns: `id uuid pk` (deterministic from `request_key` and line),
+     `request_key text not null`, `provider text`, `model text`,
+     `feature text`, `operation text`, `user_id uuid null`,
+     `resource_type text`, `resource_id text`, `month_start date`,
+     `day_start date`, `estimate_usd numeric(14,6) not null check (> 0)`,
+     `actual_usd numeric(14,6) null`,
+     `status text check (status in ('reserved','settled','released','expired'))`,
+     `created_at`, `expires_at`, `settled_at`.
+   - Unique index: `(request_key, provider, line_no)`.
+   - Indexes: `(status, expires_at) where status='reserved'`.
+   - `service_role`: SELECT.
+3. **`ai_deferred_grading_jobs`**
+   - Columns: `id uuid pk`, `kind text check (kind in ('speaking_response'))`,
+     `resource_id uuid not null`, `submission_revision text not null`,
+     `user_id uuid not null`,
+     `status text check (status in ('queued','running','done','failed','superseded'))`,
+     `reason text`, `grading_attempt_id uuid null` (FR-012 compensation), `persisted_at timestamptz null`, `commit_count int not null default 0`, `attempts int not null default 0`,
+     `lease_until timestamptz`, `lease_token uuid null`,
+     `enqueued_at timestamptz not null default now()`,
+     `finished_at`, `last_error text`.
+   - Unique: `(kind, resource_id, submission_revision)`.
+   - The marker, the canonical result and the job completion commit in
+     **one transaction**, through `fn_ai_deferred_commit` (item 7). There
+     is no separate claim step, so a crash or writer failure before that
+     commit leaves the job reclaimable when its lease expires, with no
+     marker set. A crash after the commit leaves a complete result and a
+     `done` job.
+   - Companion table **`ai_deferred_session_refresh`** holds the durable,
+     session-scoped obligation to refresh a session's aggregate.
+     - Columns: `session_id uuid pk`, `generation bigint not null default
+       0`, `refreshed_generation bigint not null default 0`,
+       `class_synced_generation bigint not null default 0`,
+       `updated_at timestamptz`. `refreshed_generation` is the generation
+       that the persisted band reflects. A refresh is owed while
+       `refreshed_generation < generation`.
+     - `class_synced_generation` is the generation whose band has reached
+       `class_assignment_items.score` through `sync_class_item_score`.
+       A class-score sync is owed while `class_synced_generation <
+       refreshed_generation` (Codex round 11 on #1773). The sync is a
+       separate write, so acknowledging the band does not discharge it.
+       It is discharged only by `fn_ai_class_sync` (item 7), which reads
+       the band, writes the item and records the generation in one
+       locked transaction (Codex round 12).
+     - The `responses` trigger (item 11, FR-024) increments `generation`
+       in the same transaction as any band-bearing response write,
+       whatever the session's status and whoever the writer is: the
+       drain's `fn_ai_deferred_commit`, the live route, admin regrade, or
+       the pronunciation routes. Every response change in a session
+       therefore moves that session's generation, including while the
+       session is still `in_progress`.
+     - Only two functions write a session's bands, and both lock this row
+       and check `generation` in the same transaction as the session
+       write: `fn_ai_session_bands_write`, used by every request-path and
+       admin writer (FR-024), and `fn_ai_deferred_aggregate_write`, used by
+       the sweeper refresh. A crash between a response write and the
+       refresh leaves the obligation owed, and a later sweep repeats the
+       refresh for a `completed` session.
+     - An owed generation on an `in_progress` session is not sweeper work.
+       `PATCH /complete` reads the responses after it and writes the band.
+     - RLS is enabled. `service_role` has SELECT only; writes go through
+       the functions.
+   - Indexes: `(status, enqueued_at, id) where status='queued'`, and
+     `(lease_until) where status='running'` for lease reclamation.
+   - `service_role`: SELECT, INSERT, UPDATE.
+4. **`writing_jobs` budget-drain columns** (additive, nullable or with a
+   constant default, no CHECK change):
+   - `budget_deferred_at timestamptz null`;
+   - `budget_lease_token uuid null` and `budget_lease_until timestamptz
+     null`, which hold drain ownership;
+   - `budget_drain_count int not null default 0`, which numbers the drain
+     runs for the reservation `request_key`;
+   - `budget_persisted_at timestamptz null` and `budget_commit_count int
+     not null default 0`, which are the drain's persistence marker.
+
+   These are separate from `attempt_count` and `max_attempts`. The live
+   worker fences ownership with `attempt_count`
+   (`essay_service.py:171-204`), and that counter is the Writing retry
+   allowance, which a budget deferral must not use (FR-011). A drain
+   never reads or writes `attempt_count`. There is a partial index on
+   `(budget_deferred_at, id)` for rows where `budget_deferred_at` is not
+   null and the status is `queued` or `running`.
+5. **`ai_budget_alerts`**
+   - Columns: `id uuid pk`,
+     `kind text not null default 'threshold' check (kind in ('threshold','raise_granted','raise_ended','raise_expired'))`,
+     `raise_id uuid null references ai_budget_raises`, `scope`,
+     `period_kind`, `period_start`,
+     `threshold int null check (threshold in (50,80,100))`,
+     `trigger text null check (trigger in ('crossing','cap_refusal','provider_spend_limit'))`,
+     `committed_usd`, `cap_usd`, `created_at`,
+     `send_status text check (in ('pending','sent','failed')) default 'pending'`,
+     `attempts int`, `next_attempt_at`, `sent_at`, `last_error`.
+   - CHECK: `kind = 'threshold'` requires `threshold` and `trigger` and a
+     null `raise_id`. A raise kind requires `raise_id` and a null
+     `threshold`.
+   - Unique partial indexes: `(scope, period_kind, period_start,
+     threshold) where kind = 'threshold'` (FR-015), and `(raise_id, kind)
+     where kind <> 'threshold'` (FR-022).
+   - `service_role`: SELECT and UPDATE of the send columns. Inserts happen
+     only inside the reserve, settle and close-scope functions. Whichever
+     trigger fires first owns the row, so each scope, period and
+     threshold is emailed once.
+6. **`ai_budget_heartbeat`**: a single row (`id boolean pk default true
+   check (id)`), with `last_run_at` and `last_result jsonb`.
+7. **Functions.** Each is `SECURITY DEFINER` with
+   `search_path = public, pg_temp`. EXECUTE is revoked from `PUBLIC`,
+   `anon` and `authenticated` and granted to `service_role` only.
+   - **`fn_ai_budget_reserve(p_request_key text, p_lines jsonb, p_caps jsonb, p_ttl_seconds int)`**
+     - `p_lines` has the shape `[{line_no, provider, model, feature,
+       operation, estimate_usd, user_id, resource_type, resource_id}]`.
+     - `p_caps` maps each scope to `{month, day, mode, thresholds}` (null
+       `month`/`day` means no value to evaluate). It comes from the
+       caller's configuration, with the FR-003 defaults applied. FR-003
+       validation happens before the call. The function also rejects hard
+       caps of zero or less.
+     - Every line is counted on its provider scope and on `total`. A scope
+       with `mode = 'soft'` (`anthropic`, `total`; FR-002, FR-021) is never
+       compared with a cap. Its thresholds are still evaluated for alerts
+       when its cap is not null.
+     - The effective cap of a hard scope is `p_caps` plus the `amount_usd`
+       of its active raise (item 10: `ended_at is null and expires_at >
+       now()`), read after the counter rows are locked.
+     - First, if rows for `p_request_key` already exist, the function
+       does not grant anything. It returns `{granted: false, replay: true,
+       lines: [{provider, status}]}` without changing a counter (FR-012,
+       AC3). A replay **never authorises a provider request**, whatever
+       the existing status (`reserved`, `settled`, `released` or
+       `expired`). Only the transaction that inserted the rows gets
+       `granted: true` and the reservation ids that `guard` needs to send.
+       A concurrent duplicate blocks on the unique index until the first
+       transaction commits, then sees a replay.
+     - Callers derive `request_key` from the logical attempt: for
+       Speaking, `submission_id` plus the attempt number; for a deferred
+       job, the job id plus `attempts`. A true retry after a failure uses
+       the next attempt number, and so gets a new reservation. A duplicate
+       of the same attempt (a client retry, or a concurrent request with
+       the same `submission_id`) gets a replay. It must then return the
+       canonical stored state, through the existing `check_submission`
+       readback or the deferred state, and never call the provider.
+     - Then it upserts the counter rows for every touched scope and
+       period and locks them `FOR UPDATE` in `(scope, period_kind)`
+       order.
+     - It refuses the whole request, returning the reason and scope, if
+       any `closed_reason` is set (soft scopes included, FR-009) or any
+       hard scope's `settled + reserved + Σestimate` would exceed its
+       effective cap.
+     - On a cap refusal it still commits one thing: a 100% alert row for
+       each refusing scope and period (`trigger = 'cap_refusal'`,
+       `ON CONFLICT DO NOTHING`). No reservation and no counter change are
+       committed, so repeated refusals stay idempotent (FR-015).
+     - Otherwise it inserts the reservations, increments `reserved_usd`,
+       inserts alert rows for newly crossed thresholds with
+       `ON CONFLICT DO NOTHING`, and returns the granted rows.
+   - **`fn_ai_budget_settle(p_reservation_id uuid, p_actual_usd numeric)`**
+     moves a `reserved` row to `settled`. It subtracts the estimate from
+     `reserved_usd` and adds the actual to `settled_usd`, then checks
+     thresholds again. A second call is a no-op.
+   - **`fn_ai_budget_release(p_reservation_id uuid)`** moves `reserved` to
+     `released` and subtracts the estimate. It is a no-op on any other
+     state.
+   - **`fn_ai_budget_expire(p_now timestamptz)`** settles every `reserved`
+     row past `expires_at` at its estimate (status `expired`). It returns
+     the count.
+   - **`fn_ai_budget_close_scope(p_scope text, p_day date, p_reason text)`**
+     sets `closed_reason` on that scope's day counter (FR-009) and inserts
+     the 100% daily alert (`trigger = 'provider_spend_limit'`).
+   - **`fn_ai_budget_recompute(p_period_start date)`** is operator-only
+     repair. It recomputes `reserved_usd` and `settled_usd` from the
+     reservations, and never lowers `settled_usd` below the settled sum.
+   - **`fn_ai_deferred_commit(p_job_id uuid, p_lease_token uuid, p_result jsonb)`**
+     commits a deferred result atomically.
+     - `p_result` holds the Speaking `responses` column patch and the
+       `grammar_recommendations` rows. The live route's mapper produces
+       both, so the canonical shape is unchanged.
+     - In one transaction the function:
+       1. locks the job row and the target `responses` row;
+       2. returns `duplicate` with no write when the job is already
+          `done` or `persisted_at` is set;
+       3. returns `lease_lost` when the lease token does not match;
+       4. marks the job `superseded` and returns `superseded` when the
+          response no longer carries the job's submission revision;
+       5. otherwise updates the response (`grading_status = 'completed'`
+          and scores), replaces that response's grammar recommendations,
+          sets `persisted_at = now()`, `commit_count = commit_count + 1`
+          and `status = 'done'`. The response update fires the item 11
+          trigger, which advances the session's `generation` in the same
+          transaction, for every session status. The function returns
+          `committed`. Its own SQL does not lock the `sessions` row; the
+          existing response guard trigger takes that lock (lock order
+          below). T006 checks the guard's TTL rule against a drain commit
+          for an `in_progress` session past `resume_expires_at`. The guard
+          rejects a transcript change there, so the drain must not depend
+          on writing the transcript in that case.
+     - Writing uses `fn_ai_deferred_commit_writing(p_writing_job_id,
+       p_lease_token, p_result)`. It validates ownership against the
+       item 4 columns, not against `attempt_count`. In one transaction it:
+       1. locks the `writing_jobs` row and its essay;
+       2. returns `duplicate` with no write when `budget_persisted_at` is
+          set or the job is `completed`;
+       3. returns `lease_lost` when `budget_lease_token` is null or does
+          not match;
+       4. returns `superseded`, with no write, when the essay is no longer
+          `pending` or `grading`, or the job is no longer budget-deferred;
+       5. otherwise inserts the `writing_feedback` row (with `job_id`),
+          updates the essay, sets the job `completed`,
+          `budget_persisted_at = now()` and `budget_commit_count + 1`, and
+          returns `committed`.
+   - **`fn_ai_deferred_aggregate_write(p_session_id uuid, p_generation bigint, p_bands jsonb)`**
+     writes a refreshed aggregate under a generation check. In one
+     transaction it:
+     1. locks the `sessions` row and then the session's
+        `ai_deferred_session_refresh` row `FOR UPDATE` (the lock order under
+        `fn_ai_session_bands_write`), which serialises every band write for
+        that session with `fn_ai_session_bands_write` and with response
+        writes;
+     2. returns `stale`, with no write, when `generation <> p_generation`;
+     3. returns `not_completed`, with no write, when the session's status
+        is not `completed`;
+     4. otherwise writes `overall_band` and the criteria bands from
+        `p_bands` to the session, sets `refreshed_generation =
+        p_generation`, and returns `written`.
+
+     The caller reads `generation` **before** it reads the responses, and
+     reads `0` when the session has no row. Suppose a response write (a
+     drain commit, an admin regrade) lands for the session after that
+     snapshot, while another writer is computing. The write moves
+     `generation`, so the computation that missed it gets `stale`, writes
+     nothing and leaves the obligation owed. A writer that read the newer
+     generation then writes the band covering both changes. Bands are
+     therefore never written and acknowledged from a response set older
+     than the latest response write.
+   - **`fn_ai_session_bands_write(p_session_id uuid, p_generation bigint, p_patch jsonb, p_from_in_progress boolean, p_acknowledge boolean)`**
+     is the only way a request-path, background or admin writer writes a
+     session's band columns (FR-024). The sweeper refresh uses
+     `fn_ai_deferred_aggregate_write`. `p_patch` is the writer's existing
+     session patch. The function writes only these columns and rejects
+     any other key:
+     - `overall_band` and `band_fc`, `band_lr`, `band_gra`, `band_p`;
+     - `status`, only `completed` or `grading_failed`;
+     - `completed_at`, only when unset;
+     - `error_code`, `error_message`, `failed_step`, `last_error_at`;
+     - `last_regraded_at`, `last_regraded_by`, `regrade_count`.
+
+     In one transaction it:
+     1. locks the `sessions` row `FOR UPDATE`, then inserts the session's
+        `ai_deferred_session_refresh` row as `(generation 0,
+        refreshed_generation 0)` when it is absent, and locks it
+        `FOR UPDATE`;
+     2. when `p_acknowledge` is true, returns `stale`, with no write, when
+        `generation <> p_generation`;
+     3. when `p_from_in_progress` is true, returns `not_applied`, with no
+        write, unless the session is still `in_progress` and
+        `resume_expires_at > now()`. This is the `PATCH /complete` route's
+        current conditional update, unchanged;
+     4. otherwise writes `p_patch` to the session and sets
+        `refreshed_generation = p_generation`, then returns `written`.
+        With `p_acknowledge` false and a newer `generation`, the row
+        stays owed.
+
+     **Lock order** is the same everywhere: the job row, then the
+     `responses` row, then the `sessions` row, then the refresh row.
+     - A response UPDATE locks the response row, and its existing BEFORE
+       trigger `fn_guard_speaking_response_mutation` (migrations 224/225)
+       then locks the session row `FOR UPDATE`. A response INSERT takes
+       only the session lock before the new row. The item 11 AFTER
+       trigger then takes the refresh row.
+     - A drain commit locks the job and the response, and takes the
+       session lock only through that guard. Its own SQL never locks the
+       session row.
+     - Both band writers lock the session row, then the refresh row, and
+       never lock a response.
+
+     No transaction takes the refresh row before the session row, so
+     there is no lock cycle.
+   - **Writers that use `fn_ai_session_bands_write`** (FR-024, T006). Each
+     one runs the same loop:
+     1. read `generation` (`0` when the session has no row);
+     2. read the responses and compute the bands with the writer's
+        existing function;
+     3. call the function with `p_acknowledge` true;
+     4. on `stale`, go back to step 1, at most 3 times;
+     5. if still `stale`, write once with `p_acknowledge` false, so the row
+        stays owed and the sweeper refreshes a `completed` session.
+
+     The writers are:
+     - `PATCH /complete` (below);
+     - `_complete_session_internal`, the Full Test finalisation, with
+       `p_from_in_progress` false;
+     - `update_session_bands`, after pronunciation. Its patch is bands
+       only;
+     - admin regrade-response, regrade-session and rebuild-summary. Their
+       patches carry the status, error and regrade-audit columns they
+       write today. Each regraded response is written first. Its write
+       advances `generation` through item 11, and the writer reads
+       `generation` only after its own response writes.
+
+     `sync_class_item_score` runs only after `written`. A writer that
+     still writes unacknowledged also syncs, and the sweeper's later
+     refresh syncs again. `sync_class_item_score`
+     (`services/class_assignment_service.py`) keeps its signature and its
+     best-effort contract, but delegates to `fn_ai_class_sync` instead of
+     reading the session and updating the item in two requests. A crash
+     or a sync error after the band write leaves the sync owed, and the
+     sweeper repeats it.
+   - **`fn_ai_deferred_save(p_response jsonb, p_job jsonb)`** saves a
+     deferred Speaking submission in one transaction. It writes the
+     `responses` row with `grading_status='awaiting_budget'` under the
+     same baseline, token and revision checks as `save_response`
+     (`services/speaking_submission.py`), and inserts the job with
+     `on conflict (kind, resource_id, submission_revision) do nothing`. It
+     returns `saved`, `replay` (row and job already present) or
+     `superseded`/`audio_changed` with no write, mapped to today's 409s.
+     No path writes an `awaiting_budget` row without its job.
+   - **`fn_ai_class_sync(p_session_id uuid)`** performs the class-score
+     sync (item 3) in one transaction:
+     1. locks the `sessions` row and then its `ai_deferred_session_refresh`
+        row `FOR UPDATE`, the same order as the band writers, so no band
+        write and no other sync can interleave;
+     2. reads the session's current `overall_band` and
+        `class_assignment_item_id`, and the row's `refreshed_generation`;
+     3. locks the linked `class_assignment_items` row, when there is one;
+     4. decides from that row:
+        - no linked item, or the item's hand-in is recorded for another
+          session (`artifact_id <> p_session_id`, a retry that is not the
+          recorded attempt): returns `no_item`, and the sync is discharged;
+        - the hand-in is not recorded yet (`submitted_at` null): returns
+          `pending_handin` and leaves `class_synced_generation` unchanged,
+          so the sync stays owed (Codex round 13 on #1773);
+        - the hand-in is recorded for this session and the session has a
+          band: updates `class_assignment_items.score` with today's
+          predicates (that item, `artifact_kind = 'session'`, `artifact_id
+          = p_session_id`) and returns `synced`;
+     5. on `synced` or `no_item`, sets `class_synced_generation =
+        refreshed_generation`.
+
+     The value written is always the band persisted at the moment of the
+     write, never one read earlier, so two overlapping syncs cannot leave
+     an older band on the item.
+
+     `_record_class_submission` (`routers/sessions.py`) passes the band
+     it computed to `mark_item_submitted`, which may be older than a
+     refresh that ran just before it. So after `mark_item_submitted`
+     records the hand-in, it calls `sync_class_item_score`, which replaces
+     the score with the band persisted at that moment. If completion dies
+     between the two, the sync is still owed, because every earlier sync
+     returned `pending_handin`, and the next sweep fixes the score.
+     `mark_item_submitted` keeps its `submitted_at IS NULL` guard, so the
+     hand-in time and the late/on-time verdict do not change.
+   - **`fn_ai_deferred_claim(p_limit int, p_lease_seconds int)`** claims
+     queued jobs `FOR UPDATE SKIP LOCKED` in `enqueued_at, id` order.
+     It also reclaims `running` jobs whose `lease_until` has passed, so a
+     job left `running` by a dead worker is resumed by a later sweep.
+     - Every claim, first or reclaim, sets `status = 'running'`, a new
+       `lease_token`, `lease_until = now() + p_lease_seconds` and
+       `attempts = attempts + 1`.
+     - The new `attempts` gives the reclaimed run a new `request_key`
+       (job id plus `attempts`). The dead worker's reservation is
+       therefore never replayed as a grant. It is settled at its estimate
+       by `fn_ai_budget_expire` (FR-004), unless the dead worker settled
+       it first.
+     - A stale worker that outlives its lease still holds the old token.
+       Its `fn_ai_deferred_commit` returns `lease_lost` and writes
+       nothing, so only the current lease holder can persist.
+   - **`fn_ai_deferred_claim_writing(p_limit int, p_lease_seconds int)`**
+     works the same way on `writing_jobs` rows where `budget_deferred_at`
+     is not null. It claims `queued` rows, and `running` rows whose
+     `budget_lease_until` has passed, `FOR UPDATE SKIP LOCKED` in
+     `budget_deferred_at, id` order.
+     - Each claim sets `status = 'running'`, a new `budget_lease_token`,
+       `budget_lease_until` and `budget_drain_count + 1`. It leaves
+       `attempt_count`, `max_attempts` and `started_at` unchanged. The
+       drain's `request_key` is the Writing job id plus
+       `budget_drain_count`.
+     - A crashed drain is reclaimed after its lease expires, by the same
+       rule as Speaking. The in-process reaper skips every row with
+       `budget_deferred_at` set, so it never competes with the drain.
+       A stale drain's commit returns `lease_lost`.
+     - A drain refused again for budget returns the row to `queued` and
+       clears the lease, leaving `budget_deferred_at` set.
+   - **Sweeper drain order.** A refresh has four steps:
+     1. read the session's `generation`;
+     2. compute the bands with the canonical `_compute_session_bands`;
+     3. call `fn_ai_deferred_aggregate_write` with that generation;
+     4. on `stale`, start again from step 1, at most 3 times in this
+        sweep. Anything still owed is left for the next sweep.
+
+     It does not call `PATCH /complete`, whose early return keeps an
+     existing non-null band (`routers/sessions.py:2094-2102`). A refresh
+     makes no provider call and needs no reservation, so it runs even
+     while scopes are closed. The sweeper runs one for every `completed`
+     session with `refreshed_generation < generation` first, then
+     repeats `fn_ai_class_sync` for every session with
+     `class_synced_generation < refreshed_generation`. A session that is
+     still `pending_handin` an hour after completion is listed by the V9
+     operator query, not retried in a tight loop: it is retried once per
+     sweep. It runs
+     another after each `committed` result whose session is `completed`.
+     Then it claims new jobs. `not_completed` ends the refresh for that
+     session; `PATCH /complete` owns the band of an `in_progress`
+     session.
+   - **`PATCH /sessions/{id}/complete` finalisation** (`routers/sessions.py`,
+     T006). The route keeps its early return for a completed session
+     with a non-null band, its 422 gates and its fresh-reload handling of
+     a conditional update that matched no row. It changes only how the
+     band is read and saved:
+     1. read the session's `generation` (`0` when it has no row);
+     2. compute the bands with `_compute_session_bands`, as today;
+     3. build the existing `update_payload` and call
+        `fn_ai_session_bands_write` with that generation,
+        `p_from_in_progress` set when the loaded session was
+        `in_progress`, and `p_acknowledge` true;
+     4. on `stale`, start again from step 1, at most 3 times. When the
+        third attempt is still `stale`, call it once more with
+        `p_acknowledge` false. The learner's completion succeeds, the
+        row stays owed because `refreshed_generation` is the generation
+        that was read, and the next sweep refreshes the band, which is
+        now `completed`;
+     5. `not_applied` takes the route's current path for an update that
+        matched no row.
+
+     So a drain commit that lands between the route's response read and
+     its session write is never lost. Either the write is `stale` and
+     the route recomputes with that result, or the band is written
+     unacknowledged and the sweeper owes the refresh.
+8. **Postconditions.** A `DO` block raises if any of the following does not
+   hold (item 10 and 11 objects included):
+   - every table exists with RLS enabled;
+   - `anon` and `authenticated` hold no privilege on any of the objects;
+   - each function exists with `prosecdef` and the pinned `search_path`;
+   - the unique indexes exist;
+   - the item 4 `writing_jobs` columns exist;
+   - the item 11 trigger exists on `responses` and is enabled.
+9. **Down script** (in the header, guarded). It aborts unless
+   `ai_deferred_grading_jobs` has no `queued` or `running` rows,
+   no `completed` session owes a refresh in `ai_deferred_session_refresh`, no `writing_jobs` row has
+   `budget_deferred_at` set while `queued` or `running`, and no raise is
+   active. It keeps `ai_budget_raise_events` as an exported audit record
+   before any drop. It drops the item 11 trigger first, so response writes
+   never reference a dropped table.
+10. **Budget-raise objects (FR-022).** Created before item 5, because the
+    alerts reference them.
+    - **`ai_budget_raises`**: `id uuid pk`,
+      `scope text check (scope in ('google','azure','openai','elevenlabs'))`,
+      `amount_usd numeric(10,2) check (amount_usd >= 1 and amount_usd = trunc(amount_usd))`,
+      `base_month_cap_usd numeric(12,4) check (base_month_cap_usd > 0)`,
+      with a table CHECK that `amount_usd <= base_month_cap_usd` (at most
+      100% of the base cap, decision (e)), `granted_at`,
+      `expires_at` (CHECK: between 1 and 24 hours after `granted_at`),
+      `granted_by uuid`, `granted_aal text`, `reason text` (CHECK:
+      1–500 characters), `ended_at null`, `ended_by null`,
+      `end_kind text null check (in ('ended_early','expired'))`,
+      `end_reason null`, `request_id`. There is a unique partial index
+      `(scope) where ended_at is null`. `service_role`: SELECT only.
+    - **`ai_budget_raise_events`**: append-only. `id`, `raise_id`,
+      `event text check (in ('granted','ended_early','expired'))`, `scope`,
+      `amount_usd`, `base_month_cap_usd`, `effective_month_cap_usd`,
+      `expires_at`, `actor_id null` (null for `expired`), `actor_aal`,
+      `request_id`, `reason`, `created_at`. It is unique on
+      `(raise_id, event)`. `service_role`: SELECT only. A trigger refuses
+      `UPDATE` and `DELETE` for every role.
+    - **`fn_ai_budget_raise_grant(p_scope, p_amount_usd, p_hours, p_reason, p_actor, p_actor_aal, p_base_caps jsonb, p_request_id)`**
+      upserts and locks the scope's current month counter row, the same
+      lock the reserve function takes. It ends any raise of that scope whose
+      `expires_at <= now()` as `expired`, with its event and alert. Then it
+      refuses `mfa_required` (`p_actor_aal` is not `aal2`, a second check
+      behind the route), `scope_not_raisable` (soft or unknown scope),
+      `scope_config_invalid` (null or ≤ 0 base cap),
+      `amount_out_of_range` (above 100% of the base monthly cap),
+      `duration_out_of_range` (outside 1–24 hours), `raise_active` or
+      `raise_limit_reached` (three grants this UTC month).
+      Otherwise it inserts the raise, the `granted` event and the
+      `raise_granted` alert, and returns the raise with its effective
+      caps. Every refusal writes nothing.
+    - **`fn_ai_budget_raise_end(p_raise_id, p_actor, p_actor_aal, p_reason, p_request_id)`**
+      sets `ended_at`, `end_kind = 'ended_early'` and the event and alert
+      once. It returns `not_active` for an ended or expired raise.
+    - **`fn_ai_budget_raise_expire_sweep(p_now)`** ends every raise past
+      `expires_at` as `expired`, with its event and alert, and returns the
+      count. The cap reverts without it, because the reserve function
+      checks `expires_at` directly.
+11. **Session generation trigger on `responses` (FR-024).**
+    `trg_ai_session_generation` is an `AFTER INSERT OR DELETE OR UPDATE OF
+    overall_band, final_band_p, final_overall_band, feedback,
+    grading_status` trigger, `FOR EACH ROW`. Its function,
+    `fn_ai_session_generation_bump()`, is `SECURITY DEFINER` with the
+    pinned `search_path`. Only the trigger executes it, and EXECUTE is
+    granted to no role. For an UPDATE it does nothing when every listed
+    column `IS NOT DISTINCT FROM` its old value. Otherwise it upserts the
+    session's `ai_deferred_session_refresh` row with `generation =
+    generation + 1` and `updated_at = now()`. It runs in the writer's
+    transaction, so a response write and its generation step commit or
+    roll back together. The trigger is created after item 3.
+    - Rows the trigger creates before the dependent backend deploys
+      (between S1 and S2) are owed. The first sweep refreshes the
+      `completed` ones with the canonical `_compute_session_bands`.
+    - Cost: one indexed upsert per response write. Contention is per
+      session only.
+
+N-1 compatibility: the deployed backend does not read these objects, and
+the `writing_jobs` columns are nullable or have a constant default, so
+the live Writing worker and reaper are unaffected. The item 11 trigger
+adds a refresh-row upsert to the N-1 backend's response writes. It needs
+no privilege from the caller and changes no response column.
+
+### API contract
+
+All shapes are published in OpenAPI and regenerated into
+`frontend/types/api.d.ts` (constitution §3).
+
+- **The 503 detail** (FR-010) for every synchronous AI route:
+
+  ```json
+  {"error_code": "ai_budget_exhausted",
+   "reason": "monthly_cap|daily_cap|kill_switch|config_invalid|budget_unavailable|provider_spend_limit",
+   "work_saved": true,
+   "resource": {"session_id": "…", "question_id": "…", "response_id": "…"},
+   "message": "Hệ thống chấm tự động tạm dừng. Bài của bạn đã được lưu và sẽ được chấm khi hệ thống mở lại."}
+  ```
+
+  For non-admin callers, `reason` is reduced to `"paused"`. Admins and logs
+  see the real reason. Refuse-before-accept routes (FR-020) send
+  `work_saved: false` with the P2 message.
+- **Speaking response read models** (`GET /sessions/{id}`, the result and
+  Full Test summary) carry `grading_status: 'awaiting_budget'` on pending
+  responses. The band fields are null, and a pending session reports
+  `grading_pending: true`. A response graded without pronunciation for
+  budget (FR-023) carries `pronunciation_skipped: true`, mapped from
+  `pronunciation_status = 'skipped_budget'`. Its session carries
+  `pronunciation_incomplete: true` while any test-mode response is
+  skipped and has no `final_band_p`. The instructor dashboard and admin
+  Speaking session read models carry the same session flag. The fields
+  are additive; old clients ignore them.
+- **Writing essay and result reads** report `grading_status`, mapped from
+  `writing_essays.status='pending'` together with
+  `writing_jobs.budget_deferred_at is not null` to `'awaiting_budget'`.
+- **`GET /ai/status`** returns
+  `{paid_ai_available: bool, pending_grading_count_for_caller: int}`.
+  Any lookup failure returns `paid_ai_available:false`. The response
+  carries `Cache-Control: private, max-age=30`.
+- **`GET /admin/ai/budget`** returns:
+
+  ```json
+  {"mode": "enforce|shadow", "kill_switch": false,
+   "scopes": [{"scope", "enforcement": "hard|soft", "period_kind",
+               "period_start", "base_cap_usd", "effective_cap_usd",
+               "cap_usd", "settled_usd", "reserved_usd", "committed_usd",
+               "percent", "state", "config_error"}],
+   "raises": {"active": [{"id", "scope", "amount_usd", "expires_at",
+                          "granted_by_email", "reason"}],
+              "used_this_month": {"<scope>": 0}},
+   "queue": {"speaking_queued", "writing_deferred", "oldest_enqueued_at"},
+   "reservations": {"open", "expired_last_24h"},
+   "alerts": [{"scope", "period_start", "threshold", "send_status", "sent_at"}],
+   "sweeper": {"last_run_at", "stale"}, "lookup_failed": false}
+  ```
+
+  `cap_usd` equals `effective_cap_usd`, kept for the panel's percentage.
+  For a soft scope (`anthropic`, `total`), `state` is `open` or
+  `over_soft_budget` and never a refusal state.
+- **`POST /admin/ai/budget/raises`** takes
+  `{scope, amount_usd, duration_hours, reason}` and returns 201 with the
+  raise and its effective caps. It returns 422 for input validation, 409
+  with `error_code` set to one of the item 10 refusals, 403 `mfa_required`
+  (FR-022: any non-`aal2` token, and every caller while the 0032 AAL2
+  reader is absent), and 503 `budget_unavailable` on an RPC failure.
+  **`POST /admin/ai/budget/raises/{id}/end`** takes `{reason}` and returns
+  200, 409 `not_active`, 403 or 503 in the same way.
+
+### Backward compatibility
+
+- A browser running the old frontend that gets the new 503 classifies it
+  as `ambiguous_commit` and reads back
+  (`speaking-submission-controller.mjs:141-158`). The readback finds the
+  saved row, so no work is lost or duplicated before the frontend deploys.
+- Writing submit is unchanged.
+
+## UI and interaction
+
+See `ui-states.md`. Component ownership:
+
+- **Speaking:** `practice-page-shell.tsx`, `practice-submission-bridge.tsx`
+  and `public/js/speaking-submission-controller.mjs`. A new classifier
+  branch comes first, before the generic 5xx branch.
+- **Results:** `speaking-result-behavior.tsx`, the Full Test result,
+  `writing-result-behavior.tsx` and `writing-behavior.tsx`. The FR-023 P5
+  and P5b notes render from `pronunciation_skipped` and
+  `pronunciation_incomplete` in the practice feedback
+  (`practice-page-shell.tsx`, `public/js/practice.js` band pills), the
+  Speaking result and the Full Test result.
+- **Teacher views (FR-023):** the instructor dashboard matrix cell and the
+  admin Speaking session view (`lib/admin-speaking-sessions-model.mjs`,
+  `public/js/admin-speaking-sessions.js`) show "Chưa có Phát âm" from
+  `pronunciation_incomplete`.
+- **Learner AI controls:** a shared `useAiStatus()` hook in
+  `frontend/lib/ai-status.ts`, gated on sign-in after hydration.
+- **Instructor and admin:** the instructor banner in
+  `instructor-dashboard.tsx`; the admin panel in `admin-overview.tsx`; the
+  raise form and active-raise list in a new
+  `admin-ai-budget-raise.tsx` used by that panel. It confirms before
+  submitting and refetches `GET /admin/ai/budget` after every mutation,
+  with no optimistic state.
+
+## Work decomposition
+
+The order follows `tasks.md`. File ownership:
+
+| Unit | Owns |
+| --- | --- |
+| Migration | `backend/migrations/333_ai_budget_hard_cap.sql`, `backend/migrations/README.md`, `backend/migrations/forward-policy.tsv` |
+| Budget core | `services/ai_budget.py`, `services/ai_budget_config.py`, `config.py`, `services/ai_pricing.py` (Azure row) |
+| Router and providers | `services/ai_router.py`, `services/grading_orchestrator.py`, `services/grading_providers/*`, `services/claude_grader.py`, `services/whisper.py`, `services/tts_audio.py`, `services/azure_pronunciation.py`, `services/listening_*`, `services/gemini*.py`, `services/course_writing_grader.py`, `services/advanced_vocab_rewrite_grader.py`, `services/d1_*.py`, `services/vocab_enrichment.py`, `services/writing_prompt_analysis.py`, operator scripts |
+| Quotas and flags | `services/rate_limit.py`, `routers/tts.py`, `routers/listening.py` (gist only), `services/runtime_flags.py` |
+| Deferred grading | `services/deferred_grading.py`, `routers/grading.py`, `routers/admin.py` (regrade extraction), `services/essay_service.py`, `routers/sessions.py` (aggregate hook), `routers/pronunciation.py` (Azure sizing and the missing-P branch), `services/audio_validation.py` (pre-send duration), `services/pron_calibration.py` (shared P mapping), `services/class_assignment_service.py` (`sync_class_item_score` delegation), `scripts/ai_budget_sweep.py` |
+| Status APIs and alerts | `routers/ai_budget.py`, `main.py`, the Resend email transport shared with 0032 (sender `alerts@averlearning.com` for this spec) |
+| Budget raise (FR-022) | `routers/ai_budget.py` (raise routes), `services/ai_budget_raise.py`, `frontend/app/(authed-admin-overview)/admin/admin-ai-budget-raise.tsx` |
+| Frontend | the files in UI and interaction, `frontend/types/api.d.ts`, `frontend/lib/browser-api.ts` |
+
+Router, provider, frontend and migration work can run in parallel once the
+budget core interface (T002) is merged. Deferred grading depends on the
+migration and the budget core.
+
+## Rollout and rollback
+
+See `rollout.md`. In summary:
+
+- Variables are set before deploy. An unset variable takes its spec
+  default (FR-003), but a set-but-invalid hard cap refuses that provider.
+- Staging order: migration 333, then shadow calibration, then enforce with
+  a low cap through AC1–AC14 with E2E accounts, then restore production
+  values.
+- Production: authorised promotion, with 333 applied under the advisory
+  lock first. Enforce from the first deploy. A 7-day reconciliation
+  follows.
+- The fast stop is `AI_KILL_SWITCH=on`. A code revert is safe once the
+  queue has been exported. Schema rollback is guarded on an empty queue.
+
+## Verification strategy
+
+### Offline tests
+
+These run in CI with fake providers; no network.
+
+- **`backend/tests/test_ai_budget_gate.py`**: an AST and regex scan
+  confirms that every provider SDK call or endpoint sits inside a guarded
+  wrapper and every SDK client sets `max_retries=0` (FR-001).
+- **`backend/tests/test_ai_budget_service.py`**: kill-switch parsing,
+  config validation, estimator bounds, the fail-closed RPC (raise, timeout,
+  bad shape, missing function) and shadow vs enforce (FR-003 to FR-008,
+  AC2, AC5, AC9). It also covers:
+  - the defaults when every variable is unset: total 200 and Anthropic 100
+    (soft), and Google, Azure, OpenAI and ElevenLabs 20 (hard). There is no
+    `config_invalid` for a missing variable, and a set-but-invalid hard
+    variable refuses only its own scope;
+  - the soft scopes: no refusal over budget, Anthropic thresholds 80/100
+    with no 50%, `allow_unrecorded` for an Anthropic-only request on an RPC
+    failure, and refusal of a bundle with a hard line (FR-021, AC10,
+    AC11).
+- **`backend/tests/test_migration_333_ai_budget.py`**, on PostgreSQL 16 and
+  17:
+  - catalog, grants, RLS, idempotent re-apply and N-1;
+  - two connections racing 4N reservations for N slots (AC4);
+  - replaying a request key (AC3);
+  - settle, release and expire arithmetic;
+  - every line counted on `total`, Anthropic included; soft scopes
+    (`anthropic`, `total`) recorded without a cap check; a period with
+    mixed settled Anthropic and OpenAI reservations shows zero drift in V3
+    for `total`, `anthropic` and `openai`;
+    effective cap with an active raise, and the base cap the moment
+    `expires_at` passes; the raise function's refusals (including
+    `mfa_required` for a non-`aal2` actor, an amount above 100% of the base
+    cap and more than 24 hours), the one-active-raise index, three grants a
+    month, and events that refuse `UPDATE`/`DELETE` (FR-021, FR-022);
+  - the item 11 trigger: an update of a listed column advances
+    `generation` once, an update that changes none of them does not, and
+    a rolled-back response write leaves `generation` unchanged;
+  - lock order: a response update and `fn_ai_session_bands_write` on the
+    same session, raced from two connections many times, never deadlock
+    (FR-024);
+  - an alert exactly once under concurrent crossing (AC7);
+  - the guarded down script.
+- **Image bound (FR-004)** in `backend/tests/test_ai_budget_service.py`:
+  a chart-bearing Task 1 Writing request at `max_output_tokens`, using the
+  largest chart the importer accepts, has an estimate at least the cost
+  from the recorded Gemini usage fixture (prompt plus image tokens plus
+  maximum output); the same for an Anthropic `images=` call; a repair
+  retry reserves the image again; an image with unreadable dimensions is
+  refused with zero stub calls.
+- **`backend/tests/test_ai_budget_fallback.py`**: `with_fallback`, the
+  orchestrator, the JSON-repair rerun and each custom chain. A budget
+  refusal or a 402 leads to zero further stub calls. 429, 529 and timeout
+  still fall back, with a reservation for each attempt (AC1, AC8).
+- **`backend/tests/test_ai_budget_speaking_deferred.py`**:
+  - refusal before Whisper, with zero stub calls;
+  - pre-send duration (FR-004): a 301-second recording under 50 MB and a
+    header-less MediaRecorder WebM fixture whose decoder fails each
+    return 422 with zero Whisper, grader, judge and Azure calls, no
+    reservation, no `grading_attempts` row and no upload; a 60-second
+    header-less WebM is measured at 60 s ± 0.1 and its Whisper line is
+    reserved at 61 s; in `shadow` the undecodable case proceeds and logs
+    `would_refuse`;
+  - Azure sizing: a Part 2 answer reserves the segment length and a
+    Part 1 answer its Whisper duration, never `MAX_AUDIO_DURATION_SECONDS`;
+  - the Full Test missing-P branch (FR-023): a test-mode response saved
+    as `skipped_budget` is sampled by `/pronunciation/full` once its Azure
+    line is granted; it gains `band_p`, `final_band_p` and a four-criterion
+    `overall_band`, becomes `completed`, and the session band includes P
+    after re-aggregation; with the line refused, or with no usable Azure
+    score, the response stays `skipped_budget` with no Azure scores; a
+    response with a feedback `band_p` keeps the adjusted-band result;
+  - the recording stored and the row `awaiting_budget`;
+  - one job, and no `grading_attempts` row;
+  - a replay with the same `submission_id`;
+  - a superseding revision;
+  - the drain grading once in order;
+  - the aggregate recomputed, including after a worker is killed just
+    after `fn_ai_deferred_commit` (the next sweep refreshes the band
+    from the owed generation). Two jobs for one completed session are
+    interleaved so that refresh A reads before B commits and writes
+    after B's refresh: A gets `stale`, and the final band includes both
+    results once nothing is owed;
+  - completion racing a drain commit (`PATCH /complete` fence). A session
+    with one graded response and one deferred job is completed while the
+    job commits: completion reads `generation` and the responses, the
+    drain commits, then completion writes. The write returns `stale`,
+    completion recomputes, and the persisted `overall_band` includes the
+    deferred result with nothing owed and no further submission or
+    `/complete` call. With the commit forced to land before each of three
+    attempts, completion still succeeds through the unacknowledged write,
+    the row stays owed, and the next sweep writes the band that includes
+    the result. A commit for an `in_progress` session moves `generation`
+    and the sweeper does not refresh that session;
+  - a crash between the provider response and persistence (FR-011 to
+    FR-013, AC6);
+  - atomic deferral: a failure injected inside `fn_ai_deferred_save` after
+    the response write leaves neither the row nor the job, and a retry
+    with the same `submission_id` defers normally; after a successful
+    save, a killed request still leaves a job that the next sweep grades
+    with no further submission; a replay returns the existing job;
+  - class-score sync: the worker is killed between the band write
+    (`written`, acknowledged) and `sync_class_item_score` for a session
+    linked to an already-submitted class item; the next sweep finds the
+    sync owed, updates `class_assignment_items.score` to the drained band
+    and records it, and a further sweep does nothing; two syncs are
+    interleaved around a band write (sync A starts before the write, sync B
+    after it) and the final item score equals the latest persisted
+    session band with nothing owed; completion is paused before
+    `_record_class_submission`, a drain commit, refresh and
+    `fn_ai_class_sync` run (`pending_handin`, still owed), completion then
+    resumes with its older band, and the item score ends at the refreshed
+    band with nothing owed, also when completion is killed between the
+    hand-in and its sync and the next sweep repairs it;
+  - the Azure line refused (cap, missing price row, `budget_unavailable`
+    on its own request): the grade completes without a 503 or a job,
+    `pronunciation_status = 'skipped_budget'`, `band_p` null, the test-mode
+    overall band equal to `ielts_round(mean(FC, LR, GRA))`, and the practice
+    band unchanged; a drained job whose Azure line is refused also commits
+    without P (FR-023, AC13);
+  - the FR-024 fence for each writer (AC14). An admin regrade-response
+    lands between a sweeper refresh's response read and its write: the
+    refresh returns `stale`, recomputes, and the persisted band is the
+    regraded one with nothing owed. A drain commit lands between an admin
+    route's response read and its session write: the admin write returns
+    `stale` and the band includes the drained result. The same holds for
+    `update_session_bands`, regrade-session, rebuild-summary and
+    `_complete_session_internal`. Admin regrade of an `awaiting_budget`
+    response returns 409 `grading_deferred`.
+- **`backend/tests/test_ai_budget_writing_deferred.py`**: a refused job
+  stays `queued` with `budget_deferred_at`; no attempt is used, the reaper
+  skips it, and the drain grades it once. A drain killed after claim is
+  reclaimed after `budget_lease_until`, the stale drain's commit returns
+  `lease_lost`, and `attempt_count` is unchanged throughout. This covers
+  mock-exam and admin regrade triggers.
+- **`backend/tests/test_ai_budget_quotas.py`**: grading, TTS and gist
+  counters fail closed, and a value of zero or less is `config_invalid`.
+  It also covers `runtime_flags` `on_error` (FR-006, AC9).
+- **`backend/tests/test_ai_budget_alerts_sweeper.py`**: expiry,
+  dispatch with backoff, heartbeat, and a non-zero exit when the DB is
+  down (FR-014, FR-015).
+- **`backend/tests/test_ai_budget_status_api.py`**: the status and admin
+  shapes, `lookup_failed`, reason redaction for non-admins, and the admin
+  refused like everyone else (FR-010, FR-016).
+- **`backend/tests/test_ai_budget_raise.py`**: the raise routes for a
+  learner, an instructor, an AAL1 admin and an AAL2 admin with the 0032
+  reader present, and for every caller (403 `mfa_required`) with the
+  reader absent. It covers every input and limit
+  refusal with no row, event or email; one alert row per grant, end and
+  expiry; the sweeper's expiry event; and an RPC failure → 503 with
+  nothing written (FR-022, AC12).
+- **Frontend**:
+  - vitest for the Speaking classifier branch and the `useAiStatus` gating;
+  - a Next-native verifier per surface in `ui-states.md` (stubbed API),
+    covering a reload and both themes (FR-017).
+
+### Read-only operator queries
+
+These are referenced by `rollout.md`. They make no writes, run in the
+Supabase SQL editor or the runner, and print no secrets.
+
+- **V1 — last month's spend by provider.** Before enforcement, this is a
+  read-only check of real usage against the decided $20 caps (Q1):
+
+  ```sql
+  select service, model, round(sum(cost_usd_est)::numeric, 2) as usd,
+         count(*) filter (where cost_source = 'unpriced') as unpriced_rows
+  from ai_usage_logs
+  where created_at >= date_trunc('month', now() at time zone 'utc') - interval '1 month'
+    and created_at <  date_trunc('month', now() at time zone 'utc')
+  group by 1, 2 order by 3 desc nulls last;
+  ```
+
+- **V2 — postconditions:** catalog, grants and RLS for the 333 objects
+  (the same checks as the migration's `DO` block, as a `select`).
+- **V3 — counter drift and estimate/actual ratio.** Every line is counted
+  on `total` (FR-002, decision (b)), so the `total` row is reconciled
+  against all reservations, soft lines included:
+
+  ```sql
+  select c.scope, c.period_kind, c.period_start, c.settled_usd, c.reserved_usd,
+         coalesce(sum(r.actual_usd) filter (where r.status in ('settled')), 0)
+           + coalesce(sum(r.estimate_usd) filter (where r.status = 'expired'), 0) as settled_from_rows,
+         coalesce(sum(r.estimate_usd) filter (where r.status = 'reserved'), 0) as reserved_from_rows
+  from ai_budget_counters c
+  left join ai_budget_reservations r
+    on (c.scope = 'total' or c.scope = r.provider)  -- total counts every provider, Anthropic included (FR-002)
+   and ((c.period_kind = 'month' and r.month_start = c.period_start)
+     or (c.period_kind = 'day' and r.day_start = c.period_start))
+  group by 1, 2, 3, 4, 5;
+  -- ratio per feature and provider, so token lines do not hide audio lines
+  select feature, provider,
+         min(estimate_usd / actual_usd) as min_ratio,              -- must be >= 1.0
+         count(*) filter (where actual_usd > estimate_usd) as underestimated,  -- must be 0
+         percentile_cont(0.5) within group (order by estimate_usd / actual_usd) as median_ratio  -- must be <= 3.0
+  from ai_budget_reservations where status = 'settled' and actual_usd > 0 group by 1, 2;
+  ```
+
+- **V4 — stuck reservations (sweeper health):**
+
+  ```sql
+  select count(*), min(created_at) from ai_budget_reservations
+  where status = 'reserved' and created_at < now() - interval '1 hour';
+  ```
+
+- **V5 — exactly-once persistence for each deferred revision.** This
+  correlates on the job and its submission revision, never on ledger
+  success rows. One correct grade can produce several successful
+  `speaking_grading` ledger rows (JSON repair, grounded-answer
+  regeneration), and a response can have several revisions. Every query
+  below must return zero rows.
+
+  ```sql
+  -- (a) a done job without the persistence marker, or a marker without done
+  select id, kind, resource_id, submission_revision, status, persisted_at
+  from ai_deferred_grading_jobs
+  where (status = 'done') <> (persisted_at is not null);
+  -- (b) more than one committed result for the same revision
+  select kind, resource_id, submission_revision, sum(commit_count) as commits
+  from ai_deferred_grading_jobs
+  group by 1, 2, 3 having sum(commit_count) > 1;
+  -- (d) a completed session whose aggregate refresh has been owed for over 15 minutes
+  select r.session_id, r.generation, r.refreshed_generation, r.updated_at
+  from ai_deferred_session_refresh r
+  join sessions s on s.id = r.session_id and s.status = 'completed'
+  where r.refreshed_generation < r.generation
+    and r.updated_at < now() - interval '15 minutes';
+  -- (e) Writing: drain marker and completion disagree, or more than one drain commit
+  select id, status, budget_persisted_at, budget_commit_count from writing_jobs
+  where budget_deferred_at is not null
+    and (budget_commit_count > 1
+      or (budget_persisted_at is not null and status <> 'completed'));
+  -- (c) Writing: more than one feedback row persisted by deferred drains for one job
+  select f.job_id, count(*) from writing_feedback f
+  join writing_jobs w on w.id = f.job_id
+  where w.budget_deferred_at is not null
+  group by 1 having count(*) > 1;
+  ```
+
+  The `writing_feedback.job_id` linkage is confirmed or added in T007.
+  If that column does not exist, T007 records the drain's job id on the
+  feedback row, so (c) keys on the job and not on the essay.
+
+- **V6 — the kill switch:** the `[ai_budget] decision=refuse
+  reason=kill_switch` log appears for the first request after the
+  deployment with the variable serves. No ledger row is written after that
+  timestamp.
+- **V7 — alerts:**
+
+  ```sql
+  select kind, scope, period_kind, period_start, threshold, send_status, attempts, sent_at
+  from ai_budget_alerts order by created_at desc limit 50;
+  ```
+- **V8 — raises (FR-022):**
+
+  ```sql
+  select r.scope, r.amount_usd, r.granted_at, r.expires_at, r.end_kind,
+         (select count(*) from ai_budget_raise_events e where e.raise_id = r.id) as events,
+         (select count(*) from ai_budget_alerts a where a.raise_id = r.id) as alerts
+  from ai_budget_raises r order by r.granted_at desc limit 20;
+  ```
+
+  Every ended raise has two events and two alerts, and an active raise
+  has one of each.
+
+- **V9 — class-score sync owed:**
+
+  ```sql
+  select r.session_id, r.refreshed_generation, r.class_synced_generation,
+         s.completed_at, i.submitted_at, i.artifact_id
+  from ai_deferred_session_refresh r
+  join sessions s on s.id = r.session_id
+  left join class_assignment_items i on i.id = s.class_assignment_item_id
+  where r.class_synced_generation < r.refreshed_generation
+    and s.completed_at < now() - interval '1 hour';
+  ```
+
+  Expected: no rows. A row whose `submitted_at` is null is a completed
+  session whose hand-in was never recorded, which is investigated, not
+  discharged by hand.
