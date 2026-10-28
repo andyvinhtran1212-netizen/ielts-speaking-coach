@@ -103,3 +103,21 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 | SECWRITE-0022 | Client roles cannot write privilege, score or session data | approved | critical | [spec](0022-client-write-privilege-lockdown/spec.md) |
 
 | AIOPS-0024 | Admin AI dashboard with model control, token spend and failure log | draft | high | [spec](0024-admin-ai-model-control/spec.md) |
+
+| REVEXPLAIN-0023 | Bind Cambridge REV papers by marking-equivalent keys and document accepted forms | implementing | high | [spec](0023-revision-explanation-key-equivalence/spec.md) |
+
+| ROLECHECK-0026 | Admins can make a user an instructor because users.role has one correct CHECK | approved | high | [spec](0026-users-role-single-check/spec.md) |
+
+| ASSIGNDRAFT-0027 | Deleting a writing assignment can never erase a learner's draft | approved | high | [spec](0027-writing-draft-assignment-delete-guard/spec.md) |
+
+| CODEUNIQ-0028 | Access codes are unique and canonical in the repository schema | approved | high | [spec](0028-access-code-unique-canonical/spec.md) |
+
+| STUDENTARCHIVE-0029 | Admin student delete archives the learner with an audit trail instead of erasing their work | approved | critical | [spec](0029-student-archive/spec.md) |
+
+| GIVEARCHIVE-0031 | A Writing give can never create work for an archived learner, even when the archive lands mid-request | approved | high | [spec](0031-archived-learner-give-guard/spec.md) |
+
+| ADMINAAL2-0032 | Admin powers require a verified second factor and a suspended or demoted staff account loses access on its next request | approved | critical | [spec](0032-admin-aal2-staff-guard/spec.md) |
+
+| INACTIVEWRITE-0035 | An inactive account cannot write Vocabulary or flashcard rows through any path, including direct Supabase REST | approved | high | [spec](0035-inactive-learner-rest-write-guard/spec.md) |
+
+| ASYNCAUTH-0036 | Per-request auth and permission checks can run on the async DB client behind USE_ASYNC_DB without changing any access decision | approved | high | [spec](0036-async-db-auth-layer/spec.md) |

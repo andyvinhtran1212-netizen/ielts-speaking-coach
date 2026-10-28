@@ -17,6 +17,7 @@ The date in a report describes its observation window, not today's deployment.
 | Durable design decisions | [Architecture decisions](adr/README.md) |
 | Listening architecture | [Listening architecture](listening-architecture.md) |
 | AI provider routing and env vars | [AI provider routing](AI_PROVIDER_ROUTING.md) |
+| Content-Security-Policy | [CSP runbook](CONTENT_SECURITY_POLICY.md) |
 | Brand | [Brand index](brand/README.md) |
 | Repository maintenance | [Maintenance and scale](REPOSITORY_MAINTENANCE.md) |
 

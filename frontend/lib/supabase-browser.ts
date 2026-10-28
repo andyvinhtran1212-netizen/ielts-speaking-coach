@@ -7,6 +7,17 @@ type RuntimeConfig = {
   supabaseAnonKey?: string | null;
 };
 
+// F06: PKCE keeps OAuth tokens out of the address bar and history — the
+// redirect carries only a one-time `?code=` that is useless without the
+// verifier this tab stored. /login is the one owner of that exchange
+// (login-behavior.tsx), so the client never reads the URL on its own: an
+// unrelated `?code=` (e.g. /mock-exam?code=) must not be exchanged, and an
+// injected `#access_token=` fragment must not become a session.
+export const BROWSER_AUTH_OPTIONS = {
+  flowType: 'pkce',
+  detectSessionInUrl: false,
+} as const;
+
 let singleton: SupabaseClient | null = null;
 let singletonIdentity = '';
 
@@ -48,7 +59,7 @@ export function getBrowserSupabase(
     return singleton;
   }
 
-  singleton = createClient(url, anonKey);
+  singleton = createClient(url, anonKey, { auth: BROWSER_AUTH_OPTIONS });
   singletonIdentity = identity;
   return singleton;
 }

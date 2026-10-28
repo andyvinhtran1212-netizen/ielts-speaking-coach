@@ -1014,3 +1014,61 @@ describe('writing-dashboard.html / W-SOFTCHECK pre-submit spell check', () => {
     assert.ok(ta && ta[0].includes('spellcheck="false"') && ta[0].includes('data-gramm="false"'));
   });
 });
+
+
+// ── W-ASSIGN-STATUS — student never sees "Đã chấm" before the return ──
+//
+// The backend now moves writing_assignments to `graded` the moment AI grading
+// finishes, but the student can only open the result once the essay is
+// returned (`delivered`). Product decision 4(a): `graded` must still read as a
+// submitted / awaiting-return state on the student side.
+
+
+describe('writing-dashboard / W-ASSIGN-STATUS student assignment label', () => {
+  const assignmentStatus = () => {
+    const m = behavior.match(/const ASSIGNMENT_STATUS[^=]*=\s*\{([\s\S]*?)\};/);
+    assert.ok(m, 'ASSIGNMENT_STATUS must exist in writing-behavior.tsx');
+    return m[1];
+  };
+  const entry = (key) => {
+    const m = assignmentStatus().match(new RegExp(`\\b${key}\\s*:\\s*\\{([^}]*)\\}`));
+    assert.ok(m, `ASSIGNMENT_STATUS.${key} must exist`);
+    return m[1];
+  };
+
+  test('awaiting-return wording lives in exactly one constant', () => {
+    const decl = behavior.match(/const ASSIGNMENT_AWAITING_RETURN_TEXT\s*=\s*'([^']+)'/);
+    assert.ok(decl, 'ASSIGNMENT_AWAITING_RETURN_TEXT must be declared');
+    assert.equal(decl[1], '📥 Đã nộp · đang chờ trả bài');
+    assert.equal(behavior.split('đang chờ trả bài').length - 1, 1,
+      'the wording must not be duplicated elsewhere in the file');
+  });
+
+  test('graded (AI graded, not returned) shows the awaiting-return label, not "Đã chấm"', () => {
+    const graded = entry('graded');
+    assert.match(graded, /text:\s*ASSIGNMENT_AWAITING_RETURN_TEXT/);
+    assert.doesNotMatch(graded, /Đã chấm/);
+    // Same neutral tone as a plain submission — not the purple "done" pill.
+    assert.match(graded, /pill:\s*'pill-amber'/);
+  });
+
+  test('submitted shares the awaiting-return label with graded (same state to the student)', () => {
+    const submitted = entry('submitted');
+    assert.match(submitted, /text:\s*ASSIGNMENT_AWAITING_RETURN_TEXT/);
+    assert.match(submitted, /pill:\s*'pill-amber'/);
+  });
+
+  test('no assignment state renders "Đã chấm"; only delivered shows the returned result', () => {
+    assert.doesNotMatch(assignmentStatus(), /Đã chấm/);
+    assert.match(entry('delivered'), /text:\s*'📨 Đã nhận xét'/);
+    assert.match(entry('submitted'), /text:\s*ASSIGNMENT_AWAITING_RETURN_TEXT/);
+  });
+
+  test('essay pill keeps "Đã chấm" (clickable) for delivered only', () => {
+    const m = behavior.match(/const STATUS_CONFIG[^=]*=\s*\{([\s\S]*?)\};/);
+    assert.ok(m, 'STATUS_CONFIG must exist in writing-behavior.tsx');
+    const lines = m[1].split('\n').filter((l) => /Đã chấm/.test(l));
+    assert.equal(lines.length, 1);
+    assert.match(lines[0], /^\s*delivered\s*:[^}]*clickable:\s*true/);
+  });
+});

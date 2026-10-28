@@ -5,6 +5,9 @@ category: "environment"
 level: "C1"
 part_of_speech: "verb"
 pronunciation: "/dɪˈpliːt/"
+definition_en: "to use up or reduce a supply so that little of it remains."
+gloss_vi: "làm cạn kiệt, làm suy giảm nguồn dự trữ"
+example: "Expanding irrigated farming without limits could deplete local water reserves and create tensions between neighbouring communities."
 synonyms: ["exhaust", "drain", "use up", "diminish"]
 antonyms: ["replenish", "restore", "conserve"]
 collocations: ["deplete natural resources", "deplete the ozone layer", "rapidly depleting", "deplete reserves"]

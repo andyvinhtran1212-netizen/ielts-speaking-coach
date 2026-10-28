@@ -386,7 +386,7 @@ function WritingResultReady({ view, essayId }: { view: Extract<ResultView, { kin
                 <header className="section-header"><div><span className="essay-section__eyebrow">Đối chiếu bài làm</span><h2>📄 Bài viết của em</h2></div><span id="word-count" className="word-count">{countWritingWords(essay.essay_text)} từ</span></header>
                 <p className="essay-section__hint">Các đoạn gạch chân là vị trí có nhận xét. Chọn vào đoạn để xem cách sửa.</p>
                 <div id="prompt-box" className="prompt-box" />
-                {essay.task_type === 'task1_academic' && essay.prompt_image_url ? <img id="prompt-image" className="prompt-chart-img" role="button" tabIndex={0} src={essay.prompt_image_url} alt="Hình đề Task 1 của bài viết" onClick={openPromptImage} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openPromptImage(); } }} /> : null}
+                {essay.task_type === 'task1_academic' && essay.prompt_image_url ? <img id="prompt-image" className="prompt-chart-img" role="button" tabIndex={0} src={essay.prompt_image_url} alt="Hình đề Task 1 của bài viết" onClick={openPromptImage} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openPromptImage(); } }} /> : null}{essay.task_type === 'task1_academic' && !essay.prompt_image_url && essay.prompt_image_lookup_failed ? <p className="prompt-chart-failed" role="status">⚠ Không tải được hình đề Task 1. Tải lại trang để thử lại.</p> : null}
                 <pre id="essay-text" ref={essayRef} className="essay-original">—</pre>
               </section>
             </aside>

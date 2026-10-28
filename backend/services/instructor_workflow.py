@@ -42,6 +42,7 @@ from uuid import UUID
 
 from database import supabase_admin
 from services.core_writing_observation import note_writing_mutation
+from services import writing_assignment_status_sync
 from models.instructor_review import (
     InstructorQueueItem,
     InstructorReview,
@@ -332,6 +333,11 @@ def deliver(
         essay_update,
     ).eq("id", str(delivered.essay_id)).execute()
 
+    # W-ASSIGN-STATUS — the linked assignment follows the essay to
+    # 'delivered' (+ delivered_at, graded_at back-filled). Best-effort and
+    # idempotent, so the identical-retry path above is safe too.
+    writing_assignment_status_sync.mark_assignment_delivered(delivered.essay_id)
+
     # Step 3: stamp the feedback row. Idempotent — fetch current
     # version, append '-instructor' if missing.
     # GV-1a: read the CURRENT version's stamp via the view (was an arbitrary
@@ -387,7 +393,13 @@ def sync_revoke_review(essay_id: UUID) -> Optional[InstructorReview]:
     Conditional on status='delivered': a standard/admin essay with no review
     row — or a review not currently delivered — is a 0-row no-op, so the
     admin/mass-code path is untouched. Returns the updated review or None.
+
+    W-ASSIGN-STATUS — also steps the linked assignment delivered → graded
+    (delivered_at cleared). Done first and unconditionally because a
+    standard/admin essay has no review row but its assignment still needs to
+    leave 'delivered'. Best-effort; a no-assignment essay is a 0-row no-op.
     """
+    writing_assignment_status_sync.revert_assignment_delivery(essay_id)
     response = supabase_admin.table("instructor_reviews").update({
         "status":       InstructorReviewStatus.CLAIMED.value,
         "delivered_at": None,

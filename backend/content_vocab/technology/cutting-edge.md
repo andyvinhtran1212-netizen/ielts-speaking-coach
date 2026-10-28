@@ -5,6 +5,9 @@ category: "technology"
 level: "B2"
 part_of_speech: "adjective"
 pronunciation: "/ˈkʌt.ɪŋ.edʒ/"
+definition_en: "using the newest and most advanced ideas, methods or technology in a field."
+gloss_vi: "tiên tiến nhất, ở trình độ phát triển mới nhất"
+example: "Public funding for cutting-edge research should be guided by clear social goals and transparent review."
 synonyms: ["state-of-the-art", "advanced", "pioneering", "innovative"]
 antonyms: ["outdated", "obsolete", "primitive"]
 collocations: ["cutting-edge technology", "cutting-edge research", "cutting-edge innovation", "cutting-edge medical treatment"]

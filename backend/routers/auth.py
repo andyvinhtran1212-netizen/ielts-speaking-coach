@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from time import perf_counter
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Response
@@ -17,6 +17,7 @@ from models.auth import (
     AuthProfileResponse,
     AuthProfileUpdateResponse,
 )
+from services import activation_gate
 from services.server_timing import record_stage
 from services.feature_flags import is_flashcard_enabled
 from services import runtime_flags
@@ -139,6 +140,13 @@ async def get_supabase_user(authorization: str | None):
             detail="Invalid Authorization header",
         )
 
+    # W-03 — the router-level activation gate verifies the same bearer first;
+    # reuse that verification instead of a second Supabase Auth round-trip.
+    # The memo lives for one request only (see services.activation_gate).
+    remembered = activation_gate.remembered_user(token)
+    if remembered is not None:
+        return remembered
+
     auth_start = perf_counter()
     try:
         client = _get_auth_http_client()
@@ -156,9 +164,12 @@ async def get_supabase_user(authorization: str | None):
             },
         )
     except httpx.RequestError as e:
+        # Reachable before authentication: the transport error (upstream host,
+        # resolver/TLS detail) is logged, never returned to the caller.
+        logger.warning("[auth] Supabase token verification transport error: %r", e)
         raise HTTPException(
             status_code=502,
-            detail=f"Không thể kết nối Supabase để xác thực: {e}",
+            detail="Không thể kết nối dịch vụ xác thực. Vui lòng thử lại.",
         )
     finally:
         record_stage("auth", (perf_counter() - auth_start) * 1000)
@@ -166,10 +177,33 @@ async def get_supabase_user(authorization: str | None):
     if response.status_code != 200:
         raise HTTPException(status_code=401, detail="Token không hợp lệ hoặc đã hết hạn")
 
-    return response.json()
+    user = response.json()
+    activation_gate.remember_user(token, user)
+    return user
 
 
 # ── GET /auth/me ──────────────────────────────────────────────────────────────
+
+# BL-12 — /auth/me runs on every page load, so writing last_seen_at on each call
+# was one users UPDATE per navigation. Activity only needs minute granularity:
+# skip the write while the stored value is younger than this interval.
+LAST_SEEN_WRITE_INTERVAL = timedelta(minutes=5)
+
+
+def _last_seen_is_stale(value, now: datetime) -> bool:
+    """True when last_seen_at should be rewritten: missing, unparseable, or at
+    least LAST_SEEN_WRITE_INTERVAL old. A future timestamp (clock skew) counts as
+    fresh only within the interval, so a bad value cannot freeze the column."""
+    if not value:
+        return True
+    try:
+        seen = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return True
+    if seen.tzinfo is None:
+        seen = seen.replace(tzinfo=timezone.utc)
+    return abs(now - seen) >= LAST_SEEN_WRITE_INTERVAL
+
 
 @router.get("/me", response_model=AuthMeResponse)
 async def get_me(response: Response, authorization: str | None = Header(default=None)):
@@ -217,12 +251,14 @@ async def get_me(response: Response, authorization: str | None = Header(default=
 
     user = existing.data[0]
 
-    try:
-        supabase_admin.table("users").update(
-            {"last_seen_at": datetime.now(timezone.utc).isoformat()}
-        ).eq("id", user_id).execute()
-    except Exception:
-        pass  # non-fatal
+    now = datetime.now(timezone.utc)
+    if _last_seen_is_stale(user.get("last_seen_at"), now):
+        try:
+            supabase_admin.table("users").update(
+                {"last_seen_at": now.isoformat()}
+            ).eq("id", user_id).execute()
+        except Exception:
+            pass  # non-fatal
 
     flags = user.get("feature_flags") or {}
     # PR1 single-source: /auth/me returns the LIVE access-code permissions (same
@@ -380,6 +416,41 @@ def _rate_limit_activate(user_id: str) -> None:
     _activate_attempts[user_id] = window
 
 
+_ARCHIVED_PROFILE_DETAIL = (
+    "Hồ sơ học viên đã được lưu trữ — liên hệ admin. Mã CHƯA được sử dụng."
+)
+
+
+def _restore_archived_account_state(user_id: str, *, was_already_active: bool,
+                                    student_ids: list[str]) -> None:
+    """Undo /activate's Step 3 when a concurrent archive won (STUDENTARCHIVE-0029).
+
+    A fresh activation is reverted (as on a lost claim race). An already-active
+    account is set inactive again only if the latest archive locked it.
+    """
+    deactivate = not was_already_active
+    if not deactivate and student_ids:
+        try:
+            audit = (supabase_admin.table("student_lifecycle_audit")
+                     .select("action, detail, created_at")
+                     .in_("student_id", student_ids)
+                     .order("created_at", desc=True).limit(1).execute().data or [])
+            latest = audit[0] if audit else {}
+            deactivate = (latest.get("action") == "archive"
+                          and bool((latest.get("detail") or {}).get("account_deactivated")))
+        except Exception as e:
+            # Unknown archive intent: fail closed to the archive's strictest state.
+            logger.error("[auth] archive audit read failed user=%s: %s", user_id, e)
+            deactivate = True
+    if not deactivate:
+        return
+    try:
+        supabase_admin.table("users").update({"is_active": False}).eq("id", user_id).execute()
+    except Exception as e:
+        logger.error("[auth] archive rollback of is_active FAILED for user=%s (critical): %s",
+                     user_id, e)
+
+
 @router.post("/activate", response_model=AuthActivateResponse)
 async def activate_account(
     payload: ActivateRequest,
@@ -459,6 +530,30 @@ async def activate_account(
                        "dụng — đăng nhập bằng đúng email được cấp, hoặc liên hệ admin.",
             )
         promote_role = "instructor"
+
+    # ── Step 1c (STUDENTARCHIVE-0029): archived roster profile ───────────────
+    # An archived learner must not re-activate through a new code. Refuse BEFORE
+    # Step 3 touches users.is_active and before the code is claimed, so the
+    # account state is unchanged and the code stays unused. The profile is the
+    # one Step 3b would fold into: the user's linked rows (archived only when
+    # every linked row is), else the unlinked/self-linked row of this code.
+    try:
+        linked_profiles = (supabase_admin.table("students").select("id, user_id, archived_at")
+                           .eq("user_id", user_id).limit(20).execute().data or [])
+        code_profiles = (supabase_admin.table("students").select("id, user_id, archived_at")
+                         .eq("student_code", code).limit(1).execute().data or [])
+    except Exception as e:
+        raise HTTPException(500, f"Lỗi khi tra cứu hồ sơ học viên: {e}")
+    if linked_profiles:
+        profile_archived = all(row.get("archived_at") for row in linked_profiles)
+    else:
+        code_owner = code_profiles[0].get("user_id") if code_profiles else None
+        profile_archived = bool(
+            code_profiles and code_profiles[0].get("archived_at")
+            and (not code_owner or str(code_owner) == str(user_id))
+        )
+    if profile_archived:
+        raise HTTPException(status_code=403, detail=_ARCHIVED_PROFILE_DETAIL)
 
     # ── Step 2: upsert user row (in case /me was never called) ───────────────
     # Select `role` too so the promote below is upgrade-only / idempotent.
@@ -565,9 +660,13 @@ async def activate_account(
         if cohort_owner:
             enroll_owner = str(cohort_owner)
     try:
-        by_user = (supabase_admin.table("students").select("id, user_id, instructor_id, cohort_id")
-                   .eq("user_id", user_id).limit(1).execute().data or [])
-        by_code = (supabase_admin.table("students").select("id, user_id, instructor_id, cohort_id")
+        linked_rows = (supabase_admin.table("students")
+                       .select("id, user_id, instructor_id, cohort_id, archived_at")
+                       .eq("user_id", user_id).limit(20).execute().data or [])
+        # Fold into an active profile only; an archived one stays archived.
+        by_user = [row for row in linked_rows if not row.get("archived_at")][:1]
+        by_code = (supabase_admin.table("students")
+                   .select("id, user_id, instructor_id, cohort_id, archived_at")
                    .eq("student_code", code).limit(1).execute().data or [])
     except Exception as e:
         raise HTTPException(500, f"Lỗi khi tra cứu hồ sơ học viên: {e}")
@@ -579,6 +678,18 @@ async def activate_account(
         target = by_code[0]                              # admin-precreated unlinked bridge
     elif by_code and str(by_code[0].get("user_id")) == str(user_id):
         target = by_code[0]                              # already linked to me (idempotent)
+
+    # Archived between Step 1c and here (a concurrent fn_archive_student): every
+    # linked profile is now archived, or the code's own profile is. Refuse before
+    # any enroll write or claim — never create a replacement profile — and undo
+    # this request's Step 3 activation so the archive's account state stands.
+    if (linked_rows and not by_user) or (target and target.get("archived_at")):
+        _restore_archived_account_state(
+            user_id, was_already_active=was_already_active,
+            student_ids=[row["id"] for row in [*linked_rows, *([target] if target else [])]
+                         if row.get("id") and row.get("archived_at")],
+        )
+        raise HTTPException(status_code=403, detail=_ARCHIVED_PROFILE_DETAIL)
 
     # 2nd-code cross-instructor block: an already-owned student can NOT be moved to
     # a different instructor by another GV's enroll-code → REJECT 403, leave is_used

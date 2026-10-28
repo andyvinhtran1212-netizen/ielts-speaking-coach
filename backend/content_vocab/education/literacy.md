@@ -5,6 +5,9 @@ category: "education"
 level: "B2"
 part_of_speech: "noun"
 pronunciation: "/ˈlɪt.ər.ə.si/"
+definition_en: "the ability to read and write; also, the knowledge and skills needed to understand and use information in a particular field."
+gloss_vi: "khả năng đọc viết; năng lực hiểu và sử dụng thông tin trong một lĩnh vực"
+example: "Free library classes could improve literacy among adults who had limited access to schooling."
 synonyms: ["reading ability", "competence", "proficiency"]
 antonyms: ["illiteracy"]
 collocations: ["literacy rate", "digital literacy", "financial literacy", "improve literacy", "literacy skills", "functional literacy"]

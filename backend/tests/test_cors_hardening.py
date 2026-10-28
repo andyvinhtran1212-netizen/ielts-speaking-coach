@@ -1,6 +1,9 @@
-"""C-4.2 — CORS is tightened from "*" to the methods/headers the app uses, while
-the intentional subdomain regex + credentials stay (commit 4c9fc1e9). Exercises
-the REAL middleware on main.app via preflight (OPTIONS) requests.
+"""C-4.2 — CORS is tightened from "*" to the methods/headers the app uses, with
+credentials kept. F11 — origins are an exact allowlist (the *.averlearning.com
+regex is gone), resolved per deployment (services/cors_policy.py). Exercises the
+REAL middleware on main.app via preflight (OPTIONS) requests; pytest imports
+main as the development tier, so its allowlist is the localhost dev origins.
+Production/staging lists are exercised in test_cors_averlearning.py.
 """
 from __future__ import annotations
 
@@ -27,13 +30,13 @@ def _preflight(origin, method="POST", request_headers="authorization"):
     )
 
 
-# ── Origin: regex subdomains still allowed, foreign origins rejected ──────────
+# ── Origin: exact allowlist allowed, everything else rejected ─────────────────
 
-def test_apex_and_subdomains_allowed():
-    for origin in ("https://averlearning.com",
-                   "https://www.averlearning.com",
-                   "https://app.averlearning.com",
-                   "https://staging.averlearning.com"):
+def test_allowlisted_origins_allowed():
+    for origin in ("http://localhost:3000",
+                   "http://127.0.0.1:3000",
+                   "http://localhost:5500",
+                   "http://127.0.0.1:5500"):
         r = _preflight(origin)
         assert r.headers.get("access-control-allow-origin") == origin, origin
         # credentials kept
@@ -46,6 +49,15 @@ def test_foreign_origin_rejected():
     # a look-alike that is NOT a subdomain of averlearning.com must also fail
     r2 = _preflight("https://averlearning.com.evil.com")
     assert r2.headers.get("access-control-allow-origin") is None
+
+
+def test_unlisted_averlearning_subdomain_rejected():
+    """F11 — a credentialed CORS grant to every *.averlearning.com let a
+    dangling/taken-over subdomain read the API as the signed-in user."""
+    for origin in ("https://app.averlearning.com",
+                   "https://bat-ky.averlearning.com"):
+        r = _preflight(origin)
+        assert r.headers.get("access-control-allow-origin") is None, origin
 
 
 # ── Methods: app methods allowed, exotic blocked ─────────────────────────────

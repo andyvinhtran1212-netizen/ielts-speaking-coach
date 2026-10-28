@@ -455,7 +455,7 @@ function GrammarIssues({ issues, recommendations }: { issues: unknown; recommend
   return (
     <div>
       <div className="text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--av-error)' }}>
-        Grammar Issues
+        Lỗi ngữ pháp
       </div>
       <ul className="space-y-1 text-sm" style={{ color: 'var(--av-text-secondary)', listStyle: 'none', padding: 0 }}>
         {issues.map((issue, index) => {
@@ -540,7 +540,7 @@ function Corrections({ corrections }: { corrections: unknown }) {
   return (
     <div>
       <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--av-warning)' }}>
-        Corrections
+        Sửa lỗi
       </div>
       {corrections.map((correction: any, index) => (
         <div
@@ -590,7 +590,7 @@ function GrammarCheck({ groups, moreCount }: { groups: any[]; moreCount: number 
   if (!groups.length) return null;
   return (
     <div className="ds-grammar-section">
-      <p className="ds-grammar-section-head">Grammar Issues (LanguageTool)</p>
+      <p className="ds-grammar-section-head">Lỗi ngữ pháp (LanguageTool)</p>
       {groups.map((group) => (
         <div className="ds-grammar-category" key={group.category}>
           <p className="ds-grammar-category-title">{group.label}</p>
@@ -793,16 +793,16 @@ function QuestionFeedback({ card }: { card: any }) {
           <p className="text-xs italic mb-2" style={{ color: 'var(--av-text-secondary)' }}>
             Chế độ luyện tập — phản hồi dạng gợi ý (điểm mạnh, ngữ pháp, từ vựng, phát âm), không chấm theo 4 tiêu chí IELTS.
           </p>
-          <BulletSection items={feedback?.strengths} title="Strengths" tone="var(--av-success)" />
+          <BulletSection items={feedback?.strengths} title="Điểm mạnh" tone="var(--av-success)" />
           <GrammarIssues issues={feedback?.grammar_issues} recommendations={feedback?.grammar_recommendations} />
-          <BulletSection items={feedback?.vocabulary_issues} title="Vocabulary Issues" tone="var(--av-warning)" />
+          <BulletSection items={feedback?.vocabulary_issues} title="Lỗi từ vựng" tone="var(--av-warning)" />
           <VocabRecommendations recommendations={feedback?.vocab_recommendations} />
           <BulletSection items={feedback?.pronunciation_issues} title="Luyện phát âm — gợi ý chung" tone="var(--av-info)" />
           <Corrections corrections={feedback?.corrections} />
           {feedback?.sample_answer ? (
             <div>
               <div className="text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--av-primary)' }}>
-                Sample Answer
+                Bài nói mẫu
               </div>
               <div className="improved-block text-sm">{feedback.sample_answer}</div>
             </div>
@@ -882,7 +882,7 @@ function QuestionAccordion({
                 <span className="text-xs av-text-faint">Chưa có câu trả lời</span>
               )}
               {card.isPractice && card.bandPills.length ? (
-                <span className="text-xs" style={{ color: 'var(--av-text-muted)' }}>Practice mode</span>
+                <span className="text-xs" style={{ color: 'var(--av-text-muted)' }}>Chế độ luyện tập</span>
               ) : null}
             </span>
           </span>

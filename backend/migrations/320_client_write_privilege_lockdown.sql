@@ -45,13 +45,18 @@
 --      table, view, materialized view and foreign table, except the five
 --      learner-owned Vocabulary/flashcard tables (which only lose anon writes
 --      and TRUNCATE/REFERENCES/TRIGGER), and revokes sequence UPDATE (setval)
---      from the client roles (nextval keeps working through USAGE);
+--      from the client roles (nextval keeps working through USAGE). On
+--      PostgreSQL 17+ it also revokes MAINTAIN (VACUUM, ANALYZE, REINDEX,
+--      CLUSTER, REFRESH MATERIALIZED VIEW, LOCK TABLE) from all three client
+--      roles on every relation, the learner-owned tables included — no client
+--      path uses it (see "PostgreSQL 17 MAINTAIN" below);
 --   2. changes the default privileges of the table owner `postgres`, of the
 --      runner itself and of every other role holding a default ACL in public,
 --      for each role the runner may act for (superuser or member), so
 --      tables/sequences created later in public are not client-writable
---      unless a migration grants it explicitly. A default ACL of a role the
---      runner cannot act for — `supabase_admin` on hosted Supabase, where the
+--      unless a migration grants it explicitly (MAINTAIN is revoked from
+--      these defaults too on PG 17+). A default ACL of a role the runner
+--      cannot act for — `supabase_admin` on hosted Supabase, where the
 --      runner `postgres` is neither superuser nor a member — cannot be changed
 --      by this migration; step 8 reports it as a WARNING instead of failing
 --      (see "Production pre-check" below). Function EXECUTE defaults are
@@ -87,6 +92,19 @@
 -- SELECT privileges, RLS read policies and storage are unchanged. No data is
 -- read or rewritten.
 --
+-- PostgreSQL 17 MAINTAIN. Staging and production run PG 17.6, where `GRANT
+-- ALL ON TABLES` (the Supabase default ACL) also grants the new MAINTAIN
+-- privilege; ~102 existing public tables grant it to authenticated. The first
+-- staging apply aborted (and rolled back) on
+--   client_default_write_privilege_survives: postgres:r:anon:MAINTAIN, …
+-- because steps 1–2 did not revoke it. MAINTAIN is not a row write, but it
+-- lets the holder take an ACCESS EXCLUSIVE lock (LOCK TABLE, REINDEX,
+-- CLUSTER) or refresh a materialized view, and nothing in the client contract
+-- needs it, so it is revoked rather than allow-listed: every default-ACL entry
+-- other than SELECT stays a strict postcondition failure. CI runs PG 16, which
+-- has no MAINTAIN privilege (naming it is a syntax error there), so those
+-- statements run only when server_version_num >= 170000.
+--
 -- Rollout ordering. The previous backend wrote vocabulary_exercise_attempts /
 -- d1_sessions and called fn_finalize_d1_attempt with the learner JWT. Between
 -- applying 320 and promoting the backend that ships with it, D1 attempt and D1
@@ -110,6 +128,8 @@
 --   ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
 --     REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
 --     ON TABLES FROM PUBLIC, anon, authenticated;
+--   ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
+--     REVOKE MAINTAIN ON TABLES FROM PUBLIC, anon, authenticated;
 --   ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
 --     REVOKE UPDATE ON SEQUENCES FROM PUBLIC, anon, authenticated;
 -- after which the second query below returns zero rows.
@@ -136,6 +156,12 @@
 --      AND a.grantee IN (0, 'anon'::regrole, 'authenticated'::regrole)
 --      AND ((d.defaclobjtype = 'r' AND a.privilege_type <> 'SELECT')
 --           OR (d.defaclobjtype = 'S' AND a.privilege_type = 'UPDATE'));
+--   -- PG 17+: client MAINTAIN on relations
+--   SELECT c.relname, r.rolname
+--     FROM pg_class c CROSS JOIN (VALUES ('anon'), ('authenticated')) r(rolname)
+--    WHERE c.relnamespace = 'public'::regnamespace
+--      AND c.relkind IN ('r','p','v','m','f')
+--      AND has_table_privilege(r.rolname, c.oid, 'MAINTAIN');
 --   -- client-executable SECURITY DEFINER functions
 --   SELECT p.oid::regprocedure FROM pg_proc p
 --    WHERE p.pronamespace = 'public'::regnamespace AND p.prosecdef
@@ -169,6 +195,8 @@ DECLARE
     client_write_tables CONSTANT TEXT[] := ARRAY[
         'user_vocabulary', 'flashcard_stacks', 'flashcard_cards',
         'flashcard_reviews', 'flashcard_review_log'];
+    -- PG 17 added MAINTAIN; PG 16 (CI) rejects the keyword.
+    has_maintain CONSTANT BOOLEAN := current_setting('server_version_num')::int >= 170000;
     rel RECORD;
 BEGIN
     FOR rel IN
@@ -191,6 +219,9 @@ BEGIN
                 'REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON %s FROM authenticated',
                 rel.name);
         END IF;
+        IF has_maintain THEN
+            EXECUTE format('REVOKE MAINTAIN ON %s FROM PUBLIC, anon, authenticated', rel.name);
+        END IF;
     END LOOP;
 END $$;
 
@@ -205,6 +236,7 @@ REVOKE UPDATE ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC, anon, authenticated
 -- verifies those strictly and warns about the others.
 DO $$
 DECLARE
+    has_maintain CONSTANT BOOLEAN := current_setting('server_version_num')::int >= 170000;
     owner_role TEXT;
 BEGIN
     FOR owner_role IN
@@ -222,6 +254,11 @@ BEGIN
             'ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public '
             'REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER '
             'ON TABLES FROM PUBLIC, anon, authenticated', owner_role);
+        IF has_maintain THEN
+            EXECUTE format(
+                'ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public '
+                'REVOKE MAINTAIN ON TABLES FROM PUBLIC, anon, authenticated', owner_role);
+        END IF;
         EXECUTE format(
             'ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public '
             'REVOKE UPDATE ON SEQUENCES FROM PUBLIC, anon, authenticated', owner_role);
@@ -435,6 +472,10 @@ DECLARE
     client_write_tables CONSTANT TEXT[] := ARRAY[
         'user_vocabulary', 'flashcard_stacks', 'flashcard_cards',
         'flashcard_reviews', 'flashcard_review_log'];
+    -- MAINTAIN only exists on PG 17+; has_table_privilege rejects it on PG 16.
+    checked_privileges CONSTANT TEXT[] := ARRAY['INSERT', 'UPDATE', 'DELETE', 'TRUNCATE']
+        || CASE WHEN current_setting('server_version_num')::int >= 170000
+                THEN ARRAY['MAINTAIN'] ELSE ARRAY[]::TEXT[] END;
     leaks TEXT;
     unrevocable TEXT;
 BEGIN
@@ -444,7 +485,7 @@ BEGIN
       FROM pg_class c
       JOIN pg_namespace ns ON ns.oid = c.relnamespace
      CROSS JOIN (VALUES ('anon'), ('authenticated')) r(rolname)
-     CROSS JOIN (VALUES ('INSERT'), ('UPDATE'), ('DELETE'), ('TRUNCATE')) p(priv)
+     CROSS JOIN unnest(checked_privileges) p(priv)
      WHERE ns.nspname = 'public'
        AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
        AND CASE WHEN p.priv IN ('INSERT', 'UPDATE')
@@ -452,7 +493,7 @@ BEGIN
                 ELSE has_table_privilege(r.rolname, c.oid, p.priv) END
        AND NOT (r.rolname = 'authenticated'
                 AND c.relname = ANY (client_write_tables)
-                AND p.priv <> 'TRUNCATE')
+                AND p.priv NOT IN ('TRUNCATE', 'MAINTAIN'))
        AND NOT (r.rolname = 'authenticated' AND c.relname = 'user_d1_questions'
                 AND p.priv = 'UPDATE');
     IF leaks IS NOT NULL THEN

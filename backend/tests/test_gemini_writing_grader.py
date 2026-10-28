@@ -82,9 +82,9 @@ async def test_grade_essay_returns_valid_result(grader):
     assert result.cost_usd is not None
     assert result.grading_duration_ms >= 0
     # Default flipped to v2 (config.py, 2026-07-10 audit finding #1) → stamps
-    # "v2.2". v1-stamping is still covered explicitly by
+    # "v2.3". v1-stamping is still covered explicitly by
     # test_grade_essay_picks_up_version_change_without_restart below.
-    assert result.prompt_version == "v2.2"
+    assert result.prompt_version == "v2.3"
 
 
 @pytest.mark.asyncio
@@ -394,11 +394,12 @@ async def test_grade_essay_picks_up_version_change_without_restart(
     # Same grader instance, but next call must pick up v2.
     with patch.object(grader, "_call_with_retry", return_value=(json_payload, usage)):
         result_v2 = await grader.grade_essay(config)
-    # Stamp value moved to v2.2 for source grounding;
+    # Stamp value moved to v2.2 for source grounding and v2.3 for the
+    # mistakeAnalysis minimum below band 8.5;
     # the env-flip behaviour pinned by this test is independent of which
     # specific stamp v2 maps to today.
-    assert result_v2.prompt_version == "v2.2", (
-        f"Expected v2.2 after env flip, got {result_v2.prompt_version}. "
+    assert result_v2.prompt_version == "v2.3", (
+        f"Expected v2.3 after env flip, got {result_v2.prompt_version}. "
         f"Likely regression: grader cached loader at __init__."
     )
 
@@ -426,10 +427,10 @@ async def test_grade_essay_stamp_matches_loader_used(
 
     # Stamp must equal the v2 loader's PROMPT_VERSION property — not
     # whatever the env happens to read at stamping time. The current
-    # stamp is "v2.2" (source grounding); the
+    # stamp is "v2.3" (grounding + mistake minimum); the
     # property-equality assertion above survives any future bump.
     assert result.prompt_version == wpl.get_prompt_loader(version="v2").PROMPT_VERSION
-    assert result.prompt_version == "v2.2"
+    assert result.prompt_version == "v2.3"
 
 
 def test_build_user_prompt_injects_trajectory_when_present(grader):
@@ -461,3 +462,431 @@ def test_build_user_prompt_injects_trajectory_when_present(grader):
     assert "Task Response"           in prompt
     assert "bandTrajectoryAnalysis"  in prompt
     assert "current_band"            in prompt
+
+
+# ── Parse robustness (Claude has no JSON response mode) ──────────────
+
+def test_parse_response_reads_a_fenced_object_with_a_trailing_note(grader):
+    text = "```json\n" + json.dumps(VALID_FEEDBACK) + "\n```\n\nGhi chú: {không phải JSON}"
+    assert grader._parse_response(text).overallBandScore == 6.5
+
+
+def test_parse_response_accepts_a_raw_newline_inside_a_string(grader):
+    text = json.dumps(VALID_FEEDBACK, ensure_ascii=False).replace(
+        "Improved version of the essay…", "Paragraph one.\nParagraph two.")
+    assert "Paragraph one.\nParagraph" in text          # a raw control character
+    assert grader._parse_response(text).improvedEssay == "Paragraph one.\nParagraph two."
+
+
+def test_parse_response_schema_error_names_fields_without_model_text(grader):
+    data = json.loads(json.dumps(VALID_FEEDBACK))
+    data["criteriaFeedback"]["mainCriterion"]["bandScore"] = "MODEL-WROTE-THIS"
+    with pytest.raises(InvalidJSONError) as err:
+        grader._parse_response(json.dumps(data))
+    message = str(err.value)
+    assert "criteriaFeedback.mainCriterion.bandScore: int_parsing" in message
+    assert "MODEL-WROTE-THIS" not in message
+
+
+# ── Claude attempt + grounding repair ────────────────────────────────
+
+GROUNDED_ESSAY = "Governments should invest in dedicated bus lanes and employment centres."
+
+
+GROUNDED_MISTAKE = {"original": "invest in dedicated bus lanes", "mistakeType": "Word Choice",
+                    "explanation": "...", "suggestion": "invest heavily in dedicated bus lanes",
+                    "criterion": "Lexical Resource"}
+
+
+def _claude_feedback(claim: str, mistakes: list | None = None) -> str:
+    data = json.loads(json.dumps(VALID_FEEDBACK))
+    data["mistakeAnalysis"] = [GROUNDED_MISTAKE] if mistakes is None else mistakes
+    data["criteriaFeedback"]["lexicalResource"]["feedback"] = claim
+    return json.dumps(data)
+
+
+GOOD_CLAUDE = _claude_feedback("Em dùng 'dedicated bus lanes' phù hợp.")
+UNGROUNDED_CLAUDE = _claude_feedback("Em dùng 'subsidies' tự nhiên.")
+
+
+@pytest.fixture
+def writing_providers(monkeypatch):
+    """Fake Claude + Gemini behind the real grader, router and ledger calls."""
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, MagicMock
+
+    from config import settings as real_settings
+    from services import ai_router, ai_usage_logger
+    from services import gemini_writing_grader as gwg
+
+    monkeypatch.setattr(real_settings, "ANTHROPIC_API_KEY", "test-anthropic-key")
+    monkeypatch.setattr(real_settings, "AI_PROVIDER_ORDER", "anthropic,openai,gemini")
+    monkeypatch.setattr(real_settings, "AI_PROVIDER_ORDER_WRITING_GRADING", "")
+    state = SimpleNamespace(claude=[], claude_requests=[], gemini=[GOOD_CLAUDE],
+                            gemini_calls=[], rows=[])
+
+    def capture(coro):
+        kwargs = dict(coro.cr_frame.f_locals.get("kwargs") or {})
+        kwargs.setdefault("service", "claude" if coro.cr_code.co_name == "log_claude_async"
+                          else "gemini")
+        state.rows.append(kwargs)
+        coro.close()
+
+    async def create(**request):
+        state.claude_requests.append(request)
+        item = state.claude.pop(0)
+        if callable(item):
+            return await item()
+        return SimpleNamespace(
+            content=[SimpleNamespace(type="text", text=item)], stop_reason="end_turn",
+            usage=SimpleNamespace(input_tokens=700, output_tokens=6000,
+                                  cache_read_input_tokens=0, cache_creation_input_tokens=0),
+        )
+
+    def generate(contents, **_kw):
+        state.gemini_calls.append(contents)
+        text = state.gemini[min(len(state.gemini_calls), len(state.gemini)) - 1]
+        if isinstance(text, Exception):
+            raise text
+        return SimpleNamespace(
+            candidates=[SimpleNamespace(finish_reason=SimpleNamespace(name="STOP"))],
+            text=text, usage_metadata=None,
+        )
+
+    monkeypatch.setattr(ai_usage_logger, "schedule_usage_log", capture)
+    monkeypatch.setattr(ai_router, "_client",
+                        lambda *_a, **_k: SimpleNamespace(messages=SimpleNamespace(create=create)))
+    monkeypatch.setattr(gwg.genai, "configure", lambda **_kw: None)
+    monkeypatch.setattr(gwg.genai, "GenerativeModel",
+                        MagicMock(return_value=MagicMock(generate_content=generate)))
+    monkeypatch.setattr(gwg.asyncio, "sleep", AsyncMock())
+    state.grader = gwg.GeminiWritingGrader(api_key="test-gemini")
+    return state
+
+
+def _grounded_config() -> GraderConfig:
+    return GraderConfig(task_type="task2", prompt_text="Transport", essay_text=GROUNDED_ESSAY,
+                        analysis_level=3, selected_model="gemini-3.8-flash",
+                        usage_event_prefix="writing:test")
+
+
+def _claude_user_text(request: dict) -> str:
+    return request["messages"][0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_claude_ungrounded_answer_is_repaired_on_claude(writing_providers):
+    state = writing_providers
+    state.claude = [UNGROUNDED_CLAUDE, GOOD_CLAUDE]
+    result = await state.grader.grade_essay(_grounded_config())
+
+    assert result.model_used == "claude-sonnet-5-5"
+    assert state.gemini_calls == []
+    first, repair = (_claude_user_text(r) for r in state.claude_requests)
+    assert "Regenerate the complete" not in first
+    assert repair.startswith(first) and "Regenerate the complete" in repair
+    assert "subsidies" in repair                    # the unsupported citation is named
+    claude_rows = [r for r in state.rows if r["service"] == "claude"]
+    assert [r["status"] for r in claude_rows] == ["invalid_response", "success"]
+    assert claude_rows[0]["error_code"] == "ungrounded_feedback"
+    assert claude_rows[0]["metadata"]["error_detail"].startswith("Unsupported essay citations at")
+    assert [r["usage_event_id"] for r in claude_rows] == [
+        "writing:test:pass1:anthropic:1", "writing:test:pass1:anthropic:2"]
+    assert len(state.rows) == 2
+    assert "subsidies" not in json.dumps(state.rows, default=str)
+
+
+@pytest.mark.asyncio
+async def test_claude_failing_twice_leaves_the_gemini_loop_unchanged(writing_providers, monkeypatch):
+    state = writing_providers
+    state.gemini = [UNGROUNDED_CLAUDE, GOOD_CLAUDE]     # Gemini needs its own repair too
+
+    # Baseline: Gemini-only grading of the same essay.
+    from config import settings as real_settings
+    monkeypatch.setattr(real_settings, "ANTHROPIC_API_KEY", "")
+    baseline = await state.grader.grade_essay(_grounded_config())
+    baseline_calls = list(state.gemini_calls)
+    state.gemini_calls.clear()
+    state.rows.clear()
+
+    monkeypatch.setattr(real_settings, "ANTHROPIC_API_KEY", "test-anthropic-key")
+    state.claude = [UNGROUNDED_CLAUDE, UNGROUNDED_CLAUDE]
+    result = await state.grader.grade_essay(_grounded_config())
+
+    assert len(state.claude_requests) == 2
+    assert result.model_used == baseline.model_used == "gemini-3.8-flash"
+    assert state.gemini_calls == baseline_calls and len(baseline_calls) == 2
+    claude_rows = [r for r in state.rows if r["service"] == "claude"]
+    assert [r["error_code"] for r in claude_rows] == ["ungrounded_feedback"] * 2
+    assert [r["usage_event_id"] for r in claude_rows] == [
+        "writing:test:pass1:anthropic:1", "writing:test:pass1:anthropic:2"]
+
+
+@pytest.mark.asyncio
+async def test_claude_invalid_json_is_not_re_asked(writing_providers):
+    state = writing_providers
+    state.claude = ['{"overallBandScore": 6.5, "keyTakeaways": {"strengths": []} "truncated']
+    result = await state.grader.grade_essay(_grounded_config())
+    assert len(state.claude_requests) == 1
+    assert result.model_used == "gemini-3.8-flash" and len(state.gemini_calls) == 1
+    claude_row = next(r for r in state.rows if r["service"] == "claude")
+    assert claude_row["error_code"] == "invalid_json"
+    assert claude_row["metadata"]["error_detail"].startswith("JSON parse failed:")
+
+
+@pytest.mark.asyncio
+async def test_claude_repair_needs_budget_left(writing_providers, monkeypatch):
+    from services import gemini_writing_grader as gwg
+
+    state = writing_providers
+    monkeypatch.setattr(gwg, "CLAUDE_TOTAL_BUDGET_S", gwg.CLAUDE_REPAIR_MIN_S - 1)
+    state.claude = [UNGROUNDED_CLAUDE, GOOD_CLAUDE]
+    result = await state.grader.grade_essay(_grounded_config())
+    assert len(state.claude_requests) == 1
+    assert result.model_used == "gemini-3.8-flash"
+
+
+@pytest.mark.asyncio
+async def test_claude_repair_is_cut_off_at_the_budget(writing_providers, monkeypatch):
+    import asyncio
+
+    from services import gemini_writing_grader as gwg
+
+    state = writing_providers
+    monkeypatch.setattr(gwg, "CLAUDE_REPAIR_MIN_S", 0.0)
+    monkeypatch.setattr(gwg, "CLAUDE_TOTAL_BUDGET_S", 0.2)
+
+    async def hang():
+        await asyncio.Event().wait()
+
+    state.claude = [UNGROUNDED_CLAUDE, hang]
+    result = await state.grader.grade_essay(_grounded_config())
+    assert len(state.claude_requests) == 2
+    assert result.model_used == "gemini-3.8-flash" and len(state.gemini_calls) == 1
+    claude_rows = [r for r in state.rows if r["service"] == "claude"]
+    assert [r["status"] for r in claude_rows] == ["invalid_response", "cancelled"]
+
+
+def _claude_feedback_with_mistakes(originals: list[str]) -> str:
+    data = json.loads(GOOD_CLAUDE)
+    data["mistakeAnalysis"] = [
+        {"original": o, "mistakeType": "Lexis", "explanation": "...",
+         "suggestion": "A suggested rewrite.", "criterion": "Lexical Resource"}
+        for o in originals
+    ]
+    return json.dumps(data)
+
+
+def _config_with_essay_id() -> GraderConfig:
+    config = _grounded_config()
+    config.usage_resource_id = "essay-abc"
+    return config
+
+
+@pytest.mark.asyncio
+async def test_claude_bounded_misquote_is_dropped_not_regraded(writing_providers):
+    # Staging repro shape (a4eeb1b4): one mistakeAnalysis.original with an
+    # invented subject among otherwise verbatim items.
+    state = writing_providers
+    state.claude = [_claude_feedback_with_mistakes(
+        ["dedicated bus lanes", "it is employment centres", "Governments should invest"])]
+    result = await state.grader.grade_essay(_config_with_essay_id())
+
+    assert result.model_used == "claude-sonnet-5-5"
+    assert len(state.claude_requests) == 1 and state.gemini_calls == []
+    assert [m.original for m in result.feedback.mistakeAnalysis] == [
+        "dedicated bus lanes", "Governments should invest"]
+    (row,) = [r for r in state.rows if r["service"] == "claude"]
+    assert row["status"] == "success"
+    assert row["metadata"]["essay_id"] == "essay-abc"
+    assert row["metadata"]["grounding_dropped"] == ["mistakeAnalysis[1]"]
+    assert row["metadata"]["grounding_dropped_count"] == 1
+    assert "it is employment" not in json.dumps(state.rows, default=str)
+
+
+@pytest.mark.asyncio
+async def test_claude_repair_rows_carry_essay_id_and_name_failed_citations(writing_providers):
+    state = writing_providers
+    state.claude = [UNGROUNDED_CLAUDE, GOOD_CLAUDE]
+    await state.grader.grade_essay(_config_with_essay_id())
+
+    repair = _claude_user_text(state.claude_requests[1])
+    assert '- criteriaFeedback.lexicalResource.feedback: "subsidies"' in repair
+    claude_rows = [r for r in state.rows if r["service"] == "claude"]
+    assert [r["metadata"]["essay_id"] for r in claude_rows] == ["essay-abc", "essay-abc"]
+    assert claude_rows[0]["metadata"]["error_detail"] == (
+        "Unsupported essay citations at criteriaFeedback.lexicalResource.feedback")
+    assert "grounding_dropped" not in claude_rows[1]["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_gemini_rows_after_claude_fallback_carry_error_detail(writing_providers):
+    state = writing_providers
+    state.claude = [UNGROUNDED_CLAUDE, UNGROUNDED_CLAUDE]
+    state.gemini = [UNGROUNDED_CLAUDE, GOOD_CLAUDE]
+    result = await state.grader.grade_essay(_config_with_essay_id())
+
+    assert result.model_used == "gemini-3.8-flash"
+    gemini_rows = [r for r in state.rows if r["service"] == "gemini"]
+    assert [r["status"] for r in gemini_rows] == ["invalid_response", "success"]
+    assert gemini_rows[0]["error_code"] == "ungrounded_feedback"
+    assert gemini_rows[0]["metadata"]["error_detail"].startswith("Unsupported essay citations at")
+    assert all(r["metadata"]["essay_id"] == "essay-abc" for r in state.rows)
+
+
+# ── mistakeAnalysis minimum below band 8.5 (missing_mistake_analysis) ─
+
+EMPTY_CLAUDE = _claude_feedback("Em dùng 'dedicated bus lanes' phù hợp.", mistakes=[])
+# Only a non-correction (original == suggestion): essay_service drops it, so
+# it does not count as a real entry.
+NONCORRECTION_CLAUDE = _claude_feedback("Em dùng 'dedicated bus lanes' phù hợp.", mistakes=[
+    {**GROUNDED_MISTAKE, "suggestion": GROUNDED_MISTAKE["original"]}])
+
+
+def _with_band(text: str, band: float) -> str:
+    data = json.loads(text)
+    data["overallBandScore"] = band
+    return json.dumps(data)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("first", [EMPTY_CLAUDE, NONCORRECTION_CLAUDE])
+async def test_claude_empty_mistake_analysis_is_repaired_once_on_claude(writing_providers, first):
+    state = writing_providers
+    state.claude = [first, GOOD_CLAUDE]
+    result = await state.grader.grade_essay(_config_with_essay_id())
+
+    assert result.model_used == "claude-sonnet-5-5" and state.gemini_calls == []
+    assert len(result.feedback.mistakeAnalysis) == 1
+    first_text, repair = (_claude_user_text(r) for r in state.claude_requests)
+    assert repair.startswith(first_text) and "no usable mistakeAnalysis" in repair
+    assert "INCLUDING the learner's errors" in repair
+    claude_rows = [r for r in state.rows if r["service"] == "claude"]
+    assert [r["status"] for r in claude_rows] == ["invalid_response", "success"]
+    assert claude_rows[0]["error_code"] == "missing_mistake_analysis"
+    assert claude_rows[0]["metadata"]["error_detail"] == (
+        "mistakeAnalysis has no real correction at overallBandScore 6.5 (< 8.5)")
+    assert "dedicated bus lanes" not in json.dumps(state.rows, default=str)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("first", [EMPTY_CLAUDE, UNGROUNDED_CLAUDE])
+async def test_claude_gets_at_most_one_repair_then_falls_back_to_gemini(writing_providers, first):
+    state = writing_providers
+    state.claude = [first, EMPTY_CLAUDE, GOOD_CLAUDE]       # a 3rd answer is never requested
+    result = await state.grader.grade_essay(_grounded_config())
+
+    assert len(state.claude_requests) == 2
+    assert result.model_used == "gemini-3.8-flash" and len(state.gemini_calls) == 1
+    claude_rows = [r for r in state.rows if r["service"] == "claude"]
+    assert claude_rows[-1]["error_code"] == "missing_mistake_analysis"
+
+
+@pytest.mark.asyncio
+async def test_empty_mistake_analysis_is_accepted_at_band_8_5(writing_providers):
+    state = writing_providers
+    state.claude = [_with_band(EMPTY_CLAUDE, 8.5)]
+    result = await state.grader.grade_essay(_grounded_config())
+    assert len(state.claude_requests) == 1 and result.model_used == "claude-sonnet-5-5"
+    assert result.feedback.mistakeAnalysis == []
+    (row,) = [r for r in state.rows if r["service"] == "claude"]
+    assert row["status"] == "success" and "mistake_analysis_missing" not in row["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_gemini_repairs_then_accepts_empty_mistakes_on_its_last_attempt(writing_providers, monkeypatch):
+    from config import settings as real_settings
+    from services import gemini_writing_grader as gwg
+
+    state = writing_providers
+    monkeypatch.setattr(real_settings, "ANTHROPIC_API_KEY", "")
+    state.gemini = [EMPTY_CLAUDE]
+    result = await state.grader.grade_essay(_config_with_essay_id())
+
+    assert result.model_used == "gemini-3.8-flash"
+    assert result.feedback.mistakeAnalysis == []                    # graded, not failed
+    assert len(state.gemini_calls) == gwg.MAX_RETRIES               # no extra attempt
+    assert "no usable mistakeAnalysis" not in state.gemini_calls[0]
+    assert all("no usable mistakeAnalysis" in c for c in state.gemini_calls[1:])
+    rows = [r for r in state.rows if r["service"] == "gemini"]
+    assert [r["status"] for r in rows] == ["invalid_response", "invalid_response", "success"]
+    assert [r.get("error_code") for r in rows[:2]] == ["missing_mistake_analysis"] * 2
+    assert rows[2]["metadata"]["mistake_analysis_missing"] is True
+
+
+@pytest.mark.asyncio
+async def test_gemini_repair_that_lists_a_mistake_is_served(writing_providers, monkeypatch):
+    from config import settings as real_settings
+
+    state = writing_providers
+    monkeypatch.setattr(real_settings, "ANTHROPIC_API_KEY", "")
+    state.gemini = [EMPTY_CLAUDE, GOOD_CLAUDE]
+    result = await state.grader.grade_essay(_grounded_config())
+    assert len(state.gemini_calls) == 2 and len(result.feedback.mistakeAnalysis) == 1
+
+
+@pytest.mark.asyncio
+async def test_gemini_returns_the_empty_answer_when_later_attempts_error(writing_providers, monkeypatch):
+    from config import settings as real_settings
+    from services import gemini_writing_grader as gwg
+
+    state = writing_providers
+    monkeypatch.setattr(real_settings, "ANTHROPIC_API_KEY", "")
+    state.gemini = [EMPTY_CLAUDE, RuntimeError("503"), RuntimeError("503")]
+    result = await state.grader.grade_essay(_grounded_config())
+    assert len(state.gemini_calls) == gwg.MAX_RETRIES
+    assert result.model_used == "gemini-3.8-flash" and result.feedback.mistakeAnalysis == []
+
+
+@pytest.mark.asyncio
+async def test_claude_repair_failure_then_gemini_never_hard_fails_on_the_check(writing_providers):
+    state = writing_providers
+    state.claude = [EMPTY_CLAUDE, EMPTY_CLAUDE]
+    state.gemini = [EMPTY_CLAUDE]
+    result = await state.grader.grade_essay(_grounded_config())
+    assert len(state.claude_requests) == 2
+    assert result.model_used == "gemini-3.8-flash" and result.feedback.mistakeAnalysis == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("budget_for_repair", [True, False])
+async def test_claude_as_last_provider_accepts_empty_mistakes_rather_than_fail(
+        writing_providers, monkeypatch, budget_for_repair):
+    from config import settings as real_settings
+    from services import gemini_writing_grader as gwg
+
+    state = writing_providers
+    monkeypatch.setattr(real_settings, "AI_PROVIDER_ORDER_WRITING_GRADING", "gemini,anthropic")
+    if not budget_for_repair:
+        monkeypatch.setattr(gwg, "CLAUDE_TOTAL_BUDGET_S", gwg.CLAUDE_REPAIR_MIN_S - 1)
+    state.gemini = [RuntimeError("gemini down")]
+    state.claude = [EMPTY_CLAUDE, EMPTY_CLAUDE]
+    result = await state.grader.grade_essay(_grounded_config())
+
+    assert len(state.gemini_calls) == gwg.MAX_RETRIES
+    assert len(state.claude_requests) == (2 if budget_for_repair else 1)
+    assert result.model_used == "claude-sonnet-5-5" and result.feedback.mistakeAnalysis == []
+    assert result.cost_usd and result.cost_usd > 0
+    claude_rows = [r for r in state.rows if r["service"] == "claude"]
+    assert claude_rows[0]["error_code"] == "missing_mistake_analysis"
+    if budget_for_repair:
+        assert claude_rows[1]["status"] == "success"
+        assert claude_rows[1]["metadata"]["mistake_analysis_missing"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("second", [EMPTY_CLAUDE, UNGROUNDED_CLAUDE])
+async def test_claude_empty_answer_is_served_when_the_gemini_fallback_fails(writing_providers, second):
+    # Codex #1730: Anthropic-first, Claude's answer fails only this check and
+    # Gemini is down — the usable Claude answer must not end in a hard failure.
+    from services import gemini_writing_grader as gwg
+
+    state = writing_providers
+    state.claude = [EMPTY_CLAUDE, second]
+    state.gemini = [RuntimeError("gemini down")]
+    result = await state.grader.grade_essay(_grounded_config())
+
+    assert len(state.claude_requests) == 2
+    assert len(state.gemini_calls) == gwg.MAX_RETRIES
+    assert result.model_used == "claude-sonnet-5-5" and result.feedback.mistakeAnalysis == []
+    assert result.cost_usd and result.cost_usd > 0

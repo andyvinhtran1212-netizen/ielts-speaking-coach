@@ -58,7 +58,7 @@ test('mobile landing menu reaches Đăng nhập and restores keyboard focus', as
   await expect(page).toHaveURL(/\/login$/);
 });
 
-test('mobile app menu reaches MY CLASS, marks active links and keeps logout working', async ({ context, page }) => {
+test('mobile app menu reaches Lớp học, marks active links and keeps logout working', async ({ context, page }) => {
   await context.addInitScript(() => {
     let session = sessionStorage.getItem('u01-signout') ? null
       : { access_token: 'synthetic-u01-token', user: { id: 'u01', email: 'mobile@local' } };
@@ -89,7 +89,7 @@ test('mobile app menu reaches MY CLASS, marks active links and keeps logout work
   await expect(menu).toBeHidden();
   await expect(toggle).toBeFocused();
   await toggle.click();
-  await menu.getByRole('link', { name: 'MY CLASS', exact: true }).click();
+  await menu.getByRole('link', { name: 'Lớp học', exact: true }).click();
   await expect(page).toHaveURL(/\/my-class$/);
   // Next may retain the prior route in a hidden Activity tree.
   const classChrome = page.locator('aver-chrome[active="class"]');
@@ -98,8 +98,45 @@ test('mobile app menu reaches MY CLASS, marks active links and keeps logout work
   await expect(classChrome.locator('a[data-tab="class"]')).toHaveAttribute('aria-current', 'page');
   await page.keyboard.press('Escape');
   await classChrome.locator('#user-pill').click();
-  await expect(classChrome.locator('#instructor-link')).toBeHidden();
+  await expect(classChrome.locator('#instructor-link')).toHaveCount(0);
   await classChrome.locator('#user-menu-logout').click();
   await expect(page).toHaveURL(/\/$/);
   expect(await page.evaluate(() => sessionStorage.getItem('u01-signout'))).toBe('called');
+});
+
+// U-20: from 721px to ~1180px the full nav wrapped to 2-3 rows and the /home
+// hero stats scrolled the page sideways. Every tablet width must keep one nav
+// row or the hamburger, and never scroll horizontally.
+test('tablet widths keep the app nav on one row or behind the hamburger', async ({ context, page }) => {
+  await context.addInitScript(() => {
+    const session = { access_token: 'synthetic-u20-token', user: { id: 'u01', email: 'mobile@local', user_metadata: { display_name: 'Vinh Tran' } } };
+    window.__AVER_SUPABASE_CLIENT__ = { auth: {
+      getSession: async () => ({ data: { session } }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+      signOut: async () => ({ error: null }),
+    } };
+  });
+  // The audited account: /home names the pill from home-summary (later routes win).
+  await context.route('**/api/student/home-summary', (route) => route.fulfill({ contentType: 'application/json',
+    body: JSON.stringify({ student: { name: 'Vinh Tran' }, streak: { current_days: 2 }, totals: { speaking_sessions: 0, writing_essays: 0 } }) }));
+  await page.goto('/home');
+  const pill = page.locator('aver-chrome #user-pill-name');
+  await expect(pill).toHaveText('Vinh Tran');
+  for (const width of [721, 800, 900, 1024]) {
+    await page.setViewportSize({ width, height: 900 });
+    const layout = await page.evaluate(() => {
+      const root = document.querySelector('aver-chrome').shadowRoot;
+      const links = [...root.querySelectorAll('.nav-links a')];
+      const toggle = root.getElementById('mobile-nav-toggle');
+      return {
+        overflow: document.documentElement.scrollWidth - window.innerWidth,
+        hamburger: getComputedStyle(toggle).display !== 'none',
+        visibleLinks: links.filter((a) => a.getBoundingClientRect().width > 0).length,
+        linkRows: new Set(links.map((a) => Math.round(a.getBoundingClientRect().top))).size,
+      };
+    });
+    expect(layout.overflow, `${width}px horizontal overflow`).toBeLessThanOrEqual(0);
+    if (layout.hamburger) expect(layout.visibleLinks, `${width}px links stay behind the menu`).toBe(0);
+    else expect(layout.linkRows, `${width}px nav rows`).toBe(1);
+  }
 });

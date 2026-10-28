@@ -27,6 +27,9 @@ test('ESM singleton resolves runtime config once and rejects a second identity',
   assert.match(source, /config\.supabaseAnonKey \|\| fallbackAnonKey/);
   assert.match(source, /singletonIdentity !== identity/);
   assert.equal((source.match(/createClient\(/g) || []).length, 1);
+  // F06: PKCE only, and /login (not URL auto-detection) owns the exchange.
+  assert.match(source, /createClient\(url, anonKey, \{ auth: BROWSER_AUTH_OPTIONS \}\)/);
+  assert.match(source, /flowType: 'pkce',\s*detectSessionInUrl: false,/);
 });
 
 test('api.js adopts the ESM client while retaining the legacy UMD fallback', () => {
@@ -36,6 +39,8 @@ test('api.js adopts the ESM client while retaining the legacy UMD fallback', () 
   const umd = source.indexOf('window.supabase.createClient(');
   assert.ok(seed >= 0 && adoption > seed && umd > adoption);
   assert.match(source, /if \(injected\) \{[\s\S]{0,100}_sb = injected;[\s\S]{0,100}return _sb;/);
+  assert.match(source.slice(umd, umd + 200), /\{ auth: \{ flowType: 'pkce' \} \}/,
+    'the UMD fallback must not build an implicit-flow client either');
 });
 
 test('retired HTML recovery helper remains local-only for rollback fixtures', () => {

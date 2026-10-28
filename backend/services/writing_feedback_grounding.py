@@ -9,8 +9,10 @@ from __future__ import annotations
 import json
 import re
 import unicodedata
+from dataclasses import dataclass, field
 
 from models.writing_feedback import Pass2Refinement, Pass3Rewrites, WritingFeedback
+from services.mistake_authenticity import is_noncorrection
 
 
 GROUNDING_INSTRUCTION = """
@@ -26,10 +28,30 @@ suggestion, separate from observations about what the learner wrote. New words
 are welcome in suggestions and rewrites; they are not evidence for band scores.
 Before output, verify each citation against the original essay and reassess any
 claim or score that relied on language you generated yourself.
+Copy every "original"/"context" field and every quoted excerpt
+character-for-character from one contiguous stretch of the essay, keeping the
+learner's own spelling, grammar errors and verb forms: do not correct, inflect,
+shorten, join or add words (no added subject such as "it"). Only essay excerpts
+go inside quotation marks: do not quote the task prompt, a paraphrase or
+Vietnamese summary of the learner's idea, a term or concept the learner did not
+use, or a sentence pattern presented as if it were the learner's wording.
+This never discourages reporting errors: a mistakeAnalysis "original" is meant
+to contain the learner's faulty wording, so quote a sentence with errors
+exactly as written and put the correction only in "suggestion".
 """.strip()
 
-_PUNCTUATION = str.maketrans({"’": "'", "‘": "'", "“": '"', "”": '"',
+# Quote detection in prose keeps its original mark set.
+_QUOTE_MARKS = str.maketrans({"’": "'", "‘": "'", "“": '"', "”": '"',
                               "–": "-", "—": "-", "‑": "-"})
+# One comparison fold for essay and excerpt alike: variants of the same mark
+# only (the mistake_authenticity/highlighter apostrophes, double quotes and
+# dashes, plus Unicode hyphens). Zero-width characters and soft hyphens go.
+_PUNCTUATION = str.maketrans({
+    "’": "'", "‘": "'", "ʼ": "'", "′": "'",
+    "“": '"', "”": '"', "„": '"',
+    "–": "-", "—": "-", "―": "-", "−": "-", "‑": "-", "‐": "-", "‒": "-",
+    "\u200b": None, "\u200c": None, "\u200d": None, "\ufeff": None, "\u00ad": None,
+})
 # Apostrophes inside words (including plural possessives) are not quote ends.
 _QUOTES = re.compile(
     r'"([^"]+)"'
@@ -47,6 +69,8 @@ _PROPOSAL = re.compile(
     r"chưa giới thiệu(?: rõ)?\s+(?:nhóm|danh mục)|"
     r"cần\s+(?:dùng|sử dụng|thêm|bổ sung|viết|giải thích|nêu|định danh|gọi tên)|"
     r"chưa dùng|chưa sử dụng|không dùng|không sử dụng|thiếu|"
+    r"ít\s+(?:dùng|sử dụng)\s+(?:các\s+|những\s+)?(?:từ|cụm(?: từ)?)\s+(?:thay thế|đồng nghĩa)|"
+    r"(?:tự nhiên|chính xác|học thuật) hơn(?=\s*[:：])|more (?:natural|precise|idiomatic)(?=\s*[:：])|"
     r"could|should|need(?:s)? to (?:use|add|explain)|consider|suggest|replace\b[^.!?;]*?\bwith|instead use|"
     r"does not use|did not use|doesn't use|missing)\b", re.I
 )
@@ -65,7 +89,7 @@ _CONTINUATION = re.compile(
 _PEDAGOGICAL_QUESTION = re.compile(
     r"(?:trả lời|giải thích|làm rõ|answer|explain)\s*(?:được\s*)?"
     r"(?:(?:câu hỏi|the question)\s*)?[:：]?\s*$|"
-    r"(?:câu hỏi|the question)\s*[:：]?\s*$", re.I,
+    r"(?:câu hỏi|the question)\s*[:：]?\s*$|(?:bước|step)\s*$", re.I,
 )
 _QUESTION_LABELS = {"như thế nào", "tại sao", "vì sao", "cụ thể", "how", "why", "so what"}
 _EXAMPLE_LABEL = re.compile(
@@ -77,22 +101,277 @@ _SUGGESTION_LABEL = re.compile(
     r"proposed (?:example|wording|revision))\s*[:：]\s*"
     r"(?:(?:,|/|or\b|and\b)\s*)*", re.I,
 )
-_GRAMMAR_CONTEXT = re.compile(r"\b(?:mẫu câu|cấu trúc|mệnh đề|liên từ)\b", re.I)
-_GRAMMAR_NOTATION = re.compile(r"\b(?:[SVXYZ]|V(?:-?ing|inf|[123])|NP|Adj|Adv)\b")
+_GRAMMAR_CONTEXT = re.compile(r"\b(?:mẫu câu|cấu trúc|mệnh đề|liên từ|câu chẻ|đảo ngữ|cleft|inversion)\b",
+                              re.I)
+# "vd." / "e.g." do not end the clause that introduces an example
+# ("Cần thêm từ vựng ít phổ biến hơn (vd. 'alleviate')").
+_ABBREVIATION = re.compile(r"\b(?:vd|e\.g|i\.e)\.", re.I)
+_GRAMMAR_NOTATION = re.compile(r"\b(?:[SVXYZ]|V(?:-?ing|inf|[123])|NP|Adj|Adv)\b|\S\s*\+\s*\S")
 _TASK_LABEL = re.compile(
     r"\b(?:nhóm(?: không tên| tần suất| danh mục)?|tần suất|danh mục)\s*\(?\s*$", re.I,
 )
+# Naming a concept or technical term right before the quote ("hiện tượng
+# 'induced demand'", "thuật ngữ chuyên môn như 'social mobility'") introduces
+# reference language, as does naming it ("có tên gọi là 'induced demand'").
+# Only listed qualifiers may intervene, so a usage claim
+# such as "hiện tượng lặp từ 'X'" (repeats X) is still checked.
+_TERM_LABEL = re.compile(
+    r"\b(?:thuật ngữ|khái niệm|hiện tượng|term|concept|phenomenon|"
+    r"có tên(?: gọi)? là|được gọi là|known as)"
+    r"(?:\s+(?:chuyên môn|học thuật|quy hoạch|đô thị|kinh tế|xã hội|kinh điển|này|đó|"
+    r"như|là|gọi là|hoặc|hay|và|technical|academic|this|such as|like|called|known as|or|and)"
+    r"|\s*,|\s*\([^()]*\))*\s*\(?\s*$", re.I,
+)
+# Absence right before the quote ("đoạn 2 lại không có 'Firstly'"), including
+# not overusing it ("không bị lạm dụng 'Firstly/Secondly'", "không lạm dụng từ
+# nối kiểu cơ học như 'Firstly'"); a usage verb in between ends the absence.
+_ABSENCE = re.compile(
+    r"(?:\b(?:không|chưa)\s+(?:có|(?:bị\s+)?lạm dụng)|\b(?:lacks?|lacking|without)|"
+    r"\b(?:không|chưa)\s+(?:bị\s+)?lạm dụng(?:\s+(?!(?:dùng|sử dụng|viết)\b)[^\s,;:.!?]+){1,6}?\s+như|"
+    r"\b(?:avoids?|avoided|without)\s+overusing|\b(?:does not|doesn't|did not|didn't)\s+overuse)"
+    r"(?:\s+(?:từ|cụm từ|câu|the word|the phrase))?\s*$",
+    re.I,
+)
+# IELTS band-descriptor wording names a rubric level, not learner language:
+# "các ý dừng ở mức 'stated'", "Band 7+ cần ý được 'extended and supported'",
+# "mới ở mức 'relevant but underdeveloped'" (PC-J03 staging repro: 10 of 29
+# failed citations). Every quoted word must be rubric vocabulary, one of them a
+# development term; the sentence must name a band or the rubric; and usage
+# claims ("Em dùng 'extended'"), vocabulary credit on either side of the quote
+# ("Vốn từ đạt Band 7 nhờ các từ 'extended'", Codex #1796) and source-only
+# fields never qualify.
+_DESCRIPTOR_CORE = frozenset({"stated", "extend", "extended", "supported", "developed",
+                              "underdeveloped"})
+_DESCRIPTOR_WORDS = _DESCRIPTOR_CORE | {
+    "relevant", "fully", "well", "adequately", "inadequately", "sufficiently",
+    "insufficiently", "partially", "not", "and", "but", "or",
+}
+_DESCRIPTOR_CONTEXT = re.compile(
+    r"\b(?:band\s*\d|band descriptors?|descriptors?|mức|tiêu chí|người chấm|giám khảo|examiners?)\b",
+    re.I,
+)
+# A quoted mention of the task question ("câu hỏi 'To what extent ...'").
+# Only the verb "trả lời" counts: the nouns "câu trả lời" / "answer" name the
+# learner's own text ("Your answer uses 'X'", Codex #1796), not the question.
+_PROMPT_REFERENCE = re.compile(
+    r"\b(?:câu hỏi|đề bài|chủ đề|yêu cầu|(?<!câu )(?<!bài )trả lời|question|prompt|task)\b", re.I,
+)
+# Strengths may quote the task question too (owner decision 2026-10-28), but
+# never as learner vocabulary: lexis words or wording verbs anywhere in the
+# clause keep the #1654 "subsidies" canary ("Từ vựng sát đề bài: 'subsidies'").
+_LEXIS_CLAIM = re.compile(
+    r"\b(?:từ vựng|vốn từ|từ ngữ|cụm từ|từ khóa|thuật ngữ|collocations?|vocabulary|"
+    r"(?:các|những|nhiều|một số|vài|mấy|mỗi)\s+(?:từ|chữ)|"
+    r"lexis|lexical|words?|phrases?|phrasing|terms?|wording|expressions?)\b", re.I,
+)
+# "từ"/"chữ" right before the quote, or before a quoted list that leads to it,
+# is the noun "word" ("nhờ từ 'extended' và 'supported'").
+_WORD_NOUN = re.compile(r"\b(?:từ|chữ)\s*[:：(]?(?:\s|,|/|và\b|hoặc\b|hay\b)*$", re.I)
+# "Bài viết" (the essay) is a noun, not the wording verb "viết".
+_ESSAY_NOUN = re.compile(r"\bbài viết\b", re.I)
+# Usage claims that _ATTRIBUTION does not name: nominal or possessive use
+# ("your use of the term", "việc sử dụng thuật ngữ") and naming verbs with a
+# learner subject ("em gọi hiện tượng này"). They disable reference exemptions.
+_USAGE_CLAIM = re.compile(
+    r"\b(?:use|usage)\s+of\b|"
+    r"\b(?:việc|cách)\s+(?:em\s+|bạn\s+)?(?:sử dụng|dùng|vận dụng)\b|"
+    r"\b(?:em|bạn|anh|chị|học viên|you|the student|the learner|the writer|the essay|this essay)"
+    r"\s+(?:đã\s+|has\s+|have\s+)?(?:gọi|call(?:s|ed)?|name[sd]?)\b",
+    re.I,
+)
+# Claims about the learner's wording (not ideas): "em dùng", "you used".
+_WORDING_VERB = re.compile(
+    r"\b(?:sử dụng|dùng|vận dụng|viết|gọi|chứa|lồng ghép|use[sd]?|using|wrote|write|writes|written|"
+    r"calls?|called|employ(?:s|ed|ing)?|includ(?:e|es|ed|ing)|contain(?:s|ed|ing)?)\b", re.I,
+)
+# A coordinated predicate in the quote's sentence ("... 'Q' and contains a
+# clear position", Codex #1796). A conjunction next to a quote (masked as
+# \x00) joins a quoted list instead ("'extended' và 'supported' được em dùng").
+_COORDINATION = re.compile(
+    r"(?:\s*,)?\s+(?:and|but|while|whereas|và|nhưng|trong khi|đồng thời)\b(?!\s*(?:\x00|$))", re.I,
+)
+# Verbs that govern the quoted task question in its own clause ("... and
+# answers the question 'Q'"); without one, an earlier verb may govern it
+# ("contains clear ideas and the question 'Q'").
+_ANSWER_VERB = re.compile(
+    r"\b(?:answer(?:s|ed|ing)?|address(?:es|ed|ing)?|respond(?:s|ed|ing)? to|tackl(?:e|es|ed|ing)|"
+    r"(?<!câu )(?<!bài )trả lời|đáp ứng|giải quyết|bám sát)\b", re.I,
+)
+# A coordinated predicate still describes the quote when it refers back to it
+# ("and uses it", "và dùng cụm này"), names wording ("and uses linking words"),
+# is passive ("và được em dùng"), or leaves the wording verb without an object
+# of its own ("và dùng rất hiệu quả", "and keeps using that").
+_BACK_REFERENCE = re.compile(
+    r"\b(?:it|its|itself|them|their|this|these|those|same|such|original|verbatim|"
+    r"nó|chúng|này|đó|ấy|nguyên văn)\b", re.I,
+)
+_PASSIVE_BEFORE = re.compile(r"\b(?:is|are|was|were|be|been|being|gets?|got|được|bị)(?:\s+\S+){0,2}\s*$",
+                             re.I)
+# Adverbs alone are not an object: "và dùng rất hiệu quả" has none, but
+# "and contains very clear ideas" does (Codex #1796), so skip them and look
+# at what follows. Prepositions and "that" still leave the verb objectless.
+_ADVERBS = re.compile(
+    r"(?:\s+(?:well|very|really|quite|so|too|also|more|most|again|here|[a-z]+ly|"
+    r"tốt|rất|khá|hiệu quả|chính xác|hợp lý|tự nhiên|linh hoạt|phù hợp|đúng|lại|khéo|hay|"
+    r"hơn|nhất|nữa|cũng|cực kỳ|vô cùng|thật sự|thực sự|thật)\b)+", re.I,
+)
+# Punctuation (a dash, slash or stray mark) is no object either.
+_NO_OBJECT = re.compile(
+    r"\s*(?:$|[^\w\s]|(?:that|throughout|in|on|at|to|for|with|within|across|when|while|as|"
+    r"trong|ở|tại|khi|để|cho|với|xuyên suốt|ngay)\b)", re.I,
+)
+# A separately quoted expression right after a wording verb or "use of",
+# past adverbs, ":"/"(" or a wording label with up to two modifiers ("and
+# uses 'reduce inequality' accurately", "và dùng cụm từ 'X'", "accurate
+# collocations such as 'X'"), is that verb's own object (Codex #1796): the
+# predicate is about the second quote, which is validated on its own. A
+# label that relates it to the first quote ("other phrases like 'X'", "the
+# same wording 'X'", "question words") keeps the predicate in scope.
+_MODIFIER = r"[^\W\d_]+(?:-[^\W\d_]+)?"
+_OWN_QUOTE_OBJECT = re.compile(
+    r"(?:" + _WORDING_VERB.pattern + r"|\b(?:use|usage)\s+of\b)(?:" + _ADVERBS.pattern + r")?"
+    r"(?:\s+(?:(?:the|a|an|các|những)\s+)?(?:" + _MODIFIER + r"\s+){0,2}?(?:" + _LEXIS_CLAIM.pattern + r")"
+    r"(?:(?:\s+" + _MODIFIER + r"){0,2}?\s*,?\s+(?:like|such as|including|for example|for instance|"
+    r"như|là|chẳng hạn(?: như)?|ví dụ(?: như)?))?)?\s*[:(]?\s*\x00", re.I,
+)
+_RELATED_LABEL = re.compile(
+    r"\b(?:other|another|similar|related|more|further|additional|"
+    r"khác|tương tự|liên quan|tương đương|thêm)\b", re.I,
+)
+
+
+def _own_quote_objects(text: str) -> str:
+    def own(match: re.Match) -> str:
+        label = re.sub(r"\bsuch as\b", " ", match.group(), flags=re.I)
+        if _BACK_REFERENCE.search(label) or _PROMPT_REFERENCE.search(label) or _RELATED_LABEL.search(label):
+            return match.group()
+        return " \x00"
+    return _OWN_QUOTE_OBJECT.sub(own, text)
+
+
+_NEGATIONS = {"not", "no", "never", "cannot", "nor", "none", "nothing", "neither"}
+_SIBILANT_ENDINGS = ("s", "x", "z", "ch", "sh")
+_NEAR_MISS_GAP = 2
+
+
+_VI_MARKS = {"\u031b", "\u0306", "\u0309", "\u0323"}   # horn, breve, hook, dot below
+_VI_TONES = {"\u0300", "\u0301", "\u0303", "\u0309", "\u0323"}
+
+
+def _is_negation(word: str) -> bool:
+    return word in _NEGATIONS or word.endswith("n't")
+
+
+def _vietnamese(text: str) -> bool:
+    """Letters only Vietnamese writes: horn/breve/hook/dot-below marks, đ,
+    ĩ/ũ/ỹ, or a circumflex stacked with a tone (ấ, ề). A lone acute or
+    grave ('cliché', 'giá') is not enough on its own."""
+    for char in unicodedata.normalize("NFC", text.casefold()):
+        if char == "đ":
+            return True
+        base, *marks = unicodedata.normalize("NFD", char)
+        if (_VI_MARKS.intersection(marks)
+                or ("\u0303" in marks and base in "iuy")
+                or ("\u0302" in marks and _VI_TONES.intersection(marks))):
+            return True
+    return False
+
+
+def _vietnamese_quote(excerpt: str, sentence: str) -> bool:
+    """A Vietnamese description, never an excerpt of the English essay: the
+    quote itself is Vietnamese, or it is an accented word quoted in the same
+    sentence as a Vietnamese quote ("giữa 'giá' và 'chất lượng'")."""
+    if _vietnamese(excerpt):
+        return True
+    if not any(c.isalpha() and not c.isascii() for c in excerpt):
+        return False
+    return any(_vietnamese(next(g for g in m.groups() if g is not None))
+               for m in _QUOTES.finditer(sentence))
+
+
+def _tokens(text: str) -> list[str]:
+    return re.findall(r"\w+(?:'\w+)*", text)
+
+
+# Subject-verb agreement forms of the same auxiliary ("is likely" for the
+# essay's "are likely"). Tense changes such as 'was'/'is' stay different.
+_AGREEMENT_PAIRS = {frozenset(p) for p in (("is", "are"), ("was", "were"), ("has", "have"), ("does", "do"))}
+
+
+def _same_word(a: str, b: str) -> bool:
+    """Equal, or the same word with/without a plural or third-person -s:
+    'reduce'/'reduces', 'bus'/'buses', 'city'/'cities', 'is'/'are'. No ending
+    is stripped, so 'plan'/'plane' or 'car'/'care' stay different words
+    (Codex #1729)."""
+    if a == b or frozenset((a, b)) in _AGREEMENT_PAIRS:
+        return True
+    short, long_ = sorted((a, b), key=len)
+    if len(short) < 3:
+        return False
+    if long_ == short + "s":
+        return True
+    if long_ == short + "es" and short.endswith(_SIBILANT_ENDINGS):
+        return True
+    return short.endswith("y") and short[-2] not in "aeiou" and long_ == short[:-1] + "ies"
+
+
+def _near_miss(excerpt: str, essay: str) -> bool:
+    """A slightly misquoted excerpt of language the learner really wrote.
+
+    Every quoted word must occur in the essay, in the same order, up to a
+    plural/third-person -s (see _same_word), inside one window at most two essay words longer
+    (an omitted "more"). The quote can never add a word or drop a negation.
+    Used only to downgrade prose misquotes to warnings, never to ground a
+    strict original/context field.
+    """
+    quoted = _tokens(_normalize(excerpt))
+    if not quoted or "..." in excerpt or "…" in excerpt:
+        return False
+    words = _tokens(essay)
+    for start, word in enumerate(words):
+        if not _same_word(word, quoted[0]):
+            continue
+        i, j = 1, start + 1
+        limit = min(len(words), start + len(quoted) + _NEAR_MISS_GAP)
+        while i < len(quoted) and j < limit:
+            if _same_word(words[j], quoted[i]):
+                i += 1
+            elif _is_negation(words[j]):
+                break
+            j += 1
+        if i == len(quoted):
+            return True
+    return False
+
+
 _GLOSS_CONTEXT = re.compile(
     r"\b(?:để|phrasal verb|nghĩa của(?: phrasal verb)?|có nghĩa là|mang nghĩa|dịch là)\s*$", re.I,
 )
+
+
+_BRACKETED_ELLIPSIS = re.compile(r"[\[(]\s*\.\.\.\s*[\])]")
+_TRAILING_PUNCTUATION = ",.;:!? "
 
 
 def _normalize(text: str) -> str:
     return " ".join(unicodedata.normalize("NFKC", text).translate(_PUNCTUATION).casefold().split())
 
 
+_EDGE_PUNCTUATION = ",.;:!?"
+
+
 def _in_essay(excerpt: str, essay: str, *, allow_ellipsis: bool = False) -> bool:
     excerpt = _normalize(excerpt).strip()
+    # A sentence copied verbatim may end in "." where the essay continues with
+    # "," (or start after a stripped comma). Every word must still be verbatim
+    # and contiguous; no other prose convention applies to strict fields.
+    excerpt = excerpt.strip(_EDGE_PUNCTUATION + " ") or excerpt
+    if allow_ellipsis:
+        # Prose quoting conventions, not new wording: "[...]" marks an omission
+        # like "...", and a closing , . ; : ! ? may sit inside the quotes. Every
+        # remaining word must still occur verbatim; strict fields never opt in.
+        excerpt = _BRACKETED_ELLIPSIS.sub("...", excerpt)
+        excerpt = excerpt.rstrip(_TRAILING_PUNCTUATION).strip() or excerpt
     if allow_ellipsis and "..." in excerpt:
         # Explicit omissions are allowed in prose citations. Each remaining
         # fragment must still occur verbatim, in order and at word boundaries.
@@ -104,7 +383,15 @@ def _in_essay(excerpt: str, essay: str, *, allow_ellipsis: bool = False) -> bool
                 return False
             offset += match.end()
         return bool(fragments)
-    return bool(excerpt) and re.search(r"(?<!\w)" + re.escape(excerpt) + r"(?!\w)", essay) is not None
+    if not excerpt:
+        return False
+    if re.search(r"(?<!\w)" + re.escape(excerpt) + r"(?!\w)", essay) is not None:
+        return True
+    if allow_ellipsis and "/" in excerpt:
+        # "low incomes/people with low incomes" lists two real excerpts.
+        parts = [part.strip() for part in excerpt.split("/")]
+        return all(parts) and all(_in_essay(part, essay) for part in parts)
+    return False
 
 
 def _grounded_gloss(excerpt: str, preceding: str, prefix: str, essay: str) -> bool:
@@ -133,6 +420,21 @@ def _grounded_gloss(excerpt: str, preceding: str, prefix: str, essay: str) -> bo
     return any(_in_essay(form + suffix, essay) for form in forms)
 
 
+REPAIR_SPAN_CHARS = 120
+# Bounded degradation: a response whose only unsupported citations sit in a few
+# list items keeps everything else; those items are dropped. Any failure in a
+# single-valued field (summary, criterion feedback, observations, rationale),
+# more than MAX_DROPPED_ITEMS items, or a list that would lose its last item or
+# more than half of its items still rejects the response (repair / retry).
+MAX_DROPPED_ITEMS = 3
+_DROPPABLE = re.compile(
+    r"^((?:keyTakeaways\.(?:strengths|areasForImprovement)|mistakeAnalysis|"
+    r"ideaDevelopmentAnalysis|coherenceAnalysis|lexicalAnalysis\.wordsToUpgrade|"
+    r"sentenceStructureAnalysis\.sentenceUpgrades|added_mistakes|sentence_rewrites))"
+    r"\[(\d+)\]"
+)
+
+
 class UngroundedWritingFeedbackError(ValueError):
     def __init__(self, issues: list[tuple[str, str]]):
         self.issues = issues
@@ -140,35 +442,228 @@ class UngroundedWritingFeedbackError(ValueError):
         super().__init__("Unsupported essay citations at " + ", ".join(p for p, _ in issues[:8]))
 
     def repair_instruction(self) -> str:
+        lines = "\n".join(
+            f"- {path}: {json.dumps(span[:REPAIR_SPAN_CHARS], ensure_ascii=False)}"
+            for path, span in self.issues[:10]
+        )
         return (
             "\n\nThe previous response attributed these excerpts to the original "
-            "essay, but they are absent: "
-            + json.dumps(self.issues[:10], ensure_ascii=False)
-            + ". Regenerate the complete requested JSON using only the original "
-            "essay as evidence. Reassess affected claims and scores; do not merely "
-            "remove quotation marks or substitute a made-up excerpt. Keep genuinely "
-            "new language only in clearly labelled suggestions/rewrites."
+            "essay, but they are absent (JSON path: excerpt as written):\n" + lines
+            + "\nFix exactly these citations. Copy each excerpt character-for-character "
+            "from one stretch of the essay, keeping the learner's own spelling, errors "
+            "and verb forms; never correct, inflect, shorten or add words. If it is not "
+            "the learner's wording (task question, paraphrase, Vietnamese summary, term "
+            "or pattern), do not present it as an essay quote. Regenerate the complete "
+            "requested JSON using only the original essay as evidence. Reassess affected "
+            "claims and scores; do not merely remove quotation marks or substitute a "
+            "made-up excerpt. Keep genuinely new language only in clearly labelled "
+            "suggestions/rewrites."
         )
 
 
-def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | None = None) -> None:
+# Below this overall band an essay always has at least one real, quotable
+# issue (Rule 1 in prompts/writing/v2/shared/strict_grammar_check.md). Only a
+# genuinely error-free 8.5+ script may return an empty mistakeAnalysis.
+MISTAKE_ANALYSIS_EMPTY_MIN_BAND = 8.5
+
+
+class MissingMistakeAnalysisError(ValueError):
+    """A full pass-1 answer below band 8.5 with no real correction."""
+
+    error_code = "missing_mistake_analysis"
+
+    def __init__(self, band: float):
+        self.band = band
+        # Operational text only: the band, never learner or model prose.
+        super().__init__(
+            f"mistakeAnalysis has no real correction at overallBandScore {band:g} "
+            f"(< {MISTAKE_ANALYSIS_EMPTY_MIN_BAND:g})"
+        )
+
+    def repair_instruction(self) -> str:
+        return (
+            f"\n\nThe previous response returned no usable mistakeAnalysis entries for an "
+            f"essay graded overallBandScore {self.band:g}. Below band "
+            f"{MISTAKE_ANALYSIS_EMPTY_MIN_BAND:g} every essay contains real issues: re-scan "
+            "the essay sentence by sentence (grammar, articles, prepositions, word choice, "
+            "collocation, punctuation, awkward phrasing) and list each real error in "
+            "mistakeAnalysis. Copy every \"original\" character-for-character from one "
+            "contiguous stretch of the essay, INCLUDING the learner's errors (quoting a "
+            "faulty sentence exactly is what grounding requires), with a \"suggestion\" "
+            "that actually differs from it. Never invent an error, and do not raise the "
+            "band to avoid listing errors: set every score from the band descriptors. "
+            "Regenerate the complete requested JSON."
+        )
+
+
+def missing_mistake_analysis(feedback) -> bool:
+    """True for a full pass-1 WritingFeedback below band 8.5 whose
+    mistakeAnalysis has no real correction (the entries essay_service keeps
+    after drop_noncorrection_mistakes). Pass 2/3 schemas are never checked."""
+    if not isinstance(feedback, WritingFeedback):
+        return False
+    if feedback.overallBandScore >= MISTAKE_ANALYSIS_EMPTY_MIN_BAND:
+        return False
+    return not any(not is_noncorrection(m.original, m.suggestion)
+                   for m in feedback.mistakeAnalysis)
+
+
+@dataclass
+class GroundingReport:
+    """Non-fatal outcome: paths only, never learner or model text."""
+
+    dropped: list[str] = field(default_factory=list)    # removed list items
+    warnings: list[str] = field(default_factory=list)   # near-miss prose quotes
+
+    def metadata(self) -> dict:
+        meta: dict = {}
+        if self.dropped:
+            meta["grounding_dropped_count"] = len(self.dropped)
+            meta["grounding_dropped"] = self.dropped[:MAX_DROPPED_ITEMS]
+        if self.warnings:
+            meta["grounding_warning_count"] = len(self.warnings)
+            meta["grounding_warnings"] = self.warnings[:10]
+        return meta
+
+
+def _list_slots(feedback) -> dict:
+    """Droppable list name -> (current items, setter)."""
+    slots: dict = {}
+
+    def add(name, owner, attr):
+        items = getattr(owner, attr, None)
+        if isinstance(items, list):
+            slots[name] = (items, lambda kept, o=owner, a=attr: setattr(o, a, kept))
+
+    if isinstance(feedback, Pass2Refinement):
+        add("added_mistakes", feedback, "added_mistakes")
+    elif isinstance(feedback, Pass3Rewrites):
+        add("sentence_rewrites", feedback, "sentence_rewrites")
+    elif isinstance(feedback, WritingFeedback):
+        add("keyTakeaways.strengths", feedback.keyTakeaways, "strengths")
+        add("keyTakeaways.areasForImprovement", feedback.keyTakeaways, "areasForImprovement")
+        for attr in ("mistakeAnalysis", "ideaDevelopmentAnalysis", "coherenceAnalysis"):
+            add(attr, feedback, attr)
+        if feedback.lexicalAnalysis:
+            add("lexicalAnalysis.wordsToUpgrade", feedback.lexicalAnalysis, "wordsToUpgrade")
+        structure = feedback.sentenceStructureAnalysis
+        if isinstance(structure, dict) and isinstance(structure.get("sentenceUpgrades"), list):
+            slots["sentenceStructureAnalysis.sentenceUpgrades"] = (
+                structure["sentenceUpgrades"],
+                lambda kept, d=structure: d.__setitem__("sentenceUpgrades", kept),
+            )
+    return slots
+
+
+def _drop_plan(feedback, issues) -> dict | None:
+    """{list name: indexes to drop} when every issue is a bounded list-item
+    failure; None when the response must be rejected."""
+    plan: dict[str, set[int]] = {}
+    for path, _ in issues:
+        match = _DROPPABLE.match(path)
+        if match is None:
+            return None
+        plan.setdefault(match.group(1), set()).add(int(match.group(2)))
+    if sum(len(v) for v in plan.values()) > MAX_DROPPED_ITEMS:
+        return None
+    slots = _list_slots(feedback)
+    for name, indexes in plan.items():
+        items = slots.get(name, ([], None))[0]
+        kept = len(items) - len(indexes)
+        if kept < 1 or 2 * kept < len(items):
+            return None
+    return plan
+
+
+def _no_object(text: str, pos: int) -> bool:
+    adverbs = _ADVERBS.match(text, pos)
+    return bool(_NO_OBJECT.match(text, adverbs.end() if adverbs else pos))
+
+
+def _describes_quote(part: str) -> bool:
+    """Whether a coordinated predicate can still credit the quote's wording."""
+    plain = _own_quote_objects(_ESSAY_NOUN.sub(" ", part))
+    if (_USAGE_CLAIM.search(plain) or _LEXIS_CLAIM.search(plain) or _BACK_REFERENCE.search(plain)
+            or _PROMPT_REFERENCE.search(plain)):
+        return True
+    verbs = [m for pattern in (_WORDING_VERB, _ATTRIBUTION, _CONTINUATION) for m in pattern.finditer(plain)]
+    return any(_PASSIVE_BEFORE.search(plain[:m.start()]) or _no_object(plain, m.end()) for m in verbs)
+
+
+def _quote_clause(prefix: str, after: str) -> tuple[str, str]:
+    """Prefix and after text (quotes masked as \\x00) that can make claims
+    about the quote: coordinated predicates with an object of their own drop
+    out ("'Q' and contains a clear position"). Earlier predicates drop out
+    only when the quote's own clause has a verb that governs it."""
+    before = _COORDINATION.split(prefix)
+    if len(before) > 1 and _ANSWER_VERB.search(before[-1]):
+        prefix = " ".join([p for p in before[:-1] if _describes_quote(p)] + before[-1:])
+    first, *rest = _COORDINATION.split(after)
+    after = " ".join([first] + [p for p in rest if _describes_quote(p)])
+    return prefix.replace("\x00", " "), after.replace("\x00", " ")
+
+
+def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | None = None,
+                               prompt_text: str | None = None) -> GroundingReport:
+    """Reject unsupported essay citations; return non-fatal findings.
+
+    Bounded list-item failures are removed from ``feedback`` in place and named
+    in the report. Raises :class:`UngroundedWritingFeedbackError` otherwise.
+    """
     essay = _normalize(essay_text)
+    prompt = _normalize(prompt_text or "")
     issues: list[tuple[str, str]] = []
+    report = GroundingReport()
 
     def original(path: str, text: str):
         if not _in_essay(text, essay):
             issues.append((path, text[:240]))
 
+    def unsupported(path: str, excerpt: str):
+        # A prose misquote of real essay language ("reduces inequality" for
+        # "reduce inequality") is a warning, not invented evidence.
+        # Fabricated words never qualify.
+        if _near_miss(excerpt, essay):
+            report.warnings.append(path)
+        else:
+            issues.append((path, excerpt[:240]))
+
+    def credits_wording(prefix: str, scope: tuple[str, str]) -> bool:
+        # Any learner-wording or vocabulary credit on EITHER side of the quote
+        # ("Vốn từ đạt Band 7 nhờ các từ 'extended'", "'X' được em dùng",
+        # "Your answer uses 'X'"). Reference exemptions never apply then, so a
+        # quote absent from the essay cannot pass as the learner's language.
+        # A wording verb counts only within the quote's clause (_quote_clause):
+        # "... 'Q' and contains a clear position" credits nothing (Codex #1796).
+        governing, after = scope
+        clause = prefix + " " + after
+        plain = _ESSAY_NOUN.sub(" ", clause)
+        return bool(_ATTRIBUTION.search(clause) or _CONTINUATION.search(clause)
+                    or _USAGE_CLAIM.search(clause)
+                    or _WORDING_VERB.search(_ESSAY_NOUN.sub(" ", governing + " " + after))
+                    or _LEXIS_CLAIM.search(plain) or _WORD_NOUN.search(prefix))
+
+    def task_question(excerpt: str, prefix: str, scope: tuple[str, str]) -> bool:
+        # The task question quoted as the question it answers ("Em trả lời trực
+        # tiếp câu hỏi 'To what extent ...?'"), never its wording credited as
+        # the learner's. Strengths use it too (owner decision 2026-10-28).
+        return bool(prompt and _PROMPT_REFERENCE.search(prefix)
+                    and _in_essay(excerpt, prompt, allow_ellipsis=True)
+                    and not credits_wording(prefix, scope))
+
     def observations(path: str, text: str, *, allow_proposals: bool = True,
-                     allow_grammar: bool = False):
-        text = text.translate(_PUNCTUATION)
+                     allow_grammar: bool = False, allow_task_question: bool = False):
+        text = text.translate(_QUOTE_MARKS)
         for match in _QUOTES.finditer(text):
             excerpt = next(g for g in match.groups() if g is not None)
             if _in_essay(excerpt, essay, allow_ellipsis=True):
                 continue
             preceding = text[:match.start()]
             masked_prefix = _QUOTES.sub("", preceding)
-            prefix = re.split(r"[.!?;\n]", masked_prefix)[-1]
+            prefix = re.split(r"[.!?;\n]", _ABBREVIATION.sub(" ", masked_prefix))[-1]
+            scope = _quote_clause(
+                re.split(r"[.!?;\n]", _ABBREVIATION.sub(" ", _QUOTES.sub("\x00", preceding)))[-1],
+                re.split(r"[.!?;\n]", _ABBREVIATION.sub(" ", _QUOTES.sub("\x00", text[match.end():])))[0])
             # Abstract grammar notation is a structural description, not a
             # verbatim citation, including in strengths/current observations.
             # Strict source excerpts, original ideas and locations never opt in.
@@ -177,7 +672,8 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
                 continue
             # Source-only fields cannot turn invented evidence into a proposal.
             if not allow_proposals:
-                issues.append((path, excerpt[:240]))
+                if not (allow_task_question and task_question(excerpt, prefix, scope)):
+                    unsupported(path, excerpt)
                 continue
             # A clearly proposed/absent expression is not a claim of usage.
             # A later explicit attribution resets that distinction, including
@@ -193,10 +689,35 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
                 continue
             if proposals and proposals[-1].start() > last_attribution:
                 continue
+            if _ABSENCE.search(prefix):
+                continue
+            # Reference language that never claims learner usage: the task
+            # question quoted as the question or a named concept/term. An
+            # explicit learner attribution in the clause ("Em dùng 'make public
+            # transport free'") or a usage claim ("Your use of the term
+            # 'subsidies'") still rejects.
+            claims_usage = last_attribution >= 0 or _USAGE_CLAIM.search(prefix) is not None
+            if not claims_usage:
+                if task_question(excerpt, prefix, scope):
+                    continue
+                if _TERM_LABEL.search(prefix):
+                    continue
+            sentence = (re.split(r"[.!?;\n]", preceding)[-1]
+                        + re.split(r"[.!?;\n]", text[match.start():])[0])
+            words = set(_tokens(_normalize(excerpt)))
+            if (not claims_usage and words & _DESCRIPTOR_CORE and words <= _DESCRIPTOR_WORDS
+                    and _DESCRIPTOR_CONTEXT.search(_QUOTES.sub("", sentence))
+                    and not credits_wording(prefix, scope)):
+                continue
+            # A Vietnamese paraphrase of an idea ("Em nêu rằng 'khuyến khích
+            # ...'") is not a wording claim; "em đã dùng 'quay lại'" is.
+            if (_vietnamese_quote(excerpt, sentence) and not _USAGE_CLAIM.search(prefix)
+                    and not any(_WORDING_VERB.search(m.group()) for m in attributions)):
+                continue
             # A chart category need not appear in an essay that omitted its
             # label. Restrict this to Task 1 and do not exempt explicit learner
             # wording claims such as "Em đã dùng 'invented category'".
-            if (task_type == "task1_academic" and last_attribution < 0
+            if (task_type == "task1_academic" and not claims_usage
                     and _TASK_LABEL.search(prefix)):
                 continue
             if _grounded_gloss(excerpt, preceding, prefix, essay):
@@ -208,7 +729,7 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
             if (_EXAMPLE_LABEL.fullmatch(masked_prefix)
                     or _SUGGESTION_LABEL.fullmatch(prefix)):
                 continue
-            issues.append((path, excerpt[:240]))
+            unsupported(path, excerpt)
 
     def mistakes(items, prefix):
         for i, item in enumerate(items):
@@ -225,7 +746,8 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
         for name, item in feedback.criteriaFeedback:
             observations(f"criteriaFeedback.{name}.feedback", item.feedback, allow_grammar=True)
         for i, text in enumerate(feedback.keyTakeaways.strengths):
-            observations(f"keyTakeaways.strengths[{i}]", text, allow_proposals=False, allow_grammar=True)
+            observations(f"keyTakeaways.strengths[{i}]", text, allow_proposals=False, allow_grammar=True,
+                         allow_task_question=True)
         for i, text in enumerate(feedback.keyTakeaways.areasForImprovement):
             observations(f"keyTakeaways.areasForImprovement[{i}]", text, allow_grammar=True)
         mistakes(feedback.mistakeAnalysis, "mistakeAnalysis")
@@ -254,5 +776,14 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
                          allow_proposals=False, allow_grammar=True)
         # Other structure/history fields can legitimately quote older essays.
         # Suggestions, improvedEssay and rewritten sentences may use new words.
-    if issues:
+    if not issues:
+        return report
+    plan = _drop_plan(feedback, issues)
+    if plan is None:
         raise UngroundedWritingFeedbackError(issues)
+    slots = _list_slots(feedback)
+    for name, indexes in sorted(plan.items()):
+        items, setter = slots[name]
+        setter([item for i, item in enumerate(items) if i not in indexes])
+        report.dropped.extend(f"{name}[{i}]" for i in sorted(indexes))
+    return report

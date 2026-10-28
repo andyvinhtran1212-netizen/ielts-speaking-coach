@@ -42,6 +42,7 @@ from services.gemini_writing_grader import (
     summary_flags_missing_image,
 )
 from services.writing_feedback_grounding import UngroundedWritingFeedbackError
+from services.writing_image_access import attach_signed_image_urls, canonical_image_ref
 from services.writing_history import (
     get_band_trajectory,
     get_recurring_patterns,
@@ -52,6 +53,7 @@ from services.mistake_authenticity import drop_noncorrection_mistakes
 from services.class_membership_service import active_student_ids_for_cohort
 from services.core_attempt_outcomes import observe_writing_background, observe_writing_batch
 from services.core_writing_observation import note_writing_mutation
+from services import writing_assignment_status_sync
 
 logger = logging.getLogger(__name__)
 
@@ -339,7 +341,8 @@ def create_essay_row_only(*, data: dict, admin_id: str) -> dict:
     # callers that don't pass the field get pre-2.7a Pro+12-section
     # behaviour. Migration 044 backfilled existing rows the same way.
     grading_tier     = data.get("grading_tier",     "standard")
-    prompt_image_url = data.get("prompt_image_url")
+    # Persist the private-bucket object path, never a (signed/public) URL.
+    prompt_image_url = canonical_image_ref(data.get("prompt_image_url"))
     status           = data.get("status",           "pending")
 
     _ensure_student_exists(student_id)
@@ -509,6 +512,10 @@ def deliver_reviewed_essay(essay_id: str) -> bool:
         .eq("status", "reviewed")
         .execute()
     )
+    if r.data:
+        # W-ASSIGN-STATUS — best-effort; a mock-exam essay usually has no
+        # writing_assignments row, which is a 0-row no-op.
+        writing_assignment_status_sync.mark_assignment_delivered(essay_id)
     return bool(r.data)
 
 
@@ -721,6 +728,20 @@ def upsert_composed_version(
     supabase_admin.table("writing_essays").update(
         {"current_version": row["version"]}).eq("id", essay_id).execute()
     return row["version"]
+
+
+def feedback_unchanged(current_feedback_json, feedback: WritingFeedback) -> bool:
+    """BL-22 — True when an admin save carries exactly the CURRENT version's
+    content (an approve without edits). Both sides go through the schema so
+    defaults/serialisation can't masquerade as an edit. An unreadable current
+    payload counts as changed, keeping the composed-version path."""
+    if not isinstance(current_feedback_json, dict):
+        return False
+    try:
+        current = WritingFeedback(**current_feedback_json).model_dump(mode="json")
+    except Exception:  # noqa: BLE001 — legacy/invalid stored shape
+        return False
+    return current == feedback.model_dump(mode="json")
 
 
 _MIX_CRITERIA = ("mainCriterion", "coherenceCohesion", "lexicalResource", "grammaticalRange")
@@ -1100,6 +1121,14 @@ async def _bg_grade_essay(
             "status":       "completed",
             "completed_at": _now(),
         }).eq("id", job_id).execute()
+
+        # W-ASSIGN-STATUS — the linked assignment follows the essay to
+        # 'graded' (+ graded_at). Called only after every grade write above
+        # committed, so a failed pointer/job write cannot leave the assignment
+        # 'graded' over an essay that is then marked failed. Best-effort,
+        # idempotent and forward-only (WHERE status='submitted'): a re-run or a
+        # regrade of a delivered essay never moves the assignment backwards.
+        writing_assignment_status_sync.mark_assignment_graded(essay_id)
 
         # Sprint 2.7d.1 — Instructor tier: post-grading hook creates
         # an instructor_reviews queue row so the admin queue page
@@ -1693,6 +1722,8 @@ def get_essay_with_feedback(essay_id: str) -> dict:
         fallback = current_prompt_image_for_essay(essay_id)
         if fallback:
             essay["prompt_image_url_fallback"] = fallback
+    # Callers authorize the reader first (admin / owning instructor).
+    attach_signed_image_urls([essay], ("prompt_image_url", "prompt_image_url_fallback"))
 
     fr = (
         supabase_admin.table("writing_feedback_current")   # GV-1a: current version

@@ -35,26 +35,26 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // ── Greeting: account name, clean single-"em" fallback ────────────────
 
 describe('writingGreetingParts', () => {
-  test('a name yields a comma separator + the name ("Chào em, <name>")', () => {
+  test('a name yields a comma separator + the name ("Chào bạn, <name>")', () => {
     assert.deepEqual(writingGreetingParts({ full_name: 'Vinh Tran' }),
       { separator: ', ', name: 'Vinh Tran' });
   });
 
-  test('no name yields empty separator + empty name (one clean "em")', () => {
+  test('no name yields empty separator + empty name (clean "Chào bạn")', () => {
     for (const s of [null, undefined, {}, { full_name: '' }, { full_name: '   ' }, { full_name: 42 }]) {
       assert.deepEqual(writingGreetingParts(s), { separator: '', name: '' },
         `no-name input ${JSON.stringify(s)} must not inject a stray "em" or comma`);
     }
   });
 
-  test('a surrounding static "Chào em" never renders "Chào em, em"', () => {
+  test('the static "Chào bạn" renders "Chào bạn, <name>" or a clean "Chào bạn"', () => {
     const render = (s) => {
       const { separator, name } = writingGreetingParts(s);
-      return `Chào em${separator}${name} 👋`;
+      return `Chào bạn${separator}${name} 👋`;
     };
-    assert.equal(render({ full_name: 'Vinh Tran' }), 'Chào em, Vinh Tran 👋');
-    assert.equal(render({}), 'Chào em 👋');
-    assert.equal(render(null), 'Chào em 👋');
+    assert.equal(render({ full_name: 'Vinh Tran' }), 'Chào bạn, Vinh Tran 👋');
+    assert.equal(render({}), 'Chào bạn 👋');
+    assert.equal(render(null), 'Chào bạn 👋');
   });
 });
 
@@ -180,6 +180,10 @@ describe('writing dashboard shell + behaviour wiring', () => {
     assert.doesNotMatch(shell, /Chào em,\s*<span id="greeting-name">em<\/span>/,
       'static "Chào em, " + span default "em" reproduced "Chào em, em"');
     assert.match(shell, /id="greeting-sep"/, 'greeting separator span must exist');
+    // UIA-1028-06: the site addresses learners as "bạn", not "em".
+    assert.match(shell, /Chào bạn<span id="greeting-sep"><\/span><span id="greeting-name"><\/span> 👋/,
+      'greeting must read "Chào bạn" + JS-owned separator/name');
+    assert.doesNotMatch(shell, /Chào em/, 'greeting must not address the learner as "em"');
     assert.match(shell, /id="greeting-name"><\/span>/, 'greeting-name must default to empty, not "em"');
   });
 

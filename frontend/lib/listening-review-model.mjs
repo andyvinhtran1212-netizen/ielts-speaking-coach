@@ -36,7 +36,7 @@ export function listeningReviewBackTarget(params) {
       label: '← Kết quả thi thử',
     };
   }
-  return { href: '/listening/tests', label: '← Listening tests' };
+  return { href: '/listening/tests', label: '← Bài thi Listening' };
 }
 
 function normalizeWindow(raw) {

@@ -60,8 +60,11 @@ class _FakeBucket:
     def upload(self, path, data, opts):
         self.uploaded = (path, data, opts)
 
-    def get_public_url(self, path):
-        return f"https://supabase.test/storage/v1/object/public/writing-images/{path}"
+    def create_signed_urls(self, paths, ttl):
+        self.signed = (paths, ttl)
+        return [{"path": p, "error": None,
+                 "signedURL": f"https://supabase.test/storage/v1/object/sign/writing-images/{p}?token=t"}
+                for p in paths]
 
     def remove(self, paths):
         self.removed = paths
@@ -88,12 +91,23 @@ def _patch_client(monkeypatch):
     return bucket
 
 
-def test_upload_happy_path_returns_public_url_and_path(monkeypatch):
+@pytest.fixture(autouse=True)
+def _fresh_sign_cache():
+    from services import writing_image_access
+    writing_image_access._cache.clear()
+    yield
+    writing_image_access._cache.clear()
+
+
+def test_upload_happy_path_returns_signed_preview_url_and_path(monkeypatch):
     bucket = _patch_client(monkeypatch)
     result = wpi.upload_prompt_image(PNG, filename_hint="chart.png")
 
-    # URL is the public URL; public_id is the storage path under prompts/.
-    assert result["url"].startswith("https://supabase.test/")
+    # Private bucket: URL is a short-lived signed preview (never public);
+    # public_id is the storage path under prompts/ that routes persist.
+    assert "/object/sign/writing-images/prompts/" in result["url"]
+    assert "/object/public/" not in result["url"]
+    assert bucket.signed[1] <= 3600
     assert result["public_id"].startswith("prompts/")
     assert result["public_id"].endswith(".png")
     assert result["width"] is None and result["height"] is None
@@ -103,6 +117,14 @@ def test_upload_happy_path_returns_public_url_and_path(monkeypatch):
     assert data == PNG
     assert opts["content-type"] == "image/png"
     assert opts["upsert"] == "true"
+
+
+def test_upload_fails_and_discards_object_when_preview_cannot_be_signed(monkeypatch):
+    bucket = _patch_client(monkeypatch)
+    bucket.create_signed_urls = lambda paths, ttl: []
+    with pytest.raises(RuntimeError, match="signed preview"):
+        wpi.upload_prompt_image(PNG)
+    assert bucket.removed == [bucket.uploaded[0]]
 
 
 def test_upload_jpg_sets_image_jpeg_content_type(monkeypatch):

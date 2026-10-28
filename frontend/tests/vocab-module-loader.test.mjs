@@ -390,7 +390,8 @@ describe('Sprint 7.5 — /js/vocab-modules/exercises.js module', () => {
     assert.match(src, /<header class="subpage-header/);
     assert.match(src, /class="subpage-header__back"[^>]*data-action="back-to-dashboard"/);
     assert.match(src, /<span>Vocabulary<\/span>/);
-    assert.match(src, /<h1[^>]*class="[^"]*\bsubpage-header__title\b[^"]*"[^>]*>\s*Exercises\s*<\/h1>/);
+    // D1-UX: Content Manager approved 'Exercises' → 'Bài luyện' for the hub title.
+    assert.match(src, /<h1[^>]*class="[^"]*\bsubpage-header__title\b[^"]*"[^>]*>\s*Bài luyện\s*<\/h1>/);
   });
 
   test('HTML template ships the 4 render states + 2 drill cards (Sprint 9.1: D3 retired)', () => {

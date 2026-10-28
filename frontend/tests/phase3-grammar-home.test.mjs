@@ -71,6 +71,15 @@ describe('route /grammar (Phase 3)', () => {
     assert.match(PAGE, /<aver-chrome active="grammar"/);
   });
 
+  test('module chrome tải một lần: preload cùng chế độ CORS với module', () => {
+    // next/script preload `src` như script cổ điển; module fetch ở chế độ CORS
+    // nên thiếu crossOrigin thì Chrome không dùng lại preload và tải
+    // aver-chrome.js lần hai, ngay trên đường găng LCP mobile (q/30).
+    const layout = readFileSync(path.join(FRONTEND, 'app', '(public-content)', 'layout.tsx'), 'utf8');
+    assert.match(layout,
+      /<Script type="module" src="\/js\/components\/aver-chrome\.js" strategy="afterInteractive" crossOrigin="anonymous" \/>/);
+  });
+
   test('?category= không tồn tại → 404 thật, không bịa tên thư mục', () => {
     // `getPublicJson` biến 404 backend thành `null`. Render tiếp với `null` sẽ
     // lấy slug làm tiêu đề ⇒ link hỏng trông như thư mục hợp lệ đang trống.

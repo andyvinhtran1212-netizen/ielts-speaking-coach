@@ -43,3 +43,10 @@ class AdminUserDirectoryRowOut(_StrictOut):
     cohort_names: list[str]
     cohort_lookup_failed: bool
     code_summary: AdminUserCodeSummaryOut
+
+
+class AdminTestDataVisibilityOut(_StrictOut):
+    # TASK B2 — true only on staging with HIDE_TEST_DATA on.
+    hiding_enabled: bool
+    # True when this request carried the admin opt-in header.
+    showing_test_data: bool

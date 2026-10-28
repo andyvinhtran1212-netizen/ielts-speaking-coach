@@ -83,6 +83,7 @@ interface Prompt {
   title: string;
   promptText: string;
   promptImageUrl: string | null;
+  promptImageLookupFailed: boolean;
 }
 
 interface WritingBridge {
@@ -168,7 +169,7 @@ export function MockExamRunnerLoading() {
   return <LoadingCard>Loading test session…</LoadingCard>;
 }
 
-function ErrorCard({ message, retry }: { message: string; retry?: () => void }) {
+function ErrorCard({ message, retry, back }: { message: string; retry?: () => void; back?: { href: string; label: string } }) {
   return (
     <main className="me-center">
       <section className="me-card me-status-card" role="alert">
@@ -176,6 +177,7 @@ function ErrorCard({ message, retry }: { message: string; retry?: () => void }) 
         <h1 className="me-h1">Unable to open the test</h1>
         <p className="me-muted">{message}</p>
         {retry ? <button className="av-button av-button-primary" type="button" onClick={retry}>Retry</button> : null}
+        {back ? <a className="av-button av-button-primary" href={back.href}>{back.label}</a> : null}
       </section>
     </main>
   );
@@ -591,6 +593,7 @@ function WritingWorkspace({ state, register, remaining, locked = false }: {
             {prompt?.promptText || `(No question available for ${task === 'task1' ? 'Task 1' : 'Task 2'})`}
           </div>
           {task === 'task1' && prompt?.promptImageUrl ? <img className="me-prompt-image" src={prompt.promptImageUrl} alt="Task 1 chart or illustration" /> : null}
+          {task === 'task1' && prompt?.promptImageLookupFailed ? <p className="me-prompt-image-failed" role="alert">The Task 1 chart could not be loaded. Retrying automatically — tell your invigilator if it does not appear.</p> : null}
         </section>
         <div
           aria-label="Resize question and answer panels"
@@ -649,7 +652,9 @@ export function MockExamRunner() {
   const queryKey = searchParams?.toString() || '';
   const params = useMemo(() => {
     try { return { value: mockExamParams(queryKey), error: null }; }
-    catch { return { value: null, error: 'Missing test code or attempt ID.' }; }
+    // U-16: a link without a code or attempt cannot be retried — send the
+    // learner back to the Full Test page instead.
+    catch { return { value: null, error: 'This link does not say which test to open. Go back to Full Test and open your test from there.' }; }
   }, [queryKey]);
   const [state, setState] = useState<MockState | null>(null);
   const [fatal, setFatal] = useState<string | null>(params.error);
@@ -1173,7 +1178,11 @@ export function MockExamRunner() {
   }, [renderedSection, state?.exam.listeningTestId, state?.exam.readingTestCode, state?.sitting.id]);
 
   if (status === 'initial-loading' || (!state && !fatal)) return <MockExamRunnerLoading />;
-  if (fatal) return <ErrorCard message={fatal} retry={() => setReloadNonce((value) => value + 1)} />;
+  if (fatal) {
+    return params.error
+      ? <ErrorCard message={fatal} back={{ href: '/full-test', label: 'Back to Full Test' }} />
+      : <ErrorCard message={fatal} retry={() => setReloadNonce((value) => value + 1)} />;
+  }
   if (!state) return <MockExamRunnerLoading />;
   if (view === 'void') return <ErrorCard message="This test has been cancelled. Contact your examiner for a new attempt." />;
   if ((view === 'waiting' || view === 'retake-menu') && !awaitingCollectionFlush) {

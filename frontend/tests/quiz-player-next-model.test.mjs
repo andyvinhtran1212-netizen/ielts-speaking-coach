@@ -9,6 +9,7 @@ import {
   quizEndPayload,
   quizResultModel,
   resolveQuizBank,
+  MISSING_QUIZ_MESSAGE,
   safeQuizLink,
   shuffledAnswerIndices,
   stripAudioToken,
@@ -29,6 +30,15 @@ describe('native Quiz player model', () => {
     assert.equal(resolveQuizBank({ skillArea: 'vocab' }, [{ id: 'a' }, { id: 'b' }]).kind, 'redirect');
     assert.equal(resolveQuizBank({ skillArea: 'vocab', topicId: 'missing' }, []).kind, 'redirect');
     assert.equal(resolveQuizBank({ skillArea: 'vocab' }, []).kind, 'error');
+  });
+
+  test('U-16: a link with neither bank nor skill_area is a non-retryable link error, resolved without the bank list', () => {
+    const missing = resolveQuizBank(normalizeQuizQuery(''), null);
+    assert.equal(missing.kind, 'error');
+    assert.equal(missing.retryable, false);
+    assert.equal(missing.message, MISSING_QUIZ_MESSAGE);
+    assert.doesNotMatch(missing.message, /tham số|bank/);
+    assert.notEqual(resolveQuizBank({ skillArea: 'vocab' }, []).retryable, false);
   });
 
   test('bank and link normalization fail closed', () => {

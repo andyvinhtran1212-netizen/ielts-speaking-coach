@@ -81,7 +81,7 @@ function normalizeDrills(items: unknown[]): Drill[] {
       key: `${id}-${index}`,
       id,
       testId,
-      title: textValue(raw.title) || testId || 'Skill drill',
+      title: textValue(raw.title) || testId || 'Bài luyện kỹ năng',
       drillType: textValue(raw.drill_type),
       level: textValue(raw.level) || null,
       task: textValue(raw.task) || null,

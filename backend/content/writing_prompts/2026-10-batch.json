@@ -1,0 +1,1151 @@
+{
+  "schema_version": 1,
+  "batch": "writing-prompts-2026-10",
+  "source": {
+    "plan": "/workspace/cc-jobs/team-content-plan-1027.md (B3, approved 2026-10-27)",
+    "drafts": [
+      "content-audit/task2-replacements (proposed-seed.sql, replacements.json)",
+      "content-audit/writing-prompts-task1/PLAN.md §2, §3, §5",
+      "content-audit/writing-prompts-task1/images"
+    ]
+  },
+  "items": [
+    {
+      "key": "T2-01",
+      "task_type": "task2",
+      "title": "University education and unemployment",
+      "difficulty": "intermediate",
+      "tags": [
+        "education",
+        "opinion"
+      ],
+      "prompt_text": "Proposals to expand university places divide public opinion. Supporters expect a better-educated workforce to attract new industries, whereas critics fear that expansion will leave more graduates competing for too few suitable jobs.\n\nDiscuss both views and give your own opinion.\n\nGive reasons for your answer and include any relevant examples from your own knowledge or experience.\n\nWrite at least 250 words.",
+      "essay_type": "discussion",
+      "replaces_seed": {
+        "migration": "035_writing_prompts_library.sql",
+        "position": 1,
+        "prompt_text": "Some people believe that the country would benefit a lot from a large number of young people who enter into university; however, others think that the large number of people receiving the education of university would lead to graduate unemployment. Discuss both views and give your opinion."
+      },
+      "review": {
+        "status": "approved",
+        "by": "Content Manager",
+        "evidence": "review-codex-2026-10-26.md Round 2 §1 (text PASS)",
+        "needs": []
+      }
+    },
+    {
+      "key": "T2-02",
+      "task_type": "task2",
+      "title": "Gap year before university",
+      "difficulty": "intermediate",
+      "tags": [
+        "education",
+        "advantages_disadvantages"
+      ],
+      "prompt_text": "Some universities allow successful applicants to postpone enrolment for twelve months so that they can gain paid work experience or travel before beginning their degrees.\n\nDiscuss the advantages and disadvantages of this for young people.\n\nGive reasons for your answer and include any relevant examples from your own knowledge or experience.\n\nWrite at least 250 words.",
+      "essay_type": "adv-disadv",
+      "replaces_seed": {
+        "migration": "035_writing_prompts_library.sql",
+        "position": 2,
+        "prompt_text": "In some countries young people are encouraged to work or travel for a year between finishing high school and starting university studies. Discuss the advantages and disadvantages for young people who decide to do this."
+      },
+      "review": {
+        "status": "approved",
+        "by": "Content Manager",
+        "evidence": "review-codex-2026-10-26.md Round 2 §1 (text PASS)",
+        "needs": []
+      }
+    },
+    {
+      "key": "T2-03",
+      "task_type": "task2",
+      "title": "Academic streaming in schools",
+      "difficulty": "intermediate",
+      "tags": [
+        "education",
+        "opinion"
+      ],
+      "prompt_text": "When forming classes, secondary schools can group pupils by examination results or keep each year group academically mixed. Advocates of ability-based classes argue that lessons can better match learners' needs; supporters of mixed classes value the opportunity for pupils to help one another.\n\nDiscuss both views and give your own opinion.\n\nGive reasons for your answer and include any relevant examples from your own knowledge or experience.\n\nWrite at least 250 words.",
+      "essay_type": "discussion",
+      "replaces_seed": {
+        "migration": "035_writing_prompts_library.sql",
+        "position": 3,
+        "prompt_text": "Some people think that schools should select students according to their academic abilities, while others believe that it is better to have students with different abilities studying together. Discuss both views and give your own opinion."
+      },
+      "review": {
+        "status": "approved",
+        "by": "Content Manager",
+        "evidence": "review-codex-2026-10-26.md Round 2 §1 (text PASS)",
+        "needs": []
+      }
+    },
+    {
+      "key": "T2-05",
+      "task_type": "task2",
+      "title": "Computer games and sports for children",
+      "difficulty": "beginner",
+      "tags": [
+        "technology",
+        "children",
+        "positive_negative"
+      ],
+      "prompt_text": "For some children, computer games have become their main leisure activity, leaving sport with a much smaller role in their lives.\n\nWhat makes gaming more attractive than sport to these children? Is this a positive or negative development?\n\nGive reasons for your answer and include any relevant examples from your own knowledge or experience.\n\nWrite at least 250 words.",
+      "essay_type": "two-part (causes + positive/negative evaluation)",
+      "replaces_seed": {
+        "migration": "035_writing_prompts_library.sql",
+        "position": 5,
+        "prompt_text": "Today many children spend a lot of time playing computer games and little time on sports. Why is it? Is it a positive or negative development?"
+      },
+      "review": {
+        "status": "approved",
+        "by": "Content Manager",
+        "evidence": "review-codex-2026-10-26.md Round 2 §1 (text PASS)",
+        "needs": []
+      }
+    },
+    {
+      "key": "T2-08",
+      "task_type": "task2",
+      "title": "Recycling effectiveness",
+      "difficulty": "beginner",
+      "tags": [
+        "environment",
+        "opinion"
+      ],
+      "prompt_text": "Household recycling divides opinion. One view is that sorting rubbish achieves too little to justify the effort; another is that it is a necessary step towards a cleaner environment.\n\nDiscuss both views and give your own opinion.\n\nGive reasons for your answer and include any relevant examples from your own knowledge or experience.\n\nWrite at least 250 words.",
+      "essay_type": "discussion",
+      "replaces_seed": {
+        "migration": "035_writing_prompts_library.sql",
+        "position": 8,
+        "prompt_text": "Some people think that recycling is a waste of time, while others see it as essential for environmental protection. Discuss both views and give your own opinion."
+      },
+      "review": {
+        "status": "approved",
+        "by": "Content Manager",
+        "evidence": "review-codex-2026-10-26.md Round 2 §1 (text PASS)",
+        "needs": []
+      }
+    },
+    {
+      "key": "T2-10",
+      "task_type": "task2",
+      "title": "Old buildings vs new housing",
+      "difficulty": "intermediate",
+      "tags": [
+        "society",
+        "agree_disagree"
+      ],
+      "prompt_text": "Cities facing housing shortages should redirect some of the money they spend on restoring historic buildings towards additional homes and better roads.\n\nTo what extent do you agree or disagree?\n\nGive reasons for your answer and include any relevant examples from your own knowledge or experience.\n\nWrite at least 250 words.",
+      "essay_type": "opinion (agree/disagree)",
+      "replaces_seed": {
+        "migration": "035_writing_prompts_library.sql",
+        "position": 10,
+        "prompt_text": "The restoration of old buildings in major cities in the world costs numerous governments expenditure. This money should be used in new housing and road development. To what extent do you agree or disagree?"
+      },
+      "review": {
+        "status": "approved",
+        "by": "Content Manager",
+        "evidence": "review-codex-2026-10-26.md Round 2 §1 (text PASS)",
+        "needs": []
+      }
+    },
+    {
+      "key": "T2-11",
+      "task_type": "task2",
+      "title": "Globalization and traditional culture",
+      "difficulty": "advanced",
+      "tags": [
+        "society",
+        "culture",
+        "opinion"
+      ],
+      "prompt_text": "As trade and communication connect societies more closely, local customs reach audiences far beyond their places of origin. For some observers, this globalization weakens inherited ways of life; for others, it gives communities fresh opportunities to develop and share their traditions.\n\nDiscuss both views and give your own opinion.\n\nGive reasons for your answer and include any relevant examples from your own knowledge or experience.\n\nWrite at least 250 words.",
+      "essay_type": "discussion",
+      "replaces_seed": {
+        "migration": "035_writing_prompts_library.sql",
+        "position": 11,
+        "prompt_text": "Some people believe that traditional cultures are being lost due to globalization, while others see globalization as a way to share and enrich cultures. Discuss both views and give your own opinion."
+      },
+      "review": {
+        "status": "approved",
+        "by": "Content Manager",
+        "evidence": "review-codex-2026-10-26.md Round 2 §1 (text PASS)",
+        "needs": []
+      }
+    },
+    {
+      "key": "T2-12",
+      "task_type": "task2",
+      "title": "Family time decline",
+      "difficulty": "intermediate",
+      "tags": [
+        "society",
+        "family",
+        "cause_effect"
+      ],
+      "prompt_text": "Shared meals, conversations and outings now occupy a smaller part of everyday family life than they once did.\n\nWhich factors explain this decline in shared family activities? How might this affect relationships between family members?\n\nGive reasons for your answer and include any relevant examples from your own knowledge or experience.\n\nWrite at least 250 words.",
+      "essay_type": "two-part (causes + effects)",
+      "replaces_seed": {
+        "migration": "035_writing_prompts_library.sql",
+        "position": 12,
+        "prompt_text": "In many countries, people are spending less time with their families. Why is this happening? What are the effects on family relationships?"
+      },
+      "review": {
+        "status": "approved",
+        "by": "Content Manager",
+        "evidence": "review-codex-2026-10-26.md Round 2 §1 (text PASS)",
+        "needs": []
+      }
+    },
+    {
+      "key": "T2-13",
+      "task_type": "task2",
+      "title": "Fast food taxation",
+      "difficulty": "intermediate",
+      "tags": [
+        "health",
+        "government",
+        "opinion"
+      ],
+      "prompt_text": "Some governments are considering a substantial tax on fast food to encourage healthier eating. Supporters regard higher prices as a useful public health measure, whereas opponents believe the state should leave food choices to consumers.\n\nDiscuss both views and give your own opinion.\n\nGive reasons for your answer and include any relevant examples from your own knowledge or experience.\n\nWrite at least 250 words.",
+      "essay_type": "discussion",
+      "replaces_seed": {
+        "migration": "035_writing_prompts_library.sql",
+        "position": 13,
+        "prompt_text": "Some people argue that fast food should be heavily taxed to discourage consumption, while others see this as government overreach. Discuss both views and give your own opinion."
+      },
+      "review": {
+        "status": "approved",
+        "by": "Content Manager",
+        "evidence": "review-codex-2026-10-26.md Round 2 §1 (text PASS)",
+        "needs": []
+      }
+    },
+    {
+      "key": "T2-19",
+      "task_type": "task2",
+      "title": "Product quality vs advertising",
+      "difficulty": "intermediate",
+      "tags": [
+        "business",
+        "agree_disagree"
+      ],
+      "prompt_text": "For a business with limited funds, improving a product's usefulness and durability should take priority over paying for advertisements.\n\nTo what extent do you agree or disagree?\n\nGive reasons for your answer and include any relevant examples from your own knowledge or experience.\n\nWrite at least 250 words.",
+      "essay_type": "opinion (agree/disagree)",
+      "replaces_seed": {
+        "migration": "035_writing_prompts_library.sql",
+        "position": 19,
+        "prompt_text": "People will buy a product if it has quality or fulfil their needs. There is no need for advertisement. To what extent do you agree or disagree?"
+      },
+      "review": {
+        "status": "approved",
+        "by": "Content Manager",
+        "evidence": "review-codex-2026-10-26.md Round 2 §1 (text PASS)",
+        "needs": []
+      }
+    },
+    {
+      "key": "A01",
+      "task_type": "task1_academic",
+      "title": "Line graph – Passengers by transport mode in Port Elwin, 2005–2025",
+      "difficulty": "intermediate",
+      "tags": [
+        "line-graph",
+        "transport",
+        "trends",
+        "course:2"
+      ],
+      "prompt_text": "You should spend about 20 minutes on this task.\n\nThe graph below shows the number of passengers using three types of public transport in the city of Port Elwin between 2005 and 2025.\n\nSummarise the information by selecting and reporting the main features, and make comparisons where relevant.\n\nWrite at least 150 words.",
+      "image": "images/A01-line-port-elwin-transport.png",
+      "image_sha256": "aeba7c6ae6bc153518183b5f1ff9c0cc17def187c4b3e63d9e13c4405f0c4cc0",
+      "source_data": {
+        "label": "Chart data",
+        "note": "millions of passengers per year; metro opened in 2010",
+        "columns": [
+          "Year",
+          "Bus",
+          "Metro",
+          "Ferry"
+        ],
+        "rows": [
+          [
+            "2005",
+            "60",
+            "–",
+            "8"
+          ],
+          [
+            "2010",
+            "58",
+            "12",
+            "9"
+          ],
+          [
+            "2015",
+            "50",
+            "28",
+            "9"
+          ],
+          [
+            "2020",
+            "41",
+            "35",
+            "7"
+          ],
+          [
+            "2025",
+            "38",
+            "52",
+            "8"
+          ]
+        ]
+      },
+      "answer_key_draft": "chartType `line`. Overview: bus use declined steadily while the metro grew rapidly after opening in 2010 and overtook the bus between 2020 and 2025; ferry use stayed low and stable. Key features: metro rose from 12m (2010) to 52m (2025); bus fell from 60m to 38m; ferry fluctuated between 7m and 9m.",
+      "review": {
+        "status": "needs_review",
+        "by": null,
+        "evidence": "PLAN.md §6 self-check; staging answer key approved by admin 2026-10-26",
+        "needs": [
+          "prompt_text"
+        ]
+      }
+    },
+    {
+      "key": "A02",
+      "task_type": "task1_academic",
+      "title": "Line graph – Online banking users by age group, 2012–2024",
+      "difficulty": "intermediate",
+      "tags": [
+        "line-graph",
+        "technology",
+        "age-groups",
+        "course:2"
+      ],
+      "prompt_text": "You should spend about 20 minutes on this task.\n\nThe graph below shows the percentage of adults in four age groups who used online banking in one country between 2012 and 2024.\n\nSummarise the information by selecting and reporting the main features, and make comparisons where relevant.\n\nWrite at least 150 words.",
+      "image": "images/A02-line-online-banking-age.png",
+      "image_sha256": "04f61d97cb25570b87cc78c1a07be4c11e94f1f563a47263c9b5475dd7325dba",
+      "source_data": {
+        "label": "Chart data",
+        "note": "% of adults",
+        "columns": [
+          "Year",
+          "18–30",
+          "31–50",
+          "51–65",
+          "Over 65"
+        ],
+        "rows": [
+          [
+            "2012",
+            "35",
+            "22",
+            "8",
+            "2"
+          ],
+          [
+            "2015",
+            "52",
+            "38",
+            "15",
+            "4"
+          ],
+          [
+            "2018",
+            "70",
+            "55",
+            "27",
+            "9"
+          ],
+          [
+            "2021",
+            "86",
+            "74",
+            "49",
+            "25"
+          ],
+          [
+            "2024",
+            "91",
+            "82",
+            "63",
+            "38"
+          ]
+        ]
+      },
+      "answer_key_draft": "chartType `line`. Overview: use rose in every group; the younger the group, the higher the rate throughout; growth among the two oldest groups accelerated after 2018. Key features: 18–30 from 35% to 91%; over-65s from 2% to 38%; 51–65 jumped 27%→49% between 2018 and 2021.",
+      "review": {
+        "status": "needs_review",
+        "by": null,
+        "evidence": "PLAN.md §6 self-check; staging answer key approved by admin 2026-10-26",
+        "needs": [
+          "prompt_text"
+        ]
+      }
+    },
+    {
+      "key": "A03",
+      "task_type": "task1_academic",
+      "title": "Bar chart – Weekly hours of housework by men and women, by age, 2024",
+      "difficulty": "beginner",
+      "tags": [
+        "bar-chart",
+        "society",
+        "gender",
+        "course:1"
+      ],
+      "prompt_text": "You should spend about 20 minutes on this task.\n\nThe chart below shows the average number of hours per week that men and women in five age groups spent on housework in one country in 2024.\n\nSummarise the information by selecting and reporting the main features, and make comparisons where relevant.\n\nWrite at least 150 words.",
+      "image": "images/A03-bar-housework-hours.png",
+      "image_sha256": "d6fbfbb45a467fcd71f0068c968510aa2da2decc890bea3905fb29d7ea23526f",
+      "source_data": {
+        "label": "Chart data",
+        "note": "hours per week",
+        "columns": [
+          "Age group",
+          "Men",
+          "Women"
+        ],
+        "rows": [
+          [
+            "18–24",
+            "6",
+            "9"
+          ],
+          [
+            "25–34",
+            "9",
+            "17"
+          ],
+          [
+            "35–44",
+            "11",
+            "21"
+          ],
+          [
+            "45–54",
+            "10",
+            "18"
+          ],
+          [
+            "55+",
+            "12",
+            "16"
+          ]
+        ]
+      },
+      "answer_key_draft": "chartType `bar`. Overview: women did more housework than men in every age group; the gap was widest at 35–44; men's hours generally increased with age. Key features: women peaked at 21h (35–44), almost double men's 11h; smallest gap 18–24 (6 vs 9) and 55+ (12 vs 16).",
+      "review": {
+        "status": "needs_review",
+        "by": null,
+        "evidence": "PLAN.md §6 self-check; staging answer key approved by admin 2026-10-26",
+        "needs": [
+          "prompt_text"
+        ]
+      }
+    },
+    {
+      "key": "A04",
+      "task_type": "task1_academic",
+      "title": "Bar chart – Fruit exports from a farming region, 2015–2025",
+      "difficulty": "intermediate",
+      "tags": [
+        "bar-chart",
+        "agriculture",
+        "trade",
+        "course:2"
+      ],
+      "prompt_text": "You should spend about 20 minutes on this task.\n\nThe chart below shows the quantity of four types of fruit exported from a farming region in 2015, 2020 and 2025.\n\nSummarise the information by selecting and reporting the main features, and make comparisons where relevant.\n\nWrite at least 150 words.",
+      "image": "images/A04-bar-fruit-exports.png",
+      "image_sha256": "1a488c43789c8d5ca61873e18b4ddebbb74c882971e0a4bd27423e739b48412e",
+      "source_data": {
+        "label": "Chart data",
+        "note": "thousand tonnes",
+        "columns": [
+          "Fruit",
+          "2015",
+          "2020",
+          "2025"
+        ],
+        "rows": [
+          [
+            "Dragon fruit",
+            "120",
+            "210",
+            "180"
+          ],
+          [
+            "Mango",
+            "80",
+            "95",
+            "140"
+          ],
+          [
+            "Durian",
+            "15",
+            "60",
+            "230"
+          ],
+          [
+            "Lychee",
+            "40",
+            "38",
+            "35"
+          ]
+        ]
+      },
+      "answer_key_draft": "chartType `bar`. Overview: durian exports grew dramatically and became the largest by 2025; dragon fruit led until 2020 then fell; lychee declined slightly. Key features: durian 15→230 (more than fifteen-fold); dragon fruit peaked at 210 in 2020; mango rose steadily to 140.",
+      "review": {
+        "status": "needs_review",
+        "by": null,
+        "evidence": "PLAN.md §6 self-check; staging answer key approved by admin 2026-10-26",
+        "needs": [
+          "prompt_text"
+        ]
+      }
+    },
+    {
+      "key": "A05",
+      "task_type": "task1_academic",
+      "title": "Pie charts – Household spending in one country, 1995 and 2025",
+      "difficulty": "intermediate",
+      "tags": [
+        "pie-chart",
+        "economy",
+        "spending",
+        "course:2"
+      ],
+      "prompt_text": "You should spend about 20 minutes on this task.\n\nThe pie charts below show how the average household in one country spent its income in 1995 and 2025.\n\nSummarise the information by selecting and reporting the main features, and make comparisons where relevant.\n\nWrite at least 150 words.",
+      "image": "images/A05-pie-household-spending.png",
+      "image_sha256": "0f79eed34398f52ac0ab6e3cd1131cb7cc6623d51db23ff75f5791904cf7f116",
+      "source_data": {
+        "label": "Chart data",
+        "note": "% of household spending; each year totals 100%",
+        "columns": [
+          "Category",
+          "1995",
+          "2025"
+        ],
+        "rows": [
+          [
+            "Food",
+            "38",
+            "21"
+          ],
+          [
+            "Housing",
+            "22",
+            "34"
+          ],
+          [
+            "Transport",
+            "10",
+            "14"
+          ],
+          [
+            "Education",
+            "6",
+            "11"
+          ],
+          [
+            "Entertainment",
+            "4",
+            "9"
+          ],
+          [
+            "Other",
+            "20",
+            "11"
+          ]
+        ]
+      },
+      "answer_key_draft": "chartType `pie`. Overview: food was the largest expense in 1995 but housing took that place by 2025; all categories except food and \"other\" increased their share. Key features: food 38%→21%; housing 22%→34%; education almost doubled (6%→11%); entertainment more than doubled (4%→9%).",
+      "review": {
+        "status": "needs_review",
+        "by": null,
+        "evidence": "PLAN.md §6 self-check; staging answer key approved by admin 2026-10-26",
+        "needs": [
+          "prompt_text"
+        ]
+      }
+    },
+    {
+      "key": "A06",
+      "task_type": "task1_academic",
+      "title": "Pie charts – Sources of electricity in one country, 2010 and 2025",
+      "difficulty": "advanced",
+      "tags": [
+        "pie-chart",
+        "energy",
+        "environment",
+        "course:3"
+      ],
+      "prompt_text": "You should spend about 20 minutes on this task.\n\nThe pie charts below show the proportion of electricity generated from different sources in one country in 2010 and 2025.\n\nSummarise the information by selecting and reporting the main features, and make comparisons where relevant.\n\nWrite at least 150 words.",
+      "image": "images/A06-pie-electricity-sources.png",
+      "image_sha256": "98d643d2d5f33377b38b15ce1699329df89e410d012ac2e2be2f2bbd8a2a932f",
+      "source_data": {
+        "label": "Chart data",
+        "note": "% of electricity generated; each year totals 100%",
+        "columns": [
+          "Source",
+          "2010",
+          "2025"
+        ],
+        "rows": [
+          [
+            "Coal",
+            "48",
+            "31"
+          ],
+          [
+            "Hydro",
+            "30",
+            "24"
+          ],
+          [
+            "Gas",
+            "15",
+            "16"
+          ],
+          [
+            "Solar",
+            "1",
+            "17"
+          ],
+          [
+            "Wind",
+            "0",
+            "8"
+          ],
+          [
+            "Other",
+            "6",
+            "4"
+          ]
+        ]
+      },
+      "answer_key_draft": "chartType `pie`. Overview: coal remained the largest single source but its share fell sharply; solar and wind grew from almost nothing to a quarter of supply combined. Key features: coal 48%→31%; solar 1%→17%; wind 0%→8%; gas stable at ~15–16%.",
+      "review": {
+        "status": "needs_review",
+        "by": null,
+        "evidence": "PLAN.md §6 self-check; staging answer key approved by admin 2026-10-26",
+        "needs": [
+          "prompt_text"
+        ]
+      }
+    },
+    {
+      "key": "A07",
+      "task_type": "task1_academic",
+      "title": "Table – Visitors to five attractions in Velmouth, 2015–2025",
+      "difficulty": "intermediate",
+      "tags": [
+        "table",
+        "tourism",
+        "leisure",
+        "course:2"
+      ],
+      "prompt_text": "You should spend about 20 minutes on this task.\n\nThe table below shows the number of visitors to five attractions in the city of Velmouth in 2015, 2020 and 2025.\n\nSummarise the information by selecting and reporting the main features, and make comparisons where relevant.\n\nWrite at least 150 words.",
+      "image": "images/A07-table-velmouth-attractions.png",
+      "image_sha256": "fbe91506ba10c313c3dba7abb9d56b73025617afc5eabca8d5cbef26a0d9c4f3",
+      "source_data": {
+        "label": "Table data",
+        "note": "thousands of visitors; the water park opened in 2018",
+        "columns": [
+          "Attraction",
+          "2015",
+          "2020",
+          "2025"
+        ],
+        "rows": [
+          [
+            "Zoo",
+            "420",
+            "310",
+            "450"
+          ],
+          [
+            "Science museum",
+            "250",
+            "180",
+            "390"
+          ],
+          [
+            "Botanical garden",
+            "180",
+            "150",
+            "160"
+          ],
+          [
+            "Night market",
+            "300",
+            "120",
+            "620"
+          ],
+          [
+            "Water park",
+            "–",
+            "90",
+            "240"
+          ]
+        ]
+      },
+      "answer_key_draft": "chartType `table`. Overview: every attraction that was open in 2015 had fewer visitors in 2020, then most recovered strongly by 2025; the night market became the most visited. Key features: night market 300→120→620; zoo highest in 2015 (420); botanical garden changed least (180→160); water park 90→240.",
+      "legacy_titles": [
+        "Table – Visitors to five attractions in Linton City, 2015–2025"
+      ],
+      "review": {
+        "status": "needs_review",
+        "by": null,
+        "evidence": "PLAN.md §6 self-check; review-codex-2026-10-26.md image PASS; staging answer key approved by admin 2026-10-26",
+        "needs": [
+          "prompt_text"
+        ]
+      }
+    },
+    {
+      "key": "A08",
+      "task_type": "task1_academic",
+      "title": "Table – Commuting time, public transport use and cost in four cities",
+      "difficulty": "advanced",
+      "tags": [
+        "table",
+        "transport",
+        "cities",
+        "course:3"
+      ],
+      "prompt_text": "You should spend about 20 minutes on this task.\n\nThe table below gives information about commuting in four cities in 2024: average one-way commuting time, the percentage of commuters using public transport, and average monthly commuting costs.\n\nSummarise the information by selecting and reporting the main features, and make comparisons where relevant.\n\nWrite at least 150 words.",
+      "image": "images/A08-table-commuting-four-cities.png",
+      "image_sha256": "1ef249787b228d5682321eecc7a5ddd5158f308c4fc25ef08dfc5f4919b62f75",
+      "source_data": {
+        "label": "Table data",
+        "note": null,
+        "columns": [
+          "City",
+          "Avg. commute (minutes, one way)",
+          "Using public transport (%)",
+          "Avg. monthly cost (USD)"
+        ],
+        "rows": [
+          [
+            "City A",
+            "52",
+            "61",
+            "45"
+          ],
+          [
+            "City B",
+            "38",
+            "24",
+            "70"
+          ],
+          [
+            "City C",
+            "29",
+            "45",
+            "30"
+          ],
+          [
+            "City D",
+            "65",
+            "72",
+            "55"
+          ]
+        ]
+      },
+      "answer_key_draft": "chartType `table`. Overview: City D had the longest commutes and highest public transport use; City C was the quickest and cheapest; City B commuters relied least on public transport but paid the most. Key features: City D 65 min / 72%; City C 29 min / $30; City B 24% / $70.",
+      "review": {
+        "status": "needs_review",
+        "by": null,
+        "evidence": "PLAN.md §6 self-check; review-codex-2026-10-26.md image PASS; staging answer key approved by admin 2026-10-26",
+        "needs": [
+          "prompt_text"
+        ]
+      }
+    },
+    {
+      "key": "A09",
+      "task_type": "task1_academic",
+      "title": "Process – How rice paper is made",
+      "difficulty": "intermediate",
+      "tags": [
+        "process",
+        "food",
+        "manufacturing",
+        "course:2"
+      ],
+      "prompt_text": "You should spend about 20 minutes on this task.\n\nThe diagram below shows how rice paper is produced at a small family workshop.\n\nSummarise the information by selecting and reporting the main features, and make comparisons where relevant.\n\nWrite at least 150 words.",
+      "image": "images/A09-process-rice-paper.png",
+      "image_sha256": "8716b7394999ea3513f7b70a59cb76927149b02d04fb6f01de2853944947d845",
+      "source_data": {
+        "label": "Diagram stages",
+        "note": null,
+        "columns": [
+          "Stage",
+          "Diagram content"
+        ],
+        "rows": [
+          [
+            "1",
+            "Rice grains soaked in water for 6 hours"
+          ],
+          [
+            "2",
+            "Soaked rice ground with water into a smooth liquid batter"
+          ],
+          [
+            "3",
+            "Thin layer of batter spread on a cloth stretched over a pot of boiling water"
+          ],
+          [
+            "4",
+            "Covered and steamed for about 30 seconds"
+          ],
+          [
+            "5",
+            "Sheet lifted onto a bamboo rack"
+          ],
+          [
+            "6",
+            "Racks placed in the sun to dry for 4–6 hours"
+          ],
+          [
+            "7",
+            "Dried sheets cut into rounds and stacked"
+          ],
+          [
+            "8",
+            "Packed in bags of 50 sheets for sale"
+          ]
+        ]
+      },
+      "answer_key_draft": "chartType `process`. Overview: eight stages, from soaking rice to packing finished sheets; mostly manual, with steaming and sun-drying as key steps. Key features: 6-hour soak; 30-second steaming; 4–6 hours drying; packs of 50.",
+      "review": {
+        "status": "needs_review",
+        "by": null,
+        "evidence": "PLAN.md §6 self-check; staging answer key approved by admin 2026-10-26",
+        "needs": [
+          "prompt_text"
+        ]
+      }
+    },
+    {
+      "key": "A10",
+      "task_type": "task1_academic",
+      "title": "Process – Life cycle of the silkworm moth",
+      "difficulty": "advanced",
+      "tags": [
+        "process",
+        "natural-cycle",
+        "animals",
+        "course:3"
+      ],
+      "prompt_text": "You should spend about 20 minutes on this task.\n\nThe diagram below shows the life cycle of the silkworm moth.\n\nSummarise the information by selecting and reporting the main features, and make comparisons where relevant.\n\nWrite at least 150 words.",
+      "image": "images/A10-process-silkworm-life-cycle.png",
+      "image_sha256": "0e83063f526b5f709e076bfa34266b25d4b5c42711a4a48d9f9e82a4e845e586",
+      "source_data": {
+        "label": "Diagram stages",
+        "note": "approximate durations, simplified for teaching",
+        "columns": [
+          "Stage",
+          "Diagram content"
+        ],
+        "rows": [
+          [
+            "1",
+            "Adult female lays 300–500 eggs"
+          ],
+          [
+            "2",
+            "Eggs hatch after about 10–14 days"
+          ],
+          [
+            "3",
+            "Larvae (silkworms) feed on mulberry leaves for about 4–5 weeks, shedding their skin 4 times"
+          ],
+          [
+            "4",
+            "Larva spins a silk cocoon over 2–3 days"
+          ],
+          [
+            "5",
+            "Pupa develops inside the cocoon for about 2 weeks"
+          ],
+          [
+            "6",
+            "Adult moth emerges, mates within a few days, and the cycle restarts"
+          ]
+        ]
+      },
+      "answer_key_draft": "chartType `process`. Overview: a cyclical natural process with four main forms (egg, larva, pupa, adult); the larval feeding stage is the longest. Key features: 300–500 eggs; larvae moult 4 times over 4–5 weeks; cocoon spun in 2–3 days.",
+      "editor_note": "durations are approximate textbook values; keep the \"approximate\" wording on the image.",
+      "review": {
+        "status": "needs_review",
+        "by": null,
+        "evidence": "PLAN.md §6 self-check; staging answer key approved by admin 2026-10-26",
+        "needs": [
+          "prompt_text"
+        ]
+      }
+    },
+    {
+      "key": "A11",
+      "task_type": "task1_academic",
+      "title": "Maps – Elmsworth University campus in 2010 and today",
+      "difficulty": "intermediate",
+      "tags": [
+        "map",
+        "education",
+        "development",
+        "course:2"
+      ],
+      "prompt_text": "You should spend about 20 minutes on this task.\n\nThe maps below show the campus of Elmsworth University in 2010 and today.\n\nSummarise the information by selecting and reporting the main features, and make comparisons where relevant.\n\nWrite at least 150 words.",
+      "image": "images/A11-map-elmsworth-campus.png",
+      "image_sha256": "9279130456b3e7478fb22b14bf55f50626e6d4e82c6282773ff8c949bc92d0e2",
+      "source_data": {
+        "label": "Map content",
+        "note": null,
+        "columns": [
+          "Area",
+          "2010",
+          "Today"
+        ],
+        "rows": [
+          [
+            "North",
+            "Sports field",
+            "Sports field reduced by half; new student accommodation on the other half"
+          ],
+          [
+            "Centre",
+            "Main lecture building, library",
+            "Lecture building unchanged; library extended to the east"
+          ],
+          [
+            "East",
+            "Car park",
+            "Car park replaced by a science centre; bicycle racks added"
+          ],
+          [
+            "South (by the river)",
+            "Open grass area",
+            "Café and outdoor study area; riverside footpath"
+          ],
+          [
+            "West",
+            "Single entrance from Mill Road",
+            "Second entrance with a bus stop added"
+          ]
+        ]
+      },
+      "answer_key_draft": "chartType `map`. Overview: the campus became more developed and more focused on student facilities, with less open space and no car park; the main lecture building was unchanged. Key features: car park → science centre; half of sports field → accommodation; library extended; new café by the river.",
+      "legacy_titles": [
+        "Maps – Hollins University campus in 2010 and today"
+      ],
+      "review": {
+        "status": "needs_review",
+        "by": null,
+        "evidence": "Round 3 redraw (Library\\n(extended) inside the box at fs=9) has no recorded check; round 2 FAILED",
+        "needs": [
+          "image",
+          "prompt_text"
+        ]
+      }
+    },
+    {
+      "key": "A12",
+      "task_type": "task1_academic",
+      "title": "Maps – Brackenmere Park now and proposed plan",
+      "difficulty": "advanced",
+      "tags": [
+        "map",
+        "planning",
+        "future",
+        "course:3"
+      ],
+      "prompt_text": "You should spend about 20 minutes on this task.\n\nThe maps below show Brackenmere Park as it is now and a plan for changes to the park next year.\n\nSummarise the information by selecting and reporting the main features, and make comparisons where relevant.\n\nWrite at least 150 words.",
+      "image": "images/A12-map-brackenmere-park.png",
+      "image_sha256": "6a934ad5e0d662d5f4013a2a41fd719359b16c08e8548c4077b6d2a0e0e4dfba",
+      "source_data": {
+        "label": "Map content",
+        "note": null,
+        "columns": [
+          "Area",
+          "Now",
+          "Planned"
+        ],
+        "rows": [
+          [
+            "North-west",
+            "Small pond",
+            "Pond enlarged into a lake with a boardwalk"
+          ],
+          [
+            "North-east",
+            "Tennis courts (4)",
+            "2 tennis courts kept; other 2 converted into a basketball court"
+          ],
+          [
+            "Centre",
+            "Open lawn",
+            "Lawn kept; outdoor stage added"
+          ],
+          [
+            "South",
+            "Car park (120 spaces)",
+            "Car park reduced to 60 spaces; children's playground on the rest"
+          ],
+          [
+            "East edge",
+            "Fence",
+            "New entrance from Station Road"
+          ],
+          [
+            "Throughout",
+            "Few trees",
+            "200 new trees planted along paths"
+          ]
+        ]
+      },
+      "answer_key_draft": "chartType `map`. Overview: the plan would make the park greener and more family- and leisure-oriented, at the expense of parking space; the central lawn would remain. Key features: pond → lake; car park halved (120→60) for a playground; new stage; new east entrance.",
+      "editor_note": "this map uses future forms (*will be*, *is planned to be*). Use it after students have practised past/present maps.",
+      "legacy_titles": [
+        "Maps – Greenhill Park now and proposed plan"
+      ],
+      "review": {
+        "status": "needs_review",
+        "by": null,
+        "evidence": "PLAN.md §6 self-check; review-codex-2026-10-26.md image PASS; staging answer key approved by admin 2026-10-26",
+        "needs": [
+          "prompt_text"
+        ]
+      }
+    },
+    {
+      "key": "G01",
+      "task_type": "task1_general",
+      "title": "GT Letter – Complaint to a gym about broken equipment (formal)",
+      "difficulty": "intermediate",
+      "tags": [
+        "letter",
+        "formal",
+        "complaint",
+        "course:2"
+      ],
+      "prompt_text": "You should spend about 20 minutes on this task.\n\nYou are a member of a local gym. Recently, much of the equipment has been broken, but the membership fee has increased. Write a letter to the manager of the gym.\n\nIn your letter:\n\n• describe the problems with the equipment\n• explain how this has affected you\n• say what you would like the gym to do\n\nWrite at least 150 words.\n\nYou do NOT need to write any addresses.\n\nBegin your letter as follows:\n\nDear Sir or Madam,",
+      "review": {
+        "status": "needs_review",
+        "by": null,
+        "evidence": "PLAN.md §3/§5 draft only; no recorded Content Manager review",
+        "needs": [
+          "prompt_text"
+        ]
+      }
+    },
+    {
+      "key": "G02",
+      "task_type": "task1_general",
+      "title": "GT Letter – Request for a pedestrian crossing near a school (formal)",
+      "difficulty": "intermediate",
+      "tags": [
+        "letter",
+        "formal",
+        "request",
+        "community",
+        "course:2"
+      ],
+      "prompt_text": "You should spend about 20 minutes on this task.\n\nThere is a busy road near your child's school, and there is no safe place for children to cross. Write a letter to your local council.\n\nIn your letter:\n\n• describe the situation\n• explain why it is dangerous\n• suggest what the council should do\n\nWrite at least 150 words.\n\nYou do NOT need to write any addresses.\n\nBegin your letter as follows:\n\nDear Sir or Madam,",
+      "review": {
+        "status": "needs_review",
+        "by": null,
+        "evidence": "PLAN.md §3/§5 draft only; no recorded Content Manager review",
+        "needs": [
+          "prompt_text"
+        ]
+      }
+    },
+    {
+      "key": "G03",
+      "task_type": "task1_general",
+      "title": "GT Letter – Leaking ceiling, letter to landlord (semi-formal)",
+      "difficulty": "beginner",
+      "tags": [
+        "letter",
+        "semi-formal",
+        "housing",
+        "course:1"
+      ],
+      "prompt_text": "You should spend about 20 minutes on this task.\n\nThe ceiling in the flat you rent has started leaking after heavy rain. Write a letter to your landlord, Mr Peters.\n\nIn your letter:\n\n• describe the problem\n• explain what damage it has caused\n• ask him to arrange a repair and suggest a suitable time\n\nWrite at least 150 words.\n\nYou do NOT need to write any addresses.\n\nBegin your letter as follows:\n\nDear Mr Peters,",
+      "review": {
+        "status": "needs_review",
+        "by": null,
+        "evidence": "PLAN.md §3/§5 draft only; no recorded Content Manager review",
+        "needs": [
+          "prompt_text"
+        ]
+      }
+    },
+    {
+      "key": "G04",
+      "task_type": "task1_general",
+      "title": "GT Letter – Asking your manager for time off (semi-formal)",
+      "difficulty": "intermediate",
+      "tags": [
+        "letter",
+        "semi-formal",
+        "work",
+        "course:2"
+      ],
+      "prompt_text": "You should spend about 20 minutes on this task.\n\nYou would like to take a week off work next month to attend an important family event. Write a letter to your manager, Ms Lewis.\n\nIn your letter:\n\n• explain why you need the time off\n• say how your work will be covered while you are away\n• suggest the dates you would like to take\n\nWrite at least 150 words.\n\nYou do NOT need to write any addresses.\n\nBegin your letter as follows:\n\nDear Ms Lewis,",
+      "review": {
+        "status": "needs_review",
+        "by": null,
+        "evidence": "PLAN.md §3/§5 draft only; no recorded Content Manager review",
+        "needs": [
+          "prompt_text"
+        ]
+      }
+    },
+    {
+      "key": "G05",
+      "task_type": "task1_general",
+      "title": "GT Letter – Inviting a friend to visit for Lunar New Year (informal)",
+      "difficulty": "beginner",
+      "tags": [
+        "letter",
+        "informal",
+        "invitation",
+        "culture",
+        "course:1"
+      ],
+      "prompt_text": "You should spend about 20 minutes on this task.\n\nA friend from another country has never experienced the Lunar New Year (Tết) in Vietnam. Write a letter to your friend inviting them to spend the holiday with your family.\n\nIn your letter:\n\n• explain what happens during the holiday\n• describe what you will do together\n• give advice about travelling to your hometown\n\nWrite at least 150 words.\n\nYou do NOT need to write any addresses.\n\nBegin your letter as follows:\n\nDear ...,",
+      "review": {
+        "status": "needs_review",
+        "by": null,
+        "evidence": "PLAN.md §3/§5 draft only; no recorded Content Manager review",
+        "needs": [
+          "prompt_text"
+        ]
+      }
+    },
+    {
+      "key": "G06",
+      "task_type": "task1_general",
+      "title": "GT Letter – Apologising to a friend for missing a party (informal)",
+      "difficulty": "beginner",
+      "tags": [
+        "letter",
+        "informal",
+        "apology",
+        "course:1"
+      ],
+      "prompt_text": "You should spend about 20 minutes on this task.\n\nYou were invited to a close friend's birthday party last weekend, but you were unable to go. Write a letter to your friend.\n\nIn your letter:\n\n• apologise and explain why you could not attend\n• ask about the party\n• suggest a way to celebrate together soon\n\nWrite at least 150 words.\n\nYou do NOT need to write any addresses.\n\nBegin your letter as follows:\n\nDear ...,",
+      "review": {
+        "status": "needs_review",
+        "by": null,
+        "evidence": "PLAN.md §3/§5 draft only; no recorded Content Manager review",
+        "needs": [
+          "prompt_text"
+        ]
+      }
+    }
+  ]
+}

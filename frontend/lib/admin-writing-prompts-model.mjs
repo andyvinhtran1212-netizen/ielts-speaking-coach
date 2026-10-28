@@ -55,8 +55,12 @@ export function normalizeWritingPrompt(raw) {
   if (!Array.isArray(row.tags) || row.tags.some((tag) => typeof tag !== 'string')) return null;
   const imageUrl = nullableString(row.prompt_image_url);
   const imagePublicId = nullableString(row.prompt_image_public_id);
-  if (Boolean(imageUrl) !== Boolean(imagePublicId)) return null;
-  if (taskType !== 'task1_academic' && imageUrl) return null;
+  // Private bucket: the backend nulls the URL when it cannot sign the chart and
+  // says so. Keep the row (and its stored image) so the admin can still see and
+  // repair it instead of the prompt vanishing from the library.
+  const imageLookupFailed = row.prompt_image_lookup_failed === true && !imageUrl && Boolean(imagePublicId);
+  if (Boolean(imageUrl) !== Boolean(imagePublicId) && !imageLookupFailed) return null;
+  if (taskType !== 'task1_academic' && imagePublicId) return null;
   const analysisStatus = row.prompt_image_analysis_status == null
     ? null
     : stringOf(row.prompt_image_analysis_status).trim();
@@ -78,6 +82,7 @@ export function normalizeWritingPrompt(raw) {
     examOnly: row.exam_only === true,
     imageUrl,
     imagePublicId,
+    imageLookupFailed,
     analysis: rawAnalysis,
     analysisStatus,
     analysisReviewed: reviewed && malformedOptional === 0,

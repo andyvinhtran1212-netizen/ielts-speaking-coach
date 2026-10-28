@@ -9,6 +9,8 @@ const PLAYER_SURFACES = new Set(['speaking', 'reading_exam', 'listening_test']);
 const COURSE_ACTIONS = new Set([
   'start', 'continue', 'retake', 'retry_full', 'review', 'expired_pending', 'closed',
 ]);
+const WRITING_REVIEW_STATES = new Set(['not_submitted', 'submitted', 'graded', 'returned']);
+const WRITING_RESULT_PATH = /^\/writing\/result\?essay_id=[A-Za-z0-9-]+$/;
 
 function objectOf(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
@@ -132,6 +134,16 @@ function normalizeAssignment(value) {
   // contradictory pair would render one task in both "missing" and "done" and
   // make the rhythm disagree with the canonical list.
   if ((submittedAt && row.is_missing) || (!submittedAt && row.is_late)) return null;
+  // W-07 — a writing give's review lifecycle is server truth too. The band is
+  // only ever sent once the teacher has returned the essay; a band on any other
+  // state is a contract breach, not something to render.
+  const reviewState = row.review_state == null ? null : textOf(row.review_state);
+  const band = row.band == null ? null : finiteNumber(row.band);
+  if (reviewState !== null && !WRITING_REVIEW_STATES.has(reviewState)) return null;
+  if (reviewState && (reviewState === 'not_submitted') === Boolean(submittedAt)) return null;
+  if ((band === null && row.band != null) || (band !== null && (reviewState !== 'returned'
+      || band < 0 || band > 9))) return null;
+  const resultPath = WRITING_RESULT_PATH.test(textOf(row.result_path)) ? textOf(row.result_path) : null;
   return {
     itemId,
     state: textOf(row.state) || 'assigned',
@@ -142,6 +154,9 @@ function normalizeAssignment(value) {
     writingExpected: row.writing_expected,
     isLate: row.is_late,
     isMissing: row.is_missing,
+    reviewState,
+    band,
+    resultPath,
     assignment: {
       id: assignmentId,
       cohortId: textOf(assignment.cohort_id) || null,
@@ -269,6 +284,9 @@ export function assignmentAction(row) {
     // Writing dashboard; every state navigates there. "Missing" stays navigable
     // (not a dead `closed` button) because an overdue essay can still be viewed
     // and, if the teacher left it open, submitted late there.
+    if (row.reviewState === 'returned' && row.resultPath) {
+      return { kind: 'result', label: 'Xem kết quả' };
+    }
     if (row.submittedAt) return { kind: 'review', label: 'Xem bài đã nộp' };
     if (row.isMissing) return { kind: 'review', label: 'Mở bài viết' };
     return { kind: 'start', label: 'Làm bài' };
@@ -306,6 +324,26 @@ export function assignmentAction(row) {
     return { kind: 'start', label: awaitingWriting(row) ? 'Tiếp tục bài' : 'Làm bài' };
   }
   return null;
+}
+
+const WRITING_REVIEW_LABELS = {
+  submitted: 'Đã nộp',
+  graded: 'Đã chấm, chờ giáo viên trả bài',
+  returned: 'Đã trả',
+};
+
+/**
+ * W-07 — what a handed-in writing give shows: the state pill, and the result
+ * line. "Đã chấm · Band X" appears only for a returned essay, because only a
+ * returned essay carries a band from the server.
+ */
+export function writingReviewCopy(row) {
+  if (row?.assignment?.skill !== 'writing' || !row.submittedAt) return null;
+  const state = WRITING_REVIEW_LABELS[row.reviewState] ? row.reviewState : 'submitted';
+  const result = state === 'returned'
+    ? (row.band == null ? 'Đã chấm' : `Đã chấm · Band ${row.band}`)
+    : null;
+  return { state, label: WRITING_REVIEW_LABELS[state], result };
 }
 
 function sessionBoundary(prefix) {

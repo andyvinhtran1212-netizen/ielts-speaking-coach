@@ -161,14 +161,19 @@ function FeedbackSection({
   );
 }
 
-function RegradeModal({ currentLevel, onCancel, onConfirm }: { currentLevel: number; onCancel: () => void; onConfirm: (level: number) => void }) {
+// onConfirm resolves to the backend's error message, or null once the regrade
+// is queued (the parent then closes the dialog). A rejected regrade — e.g. 409
+// when the version budget is full — keeps the dialog open with that message.
+function RegradeModal({ currentLevel, onCancel, onConfirm }: { currentLevel: number; onCancel: () => void; onConfirm: (level: number) => Promise<string | null> }) {
   const [level, setLevel] = useState(currentLevel >= 1 && currentLevel <= 5 ? currentLevel : 3);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState('');
   const selectRef = useRef<HTMLSelectElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
   useEffect(() => { selectRef.current?.focus(); }, []);
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') { event.preventDefault(); onCancel(); return; }
+    if (event.key === 'Escape') { event.preventDefault(); if (!pending) onCancel(); return; }
     if (event.key !== 'Tab') return;
     if (event.shiftKey && document.activeElement === selectRef.current) {
       event.preventDefault(); confirmRef.current?.focus();
@@ -176,8 +181,14 @@ function RegradeModal({ currentLevel, onCancel, onConfirm }: { currentLevel: num
       event.preventDefault(); selectRef.current?.focus();
     }
   };
+  const confirm = async () => {
+    if (pending) return;
+    setPending(true); setError('');
+    const failure = await onConfirm(level);
+    if (failure) { setError(failure); setPending(false); }
+  };
   return (
-    <div className="regrade-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel(); }}>
+    <div className="regrade-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !pending) onCancel(); }}>
       <div className="regrade-modal" role="dialog" aria-modal="true" aria-labelledby="regrade-modal-title" onKeyDown={onKeyDown}>
         <h2 id="regrade-modal-title" className="regrade-modal__title">Chấm lại bằng AI</h2>
         <p className="regrade-modal__body">Xóa AI feedback hiện tại + chỉnh sửa thủ công của admin, giữ nguyên note giảng viên, tăng regrade_count.</p>
@@ -186,9 +197,10 @@ function RegradeModal({ currentLevel, onCancel, onConfirm }: { currentLevel: num
           {REGRADE_LEVELS.map((item: any) => <option key={item.value} value={item.value}>{item.label}</option>)}
         </select>
         <p className="regrade-modal__hint">Mặc định = cấp hiện tại của bài (L{currentLevel}). L4–L5 chấm gắt hơn.</p>
+        {error ? <p id="regrade-modal-error" className="aw-alert aw-alert--error" role="alert">{error}</p> : null}
         <div className="regrade-modal__actions">
-          <button ref={cancelRef} className="btn" type="button" onClick={onCancel}>Hủy</button>
-          <button ref={confirmRef} className="btn btn-warn" type="button" onClick={() => onConfirm(level)}>Chấm lại</button>
+          <button ref={cancelRef} className="btn" type="button" disabled={pending} onClick={onCancel}>{error ? 'Đóng' : 'Hủy'}</button>
+          <button ref={confirmRef} className="btn btn-warn" type="button" disabled={pending} onClick={() => void confirm()}>{pending ? 'Đang gửi…' : 'Chấm lại'}</button>
         </div>
       </div>
     </div>
@@ -214,7 +226,8 @@ function RatingPanel({ detail, onSave }: { detail: any; onSave: (rating: number,
     <section id="grade-rating-panel" className="grade-section" data-section="grade-rating">
       <header className="section-header"><h2>⭐ Đánh giá chất lượng chấm</h2></header>
       <div className="section-content">
-        <p className="meta-line">Model phụ trách: <span id="gr-model" className="tier-badge">{detail.selected_model || '—'}</span></p>
+        {/* The model that actually produced this grade (Claude primary may serve it, or fall back), not the configured one. */}
+        <p className="meta-line">Model phụ trách: <span id="gr-model" className="tier-badge">{detail.feedback.model_used || '—'}</span></p>
         <div id="gr-stars" aria-label="Chất lượng chấm (1–5 sao)">
           {[1, 2, 3, 4, 5].map((value) => <button key={value} className="gr-star" type="button" aria-label={`${value} sao`} aria-pressed={rating === value} onClick={() => setRating(value)}>{value <= rating ? '★' : '☆'}</button>)}
         </div>
@@ -369,8 +382,10 @@ export function AdminWritingGradeBehavior() {
       setMessage('error', `Không thể lưu bài ở trạng thái ${workspace.detail.status}.`); return false;
     }
     try {
-      await runMutation('save', () => window.api.patch(`/admin/writing/essays/${encodeURIComponent(essayId)}/feedback`, workspace.feedback));
-      updateWorkspace((current) => ({ ...current, dirty: false, detail: { ...current.detail, status: 'reviewed' } }));
+      const result = await runMutation('save', () => window.api.patch<any>(`/admin/writing/essays/${encodeURIComponent(essayId)}/feedback`, workspace.feedback));
+      // The badge follows the essay row the backend just wrote: an approval
+      // without edits does not mark the essay as edited.
+      updateWorkspace((current) => ({ ...current, dirty: false, detail: { ...current.detail, status: 'reviewed', is_manually_edited: Boolean(result?.is_manually_edited) } }));
       setLastSaved(`Lưu lúc ${new Date().toLocaleTimeString()}`);
       setMessage('success', 'Đã lưu chỉnh sửa.'); return true;
     } catch (caught) { setMessage('error', `Save failed: ${messageOf(caught)}`); return false; }
@@ -455,13 +470,14 @@ export function AdminWritingGradeBehavior() {
       updateWorkspace((current) => ({ ...current, detail: { ...current.detail, status: result.status } })); setMessage('success', 'Đã thu hồi bài.');
     } catch (caught) { setMessage('error', `Thu hồi thất bại: ${messageOf(caught)}`); }
   };
-  const regrade = async (level: number) => {
-    setRegradeOpen(false);
+  const regrade = async (level: number): Promise<string | null> => {
     try {
       const result = await runMutation('regrade', () => window.api.post<any>(`/admin/writing/essays/${encodeURIComponent(essayId)}/regrade`, { analysis_level: level }));
+      setRegradeOpen(false);
       setMessage('success', `Đã queue regrade #${result.regrade_count || ''} (L${result.analysis_level || level}).`);
       setReloadToken((value) => value + 1);
-    } catch (caught) { setMessage('error', `Regrade failed: ${messageOf(caught)}`); }
+      return null;
+    } catch (caught) { return messageOf(caught); }
   };
   const instructorDeliver = async (note: string) => {
     const review = (instructor as any).review;
@@ -530,7 +546,7 @@ export function AdminWritingGradeBehavior() {
           {ADMIN_GRADE_TABS.map((item: any, index: number) => <button key={item.key} id={`tab-${item.key}`} className={`tab-btn${tab === item.key ? ' is-active' : ''}`} role="tab" aria-selected={tab === item.key} aria-controls={`panel-${item.key}`} type="button" onClick={() => setTab(item.key)} onKeyDown={(event) => onTabKey(event, index)}><span className="tab-icon">{item.icon}</span><span className="tab-label">{item.label}</span></button>)}
         </nav>
         <main className="grade-content">
-          <section id="section-essay" className="grade-section essay-section"><header className="section-header"><h2>📄 Bài viết gốc</h2></header><div id="prompt-box" className="aw-subtitle text-xs mb-2">{detail.prompt_text ? `📝 ${detail.prompt_text}` : ''}</div>{promptImage ? <img id="prompt-image" className="prompt-chart-img" role="button" tabIndex={0} src={promptImage} alt={`Hình đề Task 1: ${(detail.prompt_text || '').slice(0, 60)}`} aria-label="Xem ảnh đề bài Task 1 (phóng to)" onError={() => { const fallback = detail.prompt_image_url_fallback || ''; if (promptImage !== fallback) setPromptImage(fallback); else setPromptImage(''); }} onClick={() => window.AvImageLightbox?.open(promptImage, 'Hình đề Task 1')} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); window.AvImageLightbox?.open(promptImage, 'Hình đề Task 1'); } }} /> : null}<pre id="essay-text" className="essay-original">{detail.essay_text || '—'}</pre></section>
+          <section id="section-essay" className="grade-section essay-section"><header className="section-header"><h2>📄 Bài viết gốc</h2></header><div id="prompt-box" className="aw-subtitle text-xs mb-2">{detail.prompt_text ? `📝 ${detail.prompt_text}` : ''}</div>{promptImage ? <img id="prompt-image" className="prompt-chart-img" role="button" tabIndex={0} src={promptImage} alt={`Hình đề Task 1: ${(detail.prompt_text || '').slice(0, 60)}`} aria-label="Xem ảnh đề bài Task 1 (phóng to)" onError={() => { const fallback = detail.prompt_image_url_fallback || ''; if (promptImage !== fallback) setPromptImage(fallback); else setPromptImage(''); }} onClick={() => window.AvImageLightbox?.open(promptImage, 'Hình đề Task 1')} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); window.AvImageLightbox?.open(promptImage, 'Hình đề Task 1'); } }} /> : detail.task_type === 'task1_academic' && detail.prompt_image_lookup_failed ? <p className="prompt-chart-failed" role="status">⚠ Không tải được hình đề Task 1 (lỗi ký URL). Tải lại trang để thử lại.</p> : null}<pre id="essay-text" className="essay-original">{detail.essay_text || '—'}</pre></section>
 
           {ADMIN_GRADE_TABS.map((tabItem: any) => <div key={tabItem.key} id={`panel-${tabItem.key}`} className={`tab-panel${tab === tabItem.key ? ' is-active' : ''}`} role="tabpanel" aria-labelledby={`tab-${tabItem.key}`} hidden={tab !== tabItem.key}>
             {tabItem.key === 'baimau' ? <section id="section-instructor-note" className="grade-section" data-section="instructor-note"><header className="section-header"><h2>📝 Note giảng viên</h2><button className="btn-edit" type="button" onClick={() => { setEditing('instructor-note'); setEditRaw(view.workspace.instructorNote); setEditError(''); }}>✏ Sửa</button></header>{editing !== 'instructor-note' ? <div className="section-content" dangerouslySetInnerHTML={{ __html: window.WritingRenderers?.renderInstructorNote(view.workspace.instructorNote) || '' }} /> : <div className="section-edit"><textarea autoFocus aria-label="Sửa: Note giảng viên" className="text-edit" rows={6} maxLength={5000} value={editRaw} onChange={(event) => setEditRaw(event.target.value)} /><div className="edit-actions"><button className="btn btn-primary" type="button" onClick={() => void saveNote(editRaw)}>Lưu note</button><button className="btn" type="button" onClick={() => setEditing(null)}>Hủy</button><span className="edit-error" role={editError ? 'alert' : undefined}>{editError}</span></div></div>}</section> : null}
@@ -538,7 +554,7 @@ export function AdminWritingGradeBehavior() {
           </div>)}
         </main>
       </div>
-      {regradeOpen ? <RegradeModal currentLevel={level} onCancel={() => setRegradeOpen(false)} onConfirm={(value) => void regrade(value)} /> : null}
+      {regradeOpen ? <RegradeModal currentLevel={level} onCancel={() => setRegradeOpen(false)} onConfirm={regrade} /> : null}
     </div>
   );
 }

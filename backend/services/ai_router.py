@@ -159,6 +159,49 @@ class AnthropicAttemptError(Exception):
         super().__init__(message or code)
 
 
+# Validator exceptions that carry no ``error_code`` of their own, keyed by class
+# name (anywhere in the MRO) so the router needs no import of the callers'
+# modules. Anything else stays the generic ``invalid_response``.
+VALIDATION_ERROR_CODES: dict[str, str] = {
+    "UngroundedWritingFeedbackError": "ungrounded_feedback",
+    "MissingMistakeAnalysisError": "missing_mistake_analysis",
+    "InvalidJSONError": "invalid_json",
+    "JSONDecodeError": "invalid_json",
+}
+ERROR_DETAIL_MAX_CHARS = 500
+
+
+def validation_error_code(exc: BaseException) -> str:
+    code = getattr(exc, "error_code", None)
+    if code:
+        return code
+    for cls in type(exc).__mro__:
+        if cls.__name__ in VALIDATION_ERROR_CODES:
+            return VALIDATION_ERROR_CODES[cls.__name__]
+    return "invalid_response"
+
+
+def rejection_detail(exc: BaseException) -> str:
+    """Operational reason for a rejected answer, never the answer itself.
+
+    Validators passed to :func:`call_anthropic` must keep model output out of
+    their exception text. Pydantic's own message echoes ``input_value``, so it
+    is reduced to field locations and error types here.
+    """
+    errors = getattr(exc, "errors", None)
+    if type(exc).__name__ == "ValidationError" and callable(errors):
+        try:
+            text = "schema: " + "; ".join(
+                f"{'.'.join(str(p) for p in e.get('loc', ()))}: {e.get('type')}"
+                for e in errors()
+            )
+        except Exception:
+            text = type(exc).__name__
+    else:
+        text = str(exc) or type(exc).__name__
+    return text[:ERROR_DETAIL_MAX_CHARS]
+
+
 @dataclass
 class AnthropicResult:
     text: str
@@ -235,10 +278,15 @@ def _log_attempt(
     user_id: str | None,
     session_id: str | None,
     usage_context: dict[str, Any] | None,
+    error_detail: str | None = None,
+    extra_metadata: dict[str, Any] | None = None,
 ) -> None:
     context = dict(usage_context or {})
     metadata = dict(context.pop("metadata", None) or {})
     metadata["route"] = "anthropic_primary"
+    if error_detail:
+        metadata["error_detail"] = error_detail
+    metadata.update(extra_metadata or {})
     common = dict(
         model=model, user_id=user_id, session_id=session_id,
         feature=feature, operation=operation, status=status,
@@ -263,6 +311,7 @@ async def call_anthropic(
     max_tokens: int,
     operation: str,
     validate: Callable[[str], Any] | None = None,
+    success_metadata: Callable[[Any], dict[str, Any] | None] | None = None,
     images: Sequence[tuple[bytes, str]] = (),
     user_id: str | None = None,
     session_id: str | None = None,
@@ -276,6 +325,8 @@ async def call_anthropic(
     ``validate`` is the caller's existing parser/validator; any exception it
     raises (or a ``None`` return) marks the attempt invalid. Raises
     :class:`AnthropicAttemptError` for every failure so callers fall back.
+    ``success_metadata(parsed)`` may add operational fields (never model
+    output) to the success row's ledger metadata.
     """
     s = _settings(settings_obj)
     api_key = getattr(s, "ANTHROPIC_API_KEY", "") or ""
@@ -332,14 +383,25 @@ async def call_anthropic(
     except asyncio.CancelledError:
         raise
     except Exception as exc:
-        code = getattr(exc, "error_code", None) or "invalid_response"
+        code = validation_error_code(exc)
+        detail = rejection_detail(exc)
         _log_attempt(status="invalid_response", latency_ms=latency, usage=usage,
-                     error_code=code, **log)
+                     error_code=code, error_detail=detail, **log)
+        logger.warning(
+            "[ai_router] feature=%s operation=%s model=%s rejected answer (%s): %s",
+            feature, operation, model, code, detail,
+        )
         if isinstance(exc, AnthropicAttemptError):
             raise
-        raise AnthropicAttemptError(code, str(exc)) from exc
+        error = AnthropicAttemptError(code, detail)
+        # The rejected answer was billed: callers that may still accept it
+        # (a final-provider salvage) need the served model and token usage.
+        error.model, error.usage = model, usage
+        raise error from exc
 
-    _log_attempt(status="success", latency_ms=latency, usage=usage, error_code=None, **log)
+    extra = success_metadata(parsed) if success_metadata is not None else None
+    _log_attempt(status="success", latency_ms=latency, usage=usage, error_code=None,
+                 extra_metadata=extra, **log)
     return AnthropicResult(text=text, model=model, usage=usage, latency_ms=latency), parsed
 
 

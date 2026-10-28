@@ -89,9 +89,11 @@ def _install(monkeypatch, tables):
 # ── Reassign ─────────────────────────────────────────────────────────────────
 
 def test_reassign_activates_target_before_deactivating_source(monkeypatch):
+    # W-03: the target needs a users row now — reassign activates it.
     ops = _install(monkeypatch, {
         "access_codes": [{"id": "c1", "is_revoked": False}],
         "user_code_assignments": [{"id": "a1", "code_id": "c1", "user_id": "uA", "is_active": True}],
+        "users": [{"id": "uB", "is_active": True}],
     })
     out = _run(admin_module.reassign_code(
         "c1", admin_module.ReassignRequest(from_user_id="uA", to_user_id="uB", reason="transfer"),
@@ -112,6 +114,7 @@ def test_reassign_never_writes_access_codes_immutability(monkeypatch):
     ops = _install(monkeypatch, {
         "access_codes": [{"id": "c1", "is_revoked": False}],
         "user_code_assignments": [{"id": "a1", "code_id": "c1", "user_id": "uA", "is_active": True}],
+        "users": [{"id": "uB", "is_active": False}],
     })
     _run(admin_module.reassign_code(
         "c1", admin_module.ReassignRequest(from_user_id="uA", to_user_id="uB"), authorization="x"))
@@ -143,6 +146,7 @@ def test_refill_issues_mirrored_code_and_assigns(monkeypatch):
     ops = _install(monkeypatch, {
         "access_codes": [{"id": "c1", "used_by": "uA", "code_type": "direct",
                           "cohort_id": "co1", "permissions": ["all"], "session_limit": 10}],
+        "users": [{"id": "uA", "is_active": True}],   # W-03: refill activates the holder
     })
     out = _run(admin_module.refill_code("c1", admin_module.RefillRequest(reason="quota out"), authorization="x"))
     assert out["ok"] and out["user_id"] == "uA" and out["new_code"]
@@ -255,7 +259,9 @@ def test_generate_and_assign_missing_user_does_not_issue_code(monkeypatch):
 # ── Cohort add / remove member ───────────────────────────────────────────────────
 
 def test_cohort_add_member_issues_direct_code(monkeypatch):
-    ops = _install(monkeypatch, {"cohorts": [{"id": "co1"}]})
+    # W-03: cohort add now requires a real target user (and activates it).
+    ops = _install(monkeypatch, {"cohorts": [{"id": "co1"}],
+                                 "users": [{"id": "uX", "is_active": True}]})
     out = _run(cohorts_module.add_cohort_member(
         "co1", cohorts_module.AddMemberRequest(user_id="uX"), authorization="x"))
     assert out["ok"] and out["user_id"] == "uX" and out["new_code"]
@@ -283,3 +289,115 @@ def test_reassign_admin_guarded(monkeypatch):
         _run(admin_module.reassign_code(
             "c1", admin_module.ReassignRequest(from_user_id="uA", to_user_id="uB"), authorization="x"))
     assert ei.value.status_code == 403
+
+
+# ── W-03: admin-granted assignment == activation ───────────────────────────────
+# Cohort add, reassign and refill hand a user an ACTIVE code assignment. Before
+# W-03 they left users.is_active untouched, so the learner held a grant the
+# login page refused (and — while the backend gate was missing — that the API
+# honoured). They now activate the account exactly like generate-and-assign.
+
+def _user_update(ops):
+    return [o for o in ops if o["table"] == "users" and o["op"] == "update"]
+
+
+def test_cohort_add_member_activates_inactive_user(monkeypatch):
+    tables = {"cohorts": [{"id": "co1"}],
+              "users": [{"id": "uX", "role": "user", "is_active": False,
+                         "onboarding_completed": False}]}
+    ops = _install(monkeypatch, tables)
+    out = _run(cohorts_module.add_cohort_member(
+        "co1", cohorts_module.AddMemberRequest(user_id="uX"), authorization="x"))
+    (activated,) = _user_update(ops)
+    assert activated["eqs"] == [("id", "uX")]
+    assert activated["payload"] == {"is_active": True, "access_code_used": out["new_code"],
+                                    "permissions": ["all"]}
+    assert tables["users"][0]["is_active"] is True
+    assert tables["users"][0]["role"] == "user"
+    assert tables["users"][0]["onboarding_completed"] is False
+
+
+def test_cohort_add_member_unknown_user_issues_nothing(monkeypatch):
+    from fastapi import HTTPException
+    ops = _install(monkeypatch, {"cohorts": [{"id": "co1"}], "users": []})
+    with pytest.raises(HTTPException) as ei:
+        _run(cohorts_module.add_cohort_member(
+            "co1", cohorts_module.AddMemberRequest(user_id="ghost"), authorization="x"))
+    assert ei.value.status_code == 404
+    assert not any(o["op"] in ("insert", "upsert", "update") for o in ops)
+
+
+def test_cohort_add_member_failed_activation_revokes_the_new_code(monkeypatch):
+    from fastapi import HTTPException
+    tables = {"cohorts": [{"id": "co1"}], "users": [{"id": "uX", "is_active": False}]}
+    _install(monkeypatch, tables)
+    original_execute = _Q.execute
+
+    def fail_activation(query):
+        if query.name == "users" and query.op == "update":
+            raise RuntimeError("activation write failed")
+        return original_execute(query)
+
+    monkeypatch.setattr(_Q, "execute", fail_activation)
+    with pytest.raises((RuntimeError, HTTPException)):
+        _run(cohorts_module.add_cohort_member(
+            "co1", cohorts_module.AddMemberRequest(user_id="uX"), authorization="x"))
+    code = tables["access_codes"][-1]
+    assert code["is_revoked"] is True and code["is_active"] is False
+    assert code["used_by"] == "uX"                       # immutable redemption kept
+    assert tables["user_code_assignments"][-1]["is_active"] is False
+    assert tables["users"][0]["is_active"] is False
+
+
+def test_reassign_activates_inactive_target_with_the_code(monkeypatch):
+    tables = {
+        "access_codes": [{"id": "c1", "code": "K7MP-Q2XR-9HTW", "permissions": ["writing"],
+                          "is_revoked": False}],
+        "user_code_assignments": [{"id": "a1", "code_id": "c1", "user_id": "uA", "is_active": True}],
+        "users": [{"id": "uB", "role": "user", "is_active": False}],
+    }
+    ops = _install(monkeypatch, tables)
+    _run(admin_module.reassign_code(
+        "c1", admin_module.ReassignRequest(from_user_id="uA", to_user_id="uB"), authorization="x"))
+    (activated,) = _user_update(ops)
+    assert activated["eqs"] == [("id", "uB")]
+    assert activated["payload"] == {"is_active": True, "access_code_used": "K7MP-Q2XR-9HTW",
+                                    "permissions": ["writing"]}
+    assert tables["users"][0]["is_active"] is True and tables["users"][0]["role"] == "user"
+    # Order: grant target → activate target → revoke source.
+    seq = [(o["table"], o["op"]) for o in ops if o["op"] in ("upsert", "update")]
+    assert seq == [("user_code_assignments", "upsert"), ("users", "update"),
+                   ("user_code_assignments", "update")]
+
+
+@pytest.mark.parametrize("target_already_held", [False, True])
+def test_reassign_failed_activation_keeps_source_and_undoes_only_new_grant(
+        monkeypatch, target_already_held):
+    from fastapi import HTTPException
+    assignments = [{"id": "a1", "code_id": "c1", "user_id": "uA", "is_active": True}]
+    if target_already_held:
+        assignments.append({"id": "a2", "code_id": "c1", "user_id": "uB", "is_active": True})
+    tables = {"access_codes": [{"id": "c1", "code": "C", "permissions": ["all"], "is_revoked": False}],
+              "user_code_assignments": assignments,
+              "users": []}                                # activation finds no row → 404
+    _install(monkeypatch, tables)
+    with pytest.raises(HTTPException) as ei:
+        _run(admin_module.reassign_code(
+            "c1", admin_module.ReassignRequest(from_user_id="uA", to_user_id="uB"), authorization="x"))
+    assert ei.value.status_code == 404
+    rows = {r["user_id"]: r for r in tables["user_code_assignments"]}
+    assert rows["uA"]["is_active"] is True                # source never revoked
+    assert rows["uB"]["is_active"] is target_already_held  # only a NEW grant is undone
+
+
+def test_refill_to_inactive_user_activates_them(monkeypatch):
+    tables = {"access_codes": [{"id": "c1", "used_by": "uA", "code_type": "direct",
+                                "permissions": ["all"]}],
+              "users": [{"id": "uA", "is_active": True}, {"id": "uC", "is_active": False}]}
+    ops = _install(monkeypatch, tables)
+    out = _run(admin_module.refill_code(
+        "c1", admin_module.RefillRequest(to_user_id="uC"), authorization="x"))
+    (activated,) = _user_update(ops)
+    assert activated["eqs"] == [("id", "uC")]
+    assert activated["payload"]["access_code_used"] == out["new_code"]
+    assert tables["users"][1]["is_active"] is True

@@ -204,7 +204,7 @@ describe('Advanced Vocabulary core-30 content and interaction contract', () => {
 
   test('withholds Listening solutions until a persisted guided retry', () => {
     assert.match(UI, /listening\/guided-retry/);
-    assert.match(UI, /Guided retry/);
+    assert.match(UI, /Làm lại có hướng dẫn/);
     assert.match(UI, /Đáp án và evidence chỉ hiện sau bước này/);
     assert.match(UI, /result\?\.requires_guided_retry/);
   });

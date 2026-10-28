@@ -5,6 +5,9 @@ category: "education"
 level: "B2"
 part_of_speech: "noun"
 pronunciation: "/kəˈrɪk.jʊ.ləm/"
+definition_en: "the subjects, course content and learning activities planned for a school or educational programme."
+gloss_vi: "chương trình học"
+example: "Schools could broaden the curriculum to include financial education alongside traditional academic subjects."
 synonyms: ["syllabus", "programme of study", "course content"]
 antonyms: []
 collocations: ["national curriculum", "school curriculum", "curriculum reform", "broaden the curriculum", "curriculum design"]

@@ -96,7 +96,11 @@
 }
 
 .pf-identity__name   { color: var(--av-text-primary); }
-.pf-identity__email  { color: var(--av-text-muted); }
+.pf-identity__email  {
+  color: var(--av-text-muted);
+  /* U-18 — wrap a long address instead of cutting it off with an ellipsis. */
+  overflow-wrap: anywhere;
+}
 .pf-identity__joined { color: var(--av-text-faint); }
 
 
@@ -183,6 +187,16 @@
   background: var(--av-primary-soft);
   border-color: var(--av-primary);
   color: var(--av-primary);
+}
+
+/* U-18 — nine chips need ~34px each, more than one row has below ~480px, so
+   they overflowed the card and the page scrolled sideways. Two rows there;
+   the id outranks the Tailwind `.flex` on the container. */
+@media (max-width: 479.98px) {
+  #band-btns {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
 }
 
 
@@ -299,15 +313,23 @@
   box-shadow: var(--av-shadow-lg);
   opacity: 0;
   pointer-events: none;
+  /* U-18 — hidden (not just transparent) until shown, and a long error
+     message wraps inside the screen instead of running off both edges. */
+  visibility: hidden;
+  width: max-content;
+  max-width: calc(100vw - 2 * var(--av-space-4));
+  text-align: center;
   transition:
     opacity var(--av-duration-base) var(--av-easing-default),
-    transform var(--av-duration-base) var(--av-easing-default);
-  white-space: nowrap;
+    transform var(--av-duration-base) var(--av-easing-default),
+    visibility 0s linear var(--av-duration-base);
   z-index: var(--av-z-toast);
 }
 .pf-toast.show {
   opacity: 1;
+  visibility: visible;
   transform: translateX(-50%) translateY(0);
+  transition-delay: 0s;
 }
 .pf-toast.pf-toast--error {
   background: var(--av-error);

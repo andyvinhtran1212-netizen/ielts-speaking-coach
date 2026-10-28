@@ -248,6 +248,60 @@ def test_cohort_list_ignores_history_stamped_to_an_archived_origin():
     assert response.json()["cohorts"][0]["active_assignments"] == 0
 
 
+class _FilteringChain(_Chain):
+    """_Chain that honours .eq() so the cohort-list filter is observable."""
+    def __init__(self, data):
+        super().__init__(data)
+        self.eq_calls: list[tuple] = []
+
+    def __getattr__(self, name):
+        if name == "eq":
+            def _eq(column, value):
+                self.eq_calls.append((column, value))
+                self._data = [row for row in self._data if row.get(column) == value]
+                return self
+            return _eq
+        return super().__getattr__(name)
+
+
+def test_cohort_list_offers_every_active_class_and_only_active_classes():
+    """W-10 — the 'Theo lớp' picker reads this list. Every active class is
+    offered whoever created it, whichever course it belongs to and whether or
+    not it has members yet; an archived class (is_active=false) is not, even
+    when it still has members and Writing history."""
+    cohort_rows = [
+        {"id": "admin-c2", "name": "E2E VOCABSETS-0020", "is_active": True,
+         "created_by": "admin-1", "course_id": "course-2"},
+        {"id": "teacher-c1", "name": "Lớp giảng viên", "is_active": True,
+         "created_by": "admin-teacher", "course_id": "course-1"},
+        {"id": "empty", "name": "Lớp mới", "is_active": True,
+         "created_by": "admin-1", "course_id": None},
+        {"id": "archived", "name": "QA Course 1 Resume 20261010", "is_active": False,
+         "created_by": "admin-teacher", "course_id": "course-1"},
+    ]
+    cohorts_chain = _FilteringChain(cohort_rows)
+    table_map = {
+        "student_cohort_memberships": [
+            {"id": "m1", "student_id": "s1", "cohort_id": "admin-c2", "is_active": True},
+            {"id": "m2", "student_id": "s2", "cohort_id": "teacher-c1", "is_active": True},
+        ],
+        "writing_assignments": [
+            {"student_id": "s1", "cohort_id": "archived", "essay_id": None, "status": "pending"},
+        ],
+    }
+    db = _db(table_map)
+    db.table.side_effect = lambda name: (
+        cohorts_chain if name == "cohorts" else _Chain(table_map.get(name, [])))
+    with patch("routers.admin_writing_cohorts.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_cohorts.supabase_admin", db):
+        response = _client().get("/admin/writing/cohorts", headers=_ADMIN_AUTH)
+    assert response.status_code == 200
+    assert cohorts_chain.eq_calls == [("is_active", True)]   # no owner/course/member filter
+    listed = {row["id"]: row for row in response.json()["cohorts"]}
+    assert set(listed) == {"admin-c2", "teacher-c1", "empty"}
+    assert listed["empty"]["student_count"] == 0
+
+
 # ── Cohort detail matrix ──────────────────────────────────────────────
 
 

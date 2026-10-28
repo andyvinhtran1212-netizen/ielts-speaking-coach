@@ -1,5 +1,6 @@
 import logging
-import re
+import math
+import os
 import sys
 from time import perf_counter
 
@@ -18,7 +19,9 @@ for _std in (sys.stdout, sys.stderr):
     except Exception:        # pragma: no cover — non-reconfigurable stream
         pass
 
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -26,6 +29,9 @@ from services.errors import safe_detail, GENERIC_MESSAGE
 from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user, router as auth_router
+from services.activation_gate import require_active_learner
+from services.api_docs import api_docs_kwargs
+from services.cors_policy import allowed_origins as cors_allowed_origins
 from routers.mock_attempt_flags import router as mock_attempt_flags_router
 from services.server_timing import (
     format_header as format_server_timing_header,
@@ -41,6 +47,7 @@ from routers.export import router as export_router
 from routers.admin import router as admin_router
 from routers.admin_core_attempt_evidence import router as admin_core_attempt_evidence_router
 from services.core_operation_correlation import HEADER_NAME as CORE_OPERATION_HEADER, operation_hint_scope
+from services.request_context import request_id_scope
 from routers.cohorts import router as cohorts_router
 from routers.admin_courses import router as admin_courses_router
 from routers.admin_class_lessons import router as admin_class_lessons_router
@@ -133,34 +140,26 @@ logging.getLogger("urllib3").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 install_supabase_timing()
 
+# /openapi.json, /docs, /docs/oauth2-redirect and /redoc are closed (404)
+# unless ENABLE_API_DOCS is truthy — local development only. app.openapi()
+# still builds the full schema for CI drift checks. See services/api_docs.py.
 app = FastAPI(
     title="IELTS Speaking Coach",
-    version="1.0.0"
+    version="1.0.0",
+    **api_docs_kwargs(settings.ENABLE_API_DOCS),
 )
 
-origins = [
-    # Local development
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5500",
-    "http://127.0.0.1:5500",
-    # Production — explicit list as primary
-    "https://averlearning.com",
-    "https://www.averlearning.com",
-    "https://ielts-speaking-coach-sage.vercel.app",
-]
-
-# Sprint 20.10 D1 — belt-and-suspenders against subdomain drift.
-# Andy's prod dogfood hit "No 'Access-Control-Allow-Origin' header" from
-# https://www.averlearning.com even though both apex and www were already
-# in the explicit list (commit 4c9fc1e9, 2026-04-08). The most likely
-# remaining single-point-of-failure is the explicit list itself going
-# stale as new subdomains roll out (staging.averlearning.com, app.…, etc.).
-# This regex matches the apex + any direct subdomain of averlearning.com
-# over HTTPS — orthogonal to the explicit list, so either match grants
-# the request. The explicit list still wins for fast-path matching;
-# the regex is the safety net.
-_AVERLEARNING_ORIGIN_REGEX = r"^https://(?:[a-z0-9-]+\.)?averlearning\.com$"
+# Exact, per-deployment allowlist (F11 + follow-up): production, staging and
+# local development each accept only their own origins, and localhost is never
+# allowed in production. Tier resolution and the lists live in
+# services/cors_policy.py. No regex: a new frontend host must be added there
+# explicitly. Generated *.vercel.app previews stay rejected by design (plan §7.1).
+origins = cors_allowed_origins(
+    settings.ENVIRONMENT,
+    os.environ.get("RAILWAY_ENVIRONMENT_NAME"),
+    settings.CORS_ALLOW_LOCALHOST,
+)
+logger.info("[cors] allowed origins: %s", ", ".join(origins) or "(none)")
 
 # ONE definition, used by the CORSMiddleware below AND by the unhandled-exception
 # handler. They were separate, and the handler simply had no methods/headers —
@@ -171,12 +170,13 @@ _CORS_METHODS = ["GET", "POST", "PATCH", "DELETE", "OPTIONS"]
 # X-Reading-Anon (reading lock + share-link flows) and X-Request-ID
 # (error-reporter). They MUST stay allowed or those flows' CORS preflight breaks.
 _CORS_HEADERS = ["Authorization", "Content-Type",
-                 "X-Reading-Password", "X-Reading-Anon", "X-Request-ID", CORE_OPERATION_HEADER]
+                 "X-Reading-Password", "X-Reading-Anon", "X-Request-ID", CORE_OPERATION_HEADER,
+                 "X-Show-Test-Data"]
 
 
 def _cors_headers_for_origin(origin: str | None) -> dict:
     """CORS headers to attach to a response when the request Origin is allowed —
-    reuses the SAME allowlist + regex as the CORSMiddleware below (no duplication).
+    reuses the SAME allowlist as the CORSMiddleware below (no duplication).
 
     Used by the unhandled-exception handler: an unhandled 500 unwinds OUTSIDE the
     CORSMiddleware (ServerErrorMiddleware is outermost), so its response would have
@@ -201,7 +201,7 @@ def _cors_headers_for_origin(origin: str | None) -> dict:
     SECURITY: only echo an ALLOWED origin — never reflect an arbitrary one. Returns
     {} for a missing / non-allowed origin.
     """
-    if origin and (origin in origins or re.match(_AVERLEARNING_ORIGIN_REGEX, origin)):
+    if origin and origin in origins:
         return {
             "Access-Control-Allow-Origin": origin,
             "Access-Control-Allow-Credentials": "true",
@@ -220,10 +220,9 @@ app.add_middleware(RequestSafetyMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_origin_regex=_AVERLEARNING_ORIGIN_REGEX,
     allow_credentials=True,
     # C-4.2 hardening — tighten from "*" to the methods/headers the app actually
-    # uses (regex + credentials kept; see the intentional-regex note above).
+    # uses (exact per-deployment origin allowlist + credentials; see above).
     allow_methods=_CORS_METHODS,
     allow_headers=_CORS_HEADERS,
     # Cache the CORS preflight (OPTIONS) response. Without this the browser
@@ -242,27 +241,34 @@ app.add_middleware(
     max_age=7200,
 )
 
-app.include_router(auth_router)
-app.include_router(sessions_router)
-app.include_router(questions_router)
+# W-03 — every LEARNER router runs the activation gate (users.is_active).
+# Exemptions (activation bootstrap, public content, share links, probes) and
+# the staff-path skip live in ONE place: services/activation_gate.py.
+# tests/test_activation_gate_inventory.py fails if a learner route is neither
+# gated nor explicitly exempt. Staff-only routers keep their own role guards.
+_ACTIVE_LEARNER = [Depends(require_active_learner)]
+
+app.include_router(auth_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(sessions_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(questions_router, dependencies=_ACTIVE_LEARNER)
 
 # OFFICIAL grading route: POST /sessions/{id}/responses
 #   → full pipeline: Whisper STT + Claude grading, returns band scores + feedback
-app.include_router(grading_router)
-app.include_router(tts_router)
+app.include_router(grading_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(tts_router, dependencies=_ACTIVE_LEARNER)
 # PDF export (GET /sessions/{id}/export/pdf) — ReportLab, pure Python, zero
 # system deps (fonts-dejavu-core via nixpacks.toml). Works on Railway.
-app.include_router(export_router)
+app.include_router(export_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_router)
 app.include_router(admin_core_attempt_evidence_router)
 app.include_router(cohorts_router)
 app.include_router(admin_courses_router)
 app.include_router(admin_class_lessons_router)
 app.include_router(admin_class_assignments_router)
-app.include_router(grammar_lesson_router)
+app.include_router(grammar_lesson_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_grammar_lesson_router)
-app.include_router(class_student_router)
-app.include_router(advanced_vocab_router)
+app.include_router(class_student_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(advanced_vocab_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_advanced_vocab_router)
 app.include_router(error_logs_router)
 app.include_router(admin_flags_router)
@@ -278,51 +284,63 @@ app.include_router(admin_instructor_router)
 app.include_router(instructor_router)
 app.include_router(admin_instructors_router)
 app.include_router(admin_students_router)
-app.include_router(writing_student_router)
-app.include_router(grammar_router)
-app.include_router(grammar_diagnostic_router)
+app.include_router(writing_student_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(grammar_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(grammar_diagnostic_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_grammar_diagnostic_router)
-app.include_router(pronunciation_router)
+app.include_router(pronunciation_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(sitemap_router)
-app.include_router(vocabulary_router)
-app.include_router(vocab_units_router)
-app.include_router(analytics_router)
-app.include_router(vocabulary_bank_router)
-app.include_router(exercises_user_router)
+app.include_router(vocabulary_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(vocab_units_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(analytics_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(vocabulary_bank_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(exercises_user_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(exercises_admin_router)
-app.include_router(flashcards_user_router)
-app.include_router(listening_user_router)
-app.include_router(listening_source_collection_router)
+app.include_router(flashcards_user_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(listening_user_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(listening_source_collection_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(listening_admin_router)
 app.include_router(admin_reading_content_router)
 app.include_router(admin_reading_questions_router)
 app.include_router(admin_vocab_content_router)
-app.include_router(vocabulary_sets_router)
+app.include_router(vocabulary_sets_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_vocabulary_sets_router)
 app.include_router(admin_topics_router)
 app.include_router(admin_quiz_router)
-app.include_router(quiz_player_router)
-app.include_router(course_pronunciation_router)
-app.include_router(reading_student_router)
-app.include_router(mock_attempt_flags_router)
-app.include_router(feedback_router)
-app.include_router(kp_router)
-app.include_router(exams_router)
+app.include_router(quiz_player_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(course_pronunciation_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(reading_student_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(mock_attempt_flags_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(feedback_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(kp_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(exams_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_exams_router)
-app.include_router(mock_exams_router)
+app.include_router(mock_exams_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_exam_content_router)
 app.include_router(admin_mock_exams_router)
 app.include_router(admin_mock_reviews_router)
-app.include_router(mock_corrections_router)
+app.include_router(mock_corrections_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_mock_corrections_router)
 app.include_router(health_router)
-app.include_router(dashboard_router)
-app.include_router(student_home_router)
+app.include_router(dashboard_router, dependencies=_ACTIVE_LEARNER)
+app.include_router(student_home_router, dependencies=_ACTIVE_LEARNER)
 
 
 # ── Public stats — no auth, for the marketing landing page ────────────
+# Two exact COUNT queries per anonymous hit is a cheap amplification lever,
+# so the per-process result is reused for a few minutes (failures briefly,
+# so an outage isn't hammered either). Error detail stays in the server log.
+_PUBLIC_STATS_TTL_SECONDS = 300.0
+_PUBLIC_STATS_FAILURE_TTL_SECONDS = 30.0
+_public_stats_cache: tuple[float, dict] | None = None
+
+
 @app.get("/api/public-stats")
 def public_stats():
+    global _public_stats_cache
+    now = perf_counter()
+    if _public_stats_cache is not None and now < _public_stats_cache[0]:
+        return dict(_public_stats_cache[1])
     try:
         users_res = (
             supabase_admin.table("users")
@@ -337,12 +355,17 @@ def public_stats():
             .limit(0)
             .execute()
         )
-        return {
+        stats = {
             "total_users": users_res.count or 0,
             "sessions_completed": sessions_res.count or 0,
         }
+        ttl = _PUBLIC_STATS_TTL_SECONDS
     except Exception:
-        return {"total_users": None, "sessions_completed": None}
+        logger.exception("[public-stats] count query failed")
+        stats = {"total_users": None, "sessions_completed": None}
+        ttl = _PUBLIC_STATS_FAILURE_TTL_SECONDS
+    _public_stats_cache = (perf_counter() + ttl, stats)
+    return dict(stats)
 
 
 # ── PR1 single-source — per-request access-permission memo ────────────
@@ -357,6 +380,15 @@ async def access_perm_memo_middleware(request: Request, call_next):
         begin_request_permission_memo,
         reset_request_permission_memo,
     )
+    from services.activation_gate import (
+        begin_request_memo as begin_activation_memo,
+        reset_request_memo as reset_activation_memo,
+    )
+    from services.test_data_visibility import (
+        SHOW_TEST_DATA_HEADER,
+        begin_request as begin_test_data_request,
+        reset_request as reset_test_data_request,
+    )
     # A CORS preflight carries no auth and reaches no route — CORSMiddleware
     # answers it below us. Setting up a per-request permission memo for it is
     # pure risk: this middleware sits OUTSIDE CORSMiddleware, so anything it
@@ -365,9 +397,16 @@ async def access_perm_memo_middleware(request: Request, call_next):
     if request.method == "OPTIONS" and request.headers.get("access-control-request-method"):
         return await call_next(request)
     token = begin_request_permission_memo()
+    # W-03 — same per-request lifetime for the activation gate's memo (verified
+    # bearer + confirmed-active ids), so a request never re-verifies its token.
+    gate_token = begin_activation_memo()
+    # TASK B2 — the admin "show test data" opt-in, read by list routes.
+    test_data_token = begin_test_data_request(request.headers.get(SHOW_TEST_DATA_HEADER))
     try:
         return await call_next(request)
     finally:
+        reset_test_data_request(test_data_token)
+        reset_activation_memo(gate_token)
         reset_request_permission_memo(token)
 
 
@@ -399,7 +438,7 @@ async def server_timing_middleware(request: Request, call_next):
         # Perf P3.3 — the frontend (Vercel) and API (Railway) are cross-origin,
         # so the browser's PerformanceResourceTiming.serverTiming stays EMPTY
         # unless we opt the caller in with Timing-Allow-Origin. Reflect the
-        # request Origin ONLY when it passes the SAME allowlist/regex as CORS —
+        # request Origin ONLY when it passes the SAME allowlist as CORS —
         # never echo an arbitrary origin (that would let a site CORS rejects opt
         # itself into reading our timings) and never fall back to `*`. A
         # same-origin caller has no Origin and can read timings without TAO.
@@ -419,10 +458,19 @@ async def request_id_middleware(request: Request, call_next):
     import uuid as _uuid
     request_id = request.headers.get("x-request-id") or str(_uuid.uuid4())
     request.state.request_id = request_id
-    with operation_hint_scope(request.headers.getlist(CORE_OPERATION_HEADER)):
+    with operation_hint_scope(request.headers.getlist(CORE_OPERATION_HEADER)), \
+            request_id_scope(request_id):
         response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
     return response
+
+
+# SEC-20261028-01 — registered LAST so it is the outermost middleware: every
+# layer below (incl. the router's trailing-slash 307) sees the public https
+# scheme reported by the Railway edge instead of the internal http hop.
+from services.forwarded_proto import ForwardedProtoMiddleware
+
+app.add_middleware(ForwardedProtoMiddleware)
 
 
 # ── Sprint 12.3 — fire-and-forget error_logs INSERT ───────────────────
@@ -568,6 +616,27 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
         },
         headers=headers,
     )
+
+
+def _json_safe_numbers(value):
+    if isinstance(value, float) and not math.isfinite(value):
+        return str(value)  # 'inf' / '-inf' / 'nan'
+    if isinstance(value, dict):
+        return {key: _json_safe_numbers(child) for key, child in value.items()}
+    if isinstance(value, list):
+        return [_json_safe_numbers(child) for child in value]
+    return value
+
+
+# F10 (Codex, PR #1754): FastAPI's default 422 echoes the rejected `input`.
+# Python's JSON parser turns 1e309 / NaN / Infinity into non-finite floats,
+# which JSONResponse refuses to serialize, so a malformed (often anonymous)
+# body became a 500 and a backend error_logs row. Same shape as the default
+# handler; only non-finite numbers are rendered as strings.
+@app.exception_handler(RequestValidationError)
+async def request_validation_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(status_code=422,
+                        content={"detail": _json_safe_numbers(jsonable_encoder(exc.errors()))})
 
 
 # ── P0-5 / C-1.3 — sanitize EXPLICIT HTTPExceptions before they reach the client.
@@ -716,6 +785,35 @@ async def startup_event():
             settings.COURSE_TIMER_REAPER_GRACE_SECONDS,
         )
 
+    # INACTIVEWRITE-0035 follow-up — daily row-growth alert. Learners write
+    # Vocabulary/flashcard rows through Supabase REST with no rate limit; this
+    # flags abnormal per-user growth into error_logs for admins only. The first
+    # run follows startup (deploys restart the process more often than daily);
+    # the check itself de-duplicates per user/table/UTC day.
+    if settings.ROW_GROWTH_ALERT_ENABLED:
+        import asyncio as _asyncio_row_growth
+        from services import row_growth_alert as _row_growth
+
+        async def _row_growth_alert_loop():
+            await _asyncio_row_growth.sleep(settings.ROW_GROWTH_ALERT_STARTUP_DELAY_SECONDS)
+            while True:
+                try:
+                    res = await _asyncio_row_growth.to_thread(
+                        _row_growth.run_row_growth_check,
+                        threshold=settings.ROW_GROWTH_ALERT_THRESHOLD,
+                    )
+                    logger.info("[row-growth] check %s", res)
+                except Exception:
+                    logger.exception("[row-growth] check failed")
+                await _asyncio_row_growth.sleep(settings.ROW_GROWTH_ALERT_INTERVAL_SECONDS)
+
+        _asyncio_row_growth.create_task(_row_growth_alert_loop())
+        logger.info(
+            "[row-growth] started (interval=%ss, threshold=%s)",
+            settings.ROW_GROWTH_ALERT_INTERVAL_SECONDS,
+            settings.ROW_GROWTH_ALERT_THRESHOLD,
+        )
+
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -728,7 +826,7 @@ async def shutdown_event():
     close_supabase_http_client()
 
 
-@app.get("/topics")
+@app.get("/topics", dependencies=_ACTIVE_LEARNER)
 async def get_topics(
     part: int | None = None,
     authorization: str | None = Header(default=None),

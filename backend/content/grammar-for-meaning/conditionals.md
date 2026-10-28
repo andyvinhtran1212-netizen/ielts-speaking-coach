@@ -196,7 +196,7 @@ If + Past Simple, would + V-bare
 - **If** I **were** you, I **would** apply for that job.
 
 <!-- anchor: conditionals.type2.common-mistake.was-instead-of-were -->
-> **Lưu ý "were":** Trong điều kiện loại 2, dùng **were** cho tất cả các ngôi (không chỉ I/he/she/it):
+> **Lưu ý "were":** Trong điều kiện loại 2, dùng **were** cho mọi ngôi, **kể cả** I/he/she/it (thay cho was):
 > - If I **were** rich... ✅ (không phải "was" — trong văn phong chính thức)
 > - If he **were** here... ✅
 > - If she **were** to apply... ✅
@@ -533,6 +533,7 @@ Unless có thể đi với phủ định khi ý ngoại lệ cần phủ định
 
 - "Would" → chắc chắn hơn: **If** she tried, she **would** succeed.
 - "Could/Might" → ít chắc hơn: **If** she tried, she **might** succeed.
+- If she tried, she **could** succeed. (có khả năng/năng lực)
 
 ## Ứng dụng trong IELTS
 
