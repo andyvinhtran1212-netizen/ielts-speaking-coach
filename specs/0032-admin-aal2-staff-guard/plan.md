@@ -42,7 +42,9 @@ No code is written under this plan until ADMINAAL2-0032 is approved on
   `listening.py` already call `require_admin`, so they inherit the rule
   without edits.
 - **`backend/config.py`** adds `ADMIN_AAL2_ENFORCE: bool = False`, `OWNER_ALERT_EMAILS: str = ""`
-  and the email-provider key (Q2). The flag uses the standard pydantic
+  and the email-provider key (Q2). Per the Q2 decision the owner address is
+  both sender and recipient, so it lives only in `OWNER_ALERT_EMAILS` and no
+  separate sender variable is added. The flag uses the standard pydantic
   boolean parsing, so an unparseable value fails startup instead of choosing
   a mode.
 - **`backend/services/staff_security.py` (new)**:

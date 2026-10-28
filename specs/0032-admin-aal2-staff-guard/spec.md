@@ -1,19 +1,23 @@
 ---
 id: ADMINAAL2-0032
 title: Admin powers require a verified second factor and a suspended or demoted staff account loses access on its next request
-status: draft
+status: approved
 risk: critical
 owner: product
 ---
 
 # Admin powers require a verified second factor and a suspended or demoted staff account loses access on its next request
 
-Proposed. Awaiting approval by Vinh. Source: product brief ADMIN-AAL2
+Approval: approved by Vinh on 2026-10-28 09:11 (UTC+7), relayed by the
+Leader, with every default answer to Q1–Q10 accepted and the Q2 alert address
+set to `andyvinhtran1212@gmail.com` (see
+[`approval-decision.md`](approval-decision.md) and
+[Owner decisions](#owner-decisions)). Source: product brief ADMIN-AAL2
 (Feature Developer, 2026-10-27 23:10, approved for spec writing 23:01 via
 Leader). Its owner decisions are binding defaults here. Risk source:
 `/workspace/cc-jobs/dr-tabletop-1027.md` §5. Code inventory with citations:
-[`research.md`](research.md). Migration number **332 is provisional** until the
-Leader reserves it (Q8).
+[`research.md`](research.md). Migration number **332** is the accepted Q8
+default; the Leader still confirms the reservation before T001.
 
 ## Thay đổi người dùng thấy (tóm tắt cho anh Vinh)
 
@@ -246,41 +250,46 @@ compromised admin out is not possible from the product.
   path in ≤ 30 minutes (targets; measured values recorded in
   `verification.md`).
 
-## Open questions
+## Owner decisions
 
-Each question has a recommended default. If Vinh does not override it at
-approval, the default stands.
+Decided by Vinh on 2026-10-28 09:11 (UTC+7): **every default below is
+accepted** as written. The only addition is the Q2 address. Each item keeps
+the wording of the default that was approved.
 
-- **Q1: Offline recovery.** Supabase has no recovery codes. *Default:* every
+- **Q1: Offline recovery.** *Decided: default accepted.* Supabase has no recovery codes. *Default:* every
   admin enrolls two TOTP factors (phone app plus a backup whose QR/secret is
   stored offline, e.g. a printed sheet in a safe or a password manager on a
   separate device). Production keeps at least two admins with MFA.
-- **Q2: Alert email recipients and provider.** The backend sends no email
+- **Q2: Alert email recipients and provider.** *Decided: default accepted.* The backend sends no email
   today. *Default:* a single HTTPS transactional email provider (Resend, one
   new Railway secret) with recipients in `OWNER_ALERT_EMAILS`. Vinh supplies
   the owner address at approval. AI-BUDGET reuses the same channel and
-  recipients.
-- **Q3: Suspension strength.** Ban sign-in until reactivation, or only revoke
+  recipients. *Owner address (2026-10-28):* `andyvinhtran1212@gmail.com` is
+  both the alert sender and the recipient, so `OWNER_ALERT_EMAILS` is set to
+  that one address. The provider must accept that address as the sender. If
+  it does not (for example, it only sends from a verified domain), the
+  implementer stops and asks Vinh; the sender is never changed silently.
+- **Q3: Suspension strength.** *Decided: default accepted.* Ban sign-in until reactivation, or only revoke
   sessions? *Default:* ban and revoke (a suspended staff member cannot sign in
   even as a learner).
-- **Q4: Instructor grant, revoke and suspension emails.** *Default:* audit row
+- **Q4: Instructor grant, revoke and suspension emails.** *Decided: default accepted.* *Default:* audit row
   only, no email (brief: email only for admin events).
-- **Q5: Step-up for privilege changes.** Should granting admin require a TOTP
+- **Q5: Step-up for privilege changes.** *Decided: default accepted.* Should granting admin require a TOTP
   code entered in the last 15 minutes? *Default:* not in phase 1. AAL2 is
   required for every admin action; factor removal alone needs a fresh code.
-- **Q6: Production enforcement date.** *Default:* enable on production within
+- **Q6: Production enforcement date.** *Decided: default accepted.* *Default:* enable on production within
   7 days after staging enforcement passes AC1–AC9 and the FR-017 query is
   green on production, on Vinh's explicit go.
-- **Q7: Soft admin privileges.** Should the admin session-quota bypass and the
+- **Q7: Soft admin privileges.** *Decided: default accepted.* Should the admin session-quota bypass and the
   admin-only views on learner routes also need AAL2? *Default:* yes (FR-001);
   an AAL1 admin is treated as a learner there.
-- **Q8: Migration number.** *Default:* 332. 327–330 are reserved and 331 is
+- **Q8: Migration number.** *Decided: default accepted.* *Default:* 332. 327–330 are reserved and 331 is
   GIVEARCHIVE-0031. The Leader must confirm the reservation before T001. If
   AI-BUDGET also needs a migration, it takes the next free number after the
   Leader's allocation.
-- **Q9: Audit retention.** *Default:* keep indefinitely. Volume is low:
+- **Q9: Audit retention.** *Decided: default accepted.* *Default:* keep indefinitely. Volume is low:
   learner activations add about one row per activation.
-- **Q10: A new Railway cron service.** Every 5 minutes it dispatches pending
+- **Q10: A new Railway cron service.** *Decided: default accepted.* Every 5 minutes it dispatches pending
   alerts and reconciles admin MFA factors (`plan.md`). This is needed for
   out-of-band changes and factor deletions that never touch the backend.
   *Default:* approve it as part of this spec. It runs the backend image with
