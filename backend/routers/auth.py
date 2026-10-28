@@ -230,15 +230,19 @@ async def get_me(response: Response, authorization: str | None = Header(default=
 
     if not existing.data:
         try:
+            # First visit. Two concurrent /auth/me calls (or another worker, or
+            # /auth/activate) can both see no row; ON CONFLICT (id) DO NOTHING
+            # lets the loser fall through to the re-SELECT instead of a 500,
+            # and never overwrites the winner's role / is_active.
             await aexecute(
-                lambda db: db.table("users").insert({
+                lambda db: db.table("users").upsert({
                     "id": user_id,
                     "email": email,
                     "display_name": metadata.get("full_name") or metadata.get("name"),
                     "avatar_url": metadata.get("avatar_url"),
                     "role": "user",
                     "is_active": False,
-                }),
+                }, on_conflict="id", ignore_duplicates=True),
                 sync_client=supabase_admin,
             )
 
