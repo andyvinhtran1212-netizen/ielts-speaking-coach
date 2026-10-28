@@ -2,6 +2,8 @@
 
 import { useEffect } from 'react';
 
+import { allowsTelemetryTarget } from '@/lib/telemetry-target.mjs';
+
 export function LandingBehavior() {
   useEffect(() => {
     // ─── THEME TOGGLE BINDING ────────────────────────────────────
@@ -108,6 +110,11 @@ export function LandingBehavior() {
         });
 
       // ─── ADR-012 PAGE-VIEW BEACON (implementation-tagged) ──────
+      // Q-89: no page_view from a non-production build to the production API.
+      if (!allowsTelemetryTarget(apiBase, {
+        environment: rc?.environment,
+        hostname: location.hostname,
+      })) return;
       try {
         fetch(apiBase + '/api/analytics/events', {
           method: 'POST',
