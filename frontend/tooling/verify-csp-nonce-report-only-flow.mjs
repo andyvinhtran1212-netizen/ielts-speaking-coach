@@ -69,7 +69,7 @@ window.__AVER_SUPABASE_CLIENT__ = { auth: {
   signOut: async function () { return { error: null }; }
 } };`;
 
-async function newPage(browser, signedIn) {
+async function newPage(browser, signedIn, apiCalls = []) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await context.addInitScript({ content: initScript(signedIn) });
   await context.route('**/*', async (route) => {
@@ -83,12 +83,21 @@ async function newPage(browser, signedIn) {
       'access-control-allow-headers': 'authorization,content-type,x-request-id',
     };
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers, body: '' });
+    apiCalls.push(`${request.method()} ${url.pathname}`);
     const json = (body, status = 200) =>
       route.fulfill({ status, contentType: 'application/json', headers, body: JSON.stringify(body) });
     if (url.pathname === '/auth/me') {
       return json({ id: USER, email: 'csp@example.test', role: 'admin', is_active: true, display_name: 'CSP Fixture' });
     }
     if (url.pathname === '/auth/check-active') return json({ is_active: true });
+    // Minimal Speaking session so /practice/session reaches PracticeApp.init.
+    if (url.pathname === `/sessions/${ID}/renderer-affinity`) return json({ renderer_affinity: 'next' });
+    if (url.pathname === `/sessions/${ID}`) {
+      return json({ id: ID, user_id: USER, part: 1, mode: 'practice', status: 'active' });
+    }
+    if (url.pathname === `/sessions/${ID}/questions`) {
+      return json([{ id: 'q-csp-1', session_id: ID, part: 1, order_num: 1, question_text: 'Do you enjoy reading?' }]);
+    }
     // Pages may show their own error state; this verifier only judges CSP.
     return json({ detail: 'No fixture for this request' }, 404);
   });
@@ -158,6 +167,41 @@ try {
       injected.some((r) => r.directive === 'script-src-attr' || r.directive === 'script-src'), JSON.stringify(injected));
     check('injected handler still runs (Report-Only does not block)',
       await page.evaluate(() => window.__ONERROR_RAN__ === true));
+    await context.close();
+  }
+
+  // practice.js recommendation cards lost their inline onclick/onmouseover:
+  // the managed document listeners must still PATCH the click and restyle on
+  // hover. The card markup is the one _grammarCardHtml builds.
+  {
+    const apiCalls = [];
+    const { context, page } = await newPage(browser, true, apiCalls);
+    await page.goto(`${BASE}/practice/session?session_id=${ID}`, { waitUntil: 'domcontentloaded' });
+    // init() binds the managed document listeners before it leaves loading.
+    await page.waitForFunction(
+      () => window.PracticePlayer?.getSnapshot?.().effectKeys.includes('grammar-rec-click'), null, { timeout: 15_000 },
+    ).catch(() => {});
+    await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+    const styles = await page.evaluate(() => {
+      const card = document.createElement('a');
+      card.dataset.recId = 'rec-csp-1';
+      card.dataset.grCard = 'primary';
+      card.style.background = 'rgba(20,184,166,0.07)';
+      card.innerHTML = '<p>child</p>';
+      document.body.appendChild(card);
+      const child = card.firstChild;
+      child.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      const over = card.style.background;
+      child.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }));
+      const out = card.style.background;
+      child.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      return { over, out };
+    });
+    await page.waitForTimeout(500);
+    check('practice grammar card hover restyles through the delegated listener',
+      styles.over === 'rgba(20, 184, 166, 0.12)' && styles.out === 'rgba(20, 184, 166, 0.07)', JSON.stringify(styles));
+    check('practice grammar card click PATCHes the recommendation telemetry',
+      apiCalls.includes('PATCH /api/grammar/recommendations/rec-csp-1/clicked'), apiCalls.filter((c) => !c.startsWith('GET')).join(', '));
     await context.close();
   }
 

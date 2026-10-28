@@ -2101,8 +2101,9 @@
       + (rec.anchor ? '#' + encodeURIComponent(rec.anchor) : '');
   }
 
-  // The click PATCH and the card hover are delegated listeners (below), not
-  // inline on* attributes: a nonce-based CSP blocks those (PC-J38).
+  // The click PATCH and the card hover are delegated listeners
+  // (_bindPlayerEffects), not inline on* attributes: a nonce-based CSP blocks
+  // those (PC-J38).
   function _grammarRecTelemetryAttrs(rec) {
     if (!rec || !rec.rec_id) return '';
     return ' data-rec-id="' + _esc(rec.rec_id) + '"';
@@ -2124,22 +2125,16 @@
     return target && typeof target.closest === 'function' ? target.closest(selector) : null;
   }
 
-  function _bindGrammarCardEvents() {
-    if (typeof document === 'undefined' || window.__averGrammarCardEventsBound) return;
-    window.__averGrammarCardEventsBound = true;
-    document.addEventListener('click', function (event) {
-      var link = _closestFromEvent(event, 'a[data-rec-id]');
-      if (link && link.dataset.recId) _trackGrammarResource(link.dataset.recId, null);
-    });
-    ['mouseover', 'mouseout'].forEach(function (type) {
-      document.addEventListener(type, function (event) {
-        var card = _closestFromEvent(event, 'a[data-gr-card]');
-        var hover = card && _GR_CARD_HOVER[card.dataset.grCard];
-        if (hover) Object.assign(card.style, type === 'mouseover' ? hover.over : hover.out);
-      });
-    });
+  function _handleGrammarRecClick(event) {
+    var link = _closestFromEvent(event, 'a[data-rec-id]');
+    if (link && link.dataset.recId) _trackGrammarResource(link.dataset.recId, null);
   }
-  _bindGrammarCardEvents();
+
+  function _handleGrammarCardHover(event) {
+    var card = _closestFromEvent(event, 'a[data-gr-card]');
+    var hover = card && _GR_CARD_HOVER[card.dataset.grCard];
+    if (hover) Object.assign(card.style, event.type === 'mouseover' ? hover.over : hover.out);
+  }
 
   // Card HTML: primary = full treatment with summary, secondary = compact muted
   function _grammarCardHtml(match, isPrimary) {
@@ -5995,6 +5990,9 @@
     _listenManaged('interaction-touchstart', document, 'touchstart', _markInteracted, onceCapture);
     _listenManaged('grammar-click', document, 'click', _handleGrammarClick);
     _listenManaged('grammar-keydown', document, 'keydown', _handleGrammarKeydown);
+    _listenManaged('grammar-rec-click', document, 'click', _handleGrammarRecClick);
+    _listenManaged('grammar-card-mouseover', document, 'mouseover', _handleGrammarCardHover);
+    _listenManaged('grammar-card-mouseout', document, 'mouseout', _handleGrammarCardHover);
     if (window.speechSynthesis) {
       _listenManaged(
         'tts-voiceschanged',
