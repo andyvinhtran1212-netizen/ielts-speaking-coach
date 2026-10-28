@@ -317,8 +317,8 @@ async function reconcilePendingSubmissions(accountId: string, api: any, ms: Moda
 
 function renderStudent(student: any) {
   const s = student || {};
-  // Comma + name are rendered together: a name yields "Chào em, <name>", no
-  // name yields a clean "Chào em" (no "Chào em, em" duplication).
+  // Comma + name are rendered together: a name yields "Chào bạn, <name>", no
+  // name yields a clean "Chào bạn" (no dangling comma).
   const { separator, name } = writingGreetingParts(s);
   const sepEl = $('greeting-sep');
   if (sepEl) sepEl.textContent = separator;

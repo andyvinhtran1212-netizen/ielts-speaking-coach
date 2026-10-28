@@ -166,6 +166,19 @@ main { position: relative; z-index: 1; }
   border-bottom-color: var(--av-primary);
 }
 
+/* UIA-1028-06 — at 375 px the four labels wrapped to 2–3 lines with the
+   emoji on its own line. Keep one row and let the strip scroll sideways. */
+.wd-tabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.wd-tabs .tab-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 
 /* ── Status pills (STATUS_CONFIG + ASSIGNMENT_STATUS) ────────────── */
 
