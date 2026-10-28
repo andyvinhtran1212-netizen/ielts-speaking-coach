@@ -68,11 +68,39 @@ describe('Sprint 14.3 — frontend stub-banner UX preserved', () => {
   test('practice.js still dispatches on data._stub + "temporarily unavailable"', () => {
     // _showFeedback's stub branch (existing UX from Sprint <14) is
     // the L8 destination when every provider in the chain fails.
+    // UIA-1028-03 moved the check into _isAiUnavailableStub so the
+    // client-rebuilt stub (Vietnamese copy) can flag itself with
+    // `_aiUnavailable` instead of carrying the English sentence.
     assert.match(PRACTICE_JS, /data\._stub/);
-    assert.match(
-      PRACTICE_JS,
-      /data\._error\s*&&\s*data\._error\.includes\(['"]temporarily unavailable['"]\)/,
-    );
+    assert.match(PRACTICE_JS, /var isAiDown = _isAiUnavailableStub\(data\);/);
+    assert.match(PRACTICE_JS, /aiUnavailable: _isAiUnavailableStub\(payload\),/);
+    // One text check only (inside the helper) — a second inline copy
+    // would miss the `_aiUnavailable` flag on rebuilt stubs.
+    assert.equal(PRACTICE_JS.split(".includes('temporarily unavailable')").length - 1, 1);
+  });
+
+  test('_isAiUnavailableStub accepts the backend English sentence and the client flag', () => {
+    const src = /function _isAiUnavailableStub\(data\) \{[\s\S]*?\n  \}/.exec(PRACTICE_JS);
+    assert.ok(src, 'practice.js must define _isAiUnavailableStub');
+    const isAiDown = new Function(`${src[0]}; return _isAiUnavailableStub;`)();
+    // Backend wire shape (grading.py, pinned above) is still English.
+    assert.equal(isAiDown({ _stub: true, _error: 'AI grading is temporarily unavailable. Your recording and transcript were saved.' }), true);
+    // Stub rebuilt from a persisted failed row: Vietnamese copy + flag.
+    assert.equal(isAiDown({ _stub: true, _aiUnavailable: true, _error: 'Chấm điểm AI đang tạm gián đoạn.' }), true);
+    // Other stubs (network error, still-finishing) must NOT show the AI-down banner.
+    assert.equal(isAiDown({ _stub: true, _error: 'Bản ghi đã lưu, nhưng máy đang hoàn tất chấm câu này.' }), false);
+    assert.equal(isAiDown({ _stub: true }), false);
+    assert.equal(isAiDown(null), false);
+  });
+
+  test('stub rebuilt from a failed persisted row flags itself as AI-down', () => {
+    const i = PRACTICE_JS.indexOf('function _respToFeedbackData');
+    assert.ok(i !== -1, 'practice.js must define _respToFeedbackData');
+    const failedBranch = /failed \? \{([\s\S]*?)\} : \{\}/.exec(PRACTICE_JS.slice(i, i + 800));
+    assert.ok(failedBranch, 'failed-row stub branch not found');
+    assert.match(failedBranch[1], /_stub: true,/);
+    assert.match(failedBranch[1], /_aiUnavailable: true,/);
+    assert.match(failedBranch[1], /_error: 'Chấm điểm AI đang tạm gián đoạn\. Bản ghi âm và transcript của bạn đã được lưu\.'/);
   });
 
   test('practice.js renders the canonical Vietnamese fallback message', () => {
