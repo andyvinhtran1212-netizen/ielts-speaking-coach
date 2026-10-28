@@ -161,24 +161,30 @@ try {
       const { context, page } = await openHome(browser, width, role);
       const chrome = page.locator('aver-chrome');
       await chrome.locator('#user-pill').click();
-      const link = chrome.locator('#instructor-link');
-      const read = () => link.evaluate((a) => ({
-        hidden: a.hasAttribute('hidden'),
-        display: getComputedStyle(a).display,
-        width: a.getBoundingClientRect().width,
-      }));
+      // Q-40: a learner's menu must not carry the anchor at all (not merely
+      // hide it), so read every /instructor anchor in the shadow root.
+      const read = () => chrome.evaluate((host) => {
+        const anchors = [...host.shadowRoot.querySelectorAll('#instructor-link, a[href="/instructor"]')];
+        const a = anchors[0];
+        return {
+          count: anchors.length,
+          display: a ? getComputedStyle(a).display : 'absent',
+          width: a ? a.getBoundingClientRect().width : 0,
+        };
+      });
       // The chrome applies the /auth/me role asynchronously: wait for the
-      // un-hide on staff roles, and give a student the same window to leak.
+      // insert on staff roles, and give a student the same window to leak.
+      const ok = (st) => (expected
+        ? st.count === 1 && st.display !== 'none' && st.width > 0
+        : st.count === 0);
       let state = await read();
-      const isVisible = (st) => st.display !== 'none' && st.width > 0;
-      for (let i = 0; i < 20 && isVisible(state) !== expected; i += 1) {
+      for (let i = 0; i < 20 && !ok(state); i += 1) {
         await page.waitForTimeout(100);
         state = await read();
       }
       if (!expected) { await page.waitForTimeout(500); state = await read(); }
-      const visible = isVisible(state);
-      check(`${width}px ${role}: "Trang giảng viên" ${expected ? 'shown' : 'hidden'}`,
-        visible === expected, `hidden attr ${state.hidden}, display ${state.display}`);
+      check(`${width}px ${role}: "Trang giảng viên" ${expected ? 'shown' : 'absent from DOM'}`,
+        ok(state), `anchors ${state.count}, display ${state.display}`);
       await context.close();
     }
   }
