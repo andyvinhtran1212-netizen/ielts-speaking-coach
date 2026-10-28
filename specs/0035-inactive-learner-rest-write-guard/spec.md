@@ -1,14 +1,15 @@
 ---
 id: INACTIVEWRITE-0035
 title: An inactive account cannot write Vocabulary or flashcard rows through any path, including direct Supabase REST
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # An inactive account cannot write Vocabulary or flashcard rows through any path, including direct Supabase REST
 
-Approval: **draft — needs the owner's approval** (`approval-decision.md`).
+Approval: approved by Vinh on 2026-10-28, including the three defaults below
+(see [`approval-decision.md`](approval-decision.md)).
 Locked migration number: **335** (assigned by the Leader on 2026-10-28).
 Origin: Security Auditor finding SEC-20261028-02 (P3/Low, 2026-10-28), staging
 `zjphffoujxkpltixsbzj`.
@@ -106,7 +107,7 @@ found no existing inactive-owned vocabulary rows.
 - An inactive QA JWT gets 403 on `POST /rest/v1/user_vocabulary`; an active QA JWT gets 201 (row deleted afterwards).
 - Existing Vocabulary/flashcard suites and the staging E2E stay green.
 
-## Decisions (recommended defaults, pending owner approval)
+## Decisions (approved by the owner, 2026-10-28)
 
 1. Block `DELETE` too (not only `INSERT`/`UPDATE`): consistent with the FastAPI gate, which already refuses deletes for inactive accounts.
 2. Leave reads unchanged: an inactive account may still read its own existing rows through REST.
@@ -114,4 +115,4 @@ found no existing inactive-owned vocabulary rows.
 
 ## Open questions
 
-- None block implementation; the three defaults above need the owner's confirmation.
+- None. The owner confirmed the three defaults above on 2026-10-28.
