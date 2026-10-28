@@ -11,6 +11,7 @@ import asyncio
 import json
 import logging
 import math
+import time
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote, urlparse
 
@@ -59,6 +60,7 @@ from services.gemini import (
     generate_part3_questions,
 )
 from services.claude_grader import grade_response as _claude_grade
+from services.grading_telemetry import log_fallback_events
 from services.whisper import transcribe_from_bytes
 from services.ai_pricing import effective_logged_cost
 
@@ -4324,16 +4326,36 @@ async def _run_regrade_response(
         re_transcribed = True
 
     reliability = {"reliability_label": "high", "reliability_score": 0.9}
-    grading = await _claude_grade(
-        question=question_text,
-        transcript=transcript,
-        part=part,
-        mode=mode,
-        user_id=user_id,
-        session_id=resp["session_id"],
-        reliability=reliability,
-        word_count=word_count,
-    )
+    # S3 — the same audit trail as live grading (routers/grading.py): every
+    # provider attempt, success or failure, lands in grading_events with its
+    # latency. Best-effort; log_fallback_events never raises.
+    fallback_events: list = []
+    started = time.monotonic()
+    outcome = "error"
+    try:
+        grading = await _claude_grade(
+            question=question_text,
+            transcript=transcript,
+            part=part,
+            mode=mode,
+            user_id=user_id,
+            session_id=resp["session_id"],
+            reliability=reliability,
+            word_count=word_count,
+            fallback_events=fallback_events,
+        )
+        outcome = "success"
+    finally:
+        log_fallback_events(
+            session_id=resp["session_id"],
+            question_id=resp.get("question_id"),
+            response_id=response_id,
+            events=fallback_events,
+        )
+        logger.info(
+            "[admin/regrade-response] graded response=%s outcome=%s latency_ms=%d attempts=%d",
+            response_id, outcome, int((time.monotonic() - started) * 1000), len(fallback_events),
+        )
     # Audit 2026-07-02 (P1) — the grader no longer scores pronunciation (Azure
     # measures it server-side during the original grade). A regrade re-grades
     # FC/LR/GRA only; the audio is UNCHANGED, so re-attach the previously
