@@ -164,7 +164,13 @@ async def list_prompts(
     return {"prompts": prompts}
 
 
-def _maybe_trigger_analysis(prompt_row: dict, background_tasks: BackgroundTasks) -> None:
+def _maybe_trigger_analysis(
+    prompt_row: dict,
+    background_tasks: BackgroundTasks,
+    *,
+    requested_by: str,
+    trigger: str,
+) -> None:
     """Kick off answer-key extraction when a task1_academic prompt's chart is new
     or replaced (image public_id != the one the analysis was derived from). Sets
     status='pending' synchronously so the UI reflects it immediately, then runs
@@ -179,6 +185,7 @@ def _maybe_trigger_analysis(prompt_row: dict, background_tasks: BackgroundTasks)
         return
     background_tasks.add_task(
         writing_prompt_analysis.run_and_store_analysis, pid, pending_token,
+        requested_by=requested_by, trigger=trigger,
     )
 
 
@@ -209,7 +216,9 @@ async def create_prompt(
     r = supabase_admin.table("writing_prompts").insert(payload).execute()
     if not r.data:
         raise HTTPException(500, "Failed to create prompt")
-    _maybe_trigger_analysis(r.data[0], background_tasks)
+    _maybe_trigger_analysis(
+        r.data[0], background_tasks, requested_by=admin["id"], trigger="create",
+    )
     out = dict(r.data[0])
     attach_signed_image_urls([out])
     return out
@@ -331,7 +340,7 @@ async def update_prompt(
     """Partial update.  Only fields present in the request body are
     written; all others stay untouched. If the image changed, re-schedules
     answer-key extraction (and the prior analysis is re-reviewed)."""
-    await require_admin(authorization)
+    admin = await require_admin(authorization)
 
     # `exclude_unset=True` distinguishes an omitted field from an explicit
     # JSON null. Difficulty and image columns are nullable by contract; all
@@ -435,7 +444,9 @@ async def update_prompt(
     # Only a chart identity change auto-triggers extraction. A title/tag edit
     # while an analysis is pending must not start a duplicate model call.
     if image_changed:
-        _maybe_trigger_analysis(r.data[0], background_tasks)
+        _maybe_trigger_analysis(
+            r.data[0], background_tasks, requested_by=admin["id"], trigger="update",
+        )
     out = dict(r.data[0])
     attach_signed_image_urls([out])
     return out
@@ -463,7 +474,7 @@ async def reanalyze_prompt_image(
     """Manually (re)run answer-key extraction for a task1_academic prompt — the
     recovery path for a 'failed' analysis, or to refresh after a prompt edit.
     Un-reviews the current analysis until the new run is approved."""
-    await require_admin(authorization)
+    admin = await require_admin(authorization)
 
     row = (
         supabase_admin.table("writing_prompts")
@@ -485,6 +496,7 @@ async def reanalyze_prompt_image(
         raise HTTPException(409, "Prompt image changed; reload before re-analyzing")
     background_tasks.add_task(
         writing_prompt_analysis.run_and_store_analysis, str(prompt_id), pending_token,
+        requested_by=admin["id"], trigger="reanalyze",
     )
     return {"status": "pending", "prompt_id": str(prompt_id)}
 
