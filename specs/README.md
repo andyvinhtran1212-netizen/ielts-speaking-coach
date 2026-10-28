@@ -102,6 +102,8 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 
 | SECWRITE-0022 | Client roles cannot write privilege, score or session data | approved | critical | [spec](0022-client-write-privilege-lockdown/spec.md) |
 
+| AIOPS-0024 | Admin AI dashboard with model control, token spend and failure log | approved | high | [spec](0024-admin-ai-model-control/spec.md) |
+
 | REVEXPLAIN-0023 | Bind Cambridge REV papers by marking-equivalent keys and document accepted forms | implementing | high | [spec](0023-revision-explanation-key-equivalence/spec.md) |
 
 | ROLECHECK-0026 | Admins can make a user an instructor because users.role has one correct CHECK | approved | high | [spec](0026-users-role-single-check/spec.md) |
