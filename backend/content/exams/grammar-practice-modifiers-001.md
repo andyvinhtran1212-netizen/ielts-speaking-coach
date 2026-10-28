@@ -9,7 +9,7 @@ status: published
 questions:
   - q_num: 1
     question_type: mcq_single
-    prompt: "The ____ child sat quietly in the corner, watching the other kids play with toys."
+    prompt: "The child was so ____ in the puppet show that she did not want to leave."
     options:
       - {label: A, text: "interested"}
       - {label: B, text: "interesting"}
@@ -21,21 +21,21 @@ questions:
     solution:
       solution_steps:
         - action: parse_syntax
-          instruction_vi: "Tính từ phân từ 'interested' mô tả cảm xúc của chủ ngữ (cậu bé). Cậu bé CẢMTHẤY quan tâm. Nếu dùng 'interesting', nghĩa là cậu bé LÀM CHO cái gì thú vị (sai)."
+          instruction_vi: "Sau 'was so', chỗ trống cần tính từ mô tả cảm xúc của chủ ngữ (cô bé). Cô bé CẢM THẤY hứng thú với buổi múa rối ('interested in the puppet show') nên không muốn về. Nếu dùng 'interesting', nghĩa là chính cô bé gây hứng thú cho người khác — không khớp với 'in the puppet show' và 'did not want to leave'."
           kp_refs:
             - {type: grammar, slug: participial-adjectives, anchor: participial-adjectives.rule}
           microcheck:
-            prompt: "Trong 'an interested child', tính từ 'interested' diễn tả điều gì?"
+            prompt: "Trong 'The child was so interested in the puppet show', tính từ 'interested' diễn tả điều gì?"
             options:
-              - "cảm xúc của cậu bé"
+              - "cảm xúc của cô bé"
               - "tính chất làm cho các người khác có cảm xúc"
               - "thời gian quá khứ"
             answer: "A"
         - action: confirm
-          instruction_vi: "Bé CẢMTHẤY quan tâm → 'interested'. Đáp án A."
+          instruction_vi: "Cô bé CẢM THẤY hứng thú → 'so interested in the puppet show'. Đáp án A."
       distractor_analysis:
         - option: B
-          why_wrong_vi: "'interesting' có nghĩa là cậu bé làm cho những thứ khác thú vị — đảo ngược quan hệ cảm xúc."
+          why_wrong_vi: "'interesting' mô tả người/vật GÂY hứng thú; 'so interesting in the puppet show' đảo ngược quan hệ cảm xúc và không giải thích được vì sao cô bé không muốn về."
           kp_refs:
             - {type: grammar, slug: participial-adjectives, anchor: participial-adjectives.pitfall}
 
@@ -45,7 +45,7 @@ questions:
     options:
       - {label: A, text: "bored"}
       - {label: B, text: "boring"}
-      - {label: C, text: "boring her"}
+      - {label: C, text: "bore"}
       - {label: D, text: "to bore"}
     answer: "B"
     kp_focus: grammar
@@ -70,6 +70,10 @@ questions:
           why_wrong_vi: "'bored' mô tả cảm xúc con người; ở đây chủ từ là 'documentary' (vật), nên phải dùng 'boring'."
           kp_refs:
             - {type: grammar, slug: participial-adjectives, anchor: participial-adjectives.pitfall}
+        - option: C
+          why_wrong_vi: "'bore' là động từ nguyên mẫu (hoặc danh từ 'người/vật gây chán'); sau 'found the documentary' cần tính từ mô tả bộ phim, nên 'found the documentary bore' sai cấu trúc."
+          kp_refs:
+            - {type: grammar, slug: participial-adjectives, anchor: participial-adjectives.rule}
 
   - q_num: 3
     question_type: mcq_single
@@ -137,7 +141,7 @@ questions:
 
   - q_num: 5
     question_type: mcq_single
-    prompt: "The kindergarten hired a ____ teacher to lead the morning activities."
+    prompt: "The kindergarten welcomed a ____ girl who had just moved to the town."
     options:
       - {label: A, text: "five year old"}
       - {label: B, text: "five-year-old"}
@@ -160,7 +164,7 @@ questions:
               - "luôn luôn"
             answer: "A"
         - action: confirm
-          instruction_vi: "Tính từ ghép trước danh từ → gạch ngang. 'Five-year-old teacher'. Đáp án B."
+          instruction_vi: "Tính từ ghép trước danh từ → gạch ngang, 'year' giữ số ít. 'A five-year-old girl'. Đáp án B."
       distractor_analysis:
         - option: A
           why_wrong_vi: "'five year old' thiếu gạch ngang; không được công nhận là tính từ ghép hợp lệ."
@@ -238,7 +242,7 @@ questions:
       - {label: A, text: "extremely"}
       - {label: B, text: "slightly"}
       - {label: C, text: "absolutely"}
-      - {label: D, text: "fairly"}
+      - {label: D, text: "barely"}
     answer: "A"
     kp_focus: grammar
     grammar_slug: intensifiers-and-mitigators
@@ -260,6 +264,10 @@ questions:
       distractor_analysis:
         - option: C
           why_wrong_vi: "'absolutely' chỉ đi với tính từ UNGRADABLE (perfect, essential, freezing); 'useful' là gradable nên 'absolutely useful' sai collocation."
+          kp_refs:
+            - {type: grammar, slug: intensifiers-and-mitigators, anchor: intensifiers-and-mitigators.scale}
+        - option: D
+          why_wrong_vi: "'barely useful' = hầu như không hữu ích — mâu thuẫn với vế sau 'I recommend it to all my friends'."
           kp_refs:
             - {type: grammar, slug: intensifiers-and-mitigators, anchor: intensifiers-and-mitigators.scale}
 ---
