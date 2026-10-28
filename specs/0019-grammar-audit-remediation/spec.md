@@ -94,3 +94,14 @@ snapshot contains all 148 physical Grammar banks/questions and bounded history
 fingerprints. No question has nonempty why_wrong extras. Technical review approved
 the bounded design. Final source hashes and environment-specific CAS/footprints
 remain executable release evidence, rather than additional permission checkpoints.
+
+## Revisions
+
+- **Revision 1 (2026-10-28, CQA-F09):** one approved source-byte change to
+  `backend/content/tenses/past-perfect.md` after this spec's audit publication:
+  line 186 `Một thời điểm trong QUÁKHỨ` → `Một thời điểm trong QUÁ KHỨ` (a missing
+  space found by Content QA on 27 October). Its approved `after_sha256` changes
+  from `79d09711024ac4ce63620b91186cbae860ec63c005085f1533cd88adcfdccdc5` to
+  `037f6ca29d689533c5caedbfc27063f63299f0b8ce7a202db97032dbbfb73d1f`. `before_sha256`, the exact-form bank
+  fixture, every quiz bank, qid and FR are unchanged. Approved by Vinh on
+  2026-10-28 20:56 (UTC+7); see [`approval-decision.md`](approval-decision.md).
