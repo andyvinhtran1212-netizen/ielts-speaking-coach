@@ -90,6 +90,41 @@ is a normal forward migration, so it has no `forward-policy.tsv` row: a
 `pending_feature` row would let the runner skip it while the dependent code is
 promoted. Rollback (deploy the pre-0034 backend first) is in the file header.
 
+Migration `333` (AIBUDGET-0033) adds the database half of the hard AI budget
+(`specs/0033-ai-budget-hard-cap/plan.md` "Migration 333"). It is held back by
+`forward-policy.tsv` (group `ai_budget`), so apply it only with
+`MIGRATION_FEATURES=ai_budget` through the advisory-locked runner, on staging
+first (rollout.md S1) and on production only at an authorised promotion (P2),
+before the 0033 backend. It adds:
+
+- `ai_budget_counters` and `ai_budget_reservations`. Every line counts on its
+  provider scope and on `total`. `anthropic` and `total` are soft: counted and
+  alerted, never refused for a cap. `fn_ai_budget_reserve` locks the counter
+  rows in `(scope, period_kind)` order, refuses a bundle all-or-nothing, and
+  never grants a replayed request key. Settle, release, expire and the
+  provider spend-limit closure go through functions, and
+  `fn_ai_budget_recompute` is an owner-only repair;
+- `ai_deferred_grading_jobs`, `ai_deferred_session_refresh` and the Speaking
+  deferred save/claim/commit functions; the `writing_jobs` budget-drain columns
+  and their claim/commit functions (`attempt_count` is never touched);
+- `fn_ai_session_bands_write`, `fn_ai_deferred_aggregate_write` and
+  `fn_ai_class_sync`: the generation-fenced band and class-score writers;
+- `ai_budget_alerts` (once per scope, period and threshold, plus one row per
+  raise event) and `ai_budget_heartbeat`;
+- `ai_budget_raises` and the append-only `ai_budget_raise_events` (hard scopes,
+  whole dollars up to 100% of the base cap, 1–24 h, `aal2` actor, one active
+  raise and three grants a month per scope);
+- the `trg_ai_session_generation` trigger on `responses`. Any band-bearing
+  response write advances the session's refresh generation in the writer's
+  transaction. It locks the session before the refresh row.
+
+RLS is on with no policies, clients get nothing, and `service_role` gets only
+SELECT except INSERT/UPDATE on the jobs and heartbeat and UPDATE of the alert
+send columns. The N-1 backend reads none of it; its response writes just gain
+one refresh-row upsert. The guarded down script in the file header refuses
+while saved work waits for grading or a raise is active, and keeps the raise
+events.
+
 Migration `332` (ADMINAAL2-0032) adds the staff security audit. It is held
 back by `forward-policy.tsv` (group `admin_aal2`), so apply it only with
 `MIGRATION_FEATURES=admin_aal2` through the advisory-locked runner, on staging
