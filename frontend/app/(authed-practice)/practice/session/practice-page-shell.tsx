@@ -243,7 +243,7 @@ function Corrections({ corrections }: { corrections: any[] }) {
   if (!corrections?.length) return null;
   return (
     <div style={{ marginBottom: 14 }}>
-      <p style={{ fontSize: 11, fontWeight: 700, color: '#fb923c', textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 8px' }}>Corrections</p>
+      <p style={{ fontSize: 11, fontWeight: 700, color: '#fb923c', textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 8px' }}>Sửa lỗi</p>
       {corrections.map((correction, index) => <div key={`${index}:${correction.original}`} style={{ marginBottom: 10, padding: '10px 12px', background: 'var(--ds-surface)', borderRadius: 8 }}><div style={{ fontSize: 12, color: '#f87171', marginBottom: 3 }}><span style={{ opacity: .6 }}>❌ </span>{correction.original}</div><div style={{ fontSize: 12, color: '#4ade80', marginBottom: 4 }}><span style={{ opacity: .6 }}>✓ </span>{correction.corrected}</div><div style={{ fontSize: 12, color: 'var(--ds-muted)', fontStyle: 'italic' }}>{correction.explanation}</div></div>)}
     </div>
   );
@@ -269,7 +269,7 @@ function FeedbackDetails({ feedback, confidenceId }: { feedback: any; confidence
       ) : <p style={{ fontSize: 13, fontStyle: 'italic', color: 'var(--ds-faint)' }}>Câu trả lời đã được ghi lại nhưng chưa thể chấm điểm ngay lúc này.{feedback.stub?.error ? ` (${feedback.stub.error})` : ''}</p> : null}
       {feedback.kind === 'practice' || feedback.kind === 'formal' ? <ReliabilityNote note={feedback.reliability} id={confidenceId} /> : null}
       {feedback.kind === 'formal' ? feedback.criteria.map((criterion: any) => <div style={{ marginBottom: 14 }} key={criterion.title}><p style={{ fontSize: 11, fontWeight: 700, color: '#14b8a6', textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 5px' }}>{criterion.title}</p><p style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--ds-text)', margin: 0 }}>{criterion.text}</p></div>) : null}
-      {feedback.kind === 'practice' ? <FeedbackList title="Strengths" items={feedback.strengths} color="#4ade80" /> : null}
+      {feedback.kind === 'practice' ? <FeedbackList title="Điểm mạnh" items={feedback.strengths} color="#4ade80" /> : null}
       {feedback.kind === 'formal' ? <FeedbackList title="Điểm mạnh" items={feedback.strengths} color="#4ade80" /> : null}
       <GrammarIssues issues={feedback.grammarIssues} />
       <GrammarCheck groups={feedback.grammarGroups} moreCount={feedback.grammarMoreCount} />

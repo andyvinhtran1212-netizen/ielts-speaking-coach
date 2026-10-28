@@ -6,9 +6,10 @@
  * all-providers-fail path (L8).
  *
  * The contract is structural, not visual: the backend returns
- *   { _stub: true, _error: "...temporarily unavailable..." }
- * and the frontend dispatches on those two fields in
- * practice.js _showFeedback. Sprint 14.3 ADDS a new fallback chain
+ *   { _stub: true, _ai_unavailable: true, _error: "<Vietnamese copy>" }
+ * and the frontend dispatches on `_stub` + the flag in
+ * practice.js _showFeedback (Q-62; before that, on the English
+ * "...temporarily unavailable..." sentence, still accepted). Sprint 14.3 ADDS a new fallback chain
  * (Haiku → Gemini → Sonnet) but reuses this same stub shape on the
  * chain-exhausted path. If a future cleanup migrates either side to
  * a different shape (e.g. HTTP 503 status), this sentinel forces an
@@ -35,17 +36,18 @@ const GRADING_PY  = readBack('routers', 'grading.py');
 
 describe('Sprint 14.3 — backend returns stub shape on grading failure', () => {
 
-  test('grading.py emits {_stub: True, _error: "...temporarily unavailable..."}', () => {
+  test('grading.py emits {_stub: True, _error: <Vietnamese>, _ai_unavailable: True}', () => {
     // Two `_stub` paths exist; the user-facing "AI unavailable" message
-    // is the one Sprint 14.3 must preserve. Pin the literal string the
-    // frontend keys off (.includes('temporarily unavailable')).
+    // is the one Sprint 14.3 must preserve. Q-62 made the learner-visible
+    // `_error` Vietnamese (the history card prints it verbatim), so the
+    // frontend must key off the `_ai_unavailable` flag instead.
     assert.match(GRADING_PY, /"_stub":\s*True/);
     assert.match(
       GRADING_PY,
-      /"_error":\s*"AI grading is temporarily unavailable\./,
-      'grading.py must keep the canonical English error message ' +
-      'the frontend keys off via .includes("temporarily unavailable")',
+      /"_stub":\s*True,\s*(?:#[^\n]*\n\s*)*"_error":\s*"Chấm điểm AI đang tạm gián đoạn\. Bản ghi âm và transcript của bạn đã được lưu\.",\s*"_ai_unavailable":\s*True,/,
+      'the AI-unavailable stub must carry the Vietnamese copy and the _ai_unavailable flag',
     );
+    assert.doesNotMatch(GRADING_PY, /AI grading is temporarily unavailable/);
   });
 
   test('grading.py keeps grading_status = "completed" | "failed" semantics', () => {
@@ -79,11 +81,13 @@ describe('Sprint 14.3 — frontend stub-banner UX preserved', () => {
     assert.equal(PRACTICE_JS.split(".includes('temporarily unavailable')").length - 1, 1);
   });
 
-  test('_isAiUnavailableStub accepts the backend English sentence and the client flag', () => {
+  test('_isAiUnavailableStub accepts the backend flag, the legacy English sentence and the client flag', () => {
     const src = /function _isAiUnavailableStub\(data\) \{[\s\S]*?\n  \}/.exec(PRACTICE_JS);
     assert.ok(src, 'practice.js must define _isAiUnavailableStub');
     const isAiDown = new Function(`${src[0]}; return _isAiUnavailableStub;`)();
-    // Backend wire shape (grading.py, pinned above) is still English.
+    // Backend wire shape (grading.py, pinned above): flag + Vietnamese copy.
+    assert.equal(isAiDown({ _stub: true, _ai_unavailable: true, _error: 'Chấm điểm AI đang tạm gián đoạn. Bản ghi âm và transcript của bạn đã được lưu.' }), true);
+    // A backend not yet redeployed still sends the old English sentence.
     assert.equal(isAiDown({ _stub: true, _error: 'AI grading is temporarily unavailable. Your recording and transcript were saved.' }), true);
     // Stub rebuilt from a persisted failed row: Vietnamese copy + flag.
     assert.equal(isAiDown({ _stub: true, _aiUnavailable: true, _error: 'Chấm điểm AI đang tạm gián đoạn.' }), true);

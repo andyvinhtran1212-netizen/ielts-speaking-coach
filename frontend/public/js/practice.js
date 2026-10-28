@@ -1537,12 +1537,13 @@
     };
   }
 
-  // Stub "AI tạm gián đoạn": backend gửi câu tiếng Anh cố định (grading.py,
-  // ghim bởi speaking-stub-contract) nên vẫn nhận theo chữ; stub dựng lại từ
-  // dòng đã lưu mang câu tiếng Việt nên đánh dấu bằng cờ `_aiUnavailable`.
+  // Stub "AI tạm gián đoạn": backend (grading.py, ghim bởi
+  // speaking-stub-contract) gửi cờ `_ai_unavailable` kèm câu tiếng Việt; stub
+  // dựng lại từ dòng đã lưu đánh dấu bằng cờ `_aiUnavailable`. Câu tiếng Anh
+  // cũ vẫn được nhận theo chữ cho backend chưa deploy bản mới.
   function _isAiUnavailableStub(data) {
     if (!data) return false;
-    if (data._aiUnavailable) return true;
+    if (data._aiUnavailable || data._ai_unavailable) return true;
     return !!(data._error && String(data._error).includes('temporarily unavailable'));
   }
 
@@ -1798,7 +1799,7 @@
         // surfaces coexist; the LT block returns '' when no errors.
         commentsEl.innerHTML = warningsHtml +
           '<div id="score-confidence-note">' + _reliabilityNote(data) + '</div>' +
-          _listBlock('Strengths', data.strengths, '#4ade80') +
+          _listBlock('Điểm mạnh', data.strengths, '#4ade80') +
           _grammarIssuesBlock(data.grammar_issues, data.grammar_recommendations) +
           _grammarCheckBlock(data.grammar_check) +
           _listBlock('Lỗi từ vựng', data.vocabulary_issues, '#fb923c') +
@@ -2544,7 +2545,7 @@
     }).join('');
     return '<div style="margin-bottom:14px;">' +
       '<p style="font-size:11px;font-weight:700;color:#f87171;text-transform:uppercase;' +
-      'letter-spacing:.06em;margin:0 0 6px;">Grammar Issues</p>' +
+      'letter-spacing:.06em;margin:0 0 6px;">Lỗi ngữ pháp</p>' +
       '<ul style="list-style:none;padding:0;margin:0;">' + lis + '</ul></div>';
   }
 
@@ -2576,7 +2577,7 @@
     }).join('');
     return '<div style="margin-bottom:14px;">'
       + '<p style="font-size:11px;font-weight:700;color:#fb923c;text-transform:uppercase;'
-      + 'letter-spacing:.06em;margin:0 0 8px;">Corrections</p>'
+      + 'letter-spacing:.06em;margin:0 0 8px;">Sửa lỗi</p>'
       + rows + '</div>';
   }
 
@@ -2584,7 +2585,7 @@
     return '<div style="margin-top:16px;background:rgba(20,184,166,0.08);'
       + 'border-left:3px solid #14b8a6;border-radius:0 6px 6px 0;padding:12px 14px;">'
       + '<p style="font-size:11px;font-weight:700;color:#14b8a6;text-transform:uppercase;'
-      + 'letter-spacing:.06em;margin:0 0 7px;">Sample Answer</p>'
+      + 'letter-spacing:.06em;margin:0 0 7px;">Bài nói mẫu</p>'
       + '<p style="font-size:13px;line-height:1.7;color:var(--ds-text);margin:0;">'
       + _esc(text) + '</p></div>';
   }
@@ -2598,7 +2599,7 @@
     return '<div style="margin-top:16px;background:rgba(148,163,184,0.10);'
       + 'border-left:3px solid #94a3b8;border-radius:0 6px 6px 0;padding:12px 14px;">'
       + '<p style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;'
-      + 'letter-spacing:.06em;margin:0 0 7px;">Sample Answer</p>'
+      + 'letter-spacing:.06em;margin:0 0 7px;">Bài nói mẫu</p>'
       + '<p style="font-size:13px;line-height:1.7;color:var(--ds-text-secondary,#94a3b8);margin:0;">'
       + 'Chưa tạo được mẫu câu trả lời phù hợp cho phần này. '
       + 'Bạn có thể thử lại để nhận mẫu sát với câu trả lời của mình hơn.</p></div>';
@@ -4191,7 +4192,7 @@
       // Practice mode coaching feedback
       feedbackHtml =
         '<div style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.07);padding-top:12px;">' +
-        _listBlock('Strengths',          data.strengths,             '#4ade80') +
+        _listBlock('Điểm mạnh',          data.strengths,             '#4ade80') +
         _grammarIssuesBlock(data.grammar_issues, data.grammar_recommendations) +
         _listBlock('Lỗi từ vựng',  data.vocabulary_issues,     '#fb923c') +
         _correctionsBlock(data.corrections) +

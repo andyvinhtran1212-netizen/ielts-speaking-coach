@@ -455,7 +455,7 @@ function GrammarIssues({ issues, recommendations }: { issues: unknown; recommend
   return (
     <div>
       <div className="text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--av-error)' }}>
-        Grammar Issues
+        Lỗi ngữ pháp
       </div>
       <ul className="space-y-1 text-sm" style={{ color: 'var(--av-text-secondary)', listStyle: 'none', padding: 0 }}>
         {issues.map((issue, index) => {
@@ -540,7 +540,7 @@ function Corrections({ corrections }: { corrections: unknown }) {
   return (
     <div>
       <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--av-warning)' }}>
-        Corrections
+        Sửa lỗi
       </div>
       {corrections.map((correction: any, index) => (
         <div
@@ -793,7 +793,7 @@ function QuestionFeedback({ card }: { card: any }) {
           <p className="text-xs italic mb-2" style={{ color: 'var(--av-text-secondary)' }}>
             Chế độ luyện tập — phản hồi dạng gợi ý (điểm mạnh, ngữ pháp, từ vựng, phát âm), không chấm theo 4 tiêu chí IELTS.
           </p>
-          <BulletSection items={feedback?.strengths} title="Strengths" tone="var(--av-success)" />
+          <BulletSection items={feedback?.strengths} title="Điểm mạnh" tone="var(--av-success)" />
           <GrammarIssues issues={feedback?.grammar_issues} recommendations={feedback?.grammar_recommendations} />
           <BulletSection items={feedback?.vocabulary_issues} title="Lỗi từ vựng" tone="var(--av-warning)" />
           <VocabRecommendations recommendations={feedback?.vocab_recommendations} />
@@ -802,7 +802,7 @@ function QuestionFeedback({ card }: { card: any }) {
           {feedback?.sample_answer ? (
             <div>
               <div className="text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--av-primary)' }}>
-                Sample Answer
+                Bài nói mẫu
               </div>
               <div className="improved-block text-sm">{feedback.sample_answer}</div>
             </div>
