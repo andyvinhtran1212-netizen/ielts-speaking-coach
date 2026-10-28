@@ -108,6 +108,12 @@ on:
       - 'frontend/app/(authed-vocab-exam)/**'
       - 'frontend/app/(authed)/grammar-checkup/**'
       - 'frontend/app/(authed)/course-exercises/**'
+      - 'frontend/app/(authed)/grammar-lessons/**'
+      - 'frontend/app/next-probe/**'
+      - 'frontend/app/(spike)/**'
+      - 'frontend/lib/quiz-player-model.mjs'
+      - 'frontend/public/css/assigned-grammar-lesson.css'
+      - 'frontend/tooling/verify-error-states-flow.mjs'
       - 'frontend/app/(authed-advanced-vocab)/**'
       - 'frontend/tooling/verify-learner-route-auth-boot-flow.mjs'
       - 'frontend/app/(authed-exam)/**'
@@ -823,6 +829,13 @@ jobs:
 
       - name: Kiểm layout Next ở desktop và điện thoại
         run: node tooling/verify-next-responsive-flow.mjs "http://localhost:$TEST_PORT"
+
+      # PC-J13 (U-16/BL-01/BL-08/BL-13): /quiz, /mock-exam, /grammar-lessons/assigned
+      # thiếu tham số phải giải thích + chỉ có nút quay lại; 404 của trang debug
+      # mang title chung; /grammar-checkup theo tài khoản đổi ở tab khác; modal
+      # kích hoạt trên /login có Đăng xuất.
+      - name: Kiểm trạng thái lỗi, đổi tài khoản và đăng xuất khi chưa kích hoạt
+        run: node tooling/verify-error-states-flow.mjs "http://localhost:$TEST_PORT"
 
       # U-20: từ 721px tới ~1180px menu đầy đủ từng gãy thành 2-3 hàng và hero
       # /home làm trang cuộn ngang. Runner này đo nav một hàng hoặc hamburger,

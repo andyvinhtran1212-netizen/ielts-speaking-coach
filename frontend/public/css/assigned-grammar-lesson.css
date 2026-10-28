@@ -17,6 +17,7 @@
 .agl-feedback,.agl-alert,.agl-result{padding:14px 16px;border-radius:10px;margin-top:14px;background:var(--av-surface-sunken);border:1px solid var(--av-border-default)}
 .agl-feedback.is-correct{border-color:var(--av-accent)}
 .agl-feedback.is-incorrect,.agl-alert{border-color:var(--av-border-strong)}
+.agl-alert+.av-button{margin-top:14px}
 .agl-feedback p:last-child{margin-bottom:0}
 .agl-notes{line-height:1.75;overflow-wrap:anywhere;margin:24px 0}
 .agl-notes h2,.agl-notes h3{margin-top:24px}

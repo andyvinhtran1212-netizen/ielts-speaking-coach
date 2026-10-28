@@ -34,8 +34,16 @@ export function GrammarCheckup() {
   const [module, setModule] = useState<'GENERAL' | 'ACADEMIC'>('GENERAL');
   const [length, setLength] = useState<'QUICK' | 'FULL'>('QUICK');
   const openedAt = useRef(Date.now());
-  const booted = useRef(false);
-  const { status } = useAuth();
+  const { status, user } = useAuth();
+  // BL-08: the Supabase session is shared across tabs, so signing in as
+  // another account elsewhere keeps this tab signed-in with a different user.
+  // Everything shown belongs to the account it was booted for (`owner`); a
+  // new account restarts the page, and `generation` drops replies that were
+  // still in flight for the previous one.
+  const account = status === 'signed-in' ? user?.id || '' : '';
+  const bootedFor = useRef('');
+  const generation = useRef(0);
+  const [owner, setOwner] = useState('');
 
   // U-03: fail closed for signed-out visitors (ADR-011) — replace() like
   // /profile so Back cannot restore the private shell.
@@ -43,39 +51,51 @@ export function GrammarCheckup() {
     if (status === 'signed-out') window.location.replace('/login');
   }, [status]);
 
-  const showReport = useCallback(async (sessionId: string) => {
+  const showReport = useCallback(async (sessionId: string, gen: number) => {
     const value = await window.api.get<Report>(`/api/grammar/diagnostics/sessions/${encodeURIComponent(sessionId)}/report`);
+    if (gen !== generation.current) return;
     setReport(value); setPhase('report'); setItem(null);
   }, []);
 
-  const loadNext = useCallback(async (sessionId: string) => {
+  const loadNext = useCallback(async (sessionId: string, gen: number) => {
     const value = await window.api.post<NextResponse>(
       `/api/grammar/diagnostics/sessions/${encodeURIComponent(sessionId)}/next`,
     );
-    if (value.complete) { await showReport(sessionId); return; }
+    if (gen !== generation.current) return;
+    if (value.complete) { await showReport(sessionId, gen); return; }
     if (!value.item) throw new Error('Máy chủ không trả câu hỏi hợp lệ.');
     setItem(value.item); setSelected(null); openedAt.current = Date.now(); setPhase('question');
   }, [showReport]);
 
-  const enterSession = useCallback(async (sessionId: string) => {
+  const enterSession = useCallback(async (sessionId: string, gen: number) => {
     const current = await window.api.get<Session>(`/api/grammar/diagnostics/sessions/${encodeURIComponent(sessionId)}`);
+    if (gen !== generation.current) return;
     setSession(current);
-    if (current.status === 'completed') await showReport(sessionId);
-    else await loadNext(sessionId);
+    if (current.status === 'completed') await showReport(sessionId, gen);
+    else await loadNext(sessionId, gen);
   }, [loadNext, showReport]);
 
   useEffect(() => {
     // G-01: boot only once signed in — that also means api.js has created
     // window.api. A direct load used to call window.api.get before the script
     // arrived and showed "Cannot read properties of undefined (reading 'get')".
-    if (status !== 'signed-in') return;
-    if (booted.current) return;
-    booted.current = true;
+    if (!account || bootedFor.current === account) return;
+    const switched = bootedFor.current !== '';
+    bootedFor.current = account;
+    const gen = ++generation.current;
+    setOwner(account);
+    // A session id in the URL belongs to the previous account.
+    const sessionId = switched ? '' : requestedSession;
+    if (switched) {
+      setPhase('loading'); setSession(null); setItem(null); setReport(null);
+      setSelected(null); setBusy(false); setError('');
+      if (requestedSession) router.replace('/grammar-checkup');
+    }
     void (async () => {
       try {
-        if (requestedSession) {
-          if (requestedView === 'report') await showReport(requestedSession);
-          else await enterSession(requestedSession);
+        if (sessionId) {
+          if (requestedView === 'report') await showReport(sessionId, gen);
+          else await enterSession(sessionId, gen);
           return;
         }
         if (assignmentItem) {
@@ -83,31 +103,36 @@ export function GrammarCheckup() {
             mode: 'REVIEW', module: 'GENERAL', test_length: 'QUICK',
             class_assignment_item_id: assignmentItem,
           });
+          if (gen !== generation.current) return;
           router.replace(`/grammar-checkup?session=${encodeURIComponent(created.id)}`);
-          await enterSession(created.id);
+          await enterSession(created.id, gen);
           return;
         }
         const availability = await window.api.get<Availability>('/api/grammar/diagnostics/availability');
+        if (gen !== generation.current) return;
         setPhase(availability.assigned_only ? 'assigned-only' : 'setup');
-      } catch (caught) { setError(messageOf(caught)); setPhase('error'); }
+      } catch (caught) { if (gen === generation.current) { setError(messageOf(caught)); setPhase('error'); } }
     })();
-  }, [assignmentItem, enterSession, requestedSession, requestedView, router, showReport, status]);
+  }, [account, assignmentItem, enterSession, requestedSession, requestedView, router, showReport]);
 
   const start = async () => {
     if (busy) return;
+    const gen = generation.current;
     setBusy(true); setError('');
     try {
       const created = await window.api.post<Session>('/api/grammar/diagnostics/sessions', {
         mode, module, test_length: length,
       });
+      if (gen !== generation.current) return;
       router.replace(`/grammar-checkup?session=${encodeURIComponent(created.id)}`);
-      setSession(created); await loadNext(created.id);
-    } catch (caught) { setError(messageOf(caught)); }
-    finally { setBusy(false); }
+      setSession(created); await loadNext(created.id, gen);
+    } catch (caught) { if (gen === generation.current) setError(messageOf(caught)); }
+    finally { if (gen === generation.current) setBusy(false); }
   };
 
   const answer = async () => {
     if (busy || selected == null || !session || !item) return;
+    const gen = generation.current;
     setBusy(true); setError('');
     try {
       const result = await window.api.post<AnswerResponse>(
@@ -117,16 +142,17 @@ export function GrammarCheckup() {
           response_time_ms: Math.max(0, Date.now() - openedAt.current), assistance_used: false,
         },
       );
+      if (gen !== generation.current) return;
       setSession({ ...session, answered: result.answered, remaining: result.remaining, status: result.complete ? 'completed' : session.status });
-      if (result.complete) await showReport(session.id);
-      else await loadNext(session.id);
-    } catch (caught) { setError(messageOf(caught)); }
-    finally { setBusy(false); }
+      if (result.complete) await showReport(session.id, gen);
+      else await loadNext(session.id, gen);
+    } catch (caught) { if (gen === generation.current) setError(messageOf(caught)); }
+    finally { if (gen === generation.current) setBusy(false); }
   };
 
   // Until signed in, render only the neutral loading state: no error box or
   // setup screen may flash before the signed-out redirect (U-03 / G-01).
-  if (status !== 'signed-in' || phase === 'loading') return <main className="gd-shell"><div className="gd-empty">Đang mở Grammar Check-up…</div></main>;
+  if (status !== 'signed-in' || owner !== account || phase === 'loading') return <main className="gd-shell"><div className="gd-empty">Đang mở Grammar Check-up…</div></main>;
   if (phase === 'error') return <main className="gd-shell"><div className="gd-empty gd-error" role="alert"><strong>Không mở được Grammar Check-up.</strong><p>{error}</p><a className="av-button av-button-secondary" href="/my-class">Quay lại My Class</a></div></main>;
   if (phase === 'assigned-only') return <main className="gd-shell"><div className="gd-empty"><strong>Grammar Check-up đang ở giai đoạn giao qua lớp.</strong><p>Hãy mở bài Grammar giáo viên đã giao trong My Class. Chế độ tự luyện công khai sẽ được mở ở một đợt riêng sau khi hoàn tất đánh giá thực tế.</p><a className="av-button av-button-primary" href="/my-class">Mở My Class</a></div></main>;
 
