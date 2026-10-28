@@ -5,6 +5,9 @@ category: "people-society"
 level: "C1"
 part_of_speech: "verb"
 pronunciation: "/ˈmɑː.dʒɪ.nəl.aɪz/"
+definition_en: "to treat people as unimportant and limit their opportunities to participate or influence decisions."
+gloss_vi: "gạt ra ngoài lề, làm mất tiếng nói"
+example: "Moving every public service online could marginalize older residents who have limited access to digital technology."
 synonyms: ["exclude", "sideline", "ostracise", "disenfranchise"]
 antonyms: ["include", "empower", "integrate"]
 collocations: ["marginalize vulnerable groups", "marginalized communities", "feel marginalized", "socially marginalized", "marginalize minorities"]
