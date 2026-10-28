@@ -72,10 +72,12 @@ export function ProfileShell() {
             />
           </div>
 
-          {/* Email (readonly) */}
+          {/* Email (readonly). PC-J24 — a one-line <input> cut a long address
+              off at 360–390px; <output> keeps the label link and `.value`
+              (ProfileBehavior's setVal) but can wrap. Not a live region. */}
           <div>
             <label className="field-label" htmlFor="inp-email">Email</label>
-            <input id="inp-email" type="email" className="field-input" readOnly />
+            <output id="inp-email" className="field-input field-input--static" aria-live="off" />
           </div>
 
           <hr className="pf-divider" />
