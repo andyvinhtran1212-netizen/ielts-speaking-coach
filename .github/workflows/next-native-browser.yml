@@ -568,6 +568,7 @@ on:
       - 'frontend/tooling/verify-chrome-early-render-flow.mjs'
       - 'frontend/components/authed-shell.tsx'
       - 'frontend/components/supabase-runtime-boundary.tsx'
+      - 'frontend/tooling/verify-chrome-staff-link-race-flow.mjs'
       - 'frontend/public/js/theme-toggle.js'
       - 'frontend/public/js/user-pill.js'
       - 'frontend/public/js/components/perf-hints.js'
@@ -832,6 +833,9 @@ jobs:
       # điền sau khi api.js về, khách ở Grammar không thấy "·" / "…".
       - name: Kiểm header hiện ngay, không chờ runtime Supabase
         run: node tooling/verify-chrome-early-render-flow.mjs "http://localhost:$TEST_PORT"
+
+      - name: Kiểm link "Trang giảng viên" của staff khi trang gọi setUser trước chrome
+        run: node tooling/verify-chrome-staff-link-race-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/reading/vocab` đã chuyển request/filter/state sang React. Cổng parity
       # chỉ chụp một trạng thái tĩnh nên không chứng minh được malformed payload,
