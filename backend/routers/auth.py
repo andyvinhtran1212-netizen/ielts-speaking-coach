@@ -18,6 +18,7 @@ from models.auth import (
     AuthProfileUpdateResponse,
 )
 from services import activation_gate
+from services.db_async import aexecute
 from services.server_timing import record_stage
 from services.feature_flags import is_flashcard_enabled
 from services import runtime_flags
@@ -217,35 +218,31 @@ async def get_me(response: Response, authorization: str | None = Header(default=
     email = auth_user.get("email")
     metadata = auth_user.get("user_metadata", {}) or {}
 
+    # PC-J05 D1a — /auth/me runs on every page load; its DB calls go through
+    # the async-DB facade (USE_ASYNC_DB off = the same sync calls as before).
+    def _select_user(db):
+        return db.table("users").select("*").eq("id", user_id).limit(1)
+
     try:
-        existing = (
-            supabase_admin.table("users")
-            .select("*")
-            .eq("id", user_id)
-            .limit(1)
-            .execute()
-        )
+        existing = await aexecute(_select_user, sync_client=supabase_admin)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi truy vấn người dùng: {e}")
 
     if not existing.data:
         try:
-            supabase_admin.table("users").insert({
-                "id": user_id,
-                "email": email,
-                "display_name": metadata.get("full_name") or metadata.get("name"),
-                "avatar_url": metadata.get("avatar_url"),
-                "role": "user",
-                "is_active": False,
-            }).execute()
-
-            existing = (
-                supabase_admin.table("users")
-                .select("*")
-                .eq("id", user_id)
-                .limit(1)
-                .execute()
+            await aexecute(
+                lambda db: db.table("users").insert({
+                    "id": user_id,
+                    "email": email,
+                    "display_name": metadata.get("full_name") or metadata.get("name"),
+                    "avatar_url": metadata.get("avatar_url"),
+                    "role": "user",
+                    "is_active": False,
+                }),
+                sync_client=supabase_admin,
             )
+
+            existing = await aexecute(_select_user, sync_client=supabase_admin)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Lỗi khi tạo người dùng: {e}")
 
@@ -254,9 +251,12 @@ async def get_me(response: Response, authorization: str | None = Header(default=
     now = datetime.now(timezone.utc)
     if _last_seen_is_stale(user.get("last_seen_at"), now):
         try:
-            supabase_admin.table("users").update(
-                {"last_seen_at": now.isoformat()}
-            ).eq("id", user_id).execute()
+            await aexecute(
+                lambda db: db.table("users").update(
+                    {"last_seen_at": now.isoformat()}
+                ).eq("id", user_id),
+                sync_client=supabase_admin,
+            )
         except Exception:
             pass  # non-fatal
 
@@ -266,9 +266,9 @@ async def get_me(response: Response, authorization: str | None = Header(default=
     # so the two agree and a revoke is reflected immediately. No snapshot
     # fallback: an empty live list means no access (don't re-grant a default).
     from services.access_code_permissions import (  # local — avoid import cycle
-        get_user_access_code_permissions_cached,
+        aget_user_access_code_permissions_cached,
     )
-    live_permissions = get_user_access_code_permissions_cached(user_id)
+    live_permissions = await aget_user_access_code_permissions_cached(user_id)
     return {
         "id": user["id"],
         "email": user["email"],
@@ -305,12 +305,9 @@ async def check_active(authorization: str | None = Header(default=None)):
     user_id = auth_user["id"]
 
     try:
-        result = (
-            supabase_admin.table("users")
-            .select("is_active")
-            .eq("id", user_id)
-            .limit(1)
-            .execute()
+        result = await aexecute(
+            lambda db: db.table("users").select("is_active").eq("id", user_id).limit(1),
+            sync_client=supabase_admin,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi kiểm tra trạng thái: {e}")

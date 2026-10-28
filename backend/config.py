@@ -341,6 +341,9 @@ class Settings(BaseSettings):
     # sync supabase_admin singleton exactly as today (the scaffold is a no-op).
     # ON = routers migrated to the db_async facade await the async client. Stays
     # OFF until a phase is wired + load-validated; flip per-deploy in .env.
+    # Wired today: grading.py (P0-1 Phase 2) and the per-request auth layer
+    # (PC-J05 D1a) — learner activation gate, require_admin/require_instructor,
+    # /auth/me, /auth/check-active, /api/student/permissions.
     USE_ASYNC_DB: bool = False
 
     # C-* audit — Server-Timing observability gate. The W3C Server-Timing

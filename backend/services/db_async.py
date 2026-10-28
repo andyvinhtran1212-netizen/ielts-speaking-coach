@@ -21,6 +21,10 @@ right client. The OFF branch calls the sync singleton DIRECTLY (current
 behavior, blocking) — it deliberately does NOT wrap supabase_admin in
 to_thread/threadpool, because httpx.Client + the builder are not thread-safe
 and concurrent threads sharing the singleton would race.
+
+``sync_client`` (PC-J05): a call-site whose module imported ``supabase_admin``
+passes that module global, so the OFF branch runs on exactly the client it
+used before migration (and test doubles patched onto that module still apply).
 """
 
 from __future__ import annotations
@@ -31,11 +35,12 @@ from config import settings
 import database
 
 
-async def aexecute(build: Callable[[Any], Any]) -> Any:
+async def aexecute(build: Callable[[Any], Any], *, sync_client: Any = None) -> Any:
     """Execute ``build(client).execute()`` via the flag-selected client."""
     if settings.USE_ASYNC_DB:
         client = await database.get_supabase_async()
         return await build(client).execute()
     # USE_ASYNC_DB off — today's exact behavior: direct sync execute on the
     # event-loop thread (blocking, but functionally identical). NOT threaded.
-    return build(database.supabase_admin).execute()
+    client = database.supabase_admin if sync_client is None else sync_client
+    return build(client).execute()
