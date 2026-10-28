@@ -83,6 +83,27 @@ describe('shared admin Dialog', () => {
     origin.remove();
   });
 
+  it('wraps Shift+Tab from the initially focused panel to the last control instead of leaving the dialog', () => {
+    const outside = document.createElement('button');
+    document.body.append(outside);
+    render(<Dialog open title="Xác nhận" onClose={() => {}} actions={<><button type="button">Hủy</button><button type="button">Giao thêm</button></>} />);
+    const dialog = screen.getByRole('dialog', { name: 'Xác nhận' });
+    expect(document.activeElement).toBe(dialog);
+
+    const reverse = fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(reverse).toBe(false);
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Giao thêm' }));
+
+    dialog.focus();
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Đóng' }));
+
+    outside.focus();
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Giao thêm' }));
+    outside.remove();
+  });
+
   it('blocks Escape, backdrop, and close-button dismissal while a write is busy', () => {
     const onClose = vi.fn();
     render(<Dialog open busy title="Đang lưu" onClose={onClose} actions={<button type="button">Đợi</button>} />);
