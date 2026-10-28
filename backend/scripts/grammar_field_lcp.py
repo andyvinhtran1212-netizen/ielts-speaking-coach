@@ -56,8 +56,8 @@ TARGET_LCP_P75_MS = 2500
 DEVICE_CLASSES = ("desktop", "mobile")
 PAGE_GROUPS = ("hub", "articles")
 
-# Not a filter: samples above this stay in the p75. When they are a quarter of
-# a judged cell they alone decide its nearest-rank p75, and the report says so
+# Not a filter: samples above this stay in the p75. When the nearest-rank p75
+# sample of a judged cell is one of them, they alone decide it and the report says so
 # (prod 10-01/02: one Linux Chrome UA swept every article once with LCP
 # 100-1900 s, an automation pattern the UA filter cannot see).
 OUTLIER_LCP_MS = 60_000
@@ -71,13 +71,18 @@ INSUFFICIENT = "INSUFFICIENT_DATA"
 # themselves with "+https://..." (prod 10-27: "SunriseTranscriptionReach/1.0
 # (+https://...)" has no "bot" in it); browsers never do. Checked before the
 # device split, so a headless mobile emulation is a bot, not a mobile sample.
+# "bot" skips the Cubot phone brand, which appears in Android WebView UAs.
 BOT_UA_RE = re.compile(
     r"Headless|Lighthouse|PTST|Playwright|Puppeteer|Selenium|PhantomJS"
-    r"|bot|crawler|spider|slurp|https?://",
+    r"|(?<!cu)bot|crawler|spider|slurp|https?://",
     re.IGNORECASE,
 )
-MOBILE_UA_RE = re.compile(r"Mobi|Android|iPhone|iPod", re.IGNORECASE)
+# Tablets are checked first: iPad Safari/Chrome send "Mobile/15E148", Firefox
+# on Android tablets sends "Android; Tablet". Android without "Mobile" is a
+# tablet too (Chrome on Android sends "Mobile" only on phones).
 TABLET_UA_RE = re.compile(r"iPad|Tablet", re.IGNORECASE)
+MOBILE_UA_RE = re.compile(r"Mobi|iPhone|iPod", re.IGNORECASE)
+ANDROID_UA_RE = re.compile(r"Android", re.IGNORECASE)
 
 SQL = f"""SET TRANSACTION READ ONLY;
 WITH h AS (
@@ -117,9 +122,11 @@ def device_class(ua: str | None) -> str:
         return "unknown"
     if BOT_UA_RE.search(ua):
         return "bot"
+    if TABLET_UA_RE.search(ua):
+        return "tablet"
     if MOBILE_UA_RE.search(ua):
         return "mobile"
-    if TABLET_UA_RE.search(ua):
+    if ANDROID_UA_RE.search(ua):
         return "tablet"
     return "desktop"
 
@@ -269,9 +276,14 @@ def render(report: dict) -> str:
 
 
 def outliers_decide_p75(cell: dict) -> bool:
-    """True when a judged cell's p75 rests on samples above OUTLIER_LCP_MS."""
+    """True when a judged cell's nearest-rank p75 sample is above OUTLIER_LCP_MS.
+
+    The outliers are the top values, so that is the case exactly when more than
+    n - ceil(0.75 n) of them are present. Counted, not read off the rounded p75.
+    """
+    n = cell["samples"]
     return (cell["verdict"] != INSUFFICIENT
-            and cell["over_60s"] > 0 and 4 * cell["over_60s"] >= cell["samples"])
+            and cell["over_60s"] > n - (-(-3 * n // 4)))
 
 
 def exit_code(report: dict) -> int:

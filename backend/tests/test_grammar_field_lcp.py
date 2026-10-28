@@ -242,3 +242,99 @@ def test_cli_rows_file_exit_codes(tmp_path, capsys):
     bad = tmp_path / "bad.json"
     bad.write_text("{}")
     assert g.main(["--rows", str(bad)]) == 2
+
+
+# Codex round 1 on fe41ebc23 (PRRT_kwDOR6Uds86xBN6c): tablets must be checked
+# before the phone markers. iPad Safari/Chrome carry "Mobile/15E148" and Android
+# tablets carry "Android" without "Mobile"; both were counted as mobile.
+IPAD_SAFARI = ("Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 "
+               "(KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1")
+IPAD_CHROME = ("Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 "
+               "(KHTML, like Gecko) CriOS/154.0.0.0 Mobile/15E148 Safari/604.1")
+ANDROID_TABLET_CHROME = ("Mozilla/5.0 (Linux; Android 14; SM-X710) AppleWebKit/537.36 "
+                         "(KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36")
+ANDROID_TABLET_FIREFOX = "Mozilla/5.0 (Android 14; Tablet; rv:132.0) Gecko/132.0 Firefox/132.0"
+TABLETS = [IPAD_SAFARI, IPAD_CHROME, ANDROID_TABLET_CHROME, ANDROID_TABLET_FIREFOX]
+PHONES = [
+    MOBILE,
+    IPHONE,
+    # Chrome's reduced Android UA (model "K").
+    "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/154.0.0.0 Mobile Safari/537.36",
+    "Mozilla/5.0 (Android 14; Mobile; rv:132.0) Gecko/132.0 Firefox/132.0",
+    "Mozilla/5.0 (iPod touch; CPU iPhone OS 15_8 like Mac OS X) AppleWebKit/605.1.15 "
+    "(KHTML, like Gecko) Version/15.6 Mobile/15E148 Safari/604.1",
+    # A WebView on a Cubot phone: "CUBOT" contains "bot" but is a real browser.
+    "Mozilla/5.0 (Linux; Android 12; CUBOT P60 Build/SP1A.210812.016; wv) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Version/4.0 Chrome/154.0.0.0 Mobile Safari/537.36",
+]
+
+
+@pytest.mark.parametrize("ua", TABLETS)
+def test_tablet_markers_win_over_mobile_markers(ua):
+    assert g.device_class(ua) == "tablet"
+
+
+@pytest.mark.parametrize("ua", PHONES)
+def test_phones_stay_mobile(ua):
+    assert g.device_class(ua) == "mobile"
+
+
+def test_ipad_with_mobile_token_is_excluded_not_judged_as_mobile():
+    rows = ([row(800, ua=IPHONE) for _ in range(29)]
+            + [row(9000, ua=IPAD_SAFARI) for _ in range(30)]
+            + [row(9000, ua=IPAD_CHROME) for _ in range(5)])
+    report = g.evaluate(rows, NOW)
+    m = cell(report, device="mobile")
+    assert report["excluded"]["tablet"] == 35
+    assert m["samples"] == 29
+    assert m["verdict"] == g.INSUFFICIENT
+    # The 30th phone sample makes it judged; the iPads still do not move the p75.
+    report = g.evaluate(rows + [row(800, ua=IPHONE)], NOW)
+    m = cell(report, device="mobile")
+    assert (m["samples"], m["p75_ms"], m["verdict"]) == (30, 800, g.PASS)
+    assert cell(report, device="desktop")["samples"] == 0
+
+
+def test_android_tablets_are_excluded_from_mobile():
+    rows = ([row(800, ua=MOBILE) for _ in range(30)]
+            + [row(9000, ua=ua) for ua in (ANDROID_TABLET_CHROME, ANDROID_TABLET_FIREFOX) * 10])
+    report = g.evaluate(rows, NOW)
+    assert report["excluded"]["tablet"] == 20
+    assert cell(report, device="mobile")["samples"] == 30
+    assert cell(report, device="mobile")["p75_ms"] == 800
+
+
+# Codex round 1 on fe41ebc23 (PRRT_kwDOR6Uds86xBN6g): the WARN fires only when
+# the nearest-rank p75 sample is itself an outlier, i.e. more than
+# n - ceil(0.75 n) samples are above OUTLIER_LCP_MS.
+def test_quarter_outliers_at_n_divisible_by_4_do_not_set_p75():
+    report = g.evaluate([row(800) for _ in range(30)] + [row(185_000) for _ in range(10)], NOW)
+    c = cell(report)
+    assert (c["samples"], c["p75_ms"], c["verdict"], c["over_60s"]) == (40, 800, g.PASS, 10)
+    assert not g.outliers_decide_p75(c)
+    assert "WARN" not in g.render(report)
+
+
+def test_one_more_outlier_at_n_41_sets_p75():
+    report = g.evaluate([row(800) for _ in range(30)] + [row(185_000) for _ in range(11)], NOW)
+    c = cell(report)
+    assert (c["samples"], c["p75_ms"], c["verdict"], c["over_60s"]) == (41, 185_000, g.FAIL, 11)
+    assert g.outliers_decide_p75(c)
+    assert "WARN\t/grammar\tdesktop\t11/41" in g.render(report)
+
+
+@pytest.mark.parametrize("n", range(30, 50))
+def test_outlier_warning_matches_the_nearest_rank_sample(n):
+    for k in range(n + 1):
+        c = cell(g.evaluate([row(800) for _ in range(n - k)] + [row(185_000) for _ in range(k)], NOW))
+        assert g.outliers_decide_p75(c) == (c["p75_ms"] > g.OUTLIER_LCP_MS), (n, k)
+
+
+def test_outlier_threshold_is_strict_and_survives_p75_rounding():
+    at = cell(g.evaluate([row(800) for _ in range(22)] + [row(60_000) for _ in range(8)], NOW))
+    assert at["over_60s"] == 0 and not g.outliers_decide_p75(at)
+    # 60000.0004 ms rounds to a 60000 ms p75 but is still above the threshold.
+    above = cell(g.evaluate([row(800) for _ in range(22)] + [row(60_000.0004) for _ in range(8)], NOW))
+    assert above["over_60s"] == 8 and above["p75_ms"] == 60_000
+    assert g.outliers_decide_p75(above)

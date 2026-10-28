@@ -13,17 +13,17 @@ Owner decisions, 2026-10-28:
 | --- | --- |
 | Source | prod `analytics_events`, `event_name = 'web_vitals'`, numeric `event_data.lcp` |
 | Window | rolling **28 days**, ending at the database's `now()` |
-| Device classes | **desktop** and **mobile** judged separately, by UA (`Mobi\|Android\|iPhone\|iPod` = mobile). iPad/tablet and empty UAs are in neither class |
+| Device classes | **desktop** and **mobile** judged separately, by UA. Tablets are matched first and are in neither class: `iPad\|Tablet`, or `Android` without `Mobi` (iPad Safari/Chrome also send `Mobile/15E148`). Then `Mobi\|iPhone\|iPod` = mobile, anything else = desktop. Empty UAs are in neither class. iPadOS "desktop website" mode sends a Mac UA and counts as desktop |
 | Minimum | **≥ 30 samples per device class**. Below that the verdict is `INSUFFICIENT_DATA` and the lab budget applies |
 | Verdict | p75 (nearest-rank, as `routers.error_logs._p75`) ≤ 2500 ms → `PASS`, otherwise `FAIL` |
 | Page groups | `/grammar` (hub) and `/grammar/*` (category and article pages), each with its own per-device verdict |
-| Excluded | crawlers and headless/automated browsers, matched by UA: `Headless`, `Lighthouse`, `PTST`, `Playwright`, `Puppeteer`, `Selenium`, `PhantomJS`, `bot`, `crawler`, `spider`, `slurp`, or any URL in the UA (self-identifying crawlers such as `+https://…`). They never count toward the 30 |
+| Excluded | crawlers and headless/automated browsers, matched by UA: `Headless`, `Lighthouse`, `PTST`, `Playwright`, `Puppeteer`, `Selenium`, `PhantomJS`, `bot`, `crawler`, `spider`, `slurp` (`bot` but not the `Cubot` phone brand), or any URL in the UA (self-identifying crawlers such as `+https://…`). They never count toward the 30 |
 | De-duplication | one sample per `event_data.metric_id`, earliest kept |
 | Synthetic traffic | **not added** to /grammar to reach the minimum (no `production-smoke.yml` runs on /grammar for this purpose) |
 
-Samples with LCP above 60 s stay in the p75. When they are at least a quarter of a
-judged cell they alone decide its nearest-rank p75, so the report prints a `WARN`
-line. Check those samples for automated traffic the UA filter missed before acting
+Samples with LCP above 60 s stay in the p75. When the nearest-rank p75 sample of a
+judged cell is one of them (more than n − ⌈0.75 n⌉ of the n samples), they alone
+decide its p75, so the report prints a `WARN` line. Check those samples for automated traffic the UA filter missed before acting
 on the verdict. Example: on 2026-10-01/02 a single Linux Chrome/151 UA loaded every
 article once, with LCP between 100 and 1,900 s.
 
