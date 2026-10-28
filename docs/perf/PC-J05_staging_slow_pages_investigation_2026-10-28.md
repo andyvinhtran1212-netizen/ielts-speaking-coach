@@ -2,6 +2,7 @@
 
 **Ngày:** 28/10/2026 · **Môi trường:** staging (`origin/staging` 0c32f3f26, Railway deployment `df60dfb9`) · **Loại:** điều tra, chưa sửa code.
 **Phạm vi đo:** chỉ đọc. Dùng log HTTP và log ứng dụng của Railway staging. Trình duyệt đăng nhập bằng tài khoản QA_ACTIVE, chỉ gửi GET, mọi POST analytics đều bị chặn. Gọi API trực tiếp bằng GET với token của QA_ACTIVE. Không ghi dữ liệu staging, không đụng production.
+**Cập nhật 28/10 (vòng sửa Codex):** số truy vấn theo từng request ở bảng 2b đếm lại trên code `origin/staging` sau #1791 và #1820, bằng backend chạy cục bộ với Supabase giả (`/workspace/qa/q65-j05/scripts/fake_supabase.py`), không gửi thêm tải nào tới staging. D1 và D2 đã có quyết định (mục 5).
 
 ## Tóm tắt (người dùng thấy gì và vì sao)
 
@@ -65,8 +66,23 @@ Lấy từ 3 865 dòng log HTTP staging, 02:12–03:12Z. Bỏ OPTIONS và analyt
 | 1 | **Dashboard /instructor: 6 GET** (`/instructor/cohorts`, `students`, `prompts`, `codes`, `assignments`, `reviews/queue`), tải lại sau **mỗi** lần Giao bài hoặc Nhận chấm | 3,4–3,6 s · 4,8 s | (a) Frontend `mutate()` và `claimAndGrade()` chờ `loadAll` đủ 6 GET mới mở khoá nút hoặc điều hướng (`frontend/app/(authed-instructor)/instructor/instructor-dashboard.tsx:180-211`, `:309-326`). (b) Mỗi GET phải qua `require_instructor`, gồm 1 lời gọi Auth và 2 select `users` đồng bộ (`backend/routers/admin.py:110-138`). (c) `reviews/queue` và `claim` gọi `instructor_owned_essay_ids`, quét **không giới hạn** 3 bảng rồi nhét mọi id vào `.in_()` (`backend/services/instructor_access.py:121-153`, `backend/services/instructor_workflow.py:134-156`). Trong khi đó `_essay_owned_by` (`instructor_access.py:174`) đã có sẵn kiểu kiểm tra EXISTS hẹp. | **J05-C** (backend, nhỏ): `claim` dùng `_essay_owned_by` thay cho quét toàn bộ (cùng ngữ nghĩa, đã ghi trong docstring). **J05-D** (frontend, làm chung PC-J10 vì trùng file): sau mutation chỉ refetch các danh sách bị ảnh hưởng (Giao bài: `assignments`; Nhận chấm: `queue`), vẫn giữ nguyên tắc "refetch canonical sau mutation". |
 | 2 | **GET /api/student/home-summary** (/home, /vocabulary/hub) | 4,3 s · 5,6 s; **2,3 s khi gửi riêng** | `get_home_summary` chạy **khoảng 16 truy vấn đồng bộ tuần tự** qua 7 phần (`backend/services/student_home_aggregator.py:47`), trên event loop. | **J05-E**: chạy các phần song song, mỗi thread một client riêng, theo đúng tiền lệ `get_dashboard_payload_concurrent` (`backend/services/dashboard_aggregator.py:104-136`, `routers/dashboard.py:67-74`). |
 | 3 | **GET /api/class/me** (/my-class, /home) | 3,9 s · 5,3 s; 0,45–0,76 s khi gửi riêng | Khoảng 20–30 truy vấn đồng bộ trong một request (`backend/routers/class_student.py:955`). Có các bước **ghi trong GET**: `reconcile_test_attempts` và `reconcile_course_items`. Bước sau đọc mục bài giao của **cả lớp**, không lọc theo học viên (`backend/services/quiz_service.py:3330`, `:3405-3409`). Ngoài ra có N+1 `quiz_sessions` cho mỗi mục khoá học đã hết hạn (`quiz_service.py:472`, `:542`). | **J05-F**: lọc `reconcile_course_items` theo học viên đang xem (cần AT xác nhận vì đây là đường sửa dữ liệu), và gộp N+1 thành một truy vấn. |
-| 4 | **/writing/dashboard**: `/api/writing/my-assignments` + `my-essays` + `/api/student/permissions` + `prompt-bank` | 2,3 s · 3,4 s (từng cái) | Quyền Writing bị tính **3 lần trong 3 request**: `/auth/me`, `/student/permissions`, `/my-assignments`. Lần cuối dùng bản không cache `get_user_access_code_permissions` (`backend/routers/writing_student.py:222`). Mỗi lần tính là 2–3 truy vấn. `prompt-bank` lại xác thực token lần thứ hai. | **J05-G**: dùng chung bộ nhớ quyền theo request; bỏ lần xác thực lặp ở `prompt-bank`. |
-| 5 | **GET /auth/me** (mọi trang, do `<aver-chrome>` và trang staff gọi) | 1,6 s · 5,4 s; 161 lượt / 1 giờ | 1 lời gọi Auth và khoảng 6 truy vấn đồng bộ: `users select *`, **UPDATE `last_seen_at` mỗi lần gọi** (`backend/routers/auth.py:233-236`), 2–3 truy vấn quyền, rồi select lại `users` cho feature flag. /vocabulary/hub gọi nó 2 lần. Trang staff gọi nó **một mình** trước khi tải dữ liệu. | Throttle `last_seen_at` đã có ở **PR #1791** (PC-J02, chờ duyệt), nên không làm lại. **J05-H**: bỏ lần gọi `/auth/me` thứ hai trên /vocabulary/hub (thuộc PC-J04). |
+| 4 | **/writing/dashboard**: `/api/writing/my-assignments` + `my-essays` + `/api/student/permissions` + `prompt-bank` | 2,3 s · 3,4 s (từng cái) | Trang gửi 6 request riêng (kể cả `/auth/check-active` và `/auth/me`). **Trong mỗi request** không có lần xác thực hay lần tính quyền nào bị lặp (bảng 2b): mỗi request có đúng 1 lời gọi Auth và tính quyền tối đa 1 lần. Quyền Writing được đọc trong 3 request khác nhau (`/auth/me`, `/student/permissions`, `/my-assignments`), mỗi lần 2–3 truy vấn. Đây là **chủ ý**: bộ nhớ quyền (`services/access_code_permissions.py:40-71`) bị xoá sau mỗi request (`main.py:370-410`) để thu hồi quyền có hiệu lực ngay ở request kế tiếp. `prompt-bank` được miễn chốt kích hoạt nên lời gọi Auth trong `_prompt_bank_image_viewer` (`writing_student.py:314`) là lần xác thực **duy nhất** của request đó; nó quyết định ai được nhận URL ký cho ảnh biểu đồ trong bucket riêng tư. Chậm vì các truy vấn đồng bộ chặn event loop (mục 3), không phải vì làm thừa. | **J05-G**: đưa các lần đọc của chốt Writing (`get_current_student`, `require_writing_permission`, cầu nối bài giao) sang `aexecute` sau cờ `USE_ASYNC_DB`, cùng nguyên tắc giữ nguyên hành vi như spec 0036 (spec này ghi rõ chốt Writing là J05-G). Giữ nguyên việc đọc quyền live ở mỗi request và lời gọi Auth của `prompt-bank`. |
+| 5 | **GET /auth/me** (mọi trang, do `<aver-chrome>` và trang staff gọi) | 1,6 s · 5,4 s; 161 lượt / 1 giờ | Lúc đo: 1 lời gọi Auth và 4–6 truy vấn đồng bộ: `users select *`, **UPDATE `last_seen_at` mỗi lần gọi**, 2–3 truy vấn quyền, và thêm 1 select `users` cho cờ flashcard khi `FLASHCARD_ENABLED` bật. /vocabulary/hub gọi endpoint này 2 lần trong một lượt tải trang. Trang staff gọi nó **một mình** trước khi tải dữ liệu. | Throttle `last_seen_at` (5 phút) đã merge vào staging ở **#1791** (PC-J02), nên không làm lại; từ đó /auth/me còn 3–6 truy vấn, và chỉ một lượt mỗi 5 phút có UPDATE. Đưa /auth/me sang `aexecute` thuộc spec 0036 (PR #1835). **J05-H** (thuộc PC-J04): trang /vocabulary/hub dùng lại kết quả `/auth/me` đã có trong cùng lượt tải trang, thay vì gửi request thứ hai. Đây là sửa ở frontend; backend vẫn xác thực và đọc quyền live ở mọi request. |
+
+### 2b. Đếm truy vấn và lời gọi Auth theo từng request (/writing/dashboard)
+
+Đếm trên backend chạy cục bộ, code `origin/staging` (sau #1791 và #1820), `USE_ASYNC_DB=false`, Supabase giả đếm từng lời gọi; mỗi request gửi riêng, đếm lại từ 0. "Quyền" là `_active_code_rows`: `user_code_assignments`, thêm `access_codes` khi có gán đang hoạt động, rồi `access_codes.used_by` cho mã cũ, tức 2–3 truy vấn. "Cầu nối" là kiểm tra học viên có bài Writing được giao (`writing_assignments … limit 1`), chỉ chạy khi mã không có quyền `writing`.
+
+| Request | Lời gọi Auth | Đọc `users` | Đọc quyền (lần × truy vấn) | Truy vấn khác | Lặp **trong** request? |
+|---|---|---|---|---|---|
+| `/auth/check-active` | 1 | 1 (`is_active`) | 0 | 0 | Không |
+| `/auth/me` | 1 | 1 (`select *`) + 0–1 (cờ flashcard) | 1 × 2–3 (memo) | UPDATE `last_seen_at` 0–1 | Chỉ select `users` lần hai khi `FLASHCARD_ENABLED` bật (cờ đã có trong hàng `users` đọc trước đó) |
+| `/api/student/permissions` | 1 (chốt kích hoạt; handler dùng lại) | 1 (`is_active`, handler dùng lại) | 1 × 2–3 | `students` + cầu nối khi không có quyền `writing` | Không |
+| `/api/writing/my-assignments` | 1 (chốt; `get_current_student` dùng lại) | 1 (`is_active`, chốt Writing dùng lại) | 1 × 2–3 (bản không memo, nhưng chỉ gọi 1 lần) | `students` 1, cầu nối 0–1, danh sách bài giao 1, nháp 1 | Không. Cầu nối và danh sách cùng đọc `writing_assignments`, nhưng một bên là kiểm tra quyền, một bên là dữ liệu trả về |
+| `/api/writing/my-essays` | 1 | 1 (`is_active`) | 0 | `students` 1, `writing_essays` 1 | Không |
+| `/api/writing/prompt-bank` (đã đăng nhập) | 1 (miễn chốt; đây là lần xác thực duy nhất) | 1 (`is_active`) | 0 | `writing_prompts` 1, rồi ký URL ảnh | Không |
+
+Tổng cho một lượt tải trang: 6 lời gọi Auth (1 cho mỗi request) và 3 lần đọc quyền ở 3 request khác nhau, khoảng 6–9 truy vấn. Không lời gọi nào trong số đó bỏ được bằng memo theo request, vì chúng nằm ở các request khác nhau. Cache quyền **giữa** các request bị loại vì sẽ làm thu hồi quyền chậm có hiệu lực. Lời gọi Auth không chặn event loop (`httpx.AsyncClient`, `routers/auth.py:38-42`); các select `users`/quyền thì có. Vì vậy cái lợi thật nằm ở việc bỏ chặn loop (D1, J05-G), không phải bớt lần đọc.
 
 Ngoài top 5: `/api/vocabulary-sets` có p50 5,5 s, thuộc PC-J04. `/api/mock-exams/my-sittings` p50 4,0 s, và `/health/ready` 2,8–3,9 s vì gửi 20 truy vấn PostgREST tuần tự trên event loop; mỗi lần probe gọi nó cũng làm request khác phải chờ.
 
@@ -74,7 +90,7 @@ Ngoài top 5: `/api/vocabulary-sets` có p50 5,5 s, thuộc PC-J04. `/api/mock-e
 
 1. **Một event loop, mọi truy vấn DB đều đồng bộ.** `database.py:52` tạo một client đồng bộ dùng chung. `USE_ASYNC_DB=off` trên staging (log khởi động `[async-db] USE_ASYNC_DB=off`). Không route nào trong các luồng trên dùng `aexecute` hay `to_thread`. Timeout PostgREST là 120 s (`database.py:48`), nên một truy vấn treo có thể làm treo mọi người dùng tới 2 phút.
 2. **Mỗi chuyến khứ hồi DB đi xuyên vùng.** Railway chạy ở `asia-southeast1`. Supabase staging ở vùng khác: pooler là `aws-1-ap-northeast-1`, còn comment trong code ghi khoảng 56 ms tới `ap-south-1`. Mỗi `.execute()` tốn khoảng 50–150 ms, trong khi một trang cần 10–40 lượt như vậy.
-3. **Chi phí auth mỗi request, không cache giữa các request.** Learner: 1 lời gọi Auth và 1 select `is_active` (`services/activation_gate.py:150-207`). Staff: 1 lời gọi Auth và 2 select `users`. Admin giả danh `?as_instructor=` còn thêm 2 select và 1 insert audit.
+3. **Chi phí auth mỗi request, cố ý không cache giữa các request.** Learner: 1 lời gọi Auth và 1 select `is_active` (`services/activation_gate.py:150-207`). Staff: 1 lời gọi Auth và 2 select `users`. Admin giả danh `?as_instructor=` còn thêm 2 select và 1 insert audit. Trong một request, xác thực token và `is_active` đã được nhớ và dùng lại (memo theo request, `activation_gate.py:120-190`). Giữa các request thì không, để khoá tài khoản hoặc thu hồi quyền có hiệu lực ngay ở request kế tiếp. Báo cáo này **không** đề xuất cache giữa các request; hướng sửa là để các lần đọc này không chặn event loop (D1).
 
 Không có lời gọi AI hay gửi email nào nằm trên đường request của các luồng này.
 
@@ -82,27 +98,26 @@ Không có lời gọi AI hay gửi email nào nằm trên đường request c�
 
 | Job | Ưu tiên | Nội dung | Rủi ro | Cần quyết định? |
 |---|---|---|---|---|
-| **J05-A** | P2 | Bỏ chặn event loop trên các route nóng: auth gate, `require_instructor`, `/auth/me`, permissions, 6 GET instructor, writing dashboard, class/me. Đây là gốc của mọi số ở trên. | Trung bình | **Có, xem D1** |
-| **J05-B** | P2 | Chạy uvicorn nhiều worker, ví dụ `--workers 2`, trên Railway staging. Cách giảm xếp hàng nhanh nhất mà không sửa code. | Trung bình: 3 vòng reaper (`main.py:711-783`) sẽ chạy ở **mỗi** worker; cache trong tiến trình và bộ nhớ theo request bị tách theo worker; RAM tăng. | **Có, xem D2** |
+| **J05-A** | P2 | Bỏ chặn event loop trên các route nóng: auth gate, `require_instructor`, `/auth/me`, permissions, 6 GET instructor, writing dashboard, class/me. Đây là gốc của mọi số ở trên. Phần auth và permissions là spec **ASYNCAUTH-0036** (#1820, đã duyệt), làm ở PR #1835; các phần còn lại là J05-C/D/F/G. | Cao (đường auth, spec 0036 xếp high-risk) | Đã quyết, xem D1 |
+| J05-B | – | Chạy uvicorn nhiều worker. | Trung bình: 3 vòng reaper (`main.py:711-783`) sẽ chạy ở **mỗi** worker; cache trong tiến trình (không phải memo theo request) bị nhân theo worker; RAM tăng. | **Không làm**, xem D2 |
 | J05-C | P3 | `claim` dùng `_essay_owned_by` | Thấp | Không |
 | J05-D | P3 | Dashboard instructor chỉ refetch danh sách bị ảnh hưởng; Nhận chấm điều hướng ngay khi claim đã xác nhận | Thấp–TB | Làm chung PC-J10 (trùng `instructor-dashboard.tsx`) |
-| J05-E | P2 | `home-summary` chạy song song theo tiền lệ dashboard | Thấp | Không |
+| J05-E | P2 | `home-summary` chạy song song theo tiền lệ dashboard | Thấp | Đã nằm trong spec 0036 / PR #1835 |
 | J05-F | P3 | `/api/class/me`: lọc reconcile theo học viên, gộp N+1 | TB (đường sửa dữ liệu) | AT xác nhận |
-| J05-G | P3 | Writing dashboard: không tính quyền 3 lần | Thấp | Không |
-| J05-H | P3 | /vocabulary/hub gọi `/auth/me` 2 lần | Thấp | Gộp vào PC-J04 |
+| J05-G | P3 | Chốt Writing (`get_current_student`, `require_writing_permission`, cầu nối) đọc qua `aexecute` sau `USE_ASYNC_DB`, giữ nguyên hành vi; vẫn đọc quyền live mỗi request; giữ xác thực ảnh biểu đồ ở `prompt-bank` | Cao (đường quyền, như spec 0036) | Cần spec riêng hoặc sửa đổi spec 0036 |
+| J05-H | P3 | /vocabulary/hub dùng lại `/auth/me` đã có trong lượt tải trang (frontend) | Thấp | Gộp vào PC-J04 |
 
-Bật `ENABLE_SERVER_TIMING=true` trên staging sẽ giúp Web Manager đọc được phân rã auth/db/app của từng request khi đo lại. Đây là thay đổi cấu hình Railway, nên làm sau khi hết đóng băng.
+Bật `ENABLE_SERVER_TIMING=true` trên staging sẽ giúp Web Manager đọc được phân rã auth/db/app của từng request khi đo lại. Đây là thay đổi cấu hình Railway staging, do Leader làm.
 
 ## 5. Quyết định cần chủ sản phẩm / Leader
 
-- **D1: Cách bỏ chặn event loop.** Code hiện cố ý **không** đưa client đồng bộ dùng chung vào `to_thread` vì cho rằng `httpx.Client` và query builder không an toàn khi dùng chung giữa các thread (`services/db_async.py:18-24`). Hướng đã thiết kế sẵn là facade `aexecute` cùng cờ `USE_ASYNC_DB`, hiện đang "parked". Có ba lựa chọn:
-  - (a) Chuyển dần các route nóng sang `aexecute`, rồi bật `USE_ASYNC_DB` trên staging trước.
-  - (b) Theo tiền lệ `dashboard_aggregator`: mỗi thread dùng client riêng, rồi `to_thread`.
-  - (c) Xem lại và chấp nhận dùng chung `httpx.Client` giữa các thread. Đây là thay đổi lập trường của repo.
+- **D1: Cách bỏ chặn event loop — đã quyết (Vinh, 28/10 10:49): (a) + (b).** Code cố ý **không** đưa client đồng bộ dùng chung vào `to_thread` vì `httpx.Client` và query builder không an toàn khi dùng chung giữa các thread (`services/db_async.py:18-24`); lựa chọn (c), đổi lập trường đó, không được chọn.
+  - (a) Đường auth và permissions đọc qua facade `aexecute` sau cờ `USE_ASYNC_DB` (mặc định tắt), giữ nguyên mọi quyết định truy cập và chuỗi truy vấn.
+  - (b) Aggregator (`home-summary`) chạy song song, mỗi thread một client riêng, theo tiền lệ `dashboard_aggregator`.
 
-  Đề xuất: (a) cho đường auth và permissions vì chúng chạy trên mọi request; (b) cho các aggregator.
-- **D2: Có chạy nhiều worker uvicorn trên Railway không**, và có tách 3 reaper ra chạy ở một worker hoặc tiến trình riêng không. Lệnh khởi động nằm trong cài đặt dịch vụ Railway, không nằm trong repo.
-- **D3: Có đặt Railway và Supabase cùng vùng không** (hạ tầng, dài hạn). Cần xác nhận vùng thực của dự án Supabase staging và production.
+  Spec **ASYNCAUTH-0036** đã duyệt lúc 12:44 và merge qua #1820, xếp high-risk; phần code là PR #1835 (thay #1805). Leader bật cờ trên staging sau khi merge rồi đo lại theo mục 6; production giữ cờ tắt cho tới khi Vinh duyệt riêng. Chốt Writing (J05-G) nằm ngoài spec 0036.
+- **D2: Nhiều worker uvicorn — đã quyết: giữ nguyên số worker** (cùng lúc với D1). Lệnh khởi động nằm trong cài đặt dịch vụ Railway, không nằm trong repo.
+- **D3: Có đặt Railway và Supabase cùng vùng không** (hạ tầng, dài hạn) — **còn mở**. Cần xác nhận vùng thực của dự án Supabase staging và production.
 
 ## 6. Cách đo lại (Web Manager)
 
