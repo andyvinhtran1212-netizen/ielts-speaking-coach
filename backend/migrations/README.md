@@ -142,8 +142,9 @@ Migration `324` (A-08B, ASSIGNDRAFT-0027) changes
 `ON DELETE NO ACTION`, so Postgres refuses to delete a `writing_assignments`
 row while a learner's draft references it (23503, for every role and path);
 `services/writing_assignment_delete_guard.py` maps that to the existing 409
-"Học viên đã bắt đầu — không xoá được". NO ACTION rather than RESTRICT keeps a
-single-statement student delete, which cascades to both rows, working. One
+("Học viên đã bắt đầu làm bài nên không xóa được bài giao này."). NO ACTION
+rather than RESTRICT keeps a single-statement student delete, which cascades
+to both rows, working. One
 transaction with `lock_timeout = 5s`: it aborts on orphan drafts or an
 unexpected FK action, adds the FK `NOT VALID` then validates it, and its
 postcondition requires no cascading child FK on `writing_assignments`. No row
