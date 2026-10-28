@@ -270,7 +270,7 @@ async function submitConvert() {
 function removeFromCode(codeId, userId) {
   confirmDanger({
     title: 'Gỡ khỏi mã',
-    body: 'Gỡ học viên này khỏi mã đang dùng? (Không xoá user; chỉ vô hiệu gán mã.)',
+    body: 'Gỡ học viên này khỏi mã đang dùng? (Không xóa user; chỉ vô hiệu gán mã.)',
     confirmLabel: 'Gỡ khỏi mã',
     onConfirm: async () => {
       try {
