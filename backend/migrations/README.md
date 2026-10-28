@@ -22,7 +22,7 @@ and must not be "filled in" by tooling:
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
 sequence is dense. As of 2026-10-27 the highest is `331`, so the next
 new migration is `332`. The runner applies any unapplied file regardless of order.
-Numbers 321–330 are already locked to open work (321 #1727, 322 #1720,
+Numbers 321–330 are already locked to open work (321 WRITINGRATE-0025, 322 #1720,
 323 ROLECHECK-0026, 324 ASSIGNDRAFT-0027, 325 CODEUNIQ-0028, 326
 STUDENTARCHIVE-0029, 327–329 reserved, 330 A-10); files for them may land out
 of order, so do not reuse them. 331 is GIVEARCHIVE-0031.
@@ -100,6 +100,21 @@ public.access_codes_code_key;` then re-run). Run the read-only P1–P6 checks in
 that research record before production. Rollback drops only the CHECK; never
 drop `access_codes_code_key` where it predates 325. The drifted `"Admin only"`
 policy on `access_codes` is recorded there and out of scope.
+
+Migration `321` (WRITINGRATE-0025) repairs schema drift in `writing_grade_ratings`. Staging and
+production were migrated with an early draft of `116` (commit `df4fce621`): it
+had no `feedback_version` column and a `UNIQUE (essay_id)` constraint. `116`
+uses `CREATE TABLE IF NOT EXISTS` and is already in both ledgers, so the revised
+`116` can never reach them, and the admin grade-rating read/upsert fails with
+42703. `321` adds `feedback_version`, backfills legacy rows from
+`writing_essays.current_version`, then sets it NOT NULL. It drops any
+single-column `UNIQUE (essay_id)` and adds
+`writing_grade_ratings_essay_id_feedback_version_key`, the name `116` produces
+on a fresh database, unless an equivalent constraint already exists. On the
+revised shape it is a no-op. RLS and grants are unchanged. A postcondition aborts
+the transaction if the result is not the revised shape. Both hosted tables had 0
+rows on 2026-10-26. Apply it to staging first, then to production before or with
+the release. No backend change is needed.
 
 Migration `319` (REVEXPLAIN-0022) re-states `fn_approve_web_explanation_paper` (260) with one
 change: the `web_explanation_content_version_unavailable` refusal now names its
