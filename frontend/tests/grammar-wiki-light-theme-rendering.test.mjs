@@ -18,7 +18,7 @@
 
 import { test, describe, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -74,7 +74,7 @@ describe('text-white opacity-variant coverage', () => {
   // Mirror the audit findings (Step 1 of pre-work):
   // grep -hoE 'text-white(/[0-9]+)?' across 5 pages + grammar.js
   // produced these variants.
-  const variants = ['90', '85', '80', '70', '65', '60', '55', '50', '40', '35', '30', '28', '25', '20', '15'];
+  const variants = ['90', '85', '80', '70', '65', '60', '55', '50', '45', '40', '35', '30', '28', '25', '20', '15'];
 
   variants.forEach((opacity) => {
     test(`body.av-page .text-white/${opacity} has a scoped override`, () => {
@@ -90,6 +90,75 @@ describe('text-white opacity-variant coverage', () => {
   });
 });
 
+
+// PC-J13A — the hand-kept list above missed `/45`, which the Next article
+// shell (#exercise-cta-sub) and /grammar/exercises use; it painted fixed white
+// at 1.06:1 on the light page. Derive the list from the live grammar sources.
+describe('every text-white/NN in the Next grammar routes has an override', () => {
+  const GRAMMAR_APP = path.join(REPO_ROOT, 'frontend/app/(public-content)/grammar');
+  const sources = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return sources(full);
+    return /\.(tsx?|mjs|js)$/.test(entry.name) ? [full] : [];
+  });
+
+  test('grammar sources still use at least one opacity variant (scan is live)', () => {
+    const used = new Set();
+    for (const file of sources(GRAMMAR_APP)) {
+      // Plain utilities only — `hover:` / `group-hover:` variants are pinned separately.
+      for (const m of readFileSync(file, 'utf8').matchAll(/(?<![\w:-])text-white\/(\d+)\b/g)) used.add(m[1]);
+    }
+    assert.ok(used.has('45'), 'expected the /45 usage the PC-J13A fix covers');
+    const missing = [...used].filter((opacity) =>
+      !new RegExp(`body\\.av-page\\s+\\.text-white\\\\\\/${opacity}\\b`).test(grammarWikiCss));
+    assert.deepEqual(missing, [], `text-white/${missing.join(', /')} used under app/(public-content)/grammar without an override`);
+  });
+});
+
+
+describe('text-white/45 maps to a token that passes WCAG AA', () => {
+  const tokensCss = () => readFileSync(path.join(REPO_ROOT, 'frontend/public/css/aver-design/tokens.css'), 'utf8');
+  // First declaration of each token inside the block that opens at `marker`.
+  const tokenIn = (css, marker, name) => {
+    const block = css.slice(css.indexOf(marker));
+    const m = block.match(new RegExp(`--${name}:\\s*([^;]+);`));
+    assert.ok(m, `--${name} not found after ${marker}`);
+    return m[1].trim();
+  };
+  const rgba = (value) => {
+    const hex = value.match(/^#([0-9a-f]{6})$/i);
+    if (hex) return [0, 2, 4].map((i) => parseInt(hex[1].slice(i, i + 2), 16)).concat(1);
+    const nums = value.match(/[\d.]+/g).map(Number);
+    return nums.length === 3 ? nums.concat(1) : nums;
+  };
+  const over = ([r, g, b, a], [R, G, B]) => [r * a + R * (1 - a), g * a + G * (1 - a), b * a + B * (1 - a)];
+  const lum = (rgb) => {
+    const [r, g, b] = rgb.map((v) => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const ratio = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+  // #exercise-cta-link: bg-teal/[0.06], hover:bg-teal/[0.1] (teal = #0F766E).
+  const TEAL = [0x0f, 0x76, 0x6e];
+
+  const mapped = () => {
+    const m = grammarWikiCss.match(/body\.av-page\s+\.text-white\\\/45\s*\{\s*color:\s*var\(--([\w-]+)\)/);
+    assert.ok(m, '.text-white/45 must map to a single --av-text-* token');
+    return m[1];
+  };
+
+  [['light', ':root {'], ['dark', ':root[data-theme="dark"] {']].forEach(([theme, marker]) => {
+    test(`${theme}: ≥ 4.5:1 on the page and on the exercise card (rest + hover)`, () => {
+      const css = tokensCss();
+      const page = rgba(tokenIn(css, marker, 'av-surface-page'));
+      const ink = rgba(tokenIn(css, marker, mapped()));
+      for (const [label, tint] of [['page', 0], ['card', 0.06], ['card hover', 0.1]]) {
+        const bg = over([...TEAL, tint], page);
+        const value = ratio(over(ink, bg), bg);
+        assert.ok(value >= 4.5, `${theme} ${label}: ${value.toFixed(2)}:1 < 4.5:1`);
+      }
+    });
+  });
+});
 
 describe('hover:text-white variant coverage', () => {
   const hoverVariants = ['', '90', '85', '70', '60'];

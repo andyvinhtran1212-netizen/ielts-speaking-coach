@@ -4874,10 +4874,10 @@ async def admin_set_vocab_flag(
 
 # ── POST /admin/vocab/backfill-enrichment ─────────────────────────────────────
 #
-# Phase D Wave 2 rich-content backfill.  Fills user_vocabulary.ipa and
-# user_vocabulary.example_sentence for rows where either is NULL.  Uses the
-# same Gemini batch service that the inline Phase B extractor uses, so the
-# prompt + validation stays in one place.
+# Phase D Wave 2 rich-content backfill.  Fills user_vocabulary.ipa,
+# example_sentence, definition_vi and definition_en for rows where any of
+# them is empty.  Uses the same Gemini batch service that the inline Phase B
+# extractor uses, so the prompt + validation stays in one place.
 #
 # Implementation notes:
 # - BackgroundTasks because the job can take 10-30s for ~100 cards (one
@@ -4897,11 +4897,33 @@ async def admin_set_vocab_flag(
 #   neither a single account's headwords nor an inactive account's can fill
 #   the paid Gemini batch. The candidate scan pages past skipped rows; it is
 #   bounded by _BACKFILL_SCAN_MAX_PAGES.
+# - Fill-empty-only (owner decision 2026-10-28 15:07): a column is written
+#   only when it is NULL, empty or whitespace; an existing value is never
+#   overwritten.  Each write is a separate UPDATE guarded by the same
+#   emptiness filter, so a value the learner saves between the scan and the
+#   write is not overwritten either.  `dry_run=true` lists, per row, the
+#   columns that would be filled, without calling Gemini or writing.
 
 _BACKFILL_MAX_ROWS_PER_OWNER = 50
 _BACKFILL_SCAN_PAGE_SIZE = 500
 _BACKFILL_SCAN_MAX_PAGES = 20
 _BACKFILL_OWNER_LOOKUP_CHUNK = 100
+# Every column the enricher fills; the enricher's keys use the same names.
+_BACKFILL_FIELDS = ("ipa", "example_sentence", "definition_vi", "definition_en")
+
+
+def _backfill_empty_filter(col: str) -> str:
+    """PostgREST or-filter for "NULL, empty or whitespace-only"."""
+    return f"{col}.is.null,{col}.match.^\\s*$"
+
+
+def _backfill_is_empty(value: Any) -> bool:
+    return value is None or (isinstance(value, str) and not value.strip())
+
+
+def _backfill_empty_fields(row: dict) -> list[str]:
+    """The enriched columns this row may receive, in _BACKFILL_FIELDS order."""
+    return [c for c in _BACKFILL_FIELDS if _backfill_is_empty(row.get(c))]
 
 
 def _backfill_select_candidates(job_id: str, limit: int) -> list[dict]:
@@ -4925,14 +4947,9 @@ def _backfill_select_candidates(job_id: str, limit: int) -> list[dict]:
         # now generates Vietnamese + English glosses alongside IPA/example.
         batch = (
             supabase_admin.table("user_vocabulary")
-            .select("id, headword, user_id")
+            .select("id, headword, user_id, " + ", ".join(_BACKFILL_FIELDS))
             .eq("is_archived", False)
-            .or_(
-                "ipa.is.null,"
-                "example_sentence.is.null,"
-                "definition_vi.is.null,"
-                "definition_en.is.null"
-            )
+            .or_(",".join(_backfill_empty_filter(c) for c in _BACKFILL_FIELDS))
             .order("id")
             .range(start, start + _BACKFILL_SCAN_PAGE_SIZE - 1)
             .execute()
@@ -4956,6 +4973,8 @@ def _backfill_select_candidates(job_id: str, limit: int) -> list[dict]:
                 owner_active[uid] = found.get(uid, False)
 
         for r in batch:
+            if not _backfill_empty_fields(r):
+                continue  # Nothing to fill; never re-enrich a complete row.
             uid = str(r.get("user_id") or "")
             if not owner_active.get(uid, False):
                 skipped_inactive += 1
@@ -4980,11 +4999,44 @@ def _backfill_select_candidates(job_id: str, limit: int) -> list[dict]:
     return selected
 
 
+def _backfill_dry_run(job_id: str, limit: int) -> dict:
+    """Report the rows a real run would pick and, per row, the columns it
+    would fill.  No Gemini call and no write.  Raises when the candidate
+    query fails, so the caller can fail visibly.
+
+    A listed column is filled only if Gemini returns a valid value for it
+    (definitions are best-effort), so a real run can fill fewer.
+    """
+    rows = _backfill_select_candidates(job_id, limit)
+    out = []
+    for r in rows:
+        would_fill = _backfill_empty_fields(r)
+        logger.info(
+            "[backfill %s] dry-run row=%s headword=%r would fill: %s",
+            job_id, r["id"], r.get("headword"), ", ".join(would_fill),
+        )
+        out.append({
+            "id":         r["id"],
+            "user_id":    r.get("user_id"),
+            "headword":   r.get("headword"),
+            "would_fill": would_fill,
+        })
+    column_counts = {
+        c: sum(c in row["would_fill"] for row in out) for c in _BACKFILL_FIELDS
+    }
+    logger.info(
+        "[backfill %s] dry-run: %d rows, columns that would be filled: %s",
+        job_id, len(out), column_counts,
+    )
+    return {"rows": out, "column_counts": column_counts}
+
+
 def _backfill_run(job_id: str, limit: int) -> None:
     """
-    Background task: enrich up to `limit` user_vocabulary rows missing IPA
-    or example_sentence.  Runs synchronously inside FastAPI's BG worker —
-    no asyncio dependencies, all Supabase calls are blocking.
+    Background task: enrich up to `limit` user_vocabulary rows with an empty
+    IPA, example_sentence, definition_vi or definition_en, filling only the
+    empty columns.  Runs synchronously inside FastAPI's BG worker — no
+    asyncio dependencies, all Supabase calls are blocking.
     """
     from services.vocab_enrichment import enrich_vocabulary_batch, VocabEnrichmentError
 
@@ -5026,29 +5078,40 @@ def _backfill_run(job_id: str, limit: int) -> None:
         e = enrich_map.get(low)
         if not e:
             continue  # Word didn't make it through Gemini's validation.
-        # Build the UPDATE payload from whichever fields the enricher returned.
-        # Required fields (ipa, example_sentence) are guaranteed by the
-        # validator; optional fields (definition_vi, definition_en) are only
-        # included when Gemini supplied them, so we never blank an existing
-        # row's definition by writing NULL over it.
-        payload: dict = {
-            "ipa": e["ipa"],
-            "example_sentence": e["example_sentence"],
-        }
-        if e.get("definition_vi"):
-            payload["definition_vi"] = e["definition_vi"]
-        if e.get("definition_en"):
-            payload["definition_en"] = e["definition_en"]
         for row in group_rows:
-            try:
-                supabase_admin.table("user_vocabulary").update(payload) \
-                    .eq("id", row["id"]).execute()
-                updated += 1
-            except Exception as upd_err:
-                logger.warning(
-                    "[backfill %s] update failed for row=%s: %s",
-                    job_id, row["id"], upd_err,
+            filled: list[str] = []
+            kept: list[str] = []
+            for col in _backfill_empty_fields(row):
+                value = e.get(col)
+                if _backfill_is_empty(value):
+                    continue  # Gemini gave nothing usable; leave it empty.
+                try:
+                    res = (
+                        supabase_admin.table("user_vocabulary")
+                        .update({col: value})
+                        .eq("id", row["id"])
+                        .or_(_backfill_empty_filter(col))
+                        .execute()
+                    )
+                except Exception as upd_err:
+                    logger.warning(
+                        "[backfill %s] update failed for row=%s column=%s: %s",
+                        job_id, row["id"], col, upd_err,
+                    )
+                    continue
+                # No row back = the column got a value after the scan; kept.
+                (filled if res.data else kept).append(col)
+            if kept:
+                logger.info(
+                    "[backfill %s] row=%s kept values written since the scan: %s",
+                    job_id, row["id"], ", ".join(kept),
                 )
+            if filled:
+                logger.info(
+                    "[backfill %s] row=%s filled: %s",
+                    job_id, row["id"], ", ".join(filled),
+                )
+                updated += 1
 
     logger.info(
         "[backfill %s] done: enriched %d unique words → updated %d/%d rows",
@@ -5060,12 +5123,19 @@ def _backfill_run(job_id: str, limit: int) -> None:
 async def backfill_vocab_enrichment(
     background_tasks: BackgroundTasks,
     limit: int = Query(default=100, ge=1, le=500),
+    dry_run: bool = Query(default=False),
     authorization: str | None = Header(default=None),
 ):
     """
-    Trigger a background job that enriches user_vocabulary rows missing
-    `ipa` or `example_sentence` (i.e. rows that pre-date migration 029
-    or whose Gemini call failed during Phase B extraction).
+    Trigger a background job that enriches user_vocabulary rows with an
+    empty `ipa`, `example_sentence`, `definition_vi` or `definition_en`
+    (i.e. rows that pre-date migration 029 or whose Gemini call failed
+    during Phase B extraction).  Only columns that are NULL, empty or
+    whitespace are filled; existing values are never overwritten.
+
+    `dry_run=true` runs the same row selection synchronously and returns,
+    per row, the columns that would be filled.  It calls no model and
+    writes nothing.
 
     Caps at 500/call so an admin can't accidentally fan out across the
     whole bank in one click.  Within a call, one owner contributes at most
@@ -5077,6 +5147,21 @@ async def backfill_vocab_enrichment(
     """
     await require_admin(authorization)
     job_id = _uuid.uuid4().hex[:12]
+    if dry_run:
+        try:
+            plan = await run_in_threadpool(_backfill_dry_run, job_id, limit)
+        except Exception as e:
+            logger.error("[backfill %s] dry-run candidate query failed: %s", job_id, e)
+            raise HTTPException(status_code=503, detail="Backfill dry-run could not read candidates.")
+        return {
+            "job_id":        job_id,
+            "status":        "dry_run",
+            "limit":         limit,
+            "row_count":     len(plan["rows"]),
+            "column_counts": plan["column_counts"],
+            "rows":          plan["rows"],
+            "note": "No model call and no write. A listed column is filled only if Gemini returns a valid value for it.",
+        }
     background_tasks.add_task(_backfill_run, job_id, limit)
     estimated_cost_usd = round((max(1, limit) / 10) * 0.0005, 4)
     return {

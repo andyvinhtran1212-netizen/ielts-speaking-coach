@@ -1345,9 +1345,15 @@ export interface paths {
         put?: never;
         /**
          * Backfill Vocab Enrichment
-         * @description Trigger a background job that enriches user_vocabulary rows missing
-         *     `ipa` or `example_sentence` (i.e. rows that pre-date migration 029
-         *     or whose Gemini call failed during Phase B extraction).
+         * @description Trigger a background job that enriches user_vocabulary rows with an
+         *     empty `ipa`, `example_sentence`, `definition_vi` or `definition_en`
+         *     (i.e. rows that pre-date migration 029 or whose Gemini call failed
+         *     during Phase B extraction).  Only columns that are NULL, empty or
+         *     whitespace are filled; existing values are never overwritten.
+         *
+         *     `dry_run=true` runs the same row selection synchronously and returns,
+         *     per row, the columns that would be filled.  It calls no model and
+         *     writes nothing.
          *
          *     Caps at 500/call so an admin can't accidentally fan out across the
          *     whole bank in one click.  Within a call, one owner contributes at most
@@ -24831,6 +24837,7 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number;
+                dry_run?: boolean;
             };
             header?: {
                 authorization?: string | null;

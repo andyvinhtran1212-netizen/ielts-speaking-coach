@@ -5,6 +5,7 @@ row). A failed owner lookup aborts the run before any Gemini call."""
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -37,8 +38,18 @@ class _Query:
         return self
 
     def or_(self, expr):
-        cols = [part.split(".")[0] for part in expr.split(",") if part]
-        self.filters.append(lambda r: any(r.get(c) is None for c in cols))
+        # PostgREST `col.is.null` / `col.match.<regex>` terms; `match` is
+        # Postgres `~` (search), so NULL never matches it.
+        terms = [part.split(".", 2) for part in expr.split(",") if part]
+
+        def _hit(r, col, op, arg):
+            if op == "is" and arg == "null":
+                return r.get(col) is None
+            if op == "match":
+                return r.get(col) is not None and re.search(arg, r[col]) is not None
+            raise AssertionError(f"unsupported filter {col}.{op}.{arg}")
+
+        self.filters.append(lambda r: any(_hit(r, *t) for t in terms))
         return self
 
     def order(self, col):
@@ -115,7 +126,7 @@ def backfill(monkeypatch):
 def _owners(db):
     by_id = {r["id"]: r["user_id"] for r in db.tables["user_vocabulary"]}
     counts: dict[str, int] = {}
-    for rid in db.updated_ids:
+    for rid in set(db.updated_ids):  # one UPDATE per filled column
         counts[by_id[rid]] = counts.get(by_id[rid], 0) + 1
     return counts
 

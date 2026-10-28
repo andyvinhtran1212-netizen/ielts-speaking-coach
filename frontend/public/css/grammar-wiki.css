@@ -106,6 +106,10 @@ body.av-page .text-white\/70 { color: var(--av-text-secondary); }
 body.av-page .text-white\/65 { color: var(--av-text-secondary); }
 body.av-page .text-white\/60 { color: var(--av-text-secondary); }
 body.av-page .text-white\/55 { color: var(--av-text-secondary); }
+/* PC-J13A — /45 was the one variant in use without a mapping, so the
+   "Kiểm tra nhanh" sub-line stayed white (1.06:1 on the light page). It is
+   helper text; muted would also pass, secondary keeps the most margin. */
+body.av-page .text-white\/45 { color: var(--av-text-secondary); }
 body.av-page .text-white\/50 { color: var(--av-text-muted); }
 body.av-page .text-white\/40 { color: var(--av-text-muted); }
 body.av-page .text-white\/35 { color: var(--av-text-muted); }
@@ -412,14 +416,16 @@ body.av-page .hover\:bg-white\/\[0\.03\]:hover { background-color: var(--av-surf
    about a fifth of the article. The breadcrumb scrolls away there, the bar
    is compacted, and the page reserves room for the bar so the last links
    are not stuck underneath it. `nav.` / `#` outrank the Tailwind utilities
-   (.sticky, .py-3, .text-sm), which load after this file. */
+   (.sticky, .py-3, .text-sm), which load after this file.
+   PC-J13B — the bar is fixed at every width (about 61px tall on desktop,
+   where it is not compacted), so the reserved room is not phone-only. */
+body:has(#guest-cta-bar:not(.hidden)) #article-container { padding-bottom: 5rem; }
 @media (max-width: 767.98px) {
   nav.gw-subnav { position: static; }
   #guest-cta-bar { padding-bottom: env(safe-area-inset-bottom, 0px); }
   #guest-cta-bar > div { gap: 0.75rem; padding-top: 0.5rem; padding-bottom: 0.5rem; }
   #guest-cta-bar p { font-size: 0.75rem; line-height: 1.35; }
   #guest-cta-bar a { padding: 0.5rem 0.75rem; }
-  body:has(#guest-cta-bar:not(.hidden)) #article-container { padding-bottom: 5rem; }
 }
 
 /* U-08 — solid teal CTAs. `body.av-page .text-white` above maps white text to
