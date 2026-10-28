@@ -10,10 +10,16 @@ import { diagnosticRoutesEnabled } from '@/lib/diagnostic-routes.mjs';
 
 import { SpikeHarness } from './spike-harness';
 
-export const metadata: Metadata = {
-  title: 'recorder-spike — MediaRecorder risk spike',
-  robots: { index: false, follow: false },
-};
+// BL-01: gate the metadata too. With a static `metadata` export the disabled
+// route's 404 still carried this debug title (hoisted after hydration);
+// failing here gives it the same head as any unknown URL ("Aver Learning").
+export function generateMetadata(): Metadata {
+  if (!diagnosticRoutesEnabled()) notFound();
+  return {
+    title: 'recorder-spike — MediaRecorder risk spike',
+    robots: { index: false, follow: false },
+  };
+}
 
 // Same static, real-404 gate as /next-probe (U-03): this page has no
 // AuthProvider, so it must not render on staging/preview for signed-out visitors.

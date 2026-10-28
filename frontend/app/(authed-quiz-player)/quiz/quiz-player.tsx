@@ -24,6 +24,7 @@ import {
   validQuizEnd,
   validQuizReset,
   resolveQuizBank,
+  INVALID_QUIZ_LINK_MESSAGE,
   safeQuizLink,
   shuffledAnswerIndices,
   stripAudioToken,
@@ -120,6 +121,7 @@ export function QuizPlayer() {
   const [ownerKey, setOwnerKey] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>('loading');
   const [message, setMessage] = useState('');
+  const [retryable, setRetryable] = useState(true);
   const [bank, setBank] = useState<AnyRow | null>(null);
   const [current, setCurrent] = useState<CurrentItem | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
@@ -158,6 +160,7 @@ export function QuizPlayer() {
   const promptRef = useRef<HTMLParagraphElement | null>(null);
   const summaryHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const reopenButtonRef = useRef<HTMLButtonElement | null>(null);
+  const errorBackRef = useRef<HTMLAnchorElement | null>(null);
   const cardCloseRef = useRef<HTMLButtonElement | null>(null);
   const cardReturnFocusRef = useRef<HTMLElement | null>(null);
 
@@ -165,9 +168,9 @@ export function QuizPlayer() {
   const fresh = ownerKey === requestKey;
   const isCurrentScope = useCallback((scope: RunScope) => !scope.disposed
     && scopeRef.current === scope && requestKeyRef.current === scope.key, []);
-  const unavailable = useCallback((scope: RunScope, text: string) => {
+  const unavailable = useCallback((scope: RunScope, text: string, canRetry = true) => {
     if (!isCurrentScope(scope)) return;
-    setMessage(text); setPhase('error'); setCurrent(null); setFeedback(null);
+    setMessage(text); setRetryable(canRetry); setPhase('error'); setCurrent(null); setFeedback(null);
   }, [isCurrentScope]);
 
   const sendKeepalive = useCallback((selectedScope?: RunScope) => {
@@ -311,9 +314,10 @@ export function QuizPlayer() {
         const ready = await whenGlobalReady(() => !!window.api?.getWith && !!window.api?.postWith && !!window.api?.patchWith && typeof window.getSupabase === 'function', 'Quiz player runtime');
         if (!isCurrentScope(scope)) return;
         if (!ready) { unavailable(scope, 'Không tải được thành phần kết nối. Hãy mở lại bài.'); return; }
-        const query = normalizeQuizQuery(querySource);
+        let query;
+        try { query = normalizeQuizQuery(querySource); } catch { unavailable(scope, INVALID_QUIZ_LINK_MESSAGE, false); return; }
         let resolution;
-        if (query.bank) resolution = resolveQuizBank(query, null);
+        if (query.bank || !query.skillArea) resolution = resolveQuizBank(query, null);
         else {
           const suffix = `?skill_area=${encodeURIComponent(query.skillArea || '')}${query.topicId ? `&topic_id=${encodeURIComponent(query.topicId)}` : ''}`;
           const rows = await scope.api.banks(suffix);
@@ -322,7 +326,7 @@ export function QuizPlayer() {
         }
         if (!isCurrentScope(scope)) return;
         if (resolution.kind === 'redirect') { window.location.replace(resolution.href || '/vocabulary/practice'); return; }
-        if (resolution.kind === 'error' || !resolution.bankId) { unavailable(scope, resolution.message || 'Không thể xác định bài kiểm tra.'); return; }
+        if (resolution.kind === 'error' || !resolution.bankId) { unavailable(scope, resolution.message || 'Không thể xác định bài kiểm tra.', resolution.retryable !== false); return; }
         const loaded = await scope.api.bank(resolution.bankId);
         if (!isCurrentScope(scope)) return;
         const normalized = normalizeQuizBank(loaded, { expectedBankId: resolution.bankId });
@@ -365,7 +369,7 @@ export function QuizPlayer() {
 
   useEffect(() => {
     if (phase === 'summary') summaryHeadingRef.current?.focus();
-    if (phase === 'error') reopenButtonRef.current?.focus();
+    if (phase === 'error') (reopenButtonRef.current || errorBackRef.current)?.focus();
   }, [phase]);
 
   useEffect(() => {
@@ -516,7 +520,7 @@ export function QuizPlayer() {
         </header>
 
         {phase === 'loading' ? <p className="qz-muted qz-loading">Đang tải bài kiểm tra…</p> : null}
-        {phase === 'error' ? <div className="qz-error" role="alert"><h1>Không thể mở bài</h1><p>{message}</p><div className="qz-actions"><button ref={reopenButtonRef} type="button" className="av-button av-button-primary" onClick={() => { scopeRef.current?.outbox?.dispose(); setReopen((value) => value + 1); }}>Mở lại bài</button><a className="av-button av-button-secondary" href={area.backHref}>Quay lại</a></div></div> : null}
+        {phase === 'error' ? <div className="qz-error" role="alert"><h1>Không thể mở bài</h1><p>{message}</p><div className="qz-actions">{retryable ? <button ref={reopenButtonRef} type="button" className="av-button av-button-primary" onClick={() => { scopeRef.current?.outbox?.dispose(); setReopen((value) => value + 1); }}>Mở lại bài</button> : null}<a ref={errorBackRef} className={`av-button ${retryable ? 'av-button-secondary' : 'av-button-primary'}`} href={area.backHref}>Quay lại</a></div></div> : null}
 
         {phase === 'gate' ? (
           <section className="qz-gate" aria-labelledby="qz-gate-title">

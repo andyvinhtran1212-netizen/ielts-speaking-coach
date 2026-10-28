@@ -17,7 +17,7 @@ export function NextWebVitals({
   apiBase,
   release,
 }: {
-  apiBase: string;
+  apiBase: string | null;
   release: string | null;
 }) {
   // Core Web Vitals describe the initial document navigation. Keep that path
@@ -27,6 +27,7 @@ export function NextWebVitals({
     if (initialPath.current === null) initialPath.current = window.location.pathname;
   }, []);
   const report = useCallback((metric: WebVitalMetric) => {
+    if (!apiBase) return;
     const payload = buildNextVitalsPayload(metric, {
       path: initialPath.current || window.location.pathname,
       release,

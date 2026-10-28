@@ -37,7 +37,7 @@ describe('/instructor native dashboard model', () => {
     assert.deepEqual(normalizeInstructorStudents([{ id: 's1', full_name: 'An', student_code: 'HV1', cohort_id: 'c1', user_id: null }]), [{ id: 's1', fullName: 'An', studentCode: 'HV1', cohortId: 'c1', userId: null }]);
     assert.deepEqual(normalizeInstructorPrompts([{ id: 'p1', title: 'Task', task_type: 'task2' }]), [{ id: 'p1', title: 'Task', taskType: 'task2' }]);
     assert.deepEqual(normalizeInstructorCodes([{ id: 'k1', code: 'ABC', is_used: false, cohort_id: null }]), [{ id: 'k1', code: 'ABC', isUsed: false, cohortId: null }]);
-    assert.deepEqual(normalizeInstructorAssignments([{ id: 'a1', prompt_id: 'p1', student_id: 's1', status: 'assigned' }]), [{ id: 'a1', promptId: 'p1', studentId: 's1', status: 'assigned', essayId: null, deadline: null, cohortId: null, groupId: null, name: null, createdAt: null }]);
+    assert.deepEqual(normalizeInstructorAssignments([{ id: 'a1', prompt_id: 'p1', student_id: 's1', status: 'assigned' }]), [{ id: 'a1', promptId: 'p1', studentId: 's1', status: 'assigned', essayId: null, deadline: null, cohortId: null, groupId: null, name: null, createdAt: null, isLate: false }]);
     assert.deepEqual(normalizeInstructorQueue([{ essay_id: 'e1', task_type: 'task2', review: { id: 'r1', status: 'queued' } }]), [{ essayId: 'e1', reviewId: 'r1', status: 'queued', studentEmail: null, taskType: 'task2' }]);
     assert.equal(normalizeInstructorStudents({ rows: [] }), null);
     assert.equal(normalizeInstructorAssignments([{ id: 'a1', prompt_id: 'p1' }]), null);
@@ -167,6 +167,28 @@ describe('/instructor native dashboard model', () => {
     assert.equal(cellOf([{ ...newer, created_at: 'not-a-date' }, { ...older, created_at: null }]).id, 'a-new');
     // A dated give beats an undated one regardless of order.
     assert.equal(cellOf([{ ...older, created_at: null }, newer]).id, 'a-new');
+  });
+});
+
+describe('A-S3 / W-TIER-DISPLAY on /instructor', () => {
+  test('a late hand-in reads "Nộp trễ" from the backend rule, on-time stays "Đã nộp"', () => {
+    const [late, onTime, returnedLate, missing] = normalizeInstructorAssignments([
+      { id: 'a1', prompt_id: 'p1', student_id: 's1', status: 'submitted', essay_id: 'e1', is_late: true },
+      { id: 'a2', prompt_id: 'p1', student_id: 's2', status: 'submitted', essay_id: 'e2', is_late: false },
+      { id: 'a3', prompt_id: 'p1', student_id: 's3', status: 'delivered', essay_id: 'e3', is_late: true },
+      { id: 'a4', prompt_id: 'p1', student_id: 's4', status: 'pending', deadline: '2026-01-01T00:00:00Z' },
+    ]);
+    assert.deepEqual(assignmentTone(late), { label: 'Nộp trễ', tone: 'warning' });
+    assert.deepEqual(assignmentTone(onTime), { label: 'Đã nộp', tone: 'success' });
+    assert.deepEqual(assignmentTone(returnedLate), { label: 'Đã trả · nộp trễ', tone: 'success' });
+    assert.equal(missing.isLate, false, 'only a strict true from the backend counts as late');
+    assert.deepEqual(assignmentTone(missing, Date.parse('2026-02-01T00:00:00Z')), { label: 'Trễ', tone: 'danger' });
+  });
+
+  test('the give form says the essay goes to the teacher; the select is only the AI pre-pass', () => {
+    assert.match(VIEW, /<span>AI chấm nháp trước khi bạn chấm<\/span><select name="grading_tier"/);
+    assert.match(VIEW, /luôn vào mục Chấm bài để bạn chấm và trả/);
+    assert.doesNotMatch(VIEW, /Tier chấm AI/);
   });
 });
 
