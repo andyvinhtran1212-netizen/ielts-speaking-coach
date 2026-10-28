@@ -2,6 +2,8 @@ import { createListeningSaveCoordinator } from './listening-test-controller.mjs'
 import { secureRandomUuid } from './secure-uuid.mjs';
 
 const PROTOCOL = 'question-cas-v1';
+export const REVIEW_FLAG_CONFLICT_MESSAGE = 'Đánh dấu xem lại đã được thay đổi ở một tab khác. Bạn hãy kiểm tra lại rồi bấm Thử lại.';
+const IDENTITY_CHANGED = 'Câu hỏi trong bài làm này đã thay đổi. Bạn hãy tải lại bài để kiểm tra.';
 export class AttemptReviewFlagError extends Error {}
 const fail = (message, status) => Object.assign(new AttemptReviewFlagError(message), { status });
 
@@ -16,26 +18,28 @@ export function createAttemptFlagCoordinator({
   const operations = new Map();
   const sent = new Set();
   const listeners = new Set();
+  // Questions whose latest save was rejected because another tab changed them.
+  const conflicts = new Set();
   let ready = false;
   let disposed = false;
   let readGeneration = 0;
   const assertScope = (reply) => {
     if (reply?.attempt_id !== attemptId || reply?.protocol !== PROTOCOL) {
-      throw fail('Unable to confirm review marks for this attempt.', 409);
+      throw fail('Chưa xác nhận được các câu đã đánh dấu xem lại cho bài làm này. Bạn hãy bấm Thử lại.', 409);
     }
   };
   const assertRow = (row) => {
     if (!Number.isInteger(row?.q_num) || row.q_num < 1 || row.q_num > 40
         || typeof row.flagged !== 'boolean' || !Number.isSafeInteger(row.revision)
         || row.revision < 0 || typeof row.question_id !== 'string' || !row.question_id) {
-      throw fail('Invalid review mark data.', 503);
+      throw fail('Chưa đọc được các câu đã đánh dấu xem lại. Bạn hãy bấm Thử lại.', 503);
     }
   };
   const mergeRow = (row) => {
     assertRow(row);
     const previous = canonical.get(row.q_num);
     if (previous && previous.question_id !== row.question_id) {
-      throw fail('The questions in this attempt have changed. Reload the test to check.', 409);
+      throw fail(IDENTITY_CHANGED, 409);
     }
     if (!previous || row.revision >= previous.revision) canonical.set(row.q_num, row);
   };
@@ -44,6 +48,7 @@ export function createAttemptFlagCoordinator({
     flagged: new Set([...desired].filter(([, value]) => value).map(([q]) => q)),
     canonical: new Map(canonical),
     states: queue.snapshot(),
+    conflict: [...conflicts].some((qNum) => queue.snapshot().get(qNum) === 'failed'),
     pending: [...queue.snapshot().keys()].map((qNum) => {
       let request = operations.get(qNum);
       if (!request || request.flagged !== desired.get(qNum)) {
@@ -57,6 +62,7 @@ export function createAttemptFlagCoordinator({
   const queue = createListeningSaveCoordinator({
     debounceMs, requestTimeoutMs, retryDelays: [],
     save: async (qNum, value, options) => {
+      conflicts.delete(qNum);
       const flagged = value === '1';
       const revision = canonical.get(qNum)?.revision || 0;
       let request = operations.get(qNum);
@@ -77,7 +83,8 @@ export function createAttemptFlagCoordinator({
       if (!reply.accepted) {
         mergeRow(reply);
         if (operations.get(qNum) === request) operations.delete(qNum);
-        throw fail('Review marks changed in another tab. Check them and retry your changes.', 409);
+        conflicts.add(qNum);
+        throw fail(REVIEW_FLAG_CONFLICT_MESSAGE, 409);
       }
       if (reply.revision <= request.expected_revision) {
         throw fail('The review mark version has not been confirmed.', 409);
@@ -94,15 +101,15 @@ export function createAttemptFlagCoordinator({
     const reply = await read();
     if (disposed || generation !== readGeneration) return false;
     assertScope(reply);
-    if (!Array.isArray(reply.review_flags)) throw fail('Unable to load review marks.', 503);
+    if (!Array.isArray(reply.review_flags)) throw fail('Chưa tải được các câu đã đánh dấu xem lại. Bạn hãy bấm Thử lại.', 503);
     // Validate the whole response before changing any displayed state.
     reply.review_flags.forEach(assertRow);
     if (new Set(reply.review_flags.map((row) => row.q_num)).size !== reply.review_flags.length) {
-      throw fail('Unable to confirm the review marks.', 409);
+      throw fail('Chưa xác nhận được các câu đã đánh dấu xem lại. Bạn hãy bấm Thử lại.', 409);
     }
     if (reply.review_flags.some((row) => canonical.has(row.q_num)
         && canonical.get(row.q_num).question_id !== row.question_id)) {
-      throw fail('The questions in this attempt have changed. Reload the test to check.', 409);
+      throw fail(IDENTITY_CHANGED, 409);
     }
     for (const row of reply.review_flags) {
       mergeRow(row);
