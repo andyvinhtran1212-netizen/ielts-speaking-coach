@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | FR-001 | kind=test; ref=backend/tests/test_admin_students_archive.py (DELETE archives, idempotent, 404) plus research.md §7 AC-2, AC-3 on staging | PENDING |
 | FR-002 | kind=journey; ref=research.md §7 AC-4 to AC-8 and AC-14 (lists, roster, assignments, Writing 403, activation 403 with code unused, single/bulk class add and direct-code bridge refused with no membership reactivated) on staging; kind=test; ref=backend/tests/test_migration_326_student_archive.py (membership guards, concurrent archive vs add) | PENDING |
-| FR-003 | kind=journey; ref=research.md §7 AC-4 and AC-11 (include_archived listing and restore) on staging | PENDING |
+| FR-003 | kind=journey; ref=research.md §7 AC-4 and AC-11 (include_archived listing and restore) on staging; Revision 1 (archived classes skipped): kind=test; ref=specs/0030-class-archive/verification.md FR-007 and AC-10 | PENDING |
 | FR-004 | kind=test; ref=backend/tests/test_migration_326_student_archive.py (client cannot execute functions or change is_active) plus AC-9, AC-10 on staging | PENDING |
 | FR-005 | kind=query; ref=research.md §7 AC-2 row counts before and after archive and restore | PENDING |
 | FR-006 | kind=test; ref=backend/tests/test_admin_students_archive.py (no hard delete reachable from the route) | PENDING |
