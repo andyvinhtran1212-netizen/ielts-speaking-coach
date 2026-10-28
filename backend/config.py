@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     # truthy (1/true/yes/on). Default closed: staging and production need no
     # env change. Local development only — see services/api_docs.py.
     ENABLE_API_DOCS: str = ""
+    # Add the localhost dev origins to the CORS allowlist on a non-development
+    # deployment (1/true/yes/on). Ignored in production, always — see
+    # services/cors_policy.py. Development allows localhost without it.
+    CORS_ALLOW_LOCALHOST: str = ""
 
     # Signed backend → Next cache invalidation. The admin vocabulary routes
     # mutate runtime DB content while Next caches public reads. Configure both

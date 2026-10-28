@@ -16,8 +16,10 @@ from fastapi.testclient import TestClient
 import main
 from main import _cors_headers_for_origin, unhandled_exception_handler
 
-ALLOWED = "https://www.averlearning.com"     # explicit allowlist
-SUBDOMAIN = "https://staging.averlearning.com"  # explicit allowlist (F11)
+# pytest imports main as the development tier (services/cors_policy.py), so
+# the allowed origins here are the localhost dev servers.
+ALLOWED = "http://localhost:3000"            # explicit allowlist
+SUBDOMAIN = "http://127.0.0.1:5500"          # explicit allowlist
 UNLISTED = "https://bat-ky.averlearning.com"    # F11: no wildcard subdomain
 EVIL = "https://evil.example.com"
 
