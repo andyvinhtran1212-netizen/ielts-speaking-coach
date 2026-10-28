@@ -7,6 +7,8 @@ import { adminOverviewContext, adminOverviewHref } from '@/lib/admin-overview-co
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
+
+import { AdminAiPanel } from './admin-ai-panel';
 import {
   getAdminContentOverview,
   getAdminDashboardOverview,
@@ -634,6 +636,8 @@ export function AdminOverview() {
           </div>
         </div>
       </section>
+
+      <AdminAiPanel />
     </main>
   );
 }

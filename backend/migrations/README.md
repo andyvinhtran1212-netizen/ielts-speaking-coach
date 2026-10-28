@@ -95,6 +95,17 @@ The deployed backend keeps working: its role/`is_active` writes just gain an
 audit row. Rollback (in the file header and rollout.md) drops the triggers and
 functions and keeps the tables. It refuses while any account is suspended.
 
+Migration `322` (AIOPS-0024) is additive: `ai_model_overrides` (admin
+per-feature preferred provider / Claude model, NULL = env/code default), the
+trigger-written append-only `ai_model_override_audit`, the routing-layer
+`ai_provider_failures` log and two read-only dashboard rollups. RLS is on with
+no policies, nothing is granted to `anon`/`authenticated`, and `service_role`
+gets only the privileges the backend uses. No data is written; with no
+override row routing is unchanged. Apply it to staging before merging the
+dependent code; code deployed first keeps env/code-default routing and the
+dashboard shows "migration not applied". Rollback SQL (destroys audit/failure
+history) is in `specs/0024-admin-ai-model-control/rollout.md`.
+
 Migration `331` (GIVEARCHIVE-0031) adds the `BEFORE INSERT OR UPDATE OF
 student_id` trigger `archive_guard_writing_assignment_student` on
 `writing_assignments`. It locks the learner row `FOR KEY SHARE` (the lock the
