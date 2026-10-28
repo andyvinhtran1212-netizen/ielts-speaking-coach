@@ -257,6 +257,26 @@ Dùng softening DM nhiều hơn (kind of, I suppose, I guess, sort of) và evide
 2. **Substitution exercise:** Lấy 1 đoạn Speaking đã viết. Chọn một chỗ lặp and để thay, giữ hoặc lược bỏ theo quan hệ ý; không thay mọi and.
 3. **Listening transfer:** Nghe 1 đoạn IELTS Speaking sample (Band 8+). Đếm DM và phân loại theo 6 nhóm trên.
 
+### Điền discourse marker
+
+Điền một DM đã học trong bài vào chỗ trống. Có câu chấp nhận hơn một đáp án; xem phần Đáp án.
+
+1. *Part 1 — Q: Do you often cook at home?* → "___, not really. I usually grab something from a street stall on my way home."
+2. *Part 1 — Q: What kind of music do you like?* → "It's hard to name just one style. ___, I listen to almost anything as long as it helps me relax."
+3. *Part 2 — Describe a place you visited:* → "The hotel was nice and the staff were friendly. ___, going back to the main reason I loved that town — the night market was amazing."
+4. *Part 2 — Describe a trip you enjoyed:* → "Before we left, I was worried the mountains would be too cold for me. ___, the weather turned out to be perfect for hiking."
+5. *Part 3 — Q: Do you think robots will replace teachers in the future?* → "___ robots could take over some tasks, like marking grammar exercises, but they can't really motivate a bored teenager."
+6. *Part 3 — Q: So you're saying parents should limit screen time for young children?* → "___ — that's the main point I wanted to make. Young children need time to play outside and talk to real people."
+
+### Đáp án
+
+1. **Well** *(chấp nhận: To be honest)*: "Well" giúp bạn mở câu trả lời nhẹ nhàng, nhất là khi câu trả lời là "không".
+2. **I mean** *(chấp nhận: Basically)*: bạn dùng "I mean" để nói rõ hơn ý vừa nêu ("khó chọn một thể loại").
+3. **Anyway**: "Anyway" giúp bạn quay lại ý chính sau khi đã nói lan sang chuyện khách sạn.
+4. **Actually** *(chấp nhận: In fact)*: câu sau trái với điều bạn lo ở câu trước, nên dùng "actually" ở đây là đúng chức năng.
+5. **I suppose** *(chấp nhận: I guess)*: bạn nhượng bộ một phần cho mềm rồi mới phản biện bằng "but", rất hợp với Part 3.
+6. **Exactly** *(chấp nhận: Absolutely)*: bạn xác nhận khi examiner tóm lại đúng ý mình.
+
 ## Tóm tắt nhanh
 
 - 6 nhóm DM nói: **opener** (well, so) — **thinking** (you know, I mean) — **softener** (kind of, I guess) — **transition** (anyway, by the way) — **emphasis** (actually, the thing is) — **response** (exactly, absolutely)
