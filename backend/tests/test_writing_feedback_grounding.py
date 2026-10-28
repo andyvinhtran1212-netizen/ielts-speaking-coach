@@ -789,6 +789,65 @@ def test_band_descriptor_terms_stay_unsupported_in_source_only_fields():
     assert [p for p, _ in err.value.issues] == ["keyTakeaways.strengths[0]"]
 
 
+# Owner decision 2026-10-28 (PC-J03): strengths may quote the task question.
+# The other source-only fields and every learner-wording claim stay strict.
+@pytest.mark.parametrize("claim", [
+    "Em trả lời trực tiếp câu hỏi 'To what extent do you agree or disagree?' với lập trường rõ ràng.",
+    "Bài viết trả lời đúng trọng tâm 'to what extent' ngay từ mở bài.",
+    "Bám sát yêu cầu đề bài 'spend more money on public transport than on roads'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' directly.",
+    "Lập trường rõ (câu hỏi 'To what extent…'), nhất quán đến kết bài.",
+])
+def test_strengths_may_quote_the_task_question(claim):
+    result = rt_feedback(keyTakeaways={"strengths": [claim], "areasForImprovement": ["Cần ví dụ."]})
+    before = result.model_dump()
+    report = rt_validate(result)
+    assert report.dropped == [] and report.warnings == []
+    assert result.model_dump() == before
+
+
+@pytest.mark.parametrize("claim", [
+    "Em dùng 'to what extent' chính xác.",                              # usage claim
+    "Từ vựng sát đề bài: 'spend more money on public transport'.",      # #1654 canary: lexis credit
+    "Bám sát đề bài với cụm từ 'public transport than on roads'.",
+    "Your vocabulary matches the task: 'spend more money'.",
+    "Câu hỏi 'spend more money on public transport' được em viết lại tự nhiên.",  # wording verb after
+    "Em nên tiếp tục trả lời câu hỏi 'to what extent'.",               # continuation presupposes use
+    "Lập luận 'to what extent' rất hay.",                               # no question reference
+    "Em trả lời câu hỏi 'subsidies are effective' rõ ràng.",            # not in the prompt
+])
+def test_strengths_task_question_quote_never_credits_learner_wording(claim):
+    result = rt_feedback(keyTakeaways={"strengths": [claim], "areasForImprovement": ["Cần ví dụ."]})
+    with pytest.raises(UngroundedWritingFeedbackError) as err:
+        rt_validate(result)
+    assert [p for p, _ in err.value.issues] == ["keyTakeaways.strengths[0]"]
+
+
+def test_strengths_task_question_quote_needs_the_prompt():
+    claim = "Em trả lời câu hỏi 'to what extent'."
+    result = rt_feedback(keyTakeaways={"strengths": [claim], "areasForImprovement": ["Cần ví dụ."]})
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(result, RT_ESSAY, task_type="task2")
+
+
+@pytest.mark.parametrize("field", ["originalIdea", "location", "current_essay_observation"])
+def test_other_source_only_fields_still_reject_task_question_quotes(field):
+    claim = "Em trả lời câu hỏi 'to what extent'."
+    data = rt_feedback().model_dump()
+    proposed = {"instruction": "Add detail", "example": "A new example."}
+    if field == "originalIdea":
+        data["ideaDevelopmentAnalysis"] = [{"paragraph": 2, "originalIdea": claim,
+            "issue": "Needs detail", "explanation": "Explain the mechanism", "suggestion": proposed}]
+    elif field == "location":
+        data["coherenceAnalysis"] = [{"location": claim, "issue": "Needs a transition",
+            "explanation": "Clarify the connection", "suggestion": proposed}]
+    else:
+        data["sentenceStructureAnalysis"] = {field: claim}
+    with pytest.raises(UngroundedWritingFeedbackError) as err:
+        rt_validate(WritingFeedback(**data))
+    assert len(err.value.issues) == 1 and field in err.value.issues[0][0]
+
+
 def test_near_miss_accepts_auxiliary_agreement_but_not_tense():
     essay = "Companies that adopt this model are likely to have happier and more productive employees."
     claim = "Cách diễn đạt hơi dài dòng ('is likely to have happier and more productive employees')."

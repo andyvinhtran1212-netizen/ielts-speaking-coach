@@ -152,6 +152,15 @@ _DESCRIPTOR_CONTEXT = re.compile(
 _PROMPT_REFERENCE = re.compile(
     r"\b(?:câu hỏi|đề bài|chủ đề|yêu cầu|trả lời|question|prompt|task|answer(?:s|ed)?)\b", re.I,
 )
+# Strengths may quote the task question too (owner decision 2026-10-28), but
+# never as learner vocabulary: lexis words or wording verbs anywhere in the
+# clause keep the #1654 "subsidies" canary ("Từ vựng sát đề bài: 'subsidies'").
+_LEXIS_CLAIM = re.compile(
+    r"\b(?:từ vựng|vốn từ|từ ngữ|cụm từ|từ khóa|thuật ngữ|collocations?|vocabulary|"
+    r"lexis|lexical|words?|phrases?|phrasing|terms?|wording|expressions?)\b", re.I,
+)
+# "Bài viết" (the essay) is a noun, not the wording verb "viết".
+_ESSAY_NOUN = re.compile(r"\bbài viết\b", re.I)
 # Usage claims that _ATTRIBUTION does not name: nominal or possessive use
 # ("your use of the term", "việc sử dụng thuật ngữ") and naming verbs with a
 # learner subject ("em gọi hiện tượng này"). They disable reference exemptions.
@@ -515,8 +524,19 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
         else:
             issues.append((path, excerpt[:240]))
 
+    def task_question(excerpt: str, prefix: str, after: str) -> bool:
+        # A strength may quote the task question as the question it answers
+        # ("Em trả lời trực tiếp câu hỏi 'To what extent ...?'"), never credit
+        # its wording as the learner's.
+        clause = _ESSAY_NOUN.sub(" ", prefix + " " + after)
+        return bool(prompt and _PROMPT_REFERENCE.search(prefix)
+                    and _in_essay(excerpt, prompt, allow_ellipsis=True)
+                    and not (_ATTRIBUTION.search(prefix) or _CONTINUATION.search(prefix)
+                             or _USAGE_CLAIM.search(clause) or _WORDING_VERB.search(clause)
+                             or _LEXIS_CLAIM.search(clause)))
+
     def observations(path: str, text: str, *, allow_proposals: bool = True,
-                     allow_grammar: bool = False):
+                     allow_grammar: bool = False, allow_task_question: bool = False):
         text = text.translate(_QUOTE_MARKS)
         for match in _QUOTES.finditer(text):
             excerpt = next(g for g in match.groups() if g is not None)
@@ -533,7 +553,9 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
                 continue
             # Source-only fields cannot turn invented evidence into a proposal.
             if not allow_proposals:
-                unsupported(path, excerpt)
+                after = _QUOTES.sub("", re.split(r"[.!?;\n]", _ABBREVIATION.sub(" ", text[match.end():]))[0])
+                if not (allow_task_question and task_question(excerpt, prefix, after)):
+                    unsupported(path, excerpt)
                 continue
             # A clearly proposed/absent expression is not a claim of usage.
             # A later explicit attribution resets that distinction, including
@@ -606,7 +628,8 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
         for name, item in feedback.criteriaFeedback:
             observations(f"criteriaFeedback.{name}.feedback", item.feedback, allow_grammar=True)
         for i, text in enumerate(feedback.keyTakeaways.strengths):
-            observations(f"keyTakeaways.strengths[{i}]", text, allow_proposals=False, allow_grammar=True)
+            observations(f"keyTakeaways.strengths[{i}]", text, allow_proposals=False, allow_grammar=True,
+                         allow_task_question=True)
         for i, text in enumerate(feedback.keyTakeaways.areasForImprovement):
             observations(f"keyTakeaways.areasForImprovement[{i}]", text, allow_grammar=True)
         mistakes(feedback.mistakeAnalysis, "mistakeAnalysis")
