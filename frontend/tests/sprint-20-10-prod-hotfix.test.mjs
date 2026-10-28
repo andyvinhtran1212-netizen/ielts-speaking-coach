@@ -152,16 +152,20 @@ describe('Sprint 20.10 D1 — backend CORS origins (reference)', () => {
   // purpose: with allow_credentials=True it handed a credentialed CORS grant
   // to ANY subdomain, including a dangling or taken-over one. The pin is
   // inverted so the wildcard cannot quietly return, and the D1 hosts stay
-  // covered by the exact allowlist.
+  // covered by the exact allowlist — now split per deployment in
+  // backend/services/cors_policy.py.
   test('main.py uses an exact origin allowlist, no subdomain regex', () => {
     const py = read('backend/main.py');
     assert.doesNotMatch(py, /allow_origin_regex\s*=/);
+    assert.match(py, /allow_origins=origins,/);
+    const policy = read('backend/services/cors_policy.py');
+    assert.doesNotMatch(policy, /allow_origin_regex|re\.compile|fnmatch/);
     for (const origin of [
       'https://averlearning.com',
       'https://www.averlearning.com',
       'https://staging.averlearning.com',
     ]) {
-      assert.ok(py.includes(`"${origin}",`), `${origin} missing from CORS allowlist`);
+      assert.ok(policy.includes(`"${origin}",`), `${origin} missing from CORS allowlist`);
     }
   });
 });

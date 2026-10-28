@@ -25,7 +25,9 @@ from pathlib import Path
 
 import main as app_main
 
-ALLOWED = "https://www.averlearning.com"
+# pytest imports main as the development tier (services/cors_policy.py); the
+# per-deployment lists are exercised in test_cors_averlearning.py.
+ALLOWED = "http://localhost:3000"
 
 
 def test_an_allowed_origin_gets_the_methods_too():
@@ -59,9 +61,9 @@ def test_a_foreign_origin_is_never_reflected():
         assert app_main._cors_headers_for_origin(bad) == {}
 
 
-def test_the_apex_www_and_staging_still_match():
-    for good in ("https://averlearning.com", "https://www.averlearning.com",
-                 "https://staging.averlearning.com"):
+def test_every_resolved_origin_still_matches():
+    assert app_main.origins
+    for good in app_main.origins:
         assert app_main._cors_headers_for_origin(good), good
 
 

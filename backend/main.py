@@ -1,5 +1,6 @@
 import logging
 import math
+import os
 import sys
 from time import perf_counter
 
@@ -30,6 +31,7 @@ from database import supabase_admin
 from routers.auth import get_supabase_user, router as auth_router
 from services.activation_gate import require_active_learner
 from services.api_docs import api_docs_kwargs
+from services.cors_policy import allowed_origins as cors_allowed_origins
 from routers.mock_attempt_flags import router as mock_attempt_flags_router
 from services.server_timing import (
     format_header as format_server_timing_header,
@@ -146,26 +148,17 @@ app = FastAPI(
     **api_docs_kwargs(settings.ENABLE_API_DOCS),
 )
 
-origins = [
-    # Local development
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5500",
-    "http://127.0.0.1:5500",
-    # Production
-    "https://averlearning.com",
-    "https://www.averlearning.com",
-    "https://ielts-speaking-coach-sage.vercel.app",
-    # Staging (Vercel branch `staging`, see frontend/tooling/runtime-origins.mjs)
-    "https://staging.averlearning.com",
-]
-
-# F11 — the allowlist above is EXACT. The Sprint 20.10 D1 safety-net regex
-# (`^https://(?:[a-z0-9-]+\.)?averlearning\.com$`) is gone: combined with
-# allow_credentials=True it let ANY *.averlearning.com page — including a
-# dangling or taken-over subdomain — make credentialed API calls and read the
-# responses. A new frontend host must be added here explicitly. Generated
-# *.vercel.app previews stay rejected by design (plan §7.1).
+# Exact, per-deployment allowlist (F11 + follow-up): production, staging and
+# local development each accept only their own origins, and localhost is never
+# allowed in production. Tier resolution and the lists live in
+# services/cors_policy.py. No regex: a new frontend host must be added there
+# explicitly. Generated *.vercel.app previews stay rejected by design (plan §7.1).
+origins = cors_allowed_origins(
+    settings.ENVIRONMENT,
+    os.environ.get("RAILWAY_ENVIRONMENT_NAME"),
+    settings.CORS_ALLOW_LOCALHOST,
+)
+logger.info("[cors] allowed origins: %s", ", ".join(origins) or "(none)")
 
 # ONE definition, used by the CORSMiddleware below AND by the unhandled-exception
 # handler. They were separate, and the handler simply had no methods/headers —
@@ -228,7 +221,7 @@ app.add_middleware(
     allow_origins=origins,
     allow_credentials=True,
     # C-4.2 hardening — tighten from "*" to the methods/headers the app actually
-    # uses (exact origin allowlist + credentials; see the F11 note above).
+    # uses (exact per-deployment origin allowlist + credentials; see above).
     allow_methods=_CORS_METHODS,
     allow_headers=_CORS_HEADERS,
     # Cache the CORS preflight (OPTIONS) response. Without this the browser
