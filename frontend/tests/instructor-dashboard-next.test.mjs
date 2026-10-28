@@ -25,6 +25,7 @@ import {
   normalizeInstructorQueue,
   normalizeInstructorStudents,
   normalizeInstructorSummary,
+  queueRowIdentity,
 } from '../lib/instructor-dashboard-model.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -42,7 +43,7 @@ describe('/instructor native dashboard model', () => {
     assert.deepEqual(normalizeInstructorPrompts([{ id: 'p1', title: 'Task', task_type: 'task2' }]), [{ id: 'p1', title: 'Task', taskType: 'task2' }]);
     assert.deepEqual(normalizeInstructorCodes([{ id: 'k1', code: 'ABC', is_used: false, cohort_id: null }]), [{ id: 'k1', code: 'ABC', isUsed: false, cohortId: null }]);
     assert.deepEqual(normalizeInstructorAssignments([{ id: 'a1', prompt_id: 'p1', student_id: 's1', status: 'assigned' }]), [{ id: 'a1', promptId: 'p1', studentId: 's1', status: 'assigned', essayId: null, deadline: null, cohortId: null, groupId: null, name: null, createdAt: null, isLate: false }]);
-    assert.deepEqual(normalizeInstructorQueue([{ essay_id: 'e1', task_type: 'task2', review: { id: 'r1', status: 'queued' } }]), [{ essayId: 'e1', reviewId: 'r1', status: 'queued', studentEmail: null, taskType: 'task2' }]);
+    assert.deepEqual(normalizeInstructorQueue([{ essay_id: 'e1', task_type: 'task2', review: { id: 'r1', status: 'queued' } }]), [{ essayId: 'e1', reviewId: 'r1', status: 'queued', studentEmail: null, taskType: 'task2', submittedAt: null }]);
     assert.equal(normalizeInstructorStudents({ rows: [] }), null);
     assert.equal(normalizeInstructorAssignments([{ id: 'a1', prompt_id: 'p1' }]), null);
     assert.equal(normalizeInstructorAssignments([{ id: 'a1', prompt_id: 'p1', student_id: 's1' }]), null);
@@ -108,8 +109,11 @@ describe('/instructor native dashboard model', () => {
   test('duplicate-give confirmation and fan-out banner copy', () => {
     const existing = { createdAt: '2026-10-25T12:30:00Z' };
     const cohortMessage = duplicateGiveConfirmMessage(existing, 'QA TEST Task 2', 'cohort');
-    assert.match(cohortMessage, /^Lớp này đã được giao đề 'QA TEST Task 2' lúc .*19:30.*\. Giao thêm một lượt nữa\?$/);
-    assert.match(duplicateGiveConfirmMessage(existing, 'QA TEST Task 2', 'student'), /^Học viên này đã được giao đề 'QA TEST Task 2' lúc .*19:30.*\. Giao thêm một lượt nữa\?$/);
+    // 12:30Z is 19:30 in Asia/Ho_Chi_Minh, dd/mm/yyyy HH:mm.
+    assert.equal(cohortMessage, "Lớp này đã được giao đề 'QA TEST Task 2' lúc 25/10/2026 19:30. Giao thêm một lượt nữa?");
+    assert.equal(duplicateGiveConfirmMessage(existing, 'QA TEST Task 2', 'student'), "Học viên này đã được giao đề 'QA TEST Task 2' lúc 25/10/2026 19:30. Giao thêm một lượt nữa?");
+    // Two-digit day/month, four-digit year, 24-hour clock.
+    assert.equal(duplicateGiveConfirmMessage({ createdAt: '2026-09-08T00:00:00Z' }, 'Task 2', 'cohort'), "Lớp này đã được giao đề 'Task 2' lúc 08/09/2026 07:00. Giao thêm một lượt nữa?");
     // Missing created_at drops "lúc" entirely (never "lúc trước đó"); missing title gets a neutral placeholder.
     assert.equal(duplicateGiveConfirmMessage({ createdAt: null }, '', 'cohort'), "Lớp này đã được giao đề '(chưa có tiêu đề)' trước đó. Giao thêm một lượt nữa?");
     assert.equal(duplicateGiveConfirmMessage({ createdAt: 'not-a-date' }, 'QA TEST Task 2', 'student'), "Học viên này đã được giao đề 'QA TEST Task 2' trước đó. Giao thêm một lượt nữa?");
@@ -248,12 +252,15 @@ test('assignment form names the give, confirms re-gives, resets and surfaces dup
   assert.match(VIEW, /<input name="name" maxLength=\{200\}/);
   assert.equal((VIEW.match(/if \(name\) body\.name = name;/g) || []).length, 2);
   // Single-student give: inline. Class give: the same W-06 check, kept so BL-18 can skip its second ask.
-  assert.match(VIEW, /if \(!confirmRegive\(findExistingGive\(data\.assignments, \{ promptId, studentId \}\)\)\) return;/);
-  assert.match(VIEW, /const sameClassGive = findExistingGive\(data\.assignments, \{ promptId, cohortId \}\);\s*if \(!confirmRegive\(sameClassGive\)\) return;/);
-  assert.match(VIEW, /window\.confirm\(duplicateGiveConfirmMessage\(/);
-  // the confirm runs before mutate, so cancelling sends no request
-  const classConfirm = VIEW.indexOf('if (!confirmRegive(sameClassGive)) return;');
-  assert.ok(classConfirm >= 0 && classConfirm < VIEW.indexOf("'/instructor/assignments/fan-out'"));
+  assert.match(VIEW, /const existingGive = findExistingGive\(data\.assignments, \{ promptId, studentId \}\);/);
+  assert.match(VIEW, /const sameClassGive = findExistingGive\(data\.assignments, \{ promptId, cohortId \}\);/);
+  assert.match(VIEW, /askConfirm\(duplicateGiveConfirmMessage\(/);
+  // the confirm is awaited before mutate, so cancelling sends no request
+  const studentConfirm = VIEW.indexOf('if (!(await confirmRegive(existingGive))) return false;');
+  assert.ok(studentConfirm >= 0 && studentConfirm < VIEW.indexOf("requestPath('/instructor/assignments'), body)"));
+  const classConfirm = VIEW.indexOf('if (!(await confirmRegive(sameClassGive))) return false;');
+  assert.ok(classConfirm >= 0 && classConfirm < VIEW.indexOf('await confirmCohortOverlap(promptId, cohortId, promptTitle)'));
+  assert.ok(classConfirm < VIEW.indexOf("'/instructor/assignments/fan-out'"));
   assert.match(VIEW, /const resetOnSuccess = [^\n]*form\.reset\(\)/);
   assert.equal((VIEW.match(/\.then\(resetOnSuccess\)/g) || []).length, 2);
   assert.match(VIEW, /'\/instructor\/assignments\/fan-out'\), body\), fanOutResultBanner\)/);
@@ -285,7 +292,7 @@ describe('PC-J10 — /instructor give flow (W-12, BL-18, BL-19)', () => {
     assert.equal(normalizeDuplicatesPreview({}), null);
     assert.equal(cohortOverlapConfirmMessage({ studentCount: 3, duplicateStudentIds: [] }, 'Task 2'), null);
     assert.equal(cohortOverlapConfirmMessage(preview, 'Task 2'),
-      "2 học viên trong lớp đã từng được giao đề 'Task 2'. Vẫn giao cho cả lớp? (Các học viên này sẽ có thêm một lượt.)");
+      "2 học viên trong lớp đã từng được giao đề 'Task 2'. Giao thêm một lượt cho cả lớp? (Các học viên này sẽ có thêm một lượt.)");
     // The preview is read before the fan-out POST and cancelling stops it.
     const ask = VIEW.indexOf('await confirmCohortOverlap(promptId, cohortId, promptTitle)');
     assert.ok(ask >= 0 && ask < VIEW.indexOf("'/instructor/assignments/fan-out'"));
@@ -293,8 +300,53 @@ describe('PC-J10 — /instructor give flow (W-12, BL-18, BL-19)', () => {
     assert.match(VIEW, /if \(!sameClassGive && !\(await confirmCohortOverlap\(promptId, cohortId, promptTitle\)\)\) return false;/);
   });
 
+  test('Q-12c: give confirmations use the shared in-app Dialog, never window.confirm', () => {
+    assert.doesNotMatch(VIEW, /window\.confirm\b/);
+    assert.match(VIEW, /import \{ Dialog \} from '@\/components\/admin-directory-ui';/);
+    assert.match(VIEW, /return !message \|\| await askConfirm\(message\);/);
+    // Only the confirm button resolves true; Hủy, ×, Esc and the backdrop all cancel.
+    assert.match(VIEW, /<Dialog open=\{confirmMessage !== null\} title=\{ASSIGNMENT_COPY\.confirmTitle\} description=\{confirmMessage\} onClose=\{\(\) => answerConfirm\(false\)\}/);
+    assert.match(VIEW, /onClick=\{\(\) => answerConfirm\(false\)\}>\{ASSIGNMENT_COPY\.confirmCancel\}<\/button>/);
+    assert.match(VIEW, /onClick=\{\(\) => answerConfirm\(true\)\}>\{ASSIGNMENT_COPY\.confirmAccept\}<\/button>/);
+    // A second ask or an account change settles the open one as cancelled.
+    assert.match(VIEW, /const askConfirm = [^\n]*\n\s*confirmResolve\.current\?\.\(false\);/);
+    assert.match(VIEW, /useEffect\(\(\) => \{\n\s*\/\/[^\n]*\n\s*confirmResolve\.current\?\.\(false\);\s*confirmResolve\.current = null;\s*setConfirmMessage\(null\);\s*if \(status === 'signed-out'\)/);
+    assert.equal(ASSIGNMENT_COPY.confirmTitle, 'Đề đã được giao trước đó');
+    assert.equal(ASSIGNMENT_COPY.confirmCancel, 'Hủy');
+    assert.equal(ASSIGNMENT_COPY.confirmAccept, 'Giao thêm');
+    // /instructor loads no admin stylesheet, so the dialog is styled here.
+    assert.match(CSS, /\.acd-dialog-backdrop \{[^}]*position: fixed;/);
+    assert.match(CSS, /\.acd-dialog \{[^}]*background: var\(--av-surface-card\);/);
+  });
+
   test('BL-19: a missing prompt shows the app message, not the browser validation bubble', () => {
     assert.match(VIEW, /<form className="ins-form" onSubmit=\{createAssignment\} noValidate>/);
     assert.match(VIEW, /if \(!promptId\) return missing\('prompt_id', 'Chưa chọn đề bài\.'\);/);
+  });
+});
+
+describe('PC-J36 — "Chấm bài" rows identify their essay', () => {
+  test('two essays from the same student get distinct row identities from response data only', () => {
+    const queue = normalizeInstructorQueue([
+      { essay_id: 'ad8db313-3c59-4ffe-a665-1fe0fbc87804', student_email: 'hv@example.com', task_type: 'task2', submitted_at: '2026-10-28T07:05:00Z', review: { id: 'r1', status: 'queued' } },
+      { essay_id: '72c07a2a-0000-4000-8000-000000000000', student_email: 'hv@example.com', task_type: 'task2', submitted_at: '2026-10-28T09:30:00+00:00', review: { id: 'r2', status: 'claimed' } },
+    ]);
+    assert.equal(queue[0].submittedAt, '2026-10-28T07:05:00Z');
+    // 07:05Z is 14:05 in Asia/Ho_Chi_Minh, whatever the browser timezone.
+    assert.equal(queueRowIdentity(queue[0]), 'ad8db313 · 28/10/2026 14:05');
+    assert.equal(queueRowIdentity(queue[1]), '72c07a2a · 28/10/2026 16:30');
+    assert.notEqual(queueRowIdentity(queue[0]), queueRowIdentity(queue[1]));
+  });
+
+  test('a missing or unparseable submit time falls back to the short essay id alone', () => {
+    assert.equal(queueRowIdentity({ essayId: 'ad8db313-3c59-4ffe-a665-1fe0fbc87804', submittedAt: null }), 'ad8db313');
+    assert.equal(queueRowIdentity({ essayId: 'ad8db313-3c59-4ffe-a665-1fe0fbc87804', submittedAt: 'not-a-date' }), 'ad8db313');
+    assert.equal(queueRowIdentity(null), '');
+  });
+
+  test('the identity renders under the student in the existing column — no new header or label', () => {
+    assert.match(VIEW, /<td>\{item\.studentEmail \|\| item\.essayId\}<small className="ins-cell-meta">\{queueRowIdentity\(item\)\}<\/small><\/td>/);
+    assert.match(VIEW, /<thead><tr><th>Học viên<\/th><th>Dạng<\/th><th>Trạng thái<\/th><th>Thao tác<\/th><\/tr><\/thead>/);
+    assert.match(CSS, /\.ins-cell-meta \{[^}]*display: block;/);
   });
 });

@@ -424,6 +424,43 @@ def test_non_positive_ip_budget_disables_the_throttle(env, monkeypatch):
     assert tts_module._ip_hits == {}
 
 
+def test_caller_supplied_first_forwarded_hops_share_one_ip_budget(env, monkeypatch):
+    # PC-J39: earlier XFF hops are caller-supplied; rotating them must not
+    # mint a fresh per-IP budget. The last hop (the proxy-appended one) keys.
+    monkeypatch.setattr(tts_module.settings, "TTS_IP_MAX_PER_MINUTE", 2)
+    client = _client()
+    payload = {"text": "Hello"}
+
+    def headers(spoof):
+        return {"Authorization": "Bearer x", "X-Forwarded-For": f"{spoof}, 203.0.113.20"}
+
+    assert client.post("/tts", json=payload, headers=headers("1.1.1.1")).status_code == 200
+    assert client.post("/tts", json=payload, headers=headers("2.2.2.2")).status_code == 200
+    assert client.post("/tts", json=payload, headers=headers("3.3.3.3")).status_code == 429
+    assert len(env.synth_calls) == 2
+
+
+def test_real_ip_keys_the_throttle_over_forwarded_hops(env, monkeypatch):
+    monkeypatch.setattr(tts_module.settings, "TTS_IP_MAX_PER_MINUTE", 1)
+    client = _client()
+    real = {"Authorization": "Bearer x", "X-Real-IP": "203.0.113.21"}
+    assert client.post("/tts", json={"text": "Hi"},
+                       headers={**real, "X-Forwarded-For": "1.1.1.1, 10.0.0.1"}).status_code == 200
+    assert client.post("/tts", json={"text": "Hi"},
+                       headers={**real, "X-Forwarded-For": "2.2.2.2, 10.0.0.2"}).status_code == 429
+    # Another X-Real-IP behind the same forwarded chain has its own window.
+    assert client.post("/tts", json={"text": "Hi"},
+                       headers={"Authorization": "Bearer x", "X-Real-IP": "198.51.100.21",
+                                "X-Forwarded-For": "1.1.1.1, 10.0.0.1"}).status_code == 200
+
+
+def test_client_ip_falls_back_to_socket_peer_without_headers():
+    request = SimpleNamespace(headers={}, client=SimpleNamespace(host="192.0.2.5"))
+    assert tts_module._client_ip(request) == "192.0.2.5"
+    assert tts_module._client_ip(SimpleNamespace(headers={}, client=None)) is None
+    assert tts_module._client_ip(None) is None
+
+
 class _UsersQuery:
     def __init__(self, rows):
         self._rows = rows

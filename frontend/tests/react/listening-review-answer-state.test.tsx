@@ -47,7 +47,8 @@ it.each(['', null, undefined, ' \n '])('labels an unanswered submitted item with
   expect(nav.classList.contains('is-incorrect')).toBe(false);
   expect(screen.getByRole('button', { name: 'Câu 28 — sai' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Câu 29 — đúng' })).toBeTruthy();
-  expect(screen.getByText(/2 câu cần xem lại · 1 câu đúng/)).toBeTruthy();
+  expect(screen.getByText(/^1 câu sai · 1 câu bỏ trống · 1 câu đúng\./)).toBeTruthy();
+  expect(view.container.querySelector('.lr-summary')?.textContent).toContain('1/3 câu');
   fireEvent.click(screen.getByRole('button', { name: 'Đúng', exact: true }));
   expect(view.container.querySelector('#listening-review-q-27')).toBeNull();
   expect(view.container.querySelector('#listening-review-q-29')?.getAttribute('data-correct')).toBe('true');
@@ -67,4 +68,37 @@ it('keeps an admin preview scoreless and does not label its empty sample answers
   expect(view.container.querySelector('.lr-card__verdict')).toBeNull();
   expect(screen.queryByText('Bỏ trống')).toBeNull();
   expect(screen.queryByRole('group', { name: 'Lọc kết quả câu hỏi' })).toBeNull();
+});
+
+it('filters unanswered apart from incorrect and keeps palette jumps in the matching filter (FR-013)', async () => {
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() });
+  const raw = response('');
+  const before = JSON.stringify(raw);
+  getWith.mockResolvedValue(raw);
+  const view = render(<ListeningReviewWorkspace />);
+  await screen.findByRole('button', { name: 'Câu 27 — bỏ trống' });
+  const filters = within(screen.getByRole('group', { name: 'Lọc kết quả câu hỏi' }));
+  const pressed = () => filters.getAllByRole('button').filter((button) => button.getAttribute('aria-pressed') === 'true').map((button) => button.textContent);
+  const shown = () => [...view.container.querySelectorAll('[id^="listening-review-q-"]')].map((card) => card.id.replace('listening-review-q-', ''));
+  expect(filters.getAllByRole('button').map((button) => button.textContent)).toEqual(['Cần xem lại', 'Bỏ trống', 'Tất cả', 'Đúng']);
+  expect(pressed()).toEqual(['Cần xem lại']);
+  expect(shown()).toEqual(['27', '28']);
+
+  fireEvent.click(filters.getByRole('button', { name: 'Bỏ trống' }));
+  expect(shown()).toEqual(['27']);
+  fireEvent.click(screen.getByRole('button', { name: 'Câu 27 — bỏ trống' }));
+  expect(pressed()).toEqual(['Bỏ trống']);
+  fireEvent.click(screen.getByRole('button', { name: 'Câu 28 — sai' }));
+  expect(pressed()).toEqual(['Tất cả']);
+  expect(shown()).toEqual(['27', '28', '29']);
+
+  fireEvent.click(filters.getByRole('button', { name: 'Đúng' }));
+  expect(shown()).toEqual(['29']);
+  fireEvent.click(filters.getByRole('button', { name: 'Cần xem lại' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Câu 27 — bỏ trống' }));
+  expect(pressed()).toEqual(['Cần xem lại']);
+  expect(shown()).toEqual(['27', '28']);
+
+  expect(JSON.stringify(raw)).toBe(before);
+  expect(getWith).toHaveBeenCalledTimes(1);
 });

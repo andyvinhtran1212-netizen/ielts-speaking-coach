@@ -10,9 +10,11 @@ import {
   readingEvidenceMatchesTarget,
   readingReviewBackTarget,
   readingReviewAnswerStatus,
+  readingReviewMatchesFilter,
   readingReviewParams,
   readingReviewPrompt,
   readingReviewSkillRows,
+  readingReviewTotals,
   splitReviewProse,
 } from '../lib/reading-review-model.mjs';
 
@@ -80,6 +82,23 @@ describe('native Reading review model', () => {
       assert.equal(readingReviewAnswerStatus(row), expected);
       assert.equal(JSON.stringify(row), before);
     }
+  });
+  test('filters and totals blank apart from incorrect while "wrong" keeps both (FR-013)', () => {
+    const review = [
+      { q_num: 1, correct: false, user_answer: ' ' },
+      { q_num: 2, correct: false, user_answer: 'B' },
+      { q_num: 3, correct: true, user_answer: '' },
+      { q_num: 4, correct: true, user_answer: 'A' },
+    ];
+    const before = JSON.stringify(review);
+    const shown = (filter) => review.filter((item) => readingReviewMatchesFilter(item, filter)).map((item) => item.q_num);
+    assert.deepEqual(shown('wrong'), [1, 2]);
+    assert.deepEqual(shown('blank'), [1]);
+    assert.deepEqual(shown('correct'), [3, 4]);
+    assert.deepEqual(shown('all'), [1, 2, 3, 4]);
+    assert.deepEqual(readingReviewTotals(review), { incorrect: 1, blank: 1, correct: 2 });
+    assert.deepEqual(readingReviewTotals(undefined), { incorrect: 0, blank: 0, correct: 0 });
+    assert.equal(JSON.stringify(review), before);
   });
   test('parses attempt/admin identities and allowlists the back origin', () => {
     assert.deepEqual(readingReviewParams('?attempt_id=a%2F1&anon=cap&from=mini'), {
@@ -227,8 +246,10 @@ describe('native Reading review route contract', () => {
 
   test('starts with incorrect answers and reveals a filtered card from the palette', () => {
     assert.match(CLIENT, /setFilter\(normalized\.preview \? 'all' : \(firstWrong \? 'wrong' : 'all'\)\)/);
-    assert.match(CLIENT, /filter === 'wrong' \? !item\.correct/);
-    assert.match(CLIENT, /if \(filter !== 'all'[\s\S]{0,100}setFilter\('all'\)/);
+    assert.match(CLIENT, /review\.find\(\(item: any\) => readingReviewMatchesFilter\(item, 'wrong'\)\)/);
+    assert.match(CLIENT, /allCurrentItems\.filter\(\(item: any\) => readingReviewMatchesFilter\(item, filter\)\)/);
+    assert.match(CLIENT, /if \(filter !== 'all' && !readingReviewMatchesFilter\(item, filter\)\) setFilter\('all'\)/);
+    assert.doesNotMatch(CLIENT, /filter === 'wrong' \? !item\.correct/);
     assert.match(CLIENT, /Tự tìm bằng chứng/);
     assert.match(CLIENT, /Phân tích bẫy/);
   });

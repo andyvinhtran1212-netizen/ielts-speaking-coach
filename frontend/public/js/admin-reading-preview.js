@@ -178,7 +178,7 @@
         (hasImg ? 'Thay ảnh sơ đồ' : 'Upload ảnh sơ đồ') +
       '</button>' +
       (hasImg
-        ? '<button type="button" class="ar-row-action is-danger" data-action="delete">Xoá ảnh</button>'
+        ? '<button type="button" class="ar-row-action is-danger" data-action="delete">Xóa ảnh</button>'
         : '') +
       '<span class="ar-diagram-card__status"></span>' +
     '</div>';
@@ -399,8 +399,8 @@
         if (!dctrl) return;
         var qId = dctrl.getAttribute('data-q-id');
         var qNum = dctrl.getAttribute('data-q-num');
-        if (!window.confirm('Xoá ảnh của Q' + qNum + '?')) return;
-        statusEl(dctrl).textContent = 'Đang xoá…';
+        if (!window.confirm('Xóa ảnh của Q' + qNum + '?')) return;
+        statusEl(dctrl).textContent = 'Đang xóa…';
         // bracket notation — `delete` is a reserved word but valid as a key.
         window.api['delete']('/admin/reading/questions/' + encodeURIComponent(qId) + '/diagram-image')
           .then(function () { return loadTest(CURRENT_TEST_ID); })

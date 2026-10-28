@@ -242,6 +242,30 @@ def test_share_start_mints_anon_id_and_salted_src_no_raw_ip():
     assert row["anon_src"] and "203.0.113.9" not in row["anon_src"]   # salted, not raw IP
 
 
+def _anon_src_for(headers):
+    db = _DB({"reading_tests": [_shared_test(locked=True)], "reading_test_attempts": []})
+    with patch("routers.reading_student.supabase_admin", db), \
+         patch.object(settings, "READING_ANON_SALT", "salt-x"):
+        r = _client().post("/api/reading/test/share/TOK/attempts", headers=headers)
+    assert r.status_code == 200
+    return [p for (t, p) in db.inserts if t == "reading_test_attempts"][0]["anon_src"]
+
+
+def test_share_start_anon_src_ignores_caller_supplied_forwarded_hops():
+    # PC-J39: the first XFF hop is caller-supplied; changing it must not
+    # change anon_src. X-Real-IP → last XFF hop → socket peer keys the hash.
+    from routers.reading_student import _hash_anon_src
+    with patch.object(settings, "READING_ANON_SALT", "salt-x"):
+        last_hop = _hash_anon_src("203.0.113.30")
+        real_ip = _hash_anon_src("198.51.100.30")
+        peer = _hash_anon_src("testclient")       # TestClient's socket peer
+    assert _anon_src_for({"X-Forwarded-For": "1.1.1.1, 203.0.113.30"}) == last_hop
+    assert _anon_src_for({"X-Forwarded-For": "2.2.2.2, 203.0.113.30"}) == last_hop
+    assert _anon_src_for({"X-Real-IP": "198.51.100.30",
+                          "X-Forwarded-For": "1.1.1.1, 203.0.113.30"}) == real_ip
+    assert _anon_src_for({}) == peer
+
+
 def test_share_start_claim_v1_leaves_affinity_for_first_player_claim():
     db = _DB({"reading_tests": [_shared_test()], "reading_test_attempts": []})
     with patch("routers.reading_student.supabase_admin", db), \

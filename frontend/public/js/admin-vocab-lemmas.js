@@ -77,7 +77,7 @@ function renderTable() {
       <td>${escapeHtml(r.pos_tag || '—')}</td>
       <td style="font-size: var(--av-fs-xs); color: var(--av-text-secondary);">${escapeHtml(r.notes || '')}</td>
       <td>${fmtDate(r.created_at)}</td>
-      <td><button class="btn-danger" data-id="${escapeHtml(r.id)}" type="button">Xoá</button></td>
+      <td><button class="btn-danger" data-id="${escapeHtml(r.id)}" type="button">Xóa</button></td>
     </tr>
   `).join('');
   tbody.querySelectorAll('button.btn-danger').forEach((btn) => {
@@ -130,13 +130,13 @@ async function submitOverride() {
 }
 
 async function deleteOverride(id) {
-  if (!confirm('Xoá override này? Lemmatizer sẽ fallback về spaCy.')) return;
+  if (!confirm('Xóa override này? Lemmatizer sẽ fallback về spaCy.')) return;
   try {
     await api.delete('/admin/vocab/lemmas/overrides/' + encodeURIComponent(id));
-    showBanner('Đã xoá.', 'success');
+    showBanner('Đã xóa.', 'success');
     loadList();
   } catch (e) {
-    showBanner('Xoá thất bại: ' + (e && e.message || 'lỗi'), 'error');
+    showBanner('Xóa thất bại: ' + (e && e.message || 'lỗi'), 'error');
   }
 }
 

@@ -59,6 +59,7 @@ from services.reading_diagnostic_engine import build_reading_diagnostic
 from services import reading_solution
 from services import kp_registry
 from services import test_data_visibility
+from services.request_safety import request_client_ip
 from services.reading_practice_support import (
     ReadingPracticeCheck, ReadingPracticeDetail, checked_evidence,
     validated_support, word_count, digest,
@@ -122,12 +123,9 @@ def _gen_anon_id() -> str:
 
 
 def _client_ip(request: Request | None) -> str | None:
-    if request is None:
-        return None
-    fwd = request.headers.get("x-forwarded-for")
-    if fwd:
-        return fwd.split(",")[0].strip()      # first hop = the real client
-    return request.client.host if request.client else None
+    # X-Real-IP → last XFF hop → peer (services/request_safety.py). The first
+    # XFF hop is caller-supplied, so it must not change the anon_src hash.
+    return request_client_ip(request)
 
 
 def _hash_anon_src(ip: str | None) -> str | None:

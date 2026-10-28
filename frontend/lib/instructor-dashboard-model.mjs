@@ -152,7 +152,11 @@ export const ASSIGNMENT_COPY = Object.freeze({
   confirmStudent: (title, when) => `Học viên này đã được giao đề '${title}' ${when}. Giao thêm một lượt nữa?`,
   duplicatesWarning: (count) => `Đã giao bài cho lớp. Lưu ý: ${count} học viên đã được giao đề này từ trước.`,
   // BL-18: asked before the give, from the same overlap the banner reports.
-  confirmCohortOverlap: (title, count) => `${count} học viên trong lớp đã từng được giao đề '${title}'. Vẫn giao cho cả lớp? (Các học viên này sẽ có thêm một lượt.)`,
+  confirmCohortOverlap: (title, count) => `${count} học viên trong lớp đã từng được giao đề '${title}'. Giao thêm một lượt cho cả lớp? (Các học viên này sẽ có thêm một lượt.)`,
+  // In-app dialog chrome around the confirm messages above (replaces window.confirm).
+  confirmTitle: 'Đề đã được giao trước đó',
+  confirmCancel: 'Hủy',
+  confirmAccept: 'Giao thêm',
   deadline: (when) => `Hạn ${when}`,
 });
 
@@ -181,7 +185,13 @@ export function cohortOverlapConfirmMessage(preview, promptTitle) {
 
 /** W-12 — the matrix cell's deadline line ("Hạn dd/mm/yyyy HH:mm", Vietnam time), or null. */
 export function matrixDeadlineLabel(assignment) {
-  const parsed = assignment?.deadline ? new Date(assignment.deadline) : null;
+  const when = vietnamDateTime(assignment?.deadline);
+  return when ? ASSIGNMENT_COPY.deadline(when) : null;
+}
+
+/** "dd/mm/yyyy HH:mm" in Vietnam time, or null for a missing/unparseable timestamp. */
+function vietnamDateTime(value) {
+  const parsed = value ? new Date(value) : null;
   if (!parsed || Number.isNaN(parsed.getTime())) return null;
   const day = new Intl.DateTimeFormat('vi-VN', {
     timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric',
@@ -189,15 +199,13 @@ export function matrixDeadlineLabel(assignment) {
   const time = new Intl.DateTimeFormat('vi-VN', {
     timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
   }).format(parsed);
-  return ASSIGNMENT_COPY.deadline(`${day} ${time}`);
+  return `${day} ${time}`;
 }
 
 function formatGiveTime(value) {
-  const parsed = value ? new Date(value) : null;
-  if (!parsed || Number.isNaN(parsed.getTime())) return 'trước đó';
-  return `lúc ${new Intl.DateTimeFormat('vi-VN', {
-    timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short',
-  }).format(parsed)}`;
+  // "lúc dd/mm/yyyy HH:mm", Vietnam time.
+  const when = vietnamDateTime(value);
+  return when ? `lúc ${when}` : 'trước đó';
 }
 
 /**
@@ -234,8 +242,20 @@ export function normalizeInstructorQueue(value) {
       status,
       studentEmail: nullableText(row.student_email),
       taskType: nullableText(row.task_type),
+      submittedAt: nullableText(row.submitted_at),
     });
   });
+}
+
+/**
+ * PC-J36 — the "Chấm bài" row's second line: short essay id + submit time
+ * ("ad8db313 · 28/10/2026 14:05", Vietnam time), so two essays from the same
+ * student are distinguishable. Data only — no extra label.
+ */
+export function queueRowIdentity(item) {
+  const shortId = text(item?.essayId).slice(0, 8);
+  const when = vietnamDateTime(item?.submittedAt);
+  return [shortId, when].filter(Boolean).join(' · ');
 }
 
 export function normalizeInstructorSummary(value) {

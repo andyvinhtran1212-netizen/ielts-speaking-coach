@@ -541,12 +541,12 @@ check('Lemma hiện lỗi backend ngay trong modal', await lemmaCreateDialog.get
 await lemmaCreateDialog.getByRole('button', { name: 'Lưu override' }).click();
 await page.getByText('Đã tạo override và tải lại danh sách chuẩn từ backend.', { exact: true }).waitFor();
 check('Lemma POST đúng body và canonical readback', requests.some((item) => item.method === 'POST' && item.path === '/admin/vocab/lemmas/overrides' && item.body?.original_word === 'mice' && item.body?.lemma === 'mouse' && item.body?.pos_tag === 'NOUN' && item.body?.notes === 'irregular plural') && lemmaReads >= 3);
-await page.getByRole('button', { name: 'Xoá', exact: true }).click();
-const lemmaDialog = page.getByRole('dialog', { name: 'Xoá override?' });
-await lemmaDialog.getByRole('button', { name: 'Xoá override' }).click();
+await page.getByRole('button', { name: 'Xóa', exact: true }).click();
+const lemmaDialog = page.getByRole('dialog', { name: 'Xóa override?' });
+await lemmaDialog.getByRole('button', { name: 'Xóa override' }).click();
 await page.waitForTimeout(40);
 check('Lemma khoá delete trong lúc chờ backend', lemmaWritePending && await lemmaDialog.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
-await page.getByText('Đã xoá override và tải lại danh sách chuẩn từ backend.', { exact: true }).waitFor();
+await page.getByText('Đã xóa override và tải lại danh sách chuẩn từ backend.', { exact: true }).waitFor();
 check('Lemma DELETE đúng id và canonical readback', requests.some((item) => item.method === 'DELETE' && item.path === '/admin/vocab/lemmas/overrides/00000000-0000-4000-8000-000000000211') && lemmaReads >= 4);
 check('Lemma mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
 
@@ -559,7 +559,7 @@ check('Topics escape title/card độc hại', await page.locator('.avv-topic-co
 failNextTopicBundle = true;
 await page.getByRole('button', { name: /Travel/ }).click();
 await page.getByRole('alert').getByText(/Không tải được topic/).waitFor();
-check('Topics không hiện form cũ khi bundle topic mới lỗi', new URL(page.url()).searchParams.get('topic') === contentTopicIdB && await page.locator('.avv-topic-form').count() === 0 && await page.getByRole('button', { name: 'Xoá topic' }).count() === 0);
+check('Topics không hiện form cũ khi bundle topic mới lỗi', new URL(page.url()).searchParams.get('topic') === contentTopicIdB && await page.locator('.avv-topic-form').count() === 0 && await page.getByRole('button', { name: 'Xóa topic' }).count() === 0);
 await page.getByRole('button', { name: /Work <script>/ }).click();
 await page.locator('.avv-topic-form').waitFor();
 await page.getByLabel('Tên', { exact: true }).fill('Work & Careers');
@@ -595,12 +595,12 @@ check('Quiz giữ commit disabled sau canonical success', await committedButton.
 await committedButton.evaluate((button) => button.click());
 await page.waitForTimeout(80);
 check('Quiz click lặp không gửi commit write thứ hai', requests.filter((item) => item.method === 'POST' && item.path === '/admin/quiz/import' && item.search.includes('dry_run=false')).length === 1);
-await page.getByRole('button', { name: 'Xoá', exact: true }).click();
-const bankDeleteDialog = page.getByRole('dialog', { name: 'Xoá Quick‑Check bank?' });
-await bankDeleteDialog.getByRole('button', { name: 'Xoá bank' }).click();
+await page.getByRole('button', { name: 'Xóa', exact: true }).click();
+const bankDeleteDialog = page.getByRole('dialog', { name: 'Xóa Quick‑Check bank?' });
+await bankDeleteDialog.getByRole('button', { name: 'Xóa bank' }).click();
 await page.waitForTimeout(40);
 check('Quiz delete khoá dialog khi chờ ACK', bankWritePending && await bankDeleteDialog.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
-await page.getByText('Đã xoá bank và đọc lại canonical list.', { exact: true }).waitFor();
+await page.getByText('Đã xóa bank và đọc lại canonical list.', { exact: true }).waitFor();
 check('Quiz delete xác minh canonical absence', requests.some((item) => item.method === 'DELETE' && item.path === `/admin/quiz/banks/${quizBankId}`) && topicBanks.length === 0);
 check('Quiz mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
 
@@ -664,7 +664,7 @@ await page.getByLabel('Chọn mitigate<script>').check();
 failNextContentList = true;
 await page.locator('.avv-content-filters > label select').selectOption('travel');
 await page.getByText(/Không tải được kho từ/).waitFor();
-check('Content xoá dữ liệu và selection cũ khi filtered GET lỗi', await page.getByText('mitigate<script>', { exact: true }).count() === 0 && await page.getByRole('button', { name: 'Xoá (0)' }).isDisabled());
+check('Content xoá dữ liệu và selection cũ khi filtered GET lỗi', await page.getByText('mitigate<script>', { exact: true }).count() === 0 && await page.getByRole('button', { name: 'Xóa (0)' }).isDisabled());
 await page.locator('.avv-content-filters > label select').selectOption('');
 await page.getByText('mitigate<script>', { exact: true }).first().waitFor();
 
@@ -689,8 +689,8 @@ check('Content chỉ dùng Kokoro được chuẩn bị theo lô', await page.ge
 check('Content không gửi job TTS khác giọng', !requests.some((item) => item.method === 'POST' && item.path === '/admin/vocabulary/generate-audio'));
 
 const contentRow = page.locator('tbody tr').filter({ hasText: 'mitigate safely' });
-await contentRow.getByRole('button', { name: 'Xoá', exact: true }).click();
-const contentDeleteDialog = page.getByRole('dialog', { name: 'Xoá “mitigate safely”?' });
+await contentRow.getByRole('button', { name: 'Xóa', exact: true }).click();
+const contentDeleteDialog = page.getByRole('dialog', { name: 'Xóa “mitigate safely”?' });
 await contentDeleteDialog.getByRole('button', { name: 'Xác nhận' }).click();
 await page.waitForTimeout(40);
 check('Content hard-delete bị khoá trong dialog', contentWritePending && await contentDeleteDialog.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
@@ -706,9 +706,9 @@ await page.getByText('recover', { exact: true }).first().waitFor();
 await page.getByText('stale', { exact: true }).first().waitFor();
 await page.getByLabel('Chọn trang này').check();
 partialNextContentBulk = true;
-await page.getByRole('button', { name: 'Xoá (2)' }).click();
-await page.getByRole('dialog', { name: 'Xoá 2 từ đã chọn?' }).getByRole('button', { name: 'Xác nhận' }).click();
-await page.getByText(/Đã xoá 1 từ.*1 card đã được thay đổi hoặc xoá trước thao tác này/).waitFor();
+await page.getByRole('button', { name: 'Xóa (2)' }).click();
+await page.getByRole('dialog', { name: 'Xóa 2 từ đã chọn?' }).getByRole('button', { name: 'Xác nhận' }).click();
+await page.getByText(/Đã xóa 1 từ.*1 card đã được thay đổi hoặc xóa trước thao tác này/).waitFor();
 check('Content partial bulk-delete luôn canonical readback và cảnh báo', vocabRows.length === 0 && await page.getByText('Không có từ nào khớp bộ lọc.', { exact: true }).count() === 1);
 
 await page.locator('details.avv-content-import').evaluate((node) => { node.open = true; });

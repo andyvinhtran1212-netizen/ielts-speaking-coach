@@ -135,7 +135,7 @@
       const res = await fetch(url, { headers: authHeaders() });
       if (!res.ok) {
         if (res.status === 404) {
-          showState('Stack không tồn tại hoặc đã bị xoá.', true);
+          showState('Stack không tồn tại hoặc đã bị xóa.', true);
           return;
         }
         showState('Không tải được thẻ.', true);

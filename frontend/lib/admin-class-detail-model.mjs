@@ -137,7 +137,7 @@ export function validateLessonDraft(draft) {
     const url = text(attachment?.url).trim();
     if (!label && !url) continue;
     if (!label || !url) return { ok: false, error: `Tài liệu ${index + 1} cần đủ tên và đường dẫn.` };
-    if (!/^https?:\/\//i.test(url)) return { ok: false, error: `Tài liệu ${index + 1} dùng liên kết cũ. Hãy đổi sang http:// hoặc https://, hoặc xoá tài liệu này.` };
+    if (!/^https?:\/\//i.test(url)) return { ok: false, error: `Tài liệu ${index + 1} dùng liên kết cũ. Hãy đổi sang http:// hoặc https://, hoặc xóa tài liệu này.` };
   }
   const body = {
     title,

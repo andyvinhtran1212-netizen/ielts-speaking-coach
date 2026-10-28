@@ -57,10 +57,13 @@ export function Dialog({ open, title, description, children, actions, onClose, b
       }
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
+      const active = document.activeElement;
+      // The panel itself holds focus on open; Shift+Tab from it would leave the dialog.
+      const outsideControls = active === panel || !panel.contains(active);
+      if (event.shiftKey && (active === first || outsideControls)) {
         event.preventDefault();
         last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
+      } else if (!event.shiftKey && (active === last || outsideControls)) {
         event.preventDefault();
         first.focus();
       }

@@ -66,8 +66,9 @@ const previewPosts = [];
 const holders = (promptIds) => [...new Set(fixtures['/instructor/assignments']
   .filter((row) => promptIds.includes(row.prompt_id)).map((row) => row.student_id))].filter((id) => id === 's1');
 const pageErrors = [];
+// Give confirmations are the in-app Dialog; a native window.confirm is a failure.
 const dialogs = [];
-const dialogAnswers = [];
+const nativeDialogs = [];
 let failCanonicalReadback = false;
 const cohorts = [{ id: 'c1', name: 'Khóa Writing 1', created_at: '2026-08-01T00:00:00Z' }];
 const fixtures = {
@@ -80,16 +81,38 @@ const fixtures = {
     { id: 'a1', prompt_id: 'p1', student_id: 's1', status: 'delivered', essay_id: 'e1', deadline: null, created_at: '2026-10-20T00:00:00Z' },
     { id: 'a0', prompt_id: 'p1', student_id: 's1', status: 'pending', essay_id: null, deadline: '2026-09-08T00:00:00Z', created_at: '2026-09-01T00:00:00Z' },
   ],
-  '/instructor/reviews/queue': [{ essay_id: 'e1', student_email: 'student@example.com', task_type: 'task2', review: { id: 'r1', status: 'queued' } }],
+  // PC-J36: two essays from the same student — rows must be told apart by essay id + submit time.
+  '/instructor/reviews/queue': [
+    { essay_id: 'e1', student_email: 'student@example.com', task_type: 'task2', submitted_at: '2026-10-28T07:05:00Z', review: { id: 'r1', status: 'queued' } },
+    { essay_id: 'ad8db313-3c59-4ffe-a665-1fe0fbc87804', student_email: 'student@example.com', task_type: 'task2', submitted_at: '2026-10-28T09:30:00Z', review: { id: 'r2', status: 'claimed' } },
+  ],
 };
 
 const page = await context.newPage();
 page.on('pageerror', (error) => pageErrors.push(String(error)));
 page.on('dialog', async (dialog) => {
-  dialogs.push(dialog.message());
-  if (dialogAnswers.shift()) await dialog.accept();
-  else await dialog.dismiss();
+  nativeDialogs.push(dialog.message());
+  await dialog.dismiss();
 });
+const confirmDialog = page.getByRole('dialog', { name: 'Đề đã được giao trước đó' });
+// Records the in-app confirm's message, checks nothing was sent while it is
+// open, then answers it: 'accept' (Giao thêm), 'cancel' (Hủy) or 'escape'.
+const answerConfirm = async (answer) => {
+  await confirmDialog.waitFor();
+  const postsWhileOpen = assignmentPosts.length;
+  dialogs.push((await confirmDialog.locator('.acd-dialog__description').innerText()).trim());
+  check('hộp xác nhận trong app nhận focus và chưa gửi request khi đang mở', await confirmDialog.evaluate((element) => element.contains(document.activeElement))
+    && await confirmDialog.getByRole('button', { name: 'Hủy', exact: true }).count() === 1
+    && await confirmDialog.getByRole('button', { name: 'Giao thêm', exact: true }).count() === 1
+    && assignmentPosts.length === postsWhileOpen, dialogs.at(-1));
+  // Shift+Tab straight from the focused panel wraps to the last action instead of leaving for the page.
+  await page.keyboard.press('Shift+Tab');
+  check('Shift+Tab ngay khi mở vẫn giữ focus trong hộp xác nhận', await confirmDialog.evaluate((element) => element.contains(document.activeElement)
+    && document.activeElement?.textContent === 'Giao thêm'), await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 120)));
+  if (answer === 'escape') await page.keyboard.press('Escape');
+  else await confirmDialog.getByRole('button', { name: answer === 'accept' ? 'Giao thêm' : 'Hủy', exact: true }).click();
+  await confirmDialog.waitFor({ state: 'detached' });
+};
 await page.route('**/*', async (route) => {
   const request = route.request();
   const url = request.url();
@@ -188,18 +211,17 @@ check('BL-19: bấm Giao bài khi chưa chọn đề hiện thông báo của ap
 // BL-18: s1 already holds p1 from individual gives (no class stamp), so the
 // first class give asks before writing — the old flow only warned afterwards.
 await fillCohortGive('Buổi 5 — Task 2');
-dialogAnswers.push(false);
 await assignmentForm.getByRole('button', { name: 'Giao bài', exact: true }).click();
-for (let tries = 0; tries < 100 && dialogs.length < 1; tries += 1) await page.waitForTimeout(50);
+await answerConfirm('cancel');
 await page.waitForFunction(() => !document.querySelector('form.ins-form button[type="submit"]')?.disabled);
 check('BL-18: giao cho lớp có học viên đã nhận đề → hỏi trước khi gửi; hủy thì không gửi', dialogs.length === 1
-  && dialogs[0] === "1 học viên trong lớp đã từng được giao đề 'Task 2 <img src=x>'. Vẫn giao cho cả lớp? (Các học viên này sẽ có thêm một lượt.)"
+  && dialogs[0] === "1 học viên trong lớp đã từng được giao đề 'Task 2 <img src=x>'. Giao thêm một lượt cho cả lớp? (Các học viên này sẽ có thêm một lượt.)"
   && previewPosts.length === 1 && previewPosts[0].cohort_id === 'c1' && JSON.stringify(previewPosts[0].prompt_ids) === '["p1"]'
   && new URLSearchParams(requests.filter((item) => item.path === '/instructor/assignments/duplicates-preview').at(-1)?.search).get('as_instructor') === instructorId
   && assignmentPosts.length === 0
   && await assignmentForm.locator('input[name="name"]').inputValue() === 'Buổi 5 — Task 2', dialogs[0]);
-dialogAnswers.push(true);
 await assignmentForm.getByRole('button', { name: 'Giao bài', exact: true }).click();
+await answerConfirm('accept');
 await page.getByText('Đã giao bài cho lớp. Lưu ý: 1 học viên đã được giao đề này từ trước.', { exact: true }).waitFor();
 check('BL-18: đồng ý thì gửi đúng một request kèm name, banner sau vẫn khớp số đã hỏi', dialogs.length === 2 && assignmentPosts.length === 1 && assignmentPosts[0].body.name === 'Buổi 5 — Task 2');
 check('form giao bài reset sau khi thành công', await assignmentForm.locator('select[name="prompt_id"]').inputValue() === ''
@@ -210,15 +232,15 @@ check('form giao bài reset sau khi thành công', await assignmentForm.locator(
 await fillCohortGive('Buổi 6 — Task 2');
 // The class itself was given p1 above: the W-06 confirm covers it, so no preview read.
 const previewsBeforeRegive = previewPosts.length;
-dialogAnswers.push(false);
 await assignmentForm.getByRole('button', { name: 'Giao bài', exact: true }).click();
+await answerConfirm('escape');
 await page.waitForTimeout(200);
-check('giao lại cùng đề cho lớp hỏi xác nhận; hủy thì không gửi request', dialogs.length === 3
-  && /^Lớp này đã được giao đề 'Task 2 <img src=x>' lúc .+\. Giao thêm một lượt nữa\?$/.test(dialogs[2])
+check('giao lại cùng đề cho lớp hỏi xác nhận; Esc hủy và không gửi request', dialogs.length === 3
+  && dialogs[2] === "Lớp này đã được giao đề 'Task 2 <img src=x>' lúc 25/10/2026 19:30. Giao thêm một lượt nữa?"
   && assignmentPosts.length === 1
   && await assignmentForm.locator('input[name="name"]').inputValue() === 'Buổi 6 — Task 2', dialogs[2]);
-dialogAnswers.push(true);
 await assignmentForm.getByRole('button', { name: 'Giao bài', exact: true }).click();
+await answerConfirm('accept');
 // The first give left the same warning banner up; wait for this give's POST + readback.
 for (let tries = 0; tries < 100 && assignmentPosts.length < 2; tries += 1) await page.waitForTimeout(50);
 await page.getByText('Đã giao bài cho lớp. Lưu ý: 1 học viên đã được giao đề này từ trước.', { exact: true }).waitFor();
@@ -230,8 +252,8 @@ await assignmentForm.locator('input[value="student"]').check();
 await assignmentForm.locator('select[name="prompt_id"]').selectOption('p1');
 await assignmentForm.locator('select[name="student_id"]').selectOption('s1');
 await assignmentForm.getByLabel('Hạn nộp (giờ Việt Nam)').fill('2026-10-27T23:00');
-dialogAnswers.push(true);
 await assignmentForm.getByRole('button', { name: 'Giao bài', exact: true }).click();
+await answerConfirm('accept');
 await page.getByText('Đã giao bài cho học viên.', { exact: true }).waitFor();
 check('giao lẻ cho học viên đã có đề cũng hỏi xác nhận', dialogs.length === 5 && /^Học viên này đã được giao đề /.test(dialogs[4]));
 check('both assignment targets send Vietnam offset from a New York browser', assignmentPosts.length === 3 && assignmentPosts.every(({ body }) => body.deadline === '2026-10-27T23:00:00+07:00'));
@@ -273,16 +295,23 @@ await assignmentForm.locator('select[name="prompt_id"]').selectOption('p2');
 await assignmentForm.locator('select[name="cohort_id"]').selectOption('c1');
 await assignmentForm.getByRole('button', { name: 'Giao bài', exact: true }).click();
 await page.getByText('Đã giao bài cho lớp.', { exact: true }).waitFor();
-check('BL-18: đề chưa ai nhận thì không hỏi xác nhận', dialogs.length === dialogsBeforeFreshGive && previewPosts.length === previewsBeforeFreshGive + 1
+check('BL-18: đề chưa ai nhận thì không hỏi xác nhận', dialogs.length === dialogsBeforeFreshGive && await confirmDialog.count() === 0 && previewPosts.length === previewsBeforeFreshGive + 1
   && JSON.stringify(previewPosts.at(-1)?.prompt_ids) === '["p2"]' && assignmentPosts.at(-1)?.body.prompt_ids?.[0] === 'p2', `${dialogs.length - dialogsBeforeFreshGive} dialogs, ${previewPosts.length - previewsBeforeFreshGive} previews`);
 
 await page.getByRole('button', { name: 'Chấm bài' }).click();
-check('hàng chờ chấm render đúng review canonical', await page.getByText('student@example.com', { exact: true }).count() === 1 && await page.getByRole('button', { name: 'Nhận chấm' }).count() === 1);
+// The student cell now also carries the PC-J36 identity line, so count rows by their first cell.
+const queueRows = page.locator('section[aria-labelledby="grade-title"] tbody tr');
+const queueCounts = [await queueRows.filter({ has: page.locator('td:first-child', { hasText: 'student@example.com' }) }).count(), await page.getByRole('button', { name: 'Nhận chấm' }).count(), await page.getByRole('button', { name: 'Chấm tiếp' }).count()];
+check('hàng chờ chấm render đúng review canonical', JSON.stringify(queueCounts) === '[2,1,1]', JSON.stringify(queueCounts));
+// The page runs in America/New_York; the identity line is still Vietnam time.
+const queueIdentities = await page.locator('section[aria-labelledby="grade-title"] .ins-cell-meta').allTextContents();
+check('PC-J36: 2 bài cùng học viên hiện mã bài + giờ nộp khác nhau', JSON.stringify(queueIdentities) === JSON.stringify(['e1 · 28/10/2026 14:05', 'ad8db313 · 28/10/2026 16:30']), JSON.stringify(queueIdentities));
 check('mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
 await page.setViewportSize({ width: 1440, height: 900 });
 check('desktop không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
 check('không có write ngoài mutation fixture', unexpectedWrites.length === 0, unexpectedWrites.join(', '));
 check('không có lỗi JS', pageErrors.length === 0, pageErrors.join(' | '));
+check('không dùng hộp confirm của trình duyệt', nativeDialogs.length === 0, nativeDialogs.join(' | '));
 
 const deniedContext = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: 'America/New_York' });
 await seedSession(deniedContext, 'student-1', 'student@local');

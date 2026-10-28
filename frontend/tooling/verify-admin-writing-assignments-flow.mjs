@@ -93,8 +93,8 @@ for (const width of [1280, 1263]) {
   check(`BL-04: cột thao tác và nút toolbar không bị cắt ở ${width}px`, fit.toolbar && fit.actions, JSON.stringify(fit));
 }
 await page.setViewportSize({ width: 1440, height: 980 });
-check('BL-05: chỉ bài chưa bắt đầu có nút Xoá', await page.locator('.awa-group').filter({ hasText: 'Nhóm đã nộp' }).getByRole('button', { name: /^Xoá bài giao/ }).count() === 0
-  && await page.locator('.awa-group').filter({ hasText: hostile }).getByRole('button', { name: /^Xoá bài giao/ }).count() === 1);
+check('BL-05: chỉ bài chưa bắt đầu có nút Xoá', await page.locator('.awa-group').filter({ hasText: 'Nhóm đã nộp' }).getByRole('button', { name: /^Xóa bài giao/ }).count() === 0
+  && await page.locator('.awa-group').filter({ hasText: hostile }).getByRole('button', { name: /^Xóa bài giao/ }).count() === 1);
 
 await page.getByRole('button', { name: 'Giao bài mới' }).click(); await page.getByRole('dialog').waitFor();
 const dialogLayout = await page.getByRole('dialog').evaluate((element) => {
@@ -204,25 +204,25 @@ await missingDialog.getByRole('button', { name: 'Đóng' }).click(); await missi
 // BL-05: guarded delete with an in-app confirm; the list is re-read after both outcomes.
 await page.goto(`${BASE}/admin/writing/assignments`, { waitUntil: 'domcontentloaded' }); await page.getByText(hostile, { exact: true }).waitFor();
 const listReads = () => requests.filter((item) => item.path === '/admin/writing/assignments' && item.method === 'GET').length;
-const deleteButton = (groupText) => page.locator('.awa-group').filter({ hasText: groupText }).getByRole('button', { name: /^Xoá bài giao/ });
+const deleteButton = (groupText) => page.locator('.awa-group').filter({ hasText: groupText }).getByRole('button', { name: /^Xóa bài giao/ });
 await deleteButton('Buổi kiểm tra').click();
-const deleteDialog = page.getByRole('dialog', { name: 'Xoá bài giao?' }); await deleteDialog.waitFor();
-await deleteDialog.getByRole('button', { name: 'Huỷ' }).click(); await deleteDialog.waitFor({ state: 'hidden' });
+const deleteDialog = page.getByRole('dialog', { name: 'Xóa bài giao?' }); await deleteDialog.waitFor();
+await deleteDialog.getByRole('button', { name: 'Hủy' }).click(); await deleteDialog.waitFor({ state: 'hidden' });
 check('BL-05: huỷ xác nhận thì không gửi DELETE', deletes.length === 0);
 const readsBeforeDelete = listReads();
 await deleteButton(hostile).click(); await deleteDialog.waitFor();
 check('BL-05: hộp xác nhận nêu đúng đề và học viên', await deleteDialog.getByText('Discuss public transport', { exact: true }).count() === 1 && await deleteDialog.getByText('Lan', { exact: true }).count() === 1);
-await deleteDialog.getByRole('button', { name: 'Xoá bài giao', exact: true }).click();
-await page.getByText('Đã xoá bài giao.', { exact: true }).waitFor();
+await deleteDialog.getByRole('button', { name: 'Xóa bài giao', exact: true }).click();
+await page.getByText('Đã xóa bài giao.', { exact: true }).waitFor();
 check('BL-05: xoá gọi DELETE guarded rồi đọc lại danh sách chuẩn', JSON.stringify(deletes) === '["a-old"]' && listReads() === readsBeforeDelete + 1
   && await page.getByText(hostile, { exact: true }).count() === 0 && await deleteDialog.count() === 0);
 const readsBefore409 = listReads();
 await deleteButton('Buổi kiểm tra').click(); await deleteDialog.waitFor();
-await deleteDialog.getByRole('button', { name: 'Xoá bài giao', exact: true }).click();
+await deleteDialog.getByRole('button', { name: 'Xóa bài giao', exact: true }).click();
 await deleteDialog.getByText('Học viên đã bắt đầu làm bài nên không xóa được bài giao này.', { exact: true }).waitFor();
 check('BL-05: backend 409 hiện trong hộp thoại, bài vẫn còn, danh sách được đọc lại', deletes.at(-1) === 'a-new' && listReads() === readsBefore409 + 1
   && await page.locator('.awa-group').filter({ hasText: 'Buổi kiểm tra' }).count() === 1);
-await deleteDialog.getByRole('button', { name: 'Huỷ' }).click(); await deleteDialog.waitFor({ state: 'hidden' });
+await deleteDialog.getByRole('button', { name: 'Hủy' }).click(); await deleteDialog.waitFor({ state: 'hidden' });
 
 await page.setViewportSize({ width: 390, height: 844 }); await page.getByText('Buổi kiểm tra', { exact: true }).waitFor();
 const mobile = await page.evaluate(() => ({ overflow: document.documentElement.scrollWidth > innerWidth, columns: getComputedStyle(document.querySelector('.awa-row')).gridTemplateColumns.split(' ').length }));

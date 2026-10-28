@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 
+import { Dialog } from '@/components/admin-directory-ui';
 import { getAuthorizationIdentity } from '@/lib/auth-api';
 import { postBrowserJsonAt } from '@/lib/browser-api';
 import { useAuth } from '@/lib/auth/auth-provider';
@@ -26,6 +27,7 @@ import {
   normalizeInstructorQueue,
   normalizeInstructorStudents,
   normalizeInstructorSummary,
+  queueRowIdentity,
 } from '@/lib/instructor-dashboard-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import { clearPersistedAuthSession, rememberSignedOutSession } from '@/lib/auth/sign-out-state.mjs';
@@ -82,6 +84,8 @@ export function InstructorDashboard() {
   const [drawerStudentId, setDrawerStudentId] = useState<string | null>(null);
   const [drawerSummary, setDrawerSummary] = useState<any>(null);
   const [drawerError, setDrawerError] = useState<string | null>(null);
+  const [confirmMessage, setConfirmMessage] = useState<string | null>(null);
+  const confirmResolve = useRef<((ok: boolean) => void) | null>(null);
   const sequence = useRef(0);
   const drawerSequence = useRef(0);
   const accountKey = status === 'signed-in' && user?.id ? user.id : '';
@@ -142,6 +146,10 @@ export function InstructorDashboard() {
   }, [status]);
 
   useEffect(() => {
+    // An account change cancels an open give confirmation; it belonged to the previous account.
+    confirmResolve.current?.(false);
+    confirmResolve.current = null;
+    setConfirmMessage(null);
     if (status === 'signed-out') {
       window.location.replace('/login');
       return;
@@ -223,6 +231,20 @@ export function InstructorDashboard() {
     }
   };
 
+  // In-app replacement for the browser confirm box: resolves true only on the confirm button.
+  const askConfirm = (message: string) => new Promise<boolean>((resolve) => {
+    confirmResolve.current?.(false);
+    confirmResolve.current = resolve;
+    setConfirmMessage(message);
+  });
+
+  const answerConfirm = (ok: boolean) => {
+    const resolve = confirmResolve.current;
+    confirmResolve.current = null;
+    setConfirmMessage(null);
+    resolve?.(ok);
+  };
+
   const createCohort = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -273,17 +295,17 @@ export function InstructorDashboard() {
     if (!promptId) return missing('prompt_id', 'Chưa chọn đề bài.');
     const promptTitle = data.prompts.find((prompt) => prompt.id === promptId)?.title || '';
     // W-06: re-giving is allowed (ALLOW + WARN) but must be a deliberate choice.
-    const confirmRegive = (existing: unknown) => !existing || window.confirm(duplicateGiveConfirmMessage(existing, promptTitle, target as 'cohort' | 'student'));
+    const confirmRegive = async (existing: unknown) => !existing || askConfirm(duplicateGiveConfirmMessage(existing, promptTitle, target as 'cohort' | 'student'));
     const resetOnSuccess = (ok: boolean | undefined) => { if (ok) { form.reset(); setAssignmentTarget('cohort'); } };
     if (target === 'cohort') {
       const cohortId = String(values.get('cohort_id') || '');
       if (!cohortId) return missing('cohort_id', 'Chưa chọn lớp.');
       const sameClassGive = findExistingGive(data.assignments, { promptId, cohortId });
-      if (!confirmRegive(sameClassGive)) return;
       const body: Record<string, unknown> = { prompt_ids: [promptId], cohort_id: cohortId, analysis_level: analysisLevel, grading_tier: gradingTier };
       if (deadline) body.deadline = deadline;
       if (name) body.name = name;
       void (async () => {
+        if (!(await confirmRegive(sameClassGive))) return false;
         // BL-18: members may hold the prompt from another give (individual, other
         // class, admin). Ask with the same overlap the result banner reports,
         // unless the re-give of this class was just confirmed above.
@@ -294,11 +316,14 @@ export function InstructorDashboard() {
     }
     const studentId = String(values.get('student_id') || '');
     if (!studentId) return missing('student_id', 'Chưa chọn học viên.');
-    if (!confirmRegive(findExistingGive(data.assignments, { promptId, studentId }))) return;
+    const existingGive = findExistingGive(data.assignments, { promptId, studentId });
     const body: Record<string, unknown> = { prompt_id: promptId, student_id: studentId, analysis_level: analysisLevel, grading_tier: gradingTier };
     if (deadline) body.deadline = deadline;
     if (name) body.name = name;
-    void mutate('assignment', () => window.api.post(requestPath('/instructor/assignments'), body), ASSIGNMENT_COPY.studentSuccess).then(resetOnSuccess);
+    void (async () => {
+      if (!(await confirmRegive(existingGive))) return false;
+      return mutate('assignment', () => window.api.post(requestPath('/instructor/assignments'), body), ASSIGNMENT_COPY.studentSuccess);
+    })().then(resetOnSuccess);
   };
 
   const confirmCohortOverlap = async (promptId: string, cohortId: string, promptTitle: string) => {
@@ -314,7 +339,7 @@ export function InstructorDashboard() {
       const message = preview ? cohortOverlapConfirmMessage(preview, promptTitle) : null;
       // An unreadable preview does not block the give: its result banner still
       // reports duplicates_warning from the write itself.
-      return !message || window.confirm(message);
+      return !message || await askConfirm(message);
     } catch {
       return ownerId === accountRef.current;
     } finally {
@@ -451,9 +476,11 @@ export function InstructorDashboard() {
 
         {tab === 'grade' && <section aria-labelledby="grade-title">
           <div className="ins-heading"><div><p>Owner-scoped queue</p><h1 id="grade-title">Hàng chờ chấm</h1></div><strong>{data.queue.length}</strong></div>
-          <div className="ins-card ins-table-wrap"><table className="ins-table"><thead><tr><th>Học viên</th><th>Dạng</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>{data.queue.length ? data.queue.map((item) => <tr key={item.reviewId}><td>{item.studentEmail || item.essayId}</td><td>{item.taskType || '—'}</td><td><StatusPill tone={item.status === 'claimed' ? 'warning' : 'neutral'}>{item.status}</StatusPill></td><td><button type="button" onClick={() => void claimAndGrade(item)} disabled={!!pending}>{pending === `review:${item.reviewId}` ? 'Đang xác nhận…' : item.status === 'claimed' ? 'Chấm tiếp' : 'Nhận chấm'}</button></td></tr>) : <EmptyRow columns={4}>Không có bài chờ chấm.</EmptyRow>}</tbody></table></div>
+          <div className="ins-card ins-table-wrap"><table className="ins-table"><thead><tr><th>Học viên</th><th>Dạng</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>{data.queue.length ? data.queue.map((item) => <tr key={item.reviewId}><td>{item.studentEmail || item.essayId}<small className="ins-cell-meta">{queueRowIdentity(item)}</small></td><td>{item.taskType || '—'}</td><td><StatusPill tone={item.status === 'claimed' ? 'warning' : 'neutral'}>{item.status}</StatusPill></td><td><button type="button" onClick={() => void claimAndGrade(item)} disabled={!!pending}>{pending === `review:${item.reviewId}` ? 'Đang xác nhận…' : item.status === 'claimed' ? 'Chấm tiếp' : 'Nhận chấm'}</button></td></tr>) : <EmptyRow columns={4}>Không có bài chờ chấm.</EmptyRow>}</tbody></table></div>
         </section>}
       </main>
+
+      <Dialog open={confirmMessage !== null} title={ASSIGNMENT_COPY.confirmTitle} description={confirmMessage} onClose={() => answerConfirm(false)} actions={<><button className="av-button av-button-secondary" type="button" onClick={() => answerConfirm(false)}>{ASSIGNMENT_COPY.confirmCancel}</button><button className="av-button av-button-primary" type="button" onClick={() => answerConfirm(true)}>{ASSIGNMENT_COPY.confirmAccept}</button></>} />
 
       {drawerStudentId && <><button type="button" className="ins-drawer-backdrop" aria-label="Đóng hồ sơ học viên" onClick={closeDrawer} /><aside className="ins-drawer" aria-label="Hồ sơ học viên" aria-live="polite"><button type="button" className="ins-drawer__close" onClick={closeDrawer} aria-label="Đóng">×</button>{drawerError && <div className="ins-banner is-danger" role="alert">{drawerError}</div>}{!drawerError && !drawerSummary && <p className="ins-empty">Đang tải hồ sơ…</p>}{drawerSummary && <><p className="ins-kicker">Hồ sơ học viên</p><h2>{drawerSummary.student.fullName}</h2><p className="ins-note">{drawerSummary.student.studentCode}{drawerSummary.student.targetBand ? ` · Mục tiêu ${drawerSummary.student.targetBand}` : ''}</p><dl className="ins-stats"><div><dt>Tổng bài</dt><dd>{drawerSummary.stats.totalEssays}</dd></div><div><dt>Đã chấm</dt><dd>{drawerSummary.stats.gradedCount}</dd></div><div><dt>Gắn cờ</dt><dd>{drawerSummary.stats.flaggedCount}</dd></div><div><dt>Band TB 5 bài</dt><dd>{drawerSummary.stats.averageBandLast5 ?? '—'}</dd></div></dl><h3>Bài gần đây</h3><div className="ins-table-wrap"><table className="ins-table"><thead><tr><th>Dạng</th><th>Trạng thái</th></tr></thead><tbody>{drawerSummary.recentEssays.length ? drawerSummary.recentEssays.map((essay: any) => <tr key={essay.id}><td>{essay.taskType}</td><td>{essay.status}</td></tr>) : <EmptyRow columns={2}>Chưa có bài.</EmptyRow>}</tbody></table></div></>}</aside></>}
     </>

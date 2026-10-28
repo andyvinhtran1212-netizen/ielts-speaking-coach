@@ -35,7 +35,12 @@ const users = [
   { id: 'u1', email: 'alice@example.test', display_name: 'Alice <img src=x onerror=alert(1)>', created_at: '2026-08-01T00:00:00Z', is_active: true, role: 'student', sessions_today: 2, cohort_name: null },
   { id: 'u2', email: 'bob@example.test', display_name: 'Bob', created_at: '2026-07-01T00:00:00Z', is_active: true, role: 'instructor', sessions_today: 5, cohort_name: 'Khoá 1' },
   { id: adminId, email: 'admin-users@local', display_name: 'Admin', created_at: '2026-06-01T00:00:00Z', is_active: true, role: 'admin', sessions_today: 1, cohort_name: null },
+  { id: 'u3', email: 'carol-suspended@example.test', display_name: 'Carol', created_at: '2026-05-01T00:00:00Z', is_active: false, role: 'instructor', sessions_today: 0, cohort_name: null },
 ];
+// ADMINAAL2-0032 FR-019 (migration 336): the backend refuses a role change of
+// a suspended account until it is reactivated. Carol starts suspended.
+const suspended = new Set(['u3']);
+const SUSPENDED_ROLE_MESSAGE = 'Không thể đổi vai trò của tài khoản đang bị tạm khóa. Hãy mở khóa tài khoản trước, rồi đổi vai trò.';
 
 let codes = [
   { id: 'c1', code: 'ACTIVE-001', is_used: true, is_revoked: false, is_active: true, used_by: 'u2', used_at: '2026-07-02T00:00:00Z', created_at: '2026-07-01T00:00:00Z', permissions: ['all'], session_limit: 10, expires_at: null, code_type: 'direct', cohort_id: 'co1', cohort_name: 'Khoá 1', notes: '<script>alert(1)</script>', association_lookup_failed: false, assigned_users: [{ user_id: 'u2', name: 'Bob', email: 'bob@example.test', is_fallback_used_by: false, removable: true, quota: { used: 3, limit: 10, remaining: 7, limit_type: 'per_user_via_code' } }] },
@@ -108,6 +113,9 @@ await page.route('**/*', async (route) => {
   if (roleMatch && method === 'PATCH') {
     const body = JSON.parse(request.postData() || '{}');
     const user = users.find((item) => item.id === roleMatch[1]);
+    if (user && suspended.has(user.id) && body.role !== user.role) {
+      return json({ detail: { code: 'account_suspended_role_change', message: SUSPENDED_ROLE_MESSAGE } }, 409);
+    }
     if (user) user.role = body.role;
     return json({ ok: true, id: roleMatch[1], role: body.role });
   }
@@ -210,6 +218,25 @@ await page.getByText('Đã cập nhật vai trò thành instructor.', { exact: t
 check('đổi role PATCH đúng endpoint rồi canonical reload',
   writeHasLaterRead('PATCH', /^\/admin\/users\/u1\/role$/, '/admin/users')
     && await aliceRow.getByText('instructor', { exact: true }).count() >= 1);
+
+const carolRow = page.locator('tr').filter({ hasText: 'carol-suspended@example.test' });
+await carolRow.locator('select').selectOption('student');
+await page.getByRole('button', { name: 'Đổi vai trò' }).click();
+await page.getByRole('alert').filter({ hasText: SUSPENDED_ROLE_MESSAGE }).waitFor({ state: 'visible' });
+check('đổi role tài khoản đang tạm khóa: 409 hiện lỗi tiếng Việt, role giữ nguyên',
+  requests.some((item) => item.method === 'PATCH' && item.path === '/admin/users/u3/role')
+    && users.find((item) => item.id === 'u3').role === 'instructor'
+    && await carolRow.locator('select').inputValue() === 'instructor');
+suspended.delete('u3');   // the admin reactivates the account first (PATCH …/active)
+const carolRetryFrom = requests.length;
+await carolRow.locator('select').selectOption('student');
+await page.getByRole('button', { name: 'Đổi vai trò' }).click();
+await page.getByText('Đã cập nhật vai trò thành student.', { exact: true }).waitFor({ state: 'visible' });
+const carolRetry = requests.slice(carolRetryFrom);
+const carolPatch = carolRetry.findIndex((item) => item.method === 'PATCH' && item.path === '/admin/users/u3/role');
+check('sau khi mở khóa, đổi role thành công rồi canonical reload',
+  carolPatch >= 0 && carolRetry.slice(carolPatch + 1).some((item) => item.method === 'GET' && item.path === '/admin/users')
+    && await carolRow.locator('select').inputValue() === 'student');
 
 await aliceRow.getByRole('button', { name: 'Tạo hồ sơ HV' }).click();
 await page.getByLabel('Mã học viên').fill('');

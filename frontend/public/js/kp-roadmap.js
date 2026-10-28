@@ -101,8 +101,11 @@
           '<p style="color:var(--av-error);font-weight:600;margin-bottom:var(--av-space-2);">Không tải được lộ trình</p>' +
           '<p style="color:var(--av-text-muted);font-size:var(--av-fs-sm);margin-bottom:var(--av-space-6);">' +
             'Đã có lỗi khi tải lộ trình của bạn. Vui lòng thử lại sau ít phút.</p>' +
-          '<button type="button" onclick="location.reload()" class="btn-primary">Thử lại</button>' +
+          '<button type="button" class="btn-primary" data-roadmap-retry>Thử lại</button>' +
         '</div>';
+      // A listener, not an inline onclick: a nonce-based CSP blocks those.
+      var retry = steps.querySelector('[data-roadmap-retry]');
+      if (retry) retry.addEventListener('click', function () { location.reload(); });
     }
   }
 

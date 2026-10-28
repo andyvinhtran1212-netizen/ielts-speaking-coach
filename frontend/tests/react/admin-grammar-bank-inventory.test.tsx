@@ -42,7 +42,7 @@ it.each(['topics', 'quiz'] as const)('shows canonical revision state and keeps p
     expect(screen.getByText('Chưa xác minh phiên bản')).toBeTruthy();
     for (const code of ['current', 'legacy', 'unknown', 'unmanaged']) {
       const row = screen.getByText(code, { exact: true }).closest(inventory === 'topics' ? 'article' : 'tr')!;
-      const deletion = within(row as HTMLElement).getByRole('button', { name: 'Xoá', exact: true }) as HTMLButtonElement;
+      const deletion = within(row as HTMLElement).getByRole('button', { name: 'Xóa', exact: true }) as HTMLButtonElement;
       expect(deletion.disabled).toBe(code !== 'unmanaged');
       if (code !== 'unmanaged') fireEvent.click(deletion);
       if (inventory === 'topics') {

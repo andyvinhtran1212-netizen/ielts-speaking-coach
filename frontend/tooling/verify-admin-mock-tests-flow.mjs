@@ -210,7 +210,7 @@ for (const width of [1440, 1024, 768, 390]) {
   });
   check(`Live ${width}px không lồng, không tràn và tất cả tab đọc được`, !layout.overflow && layout.tabsFit && !layout.nested && (width > 1200 || layout.stacked), JSON.stringify(layout));
   const frame = page.frameLocator('iframe.mts-frame');
-  await frame.getByRole('button', { name: 'Huỷ lượt', exact: true }).last().click();
+  await frame.getByRole('button', { name: 'Hủy lượt', exact: true }).last().click();
   await frame.getByRole('dialog').waitFor();
   const dialogVisible = await page.locator('iframe.mts-frame').evaluate((node) => {
     const frame = node.getBoundingClientRect();
