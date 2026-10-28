@@ -48,28 +48,44 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); window.history.replaceState(null, '', '/'); });
 function ReviewStatus() {
   const flags = useAttemptReviewFlags({ attemptId: 'attempt-a', domain: 'reading', ownerScope: 'learner-a', enabled: true });
-  return <><span>{flags.ready ? 'Flags ready' : 'Flags loading'}</span><AttemptReviewFlagStatus {...flags} onRetry={flags.retry} /></>;
+  return <><span>{flags.ready ? 'Flags ready' : 'Flags loading'}</span><button type="button" onClick={() => flags.toggle(1)}>Toggle Q1</button><AttemptReviewFlagStatus {...flags} onRetry={flags.retry} /></>;
 }
 it('Review identity conflicts retain reload guidance without changing saved marks', async () => {
   render(<ReviewStatus />);
   await screen.findByText('Flags ready');
   savedFlag = { ...savedFlag, question_id: 'question-changed' };
   fireEvent(document, new Event('visibilitychange'));
-  expect(await screen.findByText(/The questions in this attempt have changed\. Reload the test/)).toBeTruthy();
-  expect(screen.queryByText(/Check your connection/)).toBeNull();
+  expect(await screen.findByText(/Câu hỏi trong bài làm này đã thay đổi\. Bạn hãy tải lại bài để kiểm tra/)).toBeTruthy();
+  expect(screen.queryByText(/kiểm tra kết nối mạng/)).toBeNull();
   expect(api.patchWith).not.toHaveBeenCalled();
 });
-it('Review network errors use English fallback while retry preserves validated errors', async () => {
+it('Review network errors use the Vietnamese connection fallback while retry preserves validated errors', async () => {
   api.getWith.mockRejectedValueOnce(new Error('Khong the ket noi'));
   render(<ReviewStatus />);
-  expect(await screen.findByText(/Unable to load review marks\. Check your connection and retry/)).toBeTruthy();
+  expect(await screen.findByText(/Chưa tải được các câu đã đánh dấu xem lại\. Bạn hãy kiểm tra kết nối mạng rồi bấm Thử lại/)).toBeTruthy();
   expect(screen.queryByText('Khong the ket noi')).toBeNull();
   api.getWith.mockResolvedValueOnce({ ...scope, attempt_id: 'another-attempt', review_flags: [savedFlag] });
-  fireEvent.click(screen.getByRole('button', { name: 'Thử lưu lại' }));
-  expect(await screen.findByText('Unable to confirm review marks for this attempt.')).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: 'Thử lưu lại' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+  expect(await screen.findByText('Chưa xác nhận được các câu đã đánh dấu xem lại cho bài làm này. Bạn hãy bấm Thử lại.')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
   await screen.findByText('Flags ready');
-  expect(screen.queryByRole('button', { name: 'Thử lưu lại' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Thử lại' })).toBeNull();
+});
+it('Review save rejected by another tab shows the conflict notice until retry saves on the new revision', async () => {
+  render(<ReviewStatus />);
+  await screen.findByText('Flags ready');
+  api.patchWith.mockImplementationOnce(async () => {
+    savedFlag = { ...savedFlag, revision: 5 };
+    return { ...scope, ...savedFlag, operation_id: 'other-tab-operation', accepted: false, reason: 'conflict' };
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Toggle Q1' }));
+  expect(await screen.findByText('Đánh dấu xem lại đã được thay đổi ở một tab khác. Bạn hãy kiểm tra lại rồi bấm Thử lại.')).toBeTruthy();
+  expect(api.patchWith.mock.calls[0][1]).toMatchObject({ q_num: 1, flagged: false, expected_revision: 2 });
+  fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+  await waitFor(() => expect(savedFlag).toMatchObject({ flagged: false, revision: 6 }));
+  expect(api.patchWith.mock.calls[1][1]).toMatchObject({ q_num: 1, flagged: false, expected_revision: 5 });
+  await waitFor(() => expect(screen.queryByText(/một tab khác/)).toBeNull());
+  expect(screen.queryByRole('button', { name: 'Thử lại' })).toBeNull();
 });
 it('Reading waits for Start, admits the exact sitting, then loads bound context and saved Review flags', async () => {
   window.history.replaceState(null, '', '/reading/exam/session?test_id=paper-a&sitting_id=sitting-a');
@@ -102,7 +118,7 @@ it('failed Review save stays visible, explicit retry saves it, and reload does n
   failFlag = true; fireEvent.click(review); expect((review as HTMLInputElement).checked).toBe(false);
   expect(await screen.findByText(/Chưa lưu được đánh dấu xem lại ở 1 câu\. Thay đổi của bạn vẫn hiển thị trong tab này\./)).toBeTruthy();
   expect((screen.getByRole('textbox', { name: 'Answer 1', exact: true }) as HTMLInputElement).value).toBe('saved answer');
-  failFlag = false; fireEvent.click(screen.getByRole('button', { name: 'Thử lưu lại' }));
+  failFlag = false; fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
   await waitFor(() => expect(savedFlag.flagged).toBe(false));
   expect(api.patchWith.mock.calls.every(([path]) => path.endsWith('/review-flags'))).toBe(true);
   first.unmount(); render(<ListeningTestSession />);

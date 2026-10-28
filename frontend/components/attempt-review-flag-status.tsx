@@ -10,6 +10,6 @@ export function AttemptReviewFlagStatus({ ready, states, error, onRetry }: {
   if (ready && !error && !states.size) return null;
   return <p role="status" className="exam-review-flag-status">
     {error || (!ready ? 'Đang tải các câu đã đánh dấu xem lại…' : failed ? `Chưa lưu được đánh dấu xem lại ở ${failed} câu. Thay đổi của bạn vẫn hiển thị trong tab này.` : 'Đang lưu đánh dấu xem lại…')}
-    {error || failed ? <button type="button" onClick={onRetry}>Thử lưu lại</button> : null}
+    {error || failed ? <button type="button" onClick={onRetry}>Thử lại</button> : null}
   </p>;
 }
