@@ -33,6 +33,7 @@ from database import supabase_admin
 from models.writing_feedback import PromptImageAnalysis
 from routers.admin import require_admin
 from services import writing_prompt_analysis
+from services.writing_image_access import attach_signed_image_urls, canonical_image_ref
 from services.writing_prompt_image import (
     delete_prompt_image,
     upload_prompt_image,
@@ -88,7 +89,8 @@ class PromptCreate(BaseModel):
         False,
         description="Dành riêng cho kỳ thi thử — ẩn khỏi ngân hàng đề của học viên (mig 170)",
     )
-    prompt_image_url:       Optional[str] = Field(None, max_length=500)
+    # Accepts the signed preview URL from upload-image (stored as its path).
+    prompt_image_url:       Optional[str] = Field(None, max_length=2048)
     prompt_image_public_id: Optional[str] = Field(None, max_length=300)
 
 
@@ -102,7 +104,7 @@ class PromptUpdate(BaseModel):
     difficulty:             Optional[str]       = Field(None, pattern=_DIFFICULTY_PATTERN)
     tags:                   Optional[list[str]] = Field(None, max_length=20)
     is_active:              Optional[bool]      = None
-    prompt_image_url:       Optional[str]       = Field(None, max_length=500)
+    prompt_image_url:       Optional[str]       = Field(None, max_length=2048)
     prompt_image_public_id: Optional[str]       = Field(None, max_length=300)
     exam_only:              Optional[bool]      = Field(
         None,
@@ -111,8 +113,8 @@ class PromptUpdate(BaseModel):
 
 
 class UploadImageResponse(BaseModel):
-    """Response shape for `POST .../upload-image`. `url` is the public
-    Supabase Storage URL (persisted into `prompt_image_url`); `public_id`
+    """Response shape for `POST .../upload-image`. `url` is a short-lived
+    signed preview URL (create/PATCH store it as its object path); `public_id`
     is the storage path persisted into `prompt_image_public_id`. Published
     objects are retained as immutable grading evidence; only unattached
     uploads may be discarded. `width`/`height` are null — we don't decode
@@ -157,10 +159,18 @@ async def list_prompts(
         q = q.eq("is_active", is_active)
 
     r = q.execute()
-    return {"prompts": r.data or []}
+    prompts = r.data or []
+    attach_signed_image_urls(prompts)
+    return {"prompts": prompts}
 
 
-def _maybe_trigger_analysis(prompt_row: dict, background_tasks: BackgroundTasks) -> None:
+def _maybe_trigger_analysis(
+    prompt_row: dict,
+    background_tasks: BackgroundTasks,
+    *,
+    requested_by: str,
+    trigger: str,
+) -> None:
     """Kick off answer-key extraction when a task1_academic prompt's chart is new
     or replaced (image public_id != the one the analysis was derived from). Sets
     status='pending' synchronously so the UI reflects it immediately, then runs
@@ -175,6 +185,7 @@ def _maybe_trigger_analysis(prompt_row: dict, background_tasks: BackgroundTasks)
         return
     background_tasks.add_task(
         writing_prompt_analysis.run_and_store_analysis, pid, pending_token,
+        requested_by=requested_by, trigger=trigger,
     )
 
 
@@ -190,6 +201,7 @@ async def create_prompt(
     admin = await require_admin(authorization)
 
     payload = body.model_dump()
+    payload["prompt_image_url"] = canonical_image_ref(payload.get("prompt_image_url"))
     image_url = payload.get("prompt_image_url")
     public_id = payload.get("prompt_image_public_id")
     if bool(image_url) != bool(public_id):
@@ -204,8 +216,12 @@ async def create_prompt(
     r = supabase_admin.table("writing_prompts").insert(payload).execute()
     if not r.data:
         raise HTTPException(500, "Failed to create prompt")
-    _maybe_trigger_analysis(r.data[0], background_tasks)
-    return r.data[0]
+    _maybe_trigger_analysis(
+        r.data[0], background_tasks, requested_by=admin["id"], trigger="create",
+    )
+    out = dict(r.data[0])
+    attach_signed_image_urls([out])
+    return out
 
 
 # Image upload — declared BEFORE the `{prompt_id}` parametric routes
@@ -309,7 +325,9 @@ async def get_prompt(
     )
     if not r.data:
         raise HTTPException(404, "Prompt not found")
-    return r.data[0]
+    prompt = dict(r.data[0])
+    attach_signed_image_urls([prompt])
+    return prompt
 
 
 @router.patch("/{prompt_id}")
@@ -322,7 +340,7 @@ async def update_prompt(
     """Partial update.  Only fields present in the request body are
     written; all others stay untouched. If the image changed, re-schedules
     answer-key extraction (and the prior analysis is re-reviewed)."""
-    await require_admin(authorization)
+    admin = await require_admin(authorization)
 
     # `exclude_unset=True` distinguishes an omitted field from an explicit
     # JSON null. Difficulty and image columns are nullable by contract; all
@@ -331,6 +349,8 @@ async def update_prompt(
     patch = body.model_dump(exclude_unset=True)
     if not patch:
         raise HTTPException(400, "No fields to update")
+    if "prompt_image_url" in patch:
+        patch["prompt_image_url"] = canonical_image_ref(patch["prompt_image_url"])
     invalid_nulls = sorted(
         key for key, value in patch.items()
         if value is None and key not in _PATCH_NULLABLE_FIELDS
@@ -390,7 +410,8 @@ async def update_prompt(
             )
 
         image_changed = (
-            next_image_url != current.get("prompt_image_url")
+            canonical_image_ref(next_image_url)
+            != canonical_image_ref(current.get("prompt_image_url"))
             or next_public_id != old_public_id
             or next_task_type != current.get("task_type")
         )
@@ -415,7 +436,7 @@ async def update_prompt(
             raise HTTPException(409, "Prompt changed; reload before saving")
         raise HTTPException(404, "Prompt not found")
     # Never delete an object that has been published on a prompt. Essay rows
-    # snapshot the public URL, and an in-flight submission may persist that
+    # snapshot the image ref, and an in-flight submission may persist that
     # snapshot after this update commits. Storage cleanup cannot prove the
     # absence of that race atomically, so published chart objects are immutable
     # grading evidence. The discard endpoint remains limited to uploads that
@@ -423,8 +444,12 @@ async def update_prompt(
     # Only a chart identity change auto-triggers extraction. A title/tag edit
     # while an analysis is pending must not start a duplicate model call.
     if image_changed:
-        _maybe_trigger_analysis(r.data[0], background_tasks)
-    return r.data[0]
+        _maybe_trigger_analysis(
+            r.data[0], background_tasks, requested_by=admin["id"], trigger="update",
+        )
+    out = dict(r.data[0])
+    attach_signed_image_urls([out])
+    return out
 
 
 class PromptAnalysisReview(BaseModel):
@@ -449,7 +474,7 @@ async def reanalyze_prompt_image(
     """Manually (re)run answer-key extraction for a task1_academic prompt — the
     recovery path for a 'failed' analysis, or to refresh after a prompt edit.
     Un-reviews the current analysis until the new run is approved."""
-    await require_admin(authorization)
+    admin = await require_admin(authorization)
 
     row = (
         supabase_admin.table("writing_prompts")
@@ -471,6 +496,7 @@ async def reanalyze_prompt_image(
         raise HTTPException(409, "Prompt image changed; reload before re-analyzing")
     background_tasks.add_task(
         writing_prompt_analysis.run_and_store_analysis, str(prompt_id), pending_token,
+        requested_by=admin["id"], trigger="reanalyze",
     )
     return {"status": "pending", "prompt_id": str(prompt_id)}
 
@@ -524,7 +550,9 @@ async def review_prompt_analysis(
     r = update_query.execute()
     if not r.data:
         raise HTTPException(409, "Prompt image changed; reload the answer key before saving")
-    return r.data[0]
+    out = dict(r.data[0])
+    attach_signed_image_urls([out])
+    return out
 
 
 @router.delete("/{prompt_id}")

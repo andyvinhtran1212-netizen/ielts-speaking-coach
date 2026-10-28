@@ -1,7 +1,8 @@
 """routers/admin_students.py — Admin endpoints for Writing Coach student management.
 
-Sprint W2: student CRUD + bulk CSV import. Soft delete deferred to W3
-(`delete_student` performs a hard DELETE).
+Sprint W2: student CRUD + bulk CSV import. STUDENTARCHIVE-0029: DELETE archives
+the learner (migration 326 `fn_archive_student`) and deletes no row; POST
+`/{id}/restore` undoes it. A true erase is not reachable from these routes.
 
 Auth pattern: each endpoint calls `await require_admin(authorization)`
 inline, matching routers/admin.py.
@@ -17,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from models.admin_students import AdminStudentDirectoryRowOut
 from routers.admin import require_admin
-from services import student_service
+from services import student_service, test_data_visibility
 
 
 router = APIRouter(
@@ -88,12 +89,20 @@ async def list_students(
     search: Optional[str] = Query(default=None, max_length=128),
     limit:  int           = Query(default=50, ge=1, le=200),
     offset: int           = Query(default=0, ge=0),
+    include_archived: bool = Query(default=False),
     authorization: str | None = Header(None),
 ):
     """List students; optional case-insensitive substring filter on
-    student_code or full_name."""
-    await require_admin(authorization)
-    return student_service.list_students(search=search, limit=limit, offset=offset)
+    student_code or full_name. Archived learners are listed only with
+    ``include_archived=true``."""
+    admin = await require_admin(authorization)
+    hidden = {}
+    if test_data_visibility.hide_for(email=admin.get("email"), is_admin=True):
+        # Staging test data (TASK B2); excluded in SQL so pages stay full.
+        hidden["exclude_ids"] = test_data_visibility.hidden_student_ids()
+    return student_service.list_students(
+        search=search, limit=limit, offset=offset, include_archived=include_archived,
+        **hidden)
 
 
 @router.get("/{student_id}")
@@ -129,8 +138,43 @@ async def update_student(
 @router.delete("/{student_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_student(
     student_id: UUID,
+    reason: Optional[str] = Query(default=None, max_length=500),
+    deactivate_account: bool = Query(default=False),
     authorization: str | None = Header(None),
 ):
-    """Hard delete (W2 scope). Soft delete deferred to W3."""
-    await require_admin(authorization)
-    student_service.delete_student(str(student_id))
+    """Archive the learner (STUDENTARCHIVE-0029); no row is deleted.
+
+    Ends every active class membership, optionally locks the linked account
+    (``deactivate_account=true``) and writes an audit row. Idempotent: a repeat
+    returns 204 without a second audit row. Unknown id → 404.
+    """
+    admin = await require_admin(authorization)
+    student_service.archive_student(
+        student_id=str(student_id), actor_id=admin["id"],
+        reason=(reason or "").strip() or None,
+        deactivate_account=deactivate_account,
+    )
+
+
+class RestoreStudentRequest(BaseModel):
+    reason: Optional[str] = Field(default=None, max_length=500)
+    reactivate_account: bool = False
+
+
+@router.post("/{student_id}/restore")
+async def restore_student(
+    student_id: UUID,
+    body: Optional[RestoreStudentRequest] = None,
+    authorization: str | None = Header(None),
+):
+    """Restore an archived learner and the class memberships the archive ended.
+
+    409 ``not_archived`` when the learner is not archived; 404 when unknown.
+    """
+    admin = await require_admin(authorization)
+    body = body or RestoreStudentRequest()
+    return student_service.restore_student(
+        student_id=str(student_id), actor_id=admin["id"],
+        reason=(body.reason or "").strip() or None,
+        reactivate_account=body.reactivate_account,
+    )

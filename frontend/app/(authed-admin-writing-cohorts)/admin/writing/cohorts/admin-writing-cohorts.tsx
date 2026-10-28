@@ -13,7 +13,7 @@ type Cohort = { id: string; name: string; description: string | null; studentCou
 type Student = { id: string; name: string | null; code: string | null };
 type Column = { id: string; promptId: string; groupId: string | null; name: string | null; title: string; taskType: string | null; assignedAt: string | null };
 type CellStatus = 'not_submitted' | 'pending' | 'submitted' | 'grading' | 'graded' | 'reviewed' | 'delivered' | 'failed' | 'flagged';
-type Cell = { assignmentId: string; status: CellStatus; essayId: string | null; deadline: string | null; updatedAt: string | null; band: number | null };
+type Cell = { assignmentId: string; status: CellStatus; essayId: string | null; deadline: string | null; updatedAt: string | null; band: number | null; isLate: boolean };
 type Detail = { cohort: { id: string; name: string; description: string | null; studentCount: number }; students: Student[]; columns: Column[]; matrix: Record<string, Record<string, Cell>>; stats: { students: number; assignments: number; essaysPending: number; essaysDelivered: number; overdue: number }; malformedCount: number };
 type ListSnapshot = { account: string; rows: Cohort[]; malformed: number; readAt: string };
 type DetailSnapshot = { account: string; cohortId: string; value: Detail; readAt: string };
@@ -111,6 +111,6 @@ function CohortMatrix({ detail, staleError, readAt, filter, onFilter, onRefresh 
 function ProgressCell({ cell, filter, now }: { cell?: Cell; filter: string; now: number }) {
   if (!cell) return <td className={filter === 'all' ? 'awc-cell is-empty' : 'awc-cell is-empty is-dim'}><span>Không giao</span></td>;
   const config = STATUS[cell.status]; const overdue = isOverdue(cell, now); const matches = cellMatchesFilter(cell, filter, now);
-  const body = <><strong>{config.short}</strong>{cell.band != null && <span>Band {cell.band.toFixed(1)}</span>}{cell.deadline && <small>{overdue ? 'Quá hạn' : 'Hạn'} {formatDate(cell.deadline)}</small>}</>;
+  const body = <><strong>{config.short}</strong>{cell.band != null && <span>Band {cell.band.toFixed(1)}</span>}{cell.isLate && <small>Nộp trễ</small>}{cell.deadline && <small>{overdue ? 'Quá hạn' : 'Hạn'} {formatDate(cell.deadline)}</small>}</>;
   return <td className={`awc-cell is-${overdue ? 'error' : config.lane}${matches ? '' : ' is-dim'}`} title={`${config.label}${cell.deadline ? ` · hạn ${formatDate(cell.deadline)}` : ''}`} >{cell.essayId ? <a href={`/admin/writing/grade?essay_id=${encodeURIComponent(cell.essayId)}`} aria-label={`${config.label}; mở bài Writing`}>{body}<em>Mở bài →</em></a> : <div aria-label={config.label}>{body}</div>}</td>;
 }

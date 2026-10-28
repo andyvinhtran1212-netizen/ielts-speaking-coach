@@ -48,6 +48,15 @@ test('landing retains canonical entry points after reviewed content corrections'
   }
 });
 
+test('landing không chứa khối Bảng giá ẩn (giá dự kiến không nằm trong HTML)', () => {
+  const page = readFileSync(PAGE, 'utf8');
+  assert.doesNotMatch(page, /id="pricing"/, 'the hidden pre-launch pricing section must stay removed');
+  assert.doesNotMatch(page, /display: 'none'/, 'landing must not ship hidden sections in its markup');
+  for (const marker of ['ix-price-card', 'ix-price-note', '299K']) {
+    assert.ok(!page.includes(marker), `hidden pricing remnant: ${marker}`);
+  }
+});
+
 test('CUTOVER: `/` is the Next app route; the legacy `/`→/index.html rewrite is GONE', () => {
   const cfg = readFileSync(path.join(FRONTEND, 'next.config.ts'), 'utf8');
   assert.ok(!cfg.includes("{ source: '/', destination: '/index.html' }"),

@@ -79,7 +79,7 @@ linking. Bottleneck: vocabulary is "safe academic" — uses "important",
 
 ### Mistake count
 
-0-3 per Rule 1 for band 7.5+. At this level the rare mistakes are usually
+1-3 per Rule 1 for band 7.5–8.0 (at least one below 8.5). At this level the rare mistakes are usually
 collocation slips or subtle preposition errors, not basic grammar.
 
 ### Criteria scores
@@ -101,7 +101,7 @@ a precise word). Lexical range is "sufficient" but not "wide".
 
 - `wordsToUpgrade`: 8-10 items (more than Band 8 because more low-hanging fruit)
 - `sentenceUpgrades`: 5-7 items
-- `mistakeAnalysis`: 0-3 items (Rule 1)
+- `mistakeAnalysis`: 1-3 items (Rule 1 — at least one below band 8.5)
 
 ## Pitfalls to avoid at L4
 

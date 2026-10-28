@@ -9,6 +9,11 @@ const session = JSON.stringify({ access_token: 'new-not-real', refresh_token: 'x
 const results = [];
 const requests = [];
 let essayMode = 'ambiguous';
+// The page renders the pending receipt before its POST leaves, so the alert
+// text alone does not mean the 503 arrived. Hold that response until the
+// verifier has checked the in-flight state, then release it explicitly.
+let holdAmbiguous;
+const ambiguousHeld = new Promise((resolve) => { holdAmbiguous = resolve; });
 const check = (name, ok, detail = '') => {
   results.push(ok);
   console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`);
@@ -36,7 +41,10 @@ await page.route('**/*', async (route) => {
   if (path === '/admin/writing/essays' && essayMode === 'rejected') return json({ detail: 'invalid payload' }, 422);
   if (path === '/admin/writing/essays' && essayMode === 'unauthorized') return json({ detail: 'expired token' }, 401);
   if (path === '/admin/writing/essays' && essayMode === 'success') return json({ essay_id: 'essay-1', job_id: 'job-1', eta_seconds: 45, status: 'queued' }, 202);
-  if (path === '/admin/writing/essays') return json({ detail: 'response lost after commit' }, 503);
+  if (path === '/admin/writing/essays') {
+    await new Promise((release) => holdAmbiguous(release));
+    return json({ detail: 'response lost after commit' }, 503);
+  }
   return json({ detail: 'unhandled' }, 500);
 });
 
@@ -63,7 +71,20 @@ check('ảnh chỉ mở ở Task 1 Academic và dùng ACK URL', requests.some((x
 await page.getByLabel('Đề bài').fill('Describe the chart.');
 await page.getByRole('button', { name: 'Gửi vào hàng chờ chấm' }).click();
 await page.getByText('Có một lần gửi chưa xác minh được').waitFor();
-check('ambiguous POST không replay, giữ receipt và chỉ mở reset sau response', requests.filter((x) => x.path === '/admin/writing/essays' && x.method === 'POST').length === 1 && Boolean(await page.evaluate((key) => sessionStorage.getItem(key), `awn-pending:${admin}`)) && await page.getByRole('button', { name: 'Đã kiểm tra · mở lượt mới' }).isEnabled());
+const releaseAmbiguous = await ambiguousHeld;
+const resetButton = page.getByRole('button', { name: 'Đã kiểm tra · mở lượt mới' });
+const resetBeforeResponse = await resetButton.isEnabled();
+const ambiguousResponse = page.waitForResponse((res) => new URL(res.url()).pathname === '/admin/writing/essays' && res.status() === 503);
+releaseAmbiguous();
+await ambiguousResponse;
+const resetAfterResponse = await page.waitForFunction(
+  (name) => [...document.querySelectorAll('button')].some((button) => button.textContent.trim() === name && !button.disabled),
+  'Đã kiểm tra · mở lượt mới',
+  { timeout: 5000 },
+).then(() => true, () => false);
+const essayPosts = requests.filter((x) => x.path === '/admin/writing/essays' && x.method === 'POST').length;
+const receiptKept = Boolean(await page.evaluate((key) => sessionStorage.getItem(key), `awn-pending:${admin}`));
+check('ambiguous POST không replay, giữ receipt và chỉ mở reset sau response', essayPosts === 1 && receiptKept && !resetBeforeResponse && resetAfterResponse, `posts=${essayPosts}, receipt=${receiptKept}, reset trước/sau=${resetBeforeResponse}/${resetAfterResponse}`);
 
 await page.getByRole('button', { name: 'Đã kiểm tra · mở lượt mới' }).click();
 essayMode = 'rejected';

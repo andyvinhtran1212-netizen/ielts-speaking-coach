@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { StrictMode, useState } from 'react';
+import { StrictMode, useLayoutEffect, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { Dialog } from '@/components/admin-directory-ui';
@@ -29,6 +29,31 @@ function FocusFixture({ kind, busy = false, onClose = () => {} }: {
 }
 
 describe('shared admin Dialog', () => {
+  it.each(['Lưu trữ', 'Khôi phục'])('%s moves focus before paint and restores the trigger on Escape', (title) => {
+    const focusAtPaint: (Element | null)[] = [];
+    function Fixture() {
+      const [open, setOpen] = useState(false);
+      useLayoutEffect(() => {
+        if (open) focusAtPaint.push(document.activeElement);
+      }, [open]);
+      return <>
+        <button onClick={() => setOpen(true)}>{title} học viên</button>
+        <Dialog open={open} title={title} onClose={() => setOpen(false)} actions={<button>Hủy</button>}>
+          {title === 'Lưu trữ' && <textarea aria-label="Lý do" />}
+        </Dialog>
+      </>;
+    }
+    render(<StrictMode><Fixture /></StrictMode>);
+    const trigger = screen.getByRole('button', { name: `${title} học viên` });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const dialog = screen.getByRole('dialog', { name: title });
+    expect(focusAtPaint).toEqual([dialog]);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
   it('moves focus inside, traps keyboard focus, closes on Escape, and restores focus', () => {
     const onClose = vi.fn();
     const origin = document.createElement('button');

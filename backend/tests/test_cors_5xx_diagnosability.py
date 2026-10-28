@@ -16,8 +16,11 @@ from fastapi.testclient import TestClient
 import main
 from main import _cors_headers_for_origin, unhandled_exception_handler
 
-ALLOWED = "https://www.averlearning.com"     # explicit allowlist
-SUBDOMAIN = "https://staging.averlearning.com"  # matches the regex only
+# pytest imports main as the development tier (services/cors_policy.py), so
+# the allowed origins here are the localhost dev servers.
+ALLOWED = "http://localhost:3000"            # explicit allowlist
+SUBDOMAIN = "http://127.0.0.1:5500"          # explicit allowlist
+UNLISTED = "https://bat-ky.averlearning.com"    # F11: no wildcard subdomain
 EVIL = "https://evil.example.com"
 
 
@@ -26,7 +29,8 @@ EVIL = "https://evil.example.com"
 
 def test_helper_echoes_only_allowed_origins():
     assert _cors_headers_for_origin(ALLOWED)["Access-Control-Allow-Origin"] == ALLOWED
-    assert _cors_headers_for_origin(SUBDOMAIN)["Access-Control-Allow-Origin"] == SUBDOMAIN  # regex
+    assert _cors_headers_for_origin(SUBDOMAIN)["Access-Control-Allow-Origin"] == SUBDOMAIN
+    assert _cors_headers_for_origin(UNLISTED) == {}    # F11: not reflected
     assert _cors_headers_for_origin(EVIL) == {}        # NOT reflected (security)
     assert _cors_headers_for_origin(None) == {}
     h = _cors_headers_for_origin(ALLOWED)

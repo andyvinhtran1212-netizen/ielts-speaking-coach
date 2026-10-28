@@ -61,9 +61,12 @@ async function fixture(options = {}) {
       if (method === 'POST' && ['/api/analytics/events', '/api/error-logs'].includes(url.pathname)) return route.fulfill({ status: 204, headers: cors });
       if (method === 'GET') {
         if (url.pathname === '/auth/me') return route.fulfill(reply({ id: USER, role: 'student', is_active: true }));
+        if (url.pathname === '/auth/check-active') return route.fulfill(reply({ is_active: true })); // W-03 probe
         if (url.pathname === '/api/student/permissions') return route.fulfill(reply({ writing: options.permitted !== false }));
-        if (url.pathname === '/api/writing/my-assignments') return route.fulfill(reply({ assignments: [], student: {} }));
-        if (url.pathname === '/api/writing/my-essays') return route.fulfill(reply({ essays: [] }));
+        if (url.pathname === '/api/writing/my-assignments') return route.fulfill(options.studentError
+          ? reply({ detail: options.studentError }, 403) : reply({ assignments: [], student: {} }));
+        if (url.pathname === '/api/writing/my-essays') return route.fulfill(options.studentError
+          ? reply({ detail: options.studentError }, 403) : reply({ essays: [] }));
         if (url.pathname === '/api/writing/tips') {
           if (state.hold) await state.hold;
           return route.fulfill(reply(state.status === 200 ? { tips: state.tips } : { detail: 'Synthetic unavailable' }, state.status)).catch(() => {});
@@ -87,6 +90,28 @@ async function fixture(options = {}) {
   return { context, page, state, go, modal, ready, closed, contentEvents, finish };
 }
 try {
+  for (const studentError of [
+    { code: 'student_archived', message: 'Hồ sơ học viên của bạn đã được lưu trữ. Vui lòng liên hệ giảng viên.' },
+    'Em chưa được xếp lớp, Writing sẽ mở khi giáo viên giao bài',
+  ]) {
+    const f = await fixture({ studentError });
+    const message = typeof studentError === 'string' ? studentError : studentError.message;
+    for (const reload of [false, true]) {
+      if (reload) await f.page.reload(); else await f.go('?tab=assignments');
+      // Reload retains the Essays tab in the URL; wait for the lists to boot
+      // before switching back to verify the assignment message visibly.
+      await f.page.locator('#assignments-list .wd-inline-error').waitFor({ state: 'attached' });
+      await f.page.locator('#tab-assignments').click();
+      await f.page.locator('#assignments-list .wd-inline-error').getByText(message, { exact: true }).waitFor();
+      await f.page.locator('#tab-essays').click();
+      await f.page.locator('#essays-list .wd-inline-error').getByText(message, { exact: true }).waitFor();
+      check(`Writing 403 shows canonical ${typeof studentError === 'string' ? 'not-linked' : 'archived'} message${reload ? ' after reload' : ''}`,
+        !await f.page.locator('#error').isVisible()
+        && await f.page.locator('#assignments-list, #essays-list').getByText(
+          typeof studentError === 'string' ? /đã được lưu trữ/ : /chưa được xếp lớp/).count() === 0);
+    }
+    await f.finish();
+  }
   {
     const f = await fixture({ permitted: false }); await f.page.goto(new URL('/__writing-before', base).href); await f.go();
     const card = f.page.locator(`[data-tip-id="${TIP}"]`); await card.waitFor();

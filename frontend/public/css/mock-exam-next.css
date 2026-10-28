@@ -425,6 +425,15 @@
   white-space: pre-wrap;
 }
 
+.me-prompt-image-failed {
+  margin: 12px 0 0;
+  padding: 12px;
+  border: 1px solid var(--av-warning);
+  border-radius: var(--av-radius-md);
+  color: var(--av-warning);
+  font-size: var(--av-fs-sm);
+}
+
 .me-prompt-image {
   display: block;
   max-width: 100%;

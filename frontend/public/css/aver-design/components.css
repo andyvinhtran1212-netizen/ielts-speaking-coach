@@ -712,9 +712,17 @@
    element without it. The :host{display:block} inside the shadow only applies
    AFTER upgrade, too late to reserve space. Values are the measured footprint,
    so post-upgrade the host fills the reserve exactly (no extra whitespace);
-   verified residual shift = 0px at 390/768/1280. Affects all <aver-chrome> pages. */
+   verified residual shift = 0px at 390/768/1280. Affects all <aver-chrome> pages.
+
+   PC-J06 — since U-20 the nav sits behind a hamburger below 1025px and no
+   longer wraps, so the 176px reserve left a 67px gap under the mobile header
+   (35px at 721-1024px). Re-measured on staging (/home, /speaking, /my-class,
+   /grammar): 77px bar + 64px gap = 141px at 721-1024px, 77px + 32px = 109px
+   at <=720px. Breakpoints match MOBILE_NAV_QUERY and the 720px block in
+   aver-chrome.js. */
 aver-chrome { display: block; min-height: 137px; }
-@media (max-width: 1023px) { aver-chrome { min-height: 176px; } }
+@media (max-width: 1024.98px) { aver-chrome { min-height: 141px; } }
+@media (max-width: 720px) { aver-chrome { min-height: 109px; } }
 
 @media (max-width: 720px) {
   .shell { padding: var(--av-space-4) var(--av-space-4) var(--av-space-16); }

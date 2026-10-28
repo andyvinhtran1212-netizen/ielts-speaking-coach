@@ -18,7 +18,7 @@ describe('admin student directory read contract', () => {
   });
 
   test('the directory uses the typed list adapter and retains mutations on the bridge', () => {
-    assert.match(DIRECTORY, /getAdminStudents\(\{ limit: LIMIT, search: search \|\| undefined \}\)/);
+    assert.match(DIRECTORY, /getAdminStudents\(\{ limit: LIMIT, search: search \|\| undefined, includeArchived: archivedView \|\| undefined \}\)/);
     assert.doesNotMatch(DIRECTORY, /window\.api\.get<unknown>\(path\)/);
     assert.match(DIRECTORY, /window\.api\.patch\(`\/admin\/students\/\$\{/);
     assert.match(DIRECTORY, /window\.api\.post\('\/admin\/students'/);
@@ -28,5 +28,9 @@ describe('admin student directory read contract', () => {
     assert.match(API, /query\.set\('search', options\.search\)/);
     assert.match(API, /query\.set\('limit', String\(options\.limit\)\)/);
     assert.match(API, /query\.set\('offset', String\(options\.offset\)\)/);
+    // STUDENTARCHIVE-0029: archived learners only on explicit request.
+    assert.match(API, /if \(options\.includeArchived\) query\.set\('include_archived', 'true'\)/);
+    assert.match(OPENAPI, /"\/admin\/students\/\{student_id\}\/restore"/);
+    assert.match(OPENAPI, /archived_at\?: string \| null/);
   });
 });

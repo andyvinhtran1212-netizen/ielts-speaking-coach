@@ -1,0 +1,109 @@
+name: Offsite restore drill
+
+# Monthly proof that the newest offsite backup restores: download, verify the
+# checksum, decrypt, restore roles + database into a throwaway Postgres 17
+# service container, compare every table's row count with the dump, verify
+# every Storage object's sha256, and cross-check storage.objects. It also fails
+# when the newest backup is older than 8 days, so a silently stopped weekly
+# backup turns this red. Runbook: docs/runbooks/offsite-backup.md.
+#
+# Staging runs on the schedule. Production is off until the repository variable
+# OFFSITE_DRILL_PRODUCTION_ENABLED is 'true' (the production drill identity is
+# deliberately NOT in GitHub by default; run that drill locally instead).
+
+permissions:
+  contents: read
+
+on:
+  schedule:
+    - cron: "23 3 9 * *" # 9th of each month, after the first (monthly-tier) weekly backup
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Backups to drill
+        type: choice
+        options: [staging, production]
+        default: staging
+      backup_key:
+        description: Optional .../meta.json key; default is the newest complete backup
+        type: string
+        default: ""
+
+jobs:
+  plan:
+    name: Select environments
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          REQUESTED: ${{ inputs.environment }}
+          PRODUCTION_ENABLED: ${{ vars.OFFSITE_DRILL_PRODUCTION_ENABLED }}
+        run: |
+          staging='{"env":"staging","ref":"zjphffoujxkpltixsbzj"}'
+          production='{"env":"production","ref":"huwsmtubwulikhlmcirx"}'
+          if [ "$EVENT" = schedule ]; then
+            items="$staging"
+            if [ "$PRODUCTION_ENABLED" = true ]; then
+              items="$items,$production"
+            else
+              echo "::notice::Production restore drill is disabled in CI (OFFSITE_DRILL_PRODUCTION_ENABLED is not 'true'); run it locally per the runbook."
+            fi
+          elif [ "$REQUESTED" = production ]; then
+            if [ "$PRODUCTION_ENABLED" != true ]; then
+              echo "::error::Production restore drill is disabled in CI until OFFSITE_DRILL_PRODUCTION_ENABLED=true (docs/runbooks/offsite-backup.md)."
+              exit 1
+            fi
+            items="$production"
+          else
+            items="$staging"
+          fi
+          echo "matrix={\"include\":[$items]}" >> "$GITHUB_OUTPUT"
+
+  drill:
+    name: Restore drill (${{ matrix.env }})
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    environment: offsite-drill-${{ matrix.env }}
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: drill
+          POSTGRES_DB: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U drill"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: scripts/backup
+
+      - name: Install psql/pg_restore 17 and age
+        run: bash scripts/backup/install_tools.sh
+
+      - name: Restore newest backup and verify
+        env:
+          DRILL_ENV: ${{ matrix.env }}
+          DRILL_EXPECTED_REF: ${{ matrix.ref }}
+          DRILL_TARGET_URL: postgres://drill@127.0.0.1:5432/postgres
+          DRILL_BACKUP_KEY: ${{ inputs.backup_key }}
+          DRILL_AGE_IDENTITY: ${{ secrets.DRILL_AGE_IDENTITY }}
+          OFFSITE_S3_ENDPOINT: ${{ secrets.OFFSITE_S3_ENDPOINT }}
+          OFFSITE_S3_BUCKET: ${{ secrets.OFFSITE_S3_BUCKET }}
+          OFFSITE_S3_REGION: ${{ vars.OFFSITE_S3_REGION }}
+          OFFSITE_S3_ACCESS_KEY_ID: ${{ secrets.OFFSITE_S3_ACCESS_KEY_ID }}
+          OFFSITE_S3_SECRET_ACCESS_KEY: ${{ secrets.OFFSITE_S3_SECRET_ACCESS_KEY }}
+        run: bash scripts/backup/restore_drill.sh

@@ -166,6 +166,19 @@ main { position: relative; z-index: 1; }
   border-bottom-color: var(--av-primary);
 }
 
+/* UIA-1028-06 — at 375 px the four labels wrapped to 2–3 lines with the
+   emoji on its own line. Keep one row and let the strip scroll sideways. */
+.wd-tabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.wd-tabs .tab-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 
 /* ── Status pills (STATUS_CONFIG + ASSIGNMENT_STATUS) ────────────── */
 
@@ -537,6 +550,20 @@ main { position: relative; z-index: 1; }
   font-weight: var(--av-fw-semibold);
   line-height: var(--av-lh-snug);
 }
+.wd-modal-prompt__image-failed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--av-space-2);
+  margin-top: var(--av-space-3);
+  padding: var(--av-space-3);
+  border: 1px solid var(--av-warning);
+  border-radius: var(--av-radius-md);
+  color: var(--av-warning);
+  font-size: var(--av-fs-sm);
+}
+.wd-modal-prompt__image-failed.hidden { display: none; }
+
 .wd-modal-prompt__image {
   display: block;
   width: 100%;

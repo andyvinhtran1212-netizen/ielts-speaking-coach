@@ -88,9 +88,15 @@
       /** @type {any} */ (sdkError).code = 'SUPABASE_SDK_UNAVAILABLE';
       throw sdkError;
     }
+    // F06: no client on any page may use the implicit flow, which puts the
+    // access token in the redirect URL. Next routes never reach this UMD
+    // fallback (the runtime boundary injects its PKCE client, owned with the
+    // /login exchange in lib/supabase-browser.ts); retired HTML pages keep
+    // supabase-js URL detection, which exchanges their `?code=` callback.
     _sb = window.supabase.createClient(
       _RC.supabaseUrl || url,
-      _RC.supabaseAnonKey || anonKey
+      _RC.supabaseAnonKey || anonKey,
+      { auth: { flowType: 'pkce' } }
     );
     return _sb;
   }
@@ -165,6 +171,11 @@
           ? window.crypto.randomUUID()
           : 'fb-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
     } catch (e) { /* correlation is optional */ }
+    // TASK B2 — admin opt-in to see staging E2E/QA test data (toggle in the
+    // admin gate). The backend honours it only for admins on staging.
+    try {
+      if (window.localStorage.getItem('aver.showTestData') === '1') headers['X-Show-Test-Data'] = '1';
+    } catch (e) { /* storage unavailable — keep the default view */ }
     if (token) headers['Authorization'] = 'Bearer ' + token;
     if (!isFormData) headers['Content-Type'] = 'application/json';
     // reading-access-tracking — optional per-call headers (e.g. the locked-test
@@ -272,6 +283,8 @@
     postWith:  function (path, body, hdrs, opts) { return _apiRequest('POST',  path, body, false, hdrs, opts); },
     /** @template T @param {string} path @param {*} [body] @param {Record<string,string>} [hdrs] @param {*} [opts] @returns {Promise<T>} */
     patchWith: function (path, body, hdrs, opts) { return _apiRequest('PATCH', path, body, false, hdrs, opts); },
+    // U-07: sign-out drops the keepalive token so no later request reuses it.
+    clearAuthCache: function () { _lastToken = null; },
   };
 
   // Expose only what the page scripts need

@@ -11,8 +11,7 @@ import asyncio
 import json
 import logging
 import math
-import random
-import string
+import time
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote, urlparse
 
@@ -34,13 +33,18 @@ from models.admin_speaking import (
     AdminSummaryRebuildResponse,
 )
 from models.admin_overview import DashboardOverviewOut, DashboardTrendsOut
-from models.admin_users import AdminUserDirectoryRowOut
+from models.admin_users import AdminTestDataVisibilityOut, AdminUserDirectoryRowOut
 from models.grammar_content import GrammarArticleDocument
 from database import supabase_admin
 from services.class_assignment_service import sync_class_item_score
 from services.core_attempt_observation import bind_owned_attempt, note_operation_failure, observe_operation
 from services.class_membership_service import active_memberships_for_students, add_student
-from services import admin_dashboard, ai_usage_logger
+from services import admin_dashboard, ai_usage_logger, test_data_visibility
+from services.student_service import student_archived_error
+from services.access_code_gen import (
+    generate_access_code, insert_one_with_unique_code, insert_with_unique_codes,
+)
+from services import activation_gate
 from services import speaking_question_audio as speaking_audio
 from services.recording_audio import attach_playback_urls, recording_path
 from services import admin_reading_dashboard
@@ -56,6 +60,7 @@ from services.gemini import (
     generate_part3_questions,
 )
 from services.claude_grader import grade_response as _claude_grade
+from services.grading_telemetry import log_fallback_events
 from services.whisper import transcribe_from_bytes
 from services.ai_pricing import effective_logged_cost
 
@@ -98,6 +103,9 @@ async def require_admin(authorization: str | None) -> dict:
     if not r.data or r.data[0].get("role") != "admin":
         raise HTTPException(403, "Bạn không có quyền truy cập trang này")
 
+    # Q-13 — a staff role does not replace activation: the learner gate skips
+    # staff paths, so this guard owns the users.is_active check for them.
+    activation_gate.ensure_account_active(user_id)
     return auth_user
 
 
@@ -127,6 +135,8 @@ async def require_instructor(authorization: str | None) -> dict:
     if not r.data or r.data[0].get("role") not in ("instructor", "admin"):
         raise HTTPException(403, "Bạn không có quyền truy cập trang giảng viên")
 
+    # Q-13 — same activation requirement as require_admin.
+    activation_gate.ensure_account_active(user_id)
     return auth_user
 
 
@@ -167,13 +177,9 @@ def _audit_entitlement(
 
 
 def _gen_code() -> str:
-    """Generate a random access code in the format XXXX-XXXX."""
-    chars = string.ascii_uppercase + string.digits
-    return (
-        "".join(random.choices(chars, k=4))
-        + "-"
-        + "".join(random.choices(chars, k=4))
-    )
+    """Generate a CSPRNG access code in the format XXXX-XXXX-XXXX (F07).
+    Kept as a shim for existing importers; inserts go through access_code_gen."""
+    return generate_access_code()
 
 
 def _utc_now_iso() -> str:
@@ -866,7 +872,7 @@ async def admin_set_user_role(
 @router.get("/users", response_model=list[AdminUserDirectoryRowOut])
 async def list_users(authorization: str | None = Header(default=None)):
     """List all users with today's session count appended."""
-    await require_admin(authorization)
+    admin = await require_admin(authorization)
 
     try:
         users_res = (
@@ -879,6 +885,8 @@ async def list_users(authorization: str | None = Header(default=None)):
         raise HTTPException(500, f"Lỗi khi tải danh sách users: {exc}")
 
     users = users_res.data or []
+    if test_data_visibility.hide_for(email=admin.get("email"), is_admin=True):
+        users = [u for u in users if not test_data_visibility.is_test_email(u.get("email"))]
 
     # Count today's sessions per user (UTC)
     today_start = (
@@ -976,6 +984,19 @@ async def list_users(authorization: str | None = Header(default=None)):
         )
 
     return users
+
+
+@router.get("/test-data/visibility", response_model=AdminTestDataVisibilityOut)
+async def get_test_data_visibility(authorization: str | None = Header(default=None)):
+    """TASK B2 — lets the admin UI show its "show test data" toggle only where
+    staging hiding is active, and report what this request saw."""
+    admin = await require_admin(authorization)
+    enabled = test_data_visibility.hiding_enabled()
+    return {
+        "hiding_enabled": enabled,
+        "showing_test_data": enabled and not test_data_visibility.hide_for(
+            email=admin.get("email"), is_admin=True),
+    }
 
 
 # ── GET /admin/stats ───────────────────────────────────────────────────────────
@@ -1081,7 +1102,6 @@ async def generate_access_codes(
     if grants_role == "instructor" and not intended_email:
         raise HTTPException(400, "Mã instructor bắt buộc có intended_email (ràng buộc theo email).")
 
-    codes = [_gen_code() for _ in range(body.count)]
     row_base: dict = {
         "is_used": False,
         "is_active": True,
@@ -1101,10 +1121,12 @@ async def generate_access_codes(
         row_base["grants_role"] = grants_role
     if intended_email is not None:
         row_base["intended_email"] = intended_email
-    rows = [{**row_base, "code": c} for c in codes]
+    rows = [dict(row_base) for _ in range(body.count)]
 
     try:
-        result = supabase_admin.table("access_codes").insert(rows).execute()
+        result, codes = insert_with_unique_codes(
+            lambda: supabase_admin.table("access_codes"), rows,
+        )
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi tạo access codes: {exc}")
 
@@ -2454,7 +2476,6 @@ def _issue_code_and_assign(*, user_id: str, admin_id: str | None, reason: str | 
     audit. Returns the new code row. Sets is_used/used_by/used_at AT ISSUANCE (the
     code's initial state) — this is the first write, not a mutation of a used code."""
     row = {
-        "code":        _gen_code(),
         "is_used":     True,
         "used_by":     user_id,
         "used_at":     _now_iso(),
@@ -2467,10 +2488,50 @@ def _issue_code_and_assign(*, user_id: str, admin_id: str | None, reason: str | 
         row["session_limit"] = session_limit
     if expires_at is not None:
         row["expires_at"] = expires_at
-    res = supabase_admin.table("access_codes").insert(row).execute()
-    new_code = (res.data or [row])[0]
+    res, code = insert_one_with_unique_code(lambda: supabase_admin.table("access_codes"), row)
+    new_code = (res.data or [{**row, "code": code}])[0]
     _assign_user_to_code(new_code["id"], user_id, admin_id, reason)
     return new_code
+
+
+def _activate_user_for_code(user_id: str, code: str | None, permissions) -> None:
+    """Admin-granted access == activation (W-03). Login and the learner gate
+    read users.is_active independently of code entitlements, so every admin
+    path that hands a user an ACTIVE code assignment activates the account the
+    way self-service /auth/activate does: is_active + the access_code_used /
+    permissions snapshot. Never changes role or onboarding. Raises 404 when the
+    user row does not exist."""
+    activated = (
+        supabase_admin.table("users").update({
+            "is_active": True,
+            "access_code_used": code,
+            "permissions": permissions,
+        }).eq("id", user_id).execute()
+    )
+    if not activated.data:
+        raise HTTPException(404, "Không tìm thấy người dùng để kích hoạt")
+
+
+def _activate_with_issued_code(user_id: str, new_code: dict) -> None:
+    """Activate the holder of a code `_issue_code_and_assign` just minted; on
+    failure, revoke that issuance (generate-and-assign, refill, cohort add)."""
+    # Login gates on users.is_active, independently of code entitlements. Match
+    # self-service activation so an admin-assigned learner can sign in without
+    # entering the already-claimed code. Never change their role or onboarding.
+    try:
+        _activate_user_for_code(user_id, new_code["code"], new_code["permissions"])
+    except Exception:
+        # Compensate this issuance only: a failed activation must not leave a
+        # live grant that a retry could duplicate. Revoke the code first so
+        # even a later assignment-cleanup failure cannot keep granting access.
+        # Retain its immutable redemption history instead of deleting records.
+        supabase_admin.table("access_codes").update({
+            "is_revoked": True, "is_active": False,
+        }).eq("id", new_code["id"]).eq("used_by", user_id).execute()
+        supabase_admin.table("user_code_assignments").update({
+            "is_active": False, "revoked_at": _now_iso(),
+        }).eq("code_id", new_code["id"]).eq("user_id", user_id).execute()
+        raise
 
 
 class ReassignRequest(BaseModel):
@@ -2497,7 +2558,8 @@ async def reassign_code(code_id: str, body: ReassignRequest,
         raise HTTPException(400, "Người nhận trùng với người hiện tại.")
 
     code = (
-        supabase_admin.table("access_codes").select("id, is_revoked").eq("id", code_id).limit(1).execute().data
+        supabase_admin.table("access_codes").select("id, code, permissions, is_revoked")
+        .eq("id", code_id).limit(1).execute().data
     ) or []
     if not code:
         raise HTTPException(404, "Mã không tồn tại")
@@ -2511,7 +2573,22 @@ async def reassign_code(code_id: str, body: ReassignRequest,
     if not existing:
         raise HTTPException(404, "Người dùng nguồn không có assignment đang hoạt động cho mã này")
 
+    target_held = (
+        supabase_admin.table("user_code_assignments").select("id")
+        .eq("code_id", code_id).eq("user_id", body.to_user_id).eq("is_active", True).execute().data
+    ) or []
     _assign_user_to_code(code_id, body.to_user_id, admin_id, body.reason)   # activate target first
+    # W-03 — the transferred grant must be usable: activate the target account
+    # like generate-and-assign. On failure undo ONLY the grant this call added
+    # (never one the target already held) and leave the source untouched.
+    try:
+        _activate_user_for_code(body.to_user_id, code[0].get("code"), code[0].get("permissions"))
+    except Exception:
+        if not target_held:
+            supabase_admin.table("user_code_assignments").update({
+                "is_active": False, "revoked_at": _now_iso(),
+            }).eq("code_id", code_id).eq("user_id", body.to_user_id).execute()
+        raise
     supabase_admin.table("user_code_assignments").update({
         "is_active": False, "revoked_at": _now_iso(), "assigned_by": admin_id, "reason": body.reason,
     }).eq("code_id", code_id).eq("user_id", body.from_user_id).eq("is_active", True).execute()
@@ -2550,6 +2627,7 @@ async def refill_code(code_id: str, body: RefillRequest,
         permissions=src.get("permissions"), session_limit=src.get("session_limit"),
         expires_at=src.get("expires_at"),
     )
+    _activate_with_issued_code(target, new_code)   # W-03 — usable grant (may be a new user)
     # Audit both the refill on the source code and the creation of the new code.
     _audit_entitlement(
         admin_id, "refill", code_id, target_user_id=target,
@@ -2603,6 +2681,20 @@ async def generate_and_assign_code(
     if not target:
         raise HTTPException(404, "Không tìm thấy người dùng")
 
+    # STUDENTARCHIVE-0029: resolve the class bridge's roster row BEFORE minting.
+    # An archived profile cannot rejoin a class (migration 326 guard), so refuse
+    # with 409 and mint no code instead of issuing it and logging a warning.
+    bridge_student_id: str | None = None
+    if body.cohort_id:
+        linked = (
+            supabase_admin.table("students").select("id, archived_at")
+            .eq("user_id", body.user_id).limit(20).execute().data
+        ) or []
+        active = [row for row in linked if not row.get("archived_at")]
+        if linked and not active:
+            raise student_archived_error([row["id"] for row in linked if row.get("id")])
+        bridge_student_id = active[0]["id"] if active else None
+
     new_code = _issue_code_and_assign(
         user_id=body.user_id, admin_id=actor, reason="admin tạo + gán trực tiếp",
         code_type=body.code_type, cohort_id=body.cohort_id,
@@ -2610,45 +2702,16 @@ async def generate_and_assign_code(
         expires_at=body.expires_at,
     )
 
-    # Login gates on users.is_active, independently of code entitlements. Match
-    # self-service activation so an admin-assigned learner can sign in without
-    # entering the already-claimed code. Never change their role or onboarding.
-    try:
-        activated = (
-            supabase_admin.table("users").update({
-                "is_active": True,
-                "access_code_used": new_code["code"],
-                "permissions": new_code["permissions"],
-            }).eq("id", body.user_id).execute()
-        )
-        if not activated.data:
-            raise HTTPException(404, "Không tìm thấy người dùng để kích hoạt")
-    except Exception:
-        # Compensate this issuance only: a failed activation must not leave a
-        # live grant that a retry could duplicate. Revoke the code first so
-        # even a later assignment-cleanup failure cannot keep granting access.
-        # Retain its immutable redemption history instead of deleting records.
-        supabase_admin.table("access_codes").update({
-            "is_revoked": True, "is_active": False,
-        }).eq("id", new_code["id"]).eq("used_by", body.user_id).execute()
-        supabase_admin.table("user_code_assignments").update({
-            "is_active": False, "revoked_at": _now_iso(),
-        }).eq("code_id", new_code["id"]).eq("user_id", body.user_id).execute()
-        raise
+    _activate_with_issued_code(body.user_id, new_code)
 
     # A direct cohort-linked code adds that class membership without revoking
     # any class the learner already attends. Entitlement remains independent.
-    if body.cohort_id:
+    if body.cohort_id and bridge_student_id:
         try:
-            srow = (
-                supabase_admin.table("students").select("id")
-                .eq("user_id", body.user_id).limit(1).execute().data
-            ) or []
-            if srow:
-                add_student(
-                    supabase_admin, student_id=srow[0]["id"],
-                    cohort_id=body.cohort_id, added_by=actor,
-                )
+            add_student(
+                supabase_admin, student_id=bridge_student_id,
+                cohort_id=body.cohort_id, added_by=actor,
+            )
         except Exception as e:
             logger.warning(
                 "[admin] cohort bridge failed for user=%s code=%s: %s",
@@ -4263,16 +4326,36 @@ async def _run_regrade_response(
         re_transcribed = True
 
     reliability = {"reliability_label": "high", "reliability_score": 0.9}
-    grading = await _claude_grade(
-        question=question_text,
-        transcript=transcript,
-        part=part,
-        mode=mode,
-        user_id=user_id,
-        session_id=resp["session_id"],
-        reliability=reliability,
-        word_count=word_count,
-    )
+    # S3 — the same audit trail as live grading (routers/grading.py): every
+    # provider attempt, success or failure, lands in grading_events with its
+    # latency. Best-effort; log_fallback_events never raises.
+    fallback_events: list = []
+    started = time.monotonic()
+    outcome = "error"
+    try:
+        grading = await _claude_grade(
+            question=question_text,
+            transcript=transcript,
+            part=part,
+            mode=mode,
+            user_id=user_id,
+            session_id=resp["session_id"],
+            reliability=reliability,
+            word_count=word_count,
+            fallback_events=fallback_events,
+        )
+        outcome = "success"
+    finally:
+        log_fallback_events(
+            session_id=resp["session_id"],
+            question_id=resp.get("question_id"),
+            response_id=response_id,
+            events=fallback_events,
+        )
+        logger.info(
+            "[admin/regrade-response] graded response=%s outcome=%s latency_ms=%d attempts=%d",
+            response_id, outcome, int((time.monotonic() - started) * 1000), len(fallback_events),
+        )
     # Audit 2026-07-02 (P1) — the grader no longer scores pronunciation (Azure
     # measures it server-side during the original grade). A regrade re-grades
     # FC/LR/GRA only; the audio is UNCHANGED, so re-attach the previously
@@ -4808,6 +4891,93 @@ async def admin_set_vocab_flag(
 # - Cost estimate is conservative — Gemini Flash list pricing puts a chunk
 #   of 10 enrichments around $0.0005, so 100 cards (10 chunks) ≈ $0.005;
 #   the prompt's $0.10-0.15 figure is for cards-with-duplicates pre-dedup.
+# - INACTIVEWRITE-0035 follow-up (owner decision 2026-10-28): one owner can
+#   contribute at most _BACKFILL_MAX_ROWS_PER_OWNER rows per run, and rows of
+#   owners whose users.is_active is false, NULL or missing are skipped, so
+#   neither a single account's headwords nor an inactive account's can fill
+#   the paid Gemini batch. The candidate scan pages past skipped rows; it is
+#   bounded by _BACKFILL_SCAN_MAX_PAGES.
+
+_BACKFILL_MAX_ROWS_PER_OWNER = 50
+_BACKFILL_SCAN_PAGE_SIZE = 500
+_BACKFILL_SCAN_MAX_PAGES = 20
+_BACKFILL_OWNER_LOOKUP_CHUNK = 100
+
+
+def _backfill_select_candidates(job_id: str, limit: int) -> list[dict]:
+    """Pick up to `limit` enrichment candidates, at most
+    _BACKFILL_MAX_ROWS_PER_OWNER per owner, active owners only.
+
+    Raises on any query failure: the caller then aborts the run before any
+    Gemini call (an unverified owner must not be enriched).
+    """
+    selected: list[dict] = []
+    per_owner: dict[str, int] = {}
+    owner_active: dict[str, bool] = {}
+    skipped_inactive = 0
+    skipped_over_cap = 0
+
+    for page in range(_BACKFILL_SCAN_MAX_PAGES):
+        start = page * _BACKFILL_SCAN_PAGE_SIZE
+        # Day 1 dogfood: idioms + multi-word phrases were arriving with
+        # NULL definition_vi from the extractor.  Widen the candidate query
+        # so we re-enrich rows whose definitions are missing too — Gemini
+        # now generates Vietnamese + English glosses alongside IPA/example.
+        batch = (
+            supabase_admin.table("user_vocabulary")
+            .select("id, headword, user_id")
+            .eq("is_archived", False)
+            .or_(
+                "ipa.is.null,"
+                "example_sentence.is.null,"
+                "definition_vi.is.null,"
+                "definition_en.is.null"
+            )
+            .order("id")
+            .range(start, start + _BACKFILL_SCAN_PAGE_SIZE - 1)
+            .execute()
+        ).data or []
+
+        unknown = sorted({
+            str(r["user_id"]) for r in batch
+            if r.get("user_id") and str(r["user_id"]) not in owner_active
+        })
+        for i in range(0, len(unknown), _BACKFILL_OWNER_LOOKUP_CHUNK):
+            chunk = unknown[i:i + _BACKFILL_OWNER_LOOKUP_CHUNK]
+            users = (
+                supabase_admin.table("users")
+                .select("id, is_active")
+                .in_("id", chunk)
+                .execute()
+            ).data or []
+            found = {str(u["id"]): u.get("is_active") is True for u in users}
+            for uid in chunk:
+                # Missing row or NULL is inactive (activation_gate.lookup_is_active).
+                owner_active[uid] = found.get(uid, False)
+
+        for r in batch:
+            uid = str(r.get("user_id") or "")
+            if not owner_active.get(uid, False):
+                skipped_inactive += 1
+                continue
+            if per_owner.get(uid, 0) >= _BACKFILL_MAX_ROWS_PER_OWNER:
+                skipped_over_cap += 1
+                continue
+            per_owner[uid] = per_owner.get(uid, 0) + 1
+            selected.append(r)
+            if len(selected) >= limit:
+                break
+
+        if len(selected) >= limit or len(batch) < _BACKFILL_SCAN_PAGE_SIZE:
+            break
+
+    logger.info(
+        "[backfill %s] selected %d rows from %d owners "
+        "(skipped %d inactive-owner rows, %d over the %d-per-owner cap)",
+        job_id, len(selected), len(per_owner),
+        skipped_inactive, skipped_over_cap, _BACKFILL_MAX_ROWS_PER_OWNER,
+    )
+    return selected
 
 
 def _backfill_run(job_id: str, limit: int) -> None:
@@ -4819,28 +4989,11 @@ def _backfill_run(job_id: str, limit: int) -> None:
     from services.vocab_enrichment import enrich_vocabulary_batch, VocabEnrichmentError
 
     try:
-        # Day 1 dogfood: idioms + multi-word phrases were arriving with
-        # NULL definition_vi from the extractor.  Widen the candidate query
-        # so we re-enrich rows whose definitions are missing too — Gemini
-        # now generates Vietnamese + English glosses alongside IPA/example.
-        rows_res = (
-            supabase_admin.table("user_vocabulary")
-            .select("id, headword")
-            .eq("is_archived", False)
-            .or_(
-                "ipa.is.null,"
-                "example_sentence.is.null,"
-                "definition_vi.is.null,"
-                "definition_en.is.null"
-            )
-            .limit(limit)
-            .execute()
-        )
+        rows = _backfill_select_candidates(job_id, limit)
     except Exception as e:
         logger.error("[backfill %s] candidate query failed: %s", job_id, e)
         return
 
-    rows = rows_res.data or []
     if not rows:
         logger.info("[backfill %s] no rows to enrich", job_id)
         return
@@ -4915,7 +5068,8 @@ async def backfill_vocab_enrichment(
     or whose Gemini call failed during Phase B extraction).
 
     Caps at 500/call so an admin can't accidentally fan out across the
-    whole bank in one click.  Re-run the endpoint to process the next
+    whole bank in one click.  Within a call, one owner contributes at most
+    50 rows and inactive owners are skipped (INACTIVEWRITE-0035 follow-up).  Re-run the endpoint to process the next
     batch — the WHERE clause naturally moves forward as rows get filled.
 
     Cost estimate is best-effort: Gemini Flash batch is ~$0.0005 per

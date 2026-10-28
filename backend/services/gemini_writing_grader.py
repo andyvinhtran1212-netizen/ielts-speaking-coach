@@ -46,9 +46,14 @@ from services import ai_failure_log, ai_router, ai_usage_logger
 from services.gemini_compat import generation_config_kwargs
 from services.writing_feedback_grounding import (
     GROUNDING_INSTRUCTION,
+    MissingMistakeAnalysisError,
     UngroundedWritingFeedbackError,
+    missing_mistake_analysis,
     validate_writing_grounding,
 )
+
+# Rejections that re-ask the model with the error's repair_instruction().
+_REPAIRABLE = (UngroundedWritingFeedbackError, MissingMistakeAnalysisError)
 
 logger = logging.getLogger(__name__)
 
@@ -78,8 +83,9 @@ INITIAL_RETRY_DELAY_S = 1.0
 
 # Anthropic-primary attempt (services.ai_router) for the full-feedback pass.
 # Output cap only bounds length; cost follows the actual response. Claude gets
-# one attempt plus, when it cites text the essay does not contain, one repair
-# re-ask (the Gemini loop's grounding repair). Both share CLAUDE_TOTAL_BUDGET_S:
+# one attempt plus, when it cites text the essay does not contain or returns no
+# mistakeAnalysis below band 8.5, one repair re-ask (the Gemini loop's repair).
+# Both share CLAUDE_TOTAL_BUDGET_S:
 # each call is capped at CLAUDE_TIMEOUT_S, and the repair starts only with at
 # least CLAUDE_REPAIR_MIN_S left and is cut off when the budget runs out. The
 # total is added to Deep pass 1 so a slow Claude path still leaves Gemini its
@@ -349,6 +355,7 @@ class GeminiWritingGrader:
             parse_schema=WritingFeedback,   # retry on truncated/malformed body
             source_essay=config.essay_text,
             source_task_type=config.task_type,
+            source_prompt=config.prompt_text,
             usage_context=self._usage_context(config, "pass1"),
             anthropic_feature="writing_grading",
             **extra,
@@ -585,6 +592,7 @@ class GeminiWritingGrader:
             parse_schema=Pass2Refinement,   # retry on truncated/malformed body
             source_essay=config.essay_text,
             source_task_type=config.task_type,
+            source_prompt=config.prompt_text,
             usage_context=self._usage_context(config, "pass2"),
         )
         return self._parse_response(response_text, schema=Pass2Refinement), usage
@@ -611,6 +619,7 @@ class GeminiWritingGrader:
             parse_schema=Pass3Rewrites,   # retry on truncated/malformed body
             source_essay=config.essay_text,
             source_task_type=config.task_type,
+            source_prompt=config.prompt_text,
             usage_context=self._usage_context(config, "pass3"),
         )
         return self._parse_response(response_text, schema=Pass3Rewrites), usage
@@ -808,11 +817,16 @@ class GeminiWritingGrader:
                 return got
         return None
 
-    async def _fetch_image_bytes(self, url: str) -> Optional[tuple[bytes, str]]:
-        """Fetch one image URL with retry. Returns (bytes, mime) on success, or
-        None on any failure (logged) — the caller decides whether to try the
-        next candidate or fall back to text-only."""
+    async def _fetch_image_bytes(self, ref: str) -> Optional[tuple[bytes, str]]:
+        """Fetch one stored image ref with retry. Returns (bytes, mime) on
+        success, or None on any failure (logged) — the caller decides whether to
+        try the next candidate or fall back to text-only. A private-bucket ref
+        is signed for this fetch only; the signed URL is never logged."""
+        from services.writing_image_access import fetchable_image_url
         try:
+            url = await asyncio.to_thread(fetchable_image_url, ref)
+            if not url:
+                raise RuntimeError("image ref not fetchable")
             async with httpx.AsyncClient(timeout=self._IMAGE_FETCH_TIMEOUT_S) as client:
                 last: Optional[Exception] = None
                 for attempt in range(self._IMAGE_FETCH_ATTEMPTS):
@@ -830,7 +844,7 @@ class GeminiWritingGrader:
                     raise last
         except Exception as exc:
             logger.warning(
-                "[grader] Task1 image fetch failed url=%s: %s", url, exc,
+                "[grader] Task1 image fetch failed ref=%s: %s", ref, exc,
             )
         return None
 
@@ -854,6 +868,7 @@ class GeminiWritingGrader:
         usage_context: dict | None = None,
         source_essay: str | None = None,
         source_task_type: str | None = None,
+        source_prompt: str | None = None,
         anthropic_feature: str | None = None,
     ) -> tuple[str, dict]:
         """Call Gemini with exponential backoff retry.
@@ -892,9 +907,14 @@ class GeminiWritingGrader:
             usage_context=usage_context,
             source_essay=source_essay,
             source_task_type=source_task_type,
+            source_prompt=source_prompt,
         )
+        # A Claude answer rejected only for an empty mistakeAnalysis. Served if
+        # the Gemini fallback then fails, so the check never fails grading.
+        claude_salvage: list = []
         if position == "first":
-            served = await self._try_claude(anthropic_feature, **claude_kwargs)
+            served = await self._try_claude(anthropic_feature, salvage_sink=claude_salvage,
+                                            **claude_kwargs)
             if served is not None:
                 return served
         gemini_kwargs = dict(
@@ -902,11 +922,25 @@ class GeminiWritingGrader:
             usage_context=usage_context,
             source_essay=source_essay,
             source_task_type=source_task_type,
+            source_prompt=source_prompt,
         )
         if position != "after":
-            return await self._gemini_call_with_retry(
-                model_name, system_prompt, user_prompt, image, **gemini_kwargs,
-            )
+            if not claude_salvage:
+                return await self._gemini_call_with_retry(
+                    model_name, system_prompt, user_prompt, image, **gemini_kwargs,
+                )
+            try:
+                return await self._gemini_call_with_retry(
+                    model_name, system_prompt, user_prompt, image, **gemini_kwargs,
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.warning(
+                    "[grader] gemini fallback failed (%s) — serving the Claude answer "
+                    "rejected only for missing_mistake_analysis", type(exc).__name__,
+                )
+                return self._claude_served(anthropic_feature, *claude_salvage[-1])
         # AI_PROVIDER_ORDER_<FEATURE> places Claude after Gemini: Claude is the
         # fallback once the whole Gemini loop has failed.
         try:
@@ -920,7 +954,9 @@ class GeminiWritingGrader:
                 anthropic_feature, provider="gemini", model=model_name,
                 error_code=ai_failure_log.error_code_of(exc),
             )
-            served = await self._try_claude(anthropic_feature, **claude_kwargs)
+            # Claude is the last provider here: an answer whose only problem
+            # is an empty mistakeAnalysis must not end in a hard failure.
+            served = await self._try_claude(anthropic_feature, final=True, **claude_kwargs)
             if served is not None:
                 return served
             raise
@@ -936,6 +972,7 @@ class GeminiWritingGrader:
         usage_context: dict | None = None,
         source_essay: str | None = None,
         source_task_type: str | None = None,
+        source_prompt: str | None = None,
     ) -> tuple[str, dict]:
         """The existing Gemini retry loop (system prompt already grounded)."""
         model = genai.GenerativeModel(
@@ -961,6 +998,10 @@ class GeminiWritingGrader:
             contents = [user_prompt, {"mime_type": img_mime, "data": img_bytes}]
 
         last_error: Optional[Exception] = None
+        # A valid, grounded answer rejected only for an empty mistakeAnalysis.
+        # The check must never fail grading: the final attempt accepts it, and
+        # it is returned if no later attempt produces a usable answer.
+        salvage: Optional[tuple[str, dict]] = None
         for attempt in range(MAX_RETRIES):
             attempt_started = time.monotonic()
             attempt_logged = False
@@ -995,31 +1036,37 @@ class GeminiWritingGrader:
                     await self._log_writing_usage(
                         model_name, usage, usage_context, attempt,
                         attempt_started, status="invalid_response",
+                        error_code="invalid_json",
+                        metadata={"error_detail": "Empty/near-empty response from Gemini"},
                     )
                     attempt_logged = True
                     raise InvalidJSONError("Empty/near-empty response from Gemini")
 
                 # Validate inside the loop so a truncated/malformed body is a
                 # RETRYABLE failure (re-roll with backoff), not a hard fail.
+                grounding: dict = {}
                 if parse_schema is not None:
                     try:
-                        parsed = self._parse_response(response_text, schema=parse_schema)
-                        if source_essay is not None:
-                            validate_writing_grounding(parsed, source_essay, task_type=source_task_type)
+                        response_text, grounding = self._validated_text(
+                            response_text, parse_schema, source_essay,
+                            source_task_type, source_prompt,
+                            accept_missing_mistakes=attempt == MAX_RETRIES - 1,
+                        )
                     except Exception as validation_error:
+                        if isinstance(validation_error, MissingMistakeAnalysisError):
+                            salvage = (validation_error.validated[0], usage)
                         await self._log_writing_usage(
                             model_name, usage, usage_context, attempt,
                             attempt_started, status="invalid_response",
-                            error_code=("ungrounded_feedback" if isinstance(
-                                validation_error, UngroundedWritingFeedbackError
-                            ) else None),
+                            error_code=ai_router.validation_error_code(validation_error),
+                            metadata={"error_detail": ai_router.rejection_detail(validation_error)},
                         )
                         attempt_logged = True
                         raise
 
                 await self._log_writing_usage(
                     model_name, usage, usage_context, attempt,
-                    attempt_started, status="success",
+                    attempt_started, status="success", metadata=grounding,
                 )
                 attempt_logged = True
 
@@ -1034,10 +1081,12 @@ class GeminiWritingGrader:
                 raise
             except AISafetyBlockError:
                 # Don't retry safety blocks
+                if salvage is not None:
+                    return salvage
                 raise
             except Exception as e:
                 last_error = e
-                if isinstance(e, UngroundedWritingFeedbackError):
+                if isinstance(e, _REPAIRABLE):
                     repaired_prompt = user_prompt + e.repair_instruction()
                     contents = ([repaired_prompt, {"mime_type": image[1], "data": image[0]}]
                                 if image is not None else repaired_prompt)
@@ -1045,6 +1094,8 @@ class GeminiWritingGrader:
                     await self._log_writing_usage(
                         model_name, {}, usage_context, attempt,
                         attempt_started, status="error",
+                        # Class only: provider error text stays in app logs.
+                        metadata={"error_detail": type(e).__name__},
                     )
                 logger.warning(
                     "Gemini grading attempt %d/%d failed: %s",
@@ -1053,6 +1104,13 @@ class GeminiWritingGrader:
                 if attempt < MAX_RETRIES - 1:
                     delay = INITIAL_RETRY_DELAY_S * (2 ** attempt)
                     await asyncio.sleep(delay)
+
+        if salvage is not None:
+            logger.warning(
+                "[grader] accepting the last Gemini answer rejected only for "
+                "missing_mistake_analysis after %d attempts", MAX_RETRIES,
+            )
+            return salvage
 
         # All retries exhausted. If the persistent failure was a bad/truncated
         # body, surface InvalidJSONError (vs APIRetryFailedError for API errors)
@@ -1073,18 +1131,23 @@ class GeminiWritingGrader:
         usage_context: dict | None,
         source_essay: str | None,
         source_task_type: str | None,
+        source_prompt: str | None = None,
+        final: bool = False,
+        salvage_sink: list | None = None,
     ) -> tuple[str, dict] | None:
-        """Claude attempt (plus one grounding repair); None means "run the
-        unchanged Gemini path"."""
+        """Claude attempt (plus one repair); None means "run the unchanged
+        Gemini path". An answer whose only problem is an empty mistakeAnalysis
+        is accepted when ``final`` (no provider after Claude); otherwise it is
+        appended to ``salvage_sink`` as (text, model, usage) for the caller."""
 
         def _validate(text: str):
             if len(text.strip()) < 10:
                 raise InvalidJSONError("Empty/near-empty response from Claude")
-            if parse_schema is not None:
-                parsed = self._parse_response(text, schema=parse_schema)
-                if source_essay is not None:
-                    validate_writing_grounding(parsed, source_essay, task_type=source_task_type)
-            return True
+            if parse_schema is None:
+                return text, {}
+            return self._validated_text(text, parse_schema, source_essay,
+                                        source_task_type, source_prompt,
+                                        accept_missing_mistakes=final and attempt > 1)
 
         context = dict(usage_context or {})
         user_id = context.pop("user_id", None)
@@ -1098,6 +1161,15 @@ class GeminiWritingGrader:
         # AIOPS-0024 FR-007: this loop decides between a Claude repair (retry)
         # and the Gemini fallback, so it records each failed attempt itself.
         claude_model = ai_router.anthropic_model(feature)
+
+        def give_up():
+            if salvage and final:
+                return self._claude_served(feature, *salvage)
+            if salvage and salvage_sink is not None:
+                salvage_sink.append(salvage)
+            return None
+
+        salvage = None      # (text, model, usage) of the latest missing-only answer
         while True:
             if event_prefix:
                 context["usage_event_id"] = f"{event_prefix}:{operation}:anthropic:{attempt}"
@@ -1108,6 +1180,7 @@ class GeminiWritingGrader:
                 max_tokens=CLAUDE_MAX_TOKENS,
                 operation=operation,
                 validate=_validate,
+                success_metadata=lambda validated: validated[1],
                 images=[image] if image is not None else (),
                 user_id=user_id,
                 session_id=session_id,
@@ -1117,10 +1190,10 @@ class GeminiWritingGrader:
             )
             try:
                 if attempt == 1:
-                    result, _ = await call
+                    result, (text, _) = await call
                 else:
                     remaining = CLAUDE_TOTAL_BUDGET_S - (time.monotonic() - started)
-                    result, _ = await asyncio.wait_for(call, timeout=remaining)
+                    result, (text, _) = await asyncio.wait_for(call, timeout=remaining)
                 break
             except asyncio.TimeoutError:
                 logger.warning(
@@ -1128,18 +1201,21 @@ class GeminiWritingGrader:
                     "Claude budget — falling back to gemini", feature, CLAUDE_TOTAL_BUDGET_S,
                 )
                 ai_router.record_anthropic_failure(feature, model=claude_model, error_code="timeout")
-                return None
+                return give_up()
             except ai_router.AnthropicAttemptError as exc:
                 cause = exc.__cause__
+                if (isinstance(cause, MissingMistakeAnalysisError)
+                        and getattr(exc, "usage", None) is not None):
+                    salvage = (cause.validated[0], exc.model, exc.usage)
                 remaining = CLAUDE_TOTAL_BUDGET_S - (time.monotonic() - started)
                 repair = (attempt == 1
-                          and isinstance(cause, UngroundedWritingFeedbackError)
+                          and isinstance(cause, _REPAIRABLE)
                           and remaining >= CLAUDE_REPAIR_MIN_S)
                 logger.warning(
                     "[ai_router] feature=%s provider=anthropic attempt %d failed (%s): %s — %s",
                     feature, attempt, exc.error_code,
                     str(exc)[:ai_router.ERROR_DETAIL_MAX_CHARS],
-                    "re-asking Claude with the grounding repair" if repair
+                    "re-asking Claude with the repair" if repair
                     else "falling back to gemini",
                 )
                 ai_router.record_anthropic_failure(
@@ -1147,25 +1223,64 @@ class GeminiWritingGrader:
                     outcome="retry" if repair else None,
                 )
                 if not repair:
-                    return None
+                    return give_up()
                 # Same repair the Gemini loop applies: original prompt plus
-                # the unsupported citations, never accumulated across tries.
+                # the error's instruction, never accumulated across tries.
                 prompt = user_prompt + cause.repair_instruction()
                 attempt += 1
-        logger.info("[ai_router] feature=%s served_by=anthropic model=%s", feature, result.model)
-        cost, _ = estimate_token_cost("anthropic", result.model, **result.usage)
+        return self._claude_served(feature, text, result.model, result.usage)
+
+    @staticmethod
+    def _claude_served(feature: str, text: str, model: str,
+                       raw_usage: dict) -> tuple[str, dict]:
+        logger.info("[ai_router] feature=%s served_by=anthropic model=%s", feature, model)
+        cost, _ = estimate_token_cost("anthropic", model, **raw_usage)
         usage = {
             # Writing rows record total prompt tokens; the cache split is in
             # the AI usage ledger row written by ai_router.
-            "input_tokens": (result.usage.get("input_tokens", 0)
-                             + result.usage.get("cache_read_tokens", 0)
-                             + result.usage.get("cache_write_tokens", 0)),
-            "output_tokens": result.usage.get("output_tokens", 0),
+            "input_tokens": (raw_usage.get("input_tokens", 0)
+                             + raw_usage.get("cache_read_tokens", 0)
+                             + raw_usage.get("cache_write_tokens", 0)),
+            "output_tokens": raw_usage.get("output_tokens", 0),
             "thinking_tokens": 0,
-            "served_model": result.model,
+            "served_model": model,
             "cost_usd": round(cost, 6) if cost is not None else None,
         }
-        return result.text, usage
+        return text, usage
+
+    def _validated_text(self, text: str, schema, source_essay: str | None,
+                        task_type: str | None, prompt_text: str | None, *,
+                        accept_missing_mistakes: bool = False) -> tuple[str, dict]:
+        """Schema + grounding validation for one provider answer.
+
+        Returns the text callers should persist and grounding ledger metadata.
+        When bounded list items were dropped, the text is the cleaned schema
+        object so the call site's re-parse sees exactly what was validated.
+
+        A full pass-1 answer below band 8.5 with no real mistakeAnalysis entry
+        raises MissingMistakeAnalysisError (carrying the validated result as
+        ``.validated``) unless ``accept_missing_mistakes``, which records
+        ``mistake_analysis_missing`` in the ledger metadata instead.
+        """
+        parsed = self._parse_response(text, schema=schema)
+        if source_essay is None:
+            return text, {}
+        report = validate_writing_grounding(parsed, source_essay, task_type=task_type,
+                                            prompt_text=prompt_text)
+        if report.dropped:
+            logger.warning("[grader] dropped %d ungrounded item(s): %s",
+                           len(report.dropped), ", ".join(report.dropped))
+            text = parsed.model_dump_json()
+        metadata = report.metadata()
+        if missing_mistake_analysis(parsed):
+            metadata["mistake_analysis_missing"] = True
+            if not accept_missing_mistakes:
+                error = MissingMistakeAnalysisError(parsed.overallBandScore)
+                error.validated = (text, metadata)
+                raise error
+            logger.warning("[grader] accepted an answer with no mistakeAnalysis at band %g",
+                           parsed.overallBandScore)
+        return text, metadata
 
     @staticmethod
     def _usage_context(config: GraderConfig, operation: str) -> dict:
@@ -1178,6 +1293,7 @@ class GeminiWritingGrader:
             "resource_id": config.usage_resource_id,
             "usage_event_prefix": config.usage_event_prefix,
             "metadata": {
+                "essay_id": config.usage_resource_id,
                 "student_id": config.usage_student_id,
                 "task_type": config.task_type,
                 "analysis_level": config.analysis_level,
@@ -1195,8 +1311,11 @@ class GeminiWritingGrader:
         *,
         status: str,
         error_code: str | None = None,
+        metadata: dict | None = None,
     ) -> None:
         context = dict(usage_context or {})
+        if metadata:
+            context["metadata"] = {**(context.get("metadata") or {}), **metadata}
         event_prefix = context.pop("usage_event_prefix", None)
         if event_prefix:
             context["usage_event_id"] = (

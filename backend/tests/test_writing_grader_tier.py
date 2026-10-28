@@ -135,7 +135,7 @@ async def test_standard_tier_uses_pro_and_full_schema(
     assert captured["model_name"] == "gemini-2.5-pro"
     assert isinstance(result.feedback, WritingFeedback)
     assert result.feedback.improvedEssay == "Improved version…"  # full-schema field
-    assert result.prompt_version == "v2.2"
+    assert result.prompt_version == "v2.3"
     assert "-quick" not in result.prompt_version  # removed in 2.7a.1
     assert result.grading_tier == GradingTier.STANDARD
 
@@ -181,7 +181,7 @@ async def test_instructor_tier_runs_standard_pass1_with_pending_stamp(
     assert result.grading_tier == GradingTier.INSTRUCTOR
     # Stamp ends with -instructor-pending so the deliver action can
     # strip the suffix and replace with -instructor cleanly.
-    assert result.prompt_version == "v2.2-instructor-pending", (
+    assert result.prompt_version == "v2.3-instructor-pending", (
         f"Expected -instructor-pending stamp, got {result.prompt_version!r}"
     )
     # Feedback shape identical to Standard — Pass 1 IS Standard.
@@ -320,7 +320,7 @@ async def test_deep_tier_runs_3_passes_on_full_success(
 ):
     """All 3 passes succeed. Pass 1 returns the Standard payload,
     Pass 2 returns an empty refinement, Pass 3 returns 1 rewrite.
-    Result is WritingFeedbackDeep stamped 'v2.2-deep'."""
+    Result is WritingFeedbackDeep stamped 'v2.3-deep'."""
     _patch_v2_loader(monkeypatch)
 
     pass1_json = json.dumps(VALID_FEEDBACK_STANDARD)
@@ -347,7 +347,7 @@ async def test_deep_tier_runs_3_passes_on_full_success(
     assert len(call_log) == 3, "Deep tier must run exactly 3 Gemini calls"
     assert result.grading_tier == GradingTier.DEEP
     assert isinstance(result.feedback, WritingFeedbackDeep)
-    assert result.prompt_version == "v2.2-deep"
+    assert result.prompt_version == "v2.3-deep"
     assert "degraded" not in result.prompt_version
 
 
@@ -385,7 +385,7 @@ async def test_instructor_tier_with_deep_depth_runs_3_passes(
     # Deep depth → 3 passes, but routed as instructor (review queue) tier.
     assert len(call_log) == 3, "Instructor+Deep must run the 3-pass Deep flow"
     assert result.grading_tier == GradingTier.INSTRUCTOR
-    assert result.prompt_version == "v2.2-deep-instructor-pending", (
+    assert result.prompt_version == "v2.3-deep-instructor-pending", (
         f"Expected -deep-instructor-pending stamp, got {result.prompt_version!r}"
     )
 
@@ -409,7 +409,7 @@ async def test_instructor_tier_defaults_to_standard_single_pass(
 
     assert len(call_log) == 1, "Instructor+Standard stays a single pass"
     assert result.grading_tier == GradingTier.INSTRUCTOR
-    assert result.prompt_version == "v2.2-instructor-pending"
+    assert result.prompt_version == "v2.3-instructor-pending"
 
 
 @pytest.mark.asyncio
@@ -465,7 +465,7 @@ async def test_deep_tier_pass2_failure_falls_back_to_pass1(
     # Exactly Pass 1 + Pass 2 attempted; Pass 3 skipped.
     assert len(call_log) == 2
     assert result.grading_tier == GradingTier.DEEP
-    assert result.prompt_version == "v2.2-deep-degraded"
+    assert result.prompt_version == "v2.3-deep-degraded"
     assert isinstance(result.feedback, WritingFeedbackDeep)
     # Pass 1 feedback preserved bit-for-bit.
     assert result.feedback.overallBandScore == VALID_FEEDBACK_STANDARD["overallBandScore"]
@@ -498,7 +498,7 @@ async def test_deep_tier_pass3_failure_falls_back_to_merged_pass1_pass2(
         result = await grader.grade_essay(cfg)
 
     assert len(call_log) == 3, "All 3 passes must be attempted"
-    assert result.prompt_version == "v2.2-deep-degraded"
+    assert result.prompt_version == "v2.3-deep-degraded"
     assert isinstance(result.feedback, WritingFeedbackDeep)
     assert result.feedback.sentenceRewrites == []
     # Pass 2 result still flows through (refinement worked, only

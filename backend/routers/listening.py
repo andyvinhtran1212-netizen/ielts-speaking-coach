@@ -25,8 +25,11 @@ import hashlib
 import json
 import logging
 import re
+import time
 import uuid
+from collections import deque
 from datetime import datetime, timezone
+from functools import partial
 from typing import Any, Literal, Optional
 
 from fastapi import (
@@ -61,6 +64,7 @@ from services.class_assignment_service import (
 from routers.admin import require_admin
 from routers.auth import get_supabase_user
 from services.listening_gist_grader import grade_gist_response
+from services.rate_limit import _utc_today_start, _utc_tomorrow_start
 from services.pg_search import ilike_or_filter
 from services.dictation_trends import classify_trends
 from models.listening_dictation import (
@@ -80,6 +84,7 @@ from services.listening_grader import (
     split_sentences,
 )
 from services import listening_fulltest_import
+from services import test_data_visibility
 from services import listening_drill_import
 from services import listening_audit as listening_audit_svc
 from services.active_player_lifecycle import (
@@ -880,6 +885,7 @@ async def post_listening_attempt(
             content_row=content_row,
         )
     if body.mode == "gist":
+        _enforce_gist_rate_limit(user_id)
         return _grade_and_save_gist(
             user_id=user_id, body=body, exercise_row=exercise_row,
         )
@@ -1097,6 +1103,85 @@ def _grade_and_save_dictation(
         "grading_version":  LEGACY_POLICY_VERSION,
         "sentence_reference_sha256": text_sha256(reference_transcript),
     }
+
+
+# ── Gist grading rate limit (W-03) ────────────────────────────────────────────
+# Each gist attempt is one paid Claude call. Two caps, mirroring POST /tts (F05):
+#   * per-worker sliding minute window per user — stops a burst before the
+#     ledger catches up (ledger writes are background, so the daily count lags
+#     by the calls in flight);
+#   * daily count of this feature's own ledger rows (ai_usage_logs,
+#     feature="listening_gist") since UTC midnight. A provider retry logs a row
+#     per call, so retries count — conservative on purpose. The keyword
+#     fallback (no API key) costs nothing and logs nothing.
+# Fail-OPEN on a ledger lookup error, like services/rate_limit.py: the account
+# is already authenticated and activation-gated, and a ledger outage must not
+# silence the exercise. No new table.
+_GIST_WINDOW_SECONDS = 60.0
+_GIST_SWEEP_THRESHOLD = 10_000
+_gist_attempts: dict[str, "deque[float]"] = {}
+
+
+def _count_gist_gradings_today(user_id: str) -> int:
+    try:
+        res = (
+            supabase_admin.table("ai_usage_logs")
+            .select("id", count="exact")
+            .eq("user_id", user_id)
+            .eq("feature", "listening_gist")
+            .gte("created_at", _utc_today_start().isoformat())
+            .execute()
+        )
+        return int(res.count or 0)
+    except Exception as exc:
+        logger.warning("[listening] gist quota lookup failed user=%s: %s", user_id, exc)
+        return 0
+
+
+def _enforce_gist_rate_limit(user_id: str) -> None:
+    per_minute = settings.LISTENING_GIST_MAX_PER_MINUTE
+    if per_minute > 0:
+        now = time.monotonic()
+        cutoff = now - _GIST_WINDOW_SECONDS
+        if len(_gist_attempts) > _GIST_SWEEP_THRESHOLD:
+            for key in [k for k, q in _gist_attempts.items() if not q or q[-1] <= cutoff]:
+                del _gist_attempts[key]
+        hits = _gist_attempts.setdefault(user_id, deque())
+        while hits and hits[0] <= cutoff:
+            hits.popleft()
+        if len(hits) >= per_minute:
+            retry_after = max(1, int(hits[0] - cutoff) + 1)
+            logger.info("[listening] BLOCK gist burst user=%s limit=%d/min", user_id, per_minute)
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "error": "rate_limit_exceeded",
+                    "message": "Bạn đang chấm bài gist quá nhanh. Vui lòng đợi một chút rồi thử lại.",
+                    "exercise_type": "LISTENING_GIST",
+                    "limit": per_minute,
+                    "retry_after": retry_after,
+                },
+                headers={"Retry-After": str(retry_after)},
+            )
+    daily = settings.LISTENING_GIST_DAILY_LIMIT_PER_USER
+    if daily > 0:
+        used = _count_gist_gradings_today(user_id)
+        if used >= daily:
+            reset_at = _utc_tomorrow_start().isoformat()
+            logger.info("[listening] BLOCK gist daily user=%s used=%d limit=%d", user_id, used, daily)
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "error": "rate_limit_exceeded",
+                    "message": f"Đã đạt giới hạn {daily} lượt chấm gist trong ngày. Vui lòng thử lại vào ngày mai.",
+                    "exercise_type": "LISTENING_GIST",
+                    "limit": daily,
+                    "used": used,
+                    "reset_at": reset_at,
+                },
+            )
+    if per_minute > 0:
+        _gist_attempts[user_id].append(time.monotonic())
 
 
 # ── Gist grader (Sprint 11.4) ─────────────────────────────────────────────────
@@ -1957,7 +2042,7 @@ async def list_listening_content(
     only (no signed URL) — user clicks a card to open the dictation/gist
     /tf/mcq page with `?content_id=...`.
     """
-    await _require_auth(authorization)
+    user = await _require_auth(authorization)
 
     if accent_tag is not None and accent_tag not in _ACCENT_VALUES:
         raise HTTPException(
@@ -1974,6 +2059,8 @@ async def list_listening_content(
         _published_content_rows, accent_tag=accent_tag, cefr_level=cefr_level,
         ielts_section=ielts_section, newest_first=True,
     )
+    content_rows = _drop_hidden_content(
+        content_rows, await run_in_threadpool(_hidden_listening_ids, user))
     # Standalone modes sign the section's own audio. A public parent can use
     # assembled audio even when the section is only a render placeholder.
     audio_content_ids = [row["id"] for row in content_rows
@@ -5290,7 +5377,31 @@ def _load_programme_overview(user_id: str) -> tuple[list[dict], dict | None, lis
     return cards, resume, recent, partial
 
 
-def _published_test_counts() -> tuple[dict[str, int], dict[str, int], set[str]]:
+_NO_HIDDEN: tuple[frozenset, frozenset] = (frozenset(), frozenset())
+
+
+def _hidden_listening_ids(user: dict) -> tuple[frozenset, frozenset]:
+    """TASK B2 — (test ids, content ids) of staging test data this viewer's
+    catalogue drops. Content is matched by its own title or its parent test's,
+    since section rows carry codes ("GATE-E-…") rather than the marked title."""
+    if not test_data_visibility.hide_for(email=user.get("email"), user_id=user.get("id")):
+        return _NO_HIDDEN
+    return (frozenset(test_data_visibility.hidden_title_ids("listening_tests")),
+            frozenset(test_data_visibility.hidden_title_ids("listening_content")))
+
+
+def _drop_hidden_content(rows: list[dict], hidden: tuple[frozenset, frozenset]) -> list[dict]:
+    hidden_tests, hidden_content = hidden
+    if not hidden_tests and not hidden_content:
+        return rows
+    return [row for row in rows
+            if str(row.get("id")) not in hidden_content
+            and str(row.get("test_id") or "") not in hidden_tests]
+
+
+def _published_test_counts(
+    hidden_test_ids: frozenset = frozenset(),
+) -> tuple[dict[str, int], dict[str, int], set[str]]:
     """Count all diagnostic shelves in one paged metadata read, without keys."""
     tests = {kind: 0 for kind in ("full", "mini", "drill", "practice")}
     groups: dict[str, int] = {}
@@ -5310,7 +5421,7 @@ def _published_test_counts() -> tuple[dict[str, int], dict[str, int], set[str]]:
         )
         for row in rows:
             kind = row.get("test_type")
-            if kind not in tests:
+            if kind not in tests or str(row["id"]) in hidden_test_ids:
                 continue
             tests[kind] += 1
             public_test_ids.add(str(row["id"]))
@@ -5374,8 +5485,10 @@ def _published_content_modes(content_ids: list[str]) -> tuple[dict[str, list[str
     return by_content, modes
 
 
-def _published_library_counts() -> tuple[list[dict], dict[str, int], set[str]]:
-    content_rows = _published_content_rows()
+def _published_library_counts(
+    hidden: tuple[frozenset, frozenset] = _NO_HIDDEN,
+) -> tuple[list[dict], dict[str, int], set[str]]:
+    content_rows = _drop_hidden_content(_published_content_rows(), hidden)
     audio_content_ids = [row["id"] for row in content_rows
                          if str(row.get("audio_storage_path") or "").strip()]
     by_content, modes = _published_content_modes(audio_content_ids)
@@ -5394,9 +5507,14 @@ async def listening_overview(authorization: str | None = Header(default=None)):
     must not block the application event loop or unrelated learner pages.
     """
     user = await _require_auth(authorization)
+    hidden = await run_in_threadpool(_hidden_listening_ids, user)
+    test_counts = (partial(_published_test_counts, hidden[0]) if hidden[0]
+                   else _published_test_counts)
+    library_counts = (partial(_published_library_counts, hidden) if hidden != _NO_HIDDEN
+                      else _published_library_counts)
     (tests, practice_groups, public_test_ids), (content_rows, modes, runnable_ids), programme_data = await asyncio.gather(
-        run_in_threadpool(_published_test_counts),
-        run_in_threadpool(_published_library_counts),
+        run_in_threadpool(test_counts),
+        run_in_threadpool(library_counts),
         run_in_threadpool(_load_programme_overview, user["id"]),
     )
     programmes, resume, recent, partial_data = programme_data
@@ -5649,6 +5767,7 @@ async def list_published_listening_tests(
     explicit_programme = programme_id if isinstance(programme_id, str) else None
     if explicit_programme not in {None, "ielts", *_PROGRAMME_COPY}:
         raise HTTPException(422, "programme_id is not supported")
+    hidden_test_ids = (await run_in_threadpool(_hidden_listening_ids, user))[0]
 
     q = (
         supabase_admin.table("listening_public_practice_catalog")
@@ -5690,6 +5809,9 @@ async def list_published_listening_tests(
     # paged result would shed rows and shorten pages).
     if selected_type == "practice" and isinstance(practice_group, str) and practice_group:
         q = q.eq("metadata->>practice_group", practice_group)
+    if hidden_test_ids:
+        # Staging test data (TASK B2) — excluded in SQL so total/paging hold.
+        q = q.not_.in_("id", sorted(hidden_test_ids))
     res = q.execute()
     # Audio-readiness is already applied in SQL above; this repeat is a cheap
     # backstop so a row could never reach a student with no file to play, even
@@ -5863,6 +5985,10 @@ def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True
             questions = []
             for raw_question in payload.get("questions") or []:
                 question = dict(raw_question) if isinstance(raw_question, dict) else {}
+                if source_required:
+                    # After native binding: digests stay on the original options.
+                    from services.listening_source_text_overrides import override_question_options
+                    question = override_question_options(question, manifest_sha256=source_manifest)
                 question.pop("visual_url", None)
                 storage_path = question.pop("visual_storage_path", None)
                 if storage_path and not source_required:

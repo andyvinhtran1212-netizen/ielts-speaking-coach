@@ -61,8 +61,8 @@ describe('/vocabulary/learn/[unitSlug] — server-graded learning loop', () => {
       'meaning_vi', 'construction', 'usage_vi',
       'why_vietnamese_learners_struggle', 'contrast_vi', 'memory_hook_vi',
     ]) assert.match(LESSON, new RegExp(field));
-    assert.match(LESSON, /Context diversity/);
-    assert.match(LESSON, /Vietnamese learner clinic/);
+    assert.match(LESSON, /Đa dạng ngữ cảnh/);
+    assert.match(LESSON, /Lỗi người Việt hay mắc/);
   });
 
   test('supports recall/control/production input and accessible result states', () => {

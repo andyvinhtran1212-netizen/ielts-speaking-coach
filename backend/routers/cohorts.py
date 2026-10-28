@@ -18,7 +18,10 @@ from pydantic import BaseModel, Field
 
 from database import supabase_admin
 from models.cohorts import AdminCohortListOut
-from routers.admin import require_admin, _aggregate_usage_for_users, _issue_code_and_assign
+from routers.admin import (
+    require_admin, _aggregate_usage_for_users, _issue_code_and_assign, _activate_with_issued_code,
+)
+from services import student_service, test_data_visibility
 from services.class_service import list_cohorts_basic, list_cohorts_with_rollup
 from services.cohort_progress_aggregator import cohort_progress
 from services.class_membership_service import (
@@ -78,18 +81,24 @@ async def list_cohorts(
 
     Pass `is_active=false` to see archived classes; omit it for everything.
     """
-    await require_admin(authorization)
+    admin = await require_admin(authorization)
 
     try:
         if with_rollup:
-            return list_cohorts_with_rollup(
+            result = list_cohorts_with_rollup(
                 supabase_admin, is_active=is_active, course_id=course_id
             )
-        return list_cohorts_basic(
-            supabase_admin, is_active=is_active, course_id=course_id
-        )
+        else:
+            result = list_cohorts_basic(
+                supabase_admin, is_active=is_active, course_id=course_id
+            )
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi tải danh sách lớp: {exc}")
+    if test_data_visibility.hide_for(email=admin.get("email"), is_admin=True):
+        result["cohorts"] = [
+            c for c in result["cohorts"] if not test_data_visibility.is_test_label(c.get("name"))
+        ]
+    return result
 
 
 @router.post("")
@@ -230,10 +239,20 @@ async def add_cohort_member(
     if not cohort:
         raise HTTPException(404, "Không tìm thấy lớp")
 
+    # W-03 — mirror generate-and-assign: the target must be a real user, and the
+    # admin-granted code activates the account (compensated on failure), so the
+    # learner can sign in and pass the activation gate without a code of their own.
+    target = (
+        supabase_admin.table("users").select("id").eq("id", body.user_id).limit(1).execute().data
+    ) or []
+    if not target:
+        raise HTTPException(404, "Không tìm thấy người dùng")
+
     new_code = _issue_code_and_assign(
         user_id=body.user_id, admin_id=admin_id, reason=body.reason or "cohort add",
         code_type="direct", cohort_id=cohort_id, permissions=["all"],
     )
+    _activate_with_issued_code(body.user_id, new_code)
     return {"ok": True, "user_id": body.user_id,
             "new_code": new_code.get("code"), "new_code_id": new_code.get("id")}
 
@@ -306,6 +325,9 @@ async def assign_student_to_cohort(
             added_by=admin.get("id") if isinstance(admin, dict) else None,
         )
     except Exception as exc:
+        # Migration 326 guard: an archived learner cannot rejoin a class.
+        if student_service.is_student_archived_error(exc):
+            raise student_service.student_archived_error([body.student_id]) from exc
         raise HTTPException(500, f"Lỗi khi gán học viên vào lớp: {exc}")
 
     return {"ok": True, "student_id": body.student_id, "cohort_id": cohort_id}
@@ -336,6 +358,14 @@ async def bulk_assign_students_to_cohort(
             added_by=admin.get("id") if isinstance(admin, dict) else None,
         )
     except Exception as exc:
+        # Migration 326 guard refuses the whole batch: nobody was added.
+        if student_service.is_student_archived_error(exc):
+            try:
+                archived = student_service.archived_student_ids(
+                    supabase_admin, body.student_ids)
+            except Exception:
+                archived = []
+            raise student_service.student_archived_error(archived) from exc
         raise HTTPException(500, f"Lỗi khi gán học viên vào lớp: {exc}")
 
     return {"ok": True, "cohort_id": cohort_id, "assigned": assigned}

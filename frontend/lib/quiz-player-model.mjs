@@ -16,9 +16,14 @@ export function normalizeQuizQuery(input) {
   });
 }
 
+export const MISSING_QUIZ_MESSAGE = 'Đường dẫn này chưa cho biết cần mở bài kiểm tra nào. Hãy quay lại và chọn bài từ trang luyện tập.';
+export const INVALID_QUIZ_LINK_MESSAGE = 'Đường dẫn bài kiểm tra không hợp lệ. Hãy quay lại và mở bài từ trang luyện tập.';
+
 export function resolveQuizBank(query, payload) {
   if (query?.bank) return { kind: 'bank', bankId: query.bank };
-  if (!query?.skillArea) return { kind: 'error', message: 'Thiếu tham số bank.' };
+  // U-16: a link without any bank is not a load failure — reopening cannot
+  // help, so the player offers only the way back.
+  if (!query?.skillArea) return { kind: 'error', retryable: false, message: MISSING_QUIZ_MESSAGE };
   if (!Array.isArray(payload)) return { kind: 'error', message: 'Dữ liệu danh sách bài không đúng định dạng.' };
   const rows = payload.filter((row) => row && typeof row.id === 'string' && row.id.trim());
   if (rows.length === 1) return { kind: 'bank', bankId: rows[0].id };

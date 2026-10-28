@@ -9,6 +9,7 @@ import { ChromeNavigationBridge } from '@/components/chrome-navigation-bridge';
 import { ExamLanguageBridge } from '@/components/exam-language-bridge';
 import { NextWebVitals } from '@/components/next-web-vitals';
 import { API_BASE } from '@/lib/backend';
+import { allowsTelemetryTarget } from '@/lib/telemetry-target.mjs';
 
 // Thẻ chia sẻ (fan page → web). Facebook/Zalo/LinkedIn đọc og:*; thiếu
 // og:image thì thẻ preview về dạng text nhỏ, CTR thấp hơn hẳn thẻ ảnh lớn.
@@ -67,6 +68,12 @@ export const metadata: Metadata = {
 // runtime-config) là phép thử phân biệt: khác nhau ⇒ asset rời bị cache cũ.
 const DOC_RELEASE = process.env.VERCEL_GIT_COMMIT_SHA || null;
 
+// Q-89: a local/dev/test server that resolves API_BASE to production (e.g. an
+// explicit AVER_API_BASE) collects no Web Vitals instead of reporting to prod.
+const VITALS_API_BASE = allowsTelemetryTarget(API_BASE, { environment: process.env.VERCEL_ENV })
+  ? API_BASE
+  : null;
+
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin', 'vietnamese'],
   display: 'swap',
@@ -75,6 +82,7 @@ const plusJakarta = Plus_Jakarta_Sans({
 const jetBrainsMono = JetBrains_Mono({
   subsets: ['latin', 'vietnamese'],
   display: 'swap',
+  preload: false,
   variable: '--font-jetbrains-mono',
 });
 const lora = Lora({
@@ -98,7 +106,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>
-        <NextWebVitals apiBase={API_BASE} release={DOC_RELEASE} />
+        <NextWebVitals apiBase={VITALS_API_BASE} release={DOC_RELEASE} />
         <ChromeNavigationBridge />
         <Suspense fallback={null}><ExamLanguageBridge /></Suspense>
         {children}

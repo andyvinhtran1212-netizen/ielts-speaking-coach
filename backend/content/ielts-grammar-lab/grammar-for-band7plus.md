@@ -677,6 +677,6 @@ THỪA NHẬN:
   Admittedly, / Of course, / That said, / Having said that,
   Granted, / To be fair,
 
-TỔng KẾT:
+TỔNG KẾT:
   All things considered, / On balance, / Ultimately,
 ```

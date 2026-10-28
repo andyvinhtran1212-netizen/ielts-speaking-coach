@@ -466,6 +466,22 @@ section { margin-bottom: var(--av-space-12); }
 
 /* ── Responsive ────────────────────────────────────────────────── */
 
+/* U-20: below the 1280px desktop the hero column can be narrower than the
+   three stats' min-content (721px overflowed the page by ~13px). Let each cell
+   shrink to its share and wrap its value/unit instead of widening the grid. */
+@media (max-width: 1279.98px) {
+  .hero-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .hero-stat { min-width: 0; }
+  .hero-stat .label { overflow-wrap: anywhere; }
+  .hero-stat .value { flex-wrap: wrap; row-gap: 0; }
+}
+
+/* Same tablet range as the chrome disclosure: a ~240px side column would
+   still split "SPEAKING", so the stats strip takes the full width instead. */
+@media (max-width: 1024.98px) {
+  .greeting { grid-template-columns: minmax(0, 1fr); gap: var(--av-space-8); align-items: stretch; }
+}
+
 @media (max-width: 720px) {
   .shell { padding: var(--av-space-4) var(--av-space-4) var(--av-space-16); }
   .greeting {

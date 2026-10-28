@@ -8,6 +8,7 @@
 .asd-header-actions { flex-wrap: wrap; justify-content: flex-end; }
 .asd-toolbar { justify-content: space-between; }
 .asd-toolbar .acd-field { width: min(540px, 100%); }
+.asd-toolbar .acd-field + .acd-field { width: auto; min-width: 180px; }
 .asd-toolbar > button { min-height: 40px; }
 .asd-bulk {
   min-width: 0;
@@ -70,6 +71,7 @@
 .asd-goal strong { font-family: var(--av-font-mono); font-size: var(--av-fs-sm); }
 .asd-goal span { color: var(--av-text-secondary); font-size: var(--av-fs-xs); }
 .asd-form__row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--av-space-3); }
+.asd-check-field { display: flex; align-items: center; gap: var(--av-space-2); color: var(--av-text-primary); font-size: var(--av-fs-sm); }
 .asd-loading { min-height: 160px; color: var(--av-text-secondary); display: flex; align-items: center; justify-content: center; gap: var(--av-space-3); }
 .asd-profile { display: flex; flex-direction: column; gap: var(--av-space-6); }
 .asd-profile h3, .asd-note h3 { margin: 0 0 var(--av-space-2); color: var(--av-text-primary); font-size: var(--av-fs-sm); }
@@ -90,7 +92,7 @@
   .asd-header-actions { width: 100%; justify-content: stretch; }
   .asd-header-actions > button { flex: 1; }
   .asd-toolbar { align-items: stretch; flex-direction: column; }
-  .asd-toolbar .acd-field { width: 100%; }
+  .asd-toolbar .acd-field, .asd-toolbar .acd-field + .acd-field { width: 100%; }
   .asd-stats { grid-template-columns: 1fr 1fr; }
   .asd-profile__columns { grid-template-columns: 1fr; }
   .asd-form__row { grid-template-columns: 1fr; }

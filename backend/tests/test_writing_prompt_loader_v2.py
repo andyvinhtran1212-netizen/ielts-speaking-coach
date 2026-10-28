@@ -147,7 +147,7 @@ def test_v2_form_of_address_substitution():
 def test_v2_prompt_version_identifies_source_grounding():
     """Distinguish grounded grades from historical v2.1 feedback."""
     loader = WritingPromptLoader(version="v2")
-    assert loader.PROMPT_VERSION == "v2.2"
+    assert loader.PROMPT_VERSION == "v2.3"
 
 
 def test_v2_l1_calibration_pins_mistake_floor():

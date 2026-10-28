@@ -3,6 +3,12 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import type { AuthMeWire } from '@/lib/auth-api';
+import {
+  clearPersistedAuthSession,
+  forgetSignedOutSession,
+  isSignedOutSession,
+  rememberSignedOutSession,
+} from '@/lib/auth/sign-out-state.mjs';
 import { loginDestination, normalizeAccessCode, normalizeLoginProfile } from '@/lib/login-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
@@ -10,7 +16,9 @@ type Session = { access_token?: string };
 type SupabaseClient = {
   auth: {
     getSession(): Promise<{ data?: { session?: Session | null }; error?: { message?: string } | null }>;
+    exchangeCodeForSession(code: string): Promise<{ data?: { session?: Session | null }; error?: { message?: string } | null }>;
     signInWithOAuth(input: unknown): Promise<{ error?: { message?: string } | null }>;
+    signOut(): Promise<{ error?: { message?: string } | null } | void>;
   };
 };
 
@@ -56,33 +64,55 @@ async function canonicalProfile(token: string) {
   return profile;
 }
 
-function hasAuthCallbackMaterial() {
+// The OAuth redirect lands here as `/login?code=` (PKCE) or with an error.
+// Implicit-flow material (`#access_token=`…) is never honored: the shared
+// client runs PKCE only, so such a fragment is stale or forged.
+function readAuthCallback(): { code: string | null } | null {
   const query = new URLSearchParams(window.location.search);
   const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ''));
   const errorKeys = ['error', 'error_code', 'error_description'];
-  return query.has('code')
-    || errorKeys.some((key) => query.has(key))
-    || ['access_token', 'refresh_token', 'expires_in', 'token_type', ...errorKeys]
-      .some((key) => fragment.has(key));
+  const failed = errorKeys.some((key) => query.has(key) || fragment.has(key));
+  const implicit = ['access_token', 'refresh_token', 'expires_in', 'token_type']
+    .some((key) => fragment.has(key));
+  const code = query.get('code');
+  if (!failed && !implicit && !query.has('code')) return null;
+  return { code: failed || implicit ? null : code };
+}
+
+// U-07: a session this tab already signed out (its page died mid-revoke, or
+// the revoke failed) is dead or dying — never send it to /auth/me. Finish the
+// revoke the logout started (an already-revoked session counts as signed out)
+// and purge it locally whatever the outcome.
+async function discardSignedOutSession(client: SupabaseClient) {
+  try { await client.auth.signOut(); } catch { /* purged below */ }
+  clearPersistedAuthSession();
+  forgetSignedOutSession();
 }
 
 async function bootstrap(): Promise<BootResult> {
+  // Callback material leaves the address bar and the history entry before any
+  // network work can stall or reject; the code is held only in memory.
+  const callback = readAuthCallback();
+  if (callback) window.history.replaceState(null, '', '/login');
   const client = await sharedClient();
-  const callback = hasAuthCallbackMaterial();
-  // Supabase must inspect the implicit fragment first, but callback material
-  // must leave the address bar before an exchange can stall or reject.
-  let sessionRead: ReturnType<SupabaseClient['auth']['getSession']>;
-  try {
-    sessionRead = client.auth.getSession();
-  } finally {
-    if (callback) window.history.replaceState(null, '', '/login');
+  if (callback) {
+    if (!callback.code) throw new Error('Đăng nhập thất bại. Vui lòng thử lại.');
+    // One explicit exchange (the client's URL detection is off): the verifier
+    // stored by signInWithOAuth in this browser proves the code is ours.
+    const { data, error } = await client.auth.exchangeCodeForSession(callback.code);
+    const token = data?.session?.access_token;
+    if (error || !token) throw new Error('Đăng nhập thất bại. Vui lòng thử lại.');
+    forgetSignedOutSession(); // a fresh sign-in supersedes the last logout
+    return { kind: 'profile', client, profile: await canonicalProfile(token) };
   }
-  const { data, error } = await sessionRead;
+  const { data, error } = await client.auth.getSession();
   const session = data?.session;
-  if (error || (callback && !session?.access_token)) {
-    throw new Error('Đăng nhập thất bại. Vui lòng thử lại.');
-  }
+  if (error) throw new Error('Đăng nhập thất bại. Vui lòng thử lại.');
   if (!session?.access_token) return { kind: 'signed-out', client };
+  if (isSignedOutSession(session.access_token)) {
+    await discardSignedOutSession(client);
+    return { kind: 'signed-out', client };
+  }
   return { kind: 'profile', client, profile: await canonicalProfile(session.access_token) };
 }
 
@@ -100,8 +130,10 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
   const [activateBusy, setActivateBusy] = useState(false);
   const [activateError, setActivateError] = useState('');
   const [activateSuccess, setActivateSuccess] = useState('');
+  const [signingOut, setSigningOut] = useState(false);
   const clientRef = useRef<SupabaseClient | null>(null);
   const activateInFlight = useRef(false);
+  const signOutInFlight = useRef(false);
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const applyProfile = useCallback((profile: LoginProfile) => {
@@ -247,6 +279,38 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
     }
   }
 
+  // BL-13: the activation dialog has no other exit, so a learner signed in
+  // with the wrong Google account was stuck. Same order as the chrome logout
+  // (U-07): remember the session, revoke, then purge whatever the outcome.
+  async function signOutFromActivation() {
+    if (signOutInFlight.current || activateInFlight.current) return;
+    signOutInFlight.current = true;
+    setSigningOut(true);
+    const client = clientRef.current || await sharedClient().catch(() => null);
+    if (client) {
+      await rememberSignedOutSession(client);
+      try {
+        const result = await client.auth.signOut();
+        if (result && result.error) {
+          (window as any).aver?.reportError?.(
+            'signOut revoke failed: ' + (result.error.message || String(result.error)),
+            { type: 'auth_signout_revoke_failed' },
+          );
+        }
+      } catch { /* purged below */ }
+    }
+    clearPersistedAuthSession();
+    try { window.api?.clearAuthCache?.(); } catch { /* best effort */ }
+    setActivationOpen(false);
+    setAccessCode('');
+    setActivateError('');
+    setActivateSuccess('');
+    setError('');
+    setBusyMessage('');
+    signOutInFlight.current = false;
+    setSigningOut(false);
+  }
+
   return (
     <>
       {!busyMessage && (
@@ -313,7 +377,7 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
               placeholder="VD: IELTS-TEST-001"
               autoComplete="off"
               value={accessCode}
-              disabled={activateBusy}
+              disabled={activateBusy || signingOut}
               onChange={(event) => setAccessCode(event.target.value.toUpperCase())}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && !activateInFlight.current) void activate();
@@ -323,13 +387,21 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
               className="lx-action-activate"
               type="button"
               onClick={() => { if (!activateInFlight.current) void activate(); }}
-              disabled={activateBusy}
+              disabled={activateBusy || signingOut}
             >
               {activateBusy ? 'Đang kích hoạt…' : 'Kích hoạt'}
             </button>
             {activateError && <p className="lx-activate-error" role="alert">{activateError}</p>}
             {activateSuccess && <p className="lx-activate-success" role="status">{activateSuccess}</p>}
             <p className="lx-dialog-hint">Chưa có mã? <span>Liên hệ giáo viên để nhận access code</span></p>
+            <button
+              className="lx-dialog-signout"
+              type="button"
+              onClick={() => void signOutFromActivation()}
+              disabled={activateBusy || signingOut}
+            >
+              {signingOut ? 'Đang đăng xuất…' : 'Đăng xuất'}
+            </button>
           </section>
         </div>
       )}

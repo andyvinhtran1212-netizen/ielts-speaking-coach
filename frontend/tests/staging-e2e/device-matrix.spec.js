@@ -35,9 +35,11 @@ test.afterEach(async ({ page }) => {
   ).toEqual([]);
 });
 
+// U-03: `/next-probe` is a 404 on staging now, so the Next endpoints of the
+// seam are the always-public native `/login` page.
 test('Next → redirected legacy alias → Next seam keeps origin storage and never calls production', async ({ page }) => {
-  await page.goto('/next-probe');
-  await expect(page.locator('h1')).toHaveText('next-probe');
+  await page.goto('/login');
+  await expect(page.locator('.lx-shell')).toBeVisible();
   await page.evaluate(() => localStorage.setItem('av-theme', 'dark'));
 
   await page.evaluate(() => {
@@ -48,8 +50,9 @@ test('Next → redirected legacy alias → Next seam keeps origin storage and ne
   await expect(page.locator('aver-chrome')).toBeAttached();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 
-  await page.evaluate(() => window.location.assign('/next-probe'));
-  await page.waitForURL('**/next-probe');
+  await page.evaluate(() => window.location.assign('/login'));
+  await page.waitForURL('**/login');
+  await expect(page.locator('.lx-shell')).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem('av-theme'))).toBe('dark');
 });
 

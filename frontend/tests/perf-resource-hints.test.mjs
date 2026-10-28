@@ -70,12 +70,20 @@ describe('P0-3 CLS — aver-chrome reserves height in light DOM', () => {
     );
   });
 
-  it('reserves the taller footprint below the nav-wrap breakpoint', () => {
-    assert.match(
-      COMPONENTS_CSS,
-      /@media\s*\(max-width:\s*1023px\)\s*\{\s*aver-chrome\s*\{[^}]*min-height:\s*\d+px/,
-      'a max-width:1023px override must reserve the taller (wrapped-nav) footprint',
-    );
+  // PC-J06: the reserve follows the chrome's own breakpoints (hamburger below
+  // 1025px, smaller gap at <=720px) — measured 141px and 109px on staging. The
+  // old 1023px/176px override predates U-20 and left a 67px gap on phones.
+  it('reserves the measured mobile footprints at the chrome breakpoints', () => {
+    const reserve = (query) => {
+      const m = COMPONENTS_CSS.match(new RegExp(
+        `@media\\s*\\(max-width:\\s*${query.replace('.', '\\.')}px\\)\\s*\\{\\s*aver-chrome\\s*\\{[^}]*min-height:\\s*(\\d+)px`));
+      return m && Number(m[1]);
+    };
+    assert.equal(reserve('1024.98'), 141, 'hamburger layout (721-1024px): 77px bar + 64px gap');
+    assert.equal(reserve('720'), 109, 'phone layout (<=720px): 77px bar + 32px gap');
+    assert.match(CHROME, /const MOBILE_NAV_QUERY = '\(max-width: 1024\.98px\)'/);
+    assert.match(CHROME, /@media \(max-width: 720px\) \{\n  \.topnav-wrap/);
+    assert.doesNotMatch(COMPONENTS_CSS, /@media\s*\(max-width:\s*1023px\)\s*\{\s*aver-chrome/);
   });
 });
 

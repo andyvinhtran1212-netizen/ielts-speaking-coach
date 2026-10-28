@@ -5,8 +5,12 @@ import { fileURLToPath } from 'node:url';
 import { describe, test } from 'node:test';
 
 import {
+  ASSIGNMENT_COPY,
   assignmentTone,
   buildInstructorMatrix,
+  duplicateGiveConfirmMessage,
+  fanOutResultBanner,
+  findExistingGive,
   instructorApiPath,
   instructorGradeHref,
   normalizeInstructorAssignments,
@@ -23,6 +27,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PAGE = readFileSync(join(ROOT, 'app', '(authed-instructor)', 'instructor', 'page.tsx'), 'utf8');
 const VIEW = readFileSync(join(ROOT, 'app', '(authed-instructor)', 'instructor', 'instructor-dashboard.tsx'), 'utf8');
 const LAYOUT = readFileSync(join(ROOT, 'app', '(authed-instructor)', 'layout.tsx'), 'utf8');
+const CSS = readFileSync(join(ROOT, 'public', 'css', 'instructor-next.css'), 'utf8');
 
 describe('/instructor native dashboard model', () => {
   test('normalizes every canonical owner-scoped collection and rejects malformed envelopes', () => {
@@ -32,7 +37,7 @@ describe('/instructor native dashboard model', () => {
     assert.deepEqual(normalizeInstructorStudents([{ id: 's1', full_name: 'An', student_code: 'HV1', cohort_id: 'c1', user_id: null }]), [{ id: 's1', fullName: 'An', studentCode: 'HV1', cohortId: 'c1', userId: null }]);
     assert.deepEqual(normalizeInstructorPrompts([{ id: 'p1', title: 'Task', task_type: 'task2' }]), [{ id: 'p1', title: 'Task', taskType: 'task2' }]);
     assert.deepEqual(normalizeInstructorCodes([{ id: 'k1', code: 'ABC', is_used: false, cohort_id: null }]), [{ id: 'k1', code: 'ABC', isUsed: false, cohortId: null }]);
-    assert.deepEqual(normalizeInstructorAssignments([{ id: 'a1', prompt_id: 'p1', student_id: 's1', status: 'assigned' }]), [{ id: 'a1', promptId: 'p1', studentId: 's1', status: 'assigned', essayId: null, deadline: null }]);
+    assert.deepEqual(normalizeInstructorAssignments([{ id: 'a1', prompt_id: 'p1', student_id: 's1', status: 'assigned' }]), [{ id: 'a1', promptId: 'p1', studentId: 's1', status: 'assigned', essayId: null, deadline: null, cohortId: null, groupId: null, name: null, createdAt: null, isLate: false }]);
     assert.deepEqual(normalizeInstructorQueue([{ essay_id: 'e1', task_type: 'task2', review: { id: 'r1', status: 'queued' } }]), [{ essayId: 'e1', reviewId: 'r1', status: 'queued', studentEmail: null, taskType: 'task2' }]);
     assert.equal(normalizeInstructorStudents({ rows: [] }), null);
     assert.equal(normalizeInstructorAssignments([{ id: 'a1', prompt_id: 'p1' }]), null);
@@ -67,6 +72,50 @@ describe('/instructor native dashboard model', () => {
     );
   });
 
+  test('keeps the give identity (cohort, group, name, created_at) on assignments', () => {
+    const [row] = normalizeInstructorAssignments([{
+      id: 'a1', prompt_id: 'p1', student_id: 's1', status: 'pending', cohort_id: 'c1',
+      assignment_group_id: 'g1', name: ' Buổi 5 ', created_at: '2026-10-25T12:00:00Z',
+    }]);
+    assert.equal(row.cohortId, 'c1');
+    assert.equal(row.groupId, 'g1');
+    assert.equal(row.name, 'Buổi 5');
+    assert.equal(row.createdAt, '2026-10-25T12:00:00Z');
+  });
+
+  test('findExistingGive returns the latest give of the prompt to the same cohort or student', () => {
+    const assignments = normalizeInstructorAssignments([
+      { id: 'a1', prompt_id: 'p1', student_id: 's1', status: 'pending', cohort_id: 'c1', created_at: '2026-10-20T00:00:00Z' },
+      { id: 'a2', prompt_id: 'p1', student_id: 's2', status: 'pending', cohort_id: 'c1', created_at: '2026-10-25T00:00:00Z' },
+      { id: 'a3', prompt_id: 'p2', student_id: 's1', status: 'pending', cohort_id: 'c1', created_at: '2026-10-26T00:00:00Z' },
+      { id: 'a4', prompt_id: 'p1', student_id: 's3', status: 'pending', cohort_id: null, created_at: '2026-10-27T00:00:00Z' },
+    ]);
+    assert.equal(findExistingGive(assignments, { promptId: 'p1', cohortId: 'c1' }).id, 'a2');
+    assert.equal(findExistingGive(assignments, { promptId: 'p1', cohortId: 'c2' }), null);
+    assert.equal(findExistingGive(assignments, { promptId: 'p3', cohortId: 'c1' }), null);
+    // single-student target matches any earlier give to that student, cohort or not
+    assert.equal(findExistingGive(assignments, { promptId: 'p1', studentId: 's1' }).id, 'a1');
+    assert.equal(findExistingGive(assignments, { promptId: 'p1', studentId: 's3' }).id, 'a4');
+    assert.equal(findExistingGive(assignments, { promptId: 'p2', studentId: 's2' }), null);
+    assert.equal(findExistingGive(assignments, { promptId: 'p1' }), null);
+    assert.equal(findExistingGive(null, { promptId: 'p1', cohortId: 'c1' }), null);
+  });
+
+  test('duplicate-give confirmation and fan-out banner copy', () => {
+    const existing = { createdAt: '2026-10-25T12:30:00Z' };
+    const cohortMessage = duplicateGiveConfirmMessage(existing, 'QA TEST Task 2', 'cohort');
+    assert.match(cohortMessage, /^Lớp này đã được giao đề 'QA TEST Task 2' lúc .*19:30.*\. Giao thêm một lượt nữa\?$/);
+    assert.match(duplicateGiveConfirmMessage(existing, 'QA TEST Task 2', 'student'), /^Học viên này đã được giao đề 'QA TEST Task 2' lúc .*19:30.*\. Giao thêm một lượt nữa\?$/);
+    // Missing created_at drops "lúc" entirely (never "lúc trước đó"); missing title gets a neutral placeholder.
+    assert.equal(duplicateGiveConfirmMessage({ createdAt: null }, '', 'cohort'), "Lớp này đã được giao đề '(chưa có tiêu đề)' trước đó. Giao thêm một lượt nữa?");
+    assert.equal(duplicateGiveConfirmMessage({ createdAt: 'not-a-date' }, 'QA TEST Task 2', 'student'), "Học viên này đã được giao đề 'QA TEST Task 2' trước đó. Giao thêm một lượt nữa?");
+    assert.deepEqual(fanOutResultBanner({ duplicates_warning: ['s1', 's2'] }), { tone: 'warning', message: ASSIGNMENT_COPY.duplicatesWarning(2) });
+    assert.match(ASSIGNMENT_COPY.duplicatesWarning(2), /2 học viên đã được giao đề này từ trước/);
+    assert.deepEqual(fanOutResultBanner({ duplicates_warning: [] }), { tone: 'success', message: 'Đã giao bài cho lớp.' });
+    assert.deepEqual(fanOutResultBanner({}), { tone: 'success', message: 'Đã giao bài cho lớp.' });
+    assert.deepEqual(fanOutResultBanner(null), { tone: 'success', message: 'Đã giao bài cho lớp.' });
+  });
+
   test('derives truthful assignment tones and matrix coordinates', () => {
     const students = normalizeInstructorStudents([{ id: 's1', full_name: 'An' }, { id: 's2', full_name: 'Binh' }]);
     const prompts = normalizeInstructorPrompts([{ id: 'p1', title: 'Task 1' }]);
@@ -80,6 +129,66 @@ describe('/instructor native dashboard model', () => {
     assert.deepEqual(assignmentTone(matrix.rows[0].cells[0]), { label: 'Đã trả', tone: 'success' });
     assert.deepEqual(assignmentTone(matrix.rows[1].cells[0], Date.parse('2026-02-01T00:00:00Z')), { label: 'Trễ', tone: 'danger' });
     assert.deepEqual(assignmentTone(null), { label: '—', tone: 'muted' });
+  });
+
+  test('A-07: a re-assigned cell shows the newest give by created_at, not the oldest', () => {
+    const students = normalizeInstructorStudents([{ id: 's1', full_name: 'An' }, { id: 's2', full_name: 'Binh' }]);
+    const prompts = normalizeInstructorPrompts([{ id: 'p1', title: 'Task 2' }, { id: 'p2', title: 'Task 1' }]);
+    const newer = { id: 'a-new', prompt_id: 'p1', student_id: 's1', status: 'pending', created_at: '2026-10-27T00:00:00Z', name: 'Buổi 5' };
+    const older = { id: 'a-old', prompt_id: 'p1', student_id: 's1', status: 'submitted', essay_id: 'e1', created_at: '2026-10-20T00:00:00Z', name: 'Buổi 5' };
+    const single = { id: 'b1', prompt_id: 'p2', student_id: 's2', status: 'delivered', created_at: '2026-10-21T00:00:00Z' };
+    const cellOf = (rows) => buildInstructorMatrix(students, prompts, normalizeInstructorAssignments(rows)).rows[0].cells[0];
+
+    // API order (created_at desc), same name on both gives: newest wins.
+    const desc = buildInstructorMatrix(students, prompts, normalizeInstructorAssignments([newer, single, older]));
+    assert.equal(desc.rows[0].cells[0].id, 'a-new');
+    assert.deepEqual(assignmentTone(desc.rows[0].cells[0]), { label: 'Chưa nộp', tone: 'neutral' });
+    // One column per prompt in first-appearance order, untouched single-give cells.
+    assert.deepEqual(desc.columns.map((column) => column.id), ['p1', 'p2']);
+    assert.equal(desc.rows.length, 2);
+    assert.equal(desc.rows[1].cells[1].id, 'b1');
+    assert.equal(desc.rows[0].cells[1], null);
+    assert.ok(Object.isFrozen(desc) && Object.isFrozen(desc.rows[0].cells));
+
+    // Reversed (asc) input order: still the newest, independent of array order.
+    const asc = buildInstructorMatrix(students, prompts, normalizeInstructorAssignments([older, single, newer]));
+    assert.equal(asc.rows[0].cells[0].id, 'a-new');
+    assert.equal(asc.columns.length, 2);
+
+    // Both names null: still chosen by created_at.
+    assert.equal(cellOf([{ ...older, name: null }, { ...newer, name: null }]).id, 'a-new');
+
+    // Equal created_at: the first-seen row is kept.
+    assert.equal(cellOf([{ ...older, created_at: newer.created_at }, newer]).id, 'a-old');
+    assert.equal(cellOf([newer, { ...older, created_at: newer.created_at }]).id, 'a-new');
+
+    // Missing or invalid created_at on every give: the first-seen row is kept.
+    assert.equal(cellOf([{ ...older, created_at: null }, { ...newer, created_at: undefined }]).id, 'a-old');
+    assert.equal(cellOf([{ ...newer, created_at: 'not-a-date' }, { ...older, created_at: null }]).id, 'a-new');
+    // A dated give beats an undated one regardless of order.
+    assert.equal(cellOf([{ ...older, created_at: null }, newer]).id, 'a-new');
+  });
+});
+
+describe('A-S3 / W-TIER-DISPLAY on /instructor', () => {
+  test('a late hand-in reads "Nộp trễ" from the backend rule, on-time stays "Đã nộp"', () => {
+    const [late, onTime, returnedLate, missing] = normalizeInstructorAssignments([
+      { id: 'a1', prompt_id: 'p1', student_id: 's1', status: 'submitted', essay_id: 'e1', is_late: true },
+      { id: 'a2', prompt_id: 'p1', student_id: 's2', status: 'submitted', essay_id: 'e2', is_late: false },
+      { id: 'a3', prompt_id: 'p1', student_id: 's3', status: 'delivered', essay_id: 'e3', is_late: true },
+      { id: 'a4', prompt_id: 'p1', student_id: 's4', status: 'pending', deadline: '2026-01-01T00:00:00Z' },
+    ]);
+    assert.deepEqual(assignmentTone(late), { label: 'Nộp trễ', tone: 'warning' });
+    assert.deepEqual(assignmentTone(onTime), { label: 'Đã nộp', tone: 'success' });
+    assert.deepEqual(assignmentTone(returnedLate), { label: 'Đã trả · nộp trễ', tone: 'success' });
+    assert.equal(missing.isLate, false, 'only a strict true from the backend counts as late');
+    assert.deepEqual(assignmentTone(missing, Date.parse('2026-02-01T00:00:00Z')), { label: 'Trễ', tone: 'danger' });
+  });
+
+  test('the give form says the essay goes to the teacher; the select is only the AI pre-pass', () => {
+    assert.match(VIEW, /<span>AI chấm nháp trước khi bạn chấm<\/span><select name="grading_tier"/);
+    assert.match(VIEW, /luôn vào mục Chấm bài để bạn chấm và trả/);
+    assert.doesNotMatch(VIEW, /Tier chấm AI/);
   });
 });
 
@@ -112,8 +221,34 @@ describe('/instructor native route contracts', () => {
   });
 });
 
+test('tab bar keeps all four tabs reachable on 360-390px phones with a visible focus ring', () => {
+  for (const label of ['Học viên', 'Lớp & Mã', 'Giao bài', 'Chấm bài']) assert.ok(VIEW.includes(`'${label}']`), label);
+  // Below 560px the four tabs wrap into a 2x2 grid instead of clipping "Chấm bài" off-screen.
+  const phone = CSS.match(/@media \(max-width: 560px\) \{([\s\S]*?)\n\}/);
+  assert.ok(phone, 'phone tab-bar breakpoint');
+  assert.match(phone[1], /\.ins-tabs \{[^}]*display: grid;[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);[^}]*overflow-x: visible;/);
+  assert.match(phone[1], /\.ins-tabs button \{[^}]*white-space: normal;/);
+  // Desktop keeps the single scrollable row.
+  assert.match(CSS, /^\.ins-tabs \{[^}]*display: flex;[^}]*overflow-x: auto;/m);
+  // Inset ring so the nav's overflow clipping cannot hide keyboard focus.
+  assert.match(CSS, /\.ins-tabs button:focus-visible \{[^}]*outline: 2px solid var\(--av-border-focus\);[^}]*outline-offset: -2px;/);
+});
+
 test('assignment requests interpret datetime-local as Vietnam time for both targets', () => {
   assert.match(VIEW, /const deadline = deadlineValue \? `\$\{deadlineValue\}:00\+07:00` : null/);
   assert.equal((VIEW.match(/if \(deadline\) body\.deadline = deadline;/g) || []).length, 2);
   assert.match(VIEW, /Hạn nộp \(giờ Việt Nam\)/);
+});
+
+test('assignment form names the give, confirms re-gives, resets and surfaces duplicates_warning (W-06)', () => {
+  assert.match(VIEW, /<input name="name" maxLength=\{200\}/);
+  assert.equal((VIEW.match(/if \(name\) body\.name = name;/g) || []).length, 2);
+  assert.equal((VIEW.match(/if \(!confirmRegive\(findExistingGive\(data\.assignments, \{ promptId, (?:cohortId|studentId) \}\)\)\) return;/g) || []).length, 2);
+  assert.match(VIEW, /window\.confirm\(duplicateGiveConfirmMessage\(/);
+  // the confirm runs before mutate, so cancelling sends no request
+  assert.ok(VIEW.indexOf('confirmRegive(findExistingGive(data.assignments, { promptId, cohortId })') < VIEW.indexOf("'/instructor/assignments/fan-out'"));
+  assert.match(VIEW, /const resetOnSuccess = [^\n]*form\.reset\(\)/);
+  assert.equal((VIEW.match(/\.then\(resetOnSuccess\)/g) || []).length, 2);
+  assert.match(VIEW, /'\/instructor\/assignments\/fan-out'\), body\), fanOutResultBanner\)/);
+  assert.match(VIEW, /typeof success === 'function' \? success\(result\)/);
 });

@@ -251,6 +251,9 @@ install both ignored agent entry points. Personal settings remain ignored.
 - `audio-responses` is private. Authorized playback uses short-lived signed URLs
   from `backend/services/recording_audio.py`; never restore public-bucket access
   or use a persisted public URL as an error fallback.
+- `writing-images` (Task 1 charts) is private too. Persist object paths; sign
+  only after authorizing the reader via `backend/services/writing_image_access.py`
+  (runbook: `docs/WRITING_IMAGE_PRIVATE_BUCKET.md`).
 
 ---
 

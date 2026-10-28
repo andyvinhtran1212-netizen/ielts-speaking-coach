@@ -507,7 +507,9 @@ def test_create_task1_prompt_triggers_analysis():
 
     assert r.status_code == 201
     mark.assert_called_once_with(_PROMPT_ID, "prompts/new.png")
-    run.assert_called_once_with(_PROMPT_ID, "pending-token")
+    # The requesting admin is carried into the ai_usage_logs context.
+    run.assert_called_once_with(_PROMPT_ID, "pending-token",
+                                requested_by=_ADMIN_USER["id"], trigger="create")
 
 
 def test_create_task2_prompt_does_not_trigger_analysis():
@@ -629,7 +631,8 @@ def test_patch_replace_image_retains_old_object_and_triggers_new_analysis():
     assert r.status_code == 200
     remove.assert_not_called()
     mark.assert_called_once_with(_PROMPT_ID, "prompts/new.png")
-    run.assert_called_once_with(_PROMPT_ID, "pending-token")
+    run.assert_called_once_with(_PROMPT_ID, "pending-token",
+                                requested_by=_ADMIN_USER["id"], trigger="update")
 
 
 def test_reanalyze_endpoint_schedules_for_task1():
@@ -651,7 +654,8 @@ def test_reanalyze_endpoint_schedules_for_task1():
     assert r.status_code == 202
     assert r.json()["status"] == "pending"
     mark.assert_called_once_with(str(_PROMPT_ID), "prompts/x.png")
-    run.assert_called_once_with(str(_PROMPT_ID), "pending-token")
+    run.assert_called_once_with(str(_PROMPT_ID), "pending-token",
+                                requested_by=_ADMIN_USER["id"], trigger="reanalyze")
 
 
 def test_reanalyze_rejects_non_task1():

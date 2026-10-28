@@ -48,7 +48,7 @@ from __future__ import annotations
 import io
 from datetime import datetime, timezone
 from typing import Literal, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import logging
 
@@ -58,9 +58,11 @@ from pydantic import BaseModel, Field
 
 from database import supabase_admin
 from services.cohort_assignment_service import Deadline, normalize_deadline
-from routers.admin import require_instructor, _gen_code
-from services import essay_service, instructor_workflow
+from routers.admin import require_instructor
+from services import essay_service, instructor_workflow, student_service, test_data_visibility
+from services.access_code_gen import insert_with_unique_codes
 from services.core_attempt_outcomes import observe_writing_batch
+from services.writing_image_access import attach_signed_image_urls
 from services.core_writing_observation import note_writing_mutation, observe_writing_partial_failure
 from services.instructor_access import (
     instructor_db,
@@ -69,6 +71,8 @@ from services.instructor_access import (
     assert_essay_owned,
 )
 from services.instructor_workflow import ConflictError, NotFoundError
+from services.writing_assignment_delete_guard import delete_unstarted_assignment
+from services.writing_give_status import writing_give_timing
 from services.writing_render import render_feedback_html, render_plain_text
 from services.writing_word_exporter import render_essay_to_docx
 
@@ -135,7 +139,9 @@ _PROMPT_FIELDS = ("title", "task_type", "prompt_text", "difficulty", "tags")
 async def list_prompts(request: Request, authorization: str | None = Header(None)):
     me = await _me(authorization, request)
     r = instructor_db(me).table("writing_prompts").select("*").order("created_at", desc=True).execute()
-    return r.data or []
+    prompts = r.data or []
+    attach_signed_image_urls(prompts)   # rows already scoped by instructor_db
+    return prompts
 
 
 @router.post("/prompts", status_code=status.HTTP_201_CREATED)
@@ -154,7 +160,9 @@ async def get_prompt(request: Request, prompt_id: UUID, authorization: str | Non
     r = instructor_db(me).table("writing_prompts").select("*").eq("id", str(prompt_id)).limit(1).execute()
     if not r.data:
         raise HTTPException(404, "Không tìm thấy.")
-    return r.data[0]
+    prompt = r.data[0]
+    attach_signed_image_urls([prompt])
+    return prompt
 
 
 @router.patch("/prompts/{prompt_id}")
@@ -166,7 +174,9 @@ async def patch_prompt(request: Request, prompt_id: UUID, body: dict, authorizat
     r = instructor_db(me).table("writing_prompts").update(payload).eq("id", str(prompt_id)).execute()
     if not r.data:
         raise HTTPException(404, "Không tìm thấy.")     # 0 rows = not owned / not exist
-    return r.data[0]
+    prompt = r.data[0]
+    attach_signed_image_urls([prompt])
+    return prompt
 
 
 @router.delete("/prompts/{prompt_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -183,7 +193,7 @@ async def delete_prompt(request: Request, prompt_id: UUID, authorization: str | 
 class FanOutBody(BaseModel):
     prompt_ids: list[UUID]
     cohort_id: UUID
-    name: Optional[str] = None
+    name: Optional[str] = Field(None, max_length=200)   # matches admin fan-out
     allow_soft_check: bool = False
     deadline: Optional[Deadline] = None
     instructions: Optional[str] = None
@@ -195,6 +205,7 @@ class AssignBody(BaseModel):
     """Single-student assign (one prompt → one of MY students)."""
     prompt_id: UUID
     student_id: UUID
+    name: Optional[str] = Field(None, max_length=200)   # W-06: label the student sees
     deadline: Optional[Deadline] = None
     instructions: Optional[str] = None
     analysis_level: int = 3
@@ -205,7 +216,9 @@ class AssignBody(BaseModel):
 async def list_assignments(request: Request, authorization: str | None = Header(None)):
     me = await _me(authorization, request)
     r = instructor_db(me).table("writing_assignments").select("*").order("created_at", desc=True).execute()
-    return r.data or []
+    # A-S3 — "Nộp trễ" comes from the same rule /my-class and the admin matrix use.
+    now = datetime.now(timezone.utc)
+    return [{**row, "is_late": writing_give_timing(row, now)[0]} for row in (r.data or [])]
 
 
 @router.get("/assignments/{assignment_id}")
@@ -237,10 +250,15 @@ async def patch_assignment(request: Request, assignment_id: UUID, body: dict, au
 
 @router.delete("/assignments/{assignment_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_assignment(request: Request, assignment_id: UUID, authorization: str | None = Header(None)):
+    """Delete only while the student has not started (A-08): pending, no
+    started_at / essay_id / draft — else 409, the draft would cascade away."""
     me = await _me(authorization, request)
-    r = instructor_db(me).table("writing_assignments").delete().eq("id", str(assignment_id)).execute()
-    if not r.data:
-        raise HTTPException(404, "Không tìm thấy.")
+    delete_unstarted_assignment(
+        str(assignment_id),
+        assignments=lambda: instructor_db(me).table("writing_assignments"),
+        drafts=lambda: supabase_admin.table("writing_drafts"),
+        not_found_detail="Không tìm thấy.",
+    )
     return None
 
 
@@ -254,19 +272,30 @@ async def create_assignment(request: Request, body: AssignBody, authorization: s
          .eq("id", str(body.prompt_id)).limit(1).execute())
     if not p.data:
         raise HTTPException(403, "Đề bài không thuộc bạn.")
-    s = (instructor_db(me).table("students").select("id")
+    s = (instructor_db(me).table("students").select("id, archived_at")
          .eq("id", str(body.student_id)).limit(1).execute())
     if not s.data:
         raise HTTPException(403, "Học viên không thuộc bạn.")
+    if s.data[0].get("archived_at"):
+        raise student_service.student_archived_error([str(body.student_id)])
     payload = {
         "prompt_id":      str(body.prompt_id),
         "student_id":     str(body.student_id),
+        "name":           body.name,
+        # A named give gets its own group (as admin gives do) so the learner
+        # dashboard, which shows `name` only on group headers, displays it.
+        "assignment_group_id": str(uuid4()) if body.name else None,
         "deadline":       body.deadline.isoformat() if body.deadline else None,
         "instructions":   body.instructions,
         "analysis_level": body.analysis_level,
         "grading_tier":   body.grading_tier,
     }
-    r = instructor_db(me).table("writing_assignments").insert(payload).execute()  # stamps assigned_by=me
+    try:
+        r = instructor_db(me).table("writing_assignments").insert(payload).execute()  # stamps assigned_by=me
+    except Exception as exc:
+        # 331: archived after the check above → no row was created.
+        student_service.raise_if_student_archived(supabase_admin, exc, [str(body.student_id)])
+        raise
     return (r.data or [{}])[0]
 
 
@@ -560,7 +589,10 @@ async def revoke_delivery(request: Request, essay_id: UUID, authorization: str |
 async def list_cohorts(request: Request, authorization: str | None = Header(None)):
     me = await _me(authorization, request)
     r = instructor_db(me).table("cohorts").select("*").order("created_at", desc=True).execute()
-    return r.data or []
+    rows = r.data or []
+    if test_data_visibility.hide_for(user_id=me):
+        rows = [c for c in rows if not test_data_visibility.is_test_label(c.get("name"))]
+    return rows
 
 
 @router.post("/cohorts", status_code=status.HTTP_201_CREATED)
@@ -587,14 +619,20 @@ async def get_cohort(request: Request, cohort_id: UUID, authorization: str | Non
 @router.get("/students")
 async def list_students(request: Request, authorization: str | None = Header(None)):
     me = await _me(authorization, request)
-    r = instructor_db(me).table("students").select("*").order("created_at", desc=True).execute()
-    return r.data or []
+    # Archived learners (STUDENTARCHIVE-0029) leave the roster.
+    r = (instructor_db(me).table("students").select("*").is_("archived_at", "null")
+         .order("created_at", desc=True).execute())
+    rows = r.data or []
+    if test_data_visibility.hide_for(user_id=me):
+        rows = test_data_visibility.drop_test_students(rows)
+    return rows
 
 
 @router.get("/students/{student_id}")
 async def get_student(request: Request, student_id: UUID, authorization: str | None = Header(None)):
     me = await _me(authorization, request)
-    r = instructor_db(me).table("students").select("*").eq("id", str(student_id)).limit(1).execute()
+    r = (instructor_db(me).table("students").select("*").eq("id", str(student_id))
+         .is_("archived_at", "null").limit(1).execute())
     if not r.data:
         raise HTTPException(404, "Không tìm thấy.")
     return r.data[0]
@@ -606,7 +644,7 @@ async def student_summary(request: Request, student_id: UUID, authorization: str
     scope) BEFORE the shared aggregation runs → non-owned student → 404 (empty)."""
     me = await _me(authorization, request)
     owned = (instructor_db(me).table("students").select("id")
-             .eq("id", str(student_id)).limit(1).execute())
+             .eq("id", str(student_id)).is_("archived_at", "null").limit(1).execute())
     if not owned.data:
         raise HTTPException(404, "Không tìm thấy.")     # not my student (uniform w/ non-existent)
     return essay_service.get_student_summary(str(student_id))
@@ -670,9 +708,7 @@ async def mint_codes(request: Request, body: CodeMintBody, authorization: str | 
         if not owned.data:
             raise HTTPException(403, "Lớp không thuộc bạn.")
 
-    codes = [_gen_code() for _ in range(body.count)]
     rows = [{
-        "code":        c,
         "is_used":     False,
         "is_active":   True,
         "permissions": list(_STUDENT_ENROLL_PERMISSIONS),   # NO admin cap
@@ -681,8 +717,11 @@ async def mint_codes(request: Request, body: CodeMintBody, authorization: str | 
         # stamped to `me` by the accessor (never from the body).
         **({"cohort_id": str(body.cohort_id)} if body.cohort_id else {}),
         **({"notes": body.notes} if body.notes else {}),
-    } for c in codes]
-    r = instructor_db(me).table("access_codes").insert(rows).execute()   # stamps issued_by=me
+    } for _ in range(body.count)]
+    # F07 (CODEUNIQ-0028): unique batch, pre-check, retry on a 23505 for `code`.
+    # Through the accessor: the pre-check sees only my codes; the retry is the
+    # authoritative guard. The insert stamps issued_by=me.
+    r, codes = insert_with_unique_codes(lambda: instructor_db(me).table("access_codes"), rows)
     created = r.data or []
     for row in created:
         _audit_code(me, row.get("id"), "code_mint",
