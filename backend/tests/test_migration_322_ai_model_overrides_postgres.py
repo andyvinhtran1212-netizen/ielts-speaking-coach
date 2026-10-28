@@ -255,3 +255,51 @@ def test_usage_rollup_never_merges_legacy_rows(schema):
     # One row per legacy ledger row, each with its own timestamp, so pricing
     # periods and per-request tiers are applied per call.
     assert [(r["calls"], r["input_tokens"]) for r in rows] == [(1, 60_000), (1, 60_000)]
+
+
+def test_usage_rollup_pages_past_max_rows_without_repeating_or_dropping_rows(schema):
+    # Codex P2 on 30c830309: > 1000 legacy rows page through PostgREST
+    # (ORDER BY <order> LIMIT/OFFSET per request); the order the dashboard
+    # sends must be a unique key so the pages equal the unpaginated rollup.
+    from services.admin_ai_dashboard import FAILURE_ROLLUP_ORDER, RPC_PAGE, USAGE_ROLLUP_ORDER
+
+    query(f"""INSERT INTO {schema}.ai_usage_logs(
+                  created_at, feature, service, model, status, input_tokens, output_tokens,
+                  cost_usd_est, pricing_version, cost_source)
+              SELECT '2026-10-26T02:00:00Z'::timestamptz + i * interval '1 second',
+                     'course_writing', 'claude', 'claude-haiku-5-5', 'success', 100 + i, 10,
+                     CASE WHEN i % 2 = 0 THEN 0.001 END, NULL, 'catalog_estimate'
+                FROM generate_series(1, 1205) i;
+              INSERT INTO {schema}.ai_usage_logs(
+                  created_at, feature, service, model, status, input_tokens, output_tokens,
+                  cost_usd_est, pricing_version, cost_source)
+              SELECT '2026-10-26T03:00:00Z', f, 'claude', 'claude-haiku-5-5', s, 1, 1, NULL,
+                     CASE WHEN s = 'success' THEN 'anthropic:claude-haiku-5-5:2026-10-07:open' END,
+                     CASE WHEN s = 'success' THEN 'catalog_estimate' ELSE 'unpriced' END
+                FROM unnest(ARRAY['course_writing', NULL]) f, unnest(ARRAY['success', 'error']) s;""")
+    rollup = f"{schema}.fn_admin_ai_usage_rollup('2026-10-25T17:00:00Z', '2026-10-26T17:00:00Z')"
+    order = ", ".join(f"{column} ASC NULLS LAST" for column in USAGE_ROLLUP_ORDER)
+
+    def key(row):
+        return tuple(row[column] for column in USAGE_ROLLUP_ORDER)
+
+    everything = query(f"SELECT * FROM {rollup}", role="service_role")
+    assert len(everything) == 1205 + 4
+    assert len({key(r) for r in everything}) == len(everything)  # the order is total
+
+    paged, offset = [], 0
+    while True:
+        page = query(f"SELECT * FROM {rollup} ORDER BY {order} LIMIT {RPC_PAGE} OFFSET {offset}",
+                     role="service_role")
+        paged.extend(page)
+        if len(page) < RPC_PAGE:
+            break
+        offset += RPC_PAGE
+    assert offset == 1000
+    assert sorted(map(tuple, paged), key=repr) == sorted(map(tuple, everything), key=repr)
+    assert sum(r["calls"] for r in paged) == 1205 + 4
+
+    failure_order = ", ".join(FAILURE_ROLLUP_ORDER)  # the columns exist in the rollup
+    assert query(f"""SELECT * FROM {schema}.fn_admin_ai_failure_rollup(
+                         '2026-10-25T17:00:00Z', '2026-10-26T17:00:00Z') ORDER BY {failure_order}""",
+                 role="service_role") == []

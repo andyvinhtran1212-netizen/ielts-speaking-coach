@@ -353,6 +353,64 @@ def test_usage_endpoint_pages_through_the_complete_rollup(db, as_admin, monkeypa
     assert start.astimezone(dashboard.SAIGON).hour == 0
 
 
+class _UnorderedRollupQuery(_Query):
+    """An RPC as PostgreSQL runs it: a rollup without ORDER BY may return its
+    groups in a different order on every request; ``.order`` makes it total."""
+
+    def execute(self):
+        order = [args[0] for method, args, _ in self.calls if method == "order"]
+        rows = list(self.client.data.get(self.name, []))
+        if order:
+            rows.sort(key=lambda r: tuple((r.get(c) is None, str(r.get(c) or "")) for c in order))
+        else:
+            shift = len(self.client.executed) % len(rows)
+            rows = rows[shift:] + rows[:shift]
+        self.client.data, saved = {**self.client.data, self.name: rows}, self.client.data
+        try:
+            return super().execute()
+        finally:
+            self.client.data = saved
+
+
+def test_usage_pages_a_total_order_so_pages_neither_repeat_nor_drop_groups(db, as_admin, monkeypatch):
+    # Codex P2 on 30c830309: legacy rows come back one per ledger row, so a
+    # long window pages; each page is a new request with its own group order.
+    legacy = [{**_rollup_row({"feature": "course_writing", "service": "claude",
+                              "model": "claude-haiku-5-5", "input_tokens": 1000 * (i + 1),
+                              "created_at": f"2026-10-26T0{i}:00:00+00:00"}),
+               "ledger_id": f"00000000-0000-0000-0000-00000000000{i}"} for i in range(7)]
+    rows = [{**row, "ledger_id": None} for row in USAGE_ROWS] + legacy
+    expected = dashboard.aggregate_usage(rows)
+    monkeypatch.setattr(dashboard, "RPC_PAGE", 3)
+    monkeypatch.setattr(db, "rpc", lambda name, params: _UnorderedRollupQuery(db, name, params))
+    db.data["fn_admin_ai_usage_rollup"] = rows
+
+    body = TestClient(app).get("/admin/ai/usage?window=30d").json()
+    assert body["totals"]["calls"] == expected["totals"]["calls"] == 12 + 7
+    assert body["totals"]["input_tokens"] == expected["totals"]["input_tokens"]
+    assert body["totals"]["legacy_calls"] == expected["totals"]["legacy_calls"] == 9
+    assert body["totals"]["cost_usd"] == pytest.approx(expected["totals"]["cost_usd"])
+    pages = [calls for name, _, calls in db.executed if name == "fn_admin_ai_usage_rollup"]
+    assert len(pages) == 5  # 3 + 3 + 3 + 3 + 1 groups
+    for calls in pages:
+        assert [(a[0], k) for m, a, k in calls if m == "order"] == [
+            (column, {"nullsfirst": False}) for column in dashboard.USAGE_ROLLUP_ORDER]
+
+
+def test_failure_rollup_pages_in_its_group_key_order(db, as_admin, monkeypatch):
+    monkeypatch.setattr(dashboard, "RPC_PAGE", 1)
+    monkeypatch.setattr(db, "rpc", lambda name, params: _UnorderedRollupQuery(db, name, params))
+    db.data["fn_admin_ai_failure_rollup"] = [
+        {"feature": "course_writing", "provider": "anthropic", "error_type": t,
+         "outcome": "fallback", "failures": n} for t, n in (("rate_limit", 5), ("timeout", 1), ("server", 3))]
+    body = TestClient(app).get("/admin/ai/failures?window=today").json()
+    assert body["totals"]["total"] == 9
+    assert body["by_provider_feature"][0]["by_error_type"] == {"rate_limit": 5, "timeout": 1, "server": 3}
+    pages = [calls for name, _, calls in db.executed if name == "fn_admin_ai_failure_rollup"]
+    assert all([a[0] for m, a, _ in calls if m == "order"] == list(dashboard.FAILURE_ROLLUP_ORDER)
+               for calls in pages)
+
+
 def test_usage_endpoint_states(db, as_admin):
     assert TestClient(app).get("/admin/ai/usage?window=year").status_code == 422
     db.errors["fn_admin_ai_usage_rollup"] = _Missing("Could not find the function fn_admin_ai_usage_rollup")

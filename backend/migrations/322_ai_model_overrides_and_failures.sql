@@ -142,7 +142,9 @@ CREATE TRIGGER trg_ai_model_override_audit_append_only
 -- pricing_version, not explicitly unpriced) are NOT merged: each is returned
 -- on its own so services/ai_pricing.effective_logged_cost can re-price it
 -- exactly as per row (price periods and per-request tiers, e.g. the Haiku 5.5
--- >100k-prompt multiplier, do not survive summing).
+-- >100k-prompt multiplier, do not survive summing). ledger_id is that row's id
+-- (NULL for grouped rows), so the first seven columns are a unique row key the
+-- dashboard orders by when it pages past PostgREST's max-rows.
 CREATE OR REPLACE FUNCTION public.fn_admin_ai_usage_rollup(p_start timestamptz, p_end timestamptz)
 RETURNS TABLE (
     feature            text,
@@ -151,6 +153,7 @@ RETURNS TABLE (
     status             text,
     cost_source        text,
     pricing_version    text,
+    ledger_id          uuid,
     calls              bigint,
     input_tokens       bigint,
     output_tokens      bigint,
@@ -168,6 +171,8 @@ STABLE
 SET search_path = public, pg_temp
 AS $$
     SELECT l.feature, l.service, l.model, l.status, l.cost_source, l.pricing_version,
+           CASE WHEN l.pricing_version IS NULL
+                     AND l.cost_source IS DISTINCT FROM 'unpriced' THEN l.id END,
            count(*),
            coalesce(sum(l.input_tokens), 0)::bigint,
            coalesce(sum(l.output_tokens), 0)::bigint,

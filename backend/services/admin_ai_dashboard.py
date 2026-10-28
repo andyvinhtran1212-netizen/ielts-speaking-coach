@@ -26,6 +26,11 @@ SAIGON = ZoneInfo("Asia/Ho_Chi_Minh")
 TIMEZONE_LABEL = "Asia/Saigon"
 WINDOW_DAYS: dict[str, int] = {"today": 0, "7d": 6, "30d": 29}
 RPC_PAGE = 1000
+# Unique row keys of the rollups (their GROUP BY). Every page is a separate
+# request, so pages are only disjoint and complete under a total order.
+USAGE_ROLLUP_ORDER = ("feature", "service", "model", "status", "cost_source",
+                      "pricing_version", "ledger_id")
+FAILURE_ROLLUP_ORDER = ("feature", "provider", "error_type", "outcome")
 RECENT_FAILURES = 50
 RECENT_CHANGES = 20
 
@@ -254,13 +259,21 @@ async def models_view(client: Any, s: Any) -> dict[str, Any]:
 # ── Usage ──────────────────────────────────────────────────────────────────
 
 
-async def _rpc_all(client: Any, name: str, params: dict[str, Any]) -> list[dict[str, Any]]:
-    """Every row of a set-returning RPC, paging past PostgREST's max-rows."""
+async def _rpc_all(client: Any, name: str, params: dict[str, Any],
+                   order: Iterable[str]) -> list[dict[str, Any]]:
+    """Every row of a set-returning RPC, paging past PostgREST's max-rows.
+
+    ``order`` must be a unique key of the RPC's rows: the rollups have no
+    ORDER BY, and without one each page may see the groups in another order.
+    """
     rows: list[dict[str, Any]] = []
     offset = 0
     while True:
+        query = client.rpc(name, params)
+        for column in order:
+            query = query.order(column, nullsfirst=False)
         try:
-            res = await _execute(client.rpc(name, params).range(offset, offset + RPC_PAGE - 1))
+            res = await _execute(query.range(offset, offset + RPC_PAGE - 1))
         except Exception as exc:
             if ai_model_overrides.is_missing_table_error(exc):
                 raise DashboardNotMigrated(name) from exc
@@ -352,7 +365,8 @@ def aggregate_usage(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
 async def usage_view(client: Any, key: str, now: datetime | None = None) -> dict[str, Any]:
     start, end = window_bounds(key, now)
     rows = await _rpc_all(client, "fn_admin_ai_usage_rollup",
-                          {"p_start": start.isoformat(), "p_end": end.isoformat()})
+                          {"p_start": start.isoformat(), "p_end": end.isoformat()},
+                          USAGE_ROLLUP_ORDER)
     return {
         "window": window_out(key, start, end),
         **aggregate_usage(rows),
@@ -396,7 +410,7 @@ async def failures_view(client: Any, key: str, now: datetime | None = None) -> d
     start, end = window_bounds(key, now)
     params = {"p_start": start.isoformat(), "p_end": end.isoformat()}
     try:
-        rows = await _rpc_all(client, "fn_admin_ai_failure_rollup", params)
+        rows = await _rpc_all(client, "fn_admin_ai_failure_rollup", params, FAILURE_ROLLUP_ORDER)
         res = await _execute(
             client.table(ai_failure_log.TABLE)
             .select("id, created_at, feature, provider, model, route_slot, attempt, "
