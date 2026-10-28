@@ -227,10 +227,10 @@ check('bulk AI partial failure hiện lỗi và đọc lại topic thành công'
 await page.getByLabel('Chọn Environment').check();
 await page.getByLabel('Chọn Public services').check();
 const readsBeforeBulkDelete = listReads;
-await page.locator('.ast-bulkbar').getByRole('button', { name: 'Xoá', exact: true }).click();
-await page.getByRole('dialog', { name: 'Xoá 2 topic?' }).waitFor();
-await page.getByRole('button', { name: 'Xoá các topic' }).click();
-await page.getByText(/Đã xoá 2\/2 topic.*Đã đối chiếu trạng thái đã lưu/).waitFor();
+await page.locator('.ast-bulkbar').getByRole('button', { name: 'Xóa', exact: true }).click();
+await page.getByRole('dialog', { name: 'Xóa 2 topic?' }).waitFor();
+await page.getByRole('button', { name: 'Xóa các topic' }).click();
+await page.getByText(/Đã xóa 2\/2 topic.*Đã đối chiếu trạng thái đã lưu/).waitFor();
 const bulkDeleteWrite = requests.find((item) => item.method === 'POST' && item.path === '/admin/topics/bulk-delete');
 check('bulk delete cần dialog và xác nhận biến mất qua GET', bulkDeleteWrite?.body?.topic_ids.includes('bulk-0') && bulkDeleteWrite.body.topic_ids.includes('bulk-1') && listReads > readsBeforeBulkDelete && !topics.some((topic) => topic.id === 'bulk-0' || topic.id === 'bulk-1')
   && await page.getByRole('button', { name: /^Environment/ }).count() === 0

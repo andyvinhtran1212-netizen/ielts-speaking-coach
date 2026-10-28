@@ -45,7 +45,7 @@ describe('/listening/practice-run native ownership', () => {
     assert.ok(ensure.indexOf('readOpenAttempt') < ensure.indexOf('coreOperationRequest'));
     assert.match(ensure, /catch \(startError\)[\s\S]*readOpenAttempt/);
     assert.match(ensure, /practice-run-start-uncertain/);
-    assert.match(PLAYER, /không tự tạo lại để tránh xoá tiến độ/i);
+    assert.match(PLAYER, /không tự tạo lại để tránh xóa tiến độ/i);
   });
 
   test('locks an ambiguous check to the exact first-answer payload', () => {

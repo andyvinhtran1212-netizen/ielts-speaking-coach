@@ -336,7 +336,7 @@ try {
     const resetRun = await fixture(stale, { resume: masteredResume(stale.bank), reset });
     await resetRun.page.getByRole('button', { name: '♻️ Làm lại từ đầu' }).click();
     if (reset === 'lost') {
-      await resetRun.page.getByText(/Không xác nhận được việc xoá tiến độ/).waitFor();
+      await resetRun.page.getByText(/Không xác nhận được việc xóa tiến độ/).waitFor();
       check('lost reset ACK: no inferred empty-resume/no new start', posts(resetRun, '/reset').length === 1 && resetRun.bankReads === 1 && resetRun.resumeReads === 1 && posts(resetRun, '/api/quiz/sessions').length === 0);
     } else {
       await resetRun.page.locator('.qz-prompt').waitFor();

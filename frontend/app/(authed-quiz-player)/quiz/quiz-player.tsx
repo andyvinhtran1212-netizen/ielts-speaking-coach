@@ -452,7 +452,7 @@ export function QuizPlayer() {
     const scope = scopeRef.current;
     if (resetLockRef.current || !currentBank || !scope || !isCurrentScope(scope)
         || currentBank.managed && (!currentBank.managed.isCurrent || !currentBank.grammar.new_starts_enabled)) return;
-    if (!window.confirm('Xoá toàn bộ tiến độ “đã thuộc” của bài này và làm lại từ đầu?')) return;
+    if (!window.confirm('Xóa toàn bộ tiến độ “đã thuộc” của bài này và làm lại từ đầu?')) return;
     resetLockRef.current = true; setResetBusy(true); setMessage('');
     try {
       let confirmed = false;
@@ -470,7 +470,7 @@ export function QuizPlayer() {
           confirmed = Array.isArray(resume) && resume.length === 0;
         }
       }
-      if (!confirmed) { setMessage('Không xác nhận được việc xoá tiến độ. Hãy mở lại bài để kiểm tra trước khi tiếp tục.'); return; }
+      if (!confirmed) { setMessage('Không xác nhận được việc xóa tiến độ. Hãy mở lại bài để kiểm tra trước khi tiếp tục.'); return; }
       if (!currentBank.managed) { await startPlay(currentBank, false, scope); return; }
       const loaded = await scope.api.bank(currentBank.bank.id);
       if (!isCurrentScope(scope)) return;
