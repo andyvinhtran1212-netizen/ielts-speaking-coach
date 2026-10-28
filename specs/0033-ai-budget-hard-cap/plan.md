@@ -19,7 +19,13 @@ This plan is for implementation **after** AIBUDGET-0033 is approved on
   - `kill_switch_on()` reads `os.environ["AI_KILL_SWITCH"]` per call and
     never touches the DB (FR-007).
   - `estimate(provider, model, *, input_chars, max_tokens, audio_seconds,
-    text_chars)` uses `services/ai_pricing.py` (FR-004).
+    text_chars, images=())` uses `services/ai_pricing.py` (FR-004).
+    `images` is a sequence of `(width, height)` read from the decoded image
+    bytes. Each adds the provider's image-token bound from its catalog
+    rule to the input tokens. An image whose size cannot be read raises
+    `AIBudgetRefused("config_invalid")` before any call. Every call site
+    that sends image bytes (`gemini_writing_grader.py`, each attempt;
+    `ai_router` with `images=`; `writing_prompt_analysis.py`) passes them.
   - `classify_provider_error(exc)` returns `provider_spend_limit` or
     `transient`. It is fixture-driven (FR-009, research §6).
   - The RPC call has a 2 s timeout. Any exception, unexpected shape or
@@ -840,6 +846,13 @@ These run in CI with fake providers; no network.
     (FR-024);
   - an alert exactly once under concurrent crossing (AC7);
   - the guarded down script.
+- **Image bound (FR-004)** in `backend/tests/test_ai_budget_service.py`:
+  a chart-bearing Task 1 Writing request at `max_output_tokens`, using the
+  largest chart the importer accepts, has an estimate at least the cost
+  from the recorded Gemini usage fixture (prompt plus image tokens plus
+  maximum output); the same for an Anthropic `images=` call; a repair
+  retry reserves the image again; an image with unreadable dimensions is
+  refused with zero stub calls.
 - **`backend/tests/test_ai_budget_fallback.py`**: `with_fallback`, the
   orchestrator, the JSON-repair rerun and each custom chain. A budget
   refusal or a 402 leads to zero further stub calls. 429, 529 and timeout
