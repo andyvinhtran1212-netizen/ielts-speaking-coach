@@ -95,6 +95,17 @@ The deployed backend keeps working: its role/`is_active` writes just gain an
 audit row. Rollback (in the file header and rollout.md) drops the triggers and
 functions and keeps the tables. It refuses while any account is suspended.
 
+Migration `322` (AIOPS-0024) is additive: `ai_model_overrides` (admin
+per-feature preferred provider / Claude model, NULL = env/code default), the
+trigger-written append-only `ai_model_override_audit`, the routing-layer
+`ai_provider_failures` log and two read-only dashboard rollups. RLS is on with
+no policies, nothing is granted to `anon`/`authenticated`, and `service_role`
+gets only the privileges the backend uses. No data is written; with no
+override row routing is unchanged. Apply it to staging before merging the
+dependent code; code deployed first keeps env/code-default routing and the
+dashboard shows "migration not applied". Rollback SQL (destroys audit/failure
+history) is in `specs/0024-admin-ai-model-control/rollout.md`.
+
 Migration `331` (GIVEARCHIVE-0031) adds the `BEFORE INSERT OR UPDATE OF
 student_id` trigger `archive_guard_writing_assignment_student` on
 `writing_assignments`. It locks the learner row `FOR KEY SHARE` (the lock the
@@ -142,8 +153,9 @@ Migration `324` (A-08B, ASSIGNDRAFT-0027) changes
 `ON DELETE NO ACTION`, so Postgres refuses to delete a `writing_assignments`
 row while a learner's draft references it (23503, for every role and path);
 `services/writing_assignment_delete_guard.py` maps that to the existing 409
-"Học viên đã bắt đầu — không xoá được". NO ACTION rather than RESTRICT keeps a
-single-statement student delete, which cascades to both rows, working. One
+("Học viên đã bắt đầu làm bài nên không xóa được bài giao này."). NO ACTION
+rather than RESTRICT keeps a single-statement student delete, which cascades
+to both rows, working. One
 transaction with `lock_timeout = 5s`: it aborts on orphan drafts or an
 unexpected FK action, adds the FK `NOT VALID` then validates it, and its
 postcondition requires no cascading child FK on `writing_assignments`. No row

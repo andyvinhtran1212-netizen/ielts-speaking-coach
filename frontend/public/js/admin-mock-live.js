@@ -372,7 +372,7 @@
                   encodeURIComponent(s.sitting_id) + '" style="text-decoration:none">Nhịp làm bài</a> ' +
                 (s.status !== 'released'
                   ? '<button type="button" class="ml-void" data-void="' + esc(s.sitting_id) +
-                    '" data-name="' + esc(s.student_name) + '">Huỷ lượt</button>'
+                    '" data-name="' + esc(s.student_name) + '">Hủy lượt</button>'
                   : '')
               : '') + '</td>' +
           '</tr>';
@@ -397,16 +397,16 @@
   // Voiding keeps the row (audit) and keeps it SEALED — a cancelled sitting
   // never publishes results.
   function voidSitting(sittingId, name, btn) {
-    var reason = prompt('Huỷ lượt thi của "' + name + '"?\n\nNhập lý do (bắt buộc):');
+    var reason = prompt('Hủy lượt thi của "' + name + '"?\n\nNhập lý do (bắt buộc):');
     if (reason == null) return;
     reason = String(reason).trim();
-    if (!reason) { toast('Cần nêu lý do huỷ.'); return; }
+    if (!reason) { toast('Cần nêu lý do hủy.'); return; }
     return guard(btn, function () {
       return window.api.post(
         '/admin/mock-exams/sittings/' + encodeURIComponent(sittingId) + '/void',
         { reason: reason }
-      ).then(function () { toast('Đã huỷ lượt thi của ' + name + '.'); return load(); })
-        .catch(function (e) { toast('Huỷ thất bại: ' + (e && e.message)); });
+      ).then(function () { toast('Đã hủy lượt thi của ' + name + '.'); return load(); })
+        .catch(function (e) { toast('Hủy thất bại: ' + (e && e.message)); });
     });
   }
 

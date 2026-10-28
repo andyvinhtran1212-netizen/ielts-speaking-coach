@@ -22,6 +22,7 @@
 // `tests/authed-shell.test.mjs` ghim điều đó, và bản refactor đã được kiểm bằng
 // cách so BYTE HTML của `/profile` và `/home` trước/sau.
 import type { ReactNode } from 'react';
+import { headers } from 'next/headers';
 import Script from 'next/script';
 
 import { BodyClassBridge } from '@/components/body-class-bridge';
@@ -55,10 +56,23 @@ const ANTI_FLASH = `
 })();
 `.trim();
 
+// SEC-CSP-NONCE step 1 (PC-J38): proxy.ts puts a per-request nonce in
+// `x-nonce` and a Report-Only `script-src 'nonce-…' 'strict-dynamic'` on these
+// routes. Reading the header renders every AuthedShell route per request, which
+// is why each of their layouts exports `instant = false` (cacheComponents
+// otherwise rejects request data outside <Suspense>, and a Suspense shell would
+// be prerendered without the nonce). When the flag is off for this build
+// (production by default; next.config.ts inlines the flag) nothing is read and
+// the routes stay static.
+async function requestNonce() {
+  if (process.env.AVER_CSP_NONCE_REPORT_ONLY !== '1') return undefined;
+  return (await headers()).get('x-nonce') ?? undefined;
+}
+
 const SUPABASE_URL = 'https://huwsmtubwulikhlmcirx.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
 
-export function AuthedShell({
+export async function AuthedShell({
   pageStylesheets,
   extraScripts,
   utilityLayer = true,
@@ -122,13 +136,14 @@ export function AuthedShell({
   bodyClass?: string;
   children: ReactNode;
 }) {
+  const nonce = await requestNonce();
   return (
     <>
       {/* Route-scoped hint for the adaptive student chrome. Without it the
           Vocabulary target waits on a second Supabase poll and can briefly
           disagree with an authenticated native page. */}
       {authGated && <meta name="aver-auth-gated" content="1" />}
-      <script dangerouslySetInnerHTML={{ __html: ANTI_FLASH }} suppressHydrationWarning />
+      <script nonce={nonce} dangerouslySetInnerHTML={{ __html: ANTI_FLASH }} suppressHydrationWarning />
 
       {/* Cascade của Aver Design System (tokens trước components trước CSS
           trang; Tailwind tĩnh CUỐI CÙNG để utilities/.hidden thắng — P0-3 C-3.4) */}
@@ -181,10 +196,14 @@ export function AuthedShell({
           gắn trước lượt vẽ bằng đúng kỹ thuật script nội tuyến của khối
           anti-flash (dựng ở pilot 2, review #741). Danh sách class đúng như
           trang legacy: `<body class="av-page font-sans min-h-screen">`. */}
+      {/* Browsers hide `nonce` from the DOM after parsing, hence the hydration
+          warning suppression (the anti-flash script above already has it). */}
       <script
+        nonce={nonce}
         dangerouslySetInnerHTML={{
           __html: `document.body.className += ' ${bodyClass}';`,
         }}
+        suppressHydrationWarning
       />
       <BodyClassBridge className={bodyClass} />
       {/* W-03 — fully signed-in layouts also require an ACTIVATED account,

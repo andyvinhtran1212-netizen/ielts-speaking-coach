@@ -22,3 +22,16 @@ This approves the intent in `spec.md` (FR-001…FR-018) and the rollout in
 Railway secret, or enabling `ADMIN_AAL2_ENFORCE` anywhere: staging follows the
 staging-first runbook, and production enforcement needs Vinh's explicit go
 (Q6) at the `staging` → `main` promotion.
+
+## Amendment: FR-019, role frozen while suspended
+
+**State: APPROVED by the human owner.** On 2026-10-28 17:53 (UTC+7) Vinh chose
+option 1A (relayed by the Leader, t246u), after #1806 reached `staging`:
+`fn_set_staff_privilege` must refuse any role change on an account that is
+currently suspended, and an admin must reactivate the account first. This
+prevents a suspended instructor from being demoted to student and then being
+impossible to restore in the app. Recorded as FR-019, AC10, Q11 and T015, and
+enforced by migration 336, which the Leader assigned from the 333–337 range.
+
+This approves the intent only. It does not authorize applying 336 to any
+database. 336 follows 332 through the staging-first runbook (`rollout.md` S1b).

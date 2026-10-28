@@ -386,7 +386,7 @@
             (it.is_public ? 'Ẩn khỏi web' : 'Mở công khai') + '</button>' +
           ' <button type="button" class="ar-row-action is-danger" ' +
             'data-action="delete-test" data-test-id="' + escapeHtml(it.slug) + '" ' +
-            'data-test-title="' + escapeHtml(it.title || '') + '">Xoá</button>' +
+            'data-test-title="' + escapeHtml(it.title || '') + '">Xóa</button>' +
           // reading-access-tracking F1 — lock/unlock (mock-exam password gate).
           ' <button type="button" class="ar-row-action' + (it.locked ? ' is-locked' : '') + '" ' +
             'data-action="lock-test" data-test-id="' + escapeHtml(it.slug) + '" ' +
@@ -420,7 +420,7 @@
             'data-title="' + escapeHtml(it.title || '') + '">Sửa</button>' +
           ' <button type="button" class="ar-row-action is-danger" ' +
             'data-action="delete-passage" data-slug="' + escapeHtml(it.slug) + '" ' +
-            'data-title="' + escapeHtml(it.title || '') + '">Xoá</button>';
+            'data-title="' + escapeHtml(it.title || '') + '">Xóa</button>';
       }
       return '<tr>' +
         '<td>' + escapeHtml(it.title || '') + '</td>' +
@@ -483,7 +483,7 @@
     var msg = wantLock
       ? 'Khoá bài "' + testId + '"? Hệ thống sẽ tạo MẬT KHẨU MỚI; học sinh phải nhập đúng mật khẩu để vào. ' +
         '(Mỗi lần khoá tạo mật khẩu mới — mật khẩu cũ sẽ hết hiệu lực.)'
-      : 'Mở khoá bài "' + testId + '"? Mật khẩu hiện tại sẽ bị xoá; ai cũng vào được (theo quyền thường).';
+      : 'Mở khoá bài "' + testId + '"? Mật khẩu hiện tại sẽ bị xóa; ai cũng vào được (theo quyền thường).';
     if (!window.confirm(msg)) return;
     btn.disabled = true;
     window.api.post('/admin/reading/content/tests/' + encodeURIComponent(testId) + '/lock',
@@ -588,10 +588,10 @@
           '<button type="button" id="ar-share-copy" class="ar-row-action">📋 Sao chép</button>' +
           '<span id="ar-share-copied" class="ar-modal__copied" hidden>Đã sao chép ✓</span>' +
         '</div>' +
-        '<p class="ar-modal__warn">Tạo / tạo lại liên kết sẽ huỷ liên kết cũ ngay lập tức.</p>' +
+        '<p class="ar-modal__warn">Tạo / tạo lại liên kết sẽ hủy liên kết cũ ngay lập tức.</p>' +
         '<div class="ar-modal__actions">' +
           '<button type="button" id="ar-share-generate" class="ar-row-action">Tạo liên kết</button>' +
-          '<button type="button" id="ar-share-revoke" class="ar-row-action is-danger" hidden>Huỷ liên kết</button>' +
+          '<button type="button" id="ar-share-revoke" class="ar-row-action is-danger" hidden>Hủy liên kết</button>' +
           '<button type="button" id="ar-share-close" class="ar-row-action" data-share-close>Đóng</button>' +
         '</div>' +
       '</div>';
@@ -653,10 +653,10 @@
       });
     };
     revBtn.onclick = function () {
-      if (!window.confirm('Huỷ liên kết chia sẻ? Mọi người đang giữ liên kết sẽ không vào được nữa.')) return;
+      if (!window.confirm('Hủy liên kết chia sẻ? Mọi người đang giữ liên kết sẽ không vào được nữa.')) return;
       revBtn.disabled = true;
       _shareRevoke(testId, function () {
-        stateEl.textContent = 'Đã huỷ liên kết. Không ai vào được bằng liên kết cũ nữa.';
+        stateEl.textContent = 'Đã hủy liên kết. Không ai vào được bằng liên kết cũ nữa.';
         resultEl.hidden = true;
         revBtn.hidden = true;
         genBtn.textContent = 'Tạo liên kết';
@@ -664,7 +664,7 @@
         loadList();
       }, function (e) {
         revBtn.disabled = false;
-        window.alert('Lỗi huỷ liên kết: ' + ((e && e.message) || e));
+        window.alert('Lỗi hủy liên kết: ' + ((e && e.message) || e));
       });
     };
     m.querySelector('#ar-share-copy').onclick = function () {
@@ -687,15 +687,15 @@
     var testTitle = btn.getAttribute('data-test-title') || testId;
     if (!testId) return;
     var ok = window.confirm(
-      'Xoá test "' + testTitle + '" (' + testId + ')?\n\n' +
+      'Xóa test "' + testTitle + '" (' + testId + ')?\n\n' +
       'Nếu test đã có lượt làm bài, server sẽ tự động ARCHIVE để bảo vệ ' +
-      'dữ liệu học sinh (đáp án + điểm), không xoá vật lý.\n\n' +
+      'dữ liệu học sinh (đáp án + điểm), không xóa vật lý.\n\n' +
       'Nếu chưa có lượt làm nào, test + 3 passages + ~40 questions sẽ bị ' +
-      'xoá vĩnh viễn.',
+      'xóa vĩnh viễn.',
     );
     if (!ok) return;
     btn.disabled = true;
-    btn.textContent = 'Đang xoá…';
+    btn.textContent = 'Đang xóa…';
     window.api['delete'](
       '/admin/reading/content/tests/' + encodeURIComponent(testId),
     )
@@ -706,21 +706,21 @@
           ? 'Đã ARCHIVE test "' + testTitle + '" (' + preserved +
             ' lượt làm bài được giữ nguyên). Test sẽ ẩn khỏi học sinh nhưng ' +
             'dữ liệu attempt + điểm vẫn còn để phân tích.'
-          : 'Đã xoá vĩnh viễn test "' + testTitle + '" (không có lượt làm nào).';
+          : 'Đã xóa vĩnh viễn test "' + testTitle + '" (không có lượt làm nào).';
         window.alert(msg);
         loadList();
       })
       .catch(function (e) {
         btn.disabled = false;
-        btn.textContent = 'Xoá';
+        btn.textContent = 'Xóa';
         var status = e && e.status;
         if (status === 404) {
-          window.alert('Test ' + testId + ' không tìm thấy (có thể đã bị xoá).');
+          window.alert('Test ' + testId + ' không tìm thấy (có thể đã bị xóa).');
           loadList();
         } else if (status === 401 || status === 403) {
-          window.alert('Không có quyền xoá (cần đăng nhập admin).');
+          window.alert('Không có quyền xóa (cần đăng nhập admin).');
         } else {
-          window.alert('Lỗi xoá: ' + ((e && e.message) || e));
+          window.alert('Lỗi xóa: ' + ((e && e.message) || e));
         }
       });
   }
@@ -767,34 +767,34 @@
     var title = btn.getAttribute('data-title') || slug;
     if (!slug) return;
     var ok = window.confirm(
-      'Xoá vĩnh viễn bài "' + title + '" (' + slug + ')?\n\n' +
-      'Bài đọc + các câu hỏi của nó sẽ bị xoá khỏi thư viện. L1/L2 là luyện ' +
+      'Xóa vĩnh viễn bài "' + title + '" (' + slug + ')?\n\n' +
+      'Bài đọc + các câu hỏi của nó sẽ bị xóa khỏi thư viện. L1/L2 là luyện ' +
       'tập không tính điểm nên không ảnh hưởng dữ liệu học sinh. Có thể khôi ' +
       'phục bằng cách import lại file .md.',
     );
     if (!ok) return;
     btn.disabled = true;
-    btn.textContent = 'Đang xoá…';
+    btn.textContent = 'Đang xóa…';
     window.api['delete'](
       '/admin/reading/content/passages/' + encodeURIComponent(slug),
     )
       .then(function () {
-        window.alert('Đã xoá vĩnh viễn bài "' + title + '".');
+        window.alert('Đã xóa vĩnh viễn bài "' + title + '".');
         loadList();
       })
       .catch(function (e) {
         btn.disabled = false;
-        btn.textContent = 'Xoá';
+        btn.textContent = 'Xóa';
         var status = e && e.status;
         if (status === 404) {
-          window.alert('Bài ' + slug + ' không tìm thấy (có thể đã bị xoá).');
+          window.alert('Bài ' + slug + ' không tìm thấy (có thể đã bị xóa).');
           loadList();
         } else if (status === 409) {
-          window.alert('Bài này thuộc một L3 Full Test — hãy xoá qua tab "L3 Test".');
+          window.alert('Bài này thuộc một L3 Full Test — hãy xóa qua tab "L3 Test".');
         } else if (status === 401 || status === 403) {
-          window.alert('Không có quyền xoá (cần đăng nhập admin).');
+          window.alert('Không có quyền xóa (cần đăng nhập admin).');
         } else {
-          window.alert('Lỗi xoá: ' + ((e && e.message) || e));
+          window.alert('Lỗi xóa: ' + ((e && e.message) || e));
         }
       });
   }

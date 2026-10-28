@@ -8,3 +8,6 @@ export default function QuizProgressLayout({ children }: { children: ReactNode }
     <AuthedShell pageStylesheets={['/css/quiz-progress.css']}>{children}</AuthedShell>
   );
 }
+
+// Per-request render for the CSP nonce (PC-J38); see components/authed-shell.tsx.
+export const instant = false;

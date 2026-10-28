@@ -68,6 +68,7 @@ draft -> approved -> implementing -> verified -> shipped
 | GRAMMARLESSON-0017 | Assign individual MASTER30 Grammar lessons to Course 5 learners | approved | high | [spec](0017-grammar-lesson-assignments/spec.md) |
 | MASTER30FULL-0018 | Assign the complete original MASTER30 Grammar banks | shipped | high | [spec](0018-master30-full-bank-assignments/spec.md) |
 | AI-0004 | AI model usage observability and controlled model rollout | implementing | high | [spec](0004-ai-model-usage-observability/spec.md) |
+| AIBUDGET-0033 | Paid AI stops at hard budgets, Claude alerts on a soft budget, and learner work waits safely for grading | approved | critical | [spec](0033-ai-budget-hard-cap/spec.md) |
 | LISTENING-0005 | Listening content programmes, import and learner hub | implementing | high | [spec](0005-listening-content-programmes/spec.md) |
 | LISTENING-0006 | Guided per-question Listening feedback | implementing | high | [spec](0006-listening-guided-feedback/spec.md) |
 | LISTENING-0007 | Versioned Listening editorial revision and bilingual questions | implementing | high | [spec](0007-listening-editorial-revision/spec.md) |
@@ -125,3 +126,5 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 | INACTIVEWRITE-0035 | An inactive account cannot write Vocabulary or flashcard rows through any path, including direct Supabase REST | approved | high | [spec](0035-inactive-learner-rest-write-guard/spec.md) |
 
 | ASYNCAUTH-0036 | Per-request auth and permission checks can run on the async DB client behind USE_ASYNC_DB without changing any access decision | approved | high | [spec](0036-async-db-auth-layer/spec.md) |
+
+| PAPERUPDATEDAT-0037 | Every change to a Reading or Listening paper advances updated_at, and admins see that a Mock Test hides its public source | approved | high | [spec](0037-mock-paper-updated-at-and-hide-warning/spec.md) |

@@ -64,12 +64,34 @@ class _Q:
         return _Result([dict(r) for r in rows if self._match(r)])
 
 
+class _Rpc:
+    def __init__(self, result):
+        self.result = result
+
+    def execute(self):
+        return _Result(self.result)
+
+
 class _FakeSB:
     def __init__(self, store, fail_tables=()):
         self.store, self.fail_tables = store, set(fail_tables)
+        self.rpcs: list = []
 
     def table(self, name):
         return _Q(name, self.store, self.fail_tables)
+
+    def rpc(self, name, params):
+        """fn_create_writing_assignments_idempotent's receipt counts, as
+        migration 228 computes them: `student_count` is the roster passed in,
+        `duplicates_warning` every rostered student already holding a prompt."""
+        assert name == "fn_create_writing_assignments_idempotent"
+        self.rpcs.append(params)
+        prompts, students = set(params["p_prompt_ids"]), params["p_student_ids"]
+        held = {r["student_id"] for r in self.store.get("writing_assignments", [])
+                if r["prompt_id"] in prompts and r["student_id"] in students}
+        return _Rpc({"created": [], "assignment_ids": [], "created_count": 0,
+                     "student_count": len(students), "group_id": "g-new",
+                     "duplicates_warning": sorted(held), "replayed": False})
 
 
 def _seed():
@@ -141,12 +163,16 @@ def test_preview_matches_the_fan_out_duplicates_warning():
     store = _seed()
     preview = _post(store, {"prompt_ids": [P1, P2], "cohort_id": C1}).json()
     from main import app
+    fake = _FakeSB(store)
     with patch("routers.admin_writing_assignments.require_admin",
                new=AsyncMock(return_value=_ADMIN)), \
-         patch("routers.admin_writing_assignments.supabase_admin", _FakeSB(store)):
+         patch("routers.admin_writing_assignments.supabase_admin", fake):
         given = TestClient(app).post("/admin/writing/assignments/fan-out",
-                                     json={"prompt_ids": [P1, P2], "cohort_id": C1}, headers=_AUTH)
+                                     json={"request_id": "00000000-0000-4000-8000-000000000123",
+                                           "prompt_ids": [P1, P2], "cohort_id": C1}, headers=_AUTH)
     assert given.status_code == 201, given.text
+    # The give reads the same active roster the preview counted.
+    assert sorted(fake.rpcs[0]["p_student_ids"]) == [S1, S2]
     assert preview["duplicate_student_ids"] == given.json()["duplicates_warning"]
     assert preview["student_count"] == given.json()["student_count"]
 

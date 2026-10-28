@@ -18,9 +18,10 @@ from models.auth import (
     AuthProfileUpdateResponse,
 )
 from services import activation_gate
+from services.db_async import aexecute
 from services.errors import safe_error
 from services.server_timing import record_stage
-from services.feature_flags import is_flashcard_enabled
+from services.feature_flags import ais_flashcard_enabled, is_flashcard_enabled
 from services import runtime_flags
 from services.runtime_flags import require_flag
 from services.class_membership_service import remove_student, student_is_active_in_cohort
@@ -218,35 +219,35 @@ async def get_me(response: Response, authorization: str | None = Header(default=
     email = auth_user.get("email")
     metadata = auth_user.get("user_metadata", {}) or {}
 
+    # PC-J05 D1a — /auth/me runs on every page load; its DB calls go through
+    # the async-DB facade (USE_ASYNC_DB off = the same sync calls as before).
+    def _select_user(db):
+        return db.table("users").select("*").eq("id", user_id).limit(1)
+
     try:
-        existing = (
-            supabase_admin.table("users")
-            .select("*")
-            .eq("id", user_id)
-            .limit(1)
-            .execute()
-        )
+        existing = await aexecute(_select_user, sync_client=supabase_admin)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi truy vấn người dùng: {e}")
 
     if not existing.data:
         try:
-            supabase_admin.table("users").insert({
-                "id": user_id,
-                "email": email,
-                "display_name": metadata.get("full_name") or metadata.get("name"),
-                "avatar_url": metadata.get("avatar_url"),
-                "role": "user",
-                "is_active": False,
-            }).execute()
-
-            existing = (
-                supabase_admin.table("users")
-                .select("*")
-                .eq("id", user_id)
-                .limit(1)
-                .execute()
+            # First visit. Two concurrent /auth/me calls (or another worker, or
+            # /auth/activate) can both see no row; ON CONFLICT (id) DO NOTHING
+            # lets the loser fall through to the re-SELECT instead of a 500,
+            # and never overwrites the winner's role / is_active.
+            await aexecute(
+                lambda db: db.table("users").upsert({
+                    "id": user_id,
+                    "email": email,
+                    "display_name": metadata.get("full_name") or metadata.get("name"),
+                    "avatar_url": metadata.get("avatar_url"),
+                    "role": "user",
+                    "is_active": False,
+                }, on_conflict="id", ignore_duplicates=True),
+                sync_client=supabase_admin,
             )
+
+            existing = await aexecute(_select_user, sync_client=supabase_admin)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Lỗi khi tạo người dùng: {e}")
 
@@ -255,9 +256,12 @@ async def get_me(response: Response, authorization: str | None = Header(default=
     now = datetime.now(timezone.utc)
     if _last_seen_is_stale(user.get("last_seen_at"), now):
         try:
-            supabase_admin.table("users").update(
-                {"last_seen_at": now.isoformat()}
-            ).eq("id", user_id).execute()
+            await aexecute(
+                lambda db: db.table("users").update(
+                    {"last_seen_at": now.isoformat()}
+                ).eq("id", user_id),
+                sync_client=supabase_admin,
+            )
         except Exception:
             pass  # non-fatal
 
@@ -267,9 +271,25 @@ async def get_me(response: Response, authorization: str | None = Header(default=
     # so the two agree and a revoke is reflected immediately. No snapshot
     # fallback: an empty live list means no access (don't re-grant a default).
     from services.access_code_permissions import (  # local — avoid import cycle
-        get_user_access_code_permissions_cached,
+        aget_user_access_code_permissions_cached,
     )
-    live_permissions = get_user_access_code_permissions_cached(user_id)
+    live_permissions = await aget_user_access_code_permissions_cached(user_id)
+    # Phase D Wave 2 — strict default-deny via the canonical helper so
+    # frontends can rely on `=== true` without re-implementing the rule.
+    # Two-key curated rollout: learner cohort opt-in AND the hot runtime read
+    # switch. Both default deny so the legacy hub remains the automatic fallback.
+    # PC-J05: with USE_ASYNC_DB on, both reads (per-user flag row; runtime flag
+    # on a cache miss) await the async client; off, the same sync calls as before.
+    curated_opt_in = flags.get("vocab_curated_enabled") is True
+    if settings.USE_ASYNC_DB:
+        flashcard_enabled = await ais_flashcard_enabled(
+            user_id, settings.FLASHCARD_ENABLED, run=aexecute)
+        vocab_curated_enabled = curated_opt_in and await runtime_flags.ais_enabled(
+            "vocab_units_read", default=False, run=aexecute)
+    else:
+        flashcard_enabled = is_flashcard_enabled(user_id, settings.FLASHCARD_ENABLED)
+        vocab_curated_enabled = curated_opt_in and runtime_flags.is_enabled(
+            "vocab_units_read", default=False)
     return {
         "id": user["id"],
         "email": user["email"],
@@ -286,15 +306,8 @@ async def get_me(response: Response, authorization: str | None = Header(default=
         "vocab_bank_enabled": flags.get("vocab_enabled") is True,
         "d1_enabled": settings.D1_ENABLED and flags.get("d1_enabled") is True,
         "d3_enabled": settings.D3_ENABLED and flags.get("d3_enabled") is True,
-        # Phase D Wave 2 — strict default-deny via the canonical helper so
-        # frontends can rely on `=== true` without re-implementing the rule.
-        "flashcard_enabled": is_flashcard_enabled(user_id, settings.FLASHCARD_ENABLED),
-        # Two-key rollout: learner cohort opt-in AND the hot runtime read switch.
-        # Both default deny so the legacy hub remains the automatic fallback.
-        "vocab_curated_enabled": (
-            flags.get("vocab_curated_enabled") is True
-            and runtime_flags.is_enabled("vocab_units_read", default=False)
-        ),
+        "flashcard_enabled": flashcard_enabled,
+        "vocab_curated_enabled": vocab_curated_enabled,
     }
 
 
@@ -306,12 +319,9 @@ async def check_active(authorization: str | None = Header(default=None)):
     user_id = auth_user["id"]
 
     try:
-        result = (
-            supabase_admin.table("users")
-            .select("is_active")
-            .eq("id", user_id)
-            .limit(1)
-            .execute()
+        result = await aexecute(
+            lambda db: db.table("users").select("is_active").eq("id", user_id).limit(1),
+            sync_client=supabase_admin,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi kiểm tra trạng thái: {e}")

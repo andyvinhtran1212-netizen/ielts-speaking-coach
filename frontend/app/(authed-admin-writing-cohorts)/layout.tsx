@@ -8,3 +8,6 @@ export default function AdminWritingCohortsLayout({ children }: { children: Reac
     '/css/admin-writing-cohorts-next.css',
   ]}>{children}</AuthedShell>;
 }
+
+// Per-request render for the CSP nonce (PC-J38); see components/authed-shell.tsx.
+export const instant = false;

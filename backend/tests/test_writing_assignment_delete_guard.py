@@ -3,8 +3,9 @@
 `writing_drafts.assignment_id` is ON DELETE CASCADE (mig 037) and
 `writing_assignments.essay_id` is ON DELETE SET NULL (mig 036). Both
 DELETE /instructor/assignments/{id} and DELETE /admin/writing/assignments/{id}
-must therefore refuse (409, 'Học viên đã bắt đầu — không xoá được') unless
-the row is pending with no started_at, no essay_id and no draft.
+must therefore refuse (409, 'Học viên đã bắt đầu làm bài nên không xóa được
+bài giao này.') unless the row is pending with no started_at, no essay_id and
+no draft.
 
 The fake below APPLIES eq / is-null filters on select and delete, so a
 delete that drops its status/started_at/essay_id conditions would remove
@@ -19,7 +20,7 @@ from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
-STARTED = "Học viên đã bắt đầu — không xoá được"
+STARTED = "Học viên đã bắt đầu làm bài nên không xóa được bài giao này."
 
 
 def _u(n: int) -> str:

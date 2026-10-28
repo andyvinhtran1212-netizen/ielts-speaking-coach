@@ -60,6 +60,7 @@ from routers.advanced_vocab import (
 from routers.error_logs import router as error_logs_router
 from routers.admin_flags import router as admin_flags_router
 from routers.admin_overview import router as admin_overview_router
+from routers.admin_ai import router as admin_ai_router
 from routers.admin_writing import router as admin_writing_router
 from routers.admin_writing_prompts import router as admin_writing_prompts_router
 from routers.admin_writing_tips import router as admin_writing_tips_router
@@ -273,6 +274,7 @@ app.include_router(admin_advanced_vocab_router)
 app.include_router(error_logs_router)
 app.include_router(admin_flags_router)
 app.include_router(admin_overview_router)
+app.include_router(admin_ai_router)
 app.include_router(admin_writing_router)
 app.include_router(admin_writing_prompts_router)
 app.include_router(admin_writing_tips_router)
@@ -709,6 +711,13 @@ async def startup_event():
     else:
         logger.info("[async-db] USE_ASYNC_DB=off — sync path only (scaffold no-op)")
 
+    # AIOPS-0024 — admin AI model overrides. Request paths read an in-process
+    # snapshot; this loop refreshes it every AI_MODEL_OVERRIDE_TTL_SECONDS
+    # (30–60 s). A failed read leaves env/code-default routing in force.
+    import asyncio as _asyncio_overrides
+    from services import ai_model_overrides
+    _asyncio_overrides.create_task(ai_model_overrides.run_refresher())
+
     # Sprint W-MM — writing grading reaper. A grading BG task runs in-process; a
     # Railway restart/OOM/timeout mid-grade orphans the essay in 'grading' with
     # no error (no exception ⇒ no _mark_failed). This loop periodically sweeps
@@ -830,8 +839,10 @@ async def shutdown_event():
     await close_auth_http_client()
     # The service-role Supabase client owns an explicit sync HTTP/1.1 pool;
     # release it only when the process is actually shutting down.
-    from database import close_supabase_http_client
+    from database import close_supabase_async, close_supabase_http_client
     close_supabase_http_client()
+    # USE_ASYNC_DB's client (if startup built one) has its own HTTP/1.1 pool.
+    await close_supabase_async()
 
 
 @app.get("/topics", dependencies=_ACTIVE_LEARNER)

@@ -86,12 +86,18 @@ def _activation_gate_defaults_active(monkeypatch):
         return
     _ACTIVATION_GATE_ORIGINALS.setdefault("_enforce", activation_gate._enforce)
     _ACTIVATION_GATE_ORIGINALS.setdefault("lookup_is_active", activation_gate.lookup_is_active)
+    # PC-J05 — the async twin used with USE_ASYNC_DB on gets the same default.
+    _ACTIVATION_GATE_ORIGINALS.setdefault("alookup_is_active", activation_gate.alookup_is_active)
 
     async def _gate_passes(_request):
         return None
 
+    async def _active(_user_id):
+        return True
+
     monkeypatch.setattr(activation_gate, "_enforce", _gate_passes)
     monkeypatch.setattr(activation_gate, "lookup_is_active", lambda _user_id: True)
+    monkeypatch.setattr(activation_gate, "alookup_is_active", _active)
 
 
 @pytest.fixture
@@ -101,6 +107,8 @@ def live_activation_gate(monkeypatch):
     monkeypatch.setattr(activation_gate, "_enforce", _ACTIVATION_GATE_ORIGINALS["_enforce"])
     monkeypatch.setattr(activation_gate, "lookup_is_active",
                         _ACTIVATION_GATE_ORIGINALS["lookup_is_active"])
+    monkeypatch.setattr(activation_gate, "alookup_is_active",
+                        _ACTIVATION_GATE_ORIGINALS["alookup_is_active"])
     return activation_gate
 
 

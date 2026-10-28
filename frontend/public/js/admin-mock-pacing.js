@@ -63,14 +63,14 @@
           var isClear = r.is_answered === false;
           return '<div class="mp-bar' + (isLong ? ' is-long' : '') +
             (isClear ? ' is-cleared' : '') + '" style="height:' + h + 'px" ' +
-            'title="Câu ' + esc(r.q_num) + ' — ' + (isClear ? 'XOÁ ô' : 'lưu đáp án') +
+            'title="Câu ' + esc(r.q_num) + ' — ' + (isClear ? 'XÓA ô' : 'lưu đáp án') +
             ' lúc ' + esc(hhmm(r.at)) +
             ', cách lần trước ' + esc(mmss(r.gap_seconds)) + '">' +
             '<span class="mp-bar__q">' + esc(r.q_num) + '</span></div>';
         }).join('') + '</div>' +
         '<p class="mp-striplegend">Mỗi cột = một lần lưu, xếp theo <b>thứ tự về máy chủ</b>. ' +
         'Cột càng cao = càng lâu mới có lần lưu tiếp theo; cột <span style="color:var(--av-warning)">vàng</span> = nghỉ trên 90 giây' +
-        (cleared ? '; cột <span class="mp-bar__legendclear">gạch chéo</span> = học viên XOÁ ô (không phải đáp án)' : '') +
+        (cleared ? '; cột <span class="mp-bar__legendclear">gạch chéo</span> = học viên XÓA ô (không phải đáp án)' : '') +
         '.</p>'
       : '<p class="mp-empty">Không có đáp án nào được lưu — không có gì để dựng lại nhịp làm bài.</p>';
 

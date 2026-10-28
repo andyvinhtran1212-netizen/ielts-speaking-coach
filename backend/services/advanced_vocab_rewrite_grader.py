@@ -191,6 +191,16 @@ async def _grade_claude(
     return feedback, result.model, None
 
 
+def _note_gemini_failure(name: str | None, code: str) -> None:
+    """AIOPS-0024 FR-007: record the real Gemini error when Claude is the
+    configured fallback after it (the returned kind is only a category)."""
+    if ai_router.anthropic_position("advanced_vocab_rewrite", "gemini") == "after":
+        ai_router.record_fallback(
+            "advanced_vocab_rewrite", provider="gemini",
+            model=name or settings.ADVANCED_VOCAB_REWRITE_MODEL, error_code=code,
+        )
+
+
 async def _grade_gemini(
     items: list[dict[str, str]], payload_json: str, *, user_id: str | None,
 ) -> tuple[dict[str, Any], str | None, str | None]:
@@ -199,6 +209,7 @@ async def _grade_gemini(
         name, model = _model()
     except Exception as exc:  # noqa: BLE001
         logger.exception("[advanced-vocab-rewrite] cannot create model: %s", exc)
+        _note_gemini_failure(None, "model_config")
         return _failed(items, "Bộ chấm chưa sẵn sàng; bài của bạn vẫn được lưu."), None, "model_config"
 
     try:
@@ -212,6 +223,7 @@ async def _grade_gemini(
             feature="advanced_vocab_rewrite", operation="grade_unit",
             status="error", error_code="timeout", metadata={"item_count": len(items)},
         ))
+        _note_gemini_failure(name, "timeout")
         return _failed(items, "Bộ chấm không phản hồi kịp; bài của bạn vẫn được lưu."), name, "timeout"
     except Exception as exc:  # noqa: BLE001
         logger.exception("[advanced-vocab-rewrite] provider failed: %s", exc)
@@ -220,6 +232,7 @@ async def _grade_gemini(
             feature="advanced_vocab_rewrite", operation="grade_unit",
             status="error", error_code=type(exc).__name__, metadata={"item_count": len(items)},
         ))
+        _note_gemini_failure(name, type(exc).__name__)
         return _failed(items, "Bộ chấm tạm thời không dùng được; bài của bạn vẫn được lưu."), name, "provider"
 
     try:
@@ -233,6 +246,7 @@ async def _grade_gemini(
             status="invalid_response", error_code="invalid_json",
             metadata={"item_count": len(items)},
         ))
+        _note_gemini_failure(name, "invalid_json")
         return _failed(items, "Bộ chấm trả về kết quả không đọc được; bài của bạn vẫn được lưu."), name, "invalid_response"
 
     ai_usage_logger.schedule_usage_log(ai_usage_logger.log_gemini_response_async(

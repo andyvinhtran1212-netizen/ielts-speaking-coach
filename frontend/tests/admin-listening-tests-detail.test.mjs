@@ -441,7 +441,7 @@ describe('Sprint 13.5.4 — tests-detail hard-delete button + controller', () =>
 
   test('onHardDelete requires a window.confirm() AND a window.prompt() match', () => {
     assert.match(js, /async function onHardDelete\(/);
-    assert.match(js, /window\.confirm\([\s\S]{0,200}?Xác nhận XOÁ VĨNH VIỄN/);
+    assert.match(js, /window\.confirm\([\s\S]{0,200}?Xác nhận XÓA VĨNH VIỄN/);
     assert.match(js, /window\.prompt\(/);
     // The prompt must compare its return value against the short test_id
     // (not against STATE.testId — that's the UUID, not the short name).

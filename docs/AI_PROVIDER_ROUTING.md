@@ -35,6 +35,53 @@ These paths stay on Gemini in this revision:
 - Admin D1 pool generation and vocabulary enrichment, because they are synchronous
 - Offline content scripts
 
+## Admin overrides (AIOPS-0024)
+
+The "AI" section on `/admin` shows, per feature key above, the effective order
+and model of every provider, each labelled `db_override`, `env` or
+`code_default` (shown as DB override / env / mặc định code). An administrator can set a preferred provider (Claude or the
+feature's existing provider) and a Claude model (allowlist:
+`claude-sonnet-5-5`, `claude-haiku-5-5`). They are stored in
+`ai_model_overrides` (migration 322); every change is audited by trigger in
+`ai_model_override_audit`.
+
+Precedence: **DB override > environment variable > code default**. A
+preferred provider is placed first and the env/code-default order follows as
+fallback; a preference never removes a provider. A blank `ANTHROPIC_API_KEY`
+still removes Claude. For `speaking_grading` the Claude preference puts the
+`anthropic_primary` slot before the existing orchestrator chain and the Gemini
+preference puts that chain first (the slot follows it only when the env/code
+order includes Claude). A DB preference wins over the production pin
+`AI_PROVIDER_ORDER_SPEAKING_GRADING=gemini`, so choosing Claude for Speaking in
+production is bound by the same constitution §6 gate described below.
+`listening_audit` is controllable only while `LISTENING_AUDIT_MODEL` is a Gemini
+model; any other model is called directly (not through the router), so the
+dashboard shows it as `direct` and refuses an override for it.
+
+Each backend process reads the table into memory at startup and then every
+`AI_MODEL_OVERRIDE_TTL_SECONDS` (default 30, clamped to 30–60) in a background
+task. Request paths only read the in-memory copy. If the read fails, times
+out, the table is missing, a stored value is outside the allowlist, or the
+copy is older than three refresh windows, the affected features use the
+env/code defaults; the dashboard shows the store state.
+
+To return to env/code defaults: choose "Mặc định" for both selects and save,
+or `DELETE FROM ai_model_overrides;` (also audited). Applies within one refresh
+window, no restart.
+
+### Failure log
+
+`ai_provider_failures` records each failed provider attempt at the routing
+layer: Claude attempts through `call_anthropic`, provider failures inside
+`with_fallback`, Gemini failures that hand over to a Claude fallback configured
+after them, and every non-success attempt of the Speaking orchestrator chain.
+Rows hold only feature, provider, model, slot, attempt, normalized error type
+(`timeout`, `rate_limit`, `overloaded`, `server_error`, `api_error`,
+`network`, `invalid_json`, `empty_response`, `missing_key`, `not_configured`,
+`unknown`), a short raw error code and outcome (`retry`, `fallback`, `final`) —
+no prompt, output, message text, user or session id. Token and cost figures
+on the dashboard come from `ai_usage_logs`, not from this table.
+
 ## Speaking grading
 
 AI-0004 FR-005 (revised 2026-10-26) makes Claude Sonnet 5.5 the default primary

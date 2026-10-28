@@ -108,6 +108,10 @@ class Settings(BaseSettings):
     ANTHROPIC_MODEL_LISTENING_AUDIT: str = ""
     # Bounds one Claude attempt so a slow call still leaves the fallback time.
     ANTHROPIC_TIMEOUT_SECONDS: float = 60.0
+    # AIOPS-0024: how often each backend process re-reads the admin overrides
+    # in ai_model_overrides (DB override > env > code default). Clamped to
+    # 30–60 s; a failed read falls back to the env/code defaults above.
+    AI_MODEL_OVERRIDE_TTL_SECONDS: float = 30.0
 
     # Speaking grader Gemini rung (audit 2026-07-02). Since the AI-0004 FR-005
     # revision it is the first fallback behind the Claude primary
@@ -361,6 +365,9 @@ class Settings(BaseSettings):
     # sync supabase_admin singleton exactly as today (the scaffold is a no-op).
     # ON = routers migrated to the db_async facade await the async client. Stays
     # OFF until a phase is wired + load-validated; flip per-deploy in .env.
+    # Wired today: grading.py (P0-1 Phase 2) and the per-request auth layer
+    # (PC-J05 D1a) — learner activation gate, require_admin/require_instructor,
+    # /auth/me, /auth/check-active, /api/student/permissions.
     USE_ASYNC_DB: bool = False
 
     # C-* audit — Server-Timing observability gate. The W3C Server-Timing
