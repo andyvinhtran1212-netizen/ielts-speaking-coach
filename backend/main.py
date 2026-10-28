@@ -46,6 +46,7 @@ from routers.tts import router as tts_router
 from routers.export import router as export_router
 from routers.admin import router as admin_router
 from routers.admin_core_attempt_evidence import router as admin_core_attempt_evidence_router
+from routers.admin_staff_security import router as admin_staff_security_router
 from services.core_operation_correlation import HEADER_NAME as CORE_OPERATION_HEADER, operation_hint_scope
 from services.request_context import request_id_scope
 from routers.cohorts import router as cohorts_router
@@ -262,6 +263,7 @@ app.include_router(tts_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(export_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_router)
 app.include_router(admin_core_attempt_evidence_router)
+app.include_router(admin_staff_security_router)   # ADMINAAL2-0032 T006
 app.include_router(cohorts_router)
 app.include_router(admin_courses_router)
 app.include_router(admin_class_lessons_router)

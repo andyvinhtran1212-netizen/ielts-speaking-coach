@@ -17,7 +17,7 @@ from models.auth import (
     AuthProfileResponse,
     AuthProfileUpdateResponse,
 )
-from services import activation_gate
+from services import activation_gate, staff_security
 from services.db_async import aexecute
 from services.errors import safe_error
 from services.server_timing import record_stage
@@ -298,6 +298,7 @@ async def get_me(response: Response, authorization: str | None = Header(default=
         "avatar_url": user.get("avatar_url"),
         "role": user.get("role", "user"),
         "is_active": user.get("is_active", False),
+        "suspended": bool(user.get("suspended_at")),
         "permissions": live_permissions,
         "onboarding_completed": user.get("onboarding_completed", False),
         "target_band": user.get("target_band"),
@@ -321,16 +322,24 @@ async def check_active(authorization: str | None = Header(default=None)):
 
     try:
         result = await aexecute(
-            lambda db: db.table("users").select("is_active").eq("id", user_id).limit(1),
+            # "*" so this hot learner read keeps working before migration 332
+            # adds suspended_at (absent column = not suspended).
+            lambda db: db.table("users").select("*").eq("id", user_id).limit(1),
             sync_client=supabase_admin,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi kiểm tra trạng thái: {e}")
 
     if not result.data:
-        return {"is_active": False}
+        return {"is_active": False, "suspended": False}
 
-    return {"is_active": bool(result.data[0].get("is_active", False))}
+    row = result.data[0]
+    return {
+        "is_active": bool(row.get("is_active", False)),
+        # ADMINAAL2-0032 FR-018: /login shows the suspended message instead
+        # of the activation dialog.
+        "suspended": bool(row.get("suspended_at")),
+    }
 
 
 # ── GET /auth/profile ─────────────────────────────────────────────────────────
@@ -578,6 +587,21 @@ async def activate_account(
     if profile_archived:
         raise HTTPException(status_code=403, detail=_ARCHIVED_PROFILE_DETAIL)
 
+    # ── Step 1d (ADMINAAL2-0032 FR-018): suspended staff account ─────────────
+    # A suspension is lifted only by an admin (PATCH /admin/users/{id}/active),
+    # never by a code. Refuse before Step 3 and before the code is claimed, so
+    # the code stays unused. Migration 332's trigger also refuses Step 3 if a
+    # suspension commits between this read and that write.
+    # select("*"), not the column: before migration 332 there is no marker and
+    # nothing can be suspended, so learner activation must not 500 on it.
+    try:
+        suspension = (supabase_admin.table("users").select("*")
+                      .eq("id", user_id).limit(1).execute().data or [])
+    except Exception as e:
+        raise HTTPException(500, f"Lỗi khi kiểm tra trạng thái tài khoản: {e}")
+    if suspension and suspension[0].get("suspended_at"):
+        raise staff_security.account_suspended_exception(403)
+
     # ── Step 2: upsert user row (in case /me was never called) ───────────────
     # Select `role` too so the promote below is upgrade-only / idempotent.
     current_role = "user"
@@ -625,6 +649,8 @@ async def activate_account(
     try:
         supabase_admin.table("users").update(update_fields).eq("id", user_id).execute()
     except Exception as e:
+        if staff_security.is_account_suspended_error(e):
+            raise staff_security.account_suspended_exception(403) from None
         raise HTTPException(
             status_code=500,
             detail=f"Lỗi khi kích hoạt tài khoản: {e}",
