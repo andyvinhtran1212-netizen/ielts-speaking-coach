@@ -10,6 +10,8 @@ import {
   buildLegacyRetirementRedirects,
   LEGACY_RETIREMENT_PATHS,
 } from '../tooling/legacy-url-redirects.mjs';
+import { fallbackApiBase } from '../lib/landing-api-base.mjs';
+import { PROD, STAGING } from '../tooling/runtime-origins.mjs';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const PAGE = path.join(FRONTEND, 'app', '(marketing)', 'page.tsx');
@@ -88,9 +90,14 @@ test('landing waits for runtime-config before selecting an API environment', () 
   assert.match(chain, /src === '\/js\/runtime-config\.js'/);
   assert.match(behavior, /addEventListener\('aver:runtime-config-ready'/);
   assert.match(behavior, /'aver:runtime-config-failed'/);
-  assert.match(behavior, /hostname === 'averlearning\.com'/);
-  assert.match(behavior, /hostname === 'www\.averlearning\.com'/);
-  assert.match(behavior, /return null;/);
+  // Known-host fallback lives in lib/landing-api-base.mjs (C-04): production
+  // hosts → production API, staging → staging API, anything else → null.
+  assert.match(behavior, /import \{ fallbackApiBase \} from '@\/lib\/landing-api-base\.mjs';/);
+  assert.match(behavior, /fallbackApiBase\(location\.hostname\)/);
+  assert.equal(fallbackApiBase('averlearning.com'), PROD.apiBase);
+  assert.equal(fallbackApiBase('www.averlearning.com'), PROD.apiBase);
+  assert.equal(fallbackApiBase('staging.averlearning.com'), STAGING.apiBase);
+  assert.equal(fallbackApiBase('preview-abc.vercel.app'), null);
   assert.match(behavior, /removeEventListener\('aver:runtime-config-failed'/);
   assert.match(behavior, /if \(window\.__AVER_RUNTIME_CONFIG__\)/);
   assert.match(

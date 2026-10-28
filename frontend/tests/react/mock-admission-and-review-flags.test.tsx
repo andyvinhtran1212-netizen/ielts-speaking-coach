@@ -65,11 +65,11 @@ it('Review network errors use English fallback while retry preserves validated e
   expect(await screen.findByText(/Unable to load review marks\. Check your connection and retry/)).toBeTruthy();
   expect(screen.queryByText('Khong the ket noi')).toBeNull();
   api.getWith.mockResolvedValueOnce({ ...scope, attempt_id: 'another-attempt', review_flags: [savedFlag] });
-  fireEvent.click(screen.getByRole('button', { name: 'Retry review marks' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Thử lưu lại' }));
   expect(await screen.findByText('Unable to confirm review marks for this attempt.')).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: 'Retry review marks' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Thử lưu lại' }));
   await screen.findByText('Flags ready');
-  expect(screen.queryByRole('button', { name: 'Retry review marks' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Thử lưu lại' })).toBeNull();
 });
 it('Reading waits for Start, admits the exact sitting, then loads bound context and saved Review flags', async () => {
   window.history.replaceState(null, '', '/reading/exam/session?test_id=paper-a&sitting_id=sitting-a');
@@ -100,9 +100,9 @@ it('failed Review save stays visible, explicit retry saves it, and reload does n
   const review = await screen.findByRole('checkbox', { name: 'Review', exact: true });
   await waitFor(() => expect((review as HTMLInputElement).checked).toBe(true));
   failFlag = true; fireEvent.click(review); expect((review as HTMLInputElement).checked).toBe(false);
-  expect(await screen.findByText(/review marks could not be saved/)).toBeTruthy();
+  expect(await screen.findByText(/Chưa lưu được đánh dấu xem lại ở 1 câu\. Thay đổi của bạn vẫn hiển thị trong tab này\./)).toBeTruthy();
   expect((screen.getByRole('textbox', { name: 'Answer 1', exact: true }) as HTMLInputElement).value).toBe('saved answer');
-  failFlag = false; fireEvent.click(screen.getByRole('button', { name: 'Retry review marks' }));
+  failFlag = false; fireEvent.click(screen.getByRole('button', { name: 'Thử lưu lại' }));
   await waitFor(() => expect(savedFlag.flagged).toBe(false));
   expect(api.patchWith.mock.calls.every(([path]) => path.endsWith('/review-flags'))).toBe(true);
   first.unmount(); render(<ListeningTestSession />);

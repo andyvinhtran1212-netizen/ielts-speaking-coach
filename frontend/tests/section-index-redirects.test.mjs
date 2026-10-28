@@ -42,6 +42,8 @@ async function configRedirects() {
 const SECTION_REDIRECTS = [
   { source: '/writing', destination: '/writing/dashboard' },
   { source: '/grammar-checkup/review', destination: '/grammar-checkup' },
+  // C-05 / U-09: /signup has no page; /login is the sign-up entry.
+  { source: '/signup', destination: '/login' },
 ];
 
 test('bare section prefixes redirect to a real app route before rendering', async () => {

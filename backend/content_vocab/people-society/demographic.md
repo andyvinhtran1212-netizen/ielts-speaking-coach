@@ -14,7 +14,7 @@ collocations: ["demographic change", "ageing demographic", "demographic shift", 
 related_words: ["marginalize", "cosmopolitan"]
 ---
 
-**Nhân khẩu học; nhóm dân số** — liên quan đến cấu trúc và đặc điểm của dân số; một nhóm người trong xã hội được phân loại theo độ tuổi, giới tính, thu nhập, v.v.
+**Nhóm nhân khẩu; thuộc nhân khẩu học** — (danh từ) một nhóm người trong xã hội được phân loại theo độ tuổi, giới tính, thu nhập, v.v.; (tính từ) liên quan đến cấu trúc và đặc điểm của dân số.
 
 ## Ví dụ IELTS Speaking Part 3
 

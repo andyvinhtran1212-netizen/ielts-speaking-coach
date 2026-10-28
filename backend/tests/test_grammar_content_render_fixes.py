@@ -4,6 +4,7 @@
   9 articles showed the raw `~~`).
 - Contractions keep the apostrophe attached to the subject: `I**'m living**`
   renders "I'm living", not "I 'm living".
+- Past Perfect compare table reads "QUÁ KHỨ", not "QUÁKHỨ" (CQA-F09).
 - Internal article links carry their category (`/grammar/<category>/<slug>`)
   and resolve to a live article.
 """
@@ -71,6 +72,13 @@ def test_contractions_are_not_split_from_their_subject():
     assert "I<strong>'m living</strong> with my parents" in pc
     assert "Hold on, I<strong>'m talking</strong> to someone." in pc
     assert "**" not in _visible_text(pc)
+
+
+def test_past_perfect_compare_table_spells_qua_khu():
+    # CQA-F09, approved as GRAMMARAUDIT-0019 Revision 1.
+    text = _visible_text(grammar_service.articles_by_slug["past-perfect"]["html"])
+    assert "Một thời điểm trong QUÁ KHỨ" in text
+    assert "QUÁKHỨ" not in text
 
 
 def test_internal_article_links_resolve_with_category():

@@ -157,6 +157,17 @@
   cursor: default;
 }
 .field-input::placeholder { color: var(--av-text-faint); }
+/* PC-J24 — read-only value shown as text (the email <output>): same box as an
+   input, but a long address wraps instead of being cut off. min-height keeps
+   the input's height while it is still empty. */
+.field-input--static {
+  display: block;
+  min-height: calc(1.5em + 2 * var(--av-space-2) + 2px);
+  line-height: 1.5;
+  color: var(--av-text-muted);
+  cursor: default;
+  overflow-wrap: anywhere;
+}
 
 
 /* ── Band selector ───────────────────────────────────────────────── */

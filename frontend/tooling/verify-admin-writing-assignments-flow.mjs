@@ -120,10 +120,10 @@ await dialog.getByLabel('Tên nhóm (tuỳ chọn)').fill('Buổi kiểm tra');
 await dialog.getByLabel('Hạn nộp (giờ Việt Nam, tuỳ chọn)').fill('2026-10-27T23:00');
 await dialog.getByRole('button', { name: 'Rà lại trước khi giao' }).click();
 await dialog.getByText('1', { exact: true }).first().waitFor();
-check('New York browser review preserves 23:00 Vietnam', await dialog.getByText('23:00 27/10/26', { exact: true }).count() === 1);
+check('New York browser review preserves 23:00 Vietnam', await dialog.getByText('27/10/2026 23:00', { exact: true }).count() === 1);
 check('review hiển thị phép tính đề × học viên', await dialog.getByText('1', { exact: true }).count() >= 3 && await dialog.getByText('bài sẽ tạo', { exact: true }).count() === 1);
 // BL-18: Lan already holds this prompt (a-old) → ask before writing, not only in the receipt banner.
-await dialog.getByText('1 học viên từng có ít nhất một đề này.', { exact: true }).waitFor();
+await dialog.getByText('1 học viên đã từng được giao ít nhất một trong các đề đã chọn.', { exact: true }).waitFor();
 const confirmGive = dialog.getByRole('button', { name: 'Xác nhận giao 1 bài' });
 check('BL-18: review đọc giao trùng trước khi ghi và khoá nút xác nhận', previewPosts.length === 1 && JSON.stringify(previewPosts[0]) === JSON.stringify({ prompt_ids: ['p1'], student_ids: ['s1'] })
   && await confirmGive.isDisabled() && !requests.some((item) => item.path === '/admin/writing/assignments' && item.method === 'POST'));

@@ -60,6 +60,7 @@ from routers.advanced_vocab import (
 from routers.error_logs import router as error_logs_router
 from routers.admin_flags import router as admin_flags_router
 from routers.admin_overview import router as admin_overview_router
+from routers.admin_ai import router as admin_ai_router
 from routers.admin_writing import router as admin_writing_router
 from routers.admin_writing_prompts import router as admin_writing_prompts_router
 from routers.admin_writing_tips import router as admin_writing_tips_router
@@ -273,6 +274,7 @@ app.include_router(admin_advanced_vocab_router)
 app.include_router(error_logs_router)
 app.include_router(admin_flags_router)
 app.include_router(admin_overview_router)
+app.include_router(admin_ai_router)
 app.include_router(admin_writing_router)
 app.include_router(admin_writing_prompts_router)
 app.include_router(admin_writing_tips_router)
@@ -384,6 +386,10 @@ async def access_perm_memo_middleware(request: Request, call_next):
         begin_request_memo as begin_activation_memo,
         reset_request_memo as reset_activation_memo,
     )
+    from services.staff_guard import (
+        begin_request as begin_staff_guard_request,
+        reset_request as reset_staff_guard_request,
+    )
     from services.test_data_visibility import (
         SHOW_TEST_DATA_HEADER,
         begin_request as begin_test_data_request,
@@ -400,12 +406,16 @@ async def access_perm_memo_middleware(request: Request, call_next):
     # W-03 — same per-request lifetime for the activation gate's memo (verified
     # bearer + confirmed-active ids), so a request never re-verifies its token.
     gate_token = begin_activation_memo()
+    # ADMINAAL2-0032 — the staff guard reads the matched route template from
+    # this scope and logs at most one would-block warning per request.
+    staff_token = begin_staff_guard_request(request.scope)
     # TASK B2 — the admin "show test data" opt-in, read by list routes.
     test_data_token = begin_test_data_request(request.headers.get(SHOW_TEST_DATA_HEADER))
     try:
         return await call_next(request)
     finally:
         reset_test_data_request(test_data_token)
+        reset_staff_guard_request(staff_token)
         reset_activation_memo(gate_token)
         reset_request_permission_memo(token)
 
@@ -700,6 +710,13 @@ async def startup_event():
         logger.info("[async-db] USE_ASYNC_DB=on — async client initialised, timing wrapped")
     else:
         logger.info("[async-db] USE_ASYNC_DB=off — sync path only (scaffold no-op)")
+
+    # AIOPS-0024 — admin AI model overrides. Request paths read an in-process
+    # snapshot; this loop refreshes it every AI_MODEL_OVERRIDE_TTL_SECONDS
+    # (30–60 s). A failed read leaves env/code-default routing in force.
+    import asyncio as _asyncio_overrides
+    from services import ai_model_overrides
+    _asyncio_overrides.create_task(ai_model_overrides.run_refresher())
 
     # Sprint W-MM — writing grading reaper. A grading BG task runs in-process; a
     # Railway restart/OOM/timeout mid-grade orphans the essay in 'grading' with

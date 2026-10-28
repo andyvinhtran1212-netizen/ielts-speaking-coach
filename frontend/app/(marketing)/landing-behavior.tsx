@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 
+import { fallbackApiBase } from '@/lib/landing-api-base.mjs';
 import { allowsTelemetryTarget } from '@/lib/telemetry-target.mjs';
 
 export function LandingBehavior() {
@@ -77,16 +78,8 @@ export function LandingBehavior() {
     }
 
     // RouteScriptChain loads runtime-config after hydration. Do not fall back
-    // to production while that script is still in flight on staging.
-    function fallbackApiBase(hostname: string) {
-      if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return 'http://localhost:8000';
-      }
-      if (hostname === 'averlearning.com' || hostname === 'www.averlearning.com') {
-        return 'https://ielts-speaking-coach-production.up.railway.app';
-      }
-      return null;
-    }
+    // while that script is still in flight; fallbackApiBase maps only the
+    // known hosts (staging → staging API) and keeps unknown previews null.
 
     function loadEnvironmentData(allowKnownHostFallback = false) {
       const rc = window.__AVER_RUNTIME_CONFIG__;
@@ -150,7 +143,7 @@ export function LandingBehavior() {
 
     if (window.__AVER_RUNTIME_CONFIG__) {
       // The committed/local runtime config is intentionally an object with a
-      // null apiBase. Fall back only for the explicitly known local/production
+      // null apiBase. Fall back only for the explicitly known local/staging/production
       // hosts; fallbackApiBase keeps unknown preview hosts fail-closed.
       loadEnvironmentData(true);
     } else {

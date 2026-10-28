@@ -38,6 +38,8 @@ export default {
     { waitForWrites: [`/admin/writing/essays/${ESSAY}/revoke-delivery`, 1] },
     { expectVisible: '.av-toast' },
     { expectText: ['.av-toast', 'Đã thu hồi bài'] },
+    // W-GRADE-STALE-STATUS: back to reviewed without a reload.
+    { expectText: ['#status-pill[data-status="reviewed"]', 'reviewed'] },
   ],
 
   ignoreWrites: ['/api/analytics/events'],

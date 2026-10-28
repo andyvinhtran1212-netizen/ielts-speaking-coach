@@ -149,7 +149,7 @@ Giới thiệu quan điểm đối lập hoặc ngoại lệ:
 <!-- anchor: discourse-markers.contrast.spoken-extension -->
 ### Spoken contrast markers (mở rộng)
 
-## PHẦN 1: BUT — Tương phản trực tiếp, tự nhiên nhất
+#### PHẦN 1: BUT — Tương phản trực tiếp, tự nhiên nhất
 
 ```
 [Statement A], but [contrasting Statement B].
@@ -157,14 +157,14 @@ Giới thiệu quan điểm đối lập hoặc ngoại lệ:
 
 "But" là công cụ tương phản đơn giản và phổ biến nhất trong speaking. Dùng thoải mái ở mọi level.
 
-### Dùng "but" để đưa ra hai phía:
+##### Dùng "but" để đưa ra hai phía:
 
 - Technology has improved communication, **but** it has also reduced face-to-face interaction.
 - The job pays well, **but** the working hours are extremely long.
 - Living in a city is convenient, **but** it can feel very isolating.
 - This policy benefits businesses, **but** ordinary workers often lose out.
 
-### Mẫu one side + but + another side (speaking answer):
+##### Mẫu one side + but + another side (speaking answer):
 
 ```
 [Your main point], but [acknowledgement of the other side].
@@ -173,7 +173,7 @@ Giới thiệu quan điểm đối lập hoặc ngoại lệ:
 > Câu hỏi: "Do you think people spend too much time on their phones?"
 > "I think phones can definitely be overused, **but** they also allow people to stay connected with family and friends, which is really valuable."
 
-### "But" + cụm thay thế để tránh lặp:
+##### "But" + cụm thay thế để tránh lặp:
 
 Thay vì luôn dùng "but", xen kẽ với:
 - **yet** *(formal but)*: The plan is expensive, **yet** many argue it is necessary.
@@ -182,7 +182,7 @@ Thay vì luôn dùng "but", xen kẽ với:
 
 ---
 
-## PHẦN 2: HOWEVER — Trang trọng hơn, nối hai câu
+#### PHẦN 2: HOWEVER — Trang trọng hơn, nối hai câu
 
 ```
 [Sentence A]. However, [contrasting Sentence B].
@@ -195,14 +195,14 @@ Thay vì luôn dùng "but", xen kẽ với:
 - The government invested heavily in public transport. **However**, traffic congestion has continued to worsen.
 - Many young people aspire to move abroad. **However**, few have the resources to do so.
 
-### ❌ Lỗi phổ biến:
+##### ❌ Lỗi phổ biến:
 
 - ❌ "Technology is useful, **however** it can be addictive."
 - ✅ "Technology is useful. **However**, it can be addictive."
 - ✅ "Technology is useful; **however**, it can be addictive."
 - ✅ "Technology is useful, **but** it can be addictive."
 
-### Vị trí linh hoạt của "however":
+##### Vị trí linh hoạt của "however":
 
 "However" cũng có thể đứng giữa hoặc cuối câu để nhấn mạnh khác:
 - "The solution is not, **however**, as simple as it might appear."
@@ -210,7 +210,7 @@ Thay vì luôn dùng "but", xen kẽ với:
 
 ---
 
-## PHẦN 3: WHILE / WHEREAS — Đối chiếu trực tiếp hai phía
+#### PHẦN 3: WHILE / WHEREAS — Đối chiếu trực tiếp hai phía
 
 ```
 While [Side A], [Side B].
@@ -225,7 +225,7 @@ While [Side A], [Side B].
 - Younger generations tend to embrace new technology readily, **whereas** older people often find it more challenging.
 - **While** exercise has clear physical benefits, its positive effects on mental health are equally significant.
 
-### Phân biệt "while" tương phản vs "while" thời gian:
+##### Phân biệt "while" tương phản vs "while" thời gian:
 
 - "**While** I was studying, my phone rang." *(while = thời gian — cùng lúc)*
 - "**While** studying has benefits, it can also be stressful." *(while = tương phản)*
@@ -234,7 +234,7 @@ Ngữ cảnh thường làm rõ nghĩa. Nếu muốn nhấn mạnh tương phả
 
 ---
 
-## PHẦN 4: ON THE OTHER HAND — Công cụ cân bằng hai phía
+#### PHẦN 4: ON THE OTHER HAND — Công cụ cân bằng hai phía
 
 ```
 On the one hand, [Side A]. On the other hand, [Side B].
@@ -246,18 +246,18 @@ On the one hand, [Side A]. On the other hand, [Side B].
 - **On the one hand**, living in a big city offers unparalleled career opportunities. **On the other hand**, the cost of living and the daily stress can take a serious toll on quality of life.
 - **On the one hand**, social media connects people across the world. **On the other hand**, it can spread misinformation at an alarming speed.
 
-### Dùng trong Speaking Part 3:
+##### Dùng trong Speaking Part 3:
 
 > Câu hỏi: "Do you think it's better for children to grow up in the city or the countryside?"
 > "That's a tricky one. **On the one hand**, cities have better schools and more opportunities. **On the other hand**, the countryside gives children space to play and a closer connection to nature. I think it really depends on the child and the family."
 
 ---
 
-## PHẦN 5: MẪU ĐẦY ĐỦ — One side + contrast + another side
+#### PHẦN 5: MẪU ĐẦY ĐỦ — One side + contrast + another side
 
 Đây là cấu trúc nền tảng cho IELTS Speaking Part 3:
 
-### Mẫu A — Câu ngắn (Part 1):
+##### Mẫu A — Câu ngắn (Part 1):
 
 ```
 [Main point], but [contrast].
@@ -265,7 +265,7 @@ On the one hand, [Side A]. On the other hand, [Side B].
 
 > "I enjoy living in the city, **but** I do miss the peace and quiet of the countryside sometimes."
 
-### Mẫu B — Câu phân tích (Part 3):
+##### Mẫu B — Câu phân tích (Part 3):
 
 ```
 [Side A has merit/is true]. However, [Side B is also valid/important].
@@ -273,7 +273,7 @@ On the one hand, [Side A]. On the other hand, [Side B].
 
 > "It's true that stricter laws can reduce crime. **However**, many experts argue that addressing the root causes — poverty, inequality, lack of education — is ultimately more effective than punitive measures alone."
 
-### Mẫu C — Cân bằng có lập trường:
+##### Mẫu C — Cân bằng có lập trường:
 
 ```
 While [Side A is true/has advantages], [Side B ultimately outweighs it / is a more pressing concern].
@@ -379,7 +379,7 @@ MẪU SPEAKING:
 <!-- anchor: discourse-markers.result.spoken-extension -->
 ### Linkers cho Kết quả (Result)
 
-## PHẦN 1: SO — Kết quả đơn giản, tự nhiên nhất
+#### PHẦN 1: SO — Kết quả đơn giản, tự nhiên nhất
 
 ```
 [Cause], so [Result].
@@ -392,12 +392,12 @@ MẪU SPEAKING:
 - Living costs are rising, **so** many people are struggling to save money.
 - The restaurant was fully booked, **so** we went somewhere else.
 
-### Dùng "so" trong Speaking Part 1:
+##### Dùng "so" trong Speaking Part 1:
 
 > Q: "Do you use public transport?"
 > "Yes, I use the bus every day. My workplace is quite far from home, **so** it's the most practical option."
 
-### Dùng "so" trong Speaking Part 2:
+##### Dùng "so" trong Speaking Part 2:
 
 > "I remember this trip really well because it was the first time I'd been abroad. I'd never spoken English in a real context before, **so** it was both exciting and nerve-wracking."
 
@@ -405,9 +405,9 @@ MẪU SPEAKING:
 
 ---
 
-## PHẦN 2: THEREFORE / AS A RESULT / CONSEQUENTLY — Formal hơn
+#### PHẦN 2: THEREFORE / AS A RESULT / CONSEQUENTLY — Formal hơn
 
-### Therefore:
+##### Therefore:
 
 ```
 [Cause]. Therefore, [Result].
@@ -418,7 +418,7 @@ MẪU SPEAKING:
 - The research yielded inconclusive results. **Therefore**, further investigation is required.
 - She had extensive experience in the field; **therefore**, she was the most suitable candidate.
 
-### As a result:
+##### As a result:
 
 ```
 [Cause]. As a result, [Result].
@@ -430,7 +430,7 @@ MẪU SPEAKING:
 - The factory was relocated overseas, **and as a result**, hundreds of local workers lost their jobs.
 - Traffic congestion has worsened. **As a result**, many commuters are spending over two hours a day travelling.
 
-### Consequently:
+##### Consequently:
 
 ```
 [Cause]. Consequently, [Result].
@@ -443,7 +443,7 @@ MẪU SPEAKING:
 
 ---
 
-## PHẦN 3: THIS MEANS THAT — Giải thích tác động
+#### PHẦN 3: THIS MEANS THAT — Giải thích tác động
 
 ```
 [Fact/Cause]. This means that [Implication/Result].
@@ -455,7 +455,7 @@ MẪU SPEAKING:
 - Automation is replacing many manual jobs. **This means that** workers without technical skills risk becoming unemployable in the near future.
 - Public transport in this city is unreliable. **This means that** people have little choice but to rely on private vehicles, which worsens congestion.
 
-### Trong speaking (informal version):
+##### Trong speaking (informal version):
 
 Dùng dạng ngắn hơn: "**which means**" hoặc "**so that means**":
 
@@ -463,7 +463,7 @@ Dùng dạng ngắn hơn: "**which means**" hoặc "**so that means**":
 
 ---
 
-## PHẦN 4: WHICH LEADS TO / WHICH RESULTS IN — Chuỗi nhân-quả trong một câu
+#### PHẦN 4: WHICH LEADS TO / WHICH RESULTS IN — Chuỗi nhân-quả trong một câu
 
 ```
 [Cause], which leads to / which results in [Result].
@@ -477,7 +477,7 @@ Những cụm này cho phép diễn đạt nguyên nhân và kết quả **trong
 - Many young people delay marriage to focus on their careers, **leading to** a decline in birth rates in many developed countries.
 - Poor diet combined with lack of exercise **can lead to** long-term health complications.
 
-### Sự khác biệt nhỏ giữa "lead to" và "result in":
+##### Sự khác biệt nhỏ giữa "lead to" và "result in":
 
 | Cụm | Ví dụ |
 |-----|-------|
@@ -486,9 +486,9 @@ Những cụm này cho phép diễn đạt nguyên nhân và kết quả **trong
 
 ---
 
-## PHẦN 5: KẾT HỢP NGUYÊN NHÂN + KẾT QUẢ — Câu hoàn chỉnh
+#### PHẦN 5: KẾT HỢP NGUYÊN NHÂN + KẾT QUẢ — Câu hoàn chỉnh
 
-### Mẫu cơ bản (Speaking Part 1/2):
+##### Mẫu cơ bản (Speaking Part 1/2):
 
 ```
 [Reason], so [result].
@@ -497,7 +497,7 @@ Những cụm này cho phép diễn đạt nguyên nhân và kết quả **trong
 
 > "I don't own a car. It's just too expensive in the city, **so** I use the metro every day. **This means** I also get a bit of walking in, which is great."
 
-### Mẫu phân tích (Speaking Part 3 / Writing):
+##### Mẫu phân tích (Speaking Part 3 / Writing):
 
 ```
 [Problem/Cause]. As a result/Therefore/Consequently, [Result]. This means that [Further implication].
@@ -505,7 +505,7 @@ Những cụm này cho phép diễn đạt nguyên nhân và kết quả **trong
 
 > "Many young people cannot afford to buy homes due to rising property prices. **As a result**, they are renting for much longer than previous generations. **This means that** they struggle to build long-term financial security, which has knock-on effects for retirement planning."
 
-### Chuỗi nhân-quả (Writing Task 2):
+##### Chuỗi nhân-quả (Writing Task 2):
 
 ```
 [Cause A] leads to [Effect B], which in turn [leads to / results in] [Effect C].
@@ -743,7 +743,7 @@ Sắp xếp các câu dưới đây thành đoạn văn mạch lạc, thêm disc
 **Đoạn văn mẫu:**
 People are spending more time on social media. **As a result**, they have less time for face-to-face interactions. **This may partly explain why** loneliness and depression rates have increased. **Since** social connection is fundamental to mental health, apps and platforms **should therefore** design features that encourage real-world meetings.
 
-Từ nối không chứng minh quan hệ nhân quả; cần thêm bằng chứng trước khi viết as a result/consequently.
+Từ nối không tự tạo ra quan hệ nhân quả: chỉ dùng as a result/consequently khi câu trước nêu đúng nguyên nhân của câu sau, như câu 1 → câu 2 trong đoạn mẫu; khi mối liên hệ chỉ là khả năng, hãy viết thận trọng như "This may partly explain why".
 
 ## Tóm tắt nhanh — Tổng hợp
 

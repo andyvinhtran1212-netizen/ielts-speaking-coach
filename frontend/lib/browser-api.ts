@@ -1,6 +1,13 @@
 import 'client-only';
 
-import type { ApiGetJson, ApiGetPath, ApiPostJson, ApiPostPath } from '@/lib/openapi-contract';
+import type {
+  ApiGetJson,
+  ApiGetPath,
+  ApiPatchJson,
+  ApiPatchPath,
+  ApiPostJson,
+  ApiPostPath,
+} from '@/lib/openapi-contract';
 import { searchParamsSuffix } from '@/lib/search-params.mjs';
 
 /**
@@ -49,4 +56,13 @@ export function postBrowserJsonAt<Path extends ApiPostPath>(
   body: unknown = {},
 ): Promise<ApiPostJson<Path>> {
   return window.api.post<ApiPostJson<Path>>(endpoint, body);
+}
+
+/** Typed PATCH response for a concrete URL bound to an OpenAPI path template. */
+export function patchBrowserJsonAt<Path extends ApiPatchPath>(
+  _contractPath: Path,
+  endpoint: string,
+  body: unknown = {},
+): Promise<ApiPatchJson<Path>> {
+  return window.api.patch<ApiPatchJson<Path>>(endpoint, body);
 }

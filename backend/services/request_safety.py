@@ -6,10 +6,12 @@ without a session (F10). They are bounded instead by body size, a per-client
 budget and a per-worker ceiling. Budgets are per worker (not a distributed
 WAF replacement); only the client address is retained, never user identifiers.
 
-The client key is the LAST X-Forwarded-For hop: the address our edge proxy
-appended, which the caller cannot choose (earlier hops are caller-supplied).
-Without the header the socket peer is used. If the key is ever forged or
-collapses to one proxy address, the per-worker ceiling still holds.
+The client key is X-Real-IP, which Railway's edge sets to the client's remote
+IP (https://docs.railway.com/networking/public-networking/specs-and-limits).
+Without it (local/dev, other proxies) the LAST X-Forwarded-For hop is used:
+earlier hops are caller-supplied. Without either header the socket peer is
+used. If the key is ever forged or collapses to one proxy address, the
+per-worker ceiling still holds.
 """
 from collections import deque
 import time
@@ -45,10 +47,11 @@ class RequestSafetyMiddleware:
 
     @staticmethod
     def _client_key(scope, headers):
-        forwarded = headers.get(b'x-forwarded-for', b'').decode('latin-1')
-        hops = [hop.strip() for hop in forwarded.split(',') if hop.strip()]
-        if hops:
-            return hops[-1][:64]
+        for name in (b'x-real-ip', b'x-forwarded-for'):
+            value = headers.get(name, b'').decode('latin-1')
+            hops = [hop.strip() for hop in value.split(',') if hop.strip()]
+            if hops:
+                return hops[-1][:64]
         client = scope.get('client')
         return client[0] if client else 'unknown'
 

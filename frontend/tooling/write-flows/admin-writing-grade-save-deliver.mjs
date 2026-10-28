@@ -40,8 +40,12 @@ export default {
     { click: '#edit-overview .btn-primary' },
     { click: '#btn-save' },
     { waitForWrites: [`/admin/writing/essays/${ESSAY}/feedback`, 1] },
+    // W-GRADE-STALE-STATUS: the pill follows each write response, no reload.
+    { expectText: ['#status-pill[data-status="reviewed"]', 'reviewed'] },
     { click: '#btn-deliver' },
     { waitForWrites: [`/admin/writing/essays/${ESSAY}/mark-delivered`, 1] },
+    { expectText: ['#status-pill[data-status="delivered"]', 'delivered'] },
+    { expectVisible: '#btn-revoke' },
   ],
 
   ignoreWrites: ['/api/analytics/events'],

@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Optional
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException, Query, status
 from pydantic import BaseModel, Field, model_validator
@@ -37,7 +37,6 @@ from routers.admin import require_admin
 from services.cohort_assignment_service import (
     Deadline,
     existing_give_student_ids,
-    fan_out_assignment,
     preview_fan_out_overlap,
 )
 from services import student_service
@@ -188,8 +187,11 @@ class AssignmentCreate(BaseModel):
     into IELTS-exam mode.  The pair is enforced together (one without
     the other is a 422) — the same invariant the migration's CHECK
     constraint enforces at the DB layer.
+
+    PC-J37: `request_id` is required. Its receipt is what marks the give as
+    an admin-tools give; a give without one would read as an /instructor give.
     """
-    request_id:          Optional[UUID]       = None   # native idempotency key; legacy callers may omit
+    request_id:          UUID                       # idempotency key + give-origin receipt
     prompt_id:           Optional[UUID]       = None   # legacy single (back-compat)
     prompt_ids:          Optional[list[UUID]] = Field(None, max_length=20)
     student_ids:         list[UUID]         = Field(..., min_length=1, max_length=100)
@@ -345,120 +347,63 @@ async def create_assignments(
     student_id_strs = [str(s) for s in body.student_ids]
     prompt_id_strs = [str(p) for p in body.prompt_ids]
 
-    # Native clients carry an idempotency UUID. One DB transaction owns the
-    # request ledger + Cartesian insert, so a lost HTTP response can be retried
-    # without creating a second group. Legacy callers that omit request_id keep
-    # the established insert path below until they migrate.
-    if body.request_id is not None:
-        request_payload = body.model_dump(mode="json", exclude={"request_id", "prompt_id"})
-        # A completed request replays its receipt even if a learner was archived
-        # afterwards; only a NEW give is refused below.
-        replay = _read_assignment_request_receipt(
-            body.request_id,
-            assigned_by=admin["id"],
-            request_payload=request_payload,
-        )
-        if replay is not None:
-            return {
-                "created": replay.get("created", []),
-                "count": replay.get("created_count", 0),
-                "group_id": replay.get("group_id"),
-                "duplicates_warning": replay.get("duplicates_warning", []),
-                "replayed": True,
-            }
-        _refuse_archived_students(student_id_strs)
-        try:
-            rpc = supabase_admin.rpc("fn_create_writing_assignments_idempotent", {
-                "p_request_id": str(body.request_id),
-                "p_assigned_by": admin["id"],
-                "p_request_payload": request_payload,
-                "p_prompt_ids": prompt_id_strs,
-                "p_student_ids": student_id_strs,
-                "p_name": body.name,
-                "p_allow_soft_check": body.allow_soft_check,
-                "p_deadline": body.deadline.isoformat() if body.deadline else None,
-                "p_instructions": body.instructions,
-                "p_is_timed": body.is_timed,
-                "p_time_limit_minutes": body.time_limit_minutes,
-                "p_analysis_level": body.analysis_level,
-            }).execute()
-        except Exception as exc:
-            # 331: archived after the pre-check → the whole RPC rolled back.
-            student_service.raise_if_student_archived(supabase_admin, exc, student_id_strs)
-            message = str(exc)
-            if "payload_mismatch" in message:
-                raise HTTPException(409, "request_id đã được dùng với nội dung khác.") from exc
-            if "owned_by_other_admin" in message:
-                raise HTTPException(409, "request_id không thuộc tài khoản admin này.") from exc
-            if "roster_changed" in message:
-                raise HTTPException(
-                    409, "Sĩ số lớp đã thay đổi trong lúc giao bài. Vui lòng rà lại và thử lại."
-                ) from exc
-            raise
-        receipt = rpc.data
-        if not isinstance(receipt, dict):
-            raise HTTPException(500, "Idempotent assignment receipt is malformed")
+    # One DB transaction owns the request ledger + Cartesian insert, so a lost
+    # HTTP response can be retried without creating a second group. The
+    # receipt also records that this group came from the admin tools.
+    request_payload = body.model_dump(mode="json", exclude={"request_id", "prompt_id"})
+    # A completed request replays its receipt even if a learner was archived
+    # afterwards; only a NEW give is refused below.
+    replay = _read_assignment_request_receipt(
+        body.request_id,
+        assigned_by=admin["id"],
+        request_payload=request_payload,
+    )
+    if replay is not None:
         return {
-            "created": receipt.get("created", []),
-            "count": receipt.get("created_count", 0),
-            "group_id": receipt.get("group_id"),
-            "duplicates_warning": receipt.get("duplicates_warning", []),
-            "replayed": bool(receipt.get("replayed")),
+            "created": replay.get("created", []),
+            "count": replay.get("created_count", 0),
+            "group_id": replay.get("group_id"),
+            "duplicates_warning": replay.get("duplicates_warning", []),
+            "replayed": True,
         }
-
     _refuse_archived_students(student_id_strs)
-
-    # Detect existing duplicates (any of these prompts + student) for the
-    # advisory warning. Best-effort — never blocks the insert.
-    duplicate_student_ids: set[str] = set()
     try:
-        existing = (
-            supabase_admin.table("writing_assignments")
-            .select("student_id")
-            .in_("prompt_id", prompt_id_strs)
-            .in_("student_id", student_id_strs)
-            .execute()
-        )
-        duplicate_student_ids = {row["student_id"] for row in (existing.data or [])
-                                  if row.get("student_id")}
-    except Exception:
-        duplicate_student_ids = set()
-
-    # One group id for this give-action, shared across every row.
-    group_id = str(uuid4())
-    deadline_iso = body.deadline.isoformat() if body.deadline else None
-    payload = [
-        {
-            "prompt_id":           pid,
-            "student_id":          sid,
-            "assignment_group_id": group_id,
-            "name":                body.name,
-            "allow_soft_check":    body.allow_soft_check,
-            "assigned_by":         admin["id"],
-            "deadline":            deadline_iso,
-            "instructions":        body.instructions,
-            "is_timed":            body.is_timed,
-            "time_limit_minutes":  body.time_limit_minutes,
-            "analysis_level":      body.analysis_level,
-        }
-        for sid in student_id_strs
-        for pid in prompt_id_strs
-    ]
-
-    try:
-        r = supabase_admin.table("writing_assignments").insert(payload).execute()
+        rpc = supabase_admin.rpc("fn_create_writing_assignments_idempotent", {
+            "p_request_id": str(body.request_id),
+            "p_assigned_by": admin["id"],
+            "p_request_payload": request_payload,
+            "p_prompt_ids": prompt_id_strs,
+            "p_student_ids": student_id_strs,
+            "p_name": body.name,
+            "p_allow_soft_check": body.allow_soft_check,
+            "p_deadline": body.deadline.isoformat() if body.deadline else None,
+            "p_instructions": body.instructions,
+            "p_is_timed": body.is_timed,
+            "p_time_limit_minutes": body.time_limit_minutes,
+            "p_analysis_level": body.analysis_level,
+        }).execute()
     except Exception as exc:
-        # 331: archived after the pre-check → the bulk insert created no row.
+        # 331: archived after the pre-check → the whole RPC rolled back.
         student_service.raise_if_student_archived(supabase_admin, exc, student_id_strs)
+        message = str(exc)
+        if "payload_mismatch" in message:
+            raise HTTPException(409, "request_id đã được dùng với nội dung khác.") from exc
+        if "owned_by_other_admin" in message:
+            raise HTTPException(409, "request_id không thuộc tài khoản admin này.") from exc
+        if "roster_changed" in message:
+            raise HTTPException(
+                409, "Sĩ số lớp đã thay đổi trong lúc giao bài. Vui lòng rà lại và thử lại."
+            ) from exc
         raise
-    if not r.data:
-        raise HTTPException(500, "Failed to create assignments")
-
+    receipt = rpc.data
+    if not isinstance(receipt, dict):
+        raise HTTPException(500, "Idempotent assignment receipt is malformed")
     return {
-        "created":            r.data,
-        "count":              len(r.data),
-        "group_id":           group_id,
-        "duplicates_warning": sorted(duplicate_student_ids),
+        "created": receipt.get("created", []),
+        "count": receipt.get("created_count", 0),
+        "group_id": receipt.get("group_id"),
+        "duplicates_warning": receipt.get("duplicates_warning", []),
+        "replayed": bool(receipt.get("replayed")),
     }
 
 
@@ -471,8 +416,8 @@ class FanOutCreate(BaseModel):
     (NOT skip) so re-giving a prompt in a new "Buổi" works as intended.
 
     `prompt_id` (single) is accepted for back-compat; both normalize to
-    `prompt_ids`."""
-    request_id:         Optional[UUID]       = None   # native idempotency key; legacy callers may omit
+    `prompt_ids`. `request_id` is required (PC-J37, see AssignmentCreate)."""
+    request_id:         UUID                        # idempotency key + give-origin receipt
     expected_student_count: Optional[int]    = Field(None, ge=1, le=10000)
     prompt_id:          Optional[UUID]       = None   # legacy single (back-compat)
     prompt_ids:         Optional[list[UUID]] = Field(None, max_length=20)
@@ -519,73 +464,55 @@ async def fan_out_to_cohort(
     these prompts (allow + warn — re-giving in a new Buổi is intended)."""
     admin = await require_admin(authorization)
 
-    if body.request_id is not None:
-        request_payload = body.model_dump(mode="json", exclude={"request_id", "prompt_id"})
-        replay = _read_assignment_request_receipt(
-            body.request_id,
-            assigned_by=admin["id"],
-            request_payload=request_payload,
-        )
-        if replay is not None:
-            return replay
-
-        student_ids = active_student_ids_for_cohort(
-            supabase_admin, str(body.cohort_id))
-        if not student_ids:
-            raise HTTPException(400, "Lớp này chưa có học viên nào.")
-        if body.expected_student_count is not None and len(student_ids) != body.expected_student_count:
-            raise HTTPException(
-                409,
-                f"Sĩ số lớp đã đổi từ {body.expected_student_count} thành {len(student_ids)}. Vui lòng rà lại trước khi giao.",
-            )
-        try:
-            rpc = supabase_admin.rpc("fn_create_writing_assignments_idempotent", {
-                "p_request_id": str(body.request_id),
-                "p_assigned_by": admin["id"],
-                "p_request_payload": request_payload,
-                "p_prompt_ids": [str(prompt_id) for prompt_id in body.prompt_ids],
-                "p_student_ids": student_ids,
-                "p_name": body.name,
-                "p_allow_soft_check": body.allow_soft_check,
-                "p_deadline": body.deadline.isoformat() if body.deadline else None,
-                "p_instructions": body.instructions,
-                "p_is_timed": body.is_timed,
-                "p_time_limit_minutes": body.time_limit_minutes,
-                "p_analysis_level": body.analysis_level,
-            }).execute()
-        except Exception as exc:
-            # 331 backstop (archive ends memberships, so roster_changed is usual).
-            student_service.raise_if_student_archived(supabase_admin, exc, student_ids)
-            message = str(exc)
-            if "payload_mismatch" in message:
-                raise HTTPException(409, "request_id đã được dùng với nội dung khác.") from exc
-            if "owned_by_other_admin" in message:
-                raise HTTPException(409, "request_id không thuộc tài khoản admin này.") from exc
-            if "roster_changed" in message:
-                raise HTTPException(
-                    409, "Sĩ số lớp đã thay đổi trong lúc giao bài. Vui lòng rà lại và thử lại."
-                ) from exc
-            raise
-        result = rpc.data
-        if not isinstance(result, dict):
-            raise HTTPException(500, "Idempotent assignment receipt is malformed")
-        return result
-
-    result = fan_out_assignment(
-        supabase_admin,
-        prompt_ids=body.prompt_ids,
-        cohort_id=body.cohort_id,
+    request_payload = body.model_dump(mode="json", exclude={"request_id", "prompt_id"})
+    replay = _read_assignment_request_receipt(
+        body.request_id,
         assigned_by=admin["id"],
-        name=body.name,
-        allow_soft_check=body.allow_soft_check,
-        deadline=body.deadline,
-        instructions=body.instructions,
-        is_timed=body.is_timed,
-        time_limit_minutes=body.time_limit_minutes,
-        analysis_level=body.analysis_level,
+        request_payload=request_payload,
     )
-    if result["student_count"] == 0:
+    if replay is not None:
+        return replay
+
+    student_ids = active_student_ids_for_cohort(
+        supabase_admin, str(body.cohort_id))
+    if not student_ids:
         raise HTTPException(400, "Lớp này chưa có học viên nào.")
+    if body.expected_student_count is not None and len(student_ids) != body.expected_student_count:
+        raise HTTPException(
+            409,
+            f"Sĩ số lớp đã đổi từ {body.expected_student_count} thành {len(student_ids)}. Vui lòng rà lại trước khi giao.",
+        )
+    try:
+        rpc = supabase_admin.rpc("fn_create_writing_assignments_idempotent", {
+            "p_request_id": str(body.request_id),
+            "p_assigned_by": admin["id"],
+            "p_request_payload": request_payload,
+            "p_prompt_ids": [str(prompt_id) for prompt_id in body.prompt_ids],
+            "p_student_ids": student_ids,
+            "p_name": body.name,
+            "p_allow_soft_check": body.allow_soft_check,
+            "p_deadline": body.deadline.isoformat() if body.deadline else None,
+            "p_instructions": body.instructions,
+            "p_is_timed": body.is_timed,
+            "p_time_limit_minutes": body.time_limit_minutes,
+            "p_analysis_level": body.analysis_level,
+        }).execute()
+    except Exception as exc:
+        # 331 backstop (archive ends memberships, so roster_changed is usual).
+        student_service.raise_if_student_archived(supabase_admin, exc, student_ids)
+        message = str(exc)
+        if "payload_mismatch" in message:
+            raise HTTPException(409, "request_id đã được dùng với nội dung khác.") from exc
+        if "owned_by_other_admin" in message:
+            raise HTTPException(409, "request_id không thuộc tài khoản admin này.") from exc
+        if "roster_changed" in message:
+            raise HTTPException(
+                409, "Sĩ số lớp đã thay đổi trong lúc giao bài. Vui lòng rà lại và thử lại."
+            ) from exc
+        raise
+    result = rpc.data
+    if not isinstance(result, dict):
+        raise HTTPException(500, "Idempotent assignment receipt is malformed")
     return result
 
 

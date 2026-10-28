@@ -14,7 +14,7 @@ import { CourseShell } from './page-shell';
 import { CourseBehavior } from './course-behavior';
 
 export const metadata: Metadata = {
-  title: 'Bài tập theo buổi — AverLearning',
+  title: 'Bài tập theo buổi — Aver Learning',
   // Route riêng tư (khách chưa đăng nhập bị đẩy về /login) — không cho lập chỉ mục.
   robots: { index: false, follow: false },
 };
