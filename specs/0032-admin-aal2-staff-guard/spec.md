@@ -20,6 +20,8 @@ Leader). Its owner decisions are binding defaults here. Risk source:
 `/workspace/cc-jobs/dr-tabletop-1027.md` §5. Code inventory with citations:
 [`research.md`](research.md). Migration number **332** is the accepted Q8
 default; the Leader still confirms the reservation before T001.
+FR-019 (role frozen while suspended, migration 336) was added by Vinh's
+decision 1A on 2026-10-28 17:53 (UTC+7); see [Owner decisions](#owner-decisions) Q11.
 
 ## Thay đổi người dùng thấy (tóm tắt cho anh Vinh)
 
@@ -31,6 +33,10 @@ default; the Leader still confirms the reservation before T001.
   thao tác kế tiếp, kể cả khi trình duyệt vẫn còn phiên. Phiên đăng nhập bị thu
   hồi. Tài khoản bị tạm khóa không thể tự mở lại bằng mã kích hoạt; chỉ admin
   khác mở khóa được.
+- Không đổi được **vai trò** của tài khoản đang bị tạm khóa. Admin phải mở khóa
+  trước rồi mới đổi vai trò. Trang Người dùng sẽ báo: "Không thể đổi vai trò
+  của tài khoản đang bị tạm khóa. Hãy mở khóa tài khoản trước, rồi đổi vai
+  trò." (quyết định 1A của anh Vinh, 28/10 17:53).
 - **Giảng viên chưa kích hoạt / bị tắt** mở `/instructor` sẽ được chuyển về
   `/login` để nhập mã kích hoạt, và không thấy dữ liệu (lỗi production đang gặp,
   sửa ở PR #1771). Nếu tài khoản bị tắt khi đang mở trang, trang hiện "Tài
@@ -144,6 +150,7 @@ compromised admin out is not possible from the product.
 - **FR-016:** The synthetic staging admin created by `backend/scripts/staging_seed.py` holds a verified TOTP factor. Every live Staging E2E admin sign-in completes challenge and verify through one shared helper to obtain an AAL2 session, including the browser session injected by the Writing course journey. A PR-time test fails if any staging spec signs in the admin another way. The TOTP secret lives only in CI secrets and the QA creds store and is never printed in logs or artifacts.
 - **FR-017:** Enforcement is enabled in an environment only after a read-only query shows every active admin with at least one verified TOTP factor, and either at least two such admins or one admin with an offline backup factor. The recovery runbook (`rollout.md` §Rollback and repair) has been executed on staging with measured durations. It covers: flag off, factor reset, backup factor, a clean-admin RPC repair, and a control-plane bootstrap that restores the first admin when no eligible admin exists. The bootstrap is executable only by the database owner, never by `service_role` or the app. It refuses while any eligible admin exists, and it is audited and emailed.
 - **FR-018:** No other path can make a suspended account active again: self-service `/auth/activate` with any access code, admin-issued codes, student restore (`fn_restore_student`), or a direct SQL update. The database refuses any `is_active` change from false to true while `suspended_at` is set, unless the change comes through the FR-006 reactivation. This holds under concurrent requests. `/auth/activate` refuses a suspended account with 403 `{"code": "account_suspended"}` before the access code is claimed, so the code stays unused. `/auth/me` and `/auth/check-active` report `suspended: true`, and `/login` shows "Tài khoản đang bị tạm khóa — liên hệ admin" instead of the activation dialog. This holds even when session revocation or the sign-in ban failed.
+- **FR-019:** The role of a suspended account cannot change. While `users.suspended_at` is set, the database refuses any change of `users.role` with SQLSTATE P0001 and the message `account_suspended_role_change`. This includes `fn_set_staff_privilege`, alone or combined with reactivation in one call, as well as service-role REST, the SQL editor and a superuser. Only the owner-only `fn_bootstrap_admin_recovery` (FR-017) is exempt, because it clears the marker in the same write. An admin first reactivates the account (FR-006), then changes its role. Repeating the current role is still a no-op. `PATCH /admin/users/{user_id}/role` answers 409 `{"code": "account_suspended_role_change", "message": "Không thể đổi vai trò của tài khoản đang bị tạm khóa. Hãy mở khóa tài khoản trước, rồi đổi vai trò."}`, changes nothing, and the admin users panel shows that message. Migration 336 enforces this rule. It refuses to apply while a suspended account already holds a non-staff role, because the rule would leave that account impossible to reactivate in the app.
 
 ## Acceptance scenarios
 
@@ -202,6 +209,13 @@ compromised admin out is not possible from the product.
 - **When** they call `/auth/activate` with that code, and in parallel an admin issues them a code
 - **Then** both are refused with `account_suspended`, the code stays unused, `users.is_active` stays false with `suspended_at` set, every `/instructor/*` call returns 403, and `/login` shows the suspended message
 
+### AC10 — A suspended account keeps its role until it is reactivated (FR-019)
+
+- **Given** a suspended instructor
+- **When** an admin changes its role to student, either in the admin users panel or through `fn_set_staff_privilege`
+- **Then** the change is refused with `account_suspended_role_change`, the panel shows "Không thể đổi vai trò của tài khoản đang bị tạm khóa. Hãy mở khóa tài khoản trước, rồi đổi vai trò.", and the role, the marker and the audit are unchanged
+- **And when** the admin reactivates the account first (FR-006), the same role change succeeds
+
 ## Edge cases
 
 - **Last admin.** Demoting or suspending the only active admin is refused with
@@ -211,6 +225,10 @@ compromised admin out is not possible from the product.
 - **Suspended vs never activated.** `suspended_at` is set only by FR-006, so a
   new instructor who has not redeemed a code still activates normally.
   Learner archive (0029) keeps its own `account_deactivated` meaning.
+- **Role change while suspended (FR-019).** Without FR-019, demoting a suspended
+  instructor to student would leave a row that FR-006 can no longer reactivate,
+  because reactivation needs a staff role, and that no admin could restore in the app.
+  So the role is frozen until the account is reactivated.
 - **Out-of-band suspension.** An `is_active = false` written in the SQL editor
   sets no marker, so the runbook suspends through the RPC (`rollout.md` path
   (d)) rather than a bare update.
@@ -299,3 +317,10 @@ the wording of the default that was approved.
   out-of-band changes and factor deletions that never touch the backend.
   *Default:* approve it as part of this spec. It runs the backend image with
   `python -m scripts.staff_security_sweep`.
+- **Q11: Role change of a suspended account.** *Decided by Vinh on
+  2026-10-28 17:53 (UTC+7), option 1A (relayed by the Leader, t246u).*
+  `fn_set_staff_privilege` refuses any role change on an account that is
+  currently suspended. An admin must reactivate the account first. This
+  became FR-019 and migration 336, after #1806 reached staging. It prevents a
+  suspended instructor from being demoted to student and then being
+  impossible to restore in the app.
