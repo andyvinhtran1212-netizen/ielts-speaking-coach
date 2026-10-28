@@ -9,8 +9,9 @@ role. Supabase Auth's factor list and Resend are fakes.
 Proves: a factor enrolled, verified and deleted between two runs gives its own
 rows; re-runs and a rewound cursor never duplicate; a failure rolls back the
 batch and the cursor so nothing is skipped; step-up sign-ins are not new
-verifications; the snapshot backstop fires only when the log misses an event;
-audit rows and alert payloads carry no secret.
+verifications; eligibility is the role held when the event happened; the
+snapshot backstop fires only when the log misses an event, and its alert carries
+the stored detection time; audit rows and alert payloads carry no secret.
 
 Set TEST_PG_URL to a LOCAL disposable cluster and REQUIRE_PG=1 to forbid skips.
 """
@@ -375,6 +376,35 @@ def test_only_admin_accounts_are_audited_and_the_cursor_moves_past_the_rest(pg, 
     assert _cursor(schema) == bad
 
 
+def test_eligibility_is_the_role_held_when_the_factor_event_happened(pg):
+    """Codex #1884: a demotion between the event and the sweep must not drop it."""
+    schema, auth = pg
+    demoted = m332._user(schema, "admin", True)
+    promoted = m332._user(schema, "student", True)
+    _ready(pg)
+    deleted, learner_factor = str(uuid4()), str(uuid4())
+    _log(auth, "factor_in_progress", demoted, deleted)
+    _log(auth, "verification_attempted", demoted, deleted)
+    entry = _log(auth, "factor_unenrolled", demoted, deleted, status="verified")
+    _lifecycle(auth, promoted, learner_factor)
+    # Remediation runs before the next sweep: the admin is demoted, and the
+    # learner gains admin after their own factor events.
+    psql(f"UPDATE {schema}.users SET role = 'student' WHERE id = '{demoted}'")
+    psql(f"UPDATE {schema}.users SET role = 'admin' WHERE id = '{promoted}'")
+    sender = Sender()
+    fields, ok = _sweep(pg, Factors(), sender=sender)
+    assert ok and fields["log_rows"] == 3
+    rows = _rows(schema, demoted)
+    assert [r["event"] for r in rows] == ["mfa_factor_enrolled", "mfa_factor_verified",
+                                          "mfa_factor_deleted"]
+    assert rows[2]["detail"]["auth_log_entry_id"] == entry
+    assert [o["event"] for o in _alerts(schema, demoted)] == ["mfa_factor_verified",
+                                                             "mfa_factor_deleted"]
+    assert sum(f"{demoted}@q332.test" in e.subject and "yếu tố" in e.text.splitlines()[0]
+               for e in sender.calls) == 2
+    assert _rows(schema, promoted) == [] and _alerts(schema, promoted) == []
+
+
 def test_audit_rows_and_alerts_carry_no_secret(pg):
     schema, auth = pg
     admin = m332._user(schema, "admin", True)
@@ -423,6 +453,18 @@ def test_snapshot_backstop_fires_only_when_the_log_missed_the_event(pg, caplog):
     assert [o["event"] for o in _alerts(schema, admin)] == [
         "mfa_factor_verified", "mfa_factor_verified", "mfa_factor_deleted"]
     assert len(sender.calls) == 3
+    # FR-011: the e-mail carries the detection time stored on the audit row.
+    stored = psql(f"""SELECT string_agg(to_char(occurred_at AT TIME ZONE 'Asia/Ho_Chi_Minh',
+                                                 'DD/MM/YYYY HH24:MI:SS'), ',' ORDER BY occurred_at, id)
+                        FROM {schema}.staff_security_audit
+                       WHERE target_user_id = '{admin}' AND detail ->> 'detected_by' = 'snapshot'
+                         AND event <> 'mfa_factor_enrolled'""").split(",")
+    assert all(o["payload"]["occurred_at"] for o in _alerts(schema, admin))
+    assert sorted(line for e in sender.calls[-2:] for line in e.text.splitlines()
+                  if line.startswith("Thời điểm:")) == sorted(
+        f"Thời điểm: {t} (giờ Việt Nam)" for t in stored)
+    assert all("không rõ" not in line for e in sender.calls for line in e.text.splitlines()
+               if line.startswith("Thời điểm:"))
     # The snapshot now matches, so a re-run finds nothing.
     fields, ok = _sweep(pg, factors, sender=sender)
     assert ok and fields["snapshot_factor_diffs"] == 0 and len(sender.calls) == 3

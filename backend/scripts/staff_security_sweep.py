@@ -13,7 +13,9 @@ skip the others, and any failure makes the exit code non-zero.
 1. **Auth audit-log factor events** (the event source). Reads
    ``auth.audit_log_entries`` after the durable cursor in
    ``staff_security_sweep_cursor`` and, for each factor event of an account
-   whose role is admin, writes one ``staff_security_audit`` row keyed by the
+   whose role was admin when the event happened (the role history in
+   ``staff_security_audit``, so a later demotion or promotion does not change
+   the answer), writes one ``staff_security_audit`` row keyed by the
    log entry id (``detail.auth_log_entry_id``, unique since migration 332), so
    a re-run cannot duplicate it. The rows, their owner alerts and the cursor
    advance commit in one transaction per batch: a failure rolls all of them
@@ -200,6 +202,17 @@ class SweepDb:
             f"SELECT id, role, email FROM {self.users} WHERE id = ANY($1::uuid[])", ids)
         return {str(r["id"]): dict(r) for r in rows}
 
+    async def role_at(self, user_id: str, at: Any, current: str | None) -> str | None:
+        """The account's role at ``at``: the ``before`` of its first role change
+        after that moment (migration 332 audits every one), else the current role."""
+        row = await self.conn.fetchrow(
+            f"""SELECT before ->> 'role' AS role FROM {self.audit}
+                 WHERE target_user_id = $1::uuid AND occurred_at > $2
+                   AND event IN ('role_changed', 'staff_row_inserted', 'bootstrap_recovery')
+                 ORDER BY occurred_at, id LIMIT 1""",
+            user_id, at)
+        return row["role"] if row else current
+
     async def admins(self) -> list[dict[str, Any]]:
         rows = await self.conn.fetch(
             f"SELECT id, email FROM {self.users} WHERE role = 'admin' ORDER BY id")
@@ -222,19 +235,20 @@ class SweepDb:
             f"SELECT status FROM {self.snapshot} WHERE factor_id = $1::uuid", factor_id)
 
     async def insert_audit(self, *, event: str, target: str, actor: str | None,
-                           occurred_at: Any, detail: dict[str, Any]) -> str | None:
-        """One `auth`-sourced row; None when this log entry is already audited."""
+                           occurred_at: Any, detail: dict[str, Any]) -> tuple[str, Any] | None:
+        """One `auth`-sourced row as (id, stored occurred_at); None when this log
+        entry is already audited."""
         conflict = ("ON CONFLICT ((detail ->> 'auth_log_entry_id')) "
                     "WHERE detail ->> 'auth_log_entry_id' IS NOT NULL DO NOTHING"
                     if "auth_log_entry_id" in detail else "")
-        audit_id = await self.conn.fetchval(
+        row = await self.conn.fetchrow(
             f"""INSERT INTO {self.audit}
                     (event, target_user_id, actor_user_id, source, occurred_at, detail)
                 VALUES ($1, $2::uuid, $3::uuid, 'auth', COALESCE($4, clock_timestamp()), $5::jsonb)
                 {conflict}
-                RETURNING id""",
+                RETURNING id, occurred_at""",
             event, target, actor, occurred_at, json.dumps(detail))
-        return str(audit_id) if audit_id else None
+        return (str(row["id"]), row["occurred_at"]) if row else None
 
     async def enqueue_alert(self, *, audit_id: str, event: str, target: dict[str, Any],
                             actor_id: str | None, actor_email: str | None, occurred_at: Any,
@@ -285,10 +299,13 @@ class SweepDb:
 
 async def _record(db: SweepDb, *, event: str, target: dict[str, Any], actor_email: str | None,
                   actor_id: str | None, occurred_at: Any, detail: dict[str, Any]) -> bool:
-    audit_id = await db.insert_audit(event=event, target=target["id"], actor=actor_id,
+    inserted = await db.insert_audit(event=event, target=target["id"], actor=actor_id,
                                      occurred_at=occurred_at, detail=detail)
-    if audit_id is None:
+    if inserted is None:
         return False
+    # The snapshot backstop has no event time: the alert reuses the detection
+    # time the audit row was given, so the email never says "không rõ".
+    audit_id, occurred_at = inserted
     if event in ALERT_EVENTS:
         await db.enqueue_alert(audit_id=audit_id, event=event, target=target, actor_id=actor_id,
                                actor_email=actor_email, occurred_at=occurred_at, detail=detail)
@@ -359,7 +376,10 @@ async def sweep_auth_log(db: SweepDb, *, lag_seconds: int = LOG_LAG_SECONDS,
                                  entry["id"], entry["action"])
                     continue
                 target = users.get(user_id)
-                if not target or target.get("role") != "admin":
+                # FR-010 applies to the role held at the event, not the role now:
+                # an admin demoted before this run still gets the row and alert.
+                if not target or await db.role_at(user_id, entry["created_at"],
+                                                  target.get("role")) != "admin":
                     continue
                 mapped = await _log_event(db, entry)
                 if mapped is None:

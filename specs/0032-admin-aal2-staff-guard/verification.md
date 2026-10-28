@@ -34,7 +34,7 @@ TEST_PG_URL=postgres://postgres@127.0.0.1:<port>/postgres REQUIRE_PG=1 \
   python -m pytest tests/test_owner_alerts.py tests/test_staff_security_sweep.py -q
 ```
 
-Result: 48 passed on PostgreSQL 16.2 and 17.11 (local disposable clusters).
+Result: 49 passed on PostgreSQL 16.2 and 17.11 (local disposable clusters; 48 before the Codex #1884 fixes added one test).
 The PostgreSQL cases run the sweep and outbox SQL against migration 332 as
 its NOSUPERUSER owner role, with a stand-in `auth.audit_log_entries`.
 
@@ -45,8 +45,8 @@ its NOSUPERUSER owner role, with a stand-in `auth.audit_log_entries`.
   - entries inside the lag wait for the next run;
   - step-up sign-ins are not verifications;
   - an admin-API delete is attributed to `traits.user_id` with an unknown actor;
-  - only admin accounts are audited;
-  - the snapshot backstop fires only when the log has no entry for the factor, and ignores vanished unverified factors;
+  - only admin accounts are audited, by the role held when the event happened: an admin demoted before the next run still gets the rows and alerts, and a learner promoted afterwards does not (Codex #1884);
+  - the snapshot backstop fires only when the log has no entry for the factor, and ignores vanished unverified factors; its e-mail shows the detection time stored on the audit row, in Vietnam time (Codex #1884);
   - a failed factor list keeps that admin's snapshot and fails the run;
   - no secret reaches the audit, the outbox or the snapshot.
 - FR-011: `test_owner_alerts.py` covers these cases:
@@ -63,6 +63,8 @@ its NOSUPERUSER owner role, with a stand-in `auth.audit_log_entries`.
   - the step-up check;
   - the backstop's log check;
   - the snapshot `seen_at` check;
+  - the event-time role lookup;
+  - the stored detection time in the alert;
   - the claim;
   - the claim's `attempts` compare;
   - the `attempts < 5` filter.
