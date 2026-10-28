@@ -47,6 +47,7 @@ from routers.export import router as export_router
 from routers.admin import router as admin_router
 from routers.admin_core_attempt_evidence import router as admin_core_attempt_evidence_router
 from services.core_operation_correlation import HEADER_NAME as CORE_OPERATION_HEADER, operation_hint_scope
+from services.request_context import request_id_scope
 from routers.cohorts import router as cohorts_router
 from routers.admin_courses import router as admin_courses_router
 from routers.admin_class_lessons import router as admin_class_lessons_router
@@ -457,7 +458,8 @@ async def request_id_middleware(request: Request, call_next):
     import uuid as _uuid
     request_id = request.headers.get("x-request-id") or str(_uuid.uuid4())
     request.state.request_id = request_id
-    with operation_hint_scope(request.headers.getlist(CORE_OPERATION_HEADER)):
+    with operation_hint_scope(request.headers.getlist(CORE_OPERATION_HEADER)), \
+            request_id_scope(request_id):
         response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
     return response
