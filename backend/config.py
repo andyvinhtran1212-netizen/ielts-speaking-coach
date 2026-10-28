@@ -8,12 +8,25 @@ class Settings(BaseSettings):
     # App
     APP_NAME: str = "IELTS Speaking Coach"
     ENVIRONMENT: str = "development"
+    # Serve /openapi.json, /docs, /docs/oauth2-redirect and /redoc only when
+    # truthy (1/true/yes/on). Default closed: staging and production need no
+    # env change. Local development only — see services/api_docs.py.
+    ENABLE_API_DOCS: str = ""
+    # Add the localhost dev origins to the CORS allowlist on a non-development
+    # deployment (1/true/yes/on). Ignored in production, always — see
+    # services/cors_policy.py. Development allows localhost without it.
+    CORS_ALLOW_LOCALHOST: str = ""
 
     # Signed backend → Next cache invalidation. The admin vocabulary routes
     # mutate runtime DB content while Next caches public reads. Configure both
     # values per environment; absent values make the notifier a safe no-op.
     NEXT_CACHE_REVALIDATION_URL: str = ""
     AVER_CACHE_REVALIDATION_SECRET: str = ""
+    # Vercel "Protection Bypass for Automation" secret. Set only where the
+    # frontend sits behind Vercel Authentication (staging); when non-empty it
+    # is sent as ``x-vercel-protection-bypass`` on the invalidation call so the
+    # signed request reaches the route instead of the SSO wall.
+    VERCEL_AUTOMATION_BYPASS_SECRET: str = ""
 
     # Supabase
     SUPABASE_URL: str = ""
@@ -29,6 +42,10 @@ class Settings(BaseSettings):
     READING_ANON_SALT: str = ""
 
     # Feature flags
+    # TASK B2 — hide E2E/QA test data from normal list views. Honoured only when
+    # ENVIRONMENT=staging (services/test_data_visibility.py); never set it in
+    # production. Admins can still opt in per browser with X-Show-Test-Data.
+    HIDE_TEST_DATA: bool = False
     # Private outcome-evidence foundation. Requires migration 240 and explicit
     # rollout/coverage verification; never enabled implicitly by a code deploy.
     CORE_ATTEMPT_EVIDENCE_ENABLED: bool = False
@@ -173,9 +190,9 @@ class Settings(BaseSettings):
     # images (chart/graph). Mirrors READING_IMAGES_BUCKET /
     # LISTENING_IMAGES_BUCKET — created out-of-band BEFORE the first
     # admin upload works (Supabase dashboard → Storage → New bucket →
-    # name `writing-images` → Public ✓). PUBLIC so the persisted
-    # prompt_image_url renders directly as <img src> with no signed-URL
-    # minting on the read side. (Replaced the Cloudinary integration.)
+    # name `writing-images`, Public OFF). PRIVATE: rows persist object
+    # paths and readers mint short-lived signed URLs after authorizing
+    # the viewer (services/writing_image_access.py).
     WRITING_IMAGES_BUCKET: str = "writing-images"
 
     # Task 1 verified "answer key" (docs/WRITING_TASK1_ANALYSIS_SPEC.md).
@@ -205,6 +222,12 @@ class Settings(BaseSettings):
     # per-worker, per-IP sliding minute window. <= 0 disables either cap.
     TTS_DAILY_LIMIT_PER_USER: int = 200
     TTS_IP_MAX_PER_MINUTE: int = 60
+    # W-03 — Listening gist grading (POST /api/listening/attempts mode=gist,
+    # one Claude Haiku call per attempt). Daily per-user count of
+    # ai_usage_logs feature="listening_gist" rows since UTC midnight, plus a
+    # per-worker, per-user sliding minute window. <= 0 disables either cap.
+    LISTENING_GIST_DAILY_LIMIT_PER_USER: int = 60
+    LISTENING_GIST_MAX_PER_MINUTE: int = 6
 
     # Vocab Bank feature flags
     VOCAB_ANALYSIS_ENABLED: bool = False
@@ -302,6 +325,15 @@ class Settings(BaseSettings):
     # Migration 274/275 accepts browser final batches for exactly 15 seconds.
     # Never let the background reaper take ownership before that DB window.
     COURSE_TIMER_REAPER_GRACE_SECONDS: int = Field(default=15, ge=15)
+    # INACTIVEWRITE-0035 follow-up: daily row-growth alert. Flags a user who
+    # created more than ROW_GROWTH_ALERT_THRESHOLD rows in one Vocabulary/
+    # flashcard table in 24h as an error_logs warning (/admin/error-logs).
+    # Runs once shortly after startup, then every INTERVAL; one alert per
+    # user/table/UTC day. Disable via ROW_GROWTH_ALERT_ENABLED=false.
+    ROW_GROWTH_ALERT_ENABLED: bool = True
+    ROW_GROWTH_ALERT_INTERVAL_SECONDS: int = Field(default=86400, ge=3600)
+    ROW_GROWTH_ALERT_STARTUP_DELAY_SECONDS: int = Field(default=600, ge=0)
+    ROW_GROWTH_ALERT_THRESHOLD: int = Field(default=500, ge=1)
     WRITING_STUCK_JOB_TIMEOUT_SECONDS: int = 360        # standard tier
     WRITING_STUCK_JOB_TIMEOUT_DEEP_SECONDS: int = 600   # deep tier (3 passes)
     WRITING_GRADING_MAX_ATTEMPTS: int = 3

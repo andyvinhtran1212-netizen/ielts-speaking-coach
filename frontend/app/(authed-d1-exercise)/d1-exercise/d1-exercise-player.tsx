@@ -17,6 +17,18 @@ type Phase = 'loading' | 'start' | 'active' | 'completing' | 'summary' | 'empty'
 type Session = any;
 type Summary = any;
 const LEGACY_STORAGE_KEY = 'aver:d1:active-session';
+// Requested session size. The backend may legitimately return fewer items
+// when the personal + admin pool is thin, so the UI promises at most this many.
+const D1_SESSION_SIZE = 10;
+// Learner-facing copy approved by Content Manager (D1-FILL).
+const D1_START_KICKER = `Tự nhớ từ · tối đa ${D1_SESSION_SIZE} câu`;
+const shortSessionNotice = (count: number) => (
+  `Phiên này chỉ có ${count} câu vì kho bài luyện hiện chưa có thêm câu phù hợp với bạn.`
+);
+// BL-17 / V-HUB — upper bound for the opening read (connection wait, /auth/me
+// and any resume reads). A read that never settles ends in the error state.
+export const D1_LOAD_TIMEOUT_MS = 15000;
+const D1_LOAD_TIMEOUT_MESSAGE = 'Tải dữ liệu quá lâu. Bạn kiểm tra kết nối mạng rồi thử lại nhé.';
 
 function messageOf(caught: unknown) {
   return caught instanceof Error ? caught.message : String(caught);
@@ -122,7 +134,7 @@ async function startSessionForAccount(expectedAccount: string, isCurrent: () => 
   return requestForAccount(expectedAccount, '/api/exercises/d1/sessions', isCurrent, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ size: 10 }),
+    body: JSON.stringify({ size: D1_SESSION_SIZE }),
   });
 }
 
@@ -130,11 +142,13 @@ async function resumeSessionForAccount(
   expectedAccount: string,
   sessionId: string,
   isCurrent: () => boolean,
+  signal?: AbortSignal,
 ) {
   return requestForAccount(
     expectedAccount,
     `/api/exercises/d1/sessions/${encodeURIComponent(sessionId)}`,
     isCurrent,
+    { signal },
   );
 }
 
@@ -258,7 +272,9 @@ export function D1ExercisePlayer() {
     const expectedAccount = accountKey;
     const generation = ++accountGenerationRef.current;
     let disposed = false;
-    const ownsGeneration = () => !disposed
+    let timedOut = false;
+    const controller = new AbortController();
+    const ownsGeneration = () => !disposed && !timedOut
       && accountRef.current === expectedAccount
       && accountGenerationRef.current === generation;
     // A previous account may still have a request settling. Its response is
@@ -279,12 +295,24 @@ export function D1ExercisePlayer() {
     setSaveError('');
     setAttemptRateLimited(false);
 
+    // The Supabase token read inside requestForAccount ignores the abort
+    // signal, so the deadline settles the phase itself and revokes ownership.
+    const timer = setTimeout(() => {
+      if (!ownsGeneration()) return;
+      timedOut = true;
+      controller.abort();
+      setMessage(D1_LOAD_TIMEOUT_MESSAGE);
+      setPhase('error');
+    }, D1_LOAD_TIMEOUT_MS);
+
     (async () => {
       const ready = await whenGlobalReady(() => !!window.api?.get, 'window.api (D1 exercise)');
       if (!ready || disposed) throw new Error('Không tải được thành phần kết nối.');
-      const me = await requestForAccount(expectedAccount, '/auth/me', ownsGeneration) as AuthMeWire;
+      const me = await requestForAccount(expectedAccount, '/auth/me', ownsGeneration, { signal: controller.signal }) as AuthMeWire | null;
       if (!ownsGeneration()) return;
-      if (me?.d1_enabled !== true) {
+      // An empty body is not "feature off": showing 'disabled' would misstate the account.
+      if (!me || typeof me !== 'object') throw new Error('Chưa tải được thông tin tài khoản. Bạn bấm Tải lại nhé.');
+      if (me.d1_enabled !== true) {
         setPhase('disabled');
         return;
       }
@@ -305,7 +333,7 @@ export function D1ExercisePlayer() {
         let resumedId = '';
         for (const candidate of candidates) {
           try {
-            const payload = await resumeSessionForAccount(expectedAccount, candidate, ownsGeneration);
+            const payload = await resumeSessionForAccount(expectedAccount, candidate, ownsGeneration, controller.signal);
             resumed = normalizeD1Resume(payload);
             if (!resumed) throw new Error('Dữ liệu phiên đang làm không đúng định dạng.');
             resumedId = candidate;
@@ -344,8 +372,8 @@ export function D1ExercisePlayer() {
         setMessage(messageOf(caught));
         setPhase('error');
       }
-    });
-    return () => { disposed = true; };
+    }).finally(() => clearTimeout(timer));
+    return () => { disposed = true; clearTimeout(timer); controller.abort(); };
   }, [accountKey, clearResume, complete, rememberSession]);
 
   const start = async () => {
@@ -433,14 +461,14 @@ export function D1ExercisePlayer() {
             },
           );
           canonical = normalizeD1AttemptAck(payload, exercise, selected);
-          if (!canonical) throw new Error('Máy chủ chưa xác nhận đúng attempt đã lưu.');
+          if (!canonical) throw new Error('Máy chủ chưa xác nhận được lượt làm vừa lưu.');
         } catch (caught: any) {
           lastError = caught;
           if (caught?.status === 401 || caught?.status === 429) break;
           if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 500));
         }
       }
-      if (!canonical) throw lastError || new Error('Không lưu được attempt.');
+      if (!canonical) throw lastError || new Error('Không lưu được lượt làm.');
       if (!ownsOperation()) return;
       setAttemptAck(canonical);
     } catch (caught: any) {
@@ -522,19 +550,20 @@ export function D1ExercisePlayer() {
   const progress = exercises.length ? Math.round((index / exercises.length) * 100) : 0;
   const answered = !!choice;
   const canAdvance = answered && (reviewMode || !!attemptAck) && !busy;
+  const shortSession = !reviewMode && !!session && session.exercises.length < D1_SESSION_SIZE;
   const sourceLabel = exercise?.source === 'personalized'
     ? 'Từ vốn từ của bạn'
     : exercise?.source === 'admin_fallback' ? 'Bài luyện tập chung' : null;
 
   if (!fresh || phase === 'loading') return <main className="d1x-width d1x-main"><div className="d1x-state"><span className="d1x-spinner" />Đang tải phiên luyện tập…</div></main>;
-  if (phase === 'disabled') return <main className="d1x-width d1x-main"><div className="d1x-state"><h2>Tính năng chưa được bật</h2><p>D1 chưa được mở cho tài khoản này.</p><a className="btn-secondary" href="/exercises">Về Exercises</a></div></main>;
-  if (phase === 'empty') return <main className="d1x-width d1x-main"><div className="d1x-state"><h2>Chưa có bài tập</h2><p>Kho D1 hiện chưa có câu đã phát hành.</p><button className="btn-secondary" onClick={() => void start()}>Thử lại</button></div></main>;
-  if (phase === 'rate_limited') return <main className="d1x-width d1x-main"><div className="d1x-state"><h2>Đã đạt giới hạn hôm nay</h2><p>{message}</p><div className="d1x-actions"><button className="btn-secondary" disabled={busy} onClick={() => void start()}>Thử lại</button><a className="btn-ghost" href="/exercises">Về Exercises</a></div></div></main>;
+  if (phase === 'disabled') return <main className="d1x-width d1x-main"><div className="d1x-state"><h2>Tính năng chưa được bật</h2><p>Điền từ chưa được mở cho tài khoản của bạn.</p><a className="btn-secondary" href="/exercises">Về trang bài luyện</a></div></main>;
+  if (phase === 'empty') return <main className="d1x-width d1x-main"><div className="d1x-state"><h2>Chưa có bài tập</h2><p>Kho bài luyện hiện chưa có câu đã phát hành.</p><button className="btn-secondary" onClick={() => void start()}>Thử lại</button></div></main>;
+  if (phase === 'rate_limited') return <main className="d1x-width d1x-main"><div className="d1x-state"><h2>Đã đạt giới hạn hôm nay</h2><p>{message}</p><div className="d1x-actions"><button className="btn-secondary" disabled={busy} onClick={() => void start()}>Thử lại</button><a className="btn-ghost" href="/exercises">Về trang bài luyện</a></div></div></main>;
   if (phase === 'error') return <main className="d1x-width d1x-main"><div className="d1x-state is-error" role="alert"><h2>Không tải được phiên</h2><p>{message}</p><button className="btn-secondary" onClick={() => window.location.reload()}>Tải lại</button></div></main>;
-  if (phase === 'start') return <main className="d1x-width d1x-main"><section className="d1x-start"><span className="d1x-kicker">Productive recall · 10 câu</span><h2>Điền từ đúng vào ngữ cảnh</h2><p>Chọn đáp án, xem phản hồi ngay và chỉ chuyển câu sau khi bài đã được lưu an toàn.</p>{message ? <p className="d1x-alert is-error" role="alert">{message}</p> : null}<button className="btn-primary d1x-primary" disabled={busy} onClick={() => void start()}>{busy ? 'Đang tạo phiên…' : 'Bắt đầu phiên mới'}</button></section></main>;
-  if (phase === 'completing') return <main className="d1x-width d1x-main"><div className="d1x-state"><span className={busy ? 'd1x-spinner' : ''} /><h2>Đang xác nhận tổng kết</h2><p>{message || 'Hệ thống đang đối chiếu đủ attempt đã lưu.'}</p>{message && session && accountKey ? <button className="btn-primary" disabled={busy} onClick={() => void complete(session, accountKey)}>Thử lại</button> : null}</div></main>;
-  if (phase === 'summary' && summary) return <main className="d1x-width d1x-main"><section className="d1x-summary"><span className="d1x-kicker">Phiên đã lưu</span><h2>Kết quả luyện tập</h2><div className="d1x-score"><strong>{summary.correctCount}/{summary.totalCount}</strong><span>{percent}% chính xác</span></div><div className="d1x-results">{summary.wrong.length ? <section><h3>Cần ôn lại · {summary.wrong.length}</h3>{summary.wrong.map((item: any) => <article className="d1x-result is-wrong" key={item.exerciseId}><p>{item.sentence}</p><div><span>Bạn chọn <strong>{item.userAnswer}</strong></span><span>Đáp án <strong>{item.correctAnswer}</strong></span></div></article>)}</section> : <div className="d1x-perfect">✓ Hoàn thành chính xác toàn bộ phiên.</div>}{summary.correct.length ? <section><h3>Đã làm đúng · {summary.correct.length}</h3>{summary.correct.map((item: any) => <article className="d1x-result" key={item.exerciseId}><p>{item.sentence}</p><strong>{item.answer}</strong></article>)}</section> : null}</div><div className="d1x-actions">{summary.wrong.length ? <button className="btn-secondary" onClick={reviewWrong}>Ôn lại câu sai</button> : null}<button className="btn-primary" onClick={() => { setSummary(null); setSession(null); setPhase('start'); }}>Phiên mới</button><a className="btn-ghost" href="/exercises">Về Exercises</a></div></section></main>;
+  if (phase === 'start') return <main className="d1x-width d1x-main"><section className="d1x-start"><span className="d1x-kicker">{D1_START_KICKER}</span><h2>Điền từ đúng vào ngữ cảnh</h2><p>Chọn đáp án, xem phản hồi ngay và chỉ chuyển câu sau khi bài đã được lưu an toàn.</p>{message ? <p className="d1x-alert is-error" role="alert">{message}</p> : null}<button className="btn-primary d1x-primary" disabled={busy} onClick={() => void start()}>{busy ? 'Đang tạo phiên…' : 'Bắt đầu phiên mới'}</button></section></main>;
+  if (phase === 'completing') return <main className="d1x-width d1x-main"><div className="d1x-state"><span className={busy ? 'd1x-spinner' : ''} /><h2>Đang xác nhận tổng kết</h2><p>{message || 'Hệ thống đang đối chiếu đủ số lượt làm đã lưu.'}</p>{message && session && accountKey ? <button className="btn-primary" disabled={busy} onClick={() => void complete(session, accountKey)}>Thử lại</button> : null}</div></main>;
+  if (phase === 'summary' && summary) return <main className="d1x-width d1x-main"><section className="d1x-summary"><span className="d1x-kicker">Phiên đã lưu</span><h2>Kết quả luyện tập</h2><div className="d1x-score"><strong>{summary.correctCount}/{summary.totalCount}</strong><span>{percent}% chính xác</span></div><div className="d1x-results">{summary.wrong.length ? <section><h3>Cần ôn lại · {summary.wrong.length}</h3>{summary.wrong.map((item: any) => <article className="d1x-result is-wrong" key={item.exerciseId}><p>{item.sentence}</p><div><span>Bạn chọn <strong>{item.userAnswer}</strong></span><span>Đáp án <strong>{item.correctAnswer}</strong></span></div></article>)}</section> : <div className="d1x-perfect">✓ Hoàn thành chính xác toàn bộ phiên.</div>}{summary.correct.length ? <section><h3>Đã làm đúng · {summary.correct.length}</h3>{summary.correct.map((item: any) => <article className="d1x-result" key={item.exerciseId}><p>{item.sentence}</p><strong>{item.answer}</strong></article>)}</section> : null}</div><div className="d1x-actions">{summary.wrong.length ? <button className="btn-secondary" onClick={reviewWrong}>Ôn lại câu sai</button> : null}<button className="btn-primary" onClick={() => { setSummary(null); setSession(null); setPhase('start'); }}>Phiên mới</button><a className="btn-ghost" href="/exercises">Về trang bài luyện</a></div></section></main>;
 
   if (!exercise) return null;
-  return <main className="d1x-width d1x-main"><section className="d1x-player"><div className="d1x-progress-head"><div><span>{reviewMode ? 'Ôn tập' : 'Phiên D1'}</span><strong>Câu {index + 1} / {exercises.length}</strong></div>{sourceLabel ? <span className={`d1x-source ${exercise.source === 'personalized' ? 'is-personal' : ''}`}>{sourceLabel}</span> : null}</div><div className="d1x-progress" aria-label={`Tiến độ ${progress}%`}><span style={{ width: `${progress}%` }} /></div><p className="d1x-sentence"><Sentence value={exercise.sentence} /></p><div className="d1x-options">{exercise.options.map((option: string) => { const correct = answered && option.toLocaleLowerCase('en') === exercise.answer.toLocaleLowerCase('en'); const wrong = answered && option === choice && !correct; return <button type="button" className={`d1x-option ${correct ? 'is-correct' : ''} ${wrong ? 'is-wrong' : ''} ${answered && !correct && !wrong ? 'is-dimmed' : ''}`} disabled={answered} key={option} onClick={() => select(option)}>{option}{correct ? <span aria-label="đáp án đúng">✓</span> : wrong ? <span aria-label="đáp án sai">×</span> : null}</button>; })}</div>{answered ? <div className={`d1x-feedback ${localCorrect ? 'is-correct' : 'is-wrong'}`} role="status"><strong>{localCorrect ? 'Chính xác' : `Đáp án đúng: ${exercise.answer}`}</strong>{reviewMode ? <span>Đây là lượt ôn tập, không ghi thêm attempt.</span> : attemptAck ? <span>{attemptAck.srsUpdated ? (attemptAck.srsRating === 'good' ? 'Đã ghi nhận vào lịch ôn tập.' : 'Đã điều chỉnh cho lần ôn tới.') : '✓ Đã lưu bài.'}</span> : busy ? <span>Đang lưu bài…</span> : saveError ? <span className="is-error">{saveError}</span> : null}</div> : null}<div className="d1x-player-actions">{saveError && choice && attemptKey ? <button className="btn-secondary" disabled={busy} onClick={() => void persistAnswer(choice, attemptKey)}>Thử lưu lại</button> : null}{attemptRateLimited ? <a className="btn-ghost" href="/exercises">Rời phiên</a> : null}<button className="btn-primary" disabled={!canAdvance} onClick={advance}>{index + 1 >= exercises.length ? (reviewMode ? 'Kết thúc ôn tập' : 'Xem kết quả') : 'Câu tiếp theo →'}</button></div></section></main>;
+  return <main className="d1x-width d1x-main"><section className="d1x-player">{shortSession ? <p className="d1x-alert" role="status">{shortSessionNotice(session.exercises.length)}</p> : null}<div className="d1x-progress-head"><div><span>{reviewMode ? 'Ôn tập' : 'Phiên luyện tập'}</span><strong>Câu {index + 1} / {exercises.length}</strong></div>{sourceLabel ? <span className={`d1x-source ${exercise.source === 'personalized' ? 'is-personal' : ''}`}>{sourceLabel}</span> : null}</div><div className="d1x-progress" aria-label={`Tiến độ ${progress}%`}><span style={{ width: `${progress}%` }} /></div><p className="d1x-sentence"><Sentence value={exercise.sentence} /></p><div className="d1x-options">{exercise.options.map((option: string) => { const correct = answered && option.toLocaleLowerCase('en') === exercise.answer.toLocaleLowerCase('en'); const wrong = answered && option === choice && !correct; return <button type="button" className={`d1x-option ${correct ? 'is-correct' : ''} ${wrong ? 'is-wrong' : ''} ${answered && !correct && !wrong ? 'is-dimmed' : ''}`} disabled={answered} key={option} onClick={() => select(option)}>{option}{correct ? <span aria-label="đáp án đúng">✓</span> : wrong ? <span aria-label="đáp án sai">×</span> : null}</button>; })}</div>{answered ? <div className={`d1x-feedback ${localCorrect ? 'is-correct' : 'is-wrong'}`} role="status"><strong>{localCorrect ? 'Chính xác' : `Đáp án đúng: ${exercise.answer}`}</strong>{reviewMode ? <span>Đây là lượt ôn tập, không ghi nhận thêm lượt làm.</span> : attemptAck ? <span>{attemptAck.srsUpdated ? (attemptAck.srsRating === 'good' ? 'Đã ghi nhận vào lịch ôn tập.' : 'Đã điều chỉnh cho lần ôn tới.') : '✓ Đã lưu bài.'}</span> : busy ? <span>Đang lưu bài…</span> : saveError ? <span className="is-error">{saveError}</span> : null}</div> : null}<div className="d1x-player-actions">{saveError && choice && attemptKey ? <button className="btn-secondary" disabled={busy} onClick={() => void persistAnswer(choice, attemptKey)}>Thử lưu lại</button> : null}{attemptRateLimited ? <a className="btn-ghost" href="/exercises">Rời phiên</a> : null}<button className="btn-primary" disabled={!canAdvance} onClick={advance}>{index + 1 >= exercises.length ? (reviewMode ? 'Kết thúc ôn tập' : 'Xem kết quả') : 'Câu tiếp theo →'}</button></div></section></main>;
 }

@@ -5,6 +5,9 @@ category: "environment"
 level: "C1"
 part_of_speech: "verb"
 pronunciation: "/ˈmɪt.ɪ.ɡeɪt/"
+definition_en: "to make a harmful situation or its effects less severe."
+gloss_vi: "giảm nhẹ tác hại, rủi ro hoặc hậu quả"
+example: "Governments can introduce stricter regulations to mitigate the devastating effects of industrial pollution on local ecosystems."
 synonyms: ["alleviate", "reduce", "lessen", "ease"]
 antonyms: ["aggravate", "worsen", "intensify"]
 collocations: ["mitigate the impact", "mitigate the risk", "mitigate climate change", "mitigate damage"]

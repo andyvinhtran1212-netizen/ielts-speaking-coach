@@ -242,6 +242,10 @@ def test_full_response_route_saves_failed_grade_then_records_soft_failure(monkey
     monkeypatch.setattr(obs, "observe_persisted_outcome", AsyncMock(side_effect=snapshot))
     result = asyncio.run(grading.grade_response_endpoint(session["id"], question["id"], UploadFile(BytesIO(b"fake audio"), filename="test.wav")))
     assert result["_stub"] is True and result["transcript"] == transcript
+    # Q-62: learner-visible copy is Vietnamese; the frontend keys the AI-down
+    # banner off the flag, not the sentence.
+    assert result["_ai_unavailable"] is True
+    assert result["_error"] == "Chấm điểm AI đang tạm gián đoạn. Bản ghi âm và transcript của bạn đã được lưu."
     assert result["response_id"] == response["id"]
     writes = [payload for table, action, payload in db.calls if table == "responses" and action == "update"]
     assert writes[-1]["grading_status"] == "failed" and writes[-1]["overall_band"] is None

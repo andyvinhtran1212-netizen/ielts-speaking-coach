@@ -310,11 +310,11 @@
         '</div>' +
         '<div class="me-grid">' +
           '<div><label>Đề gốc (lấy danh sách cần test lại)</label><select id="a-source"></select></div>' +
-          '<div><label>Mở từ</label><input id="a-from" type="datetime-local"></div>' +
+          '<div><label>Mở từ (giờ Việt Nam)</label><input id="a-from" type="datetime-local"></div>' +
           // Required. Without a closing bound the reaper never collects a
           // student who doesn't start, so the sitting sticks in `registered`
           // forever and (after C3) locks them out of every other exam.
-          '<div><label>Đóng lúc <span style="color:var(--av-error)">*</span></label>' +
+          '<div><label>Đóng lúc (giờ Việt Nam) <span style="color:var(--av-error)">*</span></label>' +
             '<input id="a-until" type="datetime-local" required></div>' +
         '</div>' +
         '<div id="a-students" class="me-muted" style="margin-top:10px">Chọn đề gốc để hiện học viên cần test lại.</div>' +
@@ -409,17 +409,19 @@
   }
 
   function toIso(localVal) {
-    // datetime-local → ISO (browser local time). Empty → null.
-    return localVal ? new Date(localVal).toISOString() : null;
+    // datetime-local is Vietnam wall time, independent of the browser zone
+    // (fixed +07:00, no DST — as Writing deadlines). Empty → null.
+    return localVal ? localVal + (localVal.length === 16 ? ':00' : '') + '+07:00' : null;
   }
 
-  // `days` from now, formatted for a datetime-local input (which wants LOCAL
-  // time with no zone suffix — toISOString would silently shift by the offset).
+  // `days` from now as Vietnam wall time for a datetime-local input.
   function localDateTimeIn(days) {
-    var d = new Date(Date.now() + days * 86400000);
-    var p = function (n) { return (n < 10 ? '0' : '') + n; };
-    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
-      + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+    var parts = {};
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).formatToParts(new Date(Date.now() + days * 86400000)).forEach(function (p) { parts[p.type] = p.value; });
+    return parts.year + '-' + parts.month + '-' + parts.day + 'T' + parts.hour + ':' + parts.minute;
   }
 
   async function doAssign(examId, sourceId) {

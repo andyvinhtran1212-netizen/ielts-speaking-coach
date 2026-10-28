@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, type ReactNode } from 'react';
 
 export function messageOf(caught: unknown) {
   return caught instanceof Error ? caught.message : String(caught || 'lỗi không xác định');
@@ -36,7 +36,9 @@ export function Dialog({ open, title, description, children, actions, onClose, b
     closeRef.current = onClose;
   }, [busy, onClose]);
 
-  useEffect(() => {
+  // Move focus before the open dialog paints; passive effects leave a frame
+  // where keyboard focus still belongs to the background trigger.
+  useLayoutEffect(() => {
     if (!open) return;
     const previous = openerRef.current || (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     panelRef.current?.focus();

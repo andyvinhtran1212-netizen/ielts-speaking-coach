@@ -47,12 +47,24 @@ test('ownership probe: retired grammar alias redirects to canonical Next', async
   expect(res.headers().location).toBe('/grammar');
 });
 
-test('ownership probe: /next-probe is Next-rendered (the only Next-owned route)', async ({ request }) => {
-  const res = await request.get('/next-probe', { headers: BYPASS_HEADERS });
+// U-03: the engineering probe no longer renders on staging. The "a native
+// route is Next-rendered" ownership check moved to the always-public `/login`.
+test('ownership probe: /login is Next-rendered', async ({ request }) => {
+  const res = await request.get('/login', { headers: BYPASS_HEADERS });
   expect(res.ok()).toBeTruthy();
   const html = await res.text();
-  expect(html).toContain('implementation: next');
+  expect(html).toContain('lx-shell');
   expect(html).toContain('__next_f'); // app-router flight payload marker
+});
+
+test('diagnostic routes are not served on staging (U-03)', async ({ request }) => {
+  for (const route of ['/next-probe', '/recorder-spike']) {
+    const res = await request.get(route, { headers: BYPASS_HEADERS });
+    expect(res.status(), route).toBe(404);
+    const html = await res.text();
+    expect(html, route).not.toContain('implementation: next');
+    expect(html, route).not.toContain('data-testid="btn-start"');
+  }
 });
 
 test('navigation seam: Next → redirected legacy alias → Next keeps query/hash/theme; zero errors + zero prod egress', async ({ page }) => {
@@ -65,9 +77,10 @@ test('navigation seam: Next → redirected legacy alias → Next keeps query/has
     if (PRODUCTION_ORIGINS.some((o) => req.url().includes(o))) prodRequests.push(req.url());
   });
 
-  // 1) Start on the Next route; set the theme the canonical destination must honor.
-  await page.goto('/next-probe');
-  await expect(page.locator('h1')).toHaveText('next-probe');
+  // 1) Start on a public Next route (`/login`; `/next-probe` is a 404 on
+  //    staging since U-03); set the theme the canonical destination must honor.
+  await page.goto('/login');
+  await expect(page.locator('.lx-shell')).toBeVisible();
   await page.evaluate(() => localStorage.setItem('av-theme', 'dark'));
 
   // 2) Full-document navigation to a retired public alias WITH query + hash.
@@ -84,10 +97,10 @@ test('navigation seam: Next → redirected legacy alias → Next keeps query/has
 
   // 3) Full-document navigation back to the Next route.
   await page.evaluate(() => {
-    window.location.assign('/next-probe');
+    window.location.assign('/login');
   });
-  await page.waitForURL('**/next-probe');
-  await expect(page.locator('h1')).toHaveText('next-probe');
+  await page.waitForURL('**/login');
+  await expect(page.locator('.lx-shell')).toBeVisible();
   // Theme storage survived the round trip (shared origin storage).
   expect(await page.evaluate(() => localStorage.getItem('av-theme'))).toBe('dark');
 
@@ -95,7 +108,7 @@ test('navigation seam: Next → redirected legacy alias → Next keeps query/has
   expect(prodRequests, `production egress during seam: ${prodRequests.join(', ')}`).toEqual([]);
   const realErrors = consoleErrors.filter(
     (e) => !/favicon|fonts\.gstatic|net::ERR_FAILED/i.test(e)
-      && !isVercelToolbarCspNoise(e), // Vercel staging injects this before request interception; strict CSP must keep blocking it
+      && !isVercelToolbarCspNoise(e), // pre-F08 staging builds blocked the injected toolbar; F08 allows vercel.live on non-production builds and installToolbarSkip stubs it
   );
   expect(realErrors, `console errors during seam: ${realErrors.join(' | ')}`).toEqual([]);
 });

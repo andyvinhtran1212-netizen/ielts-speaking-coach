@@ -1,10 +1,13 @@
 'use client';
 
-// `/api/vocabulary/exam` là endpoint public, read-only. Component không tự
-// phát minh auth gate; nó chỉ đưa request/render vào React lifecycle để soft
-// navigation chạy lại đúng và request cũ bị hủy khi rời trang.
+// `/api/vocabulary/exam` là endpoint public, read-only, nên request không mang
+// token. Trang thì thuộc khung học viên (U-03): khách chưa đăng nhập bị đẩy về
+// `/login`, và danh sách chỉ tải/hiện sau khi đã xác nhận đăng nhập (G-01).
+// Request/render nằm trong React lifecycle để soft navigation chạy lại đúng và
+// request cũ bị hủy khi rời trang.
 import { useEffect, useState } from 'react';
 
+import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 interface ExamListPayload {
@@ -85,8 +88,18 @@ function normalizeFamilies(payload: unknown): ExamFamily[] {
 
 export function VocabExamBehavior() {
   const [state, setState] = useState<LoadState>({ status: 'loading' });
+  const { status } = useAuth();
+
+  // U-03: fail closed for signed-out visitors (ADR-011) — replace() like
+  // /profile so Back cannot restore the private shell.
+  useEffect(() => {
+    if (status === 'signed-out') window.location.replace('/login');
+  }, [status]);
 
   useEffect(() => {
+    // Lists appear only for a signed-in learner, never in the ~0.4s before the
+    // signed-out redirect (G-01). Leaving signed-in aborts the request.
+    if (status !== 'signed-in') return;
     const controller = new AbortController();
     let disposed = false;
     setState({ status: 'loading' });
@@ -121,9 +134,9 @@ export function VocabExamBehavior() {
       disposed = true;
       controller.abort();
     };
-  }, []);
+  }, [status]);
 
-  if (state.status === 'loading') {
+  if (status !== 'signed-in' || state.status === 'loading') {
     return <p className="vx-status">Đang tải…</p>;
   }
   if (state.status === 'error') {

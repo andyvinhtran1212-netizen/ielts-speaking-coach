@@ -34,6 +34,7 @@ from typing import Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Query, Request, Response, UploadFile
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from config import settings
@@ -41,8 +42,11 @@ from database import supabase_admin
 from services.core_attempt_observation import bind_owned_attempt, observe_operation
 from routers.auth import get_supabase_user
 from services.public_cache import cacheable_json
+from services.writing_image_access import attach_signed_image_urls
+from services import activation_gate
 from services import essay_service
 from services import core_admission
+from services import test_data_visibility
 from services.access_code_permissions import (
     get_user_access_code_permissions,
     has_writing_permission,
@@ -122,8 +126,8 @@ async def get_current_student(
 ) -> dict:
     """Resolve the students row owned by the authenticated user.
 
-    Raises 403 when the JWT is valid but the user has not been linked
-    to any students row — that's the case where admin hasn't created
+    Raises a distinct student_archived 403 for an archived profile, or the
+    not-linked 403 when the user has no students row — admin hasn't created
     a student record OR /activate's linking step has not run yet for
     this code. The error message is Vietnamese to match the rest of
     the app's user-facing strings.
@@ -140,6 +144,13 @@ async def get_current_student(
         # (`submitted_by_admin` FK → users(id) — column name reused
         # for student submissions).
         student = fetch_linked_student(supabase_admin, user_id, account_name)
+        # The shared resolver excludes archived rows. Only on a missing active
+        # link, distinguish an archived profile from one that was never linked.
+        archived = False
+        if not student:
+            result = (supabase_admin.table("students").select("archived_at")
+                      .eq("user_id", str(user_id)).limit(1).execute())
+            archived = any(row.get("archived_at") for row in (result.data or []))
     except Exception as e:
         logger.warning("[writing-student] students lookup failed user=%s: %s", user_id, e)
         raise HTTPException(
@@ -147,13 +158,18 @@ async def get_current_student(
             detail="Lỗi khi tra cứu hồ sơ học viên",
         )
 
+    if archived:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "student_archived",
+                "message": "Hồ sơ học viên của bạn đã được lưu trữ. Vui lòng liên hệ giảng viên.",
+            },
+        )
     if not student:
         raise HTTPException(
             status_code=403,
-            detail=(
-                "Bạn chưa được link với tài khoản học viên. "
-                "Vui lòng liên hệ giảng viên."
-            ),
+            detail="Em chưa được xếp lớp, Writing sẽ mở khi giáo viên giao bài",
         )
     if account_name:
         student = {**student, "account_name": account_name}
@@ -196,6 +212,8 @@ async def require_writing_permission(
         a handler-level Depends(get_current_student) coexist.
     """
     user_id = student.get("user_id") or student.get("id")
+    # W-03 — Writing permission = ACTIVE account AND (code or assignment).
+    activation_gate.ensure_account_active(user_id)
     # WF entitlement bridge (approach c): code grants Writing OR the student has
     # a writing assignment (being given writing = may do it). Live, additive.
     if (not has_writing_permission(get_user_access_code_permissions(user_id))
@@ -219,6 +237,7 @@ _PROMPT_BANK_TASK_TYPES = {"task1_academic", "task1_general", "task2"}
 async def get_prompt_bank(
     request: Request,
     task_type: Optional[str] = Query(default=None),
+    authorization: Optional[str] = Header(default=None),
 ):
     """Public-read writing prompt library for students to browse.
 
@@ -229,6 +248,11 @@ async def get_prompt_bank(
     when off it returns {enabled: false} + no prompts (nothing leaked pre-launch).
     Classification is the existing structured `task_type` (task1_academic =
     graph/chart, task1_general = letter, task2 = essay) — no inferred field.
+
+    Task 1 charts live in the PRIVATE `writing-images` bucket. Anonymous
+    callers get `has_prompt_image` with `prompt_image_url: null` (cacheable);
+    a signed-in active account gets short-lived signed URLs in a private,
+    non-cacheable response.
     """
     if not settings.WRITING_PROMPT_BANK_ENABLED:
         return {"enabled": False, "prompts": []}
@@ -249,6 +273,10 @@ async def get_prompt_bank(
     if task_type:
         q = q.eq("task_type", task_type)
     rows = q.execute().data or []
+    # Anonymous browse has no viewer, so staging test prompts are always
+    # dropped here when hiding is on; admins manage them in /admin/writing.
+    if test_data_visibility.hide_for():
+        rows = [r for r in rows if not test_data_visibility.is_test_label(r.get("title"))]
 
     # Last-Modified for ETag/304 validation: newest prompt updated_at as HTTP-date
     # (DB-backed, so derived from the rows — not file mtimes like grammar).
@@ -259,6 +287,7 @@ async def get_prompt_bank(
         dt = datetime.now(timezone.utc)
     last_modified = format_datetime(dt, usegmt=True)
 
+    viewer_id = await _prompt_bank_image_viewer(authorization)
     prompts = [
         {
             "id":               r["id"],
@@ -266,11 +295,36 @@ async def get_prompt_bank(
             "prompt_text":      r.get("prompt_text"),
             "task_type":        r.get("task_type"),
             "difficulty":       r.get("difficulty"),
-            "prompt_image_url": r.get("prompt_image_url"),
+            "has_prompt_image": bool(r.get("prompt_image_url")),
+            "prompt_image_url": r.get("prompt_image_url") if viewer_id else None,
         }
         for r in rows
     ]
-    return cacheable_json({"enabled": True, "prompts": prompts}, request, last_modified=last_modified)
+    if viewer_id:
+        attach_signed_image_urls(prompts)
+        return JSONResponse(
+            {"enabled": True, "prompts": prompts},
+            headers={"Cache-Control": "private, no-store", "Vary": "Authorization"},
+        )
+    response = cacheable_json({"enabled": True, "prompts": prompts}, request, last_modified=last_modified)
+    response.headers["Vary"] = "Authorization"
+    return response
+
+
+async def _prompt_bank_image_viewer(authorization: Optional[str]) -> Optional[str]:
+    """User id allowed to view prompt-bank charts, or None (browse anonymously).
+
+    The bank itself stays public, so a missing/invalid token or an inactive
+    account degrades to the anonymous view instead of failing the list.
+    """
+    if not isinstance(authorization, str) or not authorization:
+        return None
+    try:
+        user = await get_supabase_user(authorization)
+        user_id = str(user.get("id") or "")
+        return user_id if user_id and activation_gate.account_is_active(user_id) else None
+    except HTTPException:
+        return None
 
 
 @router.get("/my-essays")
@@ -467,6 +521,7 @@ async def get_my_essay(
                 essay_id, e,
             )
 
+    attach_signed_image_urls([essay])   # ownership checked by the SELECT above
     return {
         "essay":           essay,
         "feedback":        feedback,
@@ -1308,6 +1363,7 @@ async def list_my_assignments(
             "draft_word_count":  (d or {}).get("word_count", 0),
             "draft_updated_at":  (d or {}).get("updated_at"),
         })
+    attach_signed_image_urls([a.get("writing_prompts") for a in annotated])
 
     return {
         "student": _dashboard_student(student),
@@ -1340,10 +1396,12 @@ async def get_my_assignment(
         )
         d = None
 
+    timer = _compute_timer_state(assignment)
+    attach_signed_image_urls([assignment.get("writing_prompts")])
     return {
         "assignment": assignment,
         "draft":      (d.data[0] if (d and d.data) else None),
-        "timer":      _compute_timer_state(assignment),
+        "timer":      timer,
     }
 
 

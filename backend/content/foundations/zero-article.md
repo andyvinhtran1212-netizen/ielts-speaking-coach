@@ -216,7 +216,7 @@ Những danh từ này mang ý nghĩa **chức năng** (không phải địa đi
 | go to **∅ university/college** | đi học đại học | go to **the** university (đến tòa nhà đại học) |
 | go to **∅ hospital** | đi nhập viện, thường trong Anh–Anh | go to **the** hospital có thể là bệnh nhân trong Anh–Mỹ hoặc đến một bệnh viện được nhận diện |
 | go to **∅ prison/jail** | thường nói việc bị giam | go to **the** prison xác định cơ sở; phải xét ngữ cảnh, không tự chứng minh người đó chỉ đến thăm |
-| go to **∅ church** | đi lễ | go to **the** church (đến tòa nhà nhà thờ) |
+| go to **∅ church** | đi lễ | go to **the** church (đến ngôi nhà thờ đó) |
 | at **∅ home** | ở nhà | at **the** home (của ai đó — ít phổ biến) |
 | at **∅ work** | đang làm việc | at **the** work (không chuẩn) |
 | in **∅ bed** | đang trên giường (ngủ/nghỉ) | in **the** bed (cái giường cụ thể) |

@@ -504,6 +504,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/test-data/visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Test Data Visibility
+         * @description TASK B2 — lets the admin UI show its "show test data" toggle only where
+         *     staging hiding is active, and report what this request saw.
+         */
+        get: operations["get_test_data_visibility_admin_test_data_visibility_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/stats": {
         parameters: {
             query?: never;
@@ -1329,7 +1350,8 @@ export interface paths {
          *     or whose Gemini call failed during Phase B extraction).
          *
          *     Caps at 500/call so an admin can't accidentally fan out across the
-         *     whole bank in one click.  Re-run the endpoint to process the next
+         *     whole bank in one click.  Within a call, one owner contributes at most
+         *     50 rows and inactive owners are skipped (INACTIVEWRITE-0035 follow-up).  Re-run the endpoint to process the next
          *     batch — the WHERE clause naturally moves forward as rows get filled.
          *
          *     Cost estimate is best-effort: Gemini Flash batch is ~$0.0005 per
@@ -3943,10 +3965,10 @@ export interface paths {
         post?: never;
         /**
          * Delete Assignment
-         * @description Hard delete — only allowed when the assignment is still
-         *     `pending`.  Anything past pending implies real student/grader
-         *     work has touched the row and silently dropping it would lose
-         *     audit context.
+         * @description Hard delete — only allowed while the student has not started:
+         *     status='pending', no started_at / essay_id and no draft (A-08).
+         *     Anything else implies real student/grader work; deleting would
+         *     cascade the draft away (mig 037) and drop audit context → 409.
          */
         delete: operations["delete_assignment_admin_writing_assignments__assignment_id__delete"];
         options?: never;
@@ -4123,7 +4145,11 @@ export interface paths {
         get: operations["get_assignment_instructor_assignments__assignment_id__get"];
         put?: never;
         post?: never;
-        /** Delete Assignment */
+        /**
+         * Delete Assignment
+         * @description Delete only while the student has not started (A-08): pending, no
+         *     started_at / essay_id / draft — else 409, the draft would cascade away.
+         */
         delete: operations["delete_assignment_instructor_assignments__assignment_id__delete"];
         options?: never;
         head?: never;
@@ -4578,7 +4604,8 @@ export interface paths {
         /**
          * List Students
          * @description List students; optional case-insensitive substring filter on
-         *     student_code or full_name.
+         *     student_code or full_name. Archived learners are listed only with
+         *     ``include_archived=true``.
          */
         get: operations["list_students_admin_students_get"];
         put?: never;
@@ -4629,7 +4656,11 @@ export interface paths {
         post?: never;
         /**
          * Delete Student
-         * @description Hard delete (W2 scope). Soft delete deferred to W3.
+         * @description Archive the learner (STUDENTARCHIVE-0029); no row is deleted.
+         *
+         *     Ends every active class membership, optionally locks the linked account
+         *     (``deactivate_account=true``) and writes an audit row. Idempotent: a repeat
+         *     returns 204 without a second audit row. Unknown id → 404.
          */
         delete: operations["delete_student_admin_students__student_id__delete"];
         options?: never;
@@ -4643,6 +4674,28 @@ export interface paths {
          *     be explicitly cleared.
          */
         patch: operations["update_student_admin_students__student_id__patch"];
+        trace?: never;
+    };
+    "/admin/students/{student_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Student
+         * @description Restore an archived learner and the class memberships the archive ended.
+         *
+         *     409 ``not_archived`` when the learner is not archived; 404 when unknown.
+         */
+        post: operations["restore_student_admin_students__student_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/writing/prompt-bank": {
@@ -4663,6 +4716,11 @@ export interface paths {
          *     when off it returns {enabled: false} + no prompts (nothing leaked pre-launch).
          *     Classification is the existing structured `task_type` (task1_academic =
          *     graph/chart, task1_general = letter, task2 = essay) — no inferred field.
+         *
+         *     Task 1 charts live in the PRIVATE `writing-images` bucket. Anonymous
+         *     callers get `has_prompt_image` with `prompt_image_url: null` (cacheable);
+         *     a signed-in active account gets short-lived signed URLs in a private,
+         *     non-cacheable response.
          */
         get: operations["get_prompt_bank_api_writing_prompt_bank_get"];
         put?: never;
@@ -12501,6 +12559,8 @@ export interface paths {
          *     image surfaces here instead of silently degrading to regex-only. Always
          *     returns HTTP 200; the ``status`` field (healthy | degraded | error) carries
          *     the verdict, matching /health/ready's convention (no 5xx juggling).
+         *     Results are reused for ``_GRAMMAR_PROBE_TTL_SECONDS``; ``checked_at`` is
+         *     when the live probe ran.
          */
         get: operations["health_grammar_check_health_grammar_check_get"];
         put?: never;
@@ -13487,6 +13547,12 @@ export interface components {
             instructor_id?: string | null;
             /** Cohort Id */
             cohort_id?: string | null;
+            /** Archived At */
+            archived_at?: string | null;
+            /** Archived By */
+            archived_by?: string | null;
+            /** Archive Reason */
+            archive_reason?: string | null;
             /** Cohorts */
             cohorts: components["schemas"]["AdminStudentCohortOut"][];
             /** Cohort Name */
@@ -13535,6 +13601,13 @@ export interface components {
             ok: true;
             /** Sessions */
             sessions: components["schemas"]["AdminSummaryRebuildItem"][];
+        };
+        /** AdminTestDataVisibilityOut */
+        AdminTestDataVisibilityOut: {
+            /** Hiding Enabled */
+            hiding_enabled: boolean;
+            /** Showing Test Data */
+            showing_test_data: boolean;
         };
         /** AdminUserCodeSummaryOut */
         AdminUserCodeSummaryOut: {
@@ -15997,7 +16070,11 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
-        /** ErrorReportRequest */
+        /**
+         * ErrorReportRequest
+         * @description Anonymous ingress (F10): reject unknown top-level fields and keep every
+         *     value bounded, the same envelope discipline as /api/analytics/events.
+         */
         ErrorReportRequest: {
             /**
              * Level
@@ -19913,6 +19990,16 @@ export interface components {
             /** Expected Revision */
             expected_revision: number;
         };
+        /** RestoreStudentRequest */
+        RestoreStudentRequest: {
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Reactivate Account
+             * @default false
+             */
+            reactivate_account: boolean;
+        };
         /** RetestBody */
         RetestBody: {
             /** Needs Retest */
@@ -21501,8 +21588,8 @@ export interface components {
         };
         /**
          * UploadImageResponse
-         * @description Response shape for `POST .../upload-image`. `url` is the public
-         *     Supabase Storage URL (persisted into `prompt_image_url`); `public_id`
+         * @description Response shape for `POST .../upload-image`. `url` is a short-lived
+         *     signed preview URL (create/PATCH store it as its object path); `public_id`
          *     is the storage path persisted into `prompt_image_public_id`. Published
          *     objects are retained as immutable grading evidence; only unattached
          *     uploads may be discarded. `width`/`height` are null — we don't decode
@@ -22287,6 +22374,8 @@ export interface components {
              * Format: uuid
              */
             student_id: string;
+            /** Name */
+            name?: string | null;
             /** Deadline */
             deadline?: string | null;
             /** Instructions */
@@ -23146,6 +23235,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminUserDirectoryRowOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_test_data_visibility_admin_test_data_visibility_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTestDataVisibilityOut"];
                 };
             };
             /** @description Validation Error */
@@ -30391,6 +30511,7 @@ export interface operations {
                 search?: string | null;
                 limit?: number;
                 offset?: number;
+                include_archived?: boolean;
             };
             header?: {
                 authorization?: string | null;
@@ -30525,7 +30646,10 @@ export interface operations {
     };
     delete_student_admin_students__student_id__delete: {
         parameters: {
-            query?: never;
+            query?: {
+                reason?: string | null;
+                deactivate_account?: boolean;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -30591,12 +30715,51 @@ export interface operations {
             };
         };
     };
+    restore_student_admin_students__student_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                student_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RestoreStudentRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_prompt_bank_api_writing_prompt_bank_get: {
         parameters: {
             query?: {
                 task_type?: string | null;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };

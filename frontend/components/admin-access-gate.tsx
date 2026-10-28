@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
+import { AdminTestDataToggle } from '@/components/admin-test-data-toggle';
 import { getAuthorizationIdentity, type AuthRoleIdentity } from '@/lib/auth-api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { selectKeyedAdminState } from '@/lib/admin-writing-grade-model.mjs';
@@ -93,5 +94,5 @@ export function AdminAccessGate({ children }: { children: ReactNode }) {
   if (access.phase === 'error') {
     return <div id="state-error" className="adm-access-state" role="alert"><h2 className="adm-access-state__title aw-state-denied__title">Không xác minh được quyền</h2><p className="adm-access-state__message">{access.message}</p><button className="adm-access-state__action adm-access-state__button" type="button" onClick={() => window.location.reload()}>Tải lại</button></div>;
   }
-  return <AdminProfileContext.Provider value={access.profile}>{children}</AdminProfileContext.Provider>;
+  return <AdminProfileContext.Provider value={access.profile}><AdminTestDataToggle />{children}</AdminProfileContext.Provider>;
 }

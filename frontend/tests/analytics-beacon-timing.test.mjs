@@ -30,7 +30,11 @@ function run(readyState) {
   const listeners = {};
   const location = { pathname: '/pages/profile.html' };
   const window = {
-    api: { post: (url, body) => { posts.push({ url, body }); return Promise.resolve({}); } },
+    // Q-89: the beacon now checks window.api.base (always set by api.js).
+    api: {
+      base: 'https://api.example',
+      post: (url, body) => { posts.push({ url, body }); return Promise.resolve({}); },
+    },
     location,
     innerWidth: 390,
   };

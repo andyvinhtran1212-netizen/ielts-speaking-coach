@@ -13,7 +13,7 @@ the top of every handler):
   POST   /admin/writing/assignments              — create (single OR bulk)
   GET    /admin/writing/assignments/{id}         — single (with prompt + student joined)
   PATCH  /admin/writing/assignments/{id}         — partial update
-  DELETE /admin/writing/assignments/{id}         — hard delete (only when status='pending')
+  DELETE /admin/writing/assignments/{id}         — hard delete (only while unstarted: pending, no draft/essay)
 
 Duplicate policy: per the 2026-05-06 product decision, duplicate
 (prompt_id, student_id) inserts are ALLOWED but the response carries
@@ -33,7 +33,10 @@ from pydantic import BaseModel, Field, model_validator
 from database import supabase_admin
 from routers.admin import require_admin
 from services.cohort_assignment_service import Deadline, fan_out_assignment
+from services import student_service
 from services.class_membership_service import active_student_ids_for_cohort
+from services.writing_assignment_delete_guard import delete_unstarted_assignment
+from services.writing_image_access import attach_signed_image_urls
 
 
 router = APIRouter(
@@ -134,6 +137,19 @@ def _read_assignment_request_receipt(
     if not isinstance(receipt, dict):
         raise HTTPException(409, "Yêu cầu giao bài đang được xử lý. Vui lòng thử lại.")
     return {**receipt, "replayed": True}
+
+
+def _refuse_archived_students(student_ids: list[str]) -> None:
+    """409 before any write when a requested learner is archived (0029).
+
+    ``fn_create_writing_assignments_idempotent`` checks memberships only for
+    cohort gives, so an individual give must be refused here. This is the fast
+    path; an archive committing after it is refused by the 331 trigger and
+    mapped by ``student_service.raise_if_student_archived``.
+    """
+    archived = student_service.archived_student_ids(supabase_admin, student_ids)
+    if archived:
+        raise student_service.student_archived_error(archived)
 
 
 def _cohort_assignment_filter(cohort_id: str, active_student_ids: list[str]) -> str:
@@ -328,6 +344,22 @@ async def create_assignments(
     # the established insert path below until they migrate.
     if body.request_id is not None:
         request_payload = body.model_dump(mode="json", exclude={"request_id", "prompt_id"})
+        # A completed request replays its receipt even if a learner was archived
+        # afterwards; only a NEW give is refused below.
+        replay = _read_assignment_request_receipt(
+            body.request_id,
+            assigned_by=admin["id"],
+            request_payload=request_payload,
+        )
+        if replay is not None:
+            return {
+                "created": replay.get("created", []),
+                "count": replay.get("created_count", 0),
+                "group_id": replay.get("group_id"),
+                "duplicates_warning": replay.get("duplicates_warning", []),
+                "replayed": True,
+            }
+        _refuse_archived_students(student_id_strs)
         try:
             rpc = supabase_admin.rpc("fn_create_writing_assignments_idempotent", {
                 "p_request_id": str(body.request_id),
@@ -344,6 +376,8 @@ async def create_assignments(
                 "p_analysis_level": body.analysis_level,
             }).execute()
         except Exception as exc:
+            # 331: archived after the pre-check → the whole RPC rolled back.
+            student_service.raise_if_student_archived(supabase_admin, exc, student_id_strs)
             message = str(exc)
             if "payload_mismatch" in message:
                 raise HTTPException(409, "request_id đã được dùng với nội dung khác.") from exc
@@ -364,6 +398,8 @@ async def create_assignments(
             "duplicates_warning": receipt.get("duplicates_warning", []),
             "replayed": bool(receipt.get("replayed")),
         }
+
+    _refuse_archived_students(student_id_strs)
 
     # Detect existing duplicates (any of these prompts + student) for the
     # advisory warning. Best-effort — never blocks the insert.
@@ -402,7 +438,12 @@ async def create_assignments(
         for pid in prompt_id_strs
     ]
 
-    r = supabase_admin.table("writing_assignments").insert(payload).execute()
+    try:
+        r = supabase_admin.table("writing_assignments").insert(payload).execute()
+    except Exception as exc:
+        # 331: archived after the pre-check → the bulk insert created no row.
+        student_service.raise_if_student_archived(supabase_admin, exc, student_id_strs)
+        raise
     if not r.data:
         raise HTTPException(500, "Failed to create assignments")
 
@@ -506,6 +547,8 @@ async def fan_out_to_cohort(
                 "p_analysis_level": body.analysis_level,
             }).execute()
         except Exception as exc:
+            # 331 backstop (archive ends memberships, so roster_changed is usual).
+            student_service.raise_if_student_archived(supabase_admin, exc, student_ids)
             message = str(exc)
             if "payload_mismatch" in message:
                 raise HTTPException(409, "request_id đã được dùng với nội dung khác.") from exc
@@ -589,7 +632,9 @@ async def get_assignment(
     )
     if not r.data:
         raise HTTPException(404, "Assignment not found")
-    return r.data[0]
+    assignment = r.data[0]
+    attach_signed_image_urls([assignment.get("writing_prompts")])
+    return assignment
 
 
 @router.patch("/{assignment_id}")
@@ -667,34 +712,16 @@ async def delete_assignment(
     assignment_id: UUID,
     authorization: str | None = Header(None),
 ):
-    """Hard delete — only allowed when the assignment is still
-    `pending`.  Anything past pending implies real student/grader
-    work has touched the row and silently dropping it would lose
-    audit context."""
+    """Hard delete — only allowed while the student has not started:
+    status='pending', no started_at / essay_id and no draft (A-08).
+    Anything else implies real student/grader work; deleting would
+    cascade the draft away (mig 037) and drop audit context → 409."""
     await require_admin(authorization)
 
-    check = (
-        supabase_admin.table("writing_assignments")
-        .select("status")
-        .eq("id", str(assignment_id))
-        .limit(1)
-        .execute()
-    )
-    if not check.data:
-        raise HTTPException(404, "Assignment not found")
-
-    current = check.data[0].get("status")
-    if current != "pending":
-        raise HTTPException(
-            409,
-            f"Cannot delete assignment in status '{current}'. "
-            f"Only pending assignments can be deleted.",
-        )
-
-    (
-        supabase_admin.table("writing_assignments")
-        .delete()
-        .eq("id", str(assignment_id))
-        .execute()
+    delete_unstarted_assignment(
+        str(assignment_id),
+        assignments=lambda: supabase_admin.table("writing_assignments"),
+        drafts=lambda: supabase_admin.table("writing_drafts"),
+        not_found_detail="Assignment not found",
     )
     return {"message": "Assignment deleted", "assignment_id": str(assignment_id)}

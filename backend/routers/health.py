@@ -10,13 +10,15 @@ Two endpoints:
                        Used pre-deploy + during incident triage.
 
 Both endpoints are unauthenticated by design — they expose no PII and need
-to be reachable by external probes.  /health/ready does emit which feature
-flags are ON, which is intentional (admin/dogfood signal) but means we
-should NOT expose secrets here even if tempted.
+to be reachable by external probes.  Anonymous /health/ready callers get
+per-check status codes only; table names, error strings and feature-flag
+state are returned to admins (Bearer token) only.
 """
+import asyncio
 from datetime import datetime, timezone
 import logging
 import os
+import time
 
 from fastapi import APIRouter, Header
 
@@ -57,7 +59,10 @@ async def _is_admin(authorization: str | None) -> bool:
 # Sprint unfreeze (post-7c.3) dropped vestigial deferred_until: sprint-3
 # from M016/M017/M025/M027/M028 (Sprint 3 shipped long ago, anchors
 # already exist per drift gate) → 47.
-_EXPECTED_MAPPING_COUNT  = 47
+# cce1f566b (2026-05-28, "expand wiki recommendation coverage") added
+# M051–M064 for 13 newly covered articles without bumping this → 61.
+# test_health_runtime_expected_count_matches_mapping_file pins it to the YAML.
+_EXPECTED_MAPPING_COUNT  = 61
 _SPRINT_6_SENTINEL_IDS   = ("M033", "M034", "M035")
 
 
@@ -141,6 +146,7 @@ async def health_ready(authorization: str | None = Header(default=None)) -> dict
         supabase_admin.table("users").select("id").limit(1).execute()
         checks["database"] = {"status": "ok"}
     except Exception as e:
+        logger.warning("[health] readiness DB probe failed: %s", e)
         checks["database"] = {"status": "fail"}
         if is_admin:
             checks["database"]["error"] = str(e)[:200]
@@ -153,17 +159,19 @@ async def health_ready(authorization: str | None = Header(default=None)) -> dict
         try:
             supabase_admin.table(table).select(_CRITICAL_COLUMNS.get(table, 'id')).limit(0).execute()
         except Exception as e:
-            # Table name is enough for a monitor to act; the error string (schema
-            # hints) is admin-only.
-            missing.append(f"{table}: {str(e)[:80]}" if is_admin else table)
+            missing.append(f"{table}: {str(e)[:80]}")
+    # Table names and error strings map the schema — admin-only. Anonymous
+    # monitors act on the status code; the detail is in the server log.
     if missing:
-        checks["migrations"] = {"status": "fail", "missing": missing}
+        logger.warning("[health] readiness critical-table probe failed: %s", missing)
+        checks["migrations"] = {"status": "fail"}
+        if is_admin:
+            checks["migrations"]["missing"] = missing
         overall_status = "degraded"
     else:
-        checks["migrations"] = {
-            "status": "ok",
-            "verified": list(_CRITICAL_TABLES),
-        }
+        checks["migrations"] = {"status": "ok"}
+        if is_admin:
+            checks["migrations"]["verified"] = list(_CRITICAL_TABLES)
 
     # 3) Gemini API key configured (Wave 2 vocab enrichment + D1 generation
     # both depend on it; missing key won't block /health but should flag
@@ -175,15 +183,16 @@ async def health_ready(authorization: str | None = Header(default=None)) -> dict
         overall_status = "degraded"
 
     # 4) Feature-flag visibility — useful when a dogfooder reports "X
-    # doesn't work" and we want a single curl to confirm whether the env
-    # has the flag flipped on.  Only booleans, no secrets.
-    checks["feature_flags"] = {
-        "status": "ok",
-        "vocab_bank_enabled": settings.VOCAB_BANK_FEATURE_FLAG_ENABLED,
-        "d1_enabled": settings.D1_ENABLED,
-        "d3_enabled": settings.D3_ENABLED,
-        "flashcard_enabled": settings.FLASHCARD_ENABLED,
-    }
+    # doesn't work" and we want a single admin curl to confirm whether the
+    # env has the flag flipped on.  Booleans only; admin-only.
+    checks["feature_flags"] = {"status": "ok"}
+    if is_admin:
+        checks["feature_flags"].update({
+            "vocab_bank_enabled": settings.VOCAB_BANK_FEATURE_FLAG_ENABLED,
+            "d1_enabled": settings.D1_ENABLED,
+            "d3_enabled": settings.D3_ENABLED,
+            "flashcard_enabled": settings.FLASHCARD_ENABLED,
+        })
 
     curated_enabled = any(runtime_flags.is_enabled(key, default=False) for key in (
         'vocab_units_read', 'vocab_unit_attempts_write',
@@ -196,7 +205,8 @@ async def health_ready(authorization: str | None = Header(default=None)) -> dict
     else:
         checks['curated_schema'] = {'status': 'disabled'}
 
-    checks['migrations']['scope'] = 'critical-table-columns; enabled curated migration ledger'
+    if is_admin:
+        checks['migrations']['scope'] = 'critical-table-columns; enabled curated migration ledger'
 
     return {
         "status": overall_status,
@@ -274,6 +284,15 @@ async def health_async_db() -> dict:
     }
 
 
+# /health/grammar-check is public and each probe runs a full live grammar
+# check (it bypasses the result cache by design, #1704). A short per-process
+# TTL plus single-flight keeps anonymous polling from turning into unbounded
+# LanguageTool work while a monitor still sees a fresh verdict.
+_GRAMMAR_PROBE_TTL_SECONDS = 30.0
+_grammar_probe_cache: tuple[float, dict] | None = None
+_grammar_probe_lock = asyncio.Lock()
+
+
 @router.get("/health/grammar-check")
 async def health_grammar_check() -> dict:
     """
@@ -284,14 +303,24 @@ async def health_grammar_check() -> dict:
     image surfaces here instead of silently degrading to regex-only. Always
     returns HTTP 200; the ``status`` field (healthy | degraded | error) carries
     the verdict, matching /health/ready's convention (no 5xx juggling).
+    Results are reused for ``_GRAMMAR_PROBE_TTL_SECONDS``; ``checked_at`` is
+    when the live probe ran.
     """
     from services.grammar_check import grammar_check_health
 
-    result = await grammar_check_health()
+    global _grammar_probe_cache
+    async with _grammar_probe_lock:
+        now = time.monotonic()
+        if _grammar_probe_cache is None or now - _grammar_probe_cache[0] >= _GRAMMAR_PROBE_TTL_SECONDS:
+            result = await grammar_check_health()
+            checked_at = datetime.now(timezone.utc).isoformat()
+            _grammar_probe_cache = (time.monotonic(), {"result": result, "checked_at": checked_at})
+        cached = _grammar_probe_cache[1]
     return {
-        "status": result["status"],
+        "status": cached["result"]["status"],
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "grammar_check": result,
+        "checked_at": cached["checked_at"],
+        "grammar_check": cached["result"],
     }
 
 

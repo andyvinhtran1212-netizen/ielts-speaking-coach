@@ -1,16 +1,18 @@
 ---
 id: WRITINGRATE-0025
 title: Repair writing_grade_ratings drift so admin grade ratings key on the graded run
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # Repair writing_grade_ratings drift so admin grade ratings key on the graded run
 
-**Approval: PENDING.** This spec is a draft. The owner (Vinh) has not approved
-it. There is no `approval-decision.md`. Implementation PR #1727 must not merge
-until this spec is approved on `staging` and #1727 cites `WRITINGRATE-0025`.
+Approval: approved by Vinh on 2026-10-27 07:14 (UTC+7) (see
+[`approval-decision.md`](approval-decision.md)). Locked migration number:
+**321** (`321_writing_grade_ratings_feedback_version.sql`, PR #1727).
+Implementation PR #1727 cites `WRITINGRATE-0025` as `high-risk` and merges
+only after this approval is on `staging`.
 
 ## Problem
 
@@ -49,8 +51,8 @@ Read-only checks on 2026-10-26 (recorded on #1727) found the draft shape on
   backend-only through service_role; migration 320 grants are respected).
 - Re-applying 116 or dropping or recreating the table.
 - Changing any other Writing table.
-- Numbering for other in-flight migrations. Draft #1720 (AIOPS-0024) also
-  proposes a 321 file and renumbers when it is re-created.
+- Numbering for other in-flight migrations. Draft #1720 (AIOPS-0024) has
+  renumbered its file to 322; 321 stays with #1727.
 
 ## Users and journeys
 
@@ -119,5 +121,4 @@ Read-only checks on 2026-10-26 (recorded on #1727) found the draft shape on
 
 ## Open questions
 
-- Owner (Vinh) approval of this spec. Until approval is recorded on `staging`,
-  status stays `draft` and #1727 stays unmerged.
+- None. Owner approval is recorded in [`approval-decision.md`](approval-decision.md).

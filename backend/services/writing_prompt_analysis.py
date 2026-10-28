@@ -11,6 +11,7 @@ no second copy of that logic to keep in sync.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Optional
@@ -32,37 +33,84 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 _SYSTEM_PROMPT = (
-    "Bạn là examiner IELTS Writing Task 1 Academic. Nhiệm vụ: đọc HÌNH của đề và "
-    "trích xuất \"đáp án chuẩn\" — những dữ kiện KHÁCH QUAN mà một bài band 9 phải "
-    "nêu. TRƯỚC HẾT hãy XÁC ĐỊNH loại hình (chart_type), rồi áp đúng bộ quy tắc "
-    "bên dưới cho loại đó.\n\n"
-    "== Nếu là BIỂU ĐỒ SỐ LIỆU (line/bar/pie/table) ==\n"
-    "- overview: xu hướng bao quát / khác biệt lớn nhất (1–2 câu).\n"
-    "- key_features: 3–6 xu hướng / so sánh / cực trị bắt buộc đề cập.\n"
-    "- notable_data: các MỐC SỐ LIỆU quan trọng để đối chiếu độ chính xác "
-    "({label, value, unit}).\n"
-    "- axes_or_categories: trục / đơn vị / danh mục.\n\n"
-    "== Nếu là BẢN ĐỒ (map, thường before/after hoặc 2 địa điểm) ==\n"
-    "- overview: BIẾN ĐỔI TỔNG THỂ + mốc thời gian (vd. 'khu vực đô thị hoá / "
-    "thương mại hoá giữa 1990 và 2010').\n"
-    "- key_features: liệt kê TỪNG thay đổi RỜI RẠC, MỖI DÒNG 1 thay đổi, dạng "
-    "'[đối tượng] được thêm/bỏ/dời/mở rộng/thu hẹp/chuyển thành/giữ nguyên — ở "
-    "[vị trí: hướng bắc/nam/đông/tây, cạnh gì, thay cho gì]'. ĐỪNG gộp nhiều thay "
-    "đổi vào một dòng. Cố gắng ĐẦY ĐỦ mọi thay đổi thấy được.\n"
-    "- notable_data: để TRỐNG (bản đồ không có số).\n"
-    "- axes_or_categories: để trống hoặc ghi khung thời gian.\n\n"
-    "== Nếu là SƠ ĐỒ QUY TRÌNH (process) ==\n"
-    "- overview: SỐ BƯỚC + quy trình TUYẾN TÍNH hay TUẦN HOÀN (cyclical) + điểm "
-    "bắt đầu và kết thúc.\n"
-    "- key_features: liệt kê MỌI bước THEO ĐÚNG THỨ TỰ, mỗi dòng bắt đầu bằng "
-    "'Bước N:' và nêu input→output khi có. THỨ TỰ là bắt buộc.\n"
-    "- notable_data: để TRỐNG.\n"
-    "- axes_or_categories: để trống.\n\n"
-    "== Chung ==\n"
-    "- chart_type: một trong line|bar|pie|table|map|process|mixed.\n"
-    "- grading_note: lưu ý ngắn cho người chấm nếu cần.\n"
-    "CHỈ mô tả những gì THẤY trong hình. TUYỆT ĐỐI không bịa số liệu. Chỉ trả JSON."
+    "You are an IELTS Academic Writing Task 1 examiner. Read the prompt IMAGE and "
+    "extract the answer key: the OBJECTIVE facts a band-9 response must report. "
+    "First decide the visual type (chart_type), then apply the matching rules "
+    "below.\n\n"
+    "== Language ==\n"
+    "Write EVERY value in English (overview, key_features, notable_data labels and "
+    "units, axes_or_categories, grading_note), even if the prompt text or these "
+    "instructions contain another language. Copy labels from the image verbatim.\n\n"
+    "== Time frame and tense ==\n"
+    "- Take the time frame ONLY from the image and the prompt text. The user "
+    "message states today's date; a year up to the current year is past data.\n"
+    "- Never call a figure projected, forecast, predicted or estimated because "
+    "its year seems late to you. Use those words, or future forms, only when the "
+    "image or prompt marks the figures that way (e.g. 'projected', 'forecast', "
+    "'(est.)', 'planned', 'proposed', a legend for a projection).\n"
+    "- Describe past data in past tense. In grading_note, state the time frame "
+    "and the tense a response should use (e.g. 'all figures are past (2015–2025): "
+    "past tenses').\n\n"
+    "== DATA CHARTS (line/bar/pie/table) ==\n"
+    "- overview: the overall trends / biggest differences (1–2 sentences).\n"
+    "- key_features: 3–6 trends / comparisons / extremes a response must cover.\n"
+    "- notable_data: the checkable figures ({label, value, unit}). For a TABLE, "
+    "and for any chart that prints its values, include EVERY printed value: one "
+    "entry per cell or data label, labelled '<row> <column>' (e.g. 'Zoo 2015'), "
+    "with no row or column skipped. A blank or '–' cell is not a value: leave it "
+    "out and say so in grading_note. For values read off an axis, give the "
+    "closest reading and prefix it with 'about'. Above 40 values, keep the "
+    "start/end points and extremes of every series.\n"
+    "- axes_or_categories: axes / units / categories (all rows and columns of a "
+    "table).\n\n"
+    "== MAPS (usually before/after, or two sites) ==\n"
+    "- overview: the OVERALL change + the time frame (e.g. 'the area became more "
+    "residential and commercial between 1990 and 2010').\n"
+    "- key_features: every discrete change, ONE change per line, in the form "
+    "'<location>: <feature> added/removed/moved/extended/reduced/converted "
+    "into/unchanged'. Do not merge changes. Cover every change you can see.\n"
+    "- Report only features that are labelled or clearly drawn in the image, using "
+    "their labels. Take compass directions from the map's north arrow (top = north "
+    "if there is none) and describe locations relative to labelled features. If a "
+    "location is unclear, leave it out rather than guess. Never add a feature, "
+    "name, number or direction that is not in the image.\n"
+    "- notable_data: only numbers printed on the map (e.g. 'Car park (120 "
+    "spaces)'); otherwise empty.\n"
+    "- axes_or_categories: the panels / time frame, or empty.\n\n"
+    "== PROCESS DIAGRAMS ==\n"
+    "- overview: the NUMBER of stages + whether the process is LINEAR or CYCLICAL "
+    "+ where it starts and ends.\n"
+    "- key_features: EVERY stage IN ORDER, each line starting 'Stage N:' with the "
+    "input→output where shown. The ORDER is mandatory.\n"
+    "- notable_data: only numbers printed in the diagram (durations, "
+    "quantities); otherwise empty.\n"
+    "- axes_or_categories: empty.\n\n"
+    "== General ==\n"
+    "- chart_type: one of line|bar|pie|table|map|process|mixed.\n"
+    "- grading_note: a short note for the grader (time frame and tense, missing "
+    "cells, anything that is easy to misread).\n"
+    "Describe ONLY what is in the image. NEVER invent figures. Return JSON only."
 )
+
+
+def prompt_analysis_usage_context(
+    prompt_id: str,
+    *,
+    requested_by: Optional[str],
+    trigger: str,
+) -> dict:
+    """ai_usage_logs context for one extraction: the prompt it ran on and the
+    admin whose create/PATCH/reanalyze started it (None for the backfill
+    script, which has no requesting user)."""
+    return {
+        "user_id": requested_by,
+        "session_id": None,
+        "feature": "writing_prompt_analysis",
+        "operation": "extract_answer_key",
+        "resource_type": "writing_prompt",
+        "resource_id": prompt_id,
+        "metadata": {"prompt_id": prompt_id, "trigger": trigger},
+    }
 
 
 async def analyze_prompt_image(
@@ -70,17 +118,25 @@ async def analyze_prompt_image(
     image_url: str,
     prompt_text: Optional[str] = None,
     model: Optional[str] = None,
+    usage_context: Optional[dict] = None,
 ) -> tuple[PromptImageAnalysis, str]:
     """Download the prompt chart and extract its verified answer key.
 
     Returns ``(analysis, model_used)``. Raises on fetch / non-image / parse
     failure — the caller (the BG trigger) catches and records status='failed'
-    so the admin UI can offer a re-analyze. This function does NOT touch the DB.
+    so the admin UI can offer a re-analyze. This function does NOT touch the DB
+    (the grader call writes its ai_usage_logs rows with ``usage_context``).
     """
     resolved_model = model or settings.WRITING_ANALYSIS_MODEL
 
+    # `image_url` is the stored ref; a private-bucket path is signed for this
+    # fetch only (services/writing_image_access.py).
+    from services.writing_image_access import fetchable_image_url
+    fetch_url = await asyncio.to_thread(fetchable_image_url, image_url)
+    if not fetch_url:
+        raise RuntimeError("prompt image is not fetchable (signing unavailable)")
     async with httpx.AsyncClient(timeout=_FETCH_TIMEOUT_S) as client:
-        resp = await client.get(image_url)
+        resp = await client.get(fetch_url)
     if resp.status_code != 200 or not resp.content:
         raise RuntimeError(f"prompt image fetch failed: HTTP {resp.status_code}")
 
@@ -90,9 +146,12 @@ async def analyze_prompt_image(
     mime = "image/jpeg" if fmt == "jpg" else f"image/{fmt}"
 
     grader = get_grader()
+    # Today's date anchors the tense rule: without it the model reads a recent
+    # past year (e.g. 2025) as "projected" data.
     user_prompt = (
-        f"## Đề bài (Prompt)\n{prompt_text or '(không có phần chữ)'}\n\n"
-        "Trích xuất đáp án chuẩn từ HÌNH kèm theo."
+        f"Today's date: {datetime.now(timezone.utc).date().isoformat()}\n\n"
+        f"## Prompt text\n{prompt_text or '(no prompt text)'}\n\n"
+        "Extract the answer key from the attached IMAGE. Write it in English."
     )
     text, _usage = await grader._call_with_retry(
         model_name=resolved_model,
@@ -100,6 +159,7 @@ async def analyze_prompt_image(
         user_prompt=user_prompt,
         image=(resp.content, mime),
         parse_schema=PromptImageAnalysis,
+        usage_context=usage_context,
     )
     analysis = grader._parse_response(text, schema=PromptImageAnalysis)
     return analysis, resolved_model
@@ -145,6 +205,9 @@ def mark_analysis_pending(
 async def run_and_store_analysis(
     prompt_id: str,
     expected_pending_at: str | None = None,
+    *,
+    requested_by: str | None = None,
+    trigger: str = "backfill",
 ) -> None:
     """BG task: (re)extract the answer key for one prompt and persist it.
 
@@ -176,6 +239,9 @@ async def run_and_store_analysis(
 
         analysis, model = await analyze_prompt_image(
             image_url=p["prompt_image_url"], prompt_text=p.get("prompt_text"),
+            usage_context=prompt_analysis_usage_context(
+                prompt_id, requested_by=requested_by, trigger=trigger,
+            ),
         )
         # Compare-and-set on the storage fingerprint. The chart can be replaced
         # while the model is running; an old result must never become the answer

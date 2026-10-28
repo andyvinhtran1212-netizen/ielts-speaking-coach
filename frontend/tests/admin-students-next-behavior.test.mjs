@@ -5,10 +5,13 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+  archiveStudentPath,
   cohortTruth,
   formatBandGoal,
+  isArchivedStudent,
   mergeStudentDetail,
   normalizeStudentsPayload,
+  restoredCohortCount,
   studentDraft,
   studentSummary,
   validateStudentDraft,
@@ -37,19 +40,22 @@ describe('/admin/students — native directory ownership', () => {
   });
 
   test('loads canonical contracts and reconciles every write', () => {
-    assert.match(DIRECTORY, /getAdminStudents\(\{ limit: LIMIT, search: search \|\| undefined \}\)/);
+    assert.match(DIRECTORY, /getAdminStudents\(\{ limit: LIMIT, search: search \|\| undefined, includeArchived: archivedView \|\| undefined \}\)/);
     assert.match(DIRECTORY, /getAdminCohorts\(\{ isActive: true \}\)/);
     assert.match(DIRECTORY, /await canonicalReload/);
     assert.match(DIRECTORY, /\/students\/bulk/);
     assert.match(DIRECTORY, /setSelected\(new Set\(\)\);\s*setBulkCohort\(''\);\s*await canonicalReload/);
-    assert.match(DIRECTORY, /aria-label="Chọn tất cả học viên trong kết quả"[^>]*disabled=\{busy\}/);
-    assert.match(DIRECTORY, /aria-label=\{`Chọn \$\{student\.full_name\}`\}[\s\S]{0,180}?disabled=\{busy\}/);
+    // Locked while busy; also in the archived view (no class add for archived learners).
+    assert.match(DIRECTORY, /aria-label="Chọn tất cả học viên trong kết quả"[^>]*disabled=\{busy \|\| archivedView\}/);
+    assert.match(DIRECTORY, /aria-label=\{`Chọn \$\{student\.full_name\}`\}[\s\S]{0,180}?disabled=\{busy \|\| archivedView\}/);
     assert.match(DIRECTORY, /placeholder="Tên hoặc mã học viên…" disabled=\{busy\}/);
     assert.match(DIRECTORY, />Thử lại<\/button>/);
     assert.match(DIRECTORY, /disabled=\{loading \|\| busy\}>Thử lại/);
     assert.match(DIRECTORY, /window\.api\.upload/);
     assert.match(DIRECTORY, /Promise\.allSettled/);
-    assert.doesNotMatch(DIRECTORY, /window\.api\.delete|Xoá học viên/);
+    // STUDENTARCHIVE-0029: DELETE is an archive; no erase copy is surfaced.
+    assert.doesNotMatch(DIRECTORY, /Xoá học viên|Xóa học viên/);
+    assert.match(DIRECTORY, /window\.api\.delete\(archiveStudentPath\(/);
     assert.match(DIRECTORY, /href=\{`\/admin\/writing\/new\?student_id=/);
     assert.doesNotMatch(DIRECTORY, /pages\/admin\/writing\/new\.html/);
     assert.match(DIRECTORY, /href=\{`\/admin\/writing\/grade\?essay_id=/);
@@ -74,6 +80,50 @@ describe('/admin/students — native directory ownership', () => {
     assert.match(WORKFLOW, /node tooling\/verify-admin-students-flow\.mjs/);
     assert.match(BROWSER, /unexpectedWrites/);
     assert.match(BROWSER, /explicit null/);
+  });
+});
+
+describe('/admin/students — archive and restore (STUDENTARCHIVE-0029)', () => {
+  test('archive confirms, keeps the row on error and reloads canonical state', () => {
+    assert.match(DIRECTORY, /aria-label=\{`Lưu trữ \$\{student\.full_name\}`\}/);
+    assert.match(DIRECTORY, /Bài làm, điểm và lịch sử được giữ nguyên/);
+    assert.match(DIRECTORY, /Khoá luôn tài khoản đăng nhập/);
+    assert.match(DIRECTORY, /setArchiveDraft\(null\);\s*await canonicalReload\(`Đã lưu trữ/);
+    assert.match(DIRECTORY, /setArchiveDraft\(\{ \.\.\.archiveDraft, error: messageOf\(caught\) \}\)/);
+    assert.match(DIRECTORY, /\{busy \? 'Đang lưu trữ…' : 'Lưu trữ'\}/);
+  });
+
+  test('archived filter, empty state and restore with 409 refresh', () => {
+    assert.match(DIRECTORY, /<Field label="Trạng thái hồ sơ"><select/);
+    assert.match(DIRECTORY, /<option value="archived">Đã lưu trữ<\/option>/);
+    assert.match(DIRECTORY, /'Không có học viên đã lưu trữ'/);
+    assert.match(DIRECTORY, /archivedView \? rows\.filter\(isArchivedStudent\)/);
+    assert.match(DIRECTORY, /aria-label=\{`Khôi phục \$\{student\.full_name\}`\}/);
+    assert.match(DIRECTORY, /\/restore`, \{ reactivate_account: reactivateAccount \}/);
+    assert.match(DIRECTORY, /status === 409/);
+    assert.match(DIRECTORY, /disabled=\{busy \|\| archivedView\}/);
+    assert.match(BROWSER, /DELETE \\\/admin\\\/students/);
+  });
+
+  test('legacy panel confirm no longer claims essays are erased', () => {
+    const LEGACY = read('public', 'js', 'admin-students-panel.js');
+    assert.doesNotMatch(LEGACY, /Tất cả essays của học viên này cũng sẽ bị xóa/);
+    assert.match(LEGACY, /Bài làm và điểm được giữ nguyên/);
+  });
+
+  test('model: archive state, request path and restore receipt', () => {
+    const [active, archived] = normalizeStudentsPayload([
+      { id: 'a', student_code: 'A', full_name: 'A', archived_at: null },
+      { id: 'b', student_code: 'B', full_name: 'B', archived_at: '2026-10-27T01:00:00Z', archive_reason: ' left ' },
+    ]);
+    assert.equal(isArchivedStudent(active), false);
+    assert.equal(isArchivedStudent(archived), true);
+    assert.equal(archived.archive_reason, 'left');
+    assert.equal(archiveStudentPath('a b'), '/admin/students/a%20b');
+    assert.equal(archiveStudentPath('x', { reason: '  rời lớp ', deactivateAccount: true }),
+      '/admin/students/x?reason=r%E1%BB%9Di+l%E1%BB%9Bp&deactivate_account=true');
+    assert.equal(restoredCohortCount({ restored_cohort_ids: ['c1', 'c2'] }), 2);
+    assert.equal(restoredCohortCount({}), 0);
   });
 });
 

@@ -147,6 +147,7 @@
 |---|---|---|---|---|---|---|---|
 | `/grammar` | `/grammar.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(public-content)/grammar/page.tsx` — CUTOVER (pilot 2) | Public | none | localStorage (theme) | M | Grammar hub; category browser |
 | `/grammar/:category/:slug` | `pages/grammar-article.html` retained for parity/rollback | `app/(public-content)/grammar/[category]/[slug]/page.tsx` | Public | URL hash anchor | SSR content + client view/save/micro-check | M | Native article view; semantic Grammar Lab blocks; server-side SEO metadata |
+| `/grammar/article-not-found` | — (native-only) | `app/(public-content)/grammar/article-not-found/page.tsx` | Public | none | none | S | Prerendered 404 with a real 404 status. `proxy.ts` rewrites an unknown `/grammar/:category/:slug` here (key missing from `/api/grammar/categories`); the route's own `notFound()` stays as the fail-open soft-404 fallback |
 | `/grammar/compare` | `/pages/grammar-compare.html` vẫn phục vụ làm mốc rollback + vế parity | `app/(public-content)/grammar/compare/page.tsx` — CUTOVER 2026-08-15 | Public | `slug` theo dạng `<left>-vs-<right>` | localStorage (theme); server fetch public API | M | Native SSR side-by-side article comparison; legacy page retained for rollback/parity |
 | `/grammar/roadmap` | `/pages/grammar-roadmap.html` vẫn phục vụ làm mốc rollback + vế parity | `app/(public-content)/grammar/roadmap/page.tsx` — CUTOVER 2026-08-15 | Mixed: public khi có `slug`, Student khi không có | `slug` category tùy chọn | localStorage (theme); public server fetch `/api/grammar/roadmap/{slug}`; personal AuthProvider + `/api/me/roadmap` | M | Native public category roadmap và personal KP roadmap; legacy retained for rollback/parity |
 | `/grammar/search` | `/pages/grammar-search.html` vẫn phục vụ làm mốc rollback + vế parity | `app/(public-content)/grammar/search/page.tsx` — CUTOVER 2026-08-15 | Public | `q`, `level`, `use` | localStorage (theme); server fetch public API | M | Native SSR full-text search with shareable level/IELTS-use facets; legacy page retained for rollback/parity |
@@ -454,6 +455,8 @@ Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi 
 | `/pages/admin-listening-tf.html` | `/pages/admin/listening/tf.html` | Permanent | — |
 | `/pages/admin-listening-mcq.html` | `/pages/admin/listening/mcq.html` | Permanent | — |
 | `/admin/access-codes` | `/admin/users?tab=codes` | Temporary during native pilot | Access-code view merged into native users page; rollback-safe |
+| `/writing` | `/writing/dashboard` | Temporary | U-14: section prefix has no index page; previously the root 404 |
+| `/grammar-checkup/review` | `/grammar-checkup` | Temporary | BL-03: review needs `routeId` + `session` from a report |
 | `/pages/admin/access-codes/index.html` | `/pages/admin/users/index.html?tab=codes` | Permanent | (legacy admin path) |
 | `/pages/admin/dashboard/index.html` | `/pages/admin/index.html` | Permanent | Dashboard hub redirected to main admin |
 

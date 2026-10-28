@@ -317,9 +317,19 @@ describe('Sprint 7.4/7.5 — flashcards + exercises module templates preserve Ca
 describe('U-01 mobile disclosure spacing', () => {
   test('mobile links and profile actions have 44px targets; desktop rhythm stays canonical', () => {
     const source = readFileSync(path.join(REPO_ROOT, 'frontend/public/js/components/aver-chrome.js'), 'utf8');
-    const mobile = source.slice(source.indexOf('@media (max-width: 720px)'));
-    assert.match(mobile, /\.nav-links a\s*\{[^}]*min-height:\s*44px/);
-    assert.match(mobile, /\.user-menu-item\s*\{[^}]*min-height:\s*44px/);
-    assert.match(mobile, /margin-bottom:\s*var\(--av-space-8\)/);
+    // U-20 moved the disclosure (and its 44px targets) to <=1024.98px; the
+    // phone-only gutter and rhythm stay in the 720px block.
+    const block = (start) => {
+      const at = source.indexOf(start);
+      assert.ok(at > -1, `missing ${start}`);
+      return source.slice(at, source.indexOf('\n}\n', at));
+    };
+    const disclosure = block('@media (max-width: 1024.98px)');
+    assert.match(disclosure, /\.nav-links a\s*\{[^}]*min-height:\s*44px/);
+    assert.match(disclosure, /\.user-menu-item\s*\{[^}]*min-height:\s*44px/);
+    assert.match(disclosure, /\.mobile-nav-toggle\s*\{[^}]*width: 44px;[^}]*height: 44px/);
+    const phone = block('@media (max-width: 720px)');
+    assert.match(phone, /margin-bottom:\s*var\(--av-space-8\)/);
+    assert.match(phone, /\.topnav-wrap\s*\{\s*padding: 0 var\(--av-space-4\)/);
   });
 });

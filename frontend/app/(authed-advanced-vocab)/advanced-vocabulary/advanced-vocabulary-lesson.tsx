@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { VocabularyAudioButton } from '@/components/vocabulary-audio-button';
+import { useAuth } from '@/lib/auth/auth-provider';
 import {
   buildSpeakingLadders,
   preserveControlledRewriteResult,
@@ -22,7 +23,7 @@ const STAGES: { id: Stage; short: string; label: string }[] = [
   { id: 'practice_1', short: '02', label: 'Luyện nhận diện' },
   { id: 'practice_2', short: '03', label: 'Luyện vận dụng' },
   { id: 'reading', short: '04', label: 'Reading' },
-  { id: 'controlled_rewrite', short: '05', label: 'Controlled rewrite' },
+  { id: 'controlled_rewrite', short: '05', label: 'Viết lại có kiểm soát' },
   { id: 'listening', short: '06', label: 'Listening' },
   { id: 'writing', short: '07', label: 'Writing Insight' },
   { id: 'speaking', short: '08', label: 'Speaking Lab' },
@@ -245,8 +246,8 @@ function ReadingStage({ content, completed, saved, onSubmit, onContinue }: { con
       {completed && !result ? <div className="avx-complete-callout"><strong>Reading đã được lưu</strong><p>{saved ? `${saved.correct}/${saved.total} câu đúng. ` : ''}Bài đã nộp được giữ nguyên; bạn không cần làm lại khi mở xem.</p></div> : <><ReadingSupportMaterial content={content} />
       {groups.map((group, groupIndex) => { const sharedStem = group.questions.length > 1 && group.questions.every((question) => question.stem === group.questions[0].stem) ? group.questions[0].stem : null; return <section className="avx-reading-group" key={`${groupIndex}-${group.type}`}><header><span>{group.type}</span><b>Câu {group.questions[0].question_number}–{group.questions[group.questions.length - 1].question_number}</b></header>{sharedStem && <p className="avx-reading-shared-stem">{sharedStem}</p>}{group.questions.map((question: Json) => { const qid = String(question.question_number); const checked = result?.answer_results?.find((row: Json) => row.id === qid); const solution = result?.answers?.find((row: Json) => row.id === qid); return <div className="avx-reading-question" key={qid}><p><b>Câu {qid}</b>{!sharedStem && <>. {question.stem}</>}</p><QuestionInput question={question} value={answers[qid]} disabled={!!result} fixedChoiceMode onChange={(value) => setAnswers((current) => ({ ...current, [qid]: value }))} />{checked && <div className={`avx-mini-result ${checked.is_correct ? 'is-correct' : 'is-wrong'}`}>{checked.is_correct ? 'Đúng' : `Đáp án: ${solution?.answer}`}{solution?.evidence && <p>{solution.evidence}</p>}</div>}</div>; })}</section>; })}</>}
       {!completed && !result && <button className="av-button av-button-primary avx-wide" type="button" disabled={busy || Object.keys(answers).length < content.questions.length} onClick={() => void submit()}>{busy ? 'Đang chấm…' : 'Hoàn tất Reading'}</button>}
-      {completed && !result && <button className="av-button av-button-primary avx-wide" type="button" onClick={onContinue}>Tiếp tục sang Controlled rewrite →</button>}
-      {result && <button className="av-button av-button-primary avx-wide" type="button" onClick={onContinue}>Tiếp tục sang Controlled rewrite →</button>}
+      {completed && !result && <button className="av-button av-button-primary avx-wide" type="button" onClick={onContinue}>Tiếp tục sang Viết lại có kiểm soát →</button>}
+      {result && <button className="av-button av-button-primary avx-wide" type="button" onClick={onContinue}>Tiếp tục sang Viết lại có kiểm soát →</button>}
     </aside>
   </div></>;
 }
@@ -287,11 +288,11 @@ function ListeningStage({ content, completed, saved, onSubmit, onRetry, onContin
   const retrying = Boolean(result?.requires_guided_retry && !result?.answers);
   const wrongIds = (result?.answer_results || []).filter((row: Json) => !row.is_correct).map((row: Json) => String(row.id));
   return <div className="avx-listening-layout">
-    <div className="avx-audio-dock"><div><span>Academic listening</span><strong>{content.title}</strong></div><audio ref={audioRef} controls preload="metadata" src={content.audio_url} /></div>
+    <div className="avx-audio-dock"><div><span>Nghe học thuật</span><strong>{content.title}</strong></div><audio ref={audioRef} controls preload="metadata" src={content.audio_url} /></div>
     {(content.sections || []).filter((section: Json) => section.figure_url).map((section: Json) => <figure className="avx-listening-figure" key={section.section_id || section.figure_url}><img src={section.figure_url} alt={`Sơ đồ cho ${section.context || 'bài nghe'}`} /><figcaption>Xem sơ đồ trong khi nghe và dùng các nhãn trên hình cho câu map labelling.</figcaption></figure>)}
     {completed && !result ? <div className="avx-complete-callout"><strong>Listening đã được lưu</strong><p>{saved ? `${saved.correct}/${saved.total} câu đúng. ` : ''}Bạn vẫn có thể nghe lại audio, nhưng bài đã nộp không bị ghi đè.</p></div> : <div className="avx-listening-questions">{(content.questions || []).map((question: Json) => { const qid = String(question.question_number); const checked = result?.answer_results?.find((row: Json) => row.id === qid); const initialChecked = result?.initial_answer_results?.find((row: Json) => row.id === qid); const solution = result?.answers?.find((row: Json) => row.id === qid); const needsRetry = retrying && checked && !checked.is_correct; const shownAnswer = needsRetry ? retryAnswers[qid] : checked?.submitted_answer ?? answers[qid]; const initialChoice = initialChecked?.submitted_answer ?? checked?.submitted_answer; const distractorRationale = !retrying && initialChecked && !initialChecked.is_correct ? solution?.distractor_rationales?.[initialChoice] : null; const answerSpan = solution?.timing?.answer_span; return <section className="avx-question-card avx-question-card--compact" key={qid}><p className="avx-kicker">Câu {qid} · {question.question_type}</p><h3>{question.stem}</h3><QuestionInput question={question} value={shownAnswer} disabled={Boolean(result) && !needsRetry} fixedChoiceMode onChange={(value) => needsRetry ? setRetryAnswers((current) => ({ ...current, [qid]: value })) : setAnswers((current) => ({ ...current, [qid]: value }))} />{checked && <div className={`avx-mini-result ${checked.is_correct ? 'is-correct' : 'is-wrong'}`}>{checked.is_correct ? 'Đúng' : retrying ? 'Chưa đúng — nghe lại và sửa câu này trước khi xem đáp án.' : `Đáp án: ${solution?.answer}`}{!retrying && solution?.evidence && <p>{solution.evidence}</p>}{distractorRationale && <p className="avx-distractor-rationale"><strong>Vì sao lựa chọn ban đầu chưa đúng:</strong> {distractorRationale}</p>}{!retrying && answerSpan && <button className="av-button av-button-secondary avx-evidence-replay" type="button" onClick={() => replayEvidence(solution)}>Nghe đoạn evidence · {Number(answerSpan.start).toFixed(1)}–{Number(answerSpan.end).toFixed(1)}s</button>}</div>}</section>; })}</div>}
     {!completed && !result && <button className="av-button av-button-primary avx-wide" type="button" disabled={busy || Object.keys(answers).length < content.questions.length} onClick={() => void submit()}>{busy ? 'Đang chấm…' : 'Hoàn tất Listening'}</button>}
-    {retrying && <div className="avx-boundary-note"><strong>Guided retry</strong><p>Nghe lại và sửa đủ {wrongIds.length} câu chưa đúng. Đáp án và evidence chỉ hiện sau bước này.</p><button className="av-button av-button-primary avx-wide" type="button" disabled={busy || wrongIds.some((qid: string) => retryAnswers[qid] == null || retryAnswers[qid] === '')} onClick={() => void retry()}>{busy ? 'Đang lưu bước sửa…' : 'Hoàn tất sửa và xem đáp án'}</button></div>}
+    {retrying && <div className="avx-boundary-note"><strong>Làm lại có hướng dẫn</strong><p>Nghe lại và sửa đủ {wrongIds.length} câu chưa đúng. Đáp án và evidence chỉ hiện sau bước này.</p><button className="av-button av-button-primary avx-wide" type="button" disabled={busy || wrongIds.some((qid: string) => retryAnswers[qid] == null || retryAnswers[qid] === '')} onClick={() => void retry()}>{busy ? 'Đang lưu bước sửa…' : 'Hoàn tất sửa và xem đáp án'}</button></div>}
     {result?.assignment?.completed && <div className="avx-complete-callout"><strong>Đã hoàn tất bài học</strong><p>Kết quả được lưu theo từng tương tác; bài này không có điểm tổng mặc định.</p></div>}
     {(completed || result?.assignment?.completed) && <button className="av-button av-button-primary avx-wide" type="button" onClick={onContinue}>Xem Writing Insight →</button>}
   </div>;
@@ -381,6 +382,13 @@ export function AdvancedVocabularyLesson() {
   const [error, setError] = useState('');
   const errorHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const inlineErrorRef = useRef<HTMLDivElement | null>(null);
+  const { status } = useAuth();
+
+  // U-03: fail closed for signed-out visitors (ADR-011) — replace() like
+  // /profile so Back cannot restore the private shell.
+  useEffect(() => {
+    if (status === 'signed-out') window.location.replace('/login');
+  }, [status]);
 
   const load = useCallback(async () => {
     const params = new URLSearchParams(window.location.search);
@@ -399,7 +407,14 @@ export function AdvancedVocabularyLesson() {
       setPhase('ready');
     } catch (cause) { setError(errorText(cause)); setPhase('error'); }
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  // Load once, and only once signed in, so a signed-out visitor never sees
+  // a request error or a lesson before the /login redirect (U-03 / G-01).
+  const loadedOnce = useRef(false);
+  useEffect(() => {
+    if (status !== 'signed-in' || loadedOnce.current) return;
+    loadedOnce.current = true;
+    void load();
+  }, [load, status]);
   useEffect(() => {
     if (phase === 'error') errorHeadingRef.current?.focus();
     else if (error) inlineErrorRef.current?.focus();
@@ -444,7 +459,7 @@ export function AdvancedVocabularyLesson() {
     }) : current);
   };
 
-  if (phase === 'loading') return <main id="aver-main-content" className="shell avx-shell"><div className="avx-state is-loading" role="status" aria-live="polite"><span aria-hidden="true" /> <p>Đang mở bài học…</p></div></main>;
+  if (status !== 'signed-in' || phase === 'loading') return <main id="aver-main-content" className="shell avx-shell"><div className="avx-state is-loading" role="status" aria-live="polite"><span aria-hidden="true" /> <p>Đang mở bài học…</p></div></main>;
   if (phase === 'error' || !data) return <main id="aver-main-content" className="shell avx-shell"><div className="avx-state"><h1 ref={errorHeadingRef} tabIndex={-1}>Chưa mở được bài học</h1><p>{error}</p><div className="avx-state-actions"><button className="av-button av-button-primary" type="button" onClick={() => void load()}>Thử lại</button><a className="av-button av-button-secondary" href="/my-class">Quay lại lớp học</a></div></div></main>;
 
   const base = { bank_id: data.bank.id, item_id: data.assignment.item_id };
@@ -453,7 +468,7 @@ export function AdvancedVocabularyLesson() {
     <nav className="avx-stage-nav" aria-label="Các phần của bài học">{STAGES.map((item) => { const unlocked = isUnlocked(item.id); return <button key={item.id} type="button" aria-current={stage === item.id ? 'step' : undefined} className={`${stage === item.id ? 'is-active' : ''} ${completed.has(item.id) ? 'is-done' : ''}`} disabled={!unlocked} onClick={() => setStage(item.id)}><span>{completed.has(item.id) ? '✓' : item.short}</span><b>{item.label}</b></button>; })}</nav>
     {error && <div className="avx-inline-error" role="alert" ref={inlineErrorRef} tabIndex={-1}>{error}<button className="av-button av-button-secondary" type="button" onClick={() => void load()}>Tải lại dữ liệu đã lưu</button></div>}
     {data.assignment.accepting === false && <div className="avx-boundary-note" role="status"><strong>Chế độ xem lại</strong><p>Bài đã đóng nhận tương tác mới. Tiến độ đã lưu và nội dung tham khảo vẫn được giữ nguyên.</p></div>}
-    <div className="avx-section-head"><p>{STAGES.find((item) => item.id === stage)?.short}</p><div><span>Lesson stage</span><h2>{STAGES.find((item) => item.id === stage)?.label}</h2></div></div>
+    <div className="avx-section-head"><p>{STAGES.find((item) => item.id === stage)?.short}</p><div><span>Giai đoạn bài học</span><h2>{STAGES.find((item) => item.id === stage)?.label}</h2></div></div>
     {stage === 'vocabulary' && <VocabularyStage data={data} readOnly={data.assignment.accepting === false} onDone={async (ids) => { const progress = await post('/api/advanced-vocab/vocabulary/complete', { ...base, seen_lexeme_ids: ids }); mergeProgress(progress); setStage('practice_1'); }} />}
     {stage === 'practice_1' && (data.lesson.practice.practice_1?.length
       ? <PracticeStage stage="practice_1" data={data} onAnswer={async (qid, answer, response_time_ms) => { const response = await post('/api/advanced-vocab/practice/answer', { ...base, stage: 'practice_1', qid, answer, response_time_ms }); mergeProgress(response.progress); return response; }} onDone={() => setStage('practice_2')} />

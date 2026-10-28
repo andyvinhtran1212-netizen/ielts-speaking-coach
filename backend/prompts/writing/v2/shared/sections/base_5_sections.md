@@ -25,8 +25,9 @@ Common categories to flag:
 Per-band typical distribution comes from `strict_grammar_check.md` Rule 1
 (Mistake Count Consistency with Band) — but never invent mistakes to hit
 a floor. Step 6.1 (mistake authenticity check) takes precedence: an entry
-where `original == suggestion` after Unicode normalisation is removed,
-and the band is adjusted upward if the cleanup leaves the count low.
+where `original == suggestion` after Unicode normalisation is removed.
+A low count never raises the band by itself, and below band 8.5 at least
+one real mistake must remain (Rule 1).
 
 ## `improvedEssay` — approach (cumulative L1+)
 

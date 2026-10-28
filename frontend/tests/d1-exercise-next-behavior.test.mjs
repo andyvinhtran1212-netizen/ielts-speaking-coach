@@ -23,7 +23,7 @@ describe('/d1-exercise native ownership', () => {
     assert.match(player, /const accountKey = status === 'signed-in'/);
     assert.match(player, /accountRef\.current/);
     assert.match(player, /mutationLock\.current = false/);
-    assert.match(player, /requestForAccount\(expectedAccount, '\/auth\/me', ownsGeneration\)/);
+    assert.match(player, /requestForAccount\(expectedAccount, '\/auth\/me', ownsGeneration, \{ signal: controller\.signal \}\)/);
     assert.match(player, /normalizeD1Resume/);
     assert.match(player, /firstUnansweredIndex/);
     assert.match(player, /aver:d1:active-session/);
@@ -32,10 +32,19 @@ describe('/d1-exercise native ownership', () => {
     assert.match(player, /const candidates = \[\.\.\.new Set\(\[[\s\S]{0,160}queryId,[\s\S]{0,120}\.\.\.\[\.\.\.storedIds\]\.reverse\(\),[\s\S]{0,120}\.\.\.\[\.\.\.legacyIds\]\.reverse\(\)/);
     assert.match(player, /for \(const candidate of candidates\)[\s\S]{0,500}caught\?\.status !== 404[\s\S]{0,100}clearResume\([\s\S]{0,80}expectedAccount,[\s\S]{0,80}candidate/);
     assert.match(player, /legacyIds\.includes\(resumedId\)[\s\S]{0,80}removeItem\(LEGACY_STORAGE_KEY\)/);
-    assert.match(player, /resumeSessionForAccount\(expectedAccount, candidate, ownsGeneration\)/);
+    assert.match(player, /resumeSessionForAccount\(expectedAccount, candidate, ownsGeneration, controller\.signal\)/);
     assert.match(player, /async function resumeSessionForAccount\([\s\S]{0,180}isCurrent: \(\) => boolean[\s\S]{0,180}requestForAccount\([\s\S]{0,100}isCurrent/);
     assert.doesNotMatch(player, /window\.api\.get\(`\/api\/exercises\/d1\/sessions\/\$\{encodeURIComponent\(candidate\)\}`\)/);
     assert.match(player, /clearResume\([\s\S]{0,100}expectedAccount,[\s\S]{0,100}candidate,[\s\S]{0,100}!disposed && accountRef\.current === expectedAccount/);
+  });
+
+  test('BL-17: the opening read is bounded and revokes its own ownership on timeout', () => {
+    // Rendered proof: tests/react/vocabulary-read-timeout.test.tsx.
+    assert.match(player, /export const D1_LOAD_TIMEOUT_MS = 15000;/);
+    assert.match(player, /const ownsGeneration = \(\) => !disposed && !timedOut/);
+    assert.match(player, /timedOut = true;\s*controller\.abort\(\);\s*setMessage\(D1_LOAD_TIMEOUT_MESSAGE\);\s*setPhase\('error'\);/);
+    assert.match(player, /if \(!me \|\| typeof me !== 'object'\) throw/);
+    assert.match(player, /return \(\) => \{ disposed = true; clearTimeout\(timer\); controller\.abort\(\); \};/);
   });
 
   test('account changes reset question state and retain a late start ACK for its owner', () => {
@@ -69,7 +78,7 @@ describe('/d1-exercise native ownership', () => {
   test('uses canonical completion and keeps revision local-only', () => {
     assert.match(player, /normalizeD1Summary/);
     assert.match(player, /reviewMode\) return/);
-    assert.match(player, /Đây là lượt ôn tập, không ghi thêm attempt/);
+    assert.match(player, /Đây là lượt ôn tập, không ghi nhận thêm lượt làm\./);
     assert.doesNotMatch(player, /dangerouslySetInnerHTML/);
   });
 
@@ -77,8 +86,56 @@ describe('/d1-exercise native ownership', () => {
     assert.match(player, /caught\?\.status === 429[\s\S]{0,80}break/);
     assert.match(player, /setAttemptRateLimited\(rateLimited\)/);
     assert.match(player, /attemptRateLimited \? <a className="btn-ghost" href="\/exercises">Rời phiên<\/a>/);
-    assert.match(player, /phase === 'rate_limited'[\s\S]{0,500}>Thử lại<[\s\S]{0,300}>Về Exercises</);
+    // D1-UX: Content Manager approved 'Exercises' → 'Về trang bài luyện' for the back link.
+    assert.match(player, /phase === 'rate_limited'[\s\S]{0,500}>Thử lại<[\s\S]{0,300}>Về trang bài luyện</);
     assert.match(player, /detail\?\.reset_at[\s\S]{0,180}toLocaleString\('vi-VN'\)/);
+  });
+
+  test('D1-FILL: start label and request size share one constant; thin sessions explain themselves', () => {
+    assert.match(player, /const D1_SESSION_SIZE = 10;/);
+    assert.match(player, /body: JSON\.stringify\(\{ size: D1_SESSION_SIZE \}\)/);
+    assert.doesNotMatch(player, /size: 10\b/);
+    assert.match(player, /const D1_START_KICKER = `Tự nhớ từ · tối đa \$\{D1_SESSION_SIZE\} câu`/);
+    assert.match(player, /<span className="d1x-kicker">\{D1_START_KICKER\}<\/span>/);
+    assert.doesNotMatch(player, /10 câu/);
+    // Only a live (non-review) session smaller than the requested size shows the notice.
+    assert.match(player, /const shortSession = !reviewMode && !!session && session\.exercises\.length < D1_SESSION_SIZE;/);
+    assert.match(player, /<section className="d1x-player">\{shortSession \? <p className="d1x-alert" role="status">\{shortSessionNotice\(session\.exercises\.length\)\}<\/p> : null\}/);
+  });
+
+  test('D1-UX: learner-facing copy uses the four Content Manager approved terms', () => {
+    for (const source of [page, player, hub]) {
+      assert.doesNotMatch(source, /Fill the blank|Productive recall|PRODUCTIVE RECALL|đủ attempt|>Exercises<|Về Exercises|← Exercises/);
+    }
+    assert.match(page, /title: 'Điền từ — Aver Learning'/);
+    assert.match(page, /← Bài luyện<\/a>/);
+    assert.match(page, /<h1>Điền từ<\/h1>/);
+    assert.equal((player.match(/>Về trang bài luyện<\/a>/g) || []).length, 3);
+    assert.doesNotMatch(player, /Về Bài luyện/);
+    assert.match(player, /Hệ thống đang đối chiếu đủ số lượt làm đã lưu\./);
+    assert.match(hub, /<h1 class="subpage-header__title">Bài luyện<\/h1>/);
+    assert.match(hub, /<a data-card="d1" href="\/d1-exercise"[\s\S]{0,240}<h3>Điền từ<\/h3>/);
+  });
+
+  test('D1-UX follow-up: Content Manager approved player and hub copy, no internal D1 code or English', () => {
+    assert.match(player, /`Phiên này chỉ có \$\{count\} câu vì kho bài luyện hiện chưa có thêm câu phù hợp với bạn\.`/);
+    assert.match(player, /'Máy chủ chưa xác nhận được lượt làm vừa lưu\.'/);
+    assert.match(player, /'Không lưu được lượt làm\.'/);
+    assert.match(player, /<p>Điền từ chưa được mở cho tài khoản của bạn\.<\/p>/);
+    assert.match(player, /<p>Kho bài luyện hiện chưa có câu đã phát hành\.<\/p>/);
+    assert.match(player, /reviewMode \? 'Ôn tập' : 'Phiên luyện tập'/);
+    assert.doesNotMatch(player, /chừng đó|đúng attempt|lưu được attempt|ghi thêm attempt|D1 chưa được mở|Kho D1|'Phiên D1'/);
+    for (const copy of [
+      '<p class="text-sm">Đang tải…</p>',
+      'Bài luyện chưa được bật',
+      'Tính năng đang được mở dần. Bạn quay lại sau nhé.',
+      'Không tải được trang bài luyện. Bạn hãy tải lại trang.',
+      'Chọn dạng bài luyện',
+      'Bài luyện từ vựng ngắn, bám sát vốn từ của bạn.',
+      'Một câu ngắn bị thiếu một từ. Chọn từ phù hợp để điền vào.',
+    ]) assert.ok(hub.includes(copy), `hub missing approved copy: ${copy}`);
+    assert.equal((hub.match(/<span class="ex-pill pill-live">Đang mở<\/span>/g) || []).length, 2);
+    assert.doesNotMatch(hub, /Loading…|not enabled|rolling out|exercise hub|Pick a drill|tied to your bank|one word missing|>Live</);
   });
 
   test('exercise hub sends new sessions to Next while retaining HTML rollback', () => {

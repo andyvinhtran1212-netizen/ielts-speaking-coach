@@ -218,6 +218,51 @@ def test_resolve_creates_topic_when_missing():
     assert ins["payload"]["skill_area"] == "vocab"
 
 
+def _created_title(category: str) -> str:
+    fake = _FakeSupabase(responses={
+        ("content_topics", "select"): [],
+        ("content_topics", "insert"): [{"id": "t-new"}],
+    })
+    with patch.object(topic_service, "supabase_admin", fake):
+        topic_service.resolve_topic_id_for_category(category)
+    return next(c for c in fake.calls if c["op"] == "insert")["payload"]["title"]
+
+
+def test_resolve_titles_new_vocab_topic_from_category_manifest():
+    # Q-35: the importer created topics titled with the raw slug ("work-career").
+    # The title must come from content_vocab/_categories.yaml, the source the
+    # Vocabulary Wiki already renders.
+    assert _created_title("work-career") == "Work & Career"
+    assert _created_title("people-society") == "People & Society"
+
+
+def test_resolve_titles_every_repo_vocab_category_from_manifest():
+    import yaml
+    manifest = yaml.safe_load(topic_service._VOCAB_CATEGORIES_FILE.read_text(encoding="utf-8"))
+    titles = {c["slug"]: c["title"] for c in manifest["categories"]}
+    repo_cats = {
+        p.parent.name for p in topic_service._VOCAB_CATEGORIES_FILE.parent.glob("*/*.md")
+    }
+    assert repo_cats and repo_cats <= set(titles)   # every repo category has a title
+    for slug in sorted(repo_cats):
+        assert _created_title(slug) == titles[slug] != slug
+
+
+def test_resolve_title_falls_back_to_prettified_slug(tmp_path):
+    # Category outside the manifest → the wiki's _prettify rule, not the raw slug.
+    assert _created_title("daily-life") == "Daily Life"
+    # Missing manifest must not block the card write either.
+    with patch.object(topic_service, "_VOCAB_CATEGORIES_FILE", tmp_path / "missing.yaml"):
+        assert _created_title("work-career") == "Work Career"
+
+
+def test_resolve_does_not_retitle_existing_topic():
+    fake = _FakeSupabase(responses={("content_topics", "select"): [{"id": "t-1"}]})
+    with patch.object(topic_service, "supabase_admin", fake):
+        topic_service.resolve_topic_id_for_category("work-career")
+    assert [c["op"] for c in fake.calls] == ["select"]   # no insert, no update
+
+
 def test_resolve_blank_category_returns_none():
     fake = _FakeSupabase()
     with patch.object(topic_service, "supabase_admin", fake):

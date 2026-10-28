@@ -27,6 +27,14 @@ import {
 } from 'react';
 import { clearCoreOperationIntents } from '@/lib/core-operation-intent.mjs';
 import { clearLearnerTabDraftAccount, invalidateLearnerTabDraftOwner } from '@/lib/learner-tab-drafts.mjs';
+import { clearPersistedAuthSession } from '@/lib/auth/sign-out-state.mjs';
+import { getCurrentActiveStatus } from '@/lib/auth-api';
+import {
+  activationDecision,
+  isRememberedActive,
+  rememberActive,
+  requiresActivation,
+} from '@/lib/auth/activation-gate.mjs';
 
 export type AuthStatus = 'initial-loading' | 'signed-in' | 'signed-out';
 
@@ -52,6 +60,9 @@ const AuthContext = createContext<AuthContextValue>({
 // initial-loading forever.
 const SUPABASE_READY_TIMEOUT_MS = 10_000;
 const SUPABASE_POLL_INTERVAL_MS = 50;
+// A chrome logout whose '/' navigation has not unloaded the page by now (e.g.
+// a beforeunload guard was cancelled) falls back to the fail-closed state.
+const CHROME_SIGN_OUT_NAVIGATION_GRACE_MS = 10_000;
 
 function waitForSupabase(): Promise<any | null> {
   return new Promise((resolve) => {
@@ -67,12 +78,43 @@ function waitForSupabase(): Promise<any | null> {
   });
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+function sessionStore(): Storage | null {
+  try { return window.sessionStorage; } catch { return null; }
+}
+
+// W-03 — ask the backend whether this account is activated, through the shared
+// authenticated transport (typed /auth/check-active consumer). Any failure —
+// transport missing, network, non-2xx, malformed reply — is 'unknown'.
+async function probeActivation() {
+  try {
+    return activationDecision(true, await getCurrentActiveStatus());
+  } catch {
+    return activationDecision(false, null);
+  }
+}
+
+export function AuthProvider({
+  children,
+  activationGate = false,
+}: {
+  children: ReactNode;
+  /**
+   * W-03 — learner layouts: an inactive account is sent to /login (activation
+   * dialog) before `signed-in` is ever exposed, so the page never renders or
+   * calls learner APIs first. Exempt paths: see lib/auth/activation-gate.mjs.
+   */
+  activationGate?: boolean;
+}) {
   const [status, setStatus] = useState<AuthStatus>('initial-loading');
   const [user, setUser] = useState<AuthUser | null>(null);
   const sbRef = useRef<any>(null);
   const confirmedAccountRef = useRef<string | null>(null);
   const sessionReadRef = useRef(0);
+  // Set while the user-initiated <aver-chrome> logout owns the navigation.
+  const chromeSignOutRef = useRef(false);
+  // W-03 — the account whose activation this provider already settled (active
+  // or fail-open). Token refreshes for it never re-enter initial-loading.
+  const activationSettledRef = useRef<string | null>(null);
 
   // Single transition point: every signal (initial getSession, refresh events,
   // cross-tab storage sync, chrome sign-out) funnels through here, so a null
@@ -86,13 +128,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     confirmedAccountRef.current = nextAccount;
     try { clearCoreOperationIntents(window.sessionStorage, session?.user?.id || null); } catch { /* auth must proceed */ }
     if (session && session.user) {
-      setUser({ id: session.user.id, email: session.user.email ?? null });
+      const signedIn = { id: session.user.id, email: session.user.email ?? null };
+      const accountId: string = session.user.id;
+      if (
+        activationGate
+        && activationSettledRef.current !== accountId
+        && requiresActivation(window.location.pathname)
+        && !isRememberedActive(sessionStore(), accountId)
+      ) {
+        // Hold the private-data-free loading state until the backend answers;
+        // a newer auth signal (logout, account switch) supersedes this probe.
+        const read = sessionReadRef.current;
+        const store = sessionStore();
+        setUser(null);
+        setStatus('initial-loading');
+        void probeActivation().then((decision) => {
+          if (read !== sessionReadRef.current) return;
+          if (decision === 'inactive') {
+            // Stay in initial-loading: nothing private renders before /login.
+            window.location.replace('/login');
+            return;
+          }
+          if (decision === 'active') rememberActive(store, accountId);
+          activationSettledRef.current = accountId;
+          setUser(signedIn);
+          setStatus('signed-in');
+        });
+        return;
+      }
+      setUser(signedIn);
       setStatus('signed-in');
     } else {
       setUser(null);
-      setStatus('signed-out');
+      // The chrome logout redirects to its canonical '/' itself. Pages react to
+      // 'signed-out' with a fail-closed replace('/login') that would run after
+      // — and override — that redirect, so hold them in the same
+      // private-data-free loading state bfcache re-validation uses.
+      setStatus(chromeSignOutRef.current ? 'initial-loading' : 'signed-out');
     }
-  }, []);
+  }, [activationGate]);
 
   useEffect(() => {
     let disposed = false;
@@ -130,9 +204,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // ADR-011 §4 coexistence: the legacy <aver-chrome> logout button performs
     // supabase signOut() itself, then dispatches this event — receive it so
     // both stacks agree immediately (not one poll later).
-    const onChromeSignedOut = () => {
-      if (!disposed) applySession(null);
+    let chromeSignOutFallback: ReturnType<typeof setTimeout> | null = null;
+    const clearChromeSignOut = () => {
+      chromeSignOutRef.current = false;
+      if (chromeSignOutFallback !== null) clearTimeout(chromeSignOutFallback);
+      chromeSignOutFallback = null;
     };
+    // Announced before the revoke; it never navigates, so the review #762
+    // ordering (revoke settles before any sign-out navigation) still holds.
+    const onChromeSigningOut = () => {
+      if (!disposed) chromeSignOutRef.current = true;
+    };
+    const onChromeSignedOut = () => {
+      if (disposed) return;
+      applySession(null);
+      if (chromeSignOutRef.current && chromeSignOutFallback === null) {
+        chromeSignOutFallback = setTimeout(() => {
+          clearChromeSignOut();
+          if (!disposed) applySession(null);
+        }, CHROME_SIGN_OUT_NAVIGATION_GRACE_MS);
+      }
+    };
+    document.addEventListener('av-chrome-signing-out', onChromeSigningOut);
     document.addEventListener('av-chrome-signed-out', onChromeSignedOut);
 
     // bfcache restoration (ADR-011 §3): a Back navigation can revive this page
@@ -140,6 +233,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // real session on every persisted pageshow.
     const onPageShow = (e: PageTransitionEvent) => {
       if (!e.persisted || !sbRef.current) return;
+      // Back after a chrome logout: its navigation finished, so the revived
+      // page must fail closed again.
+      clearChromeSignOut();
       const read = ++sessionReadRef.current;
       setUser(null);
       setStatus('initial-loading');
@@ -157,6 +253,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       disposed = true;
       unsubscribe?.();
+      clearChromeSignOut();
+      document.removeEventListener('av-chrome-signing-out', onChromeSigningOut);
       document.removeEventListener('av-chrome-signed-out', onChromeSignedOut);
       window.removeEventListener('pageshow', onPageShow);
     };
@@ -204,6 +302,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         { type: 'auth_signout_revoke_failed' },
       );
     }
+    // U-07: a failed revoke leaves the session persisted; never let the next
+    // page boot it.
+    clearPersistedAuthSession();
     document.dispatchEvent(
       new CustomEvent('av-chrome-signed-out', { bubbles: true, composed: true }),
     );

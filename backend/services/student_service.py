@@ -4,7 +4,11 @@ Phase 1 admin-only: all callers come from `/admin/students/*` routes which
 already gate with `require_admin`. Uses service-role `supabase_admin` (matches
 existing convention in `services/ai_usage_logger.py`, `services/pdf_generator.py`).
 
-Soft delete deferred to Sprint W3 — `delete_student()` performs a hard DELETE.
+STUDENTARCHIVE-0029: there is no hard delete here. `archive_student()` and
+`restore_student()` call the service-role-only RPCs of migration 326, which end
+or restore class memberships and write an append-only audit row; learner work is
+never deleted. Archived rows are hidden from the default list and from
+`fetch_linked_student` (Writing/class access).
 """
 
 from __future__ import annotations
@@ -88,11 +92,19 @@ def list_students(
     search: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
+    include_archived: bool = False,
+    exclude_ids: Optional[list[str]] = None,
 ) -> list[dict]:
     """List students; optionally filter by case-insensitive substring match
-    against student_code or full_name.
+    against student_code or full_name. Archived learners are excluded unless
+    ``include_archived`` (STUDENTARCHIVE-0029). ``exclude_ids`` (staging test
+    data, TASK B2) is applied in SQL so pages stay full.
     """
     q = supabase_admin.table("students").select("*").order("created_at", desc=True)
+    if not include_archived:
+        q = q.is_("archived_at", "null")
+    if exclude_ids:
+        q = q.not_.in_("id", exclude_ids)
     if search:
         # F2 — PostgREST-safe or_(): the value is double-quoted so commas/parens
         # in the term don't break the logic tree, and LIKE wildcards are escaped.
@@ -303,20 +315,125 @@ def update_student(*, student_id: str, data: dict) -> dict:
     return r.data[0]
 
 
-def delete_student(student_id: str) -> None:
-    """Hard delete (W2 scope). Soft delete deferred to W3.
+def archive_student(
+    *,
+    student_id: str,
+    actor_id: str,
+    reason: Optional[str] = None,
+    deactivate_account: bool = False,
+) -> dict:
+    """Archive a learner through ``fn_archive_student`` (migration 326).
 
-    Raises 404 when student does not exist (idempotent semantics: caller may
-    treat this as already-deleted).
+    Deletes nothing: the RPC ends every active class membership, clears the
+    legacy ``cohort_id`` pointer, optionally sets ``users.is_active = false``
+    and writes one audit row, in one locked transaction. A repeat call returns
+    ``already_archived`` and writes no audit row. Unknown id → 404.
     """
-    r = (
-        supabase_admin.table("students")
-        .delete()
-        .eq("id", student_id)
-        .execute()
-    )
-    if not r.data:
+    try:
+        r = supabase_admin.rpc("fn_archive_student", {
+            "p_student_id": student_id,
+            "p_actor": actor_id,
+            "p_reason": reason,
+            "p_deactivate_account": deactivate_account,
+        }).execute()
+    except Exception as exc:
+        logger.error("[students] archive failed student=%s: %s", student_id, exc)
+        raise HTTPException(500, f"Không lưu trữ được học viên: {exc}")
+    result = r.data
+    if result is None:
         raise HTTPException(404, "Student not found")
+    if not isinstance(result, dict) or result.get("status") not in ("archived", "already_archived"):
+        raise HTTPException(500, "Archive receipt is malformed")
+    return result
+
+
+def restore_student(
+    *,
+    student_id: str,
+    actor_id: str,
+    reason: Optional[str] = None,
+    reactivate_account: bool = False,
+) -> dict:
+    """Restore an archived learner through ``fn_restore_student``.
+
+    Re-activates the memberships the latest archive ended (classes deleted in
+    the meantime are skipped) and writes a restore audit row. Unknown id → 404;
+    a learner who is not archived → 409 ``not_archived``.
+    """
+    try:
+        r = supabase_admin.rpc("fn_restore_student", {
+            "p_student_id": student_id,
+            "p_actor": actor_id,
+            "p_reason": reason,
+            "p_restore_cohorts": True,
+            "p_reactivate_account": reactivate_account,
+        }).execute()
+    except Exception as exc:
+        logger.error("[students] restore failed student=%s: %s", student_id, exc)
+        raise HTTPException(500, f"Không khôi phục được học viên: {exc}")
+    result = r.data
+    if result is None:
+        raise HTTPException(404, "Student not found")
+    if isinstance(result, dict) and result.get("status") == "not_archived":
+        raise HTTPException(409, {"code": "not_archived",
+                                  "message": "Học viên này chưa được lưu trữ."})
+    if not isinstance(result, dict) or result.get("status") != "restored":
+        raise HTTPException(500, "Restore receipt is malformed")
+    return result
+
+
+STUDENT_ARCHIVED_MESSAGE = "Học viên đã được lưu trữ — khôi phục hồ sơ trước khi thao tác."
+
+
+def student_archived_error(student_ids: Optional[list[str]] = None) -> HTTPException:
+    """The one 409 shape for an action refused because a learner is archived."""
+    detail: dict = {"code": "student_archived", "message": STUDENT_ARCHIVED_MESSAGE}
+    if student_ids:
+        detail["student_ids"] = sorted(set(student_ids))
+    return HTTPException(409, detail)
+
+
+def is_student_archived_error(exc: Exception) -> bool:
+    """True for the ``student_archived`` raise of the migration-326 guards."""
+    return "student_archived" in str(exc)
+
+
+def raise_if_student_archived(db, exc: Exception,
+                              candidate_ids: Optional[list[str]] = None) -> None:
+    """Re-raise a ``student_archived`` DB refusal as the 0029 409.
+
+    Migration 331 (GIVEARCHIVE-0031) refuses a Writing give whose learner was
+    archived after the route's pre-check; its DETAIL is the student id (the 326
+    bulk guard sends a comma list). Without a DETAIL the archived ids are re-read
+    from ``candidate_ids``. A no-op for every other error, so the caller
+    re-raises it unchanged.
+    """
+    if isinstance(exc, HTTPException) or not is_student_archived_error(exc):
+        return
+    details = getattr(exc, "details", None)
+    ids = [part.strip() for part in details.split(",") if part.strip()] \
+        if isinstance(details, str) else []
+    if not ids and candidate_ids:
+        try:
+            ids = archived_student_ids(db, candidate_ids)
+        except Exception:
+            ids = []
+    raise student_archived_error(ids or None) from exc
+
+
+def archived_student_ids(db, student_ids: list[str]) -> list[str]:
+    """Ids among ``student_ids`` whose roster row is archived."""
+    ids = sorted({str(s) for s in student_ids if s})
+    if not ids:
+        return []
+    rows = (
+        db.table("students")
+        .select("id")
+        .in_("id", ids)
+        .not_.is_("archived_at", "null")
+        .execute()
+    ).data or []
+    return sorted({row["id"] for row in rows if row.get("id")})
 
 
 # ── CSV bulk import ──────────────────────────────────────────────────
@@ -443,13 +560,16 @@ def choose_linked_student(rows: list, account_name: str = "") -> Optional[dict]:
 
 
 def fetch_linked_student(db, user_id, account_name: str = "") -> Optional[dict]:
-    """Load the students row linked to this auth user, if any."""
+    """Load the active (not archived) students row linked to this auth user."""
     if not user_id or db is None:
         return None
     result = (
         db.table("students")
         .select(_LINKED_STUDENT_COLUMNS)
         .eq("user_id", str(user_id))
+        # An archived profile is not an active link (STUDENTARCHIVE-0029).
+        # Writing distinguishes this absence from a never-linked profile.
+        .is_("archived_at", "null")
         .order("updated_at", desc=True)
         .limit(20)
         .execute()

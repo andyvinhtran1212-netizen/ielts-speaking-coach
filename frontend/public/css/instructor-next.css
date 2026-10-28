@@ -92,6 +92,8 @@ button, input, select, textarea { font: inherit; }
 
 .ins-tabs button:hover { color: var(--av-text-primary); }
 .ins-tabs button.is-active { color: var(--av-primary); border-bottom-color: var(--av-primary); }
+/* Inset ring: the nav's overflow-x clips an outer outline at its bottom edge. */
+.ins-tabs button:focus-visible { outline: 2px solid var(--av-border-focus); outline-offset: -2px; border-radius: 8px 8px 0 0; }
 
 .ins-main {
   width: 100%;
@@ -320,6 +322,13 @@ button, input, select, textarea { font: inherit; }
   .ins-heading { align-items: center; }
   .ins-card { padding: 16px; }
   .ins-card.ins-table-wrap { padding: 0; }
+}
+
+/* The four tabs no longer fit one row on phones (360-390px); wrap them into a
+   2x2 grid so every tab stays visible instead of hiding behind a scrollbar. */
+@media (max-width: 560px) {
+  .ins-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-x: visible; }
+  .ins-tabs button { padding: 10px 8px 11px; text-align: center; white-space: normal; }
 }
 
 @media (prefers-reduced-motion: reduce) {

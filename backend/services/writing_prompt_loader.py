@@ -104,10 +104,12 @@ class WritingPromptLoader:
         self._cache: dict[str, str] = {}
 
     # Includes the runtime source-grounding instruction/guard used by the
-    # grader for every version and tier. Historical v1.0/v2.1 rows stay intact.
+    # grader for every version and tier. v2.3: mistakeAnalysis must hold at
+    # least one real entry below band 8.5 (Rule 1) and is enforced by the
+    # grader. Historical v1.0/v2.1/v2.2 rows stay intact.
     _VERSION_STAMPS: dict[str, str] = {
         "v1": "v1.1",
-        "v2": "v2.2",
+        "v2": "v2.3",
     }
 
     @property

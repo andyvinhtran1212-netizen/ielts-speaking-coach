@@ -225,6 +225,10 @@ body {
 .lx-activate-success { color: var(--av-primary); }
 .lx-dialog-hint { margin: 1.25rem 0 0; color: var(--av-text-faint); font-size: .75rem; line-height: 1.5; text-align: center; }
 .lx-dialog-hint span { color: var(--av-text-secondary); }
+/* BL-13 — way out of the activation dialog for the wrong account. */
+.lx-dialog-signout { display: block; margin: .75rem auto 0; padding: .5rem .75rem; border: 0; background: none; color: var(--av-text-secondary); font: 600 .8125rem var(--av-font-sans); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.lx-dialog-signout:hover { color: var(--av-text-primary); }
+.lx-dialog-signout:disabled { opacity: .6; cursor: not-allowed; }
 
 @media (max-width: 767px) {
   .lx-shell { grid-template-columns: 1fr; }

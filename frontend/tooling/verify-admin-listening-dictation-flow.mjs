@@ -80,6 +80,8 @@ check('mobile list không tràn ngang', await page.evaluate(() => getComputedSty
 
 await page.getByRole('button', { name: 'Xem từng câu' }).click();
 await page.getByRole('heading', { name: 'Chi tiết phiên chép chính tả' }).waitFor();
+// The heading renders with the loading state; assert evidence only after the detail read settles.
+await page.getByText('Đang đọc chi tiết phiên…', { exact: true }).waitFor({ state: 'detached' });
 check('detail dùng exact identity và ghi session vào URL', detailReads.length === 1 && new URL(page.url()).searchParams.get('session') === 'session-1');
 check('câu chuẩn và câu học viên gõ được React escape', await page.getByText('The address is Brighton.', { exact: true }).count() === 1 && await page.getByText('<script>', { exact: true }).count() === 1 && await page.locator('script').filter({ hasText: '<script>' }).count() === 0);
 check('duplicate/malformed sentence được báo riêng', await page.getByText(/Đã loại 2 câu sai hoặc trùng contract/).count() === 1);

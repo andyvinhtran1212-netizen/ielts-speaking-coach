@@ -2,11 +2,11 @@
 
 ## Preconditions
 
-- The owner (Vinh) has approved this spec and the approval is on `staging`.
-  **Not yet: approval is pending.**
+- The owner (Vinh) has approved this spec (2026-10-27 07:14 UTC+7,
+  [`approval-decision.md`](approval-decision.md)) and the approval is on `staging`.
 - #1727 cites `WRITINGRATE-0025` as `high-risk` and is green.
-- 321 is still the next free migration number on `staging`. Draft #1720 also
-  proposes a 321 file and renumbers when it is re-created; 321 stays with #1727.
+- 321 is still the next free migration number on `staging`. Draft #1720 has
+  renumbered its file to 322; 321 stays with #1727.
 - No database write is part of this spec change.
 
 ## Staging

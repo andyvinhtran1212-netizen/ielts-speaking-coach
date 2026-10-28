@@ -1,123 +1,155 @@
-"""Sprint 20.10 D1 — CORS bulletproofing.
+"""Sprint 20.10 D1 — CORS bulletproofing, now per deployment.
 
 Andy's prod dogfood (2026-05-29) hit "No 'Access-Control-Allow-Origin' header"
 from https://www.averlearning.com on `GET /api/reading/test/{test_id}/attempts/
-in-progress`. The explicit origin list already includes both apex + www
-(commit 4c9fc1e9, 2026-04-08) so the most plausible single-point-of-failure
-is the explicit list itself drifting (a new staging subdomain ships, the
-prod env gets a stale config, etc.). 20.10 D1 adds an `allow_origin_regex`
-fallback for `^https://(?:[a-z0-9-]+\\.)?averlearning\\.com$` that survives
-that class of drift.
+in-progress`. 20.10 D1 answered with an `allow_origin_regex` for
+`^https://(?:[a-z0-9-]+\\.)?averlearning\\.com$`.
 
-This suite asserts the CORS preflight (OPTIONS) and an actual GET return the
-`Access-Control-Allow-Origin` header for every origin we care about, and
-rejects origins we don't.
+F11 (2026-10-28) removed that regex: with `allow_credentials=True` it let ANY
+*.averlearning.com page — including a dangling or taken-over subdomain — read
+the API as the signed-in user. The follow-up split the exact allowlist per
+deployment (services/cors_policy.py): production accepts apex + www only,
+staging only staging.averlearning.com, localhost only in development or behind
+CORS_ALLOW_LOCALHOST outside production.
+
+The allowlist is fixed when `main` is imported, so each deployment is exercised
+in a child interpreter that imports the REAL `main.app` under that deployment's
+environment variables and sends real CORS preflights / GETs through it.
 """
 
 from __future__ import annotations
 
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+_BACKEND = Path(__file__).resolve().parents[1]
+
+APEX = "https://averlearning.com"
+WWW = "https://www.averlearning.com"
+STAGING = "https://staging.averlearning.com"
+SAGE = "https://ielts-speaking-coach-sage.vercel.app"
+LOCAL = ("http://localhost:3000", "http://127.0.0.1:3000",
+         "http://localhost:5500", "http://127.0.0.1:5500")
+FOREIGN = ("https://bat-ky.averlearning.com", "https://app.averlearning.com",
+           "https://evil.com", "https://averlearning.com.evil.com",
+           "http://averlearning.com")
+PROBES = (APEX, WWW, STAGING, SAGE, *LOCAL, *FOREIGN)
+
+_CHILD = """
+import json, sys
+sys.path.insert(0, "tests")
+import conftest  # same no-live-network guards and dummy Supabase env as the suite
 from fastapi.testclient import TestClient
+import main
+
+client = TestClient(main.app)
+path = "/api/reading/test/T1/attempts/in-progress"
+out = {"origins": main.origins, "preflight": {}, "get": {}}
+for origin in json.loads(sys.argv[1]):
+    r = client.options(path, headers={
+        "Origin": origin,
+        "Access-Control-Request-Method": "PATCH",
+        "Access-Control-Request-Headers": "authorization",
+    })
+    out["preflight"][origin] = {
+        "status": r.status_code,
+        "acao": r.headers.get("access-control-allow-origin"),
+        "acac": r.headers.get("access-control-allow-credentials"),
+    }
+    out["get"][origin] = client.get(path, headers={"Origin": origin}).headers.get(
+        "access-control-allow-origin")
+print("CORS-RESULT " + json.dumps(out))
+"""
 
 
-def _client() -> TestClient:
-    from main import app
-    return TestClient(app)
-
-
-def _preflight(origin: str) -> tuple[int, dict[str, str]]:
-    """CORS preflight (OPTIONS) for a typical authenticated request: the
-    headers must include Origin + the requested method/headers for the
-    middleware to treat this as a CORS preflight."""
-    r = _client().options(
-        "/api/reading/test/T1/attempts/in-progress",
-        headers={
-            "Origin": origin,
-            "Access-Control-Request-Method": "GET",
-            "Access-Control-Request-Headers": "authorization",
-        },
-    )
-    return r.status_code, dict(r.headers)
-
-
-# ── Explicit-list origins (primary CORS path) ─────────────────────────
-
-
-def test_cors_preflight_allows_apex_origin():
-    status, headers = _preflight("https://averlearning.com")
-    assert status == 200, f"preflight from apex returned {status}"
-    assert headers.get("access-control-allow-origin") == "https://averlearning.com"
-
-
-def test_cors_preflight_allows_www_origin():
-    """The prod surface Andy was hitting. Must allow."""
-    status, headers = _preflight("https://www.averlearning.com")
-    assert status == 200
-    assert headers.get("access-control-allow-origin") == "https://www.averlearning.com"
-
-
-def test_cors_preflight_allows_localhost_dev_origin():
-    """Regression — local dev origins still work."""
-    status, headers = _preflight("http://localhost:5500")
-    assert status == 200
-    assert headers.get("access-control-allow-origin") == "http://localhost:5500"
-
-
-# ── Regex-fallback origins (Sprint 20.10 D1 safety net) ───────────────
-
-
-def test_cors_preflight_allows_staging_subdomain_via_regex():
-    """Any *.averlearning.com over HTTPS is accepted via the regex fallback,
-    so future subdomain rollouts (staging, app, admin) don't require code
-    changes — the regex catches them and the request goes through."""
-    status, headers = _preflight("https://staging.averlearning.com")
-    assert status == 200, f"regex did not allow staging subdomain: status={status}"
-    assert headers.get("access-control-allow-origin") == "https://staging.averlearning.com"
-
-
-def test_cors_preflight_allows_app_subdomain_via_regex():
-    status, headers = _preflight("https://app.averlearning.com")
-    assert status == 200
-    assert headers.get("access-control-allow-origin") == "https://app.averlearning.com"
-
-
-# ── Rejection cases (the safety net does NOT widen us to the open web) ─
-
-
-def test_cors_preflight_rejects_evil_origin():
-    """Random origins must not get the allow-origin header — the regex
-    must be anchored, not substring-match."""
-    status, headers = _preflight("https://evil.com")
-    # The CORS middleware responds 200 either way (preflight short-circuit),
-    # but the allow-origin header must be ABSENT for disallowed origins.
-    assert "access-control-allow-origin" not in headers, (
-        f"non-allowlisted origin leaked an allow-origin header: {headers}"
+def _spawn(environment: str, railway: str | None, allow_localhost: str = "") -> subprocess.Popen:
+    env = dict(os.environ)
+    env.pop("RAILWAY_ENVIRONMENT_NAME", None)
+    # Set explicitly (env beats backend/.env) so a developer's .env cannot
+    # change which deployment the child believes it is.
+    env["ENVIRONMENT"] = environment
+    env["CORS_ALLOW_LOCALHOST"] = allow_localhost
+    if railway is not None:
+        env["RAILWAY_ENVIRONMENT_NAME"] = railway
+    return subprocess.Popen(
+        [sys.executable, "-c", _CHILD, json.dumps(PROBES)],
+        cwd=_BACKEND, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
     )
 
 
-def test_cors_preflight_rejects_typosquatted_lookalike():
-    """`averlearning.com.evil.com` must not match — the regex is anchored
-    at the host boundary."""
-    status, headers = _preflight("https://averlearning.com.evil.com")
-    assert "access-control-allow-origin" not in headers
+def _collect(proc: subprocess.Popen) -> dict:
+    out, err = proc.communicate(timeout=180)
+    assert proc.returncode == 0, err[-2000:]
+    line = next(l for l in out.splitlines() if l.startswith("CORS-RESULT "))
+    return json.loads(line[len("CORS-RESULT "):])
 
 
-def test_cors_preflight_rejects_http_for_averlearning():
-    """The regex pins HTTPS only — an http://averlearning.com (downgrade
-    attack vector) is not accepted."""
-    status, headers = _preflight("http://averlearning.com")
-    assert "access-control-allow-origin" not in headers
+def _allowed(result: dict) -> set[str]:
+    """Origins the live app granted on BOTH the preflight and the actual GET."""
+    granted = set()
+    for origin in PROBES:
+        pre = result["preflight"][origin]
+        got = result["get"][origin]
+        if pre["acao"] is None and got is None:
+            continue
+        assert pre["acao"] == origin and got == origin, (origin, pre, got)
+        assert pre["status"] == 200 and pre["acac"] == "true", (origin, pre)
+        granted.add(origin)
+    return granted
 
 
-def test_cors_actual_get_carries_allow_origin_for_www():
-    """Not just preflight — an actual GET (with an Origin header) must
-    surface the allow-origin header in its response so the browser is
-    happy with the response, not just the preflight."""
-    # The request will be rejected for auth (401 from require_auth), but
-    # CORSMiddleware should still attach the allow-origin header.
-    r = _client().get(
-        "/api/reading/test/T1/attempts/in-progress",
-        headers={"Origin": "https://www.averlearning.com"},
-    )
-    assert r.headers.get("access-control-allow-origin") == "https://www.averlearning.com", (
-        f"actual GET did not carry allow-origin; headers={dict(r.headers)}"
-    )
+@pytest.fixture(scope="module")
+def deployments():
+    # Importing main takes seconds; start every deployment at once.
+    procs = {
+        # Railway production exactly as configured on 2026-10-28: no
+        # ENVIRONMENT variable (config default "development"),
+        # RAILWAY_ENVIRONMENT_NAME injected by Railway.
+        "production": _spawn("development", "production"),
+        "production+flag": _spawn("development", "production", allow_localhost="true"),
+        "staging": _spawn("staging", "staging"),
+        "staging+flag": _spawn("staging", "staging", allow_localhost="1"),
+        "development": _spawn("development", None),
+    }
+    return {name: _collect(proc) for name, proc in procs.items()}
+
+
+# ── production ────────────────────────────────────────────────────────────────
+
+def test_production_grants_exactly_apex_and_www(deployments):
+    production = deployments["production"]
+    assert production["origins"] == [APEX, WWW]
+    assert _allowed(production) == {APEX, WWW}
+
+
+def test_production_rejects_staging_sage_localhost_and_foreign(deployments):
+    granted = _allowed(deployments["production"])
+    for origin in (STAGING, SAGE, *LOCAL, *FOREIGN):
+        assert origin not in granted, origin
+
+
+def test_production_ignores_the_localhost_flag(deployments):
+    """Credentials + plain-http localhost must never meet on production."""
+    assert _allowed(deployments["production+flag"]) == {APEX, WWW}
+
+
+# ── staging ───────────────────────────────────────────────────────────────────
+
+def test_staging_grants_only_its_own_origin(deployments):
+    assert deployments["staging"]["origins"] == [STAGING]
+    assert _allowed(deployments["staging"]) == {STAGING}
+
+
+def test_staging_localhost_needs_the_explicit_flag(deployments):
+    assert _allowed(deployments["staging+flag"]) == {STAGING, *LOCAL}
+
+
+# ── development ───────────────────────────────────────────────────────────────
+
+def test_development_grants_only_localhost(deployments):
+    assert _allowed(deployments["development"]) == set(LOCAL)

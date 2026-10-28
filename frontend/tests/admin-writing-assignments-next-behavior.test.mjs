@@ -130,3 +130,11 @@ test('deadline payload and review use Vietnam wall time regardless of browser ti
   assert.match(COMPONENT, /validation\.deadline \? formatDate\(validation\.deadline\)/);
   assert.match(COMPONENT, /Hạn nộp \(giờ Việt Nam, tuỳ chọn\)/);
 });
+
+test('W-10: the class picker reads the active-class list and says archived classes are not offered', () => {
+  assert.match(COMPONENT, /window\.api\.get<unknown>\('\/admin\/writing\/cohorts'\)/);
+  const picker = COMPONENT.match(/<option value="">Chọn lớp…<\/option>[\s\S]*?<\/label>/)?.[0] || '';
+  assert.match(picker, /cohorts\.map\(\(item\) => <option key=\{item\.id\} value=\{item\.id\}>/);
+  assert.match(picker, /className="awa-field__hint">Chỉ liệt kê lớp đang hoạt động\. Lớp đã lưu trữ không hiện ở đây; khôi phục lớp tại <a href="\/admin\/classes">Quản lý lớp<\/a>/);
+  assert.match(CSS, /\.awa-field__hint\{color:var\(--av-text-secondary\)/);
+});

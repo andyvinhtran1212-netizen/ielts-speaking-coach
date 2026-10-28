@@ -25,6 +25,13 @@ const ROUTE_SCRIPTS = [
   ],
 ];
 
+// Non-critical route libraries that may wait for the window `load` event.
+// Next's `lazyOnload` still injects them after client navigation (it loads on
+// idle once `document.readyState` is complete). Chart.js only draws after the
+// dashboard data arrives and its consumer waits for `window.Chart`
+// (UIA-1028-01: it competed with first paint on mobile /speaking).
+const LAZY_ROUTE_SCRIPTS = new Set(['/vendor/chart.umd.min.js']);
+
 const ORDERED_ROUTE_SCRIPTS = [
   ['app/(authed-admin-reading-preview)/layout.tsx', 3],
   ['app/(authed-admin-writing-grade)/layout.tsx', 3],
@@ -47,11 +54,21 @@ describe('route-scoped independent scripts survive App Router navigation', () =>
       for (const src of sources) {
         assert.ok(source.includes(`src="${src}"`), `${relativePath} must load ${src}`);
       }
+      const lazy = sources.filter(src => LAZY_ROUTE_SCRIPTS.has(src));
       assert.equal(
         (source.match(/strategy="afterInteractive"/g) || []).length,
-        sources.length,
+        sources.length - lazy.length,
         `${relativePath} must use Next Script for every route dependency`,
       );
+      assert.equal(
+        (source.match(/strategy="lazyOnload"/g) || []).length,
+        lazy.length,
+        `${relativePath} may defer only the listed non-critical libraries`,
+      );
+      for (const src of lazy) {
+        const tag = source.slice(source.indexOf(`src="${src}"`)).split('/>')[0];
+        assert.match(tag, /strategy="lazyOnload"/, `${src} must be the deferred script`);
+      }
       assert.doesNotMatch(
         source,
         /<script\s+(?:type="module"\s+)?src=/,

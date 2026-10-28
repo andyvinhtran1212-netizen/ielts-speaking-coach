@@ -16,7 +16,9 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 
+import yaml
 from fastapi import HTTPException
 
 from database import supabase_admin
@@ -31,6 +33,26 @@ VALID_SKILL_AREAS = ("vocab", "grammar")
 # Columns an admin may edit. skill_area is intentionally immutable (re-scoping a
 # topic across areas would orphan its content); id/created_at/updated_at managed.
 _EDITABLE_FIELDS = ("slug", "title", "title_vi", "description", "order", "is_published")
+
+
+# Vocab category manifest — the same source the Vocabulary Wiki reads for its
+# category titles (services/vocab_content.py CATEGORIES_FILE). Not imported from
+# there: importing vocab_content builds its DB-backed singleton.
+_VOCAB_CATEGORIES_FILE = Path(__file__).parent.parent / "content_vocab" / "_categories.yaml"
+
+
+def _vocab_category_title(slug: str) -> str:
+    """Display title for a vocab category slug, using the Vocabulary Wiki rule:
+    the `_categories.yaml` title when present, else the prettified slug
+    (vocab_content._prettify). A missing/unreadable manifest falls back too."""
+    try:
+        raw = yaml.safe_load(_VOCAB_CATEGORIES_FILE.read_text(encoding="utf-8")) or {}
+        for cat in raw.get("categories") or []:
+            if cat.get("slug") == slug and str(cat.get("title") or "").strip():
+                return str(cat["title"]).strip()
+    except Exception as exc:  # noqa: BLE001 — a title must never block the card write
+        logger.warning("[topic] vocab categories manifest unreadable: %s", exc)
+    return slug.replace("-", " ").title()
 
 
 def _now() -> str:
@@ -112,7 +134,9 @@ def resolve_topic_id_for_category(category, skill_area: str = "vocab") -> str | 
     stays in sync — migration 117 backfills existing rows once, but new/edited
     cards would otherwise keep topic_id NULL and drop out of the topic bundle /
     delete-guard. topic.slug mirrors the (already normalized) category, matching
-    the mig-117 backfill. Best-effort: returns None on a blank category or a
+    the mig-117 backfill; a new vocab topic's title is the Vocabulary Wiki's
+    category title (_categories.yaml, else prettified slug), never the raw slug.
+    An existing topic is never retitled (admins own renames). Best-effort: returns None on a blank category or a
     read/write failure (the write still succeeds; the next re-import re-links)."""
     cat = str(category or "").strip()
     if not cat:                       # guard before slugify (slugify("") → placeholder)
@@ -127,9 +151,10 @@ def resolve_topic_id_for_category(category, skill_area: str = "vocab") -> str | 
         ).data
         if rows:
             return rows[0]["id"]
+        title = _vocab_category_title(slug) if skill_area == "vocab" else str(category)
         res = (
             supabase_admin.table("content_topics")
-            .insert({"slug": slug, "skill_area": skill_area, "title": str(category)})
+            .insert({"slug": slug, "skill_area": skill_area, "title": title})
             .execute()
         )
         return res.data[0]["id"] if res.data else None

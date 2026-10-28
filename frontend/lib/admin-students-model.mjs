@@ -42,7 +42,29 @@ export function normalizeStudent(value) {
     current_band_estimate: nullableNumber(row.current_band_estimate),
     target_date: nullableText(row.target_date),
     persona_notes: nullableText(row.persona_notes),
+    // STUDENTARCHIVE-0029: canonical archive state; NULL = active learner.
+    archived_at: nullableText(row.archived_at),
+    archive_reason: nullableText(row.archive_reason),
   };
+}
+
+export function isArchivedStudent(student) {
+  return Boolean(nullableText(object(student).archived_at));
+}
+
+/** DELETE path that archives (never erases) a learner; reason/lock are optional. */
+export function archiveStudentPath(id, { reason = '', deactivateAccount = false } = {}) {
+  const query = new URLSearchParams();
+  const trimmed = text(reason).trim();
+  if (trimmed) query.set('reason', trimmed.slice(0, 500));
+  if (deactivateAccount) query.set('deactivate_account', 'true');
+  const suffix = query.toString();
+  return `/admin/students/${encodeURIComponent(id)}${suffix ? `?${suffix}` : ''}`;
+}
+
+export function restoredCohortCount(receipt) {
+  const ids = object(receipt).restored_cohort_ids;
+  return Array.isArray(ids) ? ids.length : 0;
 }
 
 export function normalizeStudentsPayload(value) {

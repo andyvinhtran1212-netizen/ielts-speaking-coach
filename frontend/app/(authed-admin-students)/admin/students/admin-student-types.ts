@@ -12,6 +12,8 @@ export type Student = {
   current_band_estimate: number | null;
   target_date: string | null;
   persona_notes: string | null;
+  archived_at: string | null;
+  archive_reason: string | null;
   essay_history?: Array<Record<string, unknown>>;
   listening?: Record<string, unknown> | null;
   [key: string]: unknown;
@@ -29,6 +31,12 @@ export type StudentDraft = {
   notes: string;
   error: string;
 };
+
+export type ArchiveDraft = { student: Student; reason: string; deactivateAccount: boolean; error: string };
+
+export type RestoreDraft = { student: Student; reactivateAccount: boolean; error: string };
+
+export type StudentView = 'active' | 'archived';
 
 export type Banner = null | { kind: 'success' | 'error'; text: string };
 

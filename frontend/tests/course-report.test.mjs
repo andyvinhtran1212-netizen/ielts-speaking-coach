@@ -222,8 +222,8 @@ describe('bảng session & revision', () => {
   test('phân biệt full session và revision, hiện số session thật', () => {
     const html = renderAttemptHistory(history);
     assert.match(html, /Session &amp; revision/);
-    assert.match(html, /Full session/);
-    assert.match(html, /Revision/);
+    assert.match(html, /Buổi đầy đủ/);
+    assert.match(html, /Ôn lại/);
     assert.match(html, /data-label="Session">10/);
   });
 

@@ -5,8 +5,10 @@
 const { test, expect } = require('@playwright/test');
 
 test('pinned synthetic WebKit records its MediaRecorder capability', async ({ page }, testInfo) => {
-  await page.goto('/next-probe');
-  await expect(page.locator('h1')).toHaveText('next-probe');
+  // Any always-public Next page works; `/next-probe` is a 404 in production
+  // builds since U-03.
+  await page.goto('/login');
+  await expect(page.locator('.lx-shell')).toBeVisible();
   const capability = await page.evaluate(() => typeof window.MediaRecorder);
   testInfo.annotations.push({ type: 'mediarecorder', description: capability });
 

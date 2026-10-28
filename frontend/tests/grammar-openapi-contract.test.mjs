@@ -91,6 +91,9 @@ test('MASTER30 diagnostic success bodies are modeled and consumed from OpenAPI',
 });
 
 test('report action follows server-owned assigned versus self-serve identity', () => {
-  assert.match(DIAGNOSTIC, /requestedView === 'report'\) await showReport\(requestedSession\)/);
+  // BL-08: the requested session is opened only for the account the page
+  // booted with (`sessionId`), and replies are tagged with the boot generation.
+  assert.match(DIAGNOSTIC, /const sessionId = switched \? '' : requestedSession;/);
+  assert.match(DIAGNOSTIC, /requestedView === 'report'\) await showReport\(sessionId, gen\)/);
   assert.match(DIAGNOSTIC, /report\.assigned \? <a[^>]+href="\/my-class">Quay lại My Class<\/a> : <a[^>]+href="\/grammar-checkup">Làm lượt mới<\/a>/);
 });

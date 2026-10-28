@@ -32,7 +32,7 @@ from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user
 from routers.sessions import require_speaking_entitlement
-from services import ai_usage_logger
+from services import activation_gate, ai_usage_logger
 from services.rate_limit import _utc_today_start, _utc_tomorrow_start
 from services.tts_audio import synthesize_mp3
 
@@ -182,6 +182,10 @@ async def text_to_speech(
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
 
+    # W-03 — activation before any lookup: an inactive account gets the
+    # activation 403 whether or not session_id exists (the router gate already
+    # confirmed this request, so this costs no query).
+    activation_gate.ensure_account_active(user_id)
     require_speaking_entitlement(user_id, _load_owned_session(user_id, body.session_id))
 
     if not settings.OPENAI_API_KEY:

@@ -1,0 +1,329 @@
+{
+ "blocks": {
+  "80-days:day-37:part-1:block-1": {
+   "block_id": "80-days:day-37:part-1:block-1",
+   "description": "",
+   "display_kind": "practice",
+   "images": [
+    {
+     "alt_vi": "Lời dẫn cùng đầy đủ lựa chọn 1–7.",
+     "asset_id": "80-days:day-37:asset:sentences-q1-7",
+     "height": 1390,
+     "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/8dd6add02ab4be7bc1b765af52d2c9f4c03bdcbf6148d35b46e8bd360bbd5d5e.png",
+     "width": 1230
+    }
+   ],
+   "instruction": {
+    "select_count": 1,
+    "source_en": "Choose the best answer according to what you have heard.",
+    "student_vi": "Chọn ý phù hợp với câu ngắn.",
+    "word_limit": null
+   },
+   "item_ids": [
+    "80-days:day-37:main:q-01",
+    "80-days:day-37:main:q-02",
+    "80-days:day-37:main:q-03",
+    "80-days:day-37:main:q-04",
+    "80-days:day-37:main:q-05",
+    "80-days:day-37:main:q-06",
+    "80-days:day-37:main:q-07"
+   ],
+   "kind": "single_choice",
+   "part_id": "80-days:day-37:part-1",
+   "shared_options": [],
+   "source_question_numbers": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "study_available": false
+  },
+  "80-days:day-48:resource:part-time-story": {
+   "block_id": "80-days:day-48:resource:part-time-story",
+   "description": "Chuyện tham khảo: Anita tìm việc bán thời gian",
+   "display_kind": "source_study",
+   "images": [
+    {
+     "alt_vi": "Toàn chuyện Anita tìm việc bán thời gian đến lời chào cuối.",
+     "asset_id": "80-days:day-48:asset:part-time-story",
+     "height": 920,
+     "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/87dd1a15350d28b68b6b1edaa32a4cd77bef66c66bcd2063b21ce9568af5628b.png",
+     "width": 1210
+    }
+   ],
+   "instruction": {
+    "source_en": "",
+    "student_vi": "Tài liệu tự học đã có nội dung giải; không tính câu hỏi hoặc điểm luyện nghe."
+   },
+   "item_ids": [],
+   "kind": "source_resource",
+   "part_id": "80-days:day-48:resource:part-time-story:resource",
+   "shared_options": [],
+   "source_question_numbers": [],
+   "study_available": true
+  },
+  "80-days:day-63:story-1": {
+   "block_id": "80-days:day-63:story-1",
+   "description": "Câu chuyện nguồn · đăng ký homestay",
+   "display_kind": "source_study",
+   "images": [
+    {
+     "alt_vi": "Câu chuyện nguồn · đăng ký homestay",
+     "asset_id": "80-days:day-63:story-image-1",
+     "height": 1195,
+     "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/70e81d7023692b7059f11bce046fa98de814d701a8783219c076c6c1c42ff790.png",
+     "width": 1183
+    }
+   ],
+   "instruction": {
+    "source_en": "雅思全真听力——故事版",
+    "student_vi": "Tài liệu tự học đã có nội dung giải; không tính câu hỏi hoặc điểm luyện nghe."
+   },
+   "item_ids": [],
+   "kind": "solved_story",
+   "part_id": "80-days:day-63:story-1:resource",
+   "shared_options": [],
+   "source_question_numbers": [],
+   "study_available": true
+  },
+  "80-days:day-64:story-1": {
+   "block_id": "80-days:day-64:story-1",
+   "description": "Câu chuyện nguồn · khóa đào tạo trọng tài",
+   "display_kind": "source_study",
+   "images": [
+    {
+     "alt_vi": "Câu chuyện nguồn · khóa đào tạo trọng tài",
+     "asset_id": "80-days:day-64:story-image-1",
+     "height": 910,
+     "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/5ce210dafdef4cbfdca672142e37c6cd5c8e78ba8b7010eeabe4f4222c32b7e0.png",
+     "width": 1165
+    }
+   ],
+   "instruction": {
+    "source_en": "雅思全真听力——故事版",
+    "student_vi": "Tài liệu tự học đã có nội dung giải; không tính câu hỏi hoặc điểm luyện nghe."
+   },
+   "item_ids": [],
+   "kind": "solved_story",
+   "part_id": "80-days:day-64:story-1:resource",
+   "shared_options": [],
+   "source_question_numbers": [],
+   "study_available": true
+  },
+  "80-days:day-66:story-1": {
+   "block_id": "80-days:day-66:story-1",
+   "description": "Câu chuyện nguồn · hỏi kinh nghiệm du lịch",
+   "display_kind": "source_study",
+   "images": [
+    {
+     "alt_vi": "Câu chuyện nguồn · hỏi kinh nghiệm du lịch",
+     "asset_id": "80-days:day-66:story-image-1",
+     "height": 778,
+     "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/272489b17054a7ec815c4fa57ca2de022c63eb8e9e8cbd90fe7066f9b945059c.png",
+     "width": 1178
+    }
+   ],
+   "instruction": {
+    "source_en": "雅思全真听力——故事版",
+    "student_vi": "Tài liệu tự học đã có nội dung giải; không tính câu hỏi hoặc điểm luyện nghe."
+   },
+   "item_ids": [],
+   "kind": "solved_story",
+   "part_id": "80-days:day-66:story-1:resource",
+   "shared_options": [],
+   "source_question_numbers": [],
+   "study_available": true
+  },
+  "80-days:day-68:story-1": {
+   "block_id": "80-days:day-68:story-1",
+   "description": "Câu chuyện nguồn · lập đài phát thanh sinh viên",
+   "display_kind": "source_study",
+   "images": [
+    {
+     "alt_vi": "Câu chuyện nguồn · lập đài phát thanh sinh viên",
+     "asset_id": "80-days:day-68:story-image-1",
+     "height": 840,
+     "storage_path": "source-collections/80-days-listening-source-v1/29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841/98ea28a67eb72b81c76d318046164431584ca5d85380895c17595b743a1e6132.png",
+     "width": 1175
+    }
+   ],
+   "instruction": {
+    "source_en": "雅思全真听力——故事版",
+    "student_vi": "Tài liệu tự học đã có nội dung giải; không tính câu hỏi hoặc điểm luyện nghe."
+   },
+   "item_ids": [],
+   "kind": "solved_story",
+   "part_id": "80-days:day-68:story-1:resource",
+   "shared_options": [],
+   "source_question_numbers": [],
+   "study_available": true
+  }
+ },
+ "practice_questions": {
+  "80-days:day-37:part-1:block-1": [
+   {
+    "choice_label_only": false,
+    "fields": [],
+    "options": {
+     "A": "The speaker believes that Tom has driven carefully.",
+     "B": "The speaker thinks that Tom has signaled in time.",
+     "C": "The speaker thinks that Tom has ruined his car.",
+     "D": "The speaker thinks his car is nothing important."
+    },
+    "prompt": "Chọn phương án phù hợp nhất với câu nghe được.",
+    "q_num": 1,
+    "response_type": "single_choice",
+    "selection_count": 1,
+    "source_block_id": "80-days:day-37:part-1:block-1",
+    "source_display_number": "1",
+    "source_item_id": "80-days:day-37:main:q-01",
+    "word_limit": null
+   },
+   {
+    "choice_label_only": false,
+    "fields": [],
+    "options": {
+     "A": "It was just an hour ago that the speaker met Mr. Brown.",
+     "B": "The speaker forgot to write down the phone number.",
+     "C": "The speaker forgot his name.",
+     "D": "The speaker could not remember numbers."
+    },
+    "prompt": "Chọn phương án phù hợp nhất với câu nghe được.",
+    "q_num": 2,
+    "response_type": "single_choice",
+    "selection_count": 1,
+    "source_block_id": "80-days:day-37:part-1:block-1",
+    "source_display_number": "2",
+    "source_item_id": "80-days:day-37:main:q-02",
+    "word_limit": null
+   },
+   {
+    "choice_label_only": false,
+    "fields": [],
+    "options": {
+     "A": "The man is a forgetful person.",
+     "B": "The man has a very good typewriter.",
+     "C": "The man can have the typewriter later.",
+     "D": "The typewriter is not a new one."
+    },
+    "prompt": "Chọn phương án phù hợp nhất với câu nghe được.",
+    "q_num": 3,
+    "response_type": "single_choice",
+    "selection_count": 1,
+    "source_block_id": "80-days:day-37:part-1:block-1",
+    "source_display_number": "3",
+    "source_item_id": "80-days:day-37:main:q-03",
+    "word_limit": null
+   },
+   {
+    "choice_label_only": false,
+    "fields": [],
+    "options": {
+     "A": "The speaker missed the phone because she was not at home.",
+     "B": "The speaker missed the phone because she didn't hear the telephone ring.",
+     "C": "The speaker missed the phone because she didn't want to answer.",
+     "D": "The speaker missed the phone because she was sleeping in her home."
+    },
+    "prompt": "Chọn phương án phù hợp nhất với câu nghe được.",
+    "q_num": 4,
+    "response_type": "single_choice",
+    "selection_count": 1,
+    "source_block_id": "80-days:day-37:part-1:block-1",
+    "source_display_number": "4",
+    "source_item_id": "80-days:day-37:main:q-04",
+    "word_limit": null
+   },
+   {
+    "choice_label_only": false,
+    "fields": [],
+    "options": {
+     "A": "Mary may be late.",
+     "B": "Mary won't come because she is busy.",
+     "C": "Mary will come at 7:00.",
+     "D": "Mary will come at 8:00."
+    },
+    "prompt": "Chọn phương án phù hợp nhất với câu nghe được.",
+    "q_num": 5,
+    "response_type": "single_choice",
+    "selection_count": 1,
+    "source_block_id": "80-days:day-37:part-1:block-1",
+    "source_display_number": "5",
+    "source_item_id": "80-days:day-37:main:q-05",
+    "word_limit": null
+   },
+   {
+    "choice_label_only": false,
+    "fields": [],
+    "options": {
+     "A": "The speaker was not willing to buy because she didn't like the color.",
+     "B": "The speaker was not willing to buy because it was too small.",
+     "C": "The speaker was not willing to buy because it was a little expensive.",
+     "D": "The speaker was not willing to buy because the size did not suit her."
+    },
+    "prompt": "Chọn phương án phù hợp nhất với câu nghe được.",
+    "q_num": 6,
+    "response_type": "single_choice",
+    "selection_count": 1,
+    "source_block_id": "80-days:day-37:part-1:block-1",
+    "source_display_number": "6",
+    "source_item_id": "80-days:day-37:main:q-06",
+    "word_limit": null
+   },
+   {
+    "choice_label_only": false,
+    "fields": [],
+    "options": {
+     "A": "Too many people are smoking.",
+     "B": "The window is bent.",
+     "C": "The room is a smoking house.",
+     "D": "The room is full of people. 家网"
+    },
+    "prompt": "Chọn phương án phù hợp nhất với câu nghe được.",
+    "q_num": 7,
+    "response_type": "single_choice",
+    "selection_count": 1,
+    "source_block_id": "80-days:day-37:part-1:block-1",
+    "source_display_number": "7",
+    "source_item_id": "80-days:day-37:main:q-07",
+    "word_limit": null
+   }
+  ]
+ },
+ "source_manifest_sha256": "29819c11a65c71762d7912c919c459df306ed61209a36311a8e23c0d21f83841",
+ "study": {
+  "80-days:day-48:resource:part-time-story": {
+   "description": "Anita học năm ba; chuyện nói trường không cho người dưới năm hai làm兼职. Có việc Sports Center, cleaner, library; cô thích library. Cô ở B659, không điện thoại phòng nên nhờ quản lý ký túc báo. Một chỗ office assistant nhận điện thoại, phỏng vấn thứ Sáu 11:30. Đây là quy định và tình huống nguồn cũ, không chính sách trường/visa hiện hành. Giữ nguyên chuyện không có câu hỏi.",
+   "items": [],
+   "resource_only": true,
+   "transcript": []
+  },
+  "80-days:day-63:story-1": {
+   "description": "Tóm tắt biên tập: Keiko đăng ký Advanced English kéo dài 4 tháng, nhưng chỉ cần homestay 5 tuần rồi tự tìm chỗ ở. Cô muốn gia đình không hút thuốc, không uống rượu và không có thú cưng; thích hải sản và tennis. Cơ quan hẹn trả lời trong chiều nay. Phân biệt thời lượng khóa học với thời gian ở homestay.\n\nCâu chuyện đã có nội dung trả lời trong sách. Đây là tài liệu đọc tự học, không có audio của ngày hoặc lượt làm độc lập.",
+   "items": [],
+   "resource_only": true,
+   "transcript": []
+  },
+  "80-days:day-64:story-1": {
+   "description": "Tóm tắt biên tập: một sinh viên học khóa trọng tài tăng cường cuối tuần, từ 8 giờ sáng thứ Bảy đến 6 giờ chiều Chủ nhật. Có ba lớp, mỗi lớp 20 người; nhiều học viên là cựu cầu thủ. Anh không định làm trọng tài vì thu nhập thấp và công việc mệt; mục tiêu là thuận lợi hơn khi xin vào trường thể thao. Câu cuối của sách đổi sang cách gọi chứng chỉ huấn luyện viên; giữ nguyên sự khác biệt này trong tài liệu nguồn.\n\nCâu chuyện đã có nội dung trả lời trong sách. Đây là tài liệu đọc tự học, không có audio của ngày hoặc lượt làm độc lập.",
+   "items": [],
+   "resource_only": true,
+   "transcript": []
+  },
+  "80-days:day-66:story-1": {
+   "description": "Tóm tắt truyện nguồn: Helen hỏi Ann về chuyến đi châu Phi. Trong lời kể, visa thường mất không quá 7 ngày, nhanh thì 2 ngày; Ann còn nhắc injection, yellow fever, tablet và walking boots. Quà gợi ý trong truyện là CD; phương tiện thanh toán là traveler's check hoặc credit card. Sách Silent Island và VCD Rain Forest được nhắc để giải trí trên đường. Các chi tiết này là nội dung câu chuyện trong sách, không phải hướng dẫn du lịch hoặc y tế hiện hành.\n\nCâu chuyện đã có nội dung trả lời trong sách. Đây là tài liệu đọc tự học, không có audio của ngày hoặc lượt làm độc lập.",
+   "items": [],
+   "resource_only": true,
+   "transcript": []
+  },
+  "80-days:day-68:story-1": {
+   "description": "Tóm tắt biên tập: hai sinh viên bàn việc lập đài phát thanh. Họ định tự góp vốn trước rồi tăng lượng người nghe để thu hút tài trợ, tìm cộng sự có ý tưởng và đĩa nhạc. Nội dung riêng của đài là nhạc rock mới, ca sĩ và quá trình nổi tiếng. Một người tìm văn phòng trước tháng 12, người kia mua thiết bị; họ hẹn bàn lịch chi tiết sau buổi học trưa.\n\nCâu chuyện đã có nội dung trả lời trong sách. Đây là tài liệu đọc tự học, không có audio của ngày hoặc lượt làm độc lập.",
+   "items": [],
+   "resource_only": true,
+   "transcript": []
+  }
+ }
+}

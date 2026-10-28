@@ -181,7 +181,7 @@ Những cụm này trông giống câu nhưng không phải — chúng thiếu c
 
 ---
 
-## LOẠI 5: FRAGMENT DO VIẾT TẮCÂU QUÁ NHANH
+## LOẠI 5: FRAGMENT DO TÁCH CÂU QUÁ NHANH
 
 Đôi khi fragment xuất hiện khi người viết tách một phần của câu ra để nhấn mạnh — nhưng phần đó lại không đứng được một mình.
 
