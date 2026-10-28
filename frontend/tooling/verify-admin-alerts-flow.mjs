@@ -70,7 +70,16 @@ check('chỉ session thật tạo liên kết điều tra', await page.locator('
 
 await page.getByRole('button', { name: 'Response', exact: true }).click();
 check('client filter đồng bộ URL và chỉ giữ đúng nhóm', new URL(page.url()).searchParams.get('scope') === 'grading' && await page.getByText('Response chưa chấm được', { exact: true }).count() >= 1 && await page.getByText('Payload <img src=x onerror=alert(1)>', { exact: true }).count() === 0);
+// "Cập nhật …" is already visible from the first load, so it cannot prove the
+// refresh happened. Arm on the refetch response before clicking, then wait for
+// the button to leave its loading state so later checks see settled UI.
+const refreshRead = page.waitForResponse((response) => {
+  const url = new URL(response.url());
+  return url.pathname === '/admin/alerts' && url.search === '?limit=30';
+});
 await page.getByRole('button', { name: 'Làm mới', exact: true }).click();
+await refreshRead;
+await page.getByRole('button', { name: 'Làm mới', exact: true }).waitFor({ state: 'visible' });
 await page.getByText(/Cập nhật/).waitFor({ state: 'visible' });
 check('refresh đọc lại canonical endpoint', alertsRead >= 2);
 check('mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
