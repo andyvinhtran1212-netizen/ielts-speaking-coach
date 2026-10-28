@@ -6,9 +6,9 @@
    "block_id": "80-days:day-01:part-1:block-2",
    "field": "instruction.source_en",
    "source_sha256": "80eab37fc26d7b4dd45e75ce49658fea73fc7aec4d7d5b9103f30162c37d5608",
-   "find": "(同义词)",
-   "replace": "(từ đồng nghĩa)",
-   "note": "Chinese gloss of \"synonym\"; the learner gloss is Vietnamese."
+   "find": " (同义词)",
+   "replace": "",
+   "note": "Chinese gloss of \"synonym\", dropped with its leading space; student_vi already explains the task."
   },
   {
    "block_id": "80-days:day-37:part-1:block-1",
@@ -32,32 +32,32 @@
    "field": "instruction.source_en",
    "source_sha256": "f1ec0581a1c6eeae5c608c8b0926bb9dcea15ec5778172c6c8472421bda5fd0b",
    "find": "雅思全真听力——故事版",
-   "replace": "IELTS Authentic Listening — Story Edition",
-   "note": "Book series heading, translated into English."
+   "replace": "Story-based listening practice",
+   "note": "Third-party book series heading; described by content instead of translated, which would promise authentic tests (C3)."
   },
   {
    "block_id": "80-days:day-64:story-1",
    "field": "instruction.source_en",
    "source_sha256": "f1ec0581a1c6eeae5c608c8b0926bb9dcea15ec5778172c6c8472421bda5fd0b",
    "find": "雅思全真听力——故事版",
-   "replace": "IELTS Authentic Listening — Story Edition",
-   "note": "Book series heading, translated into English."
+   "replace": "Story-based listening practice",
+   "note": "Third-party book series heading; described by content instead of translated, which would promise authentic tests (C3)."
   },
   {
    "block_id": "80-days:day-66:story-1",
    "field": "instruction.source_en",
    "source_sha256": "f1ec0581a1c6eeae5c608c8b0926bb9dcea15ec5778172c6c8472421bda5fd0b",
    "find": "雅思全真听力——故事版",
-   "replace": "IELTS Authentic Listening — Story Edition",
-   "note": "Book series heading, translated into English."
+   "replace": "Story-based listening practice",
+   "note": "Third-party book series heading; described by content instead of translated, which would promise authentic tests (C3)."
   },
   {
    "block_id": "80-days:day-68:story-1",
    "field": "instruction.source_en",
    "source_sha256": "f1ec0581a1c6eeae5c608c8b0926bb9dcea15ec5778172c6c8472421bda5fd0b",
    "find": "雅思全真听力——故事版",
-   "replace": "IELTS Authentic Listening — Story Edition",
-   "note": "Book series heading, translated into English."
+   "replace": "Story-based listening practice",
+   "note": "Third-party book series heading; described by content instead of translated, which would promise authentic tests (C3)."
   }
  ]
 }
