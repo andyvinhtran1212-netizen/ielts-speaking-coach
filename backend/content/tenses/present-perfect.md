@@ -133,7 +133,7 @@ Present Perfect dùng khi hành động xảy ra trong quá khứ **nhưng vẫn
 
 Present Perfect là thì gây lỗi nhiều nhất trong IELTS Speaking vì:
 - Tiếng Việt **không có thì này** — "Tôi đã ăn" có thể là Past Simple hoặc Present Perfect tuỳ ngữ cảnh
-- Người học hay dùng Past Simple khi cần Present Perfect: ❌ "I visited Vietnam three times" (nếu tôi vẫn còn đây hoặc có thể visit lại)
+- Người học hay dùng Past Simple khi cần Present Perfect: đếm trải nghiệm tính tới hiện tại là ✅ "I **have visited** Vietnam three times"; còn khoảng quá khứ đã kết thúc thì dùng Past Simple: "I **visited** Vietnam three times between 2018 and 2020". Việc còn ở đó hay có thể quay lại không tự quyết định thì
 - Hay dùng Present Perfect khi cần Past Simple: ❌ "I have visited Vietnam last year"
 
 Trong IELTS Speaking:

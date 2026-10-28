@@ -210,6 +210,8 @@ Khi viết IELTS, tránh lặp lại "because / because of" — thay bằng các
 <!-- anchor: because-vs-because-of.loi-thuong-gap -->
 ## Lỗi thường gặp
 
+Tiếng Việt chỉ có 'vì/bởi vì' cho cả danh từ lẫn mệnh đề, nên người học hay viết 'because of + mệnh đề' hoặc 'because + danh từ'.
+
 ### Lỗi 1: "Because of" + mệnh đề
 
 - ❌ She left early **because of** she was tired.

@@ -368,6 +368,7 @@ at least in part... / largely, though not entirely...
 2. "Governments must ban fast food advertising."
 3. "Higher education guarantees a better salary."
 4. "Social media causes depression."
+5. "Online learning is better than classroom learning."
 
 ### Gợi ý đáp án
 
@@ -375,6 +376,7 @@ at least in part... / largely, though not entirely...
 2. “There may be a case for **banning** fast-food advertising.” *(giữ biện pháp cấm; đổi sang regulate hoặc chỉ nhắm trẻ em là thay chính sách/phạm vi)*
 3. "Higher education **tends to** be associated with better long-term earnings, **although** this **varies considerably** depending on the field of study and individual circumstances."
 4. "Heavy use of social media **appears to** be linked to higher rates of anxiety and depression **in certain groups**, **particularly** adolescents — **although** the causal relationship is still debated."
+5. "Online learning **may be** more effective than classroom learning **for some students**, **particularly** those who need flexible schedules."
 
 ---
 

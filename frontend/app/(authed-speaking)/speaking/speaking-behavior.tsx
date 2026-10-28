@@ -387,7 +387,7 @@ function getStarter(st: State, api: any) {
 
 function showStartError(errEl: HTMLElement | null, error: any, st: State, slot: string) {
   if (!errEl || st.dead) return;
-  errEl.textContent = 'Lỗi: ' + (error?.message || 'Không thể tạo session.');
+  errEl.textContent = 'Lỗi: ' + (error?.message || 'Không thể tạo buổi luyện.');
   if (!error?.canDiscardStart || !st.starter) return;
   const button = document.createElement('button');
   button.type = 'button';
@@ -525,7 +525,7 @@ async function startFromCustomQuestions(opts: {
   };
   if (btn) {
     btn.disabled = true;
-    btn.textContent = aiGenLikely ? 'Đang tạo cue card...' : 'Đang tạo session...';
+    btn.textContent = aiGenLikely ? 'Đang tạo cue card...' : 'Đang tạo buổi luyện...';
   }
 
   try {
@@ -555,7 +555,7 @@ async function startFromTopic(opts: {
 }) {
   const { topic, mode, part, errorId, btn, idleLabel, api, st } = opts;
   const errEl = $(errorId);
-  if (btn) { btn.disabled = true; btn.textContent = 'Đang tạo session...'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Đang tạo buổi luyện...'; }
   try {
     const { sessionId: sid } = await getStarter(st, api).start({
       slot: 'topic', intent: { mode, part, topic: topic.trim() },

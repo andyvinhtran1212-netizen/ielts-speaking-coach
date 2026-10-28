@@ -76,7 +76,7 @@ function renderHistory(sessions: any[], total: number | undefined, st: HistorySt
   // sẽ thấy mãi con số "20 sessions".
   const count = typeof total === 'number' ? total : visible.length;
   const cnt = $('history-count');
-  if (cnt) cnt.textContent = `${count} sessions`;
+  if (cnt) cnt.textContent = `${count} buổi`;
   $('history-skeleton')?.classList.add('hidden');
   $('history-error')?.classList.add('hidden');
 
@@ -172,7 +172,7 @@ function renderHistoryFilterInfo(total: number, filtered: boolean) {
   const el = $('history-filter-info');
   if (!el) return;
   if (filtered) {
-    el.textContent = 'Tìm thấy ' + total + ' session';
+    el.textContent = 'Tìm thấy ' + total + ' buổi';
     el.classList.remove('hidden');
   } else {
     el.textContent = '';
@@ -211,7 +211,7 @@ async function loadHistory(st: HistoryState, dead: () => boolean) {
     $('history-empty')?.classList.add('hidden');
     $('history-error')?.classList.remove('hidden');
     const count = $('history-count');
-    if (count) count.textContent = '— sessions';
+    if (count) count.textContent = '— buổi';
     renderHistoryPagination(0, 0);
     renderHistoryFilterInfo(0, filtered);
     return;

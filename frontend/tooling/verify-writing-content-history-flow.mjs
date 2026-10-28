@@ -8,12 +8,13 @@ if (base.protocol !== 'http:' || !['localhost', '127.0.0.1', '[::1]'].includes(b
   || base.pathname !== '/' || base.search || base.hash || base.username || base.password) throw new Error('Loopback Next origin required');
 const API = 'https://api.writing-content.invalid', USER = '11111111-1111-4111-8111-111111111111';
 const TIP = '22222222-2222-4222-8222-222222222222', OTHER = '33333333-3333-4333-8333-333333333333';
-const PROMPT = '44444444-4444-4444-8444-444444444444';
+const PROMPT = '44444444-4444-4444-8444-444444444444', BOTH = '55555555-5555-4555-8555-555555555555';
 const routePath = '/writing/dashboard';
 const tips = [
   ...Array.from({ length: 24 }, (_, i) => ({ id: `library-${i}`, title: `Library tip ${i}`, body_markdown: 'Library content.', task_type: 'task_2', content_type: 'tip', type_data: {} })),
   { id: TIP, title: 'Canonical Task 2 tip', body_markdown: 'Canonical tip body with [a reference](https://example.test/reference).', task_type: 'task_2', content_type: 'tip', type_data: {} },
   { id: OTHER, title: 'Canonical Task 1 knowledge', body_markdown: 'Different canonical body.', task_type: 'task_1', content_type: 'knowledge', type_data: {} },
+  { id: BOTH, title: 'Canonical both-task knowledge', body_markdown: 'Applies to Task 1 and Task 2.', task_type: 'both', content_type: 'knowledge', type_data: {} },
 ];
 const prompts = [{ id: PROMPT, title: 'Canonical prompt', prompt_text: 'Canonical prompt body: discuss learning.', task_type: 'task2', difficulty: 'medium' }];
 let total = 0;
@@ -153,6 +154,26 @@ try {
     check('FR003/005: shared Escape closes prompt and restores prompt trigger', await f.page.evaluate(id => document.activeElement?.getAttribute('data-pb-id') === id, PROMPT));
     await f.page.goBack(); await f.page.waitForURL('**/__writing-before');
     check('FR002: second Back follows original document history');
+    await f.finish();
+  }
+  {
+    // W-09: a 'both' ("Cả hai") tip belongs under Task 1 AND Task 2; the type chip still ANDs.
+    const f = await fixture(); await f.go();
+    await f.page.locator(`[data-tip-id="${TIP}"]`).waitFor();
+    const visible = () => f.page.locator('#tips-list [data-tip-id]').evaluateAll(cards => cards.map(card => card.getAttribute('data-tip-id')));
+    await f.page.locator('[data-tip-filter="task_1"]').click();
+    check('W-09: Task 1 filter shows task_1 + both tips, no task_2', JSON.stringify(await visible()) === JSON.stringify([OTHER, BOTH]));
+    await f.page.locator('[data-tip-filter="task_2"]').click();
+    const task2 = await visible();
+    check('W-09: Task 2 filter shows task_2 + both tips, no task_1', task2.includes(TIP) && task2.includes(BOTH) && !task2.includes(OTHER)
+      && task2.length === tips.filter(tip => tip.task_type !== 'task_1').length);
+    await f.page.locator('[data-tip-filter="both"]').click();
+    check('W-09: Cả hai filter still shows only both-tagged tips', JSON.stringify(await visible()) === JSON.stringify([BOTH]));
+    await f.page.locator('[data-tip-filter="task_2"]').click();
+    await f.page.locator('[data-tip-type-filter="knowledge"]').click();
+    check('W-09: both tip under Task 2 still respects the content-type chip', JSON.stringify(await visible()) === JSON.stringify([BOTH]));
+    await f.page.locator(`[data-tip-id="${BOTH}"]`).click(); await f.ready();
+    check('W-09: both tip opens from the Task 2 filter', await f.modal.getByText('Canonical both-task knowledge').count() === 1);
     await f.finish();
   }
   {

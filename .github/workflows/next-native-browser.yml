@@ -578,6 +578,7 @@ on:
       - 'frontend/tooling/verify-mobile-layout-flow.mjs'
       - 'frontend/components/authed-shell.tsx'
       - 'frontend/components/supabase-runtime-boundary.tsx'
+      - 'frontend/tooling/verify-chrome-staff-link-race-flow.mjs'
       - 'frontend/public/js/theme-toggle.js'
       - 'frontend/public/js/user-pill.js'
       - 'frontend/public/js/components/perf-hints.js'
@@ -849,6 +850,9 @@ jobs:
       # điền sau khi api.js về, khách ở Grammar không thấy "·" / "…".
       - name: Kiểm header hiện ngay, không chờ runtime Supabase
         run: node tooling/verify-chrome-early-render-flow.mjs "http://localhost:$TEST_PORT"
+
+      - name: Kiểm link "Trang giảng viên" của staff khi trang gọi setUser trước chrome
+        run: node tooling/verify-chrome-staff-link-race-flow.mjs "http://localhost:$TEST_PORT"
 
       # PC-J13 (U-05/U-08/U-18): ở 360/390px breadcrumb sticky + thanh CTA khách
       # che ~1/5 bài grammar, nút CTA teal mất tương phản ở theme sáng, /profile

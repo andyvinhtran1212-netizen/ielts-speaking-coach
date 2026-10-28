@@ -439,7 +439,7 @@ const TEMPLATE = /* html */ `
     <div class="nav-links" id="mobile-nav-menu">
       <a href="/home" data-tab="home">Trang chủ</a>
       <a href="/writing/dashboard" data-tab="writing">Writing</a>
-      <a href="/my-class" data-tab="class">MY CLASS</a>
+      <a href="/my-class" data-tab="class">Lớp học</a>
       <a href="/speaking" data-tab="speaking">Speaking</a>
       <a href="/listening" data-tab="listening">Listening</a>
       <a href="/grammar" data-tab="grammar">Grammar</a>
@@ -730,9 +730,10 @@ export class AverChrome extends HTMLElement {
    * Called from the auto-populate path, which already runs only when:
    *   • a real Supabase session exists (logged-out → never reaches here →
    *     link is never rendered, mirroring the backend require_instructor guard), and
-   *   • the page hasn't taken over the pill (setUser → _userOverride short-
-   *     circuits the whole auto path) — so speaking.html, which passes its own
-   *     /auth/me role into setUser, does NOT trigger a second fetch here.
+   *   • the page hasn't supplied the role (setUser({role}) short-circuits the
+   *     whole auto path; setUser({name}) alone does not, Q-82) — so
+   *     speaking.html, which passes its own /auth/me role into setUser, does
+   *     NOT trigger a second fetch here.
    *
    * Fail-closed: any non-OK response or network/parse error leaves the link
    * unrendered and never breaks the chrome. Uses a raw fetch (NOT window.api.get,
