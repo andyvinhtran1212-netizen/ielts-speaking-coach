@@ -198,6 +198,8 @@ Even though + subject + verb, [main clause]
 <!-- anchor: despite-vs-in-spite-of.loi-thuong-gap -->
 ## Lỗi thường gặp
 
+'Mặc dù' trong tiếng Việt đi được với cả danh từ lẫn mệnh đề, nên người học hay viết despite + mệnh đề; 'despite of' xuất hiện do nhầm với in spite of.
+
 ### Lỗi 1: "Despite" + mệnh đề (không có "the fact that")
 
 - ❌ Despite **she was** tired, she kept working.

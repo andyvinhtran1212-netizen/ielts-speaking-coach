@@ -310,6 +310,20 @@ Collocations là **memorize**, không phải reason. Strategy:
 >
 > "**The impact of** technology on families is **a topic worth discussing**. **On one hand**, video calls help families **stay in touch with** each other across distances. **On the other hand**, excessive screen time can **interfere with** quality time together. So **it depends on** how families **choose to** use it."
 
+## Bài tập luyện
+
+### Điền giới từ
+
+1. It depends ___ the weather.
+2. She's married ___ a doctor.
+3. Let's discuss ___ this issue.
+4. I'm good ___ maths.
+5. I'm afraid ___ snakes.
+
+### Đáp án
+
+1. on | 2. to | 3. Ø | 4. at | 5. of
+
 ## Tóm tắt nhanh
 
 - Verb + preposition: must-memorize 30 cái cho IELTS (depend on, listen to, look forward to, ...)
