@@ -207,10 +207,17 @@ _BACK_REFERENCE = re.compile(
 )
 _PASSIVE_BEFORE = re.compile(r"\b(?:is|are|was|were|be|been|being|gets?|got|được|bị)(?:\s+\S+){0,2}\s*$",
                              re.I)
+# Adverbs alone are not an object: "và dùng rất hiệu quả" has none, but
+# "and contains very clear ideas" does (Codex #1796), so skip them and look
+# at what follows. Prepositions and "that" still leave the verb objectless.
+_ADVERBS = re.compile(
+    r"(?:\s+(?:well|very|really|quite|so|too|also|more|most|again|here|[a-z]+ly|"
+    r"tốt|rất|khá|hiệu quả|chính xác|hợp lý|tự nhiên|linh hoạt|phù hợp|đúng|lại|khéo|hay|"
+    r"hơn|nhất|nữa|cũng|cực kỳ|vô cùng|thật sự|thực sự|thật)\b)+", re.I,
+)
 _NO_OBJECT = re.compile(
-    r"\s*(?:$|[\x00,:()]|(?:that|well|very|really|effectively|clearly|accurately|correctly|naturally|"
-    r"appropriately|precisely|properly|skil?fully|nicely|again|directly|exactly|throughout|here|"
-    r"tốt|rất|khá|hiệu quả|chính xác|hợp lý|tự nhiên|linh hoạt|phù hợp|đúng|lại|khéo|hay)\b)", re.I,
+    r"\s*(?:$|[\x00,:()]|(?:that|throughout|in|on|at|to|for|with|within|across|when|while|as|"
+    r"trong|ở|tại|khi|để|cho|với|xuyên suốt|ngay)\b)", re.I,
 )
 _NEGATIONS = {"not", "no", "never", "cannot", "nor", "none", "nothing", "neither"}
 _SIBILANT_ENDINGS = ("s", "x", "z", "ch", "sh")
@@ -538,6 +545,11 @@ def _drop_plan(feedback, issues) -> dict | None:
     return plan
 
 
+def _no_object(text: str, pos: int) -> bool:
+    adverbs = _ADVERBS.match(text, pos)
+    return bool(_NO_OBJECT.match(text, adverbs.end() if adverbs else pos))
+
+
 def _describes_quote(part: str) -> bool:
     """Whether a coordinated predicate can still credit the quote's wording."""
     plain = _ESSAY_NOUN.sub(" ", part)
@@ -545,7 +557,7 @@ def _describes_quote(part: str) -> bool:
             or _PROMPT_REFERENCE.search(plain)):
         return True
     verbs = [m for pattern in (_WORDING_VERB, _ATTRIBUTION, _CONTINUATION) for m in pattern.finditer(plain)]
-    return any(_PASSIVE_BEFORE.search(plain[:m.start()]) or _NO_OBJECT.match(plain, m.end()) for m in verbs)
+    return any(_PASSIVE_BEFORE.search(plain[:m.start()]) or _no_object(plain, m.end()) for m in verbs)
 
 
 def _quote_clause(prefix: str, after: str) -> tuple[str, str]:

@@ -891,6 +891,43 @@ def test_task_question_reference_survives_an_unrelated_usage_verb(claim):
         assert result.model_dump() == before
 
 
+# Codex #1796 (line 213): an adverb after the coordinated verb is not "no
+# object" when an object follows it ("contains very clear ideas").
+@pytest.mark.parametrize("claim", [
+    "The essay answers the question 'To what extent do you agree or disagree?' and contains very clear ideas.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and presents a really strong argument.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and includes really strong arguments.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses very specific examples.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và có lập luận rất rõ ràng.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng rất nhiều ví dụ cụ thể.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và vận dụng khá tốt các ví dụ cụ thể.",
+])
+def test_task_question_reference_survives_an_adverb_before_an_unrelated_object(claim):
+    for result in _task_question_fields(claim):
+        before = result.model_dump()
+        report = rt_validate(result)
+        assert report.dropped == [] and report.warnings == []
+        assert result.model_dump() == before
+
+
+# Adverbs or a preposition with no object of the verb's own still leave the
+# quote as what the learner used.
+@pytest.mark.parametrize("claim", [
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses very effectively.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses really well throughout.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses it very effectively.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses very well in the introduction.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng rất hiệu quả trong mở bài.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và viết lại rất tốt.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng khá tự nhiên, rõ ràng.",
+])
+def test_adverb_only_wording_claims_about_the_task_question_still_reject(claim):
+    for result in _task_question_fields(claim):
+        with pytest.raises(UngroundedWritingFeedbackError) as err:
+            rt_validate(result)
+        assert [span for _, span in err.value.issues] == ["To what extent do you agree or disagree?"]
+
+
 # A coordinated predicate that still takes the quote (back-reference, passive,
 # no object of its own, any wording noun) or a verb that governs it across
 # the conjunction keeps crediting learner wording.
