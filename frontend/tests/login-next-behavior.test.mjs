@@ -73,6 +73,8 @@ describe('/login native auth entry', () => {
     const reconciliation = BEHAVIOR.indexOf('profile = await canonicalProfile(token)', mutation);
     assert.ok(mutation > 0 && reconciliation > mutation);
     assert.match(BEHAVIOR, /request may have committed while its ACK was lost/);
+    // F09: a refused activation reads the structured error_code, not only a string detail.
+    assert.match(BEHAVIOR, /mutationError = new Error\(activationErrorMessage\(response\.status, payload\)\)/);
     assert.match(BEHAVIOR, /destination === 'activate'/);
     assert.match(BEHAVIOR, /activateInFlight\.current/);
     assert.match(BEHAVIOR, /if \(activateInFlight\.current\) return/);

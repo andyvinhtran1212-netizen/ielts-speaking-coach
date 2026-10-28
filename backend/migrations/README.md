@@ -20,12 +20,27 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-27 the highest is `331`, so the next
-new migration is `332`. The runner applies any unapplied file regardless of order.
-Numbers 321–330 are already locked to open work (321 #1727, 322 #1720,
+sequence is dense. As of 2026-10-28 the highest is `334`, so by max+1 the next
+new migration is `335` — but 335 is reserved (PR #1803, INACTIVEWRITE-0035), so
+a new file without a Leader reservation takes `336`. The runner applies any
+unapplied file regardless of order.
+Numbers 321–333 are already locked to open work (321 #1727, 322 #1720,
 323 ROLECHECK-0026, 324 ASSIGNDRAFT-0027, 325 CODEUNIQ-0028, 326
-STUDENTARCHIVE-0029, 327–329 reserved, 330 A-10); files for them may land out
-of order, so do not reuse them. 331 is GIVEARCHIVE-0031.
+STUDENTARCHIVE-0029, 327–329 reserved, 330 A-10, 332 ADMINAAL2-0032 lot 02,
+333 AIBUDGET-0033); files for them may land out of order, so do not reuse
+them. 331 is GIVEARCHIVE-0031. 334 is ACTIVATELIMIT-0034.
+
+Migration `334` (ACTIVATELIMIT-0034, F09) moves the `POST /auth/activate`
+rate limit from a per-worker dict into Postgres: `activation_attempts(user_id,
+attempted_at)` and the service-role-only SECURITY DEFINER
+`fn_activate_attempt_check(uuid)`, which allows 10 attempts per rolling 10
+minutes per user under a per-user transaction advisory lock and returns
+`{allowed, retry_after_s}`. A refused call records nothing; each call deletes
+that user's rows older than 1 day. Apply it before the 0034 backend, which
+fails closed (503 `activation_unavailable`, no code consumed) without it. It
+is a normal forward migration, so it has no `forward-policy.tsv` row: a
+`pending_feature` row would let the runner skip it while the dependent code is
+promoted. Rollback (deploy the pre-0034 backend first) is in the file header.
 
 Migration `331` (GIVEARCHIVE-0031) adds the `BEFORE INSERT OR UPDATE OF
 student_id` trigger `archive_guard_writing_assignment_student` on

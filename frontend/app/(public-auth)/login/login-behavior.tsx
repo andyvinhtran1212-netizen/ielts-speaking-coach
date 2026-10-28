@@ -8,7 +8,12 @@ import {
   forgetSignedOutSession,
   isSignedOutSession,
 } from '@/lib/auth/sign-out-state.mjs';
-import { loginDestination, normalizeAccessCode, normalizeLoginProfile } from '@/lib/login-model.mjs';
+import {
+  activationErrorMessage,
+  loginDestination,
+  normalizeAccessCode,
+  normalizeLoginProfile,
+} from '@/lib/login-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 type Session = { access_token?: string };
@@ -238,11 +243,7 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
           body: JSON.stringify({ access_code: code }),
         });
         const payload = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          mutationError = new Error(typeof payload?.detail === 'string'
-            ? payload.detail
-            : `Kích hoạt thất bại (HTTP ${response.status}).`);
-        }
+        if (!response.ok) mutationError = new Error(activationErrorMessage(response.status, payload));
       } catch {
         // The request may have committed while its ACK was lost. Do not tell
         // the learner it failed until canonical `/auth/me` is reconciled.
