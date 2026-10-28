@@ -815,6 +815,18 @@
   letter-spacing: var(--av-tracking-tight);
 }
 
+/* UIA-1028-06 — the "Buổi học gần nhất" sub-line sits in a half-width
+   card on mobile; Tailwind's `truncate` cut "Chưa có buổi học nào" to
+   one line. Let it wrap, clamped to two lines for long topic names. */
+#stat-last-topic {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 /* Section titles use the system's smaller h-scale so the page reads
    as a calm dashboard, not a marketing layout. */
 #tab-dashboard h2,
@@ -896,6 +908,15 @@
    cream surface. Scoped to body.av-page so the rule never leaks. */
 body.av-page .text-white {
   color: var(--av-text-primary);
+}
+
+/* UIA-1028-06 — the override above (0,2,1) also out-ranked `.btn-start`
+   (0,1,0) on the two empty-state CTAs that carry `text-white`, painting
+   --av-text-primary on teal (~3.06:1 in light theme). Restore the
+   on-primary token at matching specificity so the label reads white on
+   brand teal-700 (5.47:1) in light and navy on teal-500 in dark. */
+body.av-page .btn-start {
+  color: var(--av-text-on-primary);
 }
 
 /* Generic form-field styling for plain <input>/<select>/<textarea>
