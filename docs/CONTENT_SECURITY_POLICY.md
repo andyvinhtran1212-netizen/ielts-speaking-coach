@@ -9,6 +9,10 @@ Next compiles `headers()` into the build output, so the policy is fixed per
 build by the build environment (`VERCEL_ENV`, `AVER_*`, `NODE_ENV`). It is not
 evaluated per request.
 
+A second, non-blocking header — `Content-Security-Policy-Report-Only` with a
+per-request nonce — is added on the signed-in routes of non-production builds.
+See [Report-Only nonce policy](#report-only-nonce-policy-sec-csp-nonce-step-1).
+
 ## Directives
 
 | Directive | Production | Staging / PR preview (`VERCEL_ENV=preview`) |
@@ -103,10 +107,11 @@ in architecture:
    SSR HTML, and the design system and legacy `public/js` modules set inline
    styles widely. Removing `'unsafe-inline'` from `style-src` would remove that
    styling.
-3. **Legacy inline handlers.** A few `on…="…"` attribute handlers remain in
-   `frontend/public/js` template strings (for example in `practice.js`,
-   `grammar.js` and `kp-roadmap.js`), so `script-src-attr 'none'` would break
-   them.
+3. **Legacy inline handlers.** These were removed in PC-J38: the
+   `on…="…"` attributes in `practice.js`, `grammar.js`, `kp-roadmap.js` and
+   `admin-listening-tests-detail.js` are now `addEventListener` listeners, and
+   `frontend/tests/csp-nonce-report-only.test.mjs` fails if one comes back in
+   `frontend/public/js`.
 
 Controls that limit the remaining risk: `object-src 'none'`, `base-uri 'self'`,
 `form-action 'self'`, `frame-ancestors 'none'`. The narrow `connect-src` blocks
@@ -114,13 +119,72 @@ data exfiltration through `fetch`/XHR/WebSocket. Markdown and HTML renderers
 that use DOMPurify keep sanitising their output; this policy does not replace
 them.
 
-Follow-up if a nonce policy is approved later: add a `proxy.ts` that sets
-`script-src 'nonce-…' 'strict-dynamic'`, measure the cost of rendering every
-route dynamically, and remove the legacy inline handlers first.
+A nonce policy is being trialled in Report-Only mode; see the next section.
+
+## Report-Only nonce policy (SEC-CSP-NONCE step 1)
+
+PC-J38 / SEC-20261028-05. The enforced header above is unchanged. On the
+signed-in routes, `frontend/proxy.ts` also sends:
+
+```
+Content-Security-Policy-Report-Only: script-src 'self' 'nonce-<per request>' 'strict-dynamic' 'unsafe-inline'
+```
+
+- **Scope.** The routes of every layout that renders `AuthedShell` (learner,
+  admin and instructor groups: 75 layouts, 141 page routes). The proxy matcher
+  lists their URL prefixes; `/vocabulary` itself is public and excluded, its
+  signed-in subroutes are included. Public routes (`/`, `/login`, `/grammar`,
+  `/vocabulary`, `/pricing`) get no Report-Only header and stay static.
+- **Only `script-src`.** Every other directive is already enforced identically
+  by the blocking header, so repeating it would only report the same thing
+  twice. `'unsafe-inline'` is the CSP2 fallback; browsers that honour the nonce
+  ignore it.
+- **How the nonce reaches the page.** The proxy generates 16 random bytes,
+  sets the `content-security-policy-report-only` and `x-nonce` request headers,
+  and deletes any client-sent `content-security-policy` request header. Next
+  reads the nonce from that request header and stamps its own bootstrap, chunk
+  and RSC scripts. `AuthedShell` reads `x-nonce` for its two inline scripts
+  (anti-flash theme and body class). `next/script` (`afterInteractive`) and the
+  runtime script chain are inserted by trusted code, which `'strict-dynamic'`
+  allows.
+- **Cost: these routes render per request.** A nonce cannot be part of
+  prerendered HTML, so reading it makes the route dynamic. Under
+  `cacheComponents`, that requires `export const instant = false` in each
+  `AuthedShell` layout; a `<Suspense>` boundary would leave a prerendered shell
+  without the nonce. `next build` route table with the flag off is identical
+  to before (119 `○`, 40 `◐`, 2 `ƒ`); with it on: 12 `○`, 23 `◐`, 126 `ƒ`.
+  The remaining `◐` rows are public pages and the fallback rows of dynamic
+  segments.
+- **Flag.** `AVER_CSP_NONCE_REPORT_ONLY=1|0` at build time. Unset means on for
+  every build except a Vercel production build, i.e. on for staging and PR
+  previews, off for production. `next.config.ts` resolves it once and inlines
+  it (`env`), so the proxy and `AuthedShell` cannot disagree at runtime.
+  Production hosts (`averlearning.com`, `www.averlearning.com`) are also
+  excluded in the proxy matcher, so production requests never take a proxy
+  hop for this.
+- **Reports.** There is no report endpoint (no `report-to`/`report-uri`).
+  Violations appear in the browser console as `[Report Only]` and as
+  `securitypolicyviolation` events. Probably seen on staging (not verifiable
+  locally): the Vercel toolbar script that preview deployments inject without
+  a nonce.
+- **Evidence.** `frontend/tooling/verify-csp-nonce-report-only-flow.mjs` (CI
+  Next-native job, CSP not bypassed): both headers, every served `<script>`
+  carries the request nonce, 0 Report-Only violations on the login, Speaking,
+  practice, Writing result, admin, admin grade, instructor, profile, vocabulary
+  and listening routes and on the Grammar Wiki, an injected `<img onerror>` is
+  reported (and still runs), a fresh nonce per request, and client-sent nonce
+  headers are ignored.
+
+Turning it on for production, and step 2 (enforcing the nonce policy), are
+owner decisions based on the staging TTFB and report data. Before enforcing it
+site-wide, the public layouts' inline scripts (`(marketing)`, `(public-auth)`,
+`(public-content)`) need a nonce or a hash. Those pages are static today and are
+not part of step 1.
 
 ## Verifying
 
-- Unit: `node --test frontend/tests/post-migration-security-headers.test.mjs`.
+- Unit: `node --test frontend/tests/post-migration-security-headers.test.mjs
+  frontend/tests/csp-nonce-report-only.test.mjs`.
 - Build output: after `next build`, `.next/routes-manifest.json` → `headers[]`
   holds the compiled policy for the build environment.
 - Browser smoke: on staging, open `/login`, `/`, `/grammar`, `/home` and

@@ -23,7 +23,11 @@ describe('grammar recommendation reliability guards', () => {
   test('result and practice telemetry patch recommendation clicks', () => {
     const clickedEndpoint = /\/api\/grammar\/recommendations\/\\?'\+this\.dataset\.recId\+\\?'\/clicked/;
     assert.match(RESULT_HTML, clickedEndpoint);
-    assert.match(PRACTICE_JS, clickedEndpoint);
+    // practice.js delegates the click instead of an inline onclick (PC-J38:
+    // a nonce-based CSP blocks on* attributes).
+    assert.match(PRACTICE_JS, /closestFromEvent\(event, 'a\[data-rec-id\]'\);\s*if \(link && link\.dataset\.recId\) _trackGrammarResource\(link\.dataset\.recId, null\);/);
+    assert.match(PRACTICE_JS, /_listenManaged\('grammar-rec-click', document, 'click', _handleGrammarRecClick\);/);
+    assert.match(PRACTICE_JS, /'\/api\/grammar\/recommendations\/' \+ encodeURIComponent\(recId\) \+ '\/clicked'/);
   });
 
   test('grammar article page re-runs anchor handling on hashchange', () => {

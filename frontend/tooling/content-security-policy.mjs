@@ -93,6 +93,39 @@ export function buildContentSecurityPolicy(env = process.env) {
   return directives.map(([name, sources]) => `${name} ${sources.join(' ')}`).join('; ');
 }
 
+// SEC-CSP-NONCE step 1 (PC-J38): a per-request nonce + 'strict-dynamic'
+// script-src, sent as Content-Security-Policy-Report-Only by proxy.ts on the
+// signed-in route groups. The enforced policy above is unchanged.
+export const NONCE_REPORT_ONLY_FLAG = 'AVER_CSP_NONCE_REPORT_ONLY';
+
+/**
+ * Whether this build renders the AuthedShell routes per request with a nonce.
+ * `AVER_CSP_NONCE_REPORT_ONLY=1|0` decides; otherwise every build except a
+ * Vercel production build is on. Production stays static until the owners
+ * enable it from the staging measurements.
+ */
+export function nonceReportOnlyEnabled(env = process.env) {
+  const flag = env[NONCE_REPORT_ONLY_FLAG];
+  if (flag === '1') return true;
+  if (flag === '0') return false;
+  return env.VERCEL_ENV !== 'production';
+}
+
+/**
+ * Only script-src is under evaluation. Every other directive is already
+ * enforced, identically, by the blocking header; repeating them here would
+ * only report the same violation twice. 'unsafe-inline' is the CSP2 fallback:
+ * browsers that honour a nonce ignore it.
+ */
+export function buildNonceReportOnlyPolicy(nonce, env = process.env) {
+  if (!/^[A-Za-z0-9+/]{16,}={0,2}$/.test(nonce || '')) {
+    throw new Error('content-security-policy: nonce must be base64 of >= 12 random bytes');
+  }
+  const sources = ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'", "'unsafe-inline'"];
+  if (env.NODE_ENV === 'development') sources.push("'unsafe-eval'");
+  return `script-src ${sources.join(' ')}`;
+}
+
 /** Same policy for the allow-listed same-origin embeddable workspaces. */
 export function sameOriginFramePolicy(policy) {
   return policy.replace("frame-ancestors 'none'", "frame-ancestors 'self'");

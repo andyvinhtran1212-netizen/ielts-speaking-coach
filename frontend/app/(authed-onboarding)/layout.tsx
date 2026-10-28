@@ -12,3 +12,6 @@ export default function AuthedOnboardingLayout({ children }: { children: ReactNo
     </AuthedShell>
   );
 }
+
+// Per-request render for the CSP nonce (PC-J38); see components/authed-shell.tsx.
+export const instant = false;

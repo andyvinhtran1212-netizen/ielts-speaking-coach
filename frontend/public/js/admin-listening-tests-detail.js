@@ -563,8 +563,7 @@ function renderPartsGrid() {
     const audioBlock = (hasAudio && signed.signed_url) ? `
       <audio controls preload="none"
              src="${escapeHtml(signed.signed_url)}"
-             class="td-audio-player"
-             onclick="event.stopPropagation()">
+             class="td-audio-player">
         Trình duyệt không hỗ trợ HTML5 audio.
       </audio>
     ` : '';
@@ -577,6 +576,9 @@ function renderPartsGrid() {
       ${audioBlock}
       <input type="file" id="td-file-part-${n}" accept=".mp3,audio/mpeg" />
     `;
+    // Clicking the player must not open the file picker of the <label>; a
+    // listener, not an inline onclick, which a nonce-based CSP blocks.
+    card.querySelector('audio')?.addEventListener('click', (e) => e.stopPropagation());
     const input = card.querySelector('input[type=file]');
     input.addEventListener('change', (e) => onPartAudioPick(n, e));
     // Sprint 13.4.3.2 — wire dnd per card (the grid rebuilds on every
