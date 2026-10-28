@@ -1,4 +1,5 @@
 import { adminReadingSearch } from './admin-reading-navigation.mjs';
+import { readingDisplayQuestionRuns } from './reading-exam-controller.mjs';
 
 const objectOf = (value) => value && typeof value === 'object' && !Array.isArray(value) ? value : null;
 const textOf = (value) => typeof value === 'string' ? value.trim() : '';
@@ -20,6 +21,53 @@ export const READING_QUESTION_LABELS = Object.freeze({
 });
 
 export const READING_DIAGRAM_TYPES = new Set(['diagram_label_completion', 'flow_chart_completion']);
+
+// Mirrors WORD_LIMITS in reading-exam-controller.mjs (pinned by a parity test):
+// any other word_limit makes the student player fall back to its default rubric.
+export const READING_PLAYER_WORD_LIMITS = new Set([
+  'ONE WORD', 'ONE WORD ONLY', 'ONE WORD AND/OR A NUMBER',
+  'NO MORE THAN TWO WORDS', 'NO MORE THAN TWO WORDS AND/OR A NUMBER',
+  'NO MORE THAN THREE WORDS', 'NO MORE THAN THREE WORDS AND/OR A NUMBER',
+]);
+const GAP_FILL_TYPES = new Set([
+  'sentence_completion', 'summary_completion', 'notes_completion', 'table_completion',
+  'form_completion', 'flow_chart_completion', 'diagram_label_completion', 'short_answer',
+]);
+const qRange = (first, last) => first === last ? `Q${first}` : `Q${first}–${last}`;
+const rawOptions = (row) => Array.isArray(row?.payload?.options) ? row.payload.options : [];
+const rawInstruction = (row) => typeof row?.payload?.instruction === 'string' ? row.payload.instruction.trim() : '';
+
+/** Flag rubric data the student player would silently replace with a hard-coded default. */
+function playerDefaultIssues(rows, issues) {
+  for (const run of readingDisplayQuestionRuns(rows)) {
+    const first = run[0]; const type = String(first?.question_type || '');
+    if (type === 'matching_information') {
+      let start = null; let previous = null;
+      const flush = () => {
+        if (start != null) issues.push(`${qRange(start, previous)} (matching_information) thiếu paragraph_labels/options; học viên sẽ thấy A–H mặc định — khai báo đúng danh sách đoạn.`);
+        start = null;
+      };
+      for (const row of run) {
+        const payload = objectOf(row.payload) || {};
+        const labels = Array.isArray(payload.paragraph_labels) && payload.paragraph_labels.length
+          ? payload.paragraph_labels : objectOf(payload.template)?.paragraph_labels;
+        const fallback = !(Array.isArray(labels) && labels.length) && !rawOptions(row).length;
+        const qNum = Number(row.q_num);
+        if (fallback && start != null && qNum !== previous + 1) flush();
+        if (fallback) { if (start == null) start = qNum; previous = qNum; } else flush();
+      }
+      flush();
+      continue;
+    }
+    if (!GAP_FILL_TYPES.has(type) || rawInstruction(first)) continue;
+    if (type === 'summary_completion' && rawOptions(first).length) continue;
+    const authoredLimit = String(first?.payload?.word_limit || '').trim().toUpperCase();
+    if (READING_PLAYER_WORD_LIMITS.has(authoredLimit)) continue;
+    const fallback = type === 'short_answer' ? 'NO MORE THAN THREE WORDS' : 'NO MORE THAN TWO WORDS';
+    const current = authoredLimit ? ` (word_limit hiện tại "${String(first.payload.word_limit).trim()}" không thuộc danh sách chuẩn)` : '';
+    issues.push(`${qRange(Number(first.q_num), Number(run.at(-1).q_num))} (${type}) không có instruction/word_limit hợp lệ${current}; học viên sẽ thấy "${fallback}" mặc định.`);
+  }
+}
 
 function normalizePrompt(raw) {
   const value = objectOf(raw);
@@ -129,11 +177,20 @@ export function normalizeReadingAdminPreview(raw) {
   if (duplicatePassageIds.length) issues.push(`Trùng passage id: ${[...new Set(duplicatePassageIds)].join(', ')}.`);
   if (duplicatePassageOrders.length) issues.push(`Trùng passage_order: ${[...new Set(duplicatePassageOrders)].join(', ')}.`);
   const passageIds = new Set(passages.map((passage) => passage.id));
-  const questions = value.questions.map((row, index) => normalizeQuestion(row, index, passageIds, issues)).filter(Boolean).sort((a, b) => a.qNum - b.qNum);
+  const kept = [];
+  const questions = value.questions.map((row, index) => {
+    const question = normalizeQuestion(row, index, passageIds, issues);
+    if (question) kept.push({ question, row });
+    return question;
+  }).filter(Boolean).sort((a, b) => a.qNum - b.qNum);
   const duplicates = questions.filter((question, index) => questions.findIndex((item) => item.qNum === question.qNum) !== index).map((question) => question.qNum);
   const duplicateQuestionIds = questions.filter((question, index) => question.id && questions.findIndex((item) => item.id === question.id) !== index).map((question) => question.id);
   if (duplicates.length) issues.push(`Trùng số câu: ${[...new Set(duplicates)].join(', ')}.`);
   if (duplicateQuestionIds.length) issues.push(`Trùng question id: ${[...new Set(duplicateQuestionIds)].join(', ')}.`);
+  for (const passageId of passageIds) {
+    playerDefaultIssues(kept.filter((entry) => entry.question.passageId === passageId)
+      .sort((a, b) => a.question.qNum - b.question.qNum).map((entry) => entry.row), issues);
+  }
   const declaredPassages = integerOf(value.passage_count); const declaredQuestions = integerOf(value.total_questions);
   if (declaredPassages != null && declaredPassages !== passages.length) issues.push(`Đề khai báo ${declaredPassages} passage nhưng API trả ${passages.length}.`);
   if (declaredQuestions != null && declaredQuestions !== questions.length) issues.push(`Đề khai báo ${declaredQuestions} câu nhưng preview hợp lệ có ${questions.length}.`);
