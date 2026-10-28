@@ -1537,6 +1537,15 @@
     };
   }
 
+  // Stub "AI tạm gián đoạn": backend gửi câu tiếng Anh cố định (grading.py,
+  // ghim bởi speaking-stub-contract) nên vẫn nhận theo chữ; stub dựng lại từ
+  // dòng đã lưu mang câu tiếng Việt nên đánh dấu bằng cờ `_aiUnavailable`.
+  function _isAiUnavailableStub(data) {
+    if (!data) return false;
+    if (data._aiUnavailable) return true;
+    return !!(data._error && String(data._error).includes('temporarily unavailable'));
+  }
+
   function _nativeFeedbackDetails(data) {
     var payload = data || {};
     var grammar = _nativeGrammarGroups(payload.grammar_check);
@@ -1547,15 +1556,15 @@
     var sample = null;
     if (kind === 'practice') {
       sample = payload.sample_answer
-        ? { title: 'Sample Answer', text: String(payload.sample_answer), unavailable: false }
+        ? { title: 'Bài nói mẫu', text: String(payload.sample_answer), unavailable: false }
         : payload.sample_answer_status
-          ? { title: 'Sample Answer', text: '', unavailable: true }
+          ? { title: 'Bài nói mẫu', text: '', unavailable: true }
           : null;
     } else if (kind === 'formal') {
       sample = payload.improved_response
         ? { title: 'Câu trả lời mẫu Band 7+', text: String(payload.improved_response), unavailable: false }
         : payload.improved_response_status
-          ? { title: 'Sample Answer', text: '', unavailable: true }
+          ? { title: 'Bài nói mẫu', text: '', unavailable: true }
           : null;
     }
     return {
@@ -1563,7 +1572,7 @@
       reliability: _nativeReliabilityView(payload),
       kind: kind,
       stub: kind === 'stub' ? {
-        aiUnavailable: !!(payload._error && String(payload._error).includes('temporarily unavailable')),
+        aiUnavailable: _isAiUnavailableStub(payload),
         error: String(payload._error || ''),
       } : null,
       criteria: kind === 'formal' ? [
@@ -1762,7 +1771,7 @@
       // case.
       var warningsHtml = _warningBannerBlock(data);
       if (data && data._stub) {
-        var isAiDown = data._error && data._error.includes('temporarily unavailable');
+        var isAiDown = _isAiUnavailableStub(data);
         // Sprint 14.6.1 — Andy 2026-05-22 — migrate hardcoded
         // rgba(255,255,255,X) text colors to --ds-* tokens so they
         // flip per theme (Sprint 14.1 wired the tokens; this branch
@@ -1792,7 +1801,7 @@
           _listBlock('Strengths', data.strengths, '#4ade80') +
           _grammarIssuesBlock(data.grammar_issues, data.grammar_recommendations) +
           _grammarCheckBlock(data.grammar_check) +
-          _listBlock('Vocabulary Issues', data.vocabulary_issues, '#fb923c') +
+          _listBlock('Lỗi từ vựng', data.vocabulary_issues, '#fb923c') +
           _correctionsBlock(data.corrections) +
           (data.sample_answer ? _sampleAnswerBlock(data.sample_answer) : (data.sample_answer_status ? _sampleUnavailableBlock() : ''));
       } else if (data && data.fc_feedback) {
@@ -2361,7 +2370,7 @@
     }
 
     return '<div class="ds-grammar-section">' +
-      '<p class="ds-grammar-section-head">Grammar Issues (LanguageTool)</p>' +
+      '<p class="ds-grammar-section-head">Lỗi ngữ pháp (LanguageTool)</p>' +
       groupsHtml + more +
       '</div>';
   }
@@ -4184,7 +4193,7 @@
         '<div style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.07);padding-top:12px;">' +
         _listBlock('Strengths',          data.strengths,             '#4ade80') +
         _grammarIssuesBlock(data.grammar_issues, data.grammar_recommendations) +
-        _listBlock('Vocabulary Issues',  data.vocabulary_issues,     '#fb923c') +
+        _listBlock('Lỗi từ vựng',  data.vocabulary_issues,     '#fb923c') +
         _correctionsBlock(data.corrections) +
         (data.sample_answer ? _sampleAnswerBlock(data.sample_answer) : (data.sample_answer_status ? _sampleUnavailableBlock() : '')) +
         '</div>';
@@ -4699,7 +4708,8 @@
     var failed = r && (r.grading_status === 'failed' || fb._failed);
     return Object.assign({}, fb, failed ? {
       _stub: true,
-      _error: 'AI grading is temporarily unavailable. Your recording and transcript were saved.',
+      _aiUnavailable: true,
+      _error: 'Chấm điểm AI đang tạm gián đoạn. Bản ghi âm và transcript của bạn đã được lưu.',
     } : {}, {
       response_id:      r.id,
       transcript:       r.transcript || fb.transcript || '',
