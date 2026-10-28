@@ -16420,11 +16420,14 @@ export interface components {
          *     (NOT skip) so re-giving a prompt in a new "Buổi" works as intended.
          *
          *     `prompt_id` (single) is accepted for back-compat; both normalize to
-         *     `prompt_ids`.
+         *     `prompt_ids`. `request_id` is required (PC-J37, see AssignmentCreate).
          */
         FanOutCreate: {
-            /** Request Id */
-            request_id?: string | null;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
             /** Expected Student Count */
             expected_student_count?: number | null;
             /** Prompt Id */
@@ -22364,10 +22367,16 @@ export interface components {
          *     into IELTS-exam mode.  The pair is enforced together (one without
          *     the other is a 422) — the same invariant the migration's CHECK
          *     constraint enforces at the DB layer.
+         *
+         *     PC-J37: `request_id` is required. Its receipt is what marks the give as
+         *     an admin-tools give; a give without one would read as an /instructor give.
          */
         routers__admin_writing_assignments__AssignmentCreate: {
-            /** Request Id */
-            request_id?: string | null;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
             /** Prompt Id */
             prompt_id?: string | null;
             /** Prompt Ids */
