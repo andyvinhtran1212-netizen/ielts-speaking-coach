@@ -590,7 +590,7 @@ function GrammarCheck({ groups, moreCount }: { groups: any[]; moreCount: number 
   if (!groups.length) return null;
   return (
     <div className="ds-grammar-section">
-      <p className="ds-grammar-section-head">Grammar Issues (LanguageTool)</p>
+      <p className="ds-grammar-section-head">Lỗi ngữ pháp (LanguageTool)</p>
       {groups.map((group) => (
         <div className="ds-grammar-category" key={group.category}>
           <p className="ds-grammar-category-title">{group.label}</p>
@@ -795,7 +795,7 @@ function QuestionFeedback({ card }: { card: any }) {
           </p>
           <BulletSection items={feedback?.strengths} title="Strengths" tone="var(--av-success)" />
           <GrammarIssues issues={feedback?.grammar_issues} recommendations={feedback?.grammar_recommendations} />
-          <BulletSection items={feedback?.vocabulary_issues} title="Vocabulary Issues" tone="var(--av-warning)" />
+          <BulletSection items={feedback?.vocabulary_issues} title="Lỗi từ vựng" tone="var(--av-warning)" />
           <VocabRecommendations recommendations={feedback?.vocab_recommendations} />
           <BulletSection items={feedback?.pronunciation_issues} title="Luyện phát âm — gợi ý chung" tone="var(--av-info)" />
           <Corrections corrections={feedback?.corrections} />
@@ -882,7 +882,7 @@ function QuestionAccordion({
                 <span className="text-xs av-text-faint">Chưa có câu trả lời</span>
               )}
               {card.isPractice && card.bandPills.length ? (
-                <span className="text-xs" style={{ color: 'var(--av-text-muted)' }}>Practice mode</span>
+                <span className="text-xs" style={{ color: 'var(--av-text-muted)' }}>Chế độ luyện tập</span>
               ) : null}
             </span>
           </span>

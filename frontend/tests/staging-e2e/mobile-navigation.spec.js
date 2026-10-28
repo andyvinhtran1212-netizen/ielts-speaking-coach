@@ -98,7 +98,7 @@ test('mobile app menu reaches MY CLASS, marks active links and keeps logout work
   await expect(classChrome.locator('a[data-tab="class"]')).toHaveAttribute('aria-current', 'page');
   await page.keyboard.press('Escape');
   await classChrome.locator('#user-pill').click();
-  await expect(classChrome.locator('#instructor-link')).toBeHidden();
+  await expect(classChrome.locator('#instructor-link')).toHaveCount(0);
   await classChrome.locator('#user-menu-logout').click();
   await expect(page).toHaveURL(/\/$/);
   expect(await page.evaluate(() => sessionStorage.getItem('u01-signout'))).toBe('called');

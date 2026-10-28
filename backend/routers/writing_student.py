@@ -169,10 +169,7 @@ async def get_current_student(
     if not student:
         raise HTTPException(
             status_code=403,
-            detail=(
-                "Bạn chưa được link với tài khoản học viên. "
-                "Vui lòng liên hệ giảng viên."
-            ),
+            detail="Em chưa được xếp lớp, Writing sẽ mở khi giáo viên giao bài",
         )
     if account_name:
         student = {**student, "account_name": account_name}

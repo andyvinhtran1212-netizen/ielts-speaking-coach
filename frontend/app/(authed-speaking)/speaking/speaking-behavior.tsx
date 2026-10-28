@@ -626,7 +626,10 @@ export function SpeakingBehavior() {
     const pendingEdits = new Map<string, { base: any; patch: Record<string, any> }>();
     const syncDraftControls = () => {
       const modalOpen = Boolean($('topic-modal')?.classList.contains('open'));
-      const visible = Boolean(st.accountId) || edited;
+      // A freshly opened page has nothing to report or discard: show the bar
+      // only after a learner action or once a notice (restored draft, missing
+      // topic) has text. A signed-in account alone is not a reason (UIA-1028-01).
+      const visible = edited || Boolean($('speaking-draft-notice')?.textContent);
       const pageBar = $('speaking-draft-controls');
       const modalBar = $('speaking-modal-draft-controls');
       if (pageBar) pageBar.hidden = !visible || modalOpen;
@@ -720,7 +723,8 @@ export function SpeakingBehavior() {
     const restoreDraft = () => {
       if (edited || !st.accountId || !st.permissionsReady || st.permissionAccount !== st.accountId || st.dead) return;
       const panel = draft('panel')?.read();
-      if (panel?.status === 'unavailable') { draftNotice('unavailable'); return; }
+      // Nothing to restore is not an unsaved edit. Unqualified browsers report
+      // `unavailable` on every read; the notice belongs to `st.saveDraft`.
       if (!panel?.restored) return;
       const value = panel.value;
       const scope = value.panel;
@@ -729,6 +733,7 @@ export function SpeakingBehavior() {
       st.restoreMode(scope);
       switchMainTab(scope, st, runtimeApi, cleanups);
       draftNotice('ready', true);
+      syncDraftControls();
       if (value.modalOpen && runtimeApi && hasPermission(st.perms, value.mode === 'practice' ? 'practice_single' : 'practice_part')) {
         // Create the guarded modal handle before opening; topic restore awaits its list.
         draft(`modal:${value.mode}:${value.part}`);
@@ -786,7 +791,12 @@ export function SpeakingBehavior() {
           }
         } else restoreDraft();
         if (st.permissionsReady) pendingEdits.clear();
-      } catch { if (!st.dead && read === profileRead && st.accountId === account) { st.permissionsReady = false; draftNotice('unavailable'); } }
+      } catch {
+        if (!st.dead && read === profileRead && st.accountId === account) {
+          st.permissionsReady = false;
+          if (edited) draftNotice('unavailable');
+        }
+      }
     };
     const resolveRuntimeApi = () => {
       if (runtimeApi) return Promise.resolve(runtimeApi);

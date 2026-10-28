@@ -54,11 +54,12 @@ def test_every_method_the_app_actually_uses_is_allowed():
 
 def test_a_foreign_origin_is_never_reflected():
     """Widening the header set must not widen WHO gets it."""
-    for bad in ("https://evil.com", "https://averlearning.com.evil.com", None, ""):
+    for bad in ("https://evil.com", "https://averlearning.com.evil.com",
+                "https://bat-ky.averlearning.com", None, ""):
         assert app_main._cors_headers_for_origin(bad) == {}
 
 
-def test_the_apex_and_subdomains_still_match():
+def test_the_apex_www_and_staging_still_match():
     for good in ("https://averlearning.com", "https://www.averlearning.com",
                  "https://staging.averlearning.com"):
         assert app_main._cors_headers_for_origin(good), good

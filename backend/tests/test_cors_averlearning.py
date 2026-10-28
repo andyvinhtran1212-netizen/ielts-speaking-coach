@@ -9,6 +9,11 @@ prod env gets a stale config, etc.). 20.10 D1 adds an `allow_origin_regex`
 fallback for `^https://(?:[a-z0-9-]+\\.)?averlearning\\.com$` that survives
 that class of drift.
 
+F11 (2026-10-28) removed that regex: with `allow_credentials=True` it let ANY
+*.averlearning.com page — including a dangling or taken-over subdomain — read
+the API as the signed-in user. Origins are now an exact allowlist; staging is
+listed explicitly.
+
 This suite asserts the CORS preflight (OPTIONS) and an actual GET return the
 `Access-Control-Allow-Origin` header for every origin we care about, and
 rejects origins we don't.
@@ -62,30 +67,35 @@ def test_cors_preflight_allows_localhost_dev_origin():
     assert headers.get("access-control-allow-origin") == "http://localhost:5500"
 
 
-# ── Regex-fallback origins (Sprint 20.10 D1 safety net) ───────────────
-
-
-def test_cors_preflight_allows_staging_subdomain_via_regex():
-    """Any *.averlearning.com over HTTPS is accepted via the regex fallback,
-    so future subdomain rollouts (staging, app, admin) don't require code
-    changes — the regex catches them and the request goes through."""
+def test_cors_preflight_allows_staging_origin():
+    """staging.averlearning.com is the authenticated staging frontend — it is
+    on the explicit allowlist (F11), not matched by a wildcard."""
     status, headers = _preflight("https://staging.averlearning.com")
-    assert status == 200, f"regex did not allow staging subdomain: status={status}"
+    assert status == 200, f"staging origin rejected: status={status}"
     assert headers.get("access-control-allow-origin") == "https://staging.averlearning.com"
 
 
-def test_cors_preflight_allows_app_subdomain_via_regex():
-    status, headers = _preflight("https://app.averlearning.com")
-    assert status == 200
-    assert headers.get("access-control-allow-origin") == "https://app.averlearning.com"
+# ── Rejection cases ───────────────────────────────────────────────────
 
 
-# ── Rejection cases (the safety net does NOT widen us to the open web) ─
+def test_cors_preflight_rejects_unlisted_averlearning_subdomain():
+    """F11 — an unlisted subdomain (e.g. a dangling DNS record someone takes
+    over) must not get a credentialed CORS grant."""
+    for origin in ("https://bat-ky.averlearning.com", "https://app.averlearning.com"):
+        status, headers = _preflight(origin)
+        assert "access-control-allow-origin" not in headers, (origin, headers)
+
+
+def test_cors_actual_get_rejects_unlisted_averlearning_subdomain():
+    r = _client().get(
+        "/api/reading/test/T1/attempts/in-progress",
+        headers={"Origin": "https://bat-ky.averlearning.com"},
+    )
+    assert "access-control-allow-origin" not in r.headers
 
 
 def test_cors_preflight_rejects_evil_origin():
-    """Random origins must not get the allow-origin header — the regex
-    must be anchored, not substring-match."""
+    """Random origins must not get the allow-origin header."""
     status, headers = _preflight("https://evil.com")
     # The CORS middleware responds 200 either way (preflight short-circuit),
     # but the allow-origin header must be ABSENT for disallowed origins.
@@ -95,15 +105,14 @@ def test_cors_preflight_rejects_evil_origin():
 
 
 def test_cors_preflight_rejects_typosquatted_lookalike():
-    """`averlearning.com.evil.com` must not match — the regex is anchored
-    at the host boundary."""
+    """`averlearning.com.evil.com` must not match (exact origin match)."""
     status, headers = _preflight("https://averlearning.com.evil.com")
     assert "access-control-allow-origin" not in headers
 
 
 def test_cors_preflight_rejects_http_for_averlearning():
-    """The regex pins HTTPS only — an http://averlearning.com (downgrade
-    attack vector) is not accepted."""
+    """HTTPS only — an http://averlearning.com (downgrade attack vector) is
+    not accepted."""
     status, headers = _preflight("http://averlearning.com")
     assert "access-control-allow-origin" not in headers
 

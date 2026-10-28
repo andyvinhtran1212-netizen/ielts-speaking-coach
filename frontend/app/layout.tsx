@@ -75,6 +75,7 @@ const plusJakarta = Plus_Jakarta_Sans({
 const jetBrainsMono = JetBrains_Mono({
   subsets: ['latin', 'vietnamese'],
   display: 'swap',
+  preload: false,
   variable: '--font-jetbrains-mono',
 });
 const lora = Lora({

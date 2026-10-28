@@ -51,7 +51,10 @@ export default function PublicContentLayout({ children }: { children: ReactNode 
         supabaseUrl={SUPABASE_URL}
         supabaseAnonKey={SUPABASE_ANON}
       >
-        <Script type="module" src="/js/components/aver-chrome.js" strategy="afterInteractive" />
+        {/* crossOrigin: next/script preloads `src` as a classic script. A
+            module fetch is CORS-mode, so without a matching mode Chrome cannot
+            reuse that preload and downloads the module a second time. */}
+        <Script type="module" src="/js/components/aver-chrome.js" strategy="afterInteractive" crossOrigin="anonymous" />
         <NextPageViewBeacon />
       </SupabaseRuntimeBoundary>
 
