@@ -19,7 +19,7 @@ passages:
   - passage_order: 1
     slug: l3-t1-p1-hand-made-goods
     title: "The Return of Hand-Made Goods"
-    word_count: 520
+    word_count: 388
     topic_tags: [economy, culture]
     body_markdown: |
       A The high street of any large city used to look the same. A row of
@@ -198,7 +198,7 @@ passages:
   - passage_order: 2
     slug: l3-t1-p2-how-cities-stay-cool
     title: "How Cities Stay Cool"
-    word_count: 580
+    word_count: 425
     topic_tags: [urban-planning, environment]
     body_markdown: |
       A In summer, the centre of a large city can be five degrees warmer
@@ -392,7 +392,7 @@ passages:
   - passage_order: 3
     slug: l3-t1-p3-sleep-and-memory
     title: "What Sleep Does for Memory"
-    word_count: 540
+    word_count: 381
     topic_tags: [neuroscience, learning]
     body_markdown: |
       A For most of the twentieth century, sleep was treated by science
