@@ -120,7 +120,9 @@ These are the call sites in research §1. Each wraps its provider request in
     duration check moves ahead of Whisper on this value:
     - above `MAX_AUDIO_DURATION_SECONDS`: today's 422 "Audio quá dài"
       message;
-    - `None`: 422 "Không đọc được bản ghi âm. Vui lòng ghi âm lại.";
+    - `None`: 422 with the owner copy approved at 22:34 on 2026-10-28,
+      verbatim:
+      "Không đọc được bản ghi âm nên bài chưa được chấm và không bị trừ lượt. Vui lòng ghi âm lại.";
     - in both cases there is no provider call, no reservation, no
       `grading_attempts` row and no storage upload. In `shadow`, the
       `None` case logs `would_refuse` and continues at the maximum.

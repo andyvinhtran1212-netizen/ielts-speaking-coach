@@ -84,6 +84,18 @@ instruction to update PR #1773, and they are recorded as written.
   is graded without P until the tier is confirmed. T001 adds the S0 row;
   sizing is in `research.md` §7.)*
 
+## Decision, 22:34 (2026-10-28, UTC+7)
+
+Vinh approved new learner copy at 22:34, relayed with the instruction to
+update PR #1773. It is recorded as written.
+
+- **Unmeasurable-recording 422 copy.** The fail-closed 422 shown when a
+  Speaking recording's duration cannot be measured reads exactly:
+  "Không đọc được bản ghi âm nên bài chưa được chấm và không bị trừ lượt. Vui lòng ghi âm lại."
+  *(Replaces "Không đọc được bản ghi âm. Vui lòng ghi âm lại." The
+  behaviour stays as specified: no provider call, no reservation, no
+  storage and no daily grading quota used.)*
+
 Where each decision lands is listed in
 [`spec.md` → Owner decisions](spec.md#owner-decisions).
 
