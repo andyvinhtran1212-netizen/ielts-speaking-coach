@@ -34,6 +34,8 @@ import routers.auth as auth_module
 from config import settings
 from services import access_code_permissions as acp
 from services import activation_gate
+from services import feature_flags
+from services import runtime_flags
 
 
 # ── In-memory PostgREST fake (sync + async views over one dataset) ───────────
@@ -128,6 +130,8 @@ class _Query:
 
     def execute(self):
         if self.db.forbid_sync:
+            # Recorded too: fail-open/deny callers swallow the AssertionError.
+            self.db.sync_attempts.append((self.table_name, tuple(self.filters)))
             raise AssertionError("sync client used while USE_ASYNC_DB is on")
         return self.run()
 
@@ -150,6 +154,7 @@ class FakeDB:
         self.calls: list = []
         self.fail: set = set()
         self.forbid_sync = False
+        self.sync_attempts: list = []
         self.async_delay = 0.0
         # Race hooks: run after a users SELECT that found no row.
         self.on_missing_user = None
@@ -533,6 +538,45 @@ def test_first_visit_race_keeps_existing_role_and_activation(monkeypatch, on):
     row = dict(rows[0])
     row.pop("last_seen_at", None)
     assert row == winner
+
+
+# ── /auth/me per-user and runtime feature flags (Codex P2 on #1835) ─────────
+
+
+def test_auth_me_feature_flag_reads_skip_the_sync_client_when_on(monkeypatch):
+    """FLASHCARD_ENABLED on, a curated-vocab learner and a cold runtime-flag
+    cache: /auth/me reads users.feature_flags and runtime_flags on the async
+    client with the flag on (no sync attempt, not even a swallowed one), and
+    returns the same body from the same query sequence as with it off."""
+    monkeypatch.setattr(auth_module, "_get_auth_http_client", lambda: _AuthClient())
+    monkeypatch.setattr(settings, "FLASHCARD_ENABLED", True)
+    tables = {k: [dict(r) for r in v] for k, v in TABLES.items()}
+    tables["users"][0]["feature_flags"] = {
+        "flashcard_enabled": True, "vocab_curated_enabled": True}
+    tables["runtime_flags"] = [{"key": "vocab_units_read", "enabled": True}]
+
+    def run(db):
+        monkeypatch.setattr(runtime_flags, "_cache", {})  # cold cache per state
+        result = _http("/auth/me", "u-active")(db)
+        return result, list(db.sync_attempts)
+
+    out = _both(monkeypatch, tables, run,
+                auth_module, acp, activation_gate, feature_flags, runtime_flags)
+    off, on = out[False], out[True]
+    (off_status, off_body), _ = off[0]
+    (on_status, on_body), on_sync = on[0]
+
+    assert on_sync == [], "flag on must not touch the sync client"
+    assert on_status == off_status == 200
+    assert on_body == off_body
+    assert on_body["flashcard_enabled"] is True
+    assert on_body["vocab_curated_enabled"] is True
+    for state in (off, on):
+        reads = [c[1:] for c in state[1] if c[0] == "select"]
+        assert ("users", (("eq", "id", "u-active"),)) in reads[1:], "per-user flag read"
+        assert ("runtime_flags", (("eq", "key", "vocab_units_read"),)) in reads
+    strip = lambda calls: [c for c in calls if c[0] != "update"]  # noqa: E731
+    assert strip(off[1]) == strip(on[1])
 
 
 # ── Transports ───────────────────────────────────────────────────────────────
