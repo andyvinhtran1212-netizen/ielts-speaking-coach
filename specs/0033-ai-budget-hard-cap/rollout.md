@@ -8,26 +8,40 @@ key, token or `.env` value. Evidence records variable **names** and
 
 ## Preconditions
 
-- AIBUDGET-0033 is approved on `staging`, with Q1–Q9 (`spec.md`) recorded in
-  `approval-decision.md` (approved by Vinh 2026-10-28; the Azure tier under
-  Q1 is still outstanding).
-- The Leader has confirmed migration number 333 (provisional; 327–330 are
-  reserved, 331 is GIVEARCHIVE-0031, 332 is ADMINAAL2-0032). If the number
-  changes, rename the file and every reference in one commit before T002.
+- AIBUDGET-0033 is approved on `staging`, with Q1–Q9 and decisions (a)–(f)
+  (`spec.md`) recorded in `approval-decision.md` (approved by Vinh
+  2026-10-28 at 09:11/09:13 and 09:35). The Azure tier under Q1 and Q10/Q11
+  are still outstanding. The FR-023 defaults apply until Vinh answers.
+- Migration number 333 is confirmed for AI-BUDGET lot 02 (Q5, 09:35).
+  327–330 are reserved, 331 is GIVEARCHIVE-0031 and 332 is ADMINAAL2-0032.
 - Every provider/model that can be reserved has a price row in
   `backend/services/ai_pricing.py`. Azure pronunciation has no row today.
-  Without one, Azure calls are refused once enforcement starts (FR-004).
-  T001 adds the Azure row from the tier Vinh confirms under Q1.
-- Railway variables are set on the target environment **before** the
-  enforcing backend deploys, because a missing or invalid total cap refuses
-  all paid AI (FR-003):
-  `AI_BUDGET_MONTHLY_USD_TOTAL`, `AI_BUDGET_MONTHLY_USD_ANTHROPIC` (100,
-  soft), `AI_BUDGET_MONTHLY_USD_GOOGLE` (20) and `AI_BUDGET_MONTHLY_USD_AZURE`
-  (20), the optional OpenAI and ElevenLabs caps from Q1, `AI_KILL_SWITCH=off`,
-  `AI_BUDGET_MODE`, `OWNER_ALERT_EMAILS` (the single owner address decided
-  under Q2) and the email-provider key (shared with 0032 when it has
-  landed). The code defaults match the decided values, so an unset Google
-  or Azure variable still applies $20.
+  Without one, Azure calls are refused once enforcement starts (FR-004),
+  and Speaking is graded without pronunciation (FR-023). T001 adds the
+  Azure row from the tier Vinh confirms under Q1.
+- Railway variables are reviewed on the target environment **before** the
+  enforcing backend deploys. A missing budget variable never blocks AI,
+  because it takes its spec default (FR-003, decision (b)). A set but
+  invalid hard cap refuses its provider, so each set value is read back as
+  valid. The variables are:
+  - `AI_BUDGET_MONTHLY_USD_TOTAL` (200, soft, alerts only);
+  - `AI_BUDGET_MONTHLY_USD_ANTHROPIC` (100, soft);
+  - `AI_BUDGET_MONTHLY_USD_GOOGLE`, `_AZURE`, `_OPENAI` and `_ELEVENLABS`
+    (20 each, hard);
+  - `AI_KILL_SWITCH=off` and `AI_BUDGET_MODE`;
+  - `OWNER_ALERT_EMAILS` (the single owner address decided under Q2);
+  - the Resend API key (shared with 0032 when it has landed).
+
+  The code defaults match the decided values, so leaving a budget variable
+  unset applies the decided cap.
+- The `averlearning.com` domain is verified in Resend (DNS records added
+  and reported verified) before the alert checks in S3, and before
+  production P1, so alerts can be sent from `alerts@averlearning.com`
+  (decision (a)). Gmail SMTP is not a fallback. If the domain is not
+  verified at P1, the Leader asks Vinh whether to promote with alerts
+  pending. The implementer does not choose another sender.
+- ADMINAAL2-0032's AAL2 reader is deployed before the raise is rehearsed.
+  Without it, the raise routes refuse every caller (FR-022, decision (e)).
 - The Anthropic Console monthly spend limit is confirmed at $200 for the
   production workspace by Vinh, with a screenshot naming the workspace and
   no key. The app budget for Anthropic is soft (FR-021), so the Console
@@ -58,7 +72,10 @@ key, token or `.env` value. Evidence records variable **names** and
    `underestimated` count) and tune the estimator before S3.
 3. **S3. Enforce with a low cap.** Set `AI_BUDGET_MODE=enforce` and
    `AI_BUDGET_MONTHLY_USD_TOTAL` to a test value just above the period's
-   committed spend. Then run AC1–AC12 (`spec.md`) with E2E accounts.
+   committed spend. Then run AC1–AC14 (`spec.md`) with E2E accounts. For
+   a low-cap test, set a hard provider cap (for example
+   `AI_BUDGET_MONTHLY_USD_OPENAI`), because `total` is soft and never
+   refuses.
    - Submit Speaking and Writing work after the cap is reached. Check the
      "Đang chờ chấm" state, no provider call and no learner quota use.
    - Raise the cap and restart. Check that the queue drains in order and
@@ -70,17 +87,21 @@ key, token or `.env` value. Evidence records variable **names** and
      rehearsal, then restore the grant. Paid AI is refused and non-AI pages
      still load (AC2).
    - Check that the 50/80/100% and daily alerts reach the staging recipient
-     once each (V7).
+     once each, sent from `alerts@averlearning.com` (V7). For `anthropic`,
+     only 80% and 100% arrive.
+   - **Azure skip (AC13).** Set the staging Azure cap just above committed
+     spend. A test-mode and a practice Speaking answer are graded at once
+     without pronunciation, with P5 and P5b shown, the instructor matrix
+     labelled "Chưa có Phát âm", and no deferred job.
    - **Soft Anthropic budget (AC10).** Set a staging Anthropic budget just
      above committed spend. A Claude-primary feature keeps working past
      it, and the 100% alerts arrive once each.
    - **Raise rehearsal (AC12).** With the Google scope at its staging cap,
-     an admin grants a 1-hour $1 raise from the panel. Check the email, the
-     panel's effective cap and that Gemini calls resume. Let it expire.
+     an AAL2 admin grants a 1-hour $1 raise from the panel. Check the email,
+     the panel's effective cap and that Gemini calls resume. Let it expire.
      Check that the cap reverts and the expiry email arrives. Grant again
-     and end it early. Run V8. Before ADMINAAL2-0032's AAL2 check ships,
-     record that the route ran with AAL1. After it ships, also show that an
-     AAL1 admin is refused.
+     and end it early. Run V8. Show that an AAL1 admin is refused with 403
+     `mfa_required` and nothing is written.
 4. **S4. Restore.** Set staging caps back to the production values. Keep
    `enforce`. Record the SHA, variable names (set/unset), outputs and
    timings in `verification.md`.
@@ -158,9 +179,11 @@ With Vinh's explicit authorisation at promotion:
   each scope and period, queue depth and oldest queued age, open
   reservations, the last alert for each threshold, and the sweeper
   heartbeat.
-- Alerts go to `OWNER_ALERT_EMAILS` (Q2) at 50/80/100% of each monthly cap
-  (the soft Anthropic budget included), when a daily cap is reached, and for
-  each raise grant, early end and expiry. A sweeper heartbeat older than 15 minutes
+- Alerts go from `alerts@averlearning.com` through Resend to
+  `OWNER_ALERT_EMAILS` (Q2, decision (a)). They are sent at 50/80/100% of
+  each monthly cap (80/100% for the soft Anthropic budget; the soft $200
+  `total` included), when a daily cap is reached, and for each raise
+  grant, early end and expiry. A sweeper heartbeat older than 15 minutes
   is shown on the admin panel. Emailing about it is Q4.
 - Owner: Vinh (product, budget). The implementing agent records T010/T011
   evidence on the PR.
