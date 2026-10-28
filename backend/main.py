@@ -783,6 +783,35 @@ async def startup_event():
             settings.COURSE_TIMER_REAPER_GRACE_SECONDS,
         )
 
+    # INACTIVEWRITE-0035 follow-up — daily row-growth alert. Learners write
+    # Vocabulary/flashcard rows through Supabase REST with no rate limit; this
+    # flags abnormal per-user growth into error_logs for admins only. The first
+    # run follows startup (deploys restart the process more often than daily);
+    # the check itself de-duplicates per user/table/UTC day.
+    if settings.ROW_GROWTH_ALERT_ENABLED:
+        import asyncio as _asyncio_row_growth
+        from services import row_growth_alert as _row_growth
+
+        async def _row_growth_alert_loop():
+            await _asyncio_row_growth.sleep(settings.ROW_GROWTH_ALERT_STARTUP_DELAY_SECONDS)
+            while True:
+                try:
+                    res = await _asyncio_row_growth.to_thread(
+                        _row_growth.run_row_growth_check,
+                        threshold=settings.ROW_GROWTH_ALERT_THRESHOLD,
+                    )
+                    logger.info("[row-growth] check %s", res)
+                except Exception:
+                    logger.exception("[row-growth] check failed")
+                await _asyncio_row_growth.sleep(settings.ROW_GROWTH_ALERT_INTERVAL_SECONDS)
+
+        _asyncio_row_growth.create_task(_row_growth_alert_loop())
+        logger.info(
+            "[row-growth] started (interval=%ss, threshold=%s)",
+            settings.ROW_GROWTH_ALERT_INTERVAL_SECONDS,
+            settings.ROW_GROWTH_ALERT_THRESHOLD,
+        )
+
 
 @app.on_event("shutdown")
 async def shutdown_event():
