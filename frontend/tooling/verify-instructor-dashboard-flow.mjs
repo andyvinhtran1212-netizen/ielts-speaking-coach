@@ -101,6 +101,10 @@ const answerConfirm = async (answer) => {
     && await confirmDialog.getByRole('button', { name: 'Hủy', exact: true }).count() === 1
     && await confirmDialog.getByRole('button', { name: 'Giao thêm', exact: true }).count() === 1
     && assignmentPosts.length === postsWhileOpen, dialogs.at(-1));
+  // Shift+Tab straight from the focused panel wraps to the last action instead of leaving for the page.
+  await page.keyboard.press('Shift+Tab');
+  check('Shift+Tab ngay khi mở vẫn giữ focus trong hộp xác nhận', await confirmDialog.evaluate((element) => element.contains(document.activeElement)
+    && document.activeElement?.textContent === 'Giao thêm'), await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 120)));
   if (answer === 'escape') await page.keyboard.press('Escape');
   else await confirmDialog.getByRole('button', { name: answer === 'accept' ? 'Giao thêm' : 'Hủy', exact: true }).click();
   await confirmDialog.waitFor({ state: 'detached' });
