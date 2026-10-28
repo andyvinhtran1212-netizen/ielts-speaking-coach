@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import uuid
 from decimal import Decimal
 
 import pytest
@@ -21,6 +22,8 @@ from services import ai_usage_logger
 from services.request_context import request_id_scope
 
 _UUID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+# PostgREST max-rows: a response never holds more rows than this.
+_MAX_ROWS = 1000
 
 
 # ── In-memory PostgREST double (sync + async) ─────────────────────────────────
@@ -33,6 +36,7 @@ class _Result:
 class _Query:
     def __init__(self, db, table):
         self.db, self.table, self.op, self.payload, self.filters = db, table, None, None, []
+        self.order_col, self.row_limit = None, None
 
     def insert(self, row):
         self.op, self.payload = "insert", row
@@ -53,6 +57,18 @@ class _Query:
 
     def eq(self, col, val):
         self.filters.append(lambda r, c=col, v=val: r.get(c) == v)
+        return self
+
+    def gt(self, col, val):
+        self.filters.append(lambda r, c=col, v=val: r.get(c) is not None and r[c] > v)
+        return self
+
+    def order(self, col):
+        self.order_col = col
+        return self
+
+    def limit(self, n):
+        self.row_limit = n
         return self
 
     def or_(self, expr):
@@ -79,9 +95,14 @@ class _Query:
             event = self.payload.get("usage_event_id")
             if self.op == "upsert" and any(r.get("usage_event_id") == event for r in rows):
                 return _Result([])  # ON CONFLICT DO NOTHING
-            rows.append(dict(self.payload))
+            rows.append({"id": str(uuid.uuid4()), **self.payload})
             return _Result([self.payload])
         matched = [r for r in rows if all(f(r) for f in self.filters)]
+        if self.op == "select":
+            if self.order_col:
+                matched.sort(key=lambda r: str(r.get(self.order_col) or ""))
+            cap = self.db.max_rows if self.row_limit is None else min(self.row_limit, self.db.max_rows)
+            matched = matched[:cap]
         if self.op == "update":
             for r in matched:
                 r.update(self.payload)
@@ -108,6 +129,7 @@ class _FakeDb:
         self.tables = {"sessions": [{"id": "s1", "estimated_cost_usd": 0}]}
         self.calls: list[tuple[str, str]] = []
         self.fail_on = None
+        self.max_rows = _MAX_ROWS
         self.after_update = lambda _q: None
         self.before_update = lambda _q: None
         self.before_update_async = _noop_async
@@ -310,6 +332,73 @@ async def test_async_sibling_refresh_before_each_update_cannot_leave_a_stale_tot
     assert len(adb.tables["ai_usage_logs"]) == 4
     assert _ledger_sum(adb) == Decimal("0.04")
     assert adb.session_cost == pytest.approx(0.04)
+
+
+def _seed_ledger(fake, n, cost=0.01):
+    """n priced rows for s1 with random uuid ids, as gen_random_uuid() gives."""
+    fake.tables.setdefault("ai_usage_logs", []).extend(
+        {"id": str(uuid.uuid4()), "session_id": "s1", "cost_usd_est": cost,
+         "usage_event_id": f"seed:{i}"}
+        for i in range(n)
+    )
+
+
+def _ledger_selects(fake) -> int:
+    return fake.calls.count(("ai_usage_logs", "select"))
+
+
+def test_session_cost_reads_every_ledger_page_past_max_rows(db):
+    """Codex P2 on #1862: 1,001 x $0.01 must persist $10.01, not the $10.00
+    one capped PostgREST response holds."""
+    _seed_ledger(db, 1000)
+    ai_usage_logger.log_whisper(
+        user_id="u1", session_id="s1", model="whisper-1", audio_seconds=100,
+    )
+
+    assert len(db.tables["ai_usage_logs"]) == 1001
+    assert _ledger_sum(db) == Decimal("10.01")
+    assert db.session_cost == pytest.approx(10.01)
+    # Two pages per read (1000 + 1); the settled re-read pages again.
+    assert _ledger_selects(db) == 4
+
+
+@pytest.mark.asyncio
+async def test_async_session_cost_reads_every_ledger_page_past_max_rows(adb):
+    _seed_ledger(adb, 1000)
+    await ai_usage_logger.log_whisper_async(
+        user_id="u1", session_id="s1", model="whisper-1", audio_seconds=100,
+    )
+
+    assert len(adb.tables["ai_usage_logs"]) == 1001
+    assert _ledger_sum(adb) == Decimal("10.01")
+    assert adb.session_cost == pytest.approx(10.01)
+    assert _ledger_selects(adb) == 4
+
+
+def test_session_cost_pages_through_an_exact_multiple_of_max_rows(db):
+    """1,999 seeded + 1 logged = two full pages; the empty third page ends it."""
+    _seed_ledger(db, 1999)
+    ai_usage_logger.log_whisper(
+        user_id="u1", session_id="s1", model="whisper-1", audio_seconds=100,
+    )
+
+    assert _ledger_sum(db) == Decimal("20.00")
+    assert db.session_cost == pytest.approx(20.00)
+    assert _ledger_selects(db) == 6
+
+
+def test_stuck_ledger_cursor_warns_instead_of_persisting_a_partial_total(db, monkeypatch, caplog):
+    """A page cursor that does not advance must not loop or write the first
+    page's sum as the session total."""
+    monkeypatch.setattr(_Query, "gt", lambda self, _col, _val: self)
+    _seed_ledger(db, 1000)
+    ai_usage_logger.log_whisper(
+        user_id="u1", session_id="s1", model="whisper-1", audio_seconds=100,
+    )
+
+    assert ("sessions", "update") not in db.calls
+    assert db.session_cost == 0
+    assert "session cost refresh failed session=s1" in caplog.text
 
 
 def test_stale_total_never_lowers_the_column(db):

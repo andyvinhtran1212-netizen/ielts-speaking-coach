@@ -509,6 +509,8 @@ async def _write_async(row: dict[str, Any]) -> bool:
 # sessions.estimated_cost_usd is NUMERIC(10,4) (migration 093).
 _SESSION_COST_QUANTUM = Decimal("0.0001")
 _SESSION_COST_PASSES = 3
+# PostgREST caps a response at max-rows (1000); a session can exceed it.
+_SESSION_COST_PAGE = 1000
 
 
 def _affects_session_cost(row: dict[str, Any]) -> bool:
@@ -522,6 +524,23 @@ def _session_cost_total(rows: list[dict[str, Any]] | None) -> Decimal:
         Decimal(0),
     )
     return total.quantize(_SESSION_COST_QUANTUM, rounding=ROUND_HALF_UP)
+
+
+def _session_cost_page_query(client: Any, session_id: str, cursor: str | None) -> Any:
+    query = (client.table("ai_usage_logs").select("id, cost_usd_est")
+             .eq("session_id", session_id).order("id").limit(_SESSION_COST_PAGE))
+    return query if cursor is None else query.gt("id", cursor)
+
+
+def _session_cost_next_cursor(page: list[dict[str, Any]], cursor: str | None) -> str | None:
+    """Keyset cursor for the next ledger page (routers/admin.py::_usage_paged),
+    or None once a short page shows the session's rows are all read."""
+    if len(page) < _SESSION_COST_PAGE:
+        return None
+    next_cursor = page[-1].get("id")
+    if not isinstance(next_cursor, str) or not next_cursor or next_cursor == cursor:
+        raise RuntimeError("session cost pagination requires a progressing id cursor")
+    return next_cursor
 
 
 def _session_cost_raise_filter(total: Decimal) -> str:
@@ -541,12 +560,18 @@ def _refresh_session_cost(session_id: str) -> None:
     re-checks that WHERE against the newest row version, so a stale total can
     never overwrite a newer one. The refresh for the last insert reads every
     row, so the column ends at the full sum. The re-read repeats a pass for a
-    sibling row whose own refresh failed.
+    sibling row whose own refresh failed. Each read pages through the ledger
+    by id, because one PostgREST response stops at max-rows (1000).
     """
     def read() -> Decimal:
-        res = (supabase_admin.table("ai_usage_logs").select("cost_usd_est")
-               .eq("session_id", session_id).execute())
-        return _session_cost_total(res.data)
+        rows: list[dict[str, Any]] = []
+        cursor: str | None = None
+        while True:
+            page = _session_cost_page_query(supabase_admin, session_id, cursor).execute().data or []
+            rows.extend(page)
+            cursor = _session_cost_next_cursor(page, cursor)
+            if cursor is None:
+                return _session_cost_total(rows)
 
     try:
         total = read()
@@ -565,9 +590,14 @@ async def _refresh_session_cost_async(session_id: str) -> None:
     """Async-client twin of :func:`_refresh_session_cost`."""
     async def read() -> Decimal:
         client = await get_supabase_async()
-        res = await (client.table("ai_usage_logs").select("cost_usd_est")
-                     .eq("session_id", session_id).execute())
-        return _session_cost_total(res.data)
+        rows: list[dict[str, Any]] = []
+        cursor: str | None = None
+        while True:
+            page = (await _session_cost_page_query(client, session_id, cursor).execute()).data or []
+            rows.extend(page)
+            cursor = _session_cost_next_cursor(page, cursor)
+            if cursor is None:
+                return _session_cost_total(rows)
 
     try:
         total = await read()
