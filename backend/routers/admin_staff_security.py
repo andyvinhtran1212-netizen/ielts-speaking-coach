@@ -79,9 +79,13 @@ async def admin_set_staff_active(
     Suspension sets the durable marker, then bans sign-in and revokes every
     session. A revocation failure keeps the suspension and answers
     ``sessions_revoked: false`` with ``revoke_error`` (retry with
-    ``POST …/revoke-sessions``). Reactivation clears the marker and lifts the
-    ban; ``sign_in_restored: false`` means repeat this request. A repeat of the
-    same request writes no second audit row.
+    ``POST …/revoke-sessions``). Reactivation lifts the ban FIRST and only
+    then clears the marker: if GoTrue refuses the unban, nothing changes
+    (``ok: false``, ``changed: false``, ``sign_in_restored: false``), the
+    account stays suspended with its role frozen (FR-019), and repeating this
+    request retries. A ban can therefore never outlive the marker, which is
+    the only state this route can retry from. A repeat of the same request
+    writes no second audit row.
     """
     admin = await require_admin(authorization)
     target = _target_id(user_id)
@@ -91,12 +95,43 @@ async def admin_set_staff_active(
 
     db = _db()
     request_id = current_request_id()
-    change = staff_security.set_staff_privilege(
-        db, actor_id=actor, target_id=target, is_active=payload.is_active,
-        reason=payload.reason.strip(), request_id=request_id,
-    )
-
     sessions_revoked = revoke_error = sign_in_restored = None
+    unbanned = False
+    if payload.is_active:
+        try:
+            current = staff_security.read_privilege_row(db, target)
+        except Exception as exc:
+            logger.error("[staff_security] target read failed target=%s: %r", target, exc)
+            raise HTTPException(
+                503, {"error_code": "lookup_failed", "message": "Không đọc được tài khoản. Vui lòng thử lại."},
+            ) from None
+        if current is None:
+            raise HTTPException(404, "User not found")
+        if current.get("suspended_at"):
+            if not staff_security.restore_sign_in(_auth_admin(), target):
+                return {
+                    "ok": False, "id": target, "is_active": bool(current.get("is_active")),
+                    "suspended_at": current.get("suspended_at"), "changed": False,
+                    "audit_id": None, "sessions_revoked": None, "revoke_error": None,
+                    "sign_in_restored": False,
+                }
+            unbanned = sign_in_restored = True
+    try:
+        change = staff_security.set_staff_privilege(
+            db, actor_id=actor, target_id=target, is_active=payload.is_active,
+            reason=payload.reason.strip(), request_id=request_id,
+        )
+    except HTTPException:
+        if unbanned:
+            # The marker still stands; put the ban back (best effort — the
+            # account is inactive and suspended, so every surface denies it).
+            try:
+                staff_security.set_auth_ban(_auth_admin(), target, banned=True)
+            except Exception as exc:
+                logger.error("[staff_security] re-ban after refused reactivation failed target=%s: %r",
+                             target, exc)
+        raise
+
     if change.suspended:
         # Also on a repeat: the revocation is idempotent and a repeat is how
         # a caller re-asserts the suspension's ban (research.md §9.2).
@@ -106,8 +141,6 @@ async def admin_set_staff_active(
             reason=payload.reason.strip(), request_id=request_id,
         )
         sessions_revoked, revoke_error = outcome.sessions_revoked, outcome.revoke_error
-    elif payload.is_active:
-        sign_in_restored = staff_security.restore_sign_in(_auth_admin(), target)
 
     after = change.after or {}
     return {

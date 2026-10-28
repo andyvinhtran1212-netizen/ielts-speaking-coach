@@ -33,7 +33,8 @@ class StaffActiveOut(_StrictOut):
     # null when the change does not revoke (reactivation).
     sessions_revoked: bool | None = None
     revoke_error: str | None = None
-    # null when the change does not restore sign-in (suspension).
+    # null when no suspension ban was lifted (suspension, or reactivation of
+    # an account that was never suspended). false = nothing changed; retry.
     sign_in_restored: bool | None = None
 
 

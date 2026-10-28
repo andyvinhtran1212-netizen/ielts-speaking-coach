@@ -1692,9 +1692,13 @@ export interface paths {
          *     Suspension sets the durable marker, then bans sign-in and revokes every
          *     session. A revocation failure keeps the suspension and answers
          *     ``sessions_revoked: false`` with ``revoke_error`` (retry with
-         *     ``POST …/revoke-sessions``). Reactivation clears the marker and lifts the
-         *     ban; ``sign_in_restored: false`` means repeat this request. A repeat of the
-         *     same request writes no second audit row.
+         *     ``POST …/revoke-sessions``). Reactivation lifts the ban FIRST and only
+         *     then clears the marker: if GoTrue refuses the unban, nothing changes
+         *     (``ok: false``, ``changed: false``, ``sign_in_restored: false``), the
+         *     account stays suspended with its role frozen (FR-019), and repeating this
+         *     request retries. A ban can therefore never outlive the marker, which is
+         *     the only state this route can retry from. A repeat of the same request
+         *     writes no second audit row.
          */
         patch: operations["admin_set_staff_active_admin_users__user_id__active_patch"];
         trace?: never;

@@ -460,17 +460,60 @@ class TestReactivate:
         assert INSTRUCTOR not in db.auth.admin.banned
         assert [a["event"] for a in db.audits()] == ["active_changed", "active_changed"]
 
-    def test_unban_failure_is_visible_and_a_repeat_retries_without_a_second_row(self, client, db):
+    def test_unban_failure_changes_nothing_and_a_repeat_retries(self, client, db):
         _active(client, INSTRUCTOR, False)
         db.auth.admin.fail_unban = True
         r = _active(client, INSTRUCTOR, True)
-        assert r.status_code == 200 and r.json()["sign_in_restored"] is False
-        assert r.json()["changed"] is True and db.user(INSTRUCTOR)["is_active"] is True
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["ok"] is False and body["changed"] is False and body["sign_in_restored"] is False
+        assert body["audit_id"] is None and body["is_active"] is False and body["suspended_at"]
+        # Still suspended, so its role stays frozen: no demotion can strand a
+        # ban this route could no longer lift (Codex P2 on #1885).
+        assert db.user(INSTRUCTOR)["suspended_at"] and db.user(INSTRUCTOR)["is_active"] is False
+        assert INSTRUCTOR in db.auth.admin.banned
+        demote = client.patch(f"/admin/users/{INSTRUCTOR}/role", json={"role": "student"}, headers=AUTH)
+        assert demote.status_code == 409
+        assert demote.json()["detail"]["code"] == "account_suspended_role_change"
+        assert len(db.audits()) == 1
         db.auth.admin.fail_unban = False
         retry = _active(client, INSTRUCTOR, True)
-        assert retry.json()["changed"] is False and retry.json()["sign_in_restored"] is True
-        assert INSTRUCTOR not in db.auth.admin.banned
-        assert len(db.audits()) == 2   # suspend + reactivate, no row for the retry
+        assert retry.json()["ok"] is True and retry.json()["changed"] is True
+        assert retry.json()["sign_in_restored"] is True
+        assert INSTRUCTOR not in db.auth.admin.banned and db.user(INSTRUCTOR)["suspended_at"] is None
+        assert len(db.audits()) == 2   # suspend + reactivate, none for the failed attempt
+        again = _active(client, INSTRUCTOR, True)
+        assert again.json()["changed"] is False and again.json()["sign_in_restored"] is None
+
+    def test_unban_happens_before_the_marker_is_cleared(self, client, db):
+        _active(client, INSTRUCTOR, False)
+        seen = []
+        original = db._set_staff_privilege
+
+        def spy(**params):
+            seen.append(INSTRUCTOR in db.auth.admin.banned)
+            return original(**params)
+
+        db._set_staff_privilege = spy
+        assert _active(client, INSTRUCTOR, True).json()["sign_in_restored"] is True
+        assert seen == [False]
+
+    def test_refused_reactivation_puts_the_ban_back(self, client, db):
+        _active(client, INSTRUCTOR, False)
+        db.user(ADMIN).update(is_active=False, suspended_at="2026-10-29T00:59:00+00:00")
+        r = _active(client, INSTRUCTOR, True)
+        assert r.status_code == 403 and r.json()["detail"]["code"] == "actor_not_admin"
+        assert INSTRUCTOR in db.auth.admin.banned and db.user(INSTRUCTOR)["suspended_at"]
+
+    def test_reactivating_a_never_suspended_account_does_not_touch_gotrue(self, client, db):
+        r = _active(client, NEVER_ACTIVATED, True)
+        assert r.status_code == 200 and r.json()["changed"] is True
+        assert r.json()["sign_in_restored"] is None and db.auth.admin.calls == []
+
+    def test_reactivation_target_read_failure_is_503(self, client, db):
+        db.fail_tables.add("users")
+        assert _active(client, INSTRUCTOR, True).status_code == 503
+        assert db.rpc_calls == [] and db.auth.admin.calls == []
 
 
 # ── Revocation failure (FR-008) ──────────────────────────────────────────────
