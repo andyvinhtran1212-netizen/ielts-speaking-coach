@@ -31,7 +31,7 @@ from typing import Any, Callable
 
 from fastapi import HTTPException
 
-ASSIGNMENT_STARTED_DETAIL = "Học viên đã bắt đầu — không xoá được"
+ASSIGNMENT_STARTED_DETAIL = "Học viên đã bắt đầu làm bài nên không xóa được bài giao này."
 
 
 def _is_foreign_key_violation(exc: Exception) -> bool:

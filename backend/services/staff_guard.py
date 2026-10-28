@@ -258,6 +258,18 @@ def lookup_role(db: Any, user_id: str) -> Optional[str]:
     return rows[0].get("role") if rows else None
 
 
+async def alookup_role(read_role: Callable[[str], Awaitable[Any]], user_id: str) -> Optional[str]:
+    """:func:`lookup_role` over the caller's awaitable read — ``routers.admin``
+    passes its async-DB facade read (ASYNCAUTH-0036), so this module never
+    picks a client. Same None-when-no-row result and 503 fail-closed contract."""
+    try:
+        rows = (await read_role(user_id)).data or []
+    except Exception as exc:
+        logger.warning("[staff_guard] role lookup failed user=%s: %r", user_id, exc)
+        raise HTTPException(503, LOOKUP_FAILED_DETAIL)
+    return rows[0].get("role") if rows else None
+
+
 async def resolve_staff(
     authorization: str | None,
     *,
@@ -265,16 +277,20 @@ async def resolve_staff(
     get_user: Callable[[str | None], Awaitable[dict]],
     db: Any,
     allow_aal1: bool = False,
+    read_role: Optional[Callable[[str], Awaitable[Any]]] = None,
 ) -> dict:
     """Verify the bearer, then the role, ``is_active`` and (for an admin) the
     second factor. Returns the GoTrue user dict unchanged.
 
     ``get_user`` and ``db`` are injected by ``routers.admin`` from its module
-    globals so the established test seams keep working.
+    globals so the established test seams keep working. ``read_role`` (when
+    given) replaces the sync role read on ``db`` — routers.admin passes its
+    async-DB facade read (ASYNCAUTH-0036); with USE_ASYNC_DB off that read is
+    the same sync query on the same client.
     """
     auth_user = await get_user(authorization)
     user_id = auth_user["id"]
-    role = lookup_role(db, user_id)
+    role = lookup_role(db, user_id) if read_role is None else await alookup_role(read_role, user_id)
 
     if need == "admin":
         if role != "admin":
@@ -284,7 +300,8 @@ async def resolve_staff(
 
     # Q-13 — a staff role does not replace activation: the learner gate skips
     # staff paths, so this guard owns the users.is_active check for them.
-    activation_gate.ensure_account_active(user_id)
+    # The async twin (ASYNCAUTH-0036) is the sync read when USE_ASYNC_DB is off.
+    await activation_gate.aensure_account_active(user_id)
 
     if role == "admin":
         apply_admin_assurance(auth_user, authorization, allow_aal1=allow_aal1)

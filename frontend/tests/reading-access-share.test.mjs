@@ -172,7 +172,7 @@ describe('B2 — admin: generate / rotate / revoke link control', () => {
     assert.match(adminJs, /_canonicalOrigin\(\)\s*\+\s*'\/pages\/reading-exam\.html\?share=' \+ encodeURIComponent\(token\)/);
   });
   test('the modal warns that generating/rotating kills the old link', () => {
-    assert.match(adminJs, /huỷ liên kết cũ ngay lập tức/);
+    assert.match(adminJs, /hủy liên kết cũ ngay lập tức/);
     assert.match(adminJs, /liên kết cũ.{0,40}chết/i);
   });
   test('modal CSS is token-clean + theme-aware (injected modal styled)', () => {

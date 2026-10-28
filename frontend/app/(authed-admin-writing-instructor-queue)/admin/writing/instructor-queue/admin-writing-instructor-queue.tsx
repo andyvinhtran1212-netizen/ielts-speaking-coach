@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAdminProfile } from '@/components/admin-access-gate';
 import { Dialog, messageOf } from '@/components/admin-directory-ui';
 import {
-  claimReadback, findInstructorReview, instructorGradeHref, instructorQueueFilters,
+  claimReadback, dismissSuccessBanner, findInstructorReview, instructorGradeHref, instructorQueueFilters,
   instructorQueueHref, instructorQueuePath, instructorReconcilePath, normalizeClaimAck, normalizeInstructorQueue,
   normalizeReleaseAck, pendingInstructorOperation, releaseReadback,
 } from '@/lib/admin-writing-instructor-queue-model.mjs';
@@ -48,7 +48,7 @@ export function AdminWritingInstructorQueue() {
   const [banner, setBanner] = useState<Banner | null>(null); const [busy, setBusy] = useState<string | null>(null); const [releaseTarget, setReleaseTarget] = useState<Row | null>(null);
   const [pending, setPending] = useState<Pending | null>(null); const pendingRef = useRef<Pending | null>(null); const requestRef = useRef(0); const accountRef = useRef(profile.id); const loadRunning = useRef(false); accountRef.current = profile.id;
   const current = snapshot?.account === profile.id && snapshot.view === filters.view ? snapshot : null;
-  const navigate = useCallback((view: string) => router.replace(instructorQueueHref({ ...filters, view }), { scroll: false }), [filters, router]);
+  const navigate = useCallback((view: string) => { setBanner(dismissSuccessBanner); router.replace(instructorQueueHref({ ...filters, view }), { scroll: false }); }, [filters, router]);
 
   const loadQueue = useCallback(async (quiet = false) => {
     if (loadRunning.current && quiet) return null;
@@ -149,17 +149,18 @@ export function AdminWritingInstructorQueue() {
     } finally { setBusy(null); }
   };
 
+  const refreshQueue = () => { setBanner(dismissSuccessBanner); void loadQueue(); };
   const rows = current?.rows || [];
   const mutationsBlocked = Boolean(busy || pending);
   return <main className="awi-shell">
-    <header className="awi-hero"><div><p className="awi-eyebrow">Writing · Human review lane</p><h1>Hàng đợi Instructor</h1><p>Nhận bài theo FIFO, chỉnh feedback trong workspace và chỉ kết luận thao tác sau canonical readback.</p></div><div className="awi-hero__actions"><a className="adm-btn-secondary" href="/admin/writing">Writing workspace</a><button className="adm-btn-primary" type="button" disabled={loading || Boolean(busy)} onClick={() => void loadQueue()}>{loading ? 'Đang làm mới…' : 'Làm mới canonical'}</button></div></header>
+    <header className="awi-hero"><div><p className="awi-eyebrow">Writing · Human review lane</p><h1>Hàng đợi Instructor</h1><p>Nhận bài theo FIFO, chỉnh feedback trong workspace và chỉ kết luận thao tác sau canonical readback.</p></div><div className="awi-hero__actions"><a className="adm-btn-secondary" href="/admin/writing">Writing workspace</a><button className="adm-btn-primary" type="button" disabled={loading || Boolean(busy)} onClick={refreshQueue}>{loading ? 'Đang làm mới…' : 'Làm mới canonical'}</button></div></header>
     <section className="awi-flow" aria-label="Chu trình instructor"><div><span>01</span><strong>Claim atomic</strong><small>Một instructor giữ bài</small></div><i>→</i><div><span>02</span><strong>Review & chỉnh sửa</strong><small>Mở essay canonical</small></div><i>→</i><div><span>03</span><strong>Deliver có kiểm chứng</strong><small>Học viên mới nhìn thấy</small></div></section>
     {banner && <div className={`awi-banner is-${banner.kind}`} role={banner.kind === 'error' ? 'alert' : 'status'}><div><strong>{banner.title}</strong><span>{banner.detail}</span></div>{pending && <button className="adm-btn-secondary adm-btn-sm" type="button" disabled={Boolean(busy)} onClick={() => void reconcile(pending)}>{busy ? 'Đang đối chiếu…' : 'Đối chiếu lại'}</button>}</div>}
     {loadError && current && <div className="awi-banner is-warning" role="alert"><div><strong>Đang hiển thị snapshot cũ</strong><span>{loadError} · đọc lúc {formatDate(current.readAt)}</span></div></div>}
     {current && current.malformed > 0 && <div className="awi-banner is-warning" role="alert"><div><strong>Dữ liệu bị loại</strong><span>{current.malformed} dòng sai contract không được hiển thị.</span></div></div>}
     <nav className="awi-tabs" aria-label="Bộ lọc hàng đợi">{VIEWS.map((item) => <button type="button" className={filters.view === item.id ? 'is-active' : ''} aria-current={filters.view === item.id ? 'page' : undefined} onClick={() => navigate(item.id)} disabled={Boolean(busy)} key={item.id}><span><strong>{item.label}</strong><small>{item.note}</small></span></button>)}</nav>
     <section className="awi-workspace" aria-labelledby="awi-list-title"><header><div><p className="awi-eyebrow">Canonical queue snapshot</p><h2 id="awi-list-title">{VIEWS.find((item) => item.id === filters.view)?.label}</h2><p>{filters.view === 'delivered' ? 'Lịch sử đã trả; mở bài ở chế độ xem.' : 'Bài cũ nhất được ưu tiên trước. Poll tuần tự mỗi 30 giây và tạm dừng khi tab ẩn.'}</p></div><div className="awi-count"><strong>{rows.length}</strong><span>bài hiển thị</span></div></header>
-      {loading && !current ? <div className="awi-state" role="status"><span className="awi-spinner"/><strong>Đang đọc hàng đợi…</strong></div> : loadError && !current ? <div className="awi-state is-error" role="alert"><strong>Không tải được hàng đợi</strong><p>{loadError}</p><button className="adm-btn-secondary" type="button" onClick={() => void loadQueue()}>Thử lại</button></div> : !rows.length ? <div className="awi-state"><strong>{filters.view === 'my_claims' ? 'Bạn chưa giữ bài nào' : filters.view === 'delivered' ? 'Chưa có bài đã trả' : 'Hàng đợi đang trống'}</strong><p>Snapshot canonical hiện không có bài ở lane này.</p></div> : <div className="awi-list">{rows.map((row) => <QueueRow row={row} adminId={profile.id} filters={filters} busy={busy === row.review.id} mutationsBlocked={mutationsBlocked} onClaim={() => void claim(row)} onRelease={() => setReleaseTarget(row)} key={row.review.id}/>)}</div>}
+      {loading && !current ? <div className="awi-state" role="status"><span className="awi-spinner"/><strong>Đang đọc hàng đợi…</strong></div> : loadError && !current ? <div className="awi-state is-error" role="alert"><strong>Không tải được hàng đợi</strong><p>{loadError}</p><button className="adm-btn-secondary" type="button" onClick={refreshQueue}>Thử lại</button></div> : !rows.length ? <div className="awi-state"><strong>{filters.view === 'my_claims' ? 'Bạn chưa giữ bài nào' : filters.view === 'delivered' ? 'Chưa có bài đã trả' : 'Hàng đợi đang trống'}</strong><p>Snapshot canonical hiện không có bài ở lane này.</p></div> : <div className="awi-list">{rows.map((row) => <QueueRow row={row} adminId={profile.id} filters={filters} busy={busy === row.review.id} mutationsBlocked={mutationsBlocked} onClaim={() => void claim(row)} onRelease={() => { setBanner(dismissSuccessBanner); setReleaseTarget(row); }} key={row.review.id}/>)}</div>}
     </section>
     <Dialog open={releaseTarget !== null} title="Thả bài về hàng chờ?" description="Quyền giữ bài của bạn sẽ được gỡ. Instructor khác có thể claim ngay sau đó." onClose={() => setReleaseTarget(null)} busy={Boolean(busy)} actions={<><button className="adm-btn-secondary" type="button" onClick={() => setReleaseTarget(null)} disabled={Boolean(busy)}>Giữ bài</button><button className="adm-btn-danger" type="button" onClick={() => void release()} disabled={Boolean(busy)}>{busy ? 'Đang đối chiếu…' : 'Xác nhận thả bài'}</button></>}><p className="awi-dialog-copy">Mọi chỉnh sửa đã lưu trong workspace vẫn được giữ. Thao tác chỉ được báo thành công sau khi đọc lại trạng thái canonical.</p></Dialog>
   </main>;

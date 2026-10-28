@@ -45,6 +45,7 @@ from services.access_code_gen import (
     generate_access_code, insert_one_with_unique_code, insert_with_unique_codes,
 )
 from services import staff_guard
+from services.db_async import aexecute
 from services import speaking_question_audio as speaking_audio
 from services.recording_audio import attach_playback_urls, recording_path
 from services import admin_reading_dashboard
@@ -84,13 +85,23 @@ _db_engine: AsyncEngine | None = (
 
 # ── Auth guard ─────────────────────────────────────────────────────────────────
 
+async def _staff_role_row(user_id: str):
+    """``users.role`` for the staff guards — runs on every staff request, so it
+    goes through the async-DB facade (PC-J05 D1a). With USE_ASYNC_DB off it is
+    the same sync query on this module's ``supabase_admin`` as before."""
+    return await aexecute(
+        lambda db: db.table("users").select("role").eq("id", user_id).limit(1),
+        sync_client=supabase_admin,
+    )
+
+
 async def require_admin(authorization: str | None, *, allow_aal1: bool = False) -> dict:
     """Verify Bearer token and assert an active admin with a satisfied second
     factor (ADMINAAL2-0032, services/staff_guard.py). Returns the Supabase auth
     dict. ``allow_aal1`` is honoured only on staff_guard.AAL1_ALLOWED_ADMIN_ROUTES."""
     return await staff_guard.resolve_staff(
         authorization, need="admin", get_user=get_supabase_user, db=supabase_admin,
-        allow_aal1=allow_aal1,
+        allow_aal1=allow_aal1, read_role=_staff_role_row,
     )
 
 
@@ -106,6 +117,7 @@ async def require_instructor(authorization: str | None) -> dict:
     """
     return await staff_guard.resolve_staff(
         authorization, need="instructor", get_user=get_supabase_user, db=supabase_admin,
+        read_role=_staff_role_row,
     )
 
 

@@ -221,7 +221,7 @@ function renderMapImagesPanel() {
           </p>
           ${has
             ? `<div style="display:flex;gap:var(--av-space-2);align-items:center;margin-bottom:var(--av-space-2);">
-                 <button class="td-btn td-btn-danger td-map-delete" data-exercise-id="${escapeHtml(ex.id)}" type="button">Xoá hình</button>
+                 <button class="td-btn td-btn-danger td-map-delete" data-exercise-id="${escapeHtml(ex.id)}" type="button">Xóa hình</button>
                  <span class="td-map-status" data-exercise-id="${escapeHtml(ex.id)}" style="font-size:var(--av-fs-xs);color:var(--av-text-muted);"></span>
                </div>`
             : ''}
@@ -467,8 +467,8 @@ async function refreshMapImage(exerciseId) {
 }
 
 async function onDeleteMapImage(exerciseId) {
-  if (!window.confirm('Xoá hình map cho exercise này? Phải generate lại nếu cần.')) return;
-  setMapStatus(exerciseId, 'Đang xoá hình…', false);
+  if (!window.confirm('Xóa hình map cho exercise này? Phải generate lại nếu cần.')) return;
+  setMapStatus(exerciseId, 'Đang xóa hình…', false);
   try {
     await window.api.delete(
       `/admin/listening/exercises/${encodeURIComponent(exerciseId)}/map-image`,
@@ -476,7 +476,7 @@ async function onDeleteMapImage(exerciseId) {
     await fetchTest();
     render();
   } catch (e) {
-    setMapStatus(exerciseId, `Xoá thất bại: ${(e && e.message) || e}`, true);
+    setMapStatus(exerciseId, `Xóa thất bại: ${(e && e.message) || e}`, true);
   }
 }
 
@@ -815,7 +815,7 @@ async function onStatus(newStatus) {
 
 
 async function onDelete() {
-  if (!window.confirm('Xác nhận xoá test này? Sẽ archive 4 section rows kèm theo.')) {
+  if (!window.confirm('Xác nhận xóa test này? Sẽ archive 4 section rows kèm theo.')) {
     return;
   }
   hideError();
@@ -825,7 +825,7 @@ async function onDelete() {
     );
     window.location.href = '/pages/admin/listening/tests.html';
   } catch (e) {
-    showError(e && e.message ? e.message : 'Xoá thất bại.');
+    showError(e && e.message ? e.message : 'Xóa thất bại.');
   }
 }
 
@@ -836,11 +836,11 @@ async function onDelete() {
 async function onHardDelete() {
   const shortName = (STATE.test && STATE.test.test_id) || '';
   if (!shortName) {
-    showError('Không xác định được test_id — không thể xoá vĩnh viễn.');
+    showError('Không xác định được test_id — không thể xóa vĩnh viễn.');
     return;
   }
   if (!window.confirm(
-    'Xác nhận XOÁ VĨNH VIỄN test? '
+    'Xác nhận XÓA VĨNH VIỄN test? '
     + 'Tất cả data + audio + history attempts sẽ mất. '
     + 'Không thể recover.',
   )) {
@@ -850,7 +850,7 @@ async function onHardDelete() {
     `Nhập chính xác test ID "${shortName}" để xác nhận:`,
   );
   if (userInput !== shortName) {
-    window.alert('Test ID không khớp — huỷ xoá.');
+    window.alert('Test ID không khớp — hủy xóa.');
     return;
   }
   hideError();

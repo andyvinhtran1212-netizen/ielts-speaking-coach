@@ -21,6 +21,7 @@ on either, so the gap is acceptable.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import date, datetime, timedelta, timezone
 from uuid import uuid4
 
@@ -170,9 +171,34 @@ def fake_db():
     return FakeSupabase()
 
 
-@pytest.fixture
-def aggregator():
+class _ConcurrentAggregator:
+    """The aggregator module, except ``get_home_summary`` runs the concurrent
+    variant the route serves (PC-J05). Attribute writes (monkeypatch) land on
+    the module, so every pin below holds for both code paths."""
+
+    def __init__(self, module):
+        object.__setattr__(self, "_module", module)
+
+    def __getattr__(self, name):
+        return getattr(self._module, name)
+
+    def __setattr__(self, name, value):
+        setattr(self._module, name, value)
+
+    def __delattr__(self, name):
+        delattr(self._module, name)
+
+    def get_home_summary(self, sb, user_id, **kwargs):
+        return asyncio.run(
+            self._module.get_home_summary_concurrent(lambda: sb, user_id, **kwargs)
+        )
+
+
+@pytest.fixture(params=["sequential", "concurrent"])
+def aggregator(request):
     from services import student_home_aggregator
+    if request.param == "concurrent":
+        return _ConcurrentAggregator(student_home_aggregator)
     return student_home_aggregator
 
 

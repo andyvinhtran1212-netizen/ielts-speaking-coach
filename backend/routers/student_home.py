@@ -18,10 +18,10 @@ student_id filter as defense-in-depth.
 
 from fastapi import APIRouter, Header
 
-from database import supabase_admin
+from database import thread_supabase_admin
 from routers.auth import get_supabase_user
-from services.access_code_permissions import get_account_permissions_summary
-from services.student_home_aggregator import get_home_summary
+from services.access_code_permissions import aget_account_permissions_summary
+from services.student_home_aggregator import get_home_summary_concurrent
 from services.student_service import account_display_name
 
 
@@ -40,8 +40,10 @@ async def home_summary(authorization: str | None = Header(default=None)):
     account_name = account_display_name(auth_user)
     name = account_name or (email.split("@", 1)[0] if email else "bạn")
 
-    return get_home_summary(
-        supabase_admin, user_id, name=name, email=email, account_name=account_name,
+    # PC-J05 D1b — the seven sections run concurrently off the event loop,
+    # each worker thread on its own service-role client (never the shared one).
+    return await get_home_summary_concurrent(
+        thread_supabase_admin, user_id, name=name, email=email, account_name=account_name,
     )
 
 
@@ -60,4 +62,6 @@ async def my_permissions(authorization: str | None = Header(default=None)):
     # also answers all-false for one, so no caller can leak an unactivated grant.
     # It keeps the WF entitlement bridge (c): a writing assignment surfaces
     # writing=true, consistent with the backend request-time gates.
-    return get_account_permissions_summary(auth_user["id"], account_display_name(auth_user))
+    return await aget_account_permissions_summary(
+        auth_user["id"], account_display_name(auth_user),
+    )
