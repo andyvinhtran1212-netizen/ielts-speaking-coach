@@ -59,13 +59,31 @@ def test_categories_feed_embeds_word_summaries_with_gloss():
 # ── additive definition_en/example (VC1 forward-compat) ───────────────
 
 
-def test_definition_en_example_additive_default_blank():
-    """The 20 words have no definition_en/example frontmatter yet → full article
-    dict carries "" for them (never KeyError / never breaks)."""
-    a = vocab_service.get_article("technology", "cutting-edge")
+def test_definition_en_example_additive_default_blank(tmp_path):
+    """A word WITHOUT definition_en/example frontmatter → full article dict
+    carries "" for them (never KeyError / never breaks). Every live file has
+    them since V-FILL, so exercise the default on a temp file."""
+    path = tmp_path / "technology" / "no-defs.md"
+    path.parent.mkdir()
+    path.write_text(
+        '---\nheadword: "No Defs"\nslug: "no-defs"\ncategory: "technology"\n'
+        'part_of_speech: "adjective"\npronunciation: "/nəʊ/"\n---\n\n**Nghĩa** — giải nghĩa.\n',
+        encoding="utf-8",
+    )
+    a = vocab_service._parse_file(path)
     assert a is not None
     assert a.get("definition_en") == ""    # additive default
     assert a.get("example") == ""
     # existing fields untouched
-    assert a["pronunciation"].startswith("/")
+    assert a["pronunciation"] == "/nəʊ/"
+    assert a["part_of_speech"] == "adjective"
+
+
+def test_definition_en_example_read_from_frontmatter():
+    """V-FILL filled definition_en/example for the 20 words; the file path
+    carries them verbatim."""
+    a = vocab_service.get_article("technology", "cutting-edge")
+    assert a is not None
+    assert a["definition_en"] == "using the newest and most advanced ideas, methods or technology in a field."
+    assert a["example"].startswith("Public funding for cutting-edge research")
     assert a["part_of_speech"] == "adjective"

@@ -72,6 +72,9 @@ export function SupabaseRuntimeBoundary({
         return;
       }
       setRuntimeReady(true);
+      // U-21 — the student chrome renders outside this boundary, so it can
+      // connect before the bridge exists; this tells it the client is ready.
+      window.dispatchEvent(new Event('aver:supabase-runtime-ready'));
     } catch (error) {
       reportRuntimeFailure('Supabase compatibility bridge initialization failed.', error);
     }

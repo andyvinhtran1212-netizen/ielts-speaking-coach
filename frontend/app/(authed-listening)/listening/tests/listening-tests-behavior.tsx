@@ -72,7 +72,7 @@ function normalizeTests(items: unknown[]): ListeningTest[] {
       key: `${id}-${index}`,
       id,
       catalogId: textValue(raw?.test_id),
-      title: textValue(raw?.title) || 'Untitled test',
+      title: textValue(raw?.title) || 'Bài thi chưa có tên',
       bandTarget: displayValue(raw?.band_target),
       themes: themeSummary(raw?.themes) || null,
       bestScore: raw?.user_best_score == null ? null : displayValue(raw.user_best_score),

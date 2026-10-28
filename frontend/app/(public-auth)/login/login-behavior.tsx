@@ -7,6 +7,7 @@ import {
   clearPersistedAuthSession,
   forgetSignedOutSession,
   isSignedOutSession,
+  rememberSignedOutSession,
 } from '@/lib/auth/sign-out-state.mjs';
 import { loginDestination, normalizeAccessCode, normalizeLoginProfile } from '@/lib/login-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
@@ -17,7 +18,7 @@ type SupabaseClient = {
     getSession(): Promise<{ data?: { session?: Session | null }; error?: { message?: string } | null }>;
     exchangeCodeForSession(code: string): Promise<{ data?: { session?: Session | null }; error?: { message?: string } | null }>;
     signInWithOAuth(input: unknown): Promise<{ error?: { message?: string } | null }>;
-    signOut(): Promise<unknown>;
+    signOut(): Promise<{ error?: { message?: string } | null } | void>;
   };
 };
 
@@ -129,8 +130,10 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
   const [activateBusy, setActivateBusy] = useState(false);
   const [activateError, setActivateError] = useState('');
   const [activateSuccess, setActivateSuccess] = useState('');
+  const [signingOut, setSigningOut] = useState(false);
   const clientRef = useRef<SupabaseClient | null>(null);
   const activateInFlight = useRef(false);
+  const signOutInFlight = useRef(false);
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const applyProfile = useCallback((profile: LoginProfile) => {
@@ -276,6 +279,38 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
     }
   }
 
+  // BL-13: the activation dialog has no other exit, so a learner signed in
+  // with the wrong Google account was stuck. Same order as the chrome logout
+  // (U-07): remember the session, revoke, then purge whatever the outcome.
+  async function signOutFromActivation() {
+    if (signOutInFlight.current || activateInFlight.current) return;
+    signOutInFlight.current = true;
+    setSigningOut(true);
+    const client = clientRef.current || await sharedClient().catch(() => null);
+    if (client) {
+      await rememberSignedOutSession(client);
+      try {
+        const result = await client.auth.signOut();
+        if (result && result.error) {
+          (window as any).aver?.reportError?.(
+            'signOut revoke failed: ' + (result.error.message || String(result.error)),
+            { type: 'auth_signout_revoke_failed' },
+          );
+        }
+      } catch { /* purged below */ }
+    }
+    clearPersistedAuthSession();
+    try { window.api?.clearAuthCache?.(); } catch { /* best effort */ }
+    setActivationOpen(false);
+    setAccessCode('');
+    setActivateError('');
+    setActivateSuccess('');
+    setError('');
+    setBusyMessage('');
+    signOutInFlight.current = false;
+    setSigningOut(false);
+  }
+
   return (
     <>
       {!busyMessage && (
@@ -342,7 +377,7 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
               placeholder="VD: IELTS-TEST-001"
               autoComplete="off"
               value={accessCode}
-              disabled={activateBusy}
+              disabled={activateBusy || signingOut}
               onChange={(event) => setAccessCode(event.target.value.toUpperCase())}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && !activateInFlight.current) void activate();
@@ -352,13 +387,21 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
               className="lx-action-activate"
               type="button"
               onClick={() => { if (!activateInFlight.current) void activate(); }}
-              disabled={activateBusy}
+              disabled={activateBusy || signingOut}
             >
               {activateBusy ? 'Đang kích hoạt…' : 'Kích hoạt'}
             </button>
             {activateError && <p className="lx-activate-error" role="alert">{activateError}</p>}
             {activateSuccess && <p className="lx-activate-success" role="status">{activateSuccess}</p>}
             <p className="lx-dialog-hint">Chưa có mã? <span>Liên hệ giáo viên để nhận access code</span></p>
+            <button
+              className="lx-dialog-signout"
+              type="button"
+              onClick={() => void signOutFromActivation()}
+              disabled={activateBusy || signingOut}
+            >
+              {signingOut ? 'Đang đăng xuất…' : 'Đăng xuất'}
+            </button>
           </section>
         </div>
       )}

@@ -72,6 +72,7 @@ from services.instructor_access import (
 )
 from services.instructor_workflow import ConflictError, NotFoundError
 from services.writing_assignment_delete_guard import delete_unstarted_assignment
+from services.writing_give_status import writing_give_timing
 from services.writing_render import render_feedback_html, render_plain_text
 from services.writing_word_exporter import render_essay_to_docx
 
@@ -215,7 +216,9 @@ class AssignBody(BaseModel):
 async def list_assignments(request: Request, authorization: str | None = Header(None)):
     me = await _me(authorization, request)
     r = instructor_db(me).table("writing_assignments").select("*").order("created_at", desc=True).execute()
-    return r.data or []
+    # A-S3 — "Nộp trễ" comes from the same rule /my-class and the admin matrix use.
+    now = datetime.now(timezone.utc)
+    return [{**row, "is_late": writing_give_timing(row, now)[0]} for row in (r.data or [])]
 
 
 @router.get("/assignments/{assignment_id}")

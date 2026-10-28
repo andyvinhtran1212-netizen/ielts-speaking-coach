@@ -115,6 +115,7 @@ export function normalizeInstructorAssignments(value) {
       groupId: nullableText(row.assignment_group_id),
       name: nullableText(row.name),
       createdAt: nullableText(row.created_at),
+      isLate: row.is_late === true,
     });
   });
 }
@@ -271,9 +272,14 @@ export function instructorGradeHref(essayId, reviewId, asInstructor = null) {
 
 export function assignmentTone(assignment, now = Date.now()) {
   if (!assignment) return Object.freeze({ label: '—', tone: 'muted' });
-  if (assignment.status === 'delivered') return Object.freeze({ label: 'Đã trả', tone: 'success' });
+  // A-S3 — `isLate` is the backend's shared rule (handed in after `deadline`).
+  if (assignment.status === 'delivered') {
+    return Object.freeze(assignment.isLate
+      ? { label: 'Đã trả · nộp trễ', tone: 'success' } : { label: 'Đã trả', tone: 'success' });
+  }
   if (assignment.essayId || ['submitted', 'grading', 'graded', 'reviewed'].includes(assignment.status)) {
-    return Object.freeze({ label: 'Đã nộp', tone: 'success' });
+    return Object.freeze(assignment.isLate
+      ? { label: 'Nộp trễ', tone: 'warning' } : { label: 'Đã nộp', tone: 'success' });
   }
   const deadline = assignment.deadline ? Date.parse(assignment.deadline) : Number.NaN;
   if (Number.isFinite(deadline) && deadline < now) return Object.freeze({ label: 'Trễ', tone: 'danger' });

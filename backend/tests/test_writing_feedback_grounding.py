@@ -633,6 +633,7 @@ def test_reference_language_in_free_text_is_not_an_essay_citation(claim):
     "Cách em dùng khái niệm 'induced demand' rất chính xác.",
     "Việc sử dụng 'trợ cấp' thể hiện vốn từ học thuật.",
     "Your use of the question wording 'make public transport free' is apt.",
+    "Em trả lời câu hỏi bằng cách dùng 'make public transport free'.",
 ])
 def test_reference_exemptions_never_cover_learner_wording_claims(claim):
     prompt = RT_PROMPT + " Some say governments should make public transport free."
@@ -720,6 +721,366 @@ def test_strict_fields_never_use_near_miss():
     result = rt_feedback(mistakeAnalysis=[mistake("reduces inequality")])
     with pytest.raises(UngroundedWritingFeedbackError):
         rt_validate(result)
+
+
+# PC-J03 staging repro (2026-10-28, Sonnet 5.5 on the 8 post-#1729 essays):
+# 21 of 29 failed citations were rubric, absence, suggestion or grammar
+# references, not essay quotes.
+@pytest.mark.parametrize("claim", [
+    "Tuy nhiên, các ý chủ yếu dừng ở mức 'stated', chưa 'extended' đầy đủ.",
+    "Vì vậy Task Response chưa đạt mức 'extended and supported' của Band 7.",
+    "Band 7+ cần ý được 'extended and supported', không chỉ khẳng định.",
+    "Band 7+ cần ý được 'extended', tức có thêm bước 'vì thế dẫn đến điều gì'.",
+    "Đây là chỗ cần 'extend' ý để đạt band 8.",
+    "Người chấm sẽ coi đây là ý 'stated' thay vì 'extended'.",
+    "Ideas are 'relevant, extended and supported' only at Band 8.",
+    "Liên kết dùng linh hoạt, không lạm dụng 'Firstly/Secondly'.",
+    "Em dùng liên kết như 'It helps', khá tự nhiên, không bị lạm dụng 'Firstly/Secondly'.",
+    "The essay avoids overusing 'Firstly'.",
+    "Band 7 đòi hỏi ý được 'extended and supported', còn bài này mới ở mức 'relevant but underdeveloped' nên dừng ở band 6.",
+    "Em cũng lặp 'public transport' nhiều lần mà ít dùng từ thay thế như 'mass transit', 'rail and bus networks'.",
+    "Cần thêm từ vựng ít phổ biến hơn (vd. 'alleviate', 'mitigate', 'urban sprawl') để lên Band 7.5.",
+    "Thử thêm phân từ, câu chẻ ('It is X that...') hoặc đảo ngữ để tăng độ linh hoạt.",
+    "Hiện tượng em mô tả (đường mới kéo theo nhu cầu lái xe) có tên gọi là 'induced demand'.",
+    "Em trả lời đúng trọng tâm 'to what extent' với lập trường rõ.",
+    "Em nối được ý, nhưng bước 'So what?' còn ngắn.",
+    "Một vài chỗ chưa tự nhiên như 'It helps' (tự nhiên hơn: 'give higher priority' hoặc 'prioritise').",
+    "Em không lạm dụng từ nối kiểu cơ học như 'Firstly... Secondly...', đây là điểm cộng.",
+])
+def test_band_descriptor_and_overuse_references_are_not_essay_citations(claim):
+    result = rt_feedback(mainCriterion=claim, coherenceCohesion=claim, ideaDevelopmentAnalysis=[idea(claim)])
+    before = result.model_dump()
+    report = rt_validate(result)
+    assert report.dropped == [] and report.warnings == []
+    assert result.model_dump() == before
+
+
+@pytest.mark.parametrize("claim", [
+    "Em dùng từ 'extended' rất chính xác ở mức band 7.",          # usage claim
+    "Your use of 'supported' fits the Band 7 descriptor.",          # nominal usage claim
+    "Ý của em 'extended' rất tốt.",                                 # no band/rubric context
+    "Vốn từ ở mức band 7 với 'subsidies'.",                         # not a descriptor term
+    "Ở mức band 7, 'extended and supported by subsidies' là đúng.",  # term plus new words
+    "Em lạm dụng 'Firstly' ở mọi đoạn.",                            # overuse claims usage
+    "Em không lạm dụng 'Firstly', nhưng dùng 'subsidies' rất tốt.",  # absence covers one quote only
+    "Ở mức band 7, ý 'relevant and subsidised' là đủ.",              # non-rubric word in the quote
+    "Bài ở mức 'relevant' của band 6.",                              # no development term
+    "Em dùng từ đồng nghĩa 'subsidies' tốt.",                        # synonym praise, not a lack
+    "Em ít dùng 'subsidies'.",                                       # "rarely uses" claims some use
+    "Từ vựng tốt (vd. 'subsidies').",                                # "vd." is not a proposal
+    "Câu chẻ của em 'It is subsidies that help' rất hay.",          # no grammar notation
+    "Từ em dùng được gọi là 'subsidies'.",                           # naming with a usage claim
+    "Em không lạm dụng từ nối mà dùng từ như 'subsidies'.",         # usage verb ends the absence
+    "Em dùng 'subsidies' (tự nhiên hơn: 'grants').",                 # the quote before the label
+    "Em trả lời rõ, bước 'subsidies' hay.",                          # "bước" covers question labels only
+    # Repro 72c07a2a / f02739d9: praised topic word absent from the essay.
+    "Vốn từ đúng chủ đề: 'reduce inequality', 'transferable' hợp ngữ cảnh.",
+])
+def test_band_descriptor_and_overuse_exemptions_never_cover_usage_claims(claim):
+    with pytest.raises(UngroundedWritingFeedbackError):
+        rt_validate(rt_feedback(lexicalResource=claim))
+
+
+# Codex #1796 (line 593): rubric words credited as learner vocabulary, by a
+# noun before the quote or a usage verb after it, are not rubric references.
+@pytest.mark.parametrize("claim", [
+    "Vốn từ đạt Band 7 nhờ các từ 'extended' và 'supported'.",
+    "Đạt Band 7 nhờ từ 'extended' và 'supported'.",
+    "Ở mức Band 7, 'extended' và 'supported' được em dùng chính xác.",
+    "Band 7 for using 'extended' and 'supported'.",
+    "The Band 7 words 'extended' and 'supported' fit your essay.",
+])
+@pytest.mark.parametrize("criterion", ["lexicalResource", "mainCriterion"])
+def test_band_descriptor_exemption_never_covers_vocabulary_credit(claim, criterion):
+    with pytest.raises(UngroundedWritingFeedbackError) as err:
+        rt_validate(rt_feedback(**{criterion: claim}))
+    assert [span for _, span in err.value.issues] == ["extended", "supported"]
+
+
+def test_band_descriptor_terms_stay_unsupported_in_source_only_fields():
+    claim = "Ý được 'extended and supported' ở mức Band 7."
+    result = rt_feedback(keyTakeaways={"strengths": [claim], "areasForImprovement": ["Cần ví dụ."]})
+    with pytest.raises(UngroundedWritingFeedbackError) as err:
+        rt_validate(result)
+    assert [p for p, _ in err.value.issues] == ["keyTakeaways.strengths[0]"]
+
+
+# Owner decision 2026-10-28 (PC-J03): strengths may quote the task question.
+# The other source-only fields and every learner-wording claim stay strict.
+@pytest.mark.parametrize("claim", [
+    "Em trả lời trực tiếp câu hỏi 'To what extent do you agree or disagree?' với lập trường rõ ràng.",
+    "Bài viết trả lời đúng trọng tâm 'to what extent' ngay từ mở bài.",
+    "Bám sát yêu cầu đề bài 'spend more money on public transport than on roads'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' directly.",
+    "Lập trường rõ (câu hỏi 'To what extent…'), nhất quán đến kết bài.",
+])
+def test_strengths_may_quote_the_task_question(claim):
+    result = rt_feedback(keyTakeaways={"strengths": [claim], "areasForImprovement": ["Cần ví dụ."]})
+    before = result.model_dump()
+    report = rt_validate(result)
+    assert report.dropped == [] and report.warnings == []
+    assert result.model_dump() == before
+
+
+@pytest.mark.parametrize("claim", [
+    "Em dùng 'to what extent' chính xác.",                              # usage claim
+    "Từ vựng sát đề bài: 'spend more money on public transport'.",      # #1654 canary: lexis credit
+    "Bám sát đề bài với cụm từ 'public transport than on roads'.",
+    "Your vocabulary matches the task: 'spend more money'.",
+    "Câu hỏi 'spend more money on public transport' được em viết lại tự nhiên.",  # wording verb after
+    "Em nên tiếp tục trả lời câu hỏi 'to what extent'.",               # continuation presupposes use
+    "Lập luận 'to what extent' rất hay.",                               # no question reference
+    "Em trả lời câu hỏi 'subsidies are effective' rõ ràng.",            # not in the prompt
+])
+def test_strengths_task_question_quote_never_credits_learner_wording(claim):
+    result = rt_feedback(keyTakeaways={"strengths": [claim], "areasForImprovement": ["Cần ví dụ."]})
+    with pytest.raises(UngroundedWritingFeedbackError) as err:
+        rt_validate(result)
+    assert [p for p, _ in err.value.issues] == ["keyTakeaways.strengths[0]"]
+
+
+def test_strengths_task_question_quote_needs_the_prompt():
+    claim = "Em trả lời câu hỏi 'to what extent'."
+    result = rt_feedback(keyTakeaways={"strengths": [claim], "areasForImprovement": ["Cần ví dụ."]})
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(result, RT_ESSAY, task_type="task2")
+
+
+# Codex #1796 (line 153): "Your answer ..." names the learner's text, so a
+# prompt quote credited to it is a wording claim in every field.
+@pytest.mark.parametrize("claim", [
+    "Your answer uses 'spend more money' effectively.",
+    "Your answer includes 'spend more money' effectively.",
+    "Câu trả lời của em chứa 'spend more money'.",
+    "The task wording 'spend more money' is used effectively.",
+    "Em trả lời câu hỏi, 'spend more money' được em viết lại tốt.",
+])
+def test_task_question_exemption_never_covers_wording_claims(claim):
+    for criterion in ("lexicalResource", "mainCriterion"):
+        with pytest.raises(UngroundedWritingFeedbackError) as err:
+            rt_validate(rt_feedback(**{criterion: claim}))
+        assert [span for _, span in err.value.issues] == ["spend more money"]
+    result = rt_feedback(keyTakeaways={"strengths": [claim], "areasForImprovement": ["Cần ví dụ."]})
+    with pytest.raises(UngroundedWritingFeedbackError) as err:
+        rt_validate(result)
+    assert [p for p, _ in err.value.issues] == ["keyTakeaways.strengths[0]"]
+
+
+def _task_question_fields(claim):
+    yield rt_feedback(lexicalResource=claim)
+    yield rt_feedback(mainCriterion=claim)
+    yield rt_feedback(keyTakeaways={"strengths": [claim], "areasForImprovement": ["Cần ví dụ."]})
+
+
+# Codex #1796 (line 547): a usage verb in a coordinated predicate with an
+# object of its own describes the essay, not the quoted task question.
+@pytest.mark.parametrize("claim", [
+    "The essay answers the question 'To what extent do you agree or disagree?' and contains a clear position.",
+    "The essay contains a clear position and answers the question 'To what extent do you agree or disagree?'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and includes a clear thesis.",
+    "The essay answers the question 'To what extent do you agree or disagree?' but uses few examples.",
+    "Em trả lời trực tiếp câu hỏi 'To what extent do you agree or disagree?' và chứa lập trường rõ ràng.",
+    "Bài viết chứa lập trường rõ và trả lời đúng câu hỏi 'To what extent do you agree or disagree?'.",
+    "Bài viết trả lời câu hỏi 'To what extent do you agree or disagree?', đồng thời vận dụng ví dụ cụ thể.",
+])
+def test_task_question_reference_survives_an_unrelated_usage_verb(claim):
+    for result in _task_question_fields(claim):
+        before = result.model_dump()
+        report = rt_validate(result)
+        assert report.dropped == [] and report.warnings == []
+        assert result.model_dump() == before
+
+
+# Codex #1796 (line 213): an adverb after the coordinated verb is not "no
+# object" when an object follows it ("contains very clear ideas").
+@pytest.mark.parametrize("claim", [
+    "The essay answers the question 'To what extent do you agree or disagree?' and contains very clear ideas.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and presents a really strong argument.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and includes really strong arguments.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses very specific examples.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và có lập luận rất rõ ràng.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng rất nhiều ví dụ cụ thể.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và vận dụng khá tốt các ví dụ cụ thể.",
+])
+def test_task_question_reference_survives_an_adverb_before_an_unrelated_object(claim):
+    for result in _task_question_fields(claim):
+        before = result.model_dump()
+        report = rt_validate(result)
+        assert report.dropped == [] and report.warnings == []
+        assert result.model_dump() == before
+
+
+# Adverbs or a preposition with no object of the verb's own still leave the
+# quote as what the learner used.
+@pytest.mark.parametrize("claim", [
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses very effectively.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses really well throughout.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses it very effectively.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses very well in the introduction.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng rất hiệu quả trong mở bài.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và viết lại rất tốt.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng khá tự nhiên, rõ ràng.",
+])
+def test_adverb_only_wording_claims_about_the_task_question_still_reject(claim):
+    for result in _task_question_fields(claim):
+        with pytest.raises(UngroundedWritingFeedbackError) as err:
+            rt_validate(result)
+        assert [span for _, span in err.value.issues] == ["To what extent do you agree or disagree?"]
+
+
+# A coordinated predicate that still takes the quote (back-reference, passive,
+# no object of its own, any wording noun) or a verb that governs it across
+# the conjunction keeps crediting learner wording.
+@pytest.mark.parametrize("claim", [
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses it as its thesis.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses the same wording.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and includes the question early.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and other key words fit well.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and keeps using that phrasing.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses linking words like it.",
+    "The essay answers the question 'To what extent do you agree or disagree?', which the essay contains.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' mà em viết lại trong mở bài.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng rất hiệu quả.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và đã được em viết lại tốt.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng cụm này hiệu quả.",
+    "Câu hỏi 'To what extent do you agree or disagree?' và từ vựng liên quan được dùng tốt.",
+    "The essay contains clear ideas and the question 'To what extent do you agree or disagree?'.",
+    "The essay uses and answers the question 'To what extent do you agree or disagree?'.",
+])
+def test_coordinated_wording_claims_about_the_task_question_still_reject(claim):
+    for result in _task_question_fields(claim):
+        with pytest.raises(UngroundedWritingFeedbackError) as err:
+            rt_validate(result)
+        assert [span for _, span in err.value.issues] == ["To what extent do you agree or disagree?"]
+
+
+# Codex #1796 (line 219): a coordinated wording verb followed by its own,
+# separately quoted expression (past adverbs, ":"/"(" or a wording label) is
+# about that second quote, not the task question. RT_ESSAY contains
+# "reduce inequality".
+@pytest.mark.parametrize("claim", [
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses 'reduce inequality' accurately.",
+    'The essay answers the question "To what extent do you agree or disagree?" and uses "reduce inequality" accurately.',
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses accurately 'reduce inequality'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses: 'reduce inequality'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses the phrase 'reduce inequality' well.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses accurate collocations such as 'reduce inequality'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses precise collocations (e.g. 'reduce inequality').",
+    "The essay answers the question 'To what extent do you agree or disagree?' and makes good use of 'reduce inequality'.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng 'reduce inequality' chính xác.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?', đồng thời dùng rất chính xác 'reduce inequality'.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng chính xác cụm từ 'reduce inequality'.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng các cụm từ học thuật như 'reduce inequality'.",
+    "Uses 'reduce inequality' accurately and answers the question 'To what extent do you agree or disagree?' directly.",
+    "Dùng chính xác 'reduce inequality' và trả lời đúng câu hỏi 'To what extent do you agree or disagree?'.",
+])
+def test_task_question_reference_survives_a_separately_quoted_object(claim):
+    for result in _task_question_fields(claim):
+        before = result.model_dump()
+        report = rt_validate(result)
+        assert report.dropped == [] and report.warnings == []
+        assert result.model_dump() == before
+
+
+# The second quote is still validated on its own: absent from the essay, or
+# re-quoting the prompt as learner wording, it rejects (and only it).
+@pytest.mark.parametrize("claim, span", [
+    ("The essay answers the question 'To what extent do you agree or disagree?' and uses 'cut inequality' accurately.",
+     "cut inequality"),
+    ("The essay answers the question 'To what extent do you agree or disagree?' and uses 'to what extent' accurately.",
+     "to what extent"),
+    ("The essay answers the question 'To what extent do you agree or disagree?' and uses the phrase 'cut inequality' well.",
+     "cut inequality"),
+    ("Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng 'cut inequality' chính xác.",
+     "cut inequality"),
+    ("Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng các cụm từ học thuật như 'cut inequality'.",
+     "cut inequality"),
+    ("Uses 'cut inequality' accurately and answers the question 'To what extent do you agree or disagree?' directly.",
+     "cut inequality"),
+])
+def test_separately_quoted_object_absent_from_the_essay_still_rejects(claim, span):
+    for result in _task_question_fields(claim):
+        with pytest.raises(UngroundedWritingFeedbackError) as err:
+            rt_validate(result)
+        assert [s for _, s in err.value.issues] == [span]
+
+
+# A second quote that a label relates to the first ("other/similar/the same
+# wording", "question words"), a predicate that still refers back, the quoted
+# list shape, or punctuation in place of an object keep crediting the
+# quoted task question as learner wording.
+@pytest.mark.parametrize("claim", [
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses other phrases like 'reduce inequality'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses similar phrases like 'reduce inequality'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses the same wording as 'reduce inequality'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses question words like 'reduce inequality'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses 'reduce inequality' to paraphrase it.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses 'reduce inequality' instead of the question wording.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and 'reduce inequality' is used accurately.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses — very effectively.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng các cụm từ khác như 'reduce inequality'.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng … rất hiệu quả.",
+])
+def test_related_second_quotes_keep_crediting_the_task_question(claim):
+    for result in _task_question_fields(claim):
+        with pytest.raises(UngroundedWritingFeedbackError) as err:
+            rt_validate(result)
+        assert [span for _, span in err.value.issues] == ["To what extent do you agree or disagree?"]
+
+
+# The band-descriptor exemption shares the same clause scope.
+def test_band_descriptor_reference_survives_a_separately_quoted_object():
+    claim = "Các ý dừng ở mức 'stated' theo Band 6 và em dùng 'reduce inequality' chính xác."
+    for criterion in ("lexicalResource", "mainCriterion"):
+        assert rt_validate(rt_feedback(**{criterion: claim})).warnings == []
+    twin = "Các ý dừng ở mức 'stated' theo Band 6 và em dùng 'extended' chính xác."
+    for criterion in ("lexicalResource", "mainCriterion"):
+        with pytest.raises(UngroundedWritingFeedbackError) as err:
+            rt_validate(rt_feedback(**{criterion: twin}))
+        assert [span for _, span in err.value.issues] == ["extended"]
+
+
+@pytest.mark.parametrize("field", ["originalIdea", "location", "current_essay_observation"])
+def test_other_source_only_fields_still_reject_task_question_quotes(field):
+    claim = "Em trả lời câu hỏi 'to what extent'."
+    data = rt_feedback().model_dump()
+    proposed = {"instruction": "Add detail", "example": "A new example."}
+    if field == "originalIdea":
+        data["ideaDevelopmentAnalysis"] = [{"paragraph": 2, "originalIdea": claim,
+            "issue": "Needs detail", "explanation": "Explain the mechanism", "suggestion": proposed}]
+    elif field == "location":
+        data["coherenceAnalysis"] = [{"location": claim, "issue": "Needs a transition",
+            "explanation": "Clarify the connection", "suggestion": proposed}]
+    else:
+        data["sentenceStructureAnalysis"] = {field: claim}
+    with pytest.raises(UngroundedWritingFeedbackError) as err:
+        rt_validate(WritingFeedback(**data))
+    assert len(err.value.issues) == 1 and field in err.value.issues[0][0]
+
+
+def test_near_miss_accepts_auxiliary_agreement_but_not_tense():
+    essay = "Companies that adopt this model are likely to have happier and more productive employees."
+    claim = "Cách diễn đạt hơi dài dòng ('is likely to have happier and more productive employees')."
+    report = validate_writing_grounding(rt_feedback(lexicalResource=claim), essay)
+    assert report.warnings == ["criteriaFeedback.lexicalResource.feedback"]
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(
+            rt_feedback(lexicalResource="Em dùng 'were likely to have happier employees'."), essay)
+    # Strict originals keep the learner's verb form exactly.
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(
+            rt_feedback(mistakeAnalysis=[mistake("this model is likely to have")]), essay)
+
+
+@pytest.mark.parametrize("essay,claim", [
+    # Repro a4eeb1b4: "brings greater environmental, economic and social benefits".
+    (RT_ESSAY, "Có một số collocation tốt như 'give priority to' và 'bring benefits'."),
+    # Repro a915f0f8: the essay says "gives these groups access to jobs".
+    ("Public transport gives these groups access to jobs.", "Cụm 'give them access to jobs' khá an toàn."),
+])
+def test_repro_real_misquotes_in_criterion_feedback_still_reject(essay, claim):
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(rt_feedback(lexicalResource=claim), essay)
 
 
 def test_degradation_drops_only_the_bad_list_items_and_reports_paths():

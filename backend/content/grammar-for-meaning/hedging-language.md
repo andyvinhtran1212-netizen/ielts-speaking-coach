@@ -269,6 +269,7 @@ Tránh số liệu tuyệt đối hoặc khẳng định vô điều kiện:
 
 ### Lỗi 5: Dùng "seem" sai cấu trúc
 
+- ❌ "The policy seems failed." → ✅ "The policy seems to have failed."
 - ✅ It seems **like** the policy has failed. (đúng cấu trúc, thường hội thoại hơn)
 - ✅ It seems **that** the policy has failed. (formal writing)
 - ✅ The policy **seems to have** failed. (subject + seem + to-inf)

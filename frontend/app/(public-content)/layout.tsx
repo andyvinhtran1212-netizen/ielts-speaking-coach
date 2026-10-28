@@ -47,14 +47,15 @@ export default function PublicContentLayout({ children }: { children: ReactNode 
       <link rel="stylesheet" href="/css/vocab-wiki.css" />
       <link rel="stylesheet" href="/css/tailwind.build.css" />
 
+      {/* U-21 — header renders without waiting for the shared runtime.
+          crossOrigin: next/script preloads `src` as a classic script. A
+          module fetch is CORS-mode, so without a matching mode Chrome cannot
+          reuse that preload and downloads the module a second time. */}
+      <Script type="module" src="/js/components/aver-chrome.js" strategy="afterInteractive" crossOrigin="anonymous" />
       <SupabaseRuntimeBoundary
         supabaseUrl={SUPABASE_URL}
         supabaseAnonKey={SUPABASE_ANON}
       >
-        {/* crossOrigin: next/script preloads `src` as a classic script. A
-            module fetch is CORS-mode, so without a matching mode Chrome cannot
-            reuse that preload and downloads the module a second time. */}
-        <Script type="module" src="/js/components/aver-chrome.js" strategy="afterInteractive" crossOrigin="anonymous" />
         <NextPageViewBeacon />
       </SupabaseRuntimeBoundary>
 

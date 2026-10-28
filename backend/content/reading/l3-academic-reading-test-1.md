@@ -19,7 +19,7 @@ passages:
   - passage_order: 1
     slug: l3-t1-p1-hand-made-goods
     title: "The Return of Hand-Made Goods"
-    word_count: 520
+    word_count: 388
     topic_tags: [economy, culture]
     body_markdown: |
       A The high street of any large city used to look the same. A row of
@@ -140,7 +140,7 @@ passages:
         skill_tag: detail
       - q_num: 8
         question_type: true_false_not_given
-        prompt: "Most hand-made craft sales are tracked in official retail data."
+        prompt: "Most hand-made goods are sold within the conventional retail system."
         answer: "FALSE"
         alternatives: ["F", "false"]
         skill_tag: detail
@@ -177,7 +177,7 @@ passages:
               instruction_vi: "Ngành được đem so sánh là 'coal' → đáp án: coal."
       - q_num: 11
         question_type: short_answer
-        prompt: "How many times more expensive can a hand-thrown mug be? (ONE word)"
+        prompt: "Up to how many times more expensive can a hand-thrown mug be than an industrial mug? (ONE word)"
         answer: ten
         alternatives: ["10"]
         skill_tag: scanning
@@ -185,20 +185,20 @@ passages:
         question_type: short_answer
         prompt: "What do defenders say each piece is a record of? (TWO words)"
         answer: "maker's choices"
-        alternatives: ["maker choices"]
+        alternatives: []
         skill_tag: detail
       - q_num: 13
         question_type: short_answer
         prompt: "Where does the writer say the movement has carved out a niche? (TWO words)"
         answer: "higher end"
-        alternatives: ["the higher end"]
+        alternatives: []
         skill_tag: scanning
 
   # ── Passage 2 — Qs 14–26 ────────────────────────────────────────
   - passage_order: 2
     slug: l3-t1-p2-how-cities-stay-cool
     title: "How Cities Stay Cool"
-    word_count: 580
+    word_count: 425
     topic_tags: [urban-planning, environment]
     body_markdown: |
       A In summer, the centre of a large city can be five degrees warmer
@@ -382,8 +382,8 @@ passages:
         alternatives: []
         skill_tag: detail
       - q_num: 26
-        question_type: sentence_completion
-        prompt: "Two cities that build water channels into redevelopments are Singapore and ____."
+        question_type: short_answer
+        prompt: "Which city incorporates new water channels as a standard part of large redevelopments?"
         answer: Copenhagen
         alternatives: []
         skill_tag: scanning
@@ -392,7 +392,7 @@ passages:
   - passage_order: 3
     slug: l3-t1-p3-sleep-and-memory
     title: "What Sleep Does for Memory"
-    word_count: 540
+    word_count: 381
     topic_tags: [neuroscience, learning]
     body_markdown: |
       A For most of the twentieth century, sleep was treated by science
@@ -452,13 +452,13 @@ passages:
         skill_tag: writer_view_TFNG
       - q_num: 29
         question_type: yes_no_not_given
-        prompt: "Slow-wave sleep is more important than REM for the storage of factual material."
+        prompt: "The writer associates slow-wave sleep with transferring information to long-term storage."
         answer: "YES"
         alternatives: ["Y", "yes"]
         skill_tag: inference
       - q_num: 30
         question_type: yes_no_not_given
-        prompt: "Caffeine is the most reliable substitute for a full night's sleep."
+        prompt: "Students who sleep little and rely on caffeine are likely to retain more of what they read."
         answer: "NO"
         alternatives: ["N", "no"]
         skill_tag: writer_view_TFNG
@@ -531,13 +531,13 @@ passages:
             writer says is no longer debated is that sleep is an
             essential {{40}} of mental activity.
         answer: replay
-        alternatives: ["replays"]
+        alternatives: []
         skill_tag: detail
       - q_num: 37
         question_type: summary_completion
         prompt: "(see summary above)"
         answer: cortex
-        alternatives: ["the cortex"]
+        alternatives: []
         skill_tag: detail
       - q_num: 38
         question_type: summary_completion

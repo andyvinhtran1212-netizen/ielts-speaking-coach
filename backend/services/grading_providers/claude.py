@@ -24,7 +24,7 @@ import anthropic
 from services import ai_usage_logger
 from services.claude_compat import json_request_kwargs
 
-from .base import AbstractGradingProvider
+from .base import AbstractGradingProvider, CallTelemetry
 from .errors import NonRetryableError, RetryableError
 
 logger = logging.getLogger(__name__)
@@ -109,19 +109,20 @@ class ClaudeProvider(AbstractGradingProvider):
             request["extra_body"] = {"thinking": {"type": "disabled"}}
         else:
             request["temperature"] = self._temperature
+        call = CallTelemetry.start(self._usage_feature, self.provider_name)
         try:
             response = await self._client.beta.prompt_caching.messages.create(
                 **request,
             )
         except asyncio.CancelledError:
             await self._log_failure(
-                user_id=user_id, session_id=session_id, error_code="cancelled",
+                call, user_id=user_id, session_id=session_id, error_code="cancelled",
             )
             raise
         except anthropic.APIStatusError as exc:
             status = getattr(exc, "status_code", None)
             await self._log_failure(
-                user_id=user_id, session_id=session_id,
+                call, user_id=user_id, session_id=session_id,
                 error_code=str(status or "api_status"),
             )
             if status in _RETRYABLE_STATUS_CODES:
@@ -140,21 +141,21 @@ class ClaudeProvider(AbstractGradingProvider):
             )
         except anthropic.APITimeoutError as exc:
             await self._log_failure(
-                user_id=user_id, session_id=session_id, error_code="timeout",
+                call, user_id=user_id, session_id=session_id, error_code="timeout",
             )
             raise RetryableError(
                 provider=self.provider_name, status="timeout", original=exc,
             )
         except anthropic.APIConnectionError as exc:
             await self._log_failure(
-                user_id=user_id, session_id=session_id, error_code="network",
+                call, user_id=user_id, session_id=session_id, error_code="network",
             )
             raise RetryableError(
                 provider=self.provider_name, status="network", original=exc,
             )
         except Exception as exc:
             await self._log_failure(
-                user_id=user_id, session_id=session_id,
+                call, user_id=user_id, session_id=session_id,
                 error_code=type(exc).__name__,
             )
             raise NonRetryableError(
@@ -170,7 +171,7 @@ class ClaudeProvider(AbstractGradingProvider):
             # Truncated or declined output is not a grade; escalate to the
             # next provider instead of handing partial JSON to the parser.
             await self._log_usage(
-                response, user_id=user_id, session_id=session_id,
+                response, call, user_id=user_id, session_id=session_id,
                 status="invalid_response",
             )
             raise NonRetryableError(
@@ -185,7 +186,7 @@ class ClaudeProvider(AbstractGradingProvider):
         ]
         if not text_blocks:
             await self._log_usage(
-                response, user_id=user_id, session_id=session_id,
+                response, call, user_id=user_id, session_id=session_id,
                 status="invalid_response",
             )
             # Empty body where one is expected is a permanent failure
@@ -195,13 +196,14 @@ class ClaudeProvider(AbstractGradingProvider):
                 provider=self.provider_name, status="empty_body", original=None,
             )
         await self._log_usage(
-            response, user_id=user_id, session_id=session_id, status="success",
+            response, call, user_id=user_id, session_id=session_id, status="success",
         )
         return text_blocks[0].text
 
     async def _log_usage(
         self,
         response: object,
+        call: CallTelemetry,
         *,
         user_id: str | None,
         session_id: str | None,
@@ -218,6 +220,7 @@ class ClaudeProvider(AbstractGradingProvider):
                 session_id=session_id,
                 feature=self._usage_feature,
                 operation=self._usage_operation,
+                **call.fields(),
                 status=status,
                 error_code=("missing_usage" if status != "success" else None),
                 metadata={"provider": self.provider_name},
@@ -242,6 +245,7 @@ class ClaudeProvider(AbstractGradingProvider):
                 cache_write_tokens=cw_tok,
                 feature=self._usage_feature,
                 operation=self._usage_operation,
+                **call.fields(),
                 status=status,
             ))
         except Exception as exc:
@@ -250,6 +254,7 @@ class ClaudeProvider(AbstractGradingProvider):
 
     async def _log_failure(
         self,
+        call: CallTelemetry,
         *,
         user_id: str | None,
         session_id: str | None,
@@ -262,6 +267,7 @@ class ClaudeProvider(AbstractGradingProvider):
             session_id=session_id,
             feature=self._usage_feature,
             operation=self._usage_operation,
+            **call.fields(),
             status="error",
             error_code=error_code,
             metadata={"provider": self.provider_name},

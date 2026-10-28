@@ -52,7 +52,7 @@ it('/grammar-checkup direct load boots exactly once after sign-in, without the w
   installApi({ get, post: vi.fn() });
   signIn();
   view.rerender(<GrammarCheckup />);
-  expect(await screen.findByRole('heading', { name: 'Grammar Diagnostic & Adaptive Review' })).toBeTruthy();
+  expect(await screen.findByRole('heading', { name: 'Chẩn đoán ngữ pháp & ôn tập thích ứng' })).toBeTruthy();
   expect(get).toHaveBeenCalledTimes(1);
   expect(get).toHaveBeenCalledWith('/api/grammar/diagnostics/availability');
 

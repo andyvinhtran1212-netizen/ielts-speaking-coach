@@ -5,6 +5,9 @@ category: "work-career"
 level: "C1"
 part_of_speech: "adjective"
 pronunciation: "/ˈluː.krə.tɪv/"
+definition_en: "bringing in a large amount of money or profit."
+gloss_vi: "sinh lợi lớn, đem lại thu nhập cao"
+example: "Schools should help young people weigh their real interests against the appeal of a lucrative career."
 synonyms: ["profitable", "well-paid", "financially rewarding", "high-earning"]
 antonyms: ["unprofitable", "low-paid", "unrewarding"]
 collocations: ["lucrative career", "lucrative job", "lucrative business", "lucrative opportunity", "highly lucrative"]

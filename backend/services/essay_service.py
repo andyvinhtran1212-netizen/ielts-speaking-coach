@@ -730,6 +730,20 @@ def upsert_composed_version(
     return row["version"]
 
 
+def feedback_unchanged(current_feedback_json, feedback: WritingFeedback) -> bool:
+    """BL-22 — True when an admin save carries exactly the CURRENT version's
+    content (an approve without edits). Both sides go through the schema so
+    defaults/serialisation can't masquerade as an edit. An unreadable current
+    payload counts as changed, keeping the composed-version path."""
+    if not isinstance(current_feedback_json, dict):
+        return False
+    try:
+        current = WritingFeedback(**current_feedback_json).model_dump(mode="json")
+    except Exception:  # noqa: BLE001 — legacy/invalid stored shape
+        return False
+    return current == feedback.model_dump(mode="json")
+
+
 _MIX_CRITERIA = ("mainCriterion", "coherenceCohesion", "lexicalResource", "grammaticalRange")
 
 

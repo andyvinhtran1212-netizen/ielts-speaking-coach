@@ -31,6 +31,7 @@ from services.class_membership_service import (
     active_students_for_cohort,
     student_is_active_in_cohort,
 )
+from services.writing_give_status import writing_give_timing
 
 logger = logging.getLogger(__name__)
 
@@ -223,7 +224,7 @@ async def cohort_detail(cohort_id: UUID, authorization: str | None = Header(None
     if student_ids:
         assignments = (
             supabase_admin.table("writing_assignments")
-            .select("id, student_id, cohort_id, prompt_id, essay_id, status, deadline, created_at, updated_at, assignment_group_id, name")
+            .select("id, student_id, cohort_id, prompt_id, essay_id, status, deadline, submitted_at, created_at, updated_at, assignment_group_id, name")
             .in_("student_id", student_ids)
             .or_(f"cohort_id.eq.{cohort_id},cohort_id.is.null")
             .order("created_at")
@@ -285,6 +286,8 @@ async def cohort_detail(cohort_id: UUID, authorization: str | None = Header(None
             "deadline":      a.get("deadline"),
             "updated_at":    a.get("updated_at"),
             "band":          (essay or {}).get("overall_band_score"),
+            # A-S3 — same "Nộp trễ" rule as /my-class and /instructor.
+            "is_late":       writing_give_timing(a, now)[0],
         }
         if cell in _PENDING_CELL and cell != "not_submitted":
             stats["essays_pending"] += 1

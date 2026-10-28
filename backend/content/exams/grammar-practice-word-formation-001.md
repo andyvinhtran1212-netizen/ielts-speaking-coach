@@ -14,14 +14,14 @@ questions:
       - {label: A, text: "publish"}
       - {label: B, text: "publication"}
       - {label: C, text: "publisher"}
-      - {label: D, text: "publishing"}
+      - {label: D, text: "publishes"}
     answer: "B"
     kp_focus: grammar
     grammar_slug: word-formation-noun-suffixes
     solution:
       solution_steps:
         - action: parse_syntax
-          instruction_vi: "Sau động từ 'has strengthened', cần một danh từ (chủ ngữ của mệnh đề). 'Publication' là danh từ được tạo từ 'publish' bằng cách thêm hậu tố -tion."
+          instruction_vi: "Sau mạo từ 'The' và trước 'of', cần một danh từ làm chủ ngữ cho động từ 'has strengthened'. 'Publication' là danh từ được tạo từ 'publish' bằng cách thêm hậu tố -tion."
           kp_refs:
             - {type: grammar, slug: word-formation-noun-suffixes, anchor: word-formation-noun-suffixes.suffix.tion-sion}
           microcheck:
@@ -39,7 +39,7 @@ questions:
           kp_refs:
             - {type: grammar, slug: word-formation-noun-suffixes, anchor: word-formation-noun-suffixes.pitfall}
         - option: D
-          why_wrong_vi: "'publishing' (V-ing) là động danh từ, nhưng cấu trúc 'of publishing' kém tự nhiên hơn 'of publication' trong ngữ cảnh học thuật."
+          why_wrong_vi: "'publishes' là động từ chia ở ngôi thứ ba số ít; sau 'The' và trước 'of' cần danh từ, không dùng động từ đã chia."
           kp_refs:
             - {type: grammar, slug: word-formation-noun-suffixes, anchor: word-formation-noun-suffixes.pitfall}
 
@@ -50,7 +50,7 @@ questions:
       - {label: A, text: "enforce"}
       - {label: B, text: "enforcement"}
       - {label: C, text: "enforcer"}
-      - {label: D, text: "enforcing"}
+      - {label: D, text: "enforced"}
     answer: "B"
     kp_focus: grammar
     grammar_slug: word-formation-noun-suffixes
@@ -74,6 +74,10 @@ questions:
           why_wrong_vi: "'Enforcer' (người thực thi) là danh từ chỉ người, không phù hợp với ngữ cảnh nói về chính sách/tiêu chuẩn."
           kp_refs:
             - {type: grammar, slug: word-formation-noun-suffixes, anchor: word-formation-noun-suffixes.pitfall}
+        - option: D
+          why_wrong_vi: "'enforced' là động từ ở quá khứ/phân từ II; sau 'The' và trước 'of' cần danh từ làm chủ ngữ, nên phải dùng 'enforcement'."
+          kp_refs:
+            - {type: grammar, slug: word-formation-noun-suffixes, anchor: word-formation-noun-suffixes.pitfall}
 
   - q_num: 3
     question_type: mcq_single
@@ -82,7 +86,7 @@ questions:
       - {label: A, text: "decomposes"}
       - {label: B, text: "decomposable"}
       - {label: C, text: "decomposition"}
-      - {label: D, text: "decomposing"}
+      - {label: D, text: "decomposably"}
     answer: "B"
     kp_focus: grammar
     grammar_slug: word-formation-adjective-suffixes
@@ -103,7 +107,7 @@ questions:
           instruction_vi: "Hậu tố -able tạo tính từ từ động từ 'decompose' → 'decomposable'. Đáp án B."
       distractor_analysis:
         - option: D
-          why_wrong_vi: "'Decomposing' là phân từ hiện tại (V-ing), chỉ hành động đang diễn ra, không phù hợp với cấu trúc 'is ____'."
+          why_wrong_vi: "'Decomposably' là trạng từ (đuôi -ly); sau động từ nối 'is' cần tính từ, không dùng trạng từ."
           kp_refs:
             - {type: grammar, slug: word-formation-adjective-suffixes, anchor: word-formation-adjective-suffixes.pitfall}
 
@@ -205,7 +209,7 @@ questions:
 
   - q_num: 7
     question_type: mcq_single
-    prompt: "The government aims to ____ the controversial regulation, which many industries consider impractical."
+    prompt: "If you delete a paragraph by mistake, you can ____ the deletion and get the text back."
     options:
       - {label: A, text: "do"}
       - {label: B, text: "re-do"}
@@ -217,7 +221,7 @@ questions:
     solution:
       solution_steps:
         - action: parse_syntax
-          instruction_vi: "'Undo' (hủy bỏ, hoàn tác) từ tiền tố un- + động từ 'do'. Tiền tố un- thường biểu thị sự hủy bỏ hoặc ngược lại hành động gốc."
+          instruction_vi: "'Undo' (hoàn tác) từ tiền tố un- + động từ 'do'. Tiền tố un- thường biểu thị sự hủy bỏ hoặc ngược lại hành động gốc: 'undo the deletion' là hủy thao tác xóa để lấy lại đoạn văn ('get the text back')."
           kp_refs:
             - {type: grammar, slug: word-formation-verbs-and-adverbs, anchor: word-formation-verbs-and-adverbs.prefix}
           microcheck:
@@ -228,10 +232,14 @@ questions:
               - "quá mức"
             answer: "A"
         - action: confirm
-          instruction_vi: "Tiền tố un- + 'do' tạo 'undo' (hủy bỏ). Đáp án C."
+          instruction_vi: "Tiền tố un- + 'do' tạo 'undo' (hoàn tác). Đáp án C."
       distractor_analysis:
+        - option: B
+          why_wrong_vi: "'Re-do' (làm lại) nghĩa là xóa thêm một lần nữa, ngược với mục đích 'get the text back'."
+          kp_refs:
+            - {type: grammar, slug: word-formation-verbs-and-adverbs, anchor: word-formation-verbs-and-adverbs.prefix}
         - option: D
-          why_wrong_vi: "'Overdo' (làm quá mức) không phù hợp; ngữ cảnh nói về hủy bỏ, không phải làm quá mức."
+          why_wrong_vi: "'Overdo' (làm quá mức) không phù hợp; ngữ cảnh là lấy lại đoạn văn đã xóa nhầm, không phải làm quá mức."
           kp_refs:
             - {type: grammar, slug: word-formation-verbs-and-adverbs, anchor: word-formation-verbs-and-adverbs.pitfall}
 

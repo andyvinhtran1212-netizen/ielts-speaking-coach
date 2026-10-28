@@ -500,27 +500,41 @@ async def update_feedback(
             ),
         )
 
+    # BL-22 — "Lưu & duyệt" without edits re-sends the current feedback. That is
+    # an approval, not an edit: no composed version, no "✏ Đã sửa" badge.
+    current = (
+        supabase_admin.table("writing_feedback_current")   # GV-1a: current version
+        .select("feedback_json")
+        .eq("essay_id", str(essay_id))
+        .limit(1)
+        .execute()
+    ).data or [{}]
+    edited = not essay_service.feedback_unchanged(current[0].get("feedback_json"), validated)
+
     # GV-1c: the human edit becomes a COMPOSED version (single source of truth =
     # current_version), NOT the legacy admin_edits_json overlay. First edit on an
     # AI-current → new composed version (AI version stays immutable); editing an
     # already-composed current → in-place update (no new slot). A full budget
     # raises 409 from here.
-    essay_service.upsert_composed_version(str(essay_id), validated, edited_by=admin["id"])
+    if edited:
+        essay_service.upsert_composed_version(str(essay_id), validated, edited_by=admin["id"])
 
     # Audit/badge fields stay on writing_essays (orthogonal to the version):
     # is_manually_edited drives the "✏ Đã sửa thủ công" badge; last_edited_*
-    # give a per-essay trail without joining writing_feedback.
+    # give a per-essay trail without joining writing_feedback. An approval
+    # leaves them as they are (an earlier real edit keeps its badge).
     now_iso = _now_iso()
+    essay_update = {"admin_reviewed_at": now_iso, "status": "reviewed"}
+    if edited:
+        essay_update.update({
+            "is_manually_edited": True,
+            "last_edited_by":     admin["id"],
+            "last_edited_at":     now_iso,
+        })
     try:
         r = (
             supabase_admin.table("writing_essays")
-            .update({
-                "admin_reviewed_at":    now_iso,
-                "status":               "reviewed",
-                "is_manually_edited":   True,
-                "last_edited_by":       admin["id"],
-                "last_edited_at":       now_iso,
-            })
+            .update(essay_update)
             .eq("id", str(essay_id))
             .execute()
         )
@@ -542,7 +556,13 @@ async def update_feedback(
 
     # Independent canonical snapshot, not proof of learner-visible delivery.
     await observe_writing_batch([str(essay_id)])
-    return {"essay_id": str(essay_id), "status": "reviewed"}
+    # The badge state the essay row now holds, so the grade page shows it
+    # without guessing from its own dirty flag.
+    return {
+        "essay_id":           str(essay_id),
+        "status":             "reviewed",
+        "is_manually_edited": edited or bool(r.data[0].get("is_manually_edited")),
+    }
 
 
 @router.post("/essays/{essay_id}/mark-delivered")

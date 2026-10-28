@@ -103,6 +103,38 @@ def test_health_runtime_redacts_release_branch_for_anonymous(monkeypatch):
     assert out["git_branch"] == health_module._REDACTED
 
 
+def test_health_runtime_expected_count_matches_mapping_file(monkeypatch):
+    """BL-24 — cce1f566b added M051–M064 without bumping the constant, so
+    staging reported mappings_match=false (61 vs 47) for five months. The
+    YAML is the source of truth: adding or deferring a mapping must update
+    `_EXPECTED_MAPPING_COUNT` in the same change. Counted here straight from
+    the file with the loader's own filter, not through `_load_mappings`."""
+    import yaml
+    from services.grammar_content import MAPPING_FILE, GrammarContentService
+
+    data = yaml.safe_load(MAPPING_FILE.read_text(encoding="utf-8"))
+    active_ids = [
+        m["mapping_id"] for m in data["mappings"]
+        if m.get("mapping_id") and m.get("target_file") and not m.get("deferred_until")
+    ]
+    assert len(active_ids) == len(set(active_ids)), "duplicate mapping_id"
+    assert health_module._EXPECTED_MAPPING_COUNT == len(active_ids), (
+        "feedback-anchor-mapping.yaml changed; update _EXPECTED_MAPPING_COUNT "
+        "in routers/health.py with the reason"
+    )
+
+    async def _anonymous(_authorization):
+        return False
+
+    monkeypatch.setattr(health_module, "_is_admin", _anonymous)
+    # A fresh instance so another test's cached or patched index cannot leak in.
+    monkeypatch.setattr(health_module, "grammar_service", GrammarContentService())
+    out = _run(health_module.health_runtime(None))
+    assert out["mappings"]["active_count"] == len(active_ids)
+    assert out["mappings"]["mappings_match"] is True
+    assert out["mappings"]["sprint_6_loaded"] is True
+
+
 # ── /health/ready ────────────────────────────────────────────────────────────
 
 
