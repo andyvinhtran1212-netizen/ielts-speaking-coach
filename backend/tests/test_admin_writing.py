@@ -725,7 +725,7 @@ def test_patch_feedback_validates_and_persists():
             headers=_ADMIN_AUTH,
         )
     assert r.status_code == 200, r.text
-    assert r.json() == {"essay_id": _ESSAY_ID, "status": "reviewed"}
+    assert r.json() == {"essay_id": _ESSAY_ID, "status": "reviewed", "is_manually_edited": True}
     mock_upsert.assert_called_once()                       # edit → composed version
     # On review, the mock writing-band sync is invoked (no-op for a normal essay).
     mock_sync.assert_called_once_with(str(_ESSAY_ID))
@@ -734,6 +734,102 @@ def test_patch_feedback_validates_and_persists():
     assert payload["is_manually_edited"] is True
     assert payload["admin_reviewed_at"]
     assert "admin_edits_json" not in payload              # GV-1c: overlay retired
+
+
+def _fake_supabase_with_current(current_feedback_json, *, status: str = "graded",
+                                update_row: dict | None = None) -> MagicMock:
+    """_fake_supabase plus the current version's feedback_json, read by PATCH
+    /feedback from writing_feedback_current (.select().eq().limit())."""
+    fake = _fake_supabase(status=status, update_data=[update_row or {"id": _ESSAY_ID}])
+    fake.table.return_value.select.return_value.eq.return_value.limit.return_value \
+        .execute.return_value = MagicMock(data=[{"feedback_json": current_feedback_json}])
+    return fake
+
+
+def test_patch_feedback_approval_without_edits_is_not_an_edit():
+    """BL-22: "Lưu & duyệt" re-sends the current feedback unchanged. That is an
+    approval: the essay becomes reviewed, but no composed version is minted and
+    the "✏ Đã sửa" badge (is_manually_edited / last_edited_*) is not set."""
+    fake = _fake_supabase_with_current(_valid_feedback_edits())
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake), \
+         patch("services.essay_service.upsert_composed_version") as mock_upsert:
+        r = _client().patch(
+            f"/admin/writing/essays/{_ESSAY_ID}/feedback",
+            json=_valid_feedback_edits(),
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 200, r.text
+    assert r.json() == {"essay_id": _ESSAY_ID, "status": "reviewed", "is_manually_edited": False}
+    mock_upsert.assert_not_called()
+    fake.table.assert_any_call("writing_feedback_current")
+    payload = fake.table.return_value.update.call_args.args[0]
+    assert payload["status"] == "reviewed"
+    assert payload["admin_reviewed_at"]
+    assert "is_manually_edited" not in payload
+    assert "last_edited_by" not in payload
+    assert "last_edited_at" not in payload
+
+
+def test_patch_feedback_approval_keeps_an_earlier_edit_badge():
+    """BL-22: approving an already-edited (composed) current version without new
+    edits keeps the badge the essay row already holds."""
+    fake = _fake_supabase_with_current(
+        _valid_feedback_edits(), status="reviewed",
+        update_row={"id": _ESSAY_ID, "is_manually_edited": True},
+    )
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake), \
+         patch("services.essay_service.upsert_composed_version") as mock_upsert:
+        r = _client().patch(
+            f"/admin/writing/essays/{_ESSAY_ID}/feedback",
+            json=_valid_feedback_edits(),
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 200, r.text
+    assert r.json()["is_manually_edited"] is True
+    mock_upsert.assert_not_called()
+    assert "is_manually_edited" not in fake.table.return_value.update.call_args.args[0]
+
+
+def test_patch_feedback_real_edit_against_current_is_composed():
+    """BL-22 counterpart: one changed field is an edit — composed version + badge."""
+    edited = _valid_feedback_edits()
+    edited["overallBandScoreSummary"] = "Admin đã viết lại phần tổng quan."
+    fake = _fake_supabase_with_current(_valid_feedback_edits())
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing.supabase_admin", fake), \
+         patch("services.essay_service.upsert_composed_version", return_value=2) as mock_upsert:
+        r = _client().patch(
+            f"/admin/writing/essays/{_ESSAY_ID}/feedback",
+            json=edited,
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 200, r.text
+    assert r.json()["is_manually_edited"] is True
+    mock_upsert.assert_called_once()
+    payload = fake.table.return_value.update.call_args.args[0]
+    assert payload["is_manually_edited"] is True
+    assert payload["last_edited_by"] == _ADMIN_USER["id"]
+
+
+def test_feedback_unchanged_normalises_both_sides():
+    """Schema defaults on the stored side must not read as an edit; an
+    unreadable stored payload counts as changed (keeps the composed path)."""
+    from models.writing_feedback import WritingFeedback
+    from services.essay_service import feedback_unchanged
+
+    submitted = WritingFeedback(**_valid_feedback_edits())
+    stored_with_defaults = submitted.model_dump(mode="json")
+    assert feedback_unchanged(_valid_feedback_edits(), submitted) is True
+    assert feedback_unchanged(stored_with_defaults, submitted) is True
+    assert feedback_unchanged(None, submitted) is False
+    assert feedback_unchanged({"overallBandScore": "not-a-band"}, submitted) is False
+    changed = {**_valid_feedback_edits(), "improvedEssay": "Khác."}
+    assert feedback_unchanged(changed, submitted) is False
 
 
 def test_patch_feedback_422_when_edits_fail_schema():

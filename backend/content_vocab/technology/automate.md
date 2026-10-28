@@ -5,6 +5,9 @@ category: "technology"
 level: "B2"
 part_of_speech: "verb"
 pronunciation: "/ˈɔː.tə.meɪt/"
+definition_en: "to make a task or process run by using machines or software, with little direct human involvement."
+gloss_vi: "tự động hóa bằng máy móc hoặc phần mềm"
+example: "If companies automate routine tasks, they should offer training so employees can move into other roles."
 synonyms: ["mechanise", "computerise", "streamline"]
 antonyms: ["manually operate", "do by hand"]
 collocations: ["automate processes", "automate tasks", "fully automated", "automated system", "automated production"]

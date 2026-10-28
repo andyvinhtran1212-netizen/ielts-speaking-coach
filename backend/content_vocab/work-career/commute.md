@@ -5,6 +5,9 @@ category: "work-career"
 level: "B2"
 part_of_speech: "verb / noun"
 pronunciation: "/kəˈmjuːt/"
+definition_en: "to travel regularly between home and work or a place of study; (noun) the journey made between those places."
+gloss_vi: "đi lại thường xuyên giữa nhà và nơi làm việc hoặc học tập; chuyến đi đó"
+example: "Flexible working hours could allow employees to commute outside the busiest periods and spend less time in traffic."
 synonyms: ["travel to work", "journey to work"]
 antonyms: ["work from home", "telecommute"]
 collocations: ["daily commute", "long commute", "commute to work", "commute by train", "reduce commute time"]

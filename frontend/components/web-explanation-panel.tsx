@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { answerOptions, candidateErrorOptions } from '@/lib/web-explanation-model.mjs';
+import { answerOptions, candidateErrorOptions, localiseSpeaker } from '@/lib/web-explanation-model.mjs';
 
 type Skill = 'reading' | 'listening';
 type EventName = 'correction_result_seen' | 'evidence_attempt_submitted'
@@ -68,7 +68,9 @@ const INTERNAL_LABELS: Record<string, string> = {
   hedged_hypothesis: 'ý kiến có mức độ dè dặt',
 };
 
-function clean(value: unknown) {
+// Verbatim evidence (transcript extracts, source quotes) uses this directly:
+// English quotations must not be localised.
+function cleanVerbatim(value: unknown) {
   let text = String(value ?? '').replace(/```/g, '');
   for (const [code, label] of Object.entries(INTERNAL_LABELS)) {
     text = text.replaceAll(`\`${code}\``, label);
@@ -83,13 +85,16 @@ function clean(value: unknown) {
     .replace(/&quot;/gi, '"')
     .replace(/&amp;/gi, '&')
     .replace(/\*\*Re-listen anchor:\*\*/gi, '**Mốc nghe lại:**')
-    .replace(/\bspeaker\s+/gi, 'người nói ')
     .replace(/\s+---+\s*$/g, '')
     .trim();
 }
 
-function inlineNodes(value: unknown): ReactNode[] {
-  return clean(value).split(/(`[^`]+`|\*\*[^*]+\*\*|\*[^*\n]+\*)/g).filter(Boolean)
+function clean(value: unknown) {
+  return localiseSpeaker(cleanVerbatim(value));
+}
+
+function inlineNodes(value: unknown, normalize: (value: unknown) => string = clean): ReactNode[] {
+  return normalize(value).split(/(`[^`]+`|\*\*[^*]+\*\*|\*[^*\n]+\*)/g).filter(Boolean)
     .map((part, index) => {
       if (part.startsWith('`') && part.endsWith('`')) {
         return <code className="wex-code" key={`${index}-${part}`}>{part.slice(1, -1)}</code>;
@@ -136,7 +141,7 @@ function evidenceRows(value: unknown): EvidenceRow[] {
       const end = Number(item.end_seconds);
       return {
         location: clean(item.location).replace(/;\s*[^;]*(?:\.md|\.json)\b.*$/i, ''),
-        quote: clean(item.quote),
+        quote: cleanVerbatim(item.quote),
         relation: /token containment|authored_solution|deterministic/i.test(clean(item.relation)) ? '' : clean(item.relation),
         timestamp: readableTimestamp(item.timestamp) || (Number.isFinite(start) && Number.isFinite(end)
           ? `${clock(start)}–${clock(end)}` : ''),
@@ -150,7 +155,7 @@ function EvidenceCards({ rows }: { rows: EvidenceRow[] }) {
   if (!rows.length) return <p>Chưa có vị trí nguồn đã duyệt.</p>;
   return <div className="wex-evidence-cards">{rows.map((row, index) => <article className="wex-evidence" key={`${index}-${row.location}-${row.timestamp}`}>
     <div className="wex-evidence__meta">{row.timestamp ? <span><b>Audio</b>{row.timestamp}</span> : null}{row.location ? <span><b>Nguồn</b>{row.location}</span> : null}</div>
-    {row.quote ? <blockquote>{inlineNodes(row.quote)}</blockquote> : null}
+    {row.quote ? <blockquote>{inlineNodes(row.quote, cleanVerbatim)}</blockquote> : null}
     {row.relation ? <p className="wex-evidence__relation">{inlineNodes(row.relation)}</p> : null}
   </article>)}</div>;
 }
@@ -339,7 +344,7 @@ export function WebExplanationPanel({
     {stage >= 4 ? <div className="wex-stage wex-stage--full is-current" aria-current="step">
       <div className="wex-stage__title"><span>{correctionRequired ? '5' : '✓'}</span><strong>{correctionRequired ? 'Đối chiếu và tạo bài sửa ngắn' : 'Đối chiếu lời giải'}</strong></div>
       <div className="wex-answer"><span>Đáp án chuẩn</span><Prose value={explanation.answer_summary || object?.item?.answer?.canonical} /></div>
-      <details open><summary>Bằng chứng nguồn</summary><EvidenceCards rows={sourceRows} />{explanation.script_extract ? <blockquote className="wex-script">{inlineNodes(explanation.script_extract)}</blockquote> : null}</details>
+      <details open><summary>Bằng chứng nguồn</summary><EvidenceCards rows={sourceRows} />{explanation.script_extract ? <blockquote className="wex-script">{inlineNodes(explanation.script_extract, cleanVerbatim)}</blockquote> : null}</details>
       {explanation.why_correct || explanation.decision_path ? <details open><summary>Vì sao đúng</summary><Prose value={explanation.why_correct || explanation.decision_path} /></details> : null}
       {explanation.why_other_answers_fail ? <details><summary>Vì sao phương án khác sai</summary><Prose value={explanation.why_other_answers_fail} /></details> : null}
       {explanation.paraphrase ? <details><summary>Paraphrase</summary><Prose value={explanation.paraphrase} /></details> : null}

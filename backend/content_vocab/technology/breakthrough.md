@@ -5,6 +5,9 @@ category: "technology"
 level: "B2"
 part_of_speech: "noun"
 pronunciation: "/ˈbreɪk.θruː/"
+definition_en: "an important discovery or advance that makes it possible to overcome a problem or make further progress."
+gloss_vi: "bước đột phá, phát hiện hoặc tiến bộ quan trọng"
+example: "A breakthrough in energy storage could make renewable power more practical for communities far from the national grid."
 synonyms: ["advance", "discovery", "development", "leap forward"]
 antonyms: ["setback", "regression", "failure"]
 collocations: ["scientific breakthrough", "major breakthrough", "breakthrough in research", "technological breakthrough", "achieve a breakthrough"]

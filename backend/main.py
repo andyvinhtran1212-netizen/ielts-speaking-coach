@@ -47,6 +47,7 @@ from routers.export import router as export_router
 from routers.admin import router as admin_router
 from routers.admin_core_attempt_evidence import router as admin_core_attempt_evidence_router
 from services.core_operation_correlation import HEADER_NAME as CORE_OPERATION_HEADER, operation_hint_scope
+from services.request_context import request_id_scope
 from routers.cohorts import router as cohorts_router
 from routers.admin_courses import router as admin_courses_router
 from routers.admin_class_lessons import router as admin_class_lessons_router
@@ -457,7 +458,8 @@ async def request_id_middleware(request: Request, call_next):
     import uuid as _uuid
     request_id = request.headers.get("x-request-id") or str(_uuid.uuid4())
     request.state.request_id = request_id
-    with operation_hint_scope(request.headers.getlist(CORE_OPERATION_HEADER)):
+    with operation_hint_scope(request.headers.getlist(CORE_OPERATION_HEADER)), \
+            request_id_scope(request_id):
         response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
     return response
@@ -781,6 +783,35 @@ async def startup_event():
             "[course-timer-reaper] started (interval=%ss, grace=%ss)",
             settings.COURSE_TIMER_REAPER_INTERVAL_SECONDS,
             settings.COURSE_TIMER_REAPER_GRACE_SECONDS,
+        )
+
+    # INACTIVEWRITE-0035 follow-up — daily row-growth alert. Learners write
+    # Vocabulary/flashcard rows through Supabase REST with no rate limit; this
+    # flags abnormal per-user growth into error_logs for admins only. The first
+    # run follows startup (deploys restart the process more often than daily);
+    # the check itself de-duplicates per user/table/UTC day.
+    if settings.ROW_GROWTH_ALERT_ENABLED:
+        import asyncio as _asyncio_row_growth
+        from services import row_growth_alert as _row_growth
+
+        async def _row_growth_alert_loop():
+            await _asyncio_row_growth.sleep(settings.ROW_GROWTH_ALERT_STARTUP_DELAY_SECONDS)
+            while True:
+                try:
+                    res = await _asyncio_row_growth.to_thread(
+                        _row_growth.run_row_growth_check,
+                        threshold=settings.ROW_GROWTH_ALERT_THRESHOLD,
+                    )
+                    logger.info("[row-growth] check %s", res)
+                except Exception:
+                    logger.exception("[row-growth] check failed")
+                await _asyncio_row_growth.sleep(settings.ROW_GROWTH_ALERT_INTERVAL_SECONDS)
+
+        _asyncio_row_growth.create_task(_row_growth_alert_loop())
+        logger.info(
+            "[row-growth] started (interval=%ss, threshold=%s)",
+            settings.ROW_GROWTH_ALERT_INTERVAL_SECONDS,
+            settings.ROW_GROWTH_ALERT_THRESHOLD,
         )
 
 
