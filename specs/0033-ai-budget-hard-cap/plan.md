@@ -782,7 +782,9 @@ These run in CI with fake providers; no network.
   - replaying a request key (AC3);
   - settle, release and expire arithmetic;
   - every line counted on `total`, Anthropic included; soft scopes
-    (`anthropic`, `total`) recorded without a cap check;
+    (`anthropic`, `total`) recorded without a cap check; a period with
+    mixed settled Anthropic and OpenAI reservations shows zero drift in V3
+    for `total`, `anthropic` and `openai`;
     effective cap with an active raise, and the base cap the moment
     `expires_at` passes; the raise function's refusals (including
     `mfa_required` for a non-`aal2` actor, an amount above 100% of the base
