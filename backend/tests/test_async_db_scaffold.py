@@ -102,6 +102,13 @@ def test_health_async_db_endpoint_reports_baseline():
     assert body["async_client_initialised"] is False
     assert "event_loop_lag" in body
     assert "lag_ms_p95" in body["event_loop_lag"]
+    # PC-J55 stall instrumentation: flag-ON call stats, async pool (none with
+    # the flag off) and the default executor shared by to_thread sections.
+    for key in ("calls", "transport_errors", "retries", "in_flight",
+                "oldest_in_flight_ms", "ms_p95", "ms_max"):
+        assert key in body["aexecute"], f"missing aexecute.{key}"
+    assert body["postgrest_pool"] is None
+    assert "executor" in body
 
 
 def _facade_users(subdir):
