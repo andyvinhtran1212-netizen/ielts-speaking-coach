@@ -51,6 +51,7 @@ class _Query:
         self.filters: list = []
         self.op, self.payload = "select", None
         self.limit_n = None
+        self.do_nothing = False
 
     def select(self, *_a, **_k):
         return self
@@ -78,6 +79,13 @@ class _Query:
         self.op, self.payload = "insert", row
         return self
 
+    def upsert(self, row, *, on_conflict="", ignore_duplicates=False):
+        # Only INSERT ... ON CONFLICT (id) DO NOTHING is modelled; a merge
+        # upsert would overwrite an existing row and must not slip through.
+        assert (on_conflict, ignore_duplicates) == ("id", True), "merge upsert"
+        self.op, self.payload, self.do_nothing = "insert", row, True
+        return self
+
     def update(self, row):
         self.op, self.payload = "update", row
         return self
@@ -99,7 +107,12 @@ class _Query:
             raise RuntimeError(f"{self.table_name} down")
         rows = self.db.tables.setdefault(self.table_name, [])
         if self.op == "insert":
-            rows.append(dict(self.payload))
+            with self.db.lock:
+                if any(r.get("id") == self.payload.get("id") for r in rows):
+                    if self.do_nothing:
+                        return _Resp([])
+                    raise RuntimeError("duplicate key value violates unique constraint")
+                rows.append(dict(self.payload))
             return _Resp([dict(self.payload)])
         matched = [r for r in rows if self._match(r)]
         if self.op == "update":
@@ -108,7 +121,10 @@ class _Query:
             return _Resp([dict(r) for r in matched])
         if self.limit_n is not None:
             matched = matched[: self.limit_n]
-        return _Resp([dict(r) for r in matched])
+        resp = _Resp([dict(r) for r in matched])
+        if self.table_name == "users" and not resp.data and self.db.on_missing_user:
+            self.db.on_missing_user()
+        return resp
 
     def execute(self):
         if self.db.forbid_sync:
@@ -119,7 +135,11 @@ class _Query:
 class _AsyncQuery(_Query):
     async def execute(self):  # type: ignore[override]
         await asyncio.sleep(self.db.async_delay)
-        return self.run()
+        resp = self.run()
+        if self.table_name == "users" and self.op == "select" and not resp.data \
+                and self.db.aon_missing_user:
+            await self.db.aon_missing_user()
+        return resp
 
 
 class FakeDB:
@@ -131,6 +151,10 @@ class FakeDB:
         self.fail: set = set()
         self.forbid_sync = False
         self.async_delay = 0.0
+        # Race hooks: run after a users SELECT that found no row.
+        self.on_missing_user = None
+        self.aon_missing_user = None
+        self.lock = threading.Lock()
         db = self
 
         class _AsyncClient:
@@ -415,6 +439,100 @@ def test_auth_me_error_contract_identical(monkeypatch):
         state[0][1]["detail"].pop("ref")  # a fresh error reference per response
     assert out[False][0] == out[True][0]
     assert out[True][0][0] == 500
+
+
+# ── /auth/me first-visit provisioning races ─────────────────────────────────
+
+
+def _new_user_rows(db):
+    return [r for r in db.tables["users"] if r["id"] == "u-new"]
+
+
+@pytest.mark.parametrize("on", [False, True])
+def test_concurrent_first_visits_across_workers_both_succeed(monkeypatch, on):
+    """Two workers both find no users row before either inserts."""
+    monkeypatch.setattr(auth_module, "_get_auth_http_client", lambda: _AuthClient())
+    monkeypatch.setattr("services.runtime_flags.is_enabled", lambda *_a, **_k: False)
+    db = FakeDB(TABLES)
+    _flag(monkeypatch, db, on, auth_module, acp, activation_gate)
+    barrier = threading.Barrier(2)
+    db.on_missing_user = lambda: barrier.wait(timeout=5)
+
+    results = []
+
+    def visit():
+        api = TestClient(main.app, raise_server_exceptions=False)
+        results.append(api.get("/auth/me", headers={"Authorization": "Bearer u-new"}))
+
+    workers = [threading.Thread(target=visit) for _ in range(2)]
+    for w in workers:
+        w.start()
+    for w in workers:
+        w.join(timeout=10)
+
+    assert [r.status_code for r in results] == [200, 200], [r.text for r in results]
+    assert all(r.json()["id"] == "u-new" for r in results)
+    assert len(_new_user_rows(db)) == 1
+
+
+def test_concurrent_first_visits_on_one_event_loop_both_succeed(monkeypatch):
+    """USE_ASYNC_DB on: both requests interleave on the loop between SELECT
+    and INSERT (Codex P2 on #1805)."""
+    monkeypatch.setattr(auth_module, "_get_auth_http_client", lambda: _AuthClient())
+    monkeypatch.setattr("services.runtime_flags.is_enabled", lambda *_a, **_k: False)
+    db = FakeDB(TABLES)
+    _flag(monkeypatch, db, True, auth_module, acp, activation_gate)
+
+    async def run():
+        arrived, both = [], asyncio.Event()
+
+        async def rendezvous():
+            arrived.append(1)
+            if len(arrived) == 2:
+                both.set()
+            await asyncio.wait_for(both.wait(), timeout=5)
+
+        db.aon_missing_user = rendezvous
+        transport = httpx.ASGITransport(app=main.app, raise_app_exceptions=False)
+        async with httpx.AsyncClient(transport=transport, base_url="http://t") as api:
+            return await asyncio.gather(*(
+                api.get("/auth/me", headers={"Authorization": "Bearer u-new"})
+                for _ in range(2)
+            ))
+
+    results = asyncio.run(run())
+    assert [r.status_code for r in results] == [200, 200], [r.text for r in results]
+    assert len(_new_user_rows(db)) == 1
+
+
+@pytest.mark.parametrize("on", [False, True])
+def test_first_visit_race_keeps_existing_role_and_activation(monkeypatch, on):
+    """The row appears between /auth/me's SELECT and INSERT (the other request
+    already provisioned it and /auth/activate promoted it): provisioning must
+    not overwrite its role or is_active."""
+    monkeypatch.setattr(auth_module, "_get_auth_http_client", lambda: _AuthClient())
+    monkeypatch.setattr("services.runtime_flags.is_enabled", lambda *_a, **_k: False)
+    db = FakeDB(TABLES)
+    _flag(monkeypatch, db, on, auth_module, acp, activation_gate)
+    winner = {"id": "u-new", "email": "u-new@x.test", "display_name": "Winner",
+              "role": "instructor", "is_active": True, "feature_flags": {}}
+
+    def winner_commits():
+        db.on_missing_user = None
+        db.tables["users"].append(dict(winner))
+
+    db.on_missing_user = winner_commits
+    api = TestClient(main.app, raise_server_exceptions=False)
+    r = api.get("/auth/me", headers={"Authorization": "Bearer u-new"})
+
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert (body["role"], body["is_active"], body["display_name"]) == ("instructor", True, "Winner")
+    rows = _new_user_rows(db)
+    assert len(rows) == 1
+    row = dict(rows[0])
+    row.pop("last_seen_at", None)
+    assert row == winner
 
 
 # ── Transports ───────────────────────────────────────────────────────────────
