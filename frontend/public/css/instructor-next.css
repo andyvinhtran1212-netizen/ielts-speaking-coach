@@ -173,6 +173,8 @@ button, input, select, textarea { font: inherit; }
 .ins-note { margin: -6px 0 15px; font-size: .8rem; }
 /* W-12: each matrix cell carries its own give's deadline under the status. */
 .ins-cell-deadline { display: block; margin-top: 4px; color: var(--av-text-muted); font-size: .75rem; white-space: nowrap; }
+/* PC-J36: each "Chấm bài" row carries its essay's short id + submit time under the student. */
+.ins-cell-meta { display: block; margin-top: 4px; color: var(--av-text-muted); font-size: .75rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 .ins-pill {
   display: inline-flex;

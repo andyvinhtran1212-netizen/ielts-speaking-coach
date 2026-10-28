@@ -25,6 +25,7 @@ import {
   normalizeInstructorQueue,
   normalizeInstructorStudents,
   normalizeInstructorSummary,
+  queueRowIdentity,
 } from '../lib/instructor-dashboard-model.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -42,7 +43,7 @@ describe('/instructor native dashboard model', () => {
     assert.deepEqual(normalizeInstructorPrompts([{ id: 'p1', title: 'Task', task_type: 'task2' }]), [{ id: 'p1', title: 'Task', taskType: 'task2' }]);
     assert.deepEqual(normalizeInstructorCodes([{ id: 'k1', code: 'ABC', is_used: false, cohort_id: null }]), [{ id: 'k1', code: 'ABC', isUsed: false, cohortId: null }]);
     assert.deepEqual(normalizeInstructorAssignments([{ id: 'a1', prompt_id: 'p1', student_id: 's1', status: 'assigned' }]), [{ id: 'a1', promptId: 'p1', studentId: 's1', status: 'assigned', essayId: null, deadline: null, cohortId: null, groupId: null, name: null, createdAt: null, isLate: false }]);
-    assert.deepEqual(normalizeInstructorQueue([{ essay_id: 'e1', task_type: 'task2', review: { id: 'r1', status: 'queued' } }]), [{ essayId: 'e1', reviewId: 'r1', status: 'queued', studentEmail: null, taskType: 'task2' }]);
+    assert.deepEqual(normalizeInstructorQueue([{ essay_id: 'e1', task_type: 'task2', review: { id: 'r1', status: 'queued' } }]), [{ essayId: 'e1', reviewId: 'r1', status: 'queued', studentEmail: null, taskType: 'task2', submittedAt: null }]);
     assert.equal(normalizeInstructorStudents({ rows: [] }), null);
     assert.equal(normalizeInstructorAssignments([{ id: 'a1', prompt_id: 'p1' }]), null);
     assert.equal(normalizeInstructorAssignments([{ id: 'a1', prompt_id: 'p1', student_id: 's1' }]), null);
@@ -321,5 +322,31 @@ describe('PC-J10 — /instructor give flow (W-12, BL-18, BL-19)', () => {
   test('BL-19: a missing prompt shows the app message, not the browser validation bubble', () => {
     assert.match(VIEW, /<form className="ins-form" onSubmit=\{createAssignment\} noValidate>/);
     assert.match(VIEW, /if \(!promptId\) return missing\('prompt_id', 'Chưa chọn đề bài\.'\);/);
+  });
+});
+
+describe('PC-J36 — "Chấm bài" rows identify their essay', () => {
+  test('two essays from the same student get distinct row identities from response data only', () => {
+    const queue = normalizeInstructorQueue([
+      { essay_id: 'ad8db313-3c59-4ffe-a665-1fe0fbc87804', student_email: 'hv@example.com', task_type: 'task2', submitted_at: '2026-10-28T07:05:00Z', review: { id: 'r1', status: 'queued' } },
+      { essay_id: '72c07a2a-0000-4000-8000-000000000000', student_email: 'hv@example.com', task_type: 'task2', submitted_at: '2026-10-28T09:30:00+00:00', review: { id: 'r2', status: 'claimed' } },
+    ]);
+    assert.equal(queue[0].submittedAt, '2026-10-28T07:05:00Z');
+    // 07:05Z is 14:05 in Asia/Ho_Chi_Minh, whatever the browser timezone.
+    assert.equal(queueRowIdentity(queue[0]), 'ad8db313 · 28/10/2026 14:05');
+    assert.equal(queueRowIdentity(queue[1]), '72c07a2a · 28/10/2026 16:30');
+    assert.notEqual(queueRowIdentity(queue[0]), queueRowIdentity(queue[1]));
+  });
+
+  test('a missing or unparseable submit time falls back to the short essay id alone', () => {
+    assert.equal(queueRowIdentity({ essayId: 'ad8db313-3c59-4ffe-a665-1fe0fbc87804', submittedAt: null }), 'ad8db313');
+    assert.equal(queueRowIdentity({ essayId: 'ad8db313-3c59-4ffe-a665-1fe0fbc87804', submittedAt: 'not-a-date' }), 'ad8db313');
+    assert.equal(queueRowIdentity(null), '');
+  });
+
+  test('the identity renders under the student in the existing column — no new header or label', () => {
+    assert.match(VIEW, /<td>\{item\.studentEmail \|\| item\.essayId\}<small className="ins-cell-meta">\{queueRowIdentity\(item\)\}<\/small><\/td>/);
+    assert.match(VIEW, /<thead><tr><th>Học viên<\/th><th>Dạng<\/th><th>Trạng thái<\/th><th>Thao tác<\/th><\/tr><\/thead>/);
+    assert.match(CSS, /\.ins-cell-meta \{[^}]*display: block;/);
   });
 });

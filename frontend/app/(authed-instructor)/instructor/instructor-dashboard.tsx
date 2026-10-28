@@ -27,6 +27,7 @@ import {
   normalizeInstructorQueue,
   normalizeInstructorStudents,
   normalizeInstructorSummary,
+  queueRowIdentity,
 } from '@/lib/instructor-dashboard-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import { clearPersistedAuthSession, rememberSignedOutSession } from '@/lib/auth/sign-out-state.mjs';
@@ -475,7 +476,7 @@ export function InstructorDashboard() {
 
         {tab === 'grade' && <section aria-labelledby="grade-title">
           <div className="ins-heading"><div><p>Owner-scoped queue</p><h1 id="grade-title">Hàng chờ chấm</h1></div><strong>{data.queue.length}</strong></div>
-          <div className="ins-card ins-table-wrap"><table className="ins-table"><thead><tr><th>Học viên</th><th>Dạng</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>{data.queue.length ? data.queue.map((item) => <tr key={item.reviewId}><td>{item.studentEmail || item.essayId}</td><td>{item.taskType || '—'}</td><td><StatusPill tone={item.status === 'claimed' ? 'warning' : 'neutral'}>{item.status}</StatusPill></td><td><button type="button" onClick={() => void claimAndGrade(item)} disabled={!!pending}>{pending === `review:${item.reviewId}` ? 'Đang xác nhận…' : item.status === 'claimed' ? 'Chấm tiếp' : 'Nhận chấm'}</button></td></tr>) : <EmptyRow columns={4}>Không có bài chờ chấm.</EmptyRow>}</tbody></table></div>
+          <div className="ins-card ins-table-wrap"><table className="ins-table"><thead><tr><th>Học viên</th><th>Dạng</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>{data.queue.length ? data.queue.map((item) => <tr key={item.reviewId}><td>{item.studentEmail || item.essayId}<small className="ins-cell-meta">{queueRowIdentity(item)}</small></td><td>{item.taskType || '—'}</td><td><StatusPill tone={item.status === 'claimed' ? 'warning' : 'neutral'}>{item.status}</StatusPill></td><td><button type="button" onClick={() => void claimAndGrade(item)} disabled={!!pending}>{pending === `review:${item.reviewId}` ? 'Đang xác nhận…' : item.status === 'claimed' ? 'Chấm tiếp' : 'Nhận chấm'}</button></td></tr>) : <EmptyRow columns={4}>Không có bài chờ chấm.</EmptyRow>}</tbody></table></div>
         </section>}
       </main>
 
