@@ -24,7 +24,7 @@ def test_gemini_row_is_model_aware_and_keeps_thinking_split(monkeypatch):
         input_tokens=100, output_tokens=200, thinking_tokens=300,
         feature="speaking_grading", operation="grade",
     )
-    row = table.insert.call_args.args[0]
+    row = table.upsert.call_args.args[0]
     assert row["cost_usd_est"] == round((100 * 1.5 + 500 * 9.0) / 1_000_000, 8)
     assert row["output_tokens"] == 200
     assert row["thinking_tokens"] == 300
@@ -55,7 +55,7 @@ def test_error_code_is_persisted_after_ledger_migration(monkeypatch):
         service="gemini", model="gemini-2.5-flash",
         status="error", error_code="ServiceUnavailable",
     )
-    row = table.insert.call_args.args[0]
+    row = table.upsert.call_args.args[0]
     assert row["error_code"] == "ServiceUnavailable"
 
 
@@ -65,7 +65,7 @@ def test_unknown_model_is_kept_as_unpriced_instead_of_using_wrong_rate(monkeypat
         user_id=None, session_id=None, model="gemini-future",
         input_tokens=100, output_tokens=200,
     )
-    row = table.insert.call_args.args[0]
+    row = table.upsert.call_args.args[0]
     assert row["cost_usd_est"] is None
     assert row["pricing_version"] is None
     assert row["cost_source"] == "unpriced"
@@ -102,7 +102,7 @@ def test_unpriced_provider_keeps_raw_reconciliation_units(monkeypatch):
         audio_seconds=12.5, feature="pronunciation",
         metadata={"locale": "en-US", "prosody": True},
     )
-    row = table.insert.call_args.args[0]
+    row = table.upsert.call_args.args[0]
     assert row["cost_source"] == "unpriced"
     assert row["audio_seconds"] == 12.5
     assert row["metadata"]["prosody"] is True
@@ -127,7 +127,7 @@ def test_elevenlabs_tts_uses_its_character_price(monkeypatch):
         model="eleven_multilingual_v2",
         text_chars=1_000,
     )
-    row = table.insert.call_args.args[0]
+    row = table.upsert.call_args.args[0]
     assert row["service"] == "elevenlabs"
     assert row["cost_usd_est"] == 0.08
     assert row["cost_source"] == "catalog_estimate"
@@ -143,7 +143,7 @@ def test_unknown_context_is_ignored_without_breaking_user_flow(monkeypatch, capl
         output_tokens=5,
         accidental_field="ignored",
     )
-    row = table.insert.call_args.args[0]
+    row = table.upsert.call_args.args[0]
     assert "accidental_field" not in row
     assert "ignored unsupported context fields" in caplog.text
 
@@ -152,7 +152,7 @@ def test_missing_migration_retries_with_legacy_columns(monkeypatch, caplog):
     table = _db(monkeypatch)
     error = RuntimeError("Could not find the 'pricing_version' column in schema cache")
     error.code = "PGRST204"
-    table.insert.return_value.execute.side_effect = [error, None]
+    table.upsert.return_value.execute.side_effect = error
 
     ai_usage_logger.log_gemini(
         user_id="u1", session_id=None, model="gemini-2.5-flash",
@@ -172,7 +172,7 @@ def test_legacy_schema_drops_unpriced_failure_instead_of_inventing_success(
     table = _db(monkeypatch)
     error = RuntimeError("Could not find the 'status' column in schema cache")
     error.code = "PGRST204"
-    table.insert.return_value.execute.side_effect = error
+    table.upsert.return_value.execute.side_effect = error
 
     ai_usage_logger.log_unpriced_usage(
         service="gemini",
@@ -181,7 +181,8 @@ def test_legacy_schema_drops_unpriced_failure_instead_of_inventing_success(
         error_code="timeout",
     )
 
-    assert table.insert.call_count == 1
+    assert table.upsert.call_count == 1
+    table.insert.assert_not_called()
     assert "skipped legacy fallback" in caplog.text
 
 
@@ -211,7 +212,7 @@ def test_legacy_schema_skips_writing_rows_that_feedback_already_supplies(
 @pytest.mark.asyncio
 async def test_async_logger_uses_async_supabase_client(monkeypatch):
     table = MagicMock()
-    table.insert.return_value.execute = AsyncMock(return_value=None)
+    table.upsert.return_value.execute = AsyncMock(return_value=None)
     client = MagicMock()
     client.table.return_value = table
     monkeypatch.setattr(
@@ -223,7 +224,7 @@ async def test_async_logger_uses_async_supabase_client(monkeypatch):
         input_tokens=10, output_tokens=5,
     )
 
-    table.insert.assert_called_once()
+    table.upsert.assert_called_once()
 
 
 @pytest.mark.asyncio

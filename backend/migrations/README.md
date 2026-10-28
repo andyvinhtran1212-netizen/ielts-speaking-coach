@@ -20,17 +20,17 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-28 the highest is `335`, so by that rule the
-next new migration is `336`, but it is reserved (below): ask the Leader first.
+sequence is dense. As of 2026-10-28 the highest is `336`, so by that rule the
+next new migration is `337`, but it is reserved (below): ask the Leader first.
 The runner applies any unapplied file regardless of order.
 Numbers 321–330 are already locked to open work (321 WRITINGRATE-0025, 322 #1720,
 323 ROLECHECK-0026, 324 ASSIGNDRAFT-0027, 325 CODEUNIQ-0028, 326
 STUDENTARCHIVE-0029, 327–329 reserved, 330 A-10); files for them may land out
 of order, so do not reuse them. 331 is GIVEARCHIVE-0031, 332 is ADMINAAL2-0032,
 334 is ACTIVATELIMIT-0034. 333–337 are reserved by the Leader for open work
-(333 AIBUDGET-0033, 335 INACTIVEWRITE-0035, assigned on 2026-10-28); files for
-them may land out of order, so ask the Leader before taking any number above
-332.
+(333 AIBUDGET-0033, 335 INACTIVEWRITE-0035, 336 ADMINAAL2-0032 FR-019, assigned
+on 2026-10-28); files for them may land out of order, so ask the Leader before
+taking any number above 332.
 
 Migration `335` (INACTIVEWRITE-0035, SEC-20261028-02) closes the direct-REST
 write path for inactive accounts. 320 kept `authenticated` writes on the five
@@ -49,6 +49,21 @@ the matching restrictive policy, so a later client write grant must add one.
 One transaction, no data change, re-runnable, no backend deploy needed. Later
 migrations must not drop or replace the policies or the helper; rollback is in
 the file header.
+
+Migration `336` (ADMINAAL2-0032 FR-019, Vinh's decision 1A of 2026-10-28)
+freezes `users.role` while `suspended_at` is set. The `BEFORE UPDATE OF role`
+trigger `trg_users_suspension_role_guard` raises P0001
+`account_suspended_role_change` for any role change of a suspended account. That
+includes `fn_set_staff_privilege`, alone or combined with reactivation, as well
+as REST, the owner and a superuser. Only `fn_bootstrap_admin_recovery`
+(`aver.bootstrap`) is exempt. An admin reactivates the account first, then
+changes its role. `PATCH /admin/users/{id}/role` maps the error to a 409 with a
+Vietnamese message. It sorts after 332's suspension guard, so activation still
+fails with `account_suspended`. It aborts with
+`suspended_non_staff_account_exists` while a suspended row holds a non-staff
+role (repair that out of band first). It is held back with 332 (group
+`admin_aal2`) and applied after it, on staging first. One transaction, no data
+change, re-runnable; the rollback is in the file header.
 
 Migration `334` (ACTIVATELIMIT-0034, F09) moves the `POST /auth/activate`
 rate limit from a per-worker dict into Postgres: `activation_attempts(user_id,
