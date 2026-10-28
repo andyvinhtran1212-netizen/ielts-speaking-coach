@@ -275,6 +275,9 @@ transaction with `lock_timeout = 5s`.
        A class-score sync is owed while `class_synced_generation <
        refreshed_generation` (Codex round 11 on #1773). The sync is a
        separate write, so acknowledging the band does not discharge it.
+       It is discharged only by `fn_ai_class_sync` (item 7), which reads
+       the band, writes the item and records the generation in one
+       locked transaction (Codex round 12).
      - The `responses` trigger (item 11, FR-024) increments `generation`
        in the same transaction as any band-bearing response write,
        whatever the session's status and whoever the writer is: the
@@ -529,14 +532,12 @@ transaction with `lock_timeout = 5s`.
 
      `sync_class_item_score` runs only after `written`. A writer that
      still writes unacknowledged also syncs, and the sweeper's later
-     refresh syncs again. After a sync succeeds, the caller calls
-     `fn_ai_class_sync_ack(p_session_id, p_generation)` with the generation
-     it wrote, which sets `class_synced_generation =
-     greatest(class_synced_generation, p_generation)`. A crash or a sync
-     error between the band write and the ack leaves the sync owed, and
-     the sweeper repeats it. `sync_class_item_score` is idempotent for a
-     given session band, so repeating it is safe. A session with no linked
-     class item is acked at once.
+     refresh syncs again. `sync_class_item_score`
+     (`services/class_assignment_service.py`) keeps its signature and its
+     best-effort contract, but delegates to `fn_ai_class_sync` instead of
+     reading the session and updating the item in two requests. A crash
+     or a sync error after the band write leaves the sync owed, and the
+     sweeper repeats it.
    - **`fn_ai_deferred_save(p_response jsonb, p_job jsonb)`** saves a
      deferred Speaking submission in one transaction. It writes the
      `responses` row with `grading_status='awaiting_budget'` under the
@@ -546,8 +547,22 @@ transaction with `lock_timeout = 5s`.
      returns `saved`, `replay` (row and job already present) or
      `superseded`/`audio_changed` with no write, mapped to today's 409s.
      No path writes an `awaiting_budget` row without its job.
-   - **`fn_ai_class_sync_ack(p_session_id uuid, p_generation bigint)`**
-     records a completed class-score sync (item 3).
+   - **`fn_ai_class_sync(p_session_id uuid)`** performs the class-score
+     sync (item 3) in one transaction:
+     1. locks the `sessions` row and then its `ai_deferred_session_refresh`
+        row `FOR UPDATE`, the same order as the band writers, so no band
+        write and no other sync can interleave;
+     2. reads the session's current `overall_band` and
+        `class_assignment_item_id`, and the row's `refreshed_generation`;
+     3. when there is an item and a band, updates
+        `class_assignment_items.score` with today's predicates (that item,
+        `artifact_kind = 'session'`, `artifact_id = p_session_id`);
+     4. sets `class_synced_generation = refreshed_generation` and returns
+        `synced`, or `no_item` when there is nothing to update.
+
+     The value written is always the band persisted at the moment of the
+     write, never one read earlier, so two overlapping syncs cannot leave
+     an older band on the item.
    - **`fn_ai_deferred_claim(p_limit int, p_lease_seconds int)`** claims
      queued jobs `FOR UPDATE SKIP LOCKED` in `enqueued_at, id` order.
      It also reclaims `running` jobs whose `lease_until` has passed, so a
@@ -591,7 +606,7 @@ transaction with `lock_timeout = 5s`.
      makes no provider call and needs no reservation, so it runs even
      while scopes are closed. The sweeper runs one for every `completed`
      session with `refreshed_generation < generation` first, then
-     repeats `sync_class_item_score` and the ack for every session with
+     repeats `fn_ai_class_sync` for every session with
      `class_synced_generation < refreshed_generation`. It runs
      another after each `committed` result whose session is `completed`.
      Then it claims new jobs. `not_completed` ends the refresh for that
@@ -809,7 +824,7 @@ The order follows `tasks.md`. File ownership:
 | Budget core | `services/ai_budget.py`, `services/ai_budget_config.py`, `config.py`, `services/ai_pricing.py` (Azure row) |
 | Router and providers | `services/ai_router.py`, `services/grading_orchestrator.py`, `services/grading_providers/*`, `services/claude_grader.py`, `services/whisper.py`, `services/tts_audio.py`, `services/azure_pronunciation.py`, `services/listening_*`, `services/gemini*.py`, `services/course_writing_grader.py`, `services/advanced_vocab_rewrite_grader.py`, `services/d1_*.py`, `services/vocab_enrichment.py`, `services/writing_prompt_analysis.py`, operator scripts |
 | Quotas and flags | `services/rate_limit.py`, `routers/tts.py`, `routers/listening.py` (gist only), `services/runtime_flags.py` |
-| Deferred grading | `services/deferred_grading.py`, `routers/grading.py`, `routers/admin.py` (regrade extraction), `services/essay_service.py`, `routers/sessions.py` (aggregate hook), `routers/pronunciation.py` (Azure sizing and the missing-P branch), `services/audio_validation.py` (pre-send duration), `services/pron_calibration.py` (shared P mapping), `scripts/ai_budget_sweep.py` |
+| Deferred grading | `services/deferred_grading.py`, `routers/grading.py`, `routers/admin.py` (regrade extraction), `services/essay_service.py`, `routers/sessions.py` (aggregate hook), `routers/pronunciation.py` (Azure sizing and the missing-P branch), `services/audio_validation.py` (pre-send duration), `services/pron_calibration.py` (shared P mapping), `services/class_assignment_service.py` (`sync_class_item_score` delegation), `scripts/ai_budget_sweep.py` |
 | Status APIs and alerts | `routers/ai_budget.py`, `main.py`, the Resend email transport shared with 0032 (sender `alerts@averlearning.com` for this spec) |
 | Budget raise (FR-022) | `routers/ai_budget.py` (raise routes), `services/ai_budget_raise.py`, `frontend/app/(authed-admin-overview)/admin/admin-ai-budget-raise.tsx` |
 | Frontend | the files in UI and interaction, `frontend/types/api.d.ts`, `frontend/lib/browser-api.ts` |
@@ -939,7 +954,10 @@ These run in CI with fake providers; no network.
     (`written`, acknowledged) and `sync_class_item_score` for a session
     linked to an already-submitted class item; the next sweep finds the
     sync owed, updates `class_assignment_items.score` to the drained band
-    and acks it, and a further sweep does nothing;
+    and records it, and a further sweep does nothing; two syncs are
+    interleaved around a band write (sync A starts before the write, sync B
+    after it) and the final item score equals the latest persisted
+    session band with nothing owed;
   - the Azure line refused (cap, missing price row, `budget_unavailable`
     on its own request): the grade completes without a 503 or a job,
     `pronunciation_status = 'skipped_budget'`, `band_p` null, the test-mode
