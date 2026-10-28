@@ -1,6 +1,5 @@
 import logging
 import math
-import re
 import sys
 from time import perf_counter
 
@@ -153,23 +152,20 @@ origins = [
     "http://127.0.0.1:3000",
     "http://localhost:5500",
     "http://127.0.0.1:5500",
-    # Production — explicit list as primary
+    # Production
     "https://averlearning.com",
     "https://www.averlearning.com",
     "https://ielts-speaking-coach-sage.vercel.app",
+    # Staging (Vercel branch `staging`, see frontend/tooling/runtime-origins.mjs)
+    "https://staging.averlearning.com",
 ]
 
-# Sprint 20.10 D1 — belt-and-suspenders against subdomain drift.
-# Andy's prod dogfood hit "No 'Access-Control-Allow-Origin' header" from
-# https://www.averlearning.com even though both apex and www were already
-# in the explicit list (commit 4c9fc1e9, 2026-04-08). The most likely
-# remaining single-point-of-failure is the explicit list itself going
-# stale as new subdomains roll out (staging.averlearning.com, app.…, etc.).
-# This regex matches the apex + any direct subdomain of averlearning.com
-# over HTTPS — orthogonal to the explicit list, so either match grants
-# the request. The explicit list still wins for fast-path matching;
-# the regex is the safety net.
-_AVERLEARNING_ORIGIN_REGEX = r"^https://(?:[a-z0-9-]+\.)?averlearning\.com$"
+# F11 — the allowlist above is EXACT. The Sprint 20.10 D1 safety-net regex
+# (`^https://(?:[a-z0-9-]+\.)?averlearning\.com$`) is gone: combined with
+# allow_credentials=True it let ANY *.averlearning.com page — including a
+# dangling or taken-over subdomain — make credentialed API calls and read the
+# responses. A new frontend host must be added here explicitly. Generated
+# *.vercel.app previews stay rejected by design (plan §7.1).
 
 # ONE definition, used by the CORSMiddleware below AND by the unhandled-exception
 # handler. They were separate, and the handler simply had no methods/headers —
@@ -186,7 +182,7 @@ _CORS_HEADERS = ["Authorization", "Content-Type",
 
 def _cors_headers_for_origin(origin: str | None) -> dict:
     """CORS headers to attach to a response when the request Origin is allowed —
-    reuses the SAME allowlist + regex as the CORSMiddleware below (no duplication).
+    reuses the SAME allowlist as the CORSMiddleware below (no duplication).
 
     Used by the unhandled-exception handler: an unhandled 500 unwinds OUTSIDE the
     CORSMiddleware (ServerErrorMiddleware is outermost), so its response would have
@@ -211,7 +207,7 @@ def _cors_headers_for_origin(origin: str | None) -> dict:
     SECURITY: only echo an ALLOWED origin — never reflect an arbitrary one. Returns
     {} for a missing / non-allowed origin.
     """
-    if origin and (origin in origins or re.match(_AVERLEARNING_ORIGIN_REGEX, origin)):
+    if origin and origin in origins:
         return {
             "Access-Control-Allow-Origin": origin,
             "Access-Control-Allow-Credentials": "true",
@@ -230,10 +226,9 @@ app.add_middleware(RequestSafetyMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_origin_regex=_AVERLEARNING_ORIGIN_REGEX,
     allow_credentials=True,
     # C-4.2 hardening — tighten from "*" to the methods/headers the app actually
-    # uses (regex + credentials kept; see the intentional-regex note above).
+    # uses (exact origin allowlist + credentials; see the F11 note above).
     allow_methods=_CORS_METHODS,
     allow_headers=_CORS_HEADERS,
     # Cache the CORS preflight (OPTIONS) response. Without this the browser
@@ -449,7 +444,7 @@ async def server_timing_middleware(request: Request, call_next):
         # Perf P3.3 — the frontend (Vercel) and API (Railway) are cross-origin,
         # so the browser's PerformanceResourceTiming.serverTiming stays EMPTY
         # unless we opt the caller in with Timing-Allow-Origin. Reflect the
-        # request Origin ONLY when it passes the SAME allowlist/regex as CORS —
+        # request Origin ONLY when it passes the SAME allowlist as CORS —
         # never echo an arbitrary origin (that would let a site CORS rejects opt
         # itself into reading our timings) and never fall back to `*`. A
         # same-origin caller has no Origin and can read timings without TAO.
