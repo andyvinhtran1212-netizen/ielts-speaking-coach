@@ -20,6 +20,25 @@ from starlette.exceptions import HTTPException
 from starlette.responses import JSONResponse
 
 
+def client_address(real_ip, forwarded_for, peer):
+    """X-Real-IP, else the last X-Forwarded-For hop, else the socket peer."""
+    for value in (real_ip, forwarded_for):
+        hops = [hop.strip() for hop in (value or '').split(',') if hop.strip()]
+        if hops:
+            return hops[-1][:64]
+    return peer
+
+
+def request_client_ip(request):
+    """client_address() for a Starlette request; shared by routers that key
+    per-IP state on the caller (TTS throttle, Reading anon_src hash)."""
+    if request is None:
+        return None
+    return client_address(request.headers.get('x-real-ip'),
+                          request.headers.get('x-forwarded-for'),
+                          request.client.host if request.client else None)
+
+
 class RequestSafetyMiddleware:
     def __init__(self, app, *, upload_limit=64 * 1024 * 1024,
                  log_limit=64 * 1024, log_per_minute=600,
@@ -47,13 +66,10 @@ class RequestSafetyMiddleware:
 
     @staticmethod
     def _client_key(scope, headers):
-        for name in (b'x-real-ip', b'x-forwarded-for'):
-            value = headers.get(name, b'').decode('latin-1')
-            hops = [hop.strip() for hop in value.split(',') if hop.strip()]
-            if hops:
-                return hops[-1][:64]
         client = scope.get('client')
-        return client[0] if client else 'unknown'
+        return client_address(headers.get(b'x-real-ip', b'').decode('latin-1'),
+                              headers.get(b'x-forwarded-for', b'').decode('latin-1'),
+                              client[0] if client else 'unknown')
 
     def _client_times(self, clients, key, now):
         if key not in clients and len(clients) >= self.max_tracked_clients:

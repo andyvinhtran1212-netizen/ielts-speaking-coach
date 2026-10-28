@@ -34,6 +34,7 @@ from routers.auth import get_supabase_user
 from routers.sessions import require_speaking_entitlement
 from services import activation_gate, ai_usage_logger
 from services.rate_limit import _utc_today_start, _utc_tomorrow_start
+from services.request_safety import request_client_ip
 from services.tts_audio import synthesize_mp3
 
 logger = logging.getLogger(__name__)
@@ -59,13 +60,9 @@ _ip_hits: dict[str, deque] = {}
 
 
 def _client_ip(request: Request | None) -> str | None:
-    # Same convention as routers/reading_student.py: first X-Forwarded-For hop.
-    if request is None:
-        return None
-    fwd = request.headers.get("x-forwarded-for")
-    if fwd:
-        return fwd.split(",")[0].strip()
-    return request.client.host if request.client else None
+    # Same key as RequestSafetyMiddleware: X-Real-IP → last XFF hop → peer.
+    # Earlier XFF hops are caller-supplied and must not mint fresh budgets.
+    return request_client_ip(request)
 
 
 def _throttle_ip(request: Request | None) -> None:
