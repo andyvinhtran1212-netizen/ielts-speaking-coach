@@ -137,7 +137,9 @@ _ABSENCE = re.compile(
 # "mới ở mức 'relevant but underdeveloped'" (PC-J03 staging repro: 10 of 29
 # failed citations). Every quoted word must be rubric vocabulary, one of them a
 # development term; the sentence must name a band or the rubric; and usage
-# claims ("Em dùng 'extended'") and source-only fields never qualify.
+# claims ("Em dùng 'extended'"), vocabulary credit on either side of the quote
+# ("Vốn từ đạt Band 7 nhờ các từ 'extended'", Codex #1796) and source-only
+# fields never qualify.
 _DESCRIPTOR_CORE = frozenset({"stated", "extend", "extended", "supported", "developed",
                               "underdeveloped"})
 _DESCRIPTOR_WORDS = _DESCRIPTOR_CORE | {
@@ -149,16 +151,22 @@ _DESCRIPTOR_CONTEXT = re.compile(
     re.I,
 )
 # A quoted mention of the task question ("câu hỏi 'To what extent ...'").
+# Only the verb "trả lời" counts: the nouns "câu trả lời" / "answer" name the
+# learner's own text ("Your answer uses 'X'", Codex #1796), not the question.
 _PROMPT_REFERENCE = re.compile(
-    r"\b(?:câu hỏi|đề bài|chủ đề|yêu cầu|trả lời|question|prompt|task|answer(?:s|ed)?)\b", re.I,
+    r"\b(?:câu hỏi|đề bài|chủ đề|yêu cầu|(?<!câu )(?<!bài )trả lời|question|prompt|task)\b", re.I,
 )
 # Strengths may quote the task question too (owner decision 2026-10-28), but
 # never as learner vocabulary: lexis words or wording verbs anywhere in the
 # clause keep the #1654 "subsidies" canary ("Từ vựng sát đề bài: 'subsidies'").
 _LEXIS_CLAIM = re.compile(
     r"\b(?:từ vựng|vốn từ|từ ngữ|cụm từ|từ khóa|thuật ngữ|collocations?|vocabulary|"
+    r"(?:các|những|nhiều|một số|vài|mấy|mỗi)\s+(?:từ|chữ)|"
     r"lexis|lexical|words?|phrases?|phrasing|terms?|wording|expressions?)\b", re.I,
 )
+# "từ"/"chữ" right before the quote, or before a quoted list that leads to it,
+# is the noun "word" ("nhờ từ 'extended' và 'supported'").
+_WORD_NOUN = re.compile(r"\b(?:từ|chữ)\s*[:：(]?(?:\s|,|/|và\b|hoặc\b|hay\b)*$", re.I)
 # "Bài viết" (the essay) is a noun, not the wording verb "viết".
 _ESSAY_NOUN = re.compile(r"\bbài viết\b", re.I)
 # Usage claims that _ATTRIBUTION does not name: nominal or possessive use
@@ -172,7 +180,10 @@ _USAGE_CLAIM = re.compile(
     re.I,
 )
 # Claims about the learner's wording (not ideas): "em dùng", "you used".
-_WORDING_VERB = re.compile(r"\b(?:sử dụng|dùng|viết|gọi|use[sd]?|wrote|write|calls?|called)\b", re.I)
+_WORDING_VERB = re.compile(
+    r"\b(?:sử dụng|dùng|vận dụng|viết|gọi|chứa|lồng ghép|use[sd]?|using|wrote|write|writes|written|"
+    r"calls?|called|employ(?:s|ed|ing)?|includ(?:e|es|ed|ing)|contain(?:s|ed|ing)?)\b", re.I,
+)
 _NEGATIONS = {"not", "no", "never", "cannot", "nor", "none", "nothing", "neither"}
 _SIBILANT_ENDINGS = ("s", "x", "z", "ch", "sh")
 _NEAR_MISS_GAP = 2
@@ -524,16 +535,24 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
         else:
             issues.append((path, excerpt[:240]))
 
+    def credits_wording(prefix: str, after: str) -> bool:
+        # Any learner-wording or vocabulary credit on EITHER side of the quote
+        # ("Vốn từ đạt Band 7 nhờ các từ 'extended'", "'X' được em dùng",
+        # "Your answer uses 'X'"). Reference exemptions never apply then, so a
+        # quote absent from the essay cannot pass as the learner's language.
+        clause = _QUOTES.sub(" ", prefix + " " + after)
+        plain = _ESSAY_NOUN.sub(" ", clause)
+        return bool(_ATTRIBUTION.search(clause) or _CONTINUATION.search(clause)
+                    or _USAGE_CLAIM.search(clause) or _WORDING_VERB.search(plain)
+                    or _LEXIS_CLAIM.search(plain) or _WORD_NOUN.search(prefix))
+
     def task_question(excerpt: str, prefix: str, after: str) -> bool:
-        # A strength may quote the task question as the question it answers
-        # ("Em trả lời trực tiếp câu hỏi 'To what extent ...?'"), never credit
-        # its wording as the learner's.
-        clause = _ESSAY_NOUN.sub(" ", prefix + " " + after)
+        # The task question quoted as the question it answers ("Em trả lời trực
+        # tiếp câu hỏi 'To what extent ...?'"), never its wording credited as
+        # the learner's. Strengths use it too (owner decision 2026-10-28).
         return bool(prompt and _PROMPT_REFERENCE.search(prefix)
                     and _in_essay(excerpt, prompt, allow_ellipsis=True)
-                    and not (_ATTRIBUTION.search(prefix) or _CONTINUATION.search(prefix)
-                             or _USAGE_CLAIM.search(clause) or _WORDING_VERB.search(clause)
-                             or _LEXIS_CLAIM.search(clause)))
+                    and not credits_wording(prefix, after))
 
     def observations(path: str, text: str, *, allow_proposals: bool = True,
                      allow_grammar: bool = False, allow_task_question: bool = False):
@@ -545,6 +564,7 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
             preceding = text[:match.start()]
             masked_prefix = _QUOTES.sub("", preceding)
             prefix = re.split(r"[.!?;\n]", _ABBREVIATION.sub(" ", masked_prefix))[-1]
+            after = _QUOTES.sub("", re.split(r"[.!?;\n]", _ABBREVIATION.sub(" ", text[match.end():]))[0])
             # Abstract grammar notation is a structural description, not a
             # verbatim citation, including in strengths/current observations.
             # Strict source excerpts, original ideas and locations never opt in.
@@ -553,7 +573,6 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
                 continue
             # Source-only fields cannot turn invented evidence into a proposal.
             if not allow_proposals:
-                after = _QUOTES.sub("", re.split(r"[.!?;\n]", _ABBREVIATION.sub(" ", text[match.end():]))[0])
                 if not (allow_task_question and task_question(excerpt, prefix, after)):
                     unsupported(path, excerpt)
                 continue
@@ -580,8 +599,7 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
             # 'subsidies'") still rejects.
             claims_usage = last_attribution >= 0 or _USAGE_CLAIM.search(prefix) is not None
             if not claims_usage:
-                if (prompt and _PROMPT_REFERENCE.search(prefix)
-                        and _in_essay(excerpt, prompt, allow_ellipsis=True)):
+                if task_question(excerpt, prefix, after):
                     continue
                 if _TERM_LABEL.search(prefix):
                     continue
@@ -589,7 +607,8 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
                         + re.split(r"[.!?;\n]", text[match.start():])[0])
             words = set(_tokens(_normalize(excerpt)))
             if (not claims_usage and words & _DESCRIPTOR_CORE and words <= _DESCRIPTOR_WORDS
-                    and _DESCRIPTOR_CONTEXT.search(_QUOTES.sub("", sentence))):
+                    and _DESCRIPTOR_CONTEXT.search(_QUOTES.sub("", sentence))
+                    and not credits_wording(prefix, after)):
                 continue
             # A Vietnamese paraphrase of an idea ("Em nêu rằng 'khuyến khích
             # ...'") is not a wording claim; "em đã dùng 'quay lại'" is.

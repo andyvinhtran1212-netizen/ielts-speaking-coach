@@ -781,6 +781,22 @@ def test_band_descriptor_and_overuse_exemptions_never_cover_usage_claims(claim):
         rt_validate(rt_feedback(lexicalResource=claim))
 
 
+# Codex #1796 (line 593): rubric words credited as learner vocabulary, by a
+# noun before the quote or a usage verb after it, are not rubric references.
+@pytest.mark.parametrize("claim", [
+    "Vốn từ đạt Band 7 nhờ các từ 'extended' và 'supported'.",
+    "Đạt Band 7 nhờ từ 'extended' và 'supported'.",
+    "Ở mức Band 7, 'extended' và 'supported' được em dùng chính xác.",
+    "Band 7 for using 'extended' and 'supported'.",
+    "The Band 7 words 'extended' and 'supported' fit your essay.",
+])
+@pytest.mark.parametrize("criterion", ["lexicalResource", "mainCriterion"])
+def test_band_descriptor_exemption_never_covers_vocabulary_credit(claim, criterion):
+    with pytest.raises(UngroundedWritingFeedbackError) as err:
+        rt_validate(rt_feedback(**{criterion: claim}))
+    assert [span for _, span in err.value.issues] == ["extended", "supported"]
+
+
 def test_band_descriptor_terms_stay_unsupported_in_source_only_fields():
     claim = "Ý được 'extended and supported' ở mức Band 7."
     result = rt_feedback(keyTakeaways={"strengths": [claim], "areasForImprovement": ["Cần ví dụ."]})
@@ -828,6 +844,26 @@ def test_strengths_task_question_quote_needs_the_prompt():
     result = rt_feedback(keyTakeaways={"strengths": [claim], "areasForImprovement": ["Cần ví dụ."]})
     with pytest.raises(UngroundedWritingFeedbackError):
         validate_writing_grounding(result, RT_ESSAY, task_type="task2")
+
+
+# Codex #1796 (line 153): "Your answer ..." names the learner's text, so a
+# prompt quote credited to it is a wording claim in every field.
+@pytest.mark.parametrize("claim", [
+    "Your answer uses 'spend more money' effectively.",
+    "Your answer includes 'spend more money' effectively.",
+    "Câu trả lời của em chứa 'spend more money'.",
+    "The task wording 'spend more money' is used effectively.",
+    "Em trả lời câu hỏi, 'spend more money' được em viết lại tốt.",
+])
+def test_task_question_exemption_never_covers_wording_claims(claim):
+    for criterion in ("lexicalResource", "mainCriterion"):
+        with pytest.raises(UngroundedWritingFeedbackError) as err:
+            rt_validate(rt_feedback(**{criterion: claim}))
+        assert [span for _, span in err.value.issues] == ["spend more money"]
+    result = rt_feedback(keyTakeaways={"strengths": [claim], "areasForImprovement": ["Cần ví dụ."]})
+    with pytest.raises(UngroundedWritingFeedbackError) as err:
+        rt_validate(result)
+    assert [p for p, _ in err.value.issues] == ["keyTakeaways.strengths[0]"]
 
 
 @pytest.mark.parametrize("field", ["originalIdea", "location", "current_essay_observation"])
