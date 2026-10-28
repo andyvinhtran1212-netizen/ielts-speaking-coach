@@ -90,7 +90,7 @@ Tiếng Anh có ba mức so sánh:
 So sánh xuất hiện liên tục trong IELTS:
 - Writing Task 1: *Sales were **higher than** the previous year / The UK had **the highest** rate of...*
 - Writing Task 2: *Cities are **more polluted than** rural areas / Education is **one of the most important** investments...*
-- Speaking: *This city is **much bigger** than my hometown / I prefer reading **more than** watching TV*
+- Speaking: *This city is **much bigger** than my hometown / I prefer reading **to** watching TV*
 
 ## Cấu trúc Comparative
 
@@ -169,9 +169,9 @@ the most + Adjective
 
 - This is **the most interesting** book I've ever read.
 - She's **the most experienced** candidate for the job.
-- Tokyo is **one of the most populated** cities in the world.
+- Tokyo is **one of the most populous** cities in the world.
 
-> **Superlative + ever:** Dùng Present Perfect sau superlative:
+> **Superlative + ever:** Dùng hiện tại hoàn thành (khi kể chuyện ở quá khứ thì dùng quá khứ hoàn thành) trong mệnh đề sau superlative:
 > - It's **the best** film I'**ve ever seen**.
 > - That was **the most difficult** exam she'**d ever taken**.
 
@@ -244,8 +244,8 @@ the least + Adjective
 |-------------|----------|-------|
 | A cao hơn B | A is higher/greater than B | Sales in 2020 were **higher than** in 2019. |
 | A thấp hơn B | A is lower/smaller than B | UK rates were **lower than** those in the US. |
-| A cao nhất | A has the highest... | In the hypothetical 2020 table, Country A had **the largest** population. |
-| A thấp nhất | A has the lowest... | In the hypothetical 2020 table, Country B had **the lowest** crime rate. |
+| A cao nhất | A has the highest... | In 2020, Country A had **the largest** population. |
+| A thấp nhất | A has the lowest... | In 2020, Country B had **the lowest** crime rate. |
 | Gần bằng nhau | A is almost as high as B | France's figures were **almost as high as** Germany's. |
 | Gấp đôi | A is twice as high as B | The rate in 2020 was **twice as high as** in 2010. |
 | Chênh lệch nhỏ | slightly / marginally higher/lower | Figures were **slightly higher** in urban areas. |
@@ -292,8 +292,8 @@ the least + Adjective
 ### Writing Task 1 — so sánh dữ liệu:
 
 - Sales in France were **considerably higher than** those in Germany throughout the period.
-- The proportion of people aged 65+ was **the highest** in Japan, at **twice as much as** in the UK.
-- Urban areas showed **slightly higher** unemployment rates compared to rural regions.
+- The proportion of people aged 65+ was **the highest** in Japan, **twice as high as** that in the UK.
+- Urban areas showed **slightly higher** unemployment rates **than** rural regions.
 - **The greater** the investment in education, **the lower** the poverty rate tended to be.
 
 ### Writing Task 2 — phân tích và lập luận:
@@ -354,7 +354,7 @@ the least + Adjective
 **Cấu trúc quan trọng:**
 - so sánh bằng: as...as
 - nhấn mạnh: much / far / considerably / significantly + comparative
-- tỉ lệ: the + comparative, the + comparative
+- tương quan (càng… càng…): the + comparative, the + comparative
 - bội số: twice / three times as...as
 
 **Không dùng "very" trước comparative — dùng "much/far/a lot/even" thay thế!**
@@ -365,11 +365,11 @@ the least + Adjective
 
 ### Lỗi 1: Stack "more" + comparative form
 
-Tiếng Việt "hơn" có thể đi với mọi tính từ. Người học VN bê "more" + đã-comparative-rồi → double comparative.
+Tiếng Việt "hơn" có thể đi với mọi tính từ. Người học hay thêm more vào trước một tính từ đã ở dạng so sánh hơn → so sánh kép.
 
-❌ "She is **more better** than him." → ✅ "She is **better** than him."
-❌ "Hanoi is **more bigger** than Da Nang." → ✅ "Hanoi is **bigger** than Da Nang."
-❌ "This problem is **more more** difficult." → ✅ "This problem is **more** difficult."
+- ❌ "She is **more better** than him." → ✅ "She is **better** than him."
+- ❌ "Hanoi is **more bigger** than Da Nang." → ✅ "Hanoi is **bigger** than Da Nang."
+- ❌ "This problem is **more more** difficult." → ✅ "This problem is **more** difficult."
 
 **Quy tắc:** Tính từ/trạng từ ngắn (1 âm tiết; tính từ 2 âm tiết tận cùng -y) → -er. Tính từ dài (phần lớn tính từ từ 2 âm tiết trở lên) và trạng từ đuôi -ly → more + adj. KHÔNG đi cùng nhau.
 
@@ -377,9 +377,9 @@ Tiếng Việt "hơn" có thể đi với mọi tính từ. Người học VN b�
 
 <!-- anchor: comparison.common-mistake.dropped-than -->
 
-Tiếng Việt có thể so sánh bằng juxtaposition: "tôi cao bạn" (= cao hơn). English bắt buộc "than".
+Tiếng Việt có thể lược đối tượng so sánh ('Tôi cao hơn'), nên người học hay quên than khi vẫn nêu đối tượng: ❌ She is taller me.
 
-❌ "She is taller me." → ✅ "She is taller **than** me."
-❌ "Hanoi is older Saigon." → ✅ "Hanoi is older **than** Saigon."
+- ❌ "She is taller me." → ✅ "She is taller **than** me."
+- ❌ "Hanoi is older Saigon." → ✅ "Hanoi is older **than** Saigon."
 
-**Mẹo:** Mọi comparative cần có ít nhất một trong: "than X" (so với X) hoặc context rõ ràng (e.g., "Which is bigger?" — câu trả lời ellipsis chấp nhận).
+**Mẹo:** Câu so sánh hơn cần than + đối tượng, trừ khi ngữ cảnh đã rõ (Which is bigger? — This one is bigger.)

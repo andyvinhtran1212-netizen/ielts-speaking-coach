@@ -164,7 +164,7 @@ If + Present Simple, will + V-bare
 >
 > <!-- anchor: conditionals.type1.common-mistake.will-after-if -->
 >
-> Tiếng Việt: "Nếu mai trời **sẽ** mưa, tôi **sẽ** ở nhà." → "Nếu...sẽ..." có "sẽ" ở cả hai mệnh đề là tự nhiên.
+> Tiếng Việt hay dùng 'sẽ' để chỉ tương lai ('Nếu mai trời mưa thì tôi sẽ ở nhà'), nên người học dễ thêm will vào cả mệnh đề if.
 >
 > Tiếng Anh: "If" + present simple (KHÔNG "will") + main clause "will" + V-bare. Đây là một trong những lỗi gây giảm điểm GRA nhanh nhất trong IELTS Speaking — examiner đặc biệt chú ý.
 >
@@ -174,7 +174,7 @@ If + Present Simple, will + V-bare
 > ❌ "If she **will come**, I'll let you know."
 > ✅ "If she **comes**, I'll let you know."
 >
-> **Mẹo nhớ:** Trong if-clause, dùng thì để **sự việc sẽ xảy ra** chứ KHÔNG dùng "will". "If" đã chứa nghĩa tương lai trong context; thêm "will" là dư.
+> **Mẹo nhớ:** Trong mệnh đề if, dùng **hiện tại đơn** cho sự việc sẽ xảy ra, không dùng will. "If" đã chứa nghĩa tương lai trong context; thêm "will" là dư.
 >
 > **Ngoại lệ rất hiếm:** "If you **will be** so kind as to..." — đây là dạng lịch sự cố ý, không phải Type 1 conditional.
 
@@ -288,8 +288,7 @@ Unless [condition], [result].
 - "**Unless** significant investment is made in renewable energy infrastructure now, the transition away from fossil fuels **will be** far slower and more costly than necessary."
 - "Young people **are unlikely to** remain in rural areas **unless** governments invest in job creation and essential services."
 
-> **Lưu ý:** Unless thường nêu ngoại lệ; vẫn có thể dùng trong điều kiện giả định. Chọn theo nghĩa, không cấm chỉ vì có would/were.
-> - “Unless it were cheaper, people would buy it” có nghĩa mua trừ trường hợp rẻ hơn; nếu ý đích là giá giảm giúp bán được thì dùng câu dưới.
+> **Lưu ý:** Unless nêu ngoại lệ. 'Unless it were cheaper, people would buy it' nghĩa là 'người ta sẽ mua, trừ khi nó rẻ hơn', vô lý. Muốn nói 'nếu rẻ hơn thì sẽ có nhiều người mua', hãy dùng if:
 > - ✅ "**If** it **weren't** so expensive, more people **would** buy it."
 
 ---
@@ -394,15 +393,15 @@ Dưới đây là ví dụ nâng cấp dần một câu bằng cách thêm đi�
 
 ### Lỗi 2: Nhầm "in case" với "if"
 
-- ❌ "I'll call you in case you're free." *(dùng khi không chắc bạn rảnh → should be "if")*
+- ❌ "I'll call you in case you're free." *(không chắc bạn rảnh → nên dùng "if")*
 - ✅ "I'll call you **if** you're free." / "I'll take your number **in case** I need to call you later."
 
 ### Lỗi 3: Chọn unless không đúng ý ngoại lệ
 
-- ❌ "Unless governments don't act, the situation will worsen." *(nếu ý đích là không hành động thì tình hình xấu đi; bản thân unless + phủ định không tự sai cấu trúc)*
+- ❌ "Unless governments don't act, the situation will worsen." *(câu này lại có nghĩa 'trừ khi chính phủ không hành động', ngược với ý muốn nói. Unless đã mang nghĩa phủ định nên không cần thêm don't)*
 - ✅ "**Unless** governments act, the situation will worsen." / "**If** governments **don't** act, the situation will worsen."
 
-### Lỗi 4: "Provided" không có that (formal, ít phổ biến hơn nhưng OK)
+### Lưu ý: provided (that): có thể lược that
 
 - "Provided **that** funding is secured..." = "Provided funding is secured..." *(cả hai đều đúng)*
 
@@ -452,11 +451,11 @@ IN CASE (phòng khi, chuẩn bị trước):
   "Prepare a backup plan in case negotiations fail."
 
 ON CONDITION THAT (very formal):
-  "They agreed, on condition that costs are shared equally."
+  "They agreed, on condition that costs were shared equally."
 
 TRÁNH:
   → "If + will" trong mệnh đề điều kiện
-  → "Unless + not" (phủ định kép)
+  → Unless + phủ định khi ý muốn nói là 'nếu không' (Unless you don't hurry ❌)
   → Nhầm "in case" với "if"
 ```
 
@@ -493,7 +492,7 @@ Unless có thể đi với phủ định khi ý ngoại lệ cần phủ định
 - ❌ Unless you don't hurry (không diễn đạt ý “nếu không nhanh”)
 - ✅ Unless you hurry
 
-## Other Conditional Expressions
+## Các cách diễn đạt điều kiện khác
 
 | Biểu thức | Ý nghĩa | Ví dụ |
 |-----------|---------|-------|

@@ -179,7 +179,7 @@ Even though + subject + verb, [main clause]
 | Despite the **rain**, they played. | Although it **rained**, they played. |
 | In spite of **her nerves**, she spoke well. | Even though she **was** nervous, she spoke well. |
 | Despite **the high cost**, he bought it. | Although it **cost** a lot, he bought it. |
-| Despite **working** all night, she was late. | Even though she **had worked** all night, she was late. |
+| Despite **working** all night, she **arrived on time**. | Even though she **had worked** all night, she **arrived on time**. |
 
 ---
 
@@ -219,7 +219,7 @@ Even though + subject + verb, [main clause]
 
 > **Lưu ý quan trọng:** "Despite" KHÔNG có "of". Chỉ "in spite **of**" mới có "of".
 
-### Lỗi 4: Nhầm vị trí
+### Lỗi 4: "In spite of" + mệnh đề
 
 - ❌ She failed, in spite of she worked hard.
 - ✅ She failed **in spite of** working hard.
@@ -300,7 +300,7 @@ Dùng "although/even though" thay cho "despite":
 1. Despite her exhaustion, she finished the marathon.
    / In spite of being exhausted, she finished the marathon.
 2. Despite the risk, they decided to proceed.
-   / In spite of the risky plan, they decided to proceed.
+   / In spite of the risks, they decided to proceed.
 3. Despite having very little money, he was generous.
    / In spite of his lack of money, he was generous.
 4. Although it was noisy, she managed to concentrate.

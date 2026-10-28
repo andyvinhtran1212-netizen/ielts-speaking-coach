@@ -84,7 +84,7 @@ Hedging là **kỹ thuật diễn đạt thận trọng** — không phải vì 
 | **Modal verbs** | may, might, could, would |
 | **Verbs thận trọng** | tends to, appears to, seems to, suggests |
 | **Adverbs** | generally, often, typically, largely |
-| **Cấu trúc impersonal** | It can be argued that, It is widely believed that |
+| **Cấu trúc impersonal (khách quan hoá)** | It can be argued that, It is widely believed that |
 | **Giới hạn phạm vi** | in many cases, under certain conditions, to some extent |
 
 ---
@@ -234,7 +234,7 @@ It could be argued that + [clause]
 
 ### It is widely believed / acknowledged / recognised that...
 
-Đây là dẫn nguồn/nhận định về đồng thuận rộng, không tự là hedge. Cần căn cứ cho widely và giữ nguồn cụ thể nếu đã biết.
+Cấu trúc này nêu quan điểm phổ biến một cách khách quan; chỉ dùng "widely" khi đúng là nhiều người đồng tình.
 
 ```
 It is widely/generally/commonly + [believed/acknowledged/recognised/accepted] that + [clause]
@@ -342,7 +342,7 @@ at least in part... / largely, though not entirely...
 - ❌ "It might possibly perhaps seem to suggest that there could be some kind of potential link..."
 - ✅ "Research **suggests** a possible link between..." (một hedge đủ)
 
-### Lỗi 2: Dùng "maybe" thay vì academic hedges
+### Lưu ý 2: maybe mang tính khẩu ngữ, trong Writing nên ưu tiên may/perhaps
 
 - ✅ “**Maybe** social media is bad for society.” *(đúng; may thường phù hợp hơn khi cần văn phong trang trọng)*
 - ✅ "Social media **may** have negative consequences for social cohesion."
@@ -352,7 +352,7 @@ at least in part... / largely, though not entirely...
 - ❌ "The Earth **might** orbit the Sun." (sự thật khoa học — không cần hedge)
 - ✅ Chỉ hedge nhận định, quan điểm, dự đoán, và generalisation
 
-### Lỗi 4: Dùng "I think" khi cần impersonal hedge
+### Lưu ý 4: I think vẫn dùng được, nhưng có thể thay bằng cấu trúc vô nhân xưng
 
 - ✅ “**I think** poverty is linked to crime.” *(có thể dùng để nêu lập trường trong IELTS Task 2; nhận định vẫn cần căn cứ)*
 - ✅ "**It can be argued that** poverty is linked to higher crime rates."

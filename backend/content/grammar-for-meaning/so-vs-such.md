@@ -116,7 +116,7 @@ so + adjective + that + [result clause]
 **Với trạng từ:**
 - He spoke **so quickly** (that I couldn't follow).
 - She worked **so hard** she burned out.
-- Time passed **so slowly** during the waiting.
+- Time passed **so slowly** while we were waiting.
 
 **Với much / many / few / little (số lượng):**
 - There was **so much** traffic (that we were late).
@@ -196,8 +196,6 @@ such + (a/an) + (adj) + noun + that + [result]
 - It was **such a difficult task** that she needed help.
 - The task was **so difficult** that she needed help.
 
-Worked hard nhấn nỗ lực, hard work chỉ công việc vất vả; không tự là paraphrase giữ nghĩa.
-
 > **Ghi nhớ:** "that" thường bị bỏ trong văn nói (optional), nhưng nên giữ trong Writing để rõ cấu trúc.
 
 ---
@@ -252,7 +250,7 @@ Worked hard nhấn nỗ lực, hard work chỉ công việc vất vả; không t
 - "Air pollution has reached **such alarming levels** that immediate action is required."
 - "The issue is **so complex** that no single policy can address it fully."
 - "Modern technology has created **such rapid change** that societies struggle to adapt."
-- "The disparity between rich and poor is **so pronounced** that social unrest is inevitable."
+- "The disparity between rich and poor is **so pronounced** that social unrest is increasingly likely."
 
 ### Writing Task 1 — mô tả biến động:
 
@@ -318,4 +316,4 @@ KẾT QUẢ dùng THAT:
   such + noun phrase + THAT + result
 ```
 
-**Quy tắc vàng:** Nếu bạn nói được câu bằng cách thêm "a/an" và danh từ, dùng **such**. Nếu chỉ có tính từ hoặc trạng từ, dùng **so**.
+**Quy tắc vàng:** Nếu sau từ cần điền là một danh từ (có hoặc không có a/an, tính từ) → **such**; nếu chỉ có tính từ/trạng từ hoặc much/many/few/little → **so**.
