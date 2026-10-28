@@ -1020,8 +1020,13 @@ describe('writing-dashboard.html / W-SOFTCHECK pre-submit spell check', () => {
 //
 // The backend now moves writing_assignments to `graded` the moment AI grading
 // finishes, but the student can only open the result once the essay is
-// returned (`delivered`). Product decision 4(a): `graded` must still read as a
-// submitted / awaiting-return state on the student side.
+// returned (`delivered`). Product decision 4(a): `graded` must never read as
+// graded on the student side.
+//
+// BL-21: the dashboard only renders ACTIVE assignments (pending/in_progress),
+// so the old submitted/graded/delivered labels ("📥 Đã nộp · đang chờ trả bài",
+// "📨 Đã nhận xét") were unreachable and were removed. The guarantee is now
+// structural: a submitted/graded assignment never reaches the card renderer.
 
 
 describe('writing-dashboard / W-ASSIGN-STATUS student assignment label', () => {
@@ -1030,38 +1035,29 @@ describe('writing-dashboard / W-ASSIGN-STATUS student assignment label', () => {
     assert.ok(m, 'ASSIGNMENT_STATUS must exist in writing-behavior.tsx');
     return m[1];
   };
-  const entry = (key) => {
-    const m = assignmentStatus().match(new RegExp(`\\b${key}\\s*:\\s*\\{([^}]*)\\}`));
-    assert.ok(m, `ASSIGNMENT_STATUS.${key} must exist`);
-    return m[1];
-  };
 
-  test('awaiting-return wording lives in exactly one constant', () => {
-    const decl = behavior.match(/const ASSIGNMENT_AWAITING_RETURN_TEXT\s*=\s*'([^']+)'/);
-    assert.ok(decl, 'ASSIGNMENT_AWAITING_RETURN_TEXT must be declared');
-    assert.equal(decl[1], '📥 Đã nộp · đang chờ trả bài');
-    assert.equal(behavior.split('đang chờ trả bài').length - 1, 1,
-      'the wording must not be duplicated elsewhere in the file');
+  test('only active states are rendered as assignment cards', () => {
+    const active = behavior.match(/const ACTIVE_ASSIGNMENT_STATES\s*=\s*\[([^\]]*)\]/);
+    assert.ok(active, 'ACTIVE_ASSIGNMENT_STATES must be declared');
+    assert.deepEqual(active[1].split(',').map((s) => s.trim().replace(/'/g, '')).filter(Boolean),
+      ['pending', 'in_progress']);
+    const load = behavior.match(/async function loadAssignments\([\s\S]*?\n\}/);
+    assert.ok(load, 'loadAssignments must exist');
+    assert.match(load[0], /const active = all\.filter\(\(a: any\) => ACTIVE_ASSIGNMENT_STATES\.includes\(a\.status\)\);/);
+    assert.match(load[0], /renderDeadlines\(active\);\s*renderAssignments\(active, ms\);/);
+    // The card renderer is reachable only through renderAssignments(active).
+    assert.equal(behavior.split('renderAssignments(').length - 1, 2, 'one declaration + one call');
+    assert.equal(behavior.split('buildAssignmentCardHtml').length - 1, 2, 'one declaration + one use');
   });
 
-  test('graded (AI graded, not returned) shows the awaiting-return label, not "Đã chấm"', () => {
-    const graded = entry('graded');
-    assert.match(graded, /text:\s*ASSIGNMENT_AWAITING_RETURN_TEXT/);
-    assert.doesNotMatch(graded, /Đã chấm/);
-    // Same neutral tone as a plain submission — not the purple "done" pill.
-    assert.match(graded, /pill:\s*'pill-amber'/);
+  test('ASSIGNMENT_STATUS labels exactly the rendered states — no dead submitted/graded/delivered labels', () => {
+    const keys = [...assignmentStatus().matchAll(/^\s*(\w+)\s*:/gm)].map((m) => m[1]);
+    assert.deepEqual(keys, ['pending', 'in_progress']);
+    assert.doesNotMatch(behavior, /ASSIGNMENT_AWAITING_RETURN_TEXT|📥/);
   });
 
-  test('submitted shares the awaiting-return label with graded (same state to the student)', () => {
-    const submitted = entry('submitted');
-    assert.match(submitted, /text:\s*ASSIGNMENT_AWAITING_RETURN_TEXT/);
-    assert.match(submitted, /pill:\s*'pill-amber'/);
-  });
-
-  test('no assignment state renders "Đã chấm"; only delivered shows the returned result', () => {
+  test('no assignment state renders "Đã chấm"', () => {
     assert.doesNotMatch(assignmentStatus(), /Đã chấm/);
-    assert.match(entry('delivered'), /text:\s*'📨 Đã nhận xét'/);
-    assert.match(entry('submitted'), /text:\s*ASSIGNMENT_AWAITING_RETURN_TEXT/);
   });
 
   test('essay pill keeps "Đã chấm" (clickable) for delivered only', () => {

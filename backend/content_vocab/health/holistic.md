@@ -5,6 +5,9 @@ category: "health"
 level: "C1"
 part_of_speech: "adjective"
 pronunciation: "/həʊˈlɪs.tɪk/"
+definition_en: "considering a whole person or system and how its parts work together."
+gloss_vi: "toàn diện, xem xét tổng thể và sự liên hệ giữa các phần"
+example: "Schools could take a holistic approach to student wellbeing by considering sleep, friendships and study pressures together."
 synonyms: ["comprehensive", "all-encompassing", "integrated", "whole-person"]
 antonyms: ["partial", "narrow", "fragmented"]
 collocations: ["holistic approach", "holistic health", "holistic care", "holistic wellbeing", "holistic education"]

@@ -1225,9 +1225,14 @@ async def grade_response_endpoint(
         if not grading:
             # Audio + transcript saved; AI grading unavailable — tell the frontend
             note_operation_failure()
+            # `_error` hiển thị cho học viên (lịch sử câu hỏi in nguyên), nên
+            # viết tiếng Việt — trùng câu của stub dựng lại từ dòng đã lưu trong
+            # practice.js. Frontend nhận "AI tạm gián đoạn" bằng cờ
+            # `_ai_unavailable`, không dò chữ trong `_error`.
             return {
                 "_stub":               True,
-                "_error":              "AI grading is temporarily unavailable. Your recording and transcript were saved.",
+                "_error":              "Chấm điểm AI đang tạm gián đoạn. Bản ghi âm và transcript của bạn đã được lưu.",
+                "_ai_unavailable":     True,
                 # Lý do THẬT đi kèm, để trang nói được câu cụ thể thay vì một
                 # câu chung chung — và để lượt điều tra sau không phải đoán.
                 "_reason":             grading_error,

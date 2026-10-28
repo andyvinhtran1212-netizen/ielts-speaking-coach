@@ -218,10 +218,15 @@ try {
 }
 const codeInput = inactive.page.getByLabel('Access Code');
 await codeInput.focus();
+// BL-13: Đăng xuất is the dialog's last control (the way out for a wrong account).
 await inactive.page.keyboard.press('Shift+Tab');
-const wrappedBackward = await inactive.page.getByRole('button', { name: 'Kích hoạt' }).evaluate((node) => node === document.activeElement);
+const wrappedBackward = await inactive.page.getByRole('button', { name: 'Đăng xuất' }).evaluate((node) => node === document.activeElement);
 await inactive.page.keyboard.press('Tab');
-check('modal bắt focus trong hai control bắt buộc', wrappedBackward && await codeInput.evaluate((node) => node === document.activeElement));
+const wrappedForward = await codeInput.evaluate((node) => node === document.activeElement);
+await inactive.page.keyboard.press('Tab');
+const reachesActivate = await inactive.page.getByRole('button', { name: 'Kích hoạt' }).evaluate((node) => node === document.activeElement);
+await codeInput.focus();
+check('modal bắt focus trong mã, Kích hoạt và Đăng xuất', wrappedBackward && wrappedForward && reachesActivate);
 check('callback PKCE xóa code khỏi URL, exchange một lần và dùng /auth/me để mở modal',
   new URL(inactive.page.url()).pathname === '/login'
     && !new URL(inactive.page.url()).search

@@ -75,21 +75,31 @@ on:
       - '.github/workflows/**'
 
 jobs:
-  backend:
-    name: Backend (pytest + anchor drift)
+  # PC-J14 / BL-14: the serial job ran 9–15 min of pytest (10–16.5 min total)
+  # against its 25-minute budget. The suite now runs as four file shards in
+  # parallel. `backend` below keeps the required context name for branch
+  # protection and staging-promotion-gate.yml: it is green only when every
+  # shard and the full collection are green and the shards ran each collected
+  # test exactly once (`scripts/ci_pytest_shards.py verify`).
+  backend-shard:
+    name: Backend pytest shard ${{ matrix.shard }}/4
     runs-on: ubuntu-latest
     # Full pytest plus PG/audio setup and cleanup exceeded 10 minutes in PR1563.
-    # Keep every test and required PG guard within a finite total job budget.
-    # pytest alone now takes 10–12.5 min, and a slow Ubuntu mirror has made the
-    # ffmpeg install take 8–11 min, cancelling the exact-SHA staging push run
-    # that the promotion gate requires (#1695, 2026-10-26). 25 min keeps a
-    # finite budget with headroom for one slow mirror.
+    # A slow Ubuntu mirror has made the ffmpeg install take 8–11 min,
+    # cancelling the exact-SHA staging push run that the promotion gate
+    # requires (#1695, 2026-10-26). Each shard keeps that 25-minute budget.
     timeout-minutes: 25
+    strategy:
+      # Every shard must report, so one red shard never hides another.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
 
     # Postgres THẬT cho các chốt nạp một tệp migration rồi GỌI hàm trong đó.
     # Không có nó thì `test_delete_rpc_course_evidence.py` tự bỏ qua, và một PR
     # làm hỏng cú pháp hàm hay bẻ mọi nhánh hành vi vẫn xanh ở cổng merge — một
     # chốt tồn tại mà không bao giờ nổ (cùng họ với các phát hiện ở #930/#937/#943).
+    # Mỗi shard có service riêng, nên các test PG không chia sẻ cụm với nhau.
     services:
       postgres:
         image: postgres:16
@@ -142,15 +152,112 @@ jobs:
           ffmpeg -version
           ffprobe -version
 
-      - name: Run pytest
+      - name: Run pytest shard
         working-directory: backend
         run: |
-          python -m pytest tests/ -v --tb=short
+          python scripts/ci_pytest_shards.py run --total 4 --index ${{ matrix.shard }} \
+            --out ci-pytest -- -v --tb=short
+
+      - name: Upload shard node ids
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: backend-pytest-shard-${{ matrix.shard }}
+          path: backend/ci-pytest/shard-${{ matrix.shard }}.json
+          if-no-files-found: error
+          retention-days: 14
+          # "Re-run failed jobs" uploads the same name again.
+          overwrite: true
+
+  backend-collect:
+    name: Backend pytest collection + anchor drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # The reference set the shards must reproduce. Collection does not touch
+      # Postgres; if it ever starts to, the sets diverge and `verify` turns red.
+      - name: Collect the full pytest suite
+        working-directory: backend
+        run: |
+          python scripts/ci_pytest_shards.py collect --out ci-pytest/collected.json
+
+      - name: Upload collected node ids
+        uses: actions/upload-artifact@v6
+        with:
+          name: backend-pytest-collected
+          path: backend/ci-pytest/collected.json
+          if-no-files-found: error
+          retention-days: 14
+          # "Re-run failed jobs" uploads the same name again.
+          overwrite: true
 
       - name: Run anchor drift gate (explicit re-check)
         working-directory: .
         run: |
           python backend/scripts/verify_anchor_drift.py
+
+  backend:
+    name: Backend (pytest + anchor drift)
+    needs: [backend-shard, backend-collect]
+    # Always report this required context; a skipped aggregate would read as
+    # neither red nor green on the PR and on the promotion gate.
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Download node ids
+        uses: actions/download-artifact@v7
+        with:
+          pattern: backend-pytest-*
+          path: backend/ci-pytest
+          merge-multiple: true
+
+      - name: Every collected test ran exactly once
+        working-directory: backend
+        run: |
+          python3 scripts/ci_pytest_shards.py verify --dir ci-pytest --total 4 \
+            --weights-out ci-pytest/weights.json
+
+      - name: Upload refreshed shard weights
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: backend-pytest-weights
+          path: backend/ci-pytest/weights.json
+          if-no-files-found: ignore
+          retention-days: 14
+          # "Re-run failed jobs" uploads the same name again.
+          overwrite: true
+
+      # Last and unconditional: the parity report above still runs when a
+      # shard fails, but this context is green only if everything passed.
+      - name: Require every shard and the collection to pass
+        if: always()
+        env:
+          SHARDS: ${{ needs.backend-shard.result }}
+          COLLECT: ${{ needs.backend-collect.result }}
+        run: |
+          echo "shards=$SHARDS collection+anchor-drift=$COLLECT"
+          [ "$SHARDS" = success ] && [ "$COLLECT" = success ]
 
   frontend:
     name: Frontend (node --test)

@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     # truthy (1/true/yes/on). Default closed: staging and production need no
     # env change. Local development only — see services/api_docs.py.
     ENABLE_API_DOCS: str = ""
+    # Add the localhost dev origins to the CORS allowlist on a non-development
+    # deployment (1/true/yes/on). Ignored in production, always — see
+    # services/cors_policy.py. Development allows localhost without it.
+    CORS_ALLOW_LOCALHOST: str = ""
 
     # Signed backend → Next cache invalidation. The admin vocabulary routes
     # mutate runtime DB content while Next caches public reads. Configure both
@@ -321,6 +325,15 @@ class Settings(BaseSettings):
     # Migration 274/275 accepts browser final batches for exactly 15 seconds.
     # Never let the background reaper take ownership before that DB window.
     COURSE_TIMER_REAPER_GRACE_SECONDS: int = Field(default=15, ge=15)
+    # INACTIVEWRITE-0035 follow-up: daily row-growth alert. Flags a user who
+    # created more than ROW_GROWTH_ALERT_THRESHOLD rows in one Vocabulary/
+    # flashcard table in 24h as an error_logs warning (/admin/error-logs).
+    # Runs once shortly after startup, then every INTERVAL; one alert per
+    # user/table/UTC day. Disable via ROW_GROWTH_ALERT_ENABLED=false.
+    ROW_GROWTH_ALERT_ENABLED: bool = True
+    ROW_GROWTH_ALERT_INTERVAL_SECONDS: int = Field(default=86400, ge=3600)
+    ROW_GROWTH_ALERT_STARTUP_DELAY_SECONDS: int = Field(default=600, ge=0)
+    ROW_GROWTH_ALERT_THRESHOLD: int = Field(default=500, ge=1)
     WRITING_STUCK_JOB_TIMEOUT_SECONDS: int = 360        # standard tier
     WRITING_STUCK_JOB_TIMEOUT_DEEP_SECONDS: int = 600   # deep tier (3 passes)
     WRITING_GRADING_MAX_ATTEMPTS: int = 3

@@ -187,7 +187,7 @@ Thì phụ thuộc vào **mốc thời gian của dữ liệu**, không phải t
 <!-- anchor: grammar-in-task1.passive -->
 ## NHÓM 2: BỊ ĐỘNG CHO QUÁ TRÌNH (process diagrams)
 
-Sơ đồ quá trình mô tả việc được làm, không phải ai làm → dùng **bị động**.
+Trong process, chọn thể theo từng bước được mô tả: bước có người/máy tác động lên vật liệu → **bị động** (*The water **is filtered**.*); bước tự diễn ra → **chủ động** (*The water **evaporates**.*). Quá trình sản xuất thường có nhiều câu bị động.
 
 ```
 S + is/are + V-ed (past participle)
@@ -346,5 +346,5 @@ Gộp hai số liệu đối lập trong một câu (whereas / while) thay vì h
 **Quy tắc vàng:**
 - "rose **by** + lượng", "rose **to** + mức", "a rise **of** + lượng" — KHÔNG "rose of"
 - Biểu đồ luôn dùng present (shows/illustrates); dữ liệu có mốc quá khứ dùng past
-- Process diagram → bị động (is/are + V-ed)
+- Process diagram → bị động (is/are + V-ed) cho bước được tác động; chủ động cho bước tự diễn ra (evaporates)
 - Đừng quên mạo từ "the/a" trước number, proportion, peak

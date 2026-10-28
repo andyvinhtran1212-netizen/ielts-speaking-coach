@@ -25,6 +25,10 @@ const D1_START_KICKER = `Tự nhớ từ · tối đa ${D1_SESSION_SIZE} câu`;
 const shortSessionNotice = (count: number) => (
   `Phiên này chỉ có ${count} câu vì kho bài luyện hiện chưa có thêm câu phù hợp với bạn.`
 );
+// BL-17 / V-HUB — upper bound for the opening read (connection wait, /auth/me
+// and any resume reads). A read that never settles ends in the error state.
+export const D1_LOAD_TIMEOUT_MS = 15000;
+const D1_LOAD_TIMEOUT_MESSAGE = 'Tải dữ liệu quá lâu. Bạn kiểm tra kết nối mạng rồi thử lại nhé.';
 
 function messageOf(caught: unknown) {
   return caught instanceof Error ? caught.message : String(caught);
@@ -138,11 +142,13 @@ async function resumeSessionForAccount(
   expectedAccount: string,
   sessionId: string,
   isCurrent: () => boolean,
+  signal?: AbortSignal,
 ) {
   return requestForAccount(
     expectedAccount,
     `/api/exercises/d1/sessions/${encodeURIComponent(sessionId)}`,
     isCurrent,
+    { signal },
   );
 }
 
@@ -266,7 +272,9 @@ export function D1ExercisePlayer() {
     const expectedAccount = accountKey;
     const generation = ++accountGenerationRef.current;
     let disposed = false;
-    const ownsGeneration = () => !disposed
+    let timedOut = false;
+    const controller = new AbortController();
+    const ownsGeneration = () => !disposed && !timedOut
       && accountRef.current === expectedAccount
       && accountGenerationRef.current === generation;
     // A previous account may still have a request settling. Its response is
@@ -287,12 +295,24 @@ export function D1ExercisePlayer() {
     setSaveError('');
     setAttemptRateLimited(false);
 
+    // The Supabase token read inside requestForAccount ignores the abort
+    // signal, so the deadline settles the phase itself and revokes ownership.
+    const timer = setTimeout(() => {
+      if (!ownsGeneration()) return;
+      timedOut = true;
+      controller.abort();
+      setMessage(D1_LOAD_TIMEOUT_MESSAGE);
+      setPhase('error');
+    }, D1_LOAD_TIMEOUT_MS);
+
     (async () => {
       const ready = await whenGlobalReady(() => !!window.api?.get, 'window.api (D1 exercise)');
       if (!ready || disposed) throw new Error('Không tải được thành phần kết nối.');
-      const me = await requestForAccount(expectedAccount, '/auth/me', ownsGeneration) as AuthMeWire;
+      const me = await requestForAccount(expectedAccount, '/auth/me', ownsGeneration, { signal: controller.signal }) as AuthMeWire | null;
       if (!ownsGeneration()) return;
-      if (me?.d1_enabled !== true) {
+      // An empty body is not "feature off": showing 'disabled' would misstate the account.
+      if (!me || typeof me !== 'object') throw new Error('Chưa tải được thông tin tài khoản. Bạn bấm Tải lại nhé.');
+      if (me.d1_enabled !== true) {
         setPhase('disabled');
         return;
       }
@@ -313,7 +333,7 @@ export function D1ExercisePlayer() {
         let resumedId = '';
         for (const candidate of candidates) {
           try {
-            const payload = await resumeSessionForAccount(expectedAccount, candidate, ownsGeneration);
+            const payload = await resumeSessionForAccount(expectedAccount, candidate, ownsGeneration, controller.signal);
             resumed = normalizeD1Resume(payload);
             if (!resumed) throw new Error('Dữ liệu phiên đang làm không đúng định dạng.');
             resumedId = candidate;
@@ -352,8 +372,8 @@ export function D1ExercisePlayer() {
         setMessage(messageOf(caught));
         setPhase('error');
       }
-    });
-    return () => { disposed = true; };
+    }).finally(() => clearTimeout(timer));
+    return () => { disposed = true; clearTimeout(timer); controller.abort(); };
   }, [accountKey, clearResume, complete, rememberSession]);
 
   const start = async () => {

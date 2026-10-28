@@ -370,6 +370,11 @@
   color: var(--av-success);
 }
 
+.mc-item-state[data-state='late'] {
+  background: var(--av-warning-soft);
+  color: var(--av-warning);
+}
+
 .mc-item-title {
   margin: 0;
   font-size: var(--av-fs-base);

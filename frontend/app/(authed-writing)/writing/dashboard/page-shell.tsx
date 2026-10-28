@@ -41,10 +41,10 @@ export function WritingShell() {
         <section className="mb-8">
           <p className="eyebrow">Writing</p>
           <h1 className="text-2xl md:text-3xl font-semibold mb-2">
-            {/* "Chào em" is static; the comma + name are JS-owned so the
-                no-name case reads "Chào em 👋" (one "em"), not "Chào em, em".
-                renderStudent() fills #greeting-sep + #greeting-name together. */}
-            Chào em<span id="greeting-sep"></span><span id="greeting-name"></span> 👋
+            {/* "Chào bạn" is static (site-wide "bạn" register); the comma +
+                name are JS-owned so the no-name case reads "Chào bạn 👋", not
+                "Chào bạn, ". renderStudent() fills #greeting-sep + #greeting-name together. */}
+            Chào bạn<span id="greeting-sep"></span><span id="greeting-name"></span> 👋
           </h1>
           <p className="text-sm text-gray-300">
             Mã học viên: <span id="student-code" className="font-mono text-gray-200">—</span>
@@ -95,7 +95,7 @@ export function WritingShell() {
           </div>
 
           {/* Phase 2.3b — tab nav */}
-          <div className="flex border-b border-white/10 mb-6 gap-1">
+          <div className="wd-tabs flex border-b border-white/10 mb-6 gap-1">
             <button id="tab-assignments" type="button" className="tab-btn active">
               📋 Bài giao
               <span id="assignments-count" className="ml-1 text-xs text-gray-500"></span>
@@ -270,7 +270,7 @@ export function WritingShell() {
         <div className="wd-compose-page av-w-page">
           <header className="wd-compose-header">
             <div className="wd-compose-heading">
-              <span className="wd-compose-kicker">Writing workspace</span>
+              <span className="wd-compose-kicker">Khu vực viết bài</span>
               <h1 id="modal-title">Làm bài</h1>
               <p>Đọc kỹ đề, viết liền mạch và kiểm tra lại trước khi nộp.</p>
             </div>

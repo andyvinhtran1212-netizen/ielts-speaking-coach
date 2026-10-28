@@ -43,6 +43,7 @@ import { normalizeWritingContentList } from '@/lib/writing-content-navigation.mj
 import { createWritingContentDialog } from '@/lib/writing-content-dialog';
 import { getWithTimeout, withDeadline } from '@/lib/request-with-timeout.mjs';
 import { renderTipBody, upgradeTipWhenRendererArrives, waitForTipRenderer } from '@/lib/writing-tip-markdown.mjs';
+import { writingTipMatchesFilters } from '@/lib/writing-tip-filter.mjs';
 import {
   clearWritingBootstrapError,
   runWritingBootstrap,
@@ -127,18 +128,13 @@ const TASK_LABELS: Record<string, string> = {
   task2:          'Task 2',
 };
 
-// W-ASSIGN-STATUS: an assignment is now `graded` as soon as AI grading
-// finishes, but the student can only open the result once it is returned
-// (`delivered`). Until then `submitted` and `graded` look the same to the
-// student — never "Đã chấm". Wording approved by Content Manager; edit it only here.
-const ASSIGNMENT_AWAITING_RETURN_TEXT = '📥 Đã nộp · đang chờ trả bài';
-
+// Only active assignments reach the card list (loadAssignments filters on
+// ACTIVE_ASSIGNMENT_STATES), so these are the only assignment labels a student
+// can see. BL-21: the unreachable submitted/graded/delivered labels were
+// removed; a returned essay's "Đã chấm" lives in STATUS_CONFIG (W-ASSIGN-STATUS).
 const ASSIGNMENT_STATUS: Record<string, { text: string; pill: string }> = {
   pending:     { text: '⏳ Chờ làm',       pill: 'pill-gray'   },
   in_progress: { text: '📝 Đang làm',      pill: 'pill-blue'   },
-  submitted:   { text: ASSIGNMENT_AWAITING_RETURN_TEXT, pill: 'pill-amber' },
-  graded:      { text: ASSIGNMENT_AWAITING_RETURN_TEXT, pill: 'pill-amber' },
-  delivered:   { text: '📨 Đã nhận xét',   pill: 'pill-green'  },
 };
 
 const ACTIVE_ASSIGNMENT_STATES = ['pending', 'in_progress'];
@@ -317,8 +313,8 @@ async function reconcilePendingSubmissions(accountId: string, api: any, ms: Moda
 
 function renderStudent(student: any) {
   const s = student || {};
-  // Comma + name are rendered together: a name yields "Chào em, <name>", no
-  // name yields a clean "Chào em" (no "Chào em, em" duplication).
+  // Comma + name are rendered together: a name yields "Chào bạn, <name>", no
+  // name yields a clean "Chào bạn" (no dangling comma).
   const { separator, name } = writingGreetingParts(s);
   const sepEl = $('greeting-sep');
   if (sepEl) sepEl.textContent = separator;
@@ -597,11 +593,7 @@ function renderTips(ps: PageState) {
   }
   hide('tips-empty');
 
-  const filtered = ps.allTips.filter((t: any) => {
-    const taskOk = ps.tipFilter === 'all' || t.task_type === ps.tipFilter;
-    const typeOk = ps.tipTypeFilter === 'all' || (t.content_type || 'tip') === ps.tipTypeFilter;
-    return taskOk && typeOk;
-  });
+  const filtered = ps.allTips.filter((t: any) => writingTipMatchesFilters(t, ps.tipFilter, ps.tipTypeFilter));
 
   if (filtered.length === 0) {
     list.innerHTML = '<div class="wd-empty wd-empty--compact"><p class="wd-empty__hint">Không có nội dung nào cho bộ lọc này.</p></div>';

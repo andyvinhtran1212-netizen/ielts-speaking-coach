@@ -46,6 +46,15 @@ describe('Admin Writing Cohorts native model', () => {
     assert.equal(isOverdue(cell, Date.parse('2026-08-13T00:00:00Z')), true); assert.equal(cellMatchesFilter(cell, 'needs_grade'), true); assert.equal(cellMatchesFilter(cell, 'delivered'), false);
     assert.equal(isOverdue({ ...cell, status: 'flagged' }, Date.parse('2026-08-13T00:00:00Z')), false);
   });
+  test('A-S3 — a late hand-in carries the backend "Nộp trễ" flag into the cell', () => {
+    const late = normalizeCohortDetail({ ...detail, matrix: { s1: {
+      ...detail.matrix.s1,
+      'group:g2:prompt:p1': { ...detail.matrix.s1['group:g2:prompt:p1'], is_late: true },
+    } } });
+    assert.equal(late.matrix.s1['group:g2:prompt:p1'].isLate, true);
+    assert.equal(late.matrix.s1['group:g1:prompt:p1'].isLate, false);
+    assert.match(COMPONENT, /\{cell\.isLate && <small>Nộp trễ<\/small>\}/);
+  });
 });
 
 describe('/admin/writing/cohorts native ownership and UX', () => {

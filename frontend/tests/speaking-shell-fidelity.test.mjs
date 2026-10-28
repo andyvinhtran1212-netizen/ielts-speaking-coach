@@ -50,6 +50,25 @@ function visibleText(src, { jsx = false } = {}) {
 const LEGACY = legacyBody();
 const SHELL = shellBody();
 
+// Chữ legacy được ĐỔI có chủ ý sau cutover (bản legacy là bằng chứng đóng
+// băng, không sửa). Mỗi mục: chữ cũ → chữ mới BẮT BUỘC có trong vỏ, kèm lý do.
+// Chỉ thêm khi có ticket; không dùng để ép xanh một chữ bị mất.
+const INTENTIONAL_COPY = new Map([
+  // UIA-1028-03: dịch nhãn tiếng Anh học viên thấy ở /speaking.
+  ['Practice studio', 'Phòng luyện tập'],
+  ['Part simulator', 'Luyện theo từng Part'],
+  ['Exam simulation', 'Mô phỏng phòng thi'],
+  ['1 cue card', '1 thẻ đề (cue card)'],
+  // Q-91 (owner duyệt 2026-10-28): "session(s)" → "buổi" ở /speaking.
+  ['Hoàn thành ít nhất một session để xem thống kê và biểu đồ tiến độ.',
+    'Hoàn thành ít nhất một buổi luyện để xem thống kê và biểu đồ tiến độ.'],
+  ['Cần ít nhất 2 sessions để hiện biểu đồ', 'Cần ít nhất 2 buổi luyện để hiện biểu đồ'],
+  ['5 sessions gần nhất', '5 buổi gần nhất'],
+  ['Lịch sử sessions', 'Lịch sử buổi luyện'],
+  ['0 sessions', '0 buổi'],
+  ['Bạn chưa có session nào.', 'Bạn chưa có buổi luyện nào.'],
+]);
+
 describe('vỏ Speaking — trung thực với bản legacy', () => {
   test('giữ ĐỦ mọi id (tầng hành vi với tay vào DOM theo id)', () => {
     const lids = new Set([...LEGACY.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
@@ -73,8 +92,18 @@ describe('vỏ Speaking — trung thực với bản legacy', () => {
     const l = visibleText(LEGACY);
     const s = visibleText(SHELL, { jsx: true });
     assert.ok(l.size >= 100, `legacy phải có ~108 đoạn chữ, đếm được ${l.size} — regex hỏng?`);
-    assert.deepEqual([...l].filter((x) => !s.has(x)), [],
+    assert.deepEqual([...l].filter((x) => !s.has(x) && !INTENTIONAL_COPY.has(x)), [],
       'thiếu chữ trong shell Next so với baseline đã lưu');
+  });
+
+  test('chữ đổi có chủ ý: chữ cũ có trong legacy, chữ mới có trong vỏ', () => {
+    const l = visibleText(LEGACY);
+    const s = visibleText(SHELL, { jsx: true });
+    for (const [before, after] of INTENTIONAL_COPY) {
+      assert.ok(l.has(before), `"${before}" không còn trong legacy — bỏ mục thừa khỏi INTENTIONAL_COPY`);
+      assert.ok(s.has(after), `vỏ phải hiện "${after}" thay cho "${before}"`);
+      assert.ok(!s.has(before), `vỏ vẫn còn chữ cũ "${before}"`);
+    }
   });
 
   test('vỏ KHÔNG mang handler nội tuyến (chúng thuộc tầng hành vi)', () => {

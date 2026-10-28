@@ -17,6 +17,8 @@ from typing import Optional
 
 import markdown
 import yaml
+from markdown.extensions import Extension
+from markdown.inlinepatterns import SimpleTagInlineProcessor
 from pydantic import ValidationError
 
 from models.grammar_content import GrammarSourceArticleDocument
@@ -60,7 +62,22 @@ def _normalise_search(text: str) -> str:
     folded = "".join(char for char in decomposed if not unicodedata.combining(char))
     return " ".join(folded.split())
 
-_MD_EXTENSIONS   = ["tables", "fenced_code", "toc", "attr_list"]
+class _StrikethroughExtension(Extension):
+    """`~~text~~` → `<del>text</del>`.
+
+    Python-Markdown core has no strikethrough, so articles that cross out a
+    wrong form (`~~advices~~`, `~~an~~ university`) rendered the tildes as
+    literal text. Priority sits above `**`/`*` so emphasis inside or around
+    the struck span still renders; code spans (higher priority) keep `~~`.
+    """
+
+    def extendMarkdown(self, md):
+        md.inlinePatterns.register(
+            SimpleTagInlineProcessor(r"(~~)(.+?)~~", "del"), "strikethrough", 65,
+        )
+
+
+_MD_EXTENSIONS   = ["tables", "fenced_code", "toc", "attr_list", _StrikethroughExtension()]
 _MD_EXT_CONFIGS  = {
     "toc": {
         "permalink": False,

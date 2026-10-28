@@ -13,6 +13,21 @@
 (function () {
   'use strict';
 
+  // Q-89 — ES5 copy of lib/telemetry-target.mjs. An unconfigured local/dev
+  // build (runtime-config apiBase=null) served on a non-loopback host gets the
+  // production API from api.js's hostname fallback; page_view must not follow
+  // it. A production target needs a production build or the production site.
+  var PRODUCTION_API_HOST = 'ielts-speaking-coach-production.up.railway.app';
+  var PRODUCTION_SITE_HOSTS = ['averlearning.com', 'www.averlearning.com'];
+
+  function allowsTarget(base) {
+    if (!base) return false;
+    if (String(base).indexOf(PRODUCTION_API_HOST) === -1) return true;
+    var rc = window.__AVER_RUNTIME_CONFIG__ || {};
+    var host = String((window.location && window.location.hostname) || '').toLowerCase();
+    return rc.environment === 'production' || PRODUCTION_SITE_HOSTS.indexOf(host) !== -1;
+  }
+
   // `analytics-beacon.js` vẫn tự bắn đúng một lần trên trang Legacy. Native
   // App Router gọi lại hàm công khai này khi pathname đổi; chốt theo pathname
   // ngăn Strict Mode / onReady bắn trùng nhưng vẫn cho phép A → B → A được ghi
@@ -21,6 +36,7 @@
     try {
       window.aver = window.aver || {};
       if (!(window.api && typeof window.api.post === 'function')) return;
+      if (!allowsTarget(window.api.base)) return;
       var path = location.pathname;
       if (window.aver._lastPageViewPath === path) return;
       window.aver._pageViewSent = true;

@@ -1150,6 +1150,122 @@ def test_a_writing_give_with_a_date_only_or_naive_deadline_does_not_degrade_the_
     assert by_id["s"]["is_late"] is True
 
 
+# ── W-07 — review state + band on a handed-in writing give ─────────────────
+#
+# The essay row is canonical (it is what /writing/result gates on). A band may
+# appear in the /api/class/me response ONLY for a returned (delivered) essay:
+# the owner decided 28/10 that a graded-but-unreturned essay must not show its
+# band to the learner, and hiding it in the UI alone would still leak it.
+
+
+class _FailingRead(_WritingQuery):
+    def execute(self):
+        raise RuntimeError("PostgREST timeout")
+
+
+def _review_db(writing_rows, essays, feedback, *, queried=None, fail=None):
+    db = _writing_db(writing_rows)
+    base_table = db.table
+    extra = {"writing_essays": essays, "writing_feedback_current": feedback}
+
+    def _table(name):
+        if queried is not None:
+            queried.append(name)
+        if fail and name == fail:
+            return _FailingRead([])
+        if name in extra:
+            return _WritingQuery(extra[name])
+        return base_table(name)
+
+    db.table = _table
+    return db
+
+
+def _handed_in(id_, essay_id, *, status="submitted", deadline=None, submitted_at=None):
+    return _give(id=id_, essay_id=essay_id, status=status,
+                 deadline=deadline or (NOW - timedelta(days=1)).isoformat(),
+                 submitted_at=submitted_at or (NOW - timedelta(days=2)).isoformat())
+
+
+def test_returned_essay_reads_returned_with_its_band_even_if_the_assignment_lagged():
+    """Pre-#1740 rows stayed `submitted` after the essay was delivered; the
+    class page reads the essay, so the learner still sees "Đã trả" + band."""
+    lagging = _handed_in("w-ret", "e-ret", status="submitted")
+    db = _review_db([lagging],
+                    [{"id": "e-ret", "status": "delivered", "deleted_at": None}],
+                    [{"essay_id": "e-ret", "overall_band_score": 6.5}])
+    with patch.object(mod, "supabase_admin", db):
+        out, stale = mod._visible_writing_gives("s1", ["c1"], NOW)
+    assert stale is False
+    row = out[0]
+    assert row["review_state"] == "returned"
+    assert row["band"] == 6.5
+    assert row["result_path"] == "/writing/result?essay_id=e-ret"
+
+
+def test_graded_unreturned_essay_never_carries_a_band_in_the_response():
+    queried: list[str] = []
+    graded = _handed_in("w-gr", "e-gr", status="graded")
+    reviewed = _handed_in("w-rv", "e-rv", status="graded")
+    db = _review_db([graded, reviewed],
+                    [{"id": "e-gr", "status": "graded", "deleted_at": None},
+                     {"id": "e-rv", "status": "reviewed", "deleted_at": None}],
+                    [{"essay_id": "e-gr", "overall_band_score": 7.0},
+                     {"essay_id": "e-rv", "overall_band_score": 5.5}],
+                    queried=queried)
+    with patch.object(mod, "supabase_admin", db):
+        out, _stale = mod._visible_writing_gives("s1", ["c1"], NOW)
+    assert {r["review_state"] for r in out} == {"graded"}
+    assert all(r["band"] is None for r in out)
+    assert "writing_feedback_current" not in queried, \
+        "an unreturned band must not even be read into the class page"
+
+
+def test_submitted_and_unsubmitted_review_states():
+    pending = _give(id="w-open")
+    grading = _handed_in("w-sub", "e-sub")
+    db = _review_db([pending, grading],
+                    [{"id": "e-sub", "status": "grading", "deleted_at": None}], [])
+    with patch.object(mod, "supabase_admin", db):
+        out, _stale = mod._visible_writing_gives("s1", ["c1"], NOW)
+    by_id = {r["item_id"]: r for r in out}
+    assert by_id["w-open"]["review_state"] == "not_submitted"
+    assert by_id["w-open"]["result_path"] is None
+    assert by_id["w-sub"]["review_state"] == "submitted"
+    assert by_id["w-sub"]["band"] is None
+
+
+def test_a_failed_essay_read_keeps_the_gives_but_claims_nothing_past_submitted():
+    returned = _handed_in("w-ret", "e-ret")
+    db = _review_db([returned], [], [], fail="writing_essays")
+    with patch.object(mod, "supabase_admin", db):
+        out, stale = mod._visible_writing_gives("s1", ["c1"], NOW)
+    assert stale is True, "the page must say it may be out of date"
+    assert [r["item_id"] for r in out] == ["w-ret"]
+    assert out[0]["review_state"] == "submitted" and out[0]["band"] is None
+
+
+def test_a_hand_in_after_the_deadline_is_late_on_the_class_page():
+    """A-S3 — "Nộp trễ" follows `deadline` (the column every give path writes)
+    as an instant; `due_at` is deprecated and ignored."""
+    late = _handed_in("w-late", "e-late",
+                      deadline="2026-08-02T18:00:00+07:00",       # 11:00Z
+                      submitted_at="2026-08-02T11:00:01Z")
+    on_time = _handed_in("w-ok", "e-ok",
+                         deadline="2026-08-02T18:00:00+07:00",
+                         submitted_at="2026-08-02T10:59:59Z")
+    ignores_due_at = _give(id="w-due", status="submitted", essay_id=None,
+                           deadline=None, due_at="2026-01-01T00:00:00Z",
+                           submitted_at="2026-08-02T11:00:00Z")
+    db = _review_db([late, on_time, ignores_due_at], [], [])
+    with patch.object(mod, "supabase_admin", db):
+        out, _stale = mod._visible_writing_gives("s1", ["c1"], NOW)
+    by_id = {r["item_id"]: r for r in out}
+    assert by_id["w-late"]["is_late"] is True
+    assert by_id["w-ok"]["is_late"] is False
+    assert by_id["w-due"]["is_late"] is False
+
+
 # ── a malformed stored deadline must not 500 the class page ────────────────
 
 

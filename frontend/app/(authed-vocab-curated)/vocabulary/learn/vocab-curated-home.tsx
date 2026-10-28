@@ -47,7 +47,7 @@ function UnitCard({ unit, reason, badge, recommendationId }: { unit: UnitSummary
     <Link className="vc-unit-card" href={href}>
       <div className="vc-unit-meta">
         <span>{badge || unit.target_level}</span>
-        <span>{unit.estimated_minutes ? `${unit.estimated_minutes} phút` : 'Learning unit'}</span>
+        <span>{unit.estimated_minutes ? `${unit.estimated_minutes} phút` : 'Bài học'}</span>
       </div>
       <h3>{unit.title_vi || unit.display_headword}</h3>
       <p>{reason || unit.learning_goal_vi}</p>
@@ -132,7 +132,7 @@ export function VocabCuratedHome() {
       ) : null}
 
       <section className="vc-section" aria-labelledby="vc-discover">
-        <div className="vc-section-head"><div><p>Start small</p><h2 id="vc-discover">Một learning unit đáng học hôm nay</h2></div></div>
+        <div className="vc-section-head"><div><p>Bắt đầu từ việc nhỏ</p><h2 id="vc-discover">Một learning unit đáng học hôm nay</h2></div></div>
         {discover.length ? <div className="vc-grid">{discover.map((unit) => <UnitCard key={unit.id} unit={unit} />)}</div> : <p className="vc-empty">Bạn đã xử lý hết nội dung đang mở. Hãy quay lại đúng lịch ôn tiếp theo.</p>}
       </section>
 

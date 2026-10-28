@@ -27,6 +27,15 @@ export function useAlive() {
   return alive;
 }
 
+/**
+ * U-13 / V-HUB — upper bound for one read, connection wait included. Aborting
+ * the fetch alone is not enough: window.api awaits the Supabase token before it
+ * calls fetch, so the deadline races the whole read and ends in Retry.
+ */
+export const VOCAB_READ_TIMEOUT_MS = 15000;
+export const VOCAB_READ_TIMEOUT_MESSAGE = 'Tải dữ liệu quá lâu. Bạn kiểm tra kết nối mạng rồi thử lại nhé.';
+export const VOCAB_READ_EMPTY_MESSAGE = 'Chưa nhận được dữ liệu. Bạn thử lại nhé.';
+
 export function useVocabularyResource<P extends ApiGetPath>(path: P, endpoint: string) {
   const [data, setData] = useState<ApiGetJson<P> | null>(null);
   const [error, setError] = useState('');
@@ -34,16 +43,26 @@ export function useVocabularyResource<P extends ApiGetPath>(path: P, endpoint: s
   useEffect(() => {
     const controller = new AbortController();
     let dead = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     setData(null); setError('');
+    const deadline = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => { reject(new Error(VOCAB_READ_TIMEOUT_MESSAGE)); controller.abort(); }, VOCAB_READ_TIMEOUT_MS);
+    });
+    const read = async () => {
+      if (!await whenGlobalReady(() => !!window.api?.getWith, 'Vocabulary API')) throw new Error('Không khởi tạo được kết nối. Tải lại trang để thử lại.');
+      return dead ? null : getBrowserJsonAt(path, endpoint, controller.signal);
+    };
     (async () => {
       try {
-        if (!await whenGlobalReady(() => !!window.api?.getWith, 'Vocabulary API')) throw new Error('Không khởi tạo được kết nối. Tải lại trang để thử lại.');
+        const result = await Promise.race([read(), deadline]);
         if (dead) return;
-        const result = await getBrowserJsonAt(path, endpoint, controller.signal);
-        if (!dead) setData(result);
-      } catch (e) { if (!dead) setError(messageOf(e)); }
+        // window.api resolves null on a 401 (while it bounces to /login) and on
+        // an empty body; neither is data, and null here meant "loading" forever.
+        if (result == null) throw new Error(VOCAB_READ_EMPTY_MESSAGE);
+        setData(result);
+      } catch (e) { if (!dead) setError(messageOf(e)); } finally { clearTimeout(timer); }
     })();
-    return () => { dead = true; controller.abort(); };
+    return () => { dead = true; clearTimeout(timer); controller.abort(); };
   }, [path, endpoint, revision]);
   return { data, error, setData, retry: () => retry(v => v + 1) };
 }

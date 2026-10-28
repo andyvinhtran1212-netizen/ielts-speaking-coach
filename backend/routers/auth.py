@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from time import perf_counter
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Response
@@ -184,6 +184,27 @@ async def get_supabase_user(authorization: str | None):
 
 # ── GET /auth/me ──────────────────────────────────────────────────────────────
 
+# BL-12 — /auth/me runs on every page load, so writing last_seen_at on each call
+# was one users UPDATE per navigation. Activity only needs minute granularity:
+# skip the write while the stored value is younger than this interval.
+LAST_SEEN_WRITE_INTERVAL = timedelta(minutes=5)
+
+
+def _last_seen_is_stale(value, now: datetime) -> bool:
+    """True when last_seen_at should be rewritten: missing, unparseable, or at
+    least LAST_SEEN_WRITE_INTERVAL old. A future timestamp (clock skew) counts as
+    fresh only within the interval, so a bad value cannot freeze the column."""
+    if not value:
+        return True
+    try:
+        seen = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return True
+    if seen.tzinfo is None:
+        seen = seen.replace(tzinfo=timezone.utc)
+    return abs(now - seen) >= LAST_SEEN_WRITE_INTERVAL
+
+
 @router.get("/me", response_model=AuthMeResponse)
 async def get_me(response: Response, authorization: str | None = Header(default=None)):
     # FE migration pilot 3 (authenticated read) entry checklist: effective
@@ -230,12 +251,14 @@ async def get_me(response: Response, authorization: str | None = Header(default=
 
     user = existing.data[0]
 
-    try:
-        supabase_admin.table("users").update(
-            {"last_seen_at": datetime.now(timezone.utc).isoformat()}
-        ).eq("id", user_id).execute()
-    except Exception:
-        pass  # non-fatal
+    now = datetime.now(timezone.utc)
+    if _last_seen_is_stale(user.get("last_seen_at"), now):
+        try:
+            supabase_admin.table("users").update(
+                {"last_seen_at": now.isoformat()}
+            ).eq("id", user_id).execute()
+        except Exception:
+            pass  # non-fatal
 
     flags = user.get("feature_flags") or {}
     # PR1 single-source: /auth/me returns the LIVE access-code permissions (same
