@@ -1,12 +1,16 @@
 ---
 id: AIOPS-0024
 title: Admin AI dashboard with model control, token spend and failure log
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # Admin AI dashboard with model control, token spend and failure log
+
+Approval: approved by Vinh on 2026-10-27 at 07:14 for merge into `staging`
+after CI and review (see [`approval-decision.md`](approval-decision.md)).
+Locked migration number: **322** (`backend/migrations/README.md`).
 
 Parent context: [AI-0004](../0004-ai-model-usage-observability/spec.md) (usage
 ledger, price catalog, Speaking FR-005) and the Anthropic-primary router from
