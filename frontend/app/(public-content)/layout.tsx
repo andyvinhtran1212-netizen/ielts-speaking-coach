@@ -47,11 +47,13 @@ export default function PublicContentLayout({ children }: { children: ReactNode 
       <link rel="stylesheet" href="/css/vocab-wiki.css" />
       <link rel="stylesheet" href="/css/tailwind.build.css" />
 
+      {/* U-21 — header renders without waiting for the shared runtime;
+          crossOrigin lets the module fetch reuse the SSR preload. */}
+      <Script type="module" src="/js/components/aver-chrome.js" strategy="afterInteractive" crossOrigin="anonymous" />
       <SupabaseRuntimeBoundary
         supabaseUrl={SUPABASE_URL}
         supabaseAnonKey={SUPABASE_ANON}
       >
-        <Script type="module" src="/js/components/aver-chrome.js" strategy="afterInteractive" />
         <NextPageViewBeacon />
       </SupabaseRuntimeBoundary>
 

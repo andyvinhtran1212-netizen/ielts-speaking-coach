@@ -565,6 +565,9 @@ on:
       - 'frontend/tooling/verify-vocabulary-wiki-flow.mjs'
       - 'frontend/public/js/components/aver-chrome.js'
       - 'frontend/tooling/verify-chrome-nav-width-flow.mjs'
+      - 'frontend/tooling/verify-chrome-early-render-flow.mjs'
+      - 'frontend/components/authed-shell.tsx'
+      - 'frontend/components/supabase-runtime-boundary.tsx'
       - 'frontend/public/js/theme-toggle.js'
       - 'frontend/public/js/user-pill.js'
       - 'frontend/public/js/components/perf-hints.js'
@@ -822,6 +825,13 @@ jobs:
       # không cuộn ngang ở 720-1280px, và menu tablet vẫn mở/Escape đúng.
       - name: Kiểm nav chrome không gãy hàng ở bề rộng tablet
         run: node tooling/verify-chrome-nav-width-flow.mjs "http://localhost:$TEST_PORT"
+
+      # PC-J06 (U-21/U-15/U-06): header từng chờ runtime-config → client →
+      # api.js nên điện thoại chậm 4–8s không có header, hamburger bấm không
+      # ăn. Runner giữ api.js lại: header + hamburger phải có trong 1s, pill
+      # điền sau khi api.js về, khách ở Grammar không thấy "·" / "…".
+      - name: Kiểm header hiện ngay, không chờ runtime Supabase
+        run: node tooling/verify-chrome-early-render-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/reading/vocab` đã chuyển request/filter/state sang React. Cổng parity
       # chỉ chụp một trạng thái tĩnh nên không chứng minh được malformed payload,

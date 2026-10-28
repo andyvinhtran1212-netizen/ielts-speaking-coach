@@ -73,6 +73,28 @@ describe('shared runtime survives App Router client navigation', () => {
     assert.match(RUNTIME_BOUNDARY, /runtimeReady \? children : null/);
   });
 
+  // PC-J06 / U-21: the student header used to wait for runtime-config →
+  // client → api.js (4–8s on slow mobile, dead hamburger). It now loads
+  // beside the boundary and resumes pill population on the ready event.
+  test('student chrome renders without waiting for the Supabase runtime', () => {
+    const CHROME_SCRIPT = /<Script type="module" src="\/js\/components\/aver-chrome\.js"/;
+    for (const parts of [['components', 'authed-shell.tsx'], ['app', '(public-content)', 'layout.tsx']]) {
+      const source = read(...parts);
+      const boundary = source.slice(
+        source.indexOf('<SupabaseRuntimeBoundary'),
+        source.indexOf('</SupabaseRuntimeBoundary>'),
+      );
+      assert.match(source, CHROME_SCRIPT, parts.join('/'));
+      assert.doesNotMatch(boundary, CHROME_SCRIPT, `${parts.join('/')}: chrome must not wait for runtimeReady`);
+    }
+    assert.match(
+      RUNTIME_BOUNDARY,
+      /setRuntimeReady\(true\);[\s\S]{0,240}window\.dispatchEvent\(new Event\('aver:supabase-runtime-ready'\)\)/,
+    );
+    const CHROME = read('public', 'js', 'components', 'aver-chrome.js');
+    assert.match(CHROME, /const RUNTIME_READY_EVENT = 'aver:supabase-runtime-ready';/);
+  });
+
   test('body classes have a client-navigation owner and stale cleanup guard', () => {
     assert.match(BODY_BRIDGE, /useLayoutEffect/);
     assert.match(BODY_BRIDGE, /previous\.forEach\(\(token\) => body\.classList\.remove\(token\)\)/);
