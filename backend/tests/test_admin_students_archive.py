@@ -528,7 +528,6 @@ def test_direct_code_bridge_adds_the_active_profile():
 
 def _activate(db):
     from routers import auth as auth_module
-    auth_module._activate_attempts.clear()
     with patch.object(auth_module, "get_supabase_user",
                       new=AsyncMock(return_value={"id": USER_ID, "email": "l@x", "user_metadata": {}})), \
          patch.object(auth_module, "supabase_admin", db):

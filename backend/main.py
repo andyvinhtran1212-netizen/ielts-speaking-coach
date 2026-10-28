@@ -384,6 +384,10 @@ async def access_perm_memo_middleware(request: Request, call_next):
         begin_request_memo as begin_activation_memo,
         reset_request_memo as reset_activation_memo,
     )
+    from services.staff_guard import (
+        begin_request as begin_staff_guard_request,
+        reset_request as reset_staff_guard_request,
+    )
     from services.test_data_visibility import (
         SHOW_TEST_DATA_HEADER,
         begin_request as begin_test_data_request,
@@ -400,12 +404,16 @@ async def access_perm_memo_middleware(request: Request, call_next):
     # W-03 — same per-request lifetime for the activation gate's memo (verified
     # bearer + confirmed-active ids), so a request never re-verifies its token.
     gate_token = begin_activation_memo()
+    # ADMINAAL2-0032 — the staff guard reads the matched route template from
+    # this scope and logs at most one would-block warning per request.
+    staff_token = begin_staff_guard_request(request.scope)
     # TASK B2 — the admin "show test data" opt-in, read by list routes.
     test_data_token = begin_test_data_request(request.headers.get(SHOW_TEST_DATA_HEADER))
     try:
         return await call_next(request)
     finally:
         reset_test_data_request(test_data_token)
+        reset_staff_guard_request(staff_token)
         reset_activation_memo(gate_token)
         reset_request_permission_memo(token)
 

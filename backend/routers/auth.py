@@ -19,6 +19,7 @@ from models.auth import (
 )
 from services import activation_gate
 from services.db_async import aexecute
+from services.errors import safe_error
 from services.server_timing import record_stage
 from services.feature_flags import ais_flashcard_enabled, is_flashcard_enabled
 from services import runtime_flags
@@ -402,28 +403,39 @@ async def get_profile(response: Response, authorization: str | None = Header(def
 
 # ── POST /auth/activate ───────────────────────────────────────────────────────
 
-# B4 (audit) — per-user rate limit on activation. /auth/activate is
-# authenticated, so probing the 36^8 code keyspace already costs a real account;
-# capping attempts per user makes brute-forcing infeasible. In-memory sliding
-# window (per worker), no new deps — proportionate for this low-QPS endpoint.
-_ACTIVATE_MAX_ATTEMPTS = 10
-_ACTIVATE_WINDOW_SECONDS = 600  # 10 minutes
-_activate_attempts: dict[str, list[float]] = {}
+# F09 (ACTIVATELIMIT-0034) — per-user rate limit on activation, shared by every
+# worker and replica: migration 334's fn_activate_attempt_check counts ALLOWED
+# attempts in Postgres (10 per rolling 10 minutes) and records this one
+# atomically. It runs before the code is looked up or claimed, so a refusal
+# never consumes a code. Fail closed: if the counter cannot answer, refuse with
+# 503 instead of allowing unlimited attempts (the code stays unused).
+_ACTIVATE_RATE_LIMITED_MESSAGE = "Quá nhiều lần thử kích hoạt. Vui lòng đợi vài phút rồi thử lại."
+_ACTIVATE_UNAVAILABLE_MESSAGE = (
+    "Chưa kiểm tra được lượt kích hoạt. Mã CHƯA được sử dụng — vui lòng thử lại sau ít phút."
+)
 
 
 def _rate_limit_activate(user_id: str) -> None:
-    """Raise 429 when a user exceeds the activation-attempt budget in the window."""
-    now = perf_counter()  # monotonic clock — only relative deltas matter here
-    cutoff = now - _ACTIVATE_WINDOW_SECONDS
-    window = [t for t in _activate_attempts.get(user_id, ()) if t > cutoff]
-    if len(window) >= _ACTIVATE_MAX_ATTEMPTS:
-        _activate_attempts[user_id] = window  # persist the pruned list
+    """Record one attempt; raise 429 over the limit, 503 when the check fails."""
+    try:
+        verdict = supabase_admin.rpc(
+            "fn_activate_attempt_check", {"p_user_id": user_id}).execute().data
+        allowed = verdict["allowed"]
+        retry_after_s = verdict["retry_after_s"]
+        if not isinstance(allowed, bool) or type(retry_after_s) is not int or retry_after_s < 0:
+            raise ValueError(f"malformed fn_activate_attempt_check result: {verdict!r}")
+    except Exception as e:
+        raise safe_error(e, status_code=503, error_code="activation_unavailable",
+                         message=_ACTIVATE_UNAVAILABLE_MESSAGE,
+                         context=f"activate rate limit user={user_id}")
+    if not allowed:
+        retry_after_s = max(1, retry_after_s)
         raise HTTPException(
             status_code=429,
-            detail="Quá nhiều lần thử kích hoạt. Vui lòng đợi vài phút rồi thử lại.",
+            detail={"error_code": "activate_rate_limited", "retry_after_s": retry_after_s,
+                    "message": _ACTIVATE_RATE_LIMITED_MESSAGE},
+            headers={"Retry-After": str(retry_after_s)},
         )
-    window.append(now)
-    _activate_attempts[user_id] = window
 
 
 _ARCHIVED_PROFILE_DETAIL = (

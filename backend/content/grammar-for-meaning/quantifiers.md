@@ -163,7 +163,7 @@ little + uncountable noun = "ít", thường nhấn ít hơn mong đợi
 ### A few — countable, dương tính
 
 ```
-a few + countable plural noun = "có một vài; chưa biết có đủ hay không"
+a few + countable plural noun = "có một vài", nhấn có một lượng nhỏ (nhìn theo hướng tích cực)
 ```
 
 - I have **a few** suggestions for improving this. (có vài gợi ý)
@@ -173,7 +173,7 @@ a few + countable plural noun = "có một vài; chưa biết có đủ hay khô
 ### A little — uncountable, dương tính
 
 ```
-a little + uncountable noun = "có một ít — đủ dùng"
+a little + uncountable noun = "có một ít", nhấn có một lượng nhỏ (nhìn theo hướng tích cực)
 ```
 
 - Could you give me **a little** more time? (xin thêm một chút thời gian)
@@ -182,7 +182,7 @@ a little + uncountable noun = "có một ít — đủ dùng"
 
 ### Tóm tắt few vs little
 
-| | Âm tính (quá ít, thiếu) | Dương tính (có một ít, đủ) |
+| | Âm tính (quá ít, thiếu) | Dương tính (có một ít) |
 |--|------------------------|--------------------------|
 | **Countable** | **few** (ít hơn mức cần) | **a few** (có một số) |
 | **Uncountable** | **little** (ít hơn mức cần) | **a little** (có một ít) |

@@ -46,6 +46,13 @@ class Settings(BaseSettings):
     # ENVIRONMENT=staging (services/test_data_visibility.py); never set it in
     # production. Admins can still opt in per browser with X-Show-Test-Data.
     HIDE_TEST_DATA: bool = False
+    # ADMINAAL2-0032 — admin powers require a verified second factor (AAL2,
+    # services/staff_guard.py). False = report-only: behaviour unchanged plus one
+    # `admin_aal2_would_block` warning per blocked request. Enable per
+    # environment only after every active admin holds a verified TOTP factor
+    # (spec FR-017, rollout.md). Standard boolean parsing: an unparseable
+    # value fails startup instead of choosing a mode. Runbook value: `false`.
+    ADMIN_AAL2_ENFORCE: bool = False
     # Private outcome-evidence foundation. Requires migration 240 and explicit
     # rollout/coverage verification; never enabled implicitly by a code deploy.
     CORE_ATTEMPT_EVIDENCE_ENABLED: bool = False

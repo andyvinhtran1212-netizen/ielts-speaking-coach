@@ -292,7 +292,7 @@ the least + Adjective
 ### Writing Task 1 — so sánh dữ liệu:
 
 - Sales in France were **considerably higher than** those in Germany throughout the period.
-- The proportion of people aged 65+ was **the highest** in Japan, **twice as high as** that in the UK.
+- **In the chart**, the proportion of people aged 65+ was **the highest** in Japan, **twice as high as** that in the UK.
 - Urban areas showed **slightly higher** unemployment rates **than** rural regions.
 - **The greater** the investment in education, **the lower** the poverty rate tended to be.
 

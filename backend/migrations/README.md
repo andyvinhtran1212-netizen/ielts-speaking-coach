@@ -26,10 +26,11 @@ The runner applies any unapplied file regardless of order.
 Numbers 321–330 are already locked to open work (321 WRITINGRATE-0025, 322 #1720,
 323 ROLECHECK-0026, 324 ASSIGNDRAFT-0027, 325 CODEUNIQ-0028, 326
 STUDENTARCHIVE-0029, 327–329 reserved, 330 A-10); files for them may land out
-of order, so do not reuse them. 331 is GIVEARCHIVE-0031, 332 is ADMINAAL2-0032.
-333–337 are reserved by the Leader for open work (333 AIBUDGET-0033, 335
-INACTIVEWRITE-0035, assigned on 2026-10-28); files for them may land out of
-order, so ask the Leader before taking any number above 332.
+of order, so do not reuse them. 331 is GIVEARCHIVE-0031, 332 is ADMINAAL2-0032,
+334 is ACTIVATELIMIT-0034. 333–337 are reserved by the Leader for open work
+(333 AIBUDGET-0033, 335 INACTIVEWRITE-0035, assigned on 2026-10-28); files for
+them may land out of order, so ask the Leader before taking any number above
+332.
 
 Migration `335` (INACTIVEWRITE-0035, SEC-20261028-02) closes the direct-REST
 write path for inactive accounts. 320 kept `authenticated` writes on the five
@@ -48,6 +49,18 @@ the matching restrictive policy, so a later client write grant must add one.
 One transaction, no data change, re-runnable, no backend deploy needed. Later
 migrations must not drop or replace the policies or the helper; rollback is in
 the file header.
+
+Migration `334` (ACTIVATELIMIT-0034, F09) moves the `POST /auth/activate`
+rate limit from a per-worker dict into Postgres: `activation_attempts(user_id,
+attempted_at)` and the service-role-only SECURITY DEFINER
+`fn_activate_attempt_check(uuid)`, which allows 10 attempts per rolling 10
+minutes per user under a per-user transaction advisory lock and returns
+`{allowed, retry_after_s}`. A refused call records nothing; each call deletes
+that user's rows older than 1 day. Apply it before the 0034 backend, which
+fails closed (503 `activation_unavailable`, no code consumed) without it. It
+is a normal forward migration, so it has no `forward-policy.tsv` row: a
+`pending_feature` row would let the runner skip it while the dependent code is
+promoted. Rollback (deploy the pre-0034 backend first) is in the file header.
 
 Migration `332` (ADMINAAL2-0032) adds the staff security audit. It is held
 back by `forward-policy.tsv` (group `admin_aal2`), so apply it only with

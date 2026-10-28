@@ -393,12 +393,17 @@ def test_staff_guards_identical(monkeypatch, live_activation_gate, guard, user_i
     assert out[False][1] == out[True][1]
 
 
-def test_staff_guard_role_lookup_error_is_500_in_both(monkeypatch, live_activation_gate):
+def test_staff_guard_role_lookup_error_is_503_in_both(monkeypatch, live_activation_gate):
+    # ADMINAAL2-0032 FR-001 (staff_guard, merged into staging before this
+    # branch) made a staff role lookup failure a fail-closed 503 with a fixed
+    # detail; the flag must not change that in either direction.
     monkeypatch.setattr(auth_module, "_get_auth_http_client", lambda: _AuthClient())
     out = _both(monkeypatch, TABLES,
                 lambda _db: asyncio.run(admin_module.require_instructor("Bearer u-instructor")),
                 admin_module, activation_gate, fail={("users", (("eq", "id"),))})
-    assert out[False][0][:2] == out[True][0][:2] == ("HTTPException", 500)
+    assert out[False][0] == out[True][0]
+    assert out[True][0][:2] == ("HTTPException", 503)
+    assert out[True][1] == out[False][1] and len(out[True][1]) == 1, "role read only, no is_active read"
 
 
 # ── HTTP routes: /auth/me, /auth/check-active, /api/student/permissions ─────
