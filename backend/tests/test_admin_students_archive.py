@@ -314,8 +314,27 @@ def test_unlinked_writing_learner_keeps_the_not_linked_403(path):
         response = _client().get(f"/api/writing/{path}", headers=AUTH)
     assert response.status_code == 403
     assert response.json()["detail"] == (
-        "Bạn chưa được link với tài khoản học viên. Vui lòng liên hệ giảng viên."
+        "Em chưa được xếp lớp, Writing sẽ mở khi giáo viên giao bài"
     )
+    assert db.writes() == []
+
+
+@pytest.mark.parametrize("path", ["my-essays", "my-assignments"])
+def test_mass_code_writing_learner_without_a_class_gets_the_not_in_class_message(path):
+    # A mass code grants Writing but creates no students row. The 403 stays
+    # (the permission gate is not consulted); only its copy names the cause.
+    from routers import writing_student
+    db = FakeDB({"students": []})
+    permissions = MagicMock(return_value=["writing"])
+    with patch.object(writing_student, "get_supabase_user",
+                      new=AsyncMock(return_value={"id": USER_ID, "user_metadata": {}})), \
+         patch.object(writing_student, "get_user_access_code_permissions", permissions), \
+         patch.object(writing_student, "supabase_admin", db):
+        response = _client().get(f"/api/writing/{path}", headers=AUTH)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Em chưa được xếp lớp, Writing sẽ mở khi giáo viên giao bài"
+    assert "chưa được link" not in response.text
+    permissions.assert_not_called()
     assert db.writes() == []
 
 
