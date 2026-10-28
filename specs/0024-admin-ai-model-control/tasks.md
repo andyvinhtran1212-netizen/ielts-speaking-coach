@@ -3,12 +3,20 @@
 Single owner and branch (`feat/admin-ai-dashboard`); tasks are dependency
 ordered and none run in parallel.
 
-- [ ] T001 Owner approves AIOPS-0024 and the approval lands on `staging` (separate spec PR). `owns: specs/0024-admin-ai-model-control/`
-- [ ] T002 Migration 322: override, audit and failure tables, audit triggers, rollup functions, RLS and grants; real-PostgreSQL tests. `depends: T001` `owns: backend/migrations/322_*.sql, backend/migrations/README.md, backend/tests/test_migration_322_*`
-- [ ] T003 Override service and router precedence (FR-005/FR-006), TTL snapshot and background refresher, config setting. `depends: T002` `owns: backend/services/ai_model_overrides.py, backend/services/ai_router.py, backend/config.py, backend/main.py`
-- [ ] T004 Failure log writer and hooks in `ai_router`, the Claude-after-Gemini call sites and the Speaking orchestrator (FR-007). `depends: T002`
-- [ ] T005 Admin endpoints, schemas, usage/failure aggregation with Saigon windows (FR-001, FR-002, FR-004, FR-008); OpenAPI regeneration and route ledger. `depends: T003, T004`
-- [ ] T006 `/admin` AI section with complete UI states and React/contract tests (FR-009). `depends: T005`
-- [ ] T007 Docs: `docs/AI_PROVIDER_ROUTING.md` override precedence, migrations README entry. `depends: T005`
+- [x] T001 Owner approves AIOPS-0024 and the approval lands on `staging` (separate spec PR). `owns: specs/0024-admin-ai-model-control/`
+  Done: spec PR #1716 merged on `staging` as `72023cb3ebb7693651827418962896bc9a2e1f21` (2026-10-28 17:45 UTC+7); `approval-decision.md`.
+- [x] T002 Migration 322: override, audit and failure tables, audit triggers, rollup functions, RLS and grants; real-PostgreSQL tests. `depends: T001` `owns: backend/migrations/322_*.sql, backend/migrations/README.md, backend/tests/test_migration_322_*`
+  Done in #1837 (merge `f04cbe052f6b1843d378e0e621e75124f3f54198`, 2026-10-28 22:43 UTC+7, replaces #1720): `322_ai_model_overrides_and_failures.sql`, README entry and `test_migration_322_ai_model_overrides_postgres.py` (12 passed, 0 skipped on PostgreSQL 16 in CI run 40784593322 on staging `56a8c344f`; 12 passed on PostgreSQL 17.11 per the #1837 body).
+- [x] T003 Override service and router precedence (FR-005/FR-006), TTL snapshot and background refresher, config setting. `depends: T002` `owns: backend/services/ai_model_overrides.py, backend/services/ai_router.py, backend/config.py, backend/main.py`
+  Done in #1837 (merge `f04cbe052f6b1843d378e0e621e75124f3f54198`, 2026-10-28 22:43 UTC+7, replaces #1720): `services/ai_model_overrides.py` (TTL snapshot, `run_refresher()` started in `main.py`), `ai_router.py` precedence, `AI_MODEL_OVERRIDE_TTL_SECONDS` in `config.py`; `test_ai_model_overrides.py` 27 passed.
+- [x] T004 Failure log writer and hooks in `ai_router`, the Claude-after-Gemini call sites and the Speaking orchestrator (FR-007). `depends: T002`
+  Done in #1837 (merge `f04cbe052f6b1843d378e0e621e75124f3f54198`, 2026-10-28 22:43 UTC+7, replaces #1720): `services/ai_failure_log.py` with hooks in `ai_router.py`, the Writing/course/vocabulary Claude-after-Gemini call sites and `grading_orchestrator.py`; `test_ai_failure_log.py` 49 passed.
+- [x] T005 Admin endpoints, schemas, usage/failure aggregation with Saigon windows (FR-001, FR-002, FR-004, FR-008); OpenAPI regeneration and route ledger. `depends: T003, T004`
+  Done in #1837 (merge `f04cbe052f6b1843d378e0e621e75124f3f54198`, 2026-10-28 22:43 UTC+7, replaces #1720): `routers/admin_ai.py`, `models/admin_ai.py`, `services/admin_ai_dashboard.py`, regenerated `frontend/types/api.d.ts`, `docs/ROUTE_LEDGER.md`; `test_admin_ai_dashboard.py` 31 passed; Typecheck + OpenAPI drift run 40784593245 green on `56a8c344f`.
+- [x] T006 `/admin` AI section with complete UI states and React/contract tests (FR-009). `depends: T005`
+  Done in #1837 (merge `f04cbe052f6b1843d378e0e621e75124f3f54198`, 2026-10-28 22:43 UTC+7, replaces #1720): `admin-ai-panel.tsx` and `frontend/tests/react/admin-ai-panel.test.tsx` (11 passed in run 40784593322).
+- [x] T007 Docs: `docs/AI_PROVIDER_ROUTING.md` override precedence, migrations README entry. `depends: T005`
+  Done in #1837 (merge `f04cbe052f6b1843d378e0e621e75124f3f54198`, 2026-10-28 22:43 UTC+7, replaces #1720): `docs/AI_PROVIDER_ROUTING.md` override precedence and the 322 entry in `backend/migrations/README.md`.
 - [ ] T008 Staging: apply 322 with the locked runner, merge, run the staging journey in `rollout.md` and record evidence (FR-010). `depends: T006, T007`
+  Partial. 322 is in the staging ledger at 2026-10-28 22:13:05 UTC+7, before the #1837 merge (22:43). The read-only part of the staging journey passed on deployment 6022fcc2 (`bc222939b`, contains #1837): anonymous 401 and QA_ACTIVE/QA_INACTIVE 403 on `/admin/ai/models|usage|failures`, RLS on, no anon/authenticated grants, 0 rows (`/workspace/qa/leader-0129/0024-t008-readonly.txt`). Still open: the admin write steps (save a model preference, read the audit row, reload) and the UI viewport/theme checks.
 - [ ] T009 Production: owner-authorized migration under the advisory lock, then promotion; record evidence. `depends: T008`

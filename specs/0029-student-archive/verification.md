@@ -9,7 +9,7 @@
 | FR-003 | kind=journey; ref=research.md §7 AC-4 and AC-11 (include_archived listing and restore) on staging; Revision 1 (archived classes skipped): kind=test; ref=specs/0030-class-archive/verification.md FR-007 and AC-10 | PENDING |
 | FR-004 | kind=test; ref=backend/tests/test_migration_326_student_archive.py (client cannot execute functions or change is_active) plus AC-9, AC-10 on staging | PENDING |
 | FR-005 | kind=query; ref=research.md §7 AC-2 row counts before and after archive and restore | PENDING |
-| FR-006 | kind=test; ref=backend/tests/test_admin_students_archive.py (no hard delete reachable from the route) | PENDING |
+| FR-006 | kind=test; ref=backend/tests/test_admin_students_archive.py (no hard delete reachable from the route); ci=Tests run 40784593322 on staging `56a8c344f`, 35 passed, 0 skipped | PASS |
 
 ## Contract evidence
 
@@ -36,6 +36,11 @@
   (run 40481428210) plus Tests, Next-native, Typecheck, Build checks, Spec
   governance and Legacy guard on 2026-10-27. The staging apply and AC run of
   T008 are not in that record and stay pending.
+- Staging apply (reconciled 2026-10-29 from the staging ledger, read-only):
+  `326_student_archive.sql` applied 2026-10-27 04:51:15Z (11:51:15 UTC+7),
+  after #1746 merged as `7c7338f09ff281d234659b35dd8b24fa682dcceb` (11:43 UTC+7)
+  (`/workspace/qa/pcj60/ledger.out.tsv`). The AC-1…AC-14 run is still not
+  recorded, so FR-001 to FR-005 stay PENDING.
 - Rollback readiness: any backend rollback records the archived-learner count;
   with archived learners present, the archive-compatible rollback build passes
   AC-2, AC-7, AC-8 and AC-14 before taking traffic (`rollout.md`).
