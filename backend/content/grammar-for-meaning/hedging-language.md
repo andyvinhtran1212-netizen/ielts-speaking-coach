@@ -107,9 +107,9 @@ Modal verbs là cách hedging phổ biến nhất:
 
 | Modal | Mức chắc chắn | Ví dụ |
 |-------|--------------|-------|
-| **will** | dự đoán/khẳng định của người nói | Technology **will** continue to advance. |
-| **should** | kỳ vọng trong ví dụ này | This approach **should** reduce costs. |
-| **would** | kết quả giả định trong ví dụ này | This **would** be beneficial in theory. |
+| **will** | chắc chắn cao | Technology **will** continue to advance. |
+| **should** | khá chắc (kỳ vọng hợp lý) | This approach **should** reduce costs. |
+| **would** | giả định, có điều kiện | This **would** be beneficial in theory. |
 | **may** | khả năng chưa chắc chắn | Social media **may** have negative effects. |
 | **might** | khả năng chưa chắc chắn | This trend **might** reverse in the future. |
 | **could** | khả năng chưa chắc chắn | The policy **could** have unintended consequences. |
@@ -152,9 +152,11 @@ Modal verbs là cách hedging phổ biến nhất:
 | Mức chắc chắn | Adverb/Phrase |
 |--------------|----------------|
 | Tăng mức khẳng định (boosters) | **clearly, obviously, certainly, undoubtedly** |
-| Xác suất / tần suất / phạm vi | **probably** / **generally, typically** / **largely** — ba chức năng khác nhau |
-| Không chắc | **possibly, perhaps, apparently, presumably** |
-| Ít chắc hơn | **conceivably, theoretically, potentially** |
+| Khá chắc | **probably, likely** |
+| Khái quát/tần suất | **generally, typically** |
+| Phạm vi | **largely** |
+| Ít chắc | **possibly, perhaps, apparently, presumably** |
+| Chỉ về lý thuyết | **conceivably, theoretically, potentially** |
 
 **Ví dụ:**
 - This is **probably** the most significant factor.
@@ -254,7 +256,7 @@ Tránh số liệu tuyệt đối hoặc khẳng định vô điều kiện:
 - ❌ This is the best solution to poverty.
 - ✅ This **would appear to be** one of the most effective solutions to poverty.
 
-### Lỗi 3: Nhầm "may" và "might" với "maybe"
+### Lưu ý 3: maybe/perhaps (trạng từ) và may/might (động từ tình thái)
 
 - **Maybe** the government should invest more. (đúng cấu trúc; maybe có thể hội thoại hơn perhaps)
 - **Perhaps** the government should invest more. (giữ nguyên khuyến nghị should)
@@ -317,7 +319,7 @@ Tránh số liệu tuyệt đối hoặc khẳng định vô điều kiện:
 
 ### Chọn hedge phù hợp
 
-1. The data ___ (show/suggests/prove) a link between diet and cancer.
+1. The data ___ (shows/suggests/proves) a link between diet and cancer.
 2. This approach ___ (is/tends to be/will always be) effective for adult learners.
 3. It ___ (is argued/is obvious/everyone knows) that automation will change the labour market.
 4. Online shopping ___ (destroys/may undermine/never helps) local businesses ___ (always/in some cases).
@@ -359,8 +361,8 @@ Tránh số liệu tuyệt đối hoặc khẳng định vô điều kiện:
 
 Người học VN thường mạnh quá: "Definitely yes!", "I strongly agree!", "Absolutely!" trong mọi câu trả lời Part 3. Native speaker thực tế dùng nhiều hedging hơn:
 
-❌ "Definitely, social media is bad for young people." (tuyệt đối, defensible thấp)
-✅ "I'd say social media can be problematic for young people, particularly in terms of attention span."
+- ❌ "Definitely, social media is bad for young people." (quá tuyệt đối, khó bảo vệ)
+- ✅ "I'd say social media can be problematic for young people, particularly in terms of attention span."
 
 "I strongly agree" phù hợp khi lập trường và lập luận hỗ trợ sự đồng ý mạnh. Nếu chỉ đồng ý có điều kiện, có thể nói "I tend to agree, although I think it depends on the context". Hai câu không có cùng mức cam kết.
 
@@ -409,7 +411,7 @@ Perhaps/Possibly, [full sentence].
 | **certainly / definitely** | Nhấn mạnh sự chắc chắn | This will **certainly** continue. |
 | **probably** | Có khả năng cao theo người nói | This will **probably** continue. |
 | **likely** | Khá chắc | Change is **likely** to happen. |
-| **possibly / perhaps** | Khả năng chưa chắc chắn | This **might possibly** cause issues. |
+| **possibly / perhaps** | Khả năng chưa chắc chắn | **Perhaps** this will cause issues. |
 | **presumably** | Suy đoán từ bằng chứng | People are **presumably** more stressed. |
 | **conceivably** | Chỉ là lý thuyết | This **could conceivably** work. |
 
@@ -509,7 +511,7 @@ Khi bạn không chắc hoặc muốn báo cáo một quan điểm mà không ho
 - ❌ "Technology will destroy all jobs."
 - ✅ "Technology **might** significantly reduce the number of certain jobs, **though it's likely** that new roles will also emerge."
 
-### Lỗi 3: Quá nhiều "I think" (xem bài overusing-i-think)
+### Lỗi 3: Quá nhiều "I think" (xem bài [Overusing "I think"](/grammar/error-clinic/overusing-i-think))
 
 - ❌ "I think... I think... I think..."
 - ✅ "I think... **It seems to me**... **I would imagine**... **There's reason to believe**..."
@@ -529,15 +531,15 @@ MODAL VERBS (khả năng):
   would → "This would probably improve things."
 
 ADVERBS (mức độ chắc chắn):
-  probably → fairly sure
-  possibly / perhaps → less sure
-  presumably → inferred from evidence
-  likely → probable
+  probably → khá chắc
+  possibly / perhaps → ít chắc hơn
+  presumably → suy ra từ bằng chứng
+  likely → có khả năng
 
 EPISTEMIC PHRASES:
-  I think / I believe → light uncertainty
-  I suspect / I imagine / I get the impression → moderate
-  I'm not entirely sure, but... → honest hedging
+  I think / I believe → hơi dè dặt
+  I suspect / I imagine / I get the impression → dè dặt vừa
+  I'm not entirely sure, but... → thừa nhận chưa chắc
 
 IMPERSONAL HEDGING:
   It seems that / It appears that

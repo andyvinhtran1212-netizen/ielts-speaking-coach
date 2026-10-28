@@ -84,7 +84,7 @@ Hedging là **kỹ thuật diễn đạt thận trọng** — không phải vì 
 | **Modal verbs** | may, might, could, would |
 | **Verbs thận trọng** | tends to, appears to, seems to, suggests |
 | **Adverbs** | generally, often, typically, largely |
-| **Cấu trúc impersonal** | It can be argued that, It is widely believed that |
+| **Cấu trúc impersonal (khách quan hoá)** | It can be argued that, It is widely believed that |
 | **Giới hạn phạm vi** | in many cases, under certain conditions, to some extent |
 
 ---
@@ -234,7 +234,7 @@ It could be argued that + [clause]
 
 ### It is widely believed / acknowledged / recognised that...
 
-Đây là dẫn nguồn/nhận định về đồng thuận rộng, không tự là hedge. Cần căn cứ cho widely và giữ nguồn cụ thể nếu đã biết.
+Cấu trúc này nêu quan điểm phổ biến một cách khách quan; chỉ dùng "widely" khi đúng là nhiều người đồng tình.
 
 ```
 It is widely/generally/commonly + [believed/acknowledged/recognised/accepted] that + [clause]
@@ -342,7 +342,7 @@ at least in part... / largely, though not entirely...
 - ❌ "It might possibly perhaps seem to suggest that there could be some kind of potential link..."
 - ✅ "Research **suggests** a possible link between..." (một hedge đủ)
 
-### Lỗi 2: Dùng "maybe" thay vì academic hedges
+### Lưu ý 2: maybe mang tính khẩu ngữ, trong Writing nên ưu tiên may/perhaps
 
 - ✅ “**Maybe** social media is bad for society.” *(đúng; may thường phù hợp hơn khi cần văn phong trang trọng)*
 - ✅ "Social media **may** have negative consequences for social cohesion."
@@ -352,11 +352,50 @@ at least in part... / largely, though not entirely...
 - ❌ "The Earth **might** orbit the Sun." (sự thật khoa học — không cần hedge)
 - ✅ Chỉ hedge nhận định, quan điểm, dự đoán, và generalisation
 
-### Lỗi 4: Dùng "I think" khi cần impersonal hedge
+### Lưu ý 4: I think vẫn dùng được, nhưng có thể thay bằng cấu trúc vô nhân xưng
 
 - ✅ “**I think** poverty is linked to crime.” *(có thể dùng để nêu lập trường trong IELTS Task 2; nhận định vẫn cần căn cứ)*
 - ✅ "**It can be argued that** poverty is linked to higher crime rates."
 - “Research suggests a correlation...” chỉ dùng khi có nghiên cứu thật làm căn cứ; không thêm nguồn giả để tạo vẻ khách quan.
+
+## Lỗi người Việt hay mắc
+
+Các lỗi dưới đây thường đến từ việc dịch từng chữ cách nói nhấn mạnh hoặc rào đón của tiếng Việt sang Writing Task 2.
+
+### Lỗi 5: Dịch "chắc chắn là" thành "Definitely…"
+
+- ❌ "**Definitely**, online learning will replace traditional schools in the future."
+- ✅ "Online learning **is likely to** play an increasingly important role in education, **although** it **is unlikely to** replace traditional schools **entirely**."
+
+Trong tiếng Việt, "chắc chắn là" thường chỉ để nhấn giọng. Còn "Definitely" đứng đầu câu vừa mang tính khẩu ngữ, vừa khẳng định tuyệt đối một dự đoán mà bạn không chứng minh được. Hãy dùng *is likely to / will probably*.
+
+### Lỗi 6: Dịch "ai cũng biết" thành "Everyone knows that…"
+
+- ❌ "**Everyone knows that** fast food is the main cause of obesity."
+- ✅ "**It is generally accepted that** a diet high in fast food **can contribute to** obesity, **although** it is **rarely the only** cause."
+
+"Everyone knows" mang tính khẩu ngữ và không kiểm chứng được, còn "the main cause" lại quá tuyệt đối. Chỉ dùng *It is generally accepted / widely recognised that…* khi đúng là có đồng thuận rộng (xem Phần 4).
+
+### Lỗi 7: Dùng "maybe" ở mọi câu như "có lẽ"
+
+- ❌ "**Maybe** the government should invest more in public transport. **Maybe** this will reduce traffic jams."
+- ✅ "Governments **could** invest more in public transport, which **may help to** reduce traffic congestion."
+
+"Có lẽ" đứng được ở nhiều vị trí trong câu tiếng Việt, nên bạn dễ mở câu nào cũng bằng "Maybe". "Maybe" không sai ngữ pháp nhưng mang tính khẩu ngữ. Trong Task 2, hãy đưa sắc thái này vào động từ (*may, could*) hoặc thỉnh thoảng dùng *perhaps*.
+
+### Lỗi 8: Chồng hedge kiểu "có thể… có lẽ…" thành "may possibly perhaps"
+
+- ❌ "Working from home **may possibly perhaps** reduce employees' productivity."
+- ✅ "Working from home **may** reduce productivity **for some employees**."
+
+Tiếng Việt hay chồng "có thể", "có lẽ", "phần nào" cho câu nghe mềm hơn. Dịch từng chữ sẽ ra ba hedge cùng nghĩa, khiến câu rườm rà và thiếu lập trường. Một hedge cộng với giới hạn phạm vi là đủ (xem Lỗi 1).
+
+### Lỗi 9: Dịch "không thể phủ nhận rằng" thành "It is undeniable that…" cho nhận định còn tranh cãi
+
+- ❌ "**It is undeniable that** social media makes teenagers lonely."
+- ✅ "**There is growing concern that** heavy use of social media **may contribute to** loneliness **among some** teenagers."
+
+"Không thể phủ nhận" là câu mở quen thuộc trong văn nghị luận tiếng Việt. Nhưng nếu gắn nó vào một nhận định còn tranh cãi, bạn sẽ khó bảo vệ lập luận. Chỉ dùng *undeniable* cho điều gần như không ai phản bác.
 
 ---
 

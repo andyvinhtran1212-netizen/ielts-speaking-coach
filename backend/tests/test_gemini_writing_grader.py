@@ -735,6 +735,57 @@ async def test_failure_log_records_the_repair_budget_cut_off(writing_providers, 
     ]
 
 
+# W-GROUND q-67 (owner decision 2026-10-28: keep the grading prompt
+# unchanged). The L3+ prompt's sentence_structure.md example rewrite says
+# "transferable skills"; Claude has credited 'transferable' to essays that
+# never use it (live 72c07a2a, offline f02739d9). The validator must reject
+# it and the one grounding-repair re-ask must serve a clean answer.
+TRANSFERABLE_ESSAY = (
+    "Remote work reduces burnout, while noisy open-plan offices distract staff. "
+    "A hybrid model offers clear advantages for most companies."
+)
+TRANSFERABLE_MISTAKE = {"original": "offers clear advantages", "mistakeType": "Word Choice",
+                        "explanation": "...", "suggestion": "brings tangible benefits",
+                        "criterion": "Lexical Resource"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("claim", [
+    # Offline f02739d9 r5 (Sonnet 5.5, current prompt), trimmed.
+    "Từ vựng đủ rộng và dùng chính xác, có một số cụm tốt như 'remote work', "
+    "'open-plan offices', 'transferable' ý nghĩa tương đương và 'burnout'.",
+    # Live 72c07a2a shape: praised topic word.
+    "Vốn từ đúng chủ đề: 'hybrid model', 'transferable' hợp ngữ cảnh.",
+])
+async def test_claude_transferable_prompt_example_is_rejected_then_re_asked(writing_providers, claim):
+    state = writing_providers
+    clean = "Vốn từ đúng chủ đề: 'remote work', 'hybrid model' hợp ngữ cảnh."
+    state.claude = [_claude_feedback(claim, [TRANSFERABLE_MISTAKE]),
+                    _claude_feedback(clean, [TRANSFERABLE_MISTAKE])]
+    config = _grounded_config()
+    config.essay_text = TRANSFERABLE_ESSAY
+    result = await state.grader.grade_essay(config)
+
+    # The word reaches Claude only through the L3 system prompt, never the essay.
+    first, repair = state.claude_requests
+    assert "transferable skills" in json.dumps(first["system"])
+    assert "transferable" not in TRANSFERABLE_ESSAY.lower()
+
+    assert result.model_used == "claude-sonnet-5-5" and state.gemini_calls == []
+    assert result.feedback.criteriaFeedback.lexicalResource.feedback == clean
+    assert "transferable" not in result.feedback.model_dump_json()
+    assert "Regenerate the complete" in _claude_user_text(repair)
+    assert "transferable" in _claude_user_text(repair)      # the unsupported citation is named
+    claude_rows = [r for r in state.rows if r["service"] == "claude"]
+    assert [r["status"] for r in claude_rows] == ["invalid_response", "success"]
+    assert claude_rows[0]["error_code"] == "ungrounded_feedback"
+    assert claude_rows[0]["metadata"]["error_detail"].startswith(
+        "Unsupported essay citations at criteriaFeedback.lexicalResource.feedback")
+    assert [r["usage_event_id"] for r in claude_rows] == [
+        "writing:test:pass1:anthropic:1", "writing:test:pass1:anthropic:2"]
+    assert "transferable" not in json.dumps(state.rows, default=str)
+
+
 def _claude_feedback_with_mistakes(originals: list[str]) -> str:
     data = json.loads(GOOD_CLAUDE)
     data["mistakeAnalysis"] = [

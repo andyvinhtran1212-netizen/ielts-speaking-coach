@@ -119,7 +119,7 @@ Thêm thông tin, lý do, ví dụ bổ sung:
 | **Also** | Đầu câu / giữa câu | Online learning is flexible. It is **also** cost-effective. |
 | **Not only...but also** | Trong câu | It is **not only** affordable **but also** highly effective. |
 
-> **Thang bậc nhấn mạnh:** also < furthermore < moreover < what is more
+> also (trung tính) — furthermore/moreover (trang trọng) — what is more (nhấn mạnh, hơi khẩu ngữ)
 > 
 > Also là lựa chọn hợp lệ trong Writing. Nếu lặp gây đơn điệu, thay hoặc lược bỏ theo quan hệ ý và văn phong; không thay mọi also máy móc.
 
@@ -237,19 +237,19 @@ Ngữ cảnh thường làm rõ nghĩa. Nếu muốn nhấn mạnh tương phả
 ## PHẦN 4: ON THE OTHER HAND — Công cụ cân bằng hai phía
 
 ```
-On one hand, [Side A]. On the other hand, [Side B].
+On the one hand, [Side A]. On the other hand, [Side B].
 [Discussion of Side A]. On the other hand, [Side B].
 ```
 
-"On the other hand" thường dùng cùng với "on one hand" để tạo cấu trúc cân bằng rõ ràng.
+"On the other hand" thường dùng cùng với "on the one hand" để tạo cấu trúc cân bằng rõ ràng.
 
-- **On one hand**, living in a big city offers unparalleled career opportunities. **On the other hand**, the cost of living and the daily stress can take a serious toll on quality of life.
-- **On one hand**, social media connects people across the world. **On the other hand**, it can spread misinformation at an alarming speed.
+- **On the one hand**, living in a big city offers unparalleled career opportunities. **On the other hand**, the cost of living and the daily stress can take a serious toll on quality of life.
+- **On the one hand**, social media connects people across the world. **On the other hand**, it can spread misinformation at an alarming speed.
 
 ### Dùng trong Speaking Part 3:
 
 > Câu hỏi: "Do you think it's better for children to grow up in the city or the countryside?"
-> "That's a tricky one. **On one hand**, cities have better schools and more opportunities. **On the other hand**, the countryside gives children space to play and a closer connection to nature. I think it really depends on the child and the family."
+> "That's a tricky one. **On the one hand**, cities have better schools and more opportunities. **On the other hand**, the countryside gives children space to play and a closer connection to nature. I think it really depends on the child and the family."
 
 ---
 
@@ -303,8 +303,10 @@ While [Side A is true/has advantages], [Side B ultimately outweighs it / is a mo
 
 ### Lỗi 4: Contrast quá nhẹ, không thực sự đối lập
 
-- ✅ "Cats are cute, but dogs are also cute." *(phù hợp nếu trước đó người nghe chỉ đề cao mèo; tương phản phụ thuộc kỳ vọng)*
-- Ví dụ giả định có nội dung khác: “Cats are generally more independent, whereas dogs require more attention”. Cần kiểm chứng nếu dùng như nhận định thực tế.
+- ❌ Khi chỉ mô tả trung tính: "Cats are cute, but dogs are also cute." *(hai vế cùng chiều, không có tương phản)*
+- ✅ "Cats are cute, **and** dogs are too."
+- ✅ "Cats are fairly independent, **whereas** dogs need more attention."
+- Ngoại lệ: nếu người nghe vừa chỉ đề cao mèo, "Cats are cute, **but** dogs are also cute." vẫn đúng, vì *but* tương phản với kỳ vọng đó (tương phản phụ thuộc kỳ vọng của người nghe).
 
 ---
 
@@ -347,7 +349,7 @@ WHILE / WHEREAS → đối chiếu trực tiếp hai phía:
   City life is exciting, whereas rural life is peaceful.
 
 ON THE OTHER HAND → cân bằng hai phía rõ ràng:
-  On one hand, [A]. On the other hand, [B].
+  On the one hand, [A]. On the other hand, [B].
 
 MẪU SPEAKING:
   [Main point], but [contrast].
@@ -366,7 +368,7 @@ MẪU SPEAKING:
 | **Hence** | Demand increased. **Hence**, prices rose. |
 | **Thus** | The data is inconclusive. **Thus**, further research is needed. |
 | **This means that** | Fewer people are having children. **This means that** the workforce will shrink. |
-| **This leads to** | Urbanisation **leads to** increased pressure on infrastructure. |
+| **This leads to** | Cities are growing rapidly. **This leads to** increased pressure on infrastructure. |
 | **Because of this / Due to this** | **Because of this**, many families struggle to afford housing. |
 | **As a consequence** | **As a consequence**, the company had to lay off staff. |
 
@@ -588,7 +590,7 @@ CHUỖI NHÂN-QUẢ:
   [A] leads to [B], which in turn results in [C].
 
 IELTS WRITING TIP:
-  Tránh "so" trong Task 2 — dùng therefore/consequently/as a result
+  Hạn chế lạm dụng "so" trong Task 2; xen kẽ therefore/consequently/as a result
   Tránh chuỗi "so...so...so" — thay bằng chuỗi động từ causal
 ```
 
@@ -599,7 +601,7 @@ IELTS WRITING TIP:
 
 | Thứ tự | Discourse Marker |
 |--------|-----------------|
-| Mở đầu | **First of all / Firstly / To begin with / Initially** |
+| Mở đầu | **First of all / Firstly / To begin with** |
 | Tiếp theo | **Secondly / Furthermore / Next / Then** |
 | Cuối cùng | **Finally / Lastly / Last but not least** |
 
@@ -647,7 +649,7 @@ IELTS WRITING TIP:
 | **In fact / In reality** | Technology is often seen as a distraction. **In fact**, it can enhance focus when used correctly. |
 | **Indeed** | The problem is serious. **Indeed**, many experts describe it as a crisis. |
 | **In other words** | The policy failed. **In other words**, it did not achieve its intended goals. |
-| **That is to say / That is** | The tax will affect the wealthy. **That is to say**, those earning over £100,000. |
+| **That is to say / That is** | The tax will affect the wealthy, **that is to say**, those earning over £100,000. |
 | **Clearly / Obviously** | **Clearly**, more needs to be done to address inequality. |
 | **It is worth noting that** | **It is worth noting that** the data covers only a five-year period. |
 
@@ -766,7 +768,7 @@ Từ nối không chứng minh quan hệ nhân quả; cần thêm bằng chứng
 
 <!-- anchor: discourse-markers.common-mistake.overuse-and-but-so -->
 
-Đây là pattern mặc định khiến bài Speaking nghe trẻ em:
+Đây là pattern mặc định khiến bài Speaking nghe đơn điệu, như trẻ con:
 
 ❌ "I went to the market **and** I bought food **and** I came home **and** I cooked dinner **so** my family could eat **and** then we watched TV..."
 

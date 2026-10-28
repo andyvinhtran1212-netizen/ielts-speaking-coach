@@ -106,6 +106,8 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 
 | REVEXPLAIN-0023 | Bind Cambridge REV papers by marking-equivalent keys and document accepted forms | implementing | high | [spec](0023-revision-explanation-key-equivalence/spec.md) |
 
+| WRITINGRATE-0025 | Repair writing_grade_ratings drift so admin grade ratings key on the graded run | approved | high | [spec](0025-writing-grade-ratings-feedback-version/spec.md) |
+
 | ROLECHECK-0026 | Admins can make a user an instructor because users.role has one correct CHECK | approved | high | [spec](0026-users-role-single-check/spec.md) |
 
 | ASSIGNDRAFT-0027 | Deleting a writing assignment can never erase a learner's draft | approved | high | [spec](0027-writing-draft-assignment-delete-guard/spec.md) |

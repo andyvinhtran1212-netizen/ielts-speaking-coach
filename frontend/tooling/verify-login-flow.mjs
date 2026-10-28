@@ -227,6 +227,20 @@ await inactive.page.keyboard.press('Tab');
 const reachesActivate = await inactive.page.getByRole('button', { name: 'Kích hoạt' }).evaluate((node) => node === document.activeElement);
 await codeInput.focus();
 check('modal bắt focus trong mã, Kích hoạt và Đăng xuất', wrappedBackward && wrappedForward && reachesActivate);
+// PC-J25: Đăng xuất keeps a ≥44×44px touch target on desktop and mobile.
+const signOutBox = inactive.page.getByRole('button', { name: 'Đăng xuất' });
+// Measure the settled layout, not a frame of the scale-in entry animation.
+await inactive.page.evaluate(() => Promise.all(document.querySelector('.lx-dialog')
+  .getAnimations().map((animation) => animation.finished)));
+const signOutSizes = [];
+for (const size of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
+  await inactive.page.setViewportSize(size);
+  const box = await signOutBox.boundingBox();
+  signOutSizes.push(`${size.width}: ${box ? `${box.width.toFixed(2)}×${box.height.toFixed(2)}` : 'hidden'}`);
+  if (!box || box.width < 44 || box.height < 44) signOutSizes.push('too small');
+}
+await inactive.page.setViewportSize({ width: 1280, height: 900 });
+check('Đăng xuất có vùng chạm ≥ 44×44px ở 1280 và 390', !signOutSizes.includes('too small'), signOutSizes.join('; '));
 check('callback PKCE xóa code khỏi URL, exchange một lần và dùng /auth/me để mở modal',
   new URL(inactive.page.url()).pathname === '/login'
     && !new URL(inactive.page.url()).search
