@@ -165,7 +165,7 @@ export function renderAttemptHistory(history) {
   return `<section class="cr-history" aria-labelledby="cr-history-title">
     <header class="cr-history__head">
       <div>
-        <p class="cr-history__eyebrow">Learning trail</p>
+        <p class="cr-history__eyebrow">Hành trình học</p>
         <h2 id="cr-history-title">Session &amp; revision</h2>
       </div>
       <p>Chỉ gồm các lượt đã được hệ thống chấm và ghi vào tiến độ.</p>
@@ -178,7 +178,7 @@ export function renderAttemptHistory(history) {
           <th scope="col">Bước tiếp</th><th scope="col">Thời gian</th>
         </tr></thead>
         <tbody>${rows.map((row, i) => {
-          const phase = row.phase === 'retake' ? 'Revision' : 'Full session';
+          const phase = row.phase === 'retake' ? 'Ôn lại' : 'Buổi đầy đủ';
           const completed = row.completed !== false;
           const next = completed ? (NEXT_LABEL[row.next_action] || 'Đã ghi nhận') : 'Làm nốt các phần';
           const state = !completed ? 'progress'

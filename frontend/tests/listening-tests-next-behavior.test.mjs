@@ -51,7 +51,7 @@ describe('/listening/tests — native React behavior', () => {
     assert.match(BEHAVIOR, /if \(!id\) return \[\]/);
     assert.match(BEHAVIOR, /Object\.values\(value\)/);
     assert.match(BEHAVIOR, /slice\(0, 3\)/);
-    assert.match(BEHAVIOR, /title: textValue\(raw\?\.title\) \|\| 'Untitled test'/);
+    assert.match(BEHAVIOR, /title: textValue\(raw\?\.title\) \|\| 'Bài thi chưa có tên'/);
     assert.doesNotMatch(BEHAVIOR, /innerHTML|dangerouslySetInnerHTML|__html|eval\(/);
   });
 

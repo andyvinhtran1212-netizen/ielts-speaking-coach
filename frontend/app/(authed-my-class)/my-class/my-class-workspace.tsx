@@ -104,7 +104,7 @@ type StartTarget =
 const SKILL_LABEL: Record<string, string> = {
   speaking: 'Speaking', writing: 'Writing', reading: 'Reading',
   listening: 'Listening', course: 'Bài tập theo buổi',
-  grammar: 'Grammar Diagnostic',
+  grammar: 'Chẩn đoán ngữ pháp',
 };
 
 const WARNING_COPY: Record<string, string> = {
@@ -187,7 +187,7 @@ function TaskCard({
     <article className={`mc-item${row.isMissing ? ' is-missing' : ''}`}>
       <div className="mc-item-main">
         <div className="mc-item-meta">
-          <span className="mc-item-kind">{row.assignment.content?.assignmentType === 'grammar_lesson' ? 'Grammar lesson' : SKILL_LABEL[row.assignment.skill]}</span>
+          <span className="mc-item-kind">{row.assignment.content?.assignmentType === 'grammar_lesson' ? 'Bài ngữ pháp' : SKILL_LABEL[row.assignment.skill]}</span>
           {row.assignment.cohortName && <span className="mc-item-class">{row.assignment.cohortName}</span>}
           <span className="mc-item-state" data-state={state}>{stateLabel}</span>
         </div>

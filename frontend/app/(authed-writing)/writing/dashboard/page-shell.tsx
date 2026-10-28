@@ -270,7 +270,7 @@ export function WritingShell() {
         <div className="wd-compose-page av-w-page">
           <header className="wd-compose-header">
             <div className="wd-compose-heading">
-              <span className="wd-compose-kicker">Writing workspace</span>
+              <span className="wd-compose-kicker">Khu vực viết bài</span>
               <h1 id="modal-title">Làm bài</h1>
               <p>Đọc kỹ đề, viết liền mạch và kiểm tra lại trước khi nộp.</p>
             </div>

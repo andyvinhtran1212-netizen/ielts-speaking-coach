@@ -25,7 +25,7 @@ export function CourseShell() {
 
         <header className="cx-page-head">
           <div>
-            <p className="cx-eyebrow">Grammar practice</p>
+            <p className="cx-eyebrow">Luyện ngữ pháp</p>
             <h1 id="cx-title">Bài tập theo buổi</h1>
             <p id="cx-title-meta">Làm từng câu, xem đáp án và giải thích ngay sau khi chọn.</p>
           </div>
