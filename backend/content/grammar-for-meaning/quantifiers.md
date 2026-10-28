@@ -226,8 +226,8 @@ a little + uncountable noun = "có một ít — đủ dùng"
 
 **Ví dụ viết lại:**
 
-- ❌ A lot of studies show that exercise is beneficial.
-- ✅ **A considerable number of** studies demonstrate that exercise yields significant health benefits.
+- Ít trang trọng: A lot of studies show that exercise is beneficial.
+- Trang trọng hơn: **A considerable number of** studies demonstrate that exercise yields significant health benefits.
 
 - Ít trang trọng: Many countries have this problem.
 - ✅ **A large number of** countries experience this issue to varying degrees.
@@ -288,7 +288,7 @@ Tiếng Việt 'nhiều' dùng cho mọi danh từ nên người học hay viế
 
 ### Lỗi 3: Nhầm "few" và "a few"
 
-- The situation is positive — **few** solutions exist. (Có ít giải pháp; câu vẫn có thể hợp lý nếu những giải pháp ấy đáp ứng nhu cầu. Muốn nhấn còn có một số giải pháp, dùng a few.)
+- ❌ The situation is positive — **few** solutions exist. *(few nhấn mạnh sự thiếu, mâu thuẫn với 'positive')*
 - ✅ The situation is positive — **a few** solutions exist.
 - ✅ The outlook is bleak but **a few** alternatives remain. (nhượng bộ: vẫn còn một vài lựa chọn)
 - ✅ The outlook is bleak and **few** alternatives remain. (nhấn mạnh số ít)

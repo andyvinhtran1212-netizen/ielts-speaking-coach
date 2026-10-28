@@ -115,7 +115,7 @@ Because có thể mở đầu câu trong IELTS Writing; viết đủ mệnh đ�
 - **Because** she **was** tired, she went to bed early.
 - **Because** the costs **were** too high, the project was abandoned.
 
-> **Lưu ý:** Trong văn nói và văn viết thông thường, "because" đứng đầu câu được chấp nhận. Nhưng trong IELTS Academic Writing, ưu tiên đặt "because" ở mệnh đề phụ phía sau.
+> **Lưu ý:** Because đứng đầu câu là đúng, miễn câu có đủ mệnh đề chính. Chỉ tránh viết riêng 'Because + mệnh đề.' thành một câu (câu cụt).
 
 ---
 
@@ -230,9 +230,9 @@ Tiếng Việt chỉ có 'vì/bởi vì' cho cả danh từ lẫn mệnh đề, 
 - ✅ The flight was cancelled **due to** the severe storm.
 - ✅ The flight was cancelled **because** the storm was severe.
 
-### Lỗi 4: "Because of" + verb-ing (gerund — được chấp nhận)
+### Lưu ý: because of + V-ing
 
-- ✅ He succeeded **because of** working hard. (gerund — acceptable nhưng nghe cứng)
+- ✅ He succeeded **because of** working hard. (đúng ngữ pháp nhưng hơi cứng)
 - ✅ He succeeded **because of** his hard work. (noun phrase — tự nhiên hơn)
 - ✅ He succeeded **because** he worked hard. (clause — thông dụng nhất)
 
@@ -245,8 +245,8 @@ Tiếng Việt chỉ có 'vì/bởi vì' cho cả danh từ lẫn mệnh đề, 
 
 - Nếu đề có dữ kiện xác nhận nguyên nhân: Sales increased **because** online shopping **became** more popular. Nếu biểu đồ chỉ cho xu hướng: Sales increased.
 - The decline in public transport use was partly **due to** rising fares.
-- Figures fell in 2008, **because of** the global financial crisis.
-- **Because** the population **grew** rapidly, demand for housing increased.
+- Figures fell in 2008 **because of** the global financial crisis *(chỉ viết khi đề bài cho thông tin này)*
+- **Because** the population **grew** rapidly, demand for housing increased. *(chỉ viết khi đề bài cho thông tin này)*
 
 ### Writing Task 2 — phân tích nguyên nhân:
 
