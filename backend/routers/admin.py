@@ -44,7 +44,7 @@ from services.student_service import student_archived_error
 from services.access_code_gen import (
     generate_access_code, insert_one_with_unique_code, insert_with_unique_codes,
 )
-from services import activation_gate
+from services import staff_guard
 from services import speaking_question_audio as speaking_audio
 from services.recording_audio import attach_playback_urls, recording_path
 from services import admin_reading_dashboard
@@ -84,60 +84,29 @@ _db_engine: AsyncEngine | None = (
 
 # ── Auth guard ─────────────────────────────────────────────────────────────────
 
-async def require_admin(authorization: str | None) -> dict:
-    """Verify Bearer token and assert role=admin. Returns the Supabase auth dict."""
-    auth_user = await get_supabase_user(authorization)
-    user_id   = auth_user["id"]
-
-    try:
-        r = (
-            supabase_admin.table("users")
-            .select("role")
-            .eq("id", user_id)
-            .limit(1)
-            .execute()
-        )
-    except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi kiểm tra quyền: {exc}")
-
-    if not r.data or r.data[0].get("role") != "admin":
-        raise HTTPException(403, "Bạn không có quyền truy cập trang này")
-
-    # Q-13 — a staff role does not replace activation: the learner gate skips
-    # staff paths, so this guard owns the users.is_active check for them.
-    activation_gate.ensure_account_active(user_id)
-    return auth_user
+async def require_admin(authorization: str | None, *, allow_aal1: bool = False) -> dict:
+    """Verify Bearer token and assert an active admin with a satisfied second
+    factor (ADMINAAL2-0032, services/staff_guard.py). Returns the Supabase auth
+    dict. ``allow_aal1`` is honoured only on staff_guard.AAL1_ALLOWED_ADMIN_ROUTES."""
+    return await staff_guard.resolve_staff(
+        authorization, need="admin", get_user=get_supabase_user, db=supabase_admin,
+        allow_aal1=allow_aal1,
+    )
 
 
 async def require_instructor(authorization: str | None) -> dict:
     """Verify Bearer token and assert role ∈ {instructor, admin} (admin ⊃
-    instructor). Mirrors require_admin — the instructor USER-ROLE guard for the
-    W-2 multi-tenancy surface.
+    instructor) and an active account. A caller whose role is admin must also
+    satisfy the admin second-factor rule (FR-005) — the instructor USER-ROLE
+    guard for the W-2 multi-tenancy surface.
 
     NOTE: distinct from routers/admin_instructor_queue.py's 'instructor review queue'
     (an admin-only GRADING tier that just shares the word). Do NOT retrofit this
     guard onto those endpoints — different meaning of 'instructor'.
     """
-    auth_user = await get_supabase_user(authorization)
-    user_id   = auth_user["id"]
-
-    try:
-        r = (
-            supabase_admin.table("users")
-            .select("role")
-            .eq("id", user_id)
-            .limit(1)
-            .execute()
-        )
-    except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi kiểm tra quyền: {exc}")
-
-    if not r.data or r.data[0].get("role") not in ("instructor", "admin"):
-        raise HTTPException(403, "Bạn không có quyền truy cập trang giảng viên")
-
-    # Q-13 — same activation requirement as require_admin.
-    activation_gate.ensure_account_active(user_id)
-    return auth_user
+    return await staff_guard.resolve_staff(
+        authorization, need="instructor", get_user=get_supabase_user, db=supabase_admin,
+    )
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -3429,6 +3398,8 @@ async def bulk_rotate_topic_questions(
     body: BulkTopicIdsRequest,
     authorization: str | None = Header(default=None),
 ):
+    # ADMINAAL2-0032 — guard before building the delegated request.
+    await require_admin(authorization)
     return await bulk_generate_topic_questions(
         BulkGenerateTopicsRequest(topic_ids=body.topic_ids, mode="replace_all"),
         authorization=authorization,
