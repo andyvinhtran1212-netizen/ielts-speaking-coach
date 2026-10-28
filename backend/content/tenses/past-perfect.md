@@ -183,7 +183,7 @@ If + Past Perfect, would have + V3
 
 | | Past Perfect | Present Perfect |
 |--|------------|----------------|
-| **Mốc tham chiếu** | Một thời điểm trong QUÁKHỨ | Hiện tại |
+| **Mốc tham chiếu** | Một thời điểm trong QUÁ KHỨ | Hiện tại |
 | **Ví dụ** | She **had left** before he arrived. | She **has left** — she's not here now. |
 
 ## Lỗi thường gặp
