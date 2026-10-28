@@ -954,6 +954,92 @@ def test_coordinated_wording_claims_about_the_task_question_still_reject(claim):
         assert [span for _, span in err.value.issues] == ["To what extent do you agree or disagree?"]
 
 
+# Codex #1796 (line 219): a coordinated wording verb followed by its own,
+# separately quoted expression (past adverbs, ":"/"(" or a wording label) is
+# about that second quote, not the task question. RT_ESSAY contains
+# "reduce inequality".
+@pytest.mark.parametrize("claim", [
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses 'reduce inequality' accurately.",
+    'The essay answers the question "To what extent do you agree or disagree?" and uses "reduce inequality" accurately.',
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses accurately 'reduce inequality'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses: 'reduce inequality'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses the phrase 'reduce inequality' well.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses accurate collocations such as 'reduce inequality'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses precise collocations (e.g. 'reduce inequality').",
+    "The essay answers the question 'To what extent do you agree or disagree?' and makes good use of 'reduce inequality'.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng 'reduce inequality' chính xác.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?', đồng thời dùng rất chính xác 'reduce inequality'.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng chính xác cụm từ 'reduce inequality'.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng các cụm từ học thuật như 'reduce inequality'.",
+    "Uses 'reduce inequality' accurately and answers the question 'To what extent do you agree or disagree?' directly.",
+    "Dùng chính xác 'reduce inequality' và trả lời đúng câu hỏi 'To what extent do you agree or disagree?'.",
+])
+def test_task_question_reference_survives_a_separately_quoted_object(claim):
+    for result in _task_question_fields(claim):
+        before = result.model_dump()
+        report = rt_validate(result)
+        assert report.dropped == [] and report.warnings == []
+        assert result.model_dump() == before
+
+
+# The second quote is still validated on its own: absent from the essay, or
+# re-quoting the prompt as learner wording, it rejects (and only it).
+@pytest.mark.parametrize("claim, span", [
+    ("The essay answers the question 'To what extent do you agree or disagree?' and uses 'cut inequality' accurately.",
+     "cut inequality"),
+    ("The essay answers the question 'To what extent do you agree or disagree?' and uses 'to what extent' accurately.",
+     "to what extent"),
+    ("The essay answers the question 'To what extent do you agree or disagree?' and uses the phrase 'cut inequality' well.",
+     "cut inequality"),
+    ("Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng 'cut inequality' chính xác.",
+     "cut inequality"),
+    ("Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng các cụm từ học thuật như 'cut inequality'.",
+     "cut inequality"),
+    ("Uses 'cut inequality' accurately and answers the question 'To what extent do you agree or disagree?' directly.",
+     "cut inequality"),
+])
+def test_separately_quoted_object_absent_from_the_essay_still_rejects(claim, span):
+    for result in _task_question_fields(claim):
+        with pytest.raises(UngroundedWritingFeedbackError) as err:
+            rt_validate(result)
+        assert [s for _, s in err.value.issues] == [span]
+
+
+# A second quote that a label relates to the first ("other/similar/the same
+# wording", "question words"), a predicate that still refers back, the quoted
+# list shape, or punctuation in place of an object keep crediting the
+# quoted task question as learner wording.
+@pytest.mark.parametrize("claim", [
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses other phrases like 'reduce inequality'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses similar phrases like 'reduce inequality'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses the same wording as 'reduce inequality'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses question words like 'reduce inequality'.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses 'reduce inequality' to paraphrase it.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses 'reduce inequality' instead of the question wording.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and 'reduce inequality' is used accurately.",
+    "The essay answers the question 'To what extent do you agree or disagree?' and uses — very effectively.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng các cụm từ khác như 'reduce inequality'.",
+    "Em trả lời câu hỏi 'To what extent do you agree or disagree?' và dùng … rất hiệu quả.",
+])
+def test_related_second_quotes_keep_crediting_the_task_question(claim):
+    for result in _task_question_fields(claim):
+        with pytest.raises(UngroundedWritingFeedbackError) as err:
+            rt_validate(result)
+        assert [span for _, span in err.value.issues] == ["To what extent do you agree or disagree?"]
+
+
+# The band-descriptor exemption shares the same clause scope.
+def test_band_descriptor_reference_survives_a_separately_quoted_object():
+    claim = "Các ý dừng ở mức 'stated' theo Band 6 và em dùng 'reduce inequality' chính xác."
+    for criterion in ("lexicalResource", "mainCriterion"):
+        assert rt_validate(rt_feedback(**{criterion: claim})).warnings == []
+    twin = "Các ý dừng ở mức 'stated' theo Band 6 và em dùng 'extended' chính xác."
+    for criterion in ("lexicalResource", "mainCriterion"):
+        with pytest.raises(UngroundedWritingFeedbackError) as err:
+            rt_validate(rt_feedback(**{criterion: twin}))
+        assert [span for _, span in err.value.issues] == ["extended"]
+
+
 @pytest.mark.parametrize("field", ["originalIdea", "location", "current_essay_observation"])
 def test_other_source_only_fields_still_reject_task_question_quotes(field):
     claim = "Em trả lời câu hỏi 'to what extent'."

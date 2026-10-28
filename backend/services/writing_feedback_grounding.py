@@ -215,10 +215,40 @@ _ADVERBS = re.compile(
     r"tốt|rất|khá|hiệu quả|chính xác|hợp lý|tự nhiên|linh hoạt|phù hợp|đúng|lại|khéo|hay|"
     r"hơn|nhất|nữa|cũng|cực kỳ|vô cùng|thật sự|thực sự|thật)\b)+", re.I,
 )
+# Punctuation (a dash, slash or stray mark) is no object either.
 _NO_OBJECT = re.compile(
-    r"\s*(?:$|[\x00,:()]|(?:that|throughout|in|on|at|to|for|with|within|across|when|while|as|"
+    r"\s*(?:$|[^\w\s]|(?:that|throughout|in|on|at|to|for|with|within|across|when|while|as|"
     r"trong|ở|tại|khi|để|cho|với|xuyên suốt|ngay)\b)", re.I,
 )
+# A separately quoted expression right after a wording verb or "use of",
+# past adverbs, ":"/"(" or a wording label with up to two modifiers ("and
+# uses 'reduce inequality' accurately", "và dùng cụm từ 'X'", "accurate
+# collocations such as 'X'"), is that verb's own object (Codex #1796): the
+# predicate is about the second quote, which is validated on its own. A
+# label that relates it to the first quote ("other phrases like 'X'", "the
+# same wording 'X'", "question words") keeps the predicate in scope.
+_MODIFIER = r"[^\W\d_]+(?:-[^\W\d_]+)?"
+_OWN_QUOTE_OBJECT = re.compile(
+    r"(?:" + _WORDING_VERB.pattern + r"|\b(?:use|usage)\s+of\b)(?:" + _ADVERBS.pattern + r")?"
+    r"(?:\s+(?:(?:the|a|an|các|những)\s+)?(?:" + _MODIFIER + r"\s+){0,2}?(?:" + _LEXIS_CLAIM.pattern + r")"
+    r"(?:(?:\s+" + _MODIFIER + r"){0,2}?\s*,?\s+(?:like|such as|including|for example|for instance|"
+    r"như|là|chẳng hạn(?: như)?|ví dụ(?: như)?))?)?\s*[:(]?\s*\x00", re.I,
+)
+_RELATED_LABEL = re.compile(
+    r"\b(?:other|another|similar|related|more|further|additional|"
+    r"khác|tương tự|liên quan|tương đương|thêm)\b", re.I,
+)
+
+
+def _own_quote_objects(text: str) -> str:
+    def own(match: re.Match) -> str:
+        label = re.sub(r"\bsuch as\b", " ", match.group(), flags=re.I)
+        if _BACK_REFERENCE.search(label) or _PROMPT_REFERENCE.search(label) or _RELATED_LABEL.search(label):
+            return match.group()
+        return " \x00"
+    return _OWN_QUOTE_OBJECT.sub(own, text)
+
+
 _NEGATIONS = {"not", "no", "never", "cannot", "nor", "none", "nothing", "neither"}
 _SIBILANT_ENDINGS = ("s", "x", "z", "ch", "sh")
 _NEAR_MISS_GAP = 2
@@ -552,7 +582,7 @@ def _no_object(text: str, pos: int) -> bool:
 
 def _describes_quote(part: str) -> bool:
     """Whether a coordinated predicate can still credit the quote's wording."""
-    plain = _ESSAY_NOUN.sub(" ", part)
+    plain = _own_quote_objects(_ESSAY_NOUN.sub(" ", part))
     if (_USAGE_CLAIM.search(plain) or _LEXIS_CLAIM.search(plain) or _BACK_REFERENCE.search(plain)
             or _PROMPT_REFERENCE.search(plain)):
         return True
