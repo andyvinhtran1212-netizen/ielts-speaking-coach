@@ -4,7 +4,7 @@ import { Suspense } from 'react';
 import { GrammarCheckup } from './grammar-checkup';
 
 export const metadata: Metadata = {
-  title: 'MASTER30 Grammar Check-up — AverLearning',
+  title: 'MASTER30 Grammar Check-up — Aver Learning',
   robots: { index: false, follow: false },
 };
 

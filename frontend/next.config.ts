@@ -115,6 +115,9 @@ const nextConfig: NextConfig = {
       // The review route needs a routeId + session from a report; the bare
       // prefix goes back to the checkup, whose report links each review route.
       { source: '/grammar-checkup/review', destination: '/grammar-checkup', permanent: false },
+      // C-05 / U-09: there is no separate sign-up page; /login is the sign-up
+      // entry (the landing's "Đăng ký" links there). Temporary, as above.
+      { source: '/signup', destination: '/login', permanent: false },
     ];
   },
 

@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import { AssignedGrammarLesson } from './workspace';
 
 export const metadata: Metadata = {
-  title: 'Bài Grammar được giao · AverLearning',
+  title: 'Bài Grammar được giao — Aver Learning',
   robots: { index: false, follow: false },
 };
 
