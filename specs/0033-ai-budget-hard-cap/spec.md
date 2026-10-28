@@ -635,10 +635,10 @@ recommended defaults stand as written. Q10 and Q11 are open.
   one config value `OWNER_ALERT_EMAILS`, the same variable and address as
   ADMINAAL2-0032. It is set as a Railway variable, not in code. The sender
   is `alerts@averlearning.com` through Resend, once the domain's DNS is
-  verified. Gmail SMTP is not used. ADMINAAL2-0032 (#1784) still records
-  the owner address as its own sender. Aligning 0032 is a change to that
-  spec, not made here. This spec's alerts always use
-  `alerts@averlearning.com`.
+  verified. Gmail SMTP is not used. ADMINAAL2-0032 (#1784) records the
+  same: the sender is `alerts@averlearning.com` via Resend after DNS
+  verification, and the recipient is `andyvinhtran1212@gmail.com`. This
+  spec's alerts always use `alerts@averlearning.com`.
 - **Q3: Temporary budget-raise button for admins.** *Decided (09:13,
   bounds set by (e) at 09:35):* **yes, in phase 1**, bounded as FR-022
   specifies:
