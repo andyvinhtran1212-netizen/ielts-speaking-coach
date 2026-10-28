@@ -34,3 +34,11 @@ never restore by deleting history or importing over an owned bank.
 Use existing admin audit/receipt and request-correlation owners. Record exact GA ID,
 code, qid, source hash, operation UUID, readback and environment SHA. A mismatch blocks
 that bank and is reported to user and dot; continue independent authorized corrections.
+
+## Revision 2 follow-ups
+
+Apply migration 339 on staging before the implementation deploy that depends on
+it, and on production before promotion. Publish each follow-up only after its
+environment runs the exact implementation SHA, through admin preview/commit with
+backups and readback. Rollback before publication restores the 314 function
+bodies; after publication, disable new starts on the v3 bank and keep v1/v2.

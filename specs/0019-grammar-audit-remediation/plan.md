@@ -32,3 +32,10 @@ parser/engine submit/drainBatch. Review related lesson summaries, tables, exampl
 and conclusions. Run existing affected suites, real PostgreSQL lifecycle/race tests,
 native browser journeys, exact-SHA CI/staging release checks and production reads.
 The final per-ID ledger is evidence, not a substitute for execution.
+
+## Revision 2
+
+The single LSU follow-up becomes a bounded three-code follow-up lookup shared by
+migration 339 and the backend/admin models. Only the Task 1 and few/little
+explain deltas named in approval-decision.md gain a second cutover; every other
+code keeps one. No new endpoint, table or scoring change.
