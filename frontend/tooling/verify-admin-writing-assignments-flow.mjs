@@ -66,7 +66,7 @@ await page.route('**/*', async (route) => {
   if (path.startsWith('/admin/writing/assignments/') && method === 'DELETE') {
     const id = decodeURIComponent(path.split('/').pop()); deletes.push(id);
     // a-new stands for a give whose draft the list cannot show: the A-08 guard refuses it.
-    if (id === 'a-new') return json({ detail: 'Học viên đã bắt đầu — không xoá được' }, 409);
+    if (id === 'a-new') return json({ detail: 'Học viên đã bắt đầu làm bài nên không xóa được bài giao này.' }, 409);
     rows = rows.filter((row) => row.id !== id); return json({ message: 'Assignment deleted', assignment_id: id });
   }
   if (path.startsWith('/admin/writing/assignments/requests/') && method === 'GET') {
@@ -219,7 +219,7 @@ check('BL-05: xoá gọi DELETE guarded rồi đọc lại danh sách chuẩn', 
 const readsBefore409 = listReads();
 await deleteButton('Buổi kiểm tra').click(); await deleteDialog.waitFor();
 await deleteDialog.getByRole('button', { name: 'Xoá bài giao', exact: true }).click();
-await deleteDialog.getByText('Học viên đã bắt đầu — không xoá được', { exact: true }).waitFor();
+await deleteDialog.getByText('Học viên đã bắt đầu làm bài nên không xóa được bài giao này.', { exact: true }).waitFor();
 check('BL-05: backend 409 hiện trong hộp thoại, bài vẫn còn, danh sách được đọc lại', deletes.at(-1) === 'a-new' && listReads() === readsBefore409 + 1
   && await page.locator('.awa-group').filter({ hasText: 'Buổi kiểm tra' }).count() === 1);
 await deleteDialog.getByRole('button', { name: 'Huỷ' }).click(); await deleteDialog.waitFor({ state: 'hidden' });
