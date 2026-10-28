@@ -17,12 +17,15 @@ fakes that record calls and can be told to fail.
 
 from __future__ import annotations
 
+import asyncio
 import copy
 import uuid
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
+import httpx
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from postgrest.exceptions import APIError
 
@@ -288,12 +291,46 @@ class FakeAuthAdmin:
 
 
 class FakeEngine:
-    """The direct ``postgres`` connection: ``auth.sessions`` per user."""
+    """The direct ``postgres`` connection: ``auth.sessions`` per user, and
+    the per-target transaction advisory lock (one asyncio lock per key, which
+    stands in for PostgreSQL serializing the backend's workers)."""
 
     def __init__(self, sessions=None):
         self.sessions: dict[str, int] = dict(sessions or {})
         self.statements: list[tuple[str, dict]] = []
         self.fail = False
+        self.lock_statements: list[tuple[str, dict]] = []
+        self.lock_fail = False
+        self._locks: dict[str, asyncio.Lock] = {}
+
+    def held(self) -> list[str]:
+        return [k for k, lock in self._locks.items() if lock.locked()]
+
+    async def connect(self):
+        engine = self
+
+        class _LockConn:
+            def __init__(self):
+                self.held: list[asyncio.Lock] = []
+
+            async def begin(self):
+                return self
+
+            async def execute(self, sql, params=None):
+                engine.lock_statements.append((str(sql), dict(params or {})))
+                if engine.lock_fail:
+                    raise RuntimeError("connection refused")
+                if "pg_advisory_xact_lock" in str(sql):
+                    lock = engine._locks.setdefault(params["key"], asyncio.Lock())
+                    await lock.acquire()
+                    self.held.append(lock)
+
+            async def close(self):
+                # Ending the transaction releases its advisory locks.
+                while self.held:
+                    self.held.pop().release()
+
+        return _LockConn()
 
     def begin(self):
         engine = self
@@ -624,6 +661,106 @@ class TestRetry:
         db.fail_tables.add("users")
         assert self._retry(client, INSTRUCTOR).status_code == 503
         assert engine.statements == []
+
+
+# ── Serialization per target (Codex P2 on #1885) ─────────────────────────────
+
+def _overlap(first, second, *, pause_trigger):
+    """Run ``first`` until it has committed its privilege change and is about
+    to revoke (the ban), start ``second`` while it is paused there, then
+    release ``first``. Returns both responses and whether ``second`` was
+    still waiting when ``first`` was released."""
+    app = FastAPI()
+    app.include_router(sec_module.router)
+    guard = AsyncMock(return_value={"id": ADMIN, "email": "admin@example.test"})
+
+    async def scenario():
+        paused, release = asyncio.Event(), asyncio.Event()
+        original = staff_security.revoke_and_record
+
+        async def gated(*args, **kwargs):
+            if kwargs.get("trigger") == pause_trigger and not paused.is_set():
+                paused.set()
+                await release.wait()
+            return await original(*args, **kwargs)
+
+        with patch.object(sec_module, "require_admin", new=guard), \
+                patch.object(staff_security, "revoke_and_record", new=gated):
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(transport=transport, base_url="http://admin.test") as c:
+                a = asyncio.create_task(first(c))
+                await asyncio.wait_for(paused.wait(), 5)
+                b = asyncio.create_task(second(c))
+                done, _ = await asyncio.wait({b}, timeout=0.3)
+                release.set()
+                ra, rb = await asyncio.wait_for(asyncio.gather(a, b), 5)
+        return ra, rb, not done
+
+    return asyncio.run(scenario())
+
+
+def _patch_active(uid, is_active, reason="tài khoản bị lộ mật khẩu"):
+    return lambda c: c.patch(f"/admin/users/{uid}/active",
+                             json={"is_active": is_active, "reason": reason}, headers=AUTH)
+
+
+class TestSerialization:
+    def test_reactivation_waits_for_an_in_flight_suspension(self, db, engine):
+        # Codex: the suspension commits its RPC and pauses before the ban; a
+        # reactivation unbans and clears the marker; the suspension resumes
+        # and bans an active account no route could then unban.
+        sus, rea, waited = _overlap(_patch_active(INSTRUCTOR, False),
+                                    _patch_active(INSTRUCTOR, True, reason="đã đổi mật khẩu"),
+                                    pause_trigger="suspend")
+        assert waited, "the reactivation ran inside the suspension's ban window"
+        assert sus.status_code == 200 and rea.status_code == 200, (sus.text, rea.text)
+        assert sus.json()["sessions_revoked"] is True
+        assert rea.json()["changed"] is True and rea.json()["sign_in_restored"] is True
+        assert db.user(INSTRUCTOR)["is_active"] is True and db.user(INSTRUCTOR)["suspended_at"] is None
+        assert INSTRUCTOR not in db.auth.admin.banned
+        assert [d for _, d in db.auth.admin.calls] == ["876000h", "none"]
+        assert engine.held() == []
+
+    def test_reactivation_waits_for_an_in_flight_retry(self, db, engine):
+        # A retry that read the suspended row must not ban after a
+        # reactivation has unbanned and cleared the marker.
+        db.user(INSTRUCTOR).update(is_active=False, suspended_at="2026-10-29T00:59:00+00:00")
+        db.auth.admin.banned.add(INSTRUCTOR)
+        retry = lambda c: c.post(f"/admin/users/{INSTRUCTOR}/revoke-sessions", json=None, headers=AUTH)  # noqa: E731
+        ret, rea, waited = _overlap(retry, _patch_active(INSTRUCTOR, True), pause_trigger="retry")
+        assert waited, "the reactivation ran inside the retry's ban window"
+        assert ret.json()["sessions_revoked"] is True and rea.json()["sign_in_restored"] is True
+        assert db.user(INSTRUCTOR)["is_active"] is True and INSTRUCTOR not in db.auth.admin.banned
+        assert engine.held() == []
+
+    def test_other_targets_are_not_serialized(self, db, engine):
+        sus, other, waited = _overlap(_patch_active(INSTRUCTOR, False), _patch_active(ADMIN2, False),
+                                      pause_trigger="suspend")
+        assert not waited
+        assert sus.status_code == 200 and other.status_code == 200
+        keys = {p["key"] for sql, p in engine.lock_statements if "pg_advisory_xact_lock" in sql}
+        assert keys == {f"staff-security:{INSTRUCTOR}", f"staff-security:{ADMIN2}"}
+
+    def test_lock_is_a_transaction_lock_with_a_timeout(self, client, engine):
+        assert _active(client, INSTRUCTOR, False).status_code == 200
+        sqls = [sql for sql, _ in engine.lock_statements]
+        assert sqls[0].startswith("SET LOCAL lock_timeout")
+        assert "pg_advisory_xact_lock(hashtextextended(:key, 0))" in sqls[1]
+        assert engine.held() == []
+
+    @pytest.mark.parametrize("call", [
+        lambda c: _active(c, INSTRUCTOR, False),
+        lambda c: _active(c, INSTRUCTOR, True),
+        lambda c: c.post(f"/admin/users/{INSTRUCTOR}/revoke-sessions", json=None, headers=AUTH),
+    ], ids=["suspend", "reactivate", "retry"])
+    def test_lock_failure_is_503_and_changes_nothing(self, client, db, engine, call):
+        db.user(INSTRUCTOR).update(is_active=False, suspended_at="2026-10-29T00:59:00+00:00")
+        engine.lock_fail = True
+        r = call(client)
+        assert r.status_code == 503, r.text
+        assert r.json()["detail"]["error_code"] == "target_busy"
+        assert db.rpc_calls == [] and db.auth.admin.calls == [] and engine.statements == []
+        assert db.audits() == []
 
 
 # ── Role change delegation (FR-007) ──────────────────────────────────────────

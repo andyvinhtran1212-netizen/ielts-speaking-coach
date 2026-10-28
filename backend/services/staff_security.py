@@ -16,6 +16,10 @@ the steps that live outside the database transaction:
   the backend's direct ``DATABASE_URL`` connection (role ``postgres``);
 * reactivation lifts the ban (``ban_duration: "none"``).
 
+The routes hold ``target_lock`` for one target across its database change and
+these GoTrue steps, so an overlapping suspension, reactivation or retry on
+another worker cannot leave the ban out of step with the committed marker.
+
 A failure of either step never undoes the committed change and is never
 silent: the caller reports ``sessions_revoked: false`` / ``sign_in_restored:
 false``, and a revocation failure also writes a ``sessions_revoke_failed``
@@ -26,9 +30,10 @@ from __future__ import annotations
 
 import logging
 import uuid
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from typing import Any, AsyncIterator, Callable, Optional
 
 from fastapi import HTTPException
 from sqlalchemy import text
@@ -51,6 +56,10 @@ REVOKE_SESSION_DELETE_FAILED = "session_delete_failed"
 REVOKE_UNAVAILABLE = "revocation_unavailable"
 
 STAFF_ROLES = ("admin", "instructor")
+
+TARGET_BUSY_MESSAGE = "Đang có thao tác khác trên tài khoản này. Vui lòng thử lại."
+# Waits behind another worker's GoTrue calls; past this the request is a 503.
+TARGET_LOCK_TIMEOUT = "15s"
 
 
 # ── Database error codes ─────────────────────────────────────────────────────
@@ -167,6 +176,51 @@ def removes_staff_privilege(before_role: Optional[str], after_role: Optional[str
     if before_role == "instructor":
         return after_role not in STAFF_ROLES
     return False
+
+
+# ── Per-target serialization ─────────────────────────────────────────────────
+
+@asynccontextmanager
+async def target_lock(engine: Any, user_id: str) -> AsyncIterator[None]:
+    """Serialize suspension, reactivation and revocation retries of one
+    account across backend workers (Codex P2 on #1885). The RPC commits on
+    its own PostgREST connection, so the ban/unban that follows it is outside
+    any row lock: without this, a reactivation could unban and clear the
+    marker between a suspension's commit and its ban, which then strands a
+    ban on an active account. A transaction advisory lock on the direct
+    connection is held until the side effects are done; it is released when
+    the connection's transaction ends, also if the worker dies.
+
+    Without ``DATABASE_URL`` there is nothing to lock on (revocation is then
+    ``revocation_unavailable`` too); that is logged and the call proceeds.
+    Failing to take the lock is a 503 before any change."""
+    if engine is None:
+        logger.error("[staff_security] no DATABASE_URL: changes to user=%s are not serialized", user_id)
+        yield
+        return
+    busy = HTTPException(503, {"error_code": "target_busy", "message": TARGET_BUSY_MESSAGE})
+    try:
+        conn = await engine.connect()
+    except Exception as exc:
+        logger.error("[staff_security] target lock connect failed user=%s: %r", user_id, exc)
+        raise busy from None
+    try:
+        try:
+            await conn.begin()
+            await conn.execute(text(f"SET LOCAL lock_timeout = '{TARGET_LOCK_TIMEOUT}'"))
+            await conn.execute(
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+                {"key": f"staff-security:{user_id}"},
+            )
+        except Exception as exc:
+            logger.error("[staff_security] target lock failed user=%s: %r", user_id, exc)
+            raise busy from None
+        yield
+    finally:
+        try:
+            await conn.close()   # rolls the transaction back, releasing the lock
+        except Exception as exc:
+            logger.warning("[staff_security] target lock release failed user=%s: %r", user_id, exc)
 
 
 # ── Revocation and sign-in ───────────────────────────────────────────────────

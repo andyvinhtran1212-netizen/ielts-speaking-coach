@@ -85,7 +85,9 @@ async def admin_set_staff_active(
     account stays suspended with its role frozen (FR-019), and repeating this
     request retries. A ban can therefore never outlive the marker, which is
     the only state this route can retry from. A repeat of the same request
-    writes no second audit row.
+    writes no second audit row. Requests for the same account are serialized
+    across workers; a lock that cannot be taken is a 503 ``target_busy``
+    before any change.
     """
     admin = await require_admin(authorization)
     target = _target_id(user_id)
@@ -93,67 +95,69 @@ async def admin_set_staff_active(
     if actor == target:
         raise HTTPException(400, "Không thể tự khóa tài khoản của chính mình.")
 
-    db = _db()
-    request_id = current_request_id()
-    sessions_revoked = revoke_error = sign_in_restored = None
-    unbanned = False
-    if payload.is_active:
-        try:
-            current = staff_security.read_privilege_row(db, target)
-        except Exception as exc:
-            logger.error("[staff_security] target read failed target=%s: %r", target, exc)
-            raise HTTPException(
-                503, {"error_code": "lookup_failed", "message": "Không đọc được tài khoản. Vui lòng thử lại."},
-            ) from None
-        if current is None:
-            raise HTTPException(404, "User not found")
-        if current.get("suspended_at"):
-            if not staff_security.restore_sign_in(_auth_admin(), target):
-                return {
-                    "ok": False, "id": target, "is_active": bool(current.get("is_active")),
-                    "suspended_at": current.get("suspended_at"), "changed": False,
-                    "audit_id": None, "sessions_revoked": None, "revoke_error": None,
-                    "sign_in_restored": False,
-                }
-            unbanned = sign_in_restored = True
-    try:
-        change = staff_security.set_staff_privilege(
-            db, actor_id=actor, target_id=target, is_active=payload.is_active,
-            reason=payload.reason.strip(), request_id=request_id,
-        )
-    except HTTPException:
-        if unbanned:
-            # The marker still stands; put the ban back (best effort — the
-            # account is inactive and suspended, so every surface denies it).
+    # Held across the RPC and the GoTrue calls (services.staff_security.target_lock).
+    async with staff_security.target_lock(admin_module._db_engine, target):
+        db = _db()
+        request_id = current_request_id()
+        sessions_revoked = revoke_error = sign_in_restored = None
+        unbanned = False
+        if payload.is_active:
             try:
-                staff_security.set_auth_ban(_auth_admin(), target, banned=True)
+                current = staff_security.read_privilege_row(db, target)
             except Exception as exc:
-                logger.error("[staff_security] re-ban after refused reactivation failed target=%s: %r",
-                             target, exc)
-        raise
+                logger.error("[staff_security] target read failed target=%s: %r", target, exc)
+                raise HTTPException(
+                    503, {"error_code": "lookup_failed", "message": "Không đọc được tài khoản. Vui lòng thử lại."},
+                ) from None
+            if current is None:
+                raise HTTPException(404, "User not found")
+            if current.get("suspended_at"):
+                if not staff_security.restore_sign_in(_auth_admin(), target):
+                    return {
+                        "ok": False, "id": target, "is_active": bool(current.get("is_active")),
+                        "suspended_at": current.get("suspended_at"), "changed": False,
+                        "audit_id": None, "sessions_revoked": None, "revoke_error": None,
+                        "sign_in_restored": False,
+                    }
+                unbanned = sign_in_restored = True
+        try:
+            change = staff_security.set_staff_privilege(
+                db, actor_id=actor, target_id=target, is_active=payload.is_active,
+                reason=payload.reason.strip(), request_id=request_id,
+            )
+        except HTTPException:
+            if unbanned:
+                # The marker still stands; put the ban back (best effort — the
+                # account is inactive and suspended, so every surface denies it).
+                try:
+                    staff_security.set_auth_ban(_auth_admin(), target, banned=True)
+                except Exception as exc:
+                    logger.error("[staff_security] re-ban after refused reactivation failed target=%s: %r",
+                                 target, exc)
+            raise
 
-    if change.suspended:
-        # Also on a repeat: the revocation is idempotent and a repeat is how
-        # a caller re-asserts the suspension's ban (research.md §9.2).
-        outcome, _ = await staff_security.revoke_and_record(
-            db, target_id=target, actor_id=actor, ban=True, trigger="suspend",
-            engine=admin_module._db_engine, auth_admin=_auth_admin(),
-            reason=payload.reason.strip(), request_id=request_id,
-        )
-        sessions_revoked, revoke_error = outcome.sessions_revoked, outcome.revoke_error
+        if change.suspended:
+            # Also on a repeat: the revocation is idempotent and a repeat is how
+            # a caller re-asserts the suspension's ban (research.md §9.2).
+            outcome, _ = await staff_security.revoke_and_record(
+                db, target_id=target, actor_id=actor, ban=True, trigger="suspend",
+                engine=admin_module._db_engine, auth_admin=_auth_admin(),
+                reason=payload.reason.strip(), request_id=request_id,
+            )
+            sessions_revoked, revoke_error = outcome.sessions_revoked, outcome.revoke_error
 
-    after = change.after or {}
-    return {
-        "ok": True,
-        "id": target,
-        "is_active": bool(after.get("is_active")),
-        "suspended_at": after.get("suspended_at"),
-        "changed": change.changed,
-        "audit_id": change.audit_id,
-        "sessions_revoked": sessions_revoked,
-        "revoke_error": revoke_error,
-        "sign_in_restored": sign_in_restored,
-    }
+        after = change.after or {}
+        return {
+            "ok": True,
+            "id": target,
+            "is_active": bool(after.get("is_active")),
+            "suspended_at": after.get("suspended_at"),
+            "changed": change.changed,
+            "audit_id": change.audit_id,
+            "sessions_revoked": sessions_revoked,
+            "revoke_error": revoke_error,
+            "sign_in_restored": sign_in_restored,
+        }
 
 
 @router.post("/users/{user_id}/revoke-sessions", response_model=RevokeSessionsOut)
@@ -164,34 +168,37 @@ async def admin_revoke_staff_sessions(
 ):
     """Retry a revocation (FR-008). The mode comes from the committed row at
     retry time: ban + delete while the account is suspended, delete only
-    otherwise (a demoted or reactivated account is never re-banned). Every
+    otherwise (a demoted or reactivated account is never re-banned). It is
+    serialized with suspension and reactivation of the same account. Every
     attempt is audited; a failure also alerts the owner."""
     admin = await require_admin(authorization)
     target = _target_id(user_id)
     actor = _actor(admin)
-    db = _db()
-    try:
-        row = staff_security.read_privilege_row(db, target)
-    except Exception as exc:
-        logger.error("[staff_security] target read failed target=%s: %r", target, exc)
-        raise HTTPException(
-            503, {"error_code": "lookup_failed", "message": "Không đọc được tài khoản. Vui lòng thử lại."},
-        ) from None
-    if row is None:
-        raise HTTPException(404, "User not found")
+    # The row is read under the lock, so the ban mode cannot go stale.
+    async with staff_security.target_lock(admin_module._db_engine, target):
+        db = _db()
+        try:
+            row = staff_security.read_privilege_row(db, target)
+        except Exception as exc:
+            logger.error("[staff_security] target read failed target=%s: %r", target, exc)
+            raise HTTPException(
+                503, {"error_code": "lookup_failed", "message": "Không đọc được tài khoản. Vui lòng thử lại."},
+            ) from None
+        if row is None:
+            raise HTTPException(404, "User not found")
 
-    reason = ((payload.reason or "").strip() or None) if payload else None
-    outcome, audit_id = await staff_security.revoke_and_record(
-        db, target_id=target, actor_id=actor, ban=bool(row.get("suspended_at")),
-        trigger="retry", engine=admin_module._db_engine, auth_admin=_auth_admin(),
-        reason=reason, request_id=current_request_id(), record_success=True,
-    )
-    return {
-        "ok": outcome.sessions_revoked,
-        "sessions_revoked": outcome.sessions_revoked,
-        "revoke_error": outcome.revoke_error,
-        "audit_id": audit_id,
-    }
+        reason = ((payload.reason or "").strip() or None) if payload else None
+        outcome, audit_id = await staff_security.revoke_and_record(
+            db, target_id=target, actor_id=actor, ban=bool(row.get("suspended_at")),
+            trigger="retry", engine=admin_module._db_engine, auth_admin=_auth_admin(),
+            reason=reason, request_id=current_request_id(), record_success=True,
+        )
+        return {
+            "ok": outcome.sessions_revoked,
+            "sessions_revoked": outcome.sessions_revoked,
+            "revoke_error": outcome.revoke_error,
+            "audit_id": audit_id,
+        }
 
 
 @router.get("/users/{user_id}/security-audit", response_model=SecurityAuditOut)

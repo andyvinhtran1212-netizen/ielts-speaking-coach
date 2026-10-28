@@ -1698,7 +1698,9 @@ export interface paths {
          *     account stays suspended with its role frozen (FR-019), and repeating this
          *     request retries. A ban can therefore never outlive the marker, which is
          *     the only state this route can retry from. A repeat of the same request
-         *     writes no second audit row.
+         *     writes no second audit row. Requests for the same account are serialized
+         *     across workers; a lock that cannot be taken is a 503 ``target_busy``
+         *     before any change.
          */
         patch: operations["admin_set_staff_active_admin_users__user_id__active_patch"];
         trace?: never;
@@ -1716,7 +1718,8 @@ export interface paths {
          * Admin Revoke Staff Sessions
          * @description Retry a revocation (FR-008). The mode comes from the committed row at
          *     retry time: ban + delete while the account is suspended, delete only
-         *     otherwise (a demoted or reactivated account is never re-banned). Every
+         *     otherwise (a demoted or reactivated account is never re-banned). It is
+         *     serialized with suspension and reactivation of the same account. Every
          *     attempt is audited; a failure also alerts the owner.
          */
         post: operations["admin_revoke_staff_sessions_admin_users__user_id__revoke_sessions_post"];
