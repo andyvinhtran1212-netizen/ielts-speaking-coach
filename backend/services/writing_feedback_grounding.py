@@ -69,6 +69,8 @@ _PROPOSAL = re.compile(
     r"chưa giới thiệu(?: rõ)?\s+(?:nhóm|danh mục)|"
     r"cần\s+(?:dùng|sử dụng|thêm|bổ sung|viết|giải thích|nêu|định danh|gọi tên)|"
     r"chưa dùng|chưa sử dụng|không dùng|không sử dụng|thiếu|"
+    r"ít\s+(?:dùng|sử dụng)\s+(?:các\s+|những\s+)?(?:từ|cụm(?: từ)?)\s+(?:thay thế|đồng nghĩa)|"
+    r"(?:tự nhiên|chính xác|học thuật) hơn(?=\s*[:：])|more (?:natural|precise|idiomatic)(?=\s*[:：])|"
     r"could|should|need(?:s)? to (?:use|add|explain)|consider|suggest|replace\b[^.!?;]*?\bwith|instead use|"
     r"does not use|did not use|doesn't use|missing)\b", re.I
 )
@@ -87,7 +89,7 @@ _CONTINUATION = re.compile(
 _PEDAGOGICAL_QUESTION = re.compile(
     r"(?:trả lời|giải thích|làm rõ|answer|explain)\s*(?:được\s*)?"
     r"(?:(?:câu hỏi|the question)\s*)?[:：]?\s*$|"
-    r"(?:câu hỏi|the question)\s*[:：]?\s*$", re.I,
+    r"(?:câu hỏi|the question)\s*[:：]?\s*$|(?:bước|step)\s*$", re.I,
 )
 _QUESTION_LABELS = {"như thế nào", "tại sao", "vì sao", "cụ thể", "how", "why", "so what"}
 _EXAMPLE_LABEL = re.compile(
@@ -99,28 +101,57 @@ _SUGGESTION_LABEL = re.compile(
     r"proposed (?:example|wording|revision))\s*[:：]\s*"
     r"(?:(?:,|/|or\b|and\b)\s*)*", re.I,
 )
-_GRAMMAR_CONTEXT = re.compile(r"\b(?:mẫu câu|cấu trúc|mệnh đề|liên từ)\b", re.I)
+_GRAMMAR_CONTEXT = re.compile(r"\b(?:mẫu câu|cấu trúc|mệnh đề|liên từ|câu chẻ|đảo ngữ|cleft|inversion)\b",
+                              re.I)
+# "vd." / "e.g." do not end the clause that introduces an example
+# ("Cần thêm từ vựng ít phổ biến hơn (vd. 'alleviate')").
+_ABBREVIATION = re.compile(r"\b(?:vd|e\.g|i\.e)\.", re.I)
 _GRAMMAR_NOTATION = re.compile(r"\b(?:[SVXYZ]|V(?:-?ing|inf|[123])|NP|Adj|Adv)\b|\S\s*\+\s*\S")
 _TASK_LABEL = re.compile(
     r"\b(?:nhóm(?: không tên| tần suất| danh mục)?|tần suất|danh mục)\s*\(?\s*$", re.I,
 )
 # Naming a concept or technical term right before the quote ("hiện tượng
 # 'induced demand'", "thuật ngữ chuyên môn như 'social mobility'") introduces
-# reference language. Only listed qualifiers may intervene, so a usage claim
+# reference language, as does naming it ("có tên gọi là 'induced demand'").
+# Only listed qualifiers may intervene, so a usage claim
 # such as "hiện tượng lặp từ 'X'" (repeats X) is still checked.
 _TERM_LABEL = re.compile(
-    r"\b(?:thuật ngữ|khái niệm|hiện tượng|term|concept|phenomenon)"
+    r"\b(?:thuật ngữ|khái niệm|hiện tượng|term|concept|phenomenon|"
+    r"có tên(?: gọi)? là|được gọi là|known as)"
     r"(?:\s+(?:chuyên môn|học thuật|quy hoạch|đô thị|kinh tế|xã hội|kinh điển|này|đó|"
     r"như|là|gọi là|hoặc|hay|và|technical|academic|this|such as|like|called|known as|or|and)"
     r"|\s*,|\s*\([^()]*\))*\s*\(?\s*$", re.I,
 )
-# Absence right before the quote ("đoạn 2 lại không có 'Firstly'").
+# Absence right before the quote ("đoạn 2 lại không có 'Firstly'"), including
+# not overusing it ("không bị lạm dụng 'Firstly/Secondly'", "không lạm dụng từ
+# nối kiểu cơ học như 'Firstly'"); a usage verb in between ends the absence.
 _ABSENCE = re.compile(
-    r"(?:\b(?:không|chưa)\s+có|\b(?:lacks?|lacking|without))(?:\s+(?:từ|cụm từ|câu|the word|the phrase))?\s*$",
+    r"(?:\b(?:không|chưa)\s+(?:có|(?:bị\s+)?lạm dụng)|\b(?:lacks?|lacking|without)|"
+    r"\b(?:không|chưa)\s+(?:bị\s+)?lạm dụng(?:\s+(?!(?:dùng|sử dụng|viết)\b)[^\s,;:.!?]+){1,6}?\s+như|"
+    r"\b(?:avoids?|avoided|without)\s+overusing|\b(?:does not|doesn't|did not|didn't)\s+overuse)"
+    r"(?:\s+(?:từ|cụm từ|câu|the word|the phrase))?\s*$",
+    re.I,
+)
+# IELTS band-descriptor wording names a rubric level, not learner language:
+# "các ý dừng ở mức 'stated'", "Band 7+ cần ý được 'extended and supported'",
+# "mới ở mức 'relevant but underdeveloped'" (PC-J03 staging repro: 10 of 29
+# failed citations). Every quoted word must be rubric vocabulary, one of them a
+# development term; the sentence must name a band or the rubric; and usage
+# claims ("Em dùng 'extended'") and source-only fields never qualify.
+_DESCRIPTOR_CORE = frozenset({"stated", "extend", "extended", "supported", "developed",
+                              "underdeveloped"})
+_DESCRIPTOR_WORDS = _DESCRIPTOR_CORE | {
+    "relevant", "fully", "well", "adequately", "inadequately", "sufficiently",
+    "insufficiently", "partially", "not", "and", "but", "or",
+}
+_DESCRIPTOR_CONTEXT = re.compile(
+    r"\b(?:band\s*\d|band descriptors?|descriptors?|mức|tiêu chí|người chấm|giám khảo|examiners?)\b",
     re.I,
 )
 # A quoted mention of the task question ("câu hỏi 'To what extent ...'").
-_PROMPT_REFERENCE = re.compile(r"\b(?:câu hỏi|đề bài|chủ đề|yêu cầu|question|prompt|task)\b", re.I)
+_PROMPT_REFERENCE = re.compile(
+    r"\b(?:câu hỏi|đề bài|chủ đề|yêu cầu|trả lời|question|prompt|task|answer(?:s|ed)?)\b", re.I,
+)
 # Usage claims that _ATTRIBUTION does not name: nominal or possessive use
 # ("your use of the term", "việc sử dụng thuật ngữ") and naming verbs with a
 # learner subject ("em gọi hiện tượng này"). They disable reference exemptions.
@@ -177,11 +208,17 @@ def _tokens(text: str) -> list[str]:
     return re.findall(r"\w+(?:'\w+)*", text)
 
 
+# Subject-verb agreement forms of the same auxiliary ("is likely" for the
+# essay's "are likely"). Tense changes such as 'was'/'is' stay different.
+_AGREEMENT_PAIRS = {frozenset(p) for p in (("is", "are"), ("was", "were"), ("has", "have"), ("does", "do"))}
+
+
 def _same_word(a: str, b: str) -> bool:
     """Equal, or the same word with/without a plural or third-person -s:
-    'reduce'/'reduces', 'bus'/'buses', 'city'/'cities'. No ending is stripped,
-    so 'plan'/'plane' or 'car'/'care' stay different words (Codex #1729)."""
-    if a == b:
+    'reduce'/'reduces', 'bus'/'buses', 'city'/'cities', 'is'/'are'. No ending
+    is stripped, so 'plan'/'plane' or 'car'/'care' stay different words
+    (Codex #1729)."""
+    if a == b or frozenset((a, b)) in _AGREEMENT_PAIRS:
         return True
     short, long_ = sorted((a, b), key=len)
     if len(short) < 3:
@@ -487,7 +524,7 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
                 continue
             preceding = text[:match.start()]
             masked_prefix = _QUOTES.sub("", preceding)
-            prefix = re.split(r"[.!?;\n]", masked_prefix)[-1]
+            prefix = re.split(r"[.!?;\n]", _ABBREVIATION.sub(" ", masked_prefix))[-1]
             # Abstract grammar notation is a structural description, not a
             # verbatim citation, including in strengths/current observations.
             # Strict source excerpts, original ideas and locations never opt in.
@@ -526,10 +563,14 @@ def validate_writing_grounding(feedback, essay_text: str, *, task_type: str | No
                     continue
                 if _TERM_LABEL.search(prefix):
                     continue
-            # A Vietnamese paraphrase of an idea ("Em nêu rằng 'khuyến khích
-            # ...'") is not a wording claim; "em đã dùng 'quay lại'" is.
             sentence = (re.split(r"[.!?;\n]", preceding)[-1]
                         + re.split(r"[.!?;\n]", text[match.start():])[0])
+            words = set(_tokens(_normalize(excerpt)))
+            if (not claims_usage and words & _DESCRIPTOR_CORE and words <= _DESCRIPTOR_WORDS
+                    and _DESCRIPTOR_CONTEXT.search(_QUOTES.sub("", sentence))):
+                continue
+            # A Vietnamese paraphrase of an idea ("Em nêu rằng 'khuyến khích
+            # ...'") is not a wording claim; "em đã dùng 'quay lại'" is.
             if (_vietnamese_quote(excerpt, sentence) and not _USAGE_CLAIM.search(prefix)
                     and not any(_WORDING_VERB.search(m.group()) for m in attributions)):
                 continue

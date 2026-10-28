@@ -633,6 +633,7 @@ def test_reference_language_in_free_text_is_not_an_essay_citation(claim):
     "Cách em dùng khái niệm 'induced demand' rất chính xác.",
     "Việc sử dụng 'trợ cấp' thể hiện vốn từ học thuật.",
     "Your use of the question wording 'make public transport free' is apt.",
+    "Em trả lời câu hỏi bằng cách dùng 'make public transport free'.",
 ])
 def test_reference_exemptions_never_cover_learner_wording_claims(claim):
     prompt = RT_PROMPT + " Some say governments should make public transport free."
@@ -720,6 +721,97 @@ def test_strict_fields_never_use_near_miss():
     result = rt_feedback(mistakeAnalysis=[mistake("reduces inequality")])
     with pytest.raises(UngroundedWritingFeedbackError):
         rt_validate(result)
+
+
+# PC-J03 staging repro (2026-10-28, Sonnet 5.5 on the 8 post-#1729 essays):
+# 21 of 29 failed citations were rubric, absence, suggestion or grammar
+# references, not essay quotes.
+@pytest.mark.parametrize("claim", [
+    "Tuy nhiên, các ý chủ yếu dừng ở mức 'stated', chưa 'extended' đầy đủ.",
+    "Vì vậy Task Response chưa đạt mức 'extended and supported' của Band 7.",
+    "Band 7+ cần ý được 'extended and supported', không chỉ khẳng định.",
+    "Band 7+ cần ý được 'extended', tức có thêm bước 'vì thế dẫn đến điều gì'.",
+    "Đây là chỗ cần 'extend' ý để đạt band 8.",
+    "Người chấm sẽ coi đây là ý 'stated' thay vì 'extended'.",
+    "Ideas are 'relevant, extended and supported' only at Band 8.",
+    "Liên kết dùng linh hoạt, không lạm dụng 'Firstly/Secondly'.",
+    "Em dùng liên kết như 'It helps', khá tự nhiên, không bị lạm dụng 'Firstly/Secondly'.",
+    "The essay avoids overusing 'Firstly'.",
+    "Band 7 đòi hỏi ý được 'extended and supported', còn bài này mới ở mức 'relevant but underdeveloped' nên dừng ở band 6.",
+    "Em cũng lặp 'public transport' nhiều lần mà ít dùng từ thay thế như 'mass transit', 'rail and bus networks'.",
+    "Cần thêm từ vựng ít phổ biến hơn (vd. 'alleviate', 'mitigate', 'urban sprawl') để lên Band 7.5.",
+    "Thử thêm phân từ, câu chẻ ('It is X that...') hoặc đảo ngữ để tăng độ linh hoạt.",
+    "Hiện tượng em mô tả (đường mới kéo theo nhu cầu lái xe) có tên gọi là 'induced demand'.",
+    "Em trả lời đúng trọng tâm 'to what extent' với lập trường rõ.",
+    "Em nối được ý, nhưng bước 'So what?' còn ngắn.",
+    "Một vài chỗ chưa tự nhiên như 'It helps' (tự nhiên hơn: 'give higher priority' hoặc 'prioritise').",
+    "Em không lạm dụng từ nối kiểu cơ học như 'Firstly... Secondly...', đây là điểm cộng.",
+])
+def test_band_descriptor_and_overuse_references_are_not_essay_citations(claim):
+    result = rt_feedback(mainCriterion=claim, coherenceCohesion=claim, ideaDevelopmentAnalysis=[idea(claim)])
+    before = result.model_dump()
+    report = rt_validate(result)
+    assert report.dropped == [] and report.warnings == []
+    assert result.model_dump() == before
+
+
+@pytest.mark.parametrize("claim", [
+    "Em dùng từ 'extended' rất chính xác ở mức band 7.",          # usage claim
+    "Your use of 'supported' fits the Band 7 descriptor.",          # nominal usage claim
+    "Ý của em 'extended' rất tốt.",                                 # no band/rubric context
+    "Vốn từ ở mức band 7 với 'subsidies'.",                         # not a descriptor term
+    "Ở mức band 7, 'extended and supported by subsidies' là đúng.",  # term plus new words
+    "Em lạm dụng 'Firstly' ở mọi đoạn.",                            # overuse claims usage
+    "Em không lạm dụng 'Firstly', nhưng dùng 'subsidies' rất tốt.",  # absence covers one quote only
+    "Ở mức band 7, ý 'relevant and subsidised' là đủ.",              # non-rubric word in the quote
+    "Bài ở mức 'relevant' của band 6.",                              # no development term
+    "Em dùng từ đồng nghĩa 'subsidies' tốt.",                        # synonym praise, not a lack
+    "Em ít dùng 'subsidies'.",                                       # "rarely uses" claims some use
+    "Từ vựng tốt (vd. 'subsidies').",                                # "vd." is not a proposal
+    "Câu chẻ của em 'It is subsidies that help' rất hay.",          # no grammar notation
+    "Từ em dùng được gọi là 'subsidies'.",                           # naming with a usage claim
+    "Em không lạm dụng từ nối mà dùng từ như 'subsidies'.",         # usage verb ends the absence
+    "Em dùng 'subsidies' (tự nhiên hơn: 'grants').",                 # the quote before the label
+    "Em trả lời rõ, bước 'subsidies' hay.",                          # "bước" covers question labels only
+    # Repro 72c07a2a / f02739d9: praised topic word absent from the essay.
+    "Vốn từ đúng chủ đề: 'reduce inequality', 'transferable' hợp ngữ cảnh.",
+])
+def test_band_descriptor_and_overuse_exemptions_never_cover_usage_claims(claim):
+    with pytest.raises(UngroundedWritingFeedbackError):
+        rt_validate(rt_feedback(lexicalResource=claim))
+
+
+def test_band_descriptor_terms_stay_unsupported_in_source_only_fields():
+    claim = "Ý được 'extended and supported' ở mức Band 7."
+    result = rt_feedback(keyTakeaways={"strengths": [claim], "areasForImprovement": ["Cần ví dụ."]})
+    with pytest.raises(UngroundedWritingFeedbackError) as err:
+        rt_validate(result)
+    assert [p for p, _ in err.value.issues] == ["keyTakeaways.strengths[0]"]
+
+
+def test_near_miss_accepts_auxiliary_agreement_but_not_tense():
+    essay = "Companies that adopt this model are likely to have happier and more productive employees."
+    claim = "Cách diễn đạt hơi dài dòng ('is likely to have happier and more productive employees')."
+    report = validate_writing_grounding(rt_feedback(lexicalResource=claim), essay)
+    assert report.warnings == ["criteriaFeedback.lexicalResource.feedback"]
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(
+            rt_feedback(lexicalResource="Em dùng 'were likely to have happier employees'."), essay)
+    # Strict originals keep the learner's verb form exactly.
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(
+            rt_feedback(mistakeAnalysis=[mistake("this model is likely to have")]), essay)
+
+
+@pytest.mark.parametrize("essay,claim", [
+    # Repro a4eeb1b4: "brings greater environmental, economic and social benefits".
+    (RT_ESSAY, "Có một số collocation tốt như 'give priority to' và 'bring benefits'."),
+    # Repro a915f0f8: the essay says "gives these groups access to jobs".
+    ("Public transport gives these groups access to jobs.", "Cụm 'give them access to jobs' khá an toàn."),
+])
+def test_repro_real_misquotes_in_criterion_feedback_still_reject(essay, claim):
+    with pytest.raises(UngroundedWritingFeedbackError):
+        validate_writing_grounding(rt_feedback(lexicalResource=claim), essay)
 
 
 def test_degradation_drops_only_the_bad_list_items_and_reports_paths():
