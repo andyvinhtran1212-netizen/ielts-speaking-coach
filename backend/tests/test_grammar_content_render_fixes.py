@@ -41,6 +41,14 @@ def test_strikethrough_renders_del_and_keeps_inner_emphasis():
     assert "<code>~~x~~</code>" in _render("`~~x~~`")
 
 
+def test_strikethrough_leaves_code_blocks_and_tilde_fences_alone():
+    # `~~~` opens a fenced code block, not an empty strikethrough.
+    tilde_fence = _render("~~~\n~~x~~ stays ~~~literal\n~~~")
+    assert tilde_fence == "<pre><code>~~x~~ stays ~~~literal\n</code></pre>"
+    assert "<del>" not in _render("```text\n~~x~~\n```")
+    assert "<del>" not in _render("    ~~indented~~")
+
+
 def test_no_article_shows_literal_strikethrough_markers():
     leaks = [slug for slug, a in grammar_service.articles_by_slug.items()
              if "~~" in _visible_text(a["html"])]

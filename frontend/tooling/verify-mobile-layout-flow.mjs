@@ -6,6 +6,11 @@
 // U-08: the solid teal CTAs ("Dùng thử miễn phí", "Luyện Speaking ngay") had
 //       their white text remapped to the theme text colour — near-black on
 //       teal in the light theme.
+// PC-J13A: the "Kiểm tra nhanh" sub-line (#exercise-cta-sub) and the
+//       /grammar/exercises intro used text-white/45, which had no theme mapping
+//       and painted fixed white (1.06:1 on the light page).
+// PC-J13B: at 1280×800 the guest CTA bar covered "Bài trước / Bài tiếp" —
+//       the room reserved for it was phone-only.
 // U-18: /profile at 360–390px — band chips overflowed their card, the email
 //       was cut off with an ellipsis, and the "Đã lưu" toast text sat in the
 //       DOM before anything was saved.
@@ -43,8 +48,8 @@ async function launch() {
   }
 }
 
-async function newPage(browser, { width, theme, signedIn }) {
-  const context = await browser.newContext({ viewport: { width, height: 844 }, bypassCSP: true });
+async function newPage(browser, { width, height = 844, theme, signedIn }) {
+  const context = await browser.newContext({ viewport: { width, height }, bypassCSP: true });
   const session = signedIn
     ? `{ access_token: 'fixture-token', user: { id: '${USER}', email: '${LONG_EMAIL}' } }`
     : 'null';
@@ -82,6 +87,9 @@ window.__AVER_SUPABASE_CLIENT__ = { auth: {
     };
     if (url.pathname === '/auth/me' || url.pathname === '/auth/profile') return json(profile);
     if (url.pathname === '/auth/check-active') return json({ is_active: true });
+    if (/^\/api\/grammar\/article\/[^/]+\/[^/]+\/exercise$/.test(url.pathname)) {
+      return json({ available: true, bank_id: 'fixture-bank', questions: 12 });
+    }
     return json({});
   });
   return context.newPage();
@@ -107,6 +115,54 @@ function contrastOf(page, selector) {
     const bg = lum(parse(style.backgroundColor));
     return (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05);
   });
+}
+
+// Same ratio for text on a translucent stack (e.g. #exercise-cta-sub on the
+// bg-teal/[0.06] card over the page): composite the ancestors' fills first.
+function textContrastOf(page, selector) {
+  return page.$eval(selector, (el) => {
+    const rgba = (value) => {
+      const probe = document.createElement('span');
+      probe.style.color = value;
+      document.body.appendChild(probe);
+      const n = getComputedStyle(probe).color.match(/[\d.]+/g).map(Number);
+      probe.remove();
+      return n.length === 3 ? [...n, 1] : n;
+    };
+    const over = ([r, g, b, a], [R, G, B]) => [r * a + R * (1 - a), g * a + G * (1 - a), b * a + B * (1 - a)];
+    const fills = [];
+    for (let node = el; node; node = node.parentElement) {
+      const fill = rgba(getComputedStyle(node).backgroundColor);
+      if (fill[3] > 0) fills.push(fill);
+      if (fill[3] >= 1) break;
+    }
+    let bg = [255, 255, 255];
+    for (const fill of fills.reverse()) bg = over(fill, bg);
+    const fg = over(rgba(getComputedStyle(el).color), bg);
+    const lum = ([r, g, b]) => {
+      const c = [r, g, b].map((v) => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; });
+      return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    };
+    const [a, b] = [lum(fg), lum(bg)];
+    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  });
+}
+
+async function checkExerciseCta(page, tag) {
+  await page.locator('#exercise-cta:not(.hidden)').waitFor({ timeout: 15_000 });
+  const ratio = await textContrastOf(page, '#exercise-cta-sub');
+  check(`${tag} "Kiểm tra nhanh" sub-line contrast ≥ 4.5`, ratio >= 4.5, ratio.toFixed(2));
+}
+
+async function checkTailClearsBar(page, tag) {
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  const tail = await page.evaluate(() => {
+    const bar = document.getElementById('guest-cta-bar').getBoundingClientRect();
+    const last = document.getElementById('prev-next').getBoundingClientRect();
+    return { lastBottom: Math.round(last.bottom), barTop: Math.round(bar.top), barHeight: Math.round(bar.height) };
+  });
+  check(`${tag} last article links clear the CTA bar`, tail.lastBottom <= tail.barTop,
+    `prev/next bottom ${tail.lastBottom}px, bar top ${tail.barTop}px, bar height ${tail.barHeight}px`);
 }
 
 const overflowOf = (page) => page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
@@ -148,14 +204,8 @@ try {
         `top ${covered.top}px + bottom ${covered.bottom}px = ${(covered.share * 100).toFixed(1)}%`);
 
       // The end of the article must be reachable above the fixed bar.
-      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-      const tail = await page.evaluate(() => {
-        const bar = document.getElementById('guest-cta-bar').getBoundingClientRect();
-        const last = document.getElementById('prev-next').getBoundingClientRect();
-        return { lastBottom: Math.round(last.bottom), barTop: Math.round(bar.top) };
-      });
-      check(`${tag} last article links clear the CTA bar`, tail.lastBottom <= tail.barTop,
-        `prev/next bottom ${tail.lastBottom}px, bar top ${tail.barTop}px`);
+      await checkTailClearsBar(page, tag);
+      await checkExerciseCta(page, tag);
       if (SHOT_DIR && theme === 'light') {
         await page.evaluate(() => window.scrollTo(0, 400));
         await page.screenshot({ path: join(SHOT_DIR, `grammar-article-${width}.png`) });
@@ -214,6 +264,25 @@ try {
         `${Math.round(toastBox.left)}–${Math.round(toastBox.right)}px`);
       await profile.context().close();
     }
+  }
+
+  // ── PC-J13A/B at desktop width, guest ───────────────────────────────────
+  for (const theme of ['light', 'dark']) {
+    const tag = `1280x800 ${theme}`;
+    const page = await newPage(browser, { width: 1280, height: 800, theme, signedIn: false });
+    const response = await page.goto(`${BASE}${ARTICLE}`, { waitUntil: 'networkidle' });
+    check(`${tag} article loads`, response?.ok() === true, `HTTP ${response?.status()}`);
+    await page.locator('#guest-cta-bar:not(.hidden)').waitFor({ timeout: 15_000 });
+    await checkExerciseCta(page, tag);
+    await checkTailClearsBar(page, tag);
+    if (SHOT_DIR && theme === 'light') await page.screenshot({ path: join(SHOT_DIR, 'grammar-article-1280-end.png') });
+
+    const exercises = await page.goto(`${BASE}/grammar/exercises`, { waitUntil: 'networkidle' });
+    check(`${tag} /grammar/exercises loads`, exercises?.ok() === true, `HTTP ${exercises?.status()}`);
+    const intro = 'main header p.text-white\\/45';
+    const introRatio = await textContrastOf(page, intro);
+    check(`${tag} /grammar/exercises intro contrast ≥ 4.5`, introRatio >= 4.5, introRatio.toFixed(2));
+    await page.context().close();
   }
 } finally {
   await browser.close();

@@ -20,17 +20,35 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-28 the highest is `334`, so by max+1 the next
-new migration is `335` — but 335 is reserved (INACTIVEWRITE-0035), so a new
-file without a Leader reservation must ask the Leader first. The runner applies
-any unapplied file regardless of order.
+sequence is dense. As of 2026-10-28 the highest is `335`, so by that rule the
+next new migration is `336`, but it is reserved (below): ask the Leader first.
+The runner applies any unapplied file regardless of order.
 Numbers 321–330 are already locked to open work (321 #1727, 322 #1720,
 323 ROLECHECK-0026, 324 ASSIGNDRAFT-0027, 325 CODEUNIQ-0028, 326
 STUDENTARCHIVE-0029, 327–329 reserved, 330 A-10); files for them may land out
 of order, so do not reuse them. 331 is GIVEARCHIVE-0031, 332 is ADMINAAL2-0032,
 334 is ACTIVATELIMIT-0034. 333–337 are reserved by the Leader for open work
-(333 AIBUDGET-0033, 335 INACTIVEWRITE-0035); ask the Leader before taking any
-number above 334.
+(333 AIBUDGET-0033, 335 INACTIVEWRITE-0035, assigned on 2026-10-28); files for
+them may land out of order, so ask the Leader before taking any number above
+332.
+
+Migration `335` (INACTIVEWRITE-0035, SEC-20261028-02) closes the direct-REST
+write path for inactive accounts. 320 kept `authenticated` writes on the five
+learner-owned Vocabulary/flashcard tables and `UPDATE (is_active)` on
+`user_d1_questions` because FastAPI writes them with the learner's JWT, but
+their policies check only ownership, so an account the W-03 gate refuses could
+still `POST /rest/v1/user_vocabulary`. 335 adds `require_active_account_insert`
+/ `_update` / `_delete`, RESTRICTIVE policies `TO authenticated` on those six
+tables, all calling `app_private.is_current_user_active()` (SECURITY DEFINER,
+STABLE, `search_path = ''`, caller only, missing row or NULL = inactive; kept
+out of `public` because 320 forbids client-executable definers there). An
+inactive INSERT fails with 42501 (PostgREST 403); UPDATE/DELETE change 0 rows;
+reads, active learners, the invoker SRS RPC and `service_role` are unchanged.
+The postcondition fails if any `public` table `authenticated` can write lacks
+the matching restrictive policy, so a later client write grant must add one.
+One transaction, no data change, re-runnable, no backend deploy needed. Later
+migrations must not drop or replace the policies or the helper; rollback is in
+the file header.
 
 Migration `334` (ACTIVATELIMIT-0034, F09) moves the `POST /auth/activate`
 rate limit from a per-worker dict into Postgres: `activation_attempts(user_id,
