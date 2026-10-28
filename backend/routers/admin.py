@@ -4869,6 +4869,93 @@ async def admin_set_vocab_flag(
 # - Cost estimate is conservative — Gemini Flash list pricing puts a chunk
 #   of 10 enrichments around $0.0005, so 100 cards (10 chunks) ≈ $0.005;
 #   the prompt's $0.10-0.15 figure is for cards-with-duplicates pre-dedup.
+# - INACTIVEWRITE-0035 follow-up (owner decision 2026-10-28): one owner can
+#   contribute at most _BACKFILL_MAX_ROWS_PER_OWNER rows per run, and rows of
+#   owners whose users.is_active is false, NULL or missing are skipped, so
+#   neither a single account's headwords nor an inactive account's can fill
+#   the paid Gemini batch. The candidate scan pages past skipped rows; it is
+#   bounded by _BACKFILL_SCAN_MAX_PAGES.
+
+_BACKFILL_MAX_ROWS_PER_OWNER = 50
+_BACKFILL_SCAN_PAGE_SIZE = 500
+_BACKFILL_SCAN_MAX_PAGES = 20
+_BACKFILL_OWNER_LOOKUP_CHUNK = 100
+
+
+def _backfill_select_candidates(job_id: str, limit: int) -> list[dict]:
+    """Pick up to `limit` enrichment candidates, at most
+    _BACKFILL_MAX_ROWS_PER_OWNER per owner, active owners only.
+
+    Raises on any query failure: the caller then aborts the run before any
+    Gemini call (an unverified owner must not be enriched).
+    """
+    selected: list[dict] = []
+    per_owner: dict[str, int] = {}
+    owner_active: dict[str, bool] = {}
+    skipped_inactive = 0
+    skipped_over_cap = 0
+
+    for page in range(_BACKFILL_SCAN_MAX_PAGES):
+        start = page * _BACKFILL_SCAN_PAGE_SIZE
+        # Day 1 dogfood: idioms + multi-word phrases were arriving with
+        # NULL definition_vi from the extractor.  Widen the candidate query
+        # so we re-enrich rows whose definitions are missing too — Gemini
+        # now generates Vietnamese + English glosses alongside IPA/example.
+        batch = (
+            supabase_admin.table("user_vocabulary")
+            .select("id, headword, user_id")
+            .eq("is_archived", False)
+            .or_(
+                "ipa.is.null,"
+                "example_sentence.is.null,"
+                "definition_vi.is.null,"
+                "definition_en.is.null"
+            )
+            .order("id")
+            .range(start, start + _BACKFILL_SCAN_PAGE_SIZE - 1)
+            .execute()
+        ).data or []
+
+        unknown = sorted({
+            str(r["user_id"]) for r in batch
+            if r.get("user_id") and str(r["user_id"]) not in owner_active
+        })
+        for i in range(0, len(unknown), _BACKFILL_OWNER_LOOKUP_CHUNK):
+            chunk = unknown[i:i + _BACKFILL_OWNER_LOOKUP_CHUNK]
+            users = (
+                supabase_admin.table("users")
+                .select("id, is_active")
+                .in_("id", chunk)
+                .execute()
+            ).data or []
+            found = {str(u["id"]): u.get("is_active") is True for u in users}
+            for uid in chunk:
+                # Missing row or NULL is inactive (activation_gate.lookup_is_active).
+                owner_active[uid] = found.get(uid, False)
+
+        for r in batch:
+            uid = str(r.get("user_id") or "")
+            if not owner_active.get(uid, False):
+                skipped_inactive += 1
+                continue
+            if per_owner.get(uid, 0) >= _BACKFILL_MAX_ROWS_PER_OWNER:
+                skipped_over_cap += 1
+                continue
+            per_owner[uid] = per_owner.get(uid, 0) + 1
+            selected.append(r)
+            if len(selected) >= limit:
+                break
+
+        if len(selected) >= limit or len(batch) < _BACKFILL_SCAN_PAGE_SIZE:
+            break
+
+    logger.info(
+        "[backfill %s] selected %d rows from %d owners "
+        "(skipped %d inactive-owner rows, %d over the %d-per-owner cap)",
+        job_id, len(selected), len(per_owner),
+        skipped_inactive, skipped_over_cap, _BACKFILL_MAX_ROWS_PER_OWNER,
+    )
+    return selected
 
 
 def _backfill_run(job_id: str, limit: int) -> None:
@@ -4880,28 +4967,11 @@ def _backfill_run(job_id: str, limit: int) -> None:
     from services.vocab_enrichment import enrich_vocabulary_batch, VocabEnrichmentError
 
     try:
-        # Day 1 dogfood: idioms + multi-word phrases were arriving with
-        # NULL definition_vi from the extractor.  Widen the candidate query
-        # so we re-enrich rows whose definitions are missing too — Gemini
-        # now generates Vietnamese + English glosses alongside IPA/example.
-        rows_res = (
-            supabase_admin.table("user_vocabulary")
-            .select("id, headword")
-            .eq("is_archived", False)
-            .or_(
-                "ipa.is.null,"
-                "example_sentence.is.null,"
-                "definition_vi.is.null,"
-                "definition_en.is.null"
-            )
-            .limit(limit)
-            .execute()
-        )
+        rows = _backfill_select_candidates(job_id, limit)
     except Exception as e:
         logger.error("[backfill %s] candidate query failed: %s", job_id, e)
         return
 
-    rows = rows_res.data or []
     if not rows:
         logger.info("[backfill %s] no rows to enrich", job_id)
         return
@@ -4976,7 +5046,8 @@ async def backfill_vocab_enrichment(
     or whose Gemini call failed during Phase B extraction).
 
     Caps at 500/call so an admin can't accidentally fan out across the
-    whole bank in one click.  Re-run the endpoint to process the next
+    whole bank in one click.  Within a call, one owner contributes at most
+    50 rows and inactive owners are skipped (INACTIVEWRITE-0035 follow-up).  Re-run the endpoint to process the next
     batch — the WHERE clause naturally moves forward as rows get filled.
 
     Cost estimate is best-effort: Gemini Flash batch is ~$0.0005 per
