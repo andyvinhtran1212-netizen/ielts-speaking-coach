@@ -830,6 +830,25 @@ class UserRolePayload(BaseModel):
     role: str = Field(..., description=f"new role (one of {sorted(_VALID_ROLES)})")
 
 
+# ADMINAAL2-0032 FR-019 (migration 336): the database freezes the role of a
+# suspended account; an admin must reactivate it first.
+_SUSPENDED_ROLE_CHANGE_CODE = "account_suspended_role_change"
+_SUSPENDED_ROLE_CHANGE_MESSAGE = (
+    "Không thể đổi vai trò của tài khoản đang bị tạm khóa. "
+    "Hãy mở khóa tài khoản trước, rồi đổi vai trò."
+)
+
+
+def _is_suspended_role_change(exc: Exception) -> bool:
+    """Recognize only migration 336's SQLSTATE + exact message."""
+    code = getattr(exc, "code", None)
+    message = getattr(exc, "message", None)
+    if exc.args and isinstance(exc.args[0], dict):
+        code = code or exc.args[0].get("code")
+        message = message or exc.args[0].get("message")
+    return str(code or "") == "P0001" and message == _SUSPENDED_ROLE_CHANGE_CODE
+
+
 @router.patch("/users/{user_id}/role")
 async def admin_set_user_role(
     user_id: str,
@@ -862,6 +881,11 @@ async def admin_set_user_role(
             .execute()
         )
     except Exception as exc:
+        if _is_suspended_role_change(exc):
+            raise HTTPException(
+                409,
+                {"code": _SUSPENDED_ROLE_CHANGE_CODE, "message": _SUSPENDED_ROLE_CHANGE_MESSAGE},
+            ) from None
         raise HTTPException(500, f"Role update failed: {exc}")
 
     if not res.data:

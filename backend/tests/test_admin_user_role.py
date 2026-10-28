@@ -5,6 +5,9 @@ Pins:
   - Self-demotion blocked (admin can't drop themselves from the admin role)
   - 404 when target user doesn't exist
   - Admin auth gate (handled via require_admin mock)
+  - ADMINAAL2-0032 FR-019 (migration 336): a suspended account's role change
+    is refused by the database; the route answers 409 with a Vietnamese
+    message, and the same change works after reactivation
 """
 
 from __future__ import annotations
@@ -14,6 +17,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+from postgrest.exceptions import APIError
 
 
 class _Resp:
@@ -50,6 +54,12 @@ class _TableQuery:
         matched = [r for r in rows if all(r.get(f) == v for f, v in self.filters)]
         if self._mode == "update":
             for r in matched:
+                # Migration 336's trigger, as PostgREST reports it.
+                if (r.get("suspended_at") and "role" in (self._update or {})
+                        and self._update["role"] != r.get("role")):
+                    raise APIError({"code": "P0001", "message": self.fake.role_guard_message,
+                                    "details": r["id"], "hint": None})
+            for r in matched:
                 r.update(self._update or {})
             return _Resp(matched)
         return _Resp(matched)
@@ -58,6 +68,7 @@ class _TableQuery:
 class _FakeSupabase:
     def __init__(self):
         self.tables: dict[str, list[dict]] = {"users": []}
+        self.role_guard_message = "account_suspended_role_change"
 
     def table(self, name):
         return _TableQuery(self, name)
@@ -165,6 +176,50 @@ class TestRoleChange:
         )
         assert r.status_code == 200
         assert fake_db.tables["users"][0]["role"] == "admin"
+
+
+class TestSuspendedAccountRoleChange:
+    """FR-019: reactivate first, then change the role."""
+
+    MESSAGE = ("Không thể đổi vai trò của tài khoản đang bị tạm khóa. "
+               "Hãy mở khóa tài khoản trước, rồi đổi vai trò.")
+
+    def _suspended(self, fake_db, role="instructor"):
+        user = _seed_user(fake_db, role=role)
+        user.update({"is_active": False, "suspended_at": "2026-10-28T11:00:00+00:00"})
+        return user
+
+    @pytest.mark.parametrize("target_role,new_role", [
+        ("instructor", "student"), ("instructor", "admin"), ("admin", "instructor")])
+    def test_role_change_of_a_suspended_account_is_409_and_changes_nothing(
+            self, client, fake_db, target_role, new_role):
+        u = self._suspended(fake_db, target_role)
+        r = client.patch(f"/admin/users/{u['id']}/role", json={"role": new_role}, headers=_ADMIN_AUTH)
+        assert r.status_code == 409, r.text
+        assert r.json()["detail"] == {"code": "account_suspended_role_change", "message": self.MESSAGE}
+        assert fake_db.tables["users"][0]["role"] == target_role
+
+    def test_same_role_on_a_suspended_account_is_not_a_change(self, client, fake_db):
+        u = self._suspended(fake_db)
+        r = client.patch(f"/admin/users/{u['id']}/role", json={"role": "instructor"}, headers=_ADMIN_AUTH)
+        assert r.status_code == 200, r.text
+
+    def test_role_change_works_after_reactivation(self, client, fake_db):
+        u = self._suspended(fake_db)
+        first = client.patch(f"/admin/users/{u['id']}/role", json={"role": "student"}, headers=_ADMIN_AUTH)
+        assert first.status_code == 409
+        u.update({"is_active": True, "suspended_at": None})   # PATCH …/active (FR-006)
+        r = client.patch(f"/admin/users/{u['id']}/role", json={"role": "student"}, headers=_ADMIN_AUTH)
+        assert r.status_code == 200, r.text
+        assert r.json() == {"ok": True, "id": u["id"], "role": "student"}
+        assert fake_db.tables["users"][0]["role"] == "student"
+
+    def test_any_other_database_error_stays_a_500(self, client, fake_db):
+        u = self._suspended(fake_db)
+        fake_db.role_guard_message = "account_suspended"
+        r = client.patch(f"/admin/users/{u['id']}/role", json={"role": "student"}, headers=_ADMIN_AUTH)
+        assert r.status_code == 500
+        assert fake_db.tables["users"][0]["role"] == "instructor"
 
 
 class TestUnassignedCodesPool:
