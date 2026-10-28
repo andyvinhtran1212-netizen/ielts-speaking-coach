@@ -10,16 +10,19 @@ import {
 import {
   RouteScriptChain,
 } from '@/components/route-script-chain';
-import {
-  exposeLegacySupabaseClient,
-  getBrowserSupabase,
-} from '@/lib/supabase-browser';
 
 const PRE_CLIENT_SCRIPTS = [
   { src: '/js/runtime-config.js' },
   { src: '/js/error-reporter.js', continueOnError: true },
 ] as const;
 const API_BRIDGE_SCRIPTS = [{ src: '/js/api.js' }] as const;
+
+// supabase-js is ~60 KB gzipped and nothing calls it before runtime-config.js
+// and error-reporter.js have loaded, so it is a separate chunk instead of part
+// of the hydration bundle. The import starts on mount, parallel to that chain.
+// Routes that import the module statically (AuthProvider) share the same
+// module instance, so there is still exactly one client.
+const loadSupabaseBrowser = () => import('@/lib/supabase-browser');
 
 function reportRuntimeFailure(message: string, error?: unknown) {
   try {
@@ -74,15 +77,30 @@ export function SupabaseRuntimeBoundary({
     }
   }, [supabaseAnonKey, supabaseUrl]);
 
+  // Start the chunk download now; a load failure is reported by the effect
+  // below once the bootstrap scripts are ready.
+  useEffect(() => {
+    void loadSupabaseBrowser().catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (!bootstrapReady) return;
-    try {
-      const client = getBrowserSupabase(supabaseUrl, supabaseAnonKey);
-      exposeLegacySupabaseClient(client);
-      setClientReady(true);
-    } catch (error) {
-      reportRuntimeFailure('Supabase ESM client initialization failed.', error);
-    }
+    let cancelled = false;
+    loadSupabaseBrowser().then(({ exposeLegacySupabaseClient, getBrowserSupabase }) => {
+      if (cancelled) return;
+      try {
+        const client = getBrowserSupabase(supabaseUrl, supabaseAnonKey);
+        exposeLegacySupabaseClient(client);
+        setClientReady(true);
+      } catch (error) {
+        reportRuntimeFailure('Supabase ESM client initialization failed.', error);
+      }
+    }, (error) => {
+      if (!cancelled) reportRuntimeFailure('Supabase ESM client failed to load.', error);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [bootstrapReady, supabaseAnonKey, supabaseUrl]);
 
   return (
