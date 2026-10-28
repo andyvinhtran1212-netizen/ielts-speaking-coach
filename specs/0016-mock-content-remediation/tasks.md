@@ -27,6 +27,12 @@
   notices, flag reconciliation, blank states, original context and truthful
   support/fallback states. `depends: T002,T006; owns: affected player/review/admin
   UI, generated frontend types, native browser tests`
+  Progress (PC-J46, 2026-10-29): the FR-013 blank-state renderer part is done
+  for the native Reading and Listening review pages: cards, palette, a "Bỏ
+  trống" filter beside the default "Cần xem lại" (incorrect + blank) and a
+  sai/bỏ trống/đúng total, all derived from the persisted grade and answer.
+  Legacy unknown provenance stays open (the backend returns `user_answer: ""`
+  for both blank and unknown history), as do the other T007 items.
 - [ ] T008 [P] Validate all 368 findings/80 paper identities; prepare reviewed
   source-grounded content revisions/accepted alternatives and distinguish audio
   listening acceptance from clock tests. Do not publish pending revisions.
