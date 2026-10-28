@@ -59,7 +59,10 @@ async def _is_admin(authorization: str | None) -> bool:
 # Sprint unfreeze (post-7c.3) dropped vestigial deferred_until: sprint-3
 # from M016/M017/M025/M027/M028 (Sprint 3 shipped long ago, anchors
 # already exist per drift gate) → 47.
-_EXPECTED_MAPPING_COUNT  = 47
+# cce1f566b (2026-05-28, "expand wiki recommendation coverage") added
+# M051–M064 for 13 newly covered articles without bumping this → 61.
+# test_health_runtime_expected_count_matches_mapping_file pins it to the YAML.
+_EXPECTED_MAPPING_COUNT  = 61
 _SPRINT_6_SENTINEL_IDS   = ("M033", "M034", "M035")
 
 
