@@ -667,6 +667,74 @@ async def test_claude_repair_is_cut_off_at_the_budget(writing_providers, monkeyp
     assert [r["status"] for r in claude_rows] == ["invalid_response", "cancelled"]
 
 
+# ── AIOPS-0024 FR-007: failure-log outcomes around the grounding repair ──
+
+
+@pytest.fixture
+def failure_rows(monkeypatch):
+    from services import ai_failure_log
+
+    rows: list[dict] = []
+    monkeypatch.setattr(ai_failure_log, "schedule_usage_log",
+                        lambda coro: (rows.append(coro.cr_frame.f_locals["row"]), coro.close()))
+    return rows
+
+
+def _outcomes(rows):
+    return [(r["provider"], r["error_type"], r["outcome"]) for r in rows]
+
+
+@pytest.mark.asyncio
+async def test_failure_log_counts_a_successful_claude_repair_as_a_retry(writing_providers, failure_rows):
+    state = writing_providers
+    state.claude = [UNGROUNDED_CLAUDE, GOOD_CLAUDE]
+    result = await state.grader.grade_essay(_grounded_config())
+    assert result.model_used == "claude-sonnet-5-5"
+    assert _outcomes(failure_rows) == [("anthropic", "invalid_json", "retry")]
+    assert failure_rows[0]["model"] == "claude-sonnet-5-5"
+    assert "subsidies" not in json.dumps(failure_rows)
+
+
+@pytest.mark.asyncio
+async def test_failure_log_with_claude_after_gemini_records_handover_then_retry(
+    writing_providers, failure_rows, monkeypatch,
+):
+    from config import settings as real_settings
+
+    state = writing_providers
+    monkeypatch.setattr(real_settings, "AI_PROVIDER_ORDER_WRITING_GRADING", "gemini,anthropic")
+    state.gemini = [UNGROUNDED_CLAUDE]                  # every Gemini try is ungrounded
+    state.claude = [UNGROUNDED_CLAUDE, GOOD_CLAUDE]
+    result = await state.grader.grade_essay(_grounded_config())
+    assert result.model_used == "claude-sonnet-5-5"
+    assert _outcomes(failure_rows) == [
+        ("gemini", "invalid_json", "fallback"),
+        ("anthropic", "invalid_json", "retry"),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_failure_log_records_the_repair_budget_cut_off(writing_providers, failure_rows, monkeypatch):
+    import asyncio
+
+    from services import gemini_writing_grader as gwg
+
+    state = writing_providers
+    monkeypatch.setattr(gwg, "CLAUDE_REPAIR_MIN_S", 0.0)
+    monkeypatch.setattr(gwg, "CLAUDE_TOTAL_BUDGET_S", 0.2)
+
+    async def hang():
+        await asyncio.Event().wait()
+
+    state.claude = [UNGROUNDED_CLAUDE, hang]
+    result = await state.grader.grade_essay(_grounded_config())
+    assert result.model_used == "gemini-3.8-flash"
+    assert _outcomes(failure_rows) == [
+        ("anthropic", "invalid_json", "retry"),
+        ("anthropic", "timeout", "fallback"),
+    ]
+
+
 def _claude_feedback_with_mistakes(originals: list[str]) -> str:
     data = json.loads(GOOD_CLAUDE)
     data["mistakeAnalysis"] = [

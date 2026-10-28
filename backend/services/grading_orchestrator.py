@@ -96,8 +96,16 @@ class GradingOrchestrator:
     which reads :mod:`config.settings` to construct adapters lazily.
     """
 
-    def __init__(self, providers: dict[str, AbstractGradingProvider]):
+    def __init__(
+        self,
+        providers: dict[str, AbstractGradingProvider],
+        *,
+        feature: str | None = None,
+    ):
         self._providers = dict(providers)
+        # AIOPS-0024 — when set, non-success attempts are written to the
+        # routing-layer failure log (ai_provider_failures).
+        self._feature = feature
 
     @property
     def providers(self) -> dict[str, AbstractGradingProvider]:
@@ -105,6 +113,58 @@ class GradingOrchestrator:
 
     async def invoke(
         self,
+        system_prompt: str,
+        user_message: str,
+        **kwargs,
+    ) -> tuple[str, list[FallbackEvent]]:
+        """Walk `order`; return ``(raw_text, events)`` on first success.
+
+        Raises :class:`AllProvidersFailedError` (carrying the events
+        list) if every provider in `order` exhausts its retries.
+        """
+        events: list[FallbackEvent] = []
+        try:
+            return await self._walk(events, system_prompt, user_message, **kwargs)
+        finally:
+            self._record_failures(events)
+
+    def _record_failures(self, events: list[FallbackEvent]) -> None:
+        """One failure-log row per non-success attempt (AIOPS-0024 FR-007).
+
+        Outcome: ``retry`` when the next attempt is the same slot,
+        ``fallback`` when another slot follows, ``final`` when none does.
+        """
+        if not self._feature:
+            return
+        from services import ai_failure_log
+
+        for index, event in enumerate(events):
+            if event.outcome == "success":
+                continue
+            following = events[index + 1] if index + 1 < len(events) else None
+            if following is not None and following.provider == event.provider:
+                outcome = "retry"
+            elif following is not None:
+                outcome = "fallback"
+            else:
+                outcome = "final"
+            provider = self._providers.get(event.provider)
+            model = (getattr(provider, "model", None) or getattr(provider, "model_name", None)
+                     if provider is not None else None)
+            ai_failure_log.record(
+                feature=self._feature,
+                provider=ai_failure_log.provider_for(event.provider, model),
+                model=model,
+                route_slot=event.provider,
+                attempt=event.attempt,
+                error_type=ai_failure_log.normalize_error_type(event.error_status, event.error_type),
+                error_code=event.error_status or event.error_type,
+                outcome=outcome,
+            )
+
+    async def _walk(
+        self,
+        events: list[FallbackEvent],
         system_prompt: str,
         user_message: str,
         *,
@@ -115,12 +175,6 @@ class GradingOrchestrator:
         attempt_timeout_seconds: float = PROVIDER_ATTEMPT_TIMEOUT_SECONDS,
         total_timeout_seconds: float = TOTAL_GRADING_TIMEOUT_SECONDS,
     ) -> tuple[str, list[FallbackEvent]]:
-        """Walk `order`; return ``(raw_text, events)`` on first success.
-
-        Raises :class:`AllProvidersFailedError` (carrying the events
-        list) if every provider in `order` exhausts its retries.
-        """
-        events: list[FallbackEvent] = []
         # The Anthropic-primary slot runs ahead of the existing chain; its one
         # attempt gets its own time so the chain keeps its original budget.
         slot = self._providers.get(ANTHROPIC_PRIMARY_SLOT)
@@ -313,7 +367,11 @@ def build_default(
         claude_primary.retry_attempts = 0
         providers[ANTHROPIC_PRIMARY_SLOT] = claude_primary
 
-    return GradingOrchestrator(providers)
+    # AIOPS-0024 FR-007 covers the Speaking grading chain; other users of this
+    # orchestrator (the off-topic judge) keep their grading_events telemetry only.
+    return GradingOrchestrator(
+        providers, feature=feature if feature == "speaking_grading" else None,
+    )
 
 
 def _build_grading_primary(
