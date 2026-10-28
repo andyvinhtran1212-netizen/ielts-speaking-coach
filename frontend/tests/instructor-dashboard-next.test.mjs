@@ -248,12 +248,15 @@ test('assignment form names the give, confirms re-gives, resets and surfaces dup
   assert.match(VIEW, /<input name="name" maxLength=\{200\}/);
   assert.equal((VIEW.match(/if \(name\) body\.name = name;/g) || []).length, 2);
   // Single-student give: inline. Class give: the same W-06 check, kept so BL-18 can skip its second ask.
-  assert.match(VIEW, /if \(!confirmRegive\(findExistingGive\(data\.assignments, \{ promptId, studentId \}\)\)\) return;/);
-  assert.match(VIEW, /const sameClassGive = findExistingGive\(data\.assignments, \{ promptId, cohortId \}\);\s*if \(!confirmRegive\(sameClassGive\)\) return;/);
-  assert.match(VIEW, /window\.confirm\(duplicateGiveConfirmMessage\(/);
-  // the confirm runs before mutate, so cancelling sends no request
-  const classConfirm = VIEW.indexOf('if (!confirmRegive(sameClassGive)) return;');
-  assert.ok(classConfirm >= 0 && classConfirm < VIEW.indexOf("'/instructor/assignments/fan-out'"));
+  assert.match(VIEW, /const existingGive = findExistingGive\(data\.assignments, \{ promptId, studentId \}\);/);
+  assert.match(VIEW, /const sameClassGive = findExistingGive\(data\.assignments, \{ promptId, cohortId \}\);/);
+  assert.match(VIEW, /askConfirm\(duplicateGiveConfirmMessage\(/);
+  // the confirm is awaited before mutate, so cancelling sends no request
+  const studentConfirm = VIEW.indexOf('if (!(await confirmRegive(existingGive))) return false;');
+  assert.ok(studentConfirm >= 0 && studentConfirm < VIEW.indexOf("requestPath('/instructor/assignments'), body)"));
+  const classConfirm = VIEW.indexOf('if (!(await confirmRegive(sameClassGive))) return false;');
+  assert.ok(classConfirm >= 0 && classConfirm < VIEW.indexOf('await confirmCohortOverlap(promptId, cohortId, promptTitle)'));
+  assert.ok(classConfirm < VIEW.indexOf("'/instructor/assignments/fan-out'"));
   assert.match(VIEW, /const resetOnSuccess = [^\n]*form\.reset\(\)/);
   assert.equal((VIEW.match(/\.then\(resetOnSuccess\)/g) || []).length, 2);
   assert.match(VIEW, /'\/instructor\/assignments\/fan-out'\), body\), fanOutResultBanner\)/);
@@ -291,6 +294,25 @@ describe('PC-J10 — /instructor give flow (W-12, BL-18, BL-19)', () => {
     assert.ok(ask >= 0 && ask < VIEW.indexOf("'/instructor/assignments/fan-out'"));
     assert.match(VIEW, /requestPath\('\/instructor\/assignments\/duplicates-preview'\), \{ prompt_ids: \[promptId\], cohort_id: cohortId \}/);
     assert.match(VIEW, /if \(!sameClassGive && !\(await confirmCohortOverlap\(promptId, cohortId, promptTitle\)\)\) return false;/);
+  });
+
+  test('Q-12c: give confirmations use the shared in-app Dialog, never window.confirm', () => {
+    assert.doesNotMatch(VIEW, /window\.confirm\b/);
+    assert.match(VIEW, /import \{ Dialog \} from '@\/components\/admin-directory-ui';/);
+    assert.match(VIEW, /return !message \|\| await askConfirm\(message\);/);
+    // Only the confirm button resolves true; Hủy, ×, Esc and the backdrop all cancel.
+    assert.match(VIEW, /<Dialog open=\{confirmMessage !== null\} title=\{ASSIGNMENT_COPY\.confirmTitle\} description=\{confirmMessage\} onClose=\{\(\) => answerConfirm\(false\)\}/);
+    assert.match(VIEW, /onClick=\{\(\) => answerConfirm\(false\)\}>\{ASSIGNMENT_COPY\.confirmCancel\}<\/button>/);
+    assert.match(VIEW, /onClick=\{\(\) => answerConfirm\(true\)\}>\{ASSIGNMENT_COPY\.confirmAccept\}<\/button>/);
+    // A second ask or an account change settles the open one as cancelled.
+    assert.match(VIEW, /const askConfirm = [^\n]*\n\s*confirmResolve\.current\?\.\(false\);/);
+    assert.match(VIEW, /useEffect\(\(\) => \{\n\s*\/\/[^\n]*\n\s*confirmResolve\.current\?\.\(false\);\s*confirmResolve\.current = null;\s*setConfirmMessage\(null\);\s*if \(status === 'signed-out'\)/);
+    assert.equal(ASSIGNMENT_COPY.confirmTitle, 'Đề đã được giao trước đó');
+    assert.equal(ASSIGNMENT_COPY.confirmCancel, 'Hủy');
+    assert.equal(ASSIGNMENT_COPY.confirmAccept, 'Giao thêm');
+    // /instructor loads no admin stylesheet, so the dialog is styled here.
+    assert.match(CSS, /\.acd-dialog-backdrop \{[^}]*position: fixed;/);
+    assert.match(CSS, /\.acd-dialog \{[^}]*background: var\(--av-surface-card\);/);
   });
 
   test('BL-19: a missing prompt shows the app message, not the browser validation bubble', () => {

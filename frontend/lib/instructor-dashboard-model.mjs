@@ -153,6 +153,10 @@ export const ASSIGNMENT_COPY = Object.freeze({
   duplicatesWarning: (count) => `Đã giao bài cho lớp. Lưu ý: ${count} học viên đã được giao đề này từ trước.`,
   // BL-18: asked before the give, from the same overlap the banner reports.
   confirmCohortOverlap: (title, count) => `${count} học viên trong lớp đã được giao đề '${title}' từ trước. Giao thêm một lượt nữa?`,
+  // In-app dialog chrome around the confirm messages above (replaces window.confirm).
+  confirmTitle: 'Đề đã được giao trước đó',
+  confirmCancel: 'Hủy',
+  confirmAccept: 'Giao thêm',
   deadline: (when) => `Hạn ${when}`,
 });
 
