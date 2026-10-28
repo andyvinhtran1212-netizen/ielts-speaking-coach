@@ -25,6 +25,7 @@ from fastapi import APIRouter, Header, HTTPException
 
 from database import supabase_admin
 from routers.admin import require_admin
+from services import test_data_visibility
 from services.class_membership_service import (
     active_memberships_for_cohorts,
     active_students_for_cohort,
@@ -128,7 +129,7 @@ def _fetch_essays_by_ids(essay_ids: list[str]) -> dict[str, dict]:
 @router.get("")
 async def list_cohorts(authorization: str | None = Header(None)):
     """Active cohorts with a writing-activity summary, busiest first."""
-    await require_admin(authorization)
+    admin = await require_admin(authorization)
 
     cohorts = (
         supabase_admin.table("cohorts")
@@ -137,6 +138,8 @@ async def list_cohorts(authorization: str | None = Header(None)):
         .order("name")
         .execute()
     ).data or []
+    if test_data_visibility.hide_for(email=admin.get("email"), is_admin=True):
+        cohorts = [c for c in cohorts if not test_data_visibility.is_test_label(c.get("name"))]
     if not cohorts:
         return {"cohorts": []}
 

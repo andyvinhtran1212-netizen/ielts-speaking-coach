@@ -1,7 +1,15 @@
 """Bound untrusted request bodies before form/JSON parsing.
 
-The error-ingress budget is per worker (not a distributed WAF replacement).
-No forwarded IP headers are trusted and no user identifiers are retained.
+POST /api/error-logs and POST /api/analytics/events stay anonymous on purpose:
+the landing page, web-vitals beacon and the exam "nothing saved" alarm post
+without a session (F10). They are bounded instead by body size, a per-client
+budget and a per-worker ceiling. Budgets are per worker (not a distributed
+WAF replacement); only the client address is retained, never user identifiers.
+
+The client key is the LAST X-Forwarded-For hop: the address our edge proxy
+appended, which the caller cannot choose (earlier hops are caller-supplied).
+Without the header the socket peer is used. If the key is ever forged or
+collapses to one proxy address, the per-worker ceiling still holds.
 """
 from collections import deque
 import time
@@ -14,6 +22,8 @@ class RequestSafetyMiddleware:
     def __init__(self, app, *, upload_limit=64 * 1024 * 1024,
                  log_limit=64 * 1024, log_per_minute=600,
                  analytics_limit=16 * 1024, analytics_per_minute=300,
+                 log_per_client_per_minute=60, analytics_per_client_per_minute=120,
+                 max_tracked_clients=10_000,
                  fulltest_upload_limit=68 * 1024 * 1024):
         self.app = app
         self.upload_limit = upload_limit
@@ -25,8 +35,32 @@ class RequestSafetyMiddleware:
         self.log_per_minute = log_per_minute
         self.analytics_limit = analytics_limit
         self.analytics_per_minute = analytics_per_minute
+        self.log_per_client_per_minute = log_per_client_per_minute
+        self.analytics_per_client_per_minute = analytics_per_client_per_minute
+        self.max_tracked_clients = max_tracked_clients
         self._log_times = deque()
         self._analytics_times = deque()
+        self._log_clients = {}
+        self._analytics_clients = {}
+
+    @staticmethod
+    def _client_key(scope, headers):
+        forwarded = headers.get(b'x-forwarded-for', b'').decode('latin-1')
+        hops = [hop.strip() for hop in forwarded.split(',') if hop.strip()]
+        if hops:
+            return hops[-1][:64]
+        client = scope.get('client')
+        return client[0] if client else 'unknown'
+
+    def _client_times(self, clients, key, now):
+        if key not in clients and len(clients) >= self.max_tracked_clients:
+            for stale in [k for k, times in clients.items() if not times or times[-1] <= now - 60]:
+                del clients[stale]
+            if len(clients) >= self.max_tracked_clients:
+                # Spread across too many addresses: share one overflow bucket
+                # rather than grow without bound (the worker ceiling still holds).
+                key = '\0overflow'
+        return clients.setdefault(key, deque())
 
     async def __call__(self, scope, receive, send):
         if scope['type'] != 'http':
@@ -39,8 +73,9 @@ class RequestSafetyMiddleware:
         if not is_log and not is_analytics and not multipart:
             return await self.app(scope, receive, send)
 
+        now = time.monotonic()
+
         def rate_limited(times, budget):
-            now = time.monotonic()
             while times and times[0] <= now - 60:
                 times.popleft()
             if len(times) >= budget:
@@ -48,12 +83,22 @@ class RequestSafetyMiddleware:
             times.append(now)
             return False
 
-        if is_log and rate_limited(self._log_times, self.log_per_minute):
-            return await JSONResponse({'detail': 'Logging rate limit reached'}, 429,
-                                      headers={'Retry-After': '60'})(scope, receive, send)
-        if is_analytics and rate_limited(self._analytics_times, self.analytics_per_minute):
-            return await JSONResponse({'detail': 'Analytics rate limit reached'}, 429,
-                                      headers={'Retry-After': '60'})(scope, receive, send)
+        if is_log or is_analytics:
+            key = self._client_key(scope, headers)
+            if is_log:
+                clients, client_budget = self._log_clients, self.log_per_client_per_minute
+                worker, worker_budget = self._log_times, self.log_per_minute
+                detail = 'Logging rate limit reached'
+            else:
+                clients, client_budget = self._analytics_clients, self.analytics_per_client_per_minute
+                worker, worker_budget = self._analytics_times, self.analytics_per_minute
+                detail = 'Analytics rate limit reached'
+            # Per-client first, so one flooding address cannot spend the
+            # shared worker budget that every other visitor relies on.
+            if (rate_limited(self._client_times(clients, key, now), client_budget)
+                    or rate_limited(worker, worker_budget)):
+                return await JSONResponse({'detail': detail}, 429,
+                                          headers={'Retry-After': '60'})(scope, receive, send)
         limit = self.log_limit if is_log else self.analytics_limit if is_analytics else self.upload_limit
         if (multipart and scope.get('method') == 'POST'
                 and scope.get('path', '').rstrip('/') == '/admin/listening/import-fulltest/commit'):

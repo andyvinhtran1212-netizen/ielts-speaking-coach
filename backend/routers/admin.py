@@ -32,17 +32,18 @@ from models.admin_speaking import (
     AdminSummaryRebuildResponse,
 )
 from models.admin_overview import DashboardOverviewOut, DashboardTrendsOut
-from models.admin_users import AdminUserDirectoryRowOut
+from models.admin_users import AdminTestDataVisibilityOut, AdminUserDirectoryRowOut
 from models.grammar_content import GrammarArticleDocument
 from database import supabase_admin
 from services.class_assignment_service import sync_class_item_score
 from services.core_attempt_observation import bind_owned_attempt, note_operation_failure, observe_operation
 from services.class_membership_service import active_memberships_for_students, add_student
-from services import admin_dashboard, ai_usage_logger
+from services import admin_dashboard, ai_usage_logger, test_data_visibility
 from services.student_service import student_archived_error
 from services.access_code_gen import (
     generate_access_code, insert_one_with_unique_code, insert_with_unique_codes,
 )
+from services import activation_gate
 from services import speaking_question_audio as speaking_audio
 from services.recording_audio import attach_playback_urls, recording_path
 from services import admin_reading_dashboard
@@ -100,6 +101,9 @@ async def require_admin(authorization: str | None) -> dict:
     if not r.data or r.data[0].get("role") != "admin":
         raise HTTPException(403, "Bạn không có quyền truy cập trang này")
 
+    # Q-13 — a staff role does not replace activation: the learner gate skips
+    # staff paths, so this guard owns the users.is_active check for them.
+    activation_gate.ensure_account_active(user_id)
     return auth_user
 
 
@@ -129,6 +133,8 @@ async def require_instructor(authorization: str | None) -> dict:
     if not r.data or r.data[0].get("role") not in ("instructor", "admin"):
         raise HTTPException(403, "Bạn không có quyền truy cập trang giảng viên")
 
+    # Q-13 — same activation requirement as require_admin.
+    activation_gate.ensure_account_active(user_id)
     return auth_user
 
 
@@ -864,7 +870,7 @@ async def admin_set_user_role(
 @router.get("/users", response_model=list[AdminUserDirectoryRowOut])
 async def list_users(authorization: str | None = Header(default=None)):
     """List all users with today's session count appended."""
-    await require_admin(authorization)
+    admin = await require_admin(authorization)
 
     try:
         users_res = (
@@ -877,6 +883,8 @@ async def list_users(authorization: str | None = Header(default=None)):
         raise HTTPException(500, f"Lỗi khi tải danh sách users: {exc}")
 
     users = users_res.data or []
+    if test_data_visibility.hide_for(email=admin.get("email"), is_admin=True):
+        users = [u for u in users if not test_data_visibility.is_test_email(u.get("email"))]
 
     # Count today's sessions per user (UTC)
     today_start = (
@@ -974,6 +982,19 @@ async def list_users(authorization: str | None = Header(default=None)):
         )
 
     return users
+
+
+@router.get("/test-data/visibility", response_model=AdminTestDataVisibilityOut)
+async def get_test_data_visibility(authorization: str | None = Header(default=None)):
+    """TASK B2 — lets the admin UI show its "show test data" toggle only where
+    staging hiding is active, and report what this request saw."""
+    admin = await require_admin(authorization)
+    enabled = test_data_visibility.hiding_enabled()
+    return {
+        "hiding_enabled": enabled,
+        "showing_test_data": enabled and not test_data_visibility.hide_for(
+            email=admin.get("email"), is_admin=True),
+    }
 
 
 # ── GET /admin/stats ───────────────────────────────────────────────────────────

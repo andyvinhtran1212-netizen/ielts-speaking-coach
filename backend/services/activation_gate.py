@@ -10,7 +10,10 @@ to every learner router (``include_router(..., dependencies=[...])``) and to
 the learner routes declared on the app itself. It:
 
   * skips staff paths (``/admin``, ``/api/admin``, ``/instructor``): those
-    routes carry their own role guards and a mixed router may hold a few;
+    routes carry their own role guards and a mixed router may hold a few.
+    ``routers.admin.require_admin`` / ``require_instructor`` call
+    ``ensure_account_active`` themselves (Q-13), so a staff role never stands
+    in for activation;
   * skips the routes listed in ``ACTIVATION_EXEMPT_ROUTES`` — the ONE place
     that says which learner-facing routes an inactive account may reach;
   * does nothing without an ``Authorization`` header: no account means no
@@ -45,7 +48,7 @@ logger = logging.getLogger(__name__)
 INACTIVE_DETAIL = "Tài khoản chưa được kích hoạt"
 
 # Routes under these prefixes are staff surfaces guarded by require_admin /
-# instructor checks, never by learner activation.
+# require_instructor, which enforce activation after the role check (Q-13).
 STAFF_PATH_PREFIXES: tuple[str, ...] = ("/admin", "/api/admin", "/instructor")
 
 # (METHOD, route path template) → why an INACTIVE account may call it.

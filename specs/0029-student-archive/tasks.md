@@ -8,7 +8,11 @@
 - [x] T004 Add PostgreSQL and route tests. `owns: backend/tests/test_migration_326_student_archive.py, backend/tests/test_admin_students_archive.py` `depends: T002, T003`
 - [x] T005 Admin UI archive/restore and archived filter; retire the legacy delete confirm. `owns: frontend/app/(authed-admin-students)/admin/students/` `depends: T003`
 - [x] T006 [P] Update `backend/migrations/README.md` (highest/next, 326 paragraph). `owns: backend/migrations/README.md`
-- [ ] T007 Run production read-only checks P1–P6 (`research.md` §6) — chờ anh Vinh cho phép chạy chỉ đọc.
+- [x] T007 Run production read-only checks P1–P6 (`research.md` §6).
+  - Done 2026-10-27 17:08:40 UTC+7 under Vinh's authorization, immediately before the apply. P1 FKs and the P5 function fingerprints and ACLs are byte-identical to the 15:43 read. No new columns, table or functions; 73 students, 692 essays, 4 drafts, 62 active memberships; trigger 320 `O`; 326 not in ledger (`verification.md` Release evidence).
 - [ ] T008 Apply 326 on staging, deploy backend and UI, run AC-1…AC-14. `depends: T002, T003, T004, T005, T006`
-- [ ] T009 Apply 326 on production under explicit authorization. `depends: T007, T008`
+  - Still open: the 2026-10-27 production release record covers only CI and the release smoke of the promoted staging SHA `c028ed21c910f469d36abfa0907e3fd71d363709`; it does not record this staging apply or its AC run.
+- [x] T009 Apply 326 on production under explicit authorization. `depends: T007, T008`
+  - Done 2026-10-27 17:08:59 UTC+7 (ledger `applied_at` 10:09:01 UTC), promotion PR #1763 (`staging` → `main`), merge commit `c9d564dfeac2df42611dcd308aaad1a2e970c580`, merged 2026-10-27 17:09 UTC+7 about 4 s later. Post-apply: 3 columns present, 0 archived learners, 0 audit rows, audit RLS on, no client EXECUTE, function md5s match the plan.
+  - Pending — owner account decision (not yet run): archive and restore one Vinh-designated test learner (`rollout.md` Production), and an authenticated admin load of `/admin/students` (`GET /admin/students`).
 - [ ] T010 Phase 2: separate spec for an explicit GDPR erase of archived learners. `depends: T009`

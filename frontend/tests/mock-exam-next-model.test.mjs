@@ -160,3 +160,17 @@ test('native route owns the clean path and both Next child players expose a same
   }
   assert.doesNotMatch(parent, /dangerouslySetInnerHTML|pages\/mock-exam\.html|pages\/practice\.html/);
 });
+
+test('a private Task 1 chart that could not be signed is surfaced, not silently dropped (B10)', () => {
+  const failed = normalizeMockExamState(payload({
+    exam: { ...payload().exam, writing_task1: { ...payload().exam.writing_task1, prompt_image_lookup_failed: true } },
+  }));
+  assert.equal(failed.exam.writingTask1.promptImageUrl, null);
+  assert.equal(failed.exam.writingTask1.promptImageLookupFailed, true);
+  const ok = normalizeMockExamState(payload({
+    exam: { ...payload().exam, writing_task1: { ...payload().exam.writing_task1, prompt_image_url: 'https://x/sign/a.png' } },
+  }));
+  assert.equal(ok.exam.writingTask1.promptImageLookupFailed, false);
+  const runner = readFileSync(new URL('../app/(authed-mock-exam)/mock-exam/mock-exam-runner.tsx', import.meta.url), 'utf8');
+  assert.match(runner, /prompt\?\.promptImageLookupFailed \? <p className="me-prompt-image-failed" role="alert">/);
+});

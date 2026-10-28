@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     # values per environment; absent values make the notifier a safe no-op.
     NEXT_CACHE_REVALIDATION_URL: str = ""
     AVER_CACHE_REVALIDATION_SECRET: str = ""
+    # Vercel "Protection Bypass for Automation" secret. Set only where the
+    # frontend sits behind Vercel Authentication (staging); when non-empty it
+    # is sent as ``x-vercel-protection-bypass`` on the invalidation call so the
+    # signed request reaches the route instead of the SSO wall.
+    VERCEL_AUTOMATION_BYPASS_SECRET: str = ""
 
     # Supabase
     SUPABASE_URL: str = ""
@@ -33,6 +38,10 @@ class Settings(BaseSettings):
     READING_ANON_SALT: str = ""
 
     # Feature flags
+    # TASK B2 — hide E2E/QA test data from normal list views. Honoured only when
+    # ENVIRONMENT=staging (services/test_data_visibility.py); never set it in
+    # production. Admins can still opt in per browser with X-Show-Test-Data.
+    HIDE_TEST_DATA: bool = False
     # Private outcome-evidence foundation. Requires migration 240 and explicit
     # rollout/coverage verification; never enabled implicitly by a code deploy.
     CORE_ATTEMPT_EVIDENCE_ENABLED: bool = False
@@ -177,9 +186,9 @@ class Settings(BaseSettings):
     # images (chart/graph). Mirrors READING_IMAGES_BUCKET /
     # LISTENING_IMAGES_BUCKET — created out-of-band BEFORE the first
     # admin upload works (Supabase dashboard → Storage → New bucket →
-    # name `writing-images` → Public ✓). PUBLIC so the persisted
-    # prompt_image_url renders directly as <img src> with no signed-URL
-    # minting on the read side. (Replaced the Cloudinary integration.)
+    # name `writing-images`, Public OFF). PRIVATE: rows persist object
+    # paths and readers mint short-lived signed URLs after authorizing
+    # the viewer (services/writing_image_access.py).
     WRITING_IMAGES_BUCKET: str = "writing-images"
 
     # Task 1 verified "answer key" (docs/WRITING_TASK1_ANALYSIS_SPEC.md).

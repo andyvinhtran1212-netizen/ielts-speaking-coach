@@ -93,14 +93,18 @@ def list_students(
     limit: int = 50,
     offset: int = 0,
     include_archived: bool = False,
+    exclude_ids: Optional[list[str]] = None,
 ) -> list[dict]:
     """List students; optionally filter by case-insensitive substring match
     against student_code or full_name. Archived learners are excluded unless
-    ``include_archived`` (STUDENTARCHIVE-0029).
+    ``include_archived`` (STUDENTARCHIVE-0029). ``exclude_ids`` (staging test
+    data, TASK B2) is applied in SQL so pages stay full.
     """
     q = supabase_admin.table("students").select("*").order("created_at", desc=True)
     if not include_archived:
         q = q.is_("archived_at", "null")
+    if exclude_ids:
+        q = q.not_.in_("id", exclude_ids)
     if search:
         # F2 — PostgREST-safe or_(): the value is double-quoted so commas/parens
         # in the term don't break the logic tree, and LIKE wildcards are escaped.
@@ -392,6 +396,29 @@ def student_archived_error(student_ids: Optional[list[str]] = None) -> HTTPExcep
 def is_student_archived_error(exc: Exception) -> bool:
     """True for the ``student_archived`` raise of the migration-326 guards."""
     return "student_archived" in str(exc)
+
+
+def raise_if_student_archived(db, exc: Exception,
+                              candidate_ids: Optional[list[str]] = None) -> None:
+    """Re-raise a ``student_archived`` DB refusal as the 0029 409.
+
+    Migration 331 (GIVEARCHIVE-0031) refuses a Writing give whose learner was
+    archived after the route's pre-check; its DETAIL is the student id (the 326
+    bulk guard sends a comma list). Without a DETAIL the archived ids are re-read
+    from ``candidate_ids``. A no-op for every other error, so the caller
+    re-raises it unchanged.
+    """
+    if isinstance(exc, HTTPException) or not is_student_archived_error(exc):
+        return
+    details = getattr(exc, "details", None)
+    ids = [part.strip() for part in details.split(",") if part.strip()] \
+        if isinstance(details, str) else []
+    if not ids and candidate_ids:
+        try:
+            ids = archived_student_ids(db, candidate_ids)
+        except Exception:
+            ids = []
+    raise student_archived_error(ids or None) from exc
 
 
 def archived_student_ids(db, student_ids: list[str]) -> list[str]:

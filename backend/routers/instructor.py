@@ -59,9 +59,10 @@ from pydantic import BaseModel, Field
 from database import supabase_admin
 from services.cohort_assignment_service import Deadline, normalize_deadline
 from routers.admin import require_instructor
-from services import essay_service, instructor_workflow, student_service
+from services import essay_service, instructor_workflow, student_service, test_data_visibility
 from services.access_code_gen import insert_with_unique_codes
 from services.core_attempt_outcomes import observe_writing_batch
+from services.writing_image_access import attach_signed_image_urls
 from services.core_writing_observation import note_writing_mutation, observe_writing_partial_failure
 from services.instructor_access import (
     instructor_db,
@@ -137,7 +138,9 @@ _PROMPT_FIELDS = ("title", "task_type", "prompt_text", "difficulty", "tags")
 async def list_prompts(request: Request, authorization: str | None = Header(None)):
     me = await _me(authorization, request)
     r = instructor_db(me).table("writing_prompts").select("*").order("created_at", desc=True).execute()
-    return r.data or []
+    prompts = r.data or []
+    attach_signed_image_urls(prompts)   # rows already scoped by instructor_db
+    return prompts
 
 
 @router.post("/prompts", status_code=status.HTTP_201_CREATED)
@@ -156,7 +159,9 @@ async def get_prompt(request: Request, prompt_id: UUID, authorization: str | Non
     r = instructor_db(me).table("writing_prompts").select("*").eq("id", str(prompt_id)).limit(1).execute()
     if not r.data:
         raise HTTPException(404, "Không tìm thấy.")
-    return r.data[0]
+    prompt = r.data[0]
+    attach_signed_image_urls([prompt])
+    return prompt
 
 
 @router.patch("/prompts/{prompt_id}")
@@ -168,7 +173,9 @@ async def patch_prompt(request: Request, prompt_id: UUID, body: dict, authorizat
     r = instructor_db(me).table("writing_prompts").update(payload).eq("id", str(prompt_id)).execute()
     if not r.data:
         raise HTTPException(404, "Không tìm thấy.")     # 0 rows = not owned / not exist
-    return r.data[0]
+    prompt = r.data[0]
+    attach_signed_image_urls([prompt])
+    return prompt
 
 
 @router.delete("/prompts/{prompt_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -280,7 +287,12 @@ async def create_assignment(request: Request, body: AssignBody, authorization: s
         "analysis_level": body.analysis_level,
         "grading_tier":   body.grading_tier,
     }
-    r = instructor_db(me).table("writing_assignments").insert(payload).execute()  # stamps assigned_by=me
+    try:
+        r = instructor_db(me).table("writing_assignments").insert(payload).execute()  # stamps assigned_by=me
+    except Exception as exc:
+        # 331: archived after the check above → no row was created.
+        student_service.raise_if_student_archived(supabase_admin, exc, [str(body.student_id)])
+        raise
     return (r.data or [{}])[0]
 
 
@@ -574,7 +586,10 @@ async def revoke_delivery(request: Request, essay_id: UUID, authorization: str |
 async def list_cohorts(request: Request, authorization: str | None = Header(None)):
     me = await _me(authorization, request)
     r = instructor_db(me).table("cohorts").select("*").order("created_at", desc=True).execute()
-    return r.data or []
+    rows = r.data or []
+    if test_data_visibility.hide_for(user_id=me):
+        rows = [c for c in rows if not test_data_visibility.is_test_label(c.get("name"))]
+    return rows
 
 
 @router.post("/cohorts", status_code=status.HTTP_201_CREATED)
@@ -604,7 +619,10 @@ async def list_students(request: Request, authorization: str | None = Header(Non
     # Archived learners (STUDENTARCHIVE-0029) leave the roster.
     r = (instructor_db(me).table("students").select("*").is_("archived_at", "null")
          .order("created_at", desc=True).execute())
-    return r.data or []
+    rows = r.data or []
+    if test_data_visibility.hide_for(user_id=me):
+        rows = test_data_visibility.drop_test_students(rows)
+    return rows
 
 
 @router.get("/students/{student_id}")

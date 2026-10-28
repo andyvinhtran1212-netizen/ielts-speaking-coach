@@ -237,3 +237,90 @@ def test_logging_body_and_burst_are_bounded_before_handler():
     limited = client.post('/api/error-logs', json={'message': 'ok'})
     assert limited.status_code == 429
     assert limited.headers['retry-after'] == '60'
+
+
+# ── F10: anonymous telemetry ingress is throttled per client ─────────────
+
+
+def _xff(*hops):
+    return {'x-forwarded-for': ', '.join(hops)}
+
+
+@pytest.mark.parametrize('path,limits', [
+    ('/api/error-logs', {'log_per_client_per_minute': 2, 'log_per_minute': 100}),
+    ('/api/analytics/events', {'analytics_per_client_per_minute': 2, 'analytics_per_minute': 100}),
+])
+def test_anonymous_ingress_is_rate_limited_per_client(path, limits):
+    client = TestClient(safety_app(**limits))
+    flood = _xff('203.0.113.7')
+    assert client.post(path, json={'message': 'a'}, headers=flood).status_code == 200
+    assert client.post(path, json={'message': 'b'}, headers=flood).status_code == 200
+    limited = client.post(path, json={'message': 'c'}, headers=flood)
+    assert limited.status_code == 429
+    assert limited.headers['retry-after'] == '60'
+    # A different visitor keeps reporting while the flooding address is held.
+    assert client.post(path, json={'message': 'd'}, headers=_xff('198.51.100.9')).status_code == 200
+
+
+def test_caller_supplied_forwarded_hops_do_not_mint_fresh_budgets():
+    client = TestClient(safety_app(log_per_client_per_minute=2, log_per_minute=100))
+    # Only the last hop (appended by our edge proxy) identifies the client.
+    for spoof in ('10.0.0.1', '10.0.0.2'):
+        assert client.post('/api/error-logs', json={'message': 'x'},
+                           headers=_xff(spoof, '203.0.113.7')).status_code == 200
+    assert client.post('/api/error-logs', json={'message': 'x'},
+                       headers=_xff('10.0.0.3', '203.0.113.7')).status_code == 429
+
+
+def test_socket_peer_is_the_key_without_forwarded_header():
+    client = TestClient(safety_app(analytics_per_client_per_minute=1, analytics_per_minute=100))
+    assert client.post('/api/analytics/events', json={'x': 1}).status_code == 200
+    assert client.post('/api/analytics/events', json={'x': 2}).status_code == 429
+
+
+def test_per_client_rejections_do_not_spend_the_worker_budget():
+    client = TestClient(safety_app(log_per_client_per_minute=1, log_per_minute=3))
+    flood = _xff('203.0.113.7')
+    assert client.post('/api/error-logs', json={'message': 'x'}, headers=flood).status_code == 200
+    for _ in range(5):
+        assert client.post('/api/error-logs', json={'message': 'x'}, headers=flood).status_code == 429
+    # Worker budget 3: only the one accepted flood request counted against it.
+    assert client.post('/api/error-logs', json={'message': 'x'}, headers=_xff('198.51.100.1')).status_code == 200
+    assert client.post('/api/error-logs', json={'message': 'x'}, headers=_xff('198.51.100.2')).status_code == 200
+    assert client.post('/api/error-logs', json={'message': 'x'}, headers=_xff('198.51.100.3')).status_code == 429
+
+
+def test_tracked_client_table_is_bounded():
+    app = safety_app(log_per_client_per_minute=1, log_per_minute=100, max_tracked_clients=2)
+    client = TestClient(app)
+    for ip in ('192.0.2.1', '192.0.2.2', '192.0.2.3', '192.0.2.4'):
+        client.post('/api/error-logs', json={'message': 'x'}, headers=_xff(ip))
+    middleware = app.middleware_stack
+    while not isinstance(middleware, RequestSafetyMiddleware):
+        middleware = middleware.app
+    # Two real addresses plus one shared overflow bucket — never unbounded.
+    assert len(middleware._log_clients) == 3
+    assert '\0overflow' in middleware._log_clients
+
+
+def test_error_report_rejects_unknown_fields_and_unsafe_request_id():
+    with pytest.raises(ValidationError):
+        ErrorReportRequest(message='failed', user_id='someone-else')
+    with pytest.raises(ValidationError):
+        ErrorReportRequest(message='failed', request_id='abc def<script>')
+    with pytest.raises(ValidationError, match='key is too long'):
+        ErrorReportRequest(message='failed', extra={'k' * 65: 1})
+    with pytest.raises(ValidationError, match='finite'):
+        ErrorReportRequest(message='failed', extra={'ms': float('nan')})
+
+
+def test_error_report_accepts_every_shipped_reporter_envelope():
+    # frontend/public/js/error-reporter.js (randomUUID + fallback id) and the
+    # reading/listening "nothing saved" alarms (no request_id).
+    for request_id in ('3f2b8c1e-9a0d-4e5f-8a7b-1c2d3e4f5a6b', 'fb-1730000000000-abc123de', None):
+        ErrorReportRequest(
+            level='error', source='frontend', message='TypeError: x', stack='at f (a.js:1:1)',
+            url='/reading/exam?attempt=1', user_agent='Mozilla/5.0', request_id=request_id,
+            extra={'filename': 'https://x/a.js', 'line': 1, 'col': 2, 'digest': '123',
+                   'implementation': 'next', 'attempt_id': 'a1', 'answers_held_locally': 3},
+        )

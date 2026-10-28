@@ -1,4 +1,5 @@
 import logging
+import math
 import re
 import sys
 from time import perf_counter
@@ -19,6 +20,8 @@ for _std in (sys.stdout, sys.stderr):
         pass
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -177,7 +180,8 @@ _CORS_METHODS = ["GET", "POST", "PATCH", "DELETE", "OPTIONS"]
 # X-Reading-Anon (reading lock + share-link flows) and X-Request-ID
 # (error-reporter). They MUST stay allowed or those flows' CORS preflight breaks.
 _CORS_HEADERS = ["Authorization", "Content-Type",
-                 "X-Reading-Password", "X-Reading-Anon", "X-Request-ID", CORE_OPERATION_HEADER]
+                 "X-Reading-Password", "X-Reading-Anon", "X-Request-ID", CORE_OPERATION_HEADER,
+                 "X-Show-Test-Data"]
 
 
 def _cors_headers_for_origin(origin: str | None) -> dict:
@@ -391,6 +395,11 @@ async def access_perm_memo_middleware(request: Request, call_next):
         begin_request_memo as begin_activation_memo,
         reset_request_memo as reset_activation_memo,
     )
+    from services.test_data_visibility import (
+        SHOW_TEST_DATA_HEADER,
+        begin_request as begin_test_data_request,
+        reset_request as reset_test_data_request,
+    )
     # A CORS preflight carries no auth and reaches no route — CORSMiddleware
     # answers it below us. Setting up a per-request permission memo for it is
     # pure risk: this middleware sits OUTSIDE CORSMiddleware, so anything it
@@ -402,9 +411,12 @@ async def access_perm_memo_middleware(request: Request, call_next):
     # W-03 — same per-request lifetime for the activation gate's memo (verified
     # bearer + confirmed-active ids), so a request never re-verifies its token.
     gate_token = begin_activation_memo()
+    # TASK B2 — the admin "show test data" opt-in, read by list routes.
+    test_data_token = begin_test_data_request(request.headers.get(SHOW_TEST_DATA_HEADER))
     try:
         return await call_next(request)
     finally:
+        reset_test_data_request(test_data_token)
         reset_activation_memo(gate_token)
         reset_request_permission_memo(token)
 
@@ -606,6 +618,27 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
         },
         headers=headers,
     )
+
+
+def _json_safe_numbers(value):
+    if isinstance(value, float) and not math.isfinite(value):
+        return str(value)  # 'inf' / '-inf' / 'nan'
+    if isinstance(value, dict):
+        return {key: _json_safe_numbers(child) for key, child in value.items()}
+    if isinstance(value, list):
+        return [_json_safe_numbers(child) for child in value]
+    return value
+
+
+# F10 (Codex, PR #1754): FastAPI's default 422 echoes the rejected `input`.
+# Python's JSON parser turns 1e309 / NaN / Infinity into non-finite floats,
+# which JSONResponse refuses to serialize, so a malformed (often anonymous)
+# body became a 500 and a backend error_logs row. Same shape as the default
+# handler; only non-finite numbers are rendered as strings.
+@app.exception_handler(RequestValidationError)
+async def request_validation_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(status_code=422,
+                        content={"detail": _json_safe_numbers(jsonable_encoder(exc.errors()))})
 
 
 # ── P0-5 / C-1.3 — sanitize EXPLICIT HTTPExceptions before they reach the client.

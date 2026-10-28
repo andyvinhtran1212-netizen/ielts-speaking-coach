@@ -11,7 +11,8 @@ day it is deleted, every Task 1 chart 404s (see the essay `24aca131` incident,
 where a single legacy object was already lost).
 
 This script copies each legacy image onto the CURRENT project's `writing-images`
-bucket and rewrites the DB URLs to the current host. Downloads use the old
+bucket and rewrites the DB refs to the new object path (the bucket is private;
+readers sign paths, see services/writing_image_access.py). Downloads use the old
 project's PUBLIC URL, so NO old-project credentials are required; uploads use the
 current project's service-role client via
 `services.writing_prompt_image.upload_prompt_image`.
@@ -140,8 +141,9 @@ def run(execute: bool) -> int:
             continue
 
         up = upload_prompt_image(resp.content)
-        remap[url] = (up["url"], up["public_id"])
-        print(f"  COPIED  {url}\n       -> {up['url']}")
+        # Private bucket: persist the object path (never the signed preview URL).
+        remap[url] = (up["public_id"], up["public_id"])
+        print(f"  COPIED  {url}\n       -> {up['public_id']}")
 
     # Rewrite DB rows (execute only).
     prompt_writes = essay_writes = 0

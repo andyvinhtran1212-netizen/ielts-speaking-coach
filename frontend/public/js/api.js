@@ -171,6 +171,11 @@
           ? window.crypto.randomUUID()
           : 'fb-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
     } catch (e) { /* correlation is optional */ }
+    // TASK B2 — admin opt-in to see staging E2E/QA test data (toggle in the
+    // admin gate). The backend honours it only for admins on staging.
+    try {
+      if (window.localStorage.getItem('aver.showTestData') === '1') headers['X-Show-Test-Data'] = '1';
+    } catch (e) { /* storage unavailable — keep the default view */ }
     if (token) headers['Authorization'] = 'Bearer ' + token;
     if (!isFormData) headers['Content-Type'] = 'application/json';
     // reading-access-tracking — optional per-call headers (e.g. the locked-test

@@ -17,16 +17,19 @@ import {
 
 const read = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8');
 
-test('learner paths require activation; /login, staff consoles do not', () => {
+test('learner and staff paths require activation; only /login does not', () => {
   for (const path of ['/home', '/onboarding', '/practice/session', '/writing/dashboard',
-    '/listening', '/profile', '/my-class', '/administrator-notes', '/instructors-faq']) {
+    '/listening', '/profile', '/my-class', '/administrator-notes', '/instructors-faq',
+    // Q-13 — a staff role does not replace activation.
+    '/admin', '/admin/users', '/instructor', '/instructor/grade', '/instructor/compare']) {
     assert.equal(requiresActivation(path), true, path);
   }
-  for (const path of ['/login', '/login/', '/admin', '/admin/users', '/instructor', '/instructor/grade']) {
+  for (const path of ['/login', '/login/']) {
     assert.equal(requiresActivation(path), false, path);
   }
+  assert.equal(requiresActivation('/loginx'), true);
   assert.equal(requiresActivation(undefined), false);
-  assert.deepEqual([...ACTIVATION_EXEMPT_PREFIXES], ['/login', '/admin', '/instructor']);
+  assert.deepEqual([...ACTIVATION_EXEMPT_PREFIXES], ['/login']);
 });
 
 test('only a well-formed 2xx answer decides; everything else fails open', () => {

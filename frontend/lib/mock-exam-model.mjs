@@ -49,6 +49,8 @@ function normalizePrompt(value) {
     title: text(value.title),
     promptText: text(value.prompt_text),
     promptImageUrl: nullableText(value.prompt_image_url),
+    // Private chart that could not be signed this poll (B10); the next poll retries.
+    promptImageLookupFailed: !nullableText(value.prompt_image_url) && value.prompt_image_lookup_failed === true,
   });
 }
 

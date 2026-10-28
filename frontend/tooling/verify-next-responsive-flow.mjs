@@ -10,7 +10,10 @@ const VIEWPORTS = [
   { name: 'desktop', width: 1280, height: 900 },
   { name: 'phone', width: 375, height: 812 },
 ];
-const ROUTES = ['/', '/login', '/grammar'];
+// The root not-found renders under the bare root layout (no shell reset), so
+// it is checked directly: a real 404 whose card and page fit the viewport.
+const NOT_FOUND_ROUTE = '/__aver-responsive-missing-route';
+const ROUTES = ['/', '/login', '/grammar', NOT_FOUND_ROUTE];
 const PRODUCTION_MARKERS = [
   'ielts-speaking-coach-production.up.railway.app',
   'huwsmtubwulikhlmcirx.supabase.co',
@@ -42,17 +45,37 @@ try {
     });
 
     for (const route of ROUTES) {
+      const expectNotFound = route === NOT_FOUND_ROUTE;
       const response = await page.goto(`${BASE}${route}`, { waitUntil: 'networkidle' });
-      if (!response?.ok()) {
+      if (expectNotFound ? response?.status() !== 404 : !response?.ok()) {
         failures.push(`${viewport.name} ${route}: HTTP ${response?.status() ?? 'none'}`);
         continue;
       }
       const layout = await page.evaluate(() => ({
         viewport: window.innerWidth,
+        viewportHeight: window.innerHeight,
         body: document.body.scrollWidth,
         root: document.documentElement.scrollWidth,
+        rootHeight: document.documentElement.scrollHeight,
         hasHeading: Boolean(document.querySelector('h1')),
+        card: document.querySelector('[aria-labelledby="not-found-title"]')?.getBoundingClientRect().toJSON(),
       }));
+      if (expectNotFound) {
+        if (!layout.card) {
+          failures.push(`${viewport.name} ${route}: not-found card missing`);
+        } else if (layout.card.left < 0 || layout.card.right > layout.viewport + 1) {
+          failures.push(
+            `${viewport.name} ${route}: not-found card spans ` +
+            `${Math.round(layout.card.left)}–${Math.round(layout.card.right)}px of ${layout.viewport}px`,
+          );
+        }
+        // The card fits these viewports, so a min-height: 100vh page must not scroll.
+        if (layout.rootHeight > layout.viewportHeight + 1) {
+          failures.push(
+            `${viewport.name} ${route}: vertical overflow ${layout.rootHeight}px > ${layout.viewportHeight}px`,
+          );
+        }
+      }
       if (!layout.hasHeading) failures.push(`${viewport.name} ${route}: missing h1`);
       if (Math.max(layout.body, layout.root) > layout.viewport + 1) {
         failures.push(
