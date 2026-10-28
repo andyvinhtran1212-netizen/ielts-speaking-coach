@@ -115,3 +115,5 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 | GIVEARCHIVE-0031 | A Writing give can never create work for an archived learner, even when the archive lands mid-request | approved | high | [spec](0031-archived-learner-give-guard/spec.md) |
 
 | ADMINAAL2-0032 | Admin powers require a verified second factor and a suspended or demoted staff account loses access on its next request | approved | critical | [spec](0032-admin-aal2-staff-guard/spec.md) |
+
+| ACTIVATELIMIT-0034 | Access-code activation attempts are limited per learner across every backend worker, and the limit fails closed | draft | high | [spec](0034-activate-attempt-rate-limit/spec.md) |
