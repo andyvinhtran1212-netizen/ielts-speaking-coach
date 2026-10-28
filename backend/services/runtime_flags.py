@@ -43,6 +43,15 @@ def clear_cache() -> None:
     _cache.clear()
 
 
+def _flag_query(key: str):
+    return lambda db: db.table("runtime_flags").select("enabled").eq("key", key).limit(1)
+
+
+def _stored(res) -> bool | None:
+    rows = res.data or []
+    return bool(rows[0]["enabled"]) if rows else None
+
+
 def is_enabled(key: str, default: bool = True) -> bool:
     """Return the flag state, reading through the in-process cache."""
     now = time.monotonic()
@@ -51,15 +60,30 @@ def is_enabled(key: str, default: bool = True) -> bool:
         return default if hit[0] is None else hit[0]
 
     try:
-        res = (
-            supabase_admin.table("runtime_flags")
-            .select("enabled")
-            .eq("key", key)
-            .limit(1)
-            .execute()
-        )
-        rows = res.data or []
-        stored: bool | None = bool(rows[0]["enabled"]) if rows else None
+        stored = _stored(_flag_query(key)(supabase_admin).execute())
+    except Exception as exc:  # fail-open — see module docstring
+        logger.warning("[runtime_flags] lookup failed for %r: %s", key, exc)
+        return default
+
+    _cache[key] = (stored, now + _TTL_SECONDS)
+    return default if stored is None else stored
+
+
+async def ais_enabled(key: str, default: bool = True, *, run) -> bool:
+    """:func:`is_enabled` (same cache, TTL and fail-open) with a cache miss
+    awaited through ``run(build)``.
+
+    PC-J05: ``run`` is the async-DB facade's ``aexecute``, handed in by /auth/me
+    when ``USE_ASYNC_DB`` is on. This module never picks the client itself, so
+    the facade allowlist (ASYNCAUTH-0036 FR-005) stays the routers that call it.
+    """
+    now = time.monotonic()
+    hit = _cache.get(key)
+    if hit is not None and hit[1] > now:
+        return default if hit[0] is None else hit[0]
+
+    try:
+        stored = _stored(await run(_flag_query(key)))
     except Exception as exc:  # fail-open — see module docstring
         logger.warning("[runtime_flags] lookup failed for %r: %s", key, exc)
         return default

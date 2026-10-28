@@ -139,3 +139,27 @@ def test_admin_router_uses_facade_only_in_staff_role_guard():
     assert src.count("aexecute(") == 1
     guard = src[src.index("async def _staff_role_row"):src.index("async def require_admin")]
     assert "aexecute(" in guard
+
+
+def test_flag_twins_take_the_facade_only_from_auth_me():
+    # PC-J05 (Codex P2 on #1835): /auth/me's per-user flag and runtime-flag
+    # reads have async twins that await whatever executor the caller passes.
+    # The two flag modules never pick a client or read USE_ASYNC_DB, and only
+    # routers/auth.py hands them the facade, so the flag still switches only
+    # the /auth/me path in scope.
+    backend = os.path.join(os.path.dirname(__file__), "..")
+    for name in ("feature_flags.py", "runtime_flags.py"):
+        src = open(os.path.join(backend, "services", name), encoding="utf-8").read()
+        assert "services.db_async" not in src and "aexecute(" not in src, name
+        assert "settings.USE_ASYNC_DB" not in src, name
+    callers = set()
+    for sub in ("routers", "services"):
+        for path in glob.glob(os.path.join(backend, sub, "*.py")):
+            src = open(path, encoding="utf-8").read()
+            if "ais_flashcard_enabled(" in src or "ais_enabled(" in src:
+                callers.add(os.path.relpath(path, backend))
+    assert callers == {
+        os.path.join("routers", "auth.py"),
+        os.path.join("services", "feature_flags.py"),
+        os.path.join("services", "runtime_flags.py"),
+    }

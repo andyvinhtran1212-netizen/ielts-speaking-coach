@@ -15,21 +15,36 @@ from database import supabase_admin
 logger = logging.getLogger(__name__)
 
 
+def _per_user_flag_query(user_id: str):
+    return lambda db: db.table("users").select("feature_flags").eq("id", user_id).limit(1)
+
+
+def _flag_value(row, key: str) -> bool:
+    flags = (row.data or [{}])[0].get("feature_flags") or {}
+    return flags.get(key) is True
+
+
 def _per_user_flag(user_id: str, key: str) -> bool:
     """
     Single shared lookup against users.feature_flags.  Strict True (not truthy);
     any DB error denies.
     """
     try:
-        row = (
-            supabase_admin.table("users")
-            .select("feature_flags")
-            .eq("id", user_id)
-            .limit(1)
-            .execute()
-        )
-        flags = (row.data or [{}])[0].get("feature_flags") or {}
-        return flags.get(key) is True
+        return _flag_value(_per_user_flag_query(user_id)(supabase_admin).execute(), key)
+    except Exception as e:
+        logger.warning("[feature_flags] lookup failed for key=%s (default deny): %s", key, e)
+        return False
+
+
+async def _aper_user_flag(user_id: str, key: str, run) -> bool:
+    """:func:`_per_user_flag` with the read awaited through ``run(build)``.
+
+    PC-J05: ``run`` is the async-DB facade's ``aexecute``, handed in by /auth/me
+    when ``USE_ASYNC_DB`` is on. This module never picks the client itself, so
+    the facade allowlist (ASYNCAUTH-0036 FR-005) stays the routers that call it.
+    """
+    try:
+        return _flag_value(await run(_per_user_flag_query(user_id)), key)
     except Exception as e:
         logger.warning("[feature_flags] lookup failed for key=%s (default deny): %s", key, e)
         return False
@@ -68,6 +83,13 @@ def is_flashcard_enabled(user_id: str, global_flag: bool) -> bool:
     if not global_flag:
         return False
     return _per_user_flag(user_id, "flashcard_enabled")
+
+
+async def ais_flashcard_enabled(user_id: str, global_flag: bool, *, run) -> bool:
+    """:func:`is_flashcard_enabled` with the per-user read awaited via ``run``."""
+    if not global_flag:
+        return False
+    return await _aper_user_flag(user_id, "flashcard_enabled", run)
 
 
 def is_vocab_curated_enabled(user_id: str) -> bool:
