@@ -554,15 +554,34 @@ transaction with `lock_timeout = 5s`.
         write and no other sync can interleave;
      2. reads the session's current `overall_band` and
         `class_assignment_item_id`, and the row's `refreshed_generation`;
-     3. when there is an item and a band, updates
-        `class_assignment_items.score` with today's predicates (that item,
-        `artifact_kind = 'session'`, `artifact_id = p_session_id`);
-     4. sets `class_synced_generation = refreshed_generation` and returns
-        `synced`, or `no_item` when there is nothing to update.
+     3. locks the linked `class_assignment_items` row, when there is one;
+     4. decides from that row:
+        - no linked item, or the item's hand-in is recorded for another
+          session (`artifact_id <> p_session_id`, a retry that is not the
+          recorded attempt): returns `no_item`, and the sync is discharged;
+        - the hand-in is not recorded yet (`submitted_at` null): returns
+          `pending_handin` and leaves `class_synced_generation` unchanged,
+          so the sync stays owed (Codex round 13 on #1773);
+        - the hand-in is recorded for this session and the session has a
+          band: updates `class_assignment_items.score` with today's
+          predicates (that item, `artifact_kind = 'session'`, `artifact_id
+          = p_session_id`) and returns `synced`;
+     5. on `synced` or `no_item`, sets `class_synced_generation =
+        refreshed_generation`.
 
      The value written is always the band persisted at the moment of the
      write, never one read earlier, so two overlapping syncs cannot leave
      an older band on the item.
+
+     `_record_class_submission` (`routers/sessions.py`) passes the band
+     it computed to `mark_item_submitted`, which may be older than a
+     refresh that ran just before it. So after `mark_item_submitted`
+     records the hand-in, it calls `sync_class_item_score`, which replaces
+     the score with the band persisted at that moment. If completion dies
+     between the two, the sync is still owed, because every earlier sync
+     returned `pending_handin`, and the next sweep fixes the score.
+     `mark_item_submitted` keeps its `submitted_at IS NULL` guard, so the
+     hand-in time and the late/on-time verdict do not change.
    - **`fn_ai_deferred_claim(p_limit int, p_lease_seconds int)`** claims
      queued jobs `FOR UPDATE SKIP LOCKED` in `enqueued_at, id` order.
      It also reclaims `running` jobs whose `lease_until` has passed, so a
@@ -607,7 +626,10 @@ transaction with `lock_timeout = 5s`.
      while scopes are closed. The sweeper runs one for every `completed`
      session with `refreshed_generation < generation` first, then
      repeats `fn_ai_class_sync` for every session with
-     `class_synced_generation < refreshed_generation`. It runs
+     `class_synced_generation < refreshed_generation`. A session that is
+     still `pending_handin` an hour after completion is listed by the V9
+     operator query, not retried in a tight loop: it is retried once per
+     sweep. It runs
      another after each `committed` result whose session is `completed`.
      Then it claims new jobs. `not_completed` ends the refresh for that
      session; `PATCH /complete` owns the band of an `in_progress`
@@ -957,7 +979,12 @@ These run in CI with fake providers; no network.
     and records it, and a further sweep does nothing; two syncs are
     interleaved around a band write (sync A starts before the write, sync B
     after it) and the final item score equals the latest persisted
-    session band with nothing owed;
+    session band with nothing owed; completion is paused before
+    `_record_class_submission`, a drain commit, refresh and
+    `fn_ai_class_sync` run (`pending_handin`, still owed), completion then
+    resumes with its older band, and the item score ends at the refreshed
+    band with nothing owed, also when completion is killed between the
+    hand-in and its sync and the next sweep repairs it;
   - the Azure line refused (cap, missing price row, `budget_unavailable`
     on its own request): the grade completes without a 503 or a job,
     `pronunciation_status = 'skipped_budget'`, `band_p` null, the test-mode
@@ -1108,3 +1135,19 @@ Supabase SQL editor or the runner, and print no secrets.
 
   Every ended raise has two events and two alerts, and an active raise
   has one of each.
+
+- **V9 — class-score sync owed:**
+
+  ```sql
+  select r.session_id, r.refreshed_generation, r.class_synced_generation,
+         s.completed_at, i.submitted_at, i.artifact_id
+  from ai_deferred_session_refresh r
+  join sessions s on s.id = r.session_id
+  left join class_assignment_items i on i.id = s.class_assignment_item_id
+  where r.class_synced_generation < r.refreshed_generation
+    and s.completed_at < now() - interval '1 hour';
+  ```
+
+  Expected: no rows. A row whose `submitted_at` is null is a completed
+  session whose hand-in was never recorded, which is investigated, not
+  discharged by hand.
