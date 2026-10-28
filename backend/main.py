@@ -822,8 +822,10 @@ async def shutdown_event():
     await close_auth_http_client()
     # The service-role Supabase client owns an explicit sync HTTP/1.1 pool;
     # release it only when the process is actually shutting down.
-    from database import close_supabase_http_client
+    from database import close_supabase_async, close_supabase_http_client
     close_supabase_http_client()
+    # USE_ASYNC_DB's client (if startup built one) has its own HTTP/1.1 pool.
+    await close_supabase_async()
 
 
 @app.get("/topics", dependencies=_ACTIVE_LEARNER)

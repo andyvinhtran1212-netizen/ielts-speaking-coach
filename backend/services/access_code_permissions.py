@@ -33,7 +33,9 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
+from config import settings
 from database import supabase_admin
+from services.db_async import aexecute
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +70,22 @@ def get_user_access_code_permissions_cached(user_id: UUID | str) -> list[str]:
     key = str(user_id)
     if key not in memo:
         memo[key] = get_user_access_code_permissions(user_id)
+    return memo[key]
+
+
+async def aget_user_access_code_permissions_cached(user_id: UUID | str) -> list[str]:
+    """Async :func:`get_user_access_code_permissions_cached` (same request memo).
+
+    PC-J05 D1a: with ``USE_ASYNC_DB`` off this IS the sync function; with it on
+    the live lookup awaits the async client instead of blocking the loop."""
+    if not settings.USE_ASYNC_DB:
+        return get_user_access_code_permissions_cached(user_id)
+    memo = _perm_memo.get()
+    if memo is None:
+        return await aget_user_access_code_permissions(user_id)
+    key = str(user_id)
+    if key not in memo:
+        memo[key] = await aget_user_access_code_permissions(user_id)
     return memo[key]
 
 
@@ -201,6 +219,24 @@ def get_account_permissions_summary(
     return summary
 
 
+async def aget_account_permissions_summary(
+    user_id: UUID | str, display_name: Optional[str] = None,
+) -> dict:
+    """Async :func:`get_account_permissions_summary` — same flags; with
+    ``USE_ASYNC_DB`` off it is the sync function itself."""
+    if not settings.USE_ASYNC_DB:
+        return get_account_permissions_summary(user_id, display_name)
+    from services import activation_gate  # local — keeps this module import-light
+    if not await activation_gate.aaccount_is_active(str(user_id)):
+        return get_user_permissions_summary([])
+    summary = get_user_permissions_summary(await aget_user_access_code_permissions(user_id))
+    if not summary["writing"] and await astudent_has_writing_assignment(
+        await astudent_id_for_user(user_id, display_name)
+    ):
+        summary["writing"] = True
+    return summary
+
+
 def validate_permissions_or_raise(permissions: list[str]) -> None:
     """Fail-loud guard for admin create/update. Raises ValueError listing
     every offending value so the admin UI's error toast can surface them
@@ -252,58 +288,111 @@ def _active_code_rows(user_id: UUID | str) -> list[dict]:
 
     # ── Modern path: assignments → codes ─────────────────────────────
     try:
-        assignments = (
-            supabase_admin.table("user_code_assignments")
-            .select("code_id, is_active")
-            .eq("user_id", user_id_str)
-            .execute()
-        )
-        code_ids: list = []
-        for row in (assignments.data or []):
-            cid = row.get("code_id")
-            if not cid:
-                continue
-            assigned_code_ids.add(cid)
-            if row.get("is_active"):
-                code_ids.append(cid)
+        assignments = _assignments_query(user_id_str)(supabase_admin).execute()
+        code_ids = _split_assignments(assignments.data, assigned_code_ids)
         if code_ids:
-            codes = (
-                supabase_admin.table("access_codes")
-                .select("id, permissions, session_limit, is_revoked, is_active, expires_at")
-                .in_("id", code_ids)
-                .execute()
-            )
-            for row in codes.data or []:
-                if _code_is_live(row, now):
-                    rows_by_id[row["id"]] = row
+            codes = _codes_by_id_query(code_ids)(supabase_admin).execute()
+            _keep_live_codes(codes.data, now, rows_by_id)
     except Exception as e:
-        logger.warning(
-            "user_code_assignments lookup failed for user %s: %s", user_id_str, e,
-        )
+        _log_modern_failure(user_id_str, e)
 
     # ── Legacy fallback: access_codes.used_by ────────────────────────
     # Applies ONLY to codes with no assignment row at all (true legacy). An
     # inactive row → deliberately revoked → the modern path is authoritative.
     try:
-        legacy = (
-            supabase_admin.table("access_codes")
-            .select("id, permissions, session_limit, is_revoked, is_active, expires_at")
-            .eq("used_by", user_id_str)
-            .execute()
-        )
-        for row in legacy.data or []:
-            if row.get("id") in assigned_code_ids:
-                continue
-            if row.get("id") in rows_by_id:
-                continue
-            if _code_is_live(row, now):
-                rows_by_id[row["id"]] = row
+        legacy = _legacy_codes_query(user_id_str)(supabase_admin).execute()
+        _add_legacy_codes(legacy.data, assigned_code_ids, now, rows_by_id)
     except Exception as e:
-        logger.warning(
-            "legacy access_codes.used_by lookup failed for user %s: %s", user_id_str, e,
-        )
+        _log_legacy_failure(user_id_str, e)
 
     return list(rows_by_id.values())
+
+
+async def _aactive_code_rows(user_id: UUID | str) -> list[dict]:
+    """:func:`_active_code_rows` on the async client — identical sourcing,
+    filtering, failure degradation and logging, step for step."""
+    user_id_str = str(user_id)
+    now = datetime.now(timezone.utc)
+    assigned_code_ids: set = set()
+    rows_by_id: dict[str, dict] = {}
+
+    try:
+        assignments = await aexecute(_assignments_query(user_id_str))
+        code_ids = _split_assignments(assignments.data, assigned_code_ids)
+        if code_ids:
+            codes = await aexecute(_codes_by_id_query(code_ids))
+            _keep_live_codes(codes.data, now, rows_by_id)
+    except Exception as e:
+        _log_modern_failure(user_id_str, e)
+
+    try:
+        legacy = await aexecute(_legacy_codes_query(user_id_str))
+        _add_legacy_codes(legacy.data, assigned_code_ids, now, rows_by_id)
+    except Exception as e:
+        _log_legacy_failure(user_id_str, e)
+
+    return list(rows_by_id.values())
+
+
+# Query builders and merge steps shared by _active_code_rows/_aactive_code_rows.
+_CODE_COLUMNS = "id, permissions, session_limit, is_revoked, is_active, expires_at"
+
+
+def _assignments_query(user_id_str: str):
+    return lambda db: (
+        db.table("user_code_assignments")
+        .select("code_id, is_active")
+        .eq("user_id", user_id_str)
+    )
+
+
+def _codes_by_id_query(code_ids: list):
+    return lambda db: db.table("access_codes").select(_CODE_COLUMNS).in_("id", code_ids)
+
+
+def _legacy_codes_query(user_id_str: str):
+    return lambda db: db.table("access_codes").select(_CODE_COLUMNS).eq("used_by", user_id_str)
+
+
+def _split_assignments(rows, assigned_code_ids: set) -> list:
+    """Record every assigned code_id; return the active ones, in row order."""
+    code_ids: list = []
+    for row in (rows or []):
+        cid = row.get("code_id")
+        if not cid:
+            continue
+        assigned_code_ids.add(cid)
+        if row.get("is_active"):
+            code_ids.append(cid)
+    return code_ids
+
+
+def _keep_live_codes(rows, now: datetime, rows_by_id: dict) -> None:
+    for row in rows or []:
+        if _code_is_live(row, now):
+            rows_by_id[row["id"]] = row
+
+
+def _add_legacy_codes(rows, assigned_code_ids: set, now: datetime, rows_by_id: dict) -> None:
+    for row in rows or []:
+        if row.get("id") in assigned_code_ids:
+            continue
+        if row.get("id") in rows_by_id:
+            continue
+        if _code_is_live(row, now):
+            rows_by_id[row["id"]] = row
+
+
+def _log_modern_failure(user_id_str: str, e: Exception) -> None:
+    logger.warning(
+        "user_code_assignments lookup failed for user %s: %s", user_id_str, e,
+    )
+
+
+def _log_legacy_failure(user_id_str: str, e: Exception) -> None:
+    logger.warning(
+        "legacy access_codes.used_by lookup failed for user %s: %s", user_id_str, e,
+    )
 
 
 def get_user_total_session_limit(user_id: UUID | str) -> Optional[int]:
@@ -550,8 +639,20 @@ def get_user_access_code_permissions(user_id: UUID | str) -> list[str]:
     # inactive-assignment suppression and live/revoked/expired filtering) lives
     # in _active_code_rows — shared with get_user_total_session_limit so both
     # gates read the exact same set of codes.
+    return _permission_union(_active_code_rows(user_id))
+
+
+async def aget_user_access_code_permissions(user_id: UUID | str) -> list[str]:
+    """Async :func:`get_user_access_code_permissions`; with ``USE_ASYNC_DB``
+    off it is the sync function itself."""
+    if not settings.USE_ASYNC_DB:
+        return get_user_access_code_permissions(user_id)
+    return _permission_union(await _aactive_code_rows(user_id))
+
+
+def _permission_union(rows: list[dict]) -> list[str]:
     permissions: set[str] = set()
-    for row in _active_code_rows(user_id):
+    for row in rows:
         for p in row.get("permissions") or []:
             if isinstance(p, str):
                 permissions.add(p)
@@ -591,6 +692,28 @@ def student_has_writing_assignment(student_id: Optional[UUID | str]) -> bool:
         return False
 
 
+async def astudent_has_writing_assignment(student_id: Optional[UUID | str]) -> bool:
+    """Async :func:`student_has_writing_assignment` (same fail-closed False)."""
+    if not settings.USE_ASYNC_DB:
+        return student_has_writing_assignment(student_id)
+    if not student_id:
+        return False
+    try:
+        r = await aexecute(
+            lambda db: db.table("writing_assignments")
+            .select("id")
+            .eq("student_id", str(student_id))
+            .limit(1)
+        )
+        return bool(r.data)
+    except Exception as e:
+        logger.warning(
+            "writing_assignments existence check failed for student %s: %s",
+            student_id, e,
+        )
+        return False
+
+
 def student_id_for_user(
     user_id: Optional[UUID | str],
     account_name: str = "",
@@ -607,6 +730,24 @@ def student_id_for_user(
     try:
         from services.student_service import fetch_linked_student
         row = fetch_linked_student(supabase_admin, user_id, account_name)
+        return row["id"] if row else None
+    except Exception as e:
+        logger.warning("student lookup by user_id failed for %s: %s", user_id, e)
+        return None
+
+
+async def astudent_id_for_user(
+    user_id: Optional[UUID | str],
+    account_name: str = "",
+) -> Optional[str]:
+    """Async :func:`student_id_for_user` (same None on miss or failure)."""
+    if not settings.USE_ASYNC_DB:
+        return student_id_for_user(user_id, account_name)
+    if not user_id:
+        return None
+    try:
+        from services.student_service import afetch_linked_student
+        row = await afetch_linked_student(user_id, account_name)
         return row["id"] if row else None
     except Exception as e:
         logger.warning("student lookup by user_id failed for %s: %s", user_id, e)

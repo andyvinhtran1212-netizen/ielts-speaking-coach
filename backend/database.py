@@ -1,5 +1,6 @@
 import logging
 import sys
+import threading
 import httpx
 from supabase import create_client, Client
 from config import settings
@@ -42,6 +43,19 @@ def _build_supabase_http_client() -> httpx.Client:
     without making a network request.
     """
     return httpx.Client(
+        http1=True,
+        http2=False,
+        follow_redirects=True,
+        timeout=httpx.Timeout(120.0),
+    )
+
+
+def _build_supabase_async_http_client() -> httpx.AsyncClient:
+    """Async twin of :func:`_build_supabase_http_client` for the opt-in
+    ``USE_ASYNC_DB`` client. postgrest's ``AsyncPostgrestClient`` also defaults
+    to HTTP/2, and the async client carries every per-request auth check once
+    the flag is on, so it would reach the 19,999-stream GOAWAY ceiling first."""
+    return httpx.AsyncClient(
         http1=True,
         http2=False,
         follow_redirects=True,
@@ -99,17 +113,30 @@ def close_supabase_http_client() -> None:
 # supabase_admin). Only created when USE_ASYNC_DB is on; stays None otherwise,
 # so the scaffold adds nothing to the default sync path.
 _supabase_async = None  # type: ignore[var-annotated]
+_supabase_async_postgrest_http_client: httpx.AsyncClient | None = None
 
 
 async def init_supabase_async():
     """Create the shared async client once. Safe to call repeatedly (idempotent)."""
-    global _supabase_async
+    global _supabase_async, _supabase_async_postgrest_http_client
     if _supabase_async is None:
         if create_async_client is None:  # pragma: no cover - old supabase-py
             raise RuntimeError(
                 "USE_ASYNC_DB is on but supabase-py has no create_async_client"
             )
-        _supabase_async = await create_async_client(_url, _key)
+        client = await create_async_client(_url, _key)
+        # Same PostgREST-only HTTP/1.1 override as the sync singleton above;
+        # Auth/Storage/Functions keep their own transports and timeouts.
+        transport = _build_supabase_async_http_client()
+        client._postgrest = client._init_postgrest_client(
+            rest_url=str(client.rest_url),
+            headers=client.options.headers,
+            schema=client.options.schema,
+            timeout=client.options.postgrest_client_timeout,
+            http_client=transport,
+        )
+        _supabase_async_postgrest_http_client = transport
+        _supabase_async = client
     return _supabase_async
 
 
@@ -122,3 +149,41 @@ async def get_supabase_async():
 
 def async_client_initialised() -> bool:
     return _supabase_async is not None
+
+
+async def close_supabase_async() -> None:
+    """Release the async client's PostgREST pool at shutdown. The next startup
+    (TestClient lifespans can restart in one interpreter) builds a fresh one."""
+    global _supabase_async, _supabase_async_postgrest_http_client
+    transport = _supabase_async_postgrest_http_client
+    _supabase_async = None
+    _supabase_async_postgrest_http_client = None
+    if transport is not None and not transport.is_closed:
+        await transport.aclose()
+
+
+# ── Per-thread service-role clients (PC-J05 D1b) ─────────────────────────────
+# The shared sync singleton must never be used from two threads at once (see
+# services/db_async.py). Aggregators that fan independent sections out with
+# ``asyncio.to_thread`` call ``thread_supabase_admin()`` INSIDE the worker
+# thread instead: each executor thread lazily builds its own service-role
+# client and keeps it, so sections never share a client and a thread reuses its
+# keep-alive connection on the next request rather than paying a new TLS
+# handshake per section.
+_thread_clients = threading.local()
+
+
+def thread_supabase_admin() -> Client:
+    """The calling thread's own service-role client (HTTP/1.1 PostgREST)."""
+    client = getattr(_thread_clients, "client", None)
+    if client is None:
+        client = create_client(_url, _key)
+        client._postgrest = client._init_postgrest_client(
+            rest_url=str(client.rest_url),
+            headers=client.options.headers,
+            schema=client.options.schema,
+            timeout=client.options.postgrest_client_timeout,
+            http_client=_build_supabase_http_client(),
+        )
+        _thread_clients.client = client
+    return client
