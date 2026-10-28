@@ -108,8 +108,9 @@ async def get_dashboard_payload_concurrent(
 
     The three sections are independent, so running them in parallel turns the
     wall-time from *sum*-of-sections into *max*-of-sections — the win that
-    matters while every query is a ~56ms cross-region hop (Railway SG ↔ Supabase
-    ap-south-1). Measured ~731ms sequential → ~max(section) concurrently.
+    matters while every query is a network hop (Railway SG ↔ Supabase prod
+    ap-southeast-1 Singapore, staging ap-northeast-1 Tokyo). Measured ~731ms
+    sequential → ~max(section) concurrently.
 
     Thread-safety: each section runs in its OWN thread with its OWN client built
     by ``make_sb()``. The sync supabase/httpx client + query builder are NOT

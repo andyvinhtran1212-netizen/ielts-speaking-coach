@@ -9,11 +9,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
 from collections.abc import Coroutine
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from database import get_supabase_async, supabase_admin
 from services.ai_pricing import estimate_token_cost, estimate_unit_cost
+from services.request_context import current_request_id
 
 logger = logging.getLogger(__name__)
 _PENDING_USAGE_TASKS: set[asyncio.Task[Any]] = set()
@@ -415,16 +418,36 @@ def _row(
     for key, value in context.items():
         if value is not None:
             row[key] = value
+    # BL-09: every row is correlatable. Callers with a deterministic id (retry
+    # dedupe, CallTelemetry) keep theirs; the rest get a fresh one per provider
+    # call in the same feature:provider:uuid shape. request_id is the HTTP
+    # request the call served (None for background work).
+    if "request_id" not in row and (request_id := current_request_id()):
+        row["request_id"] = request_id
+    row.setdefault(
+        "usage_event_id", f"{row.get('feature') or service}:{service}:{uuid.uuid4()}",
+    )
     return row
 
 
 def _insert(row: dict[str, Any]) -> None:
+    if _write(row) and _affects_session_cost(row):
+        _refresh_session_cost(row["session_id"])
+
+
+async def _insert_async(row: dict[str, Any]) -> None:
+    if await _write_async(row) and _affects_session_cost(row):
+        await _refresh_session_cost_async(row["session_id"])
+
+
+def _write(row: dict[str, Any]) -> bool:
     try:
         query = supabase_admin.table("ai_usage_logs")
         if row.get("usage_event_id"):
             query.upsert(row, on_conflict="usage_event_id", ignore_duplicates=True).execute()
         else:
             query.insert(row).execute()
+        return True
     except Exception as exc:
         if is_legacy_schema_error(exc):
             if not _can_write_legacy_row(row):
@@ -432,22 +455,23 @@ def _insert(row: dict[str, Any]) -> None:
                     "[ai_usage] skipped legacy fallback for %s row; apply migration 286",
                     row.get("status") or row.get("cost_source") or "unpriced",
                 )
-                return
+                return False
             try:
                 supabase_admin.table("ai_usage_logs").insert(_legacy_row(row)).execute()
                 logger.warning(
                     "[ai_usage] wrote legacy-compatible row; apply migration 286"
                 )
-                return
+                return True
             except Exception as fallback_exc:
                 exc = fallback_exc
         logger.warning(
             "[ai_usage] ledger write failed service=%s model=%s event=%s: %s",
             row.get("service"), row.get("model"), row.get("usage_event_id"), exc,
         )
+        return False
 
 
-async def _insert_async(row: dict[str, Any]) -> None:
+async def _write_async(row: dict[str, Any]) -> bool:
     try:
         client = await get_supabase_async()
         query = client.table("ai_usage_logs")
@@ -457,6 +481,7 @@ async def _insert_async(row: dict[str, Any]) -> None:
             ).execute()
         else:
             await query.insert(row).execute()
+        return True
     except Exception as exc:
         if is_legacy_schema_error(exc):
             if not _can_write_legacy_row(row):
@@ -464,20 +489,129 @@ async def _insert_async(row: dict[str, Any]) -> None:
                     "[ai_usage] skipped legacy fallback for %s row; apply migration 286",
                     row.get("status") or row.get("cost_source") or "unpriced",
                 )
-                return
+                return False
             try:
                 client = await get_supabase_async()
                 await client.table("ai_usage_logs").insert(_legacy_row(row)).execute()
                 logger.warning(
                     "[ai_usage] wrote legacy-compatible row; apply migration 286"
                 )
-                return
+                return True
             except Exception as fallback_exc:
                 exc = fallback_exc
         logger.warning(
             "[ai_usage] ledger write failed service=%s model=%s event=%s: %s",
             row.get("service"), row.get("model"), row.get("usage_event_id"), exc,
         )
+        return False
+
+
+# sessions.estimated_cost_usd is NUMERIC(10,4) (migration 093).
+_SESSION_COST_QUANTUM = Decimal("0.0001")
+_SESSION_COST_PASSES = 3
+# PostgREST caps a response at max-rows (1000); a session can exceed it.
+_SESSION_COST_PAGE = 1000
+
+
+def _affects_session_cost(row: dict[str, Any]) -> bool:
+    return bool(row.get("session_id")) and row.get("cost_usd_est") is not None
+
+
+def _session_cost_total(rows: list[dict[str, Any]] | None) -> Decimal:
+    total = sum(
+        (Decimal(str(r["cost_usd_est"])) for r in rows or ()
+         if r.get("cost_usd_est") is not None),
+        Decimal(0),
+    )
+    return total.quantize(_SESSION_COST_QUANTUM, rounding=ROUND_HALF_UP)
+
+
+def _session_cost_page_query(client: Any, session_id: str, cursor: str | None) -> Any:
+    query = (client.table("ai_usage_logs").select("id, cost_usd_est")
+             .eq("session_id", session_id).order("id").limit(_SESSION_COST_PAGE))
+    return query if cursor is None else query.gt("id", cursor)
+
+
+def _session_cost_next_cursor(page: list[dict[str, Any]], cursor: str | None) -> str | None:
+    """Keyset cursor for the next ledger page (routers/admin.py::_usage_paged),
+    or None once a short page shows the session's rows are all read."""
+    if len(page) < _SESSION_COST_PAGE:
+        return None
+    next_cursor = page[-1].get("id")
+    if not isinstance(next_cursor, str) or not next_cursor or next_cursor == cursor:
+        raise RuntimeError("session cost pagination requires a progressing id cursor")
+    return next_cursor
+
+
+def _session_cost_raise_filter(total: Decimal) -> str:
+    # PostgREST or=(): the UPDATE only ever raises the column.
+    return f"estimated_cost_usd.is.null,estimated_cost_usd.lt.{total:f}"
+
+
+def _refresh_session_cost(session_id: str) -> None:
+    """Set sessions.estimated_cost_usd to the sum of the session's ledger rows.
+
+    The total is recomputed, never incremented, so a duplicate upsert cannot
+    double-count. Sibling rows (STT, judge, Azure, grader) land concurrently, so
+    a pass may read the sum before a sibling's insert and reach its UPDATE after
+    that sibling's refresh. Ledger rows are only ever added and priced >= 0, so
+    the true total only grows and a stale total is always lower. The UPDATE
+    therefore only raises the column (WHERE it IS NULL OR < total). PostgreSQL
+    re-checks that WHERE against the newest row version, so a stale total can
+    never overwrite a newer one. The refresh for the last insert reads every
+    row, so the column ends at the full sum. The re-read repeats a pass for a
+    sibling row whose own refresh failed. Each read pages through the ledger
+    by id, because one PostgREST response stops at max-rows (1000).
+    """
+    def read() -> Decimal:
+        rows: list[dict[str, Any]] = []
+        cursor: str | None = None
+        while True:
+            page = _session_cost_page_query(supabase_admin, session_id, cursor).execute().data or []
+            rows.extend(page)
+            cursor = _session_cost_next_cursor(page, cursor)
+            if cursor is None:
+                return _session_cost_total(rows)
+
+    try:
+        total = read()
+        for _ in range(_SESSION_COST_PASSES):
+            (supabase_admin.table("sessions")
+             .update({"estimated_cost_usd": float(total)})
+             .eq("id", session_id).or_(_session_cost_raise_filter(total)).execute())
+            settled, total = total, read()
+            if total == settled:
+                return
+    except Exception as exc:
+        logger.warning("[ai_usage] session cost refresh failed session=%s: %s", session_id, exc)
+
+
+async def _refresh_session_cost_async(session_id: str) -> None:
+    """Async-client twin of :func:`_refresh_session_cost`."""
+    async def read() -> Decimal:
+        client = await get_supabase_async()
+        rows: list[dict[str, Any]] = []
+        cursor: str | None = None
+        while True:
+            page = (await _session_cost_page_query(client, session_id, cursor).execute()).data or []
+            rows.extend(page)
+            cursor = _session_cost_next_cursor(page, cursor)
+            if cursor is None:
+                return _session_cost_total(rows)
+
+    try:
+        total = await read()
+        for _ in range(_SESSION_COST_PASSES):
+            client = await get_supabase_async()
+            await (client.table("sessions")
+                   .update({"estimated_cost_usd": float(total)})
+                   .eq("id", session_id).or_(_session_cost_raise_filter(total))
+                   .execute())
+            settled, total = total, await read()
+            if total == settled:
+                return
+    except Exception as exc:
+        logger.warning("[ai_usage] session cost refresh failed session=%s: %s", session_id, exc)
 
 
 _LEGACY_COLUMNS = {
