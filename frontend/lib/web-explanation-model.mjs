@@ -157,14 +157,17 @@ export function candidateErrorOptions(object, normalize = plain) {
 // Quoted spans keep the source wording: “…”, "…" (one line) and `…`.
 const QUOTED_SPAN = /(“[^”]*”|"[^"\n]*"|`[^`]*`)/;
 // An English determiner/possessive before "speaker" means an English phrase
-// ("the speaker stresses", "today's speaker to talk to us").
-const SPEAKER_WORD = /(\b(?:the|a|an|this|that|each|every|another|other|which)\s+|['’]s\s+)?\bspeaker\s+/gi;
+// ("the speaker stresses", "today's speaker to talk to us"). A "> " quote
+// marker before it is a transcript line tag ("> Speaker 2 (Sandra): …" in the
+// dictation drills, which may arrive with its newlines collapsed).
+const SPEAKER_WORD = /((?:^|\s)>\s*|\b(?:the|a|an|this|that|each|every|another|other|which)\s+|['’]s\s+)?\bspeaker\s+/gi;
 
 /**
  * Localise "speaker" to "người nói" in Vietnamese explanation prose only.
  * English evidence must stay verbatim: text inside quotation marks or code
- * spans and English noun phrases are left untouched. Verbatim evidence
- * fields (transcript extracts, source quotes) must not be passed here.
+ * spans, "> " transcript line tags and English noun phrases are left
+ * untouched. Verbatim evidence fields (transcript extracts, source quotes)
+ * must not be passed here.
  */
 export function localiseSpeaker(value) {
   return String(value ?? '').split(QUOTED_SPAN)
