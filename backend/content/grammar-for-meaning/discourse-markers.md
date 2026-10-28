@@ -303,9 +303,10 @@ While [Side A is true/has advantages], [Side B ultimately outweighs it / is a mo
 
 ### Lỗi 4: Contrast quá nhẹ, không thực sự đối lập
 
-- ❌ "Cats are cute, but dogs are also cute." *(hai vế cùng chiều, không có tương phản)*
+- ❌ Khi chỉ mô tả trung tính: "Cats are cute, but dogs are also cute." *(hai vế cùng chiều, không có tương phản)*
 - ✅ "Cats are cute, **and** dogs are too."
 - ✅ "Cats are fairly independent, **whereas** dogs need more attention."
+- Ngoại lệ: nếu người nghe vừa chỉ đề cao mèo, "Cats are cute, **but** dogs are also cute." vẫn đúng, vì *but* tương phản với kỳ vọng đó (tương phản phụ thuộc kỳ vọng của người nghe).
 
 ---
 
