@@ -10,6 +10,8 @@ class AuthMeResponse(BaseModel):
     avatar_url: str | None
     role: str
     is_active: bool
+    # ADMINAAL2-0032 FR-018: the account carries the staff suspension marker.
+    suspended: bool = False
     permissions: list[str]
     onboarding_completed: bool
     target_band: float | None
@@ -25,6 +27,7 @@ class AuthMeResponse(BaseModel):
 
 class AuthActiveStatusResponse(BaseModel):
     is_active: bool
+    suspended: bool = False
 
 
 class AuthProfileBase(BaseModel):

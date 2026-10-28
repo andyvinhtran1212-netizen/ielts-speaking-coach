@@ -173,14 +173,14 @@ def test_generate_and_assign_activates_login_with_assigned_permissions(monkeypat
         return {"id": "uX"}
 
     monkeypatch.setattr(auth_module, "get_supabase_user", current_user)
-    assert _run(auth_module.check_active(authorization="x")) == {"is_active": False}
+    assert _run(auth_module.check_active(authorization="x")) == {"is_active": False, "suspended": False}
     out = _run(admin_module.generate_and_assign_code(
         admin_module.GenerateAndAssignRequest(
             user_id="uX", permissions=["practice_single"], session_limit=10,
         ), authorization="x"))
 
     assert out["ok"] and out["user_id"] == "uX"
-    assert _run(auth_module.check_active(authorization="x")) == {"is_active": True}
+    assert _run(auth_module.check_active(authorization="x")) == {"is_active": True, "suspended": False}
     assert tables["users"][0]["role"] == role
     assert tables["users"][0]["onboarding_completed"] is False
     issued = next(o for o in ops if o["table"] == "access_codes" and o["op"] == "insert")

@@ -480,6 +480,13 @@ export interface paths {
          *     Admin-only. Self-demotion is blocked so an admin can't accidentally
          *     lock themselves out of the panel. Role values are constrained to a
          *     small allow-list so a typo doesn't quietly write garbage.
+         *
+         *     ADMINAAL2-0032 FR-007: the change goes through ``fn_set_staff_privilege``
+         *     (audited, attributed, 409 ``last_admin``), and a change that removes admin
+         *     or instructor privilege revokes the target's sessions. A revocation
+         *     failure keeps the change and answers ``sessions_revoked: false`` with
+         *     ``revoke_error`` (FR-008). FR-019 (migration 336): a suspended account's
+         *     role change is 409 ``account_suspended_role_change``.
          */
         patch: operations["admin_set_user_role_admin_users__user_id__role_patch"];
         trace?: never;
@@ -1635,6 +1642,100 @@ export interface paths {
          *     stays unknown even with a successful canonical result and capture enabled.
          */
         get: operations["inspect_core_attempt_admin_core_attempt_evidence__surface___canonical_attempt_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mfa/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin Mfa Status
+         * @description The caller's own second-factor state. Requires role admin and an active
+         *     account, but accepts an AAL1 session so the MFA page can enroll or
+         *     challenge (FR-004). Returns no other user's or domain data.
+         */
+        get: operations["admin_mfa_status_admin_mfa_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{user_id}/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Admin Set Staff Active
+         * @description Suspend (``is_active: false``) or reactivate an admin or instructor.
+         *
+         *     Suspension sets the durable marker, then bans sign-in and revokes every
+         *     session. A revocation failure keeps the suspension and answers
+         *     ``sessions_revoked: false`` with ``revoke_error`` (retry with
+         *     ``POST …/revoke-sessions``). Reactivation clears the marker and lifts the
+         *     ban; ``sign_in_restored: false`` means repeat this request. A repeat of the
+         *     same request writes no second audit row.
+         */
+        patch: operations["admin_set_staff_active_admin_users__user_id__active_patch"];
+        trace?: never;
+    };
+    "/admin/users/{user_id}/revoke-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Revoke Staff Sessions
+         * @description Retry a revocation (FR-008). The mode comes from the committed row at
+         *     retry time: ban + delete while the account is suspended, delete only
+         *     otherwise (a demoted or reactivated account is never re-banned). Every
+         *     attempt is audited; a failure also alerts the owner.
+         */
+        post: operations["admin_revoke_staff_sessions_admin_users__user_id__revoke_sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{user_id}/security-audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin Staff Security Audit
+         * @description The user's privilege and security history, newest first, with the
+         *     owner-alert delivery status (FR-015). A lookup failure is a 503, never an
+         *     empty list.
+         */
+        get: operations["admin_staff_security_audit_admin_users__user_id__security_audit_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -13441,6 +13542,26 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /**
+         * AdminMfaStatusOut
+         * @description The caller's own second-factor state (FR-004). No other user's data.
+         */
+        AdminMfaStatusOut: {
+            /**
+             * Aal
+             * @enum {string}
+             */
+            aal: "aal1" | "aal2";
+            /** Enforce */
+            enforce: boolean;
+            /** Verified Factor Count */
+            verified_factor_count: number;
+            /**
+             * Next Step
+             * @enum {string}
+             */
+            next_step: "none" | "enroll" | "challenge";
+        };
         /** AdminMockExamListResponse */
         AdminMockExamListResponse: {
             /** Exams */
@@ -14500,6 +14621,11 @@ export interface components {
         AuthActiveStatusResponse: {
             /** Is Active */
             is_active: boolean;
+            /**
+             * Suspended
+             * @default false
+             */
+            suspended: boolean;
         };
         /** AuthMeResponse */
         AuthMeResponse: {
@@ -14515,6 +14641,11 @@ export interface components {
             role: string;
             /** Is Active */
             is_active: boolean;
+            /**
+             * Suspended
+             * @default false
+             */
+            suspended: boolean;
             /** Permissions */
             permissions: string[];
             /** Onboarding Completed */
@@ -20609,6 +20740,22 @@ export interface components {
              */
             reason: "applied" | "replayed" | "conflict";
         };
+        /** RevokeSessionsIn */
+        RevokeSessionsIn: {
+            /** Reason */
+            reason?: string | null;
+        };
+        /** RevokeSessionsOut */
+        RevokeSessionsOut: {
+            /** Ok */
+            ok: boolean;
+            /** Sessions Revoked */
+            sessions_revoked: boolean;
+            /** Revoke Error */
+            revoke_error?: string | null;
+            /** Audit Id */
+            audit_id?: string | null;
+        };
         /** RollbackRequest */
         RollbackRequest: {
             /**
@@ -20629,6 +20776,47 @@ export interface components {
              * @default
              */
             task2_text: string;
+        };
+        /** SecurityAuditOut */
+        SecurityAuditOut: {
+            /** Rows */
+            rows: components["schemas"]["SecurityAuditRowOut"][];
+            /**
+             * Lookup Failed
+             * @default false
+             * @constant
+             */
+            lookup_failed: false;
+        };
+        /** SecurityAuditRowOut */
+        SecurityAuditRowOut: {
+            /** Id */
+            id: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Event */
+            event: string;
+            /** Source */
+            source: string;
+            /** Actor User Id */
+            actor_user_id?: string | null;
+            /** Actor Email */
+            actor_email?: string | null;
+            /** Before */
+            before?: {
+                [key: string]: unknown;
+            } | null;
+            /** After */
+            after?: {
+                [key: string]: unknown;
+            } | null;
+            /** Reason */
+            reason?: string | null;
+            /** Alert Status */
+            alert_status?: ("pending" | "sent" | "failed") | null;
         };
         /** SessionAudioUrl */
         SessionAudioUrl: {
@@ -21752,6 +21940,34 @@ export interface components {
             renderer_affinity?: string | null;
             session_params?: components["schemas"]["SpeakingSessionParams"] | null;
         };
+        /** StaffActiveIn */
+        StaffActiveIn: {
+            /** Is Active */
+            is_active: boolean;
+            /** Reason */
+            reason: string;
+        };
+        /** StaffActiveOut */
+        StaffActiveOut: {
+            /** Ok */
+            ok: boolean;
+            /** Id */
+            id: string;
+            /** Is Active */
+            is_active: boolean;
+            /** Suspended At */
+            suspended_at?: string | null;
+            /** Changed */
+            changed: boolean;
+            /** Audit Id */
+            audit_id?: string | null;
+            /** Sessions Revoked */
+            sessions_revoked?: boolean | null;
+            /** Revoke Error */
+            revoke_error?: string | null;
+            /** Sign In Restored */
+            sign_in_restored?: boolean | null;
+        };
         /** StartGradingRequest */
         StartGradingRequest: {
             /**
@@ -22110,6 +22326,23 @@ export interface components {
             width?: number | null;
             /** Height */
             height?: number | null;
+        };
+        /** UserRoleChangeOut */
+        UserRoleChangeOut: {
+            /** Ok */
+            ok: boolean;
+            /** Id */
+            id: string;
+            /** Role */
+            role: string;
+            /** Changed */
+            changed: boolean;
+            /** Audit Id */
+            audit_id?: string | null;
+            /** Sessions Revoked */
+            sessions_revoked?: boolean | null;
+            /** Revoke Error */
+            revoke_error?: string | null;
         };
         /** UserRolePayload */
         UserRolePayload: {
@@ -23715,7 +23948,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["UserRoleChangeOut"];
                 };
             };
             /** @description Validation Error */
@@ -25768,6 +26001,146 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AttemptInspection"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_mfa_status_admin_mfa_status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMfaStatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_set_staff_active_admin_users__user_id__active_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffActiveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffActiveOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_revoke_staff_sessions_admin_users__user_id__revoke_sessions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RevokeSessionsIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevokeSessionsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_staff_security_audit_admin_users__user_id__security_audit_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecurityAuditOut"];
                 };
             };
             /** @description Validation Error */

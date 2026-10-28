@@ -34,6 +34,7 @@ from models.admin_speaking import (
 )
 from models.admin_overview import DashboardOverviewOut, DashboardTrendsOut
 from models.admin_users import AdminTestDataVisibilityOut, AdminUserDirectoryRowOut
+from models.staff_security import UserRoleChangeOut
 from models.grammar_content import GrammarArticleDocument
 from database import supabase_admin
 from services.class_assignment_service import sync_class_item_score
@@ -44,7 +45,8 @@ from services.student_service import student_archived_error
 from services.access_code_gen import (
     generate_access_code, insert_one_with_unique_code, insert_with_unique_codes,
 )
-from services import staff_guard
+from services import staff_guard, staff_security
+from services.request_context import current_request_id
 from services.db_async import aexecute
 from services import speaking_question_audio as speaking_audio
 from services.recording_audio import attach_playback_urls, recording_path
@@ -830,7 +832,15 @@ def _is_suspended_role_change(exc: Exception) -> bool:
     return str(code or "") == "P0001" and message == _SUSPENDED_ROLE_CHANGE_CODE
 
 
-@router.patch("/users/{user_id}/role")
+def _suspended_role_change_refusal(exc: Exception) -> HTTPException | None:
+    if not _is_suspended_role_change(exc):
+        return None
+    return HTTPException(
+        409, {"code": _SUSPENDED_ROLE_CHANGE_CODE, "message": _SUSPENDED_ROLE_CHANGE_MESSAGE},
+    )
+
+
+@router.patch("/users/{user_id}/role", response_model=UserRoleChangeOut)
 async def admin_set_user_role(
     user_id: str,
     payload: UserRolePayload,
@@ -841,6 +851,13 @@ async def admin_set_user_role(
     Admin-only. Self-demotion is blocked so an admin can't accidentally
     lock themselves out of the panel. Role values are constrained to a
     small allow-list so a typo doesn't quietly write garbage.
+
+    ADMINAAL2-0032 FR-007: the change goes through ``fn_set_staff_privilege``
+    (audited, attributed, 409 ``last_admin``), and a change that removes admin
+    or instructor privilege revokes the target's sessions. A revocation
+    failure keeps the change and answers ``sessions_revoked: false`` with
+    ``revoke_error`` (FR-008). FR-019 (migration 336): a suspended account's
+    role change is 409 ``account_suspended_role_change``.
     """
     admin_user = await require_admin(authorization)
     role = (payload.role or "").strip().lower()
@@ -853,25 +870,35 @@ async def admin_set_user_role(
     admin_id = admin_user.get("id") if isinstance(admin_user, dict) else None
     if admin_id and admin_id == user_id and role != "admin":
         raise HTTPException(400, "Không thể tự hạ quyền admin của chính mình.")
-
+    if admin_id and admin_id == user_id:
+        # Keeping one's own admin role is a no-op; the RPC refuses any
+        # self-change, so answer it here.
+        return {"ok": True, "id": user_id, "role": role, "changed": False,
+                "audit_id": None, "sessions_revoked": None, "revoke_error": None}
     try:
-        res = (
-            supabase_admin.table("users")
-            .update({"role": role})
-            .eq("id", user_id)
-            .execute()
-        )
-    except Exception as exc:
-        if _is_suspended_role_change(exc):
-            raise HTTPException(
-                409,
-                {"code": _SUSPENDED_ROLE_CHANGE_CODE, "message": _SUSPENDED_ROLE_CHANGE_MESSAGE},
-            ) from None
-        raise HTTPException(500, f"Role update failed: {exc}")
+        target = str(_uuid.UUID(user_id))
+    except ValueError:
+        raise HTTPException(404, "User not found") from None
 
-    if not res.data:
-        raise HTTPException(404, "User not found")
-    return {"ok": True, "id": user_id, "role": role}
+    request_id = current_request_id()
+    change = staff_security.set_staff_privilege(
+        supabase_admin, actor_id=admin_id, target_id=target, role=role,
+        request_id=request_id, refusal=_suspended_role_change_refusal,
+    )
+    sessions_revoked = revoke_error = None
+    if change.changed and staff_security.removes_staff_privilege(
+            change.before.get("role"), change.after.get("role")):
+        # A suspended account's role is frozen (FR-019), so a demotion never
+        # bans: the demoted account may sign in again under its new role.
+        outcome, _ = await staff_security.revoke_and_record(
+            supabase_admin, target_id=target, actor_id=admin_id, ban=False,
+            trigger="role_change", engine=_db_engine, auth_admin=None,  # no ban
+            request_id=request_id,
+        )
+        sessions_revoked, revoke_error = outcome.sessions_revoked, outcome.revoke_error
+    return {"ok": True, "id": target, "role": role, "changed": change.changed,
+            "audit_id": change.audit_id, "sessions_revoked": sessions_revoked,
+            "revoke_error": revoke_error}
 
 
 @router.get("/users", response_model=list[AdminUserDirectoryRowOut])
@@ -2506,13 +2533,20 @@ def _activate_user_for_code(user_id: str, code: str | None, permissions) -> None
     way self-service /auth/activate does: is_active + the access_code_used /
     permissions snapshot. Never changes role or onboarding. Raises 404 when the
     user row does not exist."""
-    activated = (
-        supabase_admin.table("users").update({
-            "is_active": True,
-            "access_code_used": code,
-            "permissions": permissions,
-        }).eq("id", user_id).execute()
-    )
+    try:
+        activated = (
+            supabase_admin.table("users").update({
+                "is_active": True,
+                "access_code_used": code,
+                "permissions": permissions,
+            }).eq("id", user_id).execute()
+        )
+    except Exception as exc:
+        # ADMINAAL2-0032 FR-018: migration 332 refuses to activate a suspended
+        # account; only PATCH /admin/users/{id}/active reactivates it.
+        if staff_security.is_account_suspended_error(exc):
+            raise staff_security.account_suspended_exception(409) from None
+        raise
     if not activated.data:
         raise HTTPException(404, "Không tìm thấy người dùng để kích hoạt")
 

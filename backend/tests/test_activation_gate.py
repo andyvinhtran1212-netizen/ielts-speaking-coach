@@ -211,7 +211,7 @@ def test_inactive_account_cannot_edit_profile(gate):
 def test_inactive_account_can_check_status_and_bootstrap(gate, monkeypatch):
     monkeypatch.setattr(auth_module, "supabase_admin", gate.users)
     resp = gate.call("GET", "/auth/check-active", INACTIVE)
-    assert resp.status_code == 200 and resp.json() == {"is_active": False}
+    assert resp.status_code == 200 and resp.json() == {"is_active": False, "suspended": False}
 
 
 def test_inactive_account_can_reach_activation(gate, monkeypatch):

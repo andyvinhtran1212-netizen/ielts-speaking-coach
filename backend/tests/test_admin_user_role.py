@@ -65,13 +65,50 @@ class _TableQuery:
         return _Resp(matched)
 
 
+class _Rpc:
+    def __init__(self, fn):
+        self._fn = fn
+
+    def execute(self):
+        return _Resp(self._fn())
+
+
 class _FakeSupabase:
     def __init__(self):
         self.tables: dict[str, list[dict]] = {"users": []}
         self.role_guard_message = "account_suspended_role_change"
+        self.rpc_calls: list[dict] = []
 
     def table(self, name):
         return _TableQuery(self, name)
+
+    def rpc(self, name, params):
+        # ADMINAAL2-0032 FR-007: the role route delegates to migration 332's
+        # fn_set_staff_privilege. This stand-in keeps the role-only path the
+        # route uses: target lookup, no-op, and migration 336's role freeze.
+        assert name == "fn_set_staff_privilege"
+        self.rpc_calls.append(params)
+
+        def run():
+            def fail(message):
+                raise APIError({"code": "P0001", "message": message, "details": None, "hint": None})
+
+            if params["p_actor"] == params["p_target"]:
+                fail("self_change_forbidden")
+            target = next((r for r in self.tables["users"] if r["id"] == params["p_target"]), None)
+            if target is None:
+                fail("target_not_found")
+            before = {"role": target.get("role"), "is_active": target.get("is_active"),
+                      "suspended_at": target.get("suspended_at")}
+            if params["p_role"] == target.get("role"):
+                return [{"changed": False, "audit_id": None, "before": before, "after": before}]
+            if target.get("suspended_at"):
+                fail(self.role_guard_message)
+            target["role"] = params["p_role"]
+            return [{"changed": True, "audit_id": str(uuid4()), "before": before,
+                     "after": {**before, "role": params["p_role"]}}]
+
+        return _Rpc(run)
 
 
 _ADMIN_ID   = "00000000-0000-0000-0000-00000000aaaa"
@@ -86,7 +123,22 @@ def fake_db(monkeypatch):
 
 
 @pytest.fixture
-def client(fake_db):
+def revoked(monkeypatch):
+    """Session revocation stand-in (it runs on the direct DB connection)."""
+    from services import staff_security
+
+    calls: list[dict] = []
+
+    async def fake_revoke(user_id, *, ban, engine, auth_admin):
+        calls.append({"user_id": user_id, "ban": ban})
+        return staff_security.RevokeOutcome(True, None, ban)
+
+    monkeypatch.setattr(staff_security, "revoke_sessions", fake_revoke)
+    return calls
+
+
+@pytest.fixture
+def client(fake_db, revoked):
     from main import app
     with patch(
         "routers.admin.require_admin",
@@ -211,7 +263,10 @@ class TestSuspendedAccountRoleChange:
         u.update({"is_active": True, "suspended_at": None})   # PATCH …/active (FR-006)
         r = client.patch(f"/admin/users/{u['id']}/role", json={"role": "student"}, headers=_ADMIN_AUTH)
         assert r.status_code == 200, r.text
-        assert r.json() == {"ok": True, "id": u["id"], "role": "student"}
+        body = r.json()
+        # FR-007 keeps these fields and adds changed / audit_id / sessions_revoked.
+        assert {k: body[k] for k in ("ok", "id", "role")} == {"ok": True, "id": u["id"], "role": "student"}
+        assert body["changed"] is True and body["sessions_revoked"] is True
         assert fake_db.tables["users"][0]["role"] == "student"
 
     def test_any_other_database_error_stays_a_500(self, client, fake_db):
