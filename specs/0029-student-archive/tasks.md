@@ -16,3 +16,4 @@
   - Done 2026-10-27 17:08:59 UTC+7 (ledger `applied_at` 10:09:01 UTC), promotion PR #1763 (`staging` → `main`), merge commit `c9d564dfeac2df42611dcd308aaad1a2e970c580`, merged 2026-10-27 17:09 UTC+7 about 4 s later. Post-apply: 3 columns present, 0 archived learners, 0 audit rows, audit RLS on, no client EXECUTE, function md5s match the plan.
   - Pending — owner account decision (not yet run): archive and restore one Vinh-designated test learner (`rollout.md` Production), and an authenticated admin load of `/admin/students` (`GET /admin/students`).
 - [ ] T010 Phase 2: separate spec for an explicit GDPR erase of archived learners. `depends: T009`
+- [ ] T011 Revision 1 (FR-003): restore skips archived classes. Delivered by CLASSARCHIVE-0030 migration 337 (`specs/0030-class-archive/tasks.md` T002); verified by its AC-10. `depends: T009`

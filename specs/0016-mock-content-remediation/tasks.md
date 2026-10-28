@@ -43,10 +43,13 @@
   support/fallback states. `depends: T002,T006; owns: affected player/review/admin
   UI, generated frontend types, native browser tests`
   Partial. Typed receipts, notices, flags and frozen context shipped in [#1574](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1574).
-  The FR-013 "Bỏ trống" (blank) filter and count are still missing: both review
-  workspaces only offer `wrong`/`all`/`correct` and count blanks as wrong
-  (`reading-review-workspace.tsx` lines 36/602/693,
-  `listening-review-workspace.tsx` lines 31/412/467). Remaining work: PC-J46.
+  Progress (PC-J46, 2026-10-29): the FR-013 blank-state renderer part is done
+  for the native Reading and Listening review pages: cards, palette, a "Bỏ
+  trống" filter beside the default "Cần xem lại" (incorrect + blank) and a
+  sai/bỏ trống/đúng total, all derived from the persisted grade and answer
+  ([#1886](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1886), squash `2eb54b5c5`).
+  Legacy unknown provenance stays open (the backend returns `user_answer: ""`
+  for both blank and unknown history), as do the other T007 items.
 - [ ] T008 [P] Validate all 368 findings/80 paper identities; prepare reviewed
   source-grounded content revisions/accepted alternatives and distinguish audio
   listening acceptance from clock tests. Do not publish pending revisions.
@@ -59,7 +62,7 @@
   verify saved answer/grade/policy invariants. `depends: T003,T004,T005,T006,T007`
   Partial. PostgreSQL and contract tests landed with [#1574](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1574), [#1597](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1597) and
   [#1637](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1637). Every FR row in `verification.md` is still PENDING, and T007
-  (PC-J46) is open.
+  is open (FR-013 legacy unknown provenance remains after PC-J46).
 - [ ] T010 Independent agent reviews full final diff against FR001–019 and every
   mapped finding, records exact head SHA and resolves consolidated findings
   within repository convergence limits. `depends: T008,T009; owns: acceptance evidence`
