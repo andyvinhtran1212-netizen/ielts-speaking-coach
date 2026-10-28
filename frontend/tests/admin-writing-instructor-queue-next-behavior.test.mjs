@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  claimReadback, instructorGradeHref, instructorQueueFilters, instructorQueueHref,
+  claimReadback, dismissSuccessBanner, instructorGradeHref, instructorQueueFilters, instructorQueueHref,
   instructorQueuePath, instructorReconcilePath, normalizeClaimAck, normalizeInstructorQueue, normalizeReleaseAck,
   pendingInstructorOperation, releaseReadback,
 } from '../lib/admin-writing-instructor-queue-model.mjs';
@@ -61,6 +61,17 @@ describe('Admin Writing Instructor Queue native model', () => {
     assert.equal(pendingInstructorOperation({ ...pending, action: 'deliver' }, 'admin-1'), null);
   });
 
+  test('a new user action retires only the previous success banner (PC-J35)', () => {
+    const success = { kind: 'success', title: 'Đã xác nhận thả bài', detail: 'Bài đã trở về hàng chờ.' };
+    const warning = { kind: 'warning', title: 'Workflow đã đi tiếp', detail: 'x' };
+    const error = { kind: 'error', title: 'Chưa đối chiếu được thao tác', detail: 'x' };
+    assert.equal(dismissSuccessBanner(success), null);
+    assert.equal(dismissSuccessBanner(warning), warning);
+    assert.equal(dismissSuccessBanner(error), error);
+    assert.equal(dismissSuccessBanner(null), null);
+    assert.equal(dismissSuccessBanner(undefined), null);
+  });
+
   test('bounds canonical reconciliation to the receipt essay when available', () => {
     assert.equal(instructorReconcilePath({ essayId: 'e1' }), '/admin/instructor/queue?status=queued&status=claimed&status=edited&status=delivered&status=released&essay_id=e1');
     assert.equal(instructorReconcilePath({ essayId: null }), '/admin/instructor/queue?status=queued&status=claimed&status=edited&status=delivered&status=released');
@@ -84,6 +95,16 @@ describe('/admin/writing/instructor-queue native ownership and safety', () => {
     assert.match(COMPONENT, /pendingRef\.current/); assert.match(COMPONENT, /mutationsBlocked=\{mutationsBlocked\}/); assert.match(COMPONENT, /disabled=\{mutationsBlocked\}/);
     assert.doesNotMatch(COMPONENT, /Đã trả gần đây/);
     assert.match(COMPONENT, /snapshot cũ/); assert.match(COMPONENT, /sai contract/); assert.doesNotMatch(COMPONENT, /window\.confirm|window\.alert|\bconfirm\(/);
+  });
+
+  test('refresh, view change and opening release clear a stale success banner (PC-J35)', () => {
+    assert.match(COMPONENT, /const refreshQueue = \(\) => \{ setBanner\(dismissSuccessBanner\); void loadQueue\(\); \}/);
+    assert.equal((COMPONENT.match(/onClick=\{refreshQueue\}/g) || []).length, 2);
+    assert.doesNotMatch(COMPONENT, /onClick=\{\(\) => void loadQueue\(\)\}/);
+    assert.match(COMPONENT, /const navigate = useCallback\(\(view: string\) => \{ setBanner\(dismissSuccessBanner\);/);
+    assert.match(COMPONENT, /onRelease=\{\(\) => \{ setBanner\(dismissSuccessBanner\); setReleaseTarget\(row\); \}\}/);
+    // The success banner set inside reconcile() survives its own follow-up loadQueue().
+    assert.doesNotMatch(COMPONENT.slice(COMPONENT.indexOf('const loadQueue'), COMPONENT.indexOf('const reconcile')), /setBanner/);
   });
 
   test('uses governed accessible responsive interaction and parity fixture', () => {
