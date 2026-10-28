@@ -240,6 +240,25 @@ class Settings(BaseSettings):
     LISTENING_GIST_DAILY_LIMIT_PER_USER: int = 60
     LISTENING_GIST_MAX_PER_MINUTE: int = 6
 
+    # AIBUDGET-0033 FR-003 — monthly USD base caps per budget scope. Kept as raw
+    # strings: services/ai_budget_config.py applies the spec defaults (total
+    # 200 and anthropic 100 soft; google, azure, openai, elevenlabs 20 hard)
+    # to an unset or empty value, and marks a set value that is unparseable,
+    # zero or negative as that scope's config_invalid. A bad value must never
+    # fail startup or mean "unlimited". The daily cap is monthly ÷ 30 × 2.
+    AI_BUDGET_MONTHLY_USD_TOTAL: str = ""
+    AI_BUDGET_MONTHLY_USD_ANTHROPIC: str = ""
+    AI_BUDGET_MONTHLY_USD_GOOGLE: str = ""
+    AI_BUDGET_MONTHLY_USD_AZURE: str = ""
+    AI_BUDGET_MONTHLY_USD_OPENAI: str = ""
+    AI_BUDGET_MONTHLY_USD_ELEVENLABS: str = ""
+    # "enforce" (default, and for any unrecognised value) or "shadow" (reserve
+    # and log would_refuse without refusing; staging calibration only, Q6).
+    AI_BUDGET_MODE: str = "enforce"
+    # AI_KILL_SWITCH (FR-007) is deliberately not a Settings field: it is read
+    # from the process environment at call time (ai_budget_config.
+    # kill_switch_on), so it never depends on this cached object.
+
     # Vocab Bank feature flags
     VOCAB_ANALYSIS_ENABLED: bool = False
     # Short structured tasks: Haiku 5.5, with independent rollback controls.

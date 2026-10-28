@@ -1,6 +1,15 @@
 from datetime import date
 
-from services.ai_pricing import effective_logged_cost, estimate_token_cost, estimate_unit_cost
+import pytest
+
+from services.ai_pricing import (
+    TOKEN_RATES,
+    effective_logged_cost,
+    estimate_token_cost,
+    estimate_unit_cost,
+    image_input_tokens_bound,
+    token_rate,
+)
 
 
 def test_haiku55_release_and_short_context_cache_rates():
@@ -166,3 +175,81 @@ def test_explicitly_unpriced_failure_is_not_repriced_as_zero():
         "cost_source": "unpriced",
         "status": "error",
     }) == (None, None)
+
+
+# --- AIBUDGET-0033 T001: Azure Speech S0 row and image-token rules (FR-004, FR-023) ---
+
+def test_azure_s0_pronunciation_is_priced_per_audio_second_from_t001_date():
+    assert estimate_unit_cost(
+        "azure", "pronunciation-assessment", "audio_second", 60, at=date(2026, 10, 28),
+    ) == (None, None)
+    one_minute, version = estimate_unit_cost(
+        "azure", "pronunciation-assessment", "audio_second", 60, at=date(2026, 10, 29),
+    )
+    # $1.00/h real-time STT + $0.30/h Pronunciation Assessment add-on.
+    assert one_minute == round(60 * 1.30 / 3600, 8)
+    assert version == "azure:pronunciation-assessment:s0:2026-10-29:open"
+    # The largest Speaking line (300 s + 1 s, FR-004) stays near $0.11.
+    largest, _ = estimate_unit_cost(
+        "azure", "pronunciation-assessment", "audio_second", 301, at=date(2026, 10, 29),
+    )
+    assert 0.10 < largest < 0.12
+
+
+def test_unit_rate_version_without_tier_is_unchanged():
+    _, version = estimate_unit_cost("openai", "whisper-1", "audio_second", 1, at=date(2026, 10, 29))
+    assert version == "openai:whisper-1:2023-03-01:open"
+
+
+def test_every_token_model_has_a_dated_image_rule():
+    for rate in TOKEN_RATES:
+        rule = rate.image_rule
+        assert rule is not None, rate.model
+        assert rule.source_url.startswith("https://")
+        assert rule.source_checked == date(2026, 10, 29)
+
+
+@pytest.mark.parametrize("model,cap", [
+    ("claude-haiku-4-5-20251001", 1568),
+    ("claude-sonnet-4-6", 1568),
+    ("claude-sonnet-5", 4784),
+    ("claude-sonnet-5-5", 4784),
+    ("claude-haiku-5-5", 4784),
+])
+def test_claude_image_bound_is_patches_capped_at_tier_budget(model, cap):
+    at = date(2026, 10, 29)
+    assert image_input_tokens_bound("anthropic", model, 200, 200, at=at) == 64
+    assert image_input_tokens_bound("anthropic", model, 1000, 1000, at=at) == 1296
+    # Documented examples: 1920x1080 is 1,560 after the standard downscale and
+    # 2,691 unresized on the high-resolution tier; 4K is capped.
+    assert image_input_tokens_bound("anthropic", model, 1920, 1080, at=at) == min(2691, cap)
+    assert image_input_tokens_bound("anthropic", model, 3840, 2160, at=at) == cap
+    assert 1560 <= image_input_tokens_bound("anthropic", model, 1920, 1080, at=at)
+
+
+def test_gemini_25_image_bound_uses_crop_unit_tiles():
+    at = date(2026, 10, 29)
+    for model in ("gemini-2.5-pro", "gemini-2.5-flash"):
+        assert image_input_tokens_bound("google", model, 384, 384, at=at) == 258
+        # Documented example: 960x540 → crop unit 360 → 3 × 2 tiles.
+        assert image_input_tokens_bound("google", model, 960, 540, at=at) == 6 * 258
+        assert image_input_tokens_bound("google", model, 1600, 1200, at=at) == 2 * 2 * 258
+
+
+def test_gemini_3_image_bound_is_the_default_media_resolution_count():
+    at = date(2026, 10, 29)
+    for model in ("gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite",
+                  "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"):
+        assert image_input_tokens_bound("google", model, 4000, 3000, at=at) == 1120
+    assert token_rate("google", "gemini-3.8-flash", at=date(2027, 1, 1)).image_rule.per_image_tokens == 1120
+
+
+@pytest.mark.parametrize("width,height", [(0, 100), (100, 0), (-1, 5), (None, 5), (1.5, 5), (True, 5)])
+def test_unreadable_dimensions_have_no_bound(width, height):
+    assert image_input_tokens_bound("anthropic", "claude-sonnet-5-5", width, height) is None
+
+
+def test_unpriced_model_has_no_image_bound():
+    assert image_input_tokens_bound("google", "gemini-future", 100, 100) is None
+    assert image_input_tokens_bound("anthropic", "claude-sonnet-5-5", 100, 100,
+                                    at=date(2026, 9, 1)) is None

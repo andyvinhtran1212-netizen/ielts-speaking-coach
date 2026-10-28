@@ -76,3 +76,64 @@ it('distinguishes blank, incorrect and correct responses without changing their 
   expect(JSON.stringify(fixture)).toBe(original);
   expect(post).not.toHaveBeenCalled();
 });
+
+it('filters blank apart from incorrect, splits the totals and keeps the persisted score (FR-013)', async () => {
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() });
+  const fixture = {
+    attempt_id: 'label-fixture', status: 'submitted', test_id: 'review-filter-fixture', title: 'Review filters',
+    score: 1, max_score: 3, band_estimate: 3, skill_breakdown: {},
+    passages: [{ passage_order: 2, title: 'Source', body_markdown: 'Source text.' }],
+    review: [
+      { q_num: 18, passage_order: 2, correct: false, user_answer: '', expected: 'A', prompt: 'Blank response' },
+      { q_num: 19, passage_order: 2, correct: false, user_answer: 'B', expected: 'C', prompt: 'Wrong response' },
+      { q_num: 20, passage_order: 2, correct: true, user_answer: 'D', expected: 'D', prompt: 'Correct response' },
+    ],
+  };
+  const original = JSON.stringify(fixture);
+  getWith.mockResolvedValue(fixture);
+  const view = render(<ReadingReviewWorkspace />);
+  expect(await screen.findByText(/^1 câu sai · 1 câu bỏ trống · 1 câu đúng\./)).toBeTruthy();
+  const filters = within(screen.getByRole('group', { name: 'Lọc kết quả câu hỏi' }));
+  const pressed = () => filters.getAllByRole('button').filter((button) => button.getAttribute('aria-pressed') === 'true').map((button) => button.textContent);
+  const shown = () => [...view.container.querySelectorAll('[id^="reading-review-q-"]')].map((card) => card.id.replace('reading-review-q-', ''));
+  expect(filters.getAllByRole('button').map((button) => button.textContent)).toEqual(['Cần xem lại', 'Bỏ trống', 'Tất cả', 'Đúng']);
+  expect(pressed()).toEqual(['Cần xem lại']);
+  expect(shown()).toEqual(['18', '19']);
+
+  fireEvent.click(filters.getByRole('button', { name: 'Bỏ trống' }));
+  expect(shown()).toEqual(['18']);
+  fireEvent.click(screen.getByRole('button', { name: 'Câu 18 — bỏ trống' }));
+  expect(pressed()).toEqual(['Bỏ trống']); // A blank question stays in its own filter.
+  fireEvent.click(screen.getByRole('button', { name: 'Câu 19 — sai' }));
+  expect(pressed()).toEqual(['Tất cả']);
+  expect(shown()).toEqual(['18', '19', '20']);
+
+  fireEvent.click(filters.getByRole('button', { name: 'Đúng' }));
+  expect(shown()).toEqual(['20']);
+  fireEvent.click(filters.getByRole('button', { name: 'Cần xem lại' }));
+  expect(shown()).toEqual(['18', '19']);
+  fireEvent.click(screen.getByRole('button', { name: 'Câu 18 — bỏ trống' }));
+  expect(pressed()).toEqual(['Cần xem lại']);
+
+  expect(view.container.querySelector('.rr-topbar-summary__score')?.textContent).toBe('Kết quả1/3 câu');
+  expect(JSON.stringify(fixture)).toBe(original);
+  expect(post).not.toHaveBeenCalled();
+  expect(getWith).toHaveBeenCalledTimes(1);
+});
+
+it('keeps an admin preview without filters or outcome totals', async () => {
+  window.history.replaceState(null, '', '/reading/review?admin_test_id=preview-filter-fixture');
+  getWith.mockResolvedValue({
+    preview: true, status: 'submitted', test_id: 'preview-filter-fixture', title: 'Preview filters',
+    score: null, max_score: 2, skill_breakdown: {},
+    passages: [{ passage_order: 1, title: 'Source', body_markdown: 'Source text.' }],
+    review: [
+      { q_num: 1, passage_order: 1, correct: false, user_answer: '', expected: 'A', prompt: 'One' },
+      { q_num: 2, passage_order: 1, correct: false, user_answer: '', expected: 'B', prompt: 'Two' },
+    ],
+  });
+  render(<ReadingReviewWorkspace />);
+  expect(await screen.findByText(/^2 câu trong đề · /)).toBeTruthy();
+  expect(screen.queryByRole('group', { name: 'Lọc kết quả câu hỏi' })).toBeNull();
+  expect(screen.queryByText(/câu bỏ trống/)).toBeNull();
+});

@@ -116,6 +116,7 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 | CODEUNIQ-0028 | Access codes are unique and canonical in the repository schema | approved | high | [spec](0028-access-code-unique-canonical/spec.md) |
 
 | STUDENTARCHIVE-0029 | Admin student delete archives the learner with an audit trail instead of erasing their work | approved | critical | [spec](0029-student-archive/spec.md) |
+| CLASSARCHIVE-0030 | An archived class is hidden from learners, takes no new learners or work, and closes its open work without losing it | approved | high | [spec](0030-class-archive/spec.md) |
 
 | GIVEARCHIVE-0031 | A Writing give can never create work for an archived learner, even when the archive lands mid-request | approved | high | [spec](0031-archived-learner-give-guard/spec.md) |
 

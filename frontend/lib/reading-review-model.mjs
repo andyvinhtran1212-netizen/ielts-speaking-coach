@@ -181,6 +181,20 @@ export function readingReviewAnswerStatus(item) {
   return text(item?.user_answer) ? 'incorrect' : 'blank';
 }
 
+/** Presentation only: "wrong" (Cần xem lại) keeps incorrect and blank together. */
+export function readingReviewMatchesFilter(item, filter) {
+  const status = readingReviewAnswerStatus(item);
+  if (filter === 'wrong') return status !== 'correct';
+  if (filter === 'blank' || filter === 'correct') return status === filter;
+  return true;
+}
+
+export function readingReviewTotals(review) {
+  const totals = { incorrect: 0, blank: 0, correct: 0 };
+  for (const item of review || []) totals[readingReviewAnswerStatus(item)] += 1;
+  return totals;
+}
+
 const PLACEHOLDER_PROMPT = /^\s*\(?\s*see\s+(summary|notes|table|form)\s+above\s*\)?\s*\.?\s*$/i;
 
 export function readingReviewPrompt(item) {
