@@ -174,7 +174,8 @@ def test_cohort_detail_requires_auth():
 
 
 def test_fanout_endpoint_requires_auth():
-    body = {"prompt_id": str(uuid.uuid4()), "cohort_id": str(uuid.uuid4())}
+    body = {"request_id": str(uuid.uuid4()), "prompt_id": str(uuid.uuid4()),
+            "cohort_id": str(uuid.uuid4())}
     assert _client().post("/admin/writing/assignments/fan-out", json=body).status_code == 401
 
 
@@ -401,24 +402,35 @@ def test_cohort_detail_missing_cohort_404():
 
 
 def test_fanout_endpoint_empty_cohort_400():
+    db = MagicMock()
     with patch("routers.admin_writing_assignments.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_writing_assignments.fan_out_assignment",
-               return_value={"student_count": 0, "created_count": 0, "skipped_count": 0, "assignment_ids": []}):
+         patch("routers.admin_writing_assignments.supabase_admin", db), \
+         patch("routers.admin_writing_assignments._read_assignment_request_receipt", return_value=None), \
+         patch("routers.admin_writing_assignments.active_student_ids_for_cohort", return_value=[]):
         r = _client().post("/admin/writing/assignments/fan-out",
-                           json={"prompt_id": str(uuid.uuid4()), "cohort_id": str(uuid.uuid4())},
+                           json={"request_id": str(uuid.uuid4()), "prompt_id": str(uuid.uuid4()),
+                                 "cohort_id": str(uuid.uuid4())},
                            headers=_ADMIN_AUTH)
     assert r.status_code == 400
+    db.rpc.assert_not_called()
 
 
 def test_fanout_endpoint_happy_returns_counts():
-    fake = {"student_count": 3, "created_count": 2, "skipped_count": 1, "assignment_ids": ["a1", "a2"]}
+    receipt = {"student_count": 3, "created_count": 3, "assignment_ids": ["a1", "a2", "a3"],
+               "group_id": "g1", "duplicates_warning": [], "replayed": False}
+    db = MagicMock()
+    db.rpc.return_value.execute.return_value = MagicMock(data=receipt)
     with patch("routers.admin_writing_assignments.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_writing_assignments.fan_out_assignment", return_value=fake) as mock_fan:
+         patch("routers.admin_writing_assignments.supabase_admin", db), \
+         patch("routers.admin_writing_assignments._read_assignment_request_receipt", return_value=None), \
+         patch("routers.admin_writing_assignments.active_student_ids_for_cohort",
+               return_value=["s1", "s2", "s3"]):
         r = _client().post("/admin/writing/assignments/fan-out",
-                           json={"prompt_id": str(uuid.uuid4()), "cohort_id": str(uuid.uuid4())},
+                           json={"request_id": str(uuid.uuid4()), "prompt_id": str(uuid.uuid4()),
+                                 "cohort_id": str(uuid.uuid4())},
                            headers=_ADMIN_AUTH)
     assert r.status_code == 201
-    assert r.json()["created_count"] == 2
-    assert r.json()["skipped_count"] == 1
+    assert r.json()["student_count"] == 3
+    assert r.json()["created_count"] == 3
     # assigned_by stamped from the auth context.
-    assert mock_fan.call_args.kwargs["assigned_by"] == _ADMIN_USER["id"]
+    assert db.rpc.call_args.args[1]["p_assigned_by"] == _ADMIN_USER["id"]

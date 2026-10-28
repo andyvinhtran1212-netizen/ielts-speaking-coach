@@ -50,6 +50,10 @@ code deploy.
 - **S1.** Apply `332_staff_security_audit.sql` with the advisory-locked runner
   (`backend/scripts/apply_migrations.sh`) before the dependent backend SHA is
   deployed.
+- **S1b.** Apply `336_suspended_account_role_guard.sql` (FR-019) with the same runner
+  and `MIGRATION_FEATURES=admin_aal2`, after 332. Its own postconditions abort
+  the transaction on any mismatch. If it aborts with
+  `suspended_non_staff_account_exists`, repair those rows out of band before retrying.
 - **S2.** Postconditions (read-only):
   - the three tables exist with RLS on;
   - `has_table_privilege('authenticated', 'public.staff_security_audit', 'SELECT')`

@@ -79,8 +79,7 @@ def api():
 
 @pytest.mark.parametrize('deadline', EQUIVALENTS + ['2026-10-27'])
 @pytest.mark.parametrize('path', ['instructor-create', 'instructor-fanout', 'instructor-patch',
-                                 'admin-create', 'admin-fanout', 'admin-patch',
-                                 'admin-create-rpc', 'admin-fanout-rpc'])
+                                 'admin-patch', 'admin-create-rpc', 'admin-fanout-rpc'])
 def test_api_deadline_write(api, path, deadline):
     client, db = api
     prefix = '/instructor/assignments' if path.startswith('instructor') else '/admin/writing/assignments'
@@ -112,7 +111,7 @@ def test_api_deadline_write(api, path, deadline):
 def test_api_invalid_deadline_is_422_before_write(api, prefix, operation, bad):
     client, db = api
     body = {'deadline': bad, 'prompt_id': PROMPT, 'student_id': STUDENT,
-            'student_ids': [STUDENT], 'cohort_id': COHORT}
+            'student_ids': [STUDENT], 'cohort_id': COHORT, 'request_id': ASSIGNMENT}
     if operation == 'fanout':
         body['prompt_ids'] = [PROMPT]
     response = (client.patch(f'{prefix}/{ASSIGNMENT}', json=body) if operation == 'patch'

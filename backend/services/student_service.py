@@ -559,11 +559,8 @@ def choose_linked_student(rows: list, account_name: str = "") -> Optional[dict]:
     return max(candidates, key=rank)
 
 
-def fetch_linked_student(db, user_id, account_name: str = "") -> Optional[dict]:
-    """Load the active (not archived) students row linked to this auth user."""
-    if not user_id or db is None:
-        return None
-    result = (
+def _linked_student_query(user_id):
+    return lambda db: (
         db.table("students")
         .select(_LINKED_STUDENT_COLUMNS)
         .eq("user_id", str(user_id))
@@ -572,6 +569,21 @@ def fetch_linked_student(db, user_id, account_name: str = "") -> Optional[dict]:
         .is_("archived_at", "null")
         .order("updated_at", desc=True)
         .limit(20)
-        .execute()
     )
+
+
+def fetch_linked_student(db, user_id, account_name: str = "") -> Optional[dict]:
+    """Load the active (not archived) students row linked to this auth user."""
+    if not user_id or db is None:
+        return None
+    result = _linked_student_query(user_id)(db).execute()
+    return choose_linked_student(getattr(result, "data", None) or [], account_name)
+
+
+async def afetch_linked_student(user_id, account_name: str = "") -> Optional[dict]:
+    """:func:`fetch_linked_student` on the async-DB facade (PC-J05 D1a)."""
+    if not user_id:
+        return None
+    from services.db_async import aexecute  # local — keeps this module import-light
+    result = await aexecute(_linked_student_query(user_id))
     return choose_linked_student(getattr(result, "data", None) or [], account_name)

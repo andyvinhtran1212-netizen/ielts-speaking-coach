@@ -46,6 +46,13 @@ class Settings(BaseSettings):
     # ENVIRONMENT=staging (services/test_data_visibility.py); never set it in
     # production. Admins can still opt in per browser with X-Show-Test-Data.
     HIDE_TEST_DATA: bool = False
+    # ADMINAAL2-0032 — admin powers require a verified second factor (AAL2,
+    # services/staff_guard.py). False = report-only: behaviour unchanged plus one
+    # `admin_aal2_would_block` warning per blocked request. Enable per
+    # environment only after every active admin holds a verified TOTP factor
+    # (spec FR-017, rollout.md). Standard boolean parsing: an unparseable
+    # value fails startup instead of choosing a mode. Runbook value: `false`.
+    ADMIN_AAL2_ENFORCE: bool = False
     # Private outcome-evidence foundation. Requires migration 240 and explicit
     # rollout/coverage verification; never enabled implicitly by a code deploy.
     CORE_ATTEMPT_EVIDENCE_ENABLED: bool = False
@@ -101,6 +108,10 @@ class Settings(BaseSettings):
     ANTHROPIC_MODEL_LISTENING_AUDIT: str = ""
     # Bounds one Claude attempt so a slow call still leaves the fallback time.
     ANTHROPIC_TIMEOUT_SECONDS: float = 60.0
+    # AIOPS-0024: how often each backend process re-reads the admin overrides
+    # in ai_model_overrides (DB override > env > code default). Clamped to
+    # 30–60 s; a failed read falls back to the env/code defaults above.
+    AI_MODEL_OVERRIDE_TTL_SECONDS: float = 30.0
 
     # Speaking grader Gemini rung (audit 2026-07-02). Since the AI-0004 FR-005
     # revision it is the first fallback behind the Claude primary
@@ -354,6 +365,9 @@ class Settings(BaseSettings):
     # sync supabase_admin singleton exactly as today (the scaffold is a no-op).
     # ON = routers migrated to the db_async facade await the async client. Stays
     # OFF until a phase is wired + load-validated; flip per-deploy in .env.
+    # Wired today: grading.py (P0-1 Phase 2) and the per-request auth layer
+    # (PC-J05 D1a) — learner activation gate, require_admin/require_instructor,
+    # /auth/me, /auth/check-active, /api/student/permissions.
     USE_ASYNC_DB: bool = False
 
     # C-* audit — Server-Timing observability gate. The W3C Server-Timing

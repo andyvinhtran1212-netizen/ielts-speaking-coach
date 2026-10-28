@@ -31,6 +31,27 @@ _PROMPT_ID     = "00000000-0000-0000-0000-00000000bbbb"
 _STUDENT_ID    = "00000000-0000-0000-0000-00000000cccc"
 _STUDENT_ID_2  = "00000000-0000-0000-0000-00000000cccd"
 _ASSIGN_ID     = "00000000-0000-0000-0000-00000000dddd"
+_REQUEST_ID    = "00000000-0000-4000-8000-000000000123"
+
+
+def _rpc_db(**receipt) -> MagicMock:
+    """A DB stub for a NEW idempotent give: no committed receipt in the
+    request ledger, and the RPC returns `receipt`."""
+    mock_db = MagicMock()
+    ledger = mock_db.table.return_value.select.return_value.eq.return_value.limit.return_value
+    ledger.execute.return_value = MagicMock(data=[])
+    mock_db.rpc.return_value.execute.return_value = MagicMock(data={
+        "created": [], "created_count": 0,
+        "group_id": "00000000-0000-4000-8000-000000000999",
+        "duplicates_warning": [], "replayed": False, **receipt,
+    })
+    return mock_db
+
+
+def _rpc_args(mock_db: MagicMock) -> dict:
+    name, args = mock_db.rpc.call_args.args
+    assert name == "fn_create_writing_assignments_idempotent"
+    return args
 
 
 # ── Auth gate ────────────────────────────────────────────────────────
@@ -45,7 +66,7 @@ def test_list_assignments_requires_auth_header():
 def test_create_assignment_requires_auth_header():
     r = _client().post(
         "/admin/writing/assignments",
-        json={"prompt_id": _PROMPT_ID, "student_ids": [_STUDENT_ID]},
+        json={"request_id": _REQUEST_ID, "prompt_id": _PROMPT_ID, "student_ids": [_STUDENT_ID]},
     )
     assert r.status_code == 401
 
@@ -59,10 +80,46 @@ def test_create_rejects_empty_student_ids():
                new=AsyncMock(return_value=_ADMIN_USER)):
         r = _client().post(
             "/admin/writing/assignments",
-            json={"prompt_id": _PROMPT_ID, "student_ids": []},
+            json={"request_id": _REQUEST_ID, "prompt_id": _PROMPT_ID, "student_ids": []},
             headers=_ADMIN_AUTH,
         )
     assert r.status_code == 422
+
+
+def test_create_without_request_id_is_422_and_writes_nothing():
+    """PC-J37: the request receipt is what marks an admin-tools give. A give
+    without one would read as an /instructor give, so it is refused."""
+    mock_db = MagicMock()
+    with patch("routers.admin_writing_assignments.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_assignments.supabase_admin", mock_db):
+        r = _client().post(
+            "/admin/writing/assignments",
+            json={"prompt_id": _PROMPT_ID, "student_ids": [_STUDENT_ID]},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 422
+    assert any(err["loc"][-1] == "request_id" for err in r.json()["detail"])
+    assert mock_db.mock_calls == []
+
+
+def test_fanout_without_request_id_is_422_and_writes_nothing():
+    mock_db = MagicMock()
+    fan_out = MagicMock()
+    with patch("routers.admin_writing_assignments.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_assignments.supabase_admin", mock_db), \
+         patch("services.cohort_assignment_service.fan_out_assignment", fan_out):
+        r = _client().post(
+            "/admin/writing/assignments/fan-out",
+            json={"prompt_id": _PROMPT_ID,
+                  "cohort_id": "00000000-0000-0000-0000-00000000eeee"},
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 422
+    assert any(err["loc"][-1] == "request_id" for err in r.json()["detail"])
+    assert mock_db.mock_calls == []
+    fan_out.assert_not_called()
 
 
 def test_patch_rejects_invalid_status():
@@ -146,24 +203,17 @@ def test_cohort_list_filter_keeps_stamped_history_after_last_member_leaves():
 def test_create_single_assignment_returns_count_one_no_duplicates():
     """Create one assignment for one student — no existing duplicates →
     `duplicates_warning` is empty."""
-    mock_db = MagicMock()
-    # Duplicate-check returns no existing rows.
-    dup_chain = (mock_db.table.return_value
-                 .select.return_value.in_.return_value.in_.return_value)
-    dup_chain.execute.return_value = MagicMock(data=[])
-    # Insert succeeds.
-    insert_chain = mock_db.table.return_value.insert.return_value
-    insert_chain.execute.return_value = MagicMock(data=[
+    mock_db = _rpc_db(created=[
         {"id": _ASSIGN_ID, "prompt_id": _PROMPT_ID,
          "student_id": _STUDENT_ID, "status": "pending"},
-    ])
+    ], created_count=1)
 
     with patch("routers.admin_writing_assignments.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing_assignments.supabase_admin", mock_db):
         r = _client().post(
             "/admin/writing/assignments",
-            json={"prompt_id": _PROMPT_ID, "student_ids": [_STUDENT_ID]},
+            json={"request_id": _REQUEST_ID, "prompt_id": _PROMPT_ID, "student_ids": [_STUDENT_ID]},
             headers=_ADMIN_AUTH,
         )
 
@@ -171,14 +221,15 @@ def test_create_single_assignment_returns_count_one_no_duplicates():
     body = r.json()
     assert body["count"] == 1
     assert body["duplicates_warning"] == []
-    # Insert payload stamped with assigned_by from the calling admin.
-    insert_payload = mock_db.table.return_value.insert.call_args[0][0]
-    assert insert_payload[0]["assigned_by"] == _ADMIN_USER["id"]
-    assert insert_payload[0]["student_id"]  == _STUDENT_ID
+    # The give is stamped with assigned_by from the calling admin.
+    args = _rpc_args(mock_db)
+    assert args["p_assigned_by"] == _ADMIN_USER["id"]
+    assert args["p_student_ids"] == [_STUDENT_ID]
+    mock_db.table.return_value.insert.assert_not_called()
 
 
 def test_create_with_request_id_uses_atomic_idempotency_rpc():
-    """Native create never uses the legacy insert path; a client UUID owns
+    """Create never inserts directly; the client UUID owns
     one atomic request ledger + assignment receipt."""
     mock_db = MagicMock()
     mock_db.rpc.return_value.execute.return_value = MagicMock(data={
@@ -366,19 +417,12 @@ def test_create_bulk_assignment_surfaces_duplicate_warning():
     insert still happens for ALL students (allow + warn policy from
     2026-05-06), but the duplicate student_id surfaces in
     `duplicates_warning` so the admin UI can flag it."""
-    mock_db = MagicMock()
-    # One existing duplicate against the first student id.
-    dup_chain = (mock_db.table.return_value
-                 .select.return_value.in_.return_value.in_.return_value)
-    dup_chain.execute.return_value = MagicMock(data=[
-        {"student_id": _STUDENT_ID},
-    ])
-    # Insert succeeds for both rows.
-    insert_chain = mock_db.table.return_value.insert.return_value
-    insert_chain.execute.return_value = MagicMock(data=[
+    # The RPC computes the warning in the same transaction as the insert
+    # (migration 206); the route must surface it unchanged.
+    mock_db = _rpc_db(created=[
         {"id": _ASSIGN_ID,    "student_id": _STUDENT_ID,    "status": "pending"},
         {"id": "another-id",  "student_id": _STUDENT_ID_2,  "status": "pending"},
-    ])
+    ], created_count=2, duplicates_warning=[_STUDENT_ID])
 
     with patch("routers.admin_writing_assignments.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
@@ -386,6 +430,7 @@ def test_create_bulk_assignment_surfaces_duplicate_warning():
         r = _client().post(
             "/admin/writing/assignments",
             json={
+                "request_id":  _REQUEST_ID,
                 "prompt_id":   _PROMPT_ID,
                 "student_ids": [_STUDENT_ID, _STUDENT_ID_2],
             },
@@ -397,6 +442,8 @@ def test_create_bulk_assignment_surfaces_duplicate_warning():
     assert body["count"] == 2
     assert _STUDENT_ID    in body["duplicates_warning"]
     assert _STUDENT_ID_2 not in body["duplicates_warning"]
+    # Both students are given — duplicates are allowed, only warned.
+    assert _rpc_args(mock_db)["p_student_ids"] == [_STUDENT_ID, _STUDENT_ID_2]
 
 
 def test_create_multi_prompt_groups_rows_with_name_and_soft_check():
@@ -404,14 +451,9 @@ def test_create_multi_prompt_groups_rows_with_name_and_soft_check():
     assignment_group_id + the given name + allow_soft_check. Each prompt
     stays its own row (own essay later) — grouping is just a label."""
     prompt_2 = "00000000-0000-0000-0000-00000000bbbc"
-    mock_db = MagicMock()
-    dup_chain = (mock_db.table.return_value
-                 .select.return_value.in_.return_value.in_.return_value)
-    dup_chain.execute.return_value = MagicMock(data=[])
-    insert_chain = mock_db.table.return_value.insert.return_value
-    insert_chain.execute.return_value = MagicMock(data=[
+    mock_db = _rpc_db(created=[
         {"id": "r1"}, {"id": "r2"}, {"id": "r3"}, {"id": "r4"},
-    ])
+    ], created_count=4)
 
     with patch("routers.admin_writing_assignments.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
@@ -419,6 +461,7 @@ def test_create_multi_prompt_groups_rows_with_name_and_soft_check():
         r = _client().post(
             "/admin/writing/assignments",
             json={
+                "request_id":       _REQUEST_ID,
                 "prompt_ids":       [_PROMPT_ID, prompt_2],
                 "student_ids":      [_STUDENT_ID, _STUDENT_ID_2],
                 "name":             "Buổi 5",
@@ -432,43 +475,36 @@ def test_create_multi_prompt_groups_rows_with_name_and_soft_check():
     assert body["count"] == 4                       # 2 prompts × 2 students
     assert body["group_id"]                         # a group id is returned
 
-    sent = mock_db.table.return_value.insert.call_args[0][0]
-    assert len(sent) == 4
-    # all rows share ONE group_id + carry the name + flag
-    assert len({row["assignment_group_id"] for row in sent}) == 1
-    assert sent[0]["assignment_group_id"] == body["group_id"]
-    assert all(row["name"] == "Buổi 5" for row in sent)
-    assert all(row["allow_soft_check"] is True for row in sent)
-    # both prompts present (each its own row per student)
-    assert {row["prompt_id"] for row in sent} == {_PROMPT_ID, prompt_2}
+    # The RPC builds the prompt × student Cartesian product under ONE
+    # group id; the route hands it both lists + the name + flag.
+    args = _rpc_args(mock_db)
+    assert args["p_prompt_ids"] == [_PROMPT_ID, prompt_2]
+    assert args["p_student_ids"] == [_STUDENT_ID, _STUDENT_ID_2]
+    assert args["p_name"] == "Buổi 5"
+    assert args["p_allow_soft_check"] is True
 
 
 def test_create_legacy_single_prompt_id_still_works():
     """Back-compat: the pre-W-ASSIGN UI sends `prompt_id` (singular).
     It must still create rows (one group, allow_soft_check defaults
     false) so PR-1 can merge before the admin UI (PR-2)."""
-    mock_db = MagicMock()
-    dup_chain = (mock_db.table.return_value
-                 .select.return_value.in_.return_value.in_.return_value)
-    dup_chain.execute.return_value = MagicMock(data=[])
-    insert_chain = mock_db.table.return_value.insert.return_value
-    insert_chain.execute.return_value = MagicMock(data=[{"id": "r1"}])
+    mock_db = _rpc_db(created=[{"id": "r1"}], created_count=1)
 
     with patch("routers.admin_writing_assignments.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing_assignments.supabase_admin", mock_db):
         r = _client().post(
             "/admin/writing/assignments",
-            json={"prompt_id": _PROMPT_ID, "student_ids": [_STUDENT_ID]},
+            json={"request_id": _REQUEST_ID, "prompt_id": _PROMPT_ID, "student_ids": [_STUDENT_ID]},
             headers=_ADMIN_AUTH,
         )
 
     assert r.status_code == 201
-    sent = mock_db.table.return_value.insert.call_args[0][0]
-    assert len(sent) == 1
-    assert sent[0]["prompt_id"] == _PROMPT_ID
-    assert sent[0]["allow_soft_check"] is False
-    assert sent[0]["assignment_group_id"]           # still grouped
+    args = _rpc_args(mock_db)
+    assert args["p_prompt_ids"] == [_PROMPT_ID]
+    assert args["p_request_payload"]["prompt_ids"] == [_PROMPT_ID]
+    assert args["p_allow_soft_check"] is False
+    assert r.json()["group_id"]                     # still grouped
 
 
 def test_create_requires_at_least_one_prompt():
@@ -478,7 +514,7 @@ def test_create_requires_at_least_one_prompt():
          patch("routers.admin_writing_assignments.supabase_admin", MagicMock()):
         r = _client().post(
             "/admin/writing/assignments",
-            json={"student_ids": [_STUDENT_ID]},
+            json={"request_id": _REQUEST_ID, "student_ids": [_STUDENT_ID]},
             headers=_ADMIN_AUTH,
         )
     assert r.status_code == 422
@@ -716,15 +752,10 @@ def test_create_assignment_with_timer_persists_fields():
     insert payload — pinning these together prevents a regression
     where one drops out and the migration's CHECK constraint then
     rejects the row with an opaque error."""
-    mock_db = MagicMock()
-    dup_chain = (mock_db.table.return_value
-                 .select.return_value.in_.return_value.in_.return_value)
-    dup_chain.execute.return_value = MagicMock(data=[])
-    insert_chain = mock_db.table.return_value.insert.return_value
-    insert_chain.execute.return_value = MagicMock(data=[
+    mock_db = _rpc_db(created=[
         {"id": _ASSIGN_ID, "student_id": _STUDENT_ID,
          "is_timed": True, "time_limit_minutes": 40},
-    ])
+    ], created_count=1)
 
     with patch("routers.admin_writing_assignments.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
@@ -732,6 +763,7 @@ def test_create_assignment_with_timer_persists_fields():
         r = _client().post(
             "/admin/writing/assignments",
             json={
+                "request_id":         _REQUEST_ID,
                 "prompt_id":          _PROMPT_ID,
                 "student_ids":        [_STUDENT_ID],
                 "is_timed":           True,
@@ -741,9 +773,9 @@ def test_create_assignment_with_timer_persists_fields():
         )
 
     assert r.status_code == 201, r.text
-    insert_payload = mock_db.table.return_value.insert.call_args[0][0]
-    assert insert_payload[0]["is_timed"]           is True
-    assert insert_payload[0]["time_limit_minutes"] == 40
+    args = _rpc_args(mock_db)
+    assert args["p_is_timed"]           is True
+    assert args["p_time_limit_minutes"] == 40
 
 
 def test_create_timed_assignment_without_minutes_rejects_422():
@@ -754,6 +786,7 @@ def test_create_timed_assignment_without_minutes_rejects_422():
         r = _client().post(
             "/admin/writing/assignments",
             json={
+                "request_id":  _REQUEST_ID,
                 "prompt_id":   _PROMPT_ID,
                 "student_ids": [_STUDENT_ID],
                 "is_timed":    True,
@@ -775,6 +808,7 @@ def test_create_untimed_assignment_with_minutes_rejects_422():
         r = _client().post(
             "/admin/writing/assignments",
             json={
+                "request_id":         _REQUEST_ID,
                 "prompt_id":          _PROMPT_ID,
                 "student_ids":        [_STUDENT_ID],
                 "is_timed":           False,
@@ -794,6 +828,7 @@ def test_create_timed_assignment_minutes_out_of_range_rejects_422():
         r = _client().post(
             "/admin/writing/assignments",
             json={
+                "request_id":         _REQUEST_ID,
                 "prompt_id":          _PROMPT_ID,
                 "student_ids":        [_STUDENT_ID],
                 "is_timed":           True,
@@ -810,49 +845,35 @@ def test_create_timed_assignment_minutes_out_of_range_rejects_422():
 _COHORT_ID = "00000000-0000-0000-0000-00000000eeee"
 
 
-def _dup_none(mock_db):
-    chain = (mock_db.table.return_value
-             .select.return_value.in_.return_value.in_.return_value)
-    chain.execute.return_value = MagicMock(data=[])
-
-
 def test_create_assignment_persists_analysis_level():
     """analysis_level passed in the body lands on every inserted row."""
-    mock_db = MagicMock()
-    _dup_none(mock_db)
-    mock_db.table.return_value.insert.return_value.execute.return_value = MagicMock(
-        data=[{"id": "r1"}])
+    mock_db = _rpc_db(created=[{"id": "r1"}], created_count=1)
     with patch("routers.admin_writing_assignments.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing_assignments.supabase_admin", mock_db):
         r = _client().post(
             "/admin/writing/assignments",
-            json={"prompt_id": _PROMPT_ID, "student_ids": [_STUDENT_ID],
-                  "analysis_level": 5},
+            json={"request_id": _REQUEST_ID, "prompt_id": _PROMPT_ID,
+                  "student_ids": [_STUDENT_ID], "analysis_level": 5},
             headers=_ADMIN_AUTH,
         )
     assert r.status_code == 201
-    sent = mock_db.table.return_value.insert.call_args[0][0]
-    assert all(row["analysis_level"] == 5 for row in sent)
+    assert _rpc_args(mock_db)["p_analysis_level"] == 5
 
 
 def test_create_assignment_defaults_analysis_level_3():
     """Omitting analysis_level → default 3 (back-compat, e.g. Hub deep-link)."""
-    mock_db = MagicMock()
-    _dup_none(mock_db)
-    mock_db.table.return_value.insert.return_value.execute.return_value = MagicMock(
-        data=[{"id": "r1"}])
+    mock_db = _rpc_db(created=[{"id": "r1"}], created_count=1)
     with patch("routers.admin_writing_assignments.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing_assignments.supabase_admin", mock_db):
         r = _client().post(
             "/admin/writing/assignments",
-            json={"prompt_id": _PROMPT_ID, "student_ids": [_STUDENT_ID]},
+            json={"request_id": _REQUEST_ID, "prompt_id": _PROMPT_ID, "student_ids": [_STUDENT_ID]},
             headers=_ADMIN_AUTH,
         )
     assert r.status_code == 201
-    sent = mock_db.table.return_value.insert.call_args[0][0]
-    assert all(row["analysis_level"] == 3 for row in sent)
+    assert _rpc_args(mock_db)["p_analysis_level"] == 3
 
 
 def test_create_assignment_rejects_out_of_range_level():
@@ -860,27 +881,28 @@ def test_create_assignment_rejects_out_of_range_level():
                new=AsyncMock(return_value=_ADMIN_USER)):
         r = _client().post(
             "/admin/writing/assignments",
-            json={"prompt_id": _PROMPT_ID, "student_ids": [_STUDENT_ID],
-                  "analysis_level": 6},
+            json={"request_id": _REQUEST_ID, "prompt_id": _PROMPT_ID,
+                  "student_ids": [_STUDENT_ID], "analysis_level": 6},
             headers=_ADMIN_AUTH,
         )
     assert r.status_code == 422
 
 
-def test_fanout_threads_analysis_level_to_service():
-    """Cohort fan-out forwards analysis_level into fan_out_assignment."""
-    fake = MagicMock(return_value={
-        "student_count": 2, "created_count": 2, "group_id": "g1",
-        "duplicates_warning": [], "assignment_ids": ["a1", "a2"],
-    })
+def test_fanout_threads_analysis_level_to_rpc():
+    """Cohort fan-out forwards analysis_level into the idempotent give."""
+    mock_db = _rpc_db(student_count=2, created_count=2, assignment_ids=["a1", "a2"])
     with patch("routers.admin_writing_assignments.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
-         patch("routers.admin_writing_assignments.fan_out_assignment", fake):
+         patch("routers.admin_writing_assignments.supabase_admin", mock_db), \
+         patch("routers.admin_writing_assignments.active_student_ids_for_cohort",
+               return_value=[_STUDENT_ID, _STUDENT_ID_2]):
         r = _client().post(
             "/admin/writing/assignments/fan-out",
-            json={"prompt_id": _PROMPT_ID, "cohort_id": _COHORT_ID,
-                  "analysis_level": 4},
+            json={"request_id": _REQUEST_ID, "prompt_id": _PROMPT_ID,
+                  "cohort_id": _COHORT_ID, "analysis_level": 4},
             headers=_ADMIN_AUTH,
         )
     assert r.status_code == 201
-    assert fake.call_args.kwargs["analysis_level"] == 4
+    args = _rpc_args(mock_db)
+    assert args["p_analysis_level"] == 4
+    assert args["p_student_ids"] == [_STUDENT_ID, _STUDENT_ID_2]
