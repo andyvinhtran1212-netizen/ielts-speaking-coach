@@ -65,3 +65,52 @@ integrated checks and live Staging E2E result. After authorized promotion, recor
 main SHA and both Vercel/Railway runtime SHAs, actual content revision inventory
 and scoped learner/admin journeys. Independent acceptance owns the final FR and
 368/80 reconciliation; deployment alone does not close content/audio/repair gates.
+
+### Reconciled state (2026-10-29)
+
+This record covers runtime only. It does not change any FR row above. Every row
+stays PENDING until T009/T010 independent acceptance.
+
+| PR | Merge SHA on staging | Scope |
+| --- | --- | --- |
+| [#1574](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1574) | `cf2be7354da609dc2445ef62a6cc3fb20873f03d` | T002–T006 core; migrations 306/307/308 |
+| [#1597](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1597) | `845c66db86e278ed45459e30fb096aa6b441a1de` | Finalization after section collection; migrations 310/311 |
+| [#1633](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1633) | `602bdda0129c8e0267f39a923f0920e5890b36dd` | Private mock draft copies; migration 315 |
+| [#1637](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1637) | `c9acb2e8bf00c10146b16276b865213c75211e59` | Shared-source resume and programme guard; migration 316 |
+
+Promotions to main that carry these merges (`git merge-base --is-ancestor`):
+[#1586](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1586) `96e6b698e3810ba3ce510569fe0c9462396449c1` (#1574),
+[#1599](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1599) `1237dc8c7c623e5e4e0e2592a4ab0982f8c99ca0` (#1597),
+[#1636](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1636) `db7ad80730907722d0fb16bd76919008d2ab1e9f` (#1633, #1637).
+
+Applied migrations (`applied_at`, UTC). Source: the staging and production
+ledger snapshots captured read-only on 2026-10-28 for the 2026-10-28 promotion
+(operator evidence, not committed). The apply notes in #1574 and #1597 (staging),
+#1586 and #1599 (production) and #1636/#1637 (both) match for 306/307/310/311/315/316.
+Only the snapshots record 308. `backend/migrations/forward-policy.tsv` keeps it
+an opt-in `pending_feature`, so the forward runner skips it unless the
+`mock_content_remediation_activation` group is selected. No database was read
+for this record.
+
+| Migration | Staging | Production |
+| --- | --- | --- |
+| `306_mock_paper_policy_and_admission.sql` | 2026-10-02 17:32 | 2026-10-04 15:59 |
+| `307_mock_attempt_review_flags.sql` | 2026-10-02 17:32 | 2026-10-04 15:59 |
+| `308_activate_mock_paper_admission.sql` (opt-in) | 2026-10-03 03:39 | 2026-10-06 09:09 |
+| `310_mock_attempt_submitted_finalization.sql` | 2026-10-05 09:25 | 2026-10-05 15:48 |
+| `311_mock_submitted_parent_lifecycle.sql` | 2026-10-05 09:46 | 2026-10-05 15:48 |
+| `315_mock_exam_private_draft_copies.sql` | 2026-10-11 03:56 | 2026-10-11 04:04 |
+| `316_mock_draft_shared_resume_and_package_guard.sql` | 2026-10-11 04:17 | 2026-10-11 04:26 |
+
+The 306–316 range also holds 309 and 312–314. Those belong to the Grammar specs
+0014/0015/0017, not this spec.
+
+Still open:
+
+- FR-013 / T007: the "Bỏ trống" (blank) filter and sai/bỏ trống/đúng totals
+  shipped in #1886 (PC-J46, squash `2eb54b5c5`). Legacy unknown provenance is
+  still open: the backend returns `user_answer: ""` for both blank and unknown
+  history (see the FR-013 row).
+- FR-016 / FR-017 / T008: `traceability.json` has `verified_fixed_findings: 0`.
+  No content revision is prepared, deployed or promoted.
+- T010 waits on T008 and T009. T013 waits on T012.
