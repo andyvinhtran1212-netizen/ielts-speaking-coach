@@ -344,7 +344,7 @@ export function AdminStudentsDirectory() {
       })}</tbody></table></div> : null}
     </section>
 
-    <Dialog open={Boolean(draft)} title={draft?.id ? 'Sửa hồ sơ học viên' : 'Thêm học viên'} description="Các trường tuỳ chọn để trống sẽ được xoá khỏi hồ sơ khi lưu." busy={busy} onClose={() => setDraft(null)} actions={<><button className="adm-btn-secondary" type="button" onClick={() => setDraft(null)} disabled={busy}>Hủy</button><button className="adm-btn-primary" type="submit" form="asd-student-form" disabled={busy}>{busy ? 'Đang lưu…' : draft?.id ? 'Lưu thay đổi' : 'Tạo học viên'}</button></>}>
+    <Dialog open={Boolean(draft)} title={draft?.id ? 'Sửa hồ sơ học viên' : 'Thêm học viên'} description="Các trường tuỳ chọn để trống sẽ được xóa khỏi hồ sơ khi lưu." busy={busy} onClose={() => setDraft(null)} actions={<><button className="adm-btn-secondary" type="button" onClick={() => setDraft(null)} disabled={busy}>Hủy</button><button className="adm-btn-primary" type="submit" form="asd-student-form" disabled={busy}>{busy ? 'Đang lưu…' : draft?.id ? 'Lưu thay đổi' : 'Tạo học viên'}</button></>}>
       <form id="asd-student-form" className="acd-form asd-form" onSubmit={submitDraft}>
         <Field label="Mã học viên"><input autoFocus required maxLength={64} value={draft?.studentCode || ''} onChange={(event) => draft && setDraft({ ...draft, studentCode: event.target.value, error: '' })} /></Field>
         <Field label="Họ tên"><input required maxLength={255} value={draft?.fullName || ''} onChange={(event) => draft && setDraft({ ...draft, fullName: event.target.value, error: '' })} /></Field>
@@ -361,7 +361,7 @@ export function AdminStudentsDirectory() {
         {archiveDraft?.error && <div className="acd-inline-error" role="alert">{archiveDraft.error}</div>}
       </form>
     </Dialog>
-    <Dialog open={Boolean(restoreDraft)} title={`Khôi phục ${restoreDraft?.student.full_name || 'học viên'}`} description="Học viên trở lại danh sách và các lớp đã rời khi lưu trữ (lớp đã bị xoá sẽ bỏ qua). Bài làm vẫn nguyên." busy={busy} onClose={() => setRestoreDraft(null)} actions={<><button className="adm-btn-secondary" type="button" onClick={() => setRestoreDraft(null)} disabled={busy}>Hủy</button><button className="adm-btn-primary" type="submit" form="asd-restore-form" disabled={busy}>{busy ? 'Đang khôi phục…' : 'Khôi phục'}</button></>}>
+    <Dialog open={Boolean(restoreDraft)} title={`Khôi phục ${restoreDraft?.student.full_name || 'học viên'}`} description="Học viên trở lại danh sách và các lớp đã rời khi lưu trữ (lớp đã bị xóa sẽ bỏ qua). Bài làm vẫn nguyên." busy={busy} onClose={() => setRestoreDraft(null)} actions={<><button className="adm-btn-secondary" type="button" onClick={() => setRestoreDraft(null)} disabled={busy}>Hủy</button><button className="adm-btn-primary" type="submit" form="asd-restore-form" disabled={busy}>{busy ? 'Đang khôi phục…' : 'Khôi phục'}</button></>}>
       <form id="asd-restore-form" className="acd-form asd-form" onSubmit={submitRestore}>
         {restoreDraft?.student.archive_reason ? <p className="asd-muted">Lý do lưu trữ: {restoreDraft.student.archive_reason}</p> : null}
         {restoreDraft?.student.user_id ? <label className="asd-check-field"><input type="checkbox" checked={restoreDraft.reactivateAccount} onChange={(event) => setRestoreDraft({ ...restoreDraft, reactivateAccount: event.target.checked, error: '' })} disabled={busy} /> Mở lại tài khoản đăng nhập nếu đang bị khoá</label> : null}

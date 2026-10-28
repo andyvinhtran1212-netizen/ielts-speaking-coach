@@ -117,7 +117,7 @@ export function mockSittingStatusLabel(value) {
     under_review: 'Đang chấm',
     reviewed: 'Đã chấm',
     released: 'Đã trả kết quả',
-    void: 'Đã huỷ lượt',
+    void: 'Đã hủy lượt',
   })[key] || 'Không rõ trạng thái';
 }
 

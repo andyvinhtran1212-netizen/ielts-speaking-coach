@@ -262,7 +262,7 @@ function PracticeWorkspace({ accountId, testId }: { accountId: string; testId: s
     })().catch((caught: unknown) => {
       if (!current() || (caught instanceof DOMException && caught.name === 'AbortError')) return;
       if ((caught as Error)?.message === 'practice-run-start-uncertain') {
-        setError('Chưa xác nhận được lượt làm bài đã được tạo hay chưa. Hệ thống sẽ không tự tạo lại để tránh xoá tiến độ.');
+        setError('Chưa xác nhận được lượt làm bài đã được tạo hay chưa. Hệ thống sẽ không tự tạo lại để tránh xóa tiến độ.');
         setPhase('start-uncertain');
       } else {
         setError(loadCopy(caught)); setPhase('error');

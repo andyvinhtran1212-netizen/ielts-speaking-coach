@@ -145,7 +145,7 @@ check('blank persisted state lọt vào danh sách cần chú ý', await page.ge
 missedListening = 1;
 await page.getByRole('button', { name: 'Cập nhật ngay' }).click();
 await page.getByRole('button', { name: 'Thu lại Listening' }).waitFor();
-await page.getByRole('button', { name: 'Huỷ lượt' }).click();
+await page.getByRole('button', { name: 'Hủy lượt' }).click();
 liveReadFails = true;
 await page.getByRole('button', { name: 'Cập nhật ngay' }).click({ force: true });
 await page.getByRole('dialog').waitFor({ state: 'detached' });
@@ -157,7 +157,7 @@ check('snapshot stale đóng băng đồng hồ, đóng dialog và khóa điều
     && await page.getByRole('button', { name: /^Thu bài \(/ }).isDisabled()
     && await page.getByRole('button', { name: /Cập nhật snapshot trước/ }).isDisabled()
     && await page.getByRole('button', { name: 'Thu lại Listening' }).isDisabled()
-    && await page.getByRole('button', { name: 'Huỷ lượt' }).isDisabled()
+    && await page.getByRole('button', { name: 'Hủy lượt' }).isDisabled()
     && await page.getByRole('button', { name: 'Đóng kỳ khẩn' }).isEnabled());
 await page.getByRole('button', { name: 'Đóng kỳ khẩn' }).click();
 await page.getByText(/Yêu cầu có thể đã được ghi nhưng chưa xác nhận được trạng thái backend/).waitFor();
@@ -206,7 +206,7 @@ check('pacing mobile không tràn ngang và back action đạt 44px', mobile.wid
 await page.goto(`${BASE}/admin/mock-live?exam_id=exam-1`, { waitUntil: 'domcontentloaded' });
 await page.getByText('Nguyễn An', { exact: true }).waitFor();
 await page.setViewportSize({ width: 1440, height: 980 });
-await page.getByRole('button', { name: 'Huỷ lượt' }).click();
+await page.getByRole('button', { name: 'Hủy lượt' }).click();
 const desktopDialog = await page.evaluate(() => {
   const backdrop = document.querySelector('.acd-dialog-backdrop');
   const panel = document.querySelector('.acd-dialog');
@@ -217,7 +217,7 @@ const desktopDialog = await page.evaluate(() => {
 check('void dialog có backdrop cố định và panel căn giữa ở desktop', desktopDialog?.position === 'fixed' && desktopDialog.panelWidth <= 520 && desktopDialog.centerDelta <= 2, JSON.stringify(desktopDialog));
 await page.getByRole('dialog').getByRole('button', { name: 'Đóng' }).click();
 await page.setViewportSize({ width: 390, height: 844 });
-await page.getByRole('button', { name: 'Huỷ lượt' }).click();
+await page.getByRole('button', { name: 'Hủy lượt' }).click();
 const mobileDialog = await page.evaluate(() => {
   const backdrop = document.querySelector('.acd-dialog-backdrop');
   const panel = document.querySelector('.acd-dialog');
@@ -230,10 +230,10 @@ const mobileDialog = await page.evaluate(() => {
   return { align: getComputedStyle(backdrop).alignItems, bottomDelta: Math.abs(innerHeight - rect.bottom), actionWidth: action.getBoundingClientRect().width, actionContentWidth, panelWidth: rect.width };
 });
 check('void dialog thành bottom sheet và action full-width ở mobile', mobileDialog?.align === 'end' && mobileDialog.bottomDelta <= 2 && mobileDialog.actionWidth >= mobileDialog.actionContentWidth - 2, JSON.stringify(mobileDialog));
-await page.getByRole('dialog').getByLabel('Lý do huỷ *').fill('Mở nhầm đề; chưa bắt đầu làm');
-await page.getByRole('dialog').getByRole('button', { name: 'Huỷ lượt thi' }).click();
-await page.getByText('Đã huỷ lượt thi của Nguyễn An.').waitFor();
-check('void dùng dialog bắt buộc lý do và canonical absence, không prompt', requests.some((item) => item.path === '/admin/mock-exams/sittings/sitting-1/void' && item.body?.reason === 'Mở nhầm đề; chưa bắt đầu làm') && await page.getByRole('button', { name: 'Huỷ lượt' }).count() === 0);
+await page.getByRole('dialog').getByLabel('Lý do hủy *').fill('Mở nhầm đề; chưa bắt đầu làm');
+await page.getByRole('dialog').getByRole('button', { name: 'Hủy lượt thi' }).click();
+await page.getByText('Đã hủy lượt thi của Nguyễn An.').waitFor();
+check('void dùng dialog bắt buộc lý do và canonical absence, không prompt', requests.some((item) => item.path === '/admin/mock-exams/sittings/sitting-1/void' && item.body?.reason === 'Mở nhầm đề; chưa bắt đầu làm') && await page.getByRole('button', { name: 'Hủy lượt' }).count() === 0);
 
 const invalidCallsBefore = requests.filter((item) => item.path === '/admin/mock-exams/invalid/live').length;
 await page.goto(`${BASE}/admin/mock-live?exam_id=invalid`, { waitUntil: 'domcontentloaded' });
