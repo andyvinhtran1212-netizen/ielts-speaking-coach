@@ -35,9 +35,12 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   // (`x-nextjs-prerender: 1`) before this ever runs, so the status is already
   // committed. Verified identical for a bad slug AND a bad category; there is
   // no category-dependent path (get_article() returns None for both).
-  // The contract we DO hold: 404 body + noindex, so nothing gets indexed.
-  // Legacy served the same case as 200 WITHOUT noindex, so this is strictly
-  // better — but it is not a hard 404.
+  // The contract here: 404 body + noindex, so nothing gets indexed.
+  //
+  // The HARD 404 (content audit 2026-10-27) is decided before render by
+  // `proxy.ts`, which rewrites keys missing from the backend article list to
+  // the prerendered `/grammar/article-not-found`. This branch is the fail-open
+  // fallback when that list is unavailable.
   if (!article) notFound();
   // Byte-faithful to the legacy client-side SEO block (grammar.js):
   //   title = `${article.title} — IELTS Grammar | Aver Learning`

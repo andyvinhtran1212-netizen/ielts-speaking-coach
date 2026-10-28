@@ -144,7 +144,7 @@ Am/Is/Are + Subject + V-ing ...?
 
 Đây là cách dùng cơ bản nhất và dễ nhận biết nhất.
 
-- **Hold on, I'**m talking** to someone.** — Khoan đã, tôi đang nói chuyện với ai đó.
+- Hold on, I**'m talking** to someone. — Khoan đã, tôi đang nói chuyện với ai đó.
 - Look! The children **are playing** in the park.
 - Why **are** you **laughing**? — Bạn đang cười gì vậy?
 
@@ -153,14 +153,14 @@ Am/Is/Are + Subject + V-ing ...?
 
 Hành động không nhất thiết phải xảy ra đúng lúc nói, nhưng chỉ xảy ra trong thời gian hiện tại (tuần này, tháng này, giai đoạn này).
 
-- I **'m living** with my parents this month while I look for an apartment.
+- I**'m living** with my parents this month while I look for an apartment.
   *(Tôi đang sống với bố mẹ tháng này — tạm thời, không phải thường xuyên)*
-- She **'s studying** at RMIT this semester.
-- He **'s working** extra hours because of a big project.
+- She**'s studying** at RMIT this semester.
+- He**'s working** extra hours because of a big project.
 
 **Khác với Present Simple:**
 - "I **live** with my parents." → Tôi sống với bố mẹ (thường xuyên, tình trạng cố định)
-- "I **'m living** with my parents." → Tôi đang sống với bố mẹ (tạm thời thôi)
+- "I**'m living** with my parents." → Tôi đang sống với bố mẹ (tạm thời thôi)
 
 ### 3. Xu hướng đang thay đổi (changing trends)
 
@@ -176,46 +176,46 @@ Rất quan trọng cho IELTS Part 3 — nói về xã hội đang biến đổi.
 
 Phải có sự sắp xếp cụ thể từ trước, không phải kế hoạch mơ hồ.
 
-- I **'m meeting** my IELTS tutor tomorrow at 3 PM. *(đã hẹn cụ thể)*
-- They **'re flying** to Singapore next week. *(đã mua vé)*
-- She **'s starting** a new job on Monday. *(đã xác nhận)*
+- I**'m meeting** my IELTS tutor tomorrow at 3 PM. *(đã hẹn cụ thể)*
+- They**'re flying** to Singapore next week. *(đã mua vé)*
+- She**'s starting** a new job on Monday. *(đã xác nhận)*
 
 ### 5. Hành động lặp lại và thái độ (với "always/constantly/forever")
 
 Present Continuous + always nhấn mạnh sự lặp lại và thái độ. Có thể phàn nàn, nhưng cũng có thể ngưỡng mộ: **She is always helping other people**.
 
-- He **'s always leaving** the lights on! *(bực mình — anh ta cứ để đèn hoài)*
-- She **'s constantly checking** her phone during dinner. *(khó chịu)*
-- My neighbour **'s always playing** loud music late at night.
+- He**'s always leaving** the lights on! *(bực mình — anh ta cứ để đèn hoài)*
+- She**'s constantly checking** her phone during dinner. *(khó chịu)*
+- My neighbour**'s always playing** loud music late at night.
 
 ## Dấu hiệu nhận biết
 
 | Dấu hiệu | Ví dụ |
 |----------|-------|
 | now, right now | She **is** working **right now**. |
-| at the moment | I **'m** studying **at the moment**. |
+| at the moment | I**'m** studying **at the moment**. |
 | currently | He **is currently** living in Da Nang. |
 | at present | They **are** not **at present** accepting applications. |
-| this week/month/year | She **'s** taking an online course **this month**. |
+| this week/month/year | She**'s** taking an online course **this month**. |
 | nowadays, these days | More people **are working** from home **nowadays**. |
-| Look! Listen! | **Look!** It **'s raining**! |
-| tonight/tomorrow (kế hoạch) | We **'re having** dinner **tomorrow**. |
+| Look! Listen! | **Look!** It**'s raining**! |
+| tonight/tomorrow (kế hoạch) | We**'re having** dinner **tomorrow**. |
 
 ## Ví dụ
 
 ### Ví dụ cơ bản
-- I **'m reading** a book about Vietnamese history.
+- I**'m reading** a book about Vietnamese history.
 - The sun **is shining** and the birds **are singing**.
 - **Are** you **enjoying** the course so far?
 
 ### Ví dụ giao tiếp (tự nhiên)
 - A: What **are** you **doing** this weekend?
-- B: I **'m visiting** my grandparents in the countryside. What about you?
-- A: Nothing special — I **'m just catching up** on some reading.
+- B: I**'m visiting** my grandparents in the countryside. What about you?
+- A: Nothing special — I**'m just catching up** on some reading.
 
 ### Ví dụ IELTS
 
-**(Speaking Part 1)** "These days I **'m spending** a lot of time preparing for my IELTS exam, so I **'m not going out** as much as usual."
+**(Speaking Part 1)** "These days I**'m spending** a lot of time preparing for my IELTS exam, so I**'m not going out** as much as usual."
 
 **(Speaking Part 3)** "I think attitudes toward education **are changing** rapidly. More and more students **are looking** for practical skills rather than just academic knowledge."
 
@@ -265,16 +265,16 @@ Present Continuous + always nhấn mạnh sự lặp lại và thái độ. Có 
 | **Dùng cho** | Thói quen, sự thật, lịch trình | Đang xảy ra, tạm thời, xu hướng |
 | **Dấu hiệu** | always, usually, every day | now, at the moment, currently |
 | **Stative verbs** | Thường dùng để nói trạng thái nói chung | Thường tránh; có ngoại lệ theo nghĩa và ngữ cảnh |
-| **Ví dụ** | I **work** at a hospital. | I **'m working** from home this week. |
+| **Ví dụ** | I **work** at a hospital. | I**'m working** from home this week. |
 | **Câu hỏi** | **Do** you **live** here? | **Are** you **living** here now? |
 
 ### Ví dụ cặp so sánh
 
 | Present Simple | Present Continuous | Sự khác biệt |
 |---|---|---|
-| She **teaches** English. | She **'s teaching** a class right now. | Nghề vs. đang làm |
-| I **live** in Hanoi. | I **'m living** with friends temporarily. | Cố định vs. tạm thời |
-| He **always talks** loudly. | He **'s always talking** loudly! | Thói quen vs. lặp lại kèm thái độ theo ngữ cảnh |
+| She **teaches** English. | She**'s teaching** a class right now. | Nghề vs. đang làm |
+| I **live** in Hanoi. | I**'m living** with friends temporarily. | Cố định vs. tạm thời |
+| He **always talks** loudly. | He**'s always talking** loudly! | Thói quen vs. lặp lại kèm thái độ theo ngữ cảnh |
 | Water **boils** at 100°C. | The water **is boiling** — turn it off! | Sự thật vs. đang xảy ra |
 
 ## Lưu ý cho người học Việt Nam
@@ -292,7 +292,7 @@ Tiếng Việt dùng phó từ thời gian ("đang", "vừa", "sắp") để di�
 ## Ứng dụng trong IELTS
 
 ### IELTS Speaking
-- **Part 1:** "Nowadays I **'m spending** more time studying online than going to classes."
+- **Part 1:** "Nowadays I**'m spending** more time studying online than going to classes."
 - **Part 2:** "At the time I **was visiting** the museum, it **was undergoing** renovations." *(Past Continuous)*
 - **Part 3:** "Society **is changing** rapidly, and young people **are facing** challenges that previous generations never encountered."
 
