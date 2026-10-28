@@ -743,7 +743,7 @@ Sắp xếp các câu dưới đây thành đoạn văn mạch lạc, thêm disc
 **Đoạn văn mẫu:**
 People are spending more time on social media. **As a result**, they have less time for face-to-face interactions. **This may partly explain why** loneliness and depression rates have increased. **Since** social connection is fundamental to mental health, apps and platforms **should therefore** design features that encourage real-world meetings.
 
-Từ nối không chứng minh quan hệ nhân quả; cần thêm bằng chứng trước khi viết as a result/consequently.
+Từ nối không tự tạo ra quan hệ nhân quả: chỉ dùng as a result/consequently khi câu trước nêu đúng nguyên nhân của câu sau, như câu 1 → câu 2 trong đoạn mẫu; khi mối liên hệ chỉ là khả năng, hãy viết thận trọng như "This may partly explain why".
 
 ## Tóm tắt nhanh — Tổng hợp
 

@@ -136,7 +136,7 @@ Dùng giữa câu khi cần dừng để chọn từ hoặc tổ chức ý.
 <!-- anchor: discourse-markers-spoken.softening.kind-of-sort-of -->
 ### Nhóm 3 — Làm mềm / hedging: *kind of, sort of, I guess, I suppose*
 
-Dùng để giảm độ tuyệt đối của phát biểu — rất tự nhiên trong English Speaking và thể hiện thái độ cẩn trọng (Band 7+ yếu tố).
+Dùng để giảm độ tuyệt đối của phát biểu — rất tự nhiên trong English Speaking và thể hiện thái độ cẩn trọng (yếu tố của Band 7+).
 
 - "It's *kind of* difficult to choose just one favourite."
 - "I *sort of* prefer staying at home, to be honest."
@@ -186,14 +186,14 @@ Dùng để xác nhận hoặc đáp lại câu hỏi của examiner. Đặc bi�
 <!-- anchor: discourse-markers-spoken.common-mistake.actually-misuse -->
 ### Lỗi 1: Lạm dụng "actually" như topic-opener
 
-Người Việt translate "thật ra..." → "actually..." và dùng để mở mọi ý mới. Actually thường báo hiệu ý đính chính hoặc điều trái với mong đợi. Nếu dùng nó để mở đầu mọi câu trả lời, người nghe sẽ chờ một ý đối lập nhưng không thấy.
+Người Việt hay dịch "thật ra..." thành "actually..." và dùng nó để mở mọi ý mới. Actually thường báo hiệu ý đính chính hoặc điều trái với mong đợi. Nếu dùng nó để mở đầu mọi câu trả lời, người nghe sẽ chờ một ý đối lập nhưng không thấy.
 
 - ❌ "*Actually*, my hometown is Hanoi." (không có gì để correct)
 - ❌ "*Actually*, I love coffee." (không có expectation đối lập)
 - ✅ "I love coffee. *Actually*, I drink three cups a day." (báo hiệu detail vượt quá expected)
 - ✅ "Most people think Hanoi is loud, but *actually* there are many quiet corners." (correct expectation)
 
-**Cách sửa:** Dùng "well", "so", hoặc bỏ qua DM khi mở topic mới. Để "actually" cho moments thật sự có contrast.
+**Cách sửa:** Dùng "well", "so", hoặc bỏ qua DM khi mở topic mới. Chỉ dùng "actually" khi thật sự có ý đối lập.
 
 <!-- anchor: discourse-markers-spoken.common-mistake.overuse-and-but-so -->
 ### Lỗi 2: Lạm dụng "and / but / so" — không có DM khác
