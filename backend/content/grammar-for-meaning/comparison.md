@@ -371,7 +371,7 @@ Tiếng Việt "hơn" có thể đi với mọi tính từ. Người học hay t
 - ❌ "Hanoi is **more bigger** than Da Nang." → ✅ "Hanoi is **bigger** than Da Nang."
 - ❌ "This problem is **more more** difficult." → ✅ "This problem is **more** difficult."
 
-**Quy tắc:** Tính từ/trạng từ ngắn (1 âm tiết; tính từ 2 âm tiết tận cùng -y) → -er. Tính từ dài (phần lớn tính từ từ 2 âm tiết trở lên) và trạng từ đuôi -ly → more + adj. KHÔNG đi cùng nhau.
+**Quy tắc:** Tính từ/trạng từ ngắn (1 âm tiết; tính từ 2 âm tiết tận cùng -y) → -er. Tính từ dài (phần lớn tính từ từ 2 âm tiết trở lên) và trạng từ đuôi -ly → more + adj/adv. KHÔNG đi cùng nhau.
 
 ### Lỗi 2: Bỏ "than"
 
