@@ -220,9 +220,14 @@ describe('hành vi Speaking — mọi móc DOM đều có thật', () => {
     }
     assert.equal(
       (layout.match(/strategy="afterInteractive"/g) || []).length,
-      4,
+      3,
       'mọi route script phải được Next inject và thực thi khi layout mở',
     );
+    // Chart.js chỉ vẽ sau dữ liệu dashboard và `renderCharts` chờ
+    // `window.Chart`, nên nó được hoãn tới sau `load` (UIA-1028-01). Next vẫn
+    // inject `lazyOnload` khi client-navigation (readyState đã `complete`).
+    assert.match(layout, /src="\/vendor\/chart\.umd\.min\.js"\s+strategy="lazyOnload"/,
+      'Chart.js không được tranh băng thông với khung đầu tiên');
     assert.doesNotMatch(layout, /<script\s+src=/,
       'plain React script nodes are not a client-navigation loader');
   });
