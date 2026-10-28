@@ -24,6 +24,51 @@
 | FR-017 | kind=query; ref=rollout.md P4 readiness query on staging and production; kind=test; ref=backend/tests/test_migration_332_staff_security_audit.py (bootstrap grants, admins_exist refusal, zero-admin restore); kind=journey; ref=spec.md AC8 recovery drill timings on staging, including path (e) from zero eligible admins | PENDING |
 | FR-019 | kind=test; ref=backend/tests/test_migration_336_suspended_account_role_guard.py (role change of a suspended account refused through the RPC, service REST, owner and superuser SQL; allowed after reactivation; bootstrap exempt; preconditions, postconditions, rollback); kind=test; ref=backend/tests/test_admin_user_role.py (409 account_suspended_role_change with the Vietnamese message); kind=journey; ref=spec.md AC10 on staging after 336 is applied | PENDING |
 
+## T007 test evidence (PC-J40, 2026-10-28)
+
+The FR-010 and FR-011 rows above stay `PENDING` until the staging journeys
+(AC6) run in T012. The automated half, from `backend/`:
+
+```bash
+TEST_PG_URL=postgres://postgres@127.0.0.1:<port>/postgres REQUIRE_PG=1 \
+  python -m pytest tests/test_owner_alerts.py tests/test_staff_security_sweep.py -q
+```
+
+Result: 49 passed on PostgreSQL 16.2 and 17.11 (local disposable clusters; 48 before the Codex #1884 fixes added one test).
+The PostgreSQL cases run the sweep and outbox SQL against migration 332 as
+its NOSUPERUSER owner role, with a stand-in `auth.audit_log_entries`.
+
+- FR-010: `test_staff_security_sweep.py` covers these cases:
+  - a factor enrolled, verified and deleted between two runs gives one row each, and verified and deleted are alerted;
+  - a re-run, and a rewound cursor, add no row or alert;
+  - a failed batch rolls back its rows and the cursor;
+  - entries inside the lag wait for the next run;
+  - step-up sign-ins are not verifications;
+  - an admin-API delete is attributed to `traits.user_id` with an unknown actor;
+  - only admin accounts are audited, by the role held when the event happened: an admin demoted before the next run still gets the rows and alerts, and a learner promoted afterwards does not (Codex #1884);
+  - the snapshot backstop fires only when the log has no entry for the factor, and ignores vanished unverified factors; its e-mail shows the detection time stored on the audit row, in Vietnam time (Codex #1884);
+  - a failed factor list keeps that admin's snapshot and fails the run;
+  - no secret reaches the audit, the outbox or the snapshot.
+- FR-011: `test_owner_alerts.py` covers these cases:
+  - recipients come only from `OWNER_ALERT_EMAILS`;
+  - neither the e-mail nor the Resend request carries a token, secret, reason or injected recipient, and the key appears only in the Authorization header;
+  - a failed send is retried with backoff up to 5 sends and then stays `failed`, with one `owner_alert_failed` error log;
+  - the compare-and-set claim stops two dispatchers from sending the same row twice (in memory and on PostgreSQL);
+  - a missing key or recipient sends nothing and spends no attempt;
+  - `--requeue` affects only `failed` rows.
+- Mutation checks: each of the following was removed in turn, and in each case the matching test failed:
+  - the `ON CONFLICT` dedup;
+  - the batch transaction;
+  - the cursor advance;
+  - the step-up check;
+  - the backstop's log check;
+  - the snapshot `seen_at` check;
+  - the event-time role lookup;
+  - the stored detection time in the alert;
+  - the claim;
+  - the claim's `attempts` compare;
+  - the `attempts < 5` filter.
+
 ## Contract evidence
 
 - **OpenAPI/type drift**: regenerate `frontend/types/api.d.ts` for the four new
