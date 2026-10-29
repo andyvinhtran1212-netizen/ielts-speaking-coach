@@ -173,7 +173,7 @@ function FeedbackCardBridge({ cardRef, topRef, item, attemptId, preview }: {
   return null;
 }
 
-function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, onLocate, onListenContinuously, getAudioPosition }: {
+function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, onLocate, onListenContinuously, onOpenSharedSolution, getAudioPosition }: {
   item: any;
   expanded: boolean;
   selected: boolean;
@@ -182,6 +182,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, 
   onToggle(): void;
   onLocate(): void;
   onListenContinuously(): void;
+  onOpenSharedSolution(): void;
   getAudioPosition(): number | null;
 }) {
   const cardRef = useRef<HTMLElement | null>(null);
@@ -240,7 +241,10 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, 
     {item.unordered_answer_group && !webExplanation ? <p className="lr-sol__group">Câu {item.unordered_answer_group.question_numbers.join('–')}: chọn đủ {item.unordered_answer_group.accepted_answers.length} chữ cái khác nhau; chấp nhận mọi thứ tự.</p> : null}
     {win ? <div className="lr-card__tsrow"><button type="button" className="lr-card__ts" onClick={onLocate}><span aria-hidden="true">▶</span> Nghe đoạn {timestamp}</button><button type="button" className="lr-card__ts" onClick={onListenContinuously}>Nghe tiếp từ {clock(win.start)}</button></div> : null}
     <div className="lr-card__detail" hidden={!expanded}>
-      {item.solution_group ? <p className="lr-sol__group">Lời giải chung cho câu {item.solution_group.question_numbers.join(', ')}.</p> : null}
+      {item.solution_group ? <p className="lr-sol__group">{item.solution_group.own_solution
+        ? `Lời giải chung cho câu ${item.solution_group.question_numbers.join(', ')} nằm ở Câu ${item.solution_group.source_question_number}; dưới đây là phần riêng của câu ${item.q_num}.`
+        : `Lời giải chung cho câu ${item.solution_group.question_numbers.join(', ')}.`}
+        {item.solution_group.source_question_number !== item.q_num ? <> <button type="button" className="lr-card__ts lr-sol__group-link" onClick={onOpenSharedSolution}>Mở Câu {item.solution_group.source_question_number}</button></> : null}</p> : null}
       {webExplanation && expanded
         ? <WebExplanationPanel
             object={webExplanation}
@@ -488,6 +492,10 @@ export function ListeningReviewWorkspace() {
               }}
               onLocate={() => locate(item)}
               onListenContinuously={() => locate(item, true)}
+              onOpenSharedSolution={() => {
+                const source = data.review.find((row: any) => row.q_num === item.solution_group?.source_question_number);
+                if (source) jump(source);
+              }}
               getAudioPosition={() => {
                 const seconds = audioRef.current?.getCurrentTime?.();
                 return Number.isFinite(seconds) ? Number(seconds) : null;
