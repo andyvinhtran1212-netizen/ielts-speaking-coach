@@ -77,7 +77,7 @@ describe('check bắt buộc của staging luôn báo về', () => {
   test('backend-tests.yml — job nặng skip theo `changes`, matrix thì không skip ở mức job', () => {
     const j = jobs(read('backend-tests.yml'));
     assert.ok(j.changes, 'thiếu job `changes`');
-    const gate = "(github.event_name == 'push' || needs.changes.outputs.code != 'false')";
+    const gate = "(github.event_name == 'push' || needs.changes.outputs.run_tests != 'false')";
     for (const key of ['backend-collect', 'frontend']) {
       assert.match(jobLevel(j[key], 'needs') ?? '', /changes/, `${key} phải needs: changes`);
       const cond = jobLevel(j[key], 'if') ?? '';
@@ -90,6 +90,9 @@ describe('check bắt buộc của staging luôn báo về', () => {
     assert.equal(jobLevel(shard, 'if')?.trim(), 'if: ${{ !cancelled() }}',
       'job matrix không được skip ở mức job: tên check sẽ không nở');
     assert.ok(shard.some((l) => l.includes(`RUN_TESTS: \${{ ${gate} }}`)), 'thiếu RUN_TESTS');
+    // Cùng cổng cho service Postgres: lệch thì shard chạy test mà không có PG.
+    assert.ok(shard.some((l) => l.includes(`image: \${{ ${gate} && 'postgres:16' || '' }}`)),
+      'image Postgres phải theo đúng cổng RUN_TESTS');
     // Mọi step trừ dòng báo «bỏ qua» đều phải gác bằng RUN_TESTS.
     const steps = shard.join('\n').split(/\n {6}- /).slice(1);
     assert.ok(steps.length >= 6, `chỉ thấy ${steps.length} step`);
