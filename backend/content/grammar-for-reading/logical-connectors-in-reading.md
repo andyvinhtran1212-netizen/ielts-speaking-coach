@@ -130,7 +130,7 @@ Cũng vì thói quen "tuy… nhưng", khi viết nhiều bạn viết sai thành
 
 ### Từ nối báo quan hệ gì, ý sau sẽ thế nào?
 
-Với mỗi câu, cho biết từ nối in nghiêng báo quan hệ gì, và đoán phần tiếp theo sẽ nói theo hướng nào.
+Với mỗi câu, cho biết từ nối ở đầu câu báo quan hệ gì, và đoán phần tiếp theo sẽ nói theo hướng nào.
 
 1. *The first trial produced encouraging results. However, …*
 2. *The region receives very little rainfall. Consequently, …*
