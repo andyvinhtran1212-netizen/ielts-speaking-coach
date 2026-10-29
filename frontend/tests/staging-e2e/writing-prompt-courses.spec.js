@@ -55,6 +55,20 @@ test('Writing course allocation persists and is reused by the assignment picker'
     }
   }, [storageKey, JSON.stringify(session)]);
   const page = await context.newPage();
+  // Saving is PATCH → detail re-read → both library list reads, and only then
+  // the success banner. On live staging that chain can outlast the default
+  // five-second assertion window while the button still reads "Đang lưu…".
+  // Wait for the acknowledged write and the editor's completed state, then
+  // assert the banner.
+  const saveEditor = async () => {
+    const patched = page.waitForResponse((r) => r.request().method() === 'PATCH'
+      && new URL(r.url()).pathname.endsWith(`/admin/writing/prompts/${promptId}`), { timeout: 30_000 });
+    await page.getByRole('button', { name: 'Lưu đề', exact: true }).click();
+    const patchRes = await patched;
+    expect(patchRes.status(), 'Course allocation PATCH must be acknowledged').toBe(200);
+    await expect(page.getByRole('button', { name: 'Đang lưu…', exact: true })).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.getByText('Đã cập nhật prompt và đối chiếu lại từ máy chủ.', { exact: true })).toBeVisible();
+  };
   await page.goto(`/admin/writing/prompts?q=${encodeURIComponent(marker)}`);
   // Live list reads may take longer than the default five-second assertion
   // window. Wait for the library's completed load, then assert its content.
@@ -63,8 +77,7 @@ test('Writing course allocation persists and is reused by the assignment picker'
   await expect(card.getByText('Chưa phân bổ', { exact: true })).toBeVisible();
   await card.getByRole('button', { name: 'Phân bổ khóa học', exact: true }).click();
   for (const course of [2, 5]) await page.getByRole('checkbox', { name: `Course ${course}`, exact: true }).check();
-  await page.getByRole('button', { name: 'Lưu đề', exact: true }).click();
-  await expect(page.getByText('Đã cập nhật prompt và đối chiếu lại từ máy chủ.', { exact: true })).toBeVisible();
+  await saveEditor();
   const saved = await detail();
   expect(saved.status()).toBe(200);
   expect((await saved.json()).tags).toEqual(['e2e-writing-courses', 'course:2', 'course:5']);
@@ -75,7 +88,12 @@ test('Writing course allocation persists and is reused by the assignment picker'
   await page.getByRole('group', { name: 'Lọc theo khóa học' }).getByRole('button', { name: /Course 2/ }).click();
   await expect(card).toBeVisible();
   await card.getByRole('link', { name: 'Giao đề này', exact: true }).click();
-  const dialog = page.getByRole('dialog');
+  // The deep-linked picker opens only after prompts, cohorts and every student
+  // page have loaded, and keeps its review button disabled until the linked
+  // prompt is verified. Wait for that completed state before asserting the
+  // preselection.
+  const dialog = page.getByRole('dialog', { name: 'Giao bài Writing', exact: true });
+  await expect(dialog.getByRole('button', { name: 'Rà lại trước khi giao', exact: true })).toBeEnabled({ timeout: 30_000 });
   const option = dialog.locator('label.awa-option').filter({ has: page.getByText(marker, { exact: true }) });
   await expect(option.getByRole('checkbox')).toBeChecked();
   await dialog.getByRole('combobox', { name: 'Khóa học của đề', exact: true }).selectOption('1');
@@ -87,8 +105,7 @@ test('Writing course allocation persists and is reused by the assignment picker'
   await expect(page.getByRole('button', { name: 'Làm mới', exact: true })).toBeEnabled({ timeout: 30_000 });
   await card.getByRole('button', { name: 'Phân bổ khóa học', exact: true }).click();
   for (const course of [2, 5]) await page.getByRole('checkbox', { name: `Course ${course}`, exact: true }).uncheck();
-  await page.getByRole('button', { name: 'Lưu đề', exact: true }).click();
-  await expect(page.getByText('Đã cập nhật prompt và đối chiếu lại từ máy chủ.', { exact: true })).toBeVisible();
+  await saveEditor();
   await page.reload();
   await expect(page.getByRole('button', { name: 'Làm mới', exact: true })).toBeEnabled({ timeout: 30_000 });
   await expect(card.getByText('Chưa phân bổ', { exact: true })).toBeVisible();
