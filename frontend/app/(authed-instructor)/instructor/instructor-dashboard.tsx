@@ -472,7 +472,7 @@ export function InstructorDashboard() {
         <span className="ins-role">Giảng viên</span>
         <div className="ins-top__actions">
           <a href="/home">← Về trang học</a>
-          <button type="button" onClick={() => void refresh()} disabled={pending === 'refresh'}>{pending === 'refresh' ? 'Đang tải…' : 'Làm mới'}</button>
+          <button type="button" onClick={() => void refresh()} disabled={!!pending}>{pending === 'refresh' ? 'Đang tải…' : 'Làm mới'}</button>
           <button type="button" onClick={() => void signOut()}>Đăng xuất</button>
         </div>
       </header>

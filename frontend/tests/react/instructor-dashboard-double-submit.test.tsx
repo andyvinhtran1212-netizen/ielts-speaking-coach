@@ -129,13 +129,19 @@ it.each(['cohort', 'student'] as const)('%s confirmation disables other mutation
   fireEvent.change(within(promptForm).getByLabelText('Tiêu đề'), { target: { value: 'New prompt' } });
   fireEvent.change(within(promptForm).getByLabelText('Đề bài'), { target: { value: 'Discuss technology.' } });
   const create = within(promptForm).getByRole('button', { name: 'Tạo đề bài' }) as HTMLButtonElement;
+  const refresh = screen.getByRole('button', { name: 'Làm mới' }) as HTMLButtonElement;
 
   expect(create.disabled).toBe(true);
+  expect(refresh.disabled).toBe(true);
+  const reads = get.mock.calls.length;
+  fireEvent.click(refresh);
+  expect(get.mock.calls).toHaveLength(reads);
   fireEvent.click(create);
   expect(post).not.toHaveBeenCalled();
 
   fireEvent.click(within(dialog).getByRole('button', { name: 'Hủy' }));
   await waitFor(() => expect(create.disabled).toBe(false));
+  expect(refresh.disabled).toBe(false);
   fireEvent.click(create);
   expect(await screen.findByText('Đã tạo đề bài.')).toBeTruthy();
   expect(post).toHaveBeenCalledTimes(1);
