@@ -262,3 +262,12 @@ export function listeningReviewSection(item) {
   const value = Number(String(raw || '').replace(/\D/g, ''));
   return Number.isInteger(value) && value > 0 ? value : null;
 }
+
+// The replay label is the only end marker the learner sees. Whole seconds
+// floored the end by up to 0.99 s, so a clip that stopped exactly at `end`
+// still looked like it ran past it (PC-J125). Tenths keep the label ±0.05 s.
+export function listeningReviewClipClock(raw) {
+  const tenths = Math.max(0, Math.round((Number(raw) || 0) * 10));
+  const seconds = Math.floor(tenths / 10);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}.${tenths % 10}`;
+}
