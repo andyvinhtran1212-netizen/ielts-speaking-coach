@@ -100,13 +100,34 @@ def _convert_to_wav(audio_bytes: bytes) -> bytes | None:
 # ── Assessment config ──────────────────────────────────────────────────────────
 
 def _wav_seconds(data: bytes) -> float | None:
-    """Duration of a PCM WAV payload from its header, or None."""
+    """Duration of the PCM frames a WAV payload actually carries, or None.
+
+    ffmpeg writes to the non-seekable ``pipe:1``, so the RIFF and ``data``
+    chunk sizes hold the unknown-length sentinel ``0xFFFFFFFF`` that the
+    ``wave`` module trusts (a 1 s clip reads as ~134,218 s). The frame count
+    is therefore taken from the bytes present after the ``data`` chunk header,
+    capped by that chunk's declared size when the size is real.
+    """
     try:
         with wave.open(io.BytesIO(data), "rb") as clip:
             rate = clip.getframerate()
-            return clip.getnframes() / rate if rate > 0 else None
+            frame_bytes = clip.getnchannels() * clip.getsampwidth()
     except Exception:
         return None
+    if rate <= 0 or frame_bytes <= 0:
+        return None
+    offset = 12                                    # after "RIFF" <size> "WAVE"
+    while offset + 8 <= len(data):
+        chunk_id = data[offset:offset + 4]
+        chunk_size = int.from_bytes(data[offset + 4:offset + 8], "little")
+        body = offset + 8
+        if chunk_id == b"data":
+            payload = len(data) - body
+            if chunk_size != 0xFFFFFFFF:
+                payload = min(payload, chunk_size)
+            return (payload // frame_bytes) / rate
+        offset = body + chunk_size + (chunk_size & 1)
+    return None
 
 
 def _assessment_header(

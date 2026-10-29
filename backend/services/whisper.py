@@ -65,17 +65,39 @@ def _response_format_for(model: str) -> str:
     return "verbose_json" if model.lower() in verbose_json_models else "json"
 
 
-def _probe_duration_seconds(*, audio_bytes: bytes | None = None, path: str | None = None) -> float:
-    """Best-effort audio duration via ffprobe (bytes over stdin, or a file path).
+def _packet_span_seconds(listing: str) -> float:
+    """Span of ``pts_time,duration_time`` ffprobe packet rows (0.0 if none)."""
+    start = end = None
+    for row in listing.splitlines():
+        fields = row.split(",")
+        try:
+            pts = float(fields[0])
+        except (ValueError, IndexError):
+            continue
+        try:
+            length = float(fields[1]) if len(fields) > 1 else 0.0
+        except ValueError:
+            length = 0.0
+        if not (math.isfinite(pts) and math.isfinite(length)):
+            continue
+        start = pts if start is None else min(start, pts)
+        end = pts + max(length, 0.0) if end is None else max(end, pts + max(length, 0.0))
+    return max(end - start, 0.0) if start is not None else 0.0
 
-    Used as a fallback when the STT response carries no `duration` (i.e. a
-    non-verbose_json model). Returns 0.0 if ffprobe is unavailable or fails —
-    the caller then treats duration as unknown, exactly as before.
+
+def _probe_duration_seconds(*, audio_bytes: bytes | None = None, path: str | None = None) -> float:
+    """Audio duration via ffprobe (bytes over stdin, or a file path).
+
+    Measured from the audio packet timestamps, not the container header: a
+    browser MediaRecorder WebM carries no header duration (AIBUDGET-0033
+    FR-004). Sizes the Whisper reservation, and recovers the duration when
+    the STT response carries none (a non-verbose_json model). Returns 0.0 if
+    ffprobe is unavailable or fails — the caller treats duration as unknown.
     """
     cmd = [
-        "ffprobe", "-v", "error",
-        "-show_entries", "format=duration",
-        "-of", "default=noprint_wrappers=1:nokey=1",
+        "ffprobe", "-v", "error", "-select_streams", "a:0",
+        "-show_entries", "packet=pts_time,duration_time",
+        "-of", "csv=p=0",
     ]
     try:
         if path is not None:
@@ -83,8 +105,7 @@ def _probe_duration_seconds(*, audio_bytes: bytes | None = None, path: str | Non
         else:
             proc = subprocess.run(cmd + ["pipe:0"], input=audio_bytes, capture_output=True, timeout=20)
         if proc.returncode == 0:
-            out = proc.stdout.decode(errors="replace").strip()
-            return round(float(out), 2) if out else 0.0
+            return round(_packet_span_seconds(proc.stdout.decode(errors="replace")), 2)
         logger.warning("[whisper] ffprobe returned %d: %s", proc.returncode,
                        proc.stderr.decode(errors="replace")[:200])
     except FileNotFoundError:

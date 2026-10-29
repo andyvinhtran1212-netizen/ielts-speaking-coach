@@ -390,6 +390,16 @@ _SYNC_TRANSPORT: contextvars.ContextVar[bool] = contextvars.ContextVar(
 )
 
 
+# The sync RPCs run on this long-lived pool, not on the private loop's default
+# executor: ``asyncio.run`` joins its default executor on shutdown, so an RPC
+# still hung after the 2 s deadline would hold the caller (and, from an async
+# route, the server loop) until the HTTP timeout. A pool thread also keeps its
+# own sync client (``thread_supabase_admin``) across calls instead of building
+# one per RPC. A hung request occupies one worker until its HTTP timeout; when
+# every worker is busy a call waits in the queue and is refused at the deadline.
+_SYNC_RPC_POOL = ThreadPoolExecutor(max_workers=8, thread_name_prefix="ai-budget-rpc")
+
+
 def _rpc_execute_sync(name: str, params: dict[str, Any]) -> Any:
     from database import thread_supabase_admin
 
@@ -405,7 +415,8 @@ async def _rpc_execute(name: str, params: dict[str, Any]) -> Any:
     worker thread's own sync client; the deadline still refuses on time.
     """
     if _SYNC_TRANSPORT.get():
-        return await asyncio.to_thread(_rpc_execute_sync, name, params)
+        return await asyncio.get_running_loop().run_in_executor(
+            _SYNC_RPC_POOL, _rpc_execute_sync, name, params)
 
     from database import get_supabase_async
 
@@ -920,6 +931,9 @@ def image_sizes(images: Iterable[bytes | None]) -> list[tuple[int, int]] | None:
     return sizes
 
 
+_PRIVATE_LOOP_POOL = ThreadPoolExecutor(max_workers=4, thread_name_prefix="ai-budget")
+
+
 def _run_on_private_loop(coro: Any) -> Any:
     token = _SYNC_TRANSPORT.set(True)
     try:
@@ -934,10 +948,10 @@ def _run_sync(coro: Any) -> Any:
     except RuntimeError:
         return _run_on_private_loop(coro)
     # A sync provider helper called on an event-loop thread: that loop cannot
-    # be re-entered, so the budget calls run on a short-lived helper thread
-    # (the provider request that follows blocks this thread anyway).
-    with ThreadPoolExecutor(max_workers=1, thread_name_prefix="ai-budget") as pool:
-        return pool.submit(_run_on_private_loop, coro).result()
+    # be re-entered, so the budget calls run on a helper thread (the provider
+    # request that follows blocks this thread anyway). The private loop there
+    # returns within the RPC deadline, so this wait is bounded too.
+    return _PRIVATE_LOOP_POOL.submit(_run_on_private_loop, coro).result()
 
 
 class _SyncGuard:

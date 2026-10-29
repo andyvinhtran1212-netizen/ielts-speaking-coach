@@ -17,8 +17,14 @@ from __future__ import annotations
 import asyncio
 import io
 import json
+import math
+import os
+import shutil
+import subprocess
 import threading
+import time
 import wave
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -33,6 +39,14 @@ from services import ai_budget, ai_budget_config, ai_router, ai_usage_logger
 from services.ai_budget import AIBudgetRefused
 
 FIXTURES = Path(__file__).parent / "fixtures" / "provider_spend_limit"
+REAL_RPC = ai_budget._rpc        # captured before the conftest fake replaces it
+
+# CI installs ffmpeg/ffprobe (backend-tests.yml), so these tests only skip on a
+# local box without them; on CI a missing decoder is a failure, not a skip.
+needs_ffmpeg = pytest.mark.skipif(
+    (shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None) and not os.environ.get("CI"),
+    reason="ffmpeg/ffprobe required",
+)
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -726,3 +740,166 @@ def test_guard_sync_runs_off_the_event_loop_on_its_own_transport(ai_budget_rpc, 
     assert [flag for _, flag in seen] == [True] * 4
     assert any(name.startswith("ai-budget") for name, _ in seen)
     assert [n for n, _ in ai_budget_rpc.calls] == ["fn_ai_budget_reserve", "fn_ai_budget_settle"] * 2
+
+
+# ── Codex round on #1927: real audio sizing and bounded sync RPCs ────────────
+
+
+def _ffmpeg_sine(seconds, *args):
+    return subprocess.run(
+        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi",
+         "-i", f"sine=frequency=440:duration={seconds}", *args, "pipe:1"],
+        capture_output=True, check=True, timeout=30,
+    ).stdout
+
+
+def _streamed_wav(seconds, rate=16000):
+    """A WAV as ffmpeg writes it to a pipe: RIFF and data sizes are the
+    0xFFFFFFFF unknown-length sentinel, with a LIST chunk before data."""
+    pcm = b"\x00\x00" * int(seconds * rate)
+    fmt = (b"fmt " + (16).to_bytes(4, "little") + (1).to_bytes(2, "little") + (1).to_bytes(2, "little")
+           + rate.to_bytes(4, "little") + (rate * 2).to_bytes(4, "little")
+           + (2).to_bytes(2, "little") + (16).to_bytes(2, "little"))
+    info = b"INFOISFT" + (13).to_bytes(4, "little") + b"Lavf61.7.103\x00" + b"\x00"
+    listing = b"LIST" + len(info).to_bytes(4, "little") + info
+    return b"RIFF\xff\xff\xff\xffWAVE" + fmt + listing + b"data\xff\xff\xff\xff" + pcm
+
+
+def test_a_streamed_wav_is_sized_from_its_pcm_frames_not_its_sentinel_header():
+    from services import azure_pronunciation
+
+    clip = _streamed_wav(1.0)
+    with wave.open(io.BytesIO(clip), "rb") as w:     # what the header claims
+        assert w.getnframes() / w.getframerate() > 100_000
+    assert azure_pronunciation._wav_seconds(clip) == pytest.approx(1.0)
+    assert azure_pronunciation._wav_seconds(_wav(12.2)) == pytest.approx(12.2, abs=1e-3)
+    assert azure_pronunciation._wav_seconds(b"not a wav") is None
+
+
+@needs_ffmpeg
+def test_azure_reserves_a_real_one_second_clip_at_two_seconds(ai_budget_rpc, monkeypatch):
+    from services import ai_pricing, azure_pronunciation
+
+    monkeypatch.setattr(settings, "AZURE_SPEECH_KEY", "k")
+    monkeypatch.setattr(settings, "AZURE_SPEECH_REGION", "r")
+    response = httpx.Response(200, json={"RecognitionStatus": "Success", "NBest": []},
+                              request=httpx.Request("POST", "https://r.stt.speech.microsoft.com"))
+    client = MagicMock()
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=False)
+    client.post = AsyncMock(return_value=response)
+    webm = _ffmpeg_sine(1, "-c:a", "libopus", "-f", "webm")
+    with patch("httpx.AsyncClient", return_value=client):    # real ffmpeg pipe conversion
+        run(azure_pronunciation.assess_pronunciation(audio_bytes=webm, content_type="audio/webm",
+                                                     audio_seconds=1.0))
+    assert client.post.await_args.kwargs["headers"]["Content-Type"] == "audio/wav"
+    line = ai_budget_rpc.reserved()[0]
+    expected, _ = ai_pricing.estimate_unit_cost("azure", "pronunciation-assessment", "audio_second", 2)
+    assert line["estimate_usd"] == pytest.approx(expected, abs=1e-6)
+
+
+def test_packet_span_reads_ffprobe_packet_rows():
+    from services import whisper
+
+    rows = "-0.007000,0.020000\n0.013000,0.020000\n2.994000,0.020000,\nN/A,N/A\n\n"
+    assert whisper._packet_span_seconds(rows) == pytest.approx(3.021)
+    assert whisper._packet_span_seconds("") == 0.0
+    assert whisper._packet_span_seconds("N/A,0.02\n") == 0.0
+
+
+@needs_ffmpeg
+def test_a_mediarecorder_webm_without_header_duration_is_measured_and_reserved(ai_budget_rpc, monkeypatch):
+    from services import ai_pricing, whisper
+
+    webm = _ffmpeg_sine(3, "-c:a", "libopus", "-f", "webm")     # piped: no Duration, no Cues
+    header = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                             "-of", "default=nw=1:nk=1", "pipe:0"],
+                            input=webm, capture_output=True, timeout=20).stdout.strip()
+    assert header == b"N/A"
+    measured = whisper._probe_duration_seconds(audio_bytes=webm)
+    assert measured == pytest.approx(3.0, abs=0.05)
+
+    stt = MagicMock()
+    stt.audio.transcriptions.create = AsyncMock(return_value=SimpleNamespace(
+        text="hi", duration=3.0, language="en", segments=[], words=[]))
+    monkeypatch.setattr(whisper, "_get_client", lambda: stt)
+    # The Speaking submission route's call shape (routers/grading.py): no audio_seconds.
+    assert run(whisper.transcribe_from_bytes(webm, filename="audio.webm"))["transcript"] == "hi"
+    stt.audio.transcriptions.create.assert_awaited_once()
+    line = ai_budget_rpc.reserved()[0]
+    expected, _ = ai_pricing.estimate_unit_cost("openai", "whisper-1", "audio_second",
+                                                math.ceil(measured) + 1)
+    assert line["estimate_usd"] == pytest.approx(expected, abs=1e-6)
+
+
+def test_a_hung_sync_rpc_is_refused_at_the_deadline_without_waiting_for_the_worker(monkeypatch):
+    monkeypatch.setattr(ai_budget, "_rpc", REAL_RPC)
+    monkeypatch.setattr(ai_budget, "RPC_TIMEOUT_SECONDS", 0.1)
+    release = threading.Event()
+    monkeypatch.setattr(ai_budget, "_rpc_execute_sync", lambda _n, _p: release.wait(5))
+
+    def blocking_call():
+        started = time.monotonic()
+        with pytest.raises(AIBudgetRefused) as err:
+            with ai_budget.guard_sync("google", "gemini-2.5-flash", "f", 0.01, request_key="hung"):
+                pytest.fail("a hung reservation must not authorise the request")
+        assert err.value.reason == "budget_unavailable"
+        return time.monotonic() - started
+
+    async def from_async_route():
+        return blocking_call()      # e.g. the gist grader on the listening route
+
+    try:
+        assert blocking_call() < 1.0
+        assert run(from_async_route()) < 1.0
+    finally:
+        release.set()
+
+
+def test_sync_rpcs_reuse_one_thread_client(monkeypatch):
+    import database
+
+    monkeypatch.setattr(ai_budget, "_rpc", REAL_RPC)
+    monkeypatch.setattr(database, "_thread_clients", threading.local())
+    monkeypatch.setattr(database, "_build_supabase_http_client", lambda: None)
+    built = []
+
+    def fake_create_client(_url, _key):
+        client = MagicMock()
+        client.rpc.side_effect = lambda name, params: SimpleNamespace(execute=lambda: SimpleNamespace(
+            data=_grant(params) if name == "fn_ai_budget_reserve" else {"settled": True}))
+        built.append(client)
+        return client
+
+    monkeypatch.setattr(database, "create_client", fake_create_client)
+    # A fresh one-worker pool so earlier tests' idle workers cannot pick calls up.
+    pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ai-budget-rpc-test")
+    monkeypatch.setattr(ai_budget, "_SYNC_RPC_POOL", pool)
+    for i in range(3):
+        with ai_budget.guard_sync("google", "gemini-2.5-flash", "f", 0.01, request_key=f"k{i}") as lease:
+            lease.settle(0.001)
+    pool.shutdown()
+    assert sum(c.rpc.call_count for c in built) == 6
+    assert len(built) == 1          # one client for all six RPCs, not one per RPC
+
+
+def test_question_tts_reservation_is_attributed_to_the_caller(ai_budget_rpc, monkeypatch):
+    from routers import tts as tts_module
+
+    async def user(_authorization):
+        return {"id": "user-1"}
+
+    monkeypatch.setattr(tts_module, "get_supabase_user", user)
+    monkeypatch.setattr(tts_module, "_throttle_ip", lambda _r: None)
+    monkeypatch.setattr(tts_module.activation_gate, "ensure_account_active", lambda _u: None)
+    monkeypatch.setattr(tts_module, "_load_owned_session", lambda _u, _s: None)
+    monkeypatch.setattr(tts_module, "require_speaking_entitlement", lambda _u, _s: None)
+    monkeypatch.setattr(tts_module, "_enforce_daily_quota", lambda _u: None)
+    monkeypatch.setattr(tts_module.ai_usage_logger, "log_tts_async", AsyncMock())
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", "k")
+    with patch("openai.AsyncOpenAI") as client_cls:
+        client_cls.return_value.audio.speech.create = AsyncMock(return_value=SimpleNamespace(content=b"mp3"))
+        run(tts_module.text_to_speech(tts_module.TTSRequest(text="Read this aloud", voice="nova"),
+                                      authorization="Bearer x"))
+    line = ai_budget_rpc.reserved()[0]
+    assert (line["feature"], line["user_id"]) == ("question_tts", "user-1")
