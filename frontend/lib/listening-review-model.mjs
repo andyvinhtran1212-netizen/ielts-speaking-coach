@@ -113,17 +113,18 @@ function inheritMultiAnswerSolutions(items) {
     // Source identity is always the lowest question number (items are sorted
     // before grouping). Fullness selects display content, never the label.
     const source = members[0];
-    // A web panel hides the exercise solution, so it cannot host this link.
-    if (source.web_explanation_object) continue;
     const author = authors.reduce((best, item) => (
       solutionBodySize(item.solution) > solutionBodySize(best.solution) ? item : best));
     if (authors.some((item) => conflictsWithShared(item.solution, author.solution))) continue;
-    const group = { question_numbers: members.map((member) => member.q_num),
+    // A web panel hides the exercise solution, so suppress links to it while
+    // still letting empty siblings inherit the shared display fields.
+    const group = source.web_explanation_object ? null : { question_numbers: members.map((member) => member.q_num),
       source_question_number: source.q_num };
     let linked = false;
     for (const item of members) {
       if (item === source || item.web_explanation_object) continue;
       if (hasSolutionBody(item.solution)) {
+        if (!group) continue;
         // A per-slot rationale stays exactly as authored. Link the shared
         // passage instead of copying it beside the slot's own explanation.
         // A graded rationale_q_num can serve the shared body itself here.
@@ -140,11 +141,12 @@ function inheritMultiAnswerSolutions(items) {
         if (!(key in solution) && key in author.solution) solution[key] = author.solution[key];
       }
       if (hasSolutionBody(solution)) {
-        inherited.set(item.q_num, { ...(inherited.get(item.q_num) || item), solution, solution_group: { ...group } });
+        inherited.set(item.q_num, { ...(inherited.get(item.q_num) || item), solution,
+          ...(group ? { solution_group: { ...group } } : {}) });
         linked = true;
       }
     }
-    if (linked) {
+    if (linked && group) {
       // The stable source must expose the shared body when a later slot is
       // fuller. Preserve its authored fields, answer and replay window.
       const solution = { ...source.solution };

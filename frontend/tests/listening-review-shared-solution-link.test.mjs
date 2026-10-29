@@ -143,3 +143,38 @@ test('a web panel on the lowest question does not become a link to a hidden exer
   raw.review[0].web_explanation_object = { explanation: { why_correct: 'Web object.' } };
   for (const item of normalizeListeningReview(raw).review) assert.equal(item.solution_group, undefined);
 });
+
+test('a web panel on Q17 still lets an empty Q18 inherit the shared explanation without a link', () => {
+  const raw = pair(B20_T1, 17, { questionType: null });
+  raw.review[0].web_explanation_object = { explanation: { why_correct: 'Web object.' } };
+  raw.review[1].solution = {};
+  const before = JSON.stringify(raw);
+  const [first, second] = normalizeListeningReview(raw).review;
+  const shared = { ...raw.review[0].solution };
+  delete shared.answer;
+  delete shared.audio_window;
+  assert.deepEqual(second.solution, shared);
+  assert.deepEqual(first.solution, raw.review[0].solution);
+  assert.deepEqual(first.web_explanation_object, raw.review[0].web_explanation_object);
+  assert.equal(first.solution_group, undefined);
+  assert.equal(second.solution_group, undefined);
+  assert.equal(second.expected, raw.review[1].expected);
+  assert.deepEqual(second.audio_window, raw.review[1].audio_window);
+  assert.deepEqual(second.unordered_answer_group, { question_numbers: [17, 18], accepted_answers: ['B', 'C'] });
+  assert.equal(JSON.stringify(raw), before);
+});
+
+test('a web panel on Q17 preserves explicit Q18 fields while missing shared fields are inherited', () => {
+  const raw = pair(B20_T1, 17, { questionType: null });
+  raw.review[0].web_explanation_object = { explanation: { why_correct: 'Web object.' } };
+  raw.review[1].solution = { ...raw.review[1].solution, answer: 'C', translation_vi: '' };
+  const before = JSON.stringify(raw);
+  const [first, second] = normalizeListeningReview(raw).review;
+  const shared = { ...raw.review[0].solution, ...raw.review[1].solution };
+  assert.deepEqual(second.solution, shared);
+  assert.equal(first.solution_group, undefined);
+  assert.equal(second.solution_group, undefined);
+  assert.equal(second.expected, raw.review[1].expected);
+  assert.deepEqual(second.audio_window, raw.review[1].audio_window);
+  assert.equal(JSON.stringify(raw), before);
+});
