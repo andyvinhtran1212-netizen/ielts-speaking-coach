@@ -877,8 +877,8 @@ async def export_user_vocabulary(
             .execute()
         )
     except Exception as exc:
-        logger.error("[vocab/export] query failed for user=%s: %s", user_id, exc)
-        raise HTTPException(500, f"Export query failed: {exc}")
+        logger.error("[vocab/export] query failed for user=%s: %s", user_id, exc, exc_info=True)
+        raise HTTPException(500, "Không xuất được sổ từ vựng. Vui lòng thử lại.") from None
 
     rows = result.data or []
     _fire_event("vocab_exported", {"format": format, "count": len(rows)}, user_id)
@@ -1001,7 +1001,8 @@ async def add_vocab_manual(
         err = str(e)
         if "unique" in err.lower() or "duplicate" in err.lower():
             raise HTTPException(409, f"'{body.headword}' is already in your vocab bank")
-        raise HTTPException(500, f"Failed to save vocab entry: {e}")
+        logger.error("[vocab_bank POST] manual insert failed for user=%s: %s", user_id, e, exc_info=True)
+        raise HTTPException(500, "Không lưu được từ vựng. Vui lòng thử lại.") from None
 
     return result.data[0] if result.data else row
 
@@ -1117,8 +1118,9 @@ async def update_vocab_status(
             on_conflict="user_id,vocabulary_id",
         ).execute()
     except Exception as e:
-        logger.error("[vocab_bank PATCH] flashcard_reviews upsert failed for %s: %s", vocab_id, e)
-        raise HTTPException(500, f"Failed to update review state: {e}")
+        logger.error("[vocab_bank PATCH] flashcard_reviews upsert failed for %s: %s", vocab_id, e,
+                     exc_info=True)
+        raise HTTPException(500, "Không cập nhật được trạng thái ôn tập. Vui lòng thử lại.") from None
 
     # Sprint 10.6 — column dropped in migration 055. Response shape
     # preserved: derive the mastery_status on the fly from the freshly
