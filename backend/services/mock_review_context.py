@@ -132,7 +132,7 @@ def question_context(question: dict | None, snapshot: dict | None) -> dict:
         if previews:
             fields["paragraph_previews"] = previews
             present["paragraph_previews"] = True
-            if not fields.get("options") and not fields.get("paragraph_labels"):
+            if not fields.get("options") and not present["paragraph_labels"]:
                 fields["paragraph_labels"] = [row["label"] for row in previews]
                 present["paragraph_labels"] = True
     # Only authored display metadata; response policies and key metadata never

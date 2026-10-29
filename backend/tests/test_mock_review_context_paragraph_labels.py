@@ -9,6 +9,8 @@ from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
+
 from routers import reading_student
 from services.mock_review_context import question_context, snapshot_paragraph_previews
 
@@ -77,6 +79,21 @@ def test_authored_paragraph_labels_are_kept_including_template_scoped_labels():
     assert scoped["paragraph_labels"] == ["B", "C", "D"]
     # Excerpts are still offered so the card can name the chosen paragraph.
     assert scoped["paragraph_previews"][3]["label"] == "D"
+
+
+@pytest.mark.parametrize("question", [
+    pytest.param({**matching(14), "paragraph_labels": []}, id="question"),
+    pytest.param(matching(14, paragraph_labels=[]), id="payload"),
+    pytest.param(matching(14, template={"paragraph_labels": []}), id="template"),
+])
+def test_explicitly_empty_frozen_paragraph_labels_are_preserved(question):
+    frozen = snapshot(marks=[question])
+    before = deepcopy(frozen)
+    context = question_context(frozen["marking_rows"][0], frozen)
+    assert context["paragraph_labels"] == []
+    assert context["context_provenance"]["paragraph_labels"] == "submission_snapshot"
+    assert [row["label"] for row in context["paragraph_previews"]] == list("ABCDEFG")
+    assert frozen == before
 
 
 def test_other_question_types_are_untouched():
