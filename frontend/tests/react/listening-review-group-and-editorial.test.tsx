@@ -31,7 +31,8 @@ it('opens the real Q12 second slot with shared script, translation and rationale
   expect(card.textContent).toContain('never consume mushrooms picked by friends or neighbours');
   expect(card.textContent).toContain('Đừng bao giờ ăn nấm do bạn bè hay hàng xóm hái');
   expect(card.textContent).toContain('Dan gives exactly two warnings');
-  expect(card.textContent).not.toContain('Chưa có lời giải chi tiết.');
+  expect(card.querySelector('.lr-sol__empty')).toBeNull();
+  expect(card.textContent).not.toMatch(/chưa có lời giải chi tiết/i);
   expect(card.querySelector('.lr-card__ans.is-correct code')?.textContent).toBe('{B, C}');
   expect(card.textContent).toContain('chấp nhận mọi thứ tự');
   expect(card.textContent).toContain('11:30–11:42');
