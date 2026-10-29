@@ -1153,3 +1153,145 @@ Supabase SQL editor or the runner, and print no secrets.
   Expected: no rows. A row whose `submitted_at` is null is a completed
   session whose hand-in was never recorded, which is investigated, not
   discharged by hand.
+
+## Amendment 1 — idempotent manual regrade (FR-025)
+
+Approved by Vinh on 2026-10-29 at 14:44 (UTC+7); see `spec.md`
+[Amendment 1](spec.md#amendment-1--idempotent-manual-regrade-fr-025). The
+code is T014 (PC-J137). It starts after PC-J64 (T006, moves the regrade
+pipeline in `admin.py`) and PC-J54 (T007, Writing) merge, so `admin.py`
+changes once, and lands before T010, so AC15 runs on staging.
+
+### New backend module `services/regrade_idempotency.py`
+
+- Parses and validates the `Idempotency-Key` header (UUID v4, canonical
+  36 characters; 422 `idempotency_key_invalid`), applies the
+  `REGRADE_IDEMPOTENCY_REQUIRED` flag (428 `idempotency_key_required`, or a
+  server-generated key plus one `regrade_idempotency_key_missing` log line
+  while the flag is `false`), and computes `body_sha256` of the canonical
+  body + query.
+- Wraps the three RPCs below. A claim RPC error or timeout raises the
+  503 `regrade_unavailable`; it never lets the provider call run.
+- Maps the claim outcome: `claimed` → continue; `replay` → the stored HTTP
+  status and JSON body with `Idempotent-Replayed: true` and one INFO
+  `regrade_replay` line; `in_flight` → 409 `regrade_in_flight` with
+  `Retry-After`; `mismatch` → 422 `idempotency_key_mismatch` without the
+  other actor's result.
+- Derives the reservation request key
+  `regrade:<resource_kind>:<resource_id>:<idempotency_key>[:<response_id>]`
+  (FR-025 item 9). `services/ai_budget.py` gets a request-key helper
+  only.
+- Call order in each of the four routes: guard (`require_admin` /
+  `require_instructor`, 0032 AAL2 rules) → claim → existing validation →
+  provider call or job enqueue → finish. A validation refusal before any
+  provider call releases the claim.
+
+### Migration 342, `backend/migrations/342_regrade_idempotency.sql`
+
+File only, held behind `forward-policy.tsv` group `ai_budget`. It is
+independent of the 333/340/341 objects.
+
+- **Table `public.regrade_requests`.** This is not `essay_regrade_requests`
+  (migration 084, learner Writing regrade requests, no AI call), whose
+  policies RLSCLEANUP-0039 (PC-J130/J131, migration 344) drops. Columns:
+  - `id uuid pk`
+  - `actor_id uuid not null`
+  - `surface text check (admin|instructor)`
+  - `resource_kind text check (speaking_response|speaking_session|writing_essay)`
+  - `resource_id uuid not null`
+  - `idempotency_key uuid not null`
+  - `body_sha256 text not null`
+  - `state text check (in_flight|succeeded|failed)`
+  - `http_status int`
+  - `response jsonb`
+  - `job_id uuid`
+  - `lease_expires_at timestamptz`
+  - `created_at`
+  - `completed_at`
+- **Indexes and security:**
+  - Unique `(actor_id, resource_kind, resource_id, idempotency_key)`.
+  - Partial unique `(resource_kind, resource_id) WHERE state='in_flight'`.
+  - RLS on. Nothing granted to `anon`/`authenticated`. `service_role`
+    only.
+- **RPCs**, `SECURITY DEFINER`, fixed `search_path`, EXECUTE for
+  `service_role` only:
+  - `fn_regrade_claim(...) → {outcome: claimed|replay|in_flight|mismatch, …}`,
+    atomic, takes over expired leases (15-minute lease). It also refuses
+    a `speaking_response` claim while its session has an in-flight
+    `speaking_session` record, and the reverse (FR-025 item 5). Until
+    T008 merges, it deletes terminal records older than 24 hours
+    opportunistically.
+  - `fn_regrade_finish(id, state, http_status, response, job_id)`.
+  - `fn_regrade_release(id)`.
+- Idempotent DDL, read-only postconditions, a guarded down script, and
+  README entries.
+
+### Route changes
+
+- `routers/admin.py`: `POST /admin/responses/{response_id}/regrade` and
+  `POST /admin/sessions/{session_id}/regrade` claim before the pipeline
+  that T006 extracts, and `_run_regrade_response` uses the derived
+  reservation key. The `admin_regrade` `grading_events` row (#1809) gains
+  `idempotency_key` in metadata; a replay writes no row.
+- `routers/admin_writing.py` (`POST /admin/writing/essays/{essay_id}/regrade`)
+  and `routers/instructor.py` (`POST /instructor/essays/{essay_id}/regrade`)
+  share `resource_kind = writing_essay`. The
+  `graded|reviewed|delivered|failed → grading` update becomes a
+  compare-and-set (`.in_("status", …)` + affected-row check; 0 rows → the
+  existing 409). The record becomes `succeeded` at the 202 with the
+  `job_id`, and the job's reservations use that job id.
+- T008's `ai_budget_sweep` deletes terminal records older than 24 hours.
+
+### API contract and rollout order
+
+- OpenAPI and `frontend/types/api.d.ts` gain the `Idempotency-Key`
+  request header on the four routes, the 409 `regrade_in_flight`
+  (+ `Retry-After`), 422 `idempotency_key_invalid` /
+  `idempotency_key_mismatch`, 428 `idempotency_key_required` and 503
+  `regrade_unavailable` responses, and the `Idempotent-Replayed: true`
+  response header.
+- Order (N-1 safe), one step per deploy:
+  1. **CORS:** the backend adds `Idempotency-Key` to `_CORS_HEADERS`
+     (`main.py:174`). Sending the header to an old backend fails CORS
+     preflight, so this deploys first.
+  2. **Frontend:** the regrade dialogs generate one UUID when the admin
+     or instructor confirms, reuse it for every retry of that action, and
+     show the 409 text of `ui-states.md` R1.
+  3. **Flag:** staging sets `REGRADE_IDEMPOTENCY_REQUIRED=true`
+     (default `false`; an invalid value reads as `true`). Production only
+     at a promotion Vinh authorises.
+
+### Files likely touched (paths verified on `origin/staging`)
+
+- **Backend:** `backend/routers/admin.py`, `backend/routers/admin_writing.py`,
+  `backend/routers/instructor.py`, new `backend/services/regrade_idempotency.py`,
+  `backend/main.py` (`_CORS_HEADERS`), `backend/config.py` (flag),
+  `backend/services/ai_budget.py` (request_key helper only).
+- **Migration:** `backend/migrations/342_regrade_idempotency.sql`,
+  `backend/migrations/README.md`, `backend/migrations/forward-policy.tsv`.
+- **Frontend:** `frontend/lib/admin-speaking-sessions-api.ts`
+  (+ `frontend/lib/browser-api.ts` header option if missing),
+  `frontend/public/js/admin-speaking-sessions.js`,
+  `frontend/app/(authed-admin-writing-grade)/admin/writing/grade/writing-grade-behavior.tsx`,
+  `frontend/app/(authed-instructor-grade)/instructor/grade/instructor-grade.tsx`,
+  `frontend/public/js/instructor-grade.js`, `frontend/types/api.d.ts`.
+
+### Verification
+
+- **`backend/tests/test_migration_342_regrade_idempotency.py`**: catalog,
+  RLS on, no grant to `anon`/`authenticated`, both unique indexes, the
+  RPCs' `search_path` and EXECUTE grants, claim races and lease takeover,
+  idempotent re-apply and the guarded down script, on PostgreSQL 16 and
+  17 (AC15 items 1, 8 and 10).
+- **`backend/tests/test_regrade_idempotency.py`**: AC15 items 1–9 with a
+  counting provider stub and a failing claim RPC.
+- Kept green: `test_admin_regrade_manual.py`,
+  `test_regrade_telemetry_pc_j09.py`, `test_regrade_status_resilience.py`,
+  and the 0032 T004 inventory/AST test.
+- Verifiers `frontend/tooling/verify-admin-speaking-sessions-flow.mjs` and
+  `frontend/tooling/verify-instructor-grade-flow.mjs`: one key per click,
+  the same key on retry, and the R1 text on 409.
+- Staging (T010, AC15 item 11): a double click in
+  `/admin/speaking/sessions` and `/admin/writing/grade` in fixture
+  provider mode yields one `ai_usage_logs` row set per regrade, and the
+  CORS preflight for `Idempotency-Key` returns 200.
