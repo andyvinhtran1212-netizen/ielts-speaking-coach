@@ -58,7 +58,13 @@ async def admin_mfa_status(authorization: str | None = Header(default=None)):
     """The caller's own second-factor state. Requires role admin and an active
     account, but accepts an AAL1 session so the MFA page can enroll or
     challenge (FR-004). Returns no other user's or domain data."""
+    from scripts import staff_security_sweep
+
     admin = await require_admin(authorization, allow_aal1=True)
+    # Audit the caller's own factor changes at once (plan.md, FR-010): the
+    # sweep for this account only, under a short timeout. A failure is logged
+    # and never changes this response.
+    await staff_security_sweep.sweep_caller(admin_module._db_engine, admin.get("id"))
     assurance = staff_guard.evaluate_admin_assurance(admin, authorization)
     return {
         "aal": assurance.aal,
