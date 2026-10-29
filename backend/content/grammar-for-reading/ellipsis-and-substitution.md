@@ -100,6 +100,51 @@ Khôi phục lại phần trong ngoặc để hiểu trọn ý.
 2. Truy về mệnh đề trước để khôi phục phần đầy đủ.
 3. Đọc lại câu đã khôi phục để chắc nghĩa.
 
+## Lỗi người Việt hay mắc
+
+Tiếng Việt thường lặp lại danh từ: "dân số Tokyo lớn hơn dân số London". Tiếng Anh tránh lặp bằng *one, that of, those, do so, so*. Vì không quen kiểu thay thế này, người học không nhận ra từ thay thế đang **đứng thay cho danh từ nào**.
+
+### Lỗi 1: Hiểu *that of* như "rằng" hoặc "cái đó"
+
+*The population of Tokyo is larger than that of London.*
+
+- ❌ Hiểu thành: "lớn hơn cái đó của London" mà không biết "cái đó" là gì, hoặc đọc *that* là "rằng".
+- ✅ *that* = *the population*. Câu đầy đủ: *…larger than the population of London.*
+
+### Lỗi 2: Hiểu *one* là con số "một"
+
+*The old bridge was replaced by a stronger one.*
+
+- ❌ Hiểu thành: "được thay bằng một (thứ/người) mạnh hơn".
+- ✅ *one* = *bridge*: cây cầu cũ được thay bằng **một cây cầu chắc hơn**.
+
+### Lỗi 3: Hiểu *so* sau *think/hope* là "vì vậy"
+
+*Will prices fall next year? Most analysts do not think so.*
+
+- ❌ Hiểu thành: "phần lớn nhà phân tích không nghĩ, vì vậy…".
+- ✅ *so* = *that prices will fall next year*. Phần lớn nhà phân tích **không cho rằng giá sẽ giảm**.
+
+## Bài tập luyện
+
+### Khôi phục phần bị lược hoặc bị thay
+
+Viết lại phần bị lược hoặc cho biết từ in nghiêng thay cho gì.
+
+1. *Wealthy countries can afford to cut emissions quickly; poorer ones cannot.*
+2. *The average salary in the capital is higher than that in rural areas.*
+3. *Researchers were asked to publish their raw data, but few did so.*
+4. *Men's earnings rose by 3%, and women's by 5%.*
+5. *Students who had a mentor were more likely to finish the course than those who did not.*
+
+### Đáp án
+
+1. *ones* = *countries*; sau *cannot* lược *afford to cut emissions quickly*. → *poorer countries cannot afford to cut emissions quickly.*
+2. *that* = *the average salary*. → *…higher than the average salary in rural areas.*
+3. *did so* = *published their raw data*. → *few researchers published their raw data.*
+4. Sau *women's* lược *earnings rose*. → *women's earnings rose by 5%.*
+5. *those* = *students*; sau *did not* lược *have a mentor*. → *…than students who did not have a mentor.*
+
 ## Tóm tắt nhanh
 
 - Ellipsis = bỏ từ lặp; Substitution = thay bằng one/do so/so/neither
