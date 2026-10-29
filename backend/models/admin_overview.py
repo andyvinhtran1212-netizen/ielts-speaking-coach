@@ -142,3 +142,6 @@ class AdminOverviewOut(_StrictOut):
     access_codes: AccessCodeOverviewOut
     recent_activity: list[RecentAdminActivityOut]
     generated_at: datetime
+    # Source reads that failed (e.g. "sessions_recent"); metrics derived from
+    # them are incomplete, not zero. Empty when every read succeeded.
+    partial_failures: list[str] = Field(default_factory=list)
