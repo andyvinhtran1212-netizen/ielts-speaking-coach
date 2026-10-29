@@ -35,6 +35,8 @@ import hashlib
 import logging
 import re
 import secrets
+import time
+from collections import deque
 from datetime import datetime, timezone
 from typing import Literal, Optional
 from uuid import UUID
@@ -127,6 +129,51 @@ def _client_ip(request: Request | None) -> str | None:
     # Only configured proxy CIDRs may be skipped; an invalid hop stops the
     # scan. The same rule keys the ingress/TTS budgets (PC-J202/J183).
     return request_client_ip(request)
+
+
+# ── Per-IP throttle for the anonymous share start (PC-J120) ───────────
+# Every POST /test/share/{token}/attempts inserts a reading_test_attempts row
+# and needs no account, so one valid token could create rows without bound.
+# In-memory sliding window, per worker (same posture as routers/tts.py and
+# RequestSafetyMiddleware): N workers/instances allow N× the budget. Keyed on
+# _client_ip, so caller-supplied XFF hops cannot mint fresh budgets. Past
+# _SHARE_START_MAX_TRACKED live addresses, new ones share one overflow bucket
+# instead of growing the dict.
+_SHARE_START_PER_MINUTE = 10
+_SHARE_START_WINDOW_SECONDS = 60
+_SHARE_START_MAX_TRACKED = 10_000
+_SHARE_START_OVERFLOW_KEY = "\0overflow"
+_share_start_hits: dict[str, deque] = {}
+
+
+def _throttle_share_start(request: Request | None) -> None:
+    ip = _client_ip(request)
+    if not ip:
+        return
+    now = time.monotonic()
+    cutoff = now - _SHARE_START_WINDOW_SECONDS
+    if ip not in _share_start_hits and len(_share_start_hits) >= _SHARE_START_MAX_TRACKED:
+        for key in [k for k, q in _share_start_hits.items() if not q or q[-1] <= cutoff]:
+            del _share_start_hits[key]
+        if len(_share_start_hits) >= _SHARE_START_MAX_TRACKED:
+            ip = _SHARE_START_OVERFLOW_KEY
+    hits = _share_start_hits.setdefault(ip, deque())
+    while hits and hits[0] <= cutoff:
+        hits.popleft()
+    if len(hits) >= _SHARE_START_PER_MINUTE:
+        retry_after = max(1, int(hits[0] - cutoff) + 1)
+        logger.info("[reading] share start BLOCK ip budget=%d/min", _SHARE_START_PER_MINUTE)
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": "rate_limit_exceeded",
+                "message": "Bạn đã bắt đầu bài đọc quá nhiều lần. Vui lòng thử lại sau ít phút.",
+                "limit": _SHARE_START_PER_MINUTE,
+                "retry_after": retry_after,
+            },
+            headers={"Retry-After": str(retry_after)},
+        )
+    hits.append(now)
 
 
 def _hash_anon_src(ip: str | None) -> str | None:
@@ -1062,6 +1109,7 @@ async def start_shared_reading_test_attempt(
     isn't supplied, records a SALTED IP hash (anon_src — never the raw IP), and
     creates an attempt with user_id NULL. Returns attempt_id + anon_id."""
     import uuid as _uuid
+    _throttle_share_start(request)        # before any DB read or write
     test = _resolve_share(share_token, by_token=True)
     _assert_exam_content_allowed(test, None, purpose="practice")
     if not _test_is_public(test):
