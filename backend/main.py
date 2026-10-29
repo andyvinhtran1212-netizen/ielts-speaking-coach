@@ -520,6 +520,37 @@ def _insert_error_log_safely(payload: dict) -> None:
         logger.error("[error_logs] Background INSERT failed: %s", e)
 
 
+# PC-J92 — handled 5xx HTTPExceptions (e.g. 503 activation_unavailable) are
+# persisted too, but a broken dependency answers EVERY request with the same
+# 5xx, so rows are capped per (error_code, route template) in this process:
+# at most _HANDLED_5XX_LOG_LIMIT rows per _HANDLED_5XX_LOG_WINDOW_S window.
+_HANDLED_5XX_LOG_LIMIT = 10
+_HANDLED_5XX_LOG_WINDOW_S = 60.0
+_HANDLED_5XX_LOG_MAX_KEYS = 512
+_handled_5xx_log_windows: dict[tuple[str, str], list] = {}
+
+
+def _handled_5xx_log_allowed(error_code: str, path: str) -> bool:
+    """Fixed-window counter; runs on the event loop thread, so no lock."""
+    from time import monotonic
+    now = monotonic()
+    key = (error_code, path)
+    window = _handled_5xx_log_windows.get(key)
+    if window is None or now - window[0] >= _HANDLED_5XX_LOG_WINDOW_S:
+        if len(_handled_5xx_log_windows) >= _HANDLED_5XX_LOG_MAX_KEYS:
+            for stale in [k for k, (started, _) in _handled_5xx_log_windows.items()
+                          if now - started >= _HANDLED_5XX_LOG_WINDOW_S]:
+                del _handled_5xx_log_windows[stale]
+            if len(_handled_5xx_log_windows) >= _HANDLED_5XX_LOG_MAX_KEYS:
+                return False
+        _handled_5xx_log_windows[key] = [now, 1]
+        return True
+    if window[1] >= _HANDLED_5XX_LOG_LIMIT:
+        return False
+    window[1] += 1
+    return True
+
+
 def _bounded_traceback(trace: str, limit: int = 5000) -> str:
     """Bound a traceback while retaining both the request frame and root cause.
 
@@ -688,6 +719,35 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     import uuid as _uuid
     request_id = getattr(request.state, "request_id", None) or str(_uuid.uuid4())
     detail = safe_detail(exc.status_code, exc.detail, ref=request_id)
+    if exc.status_code >= 500:
+        # PC-J92 — persist handled 5xx to error_logs like the unhandled handler
+        # (fire-and-forget, never raises). Only the error_code, route template,
+        # method and request id: no body, query, token, message or DB trace.
+        try:
+            import asyncio as _asyncio
+            error_code = detail.get("error_code") if isinstance(detail, dict) else None
+            error_code = str(error_code or "internal_error")[:100]
+            safe_path, _ = _safe_error_request_context(request)
+            if _handled_5xx_log_allowed(error_code, safe_path):
+                payload = {
+                    "level":      "error",
+                    "source":     "backend",
+                    "message":    f"HTTP {exc.status_code} {error_code}",
+                    "url":        safe_path,
+                    "request_id": request_id,
+                    "extra": {
+                        "method":      request.method,
+                        "status_code": exc.status_code,
+                        "error_code":  error_code,
+                        "handled":     True,
+                    },
+                }
+                _asyncio.create_task(
+                    _asyncio.to_thread(_insert_error_log_safely, payload)
+                )
+        except Exception as e:
+            logger.error("[error_logs] handled-5xx capture skipped (req=%s): %s",
+                         request_id, e.__class__.__name__)
     headers = dict(getattr(exc, "headers", None) or {})
     headers.setdefault("X-Request-ID", request_id)
     return JSONResponse(status_code=exc.status_code,
