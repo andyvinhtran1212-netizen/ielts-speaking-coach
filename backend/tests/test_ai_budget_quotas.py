@@ -244,8 +244,10 @@ def tts(monkeypatch):
     async def _user(_authorization):
         return USER
 
-    async def _synth(text, voice):
-        state.synth.append((text, voice))
+    # Same signature as services.tts_audio.synthesize_mp3: since T004 (#1927)
+    # the route passes the keyword-only user_id the budget guard bills.
+    async def _synth(text, voice, *, user_id=None):
+        state.synth.append((text, voice, user_id))
         return b"MP3"
 
     async def _log(**_kwargs):
@@ -275,7 +277,7 @@ def tts(monkeypatch):
 def test_tts_within_quota_still_synthesises(tts):
     resp = tts.post()
     assert resp.status_code == 200 and resp.content == b"MP3"
-    assert len(tts.synth) == 1
+    assert tts.synth == [("Hello", "nova", USER["id"])]
 
 
 def test_tts_count_error_is_503_and_openai_is_never_called(tts):
