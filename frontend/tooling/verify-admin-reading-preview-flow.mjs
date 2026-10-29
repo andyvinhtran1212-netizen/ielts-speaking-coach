@@ -68,7 +68,9 @@ check('actual canonical L3 Q10 shows all three ordered instructions instead of e
   JSON.stringify(await q10.locator('section[aria-label="Các bước giải"] li').allTextContents()) === JSON.stringify(canonical.q10.payload.solution.solution_steps.map((step) => step.instruction_vi))
   && await q10.getByText('Chưa có lời giải', { exact: true }).count() === 0);
 check('diagram block chỉ có một image manager', await page.getByRole('region', { name: 'Ảnh sơ đồ cho câu 2' }).count() === 1 && await page.getByText('Dùng chung ảnh sơ đồ với Q2', { exact: false }).count() === 1);
-check('IMG-PROMPT và contract issue hiển thị thật', await page.getByText('Prompt tạo ảnh được trích từ file').count() === 1 && await page.getByText(/1 vấn đề contract cần rà/).count() === 1);
+check('IMG-PROMPT và contract issue hiển thị thật', await page.getByText('Prompt tạo ảnh được trích từ file').count() === 1 && await page.getByText(/4 vấn đề contract cần rà/).count() === 1);
+check('rubric mặc định của player được cảnh báo theo nhóm câu', await page.getByText('Q2–3 (diagram_label_completion) không có instruction/word_limit hợp lệ; học viên sẽ thấy "NO MORE THAN TWO WORDS" mặc định.', { exact: true }).count() === 1
+  && await page.getByText('Q4 (short_answer) không có instruction/word_limit hợp lệ; học viên sẽ thấy "NO MORE THAN THREE WORDS" mặc định.', { exact: true }).count() === 1);
 check('student-like preview dùng native review route', await page.getByRole('link', { name: 'Xem như học viên ↗' }).getAttribute('href') === `/reading/review?admin_test_id=${testId}`);
 check('Markdown không chạy script', await page.evaluate(() => !window.__arpXss && !window.__optionXss));
 check('mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
