@@ -448,7 +448,15 @@ function specPathsNamedByTests() {
         continue;
       }
       if (!/\.(py|mjs|cjs|js|ts|tsx)$/.test(e.name)) continue;
-      for (const m of readFileSync(full, 'utf8').matchAll(/specs\/[\w][\w./-]*/g)) {
+      // Bỏ docstring Python và dòng THUẦN chú thích: ở đó đường dẫn spec chỉ là
+      // chỉ dẫn nguồn (vd. «specs/0029-…/research.md §4»), không phải lệnh đọc.
+      // Không có bước này, mỗi docstring mới dẫn một spec sẽ làm đỏ PR không liên quan.
+      const src = readFileSync(full, 'utf8')
+        .replace(/"""[\s\S]*?"""|'''[\s\S]*?'''/g, '')
+        .split('\n')
+        .filter((l) => !/^\s*(#|\/\/|\/\*|\*)/.test(l))
+        .join('\n');
+      for (const m of src.matchAll(/specs\/[\w][\w./-]*/g)) {
         const rel = m[0].replace(/[./]+$/, '');
         if (!existsSync(path.join(ROOT, rel))) continue;
         if (!out.has(rel)) out.set(rel, path.relative(ROOT, full));
@@ -467,8 +475,6 @@ function specPathsNamedByTests() {
 const NOT_READ = {
   '0000-sdd-foundation': 'test_validate_specs.py dựng thư mục này trong repo tạm (tmp_path)',
   'general/UI-IMPROVEMENTS.md': 'test_validate_specs.py ghi tệp này trong repo tạm (tmp_path)',
-  '0029-student-archive/research.md': 'chỉ dẫn nguồn trong docstring test_migration_326',
-  '0030-class-archive/research.md': 'chỉ dẫn nguồn trong docstring test_migration_337',
 };
 
 describe('backend-tests.yml — job nặng chỉ skip khi MỌI tệp là spec không-test-đọc', () => {
