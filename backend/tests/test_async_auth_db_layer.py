@@ -36,6 +36,7 @@ from services import access_code_permissions as acp
 from services import activation_gate
 from services import feature_flags
 from services import runtime_flags
+from services.errors import GENERIC_MESSAGE
 
 
 # ── In-memory PostgREST fake (sync + async views over one dataset) ───────────
@@ -449,6 +450,19 @@ def test_auth_me_error_contract_identical(monkeypatch):
         state[0][1]["detail"].pop("ref")  # a fresh error reference per response
     assert out[False][0] == out[True][0]
     assert out[True][0][0] == 500
+
+
+def test_check_active_error_contract_is_503_in_both(monkeypatch):
+    # ASYNCAUTH-0036 Revision 2 (Vinh, 2026-10-29): a users lookup failure is
+    # 503 like the gate and the staff guards, with the sanitized envelope.
+    monkeypatch.setattr(auth_module, "_get_auth_http_client", lambda: _AuthClient())
+    out = _both(monkeypatch, TABLES, _http("/auth/check-active", "u-active"),
+                auth_module, acp, activation_gate, fail={("users", (("eq", "id"),))})
+    for state in out.values():
+        state[0][1]["detail"].pop("ref")  # a fresh error reference per response
+    assert out[False][0] == out[True][0]
+    assert out[True][0] == (503, {"detail": {"error_code": "internal_error",
+                                             "message": GENERIC_MESSAGE}})
 
 
 # ── /auth/me first-visit provisioning races ─────────────────────────────────

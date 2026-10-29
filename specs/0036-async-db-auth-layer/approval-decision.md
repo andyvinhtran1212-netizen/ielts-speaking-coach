@@ -43,3 +43,25 @@ changes with it.
   change is the race outcome: a concurrent first visit gets 200 instead of
   500, and an existing row's role, activation and profile fields are never
   overwritten.
+
+## Revision 2 — a DB failure answers 503 on every auth read (SPEC-DECISIONS-J76 F-4)
+
+**State: APPROVED by the human owner.** Vinh decided on 2026-10-29 13:58
+(UTC+7), relayed by the Leader: when the DB is unavailable or errors, the
+learner activation gate, the staff guards (`require_admin` /
+`require_instructor`) **and** `/auth/check-active` all return 503, and the
+spec says 503.
+
+- Context: PC-J76 F-4 and PR #1915 (PC-J86). The spec said 500 for a staff
+  role lookup error, while the code (`services/staff_guard.py`, ADMINAAL2-0032
+  FR-001) already returned 503. `/auth/check-active` returned 500, unlike the
+  gate's 503.
+- Spec text: the staff journey and edge cases now say 503, and a
+  `/auth/check-active` edge case was added. FR-001…FR-007 text is unchanged;
+  FR-002 still requires the same status in both flag states.
+- Behaviour change: only `/auth/check-active` on a lookup failure, 500 → 503.
+  The body stays `{"detail": {"error_code": "internal_error", "message", "ref"}}`
+  (sanitized by `main.py`), so no error text reaches the client. The frontend
+  activation probe treats any non-2xx as unknown and fails open, unchanged.
+- Unchanged: risk `high`, flag default off, access decisions, the
+  `/auth/me` error contract and the rollout.

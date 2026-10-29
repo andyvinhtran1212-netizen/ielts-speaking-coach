@@ -125,6 +125,19 @@ its NOSUPERUSER owner role, with a stand-in `auth.audit_log_entries`.
   "Inactive" and the new history entry after the mutation refetch, and again
   after a reload. An inactive instructor lands on `/login` activation on both
   first load and reload.
+- **Direct REST path (PC-J119, migration 345)**: the staff guard covers
+  FastAPI only. Before 345, seven RLS policies admitted any admin JWT on an
+  inline `role = 'admin'` check (no AAL2, `is_active` or `suspended_at`) to
+  the dictation tables, `user_feedback`, `lemma_overrides`, draft
+  `vocabulary_exercises` and `access_codes` through `/rest/v1/`. 345 drops
+  them and fails if any `public` policy still holds an `'admin'` literal.
+  Evidence: `backend/tests/test_migration_345_admin_inline_policies.py` and
+  `backend/tests/test_rls_no_inline_admin_role_policy.py` (PG 16 and 17), then
+  the read-only catalog query in the 345 header on staging after apply.
+  Residual: learners keep SELECT on their own dictation rows and on published
+  exercises. 345 also revokes every `anon`/`authenticated` privilege on
+  `access_codes` and fails if any client role can still SELECT it (PC-J161),
+  so the codes do not rely on 108 keeping EXECUTE revoked on the helpers.
 
 ## UI evidence
 

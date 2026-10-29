@@ -119,5 +119,13 @@ def test_workflow_matrix_run_and_verify_agree_on_shard_count():
     assert jobs["backend-shard"]["name"].endswith(f"/{total}")
     # The required context for main and staging-promotion-gate.yml.
     assert jobs["backend"]["name"] == "Backend (pytest + anchor drift)"
-    assert set(jobs["backend"]["needs"]) == {"backend-shard", "backend-collect"}
-    assert jobs["backend"]["if"] == "always()"
+    assert set(jobs["backend"]["needs"]) == {"changes", "backend-shard", "backend-collect"}
+    # Still reports after a red shard; skipped only on a PR whose every file is
+    # a spec no test reads (push runs always evaluate the gate to true).
+    assert jobs["backend"]["if"] == (
+        "${{ always() && (github.event_name == 'push' "
+        "|| needs.changes.outputs.run_tests != 'false') }}"
+    )
+    # A job-level skip of a matrix job reports an unexpanded name, so the
+    # required "shard N/4" checks would never report: the shard job must run.
+    assert jobs["backend-shard"]["if"] == "${{ !cancelled() }}"

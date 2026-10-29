@@ -78,6 +78,21 @@ def test_account_scoped_recovery_can_never_replay_automatically():
     )
 
 
+def test_class_archive_337_is_held_until_its_feature_group_is_opted_in():
+    # PC-J151 / PC-J106 F1: an N-1 backend answers 500 on GET /admin/cohorts
+    # once 337 adds the archive columns, so an unfiltered run must not apply it.
+    rows = [
+        raw.split("\t") for raw in POLICY.read_text(encoding="utf-8").splitlines()
+        if raw.startswith("337_")
+    ]
+    assert len(rows) == 1 and len(rows[0]) == 4
+    assert rows[0][:3] == [
+        "337_class_archive_enforcement.sql", "pending_feature", "class_archive",
+    ]
+    assert rows[0][3].startswith("CLASSARCHIVE-0030;")
+    assert "AdminCohortOut N-1 fix (F1, PC-J106)" in rows[0][3]
+
+
 def test_runner_validates_policy_before_contacting_the_database():
     policy_check = RUNNER.index("if ! awk -F '\\t'")
     database_contact = RUNNER.index('psql "$DB_URL"')
