@@ -8,7 +8,9 @@ Runs every 5 minutes as its own Railway cron service
     python -m scripts.staff_security_sweep --requeue <audit_id>
 
 One run does three independent steps; a failure in one is logged and does not
-skip the others, and any failure makes the exit code non-zero.
+skip the others, and any failure makes the exit code non-zero. So do due alerts
+that cannot be sent because ``RESEND_API_KEY`` or ``OWNER_ALERT_EMAILS`` is
+missing: the run logs the missing names and exits non-zero (PC-J73 F3).
 
 1. **Auth audit-log factor events** (the event source). Reads
    ``auth.audit_log_entries`` after the durable cursor in
@@ -37,6 +39,16 @@ skip the others, and any failure makes the exit code non-zero.
 3. **Owner alert dispatch** (``services.owner_alerts``): every due outbox row,
    including the ones written by steps 1 and 2 and by the users trigger.
 
+Then, ``FOLLOW_UP_SECONDS`` after the run started, steps 1 and 3 run once more
+(PC-J66 F04). Railway cron runs must be at least 5 minutes apart, and an entry
+younger than ``LOG_LAG_SECONDS`` at the first pass would otherwise wait a whole
+period: written 5 s before a run, audited 305 s later. With a second pass at
+offset F, the longest wait from an event to its audit row is
+``max(F, PERIOD - F) + LOG_LAG_SECONDS`` plus step time: 160 s for F = 150 s,
+which leaves 140 s of the 5-minute FR-010 bound for Railway start delay and
+the steps. The run stays well under the period, so Railway never skips the
+next one for overlap.
+
 On the very first run the log cursor starts at the newest entry, so history
 from before the sweep existed is not replayed into audit rows and e-mails.
 
@@ -54,6 +66,7 @@ import logging
 import os
 import re
 import sys
+import time
 import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -68,6 +81,8 @@ logger = logging.getLogger("staff_security_sweep")
 LOG_CURSOR = "auth_audit_log_factors"
 SNAPSHOT_MARKER = "mfa_factor_snapshot"
 LOG_LAG_SECONDS = 10
+CRON_PERIOD_SECONDS = 300   # railway.staff-security-sweep.json, Railway's minimum
+FOLLOW_UP_SECONDS = CRON_PERIOD_SECONDS // 2
 LOG_BATCH = 500
 ZERO_UUID = "00000000-0000-0000-0000-000000000000"
 
@@ -504,32 +519,59 @@ def _error(exc: BaseException) -> str:
     return f"{type(exc).__name__}" + (f"[{sqlstate}]" if sqlstate else "")
 
 
-async def run_sweep(conn: Any, list_factors: FactorLister, *, schema: str = "public",
-                    auth_schema: str = "auth", config: owner_alerts.TransportConfig | None = None,
-                    send: owner_alerts.Sender = owner_alerts.send_via_resend,
-                    lag_seconds: int = LOG_LAG_SECONDS) -> tuple[dict[str, Any], bool]:
-    """One run of the three steps. Returns (summary fields, ok)."""
-    db = SweepDb(conn, schema=schema, auth_schema=auth_schema)
-    fields: dict[str, Any] = {}
-    ok = True
-    steps = (
-        ("log", lambda: sweep_auth_log(db, lag_seconds=lag_seconds)),
-        ("snapshot", lambda: reconcile_snapshot(db, list_factors)),
-        ("dispatch", lambda: owner_alerts.dispatch_due(owner_alerts.PgOutboxStore(conn, schema),
-                                                       config=config, send=send)),
-    )
+async def _run_steps(steps: tuple[tuple[str, Callable[[], Awaitable[Any]]], ...],
+                     fields: dict[str, Any], prefix: str = "") -> tuple[bool, set[str]]:
+    """Run each step, recording its summary as fields. Returns (ok, steps that ran)."""
+    ok, done = True, set()
     for name, step in steps:
+        key = prefix + name
         try:
             result = await step()
         except Exception as exc:
             ok = False
-            fields[f"{name}_error"] = _error(exc)
-            logger.error("staff_security_sweep_step_failed step=%s error=%s", name, _error(exc))
+            fields[f"{key}_error"] = _error(exc)
+            logger.error("staff_security_sweep_step_failed step=%s error=%s", key, _error(exc))
             continue
-        fields.update({f"{name}_{k}": v for k, v in asdict(result).items()})
+        done.add(name)
+        fields.update({f"{key}_{k}": v for k, v in asdict(result).items()})
         if name == "snapshot" and result.errors:
             ok = False
-    return fields, ok
+        if name == "dispatch" and result.unconfigured:
+            # Due alerts that cannot go out must not look like a green run.
+            ok = False
+            logger.error("staff_security_sweep_alerts_unsent step=%s missing=%s due=%d",
+                         key, result.missing, result.due)
+    return ok, done
+
+
+async def run_sweep(conn: Any, list_factors: FactorLister, *, schema: str = "public",
+                    auth_schema: str = "auth", config: owner_alerts.TransportConfig | None = None,
+                    send: owner_alerts.Sender = owner_alerts.send_via_resend,
+                    lag_seconds: int = LOG_LAG_SECONDS, follow_up_seconds: float | None = None,
+                    sleep: Callable[[float], Awaitable[Any]] = asyncio.sleep,
+                    clock: Callable[[], float] = time.monotonic) -> tuple[dict[str, Any], bool]:
+    """One run of the three steps, then (with ``follow_up_seconds``) steps 1 and
+    3 again that long after the start. Returns (summary fields, ok)."""
+    started = clock()
+    db = SweepDb(conn, schema=schema, auth_schema=auth_schema)
+    fields: dict[str, Any] = {}
+    log = ("log", lambda: sweep_auth_log(db, lag_seconds=lag_seconds))
+    dispatch = ("dispatch", lambda: owner_alerts.dispatch_due(
+        owner_alerts.PgOutboxStore(conn, schema), config=config, send=send))
+    ok, done = await _run_steps((log, ("snapshot", lambda: reconcile_snapshot(db, list_factors)),
+                                 dispatch), fields)
+    if follow_up_seconds is None:
+        return fields, ok
+    # A step that failed already fails the run; the next run retries it from
+    # the same cursor.
+    again = tuple(step for step in (log, dispatch) if step[0] in done)
+    if not again:
+        return fields, ok
+    wait = started + follow_up_seconds - clock()
+    if wait > 0:
+        await sleep(wait)
+    follow_ok, _ = await _run_steps(again, fields, prefix="follow_up_")
+    return fields, ok and follow_ok
 
 
 async def _main(args: argparse.Namespace) -> int:
@@ -552,7 +594,7 @@ async def _main(args: argparse.Namespace) -> int:
         async with httpx.AsyncClient(timeout=15.0) as client:
             lister = auth_admin_factor_lister(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY,
                                               client)
-            fields, ok = await run_sweep(conn, lister)
+            fields, ok = await run_sweep(conn, lister, follow_up_seconds=FOLLOW_UP_SECONDS)
         logger.info("staff_security_sweep_summary %s",
                     " ".join(f"{k}={v}" for k, v in fields.items()))
         return 0 if ok else 1

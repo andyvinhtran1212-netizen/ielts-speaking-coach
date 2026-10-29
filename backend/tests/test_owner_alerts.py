@@ -3,12 +3,14 @@
 Unit half: recipients come only from the environment, the e-mail and the
 Resend request carry no token, secret or reason, sends retry with backoff up
 to five times and then stay `failed`, a row claimed by one dispatcher is not
-sent by another, and a missing key or recipient sends nothing and spends no
-attempt.
+sent by another, a missing key or recipient sends nothing and spends no
+attempt, and a last attempt cut off before or after its send (PC-J66 F03) ends
+`sent` or `failed` with one e-mail.
 
 PostgreSQL half: ``PgOutboxStore`` against migration 332's real outbox (the
-compare-and-set claim, retry to five, requeue). Set TEST_PG_URL to a LOCAL
-disposable cluster and REQUIRE_PG=1 to forbid skips.
+compare-and-set claim, retry to five, requeue, resuming an interrupted last
+attempt). Set TEST_PG_URL to a LOCAL disposable cluster and REQUIRE_PG=1 to
+forbid skips.
 """
 
 from __future__ import annotations
@@ -66,8 +68,8 @@ class FakeStore:
         return [{"id": rid, "audit_id": r["audit_id"], "payload": r["payload"],
                  "attempts": r["attempts"]}
                 for rid, r in self.rows.items()
-                if r["status"] != "sent" and r["attempts"] < max_attempts
-                and r["next"] <= self.now][:limit]
+                if r["status"] != "sent" and r["next"] <= self.now
+                and (r["attempts"] < max_attempts or r["status"] == "pending")][:limit]
 
     async def claim(self, row_id, attempts, lease_seconds):
         await asyncio.sleep(0)
@@ -75,6 +77,15 @@ class FakeStore:
         if row["attempts"] != attempts or row["status"] == "sent":
             return False
         row["attempts"] += 1
+        row["status"] = "pending"
+        row["next"] = self.now + lease_seconds
+        return True
+
+    async def reclaim_final(self, row_id, attempts, lease_seconds):
+        await asyncio.sleep(0)
+        row = self.rows[row_id]
+        if row["attempts"] != attempts or row["status"] != "pending" or row["next"] > self.now:
+            return False
         row["next"] = self.now + lease_seconds
         return True
 
@@ -98,6 +109,33 @@ class FakeSender:
         await asyncio.sleep(0)
         self.calls.append({"email": email, "to": config.recipients, "key": idempotency_key})
         return self.results.pop(0) if self.results else oa.SendResult(True)
+
+
+class FakeResend:
+    """Resend's Idempotency-Key: a key it already accepted gets the original
+    answer and no second e-mail. ``cut`` makes the next call die like a killed
+    cron, before the request leaves or after Resend accepted it."""
+
+    def __init__(self, *refusals: oa.SendResult) -> None:
+        self.refusals = list(refusals)
+        self.cut: str | None = None
+        self.calls: list[str] = []
+        self.delivered: list[str] = []
+
+    async def __call__(self, email, *, config, idempotency_key):
+        await asyncio.sleep(0)
+        self.calls.append(idempotency_key)
+        cut, self.cut = self.cut, None
+        if cut == "before_send":
+            raise asyncio.CancelledError
+        if idempotency_key in self.delivered:
+            return oa.SendResult(True)
+        if self.refusals:
+            return self.refusals.pop(0)
+        self.delivered.append(idempotency_key)
+        if cut == "after_send":
+            raise asyncio.CancelledError
+        return oa.SendResult(True)
 
 
 def run(coro):
@@ -137,6 +175,7 @@ def test_missing_transport_sends_nothing_spends_no_attempt_and_says_why(env, mis
     with caplog.at_level(logging.WARNING, logger="owner_alerts"):
         summary = run(oa.dispatch_due(store, config=oa.transport_config(env), send=send))
     assert summary.unconfigured and summary.due == 1 and summary.sent == 0
+    assert summary.missing == ",".join(missing)
     assert send.calls == []
     assert [r["attempts"] for r in store.rows.values()] == [0]
     assert [r["status"] for r in store.rows.values()] == ["pending"]
@@ -314,6 +353,83 @@ def test_two_concurrent_dispatchers_send_each_row_once():
     assert {r["status"] for r in store.rows.values()} == {"sent"}
 
 
+# ── PC-J66 F03: an interrupted last attempt ────────────────────────────────
+
+REFUSED = oa.SendResult(False, "http_403:validation_error")
+
+
+def _at_last_attempt(store: FakeStore, resend: FakeResend, cut: str) -> dict:
+    """Four refused sends, then a fifth that dies as ``cut`` says."""
+    [row] = store.rows.values()
+    for _ in range(oa.MAX_ATTEMPTS - 1):
+        run(oa.dispatch_due(store, config=_config(), send=resend))
+        store.now = row["next"]
+    assert row["attempts"] == oa.MAX_ATTEMPTS - 1 and row["status"] == "failed"
+    if cut == "save_fails":
+        def broken(*_a, **_k):
+            raise RuntimeError("connection lost")
+        store.mark_sent = broken
+    else:
+        resend.cut = cut
+    with pytest.raises((asyncio.CancelledError, RuntimeError)):
+        run(oa.dispatch_due(store, config=_config(), send=resend))
+    if cut == "save_fails":
+        del store.mark_sent
+    return row
+
+
+@pytest.mark.parametrize("cut", ["before_send", "after_send", "save_fails"])
+def test_an_interrupted_last_attempt_is_finished_once_and_ends_sent(cut, caplog):
+    store, resend = FakeStore(_payload()), FakeResend(*[REFUSED] * 4)
+    row = _at_last_attempt(store, resend, cut)
+    # Claimed and unrecorded: no outcome yet, and not due while the lease runs.
+    assert (row["attempts"], row["status"]) == (oa.MAX_ATTEMPTS, "pending")
+    assert run(oa.dispatch_due(store, config=_config(), send=resend)).due == 0
+    store.now = row["next"]
+    with caplog.at_level(logging.WARNING, logger="owner_alerts"):
+        summary = run(oa.dispatch_due(store, config=_config(), send=resend))
+    assert (summary.due, summary.resumed, summary.sent) == (1, 1, 1)
+    assert (row["attempts"], row["status"]) == (oa.MAX_ATTEMPTS, "sent"), "no sixth attempt"
+    assert len(resend.delivered) == 1, "the resumed send reuses the key: one e-mail"
+    assert len(set(resend.calls)) == 1
+    assert "owner_alert_resume_interrupted" in caplog.text
+    store.now += 10 ** 6
+    assert run(oa.dispatch_due(store, config=_config(), send=resend)).due == 0
+
+
+def test_an_interrupted_last_attempt_that_is_refused_ends_failed(caplog):
+    store, resend = FakeStore(_payload()), FakeResend(*[REFUSED] * 5)
+    row = _at_last_attempt(store, resend, "before_send")
+    store.now = row["next"]
+    with caplog.at_level(logging.WARNING, logger="owner_alerts"):
+        summary = run(oa.dispatch_due(store, config=_config(), send=resend))
+    assert (summary.resumed, summary.exhausted, summary.sent) == (1, 1, 0)
+    assert (row["attempts"], row["status"], row["last_error"]) == (
+        oa.MAX_ATTEMPTS, "failed", "http_403:validation_error")
+    assert [r.levelname for r in caplog.records if "owner_alert_failed" in r.message] == ["ERROR"]
+    store.now += 10 ** 6
+    assert run(oa.dispatch_due(store, config=_config(), send=resend)).due == 0
+    assert resend.delivered == []
+
+
+def test_two_dispatchers_resuming_one_last_attempt_send_it_once():
+    store, resend = FakeStore(_payload()), FakeResend(*[REFUSED] * 4)
+    row = _at_last_attempt(store, resend, "before_send")
+    store.now = row["next"]
+    calls_before = len(resend.calls)
+
+    async def both():
+        return await asyncio.gather(oa.dispatch_due(store, config=_config(), send=resend),
+                                    oa.dispatch_due(store, config=_config(), send=resend))
+
+    first, second = run(both())
+    assert first.due == second.due == 1
+    assert first.resumed + second.resumed == 1
+    assert first.skipped_claimed + second.skipped_claimed == 1
+    assert len(resend.calls) - calls_before == 1 and len(resend.delivered) == 1
+    assert (row["attempts"], row["status"]) == (oa.MAX_ATTEMPTS, "sent")
+
+
 def test_test_alert_is_the_fixed_message_and_needs_the_transport():
     send = FakeSender()
     assert run(oa.send_test_alert(config=_config(), send=send)) == oa.SendResult(True)
@@ -430,6 +546,84 @@ def test_pg_retry_to_five_then_failed_and_requeue(pg):
     assert exhausted == {"status": "failed", "attempts": 5, "last_error": "http_403:validation_error",
                          "sent": False, "deferred": False}
     assert (requeued, again) == (True, False), "requeue touches only a failed row"
+    assert _row(pg, audit_id)["status"] == "pending" and _row(pg, audit_id)["attempts"] == 0
+
+
+async def _pg_to_last_attempt(conn, store: oa.PgOutboxStore, s: str, audit_id: str,
+                              resend: FakeResend, cut: str) -> None:
+    """Four refused sends, then a fifth cut off as ``cut`` says."""
+    for _ in range(oa.MAX_ATTEMPTS - 1):
+        await oa.dispatch_due(store, config=_config(), send=resend)
+        await conn.execute(f"UPDATE {s}.owner_alert_outbox SET next_attempt_at = now() "
+                           f"WHERE audit_id = $1::uuid", audit_id)
+    resend.cut = cut
+    with pytest.raises(asyncio.CancelledError):
+        await oa.dispatch_due(store, config=_config(), send=resend)
+
+
+async def _expire_lease(conn, s: str, audit_id: str) -> None:
+    await conn.execute(f"UPDATE {s}.owner_alert_outbox SET next_attempt_at = now() - interval '1 second' "
+                       f"WHERE audit_id = $1::uuid", audit_id)
+
+
+@pytest.mark.parametrize("cut", ["before_send", "after_send"])
+def test_pg_an_interrupted_last_attempt_is_resumed_and_ends_sent(pg, cut):
+    audit_id = _admin_alert(pg)
+    resend = FakeResend(*[REFUSED] * 4)
+
+    async def go():
+        conn = await _owner_conn()
+        try:
+            store = oa.PgOutboxStore(conn, pg)
+            await _pg_to_last_attempt(conn, store, pg, audit_id, resend, cut)
+            orphan = _row(pg, audit_id)
+            leased = await oa.dispatch_due(store, config=_config(), send=resend)
+            await _expire_lease(conn, pg, audit_id)
+            resumed = await oa.dispatch_due(store, config=_config(), send=resend)
+            await _expire_lease(conn, pg, audit_id)
+            after = await oa.dispatch_due(store, config=_config(), send=resend)
+            return orphan, leased, resumed, after
+        finally:
+            await conn.close()
+
+    orphan, leased, resumed, after = run(go())
+    assert orphan == {"status": "pending", "attempts": 5, "last_error": "http_403:validation_error",
+                      "sent": False, "deferred": True}
+    assert leased.due == 0, "not taken over while the lease runs"
+    assert (resumed.due, resumed.resumed, resumed.sent) == (1, 1, 1)
+    assert after.due == 0
+    assert _row(pg, audit_id) == {"status": "sent", "attempts": 5, "last_error": None, "sent": True,
+                                  "deferred": False}
+    assert len(resend.delivered) == 1 and len(set(resend.calls)) == 1
+
+
+def test_pg_resuming_a_last_attempt_is_a_compare_and_set_and_requeue_takes_the_orphan(pg):
+    audit_id = _admin_alert(pg)
+    resend = FakeResend(*[REFUSED] * 4)
+
+    async def go():
+        conn = await _owner_conn()
+        try:
+            store = oa.PgOutboxStore(conn, pg)
+            await _pg_to_last_attempt(conn, store, pg, audit_id, resend, "before_send")
+            row_id = await conn.fetchval(f"SELECT id::text FROM {pg}.owner_alert_outbox "
+                                         f"WHERE audit_id = $1::uuid", audit_id)
+            in_flight = (await store.reclaim_final(row_id, 5, 300), await store.requeue(audit_id))
+            await _expire_lease(conn, pg, audit_id)
+            [due] = await store.due(max_attempts=5, limit=10)
+            race = (await store.reclaim_final(row_id, 5, 300),
+                    await store.reclaim_final(row_id, 5, 300))
+            await _expire_lease(conn, pg, audit_id)
+            requeued = await store.requeue(audit_id)
+            return in_flight, due, race, requeued
+        finally:
+            await conn.close()
+
+    in_flight, due, race, requeued = run(go())
+    assert in_flight == (False, False), "a running lease is neither taken over nor reset"
+    assert due["attempts"] == 5
+    assert race == (True, False)
+    assert requeued is True, "--requeue accepts a last attempt left pending past its lease"
     assert _row(pg, audit_id)["status"] == "pending" and _row(pg, audit_id)["attempts"] == 0
 
 

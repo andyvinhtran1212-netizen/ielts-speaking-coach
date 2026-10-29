@@ -11,7 +11,9 @@ rows; re-runs and a rewound cursor never duplicate; a failure rolls back the
 batch and the cursor so nothing is skipped; step-up sign-ins are not new
 verifications; eligibility is the role held when the event happened; the
 snapshot backstop fires only when the log misses an event, and its alert carries
-the stored detection time; audit rows and alert payloads carry no secret.
+the stored detection time; audit rows and alert payloads carry no secret; due
+alerts with no e-mail transport fail the run (PC-J73 F3); an event just before
+a cron tick is audited within 5 minutes (PC-J66 F04).
 
 Set TEST_PG_URL to a LOCAL disposable cluster and REQUIRE_PG=1 to forbid skips.
 """
@@ -530,10 +532,14 @@ def test_the_sweep_sends_trigger_alerts_once_and_leaves_them_pending_without_tra
     _ready(pg)
     psql(f"UPDATE {schema}.users SET role = 'admin' WHERE id = '{target}'")   # out of band
     unconfigured = oa.transport_config({})
-    with caplog.at_level(logging.WARNING, logger="owner_alerts"):
+    with caplog.at_level(logging.WARNING):
         fields, ok = _sweep(pg, Factors(), config=unconfigured)
-    assert ok and fields["dispatch_unconfigured"] and fields["dispatch_due"] == 1
+    # PC-J73 F3: a due alert that cannot be sent fails the run (cron not green).
+    assert not ok and fields["dispatch_unconfigured"] and fields["dispatch_due"] == 1
+    assert fields["dispatch_missing"] == "RESEND_API_KEY,OWNER_ALERT_EMAILS"
     assert "owner_alert_transport_unconfigured" in caplog.text
+    assert ("staff_security_sweep_alerts_unsent step=dispatch "
+            "missing=RESEND_API_KEY,OWNER_ALERT_EMAILS due=1") in caplog.text
     assert [(o["status"], o["attempts"]) for o in m332._outbox(schema, target)] == [("pending", 0)]
     sender = Sender()
     fields, ok = _sweep(pg, Factors(), sender=sender)
@@ -543,3 +549,190 @@ def test_the_sweep_sends_trigger_alerts_once_and_leaves_them_pending_without_tra
     [email] = sender.calls
     assert email.subject == f"[Aver] Tài khoản được CẤP quyền admin: {target}@q332.test"
     assert "Nguồn: ngoài ứng dụng (SQL editor / runner)" in email.text
+
+
+def test_without_transport_a_run_with_nothing_due_stays_green(pg):
+    _ready(pg)
+    fields, ok = _sweep(pg, Factors(), config=oa.transport_config({}))
+    assert ok and fields["dispatch_due"] == 0 and not fields["dispatch_unconfigured"]
+
+
+def test_a_follow_up_pass_audits_an_entry_too_young_for_the_first_pass(pg):
+    """The real SQL of PC-J66 F04's second pass, on a short scale: an entry
+    younger than the lag at the first pass is audited by the follow-up."""
+    schema, auth = pg
+    admin = m332._user(schema, "admin", True)
+    _ready(pg)
+    _log(auth, "factor_in_progress", admin, str(uuid4()))
+    slept: list[float] = []
+
+    async def go():
+        conn = await _conn()
+
+        async def sleep(seconds):
+            slept.append(seconds)
+            await asyncio.sleep(seconds)
+
+        try:
+            return await sweep.run_sweep(conn, Factors(), schema=schema, auth_schema=auth,
+                                         config=CONFIG, send=Sender(), lag_seconds=2,
+                                         follow_up_seconds=3, sleep=sleep)
+        finally:
+            await conn.close()
+
+    fields, ok = run(go())
+    assert ok and fields["log_rows"] == 0 and fields["follow_up_log_rows"] == 1
+    assert fields["follow_up_dispatch_due"] == 0, "enrollment is audit only"
+    assert len(slept) == 1 and 0 < slept[0] <= 3
+    assert [r["event"] for r in _rows(schema, admin)] == ["mfa_factor_enrolled"]
+
+
+# ── Without a database: exit code and the 5-minute bound ────────────────────
+
+class _Conn:
+    async def close(self):
+        pass
+
+
+class _DueStore:
+    def __init__(self, rows: int) -> None:
+        self.rows = [{"id": str(uuid4()), "audit_id": str(uuid4()), "payload": {}, "attempts": 0}
+                     for _ in range(rows)]
+
+    async def due(self, *, max_attempts, limit):
+        return self.rows
+
+
+def _offline_main(monkeypatch, *, due_rows: int) -> int:
+    """``main()`` with no database: steps 1-2 are no-ops, the outbox has rows."""
+    monkeypatch.setenv("DATABASE_URL", "postgresql://nobody@127.0.0.1:1/none")
+    monkeypatch.setenv("SUPABASE_URL", "https://example.invalid")
+    monkeypatch.delenv("RESEND_API_KEY", raising=False)
+    monkeypatch.delenv("OWNER_ALERT_EMAILS", raising=False)
+
+    async def connect():
+        return _Conn()
+
+    async def no_log(db, **_):
+        return sweep.LogSummary()
+
+    async def no_snapshot(db, _lister):
+        return sweep.SnapshotSummary()
+
+    monkeypatch.setattr(sweep, "_connect", connect)
+    monkeypatch.setattr(sweep, "sweep_auth_log", no_log)
+    monkeypatch.setattr(sweep, "reconcile_snapshot", no_snapshot)
+    monkeypatch.setattr(sweep, "FOLLOW_UP_SECONDS", 0)
+    monkeypatch.setattr(oa, "PgOutboxStore", lambda conn, schema="public": _DueStore(due_rows))
+    return sweep.main([])
+
+
+def test_due_alerts_without_transport_exit_non_zero_and_name_the_missing_settings(monkeypatch,
+                                                                                   caplog):
+    with caplog.at_level(logging.INFO):
+        assert _offline_main(monkeypatch, due_rows=2) == 1
+    assert ("staff_security_sweep_alerts_unsent step=dispatch "
+            "missing=RESEND_API_KEY,OWNER_ALERT_EMAILS due=2") in caplog.text
+    assert "follow_up_dispatch_unconfigured=True" in caplog.text
+
+
+def test_nothing_due_without_transport_exits_zero(monkeypatch, caplog):
+    with caplog.at_level(logging.INFO):
+        assert _offline_main(monkeypatch, due_rows=0) == 0
+    assert "staff_security_sweep_alerts_unsent" not in caplog.text
+
+
+def test_the_cron_entry_point_runs_the_follow_up_pass(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://nobody@127.0.0.1:1/none")
+    seen = {}
+
+    async def connect():
+        return _Conn()
+
+    async def fake_run_sweep(conn, lister, **kwargs):
+        seen.update(kwargs)
+        return {}, True
+
+    monkeypatch.setattr(sweep, "_connect", connect)
+    monkeypatch.setattr(sweep, "run_sweep", fake_run_sweep)
+    assert sweep.main([]) == 0
+    assert seen == {"follow_up_seconds": sweep.FOLLOW_UP_SECONDS}
+
+
+def _cron_period_seconds() -> int:
+    spec = json.loads((BACKEND / "railway.staff-security-sweep.json").read_text(encoding="utf-8"))
+    minute, *rest = spec["deploy"]["cronSchedule"].split()
+    assert rest == ["*"] * 4 and minute.startswith("*/")
+    return int(minute[2:]) * 60
+
+
+class _VirtualTime:
+    """A clock for the cron, the sweep's sleep and the log's lag filter."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+    async def sleep(self, seconds: float) -> None:
+        self.now += seconds
+
+
+def _audit_delays(monkeypatch, events: list[float], runs: list[float], *,
+                  follow_up: float | None) -> list[float]:
+    """Seconds from each event to its audit row when the cron starts at ``runs``.
+
+    Step 1 is a stand-in with the real cut-off rule (entries at least
+    ``LOG_LAG_SECONDS`` old, after the cursor); the rest is ``run_sweep``."""
+    clock, recorded = _VirtualTime(), {}
+
+    async def log_step(db, *, lag_seconds):
+        cut_off = clock.now - lag_seconds
+        new = [e for e in events if e not in recorded and e <= cut_off]
+        for event in new:
+            recorded[event] = clock.now
+        return sweep.LogSummary(entries=len(new), rows=len(new))
+
+    async def no_snapshot(db, _lister):
+        return sweep.SnapshotSummary()
+
+    async def nothing_due(store, **_):
+        return oa.DispatchSummary()
+
+    monkeypatch.setattr(sweep, "sweep_auth_log", log_step)
+    monkeypatch.setattr(sweep, "reconcile_snapshot", no_snapshot)
+    monkeypatch.setattr(oa, "dispatch_due", nothing_due)
+    for start in runs:
+        assert clock.now <= start, "a run must end before the next one starts"
+        clock.now = start
+        _, ok = run(sweep.run_sweep(_Conn(), Factors(), config=CONFIG, follow_up_seconds=follow_up,
+                                    sleep=clock.sleep, clock=clock))
+        assert ok
+    return [recorded[e] - e for e in events]
+
+
+def test_an_event_5s_before_a_cron_tick_is_audited_within_five_minutes(monkeypatch):
+    period = _cron_period_seconds()
+    assert period == sweep.CRON_PERIOD_SECONDS == 300, "Railway's minimum cron period"
+    tick = 10 * period
+    runs = [tick - period, tick, tick + period, tick + 2 * period]
+    [delay] = _audit_delays(monkeypatch, [tick - 5], runs, follow_up=sweep.FOLLOW_UP_SECONDS)
+    # Missed by the run at the tick (5 s < 10 s lag), audited by its follow-up.
+    assert delay == sweep.FOLLOW_UP_SECONDS + 5 == 155
+    assert delay <= 300
+    # PC-J66 F04, the old single pass: the same event waited a whole period.
+    [old] = _audit_delays(monkeypatch, [tick - 5], runs, follow_up=None)
+    assert old == 305 > 300
+
+
+def test_every_event_offset_in_a_period_is_audited_well_within_five_minutes(monkeypatch):
+    period, lag, follow_up = sweep.CRON_PERIOD_SECONDS, sweep.LOG_LAG_SECONDS, sweep.FOLLOW_UP_SECONDS
+    tick = 10 * period
+    runs = [tick + k * period for k in range(-1, 4)]
+    events = [tick + offset for offset in range(period)]
+    delays = _audit_delays(monkeypatch, events, runs, follow_up=follow_up)
+    worst = max(follow_up, period - follow_up) + lag   # sup over continuous offsets
+    assert worst == 160 and worst - 1 <= max(delays) <= worst
+    # Margin left in the 5-minute bound for Railway's start delay and step time.
+    assert 300 - worst >= 120

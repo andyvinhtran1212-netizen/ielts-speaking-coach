@@ -1,0 +1,16 @@
+{
+  "provider": "anthropic",
+  "sdk": "anthropic",
+  "http_status": 529,
+  "url": "https://api.anthropic.com/v1/messages",
+  "body": {
+    "type": "error",
+    "error": {
+      "type": "overloaded_error",
+      "message": "Overloaded"
+    },
+    "request_id": "req_fixture"
+  },
+  "expected": "transient",
+  "source": "https://platform.claude.com/docs/en/api/errors (checked 2026-10-29)"
+}
