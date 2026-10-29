@@ -64,13 +64,7 @@ from services.class_assignment_service import (
 from routers.admin import require_admin
 from routers.auth import get_supabase_user
 from services.listening_gist_grader import grade_gist_response
-from services.rate_limit import (
-    _utc_today_start,
-    _utc_tomorrow_start,
-    counted_rows,
-    refuse_paid_ai,
-    require_paid_ai_cap,
-)
+from services.rate_limit import _utc_today_start, _utc_tomorrow_start
 from services.pg_search import ilike_or_filter
 from services.dictation_trends import classify_trends
 from models.listening_dictation import (
@@ -1120,14 +1114,12 @@ def _grade_and_save_dictation(
 #     feature="listening_gist") since UTC midnight. A provider retry logs a row
 #     per call, so retries count — conservative on purpose. The keyword
 #     fallback (no API key) costs nothing and logs nothing.
-# Both fail closed (AIBUDGET-0033 FR-006): a ledger lookup error refuses the
-# attempt with `budget_unavailable` instead of counting 0, and a cap of zero or
-# less refuses it with `config_invalid` instead of disabling that cap. Either
-# answers 503 `ai_budget_exhausted` before the grader runs. No new table.
+# Fail-OPEN on a ledger lookup error, like services/rate_limit.py: the account
+# is already authenticated and activation-gated, and a ledger outage must not
+# silence the exercise. No new table.
 _GIST_WINDOW_SECONDS = 60.0
 _GIST_SWEEP_THRESHOLD = 10_000
 _gist_attempts: dict[str, "deque[float]"] = {}
-_GIST_FEATURE = "listening_gist"
 
 
 def _count_gist_gradings_today(user_id: str) -> int:
@@ -1140,59 +1132,56 @@ def _count_gist_gradings_today(user_id: str) -> int:
             .gte("created_at", _utc_today_start().isoformat())
             .execute()
         )
+        return int(res.count or 0)
     except Exception as exc:
         logger.warning("[listening] gist quota lookup failed user=%s: %s", user_id, exc)
-        raise refuse_paid_ai("budget_unavailable", feature=_GIST_FEATURE,
-                             quota="LISTENING_GIST_DAILY_LIMIT_PER_USER") from exc
-    return counted_rows(res, quota="LISTENING_GIST_DAILY_LIMIT_PER_USER",
-                        feature=_GIST_FEATURE)
+        return 0
 
 
 def _enforce_gist_rate_limit(user_id: str) -> None:
-    per_minute = require_paid_ai_cap(settings.LISTENING_GIST_MAX_PER_MINUTE,
-                                     quota="LISTENING_GIST_MAX_PER_MINUTE",
-                                     feature=_GIST_FEATURE)
-    daily = require_paid_ai_cap(settings.LISTENING_GIST_DAILY_LIMIT_PER_USER,
-                                quota="LISTENING_GIST_DAILY_LIMIT_PER_USER",
-                                feature=_GIST_FEATURE)
-    now = time.monotonic()
-    cutoff = now - _GIST_WINDOW_SECONDS
-    if len(_gist_attempts) > _GIST_SWEEP_THRESHOLD:
-        for key in [k for k, q in _gist_attempts.items() if not q or q[-1] <= cutoff]:
-            del _gist_attempts[key]
-    hits = _gist_attempts.setdefault(user_id, deque())
-    while hits and hits[0] <= cutoff:
-        hits.popleft()
-    if len(hits) >= per_minute:
-        retry_after = max(1, int(hits[0] - cutoff) + 1)
-        logger.info("[listening] BLOCK gist burst user=%s limit=%d/min", user_id, per_minute)
-        raise HTTPException(
-            status_code=429,
-            detail={
-                "error": "rate_limit_exceeded",
-                "message": "Bạn đang chấm bài gist quá nhanh. Vui lòng đợi một chút rồi thử lại.",
-                "exercise_type": "LISTENING_GIST",
-                "limit": per_minute,
-                "retry_after": retry_after,
-            },
-            headers={"Retry-After": str(retry_after)},
-        )
-    used = _count_gist_gradings_today(user_id)
-    if used >= daily:
-        reset_at = _utc_tomorrow_start().isoformat()
-        logger.info("[listening] BLOCK gist daily user=%s used=%d limit=%d", user_id, used, daily)
-        raise HTTPException(
-            status_code=429,
-            detail={
-                "error": "rate_limit_exceeded",
-                "message": f"Đã đạt giới hạn {daily} lượt chấm gist trong ngày. Vui lòng thử lại vào ngày mai.",
-                "exercise_type": "LISTENING_GIST",
-                "limit": daily,
-                "used": used,
-                "reset_at": reset_at,
-            },
-        )
-    _gist_attempts[user_id].append(time.monotonic())
+    per_minute = settings.LISTENING_GIST_MAX_PER_MINUTE
+    if per_minute > 0:
+        now = time.monotonic()
+        cutoff = now - _GIST_WINDOW_SECONDS
+        if len(_gist_attempts) > _GIST_SWEEP_THRESHOLD:
+            for key in [k for k, q in _gist_attempts.items() if not q or q[-1] <= cutoff]:
+                del _gist_attempts[key]
+        hits = _gist_attempts.setdefault(user_id, deque())
+        while hits and hits[0] <= cutoff:
+            hits.popleft()
+        if len(hits) >= per_minute:
+            retry_after = max(1, int(hits[0] - cutoff) + 1)
+            logger.info("[listening] BLOCK gist burst user=%s limit=%d/min", user_id, per_minute)
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "error": "rate_limit_exceeded",
+                    "message": "Bạn đang chấm bài gist quá nhanh. Vui lòng đợi một chút rồi thử lại.",
+                    "exercise_type": "LISTENING_GIST",
+                    "limit": per_minute,
+                    "retry_after": retry_after,
+                },
+                headers={"Retry-After": str(retry_after)},
+            )
+    daily = settings.LISTENING_GIST_DAILY_LIMIT_PER_USER
+    if daily > 0:
+        used = _count_gist_gradings_today(user_id)
+        if used >= daily:
+            reset_at = _utc_tomorrow_start().isoformat()
+            logger.info("[listening] BLOCK gist daily user=%s used=%d limit=%d", user_id, used, daily)
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "error": "rate_limit_exceeded",
+                    "message": f"Đã đạt giới hạn {daily} lượt chấm gist trong ngày. Vui lòng thử lại vào ngày mai.",
+                    "exercise_type": "LISTENING_GIST",
+                    "limit": daily,
+                    "used": used,
+                    "reset_at": reset_at,
+                },
+            )
+    if per_minute > 0:
+        _gist_attempts[user_id].append(time.monotonic())
 
 
 # ── Gist grader (Sprint 11.4) ─────────────────────────────────────────────────

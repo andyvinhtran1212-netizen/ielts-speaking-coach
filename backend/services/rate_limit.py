@@ -39,7 +39,6 @@ from functools import wraps
 from fastapi import HTTPException
 
 from database import supabase_admin
-from services.ai_budget import AIBudgetRefused
 
 logger = logging.getLogger(__name__)
 
@@ -228,78 +227,11 @@ def enforce_flashcard_rate_limit(user_id: str, daily_limit: int) -> None:
         )
 
 
-# ── Paid-AI quotas fail closed (AIBUDGET-0033 FR-006) ─────────────────────────
-# The grading, TTS and Listening gist quotas each gate a paid provider call.
-# They keep their configured values, but a count lookup error now refuses the
-# call (`budget_unavailable`) instead of counting 0, and a cap of zero or less
-# refuses it (`config_invalid`) instead of meaning "no cap". The exercise and
-# flashcard limiters above make no paid call and keep their behaviour.
-
-# ui-states.md P2: the refuse-before-accept text for an AI feature (FR-020).
-PAID_AI_PAUSED_MESSAGE = "Tính năng AI đang tạm dừng."
-
-
-class PaidAIQuotaRefused(HTTPException):
-    """A paid-AI quota that cannot be enforced (FR-006), answered as the FR-010
-    503 of a refuse-before-accept route: nothing was saved and no quota row was
-    written, so ``work_saved`` is false.
-
-    Learners never see the internal reason (FR-010), so the detail says
-    ``paused``; the real reason is on ``refusal`` (an ``AIBudgetRefused`` whose
-    ``detail`` names the quota variable) and in the log. It is an
-    ``HTTPException`` so every route that re-raises those (the grading
-    pipeline's outer handler, the TTS 502 wrapper) answers it unchanged, and
-    ``error_code`` lets it through the 5xx sanitizer (services/errors.py).
-    """
-
-    def __init__(self, refusal: AIBudgetRefused, *, feature: str) -> None:
-        self.refusal = refusal
-        self.feature = feature
-        super().__init__(
-            status_code=503,
-            detail={
-                "error_code": "ai_budget_exhausted",
-                "reason": "paused",
-                "work_saved": False,
-                "resource": {},
-                "message": PAID_AI_PAUSED_MESSAGE,
-            },
-        )
-
-
-def refuse_paid_ai(reason: str, *, feature: str, quota: str) -> PaidAIQuotaRefused:
-    """Log and build the FR-006 refusal. Reasons and names only; no user id."""
-    logger.warning(
-        "[ai_budget] decision=refuse feature=%s reason=%s quota=%s",
-        feature, reason, quota,
-    )
-    return PaidAIQuotaRefused(AIBudgetRefused(reason, detail=quota), feature=feature)
-
-
-def require_paid_ai_cap(value: object, *, quota: str, feature: str) -> int:
-    """Return a positive configured cap, or raise ``config_invalid``."""
-    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-        raise refuse_paid_ai("config_invalid", feature=feature, quota=quota)
-    return value
-
-
-def counted_rows(res, *, quota: str, feature: str) -> int:
-    """The exact count of a ``count="exact"`` read. A missing or malformed
-    count is a lookup failure, never 0."""
-    count = getattr(res, "count", None)
-    if isinstance(count, bool) or not isinstance(count, int) or count < 0:
-        raise refuse_paid_ai("budget_unavailable", feature=feature, quota=quota)
-    return count
-
-
 # ── Grading pipeline (B5 / Mục 5) ─────────────────────────────────────────────
-# The speaking-grading endpoint runs Whisper + Claude on every submission.
-# Counts rows in `grading_attempts` (migration 114) since UTC midnight. The
-# count and the cap fail closed (FR-006, above); recording the attempt stays
-# best-effort, because the budget reservation (FR-002) bounds the cost.
-
-_GRADING_QUOTA = "MAX_GRADINGS_PER_USER_PER_DAY"
-_GRADING_FEATURE = "speaking_grading"
+# The speaking-grading endpoint runs Whisper + Claude on every submission and had
+# no per-user cap. Counts rows in `grading_attempts` (migration 114) since UTC
+# midnight. Fail-OPEN everywhere — grading is core, so a counter/insert outage
+# (or an un-applied migration) must never block a legitimate submission.
 
 
 def count_gradings_today(user_id: str) -> int:
@@ -312,19 +244,18 @@ def count_gradings_today(user_id: str) -> int:
             .gte("attempted_at", today_iso)
             .execute()
         )
+        return int(res.count or 0)
     except Exception as e:
         logger.warning("[rate_limit] grading count lookup failed user=%s: %s", user_id, e)
-        raise refuse_paid_ai("budget_unavailable", feature=_GRADING_FEATURE,
-                             quota=_GRADING_QUOTA) from e
-    return counted_rows(res, quota=_GRADING_QUOTA, feature=_GRADING_FEATURE)
+        return 0
 
 
 def enforce_grading_rate_limit(user_id: str, daily_limit: int) -> None:
     """Raise HTTPException(429) when the user has met/exceeded the daily grading
-    cap. A cap of zero or less, or a count lookup error, raises
-    ``PaidAIQuotaRefused`` (503) before any provider call (FR-006)."""
-    daily_limit = require_paid_ai_cap(daily_limit, quota=_GRADING_QUOTA,
-                                      feature=_GRADING_FEATURE)
+    cap. daily_limit <= 0 DISABLES the cap (unlike the exercise limiter, a
+    misconfigured 0 must not block all grading)."""
+    if daily_limit <= 0:
+        return
     used = count_gradings_today(user_id)
     if used >= daily_limit:
         reset_at = _utc_tomorrow_start().isoformat()

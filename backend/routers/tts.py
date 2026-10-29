@@ -16,9 +16,7 @@ Guards (F05): per-IP minute throttle, Speaking entitlement, then a per-user
 daily quota — all before the OpenAI call. Signup is open, so an account that
 never redeemed a code must not be able to spend TTS budget. An optional owned
 session_id lets a class-assignment session pass the guard without a Speaking
-access-code scope, as it does for the other Speaking steps. Both quotas fail
-closed (AIBUDGET-0033 FR-006): a cap of zero or less, or a quota lookup error,
-answers 503 ``ai_budget_exhausted`` and never reaches OpenAI.
+access-code scope, as it does for the other Speaking steps.
 """
 
 import logging
@@ -35,13 +33,7 @@ from database import supabase_admin
 from routers.auth import get_supabase_user
 from routers.sessions import require_speaking_entitlement
 from services import activation_gate, ai_usage_logger
-from services.rate_limit import (
-    _utc_today_start,
-    _utc_tomorrow_start,
-    counted_rows,
-    refuse_paid_ai,
-    require_paid_ai_cap,
-)
+from services.rate_limit import _utc_today_start, _utc_tomorrow_start
 from services.request_safety import request_client_ip
 from services.tts_audio import synthesize_mp3
 
@@ -65,7 +57,6 @@ class TTSRequest(BaseModel):
 _IP_WINDOW_SECONDS = 60
 _IP_SWEEP_THRESHOLD = 10_000
 _ip_hits: dict[str, deque] = {}
-_FEATURE = "question_tts"
 
 
 def _client_ip(request: Request | None) -> str | None:
@@ -75,10 +66,9 @@ def _client_ip(request: Request | None) -> str | None:
 
 
 def _throttle_ip(request: Request | None) -> None:
-    budget = require_paid_ai_cap(settings.TTS_IP_MAX_PER_MINUTE,
-                                 quota="TTS_IP_MAX_PER_MINUTE", feature=_FEATURE)
+    budget = settings.TTS_IP_MAX_PER_MINUTE
     ip = _client_ip(request)
-    if not ip:
+    if budget <= 0 or not ip:
         return
     now = time.monotonic()
     cutoff = now - _IP_WINDOW_SECONDS
@@ -107,11 +97,11 @@ def _throttle_ip(request: Request | None) -> None:
 
 # ── Per-user daily quota ──────────────────────────────────────────────────────
 # Counts this endpoint's own ledger rows (ai_usage_logs, feature="question_tts",
-# written only after a successful synth) since UTC midnight. Fail-CLOSED on a
-# lookup error (FR-006): the call is refused with `budget_unavailable` instead
-# of counting 0. Practice keeps its browser speech fallback (ui-states.md).
+# written only after a successful synth) since UTC midnight. Fail-OPEN on a
+# lookup error, like services/rate_limit.py: the entitlement guard has already
+# run, and a ledger outage must not silence read-aloud for entitled students.
 # The ledger write is scheduled in the background, so concurrent requests can
-# overshoot by the number in flight; the budget reservation bounds the cost.
+# overshoot by the number in flight.
 
 def _count_tts_today(user_id: str) -> int:
     try:
@@ -123,16 +113,16 @@ def _count_tts_today(user_id: str) -> int:
             .gte("created_at", _utc_today_start().isoformat())
             .execute()
         )
+        return int(res.count or 0)
     except Exception as e:
         logger.warning("[tts] quota lookup failed user=%s: %s", user_id, e)
-        raise refuse_paid_ai("budget_unavailable", feature=_FEATURE,
-                             quota="TTS_DAILY_LIMIT_PER_USER") from e
-    return counted_rows(res, quota="TTS_DAILY_LIMIT_PER_USER", feature=_FEATURE)
+        return 0
 
 
 def _enforce_daily_quota(user_id: str) -> None:
-    daily_limit = require_paid_ai_cap(settings.TTS_DAILY_LIMIT_PER_USER,
-                                      quota="TTS_DAILY_LIMIT_PER_USER", feature=_FEATURE)
+    daily_limit = settings.TTS_DAILY_LIMIT_PER_USER
+    if daily_limit <= 0:
+        return
     used = _count_tts_today(user_id)
     if used >= daily_limit:
         reset_at = _utc_tomorrow_start().isoformat()

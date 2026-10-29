@@ -9,11 +9,9 @@ within one cache window.
 
 Semantics:
   * missing row  -> the caller's ``default`` (normally True = enabled)
-  * lookup error -> the caller's ``on_error`` when given, else its ``default``,
-    logged (fail-open by default: the switch must never become its own outage;
-    if the DB is down the guarded mutation is failing anyway). A flag that
-    gates a paid AI call passes ``on_error=False`` so an outage disables it
-    (AIBUDGET-0033 FR-006); callers that omit ``on_error`` are unchanged.
+  * lookup error -> the caller's ``default``, logged (fail-open: the switch
+    must never become its own outage; if the DB is down the guarded mutation
+    is failing anyway)
   * flag row     -> its ``enabled`` value, cached for ``_TTL_SECONDS``
 
 Worst-case flip latency = one TTL window (15 s) — measured against the plan's
@@ -54,17 +52,8 @@ def _stored(res) -> bool | None:
     return bool(rows[0]["enabled"]) if rows else None
 
 
-def _on_lookup_error(key: str, exc: Exception, default: bool, on_error: bool | None) -> bool:
-    logger.warning("[runtime_flags] lookup failed for %r: %s", key, exc)
-    return default if on_error is None else on_error
-
-
-def is_enabled(key: str, default: bool = True, *, on_error: bool | None = None) -> bool:
-    """Return the flag state, reading through the in-process cache.
-
-    ``on_error`` is returned when the lookup fails (not cached); ``None`` keeps
-    the fail-open ``default``.
-    """
+def is_enabled(key: str, default: bool = True) -> bool:
+    """Return the flag state, reading through the in-process cache."""
     now = time.monotonic()
     hit = _cache.get(key)
     if hit is not None and hit[1] > now:
@@ -72,16 +61,16 @@ def is_enabled(key: str, default: bool = True, *, on_error: bool | None = None) 
 
     try:
         stored = _stored(_flag_query(key)(supabase_admin).execute())
-    except Exception as exc:  # see module docstring
-        return _on_lookup_error(key, exc, default, on_error)
+    except Exception as exc:  # fail-open — see module docstring
+        logger.warning("[runtime_flags] lookup failed for %r: %s", key, exc)
+        return default
 
     _cache[key] = (stored, now + _TTL_SECONDS)
     return default if stored is None else stored
 
 
-async def ais_enabled(key: str, default: bool = True, *, run,
-                     on_error: bool | None = None) -> bool:
-    """:func:`is_enabled` (same cache, TTL and ``on_error``) with a cache miss
+async def ais_enabled(key: str, default: bool = True, *, run) -> bool:
+    """:func:`is_enabled` (same cache, TTL and fail-open) with a cache miss
     awaited through ``run(build)``.
 
     PC-J05: ``run`` is the async-DB facade's ``aexecute``, handed in by /auth/me
@@ -95,8 +84,9 @@ async def ais_enabled(key: str, default: bool = True, *, run,
 
     try:
         stored = _stored(await run(_flag_query(key)))
-    except Exception as exc:  # see module docstring
-        return _on_lookup_error(key, exc, default, on_error)
+    except Exception as exc:  # fail-open — see module docstring
+        logger.warning("[runtime_flags] lookup failed for %r: %s", key, exc)
+        return default
 
     _cache[key] = (stored, now + _TTL_SECONDS)
     return default if stored is None else stored
@@ -117,18 +107,14 @@ def set_flag(key: str, enabled: bool, note: str | None = None,
     return stored
 
 
-def require_flag(key: str, default: bool = True, *, on_error: bool | None = None):
+def require_flag(key: str, default: bool = True):
     """FastAPI dependency factory for mutation endpoints (adopted per-endpoint
     at mutation-pilot time — see the plan's mutation ledger).
 
         @router.post("/thing", dependencies=[Depends(require_flag("thing_write"))])
-
-    A paid-AI route passes ``on_error=False`` (see :func:`is_enabled`).
     """
     def _guard() -> None:
-        # Omitted on_error leaves the call exactly as before.
-        extra = {} if on_error is None else {"on_error": on_error}
-        if not is_enabled(key, default=default, **extra):
+        if not is_enabled(key, default=default):
             # `error_code` (not `code`): the central 5xx sanitizer
             # (services/errors.py safe_detail, P0-5) only passes through a
             # dict detail carrying `error_code` — any other 5xx detail is
