@@ -73,7 +73,10 @@ Otherwise roll back (see the triggers below).
   traffic (see "Flag state evidence" below). No code revert, migration or data
   repair.
 - **Triggers:**
-  - any parity difference;
+  - any parity difference, including a lookup-failure case where the same
+    fault succeeds in one flag state and errors in the other (open, see
+    `verification.md` § "Open parity failure in lookup-failure cases
+    (PC-J68 F6)");
   - a rise in 5xx or 401/403/503 on a converted route;
   - `async_client_initialised: false` while the flag is on;
   - httpx/PostgREST connection, GOAWAY or pool errors in the logs;
@@ -91,7 +94,7 @@ Otherwise roll back (see the triggers below).
 whether the shared async client exists (`backend/database.py:189`, `:193`;
 `backend/routers/health.py:286`, `:289`). They do not show the flag. With the
 flag off, startup does not build the client (`backend/main.py:731–738`) and
-`aexecute` uses the sync client (`backend/services/db_async.py:161–164`), but
+`aexecute` uses the sync client (`backend/services/db_async.py:182–185`), but
 these modules call `database.get_supabase_async()` (`backend/database.py:182`)
 directly, whatever the flag, and build the client on first use:
 
