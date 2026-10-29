@@ -1,11 +1,23 @@
 """Response-model coverage for `/admin/cohorts` picker and rollup modes."""
 
+import json
+import re
+from datetime import datetime
+from pathlib import Path
+from unittest.mock import AsyncMock, patch
+from uuid import uuid4
+
+from fastapi import FastAPI
 from fastapi.routing import APIRoute
+from fastapi.testclient import TestClient
 from pydantic import ValidationError
 import pytest
 
-from models.cohorts import AdminCohortListOut
+import test_migration_326_student_archive as m326
+import test_migration_331_archived_student_give_guard as m331
+from models.cohorts import ARCHIVE_FIELDS, AdminCohortListOut, AdminCohortOut
 from routers.cohorts import router
+from test_migration_240_core_attempt_evidence import psql
 
 
 def _base_row():
@@ -78,16 +90,6 @@ def test_malformed_cohort_payloads_fail_closed(payload):
 # The service reads cohorts with select("*") and the model forbids extra keys,
 # so every column a migration adds to cohorts must be a model field, or the
 # list answers 500 for every class the moment the migration is applied.
-
-import re
-from datetime import datetime
-from pathlib import Path
-from unittest.mock import AsyncMock, patch
-
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-
-from models.cohorts import ARCHIVE_FIELDS, AdminCohortOut
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 ROLLUP_ONLY = {"course", "member_count", "unactivated_count"}
@@ -249,14 +251,6 @@ def test_an_unknown_cohorts_column_still_fails_closed():
 # GET /admin/cohorts from that schema through a select-only PostgREST stand-in.
 # The rows are json_agg output, so timestamps and uuids reach the model as
 # PostgREST would send them. 337 itself is applied unmodified (schema-renamed).
-
-import json
-import os
-from uuid import uuid4
-
-import test_migration_326_student_archive as m326
-import test_migration_331_archived_student_give_guard as m331
-from test_migration_240_core_attempt_evidence import psql
 
 SQL_337 = (MIGRATIONS / "337_class_archive_enforcement.sql").read_text(encoding="utf-8")
 PRE_337 = {"id", "name", "code_prefix", "description", "is_active", "created_by",
