@@ -19,10 +19,11 @@ Set TEST_PG_URL to a LOCAL disposable cluster and REQUIRE_PG=1 to forbid skips.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 from uuid import UUID, uuid4
@@ -32,6 +33,7 @@ import pytest
 
 from test_mock_paper_policy_postgres import DB, query
 from test_mock_private_draft_postgres import create, private_probe, source_bundle  # noqa: F401 (fixture)
+from test_migration_295_listening_content_programmes_postgres import programme_probe  # noqa: F401 (fixture)
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 NAME = "338_reading_listening_paper_updated_at.sql"
@@ -194,6 +196,43 @@ def test_raw_update_and_an_explicit_stale_value_still_advance_updated_at(paper_p
     assert event["reason"] == "legacy_writer" and event["actor_id"] is None
 
 
+RAW_EDIT = {"reading_tests": "title", "listening_tests": "title", "reading_passages": "title",
+            "reading_questions": "prompt", "listening_content": "title"}
+
+
+def old_row(s, table):
+    """A row of `table` stamped OLD, under a public paper (the 306 guards are live)."""
+    if table in ("reading_tests", "listening_tests"):
+        return old_paper(s, table.split("_")[0])
+    if table == "listening_content":
+        return query(f"INSERT INTO {s}.listening_content(test_id,section_num,title,transcript,updated_at) "
+                     "VALUES($1,1,'Old','Old transcript',$2) RETURNING id", old_paper(s, "listening"), OLD)[0]["id"]
+    passage = query(f"INSERT INTO {s}.reading_passages(test_id,body_markdown,title,slug,passage_order,updated_at) "
+                    "VALUES($1,'Old body','Old',$2,1,$3) RETURNING id", old_paper(s), uuid4().hex, OLD)[0]["id"]
+    if table == "reading_passages":
+        return passage
+    return query(f"INSERT INTO {s}.reading_questions(passage_id,q_num,prompt,answer,updated_at) "
+                 "VALUES($1,1,'Old','[\"a\"]',$2) RETURNING id", passage, OLD)[0]["id"]
+
+
+@pytest.mark.parametrize("assignment", ["", ", updated_at=$2", ", updated_at=updated_at"],
+                         ids=["raw", "explicit-stale", "keeps-old-value"])
+@pytest.mark.parametrize("table", TABLES)
+def test_every_paper_table_advances_updated_at_on_raw_and_stale_writes(paper_probe, table, assignment):
+    """FR-001 on all five tables: a raw write that ignores updated_at, one that
+    sets an explicit stale value and one that re-assigns the stored old value."""
+    s = paper_probe
+    row_id = old_row(s, table)
+    column = RAW_EDIT[table]
+    assert query(f"SELECT updated_at FROM {s}.{table} WHERE id=$1", row_id)[0]["updated_at"] == OLD
+    start = now()
+    args = (row_id, OLD) if "$2" in assignment else (row_id,)
+    query(f"UPDATE {s}.{table} SET {column}='Edited'{assignment} WHERE id=$1", *args)
+    after = query(f"SELECT * FROM {s}.{table} WHERE id=$1", row_id)[0]
+    assert after[column] == "Edited"
+    assert start <= after["updated_at"] <= now()
+
+
 def test_updated_at_only_update_changes_no_revision_and_writes_no_event(paper_probe):
     s = paper_probe
     paper_id = old_paper(s)
@@ -285,6 +324,214 @@ def test_mock_copy_still_hides_a_public_source_and_now_advances_its_updated_at(p
     assert copy["is_public"] is False and copy["exam_only"] is True and copy["policy_revision"] == 0
     [event] = events(s, source)
     assert event["reason"] == "policy_update"
+
+
+# ── Real 295 package guard + 338 (spec 0037 edge: 80-day package rows) ──────
+#
+# programme_probe runs the full migration 295 and imports a manifest-bound
+# package through import_listening_content_package_atomic, as the 80-day
+# Listening rows were. 338 is applied on top. 306 is exercised by paper_probe
+# above; here trg_mock_paper_policy is a no-op stand-in that only satisfies the
+# 338 precondition, so the 295 guard is the only guard on these rows.
+
+PACKAGE_TABLES = ("listening_tests", "listening_content")
+PACKAGE_EDIT = {"listening_tests": "title", "listening_content": "title", "listening_exercises": "exercise_type"}
+
+
+def package_where(s, table):
+    return {
+        "listening_tests": "content_package_id=$1",
+        "listening_content": f"test_id IN (SELECT id FROM {s}.listening_tests WHERE content_package_id=$1)",
+        "listening_exercises": f"content_id IN (SELECT c.id FROM {s}.listening_content c "
+                               f"JOIN {s}.listening_tests t ON t.id=c.test_id WHERE t.content_package_id=$1)",
+    }[table]
+
+
+def package_rows(s, table, package):
+    where = package_where(s, table)
+    return where, [dict(r) for r in query(f"SELECT * FROM {s}.{table} WHERE {where} ORDER BY id", package)]
+
+
+@pytest.fixture(scope="module")
+def package_probe(programme_probe):  # noqa: F811
+    s = programme_probe["schema"]
+    package = query(f"SELECT id FROM {s}.listening_content_packages WHERE package_id=$1",
+                    programme_probe["package"]["package_id"])[0]["id"]
+    # Before 338 the package rows carry an old stamp, as on production. A
+    # status transition is the only write 295 lets through; it allow-lists updated_at.
+    query(f"""
+        BEGIN;
+        SELECT set_config('app.listening_package_status_transition', '{package}', true);
+        UPDATE {s}.listening_tests SET updated_at='{OLD.isoformat()}' WHERE content_package_id='{package}';
+        UPDATE {s}.listening_content SET updated_at='{OLD.isoformat()}'
+         WHERE test_id IN (SELECT id FROM {s}.listening_tests WHERE content_package_id='{package}');
+        UPDATE {s}.listening_tests SET updated_at='{OLD.isoformat()}' WHERE content_package_id IS NULL;
+        COMMIT;
+        {FUNCTION_033.replace('FUNCTION update_updated_at_column', f'FUNCTION {s}.update_updated_at_column')}
+        ALTER FUNCTION {s}.update_updated_at_column() SET search_path = {s}, pg_temp;
+        CREATE TABLE {s}.reading_tests(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), updated_at timestamptz);
+        CREATE TABLE {s}.reading_passages(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), updated_at timestamptz);
+        CREATE TABLE {s}.reading_questions(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), updated_at timestamptz);
+        CREATE FUNCTION {s}.noop_policy() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN IF TG_OP = 'DELETE' THEN RETURN OLD; END IF; RETURN NEW; END $$;
+        CREATE TRIGGER trg_mock_paper_policy BEFORE UPDATE OR DELETE ON {s}.reading_tests
+            FOR EACH ROW EXECUTE FUNCTION {s}.noop_policy();
+        CREATE TRIGGER trg_mock_paper_policy BEFORE UPDATE OR DELETE ON {s}.listening_tests
+            FOR EACH ROW EXECUTE FUNCTION {s}.noop_policy();
+        -- 208's own trigger on listening_exercises.
+        CREATE FUNCTION {s}.update_listening_exercises_updated_at() RETURNS trigger LANGUAGE plpgsql
+            SET search_path = {s}, pg_temp AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$;
+        CREATE TRIGGER trg_listening_exercises_updated_at BEFORE UPDATE ON {s}.listening_exercises
+            FOR EACH ROW EXECUTE FUNCTION {s}.update_listening_exercises_updated_at();
+    """)
+    query(migrated(s))
+    query(migrated(s))  # re-runnable
+    yield {**programme_probe, "package_uuid": package}
+
+
+async def _rolled_back(steps):
+    """Run steps(connection) in one transaction that is always rolled back, so
+    the module-scoped package keeps its state; now() is the transaction start."""
+    connection = await asyncpg.connect(DB)
+    try:
+        transaction = connection.transaction()
+        await transaction.start()
+        try:
+            return await steps(connection)
+        finally:
+            await transaction.rollback()
+    finally:
+        await connection.close()
+
+
+def test_package_harness_runs_the_real_295_guard_before_the_338_trigger(package_probe):
+    s, package = package_probe["schema"], package_probe["package_uuid"]
+    guard = f"{s}.fn_protect_listening_package_child()"
+    for table in PACKAGE_TABLES:
+        names = triggers(s, table)
+        assert names.index("trg_protect_listening_package_child") < names.index(f"update_{table}_updated_at")
+        assert names[-1] == f"update_{table}_updated_at", names
+        [bound] = query("SELECT t.tgfoid::regprocedure::text AS fn FROM pg_trigger t "
+                        "WHERE t.tgrelid=to_regclass($1) AND t.tgname='trg_protect_listening_package_child'",
+                        f"{s}.{table}")
+        assert bound["fn"] == guard
+        _, rows = package_rows(s, table, package)
+        assert rows and all(r["updated_at"] == OLD for r in rows)
+    # The real 295 body, not a stub: it raises the package error for this table set.
+    body = query("SELECT prosrc FROM pg_proc WHERE oid=to_regprocedure($1)", guard)[0]["prosrc"]
+    assert "listening_package_child_immutable" in body
+    assert "v_allowed_columns := ARRAY['status', 'is_public', 'updated_at'];" in body
+
+
+@pytest.mark.parametrize("assignment", [
+    "{edit}='Edited'",                         # content edit
+    "{edit}='Edited', updated_at=now()",       # content edit that also stamps
+    "updated_at=updated_at",                   # touch only
+    "updated_at=now()",                        # allow-listed column, but outside a transition
+    "status='archived'",                       # status without the package transition
+])
+@pytest.mark.parametrize("table", [*PACKAGE_TABLES, "listening_exercises"])
+def test_locked_package_child_update_is_refused_by_295_and_keeps_updated_at(package_probe, table, assignment):
+    s, package = package_probe["schema"], package_probe["package_uuid"]
+    where, before = package_rows(s, table, package)
+    with pytest.raises(asyncpg.PostgresError, match="listening_package_child_immutable"):
+        query(f"UPDATE {s}.{table} SET {assignment.format(edit=PACKAGE_EDIT[table])} WHERE {where}", package)
+    assert package_rows(s, table, package)[1] == before
+
+
+def test_locked_package_visibility_toggle_is_refused_and_keeps_updated_at(package_probe):
+    s, package = package_probe["schema"], package_probe["package_uuid"]
+    where, before = package_rows(s, "listening_tests", package)
+    with pytest.raises(asyncpg.PostgresError, match="listening_package_child_immutable"):
+        query(f"UPDATE {s}.listening_tests SET is_public=NOT is_public WHERE {where}", package)
+    assert package_rows(s, "listening_tests", package)[1] == before
+    assert all(r["updated_at"] == OLD for r in before)
+
+
+def test_a_transition_still_refuses_content_edits_and_keeps_updated_at(package_probe):
+    s, package = package_probe["schema"], package_probe["package_uuid"]
+
+    async def steps(connection):
+        await connection.execute("SELECT set_config('app.listening_package_status_transition', $1, true)",
+                                 str(package))
+        for table in (*PACKAGE_TABLES, "listening_exercises"):
+            where = package_where(s, table)
+            with pytest.raises(asyncpg.PostgresError, match="listening_package_child_immutable"):
+                async with connection.transaction():   # savepoint: the refusal rolls back only this write
+                    await connection.execute(
+                        f"UPDATE {s}.{table} SET status='archived', {PACKAGE_EDIT[table]}='Edited' WHERE {where}",
+                        package)
+        return [r["updated_at"] for table in PACKAGE_TABLES for r in await connection.fetch(
+            f"SELECT updated_at FROM {s}.{table} WHERE {package_where(s, table)}", package)]
+
+    stamps = asyncio.run(_rolled_back(steps))
+    assert stamps and set(stamps) == {OLD}
+
+
+@pytest.mark.parametrize("assignment", ["status='archived'", "status='archived', updated_at=$2"],
+                         ids=["status-only", "status-with-stale-updated_at"])
+def test_a_permitted_status_transition_still_works_and_advances_updated_at(package_probe, assignment):
+    """Spec 0037 edge: 295 allow-lists updated_at, so the 80-day status
+    transition passes the guard and 338 then stamps now() over any value."""
+    s, package = package_probe["schema"], package_probe["package_uuid"]
+
+    async def steps(connection):
+        start = await connection.fetchval("SELECT now()")
+        await connection.execute("SELECT set_config('app.listening_package_status_transition', $1, true)",
+                                 str(package))
+        observed = {}
+        for table in PACKAGE_TABLES:
+            where = package_where(s, table)
+            # A stale value that differs from the stored one, so 295's allow-list is what admits it.
+            args = (package, OLD - timedelta(days=1)) if "$2" in assignment else (package,)
+            await connection.execute(f"UPDATE {s}.{table} SET {assignment} WHERE {where}", *args)
+            observed[table] = [dict(r) for r in await connection.fetch(
+                f"SELECT status, updated_at FROM {s}.{table} WHERE {where}", package)]
+        return start, observed
+
+    start, observed = asyncio.run(_rolled_back(steps))
+    for table, rows in observed.items():
+        assert rows and all(r["status"] == "archived" and r["updated_at"] == start for r in rows), table
+    for table in PACKAGE_TABLES:   # rolled back: the package is untouched
+        assert all(r["updated_at"] == OLD and r["status"] != "archived" for r in package_rows(s, table, package)[1])
+
+
+def test_the_package_status_rpc_still_publishes_with_338_present(package_probe):
+    s, package = package_probe["schema"], package_probe["package_uuid"]
+    manifest = package_probe["package"]["manifest_sha256"]
+
+    async def steps(connection):
+        start = await connection.fetchval("SELECT now()")
+        receipt = await connection.fetchrow(
+            f"SELECT * FROM {s}.set_listening_content_package_status($1,$2,'publish',NULL)",
+            package_probe["package"]["package_id"], manifest)
+        rows = {table: [dict(r) for r in await connection.fetch(
+            f"SELECT status, updated_at FROM {s}.{table} WHERE {package_where(s, table)}", package)]
+            for table in PACKAGE_TABLES}
+        public = await connection.fetchval(
+            f"SELECT bool_and(is_public) FROM {s}.listening_tests WHERE content_package_id=$1", package)
+        return start, receipt, rows, public
+
+    start, receipt, rows, public = asyncio.run(_rolled_back(steps))
+    assert receipt["status"] == "published" and receipt["forms_changed"] == 1 and public is True
+    for table, observed in rows.items():
+        assert observed and all(r["status"] == "published" and r["updated_at"] == start for r in observed), table
+
+
+def test_a_non_package_listening_row_is_not_locked_and_advances(package_probe):
+    s = package_probe["schema"]
+    [legacy] = query(f"SELECT id, updated_at FROM {s}.listening_tests WHERE content_package_id IS NULL")
+    assert legacy["updated_at"] == OLD
+
+    async def steps(connection):
+        await connection.execute(f"UPDATE {s}.listening_tests SET title='Edited', updated_at=$2 WHERE id=$1",
+                                 legacy["id"], OLD)
+        return (await connection.fetchval("SELECT now()"),
+                await connection.fetchrow(f"SELECT title, updated_at FROM {s}.listening_tests WHERE id=$1",
+                                          legacy["id"]))
+
+    start, after = asyncio.run(_rolled_back(steps))
+    assert after["title"] == "Edited" and after["updated_at"] == start
 
 
 # ── Preconditions and postconditions on a minimal schema ────────────────────
