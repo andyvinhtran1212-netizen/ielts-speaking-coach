@@ -67,9 +67,9 @@ Paraphrase = nói cùng một ý bằng từ ngữ khác. Câu hỏi khớp vớ
 
 | Kiểu | Bài đọc | Câu hỏi (paraphrase) |
 |---|---|---|
-| **Từ đồng nghĩa** | *big rise* | *substantial increase* |
+| **Từ đồng nghĩa** | *sharp rise* | *substantial increase* |
 | **Đổi từ loại** (danh hoá) | *prices rose* | *the rise in prices* |
-| **Đổi chủ động ↔ bị động** | *Scientists discovered X* | *X was discovered by scientists* (bỏ tác nhân làm thiếu thông tin nếu cần giữ toàn bộ) |
+| **Đổi chủ động ↔ bị động** | *Scientists discovered X* | *X was discovered by scientists* (nếu câu hỏi bỏ *by scientists*, ý vẫn khớp nhưng mất thông tin ai làm) |
 | **Đổi cấu trúc** | *because it was cheap* | *due to its low cost* |
 
 Người đọc giỏi **không quét từ khớp** mà quét **ý khớp**.

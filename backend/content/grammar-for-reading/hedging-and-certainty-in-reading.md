@@ -68,7 +68,8 @@ Cùng chủ đề nhưng **mức chắc chắn khác nhau** → có thể quyế
 | Mức | Tín hiệu ngôn ngữ |
 |---|---|
 | **Cam kết/nhấn khẳng định** | will, clearly, undoubtedly, certainly (động từ chia thường như *causes* cũng là khẳng định trực tiếp) |
-| **Xác suất / xu hướng / tần suất** | likely, probably / tends to / generally, usually — chức năng khác nhau |
+| **Xác suất** | likely, probably |
+| **Xu hướng/tần suất** | tends to, generally, usually |
 | **Thận trọng (hedged)** | may, might, could, suggests, appears, seems, possibly |
 | **Hạn định phạm vi** | some, often, in many cases, to some extent |
 

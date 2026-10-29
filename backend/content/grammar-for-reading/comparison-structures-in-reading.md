@@ -92,7 +92,7 @@ Câu hỏi số liệu hay hỏi "gấp mấy lần" hoặc "thay đổi nhiều
 Khi đọc, *three times as high as* = ×3; *increased by 200%* cũng là ×3 (từ 1 lên 3); *increased to 200%* = ×2. Đọc kỹ *by* hay *to*.
 
 ### Bẫy 3: Bỏ qua trạng từ mức độ
-*rose slightly* ≠ *rose sharply* — mức độ quyết định TRUE/FALSE.
+*rose slightly* ≠ *rose sharply* — mức độ quyết định TRUE/FALSE/NOT GIVEN (bài chỉ nói *rose* mà câu hỏi nói *rose sharply* → thường là NOT GIVEN).
 
 ### Chiến lược giải mã
 1. Xác định **hai đối tượng** được so.

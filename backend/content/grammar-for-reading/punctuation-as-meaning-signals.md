@@ -96,4 +96,4 @@ Chấm phẩy nối hai **mệnh đề độc lập** — mỗi vế là một �
 
 - **:** = giải thích/liệt kê phần trước
 - **;** = nối hai mệnh đề độc lập (đọc nội dung để biết quan hệ)
-- **— / ( )** = chêm hoặc nhấn; bỏ được mà câu vẫn đủ
+- Cặp **— … —** hoặc **( )** = phần chêm, bỏ được; một **—** cuối câu = nhấn/kết luận, cần đọc

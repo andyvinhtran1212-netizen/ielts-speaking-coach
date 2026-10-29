@@ -68,7 +68,8 @@ Bị động = **be + V3**. Văn học thuật thích bị động vì:
 Tìm **be (is/are/was/were/been/being) + V3**, kể cả khi có trạng từ chen giữa:
 
 - *were **carefully** measured*, *has been **repeatedly** confirmed*
-- Các động từ tường thuật bị động rất hay gặp: *is said to, is thought to, is reported to, is known to*.
+
+Các động từ tường thuật bị động rất hay gặp: *is said to, is thought to, is reported to, is known to*.
 
 Bị động cũng xuất hiện dạng **rút gọn** (mệnh đề quan hệ bị động): *rules **introduced** in 2010* = *rules that were introduced…*
 

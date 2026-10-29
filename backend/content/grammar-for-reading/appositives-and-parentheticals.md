@@ -67,16 +67,16 @@ Phần chêm thường được **cô lập** bằng:
 
 - **Hai dấu phẩy:** *The CEO, a former engineer, approved it.*
 - **Hai dấu gạch ngang:** *The result — a 30% drop — shocked analysts.*
-- **Ngoặc đơn:** *The drug (approved in 2020) is now standard.* *(mệnh đề phân từ bị động, không phải appositive NP)*
+- **Ngoặc đơn:** *The drug (**a synthetic form of insulin**) is now standard.*
 
-Parenthetical/supplement là nhóm phần chêm rộng: appositive NP (a former engineer), relative clause (which experts dismissed), participle clause (approved in 2020). Câu có thể còn đủ cú pháp khi bỏ phần chêm, nhưng mất thông tin; không gọi tất cả là appositive.
+Phần chêm (parenthetical) rộng hơn appositive. Nó có thể là cụm danh từ (*a former engineer*), mệnh đề quan hệ (*which experts dismissed*) hoặc cụm phân từ (*approved in 2020*). Bỏ phần chêm thì câu vẫn đúng ngữ pháp nhưng mất thông tin.
 
 <!-- anchor: appositives-and-parentheticals.function -->
 ### Phần chêm dùng để làm gì
 
 - **Định nghĩa/giới thiệu:** cho biết danh từ trước là ai/cái gì.
 - **Bổ sung chi tiết phụ:** số liệu, ví dụ, năm tháng.
-- Trong câu hỏi chi tiết, thông tin đáp án đôi khi **nằm trong phần chêm** — đừng bỏ qua nó, chỉ đừng nhầm nó là khung chính.
+- Trong câu hỏi chi tiết, thông tin đáp án đôi khi **nằm trong phần chêm** — đừng bỏ qua nó, nhưng cũng đừng nhầm nó là khung chính.
 
 <!-- anchor: appositives-and-parentheticals.pitfall -->
 ## Bẫy khi đọc
@@ -86,6 +86,8 @@ Parenthetical/supplement là nhóm phần chêm rộng: appositive NP (a former 
 
 ### Bẫy 2: Nhầm danh từ trong phần chêm là chủ ngữ
 Chủ ngữ vẫn là danh từ **trước** phần chêm, không phải danh từ bên trong nó.
+
+*The author of the report, **a professor at two universities**, **was** interviewed.* → chủ ngữ là *author* (số ít), không phải *universities*.
 
 ### Chiến lược giải mã
 1. Thấy cụm giữa hai phẩy/gạch ngang/ngoặc → thử **bỏ đi**.

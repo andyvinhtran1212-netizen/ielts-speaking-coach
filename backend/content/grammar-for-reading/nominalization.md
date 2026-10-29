@@ -82,7 +82,7 @@ Hỏi “Ai làm gì/cái gì xảy ra?” rồi tìm bằng chứng ở câu xu
 ### Vì sao văn học thuật thích danh hoá
 
 - **Súc tích:** nén cả mệnh đề vào một cụm để câu sau bàn tiếp về nó.
-- **Giọng phi cá nhân:** có thể lược tác nhân (*the decision was made* → *the decision*), nghe phi cá nhân nhưng không tự tạo tính khách quan hay bằng chứng; giữ tác nhân nếu cần hiểu trách nhiệm.
+- **Giọng phi cá nhân:** có thể lược tác nhân (*The government decided to raise taxes.* → ***The decision** to raise taxes…*, mất "the government"), nghe phi cá nhân nhưng không tự tạo tính khách quan hay bằng chứng; giữ tác nhân nếu cần hiểu trách nhiệm.
 - **Nối ý:** ý vừa nêu ở câu trước thường được danh hoá để mở đầu câu sau: *Prices rose sharply. **This increase** led to…*
 
 Chính đặc điểm "giấu tác nhân + trừu tượng" khiến câu khó — nhưng cũng là tín hiệu để nối các câu.
@@ -94,7 +94,7 @@ Chính đặc điểm "giấu tác nhân + trừu tượng" khiến câu khó �
 *The failure of the plan surprised no one.* → ý là "kế hoạch **thất bại**"; đừng đọc lướt qua *failure* như một vật.
 
 ### Bẫy 2: Mất tác nhân
-Danh hoá thường bỏ chủ thể. Nếu câu hỏi hỏi "ai làm", phải tìm tác nhân ở cụm *of/by* hoặc câu lân cận.
+Danh hoá thường bỏ chủ thể. Nếu câu hỏi hỏi "ai làm", phải tìm tác nhân ở cụm *of/by*, ở sở hữu cách (*the **government's** failure* → tác nhân = the government) hoặc câu lân cận.
 
 ### Chiến lược giải mã
 1. Gặp danh từ trừu tượng (-tion, -ment, -ity, -sis…) → hỏi động từ gốc là gì.
