@@ -1187,7 +1187,7 @@ async def generate_access_codes(
 # admin page). test_access_codes_response_model.py enforces that superset rule —
 # the strip-footgun guard (mirrors the writing_feedback NOT-NULL schema test).
 # Appended fields are conditional per branch (assigned_users on the happy/empty
-# path, association_lookup_failed only on the lookup-failure early return), so
+# path, association_lookup_failed only on codes whose lookup batch failed), so
 # EVERY appended field is Optional+default — else FastAPI 500s on the branch that
 # omits it.
 
@@ -1230,6 +1230,20 @@ class AccessCodeOut(BaseModel):
     association_lookup_failed: bool | None = None
 
 
+# PC-J80: list_access_codes reads EVERY access code, so a single
+# `.in_("code_id", code_ids)` grows with the table until PostgREST (or the
+# gateway in front of it) rejects the URL with a 400 — which flagged every code
+# `association_lookup_failed` on staging. 150 UUIDs keep the generated
+# `in.(...)` filter near 5.6 KB. Same reason as _ID_CHUNK in
+# services/class_assignment_service.py.
+_ACCESS_CODE_ID_CHUNK = 150
+
+
+def _access_code_id_chunks(ids: list[str]) -> list[list[str]]:
+    return [ids[i : i + _ACCESS_CODE_ID_CHUNK]
+            for i in range(0, len(ids), _ACCESS_CODE_ID_CHUNK)]
+
+
 @router.get("/access-codes", response_model=list[AccessCodeOut])
 async def list_access_codes(authorization: str | None = Header(default=None)):
     """List all access codes, enriched with assigned user count."""
@@ -1256,29 +1270,39 @@ async def list_access_codes(authorization: str | None = Header(default=None)):
 
     code_ids = [c["id"] for c in codes]
 
-    # Fetch ALL assignments (active + inactive) in one query; derive count +
-    # identity from the active ones, and record every (code_id, user_id) pair so
-    # the legacy used_by fallback below can tell a deliberately-removed user
-    # (inactive row) apart from a true legacy redeemer (no row at all).
+    # Fetch ALL assignments (active + inactive), batched by code id and paged
+    # past the ~1000-row response cap; derive count + identity from the active
+    # ones, and record every (code_id, user_id) pair so the legacy used_by
+    # fallback below can tell a deliberately-removed user (inactive row) apart
+    # from a true legacy redeemer (no row at all). A failed batch flags ONLY its
+    # own codes `association_lookup_failed` — never a silent "no owner".
     code_user_ids: dict[str, list[str]] = {}      # code_id → [active user_id, ...]
     code_any_assignment: dict[str, set] = {}      # code_id → {user_id with ANY row}
-    try:
-        asgn_res = (
-            supabase_admin.table("user_code_assignments")
-            .select("code_id, user_id, is_active")
-            .in_("code_id", code_ids)
-            .execute()
-        )
-        for row in (asgn_res.data or []):
+    failed_code_ids: set[str] = set()
+    id_chunks = _access_code_id_chunks(code_ids)
+    for chunk_no, id_chunk in enumerate(id_chunks, start=1):
+        try:
+            rows = _usage_paged(
+                lambda ids=id_chunk: supabase_admin.table("user_code_assignments")
+                .select("id, code_id, user_id, is_active")
+                .in_("code_id", ids)
+            )
+        except Exception as exc:
+            # Shape only — status, sizes, error class; no ids or user data.
+            logger.warning(
+                "list_access_codes: assignment lookup failed: batch=%d/%d ids=%d "
+                "filter_len=%d status=%s error=%s",
+                chunk_no, len(id_chunks), len(id_chunk),
+                len("code_id=in.()") + len(",".join(id_chunk)),
+                getattr(exc, "code", None), type(exc).__name__,
+            )
+            failed_code_ids.update(id_chunk)
+            continue
+        for row in rows:
             cid = row["code_id"]
             code_any_assignment.setdefault(cid, set()).add(row["user_id"])
             if row.get("is_active"):
                 code_user_ids.setdefault(cid, []).append(row["user_id"])
-    except Exception as exc:
-        logger.warning("list_access_codes: assignment lookup failed: %s", exc)
-        for c in codes:
-            c["association_lookup_failed"] = True
-        return codes
 
     # Fallback: a TRUE legacy code — used_by set but the redeemer has NO
     # assignment row at all. We must NOT synthesize the redeemer when an INACTIVE
@@ -1291,7 +1315,8 @@ async def list_access_codes(authorization: str | None = Header(default=None)):
     for c in codes:
         ub = c.get("used_by")
         if (
-            not code_user_ids.get(c["id"])
+            c["id"] not in failed_code_ids
+            and not code_user_ids.get(c["id"])
             and c.get("is_used")
             and ub
             and ub not in code_any_assignment.get(c["id"], set())
@@ -1304,12 +1329,13 @@ async def list_access_codes(authorization: str | None = Header(default=None)):
         {uid for uids in code_user_ids.values() for uid in uids}
         | set(fallback_uid.values())
     )
-    if all_uids:
+    # Batched for the same URL-length reason as the assignment lookup above.
+    for id_chunk in _access_code_id_chunks(all_uids):
         try:
             ur = (
                 supabase_admin.table("users")
                 .select("id, email, display_name")
-                .in_("id", all_uids)
+                .in_("id", id_chunk)
                 .execute()
             )
             for u in (ur.data or []):
@@ -1319,7 +1345,10 @@ async def list_access_codes(authorization: str | None = Header(default=None)):
                     "email":   u.get("email") or "",
                 }
         except Exception as exc:
-            logger.warning("list_access_codes: user lookup failed: %s", exc)
+            logger.warning(
+                "list_access_codes: user lookup failed: ids=%d status=%s error=%s",
+                len(id_chunk), getattr(exc, "code", None), type(exc).__name__,
+            )
 
     # Per-user quota "used" — the CANONICAL count: COMPLETED sessions only (an
     # abandoned in_progress does not consume a lượt) via the
@@ -1345,6 +1374,10 @@ async def list_access_codes(authorization: str | None = Header(default=None)):
                 "limit_type": "per_user_via_code"}
 
     for c in codes:
+        if c["id"] in failed_code_ids:
+            # Ownership unknown: no count, no users, no fallback redeemer.
+            c["association_lookup_failed"] = True
+            continue
         uids = code_user_ids.get(c["id"], [])
         if uids:
             c["assigned_user_count"] = len(uids)

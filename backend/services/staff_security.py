@@ -14,7 +14,10 @@ the steps that live outside the database transaction:
   revocation (demotion, retry of a non-suspended account) deletes sessions
   only. ``service_role`` cannot reach ``auth.sessions``, so the delete runs on
   the backend's direct ``DATABASE_URL`` connection (role ``postgres``);
-* reactivation lifts the ban (``ban_duration: "none"``).
+* reactivation of a suspended account repeats the suspension's revocation
+  (ban, then delete) and lifts the ban (``ban_duration: "none"``) only after
+  the delete succeeded: an unban revives any session still in
+  ``auth.sessions`` (research.md §9.2), e.g. one a failed revocation left.
 
 The routes hold ``target_lock`` for one target across its database change and
 these GoTrue steps, so an overlapping suspension, reactivation or retry on

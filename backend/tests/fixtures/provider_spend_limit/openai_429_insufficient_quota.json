@@ -1,0 +1,16 @@
+{
+  "provider": "openai",
+  "sdk": "openai",
+  "http_status": 429,
+  "url": "https://api.openai.com/v1/audio/transcriptions",
+  "body": {
+    "error": {
+      "message": "You exceeded your current quota, please check your plan and billing details.",
+      "type": "insufficient_quota",
+      "param": null,
+      "code": "insufficient_quota"
+    }
+  },
+  "expected": "provider_spend_limit",
+  "source": "https://platform.openai.com/docs/guides/error-codes (429 'You exceeded your current quota')"
+}

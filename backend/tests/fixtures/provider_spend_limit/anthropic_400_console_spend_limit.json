@@ -1,0 +1,16 @@
+{
+  "provider": "anthropic",
+  "sdk": "anthropic",
+  "http_status": 400,
+  "url": "https://api.anthropic.com/v1/messages",
+  "body": {
+    "type": "error",
+    "error": {
+      "type": "invalid_request_error",
+      "message": "You have reached your specified API usage limits. You will regain access on 2026-11-01 at 00:00 UTC."
+    },
+    "request_id": "req_fixture"
+  },
+  "expected": "provider_spend_limit",
+  "source": "https://platform.claude.com/docs/en/api/rate-limits (checked 2026-10-29)"
+}

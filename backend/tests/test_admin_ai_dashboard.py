@@ -182,6 +182,94 @@ def test_models_endpoint_without_the_migration_still_answers(db, as_admin):
     assert len(body["features"]) == 6
 
 
+def _env_settings(monkeypatch, **env):
+    """A Settings built from the process environment the way production builds
+    it, so ``model_fields_set`` (the ``env`` vs ``code_default`` label) is real.
+    Routing variables not named in ``env`` are cleared first."""
+    import os
+
+    from config import Settings
+
+    for name in list(os.environ):
+        if name.startswith(("AI_PROVIDER_ORDER", "ANTHROPIC_MODEL_")) or name in (
+                "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "SPEAKING_GRADING_MODEL"):
+            monkeypatch.delenv(name)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    s = Settings(_env_file=None)
+    monkeypatch.setattr(admin_ai, "settings", s)
+    return s
+
+
+@pytest.mark.parametrize("order, source", [("gemini,anthropic", "env"), (None, "code_default")])
+def test_models_endpoint_labels_the_global_env_order(db, as_admin, monkeypatch, order, source):
+    env = {"ANTHROPIC_API_KEY": "k", "GEMINI_API_KEY": "g"}
+    if order:
+        env["AI_PROVIDER_ORDER"] = order
+    _env_settings(monkeypatch, **env)
+
+    body = TestClient(app).get("/admin/ai/models").json()
+    features = {f["feature"]: f for f in body["features"]}
+    first = "gemini" if order else "anthropic"
+    for feature, view in features.items():
+        assert view["preferred_provider"] == {"value": first, "source": source}, feature
+        assert view["effective_order"][0]["provider"] == first, feature
+        assert view["anthropic_model"]["source"] == "code_default", feature
+
+    assert [s["provider"] for s in features["writing_grading"]["effective_order"]] == (
+        ["gemini", "anthropic"] if order else ["anthropic", "gemini"])
+    # Speaking: the Claude primary moves behind the Gemini chain, not out of it.
+    assert [s["slot"] for s in features["speaking_grading"]["effective_order"]] == (
+        ["grading_primary", "claude_haiku", "claude_sonnet", "anthropic_primary"] if order
+        else ["anthropic_primary", "grading_primary", "claude_haiku", "claude_sonnet"])
+
+
+def test_models_endpoint_without_an_anthropic_key(db, as_admin, monkeypatch):
+    _env_settings(monkeypatch, ANTHROPIC_API_KEY="", GEMINI_API_KEY="g")
+
+    body = TestClient(app).get("/admin/ai/models").json()
+    assert body["anthropic_key_configured"] is False
+    features = {f["feature"]: f for f in body["features"]}
+    for feature, view in features.items():
+        # The configured preference is reported before the missing-key rule...
+        assert view["preferred_provider"] == {"value": "anthropic", "source": "code_default"}, feature
+        if feature == "speaking_grading":
+            continue
+        # ...while the chain that actually runs drops Anthropic.
+        assert [(s["provider"], s["available"]) for s in view["effective_order"]] == [
+            ("gemini", True)], feature
+
+    speaking = features["speaking_grading"]["effective_order"]
+    # No Claude primary slot; the Claude fallbacks stay listed but unavailable.
+    assert [(s["provider"], s["slot"], s["available"]) for s in speaking] == [
+        ("gemini", "grading_primary", True),
+        ("anthropic", "claude_haiku", False),
+        ("anthropic", "claude_sonnet", False),
+    ]
+
+
+def test_models_endpoint_when_the_override_store_is_unavailable(db, as_admin, monkeypatch):
+    import asyncio
+
+    _env_settings(monkeypatch, ANTHROPIC_API_KEY="k", GEMINI_API_KEY="g")
+    overrides._set_for_tests({"course_writing": overrides.Override(
+        feature="course_writing", preferred_provider="gemini", updated_by=ADMIN["id"])})
+    db.errors["ai_model_overrides"] = RuntimeError("connection reset")
+    assert asyncio.run(overrides.refresh()) == "unavailable"
+
+    body = TestClient(app).get("/admin/ai/models").json()
+    assert body["store"]["status"] == "unavailable"
+    assert body["store"]["last_error"] == "RuntimeError"
+    assert body["store"]["last_refreshed_at"] is not None   # the earlier good snapshot
+    course = next(f for f in body["features"] if f["feature"] == "course_writing")
+    # The failed refresh drops the stored row: env/code defaults apply, nothing
+    # is labelled db_override.
+    assert course["override"] is None
+    assert course["preferred_provider"] == {"value": "anthropic", "source": "code_default"}
+    assert [s["provider"] for s in course["effective_order"]] == ["anthropic", "gemini"]
+    assert all(f["preferred_provider"]["source"] != "db_override" for f in body["features"])
+
+
 # ── Control (FR-004) ───────────────────────────────────────────────────────
 
 
@@ -448,10 +536,39 @@ def test_failure_aggregation_and_recent_list(db, as_admin):
     assert first["by_error_type"] == {"rate_limit": 5, "timeout": 1}
     assert body["recent"][0]["error_type"] == "rate_limit"
 
+    rollup = next(params for name, params, _ in db.executed if name == "fn_admin_ai_failure_rollup")
     recent_query = next(calls for name, _, calls in db.executed if name == "ai_provider_failures")
-    methods = [(m, a) for m, a, _ in recent_query]
-    assert ("limit", (50,)) in methods
-    assert ("order", ("created_at",)) in methods
+    # Newest first, inside the same [start, end) window the rollup counted.
+    assert [(m, a, k) for m, a, k in recent_query if m != "select"] == [
+        ("gte", ("created_at", rollup["p_start"]), {}),
+        ("lt", ("created_at", rollup["p_end"]), {}),
+        ("order", ("created_at",), {"desc": True}),
+        ("order", ("id",), {"desc": True}),
+        ("limit", (50,), {}),
+    ]
+
+
+@pytest.mark.parametrize("now, key, start", [
+    ("2026-10-26T16:59:59+00:00", "today", "2026-10-25T17:00:00+00:00"),  # 23:59:59 Saigon
+    ("2026-10-26T17:00:00+00:00", "today", "2026-10-26T17:00:00+00:00"),  # 00:00 next day
+    ("2026-10-26T05:00:00+00:00", "7d", "2026-10-19T17:00:00+00:00"),
+    ("2026-10-26T05:00:00+00:00", "30d", "2026-09-26T17:00:00+00:00"),
+])
+def test_recent_failures_query_uses_the_saigon_window(db, as_admin, monkeypatch, now, key, start):
+    fixed = datetime.fromisoformat(now)
+    real_bounds = dashboard.window_bounds
+    monkeypatch.setattr(dashboard, "window_bounds", lambda k, n=None: real_bounds(k, n or fixed))
+
+    body = TestClient(app).get(f"/admin/ai/failures?window={key}").json()
+    assert body["store_status"] == "ok"
+    assert datetime.fromisoformat(body["window"]["start"].replace("Z", "+00:00")) == datetime.fromisoformat(start)
+    assert datetime.fromisoformat(body["window"]["end"].replace("Z", "+00:00")) == fixed
+
+    rollup = next(params for name, params, _ in db.executed if name == "fn_admin_ai_failure_rollup")
+    assert rollup == {"p_start": start, "p_end": now}
+    recent_query = next(calls for name, _, calls in db.executed if name == "ai_provider_failures")
+    assert ("gte", ("created_at", start), {}) in recent_query
+    assert ("lt", ("created_at", now), {}) in recent_query
 
 
 def test_failures_before_migration_is_an_explicit_state(db, as_admin):

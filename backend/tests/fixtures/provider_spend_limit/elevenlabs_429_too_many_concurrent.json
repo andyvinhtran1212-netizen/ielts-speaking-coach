@@ -1,0 +1,14 @@
+{
+  "provider": "elevenlabs",
+  "sdk": "httpx",
+  "http_status": 429,
+  "url": "https://api.elevenlabs.io/v1/text-to-speech/voice",
+  "body": {
+    "detail": {
+      "status": "too_many_concurrent_requests",
+      "message": "Too many concurrent requests for your subscription."
+    }
+  },
+  "expected": "transient",
+  "source": "https://elevenlabs.io/docs/help-center/technical/api-error-code-429"
+}

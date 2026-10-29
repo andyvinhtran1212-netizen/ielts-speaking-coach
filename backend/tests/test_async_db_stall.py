@@ -235,6 +235,131 @@ def test_writes_are_never_retried(monkeypatch, flag_on, method, build):
     assert db_async.snapshot()["retries"] == before["retries"]
 
 
+@pytest.mark.parametrize("method,build", [
+    ("GET", lambda db: db.rpc("fn_probe", {"p_user": _USER}, get=True)),
+    ("HEAD", lambda db: db.rpc("fn_probe", {"p_user": _USER}, head=True)),
+])
+def test_rpcs_sent_as_get_or_head_are_never_retried(monkeypatch, flag_on, method, build):
+    # PC-J84 (PC-J68 F2): a function can act outside the read-only transaction.
+    before = db_async.snapshot()
+
+    async def run():
+        async with _FakePostgrest(["swallow", "ok"]) as srv:
+            http_client = database._build_supabase_async_http_client()
+            _use_client(monkeypatch, http_client, srv.url)
+            try:
+                with pytest.raises(httpx.ReadTimeout):
+                    await aexecute(build)
+            finally:
+                await http_client.aclose()
+            return srv
+
+    srv = asyncio.run(run())
+    assert [(m, p, a) for _c, m, p, a in srv.requests] == [
+        (method, "/rest/v1/rpc/fn_probe", "swallow")]
+    assert db_async.snapshot()["retries"] == before["retries"]
+
+
+@pytest.mark.parametrize("method,build", [
+    ("GET", _read),
+    ("HEAD", lambda db: db.table("users").select("id", count="exact", head=True)),
+])
+def test_swallowed_table_reads_are_still_retried_once(monkeypatch, flag_on, method, build):
+    before = db_async.snapshot()
+
+    async def run():
+        async with _FakePostgrest(["swallow", "ok"]) as srv:
+            http_client = database._build_supabase_async_http_client()
+            _use_client(monkeypatch, http_client, srv.url)
+            try:
+                await aexecute(build)
+            finally:
+                await http_client.aclose()
+            return srv
+
+    srv = asyncio.run(run())
+    assert [(c, m, a) for c, m, _p, a in srv.requests] == [
+        (1, method, "swallow"), (2, method, "ok")]
+    assert db_async.snapshot()["retries"] - before["retries"] == 1
+
+
+def test_pool_timeout_is_not_retried_and_logs_the_wait_as_pool_wait(
+        monkeypatch, flag_on, caplog):
+    # PC-J84 (PC-J68 F4): a saturated pool is not a dead socket; waiting again
+    # only doubles the stall, and the whole call was spent waiting for the pool.
+    caplog.set_level(logging.WARNING, logger="services.db_async")
+    monkeypatch.setattr(database, "ASYNC_POSTGREST_TIMEOUT", httpx.Timeout(5.0, pool=0.3))
+    monkeypatch.setattr(database, "ASYNC_POSTGREST_LIMITS", httpx.Limits(max_connections=1))
+    before = db_async.snapshot()
+
+    async def run():
+        async with _FakePostgrest(["delay:1.5", "ok"]) as srv:
+            http_client = database._build_supabase_async_http_client()
+            _use_client(monkeypatch, http_client, srv.url)
+            try:
+                holder = asyncio.create_task(aexecute(_read))
+                await asyncio.sleep(0.1)  # the holder owns the only connection
+                start = time.perf_counter()
+                with pytest.raises(httpx.PoolTimeout):
+                    await aexecute(_read)
+                elapsed = time.perf_counter() - start
+                await holder
+            finally:
+                await http_client.aclose()
+            return srv, elapsed
+
+    srv, elapsed = asyncio.run(run())
+    assert elapsed < 0.55, f"one pool wait, not two: {elapsed:.2f}s"
+    assert [a for _c, _m, _p, a in srv.requests] == ["delay:1.5"]
+    after = db_async.snapshot()
+    assert after["retries"] == before["retries"]
+    assert after["transport_errors"] - before["transport_errors"] == 1
+
+    failed = [r.args[1] for r in caplog.records if r.args and r.args[0] == "failed"]
+    assert len(failed) == 1
+    rec = failed[0]
+    assert rec["error"] == "PoolTimeout" and rec["attempt"] == 1
+    assert rec["pool_wait_ms"] == rec["total_ms"] and rec["pool_wait_ms"] >= 250
+    assert "[async-db] retry" not in caplog.text
+
+
+class _RaisingBuilder:
+    def __init__(self, exc, calls):
+        self.request = type("R", (), {
+            "http_method": "GET",
+            "path": httpx.URL("http://pg/rest/v1/users"),
+        })()
+        self._exc, self._calls = exc, calls
+
+    async def execute(self):
+        self._calls.append(1)
+        raise self._exc
+
+
+@pytest.mark.parametrize("exc,attempts", [
+    (httpx.ReadTimeout("x"), 2),
+    (httpx.ReadError("x"), 2),
+    (httpx.RemoteProtocolError("x"), 2),
+    (httpx.WriteError("x"), 2),
+    (httpx.ConnectError("x"), 2),
+    (httpx.PoolTimeout("x"), 1),
+    (httpx.ConnectTimeout("x"), 1),
+    (httpx.WriteTimeout("x"), 1),
+    (httpx.ProxyError("x"), 1),
+    (httpx.UnsupportedProtocol("x"), 1),
+])
+def test_only_dead_socket_errors_are_retried(monkeypatch, flag_on, exc, attempts):
+    calls: list = []
+
+    async def _get():
+        return object()
+
+    monkeypatch.setattr(database, "get_supabase_async", _get)
+    with pytest.raises(type(exc)):
+        asyncio.run(aexecute(lambda _c: _RaisingBuilder(exc, calls)))
+    assert len(calls) == attempts
+
+
 def test_slow_call_log_splits_pool_wait_from_upstream_time(monkeypatch, flag_on, caplog):
     caplog.set_level(logging.WARNING, logger="services.db_async")
     monkeypatch.setattr(database, "ASYNC_POSTGREST_TIMEOUT", httpx.Timeout(5.0))
