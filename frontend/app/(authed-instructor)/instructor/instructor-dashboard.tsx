@@ -117,7 +117,15 @@ export function InstructorDashboard() {
       '/instructor/reviews/queue',
     ].map((path) => instructorApiPath(path, target));
     try {
-      const raw = await Promise.all(paths.map((path) => window.api.get<unknown>(path)));
+      // allSettled: an inactive 403 on any read must win over an earlier unrelated failure (FR-014).
+      const settled = await Promise.allSettled(paths.map((path) => window.api.get<unknown>(path)));
+      for (const result of settled) {
+        if (result.status === 'rejected' && ownerId === accountRef.current && deny(result.reason)) return null;
+      }
+      const raw = settled.map((result) => {
+        if (result.status === 'rejected') throw result.reason;
+        return result.value;
+      });
       const normalized: DataState = {
         cohorts: normalizeInstructorCohorts(raw[0]),
         students: normalizeInstructorStudents(raw[1]),

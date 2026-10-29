@@ -84,6 +84,25 @@ it('dashboard: a refresh refused as inactive replaces the workspace; a later ans
   expect(screen.queryByText(/đang giữ snapshot trước đó/)).toBeNull();
 });
 
+it('dashboard: an inactive 403 that settles after another refresh failure still replaces the workspace', async () => {
+  let refuse = false;
+  get.mockImplementation(async (path: string) => {
+    if (refuse && path === '/instructor/cohorts') throw new Error('cohorts unavailable');
+    if (refuse && path === '/instructor/students') {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      throw inactive403();
+    }
+    return dashboardData[path];
+  });
+  render(<InstructorDashboard />);
+  expect(await screen.findByText('Nguyễn An')).toBeTruthy();
+  refuse = true;
+  fireEvent.click(screen.getByRole('button', { name: 'Làm mới' }));
+  await expectDenied();
+  expect(screen.queryByText('Nguyễn An')).toBeNull();
+  expect(screen.queryByText(/cohorts unavailable/)).toBeNull();
+});
+
 it('dashboard: an ownership 403 keeps the existing error banner and the workspace', async () => {
   get.mockImplementation(async (path: string) => dashboardData[path]);
   post.mockRejectedValue(Object.assign(new Error('Lớp không thuộc giảng viên này'), { status: 403, detail: 'Lớp không thuộc giảng viên này' }));
