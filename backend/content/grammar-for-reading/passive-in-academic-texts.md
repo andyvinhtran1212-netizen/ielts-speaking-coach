@@ -94,10 +94,10 @@ Khi câu hỏi hỏi "ai/ cái gì gây ra", hãy tìm cụm *by…* hoặc suy 
 ### Chiến lược giải mã
 1. Thấy **be + V3** → chủ ngữ là **đối tượng chịu tác động**.
 2. Tìm tác nhân ở cụm *by* (nếu có).
-3. Với *is said/thought to* → xác định nguồn và lập trường; tường thuật bị động không tự biến thông tin thành tin đồn.
+3. Với *is said/thought to*: nguồn không được nêu tên; thông tin có thể đáng tin hoặc không, tuỳ bài viết dẫn chứng thế nào.
 
 ## Tóm tắt nhanh
 
 - Bị động = be + V3; chủ ngữ là đối tượng chịu tác động
 - Tác nhân đi sau *by*, thường bị lược
-- *is said/thought to* tường thuật nguồn chưa được nêu; mức chắc chắn tùy nguồn và ngữ cảnh, không tự thấp hơn mọi câu chủ động
+- *is said/thought to* = tường thuật lại ý kiến chung; mức chắc chắn tuỳ ngữ cảnh

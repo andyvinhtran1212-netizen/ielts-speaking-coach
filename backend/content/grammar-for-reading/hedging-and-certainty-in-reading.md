@@ -67,12 +67,12 @@ Cùng chủ đề nhưng **mức chắc chắn khác nhau** → có thể quyế
 
 | Mức | Tín hiệu ngôn ngữ |
 |---|---|
-| **Cam kết/nhấn khẳng định** | will, clearly, undoubtedly; is là dạng ngữ pháp, không thang xác suất cố định |
+| **Cam kết/nhấn khẳng định** | will, clearly, undoubtedly, certainly (động từ chia thường như *causes* cũng là khẳng định trực tiếp) |
 | **Xác suất / xu hướng / tần suất** | likely, probably / tends to / generally, usually — chức năng khác nhau |
 | **Thận trọng (hedged)** | may, might, could, suggests, appears, seems, possibly |
 | **Hạn định phạm vi** | some, often, in many cases, to some extent |
 
-Proves/shows/indicates/suggests/hints thể hiện cách nguồn trình bày bằng chứng; không là thang tuyệt đối cho mọi ngữ cảnh. Xác định ai phát biểu và căn cứ nào.
+Các động từ *proves, shows, indicates, suggests, hints at* cho biết bằng chứng được trình bày mạnh hay yếu (*proves* mạnh nhất, *hints at* yếu nhất). Mức độ vẫn phụ thuộc ngữ cảnh: luôn xác định ai nói và dựa vào đâu.
 
 <!-- anchor: hedging-and-certainty-in-reading.tfng -->
 ### Vì sao quan trọng cho T/F/NG
