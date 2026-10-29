@@ -26,3 +26,4 @@
 255_writing_cohort_reports.sql	retired	-	Gate F admission evidence was waived and closed; runtime flag remains off.
 256_core_attempt_observation_aggregate.sql	retired	-	Gate F admission evidence was waived and closed; runtime flag remains off.
 333_ai_budget_hard_cap.sql	pending_feature	ai_budget	AIBUDGET-0033; budget counters, reservations, deferred grading, raises and the responses generation trigger; staging first under the advisory lock (rollout.md S1), production only at an authorised staging→main promotion before the 0033 backend (P2).
+340_ai_budget_hardening.sql	pending_feature	ai_budget	AIBUDGET-0033 hardening (PC-J67 F01–F05); needs 333, same group: staging first under the advisory lock, production only at an authorised staging→main promotion together with 333, before the 0033 backend.
