@@ -106,6 +106,46 @@ Với câu hỏi Matching Headings, Summary completion hoặc "ý chính đoạn
 2. Dựa vào loại quan hệ để đoán vai trò của câu (chính/phụ, thuận/nghịch).
 3. Với “Although A, B”, B là mệnh đề chính; “B, although A” có mệnh đề chính trước dấu phẩy. Xác định chức năng, không chỉ vị trí.
 
+## Lỗi người Việt hay mắc
+
+Tiếng Việt dùng cặp "tuy/mặc dù … nhưng": hai từ đi đôi, và chữ "nhưng" đánh dấu ý chính. Tiếng Anh thì *although* **không** đi kèm *but* trong cùng một câu. Người học quen đi tìm "nhưng" nên dễ hiểu sai đâu là mệnh đề chính.
+
+### Lỗi 1: Đi tìm *but* sau *although*
+
+*Although the treatment is expensive, it saves money in the long term.*
+
+- ❌ Không thấy *but* nên coi cả câu chỉ nói "điều trị đắt", hoặc coi *the treatment is expensive* là ý chính.
+- ✅ Dấu phẩy đứng ở chỗ của "nhưng". Mệnh đề chính là *it saves money in the long term*: về lâu dài, cách điều trị này **tiết kiệm tiền**.
+
+### Lỗi 2: Dịch *although* đứng sau thành "nhưng"
+
+*The policy was popular, although it achieved little.*
+
+- ❌ Dịch thành "chính sách được ưa chuộng, nhưng đạt được ít", rồi coi "đạt được ít" là ý chính.
+- ✅ Mệnh đề chính là *The policy was popular*; *although it achieved little* chỉ là nhượng bộ. Ý tác giả: chính sách **vẫn được ưa chuộng** dù đạt được ít.
+
+Cũng vì thói quen "tuy… nhưng", khi viết nhiều bạn viết *Although…, but…*. Câu này sai trong tiếng Anh: chỉ dùng một trong hai từ.
+
+## Bài tập luyện
+
+### Từ nối báo quan hệ gì, ý sau sẽ thế nào?
+
+Với mỗi câu, cho biết từ nối in nghiêng báo quan hệ gì, và đoán phần tiếp theo sẽ nói theo hướng nào.
+
+1. *The first trial produced encouraging results. However, …*
+2. *The region receives very little rainfall. Consequently, …*
+3. *Although the factory created hundreds of jobs, …*
+4. *Unless the dam is repaired before the rainy season, …*
+5. *Electric buses are quieter than diesel buses. Moreover, …*
+
+### Đáp án
+
+1. *However* → **tương phản**. Ý sau ngược với kỳ vọng, ví dụ: các thử nghiệm sau cho kết quả kém hơn hoặc phát hiện vấn đề.
+2. *Consequently* → **nguyên nhân → kết quả**. Ý sau là hệ quả của việc ít mưa, ví dụ: nông nghiệp phải dựa vào tưới tiêu.
+3. *Although* → **nhượng bộ**. Mệnh đề chính sau dấu phẩy sẽ nêu một ý đối lập với lợi ích việc làm, ví dụ: nhà máy gây ô nhiễm nặng. Đó mới là ý chính.
+4. *Unless* → **điều kiện** (= *if … not*). Ý sau là điều sẽ xảy ra nếu con đập **không** được sửa, ví dụ: thị trấn có nguy cơ ngập lụt.
+5. *Moreover* → **bổ sung**. Ý sau thêm một ưu điểm cùng chiều, ví dụ: xe buýt điện thải ít khí hơn.
+
 ## Tóm tắt nhanh
 
 - Từ nối = quan hệ giữa hai ý (tương phản/nhân quả/bổ sung/nhượng bộ)
