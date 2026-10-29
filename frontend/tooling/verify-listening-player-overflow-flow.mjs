@@ -137,7 +137,7 @@ function silentWav() {
   wav.write('data', 36); wav.writeUInt32LE(samples, 40);
   return wav;
 }
-// 1600×900 grey PNG so plan/map images exercise their own width constraint.
+// 1600×900 grey SVG so plan/map images exercise their own width constraint.
 function fixtureImage() {
   return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900"><rect width="1600" height="900" fill="#ccc"/></svg>`);
 }
@@ -225,10 +225,8 @@ for (const viewport of VIEWPORTS) {
       Object.defineProperty(HTMLMediaElement.prototype, 'play', { configurable: true, value() { return Promise.resolve(); } });
     } catch (_) {}
   }, [storageKey(SB), fakeSession]);
-  const page = await context.newPage();
   const started = new Set();
-  page.on('pageerror', (error) => pageErrors.push(String(error)));
-  await page.route('**/*', async (route) => {
+  await context.route('**/*', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
     if (url.origin === 'https://audio.fixture') return route.fulfill({ status: 200, contentType: 'audio/wav', body: silentWav() });
@@ -267,6 +265,9 @@ for (const viewport of VIEWPORTS) {
 
   for (const mode of MODES) for (const fixture of fixtures) {
     started.clear();
+    // A fresh tab per paper keeps renderer memory bounded across the matrix.
+    const page = await context.newPage();
+    page.on('pageerror', (error) => pageErrors.push(String(error)));
     await page.goto(`${BASE}/listening/test/session?id=${encodeURIComponent(fixture.id)}${mode.query}`, { waitUntil: 'domcontentloaded' });
     const bootFailure = async (error) => {
       if (SHOT_DIR) await page.screenshot({ path: join(SHOT_DIR, `boot-failure-${fixture.id}-${mode.name.replace(' ', '-')}-${viewport.width}.png`) });
@@ -274,7 +275,7 @@ for (const viewport of VIEWPORTS) {
     };
     // The mock embed enters its attempt automatically; the other modes start explicitly.
     if (mode.name === 'student') await page.getByRole('button', { name: 'Start test' }).click().catch(bootFailure);
-    await page.getByRole('dialog', { name: 'Check your headphones' }).getByRole('button', { name: /Play$/ }).click({ timeout: 10000 }).catch(bootFailure);
+    await page.getByRole('dialog', { name: 'Check your headphones' }).getByRole('button', { name: /Play$/ }).click().catch(bootFailure);
     await page.locator('#listening-paper .ielts-section').waitFor();
     for (const section of fixture.sections) {
       const partNum = Number(section.section_num);
@@ -287,6 +288,7 @@ for (const viewport of VIEWPORTS) {
       check(`${fixture.test_id || fixture.id} ${mode.name} Part ${partNum} @${viewport.width}px has no clipped or covered layout`,
         offences.length === 0, offences.join('; '));
     }
+    await page.close();
   }
   await context.close();
 }
