@@ -76,7 +76,7 @@ Chú ý **not as … as** và **less … than** đảo chiều so với suy ngh�
 <!-- anchor: comparison-structures-in-reading.multiples -->
 ### Gấp bội và mức độ thay đổi
 
-- **Gấp bội:** *twice as many as, three times higher than, doubled, tripled.*
+- **Gấp bội:** *twice as many as, three times as high as, doubled, tripled* (*three times higher than* cũng hay gặp, thường hiểu là ×3).
 - **Mức độ thay đổi:** *rose slightly / sharply / dramatically*; *a marginal vs a substantial increase.*
 - **Tương đương:** *as high as, comparable to, on a par with, similar to.*
 
@@ -88,8 +88,8 @@ Câu hỏi số liệu hay hỏi "gấp mấy lần" hoặc "thay đổi nhiều
 ### Bẫy 1: Đảo chiều "not as … as"
 *X is not as expensive as Y* → **X rẻ hơn Y**, không phải đắt hơn.
 
-### Bẫy 2: Nhầm "gấp 3 lần" với "nhiều hơn 3"
-Dùng **three times as high** cho tỷ lệ 3:1; **increased by 200%** cho mức tăng từ 1 lên 3. Three times higher có cách hiểu không thống nhất nên tránh trong câu hỏi cần tỷ lệ chính xác.
+### Bẫy 2: Nhầm "gấp 3 lần" (×3) với "tăng 3 lần / tăng 300%" (×4)
+Khi đọc, *three times as high as* = ×3; *increased by 200%* cũng là ×3 (từ 1 lên 3); *increased to 200%* = ×2. Đọc kỹ *by* hay *to*.
 
 ### Bẫy 3: Bỏ qua trạng từ mức độ
 *rose slightly* ≠ *rose sharply* — mức độ quyết định TRUE/FALSE.
