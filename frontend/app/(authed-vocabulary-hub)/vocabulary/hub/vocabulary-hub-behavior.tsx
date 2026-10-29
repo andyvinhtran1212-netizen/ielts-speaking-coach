@@ -11,6 +11,16 @@ export function VocabularyHubBehavior() {
   return <VocabularyAccount>{key => <Hub key={key} />}</VocabularyAccount>;
 }
 
+// PC-J147 — the chrome on this page is `role-source="page"`: it skips its own
+// /auth/me and takes the staff role from this read. A failed read leaves the
+// staff link unrendered (fail-closed, as the chrome's own lookup does).
+function shareRoleWithChrome(role: string | null) {
+  void customElements.whenDefined('aver-chrome').then(() => {
+    const chrome = document.querySelector('aver-chrome') as (Element & { setRole?: (role: string | null) => void }) | null;
+    chrome?.setRole?.(role);
+  });
+}
+
 function Hub() {
   const params = useSearchParams();
   const router = useRouter();
@@ -29,6 +39,8 @@ function Hub() {
   useEffect(() => {
     const controller = new AbortController();
     let dead = false;
+    // A remount for another account (BL-08) must not keep the previous role.
+    shareRoleWithChrome(null);
     (async () => {
       if (!await whenGlobalReady(() => !!window.api?.getWith, 'Vocabulary summary') || dead) return;
       const [summary, profile] = await Promise.allSettled([
@@ -40,7 +52,10 @@ function Hub() {
         const v = summary.value.skills.vocabulary;
         setStats({ saved: v.wallet_words || 0, recalled: v.quiz_words_mastered || 0, quizzes: v.quiz_sessions || 0 });
       } else setStatsError(true);
-      if (profile.status === 'fulfilled') setFlags({ flashcards: profile.value.flashcard_enabled === true, d1: profile.value.d1_enabled === true, curated: profile.value.vocab_curated_enabled === true });
+      if (profile.status === 'fulfilled') {
+        setFlags({ flashcards: profile.value.flashcard_enabled === true, d1: profile.value.d1_enabled === true, curated: profile.value.vocab_curated_enabled === true });
+        shareRoleWithChrome(profile.value.role ?? null);
+      }
     })();
     return () => { dead = true; controller.abort(); };
   }, []);
