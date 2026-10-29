@@ -45,7 +45,9 @@ with an inline `users.role = 'admin'` check and nothing else (no AAL2, no
 `"Admin only"`. Admin access to these tables goes through FastAPI
 (`service_role` + the 0032 staff guard) only. The learner own-row dictation
 policies are unchanged. `user_feedback` and `lemma_overrides` lose every
-`anon`/`authenticated` privilege (no policy and no JWT reader is left);
+`anon`/`authenticated` privilege (no policy and no JWT reader is left), and so
+does `access_codes` (no JWT reader; its 106 helper policies stay but admit no
+client role, so the codes no longer depend on 108's EXECUTE revoke, PC-J161);
 the dictation tables and `vocabulary_exercises` keep SELECT. It also pins
 `search_path = public, pg_temp` on the four 283 grammar trigger functions
 (`prevent_grammar_evidence_mutation`,

@@ -17,9 +17,11 @@
 --   vocabulary_exercises      vocab_exercises_select (admin OR branch) SELECT
 --   access_codes              "Admin only"                            ALL
 -- anon and authenticated hold SELECT on all of these tables, so an admin JWT
--- read every dictation transcript, every learner feedback row, every draft
--- exercise and (once 344 drops the policies that raise 42501) every access
--- code through /rest/v1/. That held at AAL1 (password only), after
+-- read every dictation transcript, every learner feedback row and every draft
+-- exercise through /rest/v1/. On access_codes the other two policies
+-- (access_codes_admin_all, access_codes_instructor_own, 106) raise 42501
+-- today only because 108 revoked EXECUTE on their helpers; drop that and an
+-- admin JWT reads every code. That held at AAL1 (password only), after
 -- deactivation and for up to 3600 s after suspension (the old token), even
 -- with ADMIN_AAL2_ENFORCE=true: services/staff_guard.py guards only FastAPI.
 --
@@ -32,7 +34,7 @@
 -- anything not published, and its pre-211 snapshot fallback only looks up
 -- exercises the session already served from the published pool. So admin
 -- access goes through the backend only (service_role + the 0032 staff
--- guard), as with 344, and no strict admin helper is created.
+-- guard), and no strict admin helper is created.
 --
 -- This migration:
 --   1. drops the seven admin-only policies (the learner own-row policies
@@ -43,9 +45,12 @@
 --      reading published exercises, drafts are now invisible to every JWT);
 --   3. revokes every client privilege from PUBLIC, anon and authenticated on
 --      user_feedback and lemma_overrides, which now have no policy and no JWT
---      reader (same as 344). The dictation tables keep SELECT so the learner
---      own-row policies stay live; vocabulary_exercises keeps SELECT for
---      routers/exercises.py; access_codes grants belong to 344;
+--      reader, and on access_codes, which has no JWT reader (every access goes
+--      through service_role) and must not depend on 108's EXECUTE revoke to
+--      keep the codes unreadable (PC-J161). The 106 helper policies on
+--      access_codes stay; without a grant they admit no client role. The
+--      dictation tables keep SELECT so the learner own-row policies stay
+--      live; vocabulary_exercises keeps SELECT for routers/exercises.py;
 --   4. Part B (I3): pins search_path = public, pg_temp on the four SECURITY
 --      INVOKER grammar trigger functions of 283
 --      (prevent_grammar_evidence_mutation, prevent_completed_grammar_session_mutation,
@@ -68,7 +73,9 @@
 --   · vocab_exercises_select is status = 'published' only; RLS is on for
 --     every table that held one of the changed policies (removing a policy
 --     from a table without RLS would protect nothing);
---   · no client privilege on user_feedback / lemma_overrides;
+--   · no client privilege on user_feedback / lemma_overrides / access_codes,
+--     and, checked on its own, no SELECT for PUBLIC, anon or authenticated on
+--     access_codes (table or column level);
 --   · the four grammar functions carry search_path=public, pg_temp;
 --   · the row count of every target table is unchanged.
 --
@@ -87,6 +94,9 @@
 --   SELECT p.oid::regprocedure, p.proconfig FROM pg_proc p
 --    WHERE p.proname LIKE 'prevent_%grammar%';
 --   -- four rows, each {"search_path=public, pg_temp"}
+--   SELECT r, has_table_privilege(r, 'public.access_codes', 'SELECT')
+--     FROM unnest(ARRAY['anon', 'authenticated']) r;
+--   -- two rows, both f
 --
 -- Rollback (forward migration). It REOPENS F1: every admin JWT, AAL1,
 -- deactivated or suspended, reads these tables through /rest/v1/ again.
@@ -108,16 +118,15 @@
 --       WITH CHECK (EXISTS (SELECT 1 FROM public.users WHERE users.id = auth.uid() AND users.role = 'admin'));
 --   ALTER POLICY vocab_exercises_select ON public.vocabulary_exercises
 --       USING (status = 'published' OR EXISTS (SELECT 1 FROM public.users WHERE users.id = auth.uid() AND users.role = 'admin'));
---   CREATE POLICY "Admin only" ON public.access_codes
---       FOR ALL USING (EXISTS (SELECT 1 FROM public.users WHERE users.id = auth.uid() AND users.role = 'admin'));
 --   GRANT SELECT ON public.user_feedback, public.lemma_overrides TO anon, authenticated;
 --   ALTER FUNCTION public.prevent_grammar_evidence_mutation() RESET search_path;
 --   ALTER FUNCTION public.prevent_completed_grammar_session_mutation() RESET search_path;
 --   ALTER FUNCTION public.prevent_grammar_release_content_mutation() RESET search_path;
 --   ALTER FUNCTION public.prevent_validated_grammar_release_rewrite() RESET search_path;
 --   COMMIT;
--- (Leave out the access_codes line once 344 is applied: it revokes client
--- access to that table, so the policy would only be dead weight.)
+-- access_codes is left out on purpose: no JWT reader needs it, and giving
+-- anon/authenticated SELECT back (with or without "Admin only") lets an admin
+-- or instructor JWT read codes as soon as the 108 helpers are executable.
 
 BEGIN;
 SET LOCAL lock_timeout = '5s';
@@ -133,7 +142,7 @@ DECLARE
         ['lemma_overrides',           'Admins manage lemma overrides'],
         ['vocabulary_exercises',      'vocab_exercises_admin_write'],
         ['access_codes',              'Admin only']];
-    revoked_tables CONSTANT TEXT[] := ARRAY['user_feedback', 'lemma_overrides'];
+    revoked_tables CONSTANT TEXT[] := ARRAY['user_feedback', 'lemma_overrides', 'access_codes'];
     grammar_functions CONSTANT TEXT[] := ARRAY[
         'prevent_grammar_evidence_mutation',
         'prevent_completed_grammar_session_mutation',
@@ -303,6 +312,18 @@ BEGIN
        AND has_table_privilege(r, c.oid, priv);
     IF gaps IS NOT NULL THEN
         RAISE EXCEPTION 'client_privilege_remains: %', gaps;
+    END IF;
+
+    -- The codes stay unreadable to every client role whatever revoked_tables
+    -- says (PC-J161).
+    IF to_regclass('public.access_codes') IS NOT NULL THEN
+        SELECT string_agg(r, ', ' ORDER BY r) INTO gaps
+          FROM unnest(ARRAY['public', 'anon', 'authenticated']) r
+         WHERE has_table_privilege(r, 'public.access_codes', 'SELECT')
+            OR has_any_column_privilege(r, 'public.access_codes', 'SELECT');
+        IF gaps IS NOT NULL THEN
+            RAISE EXCEPTION 'access_codes_client_select_remains: %', gaps;
+        END IF;
     END IF;
 
     SELECT string_agg(p.proname, ', ' ORDER BY p.proname) INTO gaps

@@ -8,7 +8,8 @@ dictation tables, user_feedback, lemma_overrides, draft vocabulary exercises
 and access codes through /rest/v1/, at AAL1, deactivated, or suspended with a
 token that is still valid. 345 drops them, narrows vocab_exercises_select to
 published rows, revokes client privileges on the two tables left without a
-policy and pins search_path on the four grammar triggers.
+policy and on access_codes (no JWT reader; PC-J161), and pins search_path on
+the four grammar triggers.
 
 The static half always runs. It pins the drop list to the original policies,
 the rollback note to the drops, and Step 0 of the job: no frontend
@@ -78,7 +79,7 @@ KEPT = {
     ("vocabulary_exercises", "vocab_exercises_select"): "021_vocabulary_exercises.sql",
 }
 TABLES = sorted({table for table, _ in DROPPED})
-REVOKED = ("lemma_overrides", "user_feedback")
+REVOKED = ("access_codes", "lemma_overrides", "user_feedback")
 GRAMMAR_FUNCTIONS = ("prevent_grammar_evidence_mutation", "prevent_completed_grammar_session_mutation",
                      "prevent_grammar_release_content_mutation", "prevent_validated_grammar_release_rewrite")
 GRAMMAR_SQL = (MIGRATIONS / "283_master30_grammar_diagnostic.sql").read_text(encoding="utf-8")
@@ -103,7 +104,7 @@ def _create_policy_statements(path: str, table: str) -> list[tuple[str, str]]:
 
 
 def _rollback_sql() -> str:
-    note = SQL[SQL.index("-- Rollback"):SQL.index("-- (Leave out the access_codes line")]
+    note = SQL[SQL.index("-- Rollback"):SQL.index("-- access_codes is left out on purpose")]
     lines = [line[5:] if line.startswith("--   ") else line[3:]
              for line in note.splitlines() if line.startswith("--   ")]
     return "\n".join(lines)
@@ -174,7 +175,8 @@ def test_postconditions_are_catalog_driven():
     post = CODE[CODE.rindex("SET search_path = public, pg_temp;"):]
     for marker in ("inline_admin_policy_remains", "non_target_policy_changed",
                    "vocab_exercises_select_not_published_only", "rls_disabled",
-                   "client_privilege_remains", "grammar_function_search_path_not_pinned",
+                   "client_privilege_remains", "access_codes_client_select_remains",
+                   "grammar_function_search_path_not_pinned",
                    "row_count_changed"):
         assert marker in post, marker
     # The inline check scans every public policy, not the drop list.
@@ -185,7 +187,11 @@ def test_rollback_note_restores_every_dropped_policy_and_resets_every_function()
     rollback = _rollback_sql()
     assert rollback.startswith("BEGIN;") and rollback.rstrip().endswith("COMMIT;")
     for table, policy in DROPPED:
+        if table == "access_codes":
+            continue
         assert re.search(rf'CREATE POLICY "?{re.escape(policy)}"? ON public\.{table}\b', rollback), policy
+    # PC-J161: neither "Admin only" nor the client grant on access_codes comes back.
+    assert "access_codes" not in rollback
     assert "ALTER POLICY vocab_exercises_select ON public.vocabulary_exercises" in rollback
     for name in GRAMMAR_FUNCTIONS:
         assert f"ALTER FUNCTION public.{name}() RESET search_path;" in rollback
@@ -485,19 +491,20 @@ def test_no_admin_jwt_reads_any_row_after_345(world, admin):
     visible = _visible(world["db"], world["ids"])[admin]
     assert visible == {
         "dictation_sessions": "0", "dictation_attempts": "0", "dictation_attempt_answers": "0",
-        "user_feedback": "42501", "lemma_overrides": "42501", "access_codes": "0",
+        "user_feedback": "42501", "lemma_overrides": "42501", "access_codes": "42501",
         "vocabulary_exercises": "2", "vocabulary_exercises:unpublished": "0"}
 
 
-def test_learners_anon_and_service_role_are_unchanged_except_feedback_and_lemma(world):
+def test_learners_anon_and_service_role_are_unchanged_except_the_revoked_tables(world):
     after = _visible(world["db"], world["ids"])
     before = world["before"]["visible"]
     assert before["learner"] == {
         "dictation_sessions": "2", "dictation_attempts": "1", "dictation_attempt_answers": "2",
         "user_feedback": "0", "lemma_overrides": "0", "access_codes": "0",
         "vocabulary_exercises": "2", "vocabulary_exercises:unpublished": "0"}
-    assert after["learner"] == {**before["learner"], "user_feedback": "42501", "lemma_overrides": "42501"}
-    assert after["anon"] == {**before["anon"], "user_feedback": "42501", "lemma_overrides": "42501"}
+    revoked = dict.fromkeys(REVOKED, "42501")
+    assert after["learner"] == {**before["learner"], **revoked}
+    assert after["anon"] == {**before["anon"], **revoked}
     assert after["anon"]["vocabulary_exercises"] == "2" and after["anon"]["dictation_sessions"] == "0"
     assert after["service_role"] == before["service_role"] == ALL_ROWS
     # The learner sees exactly their own rows, not just the right number.
@@ -566,11 +573,102 @@ def test_rollback_note_reopens_the_hole_and_re_apply_closes_it(pre):
     _apply(database, _rollback_sql())
     reopened = _visible(database, ids)
     for admin in ("admin_aal1", "admin_inactive_aal2", "admin_suspended_aal2"):
-        assert reopened[admin] == ALL_ROWS, admin
+        # access_codes stays closed: the note does not restore it (PC-J161).
+        assert reopened[admin] == {**ALL_ROWS, "access_codes": "42501"}, admin
     assert _hostile_search_path_update(database) == "updated"
     _apply(database)
     assert _visible(database, ids)["admin_aal1"]["dictation_sessions"] == "0"
     assert "immutable" in _hostile_search_path_update(database)
+
+
+# PC-J161 (SA 2026-10-29): access_codes keeps the 106 helper policies after
+# 345, and 108 is all that stops them: it revokes EXECUTE on the helpers, so
+# every JWT read raises 42501. Running the rollback note of 108 re-grants
+# EXECUTE, and with client SELECT still on the table an admin JWT reads every
+# code through access_codes_admin_all and an instructor JWT their own.
+HARDENING_SQL = (MIGRATIONS / "108_security_hardening.sql").read_text(encoding="utf-8")
+HELPERS = {"is_current_user_admin": "033_writing_coach_tables.sql",
+           "is_current_user_instructor": "106_instructor_role_foundation.sql"}
+
+
+def _helper_function(name: str) -> str:
+    code = _strip_sql_comments((MIGRATIONS / HELPERS[name]).read_text(encoding="utf-8"))
+    return re.search(rf"CREATE OR REPLACE FUNCTION public\.{name}\(\).*?"
+                     r"\$\$ LANGUAGE plpgsql SECURITY DEFINER STABLE;", code, re.S).group(0)
+
+
+def _hardening_rollback_grants() -> list[str]:
+    grants = [line[3:] for line in HARDENING_SQL.splitlines()
+              if re.fullmatch(r"-- GRANT EXECUTE ON FUNCTION public\.is_current_user_(admin|instructor)\(\)"
+                              r"\s+TO PUBLIC;", line)]
+    assert len(grants) == 2, grants
+    return grants
+
+
+def _access_codes_helper_shape(database: str, ids: dict[str, str]) -> str:
+    """Adds the 106 helper policies and 108 EXECUTE revokes; returns the
+    instructor id, who issued AVR-2."""
+    hardening = _strip_sql_comments(HARDENING_SQL)
+    revokes = re.findall(r"REVOKE EXECUTE ON FUNCTION public\.is_current_user_(?:admin|instructor)\(\)"
+                         r"\s+FROM PUBLIC, anon, authenticated;", hardening)
+    assert len(revokes) == 2
+    policies = dict(_create_policy_statements("106_instructor_role_foundation.sql", "access_codes"))
+    assert set(policies) == {"access_codes_admin_all", "access_codes_instructor_own"}
+    _run(database, "\n".join(["ALTER TABLE access_codes ADD COLUMN issued_by uuid;",
+                              *map(_helper_function, HELPERS), *revokes, *policies.values()]), role=RUNNER)
+    instructor = str(uuid4())
+    sql(database, f"""INSERT INTO users VALUES ('{instructor}', 'instructor', true, NULL);
+        UPDATE access_codes SET issued_by = '{instructor}' WHERE code = 'AVR-2';""")
+    return instructor
+
+
+def _read_codes(database: str, user: str) -> str:
+    try:
+        return _run(database, f"SELECT set_config('request.jwt.claims', '{_claims(user, 'aal2')}', false);"
+                              " SELECT count(*) FROM public.access_codes;",
+                    role="authenticated").splitlines()[-1]
+    except RuntimeError as error:
+        return str(error).strip().splitlines()[0]
+
+
+def test_access_codes_has_no_client_select_after_345(world):
+    for role in ("public", "anon", "authenticated"):
+        for check in ("has_table_privilege", "has_any_column_privilege"):
+            assert sql(world["db"], f"SELECT {check}('{role}', 'public.access_codes', 'SELECT')") == "f", (
+                role, check)
+    assert sql(world["db"], "SELECT has_table_privilege('service_role', 'public.access_codes', "
+                            "'SELECT, INSERT, UPDATE, DELETE')") == "t"
+
+
+def test_rolling_back_108_helper_grants_after_345_exposes_no_access_code(pre):
+    database, ids = pre
+    instructor = _access_codes_helper_shape(database, ids)
+    grants = "\n".join(_hardening_rollback_grants())
+    # With 108 in force every JWT read raises on the helper.
+    assert "permission denied for function is_current_user_" in _read_codes(database, ids["admin"])
+    # The SA scenario before 345: the 108 rollback alone opens the codes.
+    _run(database, grants, role=RUNNER)
+    assert _read_codes(database, ids["admin"]) == "2"
+    assert _read_codes(database, instructor) == "1"
+    _apply(database)
+    _run(database, grants, role=RUNNER)
+    assert sql(database, "SELECT has_function_privilege('authenticated', "
+                         "'public.is_current_user_admin()', 'EXECUTE')") == "t"
+    for user in (ids["admin"], ids["admin_suspended"], instructor, ids["learner"]):
+        assert "permission denied for table access_codes" in _read_codes(database, user), user
+    assert sql(database, "SELECT count(*) FROM access_codes") == "2"
+
+
+def test_108_rollback_note_warns_about_access_codes():
+    note = HARDENING_SQL[HARDENING_SQL.index("-- Rollback (c)"):]
+    warning = note[:note.index("-- GRANT EXECUTE ON FUNCTION public.is_current_user_admin()")]
+    assert "access_codes_admin_all" in warning and "345" in warning, warning
+    # Comment only: the executable SQL of 108 is unchanged.
+    assert _strip_sql_comments(HARDENING_SQL).count("REVOKE EXECUTE ON FUNCTION public.is_current_user_") == 2
+
+
+def test_345_does_not_depend_on_an_unshipped_344():
+    assert "344" not in SQL
 
 
 def _mutated(old: str, new: str) -> str:
@@ -600,13 +698,17 @@ def _mutated(old: str, new: str) -> str:
                   'DROP POLICY IF EXISTS "admins read feedback" ON public.user_feedback;'
                   ' DROP POLICY "users read own dictation sessions" ON public.dictation_sessions;'),
      "non_target_policy_changed"),
-    ("", _mutated("revoked_tables CONSTANT TEXT[] := ARRAY['user_feedback', 'lemma_overrides'];",
-                  "revoked_tables CONSTANT TEXT[] := ARRAY['user_feedback', 'lemma_overrides'];"
+    ("", _mutated("revoked_tables CONSTANT TEXT[] := ARRAY['user_feedback', 'lemma_overrides', 'access_codes'];",
+                  "revoked_tables CONSTANT TEXT[] := ARRAY['user_feedback', 'lemma_overrides', 'access_codes'];"
                   " skip TEXT[] := ARRAY['lemma_overrides'];").replace(
          "        IF to_regclass('public.' || t) IS NOT NULL THEN\n            EXECUTE format('REVOKE",
          "        IF to_regclass('public.' || t) IS NOT NULL AND NOT t = ANY (skip) THEN\n"
          "            EXECUTE format('REVOKE"),
      "client_privilege_remains: lemma_overrides:anon:SELECT"),
+    # Dropping access_codes from the list is caught by its own check.
+    ("", _mutated("ARRAY['user_feedback', 'lemma_overrides', 'access_codes'];",
+                  "ARRAY['user_feedback', 'lemma_overrides'];"),
+     "access_codes_client_select_remains: anon, authenticated"),
     ("", _mutated("        ALTER FUNCTION public.prevent_grammar_evidence_mutation() SET search_path = public, pg_temp;",
                   "        NULL;"),
      "grammar_function_search_path_not_pinned: prevent_grammar_evidence_mutation"),
@@ -614,7 +716,8 @@ def _mutated(old: str, new: str) -> str:
                                                 "    -- ── 6. Postconditions"),
      "row_count_changed"),
 ], ids=lambda value: value.split(":")[0] if value.startswith(("inline", "rls", "vocab", "grammar",
-                                                                    "non_", "client", "row_")) else "")
+                                                                    "non_", "client", "access_codes_",
+                                                                    "row_")) else "")
 def test_postcondition_rejects_an_unsafe_state(pre, setup, text, marker):
     database, ids = pre
     if setup:

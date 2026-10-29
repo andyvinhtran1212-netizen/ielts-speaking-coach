@@ -96,7 +96,9 @@ its NOSUPERUSER owner role, with a stand-in `auth.audit_log_entries`.
   `backend/tests/test_rls_no_inline_admin_role_policy.py` (PG 16 and 17), then
   the read-only catalog query in the 345 header on staging after apply.
   Residual: learners keep SELECT on their own dictation rows and on published
-  exercises; the `access_codes` client grants are removed by 344.
+  exercises. 345 also revokes every `anon`/`authenticated` privilege on
+  `access_codes` and fails if any client role can still SELECT it (PC-J161),
+  so the codes do not rely on 108 keeping EXECUTE revoked on the helpers.
 
 ## UI evidence
 
