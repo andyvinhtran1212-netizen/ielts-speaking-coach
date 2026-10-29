@@ -4,6 +4,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { getAdminUsers } from '@/lib/admin-users-api';
 import { normalizeUsersPayload, selectUsers, validateCodeDraft } from '@/lib/admin-users-model.mjs';
+import { patchBrowserJsonAt, postBrowserJsonAt } from '@/lib/browser-api';
+
+import { AdminSecurityHistory } from './admin-security-history';
+import {
+  activeChangeBanner,
+  canManageStaff,
+  REASON_MAX,
+  revokeRetryBanner,
+  roleChangeBanner,
+  validateReason,
+} from './admin-staff-security-model.mjs';
 
 import type { AdminCohort, AdminUser, Banner, SortState } from './admin-user-types';
 import { CODE_TYPES, ROLES } from './admin-user-types';
@@ -28,6 +39,18 @@ type ConfirmState = null | {
   danger?: boolean;
   run: () => Promise<void>;
 };
+
+// ADMINAAL2-0032 T011: suspend/reactivate needs a 3–500 char reason (FR-006).
+type StaffActionDraft = { user: AdminUser; nextActive: boolean; reason: string; error: string };
+// The outcome of a staff-security mutation, with the follow-up it still needs:
+// `revoke` retries POST …/revoke-sessions (FR-008), `reactivate` repeats the
+// PATCH after a failed unban.
+type StaffOutcome = {
+  kind: 'success' | 'warning' | 'error';
+  text: string;
+  retry: 'revoke' | 'reactivate' | null;
+};
+type StaffNotice = null | (StaffOutcome & { user: AdminUser; reason: string });
 
 type ConvertDraft = { user: AdminUser; studentCode: string; fullName: string; error: string };
 type GenerateDraft = {
@@ -56,6 +79,10 @@ export function AdminUsersPanel({ profileId, cohorts, cohortsError }: {
   const [convert, setConvert] = useState<ConvertDraft | null>(null);
   const [generate, setGenerate] = useState<GenerateDraft | null>(null);
   const [mutationBusy, setMutationBusy] = useState(false);
+  const [staffAction, setStaffAction] = useState<StaffActionDraft | null>(null);
+  const [staffNotice, setStaffNotice] = useState<StaffNotice>(null);
+  const [staffPendingId, setStaffPendingId] = useState<string | null>(null);
+  const [historyUser, setHistoryUser] = useState<AdminUser | null>(null);
   const sequence = useRef(0);
 
   const loadUsers = useCallback(async (silent = false) => {
@@ -79,6 +106,9 @@ export function AdminUsersPanel({ profileId, cohorts, cohortsError }: {
   useEffect(() => {
     setUsers([]);
     setBanner(null);
+    setStaffNotice(null);
+    setStaffAction(null);
+    setHistoryUser(null);
     setRole('');
     setSearch('');
     setSort({ field: 'created_at', order: 'desc' });
@@ -106,6 +136,7 @@ export function AdminUsersPanel({ profileId, cohorts, cohortsError }: {
     if (mutationBusy) return;
     setMutationBusy(true);
     setBanner(null);
+    setStaffNotice(null);
     try {
       await action();
       const reloaded = await loadUsers(true);
@@ -130,11 +161,110 @@ export function AdminUsersPanel({ profileId, cohorts, cohortsError }: {
       danger: user.id === profileId && nextRole !== 'admin',
       run: user.id === profileId && nextRole !== 'admin'
         ? async () => { throw new Error('Không thể tự hạ quyền admin của chính mình.'); }
-        : async () => mutate(
-          () => window.api.patch(`/admin/users/${encodeURIComponent(user.id)}/role`, { role: nextRole }),
-          `Đã cập nhật vai trò thành ${nextRole}.`,
-        ),
+        : async () => changeRole(user, nextRole),
     });
+  };
+
+  // Every staff-security outcome is shown only after the canonical list reloads.
+  const finishStaffChange = async (user: AdminUser, reason: string, outcome: StaffOutcome) => {
+    const reloaded = await loadUsers(true);
+    setStaffNotice(reloaded
+      ? { ...outcome, user, reason }
+      : {
+        ...outcome,
+        kind: outcome.kind === 'success' ? 'error' : outcome.kind,
+        text: `${outcome.text} Tuy nhiên chưa tải lại được dữ liệu chuẩn; hãy bấm Tải lại.`,
+        user,
+        reason,
+      });
+  };
+
+  // FR-007/FR-019: a refused change (409 last_admin, 409
+  // account_suspended_role_change) shows the backend's message, and the list
+  // is reloaded so the row shows the unchanged role.
+  const changeRole = async (user: AdminUser, nextRole: string) => {
+    if (mutationBusy) return;
+    setMutationBusy(true);
+    setBanner(null);
+    setStaffNotice(null);
+    try {
+      const response = await patchBrowserJsonAt(
+        '/admin/users/{user_id}/role',
+        `/admin/users/${encodeURIComponent(user.id)}/role`,
+        { role: nextRole },
+      );
+      await finishStaffChange(user, '', roleChangeBanner(nextRole, response));
+    } catch (caught) {
+      const reloaded = await loadUsers(true);
+      setBanner({ kind: 'error', text: reloaded ? messageOf(caught) : `${messageOf(caught)} Chưa tải lại được dữ liệu chuẩn; hãy bấm Tải lại.` });
+    } finally {
+      setMutationBusy(false);
+    }
+  };
+
+  const openStaffAction = (user: AdminUser) => {
+    if (mutationBusy || !canManageStaff(user, profileId)) return;
+    setStaffAction({ user, nextActive: !user.is_active, reason: '', error: '' });
+  };
+
+  const setStaffActive = (user: AdminUser, nextActive: boolean, reason: string) => patchBrowserJsonAt(
+    '/admin/users/{user_id}/active',
+    `/admin/users/${encodeURIComponent(user.id)}/active`,
+    { is_active: nextActive, reason },
+  );
+
+  const submitStaffAction = async () => {
+    if (!staffAction || mutationBusy) return;
+    const invalid = validateReason(staffAction.reason);
+    if (invalid) {
+      setStaffAction({ ...staffAction, error: invalid });
+      return;
+    }
+    const { user, nextActive } = staffAction;
+    const reason = staffAction.reason.trim();
+    setMutationBusy(true);
+    setStaffPendingId(user.id);
+    setBanner(null);
+    setStaffNotice(null);
+    try {
+      const response = await setStaffActive(user, nextActive, reason);
+      setStaffAction(null);
+      await finishStaffChange(user, reason, activeChangeBanner(nextActive, response));
+    } catch (caught) {
+      // The dialog stays open with the typed reason; the list is reloaded in
+      // case an unanswered request still committed.
+      setStaffAction({ ...staffAction, error: messageOf(caught) });
+      await loadUsers(true);
+    } finally {
+      setMutationBusy(false);
+      setStaffPendingId(null);
+    }
+  };
+
+  const runStaffRetry = async () => {
+    if (!staffNotice?.retry || mutationBusy) return;
+    const { retry, user, reason } = staffNotice;
+    setMutationBusy(true);
+    setStaffPendingId(user.id);
+    try {
+      if (retry === 'revoke') {
+        const response = await postBrowserJsonAt(
+          '/admin/users/{user_id}/revoke-sessions',
+          `/admin/users/${encodeURIComponent(user.id)}/revoke-sessions`,
+          reason ? { reason } : {},
+        );
+        await finishStaffChange(user, reason, revokeRetryBanner(response));
+      } else {
+        const response = await setStaffActive(user, true, reason);
+        await finishStaffChange(user, reason, activeChangeBanner(true, response));
+      }
+    } catch (caught) {
+      await loadUsers(true);
+      setStaffNotice({ kind: 'error', text: messageOf(caught), retry, user, reason });
+    } finally {
+      setMutationBusy(false);
+      setStaffPendingId(null);
+    }
   };
 
   const submitConvert = async () => {
@@ -217,6 +347,20 @@ export function AdminUsersPanel({ profileId, cohorts, cohortsError }: {
       </div>
 
       <StatusBanner banner={banner} />
+      {staffNotice && (
+        <div
+          className={staffNotice.kind === 'warning' ? 'au-inline-warning' : `au-banner is-${staffNotice.kind}`}
+          role={staffNotice.kind === 'success' ? 'status' : 'alert'}
+          data-testid="staff-security-notice"
+        >
+          <span>{staffNotice.text}</span>
+          {staffNotice.retry && (
+            <button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => void runStaffRetry()} disabled={mutationBusy}>
+              {mutationBusy ? 'Đang xử lý…' : staffNotice.retry === 'revoke' ? 'Thu hồi phiên lại' : 'Thử lại'}
+            </button>
+          )}
+        </div>
+      )}
       {cohortsError && <div className="au-inline-warning" role="alert">Không tải được danh sách lớp: {cohortsError}. Chức năng tạo mã Trực tiếp tạm thời chưa dùng được.</div>}
 
       <div className="au-toolbar">
@@ -271,6 +415,13 @@ export function AdminUsersPanel({ profileId, cohorts, cohortsError }: {
                   <select id={`role-${user.id}`} value={user.role} onChange={(event) => askRoleChange(user, event.target.value)} disabled={mutationBusy}>
                     {ROLES.map((item) => <option key={item} value={item}>{item}</option>)}
                   </select>
+                  {canManageStaff(user, profileId) && <button
+                    className={user.is_active ? 'adm-btn-danger adm-btn-sm' : 'adm-btn-secondary adm-btn-sm'}
+                    type="button"
+                    onClick={() => openStaffAction(user)}
+                    disabled={mutationBusy}
+                  >{staffPendingId === user.id ? 'Đang xử lý…' : user.is_active ? 'Tạm khóa' : 'Mở khóa'}</button>}
+                  <button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => setHistoryUser(user)}>Lịch sử quyền</button>
                   <button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => setConvert({ user, studentCode: user.email.split('@')[0] || '', fullName: user.display_name || user.email, error: '' })}>Tạo hồ sơ HV</button>
                   {!summary.has_active_code && <button className="adm-btn-primary adm-btn-sm" type="button" onClick={() => setGenerate({ user, codeType: 'mass', cohortId: '', permissions: ['all'], sessionLimit: '', expiresAt: '', error: '' })}>Tạo + gán mã</button>}
                   {summary.has_active_code && primary && <button className="adm-btn-danger adm-btn-sm" type="button" onClick={() => setConfirm({
@@ -291,6 +442,52 @@ export function AdminUsersPanel({ profileId, cohorts, cohortsError }: {
       )}
 
       <ConfirmDialog state={confirm} busy={mutationBusy} onClose={() => setConfirm(null)} onConfirm={() => void runConfirm()} />
+
+      <Dialog
+        open={Boolean(staffAction)}
+        title={staffAction?.nextActive ? 'Mở khóa tài khoản' : 'Tạm khóa tài khoản'}
+        description={staffAction ? (staffAction.nextActive
+          ? `Mở khóa ${staffAction.user.email || staffAction.user.display_name || staffAction.user.id}? Tài khoản sẽ đăng nhập lại được với vai trò ${staffAction.user.role}.`
+          : `Tạm khóa ${staffAction.user.email || staffAction.user.display_name || staffAction.user.id}? Mọi phiên đăng nhập sẽ bị thu hồi và tài khoản không đăng nhập lại được cho đến khi được mở khóa.`) : undefined}
+        busy={mutationBusy}
+        onClose={() => setStaffAction(null)}
+        actions={<>
+          <button className="adm-btn-secondary" type="button" onClick={() => setStaffAction(null)} disabled={mutationBusy}>Hủy</button>
+          <button className={staffAction?.nextActive ? 'adm-btn-primary' : 'adm-btn-danger'} type="button" onClick={() => void submitStaffAction()} disabled={mutationBusy}>
+            {mutationBusy ? 'Đang xử lý…' : staffAction?.nextActive ? 'Mở khóa' : 'Tạm khóa'}
+          </button>
+        </>}
+      >
+        {staffAction && <>
+          <Field label="Lý do" hint={`${staffAction.reason.trim().length}/${REASON_MAX} ký tự (tối thiểu 3). Ctrl+Enter để xác nhận.`}>
+            <textarea
+              value={staffAction.reason}
+              maxLength={REASON_MAX}
+              rows={4}
+              disabled={mutationBusy}
+              onChange={(event) => setStaffAction({ ...staffAction, reason: event.target.value, error: '' })}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                  event.preventDefault();
+                  void submitStaffAction();
+                }
+              }}
+            />
+          </Field>
+          {staffAction.error && <div className="au-inline-error" role="alert">{staffAction.error}</div>}
+        </>}
+      </Dialog>
+
+      <Dialog
+        open={Boolean(historyUser)}
+        title="Lịch sử quyền"
+        description={historyUser ? historyUser.email || historyUser.display_name || historyUser.id : undefined}
+        onClose={() => setHistoryUser(null)}
+        wide
+        actions={<button className="adm-btn-secondary" type="button" onClick={() => setHistoryUser(null)}>Đóng</button>}
+      >
+        {historyUser && <AdminSecurityHistory userId={historyUser.id} />}
+      </Dialog>
 
       <Dialog
         open={Boolean(convert)}

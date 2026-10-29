@@ -21,6 +21,10 @@ import {
   resolveInstructorGradeReview,
 } from '@/lib/instructor-grade-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import {
+  InstructorInactiveState,
+  useInstructorInactiveGuard,
+} from '@/app/(authed-instructor)/instructor/instructor-inactive';
 
 type Phase = 'loading' | 'ready' | 'denied' | 'error';
 type Banner = { tone: 'success' | 'danger' | 'warning'; message: string } | null;
@@ -166,13 +170,19 @@ export function InstructorGrade() {
   const accountKey = status === 'signed-in' && user?.id ? user.id : '';
   const accountRef = useRef(accountKey);
   accountRef.current = accountKey;
+  // FR-014: an inactive 403 after load replaces the page; the unsaved note stays in state.
+  const { inactive, inactiveRef, deny, reset: resetInactive } = useInstructorInactiveGuard();
 
   const readCanonical = async (id: string, target: string | null, requested: string | null): Promise<Snapshot> => {
+    const ownerId = accountRef.current;
     const [essayResult, versionsResult, queueResult] = await Promise.allSettled([
       window.api.get<unknown>(instructorApiPath(`/instructor/essays/${encodeURIComponent(id)}`, target)),
       window.api.get<unknown>(instructorApiPath(`/instructor/essays/${encodeURIComponent(id)}/versions`, target)),
       window.api.get<unknown>(instructorApiPath('/instructor/reviews/queue', target)),
     ]);
+    for (const result of [essayResult, versionsResult, queueResult]) {
+      if (result.status === 'rejected' && ownerId === accountRef.current && deny(result.reason)) throw result.reason;
+    }
     if (essayResult.status === 'rejected') throw essayResult.reason;
     const essay = normalizeInstructorGradeEssay(essayResult.value, id);
     if (!essay) throw new Error('Backend trả dữ liệu bài viết không đúng định dạng.');
@@ -199,6 +209,7 @@ export function InstructorGrade() {
   };
 
   const applySnapshot = (next: Snapshot) => {
+    if (inactiveRef.current) return;
     setSnapshot(next);
     setNote(next.essay.instructorNote);
     setDirty(false);
@@ -213,6 +224,7 @@ export function InstructorGrade() {
     }
     if (status !== 'signed-in' || !user?.id) return;
     const requestId = ++sequence.current;
+    resetInactive();
     setPhase('loading');
     setLoadError('');
     setSnapshot(null);
@@ -293,7 +305,7 @@ export function InstructorGrade() {
         setBanner({ tone: 'warning', message: 'Yêu cầu lưu đã phản hồi nhưng dữ liệu canonical chưa khớp. Hãy kiểm tra lại trước khi trả bài.' });
       } else setBanner({ tone: 'success', message: 'Đã lưu và xác nhận nhận xét từ dữ liệu canonical.' });
     } catch (caught) {
-      if (!scopeIsCurrent(scope)) return;
+      if (!scopeIsCurrent(scope) || deny(caught)) return;
       try {
         const next = await canonicalReadback(scope);
         if (!next) return;
@@ -323,7 +335,8 @@ export function InstructorGrade() {
           instructorNotePayload(submitted),
         );
         noteConfirmed = normalizeInstructorNoteAck(noteAck, essayId, submitted);
-      } catch {
+      } catch (caught) {
+        if (scopeIsCurrent(scope) && deny(caught)) return;
         noteConfirmed = false;
       }
       if (!scopeIsCurrent(scope)) return;
@@ -352,7 +365,7 @@ export function InstructorGrade() {
       } catch (caught) {
         deliverError = caught;
       }
-      if (!scopeIsCurrent(scope)) return;
+      if (!scopeIsCurrent(scope) || deny(deliverError)) return;
       try {
         const next = await canonicalReadback(scope);
         if (!next) return;
@@ -386,7 +399,7 @@ export function InstructorGrade() {
           {},
         );
       } catch (caught) { mutationError = caught; }
-      if (!scopeIsCurrent(scope)) return;
+      if (!scopeIsCurrent(scope) || deny(mutationError)) return;
       try {
         const next = await canonicalReadback(scope);
         if (!next) return;
@@ -415,7 +428,7 @@ export function InstructorGrade() {
           {},
         );
       } catch (caught) { mutationError = caught; }
-      if (!scopeIsCurrent(scope)) return;
+      if (!scopeIsCurrent(scope) || deny(mutationError)) return;
       try {
         const next = await canonicalReadback(scope);
         if (!next) return;
@@ -456,6 +469,19 @@ export function InstructorGrade() {
     && !essay.isFlagged);
   const compareAvailable = Boolean(snapshot?.versions && snapshot.versions.versions.length >= 2);
   const compareHref = essayId ? instructorGradeCompareHref(essayId, asInstructor) : '/instructor/compare';
+
+  if (inactive) {
+    return (
+      <div className="ig-shell">
+        <main className="ig-main">
+          <InstructorInactiveState
+            className="ig-state is-error"
+            drafts={dirty && note.trim() ? [{ label: 'Nhận xét giảng viên', value: note }] : []}
+          />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="ig-shell">

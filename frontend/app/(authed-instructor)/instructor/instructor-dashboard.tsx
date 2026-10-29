@@ -32,6 +32,8 @@ import {
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import { clearPersistedAuthSession, rememberSignedOutSession } from '@/lib/auth/sign-out-state.mjs';
 
+import { InstructorInactiveState, useInstructorInactiveGuard } from './instructor-inactive';
+
 type Tab = 'roster' | 'classes' | 'assign' | 'grade';
 type Banner = { tone: 'success' | 'danger' | 'warning'; message: string } | null;
 type DataState = {
@@ -91,6 +93,9 @@ export function InstructorDashboard() {
   const accountKey = status === 'signed-in' && user?.id ? user.id : '';
   const accountRef = useRef(accountKey);
   accountRef.current = accountKey;
+  const mainRef = useRef<HTMLElement>(null);
+  // FR-014: an inactive 403 after load replaces the workspace (typed text is kept).
+  const { inactive, drafts, deny, reset: resetInactive } = useInstructorInactiveGuard(mainRef);
 
   const requestPath = useCallback((path: string, target = asInstructor) => (
     instructorApiPath(path, target)
@@ -112,7 +117,15 @@ export function InstructorDashboard() {
       '/instructor/reviews/queue',
     ].map((path) => instructorApiPath(path, target));
     try {
-      const raw = await Promise.all(paths.map((path) => window.api.get<unknown>(path)));
+      // allSettled: an inactive 403 on any read must win over an earlier unrelated failure (FR-014).
+      const settled = await Promise.allSettled(paths.map((path) => window.api.get<unknown>(path)));
+      for (const result of settled) {
+        if (result.status === 'rejected' && ownerId === accountRef.current && deny(result.reason)) return null;
+      }
+      const raw = settled.map((result) => {
+        if (result.status === 'rejected') throw result.reason;
+        return result.value;
+      });
       const normalized: DataState = {
         cohorts: normalizeInstructorCohorts(raw[0]),
         students: normalizeInstructorStudents(raw[1]),
@@ -129,13 +142,14 @@ export function InstructorDashboard() {
       setPhase('ready');
       return normalized;
     } catch (caught) {
+      if (ownerId === accountRef.current && deny(caught)) return null;
       if (requestId === sequence.current && ownerId === accountRef.current) {
         setLoadError(messageOf(caught));
         setPhase((current) => current === 'ready' ? current : 'error');
       }
       return null;
     }
-  }, []);
+  }, [deny]);
 
   // W-12: a token refresh that never settles (GoTrue down/hanging) keeps the
   // provider in initial-loading; fail closed to /login instead of waiting forever.
@@ -156,6 +170,7 @@ export function InstructorDashboard() {
     }
     if (status !== 'signed-in' || !user?.id) return;
     const requestId = ++sequence.current;
+    resetInactive();
     setPhase('loading');
     setData(EMPTY_DATA);
     setBanner(null);
@@ -179,14 +194,14 @@ export function InstructorDashboard() {
         setAsInstructor(effective);
         await loadAll(effective, requestId, user.id);
       } catch (caught) {
-        if (requestId === sequence.current) {
+        if (requestId === sequence.current && !deny(caught)) {
           setLoadError(messageOf(caught));
           setPhase('error');
         }
       }
     })();
     return () => { sequence.current += 1; drawerSequence.current += 1; };
-  }, [status, user?.id, loadAll]);
+  }, [status, user?.id, loadAll, deny, resetInactive]);
 
   const cohortNames = useMemo(() => new Map(data.cohorts.map((cohort) => [cohort.id, cohort.name])), [data.cohorts]);
   const matrix = useMemo(() => buildInstructorMatrix(data.students, data.prompts, data.assignments), [data]);
@@ -217,7 +232,7 @@ export function InstructorDashboard() {
       setBanner(typeof success === 'function' ? success(result) : { tone: 'success', message: success });
       return true;
     } catch (caught) {
-      if (ownerId !== accountRef.current) return false;
+      if (ownerId !== accountRef.current || deny(caught)) return false;
       const refreshed = await loadAll(asInstructor, undefined, ownerId);
       setBanner({
         tone: 'danger',
@@ -340,8 +355,8 @@ export function InstructorDashboard() {
       // An unreadable preview does not block the give: its result banner still
       // reports duplicates_warning from the write itself.
       return !message || await askConfirm(message);
-    } catch {
-      return ownerId === accountRef.current;
+    } catch (caught) {
+      return ownerId === accountRef.current && !deny(caught);
     } finally {
       if (ownerId === accountRef.current) setPending(null);
     }
@@ -359,6 +374,7 @@ export function InstructorDashboard() {
       if (!normalized) throw new Error('Dữ liệu hồ sơ học viên không đúng định dạng.');
       if (requestId === drawerSequence.current && ownerId === accountRef.current) setDrawerSummary(normalized);
     } catch (caught) {
+      if (ownerId === accountRef.current && deny(caught)) return;
       if (requestId === drawerSequence.current && ownerId === accountRef.current) setDrawerError(messageOf(caught));
     }
   };
@@ -396,7 +412,7 @@ export function InstructorDashboard() {
       }
       window.location.assign(instructorGradeHref(item.essayId, item.reviewId, asInstructor));
     } catch (caught: any) {
-      if (ownerId !== accountRef.current) return;
+      if (ownerId !== accountRef.current || deny(caught)) return;
       const refreshed = await loadAll(asInstructor, undefined, ownerId);
       const reconciled = refreshed?.queue.find((row) => row.reviewId === item.reviewId && row.status === 'claimed');
       if (reconciled) {
@@ -418,6 +434,7 @@ export function InstructorDashboard() {
     window.location.replace('/');
   };
 
+  if (inactive) return <main><InstructorInactiveState className="ins-state is-error" drafts={drafts} /></main>;
   if (phase === 'loading') return <main className="ins-state" role="status">Đang kiểm tra quyền và tải workspace…</main>;
   if (phase === 'denied') return <main className="ins-state" role="alert"><strong>Bạn không có quyền truy cập trang giảng viên.</strong><a href="/home">Quay lại trang học</a></main>;
   if (phase === 'error') return <main className="ins-state is-error" role="alert"><strong>Không mở được workspace giảng viên.</strong><span>{loadError}</span><button type="button" onClick={() => window.location.reload()}>Tải lại</button></main>;
@@ -440,7 +457,7 @@ export function InstructorDashboard() {
         ))}
       </nav>
 
-      <main className="ins-main">
+      <main className="ins-main" ref={mainRef}>
         {asInstructor && <aside className="ins-banner is-warning"><span>Đang xem như giảng viên <code>{asInstructor}</code>. Mỗi request được backend ghi audit.</span><a href="/admin/instructors">Thoát impersonation</a></aside>}
         {banner && <div className={`ins-banner is-${banner.tone}`} role={banner.tone === 'danger' ? 'alert' : 'status'}>{banner.message}</div>}
         {loadError && <div className="ins-banner is-danger" role="alert"><span>Không thể làm mới; đang giữ snapshot trước đó. {loadError}</span><button type="button" onClick={() => void refresh()}>Thử lại</button></div>}
