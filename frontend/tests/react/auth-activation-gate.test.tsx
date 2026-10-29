@@ -105,6 +105,21 @@ it('fails open without window.api, on a non-2xx or a malformed reply, and never 
   expect(location.replace).not.toHaveBeenCalled();
 });
 
+it.each([500, 503])('a %i from /auth/check-active fails open and is not remembered', async (status) => {
+  // ASYNCAUTH-0036 Revision 2: a DB error is now 503 (was 500); both are 'unknown'.
+  const getWith = vi.fn(async () => {
+    throw Object.assign(new Error('Đã xảy ra lỗi nội bộ, vui lòng thử lại.'), { status });
+  });
+  installApi(getWith);
+  const first = mount();
+  await screen.findByText('signed-in:A');
+  first.unmount();
+  mount();
+  await screen.findByText('signed-in:A');
+  expect(getWith).toHaveBeenCalledTimes(2);
+  expect(location.replace).not.toHaveBeenCalled();
+});
+
 it('a token refresh for the settled account never drops back to loading', async () => {
   installApi(respond({ is_active: true }));
   mount();

@@ -92,5 +92,11 @@ REVOKE EXECUTE ON FUNCTION public.is_current_user_instructor() FROM PUBLIC, anon
 
 -- Rollback (c) — restore the default PUBLIC grant (re-exposes via PostgREST):
 -- GRANT EXECUTE ON FUNCTION public.append_paste_event(uuid, uuid, jsonb) TO PUBLIC;
+-- WARNING (PC-J161): the two grants below make access_codes_admin_all and
+-- access_codes_instructor_own (106) evaluate for JWTs. Wherever anon or
+-- authenticated still hold SELECT on access_codes (any database before 345),
+-- every admin JWT then reads every access code through access_codes_admin_all
+-- and every instructor JWT the codes it issued. Check that 345 is applied
+-- (no client SELECT on access_codes) before running them.
 -- GRANT EXECUTE ON FUNCTION public.is_current_user_admin()      TO PUBLIC;
 -- GRANT EXECUTE ON FUNCTION public.is_current_user_instructor() TO PUBLIC;

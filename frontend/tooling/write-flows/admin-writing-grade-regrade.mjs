@@ -1,5 +1,7 @@
 // Regrade là mutation phá huỷ feedback hiện tại. Luồng này ghim cảnh báo,
 // level mặc định và đúng request trên cả Legacy lẫn Next.
+import { AAL2_STATUS } from '../admin-mfa-stub.mjs';
+
 const ESSAY = 'essay-admin-regrade';
 
 export default {
@@ -9,6 +11,8 @@ export default {
 
   canned: [
     [/\/auth\/me$/, { id: '00000000-0000-0000-0000-000000000000', email: 'admin@local', role: 'admin' }],
+    // ADMINAAL2-0032 T010: AdminAccessGate fails closed on the `{}` catch-all.
+    [/\/admin\/mfa\/status$/, AAL2_STATUS],
     [new RegExp(`/admin/writing/essays/${ESSAY}$`), {
       id: ESSAY,
       status: 'reviewed',
