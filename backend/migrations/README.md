@@ -62,6 +62,57 @@ in `forward-policy.tsv`: staging first under the advisory lock, production only
 at an authorised promotion. One transaction, no data change, re-runnable;
 the rollback (which reopens the hole) is in the file header.
 
+Applying `345` (runbook, PC-J162):
+
+- **A dry run is required first, on staging and on production.** The
+  postcondition is a gate on the whole `public` schema, so any other policy
+  with `'admin'` in it (for example a dashboard-created one that was not in the
+  2026-10-29 staging check) makes 345 abort with `inline_admin_policy_remains`.
+  That abort is safe: the transaction rolls back. Run the dry run and the
+  read-only query below before the real apply. The dry run must list only
+  `345`, plus any migration the Leader has already approved for the same
+  window:
+
+  ```bash
+  DRY_RUN=1 MIGRATION_FEATURES=rls_admin_inline ./backend/scripts/apply_migrations.sh "$STAGING_DB_URL"
+  # production, only at an authorised promotion:
+  ALLOW_PROD=1 DRY_RUN=1 MIGRATION_FEATURES=rls_admin_inline ./backend/scripts/apply_migrations.sh "$DATABASE_URL"
+  ```
+
+  ```sql
+  -- read-only, before apply: every public policy with the literal 'admin'
+  SELECT c.relname, p.polname FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid
+   WHERE c.relnamespace = 'public'::regnamespace
+     AND concat_ws(' ', pg_get_expr(p.polqual, p.polrelid),
+                   pg_get_expr(p.polwithcheck, p.polrelid)) ~* '''admin'''
+   ORDER BY 1, 2;
+  ```
+
+  The rows may only come from the 8 policies 345 handles:
+  `dictation_sessions`/`"admins read dictation sessions"`,
+  `dictation_attempts`/`"admins read dictation attempts"`,
+  `dictation_attempt_answers`/`"admins read dictation attempt answers"`,
+  `user_feedback`/`"admins read feedback"`,
+  `lemma_overrides`/`"Admins manage lemma overrides"`,
+  `vocabulary_exercises`/`vocab_exercises_admin_write`,
+  `vocabulary_exercises`/`vocab_exercises_select` and
+  `access_codes`/`"Admin only"`. Fewer rows are fine, because each step skips
+  an absent object. If any other row appears, do not apply. Report it to the
+  Leader and the Security Auditor.
+- **Production: apply off-peak.** After `LOCK TABLE … ACCESS EXCLUSIVE` on
+  the 7 target tables (`access_codes`, `dictation_attempt_answers`,
+  `dictation_attempts`, `dictation_sessions`, `lemma_overrides`,
+  `user_feedback`, `vocabulary_exercises`), the migration runs `count(*)` on
+  each of them twice: once after the locks in step 1 and once in the final
+  row-count check. The locks are held until `COMMIT`, so reads are blocked
+  too. This includes access-code activation and dictation. On staging this is
+  acceptable because the tables are small. On production, apply in a low-traffic
+  window. If an open transaction holds one of these tables, the
+  `lock_timeout` of 5 s aborts the whole migration with nothing changed, and it
+  can be re-run. The file is approved and the release register pins its
+  sha256, so do not edit it to remove the counts. Staging and production must
+  run the same bytes.
+
 Migration `337` (CLASSARCHIVE-0030, A-10) enforces class archive. An
 *archived* class is `cohorts.is_active = false AND archived_at IS NOT NULL`. It
 adds:
