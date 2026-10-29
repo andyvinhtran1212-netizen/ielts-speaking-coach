@@ -209,6 +209,6 @@ describe('PC-J147 wiring — one /auth/me on /d1-exercise and /vocabulary/hub', 
 
   it('the hub owns /auth/me and hands the role to the chrome', () => {
     assert.match(HUB_PAGE, /<aver-chrome active="vocabulary" role-source="page" \/>/);
-    assert.match(HUB, /shareRoleWithChrome\(profile\.value\.role \?\? null\)/);
+    assert.match(HUB, /profileRead\.then\(\(me\) => \{ if \(!dead\) shareRoleWithChrome\(me\.role \?\? null\); \}/);
   });
 });

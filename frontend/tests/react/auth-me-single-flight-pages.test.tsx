@@ -83,12 +83,12 @@ it('D1: a learner still gets no staff link, with one /auth/me', async () => {
   expect(authMeCalls()).toHaveLength(1);
 });
 
-function hubApi() {
+function hubApi({ summary = async () => ({}) }: { summary?: () => Promise<unknown> } = {}) {
   Object.defineProperty(window, 'api', {
     configurable: true,
     value: {
       base: 'https://api.test',
-      getWith: vi.fn(async (url: string) => (url.includes('home-summary') ? {} : { sets: [], courses: [], cohorts: [], sessions: [] })),
+      getWith: vi.fn(async (url: string) => (url.includes('home-summary') ? summary() : { sets: [], courses: [], cohorts: [], sessions: [] })),
     },
   });
 }
@@ -120,5 +120,14 @@ it('hub: a learner gets no staff link, and a failed page read leaves it unrender
   expect(await screen.findByText(/^Chưa có bộ từ/)).toBeTruthy();
   await new Promise((r) => setTimeout(r, 60));
   expect(staffLinks()).toBe(0);
+  expect(authMeCalls()).toHaveLength(0);
+});
+
+it('hub: the staff role reaches the chrome even while home-summary is still pending', async () => {
+  hubApi({ summary: () => new Promise(() => {}) });
+  mocks.getCurrentUser.mockResolvedValue(profile('admin'));
+  const staffLinks = mountChrome({ 'role-source': 'page' });
+  render(<VocabularyHubBehavior />);
+  await vi.waitFor(() => expect(staffLinks()).toBe(1));
   expect(authMeCalls()).toHaveLength(0);
 });

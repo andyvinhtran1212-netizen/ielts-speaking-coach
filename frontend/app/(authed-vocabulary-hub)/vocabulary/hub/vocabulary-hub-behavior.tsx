@@ -43,19 +43,20 @@ function Hub() {
     shareRoleWithChrome(null);
     (async () => {
       if (!await whenGlobalReady(() => !!window.api?.getWith, 'Vocabulary summary') || dead) return;
+      const profileRead = getCurrentUser(controller.signal);
+      // The chrome waits on this role, so hand it over as soon as the profile
+      // lands, not after the summary (which may stall).
+      profileRead.then((me) => { if (!dead) shareRoleWithChrome(me.role ?? null); }, () => {});
       const [summary, profile] = await Promise.allSettled([
         window.api.getWith<{ skills?: { vocabulary?: { wallet_words?: number; quiz_words_mastered?: number; quiz_sessions?: number } } }>('/api/student/home-summary', undefined, { signal: controller.signal }),
-        getCurrentUser(controller.signal),
+        profileRead,
       ]);
       if (dead) return;
       if (summary.status === 'fulfilled' && summary.value.skills?.vocabulary) {
         const v = summary.value.skills.vocabulary;
         setStats({ saved: v.wallet_words || 0, recalled: v.quiz_words_mastered || 0, quizzes: v.quiz_sessions || 0 });
       } else setStatsError(true);
-      if (profile.status === 'fulfilled') {
-        setFlags({ flashcards: profile.value.flashcard_enabled === true, d1: profile.value.d1_enabled === true, curated: profile.value.vocab_curated_enabled === true });
-        shareRoleWithChrome(profile.value.role ?? null);
-      }
+      if (profile.status === 'fulfilled') setFlags({ flashcards: profile.value.flashcard_enabled === true, d1: profile.value.d1_enabled === true, curated: profile.value.vocab_curated_enabled === true });
     })();
     return () => { dead = true; controller.abort(); };
   }, []);
