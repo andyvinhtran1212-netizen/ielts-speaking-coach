@@ -39,3 +39,11 @@ The single LSU follow-up becomes a bounded three-code follow-up lookup shared by
 migration 339 and the backend/admin models. Only the Task 1 and few/little
 explain deltas named in approval-decision.md gain a second cutover; every other
 code keeps one. No new endpoint, table or scoring change.
+
+## Revision 3
+
+The Revision 2 follow-up lookup grows from three codes to five. Only the
+punctuation `punc_semi_b2` and comparison `cmp_mult_b2` explain deltas named in
+approval-decision.md gain a second cutover; every other code keeps its current
+limit. One more function-only migration after 339; no new endpoint, table or
+scoring change.
