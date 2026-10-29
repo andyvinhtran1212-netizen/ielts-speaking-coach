@@ -14,7 +14,9 @@ cron later adds no duplicate row or alert; the snapshot backstop covers the
 caller only, and two passes on one account are serialized, reading the
 factor list under the account lock, so a pass that listed before a
 verification neither reports the factor deleted nor overwrites the newer
-snapshot (PC-J180, SA PR-1936 F1); a cursor the cron
+snapshot (PC-J180, SA PR-1936 F1), and a verification that lands while
+a pass lists is stamped as seen after its log entry, so it is still audited
+and alerted, not taken for a step-up (SA F1-R1); a cursor the cron
 has not started is left alone; a cron batch holding the cursor lock, a
 timeout or a broken engine is logged with its code and the route still
 answers 200 with the unchanged body, also at AAL1.
@@ -351,6 +353,45 @@ def test_the_cron_racing_a_status_read_reports_no_false_deletion(pg, monkeypatch
 
     (fields, ok), _, _ = _verify_while_the_first_pass_lists(pg, cron, monkeypatch)
     assert ok and fields["snapshot_factor_diffs"] == 0 and fields["snapshot_errors"] == 0
+
+
+def test_a_verification_landing_while_the_locked_pass_lists_is_still_audited_and_alerted(pg):
+    """SA PR-1936 F1-R1: the snapshot pass begins its transaction before it
+    waits for the account lock and reads the factor list, so a verification
+    can land in between. Stamped with the transaction start, the snapshot would
+    look verified BEFORE the verification's own log entry, and the next log
+    step would take that entry for a step-up sign-in: no
+    mfa_factor_verified row and no FR-011 alert, ever."""
+    schema, auth = pg
+    admin = m332._user(schema, "admin", True)
+    tss._ready(pg)
+    factor = str(uuid4())
+
+    class VerifiesDuringTheRead(tss.Factors):
+        async def __call__(self, user: str) -> list[dict]:
+            self.calls.append(user)
+            if len(self.calls) == 1:   # the admin verifies while Auth answers
+                tss._log(auth, "factor_in_progress", admin, factor)
+                tss._log(auth, "verification_attempted", admin, factor)
+                self.set(admin, (factor, "verified"))
+            return self.by_user.get(user, [])
+
+    factors = VerifiesDuringTheRead()
+    first = _caller(pg, admin, factors)
+    assert first.snapshot_error is None and first.snapshot_factor_diffs == 0
+    assert psql(f"""SELECT s.seen_at > e.created_at
+                      FROM {schema}.staff_mfa_factor_snapshot s, {auth}.audit_log_entries e
+                     WHERE s.factor_id = '{factor}'
+                       AND e.payload::jsonb ->> 'action' = 'verification_attempted'""") == "t", \
+        "the snapshot is stamped when the list was read, not when its transaction began"
+
+    second = _caller(pg, admin, factors)   # the next status read: log step, lag 0
+    assert second.log_error is None and second.log_rows == 2
+    assert [(r["event"], r["detail"]["detected_by"]) for r in tss._rows(schema, admin)] == [
+        ("mfa_factor_enrolled", "auth_log"), ("mfa_factor_verified", "auth_log")]
+    assert [o["event"] for o in tss._alerts(schema, admin)] == ["mfa_factor_verified"]
+    fields, ok = tss._sweep(pg, factors)
+    assert ok and fields["log_rows"] == 0 and len(tss._rows(schema, admin)) == 2
 
 
 def test_a_non_admin_caller_gets_no_snapshot_pass(pg):

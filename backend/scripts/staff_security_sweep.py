@@ -313,14 +313,18 @@ class SweepDb:
             user_id, ids)
         for factor in factors:
             # seen_at = when this status was first observed, so a later
-            # verification entry can be told apart from a step-up.
+            # verification entry can be told apart from a step-up. That is
+            # clock_timestamp(), after the list was read: now() is when the
+            # transaction began, before the lock wait and the Auth read, and a
+            # verification landing in between would then look older than its
+            # snapshot and be dropped as a step-up (SA PR-1936 F1-R1).
             await self.conn.execute(
-                f"""INSERT INTO {self.snapshot} AS s (user_id, factor_id, factor_type, status)
-                    VALUES ($1::uuid, $2::uuid, $3, $4)
+                f"""INSERT INTO {self.snapshot} AS s (user_id, factor_id, factor_type, status, seen_at)
+                    VALUES ($1::uuid, $2::uuid, $3, $4, clock_timestamp())
                     ON CONFLICT (user_id, factor_id) DO UPDATE
                        SET factor_type = EXCLUDED.factor_type, status = EXCLUDED.status,
                            seen_at = CASE WHEN s.status IS DISTINCT FROM EXCLUDED.status
-                                          THEN now() ELSE s.seen_at END""",
+                                          THEN EXCLUDED.seen_at ELSE s.seen_at END""",
                 user_id, factor["id"], factor["factor_type"], factor["status"])
 
     async def drop_snapshot_except(self, user_ids: list[str]) -> None:
