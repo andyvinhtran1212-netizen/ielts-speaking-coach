@@ -74,15 +74,37 @@ function readPaths(src) {
   // đọc nhầm bộ lọc. Repo hiện chưa có ca đó — neo sẵn để nó không thành bẫy.
   const pr = lines.findIndex((l) => /^\s*pull_request:\s*$/.test(l));
   if (pr < 0) return null;
+  // Chỉ tìm `paths:` TRONG thân trigger `pull_request` (thụt sâu hơn nó), để
+  // một `paths:` ở chỗ khác trong tệp không bị đọc nhầm thành bộ lọc trigger.
+  const prIndent = lines[pr].search(/\S/);
+  let prEnd = lines.length;
+  for (let n = pr + 1; n < lines.length; n += 1) {
+    const l = lines[n];
+    if (/^\s*(#|$)/.test(l)) continue;
+    if (l.search(/\S/) <= prIndent) { prEnd = n; break; }
+  }
   // `paths-ignore:` có nghĩa NGƯỢC LẠI; regex đòi `paths:` rồi hết dòng nên
   // không dính, và ta cũng không giả vờ hiểu nó.
-  const i = lines.findIndex((l, n) => n > pr && /^\s*paths:\s*$/.test(l));
+  let i = lines.findIndex((l, n) => n > pr && n < prEnd && /^\s*paths:\s*$/.test(l));
+  // Workflow có check BẮT BUỘC không được lọc ở trigger (bị lọc thì check không
+  // bao giờ báo về và GitHub chặn merge). `backend-tests.yml` dời CÙNG danh sách
+  // vào bộ lọc `code:` của job `changes` (dorny/paths-filter); job nặng skip
+  // theo nó. Đọc danh sách đó thay cho trigger — vẫn phải phủ đủ như trước.
+  if (i < 0) {
+    const f = lines.findIndex((l) => /^\s*filters:\s*\|\s*$/.test(l));
+    if (f >= 0) i = lines.findIndex((l, n) => n > f && /^\s*code:\s*$/.test(l));
+  }
   if (i < 0) return null;
   const out = [];
+  let itemIndent = -1;
   for (let j = i + 1; j < lines.length; j += 1) {
     const l = lines[j];
     if (/^\s*#/.test(l) || /^\s*$/.test(l)) continue;
     if (!/^\s*-\s/.test(l)) break;                   // hết khối danh sách
+    // Mục ở độ thụt KHÁC là danh sách khác (vd. step `- name:` ngay sau khối
+    // `filters: |`), không phải glob của bộ lọc này.
+    if (itemIndent < 0) itemIndent = l.search(/\S/);
+    if (l.search(/\S/) !== itemIndent) break;
     const m = /^\s*-\s*'([^']+)'\s*$/.exec(l) || /^\s*-\s*"([^"]+)"\s*$/.exec(l);
     // Dòng VẪN là một mục danh sách nhưng không đọc được (không nháy, hoặc glob
     // phủ định `!…` mà bộ này cố tình không diễn giải). Im lặng bỏ qua sẽ làm
