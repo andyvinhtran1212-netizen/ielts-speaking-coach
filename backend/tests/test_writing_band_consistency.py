@@ -133,6 +133,20 @@ def test_unrelated_numbers_in_qualitative_advice_are_preserved():
     assert feedback["overallBandScoreSummary"] == f"Bài viết đạt band 6.0. {advice}"
 
 
+@pytest.mark.parametrize("advice", [
+    "Hãy dành 5 phút lập dàn ý trước khi viết.",
+    "Hãy dành 5 phút để nâng band.",
+    "Hãy viết 5 câu để làm rõ các ý chính.",
+    "Mục tiêu luyện tập là đạt 5 câu mỗi ngày.",
+    "Em cần sửa cấu trúc ở 5 vị trí.",
+])
+def test_quantities_equal_to_old_integer_band_are_not_score_claims(advice):
+    feedback = _feedback(5.0, 5.0)
+    feedback["overallBandScoreSummary"] = f"Bài này đạt band 5.0. {advice}"
+    align_overall_band_feedback(feedback, 5.5)
+    assert feedback["overallBandScoreSummary"] == f"Bài viết đạt band 5.5. {advice}"
+
+
 def test_target_does_not_exceed_band_nine():
     feedback = _feedback(8.5, 8.5)
     align_overall_band_feedback(feedback, 9.0)

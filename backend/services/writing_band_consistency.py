@@ -9,7 +9,17 @@ from services.gemini_writing_grader import (
 )
 
 
-_SCORE_NUMBER = re.compile(r"(?<![\w.,])[0-9](?:[.,]\d+)?(?!\w|[.,]\d)")
+# Match score language, never a quantity merely equal to an old band.
+# Kept in sync with instructor-compose-util.js by shared preview/persist tests.
+_BAND_CLAIM = re.compile(
+    r"(?:^|[^\w])(?:band(?:\s+score)?|score|điểm|"
+    r"(?:bài(?:\s+viết)?(?:\s+(?:này|của\s+(?:em|bạn)))?|em|bạn)"
+    r"\s+(?:hiện\s+)?(?:đạt|ở(?:\s+mức)?))\s*"
+    r"(?:(?:hiện tại|tổng|của em|của bạn|bài này|là|ở|mức|band|score)\s+)*"
+    r"[:=]?\s*[0-9](?:[.,]\d+)?"
+    r"(?!\w|[.,]\d|\s*(?:phút|câu|từ|đoạn|lần|ý|minutes?|words?|sentences?|paragraphs?)\b)",
+    re.IGNORECASE,
+)
 
 
 def _band(value: object) -> float | None:
@@ -51,22 +61,13 @@ def align_overall_band_feedback(feedback: dict, overall: float) -> None:
         summary = feedback["overallBandScoreSummary"]
         # Replace complete score-bearing sentences, rather than substituting
         # numbers inside historical/target comparisons. Keep qualitative advice.
-        stale_bands = {model_band, trajectory_band} - {None, overall}
-
-        def has_score_claim(sentence: str) -> bool:
-            numbers = _SCORE_NUMBER.findall(sentence)
-            return bool(numbers) and (
-                bool(re.search(r"\bband\b", sentence, re.IGNORECASE))
-                or any(_band(n.replace(",", ".")) in stale_bands for n in numbers)
-            )
-
         caveat = (
             GeminiWritingGrader._MISSING_IMAGE_CAVEAT
             if summary_flags_missing_image(summary) else ""
         )
         body = summary.lstrip().removeprefix(caveat) if caveat else summary
         sentences = re.split(r"(?<=[.!?])\s+", body)
-        kept = [sentence for sentence in sentences if not has_score_claim(sentence)]
+        kept = [sentence for sentence in sentences if not _BAND_CLAIM.search(sentence)]
         if len(kept) != len(sentences):
             qualitative = " ".join(kept)
             feedback["overallBandScoreSummary"] = (
