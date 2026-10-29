@@ -112,6 +112,24 @@ async def admin_set_staff_active(
             if current is None:
                 raise HTTPException(404, "User not found")
             if current.get("suspended_at"):
+                # Sessions left by a failed revocation would come back with
+                # the unban (research.md §9.2), so revoke again while the
+                # account is still banned and lift the ban only once that is
+                # confirmed (PC-J66 F01). A failure changes nothing: it is
+                # audited and alerted like any revocation failure, answers
+                # sessions_revoked=false + revoke_error, and a repeat retries.
+                outcome, _ = await staff_security.revoke_and_record(
+                    db, target_id=target, actor_id=actor, ban=True, trigger="reactivate",
+                    engine=admin_module._db_engine, auth_admin=_auth_admin(),
+                    reason=payload.reason.strip(), request_id=request_id,
+                )
+                if not outcome.sessions_revoked:
+                    return {
+                        "ok": False, "id": target, "is_active": bool(current.get("is_active")),
+                        "suspended_at": current.get("suspended_at"), "changed": False,
+                        "audit_id": None, "sessions_revoked": False,
+                        "revoke_error": outcome.revoke_error, "sign_in_restored": False,
+                    }
                 if not staff_security.restore_sign_in(_auth_admin(), target):
                     return {
                         "ok": False, "id": target, "is_active": bool(current.get("is_active")),

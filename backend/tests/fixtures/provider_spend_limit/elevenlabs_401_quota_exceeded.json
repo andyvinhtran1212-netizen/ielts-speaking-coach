@@ -1,0 +1,14 @@
+{
+  "provider": "elevenlabs",
+  "sdk": "httpx",
+  "http_status": 401,
+  "url": "https://api.elevenlabs.io/v1/text-to-speech/voice",
+  "body": {
+    "detail": {
+      "status": "quota_exceeded",
+      "message": "This request exceeds your quota of 10000. You have 12 credits remaining, while 26 credits are required for this request."
+    }
+  },
+  "expected": "provider_spend_limit",
+  "source": "https://elevenlabs.io/docs/help-center/technical/api-error-code-400-or-401 (checked 2026-10-29)"
+}

@@ -1,0 +1,15 @@
+{
+  "provider": "google",
+  "sdk": "google_api_core",
+  "http_status": 429,
+  "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+  "body": {
+    "error": {
+      "code": 429,
+      "message": "You exceeded your current quota, please check your plan and billing details. Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_requests_per_minute.",
+      "status": "RESOURCE_EXHAUSTED"
+    }
+  },
+  "expected": "transient",
+  "source": "https://ai.google.dev/gemini-api/docs/troubleshooting (429 RESOURCE_EXHAUSTED = rate limit)"
+}
