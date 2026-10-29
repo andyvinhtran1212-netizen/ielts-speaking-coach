@@ -4,7 +4,10 @@
 
 - **Database (migration 337, `research.md` §7)** owns these invariants:
   - "no new membership, class work or cohort give in an archived class": four
-    SECURITY DEFINER guards that lock the class row `FOR SHARE`;
+    SECURITY DEFINER guards that lock the class row `FOR SHARE`. Migration 346
+    (Amendment 1, `research.md` §11.4) adds three value-changed `BEFORE UPDATE
+    OF cohort_id`/`assignment_id` triggers that reuse them, so work cannot be
+    moved into an archived class either;
   - "archive and audit are one transaction": `fn_archive_cohort` and
     `fn_restore_cohort` lock the class row `FOR UPDATE`;
   - "active ⇒ no archive metadata; every new archive has `archived_at`": the
