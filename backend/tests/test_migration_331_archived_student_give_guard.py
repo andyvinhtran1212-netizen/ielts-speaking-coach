@@ -13,7 +13,9 @@ RPC, its request ledger and a stand-in for the 249 origin trigger, then applies
 331 twice. It proves the refusal for every writer, the whole-statement
 rollback, the serialization against a concurrent archive in both orders, and —
 on a schema built WITHOUT 331 (negative control) — that the same race really
-creates the row, so the concurrency tests can detect it.
+creates the row, so the concurrency tests can detect it. Each security
+postcondition is forced to fail on that schema and must abort the whole
+migration.
 
 Set TEST_PG_URL to a LOCAL disposable cluster and REQUIRE_PG=1 to forbid skips.
 """
@@ -411,6 +413,46 @@ def test_preconditions_abort_without_326_or_without_for_update(db):
         assert "student_lifecycle_functions_must_lock_for_update" in m326._fails(_migrated(s))
     finally:
         psql(body)
+    psql(_migrated(s))
+
+
+POSTCONDITIONS = "-- 2. Postconditions"
+
+
+def _drifted(schema: str, drift: str) -> str:
+    """The real migration with ``drift`` run just before its postconditions — a
+    stand-in for a body or an environment that breaks the invariant."""
+    sql = _migrated(schema)
+    assert sql.count(POSTCONDITIONS) == 1
+    return sql.replace(POSTCONDITIONS, drift + "\n" + POSTCONDITIONS)
+
+
+@pytest.mark.parametrize("drift,marker", [
+    (f"ALTER TABLE {{s}}.writing_assignments DISABLE TRIGGER {TRIGGER};", "archive_guard_trigger_missing"),
+    (f"GRANT EXECUTE ON FUNCTION {{s}}.{FUNCTION}() TO authenticated;", "archive_guard_client_executable"),
+    ("GRANT UPDATE ON {s}.students TO authenticated;", "students_client_update_privilege"),
+])
+def test_each_security_postcondition_aborts_the_whole_migration(unguarded, drift, marker):
+    s = unguarded
+    assert marker in m326._fails(_drifted(s, drift.format(s=s)))
+    # Nothing of 331 survives the abort, the drift included.
+    assert psql(f"SELECT to_regprocedure('{s}.{FUNCTION}()') IS NULL") == "t"
+    assert psql(f"SELECT count(*) FROM pg_trigger WHERE tgname = '{TRIGGER}' "
+                f"AND tgrelid = '{s}.writing_assignments'::regclass") == "0"
+    assert psql(f"SELECT has_table_privilege('authenticated', '{s}.students', 'UPDATE')") == "f"
+
+
+def test_rerun_re_enables_a_disabled_guard_and_aborts_on_client_students_update(db):
+    s = db
+    psql(f"ALTER TABLE {s}.writing_assignments DISABLE TRIGGER {TRIGGER}")
+    psql(_migrated(s))           # CREATE OR REPLACE TRIGGER resets it to enabled
+    assert psql(f"SELECT tgenabled FROM pg_trigger WHERE tgname = '{TRIGGER}' "
+                f"AND tgrelid = '{s}.writing_assignments'::regclass") == "O"
+    psql(f"GRANT UPDATE ON {s}.students TO authenticated")
+    try:
+        assert "students_client_update_privilege" in m326._fails(_migrated(s))
+    finally:
+        psql(f"REVOKE UPDATE ON {s}.students FROM authenticated")
     psql(_migrated(s))
 
 

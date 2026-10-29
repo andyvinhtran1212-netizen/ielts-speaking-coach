@@ -6,11 +6,15 @@ the 227 bodies (= the live staging bodies read in T002a) plus the archive guard.
 
 The PostgreSQL half runs the real migration twice in a disposable schema that
 mimics the parts of Supabase it touches: Supabase's default privileges, the
-227 roster table/functions/trigger and their grants, the 320 users guard, and
-the learner evidence tables. It proves archive/restore, idempotency, unchanged
-evidence counts, the membership guards (single, bulk, legacy trigger),
-concurrent archive vs add, client-role denial, the 320 precondition and the
-rollback guard.
+227 roster table/functions/trigger and their grants, the live class fan-out
+writers (fn_create_class_assignment, fn_backfill_assignment_items — latest
+migration bodies, verbatim), the 320 users guard, and the learner evidence
+tables. It proves archive/restore (including repeated cycles and classes left
+before the archive), idempotency, unchanged evidence counts, the membership
+guards (single, bulk, legacy trigger), concurrent archive vs add, no class
+fan-out or backfill to an archived learner (also concurrently), client-role
+denial, the 320 precondition, the postconditions aborting the migration and
+the rollback guard.
 
 Set TEST_PG_URL to a LOCAL disposable cluster and REQUIRE_PG=1 to forbid skips.
 """
@@ -32,9 +36,12 @@ import pytest
 from test_migration_240_core_attempt_evidence import DB, psql
 
 BACKEND = Path(__file__).resolve().parents[1]
+MIGRATIONS = BACKEND / "migrations"
 SQL = (BACKEND / "migrations/326_student_archive.sql").read_text(encoding="utf-8")
 SQL_227 = (BACKEND / "migrations/227_student_cohort_memberships.sql").read_text(encoding="utf-8")
 SQL_320 = (BACKEND / "migrations/320_client_write_privilege_lockdown.sql").read_text(encoding="utf-8")
+# The class fan-out writers, loaded from the migration that last defines each.
+FAN_OUT = ("fn_create_class_assignment", "fn_backfill_assignment_items")
 
 
 def _strip_comments(sql: str) -> str:
@@ -147,6 +154,15 @@ def test_rollback_note_is_guarded_and_restores_227_bodies_first():
     assert note.index("227_student_cohort_memberships.sql") < note.index("DROP FUNCTION")
 
 
+@pytest.mark.parametrize("name", FAN_OUT)
+def test_class_fan_out_reads_only_active_memberships(name):
+    """326 ends memberships rather than guarding the fan-out writers; that is
+    enough only while their live bodies select active memberships (T002a)."""
+    fn = _function(_latest_function(name), name)
+    assert re.search(r"FROM\s+(?:public\.)?student_cohort_memberships\s+(?:AS\s+)?m\b", fn)
+    assert "m.is_active" in fn
+
+
 # ── PostgreSQL execution ────────────────────────────────────────────────────
 
 def _rollback_sql(schema: str) -> str:
@@ -176,6 +192,30 @@ def _227_writers(schema: str) -> str:
     return f"SET search_path = {schema}, pg_temp;\n" + _schema_sql(SQL_227[start:end] + grants, schema)
 
 
+def _latest_function(name: str) -> str:
+    """Text of the migration that last (re)defines ``name``."""
+    defining = [path for path in sorted(MIGRATIONS.glob("*.sql"))
+                if re.search(rf"CREATE OR REPLACE FUNCTION\s+(?:public\.)?{name}\s*\(",
+                             _strip_comments(path.read_text(encoding="utf-8")))]
+    assert defining, f"{name} not defined by any migration"
+    return defining[-1].read_text(encoding="utf-8")
+
+
+def _grants(sql: str, name: str) -> str:
+    return "\n".join(statement + ";" for statement in re.findall(r"(?:REVOKE|GRANT) EXECUTE ON FUNCTION[^;]*", sql)
+                     if re.search(rf"\b{name}\s*\(", statement))
+
+
+def _fan_out_writers(schema: str) -> str:
+    """The live class fan-out (269) and late-joiner backfill (227) bodies and
+    their grants, verbatim from the migration that last defines each."""
+    parts = []
+    for name in FAN_OUT:
+        sql = _latest_function(name)
+        parts += [_function(sql, name), _grants(sql, name)]
+    return f"SET search_path = {schema}, pg_temp;\n" + _schema_sql("\n".join(parts), schema)
+
+
 def _users_guard(schema: str) -> str:
     start = SQL_320.index("CREATE OR REPLACE FUNCTION public.fn_guard_users_privileged_columns()")
     end = SQL_320.index("-- ── 5. user_d1_questions")
@@ -191,9 +231,12 @@ def _env() -> dict:
     return environment
 
 
-def _spawn(sql: str) -> subprocess.Popen:
+def _spawn(sql: str, tag: str | None = None) -> subprocess.Popen:
+    environment = _env()
+    if tag:
+        environment["PGAPPNAME"] = tag
     return subprocess.Popen(["psql", DB, "-X", "-v", "ON_ERROR_STOP=1", "-tAq", "-c", sql],
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=_env())
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=environment)
 
 
 def _claims(role: str, user_id: str | None = None) -> str:
@@ -255,10 +298,23 @@ def _build(schema: str) -> None:
             student_id uuid NOT NULL REFERENCES students(id) ON DELETE CASCADE);
         CREATE TABLE writing_feedback (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
             essay_id uuid NOT NULL REFERENCES writing_essays(id) ON DELETE CASCADE);
+        -- The 177/183/193 columns the fan-out writers read and write.
+        CREATE TABLE class_assignments (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            cohort_id uuid NOT NULL REFERENCES cohorts(id) ON DELETE CASCADE,
+            lesson_id uuid, skill text NOT NULL, content_id uuid,
+            content_config jsonb NOT NULL DEFAULT '{{}}'::jsonb, title text NOT NULL,
+            instructions text, due_at timestamptz, publish_at timestamptz,
+            status text NOT NULL DEFAULT 'published', assigned_by uuid REFERENCES users(id),
+            kind text NOT NULL DEFAULT 'daily', recipient_scope text NOT NULL DEFAULT 'class',
+            created_at timestamptz NOT NULL DEFAULT now());
+        -- assignment_id NULL only for the evidence item _learner seeds.
         CREATE TABLE class_assignment_items (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            student_id uuid NOT NULL REFERENCES students(id) ON DELETE CASCADE);
+            assignment_id uuid REFERENCES class_assignments(id) ON DELETE CASCADE,
+            student_id uuid NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+            UNIQUE (assignment_id, student_id));
     """)
     psql(_227_writers(schema))
+    psql(_fan_out_writers(schema))
     psql(_users_guard(schema))
     # Migration 320: no client writes on users/students.
     psql(f"""REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA {schema}
@@ -448,6 +504,58 @@ def test_restore_returns_previous_classes_and_skips_deleted_class(db):
     assert _as("service_role", f"SELECT {s}.fn_restore_student('{uuid4()}', '{admin}') IS NULL") == "t"
 
 
+def _leave(s: str, student: str, cohort: str) -> None:
+    assert _as("service_role", f"SELECT {s}.fn_remove_student_cohort_membership('{student}', '{cohort}')") == "t"
+
+
+def _membership(s: str, student: str, cohort: str) -> str:
+    return psql(f"""SELECT is_active, left_at FROM {s}.student_cohort_memberships
+                    WHERE student_id = '{student}' AND cohort_id = '{cohort}'""")
+
+
+def _primary(s: str, student: str) -> str:
+    return psql(f"SELECT cohort_id FROM {s}.students WHERE id = '{student}'")
+
+
+def test_restore_keeps_a_class_left_before_the_archive_inactive(db):
+    s, admin = db, _admin(db)
+    learner = _learner(s, cohorts=3)
+    sid, (left, *kept) = learner["student"], learner["cohorts"]
+    _leave(s, sid, left)                       # the primary class: the pointer moves on
+    left_row, primary = _membership(s, sid, left), _primary(s, sid)
+    assert left_row.startswith("f|") and primary in kept
+
+    assert sorted(_archive(s, sid, admin)["ended_cohort_ids"]) == sorted(kept)
+    result = _restore(s, sid, admin)
+    assert sorted(result["restored_cohort_ids"]) == sorted(kept)
+    assert _active(s, sid) == sorted(kept)
+    # The class left before the archive stays left, with its original left_at,
+    # and does not become the primary class again.
+    assert _membership(s, sid, left) == left_row
+    assert _primary(s, sid) == primary
+
+
+def test_archive_restore_twice_restores_the_latest_archive_only(db):
+    s, admin = db, _admin(db)
+    learner = _learner(s, cohorts=2)
+    sid, (first, second) = learner["student"], learner["cohorts"]
+    before = _evidence(s, sid)
+
+    assert sorted(_archive(s, sid, admin)["ended_cohort_ids"]) == sorted([first, second])
+    assert sorted(_restore(s, sid, admin)["restored_cohort_ids"]) == sorted([first, second])
+    _leave(s, sid, second)                     # between the two cycles
+    left_row = _membership(s, sid, second)
+    assert _archive(s, sid, admin)["ended_cohort_ids"] == [first]
+    # The second restore reads the second archive's classes, not the first's.
+    assert _restore(s, sid, admin)["restored_cohort_ids"] == [first]
+    assert _active(s, sid) == [first] and _primary(s, sid) == first
+    assert _membership(s, sid, second) == left_row
+    assert _audit(s, sid, "archive") == 2 and _audit(s, sid, "restore") == 2
+    assert psql(f"""SELECT archived_at IS NULL AND archived_by IS NULL AND archive_reason IS NULL
+                    FROM {s}.students WHERE id = '{sid}'""") == "t"
+    assert _evidence(s, sid) == before
+
+
 def test_deactivate_account_through_service_role_and_reactivate_on_restore(db):
     s, admin = db, _admin(db)
     learner = _learner(s, active=True)
@@ -586,6 +694,157 @@ def test_add_first_then_concurrent_archive_ends_the_membership(db, writer):
     assert psql(f"SELECT archived_at IS NOT NULL AND cohort_id IS NULL FROM {s}.students WHERE id = '{sid}'") == "t"
 
 
+def _give_class(s: str, cohort: str, students: list[str] | None = None) -> str:
+    """fn_create_class_assignment as the backend calls it → SQL for 'id|student_count'."""
+    subset = "NULL" if students is None else "ARRAY[" + ", ".join(f"'{x}'" for x in students) + "]::uuid[]"
+    return (f"SELECT assignment ->> 'id', student_count FROM {s}.fn_create_class_assignment("
+            f"'{cohort}', 'writing', 'Class work', p_student_ids => {subset});")
+
+
+def _given(out: str) -> tuple[str, int]:
+    assignment, count = next(line for line in out.splitlines() if "|" in line).split("|")
+    return assignment, int(count)
+
+
+def _backfill(s: str, assignment: str, students: list[str] | None = None) -> tuple[int, int]:
+    subset = "NULL" if students is None else "ARRAY[" + ", ".join(f"'{x}'" for x in students) + "]::uuid[]"
+    out = _as("service_role", f"SELECT added, student_count FROM {s}.fn_backfill_assignment_items('{assignment}', {subset})")
+    added, total = out.split("|")
+    return int(added), int(total)
+
+
+def _items(s: str, assignment: str, student: str) -> int:
+    return int(psql(f"""SELECT count(*) FROM {s}.class_assignment_items
+                        WHERE assignment_id = '{assignment}' AND student_id = '{student}'"""))
+
+
+def _class_items(s: str, student: str) -> int:
+    return int(psql(f"""SELECT count(*) FROM {s}.class_assignment_items
+                        WHERE assignment_id IS NOT NULL AND student_id = '{student}'"""))
+
+
+def _classmates(s: str) -> tuple[dict, dict, str]:
+    """Learner A (primary class) and classmate B added through the 227 writer."""
+    a = _learner(s)
+    cohort = a["cohorts"][0]
+    b = _learner(s, cohorts=0)
+    assert _as("service_role", f"SELECT {s}.fn_add_student_cohort_membership('{b['student']}', '{cohort}', NULL)") == "t"
+    return a, b, cohort
+
+
+def test_class_fan_out_skips_an_archived_classmate(db):
+    s, admin = db, _admin(db)
+    a, b, cohort = _classmates(s)
+    # Control: before the archive the real fan-out reaches both learners.
+    earlier, count = _given(_as("service_role", _give_class(s, cohort)))
+    assert count == 2 and _items(s, earlier, a["student"]) == 1 and _items(s, earlier, b["student"]) == 1
+
+    _archive(s, a["student"], admin)
+    assignment, count = _given(_as("service_role", _give_class(s, cohort)))
+    assert count == 1
+    assert _items(s, assignment, a["student"]) == 0 and _items(s, assignment, b["student"]) == 1
+    # Naming the archived learner in a subset give does not reach them either.
+    subset, count = _given(_as("service_role", _give_class(s, cohort, [a["student"], b["student"]])))
+    assert count == 1 and _items(s, subset, a["student"]) == 0
+    given = psql(f"SELECT count(*) FROM {s}.class_assignments WHERE cohort_id = '{cohort}'")
+    assert "empty_roster" in _denied("service_role", _give_class(s, cohort, [a["student"]]))
+    assert psql(f"SELECT count(*) FROM {s}.class_assignments WHERE cohort_id = '{cohort}'") == given
+    # The item given before the archive is kept (FR-005).
+    assert _items(s, earlier, a["student"]) == 1 and _class_items(s, a["student"]) == 1
+
+
+HOLD = 2.5               # seconds the first session keeps its locks before COMMIT
+SESSION_TIMEOUT = 120    # generous: a slow host must not turn a correct wait into a failure
+
+
+def _held_race(first: str, second: str) -> tuple[tuple, tuple]:
+    """Session A runs ``first`` (ending in a lock-holding sleep); once A is
+    observed sleeping, session B runs ``second``. → ((rc, stdout, stderr),
+    (rc, stdout, stderr, seconds B took))."""
+    tag = "student_archive_" + uuid4().hex[:12]
+    a = _spawn(first, tag)
+    try:
+        deadline = time.monotonic() + 60
+        while psql(f"SELECT count(*) FROM pg_stat_activity WHERE application_name = '{tag}' "
+                   f"AND wait_event = 'PgSleep'") != "1":
+            if a.poll() is not None:
+                raise AssertionError(f"first session ended early: {a.communicate()}")
+            if time.monotonic() > deadline:
+                raise AssertionError("first session never reached its lock-holding sleep")
+            time.sleep(0.05)
+        started = time.monotonic()
+        b = _spawn(second)
+        out_b = b.communicate(timeout=SESSION_TIMEOUT)
+        elapsed = time.monotonic() - started
+        out_a = a.communicate(timeout=SESSION_TIMEOUT)
+    finally:
+        if a.poll() is None:
+            a.kill()
+    return (a.returncode, *out_a), (b.returncode, *out_b, elapsed)
+
+
+def _held(sql: str) -> str:
+    return _svc(f"BEGIN; {sql} SELECT pg_sleep({HOLD}); COMMIT;")
+
+
+def test_archive_holding_its_lock_then_class_give_skips_the_learner(db):
+    s, admin = db, _admin(db)
+    a, b, cohort = _classmates(s)
+    archive, give = _held_race(
+        _held(f"SELECT {s}.fn_archive_student('{a['student']}', '{admin}', NULL, false);"),
+        _svc(_give_class(s, cohort)))
+    assert archive[0] == 0, archive[2]
+    assert give[0] == 0, give[2]
+    assert give[3] >= 1.0, f"the fan-out did not wait on the archive's locks ({give[3]:.2f}s)"
+    assignment, count = _given(give[1])
+    assert count == 1
+    assert _items(s, assignment, a["student"]) == 0 and _items(s, assignment, b["student"]) == 1
+    assert _class_items(s, a["student"]) == 0
+    assert _active(s, a["student"]) == []
+
+
+def test_class_give_holding_its_lock_then_archive_keeps_the_item_and_ends_the_class(db):
+    s, admin = db, _admin(db)
+    a, b, cohort = _classmates(s)
+    give, archive = _held_race(
+        _held(_give_class(s, cohort)),
+        _svc(f"SELECT {s}.fn_archive_student('{a['student']}', '{admin}', NULL, false)"))
+    assert give[0] == 0, give[2]
+    assert archive[0] == 0, archive[2]
+    assert archive[3] >= 1.0, f"the archive did not wait on the fan-out's locks ({archive[3]:.2f}s)"
+    assignment, count = _given(give[1])
+    # Given before the archive: kept as history (FR-005); the class is ended,
+    # so the next give and any backfill skip the learner.
+    assert count == 2 and _items(s, assignment, a["student"]) == 1
+    assert cohort in json.loads(archive[1].strip().splitlines()[-1])["ended_cohort_ids"]
+    assert _backfill(s, assignment) == (0, 2)
+    later, count = _given(_as("service_role", _give_class(s, cohort)))
+    assert count == 1 and _items(s, later, a["student"]) == 0
+    assert _class_items(s, a["student"]) == 1
+
+
+def test_backfill_after_archive_skips_the_learner_until_restore(db):
+    s, admin = db, _admin(db)
+    b = _learner(s)
+    cohort = b["cohorts"][0]
+    assignment, count = _given(_as("service_role", _give_class(s, cohort)))
+    assert count == 1
+    a, c = _learner(s, cohorts=0), _learner(s, cohorts=0)     # late joiners
+    for late in (a, c):
+        assert _as("service_role",
+                   f"SELECT {s}.fn_add_student_cohort_membership('{late['student']}', '{cohort}', NULL)") == "t"
+    _archive(s, a["student"], admin)
+
+    assert _backfill(s, assignment) == (1, 2)                # C only
+    assert _items(s, assignment, a["student"]) == 0 and _items(s, assignment, c["student"]) == 1
+    assert _backfill(s, assignment, [a["student"]]) == (0, 2)
+    assert _class_items(s, a["student"]) == 0
+    # Restore re-activates the class; only then does the backfill reach A.
+    assert _restore(s, a["student"], admin)["restored_cohort_ids"] == [cohort]
+    assert _backfill(s, assignment) == (1, 3)
+    assert _items(s, assignment, a["student"]) == 1
+
+
 def test_rerun_aborts_on_conflicting_column_or_missing_320_guard(db):
     s = db
     psql(f"ALTER TABLE {s}.users DISABLE TRIGGER trg_users_guard_privileged_columns")
@@ -600,6 +859,55 @@ def test_rerun_aborts_on_conflicting_column_or_missing_320_guard(db):
         assert "students_archive_columns_conflict" in _fails(_migrated(other))
     finally:
         psql(f"DROP SCHEMA IF EXISTS {other} CASCADE")
+
+
+POSTCONDITIONS = "-- 5. Postconditions"
+
+
+def _drifted(schema: str, drift: str) -> str:
+    """The real migration with ``drift`` run just before its postconditions — a
+    stand-in for a body or an environment that breaks the invariant."""
+    sql = _migrated(schema)
+    assert sql.count(POSTCONDITIONS) == 1
+    return sql.replace(POSTCONDITIONS, drift + "\n" + POSTCONDITIONS)
+
+
+@pytest.fixture(scope="module")
+def bare(db):
+    """The harness schema without 326 (``db`` provides the roles)."""
+    schema = "student_archive_bare_" + uuid4().hex
+    try:
+        _build(schema)
+        yield schema
+    finally:
+        psql(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
+
+
+@pytest.mark.parametrize("drift,marker", [
+    ("GRANT UPDATE ON {s}.students TO authenticated;", "students_client_update_privilege"),
+    ("GRANT EXECUTE ON FUNCTION {s}.fn_archive_student(uuid,uuid,text,boolean) TO authenticated;",
+     "student_archive_functions_client_executable"),
+    ("GRANT EXECUTE ON FUNCTION {s}.fn_archive_student(uuid,uuid,text,boolean) TO anon;",
+     "student_archive_functions_client_executable"),
+])
+def test_each_security_postcondition_aborts_the_whole_migration(bare, drift, marker):
+    s = bare
+    assert marker in _fails(_drifted(s, drift.format(s=s)))
+    # Nothing of 326 survives the abort, the drift included.
+    assert psql(f"SELECT count(*) FROM information_schema.columns WHERE table_schema = '{s}' "
+                f"AND table_name = 'students' AND column_name LIKE 'archive%'") == "0"
+    assert psql(f"SELECT to_regprocedure('{s}.fn_archive_student(uuid,uuid,text,boolean)') IS NULL") == "t"
+    assert psql(f"SELECT has_table_privilege('authenticated', '{s}.students', 'UPDATE')") == "f"
+
+
+def test_rerun_aborts_when_clients_can_update_students(db):
+    s = db
+    psql(f"GRANT UPDATE ON {s}.students TO authenticated")
+    try:
+        assert "students_client_update_privilege" in _fails(_migrated(s))
+    finally:
+        psql(f"REVOKE UPDATE ON {s}.students FROM authenticated")
+    psql(_migrated(s))
 
 
 def test_rollback_guard_aborts_with_archived_learners_or_audit_rows(db):
