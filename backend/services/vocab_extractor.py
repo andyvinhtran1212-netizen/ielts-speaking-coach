@@ -15,6 +15,7 @@ import anthropic
 from pydantic import BaseModel, ConfigDict
 
 from config import settings
+from services import ai_budget
 from services.claude_compat import json_request_kwargs, response_text
 
 logger = logging.getLogger(__name__)
@@ -100,7 +101,7 @@ async def extract_vocab(
     status = "error"
     error_code = None
     try:
-        client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+        client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, max_retries=0)
 
         user_message = (
             "Transcript to analyse:\n\n"
@@ -110,17 +111,27 @@ async def extract_vocab(
             "Return only valid JSON matching the schema."
         )
 
-        msg = client.messages.create(
-            **json_request_kwargs(model, max_tokens=1024),
-            system=[
-                {
-                    "type": "text",
-                    "text": _SYSTEM_PROMPT,
-                    "cache_control": {"type": "ephemeral"},
-                }
-            ],
-            messages=[{"role": "user", "content": user_message}],
-        )
+        request = json_request_kwargs(model, max_tokens=1024)
+        async with ai_budget.guard(
+            "anthropic", model, "vocabulary_feedback",
+            ai_budget.estimate_or_none("anthropic", model, input_text=[_SYSTEM_PROMPT, user_message],
+                                       max_tokens=request["max_tokens"]),
+            request_key=ai_budget.attempt_key("vocabulary_feedback"),
+            operation="extract_response_vocab", user_id=user_id,
+            resource_type="response", resource_id=response_id,
+        ) as lease:
+            msg = client.messages.create(
+                **request,
+                system=[
+                    {
+                        "type": "text",
+                        "text": _SYSTEM_PROMPT,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
+                messages=[{"role": "user", "content": user_message}],
+            )
+            lease.settle(ai_budget.anthropic_actual_usd(model, getattr(msg, "usage", None)))
 
         raw = response_text(msg)
 

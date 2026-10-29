@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | FR-001 | kind=test; ref=backend/tests/test_class_archive_routes.py (helper drops archived classes in both branches, include_archived mode, caller grep) plus AC-2, AC-3 on staging | PENDING |
 | FR-002 | kind=test; ref=backend/tests/test_migration_337_class_archive.py (membership guard matrix incl. already-active upsert and removal to an archived next class, AFTER trigger, precedence, archive-first race) plus backend/tests/test_class_archive_routes.py (W1, W3–W7, W13) plus AC-4, AC-5 on staging | PENDING |
-| FR-003 | kind=test; ref=backend/tests/test_migration_337_class_archive.py (assignment, item, give guards) plus backend/tests/test_class_archive_routes.py (W2, W8–W10, fan-out replay, individual give allowed) plus AC-6 on staging | PENDING |
+| FR-003 | kind=test; ref=backend/tests/test_migration_337_class_archive.py (assignment, item, give guards) plus backend/tests/test_migration_346_class_archive_update_guards.py (moving an assignment, item or give into an archived class by UPDATE refused; same-class UPDATEs, reaper and finalisers unaffected) plus backend/tests/test_class_archive_routes.py (W2, W8–W10, fan-out replay, individual give allowed) plus AC-6 on staging | PENDING |
 | FR-004 | kind=test; ref=backend/tests/test_class_archive_routes.py (every research.md §5 entry point, D3 save/submit/auto-submit, reaper finalise, mock message) plus AC-7, AC-8, AC-13 on staging | PENDING |
 | FR-005 | kind=journey; ref=AC-9 on staging (class returns, gives reopen, drafts intact, class code enrolls) | PENDING |
 | FR-006 | kind=test; ref=backend/tests/test_migration_337_class_archive.py (RPC atomicity, idempotence, counts, no audit on name edit, client denied) plus AC-1, AC-11 on staging | PENDING |
@@ -20,7 +20,7 @@
 
 Preconditions:
 
-- 337 applied with the advisory-locked runner.
+- 337 and 346 applied with the advisory-locked runner.
 - Backend and frontend at the merged SHA.
 - AC-2…AC-11, AC-13 and AC-14 use a fresh `staging_seed.py --ns <ns>`
   namespace with classes E2E-A and E2E-B. They never use "QA Course 1 Resume
@@ -28,7 +28,7 @@ Preconditions:
 
 | # | Step | Expected |
 | --- | --- | --- |
-| AC-1 | Catalog after apply | 3 columns; `trg_cohorts_archive_metadata` and the 4 guards `O`; DEFINER and no client EXECUTE; audit RLS on with no client privilege; no `is_active`-dependent CHECK |
+| AC-1 | Catalog after apply (337 and 346) | 3 columns; `trg_cohorts_archive_metadata` and the 4 guards `O`; the 3 346 move guards `O`, `tgtype` 19, one-column `tgattr` and the value-changed `WHEN`; DEFINER and no client EXECUTE; audit RLS on with no client privilege; no `is_active`-dependent CHECK |
 | AC-2 | Learner in E2E-A and E2E-B; admin archives E2E-B with a reason | `/my-class` shows only E2E-A; `/home` does not count E2E-B work; 1 `archive` audit row with counts and reason |
 | AC-3 | Learner only in E2E-B | "chưa có lớp"; `has_class=false` |
 | AC-4 | New learner activates E2E-B's class code | generic 400; code unused; account inactive; no `students`/membership row; audit `enroll_rejected_cohort_archived` |

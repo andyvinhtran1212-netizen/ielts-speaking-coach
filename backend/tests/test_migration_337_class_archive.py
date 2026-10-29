@@ -267,20 +267,23 @@ def _full_rollback(schema: str) -> str:
 
 
 def _class_tables(s: str) -> str:
-    """The cohorts/class/code columns 337 reads, on top of the 331 harness."""
+    """The cohorts/class/code columns 337 reads, on top of the 331 harness.
+
+    The 326 harness owns class_assignments and class_assignment_items.assignment_id
+    (the live fan-out shape). This layer only adds what 337 reads beyond them, and
+    with plain ALTERs, so a later change to the 326 harness fails here loudly.
+    """
     return f"""
         SET search_path = {s}, pg_temp;
         ALTER TABLE cohorts
             ADD COLUMN is_active boolean NOT NULL DEFAULT true,
             ADD COLUMN description text,
             ADD COLUMN updated_at timestamptz NOT NULL DEFAULT now();
-        CREATE TABLE class_assignments (
-            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            cohort_id uuid NOT NULL REFERENCES cohorts(id) ON DELETE CASCADE,
-            title text NOT NULL DEFAULT 'work',
-            status text NOT NULL DEFAULT 'published');
+        -- Test-only defaults so the guard tests can insert bare (cohort_id) rows.
+        ALTER TABLE class_assignments
+            ALTER COLUMN skill SET DEFAULT 'writing',
+            ALTER COLUMN title SET DEFAULT 'work';
         ALTER TABLE class_assignment_items
-            ADD COLUMN assignment_id uuid REFERENCES class_assignments(id) ON DELETE CASCADE,
             ADD COLUMN state text NOT NULL DEFAULT 'assigned',
             ADD COLUMN opened_at timestamptz;
         CREATE TABLE access_codes (

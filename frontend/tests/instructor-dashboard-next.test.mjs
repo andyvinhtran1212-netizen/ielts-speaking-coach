@@ -325,6 +325,22 @@ describe('PC-J10 — /instructor give flow (W-12, BL-18, BL-19)', () => {
   });
 });
 
+describe('PC-J114 — one give per submit (PC-J100 step c)', () => {
+  test('a synchronous ref, not the render-time `pending`, locks the give and every mutation', () => {
+    assert.match(VIEW, /const submittingRef = useRef\(false\);/);
+    // mutate takes the lock before its first await and frees it only for its own account.
+    assert.match(VIEW, /if \(pending \|\| submittingRef\.current\) return;\s*submittingRef\.current = true;/);
+    assert.match(VIEW, /if \(ownerId === accountRef\.current\) \{\s*setPending\(null\);\s*submittingRef\.current = false;\s*\}/);
+    // Both give targets hold it across the confirm steps, then hand it to mutate.
+    assert.match(VIEW, /const submitGive = async [^\n]*\n\s*if \(submittingRef\.current\) return false;\s*submittingRef\.current = true;/);
+    assert.equal((VIEW.match(/void submitGive\(/g) || []).length, 2);
+    // An account change drops a lock left by the previous account.
+    assert.match(VIEW, /setPending\(null\);\s*submittingRef\.current = false;\s*setDrawerStudentId\(null\);/);
+    // The behaviour (two submits → one POST; a failure frees the lock) is in
+    // tests/react/instructor-dashboard-double-submit.test.tsx.
+  });
+});
+
 describe('PC-J36 — "Chấm bài" rows identify their essay', () => {
   test('two essays from the same student get distinct row identities from response data only', () => {
     const queue = normalizeInstructorQueue([
