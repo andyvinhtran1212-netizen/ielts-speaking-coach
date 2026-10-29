@@ -29,6 +29,10 @@ export function auditNonceResponse({ reportOnly, html }) {
 /** Two consecutive responses for one signed-in path → failure strings (empty = pass). */
 export function auditNonceRoute(path, first, second) {
   const failures = [];
+  [first, second].forEach(({ status }, i) => {
+    if (!(status >= 200 && status < 300)) failures.push(`${path} #${i + 1}: HTTP ${status}; expected a successful document response (2xx)`);
+  });
+  if (failures.length) return failures;
   const audits = [first, second].map(auditNonceResponse);
   audits.forEach((audit, i) => {
     if (!audit.nonce) failures.push(`${path} #${i + 1}: no Report-Only nonce policy`);
@@ -70,6 +74,11 @@ async function main(base) {
   }
   for (const path of PUBLIC_PATHS) {
     const res = await get(base, path);
+    if (!(res.status >= 200 && res.status < 300)) {
+      failures.push(`${path}: HTTP ${res.status}; expected a successful document response (2xx)`);
+      console.log(`✗ ${path} HTTP ${res.status}: expected a successful document response (2xx)`);
+      continue;
+    }
     const ok = res.reportOnly === null;
     if (!ok) failures.push(`${path}: public route sent a Report-Only header`);
     console.log(`${ok ? '✓' : '✗'} ${path} HTTP ${res.status}: no Report-Only header`);
