@@ -534,6 +534,153 @@ def test_a_non_package_listening_row_is_not_locked_and_advances(package_probe):
     assert after["title"] == "Edited" and after["updated_at"] == start
 
 
+# ── Real 306 + 295 + 338 on the same package-owned Listening paper ──────────
+
+@pytest.fixture
+def package_policy_probe(paper_probe, programme_probe):  # noqa: F811
+    s = paper_probe
+    # Extend the imported 306/315/316 fixture with the pre-295 Listening
+    # columns needed by the real package importer. Keep package_probe's
+    # separate schema and its existing tests untouched.
+    query(f"""
+        ALTER TABLE {s}.listening_tests
+            ADD PRIMARY KEY (id),
+            ADD COLUMN version text NOT NULL DEFAULT '1.0',
+            ADD COLUMN full_audio_size_bytes integer,
+            ADD COLUMN audio_assembly_mode text,
+            ADD COLUMN created_at timestamptz NOT NULL DEFAULT now(),
+            ALTER COLUMN updated_at SET DEFAULT '{OLD.isoformat()}';
+        ALTER TABLE {s}.listening_content
+            ADD COLUMN source_type text,
+            ADD COLUMN audio_storage_path text,
+            ADD COLUMN audio_duration_seconds integer,
+            ADD COLUMN audio_size_bytes integer,
+            ADD COLUMN accent_tag text,
+            ADD COLUMN topic_tags text[] NOT NULL DEFAULT '{{}}',
+            ADD COLUMN transcript_segments jsonb NOT NULL DEFAULT '[]',
+            ADD COLUMN status text NOT NULL DEFAULT 'draft',
+            ADD COLUMN description text;
+        ALTER TABLE {s}.listening_exercises
+            ADD COLUMN status text NOT NULL DEFAULT 'draft';
+        ALTER TABLE {s}.listening_test_attempts
+            ADD COLUMN band_estimate numeric,
+            ADD COLUMN created_at timestamptz NOT NULL DEFAULT now();
+    """)
+    package_sql = (MIGRATIONS / '295_listening_content_programmes.sql').read_text(encoding='utf-8')
+    query(package_sql.replace('public.', s + '.').replace('search_path = public,', f'search_path = {s},'))
+    # Seed the pre-existing package as it stood before 306. Source-child
+    # INSERTs otherwise bump the parent's content revision during import.
+    # Only those seed triggers are suspended, in one transaction; every
+    # real trigger is enabled before any test operation runs.
+    query(f"""
+        BEGIN;
+        ALTER TABLE {s}.listening_content DISABLE TRIGGER trg_mock_paper_source;
+        ALTER TABLE {s}.listening_exercises DISABLE TRIGGER trg_mock_paper_source;
+        SELECT * FROM {s}.import_listening_content_package_atomic({programme_probe['args']});
+        ALTER TABLE {s}.listening_content ENABLE TRIGGER trg_mock_paper_source;
+        ALTER TABLE {s}.listening_exercises ENABLE TRIGGER trg_mock_paper_source;
+        COMMIT;
+    """)
+    [paper] = query(f"SELECT * FROM {s}.listening_tests WHERE content_package_id IS NOT NULL")
+    assert paper['updated_at'] == OLD
+    assert paper['policy_revision'] == paper['mock_content_revision'] == 0
+    assert not events(s, paper['id'])
+    yield {**programme_probe, 'schema': s, 'paper': paper, 'package_uuid': paper['content_package_id']}
+
+
+def test_package_policy_guards_are_real_enabled_and_run_before_338(package_policy_probe):
+    s = package_policy_probe['schema']
+
+    async def steps(connection):
+        assert await connection.fetchval(f'SELECT {s}.fn_mock_admission_contract_active()') is True
+        observed = await connection.fetch(
+            "SELECT t.tgname, t.tgenabled::text, t.tgtype, t.tgfoid::regprocedure::text AS fn "
+            "FROM pg_trigger t WHERE t.tgrelid=to_regclass($1) AND NOT t.tgisinternal ORDER BY t.tgname",
+            f'{s}.listening_tests')
+        assert [(r['tgname'], r['fn']) for r in observed] == [
+            ('trg_mock_paper_policy', f'{s}.fn_guard_mock_paper_policy()'),
+            ('trg_protect_listening_package_child', f'{s}.fn_protect_listening_package_child()'),
+            ('update_listening_tests_updated_at', f'{s}.update_updated_at_column()'),
+        ]
+        assert all(r['tgenabled'] == 'O' and r['tgtype'] & 19 == 19 for r in observed)
+        paper = await connection.fetchrow(f'SELECT * FROM {s}.listening_tests WHERE id=$1',
+                                          package_policy_probe['paper']['id'])
+        assert paper['content_package_id'] == package_policy_probe['package_uuid']
+
+    asyncio.run(_rolled_back(steps))
+
+
+def test_package_visibility_rpc_with_real_306_is_refused_atomically_by_295(package_policy_probe):
+    s, before = package_policy_probe['schema'], package_policy_probe['paper']
+
+    async def steps(connection):
+        with pytest.raises(asyncpg.PostgresError, match='listening_package_child_immutable'):
+            async with connection.transaction():
+                await connection.fetchval(
+                    f"SELECT {s}.fn_mutate_mock_paper_policy('listening',$1,$2,$3,$4,NULL,NULL)",
+                    before['id'], json.dumps({'is_public': not before['is_public']}), uuid4(),
+                    before['policy_revision'])
+        assert await connection.fetchrow(f'SELECT * FROM {s}.listening_tests WHERE id=$1', before['id']) == before
+        assert await connection.fetchval(
+            f'SELECT count(*) FROM {s}.mock_correction_release_events WHERE scope_id=$1', str(before['id'])) == 0
+
+    asyncio.run(_rolled_back(steps))
+
+
+@pytest.mark.parametrize('path', ['status-update', 'package-publish-rpc'])
+def test_package_status_transition_with_real_306_advances_timestamp_and_policy(package_policy_probe, path):
+    s, before = package_policy_probe['schema'], package_policy_probe['paper']
+
+    async def steps(connection):
+        start = await connection.fetchval('SELECT now()')
+        if path == 'status-update':
+            await connection.execute("SELECT set_config('app.listening_package_status_transition', $1, true)",
+                                     str(package_policy_probe['package_uuid']))
+            await connection.execute(f"UPDATE {s}.listening_tests SET status='archived' WHERE id=$1", before['id'])
+            expected_status, expected_public = 'archived', before['is_public']
+        else:
+            receipt = await connection.fetchrow(
+                f"SELECT * FROM {s}.set_listening_content_package_status($1,$2,'publish',NULL)",
+                package_policy_probe['package']['package_id'], package_policy_probe['package']['manifest_sha256'])
+            assert receipt['status'] == 'published' and receipt['forms_changed'] == 1
+            expected_status, expected_public = 'published', True
+        after = await connection.fetchrow(f'SELECT * FROM {s}.listening_tests WHERE id=$1', before['id'])
+        assert after['status'] == expected_status and after['is_public'] is expected_public
+        assert after['updated_at'] == start and after['updated_at'] > before['updated_at']
+        assert after['policy_revision'] == before['policy_revision'] + 1
+        assert after['mock_content_revision'] == before['mock_content_revision']
+        [event] = await connection.fetch(
+            f'SELECT * FROM {s}.mock_correction_release_events WHERE scope_id=$1', str(before['id']))
+        assert event['action'] == 'mock_paper_policy_updated' and event['scope_type'] == 'listening_test'
+        assert event['reason'] == 'legacy_writer' and event['actor_id'] is None
+        previous, current = json.loads(event['previous_state']), json.loads(event['new_state'])
+        assert previous['status'] == before['status'] and previous['policy_revision'] == before['policy_revision']
+        assert current['status'] == expected_status and current['policy_revision'] == after['policy_revision']
+        assert previous['is_public'] == before['is_public'] and current['is_public'] is expected_public
+
+    asyncio.run(_rolled_back(steps))
+    assert row(s, 'listening', before['id']) == before
+    assert not events(s, before['id'])
+
+
+@pytest.mark.parametrize('in_transition', [False, True])
+def test_package_raw_content_edit_with_real_306_is_refused_atomically(package_policy_probe, in_transition):
+    s, before = package_policy_probe['schema'], package_policy_probe['paper']
+
+    async def steps(connection):
+        if in_transition:
+            await connection.execute("SELECT set_config('app.listening_package_status_transition', $1, true)",
+                                     str(package_policy_probe['package_uuid']))
+        with pytest.raises(asyncpg.PostgresError, match='listening_package_child_immutable'):
+            async with connection.transaction():
+                await connection.execute(f"UPDATE {s}.listening_tests SET title='Edited' WHERE id=$1", before['id'])
+        assert await connection.fetchrow(f'SELECT * FROM {s}.listening_tests WHERE id=$1', before['id']) == before
+        assert await connection.fetchval(
+            f'SELECT count(*) FROM {s}.mock_correction_release_events WHERE scope_id=$1', str(before['id'])) == 0
+
+    asyncio.run(_rolled_back(steps))
+
+
 # ── Preconditions and postconditions on a minimal schema ────────────────────
 
 def _minimal(drop: str | None = None):
