@@ -184,6 +184,13 @@ export function WebExplanationPanel({
   correctionRequired?: boolean;
 }) {
   const explanation = object?.explanation || {};
+  const answer = object?.item?.answer;
+  // Release adjudication updates this structured key, not the authored prose.
+  const answerForms = [...new Set<string>([
+    answer?.canonical,
+    ...(Array.isArray(answer?.accepted_forms) ? answer.accepted_forms : []),
+  ].filter((value): value is string => typeof value === 'string' && Boolean(value.trim()))
+    .map((value) => value.trim()))];
   const repair = object?.correction_flow?.same_source_repair || {};
   const sourceRows = useMemo(() => {
     const source = evidenceRows(explanation.source_evidence);
@@ -343,7 +350,7 @@ export function WebExplanationPanel({
 
     {stage >= 4 ? <div className="wex-stage wex-stage--full is-current" aria-current="step">
       <div className="wex-stage__title"><span>{correctionRequired ? '5' : '✓'}</span><strong>{correctionRequired ? 'Đối chiếu và tạo bài sửa ngắn' : 'Đối chiếu lời giải'}</strong></div>
-      <div className="wex-answer"><span>Đáp án chuẩn</span><Prose value={explanation.answer_summary || object?.item?.answer?.canonical} /></div>
+      <div className="wex-answer"><span>Đáp án chuẩn</span><p>{answerForms.join(' / ') || 'Chưa có đáp án chuẩn.'}</p></div>
       <details open><summary>Bằng chứng nguồn</summary><EvidenceCards rows={sourceRows} />{explanation.script_extract ? <blockquote className="wex-script">{inlineNodes(explanation.script_extract, cleanVerbatim)}</blockquote> : null}</details>
       {explanation.why_correct || explanation.decision_path ? <details open><summary>Vì sao đúng</summary><Prose value={explanation.why_correct || explanation.decision_path} /></details> : null}
       {explanation.why_other_answers_fail ? <details><summary>Vì sao phương án khác sai</summary><Prose value={explanation.why_other_answers_fail} /></details> : null}
