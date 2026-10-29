@@ -122,7 +122,7 @@ def env(monkeypatch):
     async def _user(_authorization):
         return {"id": OWNER}
 
-    async def _synth(text, voice):
+    async def _synth(text, voice, *, user_id=None):
         state.synth_calls.append((text, voice))
         return b"MP3BYTES"
 
@@ -334,25 +334,33 @@ def test_quota_below_limit_is_allowed(env, monkeypatch):
     assert resp.status_code == 200
 
 
-def test_quota_lookup_failure_fails_open(env):
+def test_quota_lookup_failure_fails_closed(env):
+    # AIBUDGET-0033 FR-006: a ledger outage refuses the paid call.
     env.db.raises = RuntimeError("db down")
-    resp = _run(tts_module.text_to_speech(_body(), authorization="Bearer x"))
-    assert resp.status_code == 200
-    assert len(env.synth_calls) == 1
+    with pytest.raises(HTTPException) as error:
+        _run(tts_module.text_to_speech(_body(), authorization="Bearer x"))
+    assert error.value.status_code == 503
+    assert error.value.detail["error_code"] == "ai_budget_exhausted"
+    assert error.value.refusal.reason == "budget_unavailable"
+    assert env.synth_calls == []
 
 
-def test_non_positive_quota_disables_the_cap(env, monkeypatch):
+def test_non_positive_quota_is_config_invalid(env, monkeypatch):
+    # AIBUDGET-0033 FR-006: a cap <= 0 refuses, never "no cap".
     monkeypatch.setattr(tts_module.settings, "TTS_DAILY_LIMIT_PER_USER", 0)
-    env.db.count = 10_000
-    resp = _run(tts_module.text_to_speech(_body(), authorization="Bearer x"))
-    assert resp.status_code == 200
+    env.db.count = 0
+    with pytest.raises(HTTPException) as error:
+        _run(tts_module.text_to_speech(_body(), authorization="Bearer x"))
+    assert error.value.status_code == 503
+    assert error.value.refusal.reason == "config_invalid"
     assert env.db.tables == []
+    assert env.synth_calls == []
 
 
 # ── The 502 wrapper must not swallow guard HTTPExceptions ──────────────────
 
 def test_http_exception_inside_the_synth_try_is_not_rewrapped_as_502(env, monkeypatch):
-    async def _synth(_text, _voice):
+    async def _synth(_text, _voice, *, user_id=None):
         raise HTTPException(429, "upstream says slow down")
     monkeypatch.setattr(tts_module, "synthesize_mp3", _synth)
     with pytest.raises(HTTPException) as error:
@@ -416,11 +424,14 @@ def test_ip_window_slides(env, monkeypatch):
     tts_module._throttle_ip(request)  # oldest hit expired → allowed again
 
 
-def test_non_positive_ip_budget_disables_the_throttle(env, monkeypatch):
+def test_non_positive_ip_budget_is_config_invalid(env, monkeypatch):
+    # AIBUDGET-0033 FR-006: a per-IP budget <= 0 refuses, never "no throttle".
     monkeypatch.setattr(tts_module.settings, "TTS_IP_MAX_PER_MINUTE", 0)
     request = SimpleNamespace(headers={"x-forwarded-for": "203.0.113.12"}, client=None)
-    for _ in range(5):
+    with pytest.raises(HTTPException) as error:
         tts_module._throttle_ip(request)
+    assert error.value.status_code == 503
+    assert error.value.refusal.reason == "config_invalid"
     assert tts_module._ip_hits == {}
 
 
