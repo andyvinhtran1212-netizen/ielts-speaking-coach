@@ -58,6 +58,7 @@ anchors:
 ## Tóm tắt
 
 Hai cách tránh lặp:
+
 - **Ellipsis:** bỏ hẳn từ vì người đọc tự hiểu.
 - **Substitution:** thay từ đã nêu bằng một từ ngắn (*one, do so, so, neither*).
 

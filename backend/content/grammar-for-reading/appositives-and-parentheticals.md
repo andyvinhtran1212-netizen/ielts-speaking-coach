@@ -64,6 +64,7 @@ anchors:
 ### Nhận ra phần chêm
 
 Phần chêm thường được **cô lập** bằng:
+
 - **Hai dấu phẩy:** *The CEO, a former engineer, approved it.*
 - **Hai dấu gạch ngang:** *The result — a 30% drop — shocked analysts.*
 - **Ngoặc đơn:** *The drug (approved in 2020) is now standard.* *(mệnh đề phân từ bị động, không phải appositive NP)*
