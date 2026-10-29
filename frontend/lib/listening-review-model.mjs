@@ -146,7 +146,9 @@ function inheritMultiAnswerSolutions(items) {
         linked = true;
       }
     }
-    if (linked && group) {
+    // An empty source inherits like any empty slot even when no sibling
+    // needs a link (e.g. the authored slot has its own web panel).
+    if ((linked && group) || (!source.web_explanation_object && !hasSolutionBody(source.solution))) {
       // The stable source must expose the shared body when a later slot is
       // fuller. Preserve its authored fields, answer and replay window.
       const solution = { ...source.solution };
@@ -154,7 +156,7 @@ function inheritMultiAnswerSolutions(items) {
         if (!(key in solution) && key in author.solution) solution[key] = author.solution[key];
       }
       inherited.set(source.q_num, { ...(inherited.get(source.q_num) || source), solution,
-        solution_group: { ...group } });
+        ...(linked && group ? { solution_group: { ...group } } : {}) });
     }
   }
   return items.map((item) => inherited.get(item.q_num) || item);

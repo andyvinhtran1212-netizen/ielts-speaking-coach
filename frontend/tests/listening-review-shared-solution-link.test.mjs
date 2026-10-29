@@ -178,3 +178,24 @@ test('a web panel on Q17 preserves explicit Q18 fields while missing shared fiel
   assert.deepEqual(second.audio_window, raw.review[1].audio_window);
   assert.equal(JSON.stringify(raw), before);
 });
+
+test('an empty Q17 still inherits the shared explanation when the authored Q18 has a web panel', () => {
+  const raw = pair(B20_T1, 17, { questionType: null });
+  const shared = raw.review[0].solution;
+  raw.review[0].solution = {};
+  raw.review[1].solution = shared;
+  raw.review[1].web_explanation_object = { explanation: { why_correct: 'Web object.' } };
+  const before = JSON.stringify(raw);
+  const [first, second] = normalizeListeningReview(raw).review;
+  const inheritedBody = { ...shared };
+  delete inheritedBody.answer;
+  delete inheritedBody.audio_window;
+  assert.deepEqual(first.solution, inheritedBody);
+  assert.equal(first.solution_group, undefined);
+  assert.equal(first.expected, raw.review[0].expected);
+  assert.deepEqual(first.audio_window, raw.review[0].audio_window);
+  assert.deepEqual(second.solution, shared);
+  assert.deepEqual(second.web_explanation_object, raw.review[1].web_explanation_object);
+  assert.equal(second.solution_group, undefined);
+  assert.equal(JSON.stringify(raw), before);
+});
