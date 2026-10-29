@@ -352,11 +352,15 @@ exist today.
      - Writing records become `succeeded` at the 202 (job enqueued), storing `job_id`. The essay `grading` status then guards the job.
   8. **TTL:**
      - In-flight lease is 15 minutes (`lease_expires_at`). An expired lease can be reclaimed by the same key. A crash after the provider answered but before the result was stored may be charged once more, the same exception as FR-013.
+     - Each record has an execution `attempt`, 1 at the first claim. Only reclaiming an expired lease increments it and renews the lease, as the deferred-job claim does with `attempts` (FR-013). A duplicate while the lease is still valid gets 409 `regrade_in_flight` (item 7) and leaves `attempt` unchanged.
+     - Finish and release name the attempt they belong to. A worker whose attempt was reclaimed changes nothing on the record, so only the current attempt stores the result.
      - Terminal records are kept 24 hours, then deleted by the T008 sweeper (`ai_budget_sweep`). Until T008 merges, deletion is opportunistic on claim.
-  9. **Reservation key:** every reservation made by a regrade uses a request key derived from the claim, not a random value:
-     - `regrade:<resource_kind>:<resource_id>:<idempotency_key>[:<response_id>]`
-     - The Writing job's reservations use the job id that the claim stored.
-     - If the idempotency table were bypassed, `fn_ai_budget_reserve` replay (`AIBudgetReplay`) still refuses a second grant. The caller maps a replay to 409 `regrade_in_flight` or to the stored result, never to a second provider call.
+  9. **Reservation key:** every reservation made by a regrade uses a request key derived from the claim and its attempt, not a random value:
+     - `regrade:<resource_kind>:<resource_id>:<idempotency_key>:<attempt>[:<response_id>]`
+     - A reclaimed attempt therefore gets a new request key and a new reservation, and can complete. An ordinary duplicate keeps the same attempt, so it never reaches a new key (item 7 answers it first).
+     - The old attempt's reservation is never reused or released by the new attempt, because its provider request may have been sent (FR-004). Whatever the dead worker left `reserved` is settled once at its estimate by `fn_ai_budget_expire` (FR-014); a line it already settled or released stays as it is. Committed spend therefore counts each attempt's reservation exactly once: the old one at most at its estimate, the new one at its actual cost.
+     - The Writing job's reservations use the job id that the claim stored (and the job's own attempt, FR-013). A Writing claim makes no reservation of its own.
+     - If the idempotency table were bypassed, `fn_ai_budget_reserve` replay (`AIBudgetReplay`) still refuses a second grant for the same attempt. The caller maps a replay to 409 `regrade_in_flight` or to the stored result, never to a second provider call.
   10. **Telemetry:** the existing `admin_regrade` `grading_events` row (#1809) gains `idempotency_key` in metadata. A replay writes no telemetry row, only one INFO log line `regrade_replay`.
 
 ## Acceptance scenarios
@@ -563,10 +567,15 @@ Offline tests; the staging run is in T010.
 5. Bad key → 422. Missing key with the flag `true` → 428. With the flag `false` → today's behaviour plus one log line and the in-flight lock.
 6. Claim RPC error or timeout → 503 `regrade_unavailable`, 0 provider calls, no counter change.
 7. Writing: two concurrent admin+instructor regrades of one essay → one `writing_jobs` row and one job charge.
-8. Expired lease → same key reclaims. A response regrade during a session regrade → 409.
+8. Expired lease → same key reclaims with `attempt + 1` (full recovery: item 12). A response regrade during a session regrade → 409.
 9. A role `user` or inactive staff member → 403 before any `regrade_requests` row (inventory/AST test of 0032 T004 stays green).
 10. Postconditions: no grant to `anon`/`authenticated`, RLS on, both unique indexes present. PG16+17.
 11. Staging (`staging.averlearning.com`, fixture provider mode): a double click in `/admin/speaking/sessions` and `/admin/writing/grade` yields 1 `ai_usage_logs` row set per regrade. The CORS preflight for `Idempotency-Key` returns 200.
+12. Crash after reserve, then recovery (Speaking response and session regrade):
+    - **Given** a regrade with key K is claimed (attempt 1) and granted its reservation, and the worker dies before the provider call returns, so the record stays `in_flight` and the reservation stays `reserved`.
+    - **When** a retry with K arrives while the lease is still valid → 409 `regrade_in_flight`, `attempt` still 1, 0 provider calls, no new reservation.
+    - **When** the lease has expired and a retry with K arrives → the claim returns `claimed` with attempt 2, the reservation for the attempt-2 key is granted (not a replay), the provider stub is called once, and the record becomes `succeeded` with the result stored. A further retry with K replays that result with `Idempotent-Replayed: true` and 0 calls.
+    - **Then** the attempt-1 reservation is settled once at its estimate by `fn_ai_budget_expire` (status `expired`) and is never granted again. Committed spend equals the attempt-1 estimate plus the attempt-2 actual, and `fn_ai_budget_recompute` finds no difference. A late finish from the attempt-1 worker changes nothing on the record.
 
 ## Edge cases
 
@@ -680,6 +689,12 @@ Offline tests; the staging run is in T010.
   without adding a client key.
 - **Migration: 342** (Leader reserved). File only. Applied to staging in
   T010, and to production only at a promotion Vinh authorises.
+- **Correction before merge (PC-J205, Codex on #1945):** the approved
+  key formula left out the execution attempt, so a same-key reclaim of an
+  expired lease (approved in item 8) rebuilt the old reservation key, got
+  a replay from `fn_ai_budget_reserve` and stayed `regrade_in_flight`.
+  FR-025 items 8–9 now add the attempt counter of the deferred-job design,
+  and AC15 item 12 tests the recovery. No owner decision changes.
 
 ### Goal
 

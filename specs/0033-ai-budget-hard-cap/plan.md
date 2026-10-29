@@ -369,7 +369,11 @@ transaction with `lock_timeout = 5s`.
        transaction commits, then sees a replay.
      - Callers derive `request_key` from the logical attempt: for
        Speaking, `submission_id` plus the attempt number; for a deferred
-       job, the job id plus `attempts`. A true retry after a failure uses
+       job, the job id plus `attempts`; for a manual regrade (FR-025), the
+       idempotency key plus the `regrade_requests.attempt` that
+       `fn_regrade_claim` returned (Amendment 1). The replay rule above is
+       the same for all three, so a reclaim after a crash must bring its
+       own new attempt number to get a grant. A true retry after a failure uses
        the next attempt number, and so gets a new reservation. A duplicate
        of the same attempt (a client retry, or a concurrent request with
        the same `submission_id`) gets a replay. It must then return the
@@ -1178,9 +1182,11 @@ changes once, and lands before T010, so AC15 runs on staging.
   `Retry-After`; `mismatch` → 422 `idempotency_key_mismatch` without the
   other actor's result.
 - Derives the reservation request key
-  `regrade:<resource_kind>:<resource_id>:<idempotency_key>[:<response_id>]`
-  (FR-025 item 9). `services/ai_budget.py` gets a request-key helper
-  only.
+  `regrade:<resource_kind>:<resource_id>:<idempotency_key>:<attempt>[:<response_id>]`
+  from the claim's `attempt` (FR-025 items 8–9). `services/ai_budget.py`
+  gets a request-key helper only. The module never releases or settles a
+  reservation of an earlier attempt; `fn_ai_budget_expire` settles what a
+  dead attempt left `reserved` (FR-004, FR-014).
 - Call order in each of the four routes: guard (`require_admin` /
   `require_instructor`, 0032 AAL2 rules) → claim → existing validation →
   provider call or job enqueue → finish. A validation refusal before any
@@ -1206,6 +1212,7 @@ independent of the 333/340/341 objects.
   - `response jsonb`
   - `job_id uuid`
   - `lease_expires_at timestamptz`
+  - `attempt int not null default 1 check (attempt >= 1)`
   - `created_at`
   - `completed_at`
 - **Indexes and security:**
@@ -1215,14 +1222,20 @@ independent of the 333/340/341 objects.
     only.
 - **RPCs**, `SECURITY DEFINER`, fixed `search_path`, EXECUTE for
   `service_role` only:
-  - `fn_regrade_claim(...) → {outcome: claimed|replay|in_flight|mismatch, …}`,
-    atomic, takes over expired leases (15-minute lease). It also refuses
-    a `speaking_response` claim while its session has an in-flight
-    `speaking_session` record, and the reverse (FR-025 item 5). Until
-    T008 merges, it deletes terminal records older than 24 hours
+  - `fn_regrade_claim(...) → {outcome: claimed|replay|in_flight|mismatch, id, attempt, …}`,
+    atomic. A new record starts at `attempt = 1`. Taking over an expired
+    lease (15-minute lease) with the same key sets `attempt = attempt + 1`
+    and a new `lease_expires_at` in the same statement; a same-key claim
+    while the lease is valid returns `in_flight` and changes nothing. It
+    also refuses a `speaking_response` claim while its session has an
+    in-flight `speaking_session` record, and the reverse (FR-025 item 5).
+    Until T008 merges, it deletes terminal records older than 24 hours
     opportunistically.
-  - `fn_regrade_finish(id, state, http_status, response, job_id)`.
-  - `fn_regrade_release(id)`.
+  - `fn_regrade_finish(id, attempt, state, http_status, response, job_id)`
+    and `fn_regrade_release(id, attempt)` act only on an `in_flight`
+    record whose `attempt` matches, and otherwise return `lease_lost` and
+    change nothing (a worker whose lease was reclaimed cannot overwrite
+    the current attempt).
 - Idempotent DDL, read-only postconditions, a guarded down script, and
   README entries.
 
@@ -1282,9 +1295,15 @@ independent of the 333/340/341 objects.
   RLS on, no grant to `anon`/`authenticated`, both unique indexes, the
   RPCs' `search_path` and EXECUTE grants, claim races and lease takeover,
   idempotent re-apply and the guarded down script, on PostgreSQL 16 and
-  17 (AC15 items 1, 8 and 10).
-- **`backend/tests/test_regrade_idempotency.py`**: AC15 items 1–9 with a
-  counting provider stub and a failing claim RPC.
+  17 (AC15 items 1, 8 and 10), plus the `attempt` increment on takeover
+  only and `lease_lost` from a finish or release with an old attempt
+  (AC15 item 12).
+- **`backend/tests/test_regrade_idempotency.py`**: AC15 items 1–9 and 12
+  with a counting provider stub and a failing claim RPC. Item 12 kills the
+  worker after the reservation is granted, checks the 409 while the lease
+  is valid, expires the lease, and checks that the retry reserves under
+  the attempt-2 key, calls the stub once, finishes, and that committed
+  spend is the expired attempt-1 estimate plus the attempt-2 actual.
 - Kept green: `test_admin_regrade_manual.py`,
   `test_regrade_telemetry_pc_j09.py`, `test_regrade_status_resilience.py`,
   and the 0032 T004 inventory/AST test.
