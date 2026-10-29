@@ -11,7 +11,7 @@ from typing import Any
 import google.generativeai as genai
 
 from config import settings
-from services import ai_router, ai_usage_logger
+from services import ai_budget, ai_router, ai_usage_logger
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +41,9 @@ Dữ liệu 20 câu:
 """
 
 
+_MAX_OUTPUT_TOKENS = 8192
+
+
 def _model():
     name = (getattr(settings, "ADVANCED_VOCAB_REWRITE_MODEL", "")
             or "gemini-3.5-flash-lite")
@@ -49,7 +52,7 @@ def _model():
         generation_config=genai.types.GenerationConfig(
             response_mime_type="application/json",
             temperature=0.0,
-            max_output_tokens=8192,
+            max_output_tokens=_MAX_OUTPUT_TOKENS,
         ),
     )
 
@@ -212,11 +215,22 @@ async def _grade_gemini(
         _note_gemini_failure(None, "model_config")
         return _failed(items, "Bộ chấm chưa sẵn sàng; bài của bạn vẫn được lưu."), None, "model_config"
 
+    prompt = _PROMPT + payload_json
     try:
-        response = await asyncio.wait_for(
-            model.generate_content_async(_PROMPT + payload_json),
-            timeout=_TIMEOUT_SECONDS,
-        )
+        async with ai_budget.guard(
+            "google", name, "advanced_vocab_rewrite",
+            ai_budget.estimate_or_none("google", name, input_text=prompt, max_tokens=_MAX_OUTPUT_TOKENS),
+            request_key=ai_budget.attempt_key("advanced_vocab_rewrite"), operation="grade_unit",
+            user_id=user_id,
+        ) as lease:
+            response = await asyncio.wait_for(
+                model.generate_content_async(
+                    prompt, request_options=ai_budget.gemini_request_options()),
+                timeout=_TIMEOUT_SECONDS,
+            )
+            lease.settle(ai_budget.gemini_actual_usd(name, response))
+    except (ai_budget.AIBudgetRefused, ai_budget.AIBudgetReplay):
+        raise   # AIBUDGET-0033 FR-008: no Claude fallback after a refusal
     except asyncio.TimeoutError:
         ai_usage_logger.schedule_usage_log(ai_usage_logger.log_unpriced_usage_async(
             service="gemini", model=name, user_id=user_id,

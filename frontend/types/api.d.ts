@@ -13136,6 +13136,12 @@ export interface components {
             updated_at: string;
             /** Course Id */
             course_id?: string | null;
+            /** Archived At */
+            archived_at?: string | null;
+            /** Archived By */
+            archived_by?: string | null;
+            /** Archive Reason */
+            archive_reason?: string | null;
             course?: components["schemas"]["CohortCourseOut"] | null;
             /** Member Count */
             member_count?: number | null;

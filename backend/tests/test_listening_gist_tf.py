@@ -539,6 +539,9 @@ def test_attempt_gist_happy_path(monkeypatch):
     fake = _FakeAdminClient(canned)
     _patch_admin_client(monkeypatch, fake)
     authz = _patch_user(monkeypatch)
+    # The daily gist count fails closed (AIBUDGET-0033 FR-006); this fake has
+    # no count read, so the quota is stubbed — it has its own tests.
+    monkeypatch.setattr(listening_router, "_count_gist_gradings_today", lambda _u: 0)
 
     body = listening_router.ListeningAttemptRequest(
         exercise_id="ex-gist",

@@ -31,7 +31,7 @@ import google.generativeai as genai
 
 from config import settings
 from database import supabase_admin
-from services import ai_router, ai_usage_logger
+from services import ai_budget, ai_router, ai_usage_logger
 
 logger = logging.getLogger(__name__)
 
@@ -41,13 +41,14 @@ genai.configure(api_key=settings.GEMINI_API_KEY)
 
 _MODEL_NAME = "gemini-2.5-flash"
 _GEMINI_TIMEOUT_SECONDS = 60.0   # Mục 9 (B4): bound a hung generate_content call
+_MAX_OUTPUT_TOKENS = 8192
 
 _model = genai.GenerativeModel(
     model_name=_MODEL_NAME,
     generation_config=genai.types.GenerationConfig(
         response_mime_type="application/json",
         temperature=0.7,        # lowered from 0.9 — reduces verbosity, less token pressure
-        max_output_tokens=8192, # raised from 1024 — prevents truncation when thinking is active
+        max_output_tokens=_MAX_OUTPUT_TOKENS, # raised from 1024 — prevents truncation when thinking is active
     ),
 )
 
@@ -180,11 +181,27 @@ async def _gemini_generate(prompt: str, *, _retry: bool = True,
     logger.debug("[gemini] calling model=%s retry_allowed=%s", _MODEL_NAME, _retry)
 
     try:
-        # Mục 9 (B4): a hung Gemini request must not block question generation
-        # indefinitely — bound it with an explicit timeout.
-        response = await asyncio.wait_for(
-            _model.generate_content_async(prompt), timeout=_GEMINI_TIMEOUT_SECONDS
-        )
+        async with ai_budget.guard(
+            "google", _MODEL_NAME, "question_generation",
+            ai_budget.estimate_or_none("google", _MODEL_NAME, input_text=prompt,
+                                       max_tokens=_MAX_OUTPUT_TOKENS),
+            request_key=ai_budget.attempt_key("question_generation"),
+            operation="generate_questions", user_id=user_id,
+            resource_type="session" if session_id else None, resource_id=session_id,
+        ) as lease:
+            # Mục 9 (B4): a hung Gemini request must not block question generation
+            # indefinitely — bound it with an explicit timeout. No hidden gapic
+            # retry (AIBUDGET-0033 FR-001).
+            response = await asyncio.wait_for(
+                _model.generate_content_async(
+                    prompt, request_options=ai_budget.gemini_request_options(),
+                ),
+                timeout=_GEMINI_TIMEOUT_SECONDS,
+            )
+            lease.settle(ai_budget.gemini_actual_usd(_MODEL_NAME, response))
+    except (ai_budget.AIBudgetRefused, ai_budget.AIBudgetReplay):
+        # FR-008: never normalised to the ValueError callers fall back on.
+        raise
     except asyncio.TimeoutError as exc:
         logger.error("[gemini] generate_content timed out after %ss", _GEMINI_TIMEOUT_SECONDS)
         raise ValueError("Gemini request timed out") from exc
