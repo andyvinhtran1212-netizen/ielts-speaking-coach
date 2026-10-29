@@ -121,10 +121,10 @@ Tiếng Việt dùng cặp "tuy/mặc dù … nhưng": hai từ đi đôi, và c
 
 *The policy was popular, although it achieved little.*
 
-- ❌ Dịch thành "chính sách được ưa chuộng, nhưng đạt được ít", rồi coi "đạt được ít" là ý chính.
-- ✅ Mệnh đề chính là *The policy was popular*; *although it achieved little* chỉ là nhượng bộ. Ý tác giả: chính sách **vẫn được ưa chuộng** dù đạt được ít.
+- ❌ Dịch thành "chính sách được ưa chuộng, nhưng đạt được ít", rồi coi "đạt được ít" là mệnh đề chính.
+- ✅ Về ngữ pháp, mệnh đề chính là *The policy was popular*; *although it achieved little* là mệnh đề nhượng bộ. Câu nêu cả hai ý: chính sách được ưa chuộng, dù đạt được ít. Dịch "…, dù đạt được ít" giữ được cấu trúc này; ý nào là trọng tâm của lập luận thì đọc tiếp câu sau mới biết.
 
-Cũng vì thói quen "tuy… nhưng", khi viết nhiều bạn viết *Although…, but…*. Câu này sai trong tiếng Anh: chỉ dùng một trong hai từ.
+Cũng vì thói quen "tuy… nhưng", khi viết nhiều bạn viết sai thành *Although…, but…*. Câu này sai trong tiếng Anh: chỉ dùng một trong hai từ.
 
 ## Bài tập luyện
 

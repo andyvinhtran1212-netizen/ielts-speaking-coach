@@ -127,7 +127,7 @@ Chỉ dựa vào câu trong bài.
 1. Bài: *Regular exercise may slow memory decline in older adults.* Câu hỏi: *Regular exercise slows memory decline in older adults.*
 2. Bài: *The study clearly shows that the new crop variety needs less water than older varieties.* Câu hỏi: *According to the study, the new variety requires less water than older ones.*
 3. Bài: *Most of the experts interviewed supported the plan, although two strongly opposed it.* Câu hỏi: *All the experts interviewed supported the plan.*
-4. Bài: *Critics claim that the tax will harm small businesses.* Câu hỏi: *The writer believes that the tax will harm small businesses.*
+4. Bài: *Critics claim that the tax will harm small businesses.* Câu hỏi: *The tax will harm small businesses.*
 5. Bài: *There is no evidence that the additive is harmful at the levels used in food.* Câu hỏi: *Scientists have proved that the additive is safe.*
 
 ### Đáp án
@@ -135,7 +135,7 @@ Chỉ dựa vào câu trong bài.
 1. **NOT GIVEN.** *may* chỉ là khả năng; bài không xác nhận cũng không phủ định rằng tập thể dục làm chậm suy giảm trí nhớ.
 2. **TRUE.** *clearly shows* là khẳng định mạnh; *requires less water* diễn đạt lại *needs less water*.
 3. **FALSE.** Bài nói rõ có hai chuyên gia phản đối, mâu thuẫn với *All*.
-4. **NOT GIVEN.** *Critics claim* là ý của người khác; câu này không cho biết tác giả nghĩ gì.
+4. **NOT GIVEN.** Bài chỉ tường thuật ý của người phê bình (*Critics claim*), không xác nhận thuế sẽ gây hại cho doanh nghiệp nhỏ.
 5. **NOT GIVEN.** "Không có bằng chứng là có hại" chưa phải "đã chứng minh là an toàn"; câu hỏi mạnh hơn bài nhưng không mâu thuẫn với bài.
 
 ## Tóm tắt nhanh

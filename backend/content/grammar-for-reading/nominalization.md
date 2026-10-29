@@ -129,7 +129,7 @@ Viết lại mỗi cụm thành một mệnh đề có chủ ngữ và động t
 2. *the rapid expansion of cities in Asia*
 3. *the failure of the company to meet its targets*
 4. *scientists' growing awareness of microplastics in the ocean*
-5. *the reduction of waiting times by the hospital*
+5. *the reduction in waiting times by the hospital*
 
 ### Đáp án
 

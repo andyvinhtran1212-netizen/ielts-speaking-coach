@@ -123,8 +123,8 @@ Tiếng Việt không có dạng phân từ; chữ "đã" đặt trước độn
 
 *Built in the 1960s, the tower is now being demolished.*
 
-- ❌ Hiểu thành: tòa tháp "đã xây" một thứ gì đó, và cả câu nói về quá khứ.
-- ✅ *Built* mang nghĩa bị động: tòa tháp **được xây** vào thập niên 1960. Động từ chính *is being demolished* ở hiện tại: bây giờ tòa tháp đang bị phá dỡ.
+- ❌ Hiểu thành: toà tháp "đã xây" một thứ gì đó, và cả câu nói về quá khứ.
+- ✅ *Built* mang nghĩa bị động: toà tháp **được xây** vào thập niên 1960. Động từ chính *is being demolished* ở hiện tại: bây giờ toà tháp đang bị phá dỡ.
 
 ## Bài tập luyện
 
@@ -140,7 +140,7 @@ Tiếng Việt không có dạng phân từ; chữ "đã" đặt trước độn
 
 1. **Nguyên nhân** (và xảy ra trước): vì đã mất nguồn tài trợ chính. Chủ ngữ ngầm hiểu: *the charity*.
 2. **Điều kiện / thời gian**: khi (nếu) bị phơi dưới ánh nắng. Chủ ngữ ngầm hiểu: *the chemical* (nghĩa bị động: hoá chất bị phơi nắng).
-3. **Kết quả**: khiến hàng trăm ngôi nhà bị ngập. Chủ ngữ ngầm hiểu: *the river*, hay đúng hơn là cả sự việc sông tràn bờ.
+3. **Kết quả**: khiến hàng trăm ngôi nhà bị ngập. Chủ ngữ ngầm hiểu: *the river* (việc sông tràn bờ khiến hàng trăm ngôi nhà bị ngập).
 4. **Thời gian / bối cảnh**: khi đi bộ qua phố cổ. Chủ ngữ ngầm hiểu: *visitors*.
 5. **Nguyên nhân**: vì không biết tiếng địa phương. Chủ ngữ ngầm hiểu: *the researchers*.
 

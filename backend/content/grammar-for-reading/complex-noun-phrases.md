@@ -164,7 +164,7 @@ Gạch mọi cụm *of/in/on/for…* để lộ head noun rồi mới tìm độ
 
 ## Lỗi người Việt hay mắc
 
-Tiếng Việt đặt danh từ chính **trước**, phần bổ nghĩa **sau**: "biện pháp kiểm soát ô nhiễm không khí". Tiếng Anh thì ngược lại với chuỗi danh từ: danh từ chính đứng **cuối**, *air pollution control measures*. Người học đọc từ trái sang phải theo thói quen tiếng Việt nên bắt nhầm danh từ chính.
+Tiếng Việt đặt danh từ chính **trước**, phần bổ nghĩa **sau**: "biện pháp kiểm soát ô nhiễm không khí". Với chuỗi danh từ, tiếng Anh làm ngược lại: danh từ chính đứng **cuối**, *air pollution control measures*. Người học đọc từ trái sang phải theo thói quen tiếng Việt nên bắt nhầm danh từ chính.
 
 ### Lỗi 1: Đọc chuỗi danh từ từ trái sang phải
 

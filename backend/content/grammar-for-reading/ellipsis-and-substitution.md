@@ -115,7 +115,7 @@ Tiếng Việt thường lặp lại danh từ: "dân số Tokyo lớn hơn dân
 
 *The old bridge was replaced by a stronger one.*
 
-- ❌ Hiểu thành: "được thay bằng một (thứ/người) mạnh hơn".
+- ❌ Hiểu *one* là con số "một" rồi không biết "một cái gì" được nói tới.
 - ✅ *one* = *bridge*: cây cầu cũ được thay bằng **một cây cầu chắc hơn**.
 
 ### Lỗi 3: Hiểu *so* sau *think/hope* là "vì vậy"
@@ -129,13 +129,13 @@ Tiếng Việt thường lặp lại danh từ: "dân số Tokyo lớn hơn dân
 
 ### Khôi phục phần bị lược hoặc bị thay
 
-Viết lại phần bị lược hoặc cho biết từ in nghiêng thay cho gì.
+Viết lại phần bị lược, hoặc cho biết từ in đậm thay cho gì.
 
-1. *Wealthy countries can afford to cut emissions quickly; poorer ones cannot.*
-2. *The average salary in the capital is higher than that in rural areas.*
-3. *Researchers were asked to publish their raw data, but few did so.*
+1. *Wealthy countries can afford to cut emissions quickly; poorer **ones** cannot.*
+2. *The average salary in the capital is higher than **that** in rural areas.*
+3. *Researchers were asked to publish their raw data, but few **did so**.*
 4. *Men's earnings rose by 3%, and women's by 5%.*
-5. *Students who had a mentor were more likely to finish the course than those who did not.*
+5. *Students who had a mentor were more likely to finish the course than **those** who did not.*
 
 ### Đáp án
 

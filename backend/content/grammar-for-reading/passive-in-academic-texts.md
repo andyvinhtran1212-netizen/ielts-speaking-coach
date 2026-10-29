@@ -114,7 +114,7 @@ Tiếng Việt đánh dấu bị động bằng "bị" (thường cho việc kh�
 
 ### Lỗi 3: Lấy V3 rút gọn làm động từ chính
 
-*Most of the energy consumed by households is used for heating.*
+*In the UK, most of the energy consumed by households is used for heating.*
 
 - ❌ Đọc *consumed* là động từ chính, rồi không biết *is used* làm gì trong câu.
 - ✅ *consumed by households* = *that is consumed by households* (bị động rút gọn). Động từ chính là *is used*.
@@ -134,7 +134,7 @@ Với mỗi động từ bị động, cho biết ai (cái gì) thực hiện h�
 ### Đáp án
 
 1. *was developed*: ai làm = *a team in Oxford*; chịu tác động = *the new vaccine*.
-2. *have been cut down*: ai làm = không nêu (suy ra: những người làm đường); chịu tác động = *thousands of trees*.
+2. *have been cut down*: ai làm = không nêu (có thể là những người làm đường); chịu tác động = *thousands of trees*.
 3. *are being encouraged*: ai làm = *the government*; chịu tác động = *farmers*. Người trồng cây là nông dân, nhưng người khuyến khích là chính phủ.
 4. *were checked*: ai làm = *two independent reviewers*; chịu tác động = *the results*. *are reported*: ai làm = không nêu (thường là tác giả nghiên cứu); chịu tác động = *the results*.
 5. *caused* (bị động rút gọn): ai làm = *traffic*; chịu tác động = *pollution*. *is said*: người nói không được nêu tên; đây là ý kiến được tường thuật lại, chưa phải khẳng định của tác giả.

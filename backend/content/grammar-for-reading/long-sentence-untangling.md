@@ -103,7 +103,7 @@ Trong ví dụ trên, *were gathered* và *seemed* nằm trong mệnh đề ph�
 
 ## Lỗi người Việt hay mắc
 
-Động từ tiếng Việt không chia, nên không có dấu hiệu hình thức nào cho biết đâu là động từ hữu hạn (động từ chính) và đâu là V-ing/V3 hay động từ trong mệnh đề phụ. Câu tiếng Việt cũng thường ngắn và nối tiếp nhau. Khi gặp câu tiếng Anh dài, người học hay lấy **động từ đầu tiên** gặp được làm động từ chính, hoặc dịch lần lượt từng cụm rồi mất khung câu.
+Động từ tiếng Việt không chia, nên không có dấu hiệu hình thức nào cho biết đâu là động từ chính (động từ hữu hạn của mệnh đề chính) và đâu là V-ing/V3 hay động từ hữu hạn nằm trong mệnh đề phụ. Câu tiếng Việt cũng thường ngắn và nối tiếp nhau. Khi gặp câu tiếng Anh dài, người học hay lấy **động từ đầu tiên** gặp được làm động từ chính, hoặc dịch lần lượt từng cụm rồi mất khung câu.
 
 ### Lỗi 1: Lấy động từ đầu tiên làm động từ chính
 

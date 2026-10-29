@@ -101,7 +101,7 @@ Trùng từ không chứng minh được là trùng nghĩa: kiểm chủ thể, 
 
 ## Lỗi người Việt hay mắc
 
-Nhiều bạn học đọc hiểu theo cách **dò từ khoá**: dịch câu hỏi sang tiếng Việt rồi tìm đúng chữ đó trong bài. Cách này hỏng ở cả hai chiều: chữ trùng mà ý khác, hoặc ý trùng mà chữ khác.
+Nhiều người học làm bài đọc theo cách **dò từ khoá**: dịch câu hỏi sang tiếng Việt rồi tìm đúng chữ đó trong bài. Cách này hỏng ở cả hai chiều: chữ trùng mà ý khác, hoặc ý trùng mà chữ khác.
 
 ### Lỗi 1: Chọn TRUE vì thấy đủ từ khoá
 
@@ -135,7 +135,7 @@ Bài: *The scheme was abandoned after two years.* Câu hỏi: *The programme was
 
 1. **Cùng ý.** *more visitors … than in any other season* = mùa hè là mùa có nhiều khách nhất (*busiest season*), dù khác cấu trúc.
 2. **Không cùng ý.** *not … until 1932* = mãi đến năm 1932 mới xong, nên không phải xong **trước** 1932.
-3. **Không cùng ý.** *a minority* (số ít) ngược với *most* (phần lớn), dù các chữ còn lại gần như trùng với bài.
+3. **Không cùng ý.** *a minority* (thiểu số) ngược với *most* (phần lớn), dù các chữ còn lại gần như trùng với bài.
 4. **Cùng ý.** *rarely fatal* = hiếm khi gây tử vong = *seldom kills*.
 5. **Không cùng ý.** *did not fall* gồm cả trường hợp doanh số giữ nguyên, nên chưa suy ra được là doanh số **tăng** (xem phần phủ định của trái nghĩa ở trên).
 

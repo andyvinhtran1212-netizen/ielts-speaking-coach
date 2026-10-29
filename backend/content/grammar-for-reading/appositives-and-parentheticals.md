@@ -102,7 +102,7 @@ Tiếng Việt ít chêm một cụm dài giữa hai dấu phẩy ngay sau chủ
 
 *The manager of the two factories, a chemist by training, was replaced in 2019.*
 
-- ❌ Hiểu thành: một thứ gì đó trong phần chêm (*training*, *factories*) bị thay.
+- ❌ Hiểu thành: một thứ khác bị thay (*factories* trong cụm *of*, hoặc *training* trong phần chêm).
 - ✅ Khung câu: *The manager was replaced.* Người bị thay là **người quản lý**; *a chemist by training* chỉ cho biết thêm người đó vốn học ngành hoá.
 
 ### Lỗi 2: Đọc phần chêm như một ý có hành động riêng

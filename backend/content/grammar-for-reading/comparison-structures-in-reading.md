@@ -101,7 +101,7 @@ Khi đọc, *three times as high as* = ×3; *increased by 200%* cũng là ×3 (t
 
 ## Lỗi người Việt hay mắc
 
-Tiếng Việt nói so sánh kém bằng "không … bằng" hoặc "ít … hơn". Khi đọc nhanh và dịch thầm trong đầu, người học hay đánh rơi chữ "không" hoặc chữ "ít", nên hiểu **ngược chiều** so sánh.
+Trong tiếng Việt, so sánh kém thường nói là "không … bằng" hoặc "ít … hơn". Khi đọc nhanh và dịch thầm trong đầu, người học hay đánh rơi chữ "không" hoặc chữ "ít", nên hiểu **ngược chiều** so sánh.
 
 ### Lỗi 1: Dịch *not as big as* thành "không to bằng" rồi hiểu ngược chiều
 
@@ -128,7 +128,7 @@ Tiếng Việt nói so sánh kém bằng "không … bằng" hoặc "ít … hơ
 
 ### A > B hay A < B?
 
-Với mỗi câu, A là đối tượng nêu trước, B là đối tượng được so sánh. Cho biết A > B hay A < B, và so về tiêu chí nào.
+Với mỗi câu, A là chủ ngữ của mệnh đề chính, B là đối tượng được so sánh với A. Cho biết A > B hay A < B, và so về tiêu chí nào.
 
 1. *In 2020, rural households were not as likely as urban households to own a computer.*
 2. *Rail freight is less polluting than road freight.*

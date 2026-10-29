@@ -94,7 +94,7 @@ Chấm phẩy nối hai **mệnh đề độc lập** — mỗi vế là một �
 
 ## Lỗi người Việt hay mắc
 
-Trong văn bản tiếng Việt hằng ngày, chấm phẩy và gạch ngang dài ít xuất hiện; dấu gạch ( - ) thường chỉ dùng để nối hai địa danh hay mở đầu lời thoại. Vì vậy người học hay **đọc lướt** qua *;* và *—* như một dấu phẩy bình thường, và bỏ mất tín hiệu nghĩa của chúng.
+Trong văn bản tiếng Việt hằng ngày, chấm phẩy và gạch ngang dài ít xuất hiện; dấu gạch ( - ) phổ biến nhất là để nối hai địa danh hay mở đầu lời thoại. Vì vậy người học hay **đọc lướt** qua *;* và *—* như một dấu phẩy bình thường, và bỏ mất tín hiệu nghĩa của chúng.
 
 ### Lỗi 1: Đọc chấm phẩy như dấu phẩy
 
@@ -127,13 +127,13 @@ Cho biết dấu câu được nhắc trong ngoặc vuông báo hiệu quan hệ
 2. *Three crops dominate the region: rice, maize and cassava.* [dấu hai chấm]
 3. *Urban incomes rose; rural incomes stagnated.* [chấm phẩy]
 4. *The new policy — introduced without public consultation — proved unpopular.* [cặp gạch ngang]
-5. *The species was thought to be extinct for decades — until a farmer photographed one in 2012.* [một gạch ngang]
+5. *The species had been thought to be extinct for decades — until a farmer photographed one in 2012.* [một gạch ngang]
 
 ### Đáp án
 
 1. Dấu hai chấm → phần sau **giải thích** phần trước: dân số giảm vì nhà máy chính đã đóng cửa.
 2. Dấu hai chấm → phần sau **liệt kê** ba loại cây trồng.
-3. Chấm phẩy → nối hai **mệnh đề độc lập**; nội dung cho thấy hai vế đối chiếu nhau (thành thị tăng, nông thôn đứng yên).
+3. Chấm phẩy → nối hai **mệnh đề độc lập**; nội dung cho thấy hai vế đối chiếu nhau (thu nhập thành thị tăng, nông thôn chững lại).
 4. Cặp gạch ngang → **phần chêm** thông tin phụ. Khung: *The new policy proved unpopular.*
 5. Một gạch ngang cuối câu → dẫn vào phần **nhấn mạnh / bẻ lái**: thông tin bất ngờ làm thay đổi ý trước (loài này hoá ra chưa tuyệt chủng).
 

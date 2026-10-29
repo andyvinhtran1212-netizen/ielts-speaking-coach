@@ -13,7 +13,7 @@ const hash = (value) => createHash('sha256').update(value).digest('hex');
 const banks = new Map(fixture.banks.map((bank) => [bank.code, bank]));
 
 test('wire is the byte-exact real parser export, bound to all18 approved sources', () => {
-  assert.equal(hash(wireBytes), '735bd5d8327e2768b1eb3d06cba7d4fee2d141462cfea9f8db922d61bf39dff6');
+  assert.equal(hash(wireBytes), 'b8b8122ce12ff31fa90da70e207d621f5a42aa87e71c1960a361dd151ea03513');
   assert.equal(fixture.provenance.approved_source_manifest_sha256, '004ce84fab271f98d2ae9c5d89c2e958b1038890cc2a931129cd529d50125b3e');
   assert.equal(controls.provenance.approved_source_manifest_sha256, fixture.provenance.approved_source_manifest_sha256);
   assert.equal(controls.provenance.academic_frame_sha256, 'd4505ca8685299454778126ab26cd4ca75a445b36c840d35ac1a6c66a62c7cf5');
