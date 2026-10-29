@@ -64,7 +64,7 @@ Trong bài này, xét mệnh đề phân từ bổ nghĩa cho mệnh đề chín
 - **Facing rising costs**, the firm cut its workforce. *(= Because it faced…)*
 - **Discovered in 1994**, the site changed our view of history. *(= After it was discovered…)*
 
-Chủ ngữ của phân từ **thường trùng** với chủ ngữ của mệnh đề chính.
+Chủ ngữ ngầm hiểu của phân từ **phải** là chủ ngữ của mệnh đề chính; nếu không, câu bị treo (xem Bẫy 1).
 
 Phân từ là dạng **không hữu hạn**, không có thì độc lập. Tên *present participle* không có nghĩa rằng V-ing luôn chỉ hiện tại hay hai việc luôn xảy ra cùng lúc. Trong *Using satellite data, researchers mapped climate patterns*, **mapped** mới là động từ hữu hạn ở quá khứ đơn; *Using…* diễn tả cách thức nghiên cứu.
 
@@ -98,17 +98,19 @@ Phân từ mở đầu mặc định thuộc về **chủ ngữ chính** ngay sa
 
 Về mặt logic, "the conclusion" không thể *review* — đây là câu treo (dangling); trong bài đọc chuẩn, hãy tìm tác nhân thật ở ngữ cảnh.
 
+✅ *Having reviewed the data, **the researchers** revised the conclusion.*
+
 ### Bẫy 2: Nhầm Having + V3 với thì hoàn thành của câu
 *Having + V3* chỉ là phân từ, KHÔNG phải động từ chính — động từ chính nằm ở mệnh đề sau dấu phẩy.
 
 ### Chiến lược giải mã
 1. Nhận diện phân từ không hữu hạn và tạm nhóm phần này để tìm động từ hữu hạn.
-2. Với kiểu phân từ mở đầu không có chủ ngữ riêng trong bài này, kiểm tra chủ ngữ ngầm hiểu có khớp chủ ngữ chính hay không.
+2. Kiểm tra chủ ngữ ngầm hiểu của phân từ có trùng chủ ngữ chính không.
 3. Suy ra quan hệ thời gian/nguyên nhân/kết quả hoặc bối cảnh từ cả câu, không chỉ từ vị trí hay dạng V-ing.
 
 ## Tóm tắt nhanh
 
 - V-ing thường chủ động; V3 thường bị động; Having+V3 nhấn mạnh việc đã xảy ra trước
 - Phân từ không có thì độc lập; V-ing không mặc định là hiện tại hoặc cùng lúc
-- Với cụm phân từ mở đầu trong các ví dụ trên, kiểm tra chủ ngữ ngầm hiểu có khớp chủ ngữ chính hay không
+- Kiểm tra chủ ngữ ngầm hiểu của phân từ có trùng chủ ngữ chính không
 - Cụm phân từ cuối câu có thể nêu kết quả hoặc thông tin đi kèm; đọc quan hệ theo ngữ cảnh
