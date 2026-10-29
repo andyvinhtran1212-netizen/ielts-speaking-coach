@@ -73,6 +73,8 @@ def route(monkeypatch):
         rows.append(row)
 
     monkeypatch.setattr(ai_usage_logger, "_insert_async", capture)
+    # Module-global; earlier tests may leave tasks bound to closed loops.
+    monkeypatch.setattr(ai_usage_logger, "_PENDING_USAGE_TASKS", set())
 
     def run(stt):
         monkeypatch.setattr(grading, "transcribe_from_bytes", stt)
