@@ -101,6 +101,44 @@ Danh hoá thường bỏ chủ thể. Nếu câu hỏi hỏi "ai làm", phải t
 2. Khôi phục "ai làm gì" để hiểu ý thật.
 3. Theo dõi danh hoá lặp lại — nó nối chủ đề giữa các câu.
 
+## Lỗi người Việt hay mắc
+
+Tiếng Việt thường kể hành động bằng động từ: "kế hoạch thất bại", "chính phủ thực hiện chính sách". Khi gặp danh từ học thuật như *failure, implementation*, người học dịch thành "sự thất bại", "việc thực hiện" rồi đọc nó như **một vật**, không thấy đó là **một hành động** có người làm.
+
+### Lỗi 1: Đọc danh từ như một đồ vật
+
+*The implementation of the new policy took three years.*
+
+- ❌ Hiểu thành: có một thứ gọi là "bản thực hiện", hoặc "chính sách mới mất ba năm".
+- ✅ *implementation* = hành động **thực hiện**. Mở gói: (ai đó) mất ba năm để thực hiện chính sách mới.
+
+### Lỗi 2: Dịch "sự/việc + động từ" rồi không hỏi "ai làm"
+
+*The rejection of the proposal surprised the staff.*
+
+- ❌ Dịch "việc bác bỏ đề xuất làm nhân viên bất ngờ" và dừng ở đó.
+- ✅ Hỏi tiếp: **ai** bác bỏ? Câu này không nói; phải tìm tác nhân ở câu trước hoặc sau (ví dụ: ban giám đốc). Câu hỏi IELTS hay hỏi đúng chỗ này.
+
+## Bài tập luyện
+
+### Mở gói cụm danh hoá thành "ai làm gì"
+
+Viết lại mỗi cụm thành một mệnh đề có chủ ngữ và động từ. Thì trong đáp án chỉ là gợi ý; bản thân danh từ không cho biết thì.
+
+1. *the government's introduction of a sugar tax*
+2. *the rapid expansion of cities in Asia*
+3. *the failure of the company to meet its targets*
+4. *scientists' growing awareness of microplastics in the ocean*
+5. *the reduction of waiting times by the hospital*
+
+### Đáp án
+
+1. *The government introduced a sugar tax.* Tác nhân nằm ở sở hữu cách *government's*.
+2. *Cities in Asia expanded (are expanding) rapidly.* Tính từ *rapid* trở lại thành trạng từ *rapidly*.
+3. *The company failed to meet its targets.* *failure* = hành động **thất bại**, không phải một vật.
+4. *Scientists are increasingly aware of microplastics in the ocean.* *awareness* đến từ tính từ *aware*; *growing* trở thành *increasingly*.
+5. *The hospital reduced waiting times.* Tác nhân nằm ở cụm *by the hospital*.
+
 ## Tóm tắt nhanh
 
 - Danh hoá = động từ/tính từ → danh từ, đóng gói cả ý
