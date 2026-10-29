@@ -43,7 +43,8 @@ code keeps one. No new endpoint, table or scoring change.
 ## Revision 3
 
 The Revision 2 follow-up lookup grows from three codes to five. Only the
-punctuation `punc_semi_b2` and comparison `cmp_mult_b2` explain deltas named in
+punctuation `punc_semi_b2` explain, punctuation `punc_strat_b2` options[0] and
+explain, and comparison `cmp_mult_b2` explain deltas named in
 approval-decision.md gain a second cutover; every other code keeps its current
 limit. One more function-only migration after 339; no new endpoint, table or
 scoring change.
