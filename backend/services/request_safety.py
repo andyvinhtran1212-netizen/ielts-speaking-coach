@@ -6,26 +6,86 @@ without a session (F10). They are bounded instead by body size, a per-client
 budget and a per-worker ceiling. Budgets are per worker (not a distributed
 WAF replacement); only the client address is retained, never user identifiers.
 
-The client key is X-Real-IP, which Railway's edge sets to the client's remote
-IP (https://docs.railway.com/networking/public-networking/specs-and-limits).
-Without it (local/dev, other proxies) the LAST X-Forwarded-For hop is used:
-earlier hops are caller-supplied. Without either header the socket peer is
-used. If the key is ever forged or collapses to one proxy address, the
-per-worker ceiling still holds.
+Client key (client_address(); the same rule keys RequestSafetyMiddleware, the
+/tts burst throttle and the Reading anon_src hash):
+
+1. the RIGHTMOST globally routable X-Forwarded-For hop. Proxies append, so the
+   hop our edge adds is on the right; every hop to its left is whatever the
+   caller sent. Non-global hops after it (private, CGNAT 100.64/10, loopback,
+   link-local: proxy infrastructure) are skipped, so an internal hop appended
+   behind the edge does not fold every visitor into one key;
+2. else X-Real-IP;
+3. else the rightmost X-Forwarded-For hop (a local proxy with private
+   addresses only);
+4. else the socket peer.
+
+X-Real-IP is not trusted when X-Forwarded-For carries a public hop: SA-1029-XFF1
+measured on staging that, for a caller whose egress is Cloudflare's (WARP,
+AS13335), Railway's edge sets X-Real-IP from the caller's LEFTMOST XFF hop, so
+"X-Forwarded-For: <random>, ..." minted a fresh budget per request. Only valid
+IP addresses count ("unknown", ports, brackets and oversize values are skipped
+or stripped), and IPv6 is keyed per /64, the block one subscriber controls.
+If the key is ever forged or collapses to one proxy address, the per-worker
+ceiling still holds.
 """
 from collections import deque
+import ipaddress
+import logging
 import time
 
 from starlette.exceptions import HTTPException
 from starlette.responses import JSONResponse
 
+from config import settings
+
+
+# Enough for the edge hop plus a few internal proxies; hops further left are
+# caller-supplied anyway, and a huge header must not cost a huge parse.
+_MAX_INSPECTED_HOPS = 8
+_MAX_HOP_LENGTH = 64
+
+
+def _parse_ip(value):
+    """One header entry as an IP address, or None. Accepts "a.b.c.d:port",
+    "[v6]" and "[v6]:port"; unwraps IPv4-mapped IPv6."""
+    value = (value or '').strip()
+    if not value or len(value) > _MAX_HOP_LENGTH:
+        return None
+    if value.startswith('['):
+        host, sep, rest = value[1:].partition(']')
+        if not sep or (rest and not (rest[:1] == ':' and rest[1:].isdigit())):
+            return None
+        value = host
+    elif value.count(':') == 1:
+        value, _, port = value.partition(':')
+        if not port.isdigit():
+            return None
+    try:
+        ip = ipaddress.ip_address(value)
+    except ValueError:
+        return None
+    if ip.version == 6 and ip.ipv4_mapped:
+        return ip.ipv4_mapped
+    return ip
+
+
+def _key(ip):
+    if ip.version == 6:
+        return str(ipaddress.IPv6Network((int(ip) >> 64 << 64, 64)))
+    return str(ip)
+
 
 def client_address(real_ip, forwarded_for, peer):
-    """X-Real-IP, else the last X-Forwarded-For hop, else the socket peer."""
-    for value in (real_ip, forwarded_for):
-        hops = [hop.strip() for hop in (value or '').split(',') if hop.strip()]
-        if hops:
-            return hops[-1][:64]
+    """Rate-limit key: rightmost public X-Forwarded-For hop, else X-Real-IP,
+    else rightmost X-Forwarded-For hop, else the socket peer (module doc)."""
+    entries = (forwarded_for or '').rsplit(',', _MAX_INSPECTED_HOPS)[-_MAX_INSPECTED_HOPS:]
+    hops = [ip for ip in map(_parse_ip, entries) if ip is not None]
+    for ip in reversed(hops):
+        if ip.is_global:
+            return _key(ip)
+    for ip in (_parse_ip(real_ip), hops[-1] if hops else None, _parse_ip(peer)):
+        if ip is not None:
+            return _key(ip)
     return peer
 
 
@@ -34,9 +94,37 @@ def request_client_ip(request):
     per-IP state on the caller (TTS throttle, Reading anon_src hash)."""
     if request is None:
         return None
-    return client_address(request.headers.get('x-real-ip'),
-                          request.headers.get('x-forwarded-for'),
+    headers = request.headers
+    getlist = getattr(headers, 'getlist', None)
+
+    def values(name):
+        return getlist(name) if getlist else [v for v in (headers.get(name),) if v]
+
+    real_ip = values('x-real-ip')
+    return client_address(real_ip[-1] if real_ip else None,
+                          ', '.join(values('x-forwarded-for')),
                           request.client.host if request.client else None)
+
+
+# TEMPORARY (PC-J142 Bước 0, SA-1029-XFF1) — REMOVE BEFORE PROMOTE. Records
+# what Railway's edge forwards for a request that opts in with
+# "X-Aver-IP-Probe: 1", on staging only: no path, user or token is logged.
+# The logger has its own DEBUG level because the app logs at INFO.
+_ip_probe_logger = logging.getLogger(__name__ + '.ip_probe')
+_ip_probe_logger.setLevel(logging.DEBUG)
+
+
+def _log_ip_probe(scope, headers):
+    if headers.get(b'x-aver-ip-probe') != b'1' or settings.ENVIRONMENT != 'staging':
+        return
+    raw = scope.get('headers', [])
+    client = scope.get('client')
+    # Every line of each header, in arrival order: repeated lines are evidence.
+    _ip_probe_logger.debug(
+        '[ip-probe] x-real-ip=%r x-forwarded-for=%r client.host=%r',
+        [v.decode('latin-1')[:256] for k, v in raw if k == b'x-real-ip'][:4],
+        [v.decode('latin-1')[:512] for k, v in raw if k == b'x-forwarded-for'][:4],
+        client[0] if client else None)
 
 
 class RequestSafetyMiddleware:
@@ -65,10 +153,15 @@ class RequestSafetyMiddleware:
         self._analytics_clients = {}
 
     @staticmethod
-    def _client_key(scope, headers):
+    def _client_key(scope):
+        # Repeated header lines: XFF lines join in order (the edge's hop stays
+        # rightmost); the last X-Real-IP line wins, as in request_client_ip().
+        raw = scope.get('headers', [])
+        real_ip = [v for k, v in raw if k == b'x-real-ip']
         client = scope.get('client')
-        return client_address(headers.get(b'x-real-ip', b'').decode('latin-1'),
-                              headers.get(b'x-forwarded-for', b'').decode('latin-1'),
+        return client_address(real_ip[-1].decode('latin-1') if real_ip else None,
+                              ', '.join(v.decode('latin-1') for k, v in raw
+                                        if k == b'x-forwarded-for'),
                               client[0] if client else 'unknown')
 
     def _client_times(self, clients, key, now):
@@ -85,6 +178,7 @@ class RequestSafetyMiddleware:
         if scope['type'] != 'http':
             return await self.app(scope, receive, send)
         headers = dict(scope.get('headers', []))
+        _log_ip_probe(scope, headers)
         is_log = scope.get('method') == 'POST' and scope.get('path', '').rstrip('/') == '/api/error-logs'
         is_analytics = (scope.get('method') == 'POST'
                         and scope.get('path', '').rstrip('/') == '/api/analytics/events')
@@ -103,7 +197,7 @@ class RequestSafetyMiddleware:
             return False
 
         if is_log or is_analytics:
-            key = self._client_key(scope, headers)
+            key = self._client_key(scope)
             if is_log:
                 clients, client_budget = self._log_clients, self.log_per_client_per_minute
                 worker, worker_budget = self._log_times, self.log_per_minute
