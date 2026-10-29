@@ -234,7 +234,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, 
       <div ref={flagRef} className="lr-card__flag" />
     </div>
     {item.prompt ? <div className="lr-card__prompt">{inlineNodes(item.prompt)}</div> : null}
-    {expanded || selected ? <ReviewQuestionContext value={item.question_context} /> : null}
+    {expanded || selected ? <ReviewQuestionContext value={item.question_context} prompt={item.prompt} /> : null}
     <div className="lr-card__answers">
       {!preview ? <div className="lr-card__ans is-user"><span>Bạn:</span> <code>{item.user_answer || '—'}</code></div> : null}
       <div className="lr-card__ans is-correct"><span>Đáp án:</span> <code>{webExplanation ? 'Mở theo các bước sửa bài bên dưới' : item.unordered_answer_group ? `{${item.unordered_answer_group.accepted_answers.join(', ')}}` : item.expected || '—'}</code></div>
