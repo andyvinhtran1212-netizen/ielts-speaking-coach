@@ -33,9 +33,9 @@ ADMINAAL2-0032 FR-019 (#1853), 337 is A-10 CLASSARCHIVE-0030 and 338 is
 PAPERUPDATEDAT-0037. Every number from 331 to 338 now has a file. 345 is
 PC-J119 (RLS-ADMIN-INLINE-AAL2 + GRAMMAR-FN-SEARCHPATH, spec ADMINAAL2-0032),
 reserved by the Leader on 2026-10-29; 339–344 are reserved for other open
-work and must not be reused. 347 is PC-J163 (listening_tests client revoke,
-spec LISTENING-0005), given by the Leader on 2026-10-29; 346 is reserved for
-other open work and must not be reused.
+work and must not be reused. 346 is PC-J153 (CLASSARCHIVE-0030 FR-003),
+assigned by the Leader on 2026-10-29. 347 is PC-J163 (listening_tests client revoke,
+spec LISTENING-0005), given by the Leader on 2026-10-29.
 
 Migration `347` (PC-J163) revokes ALL on `listening_tests` from `PUBLIC`,
 `anon` and `authenticated` (MAINTAIN included on PG 17). 295 closed the other
@@ -120,6 +120,29 @@ Do not archive or restore classes between apply and deploy. The
 light and full rollbacks are in the file header; the full one re-creates the
 326 `fn_restore_student` before dropping the columns. One transaction,
 re-runnable.
+
+Migration `346` (PC-J153, CLASSARCHIVE-0030 FR-003, audit PC-J106 F4) also
+refuses *moving* work into an archived class. 337's work guards fire on INSERT
+only, so an UPDATE of `class_assignments.cohort_id`,
+`writing_assignments.cohort_id` or `class_assignment_items.assignment_id` could
+still put existing work into an archived class (service role or SQL editor
+only: clients cannot write these tables and no backend path changes these
+columns). 346 adds `trg_guard_class_assignment_cohort_move`,
+`trg_guard_writing_give_cohort_move` and `trg_guard_class_item_cohort_move`:
+`BEFORE UPDATE OF <column>` row triggers with `WHEN (NEW.<column> IS DISTINCT
+FROM OLD.<column>)` that call the unchanged 337 guard functions, so they raise
+`cohort_archived` only when the class binding really changes to an archived
+class. The 337 INSERT-only triggers (`tgtype = 7`, research.md §11.1) are not
+touched, and UPDATEs of any other column (reaper, retries, timed start,
+finalisers, due date, status) never fire the new triggers. It aborts without
+337's guard functions and enabled INSERT triggers; the postcondition pins
+`tgtype = 19`, the single-column `tgattr` and the WHEN clause. Group
+`class_archive` in `forward-policy.tsv`: apply after 337 with
+`MIGRATION_FEATURES=class_archive` through the advisory-locked runner, staging
+first, production only at an authorised promotion. One transaction, no data
+change, re-runnable. The rollback (drop the three triggers) is in the file
+header and must run BEFORE any 337 rollback, which drops the functions these
+triggers use.
 
 Migration `338` (PAPERUPDATEDAT-0037) adds `update_<table>_updated_at` BEFORE
 UPDATE row triggers on `reading_tests`, `listening_tests`, `reading_passages`,
