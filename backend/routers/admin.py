@@ -11,6 +11,7 @@ import asyncio
 import json
 import logging
 import math
+import time
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote, urlparse
 
@@ -33,6 +34,7 @@ from models.admin_speaking import (
 )
 from models.admin_overview import DashboardOverviewOut, DashboardTrendsOut
 from models.admin_users import AdminTestDataVisibilityOut, AdminUserDirectoryRowOut
+from models.staff_security import UserRoleChangeOut
 from models.grammar_content import GrammarArticleDocument
 from database import supabase_admin
 from services.class_assignment_service import sync_class_item_score
@@ -43,7 +45,9 @@ from services.student_service import student_archived_error
 from services.access_code_gen import (
     generate_access_code, insert_one_with_unique_code, insert_with_unique_codes,
 )
-from services import activation_gate
+from services import staff_guard, staff_security
+from services.request_context import current_request_id
+from services.db_async import aexecute
 from services import speaking_question_audio as speaking_audio
 from services.recording_audio import attach_playback_urls, recording_path
 from services import admin_reading_dashboard
@@ -59,6 +63,7 @@ from services.gemini import (
     generate_part3_questions,
 )
 from services.claude_grader import grade_response as _claude_grade
+from services.grading_telemetry import log_fallback_events
 from services.whisper import transcribe_from_bytes
 from services.ai_pricing import effective_logged_cost
 
@@ -82,60 +87,40 @@ _db_engine: AsyncEngine | None = (
 
 # ── Auth guard ─────────────────────────────────────────────────────────────────
 
-async def require_admin(authorization: str | None) -> dict:
-    """Verify Bearer token and assert role=admin. Returns the Supabase auth dict."""
-    auth_user = await get_supabase_user(authorization)
-    user_id   = auth_user["id"]
+async def _staff_role_row(user_id: str):
+    """``users.role`` for the staff guards — runs on every staff request, so it
+    goes through the async-DB facade (PC-J05 D1a). With USE_ASYNC_DB off it is
+    the same sync query on this module's ``supabase_admin`` as before."""
+    return await aexecute(
+        lambda db: db.table("users").select("role").eq("id", user_id).limit(1),
+        sync_client=supabase_admin,
+    )
 
-    try:
-        r = (
-            supabase_admin.table("users")
-            .select("role")
-            .eq("id", user_id)
-            .limit(1)
-            .execute()
-        )
-    except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi kiểm tra quyền: {exc}")
 
-    if not r.data or r.data[0].get("role") != "admin":
-        raise HTTPException(403, "Bạn không có quyền truy cập trang này")
-
-    # Q-13 — a staff role does not replace activation: the learner gate skips
-    # staff paths, so this guard owns the users.is_active check for them.
-    activation_gate.ensure_account_active(user_id)
-    return auth_user
+async def require_admin(authorization: str | None, *, allow_aal1: bool = False) -> dict:
+    """Verify Bearer token and assert an active admin with a satisfied second
+    factor (ADMINAAL2-0032, services/staff_guard.py). Returns the Supabase auth
+    dict. ``allow_aal1`` is honoured only on staff_guard.AAL1_ALLOWED_ADMIN_ROUTES."""
+    return await staff_guard.resolve_staff(
+        authorization, need="admin", get_user=get_supabase_user, db=supabase_admin,
+        allow_aal1=allow_aal1, read_role=_staff_role_row,
+    )
 
 
 async def require_instructor(authorization: str | None) -> dict:
     """Verify Bearer token and assert role ∈ {instructor, admin} (admin ⊃
-    instructor). Mirrors require_admin — the instructor USER-ROLE guard for the
-    W-2 multi-tenancy surface.
+    instructor) and an active account. A caller whose role is admin must also
+    satisfy the admin second-factor rule (FR-005) — the instructor USER-ROLE
+    guard for the W-2 multi-tenancy surface.
 
     NOTE: distinct from routers/admin_instructor_queue.py's 'instructor review queue'
     (an admin-only GRADING tier that just shares the word). Do NOT retrofit this
     guard onto those endpoints — different meaning of 'instructor'.
     """
-    auth_user = await get_supabase_user(authorization)
-    user_id   = auth_user["id"]
-
-    try:
-        r = (
-            supabase_admin.table("users")
-            .select("role")
-            .eq("id", user_id)
-            .limit(1)
-            .execute()
-        )
-    except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi kiểm tra quyền: {exc}")
-
-    if not r.data or r.data[0].get("role") not in ("instructor", "admin"):
-        raise HTTPException(403, "Bạn không có quyền truy cập trang giảng viên")
-
-    # Q-13 — same activation requirement as require_admin.
-    activation_gate.ensure_account_active(user_id)
-    return auth_user
+    return await staff_guard.resolve_staff(
+        authorization, need="instructor", get_user=get_supabase_user, db=supabase_admin,
+        read_role=_staff_role_row,
+    )
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -828,7 +813,34 @@ class UserRolePayload(BaseModel):
     role: str = Field(..., description=f"new role (one of {sorted(_VALID_ROLES)})")
 
 
-@router.patch("/users/{user_id}/role")
+# ADMINAAL2-0032 FR-019 (migration 336): the database freezes the role of a
+# suspended account; an admin must reactivate it first.
+_SUSPENDED_ROLE_CHANGE_CODE = "account_suspended_role_change"
+_SUSPENDED_ROLE_CHANGE_MESSAGE = (
+    "Không thể đổi vai trò của tài khoản đang bị tạm khóa. "
+    "Hãy mở khóa tài khoản trước, rồi đổi vai trò."
+)
+
+
+def _is_suspended_role_change(exc: Exception) -> bool:
+    """Recognize only migration 336's SQLSTATE + exact message."""
+    code = getattr(exc, "code", None)
+    message = getattr(exc, "message", None)
+    if exc.args and isinstance(exc.args[0], dict):
+        code = code or exc.args[0].get("code")
+        message = message or exc.args[0].get("message")
+    return str(code or "") == "P0001" and message == _SUSPENDED_ROLE_CHANGE_CODE
+
+
+def _suspended_role_change_refusal(exc: Exception) -> HTTPException | None:
+    if not _is_suspended_role_change(exc):
+        return None
+    return HTTPException(
+        409, {"code": _SUSPENDED_ROLE_CHANGE_CODE, "message": _SUSPENDED_ROLE_CHANGE_MESSAGE},
+    )
+
+
+@router.patch("/users/{user_id}/role", response_model=UserRoleChangeOut)
 async def admin_set_user_role(
     user_id: str,
     payload: UserRolePayload,
@@ -839,6 +851,13 @@ async def admin_set_user_role(
     Admin-only. Self-demotion is blocked so an admin can't accidentally
     lock themselves out of the panel. Role values are constrained to a
     small allow-list so a typo doesn't quietly write garbage.
+
+    ADMINAAL2-0032 FR-007: the change goes through ``fn_set_staff_privilege``
+    (audited, attributed, 409 ``last_admin``), and a change that removes admin
+    or instructor privilege revokes the target's sessions. A revocation
+    failure keeps the change and answers ``sessions_revoked: false`` with
+    ``revoke_error`` (FR-008). FR-019 (migration 336): a suspended account's
+    role change is 409 ``account_suspended_role_change``.
     """
     admin_user = await require_admin(authorization)
     role = (payload.role or "").strip().lower()
@@ -851,20 +870,35 @@ async def admin_set_user_role(
     admin_id = admin_user.get("id") if isinstance(admin_user, dict) else None
     if admin_id and admin_id == user_id and role != "admin":
         raise HTTPException(400, "Không thể tự hạ quyền admin của chính mình.")
-
+    if admin_id and admin_id == user_id:
+        # Keeping one's own admin role is a no-op; the RPC refuses any
+        # self-change, so answer it here.
+        return {"ok": True, "id": user_id, "role": role, "changed": False,
+                "audit_id": None, "sessions_revoked": None, "revoke_error": None}
     try:
-        res = (
-            supabase_admin.table("users")
-            .update({"role": role})
-            .eq("id", user_id)
-            .execute()
-        )
-    except Exception as exc:
-        raise HTTPException(500, f"Role update failed: {exc}")
+        target = str(_uuid.UUID(user_id))
+    except ValueError:
+        raise HTTPException(404, "User not found") from None
 
-    if not res.data:
-        raise HTTPException(404, "User not found")
-    return {"ok": True, "id": user_id, "role": role}
+    request_id = current_request_id()
+    change = staff_security.set_staff_privilege(
+        supabase_admin, actor_id=admin_id, target_id=target, role=role,
+        request_id=request_id, refusal=_suspended_role_change_refusal,
+    )
+    sessions_revoked = revoke_error = None
+    if change.changed and staff_security.removes_staff_privilege(
+            change.before.get("role"), change.after.get("role")):
+        # A suspended account's role is frozen (FR-019), so a demotion never
+        # bans: the demoted account may sign in again under its new role.
+        outcome, _ = await staff_security.revoke_and_record(
+            supabase_admin, target_id=target, actor_id=admin_id, ban=False,
+            trigger="role_change", engine=_db_engine, auth_admin=None,  # no ban
+            request_id=request_id,
+        )
+        sessions_revoked, revoke_error = outcome.sessions_revoked, outcome.revoke_error
+    return {"ok": True, "id": target, "role": role, "changed": change.changed,
+            "audit_id": change.audit_id, "sessions_revoked": sessions_revoked,
+            "revoke_error": revoke_error}
 
 
 @router.get("/users", response_model=list[AdminUserDirectoryRowOut])
@@ -2499,13 +2533,20 @@ def _activate_user_for_code(user_id: str, code: str | None, permissions) -> None
     way self-service /auth/activate does: is_active + the access_code_used /
     permissions snapshot. Never changes role or onboarding. Raises 404 when the
     user row does not exist."""
-    activated = (
-        supabase_admin.table("users").update({
-            "is_active": True,
-            "access_code_used": code,
-            "permissions": permissions,
-        }).eq("id", user_id).execute()
-    )
+    try:
+        activated = (
+            supabase_admin.table("users").update({
+                "is_active": True,
+                "access_code_used": code,
+                "permissions": permissions,
+            }).eq("id", user_id).execute()
+        )
+    except Exception as exc:
+        # ADMINAAL2-0032 FR-018: migration 332 refuses to activate a suspended
+        # account; only PATCH /admin/users/{id}/active reactivates it.
+        if staff_security.is_account_suspended_error(exc):
+            raise staff_security.account_suspended_exception(409) from None
+        raise
     if not activated.data:
         raise HTTPException(404, "Không tìm thấy người dùng để kích hoạt")
 
@@ -3427,6 +3468,8 @@ async def bulk_rotate_topic_questions(
     body: BulkTopicIdsRequest,
     authorization: str | None = Header(default=None),
 ):
+    # ADMINAAL2-0032 — guard before building the delegated request.
+    await require_admin(authorization)
     return await bulk_generate_topic_questions(
         BulkGenerateTopicsRequest(topic_ids=body.topic_ids, mode="replace_all"),
         authorization=authorization,
@@ -4324,16 +4367,36 @@ async def _run_regrade_response(
         re_transcribed = True
 
     reliability = {"reliability_label": "high", "reliability_score": 0.9}
-    grading = await _claude_grade(
-        question=question_text,
-        transcript=transcript,
-        part=part,
-        mode=mode,
-        user_id=user_id,
-        session_id=resp["session_id"],
-        reliability=reliability,
-        word_count=word_count,
-    )
+    # S3 — the same audit trail as live grading (routers/grading.py): every
+    # provider attempt, success or failure, lands in grading_events with its
+    # latency. Best-effort; log_fallback_events never raises.
+    fallback_events: list = []
+    started = time.monotonic()
+    outcome = "error"
+    try:
+        grading = await _claude_grade(
+            question=question_text,
+            transcript=transcript,
+            part=part,
+            mode=mode,
+            user_id=user_id,
+            session_id=resp["session_id"],
+            reliability=reliability,
+            word_count=word_count,
+            fallback_events=fallback_events,
+        )
+        outcome = "success"
+    finally:
+        log_fallback_events(
+            session_id=resp["session_id"],
+            question_id=resp.get("question_id"),
+            response_id=response_id,
+            events=fallback_events,
+        )
+        logger.info(
+            "[admin/regrade-response] graded response=%s outcome=%s latency_ms=%d attempts=%d",
+            response_id, outcome, int((time.monotonic() - started) * 1000), len(fallback_events),
+        )
     # Audit 2026-07-02 (P1) — the grader no longer scores pronunciation (Azure
     # measures it server-side during the original grade). A regrade re-grades
     # FC/LR/GRA only; the audio is UNCHANGED, so re-attach the previously
@@ -4852,10 +4915,10 @@ async def admin_set_vocab_flag(
 
 # ── POST /admin/vocab/backfill-enrichment ─────────────────────────────────────
 #
-# Phase D Wave 2 rich-content backfill.  Fills user_vocabulary.ipa and
-# user_vocabulary.example_sentence for rows where either is NULL.  Uses the
-# same Gemini batch service that the inline Phase B extractor uses, so the
-# prompt + validation stays in one place.
+# Phase D Wave 2 rich-content backfill.  Fills user_vocabulary.ipa,
+# example_sentence, definition_vi and definition_en for rows where any of
+# them is empty.  Uses the same Gemini batch service that the inline Phase B
+# extractor uses, so the prompt + validation stays in one place.
 #
 # Implementation notes:
 # - BackgroundTasks because the job can take 10-30s for ~100 cards (one
@@ -4869,39 +4932,161 @@ async def admin_set_vocab_flag(
 # - Cost estimate is conservative — Gemini Flash list pricing puts a chunk
 #   of 10 enrichments around $0.0005, so 100 cards (10 chunks) ≈ $0.005;
 #   the prompt's $0.10-0.15 figure is for cards-with-duplicates pre-dedup.
+# - INACTIVEWRITE-0035 follow-up (owner decision 2026-10-28): one owner can
+#   contribute at most _BACKFILL_MAX_ROWS_PER_OWNER rows per run, and rows of
+#   owners whose users.is_active is false, NULL or missing are skipped, so
+#   neither a single account's headwords nor an inactive account's can fill
+#   the paid Gemini batch. The candidate scan pages past skipped rows; it is
+#   bounded by _BACKFILL_SCAN_MAX_PAGES.
+# - Fill-empty-only (owner decision 2026-10-28 15:07): a column is written
+#   only when it is NULL, empty or whitespace; an existing value is never
+#   overwritten.  Each write is a separate UPDATE guarded by the same
+#   emptiness filter, so a value the learner saves between the scan and the
+#   write is not overwritten either.  `dry_run=true` lists, per row, the
+#   columns that would be filled, without calling Gemini or writing.
+
+_BACKFILL_MAX_ROWS_PER_OWNER = 50
+_BACKFILL_SCAN_PAGE_SIZE = 500
+_BACKFILL_SCAN_MAX_PAGES = 20
+_BACKFILL_OWNER_LOOKUP_CHUNK = 100
+# Every column the enricher fills; the enricher's keys use the same names.
+_BACKFILL_FIELDS = ("ipa", "example_sentence", "definition_vi", "definition_en")
 
 
-def _backfill_run(job_id: str, limit: int) -> None:
+def _backfill_empty_filter(col: str) -> str:
+    """PostgREST or-filter for "NULL, empty or whitespace-only"."""
+    return f"{col}.is.null,{col}.match.^\\s*$"
+
+
+def _backfill_is_empty(value: Any) -> bool:
+    return value is None or (isinstance(value, str) and not value.strip())
+
+
+def _backfill_empty_fields(row: dict) -> list[str]:
+    """The enriched columns this row may receive, in _BACKFILL_FIELDS order."""
+    return [c for c in _BACKFILL_FIELDS if _backfill_is_empty(row.get(c))]
+
+
+def _backfill_select_candidates(job_id: str, limit: int) -> list[dict]:
+    """Pick up to `limit` enrichment candidates, at most
+    _BACKFILL_MAX_ROWS_PER_OWNER per owner, active owners only.
+
+    Raises on any query failure: the caller then aborts the run before any
+    Gemini call (an unverified owner must not be enriched).
     """
-    Background task: enrich up to `limit` user_vocabulary rows missing IPA
-    or example_sentence.  Runs synchronously inside FastAPI's BG worker —
-    no asyncio dependencies, all Supabase calls are blocking.
-    """
-    from services.vocab_enrichment import enrich_vocabulary_batch, VocabEnrichmentError
+    selected: list[dict] = []
+    per_owner: dict[str, int] = {}
+    owner_active: dict[str, bool] = {}
+    skipped_inactive = 0
+    skipped_over_cap = 0
 
-    try:
+    for page in range(_BACKFILL_SCAN_MAX_PAGES):
+        start = page * _BACKFILL_SCAN_PAGE_SIZE
         # Day 1 dogfood: idioms + multi-word phrases were arriving with
         # NULL definition_vi from the extractor.  Widen the candidate query
         # so we re-enrich rows whose definitions are missing too — Gemini
         # now generates Vietnamese + English glosses alongside IPA/example.
-        rows_res = (
+        batch = (
             supabase_admin.table("user_vocabulary")
-            .select("id, headword")
+            .select("id, headword, user_id, " + ", ".join(_BACKFILL_FIELDS))
             .eq("is_archived", False)
-            .or_(
-                "ipa.is.null,"
-                "example_sentence.is.null,"
-                "definition_vi.is.null,"
-                "definition_en.is.null"
-            )
-            .limit(limit)
+            .or_(",".join(_backfill_empty_filter(c) for c in _BACKFILL_FIELDS))
+            .order("id")
+            .range(start, start + _BACKFILL_SCAN_PAGE_SIZE - 1)
             .execute()
+        ).data or []
+
+        unknown = sorted({
+            str(r["user_id"]) for r in batch
+            if r.get("user_id") and str(r["user_id"]) not in owner_active
+        })
+        for i in range(0, len(unknown), _BACKFILL_OWNER_LOOKUP_CHUNK):
+            chunk = unknown[i:i + _BACKFILL_OWNER_LOOKUP_CHUNK]
+            users = (
+                supabase_admin.table("users")
+                .select("id, is_active")
+                .in_("id", chunk)
+                .execute()
+            ).data or []
+            found = {str(u["id"]): u.get("is_active") is True for u in users}
+            for uid in chunk:
+                # Missing row or NULL is inactive (activation_gate.lookup_is_active).
+                owner_active[uid] = found.get(uid, False)
+
+        for r in batch:
+            if not _backfill_empty_fields(r):
+                continue  # Nothing to fill; never re-enrich a complete row.
+            uid = str(r.get("user_id") or "")
+            if not owner_active.get(uid, False):
+                skipped_inactive += 1
+                continue
+            if per_owner.get(uid, 0) >= _BACKFILL_MAX_ROWS_PER_OWNER:
+                skipped_over_cap += 1
+                continue
+            per_owner[uid] = per_owner.get(uid, 0) + 1
+            selected.append(r)
+            if len(selected) >= limit:
+                break
+
+        if len(selected) >= limit or len(batch) < _BACKFILL_SCAN_PAGE_SIZE:
+            break
+
+    logger.info(
+        "[backfill %s] selected %d rows from %d owners "
+        "(skipped %d inactive-owner rows, %d over the %d-per-owner cap)",
+        job_id, len(selected), len(per_owner),
+        skipped_inactive, skipped_over_cap, _BACKFILL_MAX_ROWS_PER_OWNER,
+    )
+    return selected
+
+
+def _backfill_dry_run(job_id: str, limit: int) -> dict:
+    """Report the rows a real run would pick and, per row, the columns it
+    would fill.  No Gemini call and no write.  Raises when the candidate
+    query fails, so the caller can fail visibly.
+
+    A listed column is filled only if Gemini returns a valid value for it
+    (definitions are best-effort), so a real run can fill fewer.
+    """
+    rows = _backfill_select_candidates(job_id, limit)
+    out = []
+    for r in rows:
+        would_fill = _backfill_empty_fields(r)
+        logger.info(
+            "[backfill %s] dry-run row=%s headword=%r would fill: %s",
+            job_id, r["id"], r.get("headword"), ", ".join(would_fill),
         )
+        out.append({
+            "id":         r["id"],
+            "user_id":    r.get("user_id"),
+            "headword":   r.get("headword"),
+            "would_fill": would_fill,
+        })
+    column_counts = {
+        c: sum(c in row["would_fill"] for row in out) for c in _BACKFILL_FIELDS
+    }
+    logger.info(
+        "[backfill %s] dry-run: %d rows, columns that would be filled: %s",
+        job_id, len(out), column_counts,
+    )
+    return {"rows": out, "column_counts": column_counts}
+
+
+def _backfill_run(job_id: str, limit: int) -> None:
+    """
+    Background task: enrich up to `limit` user_vocabulary rows with an empty
+    IPA, example_sentence, definition_vi or definition_en, filling only the
+    empty columns.  Runs synchronously inside FastAPI's BG worker — no
+    asyncio dependencies, all Supabase calls are blocking.
+    """
+    from services.vocab_enrichment import enrich_vocabulary_batch, VocabEnrichmentError
+
+    try:
+        rows = _backfill_select_candidates(job_id, limit)
     except Exception as e:
         logger.error("[backfill %s] candidate query failed: %s", job_id, e)
         return
 
-    rows = rows_res.data or []
     if not rows:
         logger.info("[backfill %s] no rows to enrich", job_id)
         return
@@ -4934,29 +5119,40 @@ def _backfill_run(job_id: str, limit: int) -> None:
         e = enrich_map.get(low)
         if not e:
             continue  # Word didn't make it through Gemini's validation.
-        # Build the UPDATE payload from whichever fields the enricher returned.
-        # Required fields (ipa, example_sentence) are guaranteed by the
-        # validator; optional fields (definition_vi, definition_en) are only
-        # included when Gemini supplied them, so we never blank an existing
-        # row's definition by writing NULL over it.
-        payload: dict = {
-            "ipa": e["ipa"],
-            "example_sentence": e["example_sentence"],
-        }
-        if e.get("definition_vi"):
-            payload["definition_vi"] = e["definition_vi"]
-        if e.get("definition_en"):
-            payload["definition_en"] = e["definition_en"]
         for row in group_rows:
-            try:
-                supabase_admin.table("user_vocabulary").update(payload) \
-                    .eq("id", row["id"]).execute()
-                updated += 1
-            except Exception as upd_err:
-                logger.warning(
-                    "[backfill %s] update failed for row=%s: %s",
-                    job_id, row["id"], upd_err,
+            filled: list[str] = []
+            kept: list[str] = []
+            for col in _backfill_empty_fields(row):
+                value = e.get(col)
+                if _backfill_is_empty(value):
+                    continue  # Gemini gave nothing usable; leave it empty.
+                try:
+                    res = (
+                        supabase_admin.table("user_vocabulary")
+                        .update({col: value})
+                        .eq("id", row["id"])
+                        .or_(_backfill_empty_filter(col))
+                        .execute()
+                    )
+                except Exception as upd_err:
+                    logger.warning(
+                        "[backfill %s] update failed for row=%s column=%s: %s",
+                        job_id, row["id"], col, upd_err,
+                    )
+                    continue
+                # No row back = the column got a value after the scan; kept.
+                (filled if res.data else kept).append(col)
+            if kept:
+                logger.info(
+                    "[backfill %s] row=%s kept values written since the scan: %s",
+                    job_id, row["id"], ", ".join(kept),
                 )
+            if filled:
+                logger.info(
+                    "[backfill %s] row=%s filled: %s",
+                    job_id, row["id"], ", ".join(filled),
+                )
+                updated += 1
 
     logger.info(
         "[backfill %s] done: enriched %d unique words → updated %d/%d rows",
@@ -4968,15 +5164,23 @@ def _backfill_run(job_id: str, limit: int) -> None:
 async def backfill_vocab_enrichment(
     background_tasks: BackgroundTasks,
     limit: int = Query(default=100, ge=1, le=500),
+    dry_run: bool = Query(default=False),
     authorization: str | None = Header(default=None),
 ):
     """
-    Trigger a background job that enriches user_vocabulary rows missing
-    `ipa` or `example_sentence` (i.e. rows that pre-date migration 029
-    or whose Gemini call failed during Phase B extraction).
+    Trigger a background job that enriches user_vocabulary rows with an
+    empty `ipa`, `example_sentence`, `definition_vi` or `definition_en`
+    (i.e. rows that pre-date migration 029 or whose Gemini call failed
+    during Phase B extraction).  Only columns that are NULL, empty or
+    whitespace are filled; existing values are never overwritten.
+
+    `dry_run=true` runs the same row selection synchronously and returns,
+    per row, the columns that would be filled.  It calls no model and
+    writes nothing.
 
     Caps at 500/call so an admin can't accidentally fan out across the
-    whole bank in one click.  Re-run the endpoint to process the next
+    whole bank in one click.  Within a call, one owner contributes at most
+    50 rows and inactive owners are skipped (INACTIVEWRITE-0035 follow-up).  Re-run the endpoint to process the next
     batch — the WHERE clause naturally moves forward as rows get filled.
 
     Cost estimate is best-effort: Gemini Flash batch is ~$0.0005 per
@@ -4984,6 +5188,21 @@ async def backfill_vocab_enrichment(
     """
     await require_admin(authorization)
     job_id = _uuid.uuid4().hex[:12]
+    if dry_run:
+        try:
+            plan = await run_in_threadpool(_backfill_dry_run, job_id, limit)
+        except Exception as e:
+            logger.error("[backfill %s] dry-run candidate query failed: %s", job_id, e)
+            raise HTTPException(status_code=503, detail="Backfill dry-run could not read candidates.")
+        return {
+            "job_id":        job_id,
+            "status":        "dry_run",
+            "limit":         limit,
+            "row_count":     len(plan["rows"]),
+            "column_counts": plan["column_counts"],
+            "rows":          plan["rows"],
+            "note": "No model call and no write. A listed column is filled only if Gemini returns a valid value for it.",
+        }
     background_tasks.add_task(_backfill_run, job_id, limit)
     estimated_cost_usd = round((max(1, limit) / 10) * 0.0005, 4)
     return {

@@ -254,6 +254,17 @@ remains the operator override for the primary model.
   JSON files and the ledger query result are recorded in `verification.md`
   before production promotion.
 
+## Cross-reference: AIBUDGET-0033 budget refusals (2026-10-28)
+
+FR-005's automatic fallback covers provider failures only. Once
+[AIBUDGET-0033](../0033-ai-budget-hard-cap/spec.md) is implemented, a budget
+refusal (`monthly_cap`, `daily_cap`, `kill_switch`, `config_invalid`,
+`budget_unavailable`) and a provider spend-limit response
+(`provider_spend_limit`, for example Anthropic 402 `billing_error`) stop
+the chain without trying the next provider (AIBUDGET-0033 FR-008/FR-009).
+Rate limits, overload, 5xx and timeouts keep falling back as FR-005 says.
+This note does not change FR-005's text.
+
 ## Open questions
 
 - None for approval; production promotion depends on the rollout evidence in

@@ -188,7 +188,10 @@ class _Empty:
 
 
 def _stub_home(mp):
-    mp.setattr("routers.student_home.get_home_summary", lambda *_a, **_k: {"ok": True})
+    async def _summary(*_a, **_k):
+        return {"ok": True}
+
+    mp.setattr("routers.student_home.get_home_summary_concurrent", _summary)
 
 
 def _stub_permissions(mp):

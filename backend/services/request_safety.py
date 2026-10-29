@@ -6,16 +6,37 @@ without a session (F10). They are bounded instead by body size, a per-client
 budget and a per-worker ceiling. Budgets are per worker (not a distributed
 WAF replacement); only the client address is retained, never user identifiers.
 
-The client key is the LAST X-Forwarded-For hop: the address our edge proxy
-appended, which the caller cannot choose (earlier hops are caller-supplied).
-Without the header the socket peer is used. If the key is ever forged or
-collapses to one proxy address, the per-worker ceiling still holds.
+The client key is X-Real-IP, which Railway's edge sets to the client's remote
+IP (https://docs.railway.com/networking/public-networking/specs-and-limits).
+Without it (local/dev, other proxies) the LAST X-Forwarded-For hop is used:
+earlier hops are caller-supplied. Without either header the socket peer is
+used. If the key is ever forged or collapses to one proxy address, the
+per-worker ceiling still holds.
 """
 from collections import deque
 import time
 
 from starlette.exceptions import HTTPException
 from starlette.responses import JSONResponse
+
+
+def client_address(real_ip, forwarded_for, peer):
+    """X-Real-IP, else the last X-Forwarded-For hop, else the socket peer."""
+    for value in (real_ip, forwarded_for):
+        hops = [hop.strip() for hop in (value or '').split(',') if hop.strip()]
+        if hops:
+            return hops[-1][:64]
+    return peer
+
+
+def request_client_ip(request):
+    """client_address() for a Starlette request; shared by routers that key
+    per-IP state on the caller (TTS throttle, Reading anon_src hash)."""
+    if request is None:
+        return None
+    return client_address(request.headers.get('x-real-ip'),
+                          request.headers.get('x-forwarded-for'),
+                          request.client.host if request.client else None)
 
 
 class RequestSafetyMiddleware:
@@ -45,12 +66,10 @@ class RequestSafetyMiddleware:
 
     @staticmethod
     def _client_key(scope, headers):
-        forwarded = headers.get(b'x-forwarded-for', b'').decode('latin-1')
-        hops = [hop.strip() for hop in forwarded.split(',') if hop.strip()]
-        if hops:
-            return hops[-1][:64]
         client = scope.get('client')
-        return client[0] if client else 'unknown'
+        return client_address(headers.get(b'x-real-ip', b'').decode('latin-1'),
+                              headers.get(b'x-forwarded-for', b'').decode('latin-1'),
+                              client[0] if client else 'unknown')
 
     def _client_times(self, clients, key, now):
         if key not in clients and len(clients) >= self.max_tracked_clients:

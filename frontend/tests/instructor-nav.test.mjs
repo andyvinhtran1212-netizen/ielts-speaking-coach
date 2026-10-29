@@ -2,9 +2,10 @@
  * W-2 — role-gated "Trang Instructor" nav item in <aver-chrome>.
  *
  * Static source contract (matches the repo's chrome-test convention):
- *   - the item exists, is hidden by default, and has NO href (disabled
- *     placeholder → can never 404; the destination page lands in W-6);
- *   - setRole() un-hides ONLY for role 'instructor' or 'admin';
+ *   - the template carries no instructor link (Q-40: absent, not hidden,
+ *     for learners);
+ *   - setRole() renders a real /instructor link ONLY for role 'instructor'
+ *     or 'admin', and removes it for any other role;
  *   - setUser() forwards an optional role to setRole();
  *   - the canonical page (speaking.html) passes the /auth/me role through.
  */
@@ -20,16 +21,18 @@ const CHROME = readFileSync(join(__dirname, '..', 'js', 'components', 'aver-chro
 const SPEAKING = readFileSync(join(__dirname, '..', 'pages', 'speaking.html'), 'utf8');
 
 describe('W-6b — instructor nav item (aver-chrome)', () => {
-  it('renders a hidden, role-gated link to the instructor area', () => {
-    const m = CHROME.match(/<a[^>]*id="instructor-link"[^>]*>/);
-    assert.ok(m, 'instructor-link <a> element must exist');
-    const tag = m[0];
-    assert.match(tag, /\bhidden\b/, 'hidden by default (role-gated)');
-    // W-6b: now a REAL link to the instructor area (no longer a placeholder).
-    assert.match(tag, /href="\/instructor"/, 'links to the instructor area');
+  // Q-40: a learner's shadow DOM must not carry <a href="/instructor"> at all —
+  // a hidden-but-present anchor still leaks the staff route. The template has
+  // no such anchor; _applyRole() creates it for staff and removes it otherwise.
+  it('the static template carries no instructor link', () => {
+    const template = CHROME.match(/const TEMPLATE = \/\* html \*\/ `([\s\S]*?)`;/);
+    assert.ok(template, 'TEMPLATE literal must exist');
+    const markup = template[1].replace(/<!--[\s\S]*?-->/g, '');
+    assert.doesNotMatch(markup, /id="instructor-link"/, 'no #instructor-link in the template');
+    assert.doesNotMatch(markup, /href="\/instructor"/, 'no /instructor href in the template');
   });
 
-  it('setRole un-hides ONLY for instructor or admin', () => {
+  it('setRole renders the link ONLY for instructor or admin, and removes it otherwise', () => {
     assert.match(CHROME, /setRole\(role\)/, 'setRole method exists');
     // the gate must accept exactly instructor + admin
     assert.match(
@@ -37,9 +40,19 @@ describe('W-6b — instructor nav item (aver-chrome)', () => {
       /_role === 'instructor' \|\| this\._role === 'admin'/,
       'role gate = instructor || admin (admin ⊃ instructor)',
     );
-    // show/hide toggling present
-    assert.match(CHROME, /removeAttribute\('hidden'\)/);
-    assert.match(CHROME, /setAttribute\('hidden', ''\)/);
+    const apply = CHROME.match(/  _applyRole\(\) \{([\s\S]*?)\n  \}/);
+    assert.ok(apply, '_applyRole method exists');
+    const body = apply[1];
+    // non-staff → the node is detached, not hidden
+    assert.match(body, /if \(!show\) \{\s*existing\?\.remove\(\);\s*return;\s*\}/);
+    assert.doesNotMatch(body, /'hidden'/, 'no hidden-attribute toggling');
+    // staff → a real link to the instructor area, inserted before logout
+    assert.match(body, /link\.href = '\/instructor';/);
+    assert.match(body, /link\.id = 'instructor-link';/);
+    assert.match(body, /link\.setAttribute\('role', 'menuitem'\);/);
+    assert.match(body, /link\.textContent = 'Trang giảng viên';/);
+    assert.match(body, /logout\.before\(link\);/);
+    assert.match(body, /if \(existing\) return;/, 'idempotent — never inserts a second link');
   });
 
   it('setUser forwards an optional role to setRole', () => {

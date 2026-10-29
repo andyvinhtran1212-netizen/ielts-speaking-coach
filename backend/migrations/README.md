@@ -20,12 +20,154 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-27 the highest is `331`, so the next
-new migration is `332`. The runner applies any unapplied file regardless of order.
-Numbers 321–330 are already locked to open work (321 #1727, 322 #1720,
+sequence is dense. As of 2026-10-28 the highest is `338`, so by that rule the
+next new migration is `339`; 336 and 337 are taken by open work (below), so ask
+the Leader first.
+The runner applies any unapplied file regardless of order.
+Numbers 321–330 are already locked to open work (321 WRITINGRATE-0025, 322 #1720,
 323 ROLECHECK-0026, 324 ASSIGNDRAFT-0027, 325 CODEUNIQ-0028, 326
 STUDENTARCHIVE-0029, 327–329 reserved, 330 A-10); files for them may land out
-of order, so do not reuse them. 331 is GIVEARCHIVE-0031.
+of order, so do not reuse them. 331 is GIVEARCHIVE-0031, 332 is ADMINAAL2-0032,
+334 is ACTIVATELIMIT-0034. 333–337 are reserved by the Leader for open work
+(333 AIBUDGET-0033, 335 INACTIVEWRITE-0035, 336 ADMINAAL2-0032 FR-019, assigned
+on 2026-10-28); files for them may land out of order, so ask the Leader before
+taking any number above 332. 336 is the suspended-role guard (#1853), 337 is
+A-10 CLASSARCHIVE-0030 (job q-13f) and 338 is PAPERUPDATEDAT-0037.
+
+Migration `338` (PAPERUPDATEDAT-0037) adds `update_<table>_updated_at` BEFORE
+UPDATE row triggers on `reading_tests`, `listening_tests`, `reading_passages`,
+`reading_questions` and `listening_content`, so every UPDATE advances
+`updated_at` (it only had `DEFAULT now()`; the AVR-READ-002 visibility flip on
+2026-10-28 left it unchanged). The triggers call the existing
+`update_updated_at_column()` and sort after `trg_mock_paper_*` /
+`trg_protect_listening_package_child`, which already ignore `updated_at`, so
+policy revisions, release events and `mock_content_revision` are unchanged.
+`listening_exercises` keeps 208's trigger. No data change; later files must not
+drop these triggers or add a BEFORE row trigger that sorts after them.
+
+Migration `335` (INACTIVEWRITE-0035, SEC-20261028-02) closes the direct-REST
+write path for inactive accounts. 320 kept `authenticated` writes on the five
+learner-owned Vocabulary/flashcard tables and `UPDATE (is_active)` on
+`user_d1_questions` because FastAPI writes them with the learner's JWT, but
+their policies check only ownership, so an account the W-03 gate refuses could
+still `POST /rest/v1/user_vocabulary`. 335 adds `require_active_account_insert`
+/ `_update` / `_delete`, RESTRICTIVE policies `TO authenticated` on those six
+tables, all calling `app_private.is_current_user_active()` (SECURITY DEFINER,
+STABLE, `search_path = ''`, caller only, missing row or NULL = inactive; kept
+out of `public` because 320 forbids client-executable definers there). An
+inactive INSERT fails with 42501 (PostgREST 403); UPDATE/DELETE change 0 rows;
+reads, active learners, the invoker SRS RPC and `service_role` are unchanged.
+The postcondition fails if any `public` table `authenticated` can write lacks
+the matching restrictive policy, so a later client write grant must add one.
+One transaction, no data change, re-runnable, no backend deploy needed. Later
+migrations must not drop or replace the policies or the helper; rollback is in
+the file header.
+
+Migration `336` (ADMINAAL2-0032 FR-019, Vinh's decision 1A of 2026-10-28)
+freezes `users.role` while `suspended_at` is set. The `BEFORE UPDATE OF role`
+trigger `trg_users_suspension_role_guard` raises P0001
+`account_suspended_role_change` for any role change of a suspended account. That
+includes `fn_set_staff_privilege`, alone or combined with reactivation, as well
+as REST, the owner and a superuser. Only `fn_bootstrap_admin_recovery`
+(`aver.bootstrap`) is exempt. An admin reactivates the account first, then
+changes its role. `PATCH /admin/users/{id}/role` maps the error to a 409 with a
+Vietnamese message. It sorts after 332's suspension guard, so activation still
+fails with `account_suspended`. It aborts with
+`suspended_non_staff_account_exists` while a suspended row holds a non-staff
+role (repair that out of band first). It is held back with 332 (group
+`admin_aal2`) and applied after it, on staging first. One transaction, no data
+change, re-runnable; the rollback is in the file header.
+
+Migration `334` (ACTIVATELIMIT-0034, F09) moves the `POST /auth/activate`
+rate limit from a per-worker dict into Postgres: `activation_attempts(user_id,
+attempted_at)` and the service-role-only SECURITY DEFINER
+`fn_activate_attempt_check(uuid)`, which allows 10 attempts per rolling 10
+minutes per user under a per-user transaction advisory lock and returns
+`{allowed, retry_after_s}`. A refused call records nothing; each call deletes
+that user's rows older than 1 day. Apply it before the 0034 backend, which
+fails closed (503 `activation_unavailable`, no code consumed) without it. It
+is a normal forward migration, so it has no `forward-policy.tsv` row: a
+`pending_feature` row would let the runner skip it while the dependent code is
+promoted. Rollback (deploy the pre-0034 backend first) is in the file header.
+
+Migration `333` (AIBUDGET-0033) adds the database half of the hard AI budget
+(`specs/0033-ai-budget-hard-cap/plan.md` "Migration 333"). It is held back by
+`forward-policy.tsv` (group `ai_budget`), so apply it only with
+`MIGRATION_FEATURES=ai_budget` through the advisory-locked runner, on staging
+first (rollout.md S1) and on production only at an authorised promotion (P2),
+before the 0033 backend. It adds:
+
+- `ai_budget_counters` and `ai_budget_reservations`. Every line counts on its
+  provider scope and on `total`. `anthropic` and `total` are soft: counted and
+  alerted, never refused for a cap. `fn_ai_budget_reserve` locks the counter
+  rows in `(scope, period_kind)` order, refuses a bundle all-or-nothing, and
+  never grants a replayed request key. Settle, release, expire and the
+  provider spend-limit closure go through functions, and
+  `fn_ai_budget_recompute` is an owner-only repair;
+- `ai_deferred_grading_jobs`, `ai_deferred_session_refresh` and the Speaking
+  deferred save/claim/commit functions; the `writing_jobs` budget-drain columns
+  and their claim/commit functions (`attempt_count` is never touched);
+- `fn_ai_session_bands_write`, `fn_ai_deferred_aggregate_write` and
+  `fn_ai_class_sync`: the generation-fenced band and class-score writers;
+- `ai_budget_alerts` (once per scope, period and threshold, plus one row per
+  raise event) and `ai_budget_heartbeat`;
+- `ai_budget_raises` and the append-only `ai_budget_raise_events` (hard scopes,
+  whole dollars up to 100% of the base cap, 1–24 h, `aal2` actor, one active
+  raise and three grants a month per scope);
+- the `trg_ai_session_generation` trigger on `responses`. Any band-bearing
+  response write advances the session's refresh generation in the writer's
+  transaction. It locks the session before the refresh row.
+
+RLS is on with no policies, clients get nothing, and `service_role` gets only
+SELECT except INSERT/UPDATE on the jobs and heartbeat and UPDATE of the alert
+send columns. The N-1 backend reads none of it; its response writes just gain
+one refresh-row upsert. The guarded down script in the file header refuses
+while saved work waits for grading or a raise is active, and keeps the raise
+events.
+
+Migration `332` (ADMINAAL2-0032) adds the staff security audit. It is held
+back by `forward-policy.tsv` (group `admin_aal2`), so apply it only with
+`MIGRATION_FEATURES=admin_aal2` through the advisory-locked runner, on staging
+first (`specs/0032-admin-aal2-staff-guard/rollout.md` S1/S2), before the 0032
+backend. It adds:
+
+- the `public.users` suspension marker (`suspended_at`, `suspended_by`,
+  `suspension_reason`, set and cleared together and never on an active row);
+- the `trg_users_suspension_guard` trigger. It refuses (`account_suspended`)
+  any `is_active` false → true while suspended, and any marker change, except
+  inside `fn_set_staff_privilege` or `fn_bootstrap_admin_recovery`. This
+  covers `/auth/activate`, admin-issued codes, `fn_restore_student` and SQL
+  updates, including an activation that waits on the suspension's row lock;
+- the append-only `staff_security_audit`. UPDATE, DELETE and TRUNCATE are
+  refused by triggers, even for the owner. `service_role` gets SELECT and
+  INSERT only;
+- `owner_alert_outbox`, `staff_mfa_factor_snapshot` and
+  `staff_security_sweep_cursor`;
+- the `trg_users_privilege_audit` trigger. It writes exactly one audit row per
+  change of `role`, `is_active` or the marker, and per inserted admin or
+  instructor row, from every path (`admin_api`, `service`, `out_of_band`).
+  Admin events also get one email-safe outbox row;
+- the service-role-only RPC `fn_set_staff_privilege`. It locks the actor, the
+  target and the active admins in id order, then re-checks the actor
+  (`actor_not_admin`, `self_change_forbidden`, `target_not_staff`,
+  `last_admin`). A repeated call is a no-op that writes no row;
+- the owner-only `fn_bootstrap_admin_recovery` (rollout path (e)). Not even
+  `service_role` can execute it. It refuses `admins_exist`.
+
+The deployed backend keeps working: its role/`is_active` writes just gain an
+audit row. Rollback (in the file header and rollout.md) drops the triggers and
+functions and keeps the tables. It refuses while any account is suspended.
+
+Migration `322` (AIOPS-0024) is additive: `ai_model_overrides` (admin
+per-feature preferred provider / Claude model, NULL = env/code default), the
+trigger-written append-only `ai_model_override_audit`, the routing-layer
+`ai_provider_failures` log and two read-only dashboard rollups. RLS is on with
+no policies, nothing is granted to `anon`/`authenticated`, and `service_role`
+gets only the privileges the backend uses. No data is written; with no
+override row routing is unchanged. Apply it to staging before merging the
+dependent code; code deployed first keeps env/code-default routing and the
+dashboard shows "migration not applied". Rollback SQL (destroys audit/failure
+history) is in `specs/0024-admin-ai-model-control/rollout.md`.
 
 Migration `331` (GIVEARCHIVE-0031) adds the `BEFORE INSERT OR UPDATE OF
 student_id` trigger `archive_guard_writing_assignment_student` on
@@ -74,8 +216,9 @@ Migration `324` (A-08B, ASSIGNDRAFT-0027) changes
 `ON DELETE NO ACTION`, so Postgres refuses to delete a `writing_assignments`
 row while a learner's draft references it (23503, for every role and path);
 `services/writing_assignment_delete_guard.py` maps that to the existing 409
-"Học viên đã bắt đầu — không xoá được". NO ACTION rather than RESTRICT keeps a
-single-statement student delete, which cascades to both rows, working. One
+("Học viên đã bắt đầu làm bài nên không xóa được bài giao này."). NO ACTION
+rather than RESTRICT keeps a single-statement student delete, which cascades
+to both rows, working. One
 transaction with `lock_timeout = 5s`: it aborts on orphan drafts or an
 unexpected FK action, adds the FK `NOT VALID` then validates it, and its
 postcondition requires no cascading child FK on `writing_assignments`. No row
@@ -100,6 +243,21 @@ public.access_codes_code_key;` then re-run). Run the read-only P1–P6 checks in
 that research record before production. Rollback drops only the CHECK; never
 drop `access_codes_code_key` where it predates 325. The drifted `"Admin only"`
 policy on `access_codes` is recorded there and out of scope.
+
+Migration `321` (WRITINGRATE-0025) repairs schema drift in `writing_grade_ratings`. Staging and
+production were migrated with an early draft of `116` (commit `df4fce621`): it
+had no `feedback_version` column and a `UNIQUE (essay_id)` constraint. `116`
+uses `CREATE TABLE IF NOT EXISTS` and is already in both ledgers, so the revised
+`116` can never reach them, and the admin grade-rating read/upsert fails with
+42703. `321` adds `feedback_version`, backfills legacy rows from
+`writing_essays.current_version`, then sets it NOT NULL. It drops any
+single-column `UNIQUE (essay_id)` and adds
+`writing_grade_ratings_essay_id_feedback_version_key`, the name `116` produces
+on a fresh database, unless an equivalent constraint already exists. On the
+revised shape it is a no-op. RLS and grants are unchanged. A postcondition aborts
+the transaction if the result is not the revised shape. Both hosted tables had 0
+rows on 2026-10-26. Apply it to staging first, then to production before or with
+the release. No backend change is needed.
 
 Migration `319` (REVEXPLAIN-0022) re-states `fn_approve_web_explanation_paper` (260) with one
 change: the `web_explanation_content_version_unavailable` refusal now names its

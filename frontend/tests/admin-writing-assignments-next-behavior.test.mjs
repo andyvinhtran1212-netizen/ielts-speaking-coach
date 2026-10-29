@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  assignmentFilters, assignmentHref, assignmentPrefill, groupAssignments, normalizeAssignmentList,
+  assignmentFilters, assignmentHref, assignmentPrefill, groupAssignments, isAssignmentDeletable, normalizeAssignmentList, normalizeDuplicatesPreview,
   normalizeCohortDetail, normalizeCreateReceipt, normalizeFanoutReceipt, normalizePromptDetail, normalizeStudentDetail, receiptMatchesVerification,
   normalizeStoredAssignmentReceipt, normalizeStoredAssignmentRequest, isDefinitiveClientRejection, validateAssignmentDraft,
 } from '../lib/admin-writing-assignments-model.mjs';
@@ -137,4 +137,33 @@ test('W-10: the class picker reads the active-class list and says archived class
   assert.match(picker, /cohorts\.map\(\(item\) => <option key=\{item\.id\} value=\{item\.id\}>/);
   assert.match(picker, /className="awa-field__hint">Chỉ liệt kê lớp đang hoạt động\. Lớp đã lưu trữ không hiện ở đây; khôi phục lớp tại <a href="\/admin\/classes">Quản lý lớp<\/a>/);
   assert.match(CSS, /\.awa-field__hint\{color:var\(--av-text-secondary\)/);
+});
+
+describe('PC-J10 — Admin Writing Assignments delete + re-give confirm (BL-05, BL-18, BL-04)', () => {
+  const row = (overrides) => normalizeAssignmentList({ assignments: [{ ...raw, ...overrides }], capped: false }).rows[0];
+
+  test('BL-05: delete is offered only for an unstarted give (A-08 guard still decides)', () => {
+    assert.equal(isAssignmentDeletable(row({})), true);
+    assert.equal(row({ started_at: '2026-08-14T00:00:00Z' }).startedAt, '2026-08-14T00:00:00Z');
+    assert.equal(isAssignmentDeletable(row({ started_at: '2026-08-14T00:00:00Z' })), false);
+    assert.equal(isAssignmentDeletable(row({ status: 'in_progress' })), false);
+    assert.equal(isAssignmentDeletable(row({ essay_id: 'e1' })), false);
+    assert.equal(isAssignmentDeletable(null), false);
+    assert.match(COMPONENT, /window\.api\.delete\(`\/admin\/writing\/assignments\/\$\{encodeURIComponent\(target\.id\)\}`\)/);
+    // Success and failure both re-read the canonical list.
+    assert.equal((COMPONENT.match(/await loadList\(true\);/g) || []).length >= 1, true);
+  });
+
+  test('BL-18: the preview is validated and an overlap blocks the final confirm until acknowledged', () => {
+    assert.deepEqual(normalizeDuplicatesPreview({ student_count: 2, duplicate_student_ids: ['s1'] }), { studentCount: 2, duplicateStudentIds: ['s1'] });
+    assert.equal(normalizeDuplicatesPreview({ student_count: -1, duplicate_student_ids: [] }), null);
+    assert.equal(normalizeDuplicatesPreview({ duplicate_student_ids: [] }), null);
+    assert.match(COMPONENT, /const overlapBlocks = overlap\?\.state === 'loading' \|\| \(overlap\?\.state === 'ready' && overlap\.count > 0 && !overlapAck\);/);
+    assert.match(COMPONENT, /disabled=\{busy \|\| !validation\.ok \|\| overlapBlocks\}/);
+  });
+
+  test('BL-04: the toolbar and row action columns shrink instead of overflowing the card at 1280px', () => {
+    assert.match(CSS, /\.awa-toolbar\{display:grid;grid-template-columns:minmax\(140px,180px\) minmax\(160px,220px\) minmax\(200px,1fr\) auto;/);
+    assert.match(CSS, /\.awa-row\{display:grid;grid-template-columns:minmax\(220px,1\.25fr\) minmax\(200px,1fr\) auto minmax\(84px,auto\);/);
+  });
 });

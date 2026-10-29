@@ -22,7 +22,7 @@ export const PROD = Object.freeze({
 });
 
 // NOTE (review 2026-07-13): generated *.vercel.app preview URLs are NOT in
-// the backend CORS allowlist (only *.averlearning.com subdomains are) — API
+// the backend CORS allowlist (an exact list in backend/main.py) — API
 // calls from such previews fail in the browser BY DESIGN: plan §7.1 limits
 // random PR previews to public/read-only checks and forbids wildcard
 // *.vercel.app CORS. The authenticated preview surface is the fixed staging

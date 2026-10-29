@@ -13,7 +13,7 @@ import { ProfileBehavior } from './profile-behavior';
 
 export const metadata: Metadata = {
   // Byte-faithful to the legacy <title>
-  title: 'Hồ sơ — AverLearning',
+  title: 'Hồ sơ — Aver Learning',
   // Private authed route (unauthenticated visitors are bounced to /login) —
   // must not be indexed.
   robots: { index: false, follow: false },

@@ -6,8 +6,9 @@ import test from 'node:test';
 import {
   diagramRole, imagePromptForQuestion, normalizeReadingAdminPreview,
   normalizeReadingImageDeleteAck, normalizeReadingImageUploadAck,
-  questionsByPassage, readingPreviewHref,
+  questionsByPassage, READING_PLAYER_WORD_LIMITS, readingPreviewHref,
 } from '../lib/admin-reading-preview-model.mjs';
+import { readingQuestionInstruction } from '../lib/reading-exam-controller.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8');
@@ -168,6 +169,73 @@ test('surfaces missing and duplicate canonical identities', () => {
   assert.ok(normalized.issues.some((issue) => issue.includes('Trùng passage id')));
   assert.ok(normalized.issues.some((issue) => issue.includes('Trùng passage_order')));
   assert.ok(normalized.issues.some((issue) => issue.includes('Trùng question id')));
+});
+
+const rubricPaper = (questions, passages = [{ id: 'p1', passage_order: 1, title: 'Passage one' }]) => ({
+  test_id: 'RUBRIC', title: 'Rubric paper', passages,
+  questions: questions.map((row) => ({ passage_id: 'p1', passage_order: 1, prompt: `Q${row.q_num}`, answer: { answer: 'x' }, ...row, id: `q${row.q_num}` })),
+});
+const block = (type, from, to, payload = {}) => Array.from({ length: to - from + 1 }, (_, index) => (
+  { q_num: from + index, question_type: type, payload: typeof payload === 'function' ? payload(from + index) : { ...payload } }));
+const defaultIssues = (paper) => normalizeReadingAdminPreview(paper).issues.filter((issue) => issue.includes('mặc định'));
+
+test('warns once per matching_information block that would fall back to the hard-coded A–H dropdown', () => {
+  assert.deepEqual(defaultIssues(rubricPaper(block('matching_information', 14, 18))), [
+    'Q14–18 (matching_information) thiếu paragraph_labels/options; học viên sẽ thấy A–H mặc định — khai báo đúng danh sách đoạn.',
+  ]);
+  for (const payload of [
+    { template: { paragraph_labels: ['A', 'B', 'C', 'D', 'E'] } },
+    { paragraph_labels: ['A', 'B', 'C', 'D', 'E'] },
+    { options: ['A', 'B', 'C', 'D', 'E'] },
+  ]) assert.deepEqual(defaultIssues(rubricPaper(block('matching_information', 14, 18, payload))), []);
+  // The player resolves labels per question, so only the unlabeled rows are named and gaps split the range.
+  const mixed = block('matching_information', 14, 18, (qNum) => qNum === 16 ? { paragraph_labels: ['A', 'B'] } : {});
+  assert.deepEqual(defaultIssues(rubricPaper(mixed)).map((issue) => issue.split(' ')[0]), ['Q14–15', 'Q17–18']);
+  assert.deepEqual(defaultIssues(rubricPaper(block('matching_information', 9, 9))).map((issue) => issue.split(' ')[0]), ['Q9']);
+});
+
+test('warns once per gap-fill display group whose rubric the player would replace with its word-limit default', () => {
+  assert.deepEqual(defaultIssues(rubricPaper(block('notes_completion', 1, 6))), [
+    'Q1–6 (notes_completion) không có instruction/word_limit hợp lệ; học viên sẽ thấy "NO MORE THAN TWO WORDS" mặc định.',
+  ]);
+  assert.deepEqual(defaultIssues(rubricPaper(block('notes_completion', 1, 6, { word_limit: 'ONE WORD ONLY' }))), []);
+  assert.deepEqual(defaultIssues(rubricPaper(block('notes_completion', 1, 6, { word_limit: ' one word only ' }))), []);
+  assert.deepEqual(defaultIssues(rubricPaper(block('notes_completion', 1, 6, { instruction: 'Choose ONE WORD ONLY from the passage.' }))), []);
+  assert.deepEqual(defaultIssues(rubricPaper(block('summary_completion', 33, 37, { options: ['A one', 'B two', 'C three'] }))), []);
+  assert.deepEqual(defaultIssues(rubricPaper(block('summary_completion', 33, 37, { word_limit: 'TWO WORDS' }))), [
+    'Q33–37 (summary_completion) không có instruction/word_limit hợp lệ (word_limit hiện tại "TWO WORDS" không thuộc danh sách chuẩn); học viên sẽ thấy "NO MORE THAN TWO WORDS" mặc định.',
+  ]);
+  assert.match(defaultIssues(rubricPaper(block('short_answer', 7, 9)))[0], /^Q7–9 \(short_answer\).*"NO MORE THAN THREE WORDS" mặc định\.$/);
+  for (const type of ['sentence_completion', 'table_completion', 'form_completion', 'flow_chart_completion', 'diagram_label_completion']) {
+    assert.equal(defaultIssues(rubricPaper(block(type, 1, 3))).length, 1, type);
+  }
+  for (const type of ['true_false_not_given', 'mcq_single', 'matching_headings', 'matching_features']) {
+    assert.deepEqual(defaultIssues(rubricPaper(block(type, 1, 3))), [], type);
+  }
+});
+
+test('splits rubric warnings exactly like the student player display groups', () => {
+  // Only the first row's rubric is rendered; a later authored rubric starts a new group with its own header.
+  const rows = [...block('notes_completion', 1, 3), ...block('notes_completion', 4, 6, { word_limit: 'ONE WORD ONLY' }), ...block('table_completion', 7, 8)];
+  assert.deepEqual(defaultIssues(rubricPaper(rows)).map((issue) => issue.split(' ')[0]), ['Q1–3', 'Q7–8']);
+  // Consecutive rows without their own rubric inherit the first row's valid one.
+  const inherited = [{ q_num: 1, question_type: 'notes_completion', payload: { word_limit: 'ONE WORD ONLY' } }, ...block('notes_completion', 2, 6)];
+  assert.deepEqual(defaultIssues(rubricPaper(inherited)), []);
+  // The player groups per passage, so a block that crosses passages is reported per passage.
+  const passages = [{ id: 'p1', passage_order: 1 }, { id: 'p2', passage_order: 2 }];
+  const crossing = block('sentence_completion', 12, 15).map((row) => row.q_num > 13 ? { ...row, passage_id: 'p2', passage_order: 2 } : row);
+  assert.deepEqual(defaultIssues(rubricPaper(crossing, passages)).map((issue) => issue.split(' ')[0]), ['Q12–13', 'Q14–15']);
+});
+
+test('admin word-limit list stays in lockstep with the student player', () => {
+  const controller = read('lib', 'reading-exam-controller.mjs');
+  const literal = /const WORD_LIMITS = new Set\(\[([\s\S]*?)\]\);/.exec(controller)?.[1];
+  assert.ok(literal, 'reading-exam-controller.mjs no longer declares WORD_LIMITS');
+  assert.deepEqual([...literal.matchAll(/'([^']+)'/g)].map((match) => match[1]).sort(), [...READING_PLAYER_WORD_LIMITS].sort());
+  for (const limit of READING_PLAYER_WORD_LIMITS) {
+    const type = limit === 'NO MORE THAN THREE WORDS' ? 'sentence_completion' : 'short_answer';
+    assert.match(readingQuestionInstruction([{ q_num: 1, question_type: type, payload: { word_limit: limit } }]), new RegExp(`Choose ${limit.replace('/', '\\/')} from`));
+  }
 });
 
 test('pins passage grouping, diagram block ownership and IMG-PROMPT matching', () => {

@@ -88,7 +88,7 @@ anchors:
 
 ## Tại sao quan trọng
 
-Concession + counter-argument là một lựa chọn khi phù hợp lập trường. Bạn có thể hoàn toàn đồng ý hoặc đồng ý có điều kiện; không phải mọi Task 2 đều cần khuôn nhượng bộ rồi phản bác. Band được đánh giá trên toàn bài.
+Although/though/even though giúp bạn thừa nhận ý đối lập trước khi nêu lập trường, nên rất hữu ích ở Task 2 và Speaking Part 3. Tuy vậy, đây là một lựa chọn chứ không bắt buộc.
 
 ---
 
@@ -233,7 +233,7 @@ While / Whereas [clause A], [clause B].
 <!-- anchor: although-though-even-though.phan-5-concession-counter-argument-ky-thuat-ielts -->
 ## PHẦN 5: CONCESSION + COUNTER-ARGUMENT (Kỹ thuật IELTS)
 
-Đây là cấu trúc quan trọng nhất — thừa nhận ý đối lập, sau đó phản bác:
+Đây là cấu trúc hữu ích khi bạn muốn thừa nhận ý đối lập rồi phản bác:
 
 ### Pattern 1: Although/Though + concession, counter-argument
 
@@ -256,6 +256,8 @@ While / Whereas [clause A], [clause B].
 
 ### Lỗi 1: Dùng "although" và "but" cùng một câu
 
+Lỗi này do dịch cặp 'Mặc dù… nhưng…' của tiếng Việt: trong tiếng Anh chỉ dùng một trong hai từ.
+
 - ❌ "**Although** the policy is costly, **but** it is necessary."
 - ✅ "**Although** the policy is costly, it is necessary."
 - ✅ "The policy is costly, **but** it is necessary."
@@ -275,8 +277,9 @@ While / Whereas [clause A], [clause B].
 ### Lỗi 4: Dùng "even though" khi tương phản không đủ mạnh
 
 - ❌ "**Even though** it was raining, I took an umbrella." *(mang ô khi mưa là bình thường — không bất ngờ)*
-- ✅ "**Although** it was raining, I took an umbrella."
+- ✅ "**Because** it was raining, I took an umbrella." *(không có tương phản → không dùng although/even though)*
 - ✅ "**Even though** it was raining heavily, she walked all the way to school." *(bất ngờ hơn)*
+- ✅ "Although it was raining, I didn't take an umbrella."
 
 ### Lỗi 5: Quên dấu phẩy sau mệnh đề phụ đứng đầu câu
 

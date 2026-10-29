@@ -2,12 +2,16 @@
 
 For every vocab_cards row missing the current bf_emma audio: TTS the headword (+ example) → upload to
 the `vocab-audio` bucket (content-addressed, hash-skip) → stamp audio_headword /
-audio_example / audio_status='final'. The local vocab service is reloaded;
-refresh the deployed service through the normal admin/cache deployment path.
+audio_example / audio_status='final'. After rows are stamped, the local vocab
+service is reloaded and Next's `public:vocabulary` cache is invalidated through the
+same signed helper the admin write path uses (skip with --no-invalidate). The
+deployed backend's in-memory index has no remote reload hook: the script prints
+the manual step for it.
 
     cd backend && python -m scripts.pregen_vocab_audio              # DRY-RUN (default)
     cd backend && python -m scripts.pregen_vocab_audio --commit     # actually synth + write
     cd backend && python -m scripts.pregen_vocab_audio --commit --headword-only
+    cd backend && python -m scripts.pregen_vocab_audio --commit --no-invalidate   # local run
     cd backend && python -m scripts.pregen_vocab_audio --commit --regen   # re-synth ALL (after the padding fix)
     cd backend && python -m scripts.pregen_vocab_audio --commit --regen \
         --topic-cards-only --engine kokoro --voice bf_emma
@@ -30,6 +34,7 @@ import logging
 
 from database import supabase_admin
 from services import tts_audio
+from services.public_cache_invalidation import VOCABULARY_CACHE_TAG, invalidate_vocabulary_cache
 from services.vocab_content import vocab_service
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -40,6 +45,15 @@ _VOICE = "bf_emma"
 
 
 _PAGE = 1000   # PostgREST caps a single response at ~1000 rows
+
+_MANUAL_NEXT_INVALIDATION = (
+    'cd backend && python -c "from services.public_cache_invalidation import '
+    'invalidate_vocabulary_cache as f; raise SystemExit(0 if f() else 1)"'
+)
+_MANUAL_BACKEND_RELOAD = (
+    "send one no-op PATCH /admin/vocabulary/{id} (unchanged value) to the deployed "
+    "backend — it reloads that process and re-invalidates Next — or restart the deployment"
+)
 
 
 def _all_vocab_rows() -> list[dict]:
@@ -151,6 +165,7 @@ async def _commit(
     regen: bool = False,
     engine: str = "kokoro",
     voice: str | None = None,
+    invalidate: bool = True,
 ) -> None:
     gen = skip = errors = stamped = 0
     resolved_voice = _resolved_voice(engine, voice)
@@ -210,11 +225,43 @@ async def _commit(
     # G1 — refresh the in-memory grid so the new audio URLs are served live.
     try:
         vocab_service.reload()
-        logger.info("Local vocab_service reloaded; verify the deployed cache separately.")
+        logger.info("Local vocab_service reloaded.")
     except Exception as exc:  # noqa: BLE001
         logger.warning("reload after pregen failed (non-fatal): %s", exc)
+    _refresh_deployed_readers(stamped, invalidate=invalidate)
     if errors:
         raise RuntimeError(f"{errors} Vocabulary audio row(s) failed; rerun to resume")
+
+
+def _refresh_deployed_readers(stamped: int, *, invalidate: bool) -> None:
+    """Expire Next's public vocabulary reads after a write, like the admin path.
+
+    Best-effort: a failed or unconfigured invalidation never changes the batch
+    outcome (the rows are already written), but it is reported with the manual
+    command. The deployed backend keeps its own in-memory index and has no remote
+    reload hook, so its manual step is always printed after a write.
+    """
+    if not stamped:
+        logger.info("No rows stamped; deployed caches left untouched.")
+        return
+    if not invalidate:
+        logger.warning("--no-invalidate: Next cache tag %s NOT invalidated. Run with the "
+                       "target environment's config: %s", VOCABULARY_CACHE_TAG,
+                       _MANUAL_NEXT_INVALIDATION)
+    else:
+        try:
+            ok = invalidate_vocabulary_cache()
+        except Exception as exc:  # noqa: BLE001 — cache freshness must not undo DB writes
+            logger.warning("Next cache invalidation raised %s", type(exc).__name__)
+            ok = False
+        if ok:
+            logger.info("Next cache tag %s invalidated.", VOCABULARY_CACHE_TAG)
+        else:
+            logger.warning("WARNING: Next cache tag %s NOT invalidated (unconfigured or "
+                           "request failed). Run with the target environment's config: %s",
+                           VOCABULARY_CACHE_TAG, _MANUAL_NEXT_INVALIDATION)
+    logger.warning("Deployed backend still serves its previous in-memory vocabulary index; "
+                   "to publish the new audio %s.", _MANUAL_BACKEND_RELOAD)
 
 
 def main() -> None:
@@ -234,6 +281,9 @@ def main() -> None:
     ap.add_argument("--topic-cards-only", action="store_true",
                     help="limit the run to cards visible in Vocabulary Hub topics; "
                          "exclude pure exam-list imports.")
+    ap.add_argument("--no-invalidate", action="store_true",
+                    help="skip the Next public:vocabulary cache invalidation after "
+                         "--commit (local runs); the manual command is printed instead.")
     args = ap.parse_args()
 
     if args.regen and args.headword_only:
@@ -250,7 +300,8 @@ def main() -> None:
                  engine=args.engine, voice=args.voice)
         return
     asyncio.run(_commit(rows, headword_only=args.headword_only, regen=args.regen,
-                        engine=args.engine, voice=args.voice))
+                        engine=args.engine, voice=args.voice,
+                        invalidate=not args.no_invalidate))
 
 
 if __name__ == "__main__":

@@ -41,6 +41,7 @@ from _script_env import load_env                              # noqa: E402
 load_env()
 
 from database import supabase_admin                           # noqa: E402
+from services.listening_audit import plan_label_map_findings  # noqa: E402
 
 # Mặc định trỏ vào bộ Cambridge; đổi bằng --test-prefix cho bộ khác.
 LIS_PREFIX = "ILR-LIS-CAM-B"
@@ -210,9 +211,11 @@ CLASS_NAMES = {
     "E3": "KHÔNG TRẢ LỜI ĐƯỢC: exercise không có câu hỏi hợp lệ",
     "E4": "KHÔNG TRẢ LỜI ĐƯỢC: bản đồ/sơ đồ không có hình",
     "E5": "KHÔNG ĐỦ CÂU: thiếu/trùng số câu so với 1-40",
+    "E6": "LỘ ĐÁP ÁN: bản đồ in sẵn tên địa điểm câu hỏi bắt gắn chữ cái",
     "S1": "KHÔNG SOÁT ĐƯỢC: thiếu file nguồn để đối chiếu",
     "S2": "KHÔNG SOÁT ĐƯỢC: khối này không có giới hạn từ trong nguồn",
     "S3": "KHÔNG SOÁT ĐƯỢC: không chọn được đề nào",
+    "S4": "KHÔNG SOÁT ĐƯỢC: bản đồ chỉ có ảnh raster, chưa kiểm nhãn lộ đáp án",
 }
 
 # Các bank đã đối chiếu tay trực tiếp với PDF Cambridge.  Giống
@@ -612,6 +615,13 @@ def audit(source_dir: Path | None, modes: set[str],
                         issues.append({"class": "E2", "q": q["q_num"], "kind": kind})
                 if kind == "plan_label" and not has_visual(p):
                     issues.append({"class": "E4", "range": rng})
+                # Cùng phép kiểm với services.listening_audit.structural_checks.
+                for f in plan_label_map_findings(p):
+                    if f["code"] == "map_leaks_answer":
+                        issues.append({"class": "E6", "exercise": e["id"],
+                                       "q": f["q_num"], "leaked": f["leaked"]})
+                    else:
+                        issues.append({"class": "S4", "exercise": e["id"], "range": rng})
 
         if "answerable" in modes:
             # KHÔNG gác bằng `if seen_qnums`: một đề bị xoá sạch content/exercise
@@ -767,7 +777,8 @@ def main() -> int:
                 key = (tid, str(i.get("range") if i.get("range") is not None else i.get("q")))
                 if key not in KNOWN_SOURCE_GAPS:
                     new_gaps.append(key)
-    soft_gaps = {k: v for k, v in tally.items() if k == "S2"}
+    # S4 (bản đồ raster) cũng là phủ sóng mềm: cần soát tay, không phải lỗi.
+    soft_gaps = {k: v for k, v in tally.items() if k in ("S2", "S4")}
 
     def _dump(pred):
         for side in ("listening", "reading", "_global"):
@@ -787,12 +798,17 @@ def main() -> int:
     else:
         print("KHÔNG CÓ LỖI NỘI DUNG.")
 
-    if soft_gaps:
+    if tally["S2"]:
         n = tally["S2"]
         print(f"\n=== CẢNH BÁO PHỦ SÓNG: {n} khối không đối chiếu được ===")
         print("  (file nguồn không có giới hạn từ cho khối này — CHƯA KIỂM,"
               " không phải ĐÃ ĐÚNG. Dùng --strict để coi đây là lỗi.)")
         _dump(lambda c: c == "S2")
+    if tally["S4"]:
+        print(f"\n=== CẢNH BÁO PHỦ SÓNG: {tally['S4']} bản đồ chỉ có ảnh raster ===")
+        print("  (không đọc được chữ trong ảnh — CHƯA KIỂM nhãn lộ đáp án,"
+              " cần soát tay. Dùng --strict để coi đây là lỗi.)")
+        _dump(lambda c: c == "S4")
 
     if args.json:
         print(f"\n→ báo cáo đầy đủ: {args.json}")

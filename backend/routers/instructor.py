@@ -57,6 +57,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from database import supabase_admin
+from models.writing_give_preview import DuplicatesPreviewOut
 from services.cohort_assignment_service import Deadline, normalize_deadline
 from routers.admin import require_instructor
 from services import essay_service, instructor_workflow, student_service, test_data_visibility
@@ -67,11 +68,13 @@ from services.core_writing_observation import note_writing_mutation, observe_wri
 from services.instructor_access import (
     instructor_db,
     instructor_fan_out,
+    instructor_fan_out_preview,
     instructor_list_essays,
     assert_essay_owned,
 )
 from services.instructor_workflow import ConflictError, NotFoundError
 from services.writing_assignment_delete_guard import delete_unstarted_assignment
+from services.writing_give_status import writing_give_timing
 from services.writing_render import render_feedback_html, render_plain_text
 from services.writing_word_exporter import render_essay_to_docx
 
@@ -215,7 +218,9 @@ class AssignBody(BaseModel):
 async def list_assignments(request: Request, authorization: str | None = Header(None)):
     me = await _me(authorization, request)
     r = instructor_db(me).table("writing_assignments").select("*").order("created_at", desc=True).execute()
-    return r.data or []
+    # A-S3 — "Nộp trễ" comes from the same rule /my-class and the admin matrix use.
+    now = datetime.now(timezone.utc)
+    return [{**row, "is_late": writing_give_timing(row, now)[0]} for row in (r.data or [])]
 
 
 @router.get("/assignments/{assignment_id}")
@@ -311,6 +316,22 @@ async def fan_out(request: Request, body: FanOutBody, authorization: str | None 
     if result["student_count"] == 0:
         raise HTTPException(400, "Lớp này chưa có học viên nào.")
     return result
+
+
+class FanOutPreviewBody(BaseModel):
+    prompt_ids: list[UUID] = Field(..., min_length=1, max_length=20)
+    cohort_id: UUID
+
+
+@router.post("/assignments/duplicates-preview", response_model=DuplicatesPreviewOut)
+async def fan_out_duplicates_preview(request: Request, body: FanOutPreviewBody,
+                                     authorization: str | None = Header(None)):
+    """BL-18 — read-only. Class members who already hold any of these prompts,
+    computed like the fan-out's own `duplicates_warning`, so the UI can confirm
+    a re-give BEFORE writing. Same ownership gates as the fan-out (403)."""
+    me = await _me(authorization, request)
+    return instructor_fan_out_preview(me, supabase_admin,
+                                      prompt_ids=body.prompt_ids, cohort_id=body.cohort_id)
 
 
 # ── Essays (DERIVED owner — assert_essay_owned per single-essay op) ───────────

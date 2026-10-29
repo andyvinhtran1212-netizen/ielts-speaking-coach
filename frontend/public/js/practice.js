@@ -1537,6 +1537,16 @@
     };
   }
 
+  // Stub "AI tạm gián đoạn": backend (grading.py, ghim bởi
+  // speaking-stub-contract) gửi cờ `_ai_unavailable` kèm câu tiếng Việt; stub
+  // dựng lại từ dòng đã lưu đánh dấu bằng cờ `_aiUnavailable`. Câu tiếng Anh
+  // cũ vẫn được nhận theo chữ cho backend chưa deploy bản mới.
+  function _isAiUnavailableStub(data) {
+    if (!data) return false;
+    if (data._aiUnavailable || data._ai_unavailable) return true;
+    return !!(data._error && String(data._error).includes('temporarily unavailable'));
+  }
+
   function _nativeFeedbackDetails(data) {
     var payload = data || {};
     var grammar = _nativeGrammarGroups(payload.grammar_check);
@@ -1547,15 +1557,15 @@
     var sample = null;
     if (kind === 'practice') {
       sample = payload.sample_answer
-        ? { title: 'Sample Answer', text: String(payload.sample_answer), unavailable: false }
+        ? { title: 'Bài nói mẫu', text: String(payload.sample_answer), unavailable: false }
         : payload.sample_answer_status
-          ? { title: 'Sample Answer', text: '', unavailable: true }
+          ? { title: 'Bài nói mẫu', text: '', unavailable: true }
           : null;
     } else if (kind === 'formal') {
       sample = payload.improved_response
         ? { title: 'Câu trả lời mẫu Band 7+', text: String(payload.improved_response), unavailable: false }
         : payload.improved_response_status
-          ? { title: 'Sample Answer', text: '', unavailable: true }
+          ? { title: 'Bài nói mẫu', text: '', unavailable: true }
           : null;
     }
     return {
@@ -1563,7 +1573,7 @@
       reliability: _nativeReliabilityView(payload),
       kind: kind,
       stub: kind === 'stub' ? {
-        aiUnavailable: !!(payload._error && String(payload._error).includes('temporarily unavailable')),
+        aiUnavailable: _isAiUnavailableStub(payload),
         error: String(payload._error || ''),
       } : null,
       criteria: kind === 'formal' ? [
@@ -1762,7 +1772,7 @@
       // case.
       var warningsHtml = _warningBannerBlock(data);
       if (data && data._stub) {
-        var isAiDown = data._error && data._error.includes('temporarily unavailable');
+        var isAiDown = _isAiUnavailableStub(data);
         // Sprint 14.6.1 — Andy 2026-05-22 — migrate hardcoded
         // rgba(255,255,255,X) text colors to --ds-* tokens so they
         // flip per theme (Sprint 14.1 wired the tokens; this branch
@@ -1789,10 +1799,10 @@
         // surfaces coexist; the LT block returns '' when no errors.
         commentsEl.innerHTML = warningsHtml +
           '<div id="score-confidence-note">' + _reliabilityNote(data) + '</div>' +
-          _listBlock('Strengths', data.strengths, '#4ade80') +
+          _listBlock('Điểm mạnh', data.strengths, '#4ade80') +
           _grammarIssuesBlock(data.grammar_issues, data.grammar_recommendations) +
           _grammarCheckBlock(data.grammar_check) +
-          _listBlock('Vocabulary Issues', data.vocabulary_issues, '#fb923c') +
+          _listBlock('Lỗi từ vựng', data.vocabulary_issues, '#fb923c') +
           _correctionsBlock(data.corrections) +
           (data.sample_answer ? _sampleAnswerBlock(data.sample_answer) : (data.sample_answer_status ? _sampleUnavailableBlock() : ''));
       } else if (data && data.fc_feedback) {
@@ -2091,10 +2101,39 @@
       + (rec.anchor ? '#' + encodeURIComponent(rec.anchor) : '');
   }
 
+  // The click PATCH and the card hover are delegated listeners
+  // (_bindPlayerEffects), not inline on* attributes: a nonce-based CSP blocks
+  // those (PC-J38).
   function _grammarRecTelemetryAttrs(rec) {
     if (!rec || !rec.rec_id) return '';
-    return ' data-rec-id="' + _esc(rec.rec_id) + '"'
-      + ' onclick="if(this.dataset.recId)window.api.patch(\'/api/grammar/recommendations/\'+this.dataset.recId+\'/clicked\',{}).catch(function(){})"';
+    return ' data-rec-id="' + _esc(rec.rec_id) + '"';
+  }
+
+  var _GR_CARD_HOVER = {
+    primary: {
+      over: { background: 'rgba(20,184,166,0.12)' },
+      out: { background: 'rgba(20,184,166,0.07)' },
+    },
+    secondary: {
+      over: { borderColor: 'rgba(20,184,166,0.25)', background: 'rgba(20,184,166,0.05)' },
+      out: { borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' },
+    },
+  };
+
+  function _closestFromEvent(event, selector) {
+    var target = event.target;
+    return target && typeof target.closest === 'function' ? target.closest(selector) : null;
+  }
+
+  function _handleGrammarRecClick(event) {
+    var link = _closestFromEvent(event, 'a[data-rec-id]');
+    if (link && link.dataset.recId) _trackGrammarResource(link.dataset.recId, null);
+  }
+
+  function _handleGrammarCardHover(event) {
+    var card = _closestFromEvent(event, 'a[data-gr-card]');
+    var hover = card && _GR_CARD_HOVER[card.dataset.grCard];
+    if (hover) Object.assign(card.style, event.type === 'mouseover' ? hover.over : hover.out);
   }
 
   // Card HTML: primary = full treatment with summary, secondary = compact muted
@@ -2110,12 +2149,11 @@
 
     if (isPrimary) {
       return '<a href="' + href + '" target="_blank" rel="noopener"' + telemetryAttrs
+        + ' data-gr-card="primary"'
         + ' style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;'
         + 'background:rgba(20,184,166,0.07);border:1px solid rgba(20,184,166,0.28);'
         + 'border-left:3px solid #14b8a6;border-radius:14px;text-decoration:none;'
-        + 'transition:background 0.15s;"'
-        + ' onmouseover="this.style.background=\'rgba(20,184,166,0.12)\'"'
-        + ' onmouseout="this.style.background=\'rgba(20,184,166,0.07)\'">'
+        + 'transition:background 0.15s;">'
         + '<div style="flex:1;min-width:0;">'
         + '<p style="font-size:13px;font-weight:600;color:var(--ds-text);margin:0 0 3px;'
         + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + _esc(meta.title) + '</p>'
@@ -2129,11 +2167,10 @@
         + '</a>';
     }
     return '<a href="' + href + '" target="_blank" rel="noopener"' + telemetryAttrs
+      + ' data-gr-card="secondary"'
       + ' style="display:flex;align-items:center;gap:10px;padding:10px 14px;'
       + 'background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);'
-      + 'border-radius:12px;text-decoration:none;transition:border-color 0.15s,background 0.15s;"'
-      + ' onmouseover="this.style.borderColor=\'rgba(20,184,166,0.25)\';this.style.background=\'rgba(20,184,166,0.05)\'"'
-      + ' onmouseout="this.style.borderColor=\'rgba(255,255,255,0.07)\';this.style.background=\'rgba(255,255,255,0.02)\'">'
+      + 'border-radius:12px;text-decoration:none;transition:border-color 0.15s,background 0.15s;">'
       + '<div style="flex:1;min-width:0;">'
       + '<p style="font-size:12px;font-weight:600;color:var(--ds-text);margin:0 0 2px;'
       + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + _esc(meta.title) + '</p>'
@@ -2361,7 +2398,7 @@
     }
 
     return '<div class="ds-grammar-section">' +
-      '<p class="ds-grammar-section-head">Grammar Issues (LanguageTool)</p>' +
+      '<p class="ds-grammar-section-head">Lỗi ngữ pháp (LanguageTool)</p>' +
       groupsHtml + more +
       '</div>';
   }
@@ -2535,7 +2572,7 @@
     }).join('');
     return '<div style="margin-bottom:14px;">' +
       '<p style="font-size:11px;font-weight:700;color:#f87171;text-transform:uppercase;' +
-      'letter-spacing:.06em;margin:0 0 6px;">Grammar Issues</p>' +
+      'letter-spacing:.06em;margin:0 0 6px;">Lỗi ngữ pháp</p>' +
       '<ul style="list-style:none;padding:0;margin:0;">' + lis + '</ul></div>';
   }
 
@@ -2567,7 +2604,7 @@
     }).join('');
     return '<div style="margin-bottom:14px;">'
       + '<p style="font-size:11px;font-weight:700;color:#fb923c;text-transform:uppercase;'
-      + 'letter-spacing:.06em;margin:0 0 8px;">Corrections</p>'
+      + 'letter-spacing:.06em;margin:0 0 8px;">Sửa lỗi</p>'
       + rows + '</div>';
   }
 
@@ -2575,7 +2612,7 @@
     return '<div style="margin-top:16px;background:rgba(20,184,166,0.08);'
       + 'border-left:3px solid #14b8a6;border-radius:0 6px 6px 0;padding:12px 14px;">'
       + '<p style="font-size:11px;font-weight:700;color:#14b8a6;text-transform:uppercase;'
-      + 'letter-spacing:.06em;margin:0 0 7px;">Sample Answer</p>'
+      + 'letter-spacing:.06em;margin:0 0 7px;">Bài nói mẫu</p>'
       + '<p style="font-size:13px;line-height:1.7;color:var(--ds-text);margin:0;">'
       + _esc(text) + '</p></div>';
   }
@@ -2589,7 +2626,7 @@
     return '<div style="margin-top:16px;background:rgba(148,163,184,0.10);'
       + 'border-left:3px solid #94a3b8;border-radius:0 6px 6px 0;padding:12px 14px;">'
       + '<p style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;'
-      + 'letter-spacing:.06em;margin:0 0 7px;">Sample Answer</p>'
+      + 'letter-spacing:.06em;margin:0 0 7px;">Bài nói mẫu</p>'
       + '<p style="font-size:13px;line-height:1.7;color:var(--ds-text-secondary,#94a3b8);margin:0;">'
       + 'Chưa tạo được mẫu câu trả lời phù hợp cho phần này. '
       + 'Bạn có thể thử lại để nhận mẫu sát với câu trả lời của mình hơn.</p></div>';
@@ -3028,7 +3065,7 @@
     if (playBtn) playBtn.textContent = '🔊 Nghe câu hỏi';
   }
 
-  // Called by mode toggle buttons (onclick="PracticeApp.setQMode(...)").
+  // Called by mode toggle buttons (onclick="PracticeApp.setQMode(...)).
   function _setQMode(mode) {
     _qMode = mode;
     try { sessionStorage.setItem('ielts_qmode', mode); } catch (e) { /* storage not available */ }
@@ -4182,9 +4219,9 @@
       // Practice mode coaching feedback
       feedbackHtml =
         '<div style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.07);padding-top:12px;">' +
-        _listBlock('Strengths',          data.strengths,             '#4ade80') +
+        _listBlock('Điểm mạnh',          data.strengths,             '#4ade80') +
         _grammarIssuesBlock(data.grammar_issues, data.grammar_recommendations) +
-        _listBlock('Vocabulary Issues',  data.vocabulary_issues,     '#fb923c') +
+        _listBlock('Lỗi từ vựng',  data.vocabulary_issues,     '#fb923c') +
         _correctionsBlock(data.corrections) +
         (data.sample_answer ? _sampleAnswerBlock(data.sample_answer) : (data.sample_answer_status ? _sampleUnavailableBlock() : '')) +
         '</div>';
@@ -4699,7 +4736,8 @@
     var failed = r && (r.grading_status === 'failed' || fb._failed);
     return Object.assign({}, fb, failed ? {
       _stub: true,
-      _error: 'AI grading is temporarily unavailable. Your recording and transcript were saved.',
+      _aiUnavailable: true,
+      _error: 'Chấm điểm AI đang tạm gián đoạn. Bản ghi âm và transcript của bạn đã được lưu.',
     } : {}, {
       response_id:      r.id,
       transcript:       r.transcript || fb.transcript || '',
@@ -5952,6 +5990,9 @@
     _listenManaged('interaction-touchstart', document, 'touchstart', _markInteracted, onceCapture);
     _listenManaged('grammar-click', document, 'click', _handleGrammarClick);
     _listenManaged('grammar-keydown', document, 'keydown', _handleGrammarKeydown);
+    _listenManaged('grammar-rec-click', document, 'click', _handleGrammarRecClick);
+    _listenManaged('grammar-card-mouseover', document, 'mouseover', _handleGrammarCardHover);
+    _listenManaged('grammar-card-mouseout', document, 'mouseout', _handleGrammarCardHover);
     if (window.speechSynthesis) {
       _listenManaged(
         'tts-voiceschanged',

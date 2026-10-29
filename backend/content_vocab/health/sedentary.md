@@ -5,6 +5,9 @@ category: "health"
 level: "C1"
 part_of_speech: "adjective"
 pronunciation: "/ˈsed.ən.tər.i/"
+definition_en: "involving long periods of sitting and very little physical activity."
+gloss_vi: "ngồi nhiều, ít vận động thể chất"
+example: "Employers could give staff with sedentary jobs more opportunities to move around during the working day."
 synonyms: ["inactive", "stationary", "desk-bound"]
 antonyms: ["active", "mobile", "physically demanding"]
 collocations: ["sedentary lifestyle", "sedentary job", "sedentary behaviour", "increasingly sedentary", "sedentary work"]

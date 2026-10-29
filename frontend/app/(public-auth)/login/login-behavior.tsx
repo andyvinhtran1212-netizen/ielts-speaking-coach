@@ -7,8 +7,14 @@ import {
   clearPersistedAuthSession,
   forgetSignedOutSession,
   isSignedOutSession,
+  rememberSignedOutSession,
 } from '@/lib/auth/sign-out-state.mjs';
-import { loginDestination, normalizeAccessCode, normalizeLoginProfile } from '@/lib/login-model.mjs';
+import {
+  activationErrorMessage,
+  loginDestination,
+  normalizeAccessCode,
+  normalizeLoginProfile,
+} from '@/lib/login-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 type Session = { access_token?: string };
@@ -17,7 +23,7 @@ type SupabaseClient = {
     getSession(): Promise<{ data?: { session?: Session | null }; error?: { message?: string } | null }>;
     exchangeCodeForSession(code: string): Promise<{ data?: { session?: Session | null }; error?: { message?: string } | null }>;
     signInWithOAuth(input: unknown): Promise<{ error?: { message?: string } | null }>;
-    signOut(): Promise<unknown>;
+    signOut(): Promise<{ error?: { message?: string } | null } | void>;
   };
 };
 
@@ -25,7 +31,18 @@ type LoginProfile = {
   id: string;
   isActive: boolean;
   onboardingCompleted: boolean;
+  suspended: boolean;
 };
+
+// ADMINAAL2-0032 FR-018: a suspended account gets this message instead of the
+// activation dialog (no access code can reactivate it).
+const SUSPENDED_MESSAGE = 'Tài khoản đang bị tạm khóa — liên hệ admin';
+
+function isSuspendedRefusal(status: number, payload: unknown) {
+  const detail = (payload as { detail?: unknown } | null)?.detail;
+  return status === 403 && Boolean(detail) && typeof detail === 'object'
+    && (detail as { code?: unknown }).code === 'account_suspended';
+}
 
 type BootResult =
   | { kind: 'signed-out'; client: SupabaseClient }
@@ -58,9 +75,9 @@ async function canonicalProfile(token: string) {
       ? payload.detail
       : 'Không thể kiểm tra trạng thái tài khoản.');
   }
-  const profile = normalizeLoginProfile(payload as AuthMeWire) as LoginProfile | null;
+  const profile = normalizeLoginProfile(payload as AuthMeWire) as Omit<LoginProfile, 'suspended'> | null;
   if (!profile) throw new Error('Trạng thái tài khoản trả về không đúng định dạng.');
-  return profile;
+  return { ...profile, suspended: (payload as AuthMeWire).suspended === true };
 }
 
 // The OAuth redirect lands here as `/login?code=` (PKCE) or with an error.
@@ -129,11 +146,19 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
   const [activateBusy, setActivateBusy] = useState(false);
   const [activateError, setActivateError] = useState('');
   const [activateSuccess, setActivateSuccess] = useState('');
+  const [signingOut, setSigningOut] = useState(false);
+  const [suspended, setSuspended] = useState(false);
   const clientRef = useRef<SupabaseClient | null>(null);
   const activateInFlight = useRef(false);
+  const signOutInFlight = useRef(false);
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const applyProfile = useCallback((profile: LoginProfile) => {
+    if (profile.suspended) {
+      setBusyMessage('');
+      setSuspended(true);
+      return;
+    }
     const destination = loginDestination(profile);
     if (destination === 'activate') {
       setBusyMessage('');
@@ -228,6 +253,7 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
       if (!token) throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
 
       let mutationError: Error | null = null;
+      let refusedAsSuspended = false;
       try {
         const response = await fetch(`${window.api.base}/auth/activate`, {
           method: 'POST',
@@ -238,11 +264,8 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
           body: JSON.stringify({ access_code: code }),
         });
         const payload = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          mutationError = new Error(typeof payload?.detail === 'string'
-            ? payload.detail
-            : `Kích hoạt thất bại (HTTP ${response.status}).`);
-        }
+        if (!response.ok) mutationError = new Error(activationErrorMessage(response.status, payload));
+        refusedAsSuspended = isSuspendedRefusal(response.status, payload);
       } catch {
         // The request may have committed while its ACK was lost. Do not tell
         // the learner it failed until canonical `/auth/me` is reconciled.
@@ -253,9 +276,21 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
       try {
         profile = await canonicalProfile(token);
       } catch (caught) {
-        throw new Error(mutationError
-          ? `${mutationError.message} Chưa kiểm tra lại được trạng thái tài khoản.`
-          : `Đã gửi kích hoạt nhưng chưa xác nhận được trạng thái tài khoản. ${messageOf(caught, '')}`.trim());
+        // A suspended refusal needs no readback: nothing was activated.
+        if (!refusedAsSuspended) {
+          throw new Error(mutationError
+            ? `${mutationError.message} Chưa kiểm tra lại được trạng thái tài khoản.`
+            : `Đã gửi kích hoạt nhưng chưa xác nhận được trạng thái tài khoản. ${messageOf(caught, '')}`.trim());
+        }
+        profile = { id: '', isActive: false, onboardingCompleted: false, suspended: true };
+      }
+
+      // The backend refused before claiming the code, so the typed code stays
+      // in the field state, unused.
+      if (refusedAsSuspended || profile.suspended) {
+        setActivationOpen(false);
+        setSuspended(true);
+        return;
       }
 
       const destination = loginDestination(profile);
@@ -276,9 +311,56 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
     }
   }
 
+  // BL-13: the activation dialog has no other exit, so a learner signed in
+  // with the wrong Google account was stuck. Same order as the chrome logout
+  // (U-07): remember the session, revoke, then purge whatever the outcome.
+  async function signOutFromActivation() {
+    if (signOutInFlight.current || activateInFlight.current) return;
+    signOutInFlight.current = true;
+    setSigningOut(true);
+    const client = clientRef.current || await sharedClient().catch(() => null);
+    if (client) {
+      await rememberSignedOutSession(client);
+      try {
+        const result = await client.auth.signOut();
+        if (result && result.error) {
+          (window as any).aver?.reportError?.(
+            'signOut revoke failed: ' + (result.error.message || String(result.error)),
+            { type: 'auth_signout_revoke_failed' },
+          );
+        }
+      } catch { /* purged below */ }
+    }
+    clearPersistedAuthSession();
+    try { window.api?.clearAuthCache?.(); } catch { /* best effort */ }
+    setActivationOpen(false);
+    setSuspended(false);
+    setAccessCode('');
+    setActivateError('');
+    setActivateSuccess('');
+    setError('');
+    setBusyMessage('');
+    signOutInFlight.current = false;
+    setSigningOut(false);
+  }
+
   return (
     <>
-      {!busyMessage && (
+      {suspended && (
+        <div className="lx-suspended" role="alert" data-testid="login-suspended">
+          <p className="lx-error">{SUSPENDED_MESSAGE}</p>
+          <button
+            className="lx-dialog-signout"
+            type="button"
+            onClick={() => void signOutFromActivation()}
+            disabled={signingOut}
+          >
+            {signingOut ? 'Đang đăng xuất…' : 'Đăng xuất'}
+          </button>
+        </div>
+      )}
+
+      {!busyMessage && !suspended && (
         <button className="lx-action-google" type="button" onClick={signInWithGoogle}>
           {googleIcon}
           Đăng nhập bằng Google
@@ -342,7 +424,7 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
               placeholder="VD: IELTS-TEST-001"
               autoComplete="off"
               value={accessCode}
-              disabled={activateBusy}
+              disabled={activateBusy || signingOut}
               onChange={(event) => setAccessCode(event.target.value.toUpperCase())}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && !activateInFlight.current) void activate();
@@ -352,13 +434,21 @@ export function LoginBehavior({ googleIcon }: { googleIcon: ReactNode }) {
               className="lx-action-activate"
               type="button"
               onClick={() => { if (!activateInFlight.current) void activate(); }}
-              disabled={activateBusy}
+              disabled={activateBusy || signingOut}
             >
               {activateBusy ? 'Đang kích hoạt…' : 'Kích hoạt'}
             </button>
             {activateError && <p className="lx-activate-error" role="alert">{activateError}</p>}
             {activateSuccess && <p className="lx-activate-success" role="status">{activateSuccess}</p>}
             <p className="lx-dialog-hint">Chưa có mã? <span>Liên hệ giáo viên để nhận access code</span></p>
+            <button
+              className="lx-dialog-signout"
+              type="button"
+              onClick={() => void signOutFromActivation()}
+              disabled={activateBusy || signingOut}
+            >
+              {signingOut ? 'Đang đăng xuất…' : 'Đăng xuất'}
+            </button>
           </section>
         </div>
       )}

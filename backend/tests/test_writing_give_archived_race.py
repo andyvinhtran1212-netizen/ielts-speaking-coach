@@ -5,8 +5,8 @@ statement. When an archive commits in between, migration 331 refuses the
 insert with `student_archived` (DETAIL = student id) and nothing is written.
 Every path must answer the 0029 409 shape instead of a 500:
 
-  individual — admin idempotent RPC, admin legacy insert, instructor insert;
-  class      — admin RPC fan-out, admin legacy fan-out and instructor fan-out
+  individual — admin idempotent RPC, instructor insert;
+  class      — admin RPC fan-out and instructor fan-out
                (`fan_out_assignment`), late-joiner backfill
                (`/auth/activate` Step 6 stays best-effort; the roster script
                skips the learner and continues).
@@ -106,16 +106,20 @@ def test_admin_idempotent_individual_give_archived_mid_request_is_409(details):
     assert db.writes() == [] and db.tables["writing_assignments"] == []
 
 
-@pytest.mark.parametrize("details", [True, False])
-def test_admin_legacy_individual_give_archived_mid_request_is_409(details):
+@pytest.mark.parametrize("path,target", [
+    ("/admin/writing/assignments", {"student_ids": [ACTIVE_ID, RACER]}),
+    ("/admin/writing/assignments/fan-out", {"cohort_id": COHORT_ID}),
+])
+def test_admin_give_without_request_id_is_refused_before_any_read_or_write(path, target):
+    """PC-J37: the admin give has no receipt-less path left."""
     db = _db()
-    db.before_write = _trigger(details=details)
+    db.before_write = _trigger()
     admin, sb = _writing_patches(db)
     with admin, sb:
-        r = _client().post("/admin/writing/assignments", headers=AUTH, json={
-            "prompt_ids": [PROMPT, PROMPT_2], "student_ids": [ACTIVE_ID, RACER]})
-    _assert_409(r)
-    assert db.tables["writing_assignments"] == [], "the bulk insert is one statement"
+        r = _client().post(path, headers=AUTH, json={"prompt_ids": [PROMPT, PROMPT_2], **target})
+    assert r.status_code == 422, r.text
+    assert db.calls == [] and db.rpcs == []
+    assert db.tables["writing_assignments"] == []
 
 
 def test_instructor_individual_give_archived_mid_request_is_409():
@@ -131,27 +135,16 @@ def test_instructor_individual_give_archived_mid_request_is_409():
 
 # ── Class gives ─────────────────────────────────────────────────────────────
 
-def test_admin_idempotent_fan_out_refused_by_the_trigger_is_409():
-    """Backstop: archive usually ends the membership first (roster_changed)."""
-    db = _db()
-    db.rpc_results["fn_create_writing_assignments_idempotent"] = _rpc_trigger(db)
-    admin, sb = _writing_patches(db)
-    with admin, sb:
-        r = _client().post("/admin/writing/assignments/fan-out", headers=AUTH, json={
-            "request_id": REQUEST_ID, "prompt_ids": [PROMPT], "cohort_id": COHORT_ID})
-    _assert_409(r)
-    assert db.tables["writing_assignments"] == []
-
-
 @pytest.mark.parametrize("details", [True, False])
-def test_admin_legacy_fan_out_refuses_the_whole_give(details):
-    """Decision 2: one learner archived mid-give → nobody in the class gets it."""
+def test_admin_idempotent_fan_out_refused_by_the_trigger_is_409(details):
+    """Backstop: archive usually ends the membership first (roster_changed).
+    Decision 2: one learner archived mid-give → nobody in the class gets it."""
     db = _db()
-    db.before_write = _trigger(details=details)
+    db.rpc_results["fn_create_writing_assignments_idempotent"] = _rpc_trigger(db, details=details)
     admin, sb = _writing_patches(db)
     with admin, sb:
         r = _client().post("/admin/writing/assignments/fan-out", headers=AUTH, json={
-            "prompt_ids": [PROMPT, PROMPT_2], "cohort_id": COHORT_ID})
+            "request_id": REQUEST_ID, "prompt_ids": [PROMPT, PROMPT_2], "cohort_id": COHORT_ID})
     _assert_409(r)
     assert db.tables["writing_assignments"] == []
 
@@ -230,19 +223,17 @@ def test_roster_backfill_script_skips_the_archived_learner_and_continues(caplog,
 
 def test_other_insert_errors_still_fail_as_500():
     db = _db()
-
-    def fk_violation(db, table, action, payload):
-        if table == "writing_assignments" and action == "insert":
-            raise APIError({"message": "insert or update on table violates foreign key constraint",
-                            "code": "23503", "details": "Key (prompt_id) is not present"})
-    db.before_write = fk_violation
+    db.rpc_results["fn_create_writing_assignments_idempotent"] = APIError({
+        "message": "insert or update on table violates foreign key constraint",
+        "code": "23503", "details": "Key (prompt_id) is not present"})
     admin, sb = _writing_patches(db)
     from main import app
     with admin, sb:
         r = TestClient(app, raise_server_exceptions=False).post(
             "/admin/writing/assignments", headers=AUTH,
-            json={"prompt_ids": [PROMPT], "student_ids": [ACTIVE_ID]})
+            json={"request_id": REQUEST_ID, "prompt_ids": [PROMPT], "student_ids": [ACTIVE_ID]})
     assert r.status_code == 500
+    assert db.tables["writing_assignments"] == []
 
 
 def test_mapping_helper_contract():

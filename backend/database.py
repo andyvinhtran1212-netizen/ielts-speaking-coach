@@ -1,5 +1,8 @@
 import logging
 import sys
+import threading
+import time
+from contextvars import ContextVar
 import httpx
 from supabase import create_client, Client
 from config import settings
@@ -46,6 +49,56 @@ def _build_supabase_http_client() -> httpx.Client:
         http2=False,
         follow_redirects=True,
         timeout=httpx.Timeout(120.0),
+    )
+
+
+# PC-J55: the async pool carries every per-request auth check once
+# USE_ASYNC_DB is on, so one wedged connection must not hold a request for
+# 120 s — longer than any caller waits, which hides the failure from the
+# server log. A PostgREST auth read takes ~0.1–0.3 s cross-region; 15 s read
+# leaves a wide margin. connect/pool fail fast so a dead upstream or a full
+# pool surfaces as an error, not a silent queue. Limits are httpx's defaults,
+# made explicit so /health/async-db can report capacity against them.
+ASYNC_POSTGREST_TIMEOUT = httpx.Timeout(15.0, connect=5.0, pool=5.0)
+ASYNC_POSTGREST_LIMITS = httpx.Limits(
+    max_connections=100, max_keepalive_connections=20, keepalive_expiry=5.0,
+)
+
+# Per-call timing for services.db_async.aexecute: the facade sets a dict here
+# around each attempt, and the httpcore trace hook stamps when the request got
+# a connection, so a slow call splits into pool wait / connect / server time.
+async_call_trace: ContextVar[dict | None] = ContextVar("async_call_trace", default=None)
+
+_TRACE_STAMPS = {
+    "connection.connect_tcp.started": "connect_at",
+    "http11.send_request_headers.started": "sent_at",
+}
+
+
+async def _stamp_httpcore_event(name: str, _info: dict) -> None:
+    rec = async_call_trace.get()
+    key = _TRACE_STAMPS.get(name)
+    if rec is not None and key is not None:
+        rec.setdefault(key, time.perf_counter())
+
+
+async def _attach_call_trace(request: httpx.Request) -> None:
+    if async_call_trace.get() is not None:
+        request.extensions["trace"] = _stamp_httpcore_event
+
+
+def _build_supabase_async_http_client() -> httpx.AsyncClient:
+    """Async twin of :func:`_build_supabase_http_client` for the opt-in
+    ``USE_ASYNC_DB`` client. postgrest's ``AsyncPostgrestClient`` also defaults
+    to HTTP/2, and the async client carries every per-request auth check once
+    the flag is on, so it would reach the 19,999-stream GOAWAY ceiling first."""
+    return httpx.AsyncClient(
+        http1=True,
+        http2=False,
+        follow_redirects=True,
+        timeout=ASYNC_POSTGREST_TIMEOUT,
+        limits=ASYNC_POSTGREST_LIMITS,
+        event_hooks={"request": [_attach_call_trace]},
     )
 
 
@@ -99,17 +152,30 @@ def close_supabase_http_client() -> None:
 # supabase_admin). Only created when USE_ASYNC_DB is on; stays None otherwise,
 # so the scaffold adds nothing to the default sync path.
 _supabase_async = None  # type: ignore[var-annotated]
+_supabase_async_postgrest_http_client: httpx.AsyncClient | None = None
 
 
 async def init_supabase_async():
     """Create the shared async client once. Safe to call repeatedly (idempotent)."""
-    global _supabase_async
+    global _supabase_async, _supabase_async_postgrest_http_client
     if _supabase_async is None:
         if create_async_client is None:  # pragma: no cover - old supabase-py
             raise RuntimeError(
                 "USE_ASYNC_DB is on but supabase-py has no create_async_client"
             )
-        _supabase_async = await create_async_client(_url, _key)
+        client = await create_async_client(_url, _key)
+        # Same PostgREST-only HTTP/1.1 override as the sync singleton above;
+        # Auth/Storage/Functions keep their own transports and timeouts.
+        transport = _build_supabase_async_http_client()
+        client._postgrest = client._init_postgrest_client(
+            rest_url=str(client.rest_url),
+            headers=client.options.headers,
+            schema=client.options.schema,
+            timeout=client.options.postgrest_client_timeout,
+            http_client=transport,
+        )
+        _supabase_async_postgrest_http_client = transport
+        _supabase_async = client
     return _supabase_async
 
 
@@ -122,3 +188,64 @@ async def get_supabase_async():
 
 def async_client_initialised() -> bool:
     return _supabase_async is not None
+
+
+def async_pool_snapshot() -> dict | None:
+    """Connection counts of the async PostgREST pool for /health/async-db, or
+    ``None`` when the async client was never built (flag off). Reads httpcore
+    internals, so any shape drift degrades to ``{"unavailable": True}``."""
+    transport = _supabase_async_postgrest_http_client
+    if transport is None or transport.is_closed:
+        return None
+    try:
+        pool = transport._transport._pool
+        conns = list(pool.connections)
+        waiting = sum(1 for r in list(pool._requests) if r.connection is None)
+        idle = sum(1 for c in conns if c.is_idle())
+    except Exception:
+        return {"unavailable": True}
+    return {
+        "connections": len(conns),
+        "idle": idle,
+        "active": len(conns) - idle,
+        "waiting_for_connection": waiting,
+        "max_connections": ASYNC_POSTGREST_LIMITS.max_connections,
+    }
+
+
+async def close_supabase_async() -> None:
+    """Release the async client's PostgREST pool at shutdown. The next startup
+    (TestClient lifespans can restart in one interpreter) builds a fresh one."""
+    global _supabase_async, _supabase_async_postgrest_http_client
+    transport = _supabase_async_postgrest_http_client
+    _supabase_async = None
+    _supabase_async_postgrest_http_client = None
+    if transport is not None and not transport.is_closed:
+        await transport.aclose()
+
+
+# ── Per-thread service-role clients (PC-J05 D1b) ─────────────────────────────
+# The shared sync singleton must never be used from two threads at once (see
+# services/db_async.py). Aggregators that fan independent sections out with
+# ``asyncio.to_thread`` call ``thread_supabase_admin()`` INSIDE the worker
+# thread instead: each executor thread lazily builds its own service-role
+# client and keeps it, so sections never share a client and a thread reuses its
+# keep-alive connection on the next request rather than paying a new TLS
+# handshake per section.
+_thread_clients = threading.local()
+
+
+def thread_supabase_admin() -> Client:
+    """The calling thread's own service-role client (HTTP/1.1 PostgREST)."""
+    client = getattr(_thread_clients, "client", None)
+    if client is None:
+        client = create_client(_url, _key)
+        client._postgrest = client._init_postgrest_client(
+            rest_url=str(client.rest_url),
+            headers=client.options.headers,
+            schema=client.options.schema,
+            timeout=client.options.postgrest_client_timeout,
+            http_client=_build_supabase_http_client(),
+        )
+        _thread_clients.client = client
+    return client

@@ -154,7 +154,7 @@ async function installReadingHarness(page, {
   });
 
   await page.goto(route);
-  await expect(page.locator('body')).not.toContainText('Loading test…');
+  await expect(page.locator('body')).not.toContainText('Đang tải bài thi…');
   expect(pageErrors).toEqual([]);
   return { calls, pageErrors };
 }

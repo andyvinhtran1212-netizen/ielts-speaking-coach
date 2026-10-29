@@ -19,9 +19,55 @@
 | FR-013 | kind=test; ref=frontend/tests/admin-mfa-gate.test.mjs (gate redirect, report-only banner, api.js mfa_required navigation) and frontend/tooling/verify-admin-mfa-flow.mjs, with the existing verify-admin-*.mjs verifiers green using the shared AAL2 stub | PENDING |
 | FR-014 | kind=test; ref=frontend/tests/instructor-inactive-state.test.mjs (three instructor clients map a mid-session inactive 403 to the denied state) plus the PR #1771 activation-gate tests for load and reload; kind=journey; ref=spec.md AC5 on staging | PENDING |
 | FR-015 | kind=test; ref=backend/tests/test_admin_staff_security_routes.py (security-audit order, alert_status, 503) and frontend/tests/admin-users-staff-security.test.mjs (⚠ on lookup failure) | PENDING |
-| FR-016 | kind=test; ref=frontend/tests/staging-e2e-admin-aal2-contract.test.mjs (only helpers.js signs in the admin; writing-prompt-courses uses signInSession); kind=journey; ref=live Staging E2E at the T012 SHA with ADMIN_AAL2_ENFORCE=true, admin seams and the Writing course allocation journey green; kind=check; ref=CI log scan shows no TOTP secret or token | PENDING |
+| FR-016 | kind=test; ref=frontend/tests/staging-e2e-admin-aal2-contract.test.mjs (only helpers.js signs in the admin; writing-prompt-courses uses signInSession; helpers AAL2 step-up, AAL1 fallback without the secret, RFC 6238 vectors, no secret in errors); kind=test; ref=backend/tests/test_staging_seed_admin_totp.py (secret only in the 0600 creds file, reseed keeps a verified factor only when the stored secret verifies, reset); kind=journey; ref=live Staging E2E at the T012 SHA with ADMIN_AAL2_ENFORCE=true, admin seams and the Writing course allocation journey green; kind=check; ref=CI log scan shows no TOTP secret or token | PENDING |
 | FR-018 | kind=test; ref=backend/tests/test_migration_332_staff_security_audit.py (suspension guard on every reactivation path, concurrent activation blocked on the lock) and backend/tests/test_activation_suspended_account.py (403 account_suspended before claim, code unused, admin issuance 409 with compensation); kind=test; ref=frontend/tests/login-suspended-account.test.mjs; kind=journey; ref=spec.md AC9 on staging with forced revocation failure | PENDING |
 | FR-017 | kind=query; ref=rollout.md P4 readiness query on staging and production; kind=test; ref=backend/tests/test_migration_332_staff_security_audit.py (bootstrap grants, admins_exist refusal, zero-admin restore); kind=journey; ref=spec.md AC8 recovery drill timings on staging, including path (e) from zero eligible admins | PENDING |
+| FR-019 | kind=test; ref=backend/tests/test_migration_336_suspended_account_role_guard.py (role change of a suspended account refused through the RPC, service REST, owner and superuser SQL; allowed after reactivation; bootstrap exempt; preconditions, postconditions, rollback); kind=test; ref=backend/tests/test_admin_user_role.py (409 account_suspended_role_change with the Vietnamese message); kind=journey; ref=spec.md AC10 on staging after 336 is applied | PENDING |
+
+## T007 test evidence (PC-J40, 2026-10-28)
+
+The FR-010 and FR-011 rows above stay `PENDING` until the staging journeys
+(AC6) run in T012. The automated half, from `backend/`:
+
+```bash
+TEST_PG_URL=postgres://postgres@127.0.0.1:<port>/postgres REQUIRE_PG=1 \
+  python -m pytest tests/test_owner_alerts.py tests/test_staff_security_sweep.py -q
+```
+
+Result: 49 passed on PostgreSQL 16.2 and 17.11 (local disposable clusters; 48 before the Codex #1884 fixes added one test).
+The PostgreSQL cases run the sweep and outbox SQL against migration 332 as
+its NOSUPERUSER owner role, with a stand-in `auth.audit_log_entries`.
+
+- FR-010: `test_staff_security_sweep.py` covers these cases:
+  - a factor enrolled, verified and deleted between two runs gives one row each, and verified and deleted are alerted;
+  - a re-run, and a rewound cursor, add no row or alert;
+  - a failed batch rolls back its rows and the cursor;
+  - entries inside the lag wait for the next run;
+  - step-up sign-ins are not verifications;
+  - an admin-API delete is attributed to `traits.user_id` with an unknown actor;
+  - only admin accounts are audited, by the role held when the event happened: an admin demoted before the next run still gets the rows and alerts, and a learner promoted afterwards does not (Codex #1884);
+  - the snapshot backstop fires only when the log has no entry for the factor, and ignores vanished unverified factors; its e-mail shows the detection time stored on the audit row, in Vietnam time (Codex #1884);
+  - a failed factor list keeps that admin's snapshot and fails the run;
+  - no secret reaches the audit, the outbox or the snapshot.
+- FR-011: `test_owner_alerts.py` covers these cases:
+  - recipients come only from `OWNER_ALERT_EMAILS`;
+  - neither the e-mail nor the Resend request carries a token, secret, reason or injected recipient, and the key appears only in the Authorization header;
+  - a failed send is retried with backoff up to 5 sends and then stays `failed`, with one `owner_alert_failed` error log;
+  - the compare-and-set claim stops two dispatchers from sending the same row twice (in memory and on PostgreSQL);
+  - a missing key or recipient sends nothing and spends no attempt;
+  - `--requeue` affects only `failed` rows.
+- Mutation checks: each of the following was removed in turn, and in each case the matching test failed:
+  - the `ON CONFLICT` dedup;
+  - the batch transaction;
+  - the cursor advance;
+  - the step-up check;
+  - the backstop's log check;
+  - the snapshot `seen_at` check;
+  - the event-time role lookup;
+  - the stored detection time in the alert;
+  - the claim;
+  - the claim's `attempts` compare;
+  - the `attempts < 5` filter.
 
 ## Contract evidence
 
@@ -56,3 +102,36 @@
 - **Production verification**: pending T013. Record the FR-017 query result,
   the enforcement switch time, AC1/AC2 on the owner's admin, and an
   audit/alert spot check.
+
+### T009 operational follow-up: staging CI enrollment
+
+PR #1880 delivered the shared admin MFA helper and seed support. The follow-up
+wires `STAGING_E2E_ADMIN_TOTP_SECRET` into both release-provenance steps and the
+live browser suite in `.github/workflows/staging-release-smoke.yml`.
+`capture-staging-release-provenance.mjs` uses the same `signInSession` helper,
+requires `aal2` when the secret is configured, and records only `admin_aal` in
+its evidence. The contract tests exercise successful MFA, missing factors,
+an AAL1 verify response, credential-free output, and operation before setup.
+
+Operational enrollment is restricted to `e2e-admin-smoke@staging-e2e.averlearning.com`
+on Supabase project `zjphffoujxkpltixsbzj`:
+
+1. Wait until no live staging smoke is using the shared admin. A successful
+   factor verification revokes its other AAL1 sessions (`research.md` §9.3).
+2. Preserve the existing password. Do not run the full `staging_seed.py` against
+   this namespace: reseeding rotates existing passwords. Do not extract
+   `E2E_PASSWORD` from CI. A staging service credential can generate a short-lived
+   magic-link session for the existing account without sending email or changing
+   its password; exchange the token hash through GoTrue `/verify` in memory.
+3. Enroll through the user's normal GoTrue `/factors` endpoint. Write the seed
+   only to `/workspace/qa/creds/staging-e2e-admin-totp.env`, mode 0600, as
+   `STAGING_E2E_ADMIN_TOTP_SECRET=…`. Never print the response, QR URI or seed.
+4. Pass the seed directly to `gh secret set STAGING_E2E_ADMIN_TOTP_SECRET`
+   through stdin. Complete `/factors/{id}/challenge` and `/verify`, confirm the
+   returned session has `aal2`, and revoke only the temporary session locally.
+5. Run the staging release smoke with the updated workflow. Record the exact
+   staging SHA, run URL/result and `admin_aal: aal2` evidence in the follow-up PR.
+   Scan logs and artifacts in memory for credentials without printing matches.
+
+This follow-up does not enable enforcement. T012 still requires its separate
+rollout and recovery acceptance; the live CI evidence above is a prerequisite.

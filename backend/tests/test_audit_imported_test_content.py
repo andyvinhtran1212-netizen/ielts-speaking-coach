@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scripts.audit_imported_test_content import (  # noqa: E402
+    CLASS_NAMES,
     KNOWN_SOURCE_GAPS,
     LIMIT_KINDS,
     LIMIT_RE,
@@ -382,3 +383,66 @@ def test_pdf_verified_choice_blocks_are_exact_expectations_not_waivers():
         "ILR-RDG-CAM-B17-T4", 23, reading["prompt"], reading_options) is None
     assert "prompt" in verified_choice_mismatch(
         "ILR-RDG-CAM-B17-T4", 23, reading["prompt"].removesuffix(" Section B?"), reading_options)
+
+
+# ── bản đồ lộ đáp án (MOCKREPAIR-0016 L012-03) ──────────────────────────────
+class _FakeQuery:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def select(self, *_a, **_k):
+        return self
+
+    def in_(self, *_a, **_k):
+        return self
+
+    def execute(self):
+        return type("R", (), {"data": self._rows})()
+
+
+def _run_audit_with(monkeypatch, exercises):
+    import scripts.audit_imported_test_content as mod
+
+    rows = {
+        "listening_tests": [{"id": "t1", "test_id": "ILR-LIS-PLAN"}],
+        "reading_tests": [],
+        "listening_content": [{"id": "c1", "section_num": 2}],
+        "reading_passages": [],
+    }
+    monkeypatch.setattr(mod, "fetch", lambda table, cols, **eq: rows[table])
+    monkeypatch.setattr(mod.supabase_admin, "table", lambda _t: _FakeQuery(exercises),
+                        raising=False)
+    report = mod.audit(None, {"answerable"}, "ILR-LIS-PLAN", "ILR-RDG-PLAN")
+    return [i for i in report["listening"]["ILR-LIS-PLAN"] if i["class"] in ("E6", "S4")]
+
+
+def _plan_ex(**payload):
+    base = {
+        "template_kind": "plan_label",
+        "metadata": {"letter_options": list("ABCDEFGH")},
+        "questions": [{"q_num": 16, "prompt": "IT suite"},
+                      {"q_num": 17, "prompt": "Cafe space"}],
+    }
+    return {"id": "ex1", "content_id": "c1", "order_num": 1, "payload": {**base, **payload}}
+
+
+def test_script_reuses_the_listening_audit_map_check():
+    import scripts.audit_imported_test_content as mod
+    from services import listening_audit
+
+    assert mod.plan_label_map_findings is listening_audit.plan_label_map_findings
+    assert "E6" in CLASS_NAMES and "S4" in CLASS_NAMES
+
+
+def test_script_flags_map_that_prints_tested_location(monkeypatch):
+    svg = "<svg><text>C</text><text>IT suite</text><text>D</text><text>Welcome desk</text></svg>"
+    got = _run_audit_with(monkeypatch, [_plan_ex(map_svg=svg)])
+    assert got == [{"class": "E6", "exercise": "ex1", "q": 16, "leaked": "IT suite"}]
+
+
+def test_script_clean_map_and_raster_only_map(monkeypatch):
+    clean = "<svg><text>C</text><text>D</text><text>Welcome desk</text></svg>"
+    assert _run_audit_with(monkeypatch, [_plan_ex(map_svg=clean)]) == []
+    raster = _plan_ex(map_image_storage_path="tests/x/maps/plan.png")
+    assert _run_audit_with(monkeypatch, [raster]) == [
+        {"class": "S4", "exercise": "ex1", "range": "16-17"}]

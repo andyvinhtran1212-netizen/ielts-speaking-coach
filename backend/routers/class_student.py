@@ -44,6 +44,12 @@ from services.class_assignment_service import (
 )
 from services.active_player_lifecycle import is_resume_active
 from services.cohort_assignment_service import parse_deadline
+from services.writing_give_status import (
+    RETURNED,
+    writing_give_timing,
+    writing_result_path,
+    writing_review_state,
+)
 from services.class_membership_service import (
     active_cohort_ids_for_student,
     student_is_active_in_cohort,
@@ -347,37 +353,45 @@ def _due_sort_key(row: Dict[str, Any]):
 # page to show it "beside the Speaking task". These are the only columns the class
 # page needs to render + bucket the give the same way it buckets a ledger item.
 _WRITING_GIVE_COLUMNS = (
-    "id, status, submitted_at, deadline, instructions, cohort_id, name, "
+    "id, status, submitted_at, deadline, instructions, cohort_id, name, essay_id, "
     "writing_prompts(title)"
 )
 
 
-def _writing_give_row(wa: Dict[str, Any], now: datetime) -> Dict[str, Any]:
+def _writing_give_row(wa: Dict[str, Any], now: datetime,
+                      essay: Optional[Dict[str, Any]] = None,
+                      band: Optional[float] = None) -> Dict[str, Any]:
     """Shape one `writing_assignments` row like a `_decorate`d ledger item.
 
     `writing_expected` is False on purpose: that flag asks whether a *course*
     bank has a self-written section, which has nothing to do with a standalone
     writing give. `course_action` is None for the same reason. Lateness/missing
-    are derived from the deadline exactly as the ledger derives them.
+    come from the shared `writing_give_timing` rule (one rule for /my-class and
+    the admin/instructor matrices).
+
+    W-07 — `review_state` (not_submitted|submitted|graded|returned) is read from
+    the essay, and `band` is set ONLY once the essay is returned: a graded essay
+    the teacher has not returned must not leak its band through this response
+    (owner decision 28/10 09:40), not merely be hidden by the UI.
     """
-    deadline = wa.get("deadline")
-    due = _safe_deadline(deadline, row_id=wa.get("id"), field="deadline")
-    submitted_at = wa.get("submitted_at")
-    submitted = _safe_deadline(submitted_at, row_id=wa.get("id"), field="submitted_at")
-    is_late = bool(submitted and due and submitted > due)
-    is_missing = bool(not submitted_at and due and due < now)
+    is_late, is_missing = writing_give_timing(wa, now)
+    review_state = writing_review_state(wa, essay)
     prompt = wa.get("writing_prompts") or {}
     title = wa.get("name") or prompt.get("title") or "Bài viết"
+    submitted = bool(wa.get("submitted_at"))
     return {
         "item_id":         wa["id"],
         "state":           wa.get("status") or "assigned",
-        "submitted_at":    submitted_at,
+        "submitted_at":    wa.get("submitted_at"),
         "score":           None,
         "passed_at":       None,
         "course_action":   None,
         "writing_expected": False,
         "is_late":         is_late,
         "is_missing":      is_missing,
+        "review_state":    review_state,
+        "band":            band if review_state == RETURNED else None,
+        "result_path":     writing_result_path(wa.get("essay_id")) if submitted else None,
         "assignment": {
             "id":             wa["id"],
             "cohort_id":      wa.get("cohort_id"),
@@ -385,10 +399,34 @@ def _writing_give_row(wa: Dict[str, Any], now: datetime) -> Dict[str, Any]:
             "title":          title,
             "skill":          "writing",
             "instructions":   wa.get("instructions"),
-            "due_at":         deadline,
+            "due_at":         wa.get("deadline"),
             "content_config": {},
         },
     }
+
+
+def _writing_review_evidence(rows: list[Dict[str, Any]]) -> tuple[dict, dict]:
+    """(essay by id, returned band by essay id) for the submitted gives.
+
+    Bands are read ONLY for delivered essays — the same gate the learner's
+    /writing/my-essays applies — so an unreturned band never enters this
+    process's response at all. Raises on a failed read; the caller degrades."""
+    essay_ids = list({r["essay_id"] for r in rows
+                      if r.get("submitted_at") and r.get("essay_id")})
+    essays: dict = {}
+    for chunk in (essay_ids[i:i + _ID_CHUNK] for i in range(0, len(essay_ids), _ID_CHUNK)):
+        for e in (supabase_admin.table("writing_essays").select("id, status")
+                  .in_("id", chunk).is_("deleted_at", "null").execute().data) or []:
+            essays[e["id"]] = e
+    delivered = [eid for eid, e in essays.items() if e.get("status") == "delivered"]
+    bands: dict = {}
+    for chunk in (delivered[i:i + _ID_CHUNK] for i in range(0, len(delivered), _ID_CHUNK)):
+        for fb in (supabase_admin.table("writing_feedback_current")
+                   .select("essay_id, overall_band_score")
+                   .in_("essay_id", chunk).execute().data) or []:
+            if fb.get("overall_band_score") is not None:
+                bands[fb["essay_id"]] = fb["overall_band_score"]
+    return essays, bands
 
 
 def _visible_writing_gives(student_id: str, cohort_ids: list[str],
@@ -422,14 +460,27 @@ def _visible_writing_gives(student_id: str, cohort_ids: list[str],
             .not_.is_("submitted_at", "null")
             .order("submitted_at", desc=True).limit(_MAX_HISTORY).execute().data
         ) or []
-        return [_writing_give_row(wa, now) for wa in outstanding + history], False
+        rows = outstanding + history
     except Exception as exc:
         # Degrade this block alone, flagging the page stale — a broken writing
         # read must not blank the Speaking/Course homework beside it. (A
-        # malformed deadline never reaches here: `_safe_deadline` absorbs it
-        # per row.)
+        # malformed deadline never reaches here: `writing_give_timing` absorbs
+        # it per row.)
         logger.warning("[class] writing gives read failed: %s", exc)
         return [], True
+    try:
+        essays, bands = _writing_review_evidence(rows)
+        stale = False
+    except Exception as exc:
+        # The gives themselves were read, so keep them (a learner must still
+        # see what they owe). Without the essay read nothing is claimed past
+        # "submitted" and no band is shown; the page is flagged stale.
+        logger.warning("[class] writing review-state read failed: %s", exc)
+        essays, bands, stale = {}, {}, True
+    return [
+        _writing_give_row(wa, now, essays.get(wa.get("essay_id")), bands.get(wa.get("essay_id")))
+        for wa in rows
+    ], stale
 
 
 def _visible_assignments(student: Dict[str, Any], now: datetime,

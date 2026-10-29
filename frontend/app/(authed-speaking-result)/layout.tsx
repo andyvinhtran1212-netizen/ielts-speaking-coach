@@ -11,3 +11,6 @@ export default function SpeakingResultLayout({ children }: { children: ReactNode
     <AuthedShell pageStylesheets={['/css/speaking-result.css']}>{children}</AuthedShell>
   );
 }
+
+// Per-request render for the CSP nonce (PC-J38); see components/authed-shell.tsx.
+export const instant = false;

@@ -24,6 +24,7 @@ from services.core_attempt_observation import (
 )
 from services.core_attempt_outcomes import observe_speaking_background
 from services import activation_gate
+from services import staff_guard
 from services.recording_audio import attach_playback_urls, PLAYBACK_TTL
 from services.speaking_submission import submission_id, submission_revision
 from services.question_visibility import redact_questions, should_reveal
@@ -583,22 +584,10 @@ async def create_session(
         bind_owned_attempt(replay_session)
         return _session_create_payload(replay_session)
 
-    # Admin bypass — admins không bị giới hạn quota
-    try:
-        user_role_result = (
-            supabase_admin.table("users")
-            .select("role")
-            .eq("id", user_id)
-            .limit(1)
-            .execute()
-        )
-        is_admin = bool(
-            user_role_result.data
-            and user_role_result.data[0].get("role") == "admin"
-        )
-    except Exception:
-        # Defensive: nếu role lookup fail, treat as non-admin (apply quota)
-        is_admin = False
+    # Admin bypass — admins không bị giới hạn quota. Soft check through the
+    # staff guard (ADMINAAL2-0032 Q7): an admin without a satisfied second
+    # factor under ADMIN_AAL2_ENFORCE, or a failed lookup, gets the learner quota.
+    is_admin = staff_guard.holds_admin_privilege(auth_user, authorization, db=supabase_admin)
 
     # UTC day-start (matches the "(UTC)" intent). date.today() is the LOCAL date,
     # so in UTC+ timezones it pointed today_start at a FUTURE UTC instant for

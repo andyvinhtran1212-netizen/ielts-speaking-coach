@@ -86,6 +86,14 @@ analyze_prompt_image(image_bytes, task_type, prompt_text, *, model=None) -> Anal
   đã có sẵn — không viết lại vòng retry/parse.
 - Validate bằng Pydantic model `PromptImageAnalysis` (models/writing_feedback.py).
 - Never-raise ở tầng gọi nền: lỗi → `status='failed'` + `error` message.
+- Prompt viết bằng tiếng Anh và yêu cầu key bằng tiếng Anh. User prompt ghi ngày
+  hôm nay: năm ≤ năm hiện tại là số liệu quá khứ, chỉ gọi là projected/planned khi
+  hình hoặc đề ghi rõ. Bảng: liệt kê mọi ô có số. Bản đồ: chỉ nêu đối tượng có nhãn
+  trên hình, không đoán vị trí (C-07, 2026-10-28).
+- Mỗi lượt gọi ghi `ai_usage_logs` với `feature='writing_prompt_analysis'`,
+  `operation='extract_answer_key'`, `resource_type='writing_prompt'`,
+  `resource_id=<prompt id>`, `user_id=<admin đã bấm>` (backfill: `user_id` rỗng,
+  `metadata.trigger='backfill'`).
 
 Chi phí: **1 vision call/đề** (một lần + khi thay hình). Không đáng kể so với
 tiết kiệm token multimodal mỗi lần chấm.

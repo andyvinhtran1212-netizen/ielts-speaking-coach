@@ -102,7 +102,7 @@ function renderCard(t) {
         <div class="lt-card-code">${esc(t.test_id || 'FULL TEST')}</div>
         <span class="lt-card-status${attempted ? ' is-done' : ''}">${attempted ? 'Đã làm' : 'Chưa làm'}</span>
       </div>
-      <h3 class="lt-card-title">${esc(t.title || 'Untitled test')}</h3>
+      <h3 class="lt-card-title">${esc(t.title || 'Bài thi chưa có tên')}</h3>
       <div class="lt-card-facts" aria-label="Cấu trúc đề thi">
         <span>4 sections</span><span>40 câu</span><span>~30 phút</span>
         ${t.band_target ? `<span>Band ${esc(t.band_target)}</span>` : ''}

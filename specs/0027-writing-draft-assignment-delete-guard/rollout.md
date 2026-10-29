@@ -30,6 +30,7 @@
 
 ## Observability
 
-- Backend logs and responses: 409 `Học viên đã bắt đầu — không xoá được` counts
+- Backend logs and responses: 409 `Học viên đã bắt đầu làm bài nên không xóa được bài giao này.`
+  (before Revision 1: `Học viên đã bắt đầu — không xoá được`) counts
   on the two DELETE routes; zero 500s with `writing_drafts_assignment_id_fkey`.
 - Owner: Vinh (product); the implementing agent reports AC results on the PR.

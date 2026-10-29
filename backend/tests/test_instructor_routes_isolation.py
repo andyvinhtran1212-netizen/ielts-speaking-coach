@@ -171,6 +171,7 @@ ROUTES = [
     ("DELETE", "/instructor/assignments/{id}",         "write1", AA, None, None),
     ("POST",   "/instructor/assignments",              "action", None, {"prompt_id": PA, "student_id": SA}, None),
     ("POST",   "/instructor/assignments/fan-out",      "action", None, {"prompt_ids": [PA], "cohort_id": CA}, None),
+    ("POST",   "/instructor/assignments/duplicates-preview", "action", None, {"prompt_ids": [PA], "cohort_id": CA}, None),
     ("GET",    "/instructor/essays",                   "list",   None, None, EA),
     ("GET",    "/instructor/essays/{id}",              "read1",  EA, None, None),
     ("PATCH",  "/instructor/essays/{id}/feedback",     "write1", EA, {"overall_band": 6}, None),
@@ -333,6 +334,58 @@ def test_fan_out_cross_owner_prompt_is_403():
                         json={"prompt_ids": [PA], "cohort_id": CA},
                         headers={"Authorization": "Bearer x"})
     assert r.status_code == 403, r.text
+
+
+# ── BL-18: re-give preview (read-only, same overlap as the fan-out warning) ───
+
+def test_duplicates_preview_reports_class_members_who_already_hold_the_prompt():
+    store = _seed()
+    before = [dict(r) for r in store["writing_assignments"]]
+    with _as(A, store) as (client, st):
+        r = client.post("/instructor/assignments/duplicates-preview",
+                        json={"prompt_ids": [PA], "cohort_id": CA},
+                        headers={"Authorization": "Bearer x"})
+    assert r.status_code == 200, r.text
+    # SA (class CA) already holds PA via assignment AA.
+    assert r.json() == {"student_count": 1, "duplicate_student_ids": [SA]}
+    assert st["writing_assignments"] == before          # preview writes nothing
+
+
+def test_duplicates_preview_matches_the_fan_out_duplicates_warning():
+    store = _seed()
+    with _as(A, store) as (client, _st):
+        preview = client.post("/instructor/assignments/duplicates-preview",
+                              json={"prompt_ids": [PA], "cohort_id": CA},
+                              headers={"Authorization": "Bearer x"}).json()
+        given = client.post("/instructor/assignments/fan-out",
+                            json={"prompt_ids": [PA], "cohort_id": CA},
+                            headers={"Authorization": "Bearer x"})
+    assert given.status_code == 201, given.text
+    assert preview["duplicate_student_ids"] == given.json()["duplicates_warning"]
+    assert preview["student_count"] == given.json()["student_count"]
+
+
+def test_duplicates_preview_counts_gives_from_other_assigners():
+    """The fan-out warning reads every give (an admin's too), not only mine."""
+    store = _seed()
+    store["writing_assignments"] = [{"id": AB, "assigned_by": ADM, "student_id": SA, "prompt_id": PA}]
+    with _as(A, store) as (client, _st):
+        r = client.post("/instructor/assignments/duplicates-preview",
+                        json={"prompt_ids": [PA], "cohort_id": CA},
+                        headers={"Authorization": "Bearer x"})
+    assert r.status_code == 200, r.text
+    assert r.json()["duplicate_student_ids"] == [SA]
+
+
+def test_duplicates_preview_with_no_prior_give_is_empty():
+    store = _seed()
+    store["writing_assignments"] = []
+    with _as(A, store) as (client, _st):
+        r = client.post("/instructor/assignments/duplicates-preview",
+                        json={"prompt_ids": [PA], "cohort_id": CA},
+                        headers={"Authorization": "Bearer x"})
+    assert r.status_code == 200, r.text
+    assert r.json() == {"student_count": 1, "duplicate_student_ids": []}
 
 
 # ── W-05: an ADMIN teaching from /instructor gets the instructor grade loop ────

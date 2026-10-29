@@ -16,7 +16,7 @@ export function VoidSittingDialog({ studentName, busy, onCancel, onConfirm }: {
   const submit = async () => {
     const value = reason.trim();
     if (!value) {
-      setError('Cần nêu lý do để giữ audit trail cho lượt thi bị huỷ.');
+      setError('Cần nêu lý do để giữ audit trail cho lượt thi bị hủy.');
       return;
     }
     setError('');
@@ -25,18 +25,18 @@ export function VoidSittingDialog({ studentName, busy, onCancel, onConfirm }: {
 
   return <Dialog
     open
-    title={`Huỷ lượt thi của ${studentName}?`}
+    title={`Hủy lượt thi của ${studentName}?`}
     description="Lượt thi vẫn được giữ trong dữ liệu với trạng thái void và không thể công bố kết quả."
     busy={busy}
     onClose={onCancel}
     panelClassName="mlv-void-dialog"
     actions={<>
       <button type="button" className="adm-btn-secondary" onClick={onCancel} disabled={busy}>Quay lại</button>
-      <button type="button" className="adm-btn-danger" onClick={() => void submit()} disabled={busy}>{busy ? 'Đang đối chiếu…' : 'Huỷ lượt thi'}</button>
+      <button type="button" className="adm-btn-danger" onClick={() => void submit()} disabled={busy}>{busy ? 'Đang đối chiếu…' : 'Hủy lượt thi'}</button>
     </>}
   >
       <div className="mlv-void-body">
-        <label htmlFor="mlv-void-reason">Lý do huỷ <span aria-hidden="true">*</span></label>
+        <label htmlFor="mlv-void-reason">Lý do hủy <span aria-hidden="true">*</span></label>
         <textarea
           id="mlv-void-reason"
           rows={4}

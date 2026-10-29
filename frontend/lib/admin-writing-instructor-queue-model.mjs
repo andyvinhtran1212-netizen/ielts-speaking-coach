@@ -100,3 +100,10 @@ export function claimReadback(row, adminId) {
 export function releaseReadback(row) {
   return row?.review?.status === 'queued' && row.review.claimedBy === null ? row : null;
 }
+
+// A success banner reports the previous operation only; a new user action
+// (refresh, view change, opening release) retires it. Warnings and errors
+// stay until claim/release replaces them, so they are never hidden unseen.
+export function dismissSuccessBanner(banner) {
+  return banner?.kind === 'success' ? null : banner ?? null;
+}

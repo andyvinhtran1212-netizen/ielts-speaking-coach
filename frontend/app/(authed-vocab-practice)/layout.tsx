@@ -11,3 +11,6 @@ export default function VocabPracticeLayout({ children }: { children: ReactNode 
     <AuthedShell pageStylesheets={['/css/vocab-practice.css']}>{children}</AuthedShell>
   );
 }
+
+// Per-request render for the CSP nonce (PC-J38); see components/authed-shell.tsx.
+export const instant = false;

@@ -171,6 +171,10 @@ button, input, select, textarea { font: inherit; }
 .ins-note { color: var(--av-text-muted); line-height: 1.55; }
 .ins-empty { padding: 22px !important; text-align: center !important; }
 .ins-note { margin: -6px 0 15px; font-size: .8rem; }
+/* W-12: each matrix cell carries its own give's deadline under the status. */
+.ins-cell-deadline { display: block; margin-top: 4px; color: var(--av-text-muted); font-size: .75rem; white-space: nowrap; }
+/* PC-J36: each "Chấm bài" row carries its essay's short id + submit time under the student. */
+.ins-cell-meta { display: block; margin-top: 4px; color: var(--av-text-muted); font-size: .75rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 .ins-pill {
   display: inline-flex;
@@ -312,6 +316,36 @@ button, input, select, textarea { font: inherit; }
 .ins-stats dt { color: var(--av-text-muted); font-size: .72rem; }
 .ins-stats dd { margin: 4px 0 0; font-size: 1.3rem; font-weight: 800; }
 
+/* In-app give confirmation: the shared admin Dialog (components/admin-directory-ui),
+   styled here because /instructor does not load the admin stylesheets. */
+.acd-dialog-backdrop {
+  position: fixed;
+  z-index: 1200;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: color-mix(in srgb, var(--av-surface-page) 74%, transparent);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.acd-dialog {
+  width: min(100%, 520px);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-xl);
+  background: var(--av-surface-card);
+  box-shadow: var(--av-shadow-xl);
+}
+.acd-dialog:focus { outline: 0; }
+.acd-dialog__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 22px 24px; border-bottom: 1px solid var(--av-border-subtle); }
+.acd-dialog__head h2 { margin: 0; font-size: 1.2rem; line-height: 1.35; }
+.acd-dialog__description { margin-top: 8px; color: var(--av-text-secondary); font-size: .92rem; line-height: 1.6; overflow-wrap: anywhere; }
+.acd-icon-button { display: grid; width: 44px; height: 44px; flex: 0 0 auto; place-items: center; border: 1px solid var(--av-border-default); border-radius: var(--av-radius-pill); color: var(--av-text-primary); background: transparent; font-size: 22px; cursor: pointer; }
+.acd-dialog__actions { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 24px; }
+.acd-dialog button:focus-visible { outline: 2px solid var(--av-border-focus); outline-offset: 2px; }
+
 @media (max-width: 760px) {
   body.av-page { --ins-gutter: 16px; }
   .ins-top { flex-wrap: wrap; }
@@ -322,6 +356,11 @@ button, input, select, textarea { font: inherit; }
   .ins-heading { align-items: center; }
   .ins-card { padding: 16px; }
   .ins-card.ins-table-wrap { padding: 0; }
+  .acd-dialog-backdrop { align-items: end; padding: 0; }
+  .acd-dialog { width: 100%; max-height: 94dvh; border-radius: var(--av-radius-xl) var(--av-radius-xl) 0 0; }
+  .acd-dialog__head, .acd-dialog__actions { padding: 16px; }
+  .acd-dialog__actions { flex-direction: column-reverse; }
+  .acd-dialog__actions button { width: 100%; min-height: 44px; }
 }
 
 /* The four tabs no longer fit one row on phones (360-390px); wrap them into a

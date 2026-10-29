@@ -108,6 +108,12 @@ on:
       - 'frontend/app/(authed-vocab-exam)/**'
       - 'frontend/app/(authed)/grammar-checkup/**'
       - 'frontend/app/(authed)/course-exercises/**'
+      - 'frontend/app/(authed)/grammar-lessons/**'
+      - 'frontend/app/next-probe/**'
+      - 'frontend/app/(spike)/**'
+      - 'frontend/lib/quiz-player-model.mjs'
+      - 'frontend/public/css/assigned-grammar-lesson.css'
+      - 'frontend/tooling/verify-error-states-flow.mjs'
       - 'frontend/app/(authed-advanced-vocab)/**'
       - 'frontend/tooling/verify-learner-route-auth-boot-flow.mjs'
       - 'frontend/app/(authed-exam)/**'
@@ -565,6 +571,14 @@ on:
       - 'frontend/tooling/verify-vocabulary-wiki-flow.mjs'
       - 'frontend/public/js/components/aver-chrome.js'
       - 'frontend/tooling/verify-chrome-nav-width-flow.mjs'
+      - 'frontend/tooling/verify-chrome-early-render-flow.mjs'
+      - 'frontend/app/(authed)/profile/**'
+      - 'frontend/public/css/profile.css'
+      - 'frontend/public/css/grammar-wiki.css'
+      - 'frontend/tooling/verify-mobile-layout-flow.mjs'
+      - 'frontend/components/authed-shell.tsx'
+      - 'frontend/components/supabase-runtime-boundary.tsx'
+      - 'frontend/tooling/verify-chrome-staff-link-race-flow.mjs'
       - 'frontend/public/js/theme-toggle.js'
       - 'frontend/public/js/user-pill.js'
       - 'frontend/public/js/components/perf-hints.js'
@@ -662,6 +676,8 @@ on:
       - 'frontend/public/js/analytics-beacon.js'
       - 'frontend/public/**/*.html'
       - 'frontend/next.config.ts'
+      - 'frontend/proxy.ts'
+      - 'frontend/tooling/content-security-policy.mjs'
       - 'frontend/package-lock.json'
       - 'frontend/package.json'
       - 'frontend/tsconfig.json'
@@ -817,11 +833,34 @@ jobs:
       - name: Kiểm layout Next ở desktop và điện thoại
         run: node tooling/verify-next-responsive-flow.mjs "http://localhost:$TEST_PORT"
 
+      # PC-J13 (U-16/BL-01/BL-08/BL-13): /quiz, /mock-exam, /grammar-lessons/assigned
+      # thiếu tham số phải giải thích + chỉ có nút quay lại; 404 của trang debug
+      # mang title chung; /grammar-checkup theo tài khoản đổi ở tab khác; modal
+      # kích hoạt trên /login có Đăng xuất.
+      - name: Kiểm trạng thái lỗi, đổi tài khoản và đăng xuất khi chưa kích hoạt
+        run: node tooling/verify-error-states-flow.mjs "http://localhost:$TEST_PORT"
+
       # U-20: từ 721px tới ~1180px menu đầy đủ từng gãy thành 2-3 hàng và hero
       # /home làm trang cuộn ngang. Runner này đo nav một hàng hoặc hamburger,
       # không cuộn ngang ở 720-1280px, và menu tablet vẫn mở/Escape đúng.
       - name: Kiểm nav chrome không gãy hàng ở bề rộng tablet
         run: node tooling/verify-chrome-nav-width-flow.mjs "http://localhost:$TEST_PORT"
+
+      # PC-J06 (U-21/U-15/U-06): header từng chờ runtime-config → client →
+      # api.js nên điện thoại chậm 4–8s không có header, hamburger bấm không
+      # ăn. Runner giữ api.js lại: header + hamburger phải có trong 1s, pill
+      # điền sau khi api.js về, khách ở Grammar không thấy "·" / "…".
+      - name: Kiểm header hiện ngay, không chờ runtime Supabase
+        run: node tooling/verify-chrome-early-render-flow.mjs "http://localhost:$TEST_PORT"
+
+      - name: Kiểm link "Trang giảng viên" của staff khi trang gọi setUser trước chrome
+        run: node tooling/verify-chrome-staff-link-race-flow.mjs "http://localhost:$TEST_PORT"
+
+      # PC-J13 (U-05/U-08/U-18): ở 360/390px breadcrumb sticky + thanh CTA khách
+      # che ~1/5 bài grammar, nút CTA teal mất tương phản ở theme sáng, /profile
+      # tràn ngang (chip band), email bị cắt và toast "Đã lưu" có sẵn trong DOM.
+      - name: Kiểm bài grammar và /profile ở bề rộng điện thoại
+        run: node tooling/verify-mobile-layout-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/reading/vocab` đã chuyển request/filter/state sang React. Cổng parity
       # chỉ chụp một trạng thái tĩnh nên không chứng minh được malformed payload,
@@ -856,6 +895,12 @@ jobs:
       # the signed-out /login redirect.
       - name: Kiểm route học viên chờ đăng nhập trước khi khởi động
         run: node tooling/verify-learner-route-auth-boot-flow.mjs "http://localhost:$TEST_PORT"
+
+      # PC-J38: signed-in routes carry a nonce Report-Only CSP next to the
+      # unchanged enforced one, load with 0 Report-Only violations, and an
+      # injected <img onerror> is reported. CSP is not bypassed here.
+      - name: Kiểm CSP nonce Report-Only trên route đã đăng nhập
+        run: node tooling/verify-csp-nonce-report-only-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/reading/skill` cũng sở hữu request/filter/state bằng React. Chạy độc
       # lập để bắt canonical total, nhóm kỹ năng, response filter cũ và reset.

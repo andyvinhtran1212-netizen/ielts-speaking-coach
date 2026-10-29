@@ -37,9 +37,10 @@ Auth:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,70 @@ def get_home_summary(
     why we don't use the JWT-scoped client. `user_id` filters everything;
     `name` / `email` come from the auth layer (we don't re-fetch them).
     """
+    results: Dict[str, Any] = {}
+    for key, build in _section_builders(user_id, account_name).items():
+        try:
+            results[key] = build(sb)
+        except Exception as e:
+            results[key] = e
+    return _assemble_home_summary(results, name=name, email=email)
+
+
+async def get_home_summary_concurrent(
+    make_sb: Callable[[], Any], user_id: str, *, name: str, email: str,
+    account_name: str = "",
+) -> Dict[str, Any]:
+    """Concurrent :func:`get_home_summary` for ``GET /api/student/home-summary``
+    (PC-J05 D1b), following ``dashboard_aggregator.get_dashboard_payload_concurrent``.
+
+    The seven sections are independent, so each runs in its own worker thread
+    and the wall time becomes the slowest section instead of the sum of ~16
+    sequential round-trips held on the event loop. ``make_sb()`` is called
+    INSIDE the worker thread and must return a client owned by that thread
+    (``database.thread_supabase_admin``) — the sync client is not thread-safe
+    to share. Same payload, same per-section ``_errors`` degradation.
+    """
+    builders = _section_builders(user_id, account_name)
+    outcomes = await asyncio.gather(
+        *(asyncio.to_thread(lambda build=build: build(make_sb()))
+          for build in builders.values()),
+        return_exceptions=True,
+    )
+    for outcome in outcomes:
+        if isinstance(outcome, BaseException) and not isinstance(outcome, Exception):
+            raise outcome  # e.g. cancellation: the sequential builder never caught these
+    return _assemble_home_summary(dict(zip(builders, outcomes)), name=name, email=email)
+
+
+def _section_builders(user_id: str, account_name: str) -> Dict[str, Callable[[Any], Any]]:
+    """Section key → builder(sb), in payload/_errors order."""
+    return {
+        "speaking": lambda sb: _build_speaking(sb, user_id),
+        "writing": lambda sb: _build_writing(sb, user_id, account_name),
+        "grammar": lambda sb: _build_grammar(sb, user_id),
+        "vocabulary": lambda sb: _build_vocabulary(sb, user_id),
+        "reading": lambda sb: _build_reading(sb, user_id),
+        "listening": lambda sb: _build_listening(sb, user_id),
+        "streak": lambda sb: _build_streak(sb, user_id),
+    }
+
+
+# Section → (totals key, field of the section result); None = no total.
+_SKILL_TOTALS = {
+    "speaking": ("speaking_sessions", "sessions_count"),
+    "writing": ("writing_essays", "essays_count"),
+    "grammar": ("grammar_lessons_viewed", "lessons_viewed"),
+    "vocabulary": ("vocab_words_learned", "words_learned"),
+    "reading": None,
+    "listening": None,
+}
+
+
+def _assemble_home_summary(
+    results: Dict[str, Any], *, name: str, email: str,
+) -> Dict[str, Any]:
+    """Fold per-section results (value or the Exception it raised) into the
+    payload. A failed section keeps its empty default and lands in `_errors`."""
     payload: Dict[str, Any] = {
         "student": {"name": name, "email": email},
         "streak": {"current_days": 0, "longest_days": 0},
@@ -73,48 +138,20 @@ def get_home_summary(
     }
     errors: Dict[str, str] = {}
 
-    try:
-        speaking = _build_speaking(sb, user_id)
-        payload["skills"]["speaking"] = speaking
-        payload["totals"]["speaking_sessions"] = speaking["sessions_count"]
-    except Exception as e:
-        errors["speaking"] = _short_error(e)
-
-    try:
-        writing = _build_writing(sb, user_id, account_name)
-        payload["skills"]["writing"] = writing
-        payload["totals"]["writing_essays"] = writing["essays_count"]
-    except Exception as e:
-        errors["writing"] = _short_error(e)
-
-    try:
-        grammar = _build_grammar(sb, user_id)
-        payload["skills"]["grammar"] = grammar
-        payload["totals"]["grammar_lessons_viewed"] = grammar["lessons_viewed"]
-    except Exception as e:
-        errors["grammar"] = _short_error(e)
-
-    try:
-        vocab = _build_vocabulary(sb, user_id)
-        payload["skills"]["vocabulary"] = vocab
-        payload["totals"]["vocab_words_learned"] = vocab["words_learned"]
-    except Exception as e:
-        errors["vocabulary"] = _short_error(e)
-
-    try:
-        payload["skills"]["reading"] = _build_reading(sb, user_id)
-    except Exception as e:
-        errors["reading"] = _short_error(e)
-
-    try:
-        payload["skills"]["listening"] = _build_listening(sb, user_id)
-    except Exception as e:
-        errors["listening"] = _short_error(e)
-
-    try:
-        payload["streak"] = _build_streak(sb, user_id)
-    except Exception as e:
-        errors["streak"] = _short_error(e)
+    for key, value in results.items():
+        if isinstance(value, Exception):
+            errors[key] = _short_error(value)
+            continue
+        try:
+            if key == "streak":
+                payload["streak"] = value
+                continue
+            payload["skills"][key] = value
+            totals = _SKILL_TOTALS[key]
+            if totals is not None:
+                payload["totals"][totals[0]] = value[totals[1]]
+        except Exception as e:
+            errors[key] = _short_error(e)
 
     if errors:
         payload["_errors"] = errors
@@ -177,7 +214,7 @@ def _build_speaking(sb, user_id: str) -> Dict[str, Any]:
         "last_activity_at": last_activity,
         "last_band": float(last_band) if last_band is not None else None,
         "sessions_count": int(total),
-        "primary_cta": "Continue practice" if total else "Start practice",
+        "primary_cta": "Luyện tiếp" if total else "Bắt đầu luyện",
         # cutover /speaking 2026-08-05 — canonical là route Next. Backend CŨNG
         # sinh điều hướng: `home.js`/`home-behavior.tsx` đưa người dùng đi bằng
         # ĐÚNG giá trị này khi họ bấm thẻ Speaking ở trang chủ (bài học review
@@ -209,7 +246,7 @@ def _build_writing(sb, user_id: str, account_name: str = "") -> Dict[str, Any]:
             "last_band": None,
             "essays_count": 0,
             "essays_in_progress": 0,
-            "primary_cta": "Submit new essay",
+            "primary_cta": "Nộp bài viết mới",
             "primary_cta_url": "/writing/dashboard",
         }
 
@@ -280,7 +317,7 @@ def _build_writing(sb, user_id: str, account_name: str = "") -> Dict[str, Any]:
         "essays_count": int(total),
         "essays_in_progress": in_progress,
         "new_feedback_count": new_feedback,
-        "primary_cta": "Submit new essay",
+        "primary_cta": "Nộp bài viết mới",
         "primary_cta_url": "/writing/dashboard",
     }
 
@@ -326,7 +363,7 @@ def _build_grammar(sb, user_id: str) -> Dict[str, Any]:
         "status": "active",
         "last_activity_at": last_activity,
         "lessons_viewed": int(total),
-        "primary_cta": "Browse lessons",
+        "primary_cta": "Xem bài học",
         # [cutover /grammar 2026-08-03] route canonical. Thẻ Grammar ở trang
         # chủ học viên điều hướng bằng ĐÚNG giá trị này (home.js:277-287),
         # nên để nguyên bản legacy là một luồng chính vẫn mở trang cũ.
@@ -491,7 +528,7 @@ def _build_vocabulary(sb, user_id: str) -> Dict[str, Any]:
         "quiz_words_mastered": len(quiz["mastered"]),
         "quiz_words_missed": len(quiz["missed"]),
         "quiz_sessions": int(quiz["sessions"]),
-        "primary_cta": "Practice flashcards" if due_count else "Browse vocabulary",
+        "primary_cta": "Ôn flashcard" if due_count else "Xem từ vựng",
         "primary_cta_url": (
             "/vocabulary/hub#flashcards" if due_count
             else "/vocabulary/hub#vocab-topics"   # #my-vocab surface removed
@@ -519,7 +556,7 @@ def _build_reading(sb, user_id: str) -> Dict[str, Any]:
         "last_activity_at": last_activity,
         "last_band": float(last_band) if last_band is not None else None,
         "attempts_count": int(total),
-        "primary_cta": "Continue reading" if total else "Start reading",
+        "primary_cta": "Đọc tiếp" if total else "Bắt đầu luyện đọc",
         "primary_cta_url": "/reading/vocab",
     }
 
@@ -563,7 +600,7 @@ def _build_listening(sb, user_id: str) -> Dict[str, Any]:
         "last_activity_at": last_activity,
         "last_band": float(last_band) if last_band is not None else None,
         "attempts_count": int(total),
-        "primary_cta": "Continue listening" if total else "Start listening",
+        "primary_cta": "Nghe tiếp" if total else "Bắt đầu luyện nghe",
         "primary_cta_url": "/listening",
     }
 

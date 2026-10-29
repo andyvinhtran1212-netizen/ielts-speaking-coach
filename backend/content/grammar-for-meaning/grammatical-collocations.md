@@ -106,7 +106,7 @@ Người Việt thường gặp 3 lỗi:
 2. **Chọn sai preposition tương tự nghĩa.** "good in / at / on English" — chỉ "at" đúng. "in" và "on" thường được chọn vì có vẻ chỉ "trong/về".
 3. **Thêm preposition không cần.** "discuss about this issue" — "discuss" trong English không cần "about". Tiếng Việt "thảo luận về" → translation lỗi.
 
-Trong IELTS Speaking, lỗi collocation hạ cả LR và GRA. Trong Writing, examiner thường gạch chân đỏ các preposition sai.
+Trong IELTS Speaking, lỗi collocation hạ cả LR và GRA. Trong Writing, giới từ sai làm giảm điểm GRA/LR nếu lặp lại nhiều.
 
 <!-- anchor: grammatical-collocations.verb-preposition -->
 ## Phần 1: Verb + Preposition collocations
@@ -160,12 +160,12 @@ Trong IELTS Speaking, lỗi collocation hạ cả LR và GRA. Trong Writing, exa
 | **request** | request information (✗ request for) | "She requested for the file." |
 | **reach** | reach the destination (✗ reach to) | "We reached to the airport." |
 
-> **Note:** Một số trong list trên có dạng noun với preposition — "discussion **about**", "lack **of**", "request **for**" — nhưng dạng verb thì không cần. Đừng nhầm.
+> **Lưu ý:** Một số trong list trên có dạng noun với preposition — "discussion **about**", "lack **of**", "request **for**" — nhưng dạng verb thì không cần. Đừng nhầm.
 
 <!-- anchor: grammatical-collocations.adjective-preposition -->
 ## Phần 2: Adjective + Preposition collocations
 
-### High-frequency list (ưu tiên thuộc 25 cái)
+### High-frequency list (ưu tiên thuộc 26 cái)
 
 | Adjective + prep | VN | Ví dụ |
 |---|---|---|
@@ -211,7 +211,7 @@ Trong IELTS Speaking, lỗi collocation hạ cả LR và GRA. Trong Writing, exa
 | **advantage of / disadvantage of** | "One advantage of living in a city is convenience." |
 | **increase in / decrease in** | "There was an increase in unemployment." |
 | **demand for** | "There's high demand for green energy." |
-| **need for** | "We need to address the need for change." |
+| **need for** | "There is an urgent need for change." |
 | **interest in** | "His interest in music started young." |
 | **knowledge of** | "She has good knowledge of Vietnamese culture." |
 | **example of** | "This is a good example of teamwork." |
@@ -248,7 +248,7 @@ Trong IELTS Speaking, lỗi collocation hạ cả LR và GRA. Trong Writing, exa
 
 - ❌ "It depends of the weather."
 - ✅ "It depends **on** the weather."
-- **TẠI SAO:** Trong nghĩa “phụ thuộc”, kết hợp chuẩn là depend ON. Không có căn cứ ở đây để quy lỗi cho phát âm tiếng Việt.
+- **TẠI SAO:** Trong nghĩa “phụ thuộc”, kết hợp chuẩn là depend ON. Có thể do liên tưởng với 'of' (ví dụ 'phụ thuộc của').
 
 <!-- anchor: grammatical-collocations.common-mistake.discuss-about-error -->
 ### Lỗi 3: "discuss about" thay vì "discuss"
@@ -272,7 +272,7 @@ Trong IELTS Speaking, lỗi collocation hạ cả LR và GRA. Trong Writing, exa
 - ✅ "She's married **to** a doctor."
 - **TẠI SAO:** Translation từ VN "kết hôn với". English uses "to" cho relationships (married to / engaged to / related to).
 
-### Lỗi 6: Wrong preposition with "afraid"
+### Lỗi 6: Sai giới từ với "afraid"
 
 - ❌ "I'm afraid for snakes."
 - ✅ "I'm afraid **of** snakes."
@@ -281,12 +281,12 @@ Trong IELTS Speaking, lỗi collocation hạ cả LR và GRA. Trong Writing, exa
 <!-- anchor: grammatical-collocations.high-frequency-list -->
 ## Học chiến lược
 
-Collocations là **memorize**, không phải reason. Strategy:
+Collocation phải **học thuộc**, không suy luận được bằng quy tắc. Chiến lược:
 
 1. **Học theo cặp.** Mỗi lần học một verb/adjective/noun mới, ghi luôn preposition đi kèm. Đừng học verb riêng.
 2. **Học theo chunk.** Ghi cả phrase: "depend on the weather", không chỉ "depend on".
 3. **Notebook chuyên collocation.** Một notebook riêng, chia 4 cột: V+prep | Adj+prep | N+prep | V+adv.
-4. **Nghe + repeat.** Listen IELTS samples Band 8+, transcribe các collocation, repeat cho thuộc rhythm.
+4. **Nghe + repeat.** Listen to Band 8+ IELTS samples, transcribe các collocation, repeat cho thuộc rhythm.
 5. **Test bản thân.** Mỗi tuần kiểm tra: che cột preposition, viết lại theo verb.
 
 <!-- anchor: grammatical-collocations.ielts.speaking-application -->
@@ -310,11 +310,25 @@ Collocations là **memorize**, không phải reason. Strategy:
 >
 > "**The impact of** technology on families is **a topic worth discussing**. **On one hand**, video calls help families **stay in touch with** each other across distances. **On the other hand**, excessive screen time can **interfere with** quality time together. So **it depends on** how families **choose to** use it."
 
+## Bài tập luyện
+
+### Điền giới từ
+
+1. It depends ___ the weather.
+2. She's married ___ a doctor.
+3. Let's discuss ___ this issue.
+4. I'm good ___ maths.
+5. I'm afraid ___ snakes.
+
+### Đáp án
+
+1. on | 2. to | 3. Ø | 4. at | 5. of
+
 ## Tóm tắt nhanh
 
-- Verb + preposition: must-memorize 30 cái cho IELTS (depend on, listen to, look forward to, ...)
-- Adjective + preposition: 25 cái (interested in, good at, afraid of, married to, ...)
+- Verb + preposition: cần thuộc 30 cụm cho IELTS (depend on, listen to, look forward to, ...)
+- Adjective + preposition: 26 cái (interested in, good at, afraid of, married to, ...)
 - Noun + preposition: 16 cái (reason for, solution to, effect on, difference between, ...)
 - Verb + adverb (intensifiers): strongly / completely / highly / firmly / deeply
-- VN-specific traps: listen to (not "listen"), depend on (not "of"), discuss (not "discuss about"), good at (not "in"), married to (not "with")
+- Bẫy riêng của người Việt: listen to (not "listen"), depend on (not "of"), discuss (not "discuss about"), good at (not "in"), married to (not "with")
 - Học theo chunk, không học riêng từ; có notebook chuyên cho collocations.

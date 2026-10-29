@@ -8,3 +8,6 @@ export default function AdminWritingAssignmentsLayout({ children }: { children: 
     '/css/admin-writing-assignments-next.css',
   ]}>{children}</AuthedShell>;
 }
+
+// Per-request render for the CSP nonce (PC-J38); see components/authed-shell.tsx.
+export const instant = false;

@@ -22,7 +22,42 @@ Design notes
 
 from __future__ import annotations
 
+import time
+import uuid
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+
+from services.request_context import current_request_id
+
+
+@dataclass(frozen=True)
+class CallTelemetry:
+    """BL-09 — ledger fields for ONE provider call.
+
+    Each call (retry or fallback rung included) gets its own usage_event_id —
+    the ledger dedupes on it, so attempts must never share one. latency_ms
+    covers the provider call up to the moment its row is logged; request_id is
+    the HTTP request the call served (None for background work).
+    """
+
+    usage_event_id: str
+    started: float
+    request_id: str | None
+
+    @classmethod
+    def start(cls, feature: str, provider_name: str) -> "CallTelemetry":
+        return cls(
+            usage_event_id=f"{feature}:{provider_name}:{uuid.uuid4()}",
+            started=time.monotonic(),
+            request_id=current_request_id(),
+        )
+
+    def fields(self) -> dict:
+        return {
+            "usage_event_id": self.usage_event_id,
+            "request_id":     self.request_id,
+            "latency_ms":     int((time.monotonic() - self.started) * 1000),
+        }
 
 
 class AbstractGradingProvider(ABC):

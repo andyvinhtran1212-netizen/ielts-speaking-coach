@@ -21,3 +21,6 @@ export default function ListeningPracticeRunLayout({ children }: { children: Rea
     </AuthedShell>
   );
 }
+
+// Per-request render for the CSP nonce (PC-J38); see components/authed-shell.tsx.
+export const instant = false;

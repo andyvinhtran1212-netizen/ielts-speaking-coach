@@ -338,7 +338,7 @@ Tiếng Việt không có sự phân biệt này — "tôi muốn **đi**", "tô
 2. **enjoy, avoid, mind, finish, keep, suggest, consider, miss, practise** → gerund
 3. **Sau giới từ** → gerund (luôn luôn)
 4. **Mục đích** (để làm gì) → to-infinitive
-5. **It is + adj + ???** → to-infinitive
+5. **It is + tính từ + …** → to-infinitive *(It is important **to practise** every day; riêng worth → V-ing: It is worth **trying**.)*
 
 ## Ứng dụng trong IELTS
 

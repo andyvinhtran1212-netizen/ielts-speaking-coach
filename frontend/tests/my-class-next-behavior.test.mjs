@@ -13,6 +13,7 @@ import {
   normalizeMyClassResponse,
   remainingLabel,
   rhythmDays,
+  writingReviewCopy,
 } from '../lib/my-class-model.mjs';
 
 const assignment = (overrides = {}) => ({
@@ -556,6 +557,76 @@ describe('assignment start contract', () => {
     assert.equal(normalizeClassStartResponse({
       item_id: 'other', assignment_id: 'a', skill: 'course', bank_id: 'bank-1',
     }, 'item-1'), null);
+  });
+});
+
+describe('W-07 / A-S3 — a handed-in writing give says what happened to it', () => {
+  const give = (overrides = {}) => ({
+    item_id: 'w-1', state: 'submitted', submitted_at: '2026-10-27T15:00:00Z', score: null,
+    passed_at: null, course_action: null, writing_expected: false,
+    is_late: false, is_missing: false,
+    review_state: 'submitted', band: null, result_path: '/writing/result?essay_id=e-1',
+    assignment: {
+      id: 'w-1', cohort_id: 'c1', cohort_name: null, title: 'QA TEST Task 2',
+      skill: 'writing', instructions: null, due_at: '2026-10-27T16:00:00Z', content_config: {},
+    },
+    ...overrides,
+  });
+  const parse = (row) => normalizeMyClassResponse(payload({
+    assignments: [row],
+    progress: { total: 1, submitted: 1, todo: 0, missing: 0,
+      late: row.is_late ? 1 : 0, on_time_pct: row.is_late ? 0 : 100 },
+  }));
+
+  test('a returned essay reads "Đã trả" with "Đã chấm · Band" and opens its result', () => {
+    const snapshot = parse(give({ review_state: 'returned', band: 6.5, state: 'delivered' }));
+    const row = snapshot.assignments[0];
+    assert.deepEqual(writingReviewCopy(row),
+      { state: 'returned', label: 'Đã trả', result: 'Đã chấm · Band 6.5' });
+    assert.deepEqual(assignmentAction(row), { kind: 'result', label: 'Xem kết quả' });
+    assert.equal(row.resultPath, '/writing/result?essay_id=e-1');
+  });
+
+  test('a graded essay the teacher has not returned shows no band', () => {
+    const row = parse(give({ review_state: 'graded', state: 'graded' })).assignments[0];
+    assert.deepEqual(writingReviewCopy(row),
+      { state: 'graded', label: 'Đã chấm, chờ giáo viên trả bài', result: null });
+    assert.deepEqual(assignmentAction(row), { kind: 'review', label: 'Xem bài đã nộp' });
+  });
+
+  test('a band on an unreturned essay is a contract breach, never rendered', () => {
+    for (const state of ['submitted', 'graded']) {
+      const snapshot = parse(give({ review_state: state, band: 7 }));
+      assert.equal(snapshot.assignments, null, `${state} + band must fail closed`);
+      assert.ok(snapshot.warnings.includes('assignments_contract'));
+    }
+  });
+
+  test('review state must agree with the hand-in and be a known value', () => {
+    assert.equal(parse(give({ review_state: 'not_submitted' })).assignments, null);
+    assert.equal(parse(give({ review_state: 'approved' })).assignments, null);
+  });
+
+  test('only a /writing/result path is followed', () => {
+    const foreign = parse(give({ review_state: 'returned', band: 6,
+      result_path: 'https://evil.example/writing/result?essay_id=e-1' })).assignments[0];
+    assert.equal(foreign.resultPath, null);
+    assert.deepEqual(assignmentAction(foreign), { kind: 'review', label: 'Xem bài đã nộp' });
+  });
+
+  test('a late hand-in is labelled "Nộp trễ" next to its review state', () => {
+    const row = parse(give({ is_late: true, review_state: 'graded' })).assignments[0];
+    assert.equal(row.isLate, true);
+    const workspace = readFileSync(new URL('../app/(authed-my-class)/my-class/my-class-workspace.tsx', import.meta.url), 'utf8');
+    assert.match(workspace,
+      /\{writing && row\.isLate && <span className="mc-item-state" data-state="late">Nộp trễ<\/span>\}/);
+    assert.match(workspace, /: writing \? writing\.label/,
+      'the writing pill must come from the server review state, not submittedAt alone');
+    assert.match(workspace, /action\?\.kind === 'result' && row\.resultPath/);
+  });
+
+  test('non-writing rows are unaffected', () => {
+    assert.equal(writingReviewCopy({ submittedAt: 'x', assignment: { skill: 'speaking' } }), null);
   });
 });
 

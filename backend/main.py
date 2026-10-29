@@ -1,6 +1,6 @@
 import logging
 import math
-import re
+import os
 import sys
 from time import perf_counter
 
@@ -31,6 +31,7 @@ from database import supabase_admin
 from routers.auth import get_supabase_user, router as auth_router
 from services.activation_gate import require_active_learner
 from services.api_docs import api_docs_kwargs
+from services.cors_policy import allowed_origins as cors_allowed_origins
 from routers.mock_attempt_flags import router as mock_attempt_flags_router
 from services.server_timing import (
     format_header as format_server_timing_header,
@@ -45,7 +46,9 @@ from routers.tts import router as tts_router
 from routers.export import router as export_router
 from routers.admin import router as admin_router
 from routers.admin_core_attempt_evidence import router as admin_core_attempt_evidence_router
+from routers.admin_staff_security import router as admin_staff_security_router
 from services.core_operation_correlation import HEADER_NAME as CORE_OPERATION_HEADER, operation_hint_scope
+from services.request_context import request_id_scope
 from routers.cohorts import router as cohorts_router
 from routers.admin_courses import router as admin_courses_router
 from routers.admin_class_lessons import router as admin_class_lessons_router
@@ -58,6 +61,7 @@ from routers.advanced_vocab import (
 from routers.error_logs import router as error_logs_router
 from routers.admin_flags import router as admin_flags_router
 from routers.admin_overview import router as admin_overview_router
+from routers.admin_ai import router as admin_ai_router
 from routers.admin_writing import router as admin_writing_router
 from routers.admin_writing_prompts import router as admin_writing_prompts_router
 from routers.admin_writing_tips import router as admin_writing_tips_router
@@ -147,29 +151,17 @@ app = FastAPI(
     **api_docs_kwargs(settings.ENABLE_API_DOCS),
 )
 
-origins = [
-    # Local development
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5500",
-    "http://127.0.0.1:5500",
-    # Production — explicit list as primary
-    "https://averlearning.com",
-    "https://www.averlearning.com",
-    "https://ielts-speaking-coach-sage.vercel.app",
-]
-
-# Sprint 20.10 D1 — belt-and-suspenders against subdomain drift.
-# Andy's prod dogfood hit "No 'Access-Control-Allow-Origin' header" from
-# https://www.averlearning.com even though both apex and www were already
-# in the explicit list (commit 4c9fc1e9, 2026-04-08). The most likely
-# remaining single-point-of-failure is the explicit list itself going
-# stale as new subdomains roll out (staging.averlearning.com, app.…, etc.).
-# This regex matches the apex + any direct subdomain of averlearning.com
-# over HTTPS — orthogonal to the explicit list, so either match grants
-# the request. The explicit list still wins for fast-path matching;
-# the regex is the safety net.
-_AVERLEARNING_ORIGIN_REGEX = r"^https://(?:[a-z0-9-]+\.)?averlearning\.com$"
+# Exact, per-deployment allowlist (F11 + follow-up): production, staging and
+# local development each accept only their own origins, and localhost is never
+# allowed in production. Tier resolution and the lists live in
+# services/cors_policy.py. No regex: a new frontend host must be added there
+# explicitly. Generated *.vercel.app previews stay rejected by design (plan §7.1).
+origins = cors_allowed_origins(
+    settings.ENVIRONMENT,
+    os.environ.get("RAILWAY_ENVIRONMENT_NAME"),
+    settings.CORS_ALLOW_LOCALHOST,
+)
+logger.info("[cors] allowed origins: %s", ", ".join(origins) or "(none)")
 
 # ONE definition, used by the CORSMiddleware below AND by the unhandled-exception
 # handler. They were separate, and the handler simply had no methods/headers —
@@ -186,7 +178,7 @@ _CORS_HEADERS = ["Authorization", "Content-Type",
 
 def _cors_headers_for_origin(origin: str | None) -> dict:
     """CORS headers to attach to a response when the request Origin is allowed —
-    reuses the SAME allowlist + regex as the CORSMiddleware below (no duplication).
+    reuses the SAME allowlist as the CORSMiddleware below (no duplication).
 
     Used by the unhandled-exception handler: an unhandled 500 unwinds OUTSIDE the
     CORSMiddleware (ServerErrorMiddleware is outermost), so its response would have
@@ -211,7 +203,7 @@ def _cors_headers_for_origin(origin: str | None) -> dict:
     SECURITY: only echo an ALLOWED origin — never reflect an arbitrary one. Returns
     {} for a missing / non-allowed origin.
     """
-    if origin and (origin in origins or re.match(_AVERLEARNING_ORIGIN_REGEX, origin)):
+    if origin and origin in origins:
         return {
             "Access-Control-Allow-Origin": origin,
             "Access-Control-Allow-Credentials": "true",
@@ -230,10 +222,9 @@ app.add_middleware(RequestSafetyMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_origin_regex=_AVERLEARNING_ORIGIN_REGEX,
     allow_credentials=True,
     # C-4.2 hardening — tighten from "*" to the methods/headers the app actually
-    # uses (regex + credentials kept; see the intentional-regex note above).
+    # uses (exact per-deployment origin allowlist + credentials; see above).
     allow_methods=_CORS_METHODS,
     allow_headers=_CORS_HEADERS,
     # Cache the CORS preflight (OPTIONS) response. Without this the browser
@@ -272,6 +263,7 @@ app.include_router(tts_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(export_router, dependencies=_ACTIVE_LEARNER)
 app.include_router(admin_router)
 app.include_router(admin_core_attempt_evidence_router)
+app.include_router(admin_staff_security_router)   # ADMINAAL2-0032 T006
 app.include_router(cohorts_router)
 app.include_router(admin_courses_router)
 app.include_router(admin_class_lessons_router)
@@ -284,6 +276,7 @@ app.include_router(admin_advanced_vocab_router)
 app.include_router(error_logs_router)
 app.include_router(admin_flags_router)
 app.include_router(admin_overview_router)
+app.include_router(admin_ai_router)
 app.include_router(admin_writing_router)
 app.include_router(admin_writing_prompts_router)
 app.include_router(admin_writing_tips_router)
@@ -395,6 +388,10 @@ async def access_perm_memo_middleware(request: Request, call_next):
         begin_request_memo as begin_activation_memo,
         reset_request_memo as reset_activation_memo,
     )
+    from services.staff_guard import (
+        begin_request as begin_staff_guard_request,
+        reset_request as reset_staff_guard_request,
+    )
     from services.test_data_visibility import (
         SHOW_TEST_DATA_HEADER,
         begin_request as begin_test_data_request,
@@ -411,12 +408,16 @@ async def access_perm_memo_middleware(request: Request, call_next):
     # W-03 — same per-request lifetime for the activation gate's memo (verified
     # bearer + confirmed-active ids), so a request never re-verifies its token.
     gate_token = begin_activation_memo()
+    # ADMINAAL2-0032 — the staff guard reads the matched route template from
+    # this scope and logs at most one would-block warning per request.
+    staff_token = begin_staff_guard_request(request.scope)
     # TASK B2 — the admin "show test data" opt-in, read by list routes.
     test_data_token = begin_test_data_request(request.headers.get(SHOW_TEST_DATA_HEADER))
     try:
         return await call_next(request)
     finally:
         reset_test_data_request(test_data_token)
+        reset_staff_guard_request(staff_token)
         reset_activation_memo(gate_token)
         reset_request_permission_memo(token)
 
@@ -449,7 +450,7 @@ async def server_timing_middleware(request: Request, call_next):
         # Perf P3.3 — the frontend (Vercel) and API (Railway) are cross-origin,
         # so the browser's PerformanceResourceTiming.serverTiming stays EMPTY
         # unless we opt the caller in with Timing-Allow-Origin. Reflect the
-        # request Origin ONLY when it passes the SAME allowlist/regex as CORS —
+        # request Origin ONLY when it passes the SAME allowlist as CORS —
         # never echo an arbitrary origin (that would let a site CORS rejects opt
         # itself into reading our timings) and never fall back to `*`. A
         # same-origin caller has no Origin and can read timings without TAO.
@@ -464,15 +465,48 @@ async def server_timing_middleware(request: Request, call_next):
 # ── Sprint 12.3 — X-Request-ID middleware ─────────────────────────────
 # Generate or propagate a request ID so frontend exception reports can
 # correlate to backend error_logs rows (same UUID on both sides).
+_SLOW_REQUEST_THRESHOLD_MS = 1000
+_REQUEST_LOGGER = logging.getLogger("request")
+
+
+def _normalize_request_id(value: str | None) -> str:
+    import re
+    import uuid
+
+    if value is not None and re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", value):
+        return value
+    return str(uuid.uuid4())
+
+
 @app.middleware("http")
 async def request_id_middleware(request: Request, call_next):
-    import uuid as _uuid
-    request_id = request.headers.get("x-request-id") or str(_uuid.uuid4())
+    request_id = _normalize_request_id(request.headers.get("x-request-id"))
     request.state.request_id = request_id
-    with operation_hint_scope(request.headers.getlist(CORE_OPERATION_HEADER)):
-        response = await call_next(request)
-    response.headers["X-Request-ID"] = request_id
-    return response
+    start = perf_counter()
+    status = 500
+    try:
+        with operation_hint_scope(request.headers.getlist(CORE_OPERATION_HEADER)), \
+                request_id_scope(request_id):
+            response = await call_next(request)
+        status = response.status_code
+        response.headers["X-Request-ID"] = request_id
+        return response
+    finally:
+        duration_ms = (perf_counter() - start) * 1000
+        if status >= 500 or duration_ms >= _SLOW_REQUEST_THRESHOLD_MS:
+            path = getattr(request.scope.get("route"), "path", None) or request.url.path
+            _REQUEST_LOGGER.warning(
+                "request_id=%s method=%s path=%s status=%s duration_ms=%.1f",
+                request_id, request.method, path, status, duration_ms,
+            )
+
+
+# SEC-20261028-01 — registered LAST so it is the outermost middleware: every
+# layer below (incl. the router's trailing-slash 307) sees the public https
+# scheme reported by the Railway edge instead of the internal http hop.
+from services.forwarded_proto import ForwardedProtoMiddleware
+
+app.add_middleware(ForwardedProtoMiddleware)
 
 
 # ── Sprint 12.3 — fire-and-forget error_logs INSERT ───────────────────
@@ -703,6 +737,13 @@ async def startup_event():
     else:
         logger.info("[async-db] USE_ASYNC_DB=off — sync path only (scaffold no-op)")
 
+    # AIOPS-0024 — admin AI model overrides. Request paths read an in-process
+    # snapshot; this loop refreshes it every AI_MODEL_OVERRIDE_TTL_SECONDS
+    # (30–60 s). A failed read leaves env/code-default routing in force.
+    import asyncio as _asyncio_overrides
+    from services import ai_model_overrides
+    _asyncio_overrides.create_task(ai_model_overrides.run_refresher())
+
     # Sprint W-MM — writing grading reaper. A grading BG task runs in-process; a
     # Railway restart/OOM/timeout mid-grade orphans the essay in 'grading' with
     # no error (no exception ⇒ no _mark_failed). This loop periodically sweeps
@@ -787,6 +828,35 @@ async def startup_event():
             settings.COURSE_TIMER_REAPER_GRACE_SECONDS,
         )
 
+    # INACTIVEWRITE-0035 follow-up — daily row-growth alert. Learners write
+    # Vocabulary/flashcard rows through Supabase REST with no rate limit; this
+    # flags abnormal per-user growth into error_logs for admins only. The first
+    # run follows startup (deploys restart the process more often than daily);
+    # the check itself de-duplicates per user/table/UTC day.
+    if settings.ROW_GROWTH_ALERT_ENABLED:
+        import asyncio as _asyncio_row_growth
+        from services import row_growth_alert as _row_growth
+
+        async def _row_growth_alert_loop():
+            await _asyncio_row_growth.sleep(settings.ROW_GROWTH_ALERT_STARTUP_DELAY_SECONDS)
+            while True:
+                try:
+                    res = await _asyncio_row_growth.to_thread(
+                        _row_growth.run_row_growth_check,
+                        threshold=settings.ROW_GROWTH_ALERT_THRESHOLD,
+                    )
+                    logger.info("[row-growth] check %s", res)
+                except Exception:
+                    logger.exception("[row-growth] check failed")
+                await _asyncio_row_growth.sleep(settings.ROW_GROWTH_ALERT_INTERVAL_SECONDS)
+
+        _asyncio_row_growth.create_task(_row_growth_alert_loop())
+        logger.info(
+            "[row-growth] started (interval=%ss, threshold=%s)",
+            settings.ROW_GROWTH_ALERT_INTERVAL_SECONDS,
+            settings.ROW_GROWTH_ALERT_THRESHOLD,
+        )
+
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -795,8 +865,10 @@ async def shutdown_event():
     await close_auth_http_client()
     # The service-role Supabase client owns an explicit sync HTTP/1.1 pool;
     # release it only when the process is actually shutting down.
-    from database import close_supabase_http_client
+    from database import close_supabase_async, close_supabase_http_client
     close_supabase_http_client()
+    # USE_ASYNC_DB's client (if startup built one) has its own HTTP/1.1 pool.
+    await close_supabase_async()
 
 
 @app.get("/topics", dependencies=_ACTIVE_LEARNER)

@@ -70,7 +70,27 @@ check('release dùng dialog accessible thay browser confirm', await releaseFx.pa
 await releaseFx.page.getByRole('button', { name: 'Xác nhận thả bài' }).click(); await releaseFx.page.getByText('Đã xác nhận thả bài', { exact: true }).waitFor();
 check('release chỉ POST một lần và đối chiếu GET giới hạn theo essay', releaseFx.requests.filter((r) => r.method === 'POST' && r.path.endsWith('/r2/release')).length === 1 && releaseFx.requests.some((r) => r.path === '/admin/instructor/queue' && new URLSearchParams(r.query).get('essay_id') === 'e2'));
 check('my claims rỗng sau canonical readback', await releaseFx.page.getByText('Bạn chưa giữ bài nào', { exact: true }).count() === 1);
+// PC-J35: the success banner belongs to the finished release; the next
+// user-initiated refresh must retire it instead of leaving it on screen.
+const releaseRefresh = releaseFx.page.waitForRequest((r) => new URL(r.url()).pathname === '/admin/instructor/queue');
+await releaseFx.page.getByRole('button', { name: 'Làm mới canonical' }).click(); await releaseRefresh;
+await releaseFx.page.getByText('Đã xác nhận thả bài', { exact: true }).waitFor({ state: 'detached', timeout: 5000 }).catch(() => {});
+check('banner thả bài thành công mất sau khi làm mới', await releaseFx.page.locator('.awi-banner.is-success').count() === 0);
 await releaseFx.page.close();
+
+// PC-J35: switching view after a successful release also retires the banner.
+let tabReleaseState = 'claimed';
+const tabFx = await fixturePage({
+  rows: () => [tabReleaseState === 'claimed' ? item('r9', 'e9', 'claimed', adminId) : item('r9', 'e9', 'queued')],
+  onPost: ({ path, json }) => { if (path.endsWith('/r9/release')) { tabReleaseState = 'queued'; return json(review('r9', 'e9', 'queued')); } return json({ detail: 'unexpected mutation' }, 500); },
+});
+await tabFx.page.goto(`${BASE}/admin/writing/instructor-queue`, { waitUntil: 'domcontentloaded' });
+await tabFx.page.getByRole('button', { name: 'Thả bài' }).click(); await tabFx.page.getByRole('button', { name: 'Xác nhận thả bài' }).click();
+await tabFx.page.getByText('Đã xác nhận thả bài', { exact: true }).waitFor();
+await tabFx.page.getByRole('button', { name: /^Chờ nhận/ }).click(); await tabFx.page.waitForURL(/view=queued/);
+await tabFx.page.getByText('Đã xác nhận thả bài', { exact: true }).waitFor({ state: 'detached', timeout: 5000 }).catch(() => {});
+check('banner thả bài thành công mất sau khi đổi bộ lọc', await tabFx.page.locator('.awi-banner.is-success').count() === 0);
+await tabFx.page.close();
 
 // Reload recovery: a pending receipt only performs GET reconciliation, never POST.
 const pending = { account: adminId, action: 'claim', reviewId: 'r4', essayId: 'e4', startedAt: now };
@@ -110,6 +130,8 @@ await lockedFx.page.getByText('Chưa đối chiếu được thao tác', { exact
 check('failed readback khóa mọi mutation và giữ đúng receipt đầu', await claimButtons.count() === 2 && await claimButtons.first().isDisabled() && await claimButtons.nth(1).isDisabled() && JSON.parse(await lockedFx.page.evaluate((key) => sessionStorage.getItem(key), `awiq-pending:${adminId}`)).reviewId === 'r7');
 await claimButtons.nth(1).click({ force: true });
 check('mutation thứ hai không POST và không ghi đè receipt', lockedFx.requests.filter((r) => r.method === 'POST' && r.path.startsWith('/admin/instructor/reviews/')).length === 1 && JSON.parse(await lockedFx.page.evaluate((key) => sessionStorage.getItem(key), `awiq-pending:${adminId}`)).reviewId === 'r7');
+await lockedFx.page.getByRole('button', { name: 'Làm mới canonical' }).click(); await lockedFx.page.getByText('Đang hiển thị snapshot cũ', { exact: true }).waitFor();
+check('banner lỗi đối chiếu vẫn giữ sau khi làm mới (PC-J35)', await lockedFx.page.getByText('Chưa đối chiếu được thao tác', { exact: true }).count() === 1 && await lockedFx.page.getByRole('button', { name: 'Đối chiếu lại' }).count() === 1);
 await lockedFx.page.close();
 
 // Stale snapshot and responsive containment.

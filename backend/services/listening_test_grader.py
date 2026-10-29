@@ -178,6 +178,41 @@ def _expected_letters(grp: list[dict[str, Any]]) -> list[str]:
     return [normalize_answer(g.get("answer") or "") for g in grp]
 
 
+def _optional_paren_variants(part: str) -> list[str]:
+    """Expand up to four independent optional groups, retaining legacy forms."""
+    groups = list(re.finditer(r"\([^()]+\)", part))
+    if not groups:
+        return [part]
+
+    # Keep both original forms: even the old word-splitting omission (e.g.
+    # car(-)sharing -> car sharing) must continue to earn credit.
+    variants = [
+        re.sub(r"\s*\([^()]+\)\s*", " ", part),
+        part.replace("(", "").replace(")", ""),
+    ]
+    # Nested/unbalanced notation is not independent optional-group syntax.
+    # Preserve its existing behavior, as with keys beyond the expansion cap.
+    if len(groups) > 4 or re.search(r"[()]", re.sub(r"\([^()]+\)", "", part)):
+        return variants
+
+    for mask in range(1 << len(groups)):
+        pieces = []
+        cursor = 0
+        for index, group in enumerate(groups):
+            pieces.append(part[cursor:group.start()])
+            if mask & (1 << index):
+                pieces.append(group.group()[1:-1])
+            elif (part[group.start() - 1:group.start()].isalnum()
+                  and part[group.end():group.end() + 1].isalnum()):
+                pieces.append("")
+            else:
+                pieces.append(" ")
+            cursor = group.end()
+        pieces.append(part[cursor:])
+        variants.append(re.sub(r"\s+", " ", "".join(pieces)).strip())
+    return list(dict.fromkeys(variants))
+
+
 def answer_matches(user: str | None, expected: str, alternatives: list[str],
                    *, response_policy: dict | None = None) -> bool:
     """Compare a user answer against the canonical answer + its
@@ -219,11 +254,7 @@ def answer_matches(user: str | None, expected: str, alternatives: list[str],
             # parentheses such as ``an) apron``.
             if raw_user == part:
                 return True
-            variants = [part]
-            if re.search(r"\([^()]+\)", part):
-                without_optional = re.sub(r"\s*\([^()]+\)\s*", " ", part)
-                with_optional = part.replace("(", "").replace(")", "")
-                variants = [without_optional, with_optional]
+            variants = _optional_paren_variants(part)
             if any(normalize_answer(variant) == norm_user for variant in variants):
                 return True
     return False

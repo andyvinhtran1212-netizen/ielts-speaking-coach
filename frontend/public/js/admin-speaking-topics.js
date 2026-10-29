@@ -99,7 +99,7 @@ function renderTable() {
         <button class="btn-ghost" data-action="edit"          data-id="${escapeHtml(t.id)}">Sửa</button>
         <button class="btn-ghost" data-action="toggle-active" data-id="${escapeHtml(t.id)}">${toggleLabel}</button>
         <button class="btn-ghost" data-action="generate"      data-id="${escapeHtml(t.id)}">AI gen</button>
-        <button class="btn-danger" data-action="delete"        data-id="${escapeHtml(t.id)}">Xoá</button>
+        <button class="btn-danger" data-action="delete"        data-id="${escapeHtml(t.id)}">Xóa</button>
       </td>
     </tr>`;
     const detail = expanded
@@ -123,7 +123,7 @@ function renderQuestions(topic) {
       <div>${txt}</div>
       <div style="display:flex; gap:6px;">
         <button class="btn-ghost" data-action="edit-q"   data-id="${escapeHtml(topic.id)}" data-qid="${escapeHtml(q.id)}">Sửa</button>
-        <button class="btn-danger" data-action="delete-q" data-id="${escapeHtml(topic.id)}" data-qid="${escapeHtml(q.id)}">Xoá</button>
+        <button class="btn-danger" data-action="delete-q" data-id="${escapeHtml(topic.id)}" data-qid="${escapeHtml(q.id)}">Xóa</button>
       </div>
     </div>`;
   }).join('');
@@ -224,10 +224,10 @@ async function toggleActive(topicId) {
 }
 
 async function deleteTopic(topicId) {
-  if (!confirm('Xoá topic này? Tất cả câu hỏi liên quan cũng sẽ bị xoá.')) return;
+  if (!confirm('Xóa topic này? Tất cả câu hỏi liên quan cũng sẽ bị xóa.')) return;
   try {
     await api.delete('/admin/topics/' + topicId);
-    showBanner('Đã xoá topic.', 'success');
+    showBanner('Đã xóa topic.', 'success');
     _expanded.delete(topicId);
     await loadTopics();
   } catch (err) {
@@ -315,10 +315,10 @@ async function submitQuestion() {
 }
 
 async function deleteQuestion(topicId, questionId) {
-  if (!confirm('Xoá câu hỏi này?')) return;
+  if (!confirm('Xóa câu hỏi này?')) return;
   try {
     await api.delete(`/admin/topics/${topicId}/questions/${questionId}`);
-    showBanner('Đã xoá câu hỏi.', 'success');
+    showBanner('Đã xóa câu hỏi.', 'success');
     await loadQuestions(topicId);
     await loadTopics();
   } catch (err) {

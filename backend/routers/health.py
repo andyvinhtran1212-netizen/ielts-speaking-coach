@@ -59,7 +59,10 @@ async def _is_admin(authorization: str | None) -> bool:
 # Sprint unfreeze (post-7c.3) dropped vestigial deferred_until: sprint-3
 # from M016/M017/M025/M027/M028 (Sprint 3 shipped long ago, anchors
 # already exist per drift gate) → 47.
-_EXPECTED_MAPPING_COUNT  = 47
+# cce1f566b (2026-05-28, "expand wiki recommendation coverage") added
+# M051–M064 for 13 newly covered articles without bumping this → 61.
+# test_health_runtime_expected_count_matches_mapping_file pins it to the YAML.
+_EXPECTED_MAPPING_COUNT  = 61
 _SPRINT_6_SENTINEL_IDS   = ("M033", "M034", "M035")
 
 
@@ -269,16 +272,42 @@ async def health_async_db() -> dict:
     ``.execute()`` on the loop thread shows up as elevated lag_ms_p95/max here.
     Unauthenticated by design (no PII; booleans + timings).
     """
-    from services import loop_monitor
-    from database import async_client_initialised
+    from services import db_async, loop_monitor
+    from database import async_client_initialised, async_pool_snapshot
 
+    # PC-J55: ``aexecute`` is the flag-ON call stats (in-flight count and age
+    # expose a hung upstream before any timeout fires), ``postgrest_pool`` the
+    # async pool's connections (``None`` with the flag off), ``executor`` the
+    # default thread pool that ``asyncio.to_thread`` sections share.
     return {
         "status": "ok",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "use_async_db": settings.USE_ASYNC_DB,
         "async_client_initialised": async_client_initialised(),
         "event_loop_lag": loop_monitor.snapshot(),
+        "aexecute": db_async.snapshot(),
+        "postgrest_pool": async_pool_snapshot(),
+        "executor": _default_executor_snapshot(),
     }
+
+
+def _default_executor_snapshot() -> dict | None:
+    """Busy/queued threads of the loop's default executor (``to_thread``), or
+    ``None`` before first use. Reads ThreadPoolExecutor internals defensively."""
+    executor = getattr(asyncio.get_running_loop(), "_default_executor", None)
+    if executor is None:
+        return None
+    try:
+        threads = len(executor._threads)
+        idle = executor._idle_semaphore._value
+        return {
+            "max_workers": executor._max_workers,
+            "threads": threads,
+            "busy": max(threads - idle, 0),
+            "queued": executor._work_queue.qsize(),
+        }
+    except Exception:
+        return {"unavailable": True}
 
 
 # /health/grammar-check is public and each probe runs a full live grammar

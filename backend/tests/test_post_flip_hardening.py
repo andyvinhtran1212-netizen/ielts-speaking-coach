@@ -272,6 +272,56 @@ def test_caller_supplied_forwarded_hops_do_not_mint_fresh_budgets():
                        headers=_xff('10.0.0.3', '203.0.113.7')).status_code == 429
 
 
+def test_real_ip_separates_clients_behind_one_forwarded_hop():
+    # PC-J32: Railway's edge sets X-Real-IP to the client's remote IP; two
+    # visitors whose last XFF hop is the same proxy must not share a bucket.
+    client = TestClient(safety_app(log_per_client_per_minute=1, log_per_minute=100))
+    proxy = _xff('10.0.0.1')
+    first = {**proxy, 'x-real-ip': '203.0.113.7'}
+    assert client.post('/api/error-logs', json={'message': 'x'}, headers=first).status_code == 200
+    assert client.post('/api/error-logs', json={'message': 'x'}, headers=first).status_code == 429
+    assert client.post('/api/error-logs', json={'message': 'x'},
+                       headers={**proxy, 'x-real-ip': '198.51.100.9'}).status_code == 200
+
+
+def test_forwarded_hops_cannot_move_a_real_ip_off_its_bucket():
+    client = TestClient(safety_app(log_per_client_per_minute=1, log_per_minute=100))
+    real = {'x-real-ip': '203.0.113.7'}
+    assert client.post('/api/error-logs', json={'message': 'x'}, headers=real).status_code == 200
+    for spoof in (_xff('10.0.0.2', '203.0.113.7'), _xff('203.0.113.7', '10.0.0.3'), _xff('10.0.0.4')):
+        assert client.post('/api/error-logs', json={'message': 'x'},
+                           headers={**spoof, **real}).status_code == 429
+
+
+def test_blank_real_ip_falls_back_to_last_forwarded_hop():
+    client = TestClient(safety_app(log_per_client_per_minute=1, log_per_minute=100))
+    blank = {'x-real-ip': ' '}
+    assert client.post('/api/error-logs', json={'message': 'x'},
+                       headers={**_xff('10.0.0.1', '203.0.113.7'), **blank}).status_code == 200
+    assert client.post('/api/error-logs', json={'message': 'x'},
+                       headers=_xff('10.0.0.2', '203.0.113.7')).status_code == 429
+    assert client.post('/api/error-logs', json={'message': 'x'},
+                       headers={**_xff('198.51.100.9'), **blank}).status_code == 200
+
+
+@pytest.mark.parametrize('path,budget', [
+    ('/api/error-logs', 60),
+    ('/api/analytics/events', 120),
+])
+def test_default_per_client_budgets(path, budget):
+    # The shipped F10 thresholds, not test-sized ones: 60/min error logs and
+    # 120/min analytics per client, each below its per-worker ceiling.
+    client = TestClient(safety_app())
+    real = {'x-real-ip': '203.0.113.7'}
+    for _ in range(budget):
+        assert client.post(path, json={'message': 'x'}, headers=real).status_code == 200
+    limited = client.post(path, json={'message': 'x'}, headers=real)
+    assert limited.status_code == 429
+    assert limited.headers['retry-after'] == '60'
+    assert client.post(path, json={'message': 'x'},
+                       headers={'x-real-ip': '198.51.100.9'}).status_code == 200
+
+
 def test_socket_peer_is_the_key_without_forwarded_header():
     client = TestClient(safety_app(analytics_per_client_per_minute=1, analytics_per_minute=100))
     assert client.post('/api/analytics/events', json={'x': 1}).status_code == 200

@@ -875,7 +875,7 @@ export function ListeningTestSession() {
       <div className="exam-topbar__right"><span className="listening-next-topbar-progress">{answers.size}/{total || '—'} answered</span></div>
     </header>
     <main className={`listening-next-shell${['inprogress', 'submitting'].includes(phase) ? ' is-testing' : ''}${params?.adminPreview ? ' is-preview' : ''}`}>
-      {phase === 'loading' ? <div className="empty-state">Loading Listening test…</div> : null}
+      {phase === 'loading' ? <div className="empty-state">Đang tải bài Listening…</div> : null}
       {phase === 'error' ? <section className="error-banner" role="alert"><p>{error}</p><div className="listening-next-actions"><button className="ft-control-btn" type="button" onClick={() => void bootWithRecovery()}>Retry</button><a className="ft-control-btn ghost" href={backHref}>← Back</a></div></section> : null}
       {phase === 'prestart' && admissionRequired ? <section className="ft-prestart"><h1>Listening test</h1><p>Start the test to continue to Listening.</p><div className="listening-next-actions"><button className="ft-control-btn" type="button" onClick={() => void startFresh()}>Start test</button><a className="ft-control-btn ghost" href={backHref}>← Back</a></div></section> : null}
       {phase === 'prestart' && testData ? <section className="ft-prestart">

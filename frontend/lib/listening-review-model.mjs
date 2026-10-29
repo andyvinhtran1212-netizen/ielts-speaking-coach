@@ -14,6 +14,22 @@ export function listeningReviewAnswerState(item) {
   return text(item?.user_answer) ? 'incorrect' : 'unanswered';
 }
 
+// "wrong" (Cần xem lại) keeps incorrect and unanswered together; "blank" is
+// unanswered only. Both read the persisted grade through the state above.
+export function listeningReviewMatchesFilter(item, filter) {
+  const state = listeningReviewAnswerState(item);
+  if (filter === 'wrong') return state !== 'correct';
+  if (filter === 'blank') return state === 'unanswered';
+  if (filter === 'correct') return state === 'correct';
+  return true;
+}
+
+export function listeningReviewTotals(review) {
+  const totals = { incorrect: 0, unanswered: 0, correct: 0 };
+  for (const item of review || []) totals[listeningReviewAnswerState(item)] += 1;
+  return totals;
+}
+
 export function listeningReviewParams(search) {
   const query = new URLSearchParams(search || '');
   const attemptId = text(query.get('attempt_id')) || null;
@@ -36,7 +52,7 @@ export function listeningReviewBackTarget(params) {
       label: '← Kết quả thi thử',
     };
   }
-  return { href: '/listening/tests', label: '← Listening tests' };
+  return { href: '/listening/tests', label: '← Bài thi Listening' };
 }
 
 function normalizeWindow(raw) {

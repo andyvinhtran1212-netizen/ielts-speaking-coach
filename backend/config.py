@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     # truthy (1/true/yes/on). Default closed: staging and production need no
     # env change. Local development only — see services/api_docs.py.
     ENABLE_API_DOCS: str = ""
+    # Add the localhost dev origins to the CORS allowlist on a non-development
+    # deployment (1/true/yes/on). Ignored in production, always — see
+    # services/cors_policy.py. Development allows localhost without it.
+    CORS_ALLOW_LOCALHOST: str = ""
 
     # Signed backend → Next cache invalidation. The admin vocabulary routes
     # mutate runtime DB content while Next caches public reads. Configure both
@@ -42,6 +46,13 @@ class Settings(BaseSettings):
     # ENVIRONMENT=staging (services/test_data_visibility.py); never set it in
     # production. Admins can still opt in per browser with X-Show-Test-Data.
     HIDE_TEST_DATA: bool = False
+    # ADMINAAL2-0032 — admin powers require a verified second factor (AAL2,
+    # services/staff_guard.py). False = report-only: behaviour unchanged plus one
+    # `admin_aal2_would_block` warning per blocked request. Enable per
+    # environment only after every active admin holds a verified TOTP factor
+    # (spec FR-017, rollout.md). Standard boolean parsing: an unparseable
+    # value fails startup instead of choosing a mode. Runbook value: `false`.
+    ADMIN_AAL2_ENFORCE: bool = False
     # Private outcome-evidence foundation. Requires migration 240 and explicit
     # rollout/coverage verification; never enabled implicitly by a code deploy.
     CORE_ATTEMPT_EVIDENCE_ENABLED: bool = False
@@ -97,6 +108,10 @@ class Settings(BaseSettings):
     ANTHROPIC_MODEL_LISTENING_AUDIT: str = ""
     # Bounds one Claude attempt so a slow call still leaves the fallback time.
     ANTHROPIC_TIMEOUT_SECONDS: float = 60.0
+    # AIOPS-0024: how often each backend process re-reads the admin overrides
+    # in ai_model_overrides (DB override > env > code default). Clamped to
+    # 30–60 s; a failed read falls back to the env/code defaults above.
+    AI_MODEL_OVERRIDE_TTL_SECONDS: float = 30.0
 
     # Speaking grader Gemini rung (audit 2026-07-02). Since the AI-0004 FR-005
     # revision it is the first fallback behind the Claude primary
@@ -225,6 +240,25 @@ class Settings(BaseSettings):
     LISTENING_GIST_DAILY_LIMIT_PER_USER: int = 60
     LISTENING_GIST_MAX_PER_MINUTE: int = 6
 
+    # AIBUDGET-0033 FR-003 — monthly USD base caps per budget scope. Kept as raw
+    # strings: services/ai_budget_config.py applies the spec defaults (total
+    # 200 and anthropic 100 soft; google, azure, openai, elevenlabs 20 hard)
+    # to an unset or empty value, and marks a set value that is unparseable,
+    # zero or negative as that scope's config_invalid. A bad value must never
+    # fail startup or mean "unlimited". The daily cap is monthly ÷ 30 × 2.
+    AI_BUDGET_MONTHLY_USD_TOTAL: str = ""
+    AI_BUDGET_MONTHLY_USD_ANTHROPIC: str = ""
+    AI_BUDGET_MONTHLY_USD_GOOGLE: str = ""
+    AI_BUDGET_MONTHLY_USD_AZURE: str = ""
+    AI_BUDGET_MONTHLY_USD_OPENAI: str = ""
+    AI_BUDGET_MONTHLY_USD_ELEVENLABS: str = ""
+    # "enforce" (default, and for any unrecognised value) or "shadow" (reserve
+    # and log would_refuse without refusing; staging calibration only, Q6).
+    AI_BUDGET_MODE: str = "enforce"
+    # AI_KILL_SWITCH (FR-007) is deliberately not a Settings field: it is read
+    # from the process environment at call time (ai_budget_config.
+    # kill_switch_on), so it never depends on this cached object.
+
     # Vocab Bank feature flags
     VOCAB_ANALYSIS_ENABLED: bool = False
     # Short structured tasks: Haiku 5.5, with independent rollback controls.
@@ -321,6 +355,15 @@ class Settings(BaseSettings):
     # Migration 274/275 accepts browser final batches for exactly 15 seconds.
     # Never let the background reaper take ownership before that DB window.
     COURSE_TIMER_REAPER_GRACE_SECONDS: int = Field(default=15, ge=15)
+    # INACTIVEWRITE-0035 follow-up: daily row-growth alert. Flags a user who
+    # created more than ROW_GROWTH_ALERT_THRESHOLD rows in one Vocabulary/
+    # flashcard table in 24h as an error_logs warning (/admin/error-logs).
+    # Runs once shortly after startup, then every INTERVAL; one alert per
+    # user/table/UTC day. Disable via ROW_GROWTH_ALERT_ENABLED=false.
+    ROW_GROWTH_ALERT_ENABLED: bool = True
+    ROW_GROWTH_ALERT_INTERVAL_SECONDS: int = Field(default=86400, ge=3600)
+    ROW_GROWTH_ALERT_STARTUP_DELAY_SECONDS: int = Field(default=600, ge=0)
+    ROW_GROWTH_ALERT_THRESHOLD: int = Field(default=500, ge=1)
     WRITING_STUCK_JOB_TIMEOUT_SECONDS: int = 360        # standard tier
     WRITING_STUCK_JOB_TIMEOUT_DEEP_SECONDS: int = 600   # deep tier (3 passes)
     WRITING_GRADING_MAX_ATTEMPTS: int = 3
@@ -341,6 +384,9 @@ class Settings(BaseSettings):
     # sync supabase_admin singleton exactly as today (the scaffold is a no-op).
     # ON = routers migrated to the db_async facade await the async client. Stays
     # OFF until a phase is wired + load-validated; flip per-deploy in .env.
+    # Wired today: grading.py (P0-1 Phase 2) and the per-request auth layer
+    # (PC-J05 D1a) — learner activation gate, require_admin/require_instructor,
+    # /auth/me, /auth/check-active, /api/student/permissions.
     USE_ASYNC_DB: bool = False
 
     # C-* audit — Server-Timing observability gate. The W3C Server-Timing

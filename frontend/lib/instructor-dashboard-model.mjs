@@ -115,6 +115,7 @@ export function normalizeInstructorAssignments(value) {
       groupId: nullableText(row.assignment_group_id),
       name: nullableText(row.name),
       createdAt: nullableText(row.created_at),
+      isLate: row.is_late === true,
     });
   });
 }
@@ -150,14 +151,61 @@ export const ASSIGNMENT_COPY = Object.freeze({
   confirmCohort: (title, when) => `Lớp này đã được giao đề '${title}' ${when}. Giao thêm một lượt nữa?`,
   confirmStudent: (title, when) => `Học viên này đã được giao đề '${title}' ${when}. Giao thêm một lượt nữa?`,
   duplicatesWarning: (count) => `Đã giao bài cho lớp. Lưu ý: ${count} học viên đã được giao đề này từ trước.`,
+  // BL-18: asked before the give, from the same overlap the banner reports.
+  confirmCohortOverlap: (title, count) => `${count} học viên trong lớp đã từng được giao đề '${title}'. Giao thêm một lượt cho cả lớp? (Các học viên này sẽ có thêm một lượt.)`,
+  // In-app dialog chrome around the confirm messages above (replaces window.confirm).
+  confirmTitle: 'Đề đã được giao trước đó',
+  confirmCancel: 'Hủy',
+  confirmAccept: 'Giao thêm',
+  deadline: (when) => `Hạn ${when}`,
 });
 
-function formatGiveTime(value) {
+/**
+ * W-12 — how long the dashboard waits for the auth state to settle. A token
+ * refresh that never answers (GoTrue down or hanging) otherwise leaves the
+ * page on its loading line forever; past this bound it fails closed to
+ * /login, the same place a signed-out session goes.
+ */
+export const AUTH_SETTLE_TIMEOUT_MS = 15_000;
+
+/** BL-18 — `POST /instructor/assignments/duplicates-preview` → { studentCount, duplicateStudentIds } or null. */
+export function normalizeDuplicatesPreview(value) {
+  const row = objectRow(value);
+  const count = row?.student_count;
+  const ids = row?.duplicate_student_ids;
+  if (!Number.isInteger(count) || count < 0 || !Array.isArray(ids) || !ids.every((id) => text(id))) return null;
+  return Object.freeze({ studentCount: count, duplicateStudentIds: Object.freeze([...new Set(ids.map(text))]) });
+}
+
+/** BL-18 confirm text, or null when nobody in the class already holds the prompt. */
+export function cohortOverlapConfirmMessage(preview, promptTitle) {
+  const count = preview?.duplicateStudentIds?.length || 0;
+  return count > 0 ? ASSIGNMENT_COPY.confirmCohortOverlap(text(promptTitle) || '(chưa có tiêu đề)', count) : null;
+}
+
+/** W-12 — the matrix cell's deadline line ("Hạn dd/mm/yyyy HH:mm", Vietnam time), or null. */
+export function matrixDeadlineLabel(assignment) {
+  const when = vietnamDateTime(assignment?.deadline);
+  return when ? ASSIGNMENT_COPY.deadline(when) : null;
+}
+
+/** "dd/mm/yyyy HH:mm" in Vietnam time, or null for a missing/unparseable timestamp. */
+function vietnamDateTime(value) {
   const parsed = value ? new Date(value) : null;
-  if (!parsed || Number.isNaN(parsed.getTime())) return 'trước đó';
-  return `lúc ${new Intl.DateTimeFormat('vi-VN', {
-    timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short',
-  }).format(parsed)}`;
+  if (!parsed || Number.isNaN(parsed.getTime())) return null;
+  const day = new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric',
+  }).format(parsed);
+  const time = new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).format(parsed);
+  return `${day} ${time}`;
+}
+
+function formatGiveTime(value) {
+  // "lúc dd/mm/yyyy HH:mm", Vietnam time.
+  const when = vietnamDateTime(value);
+  return when ? `lúc ${when}` : 'trước đó';
 }
 
 /**
@@ -194,8 +242,20 @@ export function normalizeInstructorQueue(value) {
       status,
       studentEmail: nullableText(row.student_email),
       taskType: nullableText(row.task_type),
+      submittedAt: nullableText(row.submitted_at),
     });
   });
+}
+
+/**
+ * PC-J36 — the "Chấm bài" row's second line: short essay id + submit time
+ * ("ad8db313 · 28/10/2026 14:05", Vietnam time), so two essays from the same
+ * student are distinguishable. Data only — no extra label.
+ */
+export function queueRowIdentity(item) {
+  const shortId = text(item?.essayId).slice(0, 8);
+  const when = vietnamDateTime(item?.submittedAt);
+  return [shortId, when].filter(Boolean).join(' · ');
 }
 
 export function normalizeInstructorSummary(value) {
@@ -271,9 +331,14 @@ export function instructorGradeHref(essayId, reviewId, asInstructor = null) {
 
 export function assignmentTone(assignment, now = Date.now()) {
   if (!assignment) return Object.freeze({ label: '—', tone: 'muted' });
-  if (assignment.status === 'delivered') return Object.freeze({ label: 'Đã trả', tone: 'success' });
+  // A-S3 — `isLate` is the backend's shared rule (handed in after `deadline`).
+  if (assignment.status === 'delivered') {
+    return Object.freeze(assignment.isLate
+      ? { label: 'Đã trả · nộp trễ', tone: 'success' } : { label: 'Đã trả', tone: 'success' });
+  }
   if (assignment.essayId || ['submitted', 'grading', 'graded', 'reviewed'].includes(assignment.status)) {
-    return Object.freeze({ label: 'Đã nộp', tone: 'success' });
+    return Object.freeze(assignment.isLate
+      ? { label: 'Nộp trễ', tone: 'warning' } : { label: 'Đã nộp', tone: 'success' });
   }
   const deadline = assignment.deadline ? Date.parse(assignment.deadline) : Number.NaN;
   if (Number.isFinite(deadline) && deadline < now) return Object.freeze({ label: 'Trễ', tone: 'danger' });

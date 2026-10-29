@@ -20,3 +20,6 @@ export default function ListeningDictationLayout({ children }: { children: React
     </AuthedShell>
   );
 }
+
+// Per-request render for the CSP nonce (PC-J38); see components/authed-shell.tsx.
+export const instant = false;

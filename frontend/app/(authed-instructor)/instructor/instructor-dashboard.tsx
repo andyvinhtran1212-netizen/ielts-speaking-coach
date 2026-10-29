@@ -2,17 +2,23 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 
+import { Dialog } from '@/components/admin-directory-ui';
 import { getAuthorizationIdentity } from '@/lib/auth-api';
+import { postBrowserJsonAt } from '@/lib/browser-api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
   ASSIGNMENT_COPY,
+  AUTH_SETTLE_TIMEOUT_MS,
   assignmentTone,
   buildInstructorMatrix,
+  cohortOverlapConfirmMessage,
   duplicateGiveConfirmMessage,
   fanOutResultBanner,
   findExistingGive,
   instructorApiPath,
   instructorGradeHref,
+  matrixDeadlineLabel,
+  normalizeDuplicatesPreview,
   normalizeInstructorAssignments,
   normalizeInstructorCodes,
   normalizeInstructorCohorts,
@@ -21,9 +27,12 @@ import {
   normalizeInstructorQueue,
   normalizeInstructorStudents,
   normalizeInstructorSummary,
+  queueRowIdentity,
 } from '@/lib/instructor-dashboard-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import { clearPersistedAuthSession, rememberSignedOutSession } from '@/lib/auth/sign-out-state.mjs';
+
+import { InstructorInactiveState, useInstructorInactiveGuard } from './instructor-inactive';
 
 type Tab = 'roster' | 'classes' | 'assign' | 'grade';
 type Banner = { tone: 'success' | 'danger' | 'warning'; message: string } | null;
@@ -77,11 +86,16 @@ export function InstructorDashboard() {
   const [drawerStudentId, setDrawerStudentId] = useState<string | null>(null);
   const [drawerSummary, setDrawerSummary] = useState<any>(null);
   const [drawerError, setDrawerError] = useState<string | null>(null);
+  const [confirmMessage, setConfirmMessage] = useState<string | null>(null);
+  const confirmResolve = useRef<((ok: boolean) => void) | null>(null);
   const sequence = useRef(0);
   const drawerSequence = useRef(0);
   const accountKey = status === 'signed-in' && user?.id ? user.id : '';
   const accountRef = useRef(accountKey);
   accountRef.current = accountKey;
+  const mainRef = useRef<HTMLElement>(null);
+  // FR-014: an inactive 403 after load replaces the workspace (typed text is kept).
+  const { inactive, drafts, deny, reset: resetInactive } = useInstructorInactiveGuard(mainRef);
 
   const requestPath = useCallback((path: string, target = asInstructor) => (
     instructorApiPath(path, target)
@@ -103,7 +117,15 @@ export function InstructorDashboard() {
       '/instructor/reviews/queue',
     ].map((path) => instructorApiPath(path, target));
     try {
-      const raw = await Promise.all(paths.map((path) => window.api.get<unknown>(path)));
+      // allSettled: an inactive 403 on any read must win over an earlier unrelated failure (FR-014).
+      const settled = await Promise.allSettled(paths.map((path) => window.api.get<unknown>(path)));
+      for (const result of settled) {
+        if (result.status === 'rejected' && ownerId === accountRef.current && deny(result.reason)) return null;
+      }
+      const raw = settled.map((result) => {
+        if (result.status === 'rejected') throw result.reason;
+        return result.value;
+      });
       const normalized: DataState = {
         cohorts: normalizeInstructorCohorts(raw[0]),
         students: normalizeInstructorStudents(raw[1]),
@@ -120,21 +142,35 @@ export function InstructorDashboard() {
       setPhase('ready');
       return normalized;
     } catch (caught) {
+      if (ownerId === accountRef.current && deny(caught)) return null;
       if (requestId === sequence.current && ownerId === accountRef.current) {
         setLoadError(messageOf(caught));
         setPhase((current) => current === 'ready' ? current : 'error');
       }
       return null;
     }
-  }, []);
+  }, [deny]);
+
+  // W-12: a token refresh that never settles (GoTrue down/hanging) keeps the
+  // provider in initial-loading; fail closed to /login instead of waiting forever.
+  useEffect(() => {
+    if (status !== 'initial-loading') return undefined;
+    const timer = window.setTimeout(() => window.location.replace('/login'), AUTH_SETTLE_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [status]);
 
   useEffect(() => {
+    // An account change cancels an open give confirmation; it belonged to the previous account.
+    confirmResolve.current?.(false);
+    confirmResolve.current = null;
+    setConfirmMessage(null);
     if (status === 'signed-out') {
       window.location.replace('/login');
       return;
     }
     if (status !== 'signed-in' || !user?.id) return;
     const requestId = ++sequence.current;
+    resetInactive();
     setPhase('loading');
     setData(EMPTY_DATA);
     setBanner(null);
@@ -158,14 +194,14 @@ export function InstructorDashboard() {
         setAsInstructor(effective);
         await loadAll(effective, requestId, user.id);
       } catch (caught) {
-        if (requestId === sequence.current) {
+        if (requestId === sequence.current && !deny(caught)) {
           setLoadError(messageOf(caught));
           setPhase('error');
         }
       }
     })();
     return () => { sequence.current += 1; drawerSequence.current += 1; };
-  }, [status, user?.id, loadAll]);
+  }, [status, user?.id, loadAll, deny, resetInactive]);
 
   const cohortNames = useMemo(() => new Map(data.cohorts.map((cohort) => [cohort.id, cohort.name])), [data.cohorts]);
   const matrix = useMemo(() => buildInstructorMatrix(data.students, data.prompts, data.assignments), [data]);
@@ -196,7 +232,7 @@ export function InstructorDashboard() {
       setBanner(typeof success === 'function' ? success(result) : { tone: 'success', message: success });
       return true;
     } catch (caught) {
-      if (ownerId !== accountRef.current) return false;
+      if (ownerId !== accountRef.current || deny(caught)) return false;
       const refreshed = await loadAll(asInstructor, undefined, ownerId);
       setBanner({
         tone: 'danger',
@@ -208,6 +244,20 @@ export function InstructorDashboard() {
     } finally {
       if (ownerId === accountRef.current) setPending(null);
     }
+  };
+
+  // In-app replacement for the browser confirm box: resolves true only on the confirm button.
+  const askConfirm = (message: string) => new Promise<boolean>((resolve) => {
+    confirmResolve.current?.(false);
+    confirmResolve.current = resolve;
+    setConfirmMessage(message);
+  });
+
+  const answerConfirm = (ok: boolean) => {
+    const resolve = confirmResolve.current;
+    confirmResolve.current = null;
+    setConfirmMessage(null);
+    resolve?.(ok);
   };
 
   const createCohort = (event: FormEvent<HTMLFormElement>) => {
@@ -252,28 +302,64 @@ export function InstructorDashboard() {
     const deadline = deadlineValue ? `${deadlineValue}:00+07:00` : null;
     const analysisLevel = Number(values.get('analysis_level')) || 3;
     const gradingTier = String(values.get('grading_tier') || 'standard');
-    if (!promptId) return setBanner({ tone: 'danger', message: 'Chưa chọn đề bài.' });
+    // BL-19: the form is noValidate, so these app messages replace the browser's own bubble.
+    const missing = (field: string, message: string) => {
+      setBanner({ tone: 'danger', message });
+      (form.elements.namedItem(field) as HTMLElement | null)?.focus();
+    };
+    if (!promptId) return missing('prompt_id', 'Chưa chọn đề bài.');
     const promptTitle = data.prompts.find((prompt) => prompt.id === promptId)?.title || '';
     // W-06: re-giving is allowed (ALLOW + WARN) but must be a deliberate choice.
-    const confirmRegive = (existing: unknown) => !existing || window.confirm(duplicateGiveConfirmMessage(existing, promptTitle, target as 'cohort' | 'student'));
+    const confirmRegive = async (existing: unknown) => !existing || askConfirm(duplicateGiveConfirmMessage(existing, promptTitle, target as 'cohort' | 'student'));
     const resetOnSuccess = (ok: boolean | undefined) => { if (ok) { form.reset(); setAssignmentTarget('cohort'); } };
     if (target === 'cohort') {
       const cohortId = String(values.get('cohort_id') || '');
-      if (!cohortId) return setBanner({ tone: 'danger', message: 'Chưa chọn lớp.' });
-      if (!confirmRegive(findExistingGive(data.assignments, { promptId, cohortId }))) return;
+      if (!cohortId) return missing('cohort_id', 'Chưa chọn lớp.');
+      const sameClassGive = findExistingGive(data.assignments, { promptId, cohortId });
       const body: Record<string, unknown> = { prompt_ids: [promptId], cohort_id: cohortId, analysis_level: analysisLevel, grading_tier: gradingTier };
       if (deadline) body.deadline = deadline;
       if (name) body.name = name;
-      void mutate('assignment', () => window.api.post(requestPath('/instructor/assignments/fan-out'), body), fanOutResultBanner).then(resetOnSuccess);
+      void (async () => {
+        if (!(await confirmRegive(sameClassGive))) return false;
+        // BL-18: members may hold the prompt from another give (individual, other
+        // class, admin). Ask with the same overlap the result banner reports,
+        // unless the re-give of this class was just confirmed above.
+        if (!sameClassGive && !(await confirmCohortOverlap(promptId, cohortId, promptTitle))) return false;
+        return mutate('assignment', () => window.api.post(requestPath('/instructor/assignments/fan-out'), body), fanOutResultBanner);
+      })().then(resetOnSuccess);
       return;
     }
     const studentId = String(values.get('student_id') || '');
-    if (!studentId) return setBanner({ tone: 'danger', message: 'Chưa chọn học viên.' });
-    if (!confirmRegive(findExistingGive(data.assignments, { promptId, studentId }))) return;
+    if (!studentId) return missing('student_id', 'Chưa chọn học viên.');
+    const existingGive = findExistingGive(data.assignments, { promptId, studentId });
     const body: Record<string, unknown> = { prompt_id: promptId, student_id: studentId, analysis_level: analysisLevel, grading_tier: gradingTier };
     if (deadline) body.deadline = deadline;
     if (name) body.name = name;
-    void mutate('assignment', () => window.api.post(requestPath('/instructor/assignments'), body), ASSIGNMENT_COPY.studentSuccess).then(resetOnSuccess);
+    void (async () => {
+      if (!(await confirmRegive(existingGive))) return false;
+      return mutate('assignment', () => window.api.post(requestPath('/instructor/assignments'), body), ASSIGNMENT_COPY.studentSuccess);
+    })().then(resetOnSuccess);
+  };
+
+  const confirmCohortOverlap = async (promptId: string, cohortId: string, promptTitle: string) => {
+    if (pending) return false;
+    const ownerId = accountRef.current;
+    setPending('assignment');
+    try {
+      const preview = normalizeDuplicatesPreview(await postBrowserJsonAt(
+        '/instructor/assignments/duplicates-preview',
+        requestPath('/instructor/assignments/duplicates-preview'), { prompt_ids: [promptId], cohort_id: cohortId },
+      ));
+      if (ownerId !== accountRef.current) return false;
+      const message = preview ? cohortOverlapConfirmMessage(preview, promptTitle) : null;
+      // An unreadable preview does not block the give: its result banner still
+      // reports duplicates_warning from the write itself.
+      return !message || await askConfirm(message);
+    } catch (caught) {
+      return ownerId === accountRef.current && !deny(caught);
+    } finally {
+      if (ownerId === accountRef.current) setPending(null);
+    }
   };
 
   const openStudent = async (studentId: string) => {
@@ -288,6 +374,7 @@ export function InstructorDashboard() {
       if (!normalized) throw new Error('Dữ liệu hồ sơ học viên không đúng định dạng.');
       if (requestId === drawerSequence.current && ownerId === accountRef.current) setDrawerSummary(normalized);
     } catch (caught) {
+      if (ownerId === accountRef.current && deny(caught)) return;
       if (requestId === drawerSequence.current && ownerId === accountRef.current) setDrawerError(messageOf(caught));
     }
   };
@@ -325,7 +412,7 @@ export function InstructorDashboard() {
       }
       window.location.assign(instructorGradeHref(item.essayId, item.reviewId, asInstructor));
     } catch (caught: any) {
-      if (ownerId !== accountRef.current) return;
+      if (ownerId !== accountRef.current || deny(caught)) return;
       const refreshed = await loadAll(asInstructor, undefined, ownerId);
       const reconciled = refreshed?.queue.find((row) => row.reviewId === item.reviewId && row.status === 'claimed');
       if (reconciled) {
@@ -347,6 +434,7 @@ export function InstructorDashboard() {
     window.location.replace('/');
   };
 
+  if (inactive) return <main><InstructorInactiveState className="ins-state is-error" drafts={drafts} /></main>;
   if (phase === 'loading') return <main className="ins-state" role="status">Đang kiểm tra quyền và tải workspace…</main>;
   if (phase === 'denied') return <main className="ins-state" role="alert"><strong>Bạn không có quyền truy cập trang giảng viên.</strong><a href="/home">Quay lại trang học</a></main>;
   if (phase === 'error') return <main className="ins-state is-error" role="alert"><strong>Không mở được workspace giảng viên.</strong><span>{loadError}</span><button type="button" onClick={() => window.location.reload()}>Tải lại</button></main>;
@@ -369,7 +457,7 @@ export function InstructorDashboard() {
         ))}
       </nav>
 
-      <main className="ins-main">
+      <main className="ins-main" ref={mainRef}>
         {asInstructor && <aside className="ins-banner is-warning"><span>Đang xem như giảng viên <code>{asInstructor}</code>. Mỗi request được backend ghi audit.</span><a href="/admin/instructors">Thoát impersonation</a></aside>}
         {banner && <div className={`ins-banner is-${banner.tone}`} role={banner.tone === 'danger' ? 'alert' : 'status'}>{banner.message}</div>}
         {loadError && <div className="ins-banner is-danger" role="alert"><span>Không thể làm mới; đang giữ snapshot trước đó. {loadError}</span><button type="button" onClick={() => void refresh()}>Thử lại</button></div>}
@@ -397,17 +485,19 @@ export function InstructorDashboard() {
         {tab === 'assign' && <section aria-labelledby="assign-title">
           <div className="ins-heading"><div><p>Writing workflow</p><h1 id="assign-title">Giao bài</h1></div></div>
           <div className="ins-grid">
-            <article className="ins-card"><h2>Giao một đề bài</h2>{!data.prompts.length && <p className="ins-empty">Tạo đề bài nhanh trước khi giao.</p>}<form className="ins-form" onSubmit={createAssignment}><label><span>Đề bài</span><select name="prompt_id" required><option value="">Chọn đề bài</option>{data.prompts.map((prompt) => <option key={prompt.id} value={prompt.id}>{prompt.title}</option>)}</select></label><label><span>Tên bài (học viên sẽ thấy)</span><input name="name" maxLength={200} placeholder="VD: Buổi 5 — Task 2" /></label><fieldset><legend>Giao cho</legend><label className="ins-radio"><input type="radio" name="target" value="cohort" checked={assignmentTarget === 'cohort'} onChange={() => setAssignmentTarget('cohort')} /> Cả lớp</label><label className="ins-radio"><input type="radio" name="target" value="student" checked={assignmentTarget === 'student'} onChange={() => setAssignmentTarget('student')} /> Học viên lẻ</label></fieldset>{assignmentTarget === 'cohort' ? <label><span>Lớp</span><select name="cohort_id"><option value="">Chọn lớp</option>{data.cohorts.map((cohort) => <option key={cohort.id} value={cohort.id}>{cohort.name}</option>)}</select></label> : <label><span>Học viên lẻ</span><select name="student_id"><option value="">Chọn học viên</option>{data.students.map((student) => <option key={student.id} value={student.id}>{student.fullName} ({student.studentCode})</option>)}</select></label>}<label><span>Hạn nộp (giờ Việt Nam)</span><input name="deadline" type="datetime-local" /></label><label><span>Độ sâu phản hồi</span><select name="analysis_level" defaultValue="3">{[1,2,3,4,5].map((level) => <option key={level} value={level}>L{level}</option>)}</select></label><label><span>Tier chấm AI</span><select name="grading_tier" defaultValue="standard"><option value="standard">Standard — 1 lượt AI</option><option value="deep">Deep — 3 lượt AI</option></select></label><button type="submit" disabled={!!pending}>{pending === 'assignment' ? 'Đang giao…' : 'Giao bài'}</button></form></article>
+            <article className="ins-card"><h2>Giao một đề bài</h2>{!data.prompts.length && <p className="ins-empty">Tạo đề bài nhanh trước khi giao.</p>}<form className="ins-form" onSubmit={createAssignment} noValidate><label><span>Đề bài</span><select name="prompt_id" required><option value="">Chọn đề bài</option>{data.prompts.map((prompt) => <option key={prompt.id} value={prompt.id}>{prompt.title}</option>)}</select></label><label><span>Tên bài (học viên sẽ thấy)</span><input name="name" maxLength={200} placeholder="VD: Buổi 5 — Task 2" /></label><fieldset><legend>Giao cho</legend><label className="ins-radio"><input type="radio" name="target" value="cohort" checked={assignmentTarget === 'cohort'} onChange={() => setAssignmentTarget('cohort')} /> Cả lớp</label><label className="ins-radio"><input type="radio" name="target" value="student" checked={assignmentTarget === 'student'} onChange={() => setAssignmentTarget('student')} /> Học viên lẻ</label></fieldset>{assignmentTarget === 'cohort' ? <label><span>Lớp</span><select name="cohort_id"><option value="">Chọn lớp</option>{data.cohorts.map((cohort) => <option key={cohort.id} value={cohort.id}>{cohort.name}</option>)}</select></label> : <label><span>Học viên lẻ</span><select name="student_id"><option value="">Chọn học viên</option>{data.students.map((student) => <option key={student.id} value={student.id}>{student.fullName} ({student.studentCode})</option>)}</select></label>}<label><span>Hạn nộp (giờ Việt Nam)</span><input name="deadline" type="datetime-local" /></label><label><span>Độ sâu phản hồi</span><select name="analysis_level" defaultValue="3">{[1,2,3,4,5].map((level) => <option key={level} value={level}>L{level}</option>)}</select></label><label><span>AI chấm nháp trước khi bạn chấm</span><select name="grading_tier" defaultValue="standard"><option value="standard">Standard — 1 lượt AI</option><option value="deep">Deep — 3 lượt AI</option></select></label><p className="ins-note">Bài giao từ trang này luôn vào mục Chấm bài để bạn chấm và trả. Học viên thấy trạng thái “Giảng viên đang review bài” và chỉ thấy band khi bạn trả bài.</p><button type="submit" disabled={!!pending}>{pending === 'assignment' ? 'Đang giao…' : 'Giao bài'}</button></form></article>
             <article className="ins-card"><h2>Tạo đề bài nhanh</h2><form className="ins-form" onSubmit={createPrompt}><label><span>Tiêu đề</span><input name="title" required placeholder="VD: Task 2 — Technology" /></label><label><span>Dạng</span><select name="task_type" defaultValue="task2"><option value="task2">Task 2</option><option value="task1_academic">Task 1 (Academic)</option><option value="task1_general">Task 1 (General)</option></select></label><label><span>Đề bài</span><textarea name="prompt_text" rows={7} required /></label><button type="submit" disabled={!!pending}>{pending === 'prompt' ? 'Đang tạo…' : 'Tạo đề bài'}</button></form></article>
           </div>
-          <article className="ins-card"><h2>Ma trận nộp bài</h2><div className="ins-table-wrap"><table className="ins-table"><thead>{matrix.columns.length ? <tr><th>Học viên</th>{matrix.columns.map((column: any) => <th key={column.id}>{column.title}</th>)}</tr> : null}</thead><tbody>{matrix.columns.length ? matrix.rows.map((row: any) => <tr key={row.student.id}><td>{row.student.fullName}</td>{row.cells.map((cell: any, index: number) => { const status = assignmentTone(cell); return <td key={matrix.columns[index].id}><StatusPill tone={status.tone}>{status.label}</StatusPill></td>; })}</tr>) : <EmptyRow columns={1}>Chưa giao bài nào.</EmptyRow>}</tbody></table></div><p className="ins-note">Trạng thái lấy từ assignment canonical; “Trễ” chỉ áp dụng khi chưa nộp và deadline đã qua.</p></article>
+          <article className="ins-card"><h2>Ma trận nộp bài</h2><div className="ins-table-wrap"><table className="ins-table"><thead>{matrix.columns.length ? <tr><th>Học viên</th>{matrix.columns.map((column: any) => <th key={column.id}>{column.title}</th>)}</tr> : null}</thead><tbody>{matrix.columns.length ? matrix.rows.map((row: any) => <tr key={row.student.id}><td>{row.student.fullName}</td>{row.cells.map((cell: any, index: number) => { const status = assignmentTone(cell); const deadline = matrixDeadlineLabel(cell); return <td key={matrix.columns[index].id}><StatusPill tone={status.tone}>{status.label}</StatusPill>{deadline && <small className="ins-cell-deadline">{deadline}</small>}</td>; })}</tr>) : <EmptyRow columns={1}>Chưa giao bài nào.</EmptyRow>}</tbody></table></div><p className="ins-note">Trạng thái lấy từ assignment canonical; “Trễ” chỉ áp dụng khi chưa nộp và deadline đã qua.</p></article>
         </section>}
 
         {tab === 'grade' && <section aria-labelledby="grade-title">
           <div className="ins-heading"><div><p>Owner-scoped queue</p><h1 id="grade-title">Hàng chờ chấm</h1></div><strong>{data.queue.length}</strong></div>
-          <div className="ins-card ins-table-wrap"><table className="ins-table"><thead><tr><th>Học viên</th><th>Dạng</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>{data.queue.length ? data.queue.map((item) => <tr key={item.reviewId}><td>{item.studentEmail || item.essayId}</td><td>{item.taskType || '—'}</td><td><StatusPill tone={item.status === 'claimed' ? 'warning' : 'neutral'}>{item.status}</StatusPill></td><td><button type="button" onClick={() => void claimAndGrade(item)} disabled={!!pending}>{pending === `review:${item.reviewId}` ? 'Đang xác nhận…' : item.status === 'claimed' ? 'Chấm tiếp' : 'Nhận chấm'}</button></td></tr>) : <EmptyRow columns={4}>Không có bài chờ chấm.</EmptyRow>}</tbody></table></div>
+          <div className="ins-card ins-table-wrap"><table className="ins-table"><thead><tr><th>Học viên</th><th>Dạng</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>{data.queue.length ? data.queue.map((item) => <tr key={item.reviewId}><td>{item.studentEmail || item.essayId}<small className="ins-cell-meta">{queueRowIdentity(item)}</small></td><td>{item.taskType || '—'}</td><td><StatusPill tone={item.status === 'claimed' ? 'warning' : 'neutral'}>{item.status}</StatusPill></td><td><button type="button" onClick={() => void claimAndGrade(item)} disabled={!!pending}>{pending === `review:${item.reviewId}` ? 'Đang xác nhận…' : item.status === 'claimed' ? 'Chấm tiếp' : 'Nhận chấm'}</button></td></tr>) : <EmptyRow columns={4}>Không có bài chờ chấm.</EmptyRow>}</tbody></table></div>
         </section>}
       </main>
+
+      <Dialog open={confirmMessage !== null} title={ASSIGNMENT_COPY.confirmTitle} description={confirmMessage} onClose={() => answerConfirm(false)} actions={<><button className="av-button av-button-secondary" type="button" onClick={() => answerConfirm(false)}>{ASSIGNMENT_COPY.confirmCancel}</button><button className="av-button av-button-primary" type="button" onClick={() => answerConfirm(true)}>{ASSIGNMENT_COPY.confirmAccept}</button></>} />
 
       {drawerStudentId && <><button type="button" className="ins-drawer-backdrop" aria-label="Đóng hồ sơ học viên" onClick={closeDrawer} /><aside className="ins-drawer" aria-label="Hồ sơ học viên" aria-live="polite"><button type="button" className="ins-drawer__close" onClick={closeDrawer} aria-label="Đóng">×</button>{drawerError && <div className="ins-banner is-danger" role="alert">{drawerError}</div>}{!drawerError && !drawerSummary && <p className="ins-empty">Đang tải hồ sơ…</p>}{drawerSummary && <><p className="ins-kicker">Hồ sơ học viên</p><h2>{drawerSummary.student.fullName}</h2><p className="ins-note">{drawerSummary.student.studentCode}{drawerSummary.student.targetBand ? ` · Mục tiêu ${drawerSummary.student.targetBand}` : ''}</p><dl className="ins-stats"><div><dt>Tổng bài</dt><dd>{drawerSummary.stats.totalEssays}</dd></div><div><dt>Đã chấm</dt><dd>{drawerSummary.stats.gradedCount}</dd></div><div><dt>Gắn cờ</dt><dd>{drawerSummary.stats.flaggedCount}</dd></div><div><dt>Band TB 5 bài</dt><dd>{drawerSummary.stats.averageBandLast5 ?? '—'}</dd></div></dl><h3>Bài gần đây</h3><div className="ins-table-wrap"><table className="ins-table"><thead><tr><th>Dạng</th><th>Trạng thái</th></tr></thead><tbody>{drawerSummary.recentEssays.length ? drawerSummary.recentEssays.map((essay: any) => <tr key={essay.id}><td>{essay.taskType}</td><td>{essay.status}</td></tr>) : <EmptyRow columns={2}>Chưa có bài.</EmptyRow>}</tbody></table></div></>}</aside></>}
     </>

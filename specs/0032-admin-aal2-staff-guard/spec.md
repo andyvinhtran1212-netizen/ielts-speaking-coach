@@ -1,19 +1,27 @@
 ---
 id: ADMINAAL2-0032
 title: Admin powers require a verified second factor and a suspended or demoted staff account loses access on its next request
-status: draft
+status: approved
 risk: critical
 owner: product
 ---
 
 # Admin powers require a verified second factor and a suspended or demoted staff account loses access on its next request
 
-Proposed. Awaiting approval by Vinh. Source: product brief ADMIN-AAL2
+Approval: approved by Vinh on 2026-10-28 09:11 (UTC+7), relayed by the
+Leader, with every default answer to Q1–Q10 accepted and the Q2 alert recipient
+set to `andyvinhtran1212@gmail.com`. By Vinh's decision (a) of 09:35, alerts
+are sent from `alerts@averlearning.com` through Resend once the domain's DNS
+is verified (see
+[`approval-decision.md`](approval-decision.md) and
+[Owner decisions](#owner-decisions)). Source: product brief ADMIN-AAL2
 (Feature Developer, 2026-10-27 23:10, approved for spec writing 23:01 via
 Leader). Its owner decisions are binding defaults here. Risk source:
 `/workspace/cc-jobs/dr-tabletop-1027.md` §5. Code inventory with citations:
-[`research.md`](research.md). Migration number **332 is provisional** until the
-Leader reserves it (Q8).
+[`research.md`](research.md). Migration number **332** is the accepted Q8
+default; the Leader still confirms the reservation before T001.
+FR-019 (role frozen while suspended, migration 336) was added by Vinh's
+decision 1A on 2026-10-28 17:53 (UTC+7); see [Owner decisions](#owner-decisions) Q11.
 
 ## Thay đổi người dùng thấy (tóm tắt cho anh Vinh)
 
@@ -25,6 +33,10 @@ Leader reserves it (Q8).
   thao tác kế tiếp, kể cả khi trình duyệt vẫn còn phiên. Phiên đăng nhập bị thu
   hồi. Tài khoản bị tạm khóa không thể tự mở lại bằng mã kích hoạt; chỉ admin
   khác mở khóa được.
+- Không đổi được **vai trò** của tài khoản đang bị tạm khóa. Admin phải mở khóa
+  trước rồi mới đổi vai trò. Trang Người dùng sẽ báo: "Không thể đổi vai trò
+  của tài khoản đang bị tạm khóa. Hãy mở khóa tài khoản trước, rồi đổi vai
+  trò." (quyết định 1A của anh Vinh, 28/10 17:53).
 - **Giảng viên chưa kích hoạt / bị tắt** mở `/instructor` sẽ được chuyển về
   `/login` để nhập mã kích hoạt, và không thấy dữ liệu (lỗi production đang gặp,
   sửa ở PR #1771). Nếu tài khoản bị tắt khi đang mở trang, trang hiện "Tài
@@ -138,6 +150,7 @@ compromised admin out is not possible from the product.
 - **FR-016:** The synthetic staging admin created by `backend/scripts/staging_seed.py` holds a verified TOTP factor. Every live Staging E2E admin sign-in completes challenge and verify through one shared helper to obtain an AAL2 session, including the browser session injected by the Writing course journey. A PR-time test fails if any staging spec signs in the admin another way. The TOTP secret lives only in CI secrets and the QA creds store and is never printed in logs or artifacts.
 - **FR-017:** Enforcement is enabled in an environment only after a read-only query shows every active admin with at least one verified TOTP factor, and either at least two such admins or one admin with an offline backup factor. The recovery runbook (`rollout.md` §Rollback and repair) has been executed on staging with measured durations. It covers: flag off, factor reset, backup factor, a clean-admin RPC repair, and a control-plane bootstrap that restores the first admin when no eligible admin exists. The bootstrap is executable only by the database owner, never by `service_role` or the app. It refuses while any eligible admin exists, and it is audited and emailed.
 - **FR-018:** No other path can make a suspended account active again: self-service `/auth/activate` with any access code, admin-issued codes, student restore (`fn_restore_student`), or a direct SQL update. The database refuses any `is_active` change from false to true while `suspended_at` is set, unless the change comes through the FR-006 reactivation. This holds under concurrent requests. `/auth/activate` refuses a suspended account with 403 `{"code": "account_suspended"}` before the access code is claimed, so the code stays unused. `/auth/me` and `/auth/check-active` report `suspended: true`, and `/login` shows "Tài khoản đang bị tạm khóa — liên hệ admin" instead of the activation dialog. This holds even when session revocation or the sign-in ban failed.
+- **FR-019:** The role of a suspended account cannot change. While `users.suspended_at` is set, the database refuses any change of `users.role` with SQLSTATE P0001 and the message `account_suspended_role_change`. This includes `fn_set_staff_privilege`, alone or combined with reactivation in one call, as well as service-role REST, the SQL editor and a superuser. Only the owner-only `fn_bootstrap_admin_recovery` (FR-017) is exempt, because it clears the marker in the same write. An admin first reactivates the account (FR-006), then changes its role. Repeating the current role is still a no-op. `PATCH /admin/users/{user_id}/role` answers 409 `{"code": "account_suspended_role_change", "message": "Không thể đổi vai trò của tài khoản đang bị tạm khóa. Hãy mở khóa tài khoản trước, rồi đổi vai trò."}`, changes nothing, and the admin users panel shows that message. Migration 336 enforces this rule. It refuses to apply while a suspended account already holds a non-staff role, because the rule would leave that account impossible to reactivate in the app.
 
 ## Acceptance scenarios
 
@@ -196,6 +209,13 @@ compromised admin out is not possible from the product.
 - **When** they call `/auth/activate` with that code, and in parallel an admin issues them a code
 - **Then** both are refused with `account_suspended`, the code stays unused, `users.is_active` stays false with `suspended_at` set, every `/instructor/*` call returns 403, and `/login` shows the suspended message
 
+### AC10 — A suspended account keeps its role until it is reactivated (FR-019)
+
+- **Given** a suspended instructor
+- **When** an admin changes its role to student, either in the admin users panel or through `fn_set_staff_privilege`
+- **Then** the change is refused with `account_suspended_role_change`, the panel shows "Không thể đổi vai trò của tài khoản đang bị tạm khóa. Hãy mở khóa tài khoản trước, rồi đổi vai trò.", and the role, the marker and the audit are unchanged
+- **And when** the admin reactivates the account first (FR-006), the same role change succeeds
+
 ## Edge cases
 
 - **Last admin.** Demoting or suspending the only active admin is refused with
@@ -205,6 +225,10 @@ compromised admin out is not possible from the product.
 - **Suspended vs never activated.** `suspended_at` is set only by FR-006, so a
   new instructor who has not redeemed a code still activates normally.
   Learner archive (0029) keeps its own `account_deactivated` meaning.
+- **Role change while suspended (FR-019).** Without FR-019, demoting a suspended
+  instructor to student would leave a row that FR-006 can no longer reactivate,
+  because reactivation needs a staff role, and that no admin could restore in the app.
+  So the role is frozen until the account is reactivated.
 - **Out-of-band suspension.** An `is_active = false` written in the SQL editor
   sets no marker, so the runbook suspends through the RPC (`rollout.md` path
   (d)) rather than a bare update.
@@ -246,42 +270,57 @@ compromised admin out is not possible from the product.
   path in ≤ 30 minutes (targets; measured values recorded in
   `verification.md`).
 
-## Open questions
+## Owner decisions
 
-Each question has a recommended default. If Vinh does not override it at
-approval, the default stands.
+Decided by Vinh on 2026-10-28 09:11 (UTC+7): **every default below is
+accepted** as written. The only addition is the Q2 address. Each item keeps
+the wording of the default that was approved.
 
-- **Q1: Offline recovery.** Supabase has no recovery codes. *Default:* every
+- **Q1: Offline recovery.** *Decided: default accepted.* Supabase has no recovery codes. *Default:* every
   admin enrolls two TOTP factors (phone app plus a backup whose QR/secret is
   stored offline, e.g. a printed sheet in a safe or a password manager on a
   separate device). Production keeps at least two admins with MFA.
-- **Q2: Alert email recipients and provider.** The backend sends no email
+- **Q2: Alert email recipients and provider.** *Decided: default accepted.* The backend sends no email
   today. *Default:* a single HTTPS transactional email provider (Resend, one
   new Railway secret) with recipients in `OWNER_ALERT_EMAILS`. Vinh supplies
   the owner address at approval. AI-BUDGET reuses the same channel and
-  recipients.
-- **Q3: Suspension strength.** Ban sign-in until reactivation, or only revoke
+  recipients. *Owner address (2026-10-28, sender set by decision (a) at
+  09:35):* the recipient is `andyvinhtran1212@gmail.com`, the single value
+  of `OWNER_ALERT_EMAILS`. Alerts are sent FROM `alerts@averlearning.com`
+  through Resend, once the `averlearning.com` domain's DNS is verified.
+  Gmail SMTP is not used. While the domain is unverified, a Resend
+  rejection leaves the outbox row unsent and retried; no other transport or
+  sender is tried, and the implementer does not choose another sender. This
+  matches AIBUDGET-0033 (#1773).
+- **Q3: Suspension strength.** *Decided: default accepted.* Ban sign-in until reactivation, or only revoke
   sessions? *Default:* ban and revoke (a suspended staff member cannot sign in
   even as a learner).
-- **Q4: Instructor grant, revoke and suspension emails.** *Default:* audit row
+- **Q4: Instructor grant, revoke and suspension emails.** *Decided: default accepted.* *Default:* audit row
   only, no email (brief: email only for admin events).
-- **Q5: Step-up for privilege changes.** Should granting admin require a TOTP
+- **Q5: Step-up for privilege changes.** *Decided: default accepted.* Should granting admin require a TOTP
   code entered in the last 15 minutes? *Default:* not in phase 1. AAL2 is
   required for every admin action; factor removal alone needs a fresh code.
-- **Q6: Production enforcement date.** *Default:* enable on production within
+- **Q6: Production enforcement date.** *Decided: default accepted.* *Default:* enable on production within
   7 days after staging enforcement passes AC1–AC9 and the FR-017 query is
   green on production, on Vinh's explicit go.
-- **Q7: Soft admin privileges.** Should the admin session-quota bypass and the
+- **Q7: Soft admin privileges.** *Decided: default accepted.* Should the admin session-quota bypass and the
   admin-only views on learner routes also need AAL2? *Default:* yes (FR-001);
   an AAL1 admin is treated as a learner there.
-- **Q8: Migration number.** *Default:* 332. 327–330 are reserved and 331 is
+- **Q8: Migration number.** *Decided: default accepted.* *Default:* 332. 327–330 are reserved and 331 is
   GIVEARCHIVE-0031. The Leader must confirm the reservation before T001. If
   AI-BUDGET also needs a migration, it takes the next free number after the
   Leader's allocation.
-- **Q9: Audit retention.** *Default:* keep indefinitely. Volume is low:
+- **Q9: Audit retention.** *Decided: default accepted.* *Default:* keep indefinitely. Volume is low:
   learner activations add about one row per activation.
-- **Q10: A new Railway cron service.** Every 5 minutes it dispatches pending
+- **Q10: A new Railway cron service.** *Decided: default accepted.* Every 5 minutes it dispatches pending
   alerts and reconciles admin MFA factors (`plan.md`). This is needed for
   out-of-band changes and factor deletions that never touch the backend.
   *Default:* approve it as part of this spec. It runs the backend image with
   `python -m scripts.staff_security_sweep`.
+- **Q11: Role change of a suspended account.** *Decided by Vinh on
+  2026-10-28 17:53 (UTC+7), option 1A (relayed by the Leader, t246u).*
+  `fn_set_staff_privilege` refuses any role change on an account that is
+  currently suspended. An admin must reactivate the account first. This
+  became FR-019 and migration 336, after #1806 reached staging. It prevents a
+  suspended instructor from being demoted to student and then being
+  impossible to restore in the app.

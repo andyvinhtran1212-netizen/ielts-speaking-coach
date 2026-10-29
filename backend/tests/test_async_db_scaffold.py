@@ -102,21 +102,71 @@ def test_health_async_db_endpoint_reports_baseline():
     assert body["async_client_initialised"] is False
     assert "event_loop_lag" in body
     assert "lag_ms_p95" in body["event_loop_lag"]
+    # PC-J55 stall instrumentation: flag-ON call stats, async pool (none with
+    # the flag off) and the default executor shared by to_thread sections.
+    for key in ("calls", "transport_errors", "retries", "in_flight",
+                "oldest_in_flight_ms", "ms_p95", "ms_max"):
+        assert key in body["aexecute"], f"missing aexecute.{key}"
+    assert body["postgrest_pool"] is None
+    assert "executor" in body
 
 
-def test_only_grading_is_wired_to_facade():
-    # P0-1 Phase 2 wired grading.py to the facade. NO OTHER router may use it
-    # yet (sessions/reading/listening/admin are later phases), so flipping
-    # USE_ASYNC_DB on can only change grading — never another route.
-    allowed = {"grading.py"}
-    routers_dir = os.path.join(os.path.dirname(__file__), "..", "routers")
-    wired = []
-    for path in glob.glob(os.path.join(routers_dir, "*.py")):
+def _facade_users(subdir):
+    base = os.path.join(os.path.dirname(__file__), "..", subdir)
+    wired = set()
+    for path in glob.glob(os.path.join(base, "*.py")):
         if " 2.py" in path:  # ignore stray ` 2` dupes
             continue
+        if os.path.basename(path) == "db_async.py":
+            continue
         src = open(path, encoding="utf-8").read()
-        if "db_async" in src or "aexecute(" in src:
-            wired.append(os.path.basename(path))
-    unexpected = [b for b in wired if b not in allowed]
-    assert unexpected == [], f"only grading.py may be wired in Phase 2; found: {unexpected}"
-    assert "grading.py" in wired, "Phase 2 must wire grading.py to the facade"
+        if "services.db_async" in src or "aexecute(" in src:
+            wired.add(os.path.basename(path))
+    return wired
+
+
+def test_only_grading_and_auth_layer_are_wired_to_facade():
+    # P0-1 Phase 2 wired grading.py; PC-J05 (D1a) wired the per-request auth and
+    # permission checks. Flipping USE_ASYNC_DB on may change ONLY these paths —
+    # sessions/reading/listening/admin data routes are later phases.
+    #   routers/admin.py — require_admin / require_instructor role read only
+    #   routers/auth.py  — /auth/me and /auth/check-active
+    assert _facade_users("routers") == {"grading.py", "admin.py", "auth.py"}
+    assert _facade_users("services") == {
+        "activation_gate.py",          # learner gate is_active read
+        "access_code_permissions.py",  # live permissions + /api/student/permissions
+        "student_service.py",          # afetch_linked_student (writing bridge)
+    }
+
+
+def test_admin_router_uses_facade_only_in_staff_role_guard():
+    # admin.py is wired for the guard's role read, not for any admin data route.
+    src = open(os.path.join(os.path.dirname(__file__), "..", "routers", "admin.py"),
+               encoding="utf-8").read()
+    assert src.count("aexecute(") == 1
+    guard = src[src.index("async def _staff_role_row"):src.index("async def require_admin")]
+    assert "aexecute(" in guard
+
+
+def test_flag_twins_take_the_facade_only_from_auth_me():
+    # PC-J05 (Codex P2 on #1835): /auth/me's per-user flag and runtime-flag
+    # reads have async twins that await whatever executor the caller passes.
+    # The two flag modules never pick a client or read USE_ASYNC_DB, and only
+    # routers/auth.py hands them the facade, so the flag still switches only
+    # the /auth/me path in scope.
+    backend = os.path.join(os.path.dirname(__file__), "..")
+    for name in ("feature_flags.py", "runtime_flags.py"):
+        src = open(os.path.join(backend, "services", name), encoding="utf-8").read()
+        assert "services.db_async" not in src and "aexecute(" not in src, name
+        assert "settings.USE_ASYNC_DB" not in src, name
+    callers = set()
+    for sub in ("routers", "services"):
+        for path in glob.glob(os.path.join(backend, sub, "*.py")):
+            src = open(path, encoding="utf-8").read()
+            if "ais_flashcard_enabled(" in src or "ais_enabled(" in src:
+                callers.add(os.path.relpath(path, backend))
+    assert callers == {
+        os.path.join("routers", "auth.py"),
+        os.path.join("services", "feature_flags.py"),
+        os.path.join("services", "runtime_flags.py"),
+    }

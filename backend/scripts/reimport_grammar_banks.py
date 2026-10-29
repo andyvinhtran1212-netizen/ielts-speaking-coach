@@ -56,12 +56,21 @@ def main(argv: list[str]) -> int:
             failed += 1
             continue
         res = import_quiz_file(text, topic_id=topic_id, dry_run=not commit)
-        errs = [q for q in res.get("questions", []) if q.get("validation_errors")]
-        if errs or res.get("errors"):
-            print(f"✗ {code}: bị importer từ chối — {res.get('errors') or errs[:3]}")
+        # The importer reports rejections as a flat `validation_errors` list
+        # plus `summary.errors`; META/frontmatter failures come back with
+        # `questions: []`, so per-question errors alone miss them.
+        errs = res.get("validation_errors") or [
+            ve for q in res.get("questions", []) for ve in q.get("validation_errors") or []
+        ]
+        n = len(res.get("questions", []))
+        if not errs and (res.get("summary") or {}).get("errors"):
+            errs = [f"summary.errors={res['summary']['errors']}"]
+        if not errs and commit and (n == 0 or not res.get("committed_bank_id")):
+            errs = [f"không ghi gì ({n} câu, committed_bank_id={res.get('committed_bank_id')})"]
+        if errs:
+            print(f"✗ {code}: bị importer từ chối — {errs[:3]}")
             failed += 1
             continue
-        n = len(res.get("questions", []))
         print(f"{'✓ imported' if commit else '· dry-run OK'} {code} ({n} câu)")
         ran += 1
 

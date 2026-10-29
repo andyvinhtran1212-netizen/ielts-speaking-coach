@@ -5,6 +5,9 @@ category: "environment"
 level: "B2"
 part_of_speech: "adjective"
 pronunciation: "/səˈsteɪ.nə.bəl/"
+definition_en: "able to continue over time without using up natural resources or causing lasting environmental harm."
+gloss_vi: "bền vững, có thể duy trì lâu dài mà không làm cạn kiệt tài nguyên"
+example: "I strongly believe that sustainable development is the only path forward — we cannot continue exploiting natural resources without considering the impact on future generations."
 synonyms: ["renewable", "eco-friendly", "viable", "lasting"]
 antonyms: ["unsustainable", "destructive", "wasteful"]
 collocations: ["sustainable development", "sustainable energy", "sustainable agriculture", "sustainable living", "sustainable future"]

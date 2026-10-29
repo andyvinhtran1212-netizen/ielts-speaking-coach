@@ -5,6 +5,8 @@ import type { NextConfig } from 'next';
 
 import {
   buildContentSecurityPolicy,
+  NONCE_REPORT_ONLY_FLAG,
+  nonceReportOnlyEnabled,
   sameOriginFramePolicy,
 } from './tooling/content-security-policy.mjs';
 import {
@@ -47,6 +49,13 @@ const nextConfig: NextConfig = {
   // symlinked HTML tree permanently inert as a router source (the App Router
   // in app/ is the only real router).
   pageExtensions: ['tsx', 'ts'],
+
+  // PC-J38: one build-time answer, inlined into proxy.ts (runtime) and
+  // AuthedShell (prerender), so a Report-Only header is never sent for routes
+  // that were built static, whatever the server's runtime environment says.
+  env: {
+    [NONCE_REPORT_ONLY_FLAG]: nonceReportOnlyEnabled(process.env) ? '1' : '0',
+  },
 
   async rewrites() {
     return {
@@ -115,6 +124,9 @@ const nextConfig: NextConfig = {
       // The review route needs a routeId + session from a report; the bare
       // prefix goes back to the checkup, whose report links each review route.
       { source: '/grammar-checkup/review', destination: '/grammar-checkup', permanent: false },
+      // C-05 / U-09: there is no separate sign-up page; /login is the sign-up
+      // entry (the landing's "Đăng ký" links there). Temporary, as above.
+      { source: '/signup', destination: '/login', permanent: false },
     ];
   },
 

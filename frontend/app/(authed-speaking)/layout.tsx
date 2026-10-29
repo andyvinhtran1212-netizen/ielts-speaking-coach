@@ -36,10 +36,17 @@ export default function AuthedSpeakingLayout({ children }: { children: ReactNode
               route thì khung và api đã tồn tại. */}
           {/* Chart.js — cùng phiên bản pin với bản legacy (chart.js@4.5.1). Chỉ trang
               này dùng, nên KHÔNG đưa vào khung dùng chung. Thư viện thuần, không
-              tự gọi API lúc nạp. */}
+              tự gọi API lúc nạp.
+
+              `lazyOnload` (UIA-1028-01): 72 KiB này không phục vụ khung đầu
+              tiên mà tranh băng thông/CPU với `/auth/me` trên mobile. Biểu đồ
+              chỉ vẽ sau khi dữ liệu dashboard về, và `renderCharts` đã chờ
+              `window.Chart` có hạn giờ, nên nạp sau sự kiện `load` là đủ. Khi
+              client-navigation vào route, `load` đã qua nên Next nạp ngay lúc
+              rảnh. */}
           <Script
             src="/vendor/chart.umd.min.js"
-            strategy="afterInteractive"
+            strategy="lazyOnload"
           />
           <Script src="/js/format.js" strategy="afterInteractive" />
           <Script src="/js/cue-card-detector.js" strategy="afterInteractive" />
@@ -51,3 +58,6 @@ export default function AuthedSpeakingLayout({ children }: { children: ReactNode
     </AuthedShell>
   );
 }
+
+// Per-request render for the CSP nonce (PC-J38); see components/authed-shell.tsx.
+export const instant = false;

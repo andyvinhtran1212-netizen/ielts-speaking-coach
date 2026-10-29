@@ -7,8 +7,55 @@ call sites must not embed their own token prices.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
+
+
+@dataclass(frozen=True)
+class ImageTokenRule:
+    """A provider's documented image-input token rule (AIBUDGET-0033 FR-004).
+
+    ``kind`` is ``claude_patches`` (one token per 28x28 patch, capped at the
+    model's visual-token budget after its own downscale), ``gemini_tiles``
+    (258 tokens per crop-unit tile) or ``fixed_per_image`` (a flat count per
+    image at the request's media resolution).
+    """
+    kind: str
+    source_url: str
+    source_checked: date
+    max_tokens: int | None = None
+    per_image_tokens: int | None = None
+
+
+# https://platform.claude.com/docs/en/build-with-claude/vision ("Resolution
+# and token cost") and .../vision-coordinates — checked 2026-10-29. Claude
+# 4.7 and later models are on the high-resolution tier (2,576 px long edge,
+# 4,784 visual tokens); all other models on the standard tier (1,568 / 1,568).
+_CLAUDE_STANDARD_IMAGES = ImageTokenRule(
+    "claude_patches", "https://platform.claude.com/docs/en/build-with-claude/vision",
+    date(2026, 10, 29), max_tokens=1568,
+)
+_CLAUDE_HIGH_RES_IMAGES = ImageTokenRule(
+    "claude_patches", "https://platform.claude.com/docs/en/build-with-claude/vision",
+    date(2026, 10, 29), max_tokens=4784,
+)
+# https://ai.google.dev/gemini-api/docs/image-understanding — checked
+# 2026-10-29: 258 tokens when both sides are <= 384 px, otherwise 258 per
+# tile with a crop unit of floor(min(w, h) / 1.5).
+_GEMINI_TILE_IMAGES = ImageTokenRule(
+    "gemini_tiles", "https://ai.google.dev/gemini-api/docs/image-understanding",
+    date(2026, 10, 29), per_image_tokens=258,
+)
+# https://ai.google.dev/gemini-api/docs/media-resolution — checked
+# 2026-10-29: Gemini 3 models count 1120 tokens per image when
+# media_resolution is unspecified (the default, equal to "high"). No call
+# site sets media_resolution today; one that asks for ultra_high (2240) must
+# not use this rule.
+_GEMINI_3_DEFAULT_IMAGES = ImageTokenRule(
+    "fixed_per_image", "https://ai.google.dev/gemini-api/docs/media-resolution",
+    date(2026, 10, 29), per_image_tokens=1120,
+)
 
 
 @dataclass(frozen=True)
@@ -21,6 +68,7 @@ class TokenRate:
     output_per_million: float
     cache_read_per_million: float | None = None
     cache_write_per_million: float | None = None
+    image_rule: ImageTokenRule | None = None
 
     @property
     def version(self) -> str:
@@ -36,11 +84,14 @@ class UnitRate:
     effective_until: date | None
     unit: str
     usd_per_unit: float
+    # Named in the version when the provider prices by resource tier.
+    tier: str | None = None
 
     @property
     def version(self) -> str:
         end = self.effective_until.isoformat() if self.effective_until else "open"
-        return f"{self.provider}:{self.model}:{self.effective_from.isoformat()}:{end}"
+        model = f"{self.model}:{self.tier}" if self.tier else self.model
+        return f"{self.provider}:{model}:{self.effective_from.isoformat()}:{end}"
 
 
 # Catalog baseline verified 2026-09-18; Haiku 5.5 and ElevenLabs rechecked
@@ -48,28 +99,40 @@ class UnitRate:
 # never rewrite an old period because historical costs must remain reproducible.
 TOKEN_RATES: tuple[TokenRate, ...] = (
     TokenRate("anthropic", "claude-haiku-4-5-20251001", date(2025, 10, 15), None,
-              1.00, 5.00, cache_read_per_million=0.10, cache_write_per_million=1.25),
+              1.00, 5.00, cache_read_per_million=0.10, cache_write_per_million=1.25,
+              image_rule=_CLAUDE_STANDARD_IMAGES),
     # https://platform.claude.com/docs/en/models/haiku-5-5/overview
     # Base rates apply through 100k prompt tokens; see the multiplier below.
     TokenRate("anthropic", "claude-haiku-5-5", date(2026, 10, 7), None,
-              0.10, 0.50, cache_read_per_million=0.01, cache_write_per_million=0.125),
+              0.10, 0.50, cache_read_per_million=0.01, cache_write_per_million=0.125,
+              image_rule=_CLAUDE_HIGH_RES_IMAGES),
     TokenRate("anthropic", "claude-sonnet-4-6", date(2026, 2, 17), None,
-              3.00, 15.00, cache_read_per_million=0.30, cache_write_per_million=3.75),
+              3.00, 15.00, cache_read_per_million=0.30, cache_write_per_million=3.75,
+              image_rule=_CLAUDE_STANDARD_IMAGES),
     TokenRate("anthropic", "claude-sonnet-5", date(2026, 6, 30), None,
-              2.00, 10.00, cache_read_per_million=0.20, cache_write_per_million=2.50),
+              2.00, 10.00, cache_read_per_million=0.20, cache_write_per_million=2.50,
+              image_rule=_CLAUDE_HIGH_RES_IMAGES),
     # https://platform.claude.com/docs/en/about-claude/pricing — checked
     # 2026-10-26: cache hits are 0.05x base input on Sonnet 5.5.
     TokenRate("anthropic", "claude-sonnet-5-5", date(2026, 9, 28), None,
-              2.00, 10.00, cache_read_per_million=0.10, cache_write_per_million=2.50),
-    TokenRate("google", "gemini-2.5-flash", date(2025, 6, 17), None, 0.30, 2.50),
-    TokenRate("google", "gemini-2.5-pro", date(2025, 6, 17), None, 1.25, 10.00),
-    TokenRate("google", "gemini-3.1-flash-lite", date(2026, 5, 7), None, 0.25, 1.50),
-    TokenRate("google", "gemini-3.5-flash-lite", date(2026, 7, 21), None, 0.30, 2.50),
-    TokenRate("google", "gemini-3.5-flash", date(2026, 5, 19), None, 1.50, 9.00),
+              2.00, 10.00, cache_read_per_million=0.10, cache_write_per_million=2.50,
+              image_rule=_CLAUDE_HIGH_RES_IMAGES),
+    TokenRate("google", "gemini-2.5-flash", date(2025, 6, 17), None, 0.30, 2.50,
+              image_rule=_GEMINI_TILE_IMAGES),
+    TokenRate("google", "gemini-2.5-pro", date(2025, 6, 17), None, 1.25, 10.00,
+              image_rule=_GEMINI_TILE_IMAGES),
+    TokenRate("google", "gemini-3.1-flash-lite", date(2026, 5, 7), None, 0.25, 1.50,
+              image_rule=_GEMINI_3_DEFAULT_IMAGES),
+    TokenRate("google", "gemini-3.5-flash-lite", date(2026, 7, 21), None, 0.30, 2.50,
+              image_rule=_GEMINI_3_DEFAULT_IMAGES),
+    TokenRate("google", "gemini-3.5-flash", date(2026, 5, 19), None, 1.50, 9.00,
+              image_rule=_GEMINI_3_DEFAULT_IMAGES),
     TokenRate("google", "gemini-3.8-flash", date(2026, 9, 2), date(2026, 12, 31),
-              0.75, 3.75),
-    TokenRate("google", "gemini-3.8-flash", date(2027, 1, 1), None, 1.50, 7.50),
-    TokenRate("google", "gemini-3.1-pro-preview", date(2026, 2, 19), None, 2.00, 12.00),
+              0.75, 3.75, image_rule=_GEMINI_3_DEFAULT_IMAGES),
+    TokenRate("google", "gemini-3.8-flash", date(2027, 1, 1), None, 1.50, 7.50,
+              image_rule=_GEMINI_3_DEFAULT_IMAGES),
+    TokenRate("google", "gemini-3.1-pro-preview", date(2026, 2, 19), None, 2.00, 12.00,
+              image_rule=_GEMINI_3_DEFAULT_IMAGES),
 )
 
 UNIT_RATES: tuple[UnitRate, ...] = (
@@ -90,6 +153,16 @@ UNIT_RATES: tuple[UnitRate, ...] = (
              "text_character", 0.08 / 1_000.0),
     UnitRate("elevenlabs", "eleven_flash_v2_5", date(2026, 10, 12), None,
              "text_character", 0.04 / 1_000.0),
+    # AIBUDGET-0033 Q1 (16:26 2026-10-28): the Speech resource is on S0.
+    # Real-time speech to text $1.00 per audio hour plus the Pronunciation
+    # Assessment (prosody) add-on, one enhanced feature at $0.30 per audio
+    # hour, billed per second of audio sent. Source: the Azure Speech price
+    # page and the Azure Retail Prices API (meters "S1 Speech To Text" and
+    # "S1 Speech to Text Enhanced Feature Audio", the same in every
+    # commercial region; US Gov is higher and unused) — observed 2026-10-29
+    # and applied prospectively.
+    UnitRate("azure", "pronunciation-assessment", date(2026, 10, 29), None,
+             "audio_second", (1.00 + 0.30) / 3600.0, tier="s0"),
 )
 
 
@@ -125,6 +198,44 @@ def unit_rate(
         and (rate.effective_until is None or day <= rate.effective_until)
     ]
     return max(matches, key=lambda rate: rate.effective_from) if matches else None
+
+
+def image_input_tokens_bound(
+    provider: str,
+    model: str,
+    width: int,
+    height: int,
+    *,
+    at: datetime | date | None = None,
+) -> int | None:
+    """Upper bound on the input tokens one image adds (FR-004).
+
+    ``width``/``height`` are the decoded pixel dimensions of the bytes sent.
+    Returns None when the model has no catalog price or image rule, or the
+    dimensions are not positive integers; the caller then refuses the request
+    before any provider call.
+    """
+    if isinstance(width, bool) or isinstance(height, bool):
+        return None
+    if not isinstance(width, int) or not isinstance(height, int) or width <= 0 or height <= 0:
+        return None
+    rate = token_rate(provider, model, at=at)
+    rule = rate.image_rule if rate else None
+    if rule is None:
+        return None
+    if rule.kind == "claude_patches" and rule.max_tokens:
+        # Downscaling only lowers the patch count, so min() is never below
+        # what the model charges for the padded, resized image.
+        return min(math.ceil(width / 28) * math.ceil(height / 28), rule.max_tokens)
+    if rule.kind == "gemini_tiles" and rule.per_image_tokens:
+        if width <= 384 and height <= 384:
+            return rule.per_image_tokens
+        crop_unit = max(1, math.floor(min(width, height) / 1.5))
+        tiles = math.ceil(width / crop_unit) * math.ceil(height / crop_unit)
+        return tiles * rule.per_image_tokens
+    if rule.kind == "fixed_per_image" and rule.per_image_tokens:
+        return rule.per_image_tokens
+    return None
 
 
 def estimate_token_cost(

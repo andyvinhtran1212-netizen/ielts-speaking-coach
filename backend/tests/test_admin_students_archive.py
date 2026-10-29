@@ -314,8 +314,27 @@ def test_unlinked_writing_learner_keeps_the_not_linked_403(path):
         response = _client().get(f"/api/writing/{path}", headers=AUTH)
     assert response.status_code == 403
     assert response.json()["detail"] == (
-        "Bạn chưa được link với tài khoản học viên. Vui lòng liên hệ giảng viên."
+        "Em chưa được xếp lớp, Writing sẽ mở khi giáo viên giao bài"
     )
+    assert db.writes() == []
+
+
+@pytest.mark.parametrize("path", ["my-essays", "my-assignments"])
+def test_mass_code_writing_learner_without_a_class_gets_the_not_in_class_message(path):
+    # A mass code grants Writing but creates no students row. The 403 stays
+    # (the permission gate is not consulted); only its copy names the cause.
+    from routers import writing_student
+    db = FakeDB({"students": []})
+    permissions = MagicMock(return_value=["writing"])
+    with patch.object(writing_student, "get_supabase_user",
+                      new=AsyncMock(return_value={"id": USER_ID, "user_metadata": {}})), \
+         patch.object(writing_student, "get_user_access_code_permissions", permissions), \
+         patch.object(writing_student, "supabase_admin", db):
+        response = _client().get(f"/api/writing/{path}", headers=AUTH)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Em chưa được xếp lớp, Writing sẽ mở khi giáo viên giao bài"
+    assert "chưa được link" not in response.text
+    permissions.assert_not_called()
     assert db.writes() == []
 
 
@@ -379,13 +398,11 @@ def _writing_patches(db):
 PROMPT = "00000000-0000-0000-0000-00000000bbbb"
 
 
-@pytest.mark.parametrize("request_id", [None, "00000000-0000-4000-8000-000000000123"])
-def test_admin_individual_writing_give_refuses_archived_learners(request_id):
+def test_admin_individual_writing_give_refuses_archived_learners():
     db = _students_db(rpc_results={"fn_create_writing_assignments_idempotent": {"created": []}})
     db.tables["writing_assignment_requests"] = []
-    body = {"prompt_id": PROMPT, "student_ids": [ACTIVE_ID, ARCHIVED_ID]}
-    if request_id:
-        body["request_id"] = request_id
+    body = {"request_id": "00000000-0000-4000-8000-000000000123",
+            "prompt_id": PROMPT, "student_ids": [ACTIVE_ID, ARCHIVED_ID]}
     admin, sb = _writing_patches(db)
     with admin, sb:
         r = _client().post("/admin/writing/assignments", json=body, headers=AUTH)
@@ -415,14 +432,19 @@ def test_completed_writing_request_still_replays_after_an_archive():
 
 
 def test_admin_individual_writing_give_to_active_learner_is_unchanged():
-    db = _students_db()
-    db.tables["writing_assignments"] = []
+    db = _students_db(rpc_results={"fn_create_writing_assignments_idempotent": {
+        "created": [{"id": "a1"}], "created_count": 1, "group_id": "g1",
+        "duplicates_warning": [], "replayed": False}})
+    db.tables["writing_assignment_requests"] = []
     admin, sb = _writing_patches(db)
     with admin, sb:
         r = _client().post("/admin/writing/assignments",
-                           json={"prompt_id": PROMPT, "student_ids": [ACTIVE_ID]}, headers=AUTH)
+                           json={"request_id": "00000000-0000-4000-8000-000000000123",
+                                 "prompt_id": PROMPT, "student_ids": [ACTIVE_ID]}, headers=AUTH)
     assert r.status_code == 201, r.text
     assert r.json()["count"] == 1
+    assert [name for name, params in db.rpcs] == ["fn_create_writing_assignments_idempotent"]
+    assert db.rpcs[0][1]["p_student_ids"] == [ACTIVE_ID]
 
 
 # ── FR-002: class add and direct-code bridge → 409 ─────────────────────────
@@ -509,7 +531,6 @@ def test_direct_code_bridge_adds_the_active_profile():
 
 def _activate(db):
     from routers import auth as auth_module
-    auth_module._activate_attempts.clear()
     with patch.object(auth_module, "get_supabase_user",
                       new=AsyncMock(return_value={"id": USER_ID, "email": "l@x", "user_metadata": {}})), \
          patch.object(auth_module, "supabase_admin", db):

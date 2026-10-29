@@ -8,3 +8,6 @@ export default function AdminSpeakingTopicsLayout({ children }: { children: Reac
     '/css/aver-design/admin-components.css', '/css/aver-design/admin-buttons.css', '/css/aver-design/admin-status.css', '/css/admin-speaking-topics-next.css',
   ]}>{children}</AuthedShell>;
 }
+
+// Per-request render for the CSP nonce (PC-J38); see components/authed-shell.tsx.
+export const instant = false;

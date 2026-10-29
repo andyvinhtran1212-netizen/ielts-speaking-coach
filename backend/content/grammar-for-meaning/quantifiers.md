@@ -163,7 +163,7 @@ little + uncountable noun = "ít", thường nhấn ít hơn mong đợi
 ### A few — countable, dương tính
 
 ```
-a few + countable plural noun = "có một vài; chưa biết có đủ hay không"
+a few + countable plural noun = "có một vài", nhấn có một lượng nhỏ (nhìn theo hướng tích cực)
 ```
 
 - I have **a few** suggestions for improving this. (có vài gợi ý)
@@ -173,7 +173,7 @@ a few + countable plural noun = "có một vài; chưa biết có đủ hay khô
 ### A little — uncountable, dương tính
 
 ```
-a little + uncountable noun = "có một ít — đủ dùng"
+a little + uncountable noun = "có một ít", nhấn có một lượng nhỏ (nhìn theo hướng tích cực)
 ```
 
 - Could you give me **a little** more time? (xin thêm một chút thời gian)
@@ -182,7 +182,7 @@ a little + uncountable noun = "có một ít — đủ dùng"
 
 ### Tóm tắt few vs little
 
-| | Âm tính (quá ít, thiếu) | Dương tính (có một ít, đủ) |
+| | Âm tính (quá ít, thiếu) | Dương tính (có một ít) |
 |--|------------------------|--------------------------|
 | **Countable** | **few** (ít hơn mức cần) | **a few** (có một số) |
 | **Uncountable** | **little** (ít hơn mức cần) | **a little** (có một ít) |
@@ -226,11 +226,11 @@ a little + uncountable noun = "có một ít — đủ dùng"
 
 **Ví dụ viết lại:**
 
-- ❌ A lot of studies show that exercise is beneficial.
-- ✅ **A considerable number of** studies demonstrate that exercise yields significant health benefits.
+- Ít trang trọng: A lot of studies show that exercise is beneficial.
+- Trang trọng hơn: **A considerable number of** studies demonstrate that exercise yields significant health benefits.
 
-- ❌ Many countries have this problem.
-- ✅ **The majority of** countries experience this issue to varying degrees.
+- Ít trang trọng: Many countries have this problem.
+- ✅ **A large number of** countries experience this issue to varying degrees.
 
 <!-- anchor: quantifiers.quantifiers-quan-trong-khac -->
 ## Quantifiers quan trọng khác
@@ -270,6 +270,8 @@ Dùng với countable plural, động từ số nhiều:
 <!-- anchor: quantifiers.loi-thuong-gap -->
 ## Lỗi thường gặp
 
+Tiếng Việt 'nhiều' dùng cho mọi danh từ nên người học hay viết 'many information/much students'; 'thông tin, bằng chứng, nghiên cứu' đếm được trong tiếng Việt nhưng là uncountable trong tiếng Anh.
+
 ### Lỗi 1: Dùng "many" với uncountable
 
 - ❌ There is **many** evidence to support this.
@@ -286,7 +288,7 @@ Dùng với countable plural, động từ số nhiều:
 
 ### Lỗi 3: Nhầm "few" và "a few"
 
-- The situation is positive — **few** solutions exist. (Có ít giải pháp; câu vẫn có thể hợp lý nếu những giải pháp ấy đáp ứng nhu cầu. Muốn nhấn còn có một số giải pháp, dùng a few.)
+- ❌ The situation is positive — **few** solutions exist. *(few nhấn mạnh sự thiếu, mâu thuẫn với 'positive')*
 - ✅ The situation is positive — **a few** solutions exist.
 - ✅ The outlook is bleak but **a few** alternatives remain. (nhượng bộ: vẫn còn một vài lựa chọn)
 - ✅ The outlook is bleak and **few** alternatives remain. (nhấn mạnh số ít)
@@ -347,7 +349,7 @@ Dùng với countable plural, động từ số nhiều:
 ### Đáp án
 
 **Quantifier đúng:**
-1. much | 2. Few | 3. a little | 4. Much / A great deal of | 5. several
+1. much | 2. A few | 3. a little | 4. Much / A great deal of | 5. several
 
 **Sửa lỗi:**
 1. There is **much / a great deal of** evidence... (evidence = uncountable)

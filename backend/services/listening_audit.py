@@ -21,6 +21,9 @@ code: str, message: str, resolved: bool}. dimension ∈ DIMENSIONS.
 
 from __future__ import annotations
 
+import html
+import re
+import unicodedata
 from typing import Any
 
 from . import listening_convert as lc
@@ -34,6 +37,7 @@ STRUCTURAL_ISSUE_CODES = {
     "no_questions", "gap", "duplicate_qnum", "bad_qnum", "unknown_template",
     "no_answer", "no_options", "no_match_options", "no_map_image", "no_window",
     "bad_window", "no_transcript", "band_conversion", "no_audio", "window_past_end",
+    "map_leaks_answer", "map_raster_unchecked",
 }
 
 # Known template_kinds a persisted exercise may carry (from the importer map),
@@ -169,6 +173,69 @@ def hydrate_test(test: dict, contents: list[dict], exercises: list[dict]) -> dic
     }
 
 
+# ── plan_label map answer leak (MOCKREPAIR-0016 L012-03) ───────────────────
+# Both learner renderers show payload.map_svg first and only fall back to the
+# raster map, so the SVG text is exactly what the learner reads. A location the
+# question asks the learner to letter must never be printed on the plan: in
+# ILR-LIS-012 "C" sat next to "IT suite" and gave away all five answers.
+
+_SVG_TEXT_RE = re.compile(r"<text\b[^>]*>(.*?)</text\s*>", re.IGNORECASE | re.DOTALL)
+_SVG_TAG_RE = re.compile(r"<[^>]*>")
+
+
+def _norm_label(value: Any) -> str:
+    """Lower-case, accent-folded, punctuation → space, whitespace collapsed."""
+    s = unicodedata.normalize("NFKD", html.unescape(str(value or "")))
+    s = "".join(ch for ch in s if not unicodedata.combining(ch)).lower()
+    return " ".join(re.sub(r"[^\w\s]|_", " ", s).split())
+
+
+def svg_text_labels(svg: Any) -> list[str]:
+    """Normalised content of every <text> (incl. nested <tspan>) in an SVG."""
+    out = []
+    for m in _SVG_TEXT_RE.finditer(svg if isinstance(svg, str) else ""):
+        label = _norm_label(_SVG_TAG_RE.sub(" ", m.group(1)))
+        if label:
+            out.append(label)
+    return out
+
+
+def plan_label_map_findings(payload: dict) -> list[dict]:
+    """Shared plan_label map check for the admin audit and the import audit.
+
+    Returns [{"code": "map_leaks_answer", "q_num": n, "leaked": prompt}] for
+    every question whose prompt appears verbatim (normalised, whole words) in
+    the SVG text, or one {"code": "map_raster_unchecked", "q_num": first,
+    "q_nums": [...]} when the block only has a raster map, whose pixels are not
+    inspected here.
+    """
+    if not isinstance(payload, dict) or payload.get("template_kind") != "plan_label":
+        return []
+    questions = [q for q in (payload.get("questions") or []) if isinstance(q, dict)]
+    qnums = sorted(n for n in (_to_int(q.get("q_num")) for q in questions) if n is not None)
+    svg = payload.get("map_svg")
+    if not svg:
+        if payload.get("map_image_storage_path") or payload.get("map_image_url"):
+            return [{"code": "map_raster_unchecked", "q_num": qnums[0] if qnums else None,
+                     "q_nums": qnums}]
+        return []
+    # Joined so a label split across <tspan>s / adjacent <text> lines still matches.
+    haystack = f" {' '.join(svg_text_labels(svg))} "
+    findings = []
+    for q in questions:
+        n = _to_int(q.get("q_num"))
+        prompt = str(q.get("prompt") or "").strip()
+        if n is not None:
+            prompt = re.sub(rf"^{n}\b[.):]?\s*", "", prompt)
+        needle = _norm_label(prompt)
+        # A lone letter/number is a map marker, not a location name.
+        if len(needle) < 2 or not re.search(r"[^\W\d_]", needle):
+            continue
+        if f" {needle} " in haystack:
+            findings.append({"code": "map_leaks_answer", "q_num": n, "leaked": prompt})
+    return findings
+
+
 # ── structural checks (port of _validate for DB rows) ──────────────────────
 
 def structural_checks(h: dict) -> list[dict]:
@@ -232,6 +299,31 @@ def structural_checks(h: dict) -> list[dict]:
         elif win.get("start") is None or win.get("end") is None or win["end"] <= win["start"]:
             issues.append(_issue("timeline", "error", "bad_window",
                                  f"audio_window không hợp lệ: {win.get('start')}–{win.get('end')}.", q_num=n))
+
+    # plan_label maps must not print the locations the learner has to letter.
+    seen_ex: set = set()
+    for q in qs:
+        ex_id = q.get("exercise_id")
+        if q["template_kind"] != "plan_label" or ex_id in seen_ex:
+            continue
+        seen_ex.add(ex_id)
+        block = [b for b in qs if b.get("exercise_id") == ex_id]
+        for f in plan_label_map_findings({
+            "template_kind": "plan_label",
+            "map_svg": q.get("map_svg"),
+            "map_image_storage_path": q.get("map_image"),
+            "questions": [{"q_num": b["q_num"], "prompt": b.get("prompt")} for b in block],
+        }):
+            if f["code"] == "map_leaks_answer":
+                issues.append(_issue("question", "error", "map_leaks_answer",
+                                     f"Bản đồ in sẵn nhãn \"{f['leaked']}\" — lộ đáp án câu này.",
+                                     q_num=f["q_num"]))
+            else:
+                rng = f" câu {f['q_nums'][0]}–{f['q_nums'][-1]}" if f["q_nums"] else ""
+                issues.append(_issue("question", "warning", "map_raster_unchecked",
+                                     f"Bản đồ{rng} chỉ có ảnh raster — chưa kiểm được "
+                                     "nhãn lộ đáp án, cần soát tay.",
+                                     q_num=f["q_num"]))
 
     # transcript per section
     for s in h["sections"]:

@@ -855,7 +855,7 @@ function renderLessons() {
       </div>
       <div class="cl-lesson-actions">
         <button class="adm-btn-secondary" data-action="edit-lesson" data-id="${esc(l.id)}">Sửa</button>
-        <button class="adm-btn-secondary" data-action="delete-lesson" data-id="${esc(l.id)}">Xoá</button>
+        <button class="adm-btn-secondary" data-action="delete-lesson" data-id="${esc(l.id)}">Xóa</button>
       </div>
     </article>`;
   }).join('');
@@ -887,7 +887,7 @@ function attachmentRow(label, url) {
   u.type = 'url'; u.placeholder = 'https://…'; u.value = url || '';
   u.setAttribute('aria-label', 'Đường dẫn tài liệu');
   const del = document.createElement('button');
-  del.type = 'button'; del.className = 'adm-btn-secondary'; del.textContent = 'Xoá';
+  del.type = 'button'; del.className = 'adm-btn-secondary'; del.textContent = 'Xóa';
   del.addEventListener('click', () => wrap.remove());
   wrap.append(l, u, del);
   return wrap;
@@ -966,17 +966,17 @@ async function submitLesson() {
 function deleteLesson(lessonId) {
   const lesson = _lessons.find((l) => l.id === lessonId);
   window.confirmDanger({
-    title: 'Xoá buổi học',
-    body: `Xoá "${(lesson && lesson.title) || 'buổi học này'}"? Bài tập đã gắn vào buổi này vẫn giữ nguyên.`,
-    confirmLabel: 'Xoá buổi học',
+    title: 'Xóa buổi học',
+    body: `Xóa "${(lesson && lesson.title) || 'buổi học này'}"? Bài tập đã gắn vào buổi này vẫn giữ nguyên.`,
+    confirmLabel: 'Xóa buổi học',
     onConfirm: async () => {
       try {
         await api.delete('/admin/cohorts/' + encodeURIComponent(_cohortId)
           + '/lessons/' + encodeURIComponent(lessonId));
-        toast('Đã xoá buổi học.');
+        toast('Đã xóa buổi học.');
         await loadLessons();
       } catch (err) {
-        toast('Không xoá được buổi học: ' + (err.message || err), 'error');
+        toast('Không xóa được buổi học: ' + (err.message || err), 'error');
       }
     },
   });
@@ -1113,7 +1113,7 @@ function renderHomework() {
       ? `<button class="adm-btn-secondary" data-action="publish-homework" data-id="${esc(a.id)}">Mở lại</button>`
       : (p.submitted
         ? `<button class="adm-btn-secondary" data-action="archive-homework" data-id="${esc(a.id)}">Đóng bài</button>`
-        : `<button class="adm-btn-secondary" data-action="delete-homework" data-id="${esc(a.id)}">Xoá</button>`);
+        : `<button class="adm-btn-secondary" data-action="delete-homework" data-id="${esc(a.id)}">Xóa</button>`);
     const archivedChip = archived
       ? ' <span class="adm-chip">Đã đóng</span>'
       : (isOverdue(a)
@@ -2848,7 +2848,7 @@ function logDetail(a) {
     bits.push(d.draft_restored
       ? `${d.draft_restored} câu được đưa lại vào ô nhập`
       : 'KHÔNG khôi phục được câu nào');
-    if (d.score_cleared) bits.push('điểm của mục đã xoá');
+    if (d.score_cleared) bits.push('điểm của mục đã xóa');
     return bits.join(' · ');
   }
   return '';
@@ -3141,18 +3141,18 @@ async function setHomeworkStatus(assignmentId, status) {
 function deleteHomework(assignmentId) {
   const a = _homework.find((x) => x.id === assignmentId);
   window.confirmDanger({
-    title: 'Xoá bài giao',
-    body: `Xoá "${(a && a.title) || 'bài giao này'}"? Chưa có ai nộp nên không mất bài làm nào.`,
-    confirmLabel: 'Xoá bài giao',
+    title: 'Xóa bài giao',
+    body: `Xóa "${(a && a.title) || 'bài giao này'}"? Chưa có ai nộp nên không mất bài làm nào.`,
+    confirmLabel: 'Xóa bài giao',
     onConfirm: async () => {
       try {
         await api.delete('/admin/cohorts/' + encodeURIComponent(_cohortId)
           + '/assignments/' + encodeURIComponent(assignmentId));
-        toast('Đã xoá bài giao.');
+        toast('Đã xóa bài giao.');
         await loadHomework();
         invalidateProgress();
       } catch (err) {
-        toast('Không xoá được bài giao: ' + (err.message || err), 'error');
+        toast('Không xóa được bài giao: ' + (err.message || err), 'error');
       }
     },
   });

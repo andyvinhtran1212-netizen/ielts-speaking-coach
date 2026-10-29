@@ -7,7 +7,7 @@
 - [x] T005 Update `backend/migrations/README.md` (highest/next, 325 paragraph, drift note). `depends: T002`
 - [x] T006 Run production read-only checks P1–P6 (`research.md` §8); if duplicates exist, prepare the dedupe of `research.md` §6 for separate review.
   - Done 2026-10-27 17:08 UTC+7 under Vinh's authorization, immediately before the apply: 110 codes, every duplicate/non-canonical counter 0. P5 and the dedupe were not needed. `access_codes_code_key` already existed (validated); 325 not in ledger (`verification.md` Release evidence).
-- [ ] T007 Apply 325 on staging with the runner and run AC-1…AC-8. `depends: T002, T003, T004, T005`
-  - Still open: the 2026-10-27 production release record covers only CI and the release smoke of the promoted staging SHA `c028ed21c910f469d36abfa0907e3fd71d363709`; it does not record this staging apply or its AC run.
+- [x] T007 Apply 325 on staging with the runner and run AC-1…AC-8. `depends: T002, T003, T004, T005`
+  - Reconciled 2026-10-29 under PC #55 approval: migration already present in the staging ledger since 2026-10-27; live acceptance and isolated-fixture cleanup completed. [Staging evidence, row counts and runner transport limitation](../../docs/verification/2026-10-29-admin-t007-0026-0028-staging.md). No migration replay or production action.
 - [x] T008 Apply 325 on production under explicit authorization. `depends: T006, T007`
   - Done 2026-10-27 17:08:13–17:08:22 UTC+7 as 325a/325b/325c (ledger `applied_at` 10:08:24 UTC), promotion PR #1763 (`staging` → `main`), merge commit `c9d564dfeac2df42611dcd308aaad1a2e970c580`, merged 2026-10-27 17:09 UTC+7. Post-apply: unique index valid, canonical CHECK validated, counters still 0.

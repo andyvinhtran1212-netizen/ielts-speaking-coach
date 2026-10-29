@@ -174,7 +174,7 @@ function ReadingTestLibrary({ accountKey }: { accountKey: string | null }) {
               <select id="filter-module" value={module} onChange={(event) => setModule(event.target.value)}>
                 <option value="">Tất cả</option>
                 <option value="academic">Academic</option>
-                <option value="general_training" disabled>General Training (Phase B)</option>
+                <option value="general_training" disabled>General Training (sắp ra mắt)</option>
               </select>
             </label>
             <button

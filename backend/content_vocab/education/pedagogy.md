@@ -5,6 +5,9 @@ category: "education"
 level: "C1"
 part_of_speech: "noun"
 pronunciation: "/ˈped.ə.ɡɒdʒ.i/"
+definition_en: "the study and practice of teaching, including how teachers help people learn."
+gloss_vi: "lý luận và phương pháp giảng dạy"
+example: "Effective pedagogy goes beyond simply transmitting information — it involves inspiring curiosity, fostering critical thinking, and adapting teaching methods to individual student needs."
 synonyms: ["teaching method", "instructional approach", "educational practice"]
 antonyms: []
 collocations: ["modern pedagogy", "pedagogy and curriculum", "digital pedagogy", "student-centred pedagogy", "pedagogical approach"]

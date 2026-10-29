@@ -172,7 +172,7 @@ prompt: "I have ____ suggestions for improving this report."
 options: ["a few", "a little", "much", "little"]
 answer: 0
 grammar_article_slug: "quantifiers"
-explain: "'suggestions' đếm được số nhiều + nghĩa dương tính (có một số, đủ dùng) → a few."
+explain: "'suggestions' đếm được số nhiều + nghĩa dương tính (có một vài, vẫn có) → a few."
 ---
 
 ---

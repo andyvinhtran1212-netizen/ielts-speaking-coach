@@ -248,7 +248,7 @@ it('lost managed reset ACK never treats an empty resume as confirmation or start
   render(<QuizPlayer />); await screen.findByRole('button', { name: '♻️ Làm lại từ đầu' });
   const before = (window.api.getWith as any).mock.calls.length;
   fireEvent.click(screen.getByRole('button', { name: '♻️ Làm lại từ đầu' }));
-  await screen.findByText(/Không xác nhận được việc xoá tiến độ/);
+  await screen.findByText(/Không xác nhận được việc xóa tiến độ/);
   expect(window.api.post).toHaveBeenCalledTimes(1); expect((window.api.getWith as any).mock.calls.length).toBe(before);
   expect(window.api.patch).not.toHaveBeenCalled();
 });

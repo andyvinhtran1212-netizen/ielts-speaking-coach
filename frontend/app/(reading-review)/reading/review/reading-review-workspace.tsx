@@ -22,9 +22,11 @@ import {
   readingEvidenceMatchesTarget,
   readingReviewBackTarget,
   readingReviewAnswerStatus,
+  readingReviewMatchesFilter,
   readingReviewParams,
   readingReviewPrompt,
   readingReviewSkillRows,
+  readingReviewTotals,
   splitReviewProse,
   splitReviewSteps,
 } from '@/lib/reading-review-model.mjs';
@@ -33,7 +35,7 @@ import { ReviewContextNotice, ReviewQuestionContext } from '@/components/review-
 
 type Phase = 'loading' | 'ready' | 'empty' | 'error';
 type PassageMode = 'original' | 'translation';
-type ReviewFilter = 'wrong' | 'all' | 'correct';
+type ReviewFilter = 'wrong' | 'blank' | 'all' | 'correct';
 type EvidenceTarget = { questionNumber: number; passageOrder: number };
 
 const QUESTION_TYPE_LABELS: Readonly<Record<string, string>> = READING_QUESTION_LABELS;
@@ -560,7 +562,7 @@ export function ReadingReviewWorkspace() {
           return;
         }
         setSnapshot({ ownerKey: ownerKey!, data: normalized });
-        const firstWrong = normalized.review.find((item: any) => !item.correct);
+        const firstWrong = normalized.review.find((item: any) => readingReviewMatchesFilter(item, 'wrong'));
         const firstItem = firstWrong || normalized.review[0];
         setCurrentPart(firstItem.passage_order);
         setCurrentQuestion(firstItem.q_num);
@@ -593,13 +595,12 @@ export function ReadingReviewWorkspace() {
   }, [data?.preview]);
 
   const allCurrentItems = useMemo(() => (data?.review || []).filter((item: any) => item.passage_order === currentPart), [currentPart, data]);
-  const currentItems = useMemo(() => allCurrentItems.filter((item: any) => (
-    filter === 'wrong' ? !item.correct : filter === 'correct' ? item.correct : true
-  )), [allCurrentItems, filter]);
+  const currentItems = useMemo(() => allCurrentItems.filter((item: any) => readingReviewMatchesFilter(item, filter)), [allCurrentItems, filter]);
   const passage = useMemo(() => (data?.passages || []).find((item: any) => item.passage_order === currentPart) || null, [currentPart, data]);
   const back = useMemo(() => readingReviewBackTarget(params), [params]);
   const skills = useMemo(() => readingReviewSkillRows(data?.skillBreakdown, SKILL_LABELS, data?.review), [data]);
-  const wrongCount = data?.review.filter((item: any) => !item.correct).length || 0;
+  const totals = useMemo(() => readingReviewTotals(data?.review), [data]);
+  const wrongCount = totals.incorrect + totals.blank;
 
   useEffect(() => {
     const host = surveyRef.current;
@@ -623,7 +624,7 @@ export function ReadingReviewWorkspace() {
   }, [data, params?.anonId]);
 
   const selectQuestion = useCallback((item: any) => {
-    if (filter !== 'all' && ((filter === 'wrong') === item.correct)) setFilter('all');
+    if (filter !== 'all' && !readingReviewMatchesFilter(item, filter)) setFilter('all');
     setEvidenceTarget(null);
     setCurrentPart(item.passage_order);
     setCurrentQuestion(item.q_num);
@@ -690,9 +691,9 @@ export function ReadingReviewWorkspace() {
           <header className="rr-review-header" ref={reviewHeaderRef}>
             <div><p className="rr-review-header__eyebrow">BÀN CHỮA BÀI</p><h1>Hiểu lỗi, sửa đúng cách</h1><p className="rr-review-header__copy">{data.preview
               ? `${data.review.length} câu trong đề · Xem đáp án, trích đoạn nguồn và lời giải trước khi xuất bản.`
-              : `${wrongCount} câu cần xem lại · ${data.review.length - wrongCount} câu đúng. ${wrongCount ? 'Bắt đầu từ câu sai, tự định vị bằng chứng rồi mới mở lời giải.' : 'Bạn đã trả lời đúng toàn bộ bài này.'}`}</p></div>
+              : `${totals.incorrect} câu sai · ${totals.blank} câu bỏ trống · ${totals.correct} câu đúng. ${wrongCount ? 'Bắt đầu từ câu sai, tự định vị bằng chứng rồi mới mở lời giải.' : 'Bạn đã trả lời đúng toàn bộ bài này.'}`}</p></div>
             {!data.preview ? <div className="rr-filter" role="group" aria-label="Lọc kết quả câu hỏi">{([
-              ['wrong', 'Cần xem lại'], ['all', 'Tất cả'], ['correct', 'Đúng'],
+              ['wrong', 'Cần xem lại'], ['blank', 'Bỏ trống'], ['all', 'Tất cả'], ['correct', 'Đúng'],
             ] as [ReviewFilter, string][]).map(([value, label]) => <button type="button" className={`rr-filter__button${filter === value ? ' is-active' : ''}`} aria-pressed={filter === value} onClick={() => setFilter(value)} key={value}>{label}</button>)}</div> : null}
           </header>
           <div className="rr-review-tools">

@@ -16,6 +16,11 @@ Evidence record with citations, staging queries and full SQL:
 [`research.md`](research.md) (written before #1732 merged; this spec is the
 canonical contract).
 
+Revision 1 (approved by Vinh 2026-10-28 21:23 UTC+7, see
+[`approval-decision.md`](approval-decision.md)): the 409
+`ASSIGNMENT_STARTED_DETAIL` wording follows Content Manager review item #9 for
+#1836. FR-001…FR-004 are unchanged.
+
 ## Problem
 
 `writing_drafts.assignment_id` references `writing_assignments(id)` with
@@ -40,13 +45,18 @@ assignments; zero orphan drafts.
   postcondition; no data change).
 - `delete_unstarted_assignment` maps a foreign-key violation (`23503`) on its
   final `DELETE` to the existing 409 `ASSIGNMENT_STARTED_DETAIL`
-  ("Học viên đã bắt đầu — không xoá được") instead of a 500.
+  ("Học viên đã bắt đầu làm bài nên không xóa được bài giao này.") instead of a 500.
+- Revision 1: `ASSIGNMENT_STARTED_DETAIL` changes from "Học viên đã bắt đầu — không xoá được" to
+  "Học viên đã bắt đầu làm bài nên không xóa được bài giao này." (Content Manager review item #9 for #1836, "xóa" spelling); the
+  pinned backend test, the admin delete-dialog browser verifier and the
+  migrations README follow. Status code, routes and refusal rules are unchanged.
 - Tests for the migration and the 23503 → 409 mapping; migrations README.
 
 ## Non-goals
 
 - Soft-delete of writing assignments (`deleted_at`), rejected in `research.md` §3.
-- Changing part A's status/draft/essay rules or the 409 message.
+- Changing part A's status/draft/essay rules or the 409 status code (only the
+  message wording changes, in Revision 1).
 - Class assignment deletion (already guarded by the 179/283 RPC).
 - Student deletion semantics (STUDENTARCHIVE-0029).
 

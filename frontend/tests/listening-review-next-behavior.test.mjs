@@ -8,8 +8,10 @@ import {
   listeningBandLabel,
   listeningReviewAnswerState,
   listeningReviewBackTarget,
+  listeningReviewMatchesFilter,
   listeningReviewParams,
   listeningReviewSection,
+  listeningReviewTotals,
   listeningSkillsToPractise,
   listeningTranscriptParagraphs,
   normalizeListeningReview,
@@ -58,13 +60,30 @@ describe('Listening review native model', () => {
     assert.equal(listeningReviewAnswerState({ correct: false, user_answer: ' B ' }), 'incorrect');
     assert.equal(listeningReviewAnswerState({ correct: true, user_answer: '' }), 'correct');
   });
+  test('filters and totals unanswered apart from incorrect while "wrong" keeps both (FR-013)', () => {
+    const review = [
+      { q_num: 1, correct: false, user_answer: null },
+      { q_num: 2, correct: false, user_answer: 0 },
+      { q_num: 3, correct: true, user_answer: '' },
+      { q_num: 4, correct: true, user_answer: 'C' },
+    ];
+    const before = JSON.stringify(review);
+    const shown = (filter) => review.filter((item) => listeningReviewMatchesFilter(item, filter)).map((item) => item.q_num);
+    assert.deepEqual(shown('wrong'), [1, 2]);
+    assert.deepEqual(shown('blank'), [1]);
+    assert.deepEqual(shown('correct'), [3, 4]);
+    assert.deepEqual(shown('all'), [1, 2, 3, 4]);
+    assert.deepEqual(listeningReviewTotals(review), { incorrect: 1, unanswered: 1, correct: 2 });
+    assert.deepEqual(listeningReviewTotals(undefined), { incorrect: 0, unanswered: 0, correct: 0 });
+    assert.equal(JSON.stringify(review), before);
+  });
   test('parses only allowlisted origins and requires a sitting to return to mock', () => {
     assert.deepEqual(listeningReviewParams('?attempt_id=a&from=practice'), {
       attemptId: 'a', adminTestId: null, from: 'practice', sittingId: null,
     });
     const hostile = listeningReviewParams('?attempt_id=a&from=https://evil.test&sitting=x');
     assert.equal(hostile.from, 'full');
-    assert.deepEqual(listeningReviewBackTarget(hostile), { href: '/listening/tests', label: '← Listening tests' });
+    assert.deepEqual(listeningReviewBackTarget(hostile), { href: '/listening/tests', label: '← Bài thi Listening' });
     assert.equal(listeningReviewBackTarget(listeningReviewParams('?attempt_id=a&from=mock&sitting=s%2F1')).href, '/mock/result?sitting=s%2F1');
     assert.deepEqual(listeningReviewBackTarget(listeningReviewParams('?attempt_id=a&from=my-class')), {
       href: '/my-class', label: '← Lớp học của tôi',
@@ -140,8 +159,10 @@ describe('Listening review native controller contract', () => {
 
   test('defaults to wrong answers, but palette jumps reveal filtered cards', () => {
     assert.match(CLIENT, /setFilter\(normalized\.preview \? 'all' : \(wrong \? 'wrong' : 'all'\)\)/);
-    assert.match(CLIENT, /if \(filter !== 'all'[\s\S]{0,100}setFilter\('all'\)/);
-    assert.match(CLIENT, /filter === 'wrong' \? !item\.correct/);
+    assert.match(CLIENT, /review\.filter\(\(item: any\) => listeningReviewMatchesFilter\(item, 'wrong'\)\)\.length/);
+    assert.match(CLIENT, /if \(filter !== 'all' && !listeningReviewMatchesFilter\(item, filter\)\) setFilter\('all'\)/);
+    assert.match(CLIENT, /\.filter\(\(item: any\) => listeningReviewMatchesFilter\(item, filter\)\)/);
+    assert.doesNotMatch(CLIENT, /filter === 'wrong' \? !item\.correct/);
     assert.match(CLIENT, /Nghe đoạn/);
     assert.match(CLIENT, /Transcript và tín hiệu/);
     assert.match(CLIENT, /Paraphrase và bẫy/);

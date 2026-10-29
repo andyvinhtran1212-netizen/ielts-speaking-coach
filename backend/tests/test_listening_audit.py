@@ -693,3 +693,125 @@ def test_matching_editor_reads_and_persists_shared_option_bank(monkeypatch):
     out = _patch(monkeypatch, ex["id"], hydrated["all_questions"][0]["q_num"], {"options": replacement}, stub)
     assert stub.updated_payload["metadata"]["match_options"] == replacement
     assert out["question"]["options"] == replacement
+
+
+# ── plan_label map answer leak (MOCKREPAIR-0016 L012-03) ────────────────────
+
+# Same layout as the ILR-LIS-012 Q16–20 plan: every tested room printed next to
+# its letter, so the map hands the learner all five answers.
+_LEAKY_PLAN_SVG = (
+    "<svg viewBox='0 0 600 400' xmlns='http://www.w3.org/2000/svg'>"
+    "<text x='278' y='200'>inner doors</text>"
+    "<text x='110' y='120' font-weight='bold'>C</text><text x='102' y='140'>IT suite</text>"
+    "<text x='285' y='120' font-weight='bold'>F</text><text x='262' y='140'>Welcome desk</text>"
+    "<text x='450' y='120' font-weight='bold'>D</text><text x='420' y='140'>Cafe space</text>"
+    "<text x='115' y='240' font-weight='bold'>A</text><text x='100' y='260'>Activity hall</text>"
+    "<text x='275' y='240' font-weight='bold'>B</text><text x='260' y='260'>Craft studio</text>"
+    "<text x='400' y='240' font-weight='bold'>G</text><text x='385' y='260'>Storeroom</text>"
+    "<text x='285' y='340' font-weight='bold'>E</text><text x='245' y='345'>Garden room</text>"
+    "<text x='250' y='395'>ENTRANCE</text></svg>"
+)
+# The corrected plan: letters A–H plus the labels the task gives away on purpose.
+_CLEAN_PLAN_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 440">'
+    + "".join(f'<text x="{40 * i}" y="20">{ch}</text>' for i, ch in enumerate("EABGCDFH"))
+    + '<text x="470" y="229">Welcome desk</text><text x="200" y="128">Storeroom</text>'
+    '<text x="378" y="221">inner doors</text><text x="552" y="245">Entrance</text>'
+    '<text x="35" y="28">N</text></svg>'
+)
+_PLAN_PROMPTS = {16: "IT suite", 17: "Cafe space", 18: "Activity hall",
+                 19: "Craft studio", 20: "Garden room"}
+
+
+def _plan_payload(**over):
+    payload = {
+        "template_kind": "plan_label",
+        "instruction": "Label the plan below. Write the correct letter, A-H, next to questions 16-20.",
+        "metadata": {"letter_options": list("ABCDEFGH")},
+        "map_svg": _LEAKY_PLAN_SVG,
+        "questions": [{"q_num": n, "prompt": p} for n, p in _PLAN_PROMPTS.items()],
+        "answers": [{"q_num": n, "answer": a} for n, a in zip(_PLAN_PROMPTS, "CDABE")],
+        "audio_windows": {str(n): {"start": n, "end": n + 5} for n in _PLAN_PROMPTS},
+    }
+    payload.update(over)
+    return payload
+
+
+def _plan_hydrate(payload):
+    test = {"id": "t-uuid", "test_id": "ILR-LIS-PLAN", "metadata": {},
+            "full_audio_storage_path": "x.mp3", "full_audio_duration_seconds": 400}
+    content = {"id": "c-uuid", "section_num": 2, "transcript": "script"}
+    ex = {"id": "ex-plan", "content_id": "c-uuid", "order_num": 1, "payload": payload}
+    return audit.hydrate_test(test, [content], [ex])
+
+
+def _map_issues(issues):
+    return [i for i in issues if i["code"] in ("map_leaks_answer", "map_raster_unchecked")]
+
+
+def test_map_svg_printing_tested_location_flags_that_question():
+    issues = _map_issues(audit.structural_checks(_plan_hydrate(_plan_payload())))
+    by_q = {i["q_num"]: i for i in issues}
+    assert sorted(by_q) == [16, 17, 18, 19, 20]
+    q16 = by_q[16]
+    assert (q16["code"], q16["severity"], q16["dimension"], q16["source"]) == (
+        "map_leaks_answer", "error", "question", "structural")
+    assert '"IT suite"' in q16["message"]
+
+
+def test_map_svg_with_only_letters_and_given_labels_is_clean():
+    payload = _plan_payload(map_svg=_CLEAN_PLAN_SVG)
+    assert audit.plan_label_map_findings(payload) == []
+    assert _map_issues(audit.structural_checks(_plan_hydrate(payload))) == []
+
+
+def test_raster_only_map_is_an_unchecked_warning_not_an_error():
+    payload = _plan_payload(map_svg=None, map_image_storage_path="tests/x/maps/plan.png")
+    issues = _map_issues(audit.structural_checks(_plan_hydrate(payload)))
+    assert [(i["code"], i["severity"], i["q_num"]) for i in issues] == [
+        ("map_raster_unchecked", "warning", 16)]
+    assert "16–20" in issues[0]["message"]
+    # A signed URL injected by the student endpoint counts as raster too.
+    assert [f["code"] for f in audit.plan_label_map_findings(
+        _plan_payload(map_svg=None, map_image_url="https://x/map.png"))] == ["map_raster_unchecked"]
+
+
+def test_map_leak_normalises_case_punctuation_accents_and_tspans():
+    svg = ("<svg><text>A</text><text>Water-lily <tspan x='1' dy='12'>HOUSE</tspan></text>"
+           "<text>Caf&#233;</text><text>spa</text></svg>")
+    payload = _plan_payload(map_svg=svg, questions=[
+        {"q_num": 1, "prompt": "Water Lily House"},
+        {"q_num": 2, "prompt": "Café space"},          # split over two <text> lines
+        {"q_num": 3, "prompt": "3. Spa"},              # q-number prefix ignored
+        {"q_num": 4, "prompt": "A"},                   # a lone marker letter is not a leak
+        {"q_num": 5, "prompt": "Cactus House"},
+        {"q_num": 6, "prompt": "Lily"},                # whole words inside a longer label still leak
+    ])
+    found = {f["q_num"]: f["leaked"] for f in audit.plan_label_map_findings(payload)}
+    assert found == {1: "Water Lily House", 3: "Spa", 6: "Lily"}
+
+
+def test_map_leak_matches_whole_words_only():
+    payload = _plan_payload(map_svg="<svg><text>Greenhouse</text><text>Hall B</text></svg>",
+                            questions=[{"q_num": 1, "prompt": "house"},
+                                       {"q_num": 2, "prompt": "Hall"}])
+    assert [f["q_num"] for f in audit.plan_label_map_findings(payload)] == [2]
+
+
+def test_map_check_ignores_non_plan_label_and_missing_visual():
+    assert audit.plan_label_map_findings({"template_kind": "matching",
+                                          "map_svg": _LEAKY_PLAN_SVG}) == []
+    # No visual at all is no_map_image's job, not a map-leak finding.
+    issues = audit.structural_checks(_plan_hydrate(_plan_payload(map_svg=None)))
+    assert _map_issues(issues) == []
+    assert {i["code"] for i in issues if i["q_num"] == 16} >= {"no_map_image"}
+
+
+def test_existing_map_drill_fixture_has_no_map_findings():
+    h, _ = _hydrate("MAP")
+    assert _map_issues(audit.structural_checks(h)) == []
+
+
+def test_map_issue_codes_backfill_as_structural():
+    saved = [{"code": "map_leaks_answer"}, {"code": "map_raster_unchecked"}]
+    assert {i["source"] for i in audit.with_issue_sources(saved)} == {"structural"}

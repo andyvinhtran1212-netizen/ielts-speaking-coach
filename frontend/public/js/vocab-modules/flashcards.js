@@ -369,7 +369,7 @@ export async function mount(container, opts = {}) {
 
   async function deleteStack(stackId) {
     if (!stackId) return;
-    if (!confirm('Xoá stack này? (Tiến độ ôn tập của các thẻ vẫn được giữ)')) return;
+    if (!confirm('Xóa stack này? (Tiến độ ôn tập của các thẻ vẫn được giữ)')) return;
     try {
       const res = await fetch(BASE + '/api/flashcards/stacks/' + encodeURIComponent(stackId), {
         method: 'DELETE',
@@ -378,17 +378,17 @@ export async function mount(container, opts = {}) {
       });
       if (disposed) return;
       if (res.status === 204 || res.ok) {
-        toast('Đã xoá stack.', 'success');
+        toast('Đã xóa stack.', 'success');
         renderStacks();
       } else {
         const err = await res.json().catch(() => ({}));
         if (disposed) return;
-        toast(err.detail || 'Không xoá được stack.', 'error');
+        toast(err.detail || 'Không xóa được stack.', 'error');
       }
     } catch (err) {
       if (disposed || err?.name === 'AbortError') return;
       console.error('[flashcards] delete', err);
-      toast('Không xoá được stack.', 'error');
+      toast('Không xóa được stack.', 'error');
     }
   }
 

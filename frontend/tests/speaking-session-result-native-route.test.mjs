@@ -49,7 +49,7 @@ describe('/result — native React ownership', () => {
     for (const contract of [
       'Tải báo cáo PDF', 'Luyện lại chủ đề này', 'Grammar Resources',
       'Phân tích phát âm chuyên sâu', 'Từ vựng mới ghi nhận', 'Điểm cần luyện',
-      'Grammar Issues (LanguageTool)', 'Bản ghi lời nói',
+      'Lỗi ngữ pháp (LanguageTool)', 'Bản ghi lời nói',
     ]) assert.match(BEHAVIOR, new RegExp(contract.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
     assert.doesNotMatch(BEHAVIOR, /__html|\.innerHTML\s*=/);
   });

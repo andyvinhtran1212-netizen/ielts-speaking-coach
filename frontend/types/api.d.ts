@@ -480,6 +480,13 @@ export interface paths {
          *     Admin-only. Self-demotion is blocked so an admin can't accidentally
          *     lock themselves out of the panel. Role values are constrained to a
          *     small allow-list so a typo doesn't quietly write garbage.
+         *
+         *     ADMINAAL2-0032 FR-007: the change goes through ``fn_set_staff_privilege``
+         *     (audited, attributed, 409 ``last_admin``), and a change that removes admin
+         *     or instructor privilege revokes the target's sessions. A revocation
+         *     failure keeps the change and answers ``sessions_revoked: false`` with
+         *     ``revoke_error`` (FR-008). FR-019 (migration 336): a suspended account's
+         *     role change is 409 ``account_suspended_role_change``.
          */
         patch: operations["admin_set_user_role_admin_users__user_id__role_patch"];
         trace?: never;
@@ -1345,12 +1352,19 @@ export interface paths {
         put?: never;
         /**
          * Backfill Vocab Enrichment
-         * @description Trigger a background job that enriches user_vocabulary rows missing
-         *     `ipa` or `example_sentence` (i.e. rows that pre-date migration 029
-         *     or whose Gemini call failed during Phase B extraction).
+         * @description Trigger a background job that enriches user_vocabulary rows with an
+         *     empty `ipa`, `example_sentence`, `definition_vi` or `definition_en`
+         *     (i.e. rows that pre-date migration 029 or whose Gemini call failed
+         *     during Phase B extraction).  Only columns that are NULL, empty or
+         *     whitespace are filled; existing values are never overwritten.
+         *
+         *     `dry_run=true` runs the same row selection synchronously and returns,
+         *     per row, the columns that would be filled.  It calls no model and
+         *     writes nothing.
          *
          *     Caps at 500/call so an admin can't accidentally fan out across the
-         *     whole bank in one click.  Re-run the endpoint to process the next
+         *     whole bank in one click.  Within a call, one owner contributes at most
+         *     50 rows and inactive owners are skipped (INACTIVEWRITE-0035 follow-up).  Re-run the endpoint to process the next
          *     batch — the WHERE clause naturally moves forward as rows get filled.
          *
          *     Cost estimate is best-effort: Gemini Flash batch is ~$0.0005 per
@@ -1628,6 +1642,107 @@ export interface paths {
          *     stays unknown even with a successful canonical result and capture enabled.
          */
         get: operations["inspect_core_attempt_admin_core_attempt_evidence__surface___canonical_attempt_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mfa/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin Mfa Status
+         * @description The caller's own second-factor state. Requires role admin and an active
+         *     account, but accepts an AAL1 session so the MFA page can enroll or
+         *     challenge (FR-004). Returns no other user's or domain data.
+         */
+        get: operations["admin_mfa_status_admin_mfa_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{user_id}/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Admin Set Staff Active
+         * @description Suspend (``is_active: false``) or reactivate an admin or instructor.
+         *
+         *     Suspension sets the durable marker, then bans sign-in and revokes every
+         *     session. A revocation failure keeps the suspension and answers
+         *     ``sessions_revoked: false`` with ``revoke_error`` (retry with
+         *     ``POST …/revoke-sessions``). Reactivation lifts the ban FIRST and only
+         *     then clears the marker: if GoTrue refuses the unban, nothing changes
+         *     (``ok: false``, ``changed: false``, ``sign_in_restored: false``), the
+         *     account stays suspended with its role frozen (FR-019), and repeating this
+         *     request retries. A ban can therefore never outlive the marker, which is
+         *     the only state this route can retry from. A repeat of the same request
+         *     writes no second audit row. Requests for the same account are serialized
+         *     across workers; a lock that cannot be taken is a 503 ``target_busy``
+         *     before any change.
+         */
+        patch: operations["admin_set_staff_active_admin_users__user_id__active_patch"];
+        trace?: never;
+    };
+    "/admin/users/{user_id}/revoke-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Revoke Staff Sessions
+         * @description Retry a revocation (FR-008). The mode comes from the committed row at
+         *     retry time: ban + delete while the account is suspended, delete only
+         *     otherwise (a demoted or reactivated account is never re-banned). It is
+         *     serialized with suspension and reactivation of the same account. Every
+         *     attempt is audited; a failure also alerts the owner.
+         */
+        post: operations["admin_revoke_staff_sessions_admin_users__user_id__revoke_sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{user_id}/security-audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin Staff Security Audit
+         * @description The user's privilege and security history, newest first, with the
+         *     owner-alert delivery status (FR-015). A lookup failure is a 503, never an
+         *     empty list.
+         */
+        get: operations["admin_staff_security_audit_admin_users__user_id__security_audit_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3006,6 +3121,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/ai/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ai Models
+         * @description Effective provider order and models per routed feature, with sources.
+         */
+        get: operations["get_ai_models_admin_ai_models_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/ai/models/{feature}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Patch Ai Model Override
+         * @description Set or clear (null) a feature's preferred provider / Claude model.
+         */
+        patch: operations["patch_ai_model_override_admin_ai_models__feature__patch"];
+        trace?: never;
+    };
+    "/admin/ai/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ai Usage Summary
+         * @description Tokens and estimated cost per feature/provider for a Saigon-day window.
+         */
+        get: operations["get_ai_usage_summary_admin_ai_usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/ai/failures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ai Failures
+         * @description Failure/fallback counts per provider × feature and the latest 50 rows.
+         */
+        get: operations["get_ai_failures_admin_ai_failures_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/writing/essays": {
         parameters: {
             query?: never;
@@ -3921,6 +4116,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/writing/assignments/duplicates-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Duplicates
+         * @description BL-18 — read-only. Which target students already hold any of these
+         *     prompts, computed like the give's own `duplicates_warning`, so the UI can
+         *     ask for confirmation BEFORE the give instead of only warning after it.
+         *     Writes nothing; the give itself stays allow + warn.
+         */
+        post: operations["preview_duplicates_admin_writing_assignments_duplicates_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/writing/assignments/requests/{request_id}": {
         parameters: {
             query?: never;
@@ -4167,6 +4385,28 @@ export interface paths {
         put?: never;
         /** Fan Out */
         post: operations["fan_out_instructor_assignments_fan_out_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/instructor/assignments/duplicates-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fan Out Duplicates Preview
+         * @description BL-18 — read-only. Class members who already hold any of these prompts,
+         *     computed like the fan-out's own `duplicates_warning`, so the UI can confirm
+         *     a re-give BEFORE writing. Same ownership gates as the fan-out (403).
+         */
+        post: operations["fan_out_duplicates_preview_instructor_assignments_duplicates_preview_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -12804,6 +13044,56 @@ export interface components {
             /** Reason */
             reason?: string | null;
         };
+        /** AdminAiFailuresOut */
+        AdminAiFailuresOut: {
+            window: components["schemas"]["AiWindowOut"];
+            /**
+             * Store Status
+             * @enum {string}
+             */
+            store_status: "ok" | "not_migrated";
+            totals: components["schemas"]["AiFailureTotalsOut"];
+            /** By Provider Feature */
+            by_provider_feature: components["schemas"]["AiFailureGroupOut"][];
+            /** Recent */
+            recent: components["schemas"]["AiFailureRecordOut"][];
+        };
+        /** AdminAiModelsOut */
+        AdminAiModelsOut: {
+            /** Features */
+            features: components["schemas"]["AiFeatureConfigOut"][];
+            /** Anthropic Models */
+            anthropic_models: string[];
+            /** Anthropic Key Configured */
+            anthropic_key_configured: boolean;
+            store: components["schemas"]["AiOverrideStoreOut"];
+            /** Recent Changes */
+            recent_changes: components["schemas"]["AiOverrideAuditOut"][];
+            /** Recent Changes Error */
+            recent_changes_error?: string | null;
+            /**
+             * Computed At
+             * Format: date-time
+             */
+            computed_at: string;
+        };
+        /** AdminAiOverrideIn */
+        AdminAiOverrideIn: {
+            /** Preferred Provider */
+            preferred_provider?: string | null;
+            /** Anthropic Model */
+            anthropic_model?: string | null;
+        };
+        /** AdminAiUsageOut */
+        AdminAiUsageOut: {
+            window: components["schemas"]["AiWindowOut"];
+            totals: components["schemas"]["AiUsageTotalsOut"];
+            /** By Feature */
+            by_feature: components["schemas"]["AiUsageFeatureOut"][];
+            /** By Provider */
+            by_provider: components["schemas"]["AiUsageProviderOut"][];
+            meta: components["schemas"]["AiUsageMetaOut"];
+        };
         /** AdminBulkActionRequest */
         AdminBulkActionRequest: {
             /** Ids */
@@ -13258,6 +13548,26 @@ export interface components {
             state?: ("blank" | "checked" | "unscored" | "technical_error") | null;
         } & {
             [key: string]: unknown;
+        };
+        /**
+         * AdminMfaStatusOut
+         * @description The caller's own second-factor state (FR-004). No other user's data.
+         */
+        AdminMfaStatusOut: {
+            /**
+             * Aal
+             * @enum {string}
+             */
+            aal: "aal1" | "aal2";
+            /** Enforce */
+            enforce: boolean;
+            /** Verified Factor Count */
+            verified_factor_count: number;
+            /**
+             * Next Step
+             * @enum {string}
+             */
+            next_step: "none" | "enroll" | "challenge";
         };
         /** AdminMockExamListResponse */
         AdminMockExamListResponse: {
@@ -13783,6 +14093,294 @@ export interface components {
              */
             duration_sec: number;
         };
+        /** AiChainStepOut */
+        AiChainStepOut: {
+            /** Provider */
+            provider: string;
+            /** Slot */
+            slot: string;
+            /** Model */
+            model: string | null;
+            /**
+             * Model Source
+             * @enum {string}
+             */
+            model_source: "db_override" | "env" | "code_default";
+            /** Available */
+            available: boolean;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /** AiExistingModelOut */
+        AiExistingModelOut: {
+            /** Model */
+            model: string;
+            /** Setting */
+            setting: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "db_override" | "env" | "code_default";
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /** AiFailureGroupOut */
+        AiFailureGroupOut: {
+            /** Total */
+            total: number;
+            /** Retry */
+            retry: number;
+            /** Fallback */
+            fallback: number;
+            /** Final */
+            final: number;
+            /** Provider */
+            provider: string;
+            /** Feature */
+            feature: string;
+            /** By Error Type */
+            by_error_type: {
+                [key: string]: number;
+            };
+        };
+        /** AiFailureRecordOut */
+        AiFailureRecordOut: {
+            /** Id */
+            id: number;
+            /** Created At */
+            created_at: string;
+            /** Feature */
+            feature: string;
+            /** Provider */
+            provider: string;
+            /** Model */
+            model: string | null;
+            /** Route Slot */
+            route_slot: string | null;
+            /** Attempt */
+            attempt: number | null;
+            /** Error Type */
+            error_type: string;
+            /** Error Code */
+            error_code: string | null;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "retry" | "fallback" | "final";
+        };
+        /** AiFailureTotalsOut */
+        AiFailureTotalsOut: {
+            /** Total */
+            total: number;
+            /** Retry */
+            retry: number;
+            /** Fallback */
+            fallback: number;
+            /** Final */
+            final: number;
+        };
+        /** AiFeatureConfigOut */
+        AiFeatureConfigOut: {
+            /** Feature */
+            feature: string;
+            /** Label */
+            label: string;
+            /** Existing Provider */
+            existing_provider: string;
+            /** Allowed Providers */
+            allowed_providers: string[];
+            /** Routing Note */
+            routing_note?: string | null;
+            /** Effective Order */
+            effective_order: components["schemas"]["AiChainStepOut"][];
+            preferred_provider: components["schemas"]["AiSourcedValueOut"];
+            anthropic_model: components["schemas"]["AiSourcedValueOut"];
+            /** Existing Models */
+            existing_models: components["schemas"]["AiExistingModelOut"][];
+            override: components["schemas"]["AiOverrideOut"] | null;
+        };
+        /** AiOverrideAuditOut */
+        AiOverrideAuditOut: {
+            /** Id */
+            id: number;
+            /** Feature */
+            feature: string;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "insert" | "update" | "delete";
+            /** Old Preferred Provider */
+            old_preferred_provider: string | null;
+            /** New Preferred Provider */
+            new_preferred_provider: string | null;
+            /** Old Anthropic Model */
+            old_anthropic_model: string | null;
+            /** New Anthropic Model */
+            new_anthropic_model: string | null;
+            /** Changed By */
+            changed_by: string | null;
+            /** Changed By Email */
+            changed_by_email: string | null;
+            /** Changed At */
+            changed_at: string;
+        };
+        /** AiOverrideOut */
+        AiOverrideOut: {
+            /** Preferred Provider */
+            preferred_provider: string | null;
+            /** Anthropic Model */
+            anthropic_model: string | null;
+            /** Updated At */
+            updated_at: string | null;
+            /** Updated By */
+            updated_by: string | null;
+            /** Updated By Email */
+            updated_by_email?: string | null;
+            /** Invalid Fields */
+            invalid_fields?: string[];
+        };
+        /** AiOverrideStoreOut */
+        AiOverrideStoreOut: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "stale" | "unavailable" | "not_migrated" | "not_loaded";
+            /** Last Refreshed At */
+            last_refreshed_at: string | null;
+            /** Last Error */
+            last_error: string | null;
+            /** Ttl Seconds */
+            ttl_seconds: number;
+        };
+        /** AiSourcedValueOut */
+        AiSourcedValueOut: {
+            /** Value */
+            value: string | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "db_override" | "env" | "code_default";
+        };
+        /** AiUsageFeatureOut */
+        AiUsageFeatureOut: {
+            /** Calls */
+            calls: number;
+            /** Failed Calls */
+            failed_calls: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Thinking Tokens */
+            thinking_tokens: number;
+            /** Cache Read Tokens */
+            cache_read_tokens: number;
+            /** Cache Write Tokens */
+            cache_write_tokens: number;
+            /** Cost Usd */
+            cost_usd: number;
+            /** Priced Calls */
+            priced_calls: number;
+            /** Unpriced Calls */
+            unpriced_calls: number;
+            /** Legacy Calls */
+            legacy_calls: number;
+            /** Feature */
+            feature: string;
+        };
+        /** AiUsageMetaOut */
+        AiUsageMetaOut: {
+            /**
+             * Source
+             * @constant
+             */
+            source: "ai_usage_logs";
+            /** Note */
+            note: string;
+        };
+        /** AiUsageProviderOut */
+        AiUsageProviderOut: {
+            /** Calls */
+            calls: number;
+            /** Failed Calls */
+            failed_calls: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Thinking Tokens */
+            thinking_tokens: number;
+            /** Cache Read Tokens */
+            cache_read_tokens: number;
+            /** Cache Write Tokens */
+            cache_write_tokens: number;
+            /** Cost Usd */
+            cost_usd: number;
+            /** Priced Calls */
+            priced_calls: number;
+            /** Unpriced Calls */
+            unpriced_calls: number;
+            /** Legacy Calls */
+            legacy_calls: number;
+            /** Provider */
+            provider: string;
+        };
+        /** AiUsageTotalsOut */
+        AiUsageTotalsOut: {
+            /** Calls */
+            calls: number;
+            /** Failed Calls */
+            failed_calls: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Thinking Tokens */
+            thinking_tokens: number;
+            /** Cache Read Tokens */
+            cache_read_tokens: number;
+            /** Cache Write Tokens */
+            cache_write_tokens: number;
+            /** Cost Usd */
+            cost_usd: number;
+            /** Priced Calls */
+            priced_calls: number;
+            /** Unpriced Calls */
+            unpriced_calls: number;
+            /** Legacy Calls */
+            legacy_calls: number;
+        };
+        /** AiWindowOut */
+        AiWindowOut: {
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "today" | "7d" | "30d";
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /** Timezone */
+            timezone: string;
+        };
         /**
          * AnalyticsEventPayload
          * @description Small, non-sensitive telemetry envelope.
@@ -14030,6 +14628,11 @@ export interface components {
         AuthActiveStatusResponse: {
             /** Is Active */
             is_active: boolean;
+            /**
+             * Suspended
+             * @default false
+             */
+            suspended: boolean;
         };
         /** AuthMeResponse */
         AuthMeResponse: {
@@ -14045,6 +14648,11 @@ export interface components {
             role: string;
             /** Is Active */
             is_active: boolean;
+            /**
+             * Suspended
+             * @default false
+             */
+            suspended: boolean;
             /** Permissions */
             permissions: string[];
             /** Onboarding Completed */
@@ -15934,6 +16542,30 @@ export interface components {
                 [key: string]: number;
             } | null;
         };
+        /**
+         * DuplicatesPreview
+         * @description The target of a give that has not been sent yet: N prompts plus
+         *     exactly one of `cohort_id` (fan-out) or `student_ids` (individual).
+         */
+        DuplicatesPreview: {
+            /** Prompt Ids */
+            prompt_ids: string[];
+            /** Cohort Id */
+            cohort_id?: string | null;
+            /** Student Ids */
+            student_ids?: string[] | null;
+        };
+        /**
+         * DuplicatesPreviewOut
+         * @description Target students of a give that has not been sent yet, and which of them
+         *     already hold one of its prompts (the give's future `duplicates_warning`).
+         */
+        DuplicatesPreviewOut: {
+            /** Student Count */
+            student_count: number;
+            /** Duplicate Student Ids */
+            duplicate_student_ids: string[];
+        };
         /** EducatorReport */
         EducatorReport: {
             /** Attempt Id */
@@ -16344,11 +16976,14 @@ export interface components {
          *     (NOT skip) so re-giving a prompt in a new "Buổi" works as intended.
          *
          *     `prompt_id` (single) is accepted for back-compat; both normalize to
-         *     `prompt_ids`.
+         *     `prompt_ids`. `request_id` is required (PC-J37, see AssignmentCreate).
          */
         FanOutCreate: {
-            /** Request Id */
-            request_id?: string | null;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
             /** Expected Student Count */
             expected_student_count?: number | null;
             /** Prompt Id */
@@ -16383,6 +17018,16 @@ export interface components {
              * @default 3
              */
             analysis_level: number;
+        };
+        /** FanOutPreviewBody */
+        FanOutPreviewBody: {
+            /** Prompt Ids */
+            prompt_ids: string[];
+            /**
+             * Cohort Id
+             * Format: uuid
+             */
+            cohort_id: string;
         };
         /** FeedbackIn */
         FeedbackIn: {
@@ -20102,6 +20747,22 @@ export interface components {
              */
             reason: "applied" | "replayed" | "conflict";
         };
+        /** RevokeSessionsIn */
+        RevokeSessionsIn: {
+            /** Reason */
+            reason?: string | null;
+        };
+        /** RevokeSessionsOut */
+        RevokeSessionsOut: {
+            /** Ok */
+            ok: boolean;
+            /** Sessions Revoked */
+            sessions_revoked: boolean;
+            /** Revoke Error */
+            revoke_error?: string | null;
+            /** Audit Id */
+            audit_id?: string | null;
+        };
         /** RollbackRequest */
         RollbackRequest: {
             /**
@@ -20122,6 +20783,47 @@ export interface components {
              * @default
              */
             task2_text: string;
+        };
+        /** SecurityAuditOut */
+        SecurityAuditOut: {
+            /** Rows */
+            rows: components["schemas"]["SecurityAuditRowOut"][];
+            /**
+             * Lookup Failed
+             * @default false
+             * @constant
+             */
+            lookup_failed: false;
+        };
+        /** SecurityAuditRowOut */
+        SecurityAuditRowOut: {
+            /** Id */
+            id: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Event */
+            event: string;
+            /** Source */
+            source: string;
+            /** Actor User Id */
+            actor_user_id?: string | null;
+            /** Actor Email */
+            actor_email?: string | null;
+            /** Before */
+            before?: {
+                [key: string]: unknown;
+            } | null;
+            /** After */
+            after?: {
+                [key: string]: unknown;
+            } | null;
+            /** Reason */
+            reason?: string | null;
+            /** Alert Status */
+            alert_status?: ("pending" | "sent" | "failed") | null;
         };
         /** SessionAudioUrl */
         SessionAudioUrl: {
@@ -21245,6 +21947,34 @@ export interface components {
             renderer_affinity?: string | null;
             session_params?: components["schemas"]["SpeakingSessionParams"] | null;
         };
+        /** StaffActiveIn */
+        StaffActiveIn: {
+            /** Is Active */
+            is_active: boolean;
+            /** Reason */
+            reason: string;
+        };
+        /** StaffActiveOut */
+        StaffActiveOut: {
+            /** Ok */
+            ok: boolean;
+            /** Id */
+            id: string;
+            /** Is Active */
+            is_active: boolean;
+            /** Suspended At */
+            suspended_at?: string | null;
+            /** Changed */
+            changed: boolean;
+            /** Audit Id */
+            audit_id?: string | null;
+            /** Sessions Revoked */
+            sessions_revoked?: boolean | null;
+            /** Revoke Error */
+            revoke_error?: string | null;
+            /** Sign In Restored */
+            sign_in_restored?: boolean | null;
+        };
         /** StartGradingRequest */
         StartGradingRequest: {
             /**
@@ -21603,6 +22333,23 @@ export interface components {
             width?: number | null;
             /** Height */
             height?: number | null;
+        };
+        /** UserRoleChangeOut */
+        UserRoleChangeOut: {
+            /** Ok */
+            ok: boolean;
+            /** Id */
+            id: string;
+            /** Role */
+            role: string;
+            /** Changed */
+            changed: boolean;
+            /** Audit Id */
+            audit_id?: string | null;
+            /** Sessions Revoked */
+            sessions_revoked?: boolean | null;
+            /** Revoke Error */
+            revoke_error?: string | null;
         };
         /** UserRolePayload */
         UserRolePayload: {
@@ -22278,10 +23025,16 @@ export interface components {
          *     into IELTS-exam mode.  The pair is enforced together (one without
          *     the other is a 422) — the same invariant the migration's CHECK
          *     constraint enforces at the DB layer.
+         *
+         *     PC-J37: `request_id` is required. Its receipt is what marks the give as
+         *     an admin-tools give; a give without one would read as an /instructor give.
          */
         routers__admin_writing_assignments__AssignmentCreate: {
-            /** Request Id */
-            request_id?: string | null;
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
             /** Prompt Id */
             prompt_id?: string | null;
             /** Prompt Ids */
@@ -23202,7 +23955,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["UserRoleChangeOut"];
                 };
             };
             /** @description Validation Error */
@@ -24751,6 +25504,7 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number;
+                dry_run?: boolean;
             };
             header?: {
                 authorization?: string | null;
@@ -25254,6 +26008,146 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AttemptInspection"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_mfa_status_admin_mfa_status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMfaStatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_set_staff_active_admin_users__user_id__active_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffActiveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffActiveOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_revoke_staff_sessions_admin_users__user_id__revoke_sessions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RevokeSessionsIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevokeSessionsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_staff_security_audit_admin_users__user_id__security_audit_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecurityAuditOut"];
                 };
             };
             /** @description Validation Error */
@@ -27507,6 +28401,140 @@ export interface operations {
             };
         };
     };
+    get_ai_models_admin_ai_models_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAiModelsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_ai_model_override_admin_ai_models__feature__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                feature: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminAiOverrideIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAiModelsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_ai_usage_summary_admin_ai_usage_get: {
+        parameters: {
+            query?: {
+                window?: "today" | "7d" | "30d";
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAiUsageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_ai_failures_admin_ai_failures_get: {
+        parameters: {
+            query?: {
+                window?: "today" | "7d" | "30d";
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAiFailuresOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_essays_admin_writing_essays_get: {
         parameters: {
             query?: {
@@ -29038,6 +30066,41 @@ export interface operations {
             };
         };
     };
+    preview_duplicates_admin_writing_assignments_duplicates_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DuplicatesPreview"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DuplicatesPreviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     verify_assignment_request_admin_writing_assignments_requests__request_id__get: {
         parameters: {
             query?: never;
@@ -29677,6 +30740,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fan_out_duplicates_preview_instructor_assignments_duplicates_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FanOutPreviewBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DuplicatesPreviewOut"];
                 };
             };
             /** @description Validation Error */

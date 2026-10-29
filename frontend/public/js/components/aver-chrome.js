@@ -18,9 +18,12 @@
  *     before any stylesheet loads). The component does not own this —
  *     it must run pre-paint per page.
  *   - <body> must include Supabase init (api.js + initSupabase) BEFORE
- *     or shortly after this component connects. The component polls
- *     window.getSupabase for up to ~3s; if unavailable, the pill
- *     placeholder ("…" / "·") remains.
+ *     or after this component connects. The component polls
+ *     window.getSupabase for up to ~3s, then waits for the Next runtime
+ *     boundary's `aver:supabase-runtime-ready` event (U-21: the chrome no
+ *     longer loads behind that boundary). Until then the pill placeholder
+ *     ("…" / "·") remains on auth-gated routes; on public routes the
+ *     account menu stays hidden until a session is confirmed (U-06).
  *
  * Attributes:
  *   active="home" | "writing" | "speaking" | "grammar" | "vocabulary"
@@ -69,10 +72,41 @@ const VALID_ACTIVE = ['home', 'writing', 'class', 'speaking', 'listening', 'gram
 const POLL_INTERVAL_MS = 50;
 const POLL_MAX_TRIES = 60;
 
+// U-21 — dispatched by components/supabase-runtime-boundary.tsx once api.js
+// has adopted the shared client. Logout waits at most this long for it.
+const RUNTIME_READY_EVENT = 'aver:supabase-runtime-ready';
+const LOGOUT_RUNTIME_WAIT_MS = 5000;
+
 // U-20 — must equal the disclosure @media query in STYLE below.
 const MOBILE_NAV_QUERY = '(max-width: 1024.98px)';
 
-installPerfResourceHints();
+function currentSupabase() {
+  return (typeof window !== 'undefined' && typeof window.getSupabase === 'function')
+    ? window.getSupabase()
+    : null;
+}
+
+// Resolves with the shared client, or null when the runtime is not ready
+// within `timeoutMs`.
+function whenSupabase(timeoutMs) {
+  const ready = currentSupabase();
+  if (ready) return Promise.resolve(ready);
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      window.removeEventListener(RUNTIME_READY_EVENT, done);
+      resolve(currentSupabase());
+    };
+    const timer = setTimeout(done, timeoutMs);
+    window.addEventListener(RUNTIME_READY_EVENT, done);
+  });
+}
+
+// U-21 — the hint origins come from api.js and runtime-config.js. The chrome
+// can now load before both, and hinting then would warm the PRODUCTION
+// fallback origins from staging, so wait for the runtime.
+if (currentSupabase()) installPerfResourceHints();
+else window.addEventListener(RUNTIME_READY_EVENT, () => installPerfResourceHints(), { once: true });
 
 
 // ── Shadow tree template ───────────────────────────────────────────
@@ -405,7 +439,7 @@ const TEMPLATE = /* html */ `
     <div class="nav-links" id="mobile-nav-menu">
       <a href="/home" data-tab="home">Trang chủ</a>
       <a href="/writing/dashboard" data-tab="writing">Writing</a>
-      <a href="/my-class" data-tab="class">MY CLASS</a>
+      <a href="/my-class" data-tab="class">Lớp học</a>
       <a href="/speaking" data-tab="speaking">Speaking</a>
       <a href="/listening" data-tab="listening">Listening</a>
       <a href="/grammar" data-tab="grammar">Grammar</a>
@@ -439,11 +473,10 @@ const TEMPLATE = /* html */ `
         </button>
         <div class="user-menu-dropdown" role="menu" hidden>
           <a href="/profile" class="user-menu-item" role="menuitem">Hồ sơ</a>
-          <!-- W-6b: role-gated (instructor/admin) link to the instructor area.
-               setRole() un-hides it ONLY for instructor/admin (default-hidden =
-               mirrors the backend require_instructor guard). -->
-          <a href="/instructor" class="user-menu-item"
-             id="instructor-link" role="menuitem" hidden>Trang giảng viên</a>
+          <!-- W-6b / Q-40: the role-gated "Trang giảng viên" link (#instructor-link)
+               is NOT in this template — _applyRole() inserts it here, before
+               logout, ONLY for instructor/admin, so a learner's DOM never
+               carries <a href="/instructor"> (mirrors require_instructor). -->
           <button type="button" class="user-menu-item user-menu-item--danger"
                   id="user-menu-logout" role="menuitem">Đăng xuất</button>
         </div>
@@ -469,6 +502,7 @@ export class AverChrome extends HTMLElement {
     this._abortController = null;
     this._docClickHandler = null;
     this._docKeydownHandler = null;
+    this._runtimeReadyHandler = null;
     this._role = null;
   }
 
@@ -480,8 +514,14 @@ export class AverChrome extends HTMLElement {
     // that embeds <aver-chrome> automatically captures uncaught
     // exceptions + Promise rejections. error-reporter.js is idempotent
     // (self-guarded against double-load) so re-injection is safe.
+    // PC-J06 — the chrome can now connect before runtime-config.js, and a
+    // reporter loaded then posts to the PRODUCTION API fallback. Next routes
+    // get the reporter from SupabaseRuntimeBoundary right after the config,
+    // so self-inject only once the config is known.
     try {
-      if (typeof document !== 'undefined' && !document.querySelector('script[data-aver-error-reporter]')) {
+      if (typeof document !== 'undefined'
+          && window.__AVER_RUNTIME_CONFIG__
+          && !document.querySelector('script[data-aver-error-reporter]')) {
         const s = document.createElement('script');
         s.src = '/js/error-reporter.js';
         s.setAttribute('data-aver-error-reporter', '1');
@@ -500,6 +540,10 @@ export class AverChrome extends HTMLElement {
     // Public layouts omit it and retain the public /vocabulary default.
     if (document.querySelector('meta[name="aver-auth-gated"][content="1"]')) {
       this._applyVocabNav(true);
+    } else {
+      // U-06 — a guest on a public route (Grammar Wiki) must not see the
+      // "·" / "…" account placeholder; it appears once a session is found.
+      this._setAccountVisible(false);
     }
     this._applyRole();   // re-apply any role set before the element upgraded
     this._bindToggle();
@@ -607,6 +651,10 @@ export class AverChrome extends HTMLElement {
       clearTimeout(this._pollTimer);
       this._pollTimer = null;
     }
+    if (this._runtimeReadyHandler) {
+      window.removeEventListener(RUNTIME_READY_EVENT, this._runtimeReadyHandler);
+      this._runtimeReadyHandler = null;
+    }
   }
 
   attributeChangedCallback(name, prev, next) {
@@ -619,7 +667,8 @@ export class AverChrome extends HTMLElement {
    * Page-authoritative pill population. Use from page bootstrap that
    * carries context the component itself can't fetch (e.g.,
    * speaking.html /auth/me with permissions). Marks the pill as
-   * page-authoritative so the auto-fetch skips.
+   * page-authoritative so the auto-fetch never overwrites it; the auto
+   * /auth/me role lookup still runs unless `role` is passed here.
    */
   setUser({ name, initials, email, role } = {}) {
     this._userOverride = true;
@@ -627,6 +676,7 @@ export class AverChrome extends HTMLElement {
     if (!this.shadowRoot) return; // mark only; render on connect
 
     this._applyVocabNav(true);   // B3 — page passed a user → logged in → nav → hub
+    this._setAccountVisible(true);
 
     const resolvedName = name || (email && email.split('@')[0]) || 'bạn';
     const resolvedInitials = initials || canonicalInitials(resolvedName);
@@ -639,11 +689,11 @@ export class AverChrome extends HTMLElement {
   }
 
   /**
-   * W-2 — role-gate the "Trang Instructor" nav item. Shows ONLY for
-   * role 'instructor' or 'admin' (admin ⊃ instructor); hidden otherwise.
-   * The item is a disabled placeholder (no href) so it never 404s — the
-   * destination page lands in W-6. Stores the role so a pre-connect call
-   * (page bootstrap before the element upgrades) applies on connect.
+   * W-2 — role-gate the "Trang giảng viên" menu item. Rendered ONLY for
+   * role 'instructor' or 'admin' (admin ⊃ instructor); for any other role it
+   * is removed from the shadow DOM, not merely hidden (Q-40). Stores the role
+   * so a pre-connect call (page bootstrap before the element upgrades)
+   * applies on connect.
    */
   setRole(role) {
     this._role = role || null;
@@ -653,11 +703,22 @@ export class AverChrome extends HTMLElement {
   _applyRole() {
     const root = this.shadowRoot;
     if (!root) return; // pre-connect; connectedCallback re-applies
-    const link = root.getElementById('instructor-link');
-    if (!link) return;
+    const existing = root.getElementById('instructor-link');
     const show = this._role === 'instructor' || this._role === 'admin';
-    if (show) link.removeAttribute('hidden');
-    else link.setAttribute('hidden', '');
+    if (!show) {
+      existing?.remove();
+      return;
+    }
+    if (existing) return;
+    const logout = root.getElementById('user-menu-logout');
+    if (!logout) return;
+    const link = document.createElement('a');
+    link.href = '/instructor';
+    link.className = 'user-menu-item';
+    link.id = 'instructor-link';
+    link.setAttribute('role', 'menuitem');
+    link.textContent = 'Trang giảng viên';
+    logout.before(link);
   }
 
   /**
@@ -668,13 +729,14 @@ export class AverChrome extends HTMLElement {
    *
    * Called from the auto-populate path, which already runs only when:
    *   • a real Supabase session exists (logged-out → never reaches here →
-   *     link stays hidden, mirroring the backend require_instructor guard), and
-   *   • the page hasn't taken over the pill (setUser → _userOverride short-
-   *     circuits the whole auto path) — so speaking.html, which passes its own
-   *     /auth/me role into setUser, does NOT trigger a second fetch here.
+   *     link is never rendered, mirroring the backend require_instructor guard), and
+   *   • the page hasn't supplied the role (setUser({role}) short-circuits the
+   *     whole auto path; setUser({name}) alone does not, Q-82) — so
+   *     speaking.html, which passes its own /auth/me role into setUser, does
+   *     NOT trigger a second fetch here.
    *
    * Fail-closed: any non-OK response or network/parse error leaves the link
-   * hidden and never breaks the chrome. Uses a raw fetch (NOT window.api.get,
+   * unrendered and never breaks the chrome. Uses a raw fetch (NOT window.api.get,
    * which redirects to /login on 401) so a stale token can't bounce the page.
    */
   async _resolveRole(token) {
@@ -686,7 +748,7 @@ export class AverChrome extends HTMLElement {
     // for a SECOND /auth/me (the most expensive call on the page). The attribute
     // is synchronous at parse time, so it wins the race the _role guard cannot.
     if (this.getAttribute('role-source') === 'page') return;
-    if (!token) return;              // unauthenticated → link stays hidden
+    if (!token) return;              // unauthenticated → link never rendered
     const base = (typeof window !== 'undefined' && window.api && window.api.base) || '';
     if (!base) return;
     let role = null;
@@ -702,7 +764,7 @@ export class AverChrome extends HTMLElement {
       return; // network/parse error — fail closed, never break chrome
     }
     if (this._role !== null) return; // raced with a page setRole() during the await
-    this.setRole(role);              // non-instructor / null → link stays hidden
+    this.setRole(role);              // non-instructor / null → link never rendered
   }
 
 
@@ -717,6 +779,11 @@ export class AverChrome extends HTMLElement {
     if (!root) return;
     const link = root.querySelector('.nav-links a[data-tab="vocabulary"]');
     if (link) link.setAttribute('href', loggedIn ? '/vocabulary/hub' : '/vocabulary');
+  }
+
+  _setAccountVisible(visible) {
+    const menu = this.shadowRoot && this.shadowRoot.querySelector('.user-menu');
+    if (menu) menu.hidden = !visible;
   }
 
   _applyActive(value) {
@@ -824,10 +891,9 @@ export class AverChrome extends HTMLElement {
         composed: true,
       }));
       try {
-        const sb = (typeof window !== 'undefined'
-                    && typeof window.getSupabase === 'function')
-                   ? window.getSupabase()
-                   : null;
+        // U-21 — the menu is usable before the runtime adopts the client;
+        // wait for it so an early click still revokes the session.
+        const sb = await whenSupabase(LOGOUT_RUNTIME_WAIT_MS);
         if (sb && sb.auth && typeof sb.auth.signOut === 'function') {
           // U-07: record the session being ended BEFORE the revoke, so /login
           // does not boot it if this page dies mid-revoke.
@@ -871,23 +937,37 @@ export class AverChrome extends HTMLElement {
     }, signal ? { signal } : undefined);
   }
 
+  // PC-J06 — setUser() owns the pill but not the role: since the chrome now
+  // connects before the runtime, a page's setUser({name}) (e.g. /home) can
+  // land before this path runs, and it must still resolve the /auth/me role
+  // unless the page already supplied one.
+  _pageOwnsUser() {
+    return this._userOverride && this._role !== null;
+  }
+
   _schedulePopulate() {
-    if (this._userOverride) return;
+    if (this._pageOwnsUser()) return;
     this._pollTries = 0;
     const tick = async () => {
       this._pollTimer = null;
-      if (this._userOverride) return; // raced with setUser()
+      if (this._pageOwnsUser()) return; // raced with setUser({role})
       if (!this.shadowRoot) return; // disconnected
 
-      const sb = (typeof window !== 'undefined'
-                  && typeof window.getSupabase === 'function')
-                 ? window.getSupabase()
-                 : null;
+      const sb = currentSupabase();
 
       if (!sb) {
         this._pollTries += 1;
         if (this._pollTries >= POLL_MAX_TRIES) {
-          console.warn('[aver-chrome] window.getSupabase unavailable after polling; pill placeholder retained.');
+          // U-21 — the runtime can take longer than the poll on slow mobile
+          // now that the chrome does not wait for it; resume on its signal.
+          if (!this._runtimeReadyHandler) {
+            this._runtimeReadyHandler = () => {
+              window.removeEventListener(RUNTIME_READY_EVENT, this._runtimeReadyHandler);
+              this._runtimeReadyHandler = null;
+              this._schedulePopulate();
+            };
+            window.addEventListener(RUNTIME_READY_EVENT, this._runtimeReadyHandler);
+          }
           return;
         }
         this._pollTimer = setTimeout(tick, POLL_INTERVAL_MS);
@@ -904,10 +984,11 @@ export class AverChrome extends HTMLElement {
         console.warn('[aver-chrome] getSession failed:', err);
         return;
       }
-      if (this._userOverride) return; // raced
+      if (this._pageOwnsUser()) return; // raced
       if (!session || !session.user) return;
 
       this._applyVocabNav(true);   // B3 — logged in → Vocabulary nav → hub
+      this._setAccountVisible(true);
 
       const meta = session.user.user_metadata || {};
       const email = session.user.email || '';
@@ -916,10 +997,10 @@ export class AverChrome extends HTMLElement {
 
       const pillEl = this.shadowRoot.getElementById('user-pill-name');
       const avatarEl = this.shadowRoot.getElementById('user-avatar');
-      if (pillEl && pillEl.textContent === '…') {
+      if (!this._userOverride && pillEl && pillEl.textContent === '…') {
         pillEl.textContent = name.length > 14 ? name.slice(0, 13) + '…' : name;
       }
-      if (avatarEl && avatarEl.textContent === '·') {
+      if (!this._userOverride && avatarEl && avatarEl.textContent === '·') {
         avatarEl.textContent = canonicalInitials(name);
       }
 

@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from time import perf_counter
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Response
@@ -17,9 +17,11 @@ from models.auth import (
     AuthProfileResponse,
     AuthProfileUpdateResponse,
 )
-from services import activation_gate
+from services import activation_gate, staff_security
+from services.db_async import aexecute
+from services.errors import safe_error
 from services.server_timing import record_stage
-from services.feature_flags import is_flashcard_enabled
+from services.feature_flags import ais_flashcard_enabled, is_flashcard_enabled
 from services import runtime_flags
 from services.runtime_flags import require_flag
 from services.class_membership_service import remove_student, student_is_active_in_cohort
@@ -30,9 +32,10 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 # ── Perf (B) — shared keep-alive httpx client for token verification ──────────
 # get_supabase_user() runs on EVERY authenticated request. It used to open a
 # fresh `httpx.AsyncClient` per call, so every verify paid a full TLS handshake
-# to Supabase Auth. Backend (Railway, Singapore) ↔ Supabase (ap-south-1, Mumbai)
-# is ~56ms RTT, so a fresh handshake costs ~2-3 RTT (~110-170ms) on top of the
-# request — on the hottest path in the app. A module-level client reuses ONE
+# to Supabase Auth. Backend (Railway, Singapore) ↔ Supabase (prod ap-southeast-1,
+# Singapore; staging ap-northeast-1, Tokyo), so a fresh handshake costs ~2-3 RTT
+# on top of the request — on the hottest path in the app, and several times
+# dearer on staging's cross-region hop. A module-level client reuses ONE
 # keep-alive connection pool, collapsing that to ~1 RTT after the first call.
 # Built lazily (must live on the running loop) and closed on app shutdown.
 _auth_http_client: httpx.AsyncClient | None = None
@@ -184,6 +187,27 @@ async def get_supabase_user(authorization: str | None):
 
 # ── GET /auth/me ──────────────────────────────────────────────────────────────
 
+# BL-12 — /auth/me runs on every page load, so writing last_seen_at on each call
+# was one users UPDATE per navigation. Activity only needs minute granularity:
+# skip the write while the stored value is younger than this interval.
+LAST_SEEN_WRITE_INTERVAL = timedelta(minutes=5)
+
+
+def _last_seen_is_stale(value, now: datetime) -> bool:
+    """True when last_seen_at should be rewritten: missing, unparseable, or at
+    least LAST_SEEN_WRITE_INTERVAL old. A future timestamp (clock skew) counts as
+    fresh only within the interval, so a bad value cannot freeze the column."""
+    if not value:
+        return True
+    try:
+        seen = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return True
+    if seen.tzinfo is None:
+        seen = seen.replace(tzinfo=timezone.utc)
+    return abs(now - seen) >= LAST_SEEN_WRITE_INTERVAL
+
+
 @router.get("/me", response_model=AuthMeResponse)
 async def get_me(response: Response, authorization: str | None = Header(default=None)):
     # FE migration pilot 3 (authenticated read) entry checklist: effective
@@ -196,46 +220,51 @@ async def get_me(response: Response, authorization: str | None = Header(default=
     email = auth_user.get("email")
     metadata = auth_user.get("user_metadata", {}) or {}
 
+    # PC-J05 D1a — /auth/me runs on every page load; its DB calls go through
+    # the async-DB facade (USE_ASYNC_DB off = the same sync calls as before).
+    def _select_user(db):
+        return db.table("users").select("*").eq("id", user_id).limit(1)
+
     try:
-        existing = (
-            supabase_admin.table("users")
-            .select("*")
-            .eq("id", user_id)
-            .limit(1)
-            .execute()
-        )
+        existing = await aexecute(_select_user, sync_client=supabase_admin)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi truy vấn người dùng: {e}")
 
     if not existing.data:
         try:
-            supabase_admin.table("users").insert({
-                "id": user_id,
-                "email": email,
-                "display_name": metadata.get("full_name") or metadata.get("name"),
-                "avatar_url": metadata.get("avatar_url"),
-                "role": "user",
-                "is_active": False,
-            }).execute()
-
-            existing = (
-                supabase_admin.table("users")
-                .select("*")
-                .eq("id", user_id)
-                .limit(1)
-                .execute()
+            # First visit. Two concurrent /auth/me calls (or another worker, or
+            # /auth/activate) can both see no row; ON CONFLICT (id) DO NOTHING
+            # lets the loser fall through to the re-SELECT instead of a 500,
+            # and never overwrites the winner's role / is_active.
+            await aexecute(
+                lambda db: db.table("users").upsert({
+                    "id": user_id,
+                    "email": email,
+                    "display_name": metadata.get("full_name") or metadata.get("name"),
+                    "avatar_url": metadata.get("avatar_url"),
+                    "role": "user",
+                    "is_active": False,
+                }, on_conflict="id", ignore_duplicates=True),
+                sync_client=supabase_admin,
             )
+
+            existing = await aexecute(_select_user, sync_client=supabase_admin)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Lỗi khi tạo người dùng: {e}")
 
     user = existing.data[0]
 
-    try:
-        supabase_admin.table("users").update(
-            {"last_seen_at": datetime.now(timezone.utc).isoformat()}
-        ).eq("id", user_id).execute()
-    except Exception:
-        pass  # non-fatal
+    now = datetime.now(timezone.utc)
+    if _last_seen_is_stale(user.get("last_seen_at"), now):
+        try:
+            await aexecute(
+                lambda db: db.table("users").update(
+                    {"last_seen_at": now.isoformat()}
+                ).eq("id", user_id),
+                sync_client=supabase_admin,
+            )
+        except Exception:
+            pass  # non-fatal
 
     flags = user.get("feature_flags") or {}
     # PR1 single-source: /auth/me returns the LIVE access-code permissions (same
@@ -243,9 +272,25 @@ async def get_me(response: Response, authorization: str | None = Header(default=
     # so the two agree and a revoke is reflected immediately. No snapshot
     # fallback: an empty live list means no access (don't re-grant a default).
     from services.access_code_permissions import (  # local — avoid import cycle
-        get_user_access_code_permissions_cached,
+        aget_user_access_code_permissions_cached,
     )
-    live_permissions = get_user_access_code_permissions_cached(user_id)
+    live_permissions = await aget_user_access_code_permissions_cached(user_id)
+    # Phase D Wave 2 — strict default-deny via the canonical helper so
+    # frontends can rely on `=== true` without re-implementing the rule.
+    # Two-key curated rollout: learner cohort opt-in AND the hot runtime read
+    # switch. Both default deny so the legacy hub remains the automatic fallback.
+    # PC-J05: with USE_ASYNC_DB on, both reads (per-user flag row; runtime flag
+    # on a cache miss) await the async client; off, the same sync calls as before.
+    curated_opt_in = flags.get("vocab_curated_enabled") is True
+    if settings.USE_ASYNC_DB:
+        flashcard_enabled = await ais_flashcard_enabled(
+            user_id, settings.FLASHCARD_ENABLED, run=aexecute)
+        vocab_curated_enabled = curated_opt_in and await runtime_flags.ais_enabled(
+            "vocab_units_read", default=False, run=aexecute)
+    else:
+        flashcard_enabled = is_flashcard_enabled(user_id, settings.FLASHCARD_ENABLED)
+        vocab_curated_enabled = curated_opt_in and runtime_flags.is_enabled(
+            "vocab_units_read", default=False)
     return {
         "id": user["id"],
         "email": user["email"],
@@ -253,6 +298,7 @@ async def get_me(response: Response, authorization: str | None = Header(default=
         "avatar_url": user.get("avatar_url"),
         "role": user.get("role", "user"),
         "is_active": user.get("is_active", False),
+        "suspended": bool(user.get("suspended_at")),
         "permissions": live_permissions,
         "onboarding_completed": user.get("onboarding_completed", False),
         "target_band": user.get("target_band"),
@@ -262,15 +308,8 @@ async def get_me(response: Response, authorization: str | None = Header(default=
         "vocab_bank_enabled": flags.get("vocab_enabled") is True,
         "d1_enabled": settings.D1_ENABLED and flags.get("d1_enabled") is True,
         "d3_enabled": settings.D3_ENABLED and flags.get("d3_enabled") is True,
-        # Phase D Wave 2 — strict default-deny via the canonical helper so
-        # frontends can rely on `=== true` without re-implementing the rule.
-        "flashcard_enabled": is_flashcard_enabled(user_id, settings.FLASHCARD_ENABLED),
-        # Two-key rollout: learner cohort opt-in AND the hot runtime read switch.
-        # Both default deny so the legacy hub remains the automatic fallback.
-        "vocab_curated_enabled": (
-            flags.get("vocab_curated_enabled") is True
-            and runtime_flags.is_enabled("vocab_units_read", default=False)
-        ),
+        "flashcard_enabled": flashcard_enabled,
+        "vocab_curated_enabled": vocab_curated_enabled,
     }
 
 
@@ -282,20 +321,25 @@ async def check_active(authorization: str | None = Header(default=None)):
     user_id = auth_user["id"]
 
     try:
-        result = (
-            supabase_admin.table("users")
-            .select("is_active")
-            .eq("id", user_id)
-            .limit(1)
-            .execute()
+        result = await aexecute(
+            # "*" so this hot learner read keeps working before migration 332
+            # adds suspended_at (absent column = not suspended).
+            lambda db: db.table("users").select("*").eq("id", user_id).limit(1),
+            sync_client=supabase_admin,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi kiểm tra trạng thái: {e}")
 
     if not result.data:
-        return {"is_active": False}
+        return {"is_active": False, "suspended": False}
 
-    return {"is_active": bool(result.data[0].get("is_active", False))}
+    row = result.data[0]
+    return {
+        "is_active": bool(row.get("is_active", False)),
+        # ADMINAAL2-0032 FR-018: /login shows the suspended message instead
+        # of the activation dialog.
+        "suspended": bool(row.get("suspended_at")),
+    }
 
 
 # ── GET /auth/profile ─────────────────────────────────────────────────────────
@@ -369,28 +413,39 @@ async def get_profile(response: Response, authorization: str | None = Header(def
 
 # ── POST /auth/activate ───────────────────────────────────────────────────────
 
-# B4 (audit) — per-user rate limit on activation. /auth/activate is
-# authenticated, so probing the 36^8 code keyspace already costs a real account;
-# capping attempts per user makes brute-forcing infeasible. In-memory sliding
-# window (per worker), no new deps — proportionate for this low-QPS endpoint.
-_ACTIVATE_MAX_ATTEMPTS = 10
-_ACTIVATE_WINDOW_SECONDS = 600  # 10 minutes
-_activate_attempts: dict[str, list[float]] = {}
+# F09 (ACTIVATELIMIT-0034) — per-user rate limit on activation, shared by every
+# worker and replica: migration 334's fn_activate_attempt_check counts ALLOWED
+# attempts in Postgres (10 per rolling 10 minutes) and records this one
+# atomically. It runs before the code is looked up or claimed, so a refusal
+# never consumes a code. Fail closed: if the counter cannot answer, refuse with
+# 503 instead of allowing unlimited attempts (the code stays unused).
+_ACTIVATE_RATE_LIMITED_MESSAGE = "Quá nhiều lần thử kích hoạt. Vui lòng đợi vài phút rồi thử lại."
+_ACTIVATE_UNAVAILABLE_MESSAGE = (
+    "Chưa kiểm tra được lượt kích hoạt. Mã CHƯA được sử dụng — vui lòng thử lại sau ít phút."
+)
 
 
 def _rate_limit_activate(user_id: str) -> None:
-    """Raise 429 when a user exceeds the activation-attempt budget in the window."""
-    now = perf_counter()  # monotonic clock — only relative deltas matter here
-    cutoff = now - _ACTIVATE_WINDOW_SECONDS
-    window = [t for t in _activate_attempts.get(user_id, ()) if t > cutoff]
-    if len(window) >= _ACTIVATE_MAX_ATTEMPTS:
-        _activate_attempts[user_id] = window  # persist the pruned list
+    """Record one attempt; raise 429 over the limit, 503 when the check fails."""
+    try:
+        verdict = supabase_admin.rpc(
+            "fn_activate_attempt_check", {"p_user_id": user_id}).execute().data
+        allowed = verdict["allowed"]
+        retry_after_s = verdict["retry_after_s"]
+        if not isinstance(allowed, bool) or type(retry_after_s) is not int or retry_after_s < 0:
+            raise ValueError(f"malformed fn_activate_attempt_check result: {verdict!r}")
+    except Exception as e:
+        raise safe_error(e, status_code=503, error_code="activation_unavailable",
+                         message=_ACTIVATE_UNAVAILABLE_MESSAGE,
+                         context=f"activate rate limit user={user_id}")
+    if not allowed:
+        retry_after_s = max(1, retry_after_s)
         raise HTTPException(
             status_code=429,
-            detail="Quá nhiều lần thử kích hoạt. Vui lòng đợi vài phút rồi thử lại.",
+            detail={"error_code": "activate_rate_limited", "retry_after_s": retry_after_s,
+                    "message": _ACTIVATE_RATE_LIMITED_MESSAGE},
+            headers={"Retry-After": str(retry_after_s)},
         )
-    window.append(now)
-    _activate_attempts[user_id] = window
 
 
 _ARCHIVED_PROFILE_DETAIL = (
@@ -532,6 +587,21 @@ async def activate_account(
     if profile_archived:
         raise HTTPException(status_code=403, detail=_ARCHIVED_PROFILE_DETAIL)
 
+    # ── Step 1d (ADMINAAL2-0032 FR-018): suspended staff account ─────────────
+    # A suspension is lifted only by an admin (PATCH /admin/users/{id}/active),
+    # never by a code. Refuse before Step 3 and before the code is claimed, so
+    # the code stays unused. Migration 332's trigger also refuses Step 3 if a
+    # suspension commits between this read and that write.
+    # select("*"), not the column: before migration 332 there is no marker and
+    # nothing can be suspended, so learner activation must not 500 on it.
+    try:
+        suspension = (supabase_admin.table("users").select("*")
+                      .eq("id", user_id).limit(1).execute().data or [])
+    except Exception as e:
+        raise HTTPException(500, f"Lỗi khi kiểm tra trạng thái tài khoản: {e}")
+    if suspension and suspension[0].get("suspended_at"):
+        raise staff_security.account_suspended_exception(403)
+
     # ── Step 2: upsert user row (in case /me was never called) ───────────────
     # Select `role` too so the promote below is upgrade-only / idempotent.
     current_role = "user"
@@ -579,6 +649,8 @@ async def activate_account(
     try:
         supabase_admin.table("users").update(update_fields).eq("id", user_id).execute()
     except Exception as e:
+        if staff_security.is_account_suspended_error(e):
+            raise staff_security.account_suspended_exception(403) from None
         raise HTTPException(
             status_code=500,
             detail=f"Lỗi khi kích hoạt tài khoản: {e}",

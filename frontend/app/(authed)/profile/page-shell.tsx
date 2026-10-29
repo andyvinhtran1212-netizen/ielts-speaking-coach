@@ -33,7 +33,7 @@ export function ProfileShell() {
           </div>
           <div className="flex-1 min-w-0">
             <p id="profile-display-name" className="pf-identity__name font-semibold text-base truncate">—</p>
-            <p id="profile-email" className="pf-identity__email text-sm mt-0.5 truncate">—</p>
+            <p id="profile-email" className="pf-identity__email text-sm mt-0.5">—</p>
             <p className="pf-identity__joined text-xs mt-1">
               Tham gia: <span id="profile-joined">—</span>
             </p>
@@ -72,10 +72,12 @@ export function ProfileShell() {
             />
           </div>
 
-          {/* Email (readonly) */}
+          {/* Email (readonly). PC-J24 — a one-line <input> cut a long address
+              off at 360–390px; <output> keeps the label link and `.value`
+              (ProfileBehavior's setVal) but can wrap. Not a live region. */}
           <div>
             <label className="field-label" htmlFor="inp-email">Email</label>
-            <input id="inp-email" type="email" className="field-input" readOnly />
+            <output id="inp-email" className="field-input field-input--static" aria-live="off" />
           </div>
 
           <hr className="pf-divider" />
@@ -142,8 +144,9 @@ export function ProfileShell() {
         </form>
       </main>
 
-      {/* Toast */}
-      <div id="toast" className="pf-toast">✓ Đã lưu thành công</div>
+      {/* Toast — empty until showToast() fills it (U-18: the success text used
+          to sit in the DOM before anything was saved). */}
+      <div id="toast" className="pf-toast" role="status" aria-live="polite"></div>
     </>
   );
 }

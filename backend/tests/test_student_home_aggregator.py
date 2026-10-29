@@ -21,6 +21,7 @@ on either, so the gap is acceptable.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import date, datetime, timedelta, timezone
 from uuid import uuid4
 
@@ -170,9 +171,34 @@ def fake_db():
     return FakeSupabase()
 
 
-@pytest.fixture
-def aggregator():
+class _ConcurrentAggregator:
+    """The aggregator module, except ``get_home_summary`` runs the concurrent
+    variant the route serves (PC-J05). Attribute writes (monkeypatch) land on
+    the module, so every pin below holds for both code paths."""
+
+    def __init__(self, module):
+        object.__setattr__(self, "_module", module)
+
+    def __getattr__(self, name):
+        return getattr(self._module, name)
+
+    def __setattr__(self, name, value):
+        setattr(self._module, name, value)
+
+    def __delattr__(self, name):
+        delattr(self._module, name)
+
+    def get_home_summary(self, sb, user_id, **kwargs):
+        return asyncio.run(
+            self._module.get_home_summary_concurrent(lambda: sb, user_id, **kwargs)
+        )
+
+
+@pytest.fixture(params=["sequential", "concurrent"])
+def aggregator(request):
     from services import student_home_aggregator
+    if request.param == "concurrent":
+        return _ConcurrentAggregator(student_home_aggregator)
     return student_home_aggregator
 
 
@@ -333,6 +359,53 @@ def test_reading_and_listening_are_active(fake_db, aggregator):
     assert payload["skills"]["reading"]["primary_cta_url"] == "/reading/vocab"
     assert payload["skills"]["listening"]["status"] == "active"
     assert payload["skills"]["listening"]["primary_cta_url"] == "/listening"
+
+
+def test_primary_cta_labels_are_vietnamese(fake_db, aggregator):
+    """UIA-1028-02: /home renders ``primary_cta`` verbatim as the card
+    button text and aria-label, so every state's label is learner-facing
+    Vietnamese. Covers all 11 variants: the active student with activity
+    everywhere, and the brand-new user (no students row → Writing's
+    early-return branch)."""
+    active_id = str(uuid4())
+    student_id = str(uuid4())
+    fake_db.tables["students"].append({"id": student_id, "user_id": active_id})
+    _seed_session(fake_db, active_id, overall_band=6.0, status="completed")
+    _seed_essay(fake_db, student_id, status="delivered")
+    _seed_article_view(fake_db, active_id)
+    _seed_vocab(fake_db, active_id)
+    _seed_review(fake_db, active_id, next_review_at=_days_ago_iso(1))
+    fake_db.tables["reading_test_attempts"].append({
+        "id": str(uuid4()), "user_id": active_id, "submitted_at": _today_iso(),
+        "status": "submitted", "band_estimate": 6.0,
+    })
+    fake_db.tables["listening_attempts"].append({
+        "id": str(uuid4()), "user_id": active_id, "created_at": _today_iso(),
+    })
+
+    active = aggregator.get_home_summary(
+        fake_db, active_id, name="A", email="a@x.com",
+    )["skills"]
+    fresh = aggregator.get_home_summary(
+        fake_db, str(uuid4()), name="N", email="n@x.com",
+    )["skills"]
+
+    assert {k: v["primary_cta"] for k, v in active.items()} == {
+        "speaking": "Luyện tiếp",
+        "writing": "Nộp bài viết mới",
+        "grammar": "Xem bài học",
+        "vocabulary": "Ôn flashcard",
+        "reading": "Đọc tiếp",
+        "listening": "Nghe tiếp",
+    }
+    assert {k: v["primary_cta"] for k, v in fresh.items()} == {
+        "speaking": "Bắt đầu luyện",
+        "writing": "Nộp bài viết mới",
+        "grammar": "Xem bài học",
+        "vocabulary": "Xem từ vựng",
+        "reading": "Bắt đầu luyện đọc",
+        "listening": "Bắt đầu luyện nghe",
+    }
 
 
 def test_writing_card_returns_empty_when_no_students_row(fake_db, aggregator):

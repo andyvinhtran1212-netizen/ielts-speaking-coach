@@ -177,25 +177,25 @@ export function AdminVocabTopics() {
     try {
       if (target.kind === 'topic') {
         const result = await window.api.delete<unknown>(`/admin/content-topics/${encodeURIComponent(target.item.id)}`);
-        if (!normalizeDeleteAck(result, target.item.id)) throw new Error('Backend không ACK đúng topic đã xoá.');
+        if (!normalizeDeleteAck(result, target.item.id)) throw new Error('Backend không ACK đúng topic đã xóa.');
         const rows = await fetchTopics(skill);
         if (rows.some((row) => row.id === target.item.id)) throw new Error('Topic vẫn còn trong canonical list sau delete.');
         if (requestId !== sequence.current || account !== accountRef.current) return;
         const nextId = rows[0]?.id ?? ''; setTopics(rows); setSelectedId(nextId); setBundle(null); setDraft(null); updateUrl(skill, nextId);
-        setNotice({ kind: 'success', message: 'Đã xoá topic và tải lại danh sách chuẩn từ backend.' });
+        setNotice({ kind: 'success', message: 'Đã xóa topic và tải lại danh sách chuẩn từ backend.' });
       } else {
         const result = await window.api.delete<unknown>(`/admin/quiz/banks/${encodeURIComponent(target.item.id)}`);
-        if (!normalizeDeleteAck(result, target.item.id)) throw new Error('Backend không ACK đúng bank đã xoá.');
+        if (!normalizeDeleteAck(result, target.item.id)) throw new Error('Backend không ACK đúng bank đã xóa.');
         if (!bundle) throw new Error('Topic hiện tại không còn khả dụng.');
         const canonical = await fetchBundle(skill, bundle.topic.id);
         if (canonical.banks.some((row) => row.id === target.item.id)) throw new Error('Bank vẫn còn trong canonical bundle sau delete.');
         if (requestId !== sequence.current || account !== accountRef.current) return;
         setBundle(canonical); setAnalytics(null); setAnalyticsBankId('');
-        setNotice({ kind: 'success', message: 'Đã xoá bank và đọc lại canonical bundle.' });
+        setNotice({ kind: 'success', message: 'Đã xóa bank và đọc lại canonical bundle.' });
       }
       setConfirmState(null);
     } catch (caught) {
-      if (requestId === sequence.current && account === accountRef.current) setNotice({ kind: 'error', message: `Không xác nhận được thao tác xoá: ${messageOf(caught)}` });
+      if (requestId === sequence.current && account === accountRef.current) setNotice({ kind: 'error', message: `Không xác nhận được thao tác xóa: ${messageOf(caught)}` });
     } finally { mutationLock.current = false; if (account === accountRef.current) setBusy(false); }
   };
 
@@ -258,12 +258,12 @@ export function AdminVocabTopics() {
             <label className="is-wide">Mô tả<textarea value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
             <label>Thứ tự<input type="number" step="1" value={draft.order} onChange={(event) => setDraft({ ...draft, order: event.target.value })} /></label>
             <label className="avv-check"><input type="checkbox" checked={draft.published} onChange={(event) => setDraft({ ...draft, published: event.target.checked })} />Hiển thị topic</label>
-            <div className="avv-topic-form__actions"><button className="btn-danger" type="button" disabled={busy} onClick={() => setConfirmState({ kind: 'topic', item: bundle.topic })}>Xoá topic</button><button className="btn-primary" type="submit" disabled={busy}>{busy ? 'Đang xác minh…' : 'Lưu thay đổi'}</button></div>
+            <div className="avv-topic-form__actions"><button className="btn-danger" type="button" disabled={busy} onClick={() => setConfirmState({ kind: 'topic', item: bundle.topic })}>Xóa topic</button><button className="btn-primary" type="submit" disabled={busy}>{busy ? 'Đang xác minh…' : 'Lưu thay đổi'}</button></div>
           </form>
 
           <section className="avv-linked-section">
             <header><div><p className="avv-eyebrow">Ngân hàng kiểm tra</p><h3>Quick‑Check banks</h3></div><a className="btn-secondary" href={`/admin/vocab/quiz?skill_area=${skill}&topic=${bundle.topic.id}`}>+ Import bank</a></header>
-            {bundle.banks.length === 0 ? <div className="avv-state">Chưa có bank gắn với topic này.</div> : <div className="avv-bank-list">{bundle.banks.map((bank) => <article key={bank.id}><div><strong>{bank.code}</strong><span>{bank.title || 'Chưa đặt tiêu đề'} · {bank.wordsCount} từ</span>{bank.canonicalCode && <small>Nguồn: {bank.canonicalCode}</small>}</div><span className={`avv-chip is-${bank.revisionState === 'unknown' ? 'warning' : bank.published ? 'teal' : 'muted'}`}>{bankStateLabel(bank)}</span><div><button className="btn-secondary" type="button" disabled={busy} onClick={() => void showAnalytics(bank)}>Phân tích</button><button className="btn-secondary" type="button" disabled={busy || !bankCanManage(bank)} onClick={() => void toggleBank(bank)}>{bank.published ? 'Ẩn' : 'Hiện'}</button><button className="btn-danger" type="button" disabled={busy || !bankCanManage(bank)} onClick={() => setConfirmState({ kind: 'bank', item: bank })}>Xoá</button></div></article>)}</div>}
+            {bundle.banks.length === 0 ? <div className="avv-state">Chưa có bank gắn với topic này.</div> : <div className="avv-bank-list">{bundle.banks.map((bank) => <article key={bank.id}><div><strong>{bank.code}</strong><span>{bank.title || 'Chưa đặt tiêu đề'} · {bank.wordsCount} từ</span>{bank.canonicalCode && <small>Nguồn: {bank.canonicalCode}</small>}</div><span className={`avv-chip is-${bank.revisionState === 'unknown' ? 'warning' : bank.published ? 'teal' : 'muted'}`}>{bankStateLabel(bank)}</span><div><button className="btn-secondary" type="button" disabled={busy} onClick={() => void showAnalytics(bank)}>Phân tích</button><button className="btn-secondary" type="button" disabled={busy || !bankCanManage(bank)} onClick={() => void toggleBank(bank)}>{bank.published ? 'Ẩn' : 'Hiện'}</button><button className="btn-danger" type="button" disabled={busy || !bankCanManage(bank)} onClick={() => setConfirmState({ kind: 'bank', item: bank })}>Xóa</button></div></article>)}</div>}
             {analyticsBankId ? <div className="avv-inline-analytics">{!analytics ? <p>Đang tải phân tích…</p> : <><header><strong>Từ dễ sai</strong><span>{analytics.sessionCount} phiên</span></header>{analytics.items.length ? <div className="avv-table-wrap"><table className="avv-table"><thead><tr><th>Từ / điểm</th><th>Sai</th><th>Lần</th><th>Tỉ lệ sai</th></tr></thead><tbody>{analytics.items.slice(0, 10).map((row) => <tr key={row.label}><td data-label="Từ / điểm"><strong>{row.label}</strong></td><td data-label="Sai">{row.wrong}</td><td data-label="Lần">{row.total}</td><td data-label="Tỉ lệ sai">{Math.round(row.errorRate * 100)}%</td></tr>)}</tbody></table></div> : <p>Chưa có lượt làm nào.</p>}{analytics.skills.length ? <p className="avv-skill-summary">Theo kỹ năng: {analytics.skills.map((row) => `${row.label} ${Math.round(row.errorRate * 100)}%`).join(' · ')}</p> : null}</>}</div> : null}
           </section>
 
@@ -272,6 +272,6 @@ export function AdminVocabTopics() {
       </section>
     </div>
 
-    {confirmState ? <div className="avv-modal-layer" role="dialog" aria-modal="true" aria-labelledby="topic-confirm-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setConfirmState(null); }}><section className="avv-modal-card"><p className="avv-eyebrow">Thao tác không hoàn tác</p><h2 id="topic-confirm-title">{confirmState.kind === 'topic' ? 'Xoá topic?' : 'Xoá Quick‑Check bank?'}</h2><p>{confirmState.kind === 'topic' ? 'Backend sẽ từ chối nếu topic vẫn còn từ vựng hoặc bank. Không có nội dung nào bị xoá ngầm.' : 'Bank và toàn bộ câu hỏi của bank sẽ bị xoá. Lịch sử liên quan có thể không khôi phục được.'}</p><strong>{confirmState.item.title || ('code' in confirmState.item ? confirmState.item.code : confirmState.item.slug)}</strong><div className="avv-modal-actions"><button className="btn-secondary" type="button" disabled={busy} onClick={() => setConfirmState(null)}>Hủy</button><button className="btn-danger" type="button" disabled={busy} onClick={() => void deleteConfirmed()}>{busy ? 'Đang xác minh…' : confirmState.kind === 'topic' ? 'Xoá topic' : 'Xoá bank'}</button></div></section></div> : null}
+    {confirmState ? <div className="avv-modal-layer" role="dialog" aria-modal="true" aria-labelledby="topic-confirm-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setConfirmState(null); }}><section className="avv-modal-card"><p className="avv-eyebrow">Thao tác không hoàn tác</p><h2 id="topic-confirm-title">{confirmState.kind === 'topic' ? 'Xóa topic?' : 'Xóa Quick‑Check bank?'}</h2><p>{confirmState.kind === 'topic' ? 'Backend sẽ từ chối nếu topic vẫn còn từ vựng hoặc bank. Không có nội dung nào bị xóa ngầm.' : 'Bank và toàn bộ câu hỏi của bank sẽ bị xóa. Lịch sử liên quan có thể không khôi phục được.'}</p><strong>{confirmState.item.title || ('code' in confirmState.item ? confirmState.item.code : confirmState.item.slug)}</strong><div className="avv-modal-actions"><button className="btn-secondary" type="button" disabled={busy} onClick={() => setConfirmState(null)}>Hủy</button><button className="btn-danger" type="button" disabled={busy} onClick={() => void deleteConfirmed()}>{busy ? 'Đang xác minh…' : confirmState.kind === 'topic' ? 'Xóa topic' : 'Xóa bank'}</button></div></section></div> : null}
   </main>;
 }

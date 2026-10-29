@@ -13,6 +13,10 @@ type Props = {
   onError: (message: string) => void;
 };
 
+// PROPOSAL (q-13k): wording pending Content Manager review. Creating the
+// private copy hides a public source (316 fn_copy_mock_draft_paper).
+export const PUBLIC_SOURCE_HIDE_WARNING = 'Cảnh báo: Khi lưu đề nháp, hệ thống sẽ tạo bản riêng cho kỳ thi và ẨN đề nguồn này khỏi kho luyện tập công khai. Học viên sẽ không còn thấy đề nguồn trong thư viện.';
+
 const INITIAL = {
   code: '', title: '', examMode: 'sequential', cohortId: '', listeningTestId: '', readingTestId: '',
   writingTask1PromptId: '', writingTask2PromptId: '', readingMinutes: '60', writingMinutes: '60', totalMinutes: '150',
@@ -68,6 +72,7 @@ function SearchablePicker({ label, kind, value, onChange, onStatus, optionLabel 
     <label><span>{label} · tìm toàn bộ kho</span><input type="search" maxLength={100} value={query} onChange={(event) => { setQuery(event.target.value); setOffset(0); }} placeholder={`Tìm ${label.toLocaleLowerCase('vi')}…`} /></label>
     <label><span>{label}</span><select value={value} onChange={(event) => { const row = options.find((item) => item.id === event.target.value); setSelected(row || null); onChange(event.target.value, row); }}><option value="">Không dùng</option>{options.map((row) => <option key={row.id} value={row.id}>{optionLabel(row)}</option>)}</select></label>
     {loading ? <small role="status">Đang tìm trong kho đề…</small> : error ? <small className="mex-blocked-copy" role="alert">{error}</small> : <div className="mex-picker-pages"><small>{total ? `${offset + 1}–${Math.min(offset + rows.length, total)} / ${total}` : 'Không có nội dung phù hợp.'}</small><button type="button" className="adm-btn-secondary" onClick={() => setOffset(Math.max(0, offset - 25))} disabled={offset === 0}>Trước</button><button type="button" className="adm-btn-secondary" onClick={() => setOffset(offset + 25)} disabled={offset + rows.length >= total}>Tiếp</button></div>}
+    {value && selected?.is_public && (kind === 'reading' || kind === 'listening') && <p className="mex-hide-source-warning" role="alert">{PUBLIC_SOURCE_HIDE_WARNING}</p>}
     {value && selected?.is_public && (kind === 'reading' || kind === 'listening') && <small>Đề nguồn đang công khai; học viên có thể đã xem đề trước khi ẩn.</small>}
   </div>;
 }
