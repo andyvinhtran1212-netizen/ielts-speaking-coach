@@ -4,6 +4,11 @@ Admin-only AI model overrides, their trigger-written append-only audit, the
 routing-layer failure log and the dashboard rollups: RLS on, nothing for
 anon/authenticated, only the service-role privileges the backend uses, and
 safe re-application.
+
+The fixture mimics hosted Supabase: a NOSUPERUSER migration runner whose
+default privileges grant ALL on new tables, functions and sequences to
+anon/authenticated/service_role, so only the migration's own REVOKEs keep the
+clients out (PC-J87, PC-J76 F-1).
 """
 import asyncio
 import os
@@ -20,6 +25,14 @@ MIGRATION = (Path(__file__).resolve().parents[1]
 TABLES = ("ai_model_overrides", "ai_model_override_audit", "ai_provider_failures")
 FUNCTIONS = ("fn_admin_ai_usage_rollup(timestamptz,timestamptz)",
              "fn_admin_ai_failure_rollup(timestamptz,timestamptz)")
+TRIGGER_FUNCTIONS = ("fn_ai_model_override_audit()", "fn_ai_model_override_audit_append_only()")
+OWNER = "ai322_runner"
+TABLE_PRIVILEGES = ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER")
+SERVICE_ROLE_GRANTS = {
+    "ai_model_overrides": {"SELECT", "INSERT", "UPDATE", "DELETE"},  # arwd
+    "ai_model_override_audit": {"SELECT", "INSERT"},                 # ar
+    "ai_provider_failures": {"SELECT", "INSERT"},                    # ar
+}
 
 
 async def _run(sql, *args, role=None):
@@ -46,16 +59,23 @@ def schema():
         if os.environ.get("REQUIRE_PG") == "1":
             pytest.fail("322 requires an explicitly LOCAL disposable PostgreSQL URL")
         pytest.skip("Local PostgreSQL unavailable")
+    if not query("SELECT usesuper FROM pg_user WHERE usename = current_user")[0]["usesuper"]:
+        pytest.fail("322 fixture requires a superuser on its disposable LOCAL cluster")
     name = "ai_overrides_" + uuid4().hex
-    query("""DO $$ BEGIN
+    query(f"""DO $$ BEGIN
         IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon; END IF;
         IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated; END IF;
         IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='service_role') THEN CREATE ROLE service_role BYPASSRLS; END IF;
+        IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='{OWNER}') THEN
+            CREATE ROLE {OWNER} NOSUPERUSER NOLOGIN NOBYPASSRLS;
+        END IF;
     END $$""")
+    query(f"""
+        CREATE SCHEMA {name} AUTHORIZATION {OWNER};
+        GRANT USAGE ON SCHEMA {name} TO anon, authenticated, service_role;
+    """)
     # ai_usage_logs as shaped by migrations 031 + 286 (columns the rollup reads).
     query(f"""
-        CREATE SCHEMA {name};
-        GRANT USAGE ON SCHEMA {name} TO anon, authenticated, service_role;
         CREATE TABLE {name}.ai_usage_logs(
             id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid, session_id uuid,
             service text NOT NULL, model text NOT NULL, input_tokens integer,
@@ -67,15 +87,44 @@ def schema():
         -- The backend already reads/writes the ledger as service_role; the
         -- rollup is SECURITY INVOKER and relies on exactly that grant.
         GRANT SELECT, INSERT ON {name}.ai_usage_logs TO service_role;
-    """)
+        -- Supabase schema defaults: every object the runner creates from here
+        -- on is client-readable/writable/executable unless 322 revokes it.
+        ALTER DEFAULT PRIVILEGES IN SCHEMA {name}
+            GRANT ALL ON TABLES TO anon, authenticated, service_role;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA {name}
+            GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA {name}
+            GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+    """, role=OWNER)
     sql = (MIGRATION.replace("public.", name + ".")
            .replace("search_path = public,", "search_path = " + name + ","))
     try:
-        query(sql)
-        query(sql)  # forward re-application is safe
+        query(sql, role=OWNER)
+        query(sql, role=OWNER)  # forward re-application is safe
         yield name
     finally:
         query(f"DROP SCHEMA IF EXISTS {name} CASCADE")
+
+
+def _table_privileges():
+    maintain = query("SELECT current_setting('server_version_num')::int >= 170000 ok")[0]["ok"]
+    return TABLE_PRIVILEGES + (("MAINTAIN",) if maintain else ())
+
+
+def test_fixture_applies_supabase_default_privileges(schema):
+    # Guards the harness itself: without these defaults the grant assertions
+    # below would pass even if 322 lost its REVOKEs.
+    probe = f"{schema}.default_acl_probe"
+    query(f"CREATE TABLE {probe}(id int); CREATE FUNCTION {probe}_fn() RETURNS int LANGUAGE sql AS 'SELECT 1';",
+          role=OWNER)
+    for role in ("anon", "authenticated", "service_role"):
+        for privilege in _table_privileges():
+            assert query("SELECT has_table_privilege($1, $2, $3) ok", role, probe, privilege)[0]["ok"], (
+                role, privilege)
+        assert query("SELECT has_function_privilege($1, $2, 'EXECUTE') ok",
+                     role, f"{probe}_fn()")[0]["ok"], role
+    assert query("SELECT pg_get_userbyid(relowner) owner FROM pg_class WHERE oid = $1::regclass",
+                 f"{schema}.ai_model_overrides")[0]["owner"] == OWNER
 
 
 def test_tables_have_rls_and_no_client_privileges(schema):
@@ -85,28 +134,28 @@ def test_tables_have_rls_and_no_client_privileges(schema):
     assert {r["relname"]: r["relrowsecurity"] for r in rows} == {t: True for t in TABLES}
     assert query("""SELECT count(*) n FROM pg_policies WHERE schemaname = $1""", schema)[0]["n"] == 0
 
+    for table, granted in SERVICE_ROLE_GRANTS.items():
+        for role in ("anon", "authenticated", "service_role"):
+            for privilege in _table_privileges():
+                ok = query("SELECT has_table_privilege($1, $2, $3) ok",
+                           role, f"{schema}.{table}", privilege)[0]["ok"]
+                assert ok is (role == "service_role" and privilege in granted), (role, table, privilege)
     for role in ("anon", "authenticated"):
-        for table in TABLES:
-            for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"):
-                assert not query("SELECT has_table_privilege($1, $2, $3) ok",
-                                 role, f"{schema}.{table}", privilege)[0]["ok"], (role, table, privilege)
-        for function in FUNCTIONS:
+        for function in FUNCTIONS + TRIGGER_FUNCTIONS:
             assert not query("SELECT has_function_privilege($1, $2, 'EXECUTE') ok",
                              role, f"{schema}.{function}")[0]["ok"], (role, function)
-
-    expected = {
-        "ai_model_overrides": {"SELECT", "INSERT", "UPDATE", "DELETE"},
-        "ai_model_override_audit": {"SELECT", "INSERT"},
-        "ai_provider_failures": {"SELECT", "INSERT"},
-    }
-    for table, granted in expected.items():
-        for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"):
-            ok = query("SELECT has_table_privilege('service_role', $1, $2) ok",
-                       f"{schema}.{table}", privilege)[0]["ok"]
-            assert ok is (privilege in granted), (table, privilege)
     for function in FUNCTIONS:
         assert query("SELECT has_function_privilege('service_role', $1, 'EXECUTE') ok",
                      f"{schema}.{function}")[0]["ok"]
+
+
+def test_service_role_cannot_rewrite_audit_or_failure_history(schema):
+    for table in ("ai_model_override_audit", "ai_provider_failures"):
+        for statement in (f"UPDATE {schema}.{table} SET feature = feature;",
+                          f"DELETE FROM {schema}.{table};",
+                          f"TRUNCATE {schema}.{table};"):
+            with pytest.raises(asyncpg.exceptions.InsufficientPrivilegeError):
+                query(statement, role="service_role")
 
 
 def test_anon_and_authenticated_cannot_read_or_write(schema):
@@ -151,7 +200,7 @@ def test_service_role_writes_are_audited_and_audit_is_append_only(schema):
     for statement in (f"UPDATE {schema}.ai_model_override_audit SET changed_by = NULL;",
                       f"DELETE FROM {schema}.ai_model_override_audit;"):
         with pytest.raises(asyncpg.exceptions.InsufficientPrivilegeError):
-            query(statement)
+            query(statement, role=OWNER)
     assert query(f"SELECT count(*) n FROM {schema}.ai_model_override_audit")[0]["n"] == 3
 
 
