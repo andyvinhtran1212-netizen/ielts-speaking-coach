@@ -215,8 +215,9 @@ class BulkSittingsBody(BaseModel):
 
 
 class RetestFlagsBody(BaseModel):
-    # {skill: bool} — the skills the student must retake. Skills the exam does
-    # not require are dropped server-side, so a stale client cannot invent one.
+    # {skill: bool} — the skills the student must retake. Ticking a skill the
+    # sitting does not carry is a 422 skill_not_in_sitting; an untick for one
+    # is ignored (the console posts all four keys).
     retest_flags: dict[str, bool] = Field(default_factory=dict)
 
 
@@ -688,6 +689,11 @@ async def set_sitting_retest_flags(
         return wf.set_retest_flags_for_sitting(
             sitting_id, admin["id"], body.retest_flags,
         )
+    except wf.SkillNotInSittingError as e:
+        # Nothing was written; the console shows `message` verbatim (PC-J146).
+        raise HTTPException(422, detail={
+            "error": "skill_not_in_sitting", "skills": e.skills, "message": str(e),
+        })
     except wf.NotFoundError as e:
         raise HTTPException(404, str(e))
     except wf.ConflictError as e:
