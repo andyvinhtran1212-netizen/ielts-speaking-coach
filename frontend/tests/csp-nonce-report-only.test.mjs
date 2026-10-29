@@ -15,6 +15,12 @@ import {
   buildNonceReportOnlyPolicy,
   nonceReportOnlyEnabled,
 } from '../tooling/content-security-policy.mjs';
+import {
+  auditNonceResponse,
+  auditNonceRoute,
+  PUBLIC_PATHS,
+  SIGNED_IN_PATHS,
+} from '../tooling/check-csp-nonce-deployed.mjs';
 
 const FRONTEND = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(path.join(FRONTEND, ...parts), 'utf8');
@@ -180,5 +186,48 @@ describe('legacy public/js', () => {
     };
     walk(path.join(FRONTEND, 'public/js'));
     assert.deepEqual(offenders, []);
+  });
+});
+
+// PC-J145 / SA-1029-CSP1: the deployed-build check. `next start` stamps every
+// script; a Vercel deployment stamped only AuthedShell's two (staging
+// c0370655c, 2/17 on /home), because the PPR resume request carries the
+// enforced `content-security-policy` and Next reads the nonce from it first.
+describe('deployed nonce check (tooling/check-csp-nonce-deployed.mjs)', () => {
+  const OTHER = 'EBESExQVFhcYGRobHB0eHw==';
+  const ro = (nonce) => `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline'`;
+  const page = (nonce, { nextStamped }) => [
+    `<script src="/_next/static/immutable/chunks/a.js" async=""${nextStamped ? ` nonce="${nonce}"` : ''}></script>`,
+    `<script nonce="${nonce}">document.documentElement.dataset.theme='light'</script>`,
+    `<script src="/_next/static/immutable/chunks/b.js" id="_R_" async=""${nextStamped ? ` nonce="${nonce}"` : ''}></script>`,
+    `<script${nextStamped ? ` nonce="${nonce}"` : ''}>(self.__next_f=self.__next_f||[]).push([0])</script>`,
+  ].join('');
+
+  test('passes only when every served <script> carries the header nonce and the nonce changes', () => {
+    assert.deepEqual(auditNonceRoute('/home',
+      { reportOnly: ro(NONCE), html: page(NONCE, { nextStamped: true }) },
+      { reportOnly: ro(OTHER), html: page(OTHER, { nextStamped: true }) }), []);
+  });
+
+  test('the staging shape (Next chunks, bootstrap and flight scripts without the nonce) fails', () => {
+    const audit = auditNonceResponse({ reportOnly: ro(NONCE), html: page(NONCE, { nextStamped: false }) });
+    assert.equal(audit.nonce, NONCE);
+    assert.equal(audit.scripts, 4);
+    assert.equal(audit.unnonced.length, 3);
+    assert.equal(auditNonceRoute('/home',
+      { reportOnly: ro(NONCE), html: page(NONCE, { nextStamped: false }) },
+      { reportOnly: ro(OTHER), html: page(OTHER, { nextStamped: false }) }).length, 2);
+  });
+
+  test('a repeated nonce, a different nonce or a missing policy fails', () => {
+    const stamped = { reportOnly: ro(NONCE), html: page(NONCE, { nextStamped: true }) };
+    assert.match(auditNonceRoute('/home', stamped, stamped).join(), /same nonce was served twice/);
+    assert.equal(auditNonceResponse({ reportOnly: ro(OTHER), html: page(NONCE, { nextStamped: true }) }).unnonced.length, 4);
+    assert.match(auditNonceRoute('/home', { reportOnly: null, html: '' }, stamped).join(), /no Report-Only nonce policy/);
+  });
+
+  test('it probes signed-in paths the proxy matches and public paths it does not', () => {
+    for (const url of SIGNED_IN_PATHS) assert.equal(proxyMatches(url, 'staging.averlearning.com'), true, url);
+    for (const url of PUBLIC_PATHS) assert.equal(proxyMatches(url, 'staging.averlearning.com'), false, url);
   });
 });
