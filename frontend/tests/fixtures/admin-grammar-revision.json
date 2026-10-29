@@ -5,7 +5,7 @@
   "operation_id": "22222222-2222-4222-8222-222222222222",
   "source_fixture": {
     "path": "frontend/tests/fixtures/grammar-exact-form-banks.json",
-    "sha256": "f11031f7a70f0e54ee74f13f3be40cd6a533ddd9e00f313ea3b6f68c8d5555d8"
+    "sha256": "735bd5d8327e2768b1eb3d06cba7d4fee2d141462cfea9f8db922d61bf39dff6"
   },
   "rows": [
     {
