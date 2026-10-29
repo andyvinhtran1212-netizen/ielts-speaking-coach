@@ -9,26 +9,26 @@ WAF replacement); only the client address is retained, never user identifiers.
 Client key (client_address(); the same rule keys RequestSafetyMiddleware, the
 /tts burst throttle and the Reading anon_src hash):
 
-1. the RIGHTMOST globally routable X-Forwarded-For hop. Proxies append, so the
-   hop our edge adds is on the right; every hop to its left is whatever the
-   caller sent. Non-global hops after it (private, CGNAT 100.64/10, loopback,
-   link-local: proxy infrastructure) are skipped, so an internal hop appended
-   behind the edge does not fold every visitor into one key;
+1. the first UNTRUSTED X-Forwarded-For hop scanning from the right. Only hops
+   in settings.TRUSTED_PROXY_CIDRS may be skipped (default: no trusted ranges).
+   Private and other non-global addresses are valid keys, never implicit
+   proxies. An invalid hop stops the scan; caller hops to its left cannot key;
 2. else X-Real-IP;
-3. else the rightmost X-Forwarded-For hop (a local proxy with private
-   addresses only);
-4. else the socket peer.
+3. else the socket peer.
 
-X-Real-IP is not trusted when X-Forwarded-For carries a public hop: SA-1029-XFF1
+X-Real-IP is not preferred over an untrusted X-Forwarded-For hop: SA-1029-XFF1
 measured on staging that, for a caller whose egress is Cloudflare's (WARP,
 AS13335), Railway's edge sets X-Real-IP from the caller's LEFTMOST XFF hop, so
-"X-Forwarded-For: <random>, ..." minted a fresh budget per request. Only valid
-IP addresses count ("unknown", ports, brackets and oversize values are skipped
-or stripped), and IPv6 is keyed per /64, the block one subscriber controls.
+"X-Forwarded-For: <random>, ..." minted a fresh budget per request. J179 also
+identified caller-supplied CF-Connecting-IP via WARP as an X-Real-IP spoofing
+path. J177 must verify the edge appends/overwrites the true source in XFF on
+both ordinary and Cloudflare paths before promotion. Ports/brackets are
+stripped from valid IPs; IPv6 is keyed per /64.
 If the key is ever forged or collapses to one proxy address, the per-worker
 ceiling still holds.
 """
 from collections import deque
+from functools import lru_cache
 import ipaddress
 import logging
 import time
@@ -75,18 +75,24 @@ def _key(ip):
     return str(ip)
 
 
+@lru_cache(maxsize=1)
+def _trusted_proxy_networks(cidrs):
+    return tuple(ipaddress.ip_network(cidr.strip()) for cidr in cidrs.split(',')) if cidrs else ()
+
+
 def client_address(real_ip, forwarded_for, peer):
-    """Rate-limit key: rightmost public X-Forwarded-For hop, else X-Real-IP,
-    else rightmost X-Forwarded-For hop, else the socket peer (module doc).
-    Trade-off: non-global hops are skipped, so if the trusted (edge) hop is
-    itself non-global, a public hop the caller put to its left wins; safe only
-    while the edge appends the caller's public source address (PC-J176)."""
+    """Rightmost untrusted XFF hop, else X-Real-IP, else peer (module doc).
+    Stop at invalid hops, including empty entries. The 8-hop bound limits
+    work; exhausting it on trusted proxies falls back without scanning left."""
     entries = (forwarded_for or '').rsplit(',', _MAX_INSPECTED_HOPS)[-_MAX_INSPECTED_HOPS:]
-    hops = [ip for ip in map(_parse_ip, entries) if ip is not None]
-    for ip in reversed(hops):
-        if ip.is_global:
+    trusted = _trusted_proxy_networks(settings.TRUSTED_PROXY_CIDRS)
+    for entry in reversed(entries):
+        ip = _parse_ip(entry)
+        if ip is None:
+            break
+        if not any(ip in network for network in trusted):
             return _key(ip)
-    for ip in (_parse_ip(real_ip), hops[-1] if hops else None, _parse_ip(peer)):
+    for ip in (_parse_ip(real_ip), _parse_ip(peer)):
         if ip is not None:
             return _key(ip)
     return peer

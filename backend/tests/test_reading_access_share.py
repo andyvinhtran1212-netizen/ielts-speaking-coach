@@ -252,9 +252,9 @@ def _anon_src_for(headers):
 
 
 def test_share_start_anon_src_ignores_caller_supplied_forwarded_hops():
-    # PC-J39/PC-J142: XFF hops left of the edge's (rightmost public) hop and a
-    # caller-influenced X-Real-IP must not change anon_src. Rightmost public
-    # XFF hop → X-Real-IP → rightmost XFF hop → socket peer keys the hash.
+    # PC-J39/PC-J202: hops left of the rightmost untrusted XFF hop and a
+    # caller-influenced X-Real-IP must not change anon_src. The shared order
+    # is rightmost untrusted XFF hop → X-Real-IP → socket peer.
     from routers.reading_student import _hash_anon_src
     with patch.object(settings, "READING_ANON_SALT", "salt-x"):
         last_hop = _hash_anon_src("52.95.110.30")

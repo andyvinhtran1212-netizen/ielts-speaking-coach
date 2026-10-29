@@ -6,12 +6,11 @@ throttle; the key was the caller's LEFTMOST hop, because for a Cloudflare
 (WARP) egress Railway's edge derives X-Real-IP from it. One rule
 (services.request_safety.client_address) keys RequestSafetyMiddleware
 (/api/error-logs, /api/analytics/events), the /tts throttle and Reading's
-anon_src: rightmost public XFF hop → X-Real-IP → rightmost XFF hop → peer.
+anon_src: rightmost untrusted XFF hop → X-Real-IP → peer (PC-J202/J183).
 
 EDGE stands for the hop Railway's edge appends (the caller's real address).
-Global addresses are used on purpose: documentation ranges (203.0.113.0/24…)
-are not globally routable, and the rule skips non-global hops as proxy
-infrastructure.
+Only explicitly configured proxy CIDRs may be skipped. Non-global and invalid
+rightmost hops must never let the scan cross into caller-controlled input.
 """
 import ipaddress
 import random
@@ -21,7 +20,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.testclient import TestClient
 from starlette.requests import Request as StarletteRequest
 
-from config import settings
+from config import Settings, settings
+from pydantic import ValidationError
 from routers import reading_student
 from routers import tts as tts_module
 from services import request_safety
@@ -30,6 +30,11 @@ from services.request_safety import RequestSafetyMiddleware, client_address, req
 EDGE = '52.95.110.1'
 OTHER_EDGE = '34.117.59.81'
 EDGE_V6 = '2a09:bac5:d46e:a0::10:485'
+
+
+@pytest.fixture(autouse=True)
+def no_implicit_proxy_trust(monkeypatch):
+    monkeypatch.setattr(settings, 'TRUSTED_PROXY_CIDRS', '')
 
 
 def _random_global_ipv4(rng):
@@ -77,9 +82,8 @@ def test_spoofed_real_ip_does_not_override_a_public_forwarded_hop():
 
 
 def test_real_ip_without_forwarded_header_is_the_key():
-    # No XFF means no edge hop to prefer. Railway overwrites a client-sent
-    # X-Real-IP (SA mode "X-Real-IP: <random>" → 429 at #61), so without XFF
-    # it is the edge's value; locally it is only reachable through a proxy.
+    # Fallback contract, not proof of edge authenticity: J179 tracks the
+    # CF-Connecting-IP/WARP spoofing path; J177's edge probes gate promotion.
     assert client_address(EDGE, None, 'peer') == EDGE
     assert client_address(EDGE, '', 'peer') == EDGE
     assert client_address(f' {EDGE} ', ' , ', 'peer') == EDGE
@@ -87,9 +91,10 @@ def test_real_ip_without_forwarded_header_is_the_key():
 
 @pytest.mark.parametrize('junk', ['unknown', '<script>', 'x' * 300, '', ' ', ',,,',
                                   '1.2.3.4.5', '999.1.1.1', 'for=1.2.3.4', '[::1'])
-def test_junk_is_skipped_and_never_becomes_a_key(junk):
+def test_invalid_hop_stops_the_scan_and_never_becomes_a_key(junk):
     assert client_address(None, f'{junk}, {EDGE}', 'peer') == EDGE
-    assert client_address(None, f'{EDGE}, {junk}', 'peer') == EDGE
+    assert client_address(None, f'{EDGE}, {junk}', 'peer') == 'peer'
+    assert client_address(OTHER_EDGE, f'{EDGE}, {junk}', 'peer') == OTHER_EDGE
     assert client_address(junk, junk, 'peer') == 'peer'
     assert client_address(junk, None, None) is None
 
@@ -100,8 +105,8 @@ def test_ports_and_brackets_are_stripped_to_the_address():
     assert client_address(None, f'[{EDGE_V6}]:443', 'peer') == client_address(None, EDGE_V6, 'peer')
     assert client_address(None, f'[{EDGE_V6}]', 'peer') == client_address(None, EDGE_V6, 'peer')
     assert client_address(None, f'::ffff:{EDGE}', 'peer') == EDGE
-    # A bracketed loopback is valid but not public: the edge hop still wins.
-    assert client_address(None, f'{EDGE}, [::1]', 'peer') == EDGE
+    # Valid loopback keys unless it is explicitly configured as trusted.
+    assert client_address(None, f'{EDGE}, [::1]', 'peer') == '::/64'
     assert client_address(None, f'{EDGE}:http', 'peer') == 'peer'
 
 
@@ -120,40 +125,95 @@ def test_ipv6_is_keyed_per_64():
     assert client_address(None, '2001:4860:4860:2::1', 'peer') == '2001:4860:4860:2::/64'
 
 
-def test_internal_hops_after_the_edge_are_skipped():
-    # Proxy infrastructure appended behind the edge must not fold every
-    # visitor into one key.
+def test_only_configured_internal_hops_after_the_edge_are_skipped(monkeypatch):
+    monkeypatch.setattr(settings, 'TRUSTED_PROXY_CIDRS', '100.64.0.0/10,10.0.0.0/8')
     for spoof in _random_hops(4, 30):
         assert client_address(None, f'{spoof}, {EDGE}, 100.64.3.4, 10.1.2.3', 'peer') == EDGE
     assert client_address(None, f'{OTHER_EDGE}, 100.64.3.4', 'peer') == OTHER_EDGE
 
 
-def test_private_only_chain_falls_back_to_real_ip_then_last_hop():
-    assert client_address(EDGE, '10.0.0.1', 'peer') == EDGE
+def test_private_untrusted_hop_wins_over_real_ip():
+    assert client_address(EDGE, '10.0.0.1', 'peer') == '10.0.0.1'
     assert client_address(None, '10.0.0.9, 10.0.0.1', 'peer') == '10.0.0.1'
 
 
-def test_non_global_trusted_hop_lets_a_caller_public_hop_win():
-    # Documented trade-off (client_address docstring, CR F2): non-global hops
-    # are skipped as proxy infrastructure, so if the trusted hop is itself
-    # non-global, the caller's public hop to its left keys. On Railway today
-    # the edge hop is the caller's public source address, so it is not reached.
-    for trusted in ('10.0.0.5', '100.64.3.3', '203.0.113.20'):
-        assert client_address(None, f'9.9.9.9, {trusted}', 'peer') == '9.9.9.9'
-        assert client_address(None, f'9.9.9.10, {trusted}', 'peer') == '9.9.9.10'
-    # A global trusted hop is unaffected by what the caller puts left of it.
-    assert client_address(None, f'9.9.9.9, {EDGE}', 'peer') == EDGE
+@pytest.mark.parametrize('edge', ['10.0.0.5', '100.64.3.3', '203.0.113.20',
+                                 '127.0.0.1', '169.254.1.1', 'fc00::5', 'fe80::5'])
+def test_non_global_untrusted_hop_never_lets_a_caller_public_hop_win(edge):
+    # PC-J202 reverses the unsafe PC-J176 trade-off. Globalness is irrelevant.
+    expected = edge if ':' not in edge else str(ipaddress.ip_network(edge + '/64', strict=False))
+    for spoof in _random_hops(6, 40):
+        assert client_address(OTHER_EDGE, f'{spoof}, {edge}', 'peer') == expected
+
+
+@pytest.mark.parametrize('cidr,proxy,outside', [
+    ('10.0.0.0/8', '10.0.0.5', '11.0.0.5'),
+    ('100.64.0.0/10', '100.127.255.255', '100.128.0.0'),
+    ('192.168.0.0/16', '192.168.255.255', '192.169.0.0'),
+    ('172.16.0.0/12', '172.31.255.255', '172.32.0.0'),
+    ('127.0.0.0/8', '127.0.0.1', '128.0.0.1'),
+    ('203.0.113.9/32', '203.0.113.9', '203.0.113.10'),
+    ('fc00::/7', 'fdff::5', 'fe00::5'),
+    ('fe80::/10', 'febf::5', 'fec0::5'),
+    ('::1/128', '::1', '::2'),
+    ('2001:db8:1::/48', '2001:db8:1::1', '2001:db8:2::1'),
+])
+def test_configured_proxy_skips_exactly_one_hop_and_stops_at_untrusted(cidr, proxy, outside, monkeypatch):
+    # Synthetic configurations only: none of these ranges is trusted by default.
+    monkeypatch.setattr(settings, 'TRUSTED_PROXY_CIDRS', cidr)
+    for spoof in ('9.9.9.9', '9.9.9.10'):
+        assert client_address(EDGE, f'{spoof}, 203.0.113.20, {proxy}', 'peer') == '203.0.113.20'
+    expected = outside if ':' not in outside else str(ipaddress.ip_network(outside + '/64', strict=False))
+    assert client_address(EDGE, f'9.9.9.9, {outside}', 'peer') == expected
+    if ':' not in proxy:
+        assert client_address(None, f'203.0.113.20, ::ffff:{proxy}', 'peer') == '203.0.113.20'
+
+
+def test_trusted_proxy_does_not_skip_an_invalid_neighbor(monkeypatch):
+    monkeypatch.setattr(settings, 'TRUSTED_PROXY_CIDRS', '10.0.0.0/8')
+    for junk in ('unknown', '', ' ', 'bad-ip'):
+        for spoof in _random_hops(7, 10):
+            assert client_address(EDGE, f'{spoof}, {junk}, 10.0.0.1', 'peer') == EDGE
+            assert client_address(None, f'{spoof}, {junk}, 10.0.0.1', 'peer') == 'peer'
+
+
+def test_all_trusted_hops_fall_back_to_real_ip_then_peer(monkeypatch):
+    monkeypatch.setattr(settings, 'TRUSTED_PROXY_CIDRS', '10.0.0.0/8')
+    assert client_address(EDGE, '10.0.0.2, 10.0.0.1', OTHER_EDGE) == EDGE
+    assert client_address('unknown', '10.0.0.2, 10.0.0.1', OTHER_EDGE) == OTHER_EDGE
+
+
+def test_proxy_allowlist_is_empty_by_default_and_configurable_from_env(monkeypatch):
+    monkeypatch.delenv('TRUSTED_PROXY_CIDRS', raising=False)
+    assert Settings(_env_file=None).TRUSTED_PROXY_CIDRS == ''
+    monkeypatch.setenv('TRUSTED_PROXY_CIDRS', ' 10.0.0.0/8, fc00::/7 ')
+    configured = Settings(_env_file=None)
+    monkeypatch.setattr(settings, 'TRUSTED_PROXY_CIDRS', configured.TRUSTED_PROXY_CIDRS)
+    assert client_address(None, '203.0.113.20, fd00::1, 10.0.0.1', 'peer') == '203.0.113.20'
+
+
+@pytest.mark.parametrize('cidrs', ['garbage', '10.0.0.1/8', '10.0.0.0/33',
+                                   'fc00::/129', '10.0.0.0/8,', ',10.0.0.0/8'])
+def test_invalid_proxy_cidr_fails_configuration(cidrs):
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, TRUSTED_PROXY_CIDRS=cidrs)
 
 
 def test_oversize_header_cannot_push_the_edge_hop_out(monkeypatch):
-    # Bounded work is asserted by the number of hops parsed, not wall-clock
-    # time, which can flake on a loaded CI runner (CR F6).
+    # Count parsed hops instead of timing. Stop immediately at an untrusted
+    # hop; an all-trusted suffix still cannot exceed the eight-hop bound.
     parsed = []
     parse_ip = request_safety._parse_ip
-    monkeypatch.setattr(request_safety, '_parse_ip', lambda v: parsed.append(v) or parse_ip(v))
+    monkeypatch.setattr(request_safety, '_parse_ip', lambda v: parsed.append(v.strip() if v is not None else None) or parse_ip(v))
     chain = ', '.join(['8.8.8.8'] * 5000 + [EDGE])
     assert client_address(None, chain, 'peer') == EDGE
-    assert len(parsed) == request_safety._MAX_INSPECTED_HOPS
+    assert parsed == [EDGE]
+    parsed.clear()
+    monkeypatch.setattr(settings, 'TRUSTED_PROXY_CIDRS', '10.0.0.0/8')
+    chain = ', '.join([EDGE] + ['10.0.0.1'] * 5000)
+    assert client_address(OTHER_EDGE, chain, 'peer') == OTHER_EDGE
+    assert parsed[:request_safety._MAX_INSPECTED_HOPS] == ['10.0.0.1'] * request_safety._MAX_INSPECTED_HOPS
+    assert parsed[request_safety._MAX_INSPECTED_HOPS:] == [OTHER_EDGE, 'peer']
 
 
 def test_request_helper_joins_repeated_forwarded_lines_in_order():
@@ -186,17 +246,18 @@ def _safety_client():
 
 @pytest.mark.parametrize('path,budget', [('/api/error-logs', 60), ('/api/analytics/events', 120)])
 @pytest.mark.parametrize('spoofed', ['first_hop', 'real_ip', 'none'])
-def test_ingress_budget_holds_when_caller_headers_rotate(path, budget, spoofed):
+@pytest.mark.parametrize('edge', [EDGE, '203.0.113.20', '10.0.0.5'])
+def test_ingress_budget_holds_when_caller_headers_rotate(path, budget, spoofed, edge):
     client = _safety_client()
     rng = random.Random(budget)
 
     def headers():
         spoof = _random_global_ipv4(rng)
         if spoofed == 'first_hop':  # as measured: X-Real-IP copies the first hop
-            return {'X-Forwarded-For': f'{spoof}, {_random_global_ipv4(rng)}, {EDGE}',
+            return {'X-Forwarded-For': f'{spoof}, {_random_global_ipv4(rng)}, {edge}',
                     'X-Real-IP': spoof}
         if spoofed == 'real_ip':
-            return {'X-Forwarded-For': EDGE, 'X-Real-IP': spoof}
+            return {'X-Forwarded-For': edge, 'X-Real-IP': spoof}
         return {}  # control: the socket peer keys
 
     for _ in range(budget):
@@ -261,15 +322,16 @@ def tts_budget(monkeypatch):
 
 
 @pytest.mark.parametrize('spoofed', ['first_hop', 'real_ip'])
-def test_tts_throttle_429s_at_61_when_caller_headers_rotate(tts_budget, spoofed):
+@pytest.mark.parametrize('edge', [EDGE, '203.0.113.20', '10.0.0.5', '100.64.3.3'])
+def test_tts_throttle_429s_at_61_when_caller_headers_rotate(tts_budget, spoofed, edge):
     rng = random.Random(61)
 
     def request():
         spoof = _random_global_ipv4(rng)
         if spoofed == 'first_hop':
-            return _request([('X-Forwarded-For', f'{spoof}, {_random_global_ipv4(rng)}, {EDGE}'),
+            return _request([('X-Forwarded-For', f'{spoof}, {_random_global_ipv4(rng)}, {edge}'),
                              ('X-Real-IP', spoof)])
-        return _request([('X-Forwarded-For', EDGE), ('X-Real-IP', spoof)])
+        return _request([('X-Forwarded-For', edge), ('X-Real-IP', spoof)])
 
     for _ in range(tts_budget):
         tts_module._throttle_ip(request())
@@ -279,16 +341,31 @@ def test_tts_throttle_429s_at_61_when_caller_headers_rotate(tts_budget, spoofed)
     tts_module._throttle_ip(_request([('X-Forwarded-For', OTHER_EDGE)]))  # own window
 
 
+@pytest.mark.parametrize('real_ip', [None, EDGE])
+def test_tts_invalid_rightmost_hop_still_blocks_request_61(tts_budget, real_ip):
+    for i in range(tts_budget + 1):
+        headers = [('X-Forwarded-For', f'8.8.8.{i}, unknown')]
+        if real_ip:
+            headers.append(('X-Real-IP', real_ip))
+        if i < tts_budget:
+            tts_module._throttle_ip(_request(headers))
+        else:
+            with pytest.raises(HTTPException) as error:
+                tts_module._throttle_ip(_request(headers))
+            assert error.value.status_code == 429
+
+
 # ── Reading anon_src ───────────────────────────────────────────────────────
 
-def test_reading_anon_src_ignores_caller_hops_and_spoofed_real_ip(monkeypatch):
+@pytest.mark.parametrize('edge', [EDGE, '203.0.113.20', '10.0.0.5'])
+def test_reading_anon_src_ignores_caller_hops_and_spoofed_real_ip(monkeypatch, edge):
     monkeypatch.setattr(settings, 'READING_ANON_SALT', 'salt-x')
 
     def anon_src(headers):
         return reading_student._hash_anon_src(reading_student._client_ip(_request(headers)))
 
-    expected = reading_student._hash_anon_src(EDGE)
+    expected = reading_student._hash_anon_src(edge)
     for spoof in _random_hops(5, 40):
-        assert anon_src([('X-Forwarded-For', f'{spoof}, {EDGE}')]) == expected
-        assert anon_src([('X-Forwarded-For', EDGE), ('X-Real-IP', spoof)]) == expected
+        assert anon_src([('X-Forwarded-For', f'{spoof}, {edge}')]) == expected
+        assert anon_src([('X-Forwarded-For', edge), ('X-Real-IP', spoof)]) == expected
     assert anon_src([('X-Forwarded-For', OTHER_EDGE)]) != expected

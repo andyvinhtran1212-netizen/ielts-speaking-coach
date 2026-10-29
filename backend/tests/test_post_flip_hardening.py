@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from config import settings
 from routers import vocab_units, health
 from routers.error_logs import ErrorReportRequest
 from services import curated_readiness
@@ -264,8 +265,8 @@ def test_anonymous_ingress_is_rate_limited_per_client(path, limits):
 
 def test_caller_supplied_forwarded_hops_do_not_mint_fresh_budgets():
     client = TestClient(safety_app(log_per_client_per_minute=2, log_per_minute=100))
-    # Only the rightmost public hop (appended by our edge proxy) identifies the
-    # client; public addresses on purpose, documentation ranges are not global.
+    # The rightmost untrusted hop (appended by our edge proxy) identifies
+    # the client, regardless of whether the address is global.
     for spoof in ('8.8.8.8', '10.0.0.2'):
         assert client.post('/api/error-logs', json={'message': 'x'},
                            headers=_xff(spoof, '52.95.110.1')).status_code == 200
@@ -273,9 +274,10 @@ def test_caller_supplied_forwarded_hops_do_not_mint_fresh_budgets():
                        headers=_xff('1.1.1.1', '52.95.110.1')).status_code == 429
 
 
-def test_real_ip_separates_clients_behind_a_private_only_forwarded_chain():
-    # PC-J32/PC-J142: with only private hops (a local proxy) X-Real-IP keys, so
-    # two visitors behind that proxy do not share a bucket.
+def test_real_ip_separates_clients_behind_an_explicitly_trusted_proxy(monkeypatch):
+    # PC-J202: only configured proxy hops may be skipped, including private
+    # ones. An all-trusted chain falls back to X-Real-IP.
+    monkeypatch.setattr(settings, "TRUSTED_PROXY_CIDRS", "10.0.0.0/8")
     client = TestClient(safety_app(log_per_client_per_minute=1, log_per_minute=100))
     proxy = _xff('10.0.0.1')
     first = {**proxy, 'x-real-ip': '203.0.113.7'}
@@ -285,9 +287,10 @@ def test_real_ip_separates_clients_behind_a_private_only_forwarded_chain():
                        headers={**proxy, 'x-real-ip': '198.51.100.9'}).status_code == 200
 
 
-def test_spoofed_real_ip_cannot_move_a_public_forwarded_hop_off_its_bucket():
+def test_spoofed_real_ip_cannot_move_an_untrusted_forwarded_hop_off_its_bucket(monkeypatch):
     # SA-1029-XFF1: Railway's edge can copy X-Real-IP from the caller's first
-    # XFF hop, so a public forwarded hop outranks X-Real-IP.
+    # XFF hop, so an untrusted forwarded hop outranks X-Real-IP.
+    monkeypatch.setattr(settings, "TRUSTED_PROXY_CIDRS", "10.0.0.0/8")
     client = TestClient(safety_app(log_per_client_per_minute=1, log_per_minute=100))
     edge = _xff('52.95.110.1')
     assert client.post('/api/error-logs', json={'message': 'x'}, headers=edge).status_code == 200
@@ -299,9 +302,11 @@ def test_spoofed_real_ip_cannot_move_a_public_forwarded_hop_off_its_bucket():
 
 @pytest.mark.parametrize('hops', [('10.0.0.2', '10.0.0.3'), ('10.0.0.4',),
                                   ('192.168.1.9', '100.64.0.6')])
-def test_caller_added_private_hops_cannot_move_a_real_ip_off_its_bucket(hops):
-    # PC-J176 (CR F4): private hops a caller adds (first, last or alone) leave
-    # the chain without a public hop, so X-Real-IP still keys at the threshold.
+def test_explicitly_trusted_hops_fall_back_to_one_real_ip_budget(hops, monkeypatch):
+    # PC-J202 replaces the implicit trust from PC-J176/CR F4 with an explicit
+    # allowlist. Preserve budget and independent-client controls.
+    monkeypatch.setattr(settings, "TRUSTED_PROXY_CIDRS",
+                        "10.0.0.0/8,192.168.0.0/16,100.64.0.0/10")
     client = TestClient(safety_app(log_per_client_per_minute=2, log_per_minute=100))
     real = {'x-real-ip': '52.95.110.7'}
     for spoof, status in ((real, 200), ({**_xff(*hops), **real}, 200),

@@ -436,16 +436,14 @@ def test_non_positive_ip_budget_is_config_invalid(env, monkeypatch):
 
 
 def test_caller_supplied_first_forwarded_hops_share_one_ip_budget(env, monkeypatch):
-    # PC-J39/PC-J142: earlier XFF hops are caller-supplied; rotating them must
-    # not mint a fresh per-IP budget. The rightmost public hop (the one the edge
-    # appends) keys; a global address on purpose, documentation ranges such as
-    # 203.0.113.0/24 are not global and would be skipped (PC-J176).
+    # PC-J39: earlier XFF hops are caller-supplied; rotating them must not
+    # mint a fresh per-IP budget. The last hop (the proxy-appended one) keys.
     monkeypatch.setattr(tts_module.settings, "TTS_IP_MAX_PER_MINUTE", 2)
     client = _client()
     payload = {"text": "Hello"}
 
     def headers(spoof):
-        return {"Authorization": "Bearer x", "X-Forwarded-For": f"{spoof}, 52.95.110.20"}
+        return {"Authorization": "Bearer x", "X-Forwarded-For": f"{spoof}, 203.0.113.20"}
 
     assert client.post("/tts", json=payload, headers=headers("1.1.1.1")).status_code == 200
     assert client.post("/tts", json=payload, headers=headers("2.2.2.2")).status_code == 200
@@ -453,29 +451,44 @@ def test_caller_supplied_first_forwarded_hops_share_one_ip_budget(env, monkeypat
     assert len(env.synth_calls) == 2
 
 
-def test_real_ip_keys_the_throttle_only_behind_private_forwarded_hops(env, monkeypatch):
-    # PC-J142 (SA-1029-XFF1): X-Real-IP keys only when XFF carries no public
-    # hop; a spoofed X-Real-IP cannot move a public forwarded hop off its bucket.
+def test_forwarded_hop_keys_before_real_ip_then_real_ip_before_peer(env, monkeypatch):
+    # PC-J202/J177/J179: X-Real-IP can be spoofed via CF-Connecting-IP on
+    # WARP. Prefer the rightmost untrusted XFF hop regardless of globalness;
+    # use X-Real-IP only when XFF yields no key, then fall back to the peer.
     monkeypatch.setattr(tts_module.settings, "TTS_IP_MAX_PER_MINUTE", 1)
     client = _client()
     auth = {"Authorization": "Bearer x"}
-    real = {**auth, "X-Real-IP": "52.95.110.21"}
-    assert client.post("/tts", json={"text": "Hi"},
-                       headers={**real, "X-Forwarded-For": "10.0.0.1"}).status_code == 200
-    assert client.post("/tts", json={"text": "Hi"},
-                       headers={**real, "X-Forwarded-For": "10.0.0.2, 100.64.0.2"}).status_code == 429
-    # Another X-Real-IP behind the same private chain has its own window.
-    assert client.post("/tts", json={"text": "Hi"},
-                       headers={**auth, "X-Real-IP": "52.95.110.22",
-                                "X-Forwarded-For": "10.0.0.1"}).status_code == 200
-    assert len(env.synth_calls) == 2
-    # A public forwarded hop outranks X-Real-IP, so rotating it does not help.
-    edge = {**auth, "X-Forwarded-For": "52.95.110.23"}
-    assert client.post("/tts", json={"text": "Hi"},
-                       headers={**edge, "X-Real-IP": "8.8.8.8"}).status_code == 200
-    assert client.post("/tts", json={"text": "Hi"},
-                       headers={**edge, "X-Real-IP": "8.8.4.4"}).status_code == 429
+    for edge in ("10.0.0.1", "203.0.113.21", "52.95.110.21"):
+        assert client.post("/tts", json={"text": "Hi"}, headers={
+            **auth, "X-Forwarded-For": f"1.1.1.1, {edge}",
+            "X-Real-IP": "198.51.100.21"}).status_code == 200
+        assert client.post("/tts", json={"text": "Hi"}, headers={
+            **auth, "X-Forwarded-For": f"2.2.2.2, {edge}",
+            "X-Real-IP": "198.51.100.22"}).status_code == 429
     assert len(env.synth_calls) == 3
+    # Without XFF, two X-Real-IP values keep independent budgets.
+    real = {**auth, "X-Real-IP": "192.0.2.1"}
+    assert client.post("/tts", json={"text": "Hi"}, headers=real).status_code == 200
+    assert client.post("/tts", json={"text": "Hi"}, headers=real).status_code == 429
+    assert client.post("/tts", json={"text": "Hi"}, headers={
+        **auth, "X-Real-IP": "192.0.2.2"}).status_code == 200
+    # With neither usable header, the socket peer keys.
+    assert client.post("/tts", json={"text": "Hi"}, headers=auth).status_code == 200
+    assert client.post("/tts", json={"text": "Hi"}, headers=auth).status_code == 429
+    assert len(env.synth_calls) == 6
+
+
+@pytest.mark.parametrize("real_ip", [None, "192.0.2.3"])
+def test_invalid_rightmost_forwarded_hop_stops_at_real_ip_or_peer(env, monkeypatch, real_ip):
+    # Never skip junk and cross into caller-controlled hops to its left.
+    monkeypatch.setattr(tts_module.settings, "TTS_IP_MAX_PER_MINUTE", 2)
+    client = _client()
+    for spoof, status in (("1.1.1.1", 200), ("2.2.2.2", 200), ("3.3.3.3", 429)):
+        headers = {"Authorization": "Bearer x", "X-Forwarded-For": f"{spoof}, unknown"}
+        if real_ip:
+            headers["X-Real-IP"] = real_ip
+        assert client.post("/tts", json={"text": "Hi"}, headers=headers).status_code == status
+    assert len(env.synth_calls) == 2
 
 
 def test_client_ip_falls_back_to_socket_peer_without_headers():
