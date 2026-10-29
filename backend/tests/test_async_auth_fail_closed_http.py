@@ -12,8 +12,8 @@ that answers each request with data, a 5xx, a bad body or nothing at all.
 Pinned for the learner gate (over HTTP on ``/api/student/permissions``),
 ``require_instructor`` / ``require_admin`` (``staff_guard.resolve_staff``) and
 ``/auth/check-active``: a lookup that fails never makes an account active or
-staff, and the status codes are the ones the code returns today (gate and
-staff guards 503, ``/auth/check-active`` 500). The sync singleton is never
+staff, and every lookup failure is a 503 (gate, staff guards and, since
+ASYNCAUTH-0036 Revision 2, ``/auth/check-active``). The sync singleton is never
 touched with the flag on.
 """
 
@@ -463,12 +463,12 @@ def test_check_active_reads_over_the_real_client(pg, user_id, expected):
 
 
 @pytest.mark.parametrize("failure", _FAILURES)
-def test_check_active_lookup_failure_is_500_never_active(pg, failure):
-    # Today's code answers 500 here (routers/auth.py check_active), unlike the
-    # gate's 503 — pinned as is; the spec wording is PC-J76 F-4.
+def test_check_active_lookup_failure_is_503_never_active(pg, failure):
+    # ASYNCAUTH-0036 Revision 2 (Vinh, 2026-10-29; PC-J76 F-4): 503 like the
+    # gate and the staff guards, with the same sanitized envelope.
     pg.fail("users", *_plan(failure))
     r = _get(pg, "/auth/check-active", "u-active")
-    _assert_structured_5xx(r, 500)
+    _assert_structured_5xx(r, 503)
 
 
 def test_check_active_empty_body_is_inactive(pg):
