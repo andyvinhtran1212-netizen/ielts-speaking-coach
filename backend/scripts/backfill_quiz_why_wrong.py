@@ -51,10 +51,17 @@ def _model():
 
 
 def _call(genai, name, prompt, tries=6):
+    from services import ai_budget
     last, delay = None, 2
     for _ in range(tries):
         try:
-            return genai.GenerativeModel(name).generate_content(prompt).text or ""
+            # AIBUDGET-0033 FR-001: each try is its own reserved request.
+            return ai_budget.generate_content_sync(
+                genai.GenerativeModel(name), name, prompt,
+                feature="quiz_why_wrong_generation", operation="backfill",
+            ).text or ""
+        except ai_budget.AIBudgetRefused:
+            raise   # FR-008: a refusal is never retried
         except Exception as e:  # noqa: BLE001 — back off so rate-limit windows recover
             last = e
             time.sleep(delay)

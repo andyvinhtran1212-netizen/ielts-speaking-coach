@@ -27,16 +27,18 @@ Azure docs:
 
 import asyncio
 import base64
+import io
 import json
 import logging
 import subprocess
 import time
+import wave
 from typing import Optional
 
 import httpx
 
 from config import settings
-from services import ai_usage_logger
+from services import ai_budget, ai_usage_logger
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +98,16 @@ def _convert_to_wav(audio_bytes: bytes) -> bytes | None:
 
 
 # ── Assessment config ──────────────────────────────────────────────────────────
+
+def _wav_seconds(data: bytes) -> float | None:
+    """Duration of a PCM WAV payload from its header, or None."""
+    try:
+        with wave.open(io.BytesIO(data), "rb") as clip:
+            rate = clip.getframerate()
+            return clip.getnframes() / rate if rate > 0 else None
+    except Exception:
+        return None
+
 
 def _assessment_header(
     reference_text: str = "",
@@ -284,6 +296,11 @@ def _build_summary(
 
 # ── Public API ─────────────────────────────────────────────────────────────────
 
+# ai_pricing unit row for Azure Speech S0 real-time STT + Pronunciation
+# Assessment (AIBUDGET-0033 T001), billed per second of audio sent.
+_BUDGET_MODEL = "pronunciation-assessment"
+
+
 async def assess_pronunciation(
     audio_bytes:    bytes,
     content_type:   str = "audio/webm; codecs=opus",
@@ -364,10 +381,29 @@ async def assess_pronunciation(
 
     logger.debug(f"[PRON] → Azure POST {len(send_bytes)}B  content_type={send_content_type}  locale={locale}")
 
+    # AIBUDGET-0033 FR-004: the line is sized from the audio actually sent —
+    # the converted WAV's own header, else the caller's measured duration. No
+    # duration means no estimate, which is refused before the request.
+    sent_seconds = (_wav_seconds(send_bytes) if send_content_type == "audio/wav" else None)
+    if sent_seconds is None:
+        sent_seconds = audio_seconds
+    estimate = (ai_budget.estimate_or_none("azure", _BUDGET_MODEL, audio_seconds=sent_seconds)
+                if sent_seconds is not None else None)
+
     request_started = time.monotonic()
     try:
-        async with httpx.AsyncClient(timeout=_API_TIMEOUT) as client:
-            resp = await client.post(url, headers=headers, content=send_bytes)
+        async with ai_budget.guard(
+            "azure", _BUDGET_MODEL, "pronunciation", estimate,
+            request_key=ai_budget.attempt_key("pronunciation"), operation="assess",
+            user_id=usage_user_id,
+            resource_type=(usage_resource_type or "response") if usage_resource_id else None,
+            resource_id=usage_resource_id,
+        ):
+            async with httpx.AsyncClient(timeout=_API_TIMEOUT) as client:
+                resp = await client.post(url, headers=headers, content=send_bytes)
+    except (ai_budget.AIBudgetRefused, ai_budget.AIBudgetReplay):
+        # Refused before the request (FR-023: the caller skips pronunciation).
+        raise
     except asyncio.CancelledError:
         # wait_for cancellation may arrive after Azure accepted the request, so
         # keep an explicit reconciliation row even though no response exists.

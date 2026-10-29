@@ -43,7 +43,7 @@ from typing import Any, Callable
 import anthropic
 
 from config import settings
-from services import ai_usage_logger
+from services import ai_budget, ai_usage_logger
 from services.claude_compat import ClaudeTruncatedResponseError, json_request_kwargs, response_text
 
 logger = logging.getLogger(__name__)
@@ -148,15 +148,25 @@ def generate_d1_question(vocab_row: dict) -> dict | None:
     evidence = (vocab_row.get("evidence_substring")
                 or vocab_row.get("context_sentence") or "").strip()
 
-    # ── Try Haiku ──────────────────────────────────────────────────────────────
-    haiku_payload = _try_haiku(vocab_row)
-    if haiku_payload:
-        haiku_payload["generated_by"] = "haiku"
-        haiku_payload["source_evidence_substring"] = evidence or None
-        return haiku_payload
+    try:
+        # ── Try Haiku ──────────────────────────────────────────────────────────
+        haiku_payload = _try_haiku(vocab_row)
+        if haiku_payload:
+            haiku_payload["generated_by"] = "haiku"
+            haiku_payload["source_evidence_substring"] = evidence or None
+            return haiku_payload
 
-    # ── Try Gemini ────────────────────────────────────────────────────────────
-    gemini_payload = _try_gemini(vocab_row)
+        # ── Try Gemini ─────────────────────────────────────────────────────────
+        gemini_payload = _try_gemini(vocab_row)
+    except (ai_budget.AIBudgetRefused, ai_budget.AIBudgetReplay) as exc:
+        # AIBUDGET-0033 FR-020: background generation refused by the budget is
+        # skipped and logged; no other provider and no evidence row. A later
+        # confirm schedules it again.
+        logger.warning(
+            "[d1_question_generator] skipped vocab_id=%s: ai_budget refused (%s)",
+            vocab_row.get("id"), getattr(exc, "reason", "replay"),
+        )
+        return None
     if gemini_payload:
         gemini_payload["generated_by"] = "gemini"
         gemini_payload["source_evidence_substring"] = evidence or None
@@ -306,6 +316,9 @@ def _call_with_retry(
     for attempt in range(max_attempts):
         try:
             return call_fn()
+        except (ai_budget.AIBudgetRefused, ai_budget.AIBudgetReplay):
+            # AIBUDGET-0033 FR-008: a budget refusal is never retried.
+            raise
         except BaseException as exc:  # noqa: BLE001 — classification below
             last_exc = exc
             is_rl = _is_rate_limit(exc)
@@ -475,12 +488,24 @@ def _try_haiku(vocab_row: dict) -> dict | None:
     model = settings.D1_QUESTION_MODEL or _DEFAULT_HAIKU_MODEL
 
     def _attempt() -> dict | None:
-        client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=60.0)  # Mục 11 (B4): bound the sync Claude call
-        msg = client.messages.create(
-            **json_request_kwargs(model, max_tokens=512),
-            system=[{"type": "text", "text": _SYSTEM_PROMPT}],
-            messages=[{"role": "user", "content": _build_user_prompt(vocab_row)}],
-        )
+        # Mục 11 (B4): bound the sync Claude call. AIBUDGET-0033 FR-001: no hidden retries.
+        client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=60.0, max_retries=0)
+        request = json_request_kwargs(model, max_tokens=512)
+        user_prompt = _build_user_prompt(vocab_row)
+        with ai_budget.guard_sync(
+            "anthropic", model, "d1_question_generation",
+            ai_budget.estimate_or_none("anthropic", model, input_text=[_SYSTEM_PROMPT, user_prompt],
+                                       max_tokens=request["max_tokens"]),
+            request_key=ai_budget.attempt_key("d1_question_generation"),
+            operation="generate_question", user_id=vocab_row.get("user_id"),
+            resource_type="vocabulary", resource_id=(str(vocab_row["id"]) if vocab_row.get("id") else None),
+        ) as lease:
+            msg = client.messages.create(
+                **request,
+                system=[{"type": "text", "text": _SYSTEM_PROMPT}],
+                messages=[{"role": "user", "content": user_prompt}],
+            )
+            lease.settle(ai_budget.anthropic_actual_usd(model, getattr(msg, "usage", None)))
         status, error_code = "error", "invalid_response"
         try:
             raw = response_text(msg)
@@ -512,6 +537,8 @@ def _try_haiku(vocab_row: dict) -> dict | None:
         validated = _call_with_retry(
             _attempt, provider="haiku", vocab_id=vocab_row.get("id"),
         )
+    except (ai_budget.AIBudgetRefused, ai_budget.AIBudgetReplay):
+        raise   # FR-008: no Gemini fallback after a refusal
     except Exception as e:
         logger.warning(
             "[d1_question_generator] Haiku call failed (after retries) for vocab_id=%s: %s",
@@ -555,7 +582,18 @@ def _try_gemini(vocab_row: dict) -> dict | None:
             ),
             system_instruction=_SYSTEM_PROMPT,
         )
-        resp = model.generate_content(_build_user_prompt(vocab_row), request_options={"timeout": 60})  # Mục 11 (B4): bound the sync Gemini call
+        user_prompt = _build_user_prompt(vocab_row)
+        with ai_budget.guard_sync(
+            "google", model_name, "d1_question_generation",
+            ai_budget.estimate_or_none("google", model_name, input_text=[_SYSTEM_PROMPT, user_prompt],
+                                       max_tokens=512),
+            request_key=ai_budget.attempt_key("d1_question_generation"),
+            operation="generate_question_fallback", user_id=vocab_row.get("user_id"),
+            resource_type="vocabulary", resource_id=(str(vocab_row["id"]) if vocab_row.get("id") else None),
+        ) as lease:
+            # Mục 11 (B4): bound the sync Gemini call; no hidden gapic retry (FR-001).
+            resp = model.generate_content(user_prompt, request_options=ai_budget.gemini_request_options(60))
+            lease.settle(ai_budget.gemini_actual_usd(model_name, resp))
         ai_usage_logger.log_gemini_response(
             resp,
             model=model_name,
@@ -574,6 +612,8 @@ def _try_gemini(vocab_row: dict) -> dict | None:
         validated = _call_with_retry(
             _attempt, provider="gemini", vocab_id=vocab_row.get("id"),
         )
+    except (ai_budget.AIBudgetRefused, ai_budget.AIBudgetReplay):
+        raise
     except Exception as e:
         logger.warning(
             "[d1_question_generator] Gemini call failed (after retries) for vocab_id=%s: %s",
