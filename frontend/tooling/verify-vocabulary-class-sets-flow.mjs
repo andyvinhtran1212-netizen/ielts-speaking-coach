@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { storageKey } from './supabase-session.mjs';
 import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
+import { createFlowWatchdog } from './lib/flow-watchdog.mjs';
 
 const base = process.argv[2] || 'http://127.0.0.1:3017';
 assert.ok(/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(base), 'loopback Next only');
@@ -19,6 +20,10 @@ let set = { id: '40000000-0000-4000-8000-000000000020', title: 'Education · C2'
   status: 'published', version: 2, published_revision: 1, library: false, course_ids: [course], cohort_ids: [], card_ids: [card.id], cards: [card],
   progress: [], mode_counts: { flashcards: 1, learn: 1, cloze: 1, test: 1 } };
 const sessions = new Map();
+// PC-J253: a green run takes well under a minute. Any failure (or a stall past 3 min) prints
+// the last step, URL, recent API requests, unhandled requests, page errors and
+// the page text before exiting 1.
+const guard = createFlowWatchdog({ name: 'verify-vocabulary-class-sets-flow', totalMs: 3 * 60_000 });
 const errors = []; const unhandled = []; const requests = [];
 let browser;
 try { browser = await chromium.launch(); } catch (e) {
@@ -41,6 +46,7 @@ try {
     const p = url.pathname; const method = req.method(); let body = {};
     try { body = req.postDataJSON() || {}; } catch {}
     requests.push({ p, method, body });
+    guard.recordRequest(req);
     if (method === 'OPTIONS') return json({});
     if (p === '/auth/me') return json({ id: actor, email: 'vocab-fixture@local.test', role: 'admin', display_name: 'Fixture', flashcard_enabled: true, d1_enabled: true, vocab_curated_enabled: false });
     if (p === '/auth/check-active') return json({ is_active: true });
@@ -77,16 +83,19 @@ try {
       }
       return json(s);
     }
-    unhandled.push(`${method} ${url.origin}${p}`); return json({ detail:'unhandled fixture' },404);
+    unhandled.push(`${method} ${url.origin}${p}`); guard.recordUnhandled(`${method} ${url.origin}${p}`); return json({ detail:'unhandled fixture' },404);
   });
   await stubAdminMfaStatus(context);
   const page = await context.newPage(); page.on('pageerror', e => errors.push(String(e)));
+  guard.watchPage(page);
   await page.goto(base+'/vocabulary/hub');
   await page.getByRole('heading',{name:'Học từ vựng',exact:true}).waitFor();
   assert.equal(await page.getByRole('navigation',{name:'Điều hướng từ vựng'}).getByRole('link').count(),4);
+  guard.passed('hub renders four vocabulary nav links');
   await page.goto(base+'/exercises');
   await page.getByRole('heading',{name:'Đến hạn ôn',exact:true}).waitFor();
   assert.equal(new URL(page.url()).searchParams.get('view'),'review');
+  guard.passed('/exercises lands on the review view');
   await page.goto(base+'/vocabulary/hub');
   await page.getByRole('heading',{name:'Học từ vựng',exact:true}).waitFor();
   await page.getByRole('link',{name:'Bộ từ',exact:true}).click();
@@ -107,12 +116,14 @@ try {
     await page.getByRole('heading',{name:'Phiên học đã hoàn tất'}).waitFor();
     await page.reload(); await page.getByRole('heading',{name:'Phiên học đã hoàn tất'}).waitFor();
     await page.getByRole('link',{name:'Trở về bộ từ',exact:false}).click();
+    guard.passed(`mode ${mode}: start, resume, result reload`);
   }
   await page.goto(base+`/admin/vocab/sets/${set.id}`);
   await page.getByRole('textbox',{name:'Tên bộ',exact:true}).fill('Education · C2 revised');
   await page.getByRole('button',{name:'Lưu và xuất bản',exact:true}).click();
   await page.getByText('Đã xuất bản.',{exact:false}).waitFor();
   await page.reload(); assert.equal(await page.getByRole('textbox',{name:'Tên bộ',exact:true}).inputValue(),'Education · C2 revised');
+  guard.passed('admin publication survives reload');
   for (const width of [1280,400,320]) for (const theme of ['light','dark']) {
     await page.setViewportSize({width,height:900});
     await page.evaluate(t => document.documentElement.setAttribute('data-theme',t),theme);
@@ -120,6 +131,7 @@ try {
       await page.goto(base+path); await page.locator('h1').first().waitFor();
       await page.evaluate(t => document.documentElement.setAttribute('data-theme',t),theme);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth<=innerWidth),`no overflow ${width}/${theme}/${path}`);
+      guard.passed(`no overflow ${width}/${theme}/${path}`);
     }
   }
   await page.goto(base+'/vocabulary/hub'); await page.getByRole('heading',{name:'Học từ vựng',exact:true}).waitFor();
@@ -130,4 +142,7 @@ try {
   assert.deepEqual(unhandled,[], 'unhandled fixture requests'); assert.deepEqual(errors,[], 'browser runtime errors');
   assert.equal(requests.filter(r=>r.method==='POST'&&r.p.endsWith('/publication')).length,1);
   console.log('PASS: hub → set → all four modes → resume/result reload; admin publication/reload; 320/400/1280px, light/dark; no overflow or runtime errors.');
+  guard.stop();
+} catch (error) {
+  await guard.fail(String(error?.stack || error));
 } finally { await browser.close(); }
