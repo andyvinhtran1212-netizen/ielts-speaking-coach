@@ -915,17 +915,22 @@ async def admin_set_user_role(
 
 def _committed_role_change(target: str, request_id: str | None, role: str):
     """The change to ``role`` this request committed, or None — also when the
-    audit is unreadable (logged); the caller then answers the RPC's 500 and a
-    repeat finishes the revocation (``_demotion_may_be_unrevoked``). The
-    request id can come from the client's X-Request-ID, so a row that did not
-    end at ``role`` is not this request's change."""
+    audit or the account is unreadable (logged); the caller then answers the
+    RPC's 500 and a repeat finishes the revocation
+    (``_demotion_may_be_unrevoked``). The request id can come from the
+    client's X-Request-ID, so an older row that shares a replayed id is not
+    proof on its own: the row must end at ``role`` and the account's current
+    role, read fresh, must be ``role`` too."""
     try:
         change = staff_security.committed_privilege_change(
             supabase_admin, target_id=target, request_id=request_id, event="role_changed")
+        if change is None or change.after.get("role") != role:
+            return None
+        account = staff_security.read_privilege_row(supabase_admin, target)
     except Exception as exc:
         logger.error("[admin] role change outcome lookup failed target=%s: %r", target, exc)
         return None
-    if change is None or change.after.get("role") != role:
+    if not account or account.get("role") != role:
         return None
     return change
 

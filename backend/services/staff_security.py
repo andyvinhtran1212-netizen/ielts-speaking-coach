@@ -399,10 +399,21 @@ def _record_over_rest(db: Any, *, row: dict) -> bool:
     """Fallback without a working direct connection: two REST writes, so a
     failed enqueue leaves the audit row without its alert. That is logged at
     error, and the next revocation recorded for the target (e.g. the retry
-    route) enqueues it. False when the audit row was not written."""
+    route) enqueues it. False when the audit row was not written: a failed
+    insert whose row already exists is the direct transaction's commit with
+    a lost answer, alerts included, so that is True."""
     try:
         db.table("staff_security_audit").insert({**row, "source": "admin_api"}).execute()
     except Exception as exc:
+        try:
+            exists = bool(db.table("staff_security_audit").select("id")
+                          .eq("id", row["id"]).limit(1).execute().data)
+        except Exception as lookup_exc:
+            logger.error("[staff_security] audit row lookup failed audit=%s: %r",
+                         row["id"], lookup_exc)
+            exists = False
+        if exists:
+            return True
         logger.error("[staff_security] audit write failed event=%s target=%s: %r",
                      row["event"], row["target_user_id"], exc)
         return False

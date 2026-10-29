@@ -872,6 +872,12 @@ class TestRevocationAuditTransaction:
         assert len(db.audits("sessions_revoke_failed")) == 1
         assert len(db.tables["owner_alert_outbox"]) == 1
 
+    def test_lost_commit_answer_still_returns_the_existing_audit_id(self, client, db, engine):
+        engine.lose_commit_answer = True
+        r = client.post(f"/admin/users/{LEARNER}/revoke-sessions", json={}, headers=AUTH)
+        assert r.status_code == 200 and r.json()["sessions_revoked"] is True
+        assert [a["id"] for a in db.audits("sessions_revoked")] == [r.json()["audit_id"]]
+
     def test_retry_success_is_audited_in_the_transaction_without_an_alert(self, client, db, engine):
         r = client.post(f"/admin/users/{LEARNER}/revoke-sessions", json={}, headers=AUTH)
         assert r.json()["sessions_revoked"] is True
@@ -1285,6 +1291,33 @@ class TestRoleChangeAnswerLost:
         db._set_staff_privilege = lost
         r = client.patch(f"/admin/users/{LEARNER}/role", json={"role": "student"}, headers=headers)
         assert r.status_code == 500 and engine.statements == []
+
+    def test_a_replayed_request_id_whose_old_row_ended_at_the_role_is_not_this_change(
+            self, client, db, engine):
+        # Demote with id X, promote back, demote again reusing X and lose the
+        # request before commit: the old X row ended at "student", but the
+        # account is still admin, so this is not a committed demotion.
+        headers = {**AUTH, "X-Request-ID": "replayed-id"}
+        first = client.patch(f"/admin/users/{ADMIN2}/role", json={"role": "student"}, headers=headers)
+        assert first.status_code == 200 and first.json()["changed"] is True
+        assert self._role(client, ADMIN2, "admin").json()["changed"] is True
+        engine.sessions[ADMIN2] = 2
+        engine.statements.clear()
+
+        def lost(**_params):
+            raise RuntimeError("connection reset")
+
+        db._set_staff_privilege = lost
+        r = client.patch(f"/admin/users/{ADMIN2}/role", json={"role": "student"}, headers=headers)
+        assert r.status_code == 500, r.text
+        assert db.user(ADMIN2)["role"] == "admin" and engine.sessions[ADMIN2] == 2
+        assert engine.statements == []
+
+    def test_unreadable_account_after_a_committed_demotion_stays_500(self, client, db, engine):
+        self._commit_then_lose(db, then=lambda: db.fail_tables.add("users"))
+        r = self._role(client, ADMIN2, "student")
+        assert r.status_code == 500
+        assert db.user(ADMIN2)["role"] == "student" and engine.sessions[ADMIN2] == 2
 
     def test_repeat_of_a_promotion_or_of_a_never_staff_role_does_not_revoke(self, client, db, engine):
         self._role(client, INSTRUCTOR, "admin")
