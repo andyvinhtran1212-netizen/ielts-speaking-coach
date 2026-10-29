@@ -20,6 +20,10 @@ import {
   normalizeInstructorProfile,
 } from '@/lib/instructor-dashboard-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import {
+  InstructorInactiveState,
+  useInstructorInactiveGuard,
+} from '@/app/(authed-instructor)/instructor/instructor-inactive';
 
 type Phase = 'loading' | 'ready' | 'insufficient' | 'denied' | 'error';
 type Banner = { tone: 'success' | 'danger' | 'warning'; message: string } | null;
@@ -113,8 +117,11 @@ export function InstructorCompare() {
   const accountKey = status === 'signed-in' && user?.id ? user.id : '';
   const accountRef = useRef(accountKey);
   accountRef.current = accountKey;
+  // FR-014: an inactive 403 after load replaces the page; the picks stay in state.
+  const { inactive, inactiveRef, deny, reset: resetInactive } = useInstructorInactiveGuard();
 
   const applySnapshot = (next: any) => {
+    if (inactiveRef.current) return;
     const defaults = defaultInstructorPicks(next);
     setSnapshot(next);
     setBaseVersion(next.versions[0]?.version ?? null);
@@ -125,7 +132,12 @@ export function InstructorCompare() {
 
   const readCanonical = async (id: string, target: string | null) => {
     const path = instructorApiPath(`/instructor/essays/${encodeURIComponent(id)}/versions`, target);
-    const normalized = normalizeInstructorVersions(await window.api.get<unknown>(path));
+    const ownerId = accountRef.current;
+    const raw = await window.api.get<unknown>(path).catch((caught: unknown) => {
+      if (ownerId === accountRef.current) deny(caught);
+      throw caught;
+    });
+    const normalized = normalizeInstructorVersions(raw);
     if (!normalized) throw new Error('Backend trả dữ liệu phiên bản không đúng định dạng.');
     return normalized;
   };
@@ -137,6 +149,7 @@ export function InstructorCompare() {
     }
     if (status !== 'signed-in' || !user?.id) return;
     const requestId = ++sequence.current;
+    resetInactive();
     setPhase('loading');
     setSnapshot(null);
     setEssayId('');
@@ -214,7 +227,7 @@ export function InstructorCompare() {
         });
       }
     } catch (caught) {
-      if (ownerId !== accountRef.current || mutationScope !== sequence.current) return;
+      if (ownerId !== accountRef.current || mutationScope !== sequence.current || deny(caught)) return;
       try {
         const canonical = await readCanonical(essayId, asInstructor);
         if (ownerId !== accountRef.current || mutationScope !== sequence.current) return;
@@ -254,6 +267,16 @@ export function InstructorCompare() {
   };
 
   const backHref = essayId ? instructorCompareBackHref(essayId, asInstructor) : '/instructor';
+
+  if (inactive) {
+    return (
+      <div className="ic-shell">
+        <main className="ic-main">
+          <InstructorInactiveState className="ic-state is-error" />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="ic-shell">
