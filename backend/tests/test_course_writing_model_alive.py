@@ -58,7 +58,7 @@ def _grade_with_error(msg):
     from unittest.mock import patch
 
     class _Boom:
-        async def generate_content_async(self, _p):
+        async def generate_content_async(self, _p, **_kwargs):
             raise RuntimeError(msg)
 
     with patch.object(g, "_model", lambda: ("model-thử", _Boom())):
@@ -235,7 +235,7 @@ def test_a_corrected_answer_cannot_delete_the_explanation_line():
     answer = "Tomorrow I am meeting my classmates.\nDùng hiện tại tiếp diễn."
 
     class _Model:
-        async def generate_content_async(self, _prompt):
+        async def generate_content_async(self, _prompt, **_kwargs):
             class _Response:
                 text = json.dumps({"results": [{
                     "qid": "w1", "corrected": "Tomorrow I am meeting my classmates.",
@@ -255,7 +255,7 @@ def _grade_response_and_capture_usage(monkeypatch, response_text):
     import asyncio
 
     class _Model:
-        async def generate_content_async(self, _prompt):
+        async def generate_content_async(self, _prompt, **_kwargs):
             return type("_Response", (), {"text": response_text})()
 
     captured = []

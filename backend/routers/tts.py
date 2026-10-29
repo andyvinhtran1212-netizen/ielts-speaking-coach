@@ -196,7 +196,7 @@ async def text_to_speech(
 
     try:
         # Single synth path, shared with the vocab audio pregen (Slice-2).
-        audio_bytes = await synthesize_mp3(body.text, voice)
+        audio_bytes = await synthesize_mp3(body.text, voice, user_id=user_id)
         logger.info("[tts] generated %d bytes for %d chars (voice=%s)", len(audio_bytes), len(body.text), voice)
 
         ai_usage_logger.schedule_usage_log(ai_usage_logger.log_tts_async(
