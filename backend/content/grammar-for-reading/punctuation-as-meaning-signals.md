@@ -2,7 +2,7 @@
 title: 'Punctuation Signals — Dấu câu báo hiệu nghĩa (— : ; ngoặc)'
 slug: punctuation-as-meaning-signals
 category: grammar-for-reading
-summary: 'Dấu câu không chỉ để ngắt hơi — dấu hai chấm, chấm phẩy, gạch ngang và ngoặc mang nghĩa cụ thể (giải thích, liệt kê, tương phản, chêm). Đọc đúng tín hiệu dấu câu giúp bạn đoán quan hệ giữa các phần mà không cần từ nối.
+summary: 'Dấu câu không chỉ để ngắt hơi — dấu hai chấm, chấm phẩy, gạch ngang và ngoặc mang nghĩa cụ thể (giải thích, liệt kê, chêm). Đọc đúng tín hiệu dấu câu giúp bạn đoán quan hệ giữa các phần mà không cần từ nối.
 
   '
 level: intermediate
@@ -66,7 +66,7 @@ Dấu câu là **tín hiệu nghĩa** miễn phí. Biết mỗi dấu báo hiệ
 
 **Dấu chấm phẩy ( ; )** nối hai mệnh đề **độc lập** có quan hệ chặt:
 
-- *Sales fell in Europe; they rose in Asia.* → hai vế **cân bằng/đối chiếu**, tương đương một *however/whereas* ngầm.
+- *Sales fell in Europe; they rose in Asia.* → hai vế liên quan chặt; ở câu này là đối chiếu. Quan hệ phải đọc từ nội dung: *The experiment failed; the equipment was faulty.* (vế sau giải thích nguyên nhân)
 
 <!-- anchor: punctuation-as-meaning-signals.dash-bracket -->
 ### Gạch ngang và ngoặc
@@ -85,15 +85,15 @@ Dấu câu là **tín hiệu nghĩa** miễn phí. Biết mỗi dấu báo hiệ
 Sau dấu hai chấm vẫn là **cùng một ý** — phần giải thích/liệt kê thuộc về câu trước.
 
 ### Bẫy 2: Bỏ qua chấm phẩy như một dấu phẩy thường
-Chấm phẩy nối hai **mệnh đề độc lập** — mỗi vế là một ý đầy đủ, thường đối chiếu nhau.
+Chấm phẩy nối hai **mệnh đề độc lập** — mỗi vế là một ý đầy đủ; đọc nội dung để biết quan hệ.
 
 ### Chiến lược giải mã
 1. Dấu **:** → chờ giải thích/liệt kê cho ý ngay trước.
-2. Dấu **;** → hai ý độc lập, thường đối chiếu (như *however*).
+2. Dấu **;** → hai ý độc lập; đọc nội dung để biết quan hệ.
 3. Dấu **—** hoặc **( )** → phần chêm/nhấn; có thể tạm bỏ để thấy khung chính.
 
 ## Tóm tắt nhanh
 
 - **:** = giải thích/liệt kê phần trước
-- **;** = nối hai mệnh đề độc lập (thường đối chiếu)
+- **;** = nối hai mệnh đề độc lập (đọc nội dung để biết quan hệ)
 - **— / ( )** = chêm hoặc nhấn; bỏ được mà câu vẫn đủ

@@ -69,7 +69,7 @@ Hiểu câu = **khôi phục** phần bị lược hoặc bị thay.
 Phần lặp lại bị bỏ đi:
 
 - *She can speak French, and he can [speak French] too.*
-- *Some students passed; other students did not pass.* → others thay other students; không chèn students sau others.
+- *Some students passed; **others** did not [pass].* → *others* = other students (thay thế); sau *did not* lược *pass* (ellipsis).
 - Sau *and/but/or*, động từ hoặc danh từ lặp thường bị lược.
 
 Khôi phục lại phần trong ngoặc để hiểu trọn ý.
