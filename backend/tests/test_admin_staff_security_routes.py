@@ -1313,6 +1313,25 @@ class TestRoleChangeAnswerLost:
         assert db.user(ADMIN2)["role"] == "admin" and engine.sessions[ADMIN2] == 2
         assert engine.statements == []
 
+    def test_a_replayed_request_id_recovers_the_newest_committed_row(self, client, db, engine):
+        # Promote student→instructor with id X, promote to admin, then demote
+        # admin→instructor reusing X and lose the answer after commit. Both X
+        # rows end at "instructor" and the account is instructor, so only the
+        # newest row tells that this was a demotion that must revoke.
+        headers = {**AUTH, "X-Request-ID": "replayed-id"}
+        first = client.patch(f"/admin/users/{LEARNER}/role", json={"role": "instructor"}, headers=headers)
+        assert first.status_code == 200 and first.json()["changed"] is True
+        assert self._role(client, LEARNER, "admin").json()["changed"] is True
+        engine.sessions[LEARNER] = 2
+        self._commit_then_lose(db)
+        r = client.patch(f"/admin/users/{LEARNER}/role", json={"role": "instructor"}, headers=headers)
+        assert r.status_code == 200, r.text
+        body = r.json()
+        newest = db.audits("role_changed")[-1]
+        assert newest["before"]["role"] == "admin" and newest["after"]["role"] == "instructor"
+        assert body["audit_id"] == newest["id"] != first.json()["audit_id"]
+        assert body["sessions_revoked"] is True and LEARNER not in engine.sessions
+
     def test_unreadable_account_after_a_committed_demotion_stays_500(self, client, db, engine):
         self._commit_then_lose(db, then=lambda: db.fail_tables.add("users"))
         r = self._role(client, ADMIN2, "student")

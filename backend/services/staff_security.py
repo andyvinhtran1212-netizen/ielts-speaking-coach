@@ -193,13 +193,15 @@ def committed_privilege_change(
 ) -> Optional[PrivilegeChange]:
     """The change this request committed, from the audit row the users
     trigger writes in the RPC's own transaction (with the request id), or
-    None when there is none. Raises when the audit cannot be read."""
+    None when there is none. Raises when the audit cannot be read. A
+    client-supplied request id can be reused, so the newest matching row is
+    the one this request wrote."""
     if not request_id:
         return None
     rows = (
         db.table("staff_security_audit").select("id, before, after")
         .eq("target_user_id", target_id).eq("request_id", request_id).eq("event", event)
-        .limit(1).execute().data or []
+        .order("occurred_at", desc=True).limit(1).execute().data or []
     )
     if not rows:
         return None
