@@ -110,15 +110,19 @@ function inheritMultiAnswerSolutions(items) {
     }
     const authors = members.filter((item) => hasSolutionBody(item.solution));
     if (!authors.length) continue;
-    // The fullest authored body is the shared rationale; the first wins a tie.
+    // Source identity is always the lowest question number (items are sorted
+    // before grouping). Fullness selects display content, never the label.
+    const source = members[0];
+    // A web panel hides the exercise solution, so it cannot host this link.
+    if (source.web_explanation_object) continue;
     const author = authors.reduce((best, item) => (
       solutionBodySize(item.solution) > solutionBodySize(best.solution) ? item : best));
     if (authors.some((item) => conflictsWithShared(item.solution, author.solution))) continue;
     const group = { question_numbers: members.map((member) => member.q_num),
-      source_question_number: author.q_num };
+      source_question_number: source.q_num };
     let linked = false;
     for (const item of members) {
-      if (item === author || item.web_explanation_object) continue;
+      if (item === source || item.web_explanation_object) continue;
       if (hasSolutionBody(item.solution)) {
         // A per-slot rationale stays exactly as authored. Link the shared
         // passage instead of copying it beside the slot's own explanation.
@@ -140,8 +144,15 @@ function inheritMultiAnswerSolutions(items) {
         linked = true;
       }
     }
-    if (linked && !author.web_explanation_object) {
-      inherited.set(author.q_num, { ...(inherited.get(author.q_num) || author), solution_group: { ...group } });
+    if (linked) {
+      // The stable source must expose the shared body when a later slot is
+      // fuller. Preserve its authored fields, answer and replay window.
+      const solution = { ...source.solution };
+      for (const key of SHARED_SOLUTION_FIELDS) {
+        if (!(key in solution) && key in author.solution) solution[key] = author.solution[key];
+      }
+      inherited.set(source.q_num, { ...(inherited.get(source.q_num) || source), solution,
+        solution_group: { ...group } });
     }
   }
   return items.map((item) => inherited.get(item.q_num) || item);
