@@ -126,7 +126,9 @@ def require_flag(key: str, default: bool = True, *, on_error: bool | None = None
     A paid-AI route passes ``on_error=False`` (see :func:`is_enabled`).
     """
     def _guard() -> None:
-        if not is_enabled(key, default=default, on_error=on_error):
+        # Omitted on_error leaves the call exactly as before.
+        extra = {} if on_error is None else {"on_error": on_error}
+        if not is_enabled(key, default=default, **extra):
             # `error_code` (not `code`): the central 5xx sanitizer
             # (services/errors.py safe_detail, P0-5) only passes through a
             # dict detail carrying `error_code` — any other 5xx detail is
