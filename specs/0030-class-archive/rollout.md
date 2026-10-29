@@ -19,7 +19,9 @@
    - snapshot the `/my-class` and `/writing/my-assignments` responses of the 3
      learners of "QA Course 1 Resume 20261010" (FR-009);
    - snapshot the FR-009 count and P2 with separate read-only SELECTs.
-2. Apply 337 with the advisory-locked runner. Do not archive or restore classes
+2. Apply 337 and then 346 (Amendment 1, `research.md` §11.4) with the
+   advisory-locked runner (`MIGRATION_FEATURES=class_archive` applies both in
+   order). Do not archive or restore classes
    until step 3 is done.
 3. Deploy the merged SHA (backend and frontend).
 4. Compare the step-1 snapshot (AC-12). `/my-class` must be byte-identical.
@@ -38,7 +40,7 @@
    other class, open gives, usable codes. Record his decision per class: keep
    legacy, apply archive, or restore.
 2. At the `staging` → `main` promotion, with Vinh's explicit authorization:
-   - apply 337 under the advisory lock;
+   - apply 337 and then 346 under the advisory lock;
    - promote and deploy;
    - run the post-apply catalog (AC-1 queries) and the FR-009 count. It must
      equal the pre-apply count, which is 0.
@@ -53,6 +55,9 @@
     500 on those writes.
   - Legacy and active classes are unaffected.
   - Prefer a light schema rollback right after a backend revert.
+- **346 first:** before either schema rollback below, drop the three 346 move
+  guards (346 file header). The 337 rollbacks drop the guard functions, which
+  PostgreSQL refuses while those triggers depend on them.
 - **Light schema rollback:** drop the RPCs, the counts function and the four
   guards. Keep the columns, metadata trigger, audit table and the 337
   `fn_restore_student`. The old backend works fully.
