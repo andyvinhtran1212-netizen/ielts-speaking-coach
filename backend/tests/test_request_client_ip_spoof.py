@@ -15,7 +15,6 @@ infrastructure.
 """
 import ipaddress
 import random
-import time
 
 import pytest
 from fastapi import FastAPI, HTTPException, Request
@@ -25,6 +24,7 @@ from starlette.requests import Request as StarletteRequest
 from config import settings
 from routers import reading_student
 from routers import tts as tts_module
+from services import request_safety
 from services.request_safety import RequestSafetyMiddleware, client_address, request_client_ip
 
 EDGE = '52.95.110.1'
@@ -133,11 +133,27 @@ def test_private_only_chain_falls_back_to_real_ip_then_last_hop():
     assert client_address(None, '10.0.0.9, 10.0.0.1', 'peer') == '10.0.0.1'
 
 
-def test_oversize_header_cannot_push_the_edge_hop_out():
+def test_non_global_trusted_hop_lets_a_caller_public_hop_win():
+    # Documented trade-off (client_address docstring, CR F2): non-global hops
+    # are skipped as proxy infrastructure, so if the trusted hop is itself
+    # non-global, the caller's public hop to its left keys. On Railway today
+    # the edge hop is the caller's public source address, so it is not reached.
+    for trusted in ('10.0.0.5', '100.64.3.3', '203.0.113.20'):
+        assert client_address(None, f'9.9.9.9, {trusted}', 'peer') == '9.9.9.9'
+        assert client_address(None, f'9.9.9.10, {trusted}', 'peer') == '9.9.9.10'
+    # A global trusted hop is unaffected by what the caller puts left of it.
+    assert client_address(None, f'9.9.9.9, {EDGE}', 'peer') == EDGE
+
+
+def test_oversize_header_cannot_push_the_edge_hop_out(monkeypatch):
+    # Bounded work is asserted by the number of hops parsed, not wall-clock
+    # time, which can flake on a loaded CI runner (CR F6).
+    parsed = []
+    parse_ip = request_safety._parse_ip
+    monkeypatch.setattr(request_safety, '_parse_ip', lambda v: parsed.append(v) or parse_ip(v))
     chain = ', '.join(['8.8.8.8'] * 5000 + [EDGE])
-    started = time.perf_counter()
     assert client_address(None, chain, 'peer') == EDGE
-    assert time.perf_counter() - started < 0.05
+    assert len(parsed) == request_safety._MAX_INSPECTED_HOPS
 
 
 def test_request_helper_joins_repeated_forwarded_lines_in_order():
@@ -208,6 +224,12 @@ def test_ip_probe_log_is_staging_only_and_opt_in(monkeypatch, caplog):
     # before promote.
     client = _safety_client()
     probe = {'X-Aver-IP-Probe': '1', 'X-Forwarded-For': f'8.8.8.8, {EDGE}', 'X-Real-IP': '8.8.8.8'}
+    # SA-1933-4 (PC-J184): headers that join a line to Railway's HTTP log
+    # (srcIp) or show what a Cloudflare egress passes through.
+    extra = {'X-Railway-Request-Id': 'rq-sa1933', 'CF-Connecting-IP': '9.9.9.9',
+             'CF-Ray': '8c0ffee-SIN', 'True-Client-IP': '9.9.9.8',
+             'Forwarded': 'for=9.9.9.7;proto=https', 'X-Envoy-External-Address': '9.9.9.6',
+             'Via': '1.1 sa-proxy'}
     caplog.set_level('DEBUG', logger='services.request_safety.ip_probe')
     monkeypatch.setattr(settings, 'ENVIRONMENT', 'production')
     client.post('/api/analytics/events', json={}, headers=probe)
@@ -215,11 +237,18 @@ def test_ip_probe_log_is_staging_only_and_opt_in(monkeypatch, caplog):
     client.post('/api/analytics/events', json={}, headers={**probe, 'X-Aver-IP-Probe': '0'})
     assert not [r for r in caplog.records if '[ip-probe]' in r.getMessage()]
     client.post('/api/analytics/events?token=secret', json={}, headers={
-        **probe, 'Authorization': 'Bearer secret'})
+        **probe, **extra, 'Authorization': 'Bearer secret', 'Cookie': 'sb=secret'})
     [record] = [r for r in caplog.records if '[ip-probe]' in r.getMessage()]
     message = record.getMessage()
     assert EDGE in message and 'testclient' in message
+    for name, value in extra.items():
+        assert f'{name.lower()}={[value]!r}' in message
     assert 'secret' not in message and '/api/' not in message
+    # Long values stay capped per line, as for X-Real-IP.
+    caplog.clear()
+    client.post('/api/analytics/events', json={}, headers={**probe, 'Via': 'v' * 1000})
+    [record] = [r for r in caplog.records if '[ip-probe]' in r.getMessage()]
+    assert f"via={['v' * 256]!r}" in record.getMessage()
 
 
 # ── /tts burst throttle ────────────────────────────────────────────────────

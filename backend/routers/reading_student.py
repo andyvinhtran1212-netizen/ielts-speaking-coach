@@ -123,8 +123,9 @@ def _gen_anon_id() -> str:
 
 
 def _client_ip(request: Request | None) -> str | None:
-    # X-Real-IP → last XFF hop → peer (services/request_safety.py). The first
-    # XFF hop is caller-supplied, so it must not change the anon_src hash.
+    # Rightmost public XFF hop → X-Real-IP → rightmost XFF hop → peer
+    # (services/request_safety.py). Hops left of the edge's and a spoofed
+    # X-Real-IP are caller-supplied, so they must not change the anon_src hash.
     return request_client_ip(request)
 
 

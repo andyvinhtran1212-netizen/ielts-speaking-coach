@@ -297,6 +297,23 @@ def test_spoofed_real_ip_cannot_move_a_public_forwarded_hop_off_its_bucket():
                            headers=spoof).status_code == 429
 
 
+@pytest.mark.parametrize('hops', [('10.0.0.2', '10.0.0.3'), ('10.0.0.4',),
+                                  ('192.168.1.9', '100.64.0.6')])
+def test_caller_added_private_hops_cannot_move_a_real_ip_off_its_bucket(hops):
+    # PC-J176 (CR F4): private hops a caller adds (first, last or alone) leave
+    # the chain without a public hop, so X-Real-IP still keys at the threshold.
+    client = TestClient(safety_app(log_per_client_per_minute=2, log_per_minute=100))
+    real = {'x-real-ip': '52.95.110.7'}
+    for spoof, status in ((real, 200), ({**_xff(*hops), **real}, 200),
+                          ({**_xff(*hops), **real}, 429), ({**_xff(*reversed(hops)), **real}, 429),
+                          ({**_xff(hops[0], '10.9.9.9'), **real}, 429)):
+        assert client.post('/api/error-logs', json={'message': 'x'},
+                           headers=spoof).status_code == status
+    # Control: another X-Real-IP behind the same hops keeps its own budget.
+    assert client.post('/api/error-logs', json={'message': 'x'},
+                       headers={**_xff(*hops), 'x-real-ip': '52.95.110.8'}).status_code == 200
+
+
 def test_blank_real_ip_falls_back_to_last_forwarded_hop():
     client = TestClient(safety_app(log_per_client_per_minute=1, log_per_minute=100))
     blank = {'x-real-ip': ' '}

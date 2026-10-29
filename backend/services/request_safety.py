@@ -77,7 +77,10 @@ def _key(ip):
 
 def client_address(real_ip, forwarded_for, peer):
     """Rate-limit key: rightmost public X-Forwarded-For hop, else X-Real-IP,
-    else rightmost X-Forwarded-For hop, else the socket peer (module doc)."""
+    else rightmost X-Forwarded-For hop, else the socket peer (module doc).
+    Trade-off: non-global hops are skipped, so if the trusted (edge) hop is
+    itself non-global, a public hop the caller put to its left wins; safe only
+    while the edge appends the caller's public source address (PC-J176)."""
     entries = (forwarded_for or '').rsplit(',', _MAX_INSPECTED_HOPS)[-_MAX_INSPECTED_HOPS:]
     hops = [ip for ip in map(_parse_ip, entries) if ip is not None]
     for ip in reversed(hops):
@@ -114,6 +117,16 @@ _ip_probe_logger = logging.getLogger(__name__ + '.ip_probe')
 _ip_probe_logger.setLevel(logging.DEBUG)
 
 
+# Header -> per-line length cap. x-railway-request-id joins a line to the
+# Railway HTTP log (srcIp); the CF/Forwarded/Envoy/Via headers show what a
+# Cloudflare egress passes through (SA-1933-4, PC-J184).
+_IP_PROBE_HEADERS = (
+    ('x-real-ip', 256), ('x-forwarded-for', 512), ('x-railway-request-id', 256),
+    ('cf-connecting-ip', 256), ('cf-ray', 256), ('true-client-ip', 256),
+    ('forwarded', 256), ('x-envoy-external-address', 256), ('via', 256),
+)
+
+
 def _log_ip_probe(scope, headers):
     if headers.get(b'x-aver-ip-probe') != b'1' or settings.ENVIRONMENT != 'staging':
         return
@@ -121,9 +134,9 @@ def _log_ip_probe(scope, headers):
     client = scope.get('client')
     # Every line of each header, in arrival order: repeated lines are evidence.
     _ip_probe_logger.debug(
-        '[ip-probe] x-real-ip=%r x-forwarded-for=%r client.host=%r',
-        [v.decode('latin-1')[:256] for k, v in raw if k == b'x-real-ip'][:4],
-        [v.decode('latin-1')[:512] for k, v in raw if k == b'x-forwarded-for'][:4],
+        '[ip-probe] ' + ' '.join(f'{name}=%r' for name, _ in _IP_PROBE_HEADERS) + ' client.host=%r',
+        *([v.decode('latin-1')[:limit] for k, v in raw if k == name.encode()][:4]
+          for name, limit in _IP_PROBE_HEADERS),
         client[0] if client else None)
 
 
