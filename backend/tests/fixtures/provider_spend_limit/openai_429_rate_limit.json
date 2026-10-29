@@ -1,0 +1,16 @@
+{
+  "provider": "openai",
+  "sdk": "openai",
+  "http_status": 429,
+  "url": "https://api.openai.com/v1/audio/transcriptions",
+  "body": {
+    "error": {
+      "message": "Rate limit reached for whisper-1 in organization org-fixture on requests per min (RPM): Limit 50, Used 50, Requested 1.",
+      "type": "requests",
+      "param": null,
+      "code": "rate_limit_exceeded"
+    }
+  },
+  "expected": "transient",
+  "source": "https://platform.openai.com/docs/guides/error-codes (429 'You exceeded your current quota')"
+}

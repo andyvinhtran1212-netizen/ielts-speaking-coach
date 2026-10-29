@@ -1,0 +1,15 @@
+{
+  "provider": "google",
+  "sdk": "google_api_core",
+  "http_status": 402,
+  "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+  "body": {
+    "error": {
+      "code": 402,
+      "message": "Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing.",
+      "status": "RESOURCE_EXHAUSTED"
+    }
+  },
+  "expected": "provider_spend_limit",
+  "source": "https://discuss.ai.google.dev/t/error-code-402-message-your-prepayment-credits-are-depleted/185524 (2026-09-28)"
+}
