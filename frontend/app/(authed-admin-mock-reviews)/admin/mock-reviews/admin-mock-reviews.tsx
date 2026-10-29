@@ -61,7 +61,7 @@ function SkillResult({ skill, result, error }: { skill: string; result: SkillRev
   return <div className="mrr-skill-result">
     <p>Kết quả <strong>{result.score ?? '—'}/{result.max_score ?? '—'}</strong> · Band ước tính <strong>{fmtBand(result.band_estimate)}</strong></p>
     {breakdown && <div className="mrr-chips">{Object.entries(breakdown).map(([key, raw]) => <span key={key}>{key}: {'correct' in raw ? `${raw.correct ?? 0}/${raw.total ?? 0}` : `bắt ${raw.caught ?? 0} · trượt ${raw.missed ?? 0}`}</span>)}</div>}
-    {Boolean(result.review?.length) && <div className="adm-table-wrap"><table className="adm-table mrr-question-table"><thead><tr><th>Câu</th><th>Trả lời</th><th>Đáp án</th><th>KQ</th></tr></thead><tbody>{result.review!.map((row, index) => <tr key={`${row.q_num ?? index}`}><td>{row.q_num ?? index + 1}</td><td>{row.user_answer || '—'}</td><td>{row.expected || '—'}</td><td className={row.correct ? 'is-ok' : 'is-bad'}>{row.correct ? '✓' : '✗'}</td></tr>)}</tbody></table></div>}
+    {Boolean(result.review?.length) && <div className="adm-table-wrap"><table className="adm-table mrr-question-table"><thead><tr><th>Câu</th><th>Trả lời</th><th>Đáp án</th><th>KQ</th></tr></thead><tbody>{result.review!.map((row, index) => <tr key={`${row.q_num ?? index}`}><td>{row.q_num ?? index + 1}</td><td>{row.user_answer || '—'}</td><td>{row.expected || '—'}</td><td className={row.correct ? 'is-ok' : String(row.user_answer ?? '').trim() ? 'is-bad' : 'is-blank'}>{row.correct ? '✓' : String(row.user_answer ?? '').trim() ? '✗' : 'Bỏ trống'}</td></tr>)}</tbody></table></div>}
   </div>;
 }
 

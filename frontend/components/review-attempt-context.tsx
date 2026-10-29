@@ -2,6 +2,7 @@
 
 import { Fragment, type ReactNode } from 'react';
 import { noteTemplateTree } from '@/lib/note-template-tree.mjs';
+import { splitNumberedBlanks } from '@/lib/numbered-blank.mjs';
 
 const record = (value: unknown): Record<string, any> | null => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : null;
 const list = (value: unknown): any[] => Array.isArray(value) ? value : [];
@@ -18,12 +19,11 @@ export function ReviewContextNotice({ value }: { value: unknown }) {
 }
 
 function numberedBlanks(value: string): ReactNode {
-  return value.split(/(\{\{\s*\d{1,3}\s*\}\})/g).map((part, index) => {
-    const match = /^\{\{\s*(\d{1,3})\s*\}\}$/.exec(part);
-    return match ? <span key={index} className="review-context-blank" aria-label={`Chỗ trống câu ${Number(match[1])}`}>
-      <strong>[Câu {Number(match[1])}]</strong> ______
-    </span> : part;
-  });
+  // `{{n}} ____` is one blank (RV-05); the authored underscores are not repeated.
+  return splitNumberedBlanks(value).map((part, index) => typeof part === 'string' ? part
+    : <span key={index} className="review-context-blank" aria-label={`Chỗ trống câu ${part.qNum}`}>
+      <strong>[Câu {part.qNum}]</strong> ______
+    </span>);
 }
 
 function segment(value: unknown): ReactNode {
