@@ -97,17 +97,25 @@ The handoff hypotheses, one by one:
   edge logged and delivered responses throughout. The gap is the client host's
   suspension, not the edge.
 
-What changed (flag-ON path only; the flag-off sync path and the sync transport
-are unchanged):
+What changed. The retry and instrumentation apply only to flag-ON `aexecute`
+calls. The flag-off branch of `aexecute` (`backend/services/db_async.py:161–164`)
+and the sync transport (`backend/database.py:47–52`, `Timeout(120)`) are
+unchanged. The bounded transport is not flag-only: it applies to every user of
+the shared async client, including callers that use it with the flag off (see
+"Shared async transport with the flag off" below).
 
-- **Bounded transport.** `database.ASYNC_POSTGREST_TIMEOUT` is
-  connect 5 s / read 15 s / write 15 s / pool 5 s, replacing the single 120 s
-  timeout. `database.ASYNC_POSTGREST_LIMITS` makes httpx's defaults explicit
-  (100 / 20 / keep-alive 5 s).
-- **One retry for reads.** `aexecute` re-sends an idempotent GET/HEAD once
-  after an `httpx.TransportError`. The pool drops the failed connection, so
-  the retry goes out on a fresh one. Writes (POST/PATCH/DELETE/RPC) are never
-  re-sent.
+- **Bounded transport.** `database.ASYNC_POSTGREST_TIMEOUT`
+  (`backend/database.py:62`) is connect 5 s / read 15 s / write 15 s / pool
+  5 s, replacing the single 120 s timeout. `database.ASYNC_POSTGREST_LIMITS`
+  (`:63–65`) makes httpx's defaults explicit (100 / 20 / keep-alive 5 s). Both
+  are set on the one async transport (`_build_supabase_async_http_client`,
+  `:90–102`).
+- **One retry for reads.** `aexecute` re-sends a GET/HEAD once after an
+  `httpx.TransportError` (`backend/services/db_async.py:54`, `:149–160`). The
+  pool drops the failed connection, so the retry goes out on a fresh one.
+  POST/PATCH/DELETE requests are never re-sent. The check uses the HTTP method
+  only, so an RPC called with `get=True` or `head=True` goes out as GET/HEAD
+  and is retried (PC-J68 F2, open).
 - **Instrumentation.**
   - Each flag-ON call is timed. Slow calls (≥ 1 s) and failed calls are logged
     as `[async-db] slow|failed` with the request id, method, table, attempt
@@ -141,6 +149,70 @@ in the same time slot), still pending:
 Precondition: `dmesg | grep "virtual machine fork"` shows no event inside
 either run window. Otherwise the run measures the load generator, not the
 backend.
+
+### Shared async transport with the flag off (PC-J68 F1)
+
+These modules call `database.get_supabase_async()` (`backend/database.py:182`)
+directly, whatever `USE_ASYNC_DB` is, and so use the transport above with the
+flag off too:
+
+- `backend/services/ai_usage_logger.py:476`, `:494`: the `ai_usage_logs`
+  ledger write (upsert or insert) and its legacy-schema fallback insert;
+- `backend/services/ai_usage_logger.py:592`, `:605`: the
+  `sessions.estimated_cost_usd` refresh (paged read, then guarded update);
+- `backend/services/core_attempt_outcomes.py:213`, `:244`, `:260`,
+  `core_attempt_aggregate.py:172`, `core_attempt_inspection.py:136`, `:152`,
+  `core_exam_result_proofs.py:68`, `core_operation_correlation.py:129`.
+
+What this means since #1890:
+
+- The 15 / 5 / 5 s limits apply to all of these callers. They reach production
+  with the next promotion that contains #1890, even with the flag off. Saying
+  that "production is unchanged" while the flag is off is therefore wrong for
+  these callers.
+- The AI ledger write and the session cost refresh now fail after 15 s read
+  (5 s connect or pool wait) instead of 120 s. They do not go through
+  `aexecute`, so nothing is retried and no `[async-db]` line is logged. A
+  write that commits upstream after more than 15 s is logged as
+  `[ai_usage] ledger write failed` although the row exists. No duplicate row
+  follows, because the legacy fallback runs only on a schema error.
+- Each `core_*` read runs under its own `asyncio.timeout` budget of 0.5–2 s,
+  which fires well before the 15 s read limit, so they are not affected.
+- With the flag off, the first such call builds the async client. After that,
+  `/health/async-db` reports `async_client_initialised: true` and a non-null
+  `postgrest_pool`. The lazy build predates this spec; the health comment
+  "`None` with the flag off" (`backend/routers/health.py:280`) holds only until
+  that first call. The FR-007 rollback evidence in `rollout.md` accounts for
+  this.
+
+Current state: option (b). The new timeouts apply to every caller of the
+shared async client, as recorded here. Option (a) is still open: give the
+flag-independent callers their own transport with the previous timeout, so
+that only the `aexecute` pool uses the bounded one. Choosing between (a) and
+(b) is for the Leader and Vinh; this record does not decide it.
+
+### Known parity difference in lookup-failure cases (PC-J68 F6)
+
+FR-002 asks for the same body, status and error detail in both flag states for
+every lookup-failure case. Since #1890, a given transport fault does not always
+end the same way in both states:
+
+- With the flag on, a transient transport error on a GET/HEAD is retried once
+  and can succeed. With the flag off, the same fault returns the existing
+  error: 503 from the activation gate (`backend/services/activation_gate.py:166`)
+  and the staff guards (`backend/services/staff_guard.py:257`, `:269`), and
+  500 from `/auth/me` (`backend/routers/auth.py:231`, `:253`) and
+  `/auth/check-active` (`:331`).
+- A read that takes between 15 s and 120 s succeeds with the flag off but
+  fails with the flag on, with the same error responses.
+
+Access decisions on a successful read are the same in both states, and every
+failure still fails closed. The error responses themselves are unchanged. For
+the FR-006 parity check, the captured JSON of successful reads must still be
+identical. A lookup-failure case is compared on its error contract: the
+status, and the fixed part of the detail, because the `/auth/*` 500 details
+embed the exception text. It is not compared on whether a given transient
+fault failed in both runs.
 
 ## Release evidence
 
