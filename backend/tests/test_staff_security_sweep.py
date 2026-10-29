@@ -21,6 +21,7 @@ Set TEST_PG_URL to a LOCAL disposable cluster and REQUIRE_PG=1 to forbid skips.
 from __future__ import annotations
 
 import asyncio
+from copy import deepcopy
 import json
 import logging
 import os
@@ -557,6 +558,39 @@ def test_without_transport_a_run_with_nothing_due_stays_green(pg):
     assert ok and fields["dispatch_due"] == 0 and not fields["dispatch_unconfigured"]
 
 
+def test_no_mail_keeps_audit_and_enqueue_and_alerts_can_be_sent_later(pg):
+    schema, auth = pg
+    admin = m332._user(schema, "admin", True)
+    factors, sender = Factors(), Sender()
+    _ready(pg, factors)
+    logged, missed = str(uuid4()), str(uuid4())
+    _log(auth, "factor_in_progress", admin, logged)
+    _log(auth, "verification_attempted", admin, logged)
+    factors.set(admin, (logged, "verified"), (missed, "verified"))
+
+    async def go():
+        conn = await _conn()
+        try:
+            return await sweep.run_sweep(conn, factors, schema=schema, auth_schema=auth,
+                                         config=CONFIG, send=sender, lag_seconds=0,
+                                         follow_up_seconds=0, no_mail=True)
+        finally:
+            await conn.close()
+
+    fields, ok = run(go())
+    assert ok and fields["log_rows"] == 2 and fields["snapshot_factor_diffs"] == 2
+    assert fields["dispatch_due"] == fields["follow_up_dispatch_due"] == 2
+    assert fields["dispatch_disabled"] and fields["follow_up_dispatch_disabled"]
+    assert {r["detail"]["detected_by"] for r in _rows(schema, admin)} == {"auth_log", "snapshot"}
+    alerts = _alerts(schema, admin)
+    assert [(o["status"], o["attempts"]) for o in alerts] == [("pending", 0)] * 2
+    assert sender.calls == []
+    fields, ok = _sweep(pg, factors, sender=sender)
+    assert ok and fields["dispatch_sent"] == 2 and len(sender.calls) == 2
+    assert {o["audit_id"] for o in _alerts(schema, admin)} == {o["audit_id"] for o in alerts}
+    assert [(o["status"], o["attempts"]) for o in _alerts(schema, admin)] == [("sent", 1)] * 2
+
+
 def test_a_follow_up_pass_audits_an_entry_too_young_for_the_first_pass(pg):
     """The real SQL of PC-J66 F04's second pass, on a short scale: an entry
     younger than the lag at the first pass is audited by the follow-up."""
@@ -603,28 +637,44 @@ class _DueStore:
         return self.rows
 
 
-def _offline_main(monkeypatch, *, due_rows: int) -> int:
+def _offline_main(monkeypatch, *, due_rows: int, argv: list[str] | None = None,
+                  store=None, sender=None, configured: bool = False,
+                  failing_step: str | None = None, snapshot_errors: int = 0) -> int:
     """``main()`` with no database: steps 1-2 are no-ops, the outbox has rows."""
     monkeypatch.setenv("DATABASE_URL", "postgresql://nobody@127.0.0.1:1/none")
     monkeypatch.setenv("SUPABASE_URL", "https://example.invalid")
     monkeypatch.delenv("RESEND_API_KEY", raising=False)
     monkeypatch.delenv("OWNER_ALERT_EMAILS", raising=False)
+    if configured:
+        monkeypatch.setenv("RESEND_API_KEY", CONFIG.api_key)
+        monkeypatch.setenv("OWNER_ALERT_EMAILS", ",".join(CONFIG.recipients))
 
     async def connect():
         return _Conn()
 
     async def no_log(db, **_):
+        if failing_step == "log":
+            raise RuntimeError("offline log failure")
         return sweep.LogSummary()
 
     async def no_snapshot(db, _lister):
-        return sweep.SnapshotSummary()
+        if failing_step == "snapshot":
+            raise RuntimeError("offline snapshot failure")
+        return sweep.SnapshotSummary(errors=snapshot_errors)
+
+    real_run_sweep = sweep.run_sweep
+
+    async def offline_run_sweep(conn, lister, **kwargs):
+        return await real_run_sweep(conn, lister, send=sender or Sender(), **kwargs)
 
     monkeypatch.setattr(sweep, "_connect", connect)
     monkeypatch.setattr(sweep, "sweep_auth_log", no_log)
     monkeypatch.setattr(sweep, "reconcile_snapshot", no_snapshot)
+    monkeypatch.setattr(sweep, "run_sweep", offline_run_sweep)
     monkeypatch.setattr(sweep, "FOLLOW_UP_SECONDS", 0)
-    monkeypatch.setattr(oa, "PgOutboxStore", lambda conn, schema="public": _DueStore(due_rows))
-    return sweep.main([])
+    outbox = store if store is not None else _DueStore(due_rows)
+    monkeypatch.setattr(oa, "PgOutboxStore", lambda conn, schema="public": outbox)
+    return sweep.main(argv or [])
 
 
 def test_due_alerts_without_transport_exit_non_zero_and_name_the_missing_settings(monkeypatch,
@@ -640,6 +690,95 @@ def test_nothing_due_without_transport_exits_zero(monkeypatch, caplog):
     with caplog.at_level(logging.INFO):
         assert _offline_main(monkeypatch, due_rows=0) == 0
     assert "staff_security_sweep_alerts_unsent" not in caplog.text
+
+
+class _ReadOnlyDueStore(_DueStore):
+    def __init__(self, rows: int) -> None:
+        super().__init__(rows)
+        self.calls: list[str] = []
+        for row in self.rows:
+            row.update(status="pending", sent_at=None, next_attempt_at="2026-01-01T00:00:00Z")
+
+    async def due(self, **kwargs):
+        self.calls.append("due")
+        return await super().due(**kwargs)
+
+    async def claim(self, *args):
+        self.calls.append("claim")
+        raise AssertionError("no-mail must not claim")
+
+    async def reclaim_final(self, *args):
+        self.calls.append("reclaim_final")
+        raise AssertionError("no-mail must not renew a lease")
+
+    async def mark_sent(self, *args):
+        self.calls.append("mark_sent")
+        raise AssertionError("no-mail must not mark sent")
+
+    async def mark_failed(self, *args):
+        self.calls.append("mark_failed")
+        raise AssertionError("no-mail must not mark failed")
+
+
+def test_no_mail_without_transport_exits_zero_and_reports_due(monkeypatch, caplog):
+    with caplog.at_level(logging.INFO):
+        assert _offline_main(monkeypatch, due_rows=2, argv=["--no-mail"]) == 0
+    disabled = [record for record in caplog.records
+                if "staff_security_sweep_mail_disabled" in record.message]
+    assert len(disabled) == 2, "initial and follow-up dispatch both report disabled mail"
+    assert all(record.levelno == logging.WARNING for record in disabled)
+    assert all(record.message == "staff_security_sweep_mail_disabled (--no-mail) due=2"
+               for record in disabled)
+    assert "staff_security_sweep_alerts_unsent" not in caplog.text
+    assert "owner_alert_transport_unconfigured" not in caplog.text
+    assert "follow_up_dispatch_disabled=True" in caplog.text
+
+
+@pytest.mark.parametrize("configured", [False, True])
+def test_no_mail_never_mutates_due_alerts_in_either_pass(monkeypatch, caplog, configured):
+    store, sender = _ReadOnlyDueStore(2), Sender()
+    # Also cover an interrupted final attempt, which normally renews its lease.
+    store.rows[1]["attempts"] = oa.MAX_ATTEMPTS
+    before = deepcopy(store.rows)
+    with caplog.at_level(logging.INFO):
+        assert _offline_main(monkeypatch, due_rows=2, argv=["--no-mail"], store=store,
+                             sender=sender, configured=configured) == 0
+    assert sender.calls == []
+    assert store.calls == ["due", "due"]
+    assert store.rows == before
+    assert run(store.due(max_attempts=oa.MAX_ATTEMPTS, limit=50)) == before
+    assert "log_entries=0" in caplog.text and "snapshot_errors=0" in caplog.text
+    assert "follow_up_log_entries=0" in caplog.text
+    assert "follow_up_dispatch_due=2" in caplog.text
+    assert "staff_security_sweep_alerts_unsent" not in caplog.text
+    assert CONFIG.api_key not in caplog.text
+    assert all(recipient not in caplog.text for recipient in CONFIG.recipients)
+
+
+@pytest.mark.parametrize("failing_step,snapshot_errors", [("log", 0), ("snapshot", 0), (None, 1)])
+def test_no_mail_keeps_real_step_failures_non_zero(monkeypatch, caplog,
+                                                 failing_step, snapshot_errors):
+    with caplog.at_level(logging.INFO):
+        assert _offline_main(monkeypatch, due_rows=2, argv=["--no-mail"],
+                             failing_step=failing_step, snapshot_errors=snapshot_errors) == 1
+    if failing_step:
+        assert f"staff_security_sweep_step_failed step={failing_step} error=RuntimeError" in caplog.text
+    else:
+        assert "snapshot_errors=1" in caplog.text
+    assert "staff_security_sweep_mail_disabled (--no-mail) due=2" in caplog.text
+    assert "staff_security_sweep_alerts_unsent" not in caplog.text
+
+
+@pytest.mark.parametrize("mode", [["--test-alert"], ["--requeue", str(uuid4())]])
+def test_no_mail_rejects_mail_test_and_requeue_before_any_work(monkeypatch, capsys, mode):
+    async def no_work(_args):
+        raise AssertionError("incompatible CLI modes must fail before any work")
+
+    monkeypatch.setattr(sweep, "_main", no_work)
+    with pytest.raises(SystemExit) as exc:
+        sweep.main(["--no-mail", *mode])
+    assert exc.value.code == 2
+    assert "not allowed with argument" in capsys.readouterr().err
 
 
 def test_the_cron_entry_point_runs_the_follow_up_pass(monkeypatch):

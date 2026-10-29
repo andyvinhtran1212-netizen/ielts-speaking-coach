@@ -4,6 +4,7 @@ Runs every 5 minutes as its own Railway cron service
 (``backend/railway.staff-security-sweep.json``, owner decision Q10):
 
     python -m scripts.staff_security_sweep                  # one sweep run
+    python -m scripts.staff_security_sweep --no-mail        # staging only
     python -m scripts.staff_security_sweep --test-alert     # rollout.md P3
     python -m scripts.staff_security_sweep --requeue <audit_id>
 
@@ -11,6 +12,10 @@ One run does three independent steps; a failure in one is logged and does not
 skip the others, and any failure makes the exit code non-zero. So do due alerts
 that cannot be sent because ``RESEND_API_KEY`` or ``OWNER_ALERT_EMAILS`` is
 missing: the run logs the missing names and exits non-zero (PC-J73 F3).
+Staging may explicitly use ``--no-mail`` to leave alerts unsent without failing
+an otherwise successful sweep, even with mail configured. Both dispatch passes
+only read due rows; log and snapshot failures still fail the run. Production
+must not use this flag. It cannot be combined with ``--test-alert`` or ``--requeue``.
 
 1. **Auth audit-log factor events** (the event source). Reads
    ``auth.audit_log_entries`` after the durable cursor in
@@ -584,7 +589,9 @@ async def _run_steps(steps: tuple[tuple[str, Callable[[], Awaitable[Any]]], ...]
         fields.update({f"{key}_{k}": v for k, v in asdict(result).items()})
         if name == "snapshot" and result.errors:
             ok = False
-        if name == "dispatch" and result.unconfigured:
+        if name == "dispatch" and result.disabled:
+            logger.warning("staff_security_sweep_mail_disabled (--no-mail) due=%d", result.due)
+        elif name == "dispatch" and result.unconfigured:
             # Due alerts that cannot go out must not look like a green run.
             ok = False
             logger.error("staff_security_sweep_alerts_unsent step=%s missing=%s due=%d",
@@ -597,7 +604,8 @@ async def run_sweep(conn: Any, list_factors: FactorLister, *, schema: str = "pub
                     send: owner_alerts.Sender = owner_alerts.send_via_resend,
                     lag_seconds: int = LOG_LAG_SECONDS, follow_up_seconds: float | None = None,
                     sleep: Callable[[float], Awaitable[Any]] = asyncio.sleep,
-                    clock: Callable[[], float] = time.monotonic) -> tuple[dict[str, Any], bool]:
+                    clock: Callable[[], float] = time.monotonic,
+                    no_mail: bool = False) -> tuple[dict[str, Any], bool]:
     """One run of the three steps, then (with ``follow_up_seconds``) steps 1 and
     3 again that long after the start. Returns (summary fields, ok)."""
     started = clock()
@@ -605,7 +613,7 @@ async def run_sweep(conn: Any, list_factors: FactorLister, *, schema: str = "pub
     fields: dict[str, Any] = {}
     log = ("log", lambda: sweep_auth_log(db, lag_seconds=lag_seconds))
     dispatch = ("dispatch", lambda: owner_alerts.dispatch_due(
-        owner_alerts.PgOutboxStore(conn, schema), config=config, send=send))
+        owner_alerts.PgOutboxStore(conn, schema), config=config, send=send, disabled=no_mail))
     ok, done = await _run_steps((log, ("snapshot", lambda: reconcile_snapshot(db, list_factors)),
                                  dispatch), fields)
     if follow_up_seconds is None:
@@ -851,10 +859,13 @@ async def _main(args: argparse.Namespace) -> int:
             return 0 if done else 1
         import httpx
         from config import settings
+        options: dict[str, Any] = {"follow_up_seconds": FOLLOW_UP_SECONDS}
+        if args.no_mail:
+            options["no_mail"] = True
         async with httpx.AsyncClient(timeout=15.0) as client:
             lister = auth_admin_factor_lister(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY,
                                               client)
-            fields, ok = await run_sweep(conn, lister, follow_up_seconds=FOLLOW_UP_SECONDS)
+            fields, ok = await run_sweep(conn, lister, **options)
         logger.info("staff_security_sweep_summary %s",
                     " ".join(f"{k}={v}" for k, v in fields.items()))
         return 0 if ok else 1
@@ -865,6 +876,8 @@ async def _main(args: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     group = parser.add_mutually_exclusive_group()
+    group.add_argument("--no-mail", action="store_true",
+                       help="staging only: sweep and leave alerts unsent without changing delivery state")
     group.add_argument("--test-alert", action="store_true",
                        help="send the fixed test message to OWNER_ALERT_EMAILS and exit")
     group.add_argument("--requeue", metavar="AUDIT_ID",

@@ -13,7 +13,7 @@ code deploy.
   `authenticated` or `anon`, and the `BEFORE UPDATE` guard trigger is present.
   Without it, an ordinary account could change its own role. That would be a
   separate incident, handled before this rollout.
-- **P3.** The email provider key and `OWNER_ALERT_EMAILS` are set in the
+- **P3 (production mail validation).** The email provider key and `OWNER_ALERT_EMAILS` are set in the
   Railway backend and cron services of the environment. The
   `averlearning.com` domain is verified in Resend, so alerts are sent from
   `alerts@averlearning.com` (decision (a)); Gmail SMTP is not a fallback.
@@ -68,6 +68,9 @@ code deploy.
 - **S3.** Deploy the merged staging SHA with `ADMIN_AAL2_ENFORCE=false` and
   start the cron service. Confirm that `admin_aal2_would_block` lines appear
   for AAL1 admin traffic, and that nothing else changed (the AC7 log excerpt).
+  Leader overrides only the staging cron Start Command with `python -m scripts.staff_security_sweep --no-mail` (PC-J214, approved cron A no mail).
+  No mail variables are added; alerts stay unsent and mail acceptance checks below remain pending while this mode is active.
+  Production must not use `--no-mail`; the shared Railway JSON keeps its original command.
 - **S4.** Vinh and every staging admin enroll at `/admin/mfa`, including a
   backup factor (Q1). Run P4.
 - **S5.** Audit coverage. Make one role change through the API and one in the
