@@ -88,9 +88,9 @@ export function isAdminMfaPath(pathname) {
  * AdminAccessGate decision after `/auth/me` and `/admin/mfa/status`.
  *   'denied'   → not an admin
  *   'inactive' → `is_active` is false (normally caught earlier by the phase-0 redirect)
- *   'redirect' → enforced and not AAL2: children never mount
- *   'banner'   → report-only and not AAL2: children render under a banner
- *   'ready'    → AAL2
+ *   'redirect' → enforced and not satisfied: children never mount
+ *   'banner'   → report-only and not satisfied: children render under a banner
+ *   'ready'    → satisfied (see `isAdminAssuranceSatisfied`)
  * `is_active: null` means the payload did not report it; the status probe
  * already required an active admin (it answers 403 otherwise).
  */
@@ -98,8 +98,17 @@ export function adminGateDecision(identity, status) {
   if (!identity || identity.role !== 'admin') return 'denied';
   if (identity.is_active === false) return 'inactive';
   if (!status) return 'denied';
-  if (status.aal === 'aal2') return 'ready';
+  if (isAdminAssuranceSatisfied(status)) return 'ready';
   return status.enforce ? 'redirect' : 'banner';
+}
+
+/**
+ * The backend's `next_step` decides, not the `aal` claim alone: an AAL2
+ * session whose TOTP verification is older than 12 hours (or carries no TOTP
+ * timestamp) reports `next_step: 'challenge'` and is refused like AAL1.
+ */
+export function isAdminAssuranceSatisfied(status) {
+  return status?.aal === 'aal2' && status.next_step === 'none';
 }
 
 /** api.js / FastAPI error with the 403 `{code: "mfa_required"}` detail. */
@@ -117,7 +126,7 @@ export function isInactiveError(error) {
  * the factor list owns factor ids.
  */
 export function adminMfaMode(status, factors) {
-  if (status?.aal === 'aal2') return 'manage';
+  if (isAdminAssuranceSatisfied(status)) return 'manage';
   return verifiedTotpFactors(factors).length > 0 ? 'challenge' : 'enroll';
 }
 

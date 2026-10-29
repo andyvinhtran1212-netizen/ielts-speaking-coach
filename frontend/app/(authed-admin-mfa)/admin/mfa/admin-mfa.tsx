@@ -149,11 +149,12 @@ function TotpForm({ id, label, submitLabel, onVerify, onNeedsAal2, autoFocus = f
   );
 }
 
-function EnrollPanel({ mfa, factors, backup, onEnrolled }: {
+function EnrollPanel({ mfa, backup, onEnrolled, onPending }: {
   mfa: MfaApi;
-  factors: Factor[];
   backup: boolean;
   onEnrolled: () => void;
+  /** The unverified factor this panel created, so a cancel can remove it. */
+  onPending?: (factorId: string) => void;
 }) {
   const [enrolled, setEnrolled] = useState<Enrolled | null>(null);
   const [busy, setBusy] = useState(false);
@@ -164,7 +165,10 @@ function EnrollPanel({ mfa, factors, backup, onEnrolled }: {
     setBusy(true);
     setFailure('');
     try {
+      // Read the canonical list, not a page snapshot: an earlier start → QR →
+      // cancel may have left an unverified factor the snapshot does not hold.
       // An abandoned unverified factor is removed first so it cannot pile up.
+      const factors = await readFactors(mfa);
       const abandoned = abandonedTotpFactors(factors);
       for (const factor of abandoned) {
         const { error } = await mfa.unenroll({ factorId: factor.id });
@@ -176,6 +180,7 @@ function EnrollPanel({ mfa, factors, backup, onEnrolled }: {
         friendlyName: nextFactorName(backup ? 'Dự phòng' : 'Ứng dụng xác thực', remaining),
       });
       if (error || !data?.id || !data.totp?.qr_code || !data.totp?.secret) throw error || new Error('Không nhận được mã QR.');
+      onPending?.(data.id);
       setEnrolled(data);
     } catch (caught) {
       const failureValue = failureOf(caught);
@@ -286,6 +291,7 @@ function ManagePanel({ mfa, initialFactors, onNeedsAal2 }: {
   const [removing, setRemoving] = useState<Factor | null>(null);
   const [verifyWith, setVerifyWith] = useState('');
   const [notice, setNotice] = useState<Notice>(null);
+  const pendingFactor = useRef('');
 
   // Every change refetches the canonical list from Supabase Auth.
   const refetch = useCallback(async () => {
@@ -310,15 +316,34 @@ function ManagePanel({ mfa, initialFactors, onNeedsAal2 }: {
       <>
         <EnrollPanel
           mfa={mfa}
-          factors={factors}
           backup={verified.length > 0}
+          onPending={(factorId) => { pendingFactor.current = factorId; }}
           onEnrolled={() => {
+            pendingFactor.current = '';
             setAdding(false);
             setNotice({ kind: 'success', text: verified.length > 0 ? 'Đã thêm yếu tố dự phòng.' : ADMIN_MFA_COPY.enrolled });
             void refetch();
           }}
         />
-        <button type="button" className="adm-btn-secondary amfa-cancel" onClick={() => setAdding(false)}>Hủy</button>
+        <button
+          type="button"
+          className="adm-btn-secondary amfa-cancel"
+          onClick={() => {
+            const factorId = pendingFactor.current;
+            pendingFactor.current = '';
+            setAdding(false);
+            // Remove the unverified factor this attempt created, then show the
+            // canonical list. If the removal fails, the next start removes it.
+            void (async () => {
+              if (factorId) {
+                try { await mfa.unenroll({ factorId }); } catch { /* next start retries */ }
+              }
+              await refetch();
+            })();
+          }}
+        >
+          Hủy
+        </button>
       </>
     );
   }
@@ -493,7 +518,7 @@ export function AdminMfa() {
       <>
         {reauth && <div className="amfa-notice is-warn" role="alert">{ADMIN_MFA_COPY.needsAal2}</div>}
         {mode === 'enroll' && (
-          <EnrollPanel mfa={mfa} factors={value.factors} backup={false} onEnrolled={() => finish(ADMIN_MFA_COPY.enrolled)} />
+          <EnrollPanel mfa={mfa} backup={false} onEnrolled={() => finish(ADMIN_MFA_COPY.enrolled)} />
         )}
         {mode === 'challenge' && (
           <ChallengePanel mfa={mfa} factors={value.factors} onVerified={() => finish('Đã xác thực 2 bước')} />

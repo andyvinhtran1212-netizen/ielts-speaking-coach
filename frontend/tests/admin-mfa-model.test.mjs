@@ -7,6 +7,7 @@ import {
   adminGateDecision,
   adminMfaMode,
   adminMfaUrl,
+  isAdminAssuranceSatisfied,
   isAdminMfaPath,
   isCompleteTotpCode,
   isInactiveError,
@@ -23,6 +24,9 @@ const admin = { id: 'a1', email: 'a@x.test', role: 'admin', is_active: true };
 const aal1Enforced = { aal: 'aal1', enforce: true, verified_factor_count: 1, next_step: 'challenge' };
 const aal1ReportOnly = { aal: 'aal1', enforce: false, verified_factor_count: 0, next_step: 'enroll' };
 const aal2 = { aal: 'aal2', enforce: true, verified_factor_count: 1, next_step: 'none' };
+// staff_guard.evaluate_admin_assurance: AAL2 whose TOTP verification is older
+// than 12 hours (or has no TOTP timestamp) → next_step 'challenge'.
+const aal2Stale = { aal: 'aal2', enforce: true, verified_factor_count: 1, next_step: 'challenge' };
 
 describe('normalizeAdminMfaStatus', () => {
   test('accepts the exact AdminMfaStatusOut shape and drops extra keys', () => {
@@ -47,6 +51,17 @@ describe('adminGateDecision (FR-013)', () => {
   test('AAL2 admin gets in, with or without enforcement', () => {
     assert.equal(adminGateDecision(admin, aal2), 'ready');
     assert.equal(adminGateDecision(admin, { ...aal2, enforce: false }), 'ready');
+  });
+  test('AAL2 with a stale TOTP (backend next_step challenge) is not ready', () => {
+    assert.equal(isAdminAssuranceSatisfied(aal2Stale), false);
+    assert.equal(adminGateDecision(admin, aal2Stale), 'redirect');
+    assert.equal(adminGateDecision(admin, { ...aal2Stale, enforce: false }), 'banner');
+    assert.equal(adminGateDecision(admin, { ...aal2Stale, verified_factor_count: 0, next_step: 'enroll' }), 'redirect');
+  });
+  test('only aal2 + next_step none is satisfied', () => {
+    assert.equal(isAdminAssuranceSatisfied(aal2), true);
+    assert.equal(isAdminAssuranceSatisfied({ ...aal1Enforced, next_step: 'none' }), false);
+    assert.equal(isAdminAssuranceSatisfied(null), false);
   });
   test('report-only AAL1 admin gets in under the banner', () => {
     assert.equal(adminGateDecision(admin, aal1ReportOnly), 'banner');
@@ -106,6 +121,7 @@ describe('/admin/mfa mode and factors', () => {
   ];
   test('AAL2 manages; AAL1 with a verified TOTP challenges; otherwise enrolls', () => {
     assert.equal(adminMfaMode(aal2, factors), 'manage');
+    assert.equal(adminMfaMode(aal2Stale, factors), 'challenge');
     assert.equal(adminMfaMode(aal1Enforced, factors), 'challenge');
     assert.equal(adminMfaMode(aal1Enforced, [factors[1]]), 'enroll');
     assert.equal(adminMfaMode(aal1Enforced, null), 'enroll');

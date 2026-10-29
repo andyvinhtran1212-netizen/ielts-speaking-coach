@@ -51,6 +51,13 @@ describe('AdminAccessGate assurance', () => {
     expect(screen.getByRole('status').textContent).toContain('Đang chuyển tới xác thực 2 bước');
   });
 
+  it('sends an enforced AAL2 admin whose TOTP is stale (next_step challenge) to /admin/mfa', async () => {
+    wire.status = { aal: 'aal2', enforce: true, verified_factor_count: 1, next_step: 'challenge' };
+    renderGate();
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/admin/mfa?next=%2Fadmin%2Fusers%3Ftab%3Dcodes'));
+    expect(screen.queryByText('ADMIN DATA')).toBeNull();
+  });
+
   it('lets an AAL2 admin in without a banner', async () => {
     renderGate();
     expect(await screen.findByText('ADMIN DATA')).toBeTruthy();
