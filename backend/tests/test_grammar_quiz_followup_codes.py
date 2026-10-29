@@ -444,3 +444,60 @@ async def test_339_aborts_without_314(pg):
         assert await pg.c.fetchval('SELECT count(*) FROM pg_proc WHERE pronamespace=$1::regnamespace', schema) == 0
     finally:
         await pg.c.execute(f'DROP SCHEMA {schema} CASCADE')
+
+
+def _split_at_pre_image(pg):
+    """339 up to and including the _m339_before pre-image, and the rest."""
+    end = re.search(r'CREATE TEMP TABLE _m339_before[\s\S]*?;\n', SQL_339).end()
+    return pg.adapted(SQL_339[:end]), pg.adapted(SQL_339[end:])
+
+
+def test_339_reads_one_repeatable_read_snapshot():
+    # The runner \i's the file in autocommit, so this is the first statement
+    # of 339's own transaction; the pre-image and postcondition share it.
+    assert re.search(r"^BEGIN;\nSET TRANSACTION ISOLATION LEVEL REPEATABLE READ;\n", SQL_339, re.M)
+    assert SQL_339.count('BEGIN;') == 1
+
+
+@pytest.mark.asyncio
+async def test_concurrent_learner_quiz_traffic_does_not_abort_339(pg):
+    # PC-J189: a learner (here a non-Grammar vocab quiz) commits a bank and a
+    # session between 339's pre-image and its postcondition.
+    applied = await _definitions(pg)
+    head, tail = _split_at_pre_image(pg)
+    await pg.c.execute(head)
+    other = await pg.connection()
+    vocab_bank, session = uuid4(), uuid4()
+    try:
+        async with other.transaction():
+            await other.execute("INSERT INTO quiz_banks(id,code,skill_area) VALUES($1,'L14','vocab')", vocab_bank)
+            await other.execute('INSERT INTO quiz_sessions(id,user_id,bank_id,code) VALUES($1,$2,$3,$4)',
+                                session, pg.other, vocab_bank, 'L14')
+        assert await other.fetchval('SELECT count(*) FROM quiz_sessions WHERE id=$1', session) == 1
+    finally:
+        await other.close()
+    await pg.c.execute(tail)
+    assert await pg.c.fetchval('SELECT count(*) FROM quiz_sessions WHERE id=$1', session) == 1
+    assert await _definitions(pg) == applied
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('statement', [
+    'INSERT INTO quiz_sessions(user_id,bank_id,code) VALUES($1,$2,$3)',
+    "INSERT INTO quiz_banks(code,skill_area) VALUES($3,'vocab') RETURNING $1::uuid,$2::uuid",
+])
+async def test_postcondition_still_catches_a_row_change_made_inside_339(pg, statement):
+    # Negative control for the snapshot: a write in 339's own transaction is
+    # visible to the postcondition and aborts the migration.
+    applied = await _definitions(pg)
+    sessions = await pg.c.fetchval('SELECT count(*) FROM quiz_sessions')
+    banks = await pg.c.fetchval('SELECT count(*) FROM quiz_banks')
+    head, tail = _split_at_pre_image(pg)
+    await pg.c.execute(head)
+    await pg.c.execute(statement, pg.other, pg.old, 'L14')
+    with pytest.raises(asyncpg.PostgresError, match='migration_339_postcondition: a row count changed'):
+        await pg.c.execute(tail)
+    await pg.c.execute('ROLLBACK')
+    assert await pg.c.fetchval('SELECT count(*) FROM quiz_sessions') == sessions
+    assert await pg.c.fetchval('SELECT count(*) FROM quiz_banks') == banks
+    assert await _definitions(pg) == applied

@@ -26,7 +26,12 @@
 -- No table, column, row, bank, question, receipt or learner write. The
 -- postcondition fails if a bank/question/session/attempt/stat count changes or
 -- any existing managed chain changes validity (LSU's three-bank chain must
--- still validate).
+-- still validate). The transaction is REPEATABLE READ, so the pre-image and the
+-- postcondition read one snapshot: learner quiz traffic committed while 339
+-- runs is invisible to both and cannot abort it, while a change made by 339
+-- itself is still seen. The runner \i's this file in autocommit mode, so SET
+-- TRANSACTION is the first statement of 339's own transaction (it errors, and
+-- 339 aborts, if anything ever queried before it).
 --
 -- Order: apply under the advisory-locked runner before the dependent backend
 -- (staging first, then production before the staging -> main promotion). The
@@ -42,6 +47,7 @@
 -- otherwise. After a publication, roll back by pausing new starts on the v3
 -- bank (rollout.md), never by restoring functions or deleting banks.
 BEGIN;
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 SET LOCAL lock_timeout = '5s';
 
 DO $$
@@ -58,7 +64,8 @@ BEGIN
   END IF;
 END $$;
 
--- Pre-image for the postcondition, taken with the 314 (or a previous 339) bodies.
+-- Pre-image for the postcondition, taken with the 314 (or a previous 339) bodies
+-- in the transaction's single REPEATABLE READ snapshot.
 CREATE TEMP TABLE _m339_before ON COMMIT DROP AS
 SELECT (SELECT count(*) FROM public.quiz_banks) AS banks,
        (SELECT count(*) FROM public.quiz_questions) AS questions,
