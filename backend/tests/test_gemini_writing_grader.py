@@ -758,6 +758,84 @@ async def test_provider_fallback_records_the_serving_model_and_every_call(writin
     ]
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("intervening_api_error", [False, True])
+async def test_gemini_text_accessor_error_preserves_billed_usage(
+    writing_providers, monkeypatch, intervening_api_error,
+):
+    from types import SimpleNamespace
+
+    from config import settings as real_settings
+    from services import gemini_writing_grader as gwg
+
+    state = writing_providers
+    monkeypatch.setattr(real_settings, "ANTHROPIC_API_KEY", "")
+
+    class NoTextResponse:
+        candidates = [SimpleNamespace(finish_reason=SimpleNamespace(name="MAX_TOKENS"))]
+        usage_metadata = SimpleNamespace(
+            prompt_token_count=900, candidates_token_count=0,
+            thoughts_token_count=9000, total_token_count=9900,
+        )
+
+        @property
+        def text(self):
+            raise ValueError("MAX_TOKENS response has no text parts")
+
+    responses = [NoTextResponse()]
+    if intervening_api_error:
+        responses.append(RuntimeError("Gemini unavailable before returning a response"))
+    responses.append(SimpleNamespace(
+        candidates=[SimpleNamespace(finish_reason=SimpleNamespace(name="STOP"))],
+        text=GOOD_CLAUDE,
+        usage_metadata=SimpleNamespace(
+            prompt_token_count=700, candidates_token_count=6000,
+            thoughts_token_count=0, total_token_count=6700,
+        ),
+    ))
+
+    def generate(contents, **_kw):
+        state.gemini_calls.append(contents)
+        response = responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+    gwg.genai.GenerativeModel.return_value.generate_content = generate
+    result = await state.grader.grade_essay(_grounded_config())
+
+    rate = MODEL_PRICING["gemini-3.8-flash"]
+    rejected_cost = (900 * rate["input"] + 9000 * rate["output"]) / 1e6
+    accepted_cost = (700 * rate["input"] + 6000 * rate["output"]) / 1e6
+    assert result.cost_usd == pytest.approx(rejected_cost + accepted_cost)
+    assert result.model_used == "gemini-3.8-flash"
+    assert (result.tokens_input, result.tokens_output) == (700, 6000)
+    expected_statuses = ["error"] * (1 + intervening_api_error) + ["success"]
+    assert [a["status"] for a in result.grading_attempts] == expected_statuses
+    first, last = result.grading_attempts[0], result.grading_attempts[-1]
+    assert (first["input_tokens"], first["output_tokens"]) == (900, 9000)
+    assert first["error_code"] == "ValueError" and first["served"] is False
+    assert first["cost_usd"] == pytest.approx(rejected_cost)
+    assert last["cost_usd"] == pytest.approx(accepted_cost) and last["served"] is True
+
+    rows = [r for r in state.rows if r["service"] == "gemini"]
+    assert [r["status"] for r in rows] == expected_statuses
+    assert [r["usage_event_id"] for r in rows] == [
+        f"writing:test:pass1:api:{i + 1}" for i in range(len(expected_statuses))
+    ]
+    assert (rows[0]["input_tokens"], rows[0]["output_tokens"],
+            rows[0]["thinking_tokens"]) == (900, 0, 9000)
+    assert (rows[-1]["input_tokens"], rows[-1]["output_tokens"]) == (700, 6000)
+    if intervening_api_error:
+        # A failure before the next response must not reuse the prior usage.
+        assert result.grading_attempts[1]["input_tokens"] is None
+        assert result.grading_attempts[1]["output_tokens"] is None
+        assert result.grading_attempts[1]["cost_usd"] is None
+        assert rows[1].get("input_tokens") is None
+        assert rows[1].get("output_tokens") is None
+        assert rows[1].get("thinking_tokens") is None
+
+
 # ── AIOPS-0024 FR-007: failure-log outcomes around the grounding repair ──
 
 

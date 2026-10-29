@@ -1062,6 +1062,7 @@ class GeminiWritingGrader:
         for attempt in range(MAX_RETRIES):
             attempt_started = time.monotonic()
             attempt_logged = False
+            usage: dict = {}
             try:
                 sent_prompt = contents[0] if isinstance(contents, list) else contents
                 estimate = None if image_sizes is None else ai_budget.estimate_or_none(
@@ -1173,9 +1174,9 @@ class GeminiWritingGrader:
                     contents = ([repaired_prompt, {"mime_type": image[1], "data": image[0]}]
                                 if image is not None else repaired_prompt)
                 if not attempt_logged:
-                    note("error", {}, type(e).__name__)
+                    note("error", usage, type(e).__name__)
                     await self._log_writing_usage(
-                        model_name, {}, usage_context, attempt,
+                        model_name, usage, usage_context, attempt,
                         attempt_started, status="error",
                         # Class only: provider error text stays in app logs.
                         metadata={"error_detail": type(e).__name__},
