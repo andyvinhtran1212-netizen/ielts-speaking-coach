@@ -667,6 +667,97 @@ async def test_claude_repair_is_cut_off_at_the_budget(writing_providers, monkeyp
     assert [r["status"] for r in claude_rows] == ["invalid_response", "cancelled"]
 
 
+# ── PC-J164: run cost counts every billed call, served model is truthful ──
+
+# claude-sonnet-5-5: $2 / M input, $10 / M output.
+def _sonnet_cost(tokens_in: int, tokens_out: int) -> float:
+    return tokens_in * 2 / 1e6 + tokens_out * 10 / 1e6
+
+
+def _claude_reply(text: str, tokens_in: int, tokens_out: int):
+    from types import SimpleNamespace
+
+    async def reply():
+        return SimpleNamespace(
+            content=[SimpleNamespace(type="text", text=text)], stop_reason="end_turn",
+            usage=SimpleNamespace(input_tokens=tokens_in, output_tokens=tokens_out,
+                                  cache_read_input_tokens=0, cache_creation_input_tokens=0),
+        )
+    return reply
+
+
+@pytest.mark.asyncio
+async def test_single_accepted_call_costs_that_call(writing_providers):
+    state = writing_providers
+    state.claude = [GOOD_CLAUDE]                        # 700 in / 6000 out
+    result = await state.grader.grade_essay(_grounded_config())
+
+    assert result.model_used == "claude-sonnet-5-5"
+    assert result.cost_usd == pytest.approx(_sonnet_cost(700, 6000))
+    assert [(a["provider"], a["status"], a["served"]) for a in result.grading_attempts] == [
+        ("anthropic", "success", True)]
+
+
+@pytest.mark.asyncio
+async def test_rejected_then_accepted_cost_is_the_sum_of_both_calls(writing_providers):
+    state = writing_providers
+    state.claude = [_claude_reply(UNGROUNDED_CLAUDE, 900, 9000),
+                    _claude_reply(GOOD_CLAUDE, 700, 6000)]
+    result = await state.grader.grade_essay(_grounded_config())
+
+    rejected, accepted = _sonnet_cost(900, 9000), _sonnet_cost(700, 6000)
+    assert result.model_used == "claude-sonnet-5-5"
+    assert result.cost_usd == pytest.approx(rejected + accepted)
+    # Tokens still describe the served answer; the breakdown has both calls.
+    assert (result.tokens_input, result.tokens_output) == (700, 6000)
+    first, second = result.grading_attempts
+    assert (first["status"], first["error_code"], first["served"]) == (
+        "invalid_response", "ungrounded_feedback", False)
+    assert first["cost_usd"] == pytest.approx(rejected)
+    assert first["pass"] == "pass1" and first["model"] == "claude-sonnet-5-5"
+    assert (second["status"], second["served"]) == ("success", True)
+    assert second["cost_usd"] == pytest.approx(accepted)
+    assert "subsidies" not in json.dumps(result.grading_attempts)
+
+
+@pytest.mark.asyncio
+async def test_provider_fallback_records_the_serving_model_and_every_call(writing_providers):
+    from types import SimpleNamespace
+
+    from services.gemini_writing_grader import MODEL_PRICING
+
+    state = writing_providers
+    state.claude = [_claude_reply(UNGROUNDED_CLAUDE, 900, 9000),
+                    _claude_reply(UNGROUNDED_CLAUDE, 800, 8000)]
+    gemini_usage = SimpleNamespace(prompt_token_count=1000, candidates_token_count=4000,
+                                   thoughts_token_count=0, total_token_count=5000)
+
+    def generate(contents, **_kw):
+        state.gemini_calls.append(contents)
+        return SimpleNamespace(
+            candidates=[SimpleNamespace(finish_reason=SimpleNamespace(name="STOP"))],
+            text=GOOD_CLAUDE, usage_metadata=gemini_usage,
+        )
+
+    from services import gemini_writing_grader as gwg
+    gwg.genai.GenerativeModel.return_value.generate_content = generate
+    config = _grounded_config()
+    result = await state.grader.grade_essay(config)
+
+    rate = MODEL_PRICING["gemini-3.8-flash"]
+    gemini_cost = 1000 * rate["input"] / 1e6 + 4000 * rate["output"] / 1e6
+    assert config.selected_model == "gemini-3.8-flash"
+    assert result.model_used == "gemini-3.8-flash"          # Gemini served after Claude failed
+    assert result.cost_usd == pytest.approx(
+        _sonnet_cost(900, 9000) + _sonnet_cost(800, 8000) + gemini_cost)
+    assert [(a["provider"], a["model"], a["status"], a["served"])
+            for a in result.grading_attempts] == [
+        ("anthropic", "claude-sonnet-5-5", "invalid_response", False),
+        ("anthropic", "claude-sonnet-5-5", "invalid_response", False),
+        ("google", "gemini-3.8-flash", "success", True),
+    ]
+
+
 # ── AIOPS-0024 FR-007: failure-log outcomes around the grounding repair ──
 
 
