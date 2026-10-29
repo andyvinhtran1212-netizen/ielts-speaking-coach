@@ -22,10 +22,15 @@ _BAND_CLAIM = re.compile(
     r"(?!\w|[.,]\d|\s*(?:phút|câu|từ|đoạn|lần|ý|minutes?|words?|sentences?|paragraphs?)\b)",
     re.IGNORECASE,
 )
+# Accept the "overall" wording _BAND_CLAIM recognises ("target overall is 7.0"),
+# so target advice is not mistaken for a wrong attained score.
 _TARGET_BAND = re.compile(
     r"(?:^|[^\w])(?:để\s+(?:lên|đạt(?:\s+được)?)|muốn[^.!?;:\n,]*?|"
-    r"to\s+(?:reach|achieve|get)|target|mục\s+tiêu[^.!?;:\n,]*?)"
-    r"\s+band(?:\s+score)?\s*(?:(?:is|là)\s+)?[:=]?\s*"
+    r"to\s+(?:reach|achieve|get)|target|aim(?:ing)?\s+(?:for|at)|goal|"
+    r"mục\s+tiêu[^.!?;:\n,]*?)"
+    r"\s+(?:(?:is|là)\s+)?(?:(?:an?|the)\s+)?"
+    r"(?:band(?:\s+score)?|overall(?:\s+band)?(?:\s+score)?)(?:\s+of)?"
+    r"\s*(?:(?:is|là)\s+)?[:=]?\s*"
     r"(?P<band>[0-9](?:[.,]\d+)?)(?!\w|[.,]\d)",
     re.IGNORECASE,
 )
