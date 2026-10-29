@@ -112,6 +112,18 @@ Applying `345` (runbook, PC-J162):
   can be re-run. The file is approved and the release register pins its
   sha256, so do not edit it to remove the counts. Staging and production must
   run the same bytes.
+- **After apply, run `backend/scripts/verify_migration_345_client_acl.sql`
+  read-only (PC-J169).** 345's own postcondition checks only table-level
+  `SELECT` … `TRIGGER`, and its `REVOKE` removes only the runner's grants. A
+  column-level `INSERT`/`UPDATE`/`REFERENCES` or a `MAINTAIN` (PG17) grant
+  that another role passed on survives both. The verifier reads every
+  `relacl`/`attacl` entry for `PUBLIC`, `anon` and `authenticated` on
+  `user_feedback`, `lemma_overrides` and `access_codes`, whatever the grantor,
+  plus their effective privileges. It must return the single row
+  `verify_345_client_acl: ok`. Any `client_acl_entry_remains` or
+  `client_privilege_effective_remains` error names `table[.column]:grantee:privilege[/grantor]`:
+  report it to the Leader and the Security Auditor. On staging it runs through
+  the Management API with `"read_only": true` or with `psql -v ON_ERROR_STOP=1 -f`.
 
 Migration `337` (CLASSARCHIVE-0030, A-10) enforces class archive. An
 *archived* class is `cohorts.is_active = false AND archived_at IS NOT NULL`. It
