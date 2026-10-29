@@ -1,0 +1,16 @@
+{
+  "provider": "anthropic",
+  "sdk": "anthropic",
+  "http_status": 429,
+  "url": "https://api.anthropic.com/v1/messages",
+  "body": {
+    "type": "error",
+    "error": {
+      "type": "rate_limit_error",
+      "message": "This request would exceed the rate limit for your organization of 2,000,000 input tokens per minute."
+    },
+    "request_id": "req_fixture"
+  },
+  "expected": "transient",
+  "source": "https://platform.claude.com/docs/en/api/errors (checked 2026-10-29)"
+}
