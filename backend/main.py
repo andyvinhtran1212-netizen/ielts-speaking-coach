@@ -465,16 +465,40 @@ async def server_timing_middleware(request: Request, call_next):
 # ── Sprint 12.3 — X-Request-ID middleware ─────────────────────────────
 # Generate or propagate a request ID so frontend exception reports can
 # correlate to backend error_logs rows (same UUID on both sides).
+_SLOW_REQUEST_THRESHOLD_MS = 1000
+_REQUEST_LOGGER = logging.getLogger("request")
+
+
+def _normalize_request_id(value: str | None) -> str:
+    import re
+    import uuid
+
+    if value is not None and re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", value):
+        return value
+    return str(uuid.uuid4())
+
+
 @app.middleware("http")
 async def request_id_middleware(request: Request, call_next):
-    import uuid as _uuid
-    request_id = request.headers.get("x-request-id") or str(_uuid.uuid4())
+    request_id = _normalize_request_id(request.headers.get("x-request-id"))
     request.state.request_id = request_id
-    with operation_hint_scope(request.headers.getlist(CORE_OPERATION_HEADER)), \
-            request_id_scope(request_id):
-        response = await call_next(request)
-    response.headers["X-Request-ID"] = request_id
-    return response
+    start = perf_counter()
+    status = 500
+    try:
+        with operation_hint_scope(request.headers.getlist(CORE_OPERATION_HEADER)), \
+                request_id_scope(request_id):
+            response = await call_next(request)
+        status = response.status_code
+        response.headers["X-Request-ID"] = request_id
+        return response
+    finally:
+        duration_ms = (perf_counter() - start) * 1000
+        if status >= 500 or duration_ms >= _SLOW_REQUEST_THRESHOLD_MS:
+            path = getattr(request.scope.get("route"), "path", None) or request.url.path
+            _REQUEST_LOGGER.warning(
+                "request_id=%s method=%s path=%s status=%s duration_ms=%.1f",
+                request_id, request.method, path, status, duration_ms,
+            )
 
 
 # SEC-20261028-01 — registered LAST so it is the outermost middleware: every
