@@ -6,6 +6,7 @@ Legacy attempts are explicitly current fallback; no historical capture/backfill.
 from copy import deepcopy
 import hashlib
 import json
+import re
 
 from fastapi import HTTPException
 
@@ -54,6 +55,50 @@ def context_reference(snapshot: dict | None) -> dict:
                 sort_keys=True, separators=(",", ":")).encode()).hexdigest()}
 
 
+# A labelled paragraph opens with its letter: "A In my view", "A. Around",
+# "**A**  In 1973" or "### A". The next character must not be lowercase, so a
+# sentence opening with the article "A psychologist" or "I think" is no label.
+_PARAGRAPH_LABEL_RE = re.compile(
+    r"^(?:#{1,6}\s*)?(?:\*\*)?([A-Z])(?:\*\*)?[.:)]?(?:\*\*)?\s+(?![a-z])(\S.*)$", re.S)
+_PARAGRAPH_PREVIEW_CHARS = 90
+
+
+def _paragraph_preview(text: str) -> str:
+    """A short plain-text opening; the review card never renders a full paragraph."""
+    text = re.sub(r"[*_`#>]+", "", text)
+    text = " ".join(text.split())
+    if len(text) <= _PARAGRAPH_PREVIEW_CHARS:
+        return text
+    cut = text[:_PARAGRAPH_PREVIEW_CHARS].rsplit(" ", 1)[0]
+    return cut.rstrip(",;:") + "…"
+
+
+def snapshot_paragraph_previews(question: dict, snapshot: dict | None) -> list[dict] | None:
+    """Paragraph letters of the question's passage as frozen in the snapshot.
+
+    Only the submission snapshot is read (FR-014/015), never current content.
+    The letters must be a consecutive run (A, B, C … or B, C, D …) with no
+    repeat; anything else is an ambiguous passage and yields nothing rather
+    than a list that might not match what the student saw.
+    """
+    if snapshot is None or question.get("passage_id") is None:
+        return None
+    passage = next((row for row in snapshot.get("source_rows") or []
+                    if str(row.get("id")) == str(question["passage_id"])), None)
+    body = (passage or {}).get("body_markdown")
+    if not isinstance(body, str):
+        return None
+    previews = []
+    for block in re.split(r"\n\s*\n", body):
+        match = _PARAGRAPH_LABEL_RE.match(block.strip())
+        if match:
+            previews.append({"label": match.group(1), "text": _paragraph_preview(match.group(2))})
+    letters = [ord(row["label"]) for row in previews]
+    if len(letters) < 2 or letters != list(range(letters[0], letters[0] + len(letters))):
+        return None
+    return previews
+
+
 def question_context(question: dict | None, snapshot: dict | None) -> dict:
     """Display-only authored context: no accepted answer policy or hidden keys.
 
@@ -76,10 +121,20 @@ def question_context(question: dict | None, snapshot: dict | None) -> dict:
             present["options"] = True
     template = fields.get("template") or {}
     if isinstance(template, dict):
-        for name in ("image_url", "image_alt"):
+        for name in ("image_url", "image_alt", "paragraph_labels"):
             if not present[name] and name in template:
                 fields[name] = template[name]
                 present[name] = True
+    if question.get("question_type") == "matching_information":
+        # The "options" of matching information are the passage's own lettered
+        # paragraphs. Without an authored list, derive it from the snapshot.
+        previews = snapshot_paragraph_previews(question, snapshot)
+        if previews:
+            fields["paragraph_previews"] = previews
+            present["paragraph_previews"] = True
+            if not fields.get("options") and not fields.get("paragraph_labels"):
+                fields["paragraph_labels"] = [row["label"] for row in previews]
+                present["paragraph_labels"] = True
     # Only authored display metadata; response policies and key metadata never
     # enter this projection. Explicit empty values keep their provenance.
     fields["metadata"] = {name: deepcopy(metadata[name]) for name in ("flow_direction",)
