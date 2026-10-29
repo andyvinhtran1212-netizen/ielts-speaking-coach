@@ -70,3 +70,24 @@ it('keeps the key hidden until the full explanation opens in the correction flow
   await screen.findByText('Đáp án chuẩn');
   expect(container.querySelector('.wex-answer > p')?.textContent).toBe(cases[0][2]);
 });
+
+it.each([
+  ['cambridge-20-test-1-listening-q24', ['A', 'C'], 'A, C'],
+  ['cambridge-13-test-3-listening-q20', ['B', 'D'], 'B, D'],
+])('%s joins an unordered_set ("choose TWO") key with commas, not alternatives', (objectId, letters, expected) => {
+  const { container } = renderPanel({
+    object_id: objectId,
+    item: { answer: { canonical: letters, accepted_forms: letters, comparison_mode: 'unordered_set' } },
+    explanation: { answer_summary: 'outdated answer' },
+  });
+  expect(container.querySelector('.wex-answer > p')?.textContent).toBe(expected);
+});
+
+it.each([
+  [{ canonical: ['colour', 'color'], accepted_forms: ['color'], comparison_mode: 'any_of' }, 'colour / color'],
+  [{ canonical: ['A', ['B', '', null]], comparison_mode: 'any_of' }, 'A / B'],
+  [{ canonical: ['A', 'C'], comparison_mode: 'unordered_set' }, 'A, C'],
+])('flattens an array canonical key like backend _flat(): %j', (answer, expected) => {
+  const { container } = renderPanel({ item: { answer }, explanation: { answer_summary: 'outdated answer' } });
+  expect(container.querySelector('.wex-answer > p')?.textContent).toBe(expected);
+});
