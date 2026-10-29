@@ -570,6 +570,8 @@ on:
       - 'frontend/public/css/vocab-wiki.css'
       - 'frontend/tooling/verify-vocabulary-wiki-flow.mjs'
       - 'frontend/public/js/components/aver-chrome.js'
+      - 'frontend/public/js/auth-me-single-flight.js'
+      - 'frontend/lib/auth/auth-me-single-flight.mjs'
       - 'frontend/tooling/verify-chrome-nav-width-flow.mjs'
       - 'frontend/tooling/verify-chrome-early-render-flow.mjs'
       - 'frontend/app/(authed)/profile/**'

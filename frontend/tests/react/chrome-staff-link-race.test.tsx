@@ -33,6 +33,7 @@ beforeEach(() => {
 
 afterEach(() => {
   document.body.innerHTML = '';
+  delete (window as any).__averAuthMeSingleFlight; // each test is a fresh page load (PC-J147)
   vi.unstubAllGlobals();
 });
 
