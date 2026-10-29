@@ -101,6 +101,48 @@ Trong ví dụ trên, *were gathered* và *seemed* nằm trong mệnh đề ph�
 2. Nhóm các phần bổ nghĩa, tìm từng khung chính và giữ chủ ngữ/tân ngữ/bổ ngữ cần thiết.
 3. Ghép lại các khối để trả lời đúng nội dung; quan hệ nguyên nhân, điều kiện, phủ định hoặc giới hạn đối tượng có thể quyết định đáp án.
 
+## Lỗi người Việt hay mắc
+
+Động từ tiếng Việt không chia, nên không có dấu hiệu hình thức nào cho biết đâu là động từ hữu hạn (động từ chính) và đâu là V-ing/V3 hay động từ trong mệnh đề phụ. Câu tiếng Việt cũng thường ngắn và nối tiếp nhau. Khi gặp câu tiếng Anh dài, người học hay lấy **động từ đầu tiên** gặp được làm động từ chính, hoặc dịch lần lượt từng cụm rồi mất khung câu.
+
+### Lỗi 1: Lấy động từ đầu tiên làm động từ chính
+
+*The scientists who first identified the virus in 1981 received little funding.*
+
+- ❌ Hiểu thành: ý chính là "các nhà khoa học đã xác định virus năm 1981".
+- ✅ *identified* nằm trong mệnh đề quan hệ *who…*. Khung: *The scientists received little funding.* Ý chính: họ **nhận được ít kinh phí**.
+
+### Lỗi 2: Coi V3 rút gọn là động từ chính
+
+*The data collected by the satellite over two decades show a steady rise in sea levels.*
+
+- ❌ Hiểu thành: "dữ liệu đã thu thập…" là vị ngữ, rồi không biết *show* làm gì trong câu.
+- ✅ *collected…* là mệnh đề quan hệ rút gọn (= *that were collected*). Khung: *The data show a steady rise.*
+
+### Lỗi 3: Dịch tuần tự từng cụm
+
+Dịch từ trái sang phải từng cụm sẽ ra một chuỗi ý rời. Hãy tìm khung S–V chính trước (Bước 1), rồi mới ghép các khối bổ nghĩa vào.
+
+## Bài tập luyện
+
+### Viết khung S–V chính
+
+Mỗi câu dưới đây có độ dài giống câu trong đề Reading. Viết chủ ngữ và động từ hữu hạn của mệnh đề chính.
+
+1. *Although the city's population has doubled since 1990, the number of hospitals serving it has barely changed.*
+2. *The idea that children learn languages more easily than adults, which is widely repeated in the media, is only partly supported by research.*
+3. *Farmers in the region, many of whom had relied on a single crop for generations, began planting drought-resistant varieties after the 2015 harvest failed.*
+4. *What surprised the researchers most was the speed at which the glacier was retreating.*
+5. *The report, published by a team of economists working for an international development agency, argues that investment in rural roads reduces poverty more effectively than direct cash transfers.*
+
+### Đáp án
+
+1. S = *the number (of hospitals)*, V = *has (barely) changed*. *has doubled* thuộc mệnh đề nhượng bộ *Although…*; *serving it* là cụm phân từ bổ nghĩa cho *hospitals*.
+2. S = *The idea*, V = *is (only partly) supported*. *that children learn…* là mệnh đề nội dung nói rõ *idea* là ý gì; *which is widely repeated…* là phần chêm.
+3. S = *Farmers (in the region)*, V = *began (planting…)*. *had relied* nằm trong phần chêm *many of whom…*; *failed* thuộc mệnh đề thời gian *after…*.
+4. S = *What surprised the researchers most* (cả mệnh đề làm chủ ngữ), V = *was*. *was retreating* nằm trong mệnh đề *at which…* bổ nghĩa cho *speed*.
+5. S = *The report*, V = *argues*. *published…* và *working…* là cụm phân từ; *that investment… reduces poverty…* là nội dung của *argues*, không bỏ được.
+
 ## Tóm tắt nhanh
 
 - Câu hoàn chỉnh có ít nhất một mệnh đề chính; câu ghép có thể có nhiều khung chính
