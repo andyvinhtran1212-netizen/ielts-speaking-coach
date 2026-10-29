@@ -62,10 +62,13 @@ Classes that were inactive before 337 stay *legacy* (`archived_at` NULL) with
 the old behaviour. Nothing is backfilled, and the postcondition fails if the
 number of archived classes changes (FR-009). An admin applies the rules per
 class through `fn_archive_cohort` ("Áp dụng lưu trữ"). 337 aborts without 320,
-326 or the `fn_restore_student` lock literal. It names no 331 object. It is a
-normal forward migration (no `forward-policy.tsv` row) and is dormant until the
-A-10 backend deploys. Apply it on staging first through the advisory-locked
-runner, and do not archive or restore classes between apply and deploy. The
+326 or the `fn_restore_student` lock literal. It names no 331 object. It is
+held back by `forward-policy.tsv` (group `class_archive`, PC-J106 F1) and is
+dormant until the A-10 backend deploys. Apply it only with
+`MIGRATION_FEATURES=class_archive` through the advisory-locked runner, on staging
+first and only after a backend whose `AdminCohortOut` accepts the three archive
+columns is deployed there (an older one answers 500 on `GET /admin/cohorts`).
+Do not archive or restore classes between apply and deploy. The
 light and full rollbacks are in the file header; the full one re-creates the
 326 `fn_restore_student` before dropping the columns. One transaction,
 re-runnable.
