@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-29 the highest is `338`, so by that rule the
-next new migration is `339`. Ask the Leader before taking it.
+sequence is dense. As of 2026-10-29 the highest is `339`, so by that rule the
+next new migration is `340`. Ask the Leader before taking it.
 The runner applies any unapplied file regardless of order.
 Numbers 321–326 belong to 321 WRITINGRATE-0025, 322 AIOPS-0024 (#1837), 323
 ROLECHECK-0026, 324 ASSIGNDRAFT-0027, 325 CODEUNIQ-0028 and 326
@@ -29,8 +29,9 @@ STUDENTARCHIVE-0029. 327–330 have no file and must not be reused: 327–329 we
 reserved, and 330 was the first reservation for A-10, which took 337 instead
 (CLASSARCHIVE-0030 D1). 331 is GIVEARCHIVE-0031, 332 is ADMINAAL2-0032, 333 is
 AIBUDGET-0033, 334 is ACTIVATELIMIT-0034, 335 is INACTIVEWRITE-0035, 336 is
-ADMINAAL2-0032 FR-019 (#1853), 337 is A-10 CLASSARCHIVE-0030 and 338 is
-PAPERUPDATEDAT-0037. Every number from 331 to 338 now has a file.
+ADMINAAL2-0032 FR-019 (#1853), 337 is A-10 CLASSARCHIVE-0030, 338 is
+PAPERUPDATEDAT-0037 and 339 is GRAMMARAUDIT-0019 Revision 2 (reserved by the
+Leader on 2026-10-29). Every number from 331 to 339 now has a file.
 
 Migration `337` (CLASSARCHIVE-0030, A-10) enforces class archive. An
 *archived* class is `cohorts.is_active = false AND archived_at IS NOT NULL`. It
@@ -80,6 +81,29 @@ UPDATE row triggers on `reading_tests`, `listening_tests`, `reading_passages`,
 policy revisions, release events and `mock_content_revision` are unchanged.
 `listening_exercises` keeps 208's trigger. No data change; later files must not
 drop these triggers or add a BEFORE row trigger that sorts after them.
+
+Migration `339` (GRAMMARAUDIT-0019 Revision 2, T011; number reserved by the
+Leader on 2026-10-29) widens the one Long Sentence Untangling follow-up of 314
+to exactly three codes: LSU, Grammar in Task 1 and Few / A few / Little / A
+little. It is function-only: the new private IMMUTABLE
+`grammar_quiz_followup_pair(code)` returns the (middle, final) reviewed source
+of those three codes and NULL for every other code, and replaces each LSU
+literal in `grammar_quiz_audit_chain`, `grammar_quiz_guard_bank`,
+`grammar_quiz_validate_receipt_envelope` and `grammar_quiz_receipt_data`.
+`grammar_quiz_audit_binding` embeds the new
+`services/grammar_quiz_reviewed_sources.json` (every 314 binding unchanged, two
+v3 bindings added). Signatures, SECURITY DEFINER, `search_path` and 314's
+REVOKE/GRANT block are unchanged, so no grammar function is client-executable.
+It aborts without 314; the postcondition fails if a bank, question, session,
+attempt, stat or receipt count, or any managed chain's validity, changes. A
+normal forward migration (no `forward-policy.tsv` row), one transaction,
+re-runnable. Apply it under the advisory lock before the dependent backend:
+staging first, production before the staging → main promotion. Publishing the
+two v3 banks is a separate admin preview/commit step (T012/T013). The rollback
+lives outside the forward glob, in `rollback/339_grammar_quiz_followup_codes.sql`
+(run by hand with `psql -v ON_ERROR_STOP=1 -f`): it re-creates the 314 bodies
+and drops the lookup, and refuses once a v3 bank exists. After a publication,
+roll back by pausing new starts on the v3 bank instead.
 
 Migration `335` (INACTIVEWRITE-0035, SEC-20261028-02) closes the direct-REST
 write path for inactive accounts. 320 kept `authenticated` writes on the five
