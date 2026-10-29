@@ -17,6 +17,7 @@ import {
   listeningBandLabel,
   listeningReviewAnswerState,
   listeningReviewBackTarget,
+  listeningReviewClipClock,
   listeningReviewMatchesFilter,
   listeningReviewParams,
   listeningReviewSection,
@@ -195,7 +196,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, 
     || solution.why_correct || solution.script || solution.trap || webExplanation);
   const win = item.audio_window;
   const timestamp = win
-    ? `${win.section ? `${win.section} · ` : ''}${clock(win.start)}–${clock(win.end)}`
+    ? `${win.section ? `${win.section} · ` : ''}${listeningReviewClipClock(win.start)}–${listeningReviewClipClock(win.end)}`
     : '';
   const keyToggle = (event: KeyboardEvent<HTMLDivElement>) => {
     if ((event.key === 'Enter' || event.key === ' ') && !(event.target as HTMLElement).closest('button')) {

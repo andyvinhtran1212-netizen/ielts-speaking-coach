@@ -154,7 +154,7 @@ check('authored hostile prompt is rendered as text',
 await page.locator('audio-player').evaluate((node) => {
   node.seekTo = (seconds) => { window.__listeningReviewSeek = seconds; };
 });
-await page.getByRole('button', { name: /Nghe đoạn Section 2 · 0:12–0:18/ }).click();
+await page.getByRole('button', { name: /Nghe đoạn Section 2 · 0:12\.5–0:18\.0/ }).click();
 check('timestamp uses the real audio window and synchronizes transcript',
   await page.evaluate(() => window.__listeningReviewSeek) === 12.5
     && await page.getByRole('tab', { name: 'Section 2' }).getAttribute('aria-selected') === 'true'
