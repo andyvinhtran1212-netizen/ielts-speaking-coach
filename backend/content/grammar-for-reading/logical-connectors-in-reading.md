@@ -73,6 +73,8 @@ Từ nối cho biết **quan hệ** giữa hai ý. Chúng là tín hiệu mạnh
 | **Bổ sung** | moreover, furthermore, in addition, also, besides |
 | **Ví dụ** | for example, for instance, such as |
 | **Nhấn/kết luận** | indeed, in fact, in short, overall |
+| **Điều kiện** | unless, provided that |
+| **Trình tự** | initially, subsequently |
 
 <!-- anchor: logical-connectors-in-reading.predict -->
 ### Dùng từ nối để đoán ý câu sau
@@ -83,7 +85,7 @@ Từ nối cho biết **quan hệ** giữa hai ý. Chúng là tín hiệu mạnh
 - Thấy *therefore / as a result* → ý sau là **hệ quả** của ý trước.
 - Thấy *although…* đầu câu → mệnh đề chính sẽ **đối lập** với mệnh đề nhượng bộ.
 
-Với câu hỏi điền từ nối hoặc "ý chính đoạn", từ nối là dấu hiệu định hướng. Đọc nội dung hai mệnh đề và vai trò trong lập luận trước khi chọn đáp án.
+Với câu hỏi Matching Headings, Summary completion hoặc "ý chính đoạn", từ nối là dấu hiệu định hướng. Đọc nội dung hai mệnh đề và vai trò trong lập luận trước khi chọn đáp án.
 
 <!-- anchor: logical-connectors-in-reading.pitfall -->
 ## Bẫy khi đọc
@@ -91,8 +93,13 @@ Với câu hỏi điền từ nối hoặc "ý chính đoạn", từ nối là d
 ### Bẫy 1: Bỏ qua nhượng bộ khiến hiểu ngược ý
 *Although costs rose, profits increased.* → ý chính là **profits increased**; "costs rose" chỉ là nền nhượng bộ.
 
-### Bẫy 2: Nhầm from/because-of chỉ nguyên nhân với chỉ tương phản
+### Bẫy 2: Từ nối nhiều nghĩa (since, while, as)
 Đọc kỹ từ nối, đừng đoán quan hệ theo cảm tính.
+
+- *Since the policy was introduced, crime has fallen.* (thời gian)
+- *Since the data are incomplete, the result is uncertain.* (nguyên nhân)
+- *While some cities grew, others shrank.* (tương phản)
+- *As the sample was small, the findings are tentative.* (nguyên nhân); *As prices rose, demand fell.* (thời gian: khi/càng… càng)
 
 ### Chiến lược giải mã
 1. Khoanh từ nối — chúng là "biển báo" của lập luận.
