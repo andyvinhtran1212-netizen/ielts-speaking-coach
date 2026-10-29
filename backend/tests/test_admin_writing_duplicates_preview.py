@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 _AUTH = {"Authorization": "Bearer fake.admin.jwt"}
@@ -192,3 +193,74 @@ def test_both_previews_publish_the_concrete_response_model():
     }
     assert set(routes) == {PATH, "/instructor/assignments/duplicates-preview"}
     assert all(route.response_model is DuplicatesPreviewOut for route in routes.values())
+
+
+# ── PC-J75 F4 — a signed-in non-admin is refused by the REAL admin guard ─────
+#
+# The tests above stub require_admin. These run services/staff_guard through
+# routers.admin's own seams (get_supabase_user, supabase_admin for the role
+# read) and pin that the refusal comes before any read of the overlap data.
+
+CALLER = "00000000-0000-0000-0000-00000000c001"
+
+
+class _RecordingSB(_FakeSB):
+    """_FakeSB that records every table and RPC the route touches."""
+
+    def __init__(self, store, fail_tables=()):
+        super().__init__(store, fail_tables)
+        self.touched: list = []
+
+    def table(self, name):
+        self.touched.append(name)
+        return super().table(name)
+
+    def rpc(self, name, params):
+        self.touched.append(f"rpc:{name}")
+        return super().rpc(name, params)
+
+
+def _post_as(role, body):
+    """POST as a signed-in caller whose users.role is ``role``. Returns the
+    response, the guard's DB, the route's DB and the overlap-service calls."""
+    from main import app
+    from config import settings
+    guard_db = _RecordingSB({"users": [{"id": CALLER, "role": role}]})
+    route_db = _RecordingSB(_seed())
+    with patch("routers.admin.get_supabase_user",
+               new=AsyncMock(return_value={"id": CALLER, "email": f"{role}@x"})), \
+         patch("routers.admin.supabase_admin", guard_db), \
+         patch.object(settings, "ADMIN_AAL2_ENFORCE", False), \
+         patch("routers.admin_writing_assignments.supabase_admin", route_db), \
+         patch("routers.admin_writing_assignments.preview_fan_out_overlap",
+               return_value={"student_count": 0, "duplicate_student_ids": []}) as fan_out, \
+         patch("routers.admin_writing_assignments.existing_give_student_ids",
+               return_value=set()) as individual:
+        r = TestClient(app, raise_server_exceptions=False).post(PATH, json=body, headers=_AUTH)
+    return r, guard_db, route_db, fan_out.call_count + individual.call_count
+
+
+_BODIES = [
+    {"prompt_ids": [P1], "cohort_id": C1},
+    {"prompt_ids": [P1], "student_ids": [S1, S2]},
+]
+
+
+@pytest.mark.parametrize("role", ["user", "instructor"])
+@pytest.mark.parametrize("body", _BODIES, ids=["cohort", "individual"])
+def test_non_admin_is_refused_before_any_overlap_read(role, body):
+    from services import staff_guard
+    r, guard_db, route_db, service_calls = _post_as(role, body)
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"] == staff_guard.ADMIN_ROLE_DENIED
+    assert guard_db.touched == ["users"]          # the guard's own role read only
+    assert route_db.touched == []                 # no roster / assignment read
+    assert service_calls == 0
+
+
+@pytest.mark.parametrize("body", _BODIES, ids=["cohort", "individual"])
+def test_admin_control_reaches_the_overlap_service(body):
+    # Same harness, role=admin: proves the "never reached" asserts above can fail.
+    r, _guard_db, _route_db, service_calls = _post_as("admin", body)
+    assert r.status_code == 200, r.text
+    assert service_calls == 1
