@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { useEffect } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { AuthProvider, useAuth } from '@/lib/auth/auth-provider';
@@ -69,5 +69,7 @@ it('a bfcache-restored page after chrome logout fails closed again', async () =>
   expect(redirectToLogin).not.toHaveBeenCalled();
   act(() => { window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })); });
   await screen.findByText('signed-out:');
-  expect(redirectToLogin).toHaveBeenCalledTimes(1);
+  // The re-validated session settles outside act(), so the DOM can show
+  // 'signed-out' before React flushes the page's passive redirect effect.
+  await waitFor(() => expect(redirectToLogin).toHaveBeenCalledTimes(1));
 });

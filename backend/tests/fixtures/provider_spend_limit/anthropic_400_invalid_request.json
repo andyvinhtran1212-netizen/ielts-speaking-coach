@@ -1,0 +1,16 @@
+{
+  "provider": "anthropic",
+  "sdk": "anthropic",
+  "http_status": 400,
+  "url": "https://api.anthropic.com/v1/messages",
+  "body": {
+    "type": "error",
+    "error": {
+      "type": "invalid_request_error",
+      "message": "max_tokens: Field required"
+    },
+    "request_id": "req_fixture"
+  },
+  "expected": "transient",
+  "source": "https://platform.claude.com/docs/en/api/errors (checked 2026-10-29)"
+}

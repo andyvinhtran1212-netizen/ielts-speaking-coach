@@ -20,19 +20,55 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-28 the highest is `338`, so by that rule the
-next new migration is `339`; 336 and 337 are taken by open work (below), so ask
-the Leader first.
+sequence is dense. As of 2026-10-29 the highest is `338`, so by that rule the
+next new migration is `339`. Ask the Leader before taking it.
 The runner applies any unapplied file regardless of order.
-Numbers 321–330 are already locked to open work (321 WRITINGRATE-0025, 322 #1720,
-323 ROLECHECK-0026, 324 ASSIGNDRAFT-0027, 325 CODEUNIQ-0028, 326
-STUDENTARCHIVE-0029, 327–329 reserved, 330 A-10); files for them may land out
-of order, so do not reuse them. 331 is GIVEARCHIVE-0031, 332 is ADMINAAL2-0032,
-334 is ACTIVATELIMIT-0034. 333–337 are reserved by the Leader for open work
-(333 AIBUDGET-0033, 335 INACTIVEWRITE-0035, 336 ADMINAAL2-0032 FR-019, assigned
-on 2026-10-28); files for them may land out of order, so ask the Leader before
-taking any number above 332. 336 is the suspended-role guard (#1853), 337 is
-A-10 CLASSARCHIVE-0030 (job q-13f) and 338 is PAPERUPDATEDAT-0037.
+Numbers 321–326 belong to 321 WRITINGRATE-0025, 322 AIOPS-0024 (#1837), 323
+ROLECHECK-0026, 324 ASSIGNDRAFT-0027, 325 CODEUNIQ-0028 and 326
+STUDENTARCHIVE-0029. 327–330 have no file and must not be reused: 327–329 were
+reserved, and 330 was the first reservation for A-10, which took 337 instead
+(CLASSARCHIVE-0030 D1). 331 is GIVEARCHIVE-0031, 332 is ADMINAAL2-0032, 333 is
+AIBUDGET-0033, 334 is ACTIVATELIMIT-0034, 335 is INACTIVEWRITE-0035, 336 is
+ADMINAAL2-0032 FR-019 (#1853), 337 is A-10 CLASSARCHIVE-0030 and 338 is
+PAPERUPDATEDAT-0037. Every number from 331 to 338 now has a file.
+
+Migration `337` (CLASSARCHIVE-0030, A-10) enforces class archive. An
+*archived* class is `cohorts.is_active = false AND archived_at IS NOT NULL`. It
+adds:
+
+- `cohorts.archived_at`, `archived_by` and `archive_reason` (at most 500
+  characters). The `trg_cohorts_archive_metadata` trigger stamps `archived_at` on
+  every true → false change, clears the metadata on restore and cannot be used
+  to un-enforce. There is no `is_active`-dependent CHECK, so the old backend's
+  `PATCH {is_active}` keeps working;
+- the append-only `class_lifecycle_audit` (no FK, RLS on, clients get nothing,
+  `service_role` SELECT/INSERT only);
+- the service-role-only RPCs `fn_archive_cohort`, `fn_restore_cohort` and the
+  non-locking `fn_cohort_archive_counts`. The RPCs lock the class `FOR UPDATE`,
+  write the flag, metadata and one audit row together, and are idempotent;
+- four SECURITY DEFINER guards that lock the class `FOR SHARE` and raise
+  `cohort_archived` (DETAIL = class id): the `AFTER INSERT OR UPDATE OF
+  is_active, cohort_id` membership guard (an upsert of an already-active row
+  passes), and the `BEFORE INSERT`-only guards on `class_assignments`,
+  `class_assignment_items` and cohort `writing_assignments` gives. Individual
+  gives, item UPDATEs (reaper, retries, finalisers) and idempotent replays are
+  untouched;
+- `fn_restore_student` (326) now locks the candidate classes `FOR SHARE` in id
+  order, skips archived classes and reports them as
+  `skipped_archived_cohort_ids` (0029 FR-003 Revision 1). The signature, ACL
+  and `FOR UPDATE` literal are unchanged.
+
+Classes that were inactive before 337 stay *legacy* (`archived_at` NULL) with
+the old behaviour. Nothing is backfilled, and the postcondition fails if the
+number of archived classes changes (FR-009). An admin applies the rules per
+class through `fn_archive_cohort` ("Áp dụng lưu trữ"). 337 aborts without 320,
+326 or the `fn_restore_student` lock literal. It names no 331 object. It is a
+normal forward migration (no `forward-policy.tsv` row) and is dormant until the
+A-10 backend deploys. Apply it on staging first through the advisory-locked
+runner, and do not archive or restore classes between apply and deploy. The
+light and full rollbacks are in the file header; the full one re-creates the
+326 `fn_restore_student` before dropping the columns. One transaction,
+re-runnable.
 
 Migration `338` (PAPERUPDATEDAT-0037) adds `update_<table>_updated_at` BEFORE
 UPDATE row triggers on `reading_tests`, `listening_tests`, `reading_passages`,
@@ -182,7 +218,7 @@ backfill) and manual SQL; updates that keep `student_id` are untouched. It
 changes no row, aborts unless 326 is applied and both lifecycle functions still
 lock `FOR UPDATE`, and is re-runnable. The 0031 backend maps the refusal to the
 existing 409 `student_archived`; without it a refused give is a 500 with no
-row. Migration 330 (A-10) and later files must not drop, replace or disable the
+row. Migration 337 (A-10) and later files must not drop, replace or disable the
 trigger or `fn_guard_writing_assignment_student_archived()`. Rollback (drop the
 trigger, then the function; reopens the race only) is in the file header.
 

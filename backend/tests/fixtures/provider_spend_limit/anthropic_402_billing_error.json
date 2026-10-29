@@ -1,0 +1,16 @@
+{
+  "provider": "anthropic",
+  "sdk": "anthropic",
+  "http_status": 402,
+  "url": "https://api.anthropic.com/v1/messages",
+  "body": {
+    "type": "error",
+    "error": {
+      "type": "billing_error",
+      "message": "There's an issue with your billing or payment information."
+    },
+    "request_id": "req_fixture"
+  },
+  "expected": "provider_spend_limit",
+  "source": "https://platform.claude.com/docs/en/api/errors (checked 2026-10-29)"
+}

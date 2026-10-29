@@ -195,6 +195,9 @@ def test_reactivation_then_activation_paths_work_again(world):
     db, engine, api = world
     _suspend_with_failed_revocation(db, engine, api)
     db.auth.admin.fail_ban = False
+    # The sessions the failed revocation left must go before the unban
+    # (PC-J66 F01), so the database is back for the reactivation.
+    engine.fail = False
     r = api.patch(f"/admin/users/{INSTRUCTOR}/active",
                   json={"is_active": True, "reason": "đã xác minh"}, headers=AUTH)
     assert r.status_code == 200 and r.json()["sign_in_restored"] is True
