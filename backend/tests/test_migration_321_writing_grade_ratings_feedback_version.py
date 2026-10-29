@@ -45,8 +45,8 @@ def test_migration_is_one_transaction_with_a_postcondition():
 
 def test_migration_adds_no_client_access_and_leaves_rls_alone():
     code = _code(MIGRATION).upper()
-    for forbidden in ("GRANT ", "POLICY", "ROW LEVEL SECURITY", "DROP TABLE", "CREATE TABLE",
-                      "DELETE FROM", "TRUNCATE"):
+    for forbidden in ("GRANT ", "REVOKE ", "OWNER TO", "POLICY", "ROW LEVEL SECURITY",
+                      "DROP TABLE", "CREATE TABLE", "DELETE FROM", "TRUNCATE"):
         assert forbidden not in code
 
 
@@ -122,6 +122,10 @@ def drifted(name):
     """)
 
 
+def fresh_116(name):
+    query(f"SET search_path = {name}; " + MIGRATION_116.replace("public.", name + "."))
+
+
 def essay(name, current_version=1):
     return query(f"INSERT INTO {name}.writing_essays(current_version) VALUES ($1) RETURNING id",
                  current_version)[0]["id"]
@@ -182,7 +186,7 @@ def test_legacy_rows_take_their_essays_current_version(schema):
 
 
 def test_fresh_116_shape_is_left_unchanged(schema):
-    query(f"SET search_path = {schema}; " + MIGRATION_116.replace("public.", schema + "."))
+    fresh_116(schema)
     before = shape(schema)
     assert before[1] == {COMPOSITE: "UNIQUE (essay_id, feedback_version)"}
 
@@ -222,3 +226,114 @@ def test_postcondition_aborts_and_rolls_back_when_a_single_essay_unique_index_su
     column, uniques, _ = shape(schema)
     assert column is None   # the whole transaction rolled back
     assert uniques == {"writing_grade_ratings_essay_id_key": "UNIQUE (essay_id)"}
+
+
+# ── FR-005 / FR-007: catalog snapshots across both applications ─────────────
+
+
+def access(name):
+    """Owner, table/column ACLs, RLS flags and policies — what FR-007 freezes."""
+    rel = f"{name}.writing_grade_ratings"
+    table = query("""SELECT relowner::regrole::text owner, relrowsecurity, relforcerowsecurity,
+                            ARRAY(SELECT a::text FROM unnest(relacl) a ORDER BY 1) acl
+                       FROM pg_class WHERE oid = $1::regclass""", rel)[0]
+    columns = query("""SELECT attname, ARRAY(SELECT a::text FROM unnest(attacl) a ORDER BY 1) acl
+                         FROM pg_attribute
+                        WHERE attrelid = $1::regclass AND attnum > 0 AND NOT attisdropped""", rel)
+    policies = query("""SELECT polname, polcmd, polpermissive,
+                               ARRAY(SELECT r::regrole::text FROM unnest(polroles) r ORDER BY 1) roles,
+                               pg_get_expr(polqual, polrelid) qual,
+                               pg_get_expr(polwithcheck, polrelid) with_check
+                          FROM pg_policy WHERE polrelid = $1::regclass ORDER BY polname""", rel)
+    return dict(table), {r["attname"]: list(r["acl"]) for r in columns}, [tuple(r) for r in policies]
+
+
+def catalog(name):
+    """Columns, constraints and indexes with OIDs — a drop/re-add shows up."""
+    rel = f"{name}.writing_grade_ratings"
+    columns = query("""SELECT attnum, attname, format_type(atttypid, atttypmod) type, attnotnull,
+                              pg_get_expr(d.adbin, d.adrelid) dflt
+                         FROM pg_attribute a LEFT JOIN pg_attrdef d
+                           ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+                        WHERE attrelid = $1::regclass AND attnum > 0 AND NOT attisdropped
+                        ORDER BY attnum""", rel)
+    constraints = query("""SELECT oid::int, conname, contype, convalidated, pg_get_constraintdef(oid) def
+                             FROM pg_constraint WHERE conrelid = $1::regclass ORDER BY conname""", rel)
+    indexes = query("""SELECT indexrelid::int, indexrelid::regclass::text idx, indisvalid,
+                              pg_get_indexdef(indexrelid) def
+                         FROM pg_index WHERE indrelid = $1::regclass ORDER BY 2""", rel)
+    rows = query(f"SELECT id, feedback_version, xmin::text FROM {rel} ORDER BY id")
+    return [[tuple(r) for r in part] for part in (columns, constraints, indexes, rows)]
+
+
+def hosted_access(name):
+    """Hosted shape after 320 (service_role full, clients SELECT-only, RLS on, no
+    policy) plus a column grant and a policy as sentinels: a reset, re-grant or
+    REVOKE of either would change the snapshot."""
+    query(f"""
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+            CREATE ROLE service_role BYPASSRLS; END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+            CREATE ROLE authenticated; END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+            CREATE ROLE anon; END IF;
+        END $$;
+        REVOKE ALL ON {name}.writing_grade_ratings FROM PUBLIC;
+        GRANT ALL ON {name}.writing_grade_ratings TO service_role;
+        GRANT SELECT ON {name}.writing_grade_ratings TO authenticated;
+        GRANT SELECT (rating, note) ON {name}.writing_grade_ratings TO anon;
+        CREATE POLICY sentinel_no_client_read ON {name}.writing_grade_ratings
+            FOR SELECT TO authenticated, anon USING (false);
+    """)
+
+
+@pytest.mark.parametrize("start", [drifted, fresh_116], ids=["drifted", "fresh_116"])
+def test_privileges_rls_and_policies_are_identical_before_and_after_each_application(schema, start):
+    start(schema)
+    hosted_access(schema)
+    before = access(schema)
+    table, columns, policies = before
+    assert table["relrowsecurity"] is True
+    assert {"authenticated", "service_role"} <= {a.split("=")[0] for a in table["acl"]}
+    assert columns["rating"] == columns["note"] and columns["rating"][0].startswith("anon=")
+    assert [p[0] for p in policies] == ["sentinel_no_client_read"]
+
+    migrate(schema)
+    first = access(schema)
+    migrate(schema)
+    second = access(schema)
+
+    if start is drifted:
+        # The added column carries no grant of its own.
+        assert first[1].pop("feedback_version") == []
+        assert second[1].pop("feedback_version") == []
+    assert first == before
+    assert second == before
+
+
+@pytest.mark.parametrize("start", [drifted, fresh_116], ids=["drifted", "fresh_116"])
+def test_second_application_leaves_columns_constraints_indexes_and_rows_untouched(schema, start):
+    start(schema)
+    rated = essay(schema, 2)
+    if start is drifted:
+        query(f"""INSERT INTO {schema}.writing_grade_ratings(essay_id, grading_model, rating)
+                  VALUES ($1, 'gemini-2.5-pro', 4)""", rated)
+    else:
+        upsert(schema, rated, 2, 4)
+    before = None if start is drifted else catalog(schema)
+
+    migrate(schema)
+    first = catalog(schema)
+    migrate(schema)
+
+    assert catalog(schema) == first
+    if before is not None:
+        assert first == before   # 116 already had the revised shape
+    _, constraints, indexes, rows = first
+    assert {c[1] for c in constraints} == {
+        "writing_grade_ratings_pkey", "writing_grade_ratings_essay_id_fkey",
+        "writing_grade_ratings_rating_check", COMPOSITE}
+    assert {i[1].split(".")[-1] for i in indexes} == {
+        "writing_grade_ratings_pkey", "idx_writing_grade_ratings_model", COMPOSITE}
+    assert [r[1] for r in rows] == [2]
