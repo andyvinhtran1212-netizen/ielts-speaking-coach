@@ -88,8 +88,8 @@ Câu hỏi số liệu hay hỏi "gấp mấy lần" hoặc "thay đổi nhiều
 ### Bẫy 1: Đảo chiều "not as … as"
 *X is not as expensive as Y* → **X rẻ hơn Y**, không phải đắt hơn.
 
-### Bẫy 2: Nhầm "gấp 3 lần" (×3) với "tăng 3 lần / tăng 300%" (×4)
-Khi đọc, *three times as high as* = ×3; *increased by 200%* cũng là ×3 (từ 1 lên 3); *increased to 200%* = ×2. Đọc kỹ *by* hay *to*.
+### Bẫy 2: Nhầm "gấp 3 lần" (×3) với "tăng 300%" (×4)
+Khi đọc, *three times as high as* = ×3; *increased by 200%* cũng là ×3 (từ 1 lên 3); *increased by 300%* = ×4 (từ 1 lên 4); *increased to 200%* = ×2. Đọc kỹ *by* hay *to*.
 
 ### Bẫy 3: Bỏ qua trạng từ mức độ
 *rose slightly* ≠ *rose sharply* — mức độ quyết định TRUE/FALSE/NOT GIVEN (bài chỉ nói *rose* mà câu hỏi nói *rose sharply* → thường là NOT GIVEN).

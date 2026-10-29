@@ -99,6 +99,7 @@ Với câu hỏi Matching Headings, Summary completion hoặc "ý chính đoạn
 - *Since the policy was introduced, crime has fallen.* (thời gian)
 - *Since the data are incomplete, the result is uncertain.* (nguyên nhân)
 - *While some cities grew, others shrank.* (tương phản)
+- *As the sample was small, the findings are tentative.* (nguyên nhân); *As prices rose, demand fell.* (thời gian: khi/càng… càng)
 
 ### Chiến lược giải mã
 1. Khoanh từ nối — chúng là "biển báo" của lập luận.
