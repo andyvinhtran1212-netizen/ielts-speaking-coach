@@ -25,9 +25,9 @@ trước khi dùng.
 ## 1. Khi nào dùng rollback (b)
 
 Rollback (b) gỡ **cả nhóm** `ai_budget` (333 + 340): bảng counters,
-reservations, deferred jobs, refresh, raises, alerts, heartbeat, mọi hàm
-`fn_ai_*`, trigger `trg_ai_session_generation` trên `responses` và các cột
-`budget_*` của `writing_jobs`. Bảng `ai_budget_raise_events`, trigger
+reservations, deferred jobs, refresh, raises, alerts, heartbeat, các hàm
+`fn_ai_*` của nhóm ngân sách (`340:145-172`), trigger `trg_ai_session_generation`
+trên `responses` và các cột `budget_*` của `writing_jobs`. Bảng `ai_budget_raise_events`, trigger
 append-only và hàm của trigger đó được giữ lại làm hồ sơ kiểm toán
 (`340:113-116`). Mất lịch sử ngân sách, không mất dữ liệu bài làm, **với điều
 kiện** cả năm guard đều qua.
@@ -39,7 +39,7 @@ Thử các cách nhẹ hơn trước (`rollout.md` §Rollback and repair):
 | Cần chặn ngay mọi lời gọi AI | `AI_KILL_SWITCH=on` (bài vẫn được lưu và xếp hàng) | Không |
 | Backend 0033 lỗi | Code rollback; bảng 333 ở lại và bị bỏ qua | Không |
 | Một raise đang mở sai | Kết thúc raise (mục 3.5) | RPC |
-| Chỉ phần hardening của 340 có vấn đề | Rollback (a) (`340:96-108`), giữ 333 | Migration mới |
+| Chỉ phần hardening của 340 có vấn đề | Rollback (a) (`340:92-108`), giữ 333 | Migration mới |
 | Phải gỡ hẳn schema ngân sách | **Rollback (b)** | Migration mới |
 
 Rollback (b) là một **migration forward mới** do Leader duyệt và chạy, không phải
@@ -120,7 +120,36 @@ class-sync (`340:57-61`).
 
    SELECT count(*) AS fn_left FROM pg_proc
     WHERE pronamespace = 'public'::regnamespace
-      AND proname LIKE 'fn_ai_%' AND proname <> 'fn_ai_budget_raise_events_append_only';
+      AND proname = ANY(ARRAY[
+          'fn_ai_session_generation_bump',
+          'fn_ai_budget_reserve',
+          'fn_ai_budget_settle',
+          'fn_ai_budget_release',
+          'fn_ai_budget_expire',
+          'fn_ai_budget_close_scope',
+          'fn_ai_budget_recompute',
+          'fn_ai_deferred_save',
+          'fn_ai_deferred_claim',
+          'fn_ai_deferred_commit',
+          'fn_ai_deferred_claim_writing',
+          'fn_ai_deferred_commit_writing',
+          'fn_ai_deferred_aggregate_write',
+          'fn_ai_session_bands_write',
+          'fn_ai_class_sync',
+          'fn_ai_budget_raise_grant',
+          'fn_ai_budget_raise_end',
+          'fn_ai_budget_raise_expire_sweep',
+          'fn_ai_budget_raise_record_end',
+          'fn_ai_budget_alert_crossings',
+          'fn_ai_budget_lock_counter',
+          'fn_ai_budget_thresholds',
+          'fn_ai_budget_active_raise',
+          'fn_ai_budget_ensure_refresh',
+          'fn_ai_patch_row',
+          'fn_ai_insert_row',
+          'fn_ai_response_revision',
+          'fn_ai_budget_assert_finite'
+      ]);
    -- mong đợi: 0
 
    SELECT count(*) AS budget_cols FROM information_schema.columns
@@ -131,9 +160,15 @@ class-sync (`340:57-61`).
    -- mong đợi: bằng số đếm ở bước 2
    ```
 
-   Các kỳ vọng này khớp test
+   `fn_left` chỉ đếm đúng các hàm bị gỡ ở `340:145-172`. Hai hàm
+   `fn_ai_model_override_audit` và `fn_ai_model_override_audit_append_only` của
+   [`322_ai_model_overrides_and_failures.sql`](../../backend/migrations/322_ai_model_overrides_and_failures.sql)
+   (dòng 84 và 122) không thuộc nhóm ngân sách và được giữ nguyên.
+   Test
    `test_rollback_b_keeps_every_333_guard_then_drops_the_group` trong
-   `backend/tests/test_migration_340_ai_budget_hardening.py`.
+   `backend/tests/test_migration_340_ai_budget_hardening.py` dựng schema 333 + 340,
+   không áp 322. Truy vấn `fn_ai_%` trong test trả 0 sau khi loại hàm audit raise
+   chỉ vì schema test thiếu 322; không dùng truy vấn rộng đó để hậu kiểm DB đã áp 322.
 
 ## 4. Từng guard
 
@@ -297,7 +332,7 @@ Thông tin cần đưa cho người quyết, lấy từ câu ở 4.3: số item 
 
 **Ý nghĩa.** Còn bài viết bị hoãn vì ngân sách và chưa chấm xong
 (`writing_jobs.budget_deferred_at IS NOT NULL` và `status` là `queued` hoặc
-`running`). Rollback gỡ các cột `budget_*` (`340:180-183`), nên bài đó mất dấu
+`running`). Rollback gỡ các cột `budget_*` (`340:181-184`), nên bài đó mất dấu
 hoãn.
 
 ```sql
