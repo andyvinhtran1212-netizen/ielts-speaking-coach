@@ -55,6 +55,11 @@ from before the sweep existed is not replayed into audit rows and e-mails.
 ``GET /admin/mfa/status`` also runs steps 1 and 2 for the caller only
 (``sweep_caller``), so an admin's own factor change is audited at once. That
 pass never moves the shared cursor; its alerts go out with the next step 3.
+The route reaches it through ``status_sweep``, which skips the pass for a
+repeated read of an unchanged factor state, a pass already running for that
+account, or a worker already running ``CALLER_MAX_CONCURRENT`` passes, so
+status reads (AAL1 is enough) cannot pile up Auth admin calls and pooled
+connections (SA PR-1936 F2). A skipped pass is left to the cron.
 
 The sweep reads ``auth.*`` over the backend's direct ``DATABASE_URL``
 connection (the ``postgres`` role; ``service_role`` cannot read it) and never
@@ -623,8 +628,18 @@ CALLER_TIMEOUT_SECONDS = 3.0
 CALLER_HTTP_TIMEOUT_SECONDS = 2.0
 CALLER_LOCK_TIMEOUT = "1s"
 CALLER_STATEMENT_TIMEOUT = "2s"
+# GET /admin/mfa/status runs on every admin page load. One pass per account
+# per CALLER_MIN_INTERVAL_SECONDS unless its factor list changed, and at most
+# CALLER_MAX_CONCURRENT passes per worker, never queued: each pass holds a
+# pooled _db_engine connection (5 + 10 overflow) for up to the Auth read.
+CALLER_MIN_INTERVAL_SECONDS = 30.0
+CALLER_MAX_CONCURRENT = 2
+LOCK_NOT_AVAILABLE = "55P03"
 
 _caller_no_db_logged = False
+_caller_recent: dict[str, tuple[float, tuple[tuple[str, str], ...]]] = {}
+_caller_running: set[str] = set()
+_clock = time.monotonic
 
 
 @dataclass
@@ -636,6 +651,23 @@ class CallerSummary:
     snapshot_skipped: str | None = None
     snapshot_factor_diffs: int = 0
     snapshot_error: str | None = None
+
+
+def _sqlstate(exc: BaseException) -> str | None:
+    if isinstance(exc, _FactorListFailed) and exc.__cause__ is not None:
+        exc = exc.__cause__
+    return getattr(exc, "sqlstate", None)
+
+
+def _log_caller_step_failed(step: str, user_id: str, exc: BaseException) -> str:
+    """A lock held elsewhere (the cron's batch, or its snapshot pass of this
+    account during the Auth read) is expected now and then and left to the
+    cron: a warning. Anything else is an error."""
+    code = _error(exc)
+    level = logging.WARNING if _sqlstate(exc) == LOCK_NOT_AVAILABLE else logging.ERROR
+    logger.log(level, "staff_security_sweep_caller_step_failed step=%s user_id=%s error=%s",
+               step, user_id, code)
+    return code
 
 
 async def _bound_transaction(db: SweepDb) -> None:
@@ -678,9 +710,7 @@ async def sweep_for_user(db: SweepDb, user_id: str, list_factors: FactorLister, 
                             "last_entry_id": entries[-1]["id"]}
         summary.log_entries, summary.log_rows = log.entries, log.rows
     except Exception as exc:
-        summary.log_error = _error(exc)
-        logger.error("staff_security_sweep_caller_step_failed step=log user_id=%s error=%s",
-                     user_id, summary.log_error)
+        summary.log_error = _log_caller_step_failed("log", user_id, exc)
     try:
         user = (await db.load_users([user_id])).get(user_id)
         if not await db.has_marker(SNAPSHOT_MARKER):
@@ -694,9 +724,7 @@ async def sweep_for_user(db: SweepDb, user_id: str, list_factors: FactorLister, 
                     db, {"id": user_id, "email": user.get("email")}, list_factors,
                     seeding=False)
     except Exception as exc:
-        summary.snapshot_error = _error(exc)
-        logger.error("staff_security_sweep_caller_step_failed step=snapshot user_id=%s error=%s",
-                     user_id, summary.snapshot_error)
+        summary.snapshot_error = _log_caller_step_failed("snapshot", user_id, exc)
     return summary
 
 
@@ -708,7 +736,13 @@ async def _sweep_caller(engine: Any, user_id: str, list_factors: FactorLister | 
         async with httpx.AsyncClient(timeout=CALLER_HTTP_TIMEOUT_SECONDS) as client:
             lister = auth_admin_factor_lister(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY,
                                               client)
-            return await _sweep_caller(engine, user_id, lister, schema, auth_schema)
+
+            async def bounded(uid: str) -> list[dict[str, Any]]:
+                # httpx bounds each phase; this bounds the whole read, which
+                # runs while the account lock and a pooled connection are held.
+                return await asyncio.wait_for(lister(uid), CALLER_HTTP_TIMEOUT_SECONDS)
+
+            return await _sweep_caller(engine, user_id, bounded, schema, auth_schema)
     async with engine.connect() as connection:
         try:
             raw = await connection.get_raw_connection()
@@ -745,6 +779,59 @@ async def sweep_caller(engine: Any, user_id: Any, *, list_factors: FactorLister 
     except Exception as exc:
         logger.error("staff_security_sweep_caller_failed user_id=%s error=%s", uid, _error(exc))
     return None
+
+
+def _factor_state(auth_user: dict[str, Any]) -> tuple[tuple[str, str], ...]:
+    factors = auth_user.get("factors")
+    if not isinstance(factors, list):
+        return ()
+    return tuple(sorted((str(f.get("id")), str(f.get("status")))
+                        for f in factors if isinstance(f, dict)))
+
+
+async def status_sweep(engine: Any, auth_user: dict[str, Any],
+                       **kwargs: Any) -> CallerSummary | None:
+    """``GET /admin/mfa/status``: ``sweep_caller`` for the accepted caller,
+    unless this worker should skip it. Skips never wait and change nothing;
+    the cron audits the account within its FR-010 bound:
+
+    * ``in_flight``: a pass for this account is already running here;
+    * ``throttled``: one ran less than ``CALLER_MIN_INTERVAL_SECONDS`` ago and
+      the factor list GoTrue returned with the caller (``auth_user``) is the
+      same, so a repeated read is skipped but an enroll, verify or removal
+      is still audited at once;
+    * ``busy``: ``CALLER_MAX_CONCURRENT`` passes are running here (warning).
+
+    The key is the account id from the accepted token, never a client
+    address. The response never depends on the pass, so a skip answers the
+    same body; there is no 429."""
+    uid = _uuid(auth_user.get("id"))
+    if uid is None:
+        return await sweep_caller(engine, auth_user.get("id"), **kwargs)   # logs the bad id
+    state, now = _factor_state(auth_user), _clock()
+    last = _caller_recent.get(uid)
+    if uid in _caller_running:
+        reason = "in_flight"
+    elif last is not None and last[1] == state and now - last[0] < CALLER_MIN_INTERVAL_SECONDS:
+        reason = "throttled"
+    elif len(_caller_running) >= CALLER_MAX_CONCURRENT:
+        reason = "busy"
+        logger.warning("staff_security_sweep_caller_skipped user_id=%s reason=busy running=%d",
+                       uid, len(_caller_running))
+    else:
+        reason = None
+    if reason is not None:
+        return CallerSummary(log_skipped=reason, snapshot_skipped=reason)
+    if len(_caller_recent) > 1024:   # admins only; drop what no longer throttles
+        for key in [k for k, (at, _) in _caller_recent.items()
+                    if now - at >= CALLER_MIN_INTERVAL_SECONDS]:
+            del _caller_recent[key]
+    _caller_recent[uid] = (now, state)
+    _caller_running.add(uid)
+    try:
+        return await sweep_caller(engine, uid, **kwargs)
+    finally:
+        _caller_running.discard(uid)
 
 
 async def _main(args: argparse.Namespace) -> int:

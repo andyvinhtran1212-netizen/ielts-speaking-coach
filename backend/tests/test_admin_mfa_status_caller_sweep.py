@@ -17,9 +17,13 @@ verification neither reports the factor deleted nor overwrites the newer
 snapshot (PC-J180, SA PR-1936 F1), and a verification that lands while
 a pass lists is stamped as seen after its log entry, so it is still audited
 and alerted, not taken for a step-up (SA F1-R1); a cursor the cron
-has not started is left alone; a cron batch holding the cursor lock, a
-timeout or a broken engine is logged with its code and the route still
-answers 200 with the unchanged body, also at AAL1.
+has not started is left alone; a cron batch holding the cursor lock (a
+warning), a timeout or a broken engine is logged with its code and the route
+still answers 200 with the unchanged body, also at AAL1. Under load (SA
+PR-1936 F2) concurrent reads by one admin start one pass, a repeat with the
+same factor list inside the interval starts none, a worker runs at most
+CALLER_MAX_CONCURRENT passes so a suspension still gets a pooled connection
+at once, and the Auth factor read is bounded as a whole.
 
 Set TEST_PG_URL to a LOCAL disposable cluster and REQUIRE_PG=1 to forbid skips.
 """
@@ -76,9 +80,17 @@ def _cursor_row(schema: str) -> str:
 
 # ── Through the route (AAL1 is accepted) ────────────────────────────────────
 
+@pytest.fixture(autouse=True)
+def _fresh_status_throttle(monkeypatch):
+    """Each test starts with no recent or running status pass in this worker."""
+    monkeypatch.setattr(sweep, "_caller_recent", {})
+    monkeypatch.setattr(sweep, "_caller_running", set())
+
+
 @pytest.fixture
-def status_api(live_activation_gate, monkeypatch):
-    """The real guard and route, with the sweep hook pointed at ``engine``/``pg``."""
+def status_route(live_activation_gate, monkeypatch):
+    """The real guard and route, with the sweep hook pointed at ``engine``/``pg``.
+    ``prepare`` returns the app and the caller's bearer token."""
     from config import settings
     from services import activation_gate
     import routers.auth as auth_module
@@ -92,15 +104,31 @@ def status_api(live_activation_gate, monkeypatch):
     monkeypatch.setattr(settings, "ADMIN_AAL2_ENFORCE", True)
     from main import app
 
-    def call(admin: str, *, engine, pg=None, factors=None, timeout: float = 60):
+    def prepare(admin: str, *, engine, pg=None, factors=None, timeout: float = 60,
+                auth_factors=None):
         monkeypatch.setitem(tsg.USERS, admin, {"role": "admin", "is_active": True})
         monkeypatch.setattr(admin_module, "_db_engine", engine)
         if pg is not None:
             schema, auth = pg
-            monkeypatch.setattr(sweep, "sweep_caller", functools.partial(
+            real = functools.partial(
                 _REAL_SWEEP_CALLER, list_factors=factors or tss.Factors(), timeout=timeout,
-                schema=schema, auth_schema=auth))
-        token = tsg.accept(admin, tsg.aal1_claims(admin))
+                schema=schema, auth_schema=auth)
+
+            async def counted(engine, user_id, **kwargs):
+                prepare.swept.append(user_id)
+                return await real(engine, user_id, **kwargs)
+
+            monkeypatch.setattr(sweep, "sweep_caller", counted)
+        return app, tsg.accept(admin, tsg.aal1_claims(admin), factors=auth_factors)
+
+    prepare.swept = []   # user ids of the passes the route started
+    return prepare
+
+
+@pytest.fixture
+def status_api(status_route):
+    def call(admin: str, **kwargs):
+        app, token = status_route(admin, **kwargs)
         api = TestClient(app, raise_server_exceptions=False)
         return api.get("/admin/mfa/status", headers={"Authorization": f"Bearer {token}"})
 
@@ -403,6 +431,191 @@ def test_a_non_admin_caller_gets_no_snapshot_pass(pg):
     assert summary.snapshot_skipped == "not_admin" and factors.calls == []
 
 
+# ── Load: per-account throttle and per-worker cap (SA PR-1936 F2) ──────────
+
+async def _get_status(app, token: str):
+    import httpx
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        return await client.get("/admin/mfa/status", headers={"Authorization": f"Bearer {token}"})
+
+
+async def _until(predicate, timeout: float = 30) -> bool:
+    deadline = asyncio.get_running_loop().time() + timeout
+    while not predicate():
+        if asyncio.get_running_loop().time() > deadline:
+            return False
+        await asyncio.sleep(0.02)
+    return True
+
+
+class _HeldAuth(tss.Factors):
+    """An Auth admin API that answers only once ``gate`` is set, counting the
+    reads in flight."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.gate: asyncio.Event | None = None
+        self.in_flight = self.peak = 0
+
+    async def __call__(self, user: str) -> list[dict]:
+        self.calls.append(user)
+        self.in_flight += 1
+        self.peak = max(self.peak, self.in_flight)
+        try:
+            await asyncio.wait_for(self.gate.wait(), 60)
+            return self.by_user.get(user, [])
+        finally:
+            self.in_flight -= 1
+
+
+def test_concurrent_status_reads_of_one_admin_start_one_pass(pg, status_route, monkeypatch):
+    """20 reads at once start one pass; the rest answer at once with the same
+    body. A repeated read inside CALLER_MIN_INTERVAL_SECONDS is skipped too,
+    unless the factor list GoTrue returned with the caller changed."""
+    schema, _ = pg
+    admin = m332._user(schema, "admin", True)
+    tss._ready(pg)
+    factors = _HeldAuth()
+    engine = _engine()
+    app, token = status_route(admin, engine=engine, pg=pg, factors=factors)
+    clock = [1000.0]
+    monkeypatch.setattr(sweep, "_clock", lambda: clock[0])
+
+    async def go():
+        factors.gate = asyncio.Event()
+        try:
+            reads = [asyncio.ensure_future(_get_status(app, token)) for _ in range(20)]
+            assert await _until(lambda: factors.in_flight == 1
+                                and sum(r.done() for r in reads) == 19), \
+                "every read but the pass's own answers without waiting for it"
+            factors.gate.set()
+            return await asyncio.gather(*reads)
+        finally:
+            factors.gate.set()
+            await engine.dispose()
+
+    for response in run(go()):
+        _assert_unchanged_aal1_body(response)
+    assert status_route.swept == [admin] and factors.calls == [admin]
+
+    _assert_unchanged_aal1_body(TestClient(app).get(
+        "/admin/mfa/status", headers={"Authorization": f"Bearer {token}"}))
+    assert status_route.swept == [admin], "a repeated read inside the interval is skipped"
+
+    factors.gate = asyncio.Event()
+    factors.gate.set()   # from here on the Auth admin API answers at once
+    _, enrolled = status_route(admin, engine=_engine(), auth_factors=[
+        {"id": str(uuid4()), "factor_type": "totp", "status": "unverified"}])
+    assert TestClient(app).get("/admin/mfa/status",
+                               headers={"Authorization": f"Bearer {enrolled}"}).status_code == 200
+    assert status_route.swept == [admin, admin], "a changed factor list is swept at once"
+
+    clock[0] += sweep.CALLER_MIN_INTERVAL_SECONDS
+    _assert_unchanged_aal1_body(TestClient(app).get(
+        "/admin/mfa/status", headers={"Authorization": f"Bearer {token}"}))
+    assert status_route.swept == [admin, admin, admin], "the interval over, it sweeps again"
+
+
+def _pooled_engine():
+    """routers.admin._db_engine's pool (create_async_engine defaults: 5 + 10)."""
+    url = os.environ["TEST_PG_URL"].replace("postgres://", "postgresql+asyncpg://", 1)
+    return create_async_engine(url, connect_args={"server_settings": {"role": m332.OWNER}})
+
+
+def test_status_reads_by_many_admins_leave_the_pool_to_a_suspension(pg, status_route, caplog,
+                                                                    capsys):
+    """30 admins' reads at once while the Auth admin API hangs: this worker
+    runs CALLER_MAX_CONCURRENT passes and skips the rest, so the suspension's
+    account lock (services.staff_security.target_lock, the first DB step of
+    PATCH /admin/users/{id}/active) still gets a pooled connection at once.
+    Before, every read held a connection through the Auth read and the
+    suspension waited for the pool."""
+    from services import staff_security
+    import time
+
+    schema, _ = pg
+    admins = [m332._user(schema, "admin", True) for _ in range(30)]
+    tss._ready(pg)
+    factors = _HeldAuth()
+    engine = _pooled_engine()
+    tokens = []
+    for i, admin in enumerate(admins):
+        app, token = status_route(admin, engine=engine, pg=pg if i == 0 else None,
+                                  factors=factors)
+        tokens.append(token)
+
+    async def suspension_lock() -> float:
+        started = time.monotonic()
+        async with staff_security.target_lock(engine, str(uuid4())):
+            pass
+        return time.monotonic() - started
+
+    async def go():
+        factors.gate = asyncio.Event()
+        try:
+            idle = await suspension_lock()
+            reads = [asyncio.ensure_future(_get_status(app, t)) for t in tokens]
+            # The passes that run hold their connections in the Auth read.
+            await _until(lambda: factors.in_flight >= sweep.CALLER_MAX_CONCURRENT
+                         and sum(r.done() for r in reads) >= len(reads) - factors.in_flight,
+                         timeout=10)
+            try:
+                loaded = await asyncio.wait_for(suspension_lock(), 10)
+            except asyncio.TimeoutError:
+                loaded = None
+            peak = factors.peak
+            factors.gate.set()
+            return idle, loaded, peak, await asyncio.gather(*reads)
+        finally:
+            factors.gate.set()
+            await engine.dispose()
+
+    with caplog.at_level(logging.WARNING, logger="staff_security_sweep"):
+        idle, loaded, peak, responses = run(go())
+    with capsys.disabled():
+        print(f"\n[F2] suspension lock idle={idle * 1000:.0f}ms under 30 status reads="
+              f"{'blocked >10s' if loaded is None else f'{loaded * 1000:.0f}ms'} "
+              f"auth_reads_in_flight_peak={peak}")
+    assert loaded is not None, "the suspension waited for a pooled connection"
+    assert peak == sweep.CALLER_MAX_CONCURRENT
+    assert len(status_route.swept) == sweep.CALLER_MAX_CONCURRENT
+    assert all(r.status_code == 200 for r in responses)
+    assert caplog.text.count("staff_security_sweep_caller_skipped") == \
+        len(admins) - sweep.CALLER_MAX_CONCURRENT
+    assert "reason=busy" in caplog.text
+
+
+def test_the_auth_factor_read_is_bounded_as_a_whole(pg, monkeypatch):
+    """httpx's timeout bounds each phase; a read that keeps the connection
+    alive (or hangs between phases) must still end the snapshot step within
+    CALLER_HTTP_TIMEOUT_SECONDS, well inside the route's overall bound."""
+    schema, auth = pg
+    admin = m332._user(schema, "admin", True)
+    tss._ready(pg)
+    hang = []
+
+    async def never_answers(user: str) -> list[dict]:
+        hang.append(user)
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(sweep, "auth_admin_factor_lister", lambda *_a: never_answers)
+    monkeypatch.setattr(sweep, "CALLER_HTTP_TIMEOUT_SECONDS", 0.3)
+
+    async def go():
+        engine = _engine()
+        try:
+            return await sweep.sweep_caller(engine, admin, timeout=10, schema=schema,
+                                            auth_schema=auth)
+        finally:
+            await engine.dispose()
+
+    summary = run(go())
+    assert hang == [admin]
+    assert summary is not None, "the read is bounded before the route's overall timeout"
+    assert summary.log_error is None and summary.snapshot_error == "TimeoutError"
+
+
 # ── Failures never fail the status read ─────────────────────────────────────
 
 def test_a_cron_batch_holding_the_cursor_lock_fails_only_the_log_step(pg, caplog):
@@ -424,12 +637,16 @@ def test_a_cron_batch_holding_the_cursor_lock_fails_only_the_log_step(pg, caplog
             await engine.dispose()
             await holder.close()
 
-    with caplog.at_level(logging.ERROR, logger="staff_security_sweep"):
+    with caplog.at_level(logging.WARNING, logger="staff_security_sweep"):
         summary = run(go())
     assert summary.log_error == "LockNotAvailableError[55P03]"
     assert summary.snapshot_error is None and summary.snapshot_skipped is None
-    assert (f"staff_security_sweep_caller_step_failed step=log user_id={admin} "
-            f"error=LockNotAvailableError[55P03]") in caplog.text
+    # A lock held by the cron is expected and left to it: a warning, not an
+    # error (CR/SA P3 on PR-1936).
+    failed = [r for r in caplog.records
+              if r.getMessage() == (f"staff_security_sweep_caller_step_failed step=log "
+                                    f"user_id={admin} error=LockNotAvailableError[55P03]")]
+    assert [r.levelno for r in failed] == [logging.WARNING]
     assert tss._rows(schema, admin) == []
     fields, ok = tss._sweep(pg, tss.Factors())
     assert ok and fields["log_rows"] == 1, "the cron still audits it"
@@ -465,10 +682,11 @@ def test_a_broken_engine_still_answers_200_and_logs_the_code(status_api, caplog)
 def test_without_a_database_engine_the_sweep_is_skipped_and_logged_once(status_api, monkeypatch,
                                                                        caplog):
     monkeypatch.setattr(sweep, "_caller_no_db_logged", False)
-    admin = str(uuid4())
+    # Two admins: a second read by the same one would now be throttled before
+    # it reaches the hook.
     with caplog.at_level(logging.ERROR, logger="staff_security_sweep"):
-        _assert_unchanged_aal1_body(status_api(admin, engine=None))
-        _assert_unchanged_aal1_body(status_api(admin, engine=None))
+        _assert_unchanged_aal1_body(status_api(str(uuid4()), engine=None))
+        _assert_unchanged_aal1_body(status_api(str(uuid4()), engine=None))
     assert caplog.text.count("staff_security_sweep_caller_unavailable error=no_database_url") == 1
 
 
