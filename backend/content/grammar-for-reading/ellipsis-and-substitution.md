@@ -47,7 +47,7 @@ anchors:
   location: '### Ellipsis — lược bỏ từ đã biết'
   type: section
 - id: ellipsis-and-substitution.substitution
-  location: '### Substitution — thay bằng one / do so / so'
+  location: '### Substitution — thay bằng one / do so / so / neither'
   type: section
 - id: ellipsis-and-substitution.pitfall
   location: '## Bẫy khi đọc'
@@ -58,6 +58,7 @@ anchors:
 ## Tóm tắt
 
 Hai cách tránh lặp:
+
 - **Ellipsis:** bỏ hẳn từ vì người đọc tự hiểu.
 - **Substitution:** thay từ đã nêu bằng một từ ngắn (*one, do so, so, neither*).
 
@@ -69,20 +70,21 @@ Hiểu câu = **khôi phục** phần bị lược hoặc bị thay.
 Phần lặp lại bị bỏ đi:
 
 - *She can speak French, and he can [speak French] too.*
-- *Some students passed; other students did not pass.* → others thay other students; không chèn students sau others.
+- *Some students passed; **others** did not [pass].* → *others* = other students (thay thế); sau *did not* lược *pass* (ellipsis).
 - Sau *and/but/or*, động từ hoặc danh từ lặp thường bị lược.
 
 Khôi phục lại phần trong ngoặc để hiểu trọn ý.
 
 <!-- anchor: ellipsis-and-substitution.substitution -->
-### Substitution — thay bằng one / do so / so
+### Substitution — thay bằng one / do so / so / neither
 
 | Từ thay | Thay cho | Ví dụ |
 |---|---|---|
 | **one / ones** | một danh từ đếm được | *I prefer the red **one**.* (one = shirt/car…) |
-| **do so / do that** | cả một cụm động từ | *They banned it, and rightly **did so**.* |
+| **do so / do that** | cả một cụm động từ | *The government promised to cut fees, and it **did so** within a year.* (do so = cut fees) |
 | **so** | cả một mệnh đề (sau think/hope/say) | *Will it rain? I think **so**.* |
 | **neither / nor** | phủ định của mệnh đề trước | *She didn't agree, and **neither** did he.* |
+| **that / those (of)** | danh từ đã nêu (thường trong so sánh) | *The population of Tokyo is larger than **that of** London.* (that = the population) |
 
 <!-- anchor: ellipsis-and-substitution.pitfall -->
 ## Bẫy khi đọc

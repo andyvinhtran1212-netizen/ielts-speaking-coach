@@ -73,7 +73,7 @@ Xác định cấu trúc của cả câu, không chỉ nhìn từ mở đầu:
 
 - Nhóm các mệnh đề trạng ngữ (*although, because, when…*) và mệnh đề quan hệ bổ nghĩa cho danh từ (*which, who…*) để tìm động từ chính bên ngoài chúng.
 - Tìm **chủ ngữ + động từ hữu hạn** của mỗi mệnh đề chính. Cặp S + V là khung để phân tích; mệnh đề chính đầy đủ còn có thể chứa tân ngữ, bổ ngữ và trạng từ cần thiết. Chủ ngữ có thể là cả một mệnh đề: trong *What matters most is consistent effort*, **What matters most** là chủ ngữ, **is** là động từ chính; không được gạch bỏ chủ ngữ chỉ vì bắt đầu bằng *What*.
-- Mệnh đề nội dung có thể làm tân ngữ hoặc bổ ngữ cần thiết. Trong *Ostrom showed that communities had managed shared resources sustainably*, **Ostrom showed…** là mệnh đề chính, **showed** ở quá khứ đơn; **that communities had managed…** nêu nội dung được chứng minh, với **had managed** ở quá khứ hoàn thành. Không bỏ nội dung này khi giải thích kết luận của Ostrom.
+- Mệnh đề nội dung có thể làm tân ngữ hoặc bổ ngữ cần thiết. Trong *Ostrom showed that communities had managed shared resources sustainably*, **Ostrom showed** là mệnh đề chính; **that…** là nội dung được chứng minh, không bỏ được.
 
 <!-- anchor: long-sentence-untangling.strip -->
 ### Bước 2 — Tạm nhóm các phần bổ nghĩa
@@ -85,7 +85,7 @@ Tạm nhóm các phần bổ nghĩa có thể tách ra để nhìn cấu trúc, 
 3. Mệnh đề chêm giữa hai dấu phẩy.
 4. Mệnh đề trạng ngữ chỉ thời gian, nguyên nhân, nhượng bộ…
 
-Cần giữ **chủ ngữ + động từ chính + tân ngữ/bổ ngữ cần thiết**, kể cả khi chủ ngữ hoặc bổ ngữ là một mệnh đề. Mệnh đề quan hệ cũng có thể chứa thông tin xác định đối tượng đang nói tới; tạm nhóm để phân tích không có nghĩa là bỏ thông tin đó khỏi cách hiểu câu.
+Cần giữ **chủ ngữ + động từ chính + tân ngữ/bổ ngữ cần thiết**, kể cả khi chủ ngữ hoặc bổ ngữ là một mệnh đề. Tạm nhóm chỉ để nhìn khung câu. Khi hiểu nghĩa, phải ghép lại mọi phần, nhất là mệnh đề quan hệ cho biết đang nói về ai/cái gì.
 
 <!-- anchor: long-sentence-untangling.pitfall -->
 ## Bẫy khi đọc
