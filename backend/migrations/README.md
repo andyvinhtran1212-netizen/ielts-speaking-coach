@@ -20,8 +20,10 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-29 the highest is `346`, so by that rule the
-next new migration is `347`. Ask the Leader before taking it.
+sequence is dense. As of 2026-10-30 the highest is `352`, allocated by the
+Leader to PC-J201, so by that rule the next new migration is `353`. Ask the
+Leader before taking it; 347–351 are reserved for other work and must not be
+reused.
 The runner applies any unapplied file regardless of order.
 Numbers 321–326 belong to 321 WRITINGRATE-0025, 322 AIOPS-0024 (#1837), 323
 ROLECHECK-0026, 324 ASSIGNDRAFT-0027, 325 CODEUNIQ-0028 and 326
@@ -37,6 +39,25 @@ PC-J119 (RLS-ADMIN-INLINE-AAL2 + GRAMMAR-FN-SEARCHPATH, spec ADMINAAL2-0032),
 reserved by the Leader on 2026-10-29; 339–344 are reserved for other open
 work and must not be reused. 346 is PC-J153 (CLASSARCHIVE-0030 FR-003),
 assigned by the Leader on 2026-10-29.
+
+Migration `352` (PC-J201, ADMINAAL2-0032 FR-010/FR-011, SA #1936 P3 c–f)
+adds the private `staff_mfa_status_throttle` table for shared admission to the
+caller-only MFA status sweep: successful-state cooldown, six rolling-minute
+attempts per account and at most two active leases across workers. The backend
+holds its admission advisory lock only for short transactions, never during
+Auth HTTP. Failed passes consume an attempt without starting a cooldown;
+expired leases recover and completion is fenced by its lease token. Old
+backends ignore the table; without it PC-J201 logs and skips the caller pass
+while the status read and cron fallback remain available. RLS is enabled with
+no policies, and PUBLIC, anon, authenticated and service_role lose all table
+privileges; the postcondition checks privacy. One additive transaction,
+re-runnable, no existing data change. It is held by `forward-policy.tsv`
+(group `mfa_status_throttle`); it must not apply on merge or join the 30 October
+promotion. A separately authorized apply uses
+`MIGRATION_FEATURES=mfa_status_throttle` through the advisory-locked runner,
+staging first before the PC-J201 backend, then production only at an authorized
+promotion. Rollback SQL is in the header: deploy the pre-PC-J201 backend, then
+drop only this operational table in a new forward migration.
 
 Migration `345` (PC-J119) removes the RLS policies that granted admin reads
 with an inline `users.role = 'admin'` check and nothing else (no AAL2, no
