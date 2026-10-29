@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import glob
 import os
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
@@ -111,18 +112,43 @@ def test_health_async_db_endpoint_reports_baseline():
     assert "executor" in body
 
 
-def _facade_users(subdir):
-    base = os.path.join(os.path.dirname(__file__), "..", subdir)
+_BACKEND = Path(__file__).resolve().parent.parent
+
+
+def _facade_users(subdir, root=_BACKEND):
+    # PC-J96 (spec 0036 FR-005): every module under the package, subpackages
+    # included (e.g. services/grading_providers/), keyed by its path relative
+    # to the package so a nested user can't hide behind a top-level basename.
+    base = Path(root) / subdir
     wired = set()
-    for path in glob.glob(os.path.join(base, "*.py")):
-        if " 2.py" in path:  # ignore stray ` 2` dupes
+    for path in base.rglob("*.py"):
+        if " 2.py" in path.name:  # ignore stray ` 2` dupes
             continue
-        if os.path.basename(path) == "db_async.py":
+        rel = path.relative_to(base).as_posix()
+        if rel == "db_async.py":
             continue
-        src = open(path, encoding="utf-8").read()
+        src = path.read_text(encoding="utf-8")
         if "services.db_async" in src or "aexecute(" in src:
-            wired.add(os.path.basename(path))
+            wired.add(rel)
     return wired
+
+
+def test_facade_scanner_reaches_subpackages(tmp_path):
+    # The allowlist pin below is only as strong as this scan: a facade user in
+    # a nested package must be reported, with its subpackage path.
+    pkg = tmp_path / "services"
+    (pkg / "nested" / "deeper").mkdir(parents=True)
+    (pkg / "db_async.py").write_text("async def aexecute(build): ...\n")
+    (pkg / "top.py").write_text("x = 1\n")
+    (pkg / "nested" / "__init__.py").write_text("")
+    (pkg / "nested" / "uses_import.py").write_text(
+        "from services.db_async import aexecute\n")
+    (pkg / "nested" / "deeper" / "uses_call.py").write_text(
+        "async def f(db):\n    return await db.aexecute(lambda c: c)\n")
+    assert _facade_users("services", root=tmp_path) == {
+        "nested/uses_import.py",
+        "nested/deeper/uses_call.py",
+    }
 
 
 def test_only_grading_and_auth_layer_are_wired_to_facade():
