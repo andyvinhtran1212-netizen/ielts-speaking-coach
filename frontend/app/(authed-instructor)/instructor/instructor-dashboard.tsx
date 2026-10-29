@@ -320,19 +320,23 @@ export function InstructorDashboard() {
     // W-06: re-giving is allowed (ALLOW + WARN) but must be a deliberate choice.
     const confirmRegive = async (existing: unknown) => !existing || askConfirm(duplicateGiveConfirmMessage(existing, promptTitle, target as 'cohort' | 'student'));
     const resetOnSuccess = (ok: boolean | undefined) => { if (ok) { form.reset(); setAssignmentTarget('cohort'); } };
-    // The lock spans the confirm steps too; it is handed to mutate() in the same
-    // tick, so a second submit can never slip in between.
+    // Keep other mutation buttons disabled while the lock spans confirmation.
+    // Both are handed to mutate() in the same tick after the account check.
     const submitGive = async (confirm: () => Promise<boolean>, send: () => Promise<boolean | undefined>) => {
       if (submittingRef.current) return false;
       submittingRef.current = true;
       const ownerId = accountRef.current;
+      setPending('assignment');
       let proceed = false;
       try {
         proceed = await confirm();
       } finally {
-        if (ownerId === accountRef.current) submittingRef.current = false;
+        if (ownerId === accountRef.current) {
+          setPending(null);
+          submittingRef.current = false;
+        }
       }
-      return proceed ? send() : false;
+      return proceed && ownerId === accountRef.current ? send() : false;
     };
     if (target === 'cohort') {
       const cohortId = String(values.get('cohort_id') || '');
