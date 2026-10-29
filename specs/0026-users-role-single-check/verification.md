@@ -4,11 +4,13 @@
 
 | Requirement | Evidence | Result |
 | --- | --- | --- |
-| FR-001 | kind=journey; ref=research.md §8 AC-3, AC-4, AC-5 (admin promotes, instructor opens /instructor, demote to student) on staging | PENDING |
-| FR-002 | kind=journey; ref=research.md §8 AC-6, AC-7 (instructor code activation, wrong email 403) on staging | PENDING |
-| FR-003 | kind=test; ref=backend/tests/test_migration_323_users_role_single_check.py plus catalog query research.md §2.1 (AC-1, AC-11) | PENDING |
-| FR-004 | kind=journey; ref=research.md §8 AC-8, AC-9, AC-10 (PostgREST self-escalation refused, 320 trigger enabled) | PENDING |
-| FR-005 | kind=query; ref=research.md §5.1 Q1/Q2 before and after apply (AC-2) plus AC-12, AC-13 | PENDING |
+| FR-001 | reviewer=Codex; environment=staging; date=2026-10-29; observed=admin promotion 200, success banner and immediate/reloaded instructor role; instructor access 200 then 403 after demotion; report=docs/verification/2026-10-29-admin-t007-0026-0028-staging.md | MANUAL |
+| FR-002 | reviewer=Codex; environment=staging; date=2026-10-29; observed=wrong-email grant rejected 403 before consumption; intended email activation 200 with persisted instructor role and both audit actions; report=docs/verification/2026-10-29-admin-t007-0026-0028-staging.md | MANUAL |
+| FR-003 | kind=test; ref=backend/tests/test_migration_323_users_role_single_check.py plus catalog query research.md §2.1 (AC-1, AC-11) | PASS |
+| FR-004 | reviewer=Codex; environment=staging; date=2026-10-29; observed=four direct REST escalations denied 403/42501; trigger enabled and all four privilege categories returned zero violations; report=docs/verification/2026-10-29-admin-t007-0026-0028-staging.md | MANUAL |
+| FR-005 | reviewer=Codex; environment=staging; date=2026-10-29; observed=no migration data write; non-fixture roles reconciled; self-demotion 400 and legacy-user me/profile 200; report=docs/verification/2026-10-29-admin-t007-0026-0028-staging.md | MANUAL |
+
+2026-10-29 staging evidence for the requirements above: [T007 results, limitations and cleanup](../../docs/verification/2026-10-29-admin-t007-0026-0028-staging.md). The existing apply state and current journeys are evidenced separately.
 
 ## Contract evidence
 
@@ -35,8 +37,10 @@
 - Staging SHA and checks: the promoted staging SHA
   `c028ed21c910f469d36abfa0907e3fd71d363709` passed Staging release smoke
   (run 40481428210) plus Tests, Next-native, Typecheck, Build checks, Spec
-  governance and Legacy guard on 2026-10-27. The staging apply and AC run of
-  T007 are not in that record and stay pending.
+  governance and Legacy guard on 2026-10-27. T007 staging apply-state
+  reconciliation and acceptance were recorded separately on 2026-10-29 in
+  the linked evidence above; the current shell-runner attempt could not connect
+  and no migration was replayed.
 - Production verification: migration done, journey pending (T008). Details below.
 
 ### Production — 2026-10-27
@@ -56,8 +60,9 @@ operator's release log for #1763.
 | Deploy and smoke | 17:10–21:18 | Railway backend and Vercel frontend serve `c9d564dfe`. Railway HTTP logs from 10:05 to 14:17 UTC show 0 × 5xx. `main` CI on `c9d564dfe` is green, and Production release drift run 40519770482 passed. Anonymous `POST /auth/activate` returns 401 (missing or bogus token) and 422 (no `access_code`), never 500. |
 
 These are the production counterparts of AC-1 (catalog) and AC-2 (role
-distribution unchanged). The FR rows above stay `PENDING` because they cite
-staging journeys and CI tests that this record does not cover.
+distribution unchanged). The production record alone does not cover the FR tests
+and staging journeys; their current results come from the separate 2026-10-29
+T007 record above.
 
 Not yet run on production:
 
