@@ -449,6 +449,17 @@ def _clean_factors(raw: Any) -> list[dict[str, Any]]:
     return factors
 
 
+class _FactorListFailed(Exception):
+    """The Auth admin factor list could not be read or understood (the cause)."""
+
+
+async def _read_factors(list_factors: FactorLister, user_id: str) -> list[dict[str, Any]]:
+    try:
+        return _clean_factors(await list_factors(user_id))
+    except Exception as exc:
+        raise _FactorListFailed() from exc
+
+
 async def _missed(db: SweepDb, admin: dict[str, Any], event: str, factor: dict[str, Any]) -> None:
     detail = {"factor_id": factor["id"], "factor_type": factor["factor_type"],
               "factor_status": factor["status"], "detected_by": "snapshot"}
@@ -458,11 +469,17 @@ async def _missed(db: SweepDb, admin: dict[str, Any], event: str, factor: dict[s
                   occurred_at=None, detail=detail)
 
 
-async def _reconcile_admin(db: SweepDb, admin: dict[str, Any], factors: list[dict[str, Any]],
+async def _reconcile_admin(db: SweepDb, admin: dict[str, Any], list_factors: FactorLister,
                            *, seeding: bool) -> int:
+    """The factor list is read while holding the account's snapshot lock. Read
+    before it, a list could predate a snapshot another pass (the cron beside a
+    status read, or two status reads) saves meanwhile, and comparing the two
+    would report a factor deleted that was not, then overwrite the newer
+    snapshot with the older list (PC-J180)."""
     diffs = 0
     async with db.conn.transaction():
         before = await db.lock_snapshot(admin["id"])
+        factors = await _read_factors(list_factors, admin["id"])
         if not seeding:
             now = {f["id"]: f for f in factors}
             for factor in factors:
@@ -492,14 +509,12 @@ async def reconcile_snapshot(db: SweepDb, list_factors: FactorLister) -> Snapsho
     summary.admins = len(admins)
     for admin in admins:
         try:
-            factors = _clean_factors(await list_factors(admin["id"]))
-        except Exception as exc:   # one admin's lookup must not hide the others
+            summary.factor_diffs += await _reconcile_admin(db, admin, list_factors,
+                                                           seeding=summary.seeding)
+        except _FactorListFailed as exc:   # one admin's lookup must not hide the others
             summary.errors += 1
             logger.error("staff_security_sweep_factor_list_failed user_id=%s error=%s",
-                         admin["id"], type(exc).__name__)
-            continue
-        summary.factor_diffs += await _reconcile_admin(db, admin, factors,
-                                                       seeding=summary.seeding)
+                         admin["id"], _error(exc))
     await db.drop_snapshot_except([a["id"] for a in admins])
     if summary.seeding and not summary.errors:
         await db.set_marker(SNAPSHOT_MARKER)
@@ -537,6 +552,8 @@ async def _connect():
 
 
 def _error(exc: BaseException) -> str:
+    if isinstance(exc, _FactorListFailed) and exc.__cause__ is not None:
+        exc = exc.__cause__
     sqlstate = getattr(exc, "sqlstate", None)
     return f"{type(exc).__name__}" + (f"[{sqlstate}]" if sqlstate else "")
 
@@ -667,11 +684,11 @@ async def sweep_for_user(db: SweepDb, user_id: str, list_factors: FactorLister, 
         elif not user or user.get("role") != "admin":
             summary.snapshot_skipped = "not_admin"
         else:
-            factors = _clean_factors(await list_factors(user_id))
             async with db.conn.transaction():
                 await _bound_transaction(db)
                 summary.snapshot_factor_diffs = await _reconcile_admin(
-                    db, {"id": user_id, "email": user.get("email")}, factors, seeding=False)
+                    db, {"id": user_id, "email": user.get("email")}, list_factors,
+                    seeding=False)
     except Exception as exc:
         summary.snapshot_error = _error(exc)
         logger.error("staff_security_sweep_caller_step_failed step=snapshot user_id=%s error=%s",
