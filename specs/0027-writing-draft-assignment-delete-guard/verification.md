@@ -4,10 +4,12 @@
 
 | Requirement | Evidence | Result |
 | --- | --- | --- |
-| FR-001 | kind=test; ref=backend/tests/test_migration_324_writing_drafts_fk.py (delete with draft raises 23503) plus catalog query research.md §7 P1 on staging (AC-1) | PENDING |
-| FR-002 | kind=test; ref=backend/tests/test_writing_assignment_delete_guard.py (23503 maps to 409) plus staging journeys research.md §8 AC-3 to AC-6 | PENDING |
-| FR-003 | kind=test; ref=backend/tests/test_migration_324_writing_drafts_fk.py (single-statement student delete) plus AC-8 E2E cleanup | PENDING |
-| FR-004 | kind=query; ref=research.md §2.2 counts before and after apply (AC-2) and re-apply no-op test | PENDING |
+| FR-001 | kind=test; ref=backend/tests/test_migration_324_writing_drafts_fk.py (delete with draft raises 23503) plus catalog query research.md §7 P1 on staging (AC-1) | PASS |
+| FR-002 | kind=test; ref=backend/tests/test_writing_assignment_delete_guard.py (23503 maps to 409) plus staging journeys research.md §8 AC-3 to AC-6 | PASS |
+| FR-003 | kind=test; ref=backend/tests/test_migration_324_writing_drafts_fk.py (single-statement student delete) plus AC-8 E2E cleanup | PASS |
+| FR-004 | kind=test; ref=backend/tests/test_migration_324_writing_drafts_fk.py; observed=local PostgreSQL data-preservation, abort and repeat-apply tests passed; report=docs/verification/2026-10-29-admin-t007-0026-0028-staging.md (live catalog and no migration replay) | PASS |
+
+2026-10-29 staging evidence for the requirements above: [T007 results, limitations and cleanup](../../docs/verification/2026-10-29-admin-t007-0026-0028-staging.md). The existing apply state and current journeys are evidenced separately.
 
 ## Contract evidence
 
@@ -30,8 +32,10 @@
 - Staging SHA and checks: the promoted staging SHA
   `c028ed21c910f469d36abfa0907e3fd71d363709` passed Staging release smoke
   (run 40481428210) plus Tests, Next-native, Typecheck, Build checks, Spec
-  governance and Legacy guard on 2026-10-27. The staging apply and AC run of
-  T007 are not in that record and stay pending.
+  governance and Legacy guard on 2026-10-27. T007 staging apply-state
+  reconciliation and acceptance were recorded separately on 2026-10-29 in
+  the linked evidence above; the current shell-runner attempt could not connect
+  and no migration was replayed.
 - Production verification: done (T006, T008). Details below.
 
 ### Production — 2026-10-27
@@ -50,8 +54,8 @@ operator's release log for #1763.
 | Deploy and smoke | 17:10–21:18 | Railway backend and Vercel frontend serve `c9d564dfe`. Railway HTTP logs from 10:05 to 14:17 UTC show 0 × 5xx. `main` CI on `c9d564dfe` is green, and Production release drift run 40519770482 passed. |
 
 These are the production counterparts of AC-1 (catalog) and AC-2 (counts
-unchanged). The FR rows above stay `PENDING` because they cite CI tests and
-staging journeys that this record does not cover.
+unchanged). The production record alone does not cover the FR tests and staging journeys;
+their current results come from the separate 2026-10-29 T007 record above.
 
 Not run on production: the delete-with-draft → 409 journey (optional in the
 release plan). It would write production data.

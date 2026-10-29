@@ -4,11 +4,13 @@
 
 | Requirement | Evidence | Result |
 | --- | --- | --- |
-| FR-001 | kind=test; ref=backend/tests/test_migration_325_access_codes_unique.py (index codified, re-apply no-op, invalid index aborts) plus catalog AC-1 on staging | PENDING |
-| FR-002 | kind=test; ref=backend/tests/test_migration_325_access_codes_unique.py (lower-case or padded insert raises 23514) | PENDING |
-| FR-003 | kind=query; ref=research.md §2.1 counts before and after apply (AC-2) and precheck abort test | PENDING |
-| FR-004 | kind=test; ref=backend/tests/test_access_code_generation.py (instructor mint retries on 23505) plus AC-4 on staging | PENDING |
-| FR-005 | kind=journey; ref=research.md §9 AC-5, AC-6 (normalized input and class code activation) on staging | PENDING |
+| FR-001 | kind=test; ref=backend/tests/test_migration_325_access_codes_unique.py (index codified, re-apply no-op, invalid index aborts) plus catalog AC-1 on staging | PASS |
+| FR-002 | kind=test; ref=backend/tests/test_migration_325_access_codes_unique.py (lower-case or padded insert raises 23514) | PASS |
+| FR-003 | kind=test; ref=backend/tests/test_migration_325_access_codes_unique.py; observed=local PostgreSQL data-preservation, abort and repeat-apply tests passed; report=docs/verification/2026-10-29-admin-t007-0026-0028-staging.md (live catalog and no migration replay) | PASS |
+| FR-004 | kind=test; ref=backend/tests/test_access_code_generation.py (instructor mint retries on 23505) plus AC-4 on staging | PASS |
+| FR-005 | reviewer=Codex; environment=staging; date=2026-10-29; observed=lowercase padded real-code activation 200; direct class-code activation 200 with canonical owner and active membership; report=docs/verification/2026-10-29-admin-t007-0026-0028-staging.md | MANUAL |
+
+2026-10-29 staging evidence for the requirements above: [T007 results, limitations and cleanup](../../docs/verification/2026-10-29-admin-t007-0026-0028-staging.md). The existing apply state and current journeys are evidenced separately.
 
 ## Contract evidence
 
@@ -31,8 +33,10 @@
 - Staging SHA and checks: the promoted staging SHA
   `c028ed21c910f469d36abfa0907e3fd71d363709` passed Staging release smoke
   (run 40481428210) plus Tests, Next-native, Typecheck, Build checks, Spec
-  governance and Legacy guard on 2026-10-27. The staging apply and AC run of
-  T007 are not in that record and stay pending.
+  governance and Legacy guard on 2026-10-27. T007 staging apply-state
+  reconciliation and acceptance were recorded separately on 2026-10-29 in
+  the linked evidence above; the current shell-runner attempt could not connect
+  and no migration was replayed.
 - Production verification: done (T006, T008). Details below.
 
 ### Production — 2026-10-27
@@ -53,8 +57,8 @@ operator's release log for #1763.
 | Deploy and smoke | 17:10–21:18 | Railway backend and Vercel frontend serve `c9d564dfe`. Railway HTTP logs from 10:05 to 14:17 UTC show 0 × 5xx. `main` CI on `c9d564dfe` is green, and Production release drift run 40519770482 passed. Anonymous `POST /auth/activate` returns 401/422, never 500. |
 
 These are the production counterparts of AC-1 (catalog) and AC-2 (counts
-unchanged, 0 duplicates). The FR rows above stay `PENDING` because they cite
-CI tests and staging journeys that this record does not cover.
+unchanged, 0 duplicates). The production record alone does not cover the FR tests and staging journeys;
+their current results come from the separate 2026-10-29 T007 record above.
 `access_codes_code_key` predates 325 on production and must never be dropped.
 
 Not run on production: instructor mint (201, optional in the release plan) and
