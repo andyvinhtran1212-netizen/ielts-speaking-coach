@@ -21,6 +21,7 @@ import hashlib
 import json
 import logging
 import os
+import time
 import uuid
 from functools import lru_cache
 from datetime import datetime, timezone
@@ -597,7 +598,10 @@ async def grade_response_endpoint(
         logger.info("[grading] gọi Whisper STT (from bytes, %d B)...", file_size)
 
         try:
+            # BL-09: wall time of the whole STT call (provider retries included).
+            stt_started = time.monotonic()
             stt = await transcribe_from_bytes(audio_bytes, filename=filename)
+            stt_latency_ms = int((time.monotonic() - stt_started) * 1000)
         except Exception as e:
             logger.error("[grading] Whisper thất bại: %s", e)
             _mark_session_error(session_id, "stt_failed", "whisper", str(e))
@@ -666,6 +670,7 @@ async def grade_response_endpoint(
             audio_seconds=duration_sec,
             feature="speaking_stt",
             operation="transcribe_response",
+            latency_ms=stt_latency_ms,
             # The response row is created only after the duration/reliability
             # gates below.  At STT time the question is the stable resource
             # available for correlation; session_id keeps the attempt context.
