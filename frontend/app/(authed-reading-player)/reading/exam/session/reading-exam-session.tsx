@@ -993,7 +993,11 @@ export function ReadingExamSession() {
       }
       await enterAttempt(confirmed.inProgress, answersFromRows(confirmed.inProgress.answers));
     } catch (caught: any) {
-      setError("Unable to start the test. Check your connection and try again.");
+      const shareStartRateLimitMessage = 'Bạn đã mở bài đọc quá nhiều lần. Vui lòng thử lại sau 1 phút.';
+      const detail = caught?.detail;
+      setError(params.share && caught?.status === 429 && detail?.error === 'rate_limit_exceeded'
+        ? (typeof detail.message === 'string' && detail.message.trim() ? detail.message : shareStartRateLimitMessage)
+        : "Unable to start the test. Check your connection and try again.");
       setPhase('error');
     }
   }, [admissionRequired, anonHeaders, boot, enterAttempt, params, passwordHeaders, resumeAvailable, user?.id]);

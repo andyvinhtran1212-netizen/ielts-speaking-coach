@@ -138,7 +138,8 @@ def _client_ip(request: Request | None) -> str | None:
 # _client_ip, so caller-supplied XFF hops cannot mint fresh budgets. Past
 # _SHARE_START_MAX_TRACKED live addresses, new ones share one overflow bucket
 # instead of growing the dict.
-_SHARE_START_PER_MINUTE = 10
+_SHARE_START_PER_MINUTE = 60
+_SHARE_START_RATE_LIMIT_MESSAGE = "Bạn đã mở bài đọc quá nhiều lần. Vui lòng thử lại sau 1 phút."
 _SHARE_START_WINDOW_SECONDS = 60
 _SHARE_START_MAX_TRACKED = 10_000
 _SHARE_START_OVERFLOW_KEY = "\0overflow"
@@ -166,7 +167,7 @@ def _throttle_share_start(request: Request | None) -> None:
             status_code=429,
             detail={
                 "error": "rate_limit_exceeded",
-                "message": "Bạn đã bắt đầu bài đọc quá nhiều lần. Vui lòng thử lại sau ít phút.",
+                "message": _SHARE_START_RATE_LIMIT_MESSAGE,
                 "limit": _SHARE_START_PER_MINUTE,
                 "retry_after": retry_after,
             },

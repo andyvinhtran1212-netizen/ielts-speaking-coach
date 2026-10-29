@@ -1,8 +1,8 @@
-"""PC-J120 — per-IP throttle on POST /api/reading/test/share/{token}/attempts.
+"""PC-J120 / PC-J222 — per-IP throttle on anonymous Reading share starts.
 
 The share start is anonymous and every call inserts a reading_test_attempts
 row, so one valid token could create rows without bound. Pinned here:
-  • 10 starts per minute per client address pass; the 11th is 429 with
+  • 60 starts per minute per client address pass; the 61st is 429 with
     Retry-After and a Vietnamese message, and touches no table or RPC.
   • A different address has its own budget.
   • The key is request_client_ip (X-Real-IP → last XFF hop → peer), so
@@ -69,11 +69,11 @@ def _post(env, headers=None):
     return env.client.post(URL, headers=headers or {})
 
 
-def test_eleventh_start_from_one_address_is_429_before_any_db_touch(env):
+def test_sixty_first_start_from_one_address_is_429_before_any_db_touch(env):
     headers = {"X-Real-IP": "198.51.100.7"}
-    for _ in range(10):
+    for _ in range(60):
         assert _post(env, headers).status_code == 200
-    assert len(_inserts(env.db)) == 10
+    assert len(_inserts(env.db)) == 60
     touches = env.db.touches
 
     env.clock.now += 5
@@ -83,25 +83,26 @@ def test_eleventh_start_from_one_address_is_429_before_any_db_touch(env):
     assert r.headers["Retry-After"] == "56"
     detail = r.json()["detail"]
     assert detail["error"] == "rate_limit_exceeded"
-    assert detail["limit"] == 10
+    assert detail["limit"] == 60
     assert detail["retry_after"] == 56
-    assert "Vui lòng thử lại" in detail["message"]
+    assert detail["message"] == rs._SHARE_START_RATE_LIMIT_MESSAGE
+    assert detail["message"] == "Bạn đã mở bài đọc quá nhiều lần. Vui lòng thử lại sau 1 phút."
     assert env.db.touches == touches            # no read, no write, no RPC
-    assert len(_inserts(env.db)) == 10
+    assert len(_inserts(env.db)) == 60
 
 
 def test_other_address_keeps_its_own_budget(env):
-    for _ in range(10):
+    for _ in range(60):
         _post(env, {"X-Real-IP": "198.51.100.7"})
     assert _post(env, {"X-Real-IP": "198.51.100.7"}).status_code == 429
     assert _post(env, {"X-Real-IP": "198.51.100.8"}).status_code == 200
-    assert len(_inserts(env.db)) == 11
+    assert len(_inserts(env.db)) == 61
 
 
 def test_spoofed_forwarded_hops_do_not_mint_new_budgets(env):
     # Behind the real proxy X-Real-IP is set by the edge: rotating the
     # caller-supplied XFF chain must stay in the same bucket.
-    for i in range(10):
+    for i in range(60):
         r = _post(env, {"X-Real-IP": "198.51.100.30",
                         "X-Forwarded-For": f"10.0.0.{i}, 203.0.113.{i}"})
         assert r.status_code == 200
@@ -109,21 +110,27 @@ def test_spoofed_forwarded_hops_do_not_mint_new_budgets(env):
                        "X-Forwarded-For": "10.9.9.9"}).status_code == 429
 
     # Without X-Real-IP the LAST hop is the key; earlier hops are ignored.
-    for i in range(10):
+    for i in range(60):
         r = _post(env, {"X-Forwarded-For": f"1.1.1.{i}, 203.0.113.99"})
         assert r.status_code == 200
     assert _post(env, {"X-Forwarded-For": "2.2.2.2, 203.0.113.99"}).status_code == 429
-    assert len(_inserts(env.db)) == 20
+    assert len(_inserts(env.db)) == 120
 
 
 def test_budget_refills_after_the_window(env):
     headers = {"X-Real-IP": "198.51.100.7"}
-    for _ in range(10):
+    for _ in range(60):
         _post(env, headers)
     assert _post(env, headers).status_code == 429
-    env.clock.now += 60
+    env.clock.now += 59.9
+    touches = env.db.touches
+    blocked = _post(env, headers)
+    assert blocked.status_code == 429
+    assert blocked.headers["Retry-After"] == "1"
+    assert env.db.touches == touches
+    env.clock.now += 0.1
     assert _post(env, headers).status_code == 200
-    assert len(_inserts(env.db)) == 11
+    assert len(_inserts(env.db)) == 61
 
 
 def test_tracked_addresses_are_capped(env, monkeypatch):
@@ -131,7 +138,7 @@ def test_tracked_addresses_are_capped(env, monkeypatch):
     for i in range(3):
         assert _post(env, {"X-Real-IP": f"198.51.100.{i}"}).status_code == 200
     # Cap reached with live entries: new addresses share the overflow bucket.
-    for i in range(10):
+    for i in range(60):
         assert _post(env, {"X-Real-IP": f"203.0.113.{i}"}).status_code == 200
     assert _post(env, {"X-Real-IP": "203.0.113.200"}).status_code == 429
     assert len(rs._share_start_hits) == 4
@@ -145,7 +152,7 @@ def test_tracked_addresses_are_capped(env, monkeypatch):
 
 def test_authenticated_start_route_is_not_throttled(env, monkeypatch):
     headers = {"X-Real-IP": "198.51.100.7"}
-    for _ in range(10):
+    for _ in range(60):
         _post(env, headers)
     assert _post(env, headers).status_code == 429
 
