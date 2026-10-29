@@ -131,3 +131,38 @@ it('hub: the staff role reaches the chrome even while home-summary is still pend
   await vi.waitFor(() => expect(staffLinks()).toBe(1));
   expect(authMeCalls()).toHaveLength(0);
 });
+
+function holdCustomElementWait() {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const spy = vi.spyOn(customElements, 'whenDefined').mockImplementation(async () => { await gate; return customElements.get('aver-chrome')!; });
+  return { release: async () => { release(); await new Promise((r) => setTimeout(r, 20)); spy.mockRestore(); } };
+}
+
+it('hub: a handoff still waiting on the chrome definition is dropped once the hub unmounts', async () => {
+  hubApi();
+  mocks.getCurrentUser.mockResolvedValue(profile('admin'));
+  const wait = holdCustomElementWait();
+  const staffLinks = mountChrome({ 'role-source': 'page' });
+  const view = render(<VocabularyHubBehavior />);
+  await vi.waitFor(() => expect(mocks.getCurrentUser).toHaveBeenCalledTimes(1));
+  await new Promise((r) => setTimeout(r, 20)); // profile resolved, handoff parked on whenDefined
+  view.unmount(); // e.g. account switch remount or route change
+  await wait.release();
+  expect(staffLinks()).toBe(0);
+});
+
+it('hub: a late handoff never reaches the chrome of the route that replaced the hub', async () => {
+  hubApi();
+  mocks.getCurrentUser.mockResolvedValue(profile('admin'));
+  const wait = holdCustomElementWait();
+  mountChrome({ 'role-source': 'page' });
+  const view = render(<VocabularyHubBehavior />);
+  await vi.waitFor(() => expect(mocks.getCurrentUser).toHaveBeenCalledTimes(1));
+  await new Promise((r) => setTimeout(r, 20));
+  view.unmount();
+  document.body.innerHTML = '';
+  const nextRouteLinks = mountChrome({ 'role-source': 'page' });
+  await wait.release();
+  expect(nextRouteLinks()).toBe(0);
+});

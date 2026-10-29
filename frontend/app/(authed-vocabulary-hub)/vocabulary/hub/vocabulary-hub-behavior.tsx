@@ -14,10 +14,14 @@ export function VocabularyHubBehavior() {
 // PC-J147 — the chrome on this page is `role-source="page"`: it skips its own
 // /auth/me and takes the staff role from this read. A failed read leaves the
 // staff link unrendered (fail-closed, as the chrome's own lookup does).
-function shareRoleWithChrome(role: string | null) {
+// The element is picked now and the read's owner is rechecked after the
+// custom-element wait, so a late handoff never reaches another route's chrome
+// or outlives an account switch.
+function shareRoleWithChrome(role: string | null, isCurrent: () => boolean) {
+  const chrome = document.querySelector('aver-chrome') as (Element & { setRole?: (role: string | null) => void }) | null;
+  if (!chrome) return;
   void customElements.whenDefined('aver-chrome').then(() => {
-    const chrome = document.querySelector('aver-chrome') as (Element & { setRole?: (role: string | null) => void }) | null;
-    chrome?.setRole?.(role);
+    if (isCurrent() && chrome.isConnected) chrome.setRole?.(role);
   });
 }
 
@@ -40,13 +44,14 @@ function Hub() {
     const controller = new AbortController();
     let dead = false;
     // A remount for another account (BL-08) must not keep the previous role.
-    shareRoleWithChrome(null);
+    const isCurrent = () => !dead;
+    shareRoleWithChrome(null, isCurrent);
     (async () => {
       if (!await whenGlobalReady(() => !!window.api?.getWith, 'Vocabulary summary') || dead) return;
       const profileRead = getCurrentUser(controller.signal);
       // The chrome waits on this role, so hand it over as soon as the profile
       // lands, not after the summary (which may stall).
-      profileRead.then((me) => { if (!dead) shareRoleWithChrome(me.role ?? null); }, () => {});
+      profileRead.then((me) => { if (!dead) shareRoleWithChrome(me.role ?? null, isCurrent); }, () => {});
       const [summary, profile] = await Promise.allSettled([
         window.api.getWith<{ skills?: { vocabulary?: { wallet_words?: number; quiz_words_mastered?: number; quiz_sessions?: number } } }>('/api/student/home-summary', undefined, { signal: controller.signal }),
         profileRead,
