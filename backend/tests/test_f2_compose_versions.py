@@ -12,6 +12,7 @@ Pins (service level; route auth/isolation is covered by test_instructor_routes_i
 
 from __future__ import annotations
 
+from copy import deepcopy
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -170,6 +171,34 @@ def test_compose_picks_whole_subobject_and_recomputes_overall():
     assert prov["block_sources"]["mainCriterion"] == 2
     assert prov["base_version"] == 2
     assert prov["mixed_by"] == "gv-A" and prov["mixed_at"]
+
+
+def test_compose_aligns_base_trajectory_and_overview_with_mixed_band():
+    store = _store([(1, "ai_pro", None, (6, 6, 6, 6)),
+                    (2, "ai_pro", 1, (7, 7, 7, 7))])
+    base = store["writing_feedback"][1]["feedback_json"]
+    base["overallBandScoreSummary"] = "Bài này ở band 6.0. Bố cục rõ ràng."
+    base["bandTrajectoryAnalysis"] = {
+        "current_band": 6.0, "average_last_5": 6.7,
+        "trend_explanation": "Band 6.0 thấp hơn trung bình.",
+        "next_target": "Từ band 6.0, hãy hướng tới 6.5.",
+    }
+    original_versions = deepcopy(store["writing_feedback"])
+    with patch("services.essay_service.supabase_admin", _FakeSB(store)):
+        from services import essay_service
+        version = essay_service.compose_version(
+            EID, base_version=2,
+            picks={"mainCriterion": 2, "coherenceCohesion": 2,
+                   "lexicalResource": 2, "grammaticalRange": 1},
+            mixed_by="gv-A")
+    row = next(r for r in store["writing_feedback"] if r["version"] == version)
+    feedback = row["feedback_json"]
+    assert row["overall_band_score"] == feedback["overallBandScore"] == 7.0
+    assert feedback["bandTrajectoryAnalysis"]["current_band"] == 7.0
+    assert "band 7.0" in feedback["bandTrajectoryAnalysis"]["trend_explanation"]
+    assert "cao hơn" in feedback["bandTrajectoryAnalysis"]["trend_explanation"]
+    assert feedback["overallBandScoreSummary"] == "Bài viết đạt band 7.0. Bố cục rõ ràng."
+    assert store["writing_feedback"][:2] == original_versions
 
 
 def test_remix_on_composed_current_is_in_place():
