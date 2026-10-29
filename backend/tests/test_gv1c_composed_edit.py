@@ -154,6 +154,34 @@ def test_reedit_on_composed_current_updates_in_place():
     assert store["writing_essays"][0]["current_version"] == 2
 
 
+@pytest.mark.parametrize("composed_current", [False, True])
+def test_edit_aligns_stale_trajectory_with_authoritative_human_overall(composed_current):
+    versions = [(1, "ai_pro", None, 6.0)]
+    if composed_current:
+        versions.append((2, "composed", 1, 7.0))
+    store = _store(versions)
+    feedback = _feedback(overall=7.5, crit=8)
+    feedback.overallBandScoreSummary = "Bài này đạt band 6.0. Bố cục rõ ràng."
+    feedback.bandTrajectoryAnalysis = {
+        "current_band": 6.0, "average_last_5": 6.7,
+        "trend_explanation": "Band 6.0 thấp hơn trung bình.",
+        "next_target": "Cố gắng lên band 6.5.",
+    }
+    with patch("services.essay_service.supabase_admin", _FakeSB(store)):
+        from services import essay_service
+        version = essay_service.upsert_composed_version(EID, feedback, edited_by="adm")
+    row = next(r for r in store["writing_feedback"] if r["version"] == version)
+    # Human overall remains authoritative, even when it differs from the criteria mean.
+    assert row["overall_band_score"] == row["feedback_json"]["overallBandScore"] == 7.5
+    assert row["band_main_criterion"] == 8
+    trajectory = row["feedback_json"]["bandTrajectoryAnalysis"]
+    assert trajectory["current_band"] == 7.5
+    assert "band 7.5" in trajectory["trend_explanation"] and "cao hơn" in trajectory["trend_explanation"]
+    assert "band 8.0" in trajectory["next_target"]
+    assert row["feedback_json"]["overallBandScoreSummary"] == "Bài viết đạt band 7.5. Bố cục rõ ràng."
+    assert store["writing_feedback"][0]["overall_band_score"] == 6.0
+
+
 def test_edit_on_ai_current_at_budget_full_409():
     from fastapi import HTTPException
     store = _store([(1, "ai_pro", None, 6.0), (2, "ai_pro", 1, 6.5), (3, "ai_pro", 2, 7.0)])

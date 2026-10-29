@@ -31,7 +31,7 @@ import anthropic
 
 from config import settings
 from services.d1_question_generator import _call_with_retry
-from services import ai_usage_logger
+from services import ai_budget, ai_usage_logger
 from services.claude_compat import json_request_kwargs, response_text
 
 logger = logging.getLogger(__name__)
@@ -91,7 +91,8 @@ def _get_client() -> anthropic.Anthropic:
     if _client is None:
         if not settings.ANTHROPIC_API_KEY:
             raise RuntimeError("ANTHROPIC_API_KEY not configured")
-        _client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+        # AIBUDGET-0033 FR-001: no hidden SDK retries; each request is reserved.
+        _client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, max_retries=0)
     return _client
 
 
@@ -188,12 +189,23 @@ def grade_gist_response(
             model_answer=model_answer,
             rubric_keywords=rubric_keywords,
         )
+        request = json_request_kwargs(model, max_tokens=_MAX_TOKENS, temperature=_TEMPERATURE)
         try:
-            resp = client.messages.create(
-                **json_request_kwargs(model, max_tokens=_MAX_TOKENS, temperature=_TEMPERATURE),
-                system=_SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": user_msg}],
-            )
+            with ai_budget.guard_sync(
+                "anthropic", model, "listening_gist",
+                ai_budget.estimate_or_none("anthropic", model, input_text=[_SYSTEM_PROMPT, user_msg],
+                                           max_tokens=request["max_tokens"]),
+                request_key=ai_budget.attempt_key("listening_gist"), operation="grade_gist",
+                user_id=usage_user_id,
+            ) as lease:
+                resp = client.messages.create(
+                    **request,
+                    system=_SYSTEM_PROMPT,
+                    messages=[{"role": "user", "content": user_msg}],
+                )
+                lease.settle(ai_budget.anthropic_actual_usd(model, getattr(resp, "usage", None)))
+        except (ai_budget.AIBudgetRefused, ai_budget.AIBudgetReplay):
+            raise
         except Exception as exc:
             ai_usage_logger.log_unpriced_usage(
                 service="claude",
@@ -235,6 +247,10 @@ def grade_gist_response(
 
     try:
         return _call_with_retry(_do_call, provider="anthropic", vocab_id="gist")
+    except (ai_budget.AIBudgetRefused, ai_budget.AIBudgetReplay):
+        # AIBUDGET-0033 FR-008/FR-020: a refusal is not a provider outage, so it
+        # does not become a keyword score; the route answers it (FR-010).
+        raise
     except Exception as e:
         logger.warning(
             "[listening_gist_grader] Haiku grading failed after retries; "

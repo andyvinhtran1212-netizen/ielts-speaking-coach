@@ -2,7 +2,7 @@
 title: Paraphrase Patterns — Nhận diện diễn đạt lại
 slug: paraphrase-patterns
 category: grammar-for-reading
-summary: 'Câu hỏi IELTS Reading gần như không dùng lại nguyên văn từ bài — chúng diễn đạt lại (paraphrase) bằng từ đồng nghĩa, đổi thể chủ động/bị động, đổi từ loại. Nhận ra các kiểu paraphrase là kỹ năng cốt lõi để nối câu hỏi với đúng chỗ trong bài.
+summary: 'Câu hỏi IELTS Reading thường diễn đạt lại từ ngữ của bài (tên riêng, thuật ngữ vẫn giữ nguyên) — chúng paraphrase bằng từ đồng nghĩa, đổi thể chủ động/bị động, đổi từ loại. Nhận ra các kiểu paraphrase là kỹ năng cốt lõi để nối câu hỏi với đúng chỗ trong bài.
 
   '
 level: intermediate
@@ -67,9 +67,9 @@ Paraphrase = nói cùng một ý bằng từ ngữ khác. Câu hỏi khớp vớ
 
 | Kiểu | Bài đọc | Câu hỏi (paraphrase) |
 |---|---|---|
-| **Từ đồng nghĩa** | *big rise* | *substantial increase* |
+| **Từ đồng nghĩa** | *sharp rise* | *substantial increase* |
 | **Đổi từ loại** (danh hoá) | *prices rose* | *the rise in prices* |
-| **Đổi chủ động ↔ bị động** | *Scientists discovered X* | *X was discovered by scientists* (bỏ tác nhân làm thiếu thông tin nếu cần giữ toàn bộ) |
+| **Đổi chủ động ↔ bị động** | *Scientists discovered X* | *X was discovered by scientists* (nếu câu hỏi bỏ *by scientists*, ý vẫn khớp nhưng mất thông tin ai làm) |
 | **Đổi cấu trúc** | *because it was cheap* | *due to its low cost* |
 
 Người đọc giỏi **không quét từ khớp** mà quét **ý khớp**.
@@ -80,7 +80,7 @@ Người đọc giỏi **không quét từ khớp** mà quét **ý khớp**.
 Một ý có thể được diễn đạt bằng **phủ định của từ trái nghĩa** — dễ gây hiểu lầm:
 
 - *rare* ↔ *not common*
-- *increased* ↔ *rose*; did not fall còn bao gồm không đổi, chỉ suy ra một chiều
+- *increased* → *did not fall*: **không** tương đương. *did not fall* còn gồm cả trường hợp giữ nguyên, nên chỉ suy ra được một chiều.
 - *mandatory* ↔ *not optional*
 
 Đây cũng là nền cho câu **TRUE/FALSE/NOT GIVEN**: cùng nghĩa (dù ngược từ) → TRUE.
@@ -89,7 +89,7 @@ Một ý có thể được diễn đạt bằng **phủ định của từ trá
 ## Bẫy khi đọc
 
 ### Bẫy 1: Chọn đáp án chỉ vì "trùng từ"
-Trùng từ chưa đủ chứng minh trùng nghĩa; cũng không tự là bẫy. Kiểm chủ thể, thời gian, phạm vi và phủ định.
+Trùng từ không chứng minh được là trùng nghĩa: kiểm chủ thể, thời gian, phạm vi, phủ định.
 
 ### Bẫy 2: Bỏ sót vì không nhận ra từ đồng nghĩa
 *fall = decline = drop = decrease*; *cause = lead to = result in = trigger*. Cần vốn cụm đồng nghĩa.
@@ -97,10 +97,10 @@ Trùng từ chưa đủ chứng minh trùng nghĩa; cũng không tự là bẫy.
 ### Chiến lược giải mã
 1. Với mỗi câu hỏi, **gạch chân ý cốt lõi** (ai/cái gì · làm gì · thế nào).
 2. Trong bài, tìm **cùng ý** dù khác từ, khác cấu trúc.
-3. Cảnh giác đáp án "trùng từ hoàn hảo".
+3. Trùng từ không chứng minh được là trùng nghĩa: kiểm chủ thể, thời gian, phạm vi, phủ định.
 
 ## Tóm tắt nhanh
 
 - Câu hỏi khớp bài về nghĩa, không về từ
 - 4 kiểu: đồng nghĩa · đổi từ loại · đổi thể bị động · đổi cấu trúc
-- Trùng từ nguyên văn thường là bẫy
+- Trùng từ không chứng minh được là trùng nghĩa: kiểm chủ thể, thời gian, phạm vi, phủ định

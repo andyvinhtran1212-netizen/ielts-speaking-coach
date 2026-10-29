@@ -39,6 +39,7 @@ beforeEach(() => {
 
 afterEach(() => {
   document.body.innerHTML = '';
+  delete (window as any).__averAuthMeSingleFlight; // each test is a fresh page load (PC-J147)
   document.head.querySelectorAll('meta[name="aver-auth-gated"]').forEach((meta) => meta.remove());
   vi.unstubAllGlobals();
   vi.useRealTimers();

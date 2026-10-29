@@ -300,7 +300,10 @@ export class AverAudioPlayer extends HTMLElement {
   play() {
     if (!this._audio) return;
     this._clearPlaybackTimers();
-    if (this._isSegmentMode() && this._audio.currentTime >= this._segmentEnd() - 0.01) {
+    // A final clip whose stored end is at/after the media end stops on the
+    // native `ended` with currentTime = duration < end. play() on ended media
+    // restarts at 0:00, so treat `ended` as the clip end too.
+    if (this._isSegmentMode() && (this._audio.ended || this._audio.currentTime >= this._segmentEnd() - 0.01)) {
       this._audio.currentTime = this._segmentStart();
     }
     const playback = this._audio.play();

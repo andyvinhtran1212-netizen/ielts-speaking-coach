@@ -27,6 +27,7 @@ beforeEach(() => { vi.useFakeTimers(); });
 afterEach(() => {
   cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.clearAllMocks(); localStorage.clear();
   mocks.view = 'today'; history.replaceState(null, '', '/');
+  delete (window as any).__averAuthMeSingleFlight; // each test is a fresh page load (PC-J147)
 });
 
 it.each(['today', 'sets', 'review'])('hub %s: a hung catalog read ends in Retry, and Retry reads again', async view => {

@@ -34,7 +34,9 @@ it('opens the real Q12 second slot with shared script, translation and rationale
   expect(card.textContent).not.toContain('Chưa có lời giải chi tiết.');
   expect(card.querySelector('.lr-card__ans.is-correct code')?.textContent).toBe('{B, C}');
   expect(card.textContent).toContain('chấp nhận mọi thứ tự');
-  expect(card.textContent).toContain('11:30–11:42');
+  // PC-J125: the label shows the stored bounds (690.46–702.46 s) to ±0.05 s; the old
+  // whole-second label floored the end to 11:42, 0.46 s before the real stop.
+  expect(card.textContent).toContain('11:30.5–11:42.5');
   expect(JSON.stringify(raw)).toBe(before);
 });
 

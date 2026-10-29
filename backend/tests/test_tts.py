@@ -31,7 +31,7 @@ def _patch(monkeypatch, *, key="sk-test", synth=b"MP3", raises=None):
     async def _user(_a):
         return {"id": "u1"}
 
-    async def _synth(text, voice):
+    async def _synth(text, voice, *, user_id=None):
         if raises:
             raise raises
         _synth.calls.append((text, voice))

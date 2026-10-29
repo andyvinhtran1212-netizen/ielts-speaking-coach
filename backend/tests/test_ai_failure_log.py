@@ -273,7 +273,7 @@ class _FakeGemini:
     def __init__(self, outcome):
         self.outcome = outcome
 
-    async def generate_content_async(self, _prompt):
+    async def generate_content_async(self, _prompt, **_kwargs):
         if isinstance(self.outcome, BaseException):
             raise self.outcome
         from types import SimpleNamespace

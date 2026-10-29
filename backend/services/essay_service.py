@@ -49,6 +49,7 @@ from services.writing_history import (
     get_sentence_structure_history,
 )
 from services.band_rounding import overall_from_criteria
+from services.writing_band_consistency import align_overall_band_feedback
 from services.mistake_authenticity import drop_noncorrection_mistakes
 from services.class_membership_service import active_student_ids_for_cohort
 from services.core_attempt_outcomes import observe_writing_background, observe_writing_batch
@@ -677,6 +678,7 @@ def upsert_composed_version(
                          else {"edited_by": edited_by, "edited_at": _now()},
         **_bands_from_feedback(feedback),
     }
+    align_overall_band_feedback(row["feedback_json"], row["overall_band_score"])
     cvr = (
         supabase_admin.table("writing_essays")
         .select("current_version").eq("id", essay_id).limit(1).execute()
@@ -784,8 +786,9 @@ def compose_version(essay_id: str, *, base_version: int, picks: dict, mixed_by: 
     picks. `picks` maps each of the 4 criteria → the version to take it from;
     each pick copies that version's WHOLE criteriaFeedback.<crit> sub-object
     (band + feedback together — never split). Non-criteria content is base-derived
-    (taken verbatim from `base_version`). Overall is recomputed (IELTS) from the 4
-    picked bands. Reuses upsert_composed_version → AI versions stay immutable,
+    (from `base_version`, with overall-band claims aligned to the mixed score).
+    Overall is recomputed (IELTS) from the 4 picked bands.
+    Reuses upsert_composed_version → AI versions stay immutable,
     budget (Option A) + advance inherited.
     """
     live = _ancestor_versions(essay_id)
@@ -814,7 +817,7 @@ def compose_version(essay_id: str, *, base_version: int, picks: dict, mixed_by: 
         picked_bands.append(src_cf[crit]["bandScore"])
     assembled["criteriaFeedback"] = cf
     # mix overall ≠ any source's → recompute deterministically (IELTS round).
-    assembled["overallBandScore"] = overall_from_criteria(*picked_bands)
+    align_overall_band_feedback(assembled, overall_from_criteria(*picked_bands))
 
     feedback = WritingFeedback(**assembled)                # validate the assembled object
     provenance = {
@@ -1047,7 +1050,7 @@ async def _bg_grade_essay(
         model_overall   = float(fb.overallBandScore)
         backend_overall = overall_from_criteria(b_tr, b_cc, b_lr, b_gra)
         feedback_json = fb.model_dump(mode="json")
-        feedback_json["overallBandScore"]      = backend_overall
+        align_overall_band_feedback(feedback_json, backend_overall)
         feedback_json["overallBandScoreModel"] = model_overall
 
         feedback_row = {
@@ -1152,7 +1155,7 @@ async def _bg_grade_essay(
 
         logger.info(
             "[grade %s] done band=%s tokens=%s/%s cost=%s",
-            essay_id, fb.overallBandScore,
+            essay_id, backend_overall,
             result.tokens_input, result.tokens_output, result.cost_usd,
         )
 

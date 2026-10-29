@@ -570,6 +570,8 @@ on:
       - 'frontend/public/css/vocab-wiki.css'
       - 'frontend/tooling/verify-vocabulary-wiki-flow.mjs'
       - 'frontend/public/js/components/aver-chrome.js'
+      - 'frontend/public/js/auth-me-single-flight.js'
+      - 'frontend/lib/auth/auth-me-single-flight.mjs'
       - 'frontend/tooling/verify-chrome-nav-width-flow.mjs'
       - 'frontend/tooling/verify-chrome-early-render-flow.mjs'
       - 'frontend/app/(authed)/profile/**'
@@ -600,6 +602,7 @@ on:
       - 'frontend/tooling/verify-listening-standalone-dictation-flow.mjs'
       - 'frontend/tooling/verify-listening-analytics-flow.mjs'
       - 'frontend/tooling/verify-listening-test-session-flow.mjs'
+      - 'frontend/tooling/verify-listening-player-overflow-flow.mjs'
       - 'frontend/tooling/verify-listening-review-flow.mjs'
       - 'frontend/tooling/verify-mock-exam-flow.mjs'
       - 'frontend/tooling/verify-admin-overview-flow.mjs'
@@ -631,6 +634,10 @@ on:
       - 'frontend/tooling/verify-admin-writing-flow.mjs'
       - 'frontend/tooling/verify-admin-grammar-articles-flow.mjs'
       - 'frontend/tooling/verify-admin-users-flow.mjs'
+      - 'frontend/app/(authed-admin-mfa)/**'
+      - 'frontend/public/css/admin-mfa-next.css'
+      - 'frontend/tooling/admin-mfa-stub.mjs'
+      - 'frontend/tooling/verify-admin-mfa-flow.mjs'
       - 'frontend/tooling/verify-admin-classes-flow.mjs'
       - 'frontend/tooling/verify-admin-class-detail-flow.mjs'
       - 'frontend/tooling/verify-admin-class-homework-flow.mjs'
@@ -976,6 +983,13 @@ jobs:
       - name: Kiểm luồng Listening Test native
         run: node tooling/verify-listening-test-session-flow.mjs "http://localhost:$TEST_PORT"
 
+      # Trang làm bài là overflow:hidden nên tràn ngang bị cắt im lặng, không
+      # hiện thanh cuộn. Đo hình học từng Part ở 360/390/1280 cho học viên,
+      # admin preview và mock embed: palette cố định phải nằm trọn trong màn
+      # hình, nội dung không vượt mép khung bài nếu không có khung cuộn riêng.
+      - name: Kiểm Listening player không tràn ngang
+        run: node tooling/verify-listening-player-overflow-flow.mjs "http://localhost:$TEST_PORT"
+
       # Review has no deterministic production attempt for static parity.
       # This hermetic fixture pins submitted/auth gates, preview neutrality,
       # filters, transcript/audio sync, escaping and responsive containment.
@@ -1282,6 +1296,13 @@ jobs:
       # UI báo thành công; không chạm dữ liệu thật.
       - name: Kiểm luồng Admin Users native
         run: node tooling/verify-admin-users-flow.mjs "http://localhost:$TEST_PORT"
+
+      # ADMINAAL2-0032 T010: AdminAccessGate + /admin/mfa. Fixture stubs every
+      # API and Supabase Auth MFA endpoint: enforced AAL1 redirect, report-only
+      # banner, enroll/challenge/wrong code/429/remove with a fresh code, and
+      # the api.js `mfa_required` navigation. No real factor or account.
+      - name: Kiểm luồng Admin MFA (AAL2) native
+        run: node tooling/verify-admin-mfa-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/classes` là directory có mutation. Runner chứng minh mọi write
       # được canonical reload, rollup/course lookup lỗi không bị bịa thành 0/rỗng,
