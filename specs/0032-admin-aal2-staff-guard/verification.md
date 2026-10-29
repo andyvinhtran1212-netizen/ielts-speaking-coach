@@ -69,6 +69,60 @@ its NOSUPERUSER owner role, with a stand-in `auth.audit_log_entries`.
   - the claim's `attempts` compare;
   - the `attempts < 5` filter.
 
+## PC-J201 patch evidence (SA #1936 P3 c-f)
+
+The saved PC-J201 patch from job 1an was resumed in
+`/workspace/wt-q-cx-1ca-resume-1an-j201-mig352` on branch
+`q/cx-1ca-resume-1an-j201-mig352`, based on current staging
+`5cbf1ee8692c1ce17a03e70179cc74c6bc19edbc`. The Leader allocated migration
+`352_mfa_status_throttle.sql`; the test reference, migration README and
+`pending_feature` forward policy (group `mfa_status_throttle`) use that name.
+Applying it is outside this job: no database migration, production access or
+merge is authorized. SA retest, CR review and hosted verification remain
+pending. The PR records the submitted head and local metadata gate result.
+
+- Shared cooldown, account in-flight admission and global concurrency:
+  `test_admin_mfa_status_caller_sweep.py` uses separately imported worker
+  modules against the same PostgreSQL schema.
+- Failed log/snapshot steps, `None` and cancellation start no cooldown;
+  their attempts still count toward the shared six-per-minute budget.
+- The seventh changed-state request returns 429 with `Retry-After`; another
+  account is unaffected and the rolling window recovers. Expired leases
+  recover, while a late completion cannot clear a newer lease.
+- Migration SQL runs twice as the NOSUPERUSER schema owner. RLS is enabled;
+  anon, authenticated and service_role have no table privileges.
+- `test_staff_security_sweep.py` tests the cron deadline during connection
+  setup, snapshot/Auth work and follow-up sleep. Each times out, logs and
+  exits 1; the database backend PID is gone after cleanup.
+- Prior job 1an evidence, before the current staging sync and rename:
+  security regression selection: 388 passed. Its final full backend run used
+  the repository's four CI shards on independent local PostgreSQL 17.11 UTF-8
+  clusters: **14,445 passed, 46 skipped, no failures**. The shard verifier
+  confirmed collection/union = 14,491, missing = 0, extra = 0. All PostgreSQL
+  cases in the changed layers ran with `REQUIRE_PG=1`.
+- Prior job's skips: 16 live Supabase probes without configured credentials,
+  12 local PostgREST probes without that service, 8 Vocabulary PostgreSQL
+  probes without their explicit database setting, 8 spaCy model cases,
+  1 paid Gemini smoke test and 1 external MASTER30 package case. These are
+  unverified prerequisites, not passing evidence. No skip/assertion/timeout
+  was loosened. The initial SQL_ASCII full run was interrupted after Unicode
+  fixture failures and replaced by the passing UTF-8 run above.
+- Spec governance: 41 feature specs validated; `git diff --check` passed.
+- Resume verification on the current staging base and numbered migration:
+  focused backend selection **281 passed, 51 skipped**; complete offline
+  backend suite **13,195 passed, 1,338 skipped**, exit 0 (249.11 seconds).
+  The full-run skips are 1,300 PostgreSQL prerequisites, 12 PostgREST probes,
+  16 live Supabase/RLS probes, 8 spaCy model cases, 1 paid smoke test and
+  1 external MASTER30 source package. No database was configured and migration
+  352 was not applied anywhere in this resume. The PostgreSQL tests retain
+  their existing prerequisite gates; no test or assertion was weakened.
+  Frontend MFA model/transport/contract checks: **33 passed**, no skips.
+  The backend run reported 16 warnings and background AI logging teardown
+  diagnostics outside the changed sweep code; its test result and exit were
+  successful. Current-head database evidence remains for the later SA retest.
+
+The FR-010/FR-011 staging journeys and this job's SA retest remain pending.
+
 ## Contract evidence
 
 - **OpenAPI/type drift**: regenerate `frontend/types/api.d.ts` for the four new
