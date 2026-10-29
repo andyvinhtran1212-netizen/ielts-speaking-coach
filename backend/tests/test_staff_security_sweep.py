@@ -27,6 +27,7 @@ import json
 import logging
 import os
 from pathlib import Path
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
@@ -70,6 +71,24 @@ def test_test_alert_without_transport_exits_non_zero_without_a_database(monkeypa
     with caplog.at_level(logging.WARNING):
         assert sweep.main(["--test-alert"]) == 1
     assert "owner_alert_transport_unconfigured missing=RESEND_API_KEY,OWNER_ALERT_EMAILS" in caplog.text
+
+
+def test_factor_entries_with_until_and_user_id_keeps_placeholders_and_args_aligned():
+    conn = AsyncMock()
+    conn.fetch.return_value = []
+    after = {"last_created_at": "2026-10-28T00:00:00Z", "last_entry_id": uuid4()}
+    until = ("2026-10-29T00:00:00Z", uuid4())
+    user_id = str(uuid4())
+
+    assert run(sweep.SweepDb(conn).factor_entries(
+        after, lag_seconds=15, limit=20, until=until, user_id=user_id)) == []
+
+    conn.fetch.assert_awaited_once()
+    sql, *args = conn.fetch.call_args.args
+    assert "<= ($6::timestamptz, $7::uuid)" in sql
+    assert "ELSE payload::jsonb ->> 'actor_id' END = $8" in sql
+    assert args == [after["last_created_at"], str(after["last_entry_id"]),
+                    15, list(sweep.FACTOR_ACTIONS), 20, until[0], str(until[1]), user_id]
 
 
 # ── PostgreSQL harness ──────────────────────────────────────────────────────

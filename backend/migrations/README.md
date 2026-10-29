@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-29 the highest is `338`, so by that rule the
-next new migration is `339`. Ask the Leader before taking it.
+sequence is dense. As of 2026-10-29 the highest is `345`, so by that rule the
+next new migration is `346`. Ask the Leader before taking it.
 The runner applies any unapplied file regardless of order.
 Numbers 321–326 belong to 321 WRITINGRATE-0025, 322 AIOPS-0024 (#1837), 323
 ROLECHECK-0026, 324 ASSIGNDRAFT-0027, 325 CODEUNIQ-0028 and 326
@@ -30,7 +30,37 @@ reserved, and 330 was the first reservation for A-10, which took 337 instead
 (CLASSARCHIVE-0030 D1). 331 is GIVEARCHIVE-0031, 332 is ADMINAAL2-0032, 333 is
 AIBUDGET-0033, 334 is ACTIVATELIMIT-0034, 335 is INACTIVEWRITE-0035, 336 is
 ADMINAAL2-0032 FR-019 (#1853), 337 is A-10 CLASSARCHIVE-0030 and 338 is
-PAPERUPDATEDAT-0037. Every number from 331 to 338 now has a file.
+PAPERUPDATEDAT-0037. Every number from 331 to 338 now has a file. 345 is
+PC-J119 (RLS-ADMIN-INLINE-AAL2 + GRAMMAR-FN-SEARCHPATH, spec ADMINAAL2-0032),
+reserved by the Leader on 2026-10-29; 339–344 are reserved for other open
+work and must not be reused.
+
+Migration `345` (PC-J119) removes the RLS policies that granted admin reads
+with an inline `users.role = 'admin'` check and nothing else (no AAL2, no
+`is_active`, no `suspended_at`): the admin read policies on
+`dictation_sessions`, `dictation_attempts`, `dictation_attempt_answers` and
+`user_feedback`, `"Admins manage lemma overrides"`,
+`vocab_exercises_admin_write`, the admin branch of `vocab_exercises_select`
+(now `status = 'published'` only) and the dashboard-created `access_codes`
+`"Admin only"`. Admin access to these tables goes through FastAPI
+(`service_role` + the 0032 staff guard) only. The learner own-row dictation
+policies are unchanged. `user_feedback` and `lemma_overrides` lose every
+`anon`/`authenticated` privilege (no policy and no JWT reader is left), and so
+does `access_codes` (no JWT reader; its 106 helper policies stay but admit no
+client role, so the codes no longer depend on 108's EXECUTE revoke, PC-J161);
+the dictation tables and `vocabulary_exercises` keep SELECT. It also pins
+`search_path = public, pg_temp` on the four 283 grammar trigger functions
+(`prevent_grammar_evidence_mutation`,
+`prevent_completed_grammar_session_mutation`,
+`prevent_grammar_release_content_mutation`,
+`prevent_validated_grammar_release_rewrite`), bodies unchanged. The
+postcondition fails if any `public` policy still contains the literal
+`'admin'`, so a later admin policy must call a function that also checks AAL2
+and an active, non-suspended account. Each step skips an absent object (the
+PC-J94 invariant harness has none of these tables). Group `rls_admin_inline`
+in `forward-policy.tsv`: staging first under the advisory lock, production only
+at an authorised promotion. One transaction, no data change, re-runnable;
+the rollback (which reopens the hole) is in the file header.
 
 Migration `337` (CLASSARCHIVE-0030, A-10) enforces class archive. An
 *archived* class is `cohorts.is_active = false AND archived_at IS NOT NULL`. It
@@ -62,10 +92,13 @@ Classes that were inactive before 337 stay *legacy* (`archived_at` NULL) with
 the old behaviour. Nothing is backfilled, and the postcondition fails if the
 number of archived classes changes (FR-009). An admin applies the rules per
 class through `fn_archive_cohort` ("Áp dụng lưu trữ"). 337 aborts without 320,
-326 or the `fn_restore_student` lock literal. It names no 331 object. It is a
-normal forward migration (no `forward-policy.tsv` row) and is dormant until the
-A-10 backend deploys. Apply it on staging first through the advisory-locked
-runner, and do not archive or restore classes between apply and deploy. The
+326 or the `fn_restore_student` lock literal. It names no 331 object. It is
+held back by `forward-policy.tsv` (group `class_archive`, PC-J106 F1) and is
+dormant until the A-10 backend deploys. Apply it only with
+`MIGRATION_FEATURES=class_archive` through the advisory-locked runner, on staging
+first and only after a backend whose `AdminCohortOut` accepts the three archive
+columns is deployed there (an older one answers 500 on `GET /admin/cohorts`).
+Do not archive or restore classes between apply and deploy. The
 light and full rollbacks are in the file header; the full one re-creates the
 326 `fn_restore_student` before dropping the columns. One transaction,
 re-runnable.
