@@ -171,6 +171,72 @@ def test_validate_request_rejects_values_outside_the_allowlist(feature, provider
     with pytest.raises(overrides.OverrideValidationError) as err:
         overrides.validate_request(feature, provider, model)
     assert err.value.field == field
+    rejected = {"feature": feature, "preferred_provider": provider, "anthropic_model": model}[field]
+    assert rejected not in str(err.value)
+
+
+# PC-J75 F5 / PC-J116: a rejected client value is never echoed into the 422
+# message; only allowlisted values (the routed feature, permitted lists) are.
+_HOSTILE = [
+    "x" * 5000,
+    "<script>alert(1)</script>",
+    "evil\x00\x1b[31m\r\nX-Injected: 1",
+]
+
+
+@pytest.mark.parametrize("value", _HOSTILE)
+@pytest.mark.parametrize("field", ["feature", "preferred_provider", "anthropic_model"])
+def test_rejection_messages_do_not_echo_the_client_value(field, value):
+    args = {"feature": "course_writing", "preferred_provider": None, "anthropic_model": None}
+    args[field] = value
+    with pytest.raises(overrides.OverrideValidationError) as err:
+        overrides.validate_request(**args)
+    message = str(err.value)
+    assert err.value.field == field
+    assert value not in message
+    assert "<" not in message and not any(ord(ch) < 0x20 for ch in message)
+    assert len(message) < 200
+    expected = {
+        "feature": "Tính năng không được định tuyến bởi ai_router.",
+        "preferred_provider": "Nhà cung cấp không hợp lệ cho course_writing; chỉ cho phép: anthropic, gemini.",
+        "anthropic_model": "Model không nằm trong danh sách cho phép: claude-sonnet-5-5, claude-haiku-5-5.",
+    }[field]
+    assert message == expected
+
+
+@pytest.mark.parametrize("feature", sorted(overrides.EXISTING_PROVIDERS))
+def test_validate_request_accepts_every_allowlisted_value(feature):
+    for provider in (None, *overrides.allowed_providers(feature)):
+        for model in (None, *overrides.ANTHROPIC_MODEL_ALLOWLIST):
+            overrides.validate_request(feature, provider, model)
+
+
+@pytest.mark.parametrize("feature, body, field, rejected", [
+    ("x" * 5000, {"preferred_provider": "anthropic"}, "feature", "x" * 5000),
+    # No "/" in a path value: Starlette decodes %2F before routing (→ 404).
+    ("<script>alert(1)<", {"preferred_provider": "anthropic"}, "feature", "<script>alert(1)<"),
+    ("evil\x01\x1b[31m", {"preferred_provider": "anthropic"}, "feature", "evil\x01\x1b[31m"),
+    ("course_writing", {"preferred_provider": "<script>x</script>"}, "preferred_provider", "<script>x</script>"),
+    ("course_writing", {"preferred_provider": "a\x00\r\nb"}, "preferred_provider", "a\x00\r\nb"),
+    ("course_writing", {"anthropic_model": "<img src=x onerror=1>"}, "anthropic_model", "<img src=x onerror=1>"),
+])
+def test_patch_route_422_keeps_its_shape_without_the_client_value(fake_db, feature, body, field, rejected):
+    from unittest.mock import AsyncMock, patch
+    from urllib.parse import quote
+
+    from fastapi.testclient import TestClient
+
+    from main import app
+    from routers import admin_ai
+
+    with patch.object(admin_ai, "require_admin", new=AsyncMock(return_value={"id": "admin-1"})):
+        response = TestClient(app).patch(f"/admin/ai/models/{quote(feature, safe='')}", json=body)
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert set(detail) == {"error_code", "field", "message"}
+    assert detail["error_code"] == "ai_override_invalid" and detail["field"] == field
+    assert rejected not in detail["message"] and rejected not in response.text
+    assert fake_db.executed == []
 
 
 def test_stored_values_outside_the_allowlist_are_ignored_and_flagged():
