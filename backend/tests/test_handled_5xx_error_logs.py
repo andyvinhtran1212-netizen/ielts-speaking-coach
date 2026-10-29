@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import threading
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -35,9 +36,23 @@ def _fresh_limiter(monkeypatch):
     # starting the reapers / refresher (live Supabase) — only the request matters.
     monkeypatch.setattr(main.app.router, "on_startup", [])
     monkeypatch.setattr(main.app.router, "on_shutdown", [])
-    main._handled_5xx_log_windows.clear()
+    def reset():
+        main._handled_5xx_log_windows.clear()
+        main._handled_5xx_log_global_window[:] = [float("-inf"), 0, False]
+        main._handled_5xx_log_tasks.clear()
+        for reason in main._handled_5xx_log_dropped:
+            main._handled_5xx_log_dropped[reason] = 0
+    reset()
     yield
-    main._handled_5xx_log_windows.clear()
+    reset()
+
+
+@pytest.fixture
+def clock(monkeypatch):
+    # Injected into the limiter only: the event loop keeps the real monotonic.
+    now = [1000.0]
+    monkeypatch.setattr(main, "_handled_5xx_clock", lambda: now[0])
+    return now
 
 
 @pytest.fixture
@@ -181,9 +196,7 @@ def test_sanitized_500_logs_internal_error_without_the_leaked_text(payloads):
 
 # ── storm guard: 10 rows / 60 s per (error_code, route template) ────────────
 
-def test_storm_is_capped_per_error_code_and_path(payloads, monkeypatch):
-    clock = [1000.0]
-    monkeypatch.setattr("time.monotonic", lambda: clock[0])
+def test_storm_is_capped_per_error_code_and_path(payloads, clock):
     exc = lambda: safe_error(None, status_code=503, error_code="activation_unavailable")  # noqa: E731
 
     for _ in range(main._HANDLED_5XX_LOG_LIMIT + 5):
@@ -202,6 +215,7 @@ def test_storm_is_capped_per_error_code_and_path(payloads, monkeypatch):
     clock[0] += 0.1
     _handle(exc())
     assert len(payloads) == 13
+    assert main._handled_5xx_log_dropped["key_limit"] == 6
 
 
 def test_storm_over_threshold_via_route_stops_inserting(live_activate_rate_limit, payloads):
@@ -216,3 +230,74 @@ def test_limiter_key_table_stays_bounded(payloads, monkeypatch):
         _handle(HTTPException(500, "x"), _req(path=f"/p{i}", concrete=f"/p{i}"))
     assert len(main._handled_5xx_log_windows) == 3
     assert len(payloads) == 3
+
+
+# ── process-wide ceilings: global rows / window and inserts in flight ───────
+
+def test_outage_across_many_routes_is_capped_globally(payloads, clock, caplog):
+    # A DB outage 503s every route; each route template is its own key, so the
+    # per-key budget alone would allow 512 x 10 rows per minute per process.
+    routes = 3 * main._HANDLED_5XX_LOG_GLOBAL_LIMIT
+    with caplog.at_level(logging.WARNING):
+        for i in range(routes):
+            for _ in range(2):
+                assert _handle(HTTPException(500, "x"),
+                               _req(path=f"/r{i}", concrete=f"/r{i}")).status_code == 500
+    assert len(payloads) == main._HANDLED_5XX_LOG_GLOBAL_LIMIT == 60
+    assert main._handled_5xx_log_dropped["global_limit"] == 2 * routes - 60
+    assert caplog.text.count("handled-5xx capture saturated (global_limit)") == 1
+
+    # The global window rolls over like the per-key ones.
+    clock[0] += main._HANDLED_5XX_LOG_WINDOW_S
+    _handle(HTTPException(500, "x"), _req(path="/r0", concrete="/r0"))
+    assert len(payloads) == 61
+
+
+def test_saturated_in_flight_inserts_are_skipped_and_counted(clock, monkeypatch, caplog):
+    # Supabase hangs: every insert holds its executor worker until released.
+    release = threading.Event()
+    started: list[dict] = []
+
+    def hanging_insert(payload):
+        started.append(payload)
+        release.wait(10)
+    monkeypatch.setattr(main, "_insert_error_log_safely", hanging_insert)
+    limit = main._HANDLED_5XX_LOG_MAX_IN_FLIGHT
+
+    async def run():
+        for i in range(limit + 6):
+            resp = await main.http_exception_handler(
+                _req(path=f"/r{i}", concrete=f"/r{i}"), HTTPException(503, "x"))
+            assert resp.status_code == 503
+        assert len(main._handled_5xx_log_tasks) == limit
+        assert main._handled_5xx_log_dropped["in_flight"] == 6
+        release.set()
+        await asyncio.gather(*list(main._handled_5xx_log_tasks))
+        await asyncio.sleep(0)
+        assert main._handled_5xx_log_tasks == set()
+        # Capacity is back once the inserts finish; skipped rows used no budget.
+        await main.http_exception_handler(_req(path="/r5", concrete="/r5"),
+                                          HTTPException(503, "x"))
+        await asyncio.gather(*list(main._handled_5xx_log_tasks))
+
+    with caplog.at_level(logging.WARNING):
+        asyncio.run(run())
+    assert len(started) == limit + 1
+    assert [row["url"] for row in started] == [f"/r{i}" for i in range(limit)] + ["/r5"]
+    assert main._handled_5xx_log_global_window[1] == limit + 1
+    assert caplog.text.count("handled-5xx capture saturated (in_flight)") == 1
+
+
+def test_scheduled_insert_task_is_referenced_until_done(payloads):
+    seen: list[int] = []
+
+    async def run():
+        await main.http_exception_handler(_req(), HTTPException(500, "x"))
+        seen.append(len(main._handled_5xx_log_tasks))
+        await asyncio.gather(*list(main._handled_5xx_log_tasks))
+        await asyncio.sleep(0)
+        seen.append(len(main._handled_5xx_log_tasks))
+
+    asyncio.run(run())
+    assert seen == [1, 0]
+    assert len(payloads) == 1

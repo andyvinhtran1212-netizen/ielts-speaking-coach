@@ -2,7 +2,7 @@ import logging
 import math
 import os
 import sys
-from time import perf_counter
+from time import monotonic, perf_counter
 
 # listening-fulltest-md-import hotfix — force UTF-8 stdio. Railway/Nixpacks can
 # launch Python with an ASCII locale (UTF-8 Mode OFF → sys.stdout.encoding ==
@@ -522,32 +522,73 @@ def _insert_error_log_safely(payload: dict) -> None:
 
 # PC-J92 — handled 5xx HTTPExceptions (e.g. 503 activation_unavailable) are
 # persisted too, but a broken dependency answers EVERY request with the same
-# 5xx, so rows are capped per (error_code, route template) in this process:
-# at most _HANDLED_5XX_LOG_LIMIT rows per _HANDLED_5XX_LOG_WINDOW_S window.
+# 5xx, so capture is bounded three ways. All limits are PER PROCESS (with N
+# uvicorn workers / Railway replicas the effective ceilings are N x these):
+#   * _HANDLED_5XX_LOG_LIMIT rows per (error_code, route template) per window;
+#   * _HANDLED_5XX_LOG_GLOBAL_LIMIT rows per window across all keys, because an
+#     outage 503s every route and each route template is its own key;
+#   * _HANDLED_5XX_LOG_MAX_IN_FLIGHT inserts at once. Each insert holds a
+#     default-executor worker for up to the sync client's 120 s timeout when
+#     Supabase hangs, so a saturated capture is skipped instead of queued.
+# Skipped rows are counted in _handled_5xx_log_dropped (by reason) and the
+# first global / in-flight skip of each window logs one process warning.
 _HANDLED_5XX_LOG_LIMIT = 10
+_HANDLED_5XX_LOG_GLOBAL_LIMIT = 60
 _HANDLED_5XX_LOG_WINDOW_S = 60.0
 _HANDLED_5XX_LOG_MAX_KEYS = 512
+_HANDLED_5XX_LOG_MAX_IN_FLIGHT = 4
 _handled_5xx_log_windows: dict[tuple[str, str], list] = {}
+# [window start, rows in window, saturation warning logged in window]
+_handled_5xx_log_global_window: list = [float("-inf"), 0, False]
+# Strong references: asyncio keeps only weak references to running tasks.
+_handled_5xx_log_tasks: set = set()
+_handled_5xx_log_dropped: dict[str, int] = {
+    "key_limit": 0, "key_table_full": 0, "global_limit": 0, "in_flight": 0,
+}
+# Injectable so tests move this clock without patching time.monotonic globally.
+_handled_5xx_clock = monotonic
+
+
+def _handled_5xx_log_skip(reason: str) -> bool:
+    _handled_5xx_log_dropped[reason] += 1
+    glob = _handled_5xx_log_global_window
+    if reason in ("global_limit", "in_flight") and not glob[2]:
+        glob[2] = True
+        logger.warning("[error_logs] handled-5xx capture saturated (%s); skipping "
+                       "rows for the rest of this window, dropped=%s",
+                       reason, _handled_5xx_log_dropped)
+    return False
 
 
 def _handled_5xx_log_allowed(error_code: str, path: str) -> bool:
-    """Fixed-window counter; runs on the event loop thread, so no lock."""
-    from time import monotonic
-    now = monotonic()
+    """Fixed-window counters; runs on the event loop thread, so no lock.
+
+    Checks run cheapest-to-recover first and a skipped row consumes no
+    budget: in-flight inserts, then the per-key window, then the global one.
+    """
+    now = _handled_5xx_clock()
+    glob = _handled_5xx_log_global_window
+    if now - glob[0] >= _HANDLED_5XX_LOG_WINDOW_S:
+        glob[:] = [now, 0, False]
+    if len(_handled_5xx_log_tasks) >= _HANDLED_5XX_LOG_MAX_IN_FLIGHT:
+        return _handled_5xx_log_skip("in_flight")
     key = (error_code, path)
     window = _handled_5xx_log_windows.get(key)
-    if window is None or now - window[0] >= _HANDLED_5XX_LOG_WINDOW_S:
+    fresh = window is None or now - window[0] >= _HANDLED_5XX_LOG_WINDOW_S
+    if not fresh and window[1] >= _HANDLED_5XX_LOG_LIMIT:
+        return _handled_5xx_log_skip("key_limit")
+    if glob[1] >= _HANDLED_5XX_LOG_GLOBAL_LIMIT:
+        return _handled_5xx_log_skip("global_limit")
+    if fresh:
         if len(_handled_5xx_log_windows) >= _HANDLED_5XX_LOG_MAX_KEYS:
             for stale in [k for k, (started, _) in _handled_5xx_log_windows.items()
                           if now - started >= _HANDLED_5XX_LOG_WINDOW_S]:
                 del _handled_5xx_log_windows[stale]
             if len(_handled_5xx_log_windows) >= _HANDLED_5XX_LOG_MAX_KEYS:
-                return False
-        _handled_5xx_log_windows[key] = [now, 1]
-        return True
-    if window[1] >= _HANDLED_5XX_LOG_LIMIT:
-        return False
+                return _handled_5xx_log_skip("key_table_full")
+        window = _handled_5xx_log_windows[key] = [now, 0]
     window[1] += 1
+    glob[1] += 1
     return True
 
 
@@ -742,9 +783,11 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
                         "handled":     True,
                     },
                 }
-                _asyncio.create_task(
+                task = _asyncio.create_task(
                     _asyncio.to_thread(_insert_error_log_safely, payload)
                 )
+                _handled_5xx_log_tasks.add(task)
+                task.add_done_callback(_handled_5xx_log_tasks.discard)
         except Exception as e:
             logger.error("[error_logs] handled-5xx capture skipped (req=%s): %s",
                          request_id, e.__class__.__name__)
