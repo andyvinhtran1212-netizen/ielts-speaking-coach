@@ -257,13 +257,26 @@ def catalog(name):
                            ON d.adrelid = a.attrelid AND d.adnum = a.attnum
                         WHERE attrelid = $1::regclass AND attnum > 0 AND NOT attisdropped
                         ORDER BY attnum""", rel)
-    constraints = query("""SELECT oid::int, conname, contype, convalidated, pg_get_constraintdef(oid) def
+    constraints = query("""SELECT oid::text, conname, contype, convalidated, pg_get_constraintdef(oid) def
                              FROM pg_constraint WHERE conrelid = $1::regclass ORDER BY conname""", rel)
-    indexes = query("""SELECT indexrelid::int, indexrelid::regclass::text idx, indisvalid,
+    indexes = query("""SELECT indexrelid::text, indexrelid::regclass::text idx, indisvalid,
                               pg_get_indexdef(indexrelid) def
                          FROM pg_index WHERE indrelid = $1::regclass ORDER BY 2""", rel)
-    rows = query(f"SELECT id, feedback_version, xmin::text FROM {rel} ORDER BY id")
-    return [[tuple(r) for r in part] for part in (columns, constraints, indexes, rows)]
+    rows = query(f"SELECT r.*, xmin::text FROM {rel} r ORDER BY id")
+    return [[tuple(r) for r in part] for part in (columns, constraints, indexes)] + [
+        [dict(r) for r in rows]]
+
+
+def outside_migration_scope(snapshot):
+    """Ignore only 321's column/key replacement and backfill bookkeeping."""
+    columns, constraints, indexes, rows = snapshot
+    replaced_keys = {"writing_grade_ratings_essay_id_key", COMPOSITE}
+    return (
+        [c for c in columns if c[1] != "feedback_version"],
+        [c[1:] for c in constraints if c[1] not in replaced_keys],
+        [i[1:] for i in indexes if i[1].split(".")[-1] not in replaced_keys],
+        [{k: v for k, v in r.items() if k not in {"feedback_version", "xmin"}} for r in rows],
+    )
 
 
 def hosted_access(name):
@@ -321,14 +334,16 @@ def test_second_application_leaves_columns_constraints_indexes_and_rows_untouche
                   VALUES ($1, 'gemini-2.5-pro', 4)""", rated)
     else:
         upsert(schema, rated, 2, 4)
-    before = None if start is drifted else catalog(schema)
+    before = catalog(schema)
 
     migrate(schema)
     first = catalog(schema)
     migrate(schema)
 
     assert catalog(schema) == first
-    if before is not None:
+    if start is drifted:
+        assert outside_migration_scope(first) == outside_migration_scope(before)
+    else:
         assert first == before   # 116 already had the revised shape
     _, constraints, indexes, rows = first
     assert {c[1] for c in constraints} == {
@@ -336,4 +351,4 @@ def test_second_application_leaves_columns_constraints_indexes_and_rows_untouche
         "writing_grade_ratings_rating_check", COMPOSITE}
     assert {i[1].split(".")[-1] for i in indexes} == {
         "writing_grade_ratings_pkey", "idx_writing_grade_ratings_model", COMPOSITE}
-    assert [r[1] for r in rows] == [2]
+    assert [r["feedback_version"] for r in rows] == [2]

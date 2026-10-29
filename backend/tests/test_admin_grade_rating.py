@@ -97,9 +97,9 @@ def test_rate_grade_snapshots_actual_model_and_run_version():
     assert p["analysis_level"] == 4
     assert p["rated_by"] == _ADMIN["id"]
     assert p["essay_id"] == _ESSAY_ID
-    assert [c["eq"] for c in fake.queries("writing_feedback_current", "select")] == [
+    assert [sorted(c["eq"]) for c in fake.queries("writing_feedback_current", "select")] == [
         [("essay_id", _ESSAY_ID)]]
-    assert [c["eq"] for c in fake.queries("writing_essays", "select")] == [[("id", _ESSAY_ID)]]
+    assert [sorted(c["eq"]) for c in fake.queries("writing_essays", "select")] == [[("id", _ESSAY_ID)]]
     assert [c["on_conflict"] for c in fake.queries("writing_grade_ratings", "upsert")] == [
         "essay_id,feedback_version"]
 
@@ -151,9 +151,9 @@ def test_get_grade_rating_scoped_to_current_version():
     with patch("services.essay_service.supabase_admin", fake):
         out = essay_service.get_grade_rating(_ESSAY_ID)   # resolves current version = 2
     assert out is None
-    assert [c["eq"] for c in fake.queries("writing_feedback_current", "select")] == [
+    assert [sorted(c["eq"]) for c in fake.queries("writing_feedback_current", "select")] == [
         [("essay_id", _ESSAY_ID)]]
-    assert [c["eq"] for c in fake.queries("writing_grade_ratings", "select")] == [
+    assert [sorted(c["eq"]) for c in fake.queries("writing_grade_ratings", "select")] == [
         [("essay_id", _ESSAY_ID), ("feedback_version", 2)]]
 
 
@@ -168,7 +168,7 @@ def test_get_grade_rating_returns_the_current_versions_row_and_not_a_wrong_versi
         wrong = essay_service.get_grade_rating(_ESSAY_ID, 3)
     assert current == _rating(_ESSAY_ID, 2, 3)
     assert wrong is None
-    assert [c["eq"] for c in fake.queries("writing_grade_ratings", "select")] == [
+    assert [sorted(c["eq"]) for c in fake.queries("writing_grade_ratings", "select")] == [
         [("essay_id", _ESSAY_ID), ("feedback_version", 2)],
         [("essay_id", _ESSAY_ID), ("feedback_version", 3)]]
 
