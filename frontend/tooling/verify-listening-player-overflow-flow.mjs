@@ -1,6 +1,6 @@
 // Browser-backed layout contract for the native Listening test player.
 //
-// Every Part of every fixture is rendered at 360, 390 and 1280 px. The player
+// Every Part of every fixture is rendered at 360, 390, 1024, 1280 and 1440 px. The player
 // page is `overflow: hidden`, so anything wider than the viewport is silently
 // clipped rather than scrollable. The contract therefore measures geometry,
 // not only scrollbars:
@@ -35,7 +35,12 @@ const MODES = [
   { name: 'admin preview', query: '&admin_preview=1' },
   { name: 'mock embed', query: '&mock_embed=1' },
 ];
-const VIEWPORTS = [{ width: 360, height: 740 }, { width: 390, height: 844 }, { width: 1280, height: 800 }];
+// 1024 and 1440 are the desktop widths where the pre-#1564 palette measured
+// 1522px and clipped Submit (T-GUARD, PC-J113).
+const VIEWPORTS = [
+  { width: 360, height: 740 }, { width: 390, height: 844 }, { width: 1024, height: 768 },
+  { width: 1280, height: 800 }, { width: 1440, height: 900 },
+];
 const fakeSession = JSON.stringify({
   access_token: 'listening-overflow-flow-not-a-real-token', refresh_token: 'x',
   token_type: 'bearer', expires_in: 3600,
@@ -62,6 +67,16 @@ const BUILT_IN = [
       questions: range(first, first + 9).map((q_num) => ({ q_num, prompt: `Question ${q_num} prompt` })),
     },
   }])),
+  // All 40 squares in one expanded palette group: the same ~1500px min-content
+  // row the pre-#1564 palette rendered, wider than 1024 and 1440 px. Only
+  // `grid-template-columns: minmax(0, 1fr)` and `.listening-next-palette
+  // { min-width: 0 }` keep it from widening the shell column.
+  synthetic('overflow-palette-one-part', 'Overflow fixture: 40 questions in one Part', [[{
+    id: 'q1-40', exercise_type: 'dictation', payload: {
+      template_kind: 'short_answer', instruction: 'Write NO MORE THAN TWO WORDS for each answer.',
+      questions: range(1, 40).map((q_num) => ({ q_num, prompt: `Question ${q_num} prompt` })),
+    },
+  }]]),
   synthetic('overflow-forms', 'Overflow fixture: wide form, table and notes', [
     [{ id: 'f1', exercise_type: 'dictation', payload: {
       template_kind: 'form_completion', instruction: 'Complete the form. Write ONE WORD AND/OR A NUMBER for each answer.',
