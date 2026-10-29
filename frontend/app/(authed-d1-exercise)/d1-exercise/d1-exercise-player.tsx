@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { AuthMeWire } from '@/lib/auth-api';
+import { sharedAuthMe } from '@/lib/auth/auth-me-single-flight.mjs';
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
   firstUnansweredIndex,
@@ -81,15 +82,25 @@ async function requestForAccount(
     throw new Error('Tài khoản đã thay đổi trước khi gửi yêu cầu.');
   }
   const requestId = window.crypto?.randomUUID?.() || `d1-request-${Date.now()}`;
+  const send = (token: string, signal: AbortSignal | null | undefined) => fetch(`${window.api.base}${path}`, {
+    ...init,
+    signal,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'X-Request-ID': requestId,
+      ...(init?.headers || {}),
+    },
+  });
+  // PC-J147: the profile read shares the chrome's /auth/me for the same token.
+  // The caller's signal only stops this caller waiting; the shared request
+  // keeps its own deadline so the chrome's role lookup is not cancelled.
+  const sharesAuthMe = path === '/auth/me' && (init?.method ?? 'GET') === 'GET';
   const dispatch = async (token: string) => {
-    const response = await fetch(`${window.api.base}${path}`, {
-      ...init,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'X-Request-ID': requestId,
-        ...(init?.headers || {}),
-      },
-    });
+    if (sharesAuthMe) {
+      const { ok, status, payload } = await sharedAuthMe(token, (signal) => send(token, signal), { signal: init?.signal ?? undefined });
+      return { response: { ok, status }, payload, token };
+    }
+    const response = await send(token, init?.signal);
     const text = await response.text();
     let payload: any = null;
     try { payload = text ? JSON.parse(text) : null; } catch { /* handled below */ }
