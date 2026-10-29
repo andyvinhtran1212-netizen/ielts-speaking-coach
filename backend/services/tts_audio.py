@@ -23,7 +23,7 @@ import logging
 
 from config import settings
 from database import supabase_admin
-from services import ai_usage_logger
+from services import ai_budget, ai_usage_logger
 from services.vocab_speech_text import vocabulary_speech_text
 
 logger = logging.getLogger(__name__)
@@ -51,20 +51,31 @@ _PAD_LEAD_MS = 180
 _PAD_TRAIL_MS = 320
 
 
-async def synthesize_mp3(text: str, voice: str = DEFAULT_VOICE) -> bytes:
+async def synthesize_mp3(
+    text: str,
+    voice: str = DEFAULT_VOICE,
+    *,
+    feature: str = "question_tts",
+    user_id: str | None = None,
+) -> bytes:
     """Text → mp3 bytes via OpenAI TTS. Raises RuntimeError if no key configured.
     This is the SINGLE synth path — /tts awaits it too (no behaviour change)."""
     if not settings.OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY not configured — TTS unavailable")
     safe_voice = voice if voice in OPENAI_VOICES else DEFAULT_VOICE
     import openai
-    client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY, timeout=30.0)  # Mục 12 (B4): bound a hung TTS call
-    response = await client.audio.speech.create(
-        model=_MODEL,
-        voice=safe_voice,        # type: ignore[arg-type]
-        input=text,
-        response_format="mp3",
-    )
+    # Mục 12 (B4): bound a hung TTS call. AIBUDGET-0033 FR-001: no hidden retries.
+    client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY, timeout=30.0, max_retries=0)
+    async with ai_budget.guard(
+        "openai", _MODEL, feature, ai_budget.estimate_or_none("openai", _MODEL, text_chars=text),
+        request_key=ai_budget.attempt_key(feature), operation="synthesize", user_id=user_id,
+    ):
+        response = await client.audio.speech.create(
+            model=_MODEL,
+            voice=safe_voice,        # type: ignore[arg-type]
+            input=text,
+            response_format="mp3",
+        )
     return response.content
 
 
@@ -159,7 +170,7 @@ async def get_or_create_audio(text: str, voice: str = DEFAULT_VOICE) -> tuple[st
     path = audio_path(text, voice, "openai")
     if audio_exists(path):
         return public_url(path), False
-    data = await synthesize_mp3(text, voice)
+    data = await synthesize_mp3(text, voice, feature="vocab_tts")
     data = pad_silence_mp3(data)
     upload_mp3(path, data)
     return public_url(path), True
@@ -173,21 +184,26 @@ ELEVENLABS_MODEL_DEFAULT = "eleven_multilingual_v2"
 VALID_ENGINES = ("openai", "elevenlabs")
 
 
-def _synth_openai_sync(text: str, voice: str = DEFAULT_VOICE) -> bytes:
+def _synth_openai_sync(text: str, voice: str = DEFAULT_VOICE, *, feature: str = "vocab_tts") -> bytes:
     if not settings.OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY not configured")
     import openai
-    client = openai.OpenAI(api_key=settings.OPENAI_API_KEY, timeout=30.0)  # Mục 12 (B4): bound a hung TTS call
-    resp = client.audio.speech.create(
-        model=_MODEL,
-        voice=(voice if voice in OPENAI_VOICES else DEFAULT_VOICE),  # type: ignore[arg-type]
-        input=text,
-        response_format="mp3",
-    )
+    # Mục 12 (B4): bound a hung TTS call. AIBUDGET-0033 FR-001: no hidden retries.
+    client = openai.OpenAI(api_key=settings.OPENAI_API_KEY, timeout=30.0, max_retries=0)
+    with ai_budget.guard_sync(
+        "openai", _MODEL, feature, ai_budget.estimate_or_none("openai", _MODEL, text_chars=text),
+        request_key=ai_budget.attempt_key(feature), operation="synthesize",
+    ):
+        resp = client.audio.speech.create(
+            model=_MODEL,
+            voice=(voice if voice in OPENAI_VOICES else DEFAULT_VOICE),  # type: ignore[arg-type]
+            input=text,
+            response_format="mp3",
+        )
     return resp.content
 
 
-def _synth_elevenlabs_sync(text: str) -> bytes:
+def _synth_elevenlabs_sync(text: str, *, feature: str = "vocab_tts") -> bytes:
     """ElevenLabs TTS (en-GB voice from config). Mirrors listening_renderer's REST
     call: POST /v1/text-to-speech/{voice_id} with xi-api-key → mp3 bytes."""
     if not settings.ELEVENLABS_API_KEY:
@@ -200,13 +216,18 @@ def _synth_elevenlabs_sync(text: str) -> bytes:
         "Content-Type": "application/json",
         "Accept": "audio/mpeg",
     }
+    model = settings.VOCAB_TTS_ELEVENLABS_MODEL or ELEVENLABS_MODEL_DEFAULT
     payload = {
         "text": text,
-        "model_id": settings.VOCAB_TTS_ELEVENLABS_MODEL or ELEVENLABS_MODEL_DEFAULT,
+        "model_id": model,
         "voice_settings": {"stability": 0.5, "similarity_boost": 0.5},
     }
-    resp = requests.post(url, headers=headers, json=payload, timeout=120)
-    resp.raise_for_status()
+    with ai_budget.guard_sync(
+        "elevenlabs", model, feature, ai_budget.estimate_or_none("elevenlabs", model, text_chars=text),
+        request_key=ai_budget.attempt_key(feature), operation="synthesize",
+    ):
+        resp = requests.post(url, headers=headers, json=payload, timeout=120)
+        resp.raise_for_status()
     return resp.content
 
 
@@ -286,7 +307,7 @@ def synth_sync(
 ) -> bytes:
     """Engine-dispatch (sync). engine='openai' (default) | 'elevenlabs' | 'kokoro'."""
     if engine == "elevenlabs":
-        data = _synth_elevenlabs_sync(text)
+        data = _synth_elevenlabs_sync(text, feature=feature)
         ai_usage_logger.log_tts(
             user_id=None,
             session_id=None,
@@ -300,7 +321,7 @@ def synth_sync(
         return data
     if engine == "kokoro":
         return _synth_kokoro_sync(text, voice)
-    data = _synth_openai_sync(text, voice)
+    data = _synth_openai_sync(text, voice, feature=feature)
     ai_usage_logger.log_tts(
         user_id=None,
         session_id=None,

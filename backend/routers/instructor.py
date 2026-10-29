@@ -54,7 +54,7 @@ import logging
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from database import supabase_admin
 from models.writing_give_preview import DuplicatesPreviewOut
@@ -193,14 +193,23 @@ async def delete_prompt(request: Request, prompt_id: UUID, authorization: str | 
 # ── Assignments (owner = assigned_by) ────────────────────────────────────────
 
 class FanOutBody(BaseModel):
-    prompt_ids: list[UUID]
+    # Bounds match the admin fan-out (PC-J114): an out-of-range analysis_level
+    # used to reach the DB CHECK (mig 104) and surface as a 500.
+    prompt_ids: list[UUID] = Field(..., min_length=1, max_length=20)
     cohort_id: UUID
     name: Optional[str] = Field(None, max_length=200)   # matches admin fan-out
     allow_soft_check: bool = False
     deadline: Optional[Deadline] = None
-    instructions: Optional[str] = None
-    analysis_level: int = 3
+    instructions: Optional[str] = Field(None, max_length=2000)
+    analysis_level: int = Field(3, ge=1, le=5)          # AI depth L1–L5 (mig 104)
     grading_tier: Literal["standard", "deep"] = "standard"  # AI pass depth (W-L3)
+
+    @field_validator("prompt_ids")
+    @classmethod
+    def _dedupe_prompts(cls, ids: list[UUID]) -> list[UUID]:
+        # A repeated id would insert the same prompt twice per student.
+        seen: set = set()
+        return [p for p in ids if not (p in seen or seen.add(p))]
 
 
 class AssignBody(BaseModel):

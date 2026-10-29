@@ -90,6 +90,9 @@ export function InstructorDashboard() {
   const confirmResolve = useRef<((ok: boolean) => void) | null>(null);
   const sequence = useRef(0);
   const drawerSequence = useRef(0);
+  // PC-J114: `pending` is state read from this render's closure, so two events
+  // before the next render both pass it. This ref locks synchronously.
+  const submittingRef = useRef(false);
   const accountKey = status === 'signed-in' && user?.id ? user.id : '';
   const accountRef = useRef(accountKey);
   accountRef.current = accountKey;
@@ -175,6 +178,7 @@ export function InstructorDashboard() {
     setData(EMPTY_DATA);
     setBanner(null);
     setPending(null);
+    submittingRef.current = false;
     setDrawerStudentId(null);
     setDrawerSummary(null);
     setDrawerError(null);
@@ -214,7 +218,8 @@ export function InstructorDashboard() {
   };
 
   const mutate = async (key: string, action: () => Promise<unknown>, success: string | ((result: unknown) => NonNullable<Banner>)) => {
-    if (pending) return;
+    if (pending || submittingRef.current) return;
+    submittingRef.current = true;
     const ownerId = accountRef.current;
     setPending(key);
     setBanner(null);
@@ -242,7 +247,10 @@ export function InstructorDashboard() {
       });
       return false;
     } finally {
-      if (ownerId === accountRef.current) setPending(null);
+      if (ownerId === accountRef.current) {
+        setPending(null);
+        submittingRef.current = false;
+      }
     }
   };
 
@@ -312,6 +320,20 @@ export function InstructorDashboard() {
     // W-06: re-giving is allowed (ALLOW + WARN) but must be a deliberate choice.
     const confirmRegive = async (existing: unknown) => !existing || askConfirm(duplicateGiveConfirmMessage(existing, promptTitle, target as 'cohort' | 'student'));
     const resetOnSuccess = (ok: boolean | undefined) => { if (ok) { form.reset(); setAssignmentTarget('cohort'); } };
+    // The lock spans the confirm steps too; it is handed to mutate() in the same
+    // tick, so a second submit can never slip in between.
+    const submitGive = async (confirm: () => Promise<boolean>, send: () => Promise<boolean | undefined>) => {
+      if (submittingRef.current) return false;
+      submittingRef.current = true;
+      const ownerId = accountRef.current;
+      let proceed = false;
+      try {
+        proceed = await confirm();
+      } finally {
+        if (ownerId === accountRef.current) submittingRef.current = false;
+      }
+      return proceed ? send() : false;
+    };
     if (target === 'cohort') {
       const cohortId = String(values.get('cohort_id') || '');
       if (!cohortId) return missing('cohort_id', 'Chưa chọn lớp.');
@@ -319,14 +341,14 @@ export function InstructorDashboard() {
       const body: Record<string, unknown> = { prompt_ids: [promptId], cohort_id: cohortId, analysis_level: analysisLevel, grading_tier: gradingTier };
       if (deadline) body.deadline = deadline;
       if (name) body.name = name;
-      void (async () => {
+      void submitGive(async () => {
         if (!(await confirmRegive(sameClassGive))) return false;
         // BL-18: members may hold the prompt from another give (individual, other
         // class, admin). Ask with the same overlap the result banner reports,
         // unless the re-give of this class was just confirmed above.
         if (!sameClassGive && !(await confirmCohortOverlap(promptId, cohortId, promptTitle))) return false;
-        return mutate('assignment', () => window.api.post(requestPath('/instructor/assignments/fan-out'), body), fanOutResultBanner);
-      })().then(resetOnSuccess);
+        return true;
+      }, () => mutate('assignment', () => window.api.post(requestPath('/instructor/assignments/fan-out'), body), fanOutResultBanner)).then(resetOnSuccess);
       return;
     }
     const studentId = String(values.get('student_id') || '');
@@ -335,10 +357,10 @@ export function InstructorDashboard() {
     const body: Record<string, unknown> = { prompt_id: promptId, student_id: studentId, analysis_level: analysisLevel, grading_tier: gradingTier };
     if (deadline) body.deadline = deadline;
     if (name) body.name = name;
-    void (async () => {
+    void submitGive(async () => {
       if (!(await confirmRegive(existingGive))) return false;
-      return mutate('assignment', () => window.api.post(requestPath('/instructor/assignments'), body), ASSIGNMENT_COPY.studentSuccess);
-    })().then(resetOnSuccess);
+      return true;
+    }, () => mutate('assignment', () => window.api.post(requestPath('/instructor/assignments'), body), ASSIGNMENT_COPY.studentSuccess)).then(resetOnSuccess);
   };
 
   const confirmCohortOverlap = async (promptId: string, cohortId: string, promptTitle: string) => {
