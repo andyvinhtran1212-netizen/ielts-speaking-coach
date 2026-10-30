@@ -113,13 +113,27 @@ export function CourseBehavior() {
         }
         setSaveState('error', opts.badge || 'Không thể kết nối để lưu');
       };
+      // Link đặt NGAY SAU `#cx-error`, không nằm trong nó: vùng báo lỗi chỉ chứa
+      // câu báo lỗi, trình đọc màn hình không đọc lẫn chữ của nút (PC-J323).
       const appendBackToClass = () => {
         const back = document.createElement('a');
-        back.className = 'av-button av-button-primary';
+        back.className = 'av-button av-button-primary cx-error-action';
         back.href = '/my-class';
         back.textContent = 'Về Lớp học';
-        $('cx-error')?.appendChild(back);
+        $('cx-error')?.insertAdjacentElement('afterend', back);
       };
+      const appendRetry = () => {
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'av-button av-button-primary';
+        retry.textContent = 'Thử tải lại tiến độ';
+        retry.onclick = () => window.location.reload();
+        $('cx-error')?.appendChild(retry);
+      };
+      // Bộ nhớ trình duyệt bị chặn/hỏng không phải lỗi mạng (PC-J315/J323).
+      const STORAGE_BADGE = 'Không lưu được trên trình duyệt này';
+      const STORAGE_MESSAGE = 'Không lưu được trên trình duyệt này. '
+        + 'Hãy tắt chế độ ẩn danh hoặc thử trình duyệt khác.';
 
       if (!api) return fail('Không tải được thành phần kết nối. Hãy tải lại trang.');
       const courseApi = api;
@@ -133,9 +147,21 @@ export function CourseBehavior() {
         return;
       }
 
+      // Chính getter `window.localStorage` có thể ném SecurityError (chặn dữ
+      // liệu trang, một số chế độ ẩn danh). Ném ở đây mà không bắt thì trang
+      // kẹt mãi ở "Đang mở bài tập…" (PC-J323).
+      let storage: Storage;
+      try {
+        storage = window.localStorage;
+      } catch {
+        fail(STORAGE_MESSAGE, { badge: STORAGE_BADGE });
+        appendRetry();
+        return;
+      }
+
       runner = createRunner({
         api: courseApi,
-        storage: window.localStorage,
+        storage,
         userId: user.id,
         onSuperseded() {
           setSaveState('saving', 'Lượt làm đã đổi · đang tải tiến độ mới nhất…');
@@ -156,19 +182,15 @@ export function CourseBehavior() {
           return;
         }
         // `api.js` gắn `.status` khi máy chủ ĐÃ trả lời; 4xx (không có bài,
-        // không có quyền…) là từ chối, không phải mất kết nối.
+        // không có quyền…) là từ chối, không phải mất kết nối. 408 (hết giờ chờ)
+        // và 429 (gửi quá nhanh) là lỗi tạm thời: thử lại được, giữ huy hiệu.
         const status = Number(err?.status);
+        const refused = status >= 400 && status < 500 && status !== 408 && status !== 429;
         fail('Không mở được bài tập: ' + (err?.message || err), {
-          connection: !(status >= 400 && status < 500),
-          badge: err?.code === 'storage_unavailable'
-            ? 'Không lưu được trên trình duyệt này' : undefined,
+          connection: !refused,
+          badge: err?.code === 'storage_unavailable' ? STORAGE_BADGE : undefined,
         });
-        const retry = document.createElement('button');
-        retry.type = 'button';
-        retry.className = 'av-button av-button-primary';
-        retry.textContent = 'Thử tải lại tiến độ';
-        retry.onclick = () => window.location.reload();
-        $('cx-error')?.appendChild(retry);
+        appendRetry();
         return;
       }
       if (disposed) return;
@@ -220,12 +242,12 @@ export function CourseBehavior() {
       const sectionAssignmentItem = requestedItem || runner.mastery?.item_id || null;
 
       const reading = RD.createReading({
-        api: courseApi, storage: window.localStorage, userId: user.id,
+        api: courseApi, storage, userId: user.id,
         assignmentItemId: sectionAssignmentItem,
       });
       reading.load(runner.bank);
       const listening = LD.createListening({
-        api: courseApi, storage: window.localStorage, userId: user.id,
+        api: courseApi, storage, userId: user.id,
         assignmentItemId: sectionAssignmentItem,
       });
       listening.load(runner.bank);
@@ -248,7 +270,7 @@ export function CourseBehavior() {
       // khi học viên đã đi hết các chặng, còn một lỗi ở đây không được làm cả
       // bài tập không mở được.
       const writing = CW.createWriting({
-        api: courseApi, storage: window.localStorage,
+        api: courseApi, storage,
         // localStorage là bộ nhớ CHUNG của trình duyệt: hai học viên dùng chung
         // một máy mà khoá nháp chỉ theo bank sẽ mở ra bài của nhau.
         userId: user.id,
@@ -369,7 +391,9 @@ export function CourseBehavior() {
         const q = runner.current();
         let res;
         try { res = runner.answer(picked); } catch (err: any) {
-          setSaveState('error', err?.message || 'Chưa lưu được đáp án. Hãy chọn lại.');
+          setSaveState('error', err?.code === 'storage_unavailable'
+            ? STORAGE_MESSAGE
+            : err?.message || 'Chưa lưu được đáp án. Hãy chọn lại.');
           return;
         }
         if (!res) return;

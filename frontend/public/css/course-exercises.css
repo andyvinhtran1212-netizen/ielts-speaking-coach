@@ -1023,6 +1023,13 @@
 .cx-stage[hidden],
 .cx-save-note[hidden] { display: none; }
 
+/* "Về Lớp học" nằm ngay dưới #cx-error, không trong vùng báo lỗi (PC-J323). */
+.cx-error-action {
+  display: flex;
+  width: fit-content;
+  margin: var(--av-space-4) auto 0;
+}
+
 .cx-stage__label { line-height: var(--av-lh-snug); }
 .cx-stage__ticks i { height: 10px; }
 .cx-stage__ticks i[data-s='now'] { transform: scaleY(1.35); }
