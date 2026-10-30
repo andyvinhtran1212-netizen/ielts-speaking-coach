@@ -36,7 +36,7 @@ import google.generativeai as genai
 # domain boundary (retryable vs non-retryable per L2/L3).
 from google.api_core import exceptions as google_exceptions
 
-from services import ai_budget, ai_usage_logger
+from services import ai_usage_logger
 from services.gemini_compat import generation_config_kwargs
 
 from .base import AbstractGradingProvider, CallTelemetry
@@ -90,7 +90,6 @@ class GeminiProvider(AbstractGradingProvider):
         usage_operation: str = "grade_response",
     ):
         self.model_name = model_name
-        self._max_output_tokens = max_output_tokens
         self._usage_feature = usage_feature
         self._usage_operation = usage_operation
         if model is not None:
@@ -132,24 +131,10 @@ class GeminiProvider(AbstractGradingProvider):
         )
 
         call = CallTelemetry.start(self._usage_feature, self.provider_name)
-        # AIBUDGET-0033 FR-001: every rung and every retry reserves its own line.
-        estimate = ai_budget.estimate_or_none(
-            "google", self.model_name, input_text=prompt, max_tokens=self._max_output_tokens,
-        )
         try:
-            async with ai_budget.guard(
-                "google", self.model_name, self._usage_feature, estimate,
-                request_key=ai_budget.attempt_key(self._usage_feature),
-                operation=self._usage_operation, user_id=user_id,
-                resource_type="session" if session_id else None, resource_id=session_id,
-            ) as lease:
-                response = await self._model.generate_content_async(
-                    prompt, request_options=ai_budget.gemini_request_options(_SDK_TIMEOUT_SECONDS),
-                )
-                lease.settle(ai_budget.gemini_actual_usd(self.model_name, response))
-        except (ai_budget.AIBudgetRefused, ai_budget.AIBudgetReplay):
-            # FR-008: ends the orchestrator chain (no retry, no next rung).
-            raise
+            response = await self._model.generate_content_async(
+                prompt, request_options={"timeout": _SDK_TIMEOUT_SECONDS},
+            )
         except asyncio.CancelledError:
             await self._log_failure(
                 call, user_id=user_id, session_id=session_id, error_code="cancelled",
