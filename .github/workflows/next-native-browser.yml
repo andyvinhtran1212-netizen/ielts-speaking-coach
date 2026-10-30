@@ -653,6 +653,7 @@ on:
       - 'frontend/public/pages/listening-dictation.html'
       - 'frontend/public/js/listening-dictation.js'
       - 'frontend/public/js/components/audio-player.js'
+      - 'frontend/public/js/components/media-segment-stop.js'
       - 'frontend/public/js/feedback-widgets.js'
       - 'frontend/public/css/feedback.css'
       - 'frontend/app/(authed-listening-player)/**'
