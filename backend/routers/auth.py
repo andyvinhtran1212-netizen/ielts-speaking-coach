@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import re
@@ -548,7 +549,7 @@ def _audit_class_activation_rejected(
 
 
 def _restore_class_activation_snapshot(
-    user_id: str, snapshot: dict, written: dict, request_id: str,
+    user_id: str, snapshot: dict, written: dict, request_id: str, *, log_failure: bool = True,
 ) -> tuple[bool, list[str]]:
     """Undo this request's Step 3 write; one retry, never claim on failure.
 
@@ -556,14 +557,23 @@ def _restore_class_activation_snapshot(
     hold the value Step 3 wrote: a concurrent admin change (e.g. is_active=false
     or stripped permissions) wins over the snapshot. Nothing is restored once the
     row carries another code: a newer activation of the same user owns it
-    (Codex r4422345951). Returns (ok, fields that may still hold this request's
-    values when not ok).
+    (Codex r4422345951). A snapshot that is another request's provisional
+    activation (an active row with a code this user does not own) is never
+    restored: the target is then the inactive, code-less state (PC-J420).
+    Returns (ok, fields that may still hold this request's values when not ok).
     """
     changed = {key: snapshot.get(key) for key, value in written.items()
                if value != snapshot.get(key)}
     own_code = written["access_code_used"]
+    snapshot_code = snapshot.get("access_code_used")
+    check_snapshot = bool(snapshot.get("is_active") and snapshot_code and snapshot_code != own_code)
     for attempt in range(2):
         try:
+            if check_snapshot and not _activation_code_committed(user_id, snapshot_code):
+                inactive = {"is_active": False, "access_code_used": None, "permissions": None}
+                changed = {key: inactive[key] for key, value in written.items()
+                           if value != inactive[key]}
+            check_snapshot = False
             if not changed:
                 return True, []
             rows = (supabase_admin.table("users")
@@ -591,9 +601,30 @@ def _restore_class_activation_snapshot(
         except Exception as e:
             logger.warning("[auth] activation compensation attempt=%s request_id=%s user=%s: %s",
                            attempt + 1, request_id, user_id, _exc_tag(e))
-    logger.critical("[auth] cohort-archive activation revert FAILED request_id=%s user=%s (activation_incomplete)",
-                    request_id, user_id)
+    if log_failure:
+        logger.critical("[auth] cohort-archive activation revert FAILED request_id=%s user=%s (activation_incomplete)",
+                        request_id, user_id)
     return False, sorted(changed)
+
+
+def _activation_code_committed(user_id: str, code: str) -> bool:
+    """Whether an account state carrying `code` is committed, not in flight (PC-J420).
+
+    Step 3 writes the code before Step 4 claims it, so another request's
+    provisional activation looks like an active account. It is committed only
+    when the user owns the code (access_codes.used_by) or was granted it (any
+    user_code_assignments row, also an inactive one after a remove-user). A
+    code row that no longer exists cannot be in flight (legacy hard delete).
+    """
+    rows = (supabase_admin.table("access_codes").select("id, used_by")
+            .eq("code", code).limit(1).execute().data or [])
+    if not rows:
+        return True
+    if rows[0].get("used_by") is not None and str(rows[0]["used_by"]) == str(user_id):
+        return True
+    grants = (supabase_admin.table("user_code_assignments").select("code_id")
+              .eq("user_id", user_id).eq("code_id", rows[0]["id"]).limit(1).execute().data or [])
+    return bool(grants)
 
 
 def _promote_after_claim(user_id: str, before_role: str | None,
@@ -769,8 +800,10 @@ async def activate_account(
     code_cohort = None
     if code_cohort_id:
         try:
-            cohorts = (supabase_admin.table("cohorts").select("*")
-                       .eq("id", str(code_cohort_id)).limit(1).execute().data or [])
+            cohorts = (await asyncio.to_thread(
+                lambda: supabase_admin.table("cohorts").select("*")
+                .eq("id", str(code_cohort_id)).limit(1).execute()
+            )).data or []
             code_cohort = cohorts[0] if cohorts else None
         except Exception as e:
             raise _activation_error(e, status_code=503, message=unused_message,
@@ -778,7 +811,8 @@ async def activate_account(
         if code_cohort and code_cohort.get("is_active") is False and code_cohort.get("archived_at"):
             logger.info("[auth] activation rejected: cohort_archived request_id=%s user=%s cohort=%s",
                         request_id, user_id, code_cohort_id)
-            _audit_class_activation_rejected(
+            await asyncio.to_thread(
+                _audit_class_activation_rejected,
                 user_id, access_code_row.get("id"), code_cohort_id, request_id=request_id,
             )
             raise HTTPException(400, _GENERIC)
@@ -818,9 +852,11 @@ async def activate_account(
                 "is_active": False,
             }).execute()
             # Capture actual database defaults for a newly created account too.
-            existing = (supabase_admin.table("users")
-                        .select("id, role, is_active, access_code_used, permissions")
-                        .eq("id", user_id).limit(1).execute())
+            existing = await asyncio.to_thread(
+                lambda: supabase_admin.table("users")
+                .select("id, role, is_active, access_code_used, permissions")
+                .eq("id", user_id).limit(1).execute()
+            )
         user_before = existing.data[0]
     except Exception as e:
         raise _activation_error(e, context="activation user snapshot", ref=request_id) from None
@@ -836,8 +872,29 @@ async def activate_account(
     # Pair the write with its rollback snapshot. If another activation lands
     # after Step 2, refresh the snapshot and retry once; never undo its success
     # using the older inactive state (Codex r4422565648).
+    #
+    # PC-J420: write only over a committed snapshot. An active snapshot whose
+    # code this user does not own is another request's provisional Step 3 (still
+    # before its claim, or already rejected/lost and not yet compensated).
+    # Writing over it would make that provisional state this request's rollback
+    # target, so two failing activations could leave the account active without
+    # a code. Refuse like a twice-changed snapshot; the code stays unused.
     for attempt in range(2):
         activation_snapshot = {key: user_before.get(key) for key in update_fields}
+        snapshot_committed = True
+        snapshot_code = user_before.get("access_code_used")
+        if user_before.get("is_active") and snapshot_code:
+            try:
+                snapshot_committed = await asyncio.to_thread(
+                    _activation_code_committed, user_id, snapshot_code)
+            except Exception as e:
+                raise _activation_error(e, status_code=503, message=unused_message,
+                                        context="activation snapshot ownership", ref=request_id) from None
+            # Same code: a duplicate submit of this activation, not a rival one.
+            if not snapshot_committed and snapshot_code != code:
+                raise safe_error(status_code=503, error_code="activation_conflict", ref=request_id,
+                                 message=unused_message,
+                                 context="activation snapshot holds another request's code")
         try:
             query = supabase_admin.table("users").update(update_fields).eq("id", user_id)
             for key, value in activation_snapshot.items():
@@ -845,7 +902,7 @@ async def activate_account(
                     query = query.is_(key, "null")
                 else:
                     query = query.eq(key, json.dumps(value) if key == "permissions" else value)
-            if query.execute().data:
+            if (await asyncio.to_thread(lambda: query.execute())).data:
                 break
         except Exception as e:
             if staff_security.is_account_suspended_error(e):
@@ -855,9 +912,11 @@ async def activate_account(
             raise safe_error(status_code=503, error_code="activation_conflict", ref=request_id,
                              message=unused_message, context="activation snapshot changed twice")
         try:
-            fresh = (supabase_admin.table("users")
-                     .select("id, role, is_active, access_code_used, permissions")
-                     .eq("id", user_id).limit(1).execute().data or [])
+            fresh = (await asyncio.to_thread(
+                lambda: supabase_admin.table("users")
+                .select("id, role, is_active, access_code_used, permissions")
+                .eq("id", user_id).limit(1).execute()
+            )).data or []
             if not fresh:
                 raise RuntimeError("activation snapshot found no user")
             user_before = fresh[0]
@@ -866,7 +925,8 @@ async def activate_account(
                                     context="activation snapshot refresh", ref=request_id) from None
 
     # Both rollback paths must use the snapshot matched by the successful write.
-    was_already_active = bool(user_before.get("is_active"))
+    # An uncommitted snapshot here can only be a duplicate submit of this code.
+    was_already_active = bool(user_before.get("is_active")) and snapshot_committed
     current_role = user_before.get("role") or "user"
     # W-2 — the role promote is NOT part of this write (SA-REVIEW-152): it runs
     # only after Step 4 wins the claim, so every pre-claim failure (Step 3b
@@ -1026,10 +1086,12 @@ async def activate_account(
         if is_cohort_archived_error(e):
             logger.warning("[auth] activation race: cohort_archived request_id=%s user=%s cohort=%s",
                            request_id, user_id, code_cohort_id)
-            restored, unrestored = _restore_class_activation_snapshot(
+            restored, unrestored = await asyncio.to_thread(
+                _restore_class_activation_snapshot,
                 user_id, activation_snapshot, update_fields, request_id,
             )
-            _audit_class_activation_rejected(
+            await asyncio.to_thread(
+                _audit_class_activation_rejected,
                 user_id, access_code_row.get("id"), code_cohort_id, request_id=request_id,
                 race=True, compensation_failed=not restored, unrestored_fields=unrestored,
             )
@@ -1110,6 +1172,17 @@ async def activate_account(
                     "[auth] race rollback of is_active FAILED for user=%s (critical): %s",
                     user_id, _exc_tag(e),
                 )
+        # PC-J420: also put back the code and permissions Step 3 wrote (and
+        # is_active if the write above failed), field by field under the same
+        # ownership CAS, so the row never keeps a code this user lost, nor its
+        # permissions; a newer activation or an admin change still wins.
+        restored, unrestored = await asyncio.to_thread(
+            _restore_class_activation_snapshot,
+            user_id, activation_snapshot, update_fields, request_id, log_failure=False,
+        )
+        if not restored:
+            logger.error("[auth] race rollback of activation fields FAILED request_id=%s user=%s "
+                         "fields=%s (critical)", request_id, user_id, ",".join(unrestored))
         if enroll_inserted_id:
             try:
                 supabase_admin.table("students").delete().eq("id", enroll_inserted_id).execute()
@@ -1151,8 +1224,8 @@ async def activate_account(
     # reported after Steps 5–6 (the code stays this user's), never silently.
     promote_failure: str | None = None
     if will_promote:
-        final_role, promote_failure, promote_noop = _promote_after_claim(
-            user_id, user_before.get("role"), request_id,
+        final_role, promote_failure, promote_noop = await asyncio.to_thread(
+            _promote_after_claim, user_id, user_before.get("role"), request_id,
         )
         if promote_failure is None:
             _audit_promote_attempt(user_id, access_code_row.get("id"), ok=True,
@@ -1162,9 +1235,11 @@ async def activate_account(
             logger.critical("[auth] instructor promote FAILED after claim request_id=%s user=%s "
                             "code_id=%s reason=%s", request_id, user_id,
                             access_code_row.get("id"), promote_failure)
-            _audit_promote_failed(user_id, access_code_row.get("id"),
-                                  before_role=user_before.get("role"), final_role=final_role,
-                                  reason=promote_failure, request_id=request_id)
+            await asyncio.to_thread(
+                _audit_promote_failed, user_id, access_code_row.get("id"),
+                before_role=user_before.get("role"), final_role=final_role,
+                reason=promote_failure, request_id=request_id,
+            )
 
     # ── Step 5: upsert assignment row so admin panel can show the redeemer ───
     try:

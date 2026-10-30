@@ -8,6 +8,7 @@ PostgreSQL cases below exercise the real 227 → 337 enrollment trigger chain.
 from copy import deepcopy
 import json
 import logging
+import threading
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -932,6 +933,245 @@ def test_unclaimed_rollback_keeps_a_newer_successful_activation(world, monkeypat
     assert response.status_code == (503 if outcome == "indeterminate" else 400), response.text
     user = db.tables["users"][0]
     assert {key: user[key] for key in OTHER_ACTIVATION} == OTHER_ACTIVATION
+
+
+# ── PC-J420: two overlapping activations of one user with two different codes ─
+
+PAIR_FIELDS = ("is_active", "access_code_used", "permissions")
+
+
+def overlap_activations(monkeypatch, query_class, app, requests, fail):
+    """Run request A, then B on A's provisional row, in the worst-case order.
+
+    requests = {"A"|"B": (code, code_id, "archive"|"lost")}. A's Step 3 lands
+    first and only then does B start. A reaches its failure point (class-code
+    enrollment write, or the claim) only after B's Step 3 or after B returned;
+    B reaches its own only after A has finished, compensation included. That is
+    the order of Codex r4423531637 (A's undo skipped, B restores A's state).
+    `fail(request, query)` makes the failure real right before that write.
+    """
+    a_written, b_written, a_done = threading.Event(), threading.Event(), threading.Event()
+    by_code = {code: name for name, (code, _, _) in requests.items()}
+    by_id = {code_id: name for name, (_, code_id, _) in requests.items()}
+    original = query_class.execute
+
+    def failure_point(query):
+        values = query.values or {}
+        if query.name == "students" and query.op != "select" and values.get("student_code") in by_code:
+            name = by_code[values["student_code"]]
+        elif query.name == "access_codes" and query.op == "update" and query.filters.get("id") in by_id:
+            name = by_id[query.filters["id"]]
+        else:
+            return None
+        kind = requests[name][2]
+        return name if (kind == "archive") == (query.name == "students") else None
+
+    def execute(query):
+        name = failure_point(query)
+        if name:
+            assert (b_written if name == "A" else a_done).wait(20), f"{name} waited too long"
+            fail(requests[name], query)
+        result = original(query)
+        values = query.values or {}
+        if query.name == "users" and query.op == "update" and values.get("is_active") is True and result.data:
+            {"A": a_written, "B": b_written}.get(by_code.get(values.get("access_code_used")),
+                                                 threading.Event()).set()
+        return result
+
+    monkeypatch.setattr(query_class, "execute", execute)
+    responses = {}
+
+    def run(name):
+        try:
+            with TestClient(app) as client:
+                responses[name] = activate(client, requests[name][0])
+        finally:
+            (a_done if name == "A" else b_written).set()
+
+    first = threading.Thread(target=run, args=("A",))
+    first.start()
+    assert a_written.wait(20), "A never wrote Step 3"
+    second = threading.Thread(target=run, args=("B",))
+    second.start()
+    first.join(60)
+    second.join(60)
+    return responses["A"], responses["B"]
+
+
+def assert_pair_left_no_orphan_activation(user, codes, user_id, before):
+    owned = [c for c in codes if c["used_by"] is not None and str(c["used_by"]) == str(user_id)]
+    assert not owned, "both activations failed, so neither code may be the user's"
+    assert not [c for c in codes if c["is_used"] and c["used_by"] is None], "used code without owner"
+    assert user["access_code_used"] not in {c["code"] for c in codes}, "row keeps a rejected code"
+    assert {key: user[key] for key in PAIR_FIELDS} == before, "account not back at its committed state"
+
+
+@pytest.mark.parametrize("start_active", [False, True])
+@pytest.mark.parametrize("kind_a, kind_b", [
+    ("archive", "archive"), ("lost", "lost"), ("archive", "lost"), ("lost", "archive"),
+])
+def test_overlapping_failed_activations_never_leave_a_provisional_state(
+        world, monkeypatch, kind_a, kind_b, start_active):
+    """PC-J420 (Codex r4423531637 + CR lost/lost): B never builds on A's
+    uncommitted Step 3, so the account ends at its committed state."""
+    db, client = world
+    db.tables["users"][0].update(is_active=start_active)
+    before = {key: db.tables["users"][0][key] for key in PAIR_FIELDS}
+    db.tables["cohorts"].append({"id": "class-2", "is_active": True, "archived_at": None, "created_by": None})
+    requests = {"A": ("PAIRA", "code-a", kind_a), "B": ("PAIRB", "code-b", kind_b)}
+    db.tables["access_codes"] = [
+        {"id": code_id, "code": code, "is_used": False, "used_by": None, "used_at": None,
+         "cohort_id": ("class-1" if name == "A" else "class-2") if kind == "archive" else None,
+         "permissions": [f"perm-{name}"]}
+        for name, (code, code_id, kind) in requests.items()
+    ]
+    db.archive_race = "archive" in (kind_a, kind_b)
+
+    def fail(request, _query):
+        if request[2] == "lost":
+            row = next(c for c in db.tables["access_codes"] if c["id"] == request[1])
+            row.update(is_used=True, used_by="learner-2", used_at="2026-10-30T00:00:00Z")
+
+    response_a, response_b = overlap_activations(monkeypatch, Query, client.app, requests, fail)
+    assert_pair_left_no_orphan_activation(db.tables["users"][0], db.tables["access_codes"], USER, before)
+    assert response_a.status_code == 400, response_a.text
+    assert response_b.status_code == 503, response_b.text
+    assert response_b.json()["detail"]["error_code"] == "activation_conflict"
+    assert "Mã CHƯA được sử dụng" in response_b.json()["detail"]["message"]
+    assert not db.tables["students"]
+    assert not db.tables.get("user_code_assignments")
+
+
+@pytest.mark.parametrize("owner", [None, "learner-2", USER, "assigned"])
+def test_compensation_never_restores_another_requests_provisional_snapshot(world, owner):
+    """Codex r4423531637 at helper level: A's undo was skipped (the row carries
+    B's code) and B's snapshot is A's Step 3. B restores it only when A's code
+    is this user's (claimed, or granted); otherwise the account ends inactive."""
+    db, _ = world
+    user = db.tables["users"][0]
+    user.update(is_active=False, access_code_used=None, permissions=None)
+    s0 = {key: user[key] for key in PAIR_FIELDS}
+    db.tables["access_codes"] = [
+        {"id": "code-a", "code": "PAIRA", "is_used": owner is not None and owner != "assigned",
+         "used_by": None if owner == "assigned" else owner, "used_at": None},
+        {"id": "code-b", "code": "PAIRB", "is_used": False, "used_by": None, "used_at": None},
+    ]
+    if owner == "assigned":
+        db.tables["user_code_assignments"] = [{"user_id": USER, "code_id": "code-a", "is_active": False}]
+    a_written = {"is_active": True, "access_code_used": "PAIRA", "permissions": ["practice_single"]}
+    b_written = {"is_active": True, "access_code_used": "PAIRB", "permissions": ["practice_full"]}
+    user.update(b_written)
+    assert auth._restore_class_activation_snapshot(USER, dict(s0), dict(a_written), "req-a") == (True, [])
+    assert auth._restore_class_activation_snapshot(USER, dict(a_written), dict(b_written), "req-b") == (True, [])
+    committed = owner in (USER, "assigned")
+    assert {key: user[key] for key in PAIR_FIELDS} == (a_written if committed else s0)
+
+
+@pytest.mark.parametrize("outcome", ["lost", "indeterminate"])
+def test_lost_claim_of_an_active_account_restores_its_code_and_permissions(world, monkeypatch, outcome):
+    """CR lost/lost: an already-active learner who loses the claim keeps
+    neither the lost code nor its permissions; is_active is not touched."""
+    db, client = world
+    db.tables["users"][0].update(is_active=True)
+    before = {key: db.tables["users"][0][key] for key in PAIR_FIELDS}
+
+    def claim_fails(query):
+        if query.name == "access_codes" and query.op == "update":
+            if outcome == "indeterminate":
+                raise RuntimeError(DB_TEXT)
+            db.tables["access_codes"][0].update(is_used=True, used_by="learner-2")
+
+    writes = record_writes(monkeypatch, claim_fails)
+    response = activate(client)
+    assert response.status_code == (503 if outcome == "indeterminate" else 400), response.text
+    assert {key: db.tables["users"][0][key] for key in PAIR_FIELDS} == before
+    reverts = [w[2] for w in writes if w[0] == "users" and w[2].get("is_active") is not True]
+    assert reverts == [{"access_code_used": "PREVIOUS", "permissions": ["writing"]}]
+
+
+def test_duplicate_submit_of_the_same_code_is_not_a_rival_activation(world, monkeypatch):
+    """The ownership gate refuses only another code: a second submit of the
+    same code over the first one's Step 3 still claims normally."""
+    db, client = world
+    db.tables["users"][0].update(is_active=True, access_code_used=CODE, permissions=["practice_single"])
+    response = activate(client)
+    assert response.status_code == 200, response.text
+    assert db.tables["access_codes"][0]["used_by"] == USER
+
+
+def test_snapshot_ownership_lookup_failure_is_503_before_any_write(world, monkeypatch, caplog):
+    db, client = world
+    db.tables["users"][0].update(is_active=True, access_code_used="PAIRA")
+    db.tables["access_codes"].append({"id": "code-a", "code": "PAIRA", "is_used": False, "used_by": None})
+    original = Query.execute
+
+    def ownership_unavailable(query):
+        if query.name == "user_code_assignments" and query.op == "select":
+            raise RuntimeError(DB_TEXT)
+        return original(query)
+
+    monkeypatch.setattr(Query, "execute", ownership_unavailable)
+    response = activate(client)
+    assert response.status_code == 503, response.text
+    assert "Mã CHƯA được sử dụng" in response.text
+    assert DB_TEXT not in response.text and DB_TEXT not in caplog.text
+    assert all(op == "select" for table, op in db.calls)
+    assert_unused(db)
+
+
+def test_real_pg_overlapping_failed_activations(world, pg_activation, monkeypatch):
+    """PC-J420 on real PostgreSQL: every statement commits on its own, as over
+    PostgREST. Pairs run inside one test so the module fixture builds once."""
+    import test_migration_337_class_archive as m337
+    from test_migration_240_core_attempt_evidence import psql
+
+    _, client = world
+    schema, admin, _ = pg_activation
+    psql(f"""CREATE TABLE IF NOT EXISTS {schema}.user_code_assignments (
+        user_id uuid NOT NULL, code_id uuid NOT NULL, assigned_at timestamptz,
+        is_active boolean NOT NULL DEFAULT true, PRIMARY KEY (user_id, code_id))""")
+    original = PgQuery.execute
+    for kind_a, kind_b in [("archive", "archive"), ("lost", "lost"), ("archive", "lost")]:
+        monkeypatch.setattr(PgQuery, "execute", original)
+        uid = str(uuid4())
+        db = Database()
+        db.schema, db.after_activate = schema, None
+        db.table = lambda name, db=db: PgQuery(db, name)
+        monkeypatch.setattr(auth, "supabase_admin", db)
+        monkeypatch.setattr(auth, "get_supabase_user", AsyncMock(return_value={
+            "id": uid, "email": "learner@example.test", "user_metadata": {},
+        }))
+        db.table("users").insert({"id": uid, "is_active": False}).execute()
+        requests, classes = {}, {}
+        for name, kind in (("A", kind_a), ("B", kind_b)):
+            code_id = str(uuid4())
+            classes[code_id] = m337._new_class(schema) if kind == "archive" else None
+            requests[name] = (f"PAIR{name}" + uid[:8].upper(), code_id, kind)
+            db.table("access_codes").insert({"id": code_id, "code": requests[name][0],
+                                             "cohort_id": classes[code_id],
+                                             "permissions": [f"perm-{name}"]}).execute()
+        before = {key: value for key, value in
+                  db.table("users").select("*").eq("id", uid).execute().data[0].items()
+                  if key in PAIR_FIELDS}
+
+        def fail(request, _query):
+            if request[2] == "archive":
+                m337._archive_class(schema, classes[request[1]], admin)
+            else:
+                psql(f"UPDATE {schema}.access_codes SET is_used = true, used_by = '{uuid4()}', "
+                     f"used_at = now() WHERE id = '{request[1]}'")
+
+        response_a, response_b = overlap_activations(monkeypatch, PgQuery, client.app, requests, fail)
+        monkeypatch.setattr(PgQuery, "execute", original)
+        pair = f"{kind_a}/{kind_b}"
+        user = db.table("users").select("*").eq("id", uid).execute().data[0]
+        codes = [db.table("access_codes").select("*").eq("id", code_id).execute().data[0]
+                 for _, code_id, _ in requests.values()]
+        assert_pair_left_no_orphan_activation(user, codes, uid, before)
+        assert response_a.status_code == 400, (pair, response_a.text)
+        assert response_b.status_code == 503, (pair, response_b.text)
+        assert response_b.json()["detail"]["error_code"] == "activation_conflict", pair
+        assert not db.table("students").select("*").eq("user_id", uid).execute().data, pair
 
 
 def test_student_code_conflict_log_has_code_id_not_code(world, caplog):
