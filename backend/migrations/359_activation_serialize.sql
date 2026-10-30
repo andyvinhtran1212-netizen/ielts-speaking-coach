@@ -43,7 +43,7 @@ BEGIN
     -- Everything in this subtransaction, including trigger writes, rolls back
     -- before its EXCEPTION handler returns a safe error receipt.
     BEGIN
-        PERFORM pg_advisory_xact_lock(hashtextextended('activate:' || p_user_id::text, 0));
+        PERFORM pg_advisory_xact_lock(pg_catalog.hashtextextended('activate:' || p_user_id::text, 0::bigint));
         SELECT * INTO v_user FROM public.users WHERE id = p_user_id FOR UPDATE;
         SELECT * INTO v_code FROM public.access_codes
          WHERE id = p_code_id AND code = p_code FOR UPDATE;

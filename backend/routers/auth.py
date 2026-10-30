@@ -12,7 +12,7 @@ from pydantic import BaseModel
 import httpx
 
 from config import settings
-from database import supabase_admin
+from database import supabase_admin, thread_supabase_admin
 from models.auth import (
     AuthActivateResponse,
     AuthActiveStatusResponse,
@@ -587,6 +587,57 @@ def _promote_after_claim(user_id: str, before_role: str | None,
     return final_role, "write_failed", False
 
 
+def _record_claim_followups(user_id: str, code_id: str, student_id: str | None,
+                            cohort_id: str | None) -> None:
+    """Steps 5–6 for a claim this request committed (Codex r4427781861).
+
+    Runs inside the shielded activation worker, so a cancelled request still
+    lands them: the code is claimed and a retry stops at Step 1. Both steps are
+    idempotent and best-effort. Uses this thread's own client, not the shared one.
+    """
+    try:
+        db = thread_supabase_admin()
+    except Exception as e:
+        logger.warning("[auth] post-claim steps skipped user=%s code_id=%s: %s",
+                       user_id, code_id, _exc_tag(e))
+        return
+
+    # ── Step 5: upsert assignment row so admin panel can show the redeemer ───
+    try:
+        db.table("user_code_assignments").upsert({
+            "user_id":     user_id,
+            "code_id":     code_id,
+            "assigned_at": datetime.now(timezone.utc).isoformat(),
+            "is_active":   True,
+        }, on_conflict="user_id,code_id").execute()
+    except Exception as e:
+        logger.warning("[warn] Could not create user_code_assignment: %s", _exc_tag(e))
+
+    # ── Step 6 (E1): backfill the cohort's open gives for a late joiner ──────
+    # Runs AFTER the claim so a lost-race user gets nothing (and needs no undo).
+    # `fan_out_assignment` snapshots the roster at give-time, so a student who
+    # joins the class later has no writing_assignments row for gives already made
+    # to the cohort. Reconcile that here (idempotent, skip-existing). Best-effort:
+    # a failure must NOT fail an otherwise-complete activation — the one-off
+    # backfill script (scripts/backfill_class_enrollment_roster.py) is the safety
+    # net for any row missed here.
+    if student_id and cohort_id:
+        try:
+            from services.cohort_assignment_service import (
+                backfill_cohort_writing_assignments,
+            )
+            backfill_cohort_writing_assignments(
+                db,
+                student_id=str(student_id),
+                cohort_id=str(cohort_id),
+            )
+        except Exception as e:
+            logger.warning(
+                "[auth] cohort give backfill failed student=%s cohort=%s: %s",
+                student_id, cohort_id, _exc_tag(e),
+            )
+
+
 def _audit_promote_failed(user_id: str, code_id: str | None, *, before_role: str | None,
                           final_role: str | None, reason: str, request_id: str) -> None:
     """Best-effort audit of a claimed instructor code whose promote did not land."""
@@ -816,8 +867,8 @@ async def activate_account(
     # The transaction cannot be split, and a lost response never triggers a
     # separate undo or retry. The W-2 promote must follow a committed claim even
     # when this request is cancelled meanwhile (Codex r4427266421): the RPC,
-    # its confirmation and the promote run as one shielded unit, and a cancelled
-    # handler waits for that unit before re-raising.
+    # its confirmation, the promote and Steps 5–6 run as one shielded unit, and
+    # a cancelled handler waits for that unit before re-raising.
     async def _activation_then_promote():
         try:
             activation = (await asyncio.to_thread(
@@ -869,6 +920,12 @@ async def activate_account(
                     before_role=user_before.get("role"), final_role=final_role,
                     reason=promote_failure, request_id=request_id,
                 )
+        # Steps 5–6 belong to the claim too: inside this unit, a cancelled
+        # request cannot skip them (Codex r4427781861).
+        await asyncio.to_thread(
+            _record_claim_followups, user_id, access_code_row["id"],
+            activation.get("student_id"), activation.get("cohort_id", code_cohort_id),
+        )
         return activation, None, promote_failure
 
     work = asyncio.ensure_future(_activation_then_promote())
@@ -936,45 +993,6 @@ async def activate_account(
     if status != "ok":
         raise _activation_error(RuntimeError("activation transaction rolled back"), message=unused_message,
                                 context="activation transaction rolled back", ref=request_id)
-    enrolled_student_id = activation.get("student_id")
-    code_cohort_id = activation.get("cohort_id", code_cohort_id)
-    now_iso = datetime.now(timezone.utc).isoformat()
-
-    # ── Step 5: upsert assignment row so admin panel can show the redeemer ───
-    try:
-        supabase_admin.table("user_code_assignments").upsert({
-            "user_id":     user_id,
-            "code_id":     access_code_row["id"],
-            "assigned_at": now_iso,
-            "is_active":   True,
-        }, on_conflict="user_id,code_id").execute()
-    except Exception as e:
-        logger.warning("[warn] Could not create user_code_assignment: %s", _exc_tag(e))
-
-    # ── Step 6 (E1): backfill the cohort's open gives for a late joiner ──────
-    # Runs AFTER the claim so a lost-race user gets nothing (and needs no undo).
-    # `fan_out_assignment` snapshots the roster at give-time, so a student who
-    # joins the class later has no writing_assignments row for gives already made
-    # to the cohort. Reconcile that here (idempotent, skip-existing). Best-effort:
-    # a failure must NOT fail an otherwise-complete activation — the one-off
-    # backfill script (scripts/backfill_class_enrollment_roster.py) is the safety
-    # net for any row missed here.
-    if enrolled_student_id and code_cohort_id:
-        try:
-            from services.cohort_assignment_service import (
-                backfill_cohort_writing_assignments,
-            )
-            backfill_cohort_writing_assignments(
-                supabase_admin,
-                student_id=str(enrolled_student_id),
-                cohort_id=str(code_cohort_id),
-            )
-        except Exception as e:
-            logger.warning(
-                "[auth] cohort give backfill failed student=%s cohort=%s: %s",
-                enrolled_student_id, code_cohort_id, _exc_tag(e),
-            )
-
     # (Phase-2.1 student-link + WF-1 cohort enroll moved to Step 3b above and
     # folded into the atomic, pre-consume enroll write — see W-5.)
 

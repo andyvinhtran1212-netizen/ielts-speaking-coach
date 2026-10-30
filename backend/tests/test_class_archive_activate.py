@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 import routers.auth as auth
+from services.cohort_assignment_service import backfill_cohort_writing_assignments as REAL_BACKFILL
 from services.request_context import request_id_scope
 
 
@@ -58,6 +59,12 @@ class Query:
         return self
 
     def limit(self, _limit):
+        return self
+
+    def order(self, _field):
+        return self
+
+    def range(self, _start, _end):
         return self
 
     def insert(self, values):
@@ -106,13 +113,15 @@ class Query:
                 assert all(f in row for row in matches for f in fields), "42703: unknown projection"
                 matches = [{f: row[f] for f in fields} for row in matches]
         elif self.op == "insert":
-            row = {"id": str(uuid4()), **self.values}
-            if self.name == "students":
-                row = {"archived_at": None, **row}
-            if self.name == "users":
-                row = {"permissions": None, "access_code_used": None, **row}
-            rows.append(row)
-            matches = [row]
+            matches = []
+            for values in self.values if isinstance(self.values, list) else [self.values]:
+                row = {"id": str(uuid4()), **values}
+                if self.name == "students":
+                    row = {"archived_at": None, **row}
+                if self.name == "users":
+                    row = {"permissions": None, "access_code_used": None, **row}
+                rows.append(row)
+                matches.append(row)
         elif self.op == "update":
             for row in matches:
                 row.update(self.values)
@@ -1582,3 +1591,44 @@ def test_promote_email_mismatch_receipt_is_unchanged(world):
     assert [(a["action"], a["after"]) for a in promote_audits(db)] == [
         ("promote_role_rejected", {"reason": "email_mismatch", "intended_email": "other@example.test"})]
     assert_unused(db)
+
+
+# ── Codex r4427781861: cancellation cannot skip Steps 5–6 of a class code ────
+
+@pytest.mark.parametrize("cancels", [1, 2])
+@pytest.mark.parametrize("lost_response", [False, True])
+def test_cancelled_class_activation_still_records_assignment_and_backfill(
+        world, monkeypatch, cancels, lost_response):
+    db, _ = world
+    # A classmate already has an open give in this class; the late joiner must get it too.
+    db.tables["writing_assignments"] = [{
+        "id": "wa-classmate", "prompt_id": "prompt-1", "student_id": "classmate-1",
+        "cohort_id": COHORT, "status": "submitted", "assignment_group_id": "group-1",
+        "name": "Task 2", "allow_soft_check": False, "assigned_by": "gv-1", "deadline": None,
+        "instructions": None, "is_timed": False, "time_limit_minutes": None,
+        "analysis_level": None, "grading_tier": None,
+    }]
+    monkeypatch.setattr("services.cohort_assignment_service.backfill_cohort_writing_assignments",
+                        REAL_BACKFILL)
+    loop_thread, client_threads = threading.get_ident(), []
+
+    def thread_client():
+        client_threads.append(threading.get_ident())
+        return db
+    monkeypatch.setattr(auth, "thread_supabase_admin", thread_client, raising=False)
+
+    returned_early = cancel_during_activation_rpc(db, monkeypatch, cancels=cancels,
+                                                  lost_response=lost_response)
+    code = db.tables["access_codes"][0]
+    assert code["is_used"] is True and code["used_by"] == USER
+    assert db.tables["users"][0]["access_code_used"] == CODE
+    student = db.tables["students"][0]
+    assert student["cohort_id"] == COHORT
+    assert [(r["user_id"], r["code_id"], r["is_active"])
+            for r in db.tables.get("user_code_assignments", [])] == [(USER, "code-1", True)]
+    mine = [r for r in db.tables["writing_assignments"] if r["student_id"] == student["id"]]
+    assert [(r["prompt_id"], r["cohort_id"], r["assignment_group_id"], r["status"]) for r in mine] == [
+        ("prompt-1", COHORT, "group-1", "pending")]
+    assert not returned_early, "handler returned while its DB worker still ran"
+    # Steps 5–6 ran on the worker thread's own client, never on the event loop.
+    assert client_threads and loop_thread not in client_threads
