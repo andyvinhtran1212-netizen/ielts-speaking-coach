@@ -417,6 +417,7 @@ on:
       - 'frontend/public/js/admin-speaking-topics.js'
       - 'frontend/tooling/verify-admin-speaking-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
+      - 'frontend/tooling/verify-admin-speaking-sessions-layout-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-topics-flow.mjs'
       - 'frontend/app/(authed-admin-mock-tests)/**'
       - 'frontend/lib/admin-mock-tests-model.mjs'
@@ -630,6 +631,7 @@ on:
       - 'frontend/tooling/verify-admin-grammar-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
+      - 'frontend/tooling/verify-admin-speaking-sessions-layout-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-topics-flow.mjs'
       - 'frontend/tooling/verify-admin-writing-flow.mjs'
       - 'frontend/tooling/verify-admin-grammar-articles-flow.mjs'
@@ -1178,6 +1180,12 @@ jobs:
       # failure truth and canonical GET readback after every write.
       - name: Kiểm luồng Admin Speaking Sessions native
         run: node tooling/verify-admin-speaking-sessions-flow.mjs "http://localhost:$TEST_PORT"
+
+      # UIA-1030-A1: with the admin sidebar open at 1280/1366 px the filter grid
+      # pushed the page sideways. Pins no page overflow, wrapped filter actions
+      # and the table scrolling inside its own frame (light/dark, 390 unchanged).
+      - name: Kiểm bố cục Admin Speaking Sessions không tràn ngang
+        run: node tooling/verify-admin-speaking-sessions-layout-flow.mjs "http://localhost:$TEST_PORT"
 
       # Topics mutates topic/question libraries and AI rotation. The fixture
       # pins safe missing-only semantics, exact payloads and canonical readback.
