@@ -615,6 +615,38 @@ async def grade_response_endpoint(
             # user — the full error is already logged + recorded above.
             raise HTTPException(502, "Lỗi nhận dạng giọng nói. Vui lòng thử lại.")
 
+        # Whisper is paid once it returns: record usage before the Storage step,
+        # whose 413/415 refusal (FR-005) or 503 would otherwise skip it.
+        transcript: str       = stt.get("transcript", "").strip()
+        duration_sec: float   = stt.get("duration_seconds", 0.0)
+        confidence: float     = stt.get("confidence", 0.0)
+        transcript_model: str = stt.get("transcript_model", "whisper-1")
+        stt_segments: list    = stt.get("segments", [])
+        # audit #8 — measured pause/rate from word timestamps (None unless the
+        # SPEAKING_WORD_TIMESTAMPS_ENABLED flag produced a `words` list).
+        fluency_sig = fluency_signals.compute(stt.get("words") or []) if stt.get("words") else None
+
+        logger.info(
+            "[grading] Whisper OK — %d ký tự, %.1fs, conf=%.2f, segments=%d",
+            len(transcript), duration_sec, confidence, len(stt_segments),
+        )
+
+        # Log Whisper usage (best-effort)
+        ai_usage_logger.schedule_usage_log(ai_usage_logger.log_whisper_async(
+            user_id=user_id,
+            session_id=session_id,
+            model=transcript_model,
+            audio_seconds=duration_sec,
+            feature="speaking_stt",
+            operation="transcribe_response",
+            latency_ms=stt_latency_ms,
+            # The response row is created only after the duration/reliability
+            # gates below.  At STT time the question is the stable resource
+            # available for correlation; session_id keeps the attempt context.
+            resource_type="question",
+            resource_id=question_id,
+        ))
+
         # ── STEP 4: Upload to Supabase Storage (archival — non-blocking) ─────
         step = "storage_upload"
         audio_uploaded = False
@@ -654,36 +686,6 @@ async def grade_response_endpoint(
             # Never advertise replay safety without a durable recording identity.
             # The browser retains the audio and can retry when Storage recovers.
             raise HTTPException(503, {"code": "recording_storage_unavailable"})
-
-        transcript: str       = stt.get("transcript", "").strip()
-        duration_sec: float   = stt.get("duration_seconds", 0.0)
-        confidence: float     = stt.get("confidence", 0.0)
-        transcript_model: str = stt.get("transcript_model", "whisper-1")
-        stt_segments: list    = stt.get("segments", [])
-        # audit #8 — measured pause/rate from word timestamps (None unless the
-        # SPEAKING_WORD_TIMESTAMPS_ENABLED flag produced a `words` list).
-        fluency_sig = fluency_signals.compute(stt.get("words") or []) if stt.get("words") else None
-
-        logger.info(
-            "[grading] Whisper OK — %d ký tự, %.1fs, conf=%.2f, segments=%d",
-            len(transcript), duration_sec, confidence, len(stt_segments),
-        )
-
-        # Log Whisper usage (best-effort)
-        ai_usage_logger.schedule_usage_log(ai_usage_logger.log_whisper_async(
-            user_id=user_id,
-            session_id=session_id,
-            model=transcript_model,
-            audio_seconds=duration_sec,
-            feature="speaking_stt",
-            operation="transcribe_response",
-            latency_ms=stt_latency_ms,
-            # The response row is created only after the duration/reliability
-            # gates below.  At STT time the question is the stable resource
-            # available for correlation; session_id keeps the attempt context.
-            resource_type="question",
-            resource_id=question_id,
-        ))
 
         # ── Reliability classification ─────────────────────────────────────────
         reliability = classify_reliability(transcript, stt_segments, duration_sec)
