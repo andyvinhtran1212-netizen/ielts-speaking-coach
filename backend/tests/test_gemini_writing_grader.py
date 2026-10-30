@@ -838,6 +838,86 @@ async def test_gemini_text_accessor_error_preserves_billed_usage(
 
 # ── PC-J218: a billed call without a price flags the total, never estimates ──
 
+def _claude_reply_without_usage(text: str, *, omit_usage: bool = False):
+    from types import SimpleNamespace
+
+    async def reply():
+        response = SimpleNamespace(
+            content=[SimpleNamespace(type="text", text=text)], stop_reason="end_turn",
+        )
+        if not omit_usage:
+            response.usage = None
+        return response
+    return reply
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("omit_usage", [False, True], ids=["none", "absent"])
+async def test_claude_served_without_usage_flags_incomplete(
+    writing_providers, caplog, omit_usage,
+):
+    import logging
+
+    state = writing_providers
+    state.claude = [_claude_reply_without_usage(GOOD_CLAUDE, omit_usage=omit_usage)]
+    with caplog.at_level(logging.WARNING):
+        result = await state.grader.grade_essay(_grounded_config())
+
+    assert result.model_used == "claude-sonnet-5-5"
+    assert state.gemini_calls == []
+    assert result.cost_incomplete is True and result.unpriced_models == []
+    assert result.cost_usd is None
+    assert (result.tokens_input, result.tokens_output) == (None, None)
+    [served] = result.grading_attempts
+    assert (served["status"], served["served"]) == ("success", True)
+    assert (served["cost_usd"], served["input_tokens"], served["output_tokens"]) == (None, None, None)
+    warnings = [r.getMessage() for r in caplog.records
+                if r.getMessage().startswith("writing_cost_incomplete")]
+    assert warnings == ["writing_cost_incomplete model=claude-sonnet-5-5 reason=missing_usage pass=pass1"]
+    assert "dedicated bus lanes" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_claude_rejected_without_usage_keeps_only_known_cost(writing_providers, caplog):
+    import logging
+
+    state = writing_providers
+    state.claude = [_claude_reply_without_usage(UNGROUNDED_CLAUDE),
+                    _claude_reply(GOOD_CLAUDE, 700, 6000)]
+    with caplog.at_level(logging.WARNING):
+        result = await state.grader.grade_essay(_grounded_config())
+
+    assert result.cost_usd == pytest.approx(_sonnet_cost(700, 6000))
+    assert result.cost_incomplete is True and result.unpriced_models == []
+    first, second = result.grading_attempts
+    assert (first["status"], first["error_code"], first["served"]) == (
+        "invalid_response", "ungrounded_feedback", False)
+    assert (first["cost_usd"], first["input_tokens"], first["output_tokens"]) == (None, None, None)
+    assert state.grader._cost_gap_reason(first) == "missing_usage"
+    assert second["served"] is True and state.grader._cost_gap_reason(second) is None
+    warnings = [r.getMessage() for r in caplog.records
+                if r.getMessage().startswith("writing_cost_incomplete")]
+    assert warnings == ["writing_cost_incomplete model=claude-sonnet-5-5 reason=missing_usage pass=pass1"]
+    assert "dedicated bus lanes" not in caplog.text and "subsidies" not in caplog.text
+
+
+@pytest.mark.parametrize("status", ["success", "invalid_response"])
+def test_claude_zero_usage_is_missing_usage(grader, status):
+    attempt = grader._claude_attempt_record("claude-sonnet-5-5", {
+        "input_tokens": 0, "output_tokens": 0,
+        "cache_read_tokens": 0, "cache_write_tokens": 0,
+    }, status)
+    assert (attempt["cost_usd"], attempt["input_tokens"], attempt["output_tokens"]) == (None, None, None)
+    assert grader._cost_gap_reason(attempt) == "missing_usage"
+
+
+def test_claude_unbilled_error_without_usage_is_not_a_cost_gap(grader):
+    attempt = grader._claude_attempt_record("claude-sonnet-5-5", None, "error",
+                                           error_code="network")
+    assert attempt["cost_usd"] is None
+    assert grader._cost_gap_reason(attempt) is None
+
+
 @pytest.mark.asyncio
 async def test_unpriced_served_model_keeps_priced_calls_and_flags_incomplete(
     writing_providers, monkeypatch, caplog,

@@ -588,6 +588,48 @@ async def test_deep_pass_timeout_records_the_call_in_flight(
 
 
 @pytest.mark.asyncio
+async def test_deep_claude_pass_without_usage_flags_pass_and_run(
+    grader, monkeypatch, reset_loader_cache,
+):
+    _patch_v2_loader(monkeypatch)
+    replies = {
+        "pass1": json.dumps(VALID_FEEDBACK_STANDARD),
+        "pass2": json.dumps(VALID_PASS2_EMPTY),
+        "pass3": json.dumps({"sentence_rewrites": []}),
+    }
+
+    async def fake_call(model_name, system_prompt, user_prompt, *,
+                        usage_context, attempt_log, **_kw):
+        op = usage_context["operation"]
+        if op == "pass1":
+            # The router normalizes absent Anthropic usage to all-zero counts.
+            raw_usage = {"input_tokens": 0, "output_tokens": 0,
+                         "cache_read_tokens": 0, "cache_write_tokens": 0}
+            record = grader._claude_attempt_record("claude-sonnet-5-5", raw_usage, "success")
+            attempt_log.append(record)
+            return grader._claude_served("writing_grading", replies[op],
+                                         "claude-sonnet-5-5", raw_usage, record)
+        usage = {"input_tokens": 100, "output_tokens": 100}
+        attempt_log.append(grader._attempt_record(
+            "google", model_name, "success", usage=usage, cost_usd=0.01))
+        attempt_log[-1]["served"] = True
+        return replies[op], {**usage, "cost_usd": 0.01}
+
+    with patch.object(grader, "_call_with_retry", side_effect=fake_call):
+        result = await grader.grade_essay(_deep_config())
+
+    assert result.prompt_version == "v2.3-deep"
+    assert result.tier_metadata["pass1"]["model"] == "claude-sonnet-5-5"
+    assert result.tier_metadata["pass1"].get("cost_incomplete") is True
+    assert result.tier_metadata["pass1"]["cost_usd"] is None
+    assert result.cost_incomplete is True and result.unpriced_models == []
+    assert result.cost_usd == pytest.approx(0.02)
+    assert result.grading_attempts[0]["served"] is True
+    for pass_name in ("pass2", "pass3"):
+        assert "cost_incomplete" not in result.tier_metadata[pass_name]
+
+
+@pytest.mark.asyncio
 async def test_deep_job_cancel_still_propagates(grader, monkeypatch, reset_loader_cache):
     """PC-J218: cancelling the whole job is not swallowed by the in-flight
     record; the record says cancelled, not timeout."""

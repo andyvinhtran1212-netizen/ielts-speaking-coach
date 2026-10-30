@@ -1349,10 +1349,18 @@ class GeminiWritingGrader:
             "served": False,
         }
 
+    @staticmethod
+    def _claude_usage_missing(raw_usage: dict | None) -> bool:
+        # Match ai_router's ledger rule: a real Anthropic answer has input
+        # tokens, so the router's all-zero counts mean usage is missing.
+        return raw_usage is None or not any(raw_usage.get(key, 0) for key in (
+            "input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens",
+        ))
+
     @classmethod
     def _claude_attempt_record(cls, model: str, raw_usage: dict | None, status: str, *,
                                error_code: str | None = None) -> dict:
-        if raw_usage is None:
+        if cls._claude_usage_missing(raw_usage):
             return cls._attempt_record("anthropic", model, status, error_code=error_code)
         usage = cls._claude_usage(model, raw_usage)
         return cls._attempt_record("anthropic", model, status, error_code=error_code,
@@ -1373,11 +1381,13 @@ class GeminiWritingGrader:
 
     @classmethod
     def _claude_served(cls, feature: str, text: str, model: str,
-                       raw_usage: dict, record: dict | None = None) -> tuple[str, dict]:
+                       raw_usage: dict | None, record: dict | None = None) -> tuple[str, dict]:
         logger.info("[ai_router] feature=%s served_by=anthropic model=%s", feature, model)
         if record is not None:
             record["served"] = True
-        tokens = cls._claude_usage(model, raw_usage)
+        tokens = ({"input_tokens": None, "output_tokens": None, "cost_usd": None}
+                  if cls._claude_usage_missing(raw_usage)
+                  else cls._claude_usage(model, raw_usage))
         usage = {
             "input_tokens": tokens["input_tokens"],
             "output_tokens": tokens["output_tokens"],
