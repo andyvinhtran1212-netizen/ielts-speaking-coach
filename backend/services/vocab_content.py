@@ -37,6 +37,13 @@ _MD_EXTENSIONS  = ["tables", "fenced_code", "attr_list"]
 
 class VocabContentService:
     def __init__(self):
+        self._reset_state()
+        self._load_categories()
+        self._load_lists()
+        self._load_all()
+
+    def _reset_state(self) -> None:
+        """Empty every index field (the starting point of a build)."""
         # Keyed by slug (best-effort related-word resolution). NOT a full census:
         # a slug shared across categories collides here — use _all_articles /
         # articles_by_cat_slug for counting and detail lookup (mig 122).
@@ -58,28 +65,26 @@ class VocabContentService:
         self._valid_categories:    set[str]              = set()
         self.last_modified:        Optional[datetime]    = None  # G2: cache key (MAX updated_at)
         self._source:             str                    = "markdown"  # "db" | "markdown"
-        self._load_categories()
-        self._load_lists()
-        self._load_all()
 
     def reload(self) -> None:
         """G1 — rebuild the in-memory index from the source of truth. Called
-        after an admin upload commits so a new word appears without a restart."""
-        self.articles_by_slug = {}
-        self.articles_by_cat_slug = {}
-        self._all_articles = []
-        self._curated_articles = []
-        self._exam_articles = []
-        self.articles_by_category = {}
-        self.exam_by_list = {}
-        self._exam_lists_meta = []
-        self.all_categories = []
-        self.headword_index = []
-        self._valid_categories = set()
-        self.last_modified = None
-        self._load_categories()
-        self._load_lists()
-        self._load_all()
+        after an admin upload commits so a new word appears without a restart.
+
+        PC-J449: copy-on-write. Readers in worker threads (e.g. /api/me/kp-mastery
+        via kp_registry.label_for) read these indexes while a reload runs, so the
+        new state is built on a separate instance and only published once it is
+        complete: each attribute is rebound to a new, fully built object (never
+        cleared or filled in place). A reader sees the old or the new value of
+        each attribute; one that reads two attributes may briefly pair an old one
+        with a new one. A loader failure raises before anything is published, so
+        the old state stays intact."""
+        fresh = object.__new__(type(self))
+        fresh._reset_state()
+        fresh._load_categories()
+        fresh._load_lists()
+        fresh._load_all()
+        for name, value in vars(fresh).items():
+            setattr(self, name, value)
 
     # ── Category manifest ────────────────────────────────────────────────────
 

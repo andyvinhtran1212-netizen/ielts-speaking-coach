@@ -12,6 +12,7 @@ a recorded/skipped tally so the client knows what landed.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from fastapi import APIRouter, Header, Query
@@ -48,15 +49,19 @@ async def submit_microcheck_answers(
     """Record one or more micro-check answers as source=microcheck evidence.
     Skips (does not error on) answers whose KP doesn't resolve."""
     user = await get_supabase_user(authorization)
-    user_id = user["id"]
-    recorded = 0
-    for a in body.answers:
-        kp_id = kp_evidence.record_microcheck(
-            user_id, kp_type=a.kp.type, ref_slug=a.kp.slug,
-            anchor=a.kp.anchor or "", correct=a.correct, context=a.context)
-        if kp_id:
-            recorded += 1
-    return {"recorded": recorded, "skipped": len(body.answers) - recorded}
+
+    def record_answers():
+        user_id = user["id"]
+        recorded = 0
+        for a in body.answers:
+            kp_id = kp_evidence.record_microcheck(
+                user_id, kp_type=a.kp.type, ref_slug=a.kp.slug,
+                anchor=a.kp.anchor or "", correct=a.correct, context=a.context)
+            if kp_id:
+                recorded += 1
+        return {"recorded": recorded, "skipped": len(body.answers) - recorded}
+
+    return await asyncio.to_thread(record_answers)
 
 
 @router.get("/api/me/kp-mastery")
@@ -67,7 +72,7 @@ async def get_my_kp_mastery(
 ):
     """The caller's KP mastery profile, optionally filtered by status / kp_type."""
     user = await get_supabase_user(authorization)
-    items = kp_evidence.get_user_mastery(user["id"], status=status, kp_type=kp_type)
+    items = await asyncio.to_thread(kp_evidence.get_user_mastery, user["id"], status=status, kp_type=kp_type)
     counts = {"weak": 0, "learning": 0, "strong": 0}
     for it in items:
         if it["status"] in counts:
@@ -81,4 +86,4 @@ async def get_my_roadmap(authorization: str | None = Header(default=None)):
     so prerequisites come first (topo-sort). Falls back to the static pathways
     when the learner has no evidence yet."""
     user = await get_supabase_user(authorization)
-    return kp_roadmap.build_roadmap(user["id"])
+    return await asyncio.to_thread(kp_roadmap.build_roadmap, user["id"])
