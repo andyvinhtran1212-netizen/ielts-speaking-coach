@@ -34,6 +34,10 @@ DECLARE
     v_phase text := 'activation';
     v_message text;
 BEGIN
+    -- Reject missing identifiers before taking locks or touching product rows.
+    IF p_user_id IS NULL OR p_code_id IS NULL OR p_code IS NULL THEN
+        RETURN pg_catalog.jsonb_build_object('status', 'invalid_code');
+    END IF;
     -- Single-bigint activation keys and the runner's two-int (173204,1)
     -- advisory keys occupy distinct PostgreSQL lock namespaces.
     -- Everything in this subtransaction, including trigger writes, rolls back
@@ -44,15 +48,15 @@ BEGIN
         SELECT * INTO v_code FROM public.access_codes
          WHERE id = p_code_id AND code = p_code FOR UPDATE;
         IF NOT FOUND THEN
-            RETURN jsonb_build_object('status', 'invalid_code');
+            RETURN pg_catalog.jsonb_build_object('status', 'invalid_code');
         END IF;
-        IF to_jsonb(v_user)->>'suspended_at' IS NOT NULL THEN
-            RETURN jsonb_build_object('status', 'account_suspended');
+        IF pg_catalog.to_jsonb(v_user)->>'suspended_at' IS NOT NULL THEN
+            RETURN pg_catalog.jsonb_build_object('status', 'account_suspended');
         END IF;
         IF lower(btrim(coalesce(v_code.grants_role, ''))) = 'instructor' THEN
             IF nullif(lower(btrim(v_code.intended_email)), '') IS NULL
                OR lower(btrim(v_code.intended_email)) IS DISTINCT FROM lower(btrim(p_email)) THEN
-                RETURN jsonb_build_object('status', 'promote_email_mismatch',
+                RETURN pg_catalog.jsonb_build_object('status', 'promote_email_mismatch',
                                           'intended_email', v_code.intended_email);
             END IF;
             v_promote := 'instructor';
@@ -62,17 +66,17 @@ BEGIN
             IF v_code.used_by = p_user_id THEN
                 -- Another same-user submit finished while we waited. Its
                 -- account, enrollment and permissions are already committed.
-                RETURN jsonb_build_object('status', 'ok', 'role', v_user.role,
+                RETURN pg_catalog.jsonb_build_object('status', 'ok', 'role', v_user.role,
                     'promote_role', v_promote, 'cohort_id', v_code.cohort_id,
                     'student_id', (SELECT id FROM public.students
                                    WHERE user_id = p_user_id AND archived_at IS NULL
                                    ORDER BY id LIMIT 1));
             END IF;
-            RETURN jsonb_build_object('status', 'lost_claim');
+            RETURN pg_catalog.jsonb_build_object('status', 'lost_claim');
         END IF;
-        IF coalesce((to_jsonb(v_code)->>'is_revoked')::boolean, false)
-           OR (to_jsonb(v_code)->>'expires_at')::timestamptz <= statement_timestamp() THEN
-            RETURN jsonb_build_object('status', 'invalid_code');
+        IF coalesce((pg_catalog.to_jsonb(v_code)->>'is_revoked')::boolean, false)
+           OR (pg_catalog.to_jsonb(v_code)->>'expires_at')::timestamptz <= statement_timestamp() THEN
+            RETURN pg_catalog.jsonb_build_object('status', 'invalid_code');
         END IF;
 
         -- Lock all candidate profiles in a stable order before selecting one.
@@ -91,23 +95,23 @@ BEGIN
             v_student := v_by_code;
         END IF;
         IF (v_has_linked AND NOT v_has_active) OR v_student.archived_at IS NOT NULL THEN
-            RETURN jsonb_build_object('status', 'student_archived');
+            RETURN pg_catalog.jsonb_build_object('status', 'student_archived');
         END IF;
 
         SELECT id INTO v_owner FROM public.users
          WHERE id = v_code.issued_by AND role = 'instructor';
         IF v_student.instructor_id IS NOT NULL AND v_owner IS NOT NULL
            AND v_student.instructor_id <> v_owner THEN
-            RETURN jsonb_build_object('status', 'enroll_reassign_rejected',
+            RETURN pg_catalog.jsonb_build_object('status', 'enroll_reassign_rejected',
                                       'current_owner', v_student.instructor_id, 'attempted_owner', v_owner);
         END IF;
         IF v_code.cohort_id IS NOT NULL THEN
             -- FOR SHARE prevents archive from committing between this check
             -- and enrollment/claim, even when 337's guards are not installed.
-            SELECT to_jsonb(c) INTO v_cohort FROM public.cohorts c
+            SELECT pg_catalog.to_jsonb(c) INTO v_cohort FROM public.cohorts c
              WHERE c.id = v_code.cohort_id FOR SHARE;
             IF v_cohort->>'is_active' = 'false' AND v_cohort->>'archived_at' IS NOT NULL THEN
-                RETURN jsonb_build_object('status', 'cohort_archived');
+                RETURN pg_catalog.jsonb_build_object('status', 'cohort_archived');
             END IF;
         END IF;
         v_enroll_owner := coalesce(v_owner, (v_cohort->>'created_by')::uuid);
@@ -121,7 +125,7 @@ BEGIN
             SELECT * INTO STRICT v_user FROM public.users WHERE id = p_user_id FOR UPDATE;
         END IF;
         UPDATE public.users SET is_active = true, access_code_used = v_code.code,
-            permissions = coalesce(nullif(nullif(to_jsonb(v_code)->'permissions', 'null'::jsonb), '[]'::jsonb),
+            permissions = coalesce(nullif(nullif(pg_catalog.to_jsonb(v_code)->'permissions', 'null'::jsonb), '[]'::jsonb),
                                    '["practice_single","practice_part","practice_full"]'::jsonb)
          WHERE id = p_user_id;
 
@@ -160,23 +164,23 @@ BEGIN
             -- and membership writes in the enclosing subtransaction.
             RAISE EXCEPTION USING MESSAGE = 'activation_conflict', ERRCODE = 'P0001';
         END IF;
-        RETURN jsonb_build_object('status', 'ok', 'role', v_user.role,
+        RETURN pg_catalog.jsonb_build_object('status', 'ok', 'role', v_user.role,
                                   'student_id', v_student_id, 'cohort_id', v_code.cohort_id,
                                   'promote_role', v_promote);
     EXCEPTION
         WHEN OTHERS THEN
             GET STACKED DIAGNOSTICS v_message = MESSAGE_TEXT;
             IF v_message = 'cohort_archived' THEN
-                RETURN jsonb_build_object('status', 'cohort_archived');
+                RETURN pg_catalog.jsonb_build_object('status', 'cohort_archived');
             ELSIF v_message IN ('account_suspended', 'account_suspended_role_change') THEN
-                RETURN jsonb_build_object('status', 'account_suspended');
+                RETURN pg_catalog.jsonb_build_object('status', 'account_suspended');
             ELSIF v_message = 'student_archived' THEN
-                RETURN jsonb_build_object('status', 'student_archived');
+                RETURN pg_catalog.jsonb_build_object('status', 'student_archived');
             ELSIF SQLSTATE IN ('55P03', '40P01') OR v_message = 'activation_conflict' THEN
-                RETURN jsonb_build_object('status', 'activation_conflict');
+                RETURN pg_catalog.jsonb_build_object('status', 'activation_conflict');
             END IF;
             -- No exception text or database values leave the function.
-            RETURN jsonb_build_object('status', 'activation_error', 'phase', v_phase, 'sqlstate', SQLSTATE);
+            RETURN pg_catalog.jsonb_build_object('status', 'activation_error', 'phase', v_phase, 'sqlstate', SQLSTATE);
     END;
 END;
 $$;
@@ -189,6 +193,9 @@ DO $$
 DECLARE
     v_oid oid := 'public.fn_activation_serialize(uuid,uuid,text,text,jsonb)'::regprocedure;
 BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE oid = v_oid AND proowner = current_user::regrole) THEN
+        RAISE EXCEPTION 'activation_serialize_owner_invalid';
+    END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE oid = v_oid AND prosecdef
                    AND proconfig @> ARRAY['search_path=pg_catalog, public, pg_temp',
                                           'lock_timeout=3s', 'statement_timeout=15s']) THEN
