@@ -11,6 +11,10 @@ import {
   normalizeOpsPayload,
   normalizeOverviewPayload,
   normalizeTrendsPayload,
+  KNOWN_PARTIAL_FAILURE_BLOCKS,
+  PARTIAL_FAILURE_STAT_LABELS,
+  partialFailureStats,
+  partialFailureTiles,
   periodDelta,
   safeActivityLink,
 } from '../lib/admin-overview-model.mjs';
@@ -190,5 +194,72 @@ describe('admin overview model — hostile/partial payloads', () => {
     });
     assert.equal(overview.recentActivity.length, 1);
     assert.equal(overview.recentActivity[0].action, '<img onerror=1>');
+  });
+});
+
+describe('admin overview model — partial_failures (PC-J216)', () => {
+  const ROUTER = read('..', 'backend', 'routers', 'admin_overview.py');
+  const backendBlocks = () => {
+    const blocks = new Set();
+    for (const match of ROUTER.matchAll(/"([a-z0-9_]+)",\s*partial_failures/g)) blocks.add(match[1]);
+    for (const match of ROUTER.matchAll(/_record_partial\(failures, "([a-z0-9_]+)"/g)) blocks.add(match[1]);
+    return [...blocks];
+  };
+
+  test('normalizes to de-duplicated strings in order', () => {
+    const value = normalizeOverviewPayload({
+      partial_failures: ['sessions_recent', 'sessions_recent', 'x', 3, null, ''],
+    });
+    assert.deepEqual(value.partialFailures, ['sessions_recent', 'x']);
+    assert.deepEqual(normalizeOverviewPayload({}).partialFailures, []);
+    assert.deepEqual(normalizeOverviewPayload({ partial_failures: 'students' }).partialFailures, []);
+    assert.deepEqual(normalizeOverviewPayload(null).partialFailures, []);
+  });
+
+  test('maps every block the backend can report', () => {
+    const blocks = backendBlocks();
+    assert.ok(blocks.length >= 20, `parsed only ${blocks.length} backend blocks`);
+    assert.deepEqual([...blocks].sort(), [...KNOWN_PARTIAL_FAILURE_BLOCKS].sort());
+    for (const block of blocks) {
+      const labels = partialFailureTiles([block]);
+      assert.ok(labels.length > 0, block);
+      assert.ok(!labels.includes(block), `${block} fell back to its raw name`);
+    }
+    for (const stat of partialFailureStats(blocks)) {
+      assert.ok(PARTIAL_FAILURE_STAT_LABELS[stat], stat);
+    }
+  });
+
+  test('maps blocks to the tiles they feed', () => {
+    assert.deepEqual(partialFailureTiles(['sessions_total']), ['Speaking tổng']);
+    assert.deepEqual(partialFailureTiles(['sessions_recent']), [
+      'Speaking 7 ngày', 'Speaking Band TB', 'Đang hoạt động (7 ngày)', 'Hoạt động 30 ngày', 'Hoạt động gần đây',
+    ]);
+    assert.deepEqual(partialFailureTiles(['essays_pending']), ['Writing chưa trả kết quả']);
+    assert.deepEqual(partialFailureTiles(['errors_undismissed']), ['Lỗi chưa xử lý']);
+    assert.deepEqual(partialFailureTiles(['access_codes']), ['Mã đang dùng']);
+    assert.deepEqual(partialFailureTiles(['cohorts']), ['Phân bố theo lớp']);
+    assert.deepEqual(partialFailureTiles(['listening_content_count']), ['Số đề Listening']);
+    assert.deepEqual([...partialFailureStats(['sessions_total', 'vocab_learning'])], [
+      'speaking.sessions_total', 'vocab.due_review_today',
+    ]);
+  });
+
+  test('keeps unknown blocks as raw names and de-duplicates shared tiles', () => {
+    assert.deepEqual(partialFailureTiles(['brand_new_block']), ['brand_new_block']);
+    assert.equal(partialFailureStats(['brand_new_block']).size, 0);
+    const labels = partialFailureTiles(['sessions_recent', 'essays_recent', 'brand_new_block']);
+    assert.equal(labels.filter((label) => label === 'Hoạt động gần đây').length, 1);
+    assert.equal(labels.at(-1), 'brand_new_block');
+    assert.deepEqual(partialFailureTiles(undefined), []);
+    assert.deepEqual(partialFailureTiles('students'), []);
+  });
+
+  test('renders a status banner from one copy constant without retrying', () => {
+    assert.match(BEHAVIOR, /export const PARTIAL_FAILURE_COPY = \{/);
+    assert.match(BEHAVIOR, /className="ov-partial-banner" role="status"/);
+    assert.match(BEHAVIOR, /!failed\('errors\.undismissed'\) && Number\(errors\.undismissed/);
+    assert.equal((BEHAVIOR.match(/getAdminContentOverview\(\)/g) || []).length, 1);
+    assert.match(CSS, /\.ov-partial-banner \{[^}]*var\(--av-warning-soft\)[^}]*overflow-wrap: anywhere/);
   });
 });
