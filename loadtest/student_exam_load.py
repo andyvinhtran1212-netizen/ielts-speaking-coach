@@ -39,6 +39,15 @@ HARD GUARD: every URL is checked against a staging/local allowlist before the
 first request and again on every request (httpx event hook, redirects off).
 Production hosts are refused explicitly; anything not allowlisted is refused.
 
+STAGING EXCLUSION (PC-J433/J448): before the first ladder step and again after
+every cooldown, the driver reads GitHub Actions (read-only ``gh run list``) for
+workflows that use shared staging (``STAGING_WORKFLOWS``). While one is
+queued or running it sends no request, waits up to ``--busy-wait-seconds``,
+then skips the remaining steps (exit 4). When the status cannot be read it
+refuses to run (exit 5) unless ``--skip-busy-check`` is given, which the report
+records. ``--busy-marker`` writes a JSON file for the whole run so release
+owners can see that a load run is holding staging.
+
 Tokens come from ``LOADTEST_ACCOUNTS_FILE`` (one access token per line, or a
 JSON list of strings / ``{"token": ...}`` objects) or ``LOADTEST_TOKEN_1..n``.
 Tokens are never printed; logs and reports name accounts ``user#k``.
@@ -54,6 +63,7 @@ import math
 import os
 import random
 import struct
+import subprocess
 import sys
 import time
 import uuid
@@ -719,6 +729,122 @@ async def abort_watch(ctx: Ctx) -> None:
             return
 
 
+# ── Staging busy preflight (PC-J433/J448) ────────────────────────────────────
+
+# Workflows that use shared staging while they run. A load step overlapping one
+# of them turns its result red for the wrong reason (PC-J433: a 30-user step
+# covered Gate A's timeout and the Grammar boundary of run 41064757555).
+# Not listed: CI that runs locally on the runner (backend-tests, e2e,
+# next-native-browser, route-manifest, typecheck, legacy-freeze, spec
+# governance, offsite-backup-selftest); production-only targets
+# (production-smoke, production-release-drift, g2-authed-probe);
+# staging-promotion-gate (reads the GitHub API only; the live evidence it
+# waits for is staging-release-smoke); offsite-restore-drill (restores into a
+# database on the runner).
+STAGING_WORKFLOWS = {
+    # Live Playwright smoke + grammar health check against the staging hosts;
+    # every staging merge and every promotion depends on its result.
+    "staging-release-smoke.yml": "live smoke on the staging hosts",
+    # pg_dump + Storage copy of the staging Supabase project (weekly schedule,
+    # dispatch defaults to staging). The run list does not show the dispatch
+    # input, so a production-only dispatch also counts as busy.
+    "offsite-backup.yml": "dump of the staging database and Storage",
+}
+BUSY_STATUSES = frozenset({"queued", "in_progress", "waiting", "requested", "pending"})
+GH_TIMEOUT_SECONDS = 30.0
+EXIT_STAGING_BUSY = 4
+EXIT_BUSY_CHECK_REFUSED = 5
+
+
+class BusyCheckError(RuntimeError):
+    """The staging busy status could not be read: the run must not start."""
+
+
+def staging_busy(runs: list[dict]) -> str | None:
+    """Reason string for the first queued/running workflow run, else None.
+
+    ``runs`` rows carry ``workflow``, ``status`` and ``databaseId``
+    (``gh run list --json`` plus the workflow file name)."""
+    for run in sorted(runs, key=lambda r: str(r.get("createdAt") or "")):
+        if run.get("status") in BUSY_STATUSES:
+            return f"staging busy: {run.get('workflow')} run {run.get('databaseId')}"
+    return None
+
+
+def fetch_staging_runs(workflows=tuple(STAGING_WORKFLOWS), runner=subprocess.run) -> list[dict]:
+    """Recent runs of ``workflows`` from GitHub Actions, read-only.
+
+    Any failure (gh missing, not authenticated, timeout, unexpected output)
+    raises BusyCheckError: an unknown status never counts as free. gh output
+    is never printed, and the error names only the exit code."""
+    repo_dir = Path(__file__).resolve().parent
+    runs: list[dict] = []
+    for wf in workflows:
+        cmd = ["gh", "run", "list", "--workflow", wf,
+               "--json", "status,databaseId,createdAt", "--limit", "30"]
+        try:
+            proc = runner(cmd, cwd=repo_dir, capture_output=True, text=True,
+                          timeout=GH_TIMEOUT_SECONDS, check=False)
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise BusyCheckError(f"gh run list --workflow {wf}: {type(exc).__name__}") from None
+        if proc.returncode != 0:
+            raise BusyCheckError(f"gh run list --workflow {wf}: exit {proc.returncode}")
+        try:
+            rows = json.loads(proc.stdout)
+        except ValueError:
+            raise BusyCheckError(f"gh run list --workflow {wf}: output is not JSON") from None
+        if not isinstance(rows, list) or not all(
+                isinstance(r, dict) and isinstance(r.get("status"), str) for r in rows):
+            raise BusyCheckError(f"gh run list --workflow {wf}: unexpected output shape")
+        runs.extend({**r, "workflow": wf} for r in rows)
+    return runs
+
+
+async def wait_until_staging_free(args) -> str | None:
+    """None once no staging workflow is queued/running; the busy reason when
+    one still is after ``--busy-wait-seconds``. Sends no request to staging.
+    BusyCheckError propagates (fail closed)."""
+    give_up = time.monotonic() + args.busy_wait_seconds
+    while True:
+        reason = staging_busy(fetch_staging_runs())
+        remaining = give_up - time.monotonic()
+        if reason is None or remaining <= 0:
+            return reason
+        print(f"[loadtest] {reason}; waiting (max {remaining:.0f} s more)", file=sys.stderr, flush=True)
+        await asyncio.sleep(min(args.busy_poll_seconds, remaining))
+
+
+def create_busy_marker(path: str, args) -> None:
+    """Create the marker; refuse when one already exists (another load run, or
+    a stale marker that the operator must check and remove by hand)."""
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    except FileExistsError:
+        raise BusyCheckError(f"busy marker {path} already exists: another load run, "
+                             "or a stale marker (check its pid, then remove it by hand)") from None
+    os.close(fd)
+    try:
+        update_busy_marker(path, args, "preflight")
+    except BaseException:
+        Path(path).unlink(missing_ok=True)
+        raise
+
+
+def update_busy_marker(path: str | None, args, current_step) -> None:
+    """Rewrite the marker atomically with the step the run is on."""
+    if not path:
+        return
+    started = getattr(args, "_marker_started_at", None) or datetime.now(timezone.utc).isoformat(
+        timespec="seconds")
+    args._marker_started_at = started
+    data = {"label": args.label, "pid": os.getpid(), "started_at": started,
+            "current_step": current_step, "base_url": args.base_url,
+            "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    tmp = f"{path}.tmp-{os.getpid()}"
+    Path(tmp).write_text(json.dumps(data), encoding="utf-8")
+    os.replace(tmp, path)
+
+
 # ── Run orchestration ────────────────────────────────────────────────────────
 
 async def read_backend_identity(args) -> dict:
@@ -811,6 +937,7 @@ def render_markdown(report: dict) -> str:
     lines = [f"# Load test `{report['label']}` — {report['started_at']}", "",
              f"- Target: `{report['base_url']}` (staging only; prod guard on)",
              f"- Backend identity: `{json.dumps(report['backend_identity'], ensure_ascii=False)}`",
+             f"- busy_check: {report.get('busy_check')}",
              f"- Accounts: {report['accounts']} × sessions-per-user {report['args']['sessions_per_user']}",
              f"- Bank: `{report['args']['bank_id']}` class_item(s): "
              f"`{report['args'].get('class_items') or report['args']['class_item']}`",
@@ -823,6 +950,10 @@ def render_markdown(report: dict) -> str:
     if report.get("broke_at"):
         lines += [f"**Ladder stopped at {report['broke_at']['users']} users: "
                   f"{report['broke_at']['reason']}**", ""]
+    if report.get("busy_stop"):
+        b = report["busy_stop"]
+        lines += [f"**Not run: steps {b['steps_not_run']} users ({b['reason']}). "
+                  "No request was sent to staging for them.**", ""]
     lines += ["## Summary per step", "",
               "| users | stop | requests | p50 ms | p95 ms | p99 ms | max ms | errors | timeouts | quota 4xx | err % | /health p95 | /health max | /health/ready p95 | loop lag p95 max |",
               "|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
@@ -904,6 +1035,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--writing-targets-file", default=None,
                    help="JSON {\"<account#>\": \"<writing assignment id>\"} for capped submits")
     p.add_argument("--seed", type=int, default=409)
+    p.add_argument("--busy-wait-seconds", type=float, default=900.0,
+                   help="how long to wait for a running staging smoke/backup before skipping the step")
+    p.add_argument("--busy-poll-seconds", type=float, default=30.0,
+                   help="seconds between GitHub Actions reads while staging is busy")
+    p.add_argument("--skip-busy-check", action="store_true",
+                   help="do not read GitHub Actions before each step (recorded in the report)")
+    p.add_argument("--busy-marker", default=None,
+                   help="JSON marker file kept for the whole run (removed on exit, abort and Ctrl-C)")
     return p
 
 
@@ -924,6 +1063,10 @@ def validate_args(args, environ: dict[str, str]) -> None:
         raise SystemExit("use --class-item or --class-items, not both")
     if args.sessions_per_user < 1 or args.users < 1:
         raise SystemExit("--users and --sessions-per-user must be >= 1")
+    if not math.isfinite(args.busy_wait_seconds) or args.busy_wait_seconds < 0:
+        raise SystemExit("--busy-wait-seconds must be >= 0 (finite)")
+    if not math.isfinite(args.busy_poll_seconds) or args.busy_poll_seconds <= 0:
+        raise SystemExit("--busy-poll-seconds must be > 0 (finite)")
 
 
 def ladder_steps(args) -> list[int]:
@@ -954,13 +1097,32 @@ async def amain(args, tokens: list[str]) -> dict:
         "started_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "base_url": args.base_url,
         "accounts": len(tokens),
-        "args": {k: v for k, v in vars(args).items()},
-        "backend_identity": await read_backend_identity(args),
+        "args": {k: v for k, v in vars(args).items() if not k.startswith("_")},
+        "backend_identity": {},
+        "busy_check": ("skipped by operator" if args.skip_busy_check
+                       else "github-actions: " + ", ".join(STAGING_WORKFLOWS)),
         "steps": [],
         "broke_at": None,
+        "busy_stop": None,
     }
     grades = {"speaking": 0, "writing": 0}
     for i, users in enumerate(steps):
+        if not args.skip_busy_check:
+            update_busy_marker(args.busy_marker, args, f"busy check before {users} users")
+            try:
+                busy = await wait_until_staging_free(args)
+            except BusyCheckError as exc:
+                report["busy_stop"] = {"kind": "busy_check_failed", "users": users,
+                                       "reason": f"busy check failed: {exc}",
+                                       "steps_not_run": steps[i:]}
+                break
+            if busy:
+                report["busy_stop"] = {"kind": "staging_busy", "users": users, "reason": busy,
+                                       "steps_not_run": steps[i:]}
+                break
+        update_busy_marker(args.busy_marker, args, users)
+        if i == 0:
+            report["backend_identity"] = await read_backend_identity(args)
         # The grading budget is per process, not per step.
         args.max_speaking_grades -= grades["speaking"]
         args.max_writing_grades -= grades["writing"]
@@ -976,6 +1138,7 @@ async def amain(args, tokens: list[str]) -> dict:
             report["broke_at"] = {"users": users, "reason": reason}
             break
         if i + 1 < len(steps):
+            update_busy_marker(args.busy_marker, args, f"cooldown after {users} users")
             await asyncio.sleep(args.step_cooldown_seconds)
     report["real_grading_calls"] = {
         k: sum(s["real_grading_calls"][k] for s in report["steps"]) for k in ("speaking", "writing")}
@@ -1009,13 +1172,27 @@ def main(argv: list[str] | None = None, environ: dict[str, str] | None = None) -
     if not tokens:
         print("[loadtest] no accounts: set LOADTEST_ACCOUNTS_FILE or LOADTEST_TOKEN_1..n", file=sys.stderr)
         return 3
+    if args.busy_marker:
+        try:
+            create_busy_marker(args.busy_marker, args)
+        except BusyCheckError as exc:
+            print(f"[loadtest] REFUSED: {exc}", file=sys.stderr)
+            return EXIT_BUSY_CHECK_REFUSED
     try:
         report = asyncio.run(amain(args, tokens))
     except ProdGuardError as exc:
         print(f"[loadtest] REFUSED mid-run: {exc}", file=sys.stderr)
         return 2
+    finally:
+        if args.busy_marker:
+            Path(args.busy_marker).unlink(missing_ok=True)
     jpath, mpath, spath = write_outputs(report, args.out_dir)
     print(f"[loadtest] wrote {jpath}\n[loadtest] wrote {mpath}\n[loadtest] wrote {spath}", file=sys.stderr)
+    if report["busy_stop"]:
+        print(f"[loadtest] NOT RUN: steps {report['busy_stop']['steps_not_run']} users: "
+              f"{report['busy_stop']['reason']}", file=sys.stderr)
+        return (EXIT_STAGING_BUSY if report["busy_stop"]["kind"] == "staging_busy"
+                else EXIT_BUSY_CHECK_REFUSED)
     return 0
 
 

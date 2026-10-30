@@ -38,6 +38,48 @@ before/after a hotfix.
   They are never printed; reports name accounts `user#k`. Supabase access
   tokens expire after about 1 h, so mint them just before a run.
 
+## Exclusion with staging smoke/promotion (Loại trừ với smoke/promotion)
+
+A load step and the live staging smoke must never overlap: on 2026-10-30 a
+30-user step (20:39:31–20:41:57) covered Gate A's timeout and the Grammar
+boundary of smoke run 41064757555 (PC-J433). The workflow `concurrency` group
+only serialises smoke runs with each other, so the rule is enforced in both
+directions below. **Owner: Leader / Release Manager.**
+
+- **Load does not start while staging is busy (enforced by the driver).**
+  Before the first step and after every cooldown the driver reads GitHub
+  Actions, read-only (`gh run list --workflow <file> --json
+  status,databaseId,createdAt`), for the workflows in `STAGING_WORKFLOWS`:
+  `staging-release-smoke.yml` (live smoke, which every staging merge and
+  promotion depends on) and `offsite-backup.yml` (dumps the staging database
+  and Storage). Workflows that run only on the CI runner, target production,
+  or read only the GitHub API are not listed; the reason for each is in the
+  code. While a run is `queued`, `in_progress`, `waiting`, `requested` or
+  `pending`, the driver sends **no request** to staging, polls every
+  `--busy-poll-seconds` (30), and after `--busy-wait-seconds` (900) skips the
+  remaining steps. The report records `staging busy: <workflow> run <id>`
+  and the process exits **4**, which is not a load failure.
+- **Fail closed.** If the status cannot be read (no `gh`, not
+  authenticated, timeout, unexpected output), the driver refuses to start the
+  step and exits **5**. Steps that already ran are still written. Only
+  `--skip-busy-check` bypasses the check, and the report then says
+  `busy_check: skipped by operator`. The operator who passes it must make sure
+  no smoke/promotion is running.
+- **Smoke/promotion does not start while load holds staging (operator
+  rule).** The repository cannot block a GitHub workflow from here, so run
+  the ladder with `--busy-marker <path>` (for box runs:
+  `/workspace/cc-jobs/LOADTEST_ACTIVE`). The marker is JSON (`label`, `pid`,
+  `started_at`, `current_step`) and is removed when the run ends, including
+  on abort and Ctrl-C. A marker that already exists makes the driver refuse
+  (exit 5); remove a stale one by hand only after checking its `pid`. **While
+  the marker exists: do not merge into `staging` and do not dispatch the
+  staging smoke or a promotion.**
+- **Do not run a ladder while a smoke/promotion is running**, even with
+  `--skip-busy-check`.
+- **A later green run does not erase an earlier red one.** A smoke that went
+  red during a load window is still reported and investigated as red. Rerun
+  it only after the load is over, and keep both results.
+
 ## Run
 
 ```bash
@@ -60,6 +102,9 @@ python loadtest/student_exam_load.py \
   `--ladder-max-p95-ms` (10 s).
 - `--abort-on-health-p95-ms` (default 5000) stops the run when the rolling
   `/health` p95 passes the limit. The results are still written.
+- Exit codes: 0 done (including a ladder stopped by its limits), 2 refused by
+  the production guard, 3 no accounts, 4 staging busy (steps skipped), 5 busy
+  check unreadable or busy marker already present.
 - `--mix exam=3,speaking=1,writing=1` adds the Speaking/Writing flows.
 - Quiz students adopt the server's stage, open session and saved answers.
   Accounts that have completed every stage stay at the result state and send

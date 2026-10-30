@@ -14,6 +14,15 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import student_exam_load as lt  # noqa: E402
 
+_real_fetch_staging_runs = lt.fetch_staging_runs
+
+
+@pytest.fixture(autouse=True)
+def _staging_not_busy(monkeypatch):
+    """Unit tests never call GitHub: the staging busy preflight sees no running
+    workflow unless a test installs its own fetcher (see the PC-J448 tests)."""
+    monkeypatch.setattr(lt, "fetch_staging_runs", lambda: [])
+
 
 # ── Production guard ─────────────────────────────────────────────────────────
 
@@ -844,3 +853,273 @@ def test_failed_progress_stops_student_without_finalizing(monkeypatch, failure, 
     stats = rec.by_endpoint["POST /api/quiz/sessions/{id}/progress"]
     assert stats.errors == 1 and stats.timeouts == (failure == "timeout")
     assert any("progress failed" in note for note in rec.notes)
+
+
+# ── Staging exclusion: busy preflight + marker (PC-J433/J448) ────────────────
+
+STAGING = "https://ielts-speaking-coach-staging.up.railway.app"
+SMOKE_RUNNING = [{"workflow": "staging-release-smoke.yml", "status": "in_progress",
+                  "databaseId": 41064757555, "createdAt": "2026-10-30T13:39:00Z"}]
+SMOKE_DONE = [{**SMOKE_RUNNING[0], "status": "completed"}]
+
+
+def _busy_argv(tmp_path, *extra, base=STAGING):
+    return ["--base-url", base, "--bank-id", "B1", "--users", "1", "--ramp-seconds", "0",
+            "--duration-seconds", "0.3", "--answer-seconds", "0.1", "--beacon-seconds", "5",
+            "--tail-seconds", "0", "--health-interval", "0.2", "--async-db-interval", "0.2",
+            "--step-cooldown-seconds", "0", "--busy-poll-seconds", "0.05",
+            "--label", "busy", "--out-dir", str(tmp_path), *extra]
+
+
+def _mock_all_requests(monkeypatch, requests):
+    """Every request (probes and identity reads included) lands in ``requests``."""
+    real, inner = lt.make_client, _fake_backend([])
+
+    def handler(request):
+        requests.append((request.method, request.url.path))
+        return inner(request)
+
+    def mocked(base_url, timeout_s):
+        client = real(base_url, timeout_s)
+        client._transport = httpx.MockTransport(handler)
+        return client
+
+    monkeypatch.setattr(lt, "make_client", mocked)
+
+
+def _report(tmp_path):
+    jpath = next(p for p in tmp_path.iterdir() if p.suffix == ".json"
+                 and not p.name.endswith("-sessions.json"))
+    return json.loads(jpath.read_text()), jpath.with_suffix(".md").read_text()
+
+
+@pytest.mark.parametrize("status,busy", [
+    ("queued", True), ("in_progress", True), ("waiting", True), ("requested", True),
+    ("pending", True), ("completed", False),
+])
+def test_staging_busy_statuses(status, busy):
+    runs = [{**SMOKE_RUNNING[0], "status": status}]
+    expected = "staging busy: staging-release-smoke.yml run 41064757555" if busy else None
+    assert lt.staging_busy(runs) == expected
+    assert lt.staging_busy([]) is None
+
+
+def test_staging_workflows_are_real_files():
+    wf_dir = Path(__file__).resolve().parent.parent / ".github" / "workflows"
+    for name in lt.STAGING_WORKFLOWS:
+        assert (wf_dir / name).is_file(), name
+
+
+def test_fetch_reads_github_actions_read_only():
+    seen = []
+
+    class Done:
+        returncode = 0
+        stdout = json.dumps([{"status": "in_progress", "databaseId": 7, "createdAt": "t"}])
+
+    def runner(cmd, **kw):
+        seen.append(cmd)
+        assert kw["timeout"] == lt.GH_TIMEOUT_SECONDS
+        return Done()
+
+    runs = _real_fetch_staging_runs(("staging-release-smoke.yml", "offsite-backup.yml"), runner=runner)
+    assert [c[:5] for c in seen] == [["gh", "run", "list", "--workflow", "staging-release-smoke.yml"],
+                                     ["gh", "run", "list", "--workflow", "offsite-backup.yml"]]
+    assert all("--json" in c and "status,databaseId,createdAt" in c for c in seen)
+    assert [r["workflow"] for r in runs] == ["staging-release-smoke.yml", "offsite-backup.yml"]
+
+
+@pytest.mark.parametrize("failure", ["missing", "timeout", "exit", "not_json", "shape", "no_status"])
+def test_fetch_fails_closed(failure):
+    class Proc:
+        returncode = 0
+        stdout = "[]"
+
+    def runner(cmd, **kw):
+        if failure == "missing":
+            raise FileNotFoundError("gh")
+        if failure == "timeout":
+            raise lt.subprocess.TimeoutExpired(cmd, 30)
+        proc = Proc()
+        proc.returncode = 4 if failure == "exit" else 0
+        proc.stdout = {"exit": "", "not_json": "gh: auth required", "shape": '{"runs": []}',
+                       "no_status": '[{"databaseId": 1}]'}[failure]
+        return proc
+
+    with pytest.raises(lt.BusyCheckError):
+        _real_fetch_staging_runs(runner=runner)
+
+
+def test_a_smoke_running_before_step_one_sends_no_request(monkeypatch, tmp_path, capsys):
+    """(a) No HTTP client is ever built; the report names the busy run."""
+    monkeypatch.setattr(httpx, "AsyncClient", _NoNetwork)
+    reads = []
+    monkeypatch.setattr(lt, "fetch_staging_runs", lambda: reads.append(1) or SMOKE_RUNNING)
+    rc = lt.main(_busy_argv(tmp_path, "--busy-wait-seconds", "0.2"),
+                 environ={"LOADTEST_TOKEN_1": "SECRETTOK"})
+    assert rc == lt.EXIT_STAGING_BUSY == 4
+    assert len(reads) >= 2   # it polled while waiting, then gave up
+    report, markdown = _report(tmp_path)
+    assert report["steps"] == [] and report["backend_identity"] == {}
+    assert report["busy_stop"] == {"kind": "staging_busy", "users": 1, "steps_not_run": [1],
+                                   "reason": "staging busy: staging-release-smoke.yml run 41064757555"}
+    assert "staging busy: staging-release-smoke.yml run 41064757555" in markdown
+    assert "SECRETTOK" not in capsys.readouterr().err
+
+
+def test_waits_until_smoke_finishes_then_runs(monkeypatch, tmp_path):
+    requests, reads = [], []
+    _mock_all_requests(monkeypatch, requests)
+
+    def fetch():
+        reads.append(len(requests))
+        return SMOKE_RUNNING if len(reads) < 3 else SMOKE_DONE
+
+    monkeypatch.setattr(lt, "fetch_staging_runs", fetch)
+    assert lt.main(_busy_argv(tmp_path, "--busy-wait-seconds", "30"),
+                   environ={"LOADTEST_TOKEN_1": "t"}) == 0
+    assert reads == [0, 0, 0]   # nothing was sent while the smoke ran
+    report, _ = _report(tmp_path)
+    assert report["busy_stop"] is None and len(report["steps"]) == 1
+    assert report["busy_check"].startswith("github-actions: staging-release-smoke.yml")
+    assert requests
+
+
+def test_b_smoke_starting_between_steps_skips_step_two(monkeypatch, tmp_path):
+    """(b) Step 1 runs; the smoke starts during the cooldown; step 2 never runs."""
+    requests, reads = [], []
+    _mock_all_requests(monkeypatch, requests)
+
+    def fetch():
+        reads.append(len(requests))
+        return [] if len(reads) == 1 else SMOKE_RUNNING
+
+    monkeypatch.setattr(lt, "fetch_staging_runs", fetch)
+    rc = lt.main(_busy_argv(tmp_path, "--ladder", "1,1", "--busy-wait-seconds", "0"),
+                 environ={"LOADTEST_TOKEN_1": "t"})
+    assert rc == lt.EXIT_STAGING_BUSY
+    assert len(reads) == 2 and reads[0] == 0
+    assert len(requests) == reads[1]   # no request after the second check
+    report, markdown = _report(tmp_path)
+    assert [s["users"] for s in report["steps"]] == [1]
+    assert report["busy_stop"]["users"] == 1 and report["busy_stop"]["steps_not_run"] == [1]
+    assert "Not run: steps [1] users (staging busy" in markdown
+
+
+def test_c_unreadable_status_refuses_to_run(monkeypatch, tmp_path):
+    """(c) Fail closed: no client, exit 5, reason in the report."""
+    monkeypatch.setattr(httpx, "AsyncClient", _NoNetwork)
+
+    def fetch():
+        raise lt.BusyCheckError("gh run list --workflow staging-release-smoke.yml: exit 4")
+
+    monkeypatch.setattr(lt, "fetch_staging_runs", fetch)
+    rc = lt.main(_busy_argv(tmp_path), environ={"LOADTEST_TOKEN_1": "t"})
+    assert rc == lt.EXIT_BUSY_CHECK_REFUSED == 5
+    report, _ = _report(tmp_path)
+    assert report["steps"] == []
+    assert report["busy_stop"]["kind"] == "busy_check_failed"
+    assert "exit 4" in report["busy_stop"]["reason"]
+
+
+def test_c_unreadable_status_before_step_two_keeps_step_one(monkeypatch, tmp_path):
+    requests, reads = [], []
+    _mock_all_requests(monkeypatch, requests)
+
+    def fetch():
+        reads.append(len(requests))
+        if len(reads) > 1:
+            raise lt.BusyCheckError("gh run list --workflow staging-release-smoke.yml: TimeoutExpired")
+        return []
+
+    monkeypatch.setattr(lt, "fetch_staging_runs", fetch)
+    rc = lt.main(_busy_argv(tmp_path, "--ladder", "1,1"), environ={"LOADTEST_TOKEN_1": "t"})
+    assert rc == lt.EXIT_BUSY_CHECK_REFUSED
+    assert len(requests) == reads[1]
+    report, _ = _report(tmp_path)
+    assert len(report["steps"]) == 1 and report["busy_stop"]["kind"] == "busy_check_failed"
+
+
+def test_d_skip_busy_check_runs_and_is_recorded(monkeypatch, tmp_path):
+    requests = []
+    _mock_all_requests(monkeypatch, requests)
+
+    def fetch():
+        raise AssertionError("GitHub read despite --skip-busy-check")
+
+    monkeypatch.setattr(lt, "fetch_staging_runs", fetch)
+    assert lt.main(_busy_argv(tmp_path, "--skip-busy-check"),
+                   environ={"LOADTEST_TOKEN_1": "t"}) == 0
+    report, markdown = _report(tmp_path)
+    assert report["busy_check"] == "skipped by operator"
+    assert "busy_check: skipped by operator" in markdown
+    assert len(report["steps"]) == 1 and requests
+
+
+def test_e_marker_exists_during_run_and_is_removed(monkeypatch, tmp_path):
+    marker = tmp_path / "LOADTEST_ACTIVE"
+    out = tmp_path / "out"
+    seen = []
+    real, inner = lt.make_client, _fake_backend([])
+
+    def handler(request):
+        seen.append(json.loads(marker.read_text()))
+        return inner(request)
+
+    def mocked(base_url, timeout_s):
+        client = real(base_url, timeout_s)
+        client._transport = httpx.MockTransport(handler)
+        return client
+
+    monkeypatch.setattr(lt, "make_client", mocked)
+    assert lt.main(_busy_argv(out, "--busy-marker", str(marker)),
+                   environ={"LOADTEST_TOKEN_1": "t"}) == 0
+    assert seen and all(m["pid"] == lt.os.getpid() and m["label"] == "busy" for m in seen)
+    assert {m["current_step"] for m in seen} == {1}
+    assert seen[0]["started_at"] and seen[0]["base_url"] == STAGING
+    assert not marker.exists()
+    assert [p.name for p in tmp_path.iterdir()] == ["out"]   # no temp file left
+
+
+@pytest.mark.parametrize("failure", [KeyboardInterrupt, RuntimeError, lt.ProdGuardError, "busy"])
+def test_e_marker_removed_on_abort(monkeypatch, tmp_path, failure):
+    marker = tmp_path / "LOADTEST_ACTIVE"
+    monkeypatch.setattr(httpx, "AsyncClient", _NoNetwork)
+    if failure == "busy":
+        monkeypatch.setattr(lt, "fetch_staging_runs", lambda: SMOKE_RUNNING)
+        assert lt.main(_busy_argv(tmp_path / "out", "--busy-marker", str(marker),
+                                  "--busy-wait-seconds", "0"),
+                       environ={"LOADTEST_TOKEN_1": "t"}) == lt.EXIT_STAGING_BUSY
+        assert not marker.exists()
+        return
+
+    async def interrupted(args, tokens):
+        assert json.loads(marker.read_text())["current_step"] == "preflight"
+        raise failure("stop")
+
+    monkeypatch.setattr(lt, "amain", interrupted)
+    argv = _busy_argv(tmp_path / "out", "--busy-marker", str(marker))
+    if failure is lt.ProdGuardError:
+        assert lt.main(argv, environ={"LOADTEST_TOKEN_1": "t"}) == 2
+    else:
+        with pytest.raises(failure):
+            lt.main(argv, environ={"LOADTEST_TOKEN_1": "t"})
+    assert not marker.exists()
+
+
+def test_e_existing_marker_refuses_and_is_kept(monkeypatch, tmp_path):
+    marker = tmp_path / "LOADTEST_ACTIVE"
+    marker.write_text('{"pid": 1}')
+    monkeypatch.setattr(httpx, "AsyncClient", _NoNetwork)
+    rc = lt.main(_busy_argv(tmp_path / "out", "--busy-marker", str(marker)),
+                 environ={"LOADTEST_TOKEN_1": "t"})
+    assert rc == lt.EXIT_BUSY_CHECK_REFUSED
+    assert marker.read_text() == '{"pid": 1}'
+
+
+@pytest.mark.parametrize("flag,value", [("--busy-wait-seconds", "-1"), ("--busy-wait-seconds", "nan"),
+                                        ("--busy-poll-seconds", "0"), ("--busy-poll-seconds", "inf")])
+def test_busy_wait_args_refused_before_network(monkeypatch, tmp_path, flag, value):
+    monkeypatch.setattr(httpx, "AsyncClient", _NoNetwork)
+    with pytest.raises(SystemExit, match=flag):
+        lt.main(_busy_argv(tmp_path, flag, value), environ={"LOADTEST_TOKEN_1": "t"})
