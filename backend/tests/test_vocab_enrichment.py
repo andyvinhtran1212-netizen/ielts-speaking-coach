@@ -172,7 +172,7 @@ def test_enrich_empty_input_returns_empty_no_call(monkeypatch):
 
     class _SpyModel:
         def __init__(self, *a, **k): pass
-        def generate_content(self, *_, **_kwargs):
+        def generate_content(self, *_):
             called["n"] += 1
             raise AssertionError("should not be called for empty input")
 
@@ -202,7 +202,7 @@ def _install_stub(monkeypatch, ve, per_chunk_responder):
 
     class _StubModel:
         def __init__(self, *a, **k): pass
-        def generate_content(self, prompt: str, **_kwargs):
+        def generate_content(self, prompt: str):
             # Pull the headwords back out of the prompt so the responder can
             # tailor its reply.  Format from _enrich_single_chunk is
             # "Enrich these N headwords:\n\n- foo\n- bar".
@@ -321,7 +321,7 @@ def test_enrich_invalid_json_treated_as_chunk_failure(monkeypatch):
 
     class _StubModel:
         def __init__(self, *a, **k): pass
-        def generate_content(self, _, **_kwargs):
+        def generate_content(self, _):
             return _BadJsonResp()
 
     monkeypatch.setattr(ve.genai, "GenerativeModel", _StubModel)
@@ -373,7 +373,7 @@ def test_retries_missing_words_with_simpler_prompt(monkeypatch):
         def __init__(self, *a, **k):
             self._sys = k.get("system_instruction", "")
 
-        def generate_content(self, prompt: str, **_kwargs):
+        def generate_content(self, prompt: str):
             words = [
                 line[2:].strip()
                 for line in prompt.splitlines()
@@ -427,7 +427,7 @@ def test_enrich_strips_markdown_fences(monkeypatch):
 
     class _StubModel:
         def __init__(self, *a, **k): pass
-        def generate_content(self, _, **_kwargs):
+        def generate_content(self, _):
             return _FencedResp()
 
     monkeypatch.setattr(ve.genai, "GenerativeModel", _StubModel)
