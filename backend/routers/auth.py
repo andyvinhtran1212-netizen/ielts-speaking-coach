@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from time import perf_counter
 
@@ -83,9 +84,32 @@ def _norm_email(value: str | None) -> str | None:
     return ((value or "").strip().casefold()) or None
 
 
+def _exc_tag(exc: BaseException) -> str:
+    """Log-safe exception label for /activate: class + SQLSTATE, never DB text
+    (a PostgREST message/detail can echo column values such as the code). An
+    app-raised HTTPException keeps its machine code (e.g. student_archived)."""
+    if isinstance(exc, HTTPException):
+        detail = exc.detail
+        if isinstance(detail, dict):
+            detail = detail.get("code") or detail.get("error_code")
+        detail = detail if isinstance(detail, str) else None
+        code = detail if detail and re.fullmatch(r"[a-z][a-z0-9_]{0,63}", detail) else None
+        return f"HTTPException {exc.status_code}" + (f" {code}" if code else "")
+    code = getattr(exc, "code", None)
+    return f"{type(exc).__name__} code={code}" if isinstance(code, str) and code else type(exc).__name__
+
+
+def _activation_error(exc: BaseException, *, context: str, ref: str,
+                      status_code: int = 500, message: str | None = None) -> HTTPException:
+    """safe_error() for /activate without logging the raw DB exception (SA-3)."""
+    logger.error("[auth] activation failed ref=%s %s: %s", ref, context, _exc_tag(exc))
+    return safe_error(status_code=status_code, message=message, context=context, ref=ref)
+
+
 def _audit_promote_attempt(
     user_id: str, code_id: str | None, *,
     ok: bool, before_role: str | None = None, intended_email: str | None = None,
+    after_role: str = "instructor",
 ) -> None:
     """Append one row to access_code_audit for a role-promote attempt. BEST-EFFORT:
     never raises (a logging failure must not break/block activation). Records
@@ -98,11 +122,11 @@ def _audit_promote_attempt(
             "code_id":        code_id,
             "target_user_id": user_id,
             "before":         {"role": before_role} if ok else None,
-            "after":          ({"role": "instructor"} if ok
+            "after":          ({"role": after_role} if ok
                                else {"reason": "email_mismatch", "intended_email": intended_email}),
         }).execute()
     except Exception as e:
-        logger.warning("[warn] promote_role audit failed: %s", e)
+        logger.warning("[warn] promote_role audit failed: %s", _exc_tag(e))
 
 
 def _audit_enroll_reject(user_id: str, code_id: str | None, *,
@@ -119,7 +143,7 @@ def _audit_enroll_reject(user_id: str, code_id: str | None, *,
             "after":          {"attempted_owner": str(attempted_owner) if attempted_owner else None},
         }).execute()
     except Exception as e:
-        logger.warning("[warn] enroll_reassign audit failed: %s", e)
+        logger.warning("[warn] enroll_reassign audit failed: %s", _exc_tag(e))
 
 
 # ── Shared helper ─────────────────────────────────────────────────────────────
@@ -476,7 +500,7 @@ def _restore_archived_account_state(user_id: str, *, was_already_active: bool,
                           and bool((latest.get("detail") or {}).get("account_deactivated")))
         except Exception as e:
             # Unknown archive intent: fail closed to the archive's strictest state.
-            logger.error("[auth] archive audit read failed user=%s: %s", user_id, e)
+            logger.error("[auth] archive audit read failed user=%s: %s", user_id, _exc_tag(e))
             deactivate = True
     if not deactivate:
         return
@@ -484,7 +508,7 @@ def _restore_archived_account_state(user_id: str, *, was_already_active: bool,
         supabase_admin.table("users").update({"is_active": False}).eq("id", user_id).execute()
     except Exception as e:
         logger.error("[auth] archive rollback of is_active FAILED for user=%s (critical): %s",
-                     user_id, e)
+                     user_id, _exc_tag(e))
 
 
 def is_cohort_archived_error(exc: BaseException) -> bool:
@@ -495,40 +519,126 @@ def is_cohort_archived_error(exc: BaseException) -> bool:
 def _audit_class_activation_rejected(
     user_id: str, code_id: str | None, cohort_id: str, *,
     request_id: str, race: bool = False, compensation_failed: bool = False,
+    unrestored_fields: list[str] | None = None,
 ) -> None:
     # Migration 099 has before/after JSON, not a top-level detail column.
     # Keep the rejection detail inside after so this works before 337 too.
+    detail = {"request_id": request_id, "race": race, "compensation_failed": compensation_failed}
+    if compensation_failed:
+        # The real final state: these users fields may still hold this request's
+        # Step 3 values (runbook: docs/runbooks/activation-compensation-failed.md).
+        detail["unrestored_fields"] = sorted(unrestored_fields or [])
     try:
         supabase_admin.table("access_code_audit").insert({
             "actor_user_id": user_id,
             "target_user_id": user_id,
             "code_id": code_id,
             "action": "enroll_rejected_cohort_archived",
-            "after": {"cohort_id": str(cohort_id), "detail": {
-                "request_id": request_id, "race": race,
-                "compensation_failed": compensation_failed,
-            }},
+            "after": {"cohort_id": str(cohort_id), "detail": detail},
         }).execute()
-    except Exception:
-        logger.exception("[auth] class activation rejection audit failed request_id=%s user=%s",
-                         request_id, user_id)
+    except Exception as e:
+        logger.error("[auth] class activation rejection audit failed request_id=%s user=%s: %s",
+                     request_id, user_id, _exc_tag(e))
 
 
-def _restore_class_activation_snapshot(user_id: str, snapshot: dict, request_id: str) -> bool:
-    """Undo this request's Step 3 write; one retry, never claim on failure."""
+def _restore_class_activation_snapshot(
+    user_id: str, snapshot: dict, written: dict, request_id: str,
+) -> tuple[bool, list[str]]:
+    """Undo this request's Step 3 write; one retry, never claim on failure.
+
+    Only fields Step 3 actually changed are restored, and only while they still
+    hold the value Step 3 wrote: a concurrent admin change (e.g. is_active=false
+    or stripped permissions) wins over the snapshot. Returns (ok, fields that may
+    still hold this request's values when not ok).
+    """
+    changed = {key: snapshot.get(key) for key, value in written.items()
+               if value != snapshot.get(key)}
     for attempt in range(2):
         try:
-            restored = (supabase_admin.table("users").update(snapshot)
-                        .eq("id", user_id).execute())
-            if not restored.data:
+            if not changed:
+                return True, []
+            rows = (supabase_admin.table("users").select(", ".join(changed))
+                    .eq("id", user_id).limit(1).execute().data or [])
+            if not rows:
+                raise RuntimeError("activation compensation found no user")
+            restore = {key: value for key, value in changed.items()
+                       if rows[0].get(key) == written[key]}
+            if not restore:
+                return True, []
+            query = supabase_admin.table("users").update(restore).eq("id", user_id)
+            for key in restore:
+                if not isinstance(written[key], (list, dict)):
+                    query = query.eq(key, written[key])  # compare-and-swap on scalars
+            if not query.execute().data:
                 raise RuntimeError("activation compensation updated no user")
-            return True
-        except Exception:
-            logger.warning("[auth] activation compensation attempt=%s request_id=%s user=%s",
-                           attempt + 1, request_id, user_id, exc_info=True)
+            return True, []
+        except Exception as e:
+            logger.warning("[auth] activation compensation attempt=%s request_id=%s user=%s: %s",
+                           attempt + 1, request_id, user_id, _exc_tag(e))
     logger.critical("[auth] cohort-archive activation revert FAILED request_id=%s user=%s (activation_incomplete)",
                     request_id, user_id)
-    return False
+    return False, sorted(changed)
+
+
+def _promote_after_claim(user_id: str, before_role: str | None,
+                         request_id: str) -> tuple[str | None, str | None]:
+    """W-2 promote, run only after this request owns the code (SA-REVIEW-152).
+
+    Upgrade-only compare-and-swap on the Step 2 role, one retry. Returns
+    (final_role, failure_reason); failure_reason is None when the account ends
+    at instructor or above.
+    """
+    final_role: str | None = None
+    for attempt in range(2):
+        try:
+            query = supabase_admin.table("users").update({"role": "instructor"}).eq("id", user_id)
+            if before_role is not None:
+                query = query.eq("role", before_role)
+            if query.execute().data:
+                return "instructor", None
+            # 0 rows: the role changed since Step 2 (never overwrite it), or the
+            # client returned no representation — read back to tell them apart.
+            rows = (supabase_admin.table("users").select("role")
+                    .eq("id", user_id).limit(1).execute().data or [])
+            final_role = rows[0].get("role") if rows else None
+            if final_role in ("instructor", "admin"):
+                return final_role, None
+            return final_role, "role_changed"
+        except Exception as e:
+            # 332 (account_suspended) or, on this role-only write, 336
+            # (account_suspended_role_change): the trigger rolled it back.
+            if staff_security.raised_code(e) in ("account_suspended", "account_suspended_role_change"):
+                return before_role, "account_suspended"
+            logger.warning("[auth] instructor promote attempt=%s request_id=%s user=%s: %s",
+                           attempt + 1, request_id, user_id, _exc_tag(e))
+    try:  # record the real final role in the audit; None = unknown
+        rows = (supabase_admin.table("users").select("role")
+                .eq("id", user_id).limit(1).execute().data or [])
+        final_role = rows[0].get("role") if rows else None
+    except Exception as e:
+        logger.warning("[auth] promote read-back failed request_id=%s user=%s: %s",
+                       request_id, user_id, _exc_tag(e))
+    if final_role in ("instructor", "admin"):
+        return final_role, None
+    return final_role, "write_failed"
+
+
+def _audit_promote_failed(user_id: str, code_id: str | None, *, before_role: str | None,
+                          final_role: str | None, reason: str, request_id: str) -> None:
+    """Best-effort audit of a claimed instructor code whose promote did not land."""
+    try:
+        supabase_admin.table("access_code_audit").insert({
+            "actor_user_id": user_id,
+            "target_user_id": user_id,
+            "code_id": code_id,
+            "action": "promote_role_failed",
+            "before": {"role": before_role},
+            "after": {"role": final_role, "reason": reason, "code_claimed": True,
+                      "request_id": request_id},
+        }).execute()
+    except Exception as e:
+        logger.error("[auth] promote_role_failed audit failed request_id=%s user=%s: %s",
+                     request_id, user_id, _exc_tag(e))
 
 
 @router.post("/activate", response_model=AuthActivateResponse)
@@ -555,7 +665,7 @@ async def activate_account(
             .execute()
         )
     except Exception as e:
-        raise safe_error(e, context="activation code lookup", ref=request_id) from None
+        raise _activation_error(e, context="activation code lookup", ref=request_id) from None
 
     # Audit 2026-07-03 S5 — anti-enumeration. Distinct messages for
     # not-found / used / revoked / expired let a caller distinguish a code that
@@ -622,7 +732,7 @@ async def activate_account(
         code_profiles = (supabase_admin.table("students").select("id, user_id, archived_at")
                          .eq("student_code", code).limit(1).execute().data or [])
     except Exception as e:
-        raise safe_error(e, context="activation profile pre-check", ref=request_id) from None
+        raise _activation_error(e, context="activation profile pre-check", ref=request_id) from None
     if linked_profiles:
         profile_archived = all(row.get("archived_at") for row in linked_profiles)
     else:
@@ -644,8 +754,8 @@ async def activate_account(
                        .eq("id", str(code_cohort_id)).limit(1).execute().data or [])
             code_cohort = cohorts[0] if cohorts else None
         except Exception as e:
-            raise safe_error(e, status_code=503, message=unused_message,
-                             context="activation class pre-check", ref=request_id) from None
+            raise _activation_error(e, status_code=503, message=unused_message,
+                                    context="activation class pre-check", ref=request_id) from None
         if code_cohort and code_cohort.get("is_active") is False and code_cohort.get("archived_at"):
             logger.info("[auth] activation rejected: cohort_archived request_id=%s user=%s cohort=%s",
                         request_id, user_id, code_cohort_id)
@@ -665,7 +775,7 @@ async def activate_account(
         suspension = (supabase_admin.table("users").select("*")
                       .eq("id", user_id).limit(1).execute().data or [])
     except Exception as e:
-        raise safe_error(e, context="activation suspension pre-check", ref=request_id) from None
+        raise _activation_error(e, context="activation suspension pre-check", ref=request_id) from None
     if suspension and suspension[0].get("suspended_at"):
         raise staff_security.account_suspended_exception(403)
 
@@ -700,7 +810,7 @@ async def activate_account(
         activation_snapshot = {key: user_before.get(key)
                                for key in ("is_active", "access_code_used", "permissions")}
     except Exception as e:
-        raise safe_error(e, context="activation user snapshot", ref=request_id) from None
+        raise _activation_error(e, context="activation user snapshot", ref=request_id) from None
 
     # ── Step 3: activate the user ─────────────────────────────────────────────
     # Copy permissions from access_code so they survive code revocation later.
@@ -710,19 +820,18 @@ async def activate_account(
         "access_code_used": code,
         "permissions": code_permissions,
     }
-    # W-2 — fold the role promote into the SAME update (ATOMIC with activation,
-    # no bolt-tail). Upgrade-only: never downgrade admin; no-op if already
-    # ≥ instructor. Only set when the email-bound gate above passed.
+    # W-2 — the role promote is NOT part of this write (SA-REVIEW-152): it runs
+    # only after Step 4 wins the claim, so every pre-claim failure (Step 3b
+    # error, archive race, lost/indeterminate claim) leaves the role untouched.
+    # Upgrade-only: never downgrade admin; no-op if already ≥ instructor. Only
+    # when the email-bound gate above passed.
     will_promote = promote_role == "instructor" and current_role not in ("admin", "instructor")
-    if will_promote:
-        update_fields["role"] = "instructor"
-        activation_snapshot["role"] = user_before.get("role")
     try:
         supabase_admin.table("users").update(update_fields).eq("id", user_id).execute()
     except Exception as e:
         if staff_security.is_account_suspended_error(e):
             raise staff_security.account_suspended_exception(403) from None
-        raise safe_error(e, context="activation user update", ref=request_id) from None
+        raise _activation_error(e, context="activation user update", ref=request_id) from None
 
     # ── Step 3b (W-5): enroll-chain — stamp students.instructor_id ATOMICALLY,
     # BEFORE the code is consumed (seam-defect #4: no bolt-tail). Any failure here
@@ -738,8 +847,8 @@ async def activate_account(
             ir = (supabase_admin.table("users").select("role")
                   .eq("id", issued_by).limit(1).execute().data or [None])[0]
         except Exception as e:
-            raise safe_error(e, message=unused_message, context="activation issuer lookup",
-                             ref=request_id) from None
+            raise _activation_error(e, message=unused_message, context="activation issuer lookup",
+                                    ref=request_id) from None
         if ir and ir.get("role") == "instructor":
             owner = str(issued_by)
 
@@ -773,8 +882,8 @@ async def activate_account(
                    .select("id, user_id, instructor_id, cohort_id, archived_at")
                    .eq("student_code", code).limit(1).execute().data or [])
     except Exception as e:
-        raise safe_error(e, message=unused_message, context="activation enrollment lookup",
-                         ref=request_id) from None
+        raise _activation_error(e, message=unused_message, context="activation enrollment lookup",
+                                ref=request_id) from None
 
     target = None
     if by_user:
@@ -846,9 +955,10 @@ async def activate_account(
             # student_code==code exists but is linked to ANOTHER user (code/account
             # mismatch — NOT an ownership conflict). Existing behaviour: log + skip
             # the enroll (don't relink, don't 403). Activation still proceeds.
+            # Log the code row id, never the code itself (SA-3).
             logger.warning(
-                "[auth] student_code=%s linked to user=%s; refusing relink to %s",
-                code, by_code[0].get("user_id"), user_id,
+                "[auth] student code of code_id=%s linked to user=%s; refusing relink to %s",
+                access_code_row.get("id"), by_code[0].get("user_id"), user_id,
             )
         elif owner or code_cohort_id:
             # ENROLL SIGNAL only (instructor code OR cohort/class code) AND no row
@@ -874,10 +984,12 @@ async def activate_account(
         if is_cohort_archived_error(e):
             logger.warning("[auth] activation race: cohort_archived request_id=%s user=%s cohort=%s",
                            request_id, user_id, code_cohort_id)
-            restored = _restore_class_activation_snapshot(user_id, activation_snapshot, request_id)
+            restored, unrestored = _restore_class_activation_snapshot(
+                user_id, activation_snapshot, update_fields, request_id,
+            )
             _audit_class_activation_rejected(
                 user_id, access_code_row.get("id"), code_cohort_id, request_id=request_id,
-                race=True, compensation_failed=not restored,
+                race=True, compensation_failed=not restored, unrestored_fields=unrestored,
             )
             if not restored:
                 raise safe_error(
@@ -886,8 +998,8 @@ async def activate_account(
                 ) from None
             raise HTTPException(400, _GENERIC) from None
         # FATAL, BEFORE consume — fail closed so the code stays retry-able.
-        raise safe_error(e, message=unused_message, context="activation enrollment write",
-                         ref=request_id) from None
+        raise _activation_error(e, message=unused_message, context="activation enrollment write",
+                                ref=request_id) from None
 
     # The students row this activation enrolled (created or folded). Used after
     # the claim succeeds to backfill the cohort's open gives for a late joiner.
@@ -938,7 +1050,8 @@ async def activate_account(
         # stays False) rather than fall through to Step 5, which would risk a
         # second active redemption in a transient DB/PostgREST failure window.
         indeterminate = True
-        logger.error("[auth] access-code claim indeterminate — failing closed: %s", e)
+        logger.error("[auth] access-code claim indeterminate — failing closed request_id=%s: %s",
+                     request_id, _exc_tag(e))
 
     if not claimed:
         # Lost the race (or indeterminate claim). Undo EVERY side effect this
@@ -952,7 +1065,7 @@ async def activate_account(
             except Exception as e:
                 logger.error(
                     "[auth] race rollback of is_active FAILED for user=%s (critical): %s",
-                    user_id, e,
+                    user_id, _exc_tag(e),
                 )
         if enroll_inserted_id:
             try:
@@ -960,7 +1073,7 @@ async def activate_account(
             except Exception as e:
                 logger.error(
                     "[auth] race rollback of inserted student FAILED id=%s (critical): %s",
-                    enroll_inserted_id, e,
+                    enroll_inserted_id, _exc_tag(e),
                 )
         elif enroll_revert:
             _sid, _fields = enroll_revert
@@ -979,7 +1092,7 @@ async def activate_account(
             except Exception as e:
                 logger.error(
                     "[auth] race rollback of student link FAILED id=%s (critical): %s",
-                    _sid, e,
+                    _sid, _exc_tag(e),
                 )
         if indeterminate:
             # Transient DB/PostgREST failure — we don't actually know the code is
@@ -990,9 +1103,24 @@ async def activate_account(
             )
         raise HTTPException(status_code=400, detail="Access code này đã được sử dụng rồi")
 
-    # A rejected/compensated promotion must not be audited as successful.
+    # W-2 promote, now that this request owns the code. The claim is immutable,
+    # so a promote that does not land is audited with the real final role and
+    # reported after Steps 5–6 (the code stays this user's), never silently.
+    promote_failure: str | None = None
     if will_promote:
-        _audit_promote_attempt(user_id, access_code_row.get("id"), ok=True, before_role=current_role)
+        final_role, promote_failure = _promote_after_claim(
+            user_id, user_before.get("role"), request_id,
+        )
+        if promote_failure is None:
+            _audit_promote_attempt(user_id, access_code_row.get("id"), ok=True,
+                                   before_role=current_role, after_role=final_role)
+        else:
+            logger.critical("[auth] instructor promote FAILED after claim request_id=%s user=%s "
+                            "code_id=%s reason=%s", request_id, user_id,
+                            access_code_row.get("id"), promote_failure)
+            _audit_promote_failed(user_id, access_code_row.get("id"),
+                                  before_role=user_before.get("role"), final_role=final_role,
+                                  reason=promote_failure, request_id=request_id)
 
     # ── Step 5: upsert assignment row so admin panel can show the redeemer ───
     try:
@@ -1003,7 +1131,7 @@ async def activate_account(
             "is_active":   True,
         }, on_conflict="user_id,code_id").execute()
     except Exception as e:
-        logger.warning("[warn] Could not create user_code_assignment: %s", e)
+        logger.warning("[warn] Could not create user_code_assignment: %s", _exc_tag(e))
 
     # ── Step 6 (E1): backfill the cohort's open gives for a late joiner ──────
     # Runs AFTER the claim so a lost-race user gets nothing (and needs no undo).
@@ -1026,11 +1154,20 @@ async def activate_account(
         except Exception as e:
             logger.warning(
                 "[auth] cohort give backfill failed student=%s cohort=%s: %s",
-                enrolled_student_id, code_cohort_id, e,
+                enrolled_student_id, code_cohort_id, _exc_tag(e),
             )
 
     # (Phase-2.1 student-link + WF-1 cohort enroll moved to Step 3b above and
     # folded into the atomic, pre-consume enroll write — see W-5.)
+
+    if promote_failure == "account_suspended":
+        raise staff_security.account_suspended_exception(403)
+    if promote_failure:
+        raise safe_error(
+            status_code=503, error_code="promote_incomplete", ref=request_id,
+            message="Mã đã được kích hoạt cho tài khoản này nhưng chưa cấp được quyền "
+                    "giảng viên — vui lòng liên hệ admin kèm mã tham chiếu.",
+        )
 
     return {
         "success": True,

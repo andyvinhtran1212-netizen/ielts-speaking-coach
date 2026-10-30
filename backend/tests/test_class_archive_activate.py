@@ -449,3 +449,196 @@ def test_real_pg_337_activation_contract(world, pg_activation, monkeypatch, scen
     assert len(audits) == 1
     assert audits[0]["action"] == "enroll_rejected_cohort_archived"
     assert audits[0]["after"]["detail"]["race"] is scenario.startswith("race")
+
+
+# ── SA-REVIEW-152: promote only after the claim; compensation and logs ───────
+
+def use_instructor_code(db):
+    db.tables["access_codes"][0].update(grants_role="instructor", intended_email="learner@example.test")
+
+
+def promote_audits(db):
+    return [r for r in db.tables.get("access_code_audit", []) if r["action"].startswith("promote_role")]
+
+
+def record_writes(monkeypatch, hook=None):
+    """Patch Query.execute to log (table, op, values) in order; `hook` may act first."""
+    original, writes = Query.execute, []
+
+    def execute(query):
+        if query.op != "select":
+            writes.append((query.name, query.op, deepcopy(query.values)))
+        if hook:
+            hook(query)
+        return original(query)
+
+    monkeypatch.setattr(Query, "execute", execute)
+    return writes
+
+
+@pytest.mark.parametrize("empty", [False, True])
+def test_double_compensation_failure_never_leaves_instructor_role(world, empty):
+    db, client = world
+    use_instructor_code(db)
+    db.archive_race, db.revert_failures, db.empty_revert = True, 0 if empty else 2, empty
+    response = activate(client)
+    assert response.status_code == 503, response.text
+    assert response.json()["detail"]["error_code"] == "activation_incomplete"
+    assert db.tables["users"][0]["role"] == "user"
+    assert not promote_audits(db)
+    detail = audit_detail(db)
+    assert detail["compensation_failed"] is True
+    assert detail["unrestored_fields"] == ["access_code_used", "is_active", "permissions"]
+    assert_unused(db)
+
+
+def test_enrollment_write_error_leaves_role_untouched(world):
+    db, client = world
+    use_instructor_code(db)
+    db.fail_at = ("students", "insert")
+    response = activate(client)
+    assert response.status_code == 500, response.text
+    assert "Mã CHƯA được sử dụng" in response.text
+    assert db.tables["users"][0]["role"] == "user"
+    assert not promote_audits(db)
+    assert_unused(db)
+
+
+@pytest.mark.parametrize("outcome", ["indeterminate", "lost"])
+def test_unclaimed_code_leaves_role_untouched(world, monkeypatch, outcome):
+    db, client = world
+    use_instructor_code(db)
+    if outcome == "indeterminate":
+        db.fail_at = ("access_codes", "update")
+    else:
+        def other_user_claims_first(query):
+            if query.name == "access_codes" and query.op == "update":
+                db.tables["access_codes"][0].update(is_used=True, used_by="learner-2")
+        record_writes(monkeypatch, other_user_claims_first)
+    response = activate(client)
+    assert response.status_code == (503 if outcome == "indeterminate" else 400), response.text
+    user = db.tables["users"][0]
+    assert user["role"] == "user" and user["is_active"] is False
+    assert not promote_audits(db)
+    assert db.tables["access_codes"][0]["used_by"] != USER
+
+
+def test_instructor_code_promotes_only_after_claim(world, monkeypatch):
+    db, client = world
+    use_instructor_code(db)
+    writes = record_writes(monkeypatch)
+    response = activate(client)
+    assert response.status_code == 200, response.text
+    assert db.tables["users"][0]["role"] == "instructor"
+    claim = writes.index(next(w for w in writes if w[0] == "access_codes"))
+    promote = [i for i, w in enumerate(writes) if w[0] == "users" and "role" in w[2]]
+    assert promote == [claim + 1] and writes[promote[0]][2] == {"role": "instructor"}
+    audits = promote_audits(db)
+    assert [(a["action"], a["before"], a["after"]) for a in audits] == [
+        ("promote_role", {"role": "user"}, {"role": "instructor"})]
+
+
+@pytest.mark.parametrize("mode, final_role, reason", [
+    ("error", "user", "write_failed"),
+    ("role_changed", "student", "role_changed"),
+])
+def test_promote_failure_after_claim_is_audited_with_final_state(
+    world, monkeypatch, caplog, mode, final_role, reason,
+):
+    db, client = world
+    use_instructor_code(db)
+
+    def promote_does_not_land(query):
+        if query.name == "users" and query.op == "update" and query.values == {"role": "instructor"}:
+            if mode == "error":
+                raise RuntimeError(DB_TEXT)
+            db.tables["users"][0]["role"] = "student"  # changed since Step 2: never overwritten
+
+    record_writes(monkeypatch, promote_does_not_land)
+    with request_id_scope("sa152-request"), caplog.at_level(logging.DEBUG):
+        response = activate(client)
+    assert response.status_code == 503, response.text
+    assert response.json()["detail"]["error_code"] == "promote_incomplete"
+    assert response.json()["detail"]["ref"] == "sa152-request"
+    user, code = db.tables["users"][0], db.tables["access_codes"][0]
+    assert user["role"] == final_role and user["is_active"] is True
+    assert code["is_used"] is True and code["used_by"] == USER
+    assert db.tables["user_code_assignments"][0]["user_id"] == USER
+    audits = promote_audits(db)
+    assert [a["action"] for a in audits] == ["promote_role_failed"]
+    assert audits[0]["before"] == {"role": "user"}
+    assert audits[0]["after"] == {"role": final_role, "reason": reason, "code_claimed": True,
+                                  "request_id": "sa152-request"}
+    assert any(r.levelno == logging.CRITICAL and "sa152-request" in r.getMessage()
+               for r in caplog.records)
+    assert DB_TEXT not in response.text and DB_TEXT not in caplog.text
+
+
+@pytest.mark.parametrize("guard", ["account_suspended", "account_suspended_role_change"])
+def test_suspension_during_promote_returns_suspended_and_audits(world, monkeypatch, guard):
+    from postgrest.exceptions import APIError
+
+    db, client = world
+    use_instructor_code(db)
+
+    def suspended_now(query):
+        if query.name == "users" and query.op == "update" and query.values == {"role": "instructor"}:
+            raise APIError({"message": guard, "code": "P0001", "details": None})
+
+    record_writes(monkeypatch, suspended_now)
+    response = activate(client)
+    assert response.status_code == 403, response.text
+    assert response.json()["detail"]["code"] == "account_suspended"
+    assert db.tables["users"][0]["role"] == "user"
+    assert [(a["action"], a["after"]["reason"]) for a in promote_audits(db)] == [
+        ("promote_role_failed", "account_suspended")]
+
+
+def test_compensation_keeps_concurrent_admin_changes(world, monkeypatch):
+    """CR P3-1: an admin deactivation / permission strip in the window wins."""
+    db, client = world
+    db.tables["users"][0].update(is_active=True, permissions=["writing"])
+
+    def admin_acts_after_activation(query):
+        if query.name == "students" and query.op != "select":
+            db.tables["users"][0].update(is_active=False, permissions=[])
+
+    writes = record_writes(monkeypatch, admin_acts_after_activation)
+    db.archive_race = True
+    response = activate(client)
+    assert response.status_code == 400, response.text
+    user = db.tables["users"][0]
+    assert user["is_active"] is False and user["permissions"] == []
+    assert user["access_code_used"] == "PREVIOUS" and user["role"] == "user"
+    reverts = [w[2] for w in writes if w[0] == "users" and w[2].get("is_active") is not True]
+    assert reverts == [{"access_code_used": "PREVIOUS"}]
+    assert_unused(db)
+
+
+def test_student_code_conflict_log_has_code_id_not_code(world, caplog):
+    db, client = world
+    db.tables["students"] = [{"id": "student-2", "user_id": "learner-2", "student_code": CODE,
+                              "instructor_id": None, "cohort_id": None, "archived_at": None}]
+    with caplog.at_level(logging.DEBUG):
+        response = activate(client)
+    assert response.status_code == 200, response.text
+    assert CODE not in caplog.text
+    assert any("code-1" in r.getMessage() and "learner-2" in r.getMessage() for r in caplog.records)
+
+
+@pytest.mark.parametrize("failure", [
+    ("access_codes", "select"), ("students", "select"), ("users", "select"),
+    ("users", "update"), ("students", "insert"), ("access_codes", "update"),
+    ("user_code_assignments", "insert"), "race",
+])
+def test_activation_logs_never_carry_db_text(world, caplog, failure):
+    db, client = world
+    if failure == "race":
+        db.archive_race, db.revert_failures = True, 2
+    else:
+        db.fail_at = failure
+    with caplog.at_level(logging.DEBUG):
+        response = activate(client)
+    assert DB_TEXT not in response.text
+    assert DB_TEXT not in caplog.text
+    assert CODE not in caplog.text

@@ -86,8 +86,8 @@ Preconditions:
   activation DB exception response is clean. A failed class read is 503 before
   user, student or code writes.
 - Race tests cover INSERT/UPDATE, inactive/already-active users, null defaults
-  on a newly created user, rollback of a promoted role, and preservation of an
-  admin role. A first compensation failure is retried once; two failures (or
+  on a newly created user, an instructor code whose role is never written
+  before the claim (SA-REVIEW-152 below), and preservation of an admin role. A first compensation failure is retried once; two failures (or
   empty update results) yield 503 `activation_incomplete`, a CRITICAL log with
   request/user ids, and the compensation flag. No archive refusal claims the
   code or writes an assignment; success after enrollment has committed stays
@@ -110,3 +110,29 @@ Preconditions:
   `0243e4e6f58ab8a4ac45459613fccc9227fac227`; J157 (#1974) remains open.
   Leader merges after that dependency and exact-head CI, once staging unfreezes.
   AC-4 still requires applied 337 and a synthetic QA namespace under T011.
+
+## SA-REVIEW-152 follow-up (2026-10-30)
+
+- P2 fix, approach (a): `role='instructor'` is no longer folded into Step 3.
+  `_promote_after_claim` runs only after Step 4 wins the claim (upgrade-only
+  compare-and-swap on the Step 2 role, one retry), then `promote_role` is
+  audited. A pre-claim failure (double compensation failure 503, other Step 3b
+  error 500, lost or indeterminate claim) leaves the role and the promote audit
+  untouched. A promote that does not land after the immutable claim is audited
+  as `promote_role_failed` with the read-back final role and reason, logged
+  CRITICAL, and returned as 503 `promote_incomplete` (403 `account_suspended`
+  when 332/336 refuse it) after the assignment row and backfill run.
+- CR P3-1: compensation restores only fields Step 3 changed, and only while
+  they still hold Step 3's value (re-read, plus compare-and-swap on scalar
+  fields), so a concurrent admin `is_active=false` or permission strip wins.
+  A failed compensation audit lists `after.detail.unrestored_fields`.
+- SA-3: `/activate` logs the exception class and SQLSTATE only, never DB text
+  or the code; the student-code conflict log names the code row id.
+- SA-4: runbook `docs/runbooks/activation-compensation-failed.md`.
+- Red/green: 22 cases fail on `25c89b257` and pass with the fix: 20 new in
+  `test_class_archive_activate.py` plus 2 updated on purpose.
+  `test_instructor_code_matching_email_promotes_and_audits` pinned the old
+  "promote folded into the activation write" contract and now pins "promote is
+  a separate write after the claim";
+  `test_migration_323_users_role_single_check.py::test_application_writes_only_values_the_constraint_allows`
+  still pins the canonical `'instructor'` literal, at the new write.

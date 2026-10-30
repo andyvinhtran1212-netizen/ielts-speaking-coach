@@ -5,8 +5,8 @@ Covers:
     still reject instructor (require_admin unchanged).
   - /auth/activate promote gate: ordinary code never promotes; wrong/empty email
     on an instructor-code HARD-403s WITHOUT consuming the code; matching email
-    (case-insensitive) promotes atomically + writes a promote_role audit; an
-    already-admin user is NOT downgraded.
+    (case-insensitive) promotes only after the code claim + writes a promote_role
+    audit; an already-admin user is NOT downgraded.
   - POST /admin/access-codes/generate: mints an email-bound instructor-code and
     rejects an instructor-code with no intended_email.
 """
@@ -191,14 +191,22 @@ def test_instructor_code_null_email_403():
 
 
 def test_instructor_code_matching_email_promotes_and_audits():
-    """Case-insensitive email match → role='instructor' folded into the SAME
-    users.update (atomic) + a promote_role audit row."""
+    """Case-insensitive email match → role='instructor' + a promote_role audit row.
+
+    SA-REVIEW-152: the promote is a separate users.update that runs only AFTER
+    the access-code claim, so a pre-claim failure can never leave the role."""
     code = _code_row(grants_role="instructor", intended_email="GV@Aver.com")
     resp, fake = _activate(code, token_email="gv@aver.com")   # differs only by case
     assert resp.status_code == 200, resp.text
-    role_writes = [p for (t, p) in fake.updates if t == "users" and p.get("role") == "instructor"]
-    assert len(role_writes) == 1, "exactly one atomic users.update with role=instructor"
-    assert role_writes[0].get("is_active") is True, "promote folded INTO activation (no bolt-tail)"
+    role_writes = [i for i, (t, p) in enumerate(fake.updates)
+                   if t == "users" and p.get("role") == "instructor"]
+    assert len(role_writes) == 1, "exactly one users.update with role=instructor"
+    claim = [i for i, (t, p) in enumerate(fake.updates)
+             if t == "access_codes" and p.get("is_used") is True]
+    assert len(claim) == 1 and claim[0] < role_writes[0], "promote must follow the claim"
+    activation = [p for (t, p) in fake.updates if t == "users" and p.get("is_active") is True]
+    assert activation and all("role" not in p for p in activation), \
+        "the pre-claim activation write must not carry the role"
     aud = [p for (t, p) in fake.inserts
            if t == "access_code_audit" and p.get("action") == "promote_role"]
     assert len(aud) == 1 and aud[0]["after"]["role"] == "instructor"
