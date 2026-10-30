@@ -13,7 +13,9 @@ verifications; eligibility is the role held when the event happened; the
 snapshot backstop fires only when the log misses an event, and its alert carries
 the stored detection time; audit rows and alert payloads carry no secret; due
 alerts with no e-mail transport fail the run (PC-J73 F3); an event just before
-a cron tick is audited within 5 minutes (PC-J66 F04).
+a cron tick is audited within 5 minutes (PC-J66 F04). ``--backfill`` (PC-J139)
+writes nothing in a dry run, audits old events from 332 on without any alert,
+never duplicates, and hands over to the cron at the cursor with no gap.
 
 Set TEST_PG_URL to a LOCAL disposable cluster and REQUIRE_PG=1 to forbid skips.
 """
@@ -25,6 +27,7 @@ import json
 import logging
 import os
 from pathlib import Path
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
@@ -68,6 +71,29 @@ def test_test_alert_without_transport_exits_non_zero_without_a_database(monkeypa
     with caplog.at_level(logging.WARNING):
         assert sweep.main(["--test-alert"]) == 1
     assert "owner_alert_transport_unconfigured missing=RESEND_API_KEY,OWNER_ALERT_EMAILS" in caplog.text
+
+
+@pytest.mark.parametrize("bounded", [False, True])
+def test_factor_entries_keeps_placeholders_and_args_aligned(bounded):
+    conn = AsyncMock()
+    conn.fetch.return_value = []
+    after = {"last_created_at": "2026-10-28T00:00:00Z", "last_entry_id": uuid4()}
+    until = ("2026-10-29T00:00:00Z", uuid4()) if bounded else None
+
+    assert run(sweep.SweepDb(conn).factor_entries(
+        after, lag_seconds=15, limit=20, until=until)) == []
+
+    conn.fetch.assert_awaited_once()
+    sql, *args = conn.fetch.call_args.args
+    expected = [after["last_created_at"], str(after["last_entry_id"]),
+                15, list(sweep.FACTOR_ACTIONS), 20]
+    if bounded:
+        assert "<= ($6::timestamptz, $7::uuid)" in sql
+        expected += [until[0], str(until[1])]
+    else:
+        assert "$6" not in sql and "$7" not in sql
+    assert "END = $" not in sql
+    assert args == expected
 
 
 # ── PostgreSQL harness ──────────────────────────────────────────────────────
@@ -585,6 +611,267 @@ def test_a_follow_up_pass_audits_an_entry_too_young_for_the_first_pass(pg):
     assert fields["follow_up_dispatch_due"] == 0, "enrollment is audit only"
     assert len(slept) == 1 and 0 < slept[0] <= 3
     assert [r["event"] for r in _rows(schema, admin)] == ["mfa_factor_enrolled"]
+
+
+# ── --backfill (PC-J139): old events, no alerts ─────────────────────────────
+
+def _record_332(schema: str) -> None:
+    """The locked runner's ledger row for 332, stamped now."""
+    psql(f"""CREATE TABLE IF NOT EXISTS {schema}._schema_migrations (
+                 filename text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now());
+             GRANT SELECT ON {schema}._schema_migrations TO {m332.OWNER};
+             INSERT INTO {schema}._schema_migrations (filename, applied_at)
+             VALUES ('{sweep.MIGRATION_332}', clock_timestamp())""")
+
+
+def _backfill(pg, *, commit: bool, batch: int = sweep.LOG_BATCH,
+              run_id: str | None = None) -> sweep.BackfillSummary:
+    schema, auth = pg
+
+    async def go():
+        conn = await _conn()
+        try:
+            return await sweep.backfill_auth_log(
+                sweep.SweepDb(conn, schema=schema, auth_schema=auth), commit=commit,
+                run_id=run_id, lag_seconds=0, batch=batch)
+        finally:
+            await conn.close()
+
+    return run(go())
+
+
+def _state_of(schema: str) -> dict:
+    """Everything a dry run must leave as it was."""
+    return {table: psql(f"SELECT count(*) FROM {schema}.{table}")
+            for table in ("staff_security_audit", "owner_alert_outbox",
+                          "staff_mfa_factor_snapshot", "staff_security_sweep_cursor")}
+
+
+def _mfa_alerts(schema: str) -> str:
+    return psql(f"SELECT count(*) FROM {schema}.owner_alert_outbox WHERE event LIKE 'mfa_%'")
+
+
+def _history(pg) -> dict:
+    """Old history: one pre-332 admin event, then 332, then a mix of events."""
+    schema, auth = pg
+    admin, student = m332._user(schema, "admin", True), m332._user(schema, "student", True)
+    early = _log(auth, "factor_in_progress", admin, str(uuid4()))
+    _record_332(schema)
+    factor = str(uuid4())
+    life = _lifecycle(auth, admin, factor)             # enrolled, verified, deleted
+    step_up = _log(auth, "verification_attempted", admin, factor)
+    _lifecycle(auth, student, str(uuid4()))
+    bad = _log(auth, "factor_in_progress", "not-a-uuid", str(uuid4()))
+    last = _log(auth, "token_refreshed", admin, factor)   # newest entry, not a factor event
+    return {"admin": admin, "student": student, "factor": factor, "early": early,
+            "life": life, "step_up": step_up, "bad": bad, "last": last}
+
+
+def test_commit_without_backfill_and_backfill_with_another_mode_are_refused(capsys):
+    for argv in (["--commit"], ["--backfill", "--requeue", str(uuid4())],
+                 ["--backfill", "--test-alert", "--commit"]):
+        with pytest.raises(SystemExit) as exc:
+            sweep.main(argv)
+        assert exc.value.code == 2
+    assert "--commit requires --backfill" in capsys.readouterr().err
+
+
+def test_backfill_dry_run_writes_nothing_and_counts_every_entry(pg):
+    schema, _ = pg
+    h = _history(pg)
+    before = _state_of(schema)
+    summary = _backfill(pg, commit=False)
+    assert _state_of(schema) == before
+    assert psql(f"SELECT count(*) FROM {schema}.staff_security_sweep_cursor") == "0"
+    assert summary.end_bound == "newest_entry" and not summary.cursor_created
+    assert dict(summary.entries_by_action) == {"factor_in_progress": 4,
+                                               "verification_attempted": 3,
+                                               "factor_unenrolled": 2}
+    assert dict(summary.written_by_event) == {"mfa_factor_enrolled": 1, "mfa_factor_verified": 1,
+                                              "mfa_factor_deleted": 1}
+    assert dict(summary.skipped_by_reason) == {"before_332": 1, "not_admin": 3, "step_up": 1,
+                                               "unparseable": 1}
+    assert summary.users == {h["admin"]}
+    assert summary.log_oldest_at < summary.migration_332_applied_at == summary.start_at
+    assert summary.entry_min_at == summary.log_oldest_at <= summary.entry_max_at <= summary.end_at
+    line = summary.line()
+    assert "mode=dry_run" in line and "would_write=3" in line and "users=1" in line
+    assert ("would_write_by_event=mfa_factor_deleted:1,mfa_factor_enrolled:1,"
+            "mfa_factor_verified:1") in line
+    assert "skipped_by_reason=before_332:1,not_admin:3,step_up:1,unparseable:1" in line
+    assert "+07:00" in line and "@" not in line and h["admin"] not in line
+
+
+def test_backfill_commit_audits_old_events_without_any_alert_and_starts_the_cursor(pg):
+    schema, auth = pg
+    h = _history(pg)
+    run_id = str(uuid4())
+    outbox = psql(f"SELECT json_agg(o ORDER BY id) FROM {schema}.owner_alert_outbox o")
+    summary = _backfill(pg, commit=True, run_id=run_id)
+    assert summary.cursor_created and sum(summary.written_by_event.values()) == 3
+    rows = _rows(schema, h["admin"])
+    assert [r["event"] for r in rows] == ["mfa_factor_enrolled", "mfa_factor_verified",
+                                          "mfa_factor_deleted"]
+    assert [r["detail"]["auth_log_entry_id"] for r in rows] == [h["life"][0], h["life"][2],
+                                                                h["life"][4]]
+    assert {r["source"] for r in rows} == {"auth"} and {r["actor"] for r in rows} == {h["admin"]}
+    assert all(r["detail"]["backfill"] is True and r["detail"]["backfill_run_id"] == run_id
+               and r["detail"]["detected_by"] == "auth_log" for r in rows)
+    assert h["early"] not in json.dumps(rows), "before 332: counted, never written"
+    assert _rows(schema, h["student"]) == []
+    # No alert for an old event: the outbox is exactly as before (only the
+    # users trigger's "Tạo tài khoản admin" row for the fixture), so the cron has no
+    # factor e-mail to send.
+    assert psql(f"SELECT json_agg(o ORDER BY id) FROM {schema}.owner_alert_outbox o") == outbox
+    assert _mfa_alerts(schema) == "0"
+    assert psql(f"SELECT count(*) FROM {schema}.staff_mfa_factor_snapshot") == "0"
+    assert _cursor(schema) == h["last"]
+    # The cron's first run continues from that cursor: no re-initialisation,
+    # no replay and no factor e-mail.
+    sender = Sender()
+    fields, ok = _sweep(pg, Factors(), sender=sender)
+    assert ok and not fields["log_initialized"] and fields["log_entries"] == 0
+    assert [e.text.splitlines()[0] for e in sender.calls] == ["Tạo tài khoản admin"]
+    # FR-011 is unchanged for a new event after the backfill.
+    new = _lifecycle(auth, h["admin"], str(uuid4()))
+    fields, ok = _sweep(pg, Factors(), sender=sender)
+    assert ok and fields["log_rows"] == 3 and fields["dispatch_sent"] == 2
+    live = [r for r in _rows(schema, h["admin"]) if r["detail"]["auth_log_entry_id"] in new]
+    assert [("backfill" in r["detail"]) for r in live] == [False, False, False]
+    assert [o["event"] for o in _alerts(schema, h["admin"])] == ["mfa_factor_verified",
+                                                                "mfa_factor_deleted"]
+    assert len(sender.calls) == 3
+
+
+def test_backfill_commit_twice_never_duplicates(pg):
+    schema, _ = pg
+    h = _history(pg)
+    first = _backfill(pg, commit=True)
+    rows = _rows(schema, h["admin"])
+    second = _backfill(pg, commit=True)
+    assert second.end_bound == "cursor" and not second.cursor_created
+    assert sum(second.written_by_event.values()) == 0
+    assert second.skipped_by_reason["duplicate"] == 3
+    assert _rows(schema, h["admin"]) == rows and _cursor(schema) == h["last"]
+    assert {r["detail"]["backfill_run_id"] for r in rows} == {first.run_id}
+    # A dry run after the commit reports the same entries as duplicates.
+    dry = _backfill(pg, commit=False)
+    assert sum(dry.written_by_event.values()) == 0 and dry.skipped_by_reason["duplicate"] == 3
+
+
+def test_backfill_with_an_existing_cursor_stops_there_and_leaves_it_unchanged(pg):
+    """The cron ran first: its cursor started at the newest entry and it owns
+    everything after it. The backfill fills only the gap before."""
+    schema, auth = pg
+    admin = m332._user(schema, "admin", True)
+    _record_332(schema)
+    old = _lifecycle(auth, admin, str(uuid4()))
+    _ready(pg)
+    start = _cursor(schema)
+    after = _lifecycle(auth, admin, str(uuid4()))
+    summary = _backfill(pg, commit=True)
+    assert summary.end_bound == "cursor" and not summary.cursor_created
+    assert summary.entries_by_action == {"factor_in_progress": 1, "verification_attempted": 1,
+                                         "factor_unenrolled": 1}
+    rows = _rows(schema, admin)
+    assert [r["detail"]["auth_log_entry_id"] for r in rows] == [old[0], old[2], old[4]]
+    assert _cursor(schema) == start
+    assert _mfa_alerts(schema) == "0"
+    sender = Sender()
+    fields, ok = _sweep(pg, Factors(), sender=sender)
+    assert ok and fields["log_rows"] == 3 and _mfa_alerts(schema) == "2"
+    assert [r["detail"]["auth_log_entry_id"] for r in _rows(schema, admin)][3:] == [
+        after[0], after[2], after[4]]
+
+
+def test_backfill_creates_the_cursor_in_the_last_batch_transaction(pg, monkeypatch):
+    schema, auth = pg
+    admin = m332._user(schema, "admin", True)
+    _record_332(schema)
+    entries = _lifecycle(auth, admin, str(uuid4()))   # 3 factor events: batches of 2 + 1
+    real = sweep.SweepDb.create_log_cursor
+
+    async def fail(self, *args):
+        raise RuntimeError("cursor insert failed")
+
+    monkeypatch.setattr(sweep.SweepDb, "create_log_cursor", fail)
+    with pytest.raises(RuntimeError):
+        _backfill(pg, commit=True, batch=2)
+    # The first batch committed; the last one rolled back with the cursor.
+    assert [r["detail"]["auth_log_entry_id"] for r in _rows(schema, admin)] == [entries[0],
+                                                                               entries[2]]
+    assert psql(f"SELECT count(*) FROM {schema}.staff_security_sweep_cursor") == "0"
+
+    async def lost_race(self, *args):
+        await real(self, *args)    # a sweep's cursor appeared meanwhile
+        return False
+
+    monkeypatch.setattr(sweep.SweepDb, "create_log_cursor", lost_race)
+    with pytest.raises(sweep.BackfillCursorRace):
+        _backfill(pg, commit=True, batch=2)
+    assert len(_rows(schema, admin)) == 2
+    assert psql(f"SELECT count(*) FROM {schema}.staff_security_sweep_cursor") == "0"
+    monkeypatch.setattr(sweep.SweepDb, "create_log_cursor", real)
+    summary = _backfill(pg, commit=True, batch=2)
+    assert summary.cursor_created and summary.skipped_by_reason["duplicate"] == 2
+    assert [r["detail"]["auth_log_entry_id"] for r in _rows(schema, admin)] == entries[0::2]
+    assert _cursor(schema) == entries[-1]
+
+
+def test_backfill_uses_the_role_held_at_the_event(pg):
+    schema, auth = pg
+    demoted, promoted = m332._user(schema, "admin", True), m332._user(schema, "student", True)
+    _record_332(schema)
+    _log(auth, "factor_in_progress", demoted, str(uuid4()))
+    _log(auth, "factor_in_progress", promoted, str(uuid4()))
+    psql(f"UPDATE {schema}.users SET role = 'student' WHERE id = '{demoted}'")
+    psql(f"UPDATE {schema}.users SET role = 'admin' WHERE id = '{promoted}'")
+    summary = _backfill(pg, commit=True)
+    assert summary.users == {demoted} and summary.skipped_by_reason == {"not_admin": 1}
+    assert [r["event"] for r in _rows(schema, demoted)] == ["mfa_factor_enrolled"]
+    assert _rows(schema, promoted) == []
+
+
+def test_backfill_refuses_to_run_without_the_332_ledger_row(pg):
+    schema, auth = pg
+    admin = m332._user(schema, "admin", True)
+    _log(auth, "factor_in_progress", admin, str(uuid4()))
+    psql(f"CREATE TABLE {schema}._schema_migrations (filename text PRIMARY KEY, "
+         f"applied_at timestamptz NOT NULL DEFAULT now()); "
+         f"GRANT SELECT ON {schema}._schema_migrations TO {m332.OWNER}")
+    before = _state_of(schema)
+    with pytest.raises(RuntimeError, match="332_staff_security_audit.sql is not recorded"):
+        _backfill(pg, commit=True)
+    assert _state_of(schema) == before
+
+
+def test_backfill_entry_point_logs_one_summary_line_without_emails(pg, monkeypatch, caplog):
+    schema, auth = pg
+    h = _history(pg)
+    monkeypatch.setenv("DATABASE_URL", "postgresql://nobody@127.0.0.1:1/none")
+    monkeypatch.setattr(sweep, "_connect", _conn)
+    monkeypatch.setattr(sweep, "LOG_LAG_SECONDS", 0)
+    real = sweep.SweepDb
+
+    def scoped(conn):
+        return real(conn, schema=schema, auth_schema=auth)
+
+    monkeypatch.setattr(sweep, "SweepDb", scoped)
+    before = _state_of(schema)
+    with caplog.at_level(logging.DEBUG):
+        assert sweep.main(["--backfill"]) == 0
+    assert _state_of(schema) == before
+    lines = [r.getMessage() for r in caplog.records if r.name == "staff_security_sweep"]
+    assert len(lines) == 1 and lines[0].startswith("staff_security_sweep_backfill_summary mode=dry_run")
+    assert "would_write=3" in lines[0]
+    assert "@" not in caplog.text and h["admin"] not in caplog.text
+    caplog.clear()
+    with caplog.at_level(logging.DEBUG):
+        assert sweep.main(["--backfill", "--commit"]) == 0
+    [line] = [r.getMessage() for r in caplog.records if r.name == "staff_security_sweep"]
+    assert "mode=commit" in line and "written=3" in line and "cursor_created=True" in line
+    assert "@" not in caplog.text
+    assert _mfa_alerts(schema) == "0"
 
 
 # ── Without a database: exit code and the 5-minute bound ────────────────────

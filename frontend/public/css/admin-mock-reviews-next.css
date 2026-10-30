@@ -85,6 +85,7 @@
 .mrr-chips span { padding: 4px 8px; border: 1px solid var(--av-border-subtle); border-radius: var(--av-radius-pill); background: var(--av-surface-sunken); color: var(--av-text-secondary); font-size: 11px; }
 .mrr-question-table .is-ok { color: var(--av-success); font-weight: 800; }
 .mrr-question-table .is-bad { color: var(--av-error); font-weight: 800; }
+.mrr-question-table .is-blank { color: var(--av-text-secondary); font-weight: 700; white-space: nowrap; }
 
 .mrr-writing { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--av-space-3); }
 .mrr-writing article { padding: var(--av-space-4); border: 1px solid var(--av-border-subtle); border-radius: var(--av-radius-lg); background: var(--av-surface-sunken); }

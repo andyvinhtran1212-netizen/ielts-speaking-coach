@@ -31,7 +31,12 @@ import {
   splitReviewSteps,
 } from '@/lib/reading-review-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
-import { ReviewContextNotice, ReviewQuestionContext } from '@/components/review-attempt-context';
+import {
+  ReviewAnswerChoiceText,
+  ReviewContextNotice,
+  ReviewParagraphSummary,
+  ReviewQuestionContext,
+} from '@/components/review-attempt-context';
 
 type Phase = 'loading' | 'ready' | 'empty' | 'error';
 type PassageMode = 'original' | 'translation';
@@ -317,10 +322,12 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, anonId, ev
       <div ref={flagRef} className="rr-card__flag" />
     </div>
     {prompt ? <p className="rr-card__prompt">{prompt}</p> : null}
-    {expanded || selected ? <ReviewQuestionContext value={item.question_context} /> : null}
+    {expanded || selected ? <ReviewQuestionContext value={item.question_context} /> : <ReviewParagraphSummary value={item.question_context} />}
     <div className="rr-card__answers">
-      {!preview ? <div className="rr-card__ans is-user"><span>Bạn trả lời</span><code>{item.user_answer || '—'}</code></div> : null}
-      <div className="rr-card__ans is-correct"><span>Đáp án</span><code>{webExplanation ? 'Mở theo các bước sửa bài bên dưới' : item.expected || '—'}</code></div>
+      {!preview ? <div className="rr-card__ans is-user"><span>Bạn trả lời</span><code>{item.user_answer || '—'}</code>
+        <ReviewAnswerChoiceText context={item.question_context} answer={item.user_answer} /></div> : null}
+      <div className="rr-card__ans is-correct"><span>Đáp án</span><code>{webExplanation ? 'Mở theo các bước sửa bài bên dưới' : item.expected || '—'}</code>
+        {!webExplanation ? <ReviewAnswerChoiceText context={item.question_context} answer={item.expected} /> : null}</div>
     </div>
     {hasRich ? <div className="rr-card__detail" hidden={!expanded}>
       {!webExplanation ? <>
