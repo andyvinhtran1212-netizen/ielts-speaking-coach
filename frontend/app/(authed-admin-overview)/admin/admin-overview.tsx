@@ -31,7 +31,7 @@ import {
 const REFRESH_MS = 5 * 60 * 1000;
 // Copy pending Content Manager review on the PR (PC-J216).
 export const PARTIAL_FAILURE_COPY = {
-  banner: (tiles: string) => `⚠ Một số số liệu chưa tải được: ${tiles}. Số liệu ở các ô này có thể chưa đúng.`,
+  banner: (tiles: string) => `⚠ Một số số liệu chưa tải được: ${tiles}. Các mục này đang tạm ẩn số; hãy tải lại trang sau ít phút.`,
   unavailable: 'Chưa tải được',
   activityUnavailable: 'Chưa tải được hoạt động gần đây.',
 };

@@ -76,7 +76,7 @@ describe('admin overview partial_failures', () => {
 
     const banner = screen.getByTestId('partial-failures');
     expect(banner.getAttribute('role')).toBe('status');
-    expect(banner.textContent).toContain('⚠ Một số số liệu chưa tải được:');
+    expect(banner.textContent).toBe('⚠ Một số số liệu chưa tải được: Speaking 7 ngày, Speaking Band TB, Đang hoạt động (7 ngày), Hoạt động 30 ngày, Hoạt động gần đây, Speaking tổng. Các mục này đang tạm ẩn số; hãy tải lại trang sau ít phút.');
     expect(banner.textContent).toContain('Speaking 7 ngày');
     expect(banner.textContent).toContain('Speaking tổng');
     expect(banner.textContent).toContain('Speaking Band TB');
@@ -132,7 +132,7 @@ describe('admin overview partial_failures', () => {
 
   it('lists an unknown block by its raw name', async () => {
     await renderWith(overview({ partial_failures: ['brand_new_block'] }));
-    expect(screen.getByTestId('partial-failures').textContent).toContain('brand_new_block');
+    expect(screen.getByTestId('partial-failures').textContent).toBe('⚠ Một số số liệu chưa tải được: brand_new_block. Các mục này đang tạm ẩn số; hãy tải lại trang sau ít phút.');
     expect(document.querySelector('[data-unavailable]')).toBeNull();
   });
 });
