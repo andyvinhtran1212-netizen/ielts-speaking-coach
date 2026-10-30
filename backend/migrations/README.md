@@ -22,7 +22,7 @@ and must not be "filled in" by tooling:
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
 sequence is dense. As of 2026-10-30 the highest is `352`, allocated by the
 Leader to PC-J201, so by that rule the next new migration is `353`. Ask the
-Leader before taking it; 347–351 are reserved for other work and must not be
+Leader before taking it; 348–351 are reserved for other work and must not be
 reused.
 The runner applies any unapplied file regardless of order.
 Numbers 321–326 belong to 321 WRITINGRATE-0025, 322 AIOPS-0024 (#1837), 323
@@ -38,7 +38,24 @@ is the AIBUDGET-0033 hardening. 345 is
 PC-J119 (RLS-ADMIN-INLINE-AAL2 + GRAMMAR-FN-SEARCHPATH, spec ADMINAAL2-0032),
 reserved by the Leader on 2026-10-29; 341–344 are reserved for other open
 work and must not be reused. 346 is PC-J153 (CLASSARCHIVE-0030 FR-003),
-assigned by the Leader on 2026-10-29.
+assigned by the Leader on 2026-10-29. 347 is PC-J163 (listening_tests client revoke,
+spec LISTENING-0005), given by the Leader on 2026-10-29.
+
+Migration `347` (PC-J163) revokes ALL on `listening_tests` from `PUBLIC`,
+`anon` and `authenticated` (MAINTAIN included on PG 17). 295 closed the other
+Listening content tables but missed this one, which kept the 320-narrowed
+`anon`/`authenticated` SELECT. RLS with no policy hid the rows, so one broad
+SELECT policy would have exposed every Listening form and its answers through
+`/rest/v1/`. FastAPI reads and writes the table with `service_role` only, and
+`listening_public_practice_catalog` (306) is owner-run and granted to
+`service_role` only, so no product path changes. The postcondition fails if
+`anon` or `authenticated` still has SELECT, if any client role keeps a table
+or column privilege (a grant from another grantor survives the REVOKE), or if
+`service_role` lost SELECT/INSERT/UPDATE/DELETE. Group
+`listening_tests_revoke` in `forward-policy.tsv`: merging does not apply it;
+staging first under the advisory lock, production only at an authorised
+promotion. One transaction, no data change, re-runnable; the emergency-only
+rollback (the old SELECT grant) is in the file header.
 
 Migration `352` (PC-J201, ADMINAAL2-0032 FR-010/FR-011, SA #1936 P3 c–f)
 adds the private `staff_mfa_status_throttle` table for shared admission to the
