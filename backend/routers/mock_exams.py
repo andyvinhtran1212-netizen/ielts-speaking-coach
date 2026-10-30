@@ -25,6 +25,7 @@ Namespace note: distinct from /api/exams (the MCQ module). Prefix /api/mock-exam
 from __future__ import annotations
 import asyncio
 import contextlib
+import logging
 import weakref
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
@@ -37,6 +38,7 @@ from services import mock_review_workflow as review_wf
 from services.writing_image_access import attach_signed_image_urls
 
 router = APIRouter(prefix="/api/mock-exams", tags=["mock-exams"])
+logger = logging.getLogger(__name__)
 
 # PC-J423: the sync service calls now run in worker threads. Before that the
 # single event loop serialised every write, and several service writes are
@@ -284,18 +286,45 @@ async def submit_section(
     they land 'graded' + ready for admin review without a manual "Bắt đầu chấm"
     click (the review + release still gate on the admin approving each)."""
     user = await get_supabase_user(authorization)
-    result, queued = await _student_write(
-        user["id"], _submit_section_sync, sitting_id, user["id"], section, body,
-    )
+    queued: list = []
+    try:
+        result = await _student_write(
+            user["id"], _submit_section_sync, sitting_id, user["id"], section, body, queued,
+        )
+    except asyncio.CancelledError:
+        # PC-J468: _student_write re-raises only once the thread has ended, so
+        # the claim may already have moved the essays pending→grading, and a
+        # resubmit cannot claim them again. No response will run BackgroundTasks.
+        for essay_id, job_id in queued:
+            _dispatch_cancelled_submit_grading(essay_id, job_id)
+        raise
     for essay_id, job_id in queued:
         background_tasks.add_task(essay_service._bg_grade_essay, essay_id, job_id)
     return result
 
 
+# Strong references to the grading tasks of cancelled submits until they end.
+_cancelled_submit_gradings: set = set()
+
+
+def _dispatch_cancelled_submit_grading(essay_id: str, job_id: str) -> None:
+    async def _run() -> None:
+        try:
+            await essay_service._bg_grade_essay(essay_id, job_id)
+        except Exception:  # noqa: BLE001 — same as a crashed BackgroundTask
+            logger.exception("[grade %s] cancelled-submit dispatch failed", essay_id)
+
+    task = asyncio.create_task(_run())
+    _cancelled_submit_gradings.add(task)
+    task.add_done_callback(_cancelled_submit_gradings.discard)
+
+
 def _submit_section_sync(sitting_id: str, user_id, section: str,
-                         body: SectionSubmitBody) -> tuple:
+                         body: SectionSubmitBody, queued: list):
     """Sync body of the section submit, run in ONE worker thread (PC-J423).
-    Returns (result, grading jobs to queue); same order of writes as before."""
+    Returns the result and appends the claimed grading jobs to ``queued`` as
+    soon as the claim returns, so a cancelled request still sees them (PC-J468).
+    Same order of writes as before."""
     try:
         result = svc.submit_section(
             sitting_id, user_id, section, body.task1_text, body.task2_text,
@@ -303,7 +332,6 @@ def _submit_section_sync(sitting_id: str, user_id, section: str,
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 
-    queued = []
     if section == "writing":
         # Re-read the sitting: submit_section's returned dict may predate the
         # promote update, but the persisted row carries the stamped essay ids.
@@ -313,8 +341,8 @@ def _submit_section_sync(sitting_id: str, user_id, section: str,
         graded = svc.claim_mock_writing_grading(
             [sitting.get("essay_task1_id"), sitting.get("essay_task2_id")]
         )
-        queued = graded["queued"]
-    return result, queued
+        queued.extend(graded["queued"])
+    return result
 
 
 @router.post("/sittings/{sitting_id}/integrity")
