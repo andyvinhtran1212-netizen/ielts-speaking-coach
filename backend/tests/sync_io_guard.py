@@ -26,6 +26,7 @@ EXCLUDED_DIRS = {"tests", "migrations", "scripts", "venv", ".venv", "__pycache__
 HTTP_METHODS = {"get", "post", "put", "patch", "delete", "request", "head", "options", "stream", "send"}
 STORAGE_METHODS = {"upload", "update", "remove", "download", "list", "move", "copy", "create_signed_url", "create_signed_urls", "create_signed_upload_url"}
 STORAGE_SIGN_METHODS = {"create_signed_url", "create_signed_urls", "create_signed_upload_url"}
+EAGER_CONSUMERS = {"list", "tuple", "set", "dict", "sum", "any", "all", "min", "max", "sorted", "next"}
 
 
 @dataclass
@@ -48,11 +49,34 @@ class Finding:
         return f"{self.path}::{self.function}::{self.callee}"
 
 
-def _nodes(body: Iterable[ast.AST]) -> Iterable[ast.AST]:
+def _nodes(body: Iterable[ast.AST], *, consume_generator: bool = False) -> Iterable[ast.AST]:
     """Nodes executed in this scope, excluding deferred bodies."""
     for node in body:
         yield node
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            # Defaults and decorators run when the callable is CREATED, even
+            # when its body will later be handed to a worker thread.
+            eager = [*node.args.defaults, *(v for v in node.args.kw_defaults if v is not None)]
+            if not isinstance(node, ast.Lambda):
+                eager.extend(node.decorator_list)
+            yield from _nodes(eager)
+        elif isinstance(node, ast.GeneratorExp) and not consume_generator:
+            # Only the first iterable is evaluated at generator creation. The
+            # element, filters and subsequent iterables wait for consumption.
+            yield from _nodes([node.generators[0].iter])
+        elif isinstance(node, ast.Call):
+            consumer = (
+                isinstance(node.func, ast.Name) and node.func.id in EAGER_CONSUMERS
+                or isinstance(node.func, ast.Attribute) and node.func.attr in {"join", "extend", "update"}
+            )
+            for child in ast.iter_child_nodes(node):
+                yield from _nodes([child], consume_generator=consumer)
+        elif isinstance(node, (ast.For, ast.comprehension)):
+            for child in ast.iter_child_nodes(node):
+                yield from _nodes([child], consume_generator=child is node.iter)
+        elif isinstance(node, ast.Starred):
+            yield from _nodes([node.value], consume_generator=True)
+        elif not isinstance(node, ast.ClassDef):
             yield from _nodes(ast.iter_child_nodes(node))
 
 

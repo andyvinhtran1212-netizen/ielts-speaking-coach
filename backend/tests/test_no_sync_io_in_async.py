@@ -67,6 +67,51 @@ def test_eager_arguments_and_awaited_sync_helpers_still_fail(call):
     assert len(findings) == 1
 
 
+@pytest.mark.parametrize("declaration", [
+    "await asyncio.to_thread(lambda result=requests.get('url'): result)",
+    "await asyncio.to_thread(lambda *, result=requests.get('url'): result)",
+    "def save(result=requests.get('url')):\n        return result\n    await asyncio.to_thread(save)",
+    "async def save(*, result=requests.get('url')):\n        return result",
+    "@decorate(requests.get('url'))\n    def save():\n        pass",
+])
+def test_callable_defaults_and_decorators_run_before_offload(declaration):
+    findings = scan("import requests\nasync def f():\n    " + declaration)
+    assert len(findings) == 1
+    assert findings[0].function == "f"
+    assert findings[0].callee == "requests.get"
+
+
+def test_worker_consumes_generator_body_filters_and_inner_iterable():
+    assert not scan("""
+        import requests
+        async def f(urls):
+            await asyncio.to_thread(list, (
+                requests.get(url) for url in urls
+                if requests.head(url) for more in requests.get(url).json()
+            ))
+    """)
+
+
+@pytest.mark.parametrize("expression", [
+    "await asyncio.to_thread(list, (url for url in requests.get('url').json()))",
+    "await asyncio.to_thread(list, [requests.get(url) for url in urls])",
+    "list(requests.get(url) for url in urls)",
+    "''.join(requests.get(url).text for url in urls)",
+    "await asyncio.to_thread(list, *(requests.get(url) for url in urls))",
+])
+def test_generator_outer_iterable_and_inline_consumers_are_eager(expression):
+    assert len(scan("import requests\nasync def f(urls):\n    " + expression)) == 1
+
+
+def test_inline_for_consumes_generator_on_the_loop():
+    assert len(scan("""
+        import requests
+        async def f(urls):
+            for response in (requests.get(url) for url in urls):
+                pass
+    """)) == 1
+
+
 @pytest.mark.parametrize("source", [
     "import requests as r\nasync def f():\n    r.get('url')",
     "from requests import post as send\nasync def f():\n    send('url')",
