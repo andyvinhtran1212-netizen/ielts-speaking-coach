@@ -1,8 +1,6 @@
 // Một claim có thể hết hiệu lực giữa lúc tải trang và lúc deliver. HTTP 403
 // phải hiện thành lỗi rõ ràng, không được trở thành unhandled rejection hoặc
 // khiến admin tưởng học viên đã nhận bài.
-import { AAL2_STATUS } from '../admin-mfa-stub.mjs';
-
 const ESSAY = 'essay-admin-instructor-fail';
 const REVIEW = '00000000-0000-0000-0000-000000000403';
 const ADMIN = '00000000-0000-0000-0000-000000000000';
@@ -14,8 +12,6 @@ export default {
 
   canned: [
     [/\/auth\/me$/, { id: ADMIN, email: 'admin@local', role: 'admin' }],
-    // ADMINAAL2-0032 T010: AdminAccessGate fails closed on the `{}` catch-all.
-    [/\/admin\/mfa\/status$/, AAL2_STATUS],
     [new RegExp(`/admin/writing/essays/${ESSAY}$`), {
       id: ESSAY,
       status: 'reviewed',

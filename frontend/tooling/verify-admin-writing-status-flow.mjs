@@ -2,7 +2,6 @@
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
-import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
@@ -47,7 +46,6 @@ await page.route('**/*', async (route) => {
   if (parsed.pathname === '/admin/writing/essays/error-detail') return json({ detail: 'fixture detail failed' }, 503);
   return json({});
 });
-await stubAdminMfaStatus(page);
 
 await page.goto(`${BASE}/admin/writing/status?essay_id=e1`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'AI đang xử lý bài viết' }).waitFor();
