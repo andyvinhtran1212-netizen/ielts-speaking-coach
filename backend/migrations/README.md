@@ -293,8 +293,8 @@ changes its role. `PATCH /admin/users/{id}/role` maps the error to a 409 with a
 Vietnamese message. It sorts after 332's suspension guard, so activation still
 fails with `account_suspended`. It aborts with
 `suspended_non_staff_account_exists` while a suspended row holds a non-staff
-role (repair that out of band first). It is held back with 332 (group
-`admin_aal2`) and applied after it, on staging first. One transaction, no data
+role (repair that out of band first). It shipped with 332 (former group
+`admin_aal2`) and was applied after it, on staging first. One transaction, no data
 change, re-runnable; the rollback is in the file header.
 
 Migration `334` (ACTIVATELIMIT-0034, F09) moves the `POST /auth/activate`
@@ -374,11 +374,14 @@ while saved work waits for grading or a raise is active, and keeps the raise
 events. It misses an owed class-score sync (PC-J67 F03), so roll back 333
 only with ROLLBACK (b) in the 340 header, never with the 333 header script.
 
-Migration `332` (ADMINAAL2-0032) adds the staff security audit. It is held
-back by `forward-policy.tsv` (group `admin_aal2`), so apply it only with
-`MIGRATION_FEATURES=admin_aal2` through the advisory-locked runner, on staging
+Migration `332` (ADMINAAL2-0032) adds the staff security audit. It was held
+back by `forward-policy.tsv` (group `admin_aal2`) and applied with
+`MIGRATION_FEATURES=admin_aal2` through the advisory-locked runner, staging
 first (`specs/0032-admin-aal2-staff-guard/rollout.md` S1/S2), before the 0032
-backend. It adds:
+backend. Production applied 332 and 336 on 2026-10-29 (04:53Z, ledger confirmed
+read-only by the Release Manager), so both are now normal forward migrations
+with no policy row and the `admin_aal2` group no longer exists (PC-J354). It
+adds:
 
 - the `public.users` suspension marker (`suspended_at`, `suspended_by`,
   `suspension_reason`, set and cleared together and never on an active row);
