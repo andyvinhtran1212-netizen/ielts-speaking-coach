@@ -485,3 +485,90 @@ def test_cancelled_request_still_dispatches_claimed_work(app, monkeypatch, route
     asyncio.run(scenario())
     expected = ("exam-1", "admin-1", "reading") if route == "collect" else ("essay-1", "job-1")
     assert dispatched_args == [expected]
+
+
+def test_open_losing_race_with_final_advance_is_409(app, monkeypatch, write_db):
+    """P2-7: a final advance must invalidate an opening's stale pre-check."""
+    exam = write_db.tables["mock_exams"][0]
+    exam.update({
+        "status": "published", "exam_mode": "sequential", "is_open": False,
+        "active_section": "writing", "collected_section": "writing",
+        "collection_sweep_completed_section": "writing",
+    })
+    monkeypatch.setattr(proctor.svc, "_require_exam_content_ready", lambda *_a, **_k: None)
+    release = threading.Event()
+
+    async def scenario():
+        loop, entered = asyncio.get_running_loop(), asyncio.Event()
+        _pause_execute(monkeypatch, write_db, loop, entered, release,
+                       lambda name, q: name == "mock_exams" and q.op == "update"
+                       and q.payload.get("is_open") is True)
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            opening = asyncio.create_task(client.post("/admin/mock-exams/exam-1/open",
+                                                      json={"is_open": True}))
+            try:
+                await asyncio.wait_for(entered.wait(), 5)
+                advanced = await client.post("/admin/mock-exams/exam-1/advance",
+                                             json={"from_section": "writing"})
+                assert advanced.status_code == 200, advanced.text
+                assert advanced.json()["active_section"] == "done"
+                assert advanced.json()["is_open"] is False
+            finally:
+                release.set()
+                opened = await opening
+        assert opened.status_code == 409, opened.text
+        assert exam["active_section"] == "done" and exam["is_open"] is False
+
+    asyncio.run(scenario())
+
+
+def test_repeated_skip_writing_is_409_and_keeps_original_audit(app, write_db):
+    essay = {"id": "essay-1", "sitting_id": "sitting-1", "status": "pending",
+             "task_type": "task2", "word_count": 10,
+             "grading_skipped_at": "2026-10-30T12:00:00+00:00", "grading_skipped_by": "admin-2"}
+    write_db.tables["writing_essays"] = [essay]
+    original = deepcopy(essay)
+
+    async def scenario():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/admin/mock-exams/writing/essays/essay-1/skip-grading")
+        assert response.status_code == 409, response.text
+        assert essay == original
+
+    asyncio.run(scenario())
+
+
+def test_skip_writing_losing_race_with_grading_claim_is_409(app, monkeypatch, write_db):
+    """P2-8: in-flight grading must never acquire the release-gate skip stamp."""
+    essay = {"id": "essay-1", "sitting_id": "sitting-1", "status": "pending",
+             "task_type": "task2", "word_count": 10, "grading_skipped_at": None}
+    write_db.tables["writing_essays"] = [essay]
+    monkeypatch.setattr(proctor.essay_service, "supabase_admin", write_db)
+    monkeypatch.setattr(proctor.essay_service, "note_writing_mutation", lambda *_: None)
+    monkeypatch.setattr(proctor.essay_service, "schedule_grading_job",
+                        lambda **_: {"job_id": "job-1", "eta_seconds": 1})
+    release = threading.Event()
+
+    async def scenario():
+        loop, entered = asyncio.get_running_loop(), asyncio.Event()
+        _pause_execute(monkeypatch, write_db, loop, entered, release,
+                       lambda name, q: name == "writing_essays" and q.op == "update"
+                       and "grading_skipped_at" in q.payload)
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            skipping = asyncio.create_task(client.post("/admin/mock-exams/writing/essays/essay-1/skip-grading"))
+            try:
+                await asyncio.wait_for(entered.wait(), 5)
+                claimed = proctor.essay_service.claim_pending_for_grading(
+                    "essay-1", grading_tier="fast", analysis_level=3,
+                )
+                assert claimed["job_id"] == "job-1"
+                assert essay["status"] == "grading"
+            finally:
+                release.set()
+                skipped = await skipping
+        assert skipped.status_code == 409, skipped.text
+        assert essay["status"] == "grading"
+        assert essay["grading_skipped_at"] is None
+        assert essay.get("grading_skipped_by") is None
+
+    asyncio.run(scenario())

@@ -1509,12 +1509,18 @@ def skip_mock_writing_grading(essay_id: str, *, admin_id: str) -> dict:
     if writing_meets_min_words(essay):
         raise SittingConflictError("Bài đủ số từ — hãy chấm thay vì bỏ qua.")
     try:
-        supabase_admin.table("writing_essays").update({
+        response = supabase_admin.table("writing_essays").update({
             "grading_skipped_at": _now_iso(),
             "grading_skipped_by": str(admin_id),
-        }).eq("id", str(essay_id)).execute()
+        }).eq("id", str(essay_id)).eq("status", "pending").is_(
+            "grading_skipped_at", "null",
+        ).execute()
     except Exception as exc:  # noqa: BLE001
         raise MockExamError(f"Lỗi cập nhật bài viết: {exc}")
+    if not response.data:
+        raise SittingConflictError(
+            "Bài viết vừa được chấm hoặc bỏ qua bởi thao tác khác — tải lại trang."
+        )
     return {"ok": True, "essay_id": str(essay_id), "grading_skipped": True}
 
 
@@ -2520,10 +2526,19 @@ def set_open(exam_id: str, is_open: bool, admin_id: str) -> dict:
             _require_exam_content_ready(exam, sections=readiness_sections)
         except ValueError as exc:
             raise SittingConflictError(str(exc)) from exc
-    resp = supabase_admin.table("mock_exams").update({
+    query = supabase_admin.table("mock_exams").update({
         "is_open": bool(is_open),
-    }).eq("id", str(exam_id)).execute()
+    }).eq("id", str(exam_id))
+    if is_open:
+        # Repeat the pre-check at the write: a final advance or unpublish may
+        # have committed meanwhile. active_section is NOT NULL (migration 151).
+        query = query.eq("status", "published").neq("active_section", "done")
+    resp = query.execute()
     if not resp.data:
+        if is_open:
+            raise SittingConflictError(
+                "Kỳ thi vừa kết thúc hoặc không còn được publish — tải lại trang."
+            )
         raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
     logger.info("[mock-exam] exam=%s is_open=%s by admin=%s", exam_id, is_open, admin_id)
     return resp.data[0]
