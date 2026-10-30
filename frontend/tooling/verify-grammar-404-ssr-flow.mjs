@@ -23,6 +23,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
+import { notFoundHtmlChecks, TOKENS } from './grammar-404-ssr-checks.mjs';
+
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 if (!existsSync(path.join(FRONTEND, '.next', 'BUILD_ID'))) {
   throw new Error('No production build in frontend/.next — run `npm run build` first');
@@ -36,7 +38,6 @@ const NOT_FOUND = [
   '/grammar/xyz/abc', // unknown category
   '/writing/khong-co', // the root 404 the Grammar 404 must now match
 ];
-const TOKENS = '/css/aver-design/tokens.css';
 const WIDTHS = [390, 1280];
 
 const failures = [];
@@ -125,16 +126,9 @@ try {
   for (const route of NOT_FOUND) {
     const res = await fetch(BASE + route, { redirect: 'manual' });
     const html = await res.text();
-    const stylesheets = html.match(/<link rel="stylesheet"[^>]*>/g) || [];
-    const tokenSheets = stylesheets.filter((tag) => tag.includes(`href="${TOKENS}"`));
-    check(res.status === 404, `${route}: HTTP 404 (got ${res.status})`);
-    check(!html.includes('__next_error__'), `${route}: served HTML is not the __next_error__ shell`);
-    check(/<title>[^<]+<\/title>/.test(html), `${route}: served HTML has a <title>`);
-    check(stylesheets.length >= 1, `${route}: served HTML links a stylesheet (${stylesheets.length})`);
-    check(tokenSheets.length === 1, `${route}: tokens.css linked exactly once (${tokenSheets.length})`);
-    check(/<meta name="robots" content="noindex/.test(html), `${route}: noindex`);
-    check(/<h1[^>]*id="not-found-title"[^>]*>Trang này không còn ở đây<\/h1>/.test(html),
-      `${route}: the Vietnamese 404 card is in the server HTML`);
+    // Criteria live in grammar-404-ssr-checks.mjs so the negative fixtures in
+    // tests/grammar-404-ssr-checks.test.mjs prove they fail on the J77 shell.
+    for (const { ok, label } of notFoundHtmlChecks(route, res.status, html)) check(ok, label);
   }
 
   const articleRoute = `/grammar/${ARTICLE.category}/${ARTICLE.slug}`;

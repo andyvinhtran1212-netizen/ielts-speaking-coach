@@ -692,6 +692,7 @@ on:
       - 'frontend/public/css/**'
       - 'frontend/public/js/**'
       - 'frontend/tooling/verify-*.mjs'
+      - 'frontend/tooling/grammar-404-ssr-checks.mjs'
       - 'frontend/tooling/next-native-fixture-api.mjs'
       - 'frontend/tests/**'
       - 'backend/**'
@@ -768,6 +769,11 @@ jobs:
           done
           tail -40 /tmp/next-native-browser.log
           exit 1
+
+      # PC-J230 / J77 F1-F2: tự chạy next start và fixture riêng trên cổng trống,
+      # không dùng server :3000 ở trên.
+      - name: Kiểm 404 Grammar render phía server có CSS
+        run: node tooling/verify-grammar-404-ssr-flow.mjs
 
       - name: Kiểm boundary Pricing pre-launch
         run: node tooling/verify-pricing-redirect-flow.mjs "http://localhost:$TEST_PORT"
