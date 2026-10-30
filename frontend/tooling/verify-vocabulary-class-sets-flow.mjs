@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { storageKey } from './supabase-session.mjs';
+import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const base = process.argv[2] || 'http://127.0.0.1:3017';
 assert.ok(/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(base), 'loopback Next only');
@@ -78,6 +79,7 @@ try {
     }
     unhandled.push(`${method} ${url.origin}${p}`); return json({ detail:'unhandled fixture' },404);
   });
+  await stubAdminMfaStatus(context);
   const page = await context.newPage(); page.on('pageerror', e => errors.push(String(e)));
   await page.goto(base+'/vocabulary/hub');
   await page.getByRole('heading',{name:'Học từ vựng',exact:true}).waitFor();
