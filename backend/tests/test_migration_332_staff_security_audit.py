@@ -181,10 +181,18 @@ def test_forward_policy_holds_332_behind_the_admin_aal2_group():
 
 
 def test_no_other_migration_drops_or_bypasses_the_332_guards():
+    # 341 is the reviewed PC-J88 hardening of these functions (evidence instead
+    # of session settings), pinned by its own suite
+    # (test_migration_341_staff_guc_and_ai_override_hardening.py). It may
+    # replace them but never drop or disable them, or set the old bypass.
+    hardening = "341_staff_guc_and_ai_override_hardening.sql"
     for path in sorted(MIGRATIONS.glob("*.sql")):
         if path.name == NAME:
             continue
         code = m326._strip_comments(path.read_text(encoding="utf-8"))
+        if path.name == hardening:
+            assert not re.search(r"\bDROP\b|DISABLE\s+TRIGGER|aver\.", code, re.I), path.name
+            continue
         for name in ("trg_users_suspension_guard", "fn_users_suspension_guard",
                      "trg_users_privilege_audit", "staff_security_audit", "aver.staff_privilege"):
             assert name not in code, (path.name, name)
