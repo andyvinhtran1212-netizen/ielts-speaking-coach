@@ -29,10 +29,13 @@ const exercises = [
 // so a missing signal fails fast with diagnostics instead of stalling CI.
 const guard = createFlowWatchdog({ name: 'verify-d1-exercise-flow', totalMs: 6 * 60_000 });
 const results = [];
-const check = (name, ok, detail = '') => {
+// A failed check stops the journey here, while the page still shows the
+// failing state, and prints the guard's diagnostics.
+const check = async (name, ok, detail = '') => {
   results.push({ name, ok, detail });
-  if (ok) guard.passed(name);
   console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`);
+  if (ok) guard.passed(name);
+  else await guard.fail(`check failed: ${name}${detail ? ` — ${detail}` : ''}`);
 };
 
 async function launch() {
@@ -98,14 +101,17 @@ const resumeOwnerSwitchInstalled = new Promise((resolve) => { resolveResumeOwner
 let final401Armed = false;
 let resolveFinal401;
 const final401Started = new Promise((resolve) => { resolveFinal401 = resolve; });
-// PC-J253: resolved once the fixture has sent a delayed stale response. The
+// PC-J253: resolved when the fixture dispatches a delayed stale response. The
 // page may already have aborted that request, so no browser event is certain.
 const answered = {};
 const sentLate = {};
 for (const key of ['foreignOwner', 'unauthorized', 'bootstrap401', 'attempt401', 'complete401', 'generationOld', 'refreshGenerationOld']) {
   answered[key] = new Promise((resolve) => { sentLate[key] = resolve; });
 }
-const fulfilled = (key, pending) => pending.finally(() => sentLate[key]());
+const fulfilled = (key, pending) => {
+  sentLate[key]();
+  return pending;
+};
 
 const supabaseStub = `
 window.__AVER_SUPABASE_CLIENT__ = { auth: {
@@ -346,37 +352,37 @@ guard.watchPage(page);
 page.on('pageerror', (error) => pageErrors.push(String(error)));
 await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Điền từ đúng vào ngữ cảnh' }).waitFor();
-check('feature gate đọc canonical /auth/me', requests.includes('GET /auth/me'));
+await check('feature gate đọc canonical /auth/me', requests.includes('GET /auth/me'));
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).click();
 await page.getByText('People must _____ to change.').waitFor();
-check('session id được ghi vào URL để resume', new URL(page.url()).searchParams.get('session') === SESSION);
-check('registry recovery được namespace theo account', await page.evaluate(([userId, sessionId]) => {
+await check('session id được ghi vào URL để resume', new URL(page.url()).searchParams.get('session') === SESSION);
+await check('registry recovery được namespace theo account', await page.evaluate(([userId, sessionId]) => {
   const raw = localStorage.getItem(`aver:d1:active-session:${userId}`);
   return raw ? JSON.parse(raw).includes(sessionId) : false;
 }, [USER, SESSION]));
 
 await page.getByRole('button', { name: 'adapt' }).click();
 const next = page.getByRole('button', { name: 'Câu tiếp theo →' });
-check('Next khóa trong lúc canonical attempt đang lưu', await next.isDisabled());
+await check('Next khóa trong lúc canonical attempt đang lưu', await next.isDisabled());
 await page.getByText('Đã ghi nhận vào lịch ôn tập.').waitFor();
-check('Next chỉ mở sau ACK persisted', !(await next.isDisabled()) && attemptBodies[0]?.client_attempt_id);
+await check('Next chỉ mở sau ACK persisted', !(await next.isDisabled()) && attemptBodies[0]?.client_attempt_id);
 await page.reload({ waitUntil: 'domcontentloaded' });
 await page.getByText('Trees _____ in spring.').waitFor();
-check('reload khôi phục đúng câu chưa làm từ snapshot + attempt canonical', requests.includes(`GET /api/exercises/d1/sessions/${SESSION}`));
+await check('reload khôi phục đúng câu chưa làm từ snapshot + attempt canonical', requests.includes(`GET /api/exercises/d1/sessions/${SESSION}`));
 
 await page.getByRole('button', { name: 'fall' }).click();
 await page.getByRole('button', { name: 'Thử lưu lại' }).waitFor();
 const keyB = attemptBodies.filter((body) => body.user_answer === 'fall').map((body) => body.client_attempt_id);
-check('hai transient retries dùng cùng client_attempt_id', keyB.length === 2 && new Set(keyB).size === 1);
+await check('hai transient retries dùng cùng client_attempt_id', keyB.length === 2 && new Set(keyB).size === 1);
 await page.getByRole('button', { name: 'Thử lưu lại' }).click();
 await page.getByText('✓ Đã lưu bài.').waitFor();
 const keyBAfterManual = attemptBodies.filter((body) => body.user_answer === 'fall').map((body) => body.client_attempt_id);
-check('manual retry vẫn dùng key gốc', keyBAfterManual.length === 3 && new Set(keyBAfterManual).size === 1);
+await check('manual retry vẫn dùng key gốc', keyBAfterManual.length === 3 && new Set(keyBAfterManual).size === 1);
 await page.getByRole('button', { name: 'Xem kết quả' }).click();
 await page.getByRole('heading', { name: 'Kết quả luyện tập' }).waitFor();
-check('summary canonical đủ đúng/sai và đã complete', completed && await page.getByText('1/2').count() === 1 && await page.getByText('Đáp án grow').count() === 1);
-check('resume pointer được xóa sau completion', new URL(page.url()).searchParams.get('session') === null);
-check('completion chỉ loại session đã xong khỏi registry', await page.evaluate((userId) => {
+await check('summary canonical đủ đúng/sai và đã complete', completed && await page.getByText('1/2').count() === 1 && await page.getByText('Đáp án grow').count() === 1);
+await check('resume pointer được xóa sau completion', new URL(page.url()).searchParams.get('session') === null);
+await check('completion chỉ loại session đã xong khỏi registry', await page.evaluate((userId) => {
   return localStorage.getItem(`aver:d1:active-session:${userId}`) === null;
 }, USER));
 
@@ -385,9 +391,9 @@ await page.getByRole('button', { name: 'Ôn lại câu sai' }).click();
 await page.getByRole('button', { name: 'grow' }).click();
 await page.getByRole('button', { name: 'Kết thúc ôn tập' }).click();
 await page.getByRole('heading', { name: 'Kết quả luyện tập' }).waitFor();
-check('revision local-only không tạo attempt/SRS mới', attemptBodies.length === attemptsBeforeReview);
-check('mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
-check('không có pageerror', pageErrors.length === 0, pageErrors.join(' | '));
+await check('revision local-only không tạo attempt/SRS mới', attemptBodies.length === attemptsBeforeReview);
+await check('mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+await check('không có pageerror', pageErrors.length === 0, pageErrors.join(' | '));
 
 await page.evaluate(([userId, sessionId]) => {
   localStorage.setItem(`aver:d1:active-session:${userId}`, JSON.stringify([sessionId]));
@@ -395,7 +401,7 @@ await page.evaluate(([userId, sessionId]) => {
 }, [USER, SESSION]);
 await page.goto(`${BASE}/d1-exercise?session=${FOREIGN_SESSION}`, { waitUntil: 'domcontentloaded' });
 await page.getByText('Trees _____ in spring.').waitFor();
-check('URL foreign 404 fallback ngay sang registry account',
+await check('URL foreign 404 fallback ngay sang registry account',
   new URL(page.url()).searchParams.get('session') === SESSION
   && requests.includes(`GET /api/exercises/d1/sessions/${FOREIGN_SESSION}`));
 
@@ -410,7 +416,7 @@ await page.evaluate(([userId, activeId, staleId]) => {
 }, [USER, SESSION, FOREIGN_SESSION]);
 await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
 await page.getByText('Trees _____ in spring.').waitFor();
-check('registry thử toàn bộ session mới→cũ trước khi hiện Start', await page.evaluate(
+await check('registry thử toàn bộ session mới→cũ trước khi hiện Start', await page.evaluate(
   ([userId, activeId]) => {
     const scoped = localStorage.getItem(`aver:d1:active-session:${userId}`);
     return new URL(window.location.href).searchParams.get('session') === activeId
@@ -427,7 +433,7 @@ await page.evaluate(([userId, sessionId]) => {
 }, [USER, SESSION]);
 await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
 await page.getByText('Trees _____ in spring.').waitFor();
-check('singleton legacy chỉ bị claim sau resume user-scoped thành công', await page.evaluate(([userId, sessionId]) => {
+await check('singleton legacy chỉ bị claim sau resume user-scoped thành công', await page.evaluate(([userId, sessionId]) => {
   const scoped = localStorage.getItem(`aver:d1:active-session:${userId}`);
   return localStorage.getItem('aver:d1:active-session') === null
     && !!scoped && JSON.parse(scoped).includes(sessionId);
@@ -451,7 +457,7 @@ await page.evaluate(([foreignUserId]) => {
 }, [FOREIGN_USER]);
 resolveResumeOwnerSwitchInstalled();
 await page.getByText(/Tài khoản đã thay đổi trước khi gửi yêu cầu/).waitFor();
-check('token owner đổi trong resume không xóa registry của account cũ', await page.evaluate(([userId, sessionId]) => {
+await check('token owner đổi trong resume không xóa registry của account cũ', await page.evaluate(([userId, sessionId]) => {
   const scoped = localStorage.getItem(`aver:d1:active-session:${userId}`);
   return !!scoped && JSON.parse(scoped).includes(sessionId);
 }, [USER, SESSION]) && requests.filter(
@@ -459,7 +465,7 @@ check('token owner đổi trong resume không xóa registry của account cũ', 
 ).length === resumeRequestsBefore);
 await page.reload({ waitUntil: 'domcontentloaded' });
 await page.getByText('Trees _____ in spring.').waitFor();
-check('account cũ vẫn resume được đúng session sau token race',
+await check('account cũ vẫn resume được đúng session sau token race',
   new URL(page.url()).searchParams.get('session') === SESSION);
 
 await page.evaluate(([userId, foreignUserId]) => {
@@ -479,12 +485,12 @@ await page.evaluate(([foreignUserId]) => {
 }, [FOREIGN_USER]);
 await page.getByText('Trees _____ in spring.').waitFor();
 await guard.within(answered.foreignOwner, 'fixture: late 404 of the old account sent');
-// The late response has left the fixture; this pause only proves it changes
-// nothing in the page (there is no event for "nothing happened").
+// The late response has been dispatched; this pause lets it arrive and only
+// proves it changes nothing (there is no event for "nothing happened").
 await page.waitForTimeout(350);
-check('404 trễ của account cũ không xóa query resume của account mới',
+await check('404 trễ của account cũ không xóa query resume của account mới',
   new URL(page.url()).searchParams.get('session') === FOREIGN_OWNER_SESSION);
-check('account mới claim query session vào đúng registry', await page.evaluate(([userId, sessionId]) => {
+await check('account mới claim query session vào đúng registry', await page.evaluate(([userId, sessionId]) => {
   const scoped = localStorage.getItem(`aver:d1:active-session:${userId}`);
   return !!scoped && JSON.parse(scoped).includes(sessionId);
 }, [FOREIGN_USER, FOREIGN_OWNER_SESSION]));
@@ -505,13 +511,13 @@ await page.evaluate(([foreignUserId]) => {
 }, [FOREIGN_USER]);
 await page.getByText('Trees _____ in spring.').waitFor();
 await guard.within(answered.unauthorized, 'fixture: late resume 401 of the old account sent');
-// The late response has left the fixture; this pause only proves it changes
-// nothing in the page (there is no event for "nothing happened").
+// The late response has been dispatched; this pause lets it arrive and only
+// proves it changes nothing (there is no event for "nothing happened").
 await page.waitForTimeout(350);
-check('401 trễ của account cũ không redirect account mới về login',
+await check('401 trễ của account cũ không redirect account mới về login',
   new URL(page.url()).pathname === '/d1-exercise'
   && new URL(page.url()).searchParams.get('session') === UNAUTHORIZED_SESSION);
-check('account mới giữ được session sau stale 401', await page.evaluate(([userId, sessionId]) => {
+await check('account mới giữ được session sau stale 401', await page.evaluate(([userId, sessionId]) => {
   const scoped = localStorage.getItem(`aver:d1:active-session:${userId}`);
   return !!scoped && JSON.parse(scoped).includes(sessionId);
 }, [FOREIGN_USER, UNAUTHORIZED_SESSION]));
@@ -532,10 +538,10 @@ await page.evaluate(([foreignUserId]) => {
 }, [FOREIGN_USER]);
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
 await guard.within(answered.bootstrap401, 'fixture: late /auth/me 401 of the old account sent');
-// The late response has left the fixture; this pause only proves it changes
-// nothing in the page (there is no event for "nothing happened").
+// The late response has been dispatched; this pause lets it arrive and only
+// proves it changes nothing (there is no event for "nothing happened").
 await page.waitForTimeout(350);
-check('401 trễ ở feature bootstrap không redirect account mới',
+await check('401 trễ ở feature bootstrap không redirect account mới',
   new URL(page.url()).pathname === '/d1-exercise');
 
 attempt401Armed = true;
@@ -556,10 +562,10 @@ await page.evaluate(([foreignUserId]) => {
 }, [FOREIGN_USER]);
 await page.getByText('Trees _____ in spring.').waitFor();
 await guard.within(answered.attempt401, 'fixture: late attempt 401 of the old account sent');
-// The late response has left the fixture; this pause only proves it changes
-// nothing in the page (there is no event for "nothing happened").
+// The late response has been dispatched; this pause lets it arrive and only
+// proves it changes nothing (there is no event for "nothing happened").
 await page.waitForTimeout(350);
-check('401 trễ khi lưu attempt không redirect account mới',
+await check('401 trễ khi lưu attempt không redirect account mới',
   new URL(page.url()).pathname === '/d1-exercise');
 
 complete401Armed = true;
@@ -578,10 +584,10 @@ await page.evaluate(([foreignUserId]) => {
 }, [FOREIGN_USER]);
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
 await guard.within(answered.complete401, 'fixture: late complete 401 of the old account sent');
-// The late response has left the fixture; this pause only proves it changes
-// nothing in the page (there is no event for "nothing happened").
+// The late response has been dispatched; this pause lets it arrive and only
+// proves it changes nothing (there is no event for "nothing happened").
 await page.waitForTimeout(350);
-check('401 trễ khi complete không redirect account mới',
+await check('401 trễ khi complete không redirect account mới',
   new URL(page.url()).pathname === '/d1-exercise');
 
 refresh401Armed = true;
@@ -605,7 +611,7 @@ resolveRefreshTokenInstalled();
 // The retry precedes the Start screen, so a missing retry fails here, named.
 await guard.within(refreshRetryObserved, '401 token cũ retry một lần bằng token refresh cùng account');
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
-check('401 token cũ retry một lần bằng token refresh cùng account',
+await check('401 token cũ retry một lần bằng token refresh cùng account',
   refreshRetrySeen && new URL(page.url()).pathname === '/d1-exercise'
   && requests.slice(refreshAuthMeBefore).filter((entry) => entry === 'GET /auth/me').length === 2);
 
@@ -638,14 +644,14 @@ await page.getByText('People must _____ to change.').waitFor();
 await page.getByRole('button', { name: 'freeze' }).click();
 await guard.within(generationNewAttemptStarted, 'fixture: new-generation attempt A');
 await guard.within(answered.generationOld, 'fixture: old-generation ACK sent');
-// The late response has left the fixture; this pause only proves it changes
-// nothing in the page (there is no event for "nothing happened").
+// The late response has been dispatched; this pause lets it arrive and only
+// proves it changes nothing (there is no event for "nothing happened").
 await page.waitForTimeout(350);
-check('ACK generation A cũ không mở khóa attempt A mới',
+await check('ACK generation A cũ không mở khóa attempt A mới',
   await page.getByRole('button', { name: 'Câu tiếp theo →' }).isDisabled());
 releaseGenerationNewAttempt();
 await page.getByText('✓ Đã lưu bài.').waitFor();
-check('attempt generation mới tự mở khóa sau đúng ACK',
+await check('attempt generation mới tự mở khóa sau đúng ACK',
   !(await page.getByRole('button', { name: 'Câu tiếp theo →' }).isDisabled()));
 
 staleRetryArmed = true;
@@ -680,7 +686,7 @@ await page.getByText('✓ Đã lưu bài.').waitFor();
 // The old generation's retry would leave 500 ms after its 503 (player backoff),
 // which was before this point; 600 ms proves it never leaves.
 await page.waitForTimeout(600);
-check('generation cũ không dispatch transient retry sau A→B→A', staleRetryOldPosts === 1);
+await check('generation cũ không dispatch transient retry sau A→B→A', staleRetryOldPosts === 1);
 
 refreshGenerationRaceArmed = true;
 refreshGenerationOldPosts = 0;
@@ -717,7 +723,7 @@ await page.getByText('✓ Đã lưu bài.').waitFor();
 await guard.within(answered.refreshGenerationOld, 'fixture: old-generation 401 sent');
 // A 401 retry is dispatched at once; this pause only proves none leaves.
 await page.waitForTimeout(600);
-check('generation cũ không redispatch bằng token refresh sau A→B→A',
+await check('generation cũ không redispatch bằng token refresh sau A→B→A',
   refreshGenerationOldPosts === 1);
 refreshGenerationRaceArmed = false;
 
@@ -762,7 +768,7 @@ await page.waitForFunction(() => window.__d1DelayedAuthSettled === true);
 // The delayed token lookup has returned; a stale dispatch would follow at
 // once, so this pause only proves none leaves.
 await page.waitForTimeout(600);
-check('generation cũ không dispatch sau token lookup trễ A→B→A',
+await check('generation cũ không dispatch sau token lookup trễ A→B→A',
   attemptBodies.filter((body) => body.user_answer === 'adapt').length === adaptPostsBeforeDelayedToken);
 initialDispatchRaceArmed = false;
 
@@ -778,7 +784,7 @@ final401Armed = true;
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).click();
 await guard.within(final401Started, 'fixture: final 401 for current token');
 await page.waitForURL('**/login');
-check('401 cuối của token hiện hành redirect về login', new URL(page.url()).pathname === '/login');
+await check('401 cuối của token hiện hành redirect về login', new URL(page.url()).pathname === '/login');
 
 await context.close();
 await browser.close();
