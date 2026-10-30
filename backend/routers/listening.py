@@ -1445,6 +1445,12 @@ async def admin_get_listening_content(
         raise HTTPException(404, "Listening content not found")
     row = res.data[0]
 
+    # Bundle sections may use only the parent test's audio. A missing section
+    # path is normal; storage3 rejects None before making a request.
+    if not row.get("audio_storage_path"):
+        row["audio_signed_url"] = None
+        return row
+
     try:
         signed = supabase_admin.storage.from_(
             settings.LISTENING_AUDIO_BUCKET
