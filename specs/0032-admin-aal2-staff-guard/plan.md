@@ -94,24 +94,7 @@ No code is written under this plan until ADMINAAL2-0032 is approved on
        'snapshot'` and an error-level log, because it means the log missed an
        event.
   - `GET /admin/mfa/status` also runs the sweep steps for the caller only, so
-    an admin's own enroll or removal is audited at once. PC-J201 admission is
-    shared through `staff_mfa_status_throttle` (one private row per account):
-    a 30-second unchanged-state cooldown is recorded only after both sweep
-    steps succeed. Changed states can bypass that cooldown, but at most six
-    sweep attempts may start per rolling minute, including failed attempts;
-    an exhausted account receives 429 with `Retry-After`. Repeated reads
-    skipped by cooldown or in-flight/busy admission do not consume attempts.
-    A short, transaction-level advisory lock serializes admission across
-    workers; at most two passes have active leases globally. No admission
-    lock is held during Auth HTTP. Leases expire five seconds after the
-    caller's overall timeout; completion clears only its own lease token.
-    Admission failure logs and skips the caller pass, leaving the status
-    response and the cron fallback available. The existing per-worker
-    in-flight guard also limits admission connections during a local burst.
-  - The cron has a 240-second overall `asyncio.wait_for` deadline, including
-    connection setup, snapshot/Auth work, dispatch and the follow-up wait.
-    Timeout logs `staff_security_sweep_failed error=timeout`, exits non-zero
-    and cancels transactions; connection cleanup is bounded to one second.
+    an admin's own enroll or removal is audited at once.
   - The cron is the only new long-running component. Approving this spec
     approves it.
 - **Why no trigger on `auth.mfa_factors`**: Supabase owns the `auth` schema
