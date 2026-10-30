@@ -126,6 +126,103 @@ async def health_basic() -> dict:
     }
 
 
+# A timeout bounds the response, but cannot stop a synchronous HTTP call in a
+# thread. Retain each in-flight task until it actually finishes so polling a
+# stalled upstream cannot enqueue the same probe again after every cache TTL.
+_READY_PROBE_TIMEOUT_SECONDS = 1.5
+_READY_PROBE_TTL_SECONDS = 5.0
+_ready_probe_tasks: dict[str, asyncio.Task] = {}
+_ready_probe_cache: tuple[float, dict] | None = None
+_ready_probe_lock = asyncio.Lock()
+
+
+async def _ready_probe(name, call):
+    task = _ready_probe_tasks.get(name)
+    if task is None:
+        task = asyncio.create_task(asyncio.to_thread(call))
+        _ready_probe_tasks[name] = task
+
+        def finished(done):
+            if _ready_probe_tasks.get(name) is done:
+                _ready_probe_tasks.pop(name, None)
+            # A timed-out caller may no longer be awaiting this task.
+            if not done.cancelled():
+                done.exception()
+
+        task.add_done_callback(finished)
+    try:
+        return await asyncio.wait_for(asyncio.shield(task), _READY_PROBE_TIMEOUT_SECONDS)
+    except Exception as exc:
+        return exc
+
+
+def _ready_table(table, projection, limit):
+    # Build each query inside its own thread; never share mutable builders.
+    return supabase_admin.table(table).select(projection).limit(limit).execute()
+
+
+def _ready_curated_schema():
+    # Both helpers can perform synchronous DB reads on a cache miss.
+    enabled = any(runtime_flags.is_enabled(key, default=False) for key in (
+        'vocab_units_read', 'vocab_unit_attempts_write',
+    ))
+    if not enabled:
+        return 'disabled'
+    return 'ok' if curated_readiness.schema_available() else 'fail'
+
+
+def _ready_error(exc):
+    return 'probe timed out' if isinstance(exc, TimeoutError) else str(exc)
+
+
+async def _collect_ready_checks(is_admin):
+    database, *results = await asyncio.gather(
+        _ready_probe('database', lambda: _ready_table('users', 'id', 1)),
+        *(_ready_probe(table, lambda table=table: _ready_table(
+            table, _CRITICAL_COLUMNS.get(table, 'id'), 0,
+        )) for table in _CRITICAL_TABLES),
+        _ready_probe('curated_schema', _ready_curated_schema),
+    )
+    curated = results.pop()
+    checks = {'database': {'status': 'ok'}}
+    if isinstance(database, Exception):
+        error = _ready_error(database)
+        logger.warning('[health] readiness DB probe failed: %s', error)
+        checks['database'] = {'status': 'fail'}
+        if is_admin:
+            checks['database']['error'] = error[:200]
+
+    # Preserve the critical column projections, zero-row limits, ordering and
+    # existing admin-only diagnostics while running all table probes together.
+    missing = [f'{table}: {_ready_error(result)[:80]}'
+               for table, result in zip(_CRITICAL_TABLES, results)
+               if isinstance(result, Exception)]
+    checks['migrations'] = {'status': 'fail' if missing else 'ok'}
+    if missing:
+        logger.warning('[health] readiness critical-table probe failed: %s', missing)
+    if is_admin:
+        if missing:
+            checks['migrations']['missing'] = missing
+        else:
+            checks['migrations']['verified'] = list(_CRITICAL_TABLES)
+        checks['migrations']['scope'] = 'critical-table-columns; enabled curated migration ledger'
+
+    checks['gemini_api'] = {'status': 'ok' if settings.GEMINI_API_KEY else 'missing_key'}
+    checks['feature_flags'] = {'status': 'ok'}
+    if is_admin:
+        checks['feature_flags'].update({
+            'vocab_bank_enabled': settings.VOCAB_BANK_FEATURE_FLAG_ENABLED,
+            'd1_enabled': settings.D1_ENABLED,
+            'd3_enabled': settings.D3_ENABLED,
+            'flashcard_enabled': settings.FLASHCARD_ENABLED,
+        })
+    if isinstance(curated, Exception):
+        logger.warning('[health] readiness curated probe failed: %s', _ready_error(curated))
+        curated = 'fail'
+    checks['curated_schema'] = {'status': curated}
+    return checks
+
+
 @router.get("/health/ready")
 async def health_ready(authorization: str | None = Header(default=None)) -> dict:
     """
@@ -136,82 +233,23 @@ async def health_ready(authorization: str | None = Header(default=None)) -> dict
     Anonymous callers see only pass/fail statuses; the raw DB error string
     (which can leak hostname/schema hints) is included only for admins.
     """
+    global _ready_probe_cache
     is_admin = await _is_admin(authorization)
-    checks: dict = {}
-    overall_status = "ok"
-
-    # 1) Database connectivity.  A trivial SELECT against `users` confirms
-    # both the network path and that the service-role key still works.
-    try:
-        supabase_admin.table("users").select("id").limit(1).execute()
-        checks["database"] = {"status": "ok"}
-    except Exception as e:
-        logger.warning("[health] readiness DB probe failed: %s", e)
-        checks["database"] = {"status": "fail"}
-        if is_admin:
-            checks["database"]["error"] = str(e)[:200]
-        overall_status = "degraded"
-
-    # 2) Migrations applied — proxy by probing each critical table for
-    # existence and key columns with a zero-row projection (no COUNT query).
-    missing: list[str] = []
-    for table in _CRITICAL_TABLES:
-        try:
-            supabase_admin.table(table).select(_CRITICAL_COLUMNS.get(table, 'id')).limit(0).execute()
-        except Exception as e:
-            missing.append(f"{table}: {str(e)[:80]}")
-    # Table names and error strings map the schema — admin-only. Anonymous
-    # monitors act on the status code; the detail is in the server log.
-    if missing:
-        logger.warning("[health] readiness critical-table probe failed: %s", missing)
-        checks["migrations"] = {"status": "fail"}
-        if is_admin:
-            checks["migrations"]["missing"] = missing
-        overall_status = "degraded"
-    else:
-        checks["migrations"] = {"status": "ok"}
-        if is_admin:
-            checks["migrations"]["verified"] = list(_CRITICAL_TABLES)
-
-    # 3) Gemini API key configured (Wave 2 vocab enrichment + D1 generation
-    # both depend on it; missing key won't block /health but should flag
-    # degraded so the deploy wizard can stop before promoting).
-    if settings.GEMINI_API_KEY:
-        checks["gemini_api"] = {"status": "ok"}
-    else:
-        checks["gemini_api"] = {"status": "missing_key"}
-        overall_status = "degraded"
-
-    # 4) Feature-flag visibility — useful when a dogfooder reports "X
-    # doesn't work" and we want a single admin curl to confirm whether the
-    # env has the flag flipped on.  Booleans only; admin-only.
-    checks["feature_flags"] = {"status": "ok"}
-    if is_admin:
-        checks["feature_flags"].update({
-            "vocab_bank_enabled": settings.VOCAB_BANK_FEATURE_FLAG_ENABLED,
-            "d1_enabled": settings.D1_ENABLED,
-            "d3_enabled": settings.D3_ENABLED,
-            "flashcard_enabled": settings.FLASHCARD_ENABLED,
-        })
-
-    curated_enabled = any(runtime_flags.is_enabled(key, default=False) for key in (
-        'vocab_units_read', 'vocab_unit_attempts_write',
-    ))
-    if curated_enabled:
-        ready = curated_readiness.schema_available()
-        checks['curated_schema'] = {'status': 'ok' if ready else 'fail'}
-        if not ready:
-            overall_status = 'degraded'
-    else:
-        checks['curated_schema'] = {'status': 'disabled'}
-
-    if is_admin:
-        checks['migrations']['scope'] = 'critical-table-columns; enabled curated migration ledger'
-
+    async with _ready_probe_lock:
+        now = time.monotonic()
+        if (not is_admin and _ready_probe_cache is not None
+                and now - _ready_probe_cache[0] < _READY_PROBE_TTL_SECONDS):
+            checks = {name: dict(check) for name, check in _ready_probe_cache[1].items()}
+        else:
+            checks = await _collect_ready_checks(is_admin)
+            _ready_probe_cache = (time.monotonic(), {
+                name: {'status': check['status']} for name, check in checks.items()
+            })
     return {
-        "status": overall_status,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "checks": checks,
+        'status': 'ok' if all(check['status'] in ('ok', 'disabled')
+                              for check in checks.values()) else 'degraded',
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'checks': checks,
     }
 
 
