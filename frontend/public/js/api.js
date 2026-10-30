@@ -127,20 +127,6 @@
     return _lastToken;
   }
 
-  // Mirrors lib/admin-mfa-model.mjs (adminMfaUrl / ACCOUNT_INACTIVE_EVENT).
-  function _toAdminMfa() {
-    var loc = window.location;
-    var here = loc.pathname || '/';
-    if (here === '/admin/mfa' || here.indexOf('/admin/mfa/') === 0) return;
-    var target = '/admin/mfa?next=' + encodeURIComponent(here + (loc.search || ''));
-    if (typeof loc.replace === 'function') loc.replace(target);
-    else loc.href = target;
-  }
-
-  function _announceInactive() {
-    try { window.dispatchEvent(new CustomEvent('aver:account-inactive')); } catch (_) {}
-  }
-
   async function _apiRequest(method, path, body, isFormData, extraHeaders, opts) {
     // Đường `keepalive` KHÔNG ĐƯỢC `await` trước khi gọi `fetch`.
     //
@@ -257,15 +243,6 @@
       // call + the server's sanitizer ref when the 5xx body carries one.
       thrown.request_id = requestId;
       thrown.ref = (isObj && detail.ref) || null;
-      // ADMINAAL2-0032 FR-013: an admin call refused for a missing second
-      // factor goes to /admin/mfa (as 401 goes to /login); the page itself
-      // is exempt so it can show its own state. An inactive staff 403 is
-      // announced so an already-rendered admin page shows its denied state.
-      // Both still throw, with .status/.detail, so no caller sees success.
-      if (response.status === 403 && !(opts && opts.noRedirect)) {
-        if (isObj && detail.code === 'mfa_required') _toAdminMfa();
-        else if (detail === 'Tài khoản chưa được kích hoạt') _announceInactive();
-      }
       throw thrown;
     }
 

@@ -42,7 +42,7 @@ from models.writing_feedback import (
 from services.writing_history import format_history_for_prompt
 from services.writing_prompt_loader import get_prompt_loader
 from services.ai_pricing import estimate_token_cost, token_rate
-from services import ai_budget, ai_failure_log, ai_router, ai_usage_logger
+from services import ai_failure_log, ai_router, ai_usage_logger
 from services.gemini_compat import generation_config_kwargs
 from services.writing_feedback_grounding import (
     GROUNDING_INSTRUCTION,
@@ -936,8 +936,6 @@ class GeminiWritingGrader:
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
-                # A budget refusal of the Gemini line lands here too: serving
-                # the Claude answer already received makes no further request.
                 logger.warning(
                     "[grader] gemini fallback failed (%s) — serving the Claude answer "
                     "rejected only for missing_mistake_analysis", type(exc).__name__,
@@ -951,8 +949,6 @@ class GeminiWritingGrader:
             )
         except asyncio.CancelledError:
             raise
-        except (ai_budget.AIBudgetRefused, ai_budget.AIBudgetReplay):
-            raise   # AIBUDGET-0033 FR-008: no Claude fallback after a refusal
         except Exception as exc:
             ai_router.record_fallback(
                 anthropic_feature, provider="gemini", model=model_name,
@@ -1000,11 +996,6 @@ class GeminiWritingGrader:
         if image is not None:
             img_bytes, img_mime = image
             contents = [user_prompt, {"mime_type": img_mime, "data": img_bytes}]
-        # AIBUDGET-0033 FR-001/FR-004: each attempt (repairs included) reserves
-        # its own line, sized from the prompt, the output cap and the chart.
-        budget_ctx = usage_context or {}
-        budget_feature = budget_ctx.get("feature") or "writing_grading"
-        image_sizes = ai_budget.image_sizes([image[0]] if image is not None else [])
 
         last_error: Optional[Exception] = None
         # A valid, grounded answer rejected only for an empty mistakeAnalysis.
@@ -1015,25 +1006,11 @@ class GeminiWritingGrader:
             attempt_started = time.monotonic()
             attempt_logged = False
             try:
-                sent_prompt = contents[0] if isinstance(contents, list) else contents
-                estimate = None if image_sizes is None else ai_budget.estimate_or_none(
-                    "google", model_name, input_text=[system_prompt, sent_prompt],
-                    max_tokens=config_kwargs["max_output_tokens"], images=image_sizes,
+                response = await asyncio.to_thread(
+                    model.generate_content,
+                    contents,
+                    generation_config=generation_config,
                 )
-                async with ai_budget.guard(
-                    "google", model_name, budget_feature, estimate,
-                    request_key=ai_budget.attempt_key(budget_feature),
-                    operation=budget_ctx.get("operation"), user_id=budget_ctx.get("user_id"),
-                    resource_type=budget_ctx.get("resource_type"),
-                    resource_id=budget_ctx.get("resource_id"),
-                ) as lease:
-                    response = await asyncio.to_thread(
-                        model.generate_content,
-                        contents,
-                        generation_config=generation_config,
-                        request_options=ai_budget.gemini_request_options(),
-                    )
-                    lease.settle(ai_budget.gemini_actual_usd(model_name, response))
                 usage = self._usage_from_metadata(
                     getattr(response, "usage_metadata", None))
 
@@ -1101,9 +1078,6 @@ class GeminiWritingGrader:
                         model_name, {}, usage_context, attempt,
                         attempt_started, status="cancelled",
                     )
-                raise
-            except (ai_budget.AIBudgetRefused, ai_budget.AIBudgetReplay):
-                # AIBUDGET-0033 FR-008: no further attempt, no other provider.
                 raise
             except AISafetyBlockError:
                 # Don't retry safety blocks

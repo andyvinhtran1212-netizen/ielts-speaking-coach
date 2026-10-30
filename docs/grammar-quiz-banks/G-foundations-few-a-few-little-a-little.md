@@ -87,7 +87,7 @@ grammar_article_slug: "few-a-few-little-a-little"
 explain: "SAI — 'cars' là countable số nhiều nên phải dùng 'a few', không phải 'a little': 'There were a few cars left in the car park by midnight.'"
 ---
 
-# ===== item_key 2 · A FEW / A LITTLE — sắc thái tích cực (đủ dùng) =====
+# ===== item_key 2 · A FEW / A LITTLE — sắc thái tích cực (một ít, vẫn có) =====
 
 ---
 id: "fal_pos_b1"
@@ -100,7 +100,7 @@ prompt: "Don't worry, we still have ____ minutes before the interview starts —
 options: ["few", "a few", "little", "much"]
 answer: 1
 grammar_article_slug: "few-a-few-little-a-little"
-explain: "Ngữ cảnh 'plenty of time' cho thấy sắc thái tích cực (đủ dùng) → dùng 'a few', không phải 'few'."
+explain: "Ngữ cảnh 'plenty of time' mang sắc thái tích cực: vẫn còn một ít thời gian → dùng 'a few'. 'Few' nghĩa là rất ít, gần như không có, trái với ý câu."
 ---
 
 ---
@@ -129,7 +129,7 @@ hint: "chọn 'a little' hoặc 'little'"
 accept: ["a little"]
 case_sensitive: false
 grammar_article_slug: "few-a-few-little-a-little"
-explain: "Ngữ cảnh 'helped him during the trip' cho thấy đủ dùng (tích cực) → dùng 'a little', không phải 'little'."
+explain: "Ngữ cảnh 'helped him during the trip' cho thấy anh ấy biết một ít tiếng Pháp và vốn đó có ích (tích cực) → dùng 'a little'. 'Little' nghĩa là gần như không biết."
 ---
 
 ---
