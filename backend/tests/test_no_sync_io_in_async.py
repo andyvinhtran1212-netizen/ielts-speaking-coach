@@ -915,3 +915,202 @@ def test_scan_scope_and_syntax_errors(tmp_path):
     (tmp_path / "routers/example.py").write_text("async def broken(:")
     with pytest.raises(SyntaxError):
         scan_backend(tmp_path)
+
+
+@pytest.mark.parametrize("before, after, count", [
+    ("cached", "requests.get", 1), ("requests.get", "cached", 0),
+])
+@pytest.mark.parametrize("generator", [
+    "(fetch(url) for url in urls)",
+    "(url for url in urls if fetch(url))",
+    "(more for url in urls for more in fetch(url))",
+    "([fetch(url) for url in group] for group in urls)",
+])
+def test_deferred_aliases_resolve_at_consumption(before, after, count, generator):
+    findings = scan("import requests\nasync def f(urls, cached):\n    fetch = " + before
+                    + "\n    rows = " + generator + "\n    fetch = " + after + "\n    list(rows)")
+    assert len(findings) == count
+    if count:
+        assert [(f.function, f.callee, f.line) for f in findings] == [("f", "requests.get", 4)]
+
+
+@pytest.mark.parametrize("consumer", [
+    "list(alias)", "alias.__next__()", "for row in alias:\n        pass",
+    "class Result:\n        fetch = cached\n        rows = list(alias)",
+])
+def test_deferred_aliases_follow_stored_iterator_consumers(consumer):
+    findings = scan("import requests\nasync def f(urls, cached):\n    fetch = cached\n"
+                    "    rows = (fetch(url) for url in urls)\n    alias = rows\n    rows = ()\n"
+                    "    fetch = requests.get\n    " + consumer)
+    assert [(f.function, f.callee, f.line) for f in findings] == [("f", "requests.get", 4)]
+
+
+@pytest.mark.parametrize("consumer", [
+    "await asyncio.to_thread(list, rows)", "await run_in_threadpool(list, rows)",
+    "await loop.run_in_executor(None, list, rows)", "await aexecute(list, rows)",
+])
+def test_deferred_alias_rebinding_keeps_worker_consumption_deferred(consumer):
+    assert not scan("import requests\nasync def f(urls, cached):\n    fetch = cached\n"
+                    "    rows = (fetch(url) for url in urls)\n    fetch = requests.get\n    " + consumer)
+
+
+def test_deferred_aliases_keep_each_consumption_context_without_duplicate_debt():
+    findings = scan("""
+        import requests
+        async def f(urls, cached):
+            fetch = cached
+            rows = (fetch(url) for url in urls)
+            next(rows)
+            fetch = requests.get
+            next(rows)
+            next(rows)
+            fetch = cached
+            next(rows)
+    """)
+    assert [(f.function, f.callee, f.line) for f in findings] == [("f", "requests.get", 5)]
+
+
+@pytest.mark.parametrize("first, later, count", [
+    ("requests.get", "cached", 1), ("cached", "requests.get", 0),
+])
+def test_deferred_aliases_preserve_eager_first_iterable(first, later, count):
+    findings = scan("import requests\nasync def f(cached):\n    fetch = " + first
+                    + "\n    rows = (url for url in fetch('index'))\n    fetch = " + later
+                    + "\n    list(rows)")
+    assert len(findings) == count
+
+
+@pytest.mark.parametrize("before, after, count", [("()", "(requests.get(url) for url in urls)", 1),
+                                                       ("(requests.get(url) for url in urls)", "()", 0)])
+def test_deferred_generator_free_iterator_uses_consumption_binding(before, after, count):
+    findings = scan("import requests\nasync def f(urls):\n    items = " + before
+                    + "\n    rows = (list(items) for _ in [0])\n    items = " + after + "\n    list(rows)")
+    assert len(findings) == count
+
+
+@pytest.mark.parametrize("constructor", ["map", "filter", "builtins.map", "builtins.filter"])
+@pytest.mark.parametrize("consumer, count", [
+    ("list(rows)", 1), ("await asyncio.to_thread(list, rows)", 0),
+    ("alias = rows\n    rows = ()\n    list(alias)", 1),
+])
+def test_map_filter_callback_effects_wait_for_consumption(constructor, consumer, count):
+    findings = scan("import requests\nimport builtins\nasync def f(urls):\n    rows = "
+                    + constructor + "(requests.get, urls)\n    " + consumer)
+    assert len(findings) == count
+    if count:
+        assert [(f.function, f.callee, f.line) for f in findings] == [("f", "requests.get", 4)]
+
+
+@pytest.mark.parametrize("constructor", ["map", "filter"])
+@pytest.mark.parametrize("expression, count", [
+    ("list(CONSTRUCTOR(requests.get, urls))", 1),
+    ("for row in CONSTRUCTOR(requests.get, urls):\n        pass", 1),
+    ("await asyncio.to_thread(list, CONSTRUCTOR(requests.get, urls))", 0),
+    ("await run_in_threadpool(list, CONSTRUCTOR(requests.get, urls))", 0),
+    ("await loop.run_in_executor(None, list, CONSTRUCTOR(requests.get, urls))", 0),
+    ("await aexecute(list, CONSTRUCTOR(requests.get, urls))", 0),
+])
+def test_map_filter_inline_and_worker_consumption(constructor, expression, count):
+    findings = scan("import requests\nasync def f(urls):\n    " + expression.replace("CONSTRUCTOR", constructor))
+    assert len(findings) == count
+
+
+@pytest.mark.parametrize("constructor", ["map", "filter"])
+@pytest.mark.parametrize("before, after, count", [("requests.get", "cached", 1), ("cached", "requests.get", 0)])
+def test_map_filter_captures_callback_at_construction(constructor, before, after, count):
+    findings = scan("import requests\nasync def f(urls, cached):\n    fetch = " + before
+                    + "\n    rows = " + constructor + "(fetch, urls)\n    fetch = " + after + "\n    list(rows)")
+    assert len(findings) == count
+
+
+@pytest.mark.parametrize("constructor", ["map", "filter"])
+def test_map_filter_sync_helper_callbacks_propagate(constructor):
+    findings = scan("import requests\ndef fetch(url):\n    return requests.get(url)\n"
+                    "async def f(urls):\n    list(" + constructor + "(fetch, urls))")
+    assert [(f.function, f.callee) for f in findings] == [("f", "routers.example.fetch")]
+
+
+def test_map_filter_callback_and_iterable_effects_are_both_retained_once():
+    findings = scan("""
+        import requests
+        async def f(urls):
+            rows = map(requests.get, (requests.head(url) for url in urls))
+            alias = enumerate(filter(requests.post, rows))
+            next(alias)
+            next(alias)
+    """)
+    assert [(f.callee, f.line) for f in findings] == [
+        ("requests.get", 4), ("requests.head", 4), ("requests.post", 5),
+    ]
+
+
+@pytest.mark.parametrize("constructor", ["map", "filter"])
+@pytest.mark.parametrize("callback", ["lambda url: fetch(url)", "functools.partial(requests.get)"])
+@pytest.mark.parametrize("consumer, count", [("list(rows)", 1), ("await asyncio.to_thread(list, rows)", 0)])
+def test_map_filter_lambda_and_partial_callbacks(constructor, callback, consumer, count):
+    findings = scan("import requests\nimport functools\nasync def f(urls, cached):\n    fetch = cached\n"
+                    "    rows = " + constructor + "(" + callback + ", urls)\n"
+                    "    fetch = requests.get\n    " + consumer)
+    assert len(findings) == count
+    if count:
+        assert findings[0].callee == "requests.get"
+
+
+@pytest.mark.parametrize("constructor", ["map", "filter"])
+def test_map_filter_lambda_parameters_shadow_outer_aliases(constructor):
+    assert not scan("import requests\nasync def f(callbacks):\n    fetch = requests.get\n"
+                    "    list(" + constructor + "(lambda fetch: fetch('url'), callbacks))")
+
+
+@pytest.mark.parametrize("before, after, count", [("cached", "requests.get", 1), ("requests.get", "cached", 0)])
+def test_deferred_aliases_resolve_nested_generator_consumption(before, after, count):
+    findings = scan("import requests\nasync def f(urls, cached):\n    fetch = " + before
+                    + "\n    inner = (fetch(url) for url in urls)\n"
+                    "    rows = (list(inner) for _ in [0])\n    fetch = " + after + "\n    list(rows)")
+    assert len(findings) == count
+
+
+@pytest.mark.parametrize("first, second, count", [("AsyncClient", "Client", 1), ("Client", "AsyncClient", 0)])
+def test_deferred_aliases_keep_body_assignment_positions(first, second, count):
+    findings = scan("import httpx\nasync def f(urls):\n    client = httpx." + first + "()\n"
+                    "    rows = ((client := httpx." + second + "(), client.get(url)) for url in urls)\n    list(rows)")
+    assert len(findings) == count
+
+
+def test_deferred_aliases_do_not_consume_a_yielded_lazy_value():
+    assert not scan("""
+        import requests
+        async def f(urls):
+            rows = (map(requests.get, urls) for _ in [0])
+            list(rows)
+    """)
+
+
+@pytest.mark.parametrize("callback", ["lambda url, fetch=requests.get: fetch(url)",
+                                       "functools.partial(requests.get)"])
+def test_map_filter_stored_callback_objects_keep_captured_bindings(callback):
+    findings = scan("import requests\nimport functools\nasync def f(urls, cached):\n"
+                    "    callback = " + callback + "\n    rows = map(callback, urls)\n"
+                    "    callback = cached\n    list(rows)")
+    assert len(findings) == 1
+    assert findings[0].callee == "requests.get"
+
+
+@pytest.mark.parametrize("callback", ["responses", "lambda url: responses([url])",
+                                       "lambda url: (requests.get(item) for item in [url])"])
+def test_map_filter_generator_callbacks_only_construct_iterators(callback):
+    assert not scan(GENERATOR_HELPERS + "\nasync def f(urls):\n    list(map(" + callback + ", urls))")
+
+
+def test_deferred_aliases_conservatively_check_even_potentially_exhausted_iterators():
+    findings = scan("""
+        import requests
+        async def f(urls, cached):
+            fetch = cached
+            rows = (fetch(url) for url in urls)
+            list(rows)
+            fetch = requests.get
+            list(rows)
+    """)
+    # The lexical guard deliberately does not prove exhaustion/control flow.
+    assert [(f.callee, f.line) for f in findings] == [("requests.get", 5)]
