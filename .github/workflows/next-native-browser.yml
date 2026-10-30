@@ -50,6 +50,7 @@ on:
       - 'frontend/tooling/verify-learning-context-flow.mjs'
       - 'frontend/tooling/verify-grammar-navigation-flow.mjs'
       - 'frontend/tooling/grammar-navigation-fixtures.mjs'
+      - 'frontend/tooling/process-group.mjs'
       - 'frontend/public/pages/writing-dashboard.html'
       - 'frontend/public/css/writing-dashboard.css'
       - 'frontend/app/(authed-writing-result)/**'
