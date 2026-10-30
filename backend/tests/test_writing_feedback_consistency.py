@@ -190,6 +190,39 @@ def test_negated_data_criticism_and_empty_optional_sections_are_unchanged(feedba
     assert feedback.criteriaFeedback.coherenceCohesion.feedback == ""
 
 
+@pytest.mark.parametrize("explanation", [
+    "Đây không phải là lỗi sai số liệu mà là lỗi dùng từ.",
+    "Day khong phai la loi sai so lieu ma la loi dung tu.",
+    "Không phải sai số liệu, mà là collocation chưa tự nhiên.",
+    "Cụm từ không làm sai số liệu nhưng chưa tự nhiên.",
+    "Cum tu khong lam sai so lieu nhung chua tu nhien.",
+    "This is not an incorrect data issue but a word-choice error.",
+])
+def test_data_error_negated_within_its_clause_keeps_word_choice(feedback, explanation):
+    # Codex r4422064967: negation separated from the data phrase by a few words
+    # in the same clause still denies the data error.
+    feedback.mistakeAnalysis[2].explanation = explanation
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.mistakeAnalysis[2].mistakeType == "Word Choice"
+    assert feedback.mistakeAnalysis[2].criterion == "Lexical Resource"
+
+
+@pytest.mark.parametrize("explanation", [
+    "Số liệu này sai.",
+    "So lieu nay sai.",
+    "Đây không phải lỗi dùng từ mà là lỗi sai số liệu.",
+    "Day khong phai loi dung tu ma la loi sai so lieu.",
+    "Collocation không tự nhiên và sai số liệu biểu đồ.",
+    "Không chỉ dùng từ chưa tự nhiên mà còn sai số liệu.",
+    "This is not a word-choice issue but the figures are wrong.",
+])
+def test_data_error_outside_the_negated_clause_is_still_relabelled(feedback, explanation):
+    feedback.mistakeAnalysis[2].explanation = explanation
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.mistakeAnalysis[2].mistakeType == "Data Accuracy"
+    assert feedback.mistakeAnalysis[2].criterion == "Task Achievement"
+
+
 @pytest.mark.parametrize("sections", [
     {"sentenceStructureAnalysis": None, "bandTrajectoryAnalysis": None, "recurringPatterns": None},
     {"sentenceStructureAnalysis": {}, "bandTrajectoryAnalysis": {}, "recurringPatterns": {}},
@@ -256,6 +289,23 @@ def test_stale_denials_of_historical_structure_errors_are_still_removed(feedback
     feedback.sentenceStructureAnalysis[key] = claim
     repair_writing_consistency(feedback, "task1_academic")
     assert "lặp lại" not in feedback.sentenceStructureAnalysis[key]
+
+
+@pytest.mark.parametrize("key,claim", [
+    ("summary", "Bài này và các bài trước đều không có lỗi cấu trúc câu lặp lại."),
+    ("current_essay_observation", "Bài này và các bài trước đều không có lỗi cấu trúc câu lặp lại."),
+    ("summary", "Cả bài này lẫn các bài trước đều không có lỗi cấu trúc câu lặp lại."),
+    ("current_essay_observation",
+     "This essay and the previous essays have no repeated errors in sentence structure."),
+])
+def test_joint_current_and_history_denials_are_removed_when_history_has_errors(feedback, key, claim):
+    # CR P3 (PR-2053 re-review 2): naming the current essay does not license
+    # the same sentence's denial about previous essays that common_issues lists.
+    feedback.sentenceStructureAnalysis["common_issues"] = [{"pattern": "run-on", "count": 3}]
+    feedback.sentenceStructureAnalysis[key] = claim
+    repair_writing_consistency(feedback, "task1_academic")
+    assert "lặp lại" not in feedback.sentenceStructureAnalysis[key]
+    assert "repeated" not in feedback.sentenceStructureAnalysis[key]
 
 
 @pytest.mark.parametrize("claim", [
@@ -329,6 +379,38 @@ def test_praise_only_sentences_of_flagged_phrases_are_still_removed(feedback, cl
     assert "levelled off" not in feedback.overallBandScoreSummary
     if "sai" in claim:
         assert feedback.overallBandScoreSummary == "Số liệu trong câu này sai."
+
+
+@pytest.mark.parametrize("claim", [
+    "Cụm 'levelled off' phù hợp, nhưng em không cần thay đổi gì.",
+    "Cum 'levelled off' phu hop, nhung em khong can thay doi gi.",
+    "Cụm 'levelled off' rất tự nhiên; bài viết không có lỗi từ vựng nào.",
+    "The phrase 'levelled off' is natural and you can reuse it.",
+    "The phrase 'levelled off' is appropriate; you don't need to change it.",
+])
+def test_reassurance_does_not_revive_praise_of_flagged_phrases(feedback, claim):
+    # CR P3 (PR-2053 re-review 2): "không cần", "không có lỗi" and English
+    # "can" (the de-accented spelling of "cần") are not warnings.
+    feedback.overallBandScoreSummary = claim
+    repair_writing_consistency(feedback, "task1_academic")
+    assert "levelled off" not in feedback.overallBandScoreSummary
+
+
+@pytest.mark.parametrize("claim,warning", [
+    ("Cụm 'levelled off' phù hợp, nhưng em cần kiểm tra lại số liệu.", "cần kiểm tra lại"),
+    ("Cum 'levelled off' phu hop, nhung em can kiem tra lai so lieu.", "can kiem tra lai"),
+    ("Cụm 'levelled off' phù hợp, nhưng em cần dùng thêm câu phức.", "cần dùng thêm"),
+    ("Cụm 'levelled off' tự nhiên; bài viết không có lỗi nào ngoài việc sai số liệu năm 2010.",
+     "sai số liệu"),
+    ("Cụm 'levelled off' phù hợp, nhưng em không nên lặp lại nó quá nhiều.", "không nên"),
+    ("Cụm 'levelled off' phù hợp, nhưng câu này chưa rõ ràng.", "chưa rõ ràng"),
+    ("The phrase 'levelled off' is natural, but you need to check the 2010 figure.", "need to check"),
+])
+def test_real_warnings_beside_reassurance_words_are_kept(feedback, claim, warning):
+    feedback.overallBandScoreSummary = claim
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.overallBandScoreSummary == claim
+    assert warning in feedback.overallBandScoreSummary
 
 
 def test_unscoped_denial_cannot_hide_known_lexical_patterns_when_syntax_history_is_absent(feedback):
