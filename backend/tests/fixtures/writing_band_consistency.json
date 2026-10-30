@@ -739,5 +739,31 @@
       "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
       "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
     }
+  },
+  {
+    "id": "overall-denominator-claims-replaced",
+    "base_band": 5.5,
+    "bands": [6, 6, 6, 6],
+    "overview": "Overall 5.5 / 9. Overall 5.5 out of 9.0, cần thêm ví dụ. Overall 5.5 trên 9 điểm. Overall 5.5 band nhé. Bố cục rõ.",
+    "trajectory": {"current_band": 5.5, "average_last_5": 6.7, "trend": "improving", "trend_explanation": "Bài này ở band 5.5.", "next_target": "Từ band 5.5, hãy lên 6.0."},
+    "expected": {
+      "overall": 6.0,
+      "overview": "Bài viết đạt band 6.0. Bố cục rõ.",
+      "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
+      "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
+    }
+  },
+  {
+    "id": "overall-fraction-count-not-claim",
+    "base_band": 5.5,
+    "bands": [6, 6, 6, 6],
+    "overview": "Overall 2 / 3 ideas need examples. Overall 3 out of 4 paragraphs are clear.",
+    "trajectory": {"current_band": 5.5, "average_last_5": 6.7, "trend": "improving", "trend_explanation": "Bài này ở band 5.5.", "next_target": "Từ band 5.5, hãy lên 6.0."},
+    "expected": {
+      "overall": 6.0,
+      "overview": "Overall 2 / 3 ideas need examples. Overall 3 out of 4 paragraphs are clear.",
+      "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
+      "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
+    }
   }
 ]
