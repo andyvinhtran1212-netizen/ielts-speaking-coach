@@ -1316,7 +1316,7 @@ async def admin_upload_diagram_image(
             uploaded_by=admin_user.get("id"),
         )
     except InvalidImageError as exc:
-        raise HTTPException(exc.http_status, str(exc))
+        raise HTTPException(exc.http_status, exc.detail)
 
     # Merge metadata into payload.template. The existing payload may
     # already carry a template (e.g. summary_text on summary_completion

@@ -1254,6 +1254,8 @@ def _form_audio_bytes(plan: ImportPlan, form: dict[str, Any]) -> bytes:
 
 
 def _ensure_immutable_object(bucket: Any, path: str, data: bytes, content_type: str) -> str:
+    from services.storage_limits import check_upload, raise_storage_error
+    check_upload("listening-audio", len(data), content_type)
     expected = _sha256_bytes(data)
     try:
         existing = bucket.download(path)
@@ -1266,6 +1268,7 @@ def _ensure_immutable_object(bucket: Any, path: str, data: bytes, content_type: 
     try:
         bucket.upload(path, data, {"content-type": content_type, "x-upsert": "false"})
     except Exception as exc:
+        raise_storage_error("listening-audio", exc)
         try:
             existing = bucket.download(path)
         except Exception:

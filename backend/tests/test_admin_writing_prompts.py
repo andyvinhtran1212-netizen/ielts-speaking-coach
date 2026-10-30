@@ -342,7 +342,7 @@ def test_upload_image_happy_path_returns_url_and_public_id():
 
 
 def test_upload_image_rejects_non_image_content_type():
-    """text/plain → 400 BEFORE the upload service is touched."""
+    """FR-003: text/plain → structured 415 before the upload service is touched."""
     with patch("routers.admin_writing_prompts.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing_prompts.upload_prompt_image") as mock_upload:
@@ -353,7 +353,9 @@ def test_upload_image_rejects_non_image_content_type():
             headers=_ADMIN_AUTH,
         )
 
-    assert r.status_code == 400
+    assert r.status_code == 415
+    assert r.json()["detail"]["error_code"] == "unsupported_media_type"
+    assert r.json()["detail"]["allowed"] == ["image/png", "image/jpeg", "image/webp"]
     mock_upload.assert_not_called()
 
 

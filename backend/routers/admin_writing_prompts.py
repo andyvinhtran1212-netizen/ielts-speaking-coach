@@ -261,16 +261,19 @@ async def upload_image(
     await require_admin(authorization)
 
     if not file.content_type or not file.content_type.startswith("image/"):
-        raise HTTPException(
-            400,
-            f"File must be an image (got Content-Type: {file.content_type!r}).",
-        )
+        from services.storage_limits import upload_error
+        raise upload_error("writing-images", 415)
 
     file_bytes = await file.read()
 
     try:
         result = upload_prompt_image(file_bytes, filename_hint=file.filename)
+    except HTTPException:
+        raise
     except ValueError as exc:
+        from services.writing_prompt_image import ImageUploadError
+        if isinstance(exc, ImageUploadError):
+            raise exc.http_error from exc
         raise HTTPException(400, str(exc))
     except Exception as exc:
         # Don't swallow the real cause — log it (with traceback) so an

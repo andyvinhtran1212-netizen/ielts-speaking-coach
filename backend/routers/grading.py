@@ -550,11 +550,15 @@ async def grade_response_endpoint(
 
         if file_size == 0:
             raise HTTPException(422, "File âm thanh trống")
+        from services.storage_limits import (
+            check_upload, normalise_audio_content_type, raise_storage_error, upload_error,
+        )
         if file_size > _MAX_BYTES:
-            raise HTTPException(
-                413,
-                f"File quá lớn ({file_size / (1024*1024):.1f} MB). Giới hạn là 50 MB."
-            )
+            raise upload_error(_AUDIO_BUCKET, 413, size=file_size, max_bytes=_MAX_BYTES)
+        storage_content_type = normalise_audio_content_type(
+            audio_file.content_type, _guess_ext(audio_file.filename, audio_file.content_type),
+        )
+        check_upload(_AUDIO_BUCKET, file_size, storage_content_type)
 
         # A stable recording UUID + audio hash makes lost acknowledgements replayable.
         # The read revision prevents a late, older take from replacing a newer one.
@@ -627,13 +631,14 @@ async def grade_response_endpoint(
                 path=storage_path,
                 file=audio_bytes,
                 file_options={
-                    "content-type": audio_file.content_type or "audio/webm",
+                    "content-type": storage_content_type,
                     "upsert": "true",
                 },
             )
             audio_uploaded = True
             logger.info("[grading] storage upload OK → %s", storage_path)
         except Exception as e:
+            raise_storage_error(_AUDIO_BUCKET, e)
             err_str = str(e)
             logger.warning("[grading] storage upload FAILED (non-fatal — transcript already done): %s", e)
             if "Bucket not found" in err_str:

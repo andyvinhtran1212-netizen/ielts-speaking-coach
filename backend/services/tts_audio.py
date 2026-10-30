@@ -109,12 +109,18 @@ def public_url(path: str) -> str:
 
 
 def upload_mp3(path: str, data: bytes) -> None:
+    from services.storage_limits import check_upload, raise_storage_error
+    check_upload(VOCAB_AUDIO_BUCKET, len(data), "audio/mpeg")
     validate_vocab_audio(data)
-    supabase_admin.storage.from_(VOCAB_AUDIO_BUCKET).upload(
-        path=path,
-        file=data,
-        file_options={"content-type": "audio/mpeg", "upsert": "true"},
-    )
+    try:
+        supabase_admin.storage.from_(VOCAB_AUDIO_BUCKET).upload(
+            path=path,
+            file=data,
+            file_options={"content-type": "audio/mpeg", "upsert": "true"},
+        )
+    except Exception as exc:
+        raise_storage_error(VOCAB_AUDIO_BUCKET, exc)
+        raise
 
 
 def validate_vocab_audio(data: bytes) -> None:
