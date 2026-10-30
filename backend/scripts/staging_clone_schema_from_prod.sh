@@ -25,7 +25,10 @@ DUMP="$(mktemp -t prod_schema_XXXXXX).sql"
 trap 'rm -f "$DUMP"' EXIT
 
 echo "== dumping production schema (schema-only, read-only)"
-pg_dump "$PROD_URL" --schema-only --schema=public --no-owner --no-privileges -f "$DUMP"
+# Keep object ACLs and the migration owner's defaults, including 204/320 (and 356
+# once applied to the source). Replacing them with blanket grants would reopen
+# client writes and audit-log maintenance privileges. Ownership stays local.
+pg_dump "$PROD_URL" --schema-only --schema=public --no-owner -f "$DUMP"
 
 TABLES=$(grep -c '^CREATE TABLE' "$DUMP" || true)
 echo "== dump contains $TABLES CREATE TABLE statements"
@@ -38,7 +41,13 @@ fi
 # one line BEFORE any destructive step, with a portable temp-file edit
 # (BSD `sed -i ''` breaks on GNU sed and would abort AFTER the schema drop,
 # leaving staging empty — review P1 2026-07-13).
-grep -v '^CREATE SCHEMA public;$' "$DUMP" > "$DUMP.tmp"
+# Hosted postgres cannot ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin
+# (320 documents this boundary). Do not import those managed-role defaults;
+# app migrations create objects as postgres. Keep all object ACLs and postgres
+# defaults so the sensitive-table revokes survive without replaying migrations.
+grep -v -e '^CREATE SCHEMA public;$' \
+  -e '^ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public ' \
+  "$DUMP" > "$DUMP.tmp"
 mv "$DUMP.tmp" "$DUMP"
 
 echo "== resetting staging public schema"
@@ -52,16 +61,6 @@ SQL
 
 echo "== applying schema to staging"
 psql "$STAGING_URL" -v ON_ERROR_STOP=1 -q -f "$DUMP"
-
-echo "== granting Supabase role access on cloned objects"
-psql "$STAGING_URL" -v ON_ERROR_STOP=1 <<'SQL'
-GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
-GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
-SQL
 
 echo "== baselining migration ledger (clone contains production-active migrations)"
 "$ROOT/backend/scripts/apply_migrations.sh" --baseline "$STAGING_URL"

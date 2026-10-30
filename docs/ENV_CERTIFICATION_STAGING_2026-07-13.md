@@ -22,6 +22,16 @@ Phạm vi certify lần này: **backend staging**. Frontend staging chưa certif
 | Dữ liệu | 0 rows toàn bộ | Kiểm tra `pg_stat_user_tables` |
 | DB password | Rotate 2026-07-13, cập nhật `.env.staging` + Railway | |
 
+Script clone giữ ACL của object và default privileges của role migration trong
+schema dump, không cấp lại `GRANT ALL` cho các role ứng dụng sau restore. Chỉ
+default ACL của role quản lý `supabase_admin` được loại khỏi dump vì `postgres`
+không có quyền restore chúng (xem migration 320); ứng dụng không tạo object bằng
+role này. Các giới hạn quyền của migration 204/320 (và 356 khi đã áp dụng ở
+nguồn) được giữ nguyên. Dump vẫn chỉ chứa cấu trúc, không có dữ liệu; phải đối
+chiếu migration head của nguồn trước khi baseline, vì clone không tự bổ sung
+migration chỉ có trên staging. Đây là hợp đồng của script hiện tại,
+không phải bằng chứng đã chạy lại clone hay certify database.
+
 ## Cách ly production — PROVEN
 
 | Kiểm tra | Staging | Production | Kết luận |
