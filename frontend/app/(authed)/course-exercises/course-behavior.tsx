@@ -85,6 +85,7 @@ export function CourseBehavior() {
     let disposed = false;
     let runner: any = null;
     let pronunciation: any = null;
+    let writing: any = null;
     let pronunciationVisible = false;
     let onClick: ((e: Event) => void) | null = null;
     let onLeave: (() => void) | null = null;
@@ -331,7 +332,7 @@ export function CourseBehavior() {
       // Phần tự luận nạp RIÊNG và không chặn phần trắc nghiệm: nó chỉ cần thiết
       // khi học viên đã đi hết các chặng, còn một lỗi ở đây không được làm cả
       // bài tập không mở được.
-      const writing = CW.createWriting({
+      writing = CW.createWriting({
         api: courseApi, storage,
         // localStorage là bộ nhớ CHUNG của trình duyệt: hai học viên dùng chung
         // một máy mà khoá nháp chỉ theo bank sẽ mở ra bài của nhau.
@@ -1557,6 +1558,9 @@ export function CourseBehavior() {
         else if (runner?.leave) runner.leave();
       } catch { /* lifecycle teardown must continue removing listeners */ }
       if (pronunciation) pronunciation.destroy();
+      // Sau lượt flush ở trên: một lượt nạp tự luận trả về muộn không được gửi
+      // nháp của tài khoản trước bằng token của tài khoản sau (PC-J352).
+      if (writing) writing.dispose();
       if (onClick) document.removeEventListener('click', onClick);
       if (onInput) document.removeEventListener('input', onInput);
       if (onLeave) window.removeEventListener('pagehide', onLeave);
