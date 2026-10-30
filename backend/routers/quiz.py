@@ -18,11 +18,12 @@ and posts progress back here.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from uuid import UUID
 from typing import Literal
 
-from fastapi import APIRouter, Header, Query
+from fastapi import APIRouter, Header, Query, Response
 from pydantic import BaseModel, Field
 
 from routers.auth import get_supabase_user
@@ -84,7 +85,7 @@ async def list_banks(
     authorization: str | None = Header(None),
 ):
     await get_supabase_user(authorization)
-    return quiz_service.list_published_banks(skill_area=skill_area, topic_id=topic_id)
+    return await asyncio.to_thread(quiz_service.list_published_banks, skill_area=skill_area, topic_id=topic_id)
 
 
 @router.get("/progress")
@@ -98,7 +99,7 @@ async def my_progress(
     must not list the learner's grammar banks (audit 2026-07-28 §C3).
     """
     user = await get_supabase_user(authorization)
-    return quiz_service.student_progress(user_id=user["id"], skill_area=skill_area)
+    return await asyncio.to_thread(quiz_service.student_progress, user_id=user["id"], skill_area=skill_area)
 
 
 @router.get("/mistakes")
@@ -113,7 +114,21 @@ async def my_mistakes(
     were persisted all along — this is the missing read path.
     """
     user = await get_supabase_user(authorization)
-    return quiz_service.student_mistakes(user["id"], skill_area=skill_area)
+    return await asyncio.to_thread(quiz_service.student_mistakes, user["id"], skill_area=skill_area)
+
+
+def _bank_play_json(bank_id: str, *, user_id: str, class_item: str | None) -> bytes:
+    """Keep the service, response validation and large JSON encoding in one worker.
+
+    Use the decorator's model and FastAPI's alias/unset policy so future model
+    changes apply here as well. Returning bytes bypasses loop-side serialization.
+    """
+    data = quiz_service.get_bank_for_play(
+        bank_id, user_id=user_id, assignment_item_id=class_item,
+    )
+    return QuizBankPlayResponse.model_validate(data).model_dump_json(
+        by_alias=True, exclude_unset=True,
+    ).encode("utf-8")
 
 
 @router.get("/banks/{bank_id}",response_model=QuizBankPlayResponse,response_model_exclude_unset=True)
@@ -122,15 +137,16 @@ async def get_bank(
     authorization: str | None = Header(None),
 ):
     user = await get_supabase_user(authorization)
-    return quiz_service.get_bank_for_play(
-        str(bank_id), user_id=user["id"], assignment_item_id=class_item,
+    content = await asyncio.to_thread(
+        _bank_play_json, str(bank_id), user_id=user["id"], class_item=class_item,
     )
+    return Response(content=content, media_type="application/json")
 
 
 @router.get("/banks/{bank_id}/resume")
 async def resume(bank_id: UUID, authorization: str | None = Header(None)):
     user = await get_supabase_user(authorization)
-    return quiz_service.get_resume(user_id=user["id"], bank_id=str(bank_id))
+    return await asyncio.to_thread(quiz_service.get_resume, user_id=user["id"], bank_id=str(bank_id))
 
 
 @router.get("/banks/{bank_id}/course-timer")
@@ -140,7 +156,8 @@ async def course_timer(
 ):
     """Authoritative post-payload timer sample; never adopts session state."""
     user = await get_supabase_user(authorization)
-    return quiz_service.get_course_timer(
+    return await asyncio.to_thread(
+        quiz_service.get_course_timer,
         user_id=user["id"], bank_id=str(bank_id),
         assignment_item_id=class_item,
     )
@@ -153,7 +170,8 @@ async def course_resume(
 ):
     """Chỗ đang làm dở của bài tập theo buổi. Chỉ ĐỌC — không chốt gì cả."""
     user = await get_supabase_user(authorization)
-    return quiz_service.get_course_resume(
+    return await asyncio.to_thread(
+        quiz_service.get_course_resume,
         user_id=user["id"], bank_id=str(bank_id),
         assignment_item_id=class_item,
     )
@@ -165,7 +183,8 @@ async def begin_course_full_retry(
 ):
     """Mở một full attempt mới cho cả quiz và mọi section bắt buộc."""
     user = await get_supabase_user(authorization)
-    return quiz_service.begin_course_full_retry(
+    return await asyncio.to_thread(
+        quiz_service.begin_course_full_retry,
         user_id=user["id"], bank_id=body.bank_id,
         assignment_item_id=body.class_item,
     )
@@ -176,13 +195,14 @@ async def reset_progress(bank_id: UUID, authorization: str | None = Header(None)
     """Wipe the caller's mastery cache for one bank so the adaptive test starts
     over from scratch. Session/attempt history is untouched (append-only log)."""
     user = await get_supabase_user(authorization)
-    return quiz_service.reset_progress(user_id=user["id"], bank_id=str(bank_id))
+    return await asyncio.to_thread(quiz_service.reset_progress, user_id=user["id"], bank_id=str(bank_id))
 
 
 @router.post("/sessions", status_code=201,response_model=QuizSessionStartResponse,response_model_exclude_unset=True)
 async def start_session(body: StartSessionBody, authorization: str | None = Header(None)):
     user = await get_supabase_user(authorization)
-    return quiz_service.start_session(
+    return await asyncio.to_thread(
+        quiz_service.start_session,
         user_id=user["id"], bank_id=body.bank_id, kind=body.kind,
         assignment_item_id=body.class_item,
         grammar_revision=body.grammar_revision, admission_kind=body.admission_kind,
@@ -226,7 +246,8 @@ async def course_writing_state(
 ):
     """Đề tự luận của bank + bản chấm nếu đã nộp."""
     user = await get_supabase_user(authorization)
-    return quiz_service.course_writing_state(
+    return await asyncio.to_thread(
+        quiz_service.course_writing_state,
         user_id=user["id"], bank_id=bank_id, assignment_item_id=class_item,
     )
 
@@ -252,7 +273,8 @@ async def save_course_writing_draft(
     trước đó nó chỉ nằm trong `localStorage` của đúng một trình duyệt.
     """
     user = await get_supabase_user(authorization)
-    return quiz_service.save_course_writing_draft(
+    return await asyncio.to_thread(
+        quiz_service.save_course_writing_draft,
         user_id=user["id"], bank_id=body.bank_id, answers=body.answers,
         assignment_item_id=body.class_item,
     )
@@ -263,7 +285,8 @@ async def course_reading_solution(body: CourseReadingBody,
                                   authorization: str | None = Header(None)):
     """Bản dịch + lời giải bài đọc thêm; đề ban đầu không mang hai phần này."""
     user = await get_supabase_user(authorization)
-    return quiz_service.course_reading_solution(
+    return await asyncio.to_thread(
+        quiz_service.course_reading_solution,
         user_id=user["id"], bank_id=body.bank_id, submitted_answers=body.answers,
         duration_sec=body.duration_sec, assignment_item_id=body.class_item,
     )
@@ -274,7 +297,8 @@ async def course_listening_solution(body: CourseListeningBody,
                                     authorization: str | None = Header(None)):
     """Đáp án + transcript bài nghe; đề ban đầu không mang những phần này."""
     user = await get_supabase_user(authorization)
-    return quiz_service.course_listening_solution(
+    return await asyncio.to_thread(
+        quiz_service.course_listening_solution,
         user_id=user["id"], bank_id=body.bank_id, submitted_answers=body.answers,
         duration_sec=body.duration_sec, assignment_item_id=body.class_item,
     )
@@ -285,7 +309,8 @@ async def course_listening_audio(body: CourseListeningAudioBody,
                                  authorization: str | None = Header(None)):
     """Cấp URL audio mới ngay khi học viên mở phần nghe."""
     user = await get_supabase_user(authorization)
-    return quiz_service.course_listening_audio(
+    return await asyncio.to_thread(
+        quiz_service.course_listening_audio,
         user_id=user["id"], bank_id=body.bank_id,
         assignment_item_id=body.class_item,
     )
@@ -302,7 +327,8 @@ async def course_answer_report(
     dung là hai chỗ để trôi khỏi nhau.
     """
     user = await get_supabase_user(authorization)
-    return quiz_service.course_answer_report(
+    return await asyncio.to_thread(
+        quiz_service.course_answer_report,
         user_id=user["id"], bank_id=bank_id, assignment_item_id=class_item,
     )
 
@@ -311,7 +337,8 @@ async def course_answer_report(
 async def course_verdict(body: CourseVerdictBody, authorization: str | None = Header(None)):
     """Xét đạt/chưa đạt bài tập buổi sau một lượt (10 chặng hoặc 1 kiểm tra lại)."""
     user = await get_supabase_user(authorization)
-    return quiz_service.course_verdict(
+    return await asyncio.to_thread(
+        quiz_service.course_verdict,
         user_id=user["id"], bank_id=body.bank_id, session_ids=body.session_ids,
         assignment_item_id=body.class_item, timed_out=body.timed_out,
     )
@@ -322,7 +349,8 @@ async def log_progress(
     session_id: UUID, body: ProgressBody, authorization: str | None = Header(None)
 ):
     user = await get_supabase_user(authorization)
-    return quiz_service.log_progress(
+    return await asyncio.to_thread(
+        quiz_service.log_progress,
         user_id=user["id"], session_id=str(session_id),
         attempts=body.attempts, word_stats=body.word_stats,
     )
@@ -333,6 +361,7 @@ async def end_session(
     session_id: UUID, body: EndSessionBody, authorization: str | None = Header(None)
 ):
     user = await get_supabase_user(authorization)
-    return quiz_service.end_session(
+    return await asyncio.to_thread(
+        quiz_service.end_session,
         user_id=user["id"], session_id=str(session_id), data=body.model_dump(),
     )
