@@ -13,7 +13,7 @@ import copy
 import docx
 import pytest
 
-from scripts.convert_course_final_exam_docx import build_rows, main, read_docx
+from scripts.convert_course_final_exam_docx import build_rows, main, parse_paper, read_docx
 from services.course_assessment_import import normalize_assessment_rows
 
 PASSAGES = [
@@ -257,13 +257,26 @@ def test_rejects_duplicate_middle_question(
     assert [row["id"] for row in rows] == [row["id"] for row in baseline]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="converter overwrites duplicate question (PC-J460 finding); fix ticket pending",
-)
 def test_duplicate_middle_question_preserves_original_row(_duplicate_middle_question_rows):
     baseline, rows, _ = _duplicate_middle_question_rows
     assert rows[1] == baseline[1]
+
+
+def test_duplicate_passage_heading_keeps_the_first_passage(tmp_path, monkeypatch, capsys):
+    baseline, paper, key = _numbering_documents(tmp_path)
+    # A second "Ngữ liệu 001" block in Phần 2 must not replace passage 001's text or part.
+    paper.add_paragraph("Ngữ liệu 001", style="Heading 2")
+    paper.add_paragraph().add_run("Đoạn trùng không được thay ngữ liệu gốc.").italic = True
+
+    rows, errors, _ = _rebuild_numbering_documents(tmp_path, paper, key)
+
+    expected_error = "đề: ngữ liệu 001 xuất hiện hai lần"
+    assert errors == [expected_error]
+    assert rows == baseline
+    passages, questions = parse_paper(read_docx(tmp_path / "a.docx")[0], [])
+    assert (passages[1].lines, passages[1].part) == (["We travel in July."], 1)
+    assert [(questions[n].passage, questions[n].part) for n in (1, 2)] == [(1, 1), (1, 1)]
+    _assert_cli_rejects(tmp_path, monkeypatch, capsys, expected_error)
 
 
 def test_flags_a_missing_middle_question_with_unchanged_expected_count(tmp_path):
