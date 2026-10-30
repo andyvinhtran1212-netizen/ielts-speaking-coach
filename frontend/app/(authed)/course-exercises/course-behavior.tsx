@@ -103,14 +103,22 @@ export function CourseBehavior() {
       // Huy hiệu "Không thể kết nối để lưu" chỉ dành cho lỗi kết nối/lưu thật.
       // Đường dẫn thiếu bài hay máy chủ từ chối (4xx) thì chưa có gì để lưu —
       // huy hiệu đỏ ở đó đẩy học viên đi kiểm tra mạng vô ích (UIA-1030-01).
-      const fail = (msg: string, opts: { connection?: boolean } = {}) => {
+      // `badge` thay câu trên huy hiệu khi lỗi lưu không phải do mạng (PC-J315).
+      const fail = (msg: string, opts: { connection?: boolean; badge?: string } = {}) => {
         const l = $('cx-loading'); if (l) l.hidden = true;
         const e = $('cx-error'); if (e) { e.hidden = false; e.textContent = msg; }
         if (opts.connection === false) {
           const note = $('cx-save-note'); if (note) note.hidden = true;
           return;
         }
-        setSaveState('error', 'Không thể kết nối để lưu');
+        setSaveState('error', opts.badge || 'Không thể kết nối để lưu');
+      };
+      const appendBackToClass = () => {
+        const back = document.createElement('a');
+        back.className = 'av-button av-button-primary';
+        back.href = '/my-class';
+        back.textContent = 'Về Lớp học';
+        $('cx-error')?.appendChild(back);
       };
 
       if (!api) return fail('Không tải được thành phần kết nối. Hãy tải lại trang.');
@@ -121,11 +129,7 @@ export function CourseBehavior() {
       const requestedItem = new URLSearchParams(location.search).get('class_item');
       if (!bankId) {
         fail('Liên kết bài tập chưa đầy đủ. Hãy mở bài từ Lớp học.', { connection: false });
-        const back = document.createElement('a');
-        back.className = 'av-button av-button-primary';
-        back.href = '/my-class';
-        back.textContent = 'Về Lớp học';
-        $('cx-error')?.appendChild(back);
+        appendBackToClass();
         return;
       }
 
@@ -145,11 +149,19 @@ export function CourseBehavior() {
         });
       } catch (err: any) {
         if (disposed) return;
+        // Bank chưa có câu hỏi: tải lại cũng không ra câu nào, chẳng có gì để lưu.
+        if (err?.code === 'bank_empty') {
+          fail('Bài tập này chưa có câu hỏi.', { connection: false });
+          appendBackToClass();
+          return;
+        }
         // `api.js` gắn `.status` khi máy chủ ĐÃ trả lời; 4xx (không có bài,
         // không có quyền…) là từ chối, không phải mất kết nối.
         const status = Number(err?.status);
         fail('Không mở được bài tập: ' + (err?.message || err), {
           connection: !(status >= 400 && status < 500),
+          badge: err?.code === 'storage_unavailable'
+            ? 'Không lưu được trên trình duyệt này' : undefined,
         });
         const retry = document.createElement('button');
         retry.type = 'button';
