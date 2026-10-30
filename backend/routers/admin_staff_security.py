@@ -58,17 +58,7 @@ async def admin_mfa_status(authorization: str | None = Header(default=None)):
     """The caller's own second-factor state. Requires role admin and an active
     account, but accepts an AAL1 session so the MFA page can enroll or
     challenge (FR-004). Returns no other user's or domain data."""
-    from scripts import staff_security_sweep
-
     admin = await require_admin(authorization, allow_aal1=True)
-    # Audit the caller's own factor changes at once (plan.md, FR-010): the
-    # sweep for this account only, under a short timeout, skipped for a
-    # repeated read or when the shared limit is busy (SA PR-1936 F2/P3).
-    # Changed factors bypass cooldown, but never the per-account hard cap.
-    summary = await staff_security_sweep.status_sweep(admin_module._db_engine, admin)
-    if summary is not None and summary.retry_after_seconds:
-        raise HTTPException(429, {"code": "mfa_status_rate_limited"},
-                            headers={"Retry-After": str(summary.retry_after_seconds)})
     assurance = staff_guard.evaluate_admin_assurance(admin, authorization)
     return {
         "aal": assurance.aal,

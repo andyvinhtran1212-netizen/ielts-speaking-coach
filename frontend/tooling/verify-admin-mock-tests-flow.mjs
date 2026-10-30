@@ -1,7 +1,6 @@
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
-import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
@@ -69,7 +68,6 @@ await page.route('**/*', async (route) => {
   if (parsed.pathname === '/admin/mock-exams/live-1/retest-summary') return json({ total_sittings: 0, reviewed_sittings: 0, needs_retest_count: 0, per_skill: { listening: 0, reading: 0, writing: 0, speaking: 0 }, students: [] });
   return json({ detail: 'unhandled fixture route' }, 500);
 });
-await stubAdminMfaStatus(page);
 
 await page.goto(`${BASE}/admin/mock-tests?tab=live`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Trung tâm vận hành Mock Test' }).waitFor();
