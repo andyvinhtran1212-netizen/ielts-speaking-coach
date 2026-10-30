@@ -8,6 +8,8 @@ Pins:
   - ADMINAAL2-0032 FR-019 (migration 336): a suspended account's role change
     is refused by the database; the route answers 409 with a Vietnamese
     message, and the same change works after reactivation
+  - PC-J66 F05: an unmapped RPC error with no audit row for the request stays
+    a 500 that revokes nothing (lost answers: test_admin_staff_security_routes)
 """
 
 from __future__ import annotations
@@ -47,6 +49,9 @@ class _TableQuery:
         return self
 
     def order(self, *_args, **_kw):
+        return self
+
+    def limit(self, *_args, **_kw):
         return self
 
     def execute(self):
@@ -269,12 +274,24 @@ class TestSuspendedAccountRoleChange:
         assert body["changed"] is True and body["sessions_revoked"] is True
         assert fake_db.tables["users"][0]["role"] == "student"
 
-    def test_any_other_database_error_stays_a_500(self, client, fake_db):
+    def test_any_other_database_error_stays_a_500(self, client, fake_db, revoked):
         u = self._suspended(fake_db)
         fake_db.role_guard_message = "account_suspended"
         r = client.patch(f"/admin/users/{u['id']}/role", json={"role": "student"}, headers=_ADMIN_AUTH)
         assert r.status_code == 500
         assert fake_db.tables["users"][0]["role"] == "instructor"
+        # No audit row carries this request's id, so nothing committed and
+        # nothing is revoked (PC-J66 F05).
+        assert revoked == []
+
+    def test_same_role_without_a_demotion_on_record_revokes_nothing(self, client, fake_db, revoked):
+        u = self._suspended(fake_db)
+        fake_db.tables["staff_security_audit"] = [{
+            "id": str(uuid4()), "target_user_id": u["id"], "event": "role_changed",
+            "before": {"role": "student"}, "after": {"role": "instructor"}}]
+        r = client.patch(f"/admin/users/{u['id']}/role", json={"role": "instructor"}, headers=_ADMIN_AUTH)
+        assert r.status_code == 200 and r.json()["sessions_revoked"] is None
+        assert revoked == []
 
 
 class TestUnassignedCodesPool:
