@@ -557,7 +557,9 @@ def _restore_class_activation_snapshot(
     hold the value Step 3 wrote: a concurrent admin change (e.g. is_active=false
     or stripped permissions) wins over the snapshot. Nothing is restored once the
     row carries another code: a newer activation of the same user owns it
-    (Codex r4422345951). A snapshot that is another request's provisional
+    (Codex r4422345951). A successful duplicate claim of this same code also
+    owns the state and must survive compensation (Codex r4423884583).
+    A snapshot that is another request's provisional
     activation (an active row with a code this user does not own) is never
     restored: the target is then the inactive, code-less state (PC-J420).
     Returns (ok, fields that may still hold this request's values when not ok).
@@ -569,6 +571,8 @@ def _restore_class_activation_snapshot(
     check_snapshot = bool(snapshot.get("is_active") and snapshot_code and snapshot_code != own_code)
     for attempt in range(2):
         try:
+            if _activation_code_claimed_by_user(user_id, own_code):
+                return True, []
             if check_snapshot and not _activation_code_committed(user_id, snapshot_code):
                 inactive = {"is_active": False, "access_code_used": None, "permissions": None}
                 changed = {key: inactive[key] for key, value in written.items()
@@ -605,6 +609,13 @@ def _restore_class_activation_snapshot(
         logger.critical("[auth] cohort-archive activation revert FAILED request_id=%s user=%s (activation_incomplete)",
                         request_id, user_id)
     return False, sorted(changed)
+
+
+def _activation_code_claimed_by_user(user_id: str, code: str) -> bool:
+    """A confirmed same-code claim, excluding grants and deleted legacy codes."""
+    rows = (supabase_admin.table("access_codes").select("used_by")
+            .eq("code", code).eq("used_by", user_id).limit(1).execute().data or [])
+    return bool(rows)
 
 
 def _activation_code_committed(user_id: str, code: str) -> bool:
@@ -1156,6 +1167,14 @@ async def activate_account(
         indeterminate = True
         logger.error("[auth] access-code claim indeterminate — failing closed request_id=%s: %s",
                      request_id, _exc_tag(e))
+        # The write may have committed despite a lost response, or a duplicate
+        # request may have won. Confirm before undoing its account/enrollment.
+        # A failed read stays indeterminate and follows the existing safe path.
+        try:
+            claimed = await asyncio.to_thread(_activation_code_claimed_by_user, user_id, code)
+        except Exception as read_error:
+            logger.error("[auth] access-code claim confirmation failed request_id=%s: %s",
+                         request_id, _exc_tag(read_error))
 
     if not claimed:
         # Lost the race (or indeterminate claim). Undo EVERY side effect this

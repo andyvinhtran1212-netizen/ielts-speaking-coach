@@ -1174,6 +1174,146 @@ def test_real_pg_overlapping_failed_activations(world, pg_activation, monkeypatc
         assert not db.table("students").select("*").eq("user_id", uid).execute().data, pair
 
 
+def overlap_same_code_activation(monkeypatch, query_class, app, code, outcome, before_b, archive):
+    """B completes while A waits at enrollment (archive) or its claim (uncertain).
+
+    Request context follows asyncio.to_thread, so the seam distinguishes the
+    two requests even though their user, code and Step 3 values are identical.
+    """
+    from services.request_context import current_request_id
+
+    a_waiting, b_done = threading.Event(), threading.Event()
+    original = query_class.execute
+    responses, errors = {}, []
+
+    def execute(query):
+        if current_request_id() == "same-code-A":
+            at_enroll = query.name == "students" and query.op == "insert"
+            at_claim = query.name == "access_codes" and query.op == "update"
+            if (at_enroll if outcome == "archive" else at_claim):
+                a_waiting.set()
+                assert b_done.wait(20), "B did not finish its successful activation"
+                if outcome == "archive":
+                    archive()
+                else:
+                    raise RuntimeError(DB_TEXT)
+        return original(query)
+
+    monkeypatch.setattr(query_class, "execute", execute)
+
+    def run_a():
+        try:
+            with request_id_scope("same-code-A"), TestClient(app) as client:
+                responses["A"] = activate(client, code)
+        except BaseException as exc:
+            errors.append(exc)
+
+    first = threading.Thread(target=run_a)
+    first.start()
+    try:
+        assert a_waiting.wait(20), "A never reached its failure point"
+        before_b()
+        with request_id_scope("same-code-B"), TestClient(app) as client:
+            responses["B"] = activate(client, code)
+        assert responses["B"].status_code == 200, responses["B"].text
+    finally:
+        b_done.set()
+        first.join(60)
+    assert not first.is_alive(), "A did not finish compensation"
+    assert not errors, errors
+    return responses["A"]
+
+
+@pytest.mark.parametrize("outcome", ["archive", "uncertain"])
+def test_same_code_success_survives_an_overlapping_failed_request(world, monkeypatch, outcome):
+    db, client = world
+    db.tables["users"][0].update(is_active=False, access_code_used=None, permissions=None)
+
+    def before_b():
+        if outcome == "archive":
+            # A already chose INSERT. A concurrent roster import gives B a
+            # profile with a different student_code to fold into; A's stale
+            # insert then reaches the archive guard, not a duplicate-code error.
+            db.table("students").insert({
+                "user_id": USER, "student_code": "OLD-ROSTER", "full_name": "QA learner",
+                "instructor_id": None, "cohort_id": None, "archived_at": None,
+            }).execute()
+        else:
+            # Match the nullable DB default on A's freshly inserted profile.
+            db.tables["students"][0]["archived_at"] = None
+
+    def archive():
+        db.archive_race = True
+        db.tables["cohorts"][0].update(is_active=False, archived_at="2026-10-30T00:00:00Z")
+
+    response = overlap_same_code_activation(monkeypatch, Query, client.app, CODE, outcome, before_b, archive)
+    user, code = db.tables["users"][0], db.tables["access_codes"][0]
+    assert {key: user[key] for key in PAIR_FIELDS} == {
+        "is_active": True, "access_code_used": CODE, "permissions": ["practice_single"],
+    }
+    assert code["is_used"] is True and code["used_by"] == USER and code["used_at"]
+    assert len(db.tables["students"]) == 1
+    assert db.tables["students"][0]["cohort_id"] == COHORT
+    assert db.tables["user_code_assignments"]
+    assert response.status_code == (400 if outcome == "archive" else 200), response.text
+    if outcome == "archive":
+        assert response.json()["detail"] == GENERIC
+
+
+@pytest.mark.parametrize("outcome", ["archive", "uncertain"])
+def test_real_pg_same_code_success_survives_an_overlapping_failed_request(
+        world, pg_activation, monkeypatch, outcome):
+    """Real 337 archive refusal and autocommitted claim; no simulated DB state."""
+    import test_migration_337_class_archive as m337
+    from test_migration_240_core_attempt_evidence import psql
+
+    _, client = world
+    schema, admin, _ = pg_activation
+    psql(f"""CREATE TABLE IF NOT EXISTS {schema}.user_code_assignments (
+        user_id uuid NOT NULL, code_id uuid NOT NULL, assigned_at timestamptz,
+        is_active boolean NOT NULL DEFAULT true, PRIMARY KEY (user_id, code_id))""")
+    uid, code_id, cid = str(uuid4()), str(uuid4()), m337._new_class(schema)
+    code_text = CODE + uid[:8].upper()
+    db = Database()
+    db.schema, db.after_activate = schema, None
+    db.table = lambda name: PgQuery(db, name)
+    monkeypatch.setattr(auth, "supabase_admin", db)
+    monkeypatch.setattr(auth, "get_supabase_user", AsyncMock(return_value={
+        "id": uid, "email": "learner@example.test", "user_metadata": {},
+    }))
+    db.table("users").insert({"id": uid, "is_active": False}).execute()
+    db.table("access_codes").insert({"id": code_id, "code": code_text, "cohort_id": cid,
+                                     "permissions": ["practice_single"]}).execute()
+
+    def before_b():
+        if outcome == "archive":
+            db.table("students").insert({"user_id": uid, "student_code": "OLD-" + uid,
+                                         "full_name": "QA learner"}).execute()
+
+    response = overlap_same_code_activation(
+        monkeypatch, PgQuery, client.app, code_text, outcome, before_b,
+        lambda: m337._archive_class(schema, cid, admin),
+    )
+    user = db.table("users").select("*").eq("id", uid).execute().data[0]
+    code = db.table("access_codes").select("*").eq("id", code_id).execute().data[0]
+    assert {key: user[key] for key in PAIR_FIELDS} == {
+        "is_active": True, "access_code_used": code_text, "permissions": ["practice_single"],
+    }
+    assert code["is_used"] is True and code["used_by"] == uid and code["used_at"]
+    students = db.table("students").select("*").eq("user_id", uid).execute().data
+    assert len(students) == 1 and students[0]["cohort_id"] == cid
+    memberships = db.table("student_cohort_memberships").select("*").eq("student_id", students[0]["id"]).execute().data
+    assert len(memberships) == 1 and memberships[0]["is_active"] is True
+    assert db.table("user_code_assignments").select("*").eq("user_id", uid).eq("code_id", code_id).execute().data
+    assert response.status_code == (400 if outcome == "archive" else 200), response.text
+    if outcome == "archive":
+        assert response.json()["detail"] == GENERIC
+        audits = db.table("access_code_audit").select("*").eq("code_id", code_id).execute().data
+        assert len(audits) == 1
+        assert audits[0]["after"]["detail"]["race"] is True
+        assert audits[0]["after"]["detail"]["compensation_failed"] is False
+
+
 def test_student_code_conflict_log_has_code_id_not_code(world, caplog):
     db, client = world
     db.tables["students"] = [{"id": "student-2", "user_id": "learner-2", "student_code": CODE,
