@@ -907,6 +907,15 @@ def _assignment_item_for(
         eligible = [row for row in rows if eligible_for_access(row)]
         if not eligible:
             return None
+        if not assignment_item_id and len(eligible) > 1:
+            # Bank-only bookmarks prefer unfinished work, then the newest
+            # assignment. Stable sorting keeps item id ascending for ties.
+            eligible.sort(key=lambda row: row["id"])
+            eligible.sort(key=lambda row: (
+                not (row.get("submitted_at") or row.get("passed_at")),
+                _at(owned_by_id[row["assignment_id"]].get("created_at"))
+                or datetime.min.replace(tzinfo=timezone.utc),
+            ), reverse=True)
         # Carry the deadline already read above to the player. Authorization is
         # still checked again when the stage is finalized.
         item = dict(eligible[0])

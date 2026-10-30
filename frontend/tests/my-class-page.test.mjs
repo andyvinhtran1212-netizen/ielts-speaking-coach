@@ -190,6 +190,51 @@ describe('starting a task goes through the server-owned path', () => {
 });
 
 
+describe('course starts preserve the item confirmed by the server', () => {
+  async function destination(response) {
+    const start = SRC.indexOf('async function startAssignment');
+    const end = SRC.indexOf('function render()', start);
+    assert.ok(start !== -1 && end > start, 'start handler not found');
+    const requests = [];
+    const api = { post: async (path) => { requests.push(path); return response; } };
+    const win = { location: { href: '' }, showToast: (message) => assert.fail(message) };
+    const run = new Function('api', 'window', 'startControlsFor', `
+      let _startingItem = null;
+      ${SRC.slice(start, end)}
+      return startAssignment;
+    `)(api, win, () => []);
+    await run('clicked-item');
+    assert.deepEqual(requests, ['/api/class/assignments/clicked-item/start']);
+    return win.location.href;
+  }
+
+  test('ordinary course start carries class_item without review mode', async () => {
+    assert.equal(await destination({ bank_id: 'bank/1', item_id: 'item/A & B' }),
+      '/course-exercises?bank=bank%2F1&class_item=item%2FA%20%26%20B');
+  });
+
+  test('review keeps view=writing and the confirmed class_item', async () => {
+    assert.equal(await destination({ bank_id: 'bank-1', item_id: 'item-A', review_only: true }),
+      '/course-exercises?bank=bank-1&view=writing&class_item=item-A');
+  });
+
+  test('missing item ids do not create a bogus class_item parameter', async () => {
+    for (const item_id of [undefined, null, '']) {
+      assert.equal(await destination({ bank_id: 'bank-1', item_id }),
+        '/course-exercises?bank=bank-1');
+    }
+  });
+
+  test('advanced vocabulary keeps its existing item parameter', async () => {
+    for (const review_only of [false, true]) {
+      assert.equal(await destination({ bank_id: 'bank/adv', item_id: 'item/adv',
+        runtime: 'advanced_vocab', review_only }),
+      '/advanced-vocabulary?bank=bank%2Fadv&item=item%2Fadv');
+    }
+  });
+});
+
+
 describe('page shell follows the student conventions', () => {
   test('mounts aver-chrome and the design tokens', () => {
     assert.match(PAGE, /<aver-chrome/);
