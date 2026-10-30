@@ -9,7 +9,6 @@ a list that includes drafts. Admin-gated (require_admin).
 from __future__ import annotations
 
 import asyncio
-import weakref
 from contextlib import suppress
 
 from fastapi import APIRouter, File, Header, Query, UploadFile
@@ -20,18 +19,9 @@ from services import exam_service
 router = APIRouter(prefix="/admin/exams", tags=["admin-exams"])
 
 
-# Imports are infrequent: serialize commits without parsing the upload twice.
-# Holders and waiters retain the shared lock; idle event loops are not retained.
-_import_lock: weakref.ReferenceType[asyncio.Lock] | None = None
-
-
 async def _commit_import(text: str):
-    global _import_lock
-    lock = _import_lock() if _import_lock is not None else None
-    if lock is None:
-        lock = asyncio.Lock()
-        _import_lock = weakref.ref(lock)
-    async with lock:
+    # Student play/submit share this lock, so they cannot read a deleted key.
+    async with exam_service.import_lock():
         work = asyncio.ensure_future(asyncio.to_thread(exam_service.import_exam, text, dry_run=False))
         try:
             return await asyncio.shield(work)

@@ -1919,10 +1919,14 @@ def admin_record_speaking(sitting_id: str, admin_id: str) -> dict:
             "Kỳ thi này chưa có bài Speaking nào hoàn thành để ghi nhận."
         )
 
-    supabase_admin.table("mock_exam_sittings").update({
+    stamped = supabase_admin.table("mock_exam_sittings").update({
         "speaking_session_ids":  ids,
         "speaking_completed_at": _now_iso(),
-    }).eq("id", str(sitting_id)).execute()
+    }).eq("id", str(sitting_id)).not_.in_("status", ["released", "void"]).is_(
+        "speaking_completed_at", "null",
+    ).execute()
+    if not stamped.data:
+        raise SittingConflictError("Lượt thi vừa thay đổi hoặc đã ghi nhận Speaking — tải lại trang.")
     logger.info("[mock-exam] sitting=%s speaking recorded by ADMIN=%s (%d sessions)",
                 sitting_id, admin_id, len(ids))
     return _reconcile_terminal(sitting_id)
@@ -1980,10 +1984,14 @@ def _reconcile_terminal(sitting_id: str, exam: Optional[dict] = None) -> dict:
         return sitting  # speaking-only-so-far or nothing terminal yet
 
     if new_status != sitting["status"]:
-        supabase_admin.table("mock_exam_sittings").update({
+        transitioned = supabase_admin.table("mock_exam_sittings").update({
             "status": new_status,
-        }).eq("id", str(sitting_id)).execute()
-        sitting = {**sitting, "status": new_status}
+        }).eq("id", str(sitting_id)).eq("status", sitting["status"]).execute()
+        if not transitioned.data:
+            # A concurrent void/review transition wins. Do not queue a review
+            # using the stale pre-transition snapshot.
+            raise SittingConflictError("Trạng thái lượt thi vừa thay đổi — tải lại trang.")
+        sitting = transitioned.data[0]
 
     if new_status == "all_submitted":
         _ensure_review(sitting)

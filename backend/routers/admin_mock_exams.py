@@ -51,7 +51,7 @@ router = APIRouter(prefix="/admin/mock-exams", tags=["admin-mock-exams"])
 logger = logging.getLogger(__name__)
 
 
-# Keep each assignment batch and its sitting refreshes/revocations together.
+# Keep exam validation/publication and assignment batches/refreshes serial.
 # Strong references in holders/waiters retain a lock only while it is in use.
 _assignment_write_locks: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
 
@@ -67,7 +67,7 @@ async def _assignment_write(exam_id, fn, *args, **kwargs):
             return await asyncio.shield(work)
         except asyncio.CancelledError:
             # Threads cannot be interrupted. A cancelled request must retain
-            # the exam lock until its entire write/refresh or remove finishes.
+            # the exam lock until its entire edit, write/refresh or remove finishes.
             while not work.done():
                 with suppress(asyncio.CancelledError):
                     await asyncio.wait({work})
@@ -374,7 +374,7 @@ async def update_exam(
     if body.status is not None and body.status not in ("draft", "published", "archived"):
         raise HTTPException(400, "status không hợp lệ.")
     try:
-        return await asyncio.to_thread(svc.admin_update_exam, exam_id, patch, admin["id"])
+        return await _assignment_write(exam_id, svc.admin_update_exam, exam_id, patch, admin["id"])
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
     except ValueError as e:
