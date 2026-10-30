@@ -47,12 +47,9 @@ prompt, a learner id or a credential.
 from __future__ import annotations
 
 import asyncio
-import contextvars
-import io
 import logging
 import math
 import uuid
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any, Iterable, Literal, Mapping, Sequence
@@ -381,43 +378,13 @@ class _BadShape(Exception):
     pass
 
 
-# Set by :func:`guard_sync` for the private event loop it runs the budget
-# calls on. The shared async client belongs to the server's loop, so a sync
-# call site (a worker thread or an operator script) uses the calling thread's
-# own sync client instead of sharing it across loops.
-_SYNC_TRANSPORT: contextvars.ContextVar[bool] = contextvars.ContextVar(
-    "ai_budget_sync_transport", default=False,
-)
-
-
-# The sync RPCs run on this long-lived pool, not on the private loop's default
-# executor: ``asyncio.run`` joins its default executor on shutdown, so an RPC
-# still hung after the 2 s deadline would hold the caller (and, from an async
-# route, the server loop) until the HTTP timeout. A pool thread also keeps its
-# own sync client (``thread_supabase_admin``) across calls instead of building
-# one per RPC. A hung request occupies one worker until its HTTP timeout; when
-# every worker is busy a call waits in the queue and is refused at the deadline.
-_SYNC_RPC_POOL = ThreadPoolExecutor(max_workers=8, thread_name_prefix="ai-budget-rpc")
-
-
-def _rpc_execute_sync(name: str, params: dict[str, Any]) -> Any:
-    from database import thread_supabase_admin
-
-    return thread_supabase_admin().rpc(name, params).execute().data
-
-
 async def _rpc_execute(name: str, params: dict[str, Any]) -> Any:
     """Call one migration-333 function on the shared async client.
 
     The async client is used whatever ``USE_ASYNC_DB`` is, as the AI ledger
     already does, so the 2 s deadline can cancel a hung request instead of
-    blocking the event loop. Under :func:`guard_sync` the call runs on a
-    worker thread's own sync client; the deadline still refuses on time.
+    blocking the event loop.
     """
-    if _SYNC_TRANSPORT.get():
-        return await asyncio.get_running_loop().run_in_executor(
-            _SYNC_RPC_POOL, _rpc_execute_sync, name, params)
-
     from database import get_supabase_async
 
     client = await get_supabase_async()
@@ -839,176 +806,3 @@ def guard(
 def kill_switch_on() -> bool:
     """FR-007, re-exported for call sites: read from the environment per call."""
     return ai_budget_config.kill_switch_on()
-
-
-# ── Call-site helpers (T004, FR-001/FR-004) ─────────────────────────────────
-
-# google-generativeai ``request_options``: the gapic method wraps
-# ``generate_content`` in a default retry on 503 (up to a 600 s deadline),
-# which is the Gemini form of the SDKs' hidden ``max_retries``. ``retry=None``
-# turns it off, so each billable request is one reserved attempt (FR-001).
-def gemini_request_options(timeout: float | None = None) -> dict[str, Any]:
-    options: dict[str, Any] = {"retry": None}
-    if timeout is not None:
-        options["timeout"] = timeout
-    return options
-
-
-def attempt_key(feature: str) -> str:
-    """A request key for one provider attempt that has no stored identity of
-    its own. Every retry or fallback attempt calls this again (FR-001)."""
-    return f"{feature}:{uuid.uuid4().hex}"
-
-
-def _token(value: Any) -> int:
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
-        return 0
-    return max(0, int(value))
-
-
-def anthropic_actual_usd(model: str, usage: Any) -> float | None:
-    """Cost of one Claude response from its reported ``usage`` (an SDK usage
-    object or the ``ai_router`` token dict). None when it reports nothing, so
-    the line settles at its estimate (FR-004)."""
-    if usage is None:
-        return None
-    read = usage.get if isinstance(usage, Mapping) else (lambda k, d=None: getattr(usage, k, d))
-    tokens = {
-        "input_tokens": _token(read("input_tokens")),
-        "output_tokens": _token(read("output_tokens")),
-        "cache_read_tokens": _token(read("cache_read_tokens", None) or read("cache_read_input_tokens", None)),
-        "cache_write_tokens": _token(read("cache_write_tokens", None) or read("cache_creation_input_tokens", None)),
-    }
-    if not any(tokens.values()):
-        return None
-    cost, _ = ai_pricing.estimate_token_cost("anthropic", model, **tokens)
-    return cost
-
-
-def gemini_actual_usd(model: str, response: Any) -> float | None:
-    """Cost of one Gemini response from ``usage_metadata``; None when absent."""
-    from services.ai_usage_logger import gemini_usage_tokens
-
-    usage = getattr(response, "usage_metadata", None)
-    if usage is None:
-        return None
-    tokens = gemini_usage_tokens(usage)
-    if not any(tokens.values()):
-        return None
-    cost, _ = ai_pricing.estimate_token_cost(
-        "google", model, input_tokens=tokens["input_tokens"],
-        output_tokens=tokens["output_tokens"], thinking_tokens=tokens["thinking_tokens"],
-    )
-    return cost
-
-
-def image_size(data: bytes | None) -> tuple[int, int] | None:
-    """Decoded ``(width, height)`` of image bytes, read from the header only.
-    None when the bytes are not a readable image; the estimate then has no
-    bound and the request is refused ``config_invalid`` (FR-004)."""
-    if not data:
-        return None
-    try:
-        from PIL import Image
-
-        with Image.open(io.BytesIO(data)) as picture:
-            width, height = picture.size
-    except Exception:
-        return None
-    if not isinstance(width, int) or not isinstance(height, int) or width <= 0 or height <= 0:
-        return None
-    return width, height
-
-
-def image_sizes(images: Iterable[bytes | None]) -> list[tuple[int, int]] | None:
-    """Sizes of every image sent, or None when any of them is unreadable."""
-    sizes = []
-    for data in images:
-        size = image_size(data)
-        if size is None:
-            return None
-        sizes.append(size)
-    return sizes
-
-
-_PRIVATE_LOOP_POOL = ThreadPoolExecutor(max_workers=4, thread_name_prefix="ai-budget")
-
-
-def _run_on_private_loop(coro: Any) -> Any:
-    token = _SYNC_TRANSPORT.set(True)
-    try:
-        return asyncio.run(coro)
-    finally:
-        _SYNC_TRANSPORT.reset(token)
-
-
-def _run_sync(coro: Any) -> Any:
-    try:
-        asyncio.get_running_loop()
-    except RuntimeError:
-        return _run_on_private_loop(coro)
-    # A sync provider helper called on an event-loop thread: that loop cannot
-    # be re-entered, so the budget calls run on a helper thread (the provider
-    # request that follows blocks this thread anyway). The private loop there
-    # returns within the RPC deadline, so this wait is bounded too.
-    return _PRIVATE_LOOP_POOL.submit(_run_on_private_loop, coro).result()
-
-
-class _SyncGuard:
-    """:func:`guard` for blocking provider SDK calls (sync clients, scripts)."""
-
-    def __init__(self, guard_cm: _Guard) -> None:
-        self._guard = guard_cm
-
-    def __enter__(self) -> Lease:
-        return _run_sync(self._guard.__aenter__())
-
-    def __exit__(self, exc_type, exc, tb) -> bool:
-        return _run_sync(self._guard.__aexit__(exc_type, exc, tb))
-
-
-def guard_sync(
-    provider: str,
-    model: str,
-    feature: str,
-    estimate_usd: float | None,
-    *,
-    request_key: str,
-    operation: str | None = None,
-    user_id: str | None = None,
-    resource_type: str | None = None,
-    resource_id: str | None = None,
-    ttl_seconds: int = RESERVATION_TTL_SECONDS,
-    configs: Mapping[str, ai_budget_config.ScopeConfig] | None = None,
-    mode: str | None = None,
-) -> _SyncGuard:
-    """Sync context manager with the same contract as :func:`guard`."""
-    return _SyncGuard(guard(
-        provider, model, feature, estimate_usd, request_key=request_key,
-        operation=operation, user_id=user_id, resource_type=resource_type,
-        resource_id=resource_id, ttl_seconds=ttl_seconds, configs=configs, mode=mode,
-    ))
-
-
-# Operator scripts build ``GenerativeModel(name)`` with no generation config,
-# so a request may use the model's own output limit (65,536 tokens on the
-# Gemini 2.5 and 3.x models the scripts use); that limit is the bound.
-GEMINI_DEFAULT_MAX_OUTPUT_TOKENS = 65_536
-
-
-def generate_content_sync(
-    model: Any,
-    model_name: str,
-    prompt: str,
-    *,
-    feature: str,
-    operation: str | None = None,
-    max_output_tokens: int = GEMINI_DEFAULT_MAX_OUTPUT_TOKENS,
-) -> Any:
-    """One guarded, non-retried blocking Gemini request (operator scripts)."""
-    estimate_usd = estimate_or_none("google", model_name, input_text=prompt, max_tokens=max_output_tokens)
-    with guard_sync("google", model_name, feature, estimate_usd,
-                    request_key=attempt_key(feature), operation=operation) as lease:
-        response = model.generate_content(prompt, request_options=gemini_request_options())
-        lease.settle(gemini_actual_usd(model_name, response))
-    return response

@@ -2,7 +2,6 @@
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
-import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
@@ -58,7 +57,6 @@ await page.route('**/*', async (route) => {
   if (method === 'POST' && parsed.pathname === '/admin/responses/r1/regrade') return json({ ok: true, response_id: 'r1', session_id: 's1', overall_band: 6.5, re_transcribed: false, session_updated: true, remaining_failed: 0, session_band: 6.5 });
   return json({});
 });
-await stubAdminMfaStatus(page);
 
 await page.goto(`${BASE}/admin/speaking/sessions?session=s1&mode=test_part`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Sessions & grading', exact: true }).waitFor();

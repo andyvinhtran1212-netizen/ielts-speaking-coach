@@ -2,7 +2,6 @@
 // soft navigation. All backend/CDN calls are fixture-backed; no external write.
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
-import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const API = 'https://api.shared-runtime.invalid';
@@ -143,7 +142,6 @@ await context.route('**/*', async (route) => {
   if (url.pathname === '/api/error-logs') return json({ ok: true });
   return json({});
 });
-await stubAdminMfaStatus(context);
 
 // A manual local production build bakes localhost:8000 into the server-owned
 // web-vitals prop. Register the loopback target explicitly: Chromium may apply

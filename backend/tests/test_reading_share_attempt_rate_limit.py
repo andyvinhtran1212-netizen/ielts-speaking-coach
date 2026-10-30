@@ -5,8 +5,9 @@ row, so one valid token could create rows without bound. Pinned here:
   • 60 starts per minute per client address pass; the 61st is 429 with
     Retry-After and a Vietnamese message, and touches no table or RPC.
   • A different address has its own budget.
-  • The key is request_client_ip (X-Real-IP → last XFF hop → peer), so
-    rotating caller-supplied XFF hops does not mint a fresh budget.
+  • The key is request_client_ip (rightmost untrusted XFF hop → X-Real-IP
+    → peer, PC-J142/SA-1029-XFF1), so rotating caller-supplied XFF hops or
+    X-Real-IP does not mint a fresh budget.
   • The budget refills once the window has passed.
   • The tracked-address dict is capped (overflow bucket past the cap).
   • The authenticated start route is not throttled.
@@ -58,6 +59,7 @@ def env(monkeypatch):
     monkeypatch.setattr(rs, "time", SimpleNamespace(monotonic=clock.monotonic))
     monkeypatch.setattr(rs, "supabase_admin", db)
     monkeypatch.setattr(settings, "READING_ANON_SALT", "salt-x")
+    monkeypatch.setattr(settings, "TRUSTED_PROXY_CIDRS", "")
     return SimpleNamespace(clock=clock, db=db, client=_client())
 
 
@@ -99,22 +101,33 @@ def test_other_address_keeps_its_own_budget(env):
     assert len(_inserts(env.db)) == 61
 
 
-def test_spoofed_forwarded_hops_do_not_mint_new_budgets(env):
-    # Behind the real proxy X-Real-IP is set by the edge: rotating the
-    # caller-supplied XFF chain must stay in the same bucket.
+def test_spoofed_forwarded_hops_do_not_mint_new_budgets(env, monkeypatch):
+    # The edge appends the true source as the RIGHTMOST XFF hop; hops to its
+    # left and X-Real-IP are caller-controlled (SA-1029-XFF1: via a Cloudflare
+    # egress the edge derives X-Real-IP from the caller's leftmost hop).
+    # Rotating both must stay in the edge hop's bucket.
     for i in range(60):
-        r = _post(env, {"X-Real-IP": "198.51.100.30",
-                        "X-Forwarded-For": f"10.0.0.{i}, 203.0.113.{i}"})
+        r = _post(env, {"X-Real-IP": f"192.0.2.{i}",
+                        "X-Forwarded-For": f"10.0.0.{i}, 203.0.113.{i}, 198.51.100.30"})
         assert r.status_code == 200
-    assert _post(env, {"X-Real-IP": "198.51.100.30",
-                       "X-Forwarded-For": "10.9.9.9"}).status_code == 429
+    assert _post(env, {"X-Real-IP": "192.0.2.99",
+                       "X-Forwarded-For": "10.9.9.9, 198.51.100.30"}).status_code == 429
 
-    # Without X-Real-IP the LAST hop is the key; earlier hops are ignored.
+    # Only the edge hop is present: earlier caller hops are ignored.
     for i in range(60):
         r = _post(env, {"X-Forwarded-For": f"1.1.1.{i}, 203.0.113.99"})
         assert r.status_code == 200
     assert _post(env, {"X-Forwarded-For": "2.2.2.2, 203.0.113.99"}).status_code == 429
-    assert len(_inserts(env.db)) == 120
+
+    # A configured internal proxy after the edge is skipped, and only that:
+    # the caller's hops left of the edge hop still cannot choose the key.
+    monkeypatch.setattr(settings, "TRUSTED_PROXY_CIDRS", "10.0.0.0/8")
+    for i in range(60):
+        r = _post(env, {"X-Real-IP": f"192.0.2.{i}",
+                        "X-Forwarded-For": f"1.1.1.{i}, 198.51.100.40, 10.1.2.{i}"})
+        assert r.status_code == 200
+    assert _post(env, {"X-Forwarded-For": "2.2.2.2, 198.51.100.40, 10.1.2.99"}).status_code == 429
+    assert len(_inserts(env.db)) == 180
 
 
 def test_budget_refills_after_the_window(env):

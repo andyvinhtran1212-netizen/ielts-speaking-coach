@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import {
   AUTH_ME_REUSE_MS,
   AUTH_ME_TIMEOUT_MESSAGE,
+  newRequestId,
   sharedAuthMe,
 } from '../public/js/auth-me-single-flight.js';
 
@@ -19,8 +20,8 @@ const json = (body, status = 200) => new Response(JSON.stringify(body), { status
 /** A `send` whose responses the test releases by hand. */
 function controlledSend() {
   const calls = [];
-  const send = (signal) => new Promise((resolve, reject) => {
-    calls.push({ signal, resolve, reject });
+  const send = (signal, requestId) => new Promise((resolve, reject) => {
+    calls.push({ signal, requestId, resolve, reject });
   });
   return { calls, send };
 }
@@ -28,7 +29,28 @@ function controlledSend() {
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
 describe('sharedAuthMe — single flight per access token', () => {
-  it('concurrent callers with the same token share one request and one record', async () => {
+  it('payload edits stay private to concurrent and reused callers', async () => {
+    const scope = {};
+    const { calls, send } = controlledSend();
+    const a = sharedAuthMe('tok-A', send, { scope });
+    const b = sharedAuthMe('tok-A', send, { scope, signal: new AbortController().signal });
+    await tick();
+    assert.equal(calls.length, 1);
+    calls[0].resolve(json({ role: 'user', profile: { name: 'Original' } }));
+    const [ra, rb] = await Promise.all([a, b]);
+    ra.payload.role = 'admin';
+    ra.payload.profile.name = 'Changed';
+    assert.deepEqual(rb.payload, { role: 'user', profile: { name: 'Original' } });
+    const reused = await sharedAuthMe('tok-A', send, { scope });
+    assert.deepEqual(reused.payload, rb.payload);
+    assert.notEqual(reused.payload, rb.payload);
+    assert.equal(calls.length, 1);
+    assert.ok(Object.isFrozen(ra));
+    assert.ok(Object.isFrozen(rb));
+    assert.ok(Object.isFrozen(reused));
+  });
+
+  it('concurrent callers with the same token share one request with separate records', async () => {
     const scope = {};
     const { calls, send } = controlledSend();
     const a = sharedAuthMe('tok-A', send, { scope });
@@ -38,9 +60,12 @@ describe('sharedAuthMe — single flight per access token', () => {
     assert.equal(calls.length, 1);
     calls[0].resolve(json({ id: 'u1', role: 'admin' }));
     const [ra, rb, rc] = await Promise.all([a, b, c]);
-    assert.deepEqual(ra, { ok: true, status: 200, payload: { id: 'u1', role: 'admin' } });
-    assert.equal(ra, rb);
-    assert.equal(rb, rc);
+    assert.deepEqual(ra, { ok: true, status: 200, payload: { id: 'u1', role: 'admin' }, requestId: calls[0].requestId });
+    assert.deepEqual(ra, rb);
+    assert.deepEqual(rb, rc);
+    assert.notEqual(ra, rb);
+    assert.notEqual(rb, rc);
+    assert.notEqual(ra.payload, rb.payload);
   });
 
   it('a caller that asks just after the request settled reuses it within the page-boot window', async () => {
@@ -53,7 +78,9 @@ describe('sharedAuthMe — single flight per access token', () => {
     calls[0].resolve(json({ role: 'user' }));
     await first;
     clock += AUTH_ME_REUSE_MS - 1;
-    assert.equal(await sharedAuthMe('tok-A', send, { scope, now }), await first);
+    const reused = await sharedAuthMe('tok-A', send, { scope, now });
+    assert.deepEqual(reused, await first);
+    assert.notEqual(reused, await first);
     assert.equal(calls.length, 1);
     clock += 1;
     const later = sharedAuthMe('tok-A', send, { scope, now });
@@ -108,8 +135,11 @@ describe('sharedAuthMe — single flight per access token', () => {
     await tick();
     calls[0].resolve(json({ detail: 'Token không hợp lệ' }, 401));
     const [ra, rb] = await Promise.all([a, b]);
-    assert.equal(ra, rb);
-    assert.deepEqual(ra, { ok: false, status: 401, payload: { detail: 'Token không hợp lệ' } });
+    assert.deepEqual(ra, rb);
+    assert.notEqual(ra, rb);
+    assert.deepEqual(ra, { ok: false, status: 401, payload: { detail: 'Token không hợp lệ' }, requestId: calls[0].requestId });
+    ra.payload.detail = 'Changed';
+    assert.equal(rb.payload.detail, 'Token không hợp lệ');
     const retry = sharedAuthMe('tok-A', send, { scope });
     await tick();
     assert.equal(calls.length, 2);
@@ -123,7 +153,7 @@ describe('sharedAuthMe — single flight per access token', () => {
     const a = sharedAuthMe('tok-A', send, { scope });
     await tick();
     calls[0].resolve(new Response('', { status: 200 }));
-    assert.deepEqual(await a, { ok: true, status: 200, payload: null });
+    assert.deepEqual(await a, { ok: true, status: 200, payload: null, requestId: calls[0].requestId });
     const retry = sharedAuthMe('tok-A', send, { scope });
     await tick();
     assert.equal(calls.length, 2);
@@ -165,11 +195,95 @@ describe('sharedAuthMe — single flight per access token', () => {
 
   it('no token → no sharing (each call sends)', async () => {
     const scope = {};
-    let sent = 0;
-    const send = async () => { sent += 1; return json({}, 401); };
-    await sharedAuthMe('', send, { scope });
-    await sharedAuthMe('', send, { scope });
-    assert.equal(sent, 2);
+    const ids = [];
+    const send = async (_signal, requestId) => { ids.push(requestId); return json({ role: 'user' }, 401); };
+    const a = await sharedAuthMe('', send, { scope });
+    const b = await sharedAuthMe('', send, { scope });
+    assert.equal(ids.length, 2);
+    assert.equal(a.requestId, ids[0]);
+    assert.equal(b.requestId, ids[1]);
+    assert.ok(a.requestId);
+    assert.ok(Object.isFrozen(a));
+    assert.notEqual(a.payload, b.payload);
+    a.payload.role = 'admin';
+    assert.equal(b.payload.role, 'user');
+  });
+
+  it('the first, concurrent, and reused callers receive the ID sent in X-Request-ID', async () => {
+    const scope = {};
+    const requests = [];
+    const send = async (signal, requestId) => {
+      requests.push(new Request('https://api.test/auth/me', { signal, headers: { 'X-Request-ID': requestId } }));
+      return json({ role: 'user' });
+    };
+    const a = sharedAuthMe('tok-A', send, { scope });
+    const b = sharedAuthMe('tok-A', () => assert.fail('a reused caller must not send'), { scope });
+    const [ra, rb] = await Promise.all([a, b]);
+    const reused = await sharedAuthMe('tok-A', send, { scope });
+    assert.equal(requests.length, 1);
+    const sentId = requests[0].headers.get('X-Request-ID');
+    assert.ok(sentId);
+    assert.equal(ra.requestId, sentId);
+    assert.equal(rb.requestId, sentId);
+    assert.equal(reused.requestId, sentId);
+    assert.equal(scope.__averAuthMeSingleFlight.entry.requestId, sentId);
+  });
+
+  it('a legacy send accepting only the signal still works', async () => {
+    const record = await sharedAuthMe('tok-A', async (signal) => {
+      assert.ok(signal instanceof AbortSignal);
+      assert.equal(signal.aborted, false);
+      return json({ role: 'user' });
+    }, { scope: {} });
+    assert.equal(record.payload.role, 'user');
+    assert.ok(record.requestId);
+  });
+
+  it('generates a request ID when crypto.randomUUID is unavailable', async (t) => {
+    t.mock.method(globalThis.crypto, 'randomUUID', () => undefined);
+    let sentId;
+    const record = await sharedAuthMe('tok-A', async (_signal, requestId) => {
+      sentId = requestId;
+      return json({ role: 'user' });
+    }, { scope: {} });
+    assert.match(record.requestId, /^auth-me-request-\d+-\d+$/);
+    assert.equal(record.requestId, sentId);
+  });
+
+  it('two fallback IDs minted in the same millisecond differ', async (t) => {
+    t.mock.method(globalThis.crypto, 'randomUUID', () => undefined);
+    t.mock.method(Date, 'now', () => 1761800000000);
+    const sentIds = [];
+    const send = async (_signal, requestId) => { sentIds.push(requestId); return json({ role: 'user' }); };
+    const a = await sharedAuthMe('', send, { scope: {} });
+    const b = await sharedAuthMe('', send, { scope: {} });
+    assert.equal(sentIds.length, 2);
+    assert.notEqual(a.requestId, b.requestId);
+    assert.deepEqual([a.requestId, b.requestId], sentIds);
+    for (const id of sentIds) assert.match(id, /^auth-me-request-1761800000000-\d+$/);
+    const d1a = newRequestId('d1-request');
+    const d1b = newRequestId('d1-request');
+    assert.notEqual(d1a, d1b);
+    assert.match(d1a, /^d1-request-1761800000000-\d+$/);
+  });
+
+  it('clones JSON payloads when structuredClone is unavailable', async () => {
+    const original = globalThis.structuredClone;
+    globalThis.structuredClone = undefined;
+    try {
+      const scope = {};
+      const send = async () => json({ role: 'user', nested: [{ name: 'Original' }] });
+      const [a, b] = await Promise.all([
+        sharedAuthMe('tok-A', send, { scope }),
+        sharedAuthMe('tok-A', send, { scope }),
+      ]);
+      a.payload.nested[0].name = 'Changed';
+      assert.equal(b.payload.nested[0].name, 'Original');
+      assert.ok(Object.isFrozen(b));
+      assert.equal((await sharedAuthMe('tok-A', async () => new Response(''), { scope: {} })).payload, null);
+    } finally {
+      globalThis.structuredClone = original;
+    }
   });
 
   it('two module copies meet on the same global registry', async () => {
@@ -184,7 +298,8 @@ describe('sharedAuthMe — single flight per access token', () => {
       await tick();
       assert.equal(calls.length, 1);
       calls[0].resolve(json({ role: 'user' }));
-      assert.equal(await a, await b);
+      assert.deepEqual(await a, await b);
+      assert.notEqual(await a, await b);
     } finally {
       delete globalThis.__averAuthMeSingleFlight;
     }
@@ -199,12 +314,15 @@ describe('PC-J147 wiring — one /auth/me on /d1-exercise and /vocabulary/hub', 
 
   it('the chrome role lookup goes through the shared flight', () => {
     assert.match(CHROME, /import \{ sharedAuthMe \} from '\/js\/auth-me-single-flight\.js';/);
-    assert.match(CHROME, /await sharedAuthMe\(token, \(signal\) => fetch\(base \+ '\/auth\/me'/);
+    assert.match(CHROME, /await sharedAuthMe\(token, \(signal, requestId\) => fetch\(base \+ '\/auth\/me'/);
+    assert.match(CHROME, /'X-Request-ID': requestId/);
   });
 
   it('the D1 opening profile read shares the same flight', () => {
-    assert.match(D1, /from '@\/lib\/auth\/auth-me-single-flight\.mjs'/);
+    assert.match(D1, /import \{ newRequestId, sharedAuthMe \} from '@\/lib\/auth\/auth-me-single-flight\.mjs'/);
     assert.match(D1, /sharesAuthMe = path === '\/auth\/me'/);
+    assert.match(D1, /sharedAuthMe\(token, \(signal, requestId\) => send\(token, signal, requestId\)/);
+    assert.match(D1, /return \{ response: \{ ok, status \}, payload, token, requestId \}/);
   });
 
   it('the hub owns /auth/me and hands the role to the chrome', () => {

@@ -30,6 +30,7 @@ from config import settings
 from database import supabase_admin
 from models.writing_feedback import (
     GraderConfig,
+    GradingResult,
     GradingTier,
     WritingFeedback,
     validate_level_coverage,
@@ -49,6 +50,7 @@ from services.writing_history import (
     get_sentence_structure_history,
 )
 from services.band_rounding import overall_from_criteria
+from services.writing_band_consistency import align_overall_band_feedback
 from services.mistake_authenticity import drop_noncorrection_mistakes
 from services.class_membership_service import active_student_ids_for_cohort
 from services.core_attempt_outcomes import observe_writing_background, observe_writing_batch
@@ -137,6 +139,29 @@ def _model_for_attempt(primary_model: str, attempt_no: int, max_attempts: int) -
     ):
         return settings.WRITING_FALLBACK_MODEL
     return primary_model
+
+
+def _grading_provenance(job_id: str, requested_model: str, attempt_model: str,
+                        result: GradingResult) -> dict:
+    """writing_feedback.provenance for an AI run (PC-J164).
+
+    ``job_id`` keeps the idempotent-persist lookup and the admin cost
+    reconciliation working. ``requested_model`` is writing_essays.selected_model,
+    ``attempt_model`` what this job attempt asked the grader for (differs on the
+    final-attempt fallback), ``model_used`` the model whose answer was served
+    (Claude when the Anthropic-primary attempt served it). ``ai_attempts`` lists
+    every provider call; result.cost_usd is their total. A result without an
+    attempt log (a test double) records an empty one rather than failing."""
+    attempts = list(getattr(result, "grading_attempts", None) or [])
+    return {
+        "job_id": job_id,
+        "requested_model": requested_model,
+        "attempt_model": attempt_model,
+        "model_used": result.model_used,
+        "ai_attempt_count": len(attempts),
+        "rejected_attempt_count": sum(1 for a in attempts if not a.get("served")),
+        "ai_attempts": attempts,
+    }
 
 
 def _record_attempt_failure(
@@ -677,6 +702,7 @@ def upsert_composed_version(
                          else {"edited_by": edited_by, "edited_at": _now()},
         **_bands_from_feedback(feedback),
     }
+    align_overall_band_feedback(row["feedback_json"], row["overall_band_score"])
     cvr = (
         supabase_admin.table("writing_essays")
         .select("current_version").eq("id", essay_id).limit(1).execute()
@@ -784,8 +810,9 @@ def compose_version(essay_id: str, *, base_version: int, picks: dict, mixed_by: 
     picks. `picks` maps each of the 4 criteria → the version to take it from;
     each pick copies that version's WHOLE criteriaFeedback.<crit> sub-object
     (band + feedback together — never split). Non-criteria content is base-derived
-    (taken verbatim from `base_version`). Overall is recomputed (IELTS) from the 4
-    picked bands. Reuses upsert_composed_version → AI versions stay immutable,
+    (from `base_version`, with overall-band claims aligned to the mixed score).
+    Overall is recomputed (IELTS) from the 4 picked bands.
+    Reuses upsert_composed_version → AI versions stay immutable,
     budget (Option A) + advance inherited.
     """
     live = _ancestor_versions(essay_id)
@@ -814,7 +841,7 @@ def compose_version(essay_id: str, *, base_version: int, picks: dict, mixed_by: 
         picked_bands.append(src_cf[crit]["bandScore"])
     assembled["criteriaFeedback"] = cf
     # mix overall ≠ any source's → recompute deterministically (IELTS round).
-    assembled["overallBandScore"] = overall_from_criteria(*picked_bands)
+    align_overall_band_feedback(assembled, overall_from_criteria(*picked_bands))
 
     feedback = WritingFeedback(**assembled)                # validate the assembled object
     provenance = {
@@ -1047,7 +1074,7 @@ async def _bg_grade_essay(
         model_overall   = float(fb.overallBandScore)
         backend_overall = overall_from_criteria(b_tr, b_cc, b_lr, b_gra)
         feedback_json = fb.model_dump(mode="json")
-        feedback_json["overallBandScore"]      = backend_overall
+        align_overall_band_feedback(feedback_json, backend_overall)
         feedback_json["overallBandScoreModel"] = model_overall
 
         feedback_row = {
@@ -1064,6 +1091,11 @@ async def _bg_grade_essay(
             "tokens_output":            result.tokens_output,
             "cost_usd":                 result.cost_usd,
             "grading_duration_ms":      result.grading_duration_ms,
+            # PC-J164: cost_usd is the sum of every billed provider call; the
+            # per-call breakdown and the requested vs serving model live here.
+            # writing_essays.selected_model stays the requested model.
+            "provenance":               _grading_provenance(
+                job_id, primary_model, model, result),
         }
         # GV-1b — versioned write. First grade → version 1; regrade → next
         # version (kept, NOT overwriting prior versions, so they stay
@@ -1092,7 +1124,6 @@ async def _bg_grade_essay(
             feedback_row["version"]        = version
             feedback_row["source"]         = _source_for_tier(result.grading_tier)
             feedback_row["parent_version"] = parent
-            feedback_row["provenance"]     = {"job_id": job_id}
             supabase_admin.table("writing_feedback").insert(feedback_row).execute()
 
         # Sprint 2.7b — persist Deep tier per-pass metadata to the
@@ -1152,7 +1183,7 @@ async def _bg_grade_essay(
 
         logger.info(
             "[grade %s] done band=%s tokens=%s/%s cost=%s",
-            essay_id, fb.overallBandScore,
+            essay_id, backend_overall,
             result.tokens_input, result.tokens_output, result.cost_usd,
         )
 

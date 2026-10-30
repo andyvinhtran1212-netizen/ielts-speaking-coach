@@ -150,61 +150,6 @@ def live_activate_rate_limit(monkeypatch):
     return auth
 
 
-# AIBUDGET-0033 T004 — every paid provider call now reserves through the
-# migration 333 RPCs (services/ai_budget.py) before it is sent. Tests drive
-# fake providers and no database, so by default every reservation is granted
-# and every settle/release succeeds, the kill switch is off, and the mode is
-# `shadow` (fake model names such as "m" have no catalog price, which
-# `enforce` refuses as config_invalid). Budget tests set AI_BUDGET_MODE to
-# `enforce` themselves and take the `ai_budget_rpc` fixture to script
-# refusals or read the recorded calls.
-class FakeBudgetRPC:
-    def __init__(self):
-        self.calls: list[tuple[str, dict]] = []
-        self.script: dict = {}
-
-    async def __call__(self, name, params):
-        import uuid as _uuid
-        self.calls.append((name, params))
-        handler = self.script.get(name)
-        if isinstance(handler, BaseException):
-            raise handler
-        if handler is not None:
-            return handler(params) if callable(handler) else handler
-        if name == "fn_ai_budget_reserve":
-            return {"granted": True, "replay": False, "reservations": [
-                {"id": str(_uuid.uuid4()), "line_no": line["line_no"], "provider": line["provider"],
-                 "estimate_usd": line["estimate_usd"]}
-                for line in params["p_lines"]
-            ]}
-        if name == "fn_ai_budget_settle":
-            return {"status": "settled", "actual_usd": params["p_actual_usd"]}
-        if name == "fn_ai_budget_release":
-            return {"status": "released"}
-        if name == "fn_ai_budget_close_scope":
-            return {"status": "closed", "scope": params["p_scope"]}
-        raise AssertionError(f"unexpected budget RPC {name}")
-
-    def reserved(self) -> list[dict]:
-        """Every reserved line, in order (provider, model, feature, estimate)."""
-        return [line for name, params in self.calls if name == "fn_ai_budget_reserve"
-                for line in params["p_lines"]]
-
-
-@pytest.fixture(autouse=True)
-def ai_budget_rpc(monkeypatch):
-    monkeypatch.delenv("AI_KILL_SWITCH", raising=False)
-    fake = FakeBudgetRPC()
-    try:
-        from services import ai_budget
-    except Exception:
-        return fake
-    monkeypatch.setattr(ai_budget, "_rpc", fake)
-    from services import ai_budget_config
-    monkeypatch.setattr(ai_budget_config._settings_source(), "AI_BUDGET_MODE", "shadow", raising=False)
-    return fake
-
-
 # ── CỔNG CHO TEST TỐN TIỀN: MỘT CỜ RIÊNG, KHÔNG PHẢI BIỂU THỨC MARKER ───────
 #
 # `addopts = -m "not smoke"` trong pytest.ini là lớp một, nhưng nó KHÔNG đủ:

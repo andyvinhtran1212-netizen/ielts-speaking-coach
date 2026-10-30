@@ -36,6 +36,15 @@ function skillFlags(raw) {
   return result;
 }
 
+// PC-J146: the skills a roster row's retest picker may tick. Absent (an older
+// backend) → null, meaning every box stays enabled as before; present but not a
+// list → malformed row.
+function retestSkillList(raw) {
+  if (raw == null) return null;
+  if (!Array.isArray(raw)) return undefined;
+  return SKILLS.filter((skill) => raw.includes(skill));
+}
+
 function lrSnapshot(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const score = raw.score == null ? null : count(raw.score);
@@ -84,7 +93,8 @@ export function normalizeReviewRoster(raw) {
     const writing = writingSnapshot(item.writing);
     const speaking = speakingSnapshot(item.speaking);
     const flags = skillFlags(item.retest_flags);
-    if (!sittingId || seen.has(sittingId) || (reviewStatus && !REVIEW_STATUSES.has(reviewStatus)) || !listening || !reading || !writing || !speaking || !flags) {
+    const retestSkills = retestSkillList(item.retest_skills);
+    if (!sittingId || seen.has(sittingId) || (reviewStatus && !REVIEW_STATUSES.has(reviewStatus)) || !listening || !reading || !writing || !speaking || !flags || retestSkills === undefined) {
       malformedCount += 1; continue;
     }
     seen.add(sittingId);
@@ -101,6 +111,7 @@ export function normalizeReviewRoster(raw) {
       claimed: item.claimed === true,
       needsRetest: item.needs_retest === true,
       retestFlags: flags,
+      retestSkills,
     });
   }
   return { rows, malformedCount };
@@ -112,6 +123,19 @@ export function normalizeReviewRoster(raw) {
 export function retestFlagConfirmed(raw, skill, value) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false;
   return (raw[skill] === true) === value;
+}
+
+export function retestSkillTickable(row, skill) {
+  return !Array.isArray(row?.retestSkills) || row.retestSkills.includes(skill);
+}
+
+// The backend's 422 for ticking a skill the sitting does not carry. Its message
+// names the skill and is shown verbatim; any other failure returns null so the
+// caller keeps its generic readback notice.
+export function retestSkillRefusal(caught) {
+  const detail = caught && typeof caught === 'object' ? caught.detail : null;
+  if (caught?.status !== 422 || !detail || typeof detail !== 'object' || detail.error !== 'skill_not_in_sitting') return null;
+  return TEXT(detail.message) || null;
 }
 
 export function normalizeRetestSummary(raw) {
