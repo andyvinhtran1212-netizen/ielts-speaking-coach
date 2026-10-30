@@ -88,10 +88,12 @@ def test_guard_raises_one_code_and_exempts_only_the_bootstrap():
     assert not re.search(r"GRANT[^;]*fn_users_suspension_role_guard", CODE)
 
 
-def test_forward_policy_holds_336_with_332_in_the_admin_aal2_group():
+def test_forward_policy_no_longer_holds_336_or_332_after_their_production_release():
+    # PC-J354: both are in the staging and production ledgers; no policy row.
     rows = {line.split("\t")[0]: line.split("\t")[1:3] for line in (MIGRATIONS / "forward-policy.tsv").read_text(
         encoding="utf-8").splitlines() if line and not line.startswith("#")}
-    assert rows[NAME] == ["pending_feature", "admin_aal2"] == rows[m332.NAME]
+    assert NAME not in rows and m332.NAME not in rows
+    assert all(group != "admin_aal2" for _state, group in rows.values())
     readme = (MIGRATIONS / "README.md").read_text(encoding="utf-8")
     assert "Migration `336` (ADMINAAL2-0032 FR-019" in readme and ERROR in readme
 
