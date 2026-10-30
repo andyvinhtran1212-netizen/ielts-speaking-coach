@@ -25,10 +25,14 @@ After the chain:
   (c) no SECURITY DEFINER function outside the platform schemas is EXECUTE-able
       by PUBLIC/anon, nor by authenticated except the 335 helper;
   (d) T1: writing_grade_ratings keeps RLS on and anon/authenticated cannot
-      write it (catalog and a real SET ROLE probe).
+      write it (catalog and a real SET ROLE probe);
+  (e) SVCPRIV-0042 FR-010 (358): no function or procedure in public lacks a
+      search_path in proconfig, so no trigger or RPC resolves names through a
+      caller's pg_temp while it runs as the owner.
 Negative controls (a writable view, matview, foreign table and partitioned
 table, an unnarrowed supabase_admin default ACL, a definer left on default
-EXECUTE, a dropped restrictive policy, RLS off) prove each check fires.
+EXECUTE, a dropped restrictive policy, RLS off, an unpinned function) prove
+each check fires.
 
 Set TEST_PG_URL to a LOCAL disposable cluster and REQUIRE_PG=1 to forbid skips.
 """
@@ -57,7 +61,7 @@ MIGRATIONS = BACKEND / "migrations"
 LOCKED_APPLIER = BACKEND / "scripts" / "apply_migration_locked.sql"
 FIRST = 320
 # The brief's floor: the chain must never silently shrink below these.
-REQUIRED = {320, 321, 322, 326, 331, 332, 334, 335, 336, 338}
+REQUIRED = {320, 321, 322, 326, 331, 332, 334, 335, 336, 338, 358}
 OWNER = "client_invariant_runner"
 
 # 320's allowlist (learner-JWT writes) and 335's active-account coverage.
@@ -479,6 +483,12 @@ SELECT 'c:security_definer_public_execute|' || p.oid::regprocedure || '|PUBLIC'
  WHERE p.prosecdef AND acl.grantee = 0 AND acl.privilege_type = 'EXECUTE'
    AND n.nspname <> ALL ({_array(PLATFORM_SCHEMAS)}) AND n.nspname NOT LIKE 'pg\\_temp%'
 UNION ALL
+SELECT 'e:public_function_without_search_path|' || p.oid::regprocedure || '|'
+  FROM pg_proc p
+ WHERE p.pronamespace = 'public'::regnamespace AND p.prokind IN ('f', 'p')
+   AND NOT EXISTS (SELECT 1 FROM unnest(COALESCE(p.proconfig, '{{}}'::text[])) c
+                    WHERE c LIKE 'search_path=%')
+UNION ALL
 SELECT 'd:writing_grade_ratings_rls_off|writing_grade_ratings|'
  WHERE NOT COALESCE((SELECT relrowsecurity FROM pg_class
                       WHERE oid = to_regclass('public.writing_grade_ratings')), false)
@@ -507,6 +517,7 @@ def chain():
         before = _violations(database)
         assert any(v.startswith("a:not_on_320_allowlist|r:users|anon:UPDATE") for v in before), before
         assert any(v.startswith("c:") for v in before), before
+        assert any(v.startswith("e:") for v in before), before
 
         applied, warnings = [], {}
         for migration in _forward_migrations():
@@ -553,7 +564,7 @@ def test_every_forward_migration_applied_through_the_locked_runner(chain):
            AND proowner <> '{OWNER}'::regrole""") == "0"
 
 
-@pytest.mark.parametrize("check", ["a:", "b:", "c:", "d:"])
+@pytest.mark.parametrize("check", ["a:", "b:", "c:", "d:", "e:"])
 def test_the_invariant_holds_after_every_migration(chain, check):
     assert [v for v in _violations(chain["database"]) if v.startswith(check)] == []
 
@@ -735,6 +746,14 @@ NEGATIVE = {
         OWNER,
         "ALTER TABLE public.writing_grade_ratings DISABLE ROW LEVEL SECURITY;",
         ["d:writing_grade_ratings_rls_off|writing_grade_ratings|"]),
+    # FR-010 (358): a later migration adds a function without a search_path.
+    "function_without_search_path": (
+        OWNER,
+        "CREATE FUNCTION public.inv94_unpinned() RETURNS trigger LANGUAGE plpgsql"
+        " AS $$ BEGIN RETURN NEW; END $$;"
+        " CREATE PROCEDURE public.inv94_unpinned_proc() LANGUAGE sql AS $$ SELECT 1 $$;",
+        ["e:public_function_without_search_path|inv94_unpinned()|",
+         "e:public_function_without_search_path|inv94_unpinned_proc()|"]),
     "t1_writing_grade_ratings_client_insert": (
         OWNER,
         "GRANT INSERT ON public.writing_grade_ratings TO authenticated;",
