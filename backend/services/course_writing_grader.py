@@ -31,7 +31,7 @@ from typing import Any, Dict, List
 import google.generativeai as genai
 
 from config import settings
-from services import ai_budget, ai_router, ai_usage_logger
+from services import ai_router, ai_usage_logger
 
 logger = logging.getLogger(__name__)
 
@@ -86,9 +86,6 @@ Các câu cần soát:
 """
 
 
-_MAX_OUTPUT_TOKENS = 4096
-
-
 def _model():
     # Mặc định THẬT nằm ở `config.py`; chuỗi dưới đây chỉ là lưới đỡ cho lúc
     # trường ấy vắng mặt. Giữ hai nơi cùng một giá trị — bản trước để lệch nhau
@@ -101,7 +98,7 @@ def _model():
             # 0, không phải 0.7: hai học viên viết giống nhau phải nhận cùng một
             # bản sửa. Đây là soát lỗi, không phải sáng tác.
             temperature=0.0,
-            max_output_tokens=_MAX_OUTPUT_TOKENS,
+            max_output_tokens=4096,
         ),
     )
 
@@ -380,21 +377,8 @@ async def _grade_batch_gemini(
                 _BATCH_PROVIDER_FAILURE)
 
     try:
-        async with ai_budget.guard(
-            "google", name, "course_writing",
-            ai_budget.estimate_or_none("google", name, input_text=prompt, max_tokens=_MAX_OUTPUT_TOKENS),
-            request_key=ai_budget.attempt_key("course_writing"), operation="grade_batch",
-            user_id=usage_user_id,
-        ) as lease:
-            resp = await asyncio.wait_for(
-                model.generate_content_async(
-                    prompt, request_options=ai_budget.gemini_request_options()),
-                timeout=_TIMEOUT_SECONDS)
-            lease.settle(ai_budget.gemini_actual_usd(name, resp))
-    except (ai_budget.AIBudgetRefused, ai_budget.AIBudgetReplay):
-        # AIBUDGET-0033 FR-008: no Claude fallback and no batch split — the
-        # submission route answers the refusal before anything is saved.
-        raise
+        resp = await asyncio.wait_for(
+            model.generate_content_async(prompt), timeout=_TIMEOUT_SECONDS)
     except asyncio.TimeoutError:
         ai_usage_logger.schedule_usage_log(ai_usage_logger.log_unpriced_usage_async(
             service="gemini",

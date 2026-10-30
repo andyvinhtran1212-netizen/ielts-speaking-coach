@@ -28,7 +28,7 @@ import re
 import anthropic
 
 from config import settings
-from services import ai_budget, ai_usage_logger
+from services import ai_usage_logger
 from services import fluency_signals as _fluency_mod
 from services.grammar_content import grammar_service
 from services.grading_orchestrator import (
@@ -414,8 +414,7 @@ def _get_client() -> anthropic.AsyncAnthropic:
                 "ANTHROPIC_API_KEY chưa được cấu hình. "
                 "Thêm ANTHROPIC_API_KEY=sk-ant-... vào file .env."
             )
-        # AIBUDGET-0033 FR-001: no hidden SDK retries; each request is reserved.
-        _client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY, max_retries=0)
+        _client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
     return _client
 
 
@@ -1021,30 +1020,21 @@ async def _call_claude(
     The main `grade_response` path now goes through the orchestrator
     via `_invoke_orchestrator`.
     """
-    estimate = ai_budget.estimate_or_none(
-        "anthropic", _MODEL, input_text=[system_prompt, user_message], max_tokens=2048,
+    response = await client.beta.prompt_caching.messages.create(
+        model=_MODEL,
+        max_tokens=2048,   # 1024 was too low for test mode: 4× Vietnamese feedbacks + improved_response (150-250w) routinely truncated the JSON
+        system=[
+            {
+                "type":          "text",
+                "text":          system_prompt,
+                "cache_control": {"type": "ephemeral"},  # cache system prompt
+            }
+        ],
+        messages=[
+            {"role": "user", "content": user_message}
+        ],
+        temperature=0.2,   # low temp for consistent, deterministic grading
     )
-    async with ai_budget.guard(
-        "anthropic", _MODEL, "speaking_grading", estimate,
-        request_key=ai_budget.attempt_key("speaking_grading"),
-        operation="grade_response_legacy", user_id=user_id,
-    ) as lease:
-        response = await client.beta.prompt_caching.messages.create(
-            model=_MODEL,
-            max_tokens=2048,   # 1024 was too low for test mode: 4× Vietnamese feedbacks + improved_response (150-250w) routinely truncated the JSON
-            system=[
-                {
-                    "type":          "text",
-                    "text":          system_prompt,
-                    "cache_control": {"type": "ephemeral"},  # cache system prompt
-                }
-            ],
-            messages=[
-                {"role": "user", "content": user_message}
-            ],
-            temperature=0.2,   # low temp for consistent, deterministic grading
-        )
-        lease.settle(ai_budget.anthropic_actual_usd(_MODEL, getattr(response, "usage", None)))
 
     # Log cache usage and persist to ai_usage_logs
     usage = getattr(response, "usage", None)
@@ -1503,27 +1493,19 @@ async def _regen_grounded_answer(
         "keeping the same topic, examples, and ideas. "
         "Output only the improved answer text, no preamble."
     )
-    regen_model = "claude-haiku-4-5-20251001"
     try:
         # Mục 18 (B4): bound the regen so a hung Haiku call can't block the whole
         # grading response. asyncio.TimeoutError is caught below → returns None →
         # the caller drops the sample gracefully.
-        async with ai_budget.guard(
-            "anthropic", regen_model, "speaking_grading",
-            ai_budget.estimate_or_none("anthropic", regen_model, input_text=prompt, max_tokens=300),
-            request_key=ai_budget.attempt_key("speaking_grading"),
-            operation="regenerate_grounded_answer", user_id=user_id,
-        ) as lease:
-            msg = await asyncio.wait_for(
-                client.messages.create(
-                    model=regen_model,
-                    max_tokens=300,
-                    temperature=0.2,
-                    messages=[{"role": "user", "content": prompt}],
-                ),
-                timeout=_REGEN_TIMEOUT_SECONDS,
-            )
-            lease.settle(ai_budget.anthropic_actual_usd(regen_model, getattr(msg, "usage", None)))
+        msg = await asyncio.wait_for(
+            client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=300,
+                temperature=0.2,
+                messages=[{"role": "user", "content": prompt}],
+            ),
+            timeout=_REGEN_TIMEOUT_SECONDS,
+        )
         ai_usage_logger.schedule_usage_log(ai_usage_logger.log_claude_response_async(
             msg,
             model="claude-haiku-4-5-20251001",
@@ -1534,11 +1516,6 @@ async def _regen_grounded_answer(
         ))
         text = msg.content[0].text.strip() if msg.content else ""
         return text or None
-    except ai_budget.AIBudgetRefused as exc:
-        # FR-008: the optional regeneration is not retried or moved to another
-        # provider; the drifting sample is dropped as on any regen failure.
-        logger.warning("_regen_grounded_answer skipped: ai_budget refused (%s)", exc.reason)
-        return None
     except Exception as exc:  # noqa: BLE001
         logger.warning("_regen_grounded_answer failed: %s", exc)
         return None

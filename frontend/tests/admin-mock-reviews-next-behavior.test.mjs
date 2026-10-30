@@ -37,6 +37,18 @@ describe('/admin/mock-reviews native ownership', () => {
     for (const token of ['loadRoster()', 'loadSummary()', 'openDetail(id, activeSkill)', 'normalizeBulkAck', 'Backend không xác nhận', 'Không tự gửi lại', 'setSkips(allSkips)', 'sittingId.slice(0, 8)', 'Dialog open={Boolean(releaseTarget)}', 'Xác nhận công bố', 'value.review.claimedBy === profile.id', "['grading', 'graded', 'reviewed', 'delivered'].includes(canonical.status)"]) assert.ok(COMPONENT.includes(token), token);
   });
 
+  test('PC-J146: disables retest boxes outside the sitting and shows the server refusal verbatim', () => {
+    assert.match(COMPONENT, /const tickable = retestSkillTickable\(row, skill\)/);
+    assert.match(COMPONENT, /title=\{tickable \? LABEL\[skill\] : 'Không thuộc lượt thi này'\}/);
+    assert.match(COMPONENT, /aria-label=\{tickable \? undefined : `\$\{LABEL\[skill\]\}: Không thuộc lượt thi này`\}/);
+    // A stale true flag on an ineligible skill stays untickable-off (false is always accepted).
+    assert.match(COMPONENT, /disabled=\{!row\.reviewId \|\| Boolean\(busy\) \|\| \(!tickable && !checked\)\}/);
+    // 422 skill_not_in_sitting → server message; any other failure keeps the #1849 readback notice.
+    assert.match(COMPONENT, /message: retestSkillRefusal\(caught\) \?\? `Không cập nhật được: \$\{messageOf\(caught\)\} Bảng đã được đọc lại từ backend\.`/);
+    assert.match(COMPONENT, /flags\[key\] = key === skill \? value : row\.retestFlags\[key\] === true && retestSkillTickable\(row, key\)/);
+    assert.match(COMPONENT, /retestFlagConfirmed\(canonicalRow \? canonicalRow\.retestFlags : ack\?\.retest_flags, skill, value\)/);
+  });
+
   test('preserves skill review, Writing, Speaking and final-band capabilities', () => {
     for (const token of ['/api/reading/test/attempts/', '/api/listening/tests/attempts/', '/admin/writing/essays/', '/start-grading', '/speaking-assessment', '/final-bands', '/release-claim', '/full-test-result?session_id=', '/admin/writing/grade?essay_id=', 'Cần test lại', 'Overall xem trước']) assert.ok(COMPONENT.includes(token), token);
     assert.doesNotMatch(COMPONENT, /requiredSkills\.includes\(skill\)\s*&&\s*<em>/);
