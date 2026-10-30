@@ -27,9 +27,9 @@ DROP = re.compile(
     rf'\bDROP\s+TRIGGER\s+(?:IF\s+EXISTS\s+)?(?P<name>{IDENT})\s+'
     rf'ON\s+(?P<table>{QUALIFIED})', re.I,
 )
-# Preserve line offsets, ignore comments and SQL strings (including dynamic SQL).
+# Preserve quoted identifiers and line offsets; mask comments and SQL strings.
 # Dollar-quoted DO blocks stay visible so their ordinary DDL is inventoried.
-IGNORED = re.compile(r"--[^\n]*|/\*.*?\*/|'(?:[^']|'')*'", re.S)
+IGNORED = re.compile(r'''"(?:[^"]|"")*"|--[^\n]*|/\*.*?\*/|'(?:[^']|'')*' ''', re.S | re.X)
 
 
 @dataclass(frozen=True)
@@ -142,7 +142,7 @@ def inventory(root):
                 source = f"{path.name}:{sql.count(chr(10), 0, literal.start()) + 1}"
                 assert source in DYNAMIC_TRIGGERS, f"{source}: declare dynamic CREATE TRIGGER in DYNAMIC_TRIGGERS"
                 dynamic_sources.add(source)
-        code = IGNORED.sub(lambda m: re.sub(r"[^\n]", " ", m[0]), sql)
+        code = IGNORED.sub(lambda m: m[0] if m[0].startswith('"') else re.sub(r"[^\n]", " ", m[0]), sql)
         operations = []
         for pattern in (CREATE, DROP):
             for match in pattern.finditer(code):
@@ -345,3 +345,18 @@ def test_drop_and_recreate_on_one_line_preserve_statement_order(tmp_path):
                  "DROP TRIGGER t_new ON public.records; " + FIRST.replace("guard_new", "replacement")})
     trigger = inventory(root)["records", "t_new"]
     assert (trigger.function, trigger.migration) == ("replacement", "002_replace.sql")
+
+
+def test_comment_and_string_delimiters_inside_quoted_identifiers_are_preserved(tmp_path):
+    sql = '''CREATE TRIGGER "trg--with'quote" BEFORE UPDATE ON "public"."records--name"
+FOR EACH ROW EXECUTE FUNCTION "public"."guard'fn"();
+CREATE TRIGGER "trg""quoted" BEFORE DELETE ON "public"."records--name"
+FOR EACH ROW EXECUTE FUNCTION public.guard();
+'''
+    root = _tree(tmp_path, {"001_quoted.sql": sql})
+    live = inventory(root)
+    assert set(live) == {("records--name", "trg--with'quote"), ("records--name", 'trg"quoted')}
+    assert live["records--name", "trg--with'quote"].function == "guard'fn"
+    (root / "backend/migrations/002_drop.sql").write_text(
+        '''DROP TRIGGER "trg--with'quote" ON "public"."records--name";''')
+    assert set(inventory(root)) == {("records--name", 'trg"quoted')}
