@@ -136,6 +136,12 @@ def test_evidence_table_and_acls():
     assert len(re.findall(r"\bGRANT\b", CODE)) == 1
 
 
+def test_users_table_control_privileges_are_revoked():
+    assert "REVOKE TRIGGER, REFERENCES, TRUNCATE ON public.users FROM service_role;" in CODE
+    assert re.search(r"IF current_setting\('server_version_num'\)::int >= 170000 THEN\s+"
+                     r"EXECUTE 'REVOKE MAINTAIN ON public\.users FROM service_role';", CODE)
+
+
 def test_f2_f3_statements():
     assert ("REVOKE ALL ON SEQUENCE public.ai_model_override_audit_id_seq, public.ai_provider_failures_id_seq\n"
             "    FROM PUBLIC, anon, authenticated;") in CODE
@@ -165,6 +171,7 @@ def test_f5_is_owned_by_345():
 def test_postconditions_cover_every_finding():
     post = CODE[CODE.rindex("DO $$"):]
     for marker in ("staff_privilege_evidence_rls_off", "staff_privilege_evidence_privileges_wrong",
+                   "users_service_role_privileges_wrong",
                    "staff_privilege_evidence_not_empty", "staff_definer_owner_mismatch",
                    "staff_security_trigger_missing",
                    "staff_security_function_wrong", "ai_override_sequence_privileges_wrong",
@@ -183,11 +190,15 @@ def test_rollback_note_reopens_f1_and_restores_the_old_blocks():
         "fn_ai_model_override_audit()") < body.index(f"DROP TABLE IF EXISTS public.{EVIDENCE};")
 
 
-def test_release_metadata_is_a_normal_forward_migration():
+def test_release_metadata_holds_341_behind_the_admin_aal2_group():
     policy = (MIGRATIONS / "forward-policy.tsv").read_text(encoding="utf-8")
-    assert NAME not in policy, "322/332/336 are applied everywhere: 341 must not be policy-skipped"
+    rows = [line.split("\t") for line in policy.splitlines() if line.startswith(NAME + "\t")]
+    assert len(rows) == 1 and len(rows[0]) == 4
+    assert rows[0][1:3] == ["pending_feature", "admin_aal2"]
     readme = (MIGRATIONS / "README.md").read_text(encoding="utf-8")
     assert "Migration `341` (PC-J88" in readme and "341 is PC-J88" in readme
+    paragraph = readme[readme.index("Migration `341`"):readme.index("Migration `337`")]
+    assert "MIGRATION_FEATURES=admin_aal2" in paragraph and "after SA review" in paragraph
 
 
 # ── PostgreSQL harness ──────────────────────────────────────────────────────
@@ -316,6 +327,10 @@ def test_catalog_after_apply_and_rerun(db):
     maintain = psql("SELECT current_setting('server_version_num')::int >= 170000") == "t"
     privileges = ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"]
     privileges += ["MAINTAIN"] if maintain else []
+    assert psql(f"SELECT count(*) FROM pg_class c, aclexplode(c.relacl) a "
+                f"WHERE c.oid = '{s}.{EVIDENCE}'::regclass AND a.grantee <> c.relowner") == "0"
+    for priv in ["TRIGGER", "REFERENCES", "TRUNCATE"] + (["MAINTAIN"] if maintain else []):
+        assert psql(f"SELECT has_table_privilege('service_role', '{s}.users', '{priv}')") == "f", priv
     for role in ("anon", "authenticated", "service_role"):
         for priv in privileges:
             assert psql(f"SELECT has_table_privilege('{role}', '{s}.{EVIDENCE}', '{priv}')") == "f", (role, priv)
@@ -340,6 +355,48 @@ def test_clients_and_service_role_cannot_read_or_forge_evidence(db):
     for role in ("anon", "authenticated", "service_role"):
         assert "permission denied" in m326._denied(role, f"SELECT count(*) FROM {s}.{EVIDENCE}")
         assert "permission denied" in m326._denied(role, forge)
+
+
+def test_service_role_cannot_plant_a_trigger_for_the_definer_rpc(fresh):
+    """P2-SA-1: sa2050_probe.py's pg_temp trojan must fail at CREATE TRIGGER."""
+    s = fresh
+    actor, victim, other = _user(s, "admin", True), _user(s, "instructor", True), _user(s, "instructor", True)
+    _suspend(s, actor, victim)
+    before = m336._snapshot(s), psql(f"SELECT count(*) FROM {s}.owner_alert_outbox")
+    assert psql("SELECT rolsuper FROM pg_roles WHERE rolname = 'service_role'") == "f"
+    # Use SET LOCAL and assert the effective role in the attack transaction.
+    # The function is INVOKER: inside the legitimate DEFINER RPC it would run
+    # as the owner and grant the attacker access to the bypass evidence.
+    result = psql(f"""
+        BEGIN;
+        SET LOCAL ROLE service_role;
+        DO $role$ BEGIN ASSERT current_user = 'service_role'; END $role$;
+        CREATE FUNCTION pg_temp.sa_trojan() RETURNS trigger LANGUAGE plpgsql AS $trojan$
+        BEGIN
+            IF current_user <> 'service_role' THEN
+                EXECUTE 'GRANT ALL ON {s}.{EVIDENCE} TO service_role';
+            END IF;
+            RETURN NEW;
+        END $trojan$;
+        DO $attack$
+        BEGIN
+            BEGIN
+                CREATE TRIGGER aaa_sa_trojan BEFORE UPDATE ON {s}.users
+                    FOR EACH ROW EXECUTE FUNCTION pg_temp.sa_trojan();
+            EXCEPTION WHEN SQLSTATE '42501' THEN
+                RETURN;
+            END;
+            {_rpc_sql(s, actor, other, active=False, reason='routine suspend').replace('SELECT ', 'PERFORM ', 1)}
+            RAISE EXCEPTION 'service_role planted a trigger and reached the owner RPC';
+        END $attack$;
+        SELECT '42501';
+        ROLLBACK;
+    """)
+    assert result == "42501"
+    assert (m336._snapshot(s), psql(f"SELECT count(*) FROM {s}.owner_alert_outbox")) == before
+    assert psql(f"SELECT has_table_privilege('service_role', '{s}.{EVIDENCE}', 'INSERT')") == "f"
+    assert _state(s, victim)["role"] == "instructor" and _state(s, victim)["suspended"] is True
+    assert _evidence_rows(s) == "0"
 
 
 # ── PostgreSQL: T4, the PC-J74 repro is closed ──────────────────────────────
@@ -539,6 +596,12 @@ def test_precondition_aborts_and_creates_nothing(missing, marker):
 
 
 @pytest.mark.parametrize("tamper,revert,marker", [
+    ("GRANT TRIGGER ON {s}.users TO service_role",
+     "REVOKE TRIGGER ON {s}.users FROM service_role", "users_service_role_privileges_wrong"),
+    ("GRANT REFERENCES ON {s}.users TO service_role",
+     "REVOKE REFERENCES ON {s}.users FROM service_role", "users_service_role_privileges_wrong"),
+    ("GRANT TRUNCATE ON {s}.users TO service_role",
+     "REVOKE TRUNCATE ON {s}.users FROM service_role", "users_service_role_privileges_wrong"),
     ("GRANT SELECT ON {s}." + EVIDENCE + " TO service_role",
      "REVOKE SELECT ON {s}." + EVIDENCE + " FROM service_role", "staff_privilege_evidence_privileges_wrong"),
     ("GRANT INSERT ON {s}." + EVIDENCE + " TO PUBLIC",
@@ -575,6 +638,44 @@ def test_postcondition_block_aborts_on_drift(db, tamper, revert, marker):
     _owner(_postcondition_sql(s))
 
 
+def test_postcondition_refuses_maintain_on_pg17(db):
+    if psql("SELECT current_setting('server_version_num')::int >= 170000") == "t":
+        test_postcondition_block_aborts_on_drift(
+            db, "GRANT MAINTAIN ON {s}.users TO service_role",
+            "REVOKE MAINTAIN ON {s}.users FROM service_role", "users_service_role_privileges_wrong")
+
+
+def test_postcondition_refuses_evidence_grants_to_any_non_owner(db):
+    role = "guc341_grantee_" + uuid4().hex
+    psql(f"CREATE ROLE {role} NOSUPERUSER NOLOGIN")
+    try:
+        test_postcondition_block_aborts_on_drift(
+            db, f"GRANT SELECT ON {{s}}.{EVIDENCE} TO {role}",
+            f"REVOKE SELECT ON {{s}}.{EVIDENCE} FROM {role}", "staff_privilege_evidence_privileges_wrong")
+    finally:
+        psql(f"DROP ROLE {role}")
+
+
+@pytest.mark.parametrize("table,trigger,marker", [
+    ("users", "trg_users_suspension_guard", "staff_security_trigger_missing"),
+    ("users", "trg_users_suspension_role_guard", "staff_security_trigger_missing"),
+    ("users", "trg_users_privilege_audit", "staff_security_trigger_missing"),
+    ("ai_model_override_audit", "trg_ai_model_override_audit_no_truncate", "ai_model_override_audit_trigger_missing"),
+    ("ai_model_overrides", "trg_ai_model_override_audit", "ai_model_override_audit_trigger_missing"),
+])
+@pytest.mark.parametrize("mode", ["ENABLE", "ENABLE ALWAYS", "ENABLE REPLICA", "DISABLE"])
+def test_postcondition_accepts_only_origin_or_always_enabled_triggers(db, table, trigger, marker, mode):
+    s = db
+    _owner(f"ALTER TABLE {s}.{table} {mode} TRIGGER {trigger}")
+    try:
+        if mode in ("ENABLE", "ENABLE ALWAYS"):
+            _owner(_postcondition_sql(s))
+        else:
+            assert marker in _fails(_owner, _postcondition_sql(s))
+    finally:
+        _owner(f"ALTER TABLE {s}.{table} ENABLE TRIGGER {trigger}")
+
+
 def test_postcondition_refuses_a_definer_that_does_not_own_its_table(fresh):
     s = fresh
     # A neutral role: an API role as owner would trip the privilege check first.
@@ -601,6 +702,8 @@ def test_header_rollback_reopens_f1_and_341_reapplies(fresh):
     _owner(_rollback_sql(s))
     assert psql(f"SELECT to_regclass('{s}.{EVIDENCE}') IS NULL") == "t"
     assert psql(f"SELECT has_table_privilege('service_role', '{s}.ai_model_override_audit', 'INSERT')") == "t"
+    for priv in ("TRIGGER", "REFERENCES", "TRUNCATE"):
+        assert psql(f"SELECT has_table_privilege('service_role', '{s}.users', '{priv}')") == "t", priv
     rows = len(_audit(s, target))
     repro = (f"BEGIN; {_forged(admin)} UPDATE {s}.users SET role = 'admin', is_active = true, "
              f"suspended_at = NULL, suspended_by = NULL, suspension_reason = NULL WHERE id = '{{t}}'; COMMIT;")
@@ -611,6 +714,8 @@ def test_header_rollback_reopens_f1_and_341_reapplies(fresh):
     assert _rpc(s, admin, target, active=False, reason="re-suspend")["changed"] is True
 
     _apply(s)
+    for priv in ("TRIGGER", "REFERENCES", "TRUNCATE"):
+        assert psql(f"SELECT has_table_privilege('service_role', '{s}.users', '{priv}')") == "f", priv
     error = _fails(_svc, repro.format(t=again))
     assert re.search(r"ERROR:\s+account_suspended\b", error), error
     assert _state(s, again)["suspended"] is True

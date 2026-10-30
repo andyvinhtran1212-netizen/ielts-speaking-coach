@@ -80,10 +80,11 @@
 --
 -- Order and compatibility. Needs 322, 332 and 336 (the precondition aborts
 -- with `migration_322_missing` / `migration_332_missing` /
--- `migration_336_missing`). Those are on staging and, since the 29 October
--- promotion, on production, so 341 is a normal forward migration with no
--- forward-policy row (like 334). Apply it with the advisory-locked runner,
--- staging first, then production at a staging -> main promotion. No backend
+-- `migration_336_missing`). 341 changes DB-level staff security guards and is
+-- held by forward-policy.tsv as pending_feature admin_aal2. Apply it only with
+-- MIGRATION_FEATURES=admin_aal2 through the advisory-locked runner, staging
+-- first after SA review, then production at an explicitly authorised
+-- staging -> main promotion. No backend
 -- change: the deployed backend calls fn_set_staff_privilege with the same
 -- arguments, never calls the bootstrap, never sets a custom setting and never
 -- writes ai_model_override_audit. One transaction, lock_timeout 5s,
@@ -102,6 +103,12 @@
 --   BEGIN;
 --   SET LOCAL lock_timeout = '5s';
 --   GRANT INSERT ON TABLE public.ai_model_override_audit TO service_role;
+--   GRANT TRIGGER, REFERENCES, TRUNCATE ON public.users TO service_role;
+--   DO $$ BEGIN
+--       IF current_setting('server_version_num')::int >= 170000 THEN
+--           EXECUTE 'GRANT MAINTAIN ON public.users TO service_role';
+--       END IF;
+--   END $$;
 --   -- <the six function blocks, verbatim>
 --   DROP TRIGGER IF EXISTS trg_ai_model_override_audit_no_truncate ON public.ai_model_override_audit;
 --   GRANT USAGE, SELECT ON SEQUENCE public.ai_model_override_audit_id_seq, public.ai_provider_failures_id_seq TO anon, authenticated;
@@ -141,6 +148,17 @@ BEGIN
                        WHERE tgrelid = 'public.users'::regclass
                          AND tgname = 'trg_users_suspension_role_guard') THEN
         RAISE EXCEPTION 'migration_336_missing';
+    END IF;
+END $$;
+
+-- P2-SA-1 (PC-J356): a service_role trigger on users would execute as the
+-- owner inside fn_set_staff_privilege and could forge evidence or replace a
+-- guard. Keep ordinary row access; remove table-level control privileges.
+REVOKE TRIGGER, REFERENCES, TRUNCATE ON public.users FROM service_role;
+DO $$
+BEGIN
+    IF current_setting('server_version_num')::int >= 170000 THEN
+        EXECUTE 'REVOKE MAINTAIN ON public.users FROM service_role';
     END IF;
 END $$;
 
@@ -550,6 +568,16 @@ DECLARE
                 THEN ARRAY['MAINTAIN'] ELSE ARRAY[]::text[] END;
     v_wrong text;
 BEGIN
+    -- P2-SA-1: effective privileges include inherited and PUBLIC grants.
+    SELECT string_agg(p.priv, ', ' ORDER BY p.priv) INTO v_wrong
+      FROM unnest(ARRAY['TRIGGER', 'REFERENCES', 'TRUNCATE']
+          || CASE WHEN current_setting('server_version_num')::int >= 170000
+                  THEN ARRAY['MAINTAIN'] ELSE ARRAY[]::text[] END) p(priv)
+     WHERE has_table_privilege('service_role', 'public.users', p.priv);
+    IF v_wrong IS NOT NULL THEN
+        RAISE EXCEPTION 'users_service_role_privileges_wrong: %', v_wrong;
+    END IF;
+
     -- F1: the evidence table is owner-only, RLS on and empty.
     IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.staff_privilege_evidence'::regclass) THEN
         RAISE EXCEPTION 'staff_privilege_evidence_rls_off';
@@ -560,7 +588,8 @@ BEGIN
      WHERE has_table_privilege(r.rolname, 'public.staff_privilege_evidence', p.priv);
     IF v_wrong IS NOT NULL
        OR EXISTS (SELECT 1 FROM pg_class c, aclexplode(c.relacl) a
-                   WHERE c.oid = 'public.staff_privilege_evidence'::regclass AND a.grantee = 0) THEN
+                   WHERE c.oid = 'public.staff_privilege_evidence'::regclass
+                     AND a.grantee <> c.relowner) THEN
         RAISE EXCEPTION 'staff_privilege_evidence_privileges_wrong: %', v_wrong;
     END IF;
     IF EXISTS (SELECT 1 FROM public.staff_privilege_evidence) THEN
@@ -590,7 +619,7 @@ BEGIN
                    ('trg_users_privilege_audit', 'public.fn_users_privilege_audit()')) t(name, fn)
      WHERE NOT EXISTS (SELECT 1 FROM pg_trigger g
                         WHERE g.tgrelid = 'public.users'::regclass AND g.tgname = t.name
-                          AND g.tgenabled = 'O' AND g.tgfoid = t.fn::regprocedure);
+                          AND g.tgenabled IN ('O', 'A') AND g.tgfoid = t.fn::regprocedure);
     IF v_wrong IS NOT NULL THEN
         RAISE EXCEPTION 'staff_security_trigger_missing: %', v_wrong;
     END IF;
@@ -643,12 +672,12 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger g
                     WHERE g.tgrelid = 'public.ai_model_override_audit'::regclass
-                      AND g.tgname = 'trg_ai_model_override_audit_no_truncate' AND g.tgenabled = 'O'
+                      AND g.tgname = 'trg_ai_model_override_audit_no_truncate' AND g.tgenabled IN ('O', 'A')
                       AND g.tgfoid = 'public.fn_ai_model_override_audit_append_only()'::regprocedure
                       AND pg_get_triggerdef(g.oid) LIKE '%BEFORE TRUNCATE ON %ai_model_override_audit FOR EACH STATEMENT%')
        OR NOT EXISTS (SELECT 1 FROM pg_trigger g
                        WHERE g.tgrelid = 'public.ai_model_overrides'::regclass
-                         AND g.tgname = 'trg_ai_model_override_audit' AND g.tgenabled = 'O'
+                         AND g.tgname = 'trg_ai_model_override_audit' AND g.tgenabled IN ('O', 'A')
                          AND g.tgfoid = 'public.fn_ai_model_override_audit()'::regprocedure) THEN
         RAISE EXCEPTION 'ai_model_override_audit_trigger_missing';
     END IF;

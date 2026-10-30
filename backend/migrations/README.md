@@ -106,10 +106,16 @@ arguments, results, security mode, `search_path` and ACLs are unchanged.
 Migration 341 also revokes client privileges on the 322 identity sequences
 (F2), and makes `fn_ai_model_override_audit` SECURITY DEFINER (F3). For F3,
 `service_role` loses INSERT on `ai_model_override_audit` and a BEFORE TRUNCATE
-trigger refuses TRUNCATE for every role. PC-J74 F5 is covered by `345`. 341 is
-a normal forward migration with no `forward-policy.tsv` row, because 322, 332
-and 336 are applied on staging and production (29 October promotion). Apply it
-with the advisory-locked runner, staging first. It needs no backend change.
+trigger refuses TRUNCATE for every role. PC-J74 F5 is covered by `345`.
+P2-SA-1 (PC-J356) removes service_role's TRIGGER, REFERENCES and TRUNCATE on
+`public.users`, plus MAINTAIN on PG17+, to block a planted trigger executing as
+the owner inside the staff RPC. Postconditions require those privileges to be
+absent and the evidence ACL to grant nothing to any non-owner. Trigger checks
+accept enabled (`O`) and always enabled (`A`) guards.
+341 is held by `forward-policy.tsv` as `pending_feature admin_aal2`: apply only
+with `MIGRATION_FEATURES=admin_aal2` through the advisory-locked runner, staging
+first after SA review, production only at an explicitly authorised
+staging→main promotion. It needs no backend change.
 One transaction, no data change, re-runnable. Re-running 322/332/336 restores
 the weak bodies, so re-run 341 after them. The rollback in the header reopens
 F1.
