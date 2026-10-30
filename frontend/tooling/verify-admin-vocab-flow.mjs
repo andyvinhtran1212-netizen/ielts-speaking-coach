@@ -46,9 +46,10 @@ function release(kind) {
   held.release();
   holds.delete(kind);
 }
-async function waitHeld(kind) {
+async function waitHeld(kind, request) {
   const held = holds.get(kind);
   if (!held) return; // Only explicitly armed requests need a pending-state check.
+  if (request) held.request = request;
   held.started += 1;
   let timer;
   try {
@@ -61,11 +62,17 @@ async function waitPending(pending, ...buttons) {
   await expect.poll(pending, { timeout: 15_000 }).toBe(true);
   for (const button of buttons) {
     await button.waitFor({ state: 'visible', timeout: 15_000 });
-    await expect(button).toBeDisabled();
+    try {
+      await expect(button).toBeDisabled();
+    } catch (error) {
+      check('pending button is disabled', false, `${button}: ${error.message}`);
+    }
   }
 }
-async function releaseResponse(page, kind, path) {
-  const responsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === path, { timeout: 15_000 });
+async function releaseResponse(page, kind) {
+  const request = holds.get(kind)?.request;
+  if (!request) throw new Error(`No held ${kind} request`);
+  const responsePromise = page.waitForResponse((response) => response.request() === request, { timeout: 15_000 });
   release(kind);
   const response = await responsePromise;
   await response.finished();
@@ -321,7 +328,7 @@ await page.route('**/*', async (route) => {
     if (holdNextVocab) {
       holdNextVocab = false;
       heldVocabStarted = true;
-      await waitHeld('vocab');
+      await waitHeld('vocab', request);
       return json({ vocab_bank_total: 42, fp_reports_total: 3, fp_rate_percent: 7.1, users_with_vocab_enabled: 7 });
     }
     return json({ vocab_bank_total: 42, fp_reports_total: 3, fp_rate_percent: 7.1, users_with_vocab_enabled: flagApplied ? 8 : 7 });
@@ -454,7 +461,7 @@ await page.route('**/*', async (route) => {
     if (holdNextQuizDetail) {
       holdNextQuizDetail = false;
       heldQuizDetailStarted = true;
-      await waitHeld('quizDetail');
+      await waitHeld('quizDetail', request);
     }
     return json({
       user: { user_id: quizLearnerId, name: 'Lan <img onerror=alert(1)>', email: 'lan@example.test' },
@@ -467,7 +474,7 @@ await page.route('**/*', async (route) => {
     if (holdNextQuizBankAnalytics) {
       holdNextQuizBankAnalytics = false;
       heldQuizBankAnalyticsStarted = true;
-      await waitHeld('quizBankAnalytics');
+      await waitHeld('quizBankAnalytics', request);
     }
     return json({ session_count: 2, items: [{ item_key: 'mitigate<script>', total: 4, wrong: 1, error_rate: 0.25 }], skills: [{ skill: 'meaning', total: 4, wrong: 1, error_rate: 0.25 }] });
   }
@@ -519,7 +526,7 @@ check('mutation bị khoá trong lúc chờ ACK', flagPending && await page.getB
 release('flag');
 await page.getByText('Vocab bank enabled.', { exact: true }).waitFor();
 check('mutation đúng path/body và đọc lại canonical Vocab stats', requests.some((item) => item.method === 'POST' && item.path === `/admin/users/${learnerId}/vocab-flag` && item.body?.enabled === true) && vocabRead >= 2);
-await releaseResponse(page, 'vocab', '/admin/vocab/stats');
+await releaseResponse(page, 'vocab');
 // Observe that the delivered stale response causes no later UI update.
 await page.waitForTimeout(100);
 check('refresh cũ không ghi đè canonical flag readback', await page.getByText('8', { exact: true }).count() >= 1);
@@ -682,7 +689,7 @@ await expect.poll(() => heldQuizBankAnalyticsStarted, { timeout: 15_000 }).toBe(
 check('Analytics bank A được giữ để kiểm freshness', heldQuizBankAnalyticsStarted);
 await page.getByLabel('Chọn bộ').selectOption(quizBankIdB);
 await page.getByText('resilient', { exact: true }).waitFor();
-await releaseResponse(page, 'quizBankAnalytics', `/admin/quiz/banks/${quizBankId}/analytics`);
+await releaseResponse(page, 'quizBankAnalytics');
 // Observe that the delivered stale response causes no later UI update.
 await page.waitForTimeout(100);
 check('Analytics request bank cũ không ghi đè bank mới', new URL(page.url()).searchParams.get('bank_id') === quizBankIdB && await page.getByText('resilient', { exact: true }).count() === 1 && await page.getByText('mitigate<script>', { exact: true }).count() === 0);
@@ -695,7 +702,7 @@ await page.getByRole('button', { name: 'Xem chi tiết' }).click();
 await expect.poll(() => heldQuizDetailStarted, { timeout: 15_000 }).toBe(true);
 check('Analytics detail được giữ để kiểm close freshness', heldQuizDetailStarted);
 await page.keyboard.press('Escape');
-await releaseResponse(page, 'quizDetail', `/admin/quiz/students/${quizLearnerId}`);
+await releaseResponse(page, 'quizDetail');
 // Observe that the delivered stale response causes no later UI update.
 await page.waitForTimeout(100);
 check('Analytics detail cũ không mở lại dialog đã đóng', await page.getByRole('dialog').count() === 0);
