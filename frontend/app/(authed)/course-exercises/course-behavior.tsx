@@ -100,9 +100,16 @@ export function CourseBehavior() {
         return Math.min(fullTotal, Math.max(1, Number(v.retake_size) || fullTotal));
       }
 
-      const fail = (msg: string) => {
+      // Huy hiệu "Không thể kết nối để lưu" chỉ dành cho lỗi kết nối/lưu thật.
+      // Đường dẫn thiếu bài hay máy chủ từ chối (4xx) thì chưa có gì để lưu —
+      // huy hiệu đỏ ở đó đẩy học viên đi kiểm tra mạng vô ích (UIA-1030-01).
+      const fail = (msg: string, opts: { connection?: boolean } = {}) => {
         const l = $('cx-loading'); if (l) l.hidden = true;
         const e = $('cx-error'); if (e) { e.hidden = false; e.textContent = msg; }
+        if (opts.connection === false) {
+          const note = $('cx-save-note'); if (note) note.hidden = true;
+          return;
+        }
         setSaveState('error', 'Không thể kết nối để lưu');
       };
 
@@ -112,7 +119,15 @@ export function CourseBehavior() {
       const bankId = new URLSearchParams(location.search).get('bank');
       const requestedView = new URLSearchParams(location.search).get('view');
       const requestedItem = new URLSearchParams(location.search).get('class_item');
-      if (!bankId) return fail('Thiếu mã bài tập trên đường dẫn (?bank=…).');
+      if (!bankId) {
+        fail('Liên kết bài tập chưa đầy đủ. Hãy mở bài từ Lớp học.', { connection: false });
+        const back = document.createElement('a');
+        back.className = 'av-button av-button-primary';
+        back.href = '/my-class';
+        back.textContent = 'Về Lớp học';
+        $('cx-error')?.appendChild(back);
+        return;
+      }
 
       runner = createRunner({
         api: courseApi,
@@ -130,7 +145,12 @@ export function CourseBehavior() {
         });
       } catch (err: any) {
         if (disposed) return;
-        fail('Không mở được bài tập: ' + (err?.message || err));
+        // `api.js` gắn `.status` khi máy chủ ĐÃ trả lời; 4xx (không có bài,
+        // không có quyền…) là từ chối, không phải mất kết nối.
+        const status = Number(err?.status);
+        fail('Không mở được bài tập: ' + (err?.message || err), {
+          connection: !(status >= 400 && status < 500),
+        });
         const retry = document.createElement('button');
         retry.type = 'button';
         retry.className = 'av-button av-button-primary';
