@@ -22,12 +22,12 @@ from fastapi import APIRouter, File, Header, HTTPException, Query, Request, Uplo
 from fastapi.routing import APIRoute
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 from starlette.concurrency import run_in_threadpool
 
 from database import supabase_admin
 from routers.admin import require_admin
+from services.async_pg_engine import create_asyncpg_engine
 from services.quiz_import import PublishState, import_quiz_file
 from models.grammar_quiz_revisions import (
     MAX_SOURCE_BYTES, GrammarRevisionCommitRequest, GrammarRevisionCommitResult,
@@ -46,7 +46,7 @@ def _grammar_revision_thread_call(action,url,*args):
     async def execute():
         # Request-scoped connection, using the existing configured owner URL.
         # No pooled async connection crosses event loops; no credentials reload.
-        engine=create_async_engine(url,poolclass=NullPool)
+        engine=create_asyncpg_engine(url,poolclass=NullPool)
         try:
             return await action(engine,*args)
         finally:

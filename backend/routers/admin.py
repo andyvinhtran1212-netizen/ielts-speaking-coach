@@ -22,7 +22,7 @@ import uuid as _uuid
 from typing import Any, Literal
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from config import settings
 from models.admin_speaking import (
@@ -37,6 +37,7 @@ from models.admin_users import AdminTestDataVisibilityOut, AdminUserDirectoryRow
 from models.staff_security import UserRoleChangeOut
 from models.grammar_content import GrammarArticleDocument
 from database import supabase_admin
+from services.async_pg_engine import create_asyncpg_engine
 from services.class_assignment_service import sync_class_item_score
 from services.core_attempt_observation import bind_owned_attempt, note_operation_failure, observe_operation
 from services.class_membership_service import active_memberships_for_students, add_student
@@ -79,7 +80,7 @@ _STAGING_E2E_TOPICS = frozenset({
     "Work and career",
 })
 _db_engine: AsyncEngine | None = (
-    create_async_engine(settings.ASYNC_DATABASE_URL)
+    create_asyncpg_engine(settings.ASYNC_DATABASE_URL)
     if settings.ASYNC_DATABASE_URL
     else None
 )
