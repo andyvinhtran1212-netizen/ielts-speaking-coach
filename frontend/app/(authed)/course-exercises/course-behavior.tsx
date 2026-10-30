@@ -78,6 +78,10 @@ export function CourseBehavior() {
     bootedFor.current = user.id;
     resetCourseScreen();
 
+    // Đổi tài khoản huỷ lượt này nhưng các request của nó vẫn bay tiếp và vẫn
+    // trỏ vào CÙNG các node của khung. Mọi chỗ ghi DOM sau một `await` hay
+    // trong callback của promise phải kiểm cờ này trước, không thì dữ liệu của
+    // tài khoản trước hiện lại trên màn của người sau (PC-J340).
     let disposed = false;
     let runner: any = null;
     let pronunciation: any = null;
@@ -220,6 +224,7 @@ export function CourseBehavior() {
         storage,
         userId: user.id,
         onSuperseded() {
+          if (disposed) return;
           setSaveState('saving', 'Lượt làm đã đổi · đang tải tiến độ mới nhất…');
           window.location.reload();
         },
@@ -314,6 +319,7 @@ export function CourseBehavior() {
       const pronunciationLoaded = pronunciation.load(bankId)
         .then(() => {
           pronunciationReady = true;
+          if (disposed) return;
           if (pronunciation.exists) {
             renderTitleMeta(assignedSectionCount(
               'pronunciation', pronunciation.count,
@@ -525,6 +531,7 @@ export function CourseBehavior() {
         const pronunciationBox = $('cx-pronunciation'); if (pronunciationBox) pronunciationBox.hidden = true;
         setSaveState('saving');
         const res = await runner.finishStage();
+        if (disposed) return;
         setSaveState(res.persisted ? 'saved' : 'error');
         const deadlineClosed = !res.persisted
           && /(?:quá|hết) hạn nộp/i.test(String(res.error || ''));
@@ -615,10 +622,12 @@ export function CourseBehavior() {
         // chính khối này. Hỏng thì `catch` ở trên đã nuốt, nên không treo.
         await writingLoaded;
         await pronunciationLoaded;
+        if (disposed) return;
         let v: any = null;
         try {
           v = await runner.verdict();
         } catch (err: any) {
+          if (disposed) return;
           // Xét hỏng KHÔNG được đọc thành "chưa đạt" — đó là hai câu khác nhau.
           const message = String(err?.message || err);
           const needsFullRetryOpen = message.includes('Hãy mở lượt làm lại mới');
@@ -630,6 +639,7 @@ export function CourseBehavior() {
             + '</div>';
           return;
         }
+        if (disposed) return;
         lastVerdict = v;
         const sectionRows = Array.isArray(v.sections) ? v.sections : [];
         const sectionOf = (key: string) => sectionRows.find((row: any) => row.key === key);
@@ -829,7 +839,9 @@ export function CourseBehavior() {
                   ? '&class_item=' + encodeURIComponent(requestedItem) : ''));
               // Nếu người học bắt đầu lượt mới khi request còn đang bay, phần
               // review của lượt cũ không được sống lại sau khi đã bị dọn.
-              if (seq !== reportSeq) return;
+              // Đổi tài khoản thì lượt này đã bị huỷ và khối đã về rỗng; báo
+              // cáo của tài khoản trước không được vẽ lên màn của người sau.
+              if (disposed || seq !== reportSeq) return;
               box.innerHTML = CR.renderReport(d, { learner: true, verdict: lastVerdict });
               // `stale` là báo cáo đọc thiếu. Không cache để cú bấm kế tiếp
               // gọi lại API và có thể thay bản một phần bằng dữ liệu đầy đủ.
@@ -837,7 +849,7 @@ export function CourseBehavior() {
               else delete box.dataset.crReady;
               CR.bindReport(box);
             } catch (err: any) {
-              if (seq !== reportSeq) return;
+              if (disposed || seq !== reportSeq) return;
               box.innerHTML = '<p class="cx-empty">Chưa đọc được phần tự review: '
                 + esc(err?.message || String(err)) + '. Bấm lại để thử lại.</p>';
             } finally {
@@ -846,6 +858,7 @@ export function CourseBehavior() {
           })();
         }
         if (reportLoad) await reportLoad;
+        if (disposed) return;
         if (options.scroll !== false) {
           box.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
@@ -955,8 +968,10 @@ export function CourseBehavior() {
         box.innerHTML = '<p class="cx-empty">Đang tải bài đọc đã nộp…</p>';
         try {
           await reading.review();
+          if (disposed) return;
           renderReading();
         } catch (err: any) {
+          if (disposed) return;
           box.innerHTML = '<p class="cx-empty">Chưa tải được bài đọc đã nộp: '
             + esc(err?.message || err) + '.</p>'
             + '<button class="av-button av-button-secondary" id="cr-back" type="button">Quay lại tổng kết</button>';
@@ -969,8 +984,10 @@ export function CourseBehavior() {
         if (btn) { btn.disabled = true; btn.textContent = 'Đang mở lời giải…'; }
         try {
           await reading.reveal();
+          if (disposed) return;
           renderReading();
         } catch (err: any) {
+          if (disposed) return;
           if (btn) { btn.disabled = false; btn.textContent = 'Thử mở lời giải lại'; }
           const bar = $('cr-bar');
           if (bar) bar.insertAdjacentHTML('afterbegin',
@@ -1008,13 +1025,16 @@ export function CourseBehavior() {
         window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
         try {
           await listening.refreshAudio();
+          if (disposed) return;
           const completed = runner.reviewOnly
             ? reviewSectionCompleted('listening')
             : (lastVerdict?.sections || [])
               .some((row: any) => row.key === 'listening' && row.completed === true);
           if (completed && !listening.revealed) await listening.review();
+          if (disposed) return;
           renderListening();
         } catch (err: any) {
+          if (disposed) return;
           box.innerHTML = '<p class="cx-empty">Chưa mở được audio bài nghe: '
             + esc(err?.message || err) + '. Hãy thử lại.</p>'
             + '<button class="av-button av-button-secondary" id="cl-back" type="button">Quay lại tổng kết</button>';
@@ -1027,8 +1047,10 @@ export function CourseBehavior() {
         if (btn) { btn.disabled = true; btn.textContent = 'Đang mở đáp án…'; }
         try {
           await listening.reveal();
+          if (disposed) return;
           renderListening();
         } catch (err: any) {
+          if (disposed) return;
           if (btn) { btn.disabled = false; btn.textContent = 'Thử mở đáp án lại'; }
           const bar = $('cl-bar');
           if (bar) bar.insertAdjacentHTML('afterbegin',
@@ -1056,6 +1078,7 @@ export function CourseBehavior() {
       async function openPronunciation() {
         pronunciationVisible = true;
         await pronunciationLoaded;
+        if (disposed) return;
         if (!pronunciationReady || !pronunciation.exists) {
           pronunciationVisible = false;
           return;
@@ -1065,6 +1088,7 @@ export function CourseBehavior() {
 
       async function togglePronunciationRecording() {
         await pronunciation.toggleRecording();
+        if (disposed) return;
         renderPronunciation();
       }
 
@@ -1074,20 +1098,24 @@ export function CourseBehavior() {
         pronunciationVisible = false;
         setActiveSection(null);
         await pronunciation.stopRecording();
+        if (disposed) return;
         $('cx-pronunciation')!.hidden = true;
         $('cx-done')!.hidden = false;
         await renderVerdict();
+        if (disposed) return;
         window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
       }
 
       async function selectPronunciation(index: number) {
         await pronunciation.stopRecording();
+        if (disposed) return;
         pronunciation.select(index);
         renderPronunciation();
       }
 
       async function movePronunciation(delta: number) {
         await pronunciation.stopRecording();
+        if (disposed) return;
         pronunciation.move(delta);
         renderPronunciation();
       }
@@ -1096,11 +1124,13 @@ export function CourseBehavior() {
         const pending = pronunciation.submit();
         renderPronunciation();
         await pending;
+        if (disposed) return;
         renderPronunciation();
       }
 
       async function startNewPronunciationAttempt() {
         await pronunciation.newAttempt();
+        if (disposed) return;
         renderPronunciation();
       }
 
@@ -1138,6 +1168,7 @@ export function CourseBehavior() {
         try {
           await writing.submit();
         } catch (err: any) {
+          if (disposed) return;
           if (btn) { btn.disabled = false; btn.textContent = 'Nộp luôn'; }
           const note = $('cw-note');
           if (note) {
@@ -1152,6 +1183,7 @@ export function CourseBehavior() {
           }
           return;
         }
+        if (disposed) return;
         renderWriting();
       }
 
@@ -1168,8 +1200,9 @@ export function CourseBehavior() {
         }
         stageAdvance = Promise.resolve()
           .then(() => runner.nextStage())
-          .then(() => { renderQuestion(); })
+          .then(() => { if (!disposed) renderQuestion(); })
           .catch((err) => {
+            if (disposed) return;
             // Giữ nguyên màn kết quả và mở lại nút để học viên thử tiếp. Hiện
             // lý do thật từ API/runner thay vì biến 409 thành một cú bấm im lặng.
             if (button?.isConnected) {
@@ -1204,6 +1237,7 @@ export function CourseBehavior() {
         const size = (lastVerdict && lastVerdict.retake_size)
           || (runner.mastery && runner.mastery.retake_size) || 20;
         await runner.startRetake(size);
+        if (disposed) return;
         if (runner.sessionFailed) {
           setSaveState('error');
           const box = $('cx-verdict');
@@ -1240,6 +1274,7 @@ export function CourseBehavior() {
               bank_id: bankId,
               ...(sectionAssignmentItem ? { class_item: sectionAssignmentItem } : {}),
             });
+            if (disposed) return;
             const attemptNo = Math.max(1, Number(opened?.attempt_no) || 1);
             reading.beginAttempt(attemptNo);
             listening.beginAttempt(attemptNo);
@@ -1247,9 +1282,11 @@ export function CourseBehavior() {
               writing.load(bankId, opened?.item_id || sectionAssignmentItem),
               pronunciation.load(bankId),
             ]);
+            if (disposed) return;
             writingReady = true;
             pronunciationReady = true;
           } catch (err: any) {
+            if (disposed) return;
             setSaveState('error');
             const box = $('cx-verdict');
             if (box) box.innerHTML = '<div class="cx-verdict" data-v="wait">'
@@ -1259,6 +1296,7 @@ export function CourseBehavior() {
             return;
           }
           await runner.restartFull();
+          if (disposed) return;
           if (runner.sessionFailed) {
             setSaveState('error');
             const box = $('cx-verdict');
@@ -1297,6 +1335,7 @@ export function CourseBehavior() {
           // With no open session, refresh the canonical verdict/action only.
           if (runner.hasOpenSession) {
             const result = await runner.finishStage({ endedBy: 'time_cap' });
+            if (disposed) return;
             if (!result.persisted) {
               if (result.expiryPending) {
                 timerSubmitted = true;

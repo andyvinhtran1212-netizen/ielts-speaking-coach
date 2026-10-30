@@ -520,3 +520,170 @@ describe('course-exercises account switch clears the previous exercise (PC-J339)
     expect(el('cx-save-note-text').textContent).toBe(SAVE_NOTE_IDLE);
   });
 });
+
+describe('course-exercises account switch drops the previous run\'s late answers (PC-J340)', () => {
+  type Mock = ReturnType<typeof vi.fn>;
+  const api = () => window.api as unknown as { get: Mock; post: Mock };
+  const refuse = (status: number) => () => api().get
+    .mockRejectedValue(Object.assign(new Error('HTTP ' + status), { status }));
+
+  const BLOCKS = ['cx-q', 'cx-next', 'cx-done', 'cx-reading', 'cx-listening', 'cx-pronunciation', 'cx-report'];
+
+  /** A request the test answers by hand, after the account switch. */
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (err: unknown) => void;
+    const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+    return { promise, resolve, reject };
+  }
+
+  /** `count` questions whose title and prompts name the account that owns them. */
+  function bankOf(who: string, count = 1) {
+    const questions = Array.from({ length: count }, (_v, i) => (
+      { ...mcq, qid: `Q-${who}-${i}`, prompt: `Câu ${i + 1} của ${who}?` }));
+    return bankApi(questions, `Buổi của ${who}`);
+  }
+
+  async function accountALoaded(count = 1) {
+    bankOf('A', count);
+    const view = renderPage('?bank=b1');
+    await waitFor(() => expect(el('cx-title').textContent).toBe('Buổi của A'));
+    await waitFor(() => expect(document.querySelector('.cx-opt')).not.toBeNull());
+    return view;
+  }
+
+  /** The delegated click handler reacts to ids; stand in for a drawn button. */
+  function click(id: string) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.id = id;
+    document.body.appendChild(button);
+    button.click();
+    button.remove();
+  }
+
+  function switchAccount(view: ReturnType<typeof render>, userId: string) {
+    wire.userId = userId;
+    view.rerender(<><CourseShell /><CourseBehavior /></>);
+  }
+
+  async function bLoaded() {
+    await waitFor(() => expect(el('cx-title').textContent).toBe('Buổi của B'));
+    await waitFor(() => expect(el('cx-q').textContent).toContain('Câu 1 của B?'));
+  }
+
+  async function bRefused() {
+    await waitFor(() => expect(el('cx-error').textContent).toBe('Không mở được bài tập: HTTP 403'));
+  }
+
+  /** Let every queued callback of the released request run. */
+  const settle = () => new Promise((r) => setTimeout(r, 20));
+
+  function nothingOfA(except: string[] = []) {
+    expect(document.body.textContent).not.toContain('của A');
+    expect(el('cx-title').textContent).not.toBe('Buổi của A');
+    for (const id of BLOCKS.filter((b) => !except.includes(b))) {
+      expect(el(id).hidden, id).toBe(true);
+      expect(el(id).innerHTML, id).toBe('');
+    }
+    expect(el('cx-report').dataset.crReady).toBeUndefined();
+  }
+
+  let scrollIntoView: Mock;
+  beforeEach(() => {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {}); // jsdom: not implemented
+    scrollIntoView = vi.fn();
+    (Element.prototype as unknown as { scrollIntoView: unknown }).scrollIntoView = scrollIntoView;
+  });
+  afterEach(() => {
+    delete (Element.prototype as unknown as { scrollIntoView?: unknown }).scrollIntoView;
+  });
+
+  /** Account A opens its report; the report read hangs until released. */
+  async function reportPendingForA() {
+    const view = await accountALoaded();
+    const report = deferred<unknown>();
+    const bankGet = api().get.getMockImplementation()!;
+    api().get.mockImplementation((path: string) => (
+      path.startsWith('/api/quiz/course/report') ? report.promise : bankGet(path)));
+    click('cx-see-report');
+    await waitFor(() => expect(el('cx-report').textContent).toContain('Đang dựng phần tự review…'));
+    return { view, report };
+  }
+
+  /** A report that names account A wherever the renderer shows text. */
+  const REPORT_OF_A = {
+    questions: [],
+    stale: false,
+    summary: { latest_pct: 88, latest_action: 'passed', pass_pct: 70 },
+    history: [{ phase: 'run', completed: true, next_action: 'passed', pct: 88, label: 'Lượt của A' }],
+  };
+
+  it.each([
+    ['B loads its exercise', () => { bankOf('B'); }, bLoaded, ['cx-q', 'cx-next']],
+    ['B gets 403', refuse(403), bRefused, []],
+  ])('account A\'s report answers after the switch (%s): nothing of A is drawn', async (_case, setupB, waitB, except) => {
+    const { view, report } = await reportPendingForA();
+
+    setupB();
+    switchAccount(view, 'student-2');
+    await waitB();
+
+    report.resolve(REPORT_OF_A);
+    await settle();
+    nothingOfA(except as string[]);
+    expect(el('cx-report').querySelector('.cr')).toBeNull();
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it('account A\'s report fails after the switch: its error sentence is not drawn', async () => {
+    const { view, report } = await reportPendingForA();
+
+    refuse(403)();
+    switchAccount(view, 'student-2');
+    await bRefused();
+
+    report.reject(new Error('lỗi báo cáo của A'));
+    await settle();
+    nothingOfA();
+    expect(el('cx-report').textContent).not.toContain('Chưa đọc được phần tự review');
+  });
+
+  it.each([
+    ['B loads its exercise', () => { bankOf('B'); }, bLoaded, ['cx-q', 'cx-next']],
+    ['B gets 403', refuse(403), bRefused, []],
+  ])('account A\'s stage advance fails after the switch (%s): the badge keeps B\'s state', async (_case, setupB, waitB, except) => {
+    // Eleven questions = two stages, so "Làm chặng 2" opens a new session.
+    const view = await accountALoaded(11);
+    const opened = deferred<unknown>();
+    const post = api().post.getMockImplementation()!;
+    api().post.mockImplementation((path: string, body: unknown) => (
+      path === '/api/quiz/sessions' ? opened.promise : post(path, body)));
+    click('cx-more');
+    await waitFor(() => expect(api().post).toHaveBeenCalledWith('/api/quiz/sessions', expect.anything()));
+
+    setupB();
+    switchAccount(view, 'student-2');
+    await waitB();
+    const badgeState = el('cx-save-note').dataset.state;
+    const badgeText = el('cx-save-note-text').textContent;
+    const badgeHidden = el('cx-save-note').hidden;
+
+    opened.reject(new Error('phiên của A đã bị thay'));
+    await settle();
+    nothingOfA(except as string[]);
+    expect(el('cx-save-note-text').textContent).not.toContain('Chưa chuyển được chặng');
+    expect(el('cx-save-note').dataset.state).toBe(badgeState);
+    expect(el('cx-save-note-text').textContent).toBe(badgeText);
+    expect(el('cx-save-note').hidden).toBe(badgeHidden);
+  });
+
+  it('without an account switch the report still draws (negative control)', async () => {
+    const { report } = await reportPendingForA();
+    report.resolve(REPORT_OF_A);
+    await waitFor(() => expect(el('cx-report').querySelector('.cr')).not.toBeNull());
+    expect(el('cx-report').hidden).toBe(false);
+    expect(el('cx-report').dataset.crReady).toBe('1');
+    expect(scrollIntoView).toHaveBeenCalled();
+  });
+});
