@@ -286,6 +286,112 @@ def test_student_write_keeps_lock_through_repeated_cancel():
     asyncio.run(scenario())
 
 
+# ── Writing grading dispatch survives a cancelled submit (PC-J468) ──
+# Codex P2 on #2088 (thread yDmG8): the claim runs in the worker thread and
+# moves the essays pending→grading + queues the jobs; a request cancelled while
+# it waits for that thread re-raised before the dispatch, and a resubmit cannot
+# re-claim a non-pending essay. Only the stuck-job reaper (360 s + one lost
+# attempt) would have picked them up.
+
+_QUEUED = [("e1", "j1"), ("e2", "j2")]
+
+
+def _submit_scenario(section, claimed, *, cancel):
+    """Drive the submit handler with a claim that blocks until released.
+
+    Returns (outcome, dispatched, background_tasks): outcome is the handler's
+    result or the CancelledError it raised; dispatched lists every
+    ``_bg_grade_essay`` call made by any path, BackgroundTasks included."""
+    from fastapi import BackgroundTasks
+
+    entered, release = threading.Event(), threading.Event()
+    dispatched = []
+    sitting = {"id": _SITTING_ID, "essay_task1_id": "e1", "essay_task2_id": "e2"}
+
+    def claim(_essay_ids):
+        entered.set()
+        release.wait(5)
+        return {"queued": list(claimed), "short": [], "skipped": []}
+
+    def submit(*_args):
+        if section != "writing":
+            entered.set()
+            release.wait(5)
+        return {"ok": True, "section": section}
+
+    async def bg_grade(essay_id, job_id, **_kwargs):
+        dispatched.append((essay_id, job_id))
+
+    async def scenario():
+        tasks = BackgroundTasks()
+        handler = asyncio.create_task(mock_router.submit_section(
+            _SITTING_ID, section, mock_router.SectionSubmitBody(task1_text="a", task2_text="b"),
+            tasks, authorization="Bearer faketoken",
+        ))
+        try:
+            while not entered.is_set():
+                await asyncio.sleep(0.01)
+            if cancel:
+                handler.cancel()
+                await asyncio.sleep(0)
+                handler.cancel()      # a second cancel while the thread still runs
+                await asyncio.sleep(0.05)
+        finally:
+            release.set()
+        try:
+            outcome = await handler
+        except asyncio.CancelledError as e:
+            outcome = e
+        # Starlette runs BackgroundTasks after the response; a cancelled request
+        # never sends one, so they only run on the normal path.
+        if not cancel:
+            await tasks()
+        deadline = time.monotonic() + 2
+        expected = len(claimed) if section == "writing" else 0
+        while len(dispatched) < expected and time.monotonic() < deadline:
+            await asyncio.sleep(0.01)
+        await asyncio.sleep(0.1)      # a duplicate dispatch would land here
+        return outcome, dispatched, tasks
+
+    with patch("routers.mock_exams.get_supabase_user", new=AsyncMock(return_value=_USER)), \
+         patch("routers.mock_exams.svc.submit_section", new=submit), \
+         patch("routers.mock_exams.svc.get_sitting", return_value=sitting), \
+         patch("routers.mock_exams.svc.claim_mock_writing_grading", new=claim), \
+         patch("routers.mock_exams.essay_service._bg_grade_essay", new=bg_grade):
+        return asyncio.run(scenario())
+
+
+def test_cancelled_writing_submit_still_dispatches_each_claimed_job_once():
+    outcome, dispatched, tasks = _submit_scenario("writing", _QUEUED, cancel=True)
+
+    assert isinstance(outcome, asyncio.CancelledError), outcome  # lock behaviour kept
+    assert sorted(dispatched) == sorted(_QUEUED), dispatched
+    assert not tasks.tasks      # not also handed to the response's BackgroundTasks
+
+
+def test_writing_submit_without_cancel_dispatches_each_claimed_job_once():
+    outcome, dispatched, tasks = _submit_scenario("writing", _QUEUED, cancel=False)
+
+    assert outcome == {"ok": True, "section": "writing"}
+    assert sorted(dispatched) == sorted(_QUEUED), dispatched
+    assert len(tasks.tasks) == len(_QUEUED)
+
+
+@pytest.mark.parametrize("cancel", [True, False])
+@pytest.mark.parametrize("section, claimed", [
+    ("listening", _QUEUED), ("reading", _QUEUED), ("writing", []),
+])
+def test_submit_without_claimed_jobs_dispatches_nothing(section, claimed, cancel):
+    """Listening/Reading never claim (the claim double is not even reached), and
+    an empty claim queues nothing — with or without a cancel."""
+    outcome, dispatched, tasks = _submit_scenario(section, claimed, cancel=cancel)
+
+    assert isinstance(outcome, asyncio.CancelledError) if cancel \
+        else outcome == {"ok": True, "section": section}
+    assert dispatched == []
+    assert not tasks.tasks
+
+
 # ── Same-sitting races through the REAL service (CR G4 serial checklist) ──
 # FakeSupabase hands out its shared row dict, which hides a stale snapshot, so
 # get_sitting returns a deep copy after a PostgREST-sized delay.
