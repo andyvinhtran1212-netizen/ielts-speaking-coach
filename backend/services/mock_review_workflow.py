@@ -402,7 +402,8 @@ def save_final_bands(
     The overall is ALWAYS recomputed here (verified mean), never trusted from
     the client — same posture as writing overall bands. Required skills come from
     the exam config (Speaking optional for LRW-only exams). Auth: only the
-    current claimant may save (filter inside the UPDATE).
+    current claimant may save, from 'claimed' or 'reviewed' only (filters inside
+    the UPDATE, so a concurrent release cannot be overwritten).
 
     retest_flags (2026-07-12, mig 152) is the admin's independent PASS/FAIL
     judgment per skill — {skill: bool} — separate from the score. Only keys
@@ -479,16 +480,22 @@ def save_final_bands(
 
     response = supabase_admin.table("mock_exam_reviews").update(update).eq(
         "id", str(review_id),
-    ).eq("claimed_by", str(admin_id)).execute()
+    ).eq("claimed_by", str(admin_id)).in_("status", ["claimed", "reviewed"]).execute()
     if not response.data:
         existing = supabase_admin.table("mock_exam_reviews").select(
             "id, status, claimed_by",
         ).eq("id", str(review_id)).limit(1).execute()
         if not existing.data:
             raise NotFoundError(f"Review {review_id} not found")
-        raise PermissionError(
-            f"Review {review_id} is not claimed by admin {admin_id}; "
-            f"cannot save final bands."
+        cur = existing.data[0]
+        if cur.get("claimed_by") != str(admin_id):
+            raise PermissionError(
+                f"Review {review_id} is not claimed by admin {admin_id}; "
+                f"cannot save final bands."
+            )
+        raise ConflictError(
+            f"Review {review_id} is in status={cur['status']!r}; "
+            f"must be 'claimed' or 'reviewed' before saving final bands."
         )
     # Sync the sitting-level needs_retest flag (mig 153) UP from the final
     # per-skill decision — but only ever SET it true, never clear it here. The

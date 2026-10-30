@@ -7,7 +7,7 @@ paper, score and historical attempts untouched.
 from __future__ import annotations
 
 import asyncio
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
@@ -138,7 +138,18 @@ async def submit_post_test_capture(
             }
 
         async with _capture_lock(skill, attempt_id):
-            return await asyncio.to_thread(_capture)
+            work = asyncio.ensure_future(asyncio.to_thread(_capture))
+            try:
+                return await asyncio.shield(work)
+            except asyncio.CancelledError:
+                # A thread outlives request cancellation. Retain the lock until
+                # it finishes, even if the request is cancelled again.
+                while not work.done():
+                    with suppress(asyncio.CancelledError):
+                        await asyncio.wait({work})
+                if not work.cancelled():
+                    work.exception()
+                raise
     except svc.CorrectionError as exc:
         raise _service_error(exc) from exc
 

@@ -262,7 +262,13 @@ def assignment_refresh(monkeypatch):
     return refresh
 
 
-def test_concurrent_assign_requests_refresh_one_row(app, monkeypatch, assignment_refresh):
+def test_concurrent_assign_requests_from_separate_replicas_refresh_one_row(app, monkeypatch, assignment_refresh):
+    # Separate replicas have separate exam locks. Bypass only that process-local
+    # boundary to keep exercising the real UNIQUE fallback through both routes.
+    async def replica_write(_exam_id, fn, *args, **kwargs):
+        return await asyncio.to_thread(fn, *args, **kwargs)
+
+    monkeypatch.setattr(proctor, "_assignment_write", replica_write)
     rows, writes, conflicts = [], [], []
     reads = threading.Barrier(2)
     db_lock = threading.Lock()

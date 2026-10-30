@@ -30,6 +30,8 @@ console lives in admin_mock_reviews.py.
 from __future__ import annotations
 
 import asyncio
+import weakref
+from contextlib import suppress
 from datetime import timezone
 from typing import Annotated, Literal
 
@@ -44,6 +46,31 @@ from services import mock_exam_service as svc
 from services import mock_review_workflow as wf
 
 router = APIRouter(prefix="/admin/mock-exams", tags=["admin-mock-exams"])
+
+
+# Keep each assignment batch and its sitting refreshes/revocations together.
+# Strong references in holders/waiters retain a lock only while it is in use.
+_assignment_write_locks: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
+
+
+async def _assignment_write(exam_id, fn, *args, **kwargs):
+    key = str(exam_id).lower()
+    lock = _assignment_write_locks.get(key)
+    if lock is None:
+        lock = _assignment_write_locks[key] = asyncio.Lock()
+    async with lock:
+        work = asyncio.ensure_future(asyncio.to_thread(fn, *args, **kwargs))
+        try:
+            return await asyncio.shield(work)
+        except asyncio.CancelledError:
+            # Threads cannot be interrupted. A cancelled request must retain
+            # the exam lock until its entire write/refresh or remove finishes.
+            while not work.done():
+                with suppress(asyncio.CancelledError):
+                    await asyncio.wait({work})
+            if not work.cancelled():
+                work.exception()
+            raise
 
 
 def _window_instant(value) -> str | None:
@@ -471,7 +498,8 @@ async def create_assignments(
     admin = await require_admin(authorization)
     rows = [r.model_dump() for r in body.assignments]
     try:
-        return await asyncio.to_thread(
+        return await _assignment_write(
+            exam_id,
             assign_svc.assign,
             exam_id, rows, created_by=admin["id"], source_exam_id=body.source_exam_id,
         )
@@ -491,7 +519,9 @@ async def delete_assignment(
     doing two things silently under one verb."""
     admin = await require_admin(authorization)
     try:
-        out = await asyncio.to_thread(assign_svc.remove, exam_id, student_id, admin_id=admin["id"])
+        out = await _assignment_write(
+            exam_id, assign_svc.remove, exam_id, student_id, admin_id=admin["id"],
+        )
     except assign_svc.RevocationError as e:
         # The assignment is gone but an open sitting survived, so access was
         # NOT revoked. Answering ok:true here would show the admin a revocation
