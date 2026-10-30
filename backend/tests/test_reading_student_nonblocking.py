@@ -760,9 +760,18 @@ def test_two_submits_same_attempt_exactly_one_grades(env):
     assert len([s for s in env.db.statements if s == ("reading_test_attempts", "update")]) == 1
 
 
-def test_submit_and_autosave_never_drop_an_acknowledged_answer(env):
+# A share-link attempt is owned by its anon capability; the shared frontend
+# transport still attaches a Bearer token when one is available, so the same
+# attempt can be reached with and without auth (Codex review on #2105).
+@pytest.mark.parametrize("owner,submit_auth,save_auth", [
+    ("user", "Bearer u1", "Bearer u1"),
+    ("anon", "Bearer u1", None),
+    ("anon", None, "Bearer u1"),
+], ids=["owned", "anon-submit-with-bearer", "anon-save-with-bearer"])
+def test_submit_and_autosave_never_drop_an_acknowledged_answer(env, owner, submit_auth, save_auth):
     env.db.delay = 0.02
-    row = env.attempt(U1)
+    row = env.attempt(U1) if owner == "user" else env.attempt(None, anon_id=ANON)
+    anon = ANON if owner == "anon" else None
     env.answer(row["id"], 1, "TRUE")
     saved, answers_read = threading.Event(), threading.Event()
     attempt_reads = {"n": 0}
@@ -784,9 +793,10 @@ def test_submit_and_autosave_never_drop_an_acknowledged_answer(env):
     env.db.hooks.append((is_answers_read, _pause_until(saved)))
 
     async def scenario(client):
-        submit = asyncio.create_task(_call(client, "submit", attempt_id=row["id"]))
+        submit = asyncio.create_task(_call(client, "submit", auth=submit_auth, anon=anon, attempt_id=row["id"]))
         await asyncio.sleep(0.05)
-        save = asyncio.create_task(_call(client, "save", attempt_id=row["id"], json={"q_num": 2, "user_answer": "cat"}))
+        save = asyncio.create_task(_call(client, "save", auth=save_auth, anon=anon, attempt_id=row["id"],
+                                         json={"q_num": 2, "user_answer": "cat"}))
         return await submit, await save
 
     submit, save = _run(env, scenario)

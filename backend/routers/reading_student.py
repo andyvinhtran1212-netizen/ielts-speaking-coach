@@ -127,6 +127,10 @@ async def _is_admin(authorization: str | None) -> bool:
 # and only then compare-and-sets the attempt, so an autosave landing in between
 # would be acknowledged yet never graded. One learner's exam writes therefore
 # stay serialised in this process; different learners run in parallel.
+# submit/autosave also lock the attempt itself: a share-link attempt is owned
+# by its anon capability whether or not a Bearer token rides along, so the
+# request's credentials alone do not name one lock per attempt. Locks are
+# always taken learner first, then attempt (start takes only the learner).
 _learner_write_locks: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
 
 
@@ -141,9 +145,15 @@ def _learner_key(user: Optional[dict], anon_id: str | None) -> str:
     return f"user:{user['id']}" if user else f"anon:{anon_id}"
 
 
-async def _learner_write(key: str, fn, *args):
-    """Run the sync write ``fn(*args)`` in a worker thread under the learner's lock."""
-    async with _learner_write_lock(key):
+def _attempt_write_keys(attempt_id: str, user: Optional[dict], anon_id: str | None) -> tuple[str, ...]:
+    return (_learner_key(user, anon_id), f"attempt:{attempt_id}")
+
+
+async def _learner_write(keys: tuple[str, ...], fn, *args):
+    """Run the sync write ``fn(*args)`` in a worker thread under the given locks."""
+    async with contextlib.AsyncExitStack() as held:
+        for key in keys:
+            await held.enter_async_context(_learner_write_lock(key))
         work = asyncio.ensure_future(asyncio.to_thread(fn, *args))
         try:
             return await asyncio.shield(work)
@@ -1285,7 +1295,7 @@ async def start_reading_test_attempt(
     abandon-then-insert and wins next iteration."""
     user = await _require_auth(authorization)
     return await _learner_write(
-        _learner_key(user, None), _start_reading_test_attempt_sync,
+        (_learner_key(user, None),), _start_reading_test_attempt_sync,
         test_id, body, class_item, x_reading_password, user,
     )
 
@@ -1491,7 +1501,7 @@ async def submit_reading_test_attempt(
     hitting zero and the POST arriving."""
     user = await _optional_auth(authorization)
     return await _learner_write(
-        _learner_key(user, x_reading_anon), _submit_reading_test_attempt_sync,
+        _attempt_write_keys(attempt_id, user, x_reading_anon), _submit_reading_test_attempt_sync,
         attempt_id, body, user, x_reading_anon,
     )
 
@@ -1969,7 +1979,7 @@ async def patch_reading_test_attempt_answer(
     can't accidentally write to a submitted/abandoned attempt."""
     user = await _optional_auth(authorization)
     return await _learner_write(
-        _learner_key(user, x_reading_anon), _patch_reading_test_attempt_answer_sync,
+        _attempt_write_keys(attempt_id, user, x_reading_anon), _patch_reading_test_attempt_answer_sync,
         attempt_id, body, user, x_reading_anon,
     )
 
