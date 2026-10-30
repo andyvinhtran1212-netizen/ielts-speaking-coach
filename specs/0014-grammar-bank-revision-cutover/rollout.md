@@ -1,5 +1,9 @@
 # Rollout and rollback
 
+> "Scope update (30/10/2026): The eligibility list and the 'one cutover per code' rule in this spec were extended by GRAMMARAUDIT-0019 (specs/0019-grammar-audit-remediation, FR-004, FR-005, FR-007; migrations 314 and 339). The allowed codes are now the reviewed bindings in backend/services/grammar_quiz_reviewed_sources.json, and the three codes named in 0019 FR-007 may have one follow-up cutover. Everything else in this spec still applies: history preservation, locks, receipts, reset marker, erasure, row/byte caps and N-1 compatibility. Where this spec says 'exact twelve' or 'no second cutover', read it as 'the 0019 approved set'. Production publication for these codes is tracked in 0019 T008 and T013, not in this spec."
+
+Production publication / release evidence của 0014 được theo dõi ở specs/0019 T008, T012, T013.
+
 ## Preconditions
 
 1. Land separately reviewed approved behavior first; implement under high-risk
@@ -64,7 +68,7 @@ footprint includes already-cutover state and canonical question extras/why_wrong
 Missing/already-cutover/unknown/conflicting data blocks that code for a separate
 reviewed decision; no invented predecessor/second cutover or automatic extra edit.
 
-If306 already applied, apply additive follow-up schema/guard changes, preserving ledger.
+If309 already applied, apply additive follow-up schema/guard changes, preserving ledger.
 New grammar_reset_at column is nullable server-only on existing sessions, not a policy
 column/table/platform. Migration does not backfill it or infer purpose. Runtime current
 reset is sole authorized NULL→DB transaction timestamp writer before stats delete.
@@ -87,7 +91,7 @@ progress retry, mastery resurrection or optimistic save. Rollback retains these
 reset/admission/matching guards and stored marks while any admitted work depends on
 them; no schema removal/mark clearing/history rewrite. Every release gate is PENDING.
 
-## Current integration migration filename (2026-10-03)
+## Historical integration migration filename (2026-10-03)
 
 Select `309_grammar_quiz_revision_cutover.sql` for the currently unapplied
 Grammar candidate. `306_mock_paper_policy_and_admission.sql` belongs to the
