@@ -218,8 +218,8 @@ class AssignBody(BaseModel):
     student_id: UUID
     name: Optional[str] = Field(None, max_length=200)   # W-06: label the student sees
     deadline: Optional[Deadline] = None
-    instructions: Optional[str] = None
-    analysis_level: int = 3
+    instructions: Optional[str] = Field(None, max_length=2000)   # same bounds as FanOutBody (PC-J115)
+    analysis_level: int = Field(3, ge=1, le=5)          # AI depth L1–L5 (mig 104)
     grading_tier: Literal["standard", "deep"] = "standard"  # AI pass depth (W-L3)
 
 
