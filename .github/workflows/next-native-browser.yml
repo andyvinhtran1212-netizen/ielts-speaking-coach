@@ -636,6 +636,7 @@ on:
       - 'frontend/tooling/verify-admin-users-flow.mjs'
       - 'frontend/app/(authed-admin-mfa)/**'
       - 'frontend/public/css/admin-mfa-next.css'
+      - 'frontend/public/css/admin-mfa-dialog.css'
       - 'frontend/tooling/admin-mfa-stub.mjs'
       - 'frontend/tooling/verify-admin-mfa-flow.mjs'
       - 'frontend/tooling/verify-admin-classes-flow.mjs'
