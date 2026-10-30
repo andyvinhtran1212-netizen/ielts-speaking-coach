@@ -3,6 +3,7 @@
 import asyncio
 import threading
 import time
+from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import UUID
@@ -22,6 +23,7 @@ _REQUEST = "00000000-0000-4000-8000-000000000002"
 _PROMPT = "00000000-0000-4000-8000-000000000003"
 _COHORT = "00000000-0000-4000-8000-000000000004"
 _STUDENT = "00000000-0000-4000-8000-000000000005"
+_ASSIGNMENT = "00000000-0000-4000-8000-000000000006"
 
 
 class _Call:
@@ -193,3 +195,160 @@ def test_regrade_partial_write_observation_survives_thread_context(monkeypatch):
 
     asyncio.run(run())
     observer.assert_awaited_once_with([_PROMPT])
+
+
+class _AssignmentStore:
+    """Independent read snapshots; atomic predicate matching and update."""
+
+    def __init__(self, status):
+        self.row = {"id": _ASSIGNMENT, "status": status}
+        self.lock = threading.Lock()
+        self.reads = 0
+        self.writes = 0
+        self.after_read = lambda read_number: None
+
+    def table(self, name):
+        assert name == "writing_assignments"
+        store = self
+
+        class Query:
+            def __init__(self):
+                self.filters = {}
+                self.patch = None
+
+            def select(self, columns): return self
+            def limit(self, count): return self
+
+            def eq(self, column, value):
+                self.filters[column] = value
+                return self
+
+            def update(self, patch):
+                self.patch = patch
+                return self
+
+            def execute(self):
+                with store.lock:
+                    matches = store.row is not None and all(
+                        store.row.get(key) == value for key, value in self.filters.items()
+                    )
+                    if self.patch is not None and matches:
+                        store.row.update(self.patch)
+                        store.writes += 1
+                    data = [deepcopy(store.row)] if matches else []
+                    if self.patch is None:
+                        store.reads += 1
+                        read_number = store.reads
+                if self.patch is None:
+                    store.after_read(read_number)
+                return SimpleNamespace(data=data)
+
+        return Query()
+
+
+@pytest.mark.parametrize("current,targets", [
+    ("pending", ("in_progress", "delivered")),
+    ("in_progress", ("submitted", "delivered")),
+    ("in_progress", ("submitted", "submitted")),
+    ("submitted", ("graded", "delivered")),
+])
+def test_concurrent_assignment_status_patches_only_one_succeeds(monkeypatch, current, targets):
+    db = _AssignmentStore(current)
+    both_read = threading.Barrier(2)
+    reader_threads = set()
+
+    def slow_get(read_number):
+        if read_number <= 2:
+            reader_threads.add(threading.get_ident())
+            # Both workers hold deep copies of the old row before either writes.
+            both_read.wait(timeout=5)
+            time.sleep(0.05)
+
+    db.after_read = slow_get
+    monkeypatch.setattr(assignments, "require_admin", AsyncMock(return_value=_ADMIN))
+    monkeypatch.setattr(assignments, "supabase_admin", db)
+
+    async def run():
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=_app(assignments)), base_url="http://test",
+        ) as client:
+            return await asyncio.gather(*(
+                client.patch(f"/admin/writing/assignments/{_ASSIGNMENT}", json={
+                    "status": target, "instructions": f"request-{i}",
+                }) for i, target in enumerate(targets)
+            ))
+
+    responses = asyncio.run(run())
+    assert len(reader_threads) == 2
+    assert sorted(r.status_code for r in responses) == [200, 409]
+    winner = next(r for r in responses if r.status_code == 200)
+    loser = next(r for r in responses if r.status_code == 409)
+    assert loser.json() == {"detail": "Assignment changed; reload"}
+    assert db.writes == 1
+    assert db.row == winner.json()
+    timestamp = {"submitted": "submitted_at", "graded": "graded_at", "delivered": "delivered_at"}
+    expected_stamp = timestamp.get(db.row["status"])
+    assert {key for key in timestamp.values() if key in db.row} == (
+        {expected_stamp} if expected_stamp else set()
+    )
+
+
+@pytest.mark.parametrize("changed_status,requested_status,expected_code", [
+    (None, "submitted", 404),
+    ("delivered", "submitted", 409),
+    ("submitted", "in_progress", 409),
+])
+def test_assignment_status_patch_detects_change_after_read(
+    monkeypatch, changed_status, requested_status, expected_code,
+):
+    db = _AssignmentStore("in_progress")
+
+    def concurrent_change(read_number):
+        if read_number == 1:
+            with db.lock:
+                if changed_status is None:
+                    db.row = None
+                else:
+                    db.row["status"] = changed_status
+
+    db.after_read = concurrent_change
+    monkeypatch.setattr(assignments, "require_admin", AsyncMock(return_value=_ADMIN))
+    monkeypatch.setattr(assignments, "supabase_admin", db)
+
+    async def run():
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=_app(assignments)), base_url="http://test",
+        ) as client:
+            return await client.patch(f"/admin/writing/assignments/{_ASSIGNMENT}", json={
+                "status": requested_status, "instructions": "stale update",
+            })
+
+    response = asyncio.run(run())
+    assert response.status_code == expected_code
+    assert response.json() == {"detail": (
+        "Assignment not found" if expected_code == 404 else "Assignment changed; reload"
+    )}
+    assert db.writes == 0
+    assert db.row == (None if changed_status is None else {
+        "id": _ASSIGNMENT, "status": changed_status,
+    })
+
+
+@pytest.mark.parametrize("patch", [
+    {"deadline": None, "instructions": "updated"},
+    {"status": None, "instructions": "updated"},
+    {"status": "in_progress", "instructions": "updated"},
+])
+def test_assignment_patch_preserves_nonstatus_and_same_status_updates(monkeypatch, patch):
+    db = _AssignmentStore("in_progress")
+    monkeypatch.setattr(assignments, "require_admin", AsyncMock(return_value=_ADMIN))
+    monkeypatch.setattr(assignments, "supabase_admin", db)
+
+    result = asyncio.run(assignments.update_assignment(
+        UUID(_ASSIGNMENT), assignments.AssignmentUpdate(**patch),
+    ))
+    assert result == db.row == {
+        "id": _ASSIGNMENT, **patch, "status": "in_progress",
+    }
+    assert db.writes == 1
+    assert db.reads == (1 if patch.get("status") is not None else 0)

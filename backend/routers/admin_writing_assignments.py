@@ -664,6 +664,7 @@ async def update_assignment(
 def _update_assignment_sync(assignment_id: UUID, body: AssignmentUpdate):
     fields = body.model_dump(exclude_unset=True)
     patch: dict = {}
+    current_status = None
 
     if "deadline" in fields:
         # `None` is a meaningful value here — clears the deadline.
@@ -703,14 +704,27 @@ def _update_assignment_sync(assignment_id: UUID, body: AssignmentUpdate):
     if not patch:
         raise HTTPException(400, "No fields to update")
 
-    r = (
+    update_query = (
         supabase_admin.table("writing_assignments")
         .update(patch)
         .eq("id", str(assignment_id))
-        .execute()
     )
+    if "status" in patch:
+        # Validate and write against the same status, including same-status
+        # saves, so another worker cannot advance the row between them.
+        update_query = update_query.eq("status", current_status)
+    r = update_query.execute()
     if not r.data:
-        raise HTTPException(404, "Assignment not found")
+        existing = (
+            supabase_admin.table("writing_assignments")
+            .select("id")
+            .eq("id", str(assignment_id))
+            .limit(1)
+            .execute()
+        )
+        if not existing.data:
+            raise HTTPException(404, "Assignment not found")
+        raise HTTPException(409, "Assignment changed; reload")
     return r.data[0]
 
 
