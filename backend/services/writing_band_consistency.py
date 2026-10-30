@@ -14,11 +14,11 @@ from services.gemini_writing_grader import (
 # Kept in sync with instructor-compose-util.js by shared preview/persist tests.
 # Bare "overall" often introduces a count ("Overall 3 main points"), so it is a
 # claim only before band/score, a ":"/"="/"is"/"là", or a valid band that ends
-# the clause (or is written "/9").
+# the clause (punctuation, a dash, or "/9").
 _BAND_CLAIM = re.compile(
     r"(?:^|[^\w])(?:band(?:\s+score)?|score|điểm|"
     r"overall(?:\s+(?:band|score)|(?=\s*(?:[:=]|(?:is|là)\s))|"
-    r"(?=\s+(?:[0-8](?:[.,][05])?|9(?:[.,]0)?)(?![.,]?\d)(?:/9|[ \t]*(?:[.!?;,:)\r\n]|$))))|"
+    r"(?=\s+(?:[0-8](?:[.,][05])?|9(?:[.,]0)?)(?![.,]?\d)(?:/9|[ \t]*(?:[.!?;,:)\r\n—–]|$)|[ \t]+-(?:\s|$))))|"
     r"kết\s+quả(?:\s+tổng\s+thể)?|"
     r"your\s+(?:essay|writing)\s+(?:achieves|scores|is\s+at)|"
     r"(?:bài(?:\s+(?:viết|làm))?(?:\s+(?:này|của\s+(?:em|bạn)))?|em|bạn)"
