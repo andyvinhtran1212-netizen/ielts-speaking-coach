@@ -279,6 +279,30 @@ def _pre_320() -> str:
             FOR EACH ROW EXECUTE FUNCTION fn_stub_paper_trigger();
         CREATE TRIGGER trg_listening_exercises_updated_at BEFORE UPDATE ON listening_exercises
             FOR EACH ROW EXECUTE FUNCTION fn_stub_paper_trigger();
+        -- 339 minimal shape: empty quiz/receipt tables and plain stubs of the 309/314
+        -- functions 339 replaces or grants. 339 re-creates the replaced bodies as
+        -- SECURITY DEFINER and must re-run 314's REVOKE, or (c) fires on these defaults.
+        CREATE TABLE quiz_banks (id uuid PRIMARY KEY, code text, grammar_canonical_code text);
+        {"".join(f'''
+        CREATE TABLE {t} (id uuid PRIMARY KEY);'''
+                 for t in ("quiz_questions", "quiz_sessions", "quiz_attempts", "quiz_word_stats"))}
+        CREATE TABLE governance_audit (id bigserial PRIMARY KEY);
+        CREATE FUNCTION grammar_quiz_audit_binding(text, text) RETURNS jsonb
+            LANGUAGE sql IMMUTABLE AS $$ SELECT NULL::jsonb $$;
+        CREATE FUNCTION grammar_quiz_audit_chain(text) RETURNS boolean LANGUAGE sql AS $$ SELECT false $$;
+        CREATE FUNCTION grammar_quiz_guard_bank() RETURNS trigger LANGUAGE plpgsql
+            AS $$ BEGIN RETURN NEW; END $$;
+        CREATE TRIGGER zz_grammar_quiz_bank_guard BEFORE INSERT OR UPDATE OR DELETE ON quiz_banks
+            FOR EACH ROW EXECUTE FUNCTION grammar_quiz_guard_bank();
+        CREATE FUNCTION grammar_quiz_validate_receipt_envelope(jsonb, uuid, uuid) RETURNS void
+            LANGUAGE plpgsql AS $$ BEGIN END $$;
+        {"".join(f'''
+        CREATE FUNCTION grammar_quiz_{name}({args}) RETURNS jsonb LANGUAGE sql AS $$ SELECT NULL::jsonb $$;'''
+                 for name, args in (("receipt_data", "uuid"), ("start_service", "uuid, uuid, text, text"),
+                                    ("start_service", "uuid, uuid, text, text, text"),
+                                    ("progress_service", "uuid, uuid, jsonb, jsonb"),
+                                    ("end_service", "uuid, uuid, jsonb"), ("reset_service", "uuid, uuid"),
+                                    ("state", "uuid, uuid")))}
         -- One pre-320 relation of every other kind 320 must lock down.
         CREATE VIEW sessions_passthrough AS SELECT * FROM sessions;
         CREATE MATERIALIZED VIEW session_band_summary AS SELECT user_id, overall_band FROM sessions;
