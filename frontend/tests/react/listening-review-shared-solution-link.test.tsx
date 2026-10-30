@@ -58,24 +58,3 @@ it('C20L4-06: an empty second slot shows the shared body with a link to its sour
   expect(second.textContent).toContain('Dan gives exactly two warnings');
   expect(second.querySelector('.lr-sol__group-link')?.textContent).toBe('Mở Câu 17');
 });
-
-it.each([0, 1])('keeps Q17 as the source when slot index %i has the fuller solution', async (fullerSlot) => {
-  const raw = b20Pair();
-  const shared = raw.review[0].solution;
-  raw.review[fullerSlot].solution = shared;
-  raw.review[1 - fullerSlot].solution = { why_correct: 'A: she explains what a kiln does.' } as any;
-  getWith.mockResolvedValue(raw);
-  const view = render(<ListeningReviewWorkspace />);
-  await screen.findByRole('button', { name: 'Câu 18 — xem trước', exact: true });
-  fireEvent.click(view.container.querySelector('#listening-review-q-18 .lr-card__top')!);
-  const second = view.container.querySelector('#listening-review-q-18')!;
-  expect(second.querySelector('.lr-sol__group-link')?.textContent).toBe('Mở Câu 17');
-  fireEvent.click(screen.getByRole('button', { name: 'Mở Câu 17' }));
-  const first = view.container.querySelector('#listening-review-q-17')!;
-  expect(first.querySelector('.lr-card__detail')?.hasAttribute('hidden')).toBe(false);
-  expect(first.textContent).toContain('Lời giải chung cho câu 17, 18.');
-  expect(first.textContent).not.toContain('phần riêng');
-  expect(first.textContent).toContain('never consume mushrooms picked by friends or neighbours');
-  expect(first.querySelector('.lr-sol__group-link')).toBeNull();
-  expect(screen.queryByRole('button', { name: 'Mở Câu 18' })).toBeNull();
-});

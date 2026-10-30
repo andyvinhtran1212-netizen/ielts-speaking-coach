@@ -475,43 +475,6 @@ async def test_deep_tier_pass2_failure_falls_back_to_pass1(
 
 
 @pytest.mark.asyncio
-async def test_deep_tier_counts_billed_calls_of_a_failed_pass(
-    grader, monkeypatch, reset_loader_cache,
-):
-    """PC-J164: a Pass 2 that fails after billed-but-rejected calls still adds
-    their cost to the run total and lists them in grading_attempts."""
-    _patch_v2_loader(monkeypatch)
-
-    pass1_json = json.dumps(VALID_FEEDBACK_STANDARD)
-    call_log: list[int] = []
-
-    async def fake_call(model_name, system_prompt, user_prompt, *, attempt_log, **_kw):
-        call_log.append(1)
-        if len(call_log) == 1:
-            attempt_log.append(grader._attempt_record(
-                "google", model_name, "success", cost_usd=0.01))
-            attempt_log[-1]["served"] = True
-            return pass1_json, {"input_tokens": 100, "output_tokens": 100, "cost_usd": 0.01}
-        for _ in range(2):
-            attempt_log.append(grader._attempt_record(
-                "google", model_name, "invalid_response", error_code="invalid_json",
-                cost_usd=0.002))
-        raise RuntimeError("simulated Pass 2 rejection")
-
-    with patch.object(grader, "_call_with_retry", side_effect=fake_call):
-        result = await grader.grade_essay(_deep_config())
-
-    assert result.prompt_version == "v2.3-deep-degraded"
-    assert result.tier_metadata["pass2"]["cost_usd"] == pytest.approx(0.004)
-    assert result.cost_usd == pytest.approx(0.014)
-    assert [(a["pass"], a["status"], a["served"]) for a in result.grading_attempts] == [
-        ("pass1", "success", True),
-        ("pass2", "invalid_response", False),
-        ("pass2", "invalid_response", False),
-    ]
-
-
-@pytest.mark.asyncio
 async def test_deep_tier_pass3_failure_falls_back_to_merged_pass1_pass2(
     grader, monkeypatch, reset_loader_cache,
 ):

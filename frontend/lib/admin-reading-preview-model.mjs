@@ -1,6 +1,5 @@
 import { adminReadingSearch } from './admin-reading-navigation.mjs';
 import { readingDisplayQuestionRuns } from './reading-exam-controller.mjs';
-import { duplicatedBlankNumbers, hasDiagramPromptMarkup } from './numbered-blank.mjs';
 
 const objectOf = (value) => value && typeof value === 'object' && !Array.isArray(value) ? value : null;
 const textOf = (value) => typeof value === 'string' ? value.trim() : '';
@@ -68,25 +67,6 @@ function playerDefaultIssues(rows, issues) {
     const current = authoredLimit ? ` (word_limit hiện tại "${String(first.payload.word_limit).trim()}" không thuộc danh sách chuẩn)` : '';
     issues.push(`${qRange(Number(first.q_num), Number(run.at(-1).q_num))} (${type}) không có instruction/word_limit hợp lệ${current}; học viên sẽ thấy "${fallback}" mặc định.`);
   }
-}
-
-const templateStrings = (value) => typeof value === 'string' ? [value]
-  : Array.isArray(value) ? value.flatMap(templateStrings)
-    : objectOf(value) ? Object.values(value).flatMap(templateStrings) : [];
-
-/** Flag authored blank markup the player has to repair at render time (RV-05, T-DIAG). */
-function blankMarkupIssues(rows, issues) {
-  const duplicated = new Set();
-  const diagramPrompts = [];
-  for (const row of rows) {
-    const template = objectOf(row?.payload)?.template;
-    for (const value of [row?.prompt, template?.summary_text, template?.heading, template?.headers, template?.rows]) {
-      for (const qNum of templateStrings(value).flatMap(duplicatedBlankNumbers)) duplicated.add(qNum);
-    }
-    if (READING_DIAGRAM_TYPES.has(String(row?.question_type || '')) && hasDiagramPromptMarkup(row?.prompt)) diagramPrompts.push(Number(row.q_num));
-  }
-  if (duplicated.size) issues.push(`${[...duplicated].sort((a, b) => a - b).map((qNum) => `{{${qNum}}}`).join(', ')} có dãy "___" ngay sau; player và trang chữa bài hiển thị thành một ô — nên xoá dãy gạch dưới khỏi template.`);
-  if (diagramPrompts.length) issues.push(`${diagramPrompts.map((qNum) => `Q${qNum}`).join(', ')} (sơ đồ) có prompt chứa ảnh markdown hoặc {{n}}; player bỏ ảnh và hiện {{n}} thành "(n) ______" — nên để mỗi câu một bước sạch.`);
 }
 
 function normalizePrompt(raw) {
@@ -208,10 +188,8 @@ export function normalizeReadingAdminPreview(raw) {
   if (duplicates.length) issues.push(`Trùng số câu: ${[...new Set(duplicates)].join(', ')}.`);
   if (duplicateQuestionIds.length) issues.push(`Trùng question id: ${[...new Set(duplicateQuestionIds)].join(', ')}.`);
   for (const passageId of passageIds) {
-    const passageRows = kept.filter((entry) => entry.question.passageId === passageId)
-      .sort((a, b) => a.question.qNum - b.question.qNum).map((entry) => entry.row);
-    playerDefaultIssues(passageRows, issues);
-    blankMarkupIssues(passageRows, issues);
+    playerDefaultIssues(kept.filter((entry) => entry.question.passageId === passageId)
+      .sort((a, b) => a.question.qNum - b.question.qNum).map((entry) => entry.row), issues);
   }
   const declaredPassages = integerOf(value.passage_count); const declaredQuestions = integerOf(value.total_questions);
   if (declaredPassages != null && declaredPassages !== passages.length) issues.push(`Đề khai báo ${declaredPassages} passage nhưng API trả ${passages.length}.`);

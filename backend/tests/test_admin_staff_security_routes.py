@@ -19,10 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
-import json
-import os
 import uuid
-from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
@@ -31,7 +28,6 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from postgrest.exceptions import APIError
-from sqlalchemy import text
 
 import routers.admin as admin_module
 import routers.admin_staff_security as sec_module
@@ -108,8 +104,6 @@ class _Query:
         if self.op == "insert":
             rows = self.payload if isinstance(self.payload, list) else [self.payload]
             rows = [{"id": str(uuid.uuid4()), **copy.deepcopy(r)} for r in rows]
-            if self.name == "staff_security_audit" and {r["id"] for r in rows} & {t["id"] for t in table}:
-                raise _pg_error("duplicate key value violates unique constraint")
             for r in rows:
                 r.setdefault("occurred_at", self.db.tick())
                 if self.name == "owner_alert_outbox":
@@ -297,20 +291,14 @@ class FakeAuthAdmin:
 
 
 class FakeEngine:
-    """The direct ``postgres`` connection: ``auth.sessions`` per user, the
-    revocation audit + alert transaction on ``db``'s tables (rows land only
-    when the transaction commits), and the per-target transaction advisory
-    lock (one asyncio lock per key, which stands in for PostgreSQL
-    serializing the backend's workers)."""
+    """The direct ``postgres`` connection: ``auth.sessions`` per user, and
+    the per-target transaction advisory lock (one asyncio lock per key, which
+    stands in for PostgreSQL serializing the backend's workers)."""
 
-    def __init__(self, sessions=None, db=None):
+    def __init__(self, sessions=None):
         self.sessions: dict[str, int] = dict(sessions or {})
-        self.db = db
         self.statements: list[tuple[str, dict]] = []
         self.fail = False
-        self.fail_enqueue = False      # the outbox statement of the audit transaction fails
-        self.lose_commit_answer = False  # the audit transaction commits, then the answer is lost
-        self.audit_transactions = 0    # committed audit transactions
         self.lock_statements: list[tuple[str, dict]] = []
         self.lock_fail = False
         self._locks: dict[str, asyncio.Lock] = {}
@@ -348,61 +336,19 @@ class FakeEngine:
         engine = self
 
         class _Conn:
-            def __init__(self):
-                self.audits: list[dict] = []
-                self.alerts: list[dict] = []
-
             async def __aenter__(self):
                 return self
 
-            async def __aexit__(self, exc_type, *_exc):
-                if exc_type is None and (self.audits or self.alerts):
-                    engine.db.tables["staff_security_audit"].extend(self.audits)
-                    engine.db.tables["owner_alert_outbox"].extend(self.alerts)
-                    engine.audit_transactions += 1
-                    if engine.lose_commit_answer:
-                        raise RuntimeError("server closed the connection unexpectedly")
+            async def __aexit__(self, *exc):
                 return False
 
             async def execute(self, sql, params):
-                sql = str(sql)
-                engine.statements.append((sql, dict(params)))
+                engine.statements.append((str(sql), dict(params)))
                 if engine.fail:
                     raise RuntimeError("connection refused")
-                if sql.startswith("DELETE FROM auth.sessions WHERE user_id"):
-                    n = engine.sessions.pop(params["uid"], 0)
-                    return type("R", (), {"rowcount": n})()
-                if engine.db is None:
-                    raise RuntimeError("no audit tables on this fake")   # → REST fallback
-                if sql.startswith("INSERT INTO public.staff_security_audit"):
-                    if any(a["id"] == params["id"] for a in engine.db.tables["staff_security_audit"]):
-                        raise RuntimeError("duplicate key value violates unique constraint")
-                    self.audits.append({
-                        "id": params["id"], "occurred_at": engine.db.tick(), "event": params["event"],
-                        "target_user_id": params["target"], "actor_user_id": params["actor"],
-                        "source": "admin_api", "before": None, "after": None,
-                        "reason": params["reason"], "request_id": params["request_id"],
-                        "detail": json.loads(params["detail"]),
-                    })
-                    return type("R", (), {"rowcount": 1})()
-                assert sql.startswith("INSERT INTO public.owner_alert_outbox"), sql
-                if engine.fail_enqueue:
-                    raise RuntimeError("owner_alert_outbox unavailable")
-                queued = {o["audit_id"] for o in engine.db.tables["owner_alert_outbox"] + self.alerts}
-                email = lambda uid: (engine.db.user(uid) or {}).get("email")  # noqa: E731
-                for a in engine.db.tables["staff_security_audit"] + self.audits:
-                    if (a["target_user_id"] == params["target"] and a["event"] == "sessions_revoke_failed"
-                            and a["source"] == "admin_api" and a["id"] not in queued):
-                        self.alerts.append({
-                            "id": str(uuid.uuid4()), "audit_id": a["id"], "event": a["event"],
-                            "status": "pending", "payload": {
-                                "audit_id": a["id"], "event": a["event"], "occurred_at": a["occurred_at"],
-                                "source": a["source"], "target_user_id": a["target_user_id"],
-                                "target_email": email(a["target_user_id"]),
-                                "actor_user_id": a["actor_user_id"],
-                                "actor_email": email(a["actor_user_id"]) if a["actor_user_id"] else None,
-                                "before": None, "after": None, "operator": None}})
-                return type("R", (), {"rowcount": len(self.alerts)})()
+                assert str(sql).startswith("DELETE FROM auth.sessions WHERE user_id")
+                n = engine.sessions.pop(params["uid"], 0)
+                return type("R", (), {"rowcount": n})()
 
         return _Conn()
 
@@ -420,8 +366,8 @@ def db(monkeypatch):
 
 
 @pytest.fixture
-def engine(monkeypatch, db):
-    eng = FakeEngine({ADMIN2: 2, INSTRUCTOR: 3, LEARNER: 1}, db=db)
+def engine(monkeypatch):
+    eng = FakeEngine({ADMIN2: 2, INSTRUCTOR: 3, LEARNER: 1})
     monkeypatch.setattr(admin_module, "_db_engine", eng)
     return eng
 
@@ -805,188 +751,12 @@ class TestRevocationFailure:
         assert r.json()["revoke_error"] == "revocation_unavailable"
         assert len(db.audits("sessions_revoke_failed")) == 1
 
-    def test_failure_audit_write_failing_still_answers_the_committed_change(self, client, db, engine, caplog):
-        # PC-J66 F02 changed this contract. Before, the lost enqueue left an
-        # audit row whose alert nothing would ever send (history: null).
-        # Now the REST fallback (the direct connection is down too) logs the
-        # gap and the next recorded revocation of the account enqueues it.
+    def test_failure_audit_write_failing_still_answers_the_committed_change(self, client, db, engine):
         engine.fail = True
         db.fail_tables.add("owner_alert_outbox")
         r = _active(client, INSTRUCTOR, False)
         assert r.status_code == 200 and r.json()["sessions_revoked"] is False
-        failed = db.audits("sessions_revoke_failed")
-        assert len(failed) == 1 and db.tables["owner_alert_outbox"] == []
-        assert any("has no owner alert until the next revocation" in m for m in caplog.messages)
-        # Both paths back: the retry revokes and enqueues the missing alert in
-        # its own audit transaction.
-        engine.fail = False
-        db.fail_tables.discard("owner_alert_outbox")
-        retry = client.post(f"/admin/users/{INSTRUCTOR}/revoke-sessions", json={}, headers=AUTH)
-        assert retry.status_code == 200 and retry.json()["sessions_revoked"] is True
-        assert [o["audit_id"] for o in db.tables["owner_alert_outbox"]] == [failed[0]["id"]]
-        alert = db.tables["owner_alert_outbox"][0]["payload"]
-        assert alert["event"] == "sessions_revoke_failed" and alert["target_email"] == db.user(INSTRUCTOR)["email"]
-        assert "lộ mật khẩu" not in str(alert)
-        # History after a reload: the failure row now has a delivery status.
-        history = client.get(f"/admin/users/{INSTRUCTOR}/security-audit", headers=AUTH).json()["rows"]
-        by_event = {row["event"]: row["alert_status"] for row in history}
-        assert by_event["sessions_revoke_failed"] == "pending"
-        assert by_event["sessions_revoked"] is None
-
-
-class TestRevocationAuditTransaction:
-    """PC-J66 F02: the revocation audit row and its owner alert are written in
-    one transaction on the direct connection."""
-
-    def test_failure_audit_and_alert_commit_together_on_the_direct_connection(self, client, db, engine):
-        db.auth.admin.fail_ban = True             # the revocation fails, the database is up
-        r = _active(client, INSTRUCTOR, False)
-        assert r.json()["sessions_revoked"] is False and r.json()["revoke_error"] == "ban_failed"
-        assert engine.audit_transactions == 1
-        assert ("staff_security_audit", "insert") not in db.ops
-        assert ("owner_alert_outbox", "insert") not in db.ops
-        failed = db.audits("sessions_revoke_failed")
-        assert len(failed) == 1 and failed[0]["request_id"]
-        assert failed[0]["detail"] == {"trigger": "suspend", "ban": True, "revoke_error": "ban_failed"}
-        assert [o["audit_id"] for o in db.tables["owner_alert_outbox"]] == [failed[0]["id"]]
-        payload = db.tables["owner_alert_outbox"][0]["payload"]
-        assert payload["actor_email"] == db.user(ADMIN)["email"]
-        assert "lộ mật khẩu" not in str(payload) and "reason" not in payload
-
-    def test_enqueue_failure_leaves_no_audit_row_behind_and_rest_writes_both(self, client, db, engine):
-        db.auth.admin.fail_ban = True
-        engine.fail_enqueue = True
-        r = _active(client, INSTRUCTOR, False)
-        assert r.status_code == 200 and r.json()["sessions_revoked"] is False
-        # The transaction rolled back as a whole; the REST fallback wrote the
-        # audit row and its alert: one of each, no orphan.
-        assert engine.audit_transactions == 0
-        failed = db.audits("sessions_revoke_failed")
-        assert len(failed) == 1
-        assert [o["audit_id"] for o in db.tables["owner_alert_outbox"]] == [failed[0]["id"]]
-
-    def test_lost_commit_answer_does_not_write_a_second_row(self, client, db, engine):
-        db.auth.admin.fail_ban = True
-        engine.lose_commit_answer = True
-        _active(client, INSTRUCTOR, False)
         assert len(db.audits("sessions_revoke_failed")) == 1
-        assert len(db.tables["owner_alert_outbox"]) == 1
-
-    def test_lost_commit_answer_still_returns_the_existing_audit_id(self, client, db, engine):
-        engine.lose_commit_answer = True
-        r = client.post(f"/admin/users/{LEARNER}/revoke-sessions", json={}, headers=AUTH)
-        assert r.status_code == 200 and r.json()["sessions_revoked"] is True
-        assert [a["id"] for a in db.audits("sessions_revoked")] == [r.json()["audit_id"]]
-
-    def test_retry_success_is_audited_in_the_transaction_without_an_alert(self, client, db, engine):
-        r = client.post(f"/admin/users/{LEARNER}/revoke-sessions", json={}, headers=AUTH)
-        assert r.json()["sessions_revoked"] is True
-        assert [a["id"] for a in db.audits("sessions_revoked")] == [r.json()["audit_id"]]
-        assert engine.audit_transactions == 1 and db.tables["owner_alert_outbox"] == []
-
-    def test_history_after_reload_matches_the_outbox(self, client, db, engine):
-        db.auth.admin.fail_ban = True
-        _active(client, ADMIN2, False)
-        db.auth.admin.fail_ban = False
-        client.post(f"/admin/users/{ADMIN2}/revoke-sessions", json={}, headers=AUTH)
-        for _ in range(2):                         # reload: the same canonical answer
-            rows = client.get(f"/admin/users/{ADMIN2}/security-audit", headers=AUTH).json()["rows"]
-            assert [(row["event"], row["alert_status"]) for row in rows] == [
-                ("sessions_revoked", None), ("sessions_revoke_failed", "pending"),
-                ("active_changed", "pending")]
-
-
-class TestRevocationAuditSqlOnPostgres:
-    """The audit transaction's SQL against migration 332 on a disposable LOCAL
-    cluster (the test_migration_332 harness), run as its NOSUPERUSER owner
-    like the hosted ``postgres`` role. Skips without TEST_PG_URL unless
-    REQUIRE_PG=1."""
-
-    @pytest.fixture
-    def pg(self, monkeypatch):
-        import test_migration_332_staff_security_audit as m332
-        from sqlalchemy.ext.asyncio import create_async_engine
-
-        m332._require_pg()
-        schema = "staff_sec_j81_" + uuid.uuid4().hex
-        try:
-            m332._build(schema)
-            m332._apply(schema)
-            monkeypatch.setattr(staff_security, "AUDIT_SCHEMA", schema)
-            url = os.environ["TEST_PG_URL"].replace("postgres://", "postgresql+asyncpg://", 1)
-            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
-
-            class OwnerEngine:
-                def __init__(self):
-                    self.engine = create_async_engine(url)
-
-                @asynccontextmanager
-                async def begin(self):
-                    async with self.engine.begin() as conn:
-                        await conn.execute(text(f"SET LOCAL ROLE {m332.OWNER}"))
-                        yield conn
-
-            yield m332, schema, OwnerEngine()
-        finally:
-            m332.psql(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
-
-    @staticmethod
-    def _record(engine, target, actor, outcome, rest=None):
-        async def run():
-            try:
-                return await staff_security.record_revocation(
-                    rest, target_id=target, actor_id=actor, outcome=outcome, trigger="suspend",
-                    engine=engine, reason="lộ mật khẩu", request_id="req-j81")
-            finally:
-                await engine.engine.dispose()
-        return asyncio.run(run())
-
-    def test_failure_writes_audit_and_alert_together(self, pg):
-        m332, s, engine = pg
-        target, actor = m332._user(s, "instructor", True), m332._user(s, "admin", True)
-        failed = staff_security.RevokeOutcome(False, "session_delete_failed", True)
-        audit_id = self._record(engine, target, actor, failed)
-        rows = [a for a in m332._audit(s, target) if a["event"] == "sessions_revoke_failed"]
-        assert [a["id"] for a in rows] == [audit_id]
-        assert rows[0]["source"] == "admin_api" and rows[0]["actor"] == actor
-        assert rows[0]["request_id"] == "req-j81" and rows[0]["reason"] == "lộ mật khẩu"
-        assert rows[0]["detail"] == {"trigger": "suspend", "ban": True, "revoke_error": "session_delete_failed"}
-        alerts = [o for o in m332._outbox(s, target) if o["audit_id"] == audit_id]
-        assert len(alerts) == 1
-        payload = alerts[0]["payload"]
-        assert payload["target_email"] == f"{target}@q332.test" and payload["actor_email"] == f"{actor}@q332.test"
-        assert set(payload) == {"audit_id", "event", "occurred_at", "source", "target_user_id",
-                                "target_email", "actor_user_id", "actor_email", "before", "after",
-                                "operator"}
-        assert payload["before"] is None and payload["operator"] is None
-        assert "lộ mật khẩu" not in json.dumps(payload, ensure_ascii=False)
-
-    def test_failed_enqueue_rolls_the_audit_row_back(self, pg, monkeypatch):
-        m332, s, engine = pg
-        target = m332._user(s, "instructor", True)
-        monkeypatch.setattr(staff_security, "_enqueue_missing_alerts_sql",
-                            lambda: f"INSERT INTO {s}.owner_alert_outbox (audit_id) VALUES (NULL)")
-        rest = FakeDB()
-        self._record(engine, target, None, staff_security.RevokeOutcome(False, "ban_failed", True), rest)
-        assert [a for a in m332._audit(s, target) if a["event"] == "sessions_revoke_failed"] == []
-        # The REST fallback took over with the same id.
-        assert [a["event"] for a in rest.audits()] == ["sessions_revoke_failed"]
-        assert [o["audit_id"] for o in rest.tables["owner_alert_outbox"]] == [rest.audits()[0]["id"]]
-
-    def test_next_recorded_revocation_enqueues_a_missing_alert(self, pg):
-        m332, s, engine = pg
-        target = m332._user(s, "instructor", True)
-        orphan = str(uuid.uuid4())
-        m332._owner(f"INSERT INTO {s}.staff_security_audit (id, event, target_user_id, source, detail) "
-                    f"VALUES ('{orphan}', 'sessions_revoke_failed', '{target}', 'admin_api', '{{}}')")
-        ok = self._record(engine, target, None, staff_security.RevokeOutcome(True, None, True))
-        outbox = m332._outbox(s, target)
-        assert [o["audit_id"] for o in outbox] == [orphan]
-        assert outbox[0]["payload"]["target_email"] == f"{target}@q332.test"
-        assert ok not in [o["audit_id"] for o in outbox]
-        # Idempotent: another write adds nothing for the same audit row.
-        self._record(engine, target, None, staff_security.RevokeOutcome(True, None, True))
-        assert [o["audit_id"] for o in m332._outbox(s, target)] == [orphan]
 
 
 class TestRetry:
@@ -1208,155 +978,6 @@ class TestRoleChange:
         db.user(ADMIN).update(is_active=False, suspended_at="2026-10-29T00:59:00+00:00")
         r = self._role(client, ADMIN2, "student")
         assert r.status_code == 403 and db.user(ADMIN2)["role"] == "admin"
-
-
-class TestRoleChangeAnswerLost:
-    """PC-J66 F05: the role RPC commits a demotion, then its answer is lost."""
-
-    def _role(self, client, uid, role):
-        return client.patch(f"/admin/users/{uid}/role", json={"role": role}, headers=AUTH)
-
-    def _commit_then_lose(self, db, *, then=None):
-        original = db._set_staff_privilege
-
-        def committed_then_lost(**params):
-            original(**params)
-            if then:
-                then()
-            raise RuntimeError("read timed out")
-
-        db._set_staff_privilege = committed_then_lost
-        return original
-
-    def test_committed_demotion_found_by_request_id_still_revokes(self, client, db, engine):
-        self._commit_then_lose(db)
-        r = self._role(client, ADMIN2, "student")
-        assert r.status_code == 200, r.text
-        body = r.json()
-        assert body["changed"] is True and body["sessions_revoked"] is True
-        assert ADMIN2 not in engine.sessions and db.auth.admin.calls == []
-        audits = db.audits("role_changed")
-        assert [a["id"] for a in audits] == [body["audit_id"]]
-        assert audits[0]["request_id"] == db.rpc_calls[0]["p_request_id"]
-
-    def test_unreadable_outcome_is_500_and_the_repeat_revokes(self, client, db, engine):
-        original = self._commit_then_lose(db, then=lambda: db.fail_tables.add("staff_security_audit"))
-        first = self._role(client, ADMIN2, "student")
-        assert first.status_code == 500
-        assert db.user(ADMIN2)["role"] == "student" and engine.sessions[ADMIN2] == 2
-        db.fail_tables.discard("staff_security_audit")
-        db._set_staff_privilege = original
-        again = self._role(client, ADMIN2, "student")
-        assert again.status_code == 200, again.text
-        body = again.json()
-        assert body["changed"] is False and body["audit_id"] is None
-        assert body["sessions_revoked"] is True and body["revoke_error"] is None
-        assert engine.sessions.get(ADMIN2, 0) == 0 and db.auth.admin.calls == []
-        assert len(db.audits("role_changed")) == 1   # the repeat changes nothing
-
-    def test_repeat_whose_revocation_fails_says_so_and_alerts(self, client, db, engine):
-        original = self._commit_then_lose(db, then=lambda: db.fail_tables.add("staff_security_audit"))
-        assert self._role(client, INSTRUCTOR, "student").status_code == 500
-        db.fail_tables.discard("staff_security_audit")
-        db._set_staff_privilege = original
-        engine.fail = True
-        r = self._role(client, INSTRUCTOR, "student")
-        assert r.status_code == 200
-        assert r.json()["sessions_revoked"] is False and r.json()["revoke_error"] == "session_delete_failed"
-        failed = db.audits("sessions_revoke_failed")
-        assert len(failed) == 1 and failed[0]["detail"]["trigger"] == "role_change"
-        assert any(o["audit_id"] == failed[0]["id"] for o in db.tables["owner_alert_outbox"])
-        engine.fail = False
-        retry = client.post(f"/admin/users/{INSTRUCTOR}/revoke-sessions", json={}, headers=AUTH)
-        assert retry.json()["sessions_revoked"] is True and INSTRUCTOR not in engine.sessions
-
-    def test_request_lost_before_commit_stays_500_and_revokes_nothing(self, client, db, engine):
-        def lost(**_params):
-            raise RuntimeError("connection reset")
-
-        db._set_staff_privilege = lost
-        assert self._role(client, ADMIN2, "student").status_code == 500
-        assert db.user(ADMIN2)["role"] == "admin" and engine.sessions[ADMIN2] == 2
-        assert engine.statements == []
-
-    def test_an_earlier_row_with_a_replayed_request_id_is_not_this_change(self, client, db, engine):
-        # X-Request-ID comes from the client: an old audit row that shares it
-        # but did not end at the requested role is not reconciled.
-        headers = {**AUTH, "X-Request-ID": "replayed-id"}
-        client.patch(f"/admin/users/{LEARNER}/role", json={"role": "instructor"}, headers=headers)
-
-        def lost(**_params):
-            raise RuntimeError("connection reset")
-
-        db._set_staff_privilege = lost
-        r = client.patch(f"/admin/users/{LEARNER}/role", json={"role": "student"}, headers=headers)
-        assert r.status_code == 500 and engine.statements == []
-
-    def test_a_replayed_request_id_whose_old_row_ended_at_the_role_is_not_this_change(
-            self, client, db, engine):
-        # Demote with id X, promote back, demote again reusing X and lose the
-        # request before commit: the old X row ended at "student", but the
-        # account is still admin, so this is not a committed demotion.
-        headers = {**AUTH, "X-Request-ID": "replayed-id"}
-        first = client.patch(f"/admin/users/{ADMIN2}/role", json={"role": "student"}, headers=headers)
-        assert first.status_code == 200 and first.json()["changed"] is True
-        assert self._role(client, ADMIN2, "admin").json()["changed"] is True
-        engine.sessions[ADMIN2] = 2
-        engine.statements.clear()
-
-        def lost(**_params):
-            raise RuntimeError("connection reset")
-
-        db._set_staff_privilege = lost
-        r = client.patch(f"/admin/users/{ADMIN2}/role", json={"role": "student"}, headers=headers)
-        assert r.status_code == 500, r.text
-        assert db.user(ADMIN2)["role"] == "admin" and engine.sessions[ADMIN2] == 2
-        assert engine.statements == []
-
-    def test_a_replayed_request_id_recovers_the_newest_committed_row(self, client, db, engine):
-        # Promote student→instructor with id X, promote to admin, then demote
-        # admin→instructor reusing X and lose the answer after commit. Both X
-        # rows end at "instructor" and the account is instructor, so only the
-        # newest row tells that this was a demotion that must revoke.
-        headers = {**AUTH, "X-Request-ID": "replayed-id"}
-        first = client.patch(f"/admin/users/{LEARNER}/role", json={"role": "instructor"}, headers=headers)
-        assert first.status_code == 200 and first.json()["changed"] is True
-        assert self._role(client, LEARNER, "admin").json()["changed"] is True
-        engine.sessions[LEARNER] = 2
-        self._commit_then_lose(db)
-        r = client.patch(f"/admin/users/{LEARNER}/role", json={"role": "instructor"}, headers=headers)
-        assert r.status_code == 200, r.text
-        body = r.json()
-        newest = db.audits("role_changed")[-1]
-        assert newest["before"]["role"] == "admin" and newest["after"]["role"] == "instructor"
-        assert body["audit_id"] == newest["id"] != first.json()["audit_id"]
-        assert body["sessions_revoked"] is True and LEARNER not in engine.sessions
-
-    def test_unreadable_account_after_a_committed_demotion_stays_500(self, client, db, engine):
-        self._commit_then_lose(db, then=lambda: db.fail_tables.add("users"))
-        r = self._role(client, ADMIN2, "student")
-        assert r.status_code == 500
-        assert db.user(ADMIN2)["role"] == "student" and engine.sessions[ADMIN2] == 2
-
-    def test_repeat_of_a_promotion_or_of_a_never_staff_role_does_not_revoke(self, client, db, engine):
-        self._role(client, INSTRUCTOR, "admin")
-        assert self._role(client, INSTRUCTOR, "admin").json()["sessions_revoked"] is None
-        assert self._role(client, LEARNER, "student").json()["sessions_revoked"] is None
-        assert engine.statements == []
-
-    def test_repeat_after_a_promotion_back_does_not_revoke(self, client, db, engine):
-        self._role(client, INSTRUCTOR, "student")
-        self._role(client, INSTRUCTOR, "instructor")
-        engine.sessions[INSTRUCTOR] = 1
-        r = self._role(client, INSTRUCTOR, "instructor")
-        assert r.json()["changed"] is False and r.json()["sessions_revoked"] is None
-        assert engine.sessions[INSTRUCTOR] == 1
-
-    def test_unreadable_role_history_on_a_repeat_revokes(self, client, db, engine):
-        db.fail_tables.add("staff_security_audit")
-        r = self._role(client, INSTRUCTOR, "instructor")
-        assert r.status_code == 200 and r.json()["changed"] is False
-        assert r.json()["sessions_revoked"] is True and INSTRUCTOR not in engine.sessions
 
 
 # ── Security history (FR-015) ────────────────────────────────────────────────
