@@ -131,3 +131,5 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 | PAPERUPDATEDAT-0037 | Every change to a Reading or Listening paper advances updated_at, and admins see that a Mock Test hides its public source | approved | high | [spec](0037-mock-paper-updated-at-and-hide-warning/spec.md) |
 
 | STORAGELIMITS-0038 | Each Storage bucket accepts only the file sizes and types the app writes, and an oversize or wrong-type upload gets a clear 413 or 415 | approved | high | [spec](0038-storage-bucket-limits/spec.md) |
+
+| SVCPRIV-0042 | service_role cannot attach triggers to, reference, truncate or maintain public tables, so code it plants never runs as the table owner | draft | critical | [spec](0042-service-role-table-maintenance-revoke/spec.md) |
