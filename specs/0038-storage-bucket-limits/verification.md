@@ -68,6 +68,13 @@
 - Full backend `tests/` with `REQUIRE_PG=1` and the CI `*_TEST_DATABASE_URL`s
   on a local PG 16 cluster: **14,871 passed, 47 skipped, 0 failed**. Full node
   suite (CI command, Node 24): **13,375 passed, 1 skipped, 0 failed**.
+- Merge of staging `69a09c923` (`fb545ea23`) resolved a conflict with PC-J250
+  in `admin_upload_map_image`: `raise_storage_error` first, then PC-J250's
+  static 500. CI on `fb545ea23`: Tests run 41138817729 success, 17/17 checks.
+- Codex P2: an FR-005 Storage refusal (and the retry-safe 503) skipped the
+  Whisper usage log after a paid transcription (AI-0004). `9aa0218ed` logs
+  usage right after STT; the Speaking refusal test asserts it (red 2 failed,
+  green 522 passed / 1 skipped over the grading/usage test files).
 
 ## Data evidence
 
