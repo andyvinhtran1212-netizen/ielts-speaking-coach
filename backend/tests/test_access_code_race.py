@@ -73,6 +73,10 @@ class _Builder:
     def eq(self, col, val):
         self._filters.append((col, val)); return self
 
+    def is_(self, col, val):
+        assert val == "null"
+        self._filters.append((col, None)); return self
+
     def limit(self, *_a, **_k):
         return self
 
@@ -137,12 +141,14 @@ class _RaceClient:
             r.data = [self._code_row(is_used=True, used_by=_USER_ID)] if self._update_claims else []
         elif t == "users" and a == "select":
             r.data = [{"id": _USER_ID, "role": "user", "is_active": self._user_is_active}]
+        elif t == "users" and a == "update":
+            r.data = [{"id": _USER_ID, **rec["payload"]}]
         elif t == "students" and a == "insert":
             r.data = [{"id": self._students_insert_id}] if self._students_insert_id else []
         elif t == "students" and a == "select" and self._existing_student:
             r.data = [self._existing_student]
         # students select → [] (no target → enroll INSERT branch); every other
-        # write (users update, students delete, assignments upsert) → [].
+        # write (students delete, assignments upsert) → [].
         return r
 
 

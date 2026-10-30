@@ -41,6 +41,7 @@ class Query:
     def __init__(self, db, table):
         self.db, self.name = db, table
         self.op, self.fields, self.values, self.filters = "select", "*", None, {}
+        self.null_filters = set()
 
     def select(self, fields):
         self.fields = fields
@@ -48,6 +49,11 @@ class Query:
 
     def eq(self, field, value):
         self.filters[field] = value
+        return self
+
+    def is_(self, field, value):
+        assert value == "null"
+        self.null_filters.add(field)
         return self
 
     def limit(self, _limit):
@@ -59,6 +65,10 @@ class Query:
 
     def update(self, values):
         self.op, self.values = "update", deepcopy(values)
+        return self
+
+    def delete(self):
+        self.op = "delete"
         return self
 
     def upsert(self, values, **_kwargs):
@@ -87,7 +97,8 @@ class Query:
         if self.name == "access_code_audit" and self.op == "insert":
             assert self.values.keys() <= AUDIT_COLUMNS, "migration 099 has no detail column"
         rows = db.tables.setdefault(self.name, [])
-        matches = [row for row in rows if all(_eq(row.get(k), v) for k, v in self.filters.items())]
+        matches = [row for row in rows if all(_eq(row.get(k), v) for k, v in self.filters.items())
+                   and all(row.get(k) is None for k in self.null_filters)]
         if self.op == "select":
             if self.fields != "*":
                 fields = [f.strip() for f in self.fields.split(",")]
@@ -102,6 +113,8 @@ class Query:
         elif self.op == "update":
             for row in matches:
                 row.update(self.values)
+        elif self.op == "delete":
+            rows[:] = [row for row in rows if row not in matches]
         return SimpleNamespace(data=deepcopy(matches))
 
 
@@ -358,9 +371,14 @@ class PgQuery(Query):
         def literal(value):
             return "'" + str(value).replace("'", "''") + "'"
 
-        where = " AND ".join(f"{key} = {literal(value)}" for key, value in self.filters.items()) or "true"
+        where = " AND ".join([
+            *(f"{key} = {literal(value)}" for key, value in self.filters.items()),
+            *(f"{key} IS NULL" for key in self.null_filters),
+        ]) or "true"
         if self.op == "select":
             statement = f"SELECT {self.fields} FROM {table} WHERE {where}"
+        elif self.op == "delete":
+            statement = f"DELETE FROM {table} WHERE {where} RETURNING *"
         else:
             fields = list(self.values)
             source = f"json_populate_record(NULL::{table}, {literal(json.dumps(self.values))})"
@@ -412,12 +430,16 @@ def pg_activation():
         psql(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
 
 
-@pytest.mark.parametrize("scenario", ["w1", "race_insert", "race_update", "normal", "legacy"])
+@pytest.mark.parametrize("scenario", [
+    "w1", "race_insert", "race_update", "normal", "legacy", "normal_null", "race_insert_null",
+])
 def test_real_pg_337_activation_contract(world, pg_activation, monkeypatch, scenario):
     import test_migration_337_class_archive as m337
 
     _, client = world
     schema, admin, legacy = pg_activation
+    nullable = scenario.endswith("_null")
+    scenario = scenario.removesuffix("_null")
     uid, cid, code_id = str(uuid4()), legacy if scenario == "legacy" else m337._new_class(schema), str(uuid4())
     code_text = CODE + uid[:8].upper()
     db = Database()
@@ -427,8 +449,9 @@ def test_real_pg_337_activation_contract(world, pg_activation, monkeypatch, scen
     monkeypatch.setattr(auth, "get_supabase_user", AsyncMock(return_value={
         "id": uid, "email": "learner@example.test", "user_metadata": {},
     }))
-    db.table("users").insert({"id": uid, "is_active": True, "permissions": ["writing"],
-                              "access_code_used": "OLD"}).execute()
+    db.table("users").insert({"id": uid, "is_active": not nullable,
+                              "permissions": None if nullable else ["writing"],
+                              "access_code_used": None if nullable else "OLD"}).execute()
     db.table("access_codes").insert({"id": code_id, "code": code_text, "cohort_id": cid,
                                      "permissions": ["practice_single"]}).execute()
     if scenario == "race_update":
@@ -652,6 +675,187 @@ def test_compensation_keeps_concurrent_admin_changes(world, monkeypatch):
 
 
 OTHER_ACTIVATION = {"is_active": True, "access_code_used": "OTHERCODE", "permissions": ["practice_single"]}
+
+
+@pytest.mark.parametrize("nullable", [False, True])
+@pytest.mark.parametrize("outcome", ["archive", "lost", "indeterminate"])
+def test_activation_refreshes_stale_snapshot_before_rollback(world, monkeypatch, nullable, outcome):
+    """r4422565648: B completes between A's snapshot and activation write.
+
+    A must refresh both its compensation snapshot and was_already_active before
+    retrying, so neither archive compensation nor a failed claim locks B out.
+    """
+    db, client = world
+    if nullable:
+        db.tables["users"][0].update(access_code_used=None, permissions=None)
+    db.tables["access_codes"].append({
+        "id": "code-b", "code": "OTHERCODE", "cohort_id": None,
+        "is_used": False, "used_by": None, "used_at": None,
+        "permissions": OTHER_ACTIVATION["permissions"],
+    })
+    attempts = []
+
+    def interleave(query):
+        if (query.name == "users" and query.op == "update"
+                and query.values.get("access_code_used") == CODE):
+            attempts.append((deepcopy(query.filters), set(query.null_filters)))
+            if len(attempts) == 1:
+                with TestClient(client.app) as other_client:
+                    other_response = activate(other_client, "OTHERCODE")
+                assert other_response.status_code == 200, other_response.text
+                assert db.tables["access_codes"][1]["used_by"] == USER
+                db.archive_race = outcome == "archive"
+        if query.name == "access_codes" and query.op == "update" and query.filters.get("id") == "code-1":
+            if outcome == "indeterminate":
+                raise RuntimeError(DB_TEXT)
+            if outcome == "lost":
+                db.tables["access_codes"][0].update(is_used=True, used_by="learner-2")
+
+    record_writes(monkeypatch, interleave)
+    response = activate(client)
+    assert response.status_code == (503 if outcome == "indeterminate" else 400), response.text
+    user = db.tables["users"][0]
+    assert user["is_active"] is True
+    assert user["permissions"] == OTHER_ACTIVATION["permissions"]
+    assert db.tables["access_codes"][1]["is_used"] is True
+    assert db.tables["access_codes"][1]["used_by"] == USER
+    assert db.tables["access_codes"][0]["used_by"] != USER
+    assert db.tables["students"] == []
+    assert len(attempts) == 2
+    first, nulls = attempts[0]
+    assert first["is_active"] is False
+    if nullable:
+        assert nulls == {"access_code_used", "permissions"}
+    else:
+        assert not nulls
+        assert first["access_code_used"] == "PREVIOUS"
+        assert json.loads(first["permissions"]) == ["writing"]
+    second, nulls = attempts[1]
+    assert not nulls
+    assert second["is_active"] is True and second["access_code_used"] == "OTHERCODE"
+    assert json.loads(second["permissions"]) == OTHER_ACTIVATION["permissions"]
+    if outcome == "archive":
+        assert {key: user[key] for key in OTHER_ACTIVATION} == OTHER_ACTIVATION
+        assert not audit_detail(db)["compensation_failed"]
+        assert ("access_codes", "update") in db.calls  # B claimed; A never did
+
+
+@pytest.mark.parametrize("field, changes", [
+    ("is_active", [False, True]),
+    ("access_code_used", ["OTHER1", "OTHER2"]),
+    ("permissions", [[], ["writing"]]),
+])
+def test_activation_snapshot_cas_stops_after_second_miss(world, monkeypatch, field, changes):
+    db, client = world
+    db.tables["users"][0].update(is_active=None, access_code_used=None, permissions=None)
+    attempts = []
+
+    def change_before_each_write(query):
+        if (query.name == "users" and query.op == "update"
+                and query.values.get("access_code_used") == CODE):
+            attempts.append((deepcopy(query.filters), set(query.null_filters)))
+            db.tables["users"][0][field] = changes[len(attempts) - 1]
+
+    record_writes(monkeypatch, change_before_each_write)
+    with request_id_scope("snapshot-contention"):
+        response = activate(client)
+    assert response.status_code == 503, response.text
+    assert response.json()["detail"]["ref"] == "snapshot-contention"
+    assert "Mã CHƯA được sử dụng" in response.json()["detail"]["message"]
+    assert len(attempts) == 2
+    assert attempts[0][1] == {"is_active", "access_code_used", "permissions"}
+    assert attempts[1][1] == {"is_active", "access_code_used", "permissions"} - {field}
+    assert db.tables["users"][0][field] == changes[1]
+    assert all(db.tables["users"][0][key] is None
+               for key in {"is_active", "access_code_used", "permissions"} - {field})
+    assert all(table != "students" or op == "select" for table, op in db.calls)
+    assert_unused(db)
+
+
+@pytest.mark.parametrize("concurrent_role", [None, "admin", "student"])
+def test_promote_null_role_uses_compare_and_swap(world, monkeypatch, concurrent_role):
+    db, client = world
+    use_instructor_code(db)
+    db.tables["users"][0]["role"] = None
+    null_filters = []
+
+    def change_role_before_promote(query):
+        if query.name == "users" and query.op == "update" and query.values == {"role": "instructor"}:
+            null_filters.append(set(query.null_filters))
+            if concurrent_role is not None:
+                db.tables["users"][0]["role"] = concurrent_role
+
+    record_writes(monkeypatch, change_role_before_promote)
+    response = activate(client)
+    assert response.status_code == (503 if concurrent_role == "student" else 200), response.text
+    assert db.tables["users"][0]["role"] == (concurrent_role or "instructor")
+    assert null_filters == [{"role"}]
+    assert db.tables["access_codes"][0]["used_by"] == USER
+    audits = promote_audits(db)
+    if concurrent_role == "admin":
+        assert [(row["action"], row["after"]) for row in audits] == [
+            ("promote_role", {"role": "admin", "noop": True})]
+    elif concurrent_role == "student":
+        assert [(row["action"], row["after"]["reason"]) for row in audits] == [
+            ("promote_role_failed", "role_changed")]
+    else:
+        assert [row["action"] for row in audits] == ["promote_role"]
+
+
+@pytest.mark.parametrize("failure", ["missing", "error"])
+def test_activation_snapshot_refresh_failure_stops_before_claim(world, monkeypatch, caplog, failure):
+    db, client = world
+    original = Query.execute
+    misses = []
+
+    def snapshot_unavailable(query):
+        if query.name == "users":
+            if query.op == "update":
+                misses.append(1)
+                return SimpleNamespace(data=[])
+            if query.op == "select" and misses:
+                if failure == "error":
+                    raise RuntimeError(DB_TEXT)
+                return SimpleNamespace(data=[])
+        return original(query)
+
+    monkeypatch.setattr(Query, "execute", snapshot_unavailable)
+    response = activate(client)
+    assert response.status_code == 503, response.text
+    assert len(misses) == 1
+    assert "Mã CHƯA được sử dụng" in response.json()["detail"]["message"]
+    assert DB_TEXT not in response.text and DB_TEXT not in caplog.text
+    assert all(table != "students" or op == "select" for table, op in db.calls)
+    assert_unused(db)
+
+
+@pytest.mark.parametrize("outcome", ["indeterminate", "lost"])
+def test_unclaimed_activation_deletes_only_its_inserted_student(world, monkeypatch, caplog, outcome):
+    db, client = world
+    unrelated = {"id": "unrelated", "user_id": "another-learner", "student_code": "OTHERSTUDENT",
+                 "instructor_id": None, "cohort_id": None, "archived_at": None}
+    db.tables["students"] = [deepcopy(unrelated)]
+    deletes = []
+
+    def claim_fails(query):
+        if query.name == "access_codes" and query.op == "update":
+            inserted = [row for row in db.tables["students"] if row["user_id"] == USER]
+            assert len(inserted) == 1
+            deletes.append(inserted[0]["id"])
+            if outcome == "indeterminate":
+                raise RuntimeError(DB_TEXT)
+            db.tables["access_codes"][0].update(is_used=True, used_by="learner-2")
+        if query.name == "students" and query.op == "delete":
+            assert query.filters == {"id": deletes[0]}
+
+    record_writes(monkeypatch, claim_fails)
+    response = activate(client)
+    assert response.status_code == (503 if outcome == "indeterminate" else 400), response.text
+    assert len(deletes) == 1
+    assert db.calls.count(("students", "delete")) == 1
+    assert db.tables["students"] == [unrelated]
+    assert "rollback of inserted student FAILED" not in caplog.text
+    assert not db.tables.get("user_code_assignments")
 
 
 @pytest.mark.parametrize("window", ["before_read", "before_write"])

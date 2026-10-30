@@ -604,7 +604,9 @@ def _promote_after_claim(user_id: str, before_role: str | None,
     for attempt in range(2):
         try:
             query = supabase_admin.table("users").update({"role": "instructor"}).eq("id", user_id)
-            if before_role is not None:
+            if before_role is None:
+                query = query.is_("role", "null")
+            else:
                 query = query.eq("role", before_role)
             if query.execute().data:
                 return "instructor", None, False
@@ -793,8 +795,6 @@ async def activate_account(
 
     # ── Step 2: upsert user row (in case /me was never called) ───────────────
     # Snapshot the fields Step 3 changes, including nullable permissions/code.
-    current_role = "user"
-    was_already_active = False  # B1/Mục 2: needed to roll back ONLY a fresh activation if we lose a race
     try:
         existing = (
             supabase_admin.table("users")
@@ -817,10 +817,6 @@ async def activate_account(
                         .select("id, role, is_active, access_code_used, permissions")
                         .eq("id", user_id).limit(1).execute())
         user_before = existing.data[0]
-        current_role = user_before.get("role") or "user"
-        was_already_active = bool(user_before.get("is_active"))
-        activation_snapshot = {key: user_before.get(key)
-                               for key in ("is_active", "access_code_used", "permissions")}
     except Exception as e:
         raise _activation_error(e, context="activation user snapshot", ref=request_id) from None
 
@@ -832,18 +828,47 @@ async def activate_account(
         "access_code_used": code,
         "permissions": code_permissions,
     }
+    # Pair the write with its rollback snapshot. If another activation lands
+    # after Step 2, refresh the snapshot and retry once; never undo its success
+    # using the older inactive state (Codex r4422565648).
+    for attempt in range(2):
+        activation_snapshot = {key: user_before.get(key) for key in update_fields}
+        try:
+            query = supabase_admin.table("users").update(update_fields).eq("id", user_id)
+            for key, value in activation_snapshot.items():
+                if value is None:
+                    query = query.is_(key, "null")
+                else:
+                    query = query.eq(key, json.dumps(value) if key == "permissions" else value)
+            if query.execute().data:
+                break
+        except Exception as e:
+            if staff_security.is_account_suspended_error(e):
+                raise staff_security.account_suspended_exception(403) from None
+            raise _activation_error(e, context="activation user update", ref=request_id) from None
+        if attempt == 1:
+            raise safe_error(status_code=503, error_code="activation_conflict", ref=request_id,
+                             message=unused_message, context="activation snapshot changed twice")
+        try:
+            fresh = (supabase_admin.table("users")
+                     .select("id, role, is_active, access_code_used, permissions")
+                     .eq("id", user_id).limit(1).execute().data or [])
+            if not fresh:
+                raise RuntimeError("activation snapshot found no user")
+            user_before = fresh[0]
+        except Exception as e:
+            raise _activation_error(e, status_code=503, message=unused_message,
+                                    context="activation snapshot refresh", ref=request_id) from None
+
+    # Both rollback paths must use the snapshot matched by the successful write.
+    was_already_active = bool(user_before.get("is_active"))
+    current_role = user_before.get("role") or "user"
     # W-2 — the role promote is NOT part of this write (SA-REVIEW-152): it runs
     # only after Step 4 wins the claim, so every pre-claim failure (Step 3b
     # error, archive race, lost/indeterminate claim) leaves the role untouched.
     # Upgrade-only: never downgrade admin; no-op if already ≥ instructor. Only
     # when the email-bound gate above passed.
     will_promote = promote_role == "instructor" and current_role not in ("admin", "instructor")
-    try:
-        supabase_admin.table("users").update(update_fields).eq("id", user_id).execute()
-    except Exception as e:
-        if staff_security.is_account_suspended_error(e):
-            raise staff_security.account_suspended_exception(403) from None
-        raise _activation_error(e, context="activation user update", ref=request_id) from None
 
     # ── Step 3b (W-5): enroll-chain — stamp students.instructor_id ATOMICALLY,
     # BEFORE the code is consumed (seam-defect #4: no bolt-tail). Any failure here

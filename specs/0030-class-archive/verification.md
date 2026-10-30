@@ -76,8 +76,10 @@ Preconditions:
   the activation, rate-limit, suspended/staff/gate, instructor enrollment,
   promotion and student-linking suites give **241 passed**, including all
   **33** new cases and the **5** PostgreSQL 17 cases (`REQUIRE_PG=1`).
-- Scope: `activate_account` and its local helpers only; `check_active`, database
-  clients, migrations, cohort services/models and existing test files unchanged.
+- Production-code scope: `activate_account` and its local helpers only;
+  `check_active`, database clients, migrations and cohort services/models are
+  unchanged. Focused regression tests and their database fakes cover the
+  follow-up fixes below.
 - W1 reads `cohorts.*`, so a schema without `archived_at` works. Only
   `is_active = false AND archived_at IS NOT NULL` is archived. Legacy inactive
   classes and the existing unresolved-owner behavior keep their contracts.
@@ -150,3 +152,46 @@ Preconditions:
 - Red/green: 7 new cases in `test_class_archive_activate.py` fail on
   `a4f64497c` and pass with the fix (interleaving before the undo's read and
   before its write, permissions CAS, unclaimed-claim undo, promote labels).
+
+## Codex r4422565648 / SA R1 and R3 follow-up (2026-10-30)
+
+- Round-4 reset: reviewed the complete PR diff and the CR/SA findings together.
+  The remaining P2 was Step 3's unconditional activation UPDATE: another
+  successful activation between Step 2 and Step 3 was overwritten, allowing
+  archive compensation to restore a stale inactive snapshot. The same stale
+  `was_already_active` flag caused a lost/indeterminate claim to deactivate it.
+- Step 3 now compare-and-swaps all three activation fields against its snapshot:
+  `is_active`, `access_code_used` and `permissions` (JSON text), using `is_` for
+  SQL NULL. A 0-row write refreshes the complete snapshot and retries once.
+  Both rollback paths use that refreshed state. A second mismatch returns safe
+  503 `activation_conflict` before enrollment or code claiming; an unreadable or
+  missing refreshed row also returns safe 503 before those writes.
+- SA R1: `_promote_after_claim` uses `is_("role", "null")` when its expected
+  role is NULL, preserving a concurrent admin promotion or other role change.
+- SA R3: the fake implements filtered `delete()`; both lost and indeterminate
+  claims prove the inserted student is deleted and unrelated rows survive.
+  Other activation fakes now support NULL filters and JSON-text permissions;
+  successful user writes return a representation for the conditional UPDATE.
+  No existing assertion, skip, timeout or CI check was weakened.
+- Red/green: all **16** new fake-DB cases fail against `cf0d56402` (with the
+  original missing `delete()` restored for SA R3) and pass with this patch.
+  Six interleavings complete a real second router request between the first
+  request's snapshot and write, covering archived enrollment, lost claim and
+  indeterminate claim, with nullable and populated snapshots. The remaining
+  cases cover every CAS field, two misses, refresh read failure/missing row,
+  NULL-role promotion and exact student deletion.
+- Disposable PostgreSQL 17 (`REQUIRE_PG=1`, SCRAM host auth, loopback only):
+  `test_class_archive_activate.py` + `test_migration_337_class_archive.py`:
+  **116 passed, 0 skipped**. Seven route cases include nullable and populated
+  JSONB/NULL filters and archive compensation. Cluster stopped and deleted.
+- CR's supplied `cr-cf0d/test_cr2059_cf0d_probe.py`, including the imported
+  activation cases: **72 passed, 7 skipped** (PG not configured in that run).
+  `frontend/tests/login-next-model.test.mjs`: **5 passed**; the new structured
+  503 uses the existing `detail.message` fallback.
+- Affected backend suites (41 files): **906 passed, 189 skipped** without a
+  local PG DSN. The complete backend run first exposed four generation-fake
+  cases missing `is_`; adding the NULL filter preserved every assertion.
+  Final full-suite and PR metadata results are recorded on the PR head.
+- Optional SA R2 remains unchanged: a claimed instructor code whose promotion
+  failed is repaired through the existing audited admin runbook. No new retry
+  API, migration, staging/production mutation or release is included.

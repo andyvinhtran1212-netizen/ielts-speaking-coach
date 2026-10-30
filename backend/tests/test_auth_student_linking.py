@@ -90,6 +90,11 @@ class _Builder:
         self._filters.append((col, val))
         return self
 
+    def is_(self, col, val):
+        assert val == "null"
+        self._filters.append((col, None))
+        return self
+
     def limit(self, *_a, **_kw):
         return self
 
@@ -153,6 +158,8 @@ class _DispatchClient:
             r.data = [self._access_code_row]
         elif table == "users" and action == "select":
             r.data = self._existing_user
+        elif table == "users" and action == "update":
+            r.data = [{"id": _USER_ID, **rec["payload"]}]
         elif table == "students" and action == "select":
             if self._students_lookup_raises:
                 raise self._students_lookup_raises
@@ -161,7 +168,7 @@ class _DispatchClient:
             if self._students_update_raises:
                 raise self._students_update_raises
             r.data = []
-        # All other writes (users update, access_codes update,
+        # All other writes (access_codes update,
         # user_code_assignments upsert) succeed silently.
         return r
 

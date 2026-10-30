@@ -57,6 +57,7 @@ class _Query:
     # builder no-ops
     def select(self, *a, **k): return self
     def eq(self, *a, **k):     return self
+    def is_(self, *a, **k):    return self
     def neq(self, *a, **k):    return self
     def limit(self, *a, **k):  return self
     def order(self, *a, **k):  return self

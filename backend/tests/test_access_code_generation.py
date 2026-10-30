@@ -68,6 +68,10 @@ class _Query:
     def eq(self, col, val):
         self.filters.append((col, lambda v, val=val: v == val)); return self
 
+    def is_(self, col, val):
+        assert val == "null"
+        self.filters.append((col, lambda v: v is None)); return self
+
     def in_(self, col, vals):
         self.fake.prechecks.append((self.table, list(vals)))
         self.filters.append((col, lambda v, vals=set(vals): v in vals)); return self
