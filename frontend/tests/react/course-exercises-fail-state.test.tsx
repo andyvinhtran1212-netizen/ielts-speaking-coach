@@ -25,6 +25,12 @@
 // shell. A 4xx / empty bank of the previous account hid the save badge and left
 // its error sentence and actions; the new run starts from the shell's initial
 // screen and hides the badge again only for its own 4xx / empty bank.
+//
+// PC-J339 (CR round 2 on #2039): the reset at the start of a run also puts the
+// title, the stage frame and every content block (question, next, done,
+// reading, listening, pronunciation, report) back to the shell's initial
+// state, so account A's exercise is never shown next to account B's error.
+// The idle badge sentence has one source (`course-copy.ts`).
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -41,6 +47,9 @@ vi.mock('@/lib/when-global-ready.mjs', () => ({
 
 import { CourseBehavior } from '@/app/(authed)/course-exercises/course-behavior';
 import { CourseShell } from '@/app/(authed)/course-exercises/page-shell';
+import {
+  COURSE_TITLE, COURSE_TITLE_META, SAVE_NOTE_IDLE,
+} from '@/app/(authed)/course-exercises/course-copy';
 
 const CSS = readFileSync(resolve(process.cwd(), 'public/css/course-exercises.css'), 'utf8');
 const CONNECTION_BADGE = 'Không thể kết nối để lưu';
@@ -96,13 +105,13 @@ const mcq = { qid: 'Q1', type: 'mcq', subtype: 'A1', skill: 'X', item_key: 'k1',
   prompt: 'Câu 1?', options: ['a', 'b', 'c', 'd'], answer: 0, explain: 'x', points: 1 };
 
 /** Bank read + the requests `runner.load()` makes for a fresh attempt. */
-function bankApi(questions: unknown[]) {
+function bankApi(questions: unknown[], title = 'Buổi 1') {
   const api = window.api as unknown as {
     get: ReturnType<typeof vi.fn>; post: ReturnType<typeof vi.fn>;
   };
   api.get.mockImplementation(async (path: string) => {
     if (path.includes('/course-resume')) return { session_id: null, answered: [], completed: [], item_id: null };
-    return { bank: { id: 'b1', title: 'Buổi 1' }, questions };
+    return { bank: { id: 'b1', title }, questions };
   });
   api.post.mockImplementation(async (path: string) => (
     path === '/api/quiz/sessions' ? { id: 'sess-1' } : { ok: true }));
@@ -365,7 +374,7 @@ describe('course-exercises account switch on the same shell (PC-J330)', () => {
     await waitFor(() => expect(document.querySelector('.cx-opt')).not.toBeNull());
     noErrorLeft();
     expect(el('cx-save-note').dataset.state).toBe('idle');
-    expect(el('cx-save-note-text').textContent).toBe('Sẽ lưu khi hoàn thành chặng');
+    expect(el('cx-save-note-text').textContent).toBe(SAVE_NOTE_IDLE);
     expect(el('cx-loading').hidden).toBe(true);
   });
 
@@ -410,5 +419,104 @@ describe('course-exercises account switch on the same shell (PC-J330)', () => {
     expect(el('cx-error').hidden).toBe(false);
     expect(el('cx-save-note').hidden).toBe(true);
     expect(document.body.textContent).not.toContain(CONNECTION_BADGE);
+  });
+});
+
+describe('course-exercises account switch clears the previous exercise (PC-J339)', () => {
+  const getMock = () => (window.api as unknown as { get: ReturnType<typeof vi.fn> }).get;
+  const refuse = (status: number) => () => getMock()
+    .mockRejectedValue(Object.assign(new Error('HTTP ' + status), { status }));
+
+  /** Content blocks a run draws into; all empty and hidden in CourseShell. */
+  const BLOCKS = ['cx-q', 'cx-next', 'cx-done', 'cx-reading', 'cx-listening', 'cx-pronunciation', 'cx-report'];
+
+  /** A bank whose title and question name the account that owns it. */
+  const bankOf = (who: string) => bankApi(
+    [{ ...mcq, qid: 'Q-' + who, prompt: `Câu của ${who}?` }], `Buổi của ${who}`);
+
+  /** Account A opens its exercise and gets further into the session. */
+  async function accountALoaded() {
+    bankOf('A');
+    const view = renderPage('?bank=b1');
+    await waitFor(() => expect(document.querySelector('.cx-opt')).not.toBeNull());
+    expect(el('cx-title').textContent).toBe('Buổi của A');
+    expect(el('cx-title-meta').textContent).not.toBe(COURSE_TITLE_META);
+    expect(el('cx-q').hidden).toBe(false);
+    expect(el('cx-q').textContent).toContain('Câu của A?');
+    expect(el('cx-stage').hidden).toBe(false);
+    expect(el('cx-stage-ticks').innerHTML).not.toBe('');
+    // The other blocks are reached later in a session (stage end, reading,
+    // listening, shadowing, report). The same run draws into them; stand in
+    // for that so the reset is checked on every block, not only `#cx-q`.
+    for (const id of BLOCKS.slice(1)) {
+      el(id).hidden = false;
+      el(id).innerHTML = `<p>Nội dung của A (${id})</p>`;
+    }
+    el('cx-report').dataset.crReady = '1';
+    // A timed bank would also have shown the countdown.
+    el('cx-timer').hidden = false;
+    el('cx-timer').textContent = '⏱ 12:00';
+    el('cx-timer').dataset.urgent = 'false';
+    return view;
+  }
+
+  function switchAccount(view: ReturnType<typeof render>, userId: string) {
+    wire.userId = userId;
+    view.rerender(<><CourseShell /><CourseBehavior /></>);
+  }
+
+  /** Nothing of account A is left on the screen or in the shell. */
+  function nothingOfA(except: string[] = []) {
+    expect(document.body.textContent).not.toContain('của A');
+    expect(el('cx-title').textContent).not.toBe('Buổi của A');
+    for (const id of BLOCKS.filter((b) => !except.includes(b))) {
+      expect(el(id).hidden, id).toBe(true);
+      expect(el(id).innerHTML, id).toBe('');
+    }
+    expect(el('cx-report').dataset.crReady).toBeUndefined();
+  }
+
+  beforeEach(() => {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {}); // jsdom: not implemented
+  });
+
+  it.each([
+    ['403', refuse(403), 'Không mở được bài tập: HTTP 403'],
+    ['404', refuse(404), 'Không mở được bài tập: HTTP 404'],
+    ['an empty bank', () => { bankApi([]); }, 'Bài tập này chưa có câu hỏi.'],
+  ])('account A loads, account B gets %s: only B\'s error is shown', async (_case, failB, message) => {
+    const view = await accountALoaded();
+
+    failB();
+    switchAccount(view, 'student-2');
+    const box = await errorShown();
+    await waitFor(() => expect(box.textContent).toContain(message));
+    nothingOfA();
+    expect(el('cx-title').textContent).toBe(COURSE_TITLE);
+    expect(el('cx-title-meta').textContent).toBe(COURSE_TITLE_META);
+    expect(el('cx-stage').hidden).toBe(true);
+    expect(el('cx-stage-label').textContent).toBe('');
+    expect(el('cx-stage-ticks').innerHTML).toBe('');
+    expect(el('cx-timer').hidden).toBe(true);
+    expect(el('cx-timer').textContent).toBe('');
+    expect(el('cx-timer').dataset.urgent).toBeUndefined();
+    expect(el('cx-loading').hidden).toBe(true);
+    expect(el('cx-save-note').hidden).toBe(true);
+  });
+
+  it('account A loads, account B loads another exercise: only B\'s exercise is shown', async () => {
+    const view = await accountALoaded();
+
+    bankOf('B');
+    switchAccount(view, 'student-2');
+    await waitFor(() => expect(el('cx-title').textContent).toBe('Buổi của B'));
+    await waitFor(() => expect(el('cx-q').textContent).toContain('Câu của B?'));
+    // B's own question draws `#cx-q` and an (empty, for MCQ) `#cx-next`.
+    nothingOfA(['cx-q', 'cx-next']);
+    expect(el('cx-q').hidden).toBe(false);
+    expect(el('cx-next').textContent).toBe('');
+    expect(el('cx-error').hidden).toBe(true);
+    expect(el('cx-save-note').dataset.state).toBe('idle');
+    expect(el('cx-save-note-text').textContent).toBe(SAVE_NOTE_IDLE);
   });
 });

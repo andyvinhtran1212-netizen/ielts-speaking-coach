@@ -17,6 +17,8 @@ const SRC = readFileSync(
   new URL('../app/(authed)/course-exercises/course-behavior.tsx', import.meta.url), 'utf8');
 const SHELL = readFileSync(
   new URL('../app/(authed)/course-exercises/page-shell.tsx', import.meta.url), 'utf8');
+const COPY = readFileSync(
+  new URL('../app/(authed)/course-exercises/course-copy.ts', import.meta.url), 'utf8');
 
 function functionBody(name) {
   const marker = `function ${name}`;
@@ -428,7 +430,9 @@ describe('thời lượng từng phần chỉ tính khi màn đang hiện', () =
 describe('chỉ báo lưu phản ánh persistence thật', () => {
   test('shell bắt đầu trung tính, không khẳng định đã tự động lưu', () => {
     assert.match(SHELL, /id="cx-save-note"[\s\S]*data-state="idle"/);
-    assert.match(SHELL, /Sẽ lưu khi hoàn thành chặng/);
+    // Một nguồn chữ cho shell, setSaveState('idle') và reset đầu lượt (PC-J339).
+    assert.match(SHELL, /<span id="cx-save-note-text">\{SAVE_NOTE_IDLE\}<\/span>/);
+    assert.match(COPY, /export const SAVE_NOTE_IDLE = 'Sẽ lưu khi hoàn thành chặng';/);
     assert.doesNotMatch(SHELL, />Tự động lưu tiến độ</);
   });
 
@@ -436,7 +440,9 @@ describe('chỉ báo lưu phản ánh persistence thật', () => {
     const note = { dataset: {} };
     const text = { textContent: '' };
     const $ = (id) => id === 'cx-save-note' ? note : id === 'cx-save-note-text' ? text : null;
-    const setState = new Function('$', 'state', 'message', functionBody('setSaveState'));
+    const setState = new Function(
+      'SAVE_NOTE_IDLE', '$', 'state', 'message', functionBody('setSaveState'),
+    ).bind(null, 'Sẽ lưu khi hoàn thành chặng');
 
     setState($, 'saving');
     assert.equal(note.dataset.state, 'saving');
@@ -447,6 +453,9 @@ describe('chỉ báo lưu phản ánh persistence thật', () => {
     setState($, 'saved');
     assert.equal(note.dataset.state, 'saved');
     assert.equal(text.textContent, 'Đã lưu tiến độ');
+    setState($, 'idle');
+    assert.equal(note.dataset.state, 'idle');
+    assert.equal(text.textContent, 'Sẽ lưu khi hoàn thành chặng');
   });
 
   test('kết quả finishStage là nguồn quyết định saved hay error', () => {

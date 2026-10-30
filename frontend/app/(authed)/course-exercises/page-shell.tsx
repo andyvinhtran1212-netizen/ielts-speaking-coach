@@ -4,7 +4,9 @@
 // dữ liệu nào được nạp ở phía máy chủ — token không đi qua ranh giới RSC
 // (ADR-003 §3), nên toàn bộ nội dung riêng tư tới bằng `window.api` phía client,
 // đúng như trang legacy.
-//
+
+import { COURSE_TITLE, COURSE_TITLE_META, SAVE_NOTE_IDLE } from './course-copy';
+
 // `course-exercises.css` khai ở ĐÂY chứ không ở layout (authed): layout ấy ghi
 // rõ nó khớp từng byte với pages/profile.html, và nhét thêm một tệp CSS của
 // trang khác vào đó là phá chính hợp đồng nó tự đặt. React 19 tự đưa
@@ -26,8 +28,8 @@ export function CourseShell() {
         <header className="cx-page-head">
           <div>
             <p className="cx-eyebrow">Luyện ngữ pháp</p>
-            <h1 id="cx-title">Bài tập theo buổi</h1>
-            <p id="cx-title-meta">Làm từng câu, xem đáp án và giải thích ngay sau khi chọn.</p>
+            <h1 id="cx-title">{COURSE_TITLE}</h1>
+            <p id="cx-title-meta">{COURSE_TITLE_META}</p>
           </div>
           <div
             className="cx-save-note"
@@ -38,7 +40,7 @@ export function CourseShell() {
             aria-label="Trạng thái lưu bài"
           >
             <span className="cx-save-note__dot" aria-hidden="true"></span>
-            <span id="cx-save-note-text">Sẽ lưu khi hoàn thành chặng</span>
+            <span id="cx-save-note-text">{SAVE_NOTE_IDLE}</span>
           </div>
         </header>
 
