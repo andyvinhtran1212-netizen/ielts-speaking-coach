@@ -289,14 +289,43 @@ def _build(schema: str, *, guard_320: bool = True) -> None:
     _owner(m326._227_writers(schema))
     if guard_320:
         _owner(m326._users_guard(schema))
-    _owner(f"REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA {schema} "
-           f"FROM anon, authenticated;")
+    # None of these tables are in 320's client_write_tables allowlist.
+    _owner(f"REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER "
+           f"ON ALL TABLES IN SCHEMA {schema} FROM PUBLIC, anon, authenticated;")
+    if psql("SELECT current_setting('server_version_num')::int >= 170000") == "t":
+        _owner(f"REVOKE MAINTAIN ON ALL TABLES IN SCHEMA {schema} FROM PUBLIC, anon, authenticated;")
     if guard_320:
         _owner(m326._migrated(schema))   # 326: fn_restore_student(p_reactivate_account)
 
 
 def _apply(schema: str) -> None:
     _owner(_migrated(schema))
+
+
+def test_harness_client_table_privileges_match_320():
+    _require_pg()
+    schema = "staff_sec_acl_" + uuid4().hex
+    lockdown = (MIGRATIONS / "320_client_write_privilege_lockdown.sql").read_text(encoding="utf-8")
+    client_write_tables = re.search(
+        r"client_write_tables\s+CONSTANT\s+TEXT\[\]\s*:=\s*ARRAY\[(.*?)\]", lockdown, re.S).group(1)
+    try:
+        _build(schema)
+        forbidden = json.loads(psql(f"""
+            SELECT COALESCE(json_agg(format('%s:%s:%s', c.relname, r.rolname, p.priv)
+                                        ORDER BY c.relname, r.rolname, p.priv), '[]')
+              FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+             CROSS JOIN (VALUES ('anon'), ('authenticated')) r(rolname)
+             CROSS JOIN unnest(ARRAY['INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']
+                 || CASE WHEN current_setting('server_version_num')::int >= 170000
+                         THEN ARRAY['MAINTAIN'] ELSE ARRAY[]::text[] END) p(priv)
+             WHERE n.nspname = '{schema}' AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+               AND (r.rolname = 'anon' OR p.priv NOT IN ('INSERT', 'UPDATE', 'DELETE')
+                    OR c.relname <> ALL (ARRAY[{client_write_tables}]::text[]))
+               AND has_table_privilege(r.rolname, c.oid, p.priv)
+        """))
+        assert forbidden == [], forbidden
+    finally:
+        psql(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
 
 
 @pytest.fixture(scope="module")

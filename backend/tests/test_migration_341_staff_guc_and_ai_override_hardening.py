@@ -142,6 +142,11 @@ def test_users_table_control_privileges_are_revoked():
                      r"EXECUTE 'REVOKE MAINTAIN ON public\.users FROM service_role';", CODE)
 
 
+def test_header_points_to_358_for_full_users_hardening():
+    header = SQL[:SQL.index("\nBEGIN;\n")]
+    assert "358" in header and "P2-R2-1" in header
+
+
 def test_f2_f3_statements():
     assert ("REVOKE ALL ON SEQUENCE public.ai_model_override_audit_id_seq, public.ai_provider_failures_id_seq\n"
             "    FROM PUBLIC, anon, authenticated;") in CODE
@@ -626,12 +631,17 @@ def test_precondition_aborts_and_creates_nothing(missing, marker):
     ("ALTER TABLE {s}.ai_model_override_audit DISABLE TRIGGER trg_ai_model_override_audit_no_truncate",
      "ALTER TABLE {s}.ai_model_override_audit ENABLE TRIGGER trg_ai_model_override_audit_no_truncate",
      "ai_model_override_audit_trigger_missing"),
+    *[(f"GRANT {priv} ON {{s}}.users TO {role}",
+       f"REVOKE {priv} ON {{s}}.users FROM {role}", f"users_client_role_privileges_wrong: {role}:{priv}")
+      for role in ("anon", "authenticated") for priv in ("TRIGGER", "REFERENCES", "TRUNCATE")],
 ])
 def test_postcondition_block_aborts_on_drift(db, tamper, revert, marker):
     s = db
     _owner(_postcondition_sql(s))   # clean state passes
     _owner(tamper.format(s=s))
     try:
+        if marker.startswith("users_client_role_privileges_wrong:"):
+            assert marker in _fails(_owner, _migrated(s))
         assert marker in _fails(_owner, _postcondition_sql(s))
     finally:
         _owner(revert.format(s=s))
@@ -643,6 +653,14 @@ def test_postcondition_refuses_maintain_on_pg17(db):
         test_postcondition_block_aborts_on_drift(
             db, "GRANT MAINTAIN ON {s}.users TO service_role",
             "REVOKE MAINTAIN ON {s}.users FROM service_role", "users_service_role_privileges_wrong")
+
+
+@pytest.mark.parametrize("role", ["anon", "authenticated"])
+def test_postcondition_refuses_client_maintain_on_pg17(db, role):
+    if psql("SELECT current_setting('server_version_num')::int >= 170000") == "t":
+        test_postcondition_block_aborts_on_drift(
+            db, f"GRANT MAINTAIN ON {{s}}.users TO {role}",
+            f"REVOKE MAINTAIN ON {{s}}.users FROM {role}", f"users_client_role_privileges_wrong: {role}:MAINTAIN")
 
 
 def test_postcondition_refuses_evidence_grants_to_any_non_owner(db):

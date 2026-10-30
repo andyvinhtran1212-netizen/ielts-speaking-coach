@@ -7,6 +7,9 @@
 -- with the same names, arguments, return types, owner, security mode, pinned
 -- search_path and ACL, except fn_ai_model_override_audit, which becomes
 -- SECURITY DEFINER (F3).
+-- For table control on users, 341 only revokes service_role privileges; full
+-- P2-SA-1 closure also needs 358 (SVCPRIV-0042) for search_path / unpinned
+-- trigger functions (P2-R2-1).
 --
 --   F1 (P2) Session settings opened the staff guards. Any direct SQL session
 --       (owner, or service_role on a direct connection; PostgREST cannot set
@@ -576,6 +579,17 @@ BEGIN
      WHERE has_table_privilege('service_role', 'public.users', p.priv);
     IF v_wrong IS NOT NULL THEN
         RAISE EXCEPTION 'users_service_role_privileges_wrong: %', v_wrong;
+    END IF;
+
+    -- 320 already removed client table-control privileges; reject any drift.
+    SELECT string_agg(format('%s:%s', r.rolname, p.priv), ', ' ORDER BY r.rolname, p.priv) INTO v_wrong
+      FROM (VALUES ('anon'), ('authenticated')) r(rolname)
+     CROSS JOIN unnest(ARRAY['TRIGGER', 'REFERENCES', 'TRUNCATE']
+          || CASE WHEN current_setting('server_version_num')::int >= 170000
+                  THEN ARRAY['MAINTAIN'] ELSE ARRAY[]::text[] END) p(priv)
+     WHERE has_table_privilege(r.rolname, 'public.users', p.priv);
+    IF v_wrong IS NOT NULL THEN
+        RAISE EXCEPTION 'users_client_role_privileges_wrong: %', v_wrong;
     END IF;
 
     -- F1: the evidence table is owner-only, RLS on and empty.
