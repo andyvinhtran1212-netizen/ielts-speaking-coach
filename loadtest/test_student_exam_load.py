@@ -697,3 +697,150 @@ def test_supabase_production_ref_is_refused_before_network(monkeypatch, capsys):
     assert lt.main(["--base-url", "http://localhost:8000", "--bank-id", "B1"], environ={
         "LOADTEST_TOKEN_1": "t", "LOADTEST_SUPABASE_URL": f"https://{ref}.supabase.co"}) == 2
     assert "LOADTEST_SUPABASE_URL" in capsys.readouterr().err
+
+
+# ── Codex #2083 @45863540e: interrupted stages and failed progress ────────
+
+def _exam_context():
+    args = lt.build_parser().parse_args([
+        "--base-url", "http://localhost:8000", "--bank-id", "B1"])
+    lt.validate_args(args, {})
+    return lt.Ctx(args=args, rec=lt.Recorder(), deadline=lt.time.monotonic() + 60,
+                  stop=asyncio.Event(), audio=b"", writing_targets={})
+
+
+def _mock_exam_client(monkeypatch, handler):
+    real = lt.make_client
+
+    def mocked(base_url, timeout_s):
+        client = real(base_url, timeout_s)
+        client._transport = httpx.MockTransport(handler)
+        return client
+
+    monkeypatch.setattr(lt, "make_client", mocked)
+
+
+@pytest.mark.parametrize("interruption", ["deadline", "abort"])
+@pytest.mark.parametrize("answered_count", [0, 3, 5])
+@pytest.mark.parametrize("timed", [False, True])
+def test_interrupted_stage_stays_open_and_resumes_remaining_answers(
+        monkeypatch, interruption, answered_count, timed):
+    requests, saved, finalized = [], [], []
+    opened = False
+    questions = [{"qid": f"q{i}", "type": "mcq", "answer": 0} for i in range(10)]
+
+    def handler(request):
+        nonlocal opened
+        path = request.url.path
+        body = json.loads(request.content) if request.content else None
+        requests.append((request.method, path, body))
+        if path == "/api/quiz/banks/B1":
+            return httpx.Response(200, json={"questions": questions,
+                                             "mastery": {"is_timed": timed}})
+        if path.endswith("/course-resume"):
+            # Match the backend: ended sessions no longer expose open answers.
+            return httpx.Response(200, json={
+                "stage": 1 if finalized and len(saved) == 10 else 0,
+                "session_id": "S0" if opened and not finalized else None,
+                "answered": saved if opened and not finalized else [], "item_id": None})
+        if path == "/api/quiz/sessions":
+            opened = True
+            return httpx.Response(201, json={"session_id": "S0"})
+        if path.endswith("/progress"):
+            saved.extend(body["attempts"])
+        if request.method == "PATCH":
+            finalized.append(body)
+        return httpx.Response(200, json={"ok": True})
+
+    _mock_exam_client(monkeypatch, handler)
+
+    async def go():
+        first = _exam_context()
+        answered = 0
+
+        async def think(ctx, seconds):
+            nonlocal answered
+            if ctx is first:
+                if answered == answered_count:
+                    if interruption == "deadline":
+                        ctx.deadline = lt.time.monotonic() - 1
+                    else:
+                        ctx.stop.set()
+                    return False
+                answered += 1
+            return True
+
+        monkeypatch.setattr(lt, "_sleep_or_stop", think)
+        await lt.exam_student(first, 0, 1, "t")
+        assert [row["qid"] for row in saved] == [f"q{i}" for i in range(answered_count)]
+        assert finalized == []
+        assert first.rec.notes == []
+
+        boundary = len(requests)
+        second = _exam_context()
+        await lt.exam_student(second, 0, 1, "t")
+        later = requests[boundary:]
+        assert not any(p == "/api/quiz/sessions" for _, p, _ in later)
+        progress = [(p, row["qid"]) for _, p, b in later if p.endswith("/progress")
+                    for row in b["attempts"]]
+        assert progress == [("/api/quiz/sessions/S0/progress", f"q{i}")
+                            for i in range(answered_count, 10)]
+        assert [row["qid"] for row in saved] == [f"q{i}" for i in range(10)]
+        assert len(finalized) == 1 and finalized[0]["total_questions"] == 10
+        assert [(s["session_id"], s["resumed"]) for s in second.rec.sessions] == [("S0", True)]
+        assert second.rec.notes == []
+
+    asyncio.run(go())
+
+
+@pytest.mark.parametrize("failure", ["503", "timeout"])
+@pytest.mark.parametrize("flush", ["batch", "timed", "tail", "interrupted_tail"])
+def test_failed_progress_stops_student_without_finalizing(monkeypatch, failure, flush):
+    requests = []
+    n = 3 if flush == "tail" else 20
+    questions = [{"qid": f"q{i}", "type": "mcq", "answer": 0} for i in range(n)]
+
+    def handler(request):
+        path = request.url.path
+        body = json.loads(request.content) if request.content else None
+        requests.append((request.method, path, body))
+        if path == "/api/quiz/banks/B1":
+            return httpx.Response(200, json={"questions": questions,
+                                             "mastery": {"is_timed": flush == "timed"}})
+        if path.endswith("/course-resume"):
+            return httpx.Response(200, json={"stage": 0, "session_id": "S0",
+                                             "answered": [], "item_id": None})
+        if path.endswith("/progress"):
+            if failure == "timeout":
+                raise httpx.ReadTimeout("progress timed out", request=request)
+            return httpx.Response(503, json={"detail": "progress unavailable"})
+        return httpx.Response(200, json={"ok": True})
+
+    _mock_exam_client(monkeypatch, handler)
+    answered = 0
+
+    async def think(ctx, seconds):
+        nonlocal answered
+        if flush == "interrupted_tail" and answered == 3:
+            ctx.stop.set()
+            return False
+        answered += 1
+        return True
+
+    monkeypatch.setattr(lt, "_sleep_or_stop", think)
+
+    async def go():
+        ctx = _exam_context()
+        await lt.exam_student(ctx, 0, 1, "t")
+        return ctx.rec
+
+    rec = asyncio.run(go())
+    assert not any(m == "PATCH" for m, _, _ in requests)
+    progress = [b["attempts"] for _, p, b in requests if p.endswith("/progress")]
+    count = {"batch": 5, "timed": 1, "tail": 3, "interrupted_tail": 3}[flush]
+    assert len(progress) == 1
+    assert [row["qid"] for row in progress[0]] == [f"q{i}" for i in range(count)]
+    assert requests[-1][1] == "/api/quiz/sessions/S0/progress"
+    stats = rec.by_endpoint["POST /api/quiz/sessions/{id}/progress"]
+    assert stats.errors == 1 and stats.timeouts == (failure == "timeout")
+    assert any("progress failed" in note for note in rec.notes)

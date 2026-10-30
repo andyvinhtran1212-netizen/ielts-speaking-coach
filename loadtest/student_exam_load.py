@@ -480,17 +480,26 @@ async def exam_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
                 graded += 1
                 right += 1 if row["is_correct"] else 0
                 if len(pending) >= BATCH or timed:
-                    await call(rec, c, "POST", f"/api/quiz/sessions/{sid}/progress",
-                               "POST /api/quiz/sessions/{id}/progress", token=token,
-                               json={"attempts": pending, "word_stats": []})
+                    st, _ = await call(rec, c, "POST", f"/api/quiz/sessions/{sid}/progress",
+                                       "POST /api/quiz/sessions/{id}/progress", token=token,
+                                       json={"attempts": pending, "word_stats": []})
+                    if st is None or not 200 <= st < 300:
+                        rec.notes.append(f"{ui}: progress failed status={st}; session left open")
+                        return
                     pending = []
                 if time.monotonic() - last_beacon >= a.beacon_seconds:
                     last_beacon = time.monotonic()
                     await beacon(ctx, c, token, "/course-exercises", ui)
             if pending:
-                await call(rec, c, "POST", f"/api/quiz/sessions/{sid}/progress",
-                           "POST /api/quiz/sessions/{id}/progress", token=token,
-                           json={"attempts": pending, "word_stats": []})
+                st, _ = await call(rec, c, "POST", f"/api/quiz/sessions/{sid}/progress",
+                                   "POST /api/quiz/sessions/{id}/progress", token=token,
+                                   json={"attempts": pending, "word_stats": []})
+                if st is None or not 200 <= st < 300:
+                    rec.notes.append(f"{ui}: progress failed status={st}; session left open")
+                    return
+            # A deadline/abort flushes the prefix but must not complete a stage.
+            if graded != len(stage_questions):
+                return
             await call(rec, c, "PATCH", f"/api/quiz/sessions/{sid}", "PATCH /api/quiz/sessions/{id}",
                        token=token, json={
                            "duration_sec": round(time.monotonic() - started),

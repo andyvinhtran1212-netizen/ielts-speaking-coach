@@ -64,6 +64,9 @@ python loadtest/student_exam_load.py \
 - Quiz students adopt the server's stage, open session and saved answers.
   Accounts that have completed every stage stay at the result state and send
   no new quiz sessions or answers, including when reused across ladder steps.
+  A deadline or abort flushes pending answers and leaves partial stages open
+  for the next run. A failed progress request stops that student without
+  finalizing the session; only fully answered, acknowledged stages are finalized.
   Use unfinished test accounts when measuring active exam work.
 
 Outputs (default `loadtest/results/`, git-ignored): `<label>-<ts>.json`,
