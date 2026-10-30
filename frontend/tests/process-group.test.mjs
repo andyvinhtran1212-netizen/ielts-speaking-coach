@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { once } from 'node:events';
 import { after, test } from 'node:test';
 import { killGroup, spawnGroup } from '../tooling/process-group.mjs';
@@ -35,7 +35,12 @@ function assertGone(pid) {
   assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
 }
 
-const pgid = (pid) => Number(readFileSync(`/proc/${pid}/stat`, 'utf8').split(') ')[1].split(' ')[2]);
+// `ps -o pgid=` is POSIX (procps on Linux, BSD ps on macOS); /proc is Linux-only.
+function pgid(pid) {
+  const value = Number(execFileSync('ps', ['-o', 'pgid=', '-p', String(pid)], { encoding: 'utf8' }).trim());
+  assert.ok(Number.isInteger(value) && value > 0, `no process group for pid ${pid}`);
+  return value;
+}
 
 test('spawnGroup makes the child lead its own process group', { timeout: 10000 }, async () => {
   const child = start('setInterval(() => {}, 1000); console.log(process.pid);');
