@@ -72,12 +72,20 @@ const SOLUTION_BODY_FIELDS = ['translation_vi', 'vocab_focus', 'vocab', 'paraphr
 const SHARED_SOLUTION_FIELDS = [...SOLUTION_BODY_FIELDS, 'skills', 'relisten',
   'paraphrase_map', 'trap_mechanisms'];
 const hasSolutionBody = (solution) => SOLUTION_BODY_FIELDS.some((key) => text(solution?.[key]));
+const solutionBodySize = (solution) => SOLUTION_BODY_FIELDS.filter((key) => text(solution?.[key])).length;
+// Script and translation identify the shared audio passage. A slot that
+// authored a different passage has its own rationale, not a shared one.
+const conflictsWithShared = (solution, shared) => ['script', 'translation_vi']
+  .some((key) => text(solution?.[key]) && text(shared?.[key]) && text(solution[key]) !== text(shared[key]));
 
 function inheritMultiAnswerSolutions(items) {
   const groups = new Map();
   for (const item of items) {
     const context = item.question_context;
-    if (item.question_type !== 'mcq_multi' || context?.template_kind !== 'mcq_multi') continue;
+    // The grader groups by the authored template kind. Cambridge rows carry
+    // no response_type, so an absent question_type is not a contradiction.
+    if ((item.question_type && item.question_type !== 'mcq_multi')
+        || context?.template_kind !== 'mcq_multi') continue;
     // The server's authored question identity includes its exercise UUID. Do
     // not infer group membership from adjacent numbers or a repeated prompt.
     const identity = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}):(\d+)$/i
@@ -101,19 +109,39 @@ function inheritMultiAnswerSolutions(items) {
       });
     }
     const authors = members.filter((item) => hasSolutionBody(item.solution));
-    if (authors.length !== 1) continue;
-    const author = authors[0];
+    if (!authors.length) continue;
+    // The fullest authored body is the shared rationale; the first wins a tie.
+    const author = authors.reduce((best, item) => (
+      solutionBodySize(item.solution) > solutionBodySize(best.solution) ? item : best));
+    if (authors.some((item) => conflictsWithShared(item.solution, author.solution))) continue;
+    const group = { question_numbers: members.map((member) => member.q_num),
+      source_question_number: author.q_num };
+    let linked = false;
     for (const item of members) {
-      if (item === author || item.web_explanation_object || hasSolutionBody(item.solution)) continue;
+      if (item === author || item.web_explanation_object) continue;
+      if (hasSolutionBody(item.solution)) {
+        // A per-slot rationale stays exactly as authored. Link the shared
+        // passage instead of copying it beside the slot's own explanation.
+        // A graded rationale_q_num can serve the shared body itself here.
+        const own = SOLUTION_BODY_FIELDS.some((key) => text(item.solution[key]) !== text(author.solution[key]));
+        inherited.set(item.q_num, { ...(inherited.get(item.q_num) || item),
+          solution_group: own ? { ...group, own_solution: true } : { ...group } });
+        linked = true;
+        continue;
+      }
       const solution = { ...item.solution };
       for (const key of SHARED_SOLUTION_FIELDS) {
         // An explicitly empty per-slot field remains empty. Inherit only a
         // missing display field, never the shared answer or replay window.
         if (!(key in solution) && key in author.solution) solution[key] = author.solution[key];
       }
-      if (hasSolutionBody(solution)) inherited.set(item.q_num, { ...(inherited.get(item.q_num) || item), solution,
-        solution_group: { question_numbers: members.map((member) => member.q_num),
-          source_question_number: author.q_num } });
+      if (hasSolutionBody(solution)) {
+        inherited.set(item.q_num, { ...(inherited.get(item.q_num) || item), solution, solution_group: { ...group } });
+        linked = true;
+      }
+    }
+    if (linked && !author.web_explanation_object) {
+      inherited.set(author.q_num, { ...(inherited.get(author.q_num) || author), solution_group: { ...group } });
     }
   }
   return items.map((item) => inherited.get(item.q_num) || item);
@@ -262,4 +290,13 @@ export function listeningReviewSection(item) {
   const raw = item?.audio_window?.section || item?.section;
   const value = Number(String(raw || '').replace(/\D/g, ''));
   return Number.isInteger(value) && value > 0 ? value : null;
+}
+
+// The replay label is the only end marker the learner sees. Whole seconds
+// floored the end by up to 0.99 s, so a clip that stopped exactly at `end`
+// still looked like it ran past it (PC-J125). Tenths keep the label ±0.05 s.
+export function listeningReviewClipClock(raw) {
+  const tenths = Math.max(0, Math.round((Number(raw) || 0) * 10));
+  const seconds = Math.floor(tenths / 10);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}.${tenths % 10}`;
 }

@@ -8,11 +8,12 @@ import pytest
 
 from models.grammar_quiz_revisions import GrammarRevisionCommitRequest, GrammarRevisionPreviewRequest
 from services import grammar_quiz_revisions as owner
-from services.grammar_quiz_revision_source import FOLLOWUP_CODE, REVIEWED_SOURCES, parse_reviewed_source
+from services.grammar_quiz_revision_source import REVIEWED_SOURCES, parse_reviewed_source
 from test_grammar_quiz_revision_boundary import pg, encoded
 from test_grammar_quiz_revisions import canonical_engine, canonical
 
 ROOT = Path(__file__).parents[2]
+FOLLOWUP_CODE = 'G-grammar-for-reading-long-sentence-untangling'
 
 
 async def command(engine, code, raw):

@@ -213,8 +213,10 @@ def test_forward_policy_holds_333_behind_the_ai_budget_group():
 
 
 def test_no_other_migration_touches_the_333_objects():
+    # 340 is the reviewed PC-J85 hardening of these objects, pinned by its own
+    # suite (test_migration_340_ai_budget_hardening.py).
     for path in sorted(MIGRATIONS.glob("*.sql")):
-        if path.name == NAME:
+        if path.name in (NAME, "340_ai_budget_hardening.sql"):
             continue
         code = m326._strip_comments(path.read_text(encoding="utf-8"))
         for name in ("ai_budget_", "ai_deferred_", "trg_ai_session_generation", "budget_deferred_at",
