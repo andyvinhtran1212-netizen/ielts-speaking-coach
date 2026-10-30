@@ -11,6 +11,7 @@ number in flight.
 import asyncio
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 from fastapi import FastAPI
@@ -167,3 +168,80 @@ def test_invalid_payload_still_rejected_before_any_insert(monkeypatch):
     assert asyncio.run(post({"event_name": "bad event"})).status_code == 422
     assert asyncio.run(post({**_event(), "unexpected": 1})).status_code == 422
     assert stub.inserted == []
+
+
+def _free_slots(sem):
+    """Count (and give back) the slots a semaphore can hand out right now."""
+    n = 0
+    while sem.acquire(blocking=False):
+        n += 1
+    for _ in range(n):
+        sem.release()
+    return n
+
+
+async def _settle_inserts():
+    pending = list(getattr(analytics_module, "_pending_inserts", ()))
+    if pending:
+        await asyncio.wait(pending)
+    await asyncio.sleep(0)  # let done-callbacks run
+
+
+def test_request_cancelled_while_insert_queued_gives_its_slot_back(monkeypatch):
+    stub = _SlowInsert()
+    sem = _patch(monkeypatch, stub)
+    payload = analytics_module.AnalyticsEventPayload(**_event())
+    later = analytics_module.AnalyticsEventPayload(event_name="later_event")
+
+    async def scenario():
+        loop = asyncio.get_running_loop()
+        loop.set_default_executor(ThreadPoolExecutor(max_workers=1))
+        gate = threading.Event()
+        busy = loop.run_in_executor(None, gate.wait)  # the only worker is taken
+        request = asyncio.create_task(analytics_module.record_event(payload, authorization=None))
+        await asyncio.sleep(0.05)  # the insert is now queued behind `busy`
+        assert stub.inserted == [] and _free_slots(sem) == 7
+        request.cancel()
+        try:
+            await request
+        except asyncio.CancelledError:
+            pass
+        gate.set()
+        await busy
+        await _settle_inserts()
+        free_after_cancel = _free_slots(sem)
+        out = await analytics_module.record_event(later, authorization=None)
+        await _settle_inserts()
+        return free_after_cancel, out, _free_slots(sem)
+
+    free_after_cancel, out, free_end = asyncio.run(scenario())
+    assert free_after_cancel == analytics_module._MAX_IN_FLIGHT_INSERTS, \
+        "a request cancelled before its insert started leaked its slot"
+    assert out == {"ok": True}
+    assert [r["event_name"] for r in stub.inserted][-1] == "later_event"
+    assert free_end == analytics_module._MAX_IN_FLIGHT_INSERTS
+
+
+def test_request_cancelled_mid_insert_keeps_slot_until_insert_ends(monkeypatch):
+    stub = _SlowInsert(delay=0.3)
+    sem = _patch(monkeypatch, stub)
+    payload = analytics_module.AnalyticsEventPayload(**_event())
+
+    async def scenario():
+        request = asyncio.create_task(analytics_module.record_event(payload, authorization=None))
+        await asyncio.sleep(0.05)  # the insert is running in its worker
+        request.cancel()
+        try:
+            await request
+        except asyncio.CancelledError:
+            pass
+        free_while_running = _free_slots(sem)
+        await _settle_inserts()
+        await asyncio.sleep(0.4)
+        return free_while_running, _free_slots(sem)
+
+    free_while_running, free_end = asyncio.run(scenario())
+    assert free_while_running == analytics_module._MAX_IN_FLIGHT_INSERTS - 1, \
+        "slot released while the insert still holds its worker"
+    assert stub.finished == 1
+    assert free_end == analytics_module._MAX_IN_FLIGHT_INSERTS  # released exactly once
