@@ -5,7 +5,7 @@
 // tooling/verify-csp-nonce-report-only-flow.mjs.
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
@@ -20,6 +20,7 @@ import {
 import {
   auditNonceResponse,
   auditNonceRoute,
+  bypassAllowed,
   PUBLIC_PATHS,
   SIGNED_IN_PATHS,
 } from '../tooling/check-csp-nonce-deployed.mjs';
@@ -79,6 +80,106 @@ const proxyConfig = (() => {
 
 const proxyMatches = (url, host) =>
   matches({ config: proxyConfig, url, headers: { host } });
+
+describe('deployed checker bypass origin guard (PC-J212)', () => {
+  const tool = path.join(FRONTEND, 'tooling/check-csp-nonce-deployed.mjs');
+  const allowed = [
+    'https://staging.averlearning.com',
+    'https://ielts-speaking-coach-git-x-abc.vercel.app',
+    'https://STAGING.averlearning.com',
+    'https://x.vercel.app',
+    'https://x.y.vercel.app:443',
+    'https://staging.averlearning.com:443',
+  ];
+  const denied = [
+    'https://example.com',
+    'https://staging.averlearning.com.evil.com',
+    'https://evilstaging.averlearning.com',
+    'https://vercel.app.evil.com',
+    'https://evilvercel.app',
+    'https://vercel.app',
+    'http://staging.averlearning.com',
+    'http://x.vercel.app',
+    'https://www.averlearning.com',
+    'https://averlearning.com',
+    'https://user@staging.averlearning.com',
+    'https://:password@x.vercel.app',
+    'https://staging.averlearning.com:8443',
+    'https://x.vercel.app:8443',
+    'https://.vercel.app',
+    'https://staging.averlearning.com.',
+    'not a URL',
+    undefined,
+  ];
+
+  for (const origin of allowed) {
+    test(`allows bypass for ${origin}`, () => assert.equal(bypassAllowed(origin), true));
+  }
+  for (const origin of denied) {
+    test(`denies bypass for ${origin}`, () => assert.equal(bypassAllowed(origin), false));
+  }
+
+  function runIsolatedChecker(origin, secret, fetchStub) {
+    return spawnSync(process.execPath, [
+      '--import', `data:text/javascript,${encodeURIComponent(fetchStub)}`,
+      tool, origin,
+    ], {
+      encoding: 'utf8',
+      timeout: 10_000,
+      env: { ...process.env, VERCEL_AUTOMATION_BYPASS_SECRET: secret },
+    });
+  }
+
+  // Replace fetch before the CLI loads: even a regressed guard cannot send a request.
+  const blockFetch = `globalThis.fetch = () => { throw new Error('unexpected fetch attempt'); };`;
+
+  for (const origin of [
+    'https://staging.averlearning.com.evil.com',
+    'http://staging.averlearning.com',
+    'https://dummy-test-value@staging.averlearning.com',
+    'https://staging.averlearning.com:8443',
+    'https://dummy-test-value@:8443',
+  ]) {
+    test(`CLI refuses ${origin} before calling fetch and never prints the secret`, () => {
+      const result = runIsolatedChecker(origin, 'dummy-test-value', blockFetch);
+      assert.ifError(result.error);
+      assert.equal(result.status, 2, result.stderr);
+      assert.match(result.stderr, /refusing/);
+      assert.equal(result.stdout, '');
+      assert.doesNotMatch(result.stdout + result.stderr, /dummy-test-value|unexpected fetch attempt/);
+    });
+  }
+
+  for (const { origin, secret } of [
+    { origin: 'https://staging.averlearning.com', secret: 'dummy-test-value' },
+    { origin: 'https://x.vercel.app', secret: 'dummy-test-value' },
+    { origin: 'http://example.invalid', secret: '' },
+  ]) {
+    test(`CLI preserves requests and headers for ${origin} ${secret ? 'with' : 'without'} bypass`, () => {
+      const stub = `
+        import assert from 'node:assert/strict';
+        let requests = 0;
+        globalThis.fetch = async (url, options) => {
+          assert.equal(options.redirect, 'manual');
+          assert.equal(options.headers['x-vercel-protection-bypass'], ${JSON.stringify(secret || null)} ?? undefined);
+          const nonce = requests++ % 2 ? 'EBESExQVFhcYGRobHB0eHw==' : '${NONCE}';
+          return new Response('<script nonce="' + nonce + '"></script>', {
+            headers: ${JSON.stringify(SIGNED_IN_PATHS)}.includes(url.pathname)
+              ? { 'content-security-policy-report-only': "script-src 'self' 'nonce-" + nonce + "' 'strict-dynamic' 'unsafe-inline'" }
+              : {},
+          });
+        };
+        process.on('exit', () => assert.equal(requests, 12));
+      `;
+      const result = runIsolatedChecker(origin, secret, stub);
+      assert.ifError(result.error);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /\bPASS\b/);
+      assert.equal(result.stderr, '');
+      assert.doesNotMatch(result.stdout + result.stderr, /dummy-test-value/);
+    });
+  }
+});
 
 describe('Report-Only policy builder', () => {
   test('script-src is self + the request nonce + strict-dynamic, with the CSP2 fallback', () => {
