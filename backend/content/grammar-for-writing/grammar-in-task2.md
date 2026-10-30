@@ -300,6 +300,7 @@ Task 2 là văn bán trang trọng — tránh:
 | Song song / nhấn mạnh | not only... but also / What is needed is... |
 
 **Quy tắc vàng:**
+
 - Đa dạng CÓ KIỂM SOÁT: xen câu đơn và phức chính xác > câu dài sai
 - "however/therefore" = trạng từ → dấu chấm/chấm phẩy, không dấu phẩy nối câu
 - Type 1: *if + present, will + V*. Không dùng *will* trong vế *if* để nói tương lai (ngoại lệ: *if you will help…* = nếu bạn sẵn lòng)

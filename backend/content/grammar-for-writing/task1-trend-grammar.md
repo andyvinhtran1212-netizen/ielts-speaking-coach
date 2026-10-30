@@ -96,7 +96,7 @@ Một biểu đồ theo thời gian thể hiện thay đổi. Luyện động t�
 
 ## Tại sao quan trọng
 
-Task 1 chấm đều bốn tiêu chí. Lặp increased không tự giới hạn band; ưu tiên mô tả đúng dữ liệu rồi luyện đa dạng phù hợp. Đa dạng động từ xu hướng + chuyển đổi động từ↔danh từ + giới từ chính xác là cách trực tiếp nâng Lexical Resource và Grammatical Range and Accuracy.
+Task 1 chấm đều bốn tiêu chí. Ưu tiên mô tả đúng dữ liệu trước, rồi mới đa dạng hoá cách diễn đạt cho phù hợp. Đa dạng động từ xu hướng + chuyển đổi động từ↔danh từ + giới từ chính xác là cách trực tiếp nâng Lexical Resource và Grammatical Range and Accuracy.
 
 ---
 
@@ -276,6 +276,7 @@ Ngôn ngữ xu hướng cũng hữu ích trong Speaking khi mô tả thay đổi
 ### Đáp án (gợi ý)
 
 **Giới từ:**
+
 1. from 5 million **to** 8 million
 2. **of** 20%
 3. **by** 15%
@@ -283,6 +284,7 @@ Ngôn ngữ xu hướng cũng hữu ích trong Speaking khi mô tả thay đổi
 5. **in** tourism
 
 **Viết lại:**
+
 1. There was **a sharp rise** in prices.
 2. Sales **declined gradually**.
 
@@ -299,6 +301,7 @@ Ngôn ngữ xu hướng cũng hữu ích trong Speaking khi mô tả thay đổi
 | Xấp xỉ | around / just over / nearly | just under 70% |
 
 **Quy tắc vàng:**
+
 - "rose **by** + lượng", "rose **to** + mức", "a rise **of** + lượng", "a rise **in** + chủ đề"
 - "rise/fall" là nội động từ — KHÔNG bị động ("was risen" sai)
 - Luân phiên động từ+trạng từ ↔ danh từ+tính từ để đa dạng câu

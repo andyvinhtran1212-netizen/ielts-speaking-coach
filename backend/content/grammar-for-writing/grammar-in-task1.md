@@ -344,6 +344,7 @@ Gộp hai số liệu đối lập trong một câu (whereas / while) thay vì h
 | Hoà hợp | the number of + số ít | The number ... has |
 
 **Quy tắc vàng:**
+
 - "rose **by** + lượng", "rose **to** + mức", "a rise **of** + lượng" — KHÔNG "rose of"
 - Biểu đồ luôn dùng present (shows/illustrates); dữ liệu có mốc quá khứ dùng past
 - Process diagram → bị động (is/are + V-ed) cho bước được tác động; chủ động cho bước tự diễn ra (evaporates)

@@ -200,6 +200,7 @@ Dùng khi muốn cân nhắc hai mặt (rất hợp Part 3 và discussion essay)
 | On the other hand | But on the flip side... / But at the same time... |
 
 **Part 3 example:**
+
 - Q: "Do you think technology has made people closer or more distant?"
 - ✅ "I'd say it's a bit of both, really. **On one hand,** we can talk to anyone instantly, no matter where they are. **But then again,** a lot of people are glued to their phones even when they're with family — **so even though** we're more 'connected', we might actually be a bit more distant in real life."
 
@@ -254,12 +255,14 @@ Dùng khi muốn cân nhắc hai mặt (rất hợp Part 3 và discussion essay)
 ### Đáp án (gợi ý)
 
 **Chọn/điền:**
+
 1. Although (theo sau là mệnh đề)
 2. However (đầu câu mới, có dấu phẩy sau)
 3. Despite (theo sau là danh từ "his lack of experience")
 4. whereas
 
 **Viết lại:**
+
 1. Despite the risk(s), the company approved the project. / Despite being risky, the project was approved.
 2. Despite the fact that it was raining heavily, the match continued.
 3. Although the plan is cheap, it is unrealistic.
@@ -277,6 +280,7 @@ Dùng khi muốn cân nhắc hai mặt (rất hợp Part 3 và discussion essay)
 | Hai mặt | On the one hand... on the other hand | On the one hand... |
 
 **Quy tắc vàng:**
+
 - Một câu tương phản chỉ dùng **một** connector (không "although... but...")
 - **Despite / In spite of** + danh từ/V-ing; **Although** + mệnh đề
 - **However** = trạng từ → dấu chấm/chấm phẩy, KHÔNG dấu phẩy nối câu
