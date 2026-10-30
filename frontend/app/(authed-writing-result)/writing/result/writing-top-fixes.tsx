@@ -1,6 +1,6 @@
 import { writingTopFixes } from '@/lib/writing-result-model.mjs';
 
-type TopFix = { title: string; detail: string; example?: string; count: number };
+type TopFix = { kind: 'mistake' | 'area'; title: string; detail: string; example?: string; count: number };
 
 // R3 — "N việc cần sửa trước" (CM-TEXT 30/10). Band-free on purpose, so it
 // also renders when the instructor hides scores.
@@ -14,6 +14,7 @@ export function WritingTopFixes({ feedbackJson, mistakesTabLabel }: { feedbackJs
       <ol className="top-fixes__list">
         {fixes.map((fix, index) => (
           <li className="top-fixes__item" key={index}>
+            <p className="top-fixes__kind">{fix.kind === 'mistake' ? 'Lỗi cần sửa' : 'Cần cải thiện'}</p>
             <p className="top-fixes__title">
               {fix.title}
               {fix.count > 1 ? <span className="top-fixes__count"> ({fix.count} chỗ)</span> : null}

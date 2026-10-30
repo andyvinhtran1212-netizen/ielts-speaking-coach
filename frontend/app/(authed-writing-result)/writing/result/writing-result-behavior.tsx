@@ -377,7 +377,7 @@ function WritingResultReady({ view, essayId }: { view: Extract<ResultView, { kin
               <TabPanel active={tab === 'tongquan'} panel="tongquan">
                 {section('key-takeaways', '🎓 Key Takeaways')}{section('overview', '📊 Tổng quan')}{section('criteria', '🎯 4 tiêu chí IELTS')}{section('trajectory', '📈 Diễn biến band')}
               </TabPanel>
-              <TabPanel active={tab === 'loi'} panel="loi">{section('mistakes', '❌ Lỗi sai')}{section('recurring', '🔁 Lỗi lặp lại')}</TabPanel>
+              <TabPanel active={tab === 'loi'} panel="loi">{section('mistakes', '❌ Lỗi cần sửa')}{section('recurring', '🔁 Lỗi lặp lại')}</TabPanel>
               <TabPanel active={tab === 'nangcao'} panel="nangcao">
                 {section('lexical', '📚 Từ vựng')}{section('sentence-structure', '🏗 Cấu trúc câu')}{section('coherence', '🧩 Coherence')}{section('idea-development', '💡 Idea Development')}{section('counterargument', '⚖ Counterargument')}
               </TabPanel>

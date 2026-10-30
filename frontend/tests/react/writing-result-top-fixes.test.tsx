@@ -58,12 +58,32 @@ it('renders the ranked fixes as a labelled ordered list between the intro and th
   expect(items.map((item) => item.querySelector('.top-fixes__title')?.textContent)).toEqual([
     'Subject-verb agreement (2 chỗ)', 'Collocation', 'Phát triển ý rõ hơn',
   ]);
+  expect(items.map((item) => item.querySelector('.top-fixes__kind')?.textContent)).toEqual([
+    'Lỗi cần sửa', 'Lỗi cần sửa', 'Cần cải thiện',
+  ]);
+  expect(within(items[0]).queryByText('Cần cải thiện')).toBeNull();
+  expect(within(items[2]).queryByText('Lỗi cần sửa')).toBeNull();
   expect(items[0].querySelector('q')?.textContent).toBe('I has been study');
   expect(items[0].querySelector('.top-fixes__detail')?.textContent).toBe('I have been studying');
   const intro = document.querySelector('.review-intro')!;
   const workspace = document.querySelector('.review-workspace')!;
   expect(intro.nextElementSibling).toBe(block);
   expect(block.nextElementSibling).toBe(workspace);
+  expect(document.querySelector('#band-display')?.textContent).toBe('Band 6.5');
+  expect(document.body.textContent).not.toContain('Band ước tính');
+  expect(document.body.textContent).not.toContain('Lỗi sai');
+  expect(document.title).toBe('Phân tích bài viết — Band 6.5');
+});
+
+it('labels an areas-only list as improvements rather than mistakes', async () => {
+  mount(payload({ mistakeAnalysis: [], keyTakeaways: { areasForImprovement: ['Thêm ví dụ', 'Phát triển ý rõ hơn'] } }));
+  const block = await screen.findByRole('region', { name: '2 việc cần sửa trước' });
+  const items = within(within(block).getByRole('list')).getAllByRole('listitem');
+  for (const item of items) {
+    expect(within(item).getByText('Cần cải thiện')).toBeTruthy();
+    expect(within(item).queryByText('Lỗi cần sửa')).toBeNull();
+  }
+  expect(document.body.textContent).not.toContain('Band ước tính');
 });
 
 it('counts the heading from the fixes actually shown and escapes AI text', async () => {

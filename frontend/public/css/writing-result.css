@@ -302,6 +302,7 @@ main.result-content {
 }
 .top-fixes__item { min-width: 0; overflow-wrap: anywhere; }
 .top-fixes__item p { margin: 0; line-height: var(--av-lh-relaxed); }
+.top-fixes__kind { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
 .top-fixes__title { color: var(--av-text-primary); font-weight: var(--av-fw-semibold); }
 .top-fixes__count { color: var(--av-text-secondary); font-weight: var(--av-fw-regular); }
 .top-fixes__detail { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }

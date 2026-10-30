@@ -104,6 +104,7 @@ export function writingTopFixes(feedbackJson, limit = 3) {
       const explanation = typeof first.explanation === 'string' ? first.explanation.trim() : '';
       const example = typeof first.original === 'string' ? first.original.trim() : '';
       return {
+        kind: 'mistake',
         title: first.mistakeType.trim(),
         detail: suggestion || explanation,
         ...(example ? { example } : {}),
@@ -119,7 +120,7 @@ export function writingTopFixes(feedbackJson, limit = 3) {
     const key = normalizeFixKey(area);
     if (!key || seen.has(key)) continue;
     seen.add(key);
-    fixes.push({ title: area.trim(), detail: '', count: 1 });
+    fixes.push({ kind: 'area', title: area.trim(), detail: '', count: 1 });
   }
   return fixes;
 }

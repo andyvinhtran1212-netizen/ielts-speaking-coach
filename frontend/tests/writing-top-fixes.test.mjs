@@ -43,9 +43,9 @@ describe('writingTopFixes (PC-J382 R3)', () => {
       ],
     });
     assert.deepEqual(fixes, [
-      { title: 'Article', detail: 'fix Article', example: 'orig Article', count: 3 },
-      { title: 'Tense', detail: 'fix Tense', example: 'first tense', count: 2 },
-      { title: 'Collocation', detail: 'fix Collocation', example: 'orig Collocation', count: 1 },
+      { kind: 'mistake', title: 'Article', detail: 'fix Article', example: 'orig Article', count: 3 },
+      { kind: 'mistake', title: 'Tense', detail: 'fix Tense', example: 'first tense', count: 2 },
+      { kind: 'mistake', title: 'Collocation', detail: 'fix Collocation', example: 'orig Collocation', count: 1 },
     ]);
   });
 
@@ -70,7 +70,19 @@ describe('writingTopFixes (PC-J382 R3)', () => {
       keyTakeaways: { areasForImprovement: ['  article ', '', 'Phát triển ý rõ hơn', 'Thêm ví dụ'] },
     });
     assert.deepEqual(fixes.map((fix) => fix.title), ['Article', 'Tense', 'Phát triển ý rõ hơn']);
-    assert.deepEqual(fixes[2], { title: 'Phát triển ý rõ hơn', detail: '', count: 1 });
+    assert.deepEqual(fixes.map((fix) => fix.kind), ['mistake', 'mistake', 'area']);
+    assert.deepEqual(fixes[2], { kind: 'area', title: 'Phát triển ý rõ hơn', detail: '', count: 1 });
+  });
+
+  test('marks every item as an improvement area when there are no mistakes', () => {
+    const fixes = writingTopFixes({
+      mistakeAnalysis: [],
+      keyTakeaways: { areasForImprovement: ['Phát triển ý rõ hơn', 'Thêm ví dụ'] },
+    });
+    assert.deepEqual(fixes, [
+      { kind: 'area', title: 'Phát triển ý rõ hơn', detail: '', count: 1 },
+      { kind: 'area', title: 'Thêm ví dụ', detail: '', count: 1 },
+    ]);
   });
 
   test('returns [] when there are no mistakes and no areas for improvement', () => {
@@ -91,7 +103,7 @@ describe('writingTopFixes (PC-J382 R3)', () => {
     const [fix] = writingTopFixes({
       mistakeAnalysis: [{ mistakeType: 'Tense', original: ' ', suggestion: '', explanation: 'Sai thì', criterion: 'GRA' }],
     });
-    assert.deepEqual(fix, { title: 'Tense', detail: 'Sai thì', count: 1 });
+    assert.deepEqual(fix, { kind: 'mistake', title: 'Tense', detail: 'Sai thì', count: 1 });
   });
 
   test('groups NFD and NFC spellings, case and spacing of the same mistake type', () => {
@@ -113,6 +125,7 @@ describe('writingTopFixes (PC-J382 R3)', () => {
       keyTakeaways: { areasForImprovement: ['E'] },
     });
     assert.equal(fixes.length, 3);
+    assert.deepEqual(fixes.map((fix) => fix.kind), ['mistake', 'mistake', 'mistake']);
     assert.equal(fixes[0].detail, '<b>A</b>');
   });
 });
