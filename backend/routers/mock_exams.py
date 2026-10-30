@@ -24,6 +24,8 @@ Namespace note: distinct from /api/exams (the MCQ module). Prefix /api/mock-exam
 """
 from __future__ import annotations
 import asyncio
+import contextlib
+import weakref
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 from pydantic import BaseModel, Field
@@ -35,6 +37,35 @@ from services import mock_review_workflow as review_wf
 from services.writing_image_access import attach_signed_image_urls
 
 router = APIRouter(prefix="/api/mock-exams", tags=["mock-exams"])
+
+# PC-J423: the sync service calls now run in worker threads. Before that the
+# single event loop serialised every write, and several service writes are
+# read-check-write over a sitting snapshot (start_section checks the OTHER
+# clocks, then compare-and-sets only its own). So one student's mock-exam
+# writes stay serialised in this process; different students run in parallel.
+_student_write_locks: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
+
+
+def _student_write_lock(user_id) -> asyncio.Lock:
+    key = str(user_id)
+    lock = _student_write_locks.get(key)
+    if lock is None:
+        lock = _student_write_locks[key] = asyncio.Lock()
+    return lock
+
+
+async def _student_write(user_id, fn, *args):
+    """Run the sync write ``fn(*args)`` in a worker thread under the student's lock."""
+    async with _student_write_lock(user_id):
+        work = asyncio.ensure_future(asyncio.to_thread(fn, *args))
+        try:
+            return await asyncio.shield(work)
+        except asyncio.CancelledError:
+            # A thread cannot be interrupted: keep the lock until it ends so
+            # the student's next write still sees this one's result.
+            with contextlib.suppress(Exception):
+                await work
+            raise
 
 
 def _raise_for(e: Exception):
@@ -105,7 +136,7 @@ async def my_sittings(authorization: str | None = Header(default=None)):
 async def open_sitting(code: str, authorization: str | None = Header(default=None)):
     user = await get_supabase_user(authorization)
     try:
-        return await asyncio.to_thread(svc.create_sitting, user["id"], code)
+        return await _student_write(user["id"], svc.create_sitting, user["id"], code)
     except Exception as e:  # noqa: BLE001 — mapped to HTTP below
         _raise_for(e)
 
@@ -188,8 +219,8 @@ async def acknowledge_collection_flush(
     """
     user = await get_supabase_user(authorization)
     try:
-        return await asyncio.to_thread(
-            svc.acknowledge_collection_flush, sitting_id, user["id"], section)
+        return await _student_write(
+            user["id"], svc.acknowledge_collection_flush, sitting_id, user["id"], section)
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 
@@ -204,7 +235,7 @@ async def start_section(
     admin's advance instead."""
     user = await get_supabase_user(authorization)
     try:
-        return await asyncio.to_thread(svc.start_section, sitting_id, user["id"], section)
+        return await _student_write(user["id"], svc.start_section, sitting_id, user["id"], section)
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 
@@ -216,8 +247,8 @@ async def attach_attempt(
 ):
     user = await get_supabase_user(authorization)
     try:
-        return await asyncio.to_thread(
-            svc.attach_attempt, sitting_id, user["id"], body.section, body.attempt_id)
+        return await _student_write(
+            user["id"], svc.attach_attempt, sitting_id, user["id"], body.section, body.attempt_id)
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 
@@ -229,8 +260,8 @@ async def submit_writing(
 ):
     user = await get_supabase_user(authorization)
     try:
-        return await asyncio.to_thread(
-            svc.submit_writing, sitting_id, user["id"], body.task1_text, body.task2_text)
+        return await _student_write(
+            user["id"], svc.submit_writing, sitting_id, user["id"], body.task1_text, body.task2_text)
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 
@@ -249,8 +280,8 @@ async def submit_section(
     they land 'graded' + ready for admin review without a manual "Bắt đầu chấm"
     click (the review + release still gate on the admin approving each)."""
     user = await get_supabase_user(authorization)
-    result, queued = await asyncio.to_thread(
-        _submit_section_sync, sitting_id, user["id"], section, body,
+    result, queued = await _student_write(
+        user["id"], _submit_section_sync, sitting_id, user["id"], section, body,
     )
     for essay_id, job_id in queued:
         background_tasks.add_task(essay_service._bg_grade_essay, essay_id, job_id)
@@ -295,8 +326,8 @@ async def record_integrity(
     Monotonic + idempotent, so a retry cannot inflate or erase anything."""
     user = await get_supabase_user(authorization)
     try:
-        return await asyncio.to_thread(
-            svc.record_integrity, sitting_id, user["id"], body.model_dump())
+        return await _student_write(
+            user["id"], svc.record_integrity, sitting_id, user["id"], body.model_dump())
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 
@@ -308,8 +339,8 @@ async def record_speaking(
 ):
     user = await get_supabase_user(authorization)
     try:
-        return await asyncio.to_thread(
-            svc.record_speaking, sitting_id, user["id"], body.session_ids)
+        return await _student_write(
+            user["id"], svc.record_speaking, sitting_id, user["id"], body.session_ids)
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 

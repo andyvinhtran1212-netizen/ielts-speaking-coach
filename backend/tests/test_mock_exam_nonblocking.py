@@ -111,9 +111,20 @@ def test_get_sitting_state_does_not_block_the_loop():
     assert threading.main_thread().ident not in get_sitting.threads
 
 
+def _two_students():
+    users = iter([{"id": "u-1"}, {"id": "u-2"}])
+
+    async def auth(_authorization):
+        return next(users)
+
+    return auth
+
+
 def test_submit_section_does_not_block_the_loop():
+    # Two students: one student's writes are serialised on purpose (see
+    # test_concurrent_section_starts_of_one_student_stay_serialised).
     submit = _Slow({"ok": True, "section": "reading"})
-    with patch("routers.mock_exams.get_supabase_user", new=AsyncMock(return_value=_USER)), \
+    with patch("routers.mock_exams.get_supabase_user", new=_two_students()), \
          patch("routers.mock_exams.svc.submit_section", new=submit):
         url = f"/api/mock-exams/sittings/{_SITTING_ID}/sections/reading/submit"
         responses, ping, ping_s, total_s = _run(
@@ -175,3 +186,48 @@ def test_listening_review_flags_do_not_block_the_loop():
     assert responses[0].json()["attempt_id"] == _ATTEMPT_ID
     assert responses[0].json()["review_flags"] == []
     assert threading.main_thread().ident not in fetch.threads
+
+
+class _RacyRetakeClocks:
+    """Mimics svc.start_section's read-check-write: it checks the OTHER clocks
+    on a snapshot, then compare-and-sets only its own column (Codex P2 on
+    #2088). Before the offload the single event loop serialised two starts;
+    in worker threads they interleave unless the router serialises them."""
+
+    def __init__(self):
+        self.started = {}
+
+    def __call__(self, sitting_id, user_id, section):
+        snapshot = dict(self.started.get(user_id, {}))
+        time.sleep(0.2)  # the PostgREST read/write round-trips
+        if any(s != section for s in snapshot):
+            raise mock_router.svc.SittingConflictError(
+                "Đang làm phần khác — nộp xong mới bắt đầu phần khác.")
+        self.started.setdefault(user_id, {})[section] = True
+        return {"id": sitting_id, f"{section}_started_at": "now"}
+
+
+def test_concurrent_section_starts_of_one_student_stay_serialised():
+    clocks = _RacyRetakeClocks()
+    with patch("routers.mock_exams.get_supabase_user", new=AsyncMock(return_value=_USER)), \
+         patch("routers.mock_exams.svc.start_section", new=clocks):
+        base = f"/api/mock-exams/sittings/{_SITTING_ID}/sections"
+        responses, ping, ping_s, _ = _run(
+            [lambda c: c.post(f"{base}/reading/start", headers=_AUTH),
+             lambda c: c.post(f"{base}/writing/start", headers=_AUTH)])
+
+    # The loop stays free while the starts queue behind each other.
+    assert ping.status_code == 200 and ping_s < 0.2, ping_s
+    assert sorted(r.status_code for r in responses) == [200, 409], [r.text for r in responses]
+    assert len(clocks.started[_USER["id"]]) == 1
+
+
+def test_different_students_are_not_serialised():
+    start = _Slow({"ok": True})
+    with patch("routers.mock_exams.get_supabase_user", new=_two_students()), \
+         patch("routers.mock_exams.svc.start_section", new=start):
+        url = f"/api/mock-exams/sittings/{_SITTING_ID}/sections/reading/start"
+        responses, ping, ping_s, total_s = _run(
+            [lambda c: c.post(url, headers=_AUTH), lambda c: c.post(url, headers=_AUTH)])
+
+    _assert_not_blocking(responses, ping, ping_s, total_s, n=2)
