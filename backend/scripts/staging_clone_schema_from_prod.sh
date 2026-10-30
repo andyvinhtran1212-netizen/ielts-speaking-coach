@@ -42,7 +42,11 @@ echo "== dumping production schema (schema-only, read-only)"
 # Keep object ACLs and the migration owner's defaults, including 204/320 (and 356
 # once applied to the source). Replacing them with blanket grants would reopen
 # client writes and audit-log maintenance privileges. Ownership stays local.
-pg_dump "$PROD_URL" --schema-only --schema=public --no-owner -f "$DUMP"
+# A fresh \restrict key per run, never printed: text that reaches the dump
+# from the source cannot \unrestrict psql, and preflight requires this key.
+RESTRICT_KEY="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+[[ "$RESTRICT_KEY" =~ ^[0-9a-f]{64}$ ]] || { echo "REFUSED: could not generate a restrict key" >&2; exit 1; }
+pg_dump "$PROD_URL" --schema-only --schema=public --no-owner --restrict-key="$RESTRICT_KEY" -f "$DUMP"
 
 TABLES=$(grep -c '^CREATE TABLE' "$DUMP" || true)
 echo "== dump contains $TABLES CREATE TABLE statements"
@@ -74,7 +78,8 @@ SELECT json_build_object(
   'global_default_acl', EXISTS (
     SELECT 1 FROM pg_default_acl WHERE defaclnamespace = 0));
 COMMIT;
-" | python3 "$ROOT/backend/scripts/staging_clone_preflight.py" "$DUMP"
+" | STAGING_CLONE_RESTRICT_KEY="$RESTRICT_KEY" \
+  python3 "$ROOT/backend/scripts/staging_clone_preflight.py" "$DUMP"
 
 echo "== resetting staging public schema and restoring atomically"
 # Any restore OR postcondition error rolls back the DROP and all restored DDL

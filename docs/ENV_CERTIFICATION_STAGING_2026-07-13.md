@@ -46,7 +46,11 @@ không phải bằng chứng đã chạy lại clone hay certify database.
    direct là hai chuỗi khác nhau nhưng cùng DB). Không in URL hay ref.
 2. Dump chỉ `public`, schema-only, giữ ACL, `--no-owner`; file tạm có quyền 0600
    (`umask 077`), trap xoá cả dump và `.tmp`. Lọc `CREATE SCHEMA public` và default
-   ACL `supabase_admin` trước mọi bước phá huỷ.
+   ACL `supabase_admin` trước mọi bước phá huỷ. Mỗi lần chạy sinh một key
+   `\restrict` ngẫu nhiên (64 hex) chỉ trong biến shell, không in ra, truyền vào
+   `pg_dump --restrict-key` và (qua env) vào preflight. Nội dung lấy từ nguồn không
+   biết key nên không thể `\unrestrict` psql. Key nằm trong argv của `pg_dump` lúc
+   dump chạy (pg_dump không có cách khác), nên chỉ chạy trên máy vận hành riêng.
 3. Preflight chỉ đọc catalog staging (`BEGIN READ ONLY`): đối chiếu mọi owner,
    grantee/revokee, role policy/default ACL trong SQL với `pg_roles`; thiếu role
    thì in tên và dừng trước DROP. Từ chối mọi dạng đổi role (`SET`/`RESET` với
@@ -56,9 +60,23 @@ không phải bằng chứng đã chạy lại clone hay certify database.
    `SAVEPOINT`, `RELEASE`, `PREPARE`), câu chạy code lúc restore mà pg_dump
    không sinh (`DO`, `CALL`, `SELECT` ngoài `set_config('search_path')`, …), và
    mọi meta-command psql trừ đúng một cặp `\restrict <key>`/`\unrestrict <key>`
-   cùng key bao quanh toàn bộ SQL (kể cả meta-command giữa dòng). Lexer theo
-   psql (E-string, dollar tag non-ASCII, comment lồng nhau bị từ chối) và từ chối
-   đổi `standard_conforming_strings`/`client_encoding`, để không lệch với psql.
+   bao quanh toàn bộ SQL, dùng đúng key của lần chạy này (kể cả meta-command giữa
+   dòng). Chỉ nhận câu mở đầu bằng `SET`, `SELECT` (đúng câu
+   `set_config('search_path', '', false)`), `CREATE`, `ALTER`, `COMMENT`, `GRANT`,
+   `REVOKE`, `SECURITY`; từ chối DML, `CREATE TABLE … AS`, `SELECT … INTO`,
+   materialized view không `WITH NO DATA`, và `set_config` ở mọi vị trí khác.
+   Scanner không phải parser của psql: nó từ chối mọi chỗ hai bên có thể đọc
+   khác nhau. Gồm số dính chữ (`1e'…`, psql ≥15 đọc là một token), E-string và
+   `U&`-literal (pg_dump với `standard_conforming_strings=on` không sinh), chuỗi/
+   dollar quote chưa đóng, comment lồng nhau, NUL, `--` comment kết thúc ở CR, và
+   ký tự non-ASCII đứng ngay trước `\` trong literal (SJIS/GBK có thể nuốt
+   `\`). Dump phải được đọc **giống hệt** khi `standard_conforming_strings` bật
+   và tắt, vì một hàm chạy lúc restore có thể tắt nó mà scanner không thấy. Từ
+   chối `SET`/`SET NAMES` đổi `standard_conforming_strings`/`client_encoding`.
+   Giới hạn còn lại: hàm chạy lúc restore (ví dụ default của `ADD COLUMN`) có thể
+   đổi `client_encoding`; khi đó người **sửa được file dump** (đọc được key, cùng
+   uid vận hành) vẫn giấu được meta-command. Nội dung từ nguồn thì không, vì không
+   có key. Đổi role ẩn như vậy bị postcondition bắt.
    Từ chối default ACL không phải `FOR ROLE postgres`, và **bất kỳ** entry
    `pg_default_acl.defaclnamespace=0` trên target. Global defaults tồn tại qua
    DROP SCHEMA và có thể âm thầm thêm quyền. Không tự tạo role hay sửa ACL để

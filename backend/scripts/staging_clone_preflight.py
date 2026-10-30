@@ -7,22 +7,36 @@ operator-authored restore scripts.
 """
 
 import json
+import os
 from pathlib import Path
 import re
 import sys
 
 
-# psql's lexer: identifiers and dollar tags take any non-ASCII character, E''
-# strings take backslash escapes, and a backslash anywhere else (even mid-line)
+# psql's lexer: identifiers and dollar tags take any non-ASCII character, a
+# "--" comment ends at CR or LF, digits followed by letters are ONE junk token
+# (psql >= 15), and a backslash anywhere outside a literal (even mid-line)
 # starts a meta-command running to the end of the line.
 IDENT = r"[A-Za-z_\u0080-\U0010ffff][A-Za-z_0-9$\u0080-\U0010ffff]*"
-TOKEN = re.compile(
-    r"--[^\n]*|/\*.*?(?:\*/|\Z)"
-    r"|\$(?P<tag>[A-Za-z_\u0080-\U0010ffff][A-Za-z_0-9\u0080-\U0010ffff]*|)\$.*?\$(?P=tag)\$"
-    r"|[Ee]'(?:[^'\\]|\\.|'')*'|'(?:[^']|'')*'|\"(?:[^\"]|\"\")*\""
-    r"|" + IDENT + r"|\\[^\n]*|[^\s]",
-    re.DOTALL,
-)
+NUMBER = r"(?:\d[\d_]*(?:\.[\d_]*)?|\.\d[\d_]*)(?:[Ee][-+]?\d[\d_]*)?"
+DOLLAR_TAG = r"[A-Za-z_\u0080-\U0010ffff][A-Za-z_0-9\u0080-\U0010ffff]*"
+
+
+def token_pattern(standard_strings: bool) -> re.Pattern:
+    # standard_conforming_strings=off makes psql read '...' like E'...'.
+    string = r"'(?:[^']|'')*'" if standard_strings else r"'(?:[^'\\]|\\.|'')*'"
+    return re.compile(
+        r"--[^\n\r]*|/\*.*?(?:\*/|\Z)"
+        r"|\$(?P<tag>" + DOLLAR_TAG + r"|)\$.*?\$(?P=tag)\$|(?P<open>\$(?:" + DOLLAR_TAG + r")?\$)"
+        r"|(?P<prefix>[Uu]&['\"]|[Ee]')"
+        r"|" + string + r"|\"(?:[^\"]|\"\")*\""
+        r"|" + NUMBER + r"(?P<junk>[A-Za-z_\u0080-\U0010ffff])?"
+        r"|" + IDENT + r"|\\[^\n]*|[^\s]",
+        re.DOTALL,
+    )
+
+
+TOKEN = {mode: token_pattern(mode) for mode in (True, False)}
 RESTRICT = re.compile(r"\\(un)?restrict ([A-Za-z0-9]+)[ \t\r]*")
 # psql -1 is atomic only if the dump never ends or opens a transaction itself.
 TRANSACTION_CONTROL = {"BEGIN", "START", "COMMIT", "END", "ROLLBACK", "ABORT",
@@ -31,14 +45,29 @@ TRANSACTION_CONTROL = {"BEGIN", "START", "COMMIT", "END", "ROLLBACK", "ABORT",
 # could switch role from inside a function body this scanner cannot see.
 RESTORE_TIME_CODE = {"DO", "CALL", "EXECUTE", "EXPLAIN", "VALUES", "WITH", "TABLE",
                      "COPY", "REFRESH"}
+# Every statement pg_dump --schema-only emits starts with one of these.
+DUMP_STATEMENTS = {"SET", "SELECT", "CREATE", "ALTER", "COMMENT", "GRANT", "REVOKE", "SECURITY"}
 ROLE_SETTINGS = {"role", "session_authorization"}
 
 
-def lex(sql: str) -> list[str]:
-    """Code and meta-command tokens. Fails closed where psql would lex differently."""
+def lex_mode(sql: str, standard_strings: bool) -> list[str]:
     result = []
-    for match in TOKEN.finditer(sql):
+    for match in TOKEN[standard_strings].finditer(sql):
         token = match[0]
+        if match["open"]:
+            raise ValueError("unterminated dollar-quoted string")
+        if match["prefix"]:
+            # pg_dump with standard_conforming_strings=on writes neither.
+            raise ValueError(f"dump contains an escape or Unicode-escape literal ({token[:-1]}...)")
+        if match["junk"]:
+            raise ValueError("numeric literal followed by identifier characters (psql lexes it as one token)")
+        if token in {"'", '"'}:
+            raise ValueError("unterminated quoted string or identifier")
+        if token.startswith("'") and re.search(r"[^\x00-\x7f]\\", token):
+            # In SJIS/GBK/BIG5 that backslash can be the second byte of one
+            # character, so psql would not see it, if a routine switched
+            # client_encoding at restore time.
+            raise ValueError("literal has a non-ASCII character directly before a backslash")
         if token.startswith("/*"):
             # psql nests block comments; this scanner does not.
             if not token.endswith("*/") or len(token) < 4:
@@ -50,10 +79,28 @@ def lex(sql: str) -> list[str]:
     return result
 
 
-def statements(sql: str):
-    """SQL statements. Only one \\restrict/\\unrestrict pair, same key, may
-    frame them; any other meta-command (\\!, \\connect, \\o, \\i, \\copy, ...),
-    at line start or mid-line, is refused."""
+def lex(sql: str) -> list[str]:
+    """Code and meta-command tokens. Fails closed where psql would lex differently.
+
+    A routine run at restore time can turn standard_conforming_strings off
+    without any statement this scanner sees, so the dump must lex identically
+    in both modes."""
+    if "\0" in sql:
+        raise ValueError("dump contains a NUL character")
+    tokens = lex_mode(sql, True)
+    try:
+        escaped = lex_mode(sql, False)
+    except ValueError:  # e.g. 'a\' never ends once backslash escapes
+        escaped = None
+    if tokens != escaped:
+        raise ValueError("dump string literals lex differently with standard_conforming_strings on and off")
+    return tokens
+
+
+def statements(sql: str, key: str | None = None):
+    """SQL statements. Only one \\restrict/\\unrestrict pair, using `key` when
+    given, may frame them; any other meta-command (\\!, \\connect, \\o, \\i,
+    \\copy, ...), at line start or mid-line, is refused."""
     stream = lex(sql)
     meta = [i for i, token in enumerate(stream) if token.startswith("\\")]
     for i in meta:
@@ -67,6 +114,8 @@ def statements(sql: str):
             raise ValueError("dump must contain exactly one \\restrict and one \\unrestrict")
         if frames[0][2] != frames[1][2]:
             raise ValueError("\\restrict and \\unrestrict must use the same key")
+        if key is not None and frames[0][2] != key:
+            raise ValueError("\\restrict key is not the one this run passed to pg_dump")
         if meta[0] != 0:
             raise ValueError("\\restrict must come before every SQL statement")
         if meta[1] != len(stream) - 1:
@@ -133,17 +182,40 @@ def check_session_control(tokens: list[str], upper: list[str]) -> None:
                 or call[3::2] != [",", ",", ")"] or literal(call[4]) is None
                 or call[6] not in {"false", "true"}):
             raise ValueError("dump contains a top-level SELECT other than set_config(search_path)")
+    elif any(names[i] == "set_config" and not tokens[i].startswith("'") for i in range(len(tokens))):
+        # Any other setting (standard_conforming_strings, client_encoding, ...)
+        # can change how psql lexes the rest of the dump.
+        raise ValueError("dump calls set_config outside pg_dump's search_path header")
     if upper[0] == "RESET":
         raise ValueError("dump contains RESET")
+    if upper[0] not in DUMP_STATEMENTS:
+        raise ValueError("dump contains a statement pg_dump --schema-only does not emit: "
+                         + json.dumps(tokens[0][:40], ensure_ascii=True))
+    if upper[0] == "CREATE":
+        # CREATE TABLE ... AS and a populated materialized view run a query.
+        kind = upper[1:]
+        while kind[:1] and kind[0] in {"GLOBAL", "LOCAL", "TEMP", "TEMPORARY", "UNLOGGED", "OR", "REPLACE"}:
+            kind = kind[1:]
+        depth = 0
+        for token in kind if kind[:1] == ["TABLE"] else []:
+            depth += {"(": 1, ")": -1}.get(token, 0)
+            if depth == 0 and token == "AS":
+                raise ValueError("dump contains CREATE TABLE ... AS")
+        if kind[:2] == ["MATERIALIZED", "VIEW"] and upper[-3:] != ["WITH", "NO", "DATA"]:
+            raise ValueError("dump creates a materialized view WITH DATA")
     if upper[0] == "SET":
         # psql lexes strings by these settings; a change would desynchronize
         # this scanner from psql and could hide a meta-command.
         j = 2 if names[1] in {"local", "session"} else 1
         value = names[j + 2] if names[j + 1] in {"=", "to"} else None
+        setting = names[j]
+        if setting == "names":
+            # SET NAMES 'x' is SET client_encoding = 'x'.
+            setting, value = "client_encoding", names[j + 1]
         value = literal(value) if value and value.startswith("'") else value
-        if names[j] == "standard_conforming_strings" and (value or "").lower() != "on":
+        if setting == "standard_conforming_strings" and (value or "").lower() != "on":
             raise ValueError("dump turns standard_conforming_strings off")
-        if names[j] == "client_encoding" and (value or "").lower() not in {"utf8", "utf-8"}:
+        if setting == "client_encoding" and (value or "").lower() not in {"utf8", "utf-8"}:
             raise ValueError("dump sets a client_encoding other than UTF8")
 
 
@@ -166,9 +238,9 @@ def role_list(tokens: list[str], start: int) -> set[str]:
     return roles
 
 
-def referenced_roles(sql: str) -> set[str]:
+def referenced_roles(sql: str, key: str | None = None) -> set[str]:
     roles = {"postgres", "anon", "authenticated", "service_role"}  # reset + postconditions
-    for tokens in statements(sql):
+    for tokens in statements(sql, key):
         upper = [token.upper() if not token.startswith(('"', "'", "$")) else token
                  for token in tokens]
         check_session_control(tokens, upper)
@@ -205,12 +277,15 @@ def referenced_roles(sql: str) -> set[str]:
     return roles
 
 
-def preflight_dump(sql: str) -> set[str]:
-    """Roles a whole pg_dump file references; it must be \\restrict-framed."""
+def preflight_dump(sql: str, key: str) -> set[str]:
+    """Roles a whole pg_dump file references; it must be \\restrict-framed
+    with the key this run passed to pg_dump --restrict-key."""
+    if not re.fullmatch(r"[A-Za-z0-9]{32,}", key or ""):
+        raise ValueError("missing or weak \\restrict key for this run")
     # statements() checks the pair itself; pg_dump 17.6+ always emits it.
     if not any(token.startswith("\\") for token in lex(sql)):
         raise ValueError("dump must contain exactly one \\restrict and one \\unrestrict")
-    return referenced_roles(sql)
+    return referenced_roles(sql, key)
 
 
 def main() -> int:
@@ -219,7 +294,9 @@ def main() -> int:
         if catalog["global_default_acl"]:
             raise ValueError("target has global default ACL entries (defaclnamespace=0)")
         sql = Path(sys.argv[1]).read_text(encoding="utf-8")
-        missing = preflight_dump(sql) - set(catalog["roles"])
+        # Passed by the clone script; never printed.
+        key = os.environ.get("STAGING_CLONE_RESTRICT_KEY", "")
+        missing = preflight_dump(sql, key) - set(catalog["roles"])
         if missing:
             # JSON escapes newlines/control characters in unusual role names.
             raise ValueError("target missing roles: " + json.dumps(sorted(missing), ensure_ascii=True))

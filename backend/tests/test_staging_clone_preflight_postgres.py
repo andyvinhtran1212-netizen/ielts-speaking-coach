@@ -141,17 +141,23 @@ def sandbox(tmp_path, source, target, database, injection="", appended=""):
     # Instrument pg_dump, without replacing the real dump. Inject SQL AFTER the
     # actual ACLs, inside the \restrict block (just before \unrestrict), to
     # prove rollback even when preflight succeeded; `appended` follows the
-    # \unrestrict line, as a hand-edited dump would.
+    # \unrestrict line, as a hand-edited dump would. @KEY@ becomes the dump's
+    # own \restrict key: whoever edits the dump file can read it there.
     wrapper = root / "bin"
     wrapper.mkdir()
     dump = wrapper / "pg_dump"
     dump.write_text('#!/usr/bin/env bash\nset -euo pipefail\n'
                     '"$TEST_REAL_PG_DUMP" "$@"\n'
+                    'for arg in "$@"; do\n'
+                    '  [[ "$arg" != --restrict-key=* ]] || printf %s "${arg#*=}" > "$TEST_RESTRICT_KEY"\n'
+                    'done\n'
                     'while [[ "$1" != "-f" ]]; do shift; done\n'
                     'grep -q \'^\\\\unrestrict \' "$2"\n'
-                    'awk -v inj="$TEST_INJECTION_SQL" \'/^\\\\unrestrict /'
-                    '{ while ((getline line < inj) > 0) print line } { print }\' "$2" > "$2.inj"\n'
-                    'cat "$TEST_APPENDED_SQL" >> "$2.inj"\n'
+                    'awk -v inj="$TEST_INJECTION_SQL" -v app="$TEST_APPENDED_SQL" \''
+                    'function emit(file, line) { while ((getline line < file) > 0) '
+                    '{ gsub(/@KEY@/, key, line); print line } } '
+                    '/^\\\\restrict / { key = $2 } /^\\\\unrestrict / { emit(inj) } { print } '
+                    'END { emit(app) }\' "$2" > "$2.inj"\n'
                     'mv "$2.inj" "$2"\n'
                     'stat -c %a "$2" > "$TEST_DUMP_MODE"\n')
     dump.chmod(0o700)
@@ -164,7 +170,7 @@ def sandbox(tmp_path, source, target, database, injection="", appended=""):
     env = dict(source.env, PATH=f"{wrapper}:{source.env['PATH']}", TMPDIR=str(temporary),
                TEST_REAL_PG_DUMP=str(source.binaries / "pg_dump"),
                TEST_INJECTION_SQL=str(injection_sql), TEST_APPENDED_SQL=str(appended_sql),
-               TEST_DUMP_MODE=str(root / "dump-mode"),
+               TEST_DUMP_MODE=str(root / "dump-mode"), TEST_RESTRICT_KEY=str(root / "restrict-key"),
                TEST_BASELINE_MARKER=str(root / "baseline-reached"), TEST_LEDGER_SQL=str(ledger))
     return root, scripts / "staging_clone_schema_from_prod.sh", env
 
@@ -194,6 +200,11 @@ def sandbox(tmp_path, source, target, database, injection="", appended=""):
     ("shell_meta_appended", "meta-command"),
     ("shell_meta_inline", "meta-command"),
     ("connect_meta", "meta-command"),
+    # PC-J394 (CR P2-1/P2-2 PoCs): psql and the scanner must not disagree on
+    # where a literal ends, even when the dump knows its own \restrict key.
+    ("numeric_junk_unrestrict", "numeric literal followed by identifier characters"),
+    ("sco_off_commit", "lex differently with standard_conforming_strings on and off"),
+    ("set_config_sco_off", "set_config outside pg_dump's search_path header"),
     # A switch hidden in a function body passes preflight; the postcondition
     # rolls the restore back on ownership or the final role.
     ("hidden_role_switch", "restored_object_not_owned_by_restore_role"),
@@ -255,13 +266,15 @@ def test_clone_preflight_and_atomic_restore(clusters, tmp_path, case, diagnostic
         target.sql("CREATE ROLE global_reader; ALTER DEFAULT PRIVILEGES GRANT SELECT ON TABLES TO global_reader;",
                    "global-other", database)
     marker = tmp_path / "meta-command-ran"
-    become = ("CREATE FUNCTION public.become(r text) RETURNS text LANGUAGE sql "
+    # A non-volatile ADD COLUMN default is evaluated once, at restore time.
+    become = ("CREATE FUNCTION public.become(r text) RETURNS text LANGUAGE sql STABLE "
               "AS $$ SELECT set_config('role', r, false) $$;\n"
-              "CREATE TABLE public.switch_1 AS SELECT public.become('service_role') AS r;\n"
+              "ALTER TABLE public.filler_1 ADD COLUMN switch_1 text DEFAULT public.become('service_role');\n"
               "CREATE TABLE public.svc_owned(id int);\n")
     injection, appended = {
-        # Runtime error after the real ACLs; a top-level SELECT is now refused.
-        "restore_error": ("CREATE TABLE public.boom AS SELECT 1/0 AS x;\n", ""),
+        # Runtime error after the real ACLs; a top-level SELECT and CREATE
+        # TABLE ... AS are now refused, an ADD COLUMN default still runs.
+        "restore_error": ("ALTER TABLE public.filler_0 ADD COLUMN boom integer DEFAULT (1/0);\n", ""),
         "set_local_role": ("SET LOCAL ROLE service_role;\nCREATE TABLE public.svc_owned(id int);\n"
                            "RESET ROLE;\n", ""),
         "set_session_role": ("SET SESSION ROLE service_role;\nCREATE TABLE public.svc_owned(id int);\n"
@@ -274,14 +287,31 @@ def test_clone_preflight_and_atomic_restore(clusters, tmp_path, case, diagnostic
         "shell_meta_appended": ("", f"\\! touch {marker}\n"),
         "shell_meta_inline": (f"GRANT SELECT ON TABLE public.filler_6 TO anon; \\! touch {marker}\n", ""),
         "connect_meta": ("", "\\connect postgres\nCREATE TABLE public.boom AS SELECT 1/0 AS x;\n"),
-        "hidden_role_switch": (become + "CREATE TABLE public.switch_2 AS SELECT public.become('none') AS r;\n",
-                               ""),
+        "hidden_role_switch": (become + "ALTER TABLE public.svc_owned ADD COLUMN switch_2 text "
+                               "DEFAULT public.become('none');\n", ""),
+        # CR P2-1: psql >= 15 reads 1e as one junk token, so E'x\' is no string.
+        "numeric_junk_unrestrict": ("COMMENT ON TABLE public.filler_0 IS 1e'x\\'\n\\unrestrict @KEY@\n"
+                                    f"\\! touch {marker}\n\\restrict @KEY@\n-- '\n;\n", ""),
+        # CR P2-2: once a routine turns standard_conforming_strings off, psql
+        # reads '\' ' as one literal and sends the COMMIT.
+        "sco_off_commit": ("CREATE TABLE public.z AS SELECT pg_catalog.set_config("
+                           "'standard_conforming_strings', 'off', false) AS x;\n"
+                           "COMMENT ON TABLE public.filler_0 IS '\\' '; COMMIT; "
+                           "COMMENT ON TABLE public.filler_0 IS 'q' -- '\n;\n"
+                           "CREATE TABLE public.boom AS SELECT 1/0 AS x;\n", ""),
+        # The set_config layer alone, without a desynchronizing literal.
+        "set_config_sco_off": ("ALTER TABLE public.filler_0 ADD COLUMN x text DEFAULT "
+                               "pg_catalog.set_config('standard_conforming_strings', 'off', false);\n", ""),
         "hidden_role_left": (become, ""),
     }.get(case, ("", ""))
     root, script, env = sandbox(tmp_path, source, target, database, injection, appended)
     result = subprocess.run(["bash", str(script)], env=env, capture_output=True, text=True, timeout=60)
     (root / "clone.result").write_text(result.stdout + result.stderr)
     assert (root / "dump-mode").read_text().strip() == "600"
+    # A fresh key per run went to pg_dump; it is never printed.
+    key = (root / "restrict-key").read_text()
+    assert len(key) == 64 and int(key, 16) >= 0
+    assert key not in result.stdout + result.stderr
     assert not marker.exists(), "no psql meta-command from the dump may run"
     assert not list((root / "temporary").iterdir()), "dump and .tmp must be removed"
     if diagnostic:

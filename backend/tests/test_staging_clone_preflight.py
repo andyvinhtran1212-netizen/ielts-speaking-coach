@@ -12,13 +12,15 @@ from scripts.staging_clone_preflight import preflight_dump, referenced_roles
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts/staging_clone_preflight.py"
 BASE_ROLES = {"postgres", "anon", "authenticated", "service_role"}
-# pg_dump 17.6+ framing: one \restrict before and one \unrestrict after all SQL.
-HEADER = ("--\n-- PostgreSQL database dump\n--\n\n\\restrict k3Y\n\n"
+# pg_dump 17.6+ framing: one \restrict before and one \unrestrict after all SQL,
+# with the per-run key the clone script passed to pg_dump --restrict-key.
+KEY = "3f9c" * 16
+HEADER = ("--\n-- PostgreSQL database dump\n--\n\n\\restrict " + KEY + "\n\n"
           "SET statement_timeout = 0;\nSET client_encoding = 'UTF8';\n"
           "SET standard_conforming_strings = on;\n"
           "SELECT pg_catalog.set_config('search_path', '', false);\n"
           "SET check_function_bodies = false;\nSET row_security = off;\n")
-FOOTER = "\n--\n-- PostgreSQL database dump complete\n--\n\n\\unrestrict k3Y\n\n"
+FOOTER = "\n--\n-- PostgreSQL database dump complete\n--\n\n\\unrestrict " + KEY + "\n\n"
 
 
 def framed(sql: str) -> str:
@@ -96,7 +98,7 @@ def test_refuses_every_role_change_form(sql):
     ("SELECT \"set_config\"('session_authorization', 'x', false);", ROLE_CHANGE),
     ("CREATE TABLE public.t AS SELECT set_config('role', 'service_role', false);", ROLE_CHANGE),
     # A non-literal name could be anything, including role.
-    ("CREATE TABLE public.t AS SELECT set_config(E'role', 'x', false);", "set_config"),
+    ("CREATE TABLE public.t AS SELECT set_config(E'role', 'x', false);", "escape"),
     ("CREATE TABLE public.t AS SELECT set_config('ro' || 'le', 'x', false);", "set_config"),
     # Code that pg_dump --schema-only never runs at restore time.
     ("SELECT public.switch_role();", "top-level SELECT"),
@@ -138,10 +140,12 @@ def test_refuses_transaction_control(sql):
     ("\\copy public.t from '/tmp/x'\n", "meta-command"),
     ("\\set ON_ERROR_STOP 0\n", "meta-command"),
     ("GRANT SELECT ON public.t TO anon \\gexec\n", "meta-command"),
-    # psql reads E'\'' as one string, so the \! after it is live.
-    ("COMMENT ON TABLE public.t IS E'\\'' \\! touch /tmp/x ';\n", "meta-command"),
+    # psql reads E'\'' as one string, so the \! after it would be live;
+    # pg_dump (standard_conforming_strings=on) never writes E'' (PC-J394).
+    ("COMMENT ON TABLE public.t IS E'\\'' \\! touch /tmp/x ';\n", "escape"),
     # psql dollar tags may use any non-ASCII letter.
-    ("COMMENT ON TABLE public.t IS $\u00e9$ ' $\u00e9$; \\! touch /tmp/x\n';\n", "meta-command"),
+    # (psql would then also leave the trailing quote unterminated.)
+    ("COMMENT ON TABLE public.t IS $\u00e9$ ' $\u00e9$; \\! touch /tmp/x\n';\n", "meta-command|unterminated"),
     # Block comments nest in psql; a non-nesting scan would hide the \!.
     ("/* /* */ ' */ \\! touch /tmp/x\n';\n", "nested block comment"),
     ("/* never closed\n", "unterminated block comment"),
@@ -151,7 +155,7 @@ def test_refuses_transaction_control(sql):
 ])
 def test_refuses_meta_commands_and_lexer_desync(sql, error):
     with pytest.raises(ValueError, match=error):
-        preflight_dump(framed(sql))
+        preflight_dump(framed(sql), KEY)
 
 
 @pytest.mark.parametrize("dump, error", [
@@ -168,14 +172,109 @@ def test_refuses_meta_commands_and_lexer_desync(sql, error):
      "restrict"),
     ("SET row_security = off; \\restrict k3Y\nGRANT SELECT ON public.t TO anon;\n\\unrestrict k3Y\n",
      "before"),
+    # A well-formed pair is not enough: it must use this run's key.
+    ("\\restrict other\nGRANT SELECT ON public.t TO anon;\n\\unrestrict other\n", "not the one"),
 ])
 def test_requires_one_restrict_pair_at_the_edges(dump, error):
     with pytest.raises(ValueError, match=error):
-        preflight_dump(dump)
+        preflight_dump(dump.replace("k3Y", KEY), KEY)
+
+
+@pytest.mark.parametrize("key", ["", "k3Y", "a" * 31, KEY + "!"])
+def test_requires_a_strong_key_for_this_run(key):
+    with pytest.raises(ValueError, match="restrict key"):
+        preflight_dump(framed("GRANT SELECT ON TABLE public.t TO anon;\n").replace(KEY, key or "x"), key)
 
 
 def test_pg_dump_framing_passes():
-    assert preflight_dump(framed("GRANT SELECT ON TABLE public.t TO anon;\n")) == BASE_ROLES
+    assert preflight_dump(framed("GRANT SELECT ON TABLE public.t TO anon;\n"), KEY) == BASE_ROLES
+
+
+# PC-J394 (CR P2-1): wherever psql and this scanner could disagree on where a
+# literal or comment ends, refuse; CR's PoC hid \unrestrict + \! that way.
+@pytest.mark.parametrize("sql, error", [
+    (f"COMMENT ON TABLE public.t IS 1e'x\\'\n\\unrestrict {KEY}\n\\! touch /tmp/x\n"
+     f"\\restrict {KEY}\n-- '\n;\n", "numeric literal"),
+    ("COMMENT ON TABLE public.t IS 1x'a';", "numeric literal"),
+    ("COMMENT ON TABLE public.t IS 0x1F;", "numeric literal"),
+    ("COMMENT ON TABLE public.t IS .5e'a';", "numeric literal"),
+    ("COMMENT ON TABLE public.t IS 1_e'a';", "numeric literal"),
+    ("COMMENT ON TABLE public.t IS 1\u00e9'a';", "numeric literal"),
+    # psql ends a -- comment at CR as well as LF.
+    ("-- note\r\\! touch /tmp/x\nGRANT SELECT ON public.t TO anon;", "meta-command"),
+    # CR P2-2: with standard_conforming_strings off psql reads '\' ' as one
+    # literal; a routine can switch it without any SET this scanner sees.
+    ("COMMENT ON TABLE public.t IS '\\' '; COMMIT; COMMENT ON TABLE public.t IS 'q' -- '\n;",
+     "lex differently"),
+    ("COMMENT ON TABLE public.t IS 'a\\';", "lex differently"),
+    ("COMMENT ON TABLE public.t IS e'a';", "escape"),
+    ("COMMENT ON TABLE public.t IS U&'d\\0061t\\+000061';", "Unicode-escape"),
+    ("SELECT U&\"set\\005fconfig\"('role', 'x', false);", "Unicode-escape"),
+    ("SET u&\"rol\\0065\" TO service_role;", "Unicode-escape"),
+    # A routine may switch client_encoding to SJIS (and the literal mode to
+    # escapes): psql then reads \u00c1\\ as one character and \\' as an escape.
+    ("COMMENT ON TABLE public.t IS '\u00c1\\\\'; COMMIT; COMMENT ON TABLE public.t IS '';",
+     "non-ASCII character directly before a backslash"),
+    ("COMMENT ON TABLE public.t IS 'never closed;\n", "unterminated"),
+    ("COMMENT ON TABLE \"never closed;\n", "unterminated"),
+    ("CREATE FUNCTION public.f() RETURNS int LANGUAGE sql AS $b$ SELECT 1;\n", "unterminated dollar"),
+    ("COMMENT ON TABLE public.t IS 'a\0b';", "NUL"),
+])
+def test_refuses_where_psql_could_lex_differently(sql, error):
+    with pytest.raises(ValueError, match=error):
+        preflight_dump(framed(sql), KEY)
+
+
+# The same scanner still reads what pg_dump writes.
+@pytest.mark.parametrize("sql", [
+    "CREATE TABLE public.t (a double precision DEFAULT 1e-05, b numeric(10,2) DEFAULT 1.5, "
+    "c numeric DEFAULT .5, d bigint DEFAULT 1_000, e integer DEFAULT 1E+3);",
+    "COMMENT ON TABLE public.t IS 'C:\\path\\x ''quoted'' \\d+ \u00e9t\u00e9';",
+    "ALTER TABLE ONLY public.t ADD CONSTRAINT t_c CHECK ((c ~ '^\\d+$'::text));",
+    "CREATE FUNCTION public.f() RETURNS text LANGUAGE plpgsql AS $_$ BEGIN RETURN E'\\''; END $_$;",
+    "CREATE MATERIALIZED VIEW public.mv AS\n SELECT 1 AS a\n  WITH NO DATA;",
+    "SET client_encoding = 'UTF8';\nSET NAMES 'UTF8';",
+    "SECURITY LABEL FOR p ON TABLE public.t IS 'x';",
+])
+def test_pg_dump_output_still_passes(sql):
+    assert preflight_dump(framed(sql), KEY) == BASE_ROLES
+
+
+# PC-J394 (CR P2-2): set_config anywhere but pg_dump's search_path header, and
+# any statement pg_dump --schema-only does not write, including those running
+# a query (DML, CREATE TABLE ... AS, SELECT INTO, a populated materialized view).
+@pytest.mark.parametrize("sql, error", [
+    ("CREATE TABLE public.z AS SELECT pg_catalog.set_config('standard_conforming_strings', 'off', false) AS x;",
+     "set_config outside"),
+    ("CREATE VIEW public.v AS SELECT set_config('client_encoding', 'SJIS', false);", "set_config outside"),
+    ("ALTER TABLE public.t ADD COLUMN x text DEFAULT pg_catalog.set_config('client_encoding', 'SJIS', false);",
+     "set_config outside"),
+    ("CREATE POLICY p ON public.t USING (set_config('standard_conforming_strings', 'off', true) = 'off');",
+     "set_config outside"),
+    ("SET NAMES 'SJIS';", "client_encoding"),
+    ("SET LOCAL NAMES 'GBK';", "client_encoding"),
+    ("SET client_encoding TO DEFAULT;", "client_encoding"),
+    ("SELECT 1 INTO public.z;", "top-level SELECT"),
+    ("CREATE TABLE public.z AS SELECT 1;", "CREATE TABLE ... AS"),
+    ("CREATE UNLOGGED TABLE IF NOT EXISTS public.z (a) AS SELECT 1;", "CREATE TABLE ... AS"),
+    ("CREATE TEMP TABLE z AS EXECUTE p;", "CREATE TABLE ... AS"),
+    ("CREATE MATERIALIZED VIEW public.mv AS SELECT 1;", "WITH DATA"),
+    ("CREATE MATERIALIZED VIEW public.mv AS SELECT 1 WITH DATA;", "WITH DATA"),
+    ("INSERT INTO public.t VALUES (1);", "does not emit"),
+    ("UPDATE public.t SET a = 1;", "does not emit"),
+    ("DELETE FROM public.t;", "does not emit"),
+    ("MERGE INTO public.t USING public.s ON true WHEN MATCHED THEN DELETE;", "does not emit"),
+    ("TRUNCATE public.t;", "does not emit"),
+    ("LOAD 'x';", "does not emit"),
+    ("DECLARE c CURSOR FOR SELECT 1;", "does not emit"),
+    ("LOCK TABLE public.t;", "does not emit"),
+    ("DROP TABLE public.t;", "does not emit"),
+    ("ANALYZE public.t;", "does not emit"),
+    ('"insert" INTO public.t VALUES (1);', "does not emit"),
+])
+def test_refuses_code_that_runs_or_switches_lexer_state(sql, error):
+    with pytest.raises(ValueError, match=error):
+        preflight_dump(framed(sql), KEY)
 
 
 @pytest.mark.parametrize("global_acl, missing", [(True, False), (False, True), (False, False)])
@@ -186,7 +285,7 @@ def test_preflight_cli_fails_closed_before_reset(tmp_path, global_acl, missing):
     result = subprocess.run(
         [sys.executable, str(SCRIPT), str(dump)],
         input=json.dumps({"roles": sorted(roles), "global_default_acl": global_acl}),
-        capture_output=True, text=True,
+        capture_output=True, text=True, env={"PATH": "/usr/bin:/bin", "STAGING_CLONE_RESTRICT_KEY": KEY},
     )
     assert result.returncode == int(global_acl or missing)
     if global_acl:
@@ -195,6 +294,18 @@ def test_preflight_cli_fails_closed_before_reset(tmp_path, global_acl, missing):
         assert '"Missing, Role"' in result.stderr
     else:
         assert "preflight passed" in result.stdout
+
+
+def test_preflight_cli_requires_the_run_key(tmp_path):
+    dump = tmp_path / "dump.sql"
+    dump.write_text(framed("GRANT SELECT ON TABLE public.t TO anon;"))
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), str(dump)],
+        input=json.dumps({"roles": sorted(BASE_ROLES), "global_default_acl": False}),
+        capture_output=True, text=True, env={"PATH": "/usr/bin:/bin"},
+    )
+    assert result.returncode == 1
+    assert "restrict key" in result.stderr
 
 
 @pytest.mark.parametrize("version, identical, error", [
