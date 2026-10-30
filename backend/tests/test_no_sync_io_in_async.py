@@ -195,6 +195,22 @@ def test_stored_generator_unpacking_and_worker_unpacking(value):
     assert not scan(prefix + "first, *rest = await asyncio.to_thread(tuple, rows)")
 
 
+@pytest.mark.parametrize("value", ["(requests.get(url) for url in urls)", "responses(urls)"])
+def test_assigned_generator_for_loop_is_eager(value):
+    assert len(scan(GENERATOR_HELPERS + "\nasync def f(urls):\n    rows = " + value
+                    + "\n    for response in rows:\n        pass")) == 1
+
+
+@pytest.mark.parametrize("value", ["(requests.get(url) for url in urls)", "responses(urls)"])
+@pytest.mark.parametrize("wrapper", [
+    "asyncio.to_thread(list, VALUE)", "run_in_threadpool(list, VALUE)",
+    "loop.run_in_executor(None, list, VALUE)", "aexecute(list, VALUE)",
+])
+def test_direct_offload_generator_arguments_stay_deferred(value, wrapper):
+    assert not scan(GENERATOR_HELPERS + "\nasync def f(urls):\n    await "
+                    + wrapper.replace("VALUE", value))
+
+
 @pytest.mark.parametrize("assignment", [
     "cache[requests.get(url).text] = True",
     "cache[requests.get(url).text]: bool = True",
