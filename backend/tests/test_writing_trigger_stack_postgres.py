@@ -42,7 +42,7 @@ def _scoped(sql, schema):
 
 
 def _build(schema):
-    admission.schema.__wrapped__(schema)
+    admission._build_schema(schema)
     psql(f"""
         SET search_path = {schema}, pg_temp;
         CREATE TABLE users (
@@ -103,7 +103,7 @@ def _build(schema):
 def schema():
     # Reuse the existing localhost-only helper, role setup and UUID teardown,
     # without sharing the original module-scoped schema between these cases.
-    with_schema = evidence.probe.__wrapped__()
+    with_schema = evidence._probe()
     name = next(with_schema)
     try:
         _build(name)

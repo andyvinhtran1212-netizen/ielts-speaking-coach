@@ -34,8 +34,7 @@ def psql(sql):
     return result.stdout.strip()
 
 
-@pytest.fixture(scope="module")
-def probe():
+def _probe():
     try:
         available = shutil.which("psql") and psql("SELECT 1") == "1"
     except Exception:
@@ -65,6 +64,11 @@ def probe():
     finally:
         # Only the exact unique schema created by this fixture is removed.
         psql(f"DROP SCHEMA {name} CASCADE")
+
+
+@pytest.fixture(scope="module")
+def probe():
+    yield from _probe()
 
 
 def record(schema, *, attempt=None, event=None, operation_id=None, kind="started",
