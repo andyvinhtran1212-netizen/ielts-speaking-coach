@@ -212,7 +212,9 @@ be enforced as it is.
   produces reports for Next's own scripts.
 - **Check a deployment.** `node frontend/tooling/check-csp-nonce-deployed.mjs
   <origin>`, with `VERCEL_AUTOMATION_BYPASS_SECRET` set for Deployment
-  Protection. It makes two GETs per signed-in route and checks that the
+  Protection. With a bypass secret, only HTTPS `staging.averlearning.com` or
+  `*.vercel.app` is allowed, without userinfo or a non-443 port; other origins are refused before any request.
+  It makes two GETs per signed-in route and checks that the
   nonces differ and that every `<script>` carries the header nonce. Today it
   fails on staging and passes on `next start`.
 
