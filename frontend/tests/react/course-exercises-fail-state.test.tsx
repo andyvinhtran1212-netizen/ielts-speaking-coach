@@ -16,15 +16,19 @@
 // are transient and keep the connection badge; the "Về Lớp học" link sits
 // after `#cx-error`, not inside the error text; a storage failure while
 // answering shows the storage sentence instead of the runner's raw text.
+//
+// PC-J328: the "Thử tải lại tiến độ" button sits right after `#cx-error` too,
+// so the error region reads only the error sentence; a second failure (a new
+// run of the effect) leaves exactly one button.
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { cleanup, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const wire = vi.hoisted(() => ({ apiReady: true }));
+const wire = vi.hoisted(() => ({ apiReady: true, userId: 'student-1' }));
 vi.mock('@/lib/auth/auth-provider', () => ({
-  useAuth: () => ({ status: 'signed-in', user: { id: 'student-1' } }),
+  useAuth: () => ({ status: 'signed-in', user: { id: wire.userId } }),
 }));
 vi.mock('@/lib/when-global-ready.mjs', () => ({
   whenGlobalReady: vi.fn(async () => wire.apiReady),
@@ -56,8 +60,24 @@ function backLinkAfter(box: HTMLElement) {
   return back;
 }
 
+const RETRY = 'Thử tải lại tiến độ';
+const retryButtons = () => Array.from(document.querySelectorAll('button'))
+  .filter((b) => b.textContent === RETRY);
+
+/** The retry button: right after `#cx-error`, never inside it, only one. */
+function retryAfter(box: HTMLElement) {
+  expect(box.querySelector('button')).toBeNull();
+  expect(box.textContent).not.toContain(RETRY);
+  const retry = box.nextElementSibling as HTMLButtonElement | null;
+  expect(retry?.tagName).toBe('BUTTON');
+  expect(retry?.textContent).toBe(RETRY);
+  expect(retryButtons()).toHaveLength(1);
+  return retry;
+}
+
 beforeEach(() => {
   wire.apiReady = true;
+  wire.userId = 'student-1';
   (window as unknown as { api: unknown }).api = { get: vi.fn(), post: vi.fn() };
 });
 afterEach(() => {
@@ -161,7 +181,7 @@ describe('course-exercises error states', () => {
     expect(back?.getAttribute('href')).toBe('/my-class');
     expect(back?.textContent).toBe('Về Lớp học');
     // Reloading cannot produce questions: no retry button.
-    expect(box.querySelector('button')).toBeNull();
+    expect(retryButtons()).toHaveLength(0);
     // The bank was read once; no quiz session was opened for it.
     expect(api.get).toHaveBeenCalledTimes(1);
     expect(api.post).not.toHaveBeenCalled();
@@ -182,7 +202,7 @@ describe('course-exercises error states', () => {
     expect(el('cx-save-note-text').textContent).toBe(STORAGE_BADGE);
     expect(document.body.textContent).not.toContain(CONNECTION_BADGE);
     // Storage may recover (permission granted, space freed): retry stays.
-    expect(box.querySelector('button')?.textContent).toBe('Thử tải lại tiến độ');
+    retryAfter(box);
   });
 
   it('an untagged runner failure (course-resume read lost) keeps the connection badge (negative control)', async () => {
@@ -213,7 +233,9 @@ describe('course-exercises error states', () => {
     expect(el('cx-save-note').hidden).toBe(false);
     expect(el('cx-save-note').dataset.state).toBe('error');
     expect(el('cx-save-note-text').textContent).toBe(STORAGE_BADGE);
-    expect(box.querySelector('button')?.textContent).toBe('Thử tải lại tiến độ');
+    expect(box.textContent).toBe(
+      'Không lưu được trên trình duyệt này. Hãy tắt chế độ ẩn danh hoặc thử trình duyệt khác.');
+    retryAfter(box);
     // No runner was built: nothing was read or opened.
     expect(api.get).not.toHaveBeenCalled();
     expect(api.post).not.toHaveBeenCalled();
@@ -227,7 +249,34 @@ describe('course-exercises error states', () => {
     expect(el('cx-save-note').hidden).toBe(false);
     expect(el('cx-save-note').dataset.state).toBe('error');
     expect(el('cx-save-note-text').textContent).toBe(CONNECTION_BADGE);
-    expect(box.querySelector('button')?.textContent).toBe('Thử tải lại tiến độ');
+    expect(box.textContent).toBe('Không mở được bài tập: HTTP ' + status);
+    retryAfter(box);
+  });
+
+  it('a second failure (new run for another account) still leaves exactly one retry button', async () => {
+    (window.api as unknown as { get: ReturnType<typeof vi.fn> }).get
+      .mockRejectedValue(Object.assign(new Error('HTTP 503'), { status: 503 }));
+    const view = renderPage('?bank=b-twice');
+    const box = await errorShown();
+    retryAfter(box);
+    // Account switch between tabs: the effect runs again on the same shell
+    // and fails again with a different sentence.
+    (window.api as unknown as { get: ReturnType<typeof vi.fn> }).get
+      .mockRejectedValue(Object.assign(new Error('HTTP 502'), { status: 502 }));
+    wire.userId = 'student-2';
+    view.rerender(<><CourseShell /><CourseBehavior /></>);
+    await waitFor(() => expect(box.textContent).toBe('Không mở được bài tập: HTTP 502'));
+    retryAfter(box);
+  });
+
+  it('a run that is torn down takes its retry button with it', async () => {
+    (window.api as unknown as { get: ReturnType<typeof vi.fn> }).get
+      .mockRejectedValue(Object.assign(new Error('HTTP 503'), { status: 503 }));
+    const view = renderPage('?bank=b-teardown');
+    retryAfter(await errorShown());
+    // Unmount only the behaviour island; the shell (and `#cx-error`) stays.
+    view.rerender(<><CourseShell /></>);
+    expect(retryButtons()).toHaveLength(0);
   });
 
   it.each([400, 403, 404])('a %i refusal still hides the connection badge', async (status) => {
