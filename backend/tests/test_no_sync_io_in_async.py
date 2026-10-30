@@ -221,6 +221,159 @@ def test_nested_class_consumes_inherited_generator_with_its_original_symbols():
     assert [(f.function, f.callee, f.line) for f in findings] == [("f", "requests.get", 4)]
 
 
+@pytest.mark.parametrize("outer, inner, count", [
+    ("cached", "requests.get", 0), ("requests.get", "cached", 1),
+])
+@pytest.mark.parametrize("expression", [
+    "[fetch(url) for url in urls]",
+    "{fetch(url) for url in urls}",
+    "{url: fetch(url) for url in urls}",
+    "{fetch(url): url for url in urls}",
+    "list(fetch(url) for url in urls)",
+    "(fetch(url) for url in urls)\n        responses = list(rows)",
+    "[url for url in urls if fetch(url)]",
+    "[more for url in urls for more in fetch(url)]",
+    "list(url for url in urls if fetch(url))",
+    "list(more for url in urls for more in fetch(url))",
+    "[[fetch(url) for url in group] for group in groups]",
+])
+def test_class_comprehension_bodies_use_function_scope(outer, inner, count, expression):
+    source = ("import requests\nasync def f(urls, groups, cached):\n"
+              "    fetch = " + outer + "\n    class Result:\n"
+              "        fetch = " + inner + "\n        rows = " + expression)
+    findings = scan(source)
+    assert len(findings) == count
+    if count:
+        assert [(f.function, f.callee, f.line) for f in findings] == [("f", "requests.get", 6)]
+
+
+@pytest.mark.parametrize("outer, inner, count", [
+    ("cached", "requests.get", 1), ("requests.get", "cached", 0),
+])
+@pytest.mark.parametrize("expression", [
+    "[url for url in fetch('urls')]",
+    "{url for url in fetch('urls')}",
+    "{url: url for url in fetch('urls')}",
+    "list(url for url in fetch('urls'))",
+    "(url for url in fetch('urls'))",
+])
+def test_class_comprehension_first_iterable_keeps_class_scope(outer, inner, count, expression):
+    findings = scan("import requests\nasync def f(cached):\n    fetch = " + outer
+                    + "\n    class Result:\n        fetch = " + inner
+                    + "\n        rows = " + expression)
+    assert len(findings) == count
+    if count:
+        assert findings[0].callee == "requests.get"
+
+
+@pytest.mark.parametrize("expression", [
+    "[fetch(url) for fetch in callbacks]",
+    "[fetch(url) for (fetch, url) in callbacks]",
+    "list(fetch(url) for fetch in callbacks)",
+    "[[fetch(url) for url in urls] for fetch in callbacks]",
+])
+def test_class_comprehension_targets_shadow_function_aliases_without_leaking(expression):
+    findings = scan("import requests\nasync def f(url, urls, callbacks):\n"
+                    "    fetch = requests.get\n    class Result:\n"
+                    "        fetch = requests.get\n        rows = " + expression
+                    + "\n        response = fetch(url)\n    fetch(url)")
+    assert [(f.callee, f.line) for f in findings] == [("requests.get", 7), ("requests.get", 8)]
+
+
+@pytest.mark.parametrize("outer, inner, count", [
+    ("(requests.get(url) for url in urls)", "()", 1),
+    ("()", "(requests.get(url) for url in urls)", 0),
+])
+@pytest.mark.parametrize("expression", ["[list(rows) for _ in [0]]", "list(list(rows) for _ in [0])"])
+def test_class_comprehension_generator_lookup_uses_function_scope(outer, inner, count, expression):
+    findings = scan("import requests\nasync def f(urls):\n    rows = " + outer
+                    + "\n    class Result:\n        rows = " + inner
+                    + "\n        responses = " + expression)
+    assert len(findings) == count
+    if count:
+        assert [(f.function, f.callee, f.line) for f in findings] == [("f", "requests.get", 3)]
+
+
+@pytest.mark.parametrize("outer, inner, count", [
+    ("(requests.get(url) for url in urls)", "()", 0),
+    ("()", "(requests.get(url) for url in urls)", 1),
+])
+def test_class_comprehension_first_iterable_consumes_class_generator(outer, inner, count):
+    findings = scan("import requests\nasync def f(urls):\n    rows = " + outer
+                    + "\n    class Result:\n        rows = " + inner
+                    + "\n        responses = [row for row in rows]")
+    assert len(findings) == count
+    if count:
+        assert [(f.function, f.callee, f.line) for f in findings] == [("f", "requests.get", 5)]
+
+
+@pytest.mark.parametrize("outer, inner, count", [
+    ("(requests.get(url) for url in urls)", "()", 1),
+    ("()", "(requests.get(url) for url in urls)", 0),
+])
+def test_class_comprehension_inherited_generator_keeps_nested_bindings(outer, inner, count):
+    findings = scan("import requests\nasync def f(urls):\n    items = " + outer
+                    + "\n    rows = (list(items) for _ in [0])\n    class Result:\n"
+                    "        items = " + inner + "\n        responses = list(rows)")
+    assert len(findings) == count
+    if count:
+        assert [(f.function, f.callee, f.line) for f in findings] == [("f", "requests.get", 3)]
+
+
+@pytest.mark.parametrize("outer, inner, count", [
+    ("asyncio.to_thread", "run_inline", 0), ("run_inline", "asyncio.to_thread", 1),
+])
+def test_class_comprehension_consumption_policy_uses_function_scope(outer, inner, count):
+    findings = scan("import asyncio\nimport requests\n"
+                    "def run_inline(callback, values):\n    return callback(values)\n"
+                    "async def f(urls):\n    consume = " + outer
+                    + "\n    class Result:\n        consume = " + inner
+                    + "\n        responses = [consume(list, (requests.get(url) for url in urls)) for _ in [0]]")
+    assert len(findings) == count
+    if count:
+        assert findings[0].callee == "requests.get"
+
+
+@pytest.mark.parametrize("expression", [
+    "(fetch(url) for url in urls)",
+    "asyncio.to_thread(list, (fetch(url) for url in urls))",
+])
+def test_class_comprehension_generator_body_stays_deferred(expression):
+    assert not scan("import asyncio\nimport requests\nasync def f(urls, cached):\n"
+                    "    fetch = requests.get\n    class Result:\n        fetch = cached\n"
+                    "        rows = " + expression)
+
+
+def test_class_comprehensions_in_headers_and_defaults_keep_lexical_scope():
+    findings = scan("""
+        import requests
+        async def f(urls, cached):
+            fetch = requests.get
+            class Result:
+                fetch = cached
+                class Inner(choose([fetch(url) for url in urls])):
+                    fetch = cached
+                    rows = [fetch(url) for url in urls]
+                def later(self, rows=[fetch(url) for url in urls]):
+                    pass
+    """)
+    assert [(f.function, f.callee, f.line) for f in findings] == [
+        ("f", "requests.get", 7), ("f", "requests.get", 9), ("f", "requests.get", 10),
+    ]
+
+
+@pytest.mark.parametrize("outer, inner, count", [
+    ("AsyncClient", "Client", 1), ("Client", "AsyncClient", 0),
+])
+def test_comprehension_alias_updates_keep_source_positions(outer, inner, count):
+    findings = scan("import httpx\nasync def f(urls):\n    client = httpx." + outer
+                    + "()\n    rows = [(client := httpx." + inner
+                    + "(), client.get(url)) for url in urls]")
+    assert len(findings) == count
+    if count:
+        assert [(f.function, f.callee, f.line) for f in findings] == [("f", "httpx.Client.get", 4)]
+
+
 def test_worker_consumes_generator_body_filters_and_inner_iterable():
     assert not scan("""
         import requests

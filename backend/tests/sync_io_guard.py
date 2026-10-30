@@ -11,6 +11,7 @@ named helpers are analyzed separately. Eager arguments ARE checked:
 to_thread(save()) still runs save on the event loop. Awaited unknown execute
 is treated as the async DB API; known supabase_admin/sync helpers stay flagged.
 Class headers and bodies execute eagerly, with separate class-local bindings.
+Comprehension bodies skip class bindings; only their first iterable uses them.
 The aexecute facade's flag-off blocking branch remains a G7 debt of its own.
 """
 
@@ -278,11 +279,58 @@ def _execution_nodes(fn: Function, consumed: set[int], generators: set[str],
     original iterator across later reassignment. This is lexical def-use within
     one function, not whole-program/control-flow or container-value analysis.
     """
+    bindings = {name: list(values) for name, values in (inherited_bindings or {}).items()}
+    enclosing, class_bindings = class_enclosing or (fn, bindings)
+    comprehension_bindings = {}
+
+    def scope_comprehensions(node, closure=None, lookup=None):
+        if closure is not None and hasattr(node, "lineno"):
+            symbols = dict(closure.at(node))
+            symbols.update({name: name for name in lookup[1]})
+            fn.scoped_symbols[id(node)] = symbols
+            comprehension_bindings[id(node)] = lookup
+        if isinstance(node, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
+            # Only the first iterable runs in the containing namespace. The
+            # rest closes over the function, skipping any class namespace.
+            scope_comprehensions(node.generators[0].iter, closure, lookup)
+            local_bindings, shadowed = lookup if lookup is not None else (class_bindings, set())
+            targets = {child.id for gen in node.generators for child in ast.walk(gen.target)
+                       if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store)}
+            lookup = (local_bindings, shadowed | targets)
+            values = [node.key, node.value] if isinstance(node, ast.DictComp) else [node.elt]
+            for child in values:
+                scope_comprehensions(child, closure or enclosing, lookup)
+            for index, gen in enumerate(node.generators):
+                for child in [gen.target, *gen.ifs, *([gen.iter] if index else [])]:
+                    scope_comprehensions(child, closure or enclosing, lookup)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            eager = [*node.args.defaults, *(v for v in node.args.kw_defaults if v is not None)]
+            if not isinstance(node, ast.Lambda):
+                eager.extend(node.decorator_list)
+            for child in eager:
+                scope_comprehensions(child, closure, lookup)
+        elif isinstance(node, ast.ClassDef):
+            for child in [*node.decorator_list, *node.bases, *node.keywords]:
+                scope_comprehensions(child, closure, lookup)
+        else:
+            for child in ast.iter_child_nodes(node):
+                scope_comprehensions(child, closure, lookup)
+
+    # Annotate even deferred generator bodies before deciding whether a call
+    # consumes them: offload aliases must use the same lexical scope as calls.
+    for node in fn.node.body:
+        scope_comprehensions(node)
+    # Inherited generators can consume other enclosing-function iterators too.
+    if class_enclosing is not None:
+        for values in class_bindings.values():
+            for _, value in values:
+                if value is not None:
+                    scope_comprehensions(value, enclosing, (class_bindings, set()))
+
     def policy(call: ast.Call, result_consumed: bool) -> bool:
         return _consumes_arguments(call, result_consumed, fn.at(call), generators)
 
     body = list(_nodes(fn.node.body, consumed=consumed, policy=policy))
-    bindings = {name: list(values) for name, values in (inherited_bindings or {}).items()}
     for node in body:
         if isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
@@ -308,8 +356,11 @@ def _execution_nodes(fn: Function, consumed: set[int], generators: set[str],
         if isinstance(node, ast.BoolOp):
             return [expr for value in node.values for expr in expressions(value, seen)]
         if isinstance(node, ast.Name):
+            local_bindings, shadowed = comprehension_bindings.get(id(node), (bindings, set()))
+            if node.id in shadowed:
+                return []
             before = (node.lineno, node.col_offset)
-            prior = [(end, value) for end, value in bindings.get(node.id, []) if end <= before]
+            prior = [(end, value) for end, value in local_bindings.get(node.id, []) if end <= before]
             if prior:
                 return expressions(max(prior, key=lambda binding: binding[0])[1], seen)
         return []
@@ -336,7 +387,6 @@ def _execution_nodes(fn: Function, consumed: set[int], generators: set[str],
     # A class body runs now, unlike its methods, but assignments/imports and
     # generator bindings belong to its own namespace. Keep collection and
     # def-use analysis scoped, then attribute its effects to the caller.
-    enclosing, class_bindings = class_enclosing or (fn, bindings)
     for node in list(body):
         if not isinstance(node, ast.ClassDef):
             continue
