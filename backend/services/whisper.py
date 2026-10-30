@@ -28,7 +28,6 @@ Test:
     "
 """
 
-import asyncio
 import io
 import logging
 import math
@@ -41,7 +40,6 @@ import httpx
 from openai import AsyncOpenAI
 
 from config import settings
-from services import ai_budget, ai_pricing
 
 logger = logging.getLogger(__name__)
 
@@ -65,39 +63,17 @@ def _response_format_for(model: str) -> str:
     return "verbose_json" if model.lower() in verbose_json_models else "json"
 
 
-def _packet_span_seconds(listing: str) -> float:
-    """Span of ``pts_time,duration_time`` ffprobe packet rows (0.0 if none)."""
-    start = end = None
-    for row in listing.splitlines():
-        fields = row.split(",")
-        try:
-            pts = float(fields[0])
-        except (ValueError, IndexError):
-            continue
-        try:
-            length = float(fields[1]) if len(fields) > 1 else 0.0
-        except ValueError:
-            length = 0.0
-        if not (math.isfinite(pts) and math.isfinite(length)):
-            continue
-        start = pts if start is None else min(start, pts)
-        end = pts + max(length, 0.0) if end is None else max(end, pts + max(length, 0.0))
-    return max(end - start, 0.0) if start is not None else 0.0
-
-
 def _probe_duration_seconds(*, audio_bytes: bytes | None = None, path: str | None = None) -> float:
-    """Audio duration via ffprobe (bytes over stdin, or a file path).
+    """Best-effort audio duration via ffprobe (bytes over stdin, or a file path).
 
-    Measured from the audio packet timestamps, not the container header: a
-    browser MediaRecorder WebM carries no header duration (AIBUDGET-0033
-    FR-004). Sizes the Whisper reservation, and recovers the duration when
-    the STT response carries none (a non-verbose_json model). Returns 0.0 if
-    ffprobe is unavailable or fails — the caller treats duration as unknown.
+    Used as a fallback when the STT response carries no `duration` (i.e. a
+    non-verbose_json model). Returns 0.0 if ffprobe is unavailable or fails —
+    the caller then treats duration as unknown, exactly as before.
     """
     cmd = [
-        "ffprobe", "-v", "error", "-select_streams", "a:0",
-        "-show_entries", "packet=pts_time,duration_time",
-        "-of", "csv=p=0",
+        "ffprobe", "-v", "error",
+        "-show_entries", "format=duration",
+        "-of", "default=noprint_wrappers=1:nokey=1",
     ]
     try:
         if path is not None:
@@ -105,7 +81,8 @@ def _probe_duration_seconds(*, audio_bytes: bytes | None = None, path: str | Non
         else:
             proc = subprocess.run(cmd + ["pipe:0"], input=audio_bytes, capture_output=True, timeout=20)
         if proc.returncode == 0:
-            return round(_packet_span_seconds(proc.stdout.decode(errors="replace")), 2)
+            out = proc.stdout.decode(errors="replace").strip()
+            return round(float(out), 2) if out else 0.0
         logger.warning("[whisper] ffprobe returned %d: %s", proc.returncode,
                        proc.stderr.decode(errors="replace")[:200])
     except FileNotFoundError:
@@ -140,31 +117,8 @@ def _get_client() -> AsyncOpenAI:
                 "OPENAI_API_KEY chưa được cấu hình. "
                 "Thêm OPENAI_API_KEY=sk-... vào file .env."
             )
-        # AIBUDGET-0033 FR-001: no hidden SDK retries; each request is reserved.
-        _client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY, timeout=_STT_TIMEOUT_SECONDS,
-                              max_retries=0)
+        _client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY, timeout=_STT_TIMEOUT_SECONDS)
     return _client
-
-
-def _stt_guard(model: str, audio_seconds: float | None, *, user_id: str | None = None,
-               resource_id: str | None = None):
-    """FR-001/FR-004: one ``speaking_stt`` line sized at the duration of the
-    audio sent. An unknown duration has no estimate and is refused (or only
-    logged under ``AI_BUDGET_MODE=shadow``) before the request."""
-    estimate = (ai_budget.estimate_or_none("openai", model, audio_seconds=audio_seconds)
-                if audio_seconds is not None and audio_seconds > 0 else None)
-    return ai_budget.guard(
-        "openai", model, "speaking_stt", estimate,
-        request_key=ai_budget.attempt_key("speaking_stt"), operation="transcribe",
-        user_id=user_id, resource_type="response" if resource_id else None, resource_id=resource_id,
-    )
-
-
-def _settle_stt(lease, model: str, response) -> None:
-    seconds = getattr(response, "duration", None)
-    if isinstance(seconds, (int, float)) and not isinstance(seconds, bool) and seconds > 0:
-        cost, _ = ai_pricing.estimate_unit_cost("openai", model, "audio_second", seconds)
-        lease.settle(cost)
 
 
 # ── Public functions ───────────────────────────────────────────────────────────
@@ -198,17 +152,14 @@ async def transcribe_audio(audio_file_path: str) -> dict:
     logger.info("Whisper: bắt đầu transcribe %s", audio_file_path)
 
     model = _stt_model()
-    probed = await asyncio.to_thread(_probe_duration_seconds, path=audio_file_path)
-    async with _stt_guard(model, probed or None) as lease:
-        with open(audio_file_path, "rb") as f:
-            response = await client.audio.transcriptions.create(
-                model=model,
-                file=f,
-                response_format=_response_format_for(model),  # verbose_json (whisper) → segments+duration
-                language="en",                    # chỉ định tiếng Anh để tăng độ chính xác IELTS
-                prompt=_VERBATIM_PROMPT,          # bias toward preserving fillers/disfluencies
-            )
-        _settle_stt(lease, model, response)
+    with open(audio_file_path, "rb") as f:
+        response = await client.audio.transcriptions.create(
+            model=model,
+            file=f,
+            response_format=_response_format_for(model),  # verbose_json (whisper) → segments+duration
+            language="en",                    # chỉ định tiếng Anh để tăng độ chính xác IELTS
+            prompt=_VERBATIM_PROMPT,          # bias toward preserving fillers/disfluencies
+        )
 
     # ── Extract transcript ─────────────────────────────────────────────────────
     transcript = response.text.strip() if response.text else ""
@@ -246,14 +197,7 @@ async def transcribe_audio(audio_file_path: str) -> dict:
     return result
 
 
-async def transcribe_from_bytes(
-    audio_bytes: bytes,
-    filename: str = "audio.webm",
-    *,
-    audio_seconds: float | None = None,
-    usage_user_id: str | None = None,
-    usage_resource_id: str | None = None,
-) -> dict:
+async def transcribe_from_bytes(audio_bytes: bytes, filename: str = "audio.webm") -> dict:
     """
     Transcribe audio directly from in-memory bytes — no temp file, no download.
 
@@ -266,9 +210,6 @@ async def transcribe_from_bytes(
         audio_bytes: Raw audio bytes (WebM / MP3 / WAV / OGG / M4A).
         filename:    Logical filename including extension; passed to the API so
                      Whisper knows the container format.
-        audio_seconds: The duration measured before the send (AIBUDGET-0033
-                     FR-004). When absent it is probed here; a recording
-                     whose duration cannot be read gets no estimate.
 
     Returns:
         Same schema as :func:`transcribe_audio`.
@@ -296,19 +237,14 @@ async def transcribe_from_bytes(
     # pipeline (classify_reliability / transcript_logprobs) depends on.
     want_words = settings.SPEAKING_WORD_TIMESTAMPS_ENABLED and _response_format_for(model) == "verbose_json"
     extra = {"timestamp_granularities": ["segment", "word"]} if want_words else {}
-    if audio_seconds is None:
-        audio_seconds = await asyncio.to_thread(_probe_duration_seconds, audio_bytes=audio_bytes) or None
-    async with _stt_guard(model, audio_seconds, user_id=usage_user_id,
-                          resource_id=usage_resource_id) as lease:
-        response = await client.audio.transcriptions.create(
-            model=model,
-            file=(filename, buffer),        # tuple form: (name, file-like) — SDK uses name for Content-Disposition
-            response_format=_response_format_for(model),
-            language="en",
-            prompt=_VERBATIM_PROMPT,        # bias toward preserving fillers/disfluencies
-            **extra,
-        )
-        _settle_stt(lease, model, response)
+    response = await client.audio.transcriptions.create(
+        model=model,
+        file=(filename, buffer),        # tuple form: (name, file-like) — SDK uses name for Content-Disposition
+        response_format=_response_format_for(model),
+        language="en",
+        prompt=_VERBATIM_PROMPT,        # bias toward preserving fillers/disfluencies
+        **extra,
+    )
 
     transcript = response.text.strip() if response.text else ""
     duration_seconds: float = getattr(response, "duration", 0.0) or 0.0
