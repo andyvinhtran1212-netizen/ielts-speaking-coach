@@ -27,9 +27,12 @@ DROP = re.compile(
     rf'\bDROP\s+TRIGGER\s+(?:IF\s+EXISTS\s+)?(?P<name>{IDENT})\s+'
     rf'ON\s+(?P<table>{QUALIFIED})', re.I,
 )
-# Preserve quoted identifiers and line offsets; mask comments and SQL strings.
-# Dollar-quoted DO blocks stay visible so their ordinary DDL is inventoried.
-IGNORED = re.compile(r'''"(?:[^"]|"")*"|--[^\n]*|/\*.*?\*/|'(?:[^']|'')*' ''', re.S | re.X)
+# Traverse executable DO/function bodies; SQL literals inside them are masked.
+SQL_TOKENS = re.compile(
+    r'''"(?:[^"]|"")*"|--[^\n]*|/\*.*?\*/|'(?:[^']|'')*' '''
+    r'|(?P<tag>\$(?:[A-Za-z_]\w*)?\$)(?P<body>.*?)(?P=tag)', re.S | re.X,
+)
+CREATE_START = re.compile(r"\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:CONSTRAINT\s+)?TRIGGER\b", re.I)
 
 
 @dataclass(frozen=True)
@@ -72,7 +75,7 @@ KNOWN_UNCOVERED = {
     "trg_mock_sittings_updated_at": ("146_mock_exam_sittings.sql", "Legacy sitting timestamp has no PG execution test", "PC-J262 baseline"),
     "trg_mock_reviews_updated_at": ("147_mock_exam_reviews.sql", "Legacy mock-review timestamp has no PG execution test", "PC-J262 baseline"),
     "trg_band_conversion_updated_at": ("148_mock_sitting_links_and_band_tables.sql", "Legacy band-table timestamp has no PG execution test", "PC-J262 baseline"),
-    "trg_sessions_full_test_attempt_id": ("204_reconcile_course_and_gate_e_schema.sql", "Speaking attempt affinity has only indirect coverage", "PC-J262 baseline; follow-up unassigned"),
+    "trg_sessions_full_test_attempt_id": ("204_reconcile_course_and_gate_e_schema.sql", "Only the ACL statement is exercised here; filename heuristic warns, but speaking trigger still needs coverage", "PC-J262 baseline; follow-up unassigned"),
     "trg_fulfil_writing_regrade_on_delivery": ("205_writing_regrade_atomic_transitions.sql", "Delivery/regrade fulfilment lacks a PG behavior test", "PC-J262 baseline; follow-up unassigned"),
     "trg_guard_published_vocab_version": ("234_vocab_curated_identity_and_editorial.sql", "Published version immutability PG coverage pending", "PC-J260"),
     "trg_guard_published_vocab_review": ("234_vocab_curated_identity_and_editorial.sql", "Published review immutability PG coverage pending", "PC-J260"),
@@ -129,6 +132,34 @@ def _identifier(raw):
     return ".".join(parts)
 
 
+def _sql_code(sql):
+    """Return executable text and dynamic CREATE offsets, preserving positions."""
+    dynamic = set()
+
+    def walk(text, offset):
+        parts, position, prefix = [], 0, ""
+        for token in SQL_TOKENS.finditer(text):
+            gap = text[position:token.start()]
+            parts.append(gap)
+            prefix = (prefix + gap)[-512:]
+            raw, tag = token[0], token["tag"]
+            if raw.startswith('"'):
+                replacement = raw
+            elif tag and re.search(r"\b(?:DO(?:\s+LANGUAGE\s+\w+)?|AS)\s*$", prefix, re.I):
+                replacement = tag + walk(token["body"], offset + token.start() + len(tag)) + tag
+            else:
+                if (tag or raw.startswith("'")) and CREATE_START.search(raw):
+                    dynamic.add(offset + token.start())
+                replacement = re.sub(r"[^\n]", " ", raw)
+            parts.append(replacement)
+            prefix = (prefix + replacement)[-512:]
+            position = token.end()
+        parts.append(text[position:])
+        return "".join(parts)
+
+    return walk(sql, 0), dynamic
+
+
 def inventory(root):
     """Replay numeric migrations, keyed by (table, name), excluding rollback/."""
     live = {}
@@ -136,13 +167,12 @@ def inventory(root):
                    key=lambda p: (int(re.match(r"\d+", p.name)[0]), p.name))
     for path in paths:
         sql = path.read_text(encoding="utf-8")
+        code, dynamic_offsets = _sql_code(sql)
         dynamic_sources = set()
-        for literal in IGNORED.finditer(sql):
-            if literal[0].startswith("'") and re.search(r"\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:CONSTRAINT\s+)?TRIGGER\b", literal[0], re.I):
-                source = f"{path.name}:{sql.count(chr(10), 0, literal.start()) + 1}"
-                assert source in DYNAMIC_TRIGGERS, f"{source}: declare dynamic CREATE TRIGGER in DYNAMIC_TRIGGERS"
-                dynamic_sources.add(source)
-        code = IGNORED.sub(lambda m: m[0] if m[0].startswith('"') else re.sub(r"[^\n]", " ", m[0]), sql)
+        for offset in dynamic_offsets:
+            source = f"{path.name}:{sql.count(chr(10), 0, offset) + 1}"
+            assert source in DYNAMIC_TRIGGERS, f"{source}: declare dynamic CREATE TRIGGER in DYNAMIC_TRIGGERS"
+            dynamic_sources.add(source)
         operations = []
         for pattern in (CREATE, DROP):
             for match in pattern.finditer(code):
@@ -170,22 +200,24 @@ def inventory(root):
     return live
 
 
-def pg_covered(root):
+def pg_covered(root, *, live=None):
     """Return live trigger keys with a reference in a PG-capable test file."""
     sources = [p.read_text(encoding="utf-8") for p in (Path(root) / "backend/tests").rglob("test_*.py")
                if p.name != Path(__file__).name]
     evidence = "\n".join(s for s in sources if re.search(r"TEST_PG_URL|psql\s*\(|\basyncpg\b", s))
     identifiers = set(re.findall(r"[\w$]+", evidence))
-    return {key for key, trigger in inventory(root).items()
+    live = inventory(root) if live is None else live
+    return {key for key, trigger in live.items()
             if trigger.migration in evidence or any(
                 name in identifiers or (not re.fullmatch(r"[\w$]+", name) and
                     re.search(rf"(?<![\w$]){re.escape(name)}(?![\w$])", evidence))
                 for name in (trigger.name, trigger.function))}
 
 
-def stacked_tables(root):
+def stacked_tables(root, *, live=None):
     tables = {}
-    for trigger in inventory(root).values():
+    live = inventory(root) if live is None else live
+    for trigger in live.values():
         if trigger.timing == "BEFORE" and "UPDATE" in trigger.events:
             tables.setdefault(trigger.table, []).append(trigger)
     return {table: triggers for table, triggers in tables.items()
@@ -194,7 +226,8 @@ def stacked_tables(root):
 
 def coverage_errors(root):
     """Collect both gaps before asserting so one failure cannot hide another."""
-    live, covered = inventory(root), pg_covered(root)
+    live = inventory(root)
+    covered = pg_covered(root, live=live)
     errors = []
     for key, trigger in live.items():
         known = KNOWN_UNCOVERED.get(trigger.name)
@@ -205,7 +238,7 @@ def coverage_errors(root):
         elif not allowed:
             errors.append(f"{trigger.name} on {trigger.table} ({trigger.migration}:{trigger.line}): "
                           "add a PG test or KNOWN_UNCOVERED entry with migration, reason and ticket")
-    for table, triggers in stacked_tables(root).items():
+    for table, triggers in stacked_tables(root, live=live).items():
         test_path = STACK_TESTS.get(table)
         if test_path and (Path(root) / test_path).is_file():
             continue
@@ -223,7 +256,7 @@ def coverage_errors(root):
 def test_repository_trigger_pg_coverage():
     live = inventory(ROOT)
     print(f"Live triggers: {len(live)}; KNOWN_UNCOVERED: {len(KNOWN_UNCOVERED)}; "
-          f"stacked tables: {len(stacked_tables(ROOT))}; KNOWN_UNSTACKED: {len(KNOWN_UNSTACKED)}")
+          f"stacked tables: {len(stacked_tables(ROOT, live=live))}; KNOWN_UNSTACKED: {len(KNOWN_UNSTACKED)}")
     assert_pg_coverage(ROOT)
 
 
@@ -314,14 +347,30 @@ DROP TRIGGER t_shared ON public.other;
         "replacement", "BEFORE", frozenset({"UPDATE", "DELETE"}), 6)
 
 
-def test_dynamic_triggers_are_expanded_and_later_drops_still_apply(tmp_path, monkeypatch):
-    sql = "DO $$ BEGIN EXECUTE format('CREATE TRIGGER t_dynamic BEFORE UPDATE ON public.%I FOR EACH ROW EXECUTE FUNCTION public.guard()', t); END $$;"
+@pytest.mark.parametrize("quote", ["'", "$$", "$ddl$"])
+def test_dynamic_triggers_are_expanded_and_later_drops_still_apply(tmp_path, monkeypatch, quote):
+    sql = f"DO $body$ BEGIN EXECUTE format({quote}CREATE TRIGGER t_dynamic BEFORE UPDATE ON public.%I FOR EACH ROW EXECUTE FUNCTION public.guard(){quote}, t); END $body$;"
     root = _tree(tmp_path, {"001_dynamic.sql": sql, "002_drop.sql": "DROP TRIGGER t_dynamic ON public.second;"})
-    with pytest.raises(AssertionError, match="declare dynamic CREATE TRIGGER"):
+    with pytest.raises(AssertionError, match=r"001_dynamic.sql:1: declare dynamic CREATE TRIGGER"):
         inventory(root)
     monkeypatch.setitem(DYNAMIC_TRIGGERS, "001_dynamic.sql:1", (
         "t_dynamic", ("first", "second"), "BEFORE", "UPDATE", "guard"))
     assert set(inventory(root)) == {("first", "t_dynamic")}
+
+
+def test_dollar_quoted_format_reports_its_file_and_line_inside_a_do_block(tmp_path):
+    root = _tree(tmp_path, {"001_dynamic.sql": '''DO $$ BEGIN
+EXECUTE format($ddl$CREATE TRIGGER %I BEFORE UPDATE ON public.%I
+FOR EACH ROW EXECUTE FUNCTION public.guard_new()$ddl$, 't_new', 'records');
+END $$;'''})
+    with pytest.raises(AssertionError, match=r"001_dynamic.sql:2: declare dynamic CREATE TRIGGER"):
+        assert_pg_coverage(root)
+
+
+def test_dollar_quoted_function_bodies_still_expose_trigger_ddl(tmp_path):
+    root = _tree(tmp_path, {"001_function.sql":
+                 "CREATE FUNCTION install() RETURNS void AS $fn$ BEGIN " + FIRST + " END $fn$ LANGUAGE plpgsql;"})
+    assert ("records", "t_new") in inventory(root)
 
 
 def test_guard_and_non_pg_mentions_cannot_cover_themselves(tmp_path):
