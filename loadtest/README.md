@@ -117,6 +117,7 @@ python loadtest/student_exam_load.py \
   finalizing the session; only fully answered, acknowledged stages are finalized.
   A failed finalization PATCH (non-2xx or transport failure) stops the student,
   records the error in metrics and notes, and never opens the next stage.
+  After the final stage, the journey submits one `POST /api/quiz/course/verdict`, included in the endpoint metrics table.
   Use unfinished test accounts when measuring active exam work.
 
 Outputs (default `loadtest/results/`, git-ignored): `<label>-<ts>.json`,

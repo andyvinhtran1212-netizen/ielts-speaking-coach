@@ -1234,3 +1234,166 @@ def test_busy_wait_args_refused_before_network(monkeypatch, tmp_path, flag, valu
     monkeypatch.setattr(httpx, "AsyncClient", _NoNetwork)
     with pytest.raises(SystemExit, match=flag):
         lt.main(_busy_argv(tmp_path, flag, value), environ={"LOADTEST_TOKEN_1": "t"})
+
+
+# ── PC-J475 / Codex r4427199348: submit the completed course ────────────────
+
+@pytest.mark.parametrize("n,bank_item,explicit_item", [
+    (1, "I1", False), (lt.STAGE, "I1", True), (3, None, False),
+])
+def test_final_stage_submits_course_verdict(monkeypatch, tmp_path, n, bank_item, explicit_item):
+    report, requests = _course_case(monkeypatch, tmp_path, [
+        {"stage": 0, "session_id": None, "answered": [], "completed": [], "item_id": bank_item},
+        {"stage": 1, "session_id": None, "answered": [], "completed": ["NEW"], "item_id": bank_item},
+    ], n=n, bank_item=bank_item, argv=["--class-item", bank_item] if explicit_item else [])
+    verdicts = [(i, b) for i, (m, p, b) in enumerate(requests)
+                if (m, p) == ("POST", "/api/quiz/course/verdict")]
+    assert len(verdicts) == 1
+    expected = {"bank_id": "B1", "session_ids": ["NEW"], "timed_out": False}
+    if bank_item:
+        expected["class_item"] = bank_item
+    assert verdicts[0][1] == expected
+    patches = [i for i, (m, _, _) in enumerate(requests) if m == "PATCH"]
+    assert len(patches) == 1 and patches[0] < verdicts[0][0]
+    stats = report["steps"][0]["endpoints"]["POST /api/quiz/course/verdict"]
+    assert stats["count"] == 1 and stats["errors"] == 0 and stats["statuses"] == {"200": 1}
+    assert "POST /api/quiz/course/verdict" in next(tmp_path.glob("*.md")).read_text()
+    assert report["steps"][0]["notes"] == []
+
+
+@pytest.mark.parametrize("start_stage,completed", [(0, []), (1, ["PRIOR", "PRIOR"])])
+def test_multistage_course_verdict_includes_resumed_sessions_in_order(
+        monkeypatch, tmp_path, start_stage, completed):
+    item = "I1"
+    report, requests = _course_case(monkeypatch, tmp_path, [
+        {"stage": start_stage, "session_id": None, "answered": [],
+         "completed": completed, "item_id": item},
+        {"stage": start_stage + 1, "session_id": "RESUMED",
+         "answered": [{"qid": f"q{(start_stage + 1) * lt.STAGE}", "is_correct": True}],
+         "completed": [*completed, "NEW"], "item_id": item},
+        {"stage": start_stage + 2, "session_id": "FINAL", "answered": [],
+         "completed": [*completed, "NEW", "RESUMED"], "item_id": item},
+        {"stage": start_stage + 3, "session_id": None, "answered": [],
+         "completed": [*completed, "NEW", "RESUMED", "FINAL"], "item_id": item},
+    ], n=(start_stage + 2) * lt.STAGE + 1, bank_item=item)
+    verdicts = [b for m, p, b in requests if (m, p) == ("POST", "/api/quiz/course/verdict")]
+    assert verdicts == [{"bank_id": "B1", "class_item": item,
+                         "session_ids": (["PRIOR"] if completed else []) + ["NEW", "RESUMED", "FINAL"],
+                         "timed_out": False}]
+    assert [(s["session_id"], s["resumed"]) for s in report["steps"][0]["sessions"]] == [
+        ("NEW", False), ("RESUMED", True), ("FINAL", True)]
+    patches = [i for i, (m, _, _) in enumerate(requests) if m == "PATCH"]
+    assert len(patches) == 3 and patches[-1] < len(requests) - 1
+    assert requests[-1][:2] == ("POST", "/api/quiz/course/verdict")
+    assert report["steps"][0]["endpoints"]["POST /api/quiz/course/verdict"]["count"] == 1
+
+
+def _verdict_failure_case(monkeypatch, *, patch_failure=None, verdict_failure=None,
+                          interruption=None):
+    """Two stages, immediate fake answers; interrupt at an answer, PATCH or resume."""
+    requests, finalized = [], []
+    ctx = _exam_context()
+    ctx.args.class_item = "I1"
+    answered = 0
+
+    def interrupt(point):
+        if interruption and interruption[1] == point:
+            if interruption[0] == "deadline":
+                ctx.deadline = lt.time.monotonic() - 1
+            else:
+                ctx.stop.set()
+
+    def response(failure, request):
+        if failure == "timeout":
+            raise httpx.ReadTimeout("fake request timed out", request=request)
+        if failure == "transport":
+            raise httpx.ConnectError("fake request unavailable", request=request)
+        return httpx.Response(failure or 200, json={"ok": not failure})
+
+    def handler(request):
+        path = request.url.path
+        body = json.loads(request.content) if request.content else None
+        requests.append((request.method, path, body))
+        assert request.headers["authorization"] == "Bearer t"
+        if path == "/api/quiz/banks/B1":
+            return httpx.Response(200, json={
+                "questions": [{"qid": f"q{i}", "type": "mcq", "answer": 0}
+                              for i in range(lt.STAGE + 1)],
+                "mastery": {"item_id": "I1", "is_timed": True}})
+        if path.endswith("/course-resume"):
+            stage = len(finalized)
+            if stage == 2:
+                interrupt("resume")
+            return httpx.Response(200, json={
+                "stage": stage, "session_id": f"S{stage}" if stage < 2 else None,
+                "answered": [], "completed": finalized[:], "item_id": "I1"})
+        if request.method == "PATCH":
+            if path.endswith("/S1"):
+                interrupt("patch")
+                if patch_failure:
+                    return response(patch_failure, request)
+            finalized.append(path.rsplit("/", 1)[1])
+        if path == "/api/quiz/course/verdict":
+            return response(verdict_failure, request)
+        return httpx.Response(200, json={"ok": True})
+
+    async def think(ctx, seconds):
+        nonlocal answered
+        interrupt(answered)
+        if ctx.stop.is_set() or lt.time.monotonic() >= ctx.deadline:
+            return False
+        answered += 1
+        return True
+
+    _mock_exam_client(monkeypatch, handler)
+    monkeypatch.setattr(lt, "_sleep_or_stop", think)
+    asyncio.run(lt.exam_student(ctx, 0, 1, "t"))
+    return ctx.rec, requests
+
+
+@pytest.mark.parametrize("failure", [503, "timeout"])
+def test_failed_final_stage_patch_never_submits_verdict(monkeypatch, failure):
+    rec, requests = _verdict_failure_case(monkeypatch, patch_failure=failure)
+    assert [p for m, p, _ in requests if m == "PATCH"] == [
+        "/api/quiz/sessions/S0", "/api/quiz/sessions/S1"]
+    assert requests[-1][:2] == ("PATCH", "/api/quiz/sessions/S1")
+    assert not any(p == "/api/quiz/course/verdict" for _, p, _ in requests)
+    assert "POST /api/quiz/course/verdict" not in rec.by_endpoint
+    stats = rec.by_endpoint["PATCH /api/quiz/sessions/{id}"]
+    assert stats.errors == 1 and stats.timeouts == (failure == "timeout")
+    assert any("finalization failed" in note for note in rec.notes)
+
+
+@pytest.mark.parametrize("mode", ["deadline", "abort"])
+@pytest.mark.parametrize("point", [3, lt.STAGE, "patch", "resume"])
+def test_interrupted_course_never_submits_verdict(monkeypatch, mode, point):
+    rec, requests = _verdict_failure_case(monkeypatch, interruption=(mode, point))
+    assert not any(p == "/api/quiz/course/verdict" for _, p, _ in requests)
+    assert "POST /api/quiz/course/verdict" not in rec.by_endpoint
+    assert rec.notes == []
+    patches = [p for m, p, _ in requests if m == "PATCH"]
+    assert len(patches) == (0 if point == 3 else 1 if point == lt.STAGE else 2)
+
+
+@pytest.mark.parametrize("failure", [503, 302, "timeout", "transport"])
+def test_failed_course_verdict_records_error_without_retry(monkeypatch, failure):
+    rec, requests = _verdict_failure_case(monkeypatch, verdict_failure=failure)
+    verdicts = [b for m, p, b in requests if (m, p) == ("POST", "/api/quiz/course/verdict")]
+    assert verdicts == [{"bank_id": "B1", "class_item": "I1",
+                         "session_ids": ["S0", "S1"], "timed_out": False}]
+    assert requests[-1][:2] == ("POST", "/api/quiz/course/verdict")
+    stats = rec.by_endpoint["POST /api/quiz/course/verdict"]
+    status = {"timeout": "timeout", "transport": "ConnectError"}.get(failure, str(failure))
+    assert stats.statuses == {status: 1}
+    assert stats.errors == 1 and stats.timeouts == (failure == "timeout")
+    assert any("verdict failed" in note for note in rec.notes)
+
+
+def test_course_completed_before_journey_never_submits_verdict(monkeypatch, tmp_path):
+    report, requests = _course_case(monkeypatch, tmp_path, [{
+        "stage": 1, "session_id": None, "answered": [], "completed": ["OLD"], "item_id": "I1",
+    }], n=1, bank_item="I1")
+    assert not any(p == "/api/quiz/course/verdict" or p.startswith("/api/quiz/sessions")
+                   for _, p, _ in requests)
+    assert "POST /api/quiz/course/verdict" not in report["steps"][0]["endpoints"]
+    assert report["steps"][0]["sessions"] == []

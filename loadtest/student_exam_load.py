@@ -449,6 +449,9 @@ async def exam_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
             rec.notes.append(f"{ui}: course-resume failed status={st}; no new quiz work")
             return
         stage, resume_sid, answered = adopt_resume(sv, len(questions), item_id=class_item)
+        # The runner restores the current main run's completed IDs on resume.
+        completed_sessions = list(dict.fromkeys(
+            sid for sid in sv.get("completed") or [] if isinstance(sid, str)))
         last_beacon = time.monotonic()
         while time.monotonic() < ctx.deadline and not ctx.stop.is_set():
             # Like resumedFinal in the runner: results only, no new attempt.
@@ -519,6 +522,8 @@ async def exam_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
             if st is None or not 200 <= st < 300:
                 rec.notes.append(f"{ui}: finalization failed status={st}; no stage advance")
                 return
+            if str(sid) not in completed_sessions:
+                completed_sessions.append(str(sid))
             if time.monotonic() >= ctx.deadline or ctx.stop.is_set():
                 return
             # _advanceStage: re-read canonical stage, then open the next session.
@@ -532,6 +537,15 @@ async def exam_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
                 resume_sid = None
             stage = next_stage if next_stage > stage else stage + 1
             if stage * STAGE >= len(questions):
+                if time.monotonic() >= ctx.deadline or ctx.stop.is_set():
+                    return
+                st, _ = await call(rec, c, "POST", "/api/quiz/course/verdict",
+                                   "POST /api/quiz/course/verdict", token=token, json={
+                                       "bank_id": a.bank_id, **item_q,
+                                       "session_ids": completed_sessions, "timed_out": False,
+                                   })
+                if st is None or not 200 <= st < 300:
+                    rec.notes.append(f"{ui}: verdict failed status={st}")
                 return
 
 
