@@ -836,6 +836,79 @@ async def test_gemini_text_accessor_error_preserves_billed_usage(
         assert rows[1].get("thinking_tokens") is None
 
 
+# ── PC-J218: a billed call without a price flags the total, never estimates ──
+
+@pytest.mark.asyncio
+async def test_unpriced_served_model_keeps_priced_calls_and_flags_incomplete(
+    writing_providers, monkeypatch, caplog,
+):
+    import logging
+    from types import SimpleNamespace
+
+    from services import gemini_writing_grader as gwg
+
+    state = writing_providers
+    # Rejected Claude call: 500 in / 100 out on sonnet = $0.002, not repaired.
+    state.claude = [_claude_reply('{"overallBandScore": 6.5 "truncated', 500, 100)]
+    real_estimate = gwg.estimate_token_cost
+    monkeypatch.setattr(gwg, "estimate_token_cost",
+                        lambda provider, model, **kw: (None, None) if provider == "google"
+                        else real_estimate(provider, model, **kw))
+
+    def generate(contents, **_kw):
+        state.gemini_calls.append(contents)
+        return SimpleNamespace(
+            candidates=[SimpleNamespace(finish_reason=SimpleNamespace(name="STOP"))],
+            text=GOOD_CLAUDE,
+            usage_metadata=SimpleNamespace(prompt_token_count=700, candidates_token_count=6000,
+                                           thoughts_token_count=0, total_token_count=6700),
+        )
+
+    gwg.genai.GenerativeModel.return_value.generate_content = generate
+    with caplog.at_level(logging.WARNING, logger=gwg.logger.name):
+        result = await state.grader.grade_essay(_grounded_config())
+
+    assert result.model_used == "gemini-3.8-flash"
+    assert result.cost_usd == pytest.approx(0.002)
+    assert result.cost_incomplete is True
+    assert result.unpriced_models == ["gemini-3.8-flash"]
+    served = result.grading_attempts[-1]
+    assert served["served"] is True and served["cost_usd"] is None
+    assert (served["input_tokens"], served["output_tokens"]) == (700, 6000)
+    warnings = [r.getMessage() for r in caplog.records
+                if r.getMessage().startswith("writing_cost_incomplete")]
+    assert warnings == ["writing_cost_incomplete model=gemini-3.8-flash reason=unpriced pass=pass1"]
+    assert "dedicated bus lanes" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_fully_priced_run_is_not_flagged(writing_providers):
+    state = writing_providers
+    state.claude = [_claude_reply(UNGROUNDED_CLAUDE, 900, 9000),
+                    _claude_reply(GOOD_CLAUDE, 700, 6000)]
+    result = await state.grader.grade_essay(_grounded_config())
+
+    assert result.cost_usd == pytest.approx(_sonnet_cost(900, 9000) + _sonnet_cost(700, 6000))
+    assert result.cost_incomplete is False and result.unpriced_models == []
+
+
+def test_run_cost_without_a_priced_call_returns_the_served_cost(grader):
+    unpriced = grader._attempt_record("google", "gemini-x", "success",
+                                      usage={"input_tokens": 10, "output_tokens": 10})
+    assert grader._run_cost(0.5, []) == 0.5
+    assert grader._run_cost(None, [unpriced]) is None
+    assert grader._cost_gaps([unpriced]) == ["gemini-x"]
+
+
+def test_unbilled_api_error_is_not_a_cost_gap(grader):
+    error = grader._attempt_record("google", "gemini-x", "error", error_code="RuntimeError")
+    priced = grader._attempt_record("google", "gemini-x", "success", cost_usd=0.01,
+                                    usage={"input_tokens": 10, "output_tokens": 10})
+    assert grader._cost_gaps([error, priced]) is None
+    timed_out = grader._attempt_record("anthropic", "claude-x", "error", error_code="timeout")
+    assert grader._cost_gaps([timed_out, priced]) == []
+
+
 # ── AIOPS-0024 FR-007: failure-log outcomes around the grounding repair ──
 
 

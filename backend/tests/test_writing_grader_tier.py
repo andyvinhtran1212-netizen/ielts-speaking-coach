@@ -511,6 +511,98 @@ async def test_deep_tier_counts_billed_calls_of_a_failed_pass(
     ]
 
 
+def _deep_with_hanging_gemini(grader, monkeypatch, hang_pass, *, timeout_s=0.05):
+    """PC-J218: passes run on canned priced answers except ``hang_pass``,
+    which goes through the real Gemini loop and never gets an answer.
+    Returns (in_flight event, attempt logs by pass)."""
+    import asyncio
+
+    from services import ai_usage_logger
+    from services import gemini_writing_grader as gwg
+
+    _patch_v2_loader(monkeypatch)
+    monkeypatch.setattr(ai_usage_logger, "schedule_usage_log", lambda coro: coro.close())
+    monkeypatch.setattr(grader, "DEEP_PASS_TIMEOUTS_S",
+                        {"pass1": 90, "pass2": timeout_s, "pass3": timeout_s})
+    in_flight = asyncio.Event()
+
+    async def hang(*_a, **_kw):
+        in_flight.set()
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(gwg.asyncio, "to_thread", hang)
+    replies = {
+        "pass1": json.dumps(VALID_FEEDBACK_STANDARD),
+        "pass2": json.dumps(VALID_PASS2_EMPTY),
+        "pass3": json.dumps({"sentence_rewrites": []}),
+    }
+    logs: dict[str, list] = {}
+    real_gemini = grader._gemini_call_with_retry
+
+    async def fake_call(model_name, system_prompt, user_prompt, *,
+                        usage_context, attempt_log, **_kw):
+        op = usage_context["operation"]
+        logs[op] = attempt_log
+        if op == hang_pass:
+            return await real_gemini(model_name, system_prompt, user_prompt,
+                                     usage_context=usage_context, attempt_log=attempt_log)
+        usage = {"input_tokens": 100, "output_tokens": 100}
+        attempt_log.append(grader._attempt_record(
+            "google", model_name, "success", usage=usage, cost_usd=0.01))
+        attempt_log[-1]["served"] = True
+        return replies[op], {**usage, "cost_usd": 0.01}
+
+    monkeypatch.setattr(grader, "_call_with_retry", fake_call)
+    return in_flight, logs
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("hang_pass", ["pass2", "pass3"])
+async def test_deep_pass_timeout_records_the_call_in_flight(
+    grader, monkeypatch, reset_loader_cache, hang_pass,
+):
+    """PC-J218: a Deep pass cut off by its wait_for keeps the in-flight call
+    in grading_attempts and flags the pass + run cost as incomplete; it still
+    degrades exactly as before."""
+    _deep_with_hanging_gemini(grader, monkeypatch, hang_pass)
+
+    result = await grader.grade_essay(_deep_config())
+
+    assert result.prompt_version == "v2.3-deep-degraded"
+    assert result.tier_metadata["degraded_at"] == hang_pass
+    in_flight = [a for a in result.grading_attempts if a["pass"] == hang_pass]
+    assert [(a["provider"], a["model"], a["status"], a["error_code"], a["cost_usd"],
+             a["served"]) for a in in_flight] == [
+        ("google", "gemini-2.5-pro", "cancelled", "timeout", None, False)]
+    assert result.tier_metadata[hang_pass]["cost_incomplete"] is True
+    assert result.tier_metadata[hang_pass]["cost_usd"] is None
+    for done in {"pass1", "pass2"} - {hang_pass}:
+        assert "cost_incomplete" not in result.tier_metadata[done]
+    assert result.cost_incomplete is True and result.unpriced_models == []
+    # Known calls only: never an estimate for the one cut off.
+    assert result.cost_usd == pytest.approx(0.01 if hang_pass == "pass2" else 0.02)
+    if hang_pass == "pass2":
+        assert result.feedback.pass2_refinements is None
+    else:
+        assert result.feedback.pass2_refinements is not None
+
+
+@pytest.mark.asyncio
+async def test_deep_job_cancel_still_propagates(grader, monkeypatch, reset_loader_cache):
+    """PC-J218: cancelling the whole job is not swallowed by the in-flight
+    record; the record says cancelled, not timeout."""
+    import asyncio
+
+    in_flight, logs = _deep_with_hanging_gemini(grader, monkeypatch, "pass2", timeout_s=30)
+    task = asyncio.create_task(grader.grade_essay(_deep_config()))
+    await asyncio.wait_for(in_flight.wait(), timeout=5)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert [(a["status"], a["error_code"]) for a in logs["pass2"]] == [
+        ("cancelled", "cancelled")]
+
+
 @pytest.mark.asyncio
 async def test_deep_tier_pass3_failure_falls_back_to_merged_pass1_pass2(
     grader, monkeypatch, reset_loader_cache,
