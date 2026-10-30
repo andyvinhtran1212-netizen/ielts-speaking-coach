@@ -352,3 +352,243 @@ def test_assignment_patch_preserves_nonstatus_and_same_status_updates(monkeypatc
     }
     assert db.writes == 1
     assert db.reads == (1 if patch.get("status") is not None else 0)
+
+
+# ── PC-J482: analysis dispatch survives a cancelled request ──────────
+# Leader 02:22 / CR G4 Correction 01:53: create, update and reanalyze write
+# prompt_image_analysis_status='pending' in the worker thread. Queuing the
+# extraction on the request's BackgroundTasks lost it when the request was
+# cancelled while it waited for that thread (no response, no BackgroundTasks),
+# so the prompt stayed 'pending' with no run behind it.
+
+_T1_ROW = {
+    "id": _PROMPT, "task_type": "task1_academic",
+    "prompt_image_url": "prompts/new.png", "prompt_image_public_id": "prompts/new.png",
+    "prompt_image_analysis_public_id": None, "is_active": True,
+}
+_T1_OLD = {**_T1_ROW, "prompt_image_url": "prompts/old.png",
+           "prompt_image_public_id": "prompts/old.png",
+           "prompt_image_analysis_public_id": "prompts/old.png"}
+_T1_CREATE = {
+    "task_type": "task1_academic", "title": "Energy consumption",
+    "prompt_text": "The chart below shows energy consumption from 2000 to 2020.",
+    "prompt_image_url": "prompts/new.png", "prompt_image_public_id": "prompts/new.png",
+}
+_T2_CREATE = {"task_type": "task2", "title": "Climate",
+              "prompt_text": "Some people believe climate change matters most. Discuss."}
+_NEW_IMAGE = {"prompt_image_url": "prompts/new.png", "prompt_image_public_id": "prompts/new.png"}
+
+
+class _PromptStore:
+    """writing_prompts double: select returns ``current``, insert/update ``written``."""
+
+    def __init__(self, current, written, on_write):
+        self.current, self.written, self.on_write = current, written, on_write
+
+    def table(self, name):
+        assert name == "writing_prompts"
+        store = self
+
+        class Query:
+            op = "select"
+            def select(self, *a): return self
+            def eq(self, *a): return self
+            def is_(self, *a): return self
+            def limit(self, *a): return self
+
+            def insert(self, payload):
+                self.op = "insert"
+                return self
+
+            def update(self, patch):
+                self.op = "update"
+                return self
+
+            def execute(self):
+                if self.op == "select":
+                    row = store.current
+                else:
+                    store.on_write()
+                    row = store.written
+                return SimpleNamespace(data=[dict(row)] if row else [])
+
+        return Query()
+
+
+def _analysis_scenario(monkeypatch, route, *, cancels, current, token="pending-token",
+                       written=_T1_ROW, block="mark", expected=1):
+    """Drive ``route(background_tasks)`` with a worker thread that blocks until
+    released, either right after mark_analysis_pending wrote 'pending'
+    (``block="mark"``) or inside the prompt write (``block="write"``), and
+    cancel the request ``cancels`` times while it waits.
+
+    Returns (outcome, marked, dispatched, background_tasks): outcome is the
+    route's result or the exception it raised; dispatched lists every
+    run_and_store_analysis call made by any path, BackgroundTasks included."""
+    from fastapi import BackgroundTasks, HTTPException
+
+    entered, release = threading.Event(), threading.Event()
+    marked, dispatched = [], []
+
+    def hold():
+        entered.set()
+        release.wait(5)
+
+    def mark(prompt_id, public_id):
+        marked.append((prompt_id, public_id))
+        if block == "mark":
+            hold()          # 'pending' + token are already written here
+        return token
+
+    async def run(prompt_id, expected_pending_at=None, *, requested_by=None, trigger="backfill"):
+        dispatched.append((prompt_id, expected_pending_at, requested_by, trigger))
+
+    db = _PromptStore(current, written, hold if block == "write" else lambda: None)
+    monkeypatch.setattr(prompts, "require_admin", AsyncMock(return_value=_ADMIN))
+    monkeypatch.setattr(prompts, "supabase_admin", db)
+    monkeypatch.setattr(prompts, "attach_signed_image_urls", lambda rows: True)
+    monkeypatch.setattr(prompts.writing_prompt_analysis, "mark_analysis_pending", mark)
+    monkeypatch.setattr(prompts.writing_prompt_analysis, "run_and_store_analysis", run)
+
+    async def scenario():
+        tasks = BackgroundTasks()
+        handler = asyncio.create_task(route(tasks))
+        try:
+            deadline = time.monotonic() + 5
+            while not entered.is_set() and not handler.done() and time.monotonic() < deadline:
+                await asyncio.sleep(0.01)
+            for _ in range(cancels):
+                handler.cancel()
+                await asyncio.sleep(0)
+            if cancels:
+                await asyncio.sleep(0.05)   # the cancel lands while the thread still runs
+        finally:
+            release.set()
+        try:
+            outcome = await handler
+        except (asyncio.CancelledError, HTTPException) as e:
+            outcome = e
+        # Starlette runs BackgroundTasks after a sent response only.
+        if not isinstance(outcome, BaseException):
+            await tasks()
+        deadline = time.monotonic() + 2
+        while len(dispatched) < expected and time.monotonic() < deadline:
+            await asyncio.sleep(0.01)
+        await asyncio.sleep(0.1)    # a duplicate dispatch would land here
+        return outcome, marked, dispatched, tasks
+
+    return asyncio.run(scenario())
+
+
+def _create(body):
+    return lambda tasks: prompts.create_prompt(
+        prompts.PromptCreate(**body), tasks, authorization="Bearer x")
+
+
+def _update(patch):
+    return lambda tasks: prompts.update_prompt(
+        UUID(_PROMPT), prompts.PromptUpdate(**patch), tasks, authorization="Bearer x")
+
+
+def _reanalyze(tasks):
+    return prompts.reanalyze_prompt_image(UUID(_PROMPT), tasks, authorization="Bearer x")
+
+
+# (route, trigger, row the route reads first)
+_DISPATCH_CASES = [
+    pytest.param(_reanalyze, "reanalyze", _T1_ROW, id="R1-reanalyze"),
+    pytest.param(_create(_T1_CREATE), "create", None, id="C1-create"),
+    pytest.param(_update(_NEW_IMAGE), "update", _T1_OLD, id="U1-update"),
+]
+
+
+@pytest.mark.parametrize("cancels", [1, 2])
+@pytest.mark.parametrize("route,trigger,current", _DISPATCH_CASES)
+def test_cancelled_prompt_write_still_dispatches_analysis_once(
+    monkeypatch, route, trigger, current, cancels,
+):
+    outcome, marked, dispatched, tasks = _analysis_scenario(
+        monkeypatch, route, cancels=cancels, token=f"token-{trigger}", current=current,
+    )
+
+    assert isinstance(outcome, asyncio.CancelledError), outcome
+    assert marked == [(_PROMPT, "prompts/new.png")]
+    assert dispatched == [(_PROMPT, f"token-{trigger}", _ADMIN["id"], trigger)]
+    assert not tasks.tasks      # not also handed to the response's BackgroundTasks
+
+
+@pytest.mark.parametrize("route,trigger,current", _DISPATCH_CASES)
+def test_prompt_write_without_cancel_dispatches_analysis_once_via_background_tasks(
+    monkeypatch, route, trigger, current,
+):
+    outcome, marked, dispatched, tasks = _analysis_scenario(
+        monkeypatch, route, cancels=0, token=f"token-{trigger}", current=current,
+    )
+
+    if trigger == "reanalyze":
+        assert outcome == {"status": "pending", "prompt_id": _PROMPT}
+    else:
+        assert outcome["id"] == _PROMPT
+    assert marked == [(_PROMPT, "prompts/new.png")]
+    assert dispatched == [(_PROMPT, f"token-{trigger}", _ADMIN["id"], trigger)]
+    assert len(tasks.tasks) == 1
+
+
+@pytest.mark.parametrize("cancels", [0, 1])
+def test_reanalyze_lost_pending_race_is_409_and_dispatches_nothing(monkeypatch, cancels):
+    outcome, marked, dispatched, tasks = _analysis_scenario(
+        monkeypatch, _reanalyze, cancels=cancels, token=None, current=_T1_ROW, expected=0,
+    )
+
+    if cancels:
+        assert isinstance(outcome, asyncio.CancelledError), outcome
+    else:
+        assert outcome.status_code == 409
+        assert outcome.detail == "Prompt image changed; reload before re-analyzing"
+    assert marked == [(_PROMPT, "prompts/new.png")]
+    assert dispatched == []
+    assert not tasks.tasks
+
+
+@pytest.mark.parametrize("cancels", [0, 1])
+@pytest.mark.parametrize("route,written", [
+    pytest.param(_create(_T2_CREATE), {"id": _PROMPT, **_T2_CREATE}, id="create-task2"),
+    pytest.param(_update({"title": "New title"}), {**_T1_ROW, "title": "New title"},
+                 id="update-title-only"),
+])
+def test_prompt_write_that_needs_no_analysis_dispatches_nothing(monkeypatch, route, written, cancels):
+    outcome, marked, dispatched, tasks = _analysis_scenario(
+        monkeypatch, route, cancels=cancels, current=_T1_ROW, written=written,
+        block="write", expected=0,
+    )
+
+    assert isinstance(outcome, asyncio.CancelledError) if cancels else outcome["id"] == _PROMPT
+    assert marked == []
+    assert dispatched == []
+    assert not tasks.tasks
+
+
+@pytest.mark.parametrize("cancels", [0, 1])
+@pytest.mark.parametrize("route,current,written,code", [
+    pytest.param(_reanalyze, None, None, 404, id="reanalyze-404"),
+    pytest.param(_reanalyze, {"id": _PROMPT, "task_type": "task2", "prompt_image_url": None},
+                 None, 400, id="reanalyze-400"),
+    pytest.param(_update(_NEW_IMAGE), None, None, 404, id="update-404"),
+    pytest.param(_update(_NEW_IMAGE), _T1_OLD, None, 409, id="update-409"),
+    pytest.param(_create(_T1_CREATE), None, None, 500, id="create-500"),
+])
+def test_prompt_write_that_raises_dispatches_nothing(monkeypatch, route, current, written, code,
+                                                     cancels):
+    outcome, marked, dispatched, tasks = _analysis_scenario(
+        monkeypatch, route, cancels=cancels, current=current, written=written,
+        block="write", expected=0,
+    )
+
+    # 404/400 raise before any write, so the request has finished before a cancel.
+    if cancels and code in (409, 500):
+        assert isinstance(outcome, asyncio.CancelledError), outcome
+    else:
+        assert outcome.status_code == code, outcome
+    assert marked == []
+    assert dispatched == []
+    assert not tasks.tasks
