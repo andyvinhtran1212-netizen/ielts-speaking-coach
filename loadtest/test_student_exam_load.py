@@ -366,3 +366,38 @@ def test_failed_async_db_probe_is_recorded(monkeypatch, tmp_path):
         "--mix", "speaking=1", "--users", "1", "--duration-seconds", "0.6"])
     h = report["steps"][0]["health"]["/health/async-db"]
     assert h["count"] >= 1 and h["failures"] == h["count"]
+
+
+def test_class_items_are_per_account(monkeypatch, tmp_path):
+    """Each account plays its own assignment item (class_item query/body)."""
+    seen = []
+    base = _fake_backend([])
+
+    def handler(request):
+        if request.url.path.startswith("/api/quiz/banks/"):
+            seen.append((request.headers["authorization"], request.url.params.get("class_item")))
+        if request.url.path == "/api/quiz/sessions" and request.method == "POST":
+            seen.append((request.headers["authorization"], json.loads(request.content).get("class_item")))
+        return base(request)
+
+    real = lt.make_client
+
+    def mocked(base_url, timeout_s):
+        client = real(base_url, timeout_s)
+        client._transport = httpx.MockTransport(handler)
+        return client
+
+    monkeypatch.setattr(lt, "make_client", mocked)
+    rc = lt.main(["--base-url", "http://localhost:8000", "--bank-id", "B1", "--users", "2",
+                  "--class-items", "I1,I2", "--ramp-seconds", "0", "--duration-seconds", "0.5",
+                  "--answer-seconds", "0.1", "--tail-seconds", "0", "--out-dir", str(tmp_path)],
+                 environ={"LOADTEST_TOKEN_1": "tok-a", "LOADTEST_TOKEN_2": "tok-b"})
+    assert rc == 0
+    assert seen and set(seen) == {("Bearer tok-a", "I1"), ("Bearer tok-b", "I2")}
+
+
+def test_class_items_count_must_match_accounts(monkeypatch):
+    monkeypatch.setattr(httpx, "AsyncClient", _NoNetwork)
+    with pytest.raises(SystemExit, match="class-items"):
+        lt.main(["--base-url", "http://localhost:8000", "--bank-id", "B1", "--users", "1",
+                 "--class-items", "I1,I2"], environ={"LOADTEST_TOKEN_1": "t"})

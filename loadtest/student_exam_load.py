@@ -380,7 +380,8 @@ async def exam_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
     a, rec = ctx.args, ctx.rec
     rnd = random.Random(a.seed * 1000 + vu)
     ui = f"user#{account}/vu{vu}"
-    item_q = {"class_item": a.class_item} if a.class_item else {}
+    class_item = account_class_item(a, account)
+    item_q = {"class_item": class_item} if class_item else {}
     async with make_client(a.base_url, a.request_timeout) as c:
         await call(rec, c, "GET", "/auth/me", "GET /auth/me", token=token)
         await beacon(ctx, c, token, "/course-exercises", ui)
@@ -406,7 +407,7 @@ async def exam_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
                 rec.notes.append(f"{ui}: session open failed status={st}")
                 return
             rec.sessions.append({"session_id": str(sid), "account": f"user#{account}",
-                                 "vu": vu, "bank_id": a.bank_id, "class_item": a.class_item,
+                                 "vu": vu, "bank_id": a.bank_id, "class_item": class_item,
                                  "t": rec.t()})
             chunk = questions[stage * STAGE:(stage + 1) * STAGE] or questions[:STAGE]
             pending: list[dict] = []
@@ -446,6 +447,16 @@ async def exam_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
             stage += 1
             if stage * STAGE >= len(questions):
                 return
+
+
+def account_class_item(args, account: int) -> str | None:
+    """Assignment item of account ``account`` (1-based): every learner has
+    their own class_assignment_items row, so ``--class-items`` lists one id per
+    account in token order; ``--class-item`` is the single-account form."""
+    items = getattr(args, "class_items_list", None) or []
+    if items:
+        return items[account - 1]
+    return args.class_item
 
 
 def make_wav(seconds: float = 3.0, rate: int = 16000) -> bytes:
@@ -717,7 +728,8 @@ def render_markdown(report: dict) -> str:
              f"- Target: `{report['base_url']}` (staging only; prod guard on)",
              f"- Backend identity: `{json.dumps(report['backend_identity'], ensure_ascii=False)}`",
              f"- Accounts: {report['accounts']} × sessions-per-user {report['args']['sessions_per_user']}",
-             f"- Bank: `{report['args']['bank_id']}` class_item: `{report['args']['class_item']}`",
+             f"- Bank: `{report['args']['bank_id']}` class_item(s): "
+             f"`{report['args'].get('class_items') or report['args']['class_item']}`",
              f"- Mix: `{report['args']['mix']}` · ramp {report['args']['ramp_seconds']} s · "
              f"duration {report['args']['duration_seconds']} s",
              f"- Real grading calls (Speaking includes {report.get('generate_calls', 0)} question generate): "
@@ -778,6 +790,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--duration-seconds", type=float, default=60.0)
     p.add_argument("--bank-id", default="", help="quiz bank id (required for the exam flow)")
     p.add_argument("--class-item", default=None, help="class_assignment_items.id when the bank is assigned")
+    p.add_argument("--class-items", default="",
+                   help="comma list of class_assignment_items ids, one per account in token order")
     p.add_argument("--mix", default="exam=1", help="flow weights, e.g. exam=3,speaking=1,writing=1")
     p.add_argument("--label", default="before")
     p.add_argument("--out-dir", default=str(Path(__file__).resolve().parent / "results"))
@@ -815,6 +829,9 @@ def validate_args(args, environ: dict[str, str]) -> None:
     args.max_writing_grades = max(0, min(args.max_writing_grades, MAX_WRITING_GRADES_CEILING))
     if "exam" in parse_mix(args.mix) and not args.bank_id:
         raise SystemExit("--bank-id is required when the mix includes the exam flow")
+    args.class_items_list = [x.strip() for x in (args.class_items or "").split(",") if x.strip()]
+    if args.class_items_list and args.class_item:
+        raise SystemExit("use --class-item or --class-items, not both")
     if args.sessions_per_user < 1 or args.users < 1:
         raise SystemExit("--users and --sessions-per-user must be >= 1")
 
@@ -830,6 +847,8 @@ def ladder_steps(args) -> list[int]:
 
 async def amain(args, tokens: list[str]) -> dict:
     steps = ladder_steps(args)
+    if args.class_items_list and len(args.class_items_list) != len(tokens):
+        raise SystemExit(f"--class-items has {len(args.class_items_list)} ids for {len(tokens)} accounts")
     capacity = len(tokens) * args.sessions_per_user
     too_big = [s for s in steps if s > capacity]
     if too_big:
