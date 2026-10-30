@@ -1177,12 +1177,22 @@ def _promote_writing_essays(sitting_id: str) -> None:
                 # own user_id, not the reviewing admin.
                 admin_id=str(sitting["user_id"]),
             )
-            updates[link_col] = row_info["essay_id"]
+            essay_id = row_info["essay_id"]
+            linked = supabase_admin.table("mock_exam_sittings").update({
+                link_col: essay_id,
+            }).eq("id", str(sitting_id)).is_(link_col, "null").execute()
+            if not linked.data:
+                # A different process/submit path already linked this task (or
+                # the sitting disappeared). Never overwrite it or leave our
+                # unused pending essay in the mock grading queue. Keep the
+                # existing idempotent result; backfill re-reads the sitting.
+                supabase_admin.table("writing_essays").delete().eq(
+                    "id", str(essay_id),
+                ).execute()
+                continue
+            updates[link_col] = essay_id
 
         if updates:
-            supabase_admin.table("mock_exam_sittings").update(updates).eq(
-                "id", str(sitting_id),
-            ).execute()
             logger.info(
                 "[mock-exam] sitting=%s promoted writing essays: %s", sitting_id, updates,
             )

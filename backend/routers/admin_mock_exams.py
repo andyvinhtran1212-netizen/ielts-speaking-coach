@@ -76,6 +76,29 @@ async def _assignment_write(exam_id, fn, *args, **kwargs):
             raise
 
 
+# Backfill reads missing links before creating essays. Keep same-exam promotes
+# serial, including after cancellation while their worker is still writing.
+_writing_promote_locks: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
+
+
+async def _writing_promote(exam_id):
+    key = str(exam_id).lower()
+    lock = _writing_promote_locks.get(key)
+    if lock is None:
+        lock = _writing_promote_locks[key] = asyncio.Lock()
+    async with lock:
+        work = asyncio.ensure_future(asyncio.to_thread(svc.backfill_promote_writing, exam_id))
+        try:
+            return await asyncio.shield(work)
+        except asyncio.CancelledError:
+            while not work.done():
+                with suppress(asyncio.CancelledError):
+                    await asyncio.wait({work})
+            if not work.cancelled():
+                work.exception()
+            raise
+
+
 # Strong references to dispatches of cancelled requests until they end.
 _cancelled_dispatches: set = set()
 
@@ -657,7 +680,7 @@ async def promote_writing(
     promotion feature shipped → text captured, no essay rows, nothing to grade).
     Idempotent; does NOT grade (use bulk-grade next). Returns per-sitting counts."""
     await require_admin(authorization)
-    return await asyncio.to_thread(svc.backfill_promote_writing, exam_id)
+    return await _writing_promote(exam_id)
 
 
 @router.post("/sittings/{sitting_id}/retest")

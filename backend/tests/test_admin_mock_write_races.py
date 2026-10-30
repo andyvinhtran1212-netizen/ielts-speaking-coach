@@ -487,6 +487,169 @@ def test_cancelled_request_still_dispatches_claimed_work(app, monkeypatch, route
     assert dispatched_args == [expected]
 
 
+@pytest.fixture
+def promote_db(monkeypatch, write_db):
+    write_db.tables["mock_exams"][0].update({
+        "writing_task1_prompt_id": "prompt-1", "writing_task2_prompt_id": "prompt-2",
+    })
+    write_db.tables["mock_exam_sittings"][0].update({
+        "status": "all_submitted", "essay_task1_id": None, "essay_task2_id": None,
+        "writing_submission": {"task1": {"text": "Task one essay"},
+                               "task2": {"text": "Task two essay"}},
+    })
+    write_db.tables["students"] = [{"id": "student-1", "user_id": "learner-1"}]
+    write_db.tables["writing_prompts"] = [
+        {"id": "prompt-1", "task_type": "task1_academic", "prompt_text": "Describe the chart."},
+        {"id": "prompt-2", "task_type": "task2", "prompt_text": "Discuss both views."},
+    ]
+    monkeypatch.setattr(proctor.essay_service, "supabase_admin", write_db)
+    # PostgREST returns snapshots; the shared fake normally returns live dicts.
+    get_sitting = proctor.svc.get_sitting
+    monkeypatch.setattr(proctor.svc, "get_sitting", lambda sid: deepcopy(get_sitting(sid)))
+    return write_db
+
+
+@pytest.mark.parametrize("cancel_first", [False, True])
+def test_concurrent_writing_promotes_create_one_essay_per_task(app, monkeypatch, promote_db, cancel_first):
+    """P2-9: hold the first insert after its stale read, then submit again."""
+    release = threading.Event()
+    create = proctor.essay_service.create_essay_row_only
+    inserts = []
+
+    async def scenario():
+        loop, entered = asyncio.get_running_loop(), asyncio.Event()
+
+        def paused_create(**kwargs):
+            inserts.append(kwargs["data"]["task_type"])
+            if len(inserts) == 1:
+                loop.call_soon_threadsafe(entered.set)
+                assert release.wait(5), "test did not release promotion worker"
+            return create(**kwargs)
+
+        monkeypatch.setattr(proctor.essay_service, "create_essay_row_only", paused_create)
+        path = "/admin/mock-exams/exam-1/writing/promote"
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            first = asyncio.create_task(client.post(path))
+            second = None
+            try:
+                await asyncio.wait_for(entered.wait(), 5)
+                if cancel_first:
+                    first.cancel()
+                    await asyncio.sleep(0)
+                    first.cancel()
+                second = asyncio.create_task(client.post(path))
+                await asyncio.wait({second}, timeout=0.1)
+                second_waited = not second.done()
+                assert (await client.get("/ping")).json() == {"ok": True}
+            finally:
+                release.set()
+                responses = await asyncio.gather(first, *([second] if second else []), return_exceptions=True)
+        assert inserts == ["task1_academic", "task2"]
+        if cancel_first:
+            assert isinstance(responses[0], asyncio.CancelledError)
+        else:
+            assert responses[0].status_code == 200
+            assert responses[0].json()["promoted"] == ["sitting-1"]
+        assert responses[1].status_code == 200
+        assert responses[1].json()["already"] == ["sitting-1"]
+        assert second_waited
+
+    asyncio.run(scenario())
+    essays = promote_db.tables["writing_essays"]
+    sitting = promote_db.tables["mock_exam_sittings"][0]
+    assert len(essays) == 2
+    for task, task_type in (("task1", "task1_academic"), ("task2", "task2")):
+        essay, = [e for e in essays if e["task_type"] == task_type]
+        assert essay["id"] == sitting[f"essay_{task}_id"]
+        assert essay["sitting_id"] == "sitting-1" and essay["status"] == "pending"
+    assert not promote_db.tables.get("writing_jobs")
+
+
+@pytest.mark.parametrize("task", ["task1", "task2"])
+def test_writing_promote_losing_link_race_deletes_only_its_essay(promote_db, monkeypatch, task):
+    """A different worker's winning link survives; the losing insert is removed."""
+    real_table = promote_db.table
+    link_col = f"essay_{task}_id"
+    losers = []
+
+    def table(name):
+        query = real_table(name)
+        execute = query.execute
+
+        def competing_execute():
+            if name == "mock_exam_sittings" and query.op == "update" and link_col in query.payload:
+                loser_id = query.payload[link_col]
+                loser = next(e for e in promote_db.tables["writing_essays"] if e["id"] == loser_id)
+                promote_db.tables["writing_essays"].append({**loser, "id": "winner"})
+                promote_db.tables["mock_exam_sittings"][0][link_col] = "winner"
+                losers.append(loser_id)
+            return execute()
+
+        query.execute = competing_execute
+        return query
+
+    monkeypatch.setattr(promote_db, "table", table)
+    result = proctor.svc.backfill_promote_writing("exam-1")
+    assert result["promoted"] == ["sitting-1"] and result["failed"] == []
+    sitting = promote_db.tables["mock_exam_sittings"][0]
+    assert sitting[link_col] == "winner"
+    assert len(losers) == 1
+    essays = promote_db.tables["writing_essays"]
+    assert len(essays) == 2
+    assert {e["id"] for e in essays} == {sitting["essay_task1_id"], sitting["essay_task2_id"]}
+    assert not set(losers) & {e["id"] for e in essays}
+
+
+@pytest.mark.parametrize("late_error", [False, True])
+def test_cancelled_writing_promote_waiter_keeps_other_exams_free(app, monkeypatch, late_error):
+    release = threading.Event()
+    calls = []
+
+    async def scenario():
+        loop, entered = asyncio.get_running_loop(), asyncio.Event()
+
+        def promote(key):
+            calls.append(key)
+            if key == "held" and calls.count("held") == 1:
+                loop.call_soon_threadsafe(entered.set)
+                assert release.wait(5), "test did not release promotion worker"
+                if late_error:
+                    raise RuntimeError("late promotion failure")
+            return {}
+
+        monkeypatch.setattr(proctor.svc, "backfill_promote_writing", promote)
+        path = "/admin/mock-exams/{key}/writing/promote"
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            first = asyncio.create_task(client.post(path.format(key="held")))
+            waiter = second = None
+            try:
+                await asyncio.wait_for(entered.wait(), 5)
+                first.cancel()
+                await asyncio.sleep(0)
+                first.cancel()
+                waiter = asyncio.create_task(client.post(path.format(key="held")))
+                await asyncio.sleep(0)
+                waiter.cancel()
+                with pytest.raises(asyncio.CancelledError):
+                    await waiter
+                second = asyncio.create_task(client.post(path.format(key="held")))
+                other = await asyncio.wait_for(client.post(path.format(key="other")), 1)
+                assert other.status_code == 200
+                await asyncio.wait({second}, timeout=0.1)
+                before_release = list(calls)
+            finally:
+                release.set()
+                results = await asyncio.gather(first, *([second] if second else []), return_exceptions=True)
+                if waiter:
+                    await asyncio.gather(waiter, return_exceptions=True)
+        assert isinstance(results[0], asyncio.CancelledError)
+        assert results[1].status_code == 200
+        assert before_release == ["held", "other"]
+
+    asyncio.run(scenario())
+    assert calls == ["held", "other", "held"]
+
+
 def test_open_losing_race_with_final_advance_is_409(app, monkeypatch, write_db):
     """P2-7: a final advance must invalidate an opening's stale pre-check."""
     exam = write_db.tables["mock_exams"][0]
