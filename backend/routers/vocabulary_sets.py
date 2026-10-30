@@ -64,10 +64,14 @@ async def create_card(body: CardCreate, background_tasks: BackgroundTasks, autho
             raise HTTPException(503, "Không thêm được từ. Vui lòng thử lại.") from exc
         if not result:
             raise HTTPException(503, "Chưa nhận được xác nhận lưu từ.")
-        _reload_and_invalidate(background_tasks)
         return {k: result[0].get(k) or "" for k in SharedCard.model_fields}
 
-    return await asyncio.to_thread(insert_card)
+    card = await asyncio.to_thread(insert_card)
+    # PC-J439: reload() clears, then rebuilds, the shared in-memory vocab index
+    # that the async public /vocabulary routes read on the loop. Keep it on the
+    # loop, as every admin_vocab write does, so no reader sees a half-built index.
+    _reload_and_invalidate(background_tasks)
+    return card
 
 
 @admin_router.post("/{set_id}", response_model=SetOut)

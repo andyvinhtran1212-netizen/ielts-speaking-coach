@@ -7,8 +7,9 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+from fastapi import BackgroundTasks, HTTPException
 
-from models.vocabulary_sets import SessionStart
+from models.vocabulary_sets import CardCreate, SessionStart
 from routers import advanced_vocab, kp, vocab_units, vocabulary_sets
 from services import advanced_vocab_rewrite_grader, advanced_vocab_service as advanced
 
@@ -247,3 +248,55 @@ def test_controlled_rewrite_keeps_loop_responsive_around_async_grading(monkeypat
     assert result.submission.status == "completed"
     assert calls == (["section", "claim", "replay", "progress"] if slow_at == "replay"
                      else ["section", "claim", "grade", "save", "progress"])
+
+
+class InsertQuery:
+    def __init__(self, execute):
+        self.execute = execute
+
+    def insert(self, row):
+        self.row = row
+        return self
+
+
+@pytest.mark.parametrize("duplicate", [False, True])
+def test_create_card_offloads_insert_but_reloads_index_on_the_loop(monkeypatch, duplicate):
+    # PC-J439: vocab_service.reload() clears and rebuilds the in-memory index that
+    # the async public /vocabulary routes read on the loop thread; a reload in a
+    # worker would let those readers see an empty index mid-rebuild.
+    slow, threads = SlowIO(), {}
+
+    async def admin(_authorization):
+        return {"id": "admin"}
+
+    def execute():
+        threads["insert"] = threading.get_ident()
+        slow()
+        if duplicate:
+            raise RuntimeError('duplicate key value violates unique constraint (23505)')
+        return SimpleNamespace(data=[{"id": "card-1", "headword": "acquire", "category": "work"}])
+
+    def reload(_background_tasks):
+        threads["reload"] = threading.get_ident()
+
+    monkeypatch.setattr(vocabulary_sets, "require_admin", admin)
+    monkeypatch.setattr(vocabulary_sets, "resolve_topic_id_for_category", lambda _category: None)
+    monkeypatch.setattr(vocabulary_sets, "db", SimpleNamespace(table=lambda _name: InsertQuery(execute)))
+    monkeypatch.setattr(vocabulary_sets, "_reload_and_invalidate", reload)
+    body = CardCreate(headword="acquire", category="work", gloss_vi="tiếp thu")
+
+    async def call():
+        threads["loop"] = threading.get_ident()
+        try:
+            return await vocabulary_sets.create_card(body, BackgroundTasks(), "token")
+        except HTTPException as exc:
+            return exc
+
+    result = responsive(call, slow)
+    assert threads["insert"] != threads["loop"]
+    if duplicate:
+        assert isinstance(result, HTTPException) and result.status_code == 409
+        assert "reload" not in threads
+    else:
+        assert result["id"] == "card-1" and result["headword"] == "acquire"
+        assert threads["reload"] == threads["loop"]
