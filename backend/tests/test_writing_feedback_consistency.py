@@ -187,6 +187,31 @@ def test_negated_data_criticism_and_empty_optional_sections_are_unchanged(feedba
     assert feedback.criteriaFeedback.coherenceCohesion.feedback == ""
 
 
+@pytest.mark.parametrize("sections", [
+    {"sentenceStructureAnalysis": None, "bandTrajectoryAnalysis": None, "recurringPatterns": None},
+    {"sentenceStructureAnalysis": {}, "bandTrajectoryAnalysis": {}, "recurringPatterns": {}},
+    {"sentenceStructureAnalysis": {"sentenceUpgrades": [], "common_issues": []},
+     "bandTrajectoryAnalysis": {"criteria_breakdown": []}},
+    {"sentenceStructureAnalysis": {"summary": None, "current_essay_observation": [], "custom": {}},
+     "bandTrajectoryAnalysis": {"criteria_breakdown": [None, [], 7, {}], "summary": {"custom": []}}},
+], ids=["null", "empty-dicts", "empty-lists", "free-form-dicts"])
+def test_optional_analysis_shapes_preserve_unknown_data_and_still_repair(feedback, sections):
+    for name, value in sections.items():
+        setattr(feedback, name, deepcopy(value))
+    feedback.keyTakeaways.strengths = []
+    feedback.coherenceAnalysis = []
+    feedback.ideaDevelopmentAnalysis = []
+    before = deepcopy(sections)
+
+    repair_writing_consistency(feedback, "task1_academic")
+
+    assert {name: getattr(feedback, name) for name in sections} == before
+    assert feedback.criteriaFeedback.mainCriterion.title == "Task Achievement"
+    assert feedback.mistakeAnalysis[0].mistakeType == "Data Accuracy"
+    assert "levelled off" not in feedback.criteriaFeedback.lexicalResource.feedback
+    assert "18–30-year-olds" in feedback.improvedEssay
+
+
 def test_unaffected_multiline_feedback_is_preserved_verbatim(feedback):
     text = "Đoạn mở đầu rõ ràng.\n\nCác đoạn thân bài được nhóm tốt."
     feedback.criteriaFeedback.coherenceCohesion.feedback = text

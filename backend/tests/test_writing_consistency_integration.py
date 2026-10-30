@@ -19,8 +19,8 @@ def _payload():
     return json.loads((Path(__file__).parent / "fixtures/writing_task1_consistency.json").read_text())
 
 
-def _config(**overrides):
-    return GraderConfig(task_type="task1_academic", prompt_text="Describe the chart.",
+def _config(task_type="task1_academic", **overrides):
+    return GraderConfig(task_type=task_type, prompt_text="Describe the chart.",
                         essay_text=ESSAY, analysis_level=3, **overrides)
 
 
@@ -82,21 +82,98 @@ async def test_deep_final_merge_rechecks_added_errors_and_changed_gra(writing_pr
 
 
 @pytest.mark.asyncio
-async def test_repair_failure_keeps_unrepaired_feedback_and_grades(writing_providers, monkeypatch, caplog):
+@pytest.mark.parametrize("provider", ["anthropic", "gemini"])
+@pytest.mark.parametrize("tier", ["standard", "deep", "instructor"])
+@pytest.mark.parametrize("task_type", ["task1_academic", "task2"])
+async def test_repair_failure_keeps_unrepaired_feedback_and_grades(
+    writing_providers, monkeypatch, caplog, provider, tier, task_type,
+):
+    from config import settings
     from services import gemini_writing_grader as gwg
-
-    def broken_repair(feedback, task_type):
-        feedback.criteriaFeedback.mainCriterion.title = "partially repaired"
-        raise RuntimeError("repair bug")
 
     state = writing_providers
     state.claude = [json.dumps(_payload())]
-    monkeypatch.setattr(gwg, "repair_writing_consistency", broken_repair)
-    with caplog.at_level("WARNING", logger=gwg.logger.name):
-        result = await state.grader.grade_essay(_config(grading_tier="standard"))
+    state.gemini = ([json.dumps(_payload())] if provider == "gemini" else []) + [
+        '{"band_score_adjustments": {}}', '{"sentence_rewrites": []}',
+    ]
+    if provider == "gemini":
+        monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "")
 
+    # Capture the entire paid result immediately before the final repair.
+    grade_tier = getattr(state.grader, f"_grade_{tier}")
+    original = {}
+
+    async def capture_unrepaired(config, loader):
+        result = await grade_tier(config, loader)
+        original["result"] = result.model_dump()
+        original["feedback"] = result.feedback
+        return result
+
+    monkeypatch.setattr(state.grader, f"_grade_{tier}", capture_unrepaired)
+    repair_calls = []
+
+    def broken_repair(feedback, task_type):
+        repair_calls.append(task_type)
+        assert feedback is not original["feedback"]
+        feedback.criteriaFeedback.mainCriterion.title = "partially repaired"
+        feedback.keyTakeaways.strengths.clear()
+        feedback.sentenceStructureAnalysis["common_issues"].append({"pattern": "partial"})
+        feedback.bandTrajectoryAnalysis["criteria_breakdown"][0]["criterion"] = "partial"
+        # Exception messages can contain learner/model text; only the type is safe.
+        raise RuntimeError(f"repair bug: {ESSAY} {feedback.overallBandScoreSummary}")
+
+    monkeypatch.setattr(gwg, "repair_writing_consistency", broken_repair)
+    with caplog.at_level("INFO", logger=gwg.logger.name):
+        result = await state.grader.grade_essay(_config(task_type, grading_tier=tier))
+
+    assert repair_calls == [task_type]
+    assert result.feedback is original["feedback"]
+    assert result.model_dump() == original["result"]
     assert result.feedback.criteriaFeedback.mainCriterion.title == "Task Response"
     assert "levelled off" in result.feedback.criteriaFeedback.lexicalResource.feedback
-    assert len(state.claude_requests) == 1
+    assert len(state.claude_requests) == (provider == "anthropic")
+    assert len(state.gemini_calls) == (provider == "gemini") + (2 if tier == "deep" else 0)
+    assert len(state.rows) == (3 if tier == "deep" else 1)
+    assert all(row["status"] == "success" for row in state.rows)
+    warnings = [r for r in caplog.records if r.name == gwg.logger.name and r.levelno >= 30]
+    assert len(warnings) == 1
+    assert warnings[0].getMessage() == (
+        "[grader] consistency repair failed, keeping unrepaired feedback: RuntimeError"
+    )
+    assert warnings[0].exc_info is None
+    assert "repair bug" not in caplog.text
+    assert ESSAY not in caplog.text
+    assert original["feedback"].overallBandScoreSummary not in caplog.text
+    assert "consistency repairs:" not in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("sections", [
+    {"sentenceStructureAnalysis": None, "bandTrajectoryAnalysis": None},
+    {"sentenceStructureAnalysis": {}, "bandTrajectoryAnalysis": {}},
+    {"sentenceStructureAnalysis": [], "bandTrajectoryAnalysis": {"criteria_breakdown": []}},
+    {"sentenceStructureAnalysis": {"summary": [], "current_essay_observation": {"custom": None}},
+     "bandTrajectoryAnalysis": {"criteria_breakdown": [None, [], 7, {}], "summary": None}},
+    {"sentenceStructureAnalysis": {"summary": "Custom summary", "sentenceUpgrades": []},
+     "bandTrajectoryAnalysis": {"criteria_breakdown": 7}},
+], ids=["null", "empty-dicts", "empty-lists", "free-form-dicts", "repair-type-error"])
+async def test_optional_analysis_shapes_cannot_lose_a_paid_grade(writing_providers, sections, caplog):
+    state = writing_providers
+    payload = _payload()
+    payload.update(sections)
+    state.claude = [json.dumps(payload)]
+
+    result = await state.grader.grade_essay(_config())
+
+    assert len(state.claude_requests) == 1 and state.gemini_calls == []
     assert len(state.rows) == 1 and state.rows[0]["status"] == "success"
-    assert "consistency repair failed" in caplog.text and "RuntimeError" in caplog.text
+    if sections["bandTrajectoryAnalysis"] == {"criteria_breakdown": 7}:
+        # A valid free-form dict can fail halfway through repair. Keep all of it.
+        expected = state.grader._parse_response(json.dumps(payload))
+        state.grader._inject_missing_image_caveat(expected)
+        assert result.feedback.model_dump() == expected.model_dump()
+        assert "consistency repair failed" in caplog.text
+    else:
+        assert result.feedback.criteriaFeedback.mainCriterion.title == "Task Achievement"
+        assert "18–30-year-olds" in result.feedback.improvedEssay
+        assert "consistency repair failed" not in caplog.text
