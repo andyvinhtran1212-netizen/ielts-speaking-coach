@@ -197,7 +197,10 @@ describe('Report-Only policy builder', () => {
   });
 
   test('next.config.ts resolves the flag once and inlines it for the proxy and AuthedShell', () => {
-    assert.match(read('next.config.ts'), /env: \{\s*\[NONCE_REPORT_ONLY_FLAG\]: nonceReportOnlyEnabled\(process\.env\) \? '1' : '0',\s*\}/);
+    // PC-J221 step 2, Vinh t521u: narrowed from "exactly one inlined flag" to
+    // the step-1 entry unchanged plus only the build-time enforce flag (forced
+    // to '0' for production builds; covered by csp-nonce-enforce.test.mjs).
+    assert.match(read('next.config.ts'), /env: \{\s*\[NONCE_REPORT_ONLY_FLAG\]: nonceReportOnlyEnabled\(process\.env\) \? '1' : '0',\s*\[NONCE_ENFORCE_FLAG\]: nonceEnforceEnabled\(process\.env\) \? '1' : '0',\s*\}/);
     assert.doesNotMatch(PROXY + SHELL, /nonceReportOnlyEnabled/, 'a runtime re-read could disagree with the build');
   });
 
@@ -226,7 +229,15 @@ describe('proxy.ts', () => {
     assert.match(PROXY, /response\.headers\.set\('Content-Security-Policy-Report-Only', policy\)/);
     assert.match(PROXY, /if \(process\.env\.AVER_CSP_NONCE_REPORT_ONLY !== '1'\) return NextResponse\.next\(\);/);
     assert.match(PROXY, /crypto\.getRandomValues\(new Uint8Array\(16\)\)/);
-    assert.doesNotMatch(PROXY, /Content-Security-Policy',/, 'the enforced header is owned by next.config.ts');
+    // PC-J221 step 2, Vinh t521u: narrowed from "never". The Report-Only branch
+    // still never sets the blocking header; the one write is the enforce branch,
+    // reached only after the route, flag-off, production and host exits.
+    // Behaviour for each exit: csp-nonce-enforce.test.mjs.
+    const reportOnlyBranch = PROXY.match(/function nonceReportOnly\([\s\S]*?\n\}/)?.[0] ?? '';
+    assert.match(reportOnlyBranch, /response\.headers\.set\('Content-Security-Policy-Report-Only', policy\)/);
+    assert.doesNotMatch(reportOnlyBranch, /Content-Security-Policy',/, 'the enforced header is owned by next.config.ts');
+    assert.equal((PROXY.match(/Content-Security-Policy',/g) || []).length, 1, 'one blocking header write');
+    assert.match(PROXY, /if \(!nonceRouteAllowed\(request\.nextUrl\.pathname\)\) return NextResponse\.next\(\);\s*if \(process\.env\.AVER_CSP_NONCE_ENFORCE !== '1'\) return nonceReportOnly\(request\);\s*if \(process\.env\.VERCEL_ENV === 'production' \|\| !nonceHostAllowed\(request\.nextUrl\.hostname\)\) \{\s*return NextResponse\.next\(\);\s*\}[^]*?response\.headers\.set\('Content-Security-Policy', policy\);/, 'outside the guarded enforce branch the enforced header is owned by next.config.ts');
   });
 
   test('matches exactly the AuthedShell routes on non-production hosts', () => {

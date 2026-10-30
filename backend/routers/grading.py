@@ -506,7 +506,8 @@ async def grade_response_endpoint(
                 .limit(1)
             )
         except Exception as e:
-            raise HTTPException(500, f"Lỗi khi tải session: {e}")
+            logger.error("[grading] session lookup failed session=%s: %s", session_id, e, exc_info=True)
+            raise HTTPException(500, "Lỗi khi tải session. Vui lòng thử lại.") from None
 
         if not s_res.data:
             raise HTTPException(404, "Session không tồn tại hoặc không có quyền truy cập")
@@ -528,7 +529,8 @@ async def grade_response_endpoint(
                 .limit(1)
             )
         except Exception as e:
-            raise HTTPException(500, f"Lỗi khi tải câu hỏi: {e}")
+            logger.error("[grading] question lookup failed session=%s question=%s: %s", session_id, question_id, e, exc_info=True)
+            raise HTTPException(500, "Lỗi khi tải câu hỏi. Vui lòng thử lại.") from None
 
         if not q_res.data:
             raise HTTPException(404, "Câu hỏi không tồn tại trong session này")
@@ -1284,7 +1286,7 @@ async def grade_response_endpoint(
         raise
     except Exception as e:
         logger.exception("[grading] lỗi không mong đợi tại step=%s: %s", step, e)
-        raise HTTPException(500, f"Lỗi xử lý tại bước '{step}': {e}")
+        raise HTTPException(500, "Lỗi khi chấm bài. Vui lòng thử lại.") from None
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
