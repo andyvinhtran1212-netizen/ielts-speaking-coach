@@ -1,4 +1,4 @@
-"""Exercise migrations 234--238 together on disposable, loopback PostgreSQL.
+"""Exercise migrations 234--238 and 355 together on disposable, loopback PostgreSQL.
 
 TEST_PG_URL selects the local cluster; REQUIRE_PG=1 makes its absence fatal.
 Each case owns and drops a fresh schema. Product functions/triggers are loaded
@@ -23,6 +23,7 @@ FILES = (
     "236_vocab_curated_recommendations_and_flags.sql",
     "237_vocab_curated_speaking_signal_maps.sql",
     "238_vocab_curated_pilot_metrics.sql",
+    "355_vocab_curated_guard_reparent.sql",
 )
 REVIEW_TYPES = ("language", "pedagogy", "assessment")
 TASK_DIMENSIONS = (

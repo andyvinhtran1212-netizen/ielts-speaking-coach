@@ -20,10 +20,10 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-30 the highest is `352`, allocated by the
-Leader to PC-J201, so by that rule the next new migration is `353`. Ask the
-Leader before taking it; 348–351 are reserved for other work and must not be
-reused.
+sequence is dense. As of 2026-10-31 the highest is `355`, allocated by the
+Leader to PC-J267, so by that rule the next new migration is `356`. Ask the
+Leader before taking it; 348–351 and 353–354 are reserved for other work and
+must not be reused.
 The runner applies any unapplied file regardless of order.
 Numbers 321–326 belong to 321 WRITINGRATE-0025, 322 AIOPS-0024 (#1837), 323
 ROLECHECK-0026, 324 ASSIGNDRAFT-0027, 325 CODEUNIQ-0028 and 326
@@ -40,6 +40,20 @@ reserved by the Leader on 2026-10-29; 341–344 are reserved for other open
 work and must not be reused. 346 is PC-J153 (CLASSARCHIVE-0030 FR-003),
 assigned by the Leader on 2026-10-29. 347 is PC-J163 (listening_tests client revoke,
 spec LISTENING-0005), given by the Leader on 2026-10-29.
+
+Migration `355` (PC-J267, VOCABGUARD-0040 FR-001) replaces only the published
+curated vocabulary review/task guards from 234/235. UPDATE checks both OLD and
+NEW parent versions and rejects either published parent with the existing
+immutable error; INSERT still checks NEW and DELETE still checks OLD. Parent
+rows are locked `FOR SHARE` in ascending UUID order. No data, trigger, owner,
+grant or RLS changes; one transaction with a 5 s lock timeout, re-runnable. The
+executable manual down script in the file header restores the 234/235 bodies
+and reopens the bypass. `forward-policy.tsv` holds 355 in the separate
+`vocab_curated_guard_reparent` group so opting into the original `curated_vocab`
+group does not authorize this apply. The Leader verifies 234/235 are applied,
+then explicitly opts in with `MIGRATION_FEATURES=vocab_curated_guard_reparent`
+under the advisory-locked runner and STAGING_FREEZE, staging first. Production
+requires separate owner approval at promotion; merging does not apply 355.
 
 Migration `347` (PC-J163) revokes ALL on `listening_tests` from `PUBLIC`,
 `anon` and `authenticated` (MAINTAIN included on PG 17). 295 closed the other
