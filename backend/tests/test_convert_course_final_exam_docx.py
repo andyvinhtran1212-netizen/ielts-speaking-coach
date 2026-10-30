@@ -351,3 +351,39 @@ def test_flags_duplicate_middle_question_in_the_quick_key(tmp_path, monkeypatch,
     assert errors == [expected_error]
     assert rows == baseline
     _assert_cli_rejects(tmp_path, monkeypatch, capsys, expected_error)
+
+
+def test_duplicate_detailed_key_question_keeps_the_first_answer(tmp_path, monkeypatch, capsys):
+    baseline, paper, key = _numbering_documents(tmp_path)
+    previous = next(p for p in key.paragraphs if p.text == "Giải thích Lý do câu 2.")
+    for labelled in [
+        ("Câu 002  E  Đáp án", "Đáp án trùng không được thay đáp án gốc."),
+        ("Giải thích", "Giải thích trùng không được thay giải thích gốc."),
+    ]:
+        _para(key, labelled)
+        duplicate = key.paragraphs[-1]
+        previous._p.addnext(duplicate._p)
+        previous = duplicate
+
+    rows, errors, _ = _rebuild_numbering_documents(tmp_path, paper, key)
+
+    expected_error = "đáp án: câu 002 xuất hiện hai lần"
+    assert errors == [expected_error]
+    assert rows == baseline
+    _assert_cli_rejects(tmp_path, monkeypatch, capsys, expected_error)
+
+
+def test_duplicate_quick_key_with_a_different_letter_keeps_the_first(
+        tmp_path, monkeypatch, capsys):
+    baseline, paper, key = _numbering_documents(tmp_path)
+    table = key.tables[0]
+    duplicate = table.add_row()
+    duplicate.cells[0].text, duplicate.cells[1].text = "002", "E"
+    table.rows[2]._tr.addnext(duplicate._tr)
+
+    rows, errors, _ = _rebuild_numbering_documents(tmp_path, paper, key)
+
+    expected_error = "bảng nhanh: câu 002 xuất hiện hai lần"
+    assert errors == [expected_error]
+    assert rows == baseline
+    _assert_cli_rejects(tmp_path, monkeypatch, capsys, expected_error)

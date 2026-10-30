@@ -170,6 +170,7 @@ def parse_quick_key(tables: list[list[str]], errors: list[str]) -> dict[int, str
                 continue
             if int(number) in key:
                 errors.append(f"bảng nhanh: câu {number} xuất hiện hai lần")
+                continue
             key[int(number)] = letter
     return key
 
@@ -214,12 +215,15 @@ def parse_detailed_key(paras: list[Para], errors: list[str]):
         answer = _KEY_ANSWER.fullmatch(para.text)
         if answer and para.label.startswith("Câu "):
             number = int(answer.group(1))
-            if number in answers:
-                errors.append(f"đáp án: câu {number:03d} xuất hiện hai lần")
-            last = answers[number] = {
+            last = {
                 "passage": passage, "letter": answer.group(2),
                 "answer_text": _norm(answer.group(3)), "explanation": "",
             }
+            if number in answers:
+                # Keep the first answer; the duplicate's explanation goes to an unsaved dict.
+                errors.append(f"đáp án: câu {number:03d} xuất hiện hai lần")
+            else:
+                answers[number] = last
             continue
         if para.label == "Giải thích" and last is not None:
             if last["explanation"]:
