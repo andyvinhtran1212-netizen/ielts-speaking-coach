@@ -483,8 +483,9 @@ def claim_pending_for_grading(
     endpoint (2026-07-12).
 
     The tier metadata + status flip is one guarded UPDATE (WHERE status=
-    'pending'); a zero-row result means the essay was already claimed/graded by
-    a concurrent request, so this returns None (caller treats as skip/409) and
+    'pending' AND grading_skipped_at IS NULL); a zero-row result means the essay
+    was skipped or already claimed/graded by a concurrent request, so this
+    returns None (caller treats as skip/409) and
     NO job is scheduled. On success returns schedule_grading_job's
     {"job_id", "eta_seconds"}. Caller must still add the request-scoped
     _bg_grade_essay BackgroundTask — a service can't own request lifecycle."""
@@ -498,6 +499,7 @@ def claim_pending_for_grading(
         })
         .eq("id", essay_id)
         .eq("status", "pending")
+        .is_("grading_skipped_at", "null")
         .execute()
     )
     if not claimed.data:
