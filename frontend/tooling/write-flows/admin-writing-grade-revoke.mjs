@@ -1,7 +1,5 @@
 // Cùng một bản khai chạy trên Legacy và Next: bài đã giao phải có thể được
 // thu hồi qua endpoint canonical, giữ nguyên feedback và quay về reviewed.
-import { AAL2_STATUS } from '../admin-mfa-stub.mjs';
-
 const ESSAY = 'essay-admin-revoke';
 
 export default {
@@ -11,8 +9,6 @@ export default {
 
   canned: [
     [/\/auth\/me$/, { id: '00000000-0000-0000-0000-000000000000', email: 'admin@local', role: 'admin' }],
-    // ADMINAAL2-0032 T010: AdminAccessGate fails closed on the `{}` catch-all.
-    [/\/admin\/mfa\/status$/, AAL2_STATUS],
     [new RegExp(`/admin/writing/essays/${ESSAY}$`), {
       id: ESSAY,
       status: 'delivered',

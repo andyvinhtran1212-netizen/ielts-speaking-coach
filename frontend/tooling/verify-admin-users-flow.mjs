@@ -6,7 +6,6 @@ import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 import { storageKey } from './supabase-session.mjs';
-import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
@@ -173,7 +172,6 @@ await page.route('**/*', async (route) => {
   }
   return json({});
 });
-await stubAdminMfaStatus(page);
 
 const writeHasLaterRead = (method, pathPattern, readPath) => {
   const index = requests.findIndex((item) => item.method === method && pathPattern.test(item.path));

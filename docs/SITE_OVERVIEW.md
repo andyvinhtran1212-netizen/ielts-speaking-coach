@@ -205,7 +205,6 @@ to `/`; the historical source file is not a separately served marketing page.
 | `/admin/classes` · `/admin/classes/[cohortId]` | admin | Class roster and selected class workspace: students, attendance, lessons and assigned work (`/admin/cohorts/*`). |
 | `/admin/users?tab=codes` | admin | Access-code tab — issue, assign, revoke; canonical ownership via `user_code_assignments` (legacy fallback `access_codes.used_by`). |
 | `/admin/instructors` | admin | Instructor management workspace. |
-| `/admin/mfa` | admin (AAL1 allowed) | Two-step sign-in for admins (ADMINAAL2-0032): enroll a TOTP factor, complete the AAL1 → AAL2 challenge, add a backup factor or remove one with a fresh code. `AdminAccessGate` and `api.js` send an admin here when the backend answers `mfa_required`. |
 
 ### 4.11 Instructor — writing review
 
