@@ -271,6 +271,19 @@ jobs:
           echo "server_version_num=$VERSION"
           [ "$VERSION" -ge 170000 ] && [ "$VERSION" -lt 180000 ]
 
+      # PC-J367: the staging clone tests run the real clone script against two
+      # disposable loopback SCRAM clusters they start themselves, so they need
+      # PG 17.6+ server and client binaries, not the service container.
+      - name: Install PostgreSQL 17 binaries for the clone tests
+        run: |
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo sed -i 's/^#*[[:space:]]*create_main_cluster.*/create_main_cluster = false/' \
+            /etc/postgresql-common/createcluster.conf
+          sudo apt-get install -y --no-install-recommends postgresql-17
+          /usr/lib/postgresql/17/bin/postgres --version
+          echo "STAGING_CLONE_PG_BIN=/usr/lib/postgresql/17/bin" >> "$GITHUB_ENV"
+
       - name: Run migration/privilege tests on PostgreSQL 17
         working-directory: backend
         run: |
@@ -278,7 +291,8 @@ jobs:
             tests/test_migration_*.py \
             tests/test_mock_paper_policy_postgres.py \
             tests/test_mock_private_draft_postgres.py \
-            tests/test_activate_rate_limit.py
+            tests/test_activate_rate_limit.py \
+            tests/test_staging_clone_preflight_postgres.py
 
   backend-collect:
     name: Backend pytest collection + anchor drift

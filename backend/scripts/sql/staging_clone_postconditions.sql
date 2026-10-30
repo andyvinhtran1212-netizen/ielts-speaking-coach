@@ -1,5 +1,68 @@
 -- Clone acceptance checks adapted from migration 320 step 8.
 -- Runs before COMMIT in the reset/restore transaction; never repairs ACLs.
+-- staging_clone_reset.sql recorded the restore role before the dump ran.
+SELECT set_config('staging_clone.restore_role', :'clone_restore_role', true);
+
+-- A role switch hidden in a routine body is invisible to preflight: the
+-- restore must end as the role it started as, owning everything it restored.
+DO $$
+DECLARE
+    restore_role CONSTANT NAME := current_setting('staging_clone.restore_role');
+    leaks TEXT;
+BEGIN
+    IF current_user <> restore_role OR session_user <> restore_role THEN
+        RAISE EXCEPTION 'restore_role_changed: current_user %, session_user %, expected %',
+            current_user, session_user, restore_role;
+    END IF;
+
+    WITH owned(catalog, oid, label, owner) AS (
+        SELECT 'pg_namespace'::regclass, n.oid, 'schema ' || n.nspname, n.nspowner
+          FROM pg_namespace n WHERE n.nspname = 'public'
+        UNION ALL
+        SELECT 'pg_class'::regclass, c.oid, c.oid::regclass::text, c.relowner
+          FROM pg_class c WHERE c.relnamespace = 'public'::regnamespace
+        UNION ALL
+        SELECT 'pg_proc'::regclass, p.oid, p.oid::regprocedure::text, p.proowner
+          FROM pg_proc p WHERE p.pronamespace = 'public'::regnamespace
+        UNION ALL
+        SELECT 'pg_type'::regclass, t.oid, t.oid::regtype::text, t.typowner
+          FROM pg_type t WHERE t.typnamespace = 'public'::regnamespace
+        UNION ALL
+        SELECT 'pg_operator'::regclass, o.oid, o.oid::regoperator::text, o.oprowner
+          FROM pg_operator o WHERE o.oprnamespace = 'public'::regnamespace
+        UNION ALL
+        SELECT 'pg_collation'::regclass, c.oid, c.collname::text, c.collowner
+          FROM pg_collation c WHERE c.collnamespace = 'public'::regnamespace
+        UNION ALL
+        SELECT 'pg_conversion'::regclass, c.oid, c.conname::text, c.conowner
+          FROM pg_conversion c WHERE c.connamespace = 'public'::regnamespace
+        UNION ALL
+        SELECT 'pg_opfamily'::regclass, f.oid, f.opfname::text, f.opfowner
+          FROM pg_opfamily f WHERE f.opfnamespace = 'public'::regnamespace
+        UNION ALL
+        SELECT 'pg_opclass'::regclass, c.oid, c.opcname::text, c.opcowner
+          FROM pg_opclass c WHERE c.opcnamespace = 'public'::regnamespace
+        UNION ALL
+        SELECT 'pg_ts_config'::regclass, c.oid, c.cfgname::text, c.cfgowner
+          FROM pg_ts_config c WHERE c.cfgnamespace = 'public'::regnamespace
+        UNION ALL
+        SELECT 'pg_ts_dict'::regclass, d.oid, d.dictname::text, d.dictowner
+          FROM pg_ts_dict d WHERE d.dictnamespace = 'public'::regnamespace
+        UNION ALL
+        SELECT 'pg_statistic_ext'::regclass, s.oid, s.stxname::text, s.stxowner
+          FROM pg_statistic_ext s WHERE s.stxnamespace = 'public'::regnamespace)
+    SELECT string_agg(format('%s:%s', label, pg_get_userbyid(owner)), ', ' ORDER BY label)
+      INTO leaks
+      FROM owned o
+     WHERE pg_get_userbyid(o.owner) <> restore_role
+       -- Extension members keep their extension-managed ownership.
+       AND NOT EXISTS (SELECT 1 FROM pg_depend d
+                        WHERE d.classid = o.catalog AND d.objid = o.oid AND d.deptype = 'e');
+    IF leaks IS NOT NULL THEN
+        RAISE EXCEPTION 'restored_object_not_owned_by_restore_role: %', leaks;
+    END IF;
+END $$;
+
 -- ── 8. Postcondition: fail the release instead of leaving a silent hole ────
 -- A REVOKE issued by a role that did not grant the privilege only warns, so
 -- check the effective privileges rather than trusting the steps above.

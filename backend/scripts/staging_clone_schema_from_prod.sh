@@ -30,6 +30,10 @@ STAGING_URL="$(grep '^DATABASE_URL=' "$ROOT/backend/.env.staging" | cut -d= -f2-
 [[ "$STAGING_URL" != "$PROD_URL" ]] || { echo "REFUSED: source and target URLs are identical" >&2; exit 1; }
 [[ "$STAGING_URL" == *"$STAGING_REF"* ]] || { echo "REFUSED: staging URL is not the staging project ($STAGING_REF)" >&2; exit 1; }
 [[ "$STAGING_URL" != *"$PROD_REF"* ]] || { echo "REFUSED: staging URL points at production" >&2; exit 1; }
+# Different strings can still name one database (pooler vs direct host), so
+# the source must positively name production. Never echo URLs or refs.
+[[ "$PROD_URL" == *"$PROD_REF"* ]] || { echo "REFUSED: production URL does not name the production project" >&2; exit 1; }
+[[ "$PROD_URL" != *"$STAGING_REF"* ]] || { echo "REFUSED: production URL names the staging project" >&2; exit 1; }
 
 DUMP="$(mktemp -t prod_schema_XXXXXX.sql)"
 trap 'rm -f "$DUMP" "$DUMP.tmp"' EXIT

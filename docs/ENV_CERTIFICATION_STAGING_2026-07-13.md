@@ -41,20 +41,33 @@ không phải bằng chứng đã chạy lại clone hay certify database.
 
 1. Cần `psql >= 17.6` (dump mới có `\restrict`), `pg_dump` tương thích server và
    Python 3. Xác nhận source/target và migration head, không ghi DSN/secret vào
-   log. Script từ chối source URL trùng target URL và giữ các guard project ref.
+   log. Script từ chối source URL trùng target URL và giữ các guard project ref;
+   source URL phải chứa ref production và không chứa ref staging (pooler và
+   direct là hai chuỗi khác nhau nhưng cùng DB). Không in URL hay ref.
 2. Dump chỉ `public`, schema-only, giữ ACL, `--no-owner`; file tạm có quyền 0600
    (`umask 077`), trap xoá cả dump và `.tmp`. Lọc `CREATE SCHEMA public` và default
    ACL `supabase_admin` trước mọi bước phá huỷ.
 3. Preflight chỉ đọc catalog staging (`BEGIN READ ONLY`): đối chiếu mọi owner,
    grantee/revokee, role policy/default ACL trong SQL với `pg_roles`; thiếu role
-   thì in tên và dừng trước DROP. Từ chối `SET SESSION AUTHORIZATION`, `SET ROLE`,
-   default ACL không phải `FOR ROLE postgres`, và **bất kỳ** entry
+   thì in tên và dừng trước DROP. Từ chối mọi dạng đổi role (`SET`/`RESET` với
+   `ROLE` hoặc `SESSION AUTHORIZATION` ở bất kỳ vị trí token nào, kể cả `LOCAL`/
+   `SESSION`, và `set_config('role'|'session_authorization', …)`), mọi câu điều
+   khiển transaction (`BEGIN`, `START`, `COMMIT`, `END`, `ROLLBACK`, `ABORT`,
+   `SAVEPOINT`, `RELEASE`, `PREPARE`), câu chạy code lúc restore mà pg_dump
+   không sinh (`DO`, `CALL`, `SELECT` ngoài `set_config('search_path')`, …), và
+   mọi meta-command psql trừ đúng một cặp `\restrict <key>`/`\unrestrict <key>`
+   cùng key bao quanh toàn bộ SQL (kể cả meta-command giữa dòng). Lexer theo
+   psql (E-string, dollar tag non-ASCII, comment lồng nhau bị từ chối) và từ chối
+   đổi `standard_conforming_strings`/`client_encoding`, để không lệch với psql.
+   Từ chối default ACL không phải `FOR ROLE postgres`, và **bất kỳ** entry
    `pg_default_acl.defaclnamespace=0` trên target. Global defaults tồn tại qua
    DROP SCHEMA và có thể âm thầm thêm quyền. Không tự tạo role hay sửa ACL để
    vượt preflight; cần xem xét nguyên nhân trước lần chạy lại.
 4. Reset + restore + postcondition dựa trên migration 320 bước 8 chạy trong
-   **một** phiên `psql -X -1 -v ON_ERROR_STOP=1`, rồi mới COMMIT. Postcondition
-   kiểm quyền client trên bảng/cột/sequence/default ACL, policy users, hàm
+   **một** phiên `psql -X -1 -v ON_ERROR_STOP=1`, rồi mới COMMIT. Reset ghi lại
+   role restore (biến psql) trước dump; postcondition yêu cầu phiên kết thúc
+   đúng role đó và mọi object trong `public` (trừ thành viên extension) thuộc
+   role đó, để chặn cả đổi role ẩn trong thân hàm. Postcondition cũng kiểm quyền client trên bảng/cột/sequence/default ACL, policy users, hàm
    SECURITY DEFINER không thuộc extension và quyền TRUNCATE/MAINTAIN của
    service_role trên class_action_log. Lỗi SQL hoặc quyền còn hở thì rollback
    cả DROP; không để schema restore dở. Giữ target yên trong lúc chạy: preflight
