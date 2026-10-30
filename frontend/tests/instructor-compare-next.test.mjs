@@ -18,6 +18,7 @@ const PAGE = readFileSync(join(ROOT, 'app', '(authed-instructor-compare)', 'inst
 const VIEW = readFileSync(join(ROOT, 'app', '(authed-instructor-compare)', 'instructor', 'compare', 'instructor-compare.tsx'), 'utf8');
 const LAYOUT = readFileSync(join(ROOT, 'app', '(authed-instructor-compare)', 'layout.tsx'), 'utf8');
 const PARITY_WORKFLOW = readFileSync(join(ROOT, '..', '.github', 'workflows', 'next-native-browser.yml'), 'utf8');
+const BAND_PARITY_CASES = JSON.parse(readFileSync(join(ROOT, '..', 'backend', 'tests', 'fixtures', 'writing_band_consistency.json'), 'utf8'));
 
 function feedback(version, bands) {
   return {
@@ -94,6 +95,28 @@ describe('/instructor/compare canonical model', () => {
     );
     assert.throws(() => instructorCompareBackHref('', null), /essay-id-required/);
   });
+
+  for (const item of BAND_PARITY_CASES) {
+    test(`learner preview matches persisted mixed-band narrative: ${item.id}`, () => {
+      const payload = envelope();
+      payload.versions[0].feedback_json = feedback(2, item.bands);
+      const base = payload.versions[1];
+      base.feedback_json.overallBandScore = item.base_band;
+      base.feedback_json.overallBandScoreSummary = item.overview;
+      base.feedback_json.bandTrajectoryAnalysis = structuredClone(item.trajectory);
+      const original = structuredClone(payload);
+      const snapshot = normalizeInstructorVersions(payload);
+      const picks = Object.fromEntries(MIX_CRITERIA.map((key) => [key, 2]));
+      const preview = assembleInstructorPreview(snapshot, 1, picks);
+      assert.equal(preview.overallBandScore, item.expected.overall);
+      assert.equal(preview.overallBandScoreSummary, item.expected.overview);
+      assert.equal(preview.bandTrajectoryAnalysis.current_band, item.expected.overall);
+      assert.equal(preview.bandTrajectoryAnalysis.trend_explanation, item.expected.explanation);
+      assert.equal(preview.bandTrajectoryAnalysis.next_target, item.expected.target);
+      assert.equal(preview.bandTrajectoryAnalysis.average_last_5, item.trajectory.average_last_5);
+      assert.deepEqual(payload, original);
+    });
+  }
 });
 
 describe('/instructor/compare native route contracts', () => {

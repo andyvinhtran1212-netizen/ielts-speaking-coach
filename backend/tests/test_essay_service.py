@@ -986,13 +986,31 @@ def test_render_context_404_when_feedback_missing():
 
 
 @pytest.mark.asyncio
-async def test_bg_grade_essay_overrides_model_overall_with_ielts_round():
+@pytest.mark.parametrize("model_band,bands,final_band", [
+    (5.5, (5, 6, 7, 6), 6.0),  # PC-J166: model band differs from final
+    (6.0, (6, 6, 7, 6), 6.5),  # IELTS .25 rounds up
+    (7.0, (6, 6, 6, 6), 6.0),  # final band can also be lower
+])
+async def test_bg_grade_essay_overrides_model_overall_with_ielts_round(
+    model_band, bands, final_band,
+):
     """P-1: the persisted overall is BACKEND-computed (IELTS-round of the 4
     criteria), not the model's self-round. Criteria {6,6,7,6} → mean 6.25 → 6.5,
     even though the model emitted 6.0. The model value is preserved in
     feedback_json.overallBandScoreModel."""
     fb = _valid_feedback_obj()
-    fb.overallBandScore = 6.0   # model self-round (wrong / different)
+    fb.overallBandScore = model_band
+    for criterion, band in zip((
+        fb.criteriaFeedback.mainCriterion, fb.criteriaFeedback.coherenceCohesion,
+        fb.criteriaFeedback.lexicalResource, fb.criteriaFeedback.grammaticalRange,
+    ), bands):
+        criterion.bandScore = band
+    fb.overallBandScoreSummary = f"Bài này đạt band {model_band}."
+    fb.bandTrajectoryAnalysis = {
+        "current_band": model_band, "average_last_5": 6.7,
+        "trend_explanation": f"Bài này ở band {model_band}, thấp hơn trung bình.",
+        "next_target": f"Từ band {model_band}, hãy lên band 7.0.",
+    }
 
     fake = _FakeSupabase(responses=_bg_essay_responses())
     fake_grader = MagicMock()
@@ -1015,11 +1033,21 @@ async def test_bg_grade_essay_overrides_model_overall_with_ielts_round():
     fb_insert = next(c for c in fake.calls
                      if c["table"] == "writing_feedback" and c["op"] == "insert")
     payload = fb_insert["payload"]
-    # Column = backend IELTS-round of mean(6,6,7,6)=6.25 → 6.5 (NOT model's 6.0)
-    assert payload["overall_band_score"] == 6.5
+    assert payload["overall_band_score"] == final_band
     # feedback_json carries the backend value + preserves the model's emission
-    assert payload["feedback_json"]["overallBandScore"] == 6.5
-    assert payload["feedback_json"]["overallBandScoreModel"] == 6.0
+    persisted = payload["feedback_json"]
+    assert persisted["overallBandScore"] == final_band
+    assert persisted["overallBandScoreModel"] == model_band
+    assert persisted["bandTrajectoryAnalysis"]["current_band"] == final_band
+    assert f"band {final_band:.1f}" in persisted["overallBandScoreSummary"]
+    assert f"band {final_band:.1f}" in persisted["bandTrajectoryAnalysis"]["trend_explanation"]
+    assert f"band {model_band:.1f}" not in persisted["bandTrajectoryAnalysis"]["next_target"]
+    # The normal read path returns the same canonical values after reload.
+    fake.responses[("writing_feedback", "select")] = [payload]
+    with patch.object(essay_service, "supabase_admin", fake):
+        reloaded = essay_service.get_essay_with_feedback(_ESSAY_ID)
+    assert reloaded["feedback"]["overall_band_score"] == final_band
+    assert reloaded["feedback"]["feedback_json"]["bandTrajectoryAnalysis"]["current_band"] == final_band
 
 
 @pytest.mark.asyncio

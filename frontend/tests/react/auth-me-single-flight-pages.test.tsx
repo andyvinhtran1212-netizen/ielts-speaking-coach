@@ -2,6 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { D1ExercisePlayer } from '@/app/(authed-d1-exercise)/d1-exercise/d1-exercise-player';
 import { VocabularyHubBehavior } from '@/app/(authed-vocabulary-hub)/vocabulary/hub/vocabulary-hub-behavior';
+import { sharedAuthMe } from '@/lib/auth/auth-me-single-flight.mjs';
 
 // PC-J147 — one /auth/me per page load. Since PC-J06 the chrome's role lookup
 // overlaps the page's opening reads, and staging serves requests one at a time,
@@ -63,13 +64,35 @@ function mountChrome(attrs: Record<string, string> = {}) {
   return () => (chrome.shadowRoot as ShadowRoot).querySelectorAll('#instructor-link').length;
 }
 
-it('D1: the page and the chrome share one /auth/me; the page state and the staff link both resolve', async () => {
+async function expectSharedRequestId() {
+  const [, init] = authMeCalls()[0];
+  const requestId = new Headers(init.headers).get('X-Request-ID');
+  expect(requestId).toBeTruthy();
+  const record = await sharedAuthMe('token-a', () => { throw new Error('must reuse the shared request'); });
+  expect(record.requestId).toBe(requestId);
+  expect((window as any).__averAuthMeSingleFlight.entry.requestId).toBe(requestId);
+}
+
+it('D1: chrome sends first; both callers share one /auth/me and its request ID, with the staff link', async () => {
   Object.defineProperty(window, 'api', { configurable: true, value: { base: 'https://api.test', get: vi.fn() } });
   const staffLinks = mountChrome();
+  await vi.waitFor(() => expect(authMeCalls()).toHaveLength(1), { interval: 1 });
   render(<D1ExercisePlayer />);
   expect(await screen.findByText('Tính năng chưa được bật')).toBeTruthy();
   await vi.waitFor(() => expect(staffLinks()).toBe(1));
   expect(authMeCalls()).toHaveLength(1);
+  await expectSharedRequestId();
+});
+
+it('D1: the page sends first; chrome reuses its request and X-Request-ID', async () => {
+  Object.defineProperty(window, 'api', { configurable: true, value: { base: 'https://api.test', get: vi.fn() } });
+  render(<D1ExercisePlayer />);
+  await vi.waitFor(() => expect(authMeCalls()).toHaveLength(1), { interval: 1 });
+  const staffLinks = mountChrome();
+  expect(await screen.findByText('Tính năng chưa được bật')).toBeTruthy();
+  await vi.waitFor(() => expect(staffLinks()).toBe(1));
+  expect(authMeCalls()).toHaveLength(1);
+  await expectSharedRequestId();
 });
 
 it('D1: a learner still gets no staff link, with one /auth/me', async () => {
@@ -81,6 +104,7 @@ it('D1: a learner still gets no staff link, with one /auth/me', async () => {
   await new Promise((r) => setTimeout(r, 60));
   expect(staffLinks()).toBe(0);
   expect(authMeCalls()).toHaveLength(1);
+  await expectSharedRequestId();
 });
 
 function hubApi({ summary = async () => ({}) }: { summary?: () => Promise<unknown> } = {}) {

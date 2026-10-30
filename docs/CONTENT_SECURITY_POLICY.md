@@ -143,7 +143,8 @@ Content-Security-Policy-Report-Only: script-src 'self' 'nonce-<per request>' 'st
   sets the `content-security-policy-report-only` and `x-nonce` request headers,
   and deletes any client-sent `content-security-policy` request header. Next
   reads the nonce from that request header and stamps its own bootstrap, chunk
-  and RSC scripts. `AuthedShell` reads `x-nonce` for its two inline scripts
+  and RSC scripts — on `next start`, but **not on Vercel** (see the known gap
+  below). `AuthedShell` reads `x-nonce` for its two inline scripts
   (anti-flash theme and body class). `next/script` (`afterInteractive`) and the
   runtime script chain are inserted by trusted code, which `'strict-dynamic'`
   allows.
@@ -174,6 +175,48 @@ Content-Security-Policy-Report-Only: script-src 'self' 'nonce-<per request>' 'st
   and listening routes and on the Grammar Wiki, an injected `<img onerror>` is
   reported (and still runs), a fresh nonce per request, and client-sent nonce
   headers are ignored.
+
+### Known gap on Vercel (SA-1029-CSP1, PC-J145)
+
+On a Vercel deployment only `AuthedShell`'s two inline scripts carry the
+nonce. Next's own scripts do not: the `/_next/static/…` chunks, the bootstrap
+`<script id="_R_">` and the inline `self.__next_f.push` flight scripts
+(staging `c0370655c`, `/home`: 2 of 17 `<script>` tags). With
+`'strict-dynamic'` the browser ignores `'self'` and `'unsafe-inline'`, so this
+Report-Only policy reports Next's scripts and everything they load. It cannot
+be enforced as it is.
+
+- **Cause.** Under `cacheComponents` every page is partially prerendered, and
+  no segment can opt out. These routes have an empty static shell
+  (`.next/server/app/home.html` is 0 bytes; the prerender manifest says
+  `compute: "blocking"`). Vercel serves that cached shell and renders the
+  document in a resume request (`next-resume: 1`). That resume request
+  carries the deployment's **response** headers as **request** headers. This
+  includes the enforced `content-security-policy`, whether it comes from
+  `next.config.ts` or from `proxy.ts`, and it replaces a proxy-set request
+  value. Next reads the nonce from `content-security-policy` before
+  `…-report-only` (`app-render.js` `parseRequestHeaders`). The enforced policy
+  has no nonce, so Next uses none. `x-nonce` still arrives, which is why
+  `AuthedShell`'s scripts match. `next start` does not do this, so the browser
+  verifier passes locally.
+- **`x-vercel-cache: HIT` is not a shared nonce.** HIT refers to the cached
+  empty shell. The document and its nonce are rendered per request; two
+  consecutive requests get two different nonces in the header and in the
+  `AuthedShell` scripts. `Cache-Control` set by the proxy reaches the browser
+  but does not change HIT.
+- **What works.** A preview check (throwaway build, not staging) put the
+  request nonce in the **enforced** header. Vercel then passes it to Next, and
+  every `<script>` (17/17) carried it, with a fresh nonce per request even on
+  HIT. Step 2 (enforcing a nonce policy) is therefore feasible on Vercel. A
+  Report-Only trial next to a nonce-less enforced header is not: on Vercel it
+  produces reports for Next's own scripts.
+- **Check a deployment.** `node frontend/tooling/check-csp-nonce-deployed.mjs
+  <origin>`, with `VERCEL_AUTOMATION_BYPASS_SECRET` set for Deployment
+  Protection. With a bypass secret, only HTTPS `staging.averlearning.com` or
+  `*.vercel.app` is allowed, without userinfo or a non-443 port; other origins are refused before any request.
+  It makes two GETs per signed-in route and checks that the
+  nonces differ and that every `<script>` carries the header nonce. Today it
+  fails on staging and passes on `next start`.
 
 Turning it on for production, and step 2 (enforcing the nonce policy), are
 owner decisions based on the staging TTFB and report data. Before enforcing it

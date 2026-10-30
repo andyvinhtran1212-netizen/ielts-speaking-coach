@@ -35,3 +35,35 @@ enforced by migration 336, which the Leader assigned from the 333–337 range.
 
 This approves the intent only. It does not authorize applying 336 to any
 database. 336 follows 332 through the staging-first runbook (`rollout.md` S1b).
+
+## Amendment 1 — APPROVED 14:44 29/10
+
+**State: APPROVED by the human owner.** On 2026-10-29 14:44 (UTC+7) Vinh
+answered the Feature Developer's five questions (H-1029-FD3,
+`handoff/leader/20261029-1442-fd-questions-vinh.md`), verbatim:
+
+> "Duyệt cả 5 theo đề xuất"
+
+The Leader verified the answer directly in the Leader chat. Item (a), "Q5 –
+duyệt lại step-up (Gap B, AAL2)", approves Amendment 1 as drafted in
+`/workspace/specs-drafts/0032-amendment-q5-step-up.md` (H-1029-FD4, source
+finding SEC-20261028-03 F-03 Gap B):
+
+1. **Q5 revised to "step-up 15 minutes".** FR-012 is amended (AAL2 counts for
+   admin rights only while the `amr` TOTP timestamp is at most
+   `ADMIN_AAL2_MAX_AGE_HOURS`, default 12, old) and FR-020 is new
+   (`require_recent_mfa()`, `ADMIN_STEP_UP_MINUTES`, default 15), with
+   acceptance AC11 and AC12 (AC10 and AC11 in the draft; renumbered because
+   AC10 is FR-019's).
+2. **`ADMIN_STEP_UP_ENFORCE` default `false`**, confirmed by the Leader on
+   2026-10-29 14:53 (UTC+7). This is the "report-only first" Vinh approved.
+3. **Residual risk accepted by the Leader on 2026-10-29 14:53 (UTC+7):**
+   factor deletion goes from the browser straight to Supabase Auth, so the
+   server cannot apply step-up to it. It is controlled by the fresh verify in
+   the `/admin/mfa` UI, the T007 factor-deleted owner alert (≤ 5 minutes) and
+   the 12-hour expiry. See `spec.md` → "Rủi ro còn lại".
+
+This approves the intent only. No migration is involved. It does not authorize
+enabling `ADMIN_STEP_UP_ENFORCE` anywhere: on staging that is the Leader's call
+in lot 11 or later, and production needs Vinh's separate approval at a
+promotion he authorises, as for T013.

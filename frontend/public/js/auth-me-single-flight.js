@@ -34,12 +34,16 @@ function registryOf(scope) {
   return scope[REGISTRY_KEY];
 }
 
-/** Read a /auth/me Response once into a record every caller can share. */
-async function recordOf(response) {
+function newRequestId() {
+  return globalThis.crypto?.randomUUID?.() || `auth-me-request-${Date.now()}`;
+}
+
+/** Read a /auth/me Response once; each caller receives its own payload copy. */
+async function recordOf(response, requestId) {
   const text = await response.text();
   let payload = null;
   try { payload = text ? JSON.parse(text) : null; } catch { /* null payload */ }
-  return Object.freeze({ ok: response.ok, status: response.status, payload });
+  return Object.freeze({ ok: response.ok, status: response.status, payload, requestId });
 }
 
 function abortError() {
@@ -50,8 +54,13 @@ function abortError() {
 
 /** This caller stops waiting on abort; the shared request keeps running for the others. */
 function forCaller(promise, signal) {
+  if (signal?.aborted) return Promise.reject(abortError());
+  promise = promise.then(({ ok, status, payload, requestId }) => {
+    const clone = typeof globalThis.structuredClone === 'function'
+      ? globalThis.structuredClone : (value) => JSON.parse(JSON.stringify(value));
+    return Object.freeze({ ok, status, payload: clone(payload), requestId });
+  });
   if (!signal) return promise;
-  if (signal.aborted) return Promise.reject(abortError());
   return new Promise((resolve, reject) => {
     const onAbort = () => reject(abortError());
     signal.addEventListener('abort', onAbort, { once: true });
@@ -64,10 +73,10 @@ function forCaller(promise, signal) {
 
 /**
  * @param {string} token  Supabase access token the request is sent with.
- * @param {(signal: AbortSignal) => Promise<Response>} send  Sends GET /auth/me
- *        with `token`; only the first caller's `send` runs.
+ * @param {(signal: AbortSignal, requestId: string) => Promise<Response>} send  Sends GET /auth/me
+ *        with `token` and X-Request-ID `requestId`; only the first caller's `send` runs.
  * @param {{ signal?: AbortSignal, timeoutMs?: number, now?: () => number, scope?: object }} [options]
- * @returns {Promise<Readonly<{ ok: boolean, status: number, payload: any }>>}
+ * @returns {Promise<Readonly<{ ok: boolean, status: number, payload: any, requestId: string }>>}
  */
 export function sharedAuthMe(token, send, options = {}) {
   const {
@@ -76,7 +85,11 @@ export function sharedAuthMe(token, send, options = {}) {
     now = () => Date.now(),
     scope = globalThis,
   } = options;
-  if (!token) return forCaller(Promise.resolve().then(() => send(new AbortController().signal)).then(recordOf), signal);
+  if (!token) {
+    const requestId = newRequestId();
+    return forCaller(Promise.resolve().then(() => send(new AbortController().signal, requestId))
+      .then((response) => recordOf(response, requestId)), signal);
+  }
   const registry = registryOf(scope);
   const current = registry.entry;
   if (current && current.token === token
@@ -85,13 +98,14 @@ export function sharedAuthMe(token, send, options = {}) {
   }
   const controller = new AbortController();
   let timer;
-  const entry = { token, settledAt: null, promise: null };
+  const entry = { token, requestId: newRequestId(), settledAt: null, promise: null };
   const drop = () => { if (registry.entry === entry) registry.entry = null; };
   const deadline = new Promise((_, reject) => {
     timer = setTimeout(() => { reject(new Error(AUTH_ME_TIMEOUT_MESSAGE)); controller.abort(); }, timeoutMs);
   });
   entry.promise = Promise.race([
-    Promise.resolve().then(() => send(controller.signal)).then(recordOf),
+    Promise.resolve().then(() => send(controller.signal, entry.requestId))
+      .then((response) => recordOf(response, entry.requestId)),
     deadline,
   ]).then(
     (record) => {

@@ -37,7 +37,21 @@ REVIEWED_TEXT_MAPS = {
     code: entry['bindings'][entry['active_source_sha256']]['metadata']['meta'].get('text_match_by_qid', {})
     for code, entry in REVIEWED_BINDINGS.items()
 }
-FOLLOWUP_CODE = 'G-grammar-for-reading-long-sentence-untangling'
+# GRAMMARAUDIT-0019 FR-007: the only codes with a second cutover, from the
+# middle reviewed source to the final one (Revision 2 added Task 1 and
+# few/little). Must match the private grammar_quiz_followup_pair lookup of
+# migration 339; every other code keeps exactly one cutover.
+FOLLOWUP_CODES = {
+    'G-grammar-for-reading-long-sentence-untangling': (
+        'f272f1d183cb766746c269510f0d226bf88036606dbdb2c3dfa246b716c6fcf0',
+        '436d207e7bee05abb1579a5ba24b82caf759eb35421ead3e494a9d0e7d3d2fce'),
+    'G-grammar-for-writing-grammar-in-task1': (
+        'b494b874fc49d79bbf9a86a5ae1b78ec5ba59ea18a94193cb4dcf60d0e91ac5a',
+        'd95ee61534f3bf2c2343ab0ab76f4f2724f565cba1b37c13444460aa4f872b38'),
+    'G-foundations-few-a-few-little-a-little': (
+        'f758a20763833a2a0f283c27563bdcab08487443fb73dc6b57844972a51447d9',
+        '1b865d8c11f69d26cb60df4536c5a6af309b0fe44f3c948ea085b4725934d650'),
+}
 
 
 def reviewed_binding(code: str, raw_sha256: str) -> dict | None:
