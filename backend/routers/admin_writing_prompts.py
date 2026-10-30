@@ -20,6 +20,7 @@ silent empty result on RLS denial.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Optional
 from uuid import UUID
@@ -145,6 +146,17 @@ async def list_prompts(
     `is_active=false` to inspect deactivated rows for restore."""
     await require_admin(authorization)
 
+    return await asyncio.to_thread(
+        _list_prompts_sync, task_type, difficulty, is_active, limit,
+    )
+
+
+def _list_prompts_sync(
+    task_type: Optional[str],
+    difficulty: Optional[str],
+    is_active: Optional[bool],
+    limit: int,
+):
     q = (
         supabase_admin.table("writing_prompts")
         .select("*")
@@ -200,6 +212,10 @@ async def create_prompt(
     schedules answer-key extraction (docs/WRITING_TASK1_ANALYSIS_SPEC.md)."""
     admin = await require_admin(authorization)
 
+    return await asyncio.to_thread(_create_prompt_sync, body, background_tasks, admin)
+
+
+def _create_prompt_sync(body: PromptCreate, background_tasks: BackgroundTasks, admin: dict):
     payload = body.model_dump()
     payload["prompt_image_url"] = canonical_image_ref(payload.get("prompt_image_url"))
     image_url = payload.get("prompt_image_url")
@@ -269,7 +285,9 @@ async def upload_image(
     file_bytes = await file.read()
 
     try:
-        result = upload_prompt_image(file_bytes, filename_hint=file.filename)
+        result = await asyncio.to_thread(
+            upload_prompt_image, file_bytes, filename_hint=file.filename,
+        )
     except ValueError as exc:
         raise HTTPException(400, str(exc))
     except Exception as exc:
@@ -293,6 +311,11 @@ async def discard_unattached_image(
     deliberately not a general-purpose storage delete surface.
     """
     await require_admin(authorization)
+
+    return await asyncio.to_thread(_discard_unattached_image_sync, body)
+
+
+def _discard_unattached_image_sync(body: DiscardImageRequest):
     if not body.public_id.startswith("prompts/"):
         raise HTTPException(400, "Invalid prompt image path")
     referenced = (
@@ -316,6 +339,10 @@ async def get_prompt(
     """Fetch one prompt by id.  404 if missing or soft-deleted."""
     await require_admin(authorization)
 
+    return await asyncio.to_thread(_get_prompt_sync, prompt_id)
+
+
+def _get_prompt_sync(prompt_id: UUID):
     r = (
         supabase_admin.table("writing_prompts")
         .select("*")
@@ -342,6 +369,17 @@ async def update_prompt(
     answer-key extraction (and the prior analysis is re-reviewed)."""
     admin = await require_admin(authorization)
 
+    return await asyncio.to_thread(
+        _update_prompt_sync, prompt_id, body, background_tasks, admin,
+    )
+
+
+def _update_prompt_sync(
+    prompt_id: UUID,
+    body: PromptUpdate,
+    background_tasks: BackgroundTasks,
+    admin: dict,
+):
     # `exclude_unset=True` distinguishes an omitted field from an explicit
     # JSON null. Difficulty and image columns are nullable by contract; all
     # other fields reject null rather than silently pretending no change was
@@ -476,6 +514,16 @@ async def reanalyze_prompt_image(
     Un-reviews the current analysis until the new run is approved."""
     admin = await require_admin(authorization)
 
+    return await asyncio.to_thread(
+        _reanalyze_prompt_image_sync, prompt_id, background_tasks, admin,
+    )
+
+
+def _reanalyze_prompt_image_sync(
+    prompt_id: UUID,
+    background_tasks: BackgroundTasks,
+    admin: dict,
+):
     row = (
         supabase_admin.table("writing_prompts")
         .select("id, task_type, prompt_image_url, prompt_image_public_id")
@@ -512,6 +560,10 @@ async def review_prompt_analysis(
     grades. Sets status='ready' since approved content is, by definition, ready."""
     await require_admin(authorization)
 
+    return await asyncio.to_thread(_review_prompt_analysis_sync, prompt_id, body)
+
+
+def _review_prompt_analysis_sync(prompt_id: UUID, body: PromptAnalysisReview):
     existing = (
         supabase_admin.table("writing_prompts")
         .select(
@@ -570,6 +622,10 @@ async def soft_delete_prompt(
     the admin can attach a new image."""
     await require_admin(authorization)
 
+    return await asyncio.to_thread(_soft_delete_prompt_sync, prompt_id)
+
+
+def _soft_delete_prompt_sync(prompt_id: UUID):
     # Read the existing public_id for optimistic concurrency. The object itself
     # is intentionally retained for historical essay snapshots.
     existing = (

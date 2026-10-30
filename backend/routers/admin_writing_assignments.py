@@ -24,6 +24,8 @@ a `duplicates_warning` array so the admin UI can surface a
 
 from __future__ import annotations
 
+import asyncio
+
 from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
@@ -281,6 +283,18 @@ async def list_assignments(
     rows without provenance retain the historical membership-based fallback."""
     await require_admin(authorization)
 
+    return await asyncio.to_thread(
+        _list_assignments_sync, student_id, prompt_id, cohort_id, status_filter, limit,
+    )
+
+
+def _list_assignments_sync(
+    student_id: Optional[UUID],
+    prompt_id: Optional[UUID],
+    cohort_id: Optional[UUID],
+    status_filter: Optional[str],
+    limit: int,
+):
     # Stamped rows retain their immutable class origin after roster changes.
     # Current membership is consulted only for legacy/direct NULL-origin rows.
     cohort_student_ids: Optional[list[str]] = None
@@ -344,6 +358,10 @@ async def create_assignments(
     """
     admin = await require_admin(authorization)
 
+    return await asyncio.to_thread(_create_assignments_sync, body, admin)
+
+
+def _create_assignments_sync(body: AssignmentCreate, admin: dict):
     student_id_strs = [str(s) for s in body.student_ids]
     prompt_id_strs = [str(p) for p in body.prompt_ids]
 
@@ -464,6 +482,10 @@ async def fan_out_to_cohort(
     these prompts (allow + warn — re-giving in a new Buổi is intended)."""
     admin = await require_admin(authorization)
 
+    return await asyncio.to_thread(_fan_out_to_cohort_sync, body, admin)
+
+
+def _fan_out_to_cohort_sync(body: FanOutCreate, admin: dict):
     request_payload = body.model_dump(mode="json", exclude={"request_id", "prompt_id"})
     replay = _read_assignment_request_receipt(
         body.request_id,
@@ -540,6 +562,11 @@ async def preview_duplicates(
     ask for confirmation BEFORE the give instead of only warning after it.
     Writes nothing; the give itself stays allow + warn."""
     await require_admin(authorization)
+
+    return await asyncio.to_thread(_preview_duplicates_sync, body)
+
+
+def _preview_duplicates_sync(body: DuplicatesPreview):
     prompt_strs = [str(p) for p in body.prompt_ids]
     if body.cohort_id is not None:
         return preview_fan_out_overlap(
@@ -563,6 +590,11 @@ async def verify_assignment_request(
     unless the complete set matches.
     """
     admin = await require_admin(authorization)
+
+    return await asyncio.to_thread(_verify_assignment_request_sync, request_id, admin)
+
+
+def _verify_assignment_request_sync(request_id: UUID, admin: dict):
     try:
         result = supabase_admin.rpc("fn_verify_writing_assignment_request", {
             "p_request_id": str(request_id),
@@ -586,6 +618,10 @@ async def get_assignment(
     404 when missing."""
     await require_admin(authorization)
 
+    return await asyncio.to_thread(_get_assignment_sync, assignment_id)
+
+
+def _get_assignment_sync(assignment_id: UUID):
     r = (
         supabase_admin.table("writing_assignments")
         .select(
@@ -622,6 +658,10 @@ async def update_assignment(
     untouched."""
     await require_admin(authorization)
 
+    return await asyncio.to_thread(_update_assignment_sync, assignment_id, body)
+
+
+def _update_assignment_sync(assignment_id: UUID, body: AssignmentUpdate):
     fields = body.model_dump(exclude_unset=True)
     patch: dict = {}
 
@@ -685,6 +725,10 @@ async def delete_assignment(
     cascade the draft away (mig 037) and drop audit context → 409."""
     await require_admin(authorization)
 
+    return await asyncio.to_thread(_delete_assignment_sync, assignment_id)
+
+
+def _delete_assignment_sync(assignment_id: UUID):
     delete_unstarted_assignment(
         str(assignment_id),
         assignments=lambda: supabase_admin.table("writing_assignments"),

@@ -19,6 +19,7 @@ dependency (same approach as admin_writing_cohorts.py).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Optional
 from uuid import UUID
@@ -132,6 +133,10 @@ async def list_regrade_requests(
     + cohort filters. `cohort_id` resolves to its students first (19.2 pattern)."""
     await require_admin(authorization)
 
+    return await asyncio.to_thread(_list_regrade_requests_sync, status, cohort_id)
+
+
+def _list_regrade_requests_sync(status: Optional[str], cohort_id: Optional[UUID]):
     # Migration 205 ranks/caps each lane in one SQL statement. Four separate
     # HTTP reads can observe four different snapshots around a concurrent PATCH
     # and silently omit or duplicate a request across lanes.
@@ -158,6 +163,11 @@ async def list_regrade_requests(
 @router.get("/{request_id}")
 async def get_regrade_request(request_id: UUID, authorization: str | None = Header(None)):
     await require_admin(authorization)
+
+    return await asyncio.to_thread(_get_regrade_request_sync, request_id)
+
+
+def _get_regrade_request_sync(request_id: UUID):
     r = (
         supabase_admin.table("essay_regrade_requests")
         .select("*").eq("id", str(request_id)).limit(1).execute()
@@ -178,6 +188,15 @@ async def action_regrade_request(
     (terminal, requires a response shown to the student)."""
     admin = await require_admin(authorization)
 
+    decorated, accepted, request = await asyncio.to_thread(
+        _action_regrade_request_sync, request_id, body, admin,
+    )
+    if accepted:
+        await observe_writing_batch([str(request.get("essay_id"))])
+    return decorated
+
+
+def _action_regrade_request_sync(request_id: UUID, body: RegradeAction, admin: dict):
     if body.action == "reject":
         if not (body.response or "").strip():
             raise HTTPException(400, "Vui lòng nhập lý do từ chối.")
@@ -224,6 +243,4 @@ async def action_regrade_request(
     if accepted:
         note_writing_mutation(str(request.get("essay_id")))
     decorated = _decorate([request])[0]
-    if accepted:
-        await observe_writing_batch([str(request.get("essay_id"))])
-    return decorated
+    return decorated, accepted, request
