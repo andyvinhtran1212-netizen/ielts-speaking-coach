@@ -22,15 +22,57 @@ Phạm vi certify lần này: **backend staging**. Frontend staging chưa certif
 | Dữ liệu | 0 rows toàn bộ | Kiểm tra `pg_stat_user_tables` |
 | DB password | Rotate 2026-07-13, cập nhật `.env.staging` + Railway | |
 
-Script clone giữ ACL của object và default privileges của role migration trong
-schema dump, không cấp lại `GRANT ALL` cho các role ứng dụng sau restore. Chỉ
+Script clone chỉ phủ schema **`public`**; ACL/policy của `auth` và `storage`
+trên staging không được đồng bộ. Script giữ ACL của object và default privileges
+của role migration trong schema dump, không cấp lại `GRANT ALL` trên object cho
+các role ứng dụng sau restore. Chỉ
 default ACL của role quản lý `supabase_admin` được loại khỏi dump vì `postgres`
 không có quyền restore chúng (xem migration 320); ứng dụng không tạo object bằng
-role này. Các giới hạn quyền của migration 204/320 (và 356 khi đã áp dụng ở
-nguồn) được giữ nguyên. Dump vẫn chỉ chứa cấu trúc, không có dữ liệu; phải đối
-chiếu migration head của nguồn trước khi baseline, vì clone không tự bổ sung
-migration chỉ có trên staging. Đây là hợp đồng của script hiện tại,
+role này. Phần `supabase_admin` của migration 320 trên production có thể vẫn
+chưa được Supabase support áp dụng; default ACL đó đã bị lọc nên không ảnh hưởng
+staging. ACL sau clone phụ thuộc migration head của production **tại lúc dump**:
+các giới hạn của migration 204/320 (và 356 khi đã áp dụng ở nguồn) được giữ nguyên.
+Dump vẫn chỉ chứa cấu trúc, không có dữ liệu; phải đối chiếu migration head của
+nguồn trước khi baseline, vì clone không tự bổ sung migration chỉ có trên staging.
+Đây là hợp đồng của script hiện tại,
 không phải bằng chứng đã chạy lại clone hay certify database.
+
+### Runbook trước lần clone được Leader cho phép
+
+1. Cần `psql >= 17.6` (dump mới có `\restrict`), `pg_dump` tương thích server và
+   Python 3. Xác nhận source/target và migration head, không ghi DSN/secret vào
+   log. Script từ chối source URL trùng target URL và giữ các guard project ref.
+2. Dump chỉ `public`, schema-only, giữ ACL, `--no-owner`; file tạm có quyền 0600
+   (`umask 077`), trap xoá cả dump và `.tmp`. Lọc `CREATE SCHEMA public` và default
+   ACL `supabase_admin` trước mọi bước phá huỷ.
+3. Preflight chỉ đọc catalog staging (`BEGIN READ ONLY`): đối chiếu mọi owner,
+   grantee/revokee, role policy/default ACL trong SQL với `pg_roles`; thiếu role
+   thì in tên và dừng trước DROP. Từ chối `SET SESSION AUTHORIZATION`, `SET ROLE`,
+   default ACL không phải `FOR ROLE postgres`, và **bất kỳ** entry
+   `pg_default_acl.defaclnamespace=0` trên target. Global defaults tồn tại qua
+   DROP SCHEMA và có thể âm thầm thêm quyền. Không tự tạo role hay sửa ACL để
+   vượt preflight; cần xem xét nguyên nhân trước lần chạy lại.
+4. Reset + restore + postcondition dựa trên migration 320 bước 8 chạy trong
+   **một** phiên `psql -X -1 -v ON_ERROR_STOP=1`, rồi mới COMMIT. Postcondition
+   kiểm quyền client trên bảng/cột/sequence/default ACL, policy users, hàm
+   SECURITY DEFINER không thuộc extension và quyền TRUNCATE/MAINTAIN của
+   service_role trên class_action_log. Lỗi SQL hoặc quyền còn hở thì rollback
+   cả DROP; không để schema restore dở. Giữ target yên trong lúc chạy: preflight
+   catalog không khoá các thao tác quản trị role/default ACL đồng thời.
+5. Baseline ledger và curated_vocab vẫn chạy **sau COMMIT**, ngoài transaction
+   này; lỗi ở đó cần đối chiếu ledger/schema trước khi tiếp tục, không coi là
+   clone hoàn tất. Không tự restore thử trên cluster phụ trong script: extension,
+   role và quyền Supabase không được tái tạo chính xác bằng PG thường; preflight
+   và transaction bảo vệ trực tiếp target. Test hồi quy dùng hai cluster PG local
+   bỏ đi, chỉ dữ liệu giả, SCRAM trên 127.0.0.1.
+
+Giữ chính sách bootstrap có từ trước: `GRANT ALL ON SCHEMA public TO postgres,
+service_role` cho service_role quyền CREATE trên schema; ACL schema sau restore
+có thể là hợp của grant này và dump, dù ACL object được giữ theo nguồn.
+`--no-owner` làm object (kể cả hàm SECURITY DEFINER) thuộc role restore, thường
+là postgres. Hàm tạo ngoài repo/dashboard có owner khác cần được audit trước
+lần clone thật vì đổi owner có thể đổi quyền thực thi; script không chứng nhận
+owner parity hoặc ACL/policy ngoài `public`.
 
 ## Cách ly production — PROVEN
 

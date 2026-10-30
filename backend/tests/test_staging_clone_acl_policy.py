@@ -1,4 +1,4 @@
-"""Offline ACL regressions: inspect source only, never run the clone script."""
+"""Offline operational-script ACL guard; local-PG behavior lives in its own suite."""
 
 from pathlib import Path
 import re
@@ -16,19 +16,47 @@ GRANT_ALL = re.compile(
     r"(?:TABLES|SEQUENCES|FUNCTIONS)\b[^;]*?\bTO\s+([^;]+);",
     re.IGNORECASE,
 )
+OBJECT_GRANT = re.compile(r"\bGRANT\s+([^;]+?)\s+ON\s+([^;]+?)\s+TO\s+([^;]+);", re.I)
+
+
+def _grantees(text: str) -> set[str]:
+    text = re.sub(r"\s+(?:WITH\s+(?:GRANT|ADMIN)\s+OPTION|GRANTED\s+BY)\b.*$", "", text, flags=re.I)
+    return {role.strip().strip('"').lower() for role in text.split(",")}
 
 
 def _assert_no_blanket_app_grants(source: str) -> None:
     # Scan SQL files and SQL embedded in shell heredocs, ignoring comments.
     source = re.sub(r"/\*.*?\*/|--[^\n]*|(?m:^\s*#[^\n]*)", " ", source, flags=re.DOTALL)
     for match in GRANT_ALL.finditer(source):
-        roles = re.sub(r"\s+WITH\s+GRANT\s+OPTION\s*$", "", match[1], flags=re.IGNORECASE)
-        grantees = {role.strip().strip('"').lower() for role in roles.split(",")}
+        grantees = _grantees(match[1])
         assert not grantees & APP_ROLES, f"blanket application-role grant: {match[0]}"
+    for match in OBJECT_GRANT.finditer(source):
+        privileges = set(re.findall(r"\b[A-Z_]+\b", match[1].upper()))
+        target = match[2].lower()
+        grantees = _grantees(match[3])
+        clients = grantees & {"public", "anon", "authenticated"}
+        writes = privileges & {"ALL", "INSERT", "UPDATE", "DELETE", "TRUNCATE",
+                               "REFERENCES", "TRIGGER", "MAINTAIN"}
+        if not target.startswith("schema "):
+            assert not (clients and writes), f"unsafe application-role grant: {match[0]}"
+        if "all functions" in target and clients and "EXECUTE" in privileges:
+            raise AssertionError(f"blanket application-role grant: {match[0]}")
+        if "class_action_log" in target and "service_role" in grantees:
+            assert not privileges & {"ALL", "UPDATE", "DELETE", "TRUNCATE", "MAINTAIN"}, (
+                f"unsafe append-only log grant: {match[0]}"
+            )
+    for match in re.finditer(r"\bGRANT\s+([^;]+?)\s+TO\s+([^;]+);", source, re.I):
+        if re.search(r"\bON\b", match[1], re.I):
+            continue
+        grantees = _grantees(match[2])
+        assert not grantees & APP_ROLES, f"application-role membership grant: {match[0]}"
 
 
 def _assert_scripts_safe(directory: Path) -> None:
     # Option (i) preserves the dump's ACLs, so no re-apply exception is needed.
+    # TODO(#2041 / PC-J336): reconcile with the migration guard when it lands.
+    # It is absent from origin/staging at 672cd02b1; migrations have deliberate
+    # historical grants and cannot use this operational-script policy verbatim.
     for path in sorted(directory.rglob("*")):
         if path.suffix in {".sh", ".sql"}:
             try:
@@ -50,8 +78,16 @@ def test_clone_dumps_schema_and_acls_and_restores_the_same_dump():
         "pg_dump", "$PROD_URL", "--schema-only", "--schema=public", "--no-owner",
         "-f", "$DUMP",
     ]
-    assert 'psql "$STAGING_URL" -v ON_ERROR_STOP=1 -q -f "$DUMP"' in source
-    assert source.index('-q -f "$DUMP"') < source.index('"== baselining migration ledger')
+    restore = source[source.index('psql "$STAGING_URL" -X -1'):source.index('echo "== baselining')]
+    assert '-v ON_ERROR_STOP=1 -q' in restore
+    assert '-f "$ROOT/backend/scripts/sql/staging_clone_reset.sql" -f "$DUMP"' in restore
+    assert '-f "$ROOT/backend/scripts/sql/staging_clone_postconditions.sql"' in restore
+    preflight = source.index('python3 "$ROOT/backend/scripts/staging_clone_preflight.py" "$DUMP"')
+    assert preflight < source.index(restore)
+    assert 'BEGIN READ ONLY;' in source
+    assert 'FROM pg_default_acl WHERE defaclnamespace = 0' in source
+    before_preflight = re.sub(r"(?m)^\s*#.*$", "", source[:preflight])
+    assert re.search(r"\bDROP\s+SCHEMA\b", before_preflight, re.I) is None
 
 
 def test_dump_filter_preserves_object_acls_and_migration_owner_defaults():
@@ -60,7 +96,7 @@ def test_dump_filter_preserves_object_acls_and_migration_owner_defaults():
     assert match
     command = shlex.split(match[0].replace("\\\n", " "))
     assert command[-3:] == ["$DUMP", ">", "$DUMP.tmp"]
-    assert source.index(match[0]) < source.index('echo "== resetting staging public schema"')
+    assert source.index(match[0]) < source.index('echo "== preflighting dump roles')
     kept = (
         "CREATE TABLE public.class_action_log (id uuid);\n"
         "REVOKE ALL ON TABLE public.class_action_log FROM service_role;\n"
@@ -127,3 +163,18 @@ def test_guard_allows_narrow_grants_and_comments():
         GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon, authenticated;
         GRANT SELECT, INSERT ON TABLE public.class_action_log TO service_role;
     ''')
+
+
+@pytest.mark.parametrize("grant", [
+    "GRANT INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA public TO anon, authenticated;",
+    "GRANT ALL ON TABLE public.class_action_log TO service_role;",
+    "GRANT TRUNCATE, MAINTAIN ON public.class_action_log TO service_role;",
+    "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT INSERT, UPDATE, DELETE ON TABLES TO anon;",
+    "GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon;",
+    "GRANT anon TO authenticated;",
+    "GRANT anon TO authenticated WITH ADMIN OPTION;",
+    "GRANT UPDATE ON ALL TABLES IN SCHEMA public TO anon WITH GRANT OPTION;",
+])
+def test_guard_rejects_sa_reported_acl_and_membership_gaps(grant):
+    with pytest.raises(AssertionError, match="grant"):
+        _assert_no_blanket_app_grants(grant)

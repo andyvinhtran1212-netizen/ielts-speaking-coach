@@ -9,20 +9,30 @@
 #
 # Usage (from repo root):  backend/scripts/staging_clone_schema_from_prod.sh
 set -euo pipefail
+umask 077
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PROD_REF="huwsmtubwulikhlmcirx"
 STAGING_REF="zjphffoujxkpltixsbzj"
 
+# pg_dump 17.6+ emits \restrict, which older psql clients cannot read.
+PSQL_VERSION="$(psql --version)"
+if [[ ! "$PSQL_VERSION" =~ ([0-9]+)\.([0-9]+) ]] ||
+   (( BASH_REMATCH[1] < 17 || (BASH_REMATCH[1] == 17 && BASH_REMATCH[2] < 6) )); then
+  echo "REFUSED: psql >= 17.6 is required" >&2
+  exit 1
+fi
+
 PROD_URL="$(grep '^DATABASE_URL=' "$ROOT/backend/.env" | cut -d= -f2-)"
 STAGING_URL="$(grep '^DATABASE_URL=' "$ROOT/backend/.env.staging" | cut -d= -f2-)"
 
 [[ -n "$PROD_URL" ]] || { echo "DATABASE_URL not found in backend/.env" >&2; exit 1; }
+[[ "$STAGING_URL" != "$PROD_URL" ]] || { echo "REFUSED: source and target URLs are identical" >&2; exit 1; }
 [[ "$STAGING_URL" == *"$STAGING_REF"* ]] || { echo "REFUSED: staging URL is not the staging project ($STAGING_REF)" >&2; exit 1; }
 [[ "$STAGING_URL" != *"$PROD_REF"* ]] || { echo "REFUSED: staging URL points at production" >&2; exit 1; }
 
-DUMP="$(mktemp -t prod_schema_XXXXXX).sql"
-trap 'rm -f "$DUMP"' EXIT
+DUMP="$(mktemp -t prod_schema_XXXXXX.sql)"
+trap 'rm -f "$DUMP" "$DUMP.tmp"' EXIT
 
 echo "== dumping production schema (schema-only, read-only)"
 # Keep object ACLs and the migration owner's defaults, including 204/320 (and 356
@@ -50,17 +60,24 @@ grep -v -e '^CREATE SCHEMA public;$' \
   "$DUMP" > "$DUMP.tmp"
 mv "$DUMP.tmp" "$DUMP"
 
-echo "== resetting staging public schema"
-psql "$STAGING_URL" -v ON_ERROR_STOP=1 <<'SQL'
-DROP SCHEMA IF EXISTS public CASCADE;
-CREATE SCHEMA public;
-COMMENT ON SCHEMA public IS 'standard public schema';
-GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role;
-GRANT ALL ON SCHEMA public TO postgres, service_role;
-SQL
+echo "== preflighting dump roles and target default ACLs (read-only)"
+# Global defaults survive DROP SCHEMA and can silently add privileges to the
+# restored objects. Fail closed on ANY global entry, for every owner/grantee.
+psql "$STAGING_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+BEGIN READ ONLY;
+SELECT json_build_object(
+  'roles', ARRAY(SELECT rolname FROM pg_roles),
+  'global_default_acl', EXISTS (
+    SELECT 1 FROM pg_default_acl WHERE defaclnamespace = 0));
+COMMIT;
+" | python3 "$ROOT/backend/scripts/staging_clone_preflight.py" "$DUMP"
 
-echo "== applying schema to staging"
-psql "$STAGING_URL" -v ON_ERROR_STOP=1 -q -f "$DUMP"
+echo "== resetting staging public schema and restoring atomically"
+# Any restore OR postcondition error rolls back the DROP and all restored DDL
+# and ACLs. -X prevents operator psqlrc settings from changing this contract.
+psql "$STAGING_URL" -X -1 -v ON_ERROR_STOP=1 -q \
+  -f "$ROOT/backend/scripts/sql/staging_clone_reset.sql" -f "$DUMP" \
+  -f "$ROOT/backend/scripts/sql/staging_clone_postconditions.sql"
 
 echo "== baselining migration ledger (clone contains production-active migrations)"
 "$ROOT/backend/scripts/apply_migrations.sh" --baseline "$STAGING_URL"
