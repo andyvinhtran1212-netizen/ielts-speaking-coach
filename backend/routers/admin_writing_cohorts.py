@@ -17,6 +17,7 @@ writing_assignments(student_id), writing_prompts(id), writing_essays(id).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 from uuid import UUID
@@ -132,6 +133,10 @@ async def list_cohorts(authorization: str | None = Header(None)):
     """Active cohorts with a writing-activity summary, busiest first."""
     admin = await require_admin(authorization)
 
+    return await asyncio.to_thread(_list_cohorts_sync, admin)
+
+
+def _list_cohorts_sync(admin: dict):
     cohorts = (
         supabase_admin.table("cohorts")
         .select("id, name, description")
@@ -204,6 +209,10 @@ async def cohort_detail(cohort_id: UUID, authorization: str | None = Header(None
     pair simply has no key (the UI renders '—')."""
     await require_admin(authorization)
 
+    return await asyncio.to_thread(_cohort_detail_sync, cohort_id)
+
+
+def _cohort_detail_sync(cohort_id: UUID):
     cohort_rows = (
         supabase_admin.table("cohorts")
         .select("id, name, description")
@@ -319,6 +328,10 @@ async def cohort_student_essays(
     Verifies the student belongs to the cohort before returning."""
     await require_admin(authorization)
 
+    return await asyncio.to_thread(_cohort_student_essays_sync, cohort_id, student_id)
+
+
+def _cohort_student_essays_sync(cohort_id: UUID, student_id: UUID):
     if not student_is_active_in_cohort(
         supabase_admin, str(student_id), str(cohort_id)
     ):
