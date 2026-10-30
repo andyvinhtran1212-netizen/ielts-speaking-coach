@@ -39,7 +39,7 @@ import requests
 
 from config import settings
 from database import supabase_admin
-from services import ai_budget, ai_usage_logger
+from services import ai_usage_logger
 from services.d1_question_generator import _call_with_retry
 
 logger = logging.getLogger(__name__)
@@ -100,13 +100,8 @@ def render_via_elevenlabs(
         "model_id": model,
         "voice_settings": dict(_DEFAULT_VOICE_SETTINGS),
     }
-    with ai_budget.guard_sync(
-        "elevenlabs", model, "listening_tts",
-        ai_budget.estimate_or_none("elevenlabs", model, text_chars=script_text),
-        request_key=ai_budget.attempt_key("listening_tts"), operation="render",
-    ):
-        resp = requests.post(url, headers=headers, json=payload, timeout=timeout_seconds)
-        resp.raise_for_status()
+    resp = requests.post(url, headers=headers, json=payload, timeout=timeout_seconds)
+    resp.raise_for_status()
     ai_usage_logger.log_tts(
         user_id=None,
         session_id=None,
@@ -162,13 +157,8 @@ def render_via_elevenlabs_with_timestamps(
         "model_id": model,
         "voice_settings": dict(_DEFAULT_VOICE_SETTINGS),
     }
-    with ai_budget.guard_sync(
-        "elevenlabs", model, "listening_tts",
-        ai_budget.estimate_or_none("elevenlabs", model, text_chars=script_text),
-        request_key=ai_budget.attempt_key("listening_tts"), operation="render",
-    ):
-        resp = requests.post(url, headers=headers, json=payload, timeout=timeout_seconds)
-        resp.raise_for_status()
+    resp = requests.post(url, headers=headers, json=payload, timeout=timeout_seconds)
+    resp.raise_for_status()
     ai_usage_logger.log_tts(
         user_id=None,
         session_id=None,

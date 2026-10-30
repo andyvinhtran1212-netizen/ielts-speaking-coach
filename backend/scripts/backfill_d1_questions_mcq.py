@@ -102,27 +102,15 @@ def _generate_distractors_for_row(row: dict) -> list[str] | None:
         f'Correct answer: "{target}"'
     )
 
-    from services import ai_budget
     try:
-        client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, max_retries=0)
-        # AIBUDGET-0033 FR-001: one reserved request per row.
-        with ai_budget.guard_sync(
-            "anthropic", _HAIKU_MODEL, "d1_question_generation",
-            ai_budget.estimate_or_none("anthropic", _HAIKU_MODEL,
-                                       input_text=[_DISTRACTOR_SYSTEM_PROMPT, user_prompt], max_tokens=256),
-            request_key=ai_budget.attempt_key("d1_question_generation"),
-            operation="backfill_distractors",
-        ) as lease:
-            msg = client.messages.create(
-                model=_HAIKU_MODEL,
-                max_tokens=256,
-                system=[{"type": "text", "text": _DISTRACTOR_SYSTEM_PROMPT}],
-                messages=[{"role": "user", "content": user_prompt}],
-            )
-            lease.settle(ai_budget.anthropic_actual_usd(_HAIKU_MODEL, getattr(msg, "usage", None)))
+        client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+        msg = client.messages.create(
+            model=_HAIKU_MODEL,
+            max_tokens=256,
+            system=[{"type": "text", "text": _DISTRACTOR_SYSTEM_PROMPT}],
+            messages=[{"role": "user", "content": user_prompt}],
+        )
         raw = msg.content[0].text if msg.content else ""
-    except ai_budget.AIBudgetRefused:
-        raise   # FR-008: stop the backfill instead of skipping row after row
     except Exception as e:
         logger.warning("[backfill-mcq] AI call failed for row id=%s: %s",
                        row.get("id"), e)

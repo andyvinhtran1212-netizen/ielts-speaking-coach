@@ -105,37 +105,29 @@ def main(argv=None) -> int:
     from config import settings
     if not settings.GEMINI_API_KEY:
         print("GEMINI_API_KEY chưa đặt."); return 1
-    from services import ai_budget
     genai.configure(api_key=settings.GEMINI_API_KEY)
     model = genai.GenerativeModel(settings.GEMINI_PRO_MODEL)
-
-    def generate(prompt: str, operation: str) -> str:
-        # AIBUDGET-0033 FR-001: reserved, one attempt, no hidden retry.
-        return ai_budget.generate_content_sync(
-            model, settings.GEMINI_PRO_MODEL, prompt,
-            feature="quiz_why_wrong_generation", operation=operation,
-        ).text or ""
 
     drafts = []
     for q in targets:
         qid = q.get("id")
         wrongs = wrong_option_indices(q)
         options = q.get("options") or []
-        draft_raw = generate(_DRAFT_PROMPT.format(
+        draft_raw = model.generate_content(_DRAFT_PROMPT.format(
             prompt=q.get("prompt", ""), options=_fmt_options(q),
             answer=q.get("answer"), answer_text=options[q["answer"]] if isinstance(q.get("answer"), int) else "",
             explain=q.get("explain", ""), wrongs=wrongs,
-        ), "draft")
+        )).text or ""
         ww = _extract_json(draft_raw)
         if not isinstance(ww, dict):
             drafts.append({"id": qid, "error": "draft parse failed", "raw": draft_raw[:300]})
             continue
         ww = {str(k): v for k, v in ww.items()}
 
-        verdict_raw = generate(_VERIFY_PROMPT.format(
+        verdict_raw = model.generate_content(_VERIFY_PROMPT.format(
             prompt=q.get("prompt", ""), options=options, answer=q.get("answer"),
             draft=json.dumps(ww, ensure_ascii=False),
-        ), "verify")
+        )).text or ""
         verdict = _extract_json(verdict_raw) or {"ok": None, "problems": ["verify parse failed"]}
 
         gate = validate_why_wrong({**q, "why_wrong": ww}, str(qid), required=True)
