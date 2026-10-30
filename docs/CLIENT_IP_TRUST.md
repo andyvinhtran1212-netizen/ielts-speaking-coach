@@ -19,9 +19,22 @@ Railway or Cloudflare range is trusted automatically. In particular, a
 Cloudflare source may be a WARP client rather than a trusted forwarding proxy.
 An overly broad allowlist lets caller-controlled hops choose the key.
 
-No deployment ranges have been approved by this change. Before setting this
-variable, record the exact CIDRs, authoritative range source, verification
-date and deployment path in the release evidence. Confirm the proxy appends
+PC-J227 (SA-J202-1) enforces a prefix floor: every IPv4 entry must be at
+least `/8` and every IPv6 entry at least `/32`. A broader entry (`0.0.0.0/0`,
+`::/0`, `0.0.0.0/1`, `10.0.0.0/7`, `2001:db8::/31`, `fc00::/7`,
+`fe80::/10`, …) fails startup with a "quá rộng" error. One such entry
+rejects the whole list. There is no exception list and no WARNING mode. If
+Railway's internal proxy turns out to sit in ULA space, record the measured
+range (`/32` or narrower, e.g. `fd12:3456::/32`), never `fc00::/7`.
+
+Do not write IPv4-mapped CIDRs such as `::ffff:10.0.0.0/104`. Hops are
+unwrapped to IPv4 before matching, so those entries never match (SA-J202-3).
+Use the IPv4 CIDR instead.
+
+No deployment ranges have been approved by this change. Every value set for
+this variable needs its source and measurement date. Before setting it,
+record the exact CIDRs, authoritative range source, verification date and
+deployment path in the release evidence. Confirm the proxy appends
 the previous peer correctly before allowing the scan to cross it. Synthetic
 CIDRs in tests do not authorize those ranges on a deployment.
 

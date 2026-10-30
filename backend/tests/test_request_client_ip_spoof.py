@@ -186,10 +186,12 @@ def test_all_trusted_hops_fall_back_to_real_ip_then_peer(monkeypatch):
 def test_proxy_allowlist_is_empty_by_default_and_configurable_from_env(monkeypatch):
     monkeypatch.delenv('TRUSTED_PROXY_CIDRS', raising=False)
     assert Settings(_env_file=None).TRUSTED_PROXY_CIDRS == ''
-    monkeypatch.setenv('TRUSTED_PROXY_CIDRS', ' 10.0.0.0/8, fc00::/7 ')
+    # PC-J227: fc00::/7 is now below the IPv6 /32 floor; a measured-style /32
+    # keeps the same IPv6-plus-IPv4 trusted chain under test.
+    monkeypatch.setenv('TRUSTED_PROXY_CIDRS', ' 10.0.0.0/8, fd12:3456::/32 ')
     configured = Settings(_env_file=None)
     monkeypatch.setattr(settings, 'TRUSTED_PROXY_CIDRS', configured.TRUSTED_PROXY_CIDRS)
-    assert client_address(None, '203.0.113.20, fd00::1, 10.0.0.1', 'peer') == '203.0.113.20'
+    assert client_address(None, '203.0.113.20, fd12:3456::1, 10.0.0.1', 'peer') == '203.0.113.20'
 
 
 @pytest.mark.parametrize('cidrs', ['garbage', '10.0.0.1/8', '10.0.0.0/33',
@@ -197,6 +199,36 @@ def test_proxy_allowlist_is_empty_by_default_and_configurable_from_env(monkeypat
 def test_invalid_proxy_cidr_fails_configuration(cidrs):
     with pytest.raises(ValidationError):
         Settings(_env_file=None, TRUSTED_PROXY_CIDRS=cidrs)
+
+
+@pytest.mark.parametrize('cidrs,offender,floor', [
+    ('0.0.0.0/0', '0.0.0.0/0', '/8'),
+    ('::/0', '::/0', '/32'),
+    ('0.0.0.0/1', '0.0.0.0/1', '/8'),
+    ('128.0.0.0/1', '128.0.0.0/1', '/8'),
+    ('10.0.0.0/7', '10.0.0.0/7', '/8'),
+    ('2001:db8::/31', '2001:db8::/31', '/32'),
+    ('fc00::/7', 'fc00::/7', '/32'),
+    ('fe80::/10', 'fe80::/10', '/32'),
+    ('10.0.0.0/8, 0.0.0.0/0', '0.0.0.0/0', '/8'),
+])
+def test_overly_broad_proxy_cidr_fails_startup_from_env(cidrs, offender, floor, monkeypatch):
+    # PC-J227 (SA-J202-1): through the real env + validator path, one broad
+    # entry fails the whole list, so X-Real-IP never becomes caller-chosen.
+    monkeypatch.setenv('TRUSTED_PROXY_CIDRS', cidrs)
+    with pytest.raises(ValidationError) as exc:
+        Settings(_env_file=None)
+    message = str(exc.value)
+    assert 'quá rộng' in message and floor in message and offender in message
+    assert 'docs/CLIENT_IP_TRUST.md' in message
+
+
+@pytest.mark.parametrize('cidrs', ['', '10.0.0.0/8', '100.64.0.0/10', '203.0.113.9/32',
+                                   '2001:db8::/32', '2001:db8:1::/48', '::1/128',
+                                   ' 10.0.0.0/8 , 2001:db8::/32,  203.0.113.9/32 '])
+def test_proxy_cidr_at_or_above_prefix_floor_is_accepted_from_env(cidrs, monkeypatch):
+    monkeypatch.setenv('TRUSTED_PROXY_CIDRS', cidrs)
+    assert Settings(_env_file=None).TRUSTED_PROXY_CIDRS == cidrs.strip()
 
 
 def test_oversize_header_cannot_push_the_edge_hop_out(monkeypatch):

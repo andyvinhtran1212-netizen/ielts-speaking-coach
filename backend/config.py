@@ -4,6 +4,9 @@ import ipaddress
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
+# Shortest TRUSTED_PROXY_CIDRS prefix length accepted per IP version (PC-J227).
+_MIN_TRUSTED_PREFIX = {4: 8, 6: 32}
+
 
 class Settings(BaseSettings):
     # App
@@ -25,10 +28,19 @@ class Settings(BaseSettings):
     @field_validator("TRUSTED_PROXY_CIDRS")
     @classmethod
     def validate_trusted_proxy_cidrs(cls, value: str) -> str:
+        # PC-J227 (SA-J202-1): a too-short prefix trusts caller-controlled
+        # hops, so the key falls back to a spoofable X-Real-IP. Fail startup.
         value = value.strip()
         if value:
             for cidr in value.split(","):
-                ipaddress.ip_network(cidr.strip())
+                cidr = cidr.strip()
+                network = ipaddress.ip_network(cidr)
+                if network.prefixlen < _MIN_TRUSTED_PREFIX[network.version]:
+                    raise ValueError(
+                        f"TRUSTED_PROXY_CIDRS: {cidr[:64]} quá rộng (IPv4 tối thiểu /8, "
+                        "IPv6 tối thiểu /32); chỉ ghi dải proxy nội bộ đã đo, "
+                        "xem docs/CLIENT_IP_TRUST.md"
+                    )
         return value
 
     # Signed backend → Next cache invalidation. The admin vocabulary routes
