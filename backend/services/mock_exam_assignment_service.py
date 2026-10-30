@@ -240,8 +240,9 @@ def assign(exam_id, rows, *, created_by, source_exam_id=None) -> dict:
                     raise
                 # A concurrent assign inserted after our snapshot; refresh it
                 # just like an assignment that existed before this request.
-                supabase_admin.table("mock_exam_assignments").update(payload).eq(
-                    "exam_id", str(exam_id)).eq("user_id", uid).execute()
+                if not supabase_admin.table("mock_exam_assignments").update(payload).eq(
+                        "exam_id", str(exam_id)).eq("user_id", uid).execute().data:
+                    raise  # the conflicting row is gone: nothing was assigned
         assigned.append(uid)
 
         # D2 — carry the edit onto a sitting the student ALREADY opened.

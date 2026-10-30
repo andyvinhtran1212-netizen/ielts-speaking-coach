@@ -7,6 +7,7 @@ paper, score and historical attempts untouched.
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
@@ -90,6 +91,27 @@ def _service_error(exc: Exception) -> HTTPException:
     return HTTPException(500, str(exc))
 
 
+# (skill, attempt_id) -> [lock, holders]. Serialises two tabs capturing the same
+# attempt inside this process so their per-item upserts cannot interleave; an
+# entry is dropped when its last holder leaves, so the map stays bounded.
+# Across processes the UNIQUE capture row is the backstop (replay or 409).
+_capture_locks: dict[tuple[str, str], list] = {}
+
+
+@asynccontextmanager
+async def _capture_lock(skill: str, attempt_id: str):
+    key = (skill, attempt_id.lower())
+    entry = _capture_locks.setdefault(key, [asyncio.Lock(), 0])
+    entry[1] += 1
+    try:
+        async with entry[0]:
+            yield
+    finally:
+        entry[1] -= 1
+        if not entry[1]:
+            del _capture_locks[key]
+
+
 @router.post("/{skill}/attempts/{attempt_id}/post-test-capture")
 async def submit_post_test_capture(
     skill: Literal["reading", "listening"],
@@ -115,7 +137,8 @@ async def submit_post_test_capture(
                 "web_explanation_access": svc.public_access_metadata(access),
             }
 
-        return await asyncio.to_thread(_capture)
+        async with _capture_lock(skill, attempt_id):
+            return await asyncio.to_thread(_capture)
     except svc.CorrectionError as exc:
         raise _service_error(exc) from exc
 

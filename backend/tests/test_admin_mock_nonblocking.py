@@ -371,6 +371,26 @@ def test_assign_unique_insert_conflict_continues_batch(monkeypatch, assignment_r
     ]
 
 
+def test_assign_conflict_update_matching_no_row_is_not_assigned(monkeypatch, assignment_refresh):
+    db = MagicMock()
+    db.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
+    error = APIError({"code": "23505", "message": "duplicate key value violates unique constraint"})
+    db.table.return_value.insert.return_value.execute.side_effect = error
+    update = db.table.return_value.update.return_value
+    update.eq.return_value = update
+    update.execute.return_value = SimpleNamespace(data=[])  # the winner row was deleted meanwhile
+    monkeypatch.setattr(proctor.assign_svc, "supabase_admin", db)
+
+    with pytest.raises(APIError) as caught:
+        proctor.assign_svc.assign("exam-1", [{
+            "user_id": "learner-1", "skills": ["writing"], "open_until": "2026-12-01T12:00:00Z",
+        }], created_by="admin-1")
+
+    assert caught.value is error
+    update.execute.assert_called_once_with()
+    assignment_refresh.assert_not_called()
+
+
 def test_assign_other_insert_errors_propagate(monkeypatch, assignment_refresh):
     db = MagicMock()
     db.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
@@ -386,3 +406,140 @@ def test_assign_other_insert_errors_propagate(monkeypatch, assignment_refresh):
     assert caught.value is error
     db.table.return_value.update.assert_not_called()
     assignment_refresh.assert_not_called()
+
+
+class _CaptureDB:
+    """In-memory mock_item_attempts + mock_post_test_captures with the UNIQUE
+    (reading_attempt_id) constraint, slow enough per write to expose a race."""
+
+    def __init__(self):
+        self.items, self.captures, self.conflicts = {}, [], []
+        self.lock = threading.Lock()
+
+    def table(self, name):
+        db, query = self, MagicMock()
+        state = {"filters": {}, "op": None, "payload": None}
+
+        def chain(op=None):
+            def method(*args, **_kwargs):
+                if op:
+                    state["op"], state["payload"] = op, deepcopy(args[0]) if args else None
+                return query
+            return method
+
+        query.select.side_effect = chain("select")
+        query.upsert.side_effect = chain("upsert")
+        query.insert.side_effect = chain("insert")
+        query.limit.side_effect = chain()
+        query.eq.side_effect = lambda column, value: state["filters"].update({column: value}) or query
+
+        def execute():
+            op, payload = state["op"], state["payload"]
+            if name == "mock_item_attempts" and op == "upsert":
+                time.sleep(0.02)
+                with db.lock:
+                    db.items[payload["question_number"]] = payload
+                return SimpleNamespace(data=[payload])
+            assert name == "mock_post_test_captures", name
+            with db.lock:
+                if op == "select":
+                    return SimpleNamespace(data=[deepcopy(r) for r in db.captures if all(
+                        r.get(k) == v for k, v in state["filters"].items())])
+                if any(r["reading_attempt_id"] == payload["reading_attempt_id"] for r in db.captures):
+                    db.conflicts.append(payload)
+                    raise APIError({"code": "23505", "message": "duplicate key value violates unique constraint"})
+                row = {"id": f"capture-{len(db.captures) + 1}", **payload}
+                db.captures.append(row)
+                return SimpleNamespace(data=[deepcopy(row)])
+
+        query.execute.side_effect = execute
+        return query
+
+
+@pytest.fixture
+def capture_db(monkeypatch):
+    db = _CaptureDB()
+    attempt = {"id": "attempt-1", "user_id": "learner-1",
+               "grading_details": [{"q_num": q} for q in (1, 2, 3)]}
+    monkeypatch.setattr(mock_corrections.svc, "supabase_admin", db)
+    monkeypatch.setattr(mock_corrections.svc, "fetch_owned_submitted_attempt", lambda *_: attempt)
+    monkeypatch.setattr(mock_corrections.svc, "explanation_access", lambda *_: None)
+    monkeypatch.setattr(mock_corrections.svc, "learner_result_payload", lambda *_: None)
+    return db
+
+
+def _capture_body(confidence):
+    return {"items": [{"question_number": q, "confidence": confidence} for q in (1, 2, 3)]}
+
+
+@pytest.mark.parametrize("confidences,statuses", [
+    ((3, 5), [200, 409]),  # second tab sent different ratings → 409, not 500
+    ((4, 4), [200, 200]),  # double-submit of the same ratings → replay
+])
+def test_concurrent_capture_same_attempt_one_wins(app, capture_db, confidences, statuses):
+    async def scenario():
+        transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await asyncio.gather(*[
+                client.post("/api/mock-corrections/reading/attempts/attempt-1/post-test-capture",
+                            json=_capture_body(c))
+                for c in confidences
+            ])
+
+    responses = asyncio.run(scenario())
+    assert sorted(r.status_code for r in responses) == statuses
+    assert len(capture_db.captures) == 1
+    winner = next(r.json() for r in responses if r.status_code == 200 and not r.json()["replayed"])
+    assert winner["capture"] == capture_db.captures[0]
+    # The persisted ratings all come from the request that owns the capture.
+    won = confidences[[r.status_code == 200 and not r.json()["replayed"] for r in responses].index(True)]
+    assert {row["post_test_confidence"] for row in capture_db.items.values()} == {won}
+    if statuses == [200, 200]:
+        assert sorted(r.json()["replayed"] for r in responses) == [False, True]
+    else:
+        loser = next(r for r in responses if r.status_code == 409)
+        assert loser.json() == {"detail": "Post-test capture đã chốt với nội dung khác."}
+    assert mock_corrections._capture_locks == {}
+
+
+@pytest.mark.parametrize("confidence,conflict", [(4, False), (5, True)])
+def test_capture_unique_violation_from_another_replica(capture_db, monkeypatch, confidence, conflict):
+    svc = mock_corrections.svc
+    winner = svc.record_post_test_capture("reading", "attempt-1", "learner-1",
+                                          _capture_body(4)["items"])["capture"]
+    # Another process committed its capture after our pre-check read nothing,
+    # so only the UNIQUE constraint sees the race.
+    real_row, first = svc._capture_row, [True]
+
+    def capture_row(*args):
+        if first.pop() if first else False:
+            return None
+        return real_row(*args)
+
+    monkeypatch.setattr(svc, "_capture_row", capture_row)
+    items = _capture_body(confidence)["items"]
+    if conflict:
+        with pytest.raises(svc.CaptureConflictError):
+            svc.record_post_test_capture("reading", "attempt-1", "learner-1", items)
+    else:
+        result = svc.record_post_test_capture("reading", "attempt-1", "learner-1", items)
+        assert result["replayed"] is True and result["capture"] == winner
+    assert len(capture_db.conflicts) == 1 and capture_db.captures == [winner]
+
+
+def test_capture_other_insert_errors_propagate(capture_db, monkeypatch):
+    svc = mock_corrections.svc
+    error = APIError({"code": "23503", "message": "foreign key violation"})
+    real_table = capture_db.table
+
+    def table(name):
+        query = real_table(name)
+        if name == "mock_post_test_captures":
+            query.insert.side_effect = lambda *_: SimpleNamespace(
+                execute=MagicMock(side_effect=error))
+        return query
+
+    monkeypatch.setattr(capture_db, "table", table)
+    with pytest.raises(APIError) as caught:
+        svc.record_post_test_capture("reading", "attempt-1", "learner-1", _capture_body(3)["items"])
+    assert caught.value is error
