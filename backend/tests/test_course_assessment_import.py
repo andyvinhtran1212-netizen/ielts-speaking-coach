@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from scripts.import_course_assessment_bank import _commit_bank
-from services.course_assessment_import import normalize_assessment_rows
+from services.course_assessment_import import normalize_assessment_rows, parse_lesson_scope
 
 
 def _row(number: int = 1) -> dict:
@@ -151,3 +151,93 @@ def test_new_bank_failure_has_no_client_cleanup_or_half_write():
     assert [(name, op) for name, op, _ in db.calls] == [
         ("quiz_create_course_assessment_bank", "rpc"),
     ]
+
+
+# ── Lesson scope: the end-of-course final covers B01–B20 ─────────────────────
+
+def _scoped_rows(*lessons: str) -> list[dict]:
+    rows = []
+    for number, lesson in enumerate(lessons, start=1):
+        row = _row(number)
+        row["lesson_primary"] = lesson
+        rows.append(row)
+    return rows
+
+
+def test_default_scope_still_refuses_lessons_after_b11():
+    with pytest.raises(ValueError, match="B01–B11"):
+        normalize_assessment_rows(_scoped_rows("B01", "B12"), expected_count=2)
+
+
+def test_declared_scope_accepts_every_lesson_inside_it():
+    out = normalize_assessment_rows(
+        _scoped_rows("B01", "B11", "B12", "B20"), expected_count=4,
+        scope="B01-B20")
+    assert [row["qid"] for row in out] == ["MID-001", "MID-002", "MID-003", "MID-004"]
+
+
+@pytest.mark.parametrize("lesson", ["B00", "B21", "B5", "B012", "b05", "12"])
+def test_declared_scope_refuses_lessons_outside_or_malformed(lesson):
+    with pytest.raises(ValueError, match="B01–B20"):
+        normalize_assessment_rows(
+            _scoped_rows(lesson), expected_count=1, scope="B01-B20")
+
+
+@pytest.mark.parametrize("scope", ["", "B01", "B11-B01", "B00-B20", "B1-B20", "B01-B20x"])
+def test_malformed_scope_is_refused(scope):
+    with pytest.raises(ValueError, match="phạm vi"):
+        parse_lesson_scope(scope)
+
+
+def test_scope_parser_returns_inclusive_bounds():
+    assert parse_lesson_scope("B01-B20") == (1, 20)
+    assert parse_lesson_scope(" B12-B12 ") == (12, 12)
+
+
+def test_final_kind_and_scope_reach_the_bank_metadata(tmp_path):
+    from scripts.import_course_assessment_bank import _bank_payload
+
+    raw = _scoped_rows("B01", "B20")
+    rows = normalize_assessment_rows(raw, expected_count=2, scope="B01-B20")
+    payload = _bank_payload(
+        course={"id": "course-1", "code": "C1"}, code="C1-FINAL-B01-B20-2",
+        title="Cuối khoá", kind="final", scope="B01-B20",
+        expected_count=2, path=tmp_path / "FINAL.json", raw=raw, rows=rows)
+    assert payload["meta"]["assessment_kind"] == "final"
+    assert payload["meta"]["scope"] == "B01-B20"
+    assert payload["lesson_no"] is None
+    assert payload["is_published"] is False
+    assert payload["skill_area"] == "course"
+
+
+def test_cli_dry_run_accepts_a_final_spanning_b01_to_b20(tmp_path, monkeypatch):
+    import json as _json
+    import sys as _sys
+
+    from scripts import import_course_assessment_bank as script
+
+    source = tmp_path / "FINAL.json"
+    source.write_text(_json.dumps(_scoped_rows("B01", "B20")), encoding="utf-8")
+    monkeypatch.setattr(_sys, "argv", [
+        "import_course_assessment_bank", "--file", str(source), "--course", "C1",
+        "--code", "C1-FINAL-B01-B20-2", "--title", "Cuối khoá", "--kind", "final",
+        "--scope", "B01-B20", "--expected-count", "2",
+    ])
+    assert script.main() == 0
+
+
+def test_cli_dry_run_without_scope_refuses_a_b20_question(tmp_path, monkeypatch):
+    import json as _json
+    import sys as _sys
+
+    from scripts import import_course_assessment_bank as script
+
+    source = tmp_path / "FINAL.json"
+    source.write_text(_json.dumps(_scoped_rows("B01", "B20")), encoding="utf-8")
+    monkeypatch.setattr(_sys, "argv", [
+        "import_course_assessment_bank", "--file", str(source), "--course", "C1",
+        "--code", "C1-FINAL", "--title", "Cuối khoá", "--kind", "final",
+        "--expected-count", "2",
+    ])
+    with pytest.raises(SystemExit, match="B01–B11"):
+        script.main()
