@@ -118,6 +118,23 @@ class _FakeStorage:
         return _FakeStorageBucket(self._parent, bucket_name)
 
 
+class _StrictStorageBucket(_FakeStorageBucket):
+    """Mirrors the storage3 path contract without depending on the SDK:
+    a non-string path fails before any request (production saw
+    ``yarl.URL(None)`` → "Constructor parameter should be str"). The
+    permissive fake above would silently sign "None"."""
+
+    def create_signed_url(self, path, ttl: int):
+        if not isinstance(path, str) or not path:
+            raise TypeError("Constructor parameter should be str")
+        return super().create_signed_url(path, ttl)
+
+
+class _StrictStorage(_FakeStorage):
+    def from_(self, bucket_name: str):
+        return _StrictStorageBucket(self._parent, bucket_name)
+
+
 class _FakeAdminClient:
     def __init__(self, canned: dict | None = None,
                  *, upload_should_fail: bool = False):
@@ -170,15 +187,11 @@ def test_admin_content_without_section_audio_does_not_call_storage(
     monkeypatch, caplog, status, path,
 ):
     from unittest.mock import Mock
-    from supabase import create_client
 
     row = {"id": "c1", "status": status, "audio_storage_path": path,
            "test_id": "parent-test", "title": "Section without separate audio"}
     fake = _FakeAdminClient({"listening_content": [row]})
-    # Exercise the pinned SDK: URL(None) raises the production constructor
-    # error before HTTP. The permissive fake would silently sign "None".
-    sdk = create_client("https://example.supabase.co", "test-key")
-    fake.storage = Mock(wraps=sdk.storage)
+    fake.storage = Mock(wraps=_StrictStorage(fake))
     _patch_admin_client(monkeypatch, fake)
     authz = _patch_admin_auth(monkeypatch)
 
@@ -280,6 +293,110 @@ def test_get_listening_content_happy_path(monkeypatch):
     assert "ttl=3600" in out["audio_signed_url"]
     assert "transcript" not in out
     assert "audio_storage_path" not in out
+
+
+@pytest.mark.parametrize("path", [None, ""])
+def test_get_listening_content_published_without_section_audio(
+    monkeypatch, caplog, path,
+):
+    """Bundle sections play the parent test's audio, so a published section
+    with no file of its own is valid: 200 + audio_signed_url=None, the same
+    contract as the admin route, instead of a misleading 503."""
+    from unittest.mock import Mock
+
+    fake = _FakeAdminClient({"listening_content": [{
+        "id": "c1", "status": "published", "audio_storage_path": path,
+        "test_id": "parent-test", "title": "Section 2 tour",
+        "accent_tag": "uk", "cefr_level": "B1", "ielts_section": 2,
+        "topic_tags": ["travel"], "audio_duration_seconds": 0,
+        "transcript": "answer material",
+    }]})
+    fake.storage = Mock(wraps=_StrictStorage(fake))
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_user_auth(monkeypatch)
+
+    out = _run(listening_router.get_listening_content(
+        content_id="c1", authorization=authz,
+    ))
+
+    assert out == {
+        "id": "c1", "title": "Section 2 tour", "accent_tag": "uk",
+        "cefr_level": "B1", "ielts_section": 2, "topic_tags": ["travel"],
+        "audio_duration_seconds": 0, "audio_signed_url": None,
+    }
+    fake.storage.from_.assert_not_called()
+    assert "signed URL failed" not in caplog.text
+
+
+def test_boot_listening_dictation_published_without_section_audio(monkeypatch):
+    """The dictation boot shares the student fetch, so it gets the same
+    200 + null URL; the learner UI already fails closed on a null URL."""
+    from unittest.mock import Mock
+
+    fake = _FakeAdminClient({
+        "listening_content": [{
+            "id": "c1", "status": "published", "audio_storage_path": None,
+            "title": "Section 2 tour",
+        }],
+        "listening_exercises": [],
+    })
+    fake.storage = Mock(wraps=_StrictStorage(fake))
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_user_auth(monkeypatch)
+
+    out = _run(listening_router.boot_listening_dictation(
+        content_id="c1", authorization=authz,
+    ))
+
+    assert out["content"]["audio_signed_url"] is None
+    assert out["content"]["title"] == "Section 2 tour"
+    assert "audio_storage_path" not in out["content"]
+    fake.storage.from_.assert_not_called()
+
+
+@pytest.mark.parametrize("status", ["draft", "archived"])
+@pytest.mark.parametrize("path", [None, "", "ai/c1.mp3"])
+@pytest.mark.parametrize("route", ["content", "boot"])
+def test_student_unpublished_content_stays_hidden(monkeypatch, status, path, route):
+    """The no-audio branch must not open a path around the published gate."""
+    from unittest.mock import Mock
+
+    fake = _FakeAdminClient({"listening_content": [{
+        "id": "c1", "status": status, "audio_storage_path": path,
+        "title": "WIP", "transcript": "x",
+    }]})
+    fake.storage = Mock(wraps=_StrictStorage(fake))
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_user_auth(monkeypatch)
+    call = (listening_router.get_listening_content if route == "content"
+            else listening_router.boot_listening_dictation)
+
+    with pytest.raises(HTTPException) as exc:
+        _run(call(content_id="c1", authorization=authz))
+    assert exc.value.status_code == 404
+    fake.storage.from_.assert_not_called()
+
+
+def test_get_listening_content_503_when_signing_existing_audio_fails(
+    monkeypatch, caplog,
+):
+    from unittest.mock import Mock
+
+    fake = _FakeAdminClient({"listening_content": [{
+        "id": "c1", "status": "published", "audio_storage_path": "ai/c1.mp3",
+    }]})
+    sign = Mock(side_effect=RuntimeError("bucket not found"))
+    monkeypatch.setattr(_FakeStorageBucket, "create_signed_url", sign)
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_user_auth(monkeypatch)
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.get_listening_content(
+            content_id="c1", authorization=authz,
+        ))
+    assert exc.value.status_code == 503
+    sign.assert_called_once_with("ai/c1.mp3", 3600)
+    assert "signed URL failed for content_id=c1" in caplog.text
 
 
 def test_get_listening_content_404_for_draft(monkeypatch):
