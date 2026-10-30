@@ -1,13 +1,15 @@
 """routers/quiz.py — Quick-Check player (student-facing, Pha 2).
 
-Auth: get_supabase_user (Bearer JWT). The bank is served WITH answers so the
-client grades instantly (QĐ-5); the Adaptive Mastery loop runs in the browser
-and posts progress back here.
+Auth: get_supabase_user (Bearer JWT). Self-study banks are served WITH answers
+so the client grades instantly (QĐ-5); the Adaptive Mastery loop runs in the
+browser and posts progress back here. Course banks are served WITHOUT keys: the
+server grades every Course answer in /progress and, in mastery mode, returns
+the verdict for the rows it has just recorded (SA-BANK-ANSWERS, J411R2).
 
   GET   /api/quiz/banks?skill_area=&topic_id=   — list published banks.
   GET   /api/quiz/progress?skill_area=           — own per-bank mastery + sessions.
   GET   /api/quiz/mistakes?skill_area=           — own wrong answers, by word.
-  GET   /api/quiz/banks/{bank_id}               — bank META + questions (+answers).
+  GET   /api/quiz/banks/{bank_id}               — bank META + questions (keys: self-study only).
   GET   /api/quiz/banks/{bank_id}/resume        — carry-over word_stats.
   GET   /api/quiz/banks/{bank_id}/course-timer — canonical post-payload timer.
   POST  /api/quiz/banks/{bank_id}/reset          — wipe mastery cache, restart the bank.

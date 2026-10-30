@@ -190,12 +190,12 @@ def test_actual_start_wire_has_typed_matching_ack_and_frozen_bank_echo(wire,monk
     grammar={'canonical_code':CODE,'bank_id':OLD,'bank_revision':'a'*64,'content_state':'legacy',
         'new_starts_enabled':False,'can_continue_legacy':True,'can_continue_current':False,
         'current_bank_id':NEW,'current_bank_revision':'b'*64,'text_match_policy':'qid-exact-v1'}
-    starter=MagicMock(return_value={'session_id':TOPIC,'resume':[],'grammar':grammar,'legacy_timer':None})
+    starter=MagicMock(return_value={'session_id':TOPIC,'resume':[],'grammar':grammar,'timer':None})
     monkeypatch.setattr(quiz_service,'start_session',starter)
     response=client.post('/api/quiz/sessions',json={'bank_id':OLD,'grammar_revision':'a'*64,
         'text_match_policy':'qid-exact-v1'},headers={'Authorization':'Bearer learner'})
     assert response.status_code==201
-    assert response.json()['grammar']==grammar and response.json()['legacy_timer'] is None
+    assert response.json()['grammar']==grammar and response.json()['timer'] is None
     assert starter.call_args.kwargs['text_match_policy']=='qid-exact-v1'
     schema=app.openapi()['components']['schemas']
     assert schema['StartSessionBody']['properties']['text_match_policy']['anyOf'][0]['const']=='qid-exact-v1'

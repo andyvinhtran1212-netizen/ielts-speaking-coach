@@ -192,8 +192,10 @@ test('uses the server deadline and submits a time-cap verdict', async () => {
   const runner = createRunner({ api, storage: null, now: () => clock });
   await runner.load('b1', { assignmentItemId: 'item-timed' });
   assert.equal(runner.timeRemainingSeconds(), 60);
-  runner.answer(0);
+  // Check the queue synchronously, before the eager flush settles.
+  const answered = runner.answer(0);
   assert.equal(runner.pendingCount, 1);
+  await answered;
 
   clock = 61000;
   assert.equal(runner.isTimedOut(), true);
@@ -231,7 +233,7 @@ test('network latency never extends the authoritative server countdown', async (
   assert.equal(runner.timeRemainingSeconds(), 1);
   clock = 60000;
   assert.equal(runner.isTimedOut(), true);
-  assert.equal(runner.answer(0), null,
+  assert.equal(await runner.answer(0), null,
     'runner must reject mutation at the server-sampled cutoff');
   assert.equal(runner.pendingCount, 0);
 });
@@ -302,7 +304,7 @@ test('persists a final four-answer timed batch before timeout', async () => {
   await runner.load('b1', { assignmentItemId: 'item-timed' });
   for (let i = 0; i < 4; i++) {
     runner.show();
-    runner.answer(0);
+    await runner.answer(0);
     runner.next();
   }
   // Let the eager write start while the canonical window is still open.
@@ -339,7 +341,7 @@ test('waits for a progress write admitted before cutoff even if its ACK is late'
   const runner = createRunner({ api, storage: null, now: () => clock });
   await runner.load('b1', { assignmentItemId: 'item-timed' });
   runner.show();
-  runner.answer(0);
+  await runner.answer(0);
   runner.next();
   await Promise.resolve();
   await Promise.resolve();
@@ -386,7 +388,7 @@ test('a transient timed eager 5xx retries before cutoff and needs no late insert
   });
   await runner.load('b1', { assignmentItemId: 'item-timed' });
   runner.show();
-  runner.answer(0);
+  await runner.answer(0);
   runner.next();
   await Promise.resolve();
   await Promise.resolve();
@@ -440,7 +442,7 @@ test('a superseded timed session stops retrying and refetches the canonical page
   });
   await runner.load('b1', { assignmentItemId: 'item-timed' });
   runner.show();
-  runner.answer(0);
+  await runner.answer(0);
   runner.next();
   for (let tick = 0; tick < 5; tick++) await Promise.resolve();
 
@@ -466,7 +468,7 @@ test('a failed atomic timeout close keeps the final answers for visible retry', 
   });
   await runner.load('b1', { assignmentItemId: 'item-timed' });
   runner.show();
-  runner.answer(0);
+  await runner.answer(0);
   runner.next();
   await Promise.resolve();
   await Promise.resolve();
@@ -493,7 +495,7 @@ test('a rejected post-cutoff batch stops retrying and waits for canonical timeou
   });
   await runner.load('b1', { assignmentItemId: 'item-timed' });
   runner.show();
-  runner.answer(0);
+  await runner.answer(0);
   runner.next();
   for (let tick = 0; tick < 5; tick++) await Promise.resolve();
   assert.equal(runner.pendingCount, 1);
@@ -537,7 +539,7 @@ test('timed eager retry backoff is bounded during a persistent outage', async ()
   });
   await runner.load('b1', { assignmentItemId: 'item-timed' });
   runner.show();
-  runner.answer(0);
+  await runner.answer(0);
   runner.next();
   for (let tick = 0; tick < 5; tick++) await Promise.resolve();
 
@@ -582,7 +584,7 @@ test('timed eager retry recovers after six consecutive failures before cutoff', 
   });
   await runner.load('b1', { assignmentItemId: 'item-timed' });
   runner.show();
-  runner.answer(0);
+  await runner.answer(0);
   runner.next();
   for (let tick = 0; tick < 5; tick++) await Promise.resolve();
 
@@ -619,7 +621,7 @@ test('a completed session stays closed when the page timer later expires', async
   });
   const runner = createRunner({ api, storage: null, now: () => clock });
   await runner.load('b1', { assignmentItemId: 'item-timed' });
-  runner.answer(0);
+  await runner.answer(0);
   const completed = await runner.finishStage();
   assert.equal(completed.persisted, true);
   assert.equal(runner.hasOpenSession, false);
@@ -646,7 +648,7 @@ test('adopts the empty atomic timer session instead of opening a second one', as
   const runner = createRunner({ api, storage: null, now: () => 1000 });
   await runner.load('b1', { assignmentItemId: 'item-timed' });
   assert.equal(api.calls.post.filter((call) => call.path === '/api/quiz/sessions').length, 0);
-  runner.answer(0);
+  await runner.answer(0);
   runner.next();
   await runner.finishStage();
   assert.ok(api.calls.patch.some((call) => call.path.endsWith('/atomic-first')));
@@ -672,7 +674,7 @@ test('adopts the response atomic session even when local state is stale', async 
   assert.equal(api.calls.post.filter((call) => call.path === '/api/quiz/sessions').length, 0,
     'the current response already supplied the canonical first session');
   runner.show();
-  runner.answer(0);
+  await runner.answer(0);
   runner.next();
   await runner.finishStage();
   assert.ok(api.calls.patch.some((call) => call.path.endsWith('/atomic-current')));
@@ -762,7 +764,7 @@ test('stale local state retries a failed post-payload timer sample', async () =>
   assert.equal(timerCalls, 2);
   assert.equal(api.calls.get.filter((path) => path.includes('/course-resume')).length, 0);
   assert.equal(runner.timeRemainingSeconds(), 58);
-  assert.ok(runner.answer(0), 'controls stay active before the canonical cutoff');
+  assert.ok(await runner.answer(0), 'controls stay active before the canonical cutoff');
   clock = 65000;
   assert.equal(runner.isTimedOut(), true);
 });
@@ -846,7 +848,7 @@ async function playStage(r, { wrongAt = [] } = {}) {
   for (let i = 0; i < list.length; i++) {
     r.show();
     if (list[i].type === 'writing') r.selfCheck();
-    else r.answer(wrongAt.includes(i) ? 1 : list[i].answer);
+    else await r.answer(wrongAt.includes(i) ? 1 : list[i].answer);
     r.next();
   }
   return r.finishStage();
@@ -889,7 +891,7 @@ describe('bài một lượt giữ kín đáp án đến khi nộp', () => {
       mastery: { item_id: 'single-1', answers_sealed: true, completion_mode: 'single_attempt' },
     });
     r.show();
-    const result = r.answer(0);
+    const result = await r.answer(0);
     assert.deepEqual(result, { sealed: true, correct: null, trap: null, explain: '' });
     assert.equal(r.marks[0], 'answered');
     r.next();
@@ -921,13 +923,13 @@ describe('cái bẫy', () => {
   test('chọn sai thì trả về bẫy CỦA PHƯƠNG ÁN ĐÃ CHỌN', async () => {
     const { r } = await run();
     r.show();
-    assert.equal(r.answer(2).trap, 'bẫy 2 của 0', 'phải là bẫy của ô số 2, không phải ô khác');
+    assert.equal((await r.answer(2)).trap, 'bẫy 2 của 0', 'phải là bẫy của ô số 2, không phải ô khác');
   });
 
   test('chọn đúng thì không có bẫy nào', async () => {
     const { r } = await run();
     r.show();
-    const res = r.answer(0);
+    const res = await r.answer(0);
     assert.equal(res.correct, true);
     assert.equal(res.trap, null);
   });
@@ -935,14 +937,14 @@ describe('cái bẫy', () => {
   test('câu không có dữ liệu bẫy thì trả null, không nổ', async () => {
     const { r } = await run({ questions: [mcq(0, { why_wrong: null })] });
     r.show();
-    assert.equal(r.answer(1).trap, null);
+    assert.equal((await r.answer(1)).trap, null);
   });
 
   test('bấm lần thứ hai vào cùng một câu không đổi kết quả', async () => {
     const { r } = await run();
     r.show();
-    r.answer(0);
-    assert.equal(r.answer(3), null, 'câu đã trả lời thì khoá lại');
+    await r.answer(0);
+    assert.equal(await r.answer(3), null, 'câu đã trả lời thì khoá lại');
     assert.deepEqual(r.marks[0], 'right');
   });
 });
@@ -1055,11 +1057,11 @@ describe('trung thực về việc đã lưu được hay chưa', () => {
     };
     const { r } = await run({ questions, api });
     for (let i = 0; i < 5; i++) {
-      r.show(); r.answer(questions[i].answer); r.next();
+      r.show(); await r.answer(questions[i].answer); r.next();
     }
     await firstStarted;
     for (let i = 5; i < questions.length; i++) {
-      r.show(); r.answer(questions[i].answer); r.next();
+      r.show(); await r.answer(questions[i].answer); r.next();
     }
     assert.equal(progressNo, 1, 'batch 2 không được vượt batch 1 đang bay');
     const finishing = r.finishStage();
@@ -1090,7 +1092,7 @@ describe('trung thực về việc đã lưu được hay chưa', () => {
     const { r } = await run({ failSession: true });
     assert.equal(r.sessionFailed, true);
     r.show();
-    assert.equal(r.answer(0).correct, true, 'vẫn làm bài được');
+    assert.equal((await r.answer(0)).correct, true, 'vẫn làm bài được');
     const res = await playStage(r);
     assert.equal(res.persisted, false);
   });
@@ -1132,7 +1134,7 @@ describe('trung thực về việc đã lưu được hay chưa', () => {
 describe('rời trang', () => {
   test('dùng fetch keepalive THẬT, không phải một cờ tự đặt', async () => {
     const { r, api } = await run();
-    r.show(); r.answer(0); r.next();
+    r.show(); await r.answer(0); r.next();
     await r.leave();
     assert.equal(api.calls.postWith.length, 1);
     assert.deepEqual(api.calls.postWith[0].opts, { keepalive: true });
@@ -1168,7 +1170,7 @@ describe('rời trang', () => {
 
     const r = createRunner({ api, storage: null, now: () => clock });
     await r.load('b1', { assignmentItemId: 'item-timed' });
-    r.show(); r.answer(0); r.next();
+    r.show(); await r.answer(0); r.next();
     await normalStarted;
 
     await r.leave();
@@ -1200,7 +1202,7 @@ describe('nhớ chỗ đang làm', () => {
   test('bỏ dở giữa chặng thì khôi phục đáp án chưa gửi từ máy', async () => {
     const store = memStore();
     const a = await run({ storage: store });
-    for (let i = 0; i < 4; i++) { a.r.show(); a.r.answer(0); a.r.next(); }
+    for (let i = 0; i < 4; i++) { a.r.show(); await a.r.answer(0); a.r.next(); }
     const b = await run({ storage: store });
     assert.equal(b.r.stage, 0);
     assert.equal(b.r.at, 4);
@@ -1357,7 +1359,7 @@ describe('bài kiểm tra lại', () => {
     await r.startRetake(6, lcg(9));
     const list = r.stageQuestions();
     // chọn phương án hiển thị số 1 ở mọi câu
-    for (let i = 0; i < list.length; i++) { r.show(); r.answer(1); r.next(); }
+    for (let i = 0; i < list.length; i++) { r.show(); await r.answer(1); r.next(); }
     await r.finishStage();
     const sent = api.calls.post
       .filter((c) => c.path.includes('/progress'))
@@ -1376,7 +1378,7 @@ describe('bài kiểm tra lại', () => {
     const savedBefore = store.getItem('cx:b1');
     await r.startRetake(3, lcg(2));
     const list = r.stageQuestions();
-    for (let i = 0; i < list.length; i++) { r.show(); r.answer(list[i].answer); r.next(); }
+    for (let i = 0; i < list.length; i++) { r.show(); await r.answer(list[i].answer); r.next(); }
     const out = await r.finishStage();
     assert.equal(out.hasMore, false, 'kiểm tra lại chỉ có MỘT chặng');
     assert.equal(store.getItem('cx:b1'), savedBefore,
@@ -1478,7 +1480,7 @@ describe('xét đạt (verdict)', () => {
     await playStage(r);                        // sess-1 (run)
     await r.startRetake(3, lcg(4));            // sess-2 (retake)
     const list = r.stageQuestions();
-    for (let i = 0; i < list.length; i++) { r.show(); r.answer(list[i].answer); r.next(); }
+    for (let i = 0; i < list.length; i++) { r.show(); await r.answer(list[i].answer); r.next(); }
     await r.finishStage();
     await r.verdict();
     const v = api.calls.post.filter((c) => c.path === '/api/quiz/course/verdict');
@@ -1641,7 +1643,7 @@ describe('re-import bộ đề CÙNG độ dài (codex #928 R4)', () => {
     const storage = memStore();
     const questions = [mcq(0)];
     const first = await run({ storage, questions, mastery: { item_id: 'old-item' } });
-    first.r.show(); first.r.answer(0); first.r.next();
+    first.r.show(); await first.r.answer(0); first.r.next();
     const api = fakeApi({ questions, mastery: { item_id: 'new-item' }, resume: {
       session_id: 'wrong-old-session', answered: [], completed: [], stage: 0,
     } });
@@ -1704,7 +1706,7 @@ describe('tương thích tiến độ trước khi tách lane Grammar (PR #1291)
     const first = await run({ storage: store, questions: oldShape() });
     const list = first.r.stageQuestions();
     for (let i = 0; i < 5; i++) {
-      first.r.show(); first.r.answer(list[i].answer); first.r.next();
+      first.r.show(); await first.r.answer(list[i].answer); first.r.next();
     }
     await first.r.leave();
 
@@ -1804,7 +1806,7 @@ describe('bỏ dở GIỮA chặng rồi quay lại — báo cáo thật của h
     const list = first.r.stageQuestions();
     for (let i = 0; i < 6; i++) {                 // làm 6/10 rồi đóng tab
       first.r.show();
-      first.r.answer(i === 2 ? 1 : list[i].answer);   // câu 3 sai
+      await first.r.answer(i === 2 ? 1 : list[i].answer);   // câu 3 sai
       first.r.next();
     }
     await first.r.leave();                        // đẩy nốt bằng keepalive
@@ -1823,7 +1825,7 @@ describe('bỏ dở GIỮA chặng rồi quay lại — báo cáo thật của h
     const qsn = Array.from({ length: 20 }, (_, i) => mcq(i));
     const first = await run({ storage: store, questions: qsn });
     const list = first.r.stageQuestions();
-    for (let i = 0; i < 4; i++) { first.r.show(); first.r.answer(list[i].answer); first.r.next(); }
+    for (let i = 0; i < 4; i++) { first.r.show(); await first.r.answer(list[i].answer); first.r.next(); }
     await first.r.leave();
 
     const second = await run({ storage: store, questions: qsn });
@@ -1837,12 +1839,12 @@ describe('bỏ dở GIỮA chặng rồi quay lại — báo cáo thật của h
     const qsn = Array.from({ length: 20 }, (_, i) => mcq(i));
     const first = await run({ storage: store, questions: qsn });
     const l1 = first.r.stageQuestions();
-    for (let i = 0; i < 6; i++) { first.r.show(); first.r.answer(l1[i].answer); first.r.next(); }
+    for (let i = 0; i < 6; i++) { first.r.show(); await first.r.answer(l1[i].answer); first.r.next(); }
     await first.r.leave();
 
     const second = await run({ storage: store, questions: qsn });
     const l2 = second.r.stageQuestions();
-    for (let i = 6; i < 10; i++) { second.r.show(); second.r.answer(l2[i].answer); second.r.next(); }
+    for (let i = 6; i < 10; i++) { second.r.show(); await second.r.answer(l2[i].answer); second.r.next(); }
     const out = await second.r.finishStage();
     assert.equal(out.graded, 10);
     assert.equal(out.right, 10, 'sáu câu trước + bốn câu sau = một chặng trọn vẹn');
@@ -1874,7 +1876,7 @@ describe('reload with durable unacknowledged answers', () => {
     const questions = Array.from({ length: 10 }, (_, i) => mcq(i));
     const api = fakeApi({ questions });
     const first = await run({ storage, questions, api });
-    for (let i = 0; i < 4; i++) { first.r.show(); first.r.answer(0); first.r.next(); }
+    for (let i = 0; i < 4; i++) { first.r.show(); await first.r.answer(0); first.r.next(); }
     const saved = storedAttempts(storage);
     const second = await run({ storage, questions, api });
     assert.equal(second.r.at, 4);
@@ -1882,7 +1884,7 @@ describe('reload with durable unacknowledged answers', () => {
     const sent = api.calls.post.filter((c) => c.path.endsWith('/progress'))[0];
     assert.deepEqual(sent.body.attempts.map((a) => a.client_id), saved.map((a) => a.client_id));
     assert.equal(api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length, 1);
-    for (let i = 4; i < 10; i++) { second.r.show(); second.r.answer(0); second.r.next(); }
+    for (let i = 4; i < 10; i++) { second.r.show(); await second.r.answer(0); second.r.next(); }
     assert.equal((await second.r.finishStage()).persisted, true);
   });
 });
@@ -2156,7 +2158,7 @@ describe('durable answer recovery and acknowledgement', () => {
       ? Promise.reject(new Error('offline')) : post(path, body);
     const first = createRunner({ api, storage, userId: 'learner', now: () => clock, schedule: () => 0 });
     await first.load('b1');
-    first.show(); first.answer(1); // no next(), pagehide() or unload event
+    first.show(); await first.answer(1); // no next(), pagehide() or unload event
     await Promise.resolve(); await Promise.resolve();
     const id = storedAttempts(storage)[0].client_id;
     offline = false; clock = 11000; mastery.time_remaining_seconds = 50;
@@ -2175,7 +2177,7 @@ describe('durable answer recovery and acknowledgement', () => {
     const ledger = newLedger();
     const api = fakeApi({ questions: [mcq(0), mcq(1)], ledger });
     const first = createRunner({ api, storage, userId: 'learner' });
-    await first.load('b1'); first.show(); first.answer(1);
+    await first.load('b1'); first.show(); await first.answer(1);
     const post = api.postWith.bind(api);
     api.postWith = async (...args) => { await post(...args); throw new Error('lost ACK'); };
     await first.leave();
@@ -2192,7 +2194,7 @@ describe('durable answer recovery and acknowledgement', () => {
     const storage = memStore();
     const api = fakeApi({ questions: [mcq(0)] });
     const r = createRunner({ api, storage, userId: 'learner' });
-    await r.load('b1'); r.show(); r.answer(0);
+    await r.load('b1'); r.show(); await r.answer(0);
     api.postWith = async () => ({ ok: true, attempts: 0 });
     await r.leave();
     assert.equal(r.pendingCount, 1);
@@ -2209,7 +2211,7 @@ describe('durable answer recovery and acknowledgement', () => {
     api.post = (path, body) => path.endsWith('/progress')
       ? new Promise((_resolve, no) => { reject = no; }) : post(path, body);
     const first = createRunner({ api, storage, userId: 'learner', schedule: () => 0 });
-    await first.load('b1'); first.show(); first.answer(1);
+    await first.load('b1'); first.show(); await first.answer(1);
     await Promise.resolve();
     assert.equal(first.pendingCount, 0);
     assert.equal(storedAttempts(storage).length, 1);
@@ -2226,7 +2228,7 @@ describe('durable answer recovery and acknowledgement', () => {
     const storage = memStore();
     const questions = [mcq(0), mcq(1)];
     const first = createRunner({ api: fakeApi({ questions, mastery: { item_id: 'a' } }), storage, userId: 'one' });
-    await first.load('b1'); first.show(); first.answer(1);
+    await first.load('b1'); first.show(); await first.answer(1);
     for (const [userId, item, session_id] of [['two', 'a', 'sess-1'], ['one', 'b', 'sess-1'], ['one', 'a', 'new-generation']]) {
       const api = fakeApi({ questions, mastery: { item_id: item }, resume: {
         session_id, item_id: item, answered: [], completed: [], stage: 0,
@@ -2246,11 +2248,11 @@ describe('durable answer recovery and acknowledgement', () => {
     await r.load('b1'); r.show();
     const set = storage.setItem;
     storage.setItem = () => { throw new Error('quota'); };
-    assert.throws(() => r.answer(0), /Chưa lưu được đáp án/);
+    await assert.rejects(() => r.answer(0), /Chưa lưu được đáp án/);
     assert.deepEqual(r.marks, []);
     assert.equal(r.pendingCount, 0);
     storage.setItem = set;
-    assert.equal(r.answer(0).correct, true);
+    assert.equal((await r.answer(0)).correct, true);
   });
 
   test('expired recovery keeps local answers but cannot admit them or reset the timer', async () => {
@@ -2258,14 +2260,14 @@ describe('durable answer recovery and acknowledgement', () => {
     const mastery = { item_id: 'timed', is_timed: true, time_remaining_seconds: 60 };
     const api = fakeApi({ questions: [mcq(0), mcq(1)], mastery, failProgress: true });
     const first = createRunner({ api, storage, userId: 'learner', schedule: () => 0 });
-    await first.load('b1'); first.show(); first.answer(0);
+    await first.load('b1'); first.show(); await first.answer(0);
     await Promise.resolve(); await Promise.resolve();
     mastery.time_remaining_seconds = 0;
     const before = api.calls.post.length;
     const second = createRunner({ api, storage, userId: 'learner', schedule: () => 0 });
     await second.load('b1');
     assert.equal(second.isTimedOut(), true);
-    assert.equal(second.answer(0), null);
+    assert.equal(await second.answer(0), null);
     assert.equal(api.calls.post.length, before);
     const finish = await second.finishStage({ endedBy: 'time_cap' });
     assert.equal(finish.answersOmitted, true);
@@ -2282,7 +2284,7 @@ test('retake crash preserves the original choice through deterministic shuffling
   await first.load('b1');
   await first.startRetake(20);
   const q = first.current();
-  first.show(); first.answer(1);
+  first.show(); await first.answer(1);
   const saved = storedAttempts(storage)[0];
   assert.equal(saved.answer_given, String(q._perm[1]));
   const get = api.get.bind(api);
@@ -2306,7 +2308,7 @@ test('acknowledging one tab cannot erase another tab\'s durable answer', async (
   const a = createRunner({ api, storage, userId: 'learner' });
   const b = createRunner({ api, storage, userId: 'learner' });
   await a.load('b1'); await b.load('b1');
-  a.show(); a.answer(0); b.show(); b.answer(1);
+  a.show(); await a.answer(0); b.show(); await b.answer(1);
   const before = storedAttempts(storage).map((row) => row.client_id);
   assert.equal(before.length, 2);
   await a.sync();
