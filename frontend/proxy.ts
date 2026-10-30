@@ -5,9 +5,10 @@
 //    (loading.tsx) before the article fetch resolves, so `notFound()` in the
 //    page can only produce a soft 404: HTTP 200 + noindex (see
 //    generateMetadata in app/(public-content)/grammar/[category]/[slug]/page.tsx).
-//    A key missing from a fresh backend article list is rewritten to a
-//    prerendered 404 that renders inside the Grammar layout; everything else
-//    (known article, list unavailable) passes through unchanged.
+//    A key missing from a fresh backend article list is rewritten to a path
+//    no route matches, so Next serves the root 404 (app/not-found.tsx) with
+//    its full server HTML; everything else (known article, list unavailable)
+//    passes through unchanged.
 //
 // 2. SEC-CSP-NONCE step 1 (PC-J38): a per-request nonce for the signed-in
 //    route groups (every layout that renders AuthedShell), sent as
@@ -21,7 +22,11 @@ import { API_BASE } from '@/lib/backend';
 import { articleKeys, createArticleIndex } from '@/lib/grammar-article-index.mjs';
 import { buildNonceReportOnlyPolicy } from '@/tooling/content-security-policy.mjs';
 
-const GRAMMAR_ARTICLE_NOT_FOUND_PATH = '/grammar/article-not-found';
+// `_`-prefixed folders are private in the App Router, so no page can claim
+// this path (tooling/verify-grammar-404-ssr-flow.mjs checks the served HTML).
+// (A notFound() page inside the Grammar layout prerendered as a bare
+// `__next_error__` shell: no CSS, no <title> until JS ran — PC-J230.)
+const GRAMMAR_ARTICLE_NOT_FOUND_PATH = '/__aver-not-found';
 
 // Shorter than ABORT_MS: a slow list must not hold every article request.
 const INDEX_TIMEOUT_MS = 2000;
