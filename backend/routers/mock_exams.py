@@ -61,10 +61,14 @@ async def _student_write(user_id, fn, *args):
         try:
             return await asyncio.shield(work)
         except asyncio.CancelledError:
-            # A thread cannot be interrupted: keep the lock until it ends so
-            # the student's next write still sees this one's result.
-            with contextlib.suppress(Exception):
-                await work
+            # A thread cannot be interrupted: keep the lock until it ends, however
+            # often this request is cancelled, so the student's next write still
+            # sees this one's result. asyncio.wait never cancels ``work``.
+            while not work.done():
+                with contextlib.suppress(asyncio.CancelledError):
+                    await asyncio.wait({work})
+            if not work.cancelled():
+                work.exception()  # retrieve it: no "exception never retrieved"
             raise
 
 

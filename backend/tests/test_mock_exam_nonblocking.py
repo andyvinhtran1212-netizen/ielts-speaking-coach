@@ -18,6 +18,7 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import httpx
+import pytest
 from fastapi import FastAPI
 
 from routers import exams as exams_router
@@ -236,6 +237,53 @@ def test_different_students_are_not_serialised():
             [lambda c: c.post(url, headers=_AUTH), lambda c: c.post(url, headers=_AUTH)])
 
     _assert_not_blocking(responses, ping, ping_s, total_s, n=2)
+
+
+def test_student_write_keeps_lock_through_repeated_cancel():
+    """CR P3 on #2088 (PC-J456): a request cancelled a SECOND time while it
+    waits for its uninterruptible thread must still hold the student's lock
+    until the thread returns, and only then re-raise CancelledError."""
+    uid = "u-cancel"
+    release = threading.Event()
+    order = []
+
+    def first():
+        order.append("first-start")
+        release.wait(5)
+        order.append("first-end")
+        return "first"
+
+    def second():
+        order.append("second-start")
+        return "second"
+
+    async def scenario():
+        lock = mock_router._student_write_lock(uid)
+        task = asyncio.create_task(mock_router._student_write(uid, first))
+        follower = None
+        try:
+            while "first-start" not in order:
+                await asyncio.sleep(0.01)
+            task.cancel()
+            await asyncio.sleep(0)
+            task.cancel()
+            await asyncio.sleep(0)
+            await asyncio.sleep(0.05)
+            assert lock.locked(), "lock released while the first write is still running"
+            assert not task.done()
+
+            follower = asyncio.create_task(mock_router._student_write(uid, second))
+            await asyncio.sleep(0.05)
+            assert "second-start" not in order, order
+        finally:
+            release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert await follower == "second"
+        assert order == ["first-start", "first-end", "second-start"]
+        assert not lock.locked()
+
+    asyncio.run(scenario())
 
 
 # ── Same-sitting races through the REAL service (CR G4 serial checklist) ──
