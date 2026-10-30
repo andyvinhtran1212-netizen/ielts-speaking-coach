@@ -56,6 +56,7 @@ import { bindToggleButton } from '/js/theme-toggle.js';
 import { canonicalInitials } from '/js/user-pill.js';
 import { installPerfResourceHints } from '/js/components/perf-hints.js';
 import { clearPersistedAuthSession, rememberSignedOutSession } from '/js/auth-sign-out-state.js';
+import { sharedAuthMe } from '/js/auth-me-single-flight.js';
 
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -738,6 +739,9 @@ export class AverChrome extends HTMLElement {
    * Fail-closed: any non-OK response or network/parse error leaves the link
    * unrendered and never breaks the chrome. Uses a raw fetch (NOT window.api.get,
    * which redirects to /login on 401) so a stale token can't bounce the page.
+   *
+   * PC-J147: the fetch goes through sharedAuthMe, so a page reading /auth/me
+   * with the same token (/d1-exercise) shares this one request.
    */
   async _resolveRole(token) {
     if (this._role !== null) return; // a page already set the role → no double-fetch
@@ -753,11 +757,12 @@ export class AverChrome extends HTMLElement {
     if (!base) return;
     let role = null;
     try {
-      const resp = await fetch(base + '/auth/me', {
-        headers: { Authorization: 'Bearer ' + token },
-      });
+      const resp = await sharedAuthMe(token, (signal, requestId) => fetch(base + '/auth/me', {
+        headers: { Authorization: 'Bearer ' + token, 'X-Request-ID': requestId },
+        signal,
+      }));
       if (resp && resp.ok) {
-        const me = await resp.json();
+        const me = resp.payload;
         role = (me && me.role) || null;
       }
     } catch {

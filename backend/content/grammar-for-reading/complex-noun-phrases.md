@@ -139,8 +139,8 @@ Cả cụm này chỉ là **một chủ ngữ**; danh từ trung tâm là **rese
 
 | Vị trí | Thành phần | Ví dụ |
 |---|---|---|
-| **Trước** head noun (pre-modifier) | mạo từ · tính từ · danh từ dùng như tính từ | *a large **government** research **grant*** |
-| **Sau** head noun (post-modifier) | cụm giới từ · mệnh đề quan hệ (đầy đủ/rút gọn) | *the **policy** introduced last year in Europe* |
+| **Trước** head noun (pre-modifier) | mạo từ · tính từ · danh từ dùng như tính từ | *a large government research **grant*** (head = grant; government, research = danh từ bổ nghĩa) |
+| **Sau** head noun (post-modifier) | cụm giới từ · mệnh đề quan hệ (đầy đủ/rút gọn) | *the **policy** introduced in Europe last year* |
 
 Chuỗi danh-từ-bổ-nghĩa-danh-từ đọc **từ phải sang trái**: *air pollution control measures* = measures → to control → air pollution.
 
@@ -148,7 +148,7 @@ Chuỗi danh-từ-bổ-nghĩa-danh-từ đọc **từ phải sang trái**: *air 
 ## Bẫy khi đọc
 
 ### Bẫy 1: Chọn nhầm danh từ cuối cùng làm chủ ngữ
-Trong *the number of species is falling*, chủ ngữ là **number** (số ít) → *is*, không phải *species*.
+Trong *the number of species is falling*, chủ ngữ là **number** (số ít) → *is*, không phải *species*. Ngược lại: ***A number of** species **are** falling* (a number of = many → động từ số nhiều).
 
 ### Bẫy 2: Bị cụm giới từ dài làm mất dấu động từ chính
 Gạch mọi cụm *of/in/on/for…* để lộ head noun rồi mới tìm động từ.

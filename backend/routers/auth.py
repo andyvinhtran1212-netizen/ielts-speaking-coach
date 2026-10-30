@@ -328,7 +328,10 @@ async def check_active(authorization: str | None = Header(default=None)):
             sync_client=supabase_admin,
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi khi kiểm tra trạng thái: {e}")
+        # ASYNCAUTH-0036 Revision 2: a DB failure is 503, like the activation
+        # gate and the staff guards. main.py still replaces this 5xx detail
+        # with the sanitized {error_code, message, ref} envelope.
+        raise HTTPException(status_code=503, detail=f"Lỗi khi kiểm tra trạng thái: {e}")
 
     if not result.data:
         return {"is_active": False, "suspended": False}

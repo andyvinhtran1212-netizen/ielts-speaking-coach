@@ -25,7 +25,7 @@ name: Tests
 # checks and vice versa.
 
 on:
-  # SAU KHI MERGE, KHÔNG lọc đường dẫn. Bộ lọc dưới đây trả lời câu «PR này có
+  # SAU KHI MERGE, KHÔNG lọc đường dẫn. Bộ lọc (job `changes`) trả lời câu «PR này có
   # đáng chạy test không»; ở đây câu hỏi khác hẳn: «nhánh tích hợp sau khi hợp
   # nhất còn xanh không». Hai PR có thể xanh riêng lẻ rồi hợp lại thành đỏ, và không bộ
   # lọc đường dẫn nào nhìn thấy điều đó. Xem chú thích dài hơn ở `next-native-browser.yml`.
@@ -36,45 +36,74 @@ on:
     # job in typecheck.yml; do not reinstall and rerun both test suites for a
     # metadata-only edit.
     types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - 'backend/**'
-      - 'frontend/**'
-      # Các tệp NGOÀI `frontend/` mà job frontend dưới đây thực sự đọc bằng
-      # `readFileSync`. Thiếu chúng thì một PR CHỈ sửa tài liệu sẽ merge mà không
-      # chạy đúng cái test đang ghim tài liệu đó — ví dụ `brand-favicon.test.mjs`
-      # khẳng định `frontend/public/favicon.svg` PHẢI trùng bản trong `docs/brand/`,
-      # nên sửa một mình bản docs sẽ làm hai bên lệch nhau trong im lặng.
-      # `workflow-path-coverage.test.mjs` giữ danh sách này khỏi mục nát.
-      # Hệ quả chấp nhận được: job backend dùng chung bộ lọc nên cũng chạy theo.
-      - 'README.md'
-      - 'PHASE_CLOSURE_LEDGER.md'
-      - 'docs/SITE_OVERVIEW.md'
-      # Runtime-config and cutover-boundary contracts still cite the canonical plan.
-      - 'docs/FE_NEXTJS_MIGRATION_MASTER_PLAN_2026-07-12.md'
-      # `route-ledger-matches-app.test.mjs` đọc sổ này; thiếu dòng đây thì một PR
-      # chỉ sửa sổ sẽ không chạy chốt đang canh chính nó.
-      - 'docs/ROUTE_LEDGER.md'
-      # `staging-first-release-flow.test.mjs` locks the production promotion
-      # contract to this runbook, so a docs-only policy change must run it.
-      - 'docs/STAGING_FIRST_RELEASE_FLOW.md'
-      - 'docs/brand/assets/**'
-      - 'docs/clusters/20_x/**'
-      # TOÀN BỘ thư mục workflow, không riêng tệp này: `workflow-path-coverage.
-      # test.mjs` chạy trong job frontend dưới đây và đọc MỌI workflow. Nếu chỉ
-      # ghim `backend-tests.yml` thì một PR sửa `paths` của `next-native-browser.yml` sẽ
-      # không chạy đúng cái chốt đang canh `paths` — tức là chốt chống-"chốt-
-      # không-tự-nổ" lại tự dính chính lỗi đó. Nó không tự phát hiện được vì nó
-      # nạp workflow bằng `readdirSync`, không nêu tên tệp nào.
-      # Hook pre-push nằm ở `scripts/hooks/`, nhưng bộ chốt của nó là
-      # `frontend/tests/pre-push-hook.test.mjs` — chạy bởi job frontend dưới
-      # đây. Thiếu dòng này thì một PR CHỈ sửa hook sẽ không chạy chốt của
-      # chính nó (Codex bắt ở PR #943; cùng họ với phát hiện ở #930 và #937:
-      # chốt tồn tại mà không bao giờ nổ).
-      - 'scripts/hooks/**'
-      # Bao cả `backend-tests.yml`, nên không cần dòng ghim riêng tệp này nữa.
-      - '.github/workflows/**'
+    # KHÔNG còn `paths:` ở đây (2026-10-29). Từ khi staging bật branch
+    # protection, 6 check của tệp này là check BẮT BUỘC; workflow bị bộ lọc
+    # đường dẫn bỏ qua thì check không bao giờ báo về, và GitHub CHẶN merge
+    # mọi PR chỉ sửa spec/docs. Bộ lọc giờ nằm trong job `changes` bên dưới:
+    # job nặng chỉ SKIP trên PR mà MỌI tệp đều là spec không-test-đọc (skip =
+    # đạt check bắt buộc), vẫn tiết kiệm quota Actions như chỉ thị Andy Q4.
+    # No `paths:` here: a path-filtered workflow never reports its required
+    # checks, which blocks spec/docs-only PRs. The `changes` job below skips
+    # the heavy jobs only when every changed file is a spec no test reads.
 
 jobs:
+  # Cổng rẻ, dạng ALLOWLIST: job nặng chỉ được SKIP khi MỌI tệp PR đổi đều nằm
+  # trong `specs/**` VÀ không phải tệp spec mà test đọc. Mọi đường dẫn khác
+  # (docs/**, data/**, tệp gốc, …) đều chạy test: skip = đạt check bắt buộc, nên
+  # một bộ lọc kiểu «chỉ chạy khi khớp danh sách» sẽ cho PR chỉ sửa fixture
+  # (docs/grammar-quiz-banks/*.md, data/rubric/*.json, …) xanh mà không chạy gì.
+  # Push và mọi lỗi ở đây đều fail CLOSED: output rỗng/thiếu ⇒ chạy hết.
+  # Cheap gate, allowlist form: heavy jobs skip only when EVERY changed file is
+  # under specs/ and is not a spec file a test reads. Push events and any
+  # failure here fail CLOSED: an empty/missing output runs every heavy job.
+  changes:
+    name: Changed paths (CI gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      run_tests: ${{ github.event_name != 'pull_request' && 'true' || steps.filter.outputs.run_tests }}
+    steps:
+      # On pull_request the action lists the PR files through the API (renames
+      # count both old and new path), so no checkout is needed.
+      - name: Classify changed files
+        id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          # `some` (mặc định, ghi rõ để khỏi đổi ngầm): một tệp khớp bộ lọc khi nó
+          # khớp ÍT NHẤT MỘT mục. Với `some`, mục phủ định `'!specs/**'` là một
+          # matcher khớp MỌI tệp NGOÀI specs/ (picomatch đảo kết quả; xem
+          # createRuleItem trong src/filter.ts của action). `run_tests` = 'true'
+          # khi có ít nhất một tệp như thế ⇒ chỉ PR toàn-spec mới ra 'false'.
+          # `some`: a file matches when it matches ANY item; under `some` the
+          # negated item '!specs/**' matches every file outside specs/.
+          predicate-quantifier: some
+          filters: |
+            run_tests:
+              - '!specs/**'
+              # Tệp trong specs/ mà test ĐỌC: sửa chúng vẫn phải chạy test.
+              # `workflow-path-coverage.test.mjs` dò mã test tìm đường dẫn specs/
+              # và ĐỎ nếu một tệp được đọc mà không nằm trong danh sách này.
+              # Spec files read by tests (kept honest by workflow-path-coverage):
+              # validate_specs.py REQUIRED_FOUNDATION_FILES, read by test_validate_specs.py.
+              - 'specs/README.md'
+              - 'specs/_meta/**'
+              - 'specs/_templates/**'
+              # grammar-exact-form-engine.test.mjs
+              - 'specs/0019-grammar-audit-remediation/source-scope.json'
+              # test_migration_332_staff_security_audit.py
+              - 'specs/0032-admin-aal2-staff-guard/rollout.md'
+
+      - name: Report
+        env:
+          EVENT: ${{ github.event_name }}
+          RUN: ${{ github.event_name != 'pull_request' && 'true' || steps.filter.outputs.run_tests }}
+        run: |
+          echo "event=$EVENT run_tests=${RUN:-<empty, heavy jobs run>}"
+
   # PC-J14 / BL-14: the serial job ran 9–15 min of pytest (10–16.5 min total)
   # against its 25-minute budget. The suite now runs as four file shards in
   # parallel. `backend` below keeps the required context name for branch
@@ -89,6 +118,13 @@ jobs:
     # cancelling the exact-SHA staging push run that the promotion gate
     # requires (#1695, 2026-10-26). Each shard keeps that 25-minute budget.
     timeout-minutes: 25
+    needs: changes
+    # Bắt buộc phải CHẠY, không được skip ở mức job: matrix bị skip sẽ báo một
+    # check tên chưa nở (`… ${{ matrix.shard }}/4`) và 4 check bắt buộc
+    # «shard N/4» treo mãi. Nên job luôn chạy, còn từng step bỏ qua khi PR không
+    # chạm mã. A skipped matrix job never expands its name, so the required
+    # "shard N/4" checks would stay pending; run the job, skip its steps.
+    if: ${{ !cancelled() }}
     strategy:
       # Every shard must report, so one red shard never hides another.
       fail-fast: false
@@ -102,7 +138,8 @@ jobs:
     # Mỗi shard có service riêng, nên các test PG không chia sẻ cụm với nhau.
     services:
       postgres:
-        image: postgres:16
+        # Empty image = service not started (no PG pull on a docs-only PR).
+        image: ${{ (github.event_name == 'push' || needs.changes.outputs.run_tests != 'false') && 'postgres:16' || '' }}
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: aver_ux_ci
@@ -112,6 +149,8 @@ jobs:
           --health-timeout 5s --health-retries 10
 
     env:
+      # 'true' unless every file this PR changes is a skippable spec (job `changes`).
+      RUN_TESTS: ${{ (github.event_name == 'push' || needs.changes.outputs.run_tests != 'false') }}
       # Trỏ chốt vào service ở trên. `REQUIRE_PG=1` biến "không nối được" thành
       # ĐỎ thay vì "bỏ qua": ở CI thì thiếu Postgres là hỏng hạ tầng, không phải
       # một lời miễn trừ.
@@ -127,6 +166,86 @@ jobs:
       # Grammar revision admission, reset, receipt and write races require the
       # same real PostgreSQL service; missing configured access fails closed.
       GRAMMAR_QUIZ_REVISION_TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/aver_ux_ci
+
+    steps:
+      - name: No gated path changed — shard intentionally empty
+        if: env.RUN_TESTS != 'true'
+        run: echo "No backend/frontend gate path changed in this PR; shard steps skipped."
+
+      - name: Checkout
+        if: env.RUN_TESTS == 'true'
+        uses: actions/checkout@v5
+
+      - name: Setup Python
+        if: env.RUN_TESTS == 'true'
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        if: env.RUN_TESTS == 'true'
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install audio validation tools
+        if: env.RUN_TESTS == 'true'
+        run: |
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install --yes --no-install-recommends ffmpeg
+          ffmpeg -version
+          ffprobe -version
+
+      - name: Run pytest shard
+        if: env.RUN_TESTS == 'true'
+        working-directory: backend
+        run: |
+          python scripts/ci_pytest_shards.py run --total 4 --index ${{ matrix.shard }} \
+            --out ci-pytest -- -v --tb=short
+
+      - name: Upload shard node ids
+        if: always() && env.RUN_TESTS == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: backend-pytest-shard-${{ matrix.shard }}
+          path: backend/ci-pytest/shard-${{ matrix.shard }}.json
+          if-no-files-found: error
+          retention-days: 14
+          # "Re-run failed jobs" uploads the same name again.
+          overwrite: true
+
+  # PC-J91 (PC-J76 F-5): Supabase staging/production run PostgreSQL 17, but the
+  # shards above run on 16. PG 17 changes privileges (e.g. `MAINTAIN` inside
+  # `GRANT ALL`); migration 320 aborted on staging for exactly that reason.
+  # Re-run the migration/privilege suites against postgres:17 on its own service.
+  # ADVISORY (Leader decision): not in `backend.needs`, branch protection or
+  # staging-promotion-gate.yml. Job-level `continue-on-error` keeps a red PG 17
+  # result from failing the workflow run, whose conclusion the promotion gate
+  # requires to be `success`; the job itself still shows red on the PR.
+  backend-pg17:
+    name: Backend PG17 migration/privilege tests (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    needs: changes
+    if: ${{ !cancelled() && (github.event_name == 'push' || needs.changes.outputs.run_tests != 'false') }}
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+
+    env:
+      TEST_PG_URL: postgres://postgres:postgres@localhost:5432/postgres
+      REQUIRE_PG: '1'
 
     steps:
       - name: Checkout
@@ -145,32 +264,27 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Install audio validation tools
+      # A wrong image tag would silently turn this into a second PG 16 run.
+      - name: Server is PostgreSQL 17
         run: |
-          sudo apt-get -o Acquire::Retries=3 update
-          sudo apt-get -o Acquire::Retries=3 install --yes --no-install-recommends ffmpeg
-          ffmpeg -version
-          ffprobe -version
+          VERSION=$(psql "$TEST_PG_URL" -Atc 'show server_version_num')
+          echo "server_version_num=$VERSION"
+          [ "$VERSION" -ge 170000 ] && [ "$VERSION" -lt 180000 ]
 
-      - name: Run pytest shard
+      - name: Run migration/privilege tests on PostgreSQL 17
         working-directory: backend
         run: |
-          python scripts/ci_pytest_shards.py run --total 4 --index ${{ matrix.shard }} \
-            --out ci-pytest -- -v --tb=short
-
-      - name: Upload shard node ids
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: backend-pytest-shard-${{ matrix.shard }}
-          path: backend/ci-pytest/shard-${{ matrix.shard }}.json
-          if-no-files-found: error
-          retention-days: 14
-          # "Re-run failed jobs" uploads the same name again.
-          overwrite: true
+          python -m pytest -v --tb=short \
+            tests/test_migration_*.py \
+            tests/test_mock_paper_policy_postgres.py \
+            tests/test_mock_private_draft_postgres.py \
+            tests/test_activate_rate_limit.py
 
   backend-collect:
     name: Backend pytest collection + anchor drift
+    needs: changes
+    # Non-matrix job: a job-level skip still reports this exact required name.
+    if: ${{ !cancelled() && (github.event_name == 'push' || needs.changes.outputs.run_tests != 'false') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -214,10 +328,12 @@ jobs:
 
   backend:
     name: Backend (pytest + anchor drift)
-    needs: [backend-shard, backend-collect]
+    needs: [changes, backend-shard, backend-collect]
     # Always report this required context; a skipped aggregate would read as
     # neither red nor green on the PR and on the promotion gate.
-    if: always()
+    # Exception: a PR touching no gated path (the shards ran empty and the
+    # collection was skipped) skips it; push runs always have RUN = true.
+    if: ${{ always() && (github.event_name == 'push' || needs.changes.outputs.run_tests != 'false') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -261,6 +377,9 @@ jobs:
 
   frontend:
     name: Frontend (node --test)
+    needs: changes
+    # Non-matrix job: a job-level skip still reports this exact required name.
+    if: ${{ !cancelled() && (github.event_name == 'push' || needs.changes.outputs.run_tests != 'false') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
 

@@ -13,7 +13,9 @@ RPC, its request ledger and a stand-in for the 249 origin trigger, then applies
 331 twice. It proves the refusal for every writer, the whole-statement
 rollback, the serialization against a concurrent archive in both orders, and —
 on a schema built WITHOUT 331 (negative control) — that the same race really
-creates the row, so the concurrency tests can detect it.
+creates the row, so the concurrency tests can detect it. Each security
+postcondition is forced to fail on that schema and must abort the whole
+migration.
 
 Set TEST_PG_URL to a LOCAL disposable cluster and REQUIRE_PG=1 to forbid skips.
 """
@@ -393,8 +395,8 @@ def test_completed_request_replays_after_the_archive(db):
     assert _rows(s, prompt) == 1
 
 
-def test_preconditions_abort_without_326_or_without_for_update(db):
-    s = db
+def test_preconditions_abort_without_326():
+    _require_pg()
     other = "give_guard_pre_" + uuid4().hex
     try:
         m326._build(other)            # no 326: no archived_at column
@@ -403,14 +405,65 @@ def test_preconditions_abort_without_326_or_without_for_update(db):
                     f"AND tgrelid = '{other}.writing_assignments'::regclass") == "0"
     finally:
         psql(f"DROP SCHEMA IF EXISTS {other} CASCADE")
-    body = psql(f"SELECT pg_get_functiondef('{s}.fn_restore_student(uuid,uuid,text,boolean,boolean)'::regprocedure)")
-    weakened = body.replace("p_student_id FOR UPDATE", "p_student_id FOR NO KEY UPDATE")
-    assert weakened != body
+
+
+@pytest.mark.parametrize("signature", ["fn_archive_student(uuid,uuid,text,boolean)",
+                                       "fn_restore_student(uuid,uuid,text,boolean,boolean)"])
+@pytest.mark.parametrize("weaker", ["FOR NO KEY UPDATE", "FOR SHARE", ""], ids=["no_key_update", "share", "no_lock"])
+def test_preconditions_abort_when_a_lifecycle_function_does_not_lock_for_update(db, signature, weaker):
+    """Archive and restore each serialize against the guard's FOR KEY SHARE only
+    through their FOR UPDATE: a weaker lock, or none, must abort the re-run."""
+    s = db
+    body = psql(f"SELECT pg_get_functiondef('{s}.{signature}'::regprocedure)")
+    assert body.count("p_student_id FOR UPDATE") == 1
+    weakened = body.replace("p_student_id FOR UPDATE", f"p_student_id {weaker}".rstrip())
     psql(weakened)
     try:
+        assert psql(f"SELECT pg_get_functiondef('{s}.{signature}'::regprocedure)") == weakened
         assert "student_lifecycle_functions_must_lock_for_update" in m326._fails(_migrated(s))
     finally:
         psql(body)
+    assert psql(f"SELECT pg_get_functiondef('{s}.{signature}'::regprocedure)") == body
+    psql(_migrated(s))
+
+
+POSTCONDITIONS = "-- 2. Postconditions"
+
+
+def _drifted(schema: str, drift: str) -> str:
+    """The real migration with ``drift`` run just before its postconditions — a
+    stand-in for a body or an environment that breaks the invariant."""
+    sql = _migrated(schema)
+    assert sql.count(POSTCONDITIONS) == 1
+    return sql.replace(POSTCONDITIONS, drift + "\n" + POSTCONDITIONS)
+
+
+@pytest.mark.parametrize("drift,marker", [
+    (f"ALTER TABLE {{s}}.writing_assignments DISABLE TRIGGER {TRIGGER};", "archive_guard_trigger_missing"),
+    (f"GRANT EXECUTE ON FUNCTION {{s}}.{FUNCTION}() TO authenticated;", "archive_guard_client_executable"),
+    ("GRANT UPDATE ON {s}.students TO authenticated;", "students_client_update_privilege"),
+])
+def test_each_security_postcondition_aborts_the_whole_migration(unguarded, drift, marker):
+    s = unguarded
+    assert marker in m326._fails(_drifted(s, drift.format(s=s)))
+    # Nothing of 331 survives the abort, the drift included.
+    assert psql(f"SELECT to_regprocedure('{s}.{FUNCTION}()') IS NULL") == "t"
+    assert psql(f"SELECT count(*) FROM pg_trigger WHERE tgname = '{TRIGGER}' "
+                f"AND tgrelid = '{s}.writing_assignments'::regclass") == "0"
+    assert psql(f"SELECT has_table_privilege('authenticated', '{s}.students', 'UPDATE')") == "f"
+
+
+def test_rerun_re_enables_a_disabled_guard_and_aborts_on_client_students_update(db):
+    s = db
+    psql(f"ALTER TABLE {s}.writing_assignments DISABLE TRIGGER {TRIGGER}")
+    psql(_migrated(s))           # CREATE OR REPLACE TRIGGER resets it to enabled
+    assert psql(f"SELECT tgenabled FROM pg_trigger WHERE tgname = '{TRIGGER}' "
+                f"AND tgrelid = '{s}.writing_assignments'::regclass") == "O"
+    psql(f"GRANT UPDATE ON {s}.students TO authenticated")
+    try:
+        assert "students_client_update_privilege" in m326._fails(_migrated(s))
+    finally:
+        psql(f"REVOKE UPDATE ON {s}.students FROM authenticated")
     psql(_migrated(s))
 
 
@@ -569,10 +622,66 @@ def test_negative_control_without_331_the_race_creates_the_row(unguarded, writer
                 f"AND prompt_id = '{prompt}'") == "1"
 
 
+def _cohort_give(s: str, admin: str) -> tuple[str, str, str, list[str], str, str]:
+    """A class with the learner and one classmate, and the cohort RPC giving
+    two prompts to both. → (learner, mate, cohort, prompts, request, sql)."""
+    learner = m326._learner(s)
+    cohort = learner["cohorts"][0]
+    mate = m326._learner(s, cohorts=0)["student"]
+    psql(m326._svc(f"SELECT {s}.fn_add_student_cohort_membership('{mate}', '{cohort}', NULL)"))
+    sid, prompts, request = learner["student"], [str(uuid4()), str(uuid4())], str(uuid4())
+    return sid, mate, cohort, prompts, request, _rpc(s, request, admin, [sid, mate], prompts, cohort)
+
+
+def _cohort_rows(s: str, student: str, prompts: list[str], cohort: str) -> int:
+    return int(psql(f"SELECT count(*) FROM {s}.writing_assignments WHERE student_id = '{student}' "
+                    f"AND prompt_id = ANY ({_arr(prompts)}) AND cohort_id = '{cohort}'"))
+
+
+def test_archive_holding_its_locks_then_cohort_rpc_is_refused_whole(db):
+    """Forced order 1: the archive has ended the memberships and holds them;
+    the cohort RPC waits on its FOR SHARE, re-reads the ended membership once
+    the archive commits and refuses the whole give — no row for either
+    learner, no ledger row, no origin side effect."""
+    s = db
+    admin = m326._admin(s)
+    sid, mate, cohort, prompts, request, give_sql = _cohort_give(s, admin)
+    origins = _orphan_origins(s)
+    archive, give = _timed_race(_hold(_archive_sql(s, sid, admin)), m326._svc(give_sql))
+    assert archive[0] == 0, archive[2]
+    assert give[0] != 0 and "writing_assignment_request_roster_changed" in give[2], give
+    assert give[3] >= 1.0, f"the cohort RPC did not wait on the archive's locks ({give[3]:.2f}s)"
+    assert sum(_rows(s, p) for p in prompts) == 0
+    assert _ledger(s, request) == 0 and _orphan_origins(s) == origins
+    assert _archived(s, sid) and m326._active(s, sid) == []
+    assert not _archived(s, mate) and m326._active(s, mate) == [cohort]
+
+
+def test_cohort_rpc_holding_its_locks_then_archive_waits_and_keeps_the_give(db):
+    """Forced order 2: the cohort RPC has written the whole batch and holds the
+    learner FOR KEY SHARE; the archive waits on it, then ends the membership.
+    The give is kept whole as history (0029 FR-005)."""
+    s = db
+    admin = m326._admin(s)
+    sid, mate, cohort, prompts, request, give_sql = _cohort_give(s, admin)
+    give, archive = _timed_race(_hold(give_sql), m326._svc(_archive_sql(s, sid, admin)))
+    assert give[0] == 0, give[2]
+    assert archive[0] == 0, archive[2]
+    assert archive[3] >= 1.0, f"the archive did not wait on the cohort RPC's locks ({archive[3]:.2f}s)"
+    receipt = json.loads(next(line for line in give[1].splitlines() if '"replayed"' in line))
+    assert receipt["created_count"] == 4 and receipt["replayed"] is False
+    assert _cohort_rows(s, sid, prompts, cohort) == 2 and _cohort_rows(s, mate, prompts, cohort) == 2
+    assert sum(_rows(s, p) for p in prompts) == 4 and _ledger(s, request) == 1
+    assert _archived(s, sid) and m326._active(s, sid) == []
+    assert not _archived(s, mate) and m326._active(s, mate) == [cohort]
+
+
 def test_cohort_rpc_against_archive_never_leaves_partial_or_post_archive_state(db):
     """Edge case: the cohort RPC locks memberships FOR SHARE and then (FK and
     331) the learner row; the archive locks the learner FOR UPDATE and then ends
-    the memberships. Under jittered interleavings every run ends with the give
+    the memberships. Both clean orders are forced in the two tests above; this
+    one adds the overlapping interleavings (including the deadlock between the
+    two lock orders). Under jittered interleavings every run ends with the give
     complete or absent (never partial, ledger iff rows), the learner archived
     with no active class unless the archive was the deadlock victim, and a give
     refused only with roster_changed / student_archived / deadlock."""

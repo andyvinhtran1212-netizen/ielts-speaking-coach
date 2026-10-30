@@ -145,19 +145,23 @@ def validate_row(row: dict[str, Any]) -> Override | None:
 def validate_request(
     feature: str, preferred_provider: str | None, anthropic_model: str | None,
 ) -> None:
-    """Reject anything outside the allowlist before a write (FR-004)."""
+    """Reject anything outside the allowlist before a write (FR-004).
+
+    Messages never echo a rejected client value; they name only allowlisted
+    values (the routed feature, the permitted providers/models).
+    """
     if feature not in EXISTING_PROVIDERS:
-        raise OverrideValidationError("feature", f"Tính năng '{feature}' không được định tuyến bởi ai_router.")
+        raise OverrideValidationError("feature", "Tính năng không được định tuyến bởi ai_router.")
     if preferred_provider is not None and preferred_provider not in allowed_providers(feature):
         raise OverrideValidationError(
             "preferred_provider",
-            f"Nhà cung cấp '{preferred_provider}' không hợp lệ cho {feature}; "
+            f"Nhà cung cấp không hợp lệ cho {feature}; "
             f"chỉ cho phép: {', '.join(allowed_providers(feature))}.",
         )
     if anthropic_model is not None and anthropic_model not in ANTHROPIC_MODEL_ALLOWLIST:
         raise OverrideValidationError(
             "anthropic_model",
-            f"Model '{anthropic_model}' không nằm trong danh sách cho phép: "
+            "Model không nằm trong danh sách cho phép: "
             f"{', '.join(ANTHROPIC_MODEL_ALLOWLIST)}.",
         )
 

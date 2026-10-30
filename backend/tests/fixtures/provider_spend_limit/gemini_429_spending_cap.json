@@ -1,0 +1,15 @@
+{
+  "provider": "google",
+  "sdk": "google_api_core",
+  "http_status": 429,
+  "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+  "body": {
+    "error": {
+      "code": 429,
+      "message": "Your project has exceeded its monthly spending cap.",
+      "status": "RESOURCE_EXHAUSTED"
+    }
+  },
+  "expected": "provider_spend_limit",
+  "source": "https://discuss.ai.google.dev/t/gemini-api-429-monthly-spending-cap-exceeded-despite-tier-1-and-prepaid-balance/179506 (2026-08-24)"
+}

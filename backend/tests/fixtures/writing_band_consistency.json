@@ -1,0 +1,41 @@
+[
+  {
+    "id": "reported-model-final-mismatch",
+    "base_band": 5.5,
+    "bands": [5, 6, 7, 6],
+    "overview": "Bài này đạt band 5.5. Bố cục rõ ràng.",
+    "trajectory": {"current_band": 5.5, "average_last_5": 6.7, "trend": "improving", "trend_explanation": "Bài này ở band 5.5.", "next_target": "Từ band 5.5, hãy lên 6.0."},
+    "expected": {
+      "overall": 6.0,
+      "overview": "Bài viết đạt band 6.0. Bố cục rõ ràng.",
+      "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
+      "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
+    }
+  },
+  {
+    "id": "integer-band-preserves-planning-advice",
+    "base_band": 5.0,
+    "bands": [5, 5, 6, 5],
+    "overview": "Bài này đạt band 5.0. Hãy dành 5 phút lập dàn ý trước khi viết. Em cần sửa cấu trúc ở 5 vị trí.",
+    "trajectory": {"current_band": 5.0, "average_last_5": 5.25, "trend": "stable", "trend_explanation": "Bài này ở band 5.0.", "next_target": "Từ band 5.0, hãy lên 5.5."},
+    "expected": {
+      "overall": 5.5,
+      "overview": "Bài viết đạt band 5.5. Hãy dành 5 phút lập dàn ý trước khi viết. Em cần sửa cấu trúc ở 5 vị trí.",
+      "explanation": "Bài này đạt band 5.5, cao hơn mức trung bình 5 bài gần nhất (5.25).",
+      "target": "Mục tiêu tiếp theo là band 6.0; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
+    }
+  },
+  {
+    "id": "missing-image-caveat-and-band-nine",
+    "base_band": 8.5,
+    "bands": [9, 9, 9, 9],
+    "overview": "  ⚠️ Chấm không có hình — độ chính xác nội dung Task 1 Academic hạn chế. Bài này đạt band 8.5. Bố cục rõ ràng.",
+    "trajectory": {"current_band": 8.5, "average_last_5": 8.7, "trend": "improving", "trend_explanation": "Bài này ở band 8.5.", "next_target": "Hãy lên band 9.0."},
+    "expected": {
+      "overall": 9.0,
+      "overview": "⚠️ Chấm không có hình — độ chính xác nội dung Task 1 Academic hạn chế. Bài viết đạt band 9.0. Bố cục rõ ràng.",
+      "explanation": "Bài này đạt band 9.0, cao hơn mức trung bình 5 bài gần nhất (8.7).",
+      "target": "Duy trì band 9.0 và tiếp tục luyện tập để giữ chất lượng ổn định."
+    }
+  }
+]

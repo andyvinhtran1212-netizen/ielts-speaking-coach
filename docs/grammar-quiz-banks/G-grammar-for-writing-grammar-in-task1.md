@@ -126,7 +126,7 @@ prompt: "First, the raw materials ____ from the farm to the factory."
 options: ["are transported", "transport", "transported", "transporting"]
 answer: 0
 grammar_article_slug: "grammar-in-task1"
-explain: "Process diagram mô tả việc được làm, không nêu ai làm → bị động: is/are + V-ed. 'are transported' đúng vì chủ ngữ số nhiều."
+explain: "Bước do người/máy thực hiện và không cần nêu ai làm → thường dùng bị động: is/are + V-ed. 'are transported' đúng vì chủ ngữ số nhiều."
 ---
 
 ---
@@ -140,7 +140,7 @@ prompt: "The mixture ____ until it is fully dissolved."
 options: ["is heated", "heats", "heat", "was heating"]
 answer: 0
 grammar_article_slug: "grammar-in-task1"
-explain: "Bước trong quy trình luôn nêu KHÁCH QUAN, không nêu người thực hiện → bị động present simple: 'is heated'."
+explain: "Đun nóng là bước có tác nhân tác động lên hỗn hợp → thường dùng bị động present simple: 'is heated'. Bước tự diễn ra (water evaporates) vẫn dùng chủ động."
 ---
 
 ---
@@ -168,7 +168,7 @@ prompt: "Compare: 'Workers collect the beans by hand' vs a Task 1 process descri
 options: ["The beans are collected by hand", "Workers collect the beans by hand", "Workers are collecting the beans", "The beans collect by hand"]
 answer: 0
 grammar_article_slug: "grammar-in-task1"
-explain: "Task 1 process cần khách quan, tập trung vào bước xảy ra chứ không phải người làm → 'The beans are collected by hand' (bị động) phù hợp hơn câu chủ động."
+explain: "Quy trình nhân tạo thường dùng bị động để tập trung vào bước làm, không phải người làm → 'The beans are collected by hand' phù hợp hơn. Chủ động vẫn tự nhiên với bước tự diễn ra (the beans dry in the sun)."
 ---
 
 ---

@@ -30,6 +30,7 @@ async function fixture({
   sessionMode = 'immediate',
   exchangeMode = 'ok',
   activationDelayMs = 0,
+  activationResponse = null,
   viewport = { width: 1280, height: 900 },
 }) {
   const context = await browser.newContext({ viewport });
@@ -108,6 +109,15 @@ window.__AVER_SUPABASE_CLIENT__ = { auth: {
     if (request.method() === 'POST' && url.pathname === '/auth/activate') {
       writes.push(JSON.parse(request.postData() || '{}'));
       if (activationDelayMs) await new Promise((resolve) => setTimeout(resolve, activationDelayMs));
+      if (activationResponse) {
+        // A refusal before the claim: the canonical profile stays inactive.
+        return route.fulfill({
+          status: activationResponse.status,
+          contentType: 'application/json',
+          headers: { ...cors, ...activationResponse.headers },
+          body: JSON.stringify(activationResponse.body),
+        });
+      }
       if (ambiguousActivation) {
         canonical = { ...canonical, is_active: true };
         return route.abort('connectionfailed');
@@ -259,6 +269,61 @@ check('Enter lặp chỉ gửi một activation; mất ACK vẫn reconcile rồi
     && inactive.reads.length === 2);
 check('callback/activation không có lỗi JS', inactive.errors.length === 0, inactive.errors.join(' | '));
 await inactive.context.close();
+
+// F09 (spec 0034 FR-005): the backend refuses before the code is looked up —
+// 429 when the attempt limit is hit, 503 when the limiter cannot be checked
+// (fail closed). The dialog stays open with the copy for that error_code and
+// the typed code stays in the field, unused, ready for a retry.
+for (const refusal of [
+  {
+    label: '429 activate_rate_limited',
+    status: 429,
+    headers: { 'retry-after': '42' },
+    detail: { error_code: 'activate_rate_limited', retry_after_s: 42,
+      message: 'Quá nhiều lần thử kích hoạt. Vui lòng đợi vài phút rồi thử lại.' },
+    alert: 'Quá nhiều lần thử kích hoạt. Vui lòng đợi vài phút rồi thử lại.',
+  },
+  {
+    label: '503 activation_unavailable',
+    status: 503,
+    headers: {},
+    detail: { error_code: 'activation_unavailable', ref: 'ref-fixture',
+      message: 'Chưa kiểm tra được lượt kích hoạt. Mã CHƯA được sử dụng — vui lòng thử lại sau ít phút.' },
+    alert: 'Chưa kiểm tra được lượt kích hoạt. Mã CHƯA được sử dụng — vui lòng thử lại sau ít phút.',
+  },
+]) {
+  const refused = await fixture({
+    session: true,
+    profile: { id: 'user-1', is_active: false, onboarding_completed: false },
+    activationResponse: { status: refusal.status, headers: refusal.headers, body: { detail: refusal.detail } },
+  });
+  await refused.page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded' });
+  const dialog = refused.page.getByRole('dialog', { name: 'Kích hoạt tài khoản' });
+  await dialog.waitFor();
+  const refusedInput = refused.page.getByLabel('Access Code');
+  await refusedInput.fill(' ielts-test-001 ');
+  const answered = refused.page.waitForResponse((response) => response.request().method() === 'POST'
+    && new URL(response.url()).pathname === '/auth/activate');
+  await refused.page.getByRole('button', { name: 'Kích hoạt' }).click();
+  const response = await answered;
+  const alert = dialog.getByRole('alert');
+  await alert.waitFor();
+  const alertText = (await alert.textContent())?.trim();
+  const codeLeft = await refusedInput.inputValue();
+  check(`activation ${refusal.label}: alert đúng thông điệp, modal vẫn mở, mã còn trong ô`,
+    response.status() === refusal.status
+      && (refusal.headers['retry-after'] === undefined || response.headers()['retry-after'] === refusal.headers['retry-after'])
+      && alertText === refusal.alert
+      && codeLeft === 'IELTS-TEST-001'
+      && await refusedInput.isEditable()
+      && await refused.page.getByRole('button', { name: 'Kích hoạt' }).isEnabled()
+      && new URL(refused.page.url()).pathname === '/login'
+      && refused.writes.length === 1 && refused.writes[0].access_code === 'IELTS-TEST-001'
+      && refused.reads.length === 2,
+    `status=${response.status()}; retry-after=${response.headers()['retry-after'] ?? '-'}; alert=${alertText}; code=${codeLeft}; writes=${refused.writes.length}; reads=${refused.reads.length}`);
+  check(`activation ${refusal.label} không có lỗi JS`, refused.errors.length === 0, refused.errors.join(' | '));
+  await refused.context.close();
+}
 
 const ready = await fixture({
   session: true,

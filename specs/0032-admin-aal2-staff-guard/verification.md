@@ -15,7 +15,7 @@
 | FR-009 | kind=test; ref=backend/tests/test_migration_332_staff_security_audit.py (one row per change, source classification, append-only for owner, grants, N-1 activation); kind=query; ref=rollout.md S5 audit coverage query on staging | PENDING |
 | FR-010 | kind=test; ref=backend/tests/test_staff_security_sweep.py (factor verified and deleted between two runs yields two rows, idempotent re-run, cursor durability, snapshot backstop, no secret stored); kind=journey; ref=spec.md AC6 factor enroll and removal on staging within 5 minutes, including add-then-remove inside one sweep interval | PENDING |
 | FR-011 | kind=test; ref=backend/tests/test_owner_alerts.py (event set, recipients from env only, payload has no token or secret, retry to 5 then failed); kind=journey; ref=spec.md AC6 email received on staging | PENDING |
-| FR-012 | kind=test; ref=frontend/tests/admin-mfa-next-behavior.test.mjs and the /admin/mfa Next-native browser verifier (enroll, challenge, wrong code, rate limit, remove with fresh code, next sanitising) | PENDING |
+| FR-012 | kind=test; ref=frontend/tests/admin-mfa-next-behavior.test.mjs and the /admin/mfa Next-native browser verifier (enroll, challenge, wrong code, rate limit, remove with fresh code, next sanitising); Amendment 1: kind=test; ref=backend/tests/test_staff_guard.py (spec.md AC11: 12 h + 1 s refused, 11 h 59 m allowed, missing amr expired, ADMIN_AAL2_MAX_AGE_HOURS abc/0/48 → 12 with a startup log, report-only one would_block line) and the /admin/mfa node test that a factor is deleted only after a fresh verify (AC12); kind=journey; ref=spec.md AC11 report-only log for an old TOTP on staging | PENDING |
 | FR-013 | kind=test; ref=frontend/tests/admin-mfa-gate.test.mjs (gate redirect, report-only banner, api.js mfa_required navigation) and frontend/tooling/verify-admin-mfa-flow.mjs, with the existing verify-admin-*.mjs verifiers green using the shared AAL2 stub | PENDING |
 | FR-014 | kind=test; ref=frontend/tests/instructor-inactive-state.test.mjs (three instructor clients map a mid-session inactive 403 to the denied state) plus the PR #1771 activation-gate tests for load and reload; kind=journey; ref=spec.md AC5 on staging | PENDING |
 | FR-015 | kind=test; ref=backend/tests/test_admin_staff_security_routes.py (security-audit order, alert_status, 503) and frontend/tests/admin-users-staff-security.test.mjs (⚠ on lookup failure) | PENDING |
@@ -23,6 +23,45 @@
 | FR-018 | kind=test; ref=backend/tests/test_migration_332_staff_security_audit.py (suspension guard on every reactivation path, concurrent activation blocked on the lock) and backend/tests/test_activation_suspended_account.py (403 account_suspended before claim, code unused, admin issuance 409 with compensation); kind=test; ref=frontend/tests/login-suspended-account.test.mjs; kind=journey; ref=spec.md AC9 on staging with forced revocation failure | PENDING |
 | FR-017 | kind=query; ref=rollout.md P4 readiness query on staging and production; kind=test; ref=backend/tests/test_migration_332_staff_security_audit.py (bootstrap grants, admins_exist refusal, zero-admin restore); kind=journey; ref=spec.md AC8 recovery drill timings on staging, including path (e) from zero eligible admins | PENDING |
 | FR-019 | kind=test; ref=backend/tests/test_migration_336_suspended_account_role_guard.py (role change of a suspended account refused through the RPC, service REST, owner and superuser SQL; allowed after reactivation; bootstrap exempt; preconditions, postconditions, rollback); kind=test; ref=backend/tests/test_admin_user_role.py (409 account_suspended_role_change with the Vietnamese message); kind=journey; ref=spec.md AC10 on staging after 336 is applied | PENDING |
+| FR-020 | kind=test; ref=backend/tests/test_staff_guard.py and backend/tests/test_admin_staff_security_routes.py and backend/tests/test_admin_user_role.py (spec.md AC12: TOTP 16 min + ADMIN_STEP_UP_ENFORCE=true on PATCH role, PATCH active, POST revoke-sessions → 403 step_up_required with no row change, no staff_security_audit row, no outbox row; 14 min succeeds; report-only one admin_step_up_would_block line; invalid config → 15 / false); kind=test; ref=backend/tests/test_staff_guard_inventory.py (every route that uses require_recent_mfa); kind=test; ref=frontend node test that the UI resends exactly once after a successful challenge; kind=journey; ref=spec.md AC12 on staging: report-only logs, helpers.js fresh AAL2 before sensitive steps, live Staging E2E green; enforcement on staging only in lot 11 or later | PENDING |
+
+## Amendment 1 evidence (AC11, AC12) — PENDING
+
+Approved 2026-10-29 14:44 (UTC+7); implementation is T016 (PC-J135), after
+#1898 (T010). Nothing below has run yet.
+
+- **AC11 (FR-012), offline:** PENDING. TOTP 12 h + 1 s → 403 `mfa_required`
+  with enforcement on; 11 h 59 m allowed; missing `amr` expired;
+  `ADMIN_AAL2_MAX_AGE_HOURS=abc` / `0` / `48` → 12 with a startup log;
+  report-only gives exactly one `would_block` line and success.
+- **AC12 (FR-020), offline:** PENDING. TOTP 16 min +
+  `ADMIN_STEP_UP_ENFORCE=true` on PATCH role, PATCH active and POST
+  revoke-sessions → 403 `step_up_required`, no row change, no
+  `staff_security_audit` row, no outbox row; 14 min succeeds; report-only
+  gives one `admin_step_up_would_block` line and success; the UI resends
+  exactly once after a successful challenge; `/admin/mfa` deletes a factor
+  only after a fresh verify; the inventory test lists every route that uses
+  `require_recent_mfa`.
+- **Staging (AC11, AC12):** PENDING. Report-only logs for an old TOTP on
+  `staging.averlearning.com` with the synthetic admin; `helpers.js` takes a
+  fresh AAL2 before sensitive steps; live Staging E2E green. Step-up
+  enforcement on staging is not part of this evidence until lot 11 or later,
+  on the Leader's go.
+- **AIBUDGET-0033 budget routes:** the raise / end-raise routes of 0033 T013
+  must show `require_recent_mfa` in the same inventory test when they land
+  (PC-J138).
+
+### Rủi ro còn lại (residual risk, accepted by Leader 2026-10-29 14:53)
+
+Factor deletion is **not** enforced on the server. `/admin/mfa` calls GoTrue
+`mfa.unenroll` directly from the browser, so `require_recent_mfa()` never runs
+on it, and GoTrue only requires AAL2. A stolen AAL2 session (≤ 12 h old) can
+delete a factor without a new code by calling GoTrue directly. Controls: the
+fresh verify in the `/admin/mfa` UI (AC12 node test), the T007 factor-deleted
+owner alert within one sweep run (≤ 5 minutes), and the 12 h expiry (FR-012).
+The deletion itself is not mitigated; recovery is to re-enroll and review the
+alert. Details: `research.md` §10.2. This is expected to remain open at T016
+and is not a failed check.
 
 ## T007 test evidence (PC-J40, 2026-10-28)
 
@@ -86,6 +125,19 @@ its NOSUPERUSER owner role, with a stand-in `auth.audit_log_entries`.
   "Inactive" and the new history entry after the mutation refetch, and again
   after a reload. An inactive instructor lands on `/login` activation on both
   first load and reload.
+- **Direct REST path (PC-J119, migration 345)**: the staff guard covers
+  FastAPI only. Before 345, seven RLS policies admitted any admin JWT on an
+  inline `role = 'admin'` check (no AAL2, `is_active` or `suspended_at`) to
+  the dictation tables, `user_feedback`, `lemma_overrides`, draft
+  `vocabulary_exercises` and `access_codes` through `/rest/v1/`. 345 drops
+  them and fails if any `public` policy still holds an `'admin'` literal.
+  Evidence: `backend/tests/test_migration_345_admin_inline_policies.py` and
+  `backend/tests/test_rls_no_inline_admin_role_policy.py` (PG 16 and 17), then
+  the read-only catalog query in the 345 header on staging after apply.
+  Residual: learners keep SELECT on their own dictation rows and on published
+  exercises. 345 also revokes every `anon`/`authenticated` privilege on
+  `access_codes` and fails if any client role can still SELECT it (PC-J161),
+  so the codes do not rely on 108 keeping EXECUTE revoked on the helpers.
 
 ## UI evidence
 

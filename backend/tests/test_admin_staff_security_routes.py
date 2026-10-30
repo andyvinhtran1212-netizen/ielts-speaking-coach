@@ -602,6 +602,112 @@ class TestReactivate:
         assert _active(client, INSTRUCTOR, True).status_code == 503
         assert db.rpc_calls == [] and db.auth.admin.calls == []
 
+    def test_successful_suspension_then_reactivation_writes_no_revocation_row(self, client, db, engine):
+        _active(client, INSTRUCTOR, False)
+        r = _active(client, INSTRUCTOR, True, reason="đã đổi mật khẩu")
+        assert r.json()["ok"] is True and r.json()["sign_in_restored"] is True
+        assert r.json()["sessions_revoked"] is None and r.json()["revoke_error"] is None
+        assert [a["event"] for a in db.audits()] == ["active_changed", "active_changed"]
+
+
+# ── Reactivation after a failed revocation (PC-J66 F01) ──────────────────────
+
+def _unban_spy(db, engine, target):
+    """Record ``target``'s live session count at each unban call."""
+    seen: list[int] = []
+    original = db.auth.admin.update_user_by_id
+
+    def spy(uid, attrs):
+        if uid == target and attrs["ban_duration"] == "none":
+            seen.append(engine.sessions.get(target, 0))
+        return original(uid, attrs)
+
+    db.auth.admin.update_user_by_id = spy
+    return seen
+
+
+@pytest.mark.parametrize("target", [INSTRUCTOR, ADMIN2], ids=["instructor", "admin"])
+class TestReactivateAfterFailedRevocation:
+    def _suspend_with_failed_delete(self, client, db, engine, target):
+        engine.fail = True
+        r = _active(client, target, False)
+        assert r.json()["sessions_revoked"] is False
+        assert r.json()["revoke_error"] == "session_delete_failed"
+        assert target in db.auth.admin.banned and engine.sessions[target] > 0
+
+    def test_database_still_down_keeps_the_account_locked(self, client, db, engine, target):
+        self._suspend_with_failed_delete(client, db, engine, target)
+        left = engine.sessions[target]
+        r = _active(client, target, True, reason="đã đổi mật khẩu")
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["ok"] is False and body["changed"] is False and body["audit_id"] is None
+        assert body["sessions_revoked"] is False and body["revoke_error"] == "session_delete_failed"
+        assert body["sign_in_restored"] is False
+        assert body["is_active"] is False and body["suspended_at"]
+        # Still banned, still suspended, the old sessions untouched, no unban.
+        assert target in db.auth.admin.banned and engine.sessions[target] == left
+        assert (target, "none") not in db.auth.admin.calls
+        row = db.user(target)
+        assert row["is_active"] is False and row["suspended_at"]
+        # Never silent (FR-008): audited and alerted like any revocation failure.
+        failed = db.audits("sessions_revoke_failed")
+        assert [a["detail"]["trigger"] for a in failed] == ["suspend", "reactivate"]
+        assert failed[1]["detail"] == {"trigger": "reactivate", "ban": True,
+                                       "revoke_error": "session_delete_failed"}
+        assert any(o["audit_id"] == failed[1]["id"] for o in db.tables["owner_alert_outbox"])
+        assert len(db.audits("active_changed")) == 1
+
+    def test_database_back_deletes_sessions_before_the_unban(self, client, db, engine, target):
+        self._suspend_with_failed_delete(client, db, engine, target)
+        engine.fail = False
+        seen = _unban_spy(db, engine, target)
+        r = _active(client, target, True, reason="đã đổi mật khẩu")
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["ok"] is True and body["changed"] is True and body["sign_in_restored"] is True
+        assert body["is_active"] is True and body["suspended_at"] is None
+        assert seen == [0], "the ban was lifted while old sessions still existed"
+        assert engine.sessions.get(target, 0) == 0
+        assert target not in db.auth.admin.banned
+        assert db.user(target)["is_active"] is True and db.user(target)["suspended_at"] is None
+        # A confirmed revocation adds no row; only the suspension's failure stays.
+        assert [a["detail"]["trigger"] for a in db.audits("sessions_revoke_failed")] == ["suspend"]
+        assert db.audits("sessions_revoked") == []
+
+    def test_failed_ban_is_reasserted_before_the_delete(self, client, db, engine, target):
+        # The suspension's ban failed, so a sign-in during the suspension
+        # could mint a fresh session; reactivation bans before it deletes.
+        db.auth.admin.fail_ban = True
+        _active(client, target, False)
+        db.auth.admin.fail_ban = False
+        engine.sessions[target] = 1
+        seen = _unban_spy(db, engine, target)
+        r = _active(client, target, True, reason="đã đổi mật khẩu")
+        assert r.json()["ok"] is True and r.json()["sign_in_restored"] is True
+        durations = [d for uid, d in db.auth.admin.calls if uid == target]
+        assert durations[-2:] == [staff_security.BAN_DURATION, "none"]
+        assert seen == [0] and target not in engine.sessions
+
+    def test_ban_still_failing_keeps_the_account_locked(self, client, db, engine, target):
+        db.auth.admin.fail_ban = True
+        _active(client, target, False)
+        r = _active(client, target, True, reason="đã đổi mật khẩu")
+        body = r.json()
+        assert body["ok"] is False and body["sign_in_restored"] is False
+        assert body["sessions_revoked"] is False and body["revoke_error"] == "ban_failed"
+        assert (target, "none") not in db.auth.admin.calls
+        assert db.user(target)["suspended_at"]
+
+    def test_no_database_url_keeps_the_account_locked(self, client, db, engine, monkeypatch, target):
+        _active(client, target, False)
+        monkeypatch.setattr(admin_module, "_db_engine", None)
+        r = _active(client, target, True, reason="đã đổi mật khẩu")
+        body = r.json()
+        assert body["ok"] is False and body["sign_in_restored"] is False
+        assert body["revoke_error"] == "revocation_unavailable"
+        assert target in db.auth.admin.banned and db.user(target)["suspended_at"]
+
 
 # ── Revocation failure (FR-008) ──────────────────────────────────────────────
 
@@ -768,7 +874,9 @@ class TestSerialization:
         assert rea.json()["changed"] is True and rea.json()["sign_in_restored"] is True
         assert db.user(INSTRUCTOR)["is_active"] is True and db.user(INSTRUCTOR)["suspended_at"] is None
         assert INSTRUCTOR not in db.auth.admin.banned
-        assert [d for _, d in db.auth.admin.calls] == ["876000h", "none"]
+        # Suspension ban, the reactivation's re-ban before its delete
+        # (PC-J66 F01), then the unban.
+        assert [d for _, d in db.auth.admin.calls] == ["876000h", "876000h", "none"]
         assert engine.held() == []
 
     def test_reactivation_waits_for_an_in_flight_retry(self, db, engine):

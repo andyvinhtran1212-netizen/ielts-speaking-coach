@@ -95,8 +95,12 @@ legacy have distinct provenance; current fallback cannot replace a frozen value.
 
 Extend protected authored answer metadata with an explicit versioned response
 policy and source-reviewed accepted alternatives. Configure affected item
-revisions only; do not infer a telephone/date/number from text shape or globally
-strip punctuation. Phone normalization retains the digit sequence including
+revisions only; do not infer a telephone/date/number from text shape. Never
+strip interior punctuation (legacy normalize). Literal and number policies may
+strip a fixed set of edge punctuation (. , ; : ! ? and surrounding quotes) from
+both learner and authored answers; number strips only a trailing mark when raw
+parse fails. Phone/date/option rules unchanged. (PC-J223, #1988; no regrade,
+FR-011.) Phone normalization retains the digit sequence including
 leading zeros/extensions. English numeric grouping validates grouping before
 Decimal/value comparison; declared locale/sign/unit rules prevent ambiguous or
 wrong-value matches. Literal/date/option/group rules remain separate.
@@ -161,3 +165,14 @@ edit/delete-after-submit tests verify immutable context and legacy labels.
 Native browser journeys cover canonical flag reload/second-client/account switch,
 operator 409/503+refresh and all listed themes/widths. Full relevant local suites
 precede one consolidated push; exact-SHA staging gates then control promotion.
+
+## Revisions
+
+- **Revision 1 (2026-10-30, PC-J228, plan wording only):** the "Typed grading
+  and content revisions" paragraph no longer forbids all punctuation stripping.
+  It allows the fixed edge-only trimming that PR #1988 (PC-J223) adds to
+  `literal` and written `number` matching, and keeps the ban on legacy
+  interior-punctuation stripping and on inferring a phone/date/number from text
+  shape. Reason: Code Reviewer condition PLAN-0016-PUNCT on #1988. Owner
+  reply to the replacement sentence (relayed by Leader 2026-10-30 06:59 UTC+7,
+  t630u): "Ok theo đề xuất". No requirement, task, code or regrade change.

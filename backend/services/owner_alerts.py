@@ -28,6 +28,17 @@ cron and an inline dispatch cannot both send the same attempt. The claim also
 pushes ``next_attempt_at`` out by the backoff, so a process that dies after
 claiming retries later instead of never. Resend's ``Idempotency-Key`` is the
 outbox id, so a retry after a send whose result was lost does not mail twice.
+
+The claim sets the row back to ``pending``: ``pending`` means "no outcome
+recorded for the current attempt", ``failed`` means the latest attempt was
+refused. So a row at ``MAX_ATTEMPTS`` that is still ``pending`` once its lease
+has run out is a last attempt cut off before its result was saved (before the
+send, or after it). Dispatch finishes that attempt instead of leaving it
+orphaned (PC-J66 F03): it re-takes the expired lease with a compare-and-set on
+``next_attempt_at`` and sends again under the same ``Idempotency-Key``, which
+Resend answers from its record of the first request if that one got through
+(keys are kept for 24 hours; the last lease is 2 hours). ``attempts`` stays at
+``MAX_ATTEMPTS`` and the row ends ``sent``, or ``failed`` for ``--requeue``.
 """
 
 from __future__ import annotations
@@ -50,6 +61,9 @@ MAX_ATTEMPTS = 5
 # every 5 minutes, so the first retry is on the next run.
 BACKOFF_SECONDS = (300, 900, 2700, 7200)
 SEND_TIMEOUT_SECONDS = 15.0
+# Lease taken to finish an interrupted last attempt. Longer than a send, so
+# two dispatchers cannot both hold it.
+RESUME_LEASE_SECONDS = BACKOFF_SECONDS[0]
 
 VIETNAM_TIME = timezone(timedelta(hours=7))   # no DST
 _EMAIL_RE = re.compile(r"^[^@\s,;<>\"']+@[^@\s,;<>\"']+\.[^@\s,;<>\"']+$")
@@ -287,6 +301,7 @@ async def send_via_resend(email: Email, *, config: TransportConfig, idempotency_
 class OutboxStore(Protocol):
     async def due(self, *, max_attempts: int, limit: int) -> list[dict[str, Any]]: ...
     async def claim(self, row_id: str, attempts: int, lease_seconds: int) -> bool: ...
+    async def reclaim_final(self, row_id: str, attempts: int, lease_seconds: int) -> bool: ...
     async def mark_sent(self, row_id: str, attempts: int) -> None: ...
     async def mark_failed(self, row_id: str, attempts: int, error: str,
                           retry_seconds: int) -> None: ...
@@ -303,8 +318,10 @@ class DispatchSummary:
     sent: int = 0
     failed: int = 0          # failed this run, will retry
     exhausted: int = 0       # reached MAX_ATTEMPTS, stays `failed`
+    resumed: int = 0         # interrupted last attempts finished this run
     skipped_claimed: int = 0
     unconfigured: bool = False
+    missing: str = ""        # names of the missing settings, never their values
 
 
 async def dispatch_due(store: OutboxStore, *, config: TransportConfig | None = None,
@@ -317,15 +334,25 @@ async def dispatch_due(store: OutboxStore, *, config: TransportConfig | None = N
         return summary
     if not config.ready:
         summary.unconfigured = True
+        summary.missing = ",".join(config.missing)
         logger.warning("owner_alert_transport_unconfigured missing=%s due=%d",
-                       ",".join(config.missing), len(rows))
+                       summary.missing, len(rows))
         return summary
     for row in rows:
         row_id, seen = str(row["id"]), int(row["attempts"])
-        attempt = seen + 1
-        if not await store.claim(row_id, seen, backoff_seconds(attempt)):
+        # A due row at MAX_ATTEMPTS is a last attempt that was claimed but never
+        # recorded: finish that attempt, do not start a sixth.
+        resume = seen >= MAX_ATTEMPTS
+        attempt = seen if resume else seen + 1
+        claimed = (await store.reclaim_final(row_id, seen, RESUME_LEASE_SECONDS) if resume
+                   else await store.claim(row_id, seen, backoff_seconds(attempt)))
+        if not claimed:
             summary.skipped_claimed += 1
             continue
+        if resume:
+            summary.resumed += 1
+            logger.warning("owner_alert_resume_interrupted audit_id=%s attempts=%d",
+                           row.get("audit_id"), attempt)
         result = await send(render(row.get("payload") or {}), config=config,
                             idempotency_key=f"owner-alert-{row_id}")
         if result.ok:
@@ -370,10 +397,12 @@ class PgOutboxStore:
         self._table = f"{schema}.owner_alert_outbox"
 
     async def due(self, *, max_attempts: int, limit: int) -> list[dict[str, Any]]:
+        """Rows with attempts left, and last attempts whose lease ran out unrecorded."""
         rows = await self._conn.fetch(
             f"""SELECT id, audit_id, event, payload::text AS payload, attempts
                   FROM {self._table}
-                 WHERE status <> 'sent' AND attempts < $1 AND next_attempt_at <= now()
+                 WHERE status <> 'sent' AND next_attempt_at <= now()
+                   AND (attempts < $1 OR status = 'pending')
                  ORDER BY next_attempt_at, created_at
                  LIMIT $2""",
             max_attempts, limit)
@@ -383,9 +412,24 @@ class PgOutboxStore:
     async def claim(self, row_id: str, attempts: int, lease_seconds: int) -> bool:
         claimed = await self._conn.fetchval(
             f"""UPDATE {self._table}
-                   SET attempts = attempts + 1,
+                   SET attempts = attempts + 1, status = 'pending',
                        next_attempt_at = now() + make_interval(secs => $3)
                  WHERE id = $1::uuid AND attempts = $2 AND status <> 'sent'
+                RETURNING id""",
+            row_id, attempts, lease_seconds)
+        return claimed is not None
+
+    async def reclaim_final(self, row_id: str, attempts: int, lease_seconds: int) -> bool:
+        """Take over an interrupted last attempt whose lease has expired.
+
+        The compare-and-set is on the expired lease: a concurrent dispatcher's
+        UPDATE re-reads the row after this one commits, sees the new lease and
+        matches nothing."""
+        claimed = await self._conn.fetchval(
+            f"""UPDATE {self._table}
+                   SET next_attempt_at = now() + make_interval(secs => $3)
+                 WHERE id = $1::uuid AND attempts = $2 AND status = 'pending'
+                   AND next_attempt_at <= now()
                 RETURNING id""",
             row_id, attempts, lease_seconds)
         return claimed is not None
@@ -407,12 +451,16 @@ class PgOutboxStore:
             row_id, attempts, error, retry_seconds)
 
     async def requeue(self, audit_id: str) -> bool:
-        """rollout.md Repair: a `failed` row gets a fresh set of attempts."""
+        """rollout.md Repair: a `failed` row, or a last attempt left `pending`
+        past its lease, gets a fresh set of attempts. A send still in flight
+        (lease running) is left alone."""
         row = await self._conn.fetchval(
             f"""UPDATE {self._table}
                    SET status = 'pending', attempts = 0, next_attempt_at = now()
-                 WHERE audit_id = $1::uuid AND status = 'failed'
+                 WHERE audit_id = $1::uuid
+                   AND (status = 'failed'
+                        OR (status = 'pending' AND attempts >= $2 AND next_attempt_at <= now()))
                 RETURNING id""",
-            audit_id)
+            audit_id, MAX_ATTEMPTS)
         return row is not None
 

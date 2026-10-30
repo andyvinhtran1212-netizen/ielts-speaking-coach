@@ -17,6 +17,13 @@ staging counts, migration and rollback SQL, production read-only checks):
 [`research.md`](research.md). Review that drove this version:
 `/workspace/cc-jobs/a10-spec-review-1028.md` (findings F1–F17).
 
+Amendment 1 (PC-J153, Leader decision 2026-10-29 16:12, UTC+7): FR-003's
+"receives no new work" also covers *moving* existing work into an archived
+class by UPDATE. 337's work guards fire on INSERT only (audit PC-J106 F4), so
+migration **346** (`346_class_archive_update_guards.sql`) adds value-changed
+`BEFORE UPDATE OF cohort_id` / `assignment_id` guards that reuse the 337
+functions. No FR text changes; see [`research.md`](research.md) §11.4.
+
 ## Tóm tắt (tiếng Việt)
 
 Hôm nay nút "Lưu trữ" lớp chỉ bật cờ `cohorts.is_active=false`, gần như không
@@ -280,8 +287,13 @@ resolved in this version:
 - **Legacy `students.cohort_id` pointing at an archived class:** hidden by the
   read filter. A `PATCH /admin/students/{id}` that changes only the name does
   not trip the guard: the sync trigger is `AFTER UPDATE OF cohort_id`.
-- **`writing_assignments` guard scope:** it is INSERT-only. No path moves a
-  give into an archived class by UPDATE.
+- **Moving work into an archived class:** no backend path changes
+  `class_assignments.cohort_id`, `writing_assignments.cohort_id` or
+  `class_assignment_items.assignment_id`, and clients cannot write these
+  tables. A service-role or SQL-editor UPDATE that moves work into an archived
+  class is refused with `cohort_archived` by the 346 move guards (Amendment 1).
+  An UPDATE that keeps the class, moves work out of an archived class, or
+  moves it to an active or legacy class passes.
 - **Old backend archives in the deploy window:** the `cohorts` trigger stamps
   `archived_at`, so the archive is enforced, with no actor and no audit row. The
   runbook asks admins not to archive or restore during the window.
