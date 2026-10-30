@@ -5,13 +5,13 @@
 | Requirement | Evidence | Result |
 | --- | --- | --- |
 | FR-001 | kind=test; ref=backend/tests/test_class_archive_routes.py (helper drops archived classes in both branches, include_archived mode, caller grep) plus AC-2, AC-3 on staging | PENDING |
-| FR-002 | kind=test; ref=backend/tests/test_migration_337_class_archive.py (membership guard matrix incl. already-active upsert and removal to an archived next class, AFTER trigger, precedence, archive-first race) plus backend/tests/test_class_archive_routes.py (W1, W3–W7, W13) plus AC-4, AC-5 on staging | PENDING |
+| FR-002 | kind=test; ref=backend/tests/test_migration_337_class_archive.py (membership guard matrix incl. already-active upsert and removal to an archived next class, AFTER trigger, precedence, archive-first race) plus backend/tests/test_class_archive_activate.py (W1, real 227 → 337 route/guard chain; local evidence below) plus backend/tests/test_class_archive_routes.py (W3–W7, W13) plus AC-4, AC-5 on staging | PENDING |
 | FR-003 | kind=test; ref=backend/tests/test_migration_337_class_archive.py (assignment, item, give guards) plus backend/tests/test_migration_346_class_archive_update_guards.py (moving an assignment, item or give into an archived class by UPDATE refused; same-class UPDATEs, reaper and finalisers unaffected) plus backend/tests/test_class_archive_routes.py (W2, W8–W10, fan-out replay, individual give allowed) plus AC-6 on staging | PENDING |
 | FR-004 | kind=test; ref=backend/tests/test_class_archive_routes.py (every research.md §5 entry point, D3 save/submit/auto-submit, reaper finalise, mock message) plus AC-7, AC-8, AC-13 on staging | PENDING |
 | FR-005 | kind=journey; ref=AC-9 on staging (class returns, gives reopen, drafts intact, class code enrolls) | PENDING |
 | FR-006 | kind=test; ref=backend/tests/test_migration_337_class_archive.py (RPC atomicity, idempotence, counts, no audit on name edit, client denied) plus AC-1, AC-11 on staging | PENDING |
 | FR-007 | kind=test; ref=backend/tests/test_migration_337_class_archive.py (restore-student skips archived class with negative control, archive committing mid-restore → 200 and skipped, candidate-class FOR SHARE lock, FOR UPDATE literal, no 331 names) plus AC-10 on staging | PENDING |
-| FR-008 | kind=test; ref=backend/tests/test_class_archive_routes.py (pre-check, mid-flight archive between Step 3 and 3b, revert-failure 503, re-claim, rate limit, no DB text) plus AC-4 on staging | PENDING |
+| FR-008 | kind=test; ref=backend/tests/test_class_archive_activate.py (pre-check, mid-flight archive between Step 3 and 3b, exact snapshot restoration, revert retry/failure 503, re-claim, rate limit, no DB text, real PostgreSQL 17 enrollment guard; local evidence below) plus AC-4 on staging | PENDING |
 | FR-009 | kind=test; ref=backend/tests/test_migration_337_class_archive.py (legacy inactive class stays legacy, postcondition count) plus AC-12 snapshot comparison on staging | PENDING |
 | FR-010 | kind=journey; ref=AC-14 admin dialogs on staging plus frontend admin classes tests | PENDING |
 | FR-011 | kind=test; ref=backend/tests/test_migration_337_class_archive.py (old-backend PATCH both ways after apply, light and full rollback, re-apply, refusals) | PENDING |
@@ -68,3 +68,45 @@ Preconditions:
 
 - Staging SHA and checks: pending T011.
 - Production verification: pending T010 (read-only) and T012.
+
+## PC-J152 activation evidence (2026-10-30)
+
+- Red/green: on base `0243e4e6f58ab8a4ac45459613fccc9227fac227`,
+  the unchanged new test file gives **25 failed, 8 passed**. With the patch,
+  the activation, rate-limit, suspended/staff/gate, instructor enrollment,
+  promotion and student-linking suites give **241 passed**, including all
+  **33** new cases and the **5** PostgreSQL 17 cases (`REQUIRE_PG=1`).
+- Scope: `activate_account` and its local helpers only; `check_active`, database
+  clients, migrations, cohort services/models and existing test files unchanged.
+- W1 reads `cohorts.*`, so a schema without `archived_at` works. Only
+  `is_active = false AND archived_at IS NOT NULL` is archived. Legacy inactive
+  classes and the existing unresolved-owner behavior keep their contracts.
+- The bare-router tests verify that the same generic 400 is returned for W1
+  and the guard race, without relying on the global 5xx sanitizer. Every
+  activation DB exception response is clean. A failed class read is 503 before
+  user, student or code writes.
+- Race tests cover INSERT/UPDATE, inactive/already-active users, null defaults
+  on a newly created user, rollback of a promoted role, and preservation of an
+  admin role. A first compensation failure is retried once; two failures (or
+  empty update results) yield 503 `activation_incomplete`, a CRITICAL log with
+  request/user ids, and the compensation flag. No archive refusal claims the
+  code or writes an assignment; success after enrollment has committed stays
+  successful if the class archives before the best-effort backfill.
+- Audit schema mapping: migration 099 defines `before` and `after` JSONB,
+  with no top-level `detail` column. The rejection action is
+  `enroll_rejected_cohort_archived`; its `cohort_id` and nested `detail`
+  (`request_id`, `race`, `compensation_failed`) are persisted in `after`.
+  Operational queries use `after->'detail'`; no migration is required. Audit
+  insertion failure is logged server-side under the request/user ids.
+- Real PostgreSQL 17 cases reuse the existing 326/331/337 harness, migration
+  099's audit schema and the actual 227 enrollment triggers. W1, races on a
+  new/existing student, an active class and a class made legacy-inactive before
+  337 are checked through the router. User/code/audit state and whole-statement
+  rollback of student/membership writes are read back from PostgreSQL.
+- Local PostgreSQL is disposable, loopback-only, with SCRAM host authentication;
+  it is stopped and deleted after verification. No staging/production access,
+  migration, seed or live acceptance was performed by this job.
+- Merge dependencies: J151 (#1938) and #1929 are present in base
+  `0243e4e6f58ab8a4ac45459613fccc9227fac227`; J157 (#1974) remains open.
+  Leader merges after that dependency and exact-head CI, once staging unfreezes.
+  AC-4 still requires applied 337 and a synthetic QA namespace under T011.

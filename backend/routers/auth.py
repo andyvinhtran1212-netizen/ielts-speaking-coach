@@ -19,7 +19,8 @@ from models.auth import (
 )
 from services import activation_gate, staff_security
 from services.db_async import aexecute
-from services.errors import safe_error
+from services.errors import new_ref, safe_error
+from services.request_context import current_request_id
 from services.server_timing import record_stage
 from services.feature_flags import ais_flashcard_enabled, is_flashcard_enabled
 from services import runtime_flags
@@ -486,6 +487,50 @@ def _restore_archived_account_state(user_id: str, *, was_already_active: bool,
                      user_id, e)
 
 
+def is_cohort_archived_error(exc: BaseException) -> bool:
+    """Recognize 337's guard message without matching unrelated DB detail."""
+    return (getattr(exc, "message", None) or str(exc)).strip() == "cohort_archived"
+
+
+def _audit_class_activation_rejected(
+    user_id: str, code_id: str | None, cohort_id: str, *,
+    request_id: str, race: bool = False, compensation_failed: bool = False,
+) -> None:
+    # Migration 099 has before/after JSON, not a top-level detail column.
+    # Keep the rejection detail inside after so this works before 337 too.
+    try:
+        supabase_admin.table("access_code_audit").insert({
+            "actor_user_id": user_id,
+            "target_user_id": user_id,
+            "code_id": code_id,
+            "action": "enroll_rejected_cohort_archived",
+            "after": {"cohort_id": str(cohort_id), "detail": {
+                "request_id": request_id, "race": race,
+                "compensation_failed": compensation_failed,
+            }},
+        }).execute()
+    except Exception:
+        logger.exception("[auth] class activation rejection audit failed request_id=%s user=%s",
+                         request_id, user_id)
+
+
+def _restore_class_activation_snapshot(user_id: str, snapshot: dict, request_id: str) -> bool:
+    """Undo this request's Step 3 write; one retry, never claim on failure."""
+    for attempt in range(2):
+        try:
+            restored = (supabase_admin.table("users").update(snapshot)
+                        .eq("id", user_id).execute())
+            if not restored.data:
+                raise RuntimeError("activation compensation updated no user")
+            return True
+        except Exception:
+            logger.warning("[auth] activation compensation attempt=%s request_id=%s user=%s",
+                           attempt + 1, request_id, user_id, exc_info=True)
+    logger.critical("[auth] cohort-archive activation revert FAILED request_id=%s user=%s (activation_incomplete)",
+                    request_id, user_id)
+    return False
+
+
 @router.post("/activate", response_model=AuthActivateResponse)
 async def activate_account(
     payload: ActivateRequest,
@@ -497,6 +542,8 @@ async def activate_account(
     email = auth_user.get("email")
     metadata = auth_user.get("user_metadata", {}) or {}
     code = payload.access_code.strip().upper()
+    request_id = current_request_id() or new_ref()
+    unused_message = "Mã CHƯA được sử dụng — vui lòng thử lại"
 
     # ── Step 1: look up the access code ──────────────────────────────────────
     try:
@@ -508,10 +555,7 @@ async def activate_account(
             .execute()
         )
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Lỗi khi kiểm tra access code trong database: {e}",
-        )
+        raise safe_error(e, context="activation code lookup", ref=request_id) from None
 
     # Audit 2026-07-03 S5 — anti-enumeration. Distinct messages for
     # not-found / used / revoked / expired let a caller distinguish a code that
@@ -578,7 +622,7 @@ async def activate_account(
         code_profiles = (supabase_admin.table("students").select("id, user_id, archived_at")
                          .eq("student_code", code).limit(1).execute().data or [])
     except Exception as e:
-        raise HTTPException(500, f"Lỗi khi tra cứu hồ sơ học viên: {e}")
+        raise safe_error(e, context="activation profile pre-check", ref=request_id) from None
     if linked_profiles:
         profile_archived = all(row.get("archived_at") for row in linked_profiles)
     else:
@@ -589,6 +633,26 @@ async def activate_account(
         )
     if profile_archived:
         raise HTTPException(status_code=403, detail=_ARCHIVED_PROFILE_DETAIL)
+
+    # W1 / CLASSARCHIVE-0030: refuse before Step 2/3 write any account state.
+    # Select * so deploying before 337 (no archived_at column) stays usable.
+    code_cohort_id = access_code_row.get("cohort_id")
+    code_cohort = None
+    if code_cohort_id:
+        try:
+            cohorts = (supabase_admin.table("cohorts").select("*")
+                       .eq("id", str(code_cohort_id)).limit(1).execute().data or [])
+            code_cohort = cohorts[0] if cohorts else None
+        except Exception as e:
+            raise safe_error(e, status_code=503, message=unused_message,
+                             context="activation class pre-check", ref=request_id) from None
+        if code_cohort and code_cohort.get("is_active") is False and code_cohort.get("archived_at"):
+            logger.info("[auth] activation rejected: cohort_archived request_id=%s user=%s cohort=%s",
+                        request_id, user_id, code_cohort_id)
+            _audit_class_activation_rejected(
+                user_id, access_code_row.get("id"), code_cohort_id, request_id=request_id,
+            )
+            raise HTTPException(400, _GENERIC)
 
     # ── Step 1d (ADMINAAL2-0032 FR-018): suspended staff account ─────────────
     # A suspension is lifted only by an admin (PATCH /admin/users/{id}/active),
@@ -601,18 +665,18 @@ async def activate_account(
         suspension = (supabase_admin.table("users").select("*")
                       .eq("id", user_id).limit(1).execute().data or [])
     except Exception as e:
-        raise HTTPException(500, f"Lỗi khi kiểm tra trạng thái tài khoản: {e}")
+        raise safe_error(e, context="activation suspension pre-check", ref=request_id) from None
     if suspension and suspension[0].get("suspended_at"):
         raise staff_security.account_suspended_exception(403)
 
     # ── Step 2: upsert user row (in case /me was never called) ───────────────
-    # Select `role` too so the promote below is upgrade-only / idempotent.
+    # Snapshot the fields Step 3 changes, including nullable permissions/code.
     current_role = "user"
     was_already_active = False  # B1/Mục 2: needed to roll back ONLY a fresh activation if we lose a race
     try:
         existing = (
             supabase_admin.table("users")
-            .select("id, role, is_active")
+            .select("id, role, is_active, access_code_used, permissions")
             .eq("id", user_id)
             .limit(1)
             .execute()
@@ -626,14 +690,17 @@ async def activate_account(
                 "role": "user",
                 "is_active": False,
             }).execute()
-        else:
-            current_role = existing.data[0].get("role") or "user"
-            was_already_active = bool(existing.data[0].get("is_active"))
+            # Capture actual database defaults for a newly created account too.
+            existing = (supabase_admin.table("users")
+                        .select("id, role, is_active, access_code_used, permissions")
+                        .eq("id", user_id).limit(1).execute())
+        user_before = existing.data[0]
+        current_role = user_before.get("role") or "user"
+        was_already_active = bool(user_before.get("is_active"))
+        activation_snapshot = {key: user_before.get(key)
+                               for key in ("is_active", "access_code_used", "permissions")}
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Lỗi khi tạo người dùng: {e}",
-        )
+        raise safe_error(e, context="activation user snapshot", ref=request_id) from None
 
     # ── Step 3: activate the user ─────────────────────────────────────────────
     # Copy permissions from access_code so they survive code revocation later.
@@ -649,22 +716,13 @@ async def activate_account(
     will_promote = promote_role == "instructor" and current_role not in ("admin", "instructor")
     if will_promote:
         update_fields["role"] = "instructor"
+        activation_snapshot["role"] = user_before.get("role")
     try:
         supabase_admin.table("users").update(update_fields).eq("id", user_id).execute()
     except Exception as e:
         if staff_security.is_account_suspended_error(e):
             raise staff_security.account_suspended_exception(403) from None
-        raise HTTPException(
-            status_code=500,
-            detail=f"Lỗi khi kích hoạt tài khoản: {e}",
-        )
-
-    # Audit the successful promote (best-effort; the role write already committed).
-    if will_promote:
-        _audit_promote_attempt(
-            user_id, access_code_row.get("id"),
-            ok=True, before_role=current_role,
-        )
+        raise safe_error(e, context="activation user update", ref=request_id) from None
 
     # ── Step 3b (W-5): enroll-chain — stamp students.instructor_id ATOMICALLY,
     # BEFORE the code is consumed (seam-defect #4: no bolt-tail). Any failure here
@@ -680,11 +738,10 @@ async def activate_account(
             ir = (supabase_admin.table("users").select("role")
                   .eq("id", issued_by).limit(1).execute().data or [None])[0]
         except Exception as e:
-            raise HTTPException(500, f"Lỗi khi kiểm tra người phát mã: {e}")
+            raise safe_error(e, message=unused_message, context="activation issuer lookup",
+                             ref=request_id) from None
         if ir and ir.get("role") == "instructor":
             owner = str(issued_by)
-
-    code_cohort_id = access_code_row.get("cohort_id")
 
     # E6 — a CLASS/COHORT code must attach the student to the CLASS's owner
     # (cohorts.created_by), not only to the code issuer. An instructor who mints
@@ -703,12 +760,7 @@ async def activate_account(
     # codes carry no cohort → enroll_owner stays None (anti-pollution preserved).
     enroll_owner: str | None = owner
     if enroll_owner is None and code_cohort_id:
-        try:
-            cr = (supabase_admin.table("cohorts").select("created_by")
-                  .eq("id", str(code_cohort_id)).limit(1).execute().data or [None])[0]
-        except Exception as e:
-            raise HTTPException(500, f"Lỗi khi tra cứu lớp của mã: {e}")
-        cohort_owner = (cr or {}).get("created_by")
+        cohort_owner = (code_cohort or {}).get("created_by")
         if cohort_owner:
             enroll_owner = str(cohort_owner)
     try:
@@ -721,7 +773,8 @@ async def activate_account(
                    .select("id, user_id, instructor_id, cohort_id, archived_at")
                    .eq("student_code", code).limit(1).execute().data or [])
     except Exception as e:
-        raise HTTPException(500, f"Lỗi khi tra cứu hồ sơ học viên: {e}")
+        raise safe_error(e, message=unused_message, context="activation enrollment lookup",
+                         ref=request_id) from None
 
     target = None
     if by_user:
@@ -818,8 +871,23 @@ async def activate_account(
     except HTTPException:
         raise
     except Exception as e:
+        if is_cohort_archived_error(e):
+            logger.warning("[auth] activation race: cohort_archived request_id=%s user=%s cohort=%s",
+                           request_id, user_id, code_cohort_id)
+            restored = _restore_class_activation_snapshot(user_id, activation_snapshot, request_id)
+            _audit_class_activation_rejected(
+                user_id, access_code_row.get("id"), code_cohort_id, request_id=request_id,
+                race=True, compensation_failed=not restored,
+            )
+            if not restored:
+                raise safe_error(
+                    status_code=503, error_code="activation_incomplete", ref=request_id,
+                    message="Kích hoạt chưa hoàn tất. Mã CHƯA được sử dụng — vui lòng thử lại sau ít phút hoặc liên hệ admin.",
+                ) from None
+            raise HTTPException(400, _GENERIC) from None
         # FATAL, BEFORE consume — fail closed so the code stays retry-able.
-        raise HTTPException(500, f"Lỗi khi ghi danh học viên: {e}")
+        raise safe_error(e, message=unused_message, context="activation enrollment write",
+                         ref=request_id) from None
 
     # The students row this activation enrolled (created or folded). Used after
     # the claim succeeds to backfill the cohort's open gives for a late joiner.
@@ -921,6 +989,10 @@ async def activate_account(
                 detail="Lỗi tạm thời khi kích hoạt mã. Vui lòng thử lại.",
             )
         raise HTTPException(status_code=400, detail="Access code này đã được sử dụng rồi")
+
+    # A rejected/compensated promotion must not be audited as successful.
+    if will_promote:
+        _audit_promote_attempt(user_id, access_code_row.get("id"), ok=True, before_role=current_role)
 
     # ── Step 5: upsert assignment row so admin panel can show the redeemer ───
     try:
