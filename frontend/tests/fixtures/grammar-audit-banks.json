@@ -10461,7 +10461,7 @@
     },
     {
       "code": "G-foundations-few-a-few-little-a-little",
-      "source_sha256": "f758a20763833a2a0f283c27563bdcab08487443fb73dc6b57844972a51447d9",
+      "source_sha256": "1b865d8c11f69d26cb60df4536c5a6af309b0fe44f3c948ea085b4725934d650",
       "metadata": {
         "code": "G-foundations-few-a-few-little-a-little",
         "title": "Quick Check — Few / A few / Little / A little",
@@ -10636,7 +10636,7 @@
           "segments": null,
           "mask": null,
           "pairs": null,
-          "explain": "Ngữ cảnh 'plenty of time' cho thấy sắc thái tích cực (đủ dùng) → dùng 'a few', không phải 'few'.",
+          "explain": "Ngữ cảnh 'plenty of time' mang sắc thái tích cực: vẫn còn một ít thời gian → dùng 'a few'. 'Few' nghĩa là rất ít, gần như không có, trái với ý câu.",
           "points": 1,
           "audio_url": null,
           "grammar_article_slug": "few-a-few-little-a-little",
@@ -10689,7 +10689,7 @@
           "segments": null,
           "mask": null,
           "pairs": null,
-          "explain": "Ngữ cảnh 'helped him during the trip' cho thấy đủ dùng (tích cực) → dùng 'a little', không phải 'little'.",
+          "explain": "Ngữ cảnh 'helped him during the trip' cho thấy anh ấy biết một ít tiếng Pháp và vốn đó có ích (tích cực) → dùng 'a little'. 'Little' nghĩa là gần như không biết.",
           "points": 1,
           "audio_url": null,
           "grammar_article_slug": "few-a-few-little-a-little",
@@ -10951,7 +10951,7 @@
           "order": 17
         }
       ],
-      "manifest_sha256": "c89abcc9cd111e3e374449f7f439e5a648026250a71e2c9d8a07030f972141df"
+      "manifest_sha256": "fa08f119defca13a4ee5c15e9c85b7922711731994a5899a25b79ce6eb10dd83"
     },
     {
       "code": "G-foundations-noun-phrase-basics",
@@ -26830,7 +26830,7 @@
     },
     {
       "code": "G-grammar-for-writing-grammar-in-task1",
-      "source_sha256": "b494b874fc49d79bbf9a86a5ae1b78ec5ba59ea18a94193cb4dcf60d0e91ac5a",
+      "source_sha256": "d95ee61534f3bf2c2343ab0ab76f4f2724f565cba1b37c13444460aa4f872b38",
       "metadata": {
         "code": "G-grammar-for-writing-grammar-in-task1",
         "title": "Quick Check — Grammar in Task 1",
@@ -27056,7 +27056,7 @@
           "segments": null,
           "mask": null,
           "pairs": null,
-          "explain": "Process diagram mô tả việc được làm, không nêu ai làm → bị động: is/are + V-ed. 'are transported' đúng vì chủ ngữ số nhiều.",
+          "explain": "Bước do người/máy thực hiện và không cần nêu ai làm → thường dùng bị động: is/are + V-ed. 'are transported' đúng vì chủ ngữ số nhiều.",
           "points": 1,
           "audio_url": null,
           "grammar_article_slug": "grammar-in-task1",
@@ -27084,7 +27084,7 @@
           "segments": null,
           "mask": null,
           "pairs": null,
-          "explain": "Bước trong quy trình luôn nêu KHÁCH QUAN, không nêu người thực hiện → bị động present simple: 'is heated'.",
+          "explain": "Đun nóng là bước có tác nhân tác động lên hỗn hợp → thường dùng bị động present simple: 'is heated'. Bước tự diễn ra (water evaporates) vẫn dùng chủ động.",
           "points": 1,
           "audio_url": null,
           "grammar_article_slug": "grammar-in-task1",
@@ -27140,7 +27140,7 @@
           "segments": null,
           "mask": null,
           "pairs": null,
-          "explain": "Task 1 process cần khách quan, tập trung vào bước xảy ra chứ không phải người làm → 'The beans are collected by hand' (bị động) phù hợp hơn câu chủ động.",
+          "explain": "Quy trình nhân tạo thường dùng bị động để tập trung vào bước làm, không phải người làm → 'The beans are collected by hand' phù hợp hơn. Chủ động vẫn tự nhiên với bước tự diễn ra (the beans dry in the sun).",
           "points": 1,
           "audio_url": null,
           "grammar_article_slug": "grammar-in-task1",
@@ -27721,7 +27721,7 @@
           "order": 32
         }
       ],
-      "manifest_sha256": "33dc3cdde9ad5e518694b0beec26aabc3bb9db4e98fb33cd7cc219996ff13d3f"
+      "manifest_sha256": "b8041a19a25feda6410ca217633a3e0008d6ceb196aa9fb260237aebb450d914"
     },
     {
       "code": "G-grammar-for-writing-parallel-structure",

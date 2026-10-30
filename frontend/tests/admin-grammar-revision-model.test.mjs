@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import {
-  GRAMMAR_REVISION_CODES, commandFits, freezeRevisionCommand, grammarSourceHash,
+  GRAMMAR_FOLLOWUP_CODES, GRAMMAR_REVISION_CODES, commandFits, freezeRevisionCommand, grammarSourceHash,
   isGrammarRevisionCode, normalizeRevisionAck, normalizeRevisionPreview, normalizeRevisionRead,
   revisionReadbackMatches, sourceBytes,
 } from '../lib/admin-grammar-revision-model.ts';
@@ -246,4 +246,29 @@ test('synthetic JSON classifications retain special own keys as detached data pr
   read.footprint.classifications.__proto__ = 3;
   assert.equal(raw.footprint.classifications.__proto__, 2);
   assert.deepEqual(Object.getOwnPropertyDescriptors(Object.prototype), prototypeBefore);
+});
+
+test('GRAMMARAUDIT-0019 FR-007: follow-up reads and first-edge replays are limited to the three named codes', () => {
+  const followups = ['G-grammar-for-reading-long-sentence-untangling', 'G-grammar-for-writing-grammar-in-task1', 'G-foundations-few-a-few-little-a-little'];
+  assert.deepEqual([...GRAMMAR_FOLLOWUP_CODES].sort(), [...followups].sort());
+  const middle = '33333333-3333-4333-8333-333333333333';
+  for (const code of GRAMMAR_REVISION_CODES) {
+    const allowed = followups.includes(code);
+    // Two managed banks, current = the middle bank: a follow-up is offered only for the three codes.
+    const offered = clone(row.ack.canonical);
+    Object.assign(offered, { canonical_code: code, publication_available: true, original_bank_id: offered.current_bank_id });
+    assert.equal(normalizeRevisionRead(offered, code) !== null, allowed, code);
+    // Three banks (root → middle → final) exist only for the three codes, with no further publication.
+    const chain = clone(row.ack.canonical);
+    Object.assign(chain, { canonical_code: code, bank_ids: [chain.bank_ids[0], middle, chain.bank_ids[1]], original_bank_id: middle });
+    assert.equal(normalizeRevisionRead(chain, code) !== null, allowed, code);
+    assert.equal(normalizeRevisionRead({ ...chain, publication_available: true }, code), null, code);
+    // Replaying the first edge's receipt after the follow-up: valid only for the three codes.
+    const replay = clone(row.ack);
+    Object.assign(replay, { canonical_code: code, outcome: 'already_applied', corrected_bank_id: middle,
+      current_revision: chain.revision, committed_revision: 'c'.repeat(64), current_matches_committed: false, canonical: chain });
+    const command = Object.freeze({ ...commandFor(), code });
+    assert.equal(normalizeRevisionAck(replay, command) !== null, allowed, code);
+    assert.equal(normalizeRevisionAck({ ...replay, outcome: 'applied' }, command), null, code);
+  }
 });
