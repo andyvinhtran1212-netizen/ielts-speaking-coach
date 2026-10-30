@@ -8,21 +8,34 @@ Endpoints
 POST /api/analytics/events   → record a named event with optional payload
 """
 
+import asyncio
 import json
 import logging
 import math
+import threading
 import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Header
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from database import supabase_admin
+from database import thread_supabase_admin
 from routers.auth import get_supabase_user
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
+
+# Incident 2026-10-30: the insert used to run the sync client ON the event loop,
+# so every page_view beacon froze the whole (single-process) backend for one
+# Supabase round-trip. It now runs in a worker thread on that thread's own
+# service-role client (PC-J05 D1b pattern; the shared sync singleton is never
+# handed to a thread). Each in-flight insert holds a default-executor worker for
+# up to the sync client's timeout when Supabase hangs, so at most this many run
+# at once and an event over the cap is dropped (best-effort telemetry) instead
+# of queueing behind the executor the other to_thread sections share.
+_MAX_IN_FLIGHT_INSERTS = 8
+_insert_slots = threading.BoundedSemaphore(_MAX_IN_FLIGHT_INSERTS)
 
 
 class AnalyticsEventPayload(BaseModel):
@@ -77,6 +90,17 @@ class AnalyticsEventPayload(BaseModel):
         return clean
 
 
+def _insert_event(row: dict) -> None:
+    """Worker-thread body. Releases its slot when the call really ends, even if
+    the awaiting request was cancelled first."""
+    try:
+        thread_supabase_admin().table("analytics_events").insert(row).execute()
+    except Exception as exc:
+        logger.warning("[analytics] failed to record event %s: %s", row["event_name"], exc)
+    finally:
+        _insert_slots.release()
+
+
 async def _attribute_user(authorization: str | None) -> str | None:
     """Sprint 17.4 — best-effort user attribution for foot-traffic. Returns the
     user id when a valid Bearer token is present, else None (anonymous). NEVER
@@ -99,15 +123,23 @@ async def record_event(
     Sprint 17.4: attributes user_id from the (optional) Bearer token; anonymous
     visitors record user_id=NULL."""
     user_id = await _attribute_user(authorization)
+    row = {
+        "id":         str(uuid.uuid4()),
+        "event_name": payload.event_name,
+        "event_data": payload.event_data,
+        "session_id": payload.session_id,
+        "user_id":    user_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if not _insert_slots.acquire(blocking=False):
+        logger.warning("[analytics] dropped event %s: %d inserts already in flight",
+                       payload.event_name, _MAX_IN_FLIGHT_INSERTS)
+        return {"ok": True}
     try:
-        supabase_admin.table("analytics_events").insert({
-            "id":         str(uuid.uuid4()),
-            "event_name": payload.event_name,
-            "event_data": payload.event_data,
-            "session_id": payload.session_id,
-            "user_id":    user_id,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }).execute()
-    except Exception as exc:
+        await asyncio.to_thread(_insert_event, row)
+    except RuntimeError as exc:
+        # to_thread could not schedule (executor shut down): the worker never
+        # ran, so its slot is still ours to give back.
+        _insert_slots.release()
         logger.warning("[analytics] failed to record event %s: %s", payload.event_name, exc)
     return {"ok": True}
