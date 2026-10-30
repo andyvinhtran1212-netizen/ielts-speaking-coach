@@ -11,6 +11,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
+const { load: loadYaml } = require('js-yaml');
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FRONTEND = path.resolve(HERE, '..');
 const ROOT = path.resolve(FRONTEND, '..');
@@ -18,7 +19,7 @@ const SANITIZE = path.join(FRONTEND, 'tooling', 'sanitize-artifacts.mjs');
 const SCAN = path.join(FRONTEND, 'tooling', 'scan-artifact-secrets.mjs');
 
 const redaction = require('../tooling/redact-secrets.cjs');
-const { redactSecrets, redactError, countSecretMatches, readZip, writeZip } = redaction;
+const { SECRET_ENV_NAMES, redactSecrets, redactError, countSecretMatches, readZip, writeZip } = redaction;
 
 const FAKE_JWT = 'eyJTEST' + 'x'.repeat(20) + '.eyJTEST' + 'y'.repeat(20) + '.sigFAKE';
 const FAKE_REFRESH = 'rtFAKE' + 'r'.repeat(18);
@@ -191,6 +192,63 @@ test('an archive that cannot be opened fails the guard and is removed by sanitiz
   }
 });
 
+test('password/TOTP literals in report and trace are missed with bypass-only env and removed with all secret envs', () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'pcj481-artifacts-'));
+  const fakePassword = 'passwordFAKE' + 'p'.repeat(20);
+  const fakeTotp = 'JBSW' + 'Y3DP'.repeat(6);
+  const env = {
+    STAGING_BYPASS: FAKE_BYPASS,
+    E2E_PASSWORD: fakePassword,
+    STAGING_E2E_ADMIN_TOTP_SECRET: fakeTotp,
+  };
+  const literals = Object.values(env);
+  try {
+    const report = path.join(dir, 'index.html');
+    const trace = path.join(dir, 'trace.zip');
+    // Neutral text avoids contextual password/header patterns: these need env literals.
+    const payload = JSON.stringify({ note: `form filled ${fakePassword}; step-up setup ${fakeTotp}` });
+    writeFileSync(report, playwrightReportHtml([['report.json', payload]]));
+    writeFileSync(trace, writeZip([{ name: 'trace.trace', data: Buffer.from(payload) }]));
+
+    // This is the workflow hole: bypass-only env misses password/TOTP in the same report.
+    const bypassOnly = run(SCAN, [dir], { STAGING_BYPASS: FAKE_BYPASS });
+    assert.equal(bypassOnly.status, 0, bypassOnly.stdout + bypassOnly.stderr);
+    assert.match(bypassOnly.stdout, /2 file\(s\) scanned, 0 flagged/);
+
+    const before = run(SCAN, [dir], env);
+    assert.equal(before.status, 1, 'all-secret guard must reject password/TOTP literals');
+    const output = before.stdout + before.stderr;
+    for (const literal of literals) assert.ok(!output.includes(literal), 'guard output must not print a literal');
+    assert.deepEqual(output.trim().split('\n'), [
+      `${report}: 2 secret-like match(es)`,
+      `${trace}: 2 secret-like match(es)`,
+      'scan-artifact-secrets: 2 file(s) scanned, 2 flagged',
+      '::error::Artifact secret guard: secret-like values remain in files queued for upload; the upload is blocked.',
+    ]);
+
+    const sanitized = run(SANITIZE, [dir], env);
+    assert.equal(sanitized.status, 0, sanitized.stderr);
+    for (const literal of literals) {
+      assert.ok(!(sanitized.stdout + sanitized.stderr).includes(literal), 'sanitize output must not print a literal');
+    }
+    const after = run(SCAN, [dir], env);
+    assert.equal(after.status, 0, after.stdout + after.stderr);
+    assert.match(after.stdout, /2 file\(s\) scanned, 0 flagged/);
+
+    const html = readFileSync(report, 'utf8');
+    const embedded = html.match(redaction.PLAYWRIGHT_REPORT_RE);
+    assert.ok(embedded && html.startsWith('<!DOCTYPE html>'), 'HTML report remains openable');
+    for (const entries of [readZip(Buffer.from(embedded[2], 'base64')), readZip(readFileSync(trace))]) {
+      assert.equal(entries.length, 1);
+      const text = entries[0].data.toString('utf8');
+      for (const literal of literals) assert.ok(!text.includes(literal), 'archive entry must contain zero literal matches');
+      assert.equal(JSON.parse(text).note, 'form filled [REDACTED]; step-up setup [REDACTED]');
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('a failing APIRequestContext call is rethrown without the bearer token', async () => {
   const { installRequestErrorRedaction } = require('./staging-e2e/fixtures.js');
   const { request } = require('@playwright/test');
@@ -259,6 +317,35 @@ const UPLOAD_GUARDS = {
   '.github/workflows/e2e.yml': 2,
   '.github/workflows/next-native-browser.yml': 2,
 };
+
+test('every artifact guard receives every secret env used by its job from the same GitHub secret', () => {
+  const missing = [];
+  for (const [file, expected] of Object.entries(UPLOAD_GUARDS)) {
+    const workflow = loadYaml(readFileSync(path.join(ROOT, file), 'utf8'));
+    let guardCount = 0;
+    for (const [jobName, job] of Object.entries(workflow.jobs)) {
+      const steps = job.steps || [];
+      const guards = steps.filter((step) => step.run?.includes('scan-artifact-secrets.mjs'));
+      guardCount += guards.length;
+      const required = new Map();
+      for (const step of steps) {
+        for (const [name, value] of Object.entries(step.env || {})) {
+          if (!SECRET_ENV_NAMES.includes(name)) continue;
+          assert.match(value, /^\$\{\{\s*secrets\.[A-Za-z_]\w*\s*\}\}$/, `${file}: ${jobName}/${name} must come from secrets`);
+          if (required.has(name)) assert.equal(value, required.get(name), `${file}: ${jobName}/${name} has conflicting sources`);
+          required.set(name, value);
+        }
+      }
+      for (const guard of guards) {
+        for (const [name, value] of required) {
+          if (guard.env?.[name] !== value) missing.push(`${file}: ${jobName}/${guard.id || guard.name}: ${name} must use ${value}`);
+        }
+      }
+    }
+    assert.equal(guardCount, expected, `${file}: all artifact guards must be checked`);
+  }
+  assert.deepEqual(missing, [], 'artifact guards must inherit every job secret env with the same source');
+});
 
 test('every artifact upload in the staging/PR workflows waits for sanitize + scan', () => {
   for (const [file, expected] of Object.entries(UPLOAD_GUARDS)) {
