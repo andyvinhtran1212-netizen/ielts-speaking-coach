@@ -49,35 +49,42 @@ class Finding:
         return f"{self.path}::{self.function}::{self.callee}"
 
 
-def _nodes(body: Iterable[ast.AST], *, consume_generator: bool = False) -> Iterable[ast.AST]:
+def _nodes(body: Iterable[ast.AST], *, consume_generator: bool = False,
+           consumed: set[int] | None = None) -> Iterable[ast.AST]:
     """Nodes executed in this scope, excluding deferred bodies."""
     for node in body:
         yield node
+        if consume_generator and consumed is not None:
+            consumed.add(id(node))
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
             # Defaults and decorators run when the callable is CREATED, even
             # when its body will later be handed to a worker thread.
             eager = [*node.args.defaults, *(v for v in node.args.kw_defaults if v is not None)]
             if not isinstance(node, ast.Lambda):
                 eager.extend(node.decorator_list)
-            yield from _nodes(eager)
+            yield from _nodes(eager, consumed=consumed)
         elif isinstance(node, ast.GeneratorExp) and not consume_generator:
             # Only the first iterable is evaluated at generator creation. The
             # element, filters and subsequent iterables wait for consumption.
-            yield from _nodes([node.generators[0].iter])
+            yield from _nodes([node.generators[0].iter], consumed=consumed)
         elif isinstance(node, ast.Call):
             consumer = (
                 isinstance(node.func, ast.Name) and node.func.id in EAGER_CONSUMERS
                 or isinstance(node.func, ast.Attribute) and node.func.attr in {"join", "extend", "update"}
             )
             for child in ast.iter_child_nodes(node):
-                yield from _nodes([child], consume_generator=consumer)
+                yield from _nodes([child], consume_generator=consumer, consumed=consumed)
         elif isinstance(node, (ast.For, ast.comprehension)):
             for child in ast.iter_child_nodes(node):
-                yield from _nodes([child], consume_generator=child is node.iter)
-        elif isinstance(node, ast.Starred):
-            yield from _nodes([node.value], consume_generator=True)
+                yield from _nodes([child], consume_generator=child is node.iter, consumed=consumed)
+        elif isinstance(node, ast.With):
+            for item in node.items:
+                yield from _nodes([item.context_expr], consume_generator=True, consumed=consumed)
+            yield from _nodes(node.body, consumed=consumed)
+        elif isinstance(node, (ast.Starred, ast.YieldFrom)):
+            yield from _nodes([node.value], consume_generator=True, consumed=consumed)
         elif not isinstance(node, ast.ClassDef):
-            yield from _nodes(ast.iter_child_nodes(node))
+            yield from _nodes(ast.iter_child_nodes(node), consumed=consumed)
 
 
 def _name(node: ast.AST, symbols: dict[str, str]) -> str:
@@ -187,20 +194,45 @@ def _primitive(call: ast.Call, symbols: dict[str, str], awaited: bool) -> str | 
 
 def scan_sources(sources: dict[str, str]) -> list[Finding]:
     functions = _functions(sources)
-    calls = {
-        name: [node for node in _nodes(fn.node.body) if isinstance(node, ast.Call)]
+    consumed = {name: set() for name in functions}
+    nodes = {
+        name: list(_nodes(fn.node.body, consumed=consumed[name]))
         for name, fn in functions.items()
+    }
+    generators = {
+        name for name, fn in functions.items()
+        if isinstance(fn.node, ast.FunctionDef)
+        and any(isinstance(node, (ast.Yield, ast.YieldFrom)) for node in nodes[name])
+    }
+    calls = {
+        name: [node for node in body if isinstance(node, ast.Call)]
+        for name, body in nodes.items()
     }
     awaited = {
-        name: {id(node.value) for node in _nodes(fn.node.body) if isinstance(node, ast.Await)}
-        for name, fn in functions.items()
+        name: {id(node.value) for node in body if isinstance(node, ast.Await)}
+        for name, body in nodes.items()
     }
+
+    def target_at_execution(name: str, node: ast.AST) -> str | None:
+        fn = functions[name]
+        if isinstance(node, ast.Call):
+            target = _name(node.func, fn.symbols)
+            # Calling a generator function constructs an iterator. Its body
+            # only runs when an eager consumer advances it in this scope.
+            if target not in generators or id(node) in consumed[name]:
+                return target
+        elif isinstance(node, (ast.Name, ast.Attribute)) and id(node) in consumed[name]:
+            target = _name(node, fn.symbols)
+            if target in generators:  # e.g. rows = responses(urls); list(rows)
+                return target
+        return None
+
     blocking = set()
     edges = {}
     for name, fn in functions.items():
         if isinstance(fn.node, ast.AsyncFunctionDef):
             continue
-        edges[name] = {_name(call.func, fn.symbols) for call in calls[name]}
+        edges[name] = {target_at_execution(name, node) for node in nodes[name]}
         if any(_primitive(call, fn.symbols, id(call) in awaited[name]) for call in calls[name]):
             blocking.add(name)
     while True:
@@ -213,11 +245,12 @@ def scan_sources(sources: dict[str, str]) -> list[Finding]:
     for name, fn in functions.items():
         if not isinstance(fn.node, ast.AsyncFunctionDef):
             continue
-        for call in calls[name]:
-            callee = _primitive(call, fn.symbols, id(call) in awaited[name])
-            target = _name(call.func, fn.symbols)
+        for node in nodes[name]:
+            callee = (_primitive(node, fn.symbols, id(node) in awaited[name])
+                      if isinstance(node, ast.Call) else None)
+            target = target_at_execution(name, node)
             if callee or target in blocking:
-                findings.append(Finding(fn.path, fn.name, callee or target, call.lineno))
+                findings.append(Finding(fn.path, fn.name, callee or target, node.lineno))
     return sorted(findings, key=lambda f: (f.path, f.function, f.line, f.callee))
 
 

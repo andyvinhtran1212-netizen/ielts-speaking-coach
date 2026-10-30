@@ -112,6 +112,79 @@ def test_inline_for_consumes_generator_on_the_loop():
     """)) == 1
 
 
+GENERATOR_HELPERS = """
+import requests
+def responses(urls):
+    for url in urls:
+        yield requests.get(url)
+def delegated(urls):
+    yield from responses(urls)
+def collect(urls):
+    return list(delegated(urls))
+"""
+
+
+@pytest.mark.parametrize("expression", [
+    "responses(urls)",
+    "await asyncio.to_thread(list, responses(urls))",
+    "await asyncio.to_thread(list, delegated(urls))",
+    "await asyncio.to_thread(collect, urls)",
+    "rows = responses(urls)\n    await asyncio.to_thread(list, rows)",
+])
+def test_named_generator_creation_and_worker_consumption_pass(expression):
+    assert not scan(GENERATOR_HELPERS + "\nasync def f(urls):\n    " + expression)
+
+
+@pytest.mark.parametrize("expression", [
+    "list(responses(urls))",
+    "list(delegated(urls))",
+    "collect(urls)",
+    "rows = responses(urls)\n    list(rows)",
+    "for response in responses(urls):\n        pass",
+    "await asyncio.to_thread(list, *(responses(urls)))",
+    "await asyncio.to_thread(list, responses(requests.get('url').json()))",
+])
+def test_named_generator_consumption_on_loop_or_eager_arguments_fail(expression):
+    assert len(scan(GENERATOR_HELPERS + "\nasync def f(urls):\n    " + expression)) == 1
+
+
+def test_cross_module_generator_creation_is_deferred_until_consumption():
+    module = {"services/work.py": GENERATOR_HELPERS}
+    assert not scan("""
+        from services.work import responses
+        async def f(urls):
+            await asyncio.to_thread(list, responses(urls))
+    """, **module)
+    findings = scan("""
+        from services.work import responses
+        async def f(urls):
+            list(responses(urls))
+    """, **module)
+    assert len(findings) == 1
+    assert findings[0].callee == "services.work.responses"
+
+
+@pytest.mark.parametrize("expression, count", [
+    ("session()", 0),
+    ("await asyncio.to_thread(work)", 0),
+    ("with session():\n        pass", 1),
+    ("work()", 1),
+])
+def test_generator_context_manager_runs_only_when_entered(expression, count):
+    findings = scan(dedent("""
+        from contextlib import contextmanager
+        import requests
+        @contextmanager
+        def session():
+            requests.get('url')
+            yield None
+        def work():
+            with session():
+                pass
+    """) + "\nasync def f():\n    " + expression)
+    assert len(findings) == count
+
+
 @pytest.mark.parametrize("source", [
     "import requests as r\nasync def f():\n    r.get('url')",
     "from requests import post as send\nasync def f():\n    send('url')",
