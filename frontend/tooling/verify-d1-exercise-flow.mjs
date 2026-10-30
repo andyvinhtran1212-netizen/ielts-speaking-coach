@@ -1,7 +1,6 @@
 // Fixture-backed browser contract for the native authenticated D1 player.
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
-import { createFlowWatchdog } from './lib/flow-watchdog.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3012';
 const api = new URL(process.env.AVER_API_BASE || 'http://127.0.0.1:3999');
@@ -785,3 +784,102 @@ await context.close();
 await browser.close();
 guard.stop();
 if (results.some((item) => !item.ok)) process.exitCode = 1;
+
+// PC-J253 — fail-fast guard. The same copy is in verify-d1-exercise-flow.mjs
+// and verify-vocabulary-class-sets-flow.mjs: a new imported tooling module
+// must be listed in next-native-browser.yml `paths` (workflow-path-coverage).
+// It bounds every awaited fixture signal and the whole script; on failure it
+// prints the last passed check, the awaited label, the URL, recent API
+// requests (token class only, never the token), unhandled fixture requests,
+// page/console errors and 2 kB of the page text, then exits 1.
+function createFlowWatchdog({ name, totalMs, waitMs = 15_000 }) {
+  const startedAt = Date.now();
+  const requests = [];
+  const unhandled = [];
+  const pageErrors = [];
+  let page = null;
+  let lastCheck = '(none)';
+  let waitingFor = '(none)';
+  let failing = false;
+  const tokenClass = (authorization) => {
+    if (!authorization) return 'none';
+    const known = String(authorization).replace(/^Bearer\s+/i, '').match(/^(fixture|refreshed|foreign)(?:-|$)/);
+    return known ? known[1] : 'other';
+  };
+  const bounded = (read, fallback) => {
+    let timer;
+    return Promise.race([
+      Promise.resolve().then(read).catch((error) => `${fallback}: ${String(error?.message || error).split('\n')[0]}`),
+      new Promise((resolve) => { timer = setTimeout(() => resolve(fallback), 5_000); }),
+    ]).finally(() => clearTimeout(timer));
+  };
+  async function fail(reason) {
+    if (failing) return new Promise(() => {});
+    failing = true;
+    const lines = [
+      `✗ ${name}: ${reason}`,
+      `  elapsed: ${((Date.now() - startedAt) / 1000).toFixed(1)}s`,
+      `  last passed check: ${lastCheck}`,
+      `  waiting for: ${waitingFor}`,
+      `  url: ${page ? await bounded(() => page.url(), '(url unavailable)') : '(no page)'}`,
+      '  last 30 API requests (method path · x-request-id · token):',
+      ...requests.slice(-30).map((entry) => `    ${entry}`),
+      `  unhandled fixture requests: ${unhandled.length ? unhandled.join(', ') : '(none)'}`,
+      `  page errors / console errors: ${pageErrors.length ? '' : '(none)'}`,
+      ...pageErrors.slice(-20).map((entry) => `    ${entry}`),
+    ];
+    if (page) {
+      const text = await bounded(() => page.evaluate(() => document.body?.innerText ?? '(no body)'), '(body unavailable)');
+      lines.push('  document.body.innerText (first 2000 chars):');
+      lines.push(...String(text).slice(0, 2_000).split('\n').map((line) => `    | ${line}`));
+    }
+    console.log(lines.join('\n'));
+    process.exit(1);
+    return new Promise(() => {});
+  }
+  const watchdog = setTimeout(() => { void fail(`watchdog: script exceeded ${Math.round(totalMs / 1000)}s`); }, totalMs);
+  watchdog.unref();
+  // Playwright timeouts and assertion errors surface as a rejected top-level
+  // await; report them with the same diagnostics instead of a bare stack.
+  const onCrash = (error) => { void fail(`uncaught error: ${error?.stack || error}`); };
+  process.on('uncaughtException', onCrash);
+  process.on('unhandledRejection', onCrash);
+  return {
+    watchPage(target) {
+      page = target;
+      target.on('pageerror', (error) => pageErrors.push(`pageerror: ${String(error).split('\n')[0]}`));
+      target.on('console', (message) => {
+        if (message.type() === 'error') pageErrors.push(`console.error: ${message.text().slice(0, 300)}`);
+      });
+    },
+    recordRequest(request) {
+      const headers = request.headers();
+      requests.push(`${request.method()} ${new URL(request.url()).pathname} · ${headers['x-request-id'] ? 'xrid' : 'no-xrid'} · ${tokenClass(headers.authorization)}`);
+      if (requests.length > 120) requests.splice(0, requests.length - 30);
+    },
+    recordUnhandled(entry) { unhandled.push(entry); },
+    passed(checkName) { lastCheck = checkName; },
+    /** Await a fixture signal for at most `ms`; on timeout print diagnostics and exit 1. */
+    async within(promise, label, ms = waitMs) {
+      waitingFor = label;
+      let timer;
+      try {
+        return await Promise.race([
+          promise,
+          new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`timeout after ${ms}ms`)), ms); }),
+        ]);
+      } catch (error) {
+        return fail(`${label}: ${error?.message || error}`);
+      } finally {
+        clearTimeout(timer);
+        if (waitingFor === label) waitingFor = '(none)';
+      }
+    },
+    fail,
+    stop() {
+      clearTimeout(watchdog);
+      process.off('uncaughtException', onCrash);
+      process.off('unhandledRejection', onCrash);
+    },
+  };
+}
