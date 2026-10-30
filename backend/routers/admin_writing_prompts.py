@@ -591,6 +591,7 @@ def _review_prompt_analysis_sync(prompt_id: UUID, body: PromptAnalysisReview):
             "prompt_image_analysis_reviewed": body.reviewed,
             "prompt_image_analysis_status":   "ready",
             "prompt_image_analysis_error":    None,
+            "prompt_image_analysis_public_id": body.expected_image_public_id,
         })
         .eq("id", str(prompt_id))
     )

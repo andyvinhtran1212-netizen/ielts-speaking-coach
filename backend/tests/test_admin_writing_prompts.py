@@ -17,6 +17,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
+from services import writing_prompt_analysis
+
 
 def _client() -> TestClient:
     from main import app
@@ -866,11 +868,13 @@ class _ReviewPromptQuery:
         return MagicMock(data=[dict(self.store.row)])
 
 
-def _review_store_row(status, public_id: str = "prompts/x.png") -> dict:
+def _review_store_row(status, public_id: str = "prompts/x.png",
+                      analysis_public_id: str | None = None) -> dict:
     return {
         "id": _PROMPT_ID, "task_type": "task1_academic",
         "prompt_image_url": "https://cur/x.png",
         "prompt_image_public_id": public_id,
+        "prompt_image_analysis_public_id": analysis_public_id,
         "prompt_image_analysis_status": status,
         "prompt_image_analysis_error": "model timeout" if status == "failed" else None,
         "prompt_image_analysis_reviewed": False,
@@ -899,6 +903,11 @@ def test_review_analysis_saves_after_failed_analysis():
     assert store.row["prompt_image_analysis_error"] is None
     assert store.row["prompt_image_analysis_reviewed"] is True
     assert r.json()["prompt_image_analysis_status"] == "ready"
+    # PC-J470: the approved key is stamped with the image it was reviewed
+    # against, so it no longer reads as "needs analysis" (backfill target).
+    assert store.row["prompt_image_analysis_public_id"] == "prompts/x.png"
+    assert r.json()["prompt_image_analysis_public_id"] == "prompts/x.png"
+    assert writing_prompt_analysis.image_needs_analysis(store.row) is False
 
 
 def test_review_analysis_saves_when_never_analysed():
@@ -908,6 +917,36 @@ def test_review_analysis_saves_when_never_analysed():
     assert store.writes == 1
     assert store.row["prompt_image_analysis_status"] == "ready"
     assert store.row["prompt_image_analysis_reviewed"] is True
+    assert store.row["prompt_image_analysis_public_id"] == "prompts/x.png"
+    assert r.json()["prompt_image_analysis_public_id"] == "prompts/x.png"
+    assert writing_prompt_analysis.image_needs_analysis(store.row) is False
+
+
+def test_review_analysis_ready_keeps_current_fingerprint():
+    store = _ReviewPromptStore(
+        _review_store_row("ready", analysis_public_id="prompts/x.png"))
+    r = _patch_review(store)
+    assert r.status_code == 200, r.text
+    assert store.writes == 1
+    assert store.row["prompt_image_analysis_status"] == "ready"
+    assert store.row["prompt_image_analysis_reviewed"] is True
+    assert store.row["prompt_image_analysis_public_id"] == "prompts/x.png"
+    assert writing_prompt_analysis.image_needs_analysis(store.row) is False
+
+
+def test_backfill_skips_answer_key_reviewed_after_failed_analysis():
+    """`backfill_prompt_analysis --execute` re-extracts every row its target
+    query returns; a key approved after a failed analysis must not be one."""
+    from scripts.backfill_prompt_analysis import _enumerate_targets
+
+    store = _ReviewPromptStore(_review_store_row("failed"))
+    assert _patch_review(store).status_code == 200
+
+    db = MagicMock()
+    (db.table.return_value.select.return_value.eq.return_value
+     .not_.is_.return_value.eq.return_value.execute.return_value) = MagicMock(
+        data=[dict(store.row)])
+    assert _enumerate_targets(db) == []
 
 
 def test_review_analysis_store_still_rejects_pending():
@@ -917,6 +956,7 @@ def test_review_analysis_store_still_rejects_pending():
     assert r.json()["detail"] == "Image analysis is still pending; wait before reviewing"
     assert store.writes == 0
     assert store.row["prompt_image_analysis_status"] == "pending"
+    assert store.row["prompt_image_analysis_public_id"] is None
 
 
 def test_review_analysis_store_still_rejects_stale_image():
@@ -926,6 +966,7 @@ def test_review_analysis_store_still_rejects_stale_image():
     assert r.json()["detail"] == "Prompt image changed; reload the answer key before saving"
     assert store.writes == 0
     assert store.row["prompt_image_analysis_status"] == "failed"
+    assert store.row["prompt_image_analysis_public_id"] is None
 
 
 def test_review_analysis_rejects_reanalysis_started_after_read():
@@ -941,3 +982,4 @@ def test_review_analysis_rejects_reanalysis_started_after_read():
     assert store.writes == 0
     assert store.row["prompt_image_analysis_status"] == "pending"
     assert store.row["prompt_image_analysis_reviewed"] is False
+    assert store.row["prompt_image_analysis_public_id"] is None
