@@ -176,6 +176,7 @@ def _ready_error(exc):
 
 
 async def _collect_ready_checks(is_admin):
+    global _ready_probe_cache
     database, *results = await asyncio.gather(
         _ready_probe('database', lambda: _ready_table('users', 'id', 1)),
         *(_ready_probe(table, lambda table=table: _ready_table(
@@ -220,7 +221,17 @@ async def _collect_ready_checks(is_admin):
         logger.warning('[health] readiness curated probe failed: %s', _ready_error(curated))
         curated = 'fail'
     checks['curated_schema'] = {'status': curated}
+    _ready_probe_cache = (time.monotonic(), {
+        name: {'status': check['status']} for name, check in checks.items()
+    })
     return checks
+
+
+def _cached_ready_checks():
+    if (_ready_probe_cache is not None
+            and time.monotonic() - _ready_probe_cache[0] < _READY_PROBE_TTL_SECONDS):
+        return {name: dict(check) for name, check in _ready_probe_cache[1].items()}
+    return None
 
 
 @router.get("/health/ready")
@@ -233,18 +244,18 @@ async def health_ready(authorization: str | None = Header(default=None)) -> dict
     Anonymous callers see only pass/fail statuses; the raw DB error string
     (which can leak hostname/schema hints) is included only for admins.
     """
-    global _ready_probe_cache
     is_admin = await _is_admin(authorization)
-    async with _ready_probe_lock:
-        now = time.monotonic()
-        if (not is_admin and _ready_probe_cache is not None
-                and now - _ready_probe_cache[0] < _READY_PROBE_TTL_SECONDS):
-            checks = {name: dict(check) for name, check in _ready_probe_cache[1].items()}
-        else:
-            checks = await _collect_ready_checks(is_admin)
-            _ready_probe_cache = (time.monotonic(), {
-                name: {'status': check['status']} for name, check in checks.items()
-            })
+    if is_admin:
+        # Concurrent diagnostics share in-flight probes, including timeout
+        # waits, without queuing a timeout per admin ahead of public monitors.
+        checks = await _collect_ready_checks(True)
+    else:
+        checks = _cached_ready_checks()
+        if checks is None:
+            async with _ready_probe_lock:
+                checks = _cached_ready_checks()
+                if checks is None:
+                    checks = await _collect_ready_checks(False)
     return {
         'status': 'ok' if all(check['status'] in ('ok', 'disabled')
                               for check in checks.values()) else 'degraded',

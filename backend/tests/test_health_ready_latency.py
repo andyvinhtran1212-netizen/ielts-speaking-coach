@@ -235,6 +235,39 @@ def test_timeout_reuses_unfinished_probe_after_cache_expiry(monkeypatch, ready_c
     asyncio.run(exercise())
 
 
+def test_cached_monitor_and_concurrent_admins_are_not_serialized(monkeypatch, ready_client):
+    database = SlowDatabase()
+    monkeypatch.setattr(health, "supabase_admin", database)
+    monkeypatch.setattr(health, "_READY_PROBE_TIMEOUT_SECONDS", 0.15, raising=False)
+
+    async def exercise():
+        async with ready_client as client:
+            assert (await client.get("/health/ready")).json()["status"] == "ok"
+            database.blocked_table = "users"
+            start = time.perf_counter()
+            admins = [asyncio.create_task(client.get(
+                "/health/ready", headers={"Authorization": "Bearer test-admin"},
+            )) for _ in range(5)]
+            await asyncio.sleep(0.02)
+            monitor_start = time.perf_counter()
+            try:
+                monitor = await client.get("/health/ready")
+                assert time.perf_counter() - monitor_start < 0.05
+                assert monitor.status_code == 200
+                assert monitor.json()["status"] == "ok"
+                assert all(set(check) == {"status"} for check in monitor.json()["checks"].values())
+                responses = await asyncio.gather(*admins)
+                assert time.perf_counter() - start < 0.4
+                assert all(response.status_code == 200 for response in responses)
+                assert all(response.json()["checks"]["database"]["status"] == "fail" for response in responses)
+                assert database.calls["users"] == 2  # warm-up + one shared stalled read
+            finally:
+                database.release.set()
+                await asyncio.gather(*admins)
+
+    asyncio.run(exercise())
+
+
 @pytest.mark.parametrize("first_admin", [False, True])
 @pytest.mark.parametrize("error_table", [None, "users", "sessions"])
 def test_cached_status_preserves_admin_anonymous_contract(monkeypatch, ready_client, first_admin, error_table):
