@@ -12,6 +12,8 @@ import {
   normalizeSkillReview,
   overallPreview,
   reportSkills,
+  retestSkillRefusal,
+  retestSkillTickable,
   reviewBandSkills,
 } from '../lib/admin-mock-reviews-model.mjs';
 
@@ -40,6 +42,27 @@ describe('Admin Mock Reviews strict models', () => {
     assert.equal(result.malformedCount, 2);
     assert.deepEqual(result.rows[0].retestFlags, { reading: true });
     assert.equal(normalizeReviewRoster({ rows: [rosterRow] }), null);
+  });
+
+  test('PC-J146: retest_skills bounds the picker; an older backend keeps every box', () => {
+    const readingOnly = normalizeReviewRoster({ roster: [{ ...rosterRow, retest_skills: ['reading', 'bogus'] }] }).rows[0];
+    assert.deepEqual(readingOnly.retestSkills, ['reading']);
+    assert.equal(retestSkillTickable(readingOnly, 'reading'), true);
+    for (const skill of ['listening', 'writing', 'speaking']) assert.equal(retestSkillTickable(readingOnly, skill), false, skill);
+    const legacy = normalizeReviewRoster({ roster: [rosterRow] }).rows[0];
+    assert.equal(legacy.retestSkills, null);
+    for (const skill of ['listening', 'reading', 'writing', 'speaking']) assert.equal(retestSkillTickable(legacy, skill), true, skill);
+    assert.equal(normalizeReviewRoster({ roster: [{ ...rosterRow, retest_skills: 'reading' }] }).malformedCount, 1);
+  });
+
+  test('PC-J146: only the skill_not_in_sitting 422 surfaces the server message', () => {
+    const refusal = Object.assign(new Error('Kỹ năng Listening không thuộc lượt thi này.'), { status: 422, detail: { error: 'skill_not_in_sitting', skills: ['listening'], message: 'Kỹ năng Listening không thuộc lượt thi này.' } });
+    assert.equal(retestSkillRefusal(refusal), 'Kỹ năng Listening không thuộc lượt thi này.');
+    assert.equal(retestSkillRefusal(Object.assign(new Error('x'), { status: 422, detail: [{ msg: 'field required' }] })), null);
+    assert.equal(retestSkillRefusal(Object.assign(new Error('x'), { status: 409, detail: { error: 'skill_not_in_sitting', message: 'x' } })), null);
+    assert.equal(retestSkillRefusal(Object.assign(new Error('x'), { status: 422, detail: { error: 'skill_not_in_sitting', message: '  ' } })), null);
+    assert.equal(retestSkillRefusal(new Error('network')), null);
+    assert.equal(retestSkillRefusal(null), null);
   });
 
   test('rejects a retest summary whose counts or skill identities are not canonical', () => {

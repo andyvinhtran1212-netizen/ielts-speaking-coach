@@ -303,3 +303,12 @@ end is history-only terminalization of the same frozen row, with no mastery/KP/n
 eligibility. Every current paused proof/predecessor/completion-group gate excludes
 marked admissions; readonly review remains no proof. Unmanaged and original legacy
 cohort/reset/completion/erasure behavior is unchanged.
+
+## Revisions
+
+- **Revision 1 (2026-10-30, PC-J203, record only):** `source-scope.md` and
+  `source-scope.json` now record the current hashes of
+  `long-sentence-untangling.md` (`7e74375d…`) and `participle-clauses.md`
+  (`2322fb30…`) after the Content Management fixes of PR #1948, next to the
+  unchanged 2026-10-01 approved hashes (`6402f457…`, `489c669c…`). No
+  requirement, quiz bank, qid, map, fixture or test changes.

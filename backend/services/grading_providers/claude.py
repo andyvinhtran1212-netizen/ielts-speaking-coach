@@ -21,7 +21,7 @@ import logging
 
 import anthropic
 
-from services import ai_budget, ai_usage_logger
+from services import ai_usage_logger
 from services.claude_compat import json_request_kwargs
 
 from .base import AbstractGradingProvider, CallTelemetry
@@ -110,27 +110,10 @@ class ClaudeProvider(AbstractGradingProvider):
         else:
             request["temperature"] = self._temperature
         call = CallTelemetry.start(self._usage_feature, self.provider_name)
-        # AIBUDGET-0033 FR-001: every rung and every retry reserves its own line.
-        estimate = ai_budget.estimate_or_none(
-            "anthropic", self.model, input_text=[system_prompt, user_message],
-            max_tokens=request["max_tokens"],
-        )
         try:
-            async with ai_budget.guard(
-                "anthropic", self.model, self._usage_feature, estimate,
-                request_key=ai_budget.attempt_key(self._usage_feature),
-                operation=self._usage_operation, user_id=user_id,
-                resource_type="session" if session_id else None, resource_id=session_id,
-            ) as lease:
-                response = await self._client.beta.prompt_caching.messages.create(
-                    **request,
-                )
-                lease.settle(ai_budget.anthropic_actual_usd(
-                    self.model, getattr(response, "usage", None)))
-        except (ai_budget.AIBudgetRefused, ai_budget.AIBudgetReplay):
-            # FR-008: neither retryable nor non-retryable — the orchestrator
-            # lets it end the whole chain.
-            raise
+            response = await self._client.beta.prompt_caching.messages.create(
+                **request,
+            )
         except asyncio.CancelledError:
             await self._log_failure(
                 call, user_id=user_id, session_id=session_id, error_code="cancelled",

@@ -93,6 +93,12 @@ export const GRAMMAR_REVISION_CODES = Object.freeze([
   'G-verb-patterns-phrasal-verbs',
 ] as const);
 export type RevisionCode = typeof GRAMMAR_REVISION_CODES[number];
+/** GRAMMARAUDIT-0019 FR-007: the only codes with a second cutover (migration 339 lookup). */
+export const GRAMMAR_FOLLOWUP_CODES: ReadonlySet<string> = new Set([
+  'G-grammar-for-reading-long-sentence-untangling',
+  'G-grammar-for-writing-grammar-in-task1',
+  'G-foundations-few-a-few-little-a-little',
+]);
 export type RevisionRead = components['schemas']['GrammarRevisionRead'];
 export type RevisionPreview = components['schemas']['GrammarRevisionPreview'];
 export type RevisionAck = components['schemas']['GrammarRevisionCommitResult'];
@@ -146,10 +152,10 @@ export function normalizeRevisionRead(value: unknown, code: RevisionCode): Revis
       || value.bank_ids[0] !== value.canonical_root_bank_id || value.bank_ids.at(-1) !== value.current_bank_id
       || !value.bank_ids.some(id => id === value.original_bank_id)
       || (value.is_managed ? value.bank_ids.length < 2 : value.bank_ids.length !== 1)
-      || (value.publication_available && value.is_managed && (code !== 'G-grammar-for-reading-long-sentence-untangling'
+      || (value.publication_available && value.is_managed && (!GRAMMAR_FOLLOWUP_CODES.has(code)
         || value.bank_ids.length !== 2 || value.original_bank_id !== value.current_bank_id))
       || (!value.is_managed && (!value.publication_available || value.original_bank_id !== value.current_bank_id))
-      || (value.bank_ids.length === 3 && (code !== 'G-grammar-for-reading-long-sentence-untangling'
+      || (value.bank_ids.length === 3 && (!GRAMMAR_FOLLOWUP_CODES.has(code)
         || value.publication_available || value.original_bank_id !== value.bank_ids[1]))) return null;
   const f = value.footprint;
   if (!record(f) || !keys(f, ['actors', 'sessions', 'stats', 'attempts', 'assignments', 'open_sessions', 'paused_sessions', 'classifications', 'authoritative_review_required'])
@@ -219,7 +225,7 @@ export function normalizeRevisionAck(value: unknown, command: FrozenRevisionComm
     if (read.original_bank_id !== command.originalBankId || read.current_bank_id !== value.corrected_bank_id
       || read.current_bank_revision !== command.proposedRevision || read.original_questions_sha256 !== command.originalQuestionsHash
       || read.original_metadata_sha256 !== command.originalMetadataHash) return null;
-  } else if (value.outcome !== 'already_applied' || command.code !== 'G-grammar-for-reading-long-sentence-untangling'
+  } else if (value.outcome !== 'already_applied' || !GRAMMAR_FOLLOWUP_CODES.has(command.code)
       || read.bank_ids.length !== 3 || originalIndex !== 0) return null;
   return { ...value, canonical: read } as RevisionAck;
 }
