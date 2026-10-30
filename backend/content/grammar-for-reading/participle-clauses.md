@@ -108,6 +108,42 @@ Về mặt logic, "the conclusion" không thể *review* — đây là câu treo
 2. Kiểm tra chủ ngữ ngầm hiểu của phân từ có trùng chủ ngữ chính không.
 3. Suy ra quan hệ thời gian/nguyên nhân/kết quả hoặc bối cảnh từ cả câu, không chỉ từ vị trí hay dạng V-ing.
 
+## Lỗi người Việt hay mắc
+
+Tiếng Việt không có dạng phân từ; chữ "đã" đặt trước động từ cho biết việc đã xảy ra, và câu có "đã + động từ" thường là vị ngữ chính. Vì thế, khi dịch *Having completed* thành "đã hoàn thành", người học dễ coi đây là **động từ chính** của câu. Tiếng Việt cũng hay lược chủ ngữ, nên người học ít khi tự hỏi chủ ngữ ngầm hiểu của phân từ là ai.
+
+### Lỗi 1: Coi Having + V3 là động từ chính
+
+*Having completed the survey, the participants received a small payment.*
+
+- ❌ Hiểu thành: ý chính là "những người tham gia đã hoàn thành khảo sát".
+- ✅ Động từ hữu hạn là *received*. Ý chính: họ **nhận một khoản tiền nhỏ**; *Having completed…* chỉ cho biết việc này xảy ra sau khi họ làm xong khảo sát.
+
+### Lỗi 2: Đọc V3 mở đầu câu như hành động chủ động ở quá khứ
+
+*Built in the 1960s, the tower is now being demolished.*
+
+- ❌ Hiểu thành: toà tháp "đã xây" một thứ gì đó, và cả câu nói về quá khứ.
+- ✅ *Built* mang nghĩa bị động: toà tháp **được xây** vào thập niên 1960. Động từ chính *is being demolished* ở hiện tại: bây giờ toà tháp đang bị phá dỡ.
+
+## Bài tập luyện
+
+### Phân từ diễn tả quan hệ gì, chủ ngữ ngầm hiểu là ai?
+
+1. *Having lost its main source of funding, the charity closed two of its centres.*
+2. *Exposed to sunlight, the chemical breaks down within hours.*
+3. *The river burst its banks, flooding hundreds of homes.*
+4. *Walking through the old town, visitors can see buildings from five different centuries.*
+5. *Not knowing the local language, the researchers relied on an interpreter.*
+
+### Đáp án
+
+1. **Nguyên nhân** (và xảy ra trước): vì đã mất nguồn tài trợ chính. Chủ ngữ ngầm hiểu: *the charity*.
+2. **Điều kiện / thời gian**: khi (nếu) bị phơi dưới ánh nắng. Chủ ngữ ngầm hiểu: *the chemical* (nghĩa bị động: hoá chất bị phơi nắng).
+3. **Kết quả**: khiến hàng trăm ngôi nhà bị ngập. Chủ ngữ ngầm hiểu: *the river* (việc sông tràn bờ khiến hàng trăm ngôi nhà bị ngập).
+4. **Thời gian / bối cảnh**: khi đi bộ qua phố cổ. Chủ ngữ ngầm hiểu: *visitors*.
+5. **Nguyên nhân**: vì không biết tiếng địa phương. Chủ ngữ ngầm hiểu: *the researchers*.
+
 ## Tóm tắt nhanh
 
 - V-ing thường chủ động; V3 thường bị động; Having+V3 nhấn mạnh việc đã xảy ra trước

@@ -36,6 +36,7 @@ import {
   ReviewContextNotice,
   ReviewParagraphSummary,
   ReviewQuestionContext,
+  reviewExplanationUnavailableReason,
 } from '@/components/review-attempt-context';
 
 type Phase = 'loading' | 'ready' | 'empty' | 'error';
@@ -228,7 +229,7 @@ function LegacySteps({ value }: { value: unknown }) {
   return <p>{proseNodes(value)}</p>;
 }
 
-function QuestionCard({ item, expanded, selected, preview, attemptId, anonId, evidenceSelection, onToggle, onLocate, onStartEvidenceSelection }: {
+function QuestionCard({ item, expanded, selected, preview, attemptId, anonId, evidenceSelection, webExplanationAccess, onToggle, onLocate, onStartEvidenceSelection }: {
   item: any;
   expanded: boolean;
   selected: boolean;
@@ -236,6 +237,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, anonId, ev
   attemptId: string | null;
   anonId: string | null;
   evidenceSelection: EvidenceSelection | null;
+  webExplanationAccess: unknown;
   onToggle(): void;
   onLocate(excerpt: string): void;
   onStartEvidenceSelection(): void;
@@ -322,13 +324,15 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, anonId, ev
       <div ref={flagRef} className="rr-card__flag" />
     </div>
     {prompt ? <p className="rr-card__prompt">{prompt}</p> : null}
-    {expanded || selected ? <ReviewQuestionContext value={item.question_context} /> : <ReviewParagraphSummary value={item.question_context} />}
+    {/* A card without a solution cannot expand, so its options/context are always shown (RV-02). */}
+    {expanded || selected || !hasRich ? <ReviewQuestionContext value={item.question_context} /> : <ReviewParagraphSummary value={item.question_context} />}
     <div className="rr-card__answers">
       {!preview ? <div className="rr-card__ans is-user"><span>Bạn trả lời</span><code>{item.user_answer || '—'}</code>
         <ReviewAnswerChoiceText context={item.question_context} answer={item.user_answer} /></div> : null}
       <div className="rr-card__ans is-correct"><span>Đáp án</span><code>{webExplanation ? 'Mở theo các bước sửa bài bên dưới' : item.expected || '—'}</code>
         {!webExplanation ? <ReviewAnswerChoiceText context={item.question_context} answer={item.expected} /> : null}</div>
     </div>
+    {!hasRich ? <p className="rr-card__nosol" role="note">{reviewExplanationUnavailableReason(webExplanationAccess)}</p> : null}
     {hasRich ? <div className="rr-card__detail" hidden={!expanded}>
       {!webExplanation ? <>
       <SolutionSection label="Các bước ra đáp án" className="rr-sol__sec--steps">
@@ -724,6 +728,7 @@ export function ReadingReviewWorkspace() {
             attemptId={data.attemptId}
             anonId={params?.anonId || null}
             evidenceSelection={evidenceSelections[item.q_num] || null}
+            webExplanationAccess={data.webExplanationAccess}
             onToggle={() => {
               setCurrentQuestion(item.q_num);
               setExpanded((previous) => {

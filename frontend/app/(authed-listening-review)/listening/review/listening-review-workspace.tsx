@@ -28,7 +28,12 @@ import {
   normalizeListeningReview,
 } from '@/lib/listening-review-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
-import { ReviewContextNotice, ReviewQuestionContext } from '@/components/review-attempt-context';
+import {
+  ReviewAnswerChoiceText,
+  ReviewContextNotice,
+  ReviewQuestionContext,
+  reviewExplanationUnavailableReason,
+} from '@/components/review-attempt-context';
 
 type Phase = 'loading' | 'ready' | 'empty' | 'error';
 type Filter = 'wrong' | 'blank' | 'all' | 'correct';
@@ -174,12 +179,13 @@ function FeedbackCardBridge({ cardRef, topRef, item, attemptId, preview }: {
   return null;
 }
 
-function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, onLocate, onListenContinuously, onOpenSharedSolution, getAudioPosition }: {
+function QuestionCard({ item, expanded, selected, preview, attemptId, webExplanationAccess, onToggle, onLocate, onListenContinuously, onOpenSharedSolution, getAudioPosition }: {
   item: any;
   expanded: boolean;
   selected: boolean;
   preview: boolean;
   attemptId: string | null;
+  webExplanationAccess: unknown;
   onToggle(): void;
   onLocate(): void;
   onListenContinuously(): void;
@@ -234,10 +240,14 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, 
       <div ref={flagRef} className="lr-card__flag" />
     </div>
     {item.prompt ? <div className="lr-card__prompt">{inlineNodes(item.prompt)}</div> : null}
-    {expanded || selected ? <ReviewQuestionContext value={item.question_context} /> : null}
+    {/* Without a solution the options/context are the only help, so they are always shown (RV-02). */}
+    {expanded || selected || !hasSolutionDetail ? <ReviewQuestionContext value={item.question_context} /> : null}
     <div className="lr-card__answers">
-      {!preview ? <div className="lr-card__ans is-user"><span>Bạn:</span> <code>{item.user_answer || '—'}</code></div> : null}
-      <div className="lr-card__ans is-correct"><span>Đáp án:</span> <code>{webExplanation ? 'Mở theo các bước sửa bài bên dưới' : item.unordered_answer_group ? `{${item.unordered_answer_group.accepted_answers.join(', ')}}` : item.expected || '—'}</code></div>
+      {!preview ? <div className="lr-card__ans is-user"><span>Bạn:</span> <code>{item.user_answer || '—'}</code>
+        <ReviewAnswerChoiceText className="lr-card__ans-text" context={item.question_context} answer={item.user_answer} /></div> : null}
+      <div className="lr-card__ans is-correct"><span>Đáp án:</span> <code>{webExplanation ? 'Mở theo các bước sửa bài bên dưới' : item.unordered_answer_group ? `{${item.unordered_answer_group.accepted_answers.join(', ')}}` : item.expected || '—'}</code>
+        {!webExplanation ? <ReviewAnswerChoiceText className="lr-card__ans-text" context={item.question_context}
+          answer={item.unordered_answer_group ? item.unordered_answer_group.accepted_answers.join(', ') : item.expected} /> : null}</div>
     </div>
     {item.unordered_answer_group && !webExplanation ? <p className="lr-sol__group">Câu {item.unordered_answer_group.question_numbers.join('–')}: chọn đủ {item.unordered_answer_group.accepted_answers.length} chữ cái khác nhau; chấp nhận mọi thứ tự.</p> : null}
     {win ? <div className="lr-card__tsrow"><button type="button" className="lr-card__ts" onClick={onLocate}><span aria-hidden="true">▶</span> Nghe đoạn {timestamp}</button><button type="button" className="lr-card__ts" onClick={onListenContinuously}>Nghe tiếp từ {clock(win.start)}</button></div> : null}
@@ -264,7 +274,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, 
         <SolutionSection label="Vì sao đúng">{solution.why_correct ? <WhyCorrect value={solution.why_correct} /> : null}</SolutionSection>
         <SolutionSection label="Script" className="lr-sol__sec--script">{solution.script ? <p><ScriptBlock value={solution.script} /></p> : null}</SolutionSection>
         <SolutionSection label="Bẫy" className="lr-sol__sec--trap">{solution.trap ? <p>{inlineNodes(solution.trap)}</p> : null}</SolutionSection>
-      </> : <p className="lr-sol__empty">Chưa có lời giải chi tiết.</p>}
+      </> : <p className="lr-sol__empty">{reviewExplanationUnavailableReason(webExplanationAccess)}</p>}
     </div>
   </article>;
 }
@@ -483,6 +493,7 @@ export function ListeningReviewWorkspace() {
               selected={currentQuestion === item.q_num}
               preview={data.preview}
               attemptId={data.attemptId}
+              webExplanationAccess={data.webExplanationAccess}
               onToggle={() => {
                 setCurrentQuestion(item.q_num);
                 setExpanded((previous) => {
