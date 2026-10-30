@@ -81,6 +81,146 @@ def test_callable_defaults_and_decorators_run_before_offload(declaration):
     assert findings[0].callee == "requests.get"
 
 
+@pytest.mark.parametrize("declaration", [
+    "class Result:\n        response = requests.get(url)",
+    "class Result(requests.get(url).json()):\n        pass",
+    "@decorate(requests.get(url))\n    class Result:\n        pass",
+    "class Result(metaclass=choose(requests.get(url))):\n        pass",
+    "class Result:\n        class Inner:\n            response = requests.get(url)",
+    "class Result:\n        def save(self, response=requests.get(url)):\n            pass",
+    "class Result:\n        async def save(self, *, response=requests.get(url)):\n            pass",
+    "class Result:\n        @decorate(requests.get(url))\n        def save(self):\n            pass",
+    "class Result:\n        import requests as r\n        response = r.get(url)",
+    "class Result:\n        from requests import get as fetch\n        response = fetch(url)",
+    "class Result:\n        client = httpx.Client()\n        response = client.get(url)",
+    "class Result:\n        rows = (requests.get(url) for url in urls)\n        responses = list(rows)",
+])
+def test_nested_class_eager_expressions_run_on_loop(declaration):
+    source = "import requests\nimport httpx\nasync def f(url, urls):\n    " + declaration
+    findings = scan(source)
+    assert len(findings) == 1
+    assert findings[0].function == "f"
+    assert findings[0].callee in {"requests.get", "httpx.Client.get"}
+    assert findings[0].line == next(i for i, line in enumerate(source.splitlines(), 1)
+                                    if any(call in line for call in ("requests.get(", "r.get(", "fetch(", "client.get(")))
+
+
+@pytest.mark.parametrize("call, count", [("build(url)", 1), ("await asyncio.to_thread(build, url)", 0)])
+def test_nested_class_effects_propagate_through_sync_helpers(call, count):
+    findings = scan(dedent("""
+        import requests
+        def build(url):
+            class Result:
+                response = requests.get(url)
+            return Result
+    """) + "\nasync def f(url):\n    " + call)
+    assert len(findings) == count
+    if count:
+        assert findings[0].callee == "routers.example.build"
+
+
+def test_nested_class_method_bodies_stay_deferred():
+    assert not scan("""
+        import requests
+        async def f(url):
+            class Result:
+                def save(self):
+                    requests.get(url)
+                async def later(self):
+                    await asyncio.to_thread(requests.get, url)
+            await asyncio.to_thread(Result().save)
+    """)
+
+
+def test_nested_class_methods_keep_their_qualified_names():
+    findings = scan("""
+        import requests
+        async def f(url):
+            class Result:
+                def save(self):
+                    requests.get(url)
+                async def later(self):
+                    self.save()
+    """)
+    assert [(f.function, f.callee) for f in findings] == [
+        ("f.Result.later", "routers.example.f.Result.save"),
+    ]
+
+
+@pytest.mark.parametrize("outer, inner", [("Client", "AsyncClient"), ("AsyncClient", "Client")])
+def test_nested_class_client_bindings_do_not_escape(outer, inner):
+    source = ("import httpx\nasync def f(url):\n    client = httpx." + outer + "()\n"
+              "    class Result:\n        client = httpx." + inner + "()\n"
+              "        response = client.get('inside')\n    client.get('outside')")
+    findings = scan(source)
+    assert len(findings) == 1
+    assert findings[0].callee == "httpx.Client.get"
+    assert findings[0].line == (6 if inner == "Client" else 7)
+
+
+def test_nested_class_imports_do_not_escape():
+    findings = scan("""
+        from requests import get as fetch
+        async def f(url, cached):
+            class Result:
+                fetch = cached
+                response = fetch(url)
+            fetch(url)
+            class Other:
+                from requests import get as local_fetch
+            local_fetch(url)
+    """)
+    assert [(f.function, f.callee, f.line) for f in findings] == [("f", "requests.get", 7)]
+
+
+@pytest.mark.parametrize("outer, body, count", [
+    ("(requests.get(url) for url in urls)", "rows = ()\n        responses = list(rows)\n    list(rows)", 1),
+    ("()", "rows = (requests.get(url) for url in urls)\n    list(rows)", 0),
+    ("(requests.get(url) for url in urls)", "responses = list(rows)", 1),
+])
+def test_nested_class_generator_bindings_are_scoped(outer, body, count):
+    findings = scan("import requests\nasync def f(urls):\n"
+                    "    rows = " + outer + "\n    class Result:\n        " + body)
+    assert len(findings) == count
+    if count:
+        assert findings[0].function == "f"
+        assert findings[0].callee == "requests.get"
+
+
+@pytest.mark.parametrize("outer, inner, count", [("Client", "AsyncClient", 2), ("AsyncClient", "Client", 1)])
+def test_nested_class_headers_and_bodies_use_distinct_scopes(outer, inner, count):
+    findings = scan("import httpx\nasync def f(url):\n    client = httpx." + outer + "()\n"
+                    "    class Result:\n        client = httpx." + inner + "()\n"
+                    "        class Inner(choose(client.get('base'))):\n"
+                    "            response = client.get('body')\n"
+                    "    client.get('outside')")
+    assert len(findings) == count
+    assert [f.line for f in findings] == ([7, 8] if outer == "Client" else [6])
+
+
+@pytest.mark.parametrize("outer, inner, count", [
+    ("(requests.get(url) for url in urls)", "()", 1),
+    ("()", "(requests.get(url) for url in urls)", 0),
+])
+def test_deeply_nested_class_skips_outer_class_generator_namespace(outer, inner, count):
+    findings = scan("import requests\nasync def f(urls):\n    rows = " + outer + "\n"
+                    "    class Result:\n        rows = " + inner + "\n"
+                    "        class Inner:\n            responses = list(rows)")
+    assert len(findings) == count
+
+
+def test_nested_class_consumes_inherited_generator_with_its_original_symbols():
+    findings = scan("""
+        import requests
+        async def f(urls):
+            rows = (requests.get(url) for url in urls)
+            class Result:
+                requests = {}
+                responses = list(rows)
+    """)
+    assert [(f.function, f.callee, f.line) for f in findings] == [("f", "requests.get", 4)]
+
+
 def test_worker_consumes_generator_body_filters_and_inner_iterable():
     assert not scan("""
         import requests

@@ -6,10 +6,11 @@ SDKs still need review. Recognized calls include PostgREST execute, requests,
 sync httpx clients, urlopen, sleep, Supabase Storage and explicit sync AI clients.
 Local/imported sync helpers are followed to a fixed point, including recursion.
 
-Deferred definitions/lambda bodies do not count as eager wrapper arguments;
+Deferred function/lambda bodies do not count as eager wrapper arguments;
 named helpers are analyzed separately. Eager arguments ARE checked:
 to_thread(save()) still runs save on the event loop. Awaited unknown execute
 is treated as the async DB API; known supabase_admin/sync helpers stay flagged.
+Class headers and bodies execute eagerly, with separate class-local bindings.
 The aexecute facade's flag-off blocking branch remains a G7 debt of its own.
 """
 
@@ -18,7 +19,7 @@ from __future__ import annotations
 import ast
 from bisect import bisect_right
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Iterable
 
@@ -35,12 +36,15 @@ LAZY_CALLS = {"iter", "enumerate", "zip", "map", "filter", "builtins.iter", "bui
 class Function:
     path: str
     name: str
-    node: ast.FunctionDef | ast.AsyncFunctionDef
+    node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
     symbols: dict[str, str]
     initial_symbols: dict[str, str]
     timeline: list[tuple[tuple[int, int], dict[str, str]]]
+    scoped_symbols: dict[int, dict[str, str]] = field(default_factory=dict)
 
     def at(self, node: ast.AST) -> dict[str, str]:
+        if id(node) in self.scoped_symbols:
+            return self.scoped_symbols[id(node)]
         index = bisect_right(self.timeline, (node.lineno, node.col_offset), key=lambda item: item[0])
         return self.timeline[index - 1][1] if index else self.initial_symbols
 
@@ -86,6 +90,11 @@ def _nodes(body: Iterable[ast.AST], *, consume_generator: bool = False,
             if not isinstance(node, ast.Lambda):
                 eager.extend(node.decorator_list)
             yield from _nodes(eager, consumed=consumed, policy=policy)
+        elif isinstance(node, ast.ClassDef):
+            # Headers run in the enclosing scope. The executable body is
+            # expanded separately in _execution_nodes with class-local names.
+            yield from _nodes([*node.decorator_list, *node.bases, *node.keywords],
+                              consumed=consumed, policy=policy)
         elif isinstance(node, ast.GeneratorExp) and not consume_generator:
             # Only the first iterable is evaluated at generator creation. The
             # element, filters and subsequent iterables wait for consumption.
@@ -129,7 +138,7 @@ def _nodes(body: Iterable[ast.AST], *, consume_generator: bool = False,
             yield from _nodes(node.body, consumed=consumed, policy=policy)
         elif isinstance(node, (ast.Starred, ast.YieldFrom)):
             yield from _nodes([node.value], consume_generator=True, consumed=consumed, policy=policy)
-        elif not isinstance(node, ast.ClassDef):
+        else:
             yield from _nodes(ast.iter_child_nodes(node), consumed=consumed, policy=policy)
 
 
@@ -261,7 +270,8 @@ def _primitive(call: ast.Call, symbols: dict[str, str], awaited: bool) -> str | 
     return None
 
 
-def _execution_nodes(fn: Function, consumed: set[int], generators: set[str]) -> list[ast.AST]:
+def _execution_nodes(fn: Function, consumed: set[int], generators: set[str],
+                     inherited_bindings=None, class_enclosing=None) -> list[ast.AST]:
     """Recover local generator-expression effects at an eager consumer.
 
     Bindings take effect after their RHS. Alias snapshots therefore keep the
@@ -272,7 +282,7 @@ def _execution_nodes(fn: Function, consumed: set[int], generators: set[str]) -> 
         return _consumes_arguments(call, result_consumed, fn.at(call), generators)
 
     body = list(_nodes(fn.node.body, consumed=consumed, policy=policy))
-    bindings = {}
+    bindings = {name: list(values) for name, values in (inherited_bindings or {}).items()}
     for node in body:
         if isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
@@ -322,6 +332,39 @@ def _execution_nodes(fn: Function, consumed: set[int], generators: set[str]) -> 
                         body.append(child)
         if len(expanded) == previous:
             break
+
+    # A class body runs now, unlike its methods, but assignments/imports and
+    # generator bindings belong to its own namespace. Keep collection and
+    # def-use analysis scoped, then attribute its effects to the caller.
+    enclosing, class_bindings = class_enclosing or (fn, bindings)
+    for node in list(body):
+        if not isinstance(node, ast.ClassDef):
+            continue
+        module = fn.path.removesuffix(".py").replace("/", ".")
+        package = module.rpartition(".")[0]
+        if module.endswith(".__init__"):
+            module = package
+        qualified = fn.name + "." + node.name
+        # Nested class headers can see their containing class's names; their
+        # bodies close over the enclosing function, not that class namespace.
+        initial = dict(enclosing.at(node))
+        timeline = []
+        local = _symbols(node.body, initial, module, qualified + ".", package, timeline=timeline)
+        scope = Function(fn.path, qualified, node, local, initial, timeline)
+        # An inherited iterator still executes using its creation scope's
+        # symbols, even if the class rebinds an imported client/module name.
+        scope.scoped_symbols = {
+            id(child): enclosing.at(child)
+            for values in class_bindings.values() for _, value in values if value is not None
+            for child in ast.walk(value) if hasattr(child, "lineno")
+        }
+        for child in _execution_nodes(scope, consumed, generators, class_bindings,
+                                      (enclosing, class_bindings)):
+            if id(child) not in visited:
+                visited.add(id(child))
+                body.append(child)
+                if hasattr(child, "lineno"):
+                    fn.scoped_symbols[id(child)] = scope.at(child)
     return body
 
 
