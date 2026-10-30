@@ -15,6 +15,11 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
   return <label className="acd-field"><span>{label}</span>{children}{hint && <small>{hint}</small>}</label>;
 }
 
+// Open dialogs, topmost last. Only the topmost one handles Escape and the Tab
+// trap, so a dialog opened over another (the admin step-up code prompt over a
+// confirm dialog) keeps the keyboard.
+const openDialogs: object[] = [];
+
 export function Dialog({ open, title, description, children, actions, onClose, busy = false, panelClassName = '' }: {
   open: boolean;
   title: string;
@@ -40,9 +45,12 @@ export function Dialog({ open, title, description, children, actions, onClose, b
   // where keyboard focus still belongs to the background trigger.
   useLayoutEffect(() => {
     if (!open) return;
+    const layer = {};
+    openDialogs.push(layer);
     const previous = openerRef.current || (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     panelRef.current?.focus();
     const onKey = (event: KeyboardEvent) => {
+      if (openDialogs[openDialogs.length - 1] !== layer) return;
       if (event.key === 'Escape' && !busyRef.current) closeRef.current();
       if (event.key !== 'Tab') return;
       const panel = panelRef.current;
@@ -71,6 +79,7 @@ export function Dialog({ open, title, description, children, actions, onClose, b
     document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('keydown', onKey);
+      openDialogs.splice(openDialogs.indexOf(layer), 1);
       openerRef.current = null;
       if (previous?.isConnected) previous.focus();
     };

@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 
+import { AdminStepUpDialog } from '@/app/(authed-admin-mfa)/admin/mfa/admin-mfa';
 import { AdminTestDataToggle } from '@/components/admin-test-data-toggle';
 import { getAdminMfaStatus } from '@/lib/admin-mfa-api';
 import {
@@ -29,6 +30,10 @@ type AccessValue =
   | { phase: 'ready'; profile: AdminProfile; reportOnly: boolean };
 
 type KeyedAccess = { key: string; value: AccessValue };
+
+/** Mirrors public/js/api.js: a 403 `step_up_required` asks the page for a fresh TOTP (FR-020). */
+export const ADMIN_STEP_UP_EVENT = 'aver:admin-step-up-required';
+type StepUpResolve = (verified: boolean) => void;
 
 const AdminProfileContext = createContext<AdminProfile | null>(null);
 
@@ -152,6 +157,35 @@ export function AdminAccessGate({ children }: { children: ReactNode }) {
 
   const access = selectKeyedAdminState(accessState, accountKey) as AccessValue;
 
+  // FR-020: claim the transport's step-up request while admin children are
+  // mounted and open the code prompt. The transport resends the request once
+  // after `true`; `false` (closed, account switch, unmount) leaves it refused.
+  const [stepUpOpen, setStepUpOpen] = useState(false);
+  const stepUpResolve = useRef<StepUpResolve | null>(null);
+  const settleStepUp = useCallback((verified: boolean) => {
+    const resolve = stepUpResolve.current;
+    stepUpResolve.current = null;
+    setStepUpOpen(false);
+    resolve?.(verified);
+  }, []);
+  const ready = access.phase === 'ready';
+  useEffect(() => {
+    if (!ready) return;
+    const onStepUp = (event: Event) => {
+      const resolve = (event as CustomEvent<{ resolve?: unknown }>).detail?.resolve;
+      if (typeof resolve !== 'function') return;
+      event.preventDefault();
+      stepUpResolve.current?.(false);
+      stepUpResolve.current = resolve as StepUpResolve;
+      setStepUpOpen(true);
+    };
+    window.addEventListener(ADMIN_STEP_UP_EVENT, onStepUp);
+    return () => {
+      window.removeEventListener(ADMIN_STEP_UP_EVENT, onStepUp);
+      settleStepUp(false);
+    };
+  }, [ready, accountKey, settleStepUp]);
+
   useEffect(() => {
     if (access.phase === 'redirect') window.location.replace(access.target);
   }, [access]);
@@ -171,5 +205,5 @@ export function AdminAccessGate({ children }: { children: ReactNode }) {
   if (access.phase === 'error') {
     return <div id="state-error" className="adm-access-state" role="alert"><h2 className="adm-access-state__title aw-state-denied__title">Không xác minh được quyền</h2><p className="adm-access-state__message">{access.message}</p><button className="adm-access-state__action adm-access-state__button" type="button" onClick={() => window.location.reload()}>Tải lại</button></div>;
   }
-  return <>{access.reportOnly && <AdminMfaReportOnlyBanner accountKey={accountKey} />}<AdminProfileContext.Provider value={access.profile}><AdminTestDataToggle />{children}</AdminProfileContext.Provider></>;
+  return <>{access.reportOnly && <AdminMfaReportOnlyBanner accountKey={accountKey} />}<AdminProfileContext.Provider value={access.profile}><AdminTestDataToggle />{children}</AdminProfileContext.Provider><AdminStepUpDialog open={stepUpOpen} onVerified={() => settleStepUp(true)} onClose={() => settleStepUp(false)} /></>;
 }

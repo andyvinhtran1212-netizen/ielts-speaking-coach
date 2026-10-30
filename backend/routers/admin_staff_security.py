@@ -78,7 +78,8 @@ async def admin_mfa_status(authorization: str | None = Header(default=None)):
     }
 
 
-@router.patch("/users/{user_id}/active", response_model=StaffActiveOut)
+@router.patch("/users/{user_id}/active", response_model=StaffActiveOut,
+              responses=staff_guard.STEP_UP_RESPONSES)
 async def admin_set_staff_active(
     user_id: str,
     payload: StaffActiveIn,
@@ -100,6 +101,7 @@ async def admin_set_staff_active(
     before any change.
     """
     admin = await require_admin(authorization)
+    staff_guard.require_recent_mfa(admin, authorization)  # FR-020, before any DB call
     target = _target_id(user_id)
     actor = _actor(admin)
     if actor == target:
@@ -182,7 +184,8 @@ async def admin_set_staff_active(
         }
 
 
-@router.post("/users/{user_id}/revoke-sessions", response_model=RevokeSessionsOut)
+@router.post("/users/{user_id}/revoke-sessions", response_model=RevokeSessionsOut,
+             responses=staff_guard.STEP_UP_RESPONSES)
 async def admin_revoke_staff_sessions(
     user_id: str,
     payload: RevokeSessionsIn | None = None,
@@ -194,6 +197,7 @@ async def admin_revoke_staff_sessions(
     serialized with suspension and reactivation of the same account. Every
     attempt is audited; a failure also alerts the owner."""
     admin = await require_admin(authorization)
+    staff_guard.require_recent_mfa(admin, authorization)  # FR-020, before any DB call
     target = _target_id(user_id)
     actor = _actor(admin)
     # The row is read under the lock, so the ban mode cannot go stale.

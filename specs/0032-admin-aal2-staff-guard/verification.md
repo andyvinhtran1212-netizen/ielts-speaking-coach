@@ -25,23 +25,40 @@
 | FR-019 | kind=test; ref=backend/tests/test_migration_336_suspended_account_role_guard.py (role change of a suspended account refused through the RPC, service REST, owner and superuser SQL; allowed after reactivation; bootstrap exempt; preconditions, postconditions, rollback); kind=test; ref=backend/tests/test_admin_user_role.py (409 account_suspended_role_change with the Vietnamese message); kind=journey; ref=spec.md AC10 on staging after 336 is applied | PENDING |
 | FR-020 | kind=test; ref=backend/tests/test_staff_guard.py and backend/tests/test_admin_staff_security_routes.py and backend/tests/test_admin_user_role.py (spec.md AC12: TOTP 16 min + ADMIN_STEP_UP_ENFORCE=true on PATCH role, PATCH active, POST revoke-sessions → 403 step_up_required with no row change, no staff_security_audit row, no outbox row; 14 min succeeds; report-only one admin_step_up_would_block line; invalid config → 15 / false); kind=test; ref=backend/tests/test_staff_guard_inventory.py (every route that uses require_recent_mfa); kind=test; ref=frontend node test that the UI resends exactly once after a successful challenge; kind=journey; ref=spec.md AC12 on staging: report-only logs, helpers.js fresh AAL2 before sensitive steps, live Staging E2E green; enforcement on staging only in lot 11 or later | PENDING |
 
-## Amendment 1 evidence (AC11, AC12) — PENDING
+## Amendment 1 evidence (AC11, AC12) — offline done, staging PENDING
 
 Approved 2026-10-29 14:44 (UTC+7); implementation is T016 (PC-J135), after
-#1898 (T010). Nothing below has run yet.
+#1898 (T010). The offline tests below ran on the PC-J135 branch; the FR-012
+and FR-020 rows stay `PENDING` until the staging journeys run.
 
-- **AC11 (FR-012), offline:** PENDING. TOTP 12 h + 1 s → 403 `mfa_required`
-  with enforcement on; 11 h 59 m allowed; missing `amr` expired;
-  `ADMIN_AAL2_MAX_AGE_HOURS=abc` / `0` / `48` → 12 with a startup log;
-  report-only gives exactly one `would_block` line and success.
-- **AC12 (FR-020), offline:** PENDING. TOTP 16 min +
-  `ADMIN_STEP_UP_ENFORCE=true` on PATCH role, PATCH active and POST
-  revoke-sessions → 403 `step_up_required`, no row change, no
-  `staff_security_audit` row, no outbox row; 14 min succeeds; report-only
-  gives one `admin_step_up_would_block` line and success; the UI resends
-  exactly once after a successful challenge; `/admin/mfa` deletes a factor
-  only after a fresh verify; the inventory test lists every route that uses
-  `require_recent_mfa`.
+- **AC11 (FR-012), offline:** `backend/tests/test_staff_guard.py`
+  (`test_totp_12h_plus_1s_is_refused_under_enforcement`,
+  `test_totp_11h59m_is_allowed_under_enforcement`,
+  `test_missing_amr_counts_as_expired_and_a_future_one_is_invalid`,
+  `test_invalid_aal2_max_age_falls_back_to_12_with_a_startup_log` for
+  `abc`/`0`/`48`/`-1`/`12.5`/`13`, `test_no_max_age_value_can_widen_or_disable_the_check`,
+  `test_report_only_expired_totp_logs_one_totp_expired_line_and_succeeds`).
+  A missing `amr` entry now reports `reason=totp_expired`; a timestamp more
+  than `_CLOCK_SKEW_SECONDS` in the future reports `totp_invalid`.
+- **AC12 (FR-020), offline:** `backend/tests/test_admin_staff_security_routes.py::TestStepUp`
+  (16 min + `ADMIN_STEP_UP_ENFORCE=true` on PATCH role, PATCH active and
+  POST revoke-sessions → 403 `step_up_required` with no read, write, lock,
+  GoTrue call, `staff_security_audit` or outbox row; 14 min succeeds;
+  report-only one `admin_step_up_would_block` line and success),
+  `backend/tests/test_admin_user_role.py::TestRoleStepUp`,
+  `backend/tests/test_staff_guard.py` (step-up contract, window, config
+  fallbacks 15 / false with one startup log, fail-closed 503),
+  `backend/tests/test_staff_guard_inventory.py` section 4 (the routes that
+  call `require_recent_mfa` are exactly the three, each right after its
+  guard, each refusing a stale TOTP before any DB call);
+  `frontend/tests/admin-mfa-transport.test.mjs` (resend exactly once, never a
+  third request, closed or unclaimed prompt rejects, concurrent refusals
+  share one prompt), `frontend/tests/react/admin-step-up.test.tsx` (gate
+  dialog), `frontend/tests/react/admin-mfa-page.test.tsx` (factor removed
+  only after challenge + verify; wrong code removes nothing),
+  `frontend/tests/react/admin-directory-ui.test.tsx` (stacked dialog owns the
+  keyboard), `frontend/tests/staging-e2e-admin-aal2-contract.test.mjs`
+  (`freshAdminToken`, step-up route specs must use it).
 - **Staging (AC11, AC12):** PENDING. Report-only logs for an old TOTP on
   `staging.averlearning.com` with the synthetic admin; `helpers.js` takes a
   fresh AAL2 before sensitive steps; live Staging E2E green. Step-up

@@ -141,6 +141,34 @@
     try { window.dispatchEvent(new CustomEvent('aver:account-inactive')); } catch (_) {}
   }
 
+  // ADMINAAL2-0032 Amendment 1 (FR-020): a 403 `step_up_required` asks the
+  // page for a fresh TOTP. AdminAccessGate claims the event (preventDefault)
+  // and calls detail.resolve(true) once mfa.challenge + verify succeeded, or
+  // resolve(false) when the dialog is closed. Unclaimed → false at once.
+  // Concurrent refusals share one dialog.
+  var _stepUpPending = null;
+  function _requestStepUp(detail) {
+    if (_stepUpPending) return _stepUpPending;
+    _stepUpPending = new Promise(function (resolve) {
+      var settled = false;
+      function done(ok) {
+        if (settled) return;
+        settled = true;
+        _stepUpPending = null;
+        resolve(ok === true);
+      }
+      var claimed = false;
+      try {
+        claimed = !window.dispatchEvent(new CustomEvent('aver:admin-step-up-required', {
+          cancelable: true,
+          detail: { maxAgeSeconds: detail && detail.max_age_seconds, resolve: done },
+        }));
+      } catch (_) { claimed = false; }
+      if (!claimed) done(false);
+    });
+    return _stepUpPending;
+  }
+
   async function _apiRequest(method, path, body, isFormData, extraHeaders, opts) {
     // Đường `keepalive` KHÔNG ĐƯỢC `await` trước khi gọi `fetch`.
     //
@@ -265,6 +293,17 @@
       if (response.status === 403 && !(opts && opts.noRedirect)) {
         if (isObj && detail.code === 'mfa_required') _toAdminMfa();
         else if (detail === 'Tài khoản chưa được kích hoạt') _announceInactive();
+        else if (isObj && detail.code === 'step_up_required' && !(opts && (opts.keepalive || opts._stepUpResent))) {
+          // FR-020: the server refused before any change, so after a fresh
+          // TOTP the SAME request is sent once more with the new token — and
+          // never a second time: a repeated refusal is thrown to the caller.
+          if (await _requestStepUp(detail)) {
+            var resendOpts = {};
+            if (opts) { for (var optKey in opts) resendOpts[optKey] = opts[optKey]; }
+            resendOpts._stepUpResent = true;
+            return _apiRequest(method, path, body, isFormData, extraHeaders, resendOpts);
+          }
+        }
       }
       throw thrown;
     }

@@ -191,4 +191,39 @@ describe('shared admin Dialog', () => {
     expect(document.activeElement).toBe(replacement);
     replacement.remove();
   });
+
+  it('a dialog opened over another owns Escape and the Tab trap until it closes', () => {
+    const closeLower = vi.fn();
+    const closeUpper = vi.fn();
+    function Stacked() {
+      const [upper, setUpper] = useState(false);
+      return (
+        <>
+          <Dialog open title="Tạm khóa" busy onClose={closeLower} actions={<button type="button" onClick={() => setUpper(true)}>Mở mã</button>}>
+            <input aria-label="Lý do" />
+          </Dialog>
+          <Dialog open={upper} title="Xác thực 2 bước" onClose={() => { closeUpper(); setUpper(false); }} actions={<button type="button">Hủy</button>}>
+            <input aria-label="Mã 6 số" />
+          </Dialog>
+        </>
+      );
+    }
+    render(<Stacked />);
+    fireEvent.click(screen.getByRole('button', { name: 'Mở mã' }));
+    const code = screen.getByLabelText('Mã 6 số');
+    code.focus();
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(document.activeElement).toBe(code);  // the lower dialog no longer pulls focus back
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(screen.getByRole('dialog', { name: 'Xác thực 2 bước' }).contains(document.activeElement)).toBe(true);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(closeUpper).toHaveBeenCalledTimes(1);
+    expect(closeLower).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog', { name: 'Xác thực 2 bước' })).toBeNull();
+    // Back on top, the lower dialog traps Tab again.
+    const reason = screen.getByLabelText('Lý do');
+    reason.focus();
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(screen.getByRole('dialog', { name: 'Tạm khóa' }).contains(document.activeElement)).toBe(true);
+  });
 });

@@ -19316,6 +19316,21 @@ export interface components {
              */
             hide_subbands: boolean;
         };
+        /** MfaRequiredDetail */
+        MfaRequiredDetail: {
+            /**
+             * Code
+             * @constant
+             */
+            code: "mfa_required";
+            /**
+             * Next Step
+             * @enum {string}
+             */
+            next_step: "none" | "enroll" | "challenge";
+            /** Message */
+            message: string;
+        };
         /** MicrocheckAnswer */
         MicrocheckAnswer: {
             kp: components["schemas"]["KpRef"];
@@ -21981,6 +21996,11 @@ export interface components {
             /** Sign In Restored */
             sign_in_restored?: boolean | null;
         };
+        /** StaffForbiddenResponse */
+        StaffForbiddenResponse: {
+            /** Detail */
+            detail: components["schemas"]["StepUpRequiredDetail"] | components["schemas"]["MfaRequiredDetail"] | string;
+        };
         /** StartGradingRequest */
         StartGradingRequest: {
             /**
@@ -22036,6 +22056,23 @@ export interface components {
         StatusIn: {
             /** Status */
             status: string;
+        };
+        /** StepUpRequiredDetail */
+        StepUpRequiredDetail: {
+            /**
+             * Code
+             * @constant
+             */
+            code: "step_up_required";
+            /**
+             * Next Step
+             * @constant
+             */
+            next_step: "challenge";
+            /** Max Age Seconds */
+            max_age_seconds: number;
+            /** Message */
+            message: string;
         };
         /** StrengthResponse */
         StrengthResponse: {
@@ -23962,6 +23999,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserRoleChangeOut"];
+                };
+            };
+            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffForbiddenResponse"];
                 };
             };
             /** @description Validation Error */
@@ -26084,6 +26130,15 @@ export interface operations {
                     "application/json": components["schemas"]["StaffActiveOut"];
                 };
             };
+            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffForbiddenResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -26119,6 +26174,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RevokeSessionsOut"];
+                };
+            };
+            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffForbiddenResponse"];
                 };
             };
             /** @description Validation Error */

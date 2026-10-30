@@ -840,7 +840,8 @@ def _suspended_role_change_refusal(exc: Exception) -> HTTPException | None:
     )
 
 
-@router.patch("/users/{user_id}/role", response_model=UserRoleChangeOut)
+@router.patch("/users/{user_id}/role", response_model=UserRoleChangeOut,
+              responses=staff_guard.STEP_UP_RESPONSES)
 async def admin_set_user_role(
     user_id: str,
     payload: UserRolePayload,
@@ -860,6 +861,7 @@ async def admin_set_user_role(
     role change is 409 ``account_suspended_role_change``.
     """
     admin_user = await require_admin(authorization)
+    staff_guard.require_recent_mfa(admin_user, authorization)  # FR-020, before any DB call
     role = (payload.role or "").strip().lower()
     if role not in _VALID_ROLES:
         raise HTTPException(
