@@ -5,6 +5,7 @@ enforces this). Reuse the actual 227 membership writers and 326 roster guards.
 """
 import asyncio
 import json
+import os
 from pathlib import Path
 from uuid import uuid4
 
@@ -27,7 +28,18 @@ def migrated(sql, schema):
 
 @pytest.fixture(scope="module")
 def activation_db():
-    m331._require_pg()
+    # A pre-provisioned non-superuser can own this disposable schema. CI's
+    # superuser still uses the shared bootstrap for the Supabase test roles.
+    try:
+        available = psql("SELECT 1") == "1"
+    except Exception:
+        available = False
+    if not available:
+        if os.environ.get("REQUIRE_PG") == "1":
+            pytest.fail("Local PostgreSQL required for migration 359 verification")
+        pytest.skip("Local PostgreSQL unavailable")
+    if psql("SELECT usesuper FROM pg_user WHERE usename=current_user") == "t":
+        m331._require_pg()
     schema = "activation359_" + uuid4().hex
     try:
         m326._build(schema)
@@ -50,7 +62,8 @@ def activation_db():
                 user_id uuid, code_id uuid, assigned_at timestamptz, is_active boolean,
                 PRIMARY KEY (user_id, code_id));
         """)
-        psql(migrated((MIGRATIONS / "099_access_code_audit.sql").read_text(), schema))
+        psql(f"SET search_path = {schema}, pg_temp; "
+             + (MIGRATIONS / "099_access_code_audit.sql").read_text())
         psql(migrated(SQL, schema))
         psql(migrated(SQL, schema))
         yield schema
@@ -86,6 +99,7 @@ def state(schema, user, code_id):
 
 def test_acl_search_path_and_safe_reapply(activation_db):
     schema = activation_db
+    assert psql(f"SELECT to_regclass('{schema}.access_code_audit') IS NOT NULL") == "t"
     assert psql(f"SELECT prosecdef FROM pg_proc WHERE oid='{schema}.{SIGNATURE}'::regprocedure") == "t"
     config = json.loads(psql(f"SELECT to_json(proconfig) FROM pg_proc WHERE oid='{schema}.{SIGNATURE}'::regprocedure"))
     assert f"search_path=pg_catalog, {schema}, pg_temp" in config
@@ -260,3 +274,19 @@ def test_claim_failure_has_no_partial_writes_including_profile_link(activation_d
         assert psql(f"SELECT count(*) FROM {schema}.student_cohort_memberships WHERE student_id='{student}'") == "0"
     finally:
         psql(f"DROP TRIGGER reject_claim359 ON {schema}.access_codes; DROP FUNCTION {schema}.reject_claim359()")
+
+
+def test_archived_cohort_refusal_preserves_account_and_unused_claim(activation_db):
+    """Archive metadata alone must refuse before any activation/claim writes."""
+    schema = activation_db
+    user, cid, code, cohort = seed(schema)
+    psql(f"ALTER TABLE {schema}.cohorts ADD COLUMN archived_at timestamptz; "
+         f"UPDATE {schema}.cohorts SET is_active=false, archived_at=now() WHERE id='{cohort}'")
+    try:
+        before = state(schema, user, cid)
+        assert call(schema, user, cid, code) == {"status": "cohort_archived"}
+        assert state(schema, user, cid) == before
+        assert before["code"]["is_used"] is False and before["code"]["used_by"] is None
+        assert before["students"] == before["memberships"] == []
+    finally:
+        psql(f"ALTER TABLE {schema}.cohorts DROP COLUMN archived_at")
