@@ -145,28 +145,32 @@
   // page for a fresh TOTP. AdminAccessGate claims the event (preventDefault)
   // and calls detail.resolve(true) once mfa.challenge + verify succeeded, or
   // resolve(false) when the dialog is closed. Unclaimed → false at once.
-  // Concurrent refusals share one dialog.
+  // Concurrent refusals share one dialog. The pending promise is stored
+  // BEFORE the event is dispatched: an unclaimed event settles synchronously,
+  // and storing afterwards would pin an already-settled `false` for every
+  // later refusal (no new event even once the gate has mounted).
   var _stepUpPending = null;
   function _requestStepUp(detail) {
     if (_stepUpPending) return _stepUpPending;
-    _stepUpPending = new Promise(function (resolve) {
-      var settled = false;
-      function done(ok) {
-        if (settled) return;
-        settled = true;
-        _stepUpPending = null;
-        resolve(ok === true);
-      }
-      var claimed = false;
-      try {
-        claimed = !window.dispatchEvent(new CustomEvent('aver:admin-step-up-required', {
-          cancelable: true,
-          detail: { maxAgeSeconds: detail && detail.max_age_seconds, resolve: done },
-        }));
-      } catch (_) { claimed = false; }
-      if (!claimed) done(false);
-    });
-    return _stepUpPending;
+    var resolvePending;
+    var pending = new Promise(function (resolve) { resolvePending = resolve; });
+    _stepUpPending = pending;
+    var settled = false;
+    function done(ok) {
+      if (settled) return;
+      settled = true;
+      if (_stepUpPending === pending) _stepUpPending = null;
+      resolvePending(ok === true);
+    }
+    var claimed = false;
+    try {
+      claimed = !window.dispatchEvent(new CustomEvent('aver:admin-step-up-required', {
+        cancelable: true,
+        detail: { maxAgeSeconds: detail && detail.max_age_seconds, resolve: done },
+      }));
+    } catch (_) { claimed = false; }
+    if (!claimed) done(false);
+    return pending;
   }
 
   async function _apiRequest(method, path, body, isFormData, extraHeaders, opts) {

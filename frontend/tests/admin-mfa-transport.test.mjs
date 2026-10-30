@@ -190,6 +190,37 @@ test('concurrent refusals share one prompt and each request is resent once', asy
   assert.equal(sent.length, 4);
 });
 
+// PR #2023 Codex P2 / SA P2-1: an unclaimed event settles synchronously; the
+// shared pending promise must not stay pinned to that settled `false`.
+test('an unclaimed refusal does not pin false: once the gate mounts, the next refusal prompts', async () => {
+  let listener = null;
+  const { api, sent, prompts } = loadStepUp({
+    responses: [refused(), refused(), { status: 200, body: { ok: true } }],
+    onStepUp: (event, ctx) => { if (listener) listener(event, ctx); },
+  });
+  await assert.rejects(api.patch('/admin/users/u1/role', { role: 'student' }), (error) => error.status === 403);
+  assert.deepEqual(prompts, [900]);
+  listener = verifyThen(true);
+  assert.deepEqual({ ...(await api.patch('/admin/users/u1/role', { role: 'student' })) }, { ok: true });
+  assert.deepEqual(prompts, [900, 900]);
+  assert.deepEqual(sent.map((s) => s.auth), ['Bearer aal2-old', 'Bearer aal2-old', 'Bearer aal2-fresh']);
+});
+
+test('after a prompt settles (verified or closed) the next refusal opens a new prompt', async () => {
+  let outcome = true;
+  const { api, sent, prompts } = loadStepUp({
+    responses: [refused(), { status: 200, body: { ok: 1 } }, refused(), refused(), { status: 200, body: { ok: 3 } }],
+    onStepUp: (event, ctx) => verifyThen(outcome)(event, ctx),
+  });
+  assert.equal((await api.patch('/admin/users/u1/role', { role: 'student' })).ok, 1);
+  outcome = false;
+  await assert.rejects(api.patch('/admin/users/u2/role', { role: 'student' }), (error) => error.status === 403);
+  outcome = true;
+  assert.equal((await api.patch('/admin/users/u3/role', { role: 'student' })).ok, 3);
+  assert.deepEqual(prompts, [900, 900, 900]);
+  assert.equal(sent.length, 5);
+});
+
 test('api.js mirrors the gate step-up event name', () => {
   const gate = readFileSync(new URL('../components/admin-access-gate.tsx', import.meta.url), 'utf8');
   assert.ok(source.includes(`'${STEP_UP_EVENT}'`));
