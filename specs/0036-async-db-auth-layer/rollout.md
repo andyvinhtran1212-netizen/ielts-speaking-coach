@@ -104,9 +104,7 @@ directly, whatever the flag, and build the client on first use:
   grading and other AI features;
 - `backend/services/core_attempt_outcomes.py:213`, `:244`, `:260`,
   `core_attempt_aggregate.py:172`, `core_attempt_inspection.py:136`, `:152`,
-  `core_exam_result_proofs.py:68` and `core_operation_correlation.py:129`;
-- `backend/services/ai_budget.py:421–424` (`_rpc_execute` async path, the
-  migration-333 budget RPCs).
+  `core_exam_result_proofs.py:68` and `core_operation_correlation.py:129`.
 
 After the first such call, a flag-off service reports
 `async_client_initialised: true` and a non-null `postgrest_pool`. The lazy

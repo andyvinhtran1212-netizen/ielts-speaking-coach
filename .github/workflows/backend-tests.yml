@@ -276,7 +276,6 @@ jobs:
         run: |
           python -m pytest -v --tb=short \
             tests/test_migration_*.py \
-            tests/test_rls_no_inline_admin_role_policy.py \
             tests/test_mock_paper_policy_postgres.py \
             tests/test_mock_private_draft_postgres.py \
             tests/test_activate_rate_limit.py

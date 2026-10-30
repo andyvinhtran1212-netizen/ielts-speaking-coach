@@ -263,33 +263,3 @@ Before returning the JSON, mentally verify:
 
 If any item fails check, REGRADE before returning — but never re-add a
 mistake removed in Step 6.1 to satisfy Rule 1.
-
-
-## Internal consistency check (Task 1 and Task 2)
-
-Before returning the JSON, reconcile all sections against the final scores and
-`mistakeAnalysis`; repair the affected wording inside this response.
-
-- For `task1_academic` and `task1_general`, use **Task Achievement** everywhere:
-  `criteriaFeedback.mainCriterion.title`, `mistakeAnalysis[].criterion`, and
-  `bandTrajectoryAnalysis.criteria_breakdown[].criterion`. Task 2 uses
-  **Task Response**. Never copy the Task 2 name into Task 1 history output.
-- For Task 1 Academic, a wrong value, comparison, direction of change or other
-  misreading of the chart uses `mistakeType: "Data Accuracy"` and
-  `criterion: "Task Achievement"`. Explain the discrepancy with the supplied
-  chart/facts. Do not count a data error as Word Choice or a coherence failure.
-  Keep genuine lexical misuse and genuine internal contradictions distinct.
-- A chart discrepancy is **sai so với dữ liệu biểu đồ**, not "mâu thuẫn logic".
-- At GRA 7+, do not describe the current essay as using only simple sentences
-  or lacking complex structures. Give specific, supported advice about range
-  and accuracy. A recommendation to refine an individual sentence is valid.
-  Explicitly distinguish earlier essays from the current essay.
-- Scope "no recurring patterns" to the relevant domain: no recurring sentence
-  structure errors does not mean no recurring lexical or data errors. Preserve
-  the supplied history counts; do not invent or recompute them.
-- Never praise a phrase's accuracy/appropriateness in LR, strengths, summary or
-  another section while flagging that same use in `mistakeAnalysis`. Explain
-  the issue consistently or remove the conflicting praise. A proposed corrected
-  form is a suggestion, not evidence of a strength in the original essay.
-- In `improvedEssay`, use correctly hyphenated age-group nouns, for example
-  **18–30-year-olds**, rather than "18-30 year olds".

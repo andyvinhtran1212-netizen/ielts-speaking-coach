@@ -8,7 +8,6 @@ import { fileURLToPath } from 'node:url';
 import {
   AUTH_ME_REUSE_MS,
   AUTH_ME_TIMEOUT_MESSAGE,
-  newRequestId,
   sharedAuthMe,
 } from '../public/js/auth-me-single-flight.js';
 
@@ -246,25 +245,8 @@ describe('sharedAuthMe — single flight per access token', () => {
       sentId = requestId;
       return json({ role: 'user' });
     }, { scope: {} });
-    assert.match(record.requestId, /^auth-me-request-\d+-\d+$/);
+    assert.match(record.requestId, /^auth-me-request-\d+$/);
     assert.equal(record.requestId, sentId);
-  });
-
-  it('two fallback IDs minted in the same millisecond differ', async (t) => {
-    t.mock.method(globalThis.crypto, 'randomUUID', () => undefined);
-    t.mock.method(Date, 'now', () => 1761800000000);
-    const sentIds = [];
-    const send = async (_signal, requestId) => { sentIds.push(requestId); return json({ role: 'user' }); };
-    const a = await sharedAuthMe('', send, { scope: {} });
-    const b = await sharedAuthMe('', send, { scope: {} });
-    assert.equal(sentIds.length, 2);
-    assert.notEqual(a.requestId, b.requestId);
-    assert.deepEqual([a.requestId, b.requestId], sentIds);
-    for (const id of sentIds) assert.match(id, /^auth-me-request-1761800000000-\d+$/);
-    const d1a = newRequestId('d1-request');
-    const d1b = newRequestId('d1-request');
-    assert.notEqual(d1a, d1b);
-    assert.match(d1a, /^d1-request-1761800000000-\d+$/);
   });
 
   it('clones JSON payloads when structuredClone is unavailable', async () => {
@@ -319,7 +301,7 @@ describe('PC-J147 wiring — one /auth/me on /d1-exercise and /vocabulary/hub', 
   });
 
   it('the D1 opening profile read shares the same flight', () => {
-    assert.match(D1, /import \{ newRequestId, sharedAuthMe \} from '@\/lib\/auth\/auth-me-single-flight\.mjs'/);
+    assert.match(D1, /from '@\/lib\/auth\/auth-me-single-flight\.mjs'/);
     assert.match(D1, /sharesAuthMe = path === '\/auth\/me'/);
     assert.match(D1, /sharedAuthMe\(token, \(signal, requestId\) => send\(token, signal, requestId\)/);
     assert.match(D1, /return \{ response: \{ ok, status \}, payload, token, requestId \}/);

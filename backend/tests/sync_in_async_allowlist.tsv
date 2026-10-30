@@ -1,6 +1,7 @@
 # PC-J408 G-guard baseline on origin/staging 3107834c63bd1df7c2383f516f21c2b4f53dfc3b.
-# Initial inventory reconciled with staging 8c9dbf6e8 before guard first lands:
-# merged PR #1984 adds exactly three existing G6 calls below, each identified.
+# Initial inventory reconciled with staging d4cfa1ab9 before guard first lands:
+# #2090 removes five calls/keys net, including #1984's three G6 additions, and
+# relocates one existing G7 helper call (identified below); no count grows.
 # key (path::qualified-function::callee)	count	remediation PR group	one-line reason
 # Paths are backend-relative; line numbers are diagnostic only. Counts prevent
 # adding more calls under an existing key. Remove/decrease entries with each fix;
@@ -47,8 +48,6 @@ routers/admin.py::admin_regrade_session::db.execute	6	G5	Existing inline sync DB
 routers/admin.py::admin_regrade_session::routers.admin._regrade_compute_session_bands	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
 routers/admin.py::admin_regrade_session::routers.admin._regrade_incomplete_response_ids	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
 routers/admin.py::admin_regrade_session::services.class_assignment_service.sync_class_item_score	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin.py::admin_set_user_role::routers.admin._committed_role_change	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
-routers/admin.py::admin_set_user_role::routers.admin._demotion_may_be_unrevoked	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
 routers/admin.py::admin_set_user_role::services.staff_security.set_staff_privilege	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
 routers/admin.py::admin_set_vocab_flag::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
 routers/admin.py::admin_vocab_stats::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
@@ -636,8 +635,6 @@ routers/instructor.py::get_prompt::services.writing_image_access.attach_signed_i
 routers/instructor.py::get_student::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
 routers/instructor.py::list_assignments::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
 routers/instructor.py::list_codes::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
-routers/instructor.py::list_codes::routers.instructor._hidden_cohort_ids	1	G6	Existing on staging via #1984 (8c9dbf6e8); offload cohort lookup in G6.
-routers/instructor.py::list_codes::services.test_data_visibility.hide_for	1	G6	Existing on staging via #1984 (8c9dbf6e8); offload visibility lookup in G6.
 routers/instructor.py::list_cohorts::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
 routers/instructor.py::list_cohorts::services.test_data_visibility.hide_for	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/instructor.py::list_essay_versions::services.essay_service.get_live_versions	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
@@ -646,7 +643,6 @@ routers/instructor.py::list_essays::services.instructor_access.instructor_list_e
 routers/instructor.py::list_prompts::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
 routers/instructor.py::list_prompts::services.writing_image_access.attach_signed_image_urls	1	G6	Existing sync helper reaches Storage signing; offload caller in G6.
 routers/instructor.py::list_students::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
-routers/instructor.py::list_students::routers.instructor._hidden_cohort_ids	1	G6	Existing on staging via #1984 (8c9dbf6e8); offload cohort lookup in G6.
 routers/instructor.py::list_students::services.test_data_visibility.drop_test_students	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/instructor.py::list_students::services.test_data_visibility.hide_for	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/instructor.py::mint_codes::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
@@ -1261,7 +1257,7 @@ services/quiz_service.py::submit_course_writing::services.quiz_service.refresh_c
 services/rate_limit.py::rate_limit_exercise.decorator.wrapper::services.rate_limit.enforce_exercise_rate_limit	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
 services/rate_limit.py::rate_limit_flashcard.decorator.wrapper::services.rate_limit.enforce_flashcard_rate_limit	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
 services/staff_guard.py::resolve_staff::services.staff_guard.lookup_role	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
-services/staff_security.py::record_revocation::services.staff_security._record_over_rest	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
+services/staff_security.py::revoke_and_record::services.staff_security.record_revocation	1	G7	Existing staging #2090 (d4cfa1ab9) moves the former record_revocation -> _record_over_rest debt to this sync caller; offload in G7.
 services/tts_audio.py::get_or_create_audio::services.tts_audio.audio_exists	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
 services/tts_audio.py::get_or_create_audio::services.tts_audio.upload_mp3	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
 services/vocab_extractor.py::extract_vocab::anthropic.Anthropic.messages.create	1	G2	Existing sync AI client call; offload in G2.

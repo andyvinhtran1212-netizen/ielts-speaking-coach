@@ -533,12 +533,6 @@ class GradingResult(BaseModel):
     # documented on that column's COMMENT (migration 046).
     tier_metadata: dict = Field(default_factory=dict)
 
-    # PC-J164 — every provider call behind this result, in order: provider,
-    # model, status, error_code, tokens, cost_usd, served (+ pass for Deep).
-    # cost_usd above is their sum, so rejected attempts are counted.
-    # Persisted to writing_feedback.provenance by essay_service.
-    grading_attempts: list[dict] = Field(default_factory=list)
-
     # Allow the BaseModel union (WritingFeedback OR WritingFeedbackDeep
     # in 2.7b; previously WritingFeedbackQuick before 2.7a.1's revert)
     # to flow through without strict-mode rejecting the subclass.
