@@ -11,6 +11,10 @@ extra students/Writing columns missing from 248, following the 326 harness.
 The 227 roster and 320 users guard come from that harness; 337's _class_tables
 adds its remaining columns. No product trigger function is a test stand-in.
 TEST_PG_URL must be local; REQUIRE_PG=1 makes missing PostgreSQL a failure.
+
+Writing terminal → submitted relink is intentionally not guarded in the DB
+(224 design; owner decision 2026-10-30, option b); the learner route predicate
+is the guard. See test_writing_submit_status_predicate.py for that boundary.
 """
 
 import json
@@ -349,16 +353,3 @@ def test_reaper_and_finalisers_keep_work_writable_after_expiry_and_archive(schem
         assert after["status"] == status and after["auto_submitted"] is True
         _advance_timestamp(before["updated_at"], after["updated_at"])
         assert _origin(schema, data) == origin
-
-
-def test_learner_submit_from_graded_state_conflicts_without_origin_mutation(schema):
-    data = admission.seed(schema)
-    admission.execute(schema, data)
-    psql(f"SET ROLE service_role; UPDATE {schema}.writing_assignments "
-         f"SET status = 'graded', essay_id = '{uuid4()}' WHERE id = '{data['assignment']}'")
-    _expire(schema, data)
-    before = (_assignment(schema, data), _origin(schema, data))
-    # PC-J259 case 3 requires the DB to reject a learner artifact relink from
-    # a terminal state, independently of the router's current-status filter.
-    _refused(_submit(schema, data), "55000", "active_player_state_conflict")
-    assert (_assignment(schema, data), _origin(schema, data)) == before
