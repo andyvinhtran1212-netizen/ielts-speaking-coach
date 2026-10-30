@@ -267,6 +267,7 @@ jobs:
       # A wrong image tag would silently turn this into a second PG 16 run.
       - name: Server is PostgreSQL 17
         run: |
+          : "${TEST_PG_URL:?TEST_PG_URL is required for PostgreSQL 17 verification}"
           VERSION=$(psql "$TEST_PG_URL" -Atc 'show server_version_num')
           echo "server_version_num=$VERSION"
           [ "$VERSION" -ge 170000 ] && [ "$VERSION" -lt 180000 ]
@@ -276,6 +277,8 @@ jobs:
         run: |
           python -m pytest -v --tb=short \
             tests/test_migration_*.py \
+            tests/test_class_action_log_postgres.py \
+            tests/test_client_write_invariant_postgres.py \
             tests/test_mock_paper_policy_postgres.py \
             tests/test_mock_private_draft_postgres.py \
             tests/test_activate_rate_limit.py
