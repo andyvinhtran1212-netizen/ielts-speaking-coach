@@ -134,4 +134,4 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 
 | RLSCLEANUP-0039 | No RLS policy depends on the revoked admin or instructor helper functions, and learner or instructor JWTs have no direct access to the 21 admin-managed tables | approved | high | [spec](0039-rls-admin-policy-cleanup/spec.md) |
 
-| SVCPRIV-0042 | service_role loses public table maintenance privileges and schema CREATE to block planted triggers and function overloads | draft | critical | [spec](0042-service-role-table-maintenance-revoke/spec.md) |
+| SVCPRIV-0042 | service_role loses public table maintenance privileges and schema CREATE, and unpinned public functions get a fixed search_path, to block owner-run planted triggers, function overloads and temp-object shadowing | draft | critical | [spec](0042-service-role-table-maintenance-revoke/spec.md) |

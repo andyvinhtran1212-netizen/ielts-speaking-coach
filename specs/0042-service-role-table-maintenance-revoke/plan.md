@@ -61,6 +61,13 @@ is approved.
 - NNN does not touch functions, triggers, policies, RLS flags, ownership, data,
   sequences, function EXECUTE or other schemas. No GRANT statement in NNN
   (FR-002, FR-008).
+- Migration 358 (FR-010, T004, PC-J406) is separate from NNN and applied
+  after 357. It sets `search_path = public, pg_temp` on every `public`
+  function whose `proconfig` has no `search_path`, with a fail-closed
+  zero-unpinned postcondition and a `pending_feature` entry. It changes only
+  `proconfig`: no body, owner, ACL or trigger (FR-008). Its static guard
+  rejects new unpinned `CREATE [OR REPLACE] FUNCTION` in
+  `backend/migrations/**`.
 - FastAPI, frontend, OpenAPI: unchanged.
 - Tests (T001):
   - `backend/tests/test_migration_NNN_service_role_table_maintenance_revoke.py`:
@@ -124,7 +131,11 @@ Privilege target for every `public` relation not owned by `service_role`:
     probes, with both negative controls and refused planting after NNN;
   - overload-shadow probes with only table rights revoked as the negative
     control, then schema CREATE revoked, plus an inherited-CREATE abort;
-  - corrected down-356 regression and synthetic pre-NNN clone/baseline/apply.
+  - corrected down-356 regression (genuine service_role UPDATE/DELETE on
+    `class_action_log` → 42501 after the down) and synthetic pre-NNN
+    clone/baseline/apply;
+  - Scenario 12 for 358: temp-view shadow through an FK cascade, red before
+    and green after 358, with an owner-path negative control.
 - Static guard plus `.sql`, `.sh`, `.py` mutation fixtures for scenario 6,
   including rollback files below NNN and every forbidden grant family.
 - Full backend suite on the worktree; `bash -n` not needed (no shell change).

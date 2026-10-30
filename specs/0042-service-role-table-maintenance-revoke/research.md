@@ -34,9 +34,16 @@ REFERENCES 150, TRUNCATE 147 and MAINTAIN 150. Production remains unverified.
 - Corrected catalog evidence: SA's
   `staging-owner-write-reach-20261030.txt` records **132 reachable tables**
   from service-callable definers, trigger writes and FK actions to a fixed
-  point. Use the artifact's 132-row list as the observed catalog result,
-  replacing the earlier 83-table claim. It is a conservative reachability
-  bound within that scan's model, not proof that the remaining tables are safe.
+  point, replacing the earlier 83-table claim. SA round 2
+  (`/workspace/qa/pr2060/r2/reach-reconcile-20261030.txt`, staging PG 17,
+  read-only catalog, 2026-10-30) reconciled it: the public-only query below
+  as first written gave 137 tables (7 more from direct `service_role` DML
+  seeds, 2 fewer because it dropped FK parents outside `public`); the
+  all-schema-parent variant `sa_reach_query_v2.sql` gives **139**, the union
+  of all three lists, out of 166 `r`/`p` relations. The current figure is
+  therefore **≥139 tables on staging**. It is a conservative reachability
+  bound within that scan's model, not proof that the remaining tables are
+  safe.
 - Limits:
   - The base schema predates migration 001 and is out of band, so its tables
     and functions are not visible here. Examples include any `auth.users`
@@ -51,6 +58,13 @@ REFERENCES 150, TRUNCATE 147 and MAINTAIN 150. Production remains unverified.
   - **Owner sessions:** migrations, backfills and the `postgres` direct
     connections used by `staff_security_sweep.py`, the owner-alert outbox
     and `restore_into_project.sh`.
+  - **`auth.users` deletes through the GoTrue admin API:** 24 `public`
+    tables on staging have an FK CASCADE/SET NULL/SET DEFAULT action to
+    `auth.users`. Deleting a user through the GoTrue admin API with the
+    service key runs those actions as the owner of each child table, so
+    their triggers run as that owner too (SA round 2,
+    `reach-reconcile-20261030.txt`; it adds `d1_sessions` and
+    `flashcard_stacks`).
   - **Foreign-key cascades:** a referential action runs as the owner of the
     referencing table, so its BEFORE row triggers run as that owner. This
     is confirmed by SA's `probe_fk_cascade.sql` / `.out`: a direct
@@ -60,16 +74,20 @@ REFERENCES 150, TRUNCATE 147 and MAINTAIN 150. Production remains unverified.
     owner boundary and need a T001 regression fixture too.
 
   Both make coverage of **all tables mandatory**. Group 1 is only for named
-  checks and fixtures. Even a table outside the observed 132 can be written
+  checks and fixtures. Even a table outside the observed ≥139 can be written
   by an owner session or a later migration.
 
 ### Read-only query for the reachability recheck
 
-The supplied SA artifact preserves the 132-table output and catalog inputs,
-but not its original query text. The following read-only reconstruction
-records the fixed-point method for T001's recheck; it has not been executed
-in this spec-only revision, so its output must be compared with SA's saved
-list before claiming the count was reproduced. Regex targets and dynamic
+The first SA artifact preserves the 132-table output and catalog inputs,
+but not its original query text. The following read-only query records the
+fixed-point method for T001's recheck. It follows SA's round-2 variant
+(`/workspace/qa/pr2060/r2/sa_reach_query_v2.sql`): FK **parents** are taken
+from every schema (`anyrel`), not only `public`, and `auth.users` is a seed
+parent because the GoTrue admin API deletes it with the service key. SA ran
+that variant on staging (139 tables); it has not been executed in this
+spec-only revision, so T001 must compare its output with SA's saved
+`sa_reach_v2_result.txt` before claiming the count was reproduced. Regex targets and dynamic
 SQL require review; this inventory never restricts FR-001.
 
 ```sql
@@ -78,6 +96,10 @@ rels AS (
   SELECT c.oid, c.relname
     FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
    WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')
+),
+anyrel AS (
+  -- FK parents in any schema (e.g. auth.users), children stay in public.
+  SELECT c.oid FROM pg_class c WHERE c.relkind IN ('r', 'p')
 ),
 funcs AS (
   SELECT p.* FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
@@ -101,7 +123,7 @@ edges(src, dst) AS (
   UNION
   SELECT 't:' || k.confrelid, 't:' || k.conrelid
     FROM pg_constraint k
-    JOIN rels parent ON parent.oid = k.confrelid
+    JOIN anyrel parent ON parent.oid = k.confrelid
     JOIN rels child ON child.oid = k.conrelid
    WHERE k.contype = 'f'
      AND (k.confdeltype IN ('c', 'n', 'd')
@@ -113,14 +135,17 @@ seeds(node) AS (
      AND has_function_privilege('service_role', f.oid, 'EXECUTE')
   UNION
   -- Direct API-role DML can start an owner-run FK action without a definer.
+  -- auth.users is deleted/updated by the GoTrue admin API with the service key.
   SELECT 't:' || k.conrelid FROM pg_constraint k
-    JOIN rels parent ON parent.oid = k.confrelid
+    JOIN anyrel parent ON parent.oid = k.confrelid
     JOIN rels child ON child.oid = k.conrelid
    WHERE k.contype = 'f'
      AND ((k.confdeltype IN ('c', 'n', 'd')
-           AND has_table_privilege('service_role', parent.oid, 'DELETE'))
+           AND (has_table_privilege('service_role', parent.oid, 'DELETE')
+                OR parent.oid = 'auth.users'::regclass))
        OR (k.confupdtype IN ('c', 'n', 'd')
-           AND has_table_privilege('service_role', parent.oid, 'UPDATE')))
+           AND (has_table_privilege('service_role', parent.oid, 'UPDATE')
+                OR parent.oid = 'auth.users'::regclass)))
 ),
 reach(node) AS (
   SELECT node FROM seeds

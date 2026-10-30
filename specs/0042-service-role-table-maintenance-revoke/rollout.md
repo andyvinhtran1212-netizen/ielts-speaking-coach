@@ -9,6 +9,10 @@
   USAGE only for API roles, never CREATE/ALL on schema public (FR-007).
 - Every rollback passes FR-006, including a corrected down of 356 under F5.
   No older-number rollback exemption is allowed.
+- Migration 358 (FR-010, T004) is merged and held by its `pending_feature`
+  entry; it is applied after 357 (PC-J365). Until 358 is applied and SA's
+  358 retest passes, the temp-view-shadow path (P2-R2-1) stays open and
+  blocks production promotion.
 - No STAGING_FREEZE or STAGING_MERGE_HOLD. The Leader applies under the
   advisory-locked runner.
 - The runner is `postgres`. Record, read-only, `SELECT rolsuper,
@@ -100,6 +104,16 @@
     WHERE n.nspname = 'public' AND a.grantee = 0
       AND a.privilege_type = 'CREATE';
    ```
+   After 358 (FR-010), also expect 0 rows:
+
+   ```sql
+   SELECT p.oid::regprocedure AS routine, pg_get_userbyid(p.proowner) AS owner
+     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND NOT EXISTS (
+        SELECT 1 FROM unnest(COALESCE(p.proconfig, ARRAY[]::text[])) c
+         WHERE c LIKE 'search_path=%');
+   ```
 3. `has_table_privilege('service_role','public.users','TRIGGER')` is false,
    and SELECT/INSERT/UPDATE/DELETE on `public.users` and
    `public.student_cohort_memberships` are unchanged from the pre-apply
@@ -109,6 +123,9 @@
    Rerun the synthetic overload and direct-DML FK controls from
    `/workspace/qa/pr2060/`: planted child triggers run as postgres without
    NNN; after NNN, planting triggers and both public overloads fails with 42501.
+   After 358, rerun `/workspace/qa/pr2060/r2/probe_temp_shadow.sql` on SA's
+   disposable PG: no attacker marker and `has_table_privilege(
+   'service_role','public.users','TRIGGER')` stays false.
    These write probes use disposable synthetic objects only, never production.
 5. Smoke on QA data:
    - archive and restore a QA student;
@@ -130,7 +147,8 @@ as its own step:
 2. Apply `NNN` under the advisory lock.
 3. Run the same read-only postcheck.
 4. Q-J357-3 is a blocking gate for promotion and closing P2-SA-1/PC-J357:
-   require FR-001/FR-003/FR-009 evidence for the production apply and SA's
+   require FR-001/FR-003/FR-009/FR-010 evidence for the production apply,
+   SA's 358 retest passed (P2-R2-1), and SA's
    written resolution of existing planted objects, TEMP/other-schema risks
    and un-actable defaults. No owner-execution path may remain unaddressed.
 
@@ -166,6 +184,11 @@ WARNING.
   the authorized explicit feature selection. If a baseline falsely recorded
   it, stop and reconcile through the supported runner workflow; an ordinary
   apply would skip it. Scenario 11 proves the full synthetic sequence.
+- After every restore or DR drill (including `scripts/backup/`
+  `restore_into_project.sh`, which restores ACLs from the dump), re-run the
+  FR-001/FR-003/FR-009/FR-010 read-only postchecks (Staging step 2) before
+  the restored database is used. A dump taken before NNN or 358 brings back
+  TRIGGER, schema CREATE or unpinned functions.
 - If the postcheck fails at apply time, the transaction rolls back by itself
   (FR-004). Read the message, fix the cause (for example a relation owned by
   `service_role` or an inherited grant), and re-apply.
