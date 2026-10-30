@@ -25,7 +25,9 @@ from __future__ import annotations
 import threading
 import copy
 import json
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
@@ -2904,6 +2906,151 @@ def _seed_essay(fake_db, eid, task_type, word_count, status="pending", sitting_i
         "id": eid, "task_type": task_type, "word_count": word_count,
         "status": status, "sitting_id": sitting_id,
     })
+
+
+@pytest.fixture
+def grading_scheduler(fake_db, monkeypatch):
+    """Observe scheduling while retaining real job inserts in the shared fake."""
+    from services import essay_service
+    scheduler = Mock(wraps=essay_service.schedule_grading_job)
+    monkeypatch.setattr(essay_service, "schedule_grading_job", scheduler)
+    return scheduler
+
+
+def test_claim_pending_for_grading_rejects_skipped(fake_db, svc, grading_scheduler):
+    from services import essay_service
+    _seed_essay(fake_db, "e1", "task2", 40)
+    svc.skip_mock_writing_grading("e1", admin_id="admin-1")
+    before = copy.deepcopy(fake_db.rows("writing_essays")[0])
+
+    out = essay_service.claim_pending_for_grading(
+        "e1", grading_tier="standard", analysis_level=3,
+    )
+
+    assert out is None
+    assert fake_db.rows("writing_essays")[0] == before
+    grading_scheduler.assert_not_called()
+    assert fake_db.rows("writing_jobs") == []
+
+
+@pytest.mark.parametrize("status", ["pending", "grading"])
+def test_claim_pending_for_grading_status_guard(fake_db, grading_scheduler, status):
+    from services import essay_service
+    _seed_essay(fake_db, "e1", "task2", 300, status=status)
+    fake_db.rows("writing_essays")[0]["grading_skipped_at"] = None
+
+    out = essay_service.claim_pending_for_grading(
+        "e1", grading_tier="instructor", analysis_level=4,
+    )
+
+    if status == "pending":
+        grading_scheduler.assert_called_once_with(
+            essay_id="e1", grading_tier="instructor", analysis_level=4,
+            selected_model="gemini-2.5-pro",
+        )
+        assert len(fake_db.rows("writing_jobs")) == 1
+        assert out["job_id"] == fake_db.rows("writing_jobs")[0]["id"]
+        assert fake_db.rows("writing_essays")[0]["grading_tier"] == "instructor"
+    else:
+        assert out is None
+        grading_scheduler.assert_not_called()
+        assert fake_db.rows("writing_jobs") == []
+    assert fake_db.rows("writing_essays")[0]["status"] == "grading"
+    assert fake_db.rows("writing_essays")[0]["grading_skipped_at"] is None
+
+
+def test_claim_pending_for_grading_concurrent_claims(fake_db, grading_scheduler):
+    from services import essay_service
+    _seed_essay(fake_db, "e1", "task2", 300)
+    barrier = threading.Barrier(2)
+
+    def claim():
+        # Both callers see independent pending snapshots before either UPDATE.
+        with fake_db.lock:
+            essay = copy.deepcopy(fake_db.table("writing_essays").select("*")
+                                  .eq("id", "e1").execute().data[0])
+        barrier.wait(timeout=5)
+        out = essay_service.claim_pending_for_grading(
+            essay["id"], grading_tier="standard", analysis_level=3,
+        )
+        assert essay["status"] == "pending"
+        return out
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda _: claim(), range(2)))
+
+    assert sum(result is not None for result in results) == 1
+    grading_scheduler.assert_called_once()
+    assert len(fake_db.rows("writing_jobs")) == 1
+    assert fake_db.rows("writing_essays")[0]["status"] == "grading"
+
+
+@pytest.mark.parametrize("skipped", [True, False])
+def test_start_grading_skipped_claim_guard(
+    fake_db, svc, grading_scheduler, monkeypatch, skipped,
+):
+    from fastapi import BackgroundTasks
+    from fastapi.testclient import TestClient
+    from main import app
+    from routers import admin_writing
+    from services import essay_service
+
+    _seed_essay(fake_db, "e1", "task2", 40)
+    if skipped:
+        svc.skip_mock_writing_grading("e1", admin_id="admin-1")
+    before = copy.deepcopy(fake_db.rows("writing_essays")[0])
+    monkeypatch.setattr(admin_writing, "supabase_admin", fake_db)
+    monkeypatch.setattr(admin_writing, "require_admin", AsyncMock(return_value={"id": "admin-1"}))
+    monkeypatch.setattr(admin_writing, "observe_writing_batch", AsyncMock())
+    add_task = Mock()
+    monkeypatch.setattr(BackgroundTasks, "add_task", add_task)
+
+    response = TestClient(app).post(
+        "/admin/writing/essays/e1/start-grading", json={},
+        headers={"Authorization": "Bearer fake.admin.jwt"},
+    )
+
+    if skipped:
+        assert response.status_code == 409, response.text
+        assert response.json()["detail"] == (
+            "Essay đang ở trạng thái 'pending' — chỉ chấm được essay 'pending'."
+        )
+        assert fake_db.rows("writing_essays")[0] == before
+        grading_scheduler.assert_not_called()
+        add_task.assert_not_called()
+        assert fake_db.rows("writing_jobs") == []
+    else:
+        assert response.status_code == 202, response.text
+        grading_scheduler.assert_called_once()
+        assert len(fake_db.rows("writing_jobs")) == 1
+        add_task.assert_called_once_with(
+            essay_service._bg_grade_essay, "e1", response.json()["job_id"],
+        )
+        assert fake_db.rows("writing_essays")[0]["status"] == "grading"
+
+
+@pytest.mark.parametrize("word_count", [40, 300])
+@pytest.mark.parametrize("options", [{}, {"analysis_level": 5, "selected_model": "gemini-2.5-flash"}])
+def test_claim_mock_writing_grading_rejects_skipped(
+    fake_db, svc, grading_scheduler, word_count, options,
+):
+    _seed_essay(fake_db, "e1", "task2", word_count)
+    # Also exercise a stamped row that passes the word gate: rejection must
+    # come from the atomic claim, rather than only the existing short-word gate.
+    fake_db.rows("writing_essays")[0].update({
+        "grading_skipped_at": "2026-10-31T00:00:00Z",
+        "grading_skipped_by": "admin-1",
+    })
+    before = copy.deepcopy(fake_db.rows("writing_essays")[0])
+
+    out = svc.claim_mock_writing_grading(["e1"], **options)
+
+    assert out["queued"] == []
+    assert set(out) == {"queued", "short", "skipped"}
+    assert out["short"] + out["skipped"] == ["e1"]
+    assert fake_db.rows("writing_essays")[0] == before
+    grading_scheduler.assert_not_called()
+    assert fake_db.rows("writing_jobs") == []
 
 
 def test_claim_mock_writing_grading_gates_short_and_claims_long(fake_db, svc, monkeypatch):
