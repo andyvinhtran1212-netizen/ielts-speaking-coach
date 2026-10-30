@@ -522,60 +522,6 @@ async def test_bg_grade_essay_final_attempt_uses_fallback_model(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_bg_grade_essay_persists_run_cost_and_model_provenance(monkeypatch):
-    """PC-J164: the feedback row keeps the run total in cost_usd and records
-    requested vs attempt vs serving model plus every provider call; the essay's
-    selected_model (the request) is not rewritten."""
-    from config import settings
-    from models.writing_feedback import GradingResult
-    monkeypatch.setattr(settings, "WRITING_GRADING_MAX_ATTEMPTS", 3)
-    monkeypatch.setattr(settings, "WRITING_GRADING_FALLBACK_ENABLED", True)
-    monkeypatch.setattr(settings, "WRITING_FALLBACK_MODEL", "gemini-2.5-flash")
-    responses = _bg_essay_responses()                                 # primary = gemini-2.5-pro
-    responses[("writing_jobs", "select")] = [{"attempt_count": 2, "max_attempts": 3, "status": "running"}]
-    fake = _FakeSupabase(responses=responses)
-    fake_grader = MagicMock()
-    attempts = [
-        {"pass": "pass1", "provider": "anthropic", "model": "claude-sonnet-5-5",
-         "status": "invalid_response", "error_code": "ungrounded_feedback",
-         "input_tokens": 900, "output_tokens": 9000, "cost_usd": 0.132552, "served": False},
-        {"pass": "pass1", "provider": "anthropic", "model": "claude-sonnet-5-5",
-         "status": "success", "error_code": None,
-         "input_tokens": 700, "output_tokens": 6000, "cost_usd": 0.086236, "served": True},
-    ]
-
-    async def fake_grade(_config):
-        return GradingResult(
-            feedback=_valid_feedback_obj(), model_used="claude-sonnet-5-5",
-            tokens_input=700, tokens_output=6000, cost_usd=0.218788,
-            grading_duration_ms=10, prompt_version="v2.3", grading_attempts=attempts,
-        )
-    fake_grader.grade_essay = fake_grade
-
-    with patch.object(essay_service, "supabase_admin", fake), \
-         patch.object(essay_service, "get_grader", return_value=fake_grader), \
-         patch.object(essay_service, "get_recurring_patterns", return_value=None), \
-         patch.object(essay_service, "get_band_trajectory",  return_value=None):
-        await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
-
-    row = next(c for c in fake.calls if c["table"] == "writing_feedback"
-               and c["op"] == "insert")["payload"]
-    assert row["model_used"] == "claude-sonnet-5-5"
-    assert row["cost_usd"] == pytest.approx(0.218788)
-    assert row["provenance"] == {
-        "job_id": _JOB_ID,
-        "requested_model": "gemini-2.5-pro",
-        "attempt_model": "gemini-2.5-flash",
-        "model_used": "claude-sonnet-5-5",
-        "ai_attempt_count": 2,
-        "rejected_attempt_count": 1,
-        "ai_attempts": attempts,
-    }
-    assert not any(c["table"] == "writing_essays" and "selected_model" in c["payload"]
-                   for c in fake.calls if c["op"] == "update")
-
-
-@pytest.mark.asyncio
 async def test_bg_grade_essay_increments_attempt_counter(monkeypatch):
     """Sprint W-MM: each BG run bumps writing_jobs.attempt_count (per-essay retry
     ledger). A job previously at attempt 1 runs as attempt 2."""

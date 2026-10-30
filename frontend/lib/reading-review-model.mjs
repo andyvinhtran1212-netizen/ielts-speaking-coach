@@ -1,5 +1,3 @@
-import { numberedBlankPattern } from './numbered-blank.mjs';
-
 const ORIGINS = new Set(['full', 'mini', 'mock', 'my-class', 'admin']);
 
 const text = (value) => String(value ?? '').trim();
@@ -201,11 +199,10 @@ const PLACEHOLDER_PROMPT = /^\s*\(?\s*see\s+(summary|notes|table|form)\s+above\s
 
 export function readingReviewPrompt(item) {
   const prompt = String(item?.prompt ?? '');
-  // `{{n}} ____` is one blank (RV-05), so it becomes a single `____`.
-  if (prompt && !PLACEHOLDER_PROMPT.test(prompt)) return prompt.replace(numberedBlankPattern(), '____');
+  if (prompt && !PLACEHOLDER_PROMPT.test(prompt)) return prompt.replace(/\{\{\s*\d{1,3}\s*\}\}/g, '____');
   const authored = text(item?.solution?.question_text)
     .replace(/^["“”']+/, '').replace(/["“”']+$/, '').trim();
-  return (authored || prompt).replace(numberedBlankPattern(), '____');
+  return (authored || prompt).replace(/\{\{\s*\d{1,3}\s*\}\}/g, '____');
 }
 
 export function splitReviewProse(value) {

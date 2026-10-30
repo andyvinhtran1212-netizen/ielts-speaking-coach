@@ -52,8 +52,6 @@
  *   handle (e.g. show "Audio expired, refresh the page").
  */
 
-import { segmentStopDelayMs } from './media-segment-stop.js';
-
 const STYLE = /* css */ `
 :host {
   display: block;
@@ -391,11 +389,13 @@ export class AverAudioPlayer extends HTMLElement {
     if (this._segmentTimer) { clearTimeout(this._segmentTimer); this._segmentTimer = null; }
     const a = this._audio;
     if (!a || a.paused || !this._isSegmentMode()) return;
+    const remaining = this._segmentEnd() - a.currentTime;
+    const rate = Math.max(0.1, Number(a.playbackRate) || 1);
     this._segmentTimer = setTimeout(() => {
       this._segmentTimer = null;
       this._enforceSegmentEnd();
       this._scheduleSegmentEnd();
-    }, segmentStopDelayMs(a.currentTime, this._segmentEnd(), a.playbackRate));
+    }, Math.max(16, remaining / rate * 1000));
   }
 
   _applySegmentBounds() {

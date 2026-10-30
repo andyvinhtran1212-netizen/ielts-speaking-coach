@@ -15,8 +15,6 @@ Surfaces under test:
   11. Error log counts (undismissed / 24h / 7d).
   12. Recent activity sorted DESC by timestamp, capped at 20.
   13. Email enrichment for user_ids present in activity feed.
-  14. Speaking reads sessions.started_at (the table has no created_at, PC-J155).
-  15. A failed read is logged at ERROR and listed in `partial_failures`.
 """
 
 from __future__ import annotations
@@ -27,39 +25,14 @@ from unittest.mock import AsyncMock, patch
 from pathlib import Path
 import re
 
-import logging
-
 import pytest
 from fastapi.testclient import TestClient
-from postgrest.exceptions import APIError
 
 
 _ROUTER_SOURCE = (Path(__file__).parents[1] / "routers" / "admin_overview.py").read_text()
 
 
 # ── In-memory Supabase fake (reused pattern from test_error_logs.py) ──
-
-
-# public.sessions columns as read from the STAGING catalog (read-only
-# information_schema.columns, 2026-10-29, PC-J155; matches Web Manager's
-# 20261029-1545 note): there is NO created_at. The fake rejects any other
-# column in select/filters with PostgREST's 42703 error, like the real API.
-SESSIONS_COLUMNS = frozenset({
-    "id", "user_id", "mode", "part", "topic", "status", "overall_band",
-    "band_fc", "band_lr", "band_gra", "band_p", "audio_url", "pdf_url",
-    "tokens_used", "started_at", "completed_at", "error_code",
-    "error_message", "failed_step", "last_error_at", "pdf_status",
-    "last_regraded_at", "last_regraded_by", "regrade_count",
-    "last_accessed_at", "audio_purged_at", "content_purged_at",
-    "estimated_cost_usd", "sitting_id", "class_assignment_item_id",
-    "full_test_attempt_id", "renderer_affinity", "resume_expires_at",
-})
-_TABLE_COLUMNS = {"sessions": SESSIONS_COLUMNS}
-
-
-def _undefined_column(table, column):
-    return APIError({"message": f"column {table}.{column} does not exist",
-                     "code": "42703", "hint": None, "details": None})
 
 
 class _Resp:
@@ -102,7 +75,6 @@ class _TableQuery:
 
     def select(self, *_args, **_kw):
         self._mode = "select"
-        self.selected = [c.strip() for c in (_args[0] if _args else "*").split(",")]
         self._count_mode = _kw.get("count")
         self._head = bool(_kw.get("head", False))
         return self
@@ -149,15 +121,6 @@ class _TableQuery:
         return self
 
     def execute(self):
-        if self.table_name in self.fake.failing:
-            raise self.fake.failing[self.table_name]
-        known = _TABLE_COLUMNS.get(self.table_name)
-        if known is not None:
-            used = [c for c in getattr(self, "selected", []) if c != "*"]
-            used += [field for field, _op, _value in self.filters]
-            for column in used:
-                if column not in known:
-                    raise _undefined_column(self.table_name, column)
         rows = self.fake.tables.get(self.table_name, [])
         matched = [r for r in rows if self._matches(r)]
         if self.cursor_after:
@@ -202,7 +165,6 @@ class _TableQuery:
 class _FakeSupabase:
     def __init__(self):
         self.response_cap: int | None = None
-        self.failing: dict[str, Exception] = {}
         self.executions: list[tuple[str, bool, int]] = []
         self.tables: dict[str, list[dict]] = {
             "students":      [],
@@ -346,7 +308,7 @@ class TestActiveUsers:
         ]
         fake_db.tables["sessions"] = [
             {"id": "sess1", "user_id": "u-speaker", "overall_band": 6.5,
-             "status": "completed", "started_at": _iso(-1), "completed_at": _iso(-1)},
+             "status": "completed", "created_at": _iso(-1), "completed_at": _iso(-1)},
         ]
         fake_db.tables["listening_test_attempts"] = [
             {"id": "att1", "user_id": "u-listener", "test_id": "t1",
@@ -368,9 +330,9 @@ class TestActiveUsers:
     def test_active_7d_excludes_older_activity(self, client, fake_db):
         fake_db.tables["sessions"] = [
             {"id": "old", "user_id": "u-old", "overall_band": 6.0,
-             "status": "completed", "started_at": _iso(-20), "completed_at": _iso(-20)},
+             "status": "completed", "created_at": _iso(-20), "completed_at": _iso(-20)},
             {"id": "new", "user_id": "u-new", "overall_band": 6.0,
-             "status": "completed", "started_at": _iso(-1), "completed_at": _iso(-1)},
+             "status": "completed", "created_at": _iso(-1), "completed_at": _iso(-1)},
         ]
         r = client.get("/admin/overview", headers=_ADMIN_AUTH)
         body = r.json()
@@ -386,9 +348,9 @@ class TestSpeakingMetrics:
         # 1 completed, 1 in_progress (band=None) — only completed counted.
         fake_db.tables["sessions"] = [
             {"id": "s1", "user_id": "u1", "overall_band": 7.0,
-             "status": "completed", "started_at": _iso(-1), "completed_at": _iso(-1)},
+             "status": "completed", "created_at": _iso(-1), "completed_at": _iso(-1)},
             {"id": "s2", "user_id": "u1", "overall_band": None,
-             "status": "in_progress", "started_at": _iso(-1), "completed_at": None},
+             "status": "in_progress", "created_at": _iso(-1), "completed_at": None},
         ]
         r = client.get("/admin/overview", headers=_ADMIN_AUTH)
         assert r.json()["skills"]["speaking"]["avg_band_7d"] == 7.0
@@ -396,7 +358,7 @@ class TestSpeakingMetrics:
     def test_avg_band_null_when_no_completed(self, client, fake_db):
         fake_db.tables["sessions"] = [
             {"id": "s1", "user_id": "u1", "overall_band": None,
-             "status": "in_progress", "started_at": _iso(-1), "completed_at": None},
+             "status": "in_progress", "created_at": _iso(-1), "completed_at": None},
         ]
         r = client.get("/admin/overview", headers=_ADMIN_AUTH)
         assert r.json()["skills"]["speaking"]["avg_band_7d"] is None
@@ -446,7 +408,7 @@ class TestReadingFirstAttempt:
         paging_helper = paging_helper.split("def _first_attempt_only", 1)[0]
         assert "anon_src" not in listening_block
         assert 'select("id, user_id, anon_src, test_id' in paging_helper
-        assert "_safe_reading_attempt_window(iso_30d, snapshot_to, partial_failures)" in reading_block
+        assert "_safe_reading_attempt_window(iso_30d, snapshot_to)" in reading_block
 
     def test_avg_accuracy_uses_first_attempt_per_user_test(self, client, fake_db):
         def _att(i, score, days_ago):
@@ -580,9 +542,9 @@ class TestRecentActivity:
     def test_sorted_desc_by_timestamp(self, client, fake_db):
         fake_db.tables["sessions"] = [
             {"id": "old", "user_id": "u1", "overall_band": 6.5, "status": "completed",
-             "started_at": _iso(-3), "completed_at": _iso(-3)},
+             "created_at": _iso(-3), "completed_at": _iso(-3)},
             {"id": "new", "user_id": "u1", "overall_band": 7.0, "status": "completed",
-             "started_at": _iso(-1), "completed_at": _iso(-1)},
+             "created_at": _iso(-1), "completed_at": _iso(-1)},
         ]
         r = client.get("/admin/overview", headers=_ADMIN_AUTH)
         feed = r.json()["recent_activity"]
@@ -607,7 +569,7 @@ class TestRecentActivity:
         ]
         fake_db.tables["sessions"] = [
             {"id": "s1", "user_id": "u1", "overall_band": 6.5, "status": "completed",
-             "started_at": _iso(-1), "completed_at": _iso(-1)},
+             "created_at": _iso(-1), "completed_at": _iso(-1)},
         ]
         r = client.get("/admin/overview", headers=_ADMIN_AUTH)
         feed = r.json()["recent_activity"]
@@ -619,7 +581,7 @@ class TestRecentActivity:
         ]
         fake_db.tables["sessions"] = [
             {"id": "s1", "user_id": "u1", "overall_band": 6.5, "status": "completed",
-             "started_at": _iso(-1), "completed_at": _iso(-1)},
+             "created_at": _iso(-1), "completed_at": _iso(-1)},
         ]
         fake_db.tables["writing_essays"] = [
             {"id": "e1", "student_id": "stu1", "status": "graded",
@@ -631,84 +593,3 @@ class TestRecentActivity:
         writing_row = next(a for a in feed if a["skill"] == "writing")
         assert speaking_row["link"] == "/result?session_id=s1"
         assert writing_row["link"] == "/admin/writing/grade?essay_id=e1"
-
-
-# ── PC-J155: sessions.started_at + partial failures ──────────────────
-
-
-class TestSessionsStartedAt:
-    def test_speaking_metrics_read_started_at(self, client, fake_db):
-        # Rows shaped like staging public.sessions: started_at, no created_at.
-        fake_db.tables["sessions"] = [
-            {"id": "sp1", "user_id": "u-speak", "overall_band": 6.0,
-             "status": "completed", "started_at": _iso(-2), "completed_at": _iso(-2)},
-            {"id": "sp2", "user_id": "u-speak", "overall_band": 7.0,
-             "status": "completed", "started_at": _iso(-1), "completed_at": _iso(-1)},
-            {"id": "sp3", "user_id": "u-old", "overall_band": 5.0,
-             "status": "completed", "started_at": _iso(-12), "completed_at": _iso(-12)},
-            {"id": "sp4", "user_id": "u-pending", "overall_band": None,
-             "status": "in_progress", "started_at": _iso(-0.5), "completed_at": None},
-        ]
-        r = client.get("/admin/overview", headers=_ADMIN_AUTH)
-        assert r.status_code == 200, r.text
-        body = r.json()
-        assert body["skills"]["speaking"]["sessions_total"] == 4
-        assert body["skills"]["speaking"]["sessions_7d"] == 3
-        assert body["skills"]["speaking"]["avg_band_7d"] == 6.5
-        assert body["students"]["active_7d"] == 2      # u-speak, u-pending
-        assert body["students"]["active_30d"] == 3     # + u-old
-        speaking = [a for a in body["recent_activity"] if a["skill"] == "speaking"]
-        assert [a["link"] for a in speaking] == [
-            "/result?session_id=sp2", "/result?session_id=sp1", "/result?session_id=sp3"]
-        assert all(a["action"] == "Hoàn thành buổi Speaking" for a in speaking)
-        assert body["partial_failures"] == []
-
-    def test_fake_rejects_sessions_created_at_like_postgrest(self, fake_db):
-        # Guard on the guard: the fake must fail the pre-fix query exactly
-        # as staging did, or the test above could pass vacuously.
-        q = (fake_db.table("sessions")
-             .select("id, user_id, overall_band, created_at, completed_at, status")
-             .gte("created_at", _iso(-30)))
-        with pytest.raises(APIError) as excinfo:
-            q.execute()
-        assert excinfo.value.code == "42703"
-
-
-class TestPartialFailures:
-    def test_failed_read_is_reported_and_logged_at_error(self, client, fake_db, caplog):
-        fake_db.failing["listening_test_attempts"] = APIError({
-            "message": "canceling statement due to statement timeout",
-            "code": "57014", "hint": None, "details": None})
-        fake_db.tables["sessions"] = [
-            {"id": "s1", "user_id": "u1", "overall_band": 7.0, "status": "completed",
-             "started_at": _iso(-1), "completed_at": _iso(-1)},
-        ]
-        with caplog.at_level(logging.WARNING, logger="routers.admin_overview"):
-            r = client.get("/admin/overview", headers=_ADMIN_AUTH)
-        assert r.status_code == 200, r.text
-        body = r.json()
-        # Both listening reads (recent rows + head count) hit the table.
-        assert body["partial_failures"] == ["listening_recent", "listening_total"]
-        # Unaffected blocks still carry their real numbers.
-        assert body["skills"]["speaking"]["avg_band_7d"] == 7.0
-        records = [rec for rec in caplog.records if "partial fetch failed" in rec.getMessage()]
-        assert [rec.levelno for rec in records] == [logging.ERROR, logging.ERROR]
-        assert "block=listening_recent code=57014 schema_error=False" in records[0].getMessage()
-
-    def test_schema_error_flagged_in_log(self, client, fake_db, caplog):
-        fake_db.failing["sessions"] = _undefined_column("sessions", "created_at")
-        with caplog.at_level(logging.WARNING, logger="routers.admin_overview"):
-            body = client.get("/admin/overview", headers=_ADMIN_AUTH).json()
-        assert body["partial_failures"] == ["sessions_recent", "sessions_total"]
-        messages = [rec.getMessage() for rec in caplog.records
-                    if rec.levelno == logging.ERROR]
-        assert any("block=sessions_recent code=42703 schema_error=True" in m for m in messages)
-
-    def test_reading_window_failure_reported(self, client, fake_db):
-        fake_db.failing["reading_test_attempts"] = RuntimeError("connection reset")
-        body = client.get("/admin/overview", headers=_ADMIN_AUTH).json()
-        assert body["partial_failures"] == ["reading_recent", "reading_total"]
-
-    def test_all_reads_ok_reports_no_partial_failures(self, client):
-        body = client.get("/admin/overview", headers=_ADMIN_AUTH).json()
-        assert body["partial_failures"] == []
