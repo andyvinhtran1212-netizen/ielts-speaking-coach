@@ -161,11 +161,12 @@ def _data_error(explanation: str) -> bool:
 # A negation reaches across a few words of its own clause ("không phải là lỗi
 # X", "không làm X") but not past a clause break, so "không phải X mà là Y"
 # denies X only. "chua"/"no" must stay adjacent: they also spell "chứa"/"nó".
-# "không may" is "unfortunately", not a negation.
+# "không may" means "unfortunately"; "không chỉ" / "not only" affirm X.
 _CLAUSE_BREAK = re.compile(r".*(?:[,;:.!?()]|\b(?:ma|nhung|va|tuy nhien|but|and|however|rather|whereas)\b)",
                            re.DOTALL)
 _NEGATED_TAIL = re.compile(
-    r"(?:\b(?:khong(?! may\b)|not|never|without)|n['’]t)(?:\s+[\w'’-]+){0,3}\s+$|\b(?:chua|no)\s+$"
+    r"(?:\bkhong(?! (?:may|chi|nhung)\b)|(?:\bnot|n['’]t)(?! (?:only|just|merely)\b)|"
+    r"\b(?:never|without))(?:\s+[\w'’-]+){0,3}\s+$|\b(?:chua|no)\s+$"
 )
 # A causal link starts a new claim: "không đọc kỹ nên sai số liệu" asserts the
 # error. Unless the negation governs the cause itself ("không phải do X", "not
@@ -175,7 +176,8 @@ _CAUSE = re.compile(
     r"so(?! (?:lieu|voi|sanh)\b)(?<!con so)|because|that)\b"
 )
 _GOVERNED_CAUSE = re.compile(
-    r"(?:\b(?:khong|not)|n['’]t)(?:\s+(?:phai|han|hoan toan|la|loi|chi|really|just|only|simply|merely))*\s+$"
+    r"(?:\bkhong(?! (?:chi|nhung)\b)|(?:\bnot|n['’]t)(?! (?:only|just|merely)\b))"
+    r"(?:\s+(?:phai|han|hoan toan|la|loi|really|simply))*\s+$"
 )
 
 

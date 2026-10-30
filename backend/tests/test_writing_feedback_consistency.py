@@ -208,6 +208,47 @@ def test_data_error_negated_within_its_clause_keeps_word_choice(feedback, explan
 
 
 @pytest.mark.parametrize("explanation", [
+    "Cụm từ không chỉ sai số liệu mà còn chưa tự nhiên.",
+    "Cum tu khong chi sai so lieu ma con chua tu nhien.",
+    "The phrase is not only inaccurate data but also informal.",
+    "Không chỉ sai số liệu, câu còn chưa tự nhiên.",
+    "Cụm từ không những sai số liệu mà còn chưa tự nhiên.",
+    "The phrase is not just inaccurate data but also informal.",
+    "The phrase is not merely inaccurate data but also informal.",
+    "The phrase isn't only inaccurate data but also informal.",
+], ids=["cr-vietnamese", "cr-unaccented", "cr-english", "cr-leading",
+        "khong-nhung", "not-just", "not-merely", "contraction"])
+def test_additive_data_errors_are_relabelled(feedback, explanation):
+    # Codex r4423566302: "not only X but also Y" affirms both criticisms.
+    mistake = feedback.mistakeAnalysis[2]
+    mistake.explanation = explanation
+    repair_writing_consistency(feedback, "task1_academic")
+    assert mistake.mistakeType == "Data Accuracy"
+    assert mistake.criterion == "Task Achievement"
+    assert mistake.explanation == explanation
+
+
+@pytest.mark.parametrize("explanation", [
+    "Cụm từ bị đánh dấu không chỉ vì sai số liệu mà còn vì chưa tự nhiên.",
+    "Cum tu bi danh dau khong chi vi sai so lieu ma con vi chua tu nhien.",
+    "Cụm từ bị đánh dấu không chỉ do sai số liệu mà còn do collocation.",
+    "Cụm từ bị đánh dấu không những vì sai số liệu mà còn vì collocation.",
+    "The phrase is flagged not only because the figures are wrong but also for word choice.",
+    "The phrase is flagged not just because the figures are wrong but also for word choice.",
+    "The phrase is flagged not merely because the figures are wrong but also for word choice.",
+    "The criticism isn't only because the figures are wrong but also because the wording is informal.",
+], ids=["khong-chi-vi", "unaccented", "khong-chi-do", "khong-nhung-vi",
+        "not-only-because", "not-just-because", "not-merely-because", "contraction"])
+def test_additive_cause_still_affirms_data_error(feedback, explanation):
+    mistake = feedback.mistakeAnalysis[2]
+    mistake.explanation = explanation
+    repair_writing_consistency(feedback, "task1_academic")
+    assert mistake.mistakeType == "Data Accuracy"
+    assert mistake.criterion == "Task Achievement"
+    assert mistake.explanation == explanation
+
+
+@pytest.mark.parametrize("explanation", [
     "Số liệu này sai.",
     "So lieu nay sai.",
     "Đây không phải lỗi dùng từ mà là lỗi sai số liệu.",
