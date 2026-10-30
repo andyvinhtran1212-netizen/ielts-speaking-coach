@@ -581,13 +581,11 @@ async def call_anthropic(
             feature, operation, model, code, detail,
         )
         _record(code)
-        # The rejected answer was billed: callers that may still accept it
-        # (a final-provider salvage) or report the run's cost need the
-        # served model and token usage.
         if isinstance(exc, AnthropicAttemptError):
-            exc.model, exc.usage = model, usage
             raise
         error = AnthropicAttemptError(code, detail)
+        # The rejected answer was billed: callers that may still accept it
+        # (a final-provider salvage) need the served model and token usage.
         error.model, error.usage = model, usage
         raise error from exc
 

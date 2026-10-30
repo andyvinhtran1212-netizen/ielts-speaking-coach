@@ -26,14 +26,11 @@ another worker cannot leave the ban out of step with the committed marker.
 A failure of either step never undoes the committed change and is never
 silent: the caller reports ``sessions_revoked: false`` / ``sign_in_restored:
 false``, and a revocation failure also writes a ``sessions_revoke_failed``
-audit row and an owner-alert outbox row (FR-008, FR-011). Both rows are
-written in one transaction on the direct connection (PC-J66 F02), so an audit
-row cannot outlive a failed enqueue there.
+audit row and an owner-alert outbox row (FR-008, FR-011).
 """
 
 from __future__ import annotations
 
-import json
 import logging
 import uuid
 from contextlib import asynccontextmanager
@@ -116,19 +113,6 @@ def _rpc_http_error(code: str) -> Optional[HTTPException]:
 
 # ── The privilege RPC ────────────────────────────────────────────────────────
 
-PRIVILEGE_CHANGE_FAILED_MESSAGE = "Không đổi được quyền tài khoản. Vui lòng thử lại."
-
-
-class PrivilegeOutcomeUnknown(HTTPException):
-    """The RPC failed in a way that does not say whether it committed: a
-    transport error or a lost answer can follow the commit (PC-J66 F05).
-    Callers that need the outcome look it up with
-    ``committed_privilege_change``; to any other caller it is the usual 500."""
-
-    def __init__(self) -> None:
-        super().__init__(500, PRIVILEGE_CHANGE_FAILED_MESSAGE)
-
-
 @dataclass(frozen=True)
 class PrivilegeChange:
     changed: bool
@@ -154,8 +138,7 @@ def set_staff_privilege(
 ) -> PrivilegeChange:
     """Call ``fn_set_staff_privilege``. ``refusal`` (the caller's own mapping,
     e.g. the role route's FR-019 409) is tried first, then the RPC's codes;
-    anything else is a ``PrivilegeOutcomeUnknown`` 500 that names no database
-    internals."""
+    anything else is a 500 that names no database internals."""
     params = {
         "p_actor": actor_id,
         "p_target": target_id,
@@ -174,11 +157,11 @@ def set_staff_privilege(
         if mapped is not None:
             raise mapped from None
         logger.error("[staff_security] fn_set_staff_privilege failed target=%s: %r", target_id, exc)
-        raise PrivilegeOutcomeUnknown() from None
+        raise HTTPException(500, "Không đổi được quyền tài khoản. Vui lòng thử lại.") from None
     row = rows[0] if isinstance(rows, list) and rows else (rows if isinstance(rows, dict) else None)
     if not isinstance(row, dict):
         logger.error("[staff_security] fn_set_staff_privilege returned no row target=%s", target_id)
-        raise PrivilegeOutcomeUnknown()
+        raise HTTPException(500, "Không đổi được quyền tài khoản. Vui lòng thử lại.")
     audit_id = row.get("audit_id")
     return PrivilegeChange(
         changed=bool(row.get("changed")),
@@ -186,39 +169,6 @@ def set_staff_privilege(
         before=row.get("before") or {},
         after=row.get("after") or {},
     )
-
-
-def committed_privilege_change(
-    db: Any, *, target_id: str, request_id: Optional[str], event: str,
-) -> Optional[PrivilegeChange]:
-    """The change this request committed, from the audit row the users
-    trigger writes in the RPC's own transaction (with the request id), or
-    None when there is none. Raises when the audit cannot be read. A
-    client-supplied request id can be reused, so the newest matching row is
-    the one this request wrote."""
-    if not request_id:
-        return None
-    rows = (
-        db.table("staff_security_audit").select("id, before, after")
-        .eq("target_user_id", target_id).eq("request_id", request_id).eq("event", event)
-        .order("occurred_at", desc=True).limit(1).execute().data or []
-    )
-    if not rows:
-        return None
-    row = rows[0]
-    return PrivilegeChange(changed=True, audit_id=str(row["id"]),
-                           before=row.get("before") or {}, after=row.get("after") or {})
-
-
-def last_role_change(db: Any, target_id: str) -> Optional[dict]:
-    """The target's newest ``role_changed`` audit row ``{id, before, after}``,
-    or None. Raises when the audit cannot be read."""
-    rows = (
-        db.table("staff_security_audit").select("id, before, after")
-        .eq("target_user_id", target_id).eq("event", "role_changed")
-        .order("occurred_at", desc=True).limit(1).execute().data or []
-    )
-    return rows[0] if rows else None
 
 
 def removes_staff_privilege(before_role: Optional[str], after_role: Optional[str]) -> bool:
@@ -348,86 +298,47 @@ def _emails(db: Any, ids: list[str]) -> dict[str, Optional[str]]:
     return {str(r.get("id")): r.get("email") for r in rows}
 
 
-# Schema of the audit tables on the direct connection; a test points it at a
-# disposable schema.
-AUDIT_SCHEMA = "public"
-
-
-def _insert_audit_sql() -> str:
-    return (
-        f"INSERT INTO {AUDIT_SCHEMA}.staff_security_audit "
-        "(id, event, target_user_id, actor_user_id, source, reason, request_id, detail) "
-        "VALUES (CAST(:id AS uuid), :event, CAST(:target AS uuid), CAST(:actor AS uuid), "
-        "'admin_api', :reason, :request_id, CAST(:detail AS jsonb))"
-    )
-
-
-def _enqueue_missing_alerts_sql() -> str:
-    """An outbox row for every ``sessions_revoke_failed`` row of the target
-    that has none: the one just written, and any whose enqueue was lost on
-    the REST fallback below. Same email-safe payload as migration 332's
-    ``fn_staff_security_record`` (no reason text, token or request body)."""
-    s = AUDIT_SCHEMA
-    return (
-        f"INSERT INTO {s}.owner_alert_outbox (audit_id, event, payload) "
-        "SELECT a.id, a.event, jsonb_build_object("
-        "'audit_id', a.id, 'event', a.event, 'occurred_at', a.occurred_at, "
-        "'source', a.source, 'target_user_id', a.target_user_id, 'target_email', t.email, "
-        "'actor_user_id', a.actor_user_id, 'actor_email', u.email, "
-        "'before', NULL::jsonb, 'after', NULL::jsonb, 'operator', NULL::text) "
-        f"FROM {s}.staff_security_audit a "
-        f"LEFT JOIN {s}.users t ON t.id = a.target_user_id "
-        f"LEFT JOIN {s}.users u ON u.id = a.actor_user_id "
-        "WHERE a.target_user_id = CAST(:target AS uuid) "
-        "AND a.event = 'sessions_revoke_failed' AND a.source = 'admin_api' "
-        f"AND NOT EXISTS (SELECT 1 FROM {s}.owner_alert_outbox o WHERE o.audit_id = a.id) "
-        "ON CONFLICT (audit_id) DO NOTHING"
-    )
-
-
-async def _record_in_one_transaction(engine: Any, *, row: dict) -> None:
-    """Audit row and its alerts commit together or not at all (PC-J66 F02).
-    A success also enqueues alerts a lost REST enqueue left missing."""
-    async with engine.begin() as conn:
-        await conn.execute(text(_insert_audit_sql()), {
-            "id": row["id"], "event": row["event"], "target": row["target_user_id"],
-            "actor": row["actor_user_id"], "reason": row["reason"],
-            "request_id": row["request_id"], "detail": json.dumps(row["detail"]),
-        })
-        await conn.execute(text(_enqueue_missing_alerts_sql()), {"target": row["target_user_id"]})
-
-
-def _record_over_rest(db: Any, *, row: dict) -> bool:
-    """Fallback without a working direct connection: two REST writes, so a
-    failed enqueue leaves the audit row without its alert. That is logged at
-    error, and the next revocation recorded for the target (e.g. the retry
-    route) enqueues it. False when the audit row was not written: a failed
-    insert whose row already exists is the direct transaction's commit with
-    a lost answer, alerts included, so that is True."""
+def record_revocation(
+    db: Any,
+    *,
+    target_id: str,
+    actor_id: Optional[str],
+    outcome: RevokeOutcome,
+    trigger: str,
+    reason: Optional[str] = None,
+    request_id: Optional[str] = None,
+) -> Optional[str]:
+    """Write a ``sessions_revoked`` / ``sessions_revoke_failed`` audit row.
+    A failure also gets an owner-alert outbox row with the same email-safe
+    payload shape as migration 332's ``fn_staff_security_record``. Returns
+    the audit id, or None when the write itself failed (logged at error)."""
+    event = "sessions_revoked" if outcome.sessions_revoked else "sessions_revoke_failed"
+    audit_id = str(uuid.uuid4())
+    detail = {"trigger": trigger, "ban": outcome.ban}
+    if outcome.revoke_error:
+        detail["revoke_error"] = outcome.revoke_error
     try:
-        db.table("staff_security_audit").insert({**row, "source": "admin_api"}).execute()
+        db.table("staff_security_audit").insert({
+            "id": audit_id,
+            "event": event,
+            "target_user_id": target_id,
+            "actor_user_id": actor_id,
+            "source": "admin_api",
+            "reason": reason,
+            "request_id": request_id,
+            "detail": detail,
+        }).execute()
     except Exception as exc:
-        try:
-            exists = bool(db.table("staff_security_audit").select("id")
-                          .eq("id", row["id"]).limit(1).execute().data)
-        except Exception as lookup_exc:
-            logger.error("[staff_security] audit row lookup failed audit=%s: %r",
-                         row["id"], lookup_exc)
-            exists = False
-        if exists:
-            return True
-        logger.error("[staff_security] audit write failed event=%s target=%s: %r",
-                     row["event"], row["target_user_id"], exc)
-        return False
-    if row["event"] != "sessions_revoke_failed":
-        return True
+        logger.error("[staff_security] audit write failed event=%s target=%s: %r", event, target_id, exc)
+        return None
+    if outcome.sessions_revoked:
+        return audit_id
     try:
-        target_id, actor_id = row["target_user_id"], row["actor_user_id"]
         emails = _emails(db, [target_id, actor_id or ""])
         # Email-safe fields only: no reason text, token or request body.
         payload = {
-            "audit_id": row["id"],
-            "event": row["event"],
+            "audit_id": audit_id,
+            "event": event,
             "occurred_at": datetime.now(timezone.utc).isoformat(),
             "source": "admin_api",
             "target_user_id": target_id,
@@ -439,54 +350,11 @@ def _record_over_rest(db: Any, *, row: dict) -> bool:
             "operator": None,
         }
         db.table("owner_alert_outbox").insert({
-            "audit_id": row["id"], "event": row["event"], "payload": payload,
+            "audit_id": audit_id, "event": event, "payload": payload,
         }).execute()
     except Exception as exc:
-        logger.error("[staff_security] alert enqueue failed audit=%s target=%s: the audit row has "
-                     "no owner alert until the next revocation of this account is recorded: %r",
-                     row["id"], row["target_user_id"], exc)
-    return True
-
-
-async def record_revocation(
-    db: Any,
-    *,
-    target_id: str,
-    actor_id: Optional[str],
-    outcome: RevokeOutcome,
-    trigger: str,
-    engine: Any = None,
-    reason: Optional[str] = None,
-    request_id: Optional[str] = None,
-) -> Optional[str]:
-    """Write a ``sessions_revoked`` / ``sessions_revoke_failed`` audit row.
-    A failure also gets an owner-alert outbox row in the same transaction on
-    the direct connection; without one (no ``DATABASE_URL``, or that write
-    failed) the rows go over REST (``_record_over_rest``). Returns the audit
-    id, or None when the write itself failed (logged at error)."""
-    event = "sessions_revoked" if outcome.sessions_revoked else "sessions_revoke_failed"
-    detail = {"trigger": trigger, "ban": outcome.ban}
-    if outcome.revoke_error:
-        detail["revoke_error"] = outcome.revoke_error
-    row = {
-        # One id for both paths: a commit whose answer was lost makes the
-        # REST insert a duplicate-key error rather than a second row.
-        "id": str(uuid.uuid4()),
-        "event": event,
-        "target_user_id": target_id,
-        "actor_user_id": actor_id,
-        "reason": reason,
-        "request_id": request_id,
-        "detail": detail,
-    }
-    if engine is not None:
-        try:
-            await _record_in_one_transaction(engine, row=row)
-            return row["id"]
-        except Exception as exc:
-            logger.error("[staff_security] audit transaction failed event=%s target=%s, "
-                         "falling back to REST: %r", event, target_id, exc)
-    return row["id"] if _record_over_rest(db, row=row) else None
+        logger.error("[staff_security] alert enqueue failed audit=%s target=%s: %r", audit_id, target_id, exc)
+    return audit_id
 
 
 async def revoke_and_record(
@@ -508,9 +376,9 @@ async def revoke_and_record(
     outcome = await revoke_sessions(target_id, ban=ban, engine=engine, auth_admin=auth_admin)
     audit_id = None
     if record_success or not outcome.sessions_revoked:
-        audit_id = await record_revocation(
+        audit_id = record_revocation(
             db, target_id=target_id, actor_id=actor_id, outcome=outcome,
-            trigger=trigger, engine=engine, reason=reason, request_id=request_id,
+            trigger=trigger, reason=reason, request_id=request_id,
         )
     return outcome, audit_id
 

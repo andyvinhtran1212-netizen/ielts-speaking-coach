@@ -6,7 +6,6 @@ Runs every 5 minutes as its own Railway cron service
     python -m scripts.staff_security_sweep                  # one sweep run
     python -m scripts.staff_security_sweep --test-alert     # rollout.md P3
     python -m scripts.staff_security_sweep --requeue <audit_id>
-    python -m scripts.staff_security_sweep --backfill [--commit]   # first run only
 
 One run does three independent steps; a failure in one is logged and does not
 skip the others, and any failure makes the exit code non-zero. So do due alerts
@@ -52,18 +51,6 @@ next one for overlap.
 
 On the very first run the log cursor starts at the newest entry, so history
 from before the sweep existed is not replayed into audit rows and e-mails.
-``--backfill`` closes that gap once, before the cron service is created
-(rollout.md "First run and backfill", PC-J139): it audits the factor events
-from migration 332's ``applied_at`` (read from ``_schema_migrations``) up to
-the existing cursor, or, with no cursor yet, up to the newest settled entry,
-where ``--commit`` then creates the cursor in the last batch's transaction.
-It uses the same mapping, role-at-event rule and ``auth_log_entry_id`` key as
-step 1, marks each row ``detail.backfill = true`` with a ``backfill_run_id``,
-and never writes an owner alert, sends an e-mail or touches the snapshot:
-these are old events. Entries before 332 are only counted, because the role
-history ``role_at`` needs starts with 332. Without ``--commit`` it is a dry
-run that writes nothing, and both modes log one
-``staff_security_sweep_backfill_summary`` line of counts.
 
 The sweep reads ``auth.*`` over the backend's direct ``DATABASE_URL``
 connection (the ``postgres`` role; ``service_role`` cannot read it) and never
@@ -81,9 +68,7 @@ import re
 import sys
 import time
 import uuid
-from collections import Counter
-from contextlib import nullcontext
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
@@ -105,7 +90,6 @@ ENROLL_ACTIONS = ("factor_in_progress",)
 VERIFY_ACTIONS = ("verification_attempted",)
 DELETE_ACTIONS = ("factor_unenrolled", "factor_deleted")
 FACTOR_ACTIONS = ENROLL_ACTIONS + VERIFY_ACTIONS + DELETE_ACTIONS
-MIGRATION_332 = "332_staff_security_audit.sql"
 ALERT_EVENTS = frozenset({"mfa_factor_verified", "mfa_factor_deleted"})   # FR-011
 
 FactorLister = Callable[[str], Awaitable[list[dict[str, Any]]]]
@@ -133,59 +117,6 @@ class LogSummary:
 
 
 @dataclass
-class BackfillSummary:
-    run_id: str
-    commit: bool
-    migration_332_applied_at: Any = None
-    log_oldest_at: Any = None
-    end_at: Any = None
-    end_bound: str = ""            # "cursor" or "newest_entry"
-    cursor_created: bool = False
-    entry_min_at: Any = None
-    entry_max_at: Any = None
-    entries_by_action: Counter = field(default_factory=Counter)
-    written_by_event: Counter = field(default_factory=Counter)   # would write, in a dry run
-    skipped_by_reason: Counter = field(default_factory=Counter)
-    users: set = field(default_factory=set)
-
-    @property
-    def start_at(self) -> Any:
-        """The later of the oldest log entry and 332: the first writable moment."""
-        if self.log_oldest_at is None:
-            return self.migration_332_applied_at
-        return max(self.log_oldest_at, self.migration_332_applied_at)
-
-    def line(self) -> str:
-        def at(value: Any) -> str:
-            return value.astimezone(owner_alerts.VIETNAM_TIME).isoformat(timespec="seconds") \
-                if value is not None else "none"
-
-        def counts(counter: Counter) -> str:
-            return ",".join(f"{k}:{v}" for k, v in sorted(counter.items())) or "none"
-
-        fields = {
-            "mode": "commit" if self.commit else "dry_run", "run_id": self.run_id,
-            "migration_332_applied_at": at(self.migration_332_applied_at),
-            "log_oldest_at": at(self.log_oldest_at), "start_at": at(self.start_at),
-            "end_at": at(self.end_at), "end_bound": self.end_bound,
-            "entry_min_at": at(self.entry_min_at), "entry_max_at": at(self.entry_max_at),
-            "entries": sum(self.entries_by_action.values()),
-            "entries_by_action": counts(self.entries_by_action),
-            ("written" if self.commit else "would_write"): sum(self.written_by_event.values()),
-            ("written_by_event" if self.commit else "would_write_by_event"):
-                counts(self.written_by_event),
-            "skipped": sum(self.skipped_by_reason.values()),
-            "skipped_by_reason": counts(self.skipped_by_reason),
-            "users": len(self.users), "cursor_created": self.cursor_created,
-        }
-        return " ".join(f"{k}={v}" for k, v in fields.items())
-
-
-class BackfillCursorRace(RuntimeError):
-    """A sweep created the cursor while the backfill ran; re-run the backfill."""
-
-
-@dataclass
 class SnapshotSummary:
     seeding: bool = False
     admins: int = 0
@@ -204,7 +135,6 @@ class SweepDb:
         self.snapshot = f"{s}.staff_mfa_factor_snapshot"
         self.cursor = f"{s}.staff_security_sweep_cursor"
         self.users = f"{s}.users"
-        self.migrations = f"{s}._schema_migrations"
         self.log = f"{a}.audit_log_entries"
 
     # ── cursor ──
@@ -212,11 +142,6 @@ class SweepDb:
         row = await self.conn.fetchrow(
             f"SELECT last_created_at, last_entry_id FROM {self.cursor} WHERE name = $1 FOR UPDATE",
             name)
-        return dict(row) if row else None
-
-    async def read_cursor(self, name: str) -> dict[str, Any] | None:
-        row = await self.conn.fetchrow(
-            f"SELECT last_created_at, last_entry_id FROM {self.cursor} WHERE name = $1", name)
         return dict(row) if row else None
 
     async def init_log_cursor(self, lag_seconds: int) -> bool:
@@ -242,14 +167,6 @@ class SweepDb:
                        updated_at = now() WHERE name = $1""",
             name, created_at, str(entry_id))
 
-    async def create_log_cursor(self, created_at: Any, entry_id: Any) -> bool:
-        """The backfill's cursor. False when a sweep created one first."""
-        inserted = await self.conn.fetchval(
-            f"""INSERT INTO {self.cursor} (name, last_created_at, last_entry_id)
-                VALUES ($1, $2, $3::uuid) ON CONFLICT (name) DO NOTHING RETURNING name""",
-            LOG_CURSOR, created_at, str(entry_id))
-        return inserted is not None
-
     async def has_marker(self, name: str) -> bool:
         return bool(await self.conn.fetchval(
             f"SELECT EXISTS (SELECT 1 FROM {self.cursor} WHERE name = $1)", name))
@@ -261,16 +178,8 @@ class SweepDb:
             name)
 
     # ── Auth log ──
-    async def factor_entries(self, after: dict[str, Any], *, lag_seconds: int, limit: int,
-                             until: tuple[Any, Any] | None = None) -> list[dict[str, Any]]:
-        """Factor entries after ``after``, optionally through ``until`` (inclusive)."""
-        args: list[Any] = [after["last_created_at"], str(after["last_entry_id"] or ZERO_UUID),
-                           lag_seconds, list(FACTOR_ACTIONS), limit]
-        bound = ""
-        if until is not None:   # the backfill's end, inclusive
-            n = len(args) + 1
-            bound = f"AND (created_at, id) <= (${n}::timestamptz, ${n + 1}::uuid)"
-            args += [until[0], str(until[1])]
+    async def factor_entries(self, after: dict[str, Any], *, lag_seconds: int,
+                             limit: int) -> list[dict[str, Any]]:
         rows = await self.conn.fetch(
             f"""SELECT id, created_at,
                        payload::jsonb ->> 'action'                 AS action,
@@ -284,33 +193,11 @@ class SweepDb:
                    AND created_at <= now() - make_interval(secs => $3)
                    AND (created_at, id) > (COALESCE($1, '-infinity'::timestamptz), $2::uuid)
                    AND payload::jsonb ->> 'action' = ANY($4::text[])
-                   {bound}
                  ORDER BY created_at, id
                  LIMIT $5""",
-            *args)
+            after["last_created_at"], str(after["last_entry_id"] or ZERO_UUID),
+            lag_seconds, list(FACTOR_ACTIONS), limit)
         return [dict(r) for r in rows]
-
-    async def oldest_entry_at(self) -> Any:
-        return await self.conn.fetchval(f"SELECT min(created_at) FROM {self.log}")
-
-    async def newest_settled_entry(self, lag_seconds: int) -> tuple[Any, Any]:
-        """(created_at, id) of the entry ``init_log_cursor`` would start at."""
-        row = await self.conn.fetchrow(
-            f"""SELECT newest.created_at, newest.id, now() - make_interval(secs => $1) AS cut_off
-                  FROM (SELECT 1) one
-                  LEFT JOIN LATERAL (
-                        SELECT created_at, id FROM {self.log}
-                         WHERE created_at IS NOT NULL
-                           AND created_at <= now() - make_interval(secs => $1)
-                         ORDER BY created_at DESC, id DESC LIMIT 1) newest ON true""",
-            lag_seconds)
-        if row["id"] is None:
-            return row["cut_off"], ZERO_UUID
-        return row["created_at"], row["id"]
-
-    async def migration_applied_at(self, filename: str) -> Any:
-        return await self.conn.fetchval(
-            f"SELECT applied_at FROM {self.migrations} WHERE filename = $1", filename)
 
     async def log_has(self, factor_id: str, actions: tuple[str, ...], *,
                       before: tuple[Any, Any] | None = None) -> bool:
@@ -345,11 +232,6 @@ class SweepDb:
         rows = await self.conn.fetch(
             f"SELECT id, email FROM {self.users} WHERE role = 'admin' ORDER BY id")
         return [{"id": str(r["id"]), "email": r["email"]} for r in rows]
-
-    async def audited_entry(self, entry_id: Any) -> bool:
-        return bool(await self.conn.fetchval(
-            f"""SELECT EXISTS (SELECT 1 FROM {self.audit}
-                 WHERE detail ->> 'auth_log_entry_id' = $1)""", str(entry_id)))
 
     async def audited_verification(self, factor_id: str) -> bool:
         return bool(await self.conn.fetchval(
@@ -527,99 +409,6 @@ async def sweep_auth_log(db: SweepDb, *, lag_seconds: int = LOG_LAG_SECONDS,
             await db.advance_cursor(LOG_CURSOR, last["created_at"], last["id"])
         if len(entries) < batch:
             return summary
-
-
-# ── Backfill: the first run's history, without alerts ──────────────────────
-
-async def backfill_auth_log(db: SweepDb, *, commit: bool, run_id: str | None = None,
-                            lag_seconds: int = LOG_LAG_SECONDS,
-                            batch: int = LOG_BATCH) -> BackfillSummary:
-    """Audit the factor events step 1 never saw (module docstring). A dry run
-    reads in one read-only transaction; ``commit`` writes the rows, and the
-    cursor when there is none, one transaction per batch. It never enqueues an
-    owner alert."""
-    summary = BackfillSummary(run_id=run_id or str(uuid.uuid4()), commit=commit)
-    if commit:
-        await _backfill(db, summary, lag_seconds=lag_seconds, batch=batch)
-    else:
-        async with db.conn.transaction(isolation="repeatable_read", readonly=True):
-            await _backfill(db, summary, lag_seconds=lag_seconds, batch=batch)
-    return summary
-
-
-async def _backfill(db: SweepDb, summary: BackfillSummary, *, lag_seconds: int,
-                    batch: int) -> None:
-    commit = summary.commit
-    applied = await db.migration_applied_at(MIGRATION_332)
-    if applied is None:
-        raise RuntimeError(f"{MIGRATION_332} is not recorded in _schema_migrations")
-    summary.migration_332_applied_at = applied
-    summary.log_oldest_at = await db.oldest_entry_at()
-    cursor = await db.read_cursor(LOG_CURSOR)
-    if cursor is not None and cursor["last_created_at"] is not None:
-        # Step 1 already owns everything after the cursor; leave it unchanged.
-        end = (cursor["last_created_at"], cursor["last_entry_id"] or ZERO_UUID)
-        summary.end_bound = "cursor"
-    elif cursor is not None:
-        raise RuntimeError("the log cursor has no position; repair it before a backfill")
-    else:
-        end = await db.newest_settled_entry(lag_seconds)
-        summary.end_bound = "newest_entry"
-    summary.end_at = end[0]
-    after: dict[str, Any] = {"last_created_at": None, "last_entry_id": None}
-    while True:
-        async with (db.conn.transaction() if commit else nullcontext()):
-            entries = await db.factor_entries(after, lag_seconds=lag_seconds, limit=batch,
-                                              until=end)
-            users = await db.load_users([u for u in {_entry_user(e) for e in entries} if u])
-            for entry in entries:
-                await _backfill_entry(db, entry, users, summary)
-            final = len(entries) < batch
-            if final and commit and cursor is None:
-                if not await db.create_log_cursor(*end):
-                    raise BackfillCursorRace("the log cursor appeared during the backfill")
-                summary.cursor_created = True
-        if final:
-            return
-        after = {"last_created_at": entries[-1]["created_at"], "last_entry_id": entries[-1]["id"]}
-
-
-async def _backfill_entry(db: SweepDb, entry: dict[str, Any], users: dict[str, dict[str, Any]],
-                          summary: BackfillSummary) -> None:
-    summary.entries_by_action[entry["action"]] += 1
-    at = entry["created_at"]
-    summary.entry_min_at = at if summary.entry_min_at is None else min(summary.entry_min_at, at)
-    summary.entry_max_at = at if summary.entry_max_at is None else max(summary.entry_max_at, at)
-    skipped = summary.skipped_by_reason
-    user_id = _entry_user(entry)
-    if user_id is None or _uuid(entry.get("factor_id")) is None:
-        skipped["unparseable"] += 1
-        return
-    if at < summary.migration_332_applied_at:
-        skipped["before_332"] += 1   # no role history to decide eligibility
-        return
-    target = users.get(user_id)
-    if not target:
-        skipped["unknown_user"] += 1
-        return
-    if await db.role_at(user_id, at, target.get("role")) != "admin":
-        skipped["not_admin"] += 1
-        return
-    if await db.audited_entry(entry["id"]):
-        skipped["duplicate"] += 1
-        return
-    mapped = await _log_event(db, entry)
-    if mapped is None:
-        skipped["step_up"] += 1
-        return
-    event, actor_id, detail = mapped
-    detail.update(backfill=True, backfill_run_id=summary.run_id)
-    if summary.commit and await db.insert_audit(event=event, target=user_id, actor=actor_id,
-                                                occurred_at=at, detail=detail) is None:
-        skipped["duplicate"] += 1   # a concurrent sweep wrote it first
-        return
-    summary.written_by_event[event] += 1
-    summary.users.add(user_id)
 
 
 # ── Step 2: snapshot backstop ────────────────────────────────────────────────
@@ -800,11 +589,6 @@ async def _main(args: argparse.Namespace) -> int:
             done = await owner_alerts.PgOutboxStore(conn).requeue(audit_id)
             logger.info("staff_security_sweep_requeue audit_id=%s requeued=%s", audit_id, done)
             return 0 if done else 1
-        if args.backfill:
-            summary = await backfill_auth_log(SweepDb(conn), commit=args.commit,
-                                              lag_seconds=LOG_LAG_SECONDS)
-            logger.info("staff_security_sweep_backfill_summary %s", summary.line())
-            return 0
         import httpx
         from config import settings
         async with httpx.AsyncClient(timeout=15.0) as client:
@@ -825,14 +609,7 @@ def main(argv: list[str] | None = None) -> int:
                        help="send the fixed test message to OWNER_ALERT_EMAILS and exit")
     group.add_argument("--requeue", metavar="AUDIT_ID",
                        help="give a failed alert a fresh set of attempts")
-    group.add_argument("--backfill", action="store_true",
-                       help="audit the factor events before the first cron run, without "
-                            "alerts (dry run unless --commit)")
-    parser.add_argument("--commit", action="store_true",
-                        help="with --backfill: write the audit rows and the cursor")
     args = parser.parse_args(argv)
-    if args.commit and not args.backfill:
-        parser.error("--commit requires --backfill")
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
     from scripts._script_env import load_env
     load_env("DATABASE_URL")

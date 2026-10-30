@@ -6,7 +6,6 @@ import { useAuth } from '@/lib/auth/auth-provider';
 import { useDialogFocus } from '@/lib/use-dialog-focus';
 import { coreOperationRequest } from '@/lib/core-operation-intent.mjs';
 import { noteTemplateTree } from '@/lib/note-template-tree.mjs';
-import { examResultNextStepTitle, examResultOutcomes } from '@/lib/exam-result-outcomes.mjs';
 import {
   createListeningSaveCoordinator,
   isPracticeListeningTest,
@@ -365,7 +364,8 @@ function ResultView({ result, attempt, test, from, sittingId }: {
   const rows = Array.isArray(result?.per_question) ? result.per_question : [];
   const maxScore = Number(result?.max_score ?? rows.length) || rows.length;
   const score = Number.isFinite(Number(result?.score)) ? Number(result.score) : rows.filter((row: any) => row.correct).length;
-  const outcomes = examResultOutcomes(rows);
+  const answered = rows.filter((row: any) => String(row.user_answer ?? '').trim()).length;
+  const needsReview = Math.max(0, maxScore - score);
   const accuracy = maxScore ? Math.round((score / maxScore) * 100) : 0;
   const sections = Object.entries(result?.section_breakdown || {});
   return <main className="exam-result-shell listening-next-result">
@@ -377,8 +377,8 @@ function ResultView({ result, attempt, test, from, sittingId }: {
         <div className="exam-result-metrics">
           <div><span>Correct</span><strong>{score}<small>/{maxScore}</small></strong></div>
           <div><span>Accuracy</span><strong>{accuracy}<small>%</small></strong></div>
-          <div><span>Incorrect</span><strong>{outcomes.incorrect}</strong></div>
-          <div><span>Unanswered</span><strong>{outcomes.unanswered}</strong></div>
+          <div><span>Answered</span><strong>{answered}<small>/{maxScore}</small></strong></div>
+          <div><span>Review needed</span><strong>{needsReview}</strong></div>
         </div>
       </section>
 
@@ -389,12 +389,12 @@ function ResultView({ result, attempt, test, from, sittingId }: {
         return <div className="exam-result-part" key={key}><div><span>Part {sectionNumber}</span><strong>{correct}/{total}</strong></div><div className="exam-result-progress" aria-label={`Part ${sectionNumber}: ${correct} correct out of ${total}`}><span style={{ width: `${total ? Math.round((correct / total) * 100) : 0}%` }} /></div></div>;
       })}</div></section> : null}
 
-      <section className="exam-result-review-card" aria-labelledby="listening-result-review-title"><div className="exam-result-section-heading"><div><p>QUESTION MAP</p><h2 id="listening-result-review-title">Overview of {maxScore} questions</h2></div><div className="exam-result-legend" aria-label="Legend"><span className="is-correct" />Correct <span className="is-wrong" />Incorrect <span className="is-empty" />Unanswered</div></div><div className="exam-result-question-map">{rows.map((row: any) => {
+      <section className="exam-result-review-card" aria-labelledby="listening-result-review-title"><div className="exam-result-section-heading"><div><p>QUESTION MAP</p><h2 id="listening-result-review-title">Overview of {maxScore} questions</h2></div><div className="exam-result-legend" aria-label="Legend"><span className="is-correct" />Correct <span className="is-wrong" />Review needed <span className="is-empty" />Unanswered</div></div><div className="exam-result-question-map">{rows.map((row: any) => {
         const empty = !String(row.user_answer ?? '').trim();
-        return <span className={empty ? 'is-empty' : row.correct ? 'is-correct' : 'is-wrong'} aria-label={`Question ${row.q_num}: ${empty ? 'unanswered' : row.correct ? 'correct' : 'incorrect'}`} key={row.q_num}>{row.q_num}</span>;
+        return <span className={empty ? 'is-empty' : row.correct ? 'is-correct' : 'is-wrong'} aria-label={`Question ${row.q_num}: ${empty ? 'unanswered' : row.correct ? 'correct' : 'review needed'}`} key={row.q_num}>{row.q_num}</span>;
       })}</div></section>
 
-      <section className="exam-result-next-step"><div><p className="exam-result-eyebrow">NEXT STEP</p><h2>{examResultNextStepTitle(outcomes, 'Review the transcript and explanations')}</h2><p>Replay the relevant audio and compare the transcript and explanations for each question.</p></div><div className="exam-result-actions">{attempt ? <a className="ft-control-btn" href={listeningReviewHref(attempt.attempt_id, from)}>Review answers <span aria-hidden="true">→</span></a> : null}<a className="ft-control-btn ghost" href={listeningDictationHref(test.id)}>Dictation practice</a><a className="ft-control-btn ghost" href={listeningLibraryHref(from, sittingId)}>Back to tests</a></div></section>
+      <section className="exam-result-next-step"><div><p className="exam-result-eyebrow">NEXT STEP</p><h2>{needsReview ? `Review ${needsReview} incorrect answers` : 'Review the transcript and explanations'}</h2><p>Replay the relevant audio and compare the transcript and explanations for each question.</p></div><div className="exam-result-actions">{attempt ? <a className="ft-control-btn" href={listeningReviewHref(attempt.attempt_id, from)}>Review answers <span aria-hidden="true">→</span></a> : null}<a className="ft-control-btn ghost" href={listeningDictationHref(test.id)}>Dictation practice</a><a className="ft-control-btn ghost" href={listeningLibraryHref(from, sittingId)}>Back to tests</a></div></section>
     </section>
   </main>;
 }

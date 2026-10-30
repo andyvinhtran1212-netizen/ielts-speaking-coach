@@ -13,9 +13,8 @@ Schema dependencies (all confirmed against migrations 009, 033, 056,
 057, 060-062 in Sprint 12.4 Discovery):
   - students (id, user_id, cohort_id NULLABLE post-12.2)
   - cohorts (id, name, is_active)
-  - sessions (id, user_id, mode, status, overall_band, started_at,
-    completed_at) — no `created_at` on sessions (migration 078 note);
-    `started_at` is the session-age anchor
+  - sessions (id, user_id, mode, status, overall_band, created_at,
+    completed_at)
   - writing_essays (id, student_id, status, delivered_at, created_at)
   - listening_test_attempts (id, user_id, test_id, status, score,
     grading_details, created_at, submitted_at) — audit 2026-07-17: nguồn
@@ -30,12 +29,6 @@ Schema dependencies (all confirmed against migrations 009, 033, 056,
 
 Sprint 11.5.1 first-attempt rule applied for listening avg_score
 aggregation — retries should not inflate quality signals.
-
-A failed read degrades only its own tile, but never silently: it is logged
-at ERROR with the PostgREST/Postgres error code and its block name is listed
-in `partial_failures`, so an empty tile is distinguishable from real zero
-activity (PC-J155: a 42703 on `sessions.created_at` blanked Speaking from
-05/2026 behind a WARNING).
 """
 
 from __future__ import annotations
@@ -60,44 +53,28 @@ router = APIRouter(tags=["admin", "overview"])
 _RECENT_ACTIVITY_LIMIT = 20
 _CACHE_MAX_AGE_SECONDS = 300
 _READING_ATTEMPT_PAGE = 1000
-# Postgres/PostgREST codes meaning the query does not match the schema
-# (undefined column/table, unknown relationship/column in the schema cache):
-# a code bug, not a transient outage — retrying will never succeed.
-_SCHEMA_ERROR_CODES = frozenset({"42703", "42P01", "PGRST200", "PGRST204", "PGRST205"})
 
 
 # ── Helpers ───────────────────────────────────────────────────────────
 
 
-def _record_partial(failures: list[str], block: str, exc: Exception) -> None:
-    """Log a failed dashboard read at ERROR and mark its block partial."""
-    code = getattr(exc, "code", None)
-    logger.error(
-        "[admin_overview] partial fetch failed: block=%s code=%s schema_error=%s: %s",
-        block, code, code in _SCHEMA_ERROR_CODES, exc,
-    )
-    failures.append(block)
-
-
-def _safe_select(q, block: str, failures: list[str]):
-    """Run a Supabase query and return rows; on failure return [] and mark
-    `block` partial.
+def _safe_select(q):
+    """Run a Supabase query and return rows, swallowing transient errors.
 
     Aggregator failures must NOT escalate to a 500 — a partial dashboard
     with one zero tile is better than a totally blank screen. Each
-    individual metric is wrapped so one table outage degrades gracefully,
-    and the failure is reported via `failures` instead of looking like zero.
+    individual metric is wrapped so one table outage degrades gracefully.
     """
     try:
         res = q.execute()
         return res.data or []
     except Exception as exc:
-        _record_partial(failures, block, exc)
+        logger.warning("[admin_overview] partial fetch failed: %s", exc)
         return []
 
 
-def _safe_count(q, block: str, failures: list[str]) -> int:
-    """Return an EXACT row count; on failure return 0 and mark `block` partial.
+def _safe_count(q) -> int:
+    """Return an EXACT row count, swallowing transient errors.
 
     Counting with `len(_safe_select(...))` silently caps at PostgREST's
     1000-row default once a table grows past it (prod dashboard showed
@@ -108,12 +85,11 @@ def _safe_count(q, block: str, failures: list[str]) -> int:
     try:
         return q.execute().count or 0
     except Exception as exc:
-        _record_partial(failures, block, exc)
+        logger.warning("[admin_overview] partial count failed: %s", exc)
         return 0
 
 
-def _safe_reading_attempt_window(cutoff: str, snapshot_to: str,
-                                 failures: list[str]) -> list[dict]:
+def _safe_reading_attempt_window(cutoff: str, snapshot_to: str) -> list[dict]:
     """Read the complete frozen Reading-attempt window with a stable keyset.
 
     A bare PostgREST select is capped at roughly 1,000 rows. Offset paging is
@@ -161,7 +137,7 @@ def _safe_reading_attempt_window(cutoff: str, snapshot_to: str,
             cursor_created_at = next_created_at
             cursor_id = str(next_id)
     except Exception as exc:
-        _record_partial(failures, "reading_recent", exc)
+        logger.warning("[admin_overview] Reading attempt window failed: %s", exc)
         return []
 
 
@@ -242,16 +218,13 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
     iso_7d  = (now - timedelta(days=7)).isoformat()
     iso_24h = (now - timedelta(hours=24)).isoformat()
     iso_30d = (now - timedelta(days=30)).isoformat()
-    partial_failures: list[str] = []
 
     # ── Students + cohorts ─────────────────────────────────────────
     students = _safe_select(
-        supabase_admin.table("students").select("id, user_id, cohort_id, created_at"),
-        "students", partial_failures,
+        supabase_admin.table("students").select("id, user_id, cohort_id, created_at")
     )
     cohorts = _safe_select(
-        supabase_admin.table("cohorts").select("id, name").eq("is_active", True),
-        "cohorts", partial_failures,
+        supabase_admin.table("cohorts").select("id, name").eq("is_active", True)
     )
     try:
         memberships = active_memberships_for_students(
@@ -263,17 +236,14 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
         memberships = None
     cohort_name_by_id = {c["id"]: c.get("name") or "" for c in cohorts}
 
-    # Sessions provides Speaking activity AND active-user signal. The table
-    # has no created_at column — started_at is its age anchor (PC-J155).
+    # Sessions provides Speaking activity AND active-user signal.
     sessions_recent = _safe_select(
         supabase_admin.table("sessions")
-        .select("id, user_id, overall_band, started_at, completed_at, status")
-        .gte("started_at", iso_30d),
-        "sessions_recent", partial_failures,
+        .select("id, user_id, overall_band, created_at, completed_at, status")
+        .gte("created_at", iso_30d)
     )
     sessions_total = _safe_count(
-        supabase_admin.table("sessions").select("id", count="exact", head=True),
-        "sessions_total", partial_failures,
+        supabase_admin.table("sessions").select("id", count="exact", head=True)
     )
 
     # Writing essays + pending feedback signal.
@@ -281,21 +251,18 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
         supabase_admin.table("writing_essays")
         .select("id, student_id, status, delivered_at, created_at")
         .is_("deleted_at", "null")          # exclude soft-deleted
-        .gte("created_at", iso_30d),
-        "essays_recent", partial_failures,
+        .gte("created_at", iso_30d)
     )
     essays_total = _safe_count(
         supabase_admin.table("writing_essays")
         .select("id", count="exact", head=True)
-        .is_("deleted_at", "null"),
-        "essays_total", partial_failures,
+        .is_("deleted_at", "null")
     )
     essays_pending = _safe_count(
         supabase_admin.table("writing_essays")
         .select("id", count="exact", head=True)
         .is_("deleted_at", "null")
-        .is_("delivered_at", "null"),
-        "essays_pending", partial_failures,
+        .is_("delivered_at", "null")
     )
 
     # Listening attempts (last 30d for activity + avg) + total count.
@@ -305,50 +272,42 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
         supabase_admin.table("listening_test_attempts")
         .select("id, user_id, test_id, status, score, grading_details, "
                 "created_at, submitted_at")
-        .gte("created_at", iso_30d),
-        "listening_recent", partial_failures,
+        .gte("created_at", iso_30d)
     )
     listening_total = _safe_count(
         supabase_admin.table("listening_test_attempts")
-        .select("id", count="exact", head=True),
-        "listening_total", partial_failures,
+        .select("id", count="exact", head=True)
     )
-    reading_recent = _safe_reading_attempt_window(iso_30d, snapshot_to, partial_failures)
+    reading_recent = _safe_reading_attempt_window(iso_30d, snapshot_to)
     reading_total = _safe_count(
         supabase_admin.table("reading_test_attempts")
-        .select("id", count="exact", head=True),
-        "reading_total", partial_failures,
+        .select("id", count="exact", head=True)
     )
     dictation_recent = _safe_select(
         supabase_admin.table("dictation_sessions")
         .select("id, user_id, accuracy, section_title, test_id_external, completed_at, created_at")
-        .gte("created_at", iso_30d),
-        "dictation_recent", partial_failures,
+        .gte("created_at", iso_30d)
     )
     dictation_total = _safe_count(
-        supabase_admin.table("dictation_sessions").select("id", count="exact", head=True),
-        "dictation_total", partial_failures,
+        supabase_admin.table("dictation_sessions").select("id", count="exact", head=True)
     )
     listening_content_count = _safe_count(
         supabase_admin.table("listening_content")
         .select("id", count="exact", head=True)
-        .eq("status", "published"),
-        "listening_content_count", partial_failures,
+        .eq("status", "published")
     )
 
     # Vocab — total entries + due-for-review approximation (all
     # `mastery_status='learning'` non-archived rows; precise SRS window
     # is computed client-side per Sprint 10.2 mastery–SRS unification).
     vocab_total = _safe_count(
-        supabase_admin.table("user_vocabulary").select("id", count="exact", head=True),
-        "vocab_total", partial_failures,
+        supabase_admin.table("user_vocabulary").select("id", count="exact", head=True)
     )
     vocab_learning = _safe_count(
         supabase_admin.table("user_vocabulary")
         .select("id", count="exact", head=True)
         .eq("mastery_status", "learning")
-        .eq("is_archived", False),
-        "vocab_learning", partial_failures,
+        .eq("is_archived", False)
     )
 
     # Grammar — proxy for "articles viewed 7d": grammar_recommendations
@@ -356,35 +315,30 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
     grammar_recent_count = _safe_count(
         supabase_admin.table("grammar_recommendations")
         .select("id", count="exact", head=True)
-        .gte("created_at", iso_7d),
-        "grammar_recent", partial_failures,
+        .gte("created_at", iso_7d)
     )
 
     # Error logs — three counts.
     err_undismissed = _safe_count(
         supabase_admin.table("error_logs")
         .select("id", count="exact", head=True)
-        .is_("dismissed_at", "null"),
-        "errors_undismissed", partial_failures,
+        .is_("dismissed_at", "null")
     )
     err_24h = _safe_count(
         supabase_admin.table("error_logs")
         .select("id", count="exact", head=True)
-        .gte("occurred_at", iso_24h),
-        "errors_24h", partial_failures,
+        .gte("occurred_at", iso_24h)
     )
     err_7d = _safe_count(
         supabase_admin.table("error_logs")
         .select("id", count="exact", head=True)
-        .gte("occurred_at", iso_7d),
-        "errors_7d", partial_failures,
+        .gte("occurred_at", iso_7d)
     )
 
     # Access codes — counts by type + active total.
     ac_rows = _safe_select(
         supabase_admin.table("access_codes")
-        .select("id, code_type, is_active, is_revoked"),
-        "access_codes", partial_failures,
+        .select("id, code_type, is_active, is_revoked")
     )
     ac_active = sum(
         1 for r in ac_rows
@@ -397,16 +351,16 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
 
     # ── Compute derived metrics ────────────────────────────────────
 
-    def _user_ids_in(rows: list[dict], since_iso: str, ts_key: str = "created_at") -> set:
+    def _user_ids_in(rows: list[dict], since_iso: str) -> set:
         out = set()
         for r in rows:
-            ts = r.get(ts_key) or ""
+            ts = r.get("created_at") or ""
             if ts and ts >= since_iso and r.get("user_id"):
                 out.add(r["user_id"])
         return out
 
     active_7d = (
-        _user_ids_in(sessions_recent, iso_7d, "started_at")
+        _user_ids_in(sessions_recent, iso_7d)
         | _user_ids_in(listening_recent, iso_7d)
         | _user_ids_in(reading_recent, iso_7d)
         | _user_ids_in(dictation_recent, iso_7d)
@@ -421,7 +375,7 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
                 active_7d.add(uid)
 
     active_30d = (
-        _user_ids_in(sessions_recent, iso_30d, "started_at")
+        _user_ids_in(sessions_recent, iso_30d)
         | _user_ids_in(listening_recent, iso_30d)
         | _user_ids_in(reading_recent, iso_30d)
         | _user_ids_in(dictation_recent, iso_30d)
@@ -436,7 +390,7 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
     speaking_bands = [
         s["overall_band"] for s in sessions_recent
         if s.get("overall_band") is not None and s.get("status") == "completed"
-        and (s.get("started_at") or "") >= iso_7d
+        and (s.get("created_at") or "") >= iso_7d
     ]
     speaking_avg_band = (
         round(sum(speaking_bands) / len(speaking_bands), 1)
@@ -445,7 +399,7 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
 
     sessions_7d = sum(
         1 for s in sessions_recent
-        if (s.get("started_at") or "") >= iso_7d
+        if (s.get("created_at") or "") >= iso_7d
     )
     essays_7d = sum(
         1 for e in essays_recent
@@ -577,8 +531,7 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
         urows = _safe_select(
             supabase_admin.table("users")
             .select("id, email")
-            .in_("id", uids_in_activity),
-            "activity_emails", partial_failures,
+            .in_("id", uids_in_activity)
         )
         for u in urows:
             email_by_uid[u["id"]] = u.get("email") or ""
@@ -643,7 +596,6 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
         },
         "recent_activity": activity,
         "generated_at":    now.isoformat(),
-        "partial_failures": partial_failures,
     }
 
     response = AdminOverviewOut.model_validate(body)
