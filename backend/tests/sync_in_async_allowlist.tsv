@@ -1,0 +1,1264 @@
+# PC-J408 G-guard baseline on origin/staging 3107834c63bd1df7c2383f516f21c2b4f53dfc3b.
+# Initial inventory reconciled with staging d4cfa1ab9 before guard first lands:
+# #2090 removes five calls/keys net, including #1984's three G6 additions, and
+# relocates one existing G7 helper call (identified below); no count grows.
+# key (path::qualified-function::callee)	count	remediation PR group	one-line reason
+# Paths are backend-relative; line numbers are diagnostic only. Counts prevent
+# adding more calls under an existing key. Remove/decrease entries with each fix;
+# stale entries fail too. Do not regenerate this baseline to admit new debt.
+# Analytics debt removed after #2082 merged staging at d1726df1c (G0 HOLD met).
+# G2 essay_service waits for #2066 then 1hz; its reaper debt is tracked in G2.
+# G7 includes the flag-off aexecute branch: facade use alone is not a loop fix.
+# Dynamic dispatch/unrecognized SDKs still require review (see sync_io_guard.py).
+main.py::get_topics::db.execute	1	G7	Existing inline sync DB execution; offload in G7.
+routers/admin.py::_generate_questions_for_topic::db.execute	5	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::_generate_questions_for_topic::routers.admin._touch_topic	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::_replace_topic_questions_with_visibility_swap::db.execute	7	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::_run_regrade_response::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::_run_regrade_response::routers.admin._reattach_pronunciation_for_regrade	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::_run_regrade_response::services.grading_telemetry.log_fallback_events	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::admin_cleanup_e2e_session::db.execute	5	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::admin_cleanup_e2e_session::storage.remove	1	G5	Existing sync Storage network call; offload in G5.
+routers/admin.py::admin_create_lemma_override::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::admin_create_lemma_override::services.lemmatizer.reload_overrides	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::admin_delete_d1_question::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::admin_delete_lemma_override::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::admin_delete_lemma_override::services.lemmatizer.reload_overrides	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::admin_flashcard_stats::routers.admin._fc_compute_activity_stats	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::admin_flashcard_stats::routers.admin._fc_compute_engagement_stats	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::admin_flashcard_stats::routers.admin._fc_compute_reviews_timeseries	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::admin_flashcard_stats::routers.admin._fc_compute_srs_health	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::admin_get_alerts::db.execute	4	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::admin_get_session::db.execute	5	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::admin_grammar_analytics::routers.admin._grammar_article_metric_rows	2	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::admin_list_d1_questions::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::admin_list_grammar_articles::routers.admin._grammar_article_metric_rows	2	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::admin_list_lemma_overrides::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::admin_list_sessions::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::admin_patch_d1_question::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::admin_rebuild_summary::db.execute	4	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::admin_rebuild_summary::routers.admin._regrade_compute_session_bands	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::admin_rebuild_summary::routers.admin._regrade_incomplete_response_ids	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::admin_rebuild_summary::services.class_assignment_service.sync_class_item_score	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::admin_regrade_response::db.execute	5	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::admin_regrade_response::routers.admin._regrade_compute_session_bands	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::admin_regrade_response::routers.admin._regrade_incomplete_response_ids	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::admin_regrade_response::services.class_assignment_service.sync_class_item_score	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::admin_regrade_session::db.execute	6	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::admin_regrade_session::routers.admin._regrade_compute_session_bands	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::admin_regrade_session::routers.admin._regrade_incomplete_response_ids	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::admin_regrade_session::services.class_assignment_service.sync_class_item_score	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::admin_set_user_role::services.staff_security.set_staff_privilege	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::admin_set_vocab_flag::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::admin_vocab_stats::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::bulk_add_topics::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::bulk_add_topics::routers.admin._serialize_topics_with_metadata	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::bulk_delete_topics::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::bulk_generate_topic_questions::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::code_usage::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::code_usage::routers.admin._aggregate_usage_for_users	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::code_usage::routers.admin._usage_paged	2	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::create_topic::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::create_topic::routers.admin._serialize_topics_with_metadata	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::create_topic_question::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::create_topic_question::routers.admin._touch_topic	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::dashboard_reading_attempts::services.admin_reading_dashboard.compute_reading_attempts_dashboard	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::delete_access_code::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::delete_access_code::routers.admin._audit_entitlement	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::delete_topic::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::delete_topic_question::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::delete_topic_question::routers.admin._touch_topic	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::foot_traffic::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::generate_access_codes::routers.admin._audit_entitlement	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::generate_access_codes::services.access_code_gen.insert_with_unique_codes	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::generate_and_assign_code::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::generate_and_assign_code::routers.admin._activate_with_issued_code	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::generate_and_assign_code::routers.admin._audit_entitlement	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::generate_and_assign_code::routers.admin._issue_code_and_assign	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::generate_and_assign_code::services.class_membership_service.add_student	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::get_access_code_audit::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::get_access_code_detail::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::get_ai_usage::db.execute	6	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::get_ai_usage::routers.admin._usage_paged	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::get_stats::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::get_test_data_visibility::services.test_data_visibility.hide_for	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::hard_delete_access_code::db.execute	4	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::hard_delete_access_code::routers.admin._audit_entitlement	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::list_access_codes::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::list_access_codes::routers.admin._usage_paged	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::list_access_codes::services.access_code_permissions.get_completed_session_counts	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::list_topic_questions::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::list_topics::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::list_topics::routers.admin._serialize_topics_with_metadata	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::list_unassigned_codes::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::list_users::db.execute	4	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::list_users::services.access_code_permissions.get_users_code_summary	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::list_users::services.class_membership_service.active_memberships_for_students	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::list_users::services.test_data_visibility.hide_for	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::patch_access_code::db.execute	3	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::patch_access_code::routers.admin._audit_entitlement	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::patch_topic::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::patch_topic::routers.admin._serialize_topics_with_metadata	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::reassign_code::db.execute	5	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::reassign_code::routers.admin._activate_user_for_code	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::reassign_code::routers.admin._assign_user_to_code	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::reassign_code::routers.admin._audit_entitlement	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::refill_code::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::refill_code::routers.admin._activate_with_issued_code	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::refill_code::routers.admin._audit_entitlement	2	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::refill_code::routers.admin._issue_code_and_assign	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::remove_user_from_code::db.execute	1	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::remove_user_from_code::routers.admin._audit_entitlement	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::render_topic_question_audio::db.execute	4	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::update_topic_question::db.execute	2	G5	Existing inline sync DB execution; offload in G5.
+routers/admin.py::update_topic_question::routers.admin._touch_topic	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::usage_by_user::routers.admin._aggregate_usage_for_users	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin.py::usage_by_user::routers.admin._usage_paged	1	G5	Existing sync helper reaches blocking I/O; offload caller in G5.
+routers/admin_class_assignments.py::assignment_tally::db.execute	4	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_class_assignments.py::assignment_tally::routers.admin_class_assignments._advanced_vocab_assignment_tally	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::assignment_tally::routers.admin_class_assignments._course_writing_count	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::assignment_tally::routers.admin_class_assignments._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::assignment_tally::routers.admin_class_assignments._response_flags_for	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::assignment_tally::services.class_assignment_service._paged	3	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::assignment_tally::services.class_assignment_service.mark_item_submitted	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::assignment_tally::services.quiz_service.bank_has_mcq	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::assignment_tally::services.quiz_service.course_admin_summary	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::assignment_tally::services.quiz_service.course_bank_is_multisection	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::assignment_tally::services.quiz_service.course_required_sections	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::assignment_tally::services.quiz_service.unavailable_course_admin_summary	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::backfill_assignment::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_class_assignments.py::backfill_assignment::routers.admin_class_assignments._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::backfill_assignment::services.class_assignment_service.backfill_assignment_items	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::class_action_log::routers.admin_class_assignments._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::class_action_log::services.class_assignment_service._paged	2	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::class_action_log::services.class_assignment_service.read_class_actions	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::create_assignment::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_class_assignments.py::create_assignment::routers.admin_class_assignments._existing_grammar_give	2	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::create_assignment::routers.admin_class_assignments._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::create_assignment::routers.admin_class_assignments._require_course_five	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::create_assignment::routers.admin_class_assignments._resolve_course_bank	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::create_assignment::routers.admin_class_assignments._resolve_speaking_lesson_set	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::create_assignment::routers.admin_class_assignments._resolve_speaking_topic	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::create_assignment::services.class_assignment_service.create_class_assignment	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::create_assignment::services.grammar_lesson_service.prepare_assignment	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::create_assignment::services.mock_correction_service.assert_scored_paper_ready	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::create_assignment::services.runtime_flags.is_enabled	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::delete_assignment::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_class_assignments.py::list_assignments::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_class_assignments.py::list_assignments::routers.admin_class_assignments._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::list_assignments::services.class_assignment_service.progress_for_assignments	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::list_course_banks::db.execute	3	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_class_assignments.py::list_course_banks::routers.admin_class_assignments._cohort_course_id	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::list_course_banks::routers.admin_class_assignments._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::list_course_banks::services.class_assignment_service._paged	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::list_lesson_set_questions::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_class_assignments.py::list_lesson_set_questions::routers.admin_class_assignments._cohort_course_id	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::list_lesson_set_questions::routers.admin_class_assignments._lesson_set_questions	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::list_lesson_set_questions::routers.admin_class_assignments._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::list_speaking_lesson_sets::db.execute	3	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_class_assignments.py::list_speaking_lesson_sets::routers.admin_class_assignments._cohort_course_id	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::list_speaking_lesson_sets::routers.admin_class_assignments._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::list_speaking_topics::db.execute	3	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_class_assignments.py::list_speaking_topics::routers.admin_class_assignments._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::list_topic_questions::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_class_assignments.py::list_topic_questions::routers.admin_class_assignments._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::preview_course_bank::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_class_assignments.py::preview_course_bank::routers.admin_class_assignments._cohort_course_id	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::preview_course_bank::routers.admin_class_assignments._course_bank_assignment_revision	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::preview_course_bank::routers.admin_class_assignments._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::preview_course_bank::services.class_assignment_service._paged	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::return_student_work::db.execute	4	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_class_assignments.py::return_student_work::routers.admin_class_assignments._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::return_student_work::services.class_assignment_service.log_class_action	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::return_student_work::services.class_assignment_service.return_item_to_student	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::return_student_work::services.quiz_service.bank_has_mcq	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::speaking_daily_board::routers.admin_class_assignments._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::speaking_daily_board::services.class_assignment_service._paged	3	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::speaking_daily_board::services.class_assignment_service.reconcile_ledger_from_sessions	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::speaking_performance::routers.admin_class_assignments._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::speaking_performance::routers.admin_class_assignments._response_flags_for	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::speaking_performance::services.class_assignment_service._paged	3	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::student_course_writing::db.execute	4	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_class_assignments.py::student_course_writing::routers.admin_class_assignments._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::student_work::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_class_assignments.py::student_work::routers.admin_class_assignments._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::student_work::services.class_assignment_service._paged	2	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::student_work::services.class_membership_service.student_is_active_in_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::update_assignment::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_class_assignments.py::update_assignment_due::routers.admin_class_assignments._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::update_assignment_due::services.class_assignment_service.change_assignment_due_at	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_assignments.py::update_assignment_due::services.class_assignment_service.log_class_action	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_lessons.py::create_lesson::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_class_lessons.py::create_lesson::routers.admin_class_lessons._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_lessons.py::delete_lesson::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_class_lessons.py::list_lessons::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_class_lessons.py::list_lessons::routers.admin_class_lessons._require_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_class_lessons.py::update_lesson::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_courses.py::create_course::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_courses.py::list_courses::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_courses.py::update_course::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_exam_content.py::get_paper_policy::services.mock_paper_policy.inspect_policy	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_exam_content.py::list_exam_content::services.exam_content_service.known_course_levels	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_exam_content.py::list_exam_content::services.exam_content_service.list_exam_content	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_exam_content.py::list_exam_content_page::services.exam_content_service.known_course_levels_bounded_with_failures	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_exam_content.py::list_exam_content_page::services.exam_content_service.list_exam_content	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_exam_content.py::restore_paper_policy::services.mock_paper_policy.mutate	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_exam_content.py::set_cohorts::services.exam_content_service.set_cohorts	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_exam_content.py::set_course_level::services.exam_content_service.set_course_level	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_exam_content.py::set_public_visibility::services.exam_content_service.set_public_visibility	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_exam_content.py::set_status::services.exam_content_service.set_status	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_exams.py::admin_import_exam::services.exam_service.import_exam	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_exams.py::admin_list_exams::services.exam_service.admin_list_all	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_flags.py::list_flags::db.execute	1	G7	Existing inline sync DB execution; offload in G7.
+routers/admin_flags.py::patch_flag::services.runtime_flags.set_flag	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
+routers/admin_grammar_diagnostic.py::catalog::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_grammar_diagnostic.py::catalog::services.runtime_flags.is_enabled	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_grammar_diagnostic.py::report::services.grammar_diagnostic_service.educator_report	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_grammar_lesson.py::catalog::routers.admin_class_assignments._require_course_five	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_grammar_lesson.py::catalog::services.grammar_lesson_service.catalog	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_grammar_lesson.py::report::services.grammar_lesson_service.educator_report	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_instructor_queue.py::claim_review::services.instructor_workflow.claim	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_instructor_queue.py::deliver_review::services.instructor_workflow.deliver	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_instructor_queue.py::get_queue::services.instructor_workflow.get_queue	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_instructor_queue.py::release_review::services.instructor_workflow.release	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_instructors.py::list_instructor_metrics::db.execute	5	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_instructors.py::list_instructor_metrics::services.instructor_access.instructor_owned_essay_ids	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_mock_exams.py::admin_record_speaking::services.mock_exam_service.admin_record_speaking	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::advance_section::services.mock_exam_service.advance_section	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::available_reading_tests::services.mock_exam_service.admin_available_reading_tests	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::bulk_claim::routers.admin_mock_exams._scope_to_exam	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::bulk_claim::services.mock_review_workflow.bulk_claim_sittings	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::bulk_final_bands::routers.admin_mock_exams._scope_to_exam	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::bulk_final_bands::services.mock_review_workflow.bulk_save_final_bands	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::bulk_grade_writing::services.mock_exam_service.claim_mock_writing_grading	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::bulk_grade_writing::services.mock_exam_service.get_sitting	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::bulk_release::routers.admin_mock_exams._scope_to_exam	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::bulk_release::services.mock_review_workflow.bulk_release_sittings	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::collect_section::services.mock_exam_service.collect_preflight	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::collect_section::services.mock_exam_service.mark_section_collected	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::create_assignments::services.mock_exam_assignment_service.assign	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::create_exam::services.mock_exam_service.admin_create_exam	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::delete_assignment::services.mock_exam_assignment_service.remove	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::exam_picker_page::services.mock_exam_service.admin_exam_picker_page	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::list_assignments::services.mock_exam_assignment_service.list_assignments	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::list_exams::services.mock_exam_service.admin_list_exams	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::list_sittings::services.mock_exam_service.admin_list_sittings	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::live_monitor::services.mock_exam_service.admin_live_monitor	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::promote_writing::services.mock_exam_service.backfill_promote_writing	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::retest_summary::services.mock_review_workflow.retest_summary	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::roster::services.mock_review_workflow.roster	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::section_progress::services.mock_exam_service.admin_section_progress	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::set_open::services.mock_exam_service.set_open	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::set_sitting_retest::services.mock_exam_service.set_sitting_retest	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::set_sitting_retest_flags::services.mock_review_workflow.set_retest_flags_for_sitting	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::sitting_pacing::services.mock_exam_service.sitting_pacing	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::skip_writing_grading::services.mock_exam_service.skip_mock_writing_grading	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::update_exam::services.mock_exam_service.admin_update_exam	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_exams.py::void_sitting::services.mock_exam_service.void_sitting	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_reviews.py::claim::services.mock_review_workflow.claim	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_reviews.py::get_review::services.mock_exam_service.get_sitting	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_reviews.py::get_review::services.mock_review_workflow.blankable_skills_for_sitting	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_reviews.py::get_review::services.mock_review_workflow.get_review	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_reviews.py::get_review::services.mock_review_workflow.required_skills_for_sitting	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_reviews.py::get_review::services.mock_review_workflow.resolve_display_names	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_reviews.py::queue::services.mock_review_workflow.get_queue	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_reviews.py::release::services.mock_review_workflow.release_results	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_reviews.py::release_claim::services.mock_review_workflow.release	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_reviews.py::save_final_bands::services.mock_review_workflow.save_final_bands	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_mock_reviews.py::save_speaking_assessment::services.mock_review_workflow.save_speaking_assessment	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/admin_overview.py::get_admin_overview::routers.admin_overview._safe_count	13	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_overview.py::get_admin_overview::routers.admin_overview._safe_reading_attempt_window	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_overview.py::get_admin_overview::routers.admin_overview._safe_select	8	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_overview.py::get_admin_overview::services.class_membership_service.active_memberships_for_students	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_quiz.py::bank_analytics::services.quiz_service.bank_analytics	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_quiz.py::bank_attempt_report::services.quiz_service.course_attempt_report	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_quiz.py::delete_bank::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_quiz.py::get_bank::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_quiz.py::import_bank::services.quiz_import.import_quiz_file	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_quiz.py::list_banks::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_quiz.py::quiz_student_detail::services.quiz_service.admin_student_detail	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_quiz.py::quiz_students::services.quiz_service.admin_student_rollup	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_quiz.py::student_answer_report::services.quiz_service.course_answer_report	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_quiz.py::update_bank::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_reading.py::_commit_l3_parsed::db.execute	11	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_reading.py::_commit_l3_parsed::routers.admin_reading._snapshot_question_images	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_reading.py::admin_delete_diagram_image::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_reading.py::admin_delete_diagram_image::routers.admin_reading._fetch_question_or_404	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_reading.py::admin_delete_diagram_image::storage.remove	1	G6	Existing sync Storage network call; offload in G6.
+routers/admin_reading.py::admin_delete_reading_passage::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_reading.py::admin_delete_reading_test::db.execute	3	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_reading.py::admin_delete_reading_test::routers.admin_reading._fetch_admin_test_or_404	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_reading.py::admin_delete_reading_test::services.class_assignment_service.active_exam_assignment_references	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_reading.py::admin_get_reading_test::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_reading.py::admin_get_reading_test::routers.admin_reading._fetch_admin_test_or_404	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_reading.py::admin_get_reading_test::routers.reading_student._stamp_diagram_image_urls	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_reading.py::admin_lock_reading_test::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_reading.py::admin_preview_reading_test::db.execute	4	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_reading.py::admin_preview_reading_test::routers.reading_student._assemble_reading_review	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_reading.py::admin_set_reading_exam_only::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_reading.py::admin_set_reading_exam_only::services.mock_paper_policy.mutate	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_reading.py::admin_set_reading_visibility::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_reading.py::admin_set_reading_visibility::services.mock_paper_policy.mutate	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_reading.py::admin_share_reading_test::db.execute	3	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_reading.py::admin_upload_diagram_image::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_reading.py::admin_upload_diagram_image::routers.admin_reading._fetch_question_or_404	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_reading.py::admin_upload_diagram_image::routers.admin_reading._resolve_test_id_for_question	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_reading.py::admin_upload_diagram_image::routers.admin_reading._sign_diagram_image_url	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_reading.py::admin_upload_diagram_image::services.reading_image.upload_diagram_image	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_reading.py::import_reading_content::db.execute	5	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_reading.py::import_reading_content::routers.admin_reading._check_image_url_reachable	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_reading.py::list_reading_content::db.execute	3	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_reading.py::list_reading_content::routers.admin_reading._l3_test_rows	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_staff_security.py::admin_revoke_staff_sessions::services.staff_security.read_privilege_row	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_staff_security.py::admin_set_staff_active::routers.admin_staff_security._reban_if_still_suspended	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_staff_security.py::admin_set_staff_active::services.staff_security.read_privilege_row	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_staff_security.py::admin_set_staff_active::services.staff_security.set_staff_privilege	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_staff_security.py::admin_staff_security_audit::services.staff_security.security_history	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_students.py::create_student::services.student_service.create_student	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_students.py::delete_student::services.student_service.archive_student	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_students.py::get_student::services.student_service.get_student_with_history	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_students.py::import_students_csv::services.student_service.bulk_import_students	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_students.py::list_students::services.student_service.list_students	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_students.py::list_students::services.test_data_visibility.hidden_student_ids	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_students.py::list_students::services.test_data_visibility.hide_for	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_students.py::restore_student::services.student_service.restore_student	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_students.py::update_student::services.student_service.update_student	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_topics.py::create_topic::services.topic_service.create_topic	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_topics.py::delete_topic::services.topic_service.delete_topic	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_topics.py::get_topic::services.topic_service.get_topic	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_topics.py::get_topic_bundle::services.topic_service.get_topic_bundle	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_topics.py::list_topics::services.topic_service.list_topics	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_topics.py::update_topic::services.topic_service.update_topic	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_vocab.py::bulk_delete_vocab::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_vocab.py::delete_vocab::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_vocab.py::get_vocab::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_vocab.py::import_vocab_word::services.vocab_import.import_vocab_file	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_vocab.py::list_vocab::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_vocab.py::update_vocab::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_vocab.py::update_vocab::services.topic_service.resolve_topic_id_for_category	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing.py::bulk_mark_delivered::routers.admin_writing._deliver_essay	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing.py::create_essay::services.access_code_permissions.get_student_access_code_permissions	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing.py::create_essay::services.access_code_permissions.student_has_writing_assignment	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing.py::create_essay::services.essay_service.create_essay_with_job	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing.py::delete_essay::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing.py::export_essay_docx::services.essay_service.get_essay_render_context	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing.py::get_essay::services.essay_service.get_essay_with_feedback	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing.py::get_essay_status::services.essay_service.get_essay_status	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing.py::get_student_summary::services.essay_service.get_student_summary	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing.py::get_writing_stats::db.execute	4	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing.py::grade_ratings_summary::services.essay_service.grade_rating_summary	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing.py::list_essay_queue::services.essay_service.list_essays_page	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing.py::list_essays::services.essay_service.list_essays	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing.py::mark_delivered::routers.admin_writing._deliver_essay	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing.py::rate_grade::services.essay_service.upsert_grade_rating	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing.py::render_essay_output::services.essay_service.get_essay_render_context	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing.py::revoke_delivery::routers.admin_writing._revoke_essay	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing.py::start_grading::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing.py::start_grading::services.essay_service.claim_pending_for_grading	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing.py::trigger_regrade::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing.py::trigger_regrade::services.essay_service.live_version_count	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing.py::trigger_regrade::services.essay_service.schedule_grading_job	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing.py::update_feedback::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing.py::update_feedback::routers.admin_writing._fetch_status_or_404	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing.py::update_feedback::services.essay_service.upsert_composed_version	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing.py::update_feedback::services.mock_review_workflow.sync_writing_band_for_essay	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing.py::update_instructor_note::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing.py::update_instructor_note::routers.admin_writing._fetch_status_or_404	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_assignments.py::create_assignments::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_assignments.py::create_assignments::routers.admin_writing_assignments._read_assignment_request_receipt	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_assignments.py::create_assignments::routers.admin_writing_assignments._refuse_archived_students	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_assignments.py::create_assignments::services.student_service.raise_if_student_archived	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_assignments.py::delete_assignment::services.writing_assignment_delete_guard.delete_unstarted_assignment	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_assignments.py::fan_out_to_cohort::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_assignments.py::fan_out_to_cohort::routers.admin_writing_assignments._read_assignment_request_receipt	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_assignments.py::fan_out_to_cohort::services.class_membership_service.active_student_ids_for_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_assignments.py::fan_out_to_cohort::services.student_service.raise_if_student_archived	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_assignments.py::get_assignment::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_assignments.py::get_assignment::services.writing_image_access.attach_signed_image_urls	1	G6	Existing sync helper reaches Storage signing; offload caller in G6.
+routers/admin_writing_assignments.py::list_assignments::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_assignments.py::list_assignments::services.class_membership_service.active_student_ids_for_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_assignments.py::preview_duplicates::services.cohort_assignment_service.existing_give_student_ids	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_assignments.py::preview_duplicates::services.cohort_assignment_service.preview_fan_out_overlap	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_assignments.py::update_assignment::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_assignments.py::verify_assignment_request::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_cohorts.py::cohort_detail::db.execute	3	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_cohorts.py::cohort_detail::routers.admin_writing_cohorts._fetch_essays_by_ids	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_cohorts.py::cohort_detail::services.class_membership_service.active_students_for_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_cohorts.py::cohort_student_essays::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_cohorts.py::cohort_student_essays::routers.admin_writing_cohorts._fetch_bands_by_essay_ids	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_cohorts.py::cohort_student_essays::services.class_membership_service.student_is_active_in_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_cohorts.py::list_cohorts::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_cohorts.py::list_cohorts::routers.admin_writing_cohorts._fetch_essays_by_ids	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_cohorts.py::list_cohorts::services.class_membership_service.active_memberships_for_cohorts	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_cohorts.py::list_cohorts::services.test_data_visibility.hide_for	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_prompts.py::create_prompt::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_prompts.py::create_prompt::routers.admin_writing_prompts._maybe_trigger_analysis	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_prompts.py::create_prompt::services.writing_image_access.attach_signed_image_urls	1	G6	Existing sync helper reaches Storage signing; offload caller in G6.
+routers/admin_writing_prompts.py::discard_unattached_image::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_prompts.py::discard_unattached_image::services.writing_prompt_image.delete_prompt_image	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_prompts.py::get_prompt::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_prompts.py::get_prompt::services.writing_image_access.attach_signed_image_urls	1	G6	Existing sync helper reaches Storage signing; offload caller in G6.
+routers/admin_writing_prompts.py::list_prompts::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_prompts.py::list_prompts::services.writing_image_access.attach_signed_image_urls	1	G6	Existing sync helper reaches Storage signing; offload caller in G6.
+routers/admin_writing_prompts.py::reanalyze_prompt_image::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_prompts.py::reanalyze_prompt_image::services.writing_prompt_analysis.mark_analysis_pending	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_prompts.py::review_prompt_analysis::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_prompts.py::review_prompt_analysis::services.writing_image_access.attach_signed_image_urls	1	G6	Existing sync helper reaches Storage signing; offload caller in G6.
+routers/admin_writing_prompts.py::soft_delete_prompt::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_prompts.py::update_prompt::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_prompts.py::update_prompt::routers.admin_writing_prompts._maybe_trigger_analysis	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_prompts.py::update_prompt::services.mock_exam_service.assert_can_unreserve	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_prompts.py::update_prompt::services.writing_image_access.attach_signed_image_urls	1	G6	Existing sync helper reaches Storage signing; offload caller in G6.
+routers/admin_writing_prompts.py::upload_image::services.writing_prompt_image.upload_prompt_image	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_regrade.py::action_regrade_request::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_regrade.py::action_regrade_request::routers.admin_writing_regrade._decorate	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_regrade.py::get_regrade_request::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_regrade.py::get_regrade_request::routers.admin_writing_regrade._decorate	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_regrade.py::list_regrade_requests::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_regrade.py::list_regrade_requests::routers.admin_writing_regrade._decorate	2	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/admin_writing_tips.py::create_tip::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_tips.py::delete_tip::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_tips.py::get_tip::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_tips.py::import_content::db.execute	3	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_tips.py::list_tips::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_writing_tips.py::update_tip::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/advanced_vocab.py::answer_practice::services.advanced_vocab_service.answer_practice	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/advanced_vocab.py::assignment_results::services.advanced_vocab_service.assignment_results	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/advanced_vocab.py::complete_listening_guided_retry::services.advanced_vocab_service.complete_listening_guided_retry	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/advanced_vocab.py::complete_vocabulary::services.advanced_vocab_service.complete_vocabulary	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/advanced_vocab.py::lesson::services.advanced_vocab_service.learner_lesson	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/advanced_vocab.py::start_practice::services.advanced_vocab_service.start_practice	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/advanced_vocab.py::submit_listening::services.advanced_vocab_service.submit_listening	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/advanced_vocab.py::submit_reading::services.advanced_vocab_service.submit_reading	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/auth.py::activate_account::db.execute	19	G0	Existing inline sync DB execution; offload in G0.
+routers/auth.py::activate_account::routers.auth._audit_enroll_reject	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/auth.py::activate_account::routers.auth._audit_promote_attempt	2	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/auth.py::activate_account::routers.auth._rate_limit_activate	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/auth.py::activate_account::routers.auth._restore_archived_account_state	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/auth.py::activate_account::services.class_membership_service.remove_student	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/auth.py::activate_account::services.class_membership_service.student_is_active_in_cohort	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/auth.py::activate_account::services.cohort_assignment_service.backfill_cohort_writing_assignments	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/auth.py::get_me::services.feature_flags.is_flashcard_enabled	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/auth.py::get_me::services.runtime_flags.is_enabled	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/auth.py::get_profile::db.execute	2	G0	Existing inline sync DB execution; offload in G0.
+routers/auth.py::update_profile::db.execute	1	G0	Existing inline sync DB execution; offload in G0.
+routers/class_student.py::my_assignments::routers.class_student._student_for_user	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/class_student.py::my_assignments::routers.class_student._visible_assignments	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/class_student.py::my_assignments::services.class_membership_service.active_cohort_ids_for_student	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/class_student.py::my_class::db.execute	2	G0	Existing inline sync DB execution; offload in G0.
+routers/class_student.py::my_class::routers.class_student._paged_items_of	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/class_student.py::my_class::routers.class_student._student_for_user	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/class_student.py::my_class::routers.class_student._visible_assignments	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/class_student.py::my_class::services.class_membership_service.active_cohort_ids_for_student	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/class_student.py::start_assignment::db.execute	5	G0	Existing inline sync DB execution; offload in G0.
+routers/class_student.py::start_assignment::routers.class_student._existing_speaking_session	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/class_student.py::start_assignment::routers.class_student._student_for_user	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/class_student.py::start_assignment::services.class_membership_service.student_is_active_in_cohort	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/class_student.py::start_assignment::services.quiz_service.bank_has_writing	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/class_student.py::start_assignment::services.quiz_service.course_assignment_action_with_session_truth	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/cohorts.py::add_cohort_member::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
+routers/cohorts.py::add_cohort_member::routers.admin._activate_with_issued_code	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/cohorts.py::add_cohort_member::routers.admin._issue_code_and_assign	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/cohorts.py::assign_student_to_cohort::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
+routers/cohorts.py::assign_student_to_cohort::services.class_membership_service.add_student	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/cohorts.py::bulk_assign_students_to_cohort::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/cohorts.py::bulk_assign_students_to_cohort::services.class_membership_service.add_students	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/cohorts.py::bulk_assign_students_to_cohort::services.student_service.archived_student_ids	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/cohorts.py::cohort_members::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/cohorts.py::cohort_members::routers.admin._aggregate_usage_for_users	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/cohorts.py::cohort_members::services.class_membership_service.active_students_for_cohort	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/cohorts.py::cohort_progress_matrix::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/cohorts.py::cohort_progress_matrix::services.cohort_progress_aggregator.cohort_progress	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/cohorts.py::create_cohort::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/cohorts.py::list_cohorts::services.class_service.list_cohorts_basic	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/cohorts.py::list_cohorts::services.class_service.list_cohorts_with_rollup	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/cohorts.py::list_cohorts::services.test_data_visibility.hide_for	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/cohorts.py::remove_cohort_member::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
+routers/cohorts.py::remove_student_from_cohort::services.class_membership_service.remove_student	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/cohorts.py::update_cohort::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/course_pronunciation.py::pronunciation_state::services.course_pronunciation.get_state	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/error_logs.py::dismiss_error_log::db.execute	1	G7	Existing inline sync DB execution; offload in G7.
+routers/error_logs.py::error_log_migration_stats::db.execute	1	G7	Existing inline sync DB execution; offload in G7.
+routers/error_logs.py::error_log_rollback_metrics::routers.error_logs.error_log_rollback_metrics._exposure_count	4	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
+routers/error_logs.py::error_log_rollback_metrics::routers.error_logs.error_log_rollback_metrics._fetch_all	2	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
+routers/error_logs.py::error_log_stats::routers.error_logs.error_log_stats._count	4	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
+routers/error_logs.py::gate_f_legacy_active_session_drain::routers.error_logs._gate_f_exact_active_count	5	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
+routers/error_logs.py::gate_f_legacy_active_session_drain::routers.error_logs._gate_f_exact_affinity_count	4	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
+routers/error_logs.py::generate_test_error::db.execute	1	G7	Existing inline sync DB execution; offload in G7.
+routers/error_logs.py::list_error_logs::db.execute	1	G7	Existing inline sync DB execution; offload in G7.
+routers/error_logs.py::report_frontend_error::db.execute	1	G7	Existing inline sync DB execution; offload in G7.
+routers/error_logs.py::undismiss_error_log::db.execute	1	G7	Existing inline sync DB execution; offload in G7.
+routers/exams.py::get_exam::services.exam_service.get_for_play	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/exams.py::list_exams::services.exam_service.list_published	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/exams.py::review_exam_attempt::services.exam_service.get_review	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/exams.py::submit_exam_attempt::services.exam_service.submit_attempt	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/exercises.py::admin_bulk_action::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/exercises.py::admin_bulk_action::routers.exercises._safe_event	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/exercises.py::admin_edit_exercise::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/exercises.py::admin_generate_d1_batch::routers.exercises._generate_and_insert_batch	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/exercises.py::admin_list_exercises::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/exercises.py::admin_publish_exercise::routers.exercises._admin_set_status	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/exercises.py::admin_publish_exercise::routers.exercises._safe_event	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/exercises.py::admin_reject_exercise::routers.exercises._admin_set_status	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/exercises.py::admin_reject_exercise::routers.exercises._safe_event	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/exercises.py::admin_unpublish_exercise::routers.exercises._admin_set_status	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/exercises.py::admin_unpublish_exercise::routers.exercises._safe_event	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/exercises.py::complete_d1_session::db.execute	6	G3	Existing inline sync DB execution; offload in G3.
+routers/exercises.py::complete_d1_session::routers.exercises._require_d1_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/exercises.py::complete_d1_session::routers.exercises._safe_event	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/exercises.py::get_d1_exercise::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/exercises.py::get_d1_exercise::routers.exercises._require_d1_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/exercises.py::get_d1_session::db.execute	2	G3	Existing inline sync DB execution; offload in G3.
+routers/exercises.py::get_d1_session::routers.exercises._require_d1_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/exercises.py::list_d1_exercises::db.execute	2	G3	Existing inline sync DB execution; offload in G3.
+routers/exercises.py::list_d1_exercises::routers.exercises._require_d1_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/exercises.py::start_d1_session::db.execute	4	G3	Existing inline sync DB execution; offload in G3.
+routers/exercises.py::start_d1_session::routers.exercises._require_d1_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/exercises.py::start_d1_session::routers.exercises._safe_event	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/exercises.py::start_d1_session::routers.exercises.start_d1_session._pull_admin	2	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/exercises.py::start_d1_session::services.rate_limit.enforce_exercise_session_capacity	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/exercises.py::submit_d1_attempt::db.execute	6	G3	Existing inline sync DB execution; offload in G3.
+routers/exercises.py::submit_d1_attempt::routers.exercises._finalize_d1_attempt	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/exercises.py::submit_d1_attempt::routers.exercises._load_attempt_by_client_id	2	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/exercises.py::submit_d1_attempt::routers.exercises._prepare_d1_srs_state	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/exercises.py::submit_d1_attempt::routers.exercises._require_d1_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/exercises.py::submit_d1_attempt::routers.exercises._safe_event	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/exercises.py::submit_d1_attempt::services.rate_limit.enforce_exercise_rate_limit	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/export.py::export_session_pdf::db.execute	1	G2	Existing inline sync DB execution; offload in G2.
+routers/feedback.py::admin_list_feedback::db.execute	1	G2	Existing inline sync DB execution; offload in G2.
+routers/feedback.py::admin_patch_feedback_status::db.execute	1	G2	Existing inline sync DB execution; offload in G2.
+routers/feedback.py::submit_feedback::db.execute	2	G2	Existing inline sync DB execution; offload in G2.
+routers/feedback.py::submit_feedback::routers.feedback._fetch_owned_attempt	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/feedback.py::submit_feedback::routers.feedback._resolve_practice_ref	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/feedback.py::submit_feedback::routers.feedback._resolve_test_id	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/flashcards.py::add_card_to_stack::db.execute	2	G3	Existing inline sync DB execution; offload in G3.
+routers/flashcards.py::add_card_to_stack::routers.flashcards._require_flashcards_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/flashcards.py::create_stack::db.execute	3	G3	Existing inline sync DB execution; offload in G3.
+routers/flashcards.py::create_stack::routers.flashcards._require_flashcards_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/flashcards.py::delete_stack::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/flashcards.py::delete_stack::routers.flashcards._require_flashcards_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/flashcards.py::get_due_cards::db.execute	2	G3	Existing inline sync DB execution; offload in G3.
+routers/flashcards.py::get_due_cards::routers.flashcards._require_flashcards_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/flashcards.py::get_due_cards::routers.flashcards._with_audio	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/flashcards.py::get_due_count::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/flashcards.py::get_due_count::routers.flashcards._require_flashcards_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/flashcards.py::get_stack::db.execute	2	G3	Existing inline sync DB execution; offload in G3.
+routers/flashcards.py::get_stack::routers.flashcards._count_struggling_vocab	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/flashcards.py::get_stack::routers.flashcards._count_user_vocab	2	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/flashcards.py::get_stack::routers.flashcards._require_flashcards_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/flashcards.py::get_stats::routers.flashcards._require_flashcards_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/flashcards.py::get_stats::routers.flashcards.get_stats._count	4	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/flashcards.py::list_cards_in_stack::db.execute	5	G3	Existing inline sync DB execution; offload in G3.
+routers/flashcards.py::list_cards_in_stack::routers.flashcards._fetch_reviews_by_vocab	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/flashcards.py::list_cards_in_stack::routers.flashcards._require_flashcards_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/flashcards.py::list_cards_in_stack::routers.flashcards._with_audio	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/flashcards.py::list_stacks::db.execute	2	G3	Existing inline sync DB execution; offload in G3.
+routers/flashcards.py::list_stacks::routers.flashcards._count_struggling_vocab	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/flashcards.py::list_stacks::routers.flashcards._count_user_vocab	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/flashcards.py::list_stacks::routers.flashcards._require_flashcards_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/flashcards.py::list_vocab_topics::db.execute	2	G3	Existing inline sync DB execution; offload in G3.
+routers/flashcards.py::list_vocab_topics::routers.flashcards._require_flashcards_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/flashcards.py::preview_stack::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/flashcards.py::preview_stack::routers.flashcards._require_flashcards_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/flashcards.py::remove_card_from_stack::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/flashcards.py::remove_card_from_stack::routers.flashcards._require_flashcards_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/flashcards.py::submit_review::db.execute	3	G3	Existing inline sync DB execution; offload in G3.
+routers/flashcards.py::submit_review::routers.flashcards._load_review_receipt	2	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/flashcards.py::submit_review::routers.flashcards._require_flashcards_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/flashcards.py::submit_review::services.kp_evidence.record_srs_review	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/flashcards.py::submit_review::services.rate_limit.enforce_flashcard_rate_limit	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/grading.py::_run_vocab_extraction::services.lemmatizer.lemmatize	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/grading.py::_run_vocab_extraction::services.vocab_enrichment.enrich_vocabulary_batch	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/grading.py::grade_response_endpoint::db.execute	1	G2	Existing inline sync DB execution; offload in G2.
+routers/grading.py::grade_response_endpoint::routers.grading._curated_vocab_recommendations_enabled	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/grading.py::grade_response_endpoint::routers.grading._increment_tokens	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/grading.py::grade_response_endpoint::routers.grading._mark_session_error	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/grading.py::grade_response_endpoint::routers.grading._persist_curated_vocab_feedback_blob	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/grading.py::grade_response_endpoint::routers.grading._record_progress_mark	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/grading.py::grade_response_endpoint::routers.grading._save_grammar_recommendations	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/grading.py::grade_response_endpoint::routers.sessions.require_speaking_entitlement	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/grading.py::grade_response_endpoint::services.grading_telemetry.log_fallback_events	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/grading.py::grade_response_endpoint::services.kp_evidence.record_speaking_feedback	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/grading.py::grade_response_endpoint::services.mock_exam_service.is_sealed	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/grading.py::grade_response_endpoint::services.rate_limit.enforce_grading_rate_limit	2	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/grading.py::grade_response_endpoint::services.rate_limit.record_grading_attempt	2	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/grading.py::grade_response_endpoint::services.speaking_submission.load_response	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/grading.py::grade_response_endpoint::services.vocab_speaking_recommendations.load_signal_catalog	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/grading.py::grade_response_endpoint::services.vocab_speaking_recommendations.persist_recommendations	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/grammar.py::get_article_exercise::routers.grammar._published_grammar_banks	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/grammar.py::get_dashboard_data::db.execute	5	G3	Existing inline sync DB execution; offload in G3.
+routers/grammar.py::list_exercises::routers.grammar._published_grammar_banks	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/grammar.py::mark_recommendation_clicked::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/grammar.py::save_article::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/grammar.py::track_article_view::db.execute	3	G3	Existing inline sync DB execution; offload in G3.
+routers/grammar.py::unsave_article::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/grammar_diagnostic.py::availability::services.runtime_flags.is_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/grammar_diagnostic.py::complete_session::services.grammar_diagnostic_service.finalize_session	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/grammar_diagnostic.py::create_session::services.grammar_diagnostic_service.create_session	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/grammar_diagnostic.py::get_report::services.grammar_diagnostic_service.learner_report	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/grammar_diagnostic.py::get_session::services.grammar_diagnostic_service.session_summary	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/grammar_diagnostic.py::list_sessions::services.grammar_diagnostic_service.learner_history	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/grammar_diagnostic.py::next_item::services.grammar_diagnostic_service.next_item	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/grammar_diagnostic.py::submit_response::services.grammar_diagnostic_service.record_response	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/grammar_lesson.py::answer_item::services.grammar_lesson_service.answer_item	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/grammar_lesson.py::read_item::services.grammar_lesson_service.read_item	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/grammar_lesson.py::start_item::services.grammar_lesson_service.start_item	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/health.py::health_quiz_write::services.quiz_service.quiz_write_health	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
+routers/health.py::health_ready::db.execute	2	G7	Existing inline sync DB execution; offload in G7.
+routers/health.py::health_ready::services.curated_readiness.schema_available	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
+routers/health.py::health_ready::services.runtime_flags.is_enabled	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
+routers/instructor.py::_me::routers.instructor._audit_impersonate	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::_me::routers.instructor._role_of	2	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::claim_review::services.instructor_workflow.claim	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::compose_essay_version::services.essay_service.compose_version	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::compose_essay_version::services.instructor_access.assert_essay_owned	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::create_assignment::db.execute	3	G6	Existing inline sync DB execution; offload in G6.
+routers/instructor.py::create_assignment::services.student_service.raise_if_student_archived	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::create_cohort::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/instructor.py::create_prompt::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/instructor.py::delete_assignment::services.writing_assignment_delete_guard.delete_unstarted_assignment	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::delete_prompt::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/instructor.py::deliver_review::services.instructor_access.assert_essay_owned	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::deliver_review::services.instructor_workflow.deliver	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::essay_status::services.essay_service.get_essay_status	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::essay_status::services.instructor_access.assert_essay_owned	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::export_docx::services.essay_service.get_essay_render_context	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::export_docx::services.instructor_access.assert_essay_owned	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::fan_out::services.instructor_access.instructor_fan_out	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::fan_out_duplicates_preview::services.instructor_access.instructor_fan_out_preview	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::get_assignment::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/instructor.py::get_cohort::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/instructor.py::get_essay::services.essay_service.get_essay_with_feedback	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::get_essay::services.instructor_access.assert_essay_owned	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::get_prompt::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/instructor.py::get_prompt::services.writing_image_access.attach_signed_image_urls	1	G6	Existing sync helper reaches Storage signing; offload caller in G6.
+routers/instructor.py::get_student::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/instructor.py::list_assignments::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/instructor.py::list_codes::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/instructor.py::list_cohorts::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/instructor.py::list_cohorts::services.test_data_visibility.hide_for	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::list_essay_versions::services.essay_service.get_live_versions	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::list_essay_versions::services.instructor_access.assert_essay_owned	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::list_essays::services.instructor_access.instructor_list_essays	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::list_prompts::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/instructor.py::list_prompts::services.writing_image_access.attach_signed_image_urls	1	G6	Existing sync helper reaches Storage signing; offload caller in G6.
+routers/instructor.py::list_students::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/instructor.py::list_students::services.test_data_visibility.drop_test_students	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::list_students::services.test_data_visibility.hide_for	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::mint_codes::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/instructor.py::mint_codes::routers.instructor._audit_code	2	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::mint_codes::services.access_code_gen.insert_with_unique_codes	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::patch_assignment::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/instructor.py::patch_prompt::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/instructor.py::patch_prompt::services.writing_image_access.attach_signed_image_urls	1	G6	Existing sync helper reaches Storage signing; offload caller in G6.
+routers/instructor.py::regrade_essay::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
+routers/instructor.py::regrade_essay::services.essay_service.live_version_count	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::regrade_essay::services.essay_service.schedule_grading_job	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::regrade_essay::services.instructor_access.assert_essay_owned	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::release_review::services.instructor_workflow.release	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::render_essay::services.essay_service.get_essay_render_context	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::render_essay::services.instructor_access.assert_essay_owned	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::reviews_queue::services.instructor_workflow.get_instructor_queue	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::revoke_delivery::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
+routers/instructor.py::revoke_delivery::services.instructor_access.assert_essay_owned	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::revoke_delivery::services.instructor_workflow.sync_revoke_review	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::student_summary::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/instructor.py::student_summary::services.essay_service.get_student_summary	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/instructor.py::update_instructor_note::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
+routers/instructor.py::update_instructor_note::services.instructor_access.assert_essay_owned	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
+routers/kp.py::get_my_kp_mastery::services.kp_evidence.get_user_mastery	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/kp.py::get_my_roadmap::services.kp_roadmap.build_roadmap	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/kp.py::submit_microcheck_answers::services.kp_evidence.record_microcheck	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/listening.py::_change_listening_package_status::services.listening_package_import.set_package_status	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::_publish_drill::db.execute	9	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::acknowledge_listening_attempt_playback_started::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::acknowledge_listening_attempt_playback_started::routers.listening._fetch_attempt_or_404	2	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_assemble_test_audio::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_assemble_test_audio::routers.listening._fetch_test_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_assemble_test_audio::routers.listening._upload_audio_to_bucket	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_assemble_test_audio::storage.download	1	G1	Existing sync Storage network call; offload in G1.
+routers/listening.py::admin_delete_listening_exercise::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_delete_listening_test::db.execute	3	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_delete_listening_test::services.class_assignment_service.active_exam_assignment_references	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_delete_map_image::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_delete_map_image::routers.listening._fetch_exercise_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_delete_map_image::storage.remove	1	G1	Existing sync Storage network call; offload in G1.
+routers/listening.py::admin_dictation_reports_aggregate::routers.listening._all_dictation_aggregate_rows	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_dictation_reports_aggregate::routers.listening._all_dictation_user_ids	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_edit_exercise_question::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_edit_exercise_question::routers.listening._fetch_exercise_ctx	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_get_dictation_report::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_get_dictation_report::routers.listening._rows_by_id	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_get_listening_attempt::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_get_listening_attempt::routers.listening._rows_by_id	2	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_get_listening_content::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_get_listening_content::storage.create_signed_url	1	G1	Existing sync Storage network call; offload in G1.
+routers/listening.py::admin_get_listening_test::db.execute	4	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_get_map_image_signed_url::routers.listening._fetch_exercise_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_get_map_image_signed_url::routers.listening._sign_map_image_url	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_get_test_audio_signed_urls::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_get_test_audio_signed_urls::routers.listening._fetch_test_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_get_test_audio_signed_urls::routers.listening.admin_get_test_audio_signed_urls._sign	3	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_get_test_audit::routers.listening._fetch_test_audit_rows	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_get_test_audit::routers.listening._load_audit_row	2	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_hard_delete_listening_test::db.execute	5	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_hard_delete_listening_test::services.class_assignment_service.active_exam_assignment_references	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_hard_delete_listening_test::storage.remove	1	G1	Existing sync Storage network call; offload in G1.
+routers/listening.py::admin_import_drill_commit::db.execute	4	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_import_drill_commit::routers.listening._upload_audio_to_bucket	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_import_drill_commit::routers.listening.admin_import_drill_commit._rollback	2	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_import_drill_dry_run::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_import_fulltest_commit::db.execute	4	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_import_fulltest_commit::routers.listening._upload_audio_to_bucket	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_import_fulltest_commit::routers.listening.admin_import_fulltest_commit._rollback	2	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_import_fulltest_dry_run::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_list_dictation_reports::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_list_dictation_reports::routers.listening._all_dictation_user_ids	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_list_dictation_reports::routers.listening._dictation_list_rows_for_users	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_list_dictation_reports::routers.listening._rows_by_id	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_list_listening_attempts::db.execute	3	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_list_listening_attempts::routers.listening._rows_by_id	2	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_list_listening_content::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_list_listening_exercises::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_list_listening_tests::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_listening_player_preview::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_listening_player_preview::routers.listening._assemble_listening_player_payload	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_patch_listening_content::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_patch_listening_content_status::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_patch_listening_test::db.execute	3	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_patch_listening_test::services.mock_paper_policy.mutate	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_patch_listening_test_status::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_patch_listening_test_status::services.class_assignment_service.active_exam_assignment_references	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_patch_test_audio_mode::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_patch_test_audio_mode::routers.listening._fetch_test_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_preview_listening_test::db.execute	3	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_preview_listening_test::routers.listening._assemble_listening_review	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_run_test_audit::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_run_test_audit::routers.listening._fetch_test_audit_rows	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_run_test_audit::routers.listening._load_audit_row	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_sync_drill::db.execute	12	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_sync_drill::routers.listening._upload_audio_to_bucket	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_sync_drill::routers.listening.admin_sync_drill.release_owner	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_triage_test_audit::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_triage_test_audit::routers.listening._load_audit_row	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_upload_map_image::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_upload_map_image::routers.listening._fetch_exercise_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_upload_map_image::routers.listening._sign_map_image_url	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_upload_map_image::storage.upload	1	G1	Existing sync Storage network call; offload in G1.
+routers/listening.py::admin_upload_test_full_audio::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_upload_test_full_audio::routers.listening._fetch_test_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_upload_test_full_audio::routers.listening._upload_audio_to_bucket	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_upload_test_full_audio::storage.create_signed_url	1	G1	Existing sync Storage network call; offload in G1.
+routers/listening.py::admin_upload_test_section_audio::db.execute	3	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_upload_test_section_audio::routers.listening._fetch_test_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_upload_test_section_audio::routers.listening._upload_audio_to_bucket	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::admin_upsert_listening_exercise::db.execute	4	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::admin_upsert_listening_exercise::routers.listening._published_standalone_orders	3	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::boot_listening_dictation::routers.listening._fetch_published_exercises_for_student	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::boot_listening_dictation::routers.listening._fetch_published_listening_content_with_signed_url	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::check_listening_practice_answer::db.execute	3	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::check_listening_practice_answer::routers.listening._fetch_attempt_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::check_listening_practice_answer::routers.listening._practice_exercise_payloads	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::check_listening_practice_answer::services.mock_paper_policy.frozen_answer_key	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::check_listening_practice_answer::services.mock_paper_policy.guard_owned_attempt	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::check_listening_practice_answer::services.mock_paper_policy.load_marking_snapshot	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::claim_dictation_attempt_renderer_affinity::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::claim_dictation_attempt_renderer_affinity::routers.listening._dictation_attempt_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::claim_listening_attempt_renderer_affinity::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::claim_listening_attempt_renderer_affinity::routers.listening._fetch_attempt_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::flag_listening_dictation::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::flag_listening_dictation::routers.listening._published_test_for_dictation	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_in_progress_dictation_attempt::routers.listening._dictation_attempt_response	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_in_progress_dictation_attempt::routers.listening._find_in_progress_dictation_attempt	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_in_progress_dictation_attempt::routers.listening._published_test_for_dictation	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_in_progress_listening_attempt::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::get_in_progress_listening_attempt::services.mock_attempt_flags.review_flag_state	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_in_progress_listening_attempt::services.mock_paper_policy.guard_owned_attempt	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_listening_analytics::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::get_listening_analytics::routers.listening._assisted_programme_attempt_ids	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_listening_analytics::routers.listening._rows_by_id	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_listening_content::routers.listening._fetch_published_listening_content_with_signed_url	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_listening_dictation_session::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::get_listening_dictation_session_by_request::routers.listening._dictation_session_by_request	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_listening_dictation_session_by_request::routers.listening._mark_dictation_attempt_completed	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_listening_exercises::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::get_listening_exercises::routers.listening._fetch_published_exercises_for_student	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_listening_programme_guided_state::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::get_listening_programme_guided_state::routers.listening._fetch_attempt_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_listening_programme_guided_state::routers.listening._programme_guided_context	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_listening_programme_lesson::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::get_listening_programme_lesson::routers.listening._programme_attempt_state	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_listening_test_attempt::routers.listening._fetch_attempt_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_listening_test_attempt::routers.listening._mock_sealed	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_listening_test_attempt_review::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::get_listening_test_attempt_review::routers.listening._assemble_listening_review	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_listening_test_attempt_review::routers.listening._fetch_attempt_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_listening_test_attempt_review::routers.listening._mock_sealed	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_listening_test_attempt_review::services.mock_correction_service.capture_required_envelope	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_listening_test_dictation::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::get_listening_test_dictation::routers.listening._assert_listening_exam_content_allowed	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_listening_test_dictation::routers.listening._student_audio_url_for_test	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_practice_audio_windows::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::get_practice_audio_windows::routers.listening._assert_listening_exam_content_allowed	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_practice_audio_windows::routers.listening._practice_exercise_payloads	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_published_listening_test::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::get_published_listening_test::routers.listening._assemble_listening_player_payload	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_published_listening_test::routers.listening._assert_listening_exam_content_allowed	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_published_listening_test::routers.listening._fetch_attempt_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_published_listening_test::services.mock_attempt_flags.review_flag_state	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::get_published_listening_test::services.mock_paper_policy.owned_delivery_snapshot	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::grade_and_save_dictation_attempt_sentence::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::grade_and_save_dictation_attempt_sentence::routers.listening._dictation_attempt_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::grade_and_save_dictation_attempt_sentence::routers.listening._published_test_for_dictation	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::grade_listening_test_dictation::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::grade_listening_test_dictation::routers.listening._published_test_for_dictation	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::list_listening_programme_lessons::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::list_listening_programme_lessons::routers.listening._programme_attempt_state	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::list_published_listening_tests::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::patch_listening_test_attempt_answer::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::patch_listening_test_attempt_answer::routers.listening._attempt_test_type	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::patch_listening_test_attempt_answer::routers.listening._fetch_attempt_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::patch_listening_test_attempt_answer::services.mock_correction_service.record_answer_commit	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::post_listening_attempt::routers.listening._enforce_gist_rate_limit	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::post_listening_attempt::routers.listening._grade_and_save_dictation	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::post_listening_attempt::routers.listening._grade_and_save_gist	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::post_listening_attempt::routers.listening._grade_and_save_mcq	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::post_listening_attempt::routers.listening._grade_and_save_true_false	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::post_listening_attempt::routers.listening._resolve_attempt_target	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::reveal_listening_programme_question::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::reveal_listening_programme_question::routers.listening._fetch_attempt_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::reveal_listening_programme_question::routers.listening._programme_guided_context	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::start_dictation_attempt::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::start_dictation_attempt::routers.listening._dictation_attempt_response	3	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::start_dictation_attempt::routers.listening._dictation_section_units_snapshot	2	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::start_dictation_attempt::routers.listening._find_in_progress_dictation_attempt	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::start_dictation_attempt::routers.listening._find_latest_in_progress_dictation_attempt	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::start_dictation_attempt::routers.listening._published_test_for_dictation	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::start_listening_test_attempt::db.execute	4	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::start_listening_test_attempt::routers.listening._assert_listening_exam_content_allowed	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::start_listening_test_attempt::routers.listening._fetch_attempt_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::start_listening_test_attempt::services.class_assignment_service.validate_class_item_for_test	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::start_listening_test_attempt::services.mock_attempt_flags.review_flag_state	3	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::start_listening_test_attempt::services.mock_paper_policy.admit_mock_attempt	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::start_listening_test_attempt::services.mock_paper_policy.guard_owned_attempt	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::submit_listening_dictation_session::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::submit_listening_dictation_session::routers.listening._assert_dictation_attempt_submission	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::submit_listening_dictation_session::routers.listening._dictation_attempt_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::submit_listening_dictation_session::routers.listening._dictation_session_by_attempt	2	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::submit_listening_dictation_session::routers.listening._dictation_session_by_request	2	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::submit_listening_dictation_session::routers.listening._mark_dictation_attempt_completed	4	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::submit_listening_dictation_session::routers.listening._published_test_for_dictation	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::submit_listening_test_attempt::db.execute	4	G1	Existing inline sync DB execution; offload in G1.
+routers/listening.py::submit_listening_test_attempt::routers.listening._fetch_attempt_or_404	3	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::submit_listening_test_attempt::routers.listening._mock_sealed	2	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::submit_listening_test_attempt::routers.listening._practice_exercise_payloads	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::submit_listening_test_attempt::routers.listening._source_required_for_test	2	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::submit_listening_test_attempt::services.mock_correction_service.apply_scoring_overrides	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::submit_listening_test_attempt::services.mock_correction_service.capture_required_envelope	3	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::submit_listening_test_attempt::services.mock_correction_service.finalize_item_observations	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::submit_listening_test_attempt::services.mock_paper_policy.frozen_answer_key	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::submit_listening_test_attempt::services.mock_paper_policy.guard_owned_attempt	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening.py::submit_listening_test_attempt::services.mock_paper_policy.load_marking_snapshot	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening_source_collection.py::get_source_audio::routers.listening_source_collection._context	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/listening_source_collection.py::get_source_audio::storage.create_signed_urls	1	G1	Existing sync Storage network call; offload in G1.
+routers/listening_source_collection.py::open_source_study::routers.listening_source_collection._context	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
+routers/mock_attempt_flags.py::_listening_owner::routers.listening._fetch_attempt_or_404	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_attempt_flags.py::_reading_owner::routers.reading_student._fetch_attempt_owned	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_attempt_flags.py::get_listening_review_flags::routers.mock_attempt_flags._guard	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_attempt_flags.py::get_listening_review_flags::services.mock_attempt_flags.flag_state_response	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_attempt_flags.py::get_reading_review_flags::routers.mock_attempt_flags._guard	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_attempt_flags.py::get_reading_review_flags::services.mock_attempt_flags.flag_state_response	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_attempt_flags.py::patch_listening_review_flags::routers.mock_attempt_flags._guard	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_attempt_flags.py::patch_listening_review_flags::services.mock_attempt_flags.patch_review_flag	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_attempt_flags.py::patch_reading_review_flags::routers.mock_attempt_flags._guard	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_attempt_flags.py::patch_reading_review_flags::services.mock_attempt_flags.patch_review_flag	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_corrections.py::all_content_health::services.mock_correction_service.content_health	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_corrections.py::approve_content_version::services.mock_correction_service.approve_content_version	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_corrections.py::content_version_health::services.mock_correction_service.content_health	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_corrections.py::item_timeline::services.mock_correction_service.admin_item_timeline	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_corrections.py::patch_class_policy::services.mock_correction_service.update_class_assignment_policy	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_corrections.py::patch_mock_policy::services.mock_correction_service.update_mock_exam_policy	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_corrections.py::patch_public_policy::services.mock_correction_service.update_public_test_policy	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_corrections.py::performance_summary::services.mock_correction_service.admin_performance_summary	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_corrections.py::submit_correction_event::services.mock_correction_service.record_correction_event	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_corrections.py::submit_post_test_capture::services.mock_correction_service.explanation_access	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_corrections.py::submit_post_test_capture::services.mock_correction_service.learner_result_payload	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_corrections.py::submit_post_test_capture::services.mock_correction_service.record_post_test_capture	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_exams.py::acknowledge_collection_flush::services.mock_exam_service.acknowledge_collection_flush	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_exams.py::attach_attempt::services.mock_exam_service.attach_attempt	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_exams.py::get_result::services.essay_service.delivered_essay_ids	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_exams.py::get_result::services.mock_exam_service.get_sitting	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_exams.py::get_result::services.mock_exam_service.lr_skill_states	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_exams.py::get_result::services.mock_review_workflow.get_review_for_sitting	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_exams.py::get_sitting_state::services.mock_exam_service.get_exam_content_for_sitting	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_exams.py::get_sitting_state::services.mock_exam_service.get_published_exam_by_id	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_exams.py::get_sitting_state::services.mock_exam_service.get_sitting	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_exams.py::get_sitting_state::services.mock_exam_service.retake_active_section	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_exams.py::get_sitting_state::services.mock_exam_service.section_duration_seconds	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_exams.py::get_sitting_state::services.mock_exam_service.section_time_remaining_seconds	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_exams.py::get_sitting_state::services.writing_image_access.attach_signed_image_urls	1	G4	Existing sync helper reaches Storage signing; offload caller in G4.
+routers/mock_exams.py::list_open::services.mock_exam_service.list_open_exams	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_exams.py::my_sittings::services.mock_exam_service.list_my_sittings	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_exams.py::open_sitting::services.mock_exam_service.create_sitting	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_exams.py::record_integrity::services.mock_exam_service.record_integrity	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_exams.py::record_speaking::services.mock_exam_service.record_speaking	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_exams.py::start_section::services.mock_exam_service.start_section	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_exams.py::submit_section::services.mock_exam_service.claim_mock_writing_grading	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_exams.py::submit_section::services.mock_exam_service.get_sitting	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_exams.py::submit_section::services.mock_exam_service.submit_section	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/mock_exams.py::submit_writing::services.mock_exam_service.submit_writing	1	G4	Existing sync helper reaches blocking I/O; offload caller in G4.
+routers/pronunciation.py::assess_full_test_pronunciation::db.execute	7	G2	Existing inline sync DB execution; offload in G2.
+routers/pronunciation.py::assess_full_test_pronunciation::routers.pronunciation._upsert_pronunciation	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/pronunciation.py::assess_full_test_pronunciation::routers.sessions.require_speaking_entitlement	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/pronunciation.py::assess_full_test_pronunciation::routers.sessions.update_session_bands	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/questions.py::generate_cuecard_endpoint::routers.sessions.require_speaking_entitlement	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/questions.py::generate_questions::db.execute	5	G2	Existing inline sync DB execution; offload in G2.
+routers/questions.py::generate_questions::routers.questions._assert_pinned_set_intact	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/questions.py::generate_questions::routers.questions._load_existing_questions	3	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/questions.py::generate_questions::routers.questions._load_from_library	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/questions.py::generate_questions::routers.questions._load_pinned_class_questions	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/questions.py::generate_questions::routers.sessions.require_speaking_entitlement	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/questions.py::list_questions::db.execute	2	G2	Existing inline sync DB execution; offload in G2.
+routers/questions.py::save_custom_questions::db.execute	2	G2	Existing inline sync DB execution; offload in G2.
+routers/questions.py::save_custom_questions::routers.questions._load_existing_questions	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/questions.py::save_custom_questions::routers.sessions.require_speaking_entitlement	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/quiz.py::begin_course_full_retry::services.quiz_service.begin_course_full_retry	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/quiz.py::course_answer_report::services.quiz_service.course_answer_report	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/quiz.py::course_listening_audio::services.quiz_service.course_listening_audio	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/quiz.py::course_listening_solution::services.quiz_service.course_listening_solution	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/quiz.py::course_reading_solution::services.quiz_service.course_reading_solution	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/quiz.py::course_resume::services.quiz_service.get_course_resume	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/quiz.py::course_timer::services.quiz_service.get_course_timer	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/quiz.py::course_verdict::services.quiz_service.course_verdict	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/quiz.py::course_writing_state::services.quiz_service.course_writing_state	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/quiz.py::end_session::services.quiz_service.end_session	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/quiz.py::get_bank::services.quiz_service.get_bank_for_play	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/quiz.py::list_banks::services.quiz_service.list_published_banks	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/quiz.py::log_progress::services.quiz_service.log_progress	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/quiz.py::my_mistakes::services.quiz_service.student_mistakes	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/quiz.py::my_progress::services.quiz_service.student_progress	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/quiz.py::reset_progress::services.quiz_service.reset_progress	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/quiz.py::resume::services.quiz_service.get_resume	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/quiz.py::save_course_writing_draft::services.quiz_service.save_course_writing_draft	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/quiz.py::start_session::services.quiz_service.start_session	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/reading_student.py::boot_reading_test::routers.reading_student._build_reading_test_detail	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::boot_reading_test::routers.reading_student._fetch_in_progress_payload	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::boot_shared_reading_test::routers.reading_student._assemble_test_detail	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::boot_shared_reading_test::routers.reading_student._assert_exam_content_allowed	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::boot_shared_reading_test::routers.reading_student._fetch_in_progress_payload	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::boot_shared_reading_test::routers.reading_student._resolve_share	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::boot_shared_reading_test::services.mock_paper_policy.load_marking_snapshot	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::check_skill_answers::routers.reading_student._check_for	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::check_vocab_answers::routers.reading_student._check_for	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::claim_reading_attempt_renderer_affinity::db.execute	1	G2	Existing inline sync DB execution; offload in G2.
+routers/reading_student.py::claim_reading_attempt_renderer_affinity::routers.reading_student._fetch_attempt_owned	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::get_in_progress_reading_attempt::routers.reading_student._fetch_in_progress_payload	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::get_in_progress_reading_attempt::routers.reading_student._fetch_published_test	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::get_reading_diagnostic::routers.reading_student._fetch_attempt_or_404	2	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::get_reading_diagnostic::routers.reading_student._fetch_l2_skill_exercises	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::get_reading_diagnostic::routers.reading_student._fetch_submitted_attempts_for_user	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::get_reading_test::routers.reading_student._build_reading_test_detail	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::get_skill_exercise::db.execute	1	G2	Existing inline sync DB execution; offload in G2.
+routers/reading_student.py::get_skill_exercise::routers.reading_student._fetch_published_passage	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::get_vocab_passage::db.execute	1	G2	Existing inline sync DB execution; offload in G2.
+routers/reading_student.py::get_vocab_passage::routers.reading_student._fetch_published_passage	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::list_reading_tests::db.execute	1	G2	Existing inline sync DB execution; offload in G2.
+routers/reading_student.py::list_reading_tests::services.test_data_visibility.hidden_title_ids	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::list_reading_tests::services.test_data_visibility.hide_for	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::list_skill_exercises::db.execute	1	G2	Existing inline sync DB execution; offload in G2.
+routers/reading_student.py::list_skill_exercises::routers.reading_student._hidden_passage_ids	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::list_vocab_passages::db.execute	1	G2	Existing inline sync DB execution; offload in G2.
+routers/reading_student.py::list_vocab_passages::routers.reading_student._hidden_passage_ids	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::patch_reading_test_attempt_answer::db.execute	2	G2	Existing inline sync DB execution; offload in G2.
+routers/reading_student.py::patch_reading_test_attempt_answer::routers.reading_student._fetch_attempt_owned	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::patch_reading_test_attempt_answer::services.mock_correction_service.record_answer_commit	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::review_reading_test_attempt::db.execute	1	G2	Existing inline sync DB execution; offload in G2.
+routers/reading_student.py::review_reading_test_attempt::routers.reading_student._assemble_reading_review	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::review_reading_test_attempt::routers.reading_student._fetch_attempt_owned	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::review_reading_test_attempt::services.mock_correction_service.capture_required_envelope	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::review_reading_test_attempt::services.mock_exam_service.is_sealed	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::start_reading_test_attempt::db.execute	1	G2	Existing inline sync DB execution; offload in G2.
+routers/reading_student.py::start_reading_test_attempt::routers.reading_student._abandon_open_attempts	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::start_reading_test_attempt::routers.reading_student._assert_exam_content_allowed	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::start_reading_test_attempt::routers.reading_student._fetch_published_test	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::start_reading_test_attempt::services.class_assignment_service.validate_class_item_for_test	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::start_reading_test_attempt::services.mock_attempt_flags.review_flag_state	2	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::start_reading_test_attempt::services.mock_paper_policy.admit_mock_attempt	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::start_shared_reading_test_attempt::db.execute	2	G2	Existing inline sync DB execution; offload in G2.
+routers/reading_student.py::start_shared_reading_test_attempt::routers.reading_student._assert_exam_content_allowed	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::start_shared_reading_test_attempt::routers.reading_student._resolve_share	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::start_shared_reading_test_attempt::services.mock_attempt_flags.review_flag_state	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::submit_reading_test_attempt::db.execute	5	G2	Existing inline sync DB execution; offload in G2.
+routers/reading_student.py::submit_reading_test_attempt::routers.reading_student._fetch_attempt_owned	2	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::submit_reading_test_attempt::services.mock_correction_service.apply_scoring_overrides	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::submit_reading_test_attempt::services.mock_correction_service.capture_required_envelope	3	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::submit_reading_test_attempt::services.mock_correction_service.finalize_item_observations	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::submit_reading_test_attempt::services.mock_exam_service.is_sealed	2	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::submit_reading_test_attempt::services.mock_paper_policy.frozen_answer_key	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::submit_reading_test_attempt::services.mock_paper_policy.guard_owned_attempt	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::submit_reading_test_attempt::services.mock_paper_policy.load_marking_snapshot	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/reading_student.py::unlock_reading_test::routers.reading_student._fetch_published_test	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/sessions.py::claim_renderer_affinity::db.execute	1	G2	Existing inline sync DB execution; offload in G2.
+routers/sessions.py::complete_session::db.execute	5	G2	Existing inline sync DB execution; offload in G2.
+routers/sessions.py::complete_session::routers.sessions._compute_session_bands	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/sessions.py::complete_session::routers.sessions._record_class_submission	3	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/sessions.py::create_session::db.execute	4	G2	Existing inline sync DB execution; offload in G2.
+routers/sessions.py::create_session::routers.sessions._bind_session_to_mock_if_requested	3	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/sessions.py::create_session::routers.sessions._find_replayable_full_test_part	2	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/sessions.py::create_session::routers.sessions._require_active	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/sessions.py::create_session::routers.sessions._require_permission	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/sessions.py::create_session::routers.sessions._resolve_full_test_attempt_id	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/sessions.py::create_session::routers.sessions._rollback_unstarted_session	2	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/sessions.py::create_session::services.access_code_permissions.get_user_session_quota	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/sessions.py::create_session::services.class_assignment_service.attach_session_to_class_item	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/sessions.py::create_session::services.class_assignment_service.validate_class_item_for_session	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/sessions.py::create_session::services.staff_guard.holds_admin_privilege	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/sessions.py::finalize_full_test::db.execute	3	G2	Existing inline sync DB execution; offload in G2.
+routers/sessions.py::get_full_test_summary::db.execute	6	G2	Existing inline sync DB execution; offload in G2.
+routers/sessions.py::get_full_test_summary::services.mock_exam_service.is_sealed	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/sessions.py::get_session::db.execute	3	G2	Existing inline sync DB execution; offload in G2.
+routers/sessions.py::get_session::routers.sessions._class_task_state	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/sessions.py::get_session::services.mock_exam_service.is_sealed	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/sessions.py::get_session_audio_urls::db.execute	2	G2	Existing inline sync DB execution; offload in G2.
+routers/sessions.py::get_session_stats::db.execute	4	G2	Existing inline sync DB execution; offload in G2.
+routers/sessions.py::list_sessions::db.execute	1	G2	Existing inline sync DB execution; offload in G2.
+routers/tts.py::text_to_speech::routers.sessions.require_speaking_entitlement	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/tts.py::text_to_speech::routers.tts._enforce_daily_quota	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/tts.py::text_to_speech::routers.tts._load_owned_session	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/tts.py::text_to_speech::services.activation_gate.ensure_account_active	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/vocab_units.py::admin_create_vocab_unit::services.vocab_units.create_unit	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::admin_create_vocab_version::services.vocab_units.create_version	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::admin_get_vocab_editorial_unit::services.vocab_units.get_editorial_unit	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::admin_get_vocab_pilot_metrics::services.vocab_pilot_metrics.get_metrics	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::admin_list_vocab_editorial_units::services.vocab_units.list_editorial_units	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::admin_publish_vocab_version::services.vocab_units.publish_version	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::admin_review_vocab_version::services.vocab_units.review_version	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::admin_rollback_vocab_version::services.vocab_units.rollback_version	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::admin_set_vocab_pilot_cohort::services.vocab_pilot_metrics.set_cohort_flag	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::admin_validate_vocab_version::services.vocab_units.validate_version	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::get_learning_unit::services.vocab_units.get_unit	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::get_my_vocab_mastery::routers.vocab_units._require_learner_gate	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::get_my_vocab_mastery::services.vocab_units.get_user_mastery	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::get_my_vocab_today::routers.vocab_units._require_learner_gate	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::get_my_vocab_today::services.runtime_flags.is_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::get_my_vocab_today::services.vocab_units.get_today	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::list_learning_pathways::services.vocab_units.list_pathways	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::list_learning_units::services.vocab_units.list_units	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::open_my_vocab_recommendation::routers.vocab_units._require_learner_gate	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::open_my_vocab_recommendation::services.runtime_flags.is_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::open_my_vocab_recommendation::services.vocab_pilot_metrics.open_recommendation	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::resolve_my_vocab_context_links::routers.vocab_units._require_learner_gate	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::resolve_my_vocab_context_links::services.vocab_context_links.resolve_context_links	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::submit_vocab_task_attempt::routers.vocab_units._require_learner_gate	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocab_units.py::submit_vocab_task_attempt::services.vocab_units.submit_attempt	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::accept_suggestion::db.execute	2	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_bank.py::accept_suggestion::routers.vocabulary_bank._add_card_if_absent	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::accept_suggestion::routers.vocabulary_bank._ensure_default_accept_stack	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::accept_suggestion::routers.vocabulary_bank._fire_event	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::accept_suggestion::routers.vocabulary_bank._vocab_bank_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::add_vocab_manual::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_bank.py::add_vocab_manual::routers.vocabulary_bank._vocab_bank_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::add_vocab_manual::services.lemmatizer.lemmatize	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::archive_vocab::db.execute	2	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_bank.py::archive_vocab::routers.vocabulary_bank._cascade_d1_questions_is_active	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::archive_vocab::routers.vocabulary_bank._vocab_bank_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::bulk_confirm_pending::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_bank.py::bulk_confirm_pending::routers.vocabulary_bank._fire_event	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::bulk_confirm_pending::routers.vocabulary_bank._vocab_bank_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::confirm_pending::db.execute	2	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_bank.py::confirm_pending::routers.vocabulary_bank._fire_event	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::confirm_pending::routers.vocabulary_bank._vocab_bank_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::drop_pending::db.execute	2	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_bank.py::drop_pending::routers.vocabulary_bank._cascade_d1_questions_is_active	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::drop_pending::routers.vocabulary_bank._fire_event	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::drop_pending::routers.vocabulary_bank._vocab_bank_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::export_user_vocabulary::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_bank.py::export_user_vocabulary::routers.vocabulary_bank._fire_event	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::export_user_vocabulary::routers.vocabulary_bank._vocab_bank_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::get_recent_vocab::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_bank.py::get_recent_vocab::routers.vocabulary_bank._fetch_srs_lookup	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::get_recent_vocab::routers.vocabulary_bank._vocab_bank_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::get_recent_vocab_updates::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_bank.py::get_recent_vocab_updates::routers.vocabulary_bank._vocab_bank_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::get_vocab_detail::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_bank.py::get_vocab_detail::routers.vocabulary_bank._fetch_srs_lookup	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::get_vocab_detail::routers.vocabulary_bank._fire_event	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::get_vocab_detail::routers.vocabulary_bank._vocab_bank_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::get_vocab_stats::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_bank.py::get_vocab_stats::routers.vocabulary_bank._fetch_srs_lookup	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::get_vocab_stats::routers.vocabulary_bank._vocab_bank_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::list_needs_review::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_bank.py::list_needs_review::routers.vocabulary_bank._fetch_srs_lookup	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::list_needs_review::routers.vocabulary_bank._fire_event	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::list_needs_review::routers.vocabulary_bank._vocab_bank_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::list_pending::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_bank.py::list_pending::routers.vocabulary_bank._auto_commit_stale_pending	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::list_pending::routers.vocabulary_bank._fire_event	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::list_pending::routers.vocabulary_bank._vocab_bank_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::list_vocab::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_bank.py::list_vocab::routers.vocabulary_bank._fetch_srs_lookup	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::list_vocab::routers.vocabulary_bank._fire_event	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::list_vocab::routers.vocabulary_bank._vocab_bank_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::mark_vocab_fixed::db.execute	2	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_bank.py::mark_vocab_fixed::routers.vocabulary_bank._add_card_if_absent	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::mark_vocab_fixed::routers.vocabulary_bank._ensure_default_accept_stack	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::mark_vocab_fixed::routers.vocabulary_bank._fire_event	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::mark_vocab_fixed::routers.vocabulary_bank._vocab_bank_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::report_false_positive::db.execute	2	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_bank.py::report_false_positive::routers.vocabulary_bank._cascade_d1_questions_is_active	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::report_false_positive::routers.vocabulary_bank._fire_event	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::report_false_positive::routers.vocabulary_bank._vocab_bank_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::restore_vocab::db.execute	2	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_bank.py::restore_vocab::routers.vocabulary_bank._cascade_d1_questions_is_active	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::restore_vocab::routers.vocabulary_bank._fire_event	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::restore_vocab::routers.vocabulary_bank._vocab_bank_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::skip_vocab::db.execute	2	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_bank.py::skip_vocab::routers.vocabulary_bank._fire_event	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::skip_vocab::routers.vocabulary_bank._vocab_bank_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::update_vocab_status::db.execute	2	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_bank.py::update_vocab_status::routers.vocabulary_bank._fetch_srs_lookup	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::update_vocab_status::routers.vocabulary_bank._fire_event	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_bank.py::update_vocab_status::routers.vocabulary_bank._vocab_bank_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::admin_catalog::services.vocabulary_sets.audience	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::admin_catalog::services.vocabulary_sets.paged	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::admin_catalog::services.vocabulary_sets.set_out	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::admin_detail::services.vocabulary_sets.get_set	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::admin_detail::services.vocabulary_sets.set_out	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::answer::services.vocabulary_sets.answer_session	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::answer::services.vocabulary_sets.get_session	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::catalog::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_sets.py::catalog::services.vocabulary_sets.audience	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::catalog::services.vocabulary_sets.paged	2	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::catalog::services.vocabulary_sets.published_rows	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::catalog::services.vocabulary_sets.set_out	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::create_card::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_sets.py::create_card::services.topic_service.resolve_topic_id_for_category	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::detail::services.vocabulary_sets.get_set	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::detail::services.vocabulary_sets.set_out	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::outcomes::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_sets.py::outcomes::services.vocabulary_sets.get_set	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::outcomes::services.vocabulary_sets.paged	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::publication::services.vocabulary_sets.rpc	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::publication::services.vocabulary_sets.set_out	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::save_set::services.vocabulary_sets.rpc	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::save_set::services.vocabulary_sets.set_out	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::search_cards::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_sets.py::session_detail::services.vocabulary_sets.get_session	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::start::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
+routers/vocabulary_sets.py::start::services.vocabulary_sets.get_set	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::start::services.vocabulary_sets.progress_rows	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::start::services.vocabulary_sets.revision	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::start::services.vocabulary_sets.rpc	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::submit::services.vocabulary_sets.answer_session	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::submit::services.vocabulary_sets.get_session	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/writing_student.py::_prompt_bank_image_viewer::services.activation_gate.account_is_active	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::claim_writing_assignment_renderer_affinity::db.execute	1	G2	Existing inline sync DB execution; offload in G2.
+routers/writing_student.py::claim_writing_assignment_renderer_affinity::routers.writing_student._resolve_active_assignment	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::export_my_essay_docx::db.execute	2	G2	Existing inline sync DB execution; offload in G2.
+routers/writing_student.py::export_my_essay_docx::services.essay_service.get_essay_render_context	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::get_current_student::db.execute	1	G2	Existing inline sync DB execution; offload in G2.
+routers/writing_student.py::get_current_student::services.student_service.fetch_linked_student	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::get_my_assignment::db.execute	1	G2	Existing inline sync DB execution; offload in G2.
+routers/writing_student.py::get_my_assignment::routers.writing_student._resolve_active_assignment	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::get_my_assignment::services.writing_image_access.attach_signed_image_urls	1	G2	Existing sync helper reaches Storage signing; offload caller in G2.
+routers/writing_student.py::get_my_assignment_submission::routers.writing_student._replay_committed_submission	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::get_my_assignment_submission::routers.writing_student._resolve_active_assignment	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::get_my_essay::db.execute	4	G2	Existing inline sync DB execution; offload in G2.
+routers/writing_student.py::get_my_essay::services.writing_image_access.attach_signed_image_urls	1	G2	Existing sync helper reaches Storage signing; offload caller in G2.
+routers/writing_student.py::get_my_regrade_request::db.execute	1	G2	Existing inline sync DB execution; offload in G2.
+routers/writing_student.py::get_prompt_bank::db.execute	1	G2	Existing inline sync DB execution; offload in G2.
+routers/writing_student.py::get_prompt_bank::services.test_data_visibility.hide_for	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::get_prompt_bank::services.writing_image_access.attach_signed_image_urls	1	G2	Existing sync helper reaches Storage signing; offload caller in G2.
+routers/writing_student.py::get_published_tip::db.execute	1	G2	Existing inline sync DB execution; offload in G2.
+routers/writing_student.py::get_timer_state::db.execute	1	G2	Existing inline sync DB execution; offload in G2.
+routers/writing_student.py::list_my_assignments::db.execute	2	G2	Existing inline sync DB execution; offload in G2.
+routers/writing_student.py::list_my_assignments::services.writing_image_access.attach_signed_image_urls	1	G2	Existing sync helper reaches Storage signing; offload caller in G2.
+routers/writing_student.py::list_my_essays::db.execute	2	G2	Existing inline sync DB execution; offload in G2.
+routers/writing_student.py::list_published_tips::db.execute	1	G2	Existing inline sync DB execution; offload in G2.
+routers/writing_student.py::log_paste::db.execute	2	G2	Existing inline sync DB execution; offload in G2.
+routers/writing_student.py::log_paste::routers.writing_student._refresh_writing_renderer_lease	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::request_regrade::db.execute	2	G2	Existing inline sync DB execution; offload in G2.
+routers/writing_student.py::require_writing_permission::services.access_code_permissions.get_user_access_code_permissions	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::require_writing_permission::services.access_code_permissions.student_has_writing_assignment	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::require_writing_permission::services.activation_gate.ensure_account_active	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::start_assignment::db.execute	3	G2	Existing inline sync DB execution; offload in G2.
+routers/writing_student.py::start_assignment::routers.writing_student._refresh_writing_renderer_lease	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::submit_my_assignment::db.execute	4	G2	Existing inline sync DB execution; offload in G2.
+routers/writing_student.py::submit_my_assignment::routers.writing_student._assignment_grading_tier	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::submit_my_assignment::routers.writing_student._persist_flagged_submission	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::submit_my_assignment::routers.writing_student._recover_claim_after_transport_error	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::submit_my_assignment::routers.writing_student._replay_committed_submission	2	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::submit_my_assignment::routers.writing_student._resolve_active_assignment	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::submit_my_assignment::routers.writing_student._rollback_orphan_essay	2	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::submit_my_assignment::services.access_code_permissions.get_user_access_code_permissions	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::submit_my_assignment::services.access_code_permissions.student_has_writing_assignment	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::submit_my_assignment::services.essay_service.create_essay_row_only	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::submit_my_assignment::services.essay_service.schedule_grading_job	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::upsert_my_draft::db.execute	2	G2	Existing inline sync DB execution; offload in G2.
+routers/writing_student.py::upsert_my_draft::routers.writing_student._refresh_writing_renderer_lease	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+routers/writing_student.py::upsert_my_draft::routers.writing_student._resolve_active_assignment	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+services/access_code_permissions.py::aget_account_permissions_summary::services.access_code_permissions.get_account_permissions_summary	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
+services/access_code_permissions.py::aget_user_access_code_permissions::services.access_code_permissions.get_user_access_code_permissions	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
+services/access_code_permissions.py::aget_user_access_code_permissions_cached::services.access_code_permissions.get_user_access_code_permissions_cached	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
+services/access_code_permissions.py::astudent_has_writing_assignment::services.access_code_permissions.student_has_writing_assignment	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
+services/access_code_permissions.py::astudent_id_for_user::services.access_code_permissions.student_id_for_user	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
+services/activation_gate.py::alookup_is_active::services.activation_gate.lookup_is_active	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
+services/advanced_vocab_service.py::complete_controlled_rewrite::db.execute	2	G3	Existing inline sync DB execution; offload in G3.
+services/advanced_vocab_service.py::complete_controlled_rewrite::services.advanced_vocab_service._progress	2	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+services/advanced_vocab_service.py::complete_controlled_rewrite::services.advanced_vocab_service._require_section	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+services/advanced_vocab_service.py::complete_controlled_rewrite::services.advanced_vocab_service._rewrite_submission	2	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+services/course_pronunciation.py::submit::db.execute	4	G2	Existing inline sync DB execution; offload in G2.
+services/course_pronunciation.py::submit::services.course_pronunciation._assignment_item	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+services/course_pronunciation.py::submit::services.course_pronunciation._existing_by_client	3	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+services/course_pronunciation.py::submit::services.course_pronunciation._set_for_bank	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+services/course_pronunciation.py::submit::services.quiz_service.refresh_course_completion	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+services/db_async.py::aexecute::db.execute	1	G7	USE_ASYNC_DB-off executes sync on loop; G7 must preserve facade contract.
+services/essay_service.py::_bg_grade_essay::db.execute	11	G2	Existing inline sync DB execution; offload in G2. Wait for #2066 then 1hz.
+services/essay_service.py::_bg_grade_essay::services.essay_service._ancestor_versions	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2. Wait for #2066 then 1hz.
+services/essay_service.py::_bg_grade_essay::services.essay_service._gc_orphan_versions	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2. Wait for #2066 then 1hz.
+services/essay_service.py::_bg_grade_essay::services.essay_service._mark_failed	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2. Wait for #2066 then 1hz.
+services/essay_service.py::_bg_grade_essay::services.essay_service._owns_job	2	G2	Existing sync helper reaches blocking I/O; offload caller in G2. Wait for #2066 then 1hz.
+services/essay_service.py::_bg_grade_essay::services.essay_service._record_attempt_failure	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2. Wait for #2066 then 1hz.
+services/essay_service.py::_bg_grade_essay::services.essay_service.current_prompt_image_for_essay	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2. Wait for #2066 then 1hz.
+services/essay_service.py::_bg_grade_essay::services.essay_service.resolve_prompt_facts_for_grading	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2. Wait for #2066 then 1hz.
+services/essay_service.py::_bg_grade_essay::services.instructor_workflow.create_review	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2. Wait for #2066 then 1hz.
+services/essay_service.py::_bg_grade_essay::services.writing_assignment_status_sync.mark_assignment_graded	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2. Wait for #2066 then 1hz.
+services/essay_service.py::_bg_grade_essay::services.writing_history.get_band_trajectory	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2. Wait for #2066 then 1hz.
+services/essay_service.py::_bg_grade_essay::services.writing_history.get_recurring_patterns	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2. Wait for #2066 then 1hz.
+services/essay_service.py::_bg_grade_essay::services.writing_history.get_sentence_structure_history	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2. Wait for #2066 then 1hz.
+services/essay_service.py::_handle_grade_failure::db.execute	1	G2	Existing inline sync DB execution; offload in G2. Wait for #2066 then 1hz.
+services/essay_service.py::_handle_grade_failure::services.essay_service._mark_failed	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2. Wait for #2066 then 1hz.
+services/essay_service.py::_handle_grade_failure::services.essay_service._owns_job	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2. Wait for #2066 then 1hz.
+services/essay_service.py::_handle_grade_failure::services.essay_service._record_attempt_failure	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2. Wait for #2066 then 1hz.
+services/essay_service.py::reap_stuck_grading_jobs::db.execute	3	G2	Existing inline sync DB execution; offload in G2. Wait for #2066 then 1hz.
+services/essay_service.py::reap_stuck_grading_jobs::services.essay_service._mark_failed	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2. Wait for #2066 then 1hz.
+services/essay_service.py::reap_stuck_grading_jobs::services.essay_service._record_attempt_failure	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2. Wait for #2066 then 1hz.
+services/gemini.py::generate_part1_questions::services.gemini._cache_get	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+services/gemini.py::generate_part1_questions::services.gemini._cache_set	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+services/gemini.py::generate_part2_cuecard::services.gemini._cache_get	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+services/gemini.py::generate_part2_cuecard::services.gemini._cache_set	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+services/gemini.py::generate_part3_questions::services.gemini._cache_get	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+services/gemini.py::generate_part3_questions::services.gemini._cache_set	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+services/grammar_check.py::GrammarCheckService.check::services.grammar_check.GrammarCheckService._persist_events	3	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+services/grammar_check.py::GrammarCheckService.check::services.grammar_check._cache_get	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+services/grammar_check.py::GrammarCheckService.check::services.grammar_check._cache_set	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+services/grammar_quiz_revisions.py::commit_revision::services.grammar_quiz_revisions._source	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+services/grammar_quiz_revisions.py::preview_revision::services.grammar_quiz_revisions._source	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+services/off_topic_judge.py::OffTopicJudge.judge::services.grading_telemetry.log_fallback_events	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+services/pdf_generator.py::generate_session_pdf::db.execute	4	G2	Existing inline sync DB execution; offload in G2.
+services/quiz_service.py::regrade_failed_course_writing::db.execute	2	G0	Existing inline sync DB execution; offload in G0.
+services/quiz_service.py::regrade_failed_course_writing::services.quiz_service._report_pages	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+services/quiz_service.py::regrade_failed_course_writing::services.quiz_service.bank_has_mcq	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+services/quiz_service.py::regrade_failed_course_writing::services.quiz_service.refresh_course_completion	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+services/quiz_service.py::submit_course_writing::db.execute	4	G0	Existing inline sync DB execution; offload in G0.
+services/quiz_service.py::submit_course_writing::services.quiz_service._assignment_item_for	2	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+services/quiz_service.py::submit_course_writing::services.quiz_service._bank_meta_or_404	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+services/quiz_service.py::submit_course_writing::services.quiz_service.refresh_course_completion	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+services/rate_limit.py::rate_limit_exercise.decorator.wrapper::services.rate_limit.enforce_exercise_rate_limit	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
+services/rate_limit.py::rate_limit_flashcard.decorator.wrapper::services.rate_limit.enforce_flashcard_rate_limit	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
+services/staff_guard.py::resolve_staff::services.staff_guard.lookup_role	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
+services/staff_security.py::revoke_and_record::services.staff_security.record_revocation	1	G7	Existing staging #2090 (d4cfa1ab9) moves the former record_revocation -> _record_over_rest debt to this sync caller; offload in G7.
+services/tts_audio.py::get_or_create_audio::services.tts_audio.audio_exists	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+services/tts_audio.py::get_or_create_audio::services.tts_audio.upload_mp3	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
+services/vocab_extractor.py::extract_vocab::anthropic.Anthropic.messages.create	1	G2	Existing sync AI client call; offload in G2.
+services/writing_prompt_analysis.py::run_and_store_analysis::db.execute	3	G2	Existing inline sync DB execution; offload in G2.
