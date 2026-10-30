@@ -107,6 +107,8 @@ class Query:
                 matches = [{f: row[f] for f in fields} for row in matches]
         elif self.op == "insert":
             row = {"id": str(uuid4()), **self.values}
+            if self.name == "students":
+                row = {"archived_at": None, **row}
             if self.name == "users":
                 row = {"permissions": None, "access_code_used": None, **row}
             rows.append(row)
@@ -140,6 +142,20 @@ class Database:
         return Query(self, name)
 
     def rpc(self, name, _params):
+        if name == "fn_activation_serialize":
+            if hasattr(self, "schema"):
+                from test_migration_240_core_attempt_evidence import psql
+                def execute():
+                    callback, self.after_activate = self.after_activate, None
+                    if callback:
+                        callback()
+                    args = ",".join("'" + json.dumps(v).replace("'", "''") + "'::jsonb" if isinstance(v, dict)
+                                    else "'" + str(v).replace("'", "''") + "'" for v in _params.values())
+                    return SimpleNamespace(data=json.loads(psql(
+                        f"SET ROLE service_role; SELECT {self.schema}.fn_activation_serialize({args})")))
+                return SimpleNamespace(execute=execute)
+            from activation_rpc_fake import activation_rpc
+            return activation_rpc(self, name, _params)
         assert name == "fn_activate_attempt_check"
         self.attempts += 1
         return SimpleNamespace(execute=lambda: SimpleNamespace(data={"allowed": True, "retry_after_s": 0}))
@@ -227,19 +243,19 @@ def test_archive_race_restores_null_fields_on_new_user(world):
     db.archive_race = True
     response = activate(client)
     assert response.status_code == 400, response.text
-    row = db.tables["users"][0]
-    assert row["is_active"] is False
-    assert row["access_code_used"] is None and row["permissions"] is None
+    assert db.tables["users"] == []
+    assert db.tables["students"] == []
     assert_unused(db)
 
 
 def test_compensation_retries_once_then_returns_generic_400(world):
     db, client = world
     before = deepcopy(db.tables["users"])
-    db.archive_race, db.revert_failures = True, 1
+    db.archive_race = True
     response = activate(client)
     assert response.status_code == 400, response.text
-    assert db.reverts == 2
+    assert db.tables["students"] == []
+    assert db.tables["users"][0]["access_code_used"] == "PREVIOUS"
     assert db.tables["users"] == before
     assert not audit_detail(db).get("compensation_failed")
     assert_unused(db)
@@ -248,13 +264,15 @@ def test_compensation_retries_once_then_returns_generic_400(world):
 @pytest.mark.parametrize("empty", [False, True])
 def test_failed_compensation_is_503_with_critical_request_id_and_audit(world, caplog, empty):
     db, client = world
-    db.archive_race, db.revert_failures, db.empty_revert = True, 0 if empty else 2, empty
+    db.transaction_receipt = {} if empty else None
+    db.transaction_unconfirmed = not empty
     with request_id_scope("j152-request"), caplog.at_level(logging.CRITICAL):
         response = activate(client)
     assert response.status_code == 503, response.text
     assert response.json()["detail"]["error_code"] == "activation_incomplete"
     assert "Mã CHƯA được sử dụng" in response.json()["detail"]["message"]
-    assert db.reverts == 2
+    assert db.tables["students"] == []
+    assert db.tables["users"][0]["access_code_used"] == "PREVIOUS"
     assert audit_detail(db)["compensation_failed"] is True
     critical = [r for r in caplog.records if r.levelno == logging.CRITICAL]
     assert any(USER in r.message and "j152-request" in r.message for r in critical)
@@ -417,14 +435,18 @@ def pg_activation():
         psql(m337._migrated(schema))
         # Complete only the auth columns absent from the migration harness.
         psql(f"""
-            ALTER TABLE {schema}.users ADD COLUMN access_code_used text, ADD COLUMN permissions jsonb;
+            ALTER TABLE {schema}.users ADD COLUMN access_code_used text, ADD COLUMN permissions jsonb,
+                ADD COLUMN avatar_url text;
             ALTER TABLE {schema}.cohorts ADD COLUMN created_by uuid;
             ALTER TABLE {schema}.students ADD COLUMN created_by uuid;
             ALTER TABLE {schema}.access_codes ADD COLUMN code text, ADD COLUMN permissions jsonb,
-                ADD COLUMN used_by uuid, ADD COLUMN used_at timestamptz;
+                ADD COLUMN used_by uuid, ADD COLUMN used_at timestamptz, ADD COLUMN issued_by uuid,
+                ADD COLUMN grants_role text, ADD COLUMN intended_email text;
         """)
         audit = (m337.MIGRATIONS / "099_access_code_audit.sql").read_text()
         psql(f"SET search_path = {schema}, pg_temp; {audit}")
+        from test_migration_359_activation_serialize import SQL, migrated
+        psql(migrated(SQL, schema))
         admin = m337.m326._admin(schema)
         yield schema, admin, legacy
     finally:
@@ -511,7 +533,8 @@ def record_writes(monkeypatch, hook=None):
 def test_double_compensation_failure_never_leaves_instructor_role(world, empty):
     db, client = world
     use_instructor_code(db)
-    db.archive_race, db.revert_failures, db.empty_revert = True, 0 if empty else 2, empty
+    db.transaction_receipt = {} if empty else None
+    db.transaction_unconfirmed = not empty
     response = activate(client)
     assert response.status_code == 503, response.text
     assert response.json()["detail"]["error_code"] == "activation_incomplete"
@@ -659,19 +682,15 @@ def test_compensation_keeps_concurrent_admin_changes(world, monkeypatch):
     db, client = world
     db.tables["users"][0].update(is_active=True, permissions=["writing"])
 
-    def admin_acts_after_activation(query):
-        if query.name == "students" and query.op != "select":
-            db.tables["users"][0].update(is_active=False, permissions=[])
-
-    writes = record_writes(monkeypatch, admin_acts_after_activation)
+    db.after_transaction = lambda *_: db.tables["users"][0].update(is_active=False, permissions=[])
     db.archive_race = True
     response = activate(client)
     assert response.status_code == 400, response.text
     user = db.tables["users"][0]
     assert user["is_active"] is False and user["permissions"] == []
     assert user["access_code_used"] == "PREVIOUS" and user["role"] == "user"
-    reverts = [w[2] for w in writes if w[0] == "users" and w[2].get("is_active") is not True]
-    assert reverts == [{"access_code_used": "PREVIOUS"}]
+    assert db.tables["students"] == []
+    assert db.tables["access_codes"][0]["used_by"] is None
     assert_unused(db)
 
 
@@ -694,25 +713,20 @@ def test_activation_refreshes_stale_snapshot_before_rollback(world, monkeypatch,
         "is_used": False, "used_by": None, "used_at": None,
         "permissions": OTHER_ACTIVATION["permissions"],
     })
-    attempts = []
+    def interleave(params):
+        if params["p_code"] != CODE:
+            return
+        with TestClient(client.app) as other_client:
+            other_response = activate(other_client, "OTHERCODE")
+        assert other_response.status_code == 200, other_response.text
+        assert db.tables["access_codes"][1]["used_by"] == USER
+        db.archive_race = outcome == "archive"
+        if outcome == "indeterminate":
+            db.transaction_receipt = {"status": "activation_conflict"}
+        elif outcome == "lost":
+            db.tables["access_codes"][0].update(is_used=True, used_by="learner-2")
 
-    def interleave(query):
-        if (query.name == "users" and query.op == "update"
-                and query.values.get("access_code_used") == CODE):
-            attempts.append((deepcopy(query.filters), set(query.null_filters)))
-            if len(attempts) == 1:
-                with TestClient(client.app) as other_client:
-                    other_response = activate(other_client, "OTHERCODE")
-                assert other_response.status_code == 200, other_response.text
-                assert db.tables["access_codes"][1]["used_by"] == USER
-                db.archive_race = outcome == "archive"
-        if query.name == "access_codes" and query.op == "update" and query.filters.get("id") == "code-1":
-            if outcome == "indeterminate":
-                raise RuntimeError(DB_TEXT)
-            if outcome == "lost":
-                db.tables["access_codes"][0].update(is_used=True, used_by="learner-2")
-
-    record_writes(monkeypatch, interleave)
+    db.before_transaction = interleave
     response = activate(client)
     assert response.status_code == (503 if outcome == "indeterminate" else 400), response.text
     user = db.tables["users"][0]
@@ -722,19 +736,8 @@ def test_activation_refreshes_stale_snapshot_before_rollback(world, monkeypatch,
     assert db.tables["access_codes"][1]["used_by"] == USER
     assert db.tables["access_codes"][0]["used_by"] != USER
     assert db.tables["students"] == []
-    assert len(attempts) == 2
-    first, nulls = attempts[0]
-    assert first["is_active"] is False
-    if nullable:
-        assert nulls == {"access_code_used", "permissions"}
-    else:
-        assert not nulls
-        assert first["access_code_used"] == "PREVIOUS"
-        assert json.loads(first["permissions"]) == ["writing"]
-    second, nulls = attempts[1]
-    assert not nulls
-    assert second["is_active"] is True and second["access_code_used"] == "OTHERCODE"
-    assert json.loads(second["permissions"]) == OTHER_ACTIVATION["permissions"]
+    assert user["access_code_used"] == "OTHERCODE"
+    assert not db.tables.get("student_cohort_memberships")
     if outcome == "archive":
         assert {key: user[key] for key in OTHER_ACTIVATION} == OTHER_ACTIVATION
         assert not audit_detail(db)["compensation_failed"]
@@ -749,23 +752,17 @@ def test_activation_refreshes_stale_snapshot_before_rollback(world, monkeypatch,
 def test_activation_snapshot_cas_stops_after_second_miss(world, monkeypatch, field, changes):
     db, client = world
     db.tables["users"][0].update(is_active=None, access_code_used=None, permissions=None)
-    attempts = []
-
-    def change_before_each_write(query):
-        if (query.name == "users" and query.op == "update"
-                and query.values.get("access_code_used") == CODE):
-            attempts.append((deepcopy(query.filters), set(query.null_filters)))
-            db.tables["users"][0][field] = changes[len(attempts) - 1]
-
-    record_writes(monkeypatch, change_before_each_write)
+    def contention(_params):
+        db.tables["users"][0][field] = changes[1]
+    db.before_transaction = contention
+    db.transaction_receipt = {"status": "activation_conflict"}
     with request_id_scope("snapshot-contention"):
         response = activate(client)
     assert response.status_code == 503, response.text
     assert response.json()["detail"]["ref"] == "snapshot-contention"
     assert "Mã CHƯA được sử dụng" in response.json()["detail"]["message"]
-    assert len(attempts) == 2
-    assert attempts[0][1] == {"is_active", "access_code_used", "permissions"}
-    assert attempts[1][1] == {"is_active", "access_code_used", "permissions"} - {field}
+    assert response.json()["detail"]["error_code"] == "activation_conflict"
+    assert db.tables["students"] == []
     assert db.tables["users"][0][field] == changes[1]
     assert all(db.tables["users"][0][key] is None
                for key in {"is_active", "access_code_used", "permissions"} - {field})
@@ -806,24 +803,13 @@ def test_promote_null_role_uses_compare_and_swap(world, monkeypatch, concurrent_
 @pytest.mark.parametrize("failure", ["missing", "error"])
 def test_activation_snapshot_refresh_failure_stops_before_claim(world, monkeypatch, caplog, failure):
     db, client = world
-    original = Query.execute
-    misses = []
-
-    def snapshot_unavailable(query):
-        if query.name == "users":
-            if query.op == "update":
-                misses.append(1)
-                return SimpleNamespace(data=[])
-            if query.op == "select" and misses:
-                if failure == "error":
-                    raise RuntimeError(DB_TEXT)
-                return SimpleNamespace(data=[])
-        return original(query)
-
-    monkeypatch.setattr(Query, "execute", snapshot_unavailable)
+    before = deepcopy(db.tables)
+    db.transaction_receipt = {} if failure == "missing" else None
+    db.transaction_unconfirmed = failure == "error"
     response = activate(client)
     assert response.status_code == 503, response.text
-    assert len(misses) == 1
+    assert db.tables["users"] == before["users"]
+    assert db.tables["students"] == before["students"]
     assert "Mã CHƯA được sử dụng" in response.json()["detail"]["message"]
     assert DB_TEXT not in response.text and DB_TEXT not in caplog.text
     assert all(table != "students" or op == "select" for table, op in db.calls)
@@ -853,7 +839,8 @@ def test_unclaimed_activation_deletes_only_its_inserted_student(world, monkeypat
     response = activate(client)
     assert response.status_code == (503 if outcome == "indeterminate" else 400), response.text
     assert len(deletes) == 1
-    assert db.calls.count(("students", "delete")) == 1
+    assert db.tables["users"][0]["is_active"] is False
+    assert db.tables["users"][0]["access_code_used"] == "PREVIOUS"
     assert db.tables["students"] == [unrelated]
     assert "rollback of inserted student FAILED" not in caplog.text
     assert not db.tables.get("user_code_assignments")
@@ -867,14 +854,10 @@ def test_compensation_never_undoes_a_newer_successful_activation(world, monkeypa
     db, client = world
     db.tables["users"][0].update(is_active=False, access_code_used=None, permissions=None)
 
-    def other_activation_succeeds(query):
-        is_revert = (query.name == "users" and query.op == "update"
-                     and query.values.get("is_active") is not True)
-        if (window == "before_read" and query.name == "students" and query.op != "select") or (
-                window == "before_write" and is_revert):
-            db.tables["users"][0].update(OTHER_ACTIVATION)
-
-    writes = record_writes(monkeypatch, other_activation_succeeds)
+    if window == "before_read":
+        db.before_transaction = lambda *_: db.tables["users"][0].update(OTHER_ACTIVATION)
+    else:
+        db.after_transaction = lambda *_: db.tables["users"][0].update(OTHER_ACTIVATION)
     db.archive_race = True
     response = activate(client)
     assert response.status_code == 400, response.text
@@ -883,8 +866,8 @@ def test_compensation_never_undoes_a_newer_successful_activation(world, monkeypa
     assert {key: user[key] for key in OTHER_ACTIVATION} == OTHER_ACTIVATION
     assert user["role"] == "user"
     # Every undo write is guarded by this request's own code (CAS ownership).
-    reverts = [w for w in writes if w[0] == "users" and w[2].get("is_active") is not True]
-    assert len(reverts) == (0 if window == "before_read" else 1)
+    assert db.tables["students"] == []
+    assert db.tables["access_codes"][0]["is_used"] is False
     assert not audit_detail(db)["compensation_failed"]
     assert_unused(db)
 
@@ -895,23 +878,15 @@ def test_compensation_permissions_compare_and_swap(world, monkeypatch):
     db, client = world
     db.tables["users"][0].update(is_active=False)
 
-    def admin_strips_permissions_mid_undo(query):
-        if (query.name == "users" and query.op == "update" and query.values.get("is_active") is False
-                and "permissions" in query.values):
-            db.tables["users"][0]["permissions"] = []
-
-    writes = record_writes(monkeypatch, admin_strips_permissions_mid_undo)
+    db.after_transaction = lambda *_: db.tables["users"][0].update(permissions=[])
     db.archive_race = True
     response = activate(client)
     assert response.status_code == 400, response.text
     user = db.tables["users"][0]
     assert user["permissions"] == []
     assert user["is_active"] is False and user["access_code_used"] == "PREVIOUS"
-    reverts = [w[2] for w in writes if w[0] == "users" and w[2].get("is_active") is not True]
-    assert reverts == [
-        {"is_active": False, "access_code_used": "PREVIOUS", "permissions": ["writing"]},
-        {"is_active": False, "access_code_used": "PREVIOUS"},
-    ]
+    assert db.tables["students"] == []
+    assert db.tables["access_codes"][0]["used_by"] is None
     assert not audit_detail(db)["compensation_failed"]
     assert_unused(db)
 
@@ -921,14 +896,15 @@ def test_unclaimed_rollback_keeps_a_newer_successful_activation(world, monkeypat
     """P3 :1056-1069: the lost/indeterminate-claim undo is guarded the same way."""
     db, client = world
 
-    def other_activation_then_claim(query):
-        if query.name == "access_codes" and query.op == "update":
-            db.tables["users"][0].update(OTHER_ACTIVATION)
-            if outcome == "indeterminate":
-                raise RuntimeError(DB_TEXT)
+    db.before_transaction = lambda *_: db.tables["users"][0].update(OTHER_ACTIVATION)
+    if outcome == "indeterminate":
+        db.transaction_receipt = {"status": "activation_conflict"}
+    else:
+        original_before = db.before_transaction
+        def before(params):
+            original_before(params)
             db.tables["access_codes"][0].update(is_used=True, used_by="learner-2")
-
-    record_writes(monkeypatch, other_activation_then_claim)
+        db.before_transaction = before
     response = activate(client)
     assert response.status_code == (503 if outcome == "indeterminate" else 400), response.text
     user = db.tables["users"][0]
@@ -941,60 +917,85 @@ PAIR_FIELDS = ("is_active", "access_code_used", "permissions")
 
 
 def overlap_activations(monkeypatch, query_class, app, requests, fail):
-    """Run request A, then B on A's provisional row, in the worst-case order.
+    """A rolls back; B times out while the activation advisory key is held.
 
-    requests = {"A"|"B": (code, code_id, "archive"|"lost")}. A's Step 3 lands
-    first and only then does B start. A reaches its failure point (class-code
-    enrollment write, or the claim) only after B's Step 3 or after B returned;
-    B reaches its own only after A has finished, compensation included. That is
-    the order of Codex r4423531637 (A's undo skipped, B restores A's state).
-    `fail(request, query)` makes the failure real right before that write.
+    The former schedule required B to observe A's provisional user writes.
+    Here B gets the same safe conflict response without seeing partial data.
+    The PostgreSQL variant uses the real advisory key and real RPC timeout.
     """
-    a_written, b_written, a_done = threading.Event(), threading.Event(), threading.Event()
-    by_code = {code: name for name, (code, _, _) in requests.items()}
-    by_id = {code_id: name for name, (_, code_id, _) in requests.items()}
-    original = query_class.execute
+    original = auth.supabase_admin.rpc
+    a_waiting, b_done = threading.Event(), threading.Event()
+    lock_ready, lock_release = threading.Event(), threading.Event()
+    lockers, lock_errors = [], []
+    by_code = {value[0]: (name, value) for name, value in requests.items()}
 
-    def failure_point(query):
-        values = query.values or {}
-        if query.name == "students" and query.op != "select" and values.get("student_code") in by_code:
-            name = by_code[values["student_code"]]
-        elif query.name == "access_codes" and query.op == "update" and query.filters.get("id") in by_id:
-            name = by_id[query.filters["id"]]
-        else:
-            return None
-        kind = requests[name][2]
-        return name if (kind == "archive") == (query.name == "students") else None
+    def rpc(name, params):
+        if name != "fn_activation_serialize":
+            return original(name, params)
+        who, request = by_code[params["p_code"]]
+        def execute():
+            if who == "B" and not hasattr(auth.supabase_admin, "schema"):
+                return SimpleNamespace(data={"status": "activation_conflict"})
+            if who == "A":
+                if hasattr(auth.supabase_admin, "schema"):
+                    # Hold the exact activation key on another PG connection.
+                    # B's real RPC must hit its bounded lock timeout.
+                    def hold_lock():
+                        import asyncio
+                        import asyncpg
+                        from test_migration_240_core_attempt_evidence import DB
+                        async def hold():
+                            conn = await asyncpg.connect(DB)
+                            try:
+                                async with conn.transaction():
+                                    await conn.execute("SELECT pg_advisory_xact_lock(hashtextextended('activate:' || $1,0))",
+                                                       params["p_user_id"])
+                                    lock_ready.set()
+                                    assert await asyncio.to_thread(lock_release.wait, 20)
+                            finally:
+                                await conn.close()
+                        try:
+                            asyncio.run(hold())
+                        except BaseException as exc:
+                            lock_errors.append(exc)
+                            lock_ready.set()
+                    locker = threading.Thread(target=hold_lock)
+                    lockers.append(locker)
+                    locker.start()
+                    assert lock_ready.wait(20) and not lock_errors, lock_errors
+                a_waiting.set()
+                assert b_done.wait(20), "B never completed its activation transaction"
+                lock_release.set()
+                for locker in lockers:
+                    locker.join(60)
+                assert not lock_errors, lock_errors
+            fail(request, None)
+            if not hasattr(auth.supabase_admin, "schema") and request[2] == "archive":
+                return SimpleNamespace(data={"status": "cohort_archived"})
+            return original(name, params).execute()
+        return SimpleNamespace(execute=execute)
 
-    def execute(query):
-        name = failure_point(query)
-        if name:
-            assert (b_written if name == "A" else a_done).wait(20), f"{name} waited too long"
-            fail(requests[name], query)
-        result = original(query)
-        values = query.values or {}
-        if query.name == "users" and query.op == "update" and values.get("is_active") is True and result.data:
-            {"A": a_written, "B": b_written}.get(by_code.get(values.get("access_code_used")),
-                                                 threading.Event()).set()
-        return result
-
-    monkeypatch.setattr(query_class, "execute", execute)
-    responses = {}
-
-    def run(name):
+    monkeypatch.setattr(auth.supabase_admin, "rpc", rpc)
+    responses, errors = {}, []
+    def run():
         try:
             with TestClient(app) as client:
-                responses[name] = activate(client, requests[name][0])
-        finally:
-            (a_done if name == "A" else b_written).set()
-
-    first = threading.Thread(target=run, args=("A",))
+                responses["A"] = activate(client, requests["A"][0])
+        except BaseException as exc:
+            errors.append(exc)
+    first = threading.Thread(target=run)
     first.start()
-    assert a_written.wait(20), "A never wrote Step 3"
-    second = threading.Thread(target=run, args=("B",))
-    second.start()
-    first.join(60)
-    second.join(60)
+    try:
+        assert a_waiting.wait(20), "A never reached its transaction"
+        with TestClient(app) as client:
+            responses["B"] = activate(client, requests["B"][0])
+    finally:
+        b_done.set()
+        lock_release.set()
+        first.join(60)
+        for locker in lockers:
+            locker.join(60)
+    assert not first.is_alive() and not errors, errors
     return responses["A"], responses["B"]
 
 
@@ -1038,6 +1039,7 @@ def test_overlapping_failed_activations_never_leave_a_provisional_state(
     assert response_b.status_code == 503, response_b.text
     assert response_b.json()["detail"]["error_code"] == "activation_conflict"
     assert "Mã CHƯA được sử dụng" in response_b.json()["detail"]["message"]
+    assert db.tables["users"][0]["is_active"] is start_active
     assert not db.tables["students"]
     assert not db.tables.get("user_code_assignments")
 
@@ -1047,24 +1049,26 @@ def test_compensation_never_restores_another_requests_provisional_snapshot(world
     """Codex r4423531637 at helper level: A's undo was skipped (the row carries
     B's code) and B's snapshot is A's Step 3. B restores it only when A's code
     is this user's (claimed, or granted); otherwise the account ends inactive."""
-    db, _ = world
-    user = db.tables["users"][0]
-    user.update(is_active=False, access_code_used=None, permissions=None)
-    s0 = {key: user[key] for key in PAIR_FIELDS}
-    db.tables["access_codes"] = [
-        {"id": "code-a", "code": "PAIRA", "is_used": owner is not None and owner != "assigned",
-         "used_by": None if owner == "assigned" else owner, "used_at": None},
-        {"id": "code-b", "code": "PAIRB", "is_used": False, "used_by": None, "used_at": None},
-    ]
+    db, client = world
+    committed = owner in (USER, "assigned")
+    db.tables["users"][0].update(is_active=committed, access_code_used="PAIRA" if committed else None,
+                                  permissions=["practice_single"] if committed else None)
     if owner == "assigned":
         db.tables["user_code_assignments"] = [{"user_id": USER, "code_id": "code-a", "is_active": False}]
     a_written = {"is_active": True, "access_code_used": "PAIRA", "permissions": ["practice_single"]}
-    b_written = {"is_active": True, "access_code_used": "PAIRB", "permissions": ["practice_full"]}
-    user.update(b_written)
-    assert auth._restore_class_activation_snapshot(USER, dict(s0), dict(a_written), "req-a") == (True, [])
-    assert auth._restore_class_activation_snapshot(USER, dict(a_written), dict(b_written), "req-b") == (True, [])
-    committed = owner in (USER, "assigned")
+    s0 = {"is_active": False, "access_code_used": None, "permissions": None}
+    before = deepcopy(db.tables)
+    db.archive_race = True
+    response = activate(client)
+    assert response.status_code == 400, response.text
+    assert response.json()["detail"] == GENERIC
+    assert db.tables["users"] == before["users"]
+    user = db.tables["users"][0]
     assert {key: user[key] for key in PAIR_FIELDS} == (a_written if committed else s0)
+    assert db.tables["students"] == before["students"]
+    assert db.tables.get("user_code_assignments") == before.get("user_code_assignments")
+    assert_unused_code = db.tables["access_codes"][0]
+    assert assert_unused_code["is_used"] is False and assert_unused_code["used_by"] is None
 
 
 @pytest.mark.parametrize("outcome", ["lost", "indeterminate"])
@@ -1086,7 +1090,8 @@ def test_lost_claim_of_an_active_account_restores_its_code_and_permissions(world
     assert response.status_code == (503 if outcome == "indeterminate" else 400), response.text
     assert {key: db.tables["users"][0][key] for key in PAIR_FIELDS} == before
     reverts = [w[2] for w in writes if w[0] == "users" and w[2].get("is_active") is not True]
-    assert reverts == [{"access_code_used": "PREVIOUS", "permissions": ["writing"]}]
+    assert db.tables["students"] == []
+    assert not db.tables.get("user_code_assignments")
 
 
 def test_duplicate_submit_of_the_same_code_is_not_a_rival_activation(world, monkeypatch):
@@ -1103,19 +1108,15 @@ def test_snapshot_ownership_lookup_failure_is_503_before_any_write(world, monkey
     db, client = world
     db.tables["users"][0].update(is_active=True, access_code_used="PAIRA")
     db.tables["access_codes"].append({"id": "code-a", "code": "PAIRA", "is_used": False, "used_by": None})
-    original = Query.execute
-
-    def ownership_unavailable(query):
-        if query.name == "user_code_assignments" and query.op == "select":
-            raise RuntimeError(DB_TEXT)
-        return original(query)
-
-    monkeypatch.setattr(Query, "execute", ownership_unavailable)
+    before = deepcopy(db.tables)
+    db.transaction_receipt = {"status": "activation_conflict"}
     response = activate(client)
     assert response.status_code == 503, response.text
     assert "Mã CHƯA được sử dụng" in response.text
     assert DB_TEXT not in response.text and DB_TEXT not in caplog.text
     assert all(op == "select" for table, op in db.calls)
+    assert db.tables["users"] == before["users"]
+    assert db.tables["students"] == before["students"]
     assert_unused(db)
 
 
@@ -1181,33 +1182,28 @@ def overlap_same_code_activation(monkeypatch, query_class, app, code, outcome, b
     two requests even though their user, code and Step 3 values are identical.
     """
     from services.request_context import current_request_id
-
     a_waiting, b_done = threading.Event(), threading.Event()
-    original = query_class.execute
+    original = auth.supabase_admin.rpc
     responses, errors = {}, []
-
-    def execute(query):
-        if current_request_id() == "same-code-A":
-            at_enroll = query.name == "students" and query.op == "insert"
-            at_claim = query.name == "access_codes" and query.op == "update"
-            if (at_enroll if outcome == "archive" else at_claim):
-                a_waiting.set()
-                assert b_done.wait(20), "B did not finish its successful activation"
-                if outcome == "archive":
-                    archive()
-                else:
-                    raise RuntimeError(DB_TEXT)
-        return original(query)
-
-    monkeypatch.setattr(query_class, "execute", execute)
-
+    def rpc(name, params):
+        if name != "fn_activation_serialize" or current_request_id() != "same-code-A":
+            return original(name, params)
+        def execute():
+            a_waiting.set()
+            assert b_done.wait(20), "B did not finish its successful activation"
+            if outcome == "archive":
+                archive()
+                return SimpleNamespace(data={"status": "cohort_archived"})
+            # The entire RPC committed; the response was lost after the commit.
+            raise RuntimeError(DB_TEXT)
+        return SimpleNamespace(execute=execute)
+    monkeypatch.setattr(auth.supabase_admin, "rpc", rpc)
     def run_a():
         try:
             with request_id_scope("same-code-A"), TestClient(app) as client:
                 responses["A"] = activate(client, code)
         except BaseException as exc:
             errors.append(exc)
-
     first = threading.Thread(target=run_a)
     first.start()
     try:
@@ -1240,7 +1236,7 @@ def test_same_code_success_survives_an_overlapping_failed_request(world, monkeyp
             }).execute()
         else:
             # Match the nullable DB default on A's freshly inserted profile.
-            db.tables["students"][0]["archived_at"] = None
+            assert db.tables["students"] == []
 
     def archive():
         db.archive_race = True
@@ -1341,3 +1337,86 @@ def test_activation_logs_never_carry_db_text(world, caplog, failure):
     assert DB_TEXT not in response.text
     assert DB_TEXT not in caplog.text
     assert CODE not in caplog.text
+
+
+def test_cross_instructor_rejection_preserves_account_and_allows_valid_retry(world):
+    """Codex r4424260839: terminal 403 cannot poison the next valid activation."""
+    db, client = world
+    db.tables["users"] += [{"id": "gv-x", "role": "instructor"}, {"id": "gv-y", "role": "instructor"}]
+    db.tables["users"][0].update(is_active=True)
+    db.tables["students"] = [{"id": "st-1", "user_id": USER, "student_code": "S1",
+                              "instructor_id": "gv-x", "cohort_id": None, "archived_at": None}]
+    db.tables["access_codes"] = [
+        {"id": "code-y", "code": "YCODE", "is_used": False, "used_by": None,
+         "issued_by": "gv-y", "permissions": ["practice_full"]},
+        {"id": "code-x", "code": "XCODE", "is_used": False, "used_by": None,
+         "issued_by": "gv-x", "permissions": ["practice_single"]},
+    ]
+    before = deepcopy(db.tables)
+    rejected = activate(client, "YCODE")
+    assert rejected.status_code == 403, rejected.text
+    assert db.tables["users"] == before["users"]
+    assert db.tables["students"] == before["students"]
+    assert db.tables["access_codes"] == before["access_codes"]
+    valid = activate(client, "XCODE")
+    assert valid.status_code == 200, valid.text
+    assert db.tables["users"][0]["is_active"] is True
+    assert db.tables["users"][0]["access_code_used"] == "XCODE"
+    assert db.tables["access_codes"][1]["used_by"] == USER
+    assert db.tables["students"][0]["instructor_id"] == "gv-x"
+
+
+@pytest.mark.parametrize("receipt", [None, {}, [], {"status": "unrecognized"}])
+def test_unconfirmed_rpc_receipt_changes_no_activation_data(world, caplog, receipt):
+    db, client = world
+    before = deepcopy(db.tables)
+    db.transaction_receipt = receipt
+    db.transaction_unconfirmed = receipt is None
+    response = activate(client)
+    assert response.status_code == 503, response.text
+    assert response.json()["detail"]["error_code"] == "activation_incomplete"
+    assert db.tables["users"] == before["users"]
+    assert db.tables["students"] == before["students"]
+    assert_unused(db)
+    assert CODE not in caplog.text and DB_TEXT not in caplog.text
+
+
+def test_cancellation_does_not_undo_an_atomic_activation(world, monkeypatch):
+    import asyncio
+
+    db, _ = world
+    entered, release, committed = threading.Event(), threading.Event(), threading.Event()
+    original = db.rpc
+    def rpc(name, params):
+        if name != "fn_activation_serialize":
+            return original(name, params)
+        def execute():
+            entered.set()
+            assert release.wait(20), "cancelled request never released its DB worker"
+            try:
+                return original(name, params).execute()
+            finally:
+                committed.set()
+        return SimpleNamespace(execute=execute)
+    monkeypatch.setattr(db, "rpc", rpc)
+
+    async def run():
+        task = asyncio.create_task(auth.activate_account(auth.ActivateRequest(access_code=CODE), "Bearer fake"))
+        try:
+            assert await asyncio.to_thread(entered.wait, 20)
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+            release.set()
+            assert await asyncio.to_thread(committed.wait, 20)
+        finally:
+            release.set()
+            if not task.done():
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+    asyncio.run(run())
+    assert db.tables["users"][0]["is_active"] is True
+    assert db.tables["users"][0]["access_code_used"] == CODE
+    assert db.tables["access_codes"][0]["used_by"] == USER
+    assert len(db.tables["students"]) == 1
+    assert db.tables["students"][0]["cohort_id"] == COHORT

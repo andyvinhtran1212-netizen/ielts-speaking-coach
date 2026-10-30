@@ -111,6 +111,10 @@ class _Builder:
 
 
 class _DispatchClient:
+    def rpc(self, name, params):
+        from activation_rpc_fake import activation_rpc
+        return activation_rpc(self, name, params)
+
     """Routes per-table behaviour. Each test passes a `students_lookup`
     fixture (the rows the students-by-student_code query should return)
     and optional `students_update_raises` to simulate DB failures."""

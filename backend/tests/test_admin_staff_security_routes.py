@@ -231,6 +231,11 @@ class FakeDB:
             })
 
     def rpc(self, name, params):
+        if name == "fn_activation_serialize":
+            from activation_rpc_fake import activation_rpc
+            if self.on_execute:
+                self.on_execute("users", "update")
+            return activation_rpc(self, name, params)
         assert name == "fn_set_staff_privilege", name
         self.rpc_calls.append(dict(params))
         return _Rpc(lambda: self._set_staff_privilege(**params))

@@ -11,21 +11,24 @@ FR-008, SA-REVIEW-152).
 
 ## 1. Ý nghĩa
 
-**A. `compensation_failed` (503 `activation_incomplete`).** Lớp của mã bị lưu trữ
-trong lúc kích hoạt (race, Scenario 3). Bước 3 đã ghi `users`, ghi danh bị 337
-từ chối, và hoàn tác snapshot lỗi cả 2 lần. Dấu hiệu:
+**A. `compensation_failed` (503 `activation_incomplete`).** Với backend dùng
+migration 359, không xác nhận được kết quả RPC và lần đọc lại chưa chứng minh
+được claim cùng trạng thái tài khoản đã commit. RPC ghi tài khoản, hồ sơ,
+membership và claim trong một transaction: hoặc tất cả commit, hoặc tất cả
+rollback. Backend không gửi UPDATE/DELETE hoàn tác và không tự gọi lại RPC.
+Không suy ra mã chưa dùng chỉ từ lỗi kết nối.
 
-- log `CRITICAL [auth] cohort-archive activation revert FAILED request_id=… user=…`;
-- một dòng `access_code_audit` có `action='enroll_rejected_cohort_archived'`,
-  `after.detail.compensation_failed=true`, `after.detail.unrestored_fields` liệt kê
-  các cột `users` có thể vẫn giữ giá trị của request này (`is_active`,
-  `access_code_used`, `permissions`).
+Dấu hiệu:
 
-Mã **chưa** được dùng (`is_used=false`) và không có hồ sơ học viên mới.
-`role` không bao giờ đổi ở nhánh này: nâng quyền giảng viên chỉ chạy sau khi
-claim mã thành công. Rủi ro: tài khoản có thể đang active với quyền của mã
-trong khi mã vẫn dùng được (mã lớp không ràng email → sau khi khôi phục lớp,
-người khác có thể dùng lại mã → 1 mã, 2 tài khoản).
+- log `CRITICAL [auth] activation transaction unconfirmed request_id=… user=…`;
+- audit tương thích `action='enroll_rejected_cohort_archived'`,
+  `after.detail.compensation_failed=true`; `unrestored_fields` là các cột chưa
+  xác nhận được, không chứng minh chúng bị ghi một phần hay lớp đã lưu trữ.
+
+Với backend cũ trước 359, cờ này có nghĩa hoàn tác snapshot lỗi cả hai lần sau
+khi ghi danh bị từ chối. Chỉ trường hợp cũ đó mới có nguy cơ tài khoản active
+mà chưa claim mã. Phải phân biệt SHA/backend trước khi sửa dữ liệu.
+`role` chỉ nâng sau khi claim mã thành công ở cả hai phiên bản.
 
 **B. `promote_role_failed` (503 `promote_incomplete` hoặc 403 `account_suspended`).**
 Mã giảng viên đã claim (bất biến), nhưng ghi `role='instructor'` không thành.
@@ -52,14 +55,19 @@ FROM access_codes WHERE id = :code_id;
 SELECT id, is_active, archived_at FROM cohorts WHERE id = :cohort_id;  -- A
 ```
 
-A cần xử lý khi `users.access_code_used` vẫn là mã này (so trong DB, đừng chép
+Với RPC 359, xác minh tài khoản, claim và hồ sơ/membership cùng phản ánh một
+lần kích hoạt hoàn chỉnh trước khi quyết định có cần sửa. Không hoàn tác một
+claim đã commit. Với backend cũ, A cần xử lý khi `users.access_code_used` vẫn là mã này (so trong DB, đừng chép
 mã ra báo cáo) hoặc `is_active` vẫn `true` dù trước đó tài khoản chưa active.
 Nếu `users` đã khác (admin đã sửa, hoặc người dùng đã kích hoạt mã khác) thì
 không động vào.
 
 ## 3. Khắc phục
 
-**A.**
+**A.** Với kết quả RPC 359 chưa xác nhận, chỉ đọc lại trạng thái canonical;
+không chạy hoàn tác snapshot. Các bước sau chỉ dành cho dữ liệu lỗi được xác
+nhận từ backend cũ:
+
 1. Leader/owner quyết: tài khoản có được giữ active không. Mặc định (FR-008):
    lớp đã lưu trữ thì không ghi danh; nếu trước đó tài khoản chưa active thì
    đưa về chưa active.

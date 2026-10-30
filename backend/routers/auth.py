@@ -488,41 +488,6 @@ _ARCHIVED_PROFILE_DETAIL = (
 )
 
 
-def _restore_archived_account_state(user_id: str, *, was_already_active: bool,
-                                    student_ids: list[str]) -> None:
-    """Undo /activate's Step 3 when a concurrent archive won (STUDENTARCHIVE-0029).
-
-    A fresh activation is reverted (as on a lost claim race). An already-active
-    account is set inactive again only if the latest archive locked it.
-    """
-    deactivate = not was_already_active
-    if not deactivate and student_ids:
-        try:
-            audit = (supabase_admin.table("student_lifecycle_audit")
-                     .select("action, detail, created_at")
-                     .in_("student_id", student_ids)
-                     .order("created_at", desc=True).limit(1).execute().data or [])
-            latest = audit[0] if audit else {}
-            deactivate = (latest.get("action") == "archive"
-                          and bool((latest.get("detail") or {}).get("account_deactivated")))
-        except Exception as e:
-            # Unknown archive intent: fail closed to the archive's strictest state.
-            logger.error("[auth] archive audit read failed user=%s: %s", user_id, _exc_tag(e))
-            deactivate = True
-    if not deactivate:
-        return
-    try:
-        supabase_admin.table("users").update({"is_active": False}).eq("id", user_id).execute()
-    except Exception as e:
-        logger.error("[auth] archive rollback of is_active FAILED for user=%s (critical): %s",
-                     user_id, _exc_tag(e))
-
-
-def is_cohort_archived_error(exc: BaseException) -> bool:
-    """Recognize 337's guard message without matching unrelated DB detail."""
-    return (getattr(exc, "message", None) or str(exc)).strip() == "cohort_archived"
-
-
 def _audit_class_activation_rejected(
     user_id: str, code_id: str | None, cohort_id: str, *,
     request_id: str, race: bool = False, compensation_failed: bool = False,
@@ -548,94 +513,32 @@ def _audit_class_activation_rejected(
                      request_id, user_id, _exc_tag(e))
 
 
-def _restore_class_activation_snapshot(
-    user_id: str, snapshot: dict, written: dict, request_id: str, *, log_failure: bool = True,
-) -> tuple[bool, list[str]]:
-    """Undo this request's Step 3 write; one retry, never claim on failure.
+def _confirmed_activation(user_id: str, code_id: str, code: str, email: str | None) -> dict | None:
+    """Read-only reconciliation after a lost atomic RPC response; never retry it.
 
-    Only fields Step 3 actually changed are restored, and only while they still
-    hold the value Step 3 wrote: a concurrent admin change (e.g. is_active=false
-    or stripped permissions) wins over the snapshot. Nothing is restored once the
-    row carries another code: a newer activation of the same user owns it
-    (Codex r4422345951). A successful duplicate claim of this same code also
-    owns the state and must survive compensation (Codex r4423884583).
-    A snapshot that is another request's provisional
-    activation (an active row with a code this user does not own) is never
-    restored: the target is then the inactive, code-less state (PC-J420).
-    Returns (ok, fields that may still hold this request's values when not ok).
+    The immutable claim proves the transaction committed. Check the current
+    account too, so an admin deactivation or newer activation is never undone.
     """
-    changed = {key: snapshot.get(key) for key, value in written.items()
-               if value != snapshot.get(key)}
-    own_code = written["access_code_used"]
-    snapshot_code = snapshot.get("access_code_used")
-    check_snapshot = bool(snapshot.get("is_active") and snapshot_code and snapshot_code != own_code)
-    for attempt in range(2):
-        try:
-            if _activation_code_claimed_by_user(user_id, own_code):
-                return True, []
-            if check_snapshot and not _activation_code_committed(user_id, snapshot_code):
-                inactive = {"is_active": False, "access_code_used": None, "permissions": None}
-                changed = {key: inactive[key] for key, value in written.items()
-                           if value != inactive[key]}
-            check_snapshot = False
-            if not changed:
-                return True, []
-            rows = (supabase_admin.table("users")
-                    .select(", ".join(sorted({*changed, "access_code_used"})))
-                    .eq("id", user_id).limit(1).execute().data or [])
-            if not rows:
-                raise RuntimeError("activation compensation found no user")
-            if rows[0].get("access_code_used") != own_code:
-                return True, []
-            restore = {key: value for key, value in changed.items()
-                       if rows[0].get(key) == written[key]}
-            if not restore:
-                return True, []
-            # Compare-and-swap on ownership and on every restored field (jsonb as
-            # its JSON text), so a write landing after the read above is kept.
-            query = (supabase_admin.table("users").update(restore)
-                     .eq("id", user_id).eq("access_code_used", own_code))
-            for key in restore:
-                if key != "access_code_used":
-                    value = written[key]
-                    query = query.eq(key, json.dumps(value) if isinstance(value, (list, dict)) else value)
-            if not query.execute().data:
-                raise RuntimeError("activation compensation updated no user")
-            return True, []
-        except Exception as e:
-            logger.warning("[auth] activation compensation attempt=%s request_id=%s user=%s: %s",
-                           attempt + 1, request_id, user_id, _exc_tag(e))
-    if log_failure:
-        logger.critical("[auth] cohort-archive activation revert FAILED request_id=%s user=%s (activation_incomplete)",
-                        request_id, user_id)
-    return False, sorted(changed)
-
-
-def _activation_code_claimed_by_user(user_id: str, code: str) -> bool:
-    """A confirmed same-code claim, excluding grants and deleted legacy codes."""
-    rows = (supabase_admin.table("access_codes").select("used_by")
-            .eq("code", code).eq("used_by", user_id).limit(1).execute().data or [])
-    return bool(rows)
-
-
-def _activation_code_committed(user_id: str, code: str) -> bool:
-    """Whether an account state carrying `code` is committed, not in flight (PC-J420).
-
-    Step 3 writes the code before Step 4 claims it, so another request's
-    provisional activation looks like an active account. It is committed only
-    when the user owns the code (access_codes.used_by) or was granted it (any
-    user_code_assignments row, also an inactive one after a remove-user). A
-    code row that no longer exists cannot be in flight (legacy hard delete).
-    """
-    rows = (supabase_admin.table("access_codes").select("id, used_by")
-            .eq("code", code).limit(1).execute().data or [])
-    if not rows:
-        return True
-    if rows[0].get("used_by") is not None and str(rows[0]["used_by"]) == str(user_id):
-        return True
-    grants = (supabase_admin.table("user_code_assignments").select("code_id")
-              .eq("user_id", user_id).eq("code_id", rows[0]["id"]).limit(1).execute().data or [])
-    return bool(grants)
+    codes = (supabase_admin.table("access_codes").select("*")
+             .eq("id", code_id).limit(1).execute().data or [])
+    if not codes or not codes[0].get("is_used") or str(codes[0].get("used_by")) != str(user_id):
+        return None
+    users = (supabase_admin.table("users").select("*")
+             .eq("id", user_id).limit(1).execute().data or [])
+    if not users or not users[0].get("is_active") or users[0].get("access_code_used") != code:
+        return None
+    if users[0].get("suspended_at"):
+        return None
+    current_code = codes[0]
+    promote = (current_code.get("grants_role") or "").strip().lower() == "instructor"
+    if promote and (not _norm_email(current_code.get("intended_email"))
+                    or _norm_email(current_code.get("intended_email")) != _norm_email(email)):
+        return None
+    students = (supabase_admin.table("students").select("id, archived_at")
+                .eq("user_id", user_id).limit(20).execute().data or [])
+    student = next((row for row in students if not row.get("archived_at")), {})
+    return {"status": "ok", "role": users[0].get("role"), "student_id": student.get("id"),
+            "promote_role": "instructor" if promote else None, "cohort_id": current_code.get("cohort_id")}
 
 
 def _promote_after_claim(user_id: str, before_role: str | None,
@@ -843,112 +746,8 @@ async def activate_account(
     if suspension and suspension[0].get("suspended_at"):
         raise staff_security.account_suspended_exception(403)
 
-    # ── Step 2: upsert user row (in case /me was never called) ───────────────
-    # Snapshot the fields Step 3 changes, including nullable permissions/code.
-    try:
-        existing = (
-            supabase_admin.table("users")
-            .select("id, role, is_active, access_code_used, permissions")
-            .eq("id", user_id)
-            .limit(1)
-            .execute()
-        )
-        if not existing.data:
-            supabase_admin.table("users").insert({
-                "id": user_id,
-                "email": email,
-                "display_name": metadata.get("full_name") or metadata.get("name"),
-                "avatar_url": metadata.get("avatar_url"),
-                "role": "user",
-                "is_active": False,
-            }).execute()
-            # Capture actual database defaults for a newly created account too.
-            existing = await asyncio.to_thread(
-                lambda: supabase_admin.table("users")
-                .select("id, role, is_active, access_code_used, permissions")
-                .eq("id", user_id).limit(1).execute()
-            )
-        user_before = existing.data[0]
-    except Exception as e:
-        raise _activation_error(e, context="activation user snapshot", ref=request_id) from None
-
-    # ── Step 3: activate the user ─────────────────────────────────────────────
-    # Copy permissions from access_code so they survive code revocation later.
-    code_permissions = access_code_row.get("permissions") or ["practice_single", "practice_part", "practice_full"]
-    update_fields = {
-        "is_active": True,
-        "access_code_used": code,
-        "permissions": code_permissions,
-    }
-    # Pair the write with its rollback snapshot. If another activation lands
-    # after Step 2, refresh the snapshot and retry once; never undo its success
-    # using the older inactive state (Codex r4422565648).
-    #
-    # PC-J420: write only over a committed snapshot. An active snapshot whose
-    # code this user does not own is another request's provisional Step 3 (still
-    # before its claim, or already rejected/lost and not yet compensated).
-    # Writing over it would make that provisional state this request's rollback
-    # target, so two failing activations could leave the account active without
-    # a code. Refuse like a twice-changed snapshot; the code stays unused.
-    for attempt in range(2):
-        activation_snapshot = {key: user_before.get(key) for key in update_fields}
-        snapshot_committed = True
-        snapshot_code = user_before.get("access_code_used")
-        if user_before.get("is_active") and snapshot_code:
-            try:
-                snapshot_committed = await asyncio.to_thread(
-                    _activation_code_committed, user_id, snapshot_code)
-            except Exception as e:
-                raise _activation_error(e, status_code=503, message=unused_message,
-                                        context="activation snapshot ownership", ref=request_id) from None
-            # Same code: a duplicate submit of this activation, not a rival one.
-            if not snapshot_committed and snapshot_code != code:
-                raise safe_error(status_code=503, error_code="activation_conflict", ref=request_id,
-                                 message=unused_message,
-                                 context="activation snapshot holds another request's code")
-        try:
-            query = supabase_admin.table("users").update(update_fields).eq("id", user_id)
-            for key, value in activation_snapshot.items():
-                if value is None:
-                    query = query.is_(key, "null")
-                else:
-                    query = query.eq(key, json.dumps(value) if key == "permissions" else value)
-            if (await asyncio.to_thread(lambda: query.execute())).data:
-                break
-        except Exception as e:
-            if staff_security.is_account_suspended_error(e):
-                raise staff_security.account_suspended_exception(403) from None
-            raise _activation_error(e, context="activation user update", ref=request_id) from None
-        if attempt == 1:
-            raise safe_error(status_code=503, error_code="activation_conflict", ref=request_id,
-                             message=unused_message, context="activation snapshot changed twice")
-        try:
-            fresh = (await asyncio.to_thread(
-                lambda: supabase_admin.table("users")
-                .select("id, role, is_active, access_code_used, permissions")
-                .eq("id", user_id).limit(1).execute()
-            )).data or []
-            if not fresh:
-                raise RuntimeError("activation snapshot found no user")
-            user_before = fresh[0]
-        except Exception as e:
-            raise _activation_error(e, status_code=503, message=unused_message,
-                                    context="activation snapshot refresh", ref=request_id) from None
-
-    # Both rollback paths must use the snapshot matched by the successful write.
-    # An uncommitted snapshot here can only be a duplicate submit of this code.
-    was_already_active = bool(user_before.get("is_active")) and snapshot_committed
-    current_role = user_before.get("role") or "user"
-    # W-2 — the role promote is NOT part of this write (SA-REVIEW-152): it runs
-    # only after Step 4 wins the claim, so every pre-claim failure (Step 3b
-    # error, archive race, lost/indeterminate claim) leaves the role untouched.
-    # Upgrade-only: never downgrade admin; no-op if already ≥ instructor. Only
-    # when the email-bound gate above passed.
-    will_promote = promote_role == "instructor" and current_role not in ("admin", "instructor")
-
-    # ── Step 3b (W-5): enroll-chain — stamp students.instructor_id ATOMICALLY,
-    # BEFORE the code is consumed (seam-defect #4: no bolt-tail). Any failure here
-    # RAISES → Step 4 (mark is_used) never runs → the code stays valid → retry-able.
+    # Read-only enrollment/ownership checks before Step 3 (Codex r4424260839).
+    # Migration 359 repeats these decisions under its transaction locks.
     #
     # Owner = the CODE'S issuer IF that issuer is an instructor; admin/mass codes
     # (or no issuer) → NULL (never stamp an admin → keeps roster/metrics clean).
@@ -965,26 +764,6 @@ async def activate_account(
         if ir and ir.get("role") == "instructor":
             owner = str(issued_by)
 
-    # E6 — a CLASS/COHORT code must attach the student to the CLASS's owner
-    # (cohorts.created_by), not only to the code issuer. An instructor who mints
-    # their OWN class code already resolves `owner` above (issuer == owner), but
-    # an admin minting a class code on an instructor's behalf leaves `owner` NULL
-    # — the student then enrolls into the cohort (via students.cohort_id + the
-    # mig-227 membership trigger) yet is orphaned from the instructor roster /
-    # submission-matrix / individual-assign surfaces, which are all scoped by
-    # students.instructor_id. `enroll_owner` falls back to the cohort owner so a
-    # class code always links the student to the class's instructor.
-    #
-    # It is kept SEPARATE from `owner` on purpose: `owner` (issuer-derived) still
-    # drives the cross-instructor conflict 403 below, so this fallback can never
-    # turn an admin's legitimate second-class enroll of an already-owned student
-    # into a 403. It is used ONLY to stamp a NULL instructor_id. Mass/speaking
-    # codes carry no cohort → enroll_owner stays None (anti-pollution preserved).
-    enroll_owner: str | None = owner
-    if enroll_owner is None and code_cohort_id:
-        cohort_owner = (code_cohort or {}).get("created_by")
-        if cohort_owner:
-            enroll_owner = str(cohort_owner)
     try:
         linked_rows = (supabase_admin.table("students")
                        .select("id, user_id, instructor_id, cohort_id, archived_at")
@@ -1008,14 +787,8 @@ async def activate_account(
 
     # Archived between Step 1c and here (a concurrent fn_archive_student): every
     # linked profile is now archived, or the code's own profile is. Refuse before
-    # any enroll write or claim — never create a replacement profile — and undo
-    # this request's Step 3 activation so the archive's account state stands.
+    # any activation, enrollment or claim write.
     if (linked_rows and not by_user) or (target and target.get("archived_at")):
-        _restore_archived_account_state(
-            user_id, was_already_active=was_already_active,
-            student_ids=[row["id"] for row in [*linked_rows, *([target] if target else [])]
-                         if row.get("id") and row.get("archived_at")],
-        )
         raise HTTPException(status_code=403, detail=_ARCHIVED_PROFILE_DETAIL)
 
     # 2nd-code cross-instructor block: an already-owned student can NOT be moved to
@@ -1033,210 +806,93 @@ async def activate_account(
                        "dụng — liên hệ admin để chuyển giảng viên/lớp.",
             )
 
-    # B1 (PR #589 review, comment 2): Step 3b runs BEFORE the code is claimed
-    # (Step 4), so a request that later LOSES the claim race may already have
-    # linked or created a students row for itself. Record what we write here so
-    # the lost-race path can undo it. This keeps W-5 intact (the claim still runs
-    # LAST, so an enroll-write failure still does NOT consume the code).
-    enroll_inserted_id: str | None = None
-    enroll_revert: tuple | None = None  # (student_id, {field: prior_value_to_restore})
-    enroll_added_cohort: tuple[str, str] | None = None  # rollback-only membership
+    if not target and by_code:
+        logger.warning(
+            "[auth] student code of code_id=%s linked to user=%s; refusing relink to %s",
+            access_code_row.get("id"), by_code[0].get("user_id"), user_id,
+        )
+
+    # ── Steps 2–4: one per-user DB transaction (migration 359) ──────────────
+    # Cancellation can stop this await, but cannot split activation/enrollment
+    # from claim. A lost response must never trigger a separate undo or retry.
     try:
-        if target:
-            upd: dict = {}
-            revert: dict = {}
-            already_in_code_cohort = bool(code_cohort_id) and student_is_active_in_cohort(
-                supabase_admin, target["id"], str(code_cohort_id), target.get("cohort_id")
-            )
-            if not target.get("user_id"):
-                upd["user_id"] = user_id
-                revert["user_id"] = None
-            if code_cohort_id:
-                upd["cohort_id"] = code_cohort_id            # cohort fold (same atomic write)
-                revert["cohort_id"] = target.get("cohort_id")
-            if enroll_owner and not target.get("instructor_id"):
-                upd["instructor_id"] = enroll_owner           # stamp ONLY when currently NULL
-                revert["instructor_id"] = None
-            if upd:
-                supabase_admin.table("students").update(upd).eq("id", target["id"]).execute()
-                enroll_revert = (target["id"], revert)
-                if code_cohort_id and not already_in_code_cohort:
-                    # Migration 217's compatibility trigger mirrored this
-                    # provisional legacy pointer as an additive membership.
-                    enroll_added_cohort = (target["id"], str(code_cohort_id))
-        elif by_code:
-            # student_code==code exists but is linked to ANOTHER user (code/account
-            # mismatch — NOT an ownership conflict). Existing behaviour: log + skip
-            # the enroll (don't relink, don't 403). Activation still proceeds.
-            # Log the code row id, never the code itself (SA-3).
-            logger.warning(
-                "[auth] student code of code_id=%s linked to user=%s; refusing relink to %s",
-                access_code_row.get("id"), by_code[0].get("user_id"), user_id,
-            )
-        elif owner or code_cohort_id:
-            # ENROLL SIGNAL only (instructor code OR cohort/class code) AND no row
-            # exists → create the profile. A plain mass/speaking code (no owner, no
-            # cohort) creates NOTHING — don't pollute the writing roster with
-            # student rows for speaking-only users.
-            full_name = (metadata.get("full_name") or metadata.get("name")
-                         or (email.split("@")[0] if email else None) or "Học viên")
-            _ins = supabase_admin.table("students").insert({
-                "user_id":       user_id,
-                "student_code":  code,
-                "full_name":     full_name,
-                "created_by":    issued_by,        # provenance: who issued the code
-                "instructor_id": enroll_owner,     # code issuer if GV, else the class owner
-                "cohort_id":     code_cohort_id,
+        activation = (await asyncio.to_thread(
+            lambda: supabase_admin.rpc("fn_activation_serialize", {
+                "p_user_id": user_id, "p_code_id": access_code_row["id"],
+                "p_code": code, "p_email": email, "p_metadata": metadata,
             }).execute()
-            if _ins.data:
-                enroll_inserted_id = (_ins.data[0] or {}).get("id")
-        # else: no row + no enroll signal (plain mass code) → no-op (no pollution).
-    except HTTPException:
-        raise
+        )).data
+        if not isinstance(activation, dict) or activation.get("status") not in {
+            "ok", "cohort_archived", "student_archived", "account_suspended",
+            "enroll_reassign_rejected", "invalid_code", "lost_claim",
+            "activation_conflict", "activation_error", "promote_email_mismatch",
+        }:
+            raise RuntimeError("invalid activation transaction receipt")
     except Exception as e:
-        if is_cohort_archived_error(e):
-            logger.warning("[auth] activation race: cohort_archived request_id=%s user=%s cohort=%s",
-                           request_id, user_id, code_cohort_id)
-            restored, unrestored = await asyncio.to_thread(
-                _restore_class_activation_snapshot,
-                user_id, activation_snapshot, update_fields, request_id,
-            )
-            await asyncio.to_thread(
-                _audit_class_activation_rejected,
-                user_id, access_code_row.get("id"), code_cohort_id, request_id=request_id,
-                race=True, compensation_failed=not restored, unrestored_fields=unrestored,
-            )
-            if not restored:
-                raise safe_error(
-                    status_code=503, error_code="activation_incomplete", ref=request_id,
-                    message="Kích hoạt chưa hoàn tất. Mã CHƯA được sử dụng — vui lòng thử lại sau ít phút hoặc liên hệ admin.",
-                ) from None
-            raise HTTPException(400, _GENERIC) from None
-        # FATAL, BEFORE consume — fail closed so the code stays retry-able.
-        raise _activation_error(e, message=unused_message, context="activation enrollment write",
-                                ref=request_id) from None
-
-    # The students row this activation enrolled (created or folded). Used after
-    # the claim succeeds to backfill the cohort's open gives for a late joiner.
-    enrolled_student_id = enroll_inserted_id or (target["id"] if target else None)
-
-    # ── Step 4: atomically CLAIM the access code (B1 / review Mục 2) ─────────
-    # P0 fix for double-redemption. The is_used check in Step 1 and this write
-    # used to be a TOCTOU pair: two concurrent activations of the SAME code both
-    # read is_used=false, both activated a (different) user → one code redeemed
-    # twice. The `.eq("is_used", False)` guard turns this into an atomic
-    # compare-and-swap — under the row lock only the FIRST writer matches, the
-    # loser's conditional UPDATE affects 0 rows. No migration needed: the
-    # row-level WHERE clause IS the lock. PostgREST does not evaluate "now()", so
-    # use a real ISO timestamp.
-    now_iso = datetime.now(timezone.utc).isoformat()
-
-    claimed = False
-    indeterminate = False
-    try:
-        claim = (
-            supabase_admin.table("access_codes")
-            .update({"is_used": True, "used_by": user_id, "used_at": now_iso})
-            .eq("id", access_code_row["id"])
-            .eq("is_used", False)
-            .execute()
-        )
-        if claim.data:
-            claimed = True  # our conditional UPDATE matched the row → we won
-        else:
-            # 0 rows: either we LOST the race or it's our own idempotent re-claim.
-            # Re-read to disambiguate (also robust to clients that don't return the
-            # updated representation — then claim.data is empty even on a win).
-            fresh = (
-                supabase_admin.table("access_codes")
-                .select("is_used, used_by")
-                .eq("id", access_code_row["id"])
-                .limit(1)
-                .execute()
-            )
-            frow = (fresh.data or [{}])[0]
-            # Not actually used (no real contention) OR used BY US → we hold it.
-            if (not frow.get("is_used")) or str(frow.get("used_by")) == str(user_id):
-                claimed = True
-            # else: another user owns it → claimed stays False (lost the race).
-    except Exception as e:
-        # PR #589 review, comment 1: an exception here makes the claim/readback
-        # INDETERMINATE — we cannot confirm we own the code. FAIL CLOSED (claimed
-        # stays False) rather than fall through to Step 5, which would risk a
-        # second active redemption in a transient DB/PostgREST failure window.
-        indeterminate = True
-        logger.error("[auth] access-code claim indeterminate — failing closed request_id=%s: %s",
-                     request_id, _exc_tag(e))
-        # The write may have committed despite a lost response, or a duplicate
-        # request may have won. Confirm before undoing its account/enrollment.
-        # A failed read stays indeterminate and follows the existing safe path.
         try:
-            claimed = await asyncio.to_thread(_activation_code_claimed_by_user, user_id, code)
-        except Exception as read_error:
-            logger.error("[auth] access-code claim confirmation failed request_id=%s: %s",
-                         request_id, _exc_tag(read_error))
-
-    if not claimed:
-        # Lost the race (or indeterminate claim). Undo EVERY side effect this
-        # request made BEFORE the claim so the loser is neither active nor
-        # enrolled on a code another user owns (PR #589 review, comments 1 & 2).
-        if not was_already_active:
-            try:
-                # CAS: a newer activation of this user (another code) keeps its state.
-                supabase_admin.table("users").update(
-                    {"is_active": False}
-                ).eq("id", user_id).eq("access_code_used", code).eq("is_active", True).execute()
-            except Exception as e:
-                logger.error(
-                    "[auth] race rollback of is_active FAILED for user=%s (critical): %s",
-                    user_id, _exc_tag(e),
-                )
-        # PC-J420: also put back the code and permissions Step 3 wrote (and
-        # is_active if the write above failed), field by field under the same
-        # ownership CAS, so the row never keeps a code this user lost, nor its
-        # permissions; a newer activation or an admin change still wins.
-        restored, unrestored = await asyncio.to_thread(
-            _restore_class_activation_snapshot,
-            user_id, activation_snapshot, update_fields, request_id, log_failure=False,
-        )
-        if not restored:
-            logger.error("[auth] race rollback of activation fields FAILED request_id=%s user=%s "
-                         "fields=%s (critical)", request_id, user_id, ",".join(unrestored))
-        if enroll_inserted_id:
-            try:
-                supabase_admin.table("students").delete().eq("id", enroll_inserted_id).execute()
-            except Exception as e:
-                logger.error(
-                    "[auth] race rollback of inserted student FAILED id=%s (critical): %s",
-                    enroll_inserted_id, _exc_tag(e),
-                )
-        elif enroll_revert:
-            _sid, _fields = enroll_revert
-            try:
-                if enroll_added_cohort:
-                    remove_student(
-                        supabase_admin, student_id=enroll_added_cohort[0],
-                        cohort_id=enroll_added_cohort[1],
-                    )
-                    # remove_student atomically restores another active primary
-                    # (or NULL), so a second cohort_id write would be stale.
-                    _fields = {key: value for key, value in _fields.items()
-                               if key != "cohort_id"}
-                if _fields:
-                    supabase_admin.table("students").update(_fields).eq("id", _sid).execute()
-            except Exception as e:
-                logger.error(
-                    "[auth] race rollback of student link FAILED id=%s (critical): %s",
-                    _sid, _exc_tag(e),
-                )
-        if indeterminate:
-            # Transient DB/PostgREST failure — we don't actually know the code is
-            # used. Ask the user to retry rather than wrongly claiming it's spent.
-            raise HTTPException(
-                status_code=503,
-                detail="Lỗi tạm thời khi kích hoạt mã. Vui lòng thử lại.",
+            activation = await asyncio.to_thread(
+                _confirmed_activation, user_id, access_code_row["id"], code, email,
             )
-        raise HTTPException(status_code=400, detail="Access code này đã được sử dụng rồi")
+        except Exception:
+            activation = None
+        if activation is None:
+            logger.critical("[auth] activation transaction unconfirmed request_id=%s user=%s "
+                            "(activation_incomplete): %s", request_id, user_id, _exc_tag(e))
+            if code_cohort_id:
+                await asyncio.to_thread(
+                    _audit_class_activation_rejected,
+                    user_id, access_code_row.get("id"), code_cohort_id, request_id=request_id,
+                    race=True, compensation_failed=True,
+                    unrestored_fields=["is_active", "access_code_used", "permissions"],
+                )
+            raise safe_error(
+                status_code=503, error_code="activation_incomplete", ref=request_id,
+                message="Chưa xác nhận được kết quả kích hoạt. Nếu Mã CHƯA được sử dụng, vui lòng thử lại sau ít phút hoặc liên hệ admin.",
+            ) from None
+    status = activation["status"]
+    if status == "cohort_archived":
+        await asyncio.to_thread(
+            _audit_class_activation_rejected,
+            user_id, access_code_row.get("id"), code_cohort_id, request_id=request_id, race=True,
+        )
+        raise HTTPException(400, _GENERIC)
+    if status == "student_archived":
+        raise HTTPException(403, _ARCHIVED_PROFILE_DETAIL)
+    if status == "account_suspended":
+        raise staff_security.account_suspended_exception(403)
+    if status == "enroll_reassign_rejected":
+        await asyncio.to_thread(
+            _audit_enroll_reject, user_id, access_code_row.get("id"),
+            current_owner=activation.get("current_owner"), attempted_owner=activation.get("attempted_owner"),
+        )
+        raise HTTPException(
+            403, "Học viên này đã thuộc một giảng viên khác. Mã CHƯA được sử "
+                 "dụng — liên hệ admin để chuyển giảng viên/lớp.",
+        )
+    if status == "promote_email_mismatch":
+        await asyncio.to_thread(
+            _audit_promote_attempt, user_id, access_code_row.get("id"), ok=False,
+            intended_email=activation.get("intended_email"),
+        )
+        raise HTTPException(403, "Email không khớp với instructor-code này. Mã CHƯA được sử "
+                            "dụng — đăng nhập bằng đúng email được cấp, hoặc liên hệ admin.")
+    if status == "invalid_code":
+        raise HTTPException(400, _GENERIC)
+    if status == "lost_claim":
+        raise HTTPException(400, "Access code này đã được sử dụng rồi")
+    if status == "activation_conflict":
+        raise safe_error(status_code=503, error_code="activation_conflict", ref=request_id,
+                         message=unused_message, context="activation transaction contention")
+    if status != "ok":
+        raise _activation_error(RuntimeError("activation transaction rolled back"), message=unused_message,
+                                context="activation transaction rolled back", ref=request_id)
+    user_before = {"role": activation.get("role")}
+    promote_role = activation.get("promote_role")
+    current_role = user_before["role"] or "user"
+    will_promote = promote_role == "instructor" and current_role not in ("admin", "instructor")
+    enrolled_student_id = activation.get("student_id")
+    code_cohort_id = activation.get("cohort_id", code_cohort_id)
+    now_iso = datetime.now(timezone.utc).isoformat()
 
     # W-2 promote, now that this request owns the code. The claim is immutable,
     # so a promote that does not land is audited with the real final role and

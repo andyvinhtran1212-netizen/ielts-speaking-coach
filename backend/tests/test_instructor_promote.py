@@ -81,6 +81,10 @@ class _Query:
 
 
 class _FakeSB:
+    def rpc(self, name, params):
+        from activation_rpc_fake import activation_rpc
+        return activation_rpc(self, name, params)
+
     def __init__(self, select_data=None):
         self.select_data = select_data or {}
         self.inserts: list = []
