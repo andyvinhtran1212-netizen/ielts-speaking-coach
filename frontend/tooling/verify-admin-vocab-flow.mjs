@@ -5,7 +5,6 @@ import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { expect } from '@playwright/test';
 import { storageKey } from './supabase-session.mjs';
-import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
@@ -440,7 +439,6 @@ await page.route('**/*', async (route) => {
   if (method === 'GET' && parsed.pathname === `/admin/quiz/banks/${quizBankIdB}/analytics`) return json({ session_count: 1, items: [{ item_key: 'resilient', total: 2, wrong: 1, error_rate: 0.5 }], skills: [{ skill: 'spelling', total: 2, wrong: 1, error_rate: 0.5 }] });
   return json({});
 });
-await stubAdminMfaStatus(page);
 
 await page.goto(`${BASE}/admin/vocab`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Vocabulary workspace', exact: true }).waitFor();

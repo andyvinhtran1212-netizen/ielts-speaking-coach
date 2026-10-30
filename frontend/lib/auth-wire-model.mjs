@@ -28,19 +28,13 @@ function profileBase(record) {
     && stringList(record.preferred_topics);
 }
 
-// `is_active` (ADMINAAL2-0032 T010) is a boolean when reported; a payload that
-// omits it yields `null` ("not reported", e.g. a minimal browser fixture), and
-// any other type is malformed. Staff gates deny on `false`; the backend guard
-// still refuses an inactive account on every staff route.
 export function normalizeAuthRoleIdentity(value) {
   const record = recordOf(value);
   if (!record) return null;
-  const reported = record.is_active !== undefined;
   return typeof record.id === 'string' && record.id.length > 0
     && nullableString(record.email)
     && typeof record.role === 'string' && record.role.length > 0
-    && (!reported || typeof record.is_active === 'boolean')
-    ? { id: record.id, email: record.email, role: record.role, is_active: reported ? record.is_active : null }
+    ? { id: record.id, email: record.email, role: record.role }
     : null;
 }
 

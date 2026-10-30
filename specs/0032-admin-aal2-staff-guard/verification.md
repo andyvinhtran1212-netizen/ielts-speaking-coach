@@ -15,7 +15,7 @@
 | FR-009 | kind=test; ref=backend/tests/test_migration_332_staff_security_audit.py (one row per change, source classification, append-only for owner, grants, N-1 activation); kind=query; ref=rollout.md S5 audit coverage query on staging | PENDING |
 | FR-010 | kind=test; ref=backend/tests/test_staff_security_sweep.py (factor verified and deleted between two runs yields two rows, idempotent re-run, cursor durability, snapshot backstop, no secret stored); kind=journey; ref=spec.md AC6 factor enroll and removal on staging within 5 minutes, including add-then-remove inside one sweep interval | PENDING |
 | FR-011 | kind=test; ref=backend/tests/test_owner_alerts.py (event set, recipients from env only, payload has no token or secret, retry to 5 then failed); kind=journey; ref=spec.md AC6 email received on staging | PENDING |
-| FR-012 | kind=test; ref=frontend/tests/admin-mfa-next-behavior.test.mjs and the /admin/mfa Next-native browser verifier (enroll, challenge, wrong code, rate limit, remove with fresh code, next sanitising) | PENDING |
+| FR-012 | kind=test; ref=frontend/tests/admin-mfa-next-behavior.test.mjs and the /admin/mfa Next-native browser verifier (enroll, challenge, wrong code, rate limit, remove with fresh code, next sanitising); Amendment 1: kind=test; ref=backend/tests/test_staff_guard.py (spec.md AC11: 12 h + 1 s refused, 11 h 59 m allowed, missing amr expired, ADMIN_AAL2_MAX_AGE_HOURS abc/0/48 → 12 with a startup log, report-only one would_block line) and the /admin/mfa node test that a factor is deleted only after a fresh verify (AC12); kind=journey; ref=spec.md AC11 report-only log for an old TOTP on staging | PENDING |
 | FR-013 | kind=test; ref=frontend/tests/admin-mfa-gate.test.mjs (gate redirect, report-only banner, api.js mfa_required navigation) and frontend/tooling/verify-admin-mfa-flow.mjs, with the existing verify-admin-*.mjs verifiers green using the shared AAL2 stub | PENDING |
 | FR-014 | kind=test; ref=frontend/tests/instructor-inactive-state.test.mjs (three instructor clients map a mid-session inactive 403 to the denied state) plus the PR #1771 activation-gate tests for load and reload; kind=journey; ref=spec.md AC5 on staging | PENDING |
 | FR-015 | kind=test; ref=backend/tests/test_admin_staff_security_routes.py (security-audit order, alert_status, 503) and frontend/tests/admin-users-staff-security.test.mjs (⚠ on lookup failure) | PENDING |
@@ -23,6 +23,45 @@
 | FR-018 | kind=test; ref=backend/tests/test_migration_332_staff_security_audit.py (suspension guard on every reactivation path, concurrent activation blocked on the lock) and backend/tests/test_activation_suspended_account.py (403 account_suspended before claim, code unused, admin issuance 409 with compensation); kind=test; ref=frontend/tests/login-suspended-account.test.mjs; kind=journey; ref=spec.md AC9 on staging with forced revocation failure | PENDING |
 | FR-017 | kind=query; ref=rollout.md P4 readiness query on staging and production; kind=test; ref=backend/tests/test_migration_332_staff_security_audit.py (bootstrap grants, admins_exist refusal, zero-admin restore); kind=journey; ref=spec.md AC8 recovery drill timings on staging, including path (e) from zero eligible admins | PENDING |
 | FR-019 | kind=test; ref=backend/tests/test_migration_336_suspended_account_role_guard.py (role change of a suspended account refused through the RPC, service REST, owner and superuser SQL; allowed after reactivation; bootstrap exempt; preconditions, postconditions, rollback); kind=test; ref=backend/tests/test_admin_user_role.py (409 account_suspended_role_change with the Vietnamese message); kind=journey; ref=spec.md AC10 on staging after 336 is applied | PENDING |
+| FR-020 | kind=test; ref=backend/tests/test_staff_guard.py and backend/tests/test_admin_staff_security_routes.py and backend/tests/test_admin_user_role.py (spec.md AC12: TOTP 16 min + ADMIN_STEP_UP_ENFORCE=true on PATCH role, PATCH active, POST revoke-sessions → 403 step_up_required with no row change, no staff_security_audit row, no outbox row; 14 min succeeds; report-only one admin_step_up_would_block line; invalid config → 15 / false); kind=test; ref=backend/tests/test_staff_guard_inventory.py (every route that uses require_recent_mfa); kind=test; ref=frontend node test that the UI resends exactly once after a successful challenge; kind=journey; ref=spec.md AC12 on staging: report-only logs, helpers.js fresh AAL2 before sensitive steps, live Staging E2E green; enforcement on staging only in lot 11 or later | PENDING |
+
+## Amendment 1 evidence (AC11, AC12) — PENDING
+
+Approved 2026-10-29 14:44 (UTC+7); implementation is T016 (PC-J135), after
+#1898 (T010). Nothing below has run yet.
+
+- **AC11 (FR-012), offline:** PENDING. TOTP 12 h + 1 s → 403 `mfa_required`
+  with enforcement on; 11 h 59 m allowed; missing `amr` expired;
+  `ADMIN_AAL2_MAX_AGE_HOURS=abc` / `0` / `48` → 12 with a startup log;
+  report-only gives exactly one `would_block` line and success.
+- **AC12 (FR-020), offline:** PENDING. TOTP 16 min +
+  `ADMIN_STEP_UP_ENFORCE=true` on PATCH role, PATCH active and POST
+  revoke-sessions → 403 `step_up_required`, no row change, no
+  `staff_security_audit` row, no outbox row; 14 min succeeds; report-only
+  gives one `admin_step_up_would_block` line and success; the UI resends
+  exactly once after a successful challenge; `/admin/mfa` deletes a factor
+  only after a fresh verify; the inventory test lists every route that uses
+  `require_recent_mfa`.
+- **Staging (AC11, AC12):** PENDING. Report-only logs for an old TOTP on
+  `staging.averlearning.com` with the synthetic admin; `helpers.js` takes a
+  fresh AAL2 before sensitive steps; live Staging E2E green. Step-up
+  enforcement on staging is not part of this evidence until lot 11 or later,
+  on the Leader's go.
+- **AIBUDGET-0033 budget routes:** the raise / end-raise routes of 0033 T013
+  must show `require_recent_mfa` in the same inventory test when they land
+  (PC-J138).
+
+### Rủi ro còn lại (residual risk, accepted by Leader 2026-10-29 14:53)
+
+Factor deletion is **not** enforced on the server. `/admin/mfa` calls GoTrue
+`mfa.unenroll` directly from the browser, so `require_recent_mfa()` never runs
+on it, and GoTrue only requires AAL2. A stolen AAL2 session (≤ 12 h old) can
+delete a factor without a new code by calling GoTrue directly. Controls: the
+fresh verify in the `/admin/mfa` UI (AC12 node test), the T007 factor-deleted
+owner alert within one sweep run (≤ 5 minutes), and the 12 h expiry (FR-012).
+The deletion itself is not mitigated; recovery is to re-enroll and review the
+alert. Details: `research.md` §10.2. This is expected to remain open at T016
+and is not a failed check.
 
 ## T007 test evidence (PC-J40, 2026-10-28)
 
@@ -68,60 +107,6 @@ its NOSUPERUSER owner role, with a stand-in `auth.audit_log_entries`.
   - the claim;
   - the claim's `attempts` compare;
   - the `attempts < 5` filter.
-
-## PC-J201 patch evidence (SA #1936 P3 c-f)
-
-The saved PC-J201 patch from job 1an was resumed in
-`/workspace/wt-q-cx-1ca-resume-1an-j201-mig352` on branch
-`q/cx-1ca-resume-1an-j201-mig352`, based on current staging
-`5cbf1ee8692c1ce17a03e70179cc74c6bc19edbc`. The Leader allocated migration
-`352_mfa_status_throttle.sql`; the test reference, migration README and
-`pending_feature` forward policy (group `mfa_status_throttle`) use that name.
-Applying it is outside this job: no database migration, production access or
-merge is authorized. SA retest, CR review and hosted verification remain
-pending. The PR records the submitted head and local metadata gate result.
-
-- Shared cooldown, account in-flight admission and global concurrency:
-  `test_admin_mfa_status_caller_sweep.py` uses separately imported worker
-  modules against the same PostgreSQL schema.
-- Failed log/snapshot steps, `None` and cancellation start no cooldown;
-  their attempts still count toward the shared six-per-minute budget.
-- The seventh changed-state request returns 429 with `Retry-After`; another
-  account is unaffected and the rolling window recovers. Expired leases
-  recover, while a late completion cannot clear a newer lease.
-- Migration SQL runs twice as the NOSUPERUSER schema owner. RLS is enabled;
-  anon, authenticated and service_role have no table privileges.
-- `test_staff_security_sweep.py` tests the cron deadline during connection
-  setup, snapshot/Auth work and follow-up sleep. Each times out, logs and
-  exits 1; the database backend PID is gone after cleanup.
-- Prior job 1an evidence, before the current staging sync and rename:
-  security regression selection: 388 passed. Its final full backend run used
-  the repository's four CI shards on independent local PostgreSQL 17.11 UTF-8
-  clusters: **14,445 passed, 46 skipped, no failures**. The shard verifier
-  confirmed collection/union = 14,491, missing = 0, extra = 0. All PostgreSQL
-  cases in the changed layers ran with `REQUIRE_PG=1`.
-- Prior job's skips: 16 live Supabase probes without configured credentials,
-  12 local PostgREST probes without that service, 8 Vocabulary PostgreSQL
-  probes without their explicit database setting, 8 spaCy model cases,
-  1 paid Gemini smoke test and 1 external MASTER30 package case. These are
-  unverified prerequisites, not passing evidence. No skip/assertion/timeout
-  was loosened. The initial SQL_ASCII full run was interrupted after Unicode
-  fixture failures and replaced by the passing UTF-8 run above.
-- Spec governance: 41 feature specs validated; `git diff --check` passed.
-- Resume verification on the current staging base and numbered migration:
-  focused backend selection **281 passed, 51 skipped**; complete offline
-  backend suite **13,195 passed, 1,338 skipped**, exit 0 (249.11 seconds).
-  The full-run skips are 1,300 PostgreSQL prerequisites, 12 PostgREST probes,
-  16 live Supabase/RLS probes, 8 spaCy model cases, 1 paid smoke test and
-  1 external MASTER30 source package. No database was configured and migration
-  352 was not applied anywhere in this resume. The PostgreSQL tests retain
-  their existing prerequisite gates; no test or assertion was weakened.
-  Frontend MFA model/transport/contract checks: **33 passed**, no skips.
-  The backend run reported 16 warnings and background AI logging teardown
-  diagnostics outside the changed sweep code; its test result and exit were
-  successful. Current-head database evidence remains for the later SA retest.
-
-The FR-010/FR-011 staging journeys and this job's SA retest remain pending.
 
 ## Contract evidence
 
