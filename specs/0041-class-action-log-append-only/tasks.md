@@ -1,0 +1,5 @@
+# Tasks
+
+- [ ] T001 Migration 356 (`BEFORE TRUNCATE` trigger, TRIGGER/REFERENCES/MAINTAIN revokes, policy comment, postcondition, down script), README and forward-policy entries, real-PostgreSQL tests for FR-001..FR-003 with a second apply and the no-trigger negative control; update the `class_action_log` ACL expectations of #2022/#2041 if merged, otherwise note "needs sync with #2041" in the PR (PC-J286, job 1ec; released by PC-J344 after this spec, #2022 and the end of STAGING_FREEZE). `owns: backend/migrations/356_*.sql, backend/migrations/README.md, backend/migrations/forward-policy.tsv, backend/tests/test_migration_356_class_action_log_no_truncate.py, backend/tests/test_class_action_log_postgres.py, backend/tests/test_migration_trigger_pg_coverage.py`
+- [ ] T002 Staging (Leader): after STAGING_FREEZE is lifted, apply 356 under the advisory lock following the migration apply procedure, run the read-only postcheck in `rollout.md`; SA retest read-only. `depends: T001`
+- [ ] T003 Production, only with Vinh's explicit authorization at the `staging` → `main` promotion: apply 356 under the advisory lock and run the same read-only postcheck. `depends: T002`
