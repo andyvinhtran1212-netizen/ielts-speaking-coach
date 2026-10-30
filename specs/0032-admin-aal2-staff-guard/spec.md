@@ -22,6 +22,12 @@ Leader). Its owner decisions are binding defaults here. Risk source:
 default; the Leader still confirms the reservation before T001.
 FR-019 (role frozen while suspended, migration 336) was added by Vinh's
 decision 1A on 2026-10-28 17:53 (UTC+7); see [Owner decisions](#owner-decisions) Q11.
+Amendment 1 (AAL2 max age and 15-minute step-up, report-only first) was
+approved by Vinh on 2026-10-29 14:44 (UTC+7), verbatim "Duyệt cả 5 theo đề
+xuất", item (a), verified by the Leader. It amends FR-012, adds FR-020, AC11
+and AC12, and revises Q5 to "step-up 15 minutes". See
+[Amendment 1](#amendment-1-aal2-max-age-and-15-minute-step-up-q5-revised) and
+[Rủi ro còn lại](#rủi-ro-còn-lại-residual-risk).
 
 ## Thay đổi người dùng thấy (tóm tắt cho anh Vinh)
 
@@ -37,6 +43,12 @@ decision 1A on 2026-10-28 17:53 (UTC+7); see [Owner decisions](#owner-decisions)
   trước rồi mới đổi vai trò. Trang Người dùng sẽ báo: "Không thể đổi vai trò
   của tài khoản đang bị tạm khóa. Hãy mở khóa tài khoản trước, rồi đổi vai
   trò." (quyết định 1A của anh Vinh, 28/10 17:53).
+- **Amendment 1 (anh Vinh duyệt 29/10 14:44):** quyền admin hết hạn sau
+  12 giờ tính từ lần nhập mã 2 bước gần nhất; làm mới phiên không gia hạn mốc
+  này. Đổi vai trò, tạm khóa/mở khóa, thu hồi phiên và các thao tác ngân sách AI
+  cần mã nhập trong 15 phút gần nhất; nếu cũ hơn, trang hỏi lại: "Thao tác này
+  cần nhập lại mã xác thực 2 bước." Trước hết chỉ ghi log (report-only); bật
+  bắt buộc là một bước riêng sau đó.
 - **Giảng viên chưa kích hoạt / bị tắt** mở `/instructor` sẽ được chuyển về
   `/login` để nhập mã kích hoạt, và không thấy dữ liệu (lỗi production đang gặp,
   sửa ở PR #1771). Nếu tài khoản bị tắt khi đang mở trang, trang hiện "Tài
@@ -96,6 +108,9 @@ compromised admin out is not possible from the product.
 - A staging E2E admin that holds a TOTP factor and signs in at AAL2.
 - A rollout that cannot lock the owner out, and a recovery runbook drilled on
   staging.
+- Amendment 1: a configurable AAL2 max age (12 h from the last TOTP entry) and
+  a 15-minute step-up on privilege-changing and budget routes, report-only
+  first. Code and config only, no migration.
 
 ## Non-goals
 
@@ -104,8 +119,9 @@ compromised admin out is not possible from the product.
 - SMS, WebAuthn or e-mail OTP factors. TOTP only.
 - Recovery codes. Supabase Auth has none; the backup is a second TOTP factor
   (Q1).
-- Step-up "recent re-verification" windows for individual admin actions beyond
-  factor removal (Q5, phase 2).
+- Step-up "recent re-verification" windows for admin actions other than those
+  listed in FR-020 and factor removal. (The original phase-1 non-goal "no
+  step-up beyond factor removal" was replaced by Amendment 1, Q5 revised.)
 - Learner `is_active` workflows. Learner locking stays with the archive flow
   (STUDENTARCHIVE-0029). Learner activation rows are audited by the trigger,
   but no learner-facing behaviour changes.
@@ -143,7 +159,7 @@ compromised admin out is not possible from the product.
 - **FR-009:** Every change of `users.role` or `users.is_active`, and every insert of a `users` row with role admin or instructor, writes exactly one row to the append-only `staff_security_audit` in the same database transaction. This applies to every path: admin API, service code, RPC, or SQL editor. The row holds `target_user_id`, `actor_user_id` (null when unknown), `source` (`admin_api`, `service`, `out_of_band`), `before`, `after`, `reason`, `request_id` and `occurred_at`. `anon` and `authenticated` cannot read or write the table. `service_role` may only insert and select. No role used by the application may update, delete or truncate it.
 - **FR-010:** For an account with role admin, every TOTP factor enrollment, verification and deletion produces its own `staff_security_audit` row (`mfa_factor_enrolled` / `mfa_factor_verified` / `mfa_factor_deleted`, factor id, never the secret) within 5 minutes. This holds even when a factor is created and removed between two sweeps. The event source is Supabase Auth's append-only audit log, read by a durable cursor. A factor snapshot diff is only a backstop. If staging gate R5 shows the Auth audit log cannot provide these events, implementation stops and the guarantee is re-approved before T007; it is never silently narrowed.
 - **FR-011:** The owner recipients configured in the backend environment receive one email for each of these events: an account gains admin, an account loses admin, an admin is suspended or reactivated, a factor is verified or deleted on an admin account, or staff session revocation fails. This holds whatever the event's source, including `out_of_band`. The email names the event, target email, actor email or "không rõ (ngoài ứng dụng)", time in Vietnam time, and source. It never contains tokens, secrets or factor secrets. No email goes to learners or instructors. Delivery is recorded per audit row (`pending`, `sent`, `failed`) and retried up to 5 times. A failure is logged and shown in the admin security history.
-- **FR-012:** `/admin/mfa` lets a signed-in admin enroll a TOTP factor (QR code plus a copyable text secret, then a 6-digit confirmation), complete a challenge from an AAL1 session, list factors, and add a backup factor. A factor can be removed only from an AAL2 session after entering a fresh code on that page. The page returns only to a same-origin `next` path that starts with `/admin/`, and to `/admin` otherwise.
+- **FR-012:** `/admin/mfa` lets a signed-in admin enroll a TOTP factor (QR code plus a copyable text secret, then a 6-digit confirmation), complete a challenge from an AAL1 session, list factors, and add a backup factor. A factor can be removed only from an AAL2 session after entering a fresh code on that page. The page returns only to a same-origin `next` path that starts with `/admin/`, and to `/admin` otherwise. *(Amended by Amendment 1, 2026-10-29.)* AAL2 counts for admin rights only while `now − amr.totp.timestamp ≤ ADMIN_AAL2_MAX_AGE_HOURS` (default 12). Refresh does not renew the timestamp. A missing `amr` entry counts as expired. Over the limit → 403 `{code:"mfa_required", next_step:"challenge"}` under enforcement. Report-only otherwise (one `admin_aal2_would_block` line with `reason=totp_expired`).
 - **FR-013:** Admin pages never render admin data to an admin who lacks AAL2 while enforcement is on. `AdminAccessGate` and the shared transport navigate to `/admin/mfa?next=<current path>` whenever the backend returns `mfa_required`, on first load and on any later admin call. An inactive account never reaches admin children: the phase-0 activation redirect sends it to `/login`, and an inactive 403 from any admin call shows the denied state. In report-only mode an AAL1 admin sees a dismissible banner linking to `/admin/mfa`.
 - **FR-014:** `/instructor`, `/instructor/grade` and `/instructor/compare` never render instructor data to an inactive account. On load and on reload the phase-0 activation redirect (PR #1771) sends it to `/login`. When an instructor API returns the inactive 403 after the page has loaded (suspension mid-session), the page replaces its content with the denied state "Tài khoản chưa được kích hoạt — liên hệ admin" instead of a generic load error.
 - **FR-015:** `GET /admin/users/{user_id}/security-audit` (AAL2 admin) returns that user's audit rows newest first, including alert delivery status. The admin users panel shows them as "Lịch sử quyền". A lookup failure renders "⚠ không tải được lịch sử", never an empty list.
@@ -151,6 +167,7 @@ compromised admin out is not possible from the product.
 - **FR-017:** Enforcement is enabled in an environment only after a read-only query shows every active admin with at least one verified TOTP factor, and either at least two such admins or one admin with an offline backup factor. The recovery runbook (`rollout.md` §Rollback and repair) has been executed on staging with measured durations. It covers: flag off, factor reset, backup factor, a clean-admin RPC repair, and a control-plane bootstrap that restores the first admin when no eligible admin exists. The bootstrap is executable only by the database owner, never by `service_role` or the app. It refuses while any eligible admin exists, and it is audited and emailed.
 - **FR-018:** No other path can make a suspended account active again: self-service `/auth/activate` with any access code, admin-issued codes, student restore (`fn_restore_student`), or a direct SQL update. The database refuses any `is_active` change from false to true while `suspended_at` is set, unless the change comes through the FR-006 reactivation. This holds under concurrent requests. `/auth/activate` refuses a suspended account with 403 `{"code": "account_suspended"}` before the access code is claimed, so the code stays unused. `/auth/me` and `/auth/check-active` report `suspended: true`, and `/login` shows "Tài khoản đang bị tạm khóa — liên hệ admin" instead of the activation dialog. This holds even when session revocation or the sign-in ban failed.
 - **FR-019:** The role of a suspended account cannot change. While `users.suspended_at` is set, the database refuses any change of `users.role` with SQLSTATE P0001 and the message `account_suspended_role_change`. This includes `fn_set_staff_privilege`, alone or combined with reactivation in one call, as well as service-role REST, the SQL editor and a superuser. Only the owner-only `fn_bootstrap_admin_recovery` (FR-017) is exempt, because it clears the marker in the same write. An admin first reactivates the account (FR-006), then changes its role. Repeating the current role is still a no-op. `PATCH /admin/users/{user_id}/role` answers 409 `{"code": "account_suspended_role_change", "message": "Không thể đổi vai trò của tài khoản đang bị tạm khóa. Hãy mở khóa tài khoản trước, rồi đổi vai trò."}`, changes nothing, and the admin users panel shows that message. Migration 336 enforces this rule. It refuses to apply while a suspended account already holds a non-staff role, because the rule would leave that account impossible to reactivate in the app.
+- **FR-020:** *(Amendment 1, 2026-10-29.)* Step-up: `PATCH /admin/users/{user_id}/role`, `PATCH /admin/users/{user_id}/active`, `POST /admin/users/{user_id}/revoke-sessions`, and every AIBUDGET-0033 budget-mutation route (raise, end raise), depend on `require_recent_mfa()`. That check passes only if `now − amr.totp.timestamp ≤ ADMIN_STEP_UP_MINUTES` (default 15). Under `ADMIN_STEP_UP_ENFORCE=true`, a failure is 403 `{code:"step_up_required", next_step:"challenge", max_age_seconds}`, raised **before any DB read or write and before any audit row**. Under `false` (default): one `admin_step_up_would_block` log line per request and today's behaviour. Step-up is only evaluated after the FR-001 guard has passed.
 
 ## Acceptance scenarios
 
@@ -215,6 +232,146 @@ compromised admin out is not possible from the product.
 - **When** an admin changes its role to student, either in the admin users panel or through `fn_set_staff_privilege`
 - **Then** the change is refused with `account_suspended_role_change`, the panel shows "Không thể đổi vai trò của tài khoản đang bị tạm khóa. Hãy mở khóa tài khoản trước, rồi đổi vai trò.", and the role, the marker and the audit are unchanged
 - **And when** the admin reactivates the account first (FR-006), the same role change succeeds
+
+### AC11 — AAL2 expires 12 hours after the last TOTP (FR-012; Amendment 1 draft AC10)
+
+Offline tests:
+
+- With enforce on, a TOTP 12 h + 1 s old → 403 `mfa_required`.
+- 11 h 59 m → allowed.
+- Missing `amr` → expired.
+- `ADMIN_AAL2_MAX_AGE_HOURS=abc` / `0` / `48` → 12 (startup log).
+- Report-only → exactly one `would_block` line, request succeeds.
+
+### AC12 — Step-up within 15 minutes for sensitive routes (FR-020, FR-012; Amendment 1 draft AC11)
+
+Offline tests:
+
+- TOTP 16 min old + `ADMIN_STEP_UP_ENFORCE=true` on PATCH role, PATCH active or POST revoke-sessions → 403 `step_up_required`. No row changes, no `staff_security_audit` row, no outbox row.
+- 14 min → succeeds.
+- Report-only → one `admin_step_up_would_block` line, success.
+- The UI resends exactly once after a successful challenge.
+- `/admin/mfa` deletes a factor only after a fresh verify (node test).
+- The inventory test lists every route that uses `require_recent_mfa`.
+
+Staging (`staging.averlearning.com`, staging Supabase, synthetic admin), for AC11 and AC12:
+
+- report-only logs appear for an old TOTP;
+- the E2E helper (`frontend/tests/staging-e2e/helpers.js`) takes a fresh AAL2 before sensitive steps;
+- Staging E2E is green.
+- Enforcement of step-up on staging happens in lot 11 or later, on Leader's go.
+
+AC11 and AC12 were numbered AC10 and AC11 in the approved Amendment 1 draft
+(`/workspace/specs-drafts/0032-amendment-q5-step-up.md`). They are renumbered
+here only because AC10 already belongs to FR-019. The content is unchanged.
+
+## Amendment 1: AAL2 max age and 15-minute step-up (Q5 revised)
+
+Approved by Vinh 2026-10-29 14:44 (UTC+7), item (a) of
+`handoff/leader/20261029-1442-fd-questions-vinh.md`; see
+[`approval-decision.md`](approval-decision.md). Source finding:
+SEC-20261028-03 F-03 Gap B
+(`handoff/leader/done/20261028-0930-security-auditor-spec0032-aal-gaps.md`).
+Migration: **none** (code and config only). Prod: only at a promotion Vinh
+authorises, and enforcement only on his go (as for T013). The code inventory
+behind it is in [`research.md`](research.md) §10.
+
+### Goal
+
+- An admin's AAL2 stops counting 12 hours after the last TOTP entry, even if
+  the session is refreshed.
+- Privilege-changing and budget actions need a TOTP entered within the last
+  15 minutes.
+- Both run report-only first. Enforcement is a separate, later switch.
+
+### Config
+
+- `ADMIN_AAL2_MAX_AGE_HOURS`, `ADMIN_STEP_UP_MINUTES` and
+  `ADMIN_STEP_UP_ENFORCE` in `backend/config.py`, parsed strictly.
+  - Max age: an invalid value, or one outside 1–12, → 12.
+  - Step-up: an invalid value, or one outside 1–15, → 15.
+  - An invalid enforce value → `false`, plus one startup error log.
+  - **`ADMIN_STEP_UP_ENFORCE` default `false` is confirmed by Leader
+    (29/10 14:53).** This is the "report-only first" Vinh approved. Turning
+    it on in prod needs Vinh's separate approval; turning it on in staging is
+    Leader's call (lot 11 or later).
+  - A value never disables a check.
+
+### Factor delete
+
+The backend cannot gate a GoTrue call, so step-up here is done in the UI.
+`/admin/mfa` must run a fresh `challenge`+`verify` immediately before
+`unenroll`. The existing factor-deleted owner alert (T007 sweep) stays the
+detective control. This limitation is stated in `research.md` §10.2.
+
+### UI
+
+- `api.js` and `AdminAccessGate` handle `step_up_required` by opening the TOTP
+  dialog. After verification they resend the same request once, and never
+  twice.
+- Text: "Thao tác này cần nhập lại mã xác thực 2 bước." (Content Manager to
+  check.)
+- A new `aal2_expired` banner is not needed: `mfa_required` +
+  `next_step=challenge` already covers it.
+
+### User flow
+
+1. An admin signed in at AAL2 eight hours ago opens `/admin/users` and changes
+   a role.
+2. The TOTP is older than 15 minutes, so the server returns 403
+   `step_up_required`.
+3. The dialog asks for the code; `mfa.challenge`+`verify` issues a new AAL2
+   token with a fresh `amr`.
+4. The request is resent and succeeds, with one audit row.
+5. Twelve hours after the last TOTP, every admin route returns
+   `mfa_required`, and `/admin/mfa` asks for the code.
+
+### API
+
+- No new routes.
+- New 403 detail code `step_up_required` on the four route groups.
+- OpenAPI and `frontend/types/api.d.ts` updated.
+
+### Security risks
+
+- Clock skew: reuse `_CLOCK_SKEW_SECONDS` (300 s). A future `amr` timestamp
+  beyond the skew → invalid.
+- Replay of an old token: the age is read from the GoTrue-accepted token only
+  (existing `sub` check).
+- Lockout: wrong values fall back to the safe defaults. Recovery stays via
+  `fn_bootstrap_admin_recovery` (owner only).
+- Factor delete is UI-enforced only: see
+  [Rủi ro còn lại](#rủi-ro-còn-lại-residual-risk).
+
+### Order
+
+- After #1898 (T010) merges.
+- AIBUDGET-0033 T013 (raise routes) must adopt `require_recent_mfa` when it
+  lands (PC-J138).
+
+## Rủi ro còn lại (residual risk)
+
+Accepted by Leader 29/10/2026 14:53 (UTC+7).
+
+- **Factor delete is not enforced on the server.**
+  - The `/admin/mfa` page calls Supabase Auth (`mfa.unenroll`) **directly from
+    the browser**. The FastAPI backend never sees the request, so
+    `require_recent_mfa()` cannot run on it.
+  - GoTrue itself only requires an AAL2 session to delete a verified factor.
+    It does not require a fresh TOTP within 15 minutes.
+  - Anyone holding a stolen AAL2 session (≤ 12 h old) could therefore delete a
+    factor without a new code by calling GoTrue directly, skipping the UI.
+- **Controls in place:**
+  - (1) A UI gate: `/admin/mfa` runs a fresh `challenge`+`verify` immediately
+    before `unenroll` (AC12 node test).
+  - (2) A detective backstop: the factor-deleted owner alert of ADMINAAL2-0032
+    T007 (`staff_security_sweep.py`, Auth audit-log cursor + snapshot). It
+    emails the owner within one sweep run (≤ 5 minutes, cron `*/5`).
+  - (3) Admin rights still expire 12 h after the last TOTP (FR-012).
+- **Not mitigated:** the deletion itself. Recovery is to re-enroll and review
+  the alert. The risk is recorded in `research.md` and `verification.md`.
+  Closing it needs a server-side proxy for factor deletion, which is out of
+  scope here and can be proposed later.
 
 ## Edge cases
 
@@ -297,9 +454,16 @@ the wording of the default that was approved.
   even as a learner).
 - **Q4: Instructor grant, revoke and suspension emails.** *Decided: default accepted.* *Default:* audit row
   only, no email (brief: email only for admin events).
-- **Q5: Step-up for privilege changes.** *Decided: default accepted.* Should granting admin require a TOTP
-  code entered in the last 15 minutes? *Default:* not in phase 1. AAL2 is
-  required for every admin action; factor removal alone needs a fresh code.
+- **Q5: Step-up for privilege changes.** *Revised by Vinh on 2026-10-29
+  14:44 (UTC+7), Amendment 1: step-up 15 minutes.* AAL2 counts for admin
+  rights for at most 12 hours after the last TOTP entry (FR-012), and the
+  routes in FR-020 need a TOTP entered within the last 15 minutes, report-only
+  first (`ADMIN_STEP_UP_ENFORCE=false`). Factor removal keeps its fresh code
+  on `/admin/mfa` (UI only; see [Rủi ro còn lại](#rủi-ro-còn-lại-residual-risk)).
+  *Superseded 2026-10-28 decision (default accepted):* Should granting admin
+  require a TOTP code entered in the last 15 minutes? *Default:* not in phase
+  1. AAL2 is required for every admin action; factor removal alone needs a
+  fresh code.
 - **Q6: Production enforcement date.** *Decided: default accepted.* *Default:* enable on production within
   7 days after staging enforcement passes AC1–AC9 and the FR-017 query is
   green on production, on Vinh's explicit go.
