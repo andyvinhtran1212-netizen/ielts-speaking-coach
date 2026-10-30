@@ -36,6 +36,17 @@ _LOW_RANGE = re.compile(
     r"(?:lacks?|no|little) (?:use of )?complex (?:sentences|structures)|"
     r"limited (?:sentence|grammatical) range"
 )
+# A low-range phrase inside a positive or mixed-structure observation is not a
+# blanket claim about the current essay, e.g. simple sentences used
+# effectively alongside complex ones.
+_MIXED_RANGE = re.compile(
+    r"xen ke|ket hop|da dang|linh hoat|"
+    r"\b(?:varied|variety|mix(?:ed)?|alongside|combined with)\b"
+)
+_UNAFFIRMED = re.compile(
+    r"(?:\b(?:khong|chua|thieu|can|nen|not|no|lacks?|lacking|without|little|need|needs|should|more)"
+    r"\s+(?:\w+\s+){0,2})$"
+)
 _HISTORY = re.compile(r"lich su|bai truoc|5 bai|nam bai|previous|earlier|historical")
 _CURRENT = re.compile(r"bai (?:viet )?(?:nay|hien tai)|current essay|this essay")
 _NO_PATTERNS = re.compile(
@@ -57,6 +68,12 @@ _NEGATED_PRAISE = re.compile(
     r"(?:khong|chua|kem|thieu|not|isn't|isnt|inaccurate|inappropriate)"
     r".{0,22}(?:phu hop|chinh xac|hieu qua|tu nhien|tot|accurate|appropriate|effective|natural)"
 )
+# Criticism in the same clause makes the praise ambiguous or about another
+# subject; the criticism must survive, so such clauses are never deleted.
+_CRITICISM = re.compile(
+    r"\b(?:sai|loi|chua|khong|thieu|guong ep|"
+    r"wrong|incorrect|error|mistake|not|awkward|unnatural)\b"
+)
 _AGE_GROUP = re.compile(r"\b(\d{1,2})\s*[-–—]\s*(\d{1,2})[ -]+year[ -]+olds\b")
 _TASK_RESPONSE = re.compile(r"\bTask Response\b", re.IGNORECASE)
 _NEUTRAL = "Tham khảo các lỗi và gợi ý cụ thể trong phần phân tích."
@@ -73,6 +90,17 @@ def _data_error(explanation: str) -> bool:
 def _unnegated(pattern: re.Pattern, text: str) -> bool:
     return any(not re.search(r"(?:khong(?: phai)?|chua|not|no|without)\s+$", text[:m.start()])
                for m in pattern.finditer(text))
+
+
+def _affirmed(pattern: re.Pattern, text: str) -> bool:
+    return any(not _UNAFFIRMED.search(text[:m.start()]) and not text[m.end():].startswith(" hon")
+               for m in pattern.finditer(text))
+
+
+def _blanket_low_range(plain: str) -> bool:
+    return (_unnegated(_LOW_RANGE, plain)
+            and not _affirmed(_MIXED_RANGE, plain)
+            and not (_affirmed(_PRAISE, plain) and not _NEGATED_PRAISE.search(plain)))
 
 
 def _phrase_pattern(original: str) -> re.Pattern | None:
@@ -143,7 +171,7 @@ def repair_writing_consistency(feedback: WritingFeedback, task_type: str) -> lis
                 plain = _plain(sentence)
                 historical = _HISTORY.search(plain) and not _CURRENT.search(plain)
                 if (feedback.criteriaFeedback.grammaticalRange.bandScore >= 7
-                        and _unnegated(_LOW_RANGE, plain) and not historical):
+                        and _blanket_low_range(plain) and not historical):
                     continue
                 if _NO_PATTERNS.search(plain):
                     # A sentence-structure summary cannot deny lexical patterns.
@@ -176,9 +204,12 @@ def repair_writing_consistency(feedback: WritingFeedback, task_type: str) -> lis
         for sentence in sentences:
             plain = _plain(sentence)
             # Semicolons/contrast markers separate independently judged claims.
-            clauses = re.split(r";|\b(?:nhung|tuy nhien|but|however)\b", plain)
+            # Concessives too; bare "du" is avoided because it also spells "dữ".
+            clauses = re.split(r";|\b(?:nhung|tuy nhien|but|however|mac du|"
+                               r"although|though|whereas)\b", plain)
             conflict = any(p.search(clause) and _PRAISE.search(p.sub("", clause))
                            and not _NEGATED_PRAISE.search(p.sub("", clause))
+                           and not _CRITICISM.search(p.sub("", clause))
                            and not _PROPOSAL.search(clause)
                            and not (_HISTORY.search(clause) and not _CURRENT.search(clause))
                            for clause in clauses for p in flagged)

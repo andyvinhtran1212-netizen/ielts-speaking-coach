@@ -86,6 +86,55 @@ def test_specific_advice_and_explicit_history_survive_high_gra(feedback, claim):
 
 
 @pytest.mark.parametrize("claim", [
+    "Các cấu trúc câu đơn giản được sử dụng hiệu quả, xen kẽ với câu phức.",
+    "Bài này chủ yếu dùng câu đơn nhưng kết hợp tốt với câu phức.",
+    "Simple sentences are used effectively alongside complex structures.",
+])
+@pytest.mark.parametrize("gra", [7, 8])
+def test_positive_mixed_structure_observations_survive_high_gra(feedback, claim, gra):
+    feedback.criteriaFeedback.grammaticalRange.bandScore = gra
+    feedback.sentenceStructureAnalysis = {"summary": claim}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.sentenceStructureAnalysis["summary"] == claim
+
+
+@pytest.mark.parametrize("claim", [
+    "Cấu trúc câu đơn giản, thiếu đa dạng.",
+    "Cấu trúc câu đơn giản, cần đa dạng hơn.",
+    "Cấu trúc câu đơn giản, không hiệu quả.",
+    "The essay only uses simple sentences and needs more variety.",
+])
+def test_negated_or_aspirational_range_words_do_not_shield_blanket_claims(feedback, claim):
+    feedback.sentenceStructureAnalysis = {"summary": claim}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.sentenceStructureAnalysis["summary"] != claim
+
+
+@pytest.mark.parametrize("claim", [
+    "Từ 'informations' là sai dù các số liệu được mô tả chính xác.",
+    "Từ 'informations' chưa đúng, các số liệu được mô tả chính xác.",
+    "The word 'informations' is wrong, although the figures are accurate.",
+    "Mặc dù các số liệu chính xác, từ 'informations' cần sửa thành 'information'.",
+])
+def test_criticism_of_a_flagged_word_survives_praise_of_something_else(feedback, claim):
+    feedback.mistakeAnalysis[2].original = "informations"
+    feedback.criteriaFeedback.lexicalResource.feedback = claim
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.criteriaFeedback.lexicalResource.feedback == claim
+
+
+@pytest.mark.parametrize("claim", [
+    "Từ 'informations' được dùng chính xác.",
+    "The word 'informations' is used accurately and natural.",
+])
+def test_explicit_praise_of_a_flagged_word_is_still_removed(feedback, claim):
+    feedback.mistakeAnalysis[2].original = "informations"
+    feedback.criteriaFeedback.lexicalResource.feedback = claim
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.criteriaFeedback.lexicalResource.feedback != claim
+
+
+@pytest.mark.parametrize("claim", [
     "Cụm 'levelled off' chưa chính xác.",
     "Cụm 'levelled off' không phù hợp với xu hướng này.",
     "The phrase 'levelled off' is not accurate.",

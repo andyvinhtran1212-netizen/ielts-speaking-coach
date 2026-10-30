@@ -79,3 +79,24 @@ async def test_deep_final_merge_rechecks_added_errors_and_changed_gra(writing_pr
     assert result.feedback.mistakeAnalysis[-1].mistakeType == "Data Accuracy"
     assert result.feedback.criteriaFeedback.mainCriterion.title == "Task Achievement"
     assert ("degraded" in result.prompt_version) == fail_pass3
+
+
+@pytest.mark.asyncio
+async def test_repair_failure_keeps_unrepaired_feedback_and_grades(writing_providers, monkeypatch, caplog):
+    from services import gemini_writing_grader as gwg
+
+    def broken_repair(feedback, task_type):
+        feedback.criteriaFeedback.mainCriterion.title = "partially repaired"
+        raise RuntimeError("repair bug")
+
+    state = writing_providers
+    state.claude = [json.dumps(_payload())]
+    monkeypatch.setattr(gwg, "repair_writing_consistency", broken_repair)
+    with caplog.at_level("WARNING", logger=gwg.logger.name):
+        result = await state.grader.grade_essay(_config(grading_tier="standard"))
+
+    assert result.feedback.criteriaFeedback.mainCriterion.title == "Task Response"
+    assert "levelled off" in result.feedback.criteriaFeedback.lexicalResource.feedback
+    assert len(state.claude_requests) == 1
+    assert len(state.rows) == 1 and state.rows[0]["status"] == "success"
+    assert "consistency repair failed" in caplog.text and "RuntimeError" in caplog.text

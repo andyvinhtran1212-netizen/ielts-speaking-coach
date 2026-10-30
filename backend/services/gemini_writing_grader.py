@@ -286,9 +286,18 @@ class GeminiWritingGrader:
 
         # Check the assembled result so Deep additions/score changes cannot
         # reintroduce contradictions. Repairs never spend another AI call.
-        repaired = repair_writing_consistency(result.feedback, config.task_type)
-        if repaired:
-            logger.info("[grader] consistency repairs: %s", ", ".join(repaired))
+        # They run on a copy: a repair bug keeps the unrepaired feedback
+        # instead of failing a grade that was already paid for.
+        try:
+            feedback = result.feedback.model_copy(deep=True)
+            repaired = repair_writing_consistency(feedback, config.task_type)
+        except Exception as e:
+            logger.warning("[grader] consistency repair failed, keeping unrepaired "
+                           "feedback: %s", type(e).__name__)
+        else:
+            result.feedback = feedback
+            if repaired:
+                logger.info("[grader] consistency repairs: %s", ", ".join(repaired))
         return result
 
     async def _grade_instructor(
