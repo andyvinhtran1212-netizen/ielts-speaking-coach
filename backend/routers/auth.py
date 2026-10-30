@@ -813,42 +813,92 @@ async def activate_account(
         )
 
     # ── Steps 2–4: one per-user DB transaction (migration 359) ──────────────
-    # Cancellation can stop this await, but cannot split activation/enrollment
-    # from claim. A lost response must never trigger a separate undo or retry.
-    try:
-        activation = (await asyncio.to_thread(
-            lambda: supabase_admin.rpc("fn_activation_serialize", {
-                "p_user_id": user_id, "p_code_id": access_code_row["id"],
-                "p_code": code, "p_email": email, "p_metadata": metadata,
-            }).execute()
-        )).data
-        if not isinstance(activation, dict) or activation.get("status") not in {
-            "ok", "cohort_archived", "student_archived", "account_suspended",
-            "enroll_reassign_rejected", "invalid_code", "lost_claim",
-            "activation_conflict", "activation_error", "promote_email_mismatch",
-        }:
-            raise RuntimeError("invalid activation transaction receipt")
-    except Exception as e:
+    # The transaction cannot be split, and a lost response never triggers a
+    # separate undo or retry. The W-2 promote must follow a committed claim even
+    # when this request is cancelled meanwhile (Codex r4427266421): the RPC,
+    # its confirmation and the promote run as one shielded unit, and a cancelled
+    # handler waits for that unit before re-raising.
+    async def _activation_then_promote():
         try:
-            activation = await asyncio.to_thread(
-                _confirmed_activation, user_id, access_code_row["id"], code, email,
-            )
-        except Exception:
-            activation = None
-        if activation is None:
-            logger.critical("[auth] activation transaction unconfirmed request_id=%s user=%s "
-                            "(activation_incomplete): %s", request_id, user_id, _exc_tag(e))
-            if code_cohort_id:
-                await asyncio.to_thread(
-                    _audit_class_activation_rejected,
-                    user_id, access_code_row.get("id"), code_cohort_id, request_id=request_id,
-                    race=True, compensation_failed=True,
-                    unrestored_fields=["is_active", "access_code_used", "permissions"],
+            activation = (await asyncio.to_thread(
+                lambda: supabase_admin.rpc("fn_activation_serialize", {
+                    "p_user_id": user_id, "p_code_id": access_code_row["id"],
+                    "p_code": code, "p_email": email, "p_metadata": metadata,
+                }).execute()
+            )).data
+            if not isinstance(activation, dict) or activation.get("status") not in {
+                "ok", "cohort_archived", "student_archived", "account_suspended",
+                "enroll_reassign_rejected", "invalid_code", "lost_claim",
+                "activation_conflict", "activation_error", "promote_email_mismatch",
+            }:
+                raise RuntimeError("invalid activation transaction receipt")
+        except Exception as e:
+            try:
+                activation = await asyncio.to_thread(
+                    _confirmed_activation, user_id, access_code_row["id"], code, email,
                 )
-            raise safe_error(
-                status_code=503, error_code="activation_incomplete", ref=request_id,
-                message="Chưa xác nhận được kết quả kích hoạt. Nếu Mã CHƯA được sử dụng, vui lòng thử lại sau ít phút hoặc liên hệ admin.",
-            ) from None
+            except Exception:
+                activation = None
+            if activation is None:
+                return None, e, None
+        if activation["status"] != "ok":
+            return activation, None, None
+        user_before = {"role": activation.get("role")}
+        current_role = user_before["role"] or "user"
+        will_promote = (activation.get("promote_role") == "instructor"
+                        and current_role not in ("admin", "instructor"))
+
+        # W-2 promote, now that this request owns the code. The claim is immutable,
+        # so a promote that does not land is audited with the real final role and
+        # reported after Steps 5–6 (the code stays this user's), never silently.
+        promote_failure: str | None = None
+        if will_promote:
+            final_role, promote_failure, promote_noop = await asyncio.to_thread(
+                _promote_after_claim, user_id, user_before.get("role"), request_id,
+            )
+            if promote_failure is None:
+                _audit_promote_attempt(user_id, access_code_row.get("id"), ok=True,
+                                       before_role=current_role, after_role=final_role,
+                                       noop=promote_noop)
+            else:
+                logger.critical("[auth] instructor promote FAILED after claim request_id=%s user=%s "
+                                "code_id=%s reason=%s", request_id, user_id,
+                                access_code_row.get("id"), promote_failure)
+                await asyncio.to_thread(
+                    _audit_promote_failed, user_id, access_code_row.get("id"),
+                    before_role=user_before.get("role"), final_role=final_role,
+                    reason=promote_failure, request_id=request_id,
+                )
+        return activation, None, promote_failure
+
+    work = asyncio.ensure_future(_activation_then_promote())
+    try:
+        activation, rpc_error, promote_failure = await asyncio.shield(work)
+    except asyncio.CancelledError:
+        # A thread cannot be interrupted: however often this request is
+        # cancelled, let the claim's promote finish. asyncio.wait never cancels it.
+        while not work.done():
+            try:
+                await asyncio.wait({work})
+            except asyncio.CancelledError:
+                pass
+        if not work.cancelled():
+            work.exception()  # retrieve it: no "exception never retrieved"
+        raise
+    if activation is None:
+        logger.critical("[auth] activation transaction unconfirmed request_id=%s user=%s "
+                        "(activation_incomplete): %s", request_id, user_id, _exc_tag(rpc_error))
+        if code_cohort_id:
+            await asyncio.to_thread(
+                _audit_class_activation_rejected,
+                user_id, access_code_row.get("id"), code_cohort_id, request_id=request_id,
+                race=True, compensation_failed=True,
+                unrestored_fields=["is_active", "access_code_used", "permissions"],
+            )
+        raise safe_error(
+            status_code=503, error_code="activation_incomplete", ref=request_id,
+            message="Chưa xác nhận được kết quả kích hoạt. Nếu Mã CHƯA được sử dụng, vui lòng thử lại sau ít phút hoặc liên hệ admin.",
+        ) from None
     status = activation["status"]
     if status == "cohort_archived":
         await asyncio.to_thread(
@@ -886,35 +936,9 @@ async def activate_account(
     if status != "ok":
         raise _activation_error(RuntimeError("activation transaction rolled back"), message=unused_message,
                                 context="activation transaction rolled back", ref=request_id)
-    user_before = {"role": activation.get("role")}
-    promote_role = activation.get("promote_role")
-    current_role = user_before["role"] or "user"
-    will_promote = promote_role == "instructor" and current_role not in ("admin", "instructor")
     enrolled_student_id = activation.get("student_id")
     code_cohort_id = activation.get("cohort_id", code_cohort_id)
     now_iso = datetime.now(timezone.utc).isoformat()
-
-    # W-2 promote, now that this request owns the code. The claim is immutable,
-    # so a promote that does not land is audited with the real final role and
-    # reported after Steps 5–6 (the code stays this user's), never silently.
-    promote_failure: str | None = None
-    if will_promote:
-        final_role, promote_failure, promote_noop = await asyncio.to_thread(
-            _promote_after_claim, user_id, user_before.get("role"), request_id,
-        )
-        if promote_failure is None:
-            _audit_promote_attempt(user_id, access_code_row.get("id"), ok=True,
-                                   before_role=current_role, after_role=final_role,
-                                   noop=promote_noop)
-        else:
-            logger.critical("[auth] instructor promote FAILED after claim request_id=%s user=%s "
-                            "code_id=%s reason=%s", request_id, user_id,
-                            access_code_row.get("id"), promote_failure)
-            await asyncio.to_thread(
-                _audit_promote_failed, user_id, access_code_row.get("id"),
-                before_role=user_before.get("role"), final_role=final_role,
-                reason=promote_failure, request_id=request_id,
-            )
 
     # ── Step 5: upsert assignment row so admin panel can show the redeemer ───
     try:

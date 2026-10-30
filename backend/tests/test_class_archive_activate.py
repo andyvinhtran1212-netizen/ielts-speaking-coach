@@ -1453,9 +1453,10 @@ def test_cancellation_does_not_undo_an_atomic_activation(world, monkeypatch):
         try:
             assert await asyncio.to_thread(entered.wait, 20)
             task.cancel()
+            # PC-J477: the cancelled handler now waits for its DB worker, so release first.
+            release.set()
             with pytest.raises(asyncio.CancelledError):
                 await task
-            release.set()
             assert await asyncio.to_thread(committed.wait, 20)
         finally:
             release.set()
@@ -1468,3 +1469,116 @@ def test_cancellation_does_not_undo_an_atomic_activation(world, monkeypatch):
     assert db.tables["access_codes"][0]["used_by"] == USER
     assert len(db.tables["students"]) == 1
     assert db.tables["students"][0]["cohort_id"] == COHORT
+
+
+# ── PC-J477 (Codex r4427266421): cancellation cannot abandon the promote ─────
+
+def cancel_during_activation_rpc(db, monkeypatch, *, cancels=1, lost_response=False):
+    """Cancel the handler `cancels` times while the activation RPC thread runs,
+    then let the RPC commit (optionally losing its response). Returns whether the
+    handler finished before its DB worker did."""
+    import asyncio
+
+    entered, release, committed = threading.Event(), threading.Event(), threading.Event()
+    original = db.rpc
+
+    def rpc(name, params):
+        if name != "fn_activation_serialize":
+            return original(name, params)
+
+        def execute():
+            entered.set()
+            assert release.wait(20), "cancelled request never released its DB worker"
+            try:
+                result = original(name, params).execute()
+            finally:
+                committed.set()
+            if lost_response:
+                raise RuntimeError(DB_TEXT)
+            return result
+        return SimpleNamespace(execute=execute)
+    monkeypatch.setattr(db, "rpc", rpc)
+    outcome = {}
+
+    async def run():
+        task = asyncio.create_task(auth.activate_account(auth.ActivateRequest(access_code=CODE), "Bearer fake"))
+        try:
+            assert await asyncio.to_thread(entered.wait, 20)
+            for _ in range(cancels):
+                task.cancel()
+                await asyncio.sleep(0.05)
+            outcome["returned_early"] = task.done()
+            release.set()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+            assert await asyncio.to_thread(committed.wait, 20)
+            # Any follow-up still pending lands within 2 s of the worker finishing.
+            for _ in range(40):
+                if db.tables["users"][0]["role"] != "user" or promote_audits(db):
+                    break
+                await asyncio.sleep(0.05)
+        finally:
+            release.set()
+            if not task.done():
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+    asyncio.run(run())
+    return outcome["returned_early"]
+
+
+def count_promotes(monkeypatch, result=None):
+    calls = []
+    original = auth._promote_after_claim
+
+    def promote(*args):
+        calls.append(args)
+        return result if result is not None else original(*args)
+    monkeypatch.setattr(auth, "_promote_after_claim", promote)
+    return calls
+
+
+@pytest.mark.parametrize("cancels", [1, 2])
+@pytest.mark.parametrize("lost_response", [False, True])
+def test_cancelled_instructor_activation_still_promotes(world, monkeypatch, cancels, lost_response):
+    db, _ = world
+    use_instructor_code(db)
+    calls = count_promotes(monkeypatch)
+    returned_early = cancel_during_activation_rpc(db, monkeypatch, cancels=cancels,
+                                                  lost_response=lost_response)
+    user, code = db.tables["users"][0], db.tables["access_codes"][0]
+    assert code["is_used"] is True and code["used_by"] == USER
+    assert user["is_active"] is True and user["access_code_used"] == CODE
+    assert user["role"] == "instructor"
+    assert len(calls) == 1
+    assert [(a["action"], a["before"], a["after"]) for a in promote_audits(db)] == [
+        ("promote_role", {"role": "user"}, {"role": "instructor"})]
+    assert not returned_early, "handler returned while its DB worker still ran"
+
+
+@pytest.mark.parametrize("cancels", [1, 2])
+def test_cancelled_instructor_activation_audits_a_failed_promote(world, monkeypatch, cancels):
+    db, _ = world
+    use_instructor_code(db)
+    calls = count_promotes(monkeypatch, result=("user", "write_failed", False))
+    with request_id_scope("j477-request"):
+        cancel_during_activation_rpc(db, monkeypatch, cancels=cancels)
+    assert db.tables["access_codes"][0]["used_by"] == USER
+    assert db.tables["users"][0]["role"] == "user"
+    assert len(calls) == 1
+    audits = promote_audits(db)
+    assert [(a["action"], a["before"], a["after"]) for a in audits] == [
+        ("promote_role_failed", {"role": "user"},
+         {"role": "user", "reason": "write_failed", "code_claimed": True, "request_id": "j477-request"})]
+
+
+def test_promote_email_mismatch_receipt_is_unchanged(world):
+    db, client = world
+    use_instructor_code(db)
+    db.transaction_receipt = {"status": "promote_email_mismatch", "intended_email": "other@example.test"}
+    response = activate(client)
+    assert response.status_code == 403, response.text
+    assert "Email không khớp" in response.json()["detail"]
+    assert db.tables["users"][0]["role"] == "user"
+    assert [(a["action"], a["after"]) for a in promote_audits(db)] == [
+        ("promote_role_rejected", {"reason": "email_mismatch", "intended_email": "other@example.test"})]
+    assert_unused(db)
