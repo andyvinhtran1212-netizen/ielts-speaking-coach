@@ -69,8 +69,9 @@ _FEATURE = "question_tts"
 
 
 def _client_ip(request: Request | None) -> str | None:
-    # Same key as RequestSafetyMiddleware: X-Real-IP → last XFF hop → peer.
-    # Earlier XFF hops are caller-supplied and must not mint fresh budgets.
+    # Same key as RequestSafetyMiddleware: rightmost untrusted XFF hop →
+    # X-Real-IP → peer. Only configured proxy CIDRs may be skipped; an invalid
+    # hop stops the scan (PC-J202/J183).
     return request_client_ip(request)
 
 
@@ -206,7 +207,7 @@ async def text_to_speech(
 
     try:
         # Single synth path, shared with the vocab audio pregen (Slice-2).
-        audio_bytes = await synthesize_mp3(body.text, voice, user_id=user_id)
+        audio_bytes = await synthesize_mp3(body.text, voice)
         logger.info("[tts] generated %d bytes for %d chars (voice=%s)", len(audio_bytes), len(body.text), voice)
 
         ai_usage_logger.schedule_usage_log(ai_usage_logger.log_tts_async(

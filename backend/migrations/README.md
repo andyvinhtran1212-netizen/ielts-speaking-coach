@@ -20,8 +20,10 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-29 the highest is `346`, so by that rule the
-next new migration is `347`. Ask the Leader before taking it.
+sequence is dense. As of 2026-10-30 the highest is `352`, allocated by the
+Leader to PC-J201, so by that rule the next new migration is `353`. Ask the
+Leader before taking it; 348–351 are reserved for other work and must not be
+reused.
 The runner applies any unapplied file regardless of order.
 Numbers 321–326 belong to 321 WRITINGRATE-0025, 322 AIOPS-0024 (#1837), 323
 ROLECHECK-0026, 324 ASSIGNDRAFT-0027, 325 CODEUNIQ-0028 and 326
@@ -29,12 +31,50 @@ STUDENTARCHIVE-0029. 327–330 have no file and must not be reused: 327–329 we
 reserved, and 330 was the first reservation for A-10, which took 337 instead
 (CLASSARCHIVE-0030 D1). 331 is GIVEARCHIVE-0031, 332 is ADMINAAL2-0032, 333 is
 AIBUDGET-0033, 334 is ACTIVATELIMIT-0034, 335 is INACTIVEWRITE-0035, 336 is
-ADMINAAL2-0032 FR-019 (#1853), 337 is A-10 CLASSARCHIVE-0030 and 338 is
-PAPERUPDATEDAT-0037. Every number from 331 to 338 now has a file. 345 is
+ADMINAAL2-0032 FR-019 (#1853), 337 is A-10 CLASSARCHIVE-0030, 338 is
+PAPERUPDATEDAT-0037 and 339 is GRAMMARAUDIT-0019 Revision 2 (reserved by the
+Leader on 2026-10-29). Every number from 331 to 339 now has a file. 340
+is the AIBUDGET-0033 hardening. 345 is
 PC-J119 (RLS-ADMIN-INLINE-AAL2 + GRAMMAR-FN-SEARCHPATH, spec ADMINAAL2-0032),
-reserved by the Leader on 2026-10-29; 339–344 are reserved for other open
+reserved by the Leader on 2026-10-29; 341–344 are reserved for other open
 work and must not be reused. 346 is PC-J153 (CLASSARCHIVE-0030 FR-003),
-assigned by the Leader on 2026-10-29.
+assigned by the Leader on 2026-10-29. 347 is PC-J163 (listening_tests client revoke,
+spec LISTENING-0005), given by the Leader on 2026-10-29.
+
+Migration `347` (PC-J163) revokes ALL on `listening_tests` from `PUBLIC`,
+`anon` and `authenticated` (MAINTAIN included on PG 17). 295 closed the other
+Listening content tables but missed this one, which kept the 320-narrowed
+`anon`/`authenticated` SELECT. RLS with no policy hid the rows, so one broad
+SELECT policy would have exposed every Listening form and its answers through
+`/rest/v1/`. FastAPI reads and writes the table with `service_role` only, and
+`listening_public_practice_catalog` (306) is owner-run and granted to
+`service_role` only, so no product path changes. The postcondition fails if
+`anon` or `authenticated` still has SELECT, if any client role keeps a table
+or column privilege (a grant from another grantor survives the REVOKE), or if
+`service_role` lost SELECT/INSERT/UPDATE/DELETE. Group
+`listening_tests_revoke` in `forward-policy.tsv`: merging does not apply it;
+staging first under the advisory lock, production only at an authorised
+promotion. One transaction, no data change, re-runnable; the emergency-only
+rollback (the old SELECT grant) is in the file header.
+
+Migration `352` (PC-J201, ADMINAAL2-0032 FR-010/FR-011, SA #1936 P3 c–f)
+adds the private `staff_mfa_status_throttle` table for shared admission to the
+caller-only MFA status sweep: successful-state cooldown, six rolling-minute
+attempts per account and at most two active leases across workers. The backend
+holds its admission advisory lock only for short transactions, never during
+Auth HTTP. Failed passes consume an attempt without starting a cooldown;
+expired leases recover and completion is fenced by its lease token. Old
+backends ignore the table; without it PC-J201 logs and skips the caller pass
+while the status read and cron fallback remain available. RLS is enabled with
+no policies, and PUBLIC, anon, authenticated and service_role lose all table
+privileges; the postcondition checks privacy. One additive transaction,
+re-runnable, no existing data change. It is held by `forward-policy.tsv`
+(group `mfa_status_throttle`); it must not apply on merge or join the 30 October
+promotion. A separately authorized apply uses
+`MIGRATION_FEATURES=mfa_status_throttle` through the advisory-locked runner,
+staging first before the PC-J201 backend, then production only at an authorized
+promotion. Rollback SQL is in the header: deploy the pre-PC-J201 backend, then
+drop only this operational table in a new forward migration.
 
 Migration `345` (PC-J119) removes the RLS policies that granted admin reads
 with an inline `users.role = 'admin'` check and nothing else (no AAL2, no
@@ -62,6 +102,69 @@ PC-J94 invariant harness has none of these tables). Group `rls_admin_inline`
 in `forward-policy.tsv`: staging first under the advisory lock, production only
 at an authorised promotion. One transaction, no data change, re-runnable;
 the rollback (which reopens the hole) is in the file header.
+
+Applying `345` (runbook, PC-J162):
+
+- **A dry run is required first, on staging and on production.** The
+  postcondition is a gate on the whole `public` schema, so any other policy
+  with `'admin'` in it (for example a dashboard-created one that was not in the
+  2026-10-29 staging check) makes 345 abort with `inline_admin_policy_remains`.
+  That abort is safe: the transaction rolls back. Run the dry run and the
+  read-only query below before the real apply. The dry run must list only
+  `345`, plus any migration the Leader has already approved for the same
+  window:
+
+  ```bash
+  DRY_RUN=1 MIGRATION_FEATURES=rls_admin_inline ./backend/scripts/apply_migrations.sh "$STAGING_DB_URL"
+  # production, only at an authorised promotion:
+  ALLOW_PROD=1 DRY_RUN=1 MIGRATION_FEATURES=rls_admin_inline ./backend/scripts/apply_migrations.sh "$DATABASE_URL"
+  ```
+
+  ```sql
+  -- read-only, before apply: every public policy with the literal 'admin'
+  SELECT c.relname, p.polname FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid
+   WHERE c.relnamespace = 'public'::regnamespace
+     AND concat_ws(' ', pg_get_expr(p.polqual, p.polrelid),
+                   pg_get_expr(p.polwithcheck, p.polrelid)) ~* '''admin'''
+   ORDER BY 1, 2;
+  ```
+
+  The rows may only come from the 8 policies 345 handles:
+  `dictation_sessions`/`"admins read dictation sessions"`,
+  `dictation_attempts`/`"admins read dictation attempts"`,
+  `dictation_attempt_answers`/`"admins read dictation attempt answers"`,
+  `user_feedback`/`"admins read feedback"`,
+  `lemma_overrides`/`"Admins manage lemma overrides"`,
+  `vocabulary_exercises`/`vocab_exercises_admin_write`,
+  `vocabulary_exercises`/`vocab_exercises_select` and
+  `access_codes`/`"Admin only"`. Fewer rows are fine, because each step skips
+  an absent object. If any other row appears, do not apply. Report it to the
+  Leader and the Security Auditor.
+- **Production: apply off-peak.** After `LOCK TABLE … ACCESS EXCLUSIVE` on
+  the 7 target tables (`access_codes`, `dictation_attempt_answers`,
+  `dictation_attempts`, `dictation_sessions`, `lemma_overrides`,
+  `user_feedback`, `vocabulary_exercises`), the migration runs `count(*)` on
+  each of them twice: once after the locks in step 1 and once in the final
+  row-count check. The locks are held until `COMMIT`, so reads are blocked
+  too. This includes access-code activation and dictation. On staging this is
+  acceptable because the tables are small. On production, apply in a low-traffic
+  window. If an open transaction holds one of these tables, the
+  `lock_timeout` of 5 s aborts the whole migration with nothing changed, and it
+  can be re-run. The file is approved and the release register pins its
+  sha256, so do not edit it to remove the counts. Staging and production must
+  run the same bytes.
+- **After apply, run `backend/scripts/verify_migration_345_client_acl.sql`
+  read-only (PC-J169).** 345's own postcondition checks only table-level
+  `SELECT` … `TRIGGER`, and its `REVOKE` removes only the runner's grants. A
+  column-level `INSERT`/`UPDATE`/`REFERENCES` or a `MAINTAIN` (PG17) grant
+  that another role passed on survives both. The verifier reads every
+  `relacl`/`attacl` entry for `PUBLIC`, `anon` and `authenticated` on
+  `user_feedback`, `lemma_overrides` and `access_codes`, whatever the grantor,
+  plus their effective privileges. It must return the single row
+  `verify_345_client_acl: ok`. Any `client_acl_entry_remains` or
+  `client_privilege_effective_remains` error names `table[.column]:grantee:privilege[/grantor]`:
+  report it to the Leader and the Security Auditor. On staging it runs through
+  the Management API with `"read_only": true` or with `psql -v ON_ERROR_STOP=1 -f`.
 
 Migration `337` (CLASSARCHIVE-0030, A-10) enforces class archive. An
 *archived* class is `cohorts.is_active = false AND archived_at IS NOT NULL`. It
@@ -138,6 +241,29 @@ policy revisions, release events and `mock_content_revision` are unchanged.
 `listening_exercises` keeps 208's trigger. No data change; later files must not
 drop these triggers or add a BEFORE row trigger that sorts after them.
 
+Migration `339` (GRAMMARAUDIT-0019 Revision 2, T011; number reserved by the
+Leader on 2026-10-29) widens the one Long Sentence Untangling follow-up of 314
+to exactly three codes: LSU, Grammar in Task 1 and Few / A few / Little / A
+little. It is function-only: the new private IMMUTABLE
+`grammar_quiz_followup_pair(code)` returns the (middle, final) reviewed source
+of those three codes and NULL for every other code, and replaces each LSU
+literal in `grammar_quiz_audit_chain`, `grammar_quiz_guard_bank`,
+`grammar_quiz_validate_receipt_envelope` and `grammar_quiz_receipt_data`.
+`grammar_quiz_audit_binding` embeds the new
+`services/grammar_quiz_reviewed_sources.json` (every 314 binding unchanged, two
+v3 bindings added). Signatures, SECURITY DEFINER, `search_path` and 314's
+REVOKE/GRANT block are unchanged, so no grammar function is client-executable.
+It aborts without 314; the postcondition fails if a bank, question, session,
+attempt, stat or receipt count, or any managed chain's validity, changes. A
+normal forward migration (no `forward-policy.tsv` row), one transaction,
+re-runnable. Apply it under the advisory lock before the dependent backend:
+staging first, production before the staging → main promotion. Publishing the
+two v3 banks is a separate admin preview/commit step (T012/T013). The rollback
+lives outside the forward glob, in `rollback/339_grammar_quiz_followup_codes.sql`
+(run by hand with `psql -v ON_ERROR_STOP=1 -f`): it re-creates the 314 bodies
+and drops the lookup, and refuses once a v3 bank exists. After a publication,
+roll back by pausing new starts on the v3 bank instead.
+
 Migration `335` (INACTIVEWRITE-0035, SEC-20261028-02) closes the direct-REST
 write path for inactive accounts. 320 kept `authenticated` writes on the five
 learner-owned Vocabulary/flashcard tables and `UPDATE (is_active)` on
@@ -183,6 +309,35 @@ is a normal forward migration, so it has no `forward-policy.tsv` row: a
 `pending_feature` row would let the runner skip it while the dependent code is
 promoted. Rollback (deploy the pre-0034 backend first) is in the file header.
 
+Migration `340` (AIBUDGET-0033 hardening, PC-J85) fixes the Security
+Auditor's PC-J67 findings on 333 without editing it. It replaces five 333
+function bodies with the same names, arguments, return types, security,
+`search_path` and ACL, adds the internal `fn_ai_budget_assert_finite` (no API
+role may execute it) and adds:
+
+- F01: `fn_ai_budget_reserve`, `fn_ai_budget_settle` and
+  `fn_ai_budget_raise_grant` raise 22023 `ai_budget_non_finite_amount` for a
+  NaN or ±Infinity cap (hard, soft or total), estimate, actual, raise amount or
+  base cap before any write, and `*_finite_usd` CHECKs cover every money column
+  of the counters, reservations, raises, raise events and alerts (added `NOT
+  VALID`, then validated; an existing non-finite row aborts the migration with
+  its count and is never rewritten);
+- F02: `fn_ai_deferred_commit` refuses a null/empty result or one without what
+  the live success mapper writes (`overall_band`, `feedback`, a transcript and
+  `stt_status = 'completed'` after the patch). Nothing is written, so the job
+  is claimed again after its lease;
+- F04: `fn_ai_deferred_commit_writing` commits only a `running` job;
+- F05: the postcondition aborts and names any policy on the eight budget
+  tables, without dropping it.
+
+It belongs to the same `forward-policy.tsv` group: apply it after 333 with
+`MIGRATION_FEATURES=ai_budget` through the advisory-locked runner, on staging
+first and on production only at an authorised promotion together with 333,
+before the 0033 backend. Re-running 333 afterwards restores the old bodies, so
+re-run 340 after it. One transaction, no business data change, re-runnable.
+Its header carries ROLLBACK (a) (down 340 only) and ROLLBACK (b) (the whole
+`ai_budget` group, F03); both are Leader-approved forward migrations.
+
 Migration `333` (AIBUDGET-0033) adds the database half of the hard AI budget
 (`specs/0033-ai-budget-hard-cap/plan.md` "Migration 333"). It is held back by
 `forward-policy.tsv` (group `ai_budget`), so apply it only with
@@ -216,7 +371,8 @@ SELECT except INSERT/UPDATE on the jobs and heartbeat and UPDATE of the alert
 send columns. The N-1 backend reads none of it; its response writes just gain
 one refresh-row upsert. The guarded down script in the file header refuses
 while saved work waits for grading or a raise is active, and keeps the raise
-events.
+events. It misses an owed class-score sync (PC-J67 F03), so roll back 333
+only with ROLLBACK (b) in the 340 header, never with the 333 header script.
 
 Migration `332` (ADMINAAL2-0032) adds the staff security audit. It is held
 back by `forward-policy.tsv` (group `admin_aal2`), so apply it only with

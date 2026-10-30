@@ -522,6 +522,60 @@ async def test_bg_grade_essay_final_attempt_uses_fallback_model(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_bg_grade_essay_persists_run_cost_and_model_provenance(monkeypatch):
+    """PC-J164: the feedback row keeps the run total in cost_usd and records
+    requested vs attempt vs serving model plus every provider call; the essay's
+    selected_model (the request) is not rewritten."""
+    from config import settings
+    from models.writing_feedback import GradingResult
+    monkeypatch.setattr(settings, "WRITING_GRADING_MAX_ATTEMPTS", 3)
+    monkeypatch.setattr(settings, "WRITING_GRADING_FALLBACK_ENABLED", True)
+    monkeypatch.setattr(settings, "WRITING_FALLBACK_MODEL", "gemini-2.5-flash")
+    responses = _bg_essay_responses()                                 # primary = gemini-2.5-pro
+    responses[("writing_jobs", "select")] = [{"attempt_count": 2, "max_attempts": 3, "status": "running"}]
+    fake = _FakeSupabase(responses=responses)
+    fake_grader = MagicMock()
+    attempts = [
+        {"pass": "pass1", "provider": "anthropic", "model": "claude-sonnet-5-5",
+         "status": "invalid_response", "error_code": "ungrounded_feedback",
+         "input_tokens": 900, "output_tokens": 9000, "cost_usd": 0.132552, "served": False},
+        {"pass": "pass1", "provider": "anthropic", "model": "claude-sonnet-5-5",
+         "status": "success", "error_code": None,
+         "input_tokens": 700, "output_tokens": 6000, "cost_usd": 0.086236, "served": True},
+    ]
+
+    async def fake_grade(_config):
+        return GradingResult(
+            feedback=_valid_feedback_obj(), model_used="claude-sonnet-5-5",
+            tokens_input=700, tokens_output=6000, cost_usd=0.218788,
+            grading_duration_ms=10, prompt_version="v2.3", grading_attempts=attempts,
+        )
+    fake_grader.grade_essay = fake_grade
+
+    with patch.object(essay_service, "supabase_admin", fake), \
+         patch.object(essay_service, "get_grader", return_value=fake_grader), \
+         patch.object(essay_service, "get_recurring_patterns", return_value=None), \
+         patch.object(essay_service, "get_band_trajectory",  return_value=None):
+        await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
+
+    row = next(c for c in fake.calls if c["table"] == "writing_feedback"
+               and c["op"] == "insert")["payload"]
+    assert row["model_used"] == "claude-sonnet-5-5"
+    assert row["cost_usd"] == pytest.approx(0.218788)
+    assert row["provenance"] == {
+        "job_id": _JOB_ID,
+        "requested_model": "gemini-2.5-pro",
+        "attempt_model": "gemini-2.5-flash",
+        "model_used": "claude-sonnet-5-5",
+        "ai_attempt_count": 2,
+        "rejected_attempt_count": 1,
+        "ai_attempts": attempts,
+    }
+    assert not any(c["table"] == "writing_essays" and "selected_model" in c["payload"]
+                   for c in fake.calls if c["op"] == "update")
+
+
+@pytest.mark.asyncio
 async def test_bg_grade_essay_increments_attempt_counter(monkeypatch):
     """Sprint W-MM: each BG run bumps writing_jobs.attempt_count (per-essay retry
     ledger). A job previously at attempt 1 runs as attempt 2."""
@@ -986,13 +1040,31 @@ def test_render_context_404_when_feedback_missing():
 
 
 @pytest.mark.asyncio
-async def test_bg_grade_essay_overrides_model_overall_with_ielts_round():
+@pytest.mark.parametrize("model_band,bands,final_band", [
+    (5.5, (5, 6, 7, 6), 6.0),  # PC-J166: model band differs from final
+    (6.0, (6, 6, 7, 6), 6.5),  # IELTS .25 rounds up
+    (7.0, (6, 6, 6, 6), 6.0),  # final band can also be lower
+])
+async def test_bg_grade_essay_overrides_model_overall_with_ielts_round(
+    model_band, bands, final_band,
+):
     """P-1: the persisted overall is BACKEND-computed (IELTS-round of the 4
     criteria), not the model's self-round. Criteria {6,6,7,6} → mean 6.25 → 6.5,
     even though the model emitted 6.0. The model value is preserved in
     feedback_json.overallBandScoreModel."""
     fb = _valid_feedback_obj()
-    fb.overallBandScore = 6.0   # model self-round (wrong / different)
+    fb.overallBandScore = model_band
+    for criterion, band in zip((
+        fb.criteriaFeedback.mainCriterion, fb.criteriaFeedback.coherenceCohesion,
+        fb.criteriaFeedback.lexicalResource, fb.criteriaFeedback.grammaticalRange,
+    ), bands):
+        criterion.bandScore = band
+    fb.overallBandScoreSummary = f"Bài này đạt band {model_band}."
+    fb.bandTrajectoryAnalysis = {
+        "current_band": model_band, "average_last_5": 6.7,
+        "trend_explanation": f"Bài này ở band {model_band}, thấp hơn trung bình.",
+        "next_target": f"Từ band {model_band}, hãy lên band 7.0.",
+    }
 
     fake = _FakeSupabase(responses=_bg_essay_responses())
     fake_grader = MagicMock()
@@ -1015,11 +1087,21 @@ async def test_bg_grade_essay_overrides_model_overall_with_ielts_round():
     fb_insert = next(c for c in fake.calls
                      if c["table"] == "writing_feedback" and c["op"] == "insert")
     payload = fb_insert["payload"]
-    # Column = backend IELTS-round of mean(6,6,7,6)=6.25 → 6.5 (NOT model's 6.0)
-    assert payload["overall_band_score"] == 6.5
+    assert payload["overall_band_score"] == final_band
     # feedback_json carries the backend value + preserves the model's emission
-    assert payload["feedback_json"]["overallBandScore"] == 6.5
-    assert payload["feedback_json"]["overallBandScoreModel"] == 6.0
+    persisted = payload["feedback_json"]
+    assert persisted["overallBandScore"] == final_band
+    assert persisted["overallBandScoreModel"] == model_band
+    assert persisted["bandTrajectoryAnalysis"]["current_band"] == final_band
+    assert f"band {final_band:.1f}" in persisted["overallBandScoreSummary"]
+    assert f"band {final_band:.1f}" in persisted["bandTrajectoryAnalysis"]["trend_explanation"]
+    assert f"band {model_band:.1f}" not in persisted["bandTrajectoryAnalysis"]["next_target"]
+    # The normal read path returns the same canonical values after reload.
+    fake.responses[("writing_feedback", "select")] = [payload]
+    with patch.object(essay_service, "supabase_admin", fake):
+        reloaded = essay_service.get_essay_with_feedback(_ESSAY_ID)
+    assert reloaded["feedback"]["overall_band_score"] == final_band
+    assert reloaded["feedback"]["feedback_json"]["bandTrajectoryAnalysis"]["current_band"] == final_band
 
 
 @pytest.mark.asyncio

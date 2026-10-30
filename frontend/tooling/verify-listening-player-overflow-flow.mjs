@@ -1,6 +1,6 @@
 // Browser-backed layout contract for the native Listening test player.
 //
-// Every Part of every fixture is rendered at 360, 390 and 1280 px. The player
+// Every Part of every fixture is rendered at 360, 390, 1024, 1280 and 1440 px. The player
 // page is `overflow: hidden`, so anything wider than the viewport is silently
 // clipped rather than scrollable. The contract therefore measures geometry,
 // not only scrollbars:
@@ -35,7 +35,12 @@ const MODES = [
   { name: 'admin preview', query: '&admin_preview=1' },
   { name: 'mock embed', query: '&mock_embed=1' },
 ];
-const VIEWPORTS = [{ width: 360, height: 740 }, { width: 390, height: 844 }, { width: 1280, height: 800 }];
+// 1024 and 1440 are the desktop widths where the pre-#1564 palette measured
+// 1522px and clipped Submit (T-GUARD, PC-J113).
+const VIEWPORTS = [
+  { width: 360, height: 740 }, { width: 390, height: 844 }, { width: 1024, height: 768 },
+  { width: 1280, height: 800 }, { width: 1440, height: 900 },
+];
 const fakeSession = JSON.stringify({
   access_token: 'listening-overflow-flow-not-a-real-token', refresh_token: 'x',
   token_type: 'bearer', expires_in: 3600,
@@ -44,6 +49,9 @@ const fakeSession = JSON.stringify({
 });
 
 const LONG = 'Representativeness-and-counterbalancing-considerations';
+// 72 characters with no line-break opportunity at all (no space, hyphen or
+// slash), unlike LONG and the URLs above; only overflow-wrap can break it.
+const UNBROKEN = 'BOOKING_REFERENCE_CRB2026_COMMUNITY_HERITAGE_TRUST_VOLUNTEER_DESK_000126';
 const range = (from, to) => Array.from({ length: to - from + 1 }, (_, index) => from + index);
 function synthetic(id, title, sections) {
   return {
@@ -62,6 +70,16 @@ const BUILT_IN = [
       questions: range(first, first + 9).map((q_num) => ({ q_num, prompt: `Question ${q_num} prompt` })),
     },
   }])),
+  // All 40 squares in one expanded palette group: the same ~1500px min-content
+  // row the pre-#1564 palette rendered, wider than 1024 and 1440 px. Only
+  // `grid-template-columns: minmax(0, 1fr)` and `.listening-next-palette
+  // { min-width: 0 }` keep it from widening the shell column.
+  synthetic('overflow-palette-one-part', 'Overflow fixture: 40 questions in one Part', [[{
+    id: 'q1-40', exercise_type: 'dictation', payload: {
+      template_kind: 'short_answer', instruction: 'Write NO MORE THAN TWO WORDS for each answer.',
+      questions: range(1, 40).map((q_num) => ({ q_num, prompt: `Question ${q_num} prompt` })),
+    },
+  }]]),
   synthetic('overflow-forms', 'Overflow fixture: wide form, table and notes', [
     [{ id: 'f1', exercise_type: 'dictation', payload: {
       template_kind: 'form_completion', instruction: 'Complete the form. Write ONE WORD AND/OR A NUMBER for each answer.',
@@ -114,6 +132,26 @@ const BUILT_IN = [
       template_kind: 'plan_label', instruction: 'Label the plan below. Write the correct letter, A–H.',
       map_image_url: 'https://img.fixture/map.png', metadata: { letter_options: 'ABCDEFGH'.split('') },
       questions: range(35, 38).map((q_num) => ({ q_num, prompt: `${LONG} ${q_num}` })),
+    } }],
+  ]),
+  synthetic('overflow-unbroken', 'Overflow fixture: unbroken long token', [
+    [{ id: 'u1', exercise_type: 'dictation', payload: {
+      template_kind: 'short_answer', instruction: `Write NO MORE THAN TWO WORDS. Quote ${UNBROKEN} when asked.`,
+      questions: [{ q_num: 1, prompt: `What follows ${UNBROKEN}?` }],
+    } }, { id: 'u2', exercise_type: 'dictation', payload: {
+      template_kind: 'form_completion', instruction: 'Complete the form.',
+      questions: [{ q_num: 2, prompt: '' }],
+      template: { heading: UNBROKEN, rows: [
+        { label: 'Reference', example: UNBROKEN },
+        { label: UNBROKEN, q_num: 2, suffix: UNBROKEN },
+      ] },
+    } }, { id: 'u3', exercise_type: 'dictation', payload: {
+      template_kind: 'summary_completion', instruction: 'Complete the summary below.',
+      questions: [{ q_num: 3, prompt: '' }],
+      template: { paragraph: `The desk code ${UNBROKEN} is printed before {{Q3}}.` },
+    } }, { id: 'u4', exercise_type: 'mcq', payload: {
+      template_kind: 'mcq_3option', instruction: 'Choose the correct letter, A, B or C.',
+      questions: [{ q_num: 4, prompt: `Which code is on ${UNBROKEN}?`, options: opts('ABC', (label) => `${label} ${UNBROKEN}`) }],
     } }],
   ]),
 ];
@@ -215,6 +253,7 @@ const byId = new Map(fixtures.map((fixture) => [fixture.id, fixture]));
 const browser = await launchChromium();
 const pageErrors = [];
 const unhandledProductionRequests = [];
+const unstubbedRequests = [];
 
 for (const viewport of VIEWPORTS) {
   const context = await browser.newContext({ viewport });
@@ -237,6 +276,7 @@ for (const viewport of VIEWPORTS) {
     if (request.method() === 'POST' && url.pathname === '/api/analytics/events') return route.fulfill({ status: 204, headers: cors });
     const json = (body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body), headers: cors });
     if (request.method() === 'GET' && url.pathname === '/auth/me') return json({ id: FAKE_USER_ID, display_name: 'Listening overflow fixture' });
+    if (request.method() === 'GET' && url.pathname === '/auth/check-active') return json({ is_active: true }); // W-03 probe
     const previewMatch = url.pathname.match(/^\/admin\/listening\/tests\/([^/]+)\/player-preview$/);
     if (request.method() === 'GET' && previewMatch && byId.has(decodeURIComponent(previewMatch[1]))) return json(byId.get(decodeURIComponent(previewMatch[1])));
     const testMatch = url.pathname.match(/^\/api\/listening\/tests\/([^/]+)$/);
@@ -260,6 +300,8 @@ for (const viewport of VIEWPORTS) {
       unhandledProductionRequests.push(request.url());
       return route.abort('blockedbyclient');
     }
+    // Keep rendering, but fail the run: a new player API needs a deliberate stub.
+    unstubbedRequests.push(`${request.method()} ${url.origin}${url.pathname}`);
     return json({});
   });
 
@@ -295,6 +337,7 @@ for (const viewport of VIEWPORTS) {
 
 check('no uncaught browser error', pageErrors.length === 0, pageErrors[0] || '');
 check('fixture handles APIs with zero production-backend egress', unhandledProductionRequests.length === 0, unhandledProductionRequests[0] || '');
+check('every API request has an explicit fixture stub', unstubbedRequests.length === 0, [...new Set(unstubbedRequests)].join(', '));
 
 await browser.close();
 const failed = results.filter((result) => !result.ok);

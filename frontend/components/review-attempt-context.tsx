@@ -2,6 +2,7 @@
 
 import { Fragment, type ReactNode } from 'react';
 import { noteTemplateTree } from '@/lib/note-template-tree.mjs';
+import { splitNumberedBlanks } from '@/lib/numbered-blank.mjs';
 
 const record = (value: unknown): Record<string, any> | null => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : null;
 const list = (value: unknown): any[] => Array.isArray(value) ? value : [];
@@ -18,12 +19,11 @@ export function ReviewContextNotice({ value }: { value: unknown }) {
 }
 
 function numberedBlanks(value: string): ReactNode {
-  return value.split(/(\{\{\s*\d{1,3}\s*\}\})/g).map((part, index) => {
-    const match = /^\{\{\s*(\d{1,3})\s*\}\}$/.exec(part);
-    return match ? <span key={index} className="review-context-blank" aria-label={`Chỗ trống câu ${Number(match[1])}`}>
-      <strong>[Câu {Number(match[1])}]</strong> ______
-    </span> : part;
-  });
+  // `{{n}} ____` is one blank (RV-05); the authored underscores are not repeated.
+  return splitNumberedBlanks(value).map((part, index) => typeof part === 'string' ? part
+    : <span key={index} className="review-context-blank" aria-label={`Chỗ trống câu ${part.qNum}`}>
+      <strong>[Câu {part.qNum}]</strong> ______
+    </span>);
 }
 
 function segment(value: unknown): ReactNode {
@@ -84,6 +84,48 @@ function instructionWithoutPrompt(instruction: unknown, prompt: unknown): unknow
   return kept.length === lines.length ? instruction : kept.join('\n').trim();
 }
 
+type Choice = { label: string; text: string };
+
+/** Lettered choices the student saw: authored options, else the frozen paragraph openings. */
+function labelledChoices(context: Record<string, any> | null): Choice[] {
+  const options = Array.isArray(context?.options) ? context.options
+    : record(context?.options) ? Object.entries(context!.options).map(([label, text]) => ({ label, text })) : [];
+  const authored = options.map((option): Choice | null => {
+    const row = record(option);
+    const label = row && (row.label ?? row.letter ?? row.id ?? row.value);
+    const text = row && (row.text ?? row.content);
+    return label != null && typeof text === 'string' && text.trim() ? { label: String(label), text } : null;
+  }).filter((choice): choice is Choice => choice !== null);
+  if (authored.length) return authored;
+  return list(context?.paragraph_previews).map(record)
+    .filter((row): row is Record<string, any> => Boolean(row && typeof row.label === 'string' && typeof row.text === 'string' && row.text.trim()))
+    .map(row => ({ label: row.label, text: row.text }));
+}
+
+/** Resolve an answer such as "B" or "B, D" to its choices; partial matches resolve to nothing. */
+export function reviewAnswerChoices(value: unknown, answer: unknown): Choice[] {
+  const choices = labelledChoices(record(value));
+  const parts = typeof answer === 'string' ? answer.split(/\s*[,;]\s*/).map(part => part.trim()).filter(Boolean) : [];
+  if (!choices.length || !parts.length) return [];
+  const resolved = parts.map(part => choices.find(choice => choice.label.trim().toLowerCase() === part.toLowerCase()));
+  return resolved.every(Boolean) ? resolved as Choice[] : [];
+}
+
+/** "B — opening of paragraph B" beside a stored answer letter; the letter itself stays as stored. */
+export function ReviewAnswerChoiceText({ context, answer }: { context: unknown; answer: unknown }) {
+  const choices = reviewAnswerChoices(context, answer);
+  if (!choices.length) return null;
+  return <span className="rr-card__ans-text">{choices.map((choice, index) => <span key={index}>
+    {choices.length > 1 ? `${choice.label} — ${choice.text}` : `— ${choice.text}`}
+  </span>)}</span>;
+}
+
+/** Collapsed-card summary of a paragraph list: letters only, never paragraph text. */
+export function ReviewParagraphSummary({ value }: { value: unknown }) {
+  const labels = list(record(value)?.paragraph_labels).map(String);
+  return labels.length ? <p className="review-context-summary">Đoạn: {labels.join(', ')}</p> : null;
+}
+
 /** Read only authored display fields. Never reconstruct a bank from answer keys. */
 export function ReviewQuestionContext({ value, prompt }: { value: unknown; prompt?: unknown }) {
   const context = record(value);
@@ -99,6 +141,7 @@ export function ReviewQuestionContext({ value, prompt }: { value: unknown; promp
   const instruction = instructionWithoutPrompt(context.instructions || context.instruction || context.word_limit_text || context.word_limit, prompt);
   const provenance = record(context.context_provenance);
   const banks = options.length || list(context.paragraph_labels).length;
+  const paragraphPreviews = new Map(options.length ? [] : labelledChoices(context).map(choice => [choice.label, choice.text]));
   const summary = tableSummary(template);
   const hasTemplateContent = Boolean(template && (template.heading || summary.before || summary.after
     || list(template.rows).length || list(template.steps).length
@@ -111,7 +154,9 @@ export function ReviewQuestionContext({ value, prompt }: { value: unknown; promp
     {options.length ? <div className="review-context-bank"><strong>Nhóm lựa chọn</strong><ul>{options.map((option, index) => <li key={index}>
       {typeof option === 'string' ? option : <><b>{option.label || option.letter || option.id || option.value || ''}</b> {option.text || option.content || ''}</>}
     </li>)}</ul></div> : null}
-    {list(context.paragraph_labels).length ? <p>Đoạn: {context.paragraph_labels.join(', ')}</p> : null}
+    {list(context.paragraph_labels).length ? paragraphPreviews.size ? <div className="review-context-bank"><strong>Đoạn</strong><ul>
+      {context.paragraph_labels.map((label: unknown, index: number) => <li key={index}><b>{String(label)}</b> {paragraphPreviews.get(String(label)) || ''}</li>)}
+    </ul></div> : <p>Đoạn: {context.paragraph_labels.join(', ')}</p> : null}
     {image ? <img src={image} alt={imageAlt} loading="lazy" style={{ maxWidth: '100%', height: 'auto' }} /> : null}
     {template ? <div className="review-context-template">
       {template.heading ? <h4>{segment(template.heading)}</h4> : null}

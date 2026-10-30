@@ -186,3 +186,22 @@ permitted.
 | docs/grammar-quiz-banks/G-tenses-present-continuous.md | `711e42becddee32bfee93f6d0b691a318403b1b4ffef01302d28d2dbed1c037a` |
 | docs/grammar-quiz-banks/G-tenses-present-perfect-continuous.md | `67ffbc97e73fdb1d43a88644a77d0ebfbb93b845b8f2dd6c8575dec93d84ef3a` |
 | docs/grammar-quiz-banks/G-tenses-present-simple.md | `97d6af8d735ff80ca24c7e499a7443c53218444d804273e28d6c304eb6634670` |
+
+## Revision 1 — later article bytes (2026-10-30, PC-J203, record only)
+
+The "Final authored source" table above is the 2026-10-01 approval record and
+stays unchanged. Two of its articles were changed afterwards by PR #1948
+(PC-J140, Content Management lô 2 Part B, signed by CM on 2026-10-29), so their
+current bytes no longer match the approved hashes:
+
+| Article | Approved SHA-256 (commit `7f0459ef9`) | Current SHA-256 (PR #1948 `d85d20c52`, staging merge `b1e097693`) |
+| --- | --- | --- |
+| backend/content/grammar-for-reading/long-sentence-untangling.md | `6402f4573051114a9cb60d2823ea32fc98eee3e5acda813eb5f394ef0e9c1510` (5673 bytes) | `7e74375df442d36249adc08e3ba9f52b16ad40916b8a0d7808085f6524ba8cad` (5475 bytes) |
+| backend/content/grammar-for-reading/participle-clauses.md | `489c669cc69866f728b42440a4802883017a16c6adc3b90cb0b7358a68d85496` (5365 bytes) | `2322fb30ba8b4fdd5ef9d12501a0fe646d5d1804c0add7f86a71976e6525c773` (5369 bytes) |
+
+History: neither file changed between the approval commit and #1948. The
+exact-form byte pin for these two articles is
+`provenance.source_files` in `frontend/tests/fixtures/grammar-exact-form-banks.json`,
+which #1948 moved. This file is not read by any test. The 12 quiz banks, their
+qids, maps and hashes, and every other article hash above are unchanged. The
+same record is in `source-scope.json` under `revisions`.

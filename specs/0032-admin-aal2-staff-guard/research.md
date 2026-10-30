@@ -532,3 +532,66 @@ unverified factor.
   that admin's other AAL1 sessions. Parallel workers that sign in with a
   password and then verify can kill each other's half-finished sign-ins.
   Serialize the admin sign-in, or retry on `session_not_found`.
+
+### 9.7 First sweep run leaves a gap (PC-J139, 2026-10-29)
+
+On staging the sweep never ran after 332 was applied: no cron service, 0
+`staff_security_sweep_cursor` rows and 0 `staff_mfa_factor_snapshot` rows
+(Web Manager, 2026-10-29 14:56 UTC+7). The first run starts the cursor at the
+newest entry by design, so every factor event between 332 and that run would
+stay unaudited. The spec does not say how the first run treats that history.
+The decision, within FR-010: a one-off `--backfill` from 332's `applied_at`,
+using the step 1 mapping and dedupe key, with no owner alert or email for the
+old events (Leader, 2026-10-29 15:02). Events before 332 are not written,
+because `role_at` relies on the role history that starts with 332. The
+procedure is rollout.md "First run and backfill". Production has the same gap
+at its first run, so T013 uses the same procedure.
+
+## 10. Amendment 1: AAL2 max age, step-up and factor deletion (2026-10-29)
+
+Read-only against `origin/staging` by the Feature Developer at `f69055f65`
+(H-1029-FD4), re-checked at `756016558` for this spec PR. `/admin/mfa` lines
+are from #1898 (T010), which is not on `staging` yet.
+
+### 10.1 Current state
+
+- `backend/services/staff_guard.py:52` hard-codes
+  `TOTP_MAX_AGE_SECONDS = 12*60*60`.
+- `evaluate_admin_assurance` (`staff_guard.py:160-183`) already reads the
+  `amr` `totp` timestamp. It returns `totp_expired`/`totp_missing`, logged as
+  `admin_aal2_would_block` under `ADMIN_AAL2_ENFORCE=false`.
+- So the 12 h rule exists, but it is not configurable.
+- No step-up exists. Sensitive routes:
+  - `PATCH /admin/users/{user_id}/role` (`routers/admin.py:843`)
+  - `PATCH /admin/users/{user_id}/active` (`routers/admin_staff_security.py:71`)
+  - `POST /admin/users/{user_id}/revoke-sessions` (`admin_staff_security.py:175`)
+  - the AI-budget raise/end routes, which don't exist yet (AIBUDGET-0033
+    T013). They must depend on `require_recent_mfa` when they land (PC-J138).
+- Factor delete is a client-side GoTrue `mfa.unenroll` call
+  (`(authed-admin-mfa)/admin/mfa/admin-mfa.tsx` on #1898).
+
+### 10.2 Limitation: factor deletion cannot be gated by the server
+
+- GoTrue `mfa.unenroll` is called **directly from the browser** by
+  `/admin/mfa`. The FastAPI backend never sees the request, so
+  `require_recent_mfa()` cannot run on it, and the server cannot block it.
+- GoTrue only requires an AAL2 session to delete a verified factor (§9.3:
+  422 `insufficient_aal` at AAL1, 200 at AAL2). It does not require a TOTP
+  entered within 15 minutes.
+- Anyone holding a stolen AAL2 session (≤ 12 h old) could therefore delete a
+  factor without a new code by calling GoTrue directly, skipping the UI.
+
+Controls:
+
+1. **UI verify before unenroll:** `/admin/mfa` runs a fresh
+   `challenge`+`verify` immediately before `unenroll` (AC12 node test).
+2. **Owner alert ≤ 5 minutes:** the T007 factor-deleted alert
+   (`staff_security_sweep.py`, Auth audit-log cursor + snapshot, cron `*/5`)
+   emails the owner within one sweep run.
+3. **12 h expiry:** admin rights still expire 12 h after the last TOTP
+   (FR-012).
+
+Not mitigated: the deletion itself. Recovery is to re-enroll and review the
+alert. Closing the gap needs a server-side proxy for factor deletion, which is
+out of scope for Amendment 1 and can be proposed later. Accepted by the Leader
+on 2026-10-29 14:53 (UTC+7); see `spec.md` → "Rủi ro còn lại".
