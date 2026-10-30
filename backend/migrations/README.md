@@ -41,6 +41,9 @@ work and must not be reused. 346 is PC-J153 (CLASSARCHIVE-0030 FR-003),
 assigned by the Leader on 2026-10-29. 347 is PC-J163 (listening_tests client revoke,
 spec LISTENING-0005), given by the Leader on 2026-10-29.
 
+348–350 remain allocated to other jobs; do not reuse them. 351 is PC-J220,
+allocated by the Leader on 2026-10-29 (350 belongs to PC-J170).
+
 Migration `347` (PC-J163) revokes ALL on `listening_tests` from `PUBLIC`,
 `anon` and `authenticated` (MAINTAIN included on PG 17). 295 closed the other
 Listening content tables but missed this one, which kept the 320-narrowed
@@ -56,6 +59,27 @@ or column privilege (a grant from another grantor survives the REVOKE), or if
 staging first under the advisory lock, production only at an authorised
 promotion. One transaction, no data change, re-runnable; the emergency-only
 rollback (the old SELECT grant) is in the file header.
+
+Migration `351` (PC-J220) revokes EXECUTE from `PUBLIC`, `anon` and
+`authenticated` on four migration-139 SECURITY INVOKER RPCs, each with one
+`timestamptz` argument: `fn_dashboard_daily_tokens`, `fn_dashboard_tokens_called`,
+`fn_dashboard_daily_visitors` and `fn_dashboard_visitors`. Only
+`services/admin_dashboard.py` calls them, with `supabase_admin` behind
+`require_admin`; the frontend and user-JWT backend clients do not call them.
+`fn_dashboard_daily_practices` is outside this change. All four exact signatures
+must exist and be SECURITY INVOKER or the transaction aborts. The postcondition
+requires no effective client EXECUTE, no PUBLIC ACL entry (including grants
+from another grantor), and retained `service_role` EXECUTE. An explicit service
+grant is preserved or added if missing, preventing silent fallback to capped
+dashboard counts. One transaction, `lock_timeout = '5s'`, no data writes,
+re-runnable; emergency-only rollback restores EXECUTE to PUBLIC/anon/authenticated
+as recorded in the old staging ACL. Group `dashboard_rpcs_revoke` is
+`pending_feature`: **merging does not apply it (merge KHÔNG áp)**. Leader/RM
+applies it to staging through the advisory-locked runner; production only at a
+Vinh-approved promotion. It can follow 349 but does not require it. After apply,
+run the catalog query in the SQL header (client false/false, service true, no
+PUBLIC `=X`), then view admin overview/trends and check backend logs for RPC
+42501/fallback. No staging or production application is part of this code job.
 
 Migration `352` (PC-J201, ADMINAAL2-0032 FR-010/FR-011, SA #1936 P3 c–f)
 adds the private `staff_mfa_status_throttle` table for shared admission to the
