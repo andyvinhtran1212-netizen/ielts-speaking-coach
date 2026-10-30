@@ -119,6 +119,10 @@ async function scenario(name, options, run) {
     }
     if (parsed.pathname === '/auth/me') return json({ id: adminId, email, role: state.role, is_active: state.isActive });
     if (parsed.pathname === '/auth/check-active') return json({ is_active: state.isActive, suspended: false });
+    if (parsed.pathname === '/admin/users' && state.adminUsersQueue?.length) {
+      const next = state.adminUsersQueue.shift();
+      return json(next.body, next.status);
+    }
     if (parsed.pathname === '/admin/users' && state.adminUsers) return json(state.adminUsers.body, state.adminUsers.status);
     return json({});
   });
@@ -249,6 +253,70 @@ await scenario('Transport: mfa_required sau khi trang đã tải', {
   await page.goto(`${BASE}/admin/users`, { waitUntil: 'domcontentloaded' });
   await page.waitForURL((url) => url.pathname === '/admin/mfa');
   check('api.js chuyển 403 mfa_required sang /admin/mfa?next=<path>', pathOf(page) === '/admin/mfa?next=%2Fadmin%2Fusers', pathOf(page));
+});
+
+// PR #2023 Codex P1: the step-up prompt opens on whatever admin page made the
+// refused call. /admin/users' layout lists only its own CSS, so the prompt must
+// bring its stylesheet itself. Loaded directly, never via /admin/mfa.
+await scenario('Step-up trên /admin/users vào thẳng: hộp thoại có style', {
+  token: 'aal2-token',
+  factors: [factor('factor-main', 'verified')],
+  verify: ['ok'],
+  adminUsersQueue: [
+    { status: 403, body: { detail: { code: 'step_up_required', next_step: 'challenge', max_age_seconds: 900, message: 'Thao tác này cần nhập lại mã xác thực 2 bước.' } } },
+    { status: 200, body: [] },
+  ],
+}, async (page, state) => {
+  await page.goto(`${BASE}/admin/users`, { waitUntil: 'domcontentloaded' });
+  const dialog = page.getByRole('dialog', { name: 'Xác thực 2 bước' });
+  await dialog.waitFor({ state: 'visible' });
+  const input = dialog.getByLabel('Mã 6 số', { exact: true });
+  await input.waitFor({ state: 'visible' });
+  check('vào thẳng /admin/users, không qua /admin/mfa', pathOf(page) === '/admin/users' && !state.requests.some((item) => item.path === '/admin/mfa'), pathOf(page));
+  await page.waitForFunction((href) => [...document.styleSheets].some((sheet) => sheet.href && new URL(sheet.href).pathname === href), '/css/admin-mfa-dialog.css', { timeout: 10000 })
+    .then(() => check('stylesheet hộp thoại được nạp trên trang không liệt kê nó', true))
+    .catch(() => check('stylesheet hộp thoại được nạp trên trang không liệt kê nó', false));
+  const styles = await dialog.evaluate((panel) => {
+    const backdrop = panel.parentElement;
+    const b = getComputedStyle(backdrop);
+    const p = getComputedStyle(panel);
+    const rect = panel.getBoundingClientRect();
+    const field = panel.querySelector('input');
+    return {
+      backdrop: { position: b.position, zIndex: b.zIndex, top: b.top, left: b.left, width: backdrop.getBoundingClientRect().width, background: b.backgroundColor },
+      panel: { background: p.backgroundColor, radius: p.borderTopLeftRadius, borderStyle: p.borderTopStyle, display: p.display },
+      input: field ? getComputedStyle(field).minHeight : null,
+      rect: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom },
+      viewport: { width: window.innerWidth, height: window.innerHeight, scrollWidth: document.documentElement.scrollWidth },
+    };
+  });
+  check('backdrop phủ cố định toàn màn hình (position fixed, z-index 1200, inset 0)',
+    styles.backdrop.position === 'fixed' && styles.backdrop.zIndex === '1200' && styles.backdrop.top === '0px' && styles.backdrop.left === '0px'
+      && Math.round(styles.backdrop.width) === styles.viewport.width && styles.backdrop.background !== 'rgba(0, 0, 0, 0)', JSON.stringify(styles.backdrop));
+  check('panel có nền, viền và bo góc', styles.panel.background !== 'rgba(0, 0, 0, 0)' && styles.panel.radius !== '0px' && styles.panel.borderStyle === 'solid' && styles.panel.display === 'grid', JSON.stringify(styles.panel));
+  check('ô mã cao tối thiểu 44 px', styles.input === '44px', String(styles.input));
+  check('mobile 390: panel nằm trong màn hình, không tràn ngang',
+    styles.rect.left >= 0 && styles.rect.right <= styles.viewport.width + 0.5 && styles.rect.bottom <= styles.viewport.height + 0.5
+      && styles.viewport.scrollWidth <= styles.viewport.width, JSON.stringify({ ...styles.rect, ...styles.viewport }));
+  const focusStaysInside = async (key) => {
+    for (let index = 0; index < 8; index += 1) {
+      await page.keyboard.press(key);
+      if (!await dialog.evaluate((panel) => panel.contains(document.activeElement))) return false;
+    }
+    return true;
+  };
+  check('Tab và Shift+Tab giữ focus trong hộp thoại', await focusStaysInside('Tab') && await focusStaysInside('Shift+Tab'));
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const desktop = await dialog.evaluate((panel) => {
+    const rect = panel.getBoundingClientRect();
+    return { width: rect.width, center: rect.left + rect.width / 2, viewport: window.innerWidth };
+  });
+  check('desktop: panel rộng tối đa 480 px, ở giữa', desktop.width <= 480.5 && Math.abs(desktop.center - desktop.viewport / 2) <= 1, JSON.stringify(desktop));
+  await input.fill('123456');
+  await dialog.getByRole('button', { name: 'Xác thực' }).click();
+  await dialog.waitFor({ state: 'detached' });
+  const reads = state.requests.filter((item) => item.method === 'GET' && item.path === '/admin/users');
+  check('mã đúng: đóng hộp thoại và gửi lại đúng một lần', reads.length === 2 && pathOf(page) === '/admin/users', String(reads.length));
 });
 
 await scenario('/admin/mfa từ chối non-admin', { role: 'user' }, async (page, state) => {

@@ -396,6 +396,7 @@ function ManagePanel({ mfa, initialFactors, onNeedsAal2 }: {
         title="Gỡ yếu tố xác thực"
         description={`Nhập một mã 6 số mới để xác nhận gỡ “${removing?.friendly_name || 'Ứng dụng xác thực'}”.`}
         onClose={() => setRemoving(null)}
+        {...MFA_DIALOG_CLASSES}
         actions={<button type="button" className="adm-btn-secondary" onClick={() => setRemoving(null)}>Hủy</button>}
       >
         {verified.length > 1 && (
@@ -432,6 +433,26 @@ function ManagePanel({ mfa, initialFactors, onNeedsAal2 }: {
   );
 }
 
+/**
+ * The code form, notices and the scoped dialog frame (public/css). The step-up
+ * prompt can open on any admin page, so it adds the file to <head> itself when
+ * the gate mounts it, long before a refusal can open it. Appended rather than
+ * rendered as a React `precedence` link: that would hold the gate's whole
+ * ready commit until the file loads. /admin/mfa lists it in its layout.
+ */
+export const ADMIN_MFA_DIALOG_STYLESHEET = '/css/admin-mfa-dialog.css';
+const MFA_DIALOG_CLASSES = { panelClassName: 'amfa-dialog', backdropClassName: 'amfa-dialog-backdrop' };
+
+function useAdminMfaDialogStylesheet() {
+  useEffect(() => {
+    if (document.querySelector(`link[rel="stylesheet"][href="${ADMIN_MFA_DIALOG_STYLESHEET}"]`)) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = ADMIN_MFA_DIALOG_STYLESHEET;
+    document.head.appendChild(link);
+  }, []);
+}
+
 /** ADMINAAL2-0032 Amendment 1 (FR-020); Content Manager approved 2026-10-29. */
 export const STEP_UP_PROMPT = 'Thao tác này cần nhập lại mã xác thực 2 bước.';
 
@@ -452,6 +473,7 @@ export function AdminStepUpDialog({ open, onVerified, onClose }: {
   const [factorId, setFactorId] = useState('');
   const [attempt, setAttempt] = useState(0);
   const mfa = open ? mfaClient() : null;
+  useAdminMfaDialogStylesheet();
 
   useEffect(() => {
     if (!open) return;
@@ -482,6 +504,7 @@ export function AdminStepUpDialog({ open, onVerified, onClose }: {
       title="Xác thực 2 bước"
       description={STEP_UP_PROMPT}
       onClose={onClose}
+      {...MFA_DIALOG_CLASSES}
       actions={<button type="button" className="adm-btn-secondary" onClick={onClose}>Hủy</button>}
     >
       {failure ? (

@@ -15,7 +15,7 @@ vi.mock('@/lib/admin-mfa-api', () => ({
 }));
 
 import { ADMIN_STEP_UP_EVENT, AdminAccessGate } from '@/components/admin-access-gate';
-import { STEP_UP_PROMPT } from '@/app/(authed-admin-mfa)/admin/mfa/admin-mfa';
+import { ADMIN_MFA_DIALOG_STYLESHEET, STEP_UP_PROMPT } from '@/app/(authed-admin-mfa)/admin/mfa/admin-mfa';
 
 const verified = (id: string, name: string) => ({ id, factor_type: 'totp', status: 'verified', friendly_name: name });
 let factors: ReturnType<typeof verified>[];
@@ -59,9 +59,29 @@ beforeEach(() => {
   });
   for (const fn of Object.values(mfa)) fn.mockClear();
 });
-afterEach(() => { cleanup(); });
+afterEach(() => {
+  cleanup();
+  for (const link of document.querySelectorAll(`link[href="${ADMIN_MFA_DIALOG_STYLESHEET}"]`)) link.remove();
+});
 
 describe('AdminAccessGate step-up prompt', () => {
+  // PR #2023 Codex P1: the prompt opens on any admin page (e.g. a direct load
+  // of /admin/users), whose layout does not list the MFA stylesheet.
+  it('brings its own stylesheet and scoped dialog classes to any admin page', async () => {
+    const stylesheets = () => document.querySelectorAll(`link[rel="stylesheet"][href="${ADMIN_MFA_DIALOG_STYLESHEET}"]`);
+    expect(stylesheets()).toHaveLength(0);
+    const view = await renderReady();
+    expect(stylesheets()).toHaveLength(1);
+    expect(stylesheets()[0].parentElement).toBe(document.head);
+    expect(requestStepUp(vi.fn())).toBe(true);
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog.classList.contains('amfa-dialog')).toBe(true);
+    expect(dialog.parentElement?.classList.contains('amfa-dialog-backdrop')).toBe(true);
+    view.unmount();
+    await renderReady();
+    expect(stylesheets()).toHaveLength(1);
+  });
+
   it('opens the code dialog with the approved sentence and answers true once after challenge + verify', async () => {
     await renderReady();
     const resolve = vi.fn();

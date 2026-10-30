@@ -20,7 +20,7 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
 // confirm dialog) keeps the keyboard.
 const openDialogs: object[] = [];
 
-export function Dialog({ open, title, description, children, actions, onClose, busy = false, panelClassName = '' }: {
+export function Dialog({ open, title, description, children, actions, onClose, busy = false, panelClassName = '', backdropClassName = '' }: {
   open: boolean;
   title: string;
   description?: ReactNode;
@@ -29,6 +29,7 @@ export function Dialog({ open, title, description, children, actions, onClose, b
   onClose: () => void;
   busy?: boolean;
   panelClassName?: string;
+  backdropClassName?: string;
 }) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -87,7 +88,7 @@ export function Dialog({ open, title, description, children, actions, onClose, b
 
   if (!open) return null;
   return (
-    <div className="acd-dialog-backdrop" onFocusCapture={(event) => {
+    <div className={`acd-dialog-backdrop${backdropClassName ? ` ${backdropClassName}` : ''}`} onFocusCapture={(event) => {
       // A child's autoFocus runs before the panel effect; its first focus-in still carries the opener.
       const previous = event.relatedTarget;
       if (!openerRef.current && previous instanceof HTMLElement && previous.isConnected && !event.currentTarget.contains(previous)) openerRef.current = previous;
