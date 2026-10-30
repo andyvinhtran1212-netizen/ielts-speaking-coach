@@ -11,7 +11,7 @@
 // được layout (authed) khởi tạo ở DOMContentLoaded — trang legacy trước đó gọi
 // `initSupabase` bằng một thẻ script nội tuyến chạy TRƯỚC cả SDK `defer`, nên
 // nó ném lỗi và mọi request đi không kèm token.
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
@@ -65,6 +65,12 @@ export function CourseBehavior() {
   // hai tab giữ nguyên status 'signed-in' và chỉ `user` đổi, nên một cờ một-lần
   // sẽ để nguyên tiến độ của người trước trên màn hình (review #742).
   const bootedFor = useRef<string | null>(null);
+  // Cập nhật trước passive cleanup của lượt cũ: cùng tài khoản là rời trang,
+  // còn đổi/mất tài khoản thì không được flush nháp bằng token hiện hành.
+  const currentAccount = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    currentAccount.current = status === 'signed-in' ? user?.id || null : null;
+  }, [status, user?.id]);
 
   // U-03: fail closed for signed-out visitors (ADR-011) — replace() like
   // /profile so Back cannot restore the private shell.
@@ -1550,6 +1556,7 @@ export function CourseBehavior() {
       clearErrorActions();
       pronunciationVisible = false;
       pauseSectionTimers();
+      if (writing && currentAccount.current !== user.id) writing.dispose();
       // A Next soft navigation unmounts this client island without firing
       // pagehide. Flush through the same path so queued quiz answers and the
       // writing draft are not stranded until a later browser lifecycle event.
