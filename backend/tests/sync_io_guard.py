@@ -16,6 +16,7 @@ The aexecute facade's flag-off blocking branch remains a G7 debt of its own.
 from __future__ import annotations
 
 import ast
+from bisect import bisect_right
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -36,6 +37,12 @@ class Function:
     name: str
     node: ast.FunctionDef | ast.AsyncFunctionDef
     symbols: dict[str, str]
+    initial_symbols: dict[str, str]
+    timeline: list[tuple[tuple[int, int], dict[str, str]]]
+
+    def at(self, node: ast.AST) -> dict[str, str]:
+        index = bisect_right(self.timeline, (node.lineno, node.col_offset), key=lambda item: item[0])
+        return self.timeline[index - 1][1] if index else self.initial_symbols
 
 
 @dataclass(frozen=True)
@@ -89,6 +96,11 @@ def _nodes(body: Iterable[ast.AST], *, consume_generator: bool = False,
             yield from _nodes([node.value], consume_generator=consume_generator, consumed=consumed, policy=policy)
         elif isinstance(node, ast.keyword):
             yield from _nodes([node.value], consume_generator=consume_generator, consumed=consumed, policy=policy)
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            unpacking = any(isinstance(target, (ast.Tuple, ast.List)) for target in targets)
+            if node.value is not None:
+                yield from _nodes([node.value], consume_generator=unpacking, consumed=consumed, policy=policy)
         elif isinstance(node, (ast.For, ast.comprehension)):
             for child in ast.iter_child_nodes(node):
                 yield from _nodes([child], consume_generator=child is node.iter, consumed=consumed, policy=policy)
@@ -125,34 +137,43 @@ def _consumes_arguments(call: ast.Call, result_consumed: bool,
 
 
 def _symbols(body: list[ast.stmt], inherited: dict[str, str], module: str,
-             prefix: str, package: str) -> dict[str, str]:
+             prefix: str, package: str, *, timeline=None) -> dict[str, str]:
     symbols = dict(inherited)
+    events = []
     for node in _nodes(body):
+        position = (getattr(node, "end_lineno", 0), getattr(node, "end_col_offset", 0))
         if isinstance(node, ast.Import):
             for alias in node.names:
-                symbols[alias.asname or alias.name.split(".")[0]] = (
-                    alias.name if alias.asname else alias.name.split(".")[0]
-                )
+                events.append((position, alias.asname or alias.name.split(".")[0],
+                               alias.name if alias.asname else alias.name.split(".")[0]))
         elif isinstance(node, ast.ImportFrom):
             base = node.module or ""
             if node.level:
                 parent = package.split(".")[:len(package.split(".")) - node.level + 1]
                 base = ".".join(part for part in [*parent, base] if part)
             for alias in node.names:
-                symbols[alias.asname or alias.name] = f"{base}.{alias.name}"
+                events.append((position, alias.asname or alias.name, f"{base}.{alias.name}"))
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            symbols[node.name] = f"{module}.{prefix}{node.name}"
-        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            events.append((position, node.name, f"{module}.{prefix}{node.name}"))
+        elif isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-            value = node.value
-            if isinstance(value, (ast.Name, ast.Attribute, ast.Call)):
-                for target in targets:
-                    if isinstance(target, ast.Name):
-                        symbols[target.id] = _name(value, symbols)
+            for target in targets:
+                if isinstance(target, ast.Name):
+                    events.append((position, target.id, node.value))
         elif isinstance(node, (ast.With, ast.AsyncWith)):
             for item in node.items:
                 if isinstance(item.optional_vars, ast.Name):
-                    symbols[item.optional_vars.id] = _name(item.context_expr, symbols)
+                    target = item.optional_vars
+                    events.append(((target.end_lineno, target.end_col_offset), target.id, item.context_expr))
+    for position, name, value in sorted(events, key=lambda event: event[0]):
+        if isinstance(value, str):
+            symbols[name] = value
+        elif isinstance(value, (ast.Name, ast.Attribute, ast.Call)):
+            symbols[name] = _name(value, symbols)
+        else:
+            symbols[name] = name  # A literal/unknown value shadows older client aliases.
+        if timeline is not None:
+            timeline.append((position, dict(symbols)))
     return symbols
 
 
@@ -181,8 +202,10 @@ def _functions(sources: dict[str, str]) -> dict[str, Function]:
                             local[arg.arg] = _name(annotation, symbols)
                     if prefix and node.args.args and node.args.args[0].arg == "self":
                         local["self"] = f"{module}.{prefix.rstrip('.')}"
-                    local = _symbols(node.body, local, module, qualified + ".", package)
-                    functions[f"{module}.{qualified}"] = Function(path, qualified, node, local)
+                    initial = dict(local)
+                    timeline = []
+                    local = _symbols(node.body, local, module, qualified + ".", package, timeline=timeline)
+                    functions[f"{module}.{qualified}"] = Function(path, qualified, node, local, initial, timeline)
                     collect(node.body, local, qualified + ".")
                 elif isinstance(node, ast.ClassDef):
                     collect(node.body, symbols, prefix + node.name + ".")
@@ -227,7 +250,7 @@ def _execution_nodes(fn: Function, consumed: set[int], generators: set[str]) -> 
     one function, not whole-program/control-flow or container-value analysis.
     """
     def policy(call: ast.Call, result_consumed: bool) -> bool:
-        return _consumes_arguments(call, result_consumed, fn.symbols, generators)
+        return _consumes_arguments(call, result_consumed, fn.at(call), generators)
 
     body = list(_nodes(fn.node.body, consumed=consumed, policy=policy))
     bindings = {}
@@ -246,7 +269,7 @@ def _execution_nodes(fn: Function, consumed: set[int], generators: set[str]) -> 
         if isinstance(node, ast.GeneratorExp):
             return [node]
         if isinstance(node, ast.Call):
-            name = _name(node.func, fn.symbols)
+            name = _name(node.func, fn.at(node))
             if name in generators:
                 return [node]
             if name in LAZY_CALLS:
@@ -307,7 +330,7 @@ def scan_sources(sources: dict[str, str]) -> list[Finding]:
     def target_at_execution(name: str, node: ast.AST) -> str | None:
         fn = functions[name]
         if isinstance(node, ast.Call):
-            target = _name(node.func, fn.symbols)
+            target = _name(node.func, fn.at(node))
             # Calling a generator function constructs an iterator. Its body
             # only runs when an eager consumer advances it in this scope.
             if target not in generators or id(node) in consumed[name]:
@@ -320,7 +343,7 @@ def scan_sources(sources: dict[str, str]) -> list[Finding]:
         if isinstance(fn.node, ast.AsyncFunctionDef):
             continue
         edges[name] = {target_at_execution(name, node) for node in nodes[name]}
-        if any(_primitive(call, fn.symbols, id(call) in awaited[name]) for call in calls[name]):
+        if any(_primitive(call, fn.at(call), id(call) in awaited[name]) for call in calls[name]):
             blocking.add(name)
     while True:
         expanded = blocking | {name for name, targets in edges.items() if targets & blocking}
@@ -333,7 +356,7 @@ def scan_sources(sources: dict[str, str]) -> list[Finding]:
         if not isinstance(fn.node, ast.AsyncFunctionDef):
             continue
         for node in nodes[name]:
-            callee = (_primitive(node, fn.symbols, id(node) in awaited[name])
+            callee = (_primitive(node, fn.at(node), id(node) in awaited[name])
                       if isinstance(node, ast.Call) else None)
             target = target_at_execution(name, node)
             if callee or target in blocking:

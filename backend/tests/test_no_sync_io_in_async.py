@@ -180,6 +180,102 @@ def collect(urls):
 
 
 @pytest.mark.parametrize("value", ["(requests.get(url) for url in urls)", "responses(urls)"])
+@pytest.mark.parametrize("assignment", [
+    "first, second = {g}", "[first, second] = {g}", "first, *rest = {g}",
+    "[first, *rest] = {g}", "*first, last = {g}",
+])
+def test_unpacking_assignments_consume_generators_on_loop(value, assignment):
+    assert len(scan(GENERATOR_HELPERS + "\nasync def f(urls):\n    " + assignment.format(g=value))) == 1
+
+
+@pytest.mark.parametrize("value", ["(requests.get(url) for url in urls)", "responses(urls)"])
+def test_stored_generator_unpacking_and_worker_unpacking(value):
+    prefix = GENERATOR_HELPERS + "\nasync def f(urls):\n    rows = " + value + "\n    "
+    assert len(scan(prefix + "first, *rest = rows")) == 1
+    assert not scan(prefix + "first, *rest = await asyncio.to_thread(tuple, rows)")
+
+
+@pytest.mark.parametrize("first, second", [("Client", "AsyncClient"), ("AsyncClient", "Client")])
+def test_client_alias_resolution_uses_the_call_position(first, second):
+    def use(kind):
+        return "await client.get('async')" if kind == "AsyncClient" else "client.get('sync')"
+    source = ("import httpx\nasync def f():\n    client = httpx." + first + "()\n    " + use(first)
+              + "\n    client = httpx." + second + "()\n    " + use(second))
+    findings = scan(source)
+    assert len(findings) == 1
+    assert findings[0].callee == "httpx.Client.get"
+    assert findings[0].line == next(i for i, line in enumerate(source.splitlines(), 1) if "get('sync')" in line)
+
+
+def test_unused_later_client_does_not_reclassify_earlier_async_call():
+    assert not scan("""
+        import httpx
+        async def f():
+            client = httpx.AsyncClient()
+            await client.get('url')
+            client = httpx.Client()
+    """)
+
+
+def test_literal_reassignment_does_not_keep_old_http_client_type():
+    findings = scan("""
+        import httpx
+        async def f():
+            client = httpx.Client()
+            client.get('url')
+            client = {}
+            client.get('cached')
+    """)
+    assert len(findings) == 1
+    assert findings[0].callee == "httpx.Client.get"
+
+
+def test_with_targets_bind_clients_before_the_body():
+    findings = scan("""
+        import httpx
+        async def f():
+            async with httpx.AsyncClient() as client:
+                await client.get('async')
+            with httpx.Client() as client:
+                client.get('sync')
+    """)
+    assert len(findings) == 1
+    assert findings[0].line == 7
+
+
+def test_helper_alias_reassignment_does_not_hide_earlier_sync_call():
+    findings = scan("""
+        def save():
+            db.table('x').select('*').execute()
+        def pure():
+            return []
+        async def f():
+            action = save
+            action()
+            action = pure
+            action()
+    """)
+    assert len(findings) == 1
+    assert findings[0].callee == "routers.example.save"
+
+
+def test_offload_alias_reassignment_uses_each_call_position():
+    findings = scan("""
+        import asyncio
+        import requests
+        def inline(consumer, values):
+            return consumer(values)
+        async def f(urls):
+            worker = asyncio.to_thread
+            await worker(list, (requests.get(url) for url in urls))
+            worker = inline
+            worker(list, (requests.get(url) for url in urls))
+    """)
+    assert len(findings) == 1
+    assert findings[0].line == 10
+
+
+@pytest.mark.parametrize("value", ["(requests.get(url) for url in urls)", "responses(urls)"])
 @pytest.mark.parametrize("consumer", [
     "process({g})", "frozenset({g})", "Counter({g})", "fh.writelines({g})",
     "reduce(lambda a, b: a + b, {g})", "list({g} if condition else ())",
