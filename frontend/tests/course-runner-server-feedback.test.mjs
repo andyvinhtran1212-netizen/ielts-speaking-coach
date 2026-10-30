@@ -31,24 +31,28 @@ function memoryStorage() {
   };
 }
 
-function serverApi({ sealed = false, failProgress = 0, dropFeedback = false } = {}) {
+function serverApi({ sealed = false, failProgress = 0, dropFeedback = false,
+                     keyed = false } = {}) {
   const stored = new Map();       // client_id -> row (first write wins)
-  const calls = { progress: [] };
+  const calls = { progress: [], patch: [] };
   let failures = failProgress;
   return {
     calls,
     stored,
+    failNext(n) { failures = n; },
     async get(path) {
       if (path.includes('/course-timer')) return { item_id: 'item-1', timer: { is_timed: false } };
       if (path.includes('/course-resume')) {
         return { session_id: 'sess-1', answered: [], completed: [], item_id: 'item-1' };
       }
+      // `keyed` = the payload served before this change (keys, no flag).
       return {
         bank: { id: 'b1', title: 'Buổi 1' },
-        questions: [question(1), question(2)],
+        questions: [question(1), question(2)].map((q) => (keyed
+          ? { ...q, answer: KEY[q.qid] } : q)),
         mastery: {
-          item_id: 'item-1', answers_withheld: true, answers_sealed: sealed,
-          retake_size: 2,
+          item_id: 'item-1', answers_sealed: sealed, retake_size: 2,
+          ...(keyed ? {} : { answers_withheld: true }),
         },
       };
     },
@@ -71,12 +75,12 @@ function serverApi({ sealed = false, failProgress = 0, dropFeedback = false } = 
       }
       return ack;
     },
-    async patch() { return {}; },
+    async patch(path, body) { calls.patch.push(body); return {}; },
   };
 }
 
-async function loaded(api) {
-  const runner = createRunner({ api, storage: memoryStorage(), userId: 'u1' });
+async function loaded(api, storage = memoryStorage()) {
+  const runner = createRunner({ api, storage, userId: 'u1' });
   await runner.load('b1', { assignmentItemId: 'item-1' });
   runner.show();
   return runner;
@@ -154,4 +158,39 @@ test('a revision maps the original-index key back to the shuffled display', asyn
   assert.equal(res.answer, displayed);
   const sent = api.calls.progress.at(-1)[0];
   assert.equal(Number(sent.answer_given), KEY[q.qid], 'original index goes to the server');
+});
+
+test('an answer queued before the switch to withheld keys is replayed, not stranded', async () => {
+  const storage = memoryStorage();
+  const before = await loaded(serverApi({ keyed: true }), storage);
+  assert.equal(before.answersWithheld, false);
+  await before.answer(1);                       // keyed: graded locally, queued (batch of 5)
+  assert.equal(before.pendingCount, 1);
+  const queued = [...Array(storage.length).keys()].map((i) => storage.key(i))
+    .filter((name) => name.startsWith('cx-outbox:'));
+  assert.equal(queued.length, 1);
+  const clientId = queued[0].slice(queued[0].lastIndexOf(':') + 1);
+
+  const api = serverApi();                       // deploy: same session, no keys now
+  const after = await loaded(api, storage);
+  assert.equal(after.answersWithheld, true);
+  assert.equal(after.at, 1, 'the recovered answer keeps its place');
+  assert.deepEqual(after.marks, ['right'], 'its server verdict arrived with the replay');
+  assert.deepEqual(api.calls.progress.flat().map((row) => row.client_id), [clientId]);
+  assert.equal(after.pendingCount, 0);
+});
+
+test('a verdict that lands while finishing a stage is in the submitted totals', async () => {
+  const storage = memoryStorage();
+  const first = await loaded(serverApi({ failProgress: 1 }), storage);
+  assert.equal((await first.answer(1)).pending, true);   // stays in the outbox
+
+  const api = serverApi({ failProgress: 1 });    // reload; recovery flush fails too
+  const r = await loaded(api, storage);
+  assert.deepEqual(r.marks, ['answered']);
+  const done = await r.finishStage();             // this flush succeeds
+  assert.equal(done.persisted, true);
+  assert.deepEqual(r.marks, ['right']);
+  assert.equal(api.calls.patch.at(-1).total_correct, 1);
+  assert.equal(done.right, 1);
 });

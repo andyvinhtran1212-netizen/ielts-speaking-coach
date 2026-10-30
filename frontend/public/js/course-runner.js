@@ -218,9 +218,36 @@ export function createRunner({
   const outboxKey = () => 'cx-outbox:' + JSON.stringify([
     userId, bank && bank.id, itemId, rev, sessionId,
   ]) + ':';
+  // Rows queued while keys were still served sit under the old fingerprint,
+  // which can no longer be computed without keys. Move the ones of THIS
+  // account, bank, item and session (and of this stage's questions) to the
+  // current prefix so they are replayed, not stranded, after the switch.
+  function migrateOutbox(prefix) {
+    const base = 'cx-outbox:';
+    const allowed = new Set(stageQuestions().map((q) => q.qid));
+    const names = [];
+    for (let i = 0; i < storage.length; i++) {
+      const name = storage.key(i);
+      if (name && name.startsWith(base) && !name.startsWith(prefix)) names.push(name);
+    }
+    names.forEach((name) => {
+      let id = null;
+      let row = null;
+      try {
+        id = JSON.parse(name.slice(base.length, name.lastIndexOf(':')));
+        row = JSON.parse(storage.getItem(name));
+      } catch (e) { return; }
+      if (!Array.isArray(id) || id.length !== 5 || id[0] !== userId
+          || id[1] !== (bank && bank.id) || id[2] !== itemId || id[4] !== sessionId
+          || !row || typeof row.client_id !== 'string' || !allowed.has(row.qid)) return;
+      storage.setItem(prefix + row.client_id, JSON.stringify(row));
+      storage.removeItem(name);
+    });
+  }
   function readOutbox() {
     if (!storage || !sessionId) return [];
     const prefix = outboxKey();
+    if (answersWithheld) migrateOutbox(prefix);
     const keys = [];
     for (let i = 0; i < storage.length; i++) {
       const name = storage.key(i);
@@ -1071,17 +1098,23 @@ export function createRunner({
       const endedBy = options.endedBy === 'time_cap' ? 'time_cap' : 'completed';
       const list = stageQuestions();
       let graded = list.filter(isCourseQuizQuestion).length;
-      let right = marks.filter((m) => m === 'right').length;
+      let right = 0;
+      let axes = {};
+      // Server verdicts of recovered rows can land during the flush below, so
+      // the tally runs again after it, before the totals are sent.
+      const tally = () => {
+        right = marks.filter((m) => m === 'right').length;
+        axes = {};
+        list.forEach((q, i) => {
+          if (marks[i] !== 'wrong' || !q.item_key) return;
+          axes[q.item_key] = (axes[q.item_key] || 0) + 1;
+        });
+      };
+      tally();
       // Khôi phục vào màn kết quả trên một máy chưa có `marks`: đếm từ mảng
       // rỗng ra 0 là bịa một điểm số cho một chặng ĐÃ CHẤM XONG. Dùng con số
       // máy chủ giữ. Không có phiên nào để chốt lại nên đây thuần là hiển thị.
       if (restored && !marks.length) { right = restored.right; graded = restored.graded; }
-
-      const axes = {};
-      list.forEach((q, i) => {
-        if (marks[i] !== 'wrong' || !q.item_key) return;
-        axes[q.item_key] = (axes[q.item_key] || 0) + 1;
-      });
 
       // Tạo phiên có thể hỏng lúc mở bài. Nút "Gửi lại" phải thử mở lại thật,
       // không được gọi mãi một flush không có sessionId rồi bắt làm lại 10 câu.
@@ -1093,6 +1126,7 @@ export function createRunner({
         try {
           await inflight;        // chờ lượt đẩy nền xong rồi mới xét hàng đợi
           if (endedBy !== 'time_cap') await flush();
+          if (answersWithheld && marks.length) tally();
           // Batch còn lại chỉ là bằng chứng idempotency: timeout RPC KHÔNG chèn
           // câu mới sau hạn. Nó chỉ ACK khi mọi client_id đã được /progress
           // nhận trước cutoff, rồi tự tính điểm từ ledger canonical.
