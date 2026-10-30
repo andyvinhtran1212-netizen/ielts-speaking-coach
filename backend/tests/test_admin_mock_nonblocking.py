@@ -3,11 +3,14 @@
 import asyncio
 import threading
 import time
-from unittest.mock import AsyncMock
+from copy import deepcopy
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, call
 
 import httpx
 import pytest
 from fastapi import FastAPI
+from postgrest.exceptions import APIError
 
 from routers import admin_exams, admin_mock_exams as proctor, mock_corrections
 
@@ -249,3 +252,137 @@ def test_capture_worker_errors_keep_the_http_contract(app, monkeypatch, error, s
 
     response = asyncio.run(post())
     assert response.status_code == status and response.json() == {"detail": "QA failure"}
+
+
+@pytest.fixture
+def assignment_refresh(monkeypatch):
+    monkeypatch.setattr(proctor.assign_svc, "_assert_servable", MagicMock())
+    refresh = MagicMock(return_value="refreshed")
+    monkeypatch.setattr(proctor.assign_svc, "_refresh_open_sitting", refresh)
+    return refresh
+
+
+def test_concurrent_assign_requests_refresh_one_row(app, monkeypatch, assignment_refresh):
+    rows, writes, conflicts = [], [], []
+    reads = threading.Barrier(2)
+    db_lock = threading.Lock()
+
+    def table(name):
+        assert name == "mock_exam_assignments"
+        query = MagicMock()
+        filters = {}
+        query.select.return_value = query
+        query.insert.return_value = query
+        query.update.return_value = query
+
+        def eq(column, value):
+            filters[column] = value
+            return query
+
+        def execute():
+            if query.select.called:
+                with db_lock:
+                    snapshot = deepcopy(rows)
+                # Both workers read the missing row before either may insert.
+                reads.wait(timeout=5)
+                time.sleep(0.05)
+                return SimpleNamespace(data=snapshot)
+            with db_lock:
+                if query.insert.called:
+                    payload = deepcopy(query.insert.call_args.args[0])
+                    if any((r["exam_id"], r["user_id"]) ==
+                           (payload["exam_id"], payload["user_id"]) for r in rows):
+                        conflicts.append(payload)
+                        raise APIError({"code": "23505", "message": "duplicate key value violates unique constraint"})
+                    rows.append({"id": "assignment-1", **payload})
+                else:
+                    payload = deepcopy(query.update.call_args.args[0])
+                    assert filters == {"exam_id": "exam-1", "user_id": "learner-1"}
+                    for row in rows:
+                        if all(row.get(k) == v for k, v in filters.items()):
+                            row.update(payload)
+                writes.append(payload)
+                return SimpleNamespace(data=deepcopy(rows))
+
+        query.eq.side_effect = eq
+        query.execute.side_effect = execute
+        return query
+
+    monkeypatch.setattr(proctor.assign_svc, "supabase_admin", SimpleNamespace(table=table))
+    bodies = [{"source_exam_id": f"source-{i}", "assignments": [{
+        "user_id": "learner-1", "skills": skills,
+        "open_from": None, "open_until": f"2026-12-{i + 1:02d}T12:00:00+00:00",
+    }]} for i, skills in enumerate((["writing"], ["reading", "writing"]))]
+
+    async def scenario():
+        transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            return await asyncio.gather(*[
+                client.post("/admin/mock-exams/exam-1/assignments", json=body)
+                for body in bodies
+            ])
+
+    responses = asyncio.run(scenario())
+    assert [r.status_code for r in responses] == [200, 200]
+    assert len(conflicts) == 1 and len(writes) == 2
+    assert writes[-1] == conflicts[0]
+    last_index = next(i for i, r in enumerate(responses)
+                      if r.json()["group_id"] == writes[-1]["assignment_group_id"])
+    expected = {
+        **bodies[last_index]["assignments"][0], "exam_id": "exam-1",
+        "source_exam_id": bodies[last_index]["source_exam_id"], "created_by": "admin-1",
+        "assignment_group_id": responses[last_index].json()["group_id"],
+    }
+    assert rows == [{"id": "assignment-1", **expected}]
+    for response in responses:
+        assert response.json()["assigned"] == ["learner-1"]
+        assert response.json()["refreshed"] == ["learner-1"]
+    assert assignment_refresh.call_count == 2
+
+
+@pytest.mark.parametrize("code,message", [
+    ("23505", "constraint conflict"),
+    ("", "duplicate key value violates unique constraint"),
+])
+def test_assign_unique_insert_conflict_continues_batch(monkeypatch, assignment_refresh, code, message):
+    db = MagicMock()
+    db.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
+    db.table.return_value.insert.return_value.execute.side_effect = [
+        APIError({"code": code, "message": message}), SimpleNamespace(data=[]),
+    ]
+    update = db.table.return_value.update.return_value
+    update.eq.return_value = update
+    monkeypatch.setattr(proctor.assign_svc, "supabase_admin", db)
+    row = {"user_id": "learner-1", "skills": ["writing"], "open_until": "2026-12-01T12:00:00Z"}
+
+    result = proctor.assign_svc.assign("exam-1", [row, {**row, "user_id": "learner-2"}],
+                                      created_by="admin-1", source_exam_id="source-1")
+
+    payload = db.table.return_value.insert.call_args_list[0].args[0]
+    assert db.table.return_value.insert.call_count == 2
+    db.table.return_value.update.assert_called_once_with(payload)
+    assert update.eq.call_args_list == [call("exam_id", "exam-1"), call("user_id", "learner-1")]
+    update.execute.assert_called_once_with()
+    assert result["assigned"] == ["learner-1", "learner-2"]
+    assert result["refreshed"] == ["learner-1", "learner-2"]
+    assert assignment_refresh.call_args_list == [
+        call("exam-1", uid, ["writing"], None, row["open_until"])
+        for uid in ("learner-1", "learner-2")
+    ]
+
+
+def test_assign_other_insert_errors_propagate(monkeypatch, assignment_refresh):
+    db = MagicMock()
+    db.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
+    error = APIError({"code": "23503", "message": "foreign key violation"})
+    db.table.return_value.insert.return_value.execute.side_effect = error
+    monkeypatch.setattr(proctor.assign_svc, "supabase_admin", db)
+
+    with pytest.raises(APIError) as caught:
+        proctor.assign_svc.assign("exam-1", [{
+            "user_id": "learner-1", "skills": ["writing"], "open_until": "2026-12-01T12:00:00Z",
+        }], created_by="admin-1")
+
+    assert caught.value is error
+    db.table.return_value.update.assert_not_called()
+    assignment_refresh.assert_not_called()

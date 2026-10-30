@@ -232,7 +232,16 @@ def assign(exam_id, rows, *, created_by, source_exam_id=None) -> dict:
             supabase_admin.table("mock_exam_assignments").update(payload).eq(
                 "id", existing[uid]).execute()
         else:
-            supabase_admin.table("mock_exam_assignments").insert(payload).execute()
+            try:
+                supabase_admin.table("mock_exam_assignments").insert(payload).execute()
+            except Exception as exc:
+                msg = str(exc).lower()
+                if "23505" not in msg and "duplicate key" not in msg:
+                    raise
+                # A concurrent assign inserted after our snapshot; refresh it
+                # just like an assignment that existed before this request.
+                supabase_admin.table("mock_exam_assignments").update(payload).eq(
+                    "exam_id", str(exam_id)).eq("user_id", uid).execute()
         assigned.append(uid)
 
         # D2 — carry the edit onto a sitting the student ALREADY opened.
