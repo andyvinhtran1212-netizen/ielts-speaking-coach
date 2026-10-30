@@ -68,6 +68,13 @@ const pairs = TITLE_BASELINE_PATHS
   .map((legacy) => ({ legacy, next: canonicalNextRouteForLegacy(legacy) }))
   .filter(({ legacy, next }) => next && existsSync(path.join(ARCHIVE, legacy.slice(1))));
 
+// PC-J386 / UIA-1030-A4: the PR's CM-TEXT table records this intentional
+// title change (Leader authorized the baseline update; CM approval pending).
+// Keep the archived fixture and route enumeration unchanged.
+const TITLE_EQUALITY_EXCEPTIONS = Object.freeze({
+  '/pages/admin/writing/grade.html': 'Chấm Writing · Admin',
+});
+
 function pathnameOf(url) {
   return new URL(url, 'https://routes.invalid').pathname;
 }
@@ -112,9 +119,10 @@ describe('metadata.title khớp <title> của archived predecessor', () => {
       if (!t) { bad.push(`${p.legacy}: không có <title>`); continue; }
 
       // The full-test language audit intentionally gives the exam an English tab title.
-      const expected = p.next === '/mock-exam' ? 'IELTS Mock Test - Aver Learning' : t[1].trim();
+      const expected = TITLE_EQUALITY_EXCEPTIONS[p.legacy]
+        ?? (p.next === '/mock-exam' ? 'IELTS Mock Test - Aver Learning' : t[1].trim());
       if (expected !== m[1].trim()) {
-        bad.push(`${p.next}: next=${JSON.stringify(m[1])} vs legacy=${JSON.stringify(t[1])}`);
+        bad.push(`${p.next}: next=${JSON.stringify(m[1])} vs expected=${JSON.stringify(expected)}`);
       }
     }
     assert.deepEqual(bad.sort(), [],

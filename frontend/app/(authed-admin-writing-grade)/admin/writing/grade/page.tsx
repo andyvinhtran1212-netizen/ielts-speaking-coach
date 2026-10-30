@@ -6,7 +6,7 @@ import { AdminAccessGate } from '@/components/admin-access-gate';
 import { AdminWritingGradeBehavior, AdminWritingGradeLoading } from './writing-grade-behavior';
 
 export const metadata: Metadata = {
-  title: 'Review + Edit — Writing Coach Admin',
+  title: 'Chấm Writing · Admin',
   robots: { index: false, follow: false },
 };
 
