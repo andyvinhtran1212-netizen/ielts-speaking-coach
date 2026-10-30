@@ -195,6 +195,58 @@ def test_stored_generator_unpacking_and_worker_unpacking(value):
     assert not scan(prefix + "first, *rest = await asyncio.to_thread(tuple, rows)")
 
 
+@pytest.mark.parametrize("assignment", [
+    "cache[requests.get(url).text] = True",
+    "cache[requests.get(url).text]: bool = True",
+    "cache[requests.get(url).text]: bool",
+    "requests.get(url).flag = True",
+    "requests.get(url).flag: bool = True",
+    "requests.get(url).json()[0] = True",
+    "first, cache[requests.get(url).text] = (False, True)",
+    "[first, cache[requests.get(url).text]] = (False, True)",
+    "first, [cache[requests.get(url).text]] = (False, [True])",
+    "first, *cache[requests.get(url).text] = (False, True)",
+    "first, *requests.get(url).flags = (False, True)",
+])
+def test_assignment_target_expressions_are_evaluated_on_loop(assignment):
+    findings = scan("import requests\nasync def f(cache, url):\n    " + assignment)
+    assert len(findings) == 1
+    assert findings[0].function == "f"
+    assert findings[0].callee == "requests.get"
+
+
+@pytest.mark.parametrize("assignment", [
+    "cache[url] = True", "cache[url]: bool = True", "cache[url]: bool",
+    "cache.flag = True", "cache.flag: bool = True",
+    "first, [cache[url]] = (False, [True])",
+    "first, *cache[url] = (False, True)",
+])
+def test_safe_assignment_target_expressions_pass(assignment):
+    assert not scan("async def f(cache, url):\n    " + assignment)
+
+
+@pytest.mark.parametrize("assignment", [
+    "rows = ()", "rows: object = ()", "rows, last = ((), ())",
+    "[rows, *rest] = ((), ())",
+])
+def test_assignment_store_names_do_not_consume_old_generators(assignment):
+    assert not scan("import requests\nasync def f(urls):\n"
+                    "    rows = (requests.get(url) for url in urls)\n    " + assignment)
+
+
+@pytest.mark.parametrize("value", ["(requests.get(url) for url in urls)", "responses(urls)"])
+@pytest.mark.parametrize("stored", [False, True])
+@pytest.mark.parametrize("context", [
+    "data = {'rows': VALUE}\n    list(data['rows'])", "return VALUE",
+])
+def test_generator_container_and_return_are_conservatively_eager(value, stored, context):
+    prefix = GENERATOR_HELPERS + "\nasync def f(urls):\n    "
+    if stored:
+        prefix += "rows = " + value + "\n    "
+        value = "rows"
+    assert len(scan(prefix + context.replace("VALUE", value))) == 1
+
+
 @pytest.mark.parametrize("first, second", [("Client", "AsyncClient"), ("AsyncClient", "Client")])
 def test_client_alias_resolution_uses_the_call_position(first, second):
     def use(kind):

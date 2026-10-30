@@ -57,6 +57,20 @@ class Finding:
         return f"{self.path}::{self.function}::{self.callee}"
 
 
+def _target_expressions(targets: Iterable[ast.AST]) -> Iterable[ast.AST]:
+    """Expressions evaluated when assigning, excluding names being stored."""
+    for target in targets:
+        if isinstance(target, ast.Subscript):
+            yield target.value
+            yield target.slice
+        elif isinstance(target, ast.Attribute):
+            yield target.value
+        elif isinstance(target, (ast.Tuple, ast.List)):
+            yield from _target_expressions(target.elts)
+        elif isinstance(target, ast.Starred):
+            yield from _target_expressions([target.value])
+
+
 def _nodes(body: Iterable[ast.AST], *, consume_generator: bool = False,
            consumed: set[int] | None = None,
            policy: Callable[[ast.Call, bool], bool] | None = None) -> Iterable[ast.AST]:
@@ -101,6 +115,11 @@ def _nodes(body: Iterable[ast.AST], *, consume_generator: bool = False,
             unpacking = any(isinstance(target, (ast.Tuple, ast.List)) for target in targets)
             if node.value is not None:
                 yield from _nodes([node.value], consume_generator=unpacking, consumed=consumed, policy=policy)
+            yield from _nodes(_target_expressions(targets), consumed=consumed, policy=policy)
+        elif isinstance(node, (ast.Dict, ast.Return)):
+            # Conservatively retain effects that escape through containers or
+            # returns; this scanner does not follow container values/callers.
+            yield from _nodes(ast.iter_child_nodes(node), consume_generator=True, consumed=consumed, policy=policy)
         elif isinstance(node, (ast.For, ast.comprehension)):
             for child in ast.iter_child_nodes(node):
                 yield from _nodes([child], consume_generator=child is node.iter, consumed=consumed, policy=policy)
