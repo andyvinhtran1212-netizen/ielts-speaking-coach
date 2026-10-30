@@ -510,12 +510,15 @@ async def exam_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
             # A deadline/abort flushes the prefix but must not complete a stage.
             if graded != len(stage_questions):
                 return
-            await call(rec, c, "PATCH", f"/api/quiz/sessions/{sid}", "PATCH /api/quiz/sessions/{id}",
+            st, _ = await call(rec, c, "PATCH", f"/api/quiz/sessions/{sid}", "PATCH /api/quiz/sessions/{id}",
                        token=token, json={
                            "duration_sec": round(time.monotonic() - started),
                            "total_questions": graded, "total_correct": right,
                            "total_wrong": max(0, graded - right), "ended_by": None,
                        })
+            if st is None or not 200 <= st < 300:
+                rec.notes.append(f"{ui}: finalization failed status={st}; no stage advance")
+                return
             if time.monotonic() >= ctx.deadline or ctx.stop.is_set():
                 return
             # _advanceStage: re-read canonical stage, then open the next session.
@@ -848,15 +851,19 @@ def update_busy_marker(path: str | None, args, current_step) -> None:
 # ── Run orchestration ────────────────────────────────────────────────────────
 
 async def read_backend_identity(args) -> dict:
-    out: dict = {}
+    # This probe is anonymous. Equal unavailable SHAs cannot prove that two
+    # runs measured the same deployment, even if an older route exposes one.
+    out: dict = {"/health/runtime:git_sha": "unknown (anon)", "git_sha_verified": False}
     async with make_client(args.base_url, args.probe_timeout) as c:
         for path in ("/health", "/health/runtime"):
             try:
                 r = await c.get(path)
                 body = r.json() if r.status_code == 200 else {}
-                for key in ("version", "git_sha", "deployment_id", "environment_name"):
+                for key in ("version", "deployment_id", "environment_name"):
                     if key in body:
-                        out[f"{path}:{key}"] = body[key]
+                        value = body[key]
+                        out[f"{path}:{key}"] = (
+                            "unknown (anon)" if value == "redacted (admin only)" else value)
             except Exception as exc:  # identity is best-effort
                 out[f"{path}:error"] = type(exc).__name__
     return out
@@ -937,6 +944,7 @@ def render_markdown(report: dict) -> str:
     lines = [f"# Load test `{report['label']}` — {report['started_at']}", "",
              f"- Target: `{report['base_url']}` (staging only; prod guard on)",
              f"- Backend identity: `{json.dumps(report['backend_identity'], ensure_ascii=False)}`",
+             "- Identity probes are anonymous: unknown SHAs do not establish a deployment match.",
              f"- busy_check: {report.get('busy_check')}",
              f"- Accounts: {report['accounts']} × sessions-per-user {report['args']['sessions_per_user']}",
              f"- Bank: `{report['args']['bank_id']}` class_item(s): "

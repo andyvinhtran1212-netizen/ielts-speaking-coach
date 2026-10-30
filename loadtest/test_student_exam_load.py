@@ -855,6 +855,91 @@ def test_failed_progress_stops_student_without_finalizing(monkeypatch, failure, 
     assert any("progress failed" in note for note in rec.notes)
 
 
+@pytest.mark.parametrize("failure", [503, 409, 302, "timeout", "transport"])
+@pytest.mark.parametrize("timed", [False, True])
+def test_failed_finalization_never_opens_next_stage(monkeypatch, failure, timed):
+    requests, saved, opened = [], [], []
+    questions = [{"qid": f"q{i}", "type": "mcq", "answer": 0} for i in range(20)]
+
+    def handler(request):
+        path = request.url.path
+        body = json.loads(request.content) if request.content else None
+        requests.append((request.method, path, body))
+        if path == "/api/quiz/banks/B1":
+            return httpx.Response(200, json={"questions": questions,
+                                             "mastery": {"is_timed": timed}})
+        if path.endswith("/course-resume"):
+            # A failed PATCH leaves S0 open at stage 0, even after all answers.
+            return httpx.Response(200, json={
+                "stage": 0, "session_id": "S0" if opened else None,
+                "answered": saved, "item_id": None})
+        if path == "/api/quiz/sessions":
+            sid = f"S{len(opened)}"
+            opened.append(sid)
+            return httpx.Response(201, json={"session_id": sid})
+        if path.endswith("/progress"):
+            saved.extend(body["attempts"])
+        if request.method == "PATCH":
+            if failure == "timeout":
+                raise httpx.ReadTimeout("finalization timed out", request=request)
+            if failure == "transport":
+                raise httpx.ConnectError("finalization unavailable", request=request)
+            return httpx.Response(failure, json={"detail": "finalization unavailable"})
+        return httpx.Response(200, json={"ok": True})
+
+    _mock_exam_client(monkeypatch, handler)
+
+    async def think(ctx, seconds):
+        return True
+
+    monkeypatch.setattr(lt, "_sleep_or_stop", think)
+
+    async def go():
+        ctx = _exam_context()
+        await lt.exam_student(ctx, 0, 1, "t")
+        return ctx.rec
+
+    rec = asyncio.run(go())
+    assert opened == ["S0"]  # In particular, S1 must never be opened.
+    assert [row["qid"] for row in saved] == [f"q{i}" for i in range(10)]
+    assert [(s["session_id"], s["resumed"]) for s in rec.sessions] == [("S0", False)]
+    assert [(m, p) for m, p, _ in requests if m == "PATCH"] == [
+        ("PATCH", "/api/quiz/sessions/S0")]
+    assert requests[-1][:2] == ("PATCH", "/api/quiz/sessions/S0")
+    assert sum(p.endswith("/course-resume") for _, p, _ in requests) == 1
+    stats = rec.by_endpoint["PATCH /api/quiz/sessions/{id}"]
+    status = {"timeout": "timeout", "transport": "ConnectError"}.get(failure, str(failure))
+    assert stats.statuses == {status: 1}
+    assert stats.errors == 1 and stats.timeouts == (failure == "timeout")
+    assert any("finalization failed" in note for note in rec.notes)
+
+
+@pytest.mark.parametrize("runtime_body", [
+    {"git_sha": "redacted (admin only)", "deployment_id": "redacted (admin only)",
+     "environment_name": "redacted (admin only)"},
+    {"git_sha": "a" * 40},
+    {},
+])
+def test_anonymous_identity_is_not_a_verified_sha(monkeypatch, tmp_path, runtime_body):
+    inner = _fake_backend([])
+
+    def handler(request):
+        if request.url.path == "/health/runtime":
+            assert "authorization" not in request.headers
+            return httpx.Response(200, json=runtime_body)
+        return inner(request)
+
+    report = _run_mocked(monkeypatch, tmp_path, handler, [
+        "--bank-id", "B1", "--users", "1", "--duration-seconds", "0.1"])
+    identity = report["backend_identity"]
+    assert identity["/health/runtime:git_sha"] == "unknown (anon)"
+    assert identity["git_sha_verified"] is False
+    assert "redacted (admin only)" not in json.dumps(identity)
+    markdown = next(tmp_path.glob("*.md")).read_text()
+    assert "unknown (anon)" in markdown
+    assert "do not establish a deployment match" in markdown
+
+
 # ── Staging exclusion: busy preflight + marker (PC-J433/J448) ────────────────
 
 STAGING = "https://ielts-speaking-coach-staging.up.railway.app"

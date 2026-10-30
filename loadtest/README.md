@@ -112,6 +112,8 @@ python loadtest/student_exam_load.py \
   A deadline or abort flushes pending answers and leaves partial stages open
   for the next run. A failed progress request stops that student without
   finalizing the session; only fully answered, acknowledged stages are finalized.
+  A failed finalization PATCH (non-2xx or transport failure) stops the student,
+  records the error in metrics and notes, and never opens the next stage.
   Use unfinished test accounts when measuring active exam work.
 
 Outputs (default `loadtest/results/`, git-ignored): `<label>-<ts>.json`,
@@ -121,6 +123,12 @@ every quiz/speaking session id and writing submit the run used. Quiz rows have
 `resumed: true` for adopted sessions and `false` for newly created ones; adopted
 sessions can contain work from earlier runs. Use that distinction when auditing
 or cleaning up the test data afterwards on staging.
+
+The backend identity probe is anonymous. Reports mark `git_sha` as
+`unknown (anon)` and `git_sha_verified: false`; redacted deployment fields
+are also unavailable. Equal unknown values never establish a deployment
+match for before/after evidence. Confirm the deployed SHA separately through
+the authenticated release checks when attributing measurements to a hotfix.
 
 ## Test
 
