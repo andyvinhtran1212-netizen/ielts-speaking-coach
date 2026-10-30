@@ -32,12 +32,56 @@ const unexpectedWrites = [];
 const check = (name, ok, detail = '') => { results.push({ name, ok, detail }); console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`); };
 async function launchChromium() { try { return await chromium.launch(); } catch (error) { const localChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'; if (process.platform === 'darwin' && existsSync(localChrome)) return chromium.launch({ executablePath: localChrome }); throw error; } }
 
+const holds = new Map();
+function hold(kind) {
+  if (holds.has(kind)) throw new Error(`Already holding ${kind}`);
+  let release;
+  const promise = new Promise((resolve) => { release = resolve; });
+  holds.set(kind, { promise, release, started: 0 });
+}
+function release(kind) {
+  const held = holds.get(kind);
+  if (!held) throw new Error(`No held ${kind} response`);
+  held.release();
+  holds.delete(kind);
+}
+async function waitHeld(kind, request) {
+  const held = holds.get(kind);
+  if (!held) return; // Only explicitly armed requests need a pending-state check.
+  if (request) held.request = request;
+  held.started += 1;
+  let timer;
+  try {
+    await Promise.race([held.promise, new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`Held ${kind} response was not released within 15s`)), 15_000);
+    })]);
+  } finally { clearTimeout(timer); }
+}
+async function waitPending(pending, ...buttons) {
+  await expect.poll(pending, { timeout: 15_000 }).toBe(true);
+  for (const button of buttons) {
+    await button.waitFor({ state: 'visible', timeout: 15_000 });
+    try {
+      await expect(button).toBeDisabled();
+    } catch (error) {
+      check('pending button is disabled', false, `${button}: ${error.message}`);
+    }
+  }
+}
+async function releaseResponse(page, kind) {
+  const request = holds.get(kind)?.request;
+  if (!request) throw new Error(`No held ${kind} request`);
+  const responsePromise = page.waitForResponse((response) => response.request() === request, { timeout: 15_000 });
+  release(kind);
+  const response = await responsePromise;
+  await response.finished();
+}
+
 let vocabRead = 0;
 let flagPending = false;
 let flagApplied = false;
 let holdNextVocab = false;
 let heldVocabStarted = false;
-let releaseHeldVocab;
 let d1Reads = 0;
 let d1WritePending = false;
 let failNextD1Delete = false;
@@ -46,10 +90,8 @@ let lemmaWritePending = false;
 let failNextLemmaCreate = false;
 let holdNextQuizBankAnalytics = false;
 let heldQuizBankAnalyticsStarted = false;
-let releaseHeldQuizBankAnalytics;
 let holdNextQuizDetail = false;
 let heldQuizDetailStarted = false;
-let releaseHeldQuizDetail;
 let topicReads = 0;
 let bundleReads = 0;
 let bankReads = 0;
@@ -66,7 +108,6 @@ let partialNextContentBulk = false;
 let exerciseReads = 0;
 let exerciseWritePending = false;
 let exerciseGeneratePending = false;
-let delayedExerciseReads = 0;
 let failNextExerciseRead = false;
 let d1Row = {
   id: '00000000-0000-4000-8000-000000000201',
@@ -167,13 +208,13 @@ await page.route('**/*', async (route) => {
   if (method === 'GET' && parsed.pathname === '/admin/exercises') {
     exerciseReads += 1;
     const requested = parsed.searchParams.get('status');
-    if (delayedExerciseReads > 0) { delayedExerciseReads -= 1; await new Promise((resolve) => setTimeout(resolve, 180)); }
+    await waitHeld('exerciseRead');
     if (failNextExerciseRead && requested === 'draft') { failNextExerciseRead = false; return json({ detail: 'queue unavailable' }, 503); }
     return json(parsed.searchParams.get('exercise_type') === 'D1' && requested in exerciseRows ? exerciseRows[requested] : []);
   }
   if (expectedExerciseTransition) {
     exerciseWritePending = true;
-    await new Promise((resolve) => setTimeout(resolve, 180));
+    await waitHeld('exerciseWrite');
     const parts = parsed.pathname.split('/');
     const id = parts[3]; const action = parts[4];
     const nextStatus = action === 'publish' ? 'published' : action === 'reject' ? 'rejected' : 'draft';
@@ -190,7 +231,7 @@ await page.route('**/*', async (route) => {
   }
   if (expectedExerciseBulk) {
     exerciseWritePending = true;
-    await new Promise((resolve) => setTimeout(resolve, 180));
+    await waitHeld('exerciseWrite');
     const ids = Array.isArray(body?.ids) ? body.ids : [];
     const nextStatus = body?.action === 'publish' ? 'published' : 'rejected';
     const moved = [];
@@ -204,7 +245,7 @@ await page.route('**/*', async (route) => {
   }
   if (expectedExerciseGenerate) {
     exerciseGeneratePending = true;
-    await new Promise((resolve) => setTimeout(resolve, 180));
+    await waitHeld('exerciseGenerate');
     const words = Array.isArray(body?.words) ? body.words : [];
     const count = Number.isInteger(body?.count) ? body.count : 0;
     const generatedIds = [exerciseGeneratedId, exerciseGeneratedId2, exerciseGeneratedId3];
@@ -219,7 +260,7 @@ await page.route('**/*', async (route) => {
   }
   if (method === 'POST' && parsed.pathname === '/admin/vocabulary/import') {
     const dryRun = parsed.searchParams.get('dry_run') === 'true';
-    if (!dryRun) { contentImportPending = true; await new Promise((resolve) => setTimeout(resolve, 180)); }
+    if (!dryRun) { contentImportPending = true; await waitHeld('contentImport'); }
     const result = {
       dry_run: dryRun,
       blocks: [{ index: 0, headword: 'adapt<script>', slug: 'adapt', validation_errors: [], action: dryRun ? null : 'created', db_action: 'created', parsed_data: { category: 'work-careers' } }],
@@ -236,13 +277,13 @@ await page.route('**/*', async (route) => {
   }
   if (method === 'POST' && parsed.pathname === '/admin/vocabulary/generate-audio') {
     contentWritePending = true;
-    await new Promise((resolve) => setTimeout(resolve, 180));
+    await waitHeld('contentWrite');
     contentWritePending = false;
     return json({ queued_count: body?.ids?.length ?? 0, engine: body?.engine, scope: body?.scope });
   }
   if (method === 'POST' && parsed.pathname === '/admin/vocabulary/bulk-delete') {
     contentWritePending = true;
-    await new Promise((resolve) => setTimeout(resolve, 180));
+    await waitHeld('contentWrite');
     const ids = Array.isArray(body?.ids) ? body.ids : [];
     vocabRows = vocabRows.filter((row) => !ids.includes(row.id));
     contentWritePending = false;
@@ -258,7 +299,7 @@ await page.route('**/*', async (route) => {
   }
   if (method === 'PATCH' && parsed.pathname === `/admin/vocabulary/${vocabCardId}`) {
     contentWritePending = true;
-    await new Promise((resolve) => setTimeout(resolve, 180));
+    await waitHeld('contentWrite');
     vocabDetail = { ...vocabDetail, ...body };
     vocabRows = vocabRows.map((row) => row.id === vocabCardId ? { ...row, headword: body?.headword ?? row.headword, category: body?.category ?? row.category, level: body?.level ?? row.level, part_of_speech: body?.part_of_speech ?? row.part_of_speech, pronunciation: body?.pronunciation ?? row.pronunciation, gloss_vi: body?.gloss_vi ?? row.gloss_vi } : row);
     contentWritePending = false;
@@ -266,7 +307,7 @@ await page.route('**/*', async (route) => {
   }
   if (method === 'DELETE' && parsed.pathname === `/admin/vocabulary/${vocabCardId}`) {
     contentWritePending = true;
-    await new Promise((resolve) => setTimeout(resolve, 180));
+    await waitHeld('contentWrite');
     vocabRows = vocabRows.filter((row) => row.id !== vocabCardId);
     contentWritePending = false;
     return json({ id: vocabCardId, message: 'Vocabulary deleted' });
@@ -286,7 +327,7 @@ await page.route('**/*', async (route) => {
     if (holdNextVocab) {
       holdNextVocab = false;
       heldVocabStarted = true;
-      await new Promise((resolve) => { releaseHeldVocab = resolve; });
+      await waitHeld('vocab', request);
       return json({ vocab_bank_total: 42, fp_reports_total: 3, fp_rate_percent: 7.1, users_with_vocab_enabled: 7 });
     }
     return json({ vocab_bank_total: 42, fp_reports_total: 3, fp_rate_percent: 7.1, users_with_vocab_enabled: flagApplied ? 8 : 7 });
@@ -301,7 +342,7 @@ await page.route('**/*', async (route) => {
   });
   if (expectedFlag) {
     flagPending = true;
-    await new Promise((resolve) => setTimeout(resolve, 180));
+    await waitHeld('flag');
     flagApplied = true;
     flagPending = false;
     return json({ ok: true, message: 'Vocab bank enabled.' });
@@ -314,14 +355,14 @@ await page.route('**/*', async (route) => {
   }
   if (expectedD1 && method === 'PATCH') {
     d1WritePending = true;
-    await new Promise((resolve) => setTimeout(resolve, 180));
+    await waitHeld('d1Write');
     d1Row = { ...d1Row, context_sentence: body?.context_sentence ?? d1Row.context_sentence, target_answer: body?.target_answer ?? d1Row.target_answer, hint: body?.hint ?? d1Row.hint, is_active: body?.is_active ?? d1Row.is_active };
     d1WritePending = false;
     return json({ ok: true, id: d1Row.id, updated_fields: Object.keys(body || {}) });
   }
   if (expectedD1 && method === 'DELETE') {
     d1WritePending = true;
-    await new Promise((resolve) => setTimeout(resolve, 180));
+    await waitHeld('d1Write');
     if (failNextD1Delete) { failNextD1Delete = false; d1WritePending = false; return json({ detail: 'fixture archive rejected' }, 409); }
     d1Row = { ...d1Row, is_active: false };
     d1WritePending = false;
@@ -335,7 +376,7 @@ await page.route('**/*', async (route) => {
   }
   if (expectedLemma && method === 'POST') {
     lemmaWritePending = true;
-    await new Promise((resolve) => setTimeout(resolve, 180));
+    await waitHeld('lemmaWrite');
     if (failNextLemmaCreate) { failNextLemmaCreate = false; lemmaWritePending = false; return json({ detail: 'fixture duplicate override' }, 409); }
     const item = { id: '00000000-0000-4000-8000-000000000212', original_word: body?.original_word, lemma: body?.lemma, pos_tag: body?.pos_tag, notes: body?.notes, created_at: '2026-08-15T01:00:00Z' };
     lemmaRows = [item, ...lemmaRows];
@@ -344,7 +385,7 @@ await page.route('**/*', async (route) => {
   }
   if (expectedLemma && method === 'DELETE') {
     lemmaWritePending = true;
-    await new Promise((resolve) => setTimeout(resolve, 180));
+    await waitHeld('lemmaWrite');
     const id = parsed.pathname.split('/').pop();
     lemmaRows = lemmaRows.filter((row) => row.id !== id);
     lemmaWritePending = false;
@@ -370,28 +411,28 @@ await page.route('**/*', async (route) => {
   }
   if (expectedTopic && method === 'PATCH') {
     topicWritePending = true;
-    await new Promise((resolve) => setTimeout(resolve, 180));
+    await waitHeld('topicWrite');
     topicRow = { ...topicRow, title: body?.title ?? topicRow.title, title_vi: body?.title_vi ?? null, description: body?.description ?? null, order: body?.order ?? topicRow.order, is_published: body?.is_published ?? topicRow.is_published };
     topicWritePending = false;
     return json(topicRow);
   }
   if (expectedBank && method === 'PATCH') {
     bankWritePending = true;
-    await new Promise((resolve) => setTimeout(resolve, 180));
+    await waitHeld('bankWrite');
     topicBanks = topicBanks.map((bank) => bank.id === quizBankId ? { ...bank, is_published: body?.is_published ?? bank.is_published } : bank);
     bankWritePending = false;
     return json(topicBanks.find((bank) => bank.id === quizBankId));
   }
   if (expectedBank && method === 'DELETE') {
     bankWritePending = true;
-    await new Promise((resolve) => setTimeout(resolve, 180));
+    await waitHeld('bankWrite');
     topicBanks = topicBanks.filter((bank) => bank.id !== quizBankId);
     bankWritePending = false;
     return json({ id: quizBankId, deleted: true });
   }
   if (expectedImport) {
     const dryRun = parsed.searchParams.get('dry_run') === 'true';
-    if (!dryRun) { importWritePending = true; await new Promise((resolve) => setTimeout(resolve, 180)); }
+    if (!dryRun) { importWritePending = true; await waitHeld('importWrite'); }
     const result = {
       dry_run: dryRun,
       meta: { code: 'L02', title: 'Grammar 2 <script>', skill_area: 'vocab' },
@@ -419,7 +460,7 @@ await page.route('**/*', async (route) => {
     if (holdNextQuizDetail) {
       holdNextQuizDetail = false;
       heldQuizDetailStarted = true;
-      await new Promise((resolve) => { releaseHeldQuizDetail = resolve; });
+      await waitHeld('quizDetail', request);
     }
     return json({
       user: { user_id: quizLearnerId, name: 'Lan <img onerror=alert(1)>', email: 'lan@example.test' },
@@ -432,7 +473,7 @@ await page.route('**/*', async (route) => {
     if (holdNextQuizBankAnalytics) {
       holdNextQuizBankAnalytics = false;
       heldQuizBankAnalyticsStarted = true;
-      await new Promise((resolve) => { releaseHeldQuizBankAnalytics = resolve; });
+      await waitHeld('quizBankAnalytics', request);
     }
     return json({ session_count: 2, items: [{ item_key: 'mitigate<script>', total: 4, wrong: 1, error_rate: 0.25 }], skills: [{ skill: 'meaning', total: 4, wrong: 1, error_rate: 0.25 }] });
   }
@@ -471,16 +512,20 @@ await page.getByLabel('User ID').fill('not-a-uuid');
 await page.getByRole('button', { name: 'Bật Vocab' }).click();
 check('UUID sai bị chặn trước network', await page.getByText('User ID phải là UUID hợp lệ.', { exact: true }).count() === 1 && !requests.some((item) => item.path.includes('not-a-uuid')));
 await page.getByLabel('User ID').fill(learnerId);
+hold('vocab');
 holdNextVocab = true;
 await page.getByRole('button', { name: 'Làm mới' }).click();
-await page.waitForTimeout(40);
+await expect.poll(() => heldVocabStarted, { timeout: 15_000 }).toBe(true);
 check('refresh cũ đang được giữ để kiểm freshness', heldVocabStarted);
+hold('flag');
 await page.getByRole('button', { name: 'Bật Vocab' }).click();
-await page.waitForTimeout(40);
+await waitPending(() => flagPending, page.getByRole('button', { name: 'Bật Vocab' }), page.getByRole('button', { name: 'Tắt Vocab' }));
 check('mutation bị khoá trong lúc chờ ACK', flagPending && await page.getByRole('button', { name: 'Bật Vocab' }).isDisabled() && await page.getByRole('button', { name: 'Tắt Vocab' }).isDisabled());
+release('flag');
 await page.getByText('Vocab bank enabled.', { exact: true }).waitFor();
 check('mutation đúng path/body và đọc lại canonical Vocab stats', requests.some((item) => item.method === 'POST' && item.path === `/admin/users/${learnerId}/vocab-flag` && item.body?.enabled === true) && vocabRead >= 2);
-releaseHeldVocab?.();
+await releaseResponse(page, 'vocab');
+// Observe that the delivered stale response causes no later UI update.
 await page.waitForTimeout(100);
 check('refresh cũ không ghi đè canonical flag readback', await page.getByText('8', { exact: true }).count() >= 1);
 check('stats mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
@@ -497,18 +542,22 @@ await page.getByRole('button', { name: 'Reset' }).click();
 await page.getByText('mitigate', { exact: true }).first().waitFor();
 await page.getByRole('button', { name: 'Sửa' }).click();
 await page.getByLabel('Target answer').fill('reduce');
+hold('d1Write');
 await page.getByRole('button', { name: 'Lưu thay đổi' }).click();
-await page.waitForTimeout(40);
+await waitPending(() => d1WritePending, page.getByRole('button', { name: 'Đang xác minh…' }));
 check('D1 khoá edit trong lúc chờ ACK', d1WritePending && await page.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
 check('D1 khoá filter để readback không lệch URL', await page.getByLabel('Source').isDisabled() && await page.getByLabel('Trạng thái').isDisabled() && await page.getByRole('button', { name: 'Reset' }).isDisabled());
+release('d1Write');
 await page.getByText('Đã lưu và tải lại danh sách D1 chuẩn từ backend.', { exact: true }).waitFor();
 check('D1 PATCH đúng body và canonical readback', requests.some((item) => item.method === 'PATCH' && item.path === `/admin/vocab/d1-questions/${d1Row.id}` && item.body?.context_sentence === 'We need to <img onerror=alert(1)> the risk.' && item.body?.target_answer === 'reduce' && item.body?.hint === 'reduce') && d1Reads >= 3);
 await page.getByRole('button', { name: 'Archive' }).click();
 const d1Dialog = page.getByRole('dialog', { name: 'Archive câu hỏi D1?' });
 failNextD1Delete = true;
+hold('d1Write');
 await d1Dialog.getByRole('button', { name: 'Archive', exact: true }).click();
-await page.waitForTimeout(40);
+await waitPending(() => d1WritePending, d1Dialog.getByRole('button', { name: 'Đang xác minh…' }));
 check('D1 khoá archive trong lúc chờ backend', d1WritePending && await d1Dialog.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
+release('d1Write');
 await d1Dialog.getByRole('alert').waitFor();
 check('D1 hiện lỗi archive ngay trong dialog', await d1Dialog.getByRole('alert').getByText(/Không xác nhận được trạng thái archive/).count() === 1);
 await d1Dialog.getByRole('button', { name: 'Archive', exact: true }).click();
@@ -522,7 +571,7 @@ await page.getByText('children<script>', { exact: true }).waitFor();
 check('Lemma đọc canonical list và escape dữ liệu', requests.some((item) => item.path === '/admin/vocab/lemmas/overrides' && item.search === '?offset=0&limit=100') && await page.locator('.avv-console-shell script').count() === 0);
 await page.getByLabel('Tìm original word').fill('child');
 await page.getByRole('button', { name: 'Tìm', exact: true }).click();
-await page.waitForTimeout(80);
+await expect.poll(() => new URL(page.url()).searchParams.get('search') === 'child' && requests.some((item) => item.path === '/admin/vocab/lemmas/overrides' && item.search === '?search=child&offset=0&limit=100'), { timeout: 15_000 }).toBe(true);
 check('Lemma prefix search bền trong URL/request', new URL(page.url()).searchParams.get('search') === 'child' && requests.some((item) => item.path === '/admin/vocab/lemmas/overrides' && item.search === '?search=child&offset=0&limit=100'));
 await page.getByRole('button', { name: '+ Thêm override', exact: true }).click();
 const lemmaCreateDialog = page.getByRole('dialog', { name: 'Thêm lemma override' });
@@ -533,9 +582,11 @@ await lemmaCreateDialog.getByLabel('Lemma (canonical form)', { exact: true }).fi
 await lemmaCreateDialog.locator('select').selectOption('NOUN');
 await lemmaCreateDialog.getByLabel('Notes (tuỳ chọn)', { exact: true }).fill('irregular plural');
 failNextLemmaCreate = true;
+hold('lemmaWrite');
 await lemmaCreateDialog.getByRole('button', { name: 'Lưu override' }).click();
-await page.waitForTimeout(40);
+await waitPending(() => lemmaWritePending, page.getByRole('button', { name: 'Đang xác minh…' }));
 check('Lemma khoá create trong lúc chờ ACK', lemmaWritePending && await page.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
+release('lemmaWrite');
 await lemmaCreateDialog.getByRole('alert').waitFor();
 check('Lemma hiện lỗi backend ngay trong modal', await lemmaCreateDialog.getByRole('alert').getByText(/Không xác nhận được trạng thái override/).count() === 1);
 await lemmaCreateDialog.getByRole('button', { name: 'Lưu override' }).click();
@@ -543,9 +594,11 @@ await page.getByText('Đã tạo override và tải lại danh sách chuẩn t�
 check('Lemma POST đúng body và canonical readback', requests.some((item) => item.method === 'POST' && item.path === '/admin/vocab/lemmas/overrides' && item.body?.original_word === 'mice' && item.body?.lemma === 'mouse' && item.body?.pos_tag === 'NOUN' && item.body?.notes === 'irregular plural') && lemmaReads >= 3);
 await page.getByRole('button', { name: 'Xóa', exact: true }).click();
 const lemmaDialog = page.getByRole('dialog', { name: 'Xóa override?' });
+hold('lemmaWrite');
 await lemmaDialog.getByRole('button', { name: 'Xóa override' }).click();
-await page.waitForTimeout(40);
+await waitPending(() => lemmaWritePending, lemmaDialog.getByRole('button', { name: 'Đang xác minh…' }));
 check('Lemma khoá delete trong lúc chờ backend', lemmaWritePending && await lemmaDialog.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
+release('lemmaWrite');
 await page.getByText('Đã xóa override và tải lại danh sách chuẩn từ backend.', { exact: true }).waitFor();
 check('Lemma DELETE đúng id và canonical readback', requests.some((item) => item.method === 'DELETE' && item.path === '/admin/vocab/lemmas/overrides/00000000-0000-4000-8000-000000000211') && lemmaReads >= 4);
 check('Lemma mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
@@ -563,14 +616,18 @@ check('Topics không hiện form cũ khi bundle topic mới lỗi', new URL(page
 await page.getByRole('button', { name: /Work <script>/ }).click();
 await page.locator('.avv-topic-form').waitFor();
 await page.getByLabel('Tên', { exact: true }).fill('Work & Careers');
+hold('topicWrite');
 await page.getByRole('button', { name: 'Lưu thay đổi' }).click();
-await page.waitForTimeout(40);
+await waitPending(() => topicWritePending, page.getByRole('button', { name: 'Đang xác minh…' }).first());
 check('Topic form khoá trong lúc chờ ACK', topicWritePending && await page.getByRole('button', { name: 'Đang xác minh…' }).first().isDisabled());
+release('topicWrite');
 await page.getByText('Đã lưu topic và đọc lại canonical bundle.', { exact: true }).waitFor();
 check('Topic PATCH đúng body và canonical list/bundle readback', requests.some((item) => item.method === 'PATCH' && item.path === `/admin/content-topics/${contentTopicId}` && item.body?.title === 'Work & Careers') && topicReads >= 2 && bundleReads >= 2);
+hold('bankWrite');
 await page.getByRole('button', { name: 'Ẩn', exact: true }).click();
-await page.waitForTimeout(40);
+await waitPending(() => bankWritePending, page.getByRole('button', { name: 'Đang xác minh…' }).first());
 check('Bank publish bị khoá khi chờ ACK', bankWritePending && await page.getByRole('button', { name: 'Đang xác minh…' }).first().isDisabled());
+release('bankWrite');
 await page.getByText('Đã đổi trạng thái bank và đọc lại canonical bundle.', { exact: true }).waitFor();
 check('Bank PATCH đúng và canonical bundle phản ánh hidden', requests.some((item) => item.method === 'PATCH' && item.path === `/admin/quiz/banks/${quizBankId}` && item.body?.is_published === false) && await page.getByText('hidden', { exact: true }).count() >= 1);
 await page.getByRole('button', { name: 'Phân tích' }).click();
@@ -585,21 +642,26 @@ check('Quiz deep-link được scoped topic list xác nhận', await page.getByL
 await page.locator('input[type=file]').setInputFiles({ name: 'L02.md', mimeType: 'text/markdown', buffer: Buffer.from('---\nkind: quiz\n---\n') });
 await page.getByText('Không có lỗi validation. Chọn đúng topic và lưu khi sẵn sàng.', { exact: true }).waitFor();
 check('Quiz dry-run gọi multipart không commit', requests.some((item) => item.method === 'POST' && item.path === '/admin/quiz/import' && item.search.includes('dry_run=true')) && await page.getByText('Grammar 2 <script>', { exact: true }).count() === 1 && await page.locator('.avv-quiz-import script').count() === 0);
+hold('importWrite');
 await page.getByRole('button', { name: 'Lưu vào hệ thống' }).click();
-await page.waitForTimeout(40);
+await waitPending(() => importWritePending, page.getByRole('button', { name: 'Đang xác minh…' }));
 check('Quiz commit khoá nút khi chờ ACK', importWritePending && await page.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
+release('importWrite');
 await page.getByText('Đã lưu bank L02 và đọc lại canonical list.', { exact: true }).waitFor();
 check('Quiz commit một lần và canonical bank readback', requests.filter((item) => item.method === 'POST' && item.path === '/admin/quiz/import' && item.search.includes('dry_run=false')).length === 1 && bankReads >= 2);
 const committedButton = page.getByRole('button', { name: 'Lưu vào hệ thống' });
 check('Quiz giữ commit disabled sau canonical success', await committedButton.isDisabled());
 await committedButton.evaluate((button) => button.click());
+// Observe the absence of a second commit after an attempted repeat click.
 await page.waitForTimeout(80);
 check('Quiz click lặp không gửi commit write thứ hai', requests.filter((item) => item.method === 'POST' && item.path === '/admin/quiz/import' && item.search.includes('dry_run=false')).length === 1);
 await page.getByRole('button', { name: 'Xóa', exact: true }).click();
 const bankDeleteDialog = page.getByRole('dialog', { name: 'Xóa Quick‑Check bank?' });
+hold('bankWrite');
 await bankDeleteDialog.getByRole('button', { name: 'Xóa bank' }).click();
-await page.waitForTimeout(40);
+await waitPending(() => bankWritePending, bankDeleteDialog.getByRole('button', { name: 'Đang xác minh…' }));
 check('Quiz delete khoá dialog khi chờ ACK', bankWritePending && await bankDeleteDialog.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
+release('bankWrite');
 await page.getByText('Đã xóa bank và đọc lại canonical list.', { exact: true }).waitFor();
 check('Quiz delete xác minh canonical absence', requests.some((item) => item.method === 'DELETE' && item.path === `/admin/quiz/banks/${quizBankId}`) && topicBanks.length === 0);
 check('Quiz mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
@@ -618,24 +680,28 @@ check('Analytics deep-link chỉ tải bank sau scoped canonical list', analytic
 check('Analytics giữ scope/tab/bank hợp lệ trong URL', new URL(page.url()).searchParams.get('scope') === 'vocab' && new URL(page.url()).searchParams.get('tab') === 'hard' && new URL(page.url()).searchParams.get('bank_id') === quizBankId);
 check('Analytics escape dữ liệu item độc hại', await page.getByText('mitigate<script>', { exact: true }).count() === 1 && await page.locator('.avv-quiz-analytics script, .avv-quiz-analytics img').count() === 0);
 await page.getByLabel('Chọn bộ').selectOption('');
+hold('quizBankAnalytics');
 holdNextQuizBankAnalytics = true;
 await page.getByLabel('Chọn bộ').selectOption(quizBankId);
-await expect.poll(() => heldQuizBankAnalyticsStarted).toBe(true);
+await expect.poll(() => heldQuizBankAnalyticsStarted, { timeout: 15_000 }).toBe(true);
 check('Analytics bank A được giữ để kiểm freshness', heldQuizBankAnalyticsStarted);
 await page.getByLabel('Chọn bộ').selectOption(quizBankIdB);
 await page.getByText('resilient', { exact: true }).waitFor();
-releaseHeldQuizBankAnalytics?.();
+await releaseResponse(page, 'quizBankAnalytics');
+// Observe that the delivered stale response causes no later UI update.
 await page.waitForTimeout(100);
 check('Analytics request bank cũ không ghi đè bank mới', new URL(page.url()).searchParams.get('bank_id') === quizBankIdB && await page.getByText('resilient', { exact: true }).count() === 1 && await page.getByText('mitigate<script>', { exact: true }).count() === 0);
 await page.getByRole('tab', { name: 'Theo học viên' }).click();
 await page.getByText('Lan <img onerror=alert(1)>', { exact: true }).waitFor();
 check('Analytics đọc rollup canonical và escape identity', requests.some((item) => item.path === '/admin/quiz/students' && item.search === '?skill_area=vocab') && await page.locator('.avv-quiz-analytics img').count() === 0);
+hold('quizDetail');
 holdNextQuizDetail = true;
 await page.getByRole('button', { name: 'Xem chi tiết' }).click();
-await expect.poll(() => heldQuizDetailStarted).toBe(true);
+await expect.poll(() => heldQuizDetailStarted, { timeout: 15_000 }).toBe(true);
 check('Analytics detail được giữ để kiểm close freshness', heldQuizDetailStarted);
 await page.keyboard.press('Escape');
-releaseHeldQuizDetail?.();
+await releaseResponse(page, 'quizDetail');
+// Observe that the delivered stale response causes no later UI update.
 await page.waitForTimeout(100);
 check('Analytics detail cũ không mở lại dialog đã đóng', await page.getByRole('dialog').count() === 0);
 await page.getByRole('button', { name: 'Xem chi tiết' }).click();
@@ -677,9 +743,11 @@ await contentEditDialog.waitFor();
 await contentEditDialog.getByLabel('Headword', { exact: true }).fill('mitigate safely');
 const wordFamilyValue = await contentEditDialog.locator('textarea.is-code').first().inputValue();
 check('Content editor giữ rich word-family JSON', wordFamilyValue.includes('"word": "mitigation"') && !wordFamilyValue.includes('[object Object]'));
+hold('contentWrite');
 await contentEditDialog.getByRole('button', { name: 'Lưu thay đổi' }).click();
-await page.waitForTimeout(40);
+await waitPending(() => contentWritePending, contentEditDialog.getByRole('button', { name: 'Đang xác minh…' }));
 check('Content PATCH bị khoá trong lúc chờ ACK', contentWritePending && await contentEditDialog.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
+release('contentWrite');
 await page.getByText('Đã lưu và đọc lại vocab card chuẩn từ backend.', { exact: true }).waitFor();
 check('Content PATCH đúng body, giữ object word-family và canonical readback', requests.some((item) => item.method === 'PATCH' && item.path === `/admin/vocabulary/${vocabCardId}` && item.body?.headword === 'mitigate safely' && item.body?.word_family?.[0]?.word === 'mitigation') && contentDetailReads >= 2 && contentReads >= 2);
 
@@ -691,9 +759,11 @@ check('Content không gửi job TTS khác giọng', !requests.some((item) => ite
 const contentRow = page.locator('tbody tr').filter({ hasText: 'mitigate safely' });
 await contentRow.getByRole('button', { name: 'Xóa', exact: true }).click();
 const contentDeleteDialog = page.getByRole('dialog', { name: 'Xóa “mitigate safely”?' });
+hold('contentWrite');
 await contentDeleteDialog.getByRole('button', { name: 'Xác nhận' }).click();
-await page.waitForTimeout(40);
+await waitPending(() => contentWritePending, contentDeleteDialog.getByRole('button', { name: 'Đang xác minh…' }));
 check('Content hard-delete bị khoá trong dialog', contentWritePending && await contentDeleteDialog.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
+release('contentWrite');
 await page.getByText('Không có từ nào khớp bộ lọc.', { exact: true }).waitFor();
 check('Content DELETE đúng id và canonical absence', requests.some((item) => item.method === 'DELETE' && item.path === `/admin/vocabulary/${vocabCardId}`) && vocabRows.length === 0 && contentReads >= 3);
 
@@ -715,9 +785,11 @@ await page.locator('details.avv-content-import').evaluate((node) => { node.open 
 await page.locator('.avv-content-import input[type=file]').setInputFiles({ name: 'adapt.md', mimeType: 'text/markdown', buffer: Buffer.from('---\nheadword: adapt\ncategory: work-careers\n---\n') });
 await page.getByText(/adapt<script>/).first().waitFor();
 check('Content dry-run là multipart không commit', requests.some((item) => item.method === 'POST' && item.path === '/admin/vocabulary/import' && item.search === '?dry_run=true') && await page.getByText('1', { exact: true }).count() >= 1);
+hold('contentImport');
 await page.getByRole('button', { name: 'Lưu vào thư viện' }).click();
-await page.waitForTimeout(40);
+await waitPending(() => contentImportPending, page.getByRole('button', { name: 'Đang xác minh…' }));
 check('Content import commit một lần và khoá resubmit', contentImportPending && await page.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
+release('contentImport');
 await page.getByText(/Đã lưu 1 từ mới và cập nhật 0 từ/).waitFor();
 await page.getByText('adapt<script>', { exact: true }).first().waitFor();
 check('Content import một combined commit và canonical list readback', requests.filter((item) => item.method === 'POST' && item.path === '/admin/vocabulary/import' && item.search === '?dry_run=false').length === 1 && vocabRows[0]?.id === importedVocabCardId && contentReads >= 4);
@@ -745,10 +817,12 @@ check('Exercises tab Đã phát hành chỉ xem queue, không thực hiện publ
 await exerciseTab('draft').click();
 
 await page.getByLabel(`Chọn exercise ${exerciseDraftId}`).check();
-delayedExerciseReads = 3;
+hold('exerciseRead');
 await page.getByRole('button', { name: '↻ Làm mới' }).click();
-await page.waitForTimeout(40);
+await page.getByText('Đang tải đồng thời ba queue chuẩn…', { exact: true }).waitFor();
+await waitPending(() => holds.get('exerciseRead')?.started === 3, page.getByRole('button', { name: 'Phát hành bài (1)' }));
 check('Exercises khoá moderation trong lúc refresh canonical đang chờ', await page.getByRole('button', { name: 'Phát hành bài (1)' }).isDisabled() && requests.filter((item) => item.method === 'PATCH' && item.path.includes('/admin/exercises/')).length === 0);
+release('exerciseRead');
 await page.getByText('We should <img onerror=alert(1)> this risk.', { exact: true }).waitFor();
 
 await page.getByLabel(`Chọn exercise ${exerciseDraftId}`).check();
@@ -762,9 +836,11 @@ await page.getByText('We should <img onerror=alert(1)> this risk.', { exact: tru
 const publishRequestStart = requests.length;
 await page.getByRole('button', { name: 'Phát hành bài', exact: true }).click();
 const publishDialog = page.getByRole('dialog', { name: 'Phát hành bài 1 exercise?' });
+hold('exerciseWrite');
 await publishDialog.getByRole('button', { name: 'Xác nhận' }).click();
-await page.waitForTimeout(40);
+await waitPending(() => exerciseWritePending, publishDialog.getByRole('button', { name: 'Đang xác minh…' }));
 check('Exercises single transition khoá dialog khi chờ ACK', exerciseWritePending && await publishDialog.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
+release('exerciseWrite');
 await page.getByText(/Đã phát hành bài 1 exercise và tải lại cả ba queue/).waitFor();
 const publishRequests = requests.slice(publishRequestStart);
 check('Exercises PATCH đúng id/action và canonical readback', publishRequests.filter((item) => item.method === 'PATCH' && item.path === `/admin/exercises/${exerciseDraftId}/publish` && JSON.stringify(item.body) === '{}').length === 1
@@ -777,9 +853,11 @@ await page.getByLabel('Chọn toàn bộ queue đang hiển thị').check();
 const rejectRequestStart = requests.length;
 await page.getByRole('button', { name: 'Từ chối bài (2)' }).click();
 const rejectDialog = page.getByRole('dialog', { name: 'Từ chối bài 2 exercise?' });
+hold('exerciseWrite');
 await rejectDialog.getByRole('button', { name: 'Xác nhận' }).click();
-await page.waitForTimeout(40);
+await waitPending(() => exerciseWritePending, rejectDialog.getByRole('button', { name: 'Đang xác minh…' }));
 check('Exercises bulk transition khoá dialog khi chờ ACK', exerciseWritePending && await rejectDialog.getByRole('button', { name: 'Đang xác minh…' }).isDisabled());
+release('exerciseWrite');
 await page.getByText(/Đã từ chối bài 2 exercise và tải lại cả ba queue/).waitFor();
 const rejectRequests = requests.slice(rejectRequestStart);
 check('Exercises bulk ACK phủ đúng selection và canonical queues', rejectRequests.filter((item) => item.method === 'POST' && item.path === '/admin/exercises/bulk' && item.body?.action === 'reject'
@@ -792,9 +870,11 @@ const generateDialog = page.getByRole('dialog', { name: 'Generate D1 drafts' });
 await generateDialog.getByLabel('Target words').fill('adapt, thrive, persist');
 check('Exercises generation nói đúng synchronous/paid contract', await generateDialog.getByText(/có thể mất gần 120 giây/).count() === 1 && await generateDialog.getByText(/Không tự động retry/).count() === 1);
 const generateRequestStart = requests.length;
+hold('exerciseGenerate');
 await generateDialog.getByRole('button', { name: 'Generate và chờ kết quả' }).click();
-await page.waitForTimeout(40);
+await waitPending(() => exerciseGeneratePending, generateDialog.getByRole('button', { name: 'Đang chờ Gemini…' }));
 check('Exercises generation khoá request trong lúc chờ Gemini', exerciseGeneratePending && await generateDialog.getByRole('button', { name: 'Đang chờ Gemini…' }).isDisabled());
+release('exerciseGenerate');
 await page.getByText(/3 draft\(s\) inserted across 1 chunk\(s\)/).waitFor();
 check('Exercises cho batch ba từ dùng count mặc định và canonical readback đúng', requests.filter((item) => item.method === 'POST' && item.path === '/admin/exercises/d1/generate-batch' && item.body?.count === 10 && item.body?.words?.join(',') === 'adapt,thrive,persist').length === 1 && exerciseRows.draft.length === 3 && exerciseReads >= 18
   && exerciseQueuesRead(requests.slice(generateRequestStart)) && await exerciseCountsMatch({ draft: 3, published: 0, rejected: 2 }));
