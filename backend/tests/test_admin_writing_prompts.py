@@ -17,6 +17,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
+from services import writing_prompt_analysis
+
 
 def _client() -> TestClient:
     from main import app
@@ -754,3 +756,230 @@ def test_review_analysis_rejects_invalid_schema():
                             json={"analysis": {"chart_type": "not_a_type"}, "reviewed": True},
                             headers=_ADMIN_AUTH)
     assert r.status_code == 422
+
+
+# ── PC-J458: review guard must match the "!= pending" check ──────────
+#
+# The handler rejects a `pending` analysis up front, so `failed` and NULL
+# (never analysed) are reviewable. The UPDATE guard has to admit exactly
+# the same states, or a failed/unanalysed answer key can never be approved.
+# `_ReviewPromptStore` evaluates the UPDATE's own PostgREST predicates
+# against the row as it is at write time, with SQL NULL semantics.
+
+
+class _ReviewPromptStore:
+    def __init__(self, row: dict, before_update=None):
+        self.row = dict(row)
+        self.before_update = before_update
+        self.writes = 0
+
+    def table(self, name: str):
+        assert name == "writing_prompts"
+        return _ReviewPromptQuery(self)
+
+
+def _review_term_matches(row: dict, column: str, op: str, value) -> bool:
+    current = row.get(column)
+    if op == "eq":
+        return current is not None and current == value
+    if op == "neq":
+        return current is not None and current != value
+    if op == "is":
+        assert value == "null"
+        return current is None
+    if op == "in":
+        return current is not None and current in value
+    raise AssertionError(f"unsupported filter op {op!r}")
+
+
+def _review_or_terms(expr: str) -> list[tuple[str, str, object]]:
+    terms, depth, start = [], 0, 0
+    for i, ch in enumerate(expr + ","):
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        elif ch == "," and depth == 0:
+            terms.append(expr[start:i])
+            start = i + 1
+    parsed = []
+    for term in terms:
+        column, op, value = term.split(".", 2)
+        if op == "in":
+            assert value.startswith("(") and value.endswith(")")
+            value = tuple(value[1:-1].split(","))
+        parsed.append((column, op, value))
+    return parsed
+
+
+class _ReviewPromptQuery:
+    def __init__(self, store: _ReviewPromptStore):
+        self.store = store
+        self.payload = None
+        self.filters: list = []
+
+    def select(self, _cols):
+        return self
+
+    def update(self, payload):
+        self.payload = dict(payload)
+        return self
+
+    def limit(self, _n):
+        return self
+
+    def eq(self, column, value):
+        self.filters.append([(column, "eq", value)])
+        return self
+
+    def neq(self, column, value):
+        self.filters.append([(column, "neq", value)])
+        return self
+
+    def is_(self, column, value):
+        self.filters.append([(column, "is", value)])
+        return self
+
+    def in_(self, column, values):
+        self.filters.append([(column, "in", tuple(values))])
+        return self
+
+    def or_(self, expr):
+        self.filters.append(_review_or_terms(expr))
+        return self
+
+    def _matches(self) -> bool:
+        row = self.store.row
+        return all(
+            any(_review_term_matches(row, *term) for term in group)
+            for group in self.filters
+        )
+
+    def execute(self):
+        if self.payload is None:
+            return MagicMock(data=[dict(self.store.row)] if self._matches() else [])
+        if self.store.before_update is not None:
+            hook, self.store.before_update = self.store.before_update, None
+            hook(self.store.row)
+        if not self._matches():
+            return MagicMock(data=[])
+        self.store.row.update(self.payload)
+        self.store.writes += 1
+        return MagicMock(data=[dict(self.store.row)])
+
+
+def _review_store_row(status, public_id: str = "prompts/x.png",
+                      analysis_public_id: str | None = None) -> dict:
+    return {
+        "id": _PROMPT_ID, "task_type": "task1_academic",
+        "prompt_image_url": "https://cur/x.png",
+        "prompt_image_public_id": public_id,
+        "prompt_image_analysis_public_id": analysis_public_id,
+        "prompt_image_analysis_status": status,
+        "prompt_image_analysis_error": "model timeout" if status == "failed" else None,
+        "prompt_image_analysis_reviewed": False,
+    }
+
+
+def _patch_review(store: _ReviewPromptStore, expected_public_id: str = "prompts/x.png"):
+    with patch("routers.admin_writing_prompts.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_prompts.supabase_admin", store), \
+         patch("routers.admin_writing_prompts.attach_signed_image_urls"):
+        return _client().patch(
+            f"/admin/writing/prompts/{_PROMPT_ID}/analysis",
+            json={"analysis": _valid_analysis(), "reviewed": True,
+                  "expected_image_public_id": expected_public_id},
+            headers=_ADMIN_AUTH,
+        )
+
+
+def test_review_analysis_saves_after_failed_analysis():
+    store = _ReviewPromptStore(_review_store_row("failed"))
+    r = _patch_review(store)
+    assert r.status_code == 200, r.text
+    assert store.writes == 1
+    assert store.row["prompt_image_analysis_status"] == "ready"
+    assert store.row["prompt_image_analysis_error"] is None
+    assert store.row["prompt_image_analysis_reviewed"] is True
+    assert r.json()["prompt_image_analysis_status"] == "ready"
+    # PC-J470: the approved key is stamped with the image it was reviewed
+    # against, so it no longer reads as "needs analysis" (backfill target).
+    assert store.row["prompt_image_analysis_public_id"] == "prompts/x.png"
+    assert r.json()["prompt_image_analysis_public_id"] == "prompts/x.png"
+    assert writing_prompt_analysis.image_needs_analysis(store.row) is False
+
+
+def test_review_analysis_saves_when_never_analysed():
+    store = _ReviewPromptStore(_review_store_row(None))
+    r = _patch_review(store)
+    assert r.status_code == 200, r.text
+    assert store.writes == 1
+    assert store.row["prompt_image_analysis_status"] == "ready"
+    assert store.row["prompt_image_analysis_reviewed"] is True
+    assert store.row["prompt_image_analysis_public_id"] == "prompts/x.png"
+    assert r.json()["prompt_image_analysis_public_id"] == "prompts/x.png"
+    assert writing_prompt_analysis.image_needs_analysis(store.row) is False
+
+
+def test_review_analysis_ready_keeps_current_fingerprint():
+    store = _ReviewPromptStore(
+        _review_store_row("ready", analysis_public_id="prompts/x.png"))
+    r = _patch_review(store)
+    assert r.status_code == 200, r.text
+    assert store.writes == 1
+    assert store.row["prompt_image_analysis_status"] == "ready"
+    assert store.row["prompt_image_analysis_reviewed"] is True
+    assert store.row["prompt_image_analysis_public_id"] == "prompts/x.png"
+    assert writing_prompt_analysis.image_needs_analysis(store.row) is False
+
+
+def test_backfill_skips_answer_key_reviewed_after_failed_analysis():
+    """`backfill_prompt_analysis --execute` re-extracts every row its target
+    query returns; a key approved after a failed analysis must not be one."""
+    from scripts.backfill_prompt_analysis import _enumerate_targets
+
+    store = _ReviewPromptStore(_review_store_row("failed"))
+    assert _patch_review(store).status_code == 200
+
+    db = MagicMock()
+    (db.table.return_value.select.return_value.eq.return_value
+     .not_.is_.return_value.eq.return_value.execute.return_value) = MagicMock(
+        data=[dict(store.row)])
+    assert _enumerate_targets(db) == []
+
+
+def test_review_analysis_store_still_rejects_pending():
+    store = _ReviewPromptStore(_review_store_row("pending"))
+    r = _patch_review(store)
+    assert r.status_code == 409
+    assert r.json()["detail"] == "Image analysis is still pending; wait before reviewing"
+    assert store.writes == 0
+    assert store.row["prompt_image_analysis_status"] == "pending"
+    assert store.row["prompt_image_analysis_public_id"] is None
+
+
+def test_review_analysis_store_still_rejects_stale_image():
+    store = _ReviewPromptStore(_review_store_row("failed", public_id="prompts/new.png"))
+    r = _patch_review(store, expected_public_id="prompts/old.png")
+    assert r.status_code == 409
+    assert r.json()["detail"] == "Prompt image changed; reload the answer key before saving"
+    assert store.writes == 0
+    assert store.row["prompt_image_analysis_status"] == "failed"
+    assert store.row["prompt_image_analysis_public_id"] is None
+
+
+def test_review_analysis_rejects_reanalysis_started_after_read():
+    """Read sees `failed`; a reanalyze marks the row `pending` before the
+    UPDATE runs. The guarded UPDATE must match 0 rows → 409, no write."""
+    def reanalysis_starts(row: dict) -> None:
+        row["prompt_image_analysis_status"] = "pending"
+        row["prompt_image_analysis_error"] = None
+
+    store = _ReviewPromptStore(_review_store_row("failed"), before_update=reanalysis_starts)
+    r = _patch_review(store)
+    assert r.status_code == 409
+    assert store.writes == 0
+    assert store.row["prompt_image_analysis_status"] == "pending"
+    assert store.row["prompt_image_analysis_reviewed"] is False
+    assert store.row["prompt_image_analysis_public_id"] is None
