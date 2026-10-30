@@ -49,8 +49,12 @@ không phải bằng chứng đã chạy lại clone hay certify database.
    ACL `supabase_admin` trước mọi bước phá huỷ. Mỗi lần chạy sinh một key
    `\restrict` ngẫu nhiên (64 hex) chỉ trong biến shell, không in ra, truyền vào
    `pg_dump --restrict-key` và (qua env) vào preflight. Nội dung lấy từ nguồn không
-   biết key nên không thể `\unrestrict` psql. Key nằm trong argv của `pg_dump` lúc
-   dump chạy (pg_dump không có cách khác), nên chỉ chạy trên máy vận hành riêng.
+   biết key nên không thể `\unrestrict` psql. Sau preflight, bỏ đúng hai frame
+   được lexer nhận diện (giữ nguyên chuỗi/thân hàm có nội dung giống frame), kiểm
+   không còn meta-command, rồi sinh key restore mới. Key mới chỉ đi qua pipe
+   `-f <(printf …)`, giữa reset và dump; không nằm trong dump hay argv của psql.
+   `printf` là builtin của Bash. Key cũ nằm trong argv của `pg_dump` lúc dump
+   chạy (pg_dump không có cách khác), nên chỉ chạy trên máy vận hành riêng.
 3. Preflight chỉ đọc catalog staging (`BEGIN READ ONLY`): đối chiếu mọi owner,
    grantee/revokee, role policy/default ACL trong SQL với `pg_roles`; thiếu role
    thì in tên và dừng trước DROP. Từ chối mọi dạng đổi role (`SET`/`RESET` với
@@ -79,10 +83,11 @@ không phải bằng chứng đã chạy lại clone hay certify database.
    `\`). Dump phải được đọc **giống hệt** khi `standard_conforming_strings` bật
    và tắt, vì một hàm chạy lúc restore có thể tắt nó mà scanner không thấy. Từ
    chối `SET`/`SET NAMES` đổi `standard_conforming_strings`/`client_encoding`.
-   Giới hạn còn lại: hàm chạy lúc restore (ví dụ default của `ADD COLUMN`) có thể
-   đổi `client_encoding`; khi đó người **sửa được file dump** (đọc được key, cùng
-   uid vận hành) vẫn giấu được meta-command. Nội dung từ nguồn thì không, vì không
-   có key. Đổi role ẩn như vậy bị postcondition bắt.
+   Hàm chạy lúc restore (ví dụ default của `ADD COLUMN`) có thể đổi
+   `client_encoding`, nhưng key cũ đọc từ dump không mở được restrict mode của
+   phiên restore. Các PoC SJIS/GBK dùng key cũ bị psql dừng và rollback; marker
+   không được tạo. Cùng uid vận hành/root vẫn có thể sửa script hay đọc bộ nhớ;
+   pipe không cô lập khỏi quyền đó. Đổi role ẩn bị postcondition bắt.
    CLI đọc byte UTF-8 nguyên trạng, không chuẩn hoá newline: CRLF và CR đơn lẻ
    dừng trước reset, kể cả khi dòng `CREATE SCHEMA public` không được grep lọc.
    Chuỗi hai ký tự backslash + `r` vẫn hợp lệ.

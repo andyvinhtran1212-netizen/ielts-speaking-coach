@@ -7,12 +7,14 @@ not live baselining or curated-vocabulary migrations (covered separately).
 """
 
 from contextlib import ExitStack, contextmanager
+import json
 import os
 from pathlib import Path
 import secrets
 import shutil
 import socket
 import subprocess
+import sys
 
 import pytest
 
@@ -163,6 +165,30 @@ def sandbox(tmp_path, source, target, database, injection="", appended=""):
                     'mv "$2.inj" "$2"\n'
                     'stat -c %a "$2" > "$TEST_DUMP_MODE"\n')
     dump.chmod(0o700)
+    # Observe generated keys without putting either value in test output or
+    # argv. The restore key must differ from the old, on-disk dump frame key.
+    python = wrapper / "python3"
+    python.write_text('#!/usr/bin/env bash\nset -euo pipefail\n'
+                      'if [[ "${1:-}" == -c && "${2:-}" == "import secrets; print(secrets.token_hex(32))" ]]; then\n'
+                      '  key=$("$TEST_REAL_PYTHON" "$@")\n'
+                      '  printf "%s\\n" "$key" >> "$TEST_GENERATED_KEYS"\n'
+                      '  printf "%s\\n" "$key"\n'
+                      'else exec "$TEST_REAL_PYTHON" "$@"; fi\n')
+    python.chmod(0o700)
+    psql = wrapper / "psql"
+    psql.write_text('#!/usr/bin/env python3\n'
+                    'import json, os, sys\nfrom pathlib import Path\n'
+                    'if "-1" in sys.argv:\n'
+                    '    sys.path.insert(0, os.environ["TEST_PREFLIGHT_DIR"])\n'
+                    '    from staging_clone_preflight import lex\n'
+                    '    keys = Path(os.environ["TEST_GENERATED_KEYS"]).read_text().splitlines()\n'
+                    '    dumps = list(Path(os.environ["TMPDIR"]).glob("prod_schema_*.sql"))\n'
+                    '    sql = dumps[0].read_bytes().decode("utf-8")\n'
+                    '    audit = {"dump_count": len(dumps), "restore_key_on_disk": keys[-1] in sql,\n'
+                    '             "meta_commands": sum(t.startswith("\\\\") for t in lex(sql))}\n'
+                    '    Path(os.environ["TEST_RESTORE_AUDIT"]).write_text(json.dumps(audit))\n'
+                    'os.execv(os.environ["TEST_REAL_PSQL"], ["psql", *sys.argv[1:]])\n')
+    psql.chmod(0o700)
     # Preserve CR bytes in the actual dump, including its framing/header.
     if injection == "@CRLF_DUMP@":
         dump.write_text(dump.read_text() +
@@ -181,6 +207,9 @@ def sandbox(tmp_path, source, target, database, injection="", appended=""):
                TEST_REAL_PG_DUMP=str(source.binaries / "pg_dump"),
                TEST_INJECTION_SQL=str(injection_sql), TEST_APPENDED_SQL=str(appended_sql),
                TEST_DUMP_MODE=str(root / "dump-mode"), TEST_RESTRICT_KEY=str(root / "restrict-key"),
+               TEST_REAL_PYTHON=sys.executable, TEST_GENERATED_KEYS=str(root / "generated-keys"),
+               TEST_REAL_PSQL=str(source.binaries / "psql"), TEST_PREFLIGHT_DIR=str(scripts),
+               TEST_RESTORE_AUDIT=str(root / "restore-audit.json"),
                TEST_BASELINE_MARKER=str(root / "baseline-reached"), TEST_LEDGER_SQL=str(ledger))
     return root, scripts / "staging_clone_schema_from_prod.sh", env
 
@@ -227,6 +256,10 @@ def sandbox(tmp_path, source, target, database, injection="", appended=""):
     ("create_rule", "dump contains CREATE RULE"),
     ("crlf_dump", "carriage return"),
     ("bare_cr_dump", "carriage return"),
+    ("hidden_sjis_old_key", "wrong key"),
+    ("hidden_gbk_old_key", "wrong key"),
+    ("hidden_sjis_other_key", "wrong key"),
+    ("hidden_gbk_other_key", "wrong key"),
     # A switch hidden in a function body passes preflight; the postcondition
     # rolls the restore back on ownership or the final role.
     ("hidden_role_switch", "restored_object_not_owned_by_restore_role"),
@@ -358,6 +391,14 @@ def test_clone_preflight_and_atomic_restore(clusters, tmp_path, case, diagnostic
                                "pg_catalog.set_config('standard_conforming_strings', 'off', false);\n", ""),
         "hidden_role_left": (become, ""),
     }.get(case, ("", ""))
+    if case.startswith("hidden_sjis_") or case.startswith("hidden_gbk_"):
+        encoding, char = ("SJIS", "Á") if "sjis" in case else ("GBK", "ặ")
+        unlock = "@KEY@" if case.endswith("old_key") else "notThisRunsKey"
+        injection = ("CREATE FUNCTION public.enc() RETURNS integer LANGUAGE sql STABLE AS $$ "
+                     f"SELECT 0 FROM pg_catalog.set_config('client_encoding', '{encoding}', false) $$;\n"
+                     "ALTER TABLE public.filler_1 ADD COLUMN enc integer DEFAULT public.enc();\n"
+                     f"COMMENT ON TABLE public.filler_2 IS '{char}' || '\n"
+                     f"\\unrestrict {unlock}\n\\! touch {marker}\n\\restrict {unlock}\n';\n")
     root, script, env = sandbox(tmp_path, source, target, database, injection, appended)
     result = subprocess.run(["bash", str(script)], env=env, capture_output=True, text=True, timeout=60)
     (root / "clone.result").write_text(result.stdout + result.stderr)
@@ -366,6 +407,13 @@ def test_clone_preflight_and_atomic_restore(clusters, tmp_path, case, diagnostic
     key = (root / "restrict-key").read_text()
     assert len(key) == 64 and int(key, 16) >= 0
     assert key not in result.stdout + result.stderr
+    generated_keys = (root / "generated-keys").read_text().splitlines()
+    assert all(value not in result.stdout + result.stderr for value in generated_keys)
+    if "preflight passed" in result.stdout:
+        assert len(generated_keys) == 2
+        assert generated_keys[0] != generated_keys[1]
+        assert json.loads((root / "restore-audit.json").read_text()) == {
+            "dump_count": 1, "restore_key_on_disk": False, "meta_commands": 0}
     assert not marker.exists(), "no psql meta-command from the dump may run"
     assert not list((root / "temporary").iterdir()), "dump and .tmp must be removed"
     if diagnostic:
@@ -381,7 +429,8 @@ def test_clone_preflight_and_atomic_restore(clusters, tmp_path, case, diagnostic
                           f"no-partial-restore-{case}", database) == "t"
         if case in {"restore_error", "postcondition_error", "log_truncate", "definer_execute",
                     "column_update", "default_write", "sequence_update", "users_policy",
-                    "hidden_role_switch", "hidden_role_left"}:
+                    "hidden_role_switch", "hidden_role_left", "hidden_sjis_old_key", "hidden_gbk_old_key",
+                    "hidden_sjis_other_key", "hidden_gbk_other_key"}:
             assert "preflight passed" in result.stdout
             assert "restoring atomically" in result.stdout
         else:

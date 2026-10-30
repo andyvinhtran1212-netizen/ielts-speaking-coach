@@ -81,11 +81,36 @@ COMMIT;
 " | STAGING_CLONE_RESTRICT_KEY="$RESTRICT_KEY" \
   python3 "$ROOT/backend/scripts/staging_clone_preflight.py" "$DUMP"
 
+# Remove only the two lexed frames, preserving lookalikes inside literals or
+# routine bodies. The restore key is fresh and never written into the dump.
+STAGING_CLONE_RESTRICT_KEY="$RESTRICT_KEY" \
+  python3 - "$DUMP" "$ROOT/backend/scripts" <<'PY'
+import os
+from pathlib import Path
+import sys
+
+sys.path.insert(0, sys.argv[2])
+from staging_clone_preflight import TOKEN, lex, preflight_dump
+
+path = Path(sys.argv[1])
+sql = path.read_bytes().decode("utf-8")
+preflight_dump(sql, os.environ["STAGING_CLONE_RESTRICT_KEY"])
+frames = [m for m in TOKEN[True].finditer(sql) if m[0].startswith("\\")]
+for frame in reversed(frames):
+    sql = sql[:frame.start()] + sql[frame.end():]
+if any(token.startswith("\\") for token in lex(sql)):
+    sys.exit("REFUSED: unframed dump contains a psql meta-command")
+path.write_bytes(sql.encode("utf-8"))
+PY
+RESTORE_RESTRICT_KEY="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+[[ "$RESTORE_RESTRICT_KEY" =~ ^[0-9a-f]{64}$ ]] || { echo "REFUSED: could not generate a restore restrict key" >&2; exit 1; }
+
 echo "== resetting staging public schema and restoring atomically"
 # Any restore OR postcondition error rolls back the DROP and all restored DDL
 # and ACLs. -X prevents operator psqlrc settings from changing this contract.
 psql "$STAGING_URL" -X -1 -v ON_ERROR_STOP=1 -q \
-  -f "$ROOT/backend/scripts/sql/staging_clone_reset.sql" -f "$DUMP" \
+  -f "$ROOT/backend/scripts/sql/staging_clone_reset.sql" \
+  -f <(printf '\\restrict %s\n' "$RESTORE_RESTRICT_KEY") -f "$DUMP" \
   -f "$ROOT/backend/scripts/sql/staging_clone_postconditions.sql"
 
 echo "== baselining migration ledger (clone contains production-active migrations)"
