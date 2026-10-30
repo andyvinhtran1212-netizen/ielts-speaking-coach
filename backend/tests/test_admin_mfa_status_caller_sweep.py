@@ -47,7 +47,21 @@ import test_staff_security_sweep as tss
 from scripts import staff_security_sweep as sweep
 from test_migration_240_core_attempt_evidence import psql
 
-pg = tss.pg   # the disposable migration-332 schema plus a stand-in auth log
+THROTTLE_MIGRATION = tss.BACKEND / "migrations/352_mfa_status_throttle.sql"
+
+
+@pytest.fixture
+def pg(request):
+    # Keep the cron's migration-332 fixture unchanged; only status reads need
+    # the new shared admission table.
+    base = request.getfixturevalue("sweep_pg")
+    schema, _ = base
+    sql = THROTTLE_MIGRATION.read_text().replace("public.", f"{schema}.")
+    m332._owner(sql)
+    yield base
+
+
+sweep_pg = tss.pg
 run = tss.run
 STATUS_KEYS = {"aal", "enforce", "verified_factor_count", "next_step"}
 
@@ -83,7 +97,6 @@ def _cursor_row(schema: str) -> str:
 @pytest.fixture(autouse=True)
 def _fresh_status_throttle(monkeypatch):
     """Each test starts with no recent or running status pass in this worker."""
-    monkeypatch.setattr(sweep, "_caller_recent", {})
     monkeypatch.setattr(sweep, "_caller_running", set())
 
 
@@ -119,6 +132,8 @@ def status_route(live_activation_gate, monkeypatch):
                 return await real(engine, user_id, **kwargs)
 
             monkeypatch.setattr(sweep, "sweep_caller", counted)
+            monkeypatch.setattr(sweep, "status_sweep", functools.partial(
+                _REAL_STATUS_SWEEP, schema=schema, auth_schema=auth, timeout=timeout))
         return app, tsg.accept(admin, tsg.aal1_claims(admin), factors=auth_factors)
 
     prepare.swept = []   # user ids of the passes the route started
@@ -136,6 +151,7 @@ def status_api(status_route):
 
 
 _REAL_SWEEP_CALLER = sweep.sweep_caller
+_REAL_STATUS_SWEEP = sweep.status_sweep
 
 
 def _assert_unchanged_aal1_body(response) -> None:
@@ -479,8 +495,6 @@ def test_concurrent_status_reads_of_one_admin_start_one_pass(pg, status_route, m
     factors = _HeldAuth()
     engine = _engine()
     app, token = status_route(admin, engine=engine, pg=pg, factors=factors)
-    clock = [1000.0]
-    monkeypatch.setattr(sweep, "_clock", lambda: clock[0])
 
     async def go():
         factors.gate = asyncio.Event()
@@ -511,7 +525,9 @@ def test_concurrent_status_reads_of_one_admin_start_one_pass(pg, status_route, m
                                headers={"Authorization": f"Bearer {enrolled}"}).status_code == 200
     assert status_route.swept == [admin, admin], "a changed factor list is swept at once"
 
-    clock[0] += sweep.CALLER_MIN_INTERVAL_SECONDS
+    # Age the shared successful pass; a worker-local clock cannot control it.
+    psql(f"UPDATE {schema}.staff_mfa_status_throttle SET "
+         f"last_success_at = clock_timestamp() - interval '31 seconds' WHERE user_id = '{admin}'")
     _assert_unchanged_aal1_body(TestClient(app).get(
         "/admin/mfa/status", headers={"Authorization": f"Bearer {token}"}))
     assert status_route.swept == [admin, admin, admin], "the interval over, it sweeps again"
@@ -614,6 +630,200 @@ def test_the_auth_factor_read_is_bounded_as_a_whole(pg, monkeypatch):
     assert hang == [admin]
     assert summary is not None, "the read is bounded before the route's overall timeout"
     assert summary.log_error is None and summary.snapshot_error == "TimeoutError"
+
+
+def _other_worker(monkeypatch):
+    """A separately imported worker has no process-local admission state."""
+    import importlib.util
+    import sys
+
+    name = "staff_sweep_worker_" + uuid4().hex
+    spec = importlib.util.spec_from_file_location(name, sweep.__file__)
+    worker = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, name, worker)
+    spec.loader.exec_module(worker)
+    return worker
+
+
+def test_two_workers_share_successful_cooldown(pg, monkeypatch):
+    schema, auth = pg
+    admin = m332._user(schema, "admin", True)
+    tss._ready(pg)
+    worker = _other_worker(monkeypatch)
+    factors = tss.Factors()
+
+    async def go():
+        engine = _engine()
+        try:
+            first = await sweep.status_sweep(engine, {"id": admin}, list_factors=factors,
+                                              schema=schema, auth_schema=auth)
+            second = await worker.status_sweep(engine, {"id": admin}, list_factors=factors,
+                                               schema=schema, auth_schema=auth)
+            return first, second
+        finally:
+            await engine.dispose()
+
+    first, second = run(go())
+    assert first.log_error is None and first.snapshot_error is None
+    assert second.log_skipped == second.snapshot_skipped == "throttled"
+    assert factors.calls == [admin]
+
+
+def test_two_workers_share_account_inflight_and_global_concurrency(pg, monkeypatch):
+    schema, auth = pg
+    admins = [m332._user(schema, "admin", True) for _ in range(3)]
+    tss._ready(pg)
+    workers = [sweep, _other_worker(monkeypatch), _other_worker(monkeypatch)]
+    factors = _HeldAuth()
+
+    async def go():
+        engine = _pooled_engine()
+        factors.gate = asyncio.Event()
+        tasks = []
+        try:
+            async def call(worker, uid):
+                return await worker.status_sweep(engine, {"id": uid}, list_factors=factors,
+                                                  schema=schema, auth_schema=auth, timeout=60)
+            tasks.append(asyncio.create_task(call(workers[0], admins[0])))
+            assert await _until(lambda: factors.in_flight == 1)
+            same = await call(workers[1], admins[0])
+            assert same.log_skipped == "in_flight"
+            tasks.append(asyncio.create_task(call(workers[1], admins[1])))
+            assert await _until(lambda: factors.in_flight == 2)
+            busy = await call(workers[2], admins[2])
+            assert busy.log_skipped == "busy"
+            assert factors.peak == sweep.CALLER_MAX_CONCURRENT
+        finally:
+            factors.gate.set()
+            await asyncio.gather(*tasks)
+            await engine.dispose()
+
+    run(go())
+    assert psql(f"SELECT count(*) FROM {schema}.staff_mfa_status_throttle "
+                "WHERE lease_id IS NOT NULL") == "0"
+
+
+@pytest.mark.parametrize("failure", [None, "log", "snapshot", "timeout"])
+def test_failed_pass_does_not_start_cooldown(pg, monkeypatch, failure):
+    schema, _ = pg
+    admin = m332._user(schema, "admin", True)
+    calls = []
+
+    async def fake(engine, uid, **kwargs):
+        calls.append(uid)
+        if len(calls) > 1:
+            return sweep.CallerSummary()
+        if failure == "timeout":
+            await asyncio.Event().wait()
+        return None if failure is None else sweep.CallerSummary(**{failure + "_error": "failed"})
+
+    monkeypatch.setattr(sweep, "sweep_caller", fake)
+
+    async def go():
+        engine = _engine()
+        try:
+            await sweep.status_sweep(engine, {"id": admin}, schema=schema, timeout=0.3)
+            assert psql(f"SELECT last_success_at IS NULL FROM {schema}.staff_mfa_status_throttle "
+                        f"WHERE user_id = '{admin}'") == "t"
+            result = await sweep.status_sweep(engine, {"id": admin}, schema=schema)
+            assert result.log_skipped is None
+        finally:
+            await engine.dispose()
+
+    run(go())
+    assert calls == [admin, admin]
+    assert psql(f"SELECT cardinality(attempts) || ':' || (last_success_at IS NOT NULL) "
+                f"FROM {schema}.staff_mfa_status_throttle WHERE user_id = '{admin}'") == "2:true"
+
+
+def test_seventh_changed_state_status_read_is_429_and_window_recovers(pg, status_api):
+    schema, _ = pg
+    admin = m332._user(schema, "admin", True)
+    other = m332._user(schema, "admin", True)
+    tss._ready(pg)
+    factors = tss.Factors()
+    for index in range(7):
+        response = status_api(admin, engine=_engine(), pg=pg, factors=factors, auth_factors=[
+            {"id": str(uuid4()), "factor_type": "totp", "status": "unverified"}])
+        if index < 6:
+            _assert_unchanged_aal1_body(response)
+        else:
+            assert response.status_code == 429
+            assert response.json()["detail"] == {"code": "mfa_status_rate_limited"}
+            assert 1 <= int(response.headers["Retry-After"]) <= 60
+    assert len(factors.calls) == 6
+    assert psql(f"SELECT cardinality(attempts) FROM {schema}.staff_mfa_status_throttle "
+                f"WHERE user_id = '{admin}'") == "6"
+    _assert_unchanged_aal1_body(status_api(other, engine=_engine(), pg=pg, factors=factors))
+    psql(f"UPDATE {schema}.staff_mfa_status_throttle SET attempts = ARRAY(SELECT "
+         "at - interval '61 seconds' FROM unnest(attempts) at), "
+         f"last_success_at = clock_timestamp() - interval '61 seconds' WHERE user_id = '{admin}'")
+    _assert_unchanged_aal1_body(status_api(admin, engine=_engine(), pg=pg, factors=factors))
+
+
+def test_attempt_cap_is_shared_even_on_failed_passes(pg, monkeypatch):
+    schema, _ = pg
+    admin = m332._user(schema, "admin", True)
+    worker = _other_worker(monkeypatch)
+    calls = []
+
+    async def failed(engine, uid, **kwargs):
+        calls.append(uid)
+        return sweep.CallerSummary(snapshot_error="AuthFailed")
+
+    for w in (sweep, worker):
+        monkeypatch.setattr(w, "sweep_caller", failed)
+
+    async def go():
+        engine = _engine()
+        try:
+            for index in range(7):
+                w = (sweep, worker)[index % 2]
+                result = await w.status_sweep(engine, {"id": admin}, schema=schema)
+                if index < 6:
+                    assert result.snapshot_error == "AuthFailed"
+                else:
+                    assert result.retry_after_seconds > 0
+                    assert result.log_skipped == "rate_limited"
+        finally:
+            await engine.dispose()
+
+    run(go())
+    assert calls == [admin] * 6
+
+
+def test_throttle_table_is_private_and_migration_rerunnable(pg):
+    schema, _ = pg
+    m332._owner(THROTTLE_MIGRATION.read_text().replace("public.", f"{schema}."))
+    assert psql(f"SELECT relrowsecurity FROM pg_class "
+                f"WHERE oid = '{schema}.staff_mfa_status_throttle'::regclass") == "t"
+    for role in ("anon", "authenticated", "service_role"):
+        for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"):
+            assert psql(f"SELECT has_table_privilege('{role}', "
+                        f"'{schema}.staff_mfa_status_throttle', '{privilege}')") == "f"
+
+
+def test_expired_lease_recovers_and_late_completion_cannot_clear_a_new_lease(pg):
+    schema, _ = pg
+    admin = m332._user(schema, "admin", True)
+
+    async def go():
+        engine = _engine()
+        try:
+            claim = lambda db: db.claim_status(admin, "[]", sweep.CALLER_TIMEOUT_SECONDS)
+            _, old, _ = await sweep._status_db(engine, schema, claim)
+            psql(f"UPDATE {schema}.staff_mfa_status_throttle SET "
+                 f"in_flight_until = clock_timestamp() - interval '1 second' WHERE user_id = '{admin}'")
+            reason, new, _ = await sweep._status_db(engine, schema, claim)
+            assert reason is None and new != old
+            await sweep._status_db(engine, schema, lambda db: db.finish_status(admin, old, "[]", True))
+            assert psql(f"SELECT lease_id || ':' || (last_success_at IS NULL) FROM "
+                        f"{schema}.staff_mfa_status_throttle WHERE user_id = '{admin}'") == new + ":true"
+            await sweep._status_db(engine, schema, lambda db: db.finish_status(admin, new, "[]", True))
+        finally:
+            await engine.dispose()
+
+    run(go())
 
 
 # ── Failures never fail the status read ─────────────────────────────────────

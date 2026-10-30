@@ -1783,9 +1783,52 @@
             "explain"
           ]
         }
+      },
+      "1b865d8c11f69d26cb60df4536c5a6af309b0fe44f3c948ea085b4725934d650": {
+        "source_sha256": "1b865d8c11f69d26cb60df4536c5a6af309b0fe44f3c948ea085b4725934d650",
+        "manifest_sha256": "fa08f119defca13a4ee5c15e9c85b7922711731994a5899a25b79ce6eb10dd83",
+        "metadata": {
+          "code": "G-foundations-few-a-few-little-a-little",
+          "title": "Quick Check — Few / A few / Little / A little",
+          "skill_area": "grammar",
+          "source": "authored-2026-07",
+          "words_count": 4,
+          "course_id": null,
+          "lesson_no": null,
+          "version": 1,
+          "meta": {
+            "mode": "adaptive_mastery",
+            "grading": "instant",
+            "correct_to_master": 2,
+            "require_distinct_skill": true,
+            "require_production_to_master": true,
+            "cooldown": 2,
+            "shuffle_options": true
+          }
+        },
+        "allowed_fields": {
+          "fal_neg_a1": [
+            "answer",
+            "explain"
+          ],
+          "fal_pos_b1": [
+            "explain"
+          ],
+          "fal_pos_i2": [
+            "explain"
+          ]
+        },
+        "followup_fields": {
+          "fal_pos_b1": [
+            "explain"
+          ],
+          "fal_pos_i2": [
+            "explain"
+          ]
+        }
       }
     },
-    "active_source_sha256": "f758a20763833a2a0f283c27563bdcab08487443fb73dc6b57844972a51447d9"
+    "active_source_sha256": "1b865d8c11f69d26cb60df4536c5a6af309b0fe44f3c948ea085b4725934d650"
   },
   "G-foundations-noun-phrase-basics": {
     "bindings": {
@@ -2818,9 +2861,59 @@
             "prompt"
           ]
         }
+      },
+      "d95ee61534f3bf2c2343ab0ab76f4f2724f565cba1b37c13444460aa4f872b38": {
+        "source_sha256": "d95ee61534f3bf2c2343ab0ab76f4f2724f565cba1b37c13444460aa4f872b38",
+        "manifest_sha256": "b8041a19a25feda6410ca217633a3e0008d6ceb196aa9fb260237aebb450d914",
+        "metadata": {
+          "code": "G-grammar-for-writing-grammar-in-task1",
+          "title": "Quick Check — Grammar in Task 1",
+          "skill_area": "grammar",
+          "source": "authored-2026-07",
+          "words_count": 5,
+          "course_id": null,
+          "lesson_no": null,
+          "version": 1,
+          "meta": {
+            "mode": "adaptive_mastery",
+            "grading": "instant",
+            "correct_to_master": 2,
+            "require_distinct_skill": true,
+            "require_production_to_master": true,
+            "cooldown": 2,
+            "shuffle_options": true
+          }
+        },
+        "allowed_fields": {
+          "t1_pass_a1": [
+            "answer",
+            "explain",
+            "prompt"
+          ],
+          "t1_pass_b1": [
+            "explain"
+          ],
+          "t1_pass_b2": [
+            "explain"
+          ],
+          "t1_pass_i2": [
+            "explain"
+          ]
+        },
+        "followup_fields": {
+          "t1_pass_b1": [
+            "explain"
+          ],
+          "t1_pass_b2": [
+            "explain"
+          ],
+          "t1_pass_i2": [
+            "explain"
+          ]
+        }
       }
     },
-    "active_source_sha256": "b494b874fc49d79bbf9a86a5ae1b78ec5ba59ea18a94193cb4dcf60d0e91ac5a"
+    "active_source_sha256": "d95ee61534f3bf2c2343ab0ab76f4f2724f565cba1b37c13444460aa4f872b38"
   },
   "G-grammar-for-writing-parallel-structure": {
     "bindings": {

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 from fastapi import HTTPException
-from services.grammar_quiz_revision_source import REVIEWED_SOURCES, REVIEWED_BINDINGS, FOLLOWUP_CODE
+from services.grammar_quiz_revision_source import REVIEWED_SOURCES, REVIEWED_BINDINGS, FOLLOWUP_CODES
 
 
 def _unavailable():
@@ -25,7 +25,7 @@ def current_banks(rows: list[dict]) -> list[dict]:
         if not managed:
             if len(banks)!=1: raise _unavailable()
             selected.append(banks[0]); continue
-        if code not in REVIEWED_SOURCES or len(managed) != len(banks) or len(banks) not in (2,3) or len(banks)==3 and code!=FOLLOWUP_CODE:
+        if code not in REVIEWED_SOURCES or len(managed) != len(banks) or len(banks) not in (2,3) or len(banks)==3 and code not in FOLLOWUP_CODES:
             raise _unavailable()
         roots=[row for row in managed if row.get('code')==code and row.get('grammar_predecessor_bank_id') is None]
         currents=[row for row in managed if row.get('grammar_is_current') is True]

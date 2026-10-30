@@ -20,8 +20,10 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-29 the highest is `346`, so by that rule the
-next new migration is `347`. Ask the Leader before taking it.
+sequence is dense. As of 2026-10-30 the highest is `352`, allocated by the
+Leader to PC-J201, so by that rule the next new migration is `353`. Ask the
+Leader before taking it; 347–351 are reserved for other work and must not be
+reused.
 The runner applies any unapplied file regardless of order.
 Numbers 321–326 belong to 321 WRITINGRATE-0025, 322 AIOPS-0024 (#1837), 323
 ROLECHECK-0026, 324 ASSIGNDRAFT-0027, 325 CODEUNIQ-0028 and 326
@@ -29,14 +31,33 @@ STUDENTARCHIVE-0029. 327–330 have no file and must not be reused: 327–329 we
 reserved, and 330 was the first reservation for A-10, which took 337 instead
 (CLASSARCHIVE-0030 D1). 331 is GIVEARCHIVE-0031, 332 is ADMINAAL2-0032, 333 is
 AIBUDGET-0033, 334 is ACTIVATELIMIT-0034, 335 is INACTIVEWRITE-0035, 336 is
-ADMINAAL2-0032 FR-019 (#1853), 337 is A-10 CLASSARCHIVE-0030 and 338 is
-PAPERUPDATEDAT-0037. Every number from 331 to 338 now has a file. 339 is
-reserved by the Leader for the deferred content change and has no file yet; 340
+ADMINAAL2-0032 FR-019 (#1853), 337 is A-10 CLASSARCHIVE-0030, 338 is
+PAPERUPDATEDAT-0037 and 339 is GRAMMARAUDIT-0019 Revision 2 (reserved by the
+Leader on 2026-10-29). Every number from 331 to 339 now has a file. 340
 is the AIBUDGET-0033 hardening. 345 is
 PC-J119 (RLS-ADMIN-INLINE-AAL2 + GRAMMAR-FN-SEARCHPATH, spec ADMINAAL2-0032),
-reserved by the Leader on 2026-10-29; 339–344 are reserved for other open
+reserved by the Leader on 2026-10-29; 341–344 are reserved for other open
 work and must not be reused. 346 is PC-J153 (CLASSARCHIVE-0030 FR-003),
 assigned by the Leader on 2026-10-29.
+
+Migration `352` (PC-J201, ADMINAAL2-0032 FR-010/FR-011, SA #1936 P3 c–f)
+adds the private `staff_mfa_status_throttle` table for shared admission to the
+caller-only MFA status sweep: successful-state cooldown, six rolling-minute
+attempts per account and at most two active leases across workers. The backend
+holds its admission advisory lock only for short transactions, never during
+Auth HTTP. Failed passes consume an attempt without starting a cooldown;
+expired leases recover and completion is fenced by its lease token. Old
+backends ignore the table; without it PC-J201 logs and skips the caller pass
+while the status read and cron fallback remain available. RLS is enabled with
+no policies, and PUBLIC, anon, authenticated and service_role lose all table
+privileges; the postcondition checks privacy. One additive transaction,
+re-runnable, no existing data change. It is held by `forward-policy.tsv`
+(group `mfa_status_throttle`); it must not apply on merge or join the 30 October
+promotion. A separately authorized apply uses
+`MIGRATION_FEATURES=mfa_status_throttle` through the advisory-locked runner,
+staging first before the PC-J201 backend, then production only at an authorized
+promotion. Rollback SQL is in the header: deploy the pre-PC-J201 backend, then
+drop only this operational table in a new forward migration.
 
 Migration `345` (PC-J119) removes the RLS policies that granted admin reads
 with an inline `users.role = 'admin'` check and nothing else (no AAL2, no
@@ -139,6 +160,29 @@ UPDATE row triggers on `reading_tests`, `listening_tests`, `reading_passages`,
 policy revisions, release events and `mock_content_revision` are unchanged.
 `listening_exercises` keeps 208's trigger. No data change; later files must not
 drop these triggers or add a BEFORE row trigger that sorts after them.
+
+Migration `339` (GRAMMARAUDIT-0019 Revision 2, T011; number reserved by the
+Leader on 2026-10-29) widens the one Long Sentence Untangling follow-up of 314
+to exactly three codes: LSU, Grammar in Task 1 and Few / A few / Little / A
+little. It is function-only: the new private IMMUTABLE
+`grammar_quiz_followup_pair(code)` returns the (middle, final) reviewed source
+of those three codes and NULL for every other code, and replaces each LSU
+literal in `grammar_quiz_audit_chain`, `grammar_quiz_guard_bank`,
+`grammar_quiz_validate_receipt_envelope` and `grammar_quiz_receipt_data`.
+`grammar_quiz_audit_binding` embeds the new
+`services/grammar_quiz_reviewed_sources.json` (every 314 binding unchanged, two
+v3 bindings added). Signatures, SECURITY DEFINER, `search_path` and 314's
+REVOKE/GRANT block are unchanged, so no grammar function is client-executable.
+It aborts without 314; the postcondition fails if a bank, question, session,
+attempt, stat or receipt count, or any managed chain's validity, changes. A
+normal forward migration (no `forward-policy.tsv` row), one transaction,
+re-runnable. Apply it under the advisory lock before the dependent backend:
+staging first, production before the staging → main promotion. Publishing the
+two v3 banks is a separate admin preview/commit step (T012/T013). The rollback
+lives outside the forward glob, in `rollback/339_grammar_quiz_followup_codes.sql`
+(run by hand with `psql -v ON_ERROR_STOP=1 -f`): it re-creates the 314 bodies
+and drops the lookup, and refuses once a v3 bank exists. After a publication,
+roll back by pausing new starts on the v3 bank instead.
 
 Migration `335` (INACTIVEWRITE-0035, SEC-20261028-02) closes the direct-REST
 write path for inactive accounts. 320 kept `authenticated` writes on the five

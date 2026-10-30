@@ -55,11 +55,11 @@ from before the sweep existed is not replayed into audit rows and e-mails.
 ``GET /admin/mfa/status`` also runs steps 1 and 2 for the caller only
 (``sweep_caller``), so an admin's own factor change is audited at once. That
 pass never moves the shared cursor; its alerts go out with the next step 3.
-The route reaches it through ``status_sweep``, which skips the pass for a
-repeated read of an unchanged factor state, a pass already running for that
-account, or a worker already running ``CALLER_MAX_CONCURRENT`` passes, so
-status reads (AAL1 is enough) cannot pile up Auth admin calls and pooled
-connections (SA PR-1936 F2). A skipped pass is left to the cron.
+The route reaches it through ``status_sweep``. PostgreSQL shares successful
+cooldowns, account admission and ``CALLER_MAX_CONCURRENT`` in-flight passes
+across workers. At most six passes per account start in a rolling minute,
+including failures and changed factor states; further reads receive 429.
+Other skips leave the status response unchanged and are left to the cron.
 
 The sweep reads ``auth.*`` over the backend's direct ``DATABASE_URL``
 connection (the ``postgres`` role; ``service_role`` cannot read it) and never
@@ -72,12 +72,14 @@ import argparse
 import asyncio
 import json
 import logging
+import math
 import os
 import re
 import sys
 import time
 import uuid
 from dataclasses import asdict, dataclass
+from datetime import timedelta
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
@@ -92,6 +94,7 @@ SNAPSHOT_MARKER = "mfa_factor_snapshot"
 LOG_LAG_SECONDS = 10
 CRON_PERIOD_SECONDS = 300   # railway.staff-security-sweep.json, Railway's minimum
 FOLLOW_UP_SECONDS = CRON_PERIOD_SECONDS // 2
+CRON_TIMEOUT_SECONDS = 240.0   # includes connect, all steps and the follow-up wait
 LOG_BATCH = 500
 ZERO_UUID = "00000000-0000-0000-0000-000000000000"
 
@@ -145,6 +148,51 @@ class SweepDb:
         self.cursor = f"{s}.staff_security_sweep_cursor"
         self.users = f"{s}.users"
         self.log = f"{a}.audit_log_entries"
+        self.throttle = f"{s}.staff_mfa_status_throttle"
+
+    async def claim_status(self, user_id: str, state: str, timeout: float
+                           ) -> tuple[str | None, str | None, int]:
+        # All workers share this short admission lock, including the global
+        # concurrency check. It is never held through the sweep or Auth read,
+        # and the transaction's lock_timeout bounds admission contention.
+        await self.conn.execute(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", self.throttle)
+        now = await self.conn.fetchval("SELECT clock_timestamp()")
+        row = await self.conn.fetchrow(
+            f"SELECT *, factor_state = $2::jsonb AS same_state FROM {self.throttle} "
+            "WHERE user_id = $1::uuid", user_id, state)
+        attempts = [at for at in row["attempts"] if at > now - timedelta(seconds=60)] if row else []
+        if len(attempts) >= CALLER_MAX_PER_MINUTE:
+            retry = max(1, math.ceil((attempts[0] + timedelta(seconds=60) - now).total_seconds()))
+            return "rate_limited", None, retry
+        if row and row["in_flight_until"] and row["in_flight_until"] > now:
+            return "in_flight", None, 0
+        if (row and row["same_state"] and row["last_success_at"]
+                and (now - row["last_success_at"]).total_seconds() < CALLER_MIN_INTERVAL_SECONDS):
+            return "throttled", None, 0
+        running = await self.conn.fetchval(
+            f"SELECT count(*) FROM {self.throttle} WHERE in_flight_until > $1", now)
+        if running >= CALLER_MAX_CONCURRENT:
+            return "busy", None, 0
+        lease = str(uuid.uuid4())
+        await self.conn.execute(
+            f"INSERT INTO {self.throttle} (user_id, attempts, lease_id, in_flight_until) "
+            "VALUES ($1::uuid, $2::timestamptz[], $3::uuid, $4) "
+            "ON CONFLICT (user_id) DO UPDATE SET attempts = EXCLUDED.attempts, "
+            "lease_id = EXCLUDED.lease_id, in_flight_until = EXCLUDED.in_flight_until",
+            user_id, [*attempts, now], lease, now + timedelta(seconds=timeout + 5))
+        return None, lease, 0
+
+    async def finish_status(self, user_id: str, lease: str, state: str, success: bool) -> None:
+        # A crashed worker's lease expires. A late completion must never clear
+        # another worker's newer lease or overwrite its successful factor state.
+        await self.conn.execute(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", self.throttle)
+        await self.conn.execute(
+            f"UPDATE {self.throttle} SET lease_id = NULL, in_flight_until = NULL, "
+            "last_success_at = CASE WHEN $4 THEN clock_timestamp() ELSE last_success_at END, "
+            "factor_state = CASE WHEN $4 THEN $3::jsonb ELSE factor_state END "
+            "WHERE user_id = $1::uuid AND lease_id = $2::uuid", user_id, lease, state, success)
 
     # ── cursor ──
     async def lock_cursor(self, name: str) -> dict[str, Any] | None:
@@ -628,18 +676,15 @@ CALLER_TIMEOUT_SECONDS = 3.0
 CALLER_HTTP_TIMEOUT_SECONDS = 2.0
 CALLER_LOCK_TIMEOUT = "1s"
 CALLER_STATEMENT_TIMEOUT = "2s"
-# GET /admin/mfa/status runs on every admin page load. One pass per account
-# per CALLER_MIN_INTERVAL_SECONDS unless its factor list changed, and at most
-# CALLER_MAX_CONCURRENT passes per worker, never queued: each pass holds a
-# pooled _db_engine connection (5 + 10 overflow) for up to the Auth read.
+# PostgreSQL owns admission across workers. The local running set also stops
+# a burst in one worker from using its pool just to check shared admission.
 CALLER_MIN_INTERVAL_SECONDS = 30.0
 CALLER_MAX_CONCURRENT = 2
+CALLER_MAX_PER_MINUTE = 6
 LOCK_NOT_AVAILABLE = "55P03"
 
 _caller_no_db_logged = False
-_caller_recent: dict[str, tuple[float, tuple[tuple[str, str], ...]]] = {}
 _caller_running: set[str] = set()
-_clock = time.monotonic
 
 
 @dataclass
@@ -651,6 +696,7 @@ class CallerSummary:
     snapshot_skipped: str | None = None
     snapshot_factor_diffs: int = 0
     snapshot_error: str | None = None
+    retry_after_seconds: int = 0
 
 
 def _sqlstate(exc: BaseException) -> str | None:
@@ -789,49 +835,71 @@ def _factor_state(auth_user: dict[str, Any]) -> tuple[tuple[str, str], ...]:
                         for f in factors if isinstance(f, dict)))
 
 
+async def _status_db(engine: Any, schema: str, operation: Callable[[SweepDb], Awaitable[Any]]) -> Any:
+    async with engine.connect() as connection:
+        try:
+            raw = await connection.get_raw_connection()
+            db = SweepDb(raw.driver_connection, schema=schema)
+            async with db.conn.transaction():
+                await _bound_transaction(db)
+                return await operation(db)
+        except asyncio.CancelledError:
+            await connection.invalidate()
+            raise
+
+
+def _status_skipped(user_id: str, reason: str, retry: int = 0) -> CallerSummary:
+    if reason == "busy":
+        logger.warning("staff_security_sweep_caller_skipped user_id=%s reason=busy", user_id)
+    return CallerSummary(log_skipped=reason, snapshot_skipped=reason, retry_after_seconds=retry)
+
+
+async def _shared_status_sweep(engine: Any, uid: str, state: str, **kwargs: Any) -> CallerSummary | None:
+    schema = kwargs.get("schema", "public")
+    timeout = kwargs.get("timeout", CALLER_TIMEOUT_SECONDS)
+    reason, lease, retry = await _status_db(
+        engine, schema, lambda db: db.claim_status(uid, state, timeout))
+    if reason is not None:
+        return _status_skipped(uid, reason, retry)
+    success = False
+    try:
+        summary = await sweep_caller(engine, uid, **kwargs)
+        success = summary is not None and summary.log_error is None and summary.snapshot_error is None
+        return summary
+    finally:
+        try:
+            # Release even after failure/cancellation. The stored attempt stays;
+            # only a fully successful pass starts the unchanged-state cooldown.
+            await asyncio.wait_for(_status_db(
+                engine, schema, lambda db: db.finish_status(uid, lease, state, success)), 0.5)
+        except Exception as exc:
+            logger.error("staff_security_sweep_caller_release_failed user_id=%s error=%s", uid, _error(exc))
+
+
 async def status_sweep(engine: Any, auth_user: dict[str, Any],
                        **kwargs: Any) -> CallerSummary | None:
-    """``GET /admin/mfa/status``: ``sweep_caller`` for the accepted caller,
-    unless this worker should skip it. Skips never wait and change nothing;
-    the cron audits the account within its FR-010 bound:
-
-    * ``in_flight``: a pass for this account is already running here;
-    * ``throttled``: one ran less than ``CALLER_MIN_INTERVAL_SECONDS`` ago and
-      the factor list GoTrue returned with the caller (``auth_user``) is the
-      same, so a repeated read is skipped but an enroll, verify or removal
-      is still audited at once;
-    * ``busy``: ``CALLER_MAX_CONCURRENT`` passes are running here (warning).
-
-    The key is the account id from the accepted token, never a client
-    address. The response never depends on the pass, so a skip answers the
-    same body; there is no 429."""
+    """Shared per-account cooldown and six attempts per rolling minute, even
+    if factors change. At most two passes run across all workers. Transient
+    failures skip the hook, preserving the status read and cron fallback."""
     uid = _uuid(auth_user.get("id"))
-    if uid is None:
-        return await sweep_caller(engine, auth_user.get("id"), **kwargs)   # logs the bad id
-    state, now = _factor_state(auth_user), _clock()
-    last = _caller_recent.get(uid)
+    if uid is None or engine is None:
+        return await sweep_caller(engine, auth_user.get("id"), **kwargs)
     if uid in _caller_running:
-        reason = "in_flight"
-    elif last is not None and last[1] == state and now - last[0] < CALLER_MIN_INTERVAL_SECONDS:
-        reason = "throttled"
-    elif len(_caller_running) >= CALLER_MAX_CONCURRENT:
-        reason = "busy"
-        logger.warning("staff_security_sweep_caller_skipped user_id=%s reason=busy running=%d",
-                       uid, len(_caller_running))
-    else:
-        reason = None
-    if reason is not None:
-        return CallerSummary(log_skipped=reason, snapshot_skipped=reason)
-    if len(_caller_recent) > 1024:   # admins only; drop what no longer throttles
-        for key in [k for k, (at, _) in _caller_recent.items()
-                    if now - at >= CALLER_MIN_INTERVAL_SECONDS]:
-            del _caller_recent[key]
-    _caller_recent[uid] = (now, state)
+        return _status_skipped(uid, "in_flight")
+    if len(_caller_running) >= CALLER_MAX_CONCURRENT:
+        return _status_skipped(uid, "busy")
     _caller_running.add(uid)
     try:
-        return await sweep_caller(engine, uid, **kwargs)
+        return await asyncio.wait_for(
+            _shared_status_sweep(engine, uid, json.dumps(_factor_state(auth_user)), **kwargs),
+            kwargs.get("timeout", CALLER_TIMEOUT_SECONDS))
+    except asyncio.TimeoutError:
+        logger.error("staff_security_sweep_caller_failed user_id=%s error=timeout", uid)
+    except Exception as exc:
+        logger.error("staff_security_sweep_caller_failed user_id=%s error=%s", uid, _error(exc))
     finally:
         _caller_running.discard(uid)
+    return None
 
 
 async def _main(args: argparse.Namespace) -> int:
@@ -859,7 +927,7 @@ async def _main(args: argparse.Namespace) -> int:
                     " ".join(f"{k}={v}" for k, v in fields.items()))
         return 0 if ok else 1
     finally:
-        await conn.close()
+        await conn.close(timeout=1)   # bounded cancellation cleanup after the cron deadline
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -874,7 +942,10 @@ def main(argv: list[str] | None = None) -> int:
     from scripts._script_env import load_env
     load_env("DATABASE_URL")
     try:
-        return asyncio.run(_main(args))
+        return asyncio.run(asyncio.wait_for(_main(args), CRON_TIMEOUT_SECONDS))
+    except asyncio.TimeoutError:
+        logger.error("staff_security_sweep_failed error=timeout timeout_seconds=%s", CRON_TIMEOUT_SECONDS)
+        return 1
     except Exception as exc:
         logger.error("staff_security_sweep_failed error=%s", _error(exc))
         return 1
