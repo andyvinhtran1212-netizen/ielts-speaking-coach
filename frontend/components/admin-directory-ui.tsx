@@ -17,8 +17,22 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
 
 // Open dialogs, topmost last. Only the topmost one handles Escape and the Tab
 // trap, so a dialog opened over another (the admin step-up code prompt over a
-// confirm dialog) keeps the keyboard.
+// confirm dialog) keeps the keyboard. Page-local dialogs that can sit under
+// that prompt (admin-user-ui.tsx) join the same stack.
 const openDialogs: object[] = [];
+
+/** Push an open dialog on the shared stack; `leave()` when it closes. */
+export function joinDialogStack() {
+  const layer = {};
+  openDialogs.push(layer);
+  return {
+    isTopmost: () => openDialogs[openDialogs.length - 1] === layer,
+    leave: () => {
+      const index = openDialogs.indexOf(layer);
+      if (index >= 0) openDialogs.splice(index, 1);
+    },
+  };
+}
 
 export function Dialog({ open, title, description, children, actions, onClose, busy = false, panelClassName = '', backdropClassName = '' }: {
   open: boolean;
@@ -46,12 +60,11 @@ export function Dialog({ open, title, description, children, actions, onClose, b
   // where keyboard focus still belongs to the background trigger.
   useLayoutEffect(() => {
     if (!open) return;
-    const layer = {};
-    openDialogs.push(layer);
+    const layer = joinDialogStack();
     const previous = openerRef.current || (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     panelRef.current?.focus();
     const onKey = (event: KeyboardEvent) => {
-      if (openDialogs[openDialogs.length - 1] !== layer) return;
+      if (!layer.isTopmost()) return;
       if (event.key === 'Escape' && !busyRef.current) closeRef.current();
       if (event.key !== 'Tab') return;
       const panel = panelRef.current;
@@ -80,7 +93,7 @@ export function Dialog({ open, title, description, children, actions, onClose, b
     document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('keydown', onKey);
-      openDialogs.splice(openDialogs.indexOf(layer), 1);
+      layer.leave();
       openerRef.current = null;
       if (previous?.isConnected) previous.focus();
     };

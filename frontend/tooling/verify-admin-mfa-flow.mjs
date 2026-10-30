@@ -114,11 +114,22 @@ async function scenario(name, options, run) {
     }
     if (parsed.pathname.startsWith('/auth/v1/')) return json({});
 
-    if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && !/^POST \/api\/(analytics\/events|error-logs)$/.test(`${method} ${parsed.pathname}`)) {
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && !/^POST \/api\/(analytics\/events|error-logs)$/.test(`${method} ${parsed.pathname}`)
+      && !(state.allowedWrites || []).some((pattern) => pattern.test(`${method} ${parsed.pathname}`))) {
       state.unexpectedWrites.push(`${method} ${parsed.pathname}`);
     }
     if (parsed.pathname === '/auth/me') return json({ id: adminId, email, role: state.role, is_active: state.isActive });
     if (parsed.pathname === '/auth/check-active') return json({ is_active: state.isActive, suspended: false });
+    if (state.staffUsers && parsed.pathname === '/admin/users' && method === 'GET') return json(Object.values(state.staffUsers));
+    const activeMatch = state.staffUsers && parsed.pathname.match(/^\/admin\/users\/([^/]+)\/active$/);
+    if (activeMatch && method === 'PATCH') {
+      // Every first attempt is refused for a stale TOTP; the resend after the prompt succeeds.
+      state.activeAttempts = (state.activeAttempts || 0) + 1;
+      if (state.activeAttempts % 2 === 1) return json({ detail: STEP_UP_REFUSAL }, 403);
+      const body = request.postDataJSON() || {};
+      state.staffUsers[activeMatch[1]].is_active = body.is_active;
+      return json({ ok: true, id: activeMatch[1], is_active: body.is_active });
+    }
     if (parsed.pathname === '/admin/users' && state.adminUsersQueue?.length) {
       const next = state.adminUsersQueue.shift();
       return json(next.body, next.status);
@@ -142,6 +153,12 @@ async function scenario(name, options, run) {
   check(`${name}: không có lỗi JS`, state.pageErrors.length === 0, state.pageErrors.join(' | '));
   await context.close();
 }
+
+const STEP_UP_REFUSAL = { code: 'step_up_required', next_step: 'challenge', max_age_seconds: 900, message: 'Thao tác này cần nhập lại mã xác thực 2 bước.' };
+const staffUser = (id, role, email) => ({
+  id, email, display_name: email.split('@')[0], role, is_active: true, created_at: '2026-10-01T00:00:00Z',
+  sessions_today: 0, cohort_name: null, cohort_names: [], code_summary: { codes: [], code_count: 0, permissions: [], has_active_code: false },
+});
 
 const pathOf = (page) => { const url = new URL(page.url()); return `${url.pathname}${url.search}`; };
 
@@ -317,6 +334,71 @@ await scenario('Step-up trên /admin/users vào thẳng: hộp thoại có style
   await dialog.waitFor({ state: 'detached' });
   const reads = state.requests.filter((item) => item.method === 'GET' && item.path === '/admin/users');
   check('mã đúng: đóng hộp thoại và gửi lại đúng một lần', reads.length === 2 && pathOf(page) === '/admin/users', String(reads.length));
+});
+
+// PR #2023 Codex P2 (r4420067407): the prompt opens over /admin/users' own
+// (page-local, busy) confirm dialog. Keyboard only: Tab must walk every prompt
+// control, reach the code input and the submit button, for both suspend and
+// reactivate.
+await scenario('Step-up trên dialog Tạm khóa / Mở khóa: chỉ dùng bàn phím', {
+  token: 'aal2-token',
+  factors: [factor('factor-main', 'verified')],
+  verify: ['ok', 'ok'],
+  staffUsers: {
+    [adminId]: staffUser(adminId, 'admin', email),
+    'inst-1': staffUser('inst-1', 'instructor', 'teacher@example.test'),
+  },
+  allowedWrites: [/^PATCH \/admin\/users\/inst-1\/active$/],
+}, async (page, state) => {
+  await page.goto(`${BASE}/admin/users`, { waitUntil: 'domcontentloaded' });
+  const row = page.locator('tr').filter({ hasText: 'teacher@example.test' });
+  await row.waitFor({ state: 'visible' });
+  const promptControls = async (prompt) => {
+    const label = () => page.evaluate(() => {
+      const element = document.activeElement;
+      return element ? (element.getAttribute('aria-label') || (element.labels?.[0]?.textContent) || element.textContent || '').trim() : '';
+    });
+    const inside = () => prompt.evaluate((panel) => panel.contains(document.activeElement));
+    const seen = [];
+    let escaped = false;
+    const tabUntil = async (target, key = 'Tab') => {
+      for (let step = 0; step < 10; step += 1) {
+        await page.keyboard.press(key);
+        if (!await inside()) escaped = true;
+        const now = await label();
+        seen.push(now);
+        if (target(now)) return true;
+      }
+      return false;
+    };
+    return { tabUntil, seen, escaped: () => escaped };
+  };
+  for (const [action, dialogName, isActive] of [['Tạm khóa', 'Tạm khóa tài khoản', false], ['Mở khóa', 'Mở khóa tài khoản', true]]) {
+    const patchesBefore = state.requests.filter((item) => item.method === 'PATCH').length;
+    await row.getByRole('button', { name: action, exact: true }).click();
+    const confirm = page.getByRole('dialog', { name: dialogName });
+    await confirm.waitFor({ state: 'visible' });
+    await confirm.getByLabel(/Lý do/).fill(`Kiểm tra bước xác thực ${action}`);
+    await confirm.getByRole('button', { name: action, exact: true }).click();
+    const prompt = page.getByRole('dialog', { name: 'Xác thực 2 bước' });
+    await prompt.getByLabel('Mã 6 số', { exact: true }).waitFor({ state: 'visible' });
+    const walk = await promptControls(prompt);
+    const reachedInput = await walk.tabUntil((now) => /^Mã 6 số/.test(now));
+    if (reachedInput) await page.keyboard.type('123456');
+    const reachedSubmit = reachedInput && await walk.tabUntil((now) => now === 'Xác thực');
+    check(`${action}: Tab đi qua các nút của hộp mã, tới ô mã và nút Xác thực`, reachedInput && reachedSubmit && !walk.escaped(), walk.seen.join(' → '));
+    const back = await promptControls(prompt);
+    const wrapped = await back.tabUntil((now) => now === 'Đóng', 'Shift+Tab');
+    check(`${action}: Shift+Tab cũng vòng trong hộp mã`, wrapped && !back.escaped(), back.seen.join(' → '));
+    if (reachedSubmit) {
+      await walk.tabUntil((now) => now === 'Xác thực');
+      await page.keyboard.press('Enter');
+    }
+    await prompt.waitFor({ state: 'detached' }).catch(() => {});
+    await confirm.waitFor({ state: 'detached' }).catch(() => {});
+    const patches = state.requests.filter((item) => item.method === 'PATCH').length - patchesBefore;
+    check(`${action}: mã đúng → PATCH …/active gửi lại đúng một lần, trạng thái đổi`, patches === 2 && state.staffUsers['inst-1'].is_active === isActive, `${patches} PATCH, is_active=${state.staffUsers['inst-1'].is_active}`);
+  }
 });
 
 await scenario('/admin/mfa từ chối non-admin', { role: 'user' }, async (page, state) => {

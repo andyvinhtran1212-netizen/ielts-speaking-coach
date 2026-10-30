@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { StrictMode, useLayoutEffect, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { Dialog as UsersPageDialog } from '@/app/(authed-admin-users)/admin/users/admin-user-ui';
 import { Dialog } from '@/components/admin-directory-ui';
 
 afterEach(cleanup);
@@ -225,5 +226,52 @@ describe('shared admin Dialog', () => {
     reason.focus();
     fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
     expect(screen.getByRole('dialog', { name: 'Tạm khóa' }).contains(document.activeElement)).toBe(true);
+  });
+
+  // PR #2023 Codex P2 (r4420067407): /admin/users' suspend/reactivate dialog is
+  // page-local (admin-user-ui.tsx). Busy, it has no enabled control, and its
+  // own Tab trap used to focus its panel on every Tab — the prompt above then
+  // snapped focus back to its first control, so the code input was unreachable.
+  it('a page-local busy users dialog under the step-up prompt lets Tab walk every prompt control', () => {
+    const closeLower = vi.fn();
+    // The confirm dialog is open (and busy with the PATCH) before the refusal opens the prompt.
+    const stacked = (prompt: boolean) => (
+      <>
+        <UsersPageDialog open busy title="Tạm khóa tài khoản" onClose={closeLower} actions={<><button type="button" disabled>Hủy</button><button type="button" disabled>Tạm khóa</button></>}>
+          <textarea aria-label="Lý do" disabled />
+        </UsersPageDialog>
+        <Dialog open={prompt} title="Xác thực 2 bước" onClose={() => {}} actions={<button type="button">Hủy</button>}>
+          <input aria-label="Mã 6 số" />
+          <button type="button">Xác thực</button>
+        </Dialog>
+      </>
+    );
+    const view = render(stacked(false));
+    view.rerender(stacked(true));
+    const prompt = screen.getByRole('dialog', { name: 'Xác thực 2 bước' });
+    // Browser Tab emulation: keydown on the focused element, then — unless a
+    // handler prevented it — move to the next tabbable control in DOM order.
+    const tabbables = () => Array.from(document.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), textarea:not([disabled])'));
+    const pressTab = (shiftKey = false) => {
+      const from = document.activeElement as HTMLElement;
+      const prevented = !fireEvent.keyDown(from, { key: 'Tab', shiftKey });
+      if (prevented) return;
+      const list = tabbables();
+      const at = list.indexOf(from);
+      list[(at + (shiftKey ? -1 : 1) + list.length) % list.length]?.focus();
+    };
+    const visited = new Set<string>();
+    for (let step = 0; step < 8; step += 1) {
+      pressTab();
+      expect(prompt.contains(document.activeElement)).toBe(true);
+      visited.add((document.activeElement as HTMLElement).getAttribute('aria-label') || document.activeElement!.textContent || '');
+    }
+    expect([...visited].sort()).toEqual(['Hủy', 'Mã 6 số', 'Đóng', 'Xác thực'].sort());
+    for (let step = 0; step < 8; step += 1) {
+      pressTab(true);
+      expect(prompt.contains(document.activeElement)).toBe(true);
+    }
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' });
+    expect(closeLower).not.toHaveBeenCalled();
   });
 });
