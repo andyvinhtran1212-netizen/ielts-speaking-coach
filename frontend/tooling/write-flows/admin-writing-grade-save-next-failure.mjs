@@ -1,7 +1,5 @@
 // Queue navigation chỉ được xảy ra SAU KHI feedback đã persist. Request 500
 // dưới đây phải để admin ở nguyên essay hiện tại trên cả Legacy và Next.
-import { AAL2_STATUS } from '../admin-mfa-stub.mjs';
-
 const ESSAY = 'essay-admin-save-fail';
 const NEXT = 'essay-admin-next-must-not-open';
 const UPDATED = 'Draft này không được phép bị bỏ lại khi server từ chối lưu.';
@@ -19,8 +17,6 @@ export default {
 
   canned: [
     [/\/auth\/me$/, { id: '00000000-0000-0000-0000-000000000000', email: 'admin@local', role: 'admin' }],
-    // ADMINAAL2-0032 T010: AdminAccessGate fails closed on the `{}` catch-all.
-    [/\/admin\/mfa\/status$/, AAL2_STATUS],
     [new RegExp(`/admin/writing/essays/${ESSAY}$`), {
       id: ESSAY,
       status: 'graded',
