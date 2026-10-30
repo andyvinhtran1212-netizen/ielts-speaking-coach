@@ -29,6 +29,8 @@ class SlowDatabase:
         self.calls = Counter()
         self.projections = {}
         self.lock = threading.Lock()
+        self.running = 0
+        self.max_running = 0
 
     def table(self, table):
         database = self
@@ -46,13 +48,20 @@ class SlowDatabase:
                 with database.lock:
                     database.calls[table] += 1
                     database.projections[table] = (self.projection, self.row_limit)
-                if table == database.blocked_table:
-                    # Finite fallback makes a pre-fix regression fail, not hang.
-                    database.release.wait(1.0)
-                time.sleep(database.delay)
-                if table == database.error_table:
-                    raise RuntimeError("private database host/schema detail")
-                return SimpleNamespace(data=[])
+                    database.running += 1
+                    database.max_running = max(database.max_running, database.running)
+                try:
+                    blocked = database.blocked_table
+                    if blocked == "*" or table == blocked or (isinstance(blocked, set) and table in blocked):
+                        # Finite fallback makes a pre-fix regression fail, not hang.
+                        database.release.wait(1.0)
+                    time.sleep(database.delay)
+                    if table == database.error_table:
+                        raise RuntimeError("private database host/schema detail")
+                    return SimpleNamespace(data=[])
+                finally:
+                    with database.lock:
+                        database.running -= 1
 
         return Query()
 
@@ -77,22 +86,113 @@ def test_slow_database_probes_run_in_parallel(monkeypatch, ready_client):
     monkeypatch.setattr(health, "supabase_admin", database)
 
     async def exercise():
-        # Fix test capacity: a small CI runner's default cpu_count()+4 pool
-        # otherwise measures executor queuing along with network concurrency.
-        asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(max_workers=24))
+        # Real private pool, no capacity override. Budget derivation: 20
+        # synchronous 100 ms reads on _READY_PROBE_WORKERS = 4 workers need
+        # ceil(20 / 4) = 5 waves = 500 ms minimum (the curated probe is
+        # instant: flags off); + ~150 ms scheduling/ASGI overhead = 650 ms.
+        assert health._READY_PROBE_WORKERS == 4
         async with ready_client as client:
             start = time.perf_counter()
             response = await client.get("/health/ready")
             elapsed = time.perf_counter() - start
             assert response.status_code == 200
             assert response.json()["status"] == "ok"
-            assert elapsed < 0.4, f"20 synchronous round trips took {elapsed:.3f}s"
+            assert elapsed < 0.65, f"20 synchronous round trips took {elapsed:.3f}s"
 
     asyncio.run(exercise())
+    assert database.max_running == health._READY_PROBE_WORKERS
     assert database.calls == Counter({name: 1 for name in ("users", *health._CRITICAL_TABLES)})
     assert database.projections["users"] == ("id", 1)
     for table in health._CRITICAL_TABLES:
         assert database.projections[table] == (health._CRITICAL_COLUMNS.get(table, "id"), 0)
+
+
+def test_healthy_queued_probes_are_not_timed_out(monkeypatch, ready_client):
+    # Each read (100 ms) is within the 150 ms timeout, but the fifth wave
+    # starts ~400 ms after submit. Timing from submit would fail it.
+    database = SlowDatabase(delay=0.1)
+    monkeypatch.setattr(health, "supabase_admin", database)
+    monkeypatch.setattr(health, "_READY_PROBE_TIMEOUT_SECONDS", 0.15, raising=False)
+
+    async def exercise():
+        async with ready_client as client:
+            response = await client.get("/health/ready", headers={"Authorization": "Bearer test-admin"})
+            body = response.json()
+            assert body["status"] == "ok", body
+            assert body["checks"]["migrations"]["verified"] == list(health._CRITICAL_TABLES)
+
+    asyncio.run(exercise())
+    assert database.calls == Counter({name: 1 for name in ("users", *health._CRITICAL_TABLES)})
+
+
+def test_stalled_probes_do_not_occupy_default_executor(monkeypatch, ready_client):
+    database = SlowDatabase(blocked_table="*")
+    monkeypatch.setattr(health, "supabase_admin", database)
+    monkeypatch.setattr(health, "_READY_PROBE_TIMEOUT_SECONDS", 0.15, raising=False)
+
+    async def exercise():
+        # A small default pool makes any readiness use of it visible.
+        asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(max_workers=2))
+        async with ready_client as client:
+            try:
+                start = time.perf_counter()
+                readiness = asyncio.create_task(client.get(
+                    "/health/ready", headers={"Authorization": "Bearer test-admin"},
+                ))
+                await asyncio.sleep(0.05)
+                unrelated = time.perf_counter()
+                assert await asyncio.gather(*(asyncio.to_thread(lambda: "ok") for _ in range(4))) == ["ok"] * 4
+                assert time.perf_counter() - unrelated < 0.05
+                body = (await readiness).json()
+                # Every worker holds a stalled read past its timeout, so the
+                # queued probes fail at once instead of waiting the queue budget.
+                assert time.perf_counter() - start < 0.4
+                assert body["status"] == "degraded"
+                assert body["checks"]["database"]["status"] == "fail"
+                assert body["checks"]["migrations"]["status"] == "fail"
+                assert any("not started" in item for item in body["checks"]["migrations"]["missing"])
+                assert database.max_running == health._READY_PROBE_WORKERS
+                # Readiness completes while the default pool is saturated too.
+                held = threading.Event()
+                blockers = [asyncio.to_thread(held.wait, 1.0) for _ in range(2)]
+                blocking = asyncio.gather(*blockers)
+                database.release.set()
+                while health._ready_probe_tasks:
+                    await asyncio.sleep(0.01)
+                database.release.clear()
+                database.blocked_table = None
+                monkeypatch.setattr(health, "_ready_probe_cache", None)
+                recovered = await client.get("/health/ready")
+                assert recovered.json()["status"] == "ok"
+                held.set()
+                await blocking
+            finally:
+                database.release.set()
+
+    asyncio.run(exercise())
+
+
+def test_queue_budget_bounds_probes_behind_partially_stalled_pool(monkeypatch, ready_client):
+    # Three workers stall; one keeps serving 40 ms reads within the 50 ms
+    # timeout. Probes still queued after (N-1)*T/W fail; the response stays
+    # bounded by queue budget + T instead of draining serially.
+    database = SlowDatabase(delay=0.04, blocked_table={"users", *health._CRITICAL_TABLES[:2]})
+    monkeypatch.setattr(health, "supabase_admin", database)
+    monkeypatch.setattr(health, "_READY_PROBE_TIMEOUT_SECONDS", 0.05, raising=False)
+    budget = 20 * 0.05 / 4
+    assert health._ready_queue_budget() == pytest.approx(budget)
+
+    async def exercise():
+        async with ready_client as client:
+            try:
+                start = time.perf_counter()
+                body = (await client.get("/health/ready")).json()
+                assert time.perf_counter() - start < budget + 0.05 + 0.15
+                assert body["status"] == "degraded"
+            finally:
+                database.release.set()
+
+    asyncio.run(exercise())
 
 
 def test_readiness_does_not_block_concurrent_liveness(monkeypatch, ready_client):
@@ -264,6 +364,30 @@ def test_cached_monitor_and_concurrent_admins_are_not_serialized(monkeypatch, re
             finally:
                 database.release.set()
                 await asyncio.gather(*admins)
+
+    asyncio.run(exercise())
+
+
+def test_ten_monitor_requests_in_one_second_share_one_refresh(monkeypatch, ready_client):
+    database = SlowDatabase(delay=0.15)
+    monkeypatch.setattr(health, "supabase_admin", database)
+
+    async def exercise():
+        async with ready_client as client:
+            async def monitor(index):
+                await asyncio.sleep(index * 0.08)
+                readiness = asyncio.create_task(client.get("/health/ready"))
+                await asyncio.sleep(0)
+                start = time.perf_counter()
+                liveness = await client.get("/health")
+                assert liveness.status_code == 200
+                assert time.perf_counter() - start < 0.05
+                return await readiness
+
+            responses = await asyncio.gather(*(monitor(index) for index in range(10)))
+            assert all(response.status_code == 200 for response in responses)
+            assert all(response.json()["status"] == "ok" for response in responses)
+            assert database.calls == Counter({name: 1 for name in ("users", *health._CRITICAL_TABLES)})
 
     asyncio.run(exercise())
 

@@ -15,6 +15,8 @@ per-check status codes only; table names, error strings and feature-flag
 state are returned to admins (Bearer token) only.
 """
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
+import contextvars
 from datetime import datetime, timezone
 import logging
 import os
@@ -127,33 +129,88 @@ async def health_basic() -> dict:
 
 
 # A timeout bounds the response, but cannot stop a synchronous HTTP call in a
-# thread. Retain each in-flight task until it actually finishes so polling a
+# thread. Retain each in-flight probe until it actually finishes so polling a
 # stalled upstream cannot enqueue the same probe again after every cache TTL.
 _READY_PROBE_TIMEOUT_SECONDS = 1.5
 _READY_PROBE_TTL_SECONDS = 5.0
-_ready_probe_tasks: dict[str, asyncio.Task] = {}
+# Readiness owns a private pool: stalled probes (up to the 120 s transport
+# timeout) must never occupy the shared default executor used by requests.
+_READY_PROBE_WORKERS = 4
+_READY_PROBE_POLL_SECONDS = 0.01
+_ready_executor = ThreadPoolExecutor(
+    max_workers=_READY_PROBE_WORKERS, thread_name_prefix='health-ready',
+)
+_ready_probe_tasks: dict[str, '_ReadyProbe'] = {}
 _ready_probe_cache: tuple[float, dict] | None = None
 _ready_probe_lock = asyncio.Lock()
 
 
+class _ReadyProbe:
+    def __init__(self):
+        self.submitted = time.monotonic()
+        self.started = None
+        self.future = None
+
+    def run(self, call):
+        # The timeout starts here, when a worker runs the call, not at submit.
+        self.started = time.monotonic()
+        return call()
+
+    def overdue(self, now):
+        return (self.started is not None and not self.future.done()
+                and now - self.started >= _READY_PROBE_TIMEOUT_SECONDS)
+
+
+def _ready_queue_budget():
+    # In-flight probes have distinct names, so at most N-1 = 20 wait ahead of
+    # a queued probe. While it waits every worker is busy with them; if each
+    # ran within its timeout T, it starts within (N-1)*T/W = 7.5 s. Still
+    # queued after that means an earlier probe overran T (real degradation),
+    # so healthy queueing alone can never produce a timeout.
+    return (len(_CRITICAL_TABLES) + 1) * _READY_PROBE_TIMEOUT_SECONDS / _READY_PROBE_WORKERS
+
+
+def _ready_probe_blocked(probe, now):
+    if now - probe.submitted >= _ready_queue_budget():
+        return True
+    # Every worker holds a probe past its own timeout: nothing can start.
+    overdue = sum(other.overdue(now) for other in _ready_probe_tasks.values())
+    return overdue >= _READY_PROBE_WORKERS
+
+
 async def _ready_probe(name, call):
-    task = _ready_probe_tasks.get(name)
-    if task is None:
-        task = asyncio.create_task(asyncio.to_thread(call))
-        _ready_probe_tasks[name] = task
+    probe = _ready_probe_tasks.get(name)
+    if probe is None:
+        probe = _ReadyProbe()
+        probe.future = asyncio.get_running_loop().run_in_executor(
+            _ready_executor, contextvars.copy_context().run, probe.run, call,
+        )
+        _ready_probe_tasks[name] = probe
 
         def finished(done):
-            if _ready_probe_tasks.get(name) is done:
+            if (current := _ready_probe_tasks.get(name)) is not None and current.future is done:
                 _ready_probe_tasks.pop(name, None)
-            # A timed-out caller may no longer be awaiting this task.
+            # A timed-out caller may no longer be awaiting this future.
             if not done.cancelled():
                 done.exception()
 
-        task.add_done_callback(finished)
-    try:
-        return await asyncio.wait_for(asyncio.shield(task), _READY_PROBE_TIMEOUT_SECONDS)
-    except Exception as exc:
-        return exc
+        probe.future.add_done_callback(finished)
+    while True:
+        now = time.monotonic()
+        if probe.started is not None:
+            wait = probe.started + _READY_PROBE_TIMEOUT_SECONDS - now
+            if wait <= 0:
+                return TimeoutError('probe timed out')
+        elif _ready_probe_blocked(probe, now):
+            return TimeoutError('probe not started: readiness workers held by timed-out probes')
+        else:
+            wait = _READY_PROBE_POLL_SECONDS
+        done, _ = await asyncio.wait((probe.future,), timeout=wait)
+        if done:
+            try:
+                return probe.future.result()
+            except Exception as exc:
+                return exc
 
 
 def _ready_table(table, projection, limit):
@@ -172,7 +229,9 @@ def _ready_curated_schema():
 
 
 def _ready_error(exc):
-    return 'probe timed out' if isinstance(exc, TimeoutError) else str(exc)
+    if isinstance(exc, TimeoutError):
+        return str(exc) or 'probe timed out'
+    return str(exc)
 
 
 async def _collect_ready_checks(is_admin):

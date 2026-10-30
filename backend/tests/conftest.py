@@ -13,6 +13,7 @@ own RLS_TEST_USER_* env vars and skip otherwise.
 import asyncio
 import os
 import socket
+import sys
 
 import pytest
 
@@ -28,7 +29,9 @@ os.environ["ENABLE_API_DOCS"] = "0"
 @pytest.fixture(autouse=True)
 def _fresh_health_ready_probe(monkeypatch):
     """Readiness TTL/in-flight state belongs to one test's event loop and DB."""
-    from routers import health
+    health = sys.modules.get("routers.health")
+    if health is None:
+        return
 
     monkeypatch.setattr(health, "_ready_probe_cache", None, raising=False)
     monkeypatch.setattr(health, "_ready_probe_lock", asyncio.Lock(), raising=False)
