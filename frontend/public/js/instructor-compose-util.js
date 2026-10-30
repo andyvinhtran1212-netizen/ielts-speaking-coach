@@ -32,19 +32,24 @@ export function overallFromPicks(bands) {
 // Bare "overall" is a claim only before band/score, ":"/"=" or a score modifier
 // ("is", "là", "hiện tại", "của bạn"…), or a valid band ending the clause
 // (punctuation, a dash, or "/9"); counts are not claims.
-const BAND_CLAIM = /(?:^|[^\p{L}\p{N}_])(?:band(?:\s+score)?|score|điểm|overall(?:\s+(?:band|score)|(?=\s*(?:[:=]|(?:hiện tại|tổng|của em|của bạn|bài này|là|is|ở|mức)\s))|(?=\s+(?:[0-8](?:[.,][05])?|9(?:[.,]0)?)(?![.,]?\d)(?:\/9|[ \t]*(?:[.!?;,:()"'”’\r\n—–]|$)|[ \t]+-(?:\s|$))))|kết\s+quả(?:\s+tổng\s+thể)?|your\s+(?:essay|writing)\s+(?:achieves|scores|is\s+at)|(?:bài(?:\s+(?:viết|làm))?(?:\s+(?:này|của\s+(?:em|bạn)))?|em|bạn)\s+(?:hiện\s+)?(?:đạt|ở(?:\s+mức)?))\s*(?:(?:hiện tại|tổng|của em|của bạn|bài này|là|is|ở|mức|band|score)\s+)*[:=]?\s*([0-9](?:[.,]\d+)?)(?![\p{L}\p{N}_]|[.,]\d|\s*(?:phút|câu|từ|đoạn|lần|ý|minutes?|words?|sentences?|paragraphs?|points?|ideas?|reasons?|examples?|arguments?|issues?|errors?|mistakes?|ý\s+chính|luận\s+điểm|lỗi)(?![\p{L}\p{N}_]))/giu;
+const BAND_CLAIM = /(?:^|[^\p{L}\p{N}_])(?:band(?:\s+score)?|score|điểm|overall(?:\s+(?:band|score)|(?=\s*(?:[:=]|(?:hiện tại|tổng|của em|của bạn|bài này|là|is|ở|mức)\s))|(?=\s+(?:[0-8](?:[.,][05])?|9(?:[.,]0)?)(?![.,]?\d)(?:\/9|[ \t]*(?:[.!?;,:()"'”’\r\n—–]|$)|[ \t]+-(?:\s|$))))|kết\s+quả(?:\s+tổng\s+thể)?|your\s+(?:essay|writing)\s+(?:achieves|scores|is\s+at)|(?:bài(?:\s+(?:viết|làm))?(?:\s+(?:này|của\s+(?:em|bạn)))?|em|bạn)\s+(?:hiện\s+)?(?:đạt|ở(?:\s+mức)?))\s*(?:(?:hiện tại|tổng|của em|của bạn|bài này|là|is|ở|mức|band|score)\s+)*[:=]?\s*([0-9](?:[.,]\d+)?)(?![\p{L}\p{N}_]|[.,]\d|\s*(?:phút|câu|từ|đoạn|lần|ý|minutes?|words?|sentences?|paragraphs?|ideas?|reasons?|examples?|arguments?|issues?|errors?|mistakes?|ý\s+chính|luận\s+điểm|lỗi)(?![\p{L}\p{N}_]))/giu;
 const TARGET_BAND = /(?:^|[^\p{L}\p{N}_])(?:để\s+(?:lên|đạt(?:\s+được)?)|muốn[^.!?;:\n,]*?|to\s+(?:reach|achieve|get)|target|aim(?:ing)?\s+(?:for|at)|goal|mục\s+tiêu[^.!?;:\n,]*?)\s+(?:(?:is|là)\s+)?(?:(?:an?|the)\s+)?(?:band(?:\s+score)?|overall(?:\s+band)?(?:\s+score)?)(?:\s+of)?\s*(?:(?:is|là)\s+)?[:=]?\s*([0-9](?:[.,]\d+)?)(?![\p{L}\p{N}_]|[.,]\d)/giu;
 const MISSING_IMAGE_CAVEAT_MARKER = 'Chấm không có hình';
 const WARNING = '⚠️';
 const MISSING_IMAGE_CAVEAT = '⚠️ Chấm không có hình — độ chính xác nội dung Task 1 Academic hạn chế. ';
 
-function claims(sentence, overall) {
-  // Compare target-number positions, rather than exempting the whole sentence.
-  const targets = new Set([...sentence.matchAll(TARGET_BAND)]
+// End positions of advice targeting a band at or above the final band.
+function targets(sentence, overall) {
+  return new Set([...sentence.matchAll(TARGET_BAND)]
     .filter((match) => Number(match[1].replace(',', '.')) >= overall)
     .map((match) => match.index + match[0].length));
+}
+
+function claims(sentence, overall) {
+  // Compare target-number positions, rather than exempting the whole sentence.
+  const advice = targets(sentence, overall);
   return [...sentence.matchAll(BAND_CLAIM)]
-    .filter((match) => !targets.has(match.index + match[0].length))
+    .filter((match) => !advice.has(match.index + match[0].length))
     .map((match) => Number(match[1].replace(',', '.')));
 }
 
@@ -62,16 +67,14 @@ function asSentence(text) {
   return /[.!?]$/.test(capitalised) ? capitalised : capitalised + '.';
 }
 
-// Drop a stale-claim sentence, but keep target advice after a ';'.
+// Drop a stale-claim sentence, but keep target advice after a ';'. Keep only
+// clauses carrying their own target advice: any other clause may depend on
+// the dropped score ("thấp hơn mức trung bình 6.0").
 function withoutStaleClaim(sentence, overall) {
   if (!hasStaleClaim(sentence, overall)) return sentence;
-  if (sentence.includes(';') && [...sentence.matchAll(TARGET_BAND)]
-    .some((match) => Number(match[1].replace(',', '.')) >= overall)) {
-    const clauses = sentence.split(';').map((clause) => clause.trim())
-      .filter((clause) => clause && !hasStaleClaim(clause, overall));
-    if (clauses.length) return asSentence(clauses.join('; '));
-  }
-  return null;
+  const advice = sentence.split(';').map((clause) => clause.trim())
+    .filter((clause) => targets(clause, overall).size && !hasStaleClaim(clause, overall));
+  return advice.length ? asSentence(advice.join('; ')) : null;
 }
 
 function summaryFlagsMissingImage(summary) {

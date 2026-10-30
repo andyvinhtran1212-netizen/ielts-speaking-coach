@@ -27,7 +27,7 @@ _BAND_CLAIM = re.compile(
     r"(?:(?:hiện tại|tổng|của em|của bạn|bài này|là|is|ở|mức|band|score)\s+)*"
     r"[:=]?\s*(?P<band>[0-9](?:[.,]\d+)?)"
     r"(?!\w|[.,]\d|\s*(?:phút|câu|từ|đoạn|lần|ý|minutes?|words?|sentences?|paragraphs?|"
-    r"points?|ideas?|reasons?|examples?|arguments?|issues?|errors?|mistakes?|"
+    r"ideas?|reasons?|examples?|arguments?|issues?|errors?|mistakes?|"
     r"ý\s+chính|luận\s+điểm|lỗi)\b)",
     re.IGNORECASE,
 )
@@ -49,13 +49,18 @@ _SENTENCE_START = re.compile(r"[.!?]\s+|[\r\n]")
 _WARNING = "⚠️"
 
 
-def _claims(sentence: str, overall: float) -> list[float]:
-    # Match each target's number, so a later current-band claim in the same
-    # sentence cannot hide behind advice ("target band 7, currently band 5.5").
-    targets = {
+def _targets(sentence: str, overall: float) -> set[int]:
+    """End positions of advice targeting a band at or above the final band."""
+    return {
         match.end("band") for match in _TARGET_BAND.finditer(sentence)
         if float(match["band"].replace(",", ".")) >= overall
     }
+
+
+def _claims(sentence: str, overall: float) -> list[float]:
+    # Match each target's number, so a later current-band claim in the same
+    # sentence cannot hide behind advice ("target band 7, currently band 5.5").
+    targets = _targets(sentence, overall)
     return [
         float(match["band"].replace(",", "."))
         for match in _BAND_CLAIM.finditer(sentence)
@@ -78,20 +83,18 @@ def _as_sentence(text: str) -> str:
 
 
 def _without_stale_claim(sentence: str, overall: float) -> str | None:
-    """Drop a stale-claim sentence, but keep target advice after a ';'."""
+    """Drop a stale-claim sentence, but keep target advice after a ';'.
+
+    Keep only ';' clauses carrying their own target advice: any other clause
+    may depend on the dropped score ("thấp hơn mức trung bình 6.0").
+    """
     if not _has_stale_claim(sentence, overall):
         return sentence
-    if ";" in sentence and any(
-        float(match["band"].replace(",", ".")) >= overall
-        for match in _TARGET_BAND.finditer(sentence)
-    ):
-        clauses = [
-            clause.strip() for clause in sentence.split(";")
-            if clause.strip() and not _has_stale_claim(clause, overall)
-        ]
-        if clauses:
-            return _as_sentence("; ".join(clauses))
-    return None
+    advice = [
+        clause.strip() for clause in sentence.split(";")
+        if _targets(clause, overall) and not _has_stale_claim(clause, overall)
+    ]
+    return _as_sentence("; ".join(advice)) if advice else None
 
 
 def _band(value: object) -> float | None:

@@ -713,5 +713,31 @@
       "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
       "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
     }
+  },
+  {
+    "id": "score-points-claim-replaced",
+    "base_band": 5.5,
+    "bands": [6, 6, 6, 6],
+    "overview": "Your essay scores 5.5 points. Bố cục rõ.",
+    "trajectory": {"current_band": 5.5, "average_last_5": 6.7, "trend": "improving", "trend_explanation": "Bài này ở band 5.5.", "next_target": "Từ band 5.5, hãy lên 6.0."},
+    "expected": {
+      "overall": 6.0,
+      "overview": "Bài viết đạt band 6.0. Bố cục rõ.",
+      "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
+      "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
+    }
+  },
+  {
+    "id": "mixed-dependent-comparison-dropped",
+    "base_band": 5.5,
+    "bands": [6, 6, 6, 6],
+    "overview": "Band 5.5; thấp hơn mức trung bình 6.0; để đạt band 7 cần thêm ví dụ.",
+    "trajectory": {"current_band": 5.5, "average_last_5": 6.7, "trend": "improving", "trend_explanation": "Bài này ở band 5.5.", "next_target": "Từ band 5.5, hãy lên 6.0."},
+    "expected": {
+      "overall": 6.0,
+      "overview": "Bài viết đạt band 6.0. Để đạt band 7 cần thêm ví dụ.",
+      "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
+      "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
+    }
   }
 ]
