@@ -249,6 +249,44 @@ def test_additive_cause_still_affirms_data_error(feedback, explanation):
 
 
 @pytest.mark.parametrize("explanation", [
+    "Em không sửa số liệu sai.",
+    "The writer did not correct the inaccurate figures.",
+    "Em không kiểm tra số liệu sai.",
+    "Em khong sua so lieu sai.",
+    "The writer did not fix the inaccurate figures.",
+    "The writer did not check the inaccurate figures.",
+    "The writer didn't correct the inaccurate figures.",
+    "The writer never corrected the inaccurate figures.",
+])
+def test_negated_actions_still_affirm_data_errors(feedback, explanation):
+    # Codex r4423869141: denying a correction does not deny the data error.
+    mistake = feedback.mistakeAnalysis[2]
+    mistake.explanation = explanation
+    repair_writing_consistency(feedback, "task1_academic")
+    assert mistake.mistakeType == "Data Accuracy"
+    assert mistake.criterion == "Task Achievement"
+    assert mistake.explanation == explanation
+
+
+@pytest.mark.parametrize("explanation", [
+    "Cụm từ không hề sai số liệu nhưng chưa tự nhiên.",
+    "Không hẳn là sai số liệu, mà là lỗi dùng từ.",
+    "Cụm từ không liên quan đến sai số liệu mà là lỗi dùng từ.",
+    "The phrase is not inaccurate data but an unnatural collocation.",
+    "The phrase isn't inaccurate data but an unnatural collocation.",
+    "The phrase is never inaccurate data but an unnatural collocation.",
+    "The phrase is without inaccurate data but sounds unnatural.",
+])
+def test_specific_data_error_denials_keep_word_choice(feedback, explanation):
+    mistake = feedback.mistakeAnalysis[2]
+    mistake.explanation = explanation
+    repair_writing_consistency(feedback, "task1_academic")
+    assert mistake.mistakeType == "Word Choice"
+    assert mistake.criterion == "Lexical Resource"
+    assert mistake.explanation == explanation
+
+
+@pytest.mark.parametrize("explanation", [
     "Số liệu này sai.",
     "So lieu nay sai.",
     "Đây không phải lỗi dùng từ mà là lỗi sai số liệu.",
@@ -428,6 +466,22 @@ def test_blanket_current_essay_range_claims_are_still_removed_at_high_gra(feedba
 def test_high_gra_removes_only_the_low_range_clause(feedback, key, claim, expected, gra):
     # Codex r4422256128: an independent warning sharing the sentence with a
     # blanket low-range clause survives; a history clause is not current.
+    feedback.criteriaFeedback.grammaticalRange.bandScore = gra
+    feedback.sentenceStructureAnalysis = {key: claim}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.sentenceStructureAnalysis[key] == expected
+
+
+@pytest.mark.parametrize("gra", [7, 8])
+@pytest.mark.parametrize("key", ["summary", "current_essay_observation"])
+@pytest.mark.parametrize("claim,expected", [
+    ("Bài này chủ yếu dùng câu đơn trong những đoạn mô tả xu hướng.",
+     "Tham khảo các lỗi và gợi ý cụ thể trong phần phân tích."),
+    ("Bài này chủ yếu dùng câu đơn trong những đoạn mô tả xu hướng; lỗi mạo từ cần sửa.",
+     "Lỗi mạo từ cần sửa."),
+])
+def test_quantifier_nhung_does_not_split_a_low_range_claim(feedback, gra, key, claim, expected):
+    # Codex r4423869151: "những" is a quantifier, not the contrast "nhưng".
     feedback.criteriaFeedback.grammaticalRange.bandScore = gra
     feedback.sentenceStructureAnalysis = {key: claim}
     repair_writing_consistency(feedback, "task1_academic")

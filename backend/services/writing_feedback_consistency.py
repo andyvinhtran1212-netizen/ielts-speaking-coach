@@ -121,7 +121,10 @@ def _sentences(text: str) -> list[str]:
 
 # Semicolons/contrast markers separate independently judged claims.
 # Concessives too; bare "du" is avoided because it also spells "dữ".
-_CLAUSE_SPLIT = re.compile(r";|\b(?:nhung|tuy nhien|but|however|mac du|although|though|whereas)\b")
+_CLAUSE_SPLIT = re.compile(
+    r";|\b(?:nhưng|nhung|tuy nhiên|tuy nhien|but|however|mặc dù|mac du|although|though|whereas)\b",
+    re.IGNORECASE,
+)
 
 
 def _without_clauses(sentence: str, drop) -> str:
@@ -130,23 +133,18 @@ def _without_clauses(sentence: str, drop) -> str:
     Only the rejected clause and its leading marker go; the other clauses keep
     their original wording. Returns "" when every clause is rejected.
     """
-    plain, origin = "", []
-    for i, char in enumerate(sentence):
-        folded = _plain(char)
-        plain += folded
-        origin += [i] * len(folded)
-    origin.append(len(sentence))
-    marks = [(m.start(), m.end()) for m in _CLAUSE_SPLIT.finditer(plain)]
+    # Find boundaries before folding accents: "những" is not "nhưng".
+    marks = [(m.start(), m.end()) for m in _CLAUSE_SPLIT.finditer(sentence)]
     starts = [0] + [end for _, end in marks]
-    ends = [start for start, _ in marks] + [len(plain)]
-    clauses = [plain[start:end] for start, end in zip(starts, ends)]
+    ends = [start for start, _ in marks] + [len(sentence)]
+    clauses = [_plain(sentence[start:end]) for start, end in zip(starts, ends)]
     if not any(drop(clause) for clause in clauses):
         return sentence
     # An empty clause before a leading marker ("Mặc dù ...") is not content.
     kept = [k for k, clause in enumerate(clauses) if clause.strip(" ,;:") and not drop(clause)]
     if not kept:
         return ""
-    pieces = [sentence[origin[starts[k] if k == kept[0] else marks[k - 1][0]]:origin[ends[k]]]
+    pieces = [sentence[starts[k] if k == kept[0] else marks[k - 1][0]:ends[k]]
               for k in kept]
     text = "".join(pieces).strip().rstrip(",;: ")
     ending = re.search(r"[.!?]*$", sentence.rstrip()).group()
@@ -155,45 +153,41 @@ def _without_clauses(sentence: str, drop) -> str:
 
 
 def _data_error(explanation: str) -> bool:
-    return _unnegated(_DATA_ERROR, _plain(explanation))
+    return any(_unnegated(_DATA_ERROR, _plain(clause))
+               for clause in _CLAUSE_BREAK.split(explanation))
 
 
-# A negation reaches across a few words of its own clause ("không phải là lỗi
-# X", "không làm X") but not past a clause break, so "không phải X mà là Y"
-# denies X only. "chua"/"no" must stay adjacent: they also spell "chứa"/"nó".
-# "không may" means "unfortunately"; "không chỉ" / "not only" affirm X.
-_CLAUSE_BREAK = re.compile(r".*(?:[,;:.!?()]|\b(?:ma|nhung|va|tuy nhien|but|and|however|rather|whereas)\b)",
-                           re.DOTALL)
+# Split the original accented text; folding first confuses "những" with "nhưng".
+_CLAUSE_BREAK = re.compile(
+    r"[,;:.!?()]|\b(?:mà|ma|nhưng|nhung|và|va|tuy nhiên|tuy nhien|but|and|however|rather|whereas)\b",
+    re.IGNORECASE,
+)
+# Negation is adjacent to the error term, as on staging. Never reach across
+# arbitrary words: "không sửa X" / "did not correct X" still affirm the error.
 _NEGATED_TAIL = re.compile(
-    r"(?:\bkhong(?! (?:may|chi|nhung)\b)|(?:\bnot|n['’]t)(?! (?:only|just|merely)\b)|"
-    r"\b(?:never|without))(?:\s+[\w'’-]+){0,3}\s+$|\b(?:chua|no)\s+$"
+    r"(?:\b(?:khong(?: phai)?|chua|not|no|never|without)|n['’]t)\s+$"
 )
-# A causal link starts a new claim: "không đọc kỹ nên sai số liệu" asserts the
-# error. Unless the negation governs the cause itself ("không phải do X", "not
-# because X"), which denies X. "số", "vị", "ví", "độ" also de-accent to so/vi/do.
-_CAUSE = re.compile(
-    r"\b(?:nen|vi(?! (?:du|tri)\b)(?<!chu vi)(?<!don vi)|do(?<!muc do)|"
-    r"so(?! (?:lieu|voi|sanh)\b)(?<!con so)|because|that)\b"
+# Specific data-error denials required by the earlier review regressions.
+# Each phrase must directly precede the error; additive "not only" and
+# negated correction/checking actions are deliberately absent.
+_DATA_DENIAL_PREFIXES = (
+    "khong phai la loi", "khong lam",
+    "khong he", "khong han la", "khong lien quan den",
+    "khong phai do", "khong phai vi", "khong phai la loi do",
+    "not a", "not an", "not because", "not because the", "not that", "not that the",
 )
-_GOVERNED_CAUSE = re.compile(
-    r"(?:\bkhong(?! (?:chi|nhung)\b)|(?:\bnot|n['’]t)(?! (?:only|just|merely)\b))"
-    r"(?:\s+(?:phai|han|hoan toan|la|loi|really|simply))*\s+$"
-)
+_DATA_DENIAL_TAIL = re.compile(r"\b(?:" + "|".join(map(re.escape, _DATA_DENIAL_PREFIXES)) + r")\s+$")
 
 
 def _unnegated(pattern: re.Pattern, text: str) -> bool:
-    def negated(start: int) -> bool:
-        prefix = text[:start]
-        brk = _CLAUSE_BREAK.match(prefix)
-        scope = prefix[brk.end():] if brk else prefix
-        causes = list(_CAUSE.finditer(scope))
-        if causes:
-            if _GOVERNED_CAUSE.search(scope[:causes[-1].start()]):
-                return True
-            scope = scope[causes[-1].end():]
-        return bool(_NEGATED_TAIL.search(scope))
-
-    return any(not negated(m.start()) for m in pattern.finditer(text))
+    for match in pattern.finditer(text):
+        prefix = text[:match.start()]
+        if _NEGATED_TAIL.search(prefix):
+            continue
+        if pattern is _DATA_ERROR and _DATA_DENIAL_TAIL.search(prefix):
+            continue
+        return True
+    return False
 
 
 def _affirmed(pattern: re.Pattern, text: str) -> bool:
@@ -343,7 +337,7 @@ def repair_writing_consistency(feedback: WritingFeedback, task_type: str) -> lis
         kept = []
         for sentence in sentences:
             plain = _plain(sentence)
-            clauses = _CLAUSE_SPLIT.split(plain)
+            clauses = [_plain(clause) for clause in _CLAUSE_SPLIT.split(sentence)]
             conflict = any(p.search(clause) and _PRAISE.search(p.sub("", clause))
                            and not _NEGATED_PRAISE.search(p.sub("", clause))
                            and not _CRITICISM.search(p.sub("", clause))
