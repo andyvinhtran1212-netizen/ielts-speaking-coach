@@ -24,7 +24,7 @@ import google.generativeai as genai
 
 from config import settings
 from services.d1_quality import validate_d1_quality
-from services import ai_budget, ai_usage_logger
+from services import ai_usage_logger
 
 logger = logging.getLogger(__name__)
 
@@ -167,15 +167,7 @@ def _generate_single_chunk(
             ),
             system_instruction=_SYSTEM_PROMPT,
         )
-        with ai_budget.guard_sync(
-            "google", chosen_model, "d1_content_generation",
-            ai_budget.estimate_or_none("google", chosen_model, input_text=[_SYSTEM_PROMPT, user_prompt],
-                                       max_tokens=4096),
-            request_key=ai_budget.attempt_key("d1_content_generation"), operation="generate_chunk",
-        ) as lease:
-            # Mục 10 (B4): bound the sync Gemini call; no hidden gapic retry (FR-001).
-            resp = model.generate_content(user_prompt, request_options=ai_budget.gemini_request_options(60))
-            lease.settle(ai_budget.gemini_actual_usd(chosen_model, resp))
+        resp = model.generate_content(user_prompt, request_options={"timeout": 60})  # Mục 10 (B4): bound the sync Gemini call
         ai_usage_logger.log_gemini_response(
             resp,
             model=chosen_model,
@@ -184,9 +176,6 @@ def _generate_single_chunk(
             metadata={"word_count": len(words)},
         )
         raw = resp.text or ""
-    except (ai_budget.AIBudgetRefused, ai_budget.AIBudgetReplay):
-        # AIBUDGET-0033 FR-008: not a GeminiBatchError, so the chunk loop stops.
-        raise
     except Exception as e:
         ai_usage_logger.log_unpriced_usage(
             service="gemini",

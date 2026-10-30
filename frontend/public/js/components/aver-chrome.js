@@ -757,8 +757,8 @@ export class AverChrome extends HTMLElement {
     if (!base) return;
     let role = null;
     try {
-      const resp = await sharedAuthMe(token, (signal) => fetch(base + '/auth/me', {
-        headers: { Authorization: 'Bearer ' + token },
+      const resp = await sharedAuthMe(token, (signal, requestId) => fetch(base + '/auth/me', {
+        headers: { Authorization: 'Bearer ' + token, 'X-Request-ID': requestId },
         signal,
       }));
       if (resp && resp.ok) {

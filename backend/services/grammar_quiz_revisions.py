@@ -27,7 +27,7 @@ from services.grammar_quiz_revision_classifier import CLASSIFY_OWNERS_SQL, FOLLO
 from services.grammar_quiz_policy import POLICY_KEY, GrammarQuizPolicyInvalid, validate_text_match_policy
 from services.grammar_quiz_revision_source import (
     GrammarSource, GrammarSourceInvalid, REVIEWED_SOURCES, compare_reviewed_questions,
-    parse_reviewed_source, reviewed_binding, FOLLOWUP_CODE, REVIEWED_BINDINGS,
+    parse_reviewed_source, reviewed_binding, FOLLOWUP_CODES, REVIEWED_BINDINGS,
 )
 
 ACTION = 'grammar_quiz_revision_cutover'
@@ -241,7 +241,7 @@ async def _scope(c: AsyncConnection, code: str, *, locking=False) -> _Scope:
       WHERE skill_area='grammar' AND (code=:code OR grammar_canonical_code=:code)
       ORDER BY id LIMIT 4""", {'code': code})
     original = [bank for bank in banks if bank['code'] == code and bank['grammar_predecessor_bank_id'] is None]
-    if len(original) != 1 or len(banks) > (3 if code == FOLLOWUP_CODE else 2):
+    if len(original) != 1 or len(banks) > (3 if code in FOLLOWUP_CODES else 2):
         raise _unavailable('grammar_mapping_ambiguous')
     root = original[0]
     managed = root['grammar_canonical_code'] is not None
@@ -267,7 +267,7 @@ async def _scope(c: AsyncConnection, code: str, *, locking=False) -> _Scope:
         if len(chain) == 3 and (chain[1]['code'] == code+'~'+REVIEWED_SOURCES[code][0][:16]
                 or current['code'] != code+'~'+REVIEWED_SOURCES[code][0][:16]):
             raise _unavailable('grammar_mapping_ambiguous')
-        followup = code == FOLLOWUP_CODE and len(chain) == 2 and current['code'] != code+'~'+REVIEWED_SOURCES[code][0][:16]
+        followup = code in FOLLOWUP_CODES and len(chain) == 2 and current['code'] != code+'~'+REVIEWED_SOURCES[code][0][:16]
         old = current if followup else chain[-2]
         publication_available = followup
     else:
