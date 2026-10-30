@@ -62,6 +62,22 @@ _NO_PATTERNS = re.compile(
     r"no (?:recurring|repeated) (?:patterns?|errors?)"
 )
 _STRUCTURE_SCOPE = re.compile(r"cau truc|cau don|cau phuc|sentence|syntactic")
+# Error domains a recurring-pattern denial or a stillRecurring item can name,
+# by criterion. A denial that names none of them covers every domain.
+_ERROR_DOMAINS = {
+    "grammar": re.compile(
+        r"ngu phap|grammar|grammatical|cau truc|cau don|cau phuc|cau ghep|sentence|run-on|fragment|"
+        r"chia (?:dong tu|thi)|\btense|hoa hop|chu vi|subject[- ]verb|agreement|mao tu|\barticles?\b|"
+        r"gioi tu|preposition|so (?:it|nhieu)|plural|singular|bi dong|passive|menh de|clause|"
+        r"dau cau|punctuation"),
+    "lexical": re.compile(
+        r"tu vung|\b(?:dung|chon|lap) tu\b|tu loai|dang tu|\bwords?\b|vocabulary|lexical|collocation|"
+        r"ket hop tu|chinh ta|spelling|paraphras"),
+    "coherence": re.compile(r"lien ket|mach lac|coheren|cohesi|linking|tu noi|lien tu|doan van|paragraph"),
+    "task": re.compile(
+        r"so lieu|du lieu|\bdata\b|task (?:achievement|response)|overview|tong quan|y tuong|\bideas?\b|"
+        r"lap luan|argument"),
+}
 _PRAISE = re.compile(
     r"phu hop|chinh xac|hieu qua|tu nhien|dung tot|dung dung|"
     r"cum (?:tu )?tot|diem manh|dung hay|"
@@ -103,6 +119,41 @@ def _sentences(text: str) -> list[str]:
     return re.split(r"(?<=[.!?])\s+", text)
 
 
+# Semicolons/contrast markers separate independently judged claims.
+# Concessives too; bare "du" is avoided because it also spells "dữ".
+_CLAUSE_SPLIT = re.compile(r";|\b(?:nhung|tuy nhien|but|however|mac du|although|though|whereas)\b")
+
+
+def _without_clauses(sentence: str, drop) -> str:
+    """Rebuild sentence without the clauses whose plain text drop() rejects.
+
+    Only the rejected clause and its leading marker go; the other clauses keep
+    their original wording. Returns "" when every clause is rejected.
+    """
+    plain, origin = "", []
+    for i, char in enumerate(sentence):
+        folded = _plain(char)
+        plain += folded
+        origin += [i] * len(folded)
+    origin.append(len(sentence))
+    marks = [(m.start(), m.end()) for m in _CLAUSE_SPLIT.finditer(plain)]
+    starts = [0] + [end for _, end in marks]
+    ends = [start for start, _ in marks] + [len(plain)]
+    clauses = [plain[start:end] for start, end in zip(starts, ends)]
+    if not any(drop(clause) for clause in clauses):
+        return sentence
+    # An empty clause before a leading marker ("Mặc dù ...") is not content.
+    kept = [k for k, clause in enumerate(clauses) if clause.strip(" ,;:") and not drop(clause)]
+    if not kept:
+        return ""
+    pieces = [sentence[origin[starts[k] if k == kept[0] else marks[k - 1][0]]:origin[ends[k]]]
+              for k in kept]
+    text = "".join(pieces).strip().rstrip(",;: ")
+    ending = re.search(r"[.!?]*$", sentence.rstrip()).group()
+    text = text if text.endswith(ending) else text.rstrip(".!?") + ending
+    return text[:1].upper() + text[1:]
+
+
 def _data_error(explanation: str) -> bool:
     return _unnegated(_DATA_ERROR, _plain(explanation))
 
@@ -110,10 +161,21 @@ def _data_error(explanation: str) -> bool:
 # A negation reaches across a few words of its own clause ("không phải là lỗi
 # X", "không làm X") but not past a clause break, so "không phải X mà là Y"
 # denies X only. "chua"/"no" must stay adjacent: they also spell "chứa"/"nó".
+# "không may" is "unfortunately", not a negation.
 _CLAUSE_BREAK = re.compile(r".*(?:[,;:.!?()]|\b(?:ma|nhung|va|tuy nhien|but|and|however|rather|whereas)\b)",
                            re.DOTALL)
 _NEGATED_TAIL = re.compile(
-    r"(?:\b(?:khong|not|never|without)|n['’]t)(?:\s+[\w'’-]+){0,3}\s+$|\b(?:chua|no)\s+$"
+    r"(?:\b(?:khong(?! may\b)|not|never|without)|n['’]t)(?:\s+[\w'’-]+){0,3}\s+$|\b(?:chua|no)\s+$"
+)
+# A causal link starts a new claim: "không đọc kỹ nên sai số liệu" asserts the
+# error. Unless the negation governs the cause itself ("không phải do X", "not
+# because X"), which denies X. "số", "vị", "ví", "độ" also de-accent to so/vi/do.
+_CAUSE = re.compile(
+    r"\b(?:nen|vi(?! (?:du|tri)\b)(?<!chu vi)(?<!don vi)|do(?<!muc do)|"
+    r"so(?! (?:lieu|voi|sanh)\b)(?<!con so)|because|that)\b"
+)
+_GOVERNED_CAUSE = re.compile(
+    r"(?:\b(?:khong|not)|n['’]t)(?:\s+(?:phai|han|hoan toan|la|loi|chi|really|just|only|simply|merely))*\s+$"
 )
 
 
@@ -121,7 +183,13 @@ def _unnegated(pattern: re.Pattern, text: str) -> bool:
     def negated(start: int) -> bool:
         prefix = text[:start]
         brk = _CLAUSE_BREAK.match(prefix)
-        return bool(_NEGATED_TAIL.search(prefix[brk.end():] if brk else prefix))
+        scope = prefix[brk.end():] if brk else prefix
+        causes = list(_CAUSE.finditer(scope))
+        if causes:
+            if _GOVERNED_CAUSE.search(scope[:causes[-1].start()]):
+                return True
+            scope = scope[causes[-1].end():]
+        return bool(_NEGATED_TAIL.search(scope))
 
     return any(not negated(m.start()) for m in pattern.finditer(text))
 
@@ -206,10 +274,17 @@ def repair_writing_consistency(feedback: WritingFeedback, task_type: str) -> lis
                 historical = _HISTORY.search(plain) and not _CURRENT.search(plain)
                 # summary is the five-essay overview: only an explicitly
                 # current-essay sentence there can contradict the GRA band.
+                # Only the low-range clause goes: an independent warning or a
+                # history clause in the same sentence stays.
                 if (feedback.criteriaFeedback.grammaticalRange.bandScore >= 7
                         and _blanket_low_range(plain) and not historical
                         and (key == "current_essay_observation" or _CURRENT.search(plain))):
-                    continue
+                    sentence = _without_clauses(sentence, lambda clause: (
+                        _unnegated(_LOW_RANGE, clause)
+                        and not (_HISTORY.search(clause) and not _CURRENT.search(clause))))
+                    if not sentence:
+                        continue
+                    plain = _plain(sentence)
                 if _NO_PATTERNS.search(plain):
                     # A sentence-structure summary cannot deny lexical patterns.
                     # Scope the claim to the supplied syntax history, if empty.
@@ -234,8 +309,19 @@ def repair_writing_consistency(feedback: WritingFeedback, task_type: str) -> lis
     if isinstance(recurring, dict) and recurring.get("stillRecurring"):
         summary = recurring.get("summary")
         if isinstance(summary, str) and _NO_PATTERNS.search(_plain(summary)):
-            kept = [s for s in _sentences(summary) if not _NO_PATTERNS.search(_plain(s))]
-            assign(recurring, "summary", " ".join(kept) or
+            still = recurring["stillRecurring"]
+            listed = {name for item in (still if isinstance(still, list) else [still])
+                      for name, domain in _ERROR_DOMAINS.items() if domain.search(_plain(str(item)))}
+
+            # A denial contradicts stillRecurring only for the error types it
+            # names; "Không có lỗi ngữ pháp lặp lại" stands beside Word Choice.
+            def stale(clause: str) -> bool:
+                named = {name for name, domain in _ERROR_DOMAINS.items() if domain.search(clause)}
+                return bool(_NO_PATTERNS.search(clause)) and (not named or bool(named & listed))
+
+            sentences = _sentences(summary)
+            kept = [clean for s in sentences if (clean := _without_clauses(s, stale))]
+            assign(recurring, "summary", summary if kept == sentences else " ".join(kept) or
                    "Các mẫu lỗi còn lặp lại được liệt kê bên dưới.", "recurringPatterns.summary")
 
     flagged = [p for m in feedback.mistakeAnalysis if (p := _phrase_pattern(m.original))]
@@ -255,10 +341,7 @@ def repair_writing_consistency(feedback: WritingFeedback, task_type: str) -> lis
         kept = []
         for sentence in sentences:
             plain = _plain(sentence)
-            # Semicolons/contrast markers separate independently judged claims.
-            # Concessives too; bare "du" is avoided because it also spells "dữ".
-            clauses = re.split(r";|\b(?:nhung|tuy nhien|but|however|mac du|"
-                               r"although|though|whereas)\b", plain)
+            clauses = _CLAUSE_SPLIT.split(plain)
             conflict = any(p.search(clause) and _PRAISE.search(p.sub("", clause))
                            and not _NEGATED_PRAISE.search(p.sub("", clause))
                            and not _CRITICISM.search(p.sub("", clause))

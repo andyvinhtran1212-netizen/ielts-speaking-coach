@@ -223,6 +223,38 @@ def test_data_error_outside_the_negated_clause_is_still_relabelled(feedback, exp
     assert feedback.mistakeAnalysis[2].criterion == "Task Achievement"
 
 
+@pytest.mark.parametrize("explanation", [
+    "Em không đọc kỹ nên sai số liệu năm 2010.",
+    "Em khong doc ky nen sai so lieu nam 2010.",
+    "Không cẩn thận nên sai số liệu.",
+    "Em không để ý chú thích vì số liệu bị sai.",
+    "Em không xem chú thích do đó sai số liệu.",
+    "The writer does not notice that the figures are wrong.",
+    "The student did not check the axis so the data is wrong.",
+])
+def test_causal_link_ends_the_negation_before_a_data_error(feedback, explanation):
+    # CR P3 (PR-2053 re-review 3): "nên/vì/do/so/because/that" start a new
+    # clause, so the negated verb before them does not deny the data error.
+    feedback.mistakeAnalysis[2].explanation = explanation
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.mistakeAnalysis[2].mistakeType == "Data Accuracy"
+    assert feedback.mistakeAnalysis[2].criterion == "Task Achievement"
+
+
+@pytest.mark.parametrize("explanation", [
+    "Không phải do sai số liệu mà do collocation.",
+    "Không phải vì số liệu sai, mà vì collocation chưa tự nhiên.",
+    "Đây không phải là lỗi do sai số liệu.",
+    "This is not because the figures are wrong; the collocation is unnatural.",
+    "It is not that the data is wrong; the verb is unnatural.",
+])
+def test_negation_that_governs_the_cause_still_denies_the_data_error(feedback, explanation):
+    feedback.mistakeAnalysis[2].explanation = explanation
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.mistakeAnalysis[2].mistakeType == "Word Choice"
+    assert feedback.mistakeAnalysis[2].criterion == "Lexical Resource"
+
+
 @pytest.mark.parametrize("sections", [
     {"sentenceStructureAnalysis": None, "bandTrajectoryAnalysis": None, "recurringPatterns": None},
     {"sentenceStructureAnalysis": {}, "bandTrajectoryAnalysis": {}, "recurringPatterns": {}},
@@ -337,6 +369,42 @@ def test_blanket_current_essay_range_claims_are_still_removed_at_high_gra(feedba
     assert feedback.sentenceStructureAnalysis[key] != claim
 
 
+@pytest.mark.parametrize("key,claim,expected", [
+    ("current_essay_observation", "Bài này chủ yếu sử dụng câu đơn; lỗi hòa hợp chủ vị ở đoạn 2 cần sửa.",
+     "Lỗi hòa hợp chủ vị ở đoạn 2 cần sửa."),
+    ("current_essay_observation", "Lỗi mạo từ ở đoạn 1 cần sửa, nhưng bài này chủ yếu dùng câu đơn.",
+     "Lỗi mạo từ ở đoạn 1 cần sửa."),
+    ("summary", "This essay only uses simple sentences; the article errors in paragraph 2 need fixing.",
+     "The article errors in paragraph 2 need fixing."),
+    ("current_essay_observation", "Bài này chủ yếu dùng câu đơn. Lỗi hòa hợp chủ vị cần sửa.",
+     "Lỗi hòa hợp chủ vị cần sửa."),
+    ("current_essay_observation", "Bài này đã có câu phức; các bài trước chỉ dùng câu đơn.",
+     "Bài này đã có câu phức; các bài trước chỉ dùng câu đơn."),
+    ("current_essay_observation", "Mặc dù bài này chủ yếu dùng câu đơn.",
+     "Tham khảo các lỗi và gợi ý cụ thể trong phần phân tích."),
+])
+@pytest.mark.parametrize("gra", [7, 8])
+def test_high_gra_removes_only_the_low_range_clause(feedback, key, claim, expected, gra):
+    # Codex r4422256128: an independent warning sharing the sentence with a
+    # blanket low-range clause survives; a history clause is not current.
+    feedback.criteriaFeedback.grammaticalRange.bandScore = gra
+    feedback.sentenceStructureAnalysis = {key: claim}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.sentenceStructureAnalysis[key] == expected
+
+
+@pytest.mark.parametrize("claim", [
+    "Em không biết nên chỉ dùng câu đơn.",
+    "Không may là em chủ yếu dùng câu đơn.",
+])
+def test_causal_link_or_unfortunately_does_not_shield_a_low_range_claim(feedback, claim):
+    # CR P3 (PR-2053 re-review 3): neither "không ... nên" nor "không may"
+    # (unfortunately) negates the low-range claim that follows.
+    feedback.sentenceStructureAnalysis = {"current_essay_observation": claim}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.sentenceStructureAnalysis["current_essay_observation"] != claim
+
+
 @pytest.mark.parametrize("claim,warning", [
     ("Cụm 'levelled off' phù hợp, nhưng số liệu trong câu này sai và cần kiểm tra lại.",
      "số liệu trong câu này sai"),
@@ -418,6 +486,39 @@ def test_unscoped_denial_cannot_hide_known_lexical_patterns_when_syntax_history_
     repair_writing_consistency(feedback, "task1_academic")
     assert "Chưa có pattern" not in feedback.sentenceStructureAnalysis["summary"]
     assert feedback.recurringPatterns["stillRecurring"] == ["Word Choice (9 lần)"]
+
+
+@pytest.mark.parametrize("still,summary", [
+    (["Word Choice (9 lần)"], "Không có lỗi ngữ pháp lặp lại."),
+    (["Word Choice (9 lần)"], "Không có lỗi ngữ pháp lặp lại; lỗi dùng từ vẫn xuất hiện."),
+    (["Word Choice (9 lần)"], "No recurring errors in grammar; word choice still repeats."),
+    (["Lỗi hòa hợp chủ vị"], "Không có lỗi từ vựng lặp lại; lỗi hòa hợp chủ vị vẫn còn."),
+])
+def test_recurring_denial_of_another_error_type_is_kept(feedback, still, summary):
+    # Codex r4422256138: a denial about grammar does not contradict lexical
+    # errors that still recur, and the affirmative clause beside it stays.
+    feedback.recurringPatterns = {"summary": summary, "improvements": [], "stillRecurring": still}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.recurringPatterns["summary"] == summary
+    assert feedback.recurringPatterns["stillRecurring"] == still
+
+
+@pytest.mark.parametrize("still,summary,expected", [
+    (["Word Choice (9 lần)"], "Không có lỗi dùng từ lặp lại.", "Các mẫu lỗi còn lặp lại được liệt kê bên dưới."),
+    (["Word Choice (9 lần)"], "Không có lỗi ngữ pháp hay từ vựng lặp lại.",
+     "Các mẫu lỗi còn lặp lại được liệt kê bên dưới."),
+    (["Word Choice (9 lần)"], "Không có lỗi lặp lại.", "Các mẫu lỗi còn lặp lại được liệt kê bên dưới."),
+    (["Word Choice (9 lần)"], "Không có lỗi lặp lại; em tiến bộ rõ.", "Em tiến bộ rõ."),
+    (["Subject-verb agreement"], "Không có lỗi ngữ pháp lặp lại.",
+     "Các mẫu lỗi còn lặp lại được liệt kê bên dưới."),
+    (["Word Choice (9 lần)"], "Em tiến bộ về ngữ pháp. No recurring errors in vocabulary.",
+     "Em tiến bộ về ngữ pháp."),
+])
+def test_recurring_denial_of_a_listed_error_type_is_still_removed(feedback, still, summary, expected):
+    feedback.recurringPatterns = {"summary": summary, "improvements": [], "stillRecurring": still}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.recurringPatterns["summary"] == expected
+    assert feedback.recurringPatterns["stillRecurring"] == still
 
 
 @pytest.mark.parametrize("text,expected", [
