@@ -124,6 +124,8 @@ jobs:
         timeout-minutes: 2
         env:
           STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          STAGING_E2E_ADMIN_TOTP_SECRET: ${{ secrets.STAGING_E2E_ADMIN_TOTP_SECRET }}
         run: |
           node tooling/sanitize-artifacts.mjs test-results/staging-release-provenance.json
           node tooling/scan-artifact-secrets.mjs test-results/staging-release-provenance.json
@@ -145,6 +147,8 @@ jobs:
         timeout-minutes: 3
         env:
           STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          STAGING_E2E_ADMIN_TOTP_SECRET: ${{ secrets.STAGING_E2E_ADMIN_TOTP_SECRET }}
         run: |
           node tooling/sanitize-artifacts.mjs playwright-report test-results/staging-e2e-results.json
           node tooling/scan-artifact-secrets.mjs playwright-report test-results/staging-e2e-results.json
