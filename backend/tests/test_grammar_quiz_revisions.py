@@ -73,7 +73,7 @@ async def test_actual_cutover_learner_list_is_current_but_owned_legacy_url_still
     assert listed[0]['id']==str(result.corrected_bank_id) and listed[0]['code']==CODE
     fake.responses={('quiz_banks','select'):[old],('quiz_questions','select'):questions,
         ('rpc','grammar_quiz_state'):legacy_state}
-    legacy=await router.get_bank(pg.old,authorization='test')
+    legacy=json.loads((await router.get_bank(pg.old,authorization='test')).body)
     assert legacy['bank']['id']==str(pg.old) and legacy['questions']==questions
     assert legacy['grammar']['content_state']=='legacy' and legacy['grammar']['can_continue_legacy'] is True
     assert all(call['op'] in {'select','rpc'} for call in fake.calls)
