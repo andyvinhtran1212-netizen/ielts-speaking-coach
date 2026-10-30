@@ -44,6 +44,9 @@ def log_schema():
         IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF;
         IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='service_role') THEN CREATE ROLE service_role NOLOGIN BYPASSRLS; END IF;
     END $$;""")
+    for role, bypass in (("anon", "f"), ("authenticated", "f"), ("service_role", "t")):
+        assert psql(f"SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname='{role}'") == f"f|{bypass}", (
+            f"Disposable cluster role {role} must have rolsuper=f and rolbypassrls={bypass}")
     schema = "class_log_" + uuid4().hex
     psql(f"CREATE SCHEMA {schema}")
     try:
@@ -200,17 +203,39 @@ def test_rls_and_policies_match_migration_198(log_schema):
         assert psql(f"SET ROLE {role}; SELECT count(*) FROM {log_schema}.class_action_log") == "0"
 
 
+def test_authenticated_admin_reads_exact_rows_but_cannot_insert_after_320(log_schema):
+    rows = sorted(str(_insert(log_schema)) for _ in range(2))
+    psql(f"CREATE OR REPLACE FUNCTION {log_schema}.is_current_user_admin() RETURNS boolean "
+         "LANGUAGE sql AS $$ SELECT true $$")
+    assert psql(f"BEGIN; SET LOCAL ROLE authenticated; DO $$ BEGIN "
+                f"ASSERT current_user = 'authenticated'; ASSERT {log_schema}.is_current_user_admin(); "
+                "END $$; "
+                f"SELECT id FROM {log_schema}.class_action_log ORDER BY id; ROLLBACK;") == "\n".join(rows)
+    # cal_admin_append permits admins at the RLS layer, but 320 has already
+    # revoked authenticated's INSERT privilege. Do not re-grant it in the test.
+    assert _privilege(log_schema, "authenticated", "INSERT") == "f"
+    with pytest.raises(RuntimeError, match="SQLSTATE=42501.*permission denied for table class_action_log"):
+        psql(f"BEGIN; SET LOCAL ROLE authenticated; DO $$ BEGIN "
+             f"ASSERT current_user = 'authenticated'; ASSERT {log_schema}.is_current_user_admin(); "
+             f"INSERT INTO {log_schema}.class_action_log (action, cohort_id) "
+             f"VALUES ('due_change', '{uuid4()}'); "
+             "EXCEPTION WHEN OTHERS THEN RAISE EXCEPTION 'SQLSTATE=% %', SQLSTATE, SQLERRM; "
+             "END $$; ROLLBACK;")
+    assert psql(f"SELECT id FROM {log_schema}.class_action_log ORDER BY id") == "\n".join(rows)
+
+
 @pytest.mark.parametrize("operation", ["UPDATE", "DELETE"])
 def test_service_role_cannot_bypass_append_only_trigger(log_schema, operation):
     row = _insert(log_schema)
-    assert psql("SET ROLE service_role; SELECT current_user") == "service_role"
     for privilege in ("SELECT", "UPDATE", "DELETE"):
         assert _privilege(log_schema, "service_role", privilege) == "t"
     assert psql("SELECT rolbypassrls FROM pg_roles WHERE rolname='service_role'") == "t"
     command = (f"UPDATE {log_schema}.class_action_log SET action='return_work'" if operation == "UPDATE"
                else f"DELETE FROM {log_schema}.class_action_log")
     with pytest.raises(RuntimeError, match=re.escape(MESSAGE)):
-        psql("BEGIN; SET LOCAL ROLE service_role; " + command + f" WHERE id='{row}'; ROLLBACK;")
+        psql("BEGIN; SET LOCAL ROLE service_role; DO $$ BEGIN "
+             "ASSERT current_user = 'service_role'; " + command + f" WHERE id='{row}'; "
+             "END $$; ROLLBACK;")
     assert psql(f"SELECT action, details->>'before' FROM {log_schema}.class_action_log WHERE id='{row}'") == "due_change|1"
 
 
@@ -243,3 +268,54 @@ def _public_truncate_grants(schema, *, table="class_action_log"):
 def test_append_only_function_has_a_pinned_search_path(log_schema):
     assert psql(f"SELECT array_to_string(proconfig, ';') FROM pg_proc "
                 f"WHERE oid='{log_schema}.fn_class_action_log_append_only()'::regprocedure") == f"search_path={log_schema}, pg_temp"
+
+
+def _assert_no_audit_truncate_grants(migrations):
+    # Offline guard: 204's known audit block only REVOKEs. No migration or
+    # marker grants an exemption. BEFORE TRUNCATE protection belongs to PC-J286.
+    # Preserve quoted identifiers; mask comments and data literals, retaining
+    # newlines so a failure identifies the migration and original line.
+    tokens = re.compile(r'''"(?:[^"]|"")*"|'(?:[^']|'')*'|--[^\n]*|/\*.*?\*/''', re.S)
+    for path in sorted(migrations.glob("*.sql")):
+        code = tokens.sub(lambda m: m[0] if m[0].startswith('"') else
+                          re.sub(r"[^\n]", " ", m[0]), path.read_text(encoding="utf-8"))
+        for grant in re.finditer(r"\bGRANT\s+([^;]*?)\s+ON\s+(?:TABLE\s+)?([^;]*?)\s+TO\s+[^;]+", code, re.I):
+            if not re.search(r"\b(?:TRUNCATE|ALL)\b", grant[1], re.I):
+                continue
+            targets = grant[2].replace('"', '')
+            audit_table = re.search(r"(?:^|,)\s*(?:public\s*\.\s*)?class_action_log\s*(?:,|$)", targets, re.I)
+            all_public_tables = re.search(r"^ALL\s+TABLES\s+IN\s+SCHEMA\s+(?:\w+\s*,\s*)*public\s*(?:,|$)", targets, re.I)
+            assert not (audit_table or all_public_tables), (
+                f"{path.name}:{code.count(chr(10), 0, grant.start()) + 1}: "
+                "GRANT TRUNCATE/ALL can reopen class_action_log truncation")
+
+
+def test_migrations_never_regrant_audit_log_truncate():
+    _assert_no_audit_truncate_grants(MIGRATIONS)
+
+
+@pytest.mark.parametrize("filename,grant", [
+    ("204_reconcile_course_and_gate_e_schema.sql", "GRANT TRUNCATE ON class_action_log TO service_role;"),
+    ("999_future.sql", "GRANT TRUNCATE ON TABLE public.class_action_log TO service_role;"),
+    ("999_future.sql", "GRANT ALL PRIVILEGES ON TABLE public.class_action_log TO authenticated;"),
+    ("999_future.sql", 'grant select, truncate on table public.other, "public"."class_action_log" to another_role;'),
+    ("999_future.sql", "GRANT ALL ON class_action_log TO PUBLIC;"),
+    ("999_future.sql", "GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;"),
+])
+def test_audit_truncate_guard_rejects_grants_anywhere(tmp_path, filename, grant):
+    # In 204 this is deliberately OUTSIDE the block executed by the PG test.
+    (tmp_path / filename).write_text(SQL_204 + "\n" + grant, encoding="utf-8")
+    with pytest.raises(AssertionError, match=rf"{re.escape(filename)}:\d+: GRANT TRUNCATE/ALL"):
+        _assert_no_audit_truncate_grants(tmp_path)
+
+
+def test_audit_truncate_guard_ignores_comments_literals_and_safe_privileges(tmp_path):
+    (tmp_path / "999_safe.sql").write_text('''
+-- GRANT TRUNCATE ON class_action_log TO service_role;
+/* GRANT ALL PRIVILEGES ON TABLE public.class_action_log TO PUBLIC; */
+COMMENT ON TABLE class_action_log IS 'GRANT ALL ON class_action_log TO anon;';
+REVOKE TRUNCATE ON TABLE public.class_action_log FROM PUBLIC, service_role;
+GRANT SELECT, INSERT ON public.class_action_log TO service_role;
+GRANT ALL ON public.other_log TO service_role;
+''', encoding="utf-8")
+    _assert_no_audit_truncate_grants(tmp_path)
