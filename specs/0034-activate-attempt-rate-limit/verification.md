@@ -35,19 +35,4 @@
   (20:47:44 UTC+7), before the merge (`/workspace/qa/pcj60/ledger.out.tsv`).
   Staging `56a8c344f` contains #1847: Tests run 40784593322 and Staging release
   smoke run 40784593282 are green. Pending: the 11-attempt QA probe (T006).
-- Production verification (2026-10-29, owner Vinh 10:53 UTC+7, option A): 334
-  applied to production under `pg_advisory_lock(173204,1)`, one request, before
-  promotion PR #1906 merged and before the backend deploy. Read-only postcheck:
-  header result `t|t|f|f|t`; `fn_activate_attempt_check(uuid)` SECURITY
-  DEFINER, `search_path=""`, EXECUTE service_role only; `activation_attempts`
-  RLS on, 0 policies, no anon/authenticated privileges, 0 rows. Source:
-  `/workspace/cc-jobs/release-1029.md`, `/workspace/cc-jobs/rel1029/out/apply-334.json`,
-  `q00b-post334.json`. Railway production deployment `ab70b603` and
-  Vercel production deployment 7404494270 are SUCCESS on the merge SHA. No production `/auth/activate`
-  attempt was made (each attempt writes a row). Pending: the 1-hour 503 watch
-  (not recorded; the 12:04 UTC+7 post-deploy log shows 0 5xx) and the staging
-  11-attempt probe (T006, Security Auditor).
-
-| Migration | Staging apply (ledger) | Production apply (ledger) | Merge to `main` |
-| --- | --- | --- | --- |
-| `334_activate_attempt_rate_limit.sql` | 2026-10-28 13:47:44Z (20:47:44 UTC+7), `/workspace/qa/pcj60/ledger.out.tsv` | 2026-10-29 04:51:52Z (11:51:52 UTC+7), `rel1029/out/apply-334.json` | #1906 `584b7e418e38a0be869933538fe78e9737c4f30b`, 2026-10-29 12:01:31 UTC+7 |
+- Production verification: pending owner authorization. 334 is not on `main` yet.

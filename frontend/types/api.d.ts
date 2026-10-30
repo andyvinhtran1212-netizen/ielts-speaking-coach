@@ -13629,8 +13629,6 @@ export interface components {
              * Format: date-time
              */
             generated_at: string;
-            /** Partial Failures */
-            partial_failures?: string[];
         };
         /** AdminPatchExerciseRequest */
         AdminPatchExerciseRequest: {

@@ -13,7 +13,7 @@
 | FR-007 | kind=test; ref=backend/tests/test_ai_failure_log.py; router, with_fallback, Claude-after-Gemini and orchestrator records; enumerated fields only; write failure isolation; ci=Tests run 40784593322 on staging `56a8c344f`, 49 passed | PASS |
 | FR-008 | kind=test; ref=backend/tests/test_admin_ai_dashboard.py; failure counts per provider/feature/outcome/error type and recent 50 ordering; ci=Tests run 40784593322 on staging `56a8c344f`, 31 passed | PASS |
 | FR-009 | kind=test; ref=frontend/tests/react/admin-ai-panel.test.tsx; loading, empty, error/retry, save pending/settled, store states; both typecheck boundaries; ci=Tests run 40784593322 on staging `56a8c344f`, 11 passed; Typecheck + OpenAPI drift run 40784593245 green | PASS |
-| FR-010 | kind=journey; ref=specs/0024-admin-ai-model-control/rollout.md; staging migration before merge, staging journey, production migration before promotion; staging 322 applied 2026-10-28 22:13:05 UTC+7 before the #1837 merge (22:43), read-only journey steps passed; production 322 applied 2026-10-29 11:51:18 UTC+7 before the #1906 merge (`584b7e418`, 12:01:31), postcheck PASS (T009); still open: the staging admin write steps (T008, Leader) and the owner `/admin` AI load on production | PENDING |
+| FR-010 | kind=journey; ref=specs/0024-admin-ai-model-control/rollout.md; staging migration before merge, staging journey, production migration before promotion; staging 322 applied 2026-10-28 22:13:05 UTC+7 before the #1837 merge (22:43), read-only journey steps passed; the admin write steps and production are still open (tasks T008, T009) | PENDING |
 
 ## Contract evidence
 
@@ -47,20 +47,4 @@
   Tests run 40784593322 and Staging release smoke run 40784593282
   (provenance OK, 41 passed) are green. The T008 admin write steps are still
   open (see `tasks.md`).
-- Production verification (2026-10-29, owner Vinh 10:53 UTC+7, option A):
-  322 applied to production (`huwsmtubwulikhlmcirx`) under
-  `pg_advisory_lock(173204,1)`, one request; read-only postcheck PASS: RLS on
-  for `ai_model_overrides`, `ai_model_override_audit` and
-  `ai_provider_failures`, anon/authenticated grants 0 (service_role only), the
-  4 functions not executable by PUBLIC/anon/authenticated, overrides 0 rows;
-  tables and functions identical to the staging postcheck. Then promotion PR
-  #1906 merged. Source: `/workspace/cc-jobs/release-1029.md`,
-  `/workspace/cc-jobs/rel1029/out/apply-322.json`, `q00b-post322.json`,
-  `q00b-ledger-post.json`. Railway production deployment `ab70b603` and Vercel
-  production deployment 7404494270 are SUCCESS on the merge SHA.
-  Pending: the rollout post-promotion health check (owner loads the `/admin`
-  AI section on production) and the staging T008 write steps.
-
-| Migration | Staging apply (ledger) | Production apply (ledger) | Merge to `main` |
-| --- | --- | --- | --- |
-| `322_ai_model_overrides_and_failures.sql` | 2026-10-28 15:13:05Z (22:13:05 UTC+7), `/workspace/qa/pcj60/ledger.out.tsv` | 2026-10-29 04:51:18Z (11:51:18 UTC+7), `rel1029/out/apply-322.json` | #1906 `584b7e418e38a0be869933538fe78e9737c4f30b`, 2026-10-29 12:01:31 UTC+7 |
+- Production verification: recorded at T009. Not started: 322 is not on `main` yet.

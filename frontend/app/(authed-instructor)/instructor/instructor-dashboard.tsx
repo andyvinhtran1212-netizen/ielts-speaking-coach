@@ -11,7 +11,6 @@ import {
   AUTH_SETTLE_TIMEOUT_MS,
   assignmentTone,
   buildInstructorMatrix,
-  cohortLabel,
   cohortOverlapConfirmMessage,
   duplicateGiveConfirmMessage,
   fanOutResultBanner,
@@ -321,23 +320,19 @@ export function InstructorDashboard() {
     // W-06: re-giving is allowed (ALLOW + WARN) but must be a deliberate choice.
     const confirmRegive = async (existing: unknown) => !existing || askConfirm(duplicateGiveConfirmMessage(existing, promptTitle, target as 'cohort' | 'student'));
     const resetOnSuccess = (ok: boolean | undefined) => { if (ok) { form.reset(); setAssignmentTarget('cohort'); } };
-    // Keep other mutation buttons disabled while the lock spans confirmation.
-    // Both are handed to mutate() in the same tick after the account check.
+    // The lock spans the confirm steps too; it is handed to mutate() in the same
+    // tick, so a second submit can never slip in between.
     const submitGive = async (confirm: () => Promise<boolean>, send: () => Promise<boolean | undefined>) => {
       if (submittingRef.current) return false;
       submittingRef.current = true;
       const ownerId = accountRef.current;
-      setPending('assignment');
       let proceed = false;
       try {
         proceed = await confirm();
       } finally {
-        if (ownerId === accountRef.current) {
-          setPending(null);
-          submittingRef.current = false;
-        }
+        if (ownerId === accountRef.current) submittingRef.current = false;
       }
-      return proceed && ownerId === accountRef.current ? send() : false;
+      return proceed ? send() : false;
     };
     if (target === 'cohort') {
       const cohortId = String(values.get('cohort_id') || '');
@@ -473,7 +468,7 @@ export function InstructorDashboard() {
         <span className="ins-role">Giảng viên</span>
         <div className="ins-top__actions">
           <a href="/home">← Về trang học</a>
-          <button type="button" onClick={() => void refresh()} disabled={!!pending}>{pending === 'refresh' ? 'Đang tải…' : 'Làm mới'}</button>
+          <button type="button" onClick={() => void refresh()} disabled={pending === 'refresh'}>{pending === 'refresh' ? 'Đang tải…' : 'Làm mới'}</button>
           <button type="button" onClick={() => void signOut()}>Đăng xuất</button>
         </div>
       </header>
@@ -492,7 +487,7 @@ export function InstructorDashboard() {
         {tab === 'roster' && <section aria-labelledby="roster-title">
           <div className="ins-heading"><div><p>Danh sách phụ trách</p><h1 id="roster-title">Học viên của tôi</h1></div><strong>{data.students.length}</strong></div>
           <div className="ins-card ins-table-wrap"><table className="ins-table"><thead><tr><th>Học viên</th><th>Mã HV</th><th>Lớp</th><th>Tài khoản</th></tr></thead><tbody>
-            {data.students.length ? data.students.map((student) => <tr key={student.id} className="is-clickable" onClick={() => void openStudent(student.id)}><td><button type="button" className="ins-row-link">{student.fullName}</button></td><td><code>{student.studentCode}</code></td><td>{cohortLabel(student.cohortId, student.cohortHidden, cohortNames)}</td><td><StatusPill tone={student.userId ? 'success' : 'neutral'}>{student.userId ? 'Đã kích hoạt' : 'Chưa kích hoạt'}</StatusPill></td></tr>)
+            {data.students.length ? data.students.map((student) => <tr key={student.id} className="is-clickable" onClick={() => void openStudent(student.id)}><td><button type="button" className="ins-row-link">{student.fullName}</button></td><td><code>{student.studentCode}</code></td><td>{student.cohortId ? cohortNames.get(student.cohortId) || 'Lớp không xác định' : '—'}</td><td><StatusPill tone={student.userId ? 'success' : 'neutral'}>{student.userId ? 'Đã kích hoạt' : 'Chưa kích hoạt'}</StatusPill></td></tr>)
               : <EmptyRow columns={4}>Chưa có học viên. Tạo mã ghi danh ở tab “Lớp & Mã”.</EmptyRow>}
           </tbody></table></div>
         </section>}
@@ -504,7 +499,7 @@ export function InstructorDashboard() {
               <div className="ins-table-wrap"><table className="ins-table"><thead><tr><th>Lớp</th><th>Ngày tạo</th></tr></thead><tbody>{data.cohorts.length ? data.cohorts.map((cohort) => <tr key={cohort.id}><td>{cohort.name}</td><td>{formatDate(cohort.createdAt)}</td></tr>) : <EmptyRow columns={2}>Chưa có lớp.</EmptyRow>}</tbody></table></div>
             </article>
             <article className="ins-card"><h2>Mã ghi danh học viên</h2><p className="ins-note">Mã cấp quyền học viên; backend luôn chặn cấp role giảng viên.</p><form className="ins-form-row" onSubmit={mintCodes}><label><span>Gắn vào lớp</span><select name="cohort_id"><option value="">Không gắn lớp</option>{data.cohorts.map((cohort) => <option key={cohort.id} value={cohort.id}>{cohort.name}</option>)}</select></label><label><span>Số mã</span><input name="count" type="number" min="1" max="50" defaultValue="1" /></label><button type="submit" disabled={!!pending}>{pending === 'codes' ? 'Đang tạo…' : 'Tạo mã'}</button></form>
-              <div className="ins-table-wrap"><table className="ins-table"><thead><tr><th>Mã</th><th>Trạng thái</th><th>Lớp</th></tr></thead><tbody>{data.codes.length ? data.codes.map((code) => <tr key={code.id}><td><code className="ins-code">{code.code}</code></td><td><StatusPill tone={code.isUsed ? 'success' : 'neutral'}>{code.isUsed ? 'Đã dùng' : 'Chưa dùng'}</StatusPill></td><td>{cohortLabel(code.cohortId, code.cohortHidden, cohortNames)}</td></tr>) : <EmptyRow columns={3}>Chưa có mã.</EmptyRow>}</tbody></table></div>
+              <div className="ins-table-wrap"><table className="ins-table"><thead><tr><th>Mã</th><th>Trạng thái</th><th>Lớp</th></tr></thead><tbody>{data.codes.length ? data.codes.map((code) => <tr key={code.id}><td><code className="ins-code">{code.code}</code></td><td><StatusPill tone={code.isUsed ? 'success' : 'neutral'}>{code.isUsed ? 'Đã dùng' : 'Chưa dùng'}</StatusPill></td><td>{code.cohortId ? cohortNames.get(code.cohortId) || 'Lớp không xác định' : '—'}</td></tr>) : <EmptyRow columns={3}>Chưa có mã.</EmptyRow>}</tbody></table></div>
             </article>
           </div>
         </section>}

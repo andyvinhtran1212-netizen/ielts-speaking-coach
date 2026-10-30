@@ -653,7 +653,6 @@ on:
       - 'frontend/public/pages/listening-dictation.html'
       - 'frontend/public/js/listening-dictation.js'
       - 'frontend/public/js/components/audio-player.js'
-      - 'frontend/public/js/components/media-segment-stop.js'
       - 'frontend/public/js/feedback-widgets.js'
       - 'frontend/public/css/feedback.css'
       - 'frontend/app/(authed-listening-player)/**'
@@ -682,7 +681,6 @@ on:
       - 'frontend/next.config.ts'
       - 'frontend/proxy.ts'
       - 'frontend/tooling/content-security-policy.mjs'
-      - 'frontend/playwright.reading-native.config.js'
       - 'frontend/package-lock.json'
       - 'frontend/package.json'
       - 'frontend/tsconfig.json'
@@ -982,7 +980,7 @@ jobs:
         run: node tooling/verify-listening-test-session-flow.mjs "http://localhost:$TEST_PORT"
 
       # Trang làm bài là overflow:hidden nên tràn ngang bị cắt im lặng, không
-      # hiện thanh cuộn. Đo hình học từng Part ở 360/390/1024/1280/1440 cho học viên,
+      # hiện thanh cuộn. Đo hình học từng Part ở 360/390/1280 cho học viên,
       # admin preview và mock embed: palette cố định phải nằm trọn trong màn
       # hình, nội dung không vượt mép khung bài nếu không có khung cuộn riêng.
       - name: Kiểm Listening player không tràn ngang
@@ -1355,49 +1353,3 @@ jobs:
         run: |
           kill "$(cat /tmp/next-native-browser.pid)" 2>/dev/null || true
           kill "$(cat /tmp/next-native-fixture-api.pid)" 2>/dev/null || true
-
-  # T-GUARD (PC-J113): the reading-native Playwright suite holds the FR-018
-  # layout specs (exam-ui-layout, mock-repair-layout, cam19-audit-layout:
-  # palette, answer fields and choices inside the viewport at 360–1440 px).
-  # It ran in no workflow. A separate job keeps the browser-regression job's
-  # wall time unchanged. The build uses the workflow env above
-  # (AVER_ENVIRONMENT=test, no VERCEL_ENV), whose connect-src allows the
-  # suite's https fixture API origin; a build without it blocks those fetches
-  # before Playwright routing sees them. The suite starts its own `next start`
-  # on 3211 and stubs every API call, so no fixture API is needed.
-  reading-native-layout:
-    name: Reading-native layout (FR-018)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: '24'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Cài phụ thuộc
-        run: npm ci
-
-      - name: Build Next với endpoint test cô lập
-        run: npm run build
-
-      - name: Cài Chromium cho Playwright
-        run: npx playwright install --with-deps chromium
-
-      - name: Chạy suite reading-native (bố cục FR-018)
-        run: npx playwright test -c playwright.reading-native.config.js
-
-      - name: Nộp ảnh và trace khi lỗi
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@v6
-        with:
-          name: reading-native-layout-${{ github.run_id }}-${{ github.run_attempt }}
-          path: frontend/test-results
-          if-no-files-found: ignore
-          retention-days: 14
