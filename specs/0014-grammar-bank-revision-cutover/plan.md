@@ -1,5 +1,15 @@
 # Implementation plan
 
+> "Scope update (30/10/2026): The eligibility list and the 'one cutover per code' rule in this spec were extended by GRAMMARAUDIT-0019 (specs/0019-grammar-audit-remediation, FR-004, FR-005, FR-007; migrations 314 and 339). The allowed codes are now the reviewed bindings in backend/services/grammar_quiz_reviewed_sources.json, and the three codes named in 0019 FR-007 may have one follow-up cutover. Everything else in this spec still applies: history preservation, locks, receipts, reset marker, erasure, row/byte caps and N-1 compatibility. Where this spec says 'exact twelve' or 'no second cutover', read it as 'the 0019 approved set'. Production publication for these codes is tracked in 0019 T008 and T013, not in this spec."
+
+Production publication / release evidence của 0014 được theo dõi ở specs/0019 T008, T012, T013.
+
+Migration reference correction (30/10/2026): the Grammar migration is
+`backend/migrations/309_grammar_quiz_revision_cutover.sql`. The `If306` reference
+in spec.md FR-010 means migration 309. Its text is retained because changing
+even that number changes the parsed FR-010 definition and resets its approval
+epoch (`backend/scripts/validate_specs.py:1093-1133`).
+
 ## Audit and ownership
 
 Root coordinates review/release; content council owns academic labels and source
@@ -125,8 +135,8 @@ Terminal repeat-end reads/validates the already terminal owned row's stored bank
 and grammar_revision, allowing omitted optional grammar envelope without current
 lookup. Original NULL revision stays NULL; new/mapped managed rows are nonNULL;
 terminal compatibility never bypasses start/progress. Preserve unmanaged null/timer
-semantics and generated request/success types. If306 already applied, follow-up
-additive migration changes scope/admission/reset guards; do not rewrite306.
+semantics and generated request/success types. If309 already applied, follow-up
+additive migration changes scope/admission/reset guards; do not rewrite309.
 
 Actual PG acceptance covers reset+start+progress+end+cutover+erasure races, post-reset
 group fences and immutable marker attacks, plus all original FK/receipt/import and
