@@ -79,7 +79,9 @@ PROD_HOSTS = frozenset({
     "www.averlearning.com",
     "api.averlearning.com",
     "ielts-speaking-coach-production.up.railway.app",
+    "huwsmtubwulikhlmcirx.supabase.co",
 })
+PROD_PROJECT_REFS = frozenset({"huwsmtubwulikhlmcirx"})
 
 # Per-process ceilings from the 2026-10-30 addendum. CLI values above these
 # are clamped, never honoured.
@@ -128,7 +130,7 @@ def scan_env_for_prod(environ: dict[str, str]) -> list[str]:
         if not name.startswith("LOADTEST_") or name.startswith("LOADTEST_TOKEN"):
             continue
         low = (value or "").lower()
-        if any(h in low for h in PROD_HOSTS) or "production" in low:
+        if any(h in low for h in PROD_HOSTS | PROD_PROJECT_REFS) or "production" in low:
             hits.append(name)
     return sorted(hits)
 
@@ -386,16 +388,19 @@ def is_course_quiz_question(q: dict) -> bool:
     return q.get("type") in (None, "mcq") and q.get("counts_toward_mastery") is not False
 
 
-def adopt_resume(sv, n_questions: int) -> tuple[int, str | None, set[str]]:
+def adopt_resume(sv, n_questions: int, *, item_id: str | None = None) -> tuple[int, str | None, set[str]]:
     """``(stage, open session id, answered qids)`` from /course-resume, the
     way course-runner.js ``adoptServerState`` continues saved progress.
-    Malformed or missing state starts at stage 0 with a new session."""
+    Missing state starts at stage 0. Completed stages remain terminal; state
+    for a different assignment item must never be adopted."""
     if not isinstance(sv, dict):
         return 0, None, set()
+    if (sv.get("item_id") or None) != item_id:
+        raise ValueError("course-resume item_id does not match the bank assignment")
     stage = sv.get("stage")
     stage = stage if isinstance(stage, int) and stage >= 0 else 0
     if stage * STAGE >= n_questions:
-        stage = 0
+        return stage, None, set()
     sid = sv.get("session_id") if isinstance(sv.get("session_id"), str) else None
     answered = {a["qid"] for a in sv.get("answered") or []
                 if isinstance(a, dict) and isinstance(a.get("qid"), str)}
@@ -419,13 +424,27 @@ async def exam_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
         questions = [q for q in bank.get("questions") or []
                      if isinstance(q, dict) and is_course_quiz_question(q)]
         mastery = bank.get("mastery") or {}
+        # The bank resolves an assignment even when --class-item is omitted.
+        bank_item = mastery.get("item_id")
+        if class_item and bank_item and class_item != bank_item:
+            rec.notes.append(f"{ui}: bank item_id does not match --class-item")
+            return
+        class_item = bank_item or class_item
+        item_q = {"class_item": class_item} if class_item else {}
         timed = bool(mastery.get("is_timed"))
         sealed = bool(mastery.get("answers_sealed"))
-        _, sv = await call(rec, c, "GET", f"/api/quiz/banks/{a.bank_id}/course-resume",
+        st, sv = await call(rec, c, "GET", f"/api/quiz/banks/{a.bank_id}/course-resume",
                            "GET /api/quiz/banks/{id}/course-resume", token=token, params=item_q)
-        stage, resume_sid, answered = adopt_resume(sv, len(questions))
+        if st != 200 or not isinstance(sv, dict):
+            rec.notes.append(f"{ui}: course-resume failed status={st}; no new quiz work")
+            return
+        stage, resume_sid, answered = adopt_resume(sv, len(questions), item_id=class_item)
         last_beacon = time.monotonic()
         while time.monotonic() < ctx.deadline and not ctx.stop.is_set():
+            # Like resumedFinal in the runner: results only, no new attempt.
+            if stage * STAGE >= len(questions):
+                return
+            resumed = bool(resume_sid)
             if resume_sid:
                 # Continue the open session the server reports, like the runner.
                 sid, resume_sid = resume_sid, None
@@ -437,13 +456,20 @@ async def exam_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
                 if not sid:
                     rec.notes.append(f"{ui}: session open failed status={st}")
                     return
-                rec.sessions.append({"session_id": str(sid), "account": f"user#{account}",
-                                     "vu": vu, "bank_id": a.bank_id, "class_item": class_item,
-                                     "t": rec.t()})
-            chunk = [q for q in questions[stage * STAGE:(stage + 1) * STAGE]
-                     if q.get("qid") not in answered]
+            rec.sessions.append({"session_id": str(sid), "account": f"user#{account}",
+                                 "vu": vu, "bank_id": a.bank_id, "class_item": class_item,
+                                 "resumed": resumed, "t": rec.t()})
+            stage_questions = questions[stage * STAGE:(stage + 1) * STAGE]
+            stage_qids = {q.get("qid") for q in stage_questions}
+            saved = {}
+            if resumed:
+                saved = {row["qid"]: row.get("is_correct") for row in (sv.get("answered") or [])
+                         if isinstance(row, dict) and row.get("qid") in answered & stage_qids}
+            chunk = [q for q in stage_questions if q.get("qid") not in saved]
             pending: list[dict] = []
-            right = graded = 0
+            # Restored neutral (sealed) answers still count as answered.
+            graded = len(saved)
+            right = 0 if sealed else sum(correct is True for correct in saved.values())
             started = time.monotonic()
             for q in chunk:
                 think = _jitter(a.answer_seconds, rnd)
@@ -474,9 +500,12 @@ async def exam_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
             if time.monotonic() >= ctx.deadline or ctx.stop.is_set():
                 return
             # _advanceStage: re-read canonical stage, then open the next session.
-            _, sv = await call(rec, c, "GET", f"/api/quiz/banks/{a.bank_id}/course-resume",
+            st, sv = await call(rec, c, "GET", f"/api/quiz/banks/{a.bank_id}/course-resume",
                                "GET /api/quiz/banks/{id}/course-resume", token=token, params=item_q)
-            next_stage, resume_sid, answered = adopt_resume(sv, len(questions))
+            if st != 200 or not isinstance(sv, dict):
+                rec.notes.append(f"{ui}: course-resume failed status={st}; no new quiz work")
+                return
+            next_stage, resume_sid, answered = adopt_resume(sv, len(questions), item_id=class_item)
             if resume_sid == str(sid):
                 resume_sid = None
             stage = next_stage if next_stage > stage else stage + 1
@@ -779,7 +808,9 @@ def render_markdown(report: dict) -> str:
              f"- Mix: `{report['args']['mix']}` · ramp {report['args']['ramp_seconds']} s · "
              f"duration {report['args']['duration_seconds']} s",
              f"- Real grading calls (Speaking includes {report.get('generate_calls', 0)} question generate): "
-             f"{json.dumps(report['real_grading_calls'])}", ""]
+             f"{json.dumps(report['real_grading_calls'])}",
+             "- Cost caps count HTTP calls, not provider calls: one question generate may make up to ~4 Gemini calls; "
+             "one Speaking upload may call Whisper, a grader and Azure.", ""]
     if report.get("broke_at"):
         lines += [f"**Ladder stopped at {report['broke_at']['users']} users: "
                   f"{report['broke_at']['reason']}**", ""]
@@ -848,7 +879,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--health-interval", type=float, default=1.0)
     p.add_argument("--async-db-interval", type=float, default=5.0)
     p.add_argument("--ready-interval", type=float, default=0.0,
-                   help="seconds between /health/ready probes; 0 = off (the route blocks the event loop)")
+                   help="seconds between /health/ready probes; 0 = off, otherwise >= 30 (the route blocks the event loop)")
     p.add_argument("--tail-seconds", type=float, default=5.0, help="keep probing after the load stops")
     p.add_argument("--abort-on-health-p95-ms", type=float, default=5000.0, help="0 disables")
     p.add_argument("--ladder-max-error-rate", type=float, default=0.05)
@@ -873,6 +904,8 @@ def validate_args(args, environ: dict[str, str]) -> None:
     hits = scan_env_for_prod(environ)
     if hits:
         raise ProdGuardError(f"production host mentioned in env: {', '.join(hits)}")
+    if not math.isfinite(args.ready_interval) or (args.ready_interval != 0 and args.ready_interval < 30):
+        raise SystemExit("--ready-interval must be 0 or >= 30 seconds (finite)")
     args.max_speaking_grades = max(0, min(args.max_speaking_grades, MAX_SPEAKING_GRADES_CEILING))
     args.max_writing_grades = max(0, min(args.max_writing_grades, MAX_WRITING_GRADES_CEILING))
     if "exam" in parse_mix(args.mix) and not args.bank_id:

@@ -197,6 +197,9 @@ def _fake_backend(calls):
         if path == "/api/quiz/banks/B1":
             return httpx.Response(200, json={"bank": {"id": "B1"}, "questions": questions,
                                              "mastery": {"is_timed": False}})
+        if path.endswith("/course-resume"):
+            return httpx.Response(200, json={"stage": 0, "session_id": None, "answered": [],
+                                             "completed": [], "item_id": request.url.params.get("class_item")})
         if path == "/api/quiz/sessions" and request.method == "POST":
             return httpx.Response(201, json={"session_id": "00000000-0000-0000-0000-000000000001",
                                              "resume": []})
@@ -233,6 +236,8 @@ def test_short_run_follows_frontend_order(monkeypatch, tmp_path):
     assert all(a == "Bearer secret-token-value" for _, _, a in calls)
 
     outputs = sorted(tmp_path.iterdir())
+    markdown = next(p for p in outputs if p.suffix == ".md").read_text()
+    assert "Cost caps count HTTP calls" in markdown and "~4 Gemini calls" in markdown
     names = [p.name for p in outputs]
     assert any(n.startswith("unit-") and n.endswith(".md") for n in names)
     for p in outputs:
@@ -394,6 +399,10 @@ def test_class_items_are_per_account(monkeypatch, tmp_path):
                  environ={"LOADTEST_TOKEN_1": "tok-a", "LOADTEST_TOKEN_2": "tok-b"})
     assert rc == 0
     assert seen and set(seen) == {("Bearer tok-a", "I1"), ("Bearer tok-b", "I2")}
+    report = json.loads(next(p for p in tmp_path.glob("*.json")
+                             if not p.name.endswith("-sessions.json")).read_text())
+    assert {s["class_item"] for s in report["steps"][0]["sessions"]} == {"I1", "I2"}
+    assert report["steps"][0]["notes"] == []
 
 
 def test_class_items_count_must_match_accounts(monkeypatch):
@@ -415,7 +424,7 @@ def test_health_ready_is_not_probed_by_default(monkeypatch, tmp_path):
 def test_health_ready_probe_opt_in(monkeypatch, tmp_path):
     calls = []
     _run_mocked(monkeypatch, tmp_path, _speaking_backend(calls), [
-        "--mix", "speaking=1", "--users", "1", "--duration-seconds", "0.5", "--ready-interval", "0.2"])
+        "--mix", "speaking=1", "--users", "1", "--duration-seconds", "0.5", "--ready-interval", "30"])
     assert any(p == "/health/ready" for _, p in calls)
 
 
@@ -432,7 +441,7 @@ def test_adopt_resume_shapes():
     assert lt.adopt_resume(None, 30) == (0, None, set())
     assert lt.adopt_resume({"stage": 1, "session_id": "S", "answered": [{"qid": "q10"}, {}]}, 30) \
         == (1, "S", {"q10"})
-    assert lt.adopt_resume({"stage": 5}, 30)[0] == 0       # past the end → restart
+    assert lt.adopt_resume({"stage": 5}, 30)[0] == 5       # completed → result state
     assert lt.adopt_resume({"stage": -1}, 30)[0] == 0
 
 
@@ -534,3 +543,157 @@ def test_writing_lease_failure_spends_no_budget(monkeypatch, tmp_path):
         "--max-writing-grades", "1", "--writing-targets-file", str(targets)])
     assert not any(p.endswith("/submit") for _, p in seen)
     assert report["real_grading_calls"]["writing"] == 0
+
+
+# ── Codex #2083 @19a3769ca: terminal resume, totals, identity, guards ──────
+
+def _course_case(monkeypatch, tmp_path, states, *, n=20, sealed=False,
+                 bank_item=None, argv=()):
+    """Record the full HTTP contract against an in-memory course backend."""
+    requests = []
+    resume_calls = 0
+    questions = [{"qid": f"q{i}", "item_key": f"k{i}", "type": "mcq",
+                  "options": ["a", "b"], "answer": 0} for i in range(n)]
+
+    def handler(request):
+        nonlocal resume_calls
+        path = request.url.path
+        body = json.loads(request.content) if request.content else None
+        requests.append((request.method, path, body))
+        if path == "/api/quiz/banks/B1":
+            return httpx.Response(200, json={"questions": questions, "mastery": {
+                "item_id": bank_item, "answers_sealed": sealed, "is_timed": True}})
+        if path.endswith("/course-resume"):
+            state = states[min(resume_calls, len(states) - 1)]
+            resume_calls += 1
+            if isinstance(state, int):
+                return httpx.Response(state, json={"detail": "resume unavailable"})
+            return httpx.Response(200, json=state)
+        if path == "/api/quiz/sessions" and request.method == "POST":
+            return httpx.Response(201, json={"session_id": "NEW"})
+        return httpx.Response(200, json={"ok": True})
+
+    monkeypatch.setattr(lt, "_jitter", lambda *args: 0)
+    report = _run_mocked(monkeypatch, tmp_path, handler, [
+        "--bank-id", "B1", "--users", "1", "--duration-seconds", "1",
+        "--abort-on-health-p95-ms", "0", *argv])
+    return report, requests
+
+
+@pytest.mark.parametrize("n,stage", [(10, 1), (20, 2), (11, 2), (20, 7)])
+def test_completed_course_resume_never_writes_quiz_work(monkeypatch, tmp_path, n, stage):
+    report, requests = _course_case(monkeypatch, tmp_path, [{
+        "stage": stage, "session_id": None, "answered": [], "item_id": None}], n=n)
+    writes = [(m, p) for m, p, _ in requests if p.startswith("/api/quiz/sessions")]
+    assert writes == []
+    assert report["steps"][0]["sessions"] == []
+    assert report["steps"][0]["notes"] == []
+
+
+@pytest.mark.parametrize("sealed", [False, True])
+def test_resumed_session_totals_include_saved_answers(monkeypatch, tmp_path, sealed):
+    saved = [{"qid": f"q{i}", "is_correct": None if sealed else i < 3} for i in range(5)]
+    report, requests = _course_case(monkeypatch, tmp_path, [
+        {"stage": 0, "session_id": "SAVED", "answered": saved, "item_id": None},
+        {"stage": 1, "session_id": None, "answered": [], "item_id": None},
+    ], n=10, sealed=sealed)
+    assert not any(p == "/api/quiz/sessions" and m == "POST" for m, p, _ in requests)
+    new = [row for _, p, b in requests if p.endswith("/progress") for row in b["attempts"]]
+    assert [row["qid"] for row in new] == [f"q{i}" for i in range(5, 10)]
+    patches = [(p, b) for m, p, b in requests if m == "PATCH"]
+    assert len(patches) == 1 and patches[0][0] == "/api/quiz/sessions/SAVED"
+    totals = patches[0][1]
+    right = (0 if sealed else 3) + sum(row["is_correct"] is True for row in new)
+    assert totals["total_questions"] == 10
+    assert totals["total_correct"] == right
+    assert totals["total_wrong"] == 10 - right
+    assert report["steps"][0]["notes"] == []
+
+
+def test_server_stage_jump_adopts_next_open_session(monkeypatch, tmp_path):
+    """Canonical stage 2 wins over local stage 1 after finishing stage 0."""
+    report, requests = _course_case(monkeypatch, tmp_path, [
+        {"stage": 0, "session_id": None, "answered": [], "item_id": None},
+        {"stage": 2, "session_id": "S2", "answered": [{"qid": "q20", "is_correct": True}],
+         "item_id": None},
+        {"stage": 3, "session_id": None, "answered": [], "item_id": None},
+    ], n=30)
+    progress = [(p, row["qid"]) for _, p, b in requests if p.endswith("/progress")
+                for row in b["attempts"]]
+    assert progress == ([('/api/quiz/sessions/NEW/progress', f"q{i}") for i in range(10)]
+                        + [('/api/quiz/sessions/S2/progress', f"q{i}") for i in range(21, 30)])
+    assert sum(m == "POST" and p == "/api/quiz/sessions" for m, p, _ in requests) == 1
+    assert [(s["session_id"], s["resumed"]) for s in report["steps"][0]["sessions"]] \
+        == [("NEW", False), ("S2", True)]
+    assert report["steps"][0]["notes"] == []
+
+
+@pytest.mark.parametrize("explicit_item", [False, True])
+def test_adopted_session_is_reported_with_canonical_item(monkeypatch, tmp_path, explicit_item):
+    report, requests = _course_case(monkeypatch, tmp_path, [
+        {"stage": 1, "session_id": "S1", "answered": [], "item_id": "I1"},
+        {"stage": 2, "session_id": None, "answered": [], "item_id": "I1"},
+    ], bank_item="I1", argv=["--class-item", "I1"] if explicit_item else [])
+    sessions = report["steps"][0]["sessions"]
+    assert len(sessions) == 1
+    assert sessions[0].items() >= {
+        "session_id": "S1", "account": "user#1", "vu": 0, "bank_id": "B1",
+        "class_item": "I1", "resumed": True}.items()
+    assert not any(m == "POST" and p == "/api/quiz/sessions" for m, p, _ in requests)
+    cleanup = json.loads(next(tmp_path.glob("*-sessions.json")).read_text())
+    assert cleanup == sessions
+    assert report["steps"][0]["notes"] == []
+
+
+@pytest.mark.parametrize("mismatch_after_stage", [False, True])
+def test_resume_item_mismatch_stops_before_more_quiz_writes(monkeypatch, tmp_path, mismatch_after_stage):
+    states = [{"stage": 1, "session_id": "OTHER", "answered": [], "item_id": "I2"}]
+    if mismatch_after_stage:
+        states.insert(0, {"stage": 0, "session_id": "S0", "answered": [], "item_id": "I1"})
+    report, requests = _course_case(monkeypatch, tmp_path, states, bank_item="I1",
+                                     argv=["--class-item", "I1"])
+    writes = [p for m, p, _ in requests if p.startswith("/api/quiz/sessions")]
+    assert not any("OTHER" in p or p == "/api/quiz/sessions" for p in writes)
+    assert len(writes) == (11 if mismatch_after_stage else 0)  # 10 progress + 1 PATCH
+    assert any("item_id" in note for note in report["steps"][0]["notes"])
+
+
+@pytest.mark.parametrize("failed_after_stage", [False, True])
+def test_resume_failure_never_starts_another_attempt(monkeypatch, tmp_path, failed_after_stage):
+    states = [503]
+    if failed_after_stage:
+        states.insert(0, {"stage": 0, "session_id": "S0", "answered": [], "item_id": None})
+    report, requests = _course_case(monkeypatch, tmp_path, states)
+    writes = [p for m, p, _ in requests if p.startswith("/api/quiz/sessions")]
+    assert not any(p == "/api/quiz/sessions" for p in writes)
+    assert len(writes) == (11 if failed_after_stage else 0)
+    assert any("course-resume failed status=503" in note for note in report["steps"][0]["notes"])
+
+
+@pytest.mark.parametrize("interval", ["0.2", "1", "29", "29.99", "-1", "nan", "inf"])
+def test_ready_interval_refused_before_network(monkeypatch, interval):
+    monkeypatch.setattr(httpx, "AsyncClient", _NoNetwork)
+    with pytest.raises(SystemExit, match="--ready-interval must be 0 or >= 30"):
+        lt.main(["--base-url", "http://localhost:8000", "--bank-id", "B1",
+                 "--ready-interval", interval], environ={"LOADTEST_TOKEN_1": "t"})
+
+
+@pytest.mark.parametrize("interval", ["0", "30", "30.5"])
+def test_ready_interval_valid_boundaries(interval):
+    args = lt.build_parser().parse_args([
+        "--base-url", "http://localhost:8000", "--bank-id", "B1", "--ready-interval", interval])
+    lt.validate_args(args, {})
+    assert args.ready_interval == float(interval)
+
+
+def test_supabase_production_ref_is_refused_before_network(monkeypatch, capsys):
+    monkeypatch.setattr(httpx, "AsyncClient", _NoNetwork)
+    ref = "huwsmtubwulikhlmcirx"
+    with pytest.raises(lt.ProdGuardError, match="PRODUCTION"):
+        lt.check_url_allowed(f"https://{ref}.supabase.co")
+    assert lt.scan_env_for_prod({"LOADTEST_SUPABASE_URL": f"https://{ref.upper()}.supabase.co"}) \
+        == ["LOADTEST_SUPABASE_URL"]
+    assert lt.scan_env_for_prod({"LOADTEST_PROJECT_REF": ref}) == ["LOADTEST_PROJECT_REF"]
+    assert lt.main(["--base-url", "http://localhost:8000", "--bank-id", "B1"], environ={
+        "LOADTEST_TOKEN_1": "t", "LOADTEST_SUPABASE_URL": f"https://{ref}.supabase.co"}) == 2
+    assert "LOADTEST_SUPABASE_URL" in capsys.readouterr().err
