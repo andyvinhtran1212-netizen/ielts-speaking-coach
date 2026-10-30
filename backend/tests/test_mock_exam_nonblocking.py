@@ -11,9 +11,11 @@ slow service no longer serialises the loop.
 """
 
 import asyncio
+import copy
 import threading
 import time
 from unittest.mock import AsyncMock, patch
+from uuid import uuid4
 
 import httpx
 from fastapi import FastAPI
@@ -21,6 +23,9 @@ from fastapi import FastAPI
 from routers import exams as exams_router
 from routers import mock_attempt_flags as flags_router
 from routers import mock_exams as mock_router
+from tests.test_mock_exam_workflow import (  # noqa: F401 — fixtures
+    _seed_exam, _seed_retake, fake_db, svc,
+)
 
 _DELAY = 0.5
 _USER = {"id": "00000000-0000-0000-0000-0000000000aa"}
@@ -231,3 +236,82 @@ def test_different_students_are_not_serialised():
             [lambda c: c.post(url, headers=_AUTH), lambda c: c.post(url, headers=_AUTH)])
 
     _assert_not_blocking(responses, ping, ping_s, total_s, n=2)
+
+
+# ── Same-sitting races through the REAL service (CR G4 serial checklist) ──
+# FakeSupabase hands out its shared row dict, which hides a stale snapshot, so
+# get_sitting returns a deep copy after a PostgREST-sized delay.
+
+def _slow_deepcopy_get_sitting(monkeypatch, svc):
+    real = svc.get_sitting
+
+    def slow(sitting_id):
+        row = copy.deepcopy(real(sitting_id))
+        time.sleep(0.2)
+        return row
+
+    monkeypatch.setattr(svc, "get_sitting", slow)
+
+
+def _post_staggered(user_id, urls_and_bodies):
+    """Fire the requests 50 ms apart (deterministic interleaving) and gather."""
+
+    async def go():
+        transport = httpx.ASGITransport(app=_app())
+        async with httpx.AsyncClient(transport=transport, base_url="http://t") as client:
+            tasks = []
+            for url, body in urls_and_bodies:
+                tasks.append(asyncio.create_task(client.post(url, json=body, headers=_AUTH)))
+                await asyncio.sleep(0.05)
+            return await asyncio.gather(*tasks)
+
+    with patch("routers.mock_exams.get_supabase_user",
+               new=AsyncMock(return_value={"id": str(user_id)})):
+        return asyncio.run(go())
+
+
+def test_parallel_retake_starts_on_one_sitting_open_exactly_one_clock(fake_db, svc, monkeypatch):
+    """Codex P2 / CR on #2088 (staging 200/409, 95c01b1fc 200/200): start_section
+    checks the OTHER clocks on its snapshot, then compare-and-sets only its own
+    column. N simultaneous starts of different sections must open ONE clock."""
+    u = uuid4()
+    skills = ["listening", "reading", "writing"]
+    _seed_retake(fake_db, u, skills)
+    sitting = svc.create_sitting(u, "MOCK-TEST-A")
+    _slow_deepcopy_get_sitting(monkeypatch, svc)
+
+    base = f"/api/mock-exams/sittings/{sitting['id']}/sections"
+    responses = _post_staggered(u, [(f"{base}/{sec}/start", None) for sec in skills])
+
+    assert sorted(r.status_code for r in responses) == [200, 409, 409], [r.text for r in responses]
+    row = next(r for r in fake_db.rows("mock_exam_sittings") if r["id"] == sitting["id"])
+    running = [k for k in skills if row.get(f"{k}_started_at")]
+    assert len(running) == 1, f"clocks running: {running}"
+
+
+def test_parallel_attach_cannot_trade_answers_for_a_blank_attempt(fake_db, svc, monkeypatch):
+    """CR on #2088: attach_attempt decides on the sitting snapshot whether a
+    re-bind would orphan answers. Two simultaneous attaches (the attempt with
+    answers, then a blank one) must keep the answered attempt bound, as the
+    loop-serialised handler did."""
+    exam = _seed_exam(fake_db, listening=False)   # one advance opens Reading
+    u = uuid4()
+    sitting = svc.create_sitting(u, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], str(uuid4()))
+    answered, blank = str(uuid4()), str(uuid4())
+    for attempt_id in (answered, blank):
+        fake_db.seed("reading_test_attempts",
+                     {"id": attempt_id, "user_id": str(u), "test_id": exam["reading_test_id"],
+                      "status": "in_progress", "sitting_id": None})
+    fake_db.seed("reading_attempt_answers", {"attempt_id": answered, "user_answer": "TRUE"})
+    _slow_deepcopy_get_sitting(monkeypatch, svc)
+
+    url = f"/api/mock-exams/sittings/{sitting['id']}/attach"
+    responses = _post_staggered(u, [
+        (url, {"section": "reading", "attempt_id": answered}),
+        (url, {"section": "reading", "attempt_id": blank}),
+    ])
+
+    assert [r.status_code for r in responses] == [200, 409], [r.text for r in responses]
+    row = next(r for r in fake_db.rows("mock_exam_sittings") if r["id"] == sitting["id"])
+    assert row["reading_attempt_id"] == answered
