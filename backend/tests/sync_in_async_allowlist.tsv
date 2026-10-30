@@ -5,7 +5,7 @@
 # Paths are backend-relative; line numbers are diagnostic only. Counts prevent
 # adding more calls under an existing key. Remove/decrease entries with each fix;
 # stale entries fail too. Do not regenerate this baseline to admit new debt.
-# G0 is HOLD until 001im/#2082 merges; remove analytics debt on integration.
+# Analytics debt removed after #2082 merged staging at d1726df1c (G0 HOLD met).
 # G2 essay_service waits for #2066 then 1hz; its reaper debt is tracked in G2.
 # G7 includes the flag-off aexecute branch: facade use alone is not a loop fix.
 # Dynamic dispatch/unrecognized SDKs still require review (see sync_io_guard.py).
@@ -431,7 +431,6 @@ routers/advanced_vocab.py::lesson::services.advanced_vocab_service.learner_lesso
 routers/advanced_vocab.py::start_practice::services.advanced_vocab_service.start_practice	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
 routers/advanced_vocab.py::submit_listening::services.advanced_vocab_service.submit_listening	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
 routers/advanced_vocab.py::submit_reading::services.advanced_vocab_service.submit_reading	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
-routers/analytics.py::record_event::db.execute	1	G0	Existing inline sync DB execution; offload in G0.
 routers/auth.py::activate_account::db.execute	19	G0	Existing inline sync DB execution; offload in G0.
 routers/auth.py::activate_account::routers.auth._audit_enroll_reject	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
 routers/auth.py::activate_account::routers.auth._audit_promote_attempt	2	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
