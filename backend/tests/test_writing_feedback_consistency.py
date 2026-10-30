@@ -229,6 +229,32 @@ def test_pattern_denials_are_scoped_and_do_not_overwrite_history(feedback):
     assert feedback.sentenceStructureAnalysis["common_issues"] == original
 
 
+@pytest.mark.parametrize("key,claim", [
+    ("current_essay_observation", "Bài này không có lỗi cấu trúc câu lặp lại."),
+    ("summary", "Bài này không có lỗi cấu trúc câu lặp lại như các bài trước."),
+    ("current_essay_observation", "Không có lỗi cấu trúc câu lặp lại."),
+])
+def test_current_essay_improvement_survives_historical_structure_errors(feedback, key, claim):
+    # Codex r4421525860: common_issues is copied from previous essays, so it
+    # cannot contradict a claim that the current essay no longer repeats them.
+    feedback.sentenceStructureAnalysis["common_issues"] = [{"pattern": "run-on", "count": 3}]
+    feedback.sentenceStructureAnalysis[key] = claim
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.sentenceStructureAnalysis[key] == claim
+
+
+@pytest.mark.parametrize("key,claim", [
+    ("summary", "Các bài trước không có lỗi cấu trúc câu lặp lại."),
+    ("current_essay_observation", "Các bài trước không có lỗi cấu trúc câu lặp lại."),
+    ("summary", "Không có lỗi cấu trúc câu lặp lại."),
+])
+def test_stale_denials_of_historical_structure_errors_are_still_removed(feedback, key, claim):
+    feedback.sentenceStructureAnalysis["common_issues"] = [{"pattern": "run-on", "count": 3}]
+    feedback.sentenceStructureAnalysis[key] = claim
+    repair_writing_consistency(feedback, "task1_academic")
+    assert "lặp lại" not in feedback.sentenceStructureAnalysis[key]
+
+
 def test_unscoped_denial_cannot_hide_known_lexical_patterns_when_syntax_history_is_absent(feedback):
     feedback.sentenceStructureAnalysis = {"summary": "Chưa có pattern lặp lại."}
     repair_writing_consistency(feedback, "task1_academic")

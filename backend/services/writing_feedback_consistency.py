@@ -178,7 +178,12 @@ def repair_writing_consistency(feedback: WritingFeedback, task_type: str) -> lis
                     # Scope the claim to the supplied syntax history, if empty.
                     if ss.get("common_issues") == [] and not _STRUCTURE_SCOPE.search(plain):
                         sentence = "Chưa ghi nhận mẫu lỗi cấu trúc câu lặp lại trong dữ liệu cấu trúc câu."
-                    elif ss.get("common_issues"):
+                    # common_issues are copied from previous essays, so they
+                    # cannot contradict a claim about the current essay.
+                    elif ss.get("common_issues") and not (
+                        _CURRENT.search(plain)
+                        or (key == "current_essay_observation" and not historical)
+                    ):
                         continue
                     elif not _STRUCTURE_SCOPE.search(plain) and (
                         feedback.recurringPatterns or {}
