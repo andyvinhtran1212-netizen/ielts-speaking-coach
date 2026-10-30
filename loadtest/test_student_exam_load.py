@@ -417,3 +417,120 @@ def test_health_ready_probe_opt_in(monkeypatch, tmp_path):
     _run_mocked(monkeypatch, tmp_path, _speaking_backend(calls), [
         "--mix", "speaking=1", "--users", "1", "--duration-seconds", "0.5", "--ready-interval", "0.2"])
     assert any(p == "/health/ready" for _, p in calls)
+
+
+# ── Codex #2083 @b6ead9faf: quiz lane, resume adoption, Writing lease ──────
+
+def test_quiz_lane_filter_matches_course_runner():
+    assert lt.is_course_quiz_question({"type": "mcq"})
+    assert lt.is_course_quiz_question({})
+    assert not lt.is_course_quiz_question({"type": "writing"})
+    assert not lt.is_course_quiz_question({"type": "mcq", "counts_toward_mastery": False})
+
+
+def test_adopt_resume_shapes():
+    assert lt.adopt_resume(None, 30) == (0, None, set())
+    assert lt.adopt_resume({"stage": 1, "session_id": "S", "answered": [{"qid": "q10"}, {}]}, 30) \
+        == (1, "S", {"q10"})
+    assert lt.adopt_resume({"stage": 5}, 30)[0] == 0       # past the end → restart
+    assert lt.adopt_resume({"stage": -1}, 30)[0] == 0
+
+
+def _resume_backend(progress, opened, resume_body, extra_q=()):
+    questions = [{"qid": f"q{i}", "item_key": f"k{i}", "type": "mcq",
+                  "options": ["a", "b"], "answer": 0} for i in range(20)] + list(extra_q)
+
+    def handler(request):
+        path = request.url.path
+        if path == "/health/async-db":
+            return httpx.Response(200, json={"event_loop_lag": {}})
+        if path.startswith("/health"):
+            return httpx.Response(200, json={"status": "ok"})
+        if path == "/api/quiz/banks/B1":
+            return httpx.Response(200, json={"questions": questions, "mastery": {"is_timed": True}})
+        if path == "/api/quiz/banks/B1/course-resume":
+            return httpx.Response(200, json=resume_body)
+        if path == "/api/quiz/sessions" and request.method == "POST":
+            opened.append(1)
+            return httpx.Response(201, json={"session_id": "NEW"})
+        if path.endswith("/progress"):
+            for att in json.loads(request.content)["attempts"]:
+                progress.append((path.split("/")[-2], att["qid"]))
+            return httpx.Response(200, json={"ok": True})
+        return httpx.Response(200, json={"ok": True})
+
+    return handler
+
+
+def _run_exam(monkeypatch, tmp_path, handler, seconds="0.7"):
+    real = lt.make_client
+
+    def mocked(base_url, timeout_s):
+        client = real(base_url, timeout_s)
+        client._transport = httpx.MockTransport(handler)
+        return client
+
+    monkeypatch.setattr(lt, "make_client", mocked)
+    assert lt.main(["--base-url", "http://localhost:8000", "--bank-id", "B1", "--users", "1",
+                    "--ramp-seconds", "0", "--duration-seconds", seconds, "--answer-seconds", "0.1",
+                    "--tail-seconds", "0", "--out-dir", str(tmp_path)],
+                   environ={"LOADTEST_TOKEN_1": "t"}) == 0
+
+
+def test_exam_continues_server_stage_and_session(monkeypatch, tmp_path):
+    """stage 1 + open session S1 with q10 answered → first answers are q11.. on S1."""
+    progress, opened = [], []
+    _run_exam(monkeypatch, tmp_path, _resume_backend(progress, opened, {
+        "stage": 1, "session_id": "S1", "answered": [{"qid": "q10"}], "completed": [],
+        "item_id": None}))
+    assert progress and progress[0] == ("S1", "q11")
+    assert all(qid != "q10" and int(qid[1:]) >= 10 for _, qid in progress)
+
+
+def test_exam_skips_non_quiz_lane_questions(monkeypatch, tmp_path):
+    progress, opened = [], []
+    extra = [{"qid": "w1", "type": "writing"}, {"qid": "x1", "type": "mcq", "counts_toward_mastery": False}]
+    _run_exam(monkeypatch, tmp_path, _resume_backend(
+        progress, opened, {"stage": 0, "answered": [], "completed": []}, extra_q=extra), seconds="2.5")
+    assert progress and not any(qid in {"w1", "x1"} for _, qid in progress)
+    assert opened  # no open session in resume → a new one is opened
+
+
+def test_writing_submit_claims_renderer_lease_first(monkeypatch, tmp_path):
+    seen = []
+
+    def handler(request):
+        seen.append((request.method, request.url.path))
+        if request.url.path.startswith("/health"):
+            return httpx.Response(200, json={"event_loop_lag": {}})
+        return httpx.Response(200, json=[] if request.method == "GET" else {"ok": True})
+
+    targets = tmp_path / "targets.json"
+    targets.write_text(json.dumps({"1": "A1"}))
+    out = tmp_path / "out"
+    _run_mocked(monkeypatch, out, handler, [
+        "--mix", "writing=1", "--users", "1", "--duration-seconds", "0.3",
+        "--max-writing-grades", "1", "--writing-targets-file", str(targets)])
+    posts = [p for m, p in seen if m == "POST" and "/my-assignments/" in p]
+    assert posts == ["/api/writing/my-assignments/A1/renderer-affinity",
+                     "/api/writing/my-assignments/A1/submit"]
+
+
+def test_writing_lease_failure_spends_no_budget(monkeypatch, tmp_path):
+    seen = []
+
+    def handler(request):
+        seen.append((request.method, request.url.path))
+        if request.url.path.endswith("/renderer-affinity"):
+            return httpx.Response(409, json={"detail": "closed"})
+        if request.url.path.startswith("/health"):
+            return httpx.Response(200, json={"event_loop_lag": {}})
+        return httpx.Response(200, json=[] if request.method == "GET" else {"ok": True})
+
+    targets = tmp_path / "targets.json"
+    targets.write_text(json.dumps({"1": "A1"}))
+    report = _run_mocked(monkeypatch, tmp_path / "out", handler, [
+        "--mix", "writing=1", "--users", "1", "--duration-seconds", "0.3",
+        "--max-writing-grades", "1", "--writing-targets-file", str(targets)])
+    assert not any(p.endswith("/submit") for _, p in seen)
+    assert report["real_grading_calls"]["writing"] == 0

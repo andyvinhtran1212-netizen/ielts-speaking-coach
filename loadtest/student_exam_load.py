@@ -379,6 +379,29 @@ def _attempt_row(q: dict, rnd: random.Random, sealed: bool, shown_ms: int) -> di
     }
 
 
+def is_course_quiz_question(q: dict) -> bool:
+    """course-runner.js ``isCourseQuizQuestion``: the quiz lane is mcq (or
+    untyped) questions that count toward mastery; other sections are not
+    answered through /progress."""
+    return q.get("type") in (None, "mcq") and q.get("counts_toward_mastery") is not False
+
+
+def adopt_resume(sv, n_questions: int) -> tuple[int, str | None, set[str]]:
+    """``(stage, open session id, answered qids)`` from /course-resume, the
+    way course-runner.js ``adoptServerState`` continues saved progress.
+    Malformed or missing state starts at stage 0 with a new session."""
+    if not isinstance(sv, dict):
+        return 0, None, set()
+    stage = sv.get("stage")
+    stage = stage if isinstance(stage, int) and stage >= 0 else 0
+    if stage * STAGE >= n_questions:
+        stage = 0
+    sid = sv.get("session_id") if isinstance(sv.get("session_id"), str) else None
+    answered = {a["qid"] for a in sv.get("answered") or []
+                if isinstance(a, dict) and isinstance(a.get("qid"), str)}
+    return stage, sid, answered
+
+
 async def exam_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
     a, rec = ctx.args, ctx.rec
     rnd = random.Random(a.seed * 1000 + vu)
@@ -393,26 +416,32 @@ async def exam_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
         if st != 200 or not isinstance(bank, dict):
             rec.notes.append(f"{ui}: bank load failed status={st}")
             return
-        questions = [q for q in bank.get("questions") or [] if isinstance(q, dict)]
+        questions = [q for q in bank.get("questions") or []
+                     if isinstance(q, dict) and is_course_quiz_question(q)]
         mastery = bank.get("mastery") or {}
         timed = bool(mastery.get("is_timed"))
         sealed = bool(mastery.get("answers_sealed"))
-        await call(rec, c, "GET", f"/api/quiz/banks/{a.bank_id}/course-resume",
-                   "GET /api/quiz/banks/{id}/course-resume", token=token, params=item_q)
-        stage = 0
+        _, sv = await call(rec, c, "GET", f"/api/quiz/banks/{a.bank_id}/course-resume",
+                           "GET /api/quiz/banks/{id}/course-resume", token=token, params=item_q)
+        stage, resume_sid, answered = adopt_resume(sv, len(questions))
         last_beacon = time.monotonic()
         while time.monotonic() < ctx.deadline and not ctx.stop.is_set():
-            body = {"bank_id": a.bank_id, **item_q}
-            st, s = await call(rec, c, "POST", "/api/quiz/sessions", "POST /api/quiz/sessions",
-                               token=token, json=body)
-            sid = (s.get("session_id") or s.get("id")) if isinstance(s, dict) else None
-            if not sid:
-                rec.notes.append(f"{ui}: session open failed status={st}")
-                return
-            rec.sessions.append({"session_id": str(sid), "account": f"user#{account}",
-                                 "vu": vu, "bank_id": a.bank_id, "class_item": class_item,
-                                 "t": rec.t()})
-            chunk = questions[stage * STAGE:(stage + 1) * STAGE] or questions[:STAGE]
+            if resume_sid:
+                # Continue the open session the server reports, like the runner.
+                sid, resume_sid = resume_sid, None
+            else:
+                body = {"bank_id": a.bank_id, **item_q}
+                st, s = await call(rec, c, "POST", "/api/quiz/sessions", "POST /api/quiz/sessions",
+                                   token=token, json=body)
+                sid = (s.get("session_id") or s.get("id")) if isinstance(s, dict) else None
+                if not sid:
+                    rec.notes.append(f"{ui}: session open failed status={st}")
+                    return
+                rec.sessions.append({"session_id": str(sid), "account": f"user#{account}",
+                                     "vu": vu, "bank_id": a.bank_id, "class_item": class_item,
+                                     "t": rec.t()})
+            chunk = [q for q in questions[stage * STAGE:(stage + 1) * STAGE]
+                     if q.get("qid") not in answered]
             pending: list[dict] = []
             right = graded = 0
             started = time.monotonic()
@@ -445,9 +474,12 @@ async def exam_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
             if time.monotonic() >= ctx.deadline or ctx.stop.is_set():
                 return
             # _advanceStage: re-read canonical stage, then open the next session.
-            await call(rec, c, "GET", f"/api/quiz/banks/{a.bank_id}/course-resume",
-                       "GET /api/quiz/banks/{id}/course-resume", token=token, params=item_q)
-            stage += 1
+            _, sv = await call(rec, c, "GET", f"/api/quiz/banks/{a.bank_id}/course-resume",
+                               "GET /api/quiz/banks/{id}/course-resume", token=token, params=item_q)
+            next_stage, resume_sid, answered = adopt_resume(sv, len(questions))
+            if resume_sid == str(sid):
+                resume_sid = None
+            stage = next_stage if next_stage > stage else stage + 1
             if stage * STAGE >= len(questions):
                 return
 
@@ -533,6 +565,15 @@ async def writing_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
         await call(rec, c, "GET", "/api/writing/my-assignments", "GET /api/writing/my-assignments",
                    token=token)
         target = ctx.writing_targets.get(account)
+        if target:
+            # The Writing workspace claims a renderer lease before submit can
+            # be accepted (writing_student._require_writing_renderer_lease).
+            st, _ = await call(rec, c, "POST", f"/api/writing/my-assignments/{target}/renderer-affinity",
+                               "POST /api/writing/my-assignments/{id}/renderer-affinity",
+                               token=token, json={"renderer_affinity": "next"})
+            if st != 200:
+                rec.notes.append(f"{ui}: writing renderer lease failed status={st}; no submit")
+                target = None
         if target and _take_grade(ctx, "writing"):
             essay = ("The chart compares figures across three years. " * 30).strip()
             request_id = str(uuid.uuid4())
