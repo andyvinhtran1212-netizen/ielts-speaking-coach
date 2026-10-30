@@ -126,14 +126,22 @@ BEGIN
          WHERE id = p_user_id;
 
         v_phase := 'enrollment';
-        IF v_student.id IS NOT NULL THEN
+        IF v_student.id IS NOT NULL AND v_code.cohort_id IS NOT NULL THEN
             UPDATE public.students
                SET user_id = coalesce(user_id, p_user_id),
-                   cohort_id = coalesce(v_code.cohort_id, cohort_id),
+                   cohort_id = v_code.cohort_id,
+                   instructor_id = coalesce(instructor_id, v_enroll_owner)
+             WHERE id = v_student.id;
+            v_student_id := v_student.id;
+        ELSIF v_student.id IS NOT NULL THEN
+            -- A class-less code never names cohort_id: 227's sync fires on
+            -- UPDATE OF cohort_id even when unchanged, and 337 then refuses
+            -- the archived old class (Codex r4426581235; staging router parity).
+            UPDATE public.students
+               SET user_id = coalesce(user_id, p_user_id),
                    instructor_id = coalesce(instructor_id, v_enroll_owner)
              WHERE id = v_student.id
-               AND (user_id IS NULL OR v_code.cohort_id IS NOT NULL
-                    OR (instructor_id IS NULL AND v_enroll_owner IS NOT NULL));
+               AND (user_id IS NULL OR (instructor_id IS NULL AND v_enroll_owner IS NOT NULL));
             v_student_id := v_student.id;
         ELSIF v_by_code.id IS NULL AND (v_owner IS NOT NULL OR v_code.cohort_id IS NOT NULL) THEN
             INSERT INTO public.students (user_id, student_code, full_name, created_by, instructor_id, cohort_id)

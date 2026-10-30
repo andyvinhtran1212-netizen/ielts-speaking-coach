@@ -504,6 +504,54 @@ def test_real_pg_337_activation_contract(world, pg_activation, monkeypatch, scen
     assert audits[0]["after"]["detail"]["race"] is scenario.startswith("race")
 
 
+@pytest.mark.parametrize("membership", ["inactive", "missing"])
+@pytest.mark.parametrize("variant", ["linked_instructor_code", "unlinked_bridge_admin_code"])
+def test_real_pg_classless_code_never_writes_archived_primary_class(pg_activation, variant, membership):
+    """Codex r4426581235: like the staging router, a code without a class must
+    not touch students.cohort_id. Writing it (even unchanged) fires 227's
+    membership sync, which 337 refuses for the archived old class."""
+    import test_migration_337_class_archive as m337
+    from test_migration_240_core_attempt_evidence import psql
+
+    schema, admin, _ = pg_activation
+    user, teacher, student, code_id = (str(uuid4()) for _ in range(4))
+    old_class = m337._new_class(schema)
+    code_text = "R10" + code_id[:8].upper()
+    linked = variant == "linked_instructor_code"
+    psql(f"""SET ROLE service_role;
+      INSERT INTO {schema}.users(id,is_active) VALUES ('{user}',false);
+      INSERT INTO {schema}.users(id,role,is_active) VALUES ('{teacher}','instructor',true);
+      INSERT INTO {schema}.students(id,user_id,student_code,full_name,cohort_id)
+        VALUES ('{student}',{f"'{user}'" if linked else 'NULL'},
+                '{"OLD" + student[:8] if linked else code_text}','Synthetic learner','{old_class}');
+      INSERT INTO {schema}.access_codes(id,code,is_used,issued_by,permissions)
+        VALUES ('{code_id}','{code_text}',false,'{teacher if linked else admin}','["writing"]');""")
+    m337._archive_class(schema, old_class, admin)
+    if membership == "inactive":
+        psql(f"SET ROLE service_role; UPDATE {schema}.student_cohort_memberships "
+             f"SET is_active=false WHERE student_id='{student}'")
+    else:
+        psql(f"DELETE FROM {schema}.student_cohort_memberships WHERE student_id='{student}'")
+    memberships_before = psql(f"SELECT coalesce(jsonb_agg(m ORDER BY cohort_id), '[]') "
+                              f"FROM {schema}.student_cohort_memberships m WHERE student_id='{student}'")
+
+    result = json.loads(psql(f"SET ROLE service_role; SELECT {schema}.fn_activation_serialize("
+                             f"'{user}','{code_id}','{code_text}','synthetic@example.test','{{}}')"))
+
+    assert result == {"status": "ok", "role": "user", "student_id": student,
+                      "cohort_id": None, "promote_role": None}
+    row = json.loads(psql(f"SELECT to_jsonb(s) FROM {schema}.students s WHERE id='{student}'"))
+    assert row["cohort_id"] == old_class and row["user_id"] == user
+    assert row["instructor_id"] == (teacher if linked else None)
+    # The archived class is neither re-joined nor re-activated.
+    assert psql(f"SELECT coalesce(jsonb_agg(m ORDER BY cohort_id), '[]') "
+                f"FROM {schema}.student_cohort_memberships m WHERE student_id='{student}'") == memberships_before
+    account = json.loads(psql(f"SELECT jsonb_build_object('active', u.is_active, 'used_by', c.used_by, "
+                              f"'is_used', c.is_used) FROM {schema}.users u, {schema}.access_codes c "
+                              f"WHERE u.id='{user}' AND c.id='{code_id}'"))
+    assert account == {"active": True, "used_by": user, "is_used": True}
+
+
 # ── SA-REVIEW-152: promote only after the claim; compensation and logs ───────
 
 def use_instructor_code(db):
