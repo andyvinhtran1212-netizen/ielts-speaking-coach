@@ -205,3 +205,25 @@ exact-form byte pin for these two articles is
 which #1948 moved. This file is not read by any test. The 12 quiz banks, their
 qids, maps and hashes, and every other article hash above are unchanged. The
 same record is in `source-scope.json` under `revisions`.
+
+## Revision 2 — later article bytes (PC-J141 / #1994, record only)
+
+Recorded on 2026-10-31 against staging `b2346ca6c`. The approval tables and
+Revision 1 above remain unchanged historical records. PR #1994 (PC-J141,
+Grammar-for-Reading C3) later changed two of these articles:
+
+| Article | Previous SHA-256 (Revision 1, PR #1948 `d85d20c52`) | Current SHA-256 (PR #1994 `ed0b707ae`, staging merge `b2346ca6c`) |
+| --- | --- | --- |
+| backend/content/grammar-for-reading/long-sentence-untangling.md | `7e74375df442d36249adc08e3ba9f52b16ad40916b8a0d7808085f6524ba8cad` (5475 bytes) | `c427ff17129812508952f5b87974870f7a1e78c714fa9894f5d1ef8edb66bee7` (8895 bytes) |
+| backend/content/grammar-for-reading/participle-clauses.md | `2322fb30ba8b4fdd5ef9d12501a0fe646d5d1804c0add7f86a71976e6525c773` (5369 bytes) | `0ba62186dd04766ad7636d434b3829b925d003f88409f3b85e731f0bd80d69fd` (7930 bytes) |
+
+History: the previous hashes and byte counts match the first parent of #1994's
+staging merge. The last content commit for both articles in #1994 is `ed0b707ae`.
+All three Grammar-for-Reading articles in this scope were rehashed on staging;
+`backend/content/grammar-for-reading/reduced-relative-clauses.md` is unchanged
+(`190fd721393ed092ac8587ee630cb999ef682eaa2ce5d2c4c1d9424c03b86541`, 5586 bytes).
+All three hashes and byte counts match `provenance.source_files` in
+`frontend/tests/fixtures/grammar-exact-form-banks.json`, whose pins #1994 updated
+for the two changed articles. This revision only records that history. The same
+record is in `source-scope.json` under `revisions`; its `approved_*` fields retain
+the original approval, and Revision 1 retains the pre-#1994 `current_*` values.
