@@ -1,6 +1,8 @@
 """Post-processing only: no providers or database calls."""
 
 from copy import deepcopy
+import json
+from pathlib import Path
 
 import pytest
 
@@ -151,3 +153,20 @@ def test_target_does_not_exceed_band_nine():
     feedback = _feedback(8.5, 8.5)
     align_overall_band_feedback(feedback, 9.0)
     assert feedback["bandTrajectoryAnalysis"]["next_target"].startswith("Duy trì band 9.0")
+
+
+@pytest.mark.parametrize("case", json.loads(
+    (Path(__file__).parent / "fixtures" / "writing_band_consistency.json").read_text()
+), ids=lambda case: case["id"])
+def test_shared_summary_contract_and_idempotence(case):
+    feedback = _feedback(case["base_band"])
+    feedback["overallBandScoreSummary"] = case["overview"]
+    feedback["bandTrajectoryAnalysis"] = deepcopy(case["trajectory"])
+    expected = case["expected"]
+    align_overall_band_feedback(feedback, expected["overall"])
+    assert feedback["overallBandScoreSummary"] == expected["overview"]
+    assert feedback["bandTrajectoryAnalysis"]["trend_explanation"] == expected["explanation"]
+    assert feedback["bandTrajectoryAnalysis"]["next_target"] == expected["target"]
+    aligned = deepcopy(feedback)
+    align_overall_band_feedback(feedback, expected["overall"])
+    assert feedback == aligned
