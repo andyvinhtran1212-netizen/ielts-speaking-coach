@@ -20,8 +20,10 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-29 the highest is `346`, so by that rule the
-next new migration is `347`. Ask the Leader before taking it.
+sequence is dense. As of 2026-10-30 the highest is `352`, allocated by the
+Leader to PC-J201, so by that rule the next new migration is `353`. Ask the
+Leader before taking it; 347–351 are reserved for other work and must not be
+reused.
 The runner applies any unapplied file regardless of order.
 Numbers 321–326 belong to 321 WRITINGRATE-0025, 322 AIOPS-0024 (#1837), 323
 ROLECHECK-0026, 324 ASSIGNDRAFT-0027, 325 CODEUNIQ-0028 and 326
@@ -30,11 +32,32 @@ reserved, and 330 was the first reservation for A-10, which took 337 instead
 (CLASSARCHIVE-0030 D1). 331 is GIVEARCHIVE-0031, 332 is ADMINAAL2-0032, 333 is
 AIBUDGET-0033, 334 is ACTIVATELIMIT-0034, 335 is INACTIVEWRITE-0035, 336 is
 ADMINAAL2-0032 FR-019 (#1853), 337 is A-10 CLASSARCHIVE-0030 and 338 is
-PAPERUPDATEDAT-0037. Every number from 331 to 338 now has a file. 345 is
+PAPERUPDATEDAT-0037. Every number from 331 to 338 now has a file. 339 is
+reserved by the Leader for the deferred content change and has no file yet; 340
+is the AIBUDGET-0033 hardening. 345 is
 PC-J119 (RLS-ADMIN-INLINE-AAL2 + GRAMMAR-FN-SEARCHPATH, spec ADMINAAL2-0032),
 reserved by the Leader on 2026-10-29; 339–344 are reserved for other open
 work and must not be reused. 346 is PC-J153 (CLASSARCHIVE-0030 FR-003),
 assigned by the Leader on 2026-10-29.
+
+Migration `352` (PC-J201, ADMINAAL2-0032 FR-010/FR-011, SA #1936 P3 c–f)
+adds the private `staff_mfa_status_throttle` table for shared admission to the
+caller-only MFA status sweep: successful-state cooldown, six rolling-minute
+attempts per account and at most two active leases across workers. The backend
+holds its admission advisory lock only for short transactions, never during
+Auth HTTP. Failed passes consume an attempt without starting a cooldown;
+expired leases recover and completion is fenced by its lease token. Old
+backends ignore the table; without it PC-J201 logs and skips the caller pass
+while the status read and cron fallback remain available. RLS is enabled with
+no policies, and PUBLIC, anon, authenticated and service_role lose all table
+privileges; the postcondition checks privacy. One additive transaction,
+re-runnable, no existing data change. It is held by `forward-policy.tsv`
+(group `mfa_status_throttle`); it must not apply on merge or join the 30 October
+promotion. A separately authorized apply uses
+`MIGRATION_FEATURES=mfa_status_throttle` through the advisory-locked runner,
+staging first before the PC-J201 backend, then production only at an authorized
+promotion. Rollback SQL is in the header: deploy the pre-PC-J201 backend, then
+drop only this operational table in a new forward migration.
 
 Migration `345` (PC-J119) removes the RLS policies that granted admin reads
 with an inline `users.role = 'admin'` check and nothing else (no AAL2, no
@@ -183,6 +206,35 @@ is a normal forward migration, so it has no `forward-policy.tsv` row: a
 `pending_feature` row would let the runner skip it while the dependent code is
 promoted. Rollback (deploy the pre-0034 backend first) is in the file header.
 
+Migration `340` (AIBUDGET-0033 hardening, PC-J85) fixes the Security
+Auditor's PC-J67 findings on 333 without editing it. It replaces five 333
+function bodies with the same names, arguments, return types, security,
+`search_path` and ACL, adds the internal `fn_ai_budget_assert_finite` (no API
+role may execute it) and adds:
+
+- F01: `fn_ai_budget_reserve`, `fn_ai_budget_settle` and
+  `fn_ai_budget_raise_grant` raise 22023 `ai_budget_non_finite_amount` for a
+  NaN or ±Infinity cap (hard, soft or total), estimate, actual, raise amount or
+  base cap before any write, and `*_finite_usd` CHECKs cover every money column
+  of the counters, reservations, raises, raise events and alerts (added `NOT
+  VALID`, then validated; an existing non-finite row aborts the migration with
+  its count and is never rewritten);
+- F02: `fn_ai_deferred_commit` refuses a null/empty result or one without what
+  the live success mapper writes (`overall_band`, `feedback`, a transcript and
+  `stt_status = 'completed'` after the patch). Nothing is written, so the job
+  is claimed again after its lease;
+- F04: `fn_ai_deferred_commit_writing` commits only a `running` job;
+- F05: the postcondition aborts and names any policy on the eight budget
+  tables, without dropping it.
+
+It belongs to the same `forward-policy.tsv` group: apply it after 333 with
+`MIGRATION_FEATURES=ai_budget` through the advisory-locked runner, on staging
+first and on production only at an authorised promotion together with 333,
+before the 0033 backend. Re-running 333 afterwards restores the old bodies, so
+re-run 340 after it. One transaction, no business data change, re-runnable.
+Its header carries ROLLBACK (a) (down 340 only) and ROLLBACK (b) (the whole
+`ai_budget` group, F03); both are Leader-approved forward migrations.
+
 Migration `333` (AIBUDGET-0033) adds the database half of the hard AI budget
 (`specs/0033-ai-budget-hard-cap/plan.md` "Migration 333"). It is held back by
 `forward-policy.tsv` (group `ai_budget`), so apply it only with
@@ -216,7 +268,8 @@ SELECT except INSERT/UPDATE on the jobs and heartbeat and UPDATE of the alert
 send columns. The N-1 backend reads none of it; its response writes just gain
 one refresh-row upsert. The guarded down script in the file header refuses
 while saved work waits for grading or a raise is active, and keeps the raise
-events.
+events. It misses an owed class-score sync (PC-J67 F03), so roll back 333
+only with ROLLBACK (b) in the 340 header, never with the 333 header script.
 
 Migration `332` (ADMINAAL2-0032) adds the staff security audit. It is held
 back by `forward-policy.tsv` (group `admin_aal2`), so apply it only with
