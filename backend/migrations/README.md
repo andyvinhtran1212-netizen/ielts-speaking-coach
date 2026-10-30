@@ -22,7 +22,7 @@ and must not be "filled in" by tooling:
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
 sequence is dense. As of 2026-10-30 the highest is `352`, allocated by the
 Leader to PC-J201, so by that rule the next new migration is `353`. Ask the
-Leader before taking it; 347–351 are reserved for other work and must not be
+Leader before taking it; 348–351 are reserved for other work and must not be
 reused.
 The runner applies any unapplied file regardless of order.
 Numbers 321–326 belong to 321 WRITINGRATE-0025, 322 AIOPS-0024 (#1837), 323
@@ -37,9 +37,59 @@ Leader on 2026-10-29). Every number from 331 to 339 now has a file. 340
 is the AIBUDGET-0033 hardening. 345 is
 PC-J119 (RLS-ADMIN-INLINE-AAL2 + GRAMMAR-FN-SEARCHPATH, spec ADMINAAL2-0032),
 reserved by the Leader on 2026-10-29; 341 is PC-J88 (STAFF-GUC-BYPASS +
-MIG322-HARDEN), assigned by the Leader on 2026-10-29; 342–344 are reserved for
-other open work and must not be reused. 346 is PC-J153 (CLASSARCHIVE-0030 FR-003),
-assigned by the Leader on 2026-10-29.
+MIG322-HARDEN, #2050), assigned by the Leader on 2026-10-29; 342–344 are reserved
+for other open work and must not be reused (343 = J133R, 344 = J131R). 346 is PC-J153 (CLASSARCHIVE-0030 FR-003),
+assigned by the Leader on 2026-10-29. 347 is PC-J163 (listening_tests client revoke,
+spec LISTENING-0005), given by the Leader on 2026-10-29.
+
+Migration `341` (PC-J88; Security Auditor PC-J74 F1/F2/F3, ADMINAAL2-0032
+and AIOPS-0024) stops the 332/336 staff triggers trusting session settings. A
+direct SQL session could `SET LOCAL aver.bootstrap`/`aver.staff_privilege`/
+`aver.actor_id` and turn a suspended account into an active admin with no audit
+row or owner alert. Now `fn_set_staff_privilege` and
+`fn_bootstrap_admin_recovery` write one row in the owner-only
+`staff_privilege_evidence` table (RLS on, no grant to any API role), keyed by
+transaction id and target, right before their single UPDATE. The row is gone
+before they return. The suspension guard opens only on that evidence. The role
+freeze opens only on the bootstrap's evidence (FR-019). The audit trigger always
+writes exactly one row: `admin_api` with the RPC's labels, `bootstrap_recovery`
+for the bootstrap, and otherwise `service` (a real `service_role` session with
+a service JWT) or `out_of_band` with no actor, reason or request id. Admin
+changes still queue one outbox row. If the audit trigger is missing (332 header
+rollback), both functions write that one row themselves. Function names,
+arguments, results, security mode, `search_path` and ACLs are unchanged.
+Migration 341 also revokes client privileges on the 322 identity sequences
+(F2), and makes `fn_ai_model_override_audit` SECURITY DEFINER (F3). For F3,
+`service_role` loses INSERT on `ai_model_override_audit` and a BEFORE TRUNCATE
+trigger refuses TRUNCATE for every role. PC-J74 F5 is covered by `345`.
+P2-SA-1 (PC-J356) removes service_role's TRIGGER, REFERENCES and TRUNCATE on
+`public.users`, plus MAINTAIN on PG17+, to block a planted trigger executing as
+the owner inside the staff RPC. Postconditions require those privileges to be
+absent and the evidence ACL to grant nothing to any non-owner. Trigger checks
+accept enabled (`O`) and always enabled (`A`) guards.
+341 is held by `forward-policy.tsv` as `pending_feature admin_aal2`: apply only
+with `MIGRATION_FEATURES=admin_aal2` through the advisory-locked runner, staging
+first after SA review, production only at an explicitly authorised
+staging→main promotion. It needs no backend change.
+One transaction, no data change, re-runnable. Re-running 322/332/336 restores
+the weak bodies, so re-run 341 after them. The rollback in the header reopens
+F1.
+
+Migration `347` (PC-J163) revokes ALL on `listening_tests` from `PUBLIC`,
+`anon` and `authenticated` (MAINTAIN included on PG 17). 295 closed the other
+Listening content tables but missed this one, which kept the 320-narrowed
+`anon`/`authenticated` SELECT. RLS with no policy hid the rows, so one broad
+SELECT policy would have exposed every Listening form and its answers through
+`/rest/v1/`. FastAPI reads and writes the table with `service_role` only, and
+`listening_public_practice_catalog` (306) is owner-run and granted to
+`service_role` only, so no product path changes. The postcondition fails if
+`anon` or `authenticated` still has SELECT, if any client role keeps a table
+or column privilege (a grant from another grantor survives the REVOKE), or if
+`service_role` lost SELECT/INSERT/UPDATE/DELETE. Group
+`listening_tests_revoke` in `forward-policy.tsv`: merging does not apply it;
+staging first under the advisory lock, production only at an authorised
+promotion. One transaction, no data change, re-runnable; the emergency-only
+rollback (the old SELECT grant) is in the file header.
 
 Migration `352` (PC-J201, ADMINAAL2-0032 FR-010/FR-011, SA #1936 P3 c–f)
 adds the private `staff_mfa_status_throttle` table for shared admission to the
@@ -87,38 +137,68 @@ in `forward-policy.tsv`: staging first under the advisory lock, production only
 at an authorised promotion. One transaction, no data change, re-runnable;
 the rollback (which reopens the hole) is in the file header.
 
-Migration `341` (PC-J88; Security Auditor PC-J74 F1/F2/F3, ADMINAAL2-0032
-and AIOPS-0024) stops the 332/336 staff triggers trusting session settings. A
-direct SQL session could `SET LOCAL aver.bootstrap`/`aver.staff_privilege`/
-`aver.actor_id` and turn a suspended account into an active admin with no audit
-row or owner alert. Now `fn_set_staff_privilege` and
-`fn_bootstrap_admin_recovery` write one row in the owner-only
-`staff_privilege_evidence` table (RLS on, no grant to any API role), keyed by
-transaction id and target, right before their single UPDATE. The row is gone
-before they return. The suspension guard opens only on that evidence. The role
-freeze opens only on the bootstrap's evidence (FR-019). The audit trigger always
-writes exactly one row: `admin_api` with the RPC's labels, `bootstrap_recovery`
-for the bootstrap, and otherwise `service` (a real `service_role` session with
-a service JWT) or `out_of_band` with no actor, reason or request id. Admin
-changes still queue one outbox row. If the audit trigger is missing (332 header
-rollback), both functions write that one row themselves. Function names,
-arguments, results, security mode, `search_path` and ACLs are unchanged.
-Migration 341 also revokes client privileges on the 322 identity sequences
-(F2), and makes `fn_ai_model_override_audit` SECURITY DEFINER (F3). For F3,
-`service_role` loses INSERT on `ai_model_override_audit` and a BEFORE TRUNCATE
-trigger refuses TRUNCATE for every role. PC-J74 F5 is covered by `345`.
-P2-SA-1 (PC-J356) removes service_role's TRIGGER, REFERENCES and TRUNCATE on
-`public.users`, plus MAINTAIN on PG17+, to block a planted trigger executing as
-the owner inside the staff RPC. Postconditions require those privileges to be
-absent and the evidence ACL to grant nothing to any non-owner. Trigger checks
-accept enabled (`O`) and always enabled (`A`) guards.
-341 is held by `forward-policy.tsv` as `pending_feature admin_aal2`: apply only
-with `MIGRATION_FEATURES=admin_aal2` through the advisory-locked runner, staging
-first after SA review, production only at an explicitly authorised
-staging→main promotion. It needs no backend change.
-One transaction, no data change, re-runnable. Re-running 322/332/336 restores
-the weak bodies, so re-run 341 after them. The rollback in the header reopens
-F1.
+Applying `345` (runbook, PC-J162):
+
+- **A dry run is required first, on staging and on production.** The
+  postcondition is a gate on the whole `public` schema, so any other policy
+  with `'admin'` in it (for example a dashboard-created one that was not in the
+  2026-10-29 staging check) makes 345 abort with `inline_admin_policy_remains`.
+  That abort is safe: the transaction rolls back. Run the dry run and the
+  read-only query below before the real apply. The dry run must list only
+  `345`, plus any migration the Leader has already approved for the same
+  window:
+
+  ```bash
+  DRY_RUN=1 MIGRATION_FEATURES=rls_admin_inline ./backend/scripts/apply_migrations.sh "$STAGING_DB_URL"
+  # production, only at an authorised promotion:
+  ALLOW_PROD=1 DRY_RUN=1 MIGRATION_FEATURES=rls_admin_inline ./backend/scripts/apply_migrations.sh "$DATABASE_URL"
+  ```
+
+  ```sql
+  -- read-only, before apply: every public policy with the literal 'admin'
+  SELECT c.relname, p.polname FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid
+   WHERE c.relnamespace = 'public'::regnamespace
+     AND concat_ws(' ', pg_get_expr(p.polqual, p.polrelid),
+                   pg_get_expr(p.polwithcheck, p.polrelid)) ~* '''admin'''
+   ORDER BY 1, 2;
+  ```
+
+  The rows may only come from the 8 policies 345 handles:
+  `dictation_sessions`/`"admins read dictation sessions"`,
+  `dictation_attempts`/`"admins read dictation attempts"`,
+  `dictation_attempt_answers`/`"admins read dictation attempt answers"`,
+  `user_feedback`/`"admins read feedback"`,
+  `lemma_overrides`/`"Admins manage lemma overrides"`,
+  `vocabulary_exercises`/`vocab_exercises_admin_write`,
+  `vocabulary_exercises`/`vocab_exercises_select` and
+  `access_codes`/`"Admin only"`. Fewer rows are fine, because each step skips
+  an absent object. If any other row appears, do not apply. Report it to the
+  Leader and the Security Auditor.
+- **Production: apply off-peak.** After `LOCK TABLE … ACCESS EXCLUSIVE` on
+  the 7 target tables (`access_codes`, `dictation_attempt_answers`,
+  `dictation_attempts`, `dictation_sessions`, `lemma_overrides`,
+  `user_feedback`, `vocabulary_exercises`), the migration runs `count(*)` on
+  each of them twice: once after the locks in step 1 and once in the final
+  row-count check. The locks are held until `COMMIT`, so reads are blocked
+  too. This includes access-code activation and dictation. On staging this is
+  acceptable because the tables are small. On production, apply in a low-traffic
+  window. If an open transaction holds one of these tables, the
+  `lock_timeout` of 5 s aborts the whole migration with nothing changed, and it
+  can be re-run. The file is approved and the release register pins its
+  sha256, so do not edit it to remove the counts. Staging and production must
+  run the same bytes.
+- **After apply, run `backend/scripts/verify_migration_345_client_acl.sql`
+  read-only (PC-J169).** 345's own postcondition checks only table-level
+  `SELECT` … `TRIGGER`, and its `REVOKE` removes only the runner's grants. A
+  column-level `INSERT`/`UPDATE`/`REFERENCES` or a `MAINTAIN` (PG17) grant
+  that another role passed on survives both. The verifier reads every
+  `relacl`/`attacl` entry for `PUBLIC`, `anon` and `authenticated` on
+  `user_feedback`, `lemma_overrides` and `access_codes`, whatever the grantor,
+  plus their effective privileges. It must return the single row
+  `verify_345_client_acl: ok`. Any `client_acl_entry_remains` or
+  `client_privilege_effective_remains` error names `table[.column]:grantee:privilege[/grantor]`:
+  report it to the Leader and the Security Auditor. On staging it runs through
+  the Management API with `"read_only": true` or with `psql -v ON_ERROR_STOP=1 -f`.
 
 Migration `337` (CLASSARCHIVE-0030, A-10) enforces class archive. An
 *archived* class is `cohorts.is_active = false AND archived_at IS NOT NULL`. It
