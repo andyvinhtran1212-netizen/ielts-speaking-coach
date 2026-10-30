@@ -207,6 +207,21 @@ describe('con số', () => {
   test('chưa có câu nào thì nói ra, không vẽ bảng rỗng', () => {
     assert.match(renderReport({ questions: [], totals: {} }), /Chưa có câu nào được chấm/);
   });
+
+  // PC-J373: bài một lượt hết giờ ở 15/300 — mẫu số là cả bank, đúng như điểm.
+  test('đúng lượt đầu chia cho baseline_total khi backend gửi', () => {
+    const qs = Array.from({ length: 15 }, (_, i) => Q({ qid: `q${i}`, is_correct: true }));
+    const html = renderReport({ ...data(qs), summary: {
+      completion_mode: 'single_attempt', baseline_quiz_pct: 5, baseline_total: 300 } });
+    assert.match(html, /trắc nghiệm lượt đầu<\/span><b>5%/);
+    assert.match(html, /đúng lượt đầu<\/span><b>15\/300/);
+  });
+
+  test('backend cũ thiếu baseline_total thì giữ correct/answered', () => {
+    const qs = [Q({ qid: 'a', is_correct: true }), Q({ qid: 'b', is_correct: false })];
+    const html = renderReport({ ...data(qs), summary: { baseline_quiz_pct: 50 } });
+    assert.match(html, /đúng lượt đầu<\/span><b>1\/2/);
+  });
 });
 
 describe('bảng session & revision', () => {

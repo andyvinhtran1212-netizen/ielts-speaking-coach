@@ -5834,6 +5834,7 @@ def course_answer_report(*, user_id: str, bank_id: str,
         "baseline_quiz_pct": None,
         "baseline_correct": 0,
         "baseline_answered": 0,
+        "baseline_total": None,
     }
 
     sessions = [x for x in owned_sessions if (x.get("kind") or "run") == "run"]
@@ -5955,12 +5956,23 @@ def course_answer_report(*, user_id: str, bank_id: str,
         "bank_title": bank.get("title"),
         "scope": "baseline_quiz",
     }
-    baseline_pct = (round(out["totals"]["correct"] / out["totals"]["answered"] * 100, 1)
-                    if out["totals"]["answered"] else None)
+    # Bài một lượt chấm trên TOÀN BỘ câu trắc nghiệm có đáp án của bank — đúng
+    # thước `course_verdict` dùng (`len(key)`), kể cả khi hết giờ giữa chừng.
+    # Chia cho số câu đã trả lời thì em làm đúng 15/300 rồi hết giờ hiện "100%"
+    # cạnh điểm chính thức 5% (PC-J373). Chế độ mastery giữ correct/answered.
+    if completion_mode == COURSE_COMPLETION_SINGLE_ATTEMPT:
+        baseline_total = sum(1 for q in qs_rows
+                             if _is_course_quiz_question(q)
+                             and q.get("answer") is not None) or None
+    else:
+        baseline_total = out["totals"]["answered"] or None
+    baseline_pct = (round(out["totals"]["correct"] / baseline_total * 100, 1)
+                    if baseline_total else None)
     out["summary"] = {**out["summary"],
         "baseline_quiz_pct": baseline_pct,
         "baseline_correct": out["totals"]["correct"],
         "baseline_answered": out["totals"]["answered"],
+        "baseline_total": baseline_total,
     }
     return out
 

@@ -324,7 +324,9 @@ export function renderReport(data, opts = {}) {
 
   const stats = [
     ['trắc nghiệm lượt đầu', summary.baseline_quiz_pct == null ? '—' : `${summary.baseline_quiz_pct}%`],
-    ['đúng lượt đầu', `${t.correct || 0}/${t.answered || 0}`],
+    // Bài một lượt chia cho cả bank (`baseline_total`); backend cũ chưa gửi
+    // field này thì giữ correct/answered.
+    ['đúng lượt đầu', `${t.correct || 0}/${summary.baseline_total || t.answered || 0}`],
     ['trung vị mỗi câu', t.median_sec == null ? '—' : `${t.median_sec} giây`],
     ['thời gian trả lời', t.active_sec ? Math.round(t.active_sec / 60) + ' phút' : '—'],
     // Chỉ hiện khi CÓ — một dòng "rời máy 0 giây" là nhiễu.
