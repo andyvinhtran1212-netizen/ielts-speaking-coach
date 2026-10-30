@@ -4,7 +4,6 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
-import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = process.argv[2] || 'http://127.0.0.1:3110';
 if (!['localhost', '127.0.0.1', '::1'].includes(new URL(BASE).hostname)) throw new Error('Only an owned local Next server is allowed.');
@@ -52,7 +51,6 @@ try {
     // No paid/live/provider requests or external font/CDN fallback.
     return json({});
   });
-  await stubAdminMfaStatus(page);
   await page.goto(`${BASE}/admin/vocab/quiz?skill_area=grammar`, { waitUntil: 'domcontentloaded' });
   await page.getByRole('heading', { name: 'Xem trước và xác nhận bản sửa Grammar', exact: true }).waitFor();
   await page.getByText(/Nguồn gốc chưa được sửa/).waitFor();

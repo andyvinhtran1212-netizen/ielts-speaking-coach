@@ -2102,14 +2102,100 @@ def test_roster_retest_flags_unticking_clears(fake_db, svc, wf, monkeypatch):
     assert not any(rv["retest_flags"].values())
 
 
-def test_roster_retest_flags_drop_unrequired_skills(fake_db, svc, wf, monkeypatch):
-    """A stale client must not write a skill this exam doesn't even run."""
+def test_roster_retest_flags_refuse_ticking_unrequired_skills(fake_db, svc, wf, monkeypatch):
+    """A stale client must not write a skill this exam doesn't even run — and
+    ticking one is refused loudly, not dropped behind a 200 (PC-J146: the
+    console then showed a generic error and a box that un-ticked itself)."""
     _seed_retest_fixture(fake_db)
     monkeypatch.setattr(wf, "_required_skills", lambda _sid: ("reading", "writing"))
-    wf.set_retest_flags_for_sitting("sit-1", "admin-1", {"listening": True, "reading": True})
     rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
-    assert "listening" not in rv["retest_flags"]
-    assert rv["retest_flags"]["reading"] is True
+    rv["retest_flags"] = {"reading": False}
+    with pytest.raises(wf.SkillNotInSittingError) as exc:
+        wf.set_retest_flags_for_sitting(
+            "sit-1", "admin-1", {"listening": True, "reading": True, "bogus": True},
+        )
+    assert exc.value.skills == ["listening", "bogus"]
+    assert str(exc.value) == "Kỹ năng Listening, bogus không thuộc lượt thi này."
+    assert rv["retest_flags"] == {"reading": False}, "a refused post writes nothing"
+
+
+def test_roster_retest_flags_ignore_unticked_unrequired_skills(fake_db, svc, wf, monkeypatch):
+    """The console posts all four keys; an untick for a skill outside the
+    sitting is not an error and is simply not stored."""
+    _seed_retest_fixture(fake_db)
+    monkeypatch.setattr(wf, "_required_skills", lambda _sid: ("reading",))
+    wf.set_retest_flags_for_sitting("sit-1", "admin-1", {
+        "listening": False, "reading": True, "writing": False, "speaking": False,
+    })
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    assert rv["retest_flags"] == {"reading": True}
+
+
+def _seed_reading_only_retake(fake_db):
+    """WM 2026-10-29 shape: a retake exam whose sitting was assigned Reading only."""
+    _seed_retest_fixture(fake_db)
+    fake_db.seed("mock_exams", {"id": "ex-1", "exam_mode": "retake",
+                                "listening_test_id": "lt-1", "reading_test_id": "rt-1",
+                                "speaking_topic_set": None})
+    sit = next(s for s in fake_db.rows("mock_exam_sittings") if s["id"] == "sit-1")
+    sit["assigned_skills"] = ["reading"]
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    rv["retest_flags"] = {"reading": False}
+    return rv
+
+
+def _post_retest_flags(flags):
+    from unittest.mock import AsyncMock, patch
+    from fastapi.testclient import TestClient
+    from main import app
+    with patch("routers.admin_mock_exams.require_admin",
+               new=AsyncMock(return_value={"id": "admin-1"})):
+        return TestClient(app).post(
+            "/admin/mock-exams/sittings/sit-1/retest-flags",
+            json={"retest_flags": flags}, headers={"Authorization": "Bearer faketoken"},
+        )
+
+
+def test_retest_flags_route_422_for_skill_outside_reading_only_retake(fake_db, wf):
+    rv = _seed_reading_only_retake(fake_db)
+    r = _post_retest_flags({"listening": True, "reading": False,
+                            "writing": False, "speaking": False})
+    assert r.status_code == 422, r.text
+    assert r.json()["detail"] == {
+        "error": "skill_not_in_sitting", "skills": ["listening"],
+        "message": "Kỹ năng Listening không thuộc lượt thi này.",
+    }
+    assert rv["retest_flags"] == {"reading": False}
+
+
+def test_retest_flags_route_saves_the_sittings_own_skill(fake_db, wf):
+    rv = _seed_reading_only_retake(fake_db)
+    r = _post_retest_flags({"listening": False, "reading": True,
+                            "writing": False, "speaking": False})
+    assert r.status_code == 200, r.text
+    assert r.json()["retest_flags"] == {"reading": True}
+    assert rv["retest_flags"] == {"reading": True}
+
+
+def test_retest_flags_route_released_stays_409(fake_db, wf):
+    rv = _seed_reading_only_retake(fake_db)
+    rv["status"] = "released"
+    r = _post_retest_flags({"reading": True})
+    assert r.status_code == 409, r.text
+    assert rv["retest_flags"] == {"reading": False}
+
+
+def test_roster_exposes_the_tickable_retest_skills(fake_db, svc, wf):
+    """retest_skills is the same rule the write path enforces, so the console
+    can disable every box the backend would refuse."""
+    rv = _seed_reading_only_retake(fake_db)
+    assert wf.roster("ex-1")[0]["retest_skills"] == ["reading"]
+    # A live teacher-assessed Speaking makes Speaking tickable (#1849 boundary).
+    rv["per_skill_notes"] = {"speaking": {"intro": "Giáo viên chấm trực tiếp."}}
+    assert wf.roster("ex-1")[0]["retest_skills"] == ["reading", "speaking"]
+    # No exam row → the same all-skills fallback _required_skills uses.
+    fake_db.tables["mock_exams"] = []
+    assert wf.roster("ex-1")[0]["retest_skills"] == ["listening", "reading", "writing", "speaking"]
 
 
 def test_roster_retest_flags_keep_teacher_assessed_speaking_extra(

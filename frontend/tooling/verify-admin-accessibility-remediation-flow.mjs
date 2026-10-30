@@ -2,7 +2,6 @@
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
-import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 const BASE = process.argv[2] || 'http://127.0.0.1:3110';
 const SB = process.env.SUPABASE_URL || 'https://example.supabase.co';
 const results = [], writes = [], errors = [];
@@ -36,7 +35,6 @@ await context.route('**/*', async (route) => {
   if (path === '/admin/mock-exams/exam-1/retest-summary') return json({ total_sittings: rosterCount, reviewed_sittings: 0, needs_retest_count: 0, per_skill: { listening: 0, reading: 0, writing: 0, speaking: 0 }, students: [] });
   return json({});
 });
-await stubAdminMfaStatus(context);
 try {
   await page.goto(`${BASE}/admin/speaking/topics`, { waitUntil: 'domcontentloaded' });
   const topicButton = page.getByRole('button', { name: /Travel and tourism Travel/ });

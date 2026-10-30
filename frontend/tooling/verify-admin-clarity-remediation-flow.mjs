@@ -2,7 +2,6 @@
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
-import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 const BASE = process.argv[2] || 'http://127.0.0.1:3110';
 const SB = process.env.SUPABASE_URL || 'https://example.supabase.co';
 const results = [], writes = [], errors = [];
@@ -46,7 +45,6 @@ await context.route('**/*', async (route) => {
   if (path === '/admin/listening/tests') return json({ items: [{ id: 'mixed-1', test_id: 'LIS-1', title: 'Mixed audio fixture', status: 'published', test_type: 'mini', is_public: true, exam_only: false, section_count: 1, audio_ready_count: 0, full_audio_storage_path: 'fixture/full.mp3', accent_profile: [], band_target: null, created_at: '2026-09-01T00:00:00Z' }], total: 1, limit: 20, offset: 0 });
   return json({});
 });
-await stubAdminMfaStatus(context);
 try {
   await page.goto(`${BASE}/admin/writing`, { waitUntil: 'domcontentloaded' });
   await page.getByRole('heading', { name: 'Writing workspace', exact: true }).waitFor();

@@ -28,8 +28,6 @@ import random
 import time
 from typing import Sequence
 
-from services import ai_budget
-
 from .grading_providers import (
     AbstractGradingProvider,
     AllProvidersFailedError,
@@ -223,11 +221,6 @@ class GradingOrchestrator:
                             user_id=user_id,
                             session_id=session_id,
                         )
-                except (ai_budget.AIBudgetRefused, ai_budget.AIBudgetReplay):
-                    # AIBUDGET-0033 FR-008: no retry and no next rung — the
-                    # refusal ends the chain (it also ends the JSON-repair
-                    # rerun in claude_grader, which calls this again).
-                    raise
                 except TimeoutError as exc:
                     events.append(FallbackEvent(
                         provider=provider_name,

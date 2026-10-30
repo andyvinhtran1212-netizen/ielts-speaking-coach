@@ -12,10 +12,7 @@ import {
 export type AuthMeWire = ApiGetJson<'/auth/me'>;
 export type AuthProfileWire = ApiGetJson<'/auth/profile'>;
 export type AuthActiveStatusWire = ApiGetJson<'/auth/check-active'>;
-/** `is_active` is null only when the payload did not report it (see auth-wire-model.mjs). */
-export type AuthRoleIdentity = Pick<AuthMeWire, 'id' | 'email' | 'role'> & {
-  is_active: AuthMeWire['is_active'] | null;
-};
+export type AuthRoleIdentity = Pick<AuthMeWire, 'id' | 'email' | 'role'>;
 
 /** Minimal authorization projection used by admin/instructor role gates. */
 export async function getAuthorizationIdentity(signal?: AbortSignal): Promise<AuthRoleIdentity> {

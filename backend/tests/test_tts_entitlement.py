@@ -122,7 +122,7 @@ def env(monkeypatch):
     async def _user(_authorization):
         return {"id": OWNER}
 
-    async def _synth(text, voice, *, user_id=None):
+    async def _synth(text, voice):
         state.synth_calls.append((text, voice))
         return b"MP3BYTES"
 
@@ -360,7 +360,7 @@ def test_non_positive_quota_is_config_invalid(env, monkeypatch):
 # ── The 502 wrapper must not swallow guard HTTPExceptions ──────────────────
 
 def test_http_exception_inside_the_synth_try_is_not_rewrapped_as_502(env, monkeypatch):
-    async def _synth(_text, _voice, *, user_id=None):
+    async def _synth(_text, _voice):
         raise HTTPException(429, "upstream says slow down")
     monkeypatch.setattr(tts_module, "synthesize_mp3", _synth)
     with pytest.raises(HTTPException) as error:
