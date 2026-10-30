@@ -87,7 +87,7 @@ Tương phản là một trong những quan hệ ý nghĩa được examiner đ�
 
 ## Tại sao quan trọng
 
-Trong **Writing Task 2** (đặc biệt discussion / advantages-disadvantages), tương phản là xương sống: nêu một mặt rồi phản biện mặt kia. Trong **Speaking Part 3**, examiner thường hỏi "some people think X, others think Y" — bạn cần nối hai quan điểm trái chiều mượt mà. Dùng đa dạng contrast connectors ăn điểm cả **Grammatical Range** lẫn **Coherence & Cohesion**.
+Trong **Writing Task 2** (đặc biệt discussion / advantages-disadvantages), tương phản là xương sống: nêu một mặt rồi phản biện mặt kia. Trong **Speaking Part 3**, examiner thường hỏi "some people think X, others think Y" — bạn cần nối hai quan điểm trái chiều mượt mà. Dùng đa dạng contrast connectors ăn điểm cả **Grammatical Range and Accuracy** lẫn **Coherence & Cohesion**.
 
 ---
 
@@ -123,7 +123,7 @@ Although [S + V], [main clause]
 | **while / whereas** | so sánh hai vế đối lập (thường cân bằng, không phải bất ngờ) |
 
 - **Even though** she had little experience, she handled the crisis impressively.
-- It's expensive, I'll buy it **though**. *(though cuối câu — văn nói)*
+- It's expensive. I'll buy it, **though**. *(though cuối câu — văn nói)*
 
 ⚠ **KHÔNG kết hợp với "but":** ❌ *Although it was late, but he kept working.* → ✅ *Although it was late, he kept working.*
 
@@ -142,6 +142,7 @@ Despite [noun / V-ing], [main clause]
 - **Despite** working long hours, he never seemed tired. *(despite + V-ing)*
 
 ⚠ **KHÔNG theo sau bằng mệnh đề trực tiếp:**
+
 - ❌ Despite it was raining...
 - ✅ Despite **the rain**... (danh từ)
 - ✅ Despite **the fact that** it was raining... (despite + the fact that + clause)
@@ -173,6 +174,8 @@ Dùng khi muốn cân nhắc hai mặt (rất hợp Part 3 và discussion essay)
 - **On the one hand,** tourism boosts local economies. **On the other hand,** it can damage the environment and erode local culture.
 
 > Có thể dùng riêng "**on the other hand**" để giới thiệu mặt đối lập mà không cần "on the one hand" trước đó. Xem thêm bài **Balanced Arguments Grammar**.
+
+⚠ *On the contrary* dùng để bác bỏ ý vừa nêu, không dùng như *on the other hand* (mặt khác).
 
 ---
 
