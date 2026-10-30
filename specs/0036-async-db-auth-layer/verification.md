@@ -11,6 +11,8 @@
 | FR-005 | kind=test; ref=backend/tests/test_async_db_scaffold.py (exact facade allowlist, `admin.py` guard-only pin) | PENDING |
 | FR-006 | Staging measurement and parity record per `rollout.md` on the implementation PR, against the deployed SHA | PENDING |
 | FR-007 | Staging rollback rehearsal or recorded `/health/async-db` state after a flag-off restart | PENDING |
+| FR-008 | kind=test; ref=backend/tests/test_async_auth_flag_off_offload.py (Revision 3: each listed flag-off path runs its query off the event-loop thread, sequentially, with the same result, status/detail and query sequence) plus the unedited existing suites of these paths and backend/tests/test_async_db_scaffold.py (FR-005 allowlist unchanged) | PENDING |
+| FR-009 | kind=test; ref=backend/tests/test_supabase_singleton_threadsafe.py (from #2093, 32 threads x 60 requests at httpx 0.27.2, postgrest 2.28.3, supabase 2.28.3, httpcore 1.0.9) plus the G4 record for every flag-off write through `aexecute` and the corrected comments on the implementation PR | PENDING |
 
 ## Contract evidence
 
@@ -24,6 +26,42 @@
 ## UI evidence
 
 - No UI change; staging page waterfalls only (`rollout.md`).
+
+## Revision 3 — flag off in worker threads (Q5: b)
+
+FR-001 now requires the flag-off sync query to run in a worker thread. The
+checks below are required on the Revision 3 implementation PR; all are pending.
+
+- **Anti-loop-blocking test (flag off).** For each FR-008 path, a slow sync
+  double (for example 200 ms) records the thread it runs on; the test asserts
+  it is not the loop thread and that a loop heartbeat task keeps ticking during
+  the call. The current code fails it (direct call at
+  `backend/services/db_async.py:182–185`, `activation_gate.py:185–186`,
+  `access_code_permissions.py:81–82`, `:227–228`, `:648–649`, `:697–698`,
+  `:744–745`, at `d4cfa1ab9`).
+- **Parity (flag off, before vs after).** Same body, HTTP status, error detail
+  and recorded PostgREST query sequence for active learner, inactive learner,
+  missing row, instructor, admin and lookup failure (gate, staff guard and
+  `/auth/check-active` 503; `/auth/me` 500 contract unchanged). No `gather`: the
+  query order is checked, not only the set.
+- **Memo.** Inside one request, a permission list or active flag memoized in
+  the worker is reused by the next call; the memo is opened on the async side
+  (`backend/main.py:407`, `:410`).
+- **Existing tests.** `test_async_auth_db_layer.py`, `test_async_db_scaffold.py`
+  (including `test_aexecute_off_uses_sync_singleton_directly`: same client,
+  same `execute()`), `test_activation_gate_round2.py`, `conftest.py` seams and
+  the grading, admin, auth and permission suites pass without edits.
+- **Thread safety (FR-009).** `test_supabase_singleton_threadsafe.py` passes at
+  the recorded versions; a version change re-runs it.
+- **G4.** The CR checklist is applied to every write that reaches `aexecute`
+  with the flag off. Known: `routers/grading.py:1878` insert after the read at
+  `:1725` (unique index `idx_user_vocab_unique` plus the duplicate skip at
+  `:1882`; lemma-only duplicates to be assessed), and the `/auth/me` insert-if-absent
+  and `last_seen_at` update (#2093).
+- **Comments.** The over-strict comments named in FR-009 are corrected.
+- **Staging load test (flag off).** The 30-learner FINAL scenario (001j7 /
+  ladder, after #2093): `[loop-lag]` max and `/health` p95 lower than the
+  previous run of the same scenario; no rise in 5xx or 401/403/503.
 
 ## Stall 29/10 (PC-J55)
 
@@ -230,3 +268,5 @@ difference" in `rollout.md`. This record does not change the acceptance test:
 
 - Staging SHA and measurement: pending T006.
 - Production: pending T007 (flag off at promotion).
+- Revision 3: pending T009–T015; production only on Vinh's separate go at the
+  promotion.
