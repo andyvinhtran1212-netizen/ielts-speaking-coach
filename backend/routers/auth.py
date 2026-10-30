@@ -330,8 +330,13 @@ async def check_active(authorization: str | None = Header(default=None)):
     except Exception as e:
         # ASYNCAUTH-0036 Revision 2: a DB failure is 503, like the activation
         # gate and the staff guards. main.py still replaces this 5xx detail
-        # with the sanitized {error_code, message, ref} envelope.
-        raise HTTPException(status_code=503, detail=f"Lỗi khi kiểm tra trạng thái: {e}")
+        # with the sanitized {error_code, message, ref} envelope; the detail
+        # itself carries no DB text either (PC-J157), the error is logged.
+        logger.warning("[auth] check-active lookup failed user=%s: %r", user_id, e)
+        raise HTTPException(
+            status_code=503,
+            detail="Lỗi khi kiểm tra trạng thái tài khoản. Vui lòng thử lại.",
+        ) from None
 
     if not result.data:
         return {"is_active": False, "suspended": False}
