@@ -33,6 +33,14 @@ export async function killGroup(child, signal = 'SIGTERM', { graceMs = 5000 } = 
     const remaining = deadline - Date.now();
     if (remaining <= 0) {
       signalGroup(child, 'SIGKILL');
+      // SIGKILL delivery is asynchronous too: do not release the caller while
+      // a worker still holds the port. Bound this wait so cleanup can report a
+      // stuck group instead of hanging forever.
+      const killDeadline = Date.now() + 1000;
+      while (signalGroup(child, 0)) {
+        if (Date.now() >= killDeadline) throw new Error(`Process group ${child.pid} remains after SIGKILL`);
+        await delay(20);
+      }
       return;
     }
     await delay(Math.min(50, remaining));
