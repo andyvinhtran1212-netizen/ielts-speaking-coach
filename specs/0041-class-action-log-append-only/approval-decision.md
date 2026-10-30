@@ -29,5 +29,23 @@ procedure. This does not authorize applying 356 to production; that is a
 separate promotion step and needs Vinh's explicit approval at the `staging` →
 `main` promotion.
 
-Not approved here: revoking UPDATE or DELETE from `service_role`, dropping
-either policy, or any change to anon/authenticated privileges.
+## Approved CALUD amendment (PC-J347)
+
+Leader báo anh Vinh duyệt 14:07 (t803u). On 2026-10-30 at 14:07 (UTC+7),
+Vinh's verbatim reply to Q-1403-CAL-REVOKE-UD was "CALUD ok"
+(`process/questions-for-vinh.md:146-147`,
+`process/vinh-decisions-20261030.md:20`; SA F1/F2 in `reviews/PR-2045.md`).
+
+This extends the original approval: migration 356 revokes UPDATE and DELETE
+from service_role as a second defense beside the row trigger from 198,
+repeating the revoke for PUBLIC, anon and authenticated. After 356,
+service_role has SELECT and INSERT only. Its UPDATE/DELETE failure changes
+from trigger `P0001` to ACL `42501`; ACCESS EXCLUSIVE LOCK and SELECT FOR
+UPDATE must also be refused. The down script must not restore UPDATE/DELETE.
+The backend audit found only INSERT and SELECT consumers (see `research.md`).
+
+This is a spec-only amendment, stacked on #2045 head
+`5d9296ec292db288d4209d14f563a38c3b352ca1`; implementation and real-PostgreSQL
+acceptance evidence remain T001. The staging-only authorization above still
+applies. Dropping either policy, granting client privileges, changing default
+ACLs, and applying 356 to production remain outside this approval.

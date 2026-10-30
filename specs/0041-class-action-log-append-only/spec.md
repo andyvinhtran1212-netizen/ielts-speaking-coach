@@ -11,6 +11,10 @@ owner: product
 Approval: Leader báo anh Vinh duyệt CAL-APPENDONLY 30/10 13:38 (t744s2552).
 Vinh's reply on 2026-10-30 13:38 (UTC+7), verbatim "CAL-APPENDONLY ok", to
 question Q-0835-CAL-APPENDONLY (see [`approval-decision.md`](approval-decision.md)).
+Amendment (PC-J347): Leader báo anh Vinh duyệt 14:07 (t803u).
+Verbatim "CALUD ok", approving Q-1403-CAL-REVOKE-UD on 2026-10-30: revoke
+UPDATE/DELETE from `service_role` in migration 356 (FR-004; SA F1/F2 in
+`reviews/PR-2045.md`).
 Spec number 0041 and migration number **356**: assigned by the Leader
 (migration 356 on 2026-10-30 08:27 UTC+7).
 Origin: Security Auditor notes P3-SA-1, P3-SA-2 and P3-SA-3 on #2022
@@ -25,7 +29,10 @@ sau `GRANT ALL` cho `service_role` là mất lớp chặn duy nhất, và owner 
 TRUNCATE được. Migration 356 thêm trigger chặn TRUNCATE (kể cả owner và
 `service_role`), thu các quyền thừa TRIGGER/REFERENCES/MAINTAIN của
 `service_role` và PUBLIC, và ghi chú vì sao policy `cal_admin_append` không còn
-tác dụng sau mig 320 (không xoá policy).
+tác dụng sau mig 320 (không xoá policy). Bổ sung CALUD thu UPDATE/DELETE làm
+lớp phòng thủ thứ hai bên cạnh trigger row 198; sau 356, `service_role` chỉ còn
+SELECT và INSERT. Lỗi UPDATE/DELETE của vai này đổi từ `P0001` sang `42501`
+ngay ở kiểm tra quyền, trước trigger.
 
 Người dùng không thấy thay đổi gì: giáo viên vẫn đổi hạn, trả bài, admin vẫn
 đọc nhật ký như cũ. Chỉ áp staging; prod là bước promote riêng, cần anh Vinh
@@ -38,7 +45,8 @@ returned a learner's work, and from which value to which. Today (staging
 `4c9becc28`, read-only check in `reviews/PR-2022.md`):
 
 - UPDATE and DELETE are refused for every role by the row trigger
-  `trg_class_action_log_append_only` (`198_class_action_log.sql:123-135`).
+  `trg_class_action_log_append_only` (function at `198_class_action_log.sql:122-131`,
+  trigger at `:133-136`).
 - TRUNCATE fires no row trigger and ignores RLS. It is refused only by the ACL
   line `REVOKE TRUNCATE … FROM PUBLIC, anon, authenticated, service_role`
   (`204_reconcile_course_and_gate_e_schema.sql:22-23`). The default ACL of
@@ -73,12 +81,10 @@ requirements on its merge base.
 
 - Changing what the backend writes to the log, the admin read route
   (`admin_class_assignments.py` `class_action_log`), or any UI.
-- Revoking UPDATE or DELETE from `service_role`. They are not part of
-  Q-0835-CAL-APPENDONLY; both stay refused by the existing row trigger
-  (FR-001). See Decisions.
 - Dropping or changing the policies `cal_admin_read` or `cal_admin_append`.
-- Changing anon or authenticated privileges (SELECT only since 320) or the
-  default ACL for future tables.
+- Granting anon or authenticated privileges (SELECT only since 320), or
+  changing the default ACL for future tables. FR-004 repeats their
+  UPDATE/DELETE revokes defensively.
 - A cleanup or retention process for the log.
 - Applying 356 to production in this spec's staging work.
 
@@ -96,9 +102,10 @@ requirements on its merge base.
 
 ## Requirements
 
-- **FR-001:** `public.class_action_log` is append-only for every role, including the table owner and `service_role`: UPDATE and DELETE stay refused by the existing `BEFORE UPDATE OR DELETE … FOR EACH ROW` trigger `trg_class_action_log_append_only` (198:123-135) with its current message, and TRUNCATE is refused by a new `BEFORE TRUNCATE … FOR EACH STATEMENT` trigger added in migration 356; every refusal raises SQLSTATE `P0001`, and no row is changed or removed.
-- **FR-002:** After migration 356, `service_role` keeps SELECT and INSERT on `public.class_action_log` (the backend write path); TRIGGER, REFERENCES and, on PostgreSQL 17 or later only, MAINTAIN are revoked from `service_role` and PUBLIC; TRUNCATE stays revoked from PUBLIC, anon, authenticated and `service_role` as in 204:22-23; the migration grants no privilege to any role.
+- **FR-001:** `public.class_action_log` is append-only for every role, including the table owner and `service_role`: UPDATE and DELETE remain protected by the existing `BEFORE UPDATE OR DELETE … FOR EACH ROW` trigger `trg_class_action_log_append_only` (198:133-136) with its current message, and TRUNCATE is protected by a new `BEFORE TRUNCATE … FOR EACH STATEMENT` trigger added in migration 356; each trigger refusal raises SQLSTATE `P0001`, while a missing ACL privilege refuses the statement earlier with `42501` (including service_role UPDATE/DELETE under FR-004), and no row is changed or removed.
+- **FR-002:** After migration 356, the final privilege matrix for `service_role` on `public.class_action_log` is SELECT and INSERT only (the backend write/read paths); UPDATE and DELETE are revoked by FR-004; TRIGGER, REFERENCES and, on PostgreSQL 17 or later only, MAINTAIN are revoked from `service_role` and PUBLIC; TRUNCATE stays revoked from PUBLIC, anon, authenticated and `service_role` as in 204:22-23; the up migration grants no privilege to any role.
 - **FR-003:** The policy `cal_admin_append` is not dropped or changed; migration 356 adds a `COMMENT ON POLICY cal_admin_append ON public.class_action_log` stating that it has had no effect since migration 320 revoked INSERT from `authenticated`, that the backend writes as `service_role`, and that it is kept on purpose (P3-SA-3).
+- **FR-004:** Migration 356 executes `REVOKE UPDATE, DELETE ON public.class_action_log FROM service_role` and repeats the same revoke for PUBLIC, anon and authenticated to remove any remaining grants, as a second defense beside the unchanged row trigger from migration 198; service_role UPDATE and DELETE fail with SQLSTATE `42501` at the ACL check before the trigger, `LOCK TABLE public.class_action_log IN ACCESS EXCLUSIVE MODE` and SELECT FOR UPDATE are denied with `42501`, and INSERT and SELECT still succeed; the down script must not re-grant UPDATE or DELETE, including through `GRANT ALL`.
 
 ## Acceptance scenarios
 
@@ -108,17 +115,19 @@ requirements on its merge base.
 - **When** the owner runs `TRUNCATE public.class_action_log`, and separately `SET ROLE service_role` runs the same statement
 - **Then** the owner's statement fails with SQLSTATE `P0001` from the new trigger, `service_role`'s fails (with `42501` from the ACL while 204 holds, and with `P0001` when TRUNCATE is re-granted to it in the test), and the row count is unchanged
 
-### Scenario 2 — UPDATE and DELETE still refused (FR-001)
+### Scenario 2 — ACL and row trigger both protect UPDATE/DELETE (FR-001, FR-004)
 
 - **Given** the same database
 - **When** the owner and `service_role` UPDATE or DELETE an existing row
-- **Then** each fails with SQLSTATE `P0001` and the existing 198 append-only message, and the row is unchanged
+- **Then** the owner's statements fail with SQLSTATE `P0001` and the existing 198 append-only message; service_role's statements fail earlier with `42501` from the ACL, and the row is unchanged
+- **And** in isolated test transactions only, re-grant UPDATE/DELETE to service_role and repeat: both fail with `P0001` and the existing 198 message, proving the row trigger still protects a later accidental grant; roll back those grants
 
-### Scenario 3 — backend write path intact, extra privileges gone (FR-002)
+### Scenario 3 — backend path intact, mutation and lock privileges gone (FR-002, FR-004)
 
 - **Given** the same database
 - **When** the test reads `has_table_privilege` / `has_any_column_privilege` and `aclexplode(relacl)` for `public.class_action_log`
-- **Then** `service_role` has SELECT and INSERT, an INSERT as `service_role` succeeds, `service_role` and PUBLIC have no TRIGGER, REFERENCES or TRUNCATE, and on PostgreSQL 17 or later no MAINTAIN; on PostgreSQL 16 the migration runs without naming MAINTAIN
+- **Then** service_role has only SELECT and INSERT and both operations succeed; service_role, PUBLIC, anon and authenticated have no UPDATE/DELETE, service_role and PUBLIC have no TRIGGER, REFERENCES or TRUNCATE, and on PostgreSQL 17 or later no MAINTAIN; on PostgreSQL 16 the migration runs without naming MAINTAIN
+- **And** as service_role, `LOCK TABLE public.class_action_log IN ACCESS EXCLUSIVE MODE` and `SELECT … FROM public.class_action_log FOR UPDATE` each fail with `42501`. SA probe2 confirms the LOCK denial with SELECT+INSERT only; its successful SELECT FOR UPDATE probe retained UPDATE/DELETE. The SELECT FOR UPDATE denial is required acceptance evidence for T001, not a result established by that probe
 
 ### Scenario 4 — policy kept and explained (FR-003)
 
@@ -126,11 +135,19 @@ requirements on its merge base.
 - **When** the test reads `pg_policies` and `obj_description` of the `cal_admin_append` policy
 - **Then** both `cal_admin_read` and `cal_admin_append` exist with their 198 definitions, and the comment states the policy is inert since 320 and kept on purpose
 
-### Scenario 5 — re-run and negative control (FR-001, FR-002, FR-003)
+### Scenario 5 — re-run and negative control (FR-001, FR-002, FR-003, FR-004)
 
 - **Given** migration 356 has been applied
 - **When** it runs a second time, and, in a negative control, the database is built without the new trigger
 - **Then** the second run succeeds and every assertion above still holds; without the trigger the owner TRUNCATE test fails (the owner empties the table)
+
+### Scenario 6 — ACL refuses mutations before the trigger; down keeps the revokes (FR-004)
+
+- **Given** the same real PostgreSQL database, a seeded log row, and a non-owner, non-superuser service_role with only SELECT and INSERT
+- **When** separate transactions use `SET LOCAL ROLE service_role` (asserting `current_user`) to UPDATE and DELETE the row
+- **Then** both fail with `42501` before any row trigger executes; in an isolated negative control with the row trigger disabled by the owner, the same statements still fail with `42501` and the row stays unchanged
+- **When** service_role attempts ACCESS EXCLUSIVE LOCK and SELECT FOR UPDATE, each fails with `42501`; ordinary INSERT and SELECT still succeed
+- **When** the 356 down script runs, UPDATE/DELETE remain absent for service_role, PUBLIC, anon and authenticated; repeating service_role UPDATE/DELETE still yields `42501`. The down script has no direct UPDATE/DELETE grant and no broad grant that restores them
 
 ## Edge cases
 
@@ -155,7 +172,8 @@ requirements on its merge base.
 - On staging after apply, `pg_trigger` shows the new `BEFORE TRUNCATE` trigger
   enabled on `public.class_action_log`, and
   `has_table_privilege('service_role','public.class_action_log','TRIGGER')`,
-  `… 'REFERENCES'` and `… 'MAINTAIN'` are false while `… 'SELECT'` and
+  `… 'REFERENCES'`, `… 'TRUNCATE'`, `… 'UPDATE'`, `… 'DELETE'` and
+  `… 'MAINTAIN'` (PG 17+) are false while `… 'SELECT'` and
   `… 'INSERT'` are true.
 - Teachers' due-date changes and returns still write log rows on staging, and
   the admin log view still reads them.
@@ -164,13 +182,19 @@ requirements on its merge base.
 
 ## Decisions
 
-1. UPDATE/DELETE are not revoked from `service_role`. Q-0835-CAL-APPENDONLY,
-   as approved, asks for the TRUNCATE trigger and for revoking
-   TRIGGER/REFERENCES/MAINTAIN. "service_role keeps SELECT and INSERT" means
-   the backend path needs exactly those two; UPDATE/DELETE stay refused by the
-   row trigger (P0001), which #2041 already tests for `service_role`. Revoking
-   them as well would change that refusal to `42501` and needs a separate
-   amendment.
+1. Q-1403-CAL-REVOKE-UD ("CALUD ok"; Leader báo anh Vinh duyệt 14:07 (t803u))
+   extends Q-0835: migration 356 also revokes UPDATE/DELETE from service_role
+   (FR-004). Its final privileges are SELECT and INSERT only (SA F1).
+   The ACL now refuses UPDATE/DELETE with `42501` before the unchanged row
+   trigger; the owner, or a test that deliberately re-grants the privilege,
+   still reaches the trigger's `P0001`.
+   SA F2/probe2 shows that retaining UPDATE/DELETE permits ACCESS EXCLUSIVE
+   LOCK even after MAINTAIN is revoked, blocking log inserts; SELECT+INSERT
+   only instead gives `42501`. Revoking UPDATE/DELETE also removes service_role's
+   SELECT FOR UPDATE capability. The supplied probe demonstrates that
+   capability with UPDATE/DELETE retained, but does not probe its denial with
+   SELECT+INSERT only; T001 must verify that denial. No broader claim about
+   other lock modes or deployed role inheritance is made here.
 2. The TRUNCATE trigger may reuse `fn_class_action_log_append_only()` (a
    plpgsql trigger function works at statement level) or use a new function
    following 332:208-218 (`SET search_path = public, pg_temp`, ERRCODE

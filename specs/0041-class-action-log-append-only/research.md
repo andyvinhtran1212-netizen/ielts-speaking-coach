@@ -32,11 +32,29 @@ From the Security Auditor's check in `reviews/PR-2022.md` (staging
 
 ## Usage
 
-- Backend writes: `backend/services/class_assignment_service.py:479`
-  (`insert`); reads: `:501`; admin route
-  `backend/routers/admin_class_assignments.py:2850`. No code, script, test or
-  workflow issues TRUNCATE, UPDATE or DELETE on the table (`git grep`, staging
-  `0243e4e6f`).
+- PC-J347 audit on #2045 base `5d9296ec292db288d4209d14f563a38c3b352ca1`:
+  `rg -n -i 'class_action_log' backend/` finds production writes only in
+  `log_class_action`, `backend/services/class_assignment_service.py:479`
+  (`insert`), and reads in `read_class_actions` (`:501`), called by the admin
+  route `backend/routers/admin_class_assignments.py:2850`. The admin client
+  uses `SUPABASE_SERVICE_KEY` (`backend/database.py:30-31`). No backend code or
+  operational script UPDATEs or DELETEs this table; migration 198's commented
+  UPDATE probe and trigger definition are not runtime consumers. No UPDATE or
+  DELETE compatibility blocker was found. Re-run before T001; any newly found
+  consumer requires stopping and reporting to PC/Leader.
+
+## CALUD evidence and limits (SA F1/F2)
+
+- `reviews/PR-2045.md` F1 records that the old FR-002 "keeps SELECT and INSERT"
+  differed from its matrix retaining UPDATE/DELETE. Q-1403-CAL-REVOKE-UD is now
+  approved: Leader báo anh Vinh duyệt 14:07 (t803u), verbatim "CALUD ok".
+  FR-002/FR-004 make the final matrix SELECT and INSERT only.
+- SA's local synthetic PG 17.11 probe2 (`/workspace/qa/pr2045/sa-probe2.sql`
+  and `.out`, summarized in that review) shows ACCESS EXCLUSIVE LOCK succeeds
+  with UPDATE/DELETE retained after MAINTAIN is removed, and fails with `42501`
+  with SELECT+INSERT only. SELECT FOR UPDATE succeeds in the former case;
+  its denial in the latter was not probed in those artifacts and remains
+  required T001 evidence. These probes are not a deployed staging test.
 
 ## Related open work (2026-10-30)
 
@@ -49,4 +67,6 @@ From the Security Auditor's check in `reviews/PR-2022.md` (staging
 
 - Migration 356 is a high-risk path (`backend/scripts/validate_specs.py`
   `HIGH_RISK_PATH_RE`), so its PR needs approved FRs on its merge base whose
-  text matches; this spec provides FR-001..FR-003.
+  text matches; this amended spec provides FR-001..FR-004. PC-J347 changes
+  intent documents only; no migration is applied and no database write or
+  mutation probe is performed as part of this spec-only amendment.
