@@ -189,6 +189,27 @@ run the catalog query in the SQL header (client false/false, service true, no
 PUBLIC `=X`), then view admin overview/trends and check backend logs for RPC
 42501/fallback. No staging or production application is part of this code job.
 
+Migration `358` (PC-J406, SVCPRIV-0042 FR-010, SA P2-R2-1) pins
+`search_path = public, pg_temp` on every function and procedure in `public`
+whose `proconfig` has no `search_path` entry. On staging (2026-10-30) these are
+the four 283 grammar trigger functions; `prevent_grammar_release_content_mutation`
+reads `grammar_content_releases` unqualified and fires as the table owner
+through the `release_id` ON DELETE CASCADE, so a `service_role` session that
+shadowed the name with a temp view ran its own code as the owner. `pg_temp` is
+listed last because a path without it searches it first. Bodies, owners, ACLs
+and functions that already have a `search_path` are unchanged; 345 pins the
+same four functions and 358 does not depend on it. The precondition aborts if
+the runner cannot alter an unpinned function; the postcondition fails if any
+`public` routine still lacks a `search_path`. Group `function_search_path_pin`
+in `forward-policy.tsv`: merging does not apply it; staging first under the
+advisory lock after 357, production only at an authorised promotion after the
+SA retest passes. One transaction, no data change, re-runnable. There is no
+rollback: removing the pin reopens the hole, and the header rollback of 345
+(`RESET search_path`) must not run after 358.
+`tests/test_migration_function_search_path_guard.py` fails any new
+`CREATE FUNCTION` or `CREATE PROCEDURE` in `backend/migrations/` without
+`SET search_path`, and any new `RESET search_path`.
+
 Migration `352` (PC-J201, ADMINAAL2-0032 FR-010/FR-011, SA #1936 P3 c–f)
 adds the private `staff_mfa_status_throttle` table for shared admission to the
 caller-only MFA status sweep: successful-state cooldown, six rolling-minute
