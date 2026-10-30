@@ -1,7 +1,7 @@
 // U-01/U-17: exercise the real Next header and shadow chrome with synthetic
 // auth/read fixtures. No backend request or database mutation leaves this spec.
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 const { primeBypassCookie } = require('./helpers');
 
 test.use({ viewport: { width: 390, height: 844 } });

@@ -7,7 +7,7 @@
 //   * Email provider is ENABLED on the staging Supabase project
 //   * E2E_PASSWORD matches the seed password (or the documented default)
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 const STAGING_SUPABASE = 'https://zjphffoujxkpltixsbzj.supabase.co';
 const STAGING_API = 'https://ielts-speaking-coach-staging.up.railway.app';
