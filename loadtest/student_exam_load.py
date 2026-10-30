@@ -27,7 +27,10 @@ Optional flows for the capacity ladder (``--mix``): ``speaking`` (create a
 session, generate questions, upload a small fixed audio clip while the
 grading budget lasts) and ``writing`` (list assignments/essays, submit while
 the grading budget lasts). Real grading calls are capped in code at 20
-Speaking and 10 Writing per process, whatever the CLI asks for.
+Speaking and 10 Writing per process, whatever the CLI asks for. The Speaking
+budget also covers ``POST /sessions/{id}/questions/generate``: that route
+calls Gemini for topics missing from the library, so every generate call
+reserves one unit; without budget the flow only reads ``GET .../questions``.
 
 HARD GUARD: every URL is checked against a staging/local allowlist before the
 first request and again on every request (httpx event hook, redirects off).
@@ -168,6 +171,9 @@ class EndpointStats:
     statuses: dict[str, int] = field(default_factory=lambda: defaultdict(int))
     errors: int = 0
     timeouts: int = 0
+    # 4xx quota/activation refusals (e.g. POST /sessions 429 "hết lượt"): an
+    # account-state artefact, not a load failure, so kept out of errors.
+    quota_rejections: int = 0
 
     def summary(self) -> dict:
         n = sum(self.statuses.values())
@@ -179,6 +185,7 @@ class EndpointStats:
             "max_ms": _r(max(self.latencies_ms) if self.latencies_ms else None),
             "errors": self.errors,
             "timeouts": self.timeouts,
+            "quota_rejections": self.quota_rejections,
             "error_rate": round(self.errors / n, 4) if n else None,
             "statuses": dict(sorted(self.statuses.items())),
         }
@@ -197,29 +204,34 @@ class Recorder:
         self.sessions: list[dict] = []
         self.notes: list[str] = []
         self.grades = {"speaking": 0, "writing": 0}
+        self.generate_calls = 0   # subset of grades["speaking"]
         # probe path -> {probe key: monotonic start} for probes still waiting
         self.probe_inflight: dict[str, dict[int, float]] = defaultdict(dict)
 
     def t(self) -> float:
         return round(time.monotonic() - self.started, 3)
 
-    def add(self, endpoint: str, ms: float, status: str, ok: bool, timeout: bool) -> None:
+    def add(self, endpoint: str, ms: float, status: str, ok: bool, timeout: bool,
+            quota: bool = False) -> None:
         st = self.by_endpoint[endpoint]
         st.latencies_ms.append(ms)
         st.statuses[status] += 1
-        if not ok:
+        if quota:
+            st.quota_rejections += 1
+        elif not ok:
             st.errors += 1
         if timeout:
             st.timeouts += 1
 
     def overall(self) -> dict:
         lat: list[float] = []
-        n = errors = timeouts = 0
+        n = errors = timeouts = quota = 0
         for st in self.by_endpoint.values():
             lat.extend(st.latencies_ms)
             n += sum(st.statuses.values())
             errors += st.errors
             timeouts += st.timeouts
+            quota += st.quota_rejections
         return {
             "count": n,
             "p50_ms": _r(percentile(lat, 50)),
@@ -228,6 +240,7 @@ class Recorder:
             "max_ms": _r(max(lat) if lat else None),
             "errors": errors,
             "timeouts": timeouts,
+            "quota_rejections": quota,
             "error_rate": round(errors / n, 4) if n else None,
         }
 
@@ -275,8 +288,11 @@ def make_client(base_url: str, timeout_s: float):
 
 
 async def call(rec: Recorder, client, method: str, path: str, endpoint: str,
-               token: str | None = None, **kw):
-    """One timed request. Returns (status_code|None, json|None)."""
+               token: str | None = None, quota_statuses: tuple[int, ...] = (), **kw):
+    """One timed request. Returns (status_code|None, json|None).
+
+    ``quota_statuses`` are 4xx codes the route uses for account quota or
+    activation refusals; they are counted as quota_rejections, not errors."""
     import httpx
     headers = dict(kw.pop("headers", {}) or {})
     if token:
@@ -294,7 +310,8 @@ async def call(rec: Recorder, client, method: str, path: str, endpoint: str,
         return None, None
     ms = (time.monotonic() - t0) * 1000
     ok = 200 <= resp.status_code < 300
-    rec.add(endpoint, ms, str(resp.status_code), ok, False)
+    rec.add(endpoint, ms, str(resp.status_code), ok, False,
+            quota=resp.status_code in quota_statuses)
     try:
         body = resp.json()
     except ValueError:
@@ -461,16 +478,23 @@ async def speaking_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
     async with make_client(a.base_url, a.request_timeout) as c:
         await call(rec, c, "GET", "/auth/me", "GET /auth/me", token=token)
         await beacon(ctx, c, token, "/speaking", ui)
+        # 403 = account not activated, 429 = code quota / daily cap (sessions.py).
         st, s = await call(rec, c, "POST", "/sessions", "POST /sessions", token=token,
-                           json={"mode": "practice", "part": 1, "topic": "Hometown"})
+                           quota_statuses=(403, 429),
+                           json={"mode": "practice", "part": 1, "topic": a.speaking_topic})
         sid = (s.get("session_id") or s.get("id")) if isinstance(s, dict) else None
         if not sid:
             rec.notes.append(f"{ui}: speaking session create failed status={st}")
             return
         rec.sessions.append({"kind": "speaking", "session_id": str(sid),
                              "account": f"user#{account}", "vu": vu, "t": rec.t()})
-        st, qs = await call(rec, c, "POST", f"/sessions/{sid}/questions/generate",
-                            "POST /sessions/{id}/questions/generate", token=token, json={})
+        # generate may call Gemini (topic not in the library), so it spends
+        # the same capped Speaking budget as a graded upload.
+        st = None
+        if _take_grade(ctx, "speaking"):
+            rec.generate_calls += 1
+            st, qs = await call(rec, c, "POST", f"/sessions/{sid}/questions/generate",
+                                "POST /sessions/{id}/questions/generate", token=token, json={})
         if st != 200:
             st, qs = await call(rec, c, "GET", f"/sessions/{sid}/questions",
                                 "GET /sessions/{id}/questions", token=token)
@@ -555,14 +579,14 @@ async def probe_loop(ctx: Ctx, path: str, interval: float, sink: str) -> None:
                                      "lag_p95_ms": lag.get("lag_ms_p95"),
                                      "lag_max_ms": lag.get("lag_ms_max"),
                                      "raw": lag})
-                return
-        except httpx.HTTPError as exc:
+        except (httpx.HTTPError, ValueError) as exc:
             row.update(ms=round((time.monotonic() - t0) * 1000, 1), status=type(exc).__name__,
                        ok=False)
         finally:
             rec.probe_inflight[path].pop(key, None)
-        if sink == "health":
-            rec.health.append(row)
+        # Every probe row (async-db included) lands in the health timeline so a
+        # failed or non-200 lag probe shows up as a failure, not as silence.
+        rec.health.append(row)
 
     async with make_client(a.base_url, a.probe_timeout) as client:
         while not ctx.stop.is_set() and time.monotonic() < ctx.deadline + a.tail_seconds:
@@ -672,6 +696,7 @@ async def run_step(args, tokens: list[str], users: int, writing_targets: dict[in
         "async_db_timeline": rec.async_db,
         "sessions": rec.sessions,
         "real_grading_calls": dict(rec.grades),
+        "generate_calls": rec.generate_calls,
         "notes": rec.notes,
     }
 
@@ -695,28 +720,31 @@ def render_markdown(report: dict) -> str:
              f"- Bank: `{report['args']['bank_id']}` class_item: `{report['args']['class_item']}`",
              f"- Mix: `{report['args']['mix']}` · ramp {report['args']['ramp_seconds']} s · "
              f"duration {report['args']['duration_seconds']} s",
-             f"- Real grading calls: {json.dumps(report['real_grading_calls'])}", ""]
+             f"- Real grading calls (Speaking includes {report.get('generate_calls', 0)} question generate): "
+             f"{json.dumps(report['real_grading_calls'])}", ""]
     if report.get("broke_at"):
         lines += [f"**Ladder stopped at {report['broke_at']['users']} users: "
                   f"{report['broke_at']['reason']}**", ""]
     lines += ["## Summary per step", "",
-              "| users | stop | requests | p50 ms | p95 ms | p99 ms | max ms | errors | timeouts | err % | /health p95 | /health max | /health/ready p95 | loop lag p95 max |",
-              "|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
+              "| users | stop | requests | p50 ms | p95 ms | p99 ms | max ms | errors | timeouts | quota 4xx | err % | /health p95 | /health max | /health/ready p95 | loop lag p95 max |",
+              "|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
     for s in report["steps"]:
         o, h = s["overall"], s["health"]
         hb, hr = h.get("/health", {}), h.get("/health/ready", {})
         er = "" if o["error_rate"] is None else f"{o['error_rate'] * 100:.1f}"
         lines.append(f"| {s['users']} | {s['stop_reason']} | {o['count']} | {o['p50_ms']} | {o['p95_ms']} | "
-                     f"{o['p99_ms']} | {o['max_ms']} | {o['errors']} | {o['timeouts']} | {er} | "
+                     f"{o['p99_ms']} | {o['max_ms']} | {o['errors']} | {o['timeouts']} | "
+                     f"{o['quota_rejections']} | {er} | "
                      f"{hb.get('p95_ms')} | {hb.get('max_ms')} | {hr.get('p95_ms')} | "
                      f"{h['event_loop_lag']['max_of_lag_p95_ms']} |")
     for s in report["steps"]:
         lines += ["", f"## Step: {s['users']} users ({json.dumps(s['flows'])})", "",
-                  "| endpoint | n | p50 | p95 | p99 | max | errors | timeouts | statuses |",
-                  "|---|---:|---:|---:|---:|---:|---:|---:|---|"]
+                  "| endpoint | n | p50 | p95 | p99 | max | errors | timeouts | quota 4xx | statuses |",
+                  "|---|---:|---:|---:|---:|---:|---:|---:|---:|---|"]
         for ep, e in s["endpoints"].items():
             lines.append(f"| `{ep}` | {e['count']} | {e['p50_ms']} | {e['p95_ms']} | {e['p99_ms']} | "
-                         f"{e['max_ms']} | {e['errors']} | {e['timeouts']} | `{json.dumps(e['statuses'])}` |")
+                         f"{e['max_ms']} | {e['errors']} | {e['timeouts']} | {e['quota_rejections']} | "
+                         f"`{json.dumps(e['statuses'])}` |")
         lines += ["", "| probe | n | p50 | p95 | max | failures |", "|---|---:|---:|---:|---:|---:|"]
         for p, hsum in s["health"].items():
             if p == "event_loop_lag":
@@ -732,6 +760,8 @@ def render_markdown(report: dict) -> str:
               "- Fewer accounts than users means several virtual students share one account/assignment item: "
               "per-user caches and per-user rate limits can make numbers look better (or 409s worse) than real classes.",
               "- Probes run from the same host as the load, so probe latency includes this box's network path.",
+              "- POST /sessions 403/429 (activation / code quota / daily cap) are counted as quota 4xx, "
+              "not errors, and do not break the ladder.",
               ""]
     return "\n".join(lines)
 
@@ -763,9 +793,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--ladder-max-p95-ms", type=float, default=10000.0)
     p.add_argument("--step-cooldown-seconds", type=float, default=30.0)
     p.add_argument("--max-speaking-grades", type=int, default=0,
-                   help=f"real Speaking grading uploads (clamped to {MAX_SPEAKING_GRADES_CEILING})")
+                   help=f"real Speaking calls: question generate + graded uploads (clamped to {MAX_SPEAKING_GRADES_CEILING})")
     p.add_argument("--max-writing-grades", type=int, default=0,
                    help=f"real Writing submits (clamped to {MAX_WRITING_GRADES_CEILING})")
+    p.add_argument("--speaking-topic", default="Hometown",
+                   help="Part 1 topic for the speaking flow (prefer a library topic: no Gemini call)")
     p.add_argument("--audio-file", default=None, help="fixed small audio clip; default = 3 s synthetic WAV")
     p.add_argument("--writing-targets-file", default=None,
                    help="JSON {\"<account#>\": \"<writing assignment id>\"} for capped submits")
@@ -838,6 +870,7 @@ async def amain(args, tokens: list[str]) -> dict:
             await asyncio.sleep(args.step_cooldown_seconds)
     report["real_grading_calls"] = {
         k: sum(s["real_grading_calls"][k] for s in report["steps"]) for k in ("speaking", "writing")}
+    report["generate_calls"] = sum(s.get("generate_calls", 0) for s in report["steps"])
     return report
 
 

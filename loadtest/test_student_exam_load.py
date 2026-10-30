@@ -268,3 +268,101 @@ def test_abort_watch_trips_on_stalled_probes():
 
     stopped, notes = asyncio.run(go())
     assert stopped and notes and notes[0].startswith("ABORT")
+
+
+# ── Speaking budget, quota 4xx, async-db probe failures (CR #2083 P2-1/P3) ──
+
+def _speaking_backend(calls, sessions_status=201, async_db_status=200):
+    counter = {"n": 0}
+
+    def handler(request):
+        path = request.url.path
+        calls.append((request.method, path))
+        if path == "/health/async-db":
+            if async_db_status != 200:
+                return httpx.Response(async_db_status, json={"detail": "down"})
+            return httpx.Response(200, json={"event_loop_lag": {"lag_ms_p95": 3.0, "lag_ms_max": 9.0}})
+        if path.startswith("/health"):
+            return httpx.Response(200, json={"status": "ok"})
+        if path == "/sessions" and request.method == "POST":
+            if sessions_status != 201:
+                return httpx.Response(sessions_status, json={"detail": "hết lượt"})
+            counter["n"] += 1
+            return httpx.Response(201, json={"session_id": f"s{counter['n']}"})
+        if path.endswith("/questions/generate") or path.endswith("/questions"):
+            return httpx.Response(200, json=[{"id": "q1"}])
+        return httpx.Response(200, json={"ok": True})
+
+    return handler
+
+
+def _run_mocked(monkeypatch, tmp_path, handler, argv):
+    real = lt.make_client
+
+    def mocked(base_url, timeout_s):
+        client = real(base_url, timeout_s)
+        client._transport = httpx.MockTransport(handler)
+        return client
+
+    monkeypatch.setattr(lt, "make_client", mocked)
+    rc = lt.main(["--base-url", "http://localhost:8000", "--ramp-seconds", "0",
+                  "--beacon-seconds", "0.3", "--tail-seconds", "0", "--health-interval", "0.2",
+                  "--async-db-interval", "0.2", "--label", "unit", "--out-dir", str(tmp_path),
+                  *argv], environ={"LOADTEST_TOKEN_1": "t"})
+    assert rc == 0
+    return json.loads(next(p for p in tmp_path.iterdir() if p.suffix == ".json"
+                           and not p.name.endswith("-sessions.json")).read_text())
+
+
+def test_speaking_generate_spends_the_capped_budget(monkeypatch, tmp_path):
+    """8 speaking students, budget 3: generate + uploads together stay <= 3."""
+    calls = []
+    report = _run_mocked(monkeypatch, tmp_path, _speaking_backend(calls), [
+        "--mix", "speaking=1", "--users", "8", "--sessions-per-user", "8",
+        "--duration-seconds", "1", "--max-speaking-grades", "3"])
+    generate = sum(1 for m, p in calls if p.endswith("/questions/generate"))
+    uploads = sum(1 for m, p in calls if p.endswith("/responses"))
+    assert generate + uploads <= 3
+    assert generate >= 1
+    assert report["real_grading_calls"]["speaking"] == generate + uploads
+    assert report["generate_calls"] == generate
+    # Students without budget only read the existing questions.
+    assert sum(1 for m, p in calls if m == "GET" and p.endswith("/questions")) >= 8 - generate
+
+
+def test_speaking_generate_never_called_without_budget(monkeypatch, tmp_path):
+    calls = []
+    _run_mocked(monkeypatch, tmp_path, _speaking_backend(calls), [
+        "--mix", "speaking=1", "--users", "4", "--sessions-per-user", "4",
+        "--duration-seconds", "0.5"])
+    assert not any(p.endswith("/questions/generate") or p.endswith("/responses") for _, p in calls)
+
+
+def test_speaking_ceiling_holds_across_ladder(monkeypatch, tmp_path):
+    calls = []
+    report = _run_mocked(monkeypatch, tmp_path, _speaking_backend(calls), [
+        "--mix", "speaking=1", "--ladder", "15,15", "--sessions-per-user", "15",
+        "--duration-seconds", "0.5", "--step-cooldown-seconds", "0", "--max-speaking-grades", "999"])
+    real = sum(1 for _, p in calls if p.endswith("/questions/generate") or p.endswith("/responses"))
+    assert real <= lt.MAX_SPEAKING_GRADES_CEILING
+    assert report["real_grading_calls"]["speaking"] == real
+
+
+def test_session_quota_429_is_not_a_load_error(monkeypatch, tmp_path):
+    calls = []
+    report = _run_mocked(monkeypatch, tmp_path, _speaking_backend(calls, sessions_status=429), [
+        "--mix", "speaking=1", "--users", "3", "--sessions-per-user", "3",
+        "--duration-seconds", "0.3"])
+    step = report["steps"][0]
+    ep = step["endpoints"]["POST /sessions"]
+    assert ep["quota_rejections"] == 3 and ep["errors"] == 0
+    assert step["overall"]["quota_rejections"] == 3 and step["overall"]["errors"] == 0
+    assert lt.step_broke(step, 0.05, 10000) is None
+
+
+def test_failed_async_db_probe_is_recorded(monkeypatch, tmp_path):
+    calls = []
+    report = _run_mocked(monkeypatch, tmp_path, _speaking_backend(calls, async_db_status=503), [
+        "--mix", "speaking=1", "--users", "1", "--duration-seconds", "0.6"])
+    h = report["steps"][0]["health"]["/health/async-db"]
+    assert h["count"] >= 1 and h["failures"] == h["count"]

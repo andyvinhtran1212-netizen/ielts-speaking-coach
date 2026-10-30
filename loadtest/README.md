@@ -13,9 +13,20 @@ before/after a hotfix.
   `staging.averlearning.com`, `localhost`, `127.0.0.1`. Production hosts and
   every other host are refused with exit code 2 before the first request. A
   `LOADTEST_*` env value that mentions a production host is refused too.
-- Real grading calls are opt-in and capped in code: at most 20 Speaking
-  uploads (`--max-speaking-grades`) and 10 Writing submits
-  (`--max-writing-grades`) per process. Both default to 0.
+- **`localhost` / `127.0.0.1` are allowlisted for local backends only.** The
+  guard checks the host name, not where it leads: never point it at a tunnel
+  or port-forward (`ssh -L`, `railway connect`, a proxy) that reaches
+  production, because the guard cannot tell.
+- Real LLM calls are opt-in and capped in code: at most 20 Speaking calls
+  (`--max-speaking-grades`) and 10 Writing submits (`--max-writing-grades`)
+  per process, across all ladder steps. Both default to 0. The Speaking budget
+  covers `POST /sessions/{id}/questions/generate` as well as graded uploads,
+  because generate calls Gemini when the topic is not in the library; without
+  budget a Speaking student only reads `GET /sessions/{id}/questions`. Use a
+  library topic (`--speaking-topic`) to keep generate off the LLM.
+- `POST /sessions` 403/429 (account not activated, code quota, daily cap) are
+  reported as `quota 4xx`, not as load errors, and do not stop the ladder.
+  Failed or non-200 `/health/async-db` probes are listed as probe failures.
 - Tokens are read from `LOADTEST_ACCOUNTS_FILE` (one access token per line,
   or a JSON list of strings / `{"token": ...}`) or `LOADTEST_TOKEN_1..n`.
   They are never printed; reports name accounts `user#k`. Supabase access
