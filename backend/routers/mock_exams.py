@@ -23,6 +23,7 @@ Namespace note: distinct from /api/exams (the MCQ module). Prefix /api/mock-exam
   GET  /api/mock-exams/sittings/{id}/result                 — 403 until released, then TRF
 """
 from __future__ import annotations
+import asyncio
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 from pydantic import BaseModel, Field
@@ -89,7 +90,7 @@ class IntegrityBody(BaseModel):
 async def list_open(authorization: str | None = Header(default=None)):
     """Open exams the student can start (published + is_open + cohort-eligible)."""
     user = await get_supabase_user(authorization)
-    return {"exams": svc.list_open_exams(user["id"])}
+    return {"exams": await asyncio.to_thread(svc.list_open_exams, user["id"])}
 
 
 @router.get("/my-sittings")
@@ -97,14 +98,14 @@ async def my_sittings(authorization: str | None = Header(default=None)):
     """The caller's own sittings (resume targets + released results) — powers the
     student home's mock section + result tile."""
     user = await get_supabase_user(authorization)
-    return {"sittings": svc.list_my_sittings(user["id"])}
+    return {"sittings": await asyncio.to_thread(svc.list_my_sittings, user["id"])}
 
 
 @router.post("/{code}/sittings")
 async def open_sitting(code: str, authorization: str | None = Header(default=None)):
     user = await get_supabase_user(authorization)
     try:
-        return svc.create_sitting(user["id"], code)
+        return await asyncio.to_thread(svc.create_sitting, user["id"], code)
     except Exception as e:  # noqa: BLE001 — mapped to HTTP below
         _raise_for(e)
 
@@ -114,10 +115,17 @@ async def get_sitting_state(
     sitting_id: str, authorization: str | None = Header(default=None),
 ):
     user = await get_supabase_user(authorization)
+    return await asyncio.to_thread(_sitting_state_sync, sitting_id, user["id"])
+
+
+def _sitting_state_sync(sitting_id: str, user_id) -> dict:
+    """Body of GET /sittings/{id} after auth. Every step is a sync PostgREST /
+    Storage call, so it runs in ONE worker thread (PC-J423) — the runner polls
+    this during a live exam and must not hold the event loop."""
     sitting = svc.get_sitting(sitting_id)
     if not sitting:
         raise HTTPException(404, "Sitting không tồn tại.")
-    if str(sitting.get("user_id")) != str(user["id"]):
+    if str(sitting.get("user_id")) != str(user_id):
         raise HTTPException(403, "Sitting không thuộc về bạn.")
     exam = svc.get_published_exam_by_id(sitting["mock_exam_id"])
     if svc.is_retake(exam):
@@ -180,7 +188,8 @@ async def acknowledge_collection_flush(
     """
     user = await get_supabase_user(authorization)
     try:
-        return svc.acknowledge_collection_flush(sitting_id, user["id"], section)
+        return await asyncio.to_thread(
+            svc.acknowledge_collection_flush, sitting_id, user["id"], section)
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 
@@ -195,7 +204,7 @@ async def start_section(
     admin's advance instead."""
     user = await get_supabase_user(authorization)
     try:
-        return svc.start_section(sitting_id, user["id"], section)
+        return await asyncio.to_thread(svc.start_section, sitting_id, user["id"], section)
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 
@@ -207,7 +216,8 @@ async def attach_attempt(
 ):
     user = await get_supabase_user(authorization)
     try:
-        return svc.attach_attempt(sitting_id, user["id"], body.section, body.attempt_id)
+        return await asyncio.to_thread(
+            svc.attach_attempt, sitting_id, user["id"], body.section, body.attempt_id)
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 
@@ -219,7 +229,8 @@ async def submit_writing(
 ):
     user = await get_supabase_user(authorization)
     try:
-        return svc.submit_writing(sitting_id, user["id"], body.task1_text, body.task2_text)
+        return await asyncio.to_thread(
+            svc.submit_writing, sitting_id, user["id"], body.task1_text, body.task2_text)
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 
@@ -238,13 +249,26 @@ async def submit_section(
     they land 'graded' + ready for admin review without a manual "Bắt đầu chấm"
     click (the review + release still gate on the admin approving each)."""
     user = await get_supabase_user(authorization)
+    result, queued = await asyncio.to_thread(
+        _submit_section_sync, sitting_id, user["id"], section, body,
+    )
+    for essay_id, job_id in queued:
+        background_tasks.add_task(essay_service._bg_grade_essay, essay_id, job_id)
+    return result
+
+
+def _submit_section_sync(sitting_id: str, user_id, section: str,
+                         body: SectionSubmitBody) -> tuple:
+    """Sync body of the section submit, run in ONE worker thread (PC-J423).
+    Returns (result, grading jobs to queue); same order of writes as before."""
     try:
         result = svc.submit_section(
-            sitting_id, user["id"], section, body.task1_text, body.task2_text,
+            sitting_id, user_id, section, body.task1_text, body.task2_text,
         )
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 
+    queued = []
     if section == "writing":
         # Re-read the sitting: submit_section's returned dict may predate the
         # promote update, but the persisted row carries the stamped essay ids.
@@ -254,9 +278,8 @@ async def submit_section(
         graded = svc.claim_mock_writing_grading(
             [sitting.get("essay_task1_id"), sitting.get("essay_task2_id")]
         )
-        for essay_id, job_id in graded["queued"]:
-            background_tasks.add_task(essay_service._bg_grade_essay, essay_id, job_id)
-    return result
+        queued = graded["queued"]
+    return result, queued
 
 
 @router.post("/sittings/{sitting_id}/integrity")
@@ -272,7 +295,8 @@ async def record_integrity(
     Monotonic + idempotent, so a retry cannot inflate or erase anything."""
     user = await get_supabase_user(authorization)
     try:
-        return svc.record_integrity(sitting_id, user["id"], body.model_dump())
+        return await asyncio.to_thread(
+            svc.record_integrity, sitting_id, user["id"], body.model_dump())
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 
@@ -284,7 +308,8 @@ async def record_speaking(
 ):
     user = await get_supabase_user(authorization)
     try:
-        return svc.record_speaking(sitting_id, user["id"], body.session_ids)
+        return await asyncio.to_thread(
+            svc.record_speaking, sitting_id, user["id"], body.session_ids)
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 
@@ -295,10 +320,16 @@ async def get_result(
 ):
     """The TRF result — 403 until the sitting is released (server-side seal)."""
     user = await get_supabase_user(authorization)
+    return await asyncio.to_thread(_result_sync, sitting_id, user["id"])
+
+
+def _result_sync(sitting_id: str, user_id) -> dict:
+    """Sync body of GET /sittings/{id}/result after auth, run in ONE worker
+    thread (PC-J423) so the reads never hold the event loop."""
     sitting = svc.get_sitting(sitting_id)
     if not sitting:
         raise HTTPException(404, "Sitting không tồn tại.")
-    if str(sitting.get("user_id")) != str(user["id"]):
+    if str(sitting.get("user_id")) != str(user_id):
         raise HTTPException(403, "Sitting không thuộc về bạn.")
     if sitting.get("status") != "released":
         raise HTTPException(403, "Kết quả đang chờ giám khảo duyệt.")
