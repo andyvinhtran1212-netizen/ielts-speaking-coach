@@ -31,11 +31,14 @@ grading is server-side via `answer_matches`.
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import hashlib
 import logging
 import re
 import secrets
 import time
+import weakref
 from collections import deque
 from datetime import datetime, timezone
 from typing import Literal, Optional
@@ -116,6 +119,54 @@ async def _is_admin(authorization: str | None) -> bool:
         return True
     except Exception:
         return False
+
+
+# PC-J436 (PC-J408 G2): the exam routes' sync bodies run in worker threads.
+# Before, each body ran in one piece on the single event loop, so one learner's
+# start / submit / autosave never overlapped; submit reads the saved answers
+# and only then compare-and-sets the attempt, so an autosave landing in between
+# would be acknowledged yet never graded. One learner's exam writes therefore
+# stay serialised in this process; different learners run in parallel.
+# submit/autosave also lock the attempt itself: a share-link attempt is owned
+# by its anon capability whether or not a Bearer token rides along, so the
+# request's credentials alone do not name one lock per attempt. Locks are
+# always taken learner first, then attempt (start takes only the learner).
+_learner_write_locks: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
+
+
+def _learner_write_lock(key: str) -> asyncio.Lock:
+    lock = _learner_write_locks.get(key)
+    if lock is None:
+        lock = _learner_write_locks[key] = asyncio.Lock()
+    return lock
+
+
+def _learner_key(user: Optional[dict], anon_id: str | None) -> str:
+    return f"user:{user['id']}" if user else f"anon:{anon_id}"
+
+
+def _attempt_write_keys(attempt_id: str, user: Optional[dict], anon_id: str | None) -> tuple[str, ...]:
+    return (_learner_key(user, anon_id), f"attempt:{attempt_id}")
+
+
+async def _learner_write(keys: tuple[str, ...], fn, *args):
+    """Run the sync write ``fn(*args)`` in a worker thread under the given locks."""
+    async with contextlib.AsyncExitStack() as held:
+        for key in keys:
+            await held.enter_async_context(_learner_write_lock(key))
+        work = asyncio.ensure_future(asyncio.to_thread(fn, *args))
+        try:
+            return await asyncio.shield(work)
+        except asyncio.CancelledError:
+            # A thread cannot be interrupted: keep the lock until it ends, however
+            # often this request is cancelled, so the learner's next write still
+            # sees this one's result. asyncio.wait never cancels ``work``.
+            while not work.done():
+                with contextlib.suppress(asyncio.CancelledError):
+                    await asyncio.wait({work})
+            if not work.cancelled():
+                work.exception()  # retrieve it: no "exception never retrieved"
+            raise
 
 
 def _gen_anon_id() -> str:
@@ -1011,11 +1062,19 @@ async def boot_reading_test(
     ``in_progress`` as either the existing resume payload or ``null``.
     """
     user = await _require_auth(authorization)
+    return await asyncio.to_thread(
+        _boot_reading_test_sync, test_id, x_reading_password, user["id"], class_item, sitting_id
+    )
+
+
+def _boot_reading_test_sync(test_id: str, x_reading_password: str | None, user_id: str,
+                            class_item: str | None, sitting_id: UUID | None) -> dict:
+    """Read-only body of boot_reading_test; runs in a worker thread."""
     test = _build_reading_test_detail(
-        test_id, x_reading_password, user["id"], class_item=class_item, sitting_id=sitting_id
+        test_id, x_reading_password, user_id, class_item=class_item, sitting_id=sitting_id
     )
     in_progress = _fetch_in_progress_payload(
-        user["id"], test_id, test, raise_on_missing=False, class_item=class_item, sitting_id=sitting_id
+        user_id, test_id, test, raise_on_missing=False, class_item=class_item, sitting_id=sitting_id
     )
     return {"test": test, "in_progress": in_progress}
 
@@ -1234,10 +1293,20 @@ async def start_reading_test_attempt(
     abandoned. Two concurrent POSTs from the same (user, test) will produce
     exactly one in_progress row in the DB; the loser retries its
     abandon-then-insert and wins next iteration."""
+    user = await _require_auth(authorization)
+    return await _learner_write(
+        (_learner_key(user, None),), _start_reading_test_attempt_sync,
+        test_id, body, class_item, x_reading_password, user,
+    )
+
+
+def _start_reading_test_attempt_sync(test_id: str, body: _ReadingAttemptStartRequest | None,
+                                     class_item: str | None, x_reading_password: str | None,
+                                     user: dict) -> dict:
+    """Sync body of start_reading_test_attempt; runs in a worker thread."""
     import uuid
     from datetime import datetime, timezone
 
-    user = await _require_auth(authorization)
     test = _fetch_published_test(test_id)
     # Reserved for a mock exam. Gating the DETAIL route was not enough: a caller
     # who starts an attempt here owns it, and the review endpoint trusts attempt
@@ -1430,11 +1499,20 @@ async def submit_reading_test_attempt(
     plus a 5-minute grace, the submit is rejected as expired. The grace
     absorbs clock skew + network latency between the client countdown
     hitting zero and the POST arriving."""
+    user = await _optional_auth(authorization)
+    return await _learner_write(
+        _attempt_write_keys(attempt_id, user, x_reading_anon), _submit_reading_test_attempt_sync,
+        attempt_id, body, user, x_reading_anon,
+    )
+
+
+def _submit_reading_test_attempt_sync(attempt_id: str, body: _SubmitRequest,
+                                      user: Optional[dict], x_reading_anon: str | None) -> dict:
+    """Sync body of submit_reading_test_attempt; runs in a worker thread."""
     from datetime import datetime, timezone
 
     from services import reading_test_grader as grader
 
-    user = await _optional_auth(authorization)
     attempt = _fetch_attempt_owned(attempt_id, user, x_reading_anon)
     bind_owned_attempt(attempt)
     if attempt.get("status") == "submitted":
@@ -1899,9 +1977,18 @@ async def patch_reading_test_attempt_answer(
 
     Rejected when the attempt is not in_progress (422) so a stale tab
     can't accidentally write to a submitted/abandoned attempt."""
+    user = await _optional_auth(authorization)
+    return await _learner_write(
+        _attempt_write_keys(attempt_id, user, x_reading_anon), _patch_reading_test_attempt_answer_sync,
+        attempt_id, body, user, x_reading_anon,
+    )
+
+
+def _patch_reading_test_attempt_answer_sync(attempt_id: str, body: _AnswerPatchItem,
+                                            user: Optional[dict], x_reading_anon: str | None) -> dict:
+    """Sync body of patch_reading_test_attempt_answer; runs in a worker thread."""
     from datetime import datetime, timezone
 
-    user = await _optional_auth(authorization)
     attempt = _fetch_attempt_owned(attempt_id, user, x_reading_anon)
     bind_owned_attempt(attempt)
     if attempt.get("status") != "in_progress":
