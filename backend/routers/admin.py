@@ -38,6 +38,7 @@ from models.staff_security import UserRoleChangeOut
 from models.grammar_content import GrammarArticleDocument
 from database import supabase_admin
 from services.class_assignment_service import sync_class_item_score
+from services.errors import clip_user_value
 from services.core_attempt_observation import bind_owned_attempt, note_operation_failure, observe_operation
 from services.class_membership_service import active_memberships_for_students, add_student
 from services import admin_dashboard, ai_usage_logger, test_data_visibility
@@ -864,7 +865,7 @@ async def admin_set_user_role(
     if role not in _VALID_ROLES:
         raise HTTPException(
             400,
-            f"Invalid role '{payload.role}'. Allowed: {sorted(_VALID_ROLES)}",
+            f"Invalid role '{clip_user_value(payload.role)}'. Allowed: {sorted(_VALID_ROLES)}",
         )
 
     admin_id = admin_user.get("id") if isinstance(admin_user, dict) else None
@@ -4985,7 +4986,9 @@ async def admin_set_vocab_flag(
             .execute()
         )
     except Exception as exc:
-        raise HTTPException(404, f"User not found: {exc}")
+        # PC-J225: the driver text is not a user-facing message.
+        logger.warning("[admin] feature-flag user lookup failed: %s", exc.__class__.__name__)
+        raise HTTPException(404, "User not found")
 
     user_row = user_res.data
     if not user_row:

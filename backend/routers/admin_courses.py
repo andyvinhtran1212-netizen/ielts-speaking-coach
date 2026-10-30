@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 from database import supabase_admin
 from models.admin_courses import AdminCourseListOut
 from routers.admin import require_admin
+from services.errors import clip_user_value
 
 router = APIRouter(prefix="/admin/courses", tags=["admin", "courses"])
 
@@ -82,7 +83,7 @@ async def create_course(
         # `code` is UNIQUE — the collision is the likely failure and the admin
         # can act on it, so say which one it is instead of dumping the driver error.
         if "duplicate key" in str(exc).lower() or "unique" in str(exc).lower():
-            raise HTTPException(409, f"Mã khoá '{body.code}' đã tồn tại.")
+            raise HTTPException(409, f"Mã khoá '{clip_user_value(body.code)}' đã tồn tại.")
         raise HTTPException(500, f"Lỗi khi tạo khoá học: {exc}")
     if not r.data:
         raise HTTPException(500, "Không tạo được khoá học")

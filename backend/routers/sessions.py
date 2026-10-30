@@ -2100,7 +2100,8 @@ async def complete_session(
         logger.warning("[complete_session] band compute failed session=%s: %s", session_id, e)
         raise HTTPException(
             status_code=422,
-            detail=f"Cannot complete session — band computation failed: {e}",
+            # PC-J225: the cause is logged above; its text is not for the client.
+            detail="Cannot complete session — band computation failed.",
         )
 
     overall_band   = bands["overall_band"]

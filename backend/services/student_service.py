@@ -22,6 +22,7 @@ from fastapi import HTTPException
 
 from database import supabase_admin
 from services.pg_search import ilike_or_filter
+from services.errors import clip_user_value
 from services.class_membership_service import active_memberships_for_students
 
 logger = logging.getLogger(__name__)
@@ -76,7 +77,7 @@ def create_student(*, data: dict, admin_id: str) -> dict:
         if _is_duplicate_code_error(exc):
             raise HTTPException(
                 status_code=409,
-                detail=f"student_code already exists: {data.get('student_code')!r}",
+                detail=f"student_code already exists: {clip_user_value(data.get('student_code'))!r}",
             )
         logger.error("[students] insert failed: %s", exc)
         raise HTTPException(500, f"Database insert failed: {exc}")
