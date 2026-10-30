@@ -23,6 +23,22 @@ function clearErrorActions() {
   document.querySelectorAll('[data-cx-error-action]').forEach((node) => node.remove());
 }
 
+// Đổi tài khoản chạy lại effect trên CÙNG khung CourseShell (không remount),
+// nên lượt mới phải bắt đầu từ màn ban đầu của khung: huy hiệu lưu hiện lại ở
+// trạng thái chờ, khung chặng ẩn, "Đang mở bài tập…" hiện, `#cx-error` rỗng và
+// không còn nút/link của lượt trước. Huy hiệu chỉ bị ẩn lại nếu chính lượt này
+// cũng gặp 4xx/bank rỗng (PC-J330).
+function resetErrorScreen() {
+  clearErrorActions();
+  const $ = (id: string) => document.getElementById(id);
+  const error = $('cx-error'); if (error) { error.hidden = true; error.textContent = ''; }
+  const loading = $('cx-loading'); if (loading) loading.hidden = false;
+  const stage = $('cx-stage'); if (stage) stage.hidden = true;
+  const note = $('cx-save-note'); if (note) { note.hidden = false; note.dataset.state = 'idle'; }
+  // Cùng câu `idle` của setSaveState và của CourseShell.
+  const label = $('cx-save-note-text'); if (label) label.textContent = 'Sẽ lưu khi hoàn thành chặng';
+}
+
 export function CourseBehavior() {
   const { status, user } = useAuth();
   // Khoá theo ID người dùng, KHÔNG dùng cờ "đã chạy một lần": đổi tài khoản giữa
@@ -40,6 +56,7 @@ export function CourseBehavior() {
     if (status !== 'signed-in' || !user?.id) return;
     if (bootedFor.current === user.id) return;
     bootedFor.current = user.id;
+    resetErrorScreen();
 
     let disposed = false;
     let runner: any = null;

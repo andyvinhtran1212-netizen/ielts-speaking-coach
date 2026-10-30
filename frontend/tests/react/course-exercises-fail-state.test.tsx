@@ -20,6 +20,11 @@
 // PC-J328: the "Thử tải lại tiến độ" button sits right after `#cx-error` too,
 // so the error region reads only the error sentence; a second failure (a new
 // run of the effect) leaves exactly one button.
+//
+// PC-J330 (Codex on #2039): switching accounts reruns the effect on the same
+// shell. A 4xx / empty bank of the previous account hid the save badge and left
+// its error sentence and actions; the new run starts from the shell's initial
+// screen and hides the badge again only for its own 4xx / empty bank.
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -316,5 +321,94 @@ describe('course-exercises error states', () => {
     (document.querySelector('.cx-opt') as HTMLButtonElement).click();
     expect(el('cx-save-note').dataset.state).toBe('error');
     expect(el('cx-save-note-text').textContent).toBe('Lỗi khác');
+  });
+});
+
+describe('course-exercises account switch on the same shell (PC-J330)', () => {
+  const getMock = () => (window.api as unknown as { get: ReturnType<typeof vi.fn> }).get;
+  const refuse = (status: number) => () => getMock()
+    .mockRejectedValue(Object.assign(new Error('HTTP ' + status), { status }));
+
+  function switchAccount(view: ReturnType<typeof render>, userId: string) {
+    wire.userId = userId;
+    view.rerender(<><CourseShell /><CourseBehavior /></>);
+  }
+
+  /** Nothing of a previous error screen is left; the badge shows. */
+  function noErrorLeft() {
+    expect(el('cx-error').hidden).toBe(true);
+    expect(el('cx-error').textContent).toBe('');
+    expect(document.querySelector('[data-cx-error-action]')).toBeNull();
+    expect(retryButtons()).toHaveLength(0);
+    expect(Array.from(document.querySelectorAll('a'))
+      .filter((a) => a.textContent === 'Về Lớp học')).toHaveLength(0);
+    expect(el('cx-save-note').hidden).toBe(false);
+    expect(el('cx-save-note').hasAttribute('hidden')).toBe(false);
+  }
+
+  beforeEach(() => {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {}); // jsdom: not implemented
+  });
+
+  it.each([
+    ['403', refuse(403)],
+    ['404', refuse(404)],
+    ['an empty bank', () => { bankApi([]); }],
+  ])('account A gets %s, account B loads: badge back, no error or actions left', async (_case, failA) => {
+    failA();
+    const view = renderPage('?bank=b1');
+    await errorShown();
+    expect(el('cx-save-note').hidden).toBe(true);
+
+    bankApi([mcq]);
+    switchAccount(view, 'student-2');
+    await waitFor(() => expect(document.querySelector('.cx-opt')).not.toBeNull());
+    noErrorLeft();
+    expect(el('cx-save-note').dataset.state).toBe('idle');
+    expect(el('cx-save-note-text').textContent).toBe('Sẽ lưu khi hoàn thành chặng');
+    expect(el('cx-loading').hidden).toBe(true);
+  });
+
+  it('account A gets 403, account B gets 503: the connection badge is visible', async () => {
+    refuse(403)();
+    const view = renderPage('?bank=b1');
+    await errorShown();
+    expect(el('cx-save-note').hidden).toBe(true);
+
+    refuse(503)();
+    switchAccount(view, 'student-2');
+    await waitFor(() => expect(el('cx-error').textContent).toBe('Không mở được bài tập: HTTP 503'));
+    expect(el('cx-save-note').hidden).toBe(false);
+    expect(el('cx-save-note').dataset.state).toBe('error');
+    expect(el('cx-save-note-text').textContent).toBe(CONNECTION_BADGE);
+    retryAfter(el('cx-error'));
+  });
+
+  it('the new run starts from the initial screen before its load answers', async () => {
+    refuse(404)();
+    const view = renderPage('?bank=b1');
+    await errorShown();
+
+    // Account B's bank read never answers: only the reset is visible.
+    getMock().mockImplementation(() => new Promise(() => {}));
+    switchAccount(view, 'student-2');
+    noErrorLeft();
+    expect(el('cx-loading').hidden).toBe(false);
+    expect(el('cx-stage').hidden).toBe(true);
+    expect(el('cx-save-note').dataset.state).toBe('idle');
+  });
+
+  it('account A loads, account B gets 403: the badge is hidden for B', async () => {
+    bankApi([mcq]);
+    const view = renderPage('?bank=b1');
+    await waitFor(() => expect(document.querySelector('.cx-opt')).not.toBeNull());
+    expect(el('cx-save-note').hidden).toBe(false);
+
+    refuse(403)();
+    switchAccount(view, 'student-2');
+    await waitFor(() => expect(el('cx-error').textContent).toBe('Không mở được bài tập: HTTP 403'));
+    expect(el('cx-error').hidden).toBe(false);
+    expect(el('cx-save-note').hidden).toBe(true);
+    expect(document.body.textContent).not.toContain(CONNECTION_BADGE);
   });
 });
