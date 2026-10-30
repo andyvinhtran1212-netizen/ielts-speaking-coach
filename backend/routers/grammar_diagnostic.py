@@ -24,19 +24,19 @@ router = APIRouter(
 )
 
 
-_session_write_locks: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
+_learner_write_locks: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
 
 
-async def _session_write(session_id: str, fn, *args, **kwargs):
-    # next_item's phase/exhaustion writes must remain serial with responses
-    # and completion, as they were on the single event loop before offloading.
+async def _learner_write(user_id: str, fn, *args, **kwargs):
+    # Selection reads learner-wide exposure history across sessions. Keep it
+    # serial with the learner's other writes, as on the original event loop.
     try:
-        key = str(UUID(session_id))
+        key = str(UUID(user_id))
     except ValueError:
-        key = session_id
-    lock = _session_write_locks.get(key)
+        key = user_id
+    lock = _learner_write_locks.get(key)
     if lock is None:
-        lock = _session_write_locks[key] = asyncio.Lock()
+        lock = _learner_write_locks[key] = asyncio.Lock()
     async with lock:
         work = asyncio.create_task(asyncio.to_thread(fn, *args, **kwargs))
         try:
@@ -213,7 +213,7 @@ async def get_session(session_id: str, authorization: str | None = Header(defaul
 @router.post("/sessions/{session_id}/next", response_model=NextItemResponse)
 async def next_item(session_id: str, authorization: str | None = Header(default=None)) -> NextItemResponse:
     user = await get_supabase_user(authorization)
-    return await _session_write(session_id, service.next_item, user["id"], session_id)
+    return await _learner_write(user["id"], service.next_item, user["id"], session_id)
 
 
 @router.post("/sessions/{session_id}/responses", response_model=ResponseAccepted)
@@ -223,8 +223,8 @@ async def submit_response(
     authorization: str | None = Header(default=None),
 ) -> ResponseAccepted:
     user = await get_supabase_user(authorization)
-    return await _session_write(
-        session_id, service.record_response, user["id"], session_id, **body.model_dump(),
+    return await _learner_write(
+        user["id"], service.record_response, user["id"], session_id, **body.model_dump(),
     )
 
 
@@ -234,7 +234,7 @@ async def complete_session(
     authorization: str | None = Header(default=None),
 ) -> LearnerReportSnapshotResponse:
     user = await get_supabase_user(authorization)
-    return await _session_write(session_id, service.finalize_session, user["id"], session_id)
+    return await _learner_write(user["id"], service.finalize_session, user["id"], session_id)
 
 
 @router.get("/sessions/{session_id}/report", response_model=LearnerReportResponse)

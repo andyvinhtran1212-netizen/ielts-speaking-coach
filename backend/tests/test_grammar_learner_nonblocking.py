@@ -18,7 +18,7 @@ from routers import grammar_lesson as lesson
 def _fresh_event_loop_locks(monkeypatch):
     # Each pytest case has a new event loop. Retained exception tracebacks can
     # keep a prior loop's otherwise weakly held lock alive between cases.
-    monkeypatch.setattr(diagnostic, "_session_write_locks", weakref.WeakValueDictionary(), raising=False)
+    monkeypatch.setattr(diagnostic, "_learner_write_locks", weakref.WeakValueDictionary(), raising=False)
 
 
 CASES = [
@@ -107,13 +107,16 @@ async def test_learner_auth_failure_precedes_service(monkeypatch, case):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("second_route", ["next_item", "submit_response", "complete_session"])
-@pytest.mark.parametrize("session_ids", [
-    ("session", "session"),
+@pytest.mark.parametrize("user_ids", [
+    ("learner", "learner"),
     ("D076F452-09AE-4B65-B261-108C65564667", "d076f45209ae4b65b261108c65564667"),
 ])
-async def test_session_check_then_write_has_exactly_one_winner(monkeypatch, second_route, session_ids):
+async def test_learner_check_then_write_has_exactly_one_winner(monkeypatch, second_route, user_ids):
     """Slow reads return independent snapshots, never the fake's shared row."""
-    monkeypatch.setattr(diagnostic, "get_supabase_user", _authenticated)
+    async def authenticated(authorization):
+        return {"id": authorization}
+
+    monkeypatch.setattr(diagnostic, "get_supabase_user", authenticated)
     row = {"status": "in_progress"}
     writes = []
 
@@ -128,12 +131,12 @@ async def test_session_check_then_write_has_exactly_one_winner(monkeypatch, seco
 
     for name in ("next_item", "record_response", "finalize_session"):
         monkeypatch.setattr(diagnostic.service, name, write)
-    second_args = (session_ids[1],)
+    second_args = ("session-b",)
     if second_route == "submit_response":
         second_args += (diagnostic.ResponseCreate(item_id="q1", selected_option=1),)
     results = await asyncio.gather(
-        diagnostic.next_item(session_ids[0], authorization="test"),
-        getattr(diagnostic, second_route)(*second_args, authorization="test"),
+        diagnostic.next_item("session-a", authorization=user_ids[0]),
+        getattr(diagnostic, second_route)(*second_args, authorization=user_ids[1]),
         return_exceptions=True,
     )
     assert sum(isinstance(result, dict) for result in results) == 1
@@ -239,12 +242,15 @@ async def test_cancelled_session_write_keeps_lock_until_thread_finishes(monkeypa
     assert results[1] == {"accepted": True}
     # The captured CancelledError retains its traceback and lock reference.
     # Its release, rather than the timing of garbage collection, is the contract.
-    assert all(not lock.locked() for lock in diagnostic._session_write_locks.values())
+    assert all(not lock.locked() for lock in diagnostic._learner_write_locks.values())
 
 
 @pytest.mark.asyncio
-async def test_different_sessions_write_in_parallel(monkeypatch):
-    monkeypatch.setattr(diagnostic, "get_supabase_user", _authenticated)
+async def test_different_learners_write_in_parallel(monkeypatch):
+    async def authenticated(authorization):
+        return {"id": authorization}
+
+    monkeypatch.setattr(diagnostic, "get_supabase_user", authenticated)
     barrier = threading.Barrier(2)
 
     def write(_user, session):
@@ -253,6 +259,96 @@ async def test_different_sessions_write_in_parallel(monkeypatch):
 
     monkeypatch.setattr(diagnostic.service, "next_item", write)
     assert await asyncio.gather(
+        diagnostic.next_item("session-a", authorization="learner-a"),
+        diagnostic.next_item("session-b", authorization="learner-b"),
+    ) == [{"session": "session-a"}, {"session": "session-b"}]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("overlap", ["item", "stimulus_family", "parallel_set"])
+async def test_real_next_item_does_not_repeat_evidence_across_learner_sessions(monkeypatch, overlap):
+    monkeypatch.setattr(diagnostic, "get_supabase_user", _authenticated)
+    svc = diagnostic.service
+    sessions = {sid: {"id": sid, "status": "in_progress", "release_id": "R1",
+                      "test_length": "QUICK", "current_phase": "BASELINE",
+                      "objective_limit": 28} for sid in ("session-a", "session-b")}
+    items = [{"item_id": "item-1", "attribute_id": "M01", "stimulus_family": "family-1",
+              "parallel_set_id": "parallel-1", "prompt": "Choose", "options": ["A", "B"]}]
+    if overlap != "item":
+        items.append({**items[0], "item_id": "item-2",
+                      "stimulus_family": "family-1" if overlap == "stimulus_family" else "family-2",
+                      "parallel_set_id": "parallel-1" if overlap == "parallel_set" else "parallel-2"})
+    exposed = []
+    mutex = threading.Lock()
+    first_history, second_history = threading.Event(), threading.Event()
+
+    class Query:
+        def __init__(self, table):
+            self.table, self.filters, self.payload, self.operation = table, {}, None, "select"
+
+        def select(self, *_a): return self
+        def range(self, *_a): return self
+        def eq(self, column, value):
+            self.filters[column] = value
+            return self
+
+        def insert(self, row):
+            self.operation, self.payload = "insert", copy.deepcopy(row)
+            return self
+
+        def update(self, values):
+            self.operation, self.payload = "update", values
+            return self
+
+        def execute(self):
+            if self.table == "grammar_diagnostic_sessions":
+                assert self.operation == "update"
+                sessions[self.filters["id"]].update(self.payload)
+                return SimpleNamespace(data=[])
+            assert self.table == "grammar_exposure_events"
+            with mutex:
+                if self.operation == "insert":
+                    exposed.append(self.payload)
+                    return SimpleNamespace(data=[copy.deepcopy(self.payload)])
+                # Snapshot before pausing: shared fake dicts would hide this race.
+                snapshot = copy.deepcopy([row for row in exposed if all(
+                    row.get(key) == value for key, value in self.filters.items()
+                )])
+                is_first = not first_history.is_set()
+                if is_first:
+                    first_history.set()
+                else:
+                    second_history.set()
+            if is_first:
+                second_history.wait(0.2)
+            return SimpleNamespace(data=snapshot)
+
+    def session(_user, sid):
+        snapshot = copy.deepcopy(sessions[sid])
+        time.sleep(0.01)
+        return snapshot
+
+    monkeypatch.setattr(svc, "_session", session)
+    monkeypatch.setattr(svc, "_require_session_accepting", lambda *_a: None)
+    monkeypatch.setattr(svc, "_content", lambda *_a: {"items": items})
+    monkeypatch.setattr(svc, "_responses", lambda *_a: [])
+    monkeypatch.setattr(svc, "_exposures", lambda sid: copy.deepcopy([
+        row for row in exposed if row["session_id"] == sid
+    ]))
+    monkeypatch.setattr(svc, "_practice_exposure", lambda *_a: {
+        "item_ids": set(), "stimulus_families": set(), "parallel_set_ids": set(),
+    })
+    monkeypatch.setattr(svc, "_selection_attribute", lambda *_a: ["M01"])
+    monkeypatch.setattr(svc, "_eligible", lambda *_a: True)
+    monkeypatch.setattr(svc, "supabase_admin", SimpleNamespace(table=Query))
+    results = await asyncio.gather(
         diagnostic.next_item("session-a", authorization="test"),
         diagnostic.next_item("session-b", authorization="test"),
-    ) == [{"session": "session-a"}, {"session": "session-b"}]
+        return_exceptions=True,
+    )
+    assert sum(isinstance(result, dict) for result in results) == 1
+    conflicts = [result for result in results if isinstance(result, HTTPException)]
+    assert len(conflicts) == 1
+    assert conflicts[0].status_code == 409
+    assert conflicts[0].detail["error_code"] == "diagnostic_exhausted"
+    assert len(exposed) == 1
