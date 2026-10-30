@@ -1,8 +1,10 @@
 # Staging load test (PC-J409)
 
 `student_exam_load.py` simulates N students opening the same quiz bank at the
-same time, in the course-runner call order, while a probe polls `/health`,
-`/health/ready` (1 s) and `/health/async-db` (event-loop lag, 5 s). It was written
+same time, in the course-runner call order, while a probe polls `/health`
+(1 s) and `/health/async-db` (event-loop lag, 5 s). `/health/ready` is off by
+default (`--ready-interval N` to enable, keep N ≥ 30): it runs ~15 synchronous
+DB calls on the event loop, so a 1 s probe stalls the backend on its own. It was written
 to reproduce the 2026-10-30 18:10 prod stall on **staging** and to compare
 before/after a hotfix.
 

@@ -20,8 +20,11 @@ Each virtual student follows the course-runner call order
     PATCH /api/quiz/sessions/{id}              (finishStage, every STAGE=10)
           then course-resume + a new session for the next stage
 
-A probe task polls /health and /health/ready every second and
-/health/async-db (event-loop lag) every few seconds for the whole run.
+A probe task polls /health every second and /health/async-db (event-loop
+lag) every few seconds for the whole run. /health/ready is off by default
+(``--ready-interval``): it is an ``async def`` that runs ~15 synchronous
+PostgREST calls on the event loop, so probing it every second stalls the
+backend by itself (staging smoke 2026-10-30: 3 users, /health 47 s at the edge).
 
 Optional flows for the capacity ladder (``--mix``): ``speaking`` (create a
 session, generate questions, upload a small fixed audio clip while the
@@ -664,10 +667,12 @@ async def run_step(args, tokens: list[str], users: int, writing_targets: dict[in
     pattern = parse_mix(args.mix)
     probes = [
         asyncio.create_task(probe_loop(ctx, "/health", args.health_interval, "health")),
-        asyncio.create_task(probe_loop(ctx, "/health/ready", args.health_interval, "health")),
         asyncio.create_task(probe_loop(ctx, "/health/async-db", args.async_db_interval, "async_db")),
         asyncio.create_task(abort_watch(ctx)),
     ]
+    if args.ready_interval > 0:
+        probes.append(asyncio.create_task(
+            probe_loop(ctx, "/health/ready", args.ready_interval, "health")))
     flows_used: dict[str, int] = defaultdict(int)
 
     async def launch(vu: int) -> None:
@@ -801,6 +806,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--probe-timeout", type=float, default=30.0)
     p.add_argument("--health-interval", type=float, default=1.0)
     p.add_argument("--async-db-interval", type=float, default=5.0)
+    p.add_argument("--ready-interval", type=float, default=0.0,
+                   help="seconds between /health/ready probes; 0 = off (the route blocks the event loop)")
     p.add_argument("--tail-seconds", type=float, default=5.0, help="keep probing after the load stops")
     p.add_argument("--abort-on-health-p95-ms", type=float, default=5000.0, help="0 disables")
     p.add_argument("--ladder-max-error-rate", type=float, default=0.05)

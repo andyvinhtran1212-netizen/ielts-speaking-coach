@@ -401,3 +401,19 @@ def test_class_items_count_must_match_accounts(monkeypatch):
     with pytest.raises(SystemExit, match="class-items"):
         lt.main(["--base-url", "http://localhost:8000", "--bank-id", "B1", "--users", "1",
                  "--class-items", "I1,I2"], environ={"LOADTEST_TOKEN_1": "t"})
+
+
+def test_health_ready_is_not_probed_by_default(monkeypatch, tmp_path):
+    """/health/ready runs sync DB calls on the event loop: off unless asked."""
+    calls = []
+    _run_mocked(monkeypatch, tmp_path, _speaking_backend(calls), [
+        "--mix", "speaking=1", "--users", "1", "--duration-seconds", "0.5"])
+    paths = {p for _, p in calls}
+    assert "/health" in paths and "/health/ready" not in paths
+
+
+def test_health_ready_probe_opt_in(monkeypatch, tmp_path):
+    calls = []
+    _run_mocked(monkeypatch, tmp_path, _speaking_backend(calls), [
+        "--mix", "speaking=1", "--users", "1", "--duration-seconds", "0.5", "--ready-interval", "0.2"])
+    assert any(p == "/health/ready" for _, p in calls)
