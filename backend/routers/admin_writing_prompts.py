@@ -594,10 +594,13 @@ def _review_prompt_analysis_sync(prompt_id: UUID, body: PromptAnalysisReview):
         })
         .eq("id", str(prompt_id))
     )
+    # Same states the pending check above admits: NULL (never analysed),
+    # ready, failed. Not `.neq("pending")` — SQL `<>` drops NULL rows.
     update_query = update_query.eq(
         "prompt_image_public_id", body.expected_image_public_id
-    ).eq(
-        "prompt_image_analysis_status", "ready"
+    ).or_(
+        "prompt_image_analysis_status.is.null,"
+        "prompt_image_analysis_status.in.(ready,failed)"
     )
     r = update_query.execute()
     if not r.data:
