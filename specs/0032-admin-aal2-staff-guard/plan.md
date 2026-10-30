@@ -99,7 +99,9 @@ No code is written under this plan until ADMINAAL2-0032 is approved on
     a 30-second unchanged-state cooldown is recorded only after both sweep
     steps succeed. Changed states can bypass that cooldown, but at most six
     sweep attempts may start per rolling minute, including failed attempts;
-    an exhausted account receives 429 with `Retry-After`. Repeated reads
+    an exhausted account's caller sweep is skipped and logged; the status
+    read is still answered from the current token, and the cron audits the
+    change within 5 minutes. Repeated reads
     skipped by cooldown or in-flight/busy admission do not consume attempts.
     A short, transaction-level advisory lock serializes admission across
     workers; at most two passes have active leases globally. No admission

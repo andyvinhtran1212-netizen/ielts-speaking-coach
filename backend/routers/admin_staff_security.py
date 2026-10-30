@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from time import monotonic
 
 from fastapi import APIRouter, Header, HTTPException, Query
 
@@ -53,6 +54,32 @@ def _auth_admin():
     return admin_module.supabase_admin.auth.admin
 
 
+# One "rate_limited" warning per account per window, so repeated reads by an
+# account over the sweep cap do not flood the log. Per process; bounded.
+_RATE_LIMITED_LOG_WINDOW_S = 60.0
+_RATE_LIMITED_LOG_MAX_KEYS = 512
+_rate_limited_logged_at: dict[str, float] = {}
+# Injectable so tests move this clock without patching time.monotonic globally.
+_rate_limited_log_clock = monotonic
+
+
+def _log_rate_limited(user_id: str, retry_after: int) -> None:
+    now = _rate_limited_log_clock()
+    last = _rate_limited_logged_at.get(user_id)
+    if last is not None and now - last < _RATE_LIMITED_LOG_WINDOW_S:
+        return
+    if last is None and len(_rate_limited_logged_at) >= _RATE_LIMITED_LOG_MAX_KEYS:
+        for stale in [k for k, at in _rate_limited_logged_at.items()
+                      if now - at >= _RATE_LIMITED_LOG_WINDOW_S]:
+            del _rate_limited_logged_at[stale]
+        if len(_rate_limited_logged_at) >= _RATE_LIMITED_LOG_MAX_KEYS:
+            del _rate_limited_logged_at[min(_rate_limited_logged_at,
+                                            key=_rate_limited_logged_at.__getitem__)]
+    _rate_limited_logged_at[user_id] = now
+    logger.warning("staff_security_sweep_caller_skipped user_id=%s reason=rate_limited "
+                   "retry_after=%s", user_id, retry_after)
+
+
 @router.get("/mfa/status", response_model=AdminMfaStatusOut)
 async def admin_mfa_status(authorization: str | None = Header(default=None)):
     """The caller's own second-factor state. Requires role admin and an active
@@ -65,10 +92,12 @@ async def admin_mfa_status(authorization: str | None = Header(default=None)):
     # sweep for this account only, under a short timeout, skipped for a
     # repeated read or when the shared limit is busy (SA PR-1936 F2/P3).
     # Changed factors bypass cooldown, but never the per-account hard cap.
+    # An account over that cap only loses the immediate pass (the cron audits
+    # within 5 minutes); the status below never depends on the sweep, so the
+    # read is still answered and the admin area is not locked (PC-J237).
     summary = await staff_security_sweep.status_sweep(admin_module._db_engine, admin)
     if summary is not None and summary.retry_after_seconds:
-        raise HTTPException(429, {"code": "mfa_status_rate_limited"},
-                            headers={"Retry-After": str(summary.retry_after_seconds)})
+        _log_rate_limited(str(admin.get("id") or ""), summary.retry_after_seconds)
     assurance = staff_guard.evaluate_admin_assurance(admin, authorization)
     return {
         "aal": assurance.aal,

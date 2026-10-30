@@ -97,7 +97,9 @@ def _cursor_row(schema: str) -> str:
 @pytest.fixture(autouse=True)
 def _fresh_status_throttle(monkeypatch):
     """Each test starts with no recent or running status pass in this worker."""
+    from routers import admin_staff_security as route
     monkeypatch.setattr(sweep, "_caller_running", set())
+    monkeypatch.setattr(route, "_rate_limited_logged_at", {})
 
 
 @pytest.fixture
@@ -118,8 +120,8 @@ def status_route(live_activation_gate, monkeypatch):
     from main import app
 
     def prepare(admin: str, *, engine, pg=None, factors=None, timeout: float = 60,
-                auth_factors=None):
-        monkeypatch.setitem(tsg.USERS, admin, {"role": "admin", "is_active": True})
+                auth_factors=None, claims=None, role="admin", is_active=True):
+        monkeypatch.setitem(tsg.USERS, admin, {"role": role, "is_active": is_active})
         monkeypatch.setattr(admin_module, "_db_engine", engine)
         if pg is not None:
             schema, auth = pg
@@ -134,7 +136,7 @@ def status_route(live_activation_gate, monkeypatch):
             monkeypatch.setattr(sweep, "sweep_caller", counted)
             monkeypatch.setattr(sweep, "status_sweep", functools.partial(
                 _REAL_STATUS_SWEEP, schema=schema, auth_schema=auth, timeout=timeout))
-        return app, tsg.accept(admin, tsg.aal1_claims(admin), factors=auth_factors)
+        return app, tsg.accept(admin, claims or tsg.aal1_claims(admin), factors=auth_factors)
 
     prepare.swept = []   # user ids of the passes the route started
     return prepare
@@ -736,29 +738,141 @@ def test_failed_pass_does_not_start_cooldown(pg, monkeypatch, failure):
                 f"FROM {schema}.staff_mfa_status_throttle WHERE user_id = '{admin}'") == "2:true"
 
 
-def test_seventh_changed_state_status_read_is_429_and_window_recovers(pg, status_api):
+RATE_LIMITED_LOG = "staff_security_sweep_caller_skipped user_id={} reason=rate_limited"
+ROUTE_LOGGER = "routers.admin_staff_security"
+
+
+def _rate_limited_logs(caplog, admin: str) -> list:
+    prefix = RATE_LIMITED_LOG.format(admin)
+    return [r for r in caplog.records
+            if r.name == ROUTE_LOGGER and r.getMessage().startswith(prefix)]
+
+
+def test_reads_past_the_sweep_cap_are_answered_and_the_window_recovers(pg, status_api, caplog):
+    # PC-J237: the seventh and later changed-state reads skip the sweep but
+    # still answer the caller's status (was 429, which locked the admin area).
     schema, _ = pg
     admin = m332._user(schema, "admin", True)
     other = m332._user(schema, "admin", True)
     tss._ready(pg)
     factors = tss.Factors()
-    for index in range(7):
-        response = status_api(admin, engine=_engine(), pg=pg, factors=factors, auth_factors=[
-            {"id": str(uuid4()), "factor_type": "totp", "status": "unverified"}])
-        if index < 6:
-            _assert_unchanged_aal1_body(response)
-        else:
-            assert response.status_code == 429
-            assert response.json()["detail"] == {"code": "mfa_status_rate_limited"}
-            assert 1 <= int(response.headers["Retry-After"]) <= 60
-    assert len(factors.calls) == 6
+    with caplog.at_level(logging.WARNING, logger=ROUTE_LOGGER):
+        for _ in range(10):
+            _assert_unchanged_aal1_body(status_api(admin, engine=_engine(), pg=pg, factors=factors,
+                                                   auth_factors=[{"id": str(uuid4()),
+                                                                  "factor_type": "totp",
+                                                                  "status": "unverified"}]))
+    assert len(factors.calls) == 6, "the cap still bounds the Auth reads"
     assert psql(f"SELECT cardinality(attempts) FROM {schema}.staff_mfa_status_throttle "
                 f"WHERE user_id = '{admin}'") == "6"
+    logged = _rate_limited_logs(caplog, admin)
+    assert [r.levelno for r in logged] == [logging.WARNING]
+    retry = int(logged[0].getMessage().rsplit("retry_after=", 1)[1])
+    assert 1 <= retry <= 60
     _assert_unchanged_aal1_body(status_api(other, engine=_engine(), pg=pg, factors=factors))
+    assert len(factors.calls) == 7, "another account is not capped"
     psql(f"UPDATE {schema}.staff_mfa_status_throttle SET attempts = ARRAY(SELECT "
          "at - interval '61 seconds' FROM unnest(attempts) at), "
          f"last_success_at = clock_timestamp() - interval '61 seconds' WHERE user_id = '{admin}'")
     _assert_unchanged_aal1_body(status_api(admin, engine=_engine(), pg=pg, factors=factors))
+    assert len(factors.calls) == 8, "the window recovers and the sweep runs again"
+
+
+AAL2_BODY = {"aal": "aal2", "enforce": True, "verified_factor_count": 1, "next_step": "none"}
+AAL1_BODY = {"aal": "aal1", "enforce": True, "verified_factor_count": 0, "next_step": "enroll"}
+
+
+def _failing_sweep(monkeypatch):
+    calls = []
+
+    async def failed(engine, uid, **kwargs):
+        calls.append(uid)
+        return sweep.CallerSummary(snapshot_error="AuthFailed")
+
+    monkeypatch.setattr(sweep, "sweep_caller", failed)
+    return calls
+
+
+def _read(app, token):
+    return TestClient(app, raise_server_exceptions=False).get(
+        "/admin/mfa/status", headers={"Authorization": f"Bearer {token}"})
+
+
+@pytest.mark.parametrize("assurance", ["aal1", "aal2"])
+def test_a_sweep_that_always_fails_never_locks_the_admin_out(pg, status_route, monkeypatch,
+                                                             caplog, assurance):
+    # PC-J237: failed passes start no cooldown (SA #1936 d), so a backend fault
+    # spends one attempt per read. Reads past the cap are still answered from
+    # the current token, at AAL1 under enforcement as well as at AAL2.
+    from routers import admin_staff_security as route
+    from tests import test_staff_guard as tsg
+
+    schema, _ = pg
+    admin = m332._user(schema, "admin", True)
+    if assurance == "aal2":
+        app, token = status_route(admin, engine=_engine(), pg=pg, claims=tsg.aal2_claims(admin),
+                                  auth_factors=tsg.VERIFIED)
+        expected = AAL2_BODY
+    else:
+        app, token = status_route(admin, engine=_engine(), pg=pg)
+        expected = AAL1_BODY
+    calls = _failing_sweep(monkeypatch)
+    clock = [1000.0]
+    monkeypatch.setattr(route, "_rate_limited_log_clock", lambda: clock[0])
+    with caplog.at_level(logging.WARNING, logger=ROUTE_LOGGER):
+        for _ in range(8):
+            response = _read(app, token)
+            assert response.status_code == 200, response.text
+            assert response.json() == expected
+        assert calls == [admin] * 6
+        assert len(_rate_limited_logs(caplog, admin)) == 1, "one warning per window"
+        clock[0] += route._RATE_LIMITED_LOG_WINDOW_S
+        response = _read(app, token)
+        assert response.status_code == 200 and response.json() == expected
+    assert calls == [admin] * 6, "still capped: the database window has not moved"
+    assert len(_rate_limited_logs(caplog, admin)) == 2, "the next window logs again"
+
+
+def test_the_rate_limited_log_table_is_bounded(monkeypatch, caplog):
+    from routers import admin_staff_security as route
+
+    monkeypatch.setattr(route, "_RATE_LIMITED_LOG_MAX_KEYS", 3)
+    clock = [0.0]
+    monkeypatch.setattr(route, "_rate_limited_log_clock", lambda: clock[0])
+    with caplog.at_level(logging.WARNING, logger=ROUTE_LOGGER):
+        for index in range(5):
+            clock[0] = float(index)
+            route._log_rate_limited(f"u{index}", 30)
+        assert len(route._rate_limited_logged_at) == 3
+        assert set(route._rate_limited_logged_at) == {"u2", "u3", "u4"}, "oldest evicted"
+        route._log_rate_limited("u4", 30)
+    assert caplog.text.count("reason=rate_limited") == 5
+
+
+@pytest.mark.parametrize("role, is_active", [("user", True), ("instructor", True),
+                                             ("admin", False)])
+def test_an_account_at_the_cap_that_is_not_an_active_admin_is_still_refused(
+        pg, status_route, monkeypatch, role, is_active):
+    # PC-J237: dropping the 429 does not move the guard. require_admin runs
+    # before the sweep, so a refused caller is 403 and starts no pass, even
+    # when its throttle row is already full.
+    schema, _ = pg
+    admin = m332._user(schema, "admin", True)
+    app, token = status_route(admin, engine=_engine(), pg=pg)
+    calls = _failing_sweep(monkeypatch)
+    for _ in range(6):
+        assert _read(app, token).status_code == 200
+    assert psql(f"SELECT cardinality(attempts) FROM {schema}.staff_mfa_status_throttle "
+                f"WHERE user_id = '{admin}'") == "6"
+    app, token = status_route(admin, engine=_engine(), pg=pg, role=role, is_active=is_active)
+    calls = _failing_sweep(monkeypatch)
+    for _ in range(2):
+        response = _read(app, token)
+        assert response.status_code == 403, response.text
+        if not is_active:
+            assert response.json()["detail"] == "Tài khoản chưa được kích hoạt"
+    assert calls == []
+    assert status_route.swept == []
 
 
 def test_attempt_cap_is_shared_even_on_failed_passes(pg, monkeypatch):

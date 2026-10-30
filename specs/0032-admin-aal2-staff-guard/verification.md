@@ -87,7 +87,9 @@ pending. The PR records the submitted head and local metadata gate result.
 - Failed log/snapshot steps, `None` and cancellation start no cooldown;
   their attempts still count toward the shared six-per-minute budget.
 - The seventh changed-state request returns 429 with `Retry-After`; another
-  account is unaffected and the rolling window recovers. Expired leases
+  account is unaffected and the rolling window recovers. (Superseded by
+  PC-J237 below: the seventh read is now answered 200, the sweep still
+  skipped.) Expired leases
   recover, while a late completion cannot clear a newer lease.
 - Migration SQL runs twice as the NOSUPERUSER schema owner. RLS is enabled;
   anon, authenticated and service_role have no table privileges.
@@ -122,6 +124,21 @@ pending. The PR records the submitted head and local metadata gate result.
   successful. Current-head database evidence remains for the later SA retest.
 
 The FR-010/FR-011 staging journeys and this job's SA retest remain pending.
+
+## PC-J237 evidence (no admin lockout at the sweep cap)
+
+- An account over the six-per-minute sweep cap no longer gets 429 from
+  `GET /admin/mfa/status`: the caller sweep is skipped (`claim_status` still
+  returns `rate_limited`, no Auth call) and one
+  `staff_security_sweep_caller_skipped … reason=rate_limited` warning is
+  logged per account per minute; the status is still computed from the
+  current token. `require_admin(allow_aal1=True)` still runs first, so a
+  non-admin or inactive account is 403 and starts no sweep.
+  `test_admin_mfa_status_caller_sweep.py` covers reads 7–10, a sweep that
+  always fails, an AAL2 caller and AAL1 under enforcement at the cap.
+- Frontend `getAdminMfaStatus` retries a 429 once after 2 s (for a backend
+  deployed before this change) and then fails closed with a rate-limit
+  message; `tests/react/admin-mfa-gate.test.tsx`.
 
 ## Contract evidence
 

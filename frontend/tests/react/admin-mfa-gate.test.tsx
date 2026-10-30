@@ -7,12 +7,15 @@ const wire = vi.hoisted(() => ({
   identity: null as unknown,
   status: null as unknown,
   statusError: null as unknown,
+  // PC-J237: when set, the mocked client delegates to the real one.
+  real: null as null | ((signal?: AbortSignal) => Promise<unknown>),
 }));
 vi.mock('@/lib/auth/auth-provider', () => ({ useAuth: () => ({ status: 'signed-in', user: { id: 'admin-1' } }) }));
 vi.mock('@/components/admin-test-data-toggle', () => ({ AdminTestDataToggle: () => null }));
 vi.mock('@/lib/auth-api', () => ({ getAuthorizationIdentity: vi.fn(async () => wire.identity) }));
 vi.mock('@/lib/admin-mfa-api', () => ({
-  getAdminMfaStatus: vi.fn(async () => {
+  getAdminMfaStatus: vi.fn(async (signal?: AbortSignal) => {
+    if (wire.real) return wire.real(signal);
     if (wire.statusError) throw wire.statusError;
     return wire.status;
   }),
@@ -120,5 +123,108 @@ describe('AdminAccessGate assurance', () => {
     act(() => { window.dispatchEvent(new CustomEvent(ACCOUNT_INACTIVE_EVENT)); });
     expect(screen.queryByText('ADMIN DATA')).toBeNull();
     expect(screen.getByText('Tài khoản chưa được kích hoạt — liên hệ admin')).toBeTruthy();
+  });
+});
+
+describe('getAdminMfaStatus 429 safety net (PC-J237)', () => {
+  const rateLimited = () => Object.assign(new Error('HTTP 429'), { status: 429, detail: { code: 'mfa_status_rate_limited' } });
+  let real: typeof import('@/lib/admin-mfa-api');
+  let getWith: ReturnType<typeof vi.fn>;
+
+  function answers(...replies: unknown[]) {
+    getWith = vi.fn();
+    for (const reply of replies) {
+      if (reply instanceof Error) getWith.mockRejectedValueOnce(reply);
+      else getWith.mockResolvedValueOnce(reply);
+    }
+    (window as unknown as { api: unknown }).api = { get: vi.fn(), getWith };
+  }
+
+  async function advance(ms: number) {
+    await act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+  }
+
+  beforeEach(async () => {
+    real = await vi.importActual<typeof import('@/lib/admin-mfa-api')>('@/lib/admin-mfa-api');
+    wire.real = real.getAdminMfaStatus;
+    vi.useFakeTimers();
+  });
+  afterEach(() => { vi.useRealTimers(); wire.real = null; });
+
+  it('429 then 200: retries once after 2 s and the gate opens', async () => {
+    answers(rateLimited(), wire.status);
+    renderGate();
+    await advance(0);
+    expect(getWith).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('ADMIN DATA')).toBeNull();
+    await advance(real.ADMIN_MFA_STATUS_RETRY_MS - 1);
+    expect(getWith).toHaveBeenCalledTimes(1);
+    await advance(1);
+    expect(getWith).toHaveBeenCalledTimes(2);
+    expect(getWith.mock.calls.map((call) => call[0])).toEqual(['/admin/mfa/status', '/admin/mfa/status']);
+    expect(screen.getByText('ADMIN DATA')).toBeTruthy();
+  });
+
+  it('429 twice: error state with the rate-limit message, never denied or ready', async () => {
+    answers(rateLimited(), rateLimited());
+    renderGate();
+    await advance(real.ADMIN_MFA_STATUS_RETRY_MS);
+    await advance(0);
+    expect(getWith).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('Không xác minh được quyền')).toBeTruthy();
+    expect(screen.getByText(real.ADMIN_MFA_STATUS_RATE_LIMITED)).toBeTruthy();
+    expect(screen.queryByText('🔒 Admin Access Required')).toBeNull();
+    expect(screen.queryByText('ADMIN DATA')).toBeNull();
+    await advance(60_000);
+    expect(getWith).toHaveBeenCalledTimes(2);
+  });
+
+  it('the second 429 is thrown with status 429 and its detail', async () => {
+    answers(rateLimited(), rateLimited());
+    const pending = real.getAdminMfaStatus().catch((caught) => caught);
+    await advance(real.ADMIN_MFA_STATUS_RETRY_MS);
+    const caught = await pending;
+    expect(caught).toBeInstanceOf(Error);
+    expect(caught).toMatchObject({ status: 429, message: real.ADMIN_MFA_STATUS_RATE_LIMITED, detail: { code: 'mfa_status_rate_limited' } });
+  });
+
+  it('an enforced AAL1 admin answered after a 429 is still sent to /admin/mfa', async () => {
+    answers(rateLimited(), { aal: 'aal1', enforce: true, verified_factor_count: 0, next_step: 'enroll' });
+    renderGate();
+    await advance(real.ADMIN_MFA_STATUS_RETRY_MS);
+    await advance(0);
+    expect(replace).toHaveBeenCalledWith('/admin/mfa?next=%2Fadmin%2Fusers%3Ftab%3Dcodes');
+    expect(screen.queryByText('ADMIN DATA')).toBeNull();
+  });
+
+  it('a malformed payload after the retry still fails closed', async () => {
+    answers(rateLimited(), { aal: 'aal3', enforce: true, verified_factor_count: 1, next_step: 'none' });
+    renderGate();
+    await advance(real.ADMIN_MFA_STATUS_RETRY_MS);
+    await advance(0);
+    expect(screen.getByText('Backend trả trạng thái xác thực 2 bước không đúng định dạng.')).toBeTruthy();
+    expect(screen.queryByText('ADMIN DATA')).toBeNull();
+  });
+
+  it('a 403 is not retried and keeps the denied state', async () => {
+    answers(Object.assign(new Error('Admin only'), { status: 403, detail: 'Admin only' }));
+    renderGate();
+    await advance(real.ADMIN_MFA_STATUS_RETRY_MS * 2);
+    expect(getWith).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('🔒 Admin Access Required')).toBeTruthy();
+  });
+
+  it('an abort during the wait sends no second request', async () => {
+    answers(rateLimited(), wire.status);
+    const controller = new AbortController();
+    const pending = real.getAdminMfaStatus(controller.signal).catch((caught) => caught);
+    await advance(0);
+    expect(getWith).toHaveBeenCalledTimes(1);
+    controller.abort();
+    const caught = await pending;
+    expect((caught as Error).name).toBe('AbortError');
+    await advance(real.ADMIN_MFA_STATUS_RETRY_MS * 2);
+    expect(getWith).toHaveBeenCalledTimes(1);
+    expect(getWith.mock.calls[0][2]).toEqual({ signal: controller.signal });
   });
 });
