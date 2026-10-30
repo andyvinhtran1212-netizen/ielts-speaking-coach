@@ -7,6 +7,7 @@ reference/practice material and never produce a submission or score here.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import re
@@ -1100,54 +1101,63 @@ def answer_practice(*, user_id: str, bank_id: str, item_id: str, stage: str,
 
 async def complete_controlled_rewrite(*, user_id: str, bank_id: str, item_id: str,
                                       answers: dict[str, str]) -> dict:
-    _, _, lesson = _assigned_lesson(
-        bank_id=bank_id, user_id=user_id, item_id=item_id,
-    )
-    _require_section(item_id, "reading")
-    parts = controlled_rewrite_parts(lesson)
-    expected = {row["item_id"] for row in parts["prompts"]}
-    normalized = {
-        str(key): str(value).strip() for key, value in answers.items()
-        if str(value).strip()
-    }
-    missing = sorted(expected - set(normalized))
-    if missing or set(normalized) - expected:
-        raise HTTPException(422, {
-            "message": "Hãy hoàn thành đủ 20 câu trước khi gửi chấm",
-            "missing": missing,
-        })
-    if any(len(value) > _MAX_REWRITE_ANSWER_CHARS
-           for value in normalized.values()):
-        raise HTTPException(422, "Mỗi câu trả lời tối đa 600 ký tự")
+    def prepare_submission():
+        _, _, lesson = _assigned_lesson(
+            bank_id=bank_id, user_id=user_id, item_id=item_id,
+        )
+        _require_section(item_id, "reading")
+        parts = controlled_rewrite_parts(lesson)
+        expected = {row["item_id"] for row in parts["prompts"]}
+        normalized = {
+            str(key): str(value).strip() for key, value in answers.items()
+            if str(value).strip()
+        }
+        missing = sorted(expected - set(normalized))
+        if missing or set(normalized) - expected:
+            raise HTTPException(422, {
+                "message": "Hãy hoàn thành đủ 20 câu trước khi gửi chấm",
+                "missing": missing,
+            })
+        if any(len(value) > _MAX_REWRITE_ANSWER_CHARS
+               for value in normalized.values()):
+            raise HTTPException(422, "Mỗi câu trả lời tối đa 600 ký tự")
 
-    prompt_by_id = {row["item_id"]: row["prompt"] for row in parts["prompts"]}
-    snapshot = {
-        "lesson_id": lesson["lesson_id"],
-        "content_checksum": (lesson.get("provenance") or {}).get("content_checksum"),
-        "prompts": parts["prompts"],
-    }
-    try:
-        claim = _admin().rpc("claim_advanced_vocab_rewrite_submission", {
-            "p_item_id": item_id, "p_user_id": user_id, "p_bank_id": bank_id,
-            "p_answers": normalized, "p_content_snapshot": snapshot,
-            "p_prompt_version": "advanced-vocab-rewrite-v1",
-        }).execute().data or {}
-    except Exception as exc:  # noqa: BLE001
-        if "23505" in str(exc) or "already_submitted" in str(exc):
-            raise HTTPException(
-                409, "Phần Controlled Rewrite này đã được gửi chấm một lần",
-            ) from exc
-        raise HTTPException(500, "Không lưu được bài Controlled Rewrite") from exc
-    if isinstance(claim, list):
-        claim = claim[0] if claim else {}
+        prompt_by_id = {row["item_id"]: row["prompt"] for row in parts["prompts"]}
+        snapshot = {
+            "lesson_id": lesson["lesson_id"],
+            "content_checksum": (lesson.get("provenance") or {}).get("content_checksum"),
+            "prompts": parts["prompts"],
+        }
+        try:
+            claim = _admin().rpc("claim_advanced_vocab_rewrite_submission", {
+                "p_item_id": item_id, "p_user_id": user_id, "p_bank_id": bank_id,
+                "p_answers": normalized, "p_content_snapshot": snapshot,
+                "p_prompt_version": "advanced-vocab-rewrite-v1",
+            }).execute().data or {}
+        except Exception as exc:  # noqa: BLE001
+            if "23505" in str(exc) or "already_submitted" in str(exc):
+                raise HTTPException(
+                    409, "Phần Controlled Rewrite này đã được gửi chấm một lần",
+                ) from exc
+            raise HTTPException(500, "Không lưu được bài Controlled Rewrite") from exc
+        if isinstance(claim, list):
+            claim = claim[0] if claim else {}
+        return lesson, parts, expected, normalized, prompt_by_id, claim
+
+    lesson, parts, expected, normalized, prompt_by_id, claim = await asyncio.to_thread(
+        prepare_submission,
+    )
     submission = claim.get("submission") or {}
     if not claim.get("should_grade"):
-        submission = _rewrite_submission(item_id) or submission
-        return {
-            "solutions": parts["solutions"],
-            "submission": _safe_rewrite_submission(submission),
-            "progress": _public_progress(_progress(item_id), lesson),
-        }
+        def load_replay():
+            saved_submission = _rewrite_submission(item_id) or submission
+            return {
+                "solutions": parts["solutions"],
+                "submission": _safe_rewrite_submission(saved_submission),
+                "progress": _public_progress(_progress(item_id), lesson),
+            }
+
+        return await asyncio.to_thread(load_replay)
     grading_items = [{
         "item_id": item_id_value,
         "prompt": prompt_by_id[item_id_value],
@@ -1158,29 +1168,33 @@ async def complete_controlled_rewrite(*, user_id: str, bank_id: str, item_id: st
     feedback, model, error_code = await advanced_vocab_rewrite_grader.grade_rewrites(
         grading_items, user_id=user_id,
     )
-    now = datetime.now(timezone.utc).isoformat()
-    status = "failed" if error_code else "completed"
-    update = {
-        "feedback": feedback, "model": model, "status": status,
-        "error_code": error_code, "completed_at": now, "updated_at": now,
-    }
-    try:
-        saved = (_admin().table("advanced_vocab_rewrite_submissions")
-                 .update(update).eq("class_assignment_item_id", item_id)
-                 .eq("status", "processing").execute().data) or []
-        if saved:
-            submission = saved[0]
-        else:
-            submission = _rewrite_submission(item_id) or {**submission, **update}
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(
-            503, "Bài đã được lưu nhưng chưa lưu được phản hồi chấm; vui lòng tải lại",
-        ) from exc
-    return {
-        "solutions": parts["solutions"],
-        "submission": _safe_rewrite_submission(submission),
-        "progress": _public_progress(_progress(item_id), lesson),
-    }
+
+    def save_feedback():
+        now = datetime.now(timezone.utc).isoformat()
+        status = "failed" if error_code else "completed"
+        update = {
+            "feedback": feedback, "model": model, "status": status,
+            "error_code": error_code, "completed_at": now, "updated_at": now,
+        }
+        try:
+            saved = (_admin().table("advanced_vocab_rewrite_submissions")
+                     .update(update).eq("class_assignment_item_id", item_id)
+                     .eq("status", "processing").execute().data) or []
+            if saved:
+                saved_submission = saved[0]
+            else:
+                saved_submission = _rewrite_submission(item_id) or {**submission, **update}
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(
+                503, "Bài đã được lưu nhưng chưa lưu được phản hồi chấm; vui lòng tải lại",
+            ) from exc
+        return {
+            "solutions": parts["solutions"],
+            "submission": _safe_rewrite_submission(saved_submission),
+            "progress": _public_progress(_progress(item_id), lesson),
+        }
+
+    return await asyncio.to_thread(save_feedback)
 
 
 def _answer_rows(content: dict) -> list[dict]:
