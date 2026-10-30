@@ -19,14 +19,15 @@ import ast
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable
 
 
 EXCLUDED_DIRS = {"tests", "migrations", "scripts", "venv", ".venv", "__pycache__"}
 HTTP_METHODS = {"get", "post", "put", "patch", "delete", "request", "head", "options", "stream", "send"}
 STORAGE_METHODS = {"upload", "update", "remove", "download", "list", "move", "copy", "create_signed_url", "create_signed_urls", "create_signed_upload_url"}
 STORAGE_SIGN_METHODS = {"create_signed_url", "create_signed_urls", "create_signed_upload_url"}
-EAGER_CONSUMERS = {"list", "tuple", "set", "dict", "sum", "any", "all", "min", "max", "sorted", "next"}
+OFFLOAD_CALLS = {"to_thread", "asyncio.to_thread", "run_in_threadpool", "starlette.concurrency.run_in_threadpool", "fastapi.concurrency.run_in_threadpool", "aexecute", "services.db_async.aexecute", "fastapi.BackgroundTasks.add_task", "starlette.background.BackgroundTasks.add_task", "starlette.background.BackgroundTask"}
+LAZY_CALLS = {"iter", "enumerate", "zip", "map", "filter", "builtins.iter", "builtins.enumerate", "builtins.zip", "builtins.map", "builtins.filter", "functools.partial"}
 
 
 @dataclass
@@ -50,7 +51,8 @@ class Finding:
 
 
 def _nodes(body: Iterable[ast.AST], *, consume_generator: bool = False,
-           consumed: set[int] | None = None) -> Iterable[ast.AST]:
+           consumed: set[int] | None = None,
+           policy: Callable[[ast.Call, bool], bool] | None = None) -> Iterable[ast.AST]:
     """Nodes executed in this scope, excluding deferred bodies."""
     for node in body:
         yield node
@@ -62,29 +64,42 @@ def _nodes(body: Iterable[ast.AST], *, consume_generator: bool = False,
             eager = [*node.args.defaults, *(v for v in node.args.kw_defaults if v is not None)]
             if not isinstance(node, ast.Lambda):
                 eager.extend(node.decorator_list)
-            yield from _nodes(eager, consumed=consumed)
+            yield from _nodes(eager, consumed=consumed, policy=policy)
         elif isinstance(node, ast.GeneratorExp) and not consume_generator:
             # Only the first iterable is evaluated at generator creation. The
             # element, filters and subsequent iterables wait for consumption.
-            yield from _nodes([node.generators[0].iter], consumed=consumed)
+            yield from _nodes([node.generators[0].iter], consumed=consumed, policy=policy)
         elif isinstance(node, ast.Call):
-            consumer = (
-                isinstance(node.func, ast.Name) and node.func.id in EAGER_CONSUMERS
-                or isinstance(node.func, ast.Attribute) and node.func.attr in {"join", "extend", "update"}
-            )
+            consumer = (policy(node, consume_generator) if policy is not None
+                        else _consumes_arguments(node, consume_generator, {}, set()))
             for child in ast.iter_child_nodes(node):
-                yield from _nodes([child], consume_generator=consumer, consumed=consumed)
+                advances_receiver = (child is node.func and isinstance(child, ast.Attribute)
+                                     and child.attr in {"send", "throw", "close", "__next__"})
+                if advances_receiver:
+                    yield from _nodes([child.value], consume_generator=True, consumed=consumed, policy=policy)
+                else:
+                    consume_child = consumer if child is not node.func else isinstance(child, ast.Call)
+                    yield from _nodes([child], consume_generator=consume_child, consumed=consumed, policy=policy)
+        elif isinstance(node, ast.IfExp):
+            yield from _nodes([node.test], consumed=consumed, policy=policy)
+            yield from _nodes([node.body, node.orelse], consume_generator=consume_generator, consumed=consumed, policy=policy)
+        elif isinstance(node, ast.BoolOp):
+            yield from _nodes(node.values, consume_generator=consume_generator, consumed=consumed, policy=policy)
+        elif isinstance(node, ast.NamedExpr):
+            yield from _nodes([node.value], consume_generator=consume_generator, consumed=consumed, policy=policy)
+        elif isinstance(node, ast.keyword):
+            yield from _nodes([node.value], consume_generator=consume_generator, consumed=consumed, policy=policy)
         elif isinstance(node, (ast.For, ast.comprehension)):
             for child in ast.iter_child_nodes(node):
-                yield from _nodes([child], consume_generator=child is node.iter, consumed=consumed)
+                yield from _nodes([child], consume_generator=child is node.iter, consumed=consumed, policy=policy)
         elif isinstance(node, ast.With):
             for item in node.items:
-                yield from _nodes([item.context_expr], consume_generator=True, consumed=consumed)
-            yield from _nodes(node.body, consumed=consumed)
+                yield from _nodes([item.context_expr], consume_generator=True, consumed=consumed, policy=policy)
+            yield from _nodes(node.body, consumed=consumed, policy=policy)
         elif isinstance(node, (ast.Starred, ast.YieldFrom)):
-            yield from _nodes([node.value], consume_generator=True, consumed=consumed)
+            yield from _nodes([node.value], consume_generator=True, consumed=consumed, policy=policy)
         elif not isinstance(node, ast.ClassDef):
-            yield from _nodes(ast.iter_child_nodes(node), consumed=consumed)
+            yield from _nodes(ast.iter_child_nodes(node), consumed=consumed, policy=policy)
 
 
 def _name(node: ast.AST, symbols: dict[str, str]) -> str:
@@ -95,6 +110,18 @@ def _name(node: ast.AST, symbols: dict[str, str]) -> str:
     if isinstance(node, ast.Call):
         return _name(node.func, symbols)
     return "?"
+
+
+def _consumes_arguments(call: ast.Call, result_consumed: bool,
+                       symbols: dict[str, str], generators: set[str]) -> bool:
+    name = _name(call.func, symbols)
+    if name in OFFLOAD_CALLS or name == "run_in_executor" or name.endswith(".run_in_executor"):
+        return False
+    if name in LAZY_CALLS or name in generators:
+        return result_consumed
+    # An ordinary call may consume its iterable argument synchronously. Only
+    # explicit offload seams / known lazy constructors may defer that work.
+    return True
 
 
 def _symbols(body: list[ast.stmt], inherited: dict[str, str], module: str,
@@ -192,17 +219,81 @@ def _primitive(call: ast.Call, symbols: dict[str, str], awaited: bool) -> str | 
     return None
 
 
+def _execution_nodes(fn: Function, consumed: set[int], generators: set[str]) -> list[ast.AST]:
+    """Recover local generator-expression effects at an eager consumer.
+
+    Bindings take effect after their RHS. Alias snapshots therefore keep the
+    original iterator across later reassignment. This is lexical def-use within
+    one function, not whole-program/control-flow or container-value analysis.
+    """
+    def policy(call: ast.Call, result_consumed: bool) -> bool:
+        return _consumes_arguments(call, result_consumed, fn.symbols, generators)
+
+    body = list(_nodes(fn.node.body, consumed=consumed, policy=policy))
+    bindings = {}
+    for node in body:
+        if isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            end = (node.end_lineno, node.end_col_offset)
+            for target in targets:
+                if isinstance(target, ast.Name):
+                    bindings.setdefault(target.id, []).append((end, node.value))
+
+    def expressions(node: ast.AST, seen: set[int]) -> list[ast.AST]:
+        if id(node) in seen:
+            return []
+        seen = seen | {id(node)}
+        if isinstance(node, ast.GeneratorExp):
+            return [node]
+        if isinstance(node, ast.Call):
+            name = _name(node.func, fn.symbols)
+            if name in generators:
+                return [node]
+            if name in LAZY_CALLS:
+                return [expr for arg in node.args for expr in expressions(arg, seen)]
+        if isinstance(node, ast.IfExp):
+            return expressions(node.body, seen) + expressions(node.orelse, seen)
+        if isinstance(node, ast.BoolOp):
+            return [expr for value in node.values for expr in expressions(value, seen)]
+        if isinstance(node, ast.Name):
+            before = (node.lineno, node.col_offset)
+            prior = [(end, value) for end, value in bindings.get(node.id, []) if end <= before]
+            if prior:
+                return expressions(max(prior, key=lambda binding: binding[0])[1], seen)
+        return []
+
+    visited = {id(node) for node in body}
+    expanded = set()
+    # Newly exposed bodies may themselves consume another stored expression.
+    while True:
+        previous = len(expanded)
+        for node in body:
+            if id(node) not in consumed:
+                continue
+            for generator in expressions(node, set()):
+                if id(generator) in expanded:
+                    continue
+                expanded.add(id(generator))
+                for child in _nodes([generator], consume_generator=True, consumed=consumed, policy=policy):
+                    if id(child) not in visited:
+                        visited.add(id(child))
+                        body.append(child)
+        if len(expanded) == previous:
+            break
+    return body
+
+
 def scan_sources(sources: dict[str, str]) -> list[Finding]:
     functions = _functions(sources)
-    consumed = {name: set() for name in functions}
-    nodes = {
-        name: list(_nodes(fn.node.body, consumed=consumed[name]))
-        for name, fn in functions.items()
-    }
     generators = {
         name for name, fn in functions.items()
         if isinstance(fn.node, ast.FunctionDef)
-        and any(isinstance(node, (ast.Yield, ast.YieldFrom)) for node in nodes[name])
+        and any(isinstance(node, (ast.Yield, ast.YieldFrom)) for node in _nodes(fn.node.body))
+    }
+    consumed = {name: set() for name in functions}
+    nodes = {
+        name: _execution_nodes(fn, consumed[name], generators)
+        for name, fn in functions.items()
     }
     calls = {
         name: [node for node in body if isinstance(node, ast.Call)]
@@ -220,10 +311,6 @@ def scan_sources(sources: dict[str, str]) -> list[Finding]:
             # Calling a generator function constructs an iterator. Its body
             # only runs when an eager consumer advances it in this scope.
             if target not in generators or id(node) in consumed[name]:
-                return target
-        elif isinstance(node, (ast.Name, ast.Attribute)) and id(node) in consumed[name]:
-            target = _name(node, fn.symbols)
-            if target in generators:  # e.g. rows = responses(urls); list(rows)
                 return target
         return None
 

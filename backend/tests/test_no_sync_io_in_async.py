@@ -112,6 +112,61 @@ def test_inline_for_consumes_generator_on_the_loop():
     """)) == 1
 
 
+@pytest.mark.parametrize("expression, count", [
+    ("list(rows)", 1),
+    ("await asyncio.to_thread(list, rows)", 0),
+    ("alias = rows\n    list(alias)", 1),
+    ("alias = rows\n    await asyncio.to_thread(list, alias)", 0),
+    ("rows = []\n    list(rows)", 0),
+    ("alias = rows\n    rows = []\n    list(alias)", 1),
+    ("list(rows)\n    list(rows)", 1),
+    ("await asyncio.to_thread(list, *rows)", 1),
+    ("iterator = iter(rows)\n    list(iterator)", 1),
+    ("iterator = iter(rows)\n    await asyncio.to_thread(list, iterator)", 0),
+    ("rows.__next__()", 1),
+    ("rows.send(None)", 1),
+])
+def test_stored_generator_expression_is_checked_where_consumed(expression, count):
+    findings = scan("import requests\nasync def f(urls):\n"
+                    "    rows = (requests.get(url) for url in urls)\n    " + expression)
+    assert len(findings) == count
+
+
+@pytest.mark.parametrize("consumer, count", [("list(rows)", 2), ("await asyncio.to_thread(list, rows)", 1)])
+def test_stored_generator_outer_iterable_is_not_counted_twice(consumer, count):
+    findings = scan("import requests\nasync def f():\n"
+                    "    rows = (requests.get(url) for url in requests.get('index').json())\n    " + consumer)
+    assert len(findings) == count
+
+
+def test_stored_generator_expression_propagates_through_sync_helper():
+    helper = """
+import requests
+def collect(urls):
+    rows = (requests.get(url) for url in urls)
+    return list(rows)
+"""
+    assert not scan(helper + "\nasync def f(urls):\n    await asyncio.to_thread(collect, urls)")
+    findings = scan(helper + "\nasync def f(urls):\n    collect(urls)")
+    assert len(findings) == 1
+    assert findings[0].callee == "routers.example.collect"
+
+
+@pytest.mark.parametrize("consumer, count", [("list(rows)", 1), ("await asyncio.to_thread(list, rows)", 0)])
+def test_stored_generator_expressions_can_consume_each_other(consumer, count):
+    source = ("import requests\nasync def f(urls):\n"
+              "    inner = (requests.get(url) for url in urls)\n"
+              "    rows = (response for response in inner)\n    " + consumer)
+    assert len(scan(source)) == count
+
+
+@pytest.mark.parametrize("consumer, count", [("list(rows)", 1), ("await asyncio.to_thread(list, rows)", 0)])
+def test_annotated_generator_expression_binding(consumer, count):
+    source = ("import requests\nasync def f(urls):\n"
+              "    rows: object = (requests.get(url) for url in urls)\n    " + consumer)
+    assert len(scan(source)) == count
+
+
 GENERATOR_HELPERS = """
 import requests
 def responses(urls):
@@ -124,12 +179,71 @@ def collect(urls):
 """
 
 
+@pytest.mark.parametrize("value", ["(requests.get(url) for url in urls)", "responses(urls)"])
+@pytest.mark.parametrize("consumer", [
+    "process({g})", "frozenset({g})", "Counter({g})", "fh.writelines({g})",
+    "reduce(lambda a, b: a + b, {g})", "list({g} if condition else ())",
+    "list({g} or ())", "next(iter({g}))", "next(enumerate({g}))",
+])
+def test_ordinary_consumers_and_conditional_values_run_on_loop(value, consumer):
+    source = (GENERATOR_HELPERS + "\nfrom collections import Counter\nfrom functools import reduce\n"
+              "def process(values):\n    return list(values)\n"
+              "async def f(urls, fh, condition):\n    " + consumer.format(g=value))
+    assert len(scan(source)) == 1
+
+
+@pytest.mark.parametrize("imports, call", [
+    ("from asyncio import to_thread as worker", "worker"),
+    ("from starlette.concurrency import run_in_threadpool as worker", "worker"),
+])
+def test_imported_offload_aliases_preserve_deferred_generators(imports, call):
+    source = (GENERATOR_HELPERS + "\n" + imports + "\nasync def f(urls):\n    await "
+              + call + "(list, (requests.get(url) for url in urls))")
+    assert not scan(source)
+
+
+@pytest.mark.parametrize("consumer, count", [
+    ("process(values=rows)", 1),
+    ("await asyncio.to_thread(process, values=rows)", 0),
+])
+def test_keyword_arguments_preserve_consumption_context(consumer, count):
+    source = ("import requests\ndef process(values):\n    return list(values)\n"
+              "async def f(urls):\n    rows = (requests.get(url) for url in urls)\n    " + consumer)
+    assert len(scan(source)) == count
+
+
+@pytest.mark.parametrize("callback, count", [
+    ("list, (requests.get(url) for url in urls)", 0),
+    ("lambda result=requests.get('url'): result", 1),
+])
+def test_background_tasks_defer_work_but_not_callable_defaults(callback, count):
+    source = ("from fastapi import BackgroundTasks\nimport requests\n"
+              "async def f(urls, background: BackgroundTasks):\n    background.add_task(" + callback + ")")
+    assert len(scan(source)) == count
+
+
+@pytest.mark.parametrize("consumer, count", [("list(rows)", 1), ("await asyncio.to_thread(list, rows)", 0)])
+@pytest.mark.parametrize("constructor", ["iter", "enumerate"])
+def test_stored_lazy_iterator_retains_named_generator_effects(constructor, consumer, count):
+    source = (GENERATOR_HELPERS + "\nasync def f(urls):\n    rows = " + constructor
+              + "(responses(urls))\n    " + consumer)
+    assert len(scan(source)) == count
+
+
+@pytest.mark.parametrize("consumer, count", [("list(rows)", 1), ("await asyncio.to_thread(list, rows)", 0)])
+def test_generator_helper_arguments_wait_for_consumption(consumer, count):
+    source = ("import requests\ndef passthrough(values):\n    yield from values\n"
+              "async def f(urls):\n    rows = passthrough((requests.get(url) for url in urls))\n    " + consumer)
+    assert len(scan(source)) == count
+
+
 @pytest.mark.parametrize("expression", [
     "responses(urls)",
     "await asyncio.to_thread(list, responses(urls))",
     "await asyncio.to_thread(list, delegated(urls))",
     "await asyncio.to_thread(collect, urls)",
     "rows = responses(urls)\n    await asyncio.to_thread(list, rows)",
+    "rows = responses(urls)\n    rows = []\n    list(rows)",
 ])
 def test_named_generator_creation_and_worker_consumption_pass(expression):
     assert not scan(GENERATOR_HELPERS + "\nasync def f(urls):\n    " + expression)
@@ -140,6 +254,8 @@ def test_named_generator_creation_and_worker_consumption_pass(expression):
     "list(delegated(urls))",
     "collect(urls)",
     "rows = responses(urls)\n    list(rows)",
+    "rows = responses(urls)\n    alias = rows\n    rows = []\n    list(alias)",
+    "rows = responses(urls)\n    list(rows)\n    list(rows)",
     "for response in responses(urls):\n        pass",
     "await asyncio.to_thread(list, *(responses(urls)))",
     "await asyncio.to_thread(list, responses(requests.get('url').json()))",
