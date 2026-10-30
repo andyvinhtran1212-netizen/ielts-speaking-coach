@@ -210,7 +210,7 @@ S + is/are + V-ed (past participle)
 | **the -est / most** | China had **the highest** figure. |
 | **(not) as ... as** | Sales were **not as high as** expected. |
 | **twice / three times as ... as** | Imports were **twice as high as** exports. |
-| **X times more than** | Spending was **three times higher than** in 2000. |
+| **X times more than** | Spending was **three times higher than** in 2000. (*three times as high as* an toàn hơn; *three times higher than* hay gặp nhưng có người hiểu là ×4) |
 
 - The figure for France was **significantly higher than** that for Spain.
 - Among all countries, Japan recorded **the lowest** rate.
@@ -257,7 +257,7 @@ S + is/are + V-ed (past participle)
 ### Mạo từ với số liệu
 
 - ❌ Number of cars increased. → ✅ **The** number of cars increased.
-- ❌ Sales reached peak. → ✅ Sales reached **a** peak.
+- ❌ Sales reached peak. → ✅ Sales reached **a peak of** 5 million in 2015.
 
 ---
 
@@ -328,7 +328,7 @@ Gộp hai số liệu đối lập trong một câu (whereas / while) thay vì h
 
 1. Sales increased **by** 20% between 2000 and 2010. *(hoặc: There was an increase **of** 20%.)*
 2. The chart **shows** the number of visitors, which **has** risen sharply.
-3. First, the beans **are collected**, then **(are) dried**.
+3. First, the beans **are collected** and then **dried**. *(hoặc tách 2 câu: …are collected. They are then dried.)*
 4. The figure for China was higher than **that for** France.
 
 ---
@@ -338,7 +338,7 @@ Gộp hai số liệu đối lập trong một câu (whereas / while) thay vì h
 | Mảng | Quy tắc | Ví dụ |
 |------|---------|-------|
 | Thì | biểu đồ = present; dữ liệu quá khứ = past | shows / rose |
-| Thể trong process | Chọn theo tác nhân/vai nghĩa: manufacture thường bị động; water evaporates chủ động | is heated / evaporates |
+| Thể trong process | Các bước sản xuất thường dùng bị động; bước tự diễn ra (*water evaporates*) dùng chủ động | is heated / evaporates |
 | So sánh | -er than / the -est / that of | higher than that of... |
 | Giới từ | to (mức), by (lượng), from...to, of | rose by 10% to 80% |
 | Hoà hợp | the number of + số ít | The number ... has |
