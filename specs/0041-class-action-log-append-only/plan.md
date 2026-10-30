@@ -64,13 +64,9 @@
 
 - Staging first, under the advisory lock, after STAGING_FREEZE is lifted
   (`rollout.md`); production only at an authorized promotion.
-- Rollback: the 356 down script drops `trg_class_action_log_no_truncate` (and
-  its function if 356 created one), re-grants TRIGGER, REFERENCES and (PG 17)
-  MAINTAIN to `service_role`, and removes the policy comment. TRUNCATE and
-  FR-004 UPDATE/DELETE stay revoked, including for PUBLIC/anon/authenticated.
-  No UPDATE/DELETE grant or `GRANT ALL` is allowed in the down script (SA F5);
-  restoring the other legacy privileges does not restore these. No data is
-  written.
+- The 356 down script is owned by spec 0042 T001 (#2060,
+  FR-008/Scenario 10). It must not grant UPDATE/DELETE or `GRANT ALL`, and must
+  not re-grant TRIGGER, REFERENCES or MAINTAIN (SA F5).
 
 ## Verification strategy
 
