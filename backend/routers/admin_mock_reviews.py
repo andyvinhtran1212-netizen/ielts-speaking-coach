@@ -50,6 +50,12 @@ class ReleaseBody(BaseModel):
 def _raise_for(e: Exception):
     if isinstance(e, wf.NotFoundError):
         raise HTTPException(404, str(e))
+    if isinstance(e, wf.SkillNotInSittingError):
+        # Before ValidationError (its base): nothing was written, and the body
+        # matches /admin/mock-exams/sittings/{id}/retest-flags (PC-J213).
+        raise HTTPException(422, detail={
+            "error": "skill_not_in_sitting", "skills": e.skills, "message": str(e),
+        })
     if isinstance(e, wf.ValidationError):
         raise HTTPException(400, str(e))
     if isinstance(e, wf.ConflictError):
