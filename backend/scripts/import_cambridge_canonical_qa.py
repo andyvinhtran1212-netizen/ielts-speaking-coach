@@ -735,7 +735,9 @@ def commit_plan(
     for index, plan in enumerate(plans, start=1):
         audio_bytes = plan.audio_file.read_bytes()
         storage = supabase_admin.storage
-        storage.from_(settings.LISTENING_AUDIO_BUCKET).upload(
+        from services.storage_limits import upload_with_error_mapping
+        upload_with_error_mapping(
+            "listening-audio", storage.from_(settings.LISTENING_AUDIO_BUCKET).upload,
             plan.listening_test["full_audio_storage_path"], audio_bytes,
             {"content-type": "audio/mpeg", "x-upsert": "true"},
         )
@@ -749,7 +751,8 @@ def commit_plan(
             }
             for name in sorted(referenced):
                 path = plan.assets[name]
-                storage.from_(bucket).upload(
+                upload_with_error_mapping(
+                    f"{skill}-images", storage.from_(bucket).upload,
                     f"cambridge-internal-qa/{plan.source_id}/{skill}/{name}", path.read_bytes(),
                     {"content-type": "image/png", "x-upsert": "true"},
                 )

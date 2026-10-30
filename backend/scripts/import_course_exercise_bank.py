@@ -754,7 +754,9 @@ def main() -> int:
     # của bank trỏ tới prefix ấy; nếu request sau hỏng, bank cũ vẫn không trỏ
     # tới một gói dở dang. x-upsert làm lệnh chạy lại idempotent.
     for storage_path, audio_bytes in audio_uploads:
-        supabase_admin.storage.from_(_AUDIO_BUCKET).upload(
+        from services.storage_limits import upload_with_error_mapping
+        upload_with_error_mapping(
+            "listening-audio", supabase_admin.storage.from_(_AUDIO_BUCKET).upload,
             storage_path, audio_bytes,
             {"content-type": "audio/mpeg", "x-upsert": "true"})
     if existing:

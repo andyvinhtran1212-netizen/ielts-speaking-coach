@@ -41,6 +41,8 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from services.storage_limits import check_upload, raise_storage_error, upload_error
+
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +95,8 @@ class InvalidImageError(Exception):
     def __init__(self, message: str, http_status: int = 400):
         super().__init__(message)
         self.http_status = http_status
+        self.detail = (upload_error("reading-images", http_status).detail
+                       if http_status in (413, 415) else message)
 
 
 # ── Upload ───────────────────────────────────────────────────────────
@@ -180,6 +184,7 @@ def upload_diagram_image(
     resolved_bucket = bucket or settings.READING_IMAGES_BUCKET
 
     content_type = "image/jpeg" if fmt == "jpg" else f"image/{fmt}"
+    check_upload("reading-images", len(contents), content_type)
     try:
         supabase.storage.from_(resolved_bucket).upload(
             storage_path,
@@ -187,6 +192,7 @@ def upload_diagram_image(
             {"content-type": content_type, "upsert": "true"},
         )
     except Exception as exc:                                                  # pragma: no cover
+        raise_storage_error("reading-images", exc)
         logger.error("[reading_image] storage upload failed: %s", exc)
         # Re-raise so the router surfaces a 500 — the bucket is a
         # deploy precondition (one-time Supabase dashboard step); any

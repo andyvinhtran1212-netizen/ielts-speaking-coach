@@ -552,11 +552,15 @@ async def grade_response_endpoint(
 
         if file_size == 0:
             raise HTTPException(422, "File âm thanh trống")
+        from services.storage_limits import (
+            check_upload, normalise_audio_content_type, raise_storage_error, upload_error,
+        )
         if file_size > _MAX_BYTES:
-            raise HTTPException(
-                413,
-                f"File quá lớn ({file_size / (1024*1024):.1f} MB). Giới hạn là 50 MB."
-            )
+            raise upload_error(_AUDIO_BUCKET, 413, size=file_size, max_bytes=_MAX_BYTES)
+        storage_content_type = normalise_audio_content_type(
+            audio_file.content_type, _guess_ext(audio_file.filename, audio_file.content_type),
+        )
+        check_upload(_AUDIO_BUCKET, file_size, storage_content_type)
 
         # A stable recording UUID + audio hash makes lost acknowledgements replayable.
         # The read revision prevents a late, older take from replacing a newer one.
@@ -611,45 +615,8 @@ async def grade_response_endpoint(
             # user — the full error is already logged + recorded above.
             raise HTTPException(502, "Lỗi nhận dạng giọng nói. Vui lòng thử lại.")
 
-        # ── STEP 4: Upload to Supabase Storage (archival — non-blocking) ─────
-        step = "storage_upload"
-        audio_uploaded = False
-
-        try:
-            # BE-1: the synchronous Storage upload (HTTP PUT of up to ~50MB of
-            # audio) was the single largest event-loop blocker left on this hot
-            # grading route. Offload it to a worker thread so concurrent grading
-            # requests aren't serialized behind it. Object storage is its own
-            # httpx client per .from_() call — NOT the shared PostgREST singleton
-            # — so to_thread here carries no thread-safety risk (unlike the
-            # PostgREST .execute() sites, which stay on the parked async facade).
-            # Same call, same kwargs, same (ignored) return value.
-            await asyncio.to_thread(
-                supabase_admin.storage.from_(_AUDIO_BUCKET).upload,
-                path=storage_path,
-                file=audio_bytes,
-                file_options={
-                    "content-type": audio_file.content_type or "audio/webm",
-                    "upsert": "true",
-                },
-            )
-            audio_uploaded = True
-            logger.info("[grading] storage upload OK → %s", storage_path)
-        except Exception as e:
-            err_str = str(e)
-            logger.warning("[grading] storage upload FAILED (non-fatal — transcript already done): %s", e)
-            if "Bucket not found" in err_str:
-                logger.error(
-                    "[grading] Supabase Storage bucket '%s' not found. "
-                    "Create it in the Supabase dashboard (Storage → New bucket) as a private bucket.",
-                    _AUDIO_BUCKET,
-                )
-
-        if retry_safe and not audio_uploaded:
-            # Never advertise replay safety without a durable recording identity.
-            # The browser retains the audio and can retry when Storage recovers.
-            raise HTTPException(503, {"code": "recording_storage_unavailable"})
-
+        # Whisper is paid once it returns: record usage before the Storage step,
+        # whose 413/415 refusal (FR-005) or 503 would otherwise skip it.
         transcript: str       = stt.get("transcript", "").strip()
         duration_sec: float   = stt.get("duration_seconds", 0.0)
         confidence: float     = stt.get("confidence", 0.0)
@@ -679,6 +646,46 @@ async def grade_response_endpoint(
             resource_type="question",
             resource_id=question_id,
         ))
+
+        # ── STEP 4: Upload to Supabase Storage (archival — non-blocking) ─────
+        step = "storage_upload"
+        audio_uploaded = False
+
+        try:
+            # BE-1: the synchronous Storage upload (HTTP PUT of up to ~50MB of
+            # audio) was the single largest event-loop blocker left on this hot
+            # grading route. Offload it to a worker thread so concurrent grading
+            # requests aren't serialized behind it. Object storage is its own
+            # httpx client per .from_() call — NOT the shared PostgREST singleton
+            # — so to_thread here carries no thread-safety risk (unlike the
+            # PostgREST .execute() sites, which stay on the parked async facade).
+            # Same call, same kwargs, same (ignored) return value.
+            await asyncio.to_thread(
+                supabase_admin.storage.from_(_AUDIO_BUCKET).upload,
+                path=storage_path,
+                file=audio_bytes,
+                file_options={
+                    "content-type": storage_content_type,
+                    "upsert": "true",
+                },
+            )
+            audio_uploaded = True
+            logger.info("[grading] storage upload OK → %s", storage_path)
+        except Exception as e:
+            raise_storage_error(_AUDIO_BUCKET, e)
+            err_str = str(e)
+            logger.warning("[grading] storage upload FAILED (non-fatal — transcript already done): %s", e)
+            if "Bucket not found" in err_str:
+                logger.error(
+                    "[grading] Supabase Storage bucket '%s' not found. "
+                    "Create it in the Supabase dashboard (Storage → New bucket) as a private bucket.",
+                    _AUDIO_BUCKET,
+                )
+
+        if retry_safe and not audio_uploaded:
+            # Never advertise replay safety without a durable recording identity.
+            # The browser retains the audio and can retry when Storage recovers.
+            raise HTTPException(503, {"code": "recording_storage_unavailable"})
 
         # ── Reliability classification ─────────────────────────────────────────
         reliability = classify_reliability(transcript, stt_segments, duration_sec)
