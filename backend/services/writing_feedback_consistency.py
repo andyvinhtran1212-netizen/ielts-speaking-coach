@@ -74,6 +74,8 @@ _CRITICISM = re.compile(
     r"\b(?:sai|loi|chua|khong|thieu|guong ep|"
     r"wrong|incorrect|error|mistake|not|awkward|unnatural)\b"
 )
+# Advice in another clause is a warning to keep, even without a proposal verb.
+_ADVICE = re.compile(r"\b(?:nen|can|kiem tra|should|need|needs|check|verify)\b")
 _AGE_GROUP = re.compile(r"\b(\d{1,2})\s*[-–—]\s*(\d{1,2})[ -]+year[ -]+olds\b")
 _TASK_RESPONSE = re.compile(r"\bTask Response\b", re.IGNORECASE)
 _NEUTRAL = "Tham khảo các lỗi và gợi ý cụ thể trong phần phân tích."
@@ -170,8 +172,11 @@ def repair_writing_consistency(feedback: WritingFeedback, task_type: str) -> lis
             for sentence in sentences:
                 plain = _plain(sentence)
                 historical = _HISTORY.search(plain) and not _CURRENT.search(plain)
+                # summary is the five-essay overview: only an explicitly
+                # current-essay sentence there can contradict the GRA band.
                 if (feedback.criteriaFeedback.grammaticalRange.bandScore >= 7
-                        and _blanket_low_range(plain) and not historical):
+                        and _blanket_low_range(plain) and not historical
+                        and (key == "current_essay_observation" or _CURRENT.search(plain))):
                     continue
                 if _NO_PATTERNS.search(plain):
                     # A sentence-structure summary cannot deny lexical patterns.
@@ -203,6 +208,13 @@ def repair_writing_consistency(feedback: WritingFeedback, task_type: str) -> lis
 
     flagged = [p for m in feedback.mistakeAnalysis if (p := _phrase_pattern(m.original))]
 
+    def warns(clause: str) -> bool:
+        rest = clause
+        for p in flagged:
+            rest = p.sub("", rest)
+        return bool(_CRITICISM.search(rest) or _ADVICE.search(rest) or _PROPOSAL.search(clause)
+                    or _unnegated(_DATA_ERROR, rest))
+
     def narrative(text: str, *, allow_empty: bool = False) -> str:
         sentences = _sentences(text)
         kept = []
@@ -218,7 +230,9 @@ def repair_writing_consistency(feedback: WritingFeedback, task_type: str) -> lis
                            and not _PROPOSAL.search(clause)
                            and not (_HISTORY.search(clause) and not _CURRENT.search(clause))
                            for clause in clauses for p in flagged)
-            if not conflict:
+            # Never drop a warning: a sentence that also criticises or proposes
+            # in another clause is kept whole rather than rewritten.
+            if not conflict or any(warns(clause) for clause in clauses):
                 kept.append(sentence)
         value = text if kept == sentences else " ".join(kept)
         if text and not value and not allow_empty:

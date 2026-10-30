@@ -28,8 +28,11 @@ def test_reported_task1_failures_are_repaired_without_changing_scores_or_history
     assert "levelled off" not in feedback.criteriaFeedback.lexicalResource.feedback
     assert "'rose'" in feedback.criteriaFeedback.lexicalResource.feedback
     assert feedback.keyTakeaways.strengths == ["Overview rõ ràng."]
-    assert "đơn giản" not in feedback.sentenceStructureAnalysis["summary"]
-    assert "cấu trúc câu" in feedback.sentenceStructureAnalysis["summary"]
+    # summary is the five-essay overview (Codex r4421899085): its unscoped
+    # low-range sentence is history and stays; the pattern denial is scoped.
+    assert feedback.sentenceStructureAnalysis["summary"] == (
+        "Cấu trúc câu đơn giản, cần câu phức. "
+        "Chưa ghi nhận mẫu lỗi cấu trúc câu lặp lại trong dữ liệu cấu trúc câu.")
     assert "mâu thuẫn logic" not in feedback.coherenceAnalysis[0].explanation.lower()
     assert "sai so với dữ liệu biểu đồ" in feedback.coherenceAnalysis[0].issue
     assert "18–30-year-olds" in feedback.improvedEssay
@@ -64,9 +67,9 @@ def test_task_type_is_authoritative_for_all_criterion_labels(feedback, task):
 @pytest.mark.parametrize("gra", [6, 7, 8])
 def test_structure_claims_follow_gra_without_raising_the_band(feedback, claim, gra):
     feedback.criteriaFeedback.grammaticalRange.bandScore = gra
-    feedback.sentenceStructureAnalysis = {"summary": claim}
+    feedback.sentenceStructureAnalysis = {"current_essay_observation": claim}
     repair_writing_consistency(feedback, "task1_academic")
-    assert (feedback.sentenceStructureAnalysis["summary"] == claim) == (gra < 7)
+    assert (feedback.sentenceStructureAnalysis["current_essay_observation"] == claim) == (gra < 7)
     assert feedback.criteriaFeedback.grammaticalRange.bandScore == gra
 
 
@@ -105,9 +108,9 @@ def test_positive_mixed_structure_observations_survive_high_gra(feedback, claim,
     "The essay only uses simple sentences and needs more variety.",
 ])
 def test_negated_or_aspirational_range_words_do_not_shield_blanket_claims(feedback, claim):
-    feedback.sentenceStructureAnalysis = {"summary": claim}
+    feedback.sentenceStructureAnalysis = {"current_essay_observation": claim}
     repair_writing_consistency(feedback, "task1_academic")
-    assert feedback.sentenceStructureAnalysis["summary"] != claim
+    assert feedback.sentenceStructureAnalysis["current_essay_observation"] != claim
 
 
 @pytest.mark.parametrize("claim", [
@@ -253,6 +256,79 @@ def test_stale_denials_of_historical_structure_errors_are_still_removed(feedback
     feedback.sentenceStructureAnalysis[key] = claim
     repair_writing_consistency(feedback, "task1_academic")
     assert "lặp lại" not in feedback.sentenceStructureAnalysis[key]
+
+
+@pytest.mark.parametrize("claim", [
+    "Cấu trúc câu chủ yếu đơn giản.",
+    "Em chủ yếu dùng câu đơn.",
+])
+@pytest.mark.parametrize("gra", [7, 8])
+def test_history_summary_of_simple_range_survives_high_gra(feedback, claim, gra):
+    # Codex r4421899085: summary is the five-essay overview, so an unscoped
+    # low-range sentence there describes history, not the current GRA 7+ essay.
+    feedback.criteriaFeedback.grammaticalRange.bandScore = gra
+    feedback.sentenceStructureAnalysis = {
+        "summary": claim,
+        "current_essay_observation": "Bài này dùng nhiều câu phức hiệu quả.",
+    }
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.sentenceStructureAnalysis["summary"] == claim
+
+
+@pytest.mark.parametrize("key,claim", [
+    ("summary", "Bài này chủ yếu sử dụng câu đơn."),
+    ("summary", "The current essay only uses simple sentences."),
+    ("current_essay_observation", "Cấu trúc câu chủ yếu đơn giản."),
+    ("current_essay_observation", "Em chủ yếu dùng câu đơn."),
+])
+def test_blanket_current_essay_range_claims_are_still_removed_at_high_gra(feedback, key, claim):
+    feedback.sentenceStructureAnalysis = {key: claim}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.sentenceStructureAnalysis[key] != claim
+
+
+@pytest.mark.parametrize("claim,warning", [
+    ("Cụm 'levelled off' phù hợp, nhưng số liệu trong câu này sai và cần kiểm tra lại.",
+     "số liệu trong câu này sai"),
+    ("Cụm 'levelled off' phù hợp; tuy nhiên xu hướng không khớp với số liệu biểu đồ.",
+     "không khớp với số liệu"),
+    ("Cụm 'levelled off' tự nhiên, nhưng em nên kiểm tra lại con số năm 2010.",
+     "nên kiểm tra lại con số"),
+    ("The phrase 'levelled off' is appropriate, but the figures in this sentence are wrong.",
+     "figures in this sentence are wrong"),
+])
+@pytest.mark.parametrize("field", ["overallBandScoreSummary", "lexicalResource"])
+def test_warning_in_a_sentence_with_flagged_praise_is_never_dropped(feedback, claim, warning, field):
+    # Codex r4421899092: praise of a flagged phrase in one clause must not
+    # delete an independent warning in another clause of the same sentence.
+    if field == "lexicalResource":
+        feedback.criteriaFeedback.lexicalResource.feedback = claim
+    else:
+        feedback.overallBandScoreSummary = claim
+    repair_writing_consistency(feedback, "task1_academic")
+    result = (feedback.criteriaFeedback.lexicalResource.feedback if field == "lexicalResource"
+              else feedback.overallBandScoreSummary)
+    assert warning in result
+
+
+def test_warning_in_a_strength_with_flagged_praise_is_never_dropped(feedback):
+    claim = "Cụm 'levelled off' phù hợp, nhưng số liệu trong câu này sai."
+    feedback.keyTakeaways.strengths = [claim, "Overview rõ ràng."]
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.keyTakeaways.strengths == [claim, "Overview rõ ràng."]
+
+
+@pytest.mark.parametrize("claim", [
+    "Cụm 'levelled off' phù hợp và tự nhiên.",
+    "Cụm 'levelled off' phù hợp, nhưng 'the gap narrowed' cũng rất tự nhiên.",
+    "Cụm 'levelled off' phù hợp. Số liệu trong câu này sai.",
+])
+def test_praise_only_sentences_of_flagged_phrases_are_still_removed(feedback, claim):
+    feedback.overallBandScoreSummary = claim
+    repair_writing_consistency(feedback, "task1_academic")
+    assert "levelled off" not in feedback.overallBandScoreSummary
+    if "sai" in claim:
+        assert feedback.overallBandScoreSummary == "Số liệu trong câu này sai."
 
 
 def test_unscoped_denial_cannot_hide_known_lexical_patterns_when_syntax_history_is_absent(feedback):

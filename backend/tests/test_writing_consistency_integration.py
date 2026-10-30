@@ -62,6 +62,9 @@ async def test_deep_final_merge_rechecks_added_errors_and_changed_gra(writing_pr
     payload = _payload()
     payload["criteriaFeedback"]["grammaticalRange"]["bandScore"] = 6
     payload["criteriaFeedback"]["lexicalResource"]["feedback"] = "Em dùng 'rose rapidly' phù hợp."
+    # summary is the five-essay overview (Codex r4421899085); the GRA recheck
+    # applies to the current-essay observation.
+    payload["sentenceStructureAnalysis"]["current_essay_observation"] = "Cấu trúc câu đơn giản, cần câu phức."
     state.claude = [json.dumps(payload)]
     state.gemini = [json.dumps({
         "band_score_adjustments": {"grammaticalRange": 7},
@@ -74,7 +77,7 @@ async def test_deep_final_merge_rechecks_added_errors_and_changed_gra(writing_pr
     assert len(state.claude_requests) == 1
     assert len(state.gemini_calls) == (4 if fail_pass3 else 2)  # Existing retry budget only.
     assert result.feedback.criteriaFeedback.grammaticalRange.bandScore == 7
-    assert "đơn giản" not in result.feedback.sentenceStructureAnalysis["summary"]
+    assert "đơn giản" not in result.feedback.sentenceStructureAnalysis["current_essay_observation"]
     assert "rose rapidly" not in result.feedback.criteriaFeedback.lexicalResource.feedback
     assert result.feedback.mistakeAnalysis[-1].mistakeType == "Data Accuracy"
     assert result.feedback.criteriaFeedback.mainCriterion.title == "Task Achievement"
