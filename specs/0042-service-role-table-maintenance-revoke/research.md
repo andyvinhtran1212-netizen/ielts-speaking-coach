@@ -1,9 +1,10 @@
-# Research: who writes public tables as the owner (repository only)
+# Research: owner writes and public schema CREATE
 
-PC-J357, 2026-10-30. **Repository only**: no staging or production
-connection, no live catalog read. Base `origin/staging` at `672cd02b1`.
-The live catalog (SA: 147 of 166 public tables grant `service_role` TRIGGER on
-staging) remains SA's read-only check (`rollout.md` → Preconditions).
+PC-J357, 2026-10-30. Initial repository scan: `origin/staging` at `672cd02b1`.
+This revision also reads SA's supplied catalog/probe artifacts in
+`/workspace/qa/pr2060/`; it makes no database connection. The later staging
+snapshot records 150/169 public relations with service_role TRIGGER,
+REFERENCES 150, TRUNCATE 147 and MAINTAIN 150. Production remains unverified.
 
 ## 1. Method and limits
 
@@ -27,8 +28,15 @@ staging) remains SA's read-only check (`rollout.md` → Preconditions).
     DELETE writes.
 - The dynamic writers `fn_ai_patch_row` and `fn_ai_insert_row` (333) were
   resolved by hand to the tables named at their call sites.
-- Result: 139 definer RPCs callable by `service_role`, 48 definer trigger
-  functions, and **83 public tables** written with owner identity.
+- Historical repository result: 139 definer RPCs callable by `service_role`,
+  48 definer trigger functions and 83 candidate public tables. This is an
+  incomplete repository inventory, not the current owner-write reach count.
+- Corrected catalog evidence: SA's
+  `staging-owner-write-reach-20261030.txt` records **132 reachable tables**
+  from service-callable definers, trigger writes and FK actions to a fixed
+  point. Use the artifact's 132-row list as the observed catalog result,
+  replacing the earlier 83-table claim. It is a conservative reachability
+  bound within that scan's model, not proof that the remaining tables are safe.
 - Limits:
   - The base schema predates migration 001 and is out of band, so its tables
     and functions are not visible here. Examples include any `auth.users`
@@ -45,12 +53,90 @@ staging) remains SA's read-only check (`rollout.md` → Preconditions).
     and `restore_into_project.sh`.
   - **Foreign-key cascades:** a referential action runs as the owner of the
     referencing table, so its BEFORE row triggers run as that owner. This
-    is PostgreSQL's RI implementation (`ri_triggers.c` switches user ID to
-    the referencing relation's owner). T001's test should confirm it with a
-    negative control. If confirmed, a direct `service_role` DELETE on a
-    parent table is enough to run a planted trigger on a child as the owner.
+    is confirmed by SA's `probe_fk_cascade.sql` / `.out`: a direct
+    service_role DELETE of `users` fires a trigger on `access_codes` via
+    SET NULL and on `user_code_assignments` via CASCADE; both record
+    `current_user = postgres`. UPDATE referential actions have the same
+    owner boundary and need a T001 regression fixture too.
 
-  Both are reasons Q-J357-2 recommends all tables.
+  Both make coverage of **all tables mandatory**. Group 1 is only for named
+  checks and fixtures. Even a table outside the observed 132 can be written
+  by an owner session or a later migration.
+
+### Read-only query for the reachability recheck
+
+The supplied SA artifact preserves the 132-table output and catalog inputs,
+but not its original query text. The following read-only reconstruction
+records the fixed-point method for T001's recheck; it has not been executed
+in this spec-only revision, so its output must be compared with SA's saved
+list before claiming the count was reproduced. Regex targets and dynamic
+SQL require review; this inventory never restricts FR-001.
+
+```sql
+WITH RECURSIVE
+rels AS (
+  SELECT c.oid, c.relname
+    FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+   WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')
+),
+funcs AS (
+  SELECT p.* FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.prokind = 'f'
+),
+writes AS (
+  SELECT DISTINCT f.oid AS fn, r.oid AS rel
+    FROM funcs f
+   CROSS JOIN LATERAL regexp_matches(f.prosrc,
+     $re$\m(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM|MERGE\s+INTO|TRUNCATE(?:\s+TABLE)?)\s+(?:ONLY\s+)?(?:("?[a-z_][a-z_0-9]*"?)\s*\.\s*)?("?[a-z_][a-z_0-9]*"?)$re$,
+     'gi') AS m(parts)
+    JOIN rels r ON r.relname = replace(m.parts[2], '"', '')
+   WHERE m.parts[1] IS NULL OR replace(m.parts[1], '"', '') = 'public'
+),
+edges(src, dst) AS (
+  SELECT 'f:' || fn, 't:' || rel FROM writes
+  UNION
+  SELECT 't:' || t.tgrelid, 'f:' || t.tgfoid
+    FROM pg_trigger t JOIN rels r ON r.oid = t.tgrelid
+   WHERE NOT t.tgisinternal AND t.tgenabled <> 'D'
+  UNION
+  SELECT 't:' || k.confrelid, 't:' || k.conrelid
+    FROM pg_constraint k
+    JOIN rels parent ON parent.oid = k.confrelid
+    JOIN rels child ON child.oid = k.conrelid
+   WHERE k.contype = 'f'
+     AND (k.confdeltype IN ('c', 'n', 'd')
+       OR k.confupdtype IN ('c', 'n', 'd'))
+),
+seeds(node) AS (
+  SELECT 'f:' || f.oid FROM funcs f
+   WHERE f.prosecdef AND f.prorettype <> 'trigger'::regtype
+     AND has_function_privilege('service_role', f.oid, 'EXECUTE')
+  UNION
+  -- Direct API-role DML can start an owner-run FK action without a definer.
+  SELECT 't:' || k.conrelid FROM pg_constraint k
+    JOIN rels parent ON parent.oid = k.confrelid
+    JOIN rels child ON child.oid = k.conrelid
+   WHERE k.contype = 'f'
+     AND ((k.confdeltype IN ('c', 'n', 'd')
+           AND has_table_privilege('service_role', parent.oid, 'DELETE'))
+       OR (k.confupdtype IN ('c', 'n', 'd')
+           AND has_table_privilege('service_role', parent.oid, 'UPDATE')))
+),
+reach(node) AS (
+  SELECT node FROM seeds
+  UNION
+  SELECT e.dst FROM reach r JOIN edges e ON e.src = r.node
+)
+SELECT r.relname, count(*) OVER () AS reachable_tables
+  FROM rels r JOIN reach x ON x.node = 't:' || r.oid
+ ORDER BY r.relname;
+```
+
+This deliberately over-approximates operation-specific trigger/FK edges and
+does not parse arbitrary dynamic SQL or unqualified helper calls. T001 must
+reconcile those with function bodies, including the dynamic writers in 333,
+and keep the query/output with the evidence. Owner sessions are an additional
+source of writes on **every** table, independent of this graph.
 
 ## 2. Priority group 1: identity, privilege, lifecycle, enrolment and their audit
 
@@ -65,11 +151,15 @@ here defeats 326/332/336/337/341 directly.
 | `student_cohort_memberships` | same five RPCs, and `fn_sync_legacy_student_cohort_membership` fired by `students` writes; trigger `fn_guard_membership_cohort_active` (337) | explicit `GRANT ALL` (227:482) |
 | `student_lifecycle_audit` | `fn_archive_student`, `fn_restore_student` | 326 revokes UPDATE, DELETE, TRUNCATE; TRIGGER/REFERENCES/MAINTAIN remain |
 | `cohorts` | `fn_archive_cohort`, `fn_restore_cohort` (337); trigger `fn_cohorts_archive_metadata` (definer) | default ACL only |
+| `access_codes` | direct service_role DELETE of `users` → `issued_by` SET NULL; DELETE of `cohorts` → `cohort_id` SET NULL; SA probe confirms owner identity | SA catalog: TRIGGER remains before NNN |
+| `user_code_assignments` | direct service_role DELETE of `users` → `user_id` CASCADE; SA probe confirms owner identity | SA catalog: TRIGGER remains before NNN |
 | `class_lifecycle_audit` | `fn_archive_cohort`, `fn_restore_cohort` | 337 revokes UPDATE, DELETE, TRUNCATE; TRIGGER/REFERENCES/MAINTAIN remain |
 | `vocab_curated_cohort_events` | `fn_set_vocab_curated_cohort` (238; also writes `users`) | default ACL only |
 | `staff_security_audit` | `fn_users_privilege_audit` (definer trigger on `users`), i.e. every staff-privilege, archive and restore write above | 332 `REVOKE ALL` then `GRANT SELECT, INSERT` → expected none; SA confirm on staging |
 | `owner_alert_outbox` | `fn_users_privilege_audit` | 332 `REVOKE ALL` then `GRANT SELECT, INSERT, UPDATE` → expected none; SA confirm |
 | `activation_attempts` | `fn_activate_attempt_check` (334) | 334 `REVOKE ALL` then `GRANT SELECT` → expected none; SA confirm |
+| `staff_mfa_status_throttle` | privileged admission state; named regression check | SA catalog: TRIGGER already false |
+| `ai_model_overrides`, `ai_model_override_audit` | model-control state and audit; named regression checks | SA catalog: TRIGGER already false |
 | `staff_privilege_evidence` (341, #2050, not on staging base) | `fn_set_staff_privilege`, `fn_users_privilege_audit` | 341 `REVOKE ALL` from every API role → expected none |
 | `class_action_log` (356, #2045/#2054) | backend INSERT as `service_role`, not a definer path | CALAPPEND-0041 FR-002 revokes TRIGGER/REFERENCES/MAINTAIN in 356 |
 
@@ -80,6 +170,9 @@ Searched (repository grep, 2026-10-30): `backend/` excluding tests,
 `CREATE [CONSTRAINT] TRIGGER`, `ENABLE|DISABLE TRIGGER`, `REFERENCES` in
 DDL, `MAINTAIN`, `VACUUM`, `ANALYZE`, `CLUSTER`, `REINDEX`,
 `REFRESH MATERIALIZED`, `LOCK TABLE`.
+The CREATE-schema change also uses the DDL scan: no backend path creates
+public functions, tables or other objects as `service_role`; owner-run
+migrations keep CREATE. The clone's schema grant is the known script fix.
 
 - **No runtime or script use.** Matches are prose only ("truncate a
   message", "references", "Maintain one active attempt", `WOULD ANALYZE` in a
@@ -102,9 +195,11 @@ DDL, `MAINTAIN`, `VACUUM`, `ANALYZE`, `CLUSTER`, `REINDEX`,
   `CREATE TRIGGER` as `service_role`.
 - **One test reads a historical grant.** `test_course_pronunciation.py:283`
   checks the text of migration 223 (`GRANT ALL ON TABLE … TO service_role`).
-  That is history and stays true; FR-006 exempts migrations at or below NNN.
-- **Conclusion.** Revoking TRIGGER, REFERENCES, TRUNCATE and MAINTAIN from
-  `service_role` breaks no known path. T001 still runs the full backend suite,
+  That is history and stays true; FR-006 exempts only forward migrations at
+  or below NNN. No rollback file is exempt.
+- **Conclusion.** Revoking those four table privileges and public schema
+  CREATE from `service_role` breaks no known runtime path. T001 still runs the full
+  backend suite,
   and staging smoke and E2E after the apply (`rollout.md`).
 
 ## 4. Existing per-table revokes (repository)
@@ -150,8 +245,11 @@ PR #2055 (head `33be7ca80`, open) fixes this:
 This spec only references #2055 (FR-007). After #2055, a clone copies the
 source's ACLs and `postgres` default ACLs. Once NNN is applied on the source,
 the clone keeps the revoked state; before that, it inherits the source's
-grants and NNN is applied again. Line 53 (`GRANT ALL ON SCHEMA public TO
-postgres, service_role`) stays and is Q-J357-3.
+grants. The remaining `GRANT ALL ON SCHEMA public TO postgres, service_role`
+must also change to USAGE only for API roles (FR-007/FR-009); #2055 alone is
+not sufficient. Its baseline must leave NNN unapplied via the mandatory
+`pending_feature` entry; a baseline row is not evidence that NNN executed.
+Verify clone → baseline → explicit feature apply with synthetic fixtures.
 
 ## 6. Other public tables written with owner identity (priority 2: definer RPC writes directly)
 
@@ -236,7 +334,22 @@ postgres, service_role`) stays and is Q-J357-3.
 | `course_writing_submissions` | `fn_delete_class_assignment_if_unsubmitted` → FK(class_assignments cascade) → FK(class_assignment_items set null) |
 | `mock_paper_attempt_snapshots` | `fn_admit_mock_paper_attempt` → trg(reading_test_attempts) |
 
-Every other `public` relation is priority 4. That includes `access_codes`,
-`user_code_assignments` and other base-schema tables not visible here. They
-are covered by FR-001 because owner sessions, cascades and future definer
-functions can reach them.
+The tables in §6–§7 retain the original repository inventory, not an
+exhaustive catalog list. `access_codes` and `user_code_assignments` are
+priority 1 (§2), not priority 4. Every other public relation is still covered
+by FR-001, irrespective of ordering, because owner sessions, cascades and
+future definer functions can reach it.
+
+## 8. Schema CREATE and rollback evidence (SA P2-1 / P2-3)
+
+- `staging-catalog-20261030.txt`: schema public grants service_role USAGE +
+  CREATE; 167/173 definers use `public, pg_temp`. Of callable definers, 59 use
+  unqualified `jsonb_build_object` and 59 use unqualified builtins such as
+  lower/btrim/format; 12 definer triggers also use them.
+- `probe_overload.sql` / `.out`: after TRIGGER is revoked, exact-argument
+  overloads of lower and jsonb_build_object still run as postgres. After
+  schema CREATE is revoked, CREATE FUNCTION gets 42501 (FR-009).
+- The down of 356 restores TRIGGER/REFERENCES/MAINTAIN on class_action_log
+  (PR #2054 F5). A rollback executes after a forward migration irrespective
+  of its number. FR-006 must scan every rollback, and FR-008 requires the
+  down correction before release; this spec-only revision does not edit it.

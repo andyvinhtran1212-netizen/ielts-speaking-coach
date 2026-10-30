@@ -1,12 +1,12 @@
 ---
 id: SVCPRIV-0042
-title: service_role cannot attach triggers to, reference, truncate or maintain public tables, so code it plants never runs as the table owner
+title: service_role loses public table maintenance privileges and schema CREATE to block planted triggers and function overloads
 status: draft
 risk: critical
 owner: product
 ---
 
-# service_role cannot attach triggers to, reference, truncate or maintain public tables, so code it plants never runs as the table owner
+# service_role loses public table maintenance privileges and schema CREATE to block planted triggers and function overloads
 
 Status: **draft, chưa duyệt**. Job PC-J357 (1gn) chỉ viết spec, không viết
 migration. Chỉ mở phiếu migration (T001) sau khi anh Vinh duyệt các câu hỏi ở
@@ -16,10 +16,11 @@ may renumber. The migration number is assigned by the Leader when T001 is
 opened and is written `NNN` below.
 Origin: Security Auditor P2-SA-1 and its "separate, wider ticket" note in
 `reviews/PR-2050.md` (SA review of migration 341, 2026-10-30 15:10–15:40
-UTC+7). SA counted 147 of 166 public tables on staging that grant
-`service_role` TRIGGER, plus a default ACL that grants it again to every new
-table. Merged with PC-J350 (F10 of #2045, clone script `GRANT ALL`), which
-already has PR #2055.
+UTC+7). The later PR #2060 SA catalog snapshot (2026-10-30) counted 150 of
+169 public relations granting `service_role` TRIGGER, plus a default ACL
+that grants it again to new tables and CREATE on schema `public`.
+Merged with PC-J350 (F10 of #2045, clone script `GRANT ALL`), which already
+has PR #2055; its remaining schema grant also needs correction (FR-007).
 
 ## Tóm tắt (tiếng Việt)
 
@@ -36,8 +37,10 @@ rồi tự xoá dấu vết khi phiên kết thúc. SA đã chạy lại đượ
 
 Migration `NNN` sẽ thu bốn quyền mà backend không dùng (TRIGGER, REFERENCES,
 TRUNCATE và MAINTAIN trên PG 17) khỏi `service_role` trên **mọi** bảng
-`public`, kể cả quyền mặc định cho bảng tạo sau này. Migration giữ nguyên
-SELECT, INSERT, UPDATE và DELETE. Kèm theo là hậu điều kiện trong migration,
+`public`, kể cả quyền mặc định cho bảng tạo sau này. Đồng thời thu CREATE
+trên schema `public` khỏi `service_role`, anon, authenticated và PUBLIC để
+không thể cài hàm overload rồi chạy dưới quyền owner qua RPC definer.
+Migration giữ nguyên SELECT, INSERT, UPDATE và DELETE. Kèm theo là hậu điều kiện trong migration,
 test chạy trên PostgreSQL thật, và một guard tĩnh để migration hay script sau
 này không cấp lại các quyền đó. Script clone staging (J350, PR #2055) cũng không
 được cấp lại.
@@ -64,9 +67,17 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
 
   The `pg_temp` function, and with it the trigger, disappears when the
   session ends.
-- The same path is open on every table that owner-identity code writes, for
-  example the student archive/restore and class-membership RPCs. `research.md`
-  lists them from the repository: 83 tables, 10 of them in priority group 1.
+- The same path is open on every table that owner-identity code writes.
+  SA's catalog closure reaches **132 tables**, including FK CASCADE/SET NULL
+  from direct `service_role` DELETE/UPDATE, beyond the earlier incomplete
+  83-table repository scan (`research.md` §1). Group 1 is only a named-check
+  and fixture list; applying NNN to that group alone is unsafe.
+- CREATE on schema `public` is a second owner-execution path under the same
+  threat model. SA's `probe_overload.out` shows that even after TRIGGER is
+  revoked, `public.lower(varchar)` or
+  `public.jsonb_build_object(text,uuid,text,text)` can beat a pg_catalog
+  overload in a definer with `search_path = public, pg_temp`, then run as
+  `postgres`. Revoking CREATE blocks planting those functions with `42501`.
 - TRUNCATE skips RLS and row triggers, so it can empty append-only audit
   tables. REFERENCES lets a role add foreign keys that block owner deletes.
   MAINTAIN (PG 17) allows `LOCK … ACCESS EXCLUSIVE`, VACUUM FULL, CLUSTER and
@@ -83,6 +94,9 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
 - The same four privileges are removed from every default ACL that applies to
   new `public` tables, in both the schema-scoped and the global form, for every
   owner the runner can act for.
+- `REVOKE CREATE ON SCHEMA public FROM service_role, anon, authenticated,
+  PUBLIC`, with an effective-privilege postcondition and overload-shadow
+  tests (FR-009). Schema USAGE stays unchanged.
 - An in-migration postcondition that aborts the transaction on any drift. It
   includes a probe table created and dropped inside the transaction.
 - Real-PostgreSQL tests on PG 16 and PG 17, including SA's P2-SA-1 repro as
@@ -101,11 +115,10 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
 - Schemas other than `public` (`auth`, `storage`, `extensions`, `realtime`,
   `vault` and other Supabase-managed schemas), sequences, and function EXECUTE
   grants.
-- The TEMP privilege on the database, `CREATE` on schema `public` (clone
-  script line 53 grants `ALL ON SCHEMA public TO service_role`), and
-  function-overload shadowing. These are related hardening steps with their
-  own compatibility risk; they are listed as open question Q3, not part of
-  this FR set.
+- The TEMP privilege on the database and privilege changes in other schemas
+  remain separate follow-ups. Q-J357-3 requires SA's residual-risk decision
+  before production promotion or closure of P2-SA-1. CREATE on `public` and
+  public function-overload planting are covered by FR-009.
 - Other roles that hold these privileges (`authenticator`, `dashboard_user`,
   `supabase_admin`, `postgres` as owner). The postcondition reports them
   (FR-004); it does not revoke them.
@@ -118,10 +131,10 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
 
 ## Users and journeys
 
-- Security Auditor / product owner: `service_role` must never be able to run
-  code as the table owner, so the DB guards for staff privilege, suspension,
-  role freeze, student/class archive and the append-only audit tables hold
-  even against a leaked service key used on a direct connection.
+- Security Auditor / product owner: a leaked service key used on a direct
+  connection cannot plant a trigger on any public table or an overload in
+  schema `public` to execute as the owner. Existing planted objects and
+  residual paths require triage under Q-J357-3 before P2-SA-1 is closed.
 - Backend (FastAPI as `service_role` via PostgREST/RPC): every existing read,
   write and RPC keeps working unchanged.
 - Leader / migration runner (`postgres`): applies `NNN` on staging, then on
@@ -129,14 +142,16 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
 
 ## Requirements
 
-- **FR-001:** After migration NNN, for every relation in schema `public` whose `relkind` is `r`, `p`, `v`, `m` or `f` (table, partitioned table, view, materialized view, foreign table) and that is not owned by `service_role`, `has_table_privilege(<role>, <relation oid>, <privilege>)` is false for `<role>` in `service_role`, `anon`, `authenticated` and every privilege in TRIGGER, REFERENCES and TRUNCATE, plus MAINTAIN when `server_version_num >= 170000`; on PostgreSQL 16 the migration never names MAINTAIN; `relacl` has no PUBLIC (grantee 0) entry carrying any of these privileges; the priority-1 tables in `research.md` §2 (`users`, `students`, `student_cohort_memberships`, `student_lifecycle_audit`, `cohorts`, `class_lifecycle_audit`, `vocab_curated_cohort_events`, `staff_security_audit`, `owner_alert_outbox`, `activation_attempts`, plus `staff_privilege_evidence` from 341 and `class_action_log` when present) are checked by name so that a missing table is reported rather than silently skipped.
-- **FR-002:** Migration NNN contains no GRANT statement and changes no SELECT, INSERT, UPDATE or DELETE privilege, table-level or column-level, of any role on any `public` relation: before revoking, the migration snapshots `aclexplode(relacl)` and the column ACLs (`pg_attribute.attacl`) for those four privileges into a temporary table, and the postcondition aborts if any snapshot entry is missing or any new entry appears after the revoke; RLS settings, policies, ownership, triggers, functions and data are not changed.
-- **FR-003:** For every `pg_default_acl` entry with `defaclobjtype = 'r'` and `defaclnamespace` equal to 0 (global) or to schema `public`, whose `defaclrole` the runner is a superuser for or a member of, migration NNN runs `ALTER DEFAULT PRIVILEGES FOR ROLE <defaclrole> [IN SCHEMA public] REVOKE TRIGGER, REFERENCES, TRUNCATE [, MAINTAIN on PG 17+] ON TABLES FROM service_role, PUBLIC, anon, authenticated` in the matching scope, using the 320 loop pattern (320:236-266). Afterwards no such entry grants any of these privileges to those grantees. Entries whose owner the runner cannot act for (hosted `supabase_admin`) do not abort the migration; they are listed in a `RAISE WARNING` naming owner, scope, grantee and privilege, and recorded as a Supabase-support follow-up in `rollout.md`. Inside the same transaction, the migration creates `public._svcpriv_default_probe` as the runner, asserts FR-001 on it, and drops it before commit.
-- **FR-004:** Migration NNN runs in one transaction with `SET LOCAL lock_timeout = '5s'`, is safe to apply again (every statement is a REVOKE, an idempotent ALTER DEFAULT PRIVILEGES or a read), and ends with a postcondition `DO` block that raises an exception, rolling back the whole migration, when FR-001, FR-002 or the actable part of FR-003 does not hold. Before any revoke, the precondition aborts with a message listing the relations if a `public` relation is owned by `service_role`, because an owner's rights cannot be revoked. The postcondition also emits `RAISE NOTICE` lines for two report-only findings that do not abort: any other non-owner grantee that still holds TRIGGER, REFERENCES, TRUNCATE or MAINTAIN on a `public` relation, and any trigger on a `public` relation whose function is in a `pg_temp_*` schema or owned by a role other than the relation owner.
+- **FR-001:** After migration NNN, coverage of **every** relation in schema `public` whose `relkind` is `r`, `p`, `v`, `m` or `f` (table, partitioned table, view, materialized view, foreign table) is mandatory; a group-1-only apply is not an accepted option. For relations not owned by `service_role`, `has_table_privilege(<role>, <relation oid>, <privilege>)` is false for `<role>` in `service_role`, `anon`, `authenticated` and every privilege in TRIGGER, REFERENCES and TRUNCATE, plus MAINTAIN when `server_version_num >= 170000`; PostgreSQL 16 never evaluates MAINTAIN as a privilege. `relacl` has no PUBLIC (grantee 0) entry carrying any of these privileges. The priority-1 tables in `research.md` §2 (`users`, `students`, `student_cohort_memberships`, `student_lifecycle_audit`, `cohorts`, `class_lifecycle_audit`, `access_codes`, `user_code_assignments`, `vocab_curated_cohort_events`, `staff_security_audit`, `owner_alert_outbox`, `activation_attempts`, `staff_mfa_status_throttle`, `ai_model_overrides`, `ai_model_override_audit`, plus `staff_privilege_evidence` and `class_action_log` when present) are also checked by name; a missing table is reported, not silently skipped or treated as an ACL failure.
+- **FR-002:** Migration NNN contains no GRANT statement and changes no SELECT, INSERT, UPDATE or DELETE privilege, table-level or column-level, of any role on any `public` relation: before revoking, the migration snapshots `aclexplode(COALESCE(relacl, acldefault('r', relowner)))` and column ACLs (`pg_attribute.attacl`, with NULL treated as an empty column ACL) for those four privileges into a temporary table. The same normalization is used after revoking; the postcondition aborts if any entry is missing or new, including grant options. A fixture with `relacl IS NULL` must pass even if REVOKE materializes implicit owner rights. RLS settings, policies, ownership, triggers, functions and data are not changed; schema USAGE is also unchanged (FR-009).
+- **FR-003:** For every `pg_default_acl` entry with `defaclobjtype = 'r'` and `defaclnamespace` equal to 0 (global) or to schema `public`, whose `defaclrole` the runner is a superuser for or a member of, migration NNN runs `ALTER DEFAULT PRIVILEGES FOR ROLE <defaclrole> [IN SCHEMA public] REVOKE TRIGGER, REFERENCES, TRUNCATE [, MAINTAIN on PG 17+] ON TABLES FROM service_role, PUBLIC, anon, authenticated` in the matching scope, using the 320 loop pattern (320:236-266). Afterwards no such entry grants any of these privileges to those grantees. Entries whose owner the runner cannot act for (hosted `supabase_admin`) are listed in a `RAISE WARNING` naming owner, scope, grantee and privilege, and recorded as a Supabase-support follow-up in `rollout.md`; this exception never waives FR-001 on existing relations. Inside the same transaction, the migration creates `public._svcpriv_default_probe` as the runner, asserts FR-001 on it, and drops it before commit. Only object type `r` carries the four targeted table privileges; function EXECUTE defaults are a separate follow-up under Q-J357-3.
+- **FR-004:** Migration NNN runs in one transaction with `SET LOCAL lock_timeout = '5s'`, is safe to apply again, and ends with a postcondition `DO` block that raises an exception, rolling back the whole migration, when FR-001, FR-002, the actable part of FR-003 or FR-009 does not hold. Before any revoke, the precondition aborts with a message listing any `public` relation or schema `public` owned by a targeted role, because owner rights cannot be revoked. Effective privilege checks fail closed on inherited rights. The postcondition also emits `RAISE NOTICE` for other non-owner grantees retaining targeted table privileges or schema CREATE, and for triggers whose function is in `pg_temp_*` or owned by a role other than the relation owner. The pre-apply catalog additionally lists public functions owned by targeted roles and unexpected overloads; SA triages them before apply, since REVOKE does not remove existing objects.
 - **FR-005:** On a real PostgreSQL 16 and 17 harness with a Supabase-style default ACL (`GRANT ALL ON TABLES TO anon, authenticated, service_role`) and the migrations that create the priority-1 tables, after NNN a session that is genuinely `service_role` (`SET LOCAL ROLE service_role` with `ASSERT current_user = 'service_role'` and fixture checks `rolsuper = false` for anon, authenticated and service_role, per P3-SA-8) gets SQLSTATE `42501` for `CREATE TRIGGER` on each priority-1 table, for `TRUNCATE` on each, for creating a table with `FOREIGN KEY … REFERENCES public.users(id)` in a harness-only scratch schema owned by `service_role`, and on PG 17 for `LOCK TABLE public.activation_attempts IN ACCESS EXCLUSIVE MODE` (a table where `service_role` has only SELECT); SA's P2-SA-1 sequence (planted `pg_temp` trigger, then `fn_set_staff_privilege`) stops at step 1 with `42501`, and no `users` row or ACL changes. The same session can still SELECT, INSERT, UPDATE and DELETE on representative backend tables, and `fn_set_staff_privilege`, `fn_archive_student`, `fn_restore_student`, `fn_add_student_cohort_membership`, `fn_remove_student_cohort_membership`, `fn_archive_cohort` and `fn_restore_cohort` succeed exactly as before NNN. A negative control built without NNN shows that the planted trigger does run as the owner.
-- **FR-006:** A static test fails when any forward migration numbered above NNN, any file added under `backend/migrations/rollback/` for NNN or later, or any `backend/scripts/**/*.sh`, `**/*.sql` or `**/*.py` file contains, outside SQL/shell comments, a GRANT that gives `service_role`, PUBLIC, anon or authenticated `ALL [PRIVILEGES]`, TRIGGER, REFERENCES, TRUNCATE or MAINTAIN on a table, on `ALL TABLES IN SCHEMA`, or through `ALTER DEFAULT PRIVILEGES … ON TABLES`; migrations numbered at or below NNN are exempt because they are forward-only history that NNN re-revokes. A committed mutation test proves the guard fails on such a line in a `.sql` and a `.sh` fixture. `backend/migrations/README.md` states that new tables grant `service_role` an explicit `SELECT, INSERT, UPDATE, DELETE` list instead of `GRANT ALL`.
-- **FR-007:** `backend/scripts/staging_clone_schema_from_prod.sh` grants none of TRIGGER, REFERENCES, TRUNCATE, MAINTAIN or `ALL` on tables, on `ALL TABLES IN SCHEMA public` or through default privileges on tables, to `service_role`, PUBLIC, anon or authenticated. This spec does not edit the script: the requirement is met when PC-J350's PR #2055 (dump with object ACLs, blanket grants removed) is merged, and FR-006's guard then keeps it so. After any clone run, the FR-001 and FR-003 read-only postcheck in `rollout.md` is re-run on staging before staging is used for evidence. Because #2055 copies the source's ACLs, a clone from a source without NNN carries that source's grants, and its ledger baseline shows NNN unapplied, so NNN is applied again.
-- **FR-008:** Migration NNN is independent of and consistent with neighbouring work. It does not require 341 (#2050) or 356 (#2045/#2054) to be applied, and it does not conflict with them: if 341/341b already revoked these privileges on `public.users` (P2-SA-1 minimal fix) or 356 revoked them on `public.class_action_log` (CALAPPEND-0041 FR-002), NNN is a no-op for those tables and their postconditions still hold. NNN does not create, replace or drop any function, trigger, policy or table other than the FR-003 probe table.
+- **FR-006:** A static test scans every forward migration numbered above NNN, **ALL** files in `backend/migrations/rollback/` regardless of number (including the down of 356), and every `backend/scripts/**/*.sh`, `**/*.sql` or `**/*.py` file. Only historical **forward** migrations numbered at or below NNN are exempt. Outside actual SQL/shell/Python comments it rejects: table/default-ACL `GRANT ALL [PRIVILEGES]`, TRIGGER, REFERENCES, TRUNCATE or MAINTAIN to `service_role`, PUBLIC, anon or authenticated (including `ON ALL TABLES IN SCHEMA`); `GRANT pg_maintain`, `pg_write_all_data` or `postgres TO service_role`; `ALTER … OWNER TO service_role`; and `GRANT CREATE` or `GRANT ALL [PRIVILEGES] ON SCHEMA public` to any targeted grantee. SQL strings in `EXECUTE format('GRANT …')`, script heredocs and Python strings are executable SQL for this check, not comments; literal format arguments identifying the grantee/schema are covered. Committed mutation fixtures exercise every forbidden family across `.sql`, `.sh` and `.py`, including mixed case, multiline/quoted names, a rollback below NNN, and `EXECUTE format('GRANT …')`. Safe explicit CRUD/USAGE grants and comments pass. `backend/migrations/README.md` documents explicit CRUD grants and no schema CREATE for API roles.
+- **FR-007:** The clone script must not re-grant the four targeted table privileges or CREATE on schema `public` to `service_role`, PUBLIC, anon or authenticated, directly, through ALL or through table default ACLs. PR #2055 supplies the object-ACL dump change, but is insufficient while `GRANT ALL ON SCHEMA public TO postgres, service_role` remains; PC-J350 or its follow-up must replace that API-role grant with USAGE only before FR-006/FR-007 can pass. After any clone, re-run the FR-001/FR-003/FR-009 read-only postchecks before using staging for evidence. NNN must have a mandatory `pending_feature` entry in `backend/migrations/forward-policy.tsv` so a clone's `--baseline` leaves it pending. The baseline must exclude NNN's group from `MIGRATION_FEATURES`, clearing or refusing an inherited selection before baselining; a selected group could otherwise still be recorded without executing NNN. When the source lacks NNN, verify it is absent from the target ledger, then apply it with the authorized explicit pending-feature selection. A real clone/baseline/runner test must prove NNN executes and the postchecks pass; a ledger row without matching ACLs blocks use of the clone until reconciled through the supported runner workflow.
+- **FR-008:** Migration NNN is independent of and consistent with 341 (#2050) and 356 (#2045/#2054): it does not require either forward migration, and is a no-op on tables where they already revoked the targeted rights. Their postconditions still hold. Before NNN is released, the down of 356 must be corrected under F5 so it never re-grants TRIGGER, REFERENCES, TRUNCATE or MAINTAIN on `class_action_log`; its older number is not an exemption from FR-006. No rollback restoring these rights or schema CREATE may run after NNN. A regression applies NNN with 356, runs the corrected down of 356, then repeats FR-001/FR-009 postchecks. NNN changes no function, trigger, policy or table other than the dropped FR-003 probe table.
+
+- **FR-009:** Migration NNN executes `REVOKE CREATE ON SCHEMA public FROM service_role, anon, authenticated, PUBLIC`. Its fail-closed postcondition requires `has_schema_privilege(<role>, 'public', 'CREATE') = false` for each named role and no CREATE entry for grantee 0 in `aclexplode(COALESCE(nspacl, acldefault('n', nspowner)))`; schema USAGE and owner privileges remain unchanged. Schema ownership or inherited CREATE that prevents this result aborts the transaction (FR-004). Real PG 16/17 tests with genuine non-superuser roles try to create both `public.lower(varchar)` and `public.jsonb_build_object(text,uuid,text,text)` and get `42501`. A synthetic owner-owned definer RPC with `search_path = public, pg_temp` still returns the original result and leaves a private audit marker empty. The negative control revokes table privileges but retains schema CREATE: both overloads can be planted and each records `current_user = postgres` when that RPC is called. Fixtures clean up between controls. An injected schema re-grant or inherited CREATE makes NNN abort. FR-006 guards against restoring CREATE, and FR-007 preserves it across clones.
 
 ## Acceptance scenarios
 
@@ -157,10 +172,10 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
 
 - **Given** the same database, where `service_role` has table-level ALL on
   most tables, column-level UPDATE on one test table, and only SELECT on
-  `activation_attempts`
+  `activation_attempts`, and one relation has `relacl IS NULL`
 - **When** NNN is applied
-- **Then** the before/after snapshot of SELECT, INSERT, UPDATE and DELETE
-  entries (table and column level) is identical for every role, and
+- **Then** the normalized before/after snapshot of SELECT, INSERT, UPDATE
+  and DELETE entries (table and column level) is identical for every role, and
   `service_role` can still SELECT, INSERT, UPDATE and DELETE a row in
   representative tables
 
@@ -202,9 +217,12 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
   `backend/scripts/` contains `GRANT ALL ON TABLE public.x TO service_role`,
   `GRANT TRIGGER ON ALL TABLES IN SCHEMA public TO service_role`, or `ALTER
   DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO service_role`
-- **Then** the static test fails and names the file and line. With #2055
-  merged, the clone script passes the guard; with the old lines 58–63 it
-  fails
+  (including inside `EXECUTE format('GRANT …')`), or grants `pg_maintain`,
+  `pg_write_all_data` or `postgres` membership, assigns ownership to
+  `service_role`, or grants CREATE/ALL on schema `public`
+- **Then** the static test fails and names the file and line, including for
+  a rollback numbered below NNN. The clone script passes only after both
+  #2055 and the remaining schema grant are fixed (FR-007).
 
 ### Scenario 7 — fail closed on unexpected state (FR-004)
 
@@ -213,6 +231,47 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
 - **When** NNN runs
 - **Then** the migration aborts with a message naming the relation and
   privilege, and no privilege or default ACL changes are committed
+
+### Scenario 8 — overload planting is refused (FR-004, FR-009)
+
+- **Given** a synthetic owner-owned definer with `search_path = public,
+  pg_temp`, unqualified `lower(varchar)` / `jsonb_build_object` calls and a
+  private audit marker, with NNN applied
+- **When** a genuine `service_role` session attempts to create either public
+  overload from SA's probe, then calls the legitimate RPC
+- **Then** both CREATE FUNCTION statements fail with `42501`, the RPC result
+  is unchanged and no attacker marker is written. In a separate negative
+  control with table privileges revoked but schema CREATE retained, each
+  overload records execution as `postgres`. A re-grant seam and inherited
+  CREATE fixture both cause the migration postcondition to abort.
+
+### Scenario 9 — direct writes cascade as owner (FR-001, FR-005)
+
+- **Given** synthetic `users`, `access_codes.issued_by ON DELETE SET NULL`
+  and `user_code_assignments.user_id ON DELETE CASCADE` fixtures
+- **When** a genuine `service_role` session deletes the parent directly
+- **Then** without NNN, planted child triggers record `current_user =
+  postgres`; with NNN, planting each trigger fails with `42501`, while the
+  legitimate FK action still succeeds. UPDATE CASCADE/SET NULL is covered
+  by an equivalent fixture. Group 1 never limits the all-relations check.
+
+### Scenario 10 — older rollback cannot reopen privileges (FR-006, FR-008)
+
+- **Given** 356 and NNN are applied
+- **When** the corrected down of 356 runs
+- **Then** the FR-001/FR-009 postchecks still pass. Mutating that down to
+  restore a targeted privilege fails the guard despite its number being
+  lower than NNN.
+
+### Scenario 11 — clone from a source without NNN (FR-007)
+
+- **Given** a synthetic clone source without NNN and a checkout containing
+  NNN with its mandatory `pending_feature` policy entry
+- **When** the clone baseline runs, followed by the authorized explicit
+  pending-feature apply
+- **Then** the baseline leaves NNN unapplied, the apply actually executes
+  NNN, and all table/default/schema privilege postchecks pass. This scenario
+  must not copy production data into staging.
 
 ## Edge cases
 
@@ -235,17 +294,21 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
   trigger whose function lives in `pg_temp_*` or is owned by a role other than
   the table owner. `rollout.md` adds a read-only pre-apply list of every
   `public` trigger that no repository migration creates, for SA to triage.
-  Removing such a trigger is a separate, explicitly authorized step.
+  Removing such a trigger is a separate, explicitly authorized step. The
+  same applies to previously planted public function overloads; revoking
+  schema CREATE does not remove them. Untriaged objects block Q-J357-3.
 - **Supabase re-granting.** Dashboard actions such as exposing a schema in the
   Data API may grant privileges again. The drift query in `rollout.md` is
   re-run after such an action, and SA's read-only check on
   `has_table_privilege('service_role','public.users','TRIGGER')` stays part of
   every retest.
-- **LOCK TABLE.** In PostgreSQL 17, `LOCK TABLE` in ROW EXCLUSIVE or a
-  stronger mode needs UPDATE, DELETE, TRUNCATE or MAINTAIN. Where
-  `service_role` keeps UPDATE or DELETE, it can still take that lock. Where it
-  only has SELECT or INSERT (`activation_attempts`, the audit tables), it
-  cannot, and no backend path issues `LOCK TABLE` (`research.md` §3).
+- **LOCK TABLE.** On PG 17, SELECT permits ACCESS SHARE; INSERT also permits
+  ROW EXCLUSIVE and less-conflicting modes. UPDATE, DELETE, TRUNCATE or
+  MAINTAIN permits every lock mode. Revoking MAINTAIN therefore does not
+  forbid locks allowed by retained CRUD rights. The FR-005 ACCESS EXCLUSIVE
+  probe uses SELECT-only `activation_attempts` and must fail; no backend path
+  issues `LOCK TABLE` (`research.md` §3). See the PostgreSQL
+  [LOCK privilege rules](https://www.postgresql.org/docs/17/sql-lock.html#SQL-LOCK-NOTES).
 - **pg_dump and backups.** These need only SELECT and run as `postgres`, so
   they are unaffected.
 - **PG 16 CI and PG 17 staging/production.** The MAINTAIN keyword is gated on
@@ -256,7 +319,7 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
 - On staging after the apply, the read-only drift query in `rollout.md`
   returns zero rows for `service_role`, anon, authenticated and PUBLIC. That
   query covers TRIGGER, REFERENCES, TRUNCATE and MAINTAIN on public relations,
-  plus actable default ACLs.
+  plus actable default ACLs and CREATE on schema `public` (including PUBLIC).
   `has_table_privilege('service_role','public.users','TRIGGER')` is false.
 - SA reruns `sa2050_probe.py` section "== P" and gets `42501` at `CREATE
   TRIGGER` (P2-SA-1 retest).
@@ -264,33 +327,44 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
   error from `service_role` appears in Railway staging logs in the 24 h after
   the apply.
 - FR-001–FR-006 have passing real-PostgreSQL or static tests on PG 16
-  (required CI) and PG 17.
+  (required CI) and PG 17; FR-007–FR-009 have passing clone, rollback and
+  overload-shadow evidence. Q-J357-3 is resolved with environment-specific
+  evidence before promoting production or closing P2-SA-1.
 
 ## Open questions
 
 These are the approval questions. Leader forwards them to anh Vinh; T001 is
 opened only after Q1 is answered.
 
-- **Q-J357-1 (duyệt FR):** Anh duyệt SVCPRIV-0042 FR-001…FR-008 không? Nội
+- **Q-J357-1 (duyệt FR):** Anh duyệt SVCPRIV-0042 FR-001…FR-009 không? Nội
   dung: migration `NNN` thu TRIGGER, REFERENCES, TRUNCATE và MAINTAIN (PG 17)
   khỏi `service_role` trên **mọi** bảng `public` và trong quyền mặc định. Giữ
-  nguyên SELECT/INSERT/UPDATE/DELETE. Thêm hậu điều kiện, test PostgreSQL
-  thật và guard tĩnh. Script clone staging không cấp lại các quyền này (đã có
-  PR #2055 của J350). Trả lời gợi ý: "SVCPRIV ok" hoặc "SVCPRIV ok, chỉ
-  nhóm 1".
-- **Q-J357-2 (phạm vi):** Làm một lần cho mọi bảng `public` (khuyến nghị: dễ
-  kiểm, không phải giữ danh sách, đóng luôn đường FK cascade và trigger), hay
-  chỉ làm nhóm ưu tiên 1 trước (`research.md` §2) rồi mới làm phần còn lại?
-  Phía backend như nhau: không đường nào dùng bốn quyền này.
-- **Q-J357-3 (ngoài phạm vi, phiếu riêng?):** Có mở phiếu SA riêng cho các
-  việc sau không?
-  - thu `CREATE` trên schema `public` khỏi `service_role` (clone script dòng
-    53 đang cấp `ALL ON SCHEMA public`);
-  - thu TEMP trên database;
-  - kiểm các schema khác (`storage`, …).
+  nguyên SELECT/INSERT/UPDATE/DELETE và schema USAGE; thu thêm CREATE trên
+  schema `public`. Thêm hậu điều kiện, test PostgreSQL thật và guard tĩnh.
+  Script clone staging phải sửa cả schema grant còn lại; #2055 chưa đủ.
+  Trả lời gợi ý: "SVCPRIV ok".
+- **Q-J357-2 (xác nhận phạm vi bắt buộc):** Anh xác nhận áp dụng mọi bảng
+  `public` và schema CREATE cùng một đợt không? Không có lựa chọn chỉ nhóm 1:
+  FK CASCADE/SET NULL chạy dưới quyền owner, kể cả từ DELETE/UPDATE trực tiếp
+  của service_role; SA đã đếm cận trên 132 bảng. Nhóm 1 chỉ dùng để kiểm
+  theo tên và dựng fixture. Nếu chưa đồng ý phạm vi này, spec giữ draft;
+  không mở T001 với phạm vi hẹp hơn.
+- **Q-J357-3 (điều kiện chặn promote prod và đóng P2-SA-1):** Leader phải có
+  kết luận SA bằng văn bản, kèm bằng chứng riêng cho staging và production,
+  trước promote prod hoặc đóng P2-SA-1. Tối thiểu cần:
+  - đọc ACL schema `public` trên production (chỉ đọc), rồi chứng minh
+    FR-009 sau apply; staging có thể nhận CREATE từ script clone nên không
+    được suy ra ACL production từ staging;
+  - triage trigger/overload đã cài trước NNN và chứng minh không còn đường
+    thực thi dưới quyền owner qua chúng;
+  - quyết định xử lý hoặc ghi nhận rủi ro còn lại của TEMP và schema khác:
+    staging có TRIGGER trên 5/8 bảng `storage`, cùng default ACL của postgres
+    trong `storage`; production chưa kiểm;
+  - giao owner/phiếu riêng cho default EXECUTE của hàm definer mới và default
+    ACL mà runner không sửa được.
 
-  Đây là bước làm cứng tiếp theo và có rủi ro tương thích riêng, nên spec này
-  không gộp vào.
+  Việc chỉ mở phiếu tiếp theo không tự gỡ chặn. Còn đường chạy code dưới
+  quyền owner chưa xử lý thì không đóng P2-SA-1 hoặc promote production.
 - **Q-J357-4 (thứ tự với 341):** P2-SA-1 có cần sửa tối thiểu trên
   `public.users` ngay trong 341/341b (#2050) trước khi promote không? SA đề
   nghị như vậy; FR-008 bảo đảm hai bên không xung đột. Hay chờ migration
