@@ -26,7 +26,7 @@ import { buildNonceReportOnlyPolicy } from '@/tooling/content-security-policy.mj
 // this path (tooling/verify-grammar-404-ssr-flow.mjs checks the served HTML).
 // (A notFound() page inside the Grammar layout prerendered as a bare
 // `__next_error__` shell: no CSS, no <title> until JS ran — PC-J230.)
-const GRAMMAR_ARTICLE_NOT_FOUND_PATH = '/grammar/article-not-found';
+const GRAMMAR_ARTICLE_NOT_FOUND_PATH = '/__aver-not-found';
 
 // Shorter than ABORT_MS: a slow list must not hold every article request.
 const INDEX_TIMEOUT_MS = 2000;
