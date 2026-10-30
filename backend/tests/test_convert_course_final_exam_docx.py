@@ -13,7 +13,7 @@ import copy
 import docx
 import pytest
 
-from scripts.convert_course_final_exam_docx import build_rows, main, read_docx
+from scripts.convert_course_final_exam_docx import build_rows, main, parse_paper, read_docx
 from services.course_assessment_import import normalize_assessment_rows
 
 PASSAGES = [
@@ -208,3 +208,182 @@ def test_default_output_is_refused_by_the_importer_until_reviewed_fields_exist(t
     mapped = normalize_assessment_rows(rows, expected_count=4, scope="B01-B20")
     assert set(mapped[0]["why_wrong"]) == {"0", "1", "3", "4"}
     assert rows[0]["ma_bay"][2] == "" and len(set(rows[0]["ma_bay"])) == 5
+
+
+def _numbering_documents(tmp_path):
+    rows, errors, _ = _build(tmp_path, passages=PASSAGES)
+    assert errors == []
+    return rows, docx.Document(tmp_path / "a.docx"), docx.Document(tmp_path / "b.docx")
+
+
+def _rebuild_numbering_documents(tmp_path, paper, key):
+    paper.save(tmp_path / "a.docx")
+    key.save(tmp_path / "b.docx")
+    paper_paras, paper_tables = read_docx(tmp_path / "a.docx")
+    key_paras, key_tables = read_docx(tmp_path / "b.docx")
+    return build_rows(paper_paras, paper_tables, key_paras, key_tables,
+                      id_prefix="C1-FINAL", expected_questions=4,
+                      expected_passages=2)
+
+
+def _question_paragraphs(paper, number):
+    paragraphs = paper.paragraphs
+    start = next(i for i, paragraph in enumerate(paragraphs)
+                 if paragraph.text.startswith(f"Câu {number:03d} "))
+    return paragraphs[start:start + 6]  # Question stem followed by options A–E.
+
+
+@pytest.fixture
+def _duplicate_middle_question_rows(tmp_path):
+    baseline, paper, key = _numbering_documents(tmp_path)
+    next_part = next(p for p in paper.paragraphs if p.text == "Phần 2")
+    _stem, options, _answer = PASSAGES[0][1][1]
+    duplicate = [("Câu 002", "Nội dung câu trùng không được thay câu gốc.")]
+    duplicate.extend((f"{letter}.", option) for letter, option in zip("ABCDE", options))
+    for labelled in duplicate:
+        _para(paper, labelled)
+        next_part._p.addprevious(paper.paragraphs[-1]._p)
+
+    rows, errors, _ = _rebuild_numbering_documents(tmp_path, paper, key)
+    return baseline, rows, errors
+
+
+def test_rejects_duplicate_middle_question(
+        tmp_path, monkeypatch, capsys, _duplicate_middle_question_rows):
+    baseline, rows, errors = _duplicate_middle_question_rows
+    expected_error = "đề: câu 002 xuất hiện hai lần"
+    assert errors == [expected_error]
+    _assert_cli_rejects(tmp_path, monkeypatch, capsys, expected_error)
+    assert [row["id"] for row in rows] == [row["id"] for row in baseline]
+
+
+def test_duplicate_middle_question_preserves_original_row(_duplicate_middle_question_rows):
+    baseline, rows, _ = _duplicate_middle_question_rows
+    assert rows[1] == baseline[1]
+
+
+def test_duplicate_passage_heading_keeps_the_first_passage(tmp_path, monkeypatch, capsys):
+    baseline, paper, key = _numbering_documents(tmp_path)
+    # A second "Ngữ liệu 001" block in Phần 2 must not replace passage 001's text or part.
+    paper.add_paragraph("Ngữ liệu 001", style="Heading 2")
+    paper.add_paragraph().add_run("Đoạn trùng không được thay ngữ liệu gốc.").italic = True
+
+    rows, errors, _ = _rebuild_numbering_documents(tmp_path, paper, key)
+
+    expected_error = "đề: ngữ liệu 001 xuất hiện hai lần"
+    assert errors == [expected_error]
+    assert rows == baseline
+    passages, questions = parse_paper(read_docx(tmp_path / "a.docx")[0], [])
+    assert (passages[1].lines, passages[1].part) == (["We travel in July."], 1)
+    assert [(questions[n].passage, questions[n].part) for n in (1, 2)] == [(1, 1), (1, 1)]
+    _assert_cli_rejects(tmp_path, monkeypatch, capsys, expected_error)
+
+
+def test_flags_a_missing_middle_question_with_unchanged_expected_count(tmp_path):
+    baseline, paper, key = _numbering_documents(tmp_path)
+    for paragraph in _question_paragraphs(paper, 2):
+        paragraph._p.getparent().remove(paragraph._p)
+
+    rows, errors, report = _rebuild_numbering_documents(tmp_path, paper, key)
+
+    assert errors == ["đề: câu thiếu 002"]
+    assert rows == [row for row in baseline if row["id"] != "C1-FINAL-Q002"]
+    assert report["questions"] == 3
+    assert report["quick_key"] == report["detailed_key"] == 4
+
+
+def test_checks_question_order_within_a_passage(tmp_path, monkeypatch, capsys):
+    baseline, paper, key = _numbering_documents(tmp_path)
+    second = _question_paragraphs(paper, 2)[0]
+    for paragraph in _question_paragraphs(paper, 3):
+        second._p.addprevious(paragraph._p)
+
+    _, errors, _ = _rebuild_numbering_documents(tmp_path, paper, key)
+
+    # 003 before 002 under one heading violates the two-questions-per-passage rule.
+    expected_error = "câu 003 nằm ở ngữ liệu 001, không theo thứ tự 2 câu/ngữ liệu"
+    assert errors == [expected_error,
+                      "câu 003: đề ở ngữ liệu 001, đáp án ở ngữ liệu 002"]
+    _assert_cli_rejects(tmp_path, monkeypatch, capsys, expected_error)
+
+    # Reordering each passage's own pair is accepted without shifting any mapping.
+    _, paper, key = _numbering_documents(tmp_path)
+    for first_number, second_number in ((1, 2), (3, 4)):
+        first = _question_paragraphs(paper, first_number)[0]
+        for paragraph in _question_paragraphs(paper, second_number):
+            first._p.addprevious(paragraph._p)
+    rows, errors, report = _rebuild_numbering_documents(tmp_path, paper, key)
+
+    assert errors == []
+    assert rows == baseline
+    assert [(row["ngu_lieu"], row["phan"]) for row in rows] == [
+        (1, 1), (1, 1), (2, 2), (2, 2)]
+    quick_answers = [row.cells[1].text for row in key.tables[0].rows[1:]]
+    assert [row["dap_an_chu"] for row in rows] == quick_answers
+    assert [row["dap_an"] for row in rows] == ["ABCDE".index(a) for a in quick_answers]
+    assert report["by_part"] == {1: 2, 2: 2}
+
+
+def test_flags_question_under_the_wrong_passage_heading(tmp_path, monkeypatch, capsys):
+    _, paper, key = _numbering_documents(tmp_path)
+    next_part = next(p for p in paper.paragraphs if p.text == "Phần 2")
+    for paragraph in _question_paragraphs(paper, 3):
+        next_part._p.addprevious(paragraph._p)
+
+    _, errors, report = _rebuild_numbering_documents(tmp_path, paper, key)
+
+    expected_error = "câu 003 nằm ở ngữ liệu 001, không theo thứ tự 2 câu/ngữ liệu"
+    assert errors == [expected_error,
+                      "câu 003: đề ở ngữ liệu 001, đáp án ở ngữ liệu 002"]
+    assert report["questions"] == report["quick_key"] == report["detailed_key"] == 4
+    assert report["passages"] == 2
+    _assert_cli_rejects(tmp_path, monkeypatch, capsys, expected_error)
+
+
+def test_flags_duplicate_middle_question_in_the_quick_key(tmp_path, monkeypatch, capsys):
+    baseline, paper, key = _numbering_documents(tmp_path)
+    second = key.tables[0].rows[2]._tr
+    second.addnext(copy.deepcopy(second))
+
+    rows, errors, _ = _rebuild_numbering_documents(tmp_path, paper, key)
+
+    expected_error = "bảng nhanh: câu 002 xuất hiện hai lần"
+    assert errors == [expected_error]
+    assert rows == baseline
+    _assert_cli_rejects(tmp_path, monkeypatch, capsys, expected_error)
+
+
+def test_duplicate_detailed_key_question_keeps_the_first_answer(tmp_path, monkeypatch, capsys):
+    baseline, paper, key = _numbering_documents(tmp_path)
+    previous = next(p for p in key.paragraphs if p.text == "Giải thích Lý do câu 2.")
+    for labelled in [
+        ("Câu 002  E  Đáp án", "Đáp án trùng không được thay đáp án gốc."),
+        ("Giải thích", "Giải thích trùng không được thay giải thích gốc."),
+    ]:
+        _para(key, labelled)
+        duplicate = key.paragraphs[-1]
+        previous._p.addnext(duplicate._p)
+        previous = duplicate
+
+    rows, errors, _ = _rebuild_numbering_documents(tmp_path, paper, key)
+
+    expected_error = "đáp án: câu 002 xuất hiện hai lần"
+    assert errors == [expected_error]
+    assert rows == baseline
+    _assert_cli_rejects(tmp_path, monkeypatch, capsys, expected_error)
+
+
+def test_duplicate_quick_key_with_a_different_letter_keeps_the_first(
+        tmp_path, monkeypatch, capsys):
+    baseline, paper, key = _numbering_documents(tmp_path)
+    table = key.tables[0]
+    duplicate = table.add_row()
+    duplicate.cells[0].text, duplicate.cells[1].text = "002", "E"
+    table.rows[2]._tr.addnext(duplicate._tr)
+
+    rows, errors, _ = _rebuild_numbering_documents(tmp_path, paper, key)
+
+    expected_error = "bảng nhanh: câu 002 xuất hiện hai lần"
+    assert errors == [expected_error]
+    assert rows == baseline
+    _assert_cli_rejects(tmp_path, monkeypatch, capsys, expected_error)
