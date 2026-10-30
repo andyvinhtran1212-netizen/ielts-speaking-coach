@@ -477,8 +477,8 @@ async function startAssignment(itemId, btn) {
     // trang kia đọc được bank ấy.
     if (r && r.bank_id) {
       const courseUrl = '/course-exercises?bank=' + encodeURIComponent(r.bank_id)
-        + (r.review_only === true
-          ? '&view=writing&class_item=' + encodeURIComponent(r.item_id) : '');
+        + (r.review_only === true ? '&view=writing' : '')
+        + (r.item_id ? '&class_item=' + encodeURIComponent(r.item_id) : '');
       if (r.runtime === 'advanced_vocab') {
         window.location.href = '/advanced-vocabulary?bank=' + encodeURIComponent(r.bank_id)
           + '&item=' + encodeURIComponent(r.item_id);
