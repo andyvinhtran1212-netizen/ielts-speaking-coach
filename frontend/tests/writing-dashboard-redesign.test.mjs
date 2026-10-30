@@ -224,7 +224,8 @@ describe('/writing/dashboard — idempotent submit and account lifecycle', () =>
     assert.match(behavior, /setupAntiPaste\(textarea, ms, on\)/);
     assert.match(behavior, /wireEssayFilterTabs\(ps, on\)/);
     assert.match(behavior, /ps\.allEssays = \[\]/);
-    assert.match(behavior, /assignmentsList\.innerHTML = '<p class="text-sm py-8 text-center"/);
+    assert.match(behavior, /assignmentsList\.innerHTML = ''/);
+    assert.match(behavior, /show\('assignments-loading'\)/);
   });
 
   test('a superseded receipt is cleared and canonical lists are reloaded', () => {

@@ -57,6 +57,25 @@ main { position: relative; z-index: 1; }
 
 .wd-brand__accent { color: var(--av-primary); }
 
+/* The account name arrives with the lists. Budget its second mobile line
+   before first paint so a long name cannot push the dashboard down. */
+.wd-greeting-title { min-height: var(--av-space-16); }
+@media (min-width: 768px) {
+  .wd-greeting-title { min-height: calc(var(--av-space-8) + var(--av-space-1)); }
+}
+
+/* Two card placeholders and two deadline rows occupy the same surfaces as
+   the canonical read. renderDeadlines/renderAssignments replace them together. */
+.wd-skeleton-line {
+  display: block;
+  width: 65%;
+  border-radius: var(--av-radius-sm);
+  background: var(--av-border-subtle);
+  color: transparent;
+}
+.wd-assignment-placeholder { min-height: 9rem; }
+.wd-deadlines.is-loading .wd-deadlines__title { visibility: hidden; }
+
 .wd-logout-btn {
   color: var(--av-text-secondary);
   background: transparent;
@@ -173,11 +192,37 @@ main { position: relative; z-index: 1; }
   overflow-x: auto;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: var(--av-space-8);
 }
 .wd-tabs .tab-btn {
   flex: 0 0 auto;
   white-space: nowrap;
+  scroll-snap-align: start;
 }
+.wd-tabs-frame { position: relative; }
+.wd-tabs-frame::before,
+.wd-tabs-frame::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  width: var(--av-space-8);
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+}
+.wd-tabs-frame::before {
+  left: 0;
+  background: linear-gradient(to right, var(--av-surface-page), transparent);
+}
+.wd-tabs-frame::after {
+  right: 0;
+  background: linear-gradient(to left, var(--av-surface-page), transparent);
+}
+.wd-tabs-frame[data-overflow="start"]::before,
+.wd-tabs-frame[data-overflow="both"]::before,
+.wd-tabs-frame[data-overflow="end"]::after,
+.wd-tabs-frame[data-overflow="both"]::after { opacity: 1; }
 
 
 /* ── Status pills (STATUS_CONFIG + ASSIGNMENT_STATUS) ────────────── */
