@@ -13,7 +13,7 @@ import copy
 import docx
 import pytest
 
-from scripts.convert_course_final_exam_docx import build_rows, read_docx
+from scripts.convert_course_final_exam_docx import build_rows, main, read_docx
 from services.course_assessment_import import normalize_assessment_rows
 
 PASSAGES = [
@@ -70,9 +70,11 @@ def _write_paper(path, passages=PASSAGES):
     document.save(path)
 
 
-def _write_key(path, passages=PASSAGES, quick_override=None, detail_override=None):
+def _write_key(path, passages=PASSAGES, quick_override=None, detail_override=None,
+               duplicate_source=None, translation_override=None):
     quick_override = quick_override or {}
     detail_override = detail_override or {}
+    translation_override = translation_override or {}
     document = docx.Document()
     document.add_paragraph("Đáp án và giải thích", style="Title")
     document.add_paragraph("Bảng đáp án nhanh", style="Heading 1")
@@ -87,13 +89,17 @@ def _write_key(path, passages=PASSAGES, quick_override=None, detail_override=Non
     for p_index, (_lines, questions) in enumerate(passages, start=1):
         document.add_paragraph(
             f"Ngữ liệu {p_index:03d}  Nguồn {SOURCES[p_index - 1]}", style="Heading 2")
-        _para(document, ("Dịch tham khảo", f"Bản dịch {p_index}."))
+        _para(document, ("Dịch tham khảo",
+                         translation_override.get(p_index, f"Bản dịch {p_index}.")))
         for _stem, options, key in questions:
             number += 1
             letter, text = detail_override.get(number, (key, options["ABCDE".index(key)]))
             _para(document, (f"Câu {number:03d}  {letter}  Đáp án", text))
             _para(document, ("Giải thích", f"Lý do câu {number}."))
         _para(document, ("Chấp nhận thêm khi tự luận", "Chỉ cho bản tự luận."))
+    if duplicate_source is not None:
+        document.add_paragraph(
+            f"Ngữ liệu 001 Nguồn {duplicate_source}", style="Heading 2")
     document.save(path)
 
 
@@ -136,6 +142,40 @@ def test_flags_quick_key_disagreeing_with_the_detailed_key(tmp_path):
 def test_flags_answer_text_that_is_not_the_keyed_option(tmp_path):
     _, errors, _ = _build(tmp_path, key_kwargs={"detail_override": {3: ("B", "Mọi bảo tàng.")}})
     assert len(errors) == 1 and errors[0].startswith("câu 003: phương án B trong đề")
+
+
+def _assert_cli_rejects(tmp_path, monkeypatch, capsys, expected_error):
+    output = tmp_path / "final.json"
+    monkeypatch.setattr("sys.argv", [
+        "convert_course_final_exam_docx", "--paper", str(tmp_path / "a.docx"),
+        "--key", str(tmp_path / "b.docx"), "--out", str(output),
+        "--id-prefix", "C1-FINAL", "--expected-count", "4",
+        "--expected-passages", "2", "--dang", "A1",
+        "--generic-wrong-reason", "--confirm-classroom-alignment",
+    ])
+    assert main() == 1
+    assert expected_error in capsys.readouterr().err
+    assert not output.exists()
+
+
+@pytest.mark.parametrize("source", [SOURCES[0], "19.1.01"])
+def test_rejects_duplicate_detailed_passage_without_overwriting_source(
+        tmp_path, monkeypatch, capsys, source):
+    rows, errors, _ = _build(tmp_path, key_kwargs={"duplicate_source": source})
+    expected_error = "đáp án: ngữ liệu 001 xuất hiện hai lần"
+    assert errors == [expected_error]
+    assert [row["lesson_primary"] for row in rows[:2]] == ["B06", "B06"]
+    _assert_cli_rejects(tmp_path, monkeypatch, capsys, expected_error)
+
+
+@pytest.mark.parametrize("translation", ["", " \t\u00a0 "])
+def test_rejects_label_only_reference_translation(
+        tmp_path, monkeypatch, capsys, translation):
+    _, errors, _ = _build(
+        tmp_path, key_kwargs={"translation_override": {1: translation}})
+    expected_error = "đáp án: ngữ liệu 001 thiếu Dịch tham khảo"
+    assert expected_error in errors
+    _assert_cli_rejects(tmp_path, monkeypatch, capsys, expected_error)
 
 
 def test_flags_a_question_without_five_options_and_a_numbering_gap(tmp_path):

@@ -189,13 +189,21 @@ def parse_detailed_key(paras: list[Para], errors: list[str]):
                 passage = None
                 continue
             passage = int(head.group(1))
-            sources[passage] = tuple(int(head.group(i)) for i in (2, 3, 4))
             last = None
+            if passage in sources:
+                errors.append(f"đáp án: ngữ liệu {passage:03d} xuất hiện hai lần")
+                passage = None
+                continue
+            sources[passage] = tuple(int(head.group(i)) for i in (2, 3, 4))
             continue
         if passage is None:
             continue
         if para.label == "Dịch tham khảo":
-            translations[passage] = _norm(para.text[len(para.label):])
+            translation = _norm(para.text[len(para.label):])
+            if not translation:
+                errors.append(f"đáp án: ngữ liệu {passage:03d} thiếu Dịch tham khảo")
+                continue
+            translations[passage] = translation
             continue
         answer = _KEY_ANSWER.fullmatch(para.text)
         if answer and para.label.startswith("Câu "):
