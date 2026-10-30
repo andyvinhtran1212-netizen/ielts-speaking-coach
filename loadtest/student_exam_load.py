@@ -1039,7 +1039,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help=f"real Writing submits (clamped to {MAX_WRITING_GRADES_CEILING})")
     p.add_argument("--speaking-topic", default="Hometown",
                    help="Part 1 topic for the speaking flow (prefer a library topic: no Gemini call)")
-    p.add_argument("--audio-file", default=None, help="fixed small audio clip; default = 3 s synthetic WAV")
+    p.add_argument("--audio-file", default=None, help="fixed audio clip (>= 15 s) for graded Speaking uploads; "
+                   "required when --max-speaking-grades > 0, else a 3 s synthetic WAV")
     p.add_argument("--writing-targets-file", default=None,
                    help="JSON {\"<account#>\": \"<writing assignment id>\"} for capped submits")
     p.add_argument("--seed", type=int, default=409)
@@ -1064,6 +1065,11 @@ def validate_args(args, environ: dict[str, str]) -> None:
         raise SystemExit("--ready-interval must be 0 or >= 30 seconds (finite)")
     args.max_speaking_grades = max(0, min(args.max_speaking_grades, MAX_SPEAKING_GRADES_CEILING))
     args.max_writing_grades = max(0, min(args.max_writing_grades, MAX_WRITING_GRADES_CEILING))
+    # The synthetic WAV is 3 s, below the 15 s Part 1 minimum: graded uploads
+    # would all fail on duration instead of measuring the grading path.
+    if args.max_speaking_grades > 0 and not args.audio_file:
+        raise SystemExit("--audio-file is required when --max-speaking-grades > 0 "
+                         "(the default 3 s WAV is below the 15 s Part 1 minimum)")
     if "exam" in parse_mix(args.mix) and not args.bank_id:
         raise SystemExit("--bank-id is required when the mix includes the exam flow")
     args.class_items_list = [x.strip() for x in (args.class_items or "").split(",") if x.strip()]

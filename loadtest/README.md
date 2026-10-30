@@ -27,6 +27,9 @@ before/after a hotfix.
   because generate calls Gemini when the topic is not in the library; without
   budget a Speaking student only reads `GET /sessions/{id}/questions`. Use a
   library topic (`--speaking-topic`) to keep generate off the LLM.
+  `--max-speaking-grades > 0` also requires `--audio-file` (a clip of at least
+  15 s): the built-in 3 s WAV is below the Part 1 minimum, so the driver
+  refuses before any request instead of sending uploads that fail on duration.
   These cost caps count **HTTP calls**, not provider calls: one generate may
   make up to ~4 Gemini calls through internal retries, and one Speaking upload
   may call Whisper, a grader and Azure. They are not a dollar-spend ceiling.

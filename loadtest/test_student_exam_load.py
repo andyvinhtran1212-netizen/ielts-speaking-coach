@@ -155,9 +155,16 @@ def test_load_accounts_file_and_env(tmp_path):
                              "LOADTEST_TOKEN_4": "skipped"}) == ["a", "b"]
 
 
-def test_grading_budget_is_clamped():
+def _clip(tmp_path) -> str:
+    """Graded Speaking runs need --audio-file; the mocked backend ignores its length."""
+    clip = tmp_path / "clip.wav"
+    clip.write_bytes(lt.make_wav(0.1))
+    return str(clip)
+
+
+def test_grading_budget_is_clamped(tmp_path):
     args = lt.build_parser().parse_args([
-        "--base-url", "http://localhost:8000", "--bank-id", "b",
+        "--base-url", "http://localhost:8000", "--bank-id", "b", "--audio-file", _clip(tmp_path),
         "--max-speaking-grades", "500", "--max-writing-grades", "99"])
     lt.validate_args(args, {})
     assert args.max_speaking_grades == lt.MAX_SPEAKING_GRADES_CEILING == 20
@@ -333,7 +340,7 @@ def test_speaking_generate_spends_the_capped_budget(monkeypatch, tmp_path):
     calls = []
     report = _run_mocked(monkeypatch, tmp_path, _speaking_backend(calls), [
         "--mix", "speaking=1", "--users", "8", "--sessions-per-user", "8",
-        "--duration-seconds", "1", "--max-speaking-grades", "3"])
+        "--duration-seconds", "1", "--max-speaking-grades", "3", "--audio-file", _clip(tmp_path)])
     generate = sum(1 for m, p in calls if p.endswith("/questions/generate"))
     uploads = sum(1 for m, p in calls if p.endswith("/responses"))
     assert generate + uploads <= 3
@@ -356,7 +363,8 @@ def test_speaking_ceiling_holds_across_ladder(monkeypatch, tmp_path):
     calls = []
     report = _run_mocked(monkeypatch, tmp_path, _speaking_backend(calls), [
         "--mix", "speaking=1", "--ladder", "15,15", "--sessions-per-user", "15",
-        "--duration-seconds", "0.5", "--step-cooldown-seconds", "0", "--max-speaking-grades", "999"])
+        "--duration-seconds", "0.5", "--step-cooldown-seconds", "0", "--max-speaking-grades", "999",
+        "--audio-file", _clip(tmp_path)])
     real = sum(1 for _, p in calls if p.endswith("/questions/generate") or p.endswith("/responses"))
     assert real <= lt.MAX_SPEAKING_GRADES_CEILING
     assert report["real_grading_calls"]["speaking"] == real
@@ -693,6 +701,24 @@ def test_ready_interval_valid_boundaries(interval):
         "--base-url", "http://localhost:8000", "--bank-id", "B1", "--ready-interval", interval])
     lt.validate_args(args, {})
     assert args.ready_interval == float(interval)
+
+
+def test_speaking_grades_require_audio_file_before_network(monkeypatch, capsys):
+    """The default 3 s WAV is below the 15 s Part 1 minimum, so a graded run
+    without --audio-file would fail every upload for the wrong reason."""
+    monkeypatch.setattr(httpx, "AsyncClient", _NoNetwork)
+    with pytest.raises(SystemExit, match="--audio-file is required when --max-speaking-grades > 0") as exc:
+        lt.main(["--base-url", "http://localhost:8000", "--mix", "speaking=1", "--users", "1",
+                 "--max-speaking-grades", "3"], environ={"LOADTEST_TOKEN_1": "t"})
+    assert exc.value.code != 0
+
+
+@pytest.mark.parametrize("grades,audio", [("0", False), ("-1", False), ("3", True)])
+def test_audio_file_rule_leaves_other_runs_alone(tmp_path, grades, audio):
+    args = lt.build_parser().parse_args([
+        "--base-url", "http://localhost:8000", "--mix", "speaking=1",
+        "--max-speaking-grades", grades, *(["--audio-file", _clip(tmp_path)] if audio else [])])
+    lt.validate_args(args, {})
 
 
 def test_supabase_production_ref_is_refused_before_network(monkeypatch, capsys):
