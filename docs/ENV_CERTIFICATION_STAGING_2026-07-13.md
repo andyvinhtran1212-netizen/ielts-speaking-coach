@@ -65,10 +65,16 @@ không phải bằng chứng đã chạy lại clone hay certify database.
    `set_config('search_path', '', false)`), `CREATE`, `ALTER`, `COMMENT`, `GRANT`,
    `REVOKE`, `SECURITY`; từ chối DML, `CREATE TABLE … AS`, `SELECT … INTO`,
    materialized view không `WITH NO DATA`, và `set_config` ở mọi vị trí khác.
+   PC-J417: từ chối `ALTER ROLE|USER|GROUP|DATABASE|SYSTEM`,
+   `CREATE ROLE|USER|GROUP|DATABASE|SCHEMA`, `CREATE [OR REPLACE] RULE`, và
+   `GRANT`/`REVOKE` role membership (không có token `ON`). Chỉ kiểm token của
+   câu SQL, không kiểm nội dung literal hoặc thân hàm được quote; object ACL,
+   `ALTER FUNCTION … SET search_path` và cột tên `role` vẫn được nhận.
    Scanner không phải parser của psql: nó từ chối mọi chỗ hai bên có thể đọc
    khác nhau. Gồm số dính chữ (`1e'…`, psql ≥15 đọc là một token), E-string và
    `U&`-literal (pg_dump với `standard_conforming_strings=on` không sinh), chuỗi/
-   dollar quote chưa đóng, comment lồng nhau, NUL, `--` comment kết thúc ở CR, và
+   dollar quote chưa đóng, comment lồng nhau, NUL, mọi CR (`\r`, kể cả trong
+   comment/literal hoặc dump CRLF), và
    ký tự non-ASCII đứng ngay trước `\` trong literal (SJIS/GBK có thể nuốt
    `\`). Dump phải được đọc **giống hệt** khi `standard_conforming_strings` bật
    và tắt, vì một hàm chạy lúc restore có thể tắt nó mà scanner không thấy. Từ
@@ -77,7 +83,12 @@ không phải bằng chứng đã chạy lại clone hay certify database.
    đổi `client_encoding`; khi đó người **sửa được file dump** (đọc được key, cùng
    uid vận hành) vẫn giấu được meta-command. Nội dung từ nguồn thì không, vì không
    có key. Đổi role ẩn như vậy bị postcondition bắt.
-   Từ chối default ACL không phải `FOR ROLE postgres`, và **bất kỳ** entry
+   CLI đọc byte UTF-8 nguyên trạng, không chuẩn hoá newline: CRLF và CR đơn lẻ
+   dừng trước reset, kể cả khi dòng `CREATE SCHEMA public` không được grep lọc.
+   Chuỗi hai ký tự backslash + `r` vẫn hợp lệ.
+   Default ACL phải đúng `FOR ROLE postgres IN SCHEMA public GRANT|REVOKE …`;
+   schema `"public"` hợp lệ, còn `"Public"`, schema khác, nhiều schema hay thiếu
+   `IN SCHEMA` đều bị từ chối. Từ chối **bất kỳ** entry
    `pg_default_acl.defaclnamespace=0` trên target. Global defaults tồn tại qua
    DROP SCHEMA và có thể âm thầm thêm quyền. Không tự tạo role hay sửa ACL để
    vượt preflight; cần xem xét nguyên nhân trước lần chạy lại.
