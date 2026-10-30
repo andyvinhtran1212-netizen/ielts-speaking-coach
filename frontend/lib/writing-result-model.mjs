@@ -41,6 +41,89 @@ export function writingBandLabel(feedback, feedbackJson) {
   return value == null ? 'Band —' : `Band ${value}`;
 }
 
+function normalizeFixKey(value) {
+  return typeof value === 'string'
+    ? value.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase()
+    : '';
+}
+
+// The grader writes `criterion` as free text ("Grammatical Range", "GRA",
+// "Từ vựng" …); map it to the criteriaFeedback key that holds its band.
+const FIX_CRITERION_KEYWORDS = [
+  ['grammaticalRange', ['grammar', 'grammatical', 'ngữ pháp'], ['gra']],
+  ['lexicalResource', ['lexical', 'vocab', 'từ vựng'], ['lr']],
+  ['coherenceCohesion', ['coherence', 'cohesion', 'mạch lạc', 'liên kết'], ['cc']],
+  ['mainCriterion', ['task', 'achievement', 'response'], ['tr', 'ta']],
+];
+
+function fixCriterionBand(criterion, criteriaFeedback) {
+  const text = normalizeFixKey(criterion);
+  if (!text) return null;
+  const entry = FIX_CRITERION_KEYWORDS.find(([, words, abbrs]) =>
+    abbrs.includes(text) || words.some((word) => text.includes(word)));
+  const band = entry ? criteriaFeedback?.[entry[0]]?.bandScore : null;
+  return typeof band === 'number' && Number.isFinite(band) ? band : null;
+}
+
+// R3 "N việc cần sửa trước": at most `limit` groups of mistakeAnalysis by
+// mistakeType, weakest criterion band first, then larger group, then first
+// appearance; topped up from keyTakeaways.areasForImprovement. AI text is
+// passed through untouched.
+export function writingTopFixes(feedbackJson, limit = 3) {
+  const fj = feedbackJson && typeof feedbackJson === 'object' ? feedbackJson : {};
+  const groups = new Map();
+  (Array.isArray(fj.mistakeAnalysis) ? fj.mistakeAnalysis : []).forEach((mistake) => {
+    if (!mistake || typeof mistake !== 'object') return;
+    const key = normalizeFixKey(mistake.mistakeType);
+    if (!key) return;
+    const group = groups.get(key);
+    if (group) {
+      group.count += 1;
+      return;
+    }
+    groups.set(key, {
+      first: mistake,
+      count: 1,
+      order: groups.size,
+      band: fixCriterionBand(mistake.criterion, fj.criteriaFeedback),
+    });
+  });
+
+  const fixes = [...groups.values()]
+    .sort((a, b) => {
+      if (a.band !== b.band) {
+        if (a.band == null) return 1;
+        if (b.band == null) return -1;
+        return a.band - b.band;
+      }
+      return b.count - a.count || a.order - b.order;
+    })
+    .slice(0, limit)
+    .map(({ first, count }) => {
+      const suggestion = typeof first.suggestion === 'string' ? first.suggestion.trim() : '';
+      const explanation = typeof first.explanation === 'string' ? first.explanation.trim() : '';
+      const example = typeof first.original === 'string' ? first.original.trim() : '';
+      return {
+        title: first.mistakeType.trim(),
+        detail: suggestion || explanation,
+        ...(example ? { example } : {}),
+        count,
+      };
+    });
+
+  const seen = new Set(fixes.map((fix) => normalizeFixKey(fix.title)));
+  const areas = Array.isArray(fj.keyTakeaways?.areasForImprovement)
+    ? fj.keyTakeaways.areasForImprovement : [];
+  for (const area of areas) {
+    if (fixes.length >= limit) break;
+    const key = normalizeFixKey(area);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    fixes.push({ title: area.trim(), detail: '', count: 1 });
+  }
+  return fixes;
+}
+
 export function essayTaskToTipTask(taskType) {
   if (taskType === 'task2') return 'task_2';
   if (taskType === 'task1_academic' || taskType === 'task1_general') return 'task_1';
