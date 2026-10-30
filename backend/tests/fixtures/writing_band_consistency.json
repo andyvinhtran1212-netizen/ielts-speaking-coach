@@ -410,7 +410,7 @@
     "trajectory": {"current_band": 5.5, "average_last_5": 6.7, "trend": "improving", "trend_explanation": "Bài này ở band 5.5.", "next_target": "Từ band 5.5, hãy lên 6.0."},
     "expected": {
       "overall": 6.0,
-      "overview": "⚠️ Chấm không có hình — độ chính xác nội dung Task 1 Academic hạn chế. Bài viết đạt band 6.0. Bố cục rõ ràng.",
+      "overview": "⚠️ Chấm không có hình — độ chính xác nội dung Task 1 Academic hạn chế. Bài viết đạt band 6.0. Lưu ý khi đọc nhận xét. Bố cục rõ ràng.",
       "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
       "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
     }
@@ -489,6 +489,175 @@
     "expected": {
       "overall": 6.0,
       "overview": "Bài viết đạt band 6.0. Để lên band 7, cần đa dạng cấu trúc.",
+      "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
+      "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
+    }
+  },
+  {
+    "id": "claim-correct-and-stale-no-duplicate",
+    "base_band": 5.5,
+    "bands": [6, 6, 6, 6],
+    "overview": "Bài viết đạt band 6.0. Overall: 5.5. Bố cục rõ.",
+    "trajectory": {"current_band": 5.5, "average_last_5": 6.7, "trend": "improving", "trend_explanation": "Bài này ở band 5.5.", "next_target": "Từ band 5.5, hãy lên 6.0."},
+    "expected": {
+      "overall": 6.0,
+      "overview": "Bài viết đạt band 6.0. Bố cục rõ.",
+      "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
+      "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
+    }
+  },
+  {
+    "id": "current-claim-later-no-duplicate",
+    "base_band": 5.5,
+    "bands": [6, 6, 6, 6],
+    "overview": "Overall: 5.5. Bố cục rõ. Your overall is 6.0.",
+    "trajectory": {"current_band": 5.5, "average_last_5": 6.7, "trend": "improving", "trend_explanation": "Bài này ở band 5.5.", "next_target": "Từ band 5.5, hãy lên 6.0."},
+    "expected": {
+      "overall": 6.0,
+      "overview": "Bố cục rõ. Your overall is 6.0.",
+      "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
+      "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
+    }
+  },
+  {
+    "id": "stale-claims-only-prepend-once",
+    "base_band": 5.5,
+    "bands": [6, 6, 6, 6],
+    "overview": "Overall: 5.5. Band hiện tại 5.5. Bố cục rõ.",
+    "trajectory": {"current_band": 5.5, "average_last_5": 6.7, "trend": "improving", "trend_explanation": "Bài này ở band 5.5.", "next_target": "Từ band 5.5, hãy lên 6.0."},
+    "expected": {
+      "overall": 6.0,
+      "overview": "Bài viết đạt band 6.0. Bố cục rõ.",
+      "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
+      "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
+    }
+  },
+  {
+    "id": "caveat-marker-after-content",
+    "base_band": 5.5,
+    "bands": [6, 6, 6, 6],
+    "overview": "⚠️ Bài lạc đề nhẹ. Từ vựng tốt. Chấm không có hình. Bố cục rõ.",
+    "trajectory": {"current_band": 5.5, "average_last_5": 6.7, "trend": "improving", "trend_explanation": "Bài này ở band 5.5.", "next_target": "Từ band 5.5, hãy lên 6.0."},
+    "expected": {
+      "overall": 6.0,
+      "overview": "⚠️ Chấm không có hình — độ chính xác nội dung Task 1 Academic hạn chế. Bài lạc đề nhẹ. Từ vựng tốt. Bố cục rõ.",
+      "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
+      "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
+    }
+  },
+  {
+    "id": "caveat-marker-after-content-with-claim",
+    "base_band": 5.5,
+    "bands": [6, 6, 6, 6],
+    "overview": "⚠️ Bài lạc đề nhẹ. Bài viết đạt band 5.5. Chấm không có hình. Bố cục rõ.",
+    "trajectory": {"current_band": 5.5, "average_last_5": 6.7, "trend": "improving", "trend_explanation": "Bài này ở band 5.5.", "next_target": "Từ band 5.5, hãy lên 6.0."},
+    "expected": {
+      "overall": 6.0,
+      "overview": "⚠️ Chấm không có hình — độ chính xác nội dung Task 1 Academic hạn chế. Bài viết đạt band 6.0. Bài lạc đề nhẹ. Bố cục rõ.",
+      "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
+      "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
+    }
+  },
+  {
+    "id": "caveat-marker-after-content-then-duplicate",
+    "base_band": 5.5,
+    "bands": [6, 6, 6, 6],
+    "overview": "⚠️ Bài lạc đề nhẹ. Chấm không có hình. ⚠️ Chấm không có hình — bản cũ. Bố cục rõ.",
+    "trajectory": {"current_band": 5.5, "average_last_5": 6.7, "trend": "improving", "trend_explanation": "Bài này ở band 5.5.", "next_target": "Từ band 5.5, hãy lên 6.0."},
+    "expected": {
+      "overall": 6.0,
+      "overview": "⚠️ Chấm không có hình — độ chính xác nội dung Task 1 Academic hạn chế. Bài lạc đề nhẹ. Bố cục rõ.",
+      "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
+      "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
+    }
+  },
+  {
+    "id": "overall-count-not-claim",
+    "base_band": 5.5,
+    "bands": [6, 6, 6, 6],
+    "overview": "Overall 3 main points are clear. Overall, 2 ideas need examples.",
+    "trajectory": {"current_band": 5.5, "average_last_5": 6.7, "trend": "improving", "trend_explanation": "Bài này ở band 5.5.", "next_target": "Từ band 5.5, hãy lên 6.0."},
+    "expected": {
+      "overall": 6.0,
+      "overview": "Overall 3 main points are clear. Overall, 2 ideas need examples.",
+      "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
+      "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
+    }
+  },
+  {
+    "id": "count-units-not-claims",
+    "base_band": 5.5,
+    "bands": [6, 6, 6, 6],
+    "overview": "Score 3 issues first. Kết quả 2 luận điểm rõ. Band 4 lỗi cần sửa.",
+    "trajectory": {"current_band": 5.5, "average_last_5": 6.7, "trend": "improving", "trend_explanation": "Bài này ở band 5.5.", "next_target": "Từ band 5.5, hãy lên 6.0."},
+    "expected": {
+      "overall": 6.0,
+      "overview": "Score 3 issues first. Kết quả 2 luận điểm rõ. Band 4 lỗi cần sửa.",
+      "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
+      "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
+    }
+  },
+  {
+    "id": "overall-claims-still-replaced",
+    "base_band": 5.5,
+    "bands": [6, 6, 6, 6],
+    "overview": "Overall band 5.5. Overall 5.5. Overall 5.5/9 nhé. Your overall is 5.5. Bố cục rõ.",
+    "trajectory": {"current_band": 5.5, "average_last_5": 6.7, "trend": "improving", "trend_explanation": "Bài này ở band 5.5.", "next_target": "Từ band 5.5, hãy lên 6.0."},
+    "expected": {
+      "overall": 6.0,
+      "overview": "Bài viết đạt band 6.0. Bố cục rõ.",
+      "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
+      "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
+    }
+  },
+  {
+    "id": "mixed-claim-and-advice-semicolon",
+    "base_band": 5.5,
+    "bands": [6, 6, 6, 6],
+    "overview": "Band 5.5 là mức hiện tại; to reach band 7 cần luyện.",
+    "trajectory": {"current_band": 5.5, "average_last_5": 6.7, "trend": "improving", "trend_explanation": "Bài này ở band 5.5.", "next_target": "Từ band 5.5, hãy lên 6.0."},
+    "expected": {
+      "overall": 6.0,
+      "overview": "Bài viết đạt band 6.0. To reach band 7 cần luyện.",
+      "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
+      "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
+    }
+  },
+  {
+    "id": "mixed-advice-then-claim-semicolon",
+    "base_band": 5.5,
+    "bands": [6, 6, 6, 6],
+    "overview": "To reach band 7, cần luyện; band hiện tại 5.5. Bố cục rõ.",
+    "trajectory": {"current_band": 5.5, "average_last_5": 6.7, "trend": "improving", "trend_explanation": "Bài này ở band 5.5.", "next_target": "Từ band 5.5, hãy lên 6.0."},
+    "expected": {
+      "overall": 6.0,
+      "overview": "Bài viết đạt band 6.0. To reach band 7, cần luyện. Bố cục rõ.",
+      "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
+      "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
+    }
+  },
+  {
+    "id": "mixed-claim-and-advice-no-semicolon",
+    "base_band": 5.5,
+    "bands": [6, 6, 6, 6],
+    "overview": "Band 5.5 là mức hiện tại, to reach band 7 cần luyện. Bố cục rõ.",
+    "trajectory": {"current_band": 5.5, "average_last_5": 6.7, "trend": "improving", "trend_explanation": "Bài này ở band 5.5.", "next_target": "Từ band 5.5, hãy lên 6.0."},
+    "expected": {
+      "overall": 6.0,
+      "overview": "Bài viết đạt band 6.0. Bố cục rõ.",
+      "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
+      "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
+    }
+  },
+  {
+    "id": "semicolon-without-target-drops-sentence",
+    "base_band": 5.5,
+    "bands": [6, 6, 6, 6],
+    "overview": "Band 5.5 là mức hiện tại; bố cục rõ. Từ vựng tốt.",
+    "trajectory": {"current_band": 5.5, "average_last_5": 6.7, "trend": "improving", "trend_explanation": "Bài này ở band 5.5.", "next_target": "Từ band 5.5, hãy lên 6.0."},
+    "expected": {
+      "overall": 6.0,
+      "overview": "Bài viết đạt band 6.0. Từ vựng tốt.",
       "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
       "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
     }

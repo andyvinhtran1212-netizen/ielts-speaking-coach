@@ -29,18 +29,48 @@ export function overallFromPicks(bands) {
 // Mirror services/writing_band_consistency.py. Shared fixtures verify that
 // the learner preview and the persisted composed version have identical prose.
 // Unicode classes avoid lookbehind so this also works in Safari 15.
-const BAND_CLAIM = /(?:^|[^\p{L}\p{N}_])(?:band(?:\s+score)?|score|điểm|overall|kết\s+quả(?:\s+tổng\s+thể)?|your\s+(?:essay|writing)\s+(?:achieves|scores|is\s+at)|(?:bài(?:\s+(?:viết|làm))?(?:\s+(?:này|của\s+(?:em|bạn)))?|em|bạn)\s+(?:hiện\s+)?(?:đạt|ở(?:\s+mức)?))\s*(?:(?:hiện tại|tổng|của em|của bạn|bài này|là|is|ở|mức|band|score)\s+)*[:=]?\s*([0-9](?:[.,]\d+)?)(?![\p{L}\p{N}_]|[.,]\d|\s*(?:phút|câu|từ|đoạn|lần|ý|minutes?|words?|sentences?|paragraphs?)(?![\p{L}\p{N}_]))/giu;
+// Bare "overall" is a claim only before band/score, ":"/"="/"is"/"là", or a
+// valid band ending the clause (or written "/9"); counts are not claims.
+const BAND_CLAIM = /(?:^|[^\p{L}\p{N}_])(?:band(?:\s+score)?|score|điểm|overall(?:\s+(?:band|score)|(?=\s*(?:[:=]|(?:is|là)\s))|(?=\s+(?:[0-8](?:[.,][05])?|9(?:[.,]0)?)(?![.,]?\d)(?:\/9|[ \t]*(?:[.!?;,:)\r\n]|$))))|kết\s+quả(?:\s+tổng\s+thể)?|your\s+(?:essay|writing)\s+(?:achieves|scores|is\s+at)|(?:bài(?:\s+(?:viết|làm))?(?:\s+(?:này|của\s+(?:em|bạn)))?|em|bạn)\s+(?:hiện\s+)?(?:đạt|ở(?:\s+mức)?))\s*(?:(?:hiện tại|tổng|của em|của bạn|bài này|là|is|ở|mức|band|score)\s+)*[:=]?\s*([0-9](?:[.,]\d+)?)(?![\p{L}\p{N}_]|[.,]\d|\s*(?:phút|câu|từ|đoạn|lần|ý|minutes?|words?|sentences?|paragraphs?|points?|ideas?|reasons?|examples?|arguments?|issues?|errors?|mistakes?|ý\s+chính|luận\s+điểm|lỗi)(?![\p{L}\p{N}_]))/giu;
 const TARGET_BAND = /(?:^|[^\p{L}\p{N}_])(?:để\s+(?:lên|đạt(?:\s+được)?)|muốn[^.!?;:\n,]*?|to\s+(?:reach|achieve|get)|target|aim(?:ing)?\s+(?:for|at)|goal|mục\s+tiêu[^.!?;:\n,]*?)\s+(?:(?:is|là)\s+)?(?:(?:an?|the)\s+)?(?:band(?:\s+score)?|overall(?:\s+band)?(?:\s+score)?)(?:\s+of)?\s*(?:(?:is|là)\s+)?[:=]?\s*([0-9](?:[.,]\d+)?)(?![\p{L}\p{N}_]|[.,]\d)/giu;
 const MISSING_IMAGE_CAVEAT_MARKER = 'Chấm không có hình';
+const WARNING = '⚠️';
 const MISSING_IMAGE_CAVEAT = '⚠️ Chấm không có hình — độ chính xác nội dung Task 1 Academic hạn chế. ';
 
-function hasStaleClaim(sentence, overall) {
+function claims(sentence, overall) {
   // Compare target-number positions, rather than exempting the whole sentence.
   const targets = new Set([...sentence.matchAll(TARGET_BAND)]
     .filter((match) => Number(match[1].replace(',', '.')) >= overall)
     .map((match) => match.index + match[0].length));
-  return [...sentence.matchAll(BAND_CLAIM)].some((match) =>
-    Number(match[1].replace(',', '.')) !== overall && !targets.has(match.index + match[0].length));
+  return [...sentence.matchAll(BAND_CLAIM)]
+    .filter((match) => !targets.has(match.index + match[0].length))
+    .map((match) => Number(match[1].replace(',', '.')));
+}
+
+function hasStaleClaim(sentence, overall) {
+  return claims(sentence, overall).some((band) => band !== overall);
+}
+
+function hasCurrentClaim(sentence, overall) {
+  return claims(sentence, overall).includes(overall);
+}
+
+function asSentence(text) {
+  const trimmed = text.trim();
+  const capitalised = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  return /[.!?]$/.test(capitalised) ? capitalised : capitalised + '.';
+}
+
+// Drop a stale-claim sentence, but keep target advice after a ';'.
+function withoutStaleClaim(sentence, overall) {
+  if (!hasStaleClaim(sentence, overall)) return sentence;
+  if (sentence.includes(';') && [...sentence.matchAll(TARGET_BAND)]
+    .some((match) => Number(match[1].replace(',', '.')) >= overall)) {
+    const clauses = sentence.split(';').map((clause) => clause.trim())
+      .filter((clause) => clause && !hasStaleClaim(clause, overall));
+    if (clauses.length) return asSentence(clauses.join('; '));
+  }
+  return null;
 }
 
 function summaryFlagsMissingImage(summary) {
@@ -76,18 +106,29 @@ function alignOverallBandFeedback(feedback, overall) {
     const summary = feedback.overallBandScoreSummary || '';
     const missingImage = summaryFlagsMissingImage(summary);
     const caveat = missingImage ? MISSING_IMAGE_CAVEAT : '';
+    // Cut only the leading ⚠️ and the sentence/line holding the marker;
+    // sentences written before the marker are content, not caveat.
     let body = summary;
+    const leading = [];
     while (summaryFlagsMissingImage(body)) {
-      body = body.trimStart();
-      const markerEnd = body.indexOf(MISSING_IMAGE_CAVEAT_MARKER) + MISSING_IMAGE_CAVEAT_MARKER.length;
+      body = body.trimStart().slice(WARNING.length);
+      const marker = body.indexOf(MISSING_IMAGE_CAVEAT_MARKER);
+      const start = [...body.slice(0, marker).matchAll(/[.!?]\s+|[\r\n]/g)]
+        .reduce((_, match) => match.index + match[0].length, 0);
+      if (body.slice(0, start).trim()) leading.push(asSentence(body.slice(0, start)));
+      const markerEnd = marker + MISSING_IMAGE_CAVEAT_MARKER.length;
       const end = /[.!?](?:\s|$)|[\r\n]/.exec(body.slice(markerEnd));
       body = end ? body.slice(markerEnd + end.index + end[0].length).trimStart() : '';
     }
+    body = [...leading, body].filter(Boolean).join(' ');
     const sentences = splitSentences(body);
-    const kept = sentences.filter((sentence) => !hasStaleClaim(sentence, overall));
-    const removedClaim = kept.length !== sentences.length;
+    const kept = sentences.map((sentence) => withoutStaleClaim(sentence, overall))
+      .filter((sentence) => sentence !== null);
+    const removedClaim = sentences.some((sentence) => hasStaleClaim(sentence, overall));
+    // A kept sentence may already state the final band; never repeat it.
+    const addBand = removedClaim && !kept.some((sentence) => hasCurrentClaim(sentence, overall));
     if (removedClaim || caveat) {
-      feedback.overallBandScoreSummary = caveat + (removedClaim ? `Bài viết đạt band ${overall.toFixed(1)}. ` : '')
+      feedback.overallBandScoreSummary = caveat + (addBand ? `Bài viết đạt band ${overall.toFixed(1)}. ` : '')
         + (kept.join(' ') || 'Hãy dựa vào nhận xét theo từng tiêu chí để chọn điểm cần cải thiện.');
     }
   }
