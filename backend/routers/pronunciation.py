@@ -247,7 +247,8 @@ async def assess_full_test_pronunciation(
             .execute()
         )
     except Exception as e:
-        raise HTTPException(500, f"Lỗi khi tải session: {e}")
+        logger.error("[pronunciation] full-test session lookup failed session=%s: %s", session_id, e, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tải session. Vui lòng thử lại.") from None
 
     owned = {r["id"]: r for r in (s_res.data or [])}
     found_ids = set(owned)
@@ -264,7 +265,8 @@ async def assess_full_test_pronunciation(
             .execute()
         )
     except Exception as e:
-        raise HTTPException(500, f"Lỗi khi tải responses: {e}")
+        logger.error("[pronunciation] full-test responses lookup failed session=%s: %s", session_id, e, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tải các câu trả lời. Vui lòng thử lại.") from None
 
     all_responses = resp_res.data or []
 

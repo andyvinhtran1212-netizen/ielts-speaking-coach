@@ -4,13 +4,19 @@ Runs every 5 minutes as its own Railway cron service
 (``backend/railway.staff-security-sweep.json``, owner decision Q10):
 
     python -m scripts.staff_security_sweep                  # one sweep run
+    python -m scripts.staff_security_sweep --no-mail        # staging only
     python -m scripts.staff_security_sweep --test-alert     # rollout.md P3
     python -m scripts.staff_security_sweep --requeue <audit_id>
+    python -m scripts.staff_security_sweep --backfill [--commit]   # first run only
 
 One run does three independent steps; a failure in one is logged and does not
 skip the others, and any failure makes the exit code non-zero. So do due alerts
 that cannot be sent because ``RESEND_API_KEY`` or ``OWNER_ALERT_EMAILS`` is
 missing: the run logs the missing names and exits non-zero (PC-J73 F3).
+Staging may explicitly use ``--no-mail`` to leave alerts unsent without failing
+an otherwise successful sweep, even with mail configured. Both dispatch passes
+only read due rows; log and snapshot failures still fail the run. Production
+must not use this flag. It cannot be combined with ``--test-alert`` or ``--requeue``.
 
 1. **Auth audit-log factor events** (the event source). Reads
    ``auth.audit_log_entries`` after the durable cursor in
@@ -51,15 +57,18 @@ next one for overlap.
 
 On the very first run the log cursor starts at the newest entry, so history
 from before the sweep existed is not replayed into audit rows and e-mails.
-
-``GET /admin/mfa/status`` also runs steps 1 and 2 for the caller only
-(``sweep_caller``), so an admin's own factor change is audited at once. That
-pass never moves the shared cursor; its alerts go out with the next step 3.
-The route reaches it through ``status_sweep``. PostgreSQL shares successful
-cooldowns, account admission and ``CALLER_MAX_CONCURRENT`` in-flight passes
-across workers. At most six passes per account start in a rolling minute,
-including failures and changed factor states; further reads receive 429.
-Other skips leave the status response unchanged and are left to the cron.
+``--backfill`` closes that gap once, before the cron service is created
+(rollout.md "First run and backfill", PC-J139): it audits the factor events
+from migration 332's ``applied_at`` (read from ``_schema_migrations``) up to
+the existing cursor, or, with no cursor yet, up to the newest settled entry,
+where ``--commit`` then creates the cursor in the last batch's transaction.
+It uses the same mapping, role-at-event rule and ``auth_log_entry_id`` key as
+step 1, marks each row ``detail.backfill = true`` with a ``backfill_run_id``,
+and never writes an owner alert, sends an e-mail or touches the snapshot:
+these are old events. Entries before 332 are only counted, because the role
+history ``role_at`` needs starts with 332. Without ``--commit`` it is a dry
+run that writes nothing, and both modes log one
+``staff_security_sweep_backfill_summary`` line of counts.
 
 The sweep reads ``auth.*`` over the backend's direct ``DATABASE_URL``
 connection (the ``postgres`` role; ``service_role`` cannot read it) and never
@@ -72,14 +81,14 @@ import argparse
 import asyncio
 import json
 import logging
-import math
 import os
 import re
 import sys
 import time
 import uuid
-from dataclasses import asdict, dataclass
-from datetime import timedelta
+from collections import Counter
+from contextlib import nullcontext
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
@@ -94,7 +103,6 @@ SNAPSHOT_MARKER = "mfa_factor_snapshot"
 LOG_LAG_SECONDS = 10
 CRON_PERIOD_SECONDS = 300   # railway.staff-security-sweep.json, Railway's minimum
 FOLLOW_UP_SECONDS = CRON_PERIOD_SECONDS // 2
-CRON_TIMEOUT_SECONDS = 240.0   # includes connect, all steps and the follow-up wait
 LOG_BATCH = 500
 ZERO_UUID = "00000000-0000-0000-0000-000000000000"
 
@@ -102,6 +110,7 @@ ENROLL_ACTIONS = ("factor_in_progress",)
 VERIFY_ACTIONS = ("verification_attempted",)
 DELETE_ACTIONS = ("factor_unenrolled", "factor_deleted")
 FACTOR_ACTIONS = ENROLL_ACTIONS + VERIFY_ACTIONS + DELETE_ACTIONS
+MIGRATION_332 = "332_staff_security_audit.sql"
 ALERT_EVENTS = frozenset({"mfa_factor_verified", "mfa_factor_deleted"})   # FR-011
 
 FactorLister = Callable[[str], Awaitable[list[dict[str, Any]]]]
@@ -129,6 +138,59 @@ class LogSummary:
 
 
 @dataclass
+class BackfillSummary:
+    run_id: str
+    commit: bool
+    migration_332_applied_at: Any = None
+    log_oldest_at: Any = None
+    end_at: Any = None
+    end_bound: str = ""            # "cursor" or "newest_entry"
+    cursor_created: bool = False
+    entry_min_at: Any = None
+    entry_max_at: Any = None
+    entries_by_action: Counter = field(default_factory=Counter)
+    written_by_event: Counter = field(default_factory=Counter)   # would write, in a dry run
+    skipped_by_reason: Counter = field(default_factory=Counter)
+    users: set = field(default_factory=set)
+
+    @property
+    def start_at(self) -> Any:
+        """The later of the oldest log entry and 332: the first writable moment."""
+        if self.log_oldest_at is None:
+            return self.migration_332_applied_at
+        return max(self.log_oldest_at, self.migration_332_applied_at)
+
+    def line(self) -> str:
+        def at(value: Any) -> str:
+            return value.astimezone(owner_alerts.VIETNAM_TIME).isoformat(timespec="seconds") \
+                if value is not None else "none"
+
+        def counts(counter: Counter) -> str:
+            return ",".join(f"{k}:{v}" for k, v in sorted(counter.items())) or "none"
+
+        fields = {
+            "mode": "commit" if self.commit else "dry_run", "run_id": self.run_id,
+            "migration_332_applied_at": at(self.migration_332_applied_at),
+            "log_oldest_at": at(self.log_oldest_at), "start_at": at(self.start_at),
+            "end_at": at(self.end_at), "end_bound": self.end_bound,
+            "entry_min_at": at(self.entry_min_at), "entry_max_at": at(self.entry_max_at),
+            "entries": sum(self.entries_by_action.values()),
+            "entries_by_action": counts(self.entries_by_action),
+            ("written" if self.commit else "would_write"): sum(self.written_by_event.values()),
+            ("written_by_event" if self.commit else "would_write_by_event"):
+                counts(self.written_by_event),
+            "skipped": sum(self.skipped_by_reason.values()),
+            "skipped_by_reason": counts(self.skipped_by_reason),
+            "users": len(self.users), "cursor_created": self.cursor_created,
+        }
+        return " ".join(f"{k}={v}" for k, v in fields.items())
+
+
+class BackfillCursorRace(RuntimeError):
+    """A sweep created the cursor while the backfill ran; re-run the backfill."""
+
+
+@dataclass
 class SnapshotSummary:
     seeding: bool = False
     admins: int = 0
@@ -147,58 +209,19 @@ class SweepDb:
         self.snapshot = f"{s}.staff_mfa_factor_snapshot"
         self.cursor = f"{s}.staff_security_sweep_cursor"
         self.users = f"{s}.users"
+        self.migrations = f"{s}._schema_migrations"
         self.log = f"{a}.audit_log_entries"
-        self.throttle = f"{s}.staff_mfa_status_throttle"
-
-    async def claim_status(self, user_id: str, state: str, timeout: float
-                           ) -> tuple[str | None, str | None, int]:
-        # All workers share this short admission lock, including the global
-        # concurrency check. It is never held through the sweep or Auth read,
-        # and the transaction's lock_timeout bounds admission contention.
-        await self.conn.execute(
-            "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", self.throttle)
-        now = await self.conn.fetchval("SELECT clock_timestamp()")
-        row = await self.conn.fetchrow(
-            f"SELECT *, factor_state = $2::jsonb AS same_state FROM {self.throttle} "
-            "WHERE user_id = $1::uuid", user_id, state)
-        attempts = [at for at in row["attempts"] if at > now - timedelta(seconds=60)] if row else []
-        if len(attempts) >= CALLER_MAX_PER_MINUTE:
-            retry = max(1, math.ceil((attempts[0] + timedelta(seconds=60) - now).total_seconds()))
-            return "rate_limited", None, retry
-        if row and row["in_flight_until"] and row["in_flight_until"] > now:
-            return "in_flight", None, 0
-        if (row and row["same_state"] and row["last_success_at"]
-                and (now - row["last_success_at"]).total_seconds() < CALLER_MIN_INTERVAL_SECONDS):
-            return "throttled", None, 0
-        running = await self.conn.fetchval(
-            f"SELECT count(*) FROM {self.throttle} WHERE in_flight_until > $1", now)
-        if running >= CALLER_MAX_CONCURRENT:
-            return "busy", None, 0
-        lease = str(uuid.uuid4())
-        await self.conn.execute(
-            f"INSERT INTO {self.throttle} (user_id, attempts, lease_id, in_flight_until) "
-            "VALUES ($1::uuid, $2::timestamptz[], $3::uuid, $4) "
-            "ON CONFLICT (user_id) DO UPDATE SET attempts = EXCLUDED.attempts, "
-            "lease_id = EXCLUDED.lease_id, in_flight_until = EXCLUDED.in_flight_until",
-            user_id, [*attempts, now], lease, now + timedelta(seconds=timeout + 5))
-        return None, lease, 0
-
-    async def finish_status(self, user_id: str, lease: str, state: str, success: bool) -> None:
-        # A crashed worker's lease expires. A late completion must never clear
-        # another worker's newer lease or overwrite its successful factor state.
-        await self.conn.execute(
-            "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", self.throttle)
-        await self.conn.execute(
-            f"UPDATE {self.throttle} SET lease_id = NULL, in_flight_until = NULL, "
-            "last_success_at = CASE WHEN $4 THEN clock_timestamp() ELSE last_success_at END, "
-            "factor_state = CASE WHEN $4 THEN $3::jsonb ELSE factor_state END "
-            "WHERE user_id = $1::uuid AND lease_id = $2::uuid", user_id, lease, state, success)
 
     # ── cursor ──
     async def lock_cursor(self, name: str) -> dict[str, Any] | None:
         row = await self.conn.fetchrow(
             f"SELECT last_created_at, last_entry_id FROM {self.cursor} WHERE name = $1 FOR UPDATE",
             name)
+        return dict(row) if row else None
+
+    async def read_cursor(self, name: str) -> dict[str, Any] | None:
+        row = await self.conn.fetchrow(
+            f"SELECT last_created_at, last_entry_id FROM {self.cursor} WHERE name = $1", name)
         return dict(row) if row else None
 
     async def init_log_cursor(self, lag_seconds: int) -> bool:
@@ -224,6 +247,14 @@ class SweepDb:
                        updated_at = now() WHERE name = $1""",
             name, created_at, str(entry_id))
 
+    async def create_log_cursor(self, created_at: Any, entry_id: Any) -> bool:
+        """The backfill's cursor. False when a sweep created one first."""
+        inserted = await self.conn.fetchval(
+            f"""INSERT INTO {self.cursor} (name, last_created_at, last_entry_id)
+                VALUES ($1, $2, $3::uuid) ON CONFLICT (name) DO NOTHING RETURNING name""",
+            LOG_CURSOR, created_at, str(entry_id))
+        return inserted is not None
+
     async def has_marker(self, name: str) -> bool:
         return bool(await self.conn.fetchval(
             f"SELECT EXISTS (SELECT 1 FROM {self.cursor} WHERE name = $1)", name))
@@ -235,18 +266,16 @@ class SweepDb:
             name)
 
     # ── Auth log ──
-    async def factor_entries(self, after: dict[str, Any], *, lag_seconds: int,
-                             limit: int, user_id: str | None = None) -> list[dict[str, Any]]:
-        """Factor entries after ``after``; with ``user_id``, only that account's
-        (the user ``_entry_user`` reads: ``traits.user_id`` for ``factor_deleted``)."""
+    async def factor_entries(self, after: dict[str, Any], *, lag_seconds: int, limit: int,
+                             until: tuple[Any, Any] | None = None) -> list[dict[str, Any]]:
+        """Factor entries after ``after``, optionally through ``until`` (inclusive)."""
         args: list[Any] = [after["last_created_at"], str(after["last_entry_id"] or ZERO_UUID),
                            lag_seconds, list(FACTOR_ACTIONS), limit]
-        only_user = ""
-        if user_id is not None:
-            only_user = """AND CASE WHEN payload::jsonb ->> 'action' = 'factor_deleted'
-                                    THEN payload::jsonb -> 'traits' ->> 'user_id'
-                                    ELSE payload::jsonb ->> 'actor_id' END = $6"""
-            args.append(user_id)
+        bound = ""
+        if until is not None:   # the backfill's end, inclusive
+            n = len(args) + 1
+            bound = f"AND (created_at, id) <= (${n}::timestamptz, ${n + 1}::uuid)"
+            args += [until[0], str(until[1])]
         rows = await self.conn.fetch(
             f"""SELECT id, created_at,
                        payload::jsonb ->> 'action'                 AS action,
@@ -260,11 +289,33 @@ class SweepDb:
                    AND created_at <= now() - make_interval(secs => $3)
                    AND (created_at, id) > (COALESCE($1, '-infinity'::timestamptz), $2::uuid)
                    AND payload::jsonb ->> 'action' = ANY($4::text[])
-                   {only_user}
+                   {bound}
                  ORDER BY created_at, id
                  LIMIT $5""",
             *args)
         return [dict(r) for r in rows]
+
+    async def oldest_entry_at(self) -> Any:
+        return await self.conn.fetchval(f"SELECT min(created_at) FROM {self.log}")
+
+    async def newest_settled_entry(self, lag_seconds: int) -> tuple[Any, Any]:
+        """(created_at, id) of the entry ``init_log_cursor`` would start at."""
+        row = await self.conn.fetchrow(
+            f"""SELECT newest.created_at, newest.id, now() - make_interval(secs => $1) AS cut_off
+                  FROM (SELECT 1) one
+                  LEFT JOIN LATERAL (
+                        SELECT created_at, id FROM {self.log}
+                         WHERE created_at IS NOT NULL
+                           AND created_at <= now() - make_interval(secs => $1)
+                         ORDER BY created_at DESC, id DESC LIMIT 1) newest ON true""",
+            lag_seconds)
+        if row["id"] is None:
+            return row["cut_off"], ZERO_UUID
+        return row["created_at"], row["id"]
+
+    async def migration_applied_at(self, filename: str) -> Any:
+        return await self.conn.fetchval(
+            f"SELECT applied_at FROM {self.migrations} WHERE filename = $1", filename)
 
     async def log_has(self, factor_id: str, actions: tuple[str, ...], *,
                       before: tuple[Any, Any] | None = None) -> bool:
@@ -299,6 +350,11 @@ class SweepDb:
         rows = await self.conn.fetch(
             f"SELECT id, email FROM {self.users} WHERE role = 'admin' ORDER BY id")
         return [{"id": str(r["id"]), "email": r["email"]} for r in rows]
+
+    async def audited_entry(self, entry_id: Any) -> bool:
+        return bool(await self.conn.fetchval(
+            f"""SELECT EXISTS (SELECT 1 FROM {self.audit}
+                 WHERE detail ->> 'auth_log_entry_id' = $1)""", str(entry_id)))
 
     async def audited_verification(self, factor_id: str) -> bool:
         return bool(await self.conn.fetchval(
@@ -350,10 +406,6 @@ class SweepDb:
 
     # ── snapshot ──
     async def lock_snapshot(self, user_id: str) -> dict[str, dict[str, Any]]:
-        # The row locks alone miss an account with no snapshot row yet; the
-        # caller pass (GET /admin/mfa/status) can run beside the cron.
-        await self.conn.execute("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
-                                f"{self.snapshot}:{user_id}")
         rows = await self.conn.fetch(
             f"""SELECT factor_id, factor_type, status, seen_at FROM {self.snapshot}
                  WHERE user_id = $1::uuid FOR UPDATE""", user_id)
@@ -366,18 +418,14 @@ class SweepDb:
             user_id, ids)
         for factor in factors:
             # seen_at = when this status was first observed, so a later
-            # verification entry can be told apart from a step-up. That is
-            # clock_timestamp(), after the list was read: now() is when the
-            # transaction began, before the lock wait and the Auth read, and a
-            # verification landing in between would then look older than its
-            # snapshot and be dropped as a step-up (SA PR-1936 F1-R1).
+            # verification entry can be told apart from a step-up.
             await self.conn.execute(
-                f"""INSERT INTO {self.snapshot} AS s (user_id, factor_id, factor_type, status, seen_at)
-                    VALUES ($1::uuid, $2::uuid, $3, $4, clock_timestamp())
+                f"""INSERT INTO {self.snapshot} AS s (user_id, factor_id, factor_type, status)
+                    VALUES ($1::uuid, $2::uuid, $3, $4)
                     ON CONFLICT (user_id, factor_id) DO UPDATE
                        SET factor_type = EXCLUDED.factor_type, status = EXCLUDED.status,
                            seen_at = CASE WHEN s.status IS DISTINCT FROM EXCLUDED.status
-                                          THEN EXCLUDED.seen_at ELSE s.seen_at END""",
+                                          THEN now() ELSE s.seen_at END""",
                 user_id, factor["id"], factor["factor_type"], factor["status"])
 
     async def drop_snapshot_except(self, user_ids: list[str]) -> None:
@@ -441,33 +489,6 @@ def _entry_user(entry: dict[str, Any]) -> str | None:
     return _uuid(entry.get(key))
 
 
-async def _audit_entries(db: SweepDb, entries: list[dict[str, Any]], summary: LogSummary) -> None:
-    users = await db.load_users([u for u in {_entry_user(e) for e in entries} if u])
-    for entry in entries:
-        summary.entries += 1
-        user_id = _entry_user(entry)
-        if user_id is None or _uuid(entry.get("factor_id")) is None:
-            summary.skipped += 1
-            logger.error("staff_security_sweep_unparseable_entry entry_id=%s action=%s",
-                         entry["id"], entry["action"])
-            continue
-        target = users.get(user_id)
-        # FR-010 applies to the role held at the event, not the role now:
-        # an admin demoted before this run still gets the row and alert.
-        if not target or await db.role_at(user_id, entry["created_at"],
-                                          target.get("role")) != "admin":
-            continue
-        mapped = await _log_event(db, entry)
-        if mapped is None:
-            continue
-        event, actor_id, detail = mapped
-        if await _record(db, event=event, target={**target, "id": user_id},
-                         actor_email=target.get("email") if actor_id else None,
-                         actor_id=actor_id, occurred_at=entry["created_at"],
-                         detail=detail):
-            summary.rows += 1
-
-
 async def sweep_auth_log(db: SweepDb, *, lag_seconds: int = LOG_LAG_SECONDS,
                          batch: int = LOG_BATCH) -> LogSummary:
     summary = LogSummary()
@@ -483,11 +504,127 @@ async def sweep_auth_log(db: SweepDb, *, lag_seconds: int = LOG_LAG_SECONDS,
             entries = await db.factor_entries(cursor, lag_seconds=lag_seconds, limit=batch)
             if not entries:
                 return summary
-            await _audit_entries(db, entries, summary)
+            users = await db.load_users([u for u in {_entry_user(e) for e in entries} if u])
+            for entry in entries:
+                summary.entries += 1
+                user_id = _entry_user(entry)
+                if user_id is None or _uuid(entry.get("factor_id")) is None:
+                    summary.skipped += 1
+                    logger.error("staff_security_sweep_unparseable_entry entry_id=%s action=%s",
+                                 entry["id"], entry["action"])
+                    continue
+                target = users.get(user_id)
+                # FR-010 applies to the role held at the event, not the role now:
+                # an admin demoted before this run still gets the row and alert.
+                if not target or await db.role_at(user_id, entry["created_at"],
+                                                  target.get("role")) != "admin":
+                    continue
+                mapped = await _log_event(db, entry)
+                if mapped is None:
+                    continue
+                event, actor_id, detail = mapped
+                if await _record(db, event=event, target={**target, "id": user_id},
+                                 actor_email=target.get("email") if actor_id else None,
+                                 actor_id=actor_id, occurred_at=entry["created_at"],
+                                 detail=detail):
+                    summary.rows += 1
             last = entries[-1]
             await db.advance_cursor(LOG_CURSOR, last["created_at"], last["id"])
         if len(entries) < batch:
             return summary
+
+
+# ── Backfill: the first run's history, without alerts ──────────────────────
+
+async def backfill_auth_log(db: SweepDb, *, commit: bool, run_id: str | None = None,
+                            lag_seconds: int = LOG_LAG_SECONDS,
+                            batch: int = LOG_BATCH) -> BackfillSummary:
+    """Audit the factor events step 1 never saw (module docstring). A dry run
+    reads in one read-only transaction; ``commit`` writes the rows, and the
+    cursor when there is none, one transaction per batch. It never enqueues an
+    owner alert."""
+    summary = BackfillSummary(run_id=run_id or str(uuid.uuid4()), commit=commit)
+    if commit:
+        await _backfill(db, summary, lag_seconds=lag_seconds, batch=batch)
+    else:
+        async with db.conn.transaction(isolation="repeatable_read", readonly=True):
+            await _backfill(db, summary, lag_seconds=lag_seconds, batch=batch)
+    return summary
+
+
+async def _backfill(db: SweepDb, summary: BackfillSummary, *, lag_seconds: int,
+                    batch: int) -> None:
+    commit = summary.commit
+    applied = await db.migration_applied_at(MIGRATION_332)
+    if applied is None:
+        raise RuntimeError(f"{MIGRATION_332} is not recorded in _schema_migrations")
+    summary.migration_332_applied_at = applied
+    summary.log_oldest_at = await db.oldest_entry_at()
+    cursor = await db.read_cursor(LOG_CURSOR)
+    if cursor is not None and cursor["last_created_at"] is not None:
+        # Step 1 already owns everything after the cursor; leave it unchanged.
+        end = (cursor["last_created_at"], cursor["last_entry_id"] or ZERO_UUID)
+        summary.end_bound = "cursor"
+    elif cursor is not None:
+        raise RuntimeError("the log cursor has no position; repair it before a backfill")
+    else:
+        end = await db.newest_settled_entry(lag_seconds)
+        summary.end_bound = "newest_entry"
+    summary.end_at = end[0]
+    after: dict[str, Any] = {"last_created_at": None, "last_entry_id": None}
+    while True:
+        async with (db.conn.transaction() if commit else nullcontext()):
+            entries = await db.factor_entries(after, lag_seconds=lag_seconds, limit=batch,
+                                              until=end)
+            users = await db.load_users([u for u in {_entry_user(e) for e in entries} if u])
+            for entry in entries:
+                await _backfill_entry(db, entry, users, summary)
+            final = len(entries) < batch
+            if final and commit and cursor is None:
+                if not await db.create_log_cursor(*end):
+                    raise BackfillCursorRace("the log cursor appeared during the backfill")
+                summary.cursor_created = True
+        if final:
+            return
+        after = {"last_created_at": entries[-1]["created_at"], "last_entry_id": entries[-1]["id"]}
+
+
+async def _backfill_entry(db: SweepDb, entry: dict[str, Any], users: dict[str, dict[str, Any]],
+                          summary: BackfillSummary) -> None:
+    summary.entries_by_action[entry["action"]] += 1
+    at = entry["created_at"]
+    summary.entry_min_at = at if summary.entry_min_at is None else min(summary.entry_min_at, at)
+    summary.entry_max_at = at if summary.entry_max_at is None else max(summary.entry_max_at, at)
+    skipped = summary.skipped_by_reason
+    user_id = _entry_user(entry)
+    if user_id is None or _uuid(entry.get("factor_id")) is None:
+        skipped["unparseable"] += 1
+        return
+    if at < summary.migration_332_applied_at:
+        skipped["before_332"] += 1   # no role history to decide eligibility
+        return
+    target = users.get(user_id)
+    if not target:
+        skipped["unknown_user"] += 1
+        return
+    if await db.role_at(user_id, at, target.get("role")) != "admin":
+        skipped["not_admin"] += 1
+        return
+    if await db.audited_entry(entry["id"]):
+        skipped["duplicate"] += 1
+        return
+    mapped = await _log_event(db, entry)
+    if mapped is None:
+        skipped["step_up"] += 1
+        return
+    event, actor_id, detail = mapped
+    detail.update(backfill=True, backfill_run_id=summary.run_id)
+    if summary.commit and await db.insert_audit(event=event, target=user_id, actor=actor_id,
+                                                occurred_at=at, detail=detail) is None:
+        skipped["duplicate"] += 1   # a concurrent sweep wrote it first
+        return
+    summary.written_by_event[event] += 1
+    summary.users.add(user_id)
 
 
 # ── Step 2: snapshot backstop ────────────────────────────────────────────────
@@ -506,17 +643,6 @@ def _clean_factors(raw: Any) -> list[dict[str, Any]]:
     return factors
 
 
-class _FactorListFailed(Exception):
-    """The Auth admin factor list could not be read or understood (the cause)."""
-
-
-async def _read_factors(list_factors: FactorLister, user_id: str) -> list[dict[str, Any]]:
-    try:
-        return _clean_factors(await list_factors(user_id))
-    except Exception as exc:
-        raise _FactorListFailed() from exc
-
-
 async def _missed(db: SweepDb, admin: dict[str, Any], event: str, factor: dict[str, Any]) -> None:
     detail = {"factor_id": factor["id"], "factor_type": factor["factor_type"],
               "factor_status": factor["status"], "detected_by": "snapshot"}
@@ -526,17 +652,11 @@ async def _missed(db: SweepDb, admin: dict[str, Any], event: str, factor: dict[s
                   occurred_at=None, detail=detail)
 
 
-async def _reconcile_admin(db: SweepDb, admin: dict[str, Any], list_factors: FactorLister,
+async def _reconcile_admin(db: SweepDb, admin: dict[str, Any], factors: list[dict[str, Any]],
                            *, seeding: bool) -> int:
-    """The factor list is read while holding the account's snapshot lock. Read
-    before it, a list could predate a snapshot another pass (the cron beside a
-    status read, or two status reads) saves meanwhile, and comparing the two
-    would report a factor deleted that was not, then overwrite the newer
-    snapshot with the older list (PC-J180)."""
     diffs = 0
     async with db.conn.transaction():
         before = await db.lock_snapshot(admin["id"])
-        factors = await _read_factors(list_factors, admin["id"])
         if not seeding:
             now = {f["id"]: f for f in factors}
             for factor in factors:
@@ -566,12 +686,14 @@ async def reconcile_snapshot(db: SweepDb, list_factors: FactorLister) -> Snapsho
     summary.admins = len(admins)
     for admin in admins:
         try:
-            summary.factor_diffs += await _reconcile_admin(db, admin, list_factors,
-                                                           seeding=summary.seeding)
-        except _FactorListFailed as exc:   # one admin's lookup must not hide the others
+            factors = _clean_factors(await list_factors(admin["id"]))
+        except Exception as exc:   # one admin's lookup must not hide the others
             summary.errors += 1
             logger.error("staff_security_sweep_factor_list_failed user_id=%s error=%s",
-                         admin["id"], _error(exc))
+                         admin["id"], type(exc).__name__)
+            continue
+        summary.factor_diffs += await _reconcile_admin(db, admin, factors,
+                                                       seeding=summary.seeding)
     await db.drop_snapshot_except([a["id"] for a in admins])
     if summary.seeding and not summary.errors:
         await db.set_marker(SNAPSHOT_MARKER)
@@ -609,8 +731,6 @@ async def _connect():
 
 
 def _error(exc: BaseException) -> str:
-    if isinstance(exc, _FactorListFailed) and exc.__cause__ is not None:
-        exc = exc.__cause__
     sqlstate = getattr(exc, "sqlstate", None)
     return f"{type(exc).__name__}" + (f"[{sqlstate}]" if sqlstate else "")
 
@@ -632,7 +752,9 @@ async def _run_steps(steps: tuple[tuple[str, Callable[[], Awaitable[Any]]], ...]
         fields.update({f"{key}_{k}": v for k, v in asdict(result).items()})
         if name == "snapshot" and result.errors:
             ok = False
-        if name == "dispatch" and result.unconfigured:
+        if name == "dispatch" and result.disabled:
+            logger.warning("staff_security_sweep_mail_disabled (--no-mail) due=%d", result.due)
+        elif name == "dispatch" and result.unconfigured:
             # Due alerts that cannot go out must not look like a green run.
             ok = False
             logger.error("staff_security_sweep_alerts_unsent step=%s missing=%s due=%d",
@@ -645,7 +767,8 @@ async def run_sweep(conn: Any, list_factors: FactorLister, *, schema: str = "pub
                     send: owner_alerts.Sender = owner_alerts.send_via_resend,
                     lag_seconds: int = LOG_LAG_SECONDS, follow_up_seconds: float | None = None,
                     sleep: Callable[[float], Awaitable[Any]] = asyncio.sleep,
-                    clock: Callable[[], float] = time.monotonic) -> tuple[dict[str, Any], bool]:
+                    clock: Callable[[], float] = time.monotonic,
+                    no_mail: bool = False) -> tuple[dict[str, Any], bool]:
     """One run of the three steps, then (with ``follow_up_seconds``) steps 1 and
     3 again that long after the start. Returns (summary fields, ok)."""
     started = clock()
@@ -653,7 +776,7 @@ async def run_sweep(conn: Any, list_factors: FactorLister, *, schema: str = "pub
     fields: dict[str, Any] = {}
     log = ("log", lambda: sweep_auth_log(db, lag_seconds=lag_seconds))
     dispatch = ("dispatch", lambda: owner_alerts.dispatch_due(
-        owner_alerts.PgOutboxStore(conn, schema), config=config, send=send))
+        owner_alerts.PgOutboxStore(conn, schema), config=config, send=send, disabled=no_mail))
     ok, done = await _run_steps((log, ("snapshot", lambda: reconcile_snapshot(db, list_factors)),
                                  dispatch), fields)
     if follow_up_seconds is None:
@@ -668,238 +791,6 @@ async def run_sweep(conn: Any, list_factors: FactorLister, *, schema: str = "pub
         await sleep(wait)
     follow_ok, _ = await _run_steps(again, fields, prefix="follow_up_")
     return fields, ok and follow_ok
-
-
-# ── Caller-only pass (GET /admin/mfa/status) ─────────────────────────────────
-
-CALLER_TIMEOUT_SECONDS = 3.0
-CALLER_HTTP_TIMEOUT_SECONDS = 2.0
-CALLER_LOCK_TIMEOUT = "1s"
-CALLER_STATEMENT_TIMEOUT = "2s"
-# PostgreSQL owns admission across workers. The local running set also stops
-# a burst in one worker from using its pool just to check shared admission.
-CALLER_MIN_INTERVAL_SECONDS = 30.0
-CALLER_MAX_CONCURRENT = 2
-CALLER_MAX_PER_MINUTE = 6
-LOCK_NOT_AVAILABLE = "55P03"
-
-_caller_no_db_logged = False
-_caller_running: set[str] = set()
-
-
-@dataclass
-class CallerSummary:
-    log_skipped: str | None = None
-    log_entries: int = 0
-    log_rows: int = 0
-    log_error: str | None = None
-    snapshot_skipped: str | None = None
-    snapshot_factor_diffs: int = 0
-    snapshot_error: str | None = None
-    retry_after_seconds: int = 0
-
-
-def _sqlstate(exc: BaseException) -> str | None:
-    if isinstance(exc, _FactorListFailed) and exc.__cause__ is not None:
-        exc = exc.__cause__
-    return getattr(exc, "sqlstate", None)
-
-
-def _log_caller_step_failed(step: str, user_id: str, exc: BaseException) -> str:
-    """A lock held elsewhere (the cron's batch, or its snapshot pass of this
-    account during the Auth read) is expected now and then and left to the
-    cron: a warning. Anything else is an error."""
-    code = _error(exc)
-    level = logging.WARNING if _sqlstate(exc) == LOCK_NOT_AVAILABLE else logging.ERROR
-    logger.log(level, "staff_security_sweep_caller_step_failed step=%s user_id=%s error=%s",
-               step, user_id, code)
-    return code
-
-
-async def _bound_transaction(db: SweepDb) -> None:
-    await db.conn.execute(f"SET LOCAL lock_timeout = '{CALLER_LOCK_TIMEOUT}'")
-    await db.conn.execute(f"SET LOCAL statement_timeout = '{CALLER_STATEMENT_TIMEOUT}'")
-
-
-async def sweep_for_user(db: SweepDb, user_id: str, list_factors: FactorLister, *,
-                         batch: int = LOG_BATCH) -> CallerSummary:
-    """Steps 1 and 2 for one account only (plan.md: ``GET /admin/mfa/status``
-    audits the caller's own enroll, verify or removal at once).
-
-    Step 1 reads this account's factor entries after the shared cursor while
-    holding the cursor row lock, so it never interleaves with a cron batch, and
-    it never moves the cursor: other accounts' entries stay where the cron
-    reads them, and when the cron reaches this account's entries it finds them
-    audited (the log entry id is unique; a verification already audited is a
-    step-up). As nothing is passed over, no log lag is needed: an entry still
-    committing is simply left for the cron. A cursor the cron has not started
-    is left alone, so the first-run rule (no history replay) still holds.
-
-    Step 2 reconciles this account's snapshot only, once the cron has seeded
-    it and while the account is an admin. Each step fails on its own: the
-    error is logged and recorded, and the other step still runs."""
-    summary = CallerSummary()
-    log = LogSummary()
-    try:
-        async with db.conn.transaction():
-            await _bound_transaction(db)
-            position = await db.lock_cursor(LOG_CURSOR)
-            if position is None:
-                summary.log_skipped = "cursor_uninitialized"
-            while position is not None:
-                entries = await db.factor_entries(position, lag_seconds=0, limit=batch,
-                                                  user_id=user_id)
-                await _audit_entries(db, entries, log)
-                if len(entries) < batch:
-                    break
-                position = {"last_created_at": entries[-1]["created_at"],
-                            "last_entry_id": entries[-1]["id"]}
-        summary.log_entries, summary.log_rows = log.entries, log.rows
-    except Exception as exc:
-        summary.log_error = _log_caller_step_failed("log", user_id, exc)
-    try:
-        user = (await db.load_users([user_id])).get(user_id)
-        if not await db.has_marker(SNAPSHOT_MARKER):
-            summary.snapshot_skipped = "not_seeded"
-        elif not user or user.get("role") != "admin":
-            summary.snapshot_skipped = "not_admin"
-        else:
-            async with db.conn.transaction():
-                await _bound_transaction(db)
-                summary.snapshot_factor_diffs = await _reconcile_admin(
-                    db, {"id": user_id, "email": user.get("email")}, list_factors,
-                    seeding=False)
-    except Exception as exc:
-        summary.snapshot_error = _log_caller_step_failed("snapshot", user_id, exc)
-    return summary
-
-
-async def _sweep_caller(engine: Any, user_id: str, list_factors: FactorLister | None,
-                        schema: str, auth_schema: str) -> CallerSummary:
-    if list_factors is None:
-        import httpx
-        from config import settings
-        async with httpx.AsyncClient(timeout=CALLER_HTTP_TIMEOUT_SECONDS) as client:
-            lister = auth_admin_factor_lister(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY,
-                                              client)
-
-            async def bounded(uid: str) -> list[dict[str, Any]]:
-                # httpx bounds each phase; this bounds the whole read, which
-                # runs while the account lock and a pooled connection are held.
-                return await asyncio.wait_for(lister(uid), CALLER_HTTP_TIMEOUT_SECONDS)
-
-            return await _sweep_caller(engine, user_id, bounded, schema, auth_schema)
-    async with engine.connect() as connection:
-        try:
-            raw = await connection.get_raw_connection()
-            db = SweepDb(raw.driver_connection, schema=schema, auth_schema=auth_schema)
-            return await sweep_for_user(db, user_id, list_factors)
-        except asyncio.CancelledError:
-            # A timeout may cancel a statement mid-flight: never pool that connection.
-            await connection.invalidate()
-            raise
-
-
-async def sweep_caller(engine: Any, user_id: Any, *, list_factors: FactorLister | None = None,
-                       timeout: float = CALLER_TIMEOUT_SECONDS, schema: str = "public",
-                       auth_schema: str = "auth") -> CallerSummary | None:
-    """The ``GET /admin/mfa/status`` hook: ``sweep_for_user`` for the caller on
-    the backend's direct ``DATABASE_URL`` engine, bounded by ``timeout``. Never
-    raises: a failure or timeout is logged at error level with its code and
-    returns None. Without the engine it does nothing and logs that once."""
-    global _caller_no_db_logged
-    if engine is None:
-        if not _caller_no_db_logged:
-            _caller_no_db_logged = True
-            logger.error("staff_security_sweep_caller_unavailable error=no_database_url")
-        return None
-    uid = _uuid(user_id)
-    if uid is None:
-        logger.error("staff_security_sweep_caller_failed error=invalid_user_id")
-        return None
-    try:
-        return await asyncio.wait_for(
-            _sweep_caller(engine, uid, list_factors, schema, auth_schema), timeout)
-    except asyncio.TimeoutError:
-        logger.error("staff_security_sweep_caller_failed user_id=%s error=timeout", uid)
-    except Exception as exc:
-        logger.error("staff_security_sweep_caller_failed user_id=%s error=%s", uid, _error(exc))
-    return None
-
-
-def _factor_state(auth_user: dict[str, Any]) -> tuple[tuple[str, str], ...]:
-    factors = auth_user.get("factors")
-    if not isinstance(factors, list):
-        return ()
-    return tuple(sorted((str(f.get("id")), str(f.get("status")))
-                        for f in factors if isinstance(f, dict)))
-
-
-async def _status_db(engine: Any, schema: str, operation: Callable[[SweepDb], Awaitable[Any]]) -> Any:
-    async with engine.connect() as connection:
-        try:
-            raw = await connection.get_raw_connection()
-            db = SweepDb(raw.driver_connection, schema=schema)
-            async with db.conn.transaction():
-                await _bound_transaction(db)
-                return await operation(db)
-        except asyncio.CancelledError:
-            await connection.invalidate()
-            raise
-
-
-def _status_skipped(user_id: str, reason: str, retry: int = 0) -> CallerSummary:
-    if reason == "busy":
-        logger.warning("staff_security_sweep_caller_skipped user_id=%s reason=busy", user_id)
-    return CallerSummary(log_skipped=reason, snapshot_skipped=reason, retry_after_seconds=retry)
-
-
-async def _shared_status_sweep(engine: Any, uid: str, state: str, **kwargs: Any) -> CallerSummary | None:
-    schema = kwargs.get("schema", "public")
-    timeout = kwargs.get("timeout", CALLER_TIMEOUT_SECONDS)
-    reason, lease, retry = await _status_db(
-        engine, schema, lambda db: db.claim_status(uid, state, timeout))
-    if reason is not None:
-        return _status_skipped(uid, reason, retry)
-    success = False
-    try:
-        summary = await sweep_caller(engine, uid, **kwargs)
-        success = summary is not None and summary.log_error is None and summary.snapshot_error is None
-        return summary
-    finally:
-        try:
-            # Release even after failure/cancellation. The stored attempt stays;
-            # only a fully successful pass starts the unchanged-state cooldown.
-            await asyncio.wait_for(_status_db(
-                engine, schema, lambda db: db.finish_status(uid, lease, state, success)), 0.5)
-        except Exception as exc:
-            logger.error("staff_security_sweep_caller_release_failed user_id=%s error=%s", uid, _error(exc))
-
-
-async def status_sweep(engine: Any, auth_user: dict[str, Any],
-                       **kwargs: Any) -> CallerSummary | None:
-    """Shared per-account cooldown and six attempts per rolling minute, even
-    if factors change. At most two passes run across all workers. Transient
-    failures skip the hook, preserving the status read and cron fallback."""
-    uid = _uuid(auth_user.get("id"))
-    if uid is None or engine is None:
-        return await sweep_caller(engine, auth_user.get("id"), **kwargs)
-    if uid in _caller_running:
-        return _status_skipped(uid, "in_flight")
-    if len(_caller_running) >= CALLER_MAX_CONCURRENT:
-        return _status_skipped(uid, "busy")
-    _caller_running.add(uid)
-    try:
-        return await asyncio.wait_for(
-            _shared_status_sweep(engine, uid, json.dumps(_factor_state(auth_user)), **kwargs),
-            kwargs.get("timeout", CALLER_TIMEOUT_SECONDS))
-    except asyncio.TimeoutError:
-        logger.error("staff_security_sweep_caller_failed user_id=%s error=timeout", uid)
-    except Exception as exc:
-        logger.error("staff_security_sweep_caller_failed user_id=%s error=%s", uid, _error(exc))
-    finally:
-        _caller_running.discard(uid)
-    return None
 
 
 async def _main(args: argparse.Namespace) -> int:
@@ -917,35 +808,49 @@ async def _main(args: argparse.Namespace) -> int:
             done = await owner_alerts.PgOutboxStore(conn).requeue(audit_id)
             logger.info("staff_security_sweep_requeue audit_id=%s requeued=%s", audit_id, done)
             return 0 if done else 1
+        if args.backfill:
+            summary = await backfill_auth_log(SweepDb(conn), commit=args.commit,
+                                              lag_seconds=LOG_LAG_SECONDS)
+            logger.info("staff_security_sweep_backfill_summary %s", summary.line())
+            return 0
         import httpx
         from config import settings
+        options: dict[str, Any] = {"follow_up_seconds": FOLLOW_UP_SECONDS}
+        if args.no_mail:
+            options["no_mail"] = True
         async with httpx.AsyncClient(timeout=15.0) as client:
             lister = auth_admin_factor_lister(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY,
                                               client)
-            fields, ok = await run_sweep(conn, lister, follow_up_seconds=FOLLOW_UP_SECONDS)
+            fields, ok = await run_sweep(conn, lister, **options)
         logger.info("staff_security_sweep_summary %s",
                     " ".join(f"{k}={v}" for k, v in fields.items()))
         return 0 if ok else 1
     finally:
-        await conn.close(timeout=1)   # bounded cancellation cleanup after the cron deadline
+        await conn.close()
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     group = parser.add_mutually_exclusive_group()
+    group.add_argument("--no-mail", action="store_true",
+                       help="staging only: sweep and leave alerts unsent without changing delivery state")
     group.add_argument("--test-alert", action="store_true",
                        help="send the fixed test message to OWNER_ALERT_EMAILS and exit")
     group.add_argument("--requeue", metavar="AUDIT_ID",
                        help="give a failed alert a fresh set of attempts")
+    group.add_argument("--backfill", action="store_true",
+                       help="audit the factor events before the first cron run, without "
+                            "alerts (dry run unless --commit)")
+    parser.add_argument("--commit", action="store_true",
+                        help="with --backfill: write the audit rows and the cursor")
     args = parser.parse_args(argv)
+    if args.commit and not args.backfill:
+        parser.error("--commit requires --backfill")
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
     from scripts._script_env import load_env
     load_env("DATABASE_URL")
     try:
-        return asyncio.run(asyncio.wait_for(_main(args), CRON_TIMEOUT_SECONDS))
-    except asyncio.TimeoutError:
-        logger.error("staff_security_sweep_failed error=timeout timeout_seconds=%s", CRON_TIMEOUT_SECONDS)
-        return 1
+        return asyncio.run(_main(args))
     except Exception as exc:
         logger.error("staff_security_sweep_failed error=%s", _error(exc))
         return 1

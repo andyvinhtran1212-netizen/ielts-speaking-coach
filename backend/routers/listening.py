@@ -1020,8 +1020,8 @@ def _insert_attempt(
         supabase_admin.table("listening_attempts").insert(row).execute()
     except Exception as e:
         logger.error("[listening] attempt INSERT failed user=%s exercise=%s: %s",
-                     user_id, exercise_id, e)
-        raise HTTPException(500, f"Attempt save failed: {e}")
+                     user_id, exercise_id, e, exc_info=True)
+        raise HTTPException(500, "Không lưu được lượt làm bài. Vui lòng thử lại.") from None
     return attempt_id
 
 
@@ -3175,7 +3175,7 @@ async def admin_import_fulltest_commit(
         logger.exception("[fulltest] commit persist failed — rolling back test %s", test_uuid)
         _rollback()
         raise HTTPException(
-            500, f"Lỗi khi lưu full-test (đã rollback sạch, không để lại rác): {exc}") from exc
+            500, "Lỗi khi lưu full-test (đã rollback sạch, không để lại rác). Vui lòng thử lại.") from None
 
     return {
         "id":                test_uuid,
@@ -3669,7 +3669,7 @@ async def admin_import_drill_commit(
     except Exception as exc:
         logger.exception("[drill] commit persist failed — rolling back %s", test_uuid)
         _rollback()
-        raise HTTPException(500, f"Lỗi khi lưu drill (đã rollback sạch): {exc}") from exc
+        raise HTTPException(500, "Lỗi khi lưu drill (đã rollback sạch). Vui lòng thử lại.") from None
 
     return {
         "id":                test_uuid,
@@ -4311,7 +4311,8 @@ def _upload_audio_to_bucket(storage_path: str, mp3_bytes: bytes) -> None:
             )
             raise HTTPException(503, "Listening audio storage not configured.")
         # Some clients return 409 / 'duplicate' on re-upload — re-raise.
-        raise HTTPException(500, f"Storage upload failed: {exc}") from exc
+        logger.error("[listening] audio upload failed path=%s: %s", storage_path, exc, exc_info=True)
+        raise HTTPException(500, "Không tải được file lên kho lưu trữ. Vui lòng thử lại.") from None
 
 
 @admin_router.post("/tests/{test_id}/audio/full")
@@ -4536,10 +4537,12 @@ async def admin_assemble_test_audio(
                 .from_(settings.LISTENING_AUDIO_BUCKET) \
                 .download(row["audio_storage_path"])
         except Exception as exc:
+            logger.error("[listening] section %s audio download failed test=%s: %s",
+                         n, test_id, exc, exc_info=True)
             raise HTTPException(
                 500,
-                f"Không tải được section {n} audio: {exc}",
-            ) from exc
+                f"Không tải được audio section {n}. Vui lòng thử lại.",
+            ) from None
         section_audios.append(audio_bytes)
         narrator_intros.append((row.get("metadata") or {}).get("narrator_intro"))
 
@@ -4555,8 +4558,8 @@ async def admin_assemble_test_audio(
         logger.exception("Assembly failed for test %s", test_id)
         raise HTTPException(
             500,
-            f"Assembly thất bại: {exc}. Kiểm tra ffmpeg + ElevenLabs quota.",
-        ) from exc
+            "Assembly thất bại. Kiểm tra ffmpeg + ElevenLabs quota.",
+        ) from None
 
     storage_path = f"tests/{test_id}/assembled.mp3"
     _upload_audio_to_bucket(storage_path, assembly.mp3_bytes)
@@ -4862,8 +4865,8 @@ async def admin_upload_map_image(
             {"content-type": content_type, "upsert": "true"},
         )
     except Exception as exc:                                              # pragma: no cover
-        logger.error("[map_image] manual upload to storage failed: %s", exc)
-        raise HTTPException(500, f"Storage upload failed: {exc}")
+        logger.error("[map_image] manual upload to storage failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Không tải được file lên kho lưu trữ. Vui lòng thử lại.") from None
 
     # Sprint 13.5.6 left these fields on the payload root; the admin
     # panel reads them from there. Manual uploads use the same shape

@@ -6,8 +6,6 @@ attempt is made. Call sites keep their existing Gemini/OpenAI code as the
 ``legacy`` callable; it runs unchanged whenever the Claude attempt fails for any
 reason (API error, timeout, rate limit, refusal, truncation, output the
 caller's own parser/validator rejects) or ``ANTHROPIC_API_KEY`` is missing.
-A budget refusal (:class:`services.ai_budget.AIBudgetRefused`, AIBUDGET-0033
-FR-008) is the one exception: it stops the chain and reaches the caller.
 
 Configuration (``config.py``):
 
@@ -39,7 +37,7 @@ from typing import Any, Awaitable, Callable, Sequence, TypeVar
 
 import anthropic
 
-from services import ai_budget, ai_failure_log, ai_model_overrides, ai_usage_logger
+from services import ai_failure_log, ai_model_overrides, ai_usage_logger
 from services.claude_compat import json_request_kwargs, response_text
 
 logger = logging.getLogger(__name__)
@@ -525,34 +523,13 @@ async def call_anthropic(
     request = build_request(
         model, system=system, user=user, max_tokens=max_tokens, images=images,
     )
-    # AIBUDGET-0033 FR-001/FR-004: one reservation per attempt, sized from
-    # the prompt, max_tokens and the decoded size of every image sent.
-    sizes = ai_budget.image_sizes(data for data, _ in images)
-    estimate = None if sizes is None else ai_budget.estimate_or_none(
-        "anthropic", model, input_text=[system, user], max_tokens=request["max_tokens"],
-        images=sizes,
-    )
-    context = usage_context or {}
     started = time.monotonic()
     log = dict(
         feature=feature, operation=operation, model=model, user_id=user_id,
         session_id=session_id, usage_context=usage_context,
     )
     try:
-        async with ai_budget.guard(
-            "anthropic", model, feature, estimate,
-            request_key=ai_budget.attempt_key(feature), operation=operation, user_id=user_id,
-            resource_type=context.get("resource_type"), resource_id=context.get("resource_id"),
-        ) as lease:
-            response = await client.messages.create(**request)
-            lease.settle(ai_budget.anthropic_actual_usd(model, _usage_tokens(response)))
-    except (ai_budget.AIBudgetRefused, ai_budget.AIBudgetReplay) as exc:
-        # FR-008: a refusal is not an attempt failure, so it never becomes an
-        # AnthropicAttemptError that a caller would fall back on.
-        if exc.__cause__ is not None:
-            _log_attempt(status="error", latency_ms=_ms(started), usage=None,
-                         error_code="provider_spend_limit", **log)
-        raise
+        response = await client.messages.create(**request)
     except asyncio.CancelledError:
         _log_attempt(status="cancelled", latency_ms=_ms(started), usage=None,
                      error_code="cancelled", **log)
@@ -604,11 +581,13 @@ async def call_anthropic(
             feature, operation, model, code, detail,
         )
         _record(code)
+        # The rejected answer was billed: callers that may still accept it
+        # (a final-provider salvage) or report the run's cost need the
+        # served model and token usage.
         if isinstance(exc, AnthropicAttemptError):
+            exc.model, exc.usage = model, usage
             raise
         error = AnthropicAttemptError(code, detail)
-        # The rejected answer was billed: callers that may still accept it
-        # (a final-provider salvage) need the served model and token usage.
         error.model, error.usage = model, usage
         raise error from exc
 
@@ -642,10 +621,6 @@ async def with_fallback(
         try:
             result = await call()
         except asyncio.CancelledError:
-            raise
-        except (ai_budget.AIBudgetRefused, ai_budget.AIBudgetReplay):
-            # FR-008: a budget refusal stops the whole chain; it is not a
-            # provider failure, so nothing is recorded and nothing else runs.
             raise
         except Exception as exc:
             last_exc = exc

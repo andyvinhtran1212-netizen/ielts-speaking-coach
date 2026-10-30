@@ -1,7 +1,7 @@
 'use client';
 
 import Script from 'next/script';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export type RouteScriptSpec = Readonly<{
   src: string;
@@ -38,6 +38,62 @@ function reportScriptReady(src: string) {
   }
 }
 
+type ScriptOutcome = 'loaded' | 'failed';
+
+type ScriptEntry = {
+  status: 'pending' | ScriptOutcome;
+  /** A native listener on the injected element decides the outcome. */
+  watched: boolean;
+  waiters: Set<(outcome: ScriptOutcome) => void>;
+};
+
+// One entry per src for the lifetime of the document, shared by every chain.
+// next/script injects a src once and, when a second <Script> with that src
+// mounts while the first load is still in flight, only chains its onLoad:
+// onReady never fires for the remounted step (PC-J280). Every step therefore
+// waits on this registry instead of on its own <Script> callbacks.
+const scriptRegistry = new Map<string, ScriptEntry>();
+
+function settleScript(src: string, outcome: ScriptOutcome) {
+  let entry = scriptRegistry.get(src);
+  if (!entry) {
+    entry = { status: outcome, watched: false, waiters: new Set() };
+    scriptRegistry.set(src, entry);
+    return;
+  }
+  if (entry.status !== 'pending') return;
+  entry.status = outcome;
+  const waiters = [...entry.waiters];
+  entry.waiters.clear();
+  waiters.forEach(waiter => waiter(outcome));
+}
+
+// next/script callbacks are the fallback for a src the registry has not
+// watched yet (e.g. already loaded by a plain <Script> on an earlier route).
+// Once an element is watched they are ignored: on a third mount during the
+// same in-flight load next/script reports onReady before the script has run.
+function settleFromNextScript(src: string, outcome: ScriptOutcome) {
+  if (!scriptRegistry.get(src)?.watched) settleScript(src, outcome);
+}
+
+function watchScript(src: string): ScriptEntry {
+  let entry = scriptRegistry.get(src);
+  if (!entry) {
+    entry = { status: 'pending', watched: false, waiters: new Set() };
+    scriptRegistry.set(src, entry);
+  }
+  if (entry.status === 'pending' && !entry.watched) {
+    const elements = Array.from(document.scripts)
+      .filter(element => element.getAttribute('src') === src);
+    for (const element of elements) {
+      element.addEventListener('load', () => settleScript(src, 'loaded'), { once: true });
+      element.addEventListener('error', () => settleScript(src, 'failed'), { once: true });
+    }
+    entry.watched = elements.length > 0;
+  }
+  return entry;
+}
+
 function RouteScriptStep({
   index,
   scripts,
@@ -47,8 +103,38 @@ function RouteScriptStep({
   scripts: readonly RouteScriptSpec[];
   onComplete?: () => void;
 }) {
-  const [ready, setReady] = useState(false);
+  const [outcome, setOutcome] = useState<ScriptOutcome | null>(null);
+  const reported = useRef(false);
   const script = scripts[index];
+  const src = script?.src;
+  const ready = outcome === 'loaded' || (outcome === 'failed' && !!script?.continueOnError);
+
+  // Runs after the child <Script> effect, so a first mount finds the element
+  // next/script has just injected; a remount finds the registry entry.
+  useEffect(() => {
+    if (!src) return;
+    const entry = watchScript(src);
+    if (entry.status !== 'pending') {
+      setOutcome(entry.status);
+      return;
+    }
+    const waiter = (settled: ScriptOutcome) => setOutcome(settled);
+    entry.waiters.add(waiter);
+    return () => {
+      entry.waiters.delete(waiter);
+    };
+  }, [src]);
+
+  useEffect(() => {
+    if (!src || !outcome || reported.current) return;
+    reported.current = true;
+    if (outcome === 'loaded') {
+      reportScriptReady(src);
+    } else {
+      reportLoadFailure(src);
+      reportScriptFailure(src);
+    }
+  }, [outcome, src]);
 
   useEffect(() => {
     if (ready && index + 1 === scripts.length) onComplete?.();
@@ -62,15 +148,8 @@ function RouteScriptStep({
         src={script.src}
         type={script.type}
         strategy="afterInteractive"
-        onReady={() => {
-          reportScriptReady(script.src);
-          setReady(true);
-        }}
-        onError={() => {
-          reportLoadFailure(script.src);
-          reportScriptFailure(script.src);
-          if (script.continueOnError) setReady(true);
-        }}
+        onReady={() => settleFromNextScript(script.src, 'loaded')}
+        onError={() => settleFromNextScript(script.src, 'failed')}
       />
       {ready && index + 1 < scripts.length
         ? <RouteScriptStep index={index + 1} scripts={scripts} onComplete={onComplete} />

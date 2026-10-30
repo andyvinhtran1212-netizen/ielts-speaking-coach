@@ -104,21 +104,16 @@ def main(argv=None) -> int:
         if not settings.GEMINI_API_KEY:
             print("GEMINI_API_KEY chưa đặt (hoặc dùng --dry-run)."); return 1
         genai.configure(api_key=settings.GEMINI_API_KEY)
-        model_name = settings.D1_GENERATION_MODEL or "gemini-2.5-flash"
-        model = genai.GenerativeModel(model_name)
+        model = genai.GenerativeModel(settings.D1_GENERATION_MODEL or "gemini-2.5-flash")
 
     reviews = []
     for ex in exercises:
         gate = validate_d1_quality(ex, label=str(ex["id"]))
         row = {"id": ex["id"], "word": ex["answer"], "gate_pass": not gate, "gate_errors": gate}
         if model is not None:
-            from services import ai_budget
-            # AIBUDGET-0033 FR-001: reserved, one attempt, no hidden retry.
-            raw = ai_budget.generate_content_sync(
-                model, model_name, _JUDGE_PROMPT.format(
-                    sentence=ex["sentence"], answer=ex["answer"], distractors=ex["distractors"],
-                ), feature="d1_distractor_review", operation="judge",
-            ).text or ""
+            raw = model.generate_content(_JUDGE_PROMPT.format(
+                sentence=ex["sentence"], answer=ex["answer"], distractors=ex["distractors"],
+            )).text or ""
             verdict = _extract_json(raw) or {"ok": None, "verdicts": [{"note": "judge parse failed"}]}
             row["semantic_ok"] = verdict.get("ok")
             row["semantic_verdicts"] = verdict.get("verdicts", [])

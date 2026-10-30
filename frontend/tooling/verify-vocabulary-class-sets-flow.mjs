@@ -5,7 +5,6 @@ import assert from 'node:assert/strict';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { storageKey } from './supabase-session.mjs';
-import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const base = process.argv[2] || 'http://127.0.0.1:3017';
 assert.ok(/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(base), 'loopback Next only');
@@ -19,6 +18,10 @@ let set = { id: '40000000-0000-4000-8000-000000000020', title: 'Education · C2'
   status: 'published', version: 2, published_revision: 1, library: false, course_ids: [course], cohort_ids: [], card_ids: [card.id], cards: [card],
   progress: [], mode_counts: { flashcards: 1, learn: 1, cloze: 1, test: 1 } };
 const sessions = new Map();
+// PC-J253: a green run takes well under a minute. Any failure (or a stall past 3 min) prints
+// the last step, URL, recent API requests, unhandled requests, page errors and
+// the page text before exiting 1.
+const guard = createFlowWatchdog({ name: 'verify-vocabulary-class-sets-flow', totalMs: 3 * 60_000 });
 const errors = []; const unhandled = []; const requests = [];
 let browser;
 try { browser = await chromium.launch(); } catch (e) {
@@ -41,6 +44,7 @@ try {
     const p = url.pathname; const method = req.method(); let body = {};
     try { body = req.postDataJSON() || {}; } catch {}
     requests.push({ p, method, body });
+    guard.recordRequest(req);
     if (method === 'OPTIONS') return json({});
     if (p === '/auth/me') return json({ id: actor, email: 'vocab-fixture@local.test', role: 'admin', display_name: 'Fixture', flashcard_enabled: true, d1_enabled: true, vocab_curated_enabled: false });
     if (p === '/auth/check-active') return json({ is_active: true });
@@ -77,16 +81,18 @@ try {
       }
       return json(s);
     }
-    unhandled.push(`${method} ${url.origin}${p}`); return json({ detail:'unhandled fixture' },404);
+    unhandled.push(`${method} ${url.origin}${p}`); guard.recordUnhandled(`${method} ${url.origin}${p}`); return json({ detail:'unhandled fixture' },404);
   });
-  await stubAdminMfaStatus(context);
   const page = await context.newPage(); page.on('pageerror', e => errors.push(String(e)));
+  guard.watchPage(page);
   await page.goto(base+'/vocabulary/hub');
   await page.getByRole('heading',{name:'Học từ vựng',exact:true}).waitFor();
   assert.equal(await page.getByRole('navigation',{name:'Điều hướng từ vựng'}).getByRole('link').count(),4);
+  guard.passed('hub renders four vocabulary nav links');
   await page.goto(base+'/exercises');
   await page.getByRole('heading',{name:'Đến hạn ôn',exact:true}).waitFor();
   assert.equal(new URL(page.url()).searchParams.get('view'),'review');
+  guard.passed('/exercises lands on the review view');
   await page.goto(base+'/vocabulary/hub');
   await page.getByRole('heading',{name:'Học từ vựng',exact:true}).waitFor();
   await page.getByRole('link',{name:'Bộ từ',exact:true}).click();
@@ -107,12 +113,14 @@ try {
     await page.getByRole('heading',{name:'Phiên học đã hoàn tất'}).waitFor();
     await page.reload(); await page.getByRole('heading',{name:'Phiên học đã hoàn tất'}).waitFor();
     await page.getByRole('link',{name:'Trở về bộ từ',exact:false}).click();
+    guard.passed(`mode ${mode}: start, resume, result reload`);
   }
   await page.goto(base+`/admin/vocab/sets/${set.id}`);
   await page.getByRole('textbox',{name:'Tên bộ',exact:true}).fill('Education · C2 revised');
   await page.getByRole('button',{name:'Lưu và xuất bản',exact:true}).click();
   await page.getByText('Đã xuất bản.',{exact:false}).waitFor();
   await page.reload(); assert.equal(await page.getByRole('textbox',{name:'Tên bộ',exact:true}).inputValue(),'Education · C2 revised');
+  guard.passed('admin publication survives reload');
   for (const width of [1280,400,320]) for (const theme of ['light','dark']) {
     await page.setViewportSize({width,height:900});
     await page.evaluate(t => document.documentElement.setAttribute('data-theme',t),theme);
@@ -120,6 +128,7 @@ try {
       await page.goto(base+path); await page.locator('h1').first().waitFor();
       await page.evaluate(t => document.documentElement.setAttribute('data-theme',t),theme);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth<=innerWidth),`no overflow ${width}/${theme}/${path}`);
+      guard.passed(`no overflow ${width}/${theme}/${path}`);
     }
   }
   await page.goto(base+'/vocabulary/hub'); await page.getByRole('heading',{name:'Học từ vựng',exact:true}).waitFor();
@@ -130,4 +139,106 @@ try {
   assert.deepEqual(unhandled,[], 'unhandled fixture requests'); assert.deepEqual(errors,[], 'browser runtime errors');
   assert.equal(requests.filter(r=>r.method==='POST'&&r.p.endsWith('/publication')).length,1);
   console.log('PASS: hub → set → all four modes → resume/result reload; admin publication/reload; 320/400/1280px, light/dark; no overflow or runtime errors.');
+  guard.stop();
+} catch (error) {
+  await guard.fail(String(error?.stack || error));
 } finally { await browser.close(); }
+
+// PC-J253 — fail-fast guard. The same copy is in verify-d1-exercise-flow.mjs
+// and verify-vocabulary-class-sets-flow.mjs: a new imported tooling module
+// must be listed in next-native-browser.yml `paths` (workflow-path-coverage).
+// It bounds every awaited fixture signal and the whole script; on failure it
+// prints the last passed check, the awaited label, the URL, recent API
+// requests (token class only, never the token), unhandled fixture requests,
+// page/console errors and 2 kB of the page text, then exits 1.
+function createFlowWatchdog({ name, totalMs, waitMs = 15_000 }) {
+  const startedAt = Date.now();
+  const requests = [];
+  const unhandled = [];
+  const pageErrors = [];
+  let page = null;
+  let lastCheck = '(none)';
+  let waitingFor = '(none)';
+  let failing = false;
+  const tokenClass = (authorization) => {
+    if (!authorization) return 'none';
+    const known = String(authorization).replace(/^Bearer\s+/i, '').match(/^(fixture|refreshed|foreign)(?:-|$)/);
+    return known ? known[1] : 'other';
+  };
+  const bounded = (read, fallback) => {
+    let timer;
+    return Promise.race([
+      Promise.resolve().then(read).catch((error) => `${fallback}: ${String(error?.message || error).split('\n')[0]}`),
+      new Promise((resolve) => { timer = setTimeout(() => resolve(fallback), 5_000); }),
+    ]).finally(() => clearTimeout(timer));
+  };
+  async function fail(reason) {
+    if (failing) return new Promise(() => {});
+    failing = true;
+    const lines = [
+      `✗ ${name}: ${reason}`,
+      `  elapsed: ${((Date.now() - startedAt) / 1000).toFixed(1)}s`,
+      `  last passed check: ${lastCheck}`,
+      `  waiting for: ${waitingFor}`,
+      `  url: ${page ? await bounded(() => page.url(), '(url unavailable)') : '(no page)'}`,
+      '  last 30 API requests (method path · x-request-id · token):',
+      ...requests.slice(-30).map((entry) => `    ${entry}`),
+      `  unhandled fixture requests: ${unhandled.length ? unhandled.join(', ') : '(none)'}`,
+      `  page errors / console errors: ${pageErrors.length ? '' : '(none)'}`,
+      ...pageErrors.slice(-20).map((entry) => `    ${entry}`),
+    ];
+    if (page) {
+      const text = await bounded(() => page.evaluate(() => document.body?.innerText ?? '(no body)'), '(body unavailable)');
+      lines.push('  document.body.innerText (first 2000 chars):');
+      lines.push(...String(text).slice(0, 2_000).split('\n').map((line) => `    | ${line}`));
+    }
+    console.log(lines.join('\n'));
+    process.exit(1);
+    return new Promise(() => {});
+  }
+  const watchdog = setTimeout(() => { void fail(`watchdog: script exceeded ${Math.round(totalMs / 1000)}s`); }, totalMs);
+  watchdog.unref();
+  // Playwright timeouts and assertion errors surface as a rejected top-level
+  // await; report them with the same diagnostics instead of a bare stack.
+  const onCrash = (error) => { void fail(`uncaught error: ${error?.stack || error}`); };
+  process.on('uncaughtException', onCrash);
+  process.on('unhandledRejection', onCrash);
+  return {
+    watchPage(target) {
+      page = target;
+      target.on('pageerror', (error) => pageErrors.push(`pageerror: ${String(error).split('\n')[0]}`));
+      target.on('console', (message) => {
+        if (message.type() === 'error') pageErrors.push(`console.error: ${message.text().slice(0, 300)}`);
+      });
+    },
+    recordRequest(request) {
+      const headers = request.headers();
+      requests.push(`${request.method()} ${new URL(request.url()).pathname} · ${headers['x-request-id'] ? 'xrid' : 'no-xrid'} · ${tokenClass(headers.authorization)}`);
+      if (requests.length > 120) requests.splice(0, requests.length - 30);
+    },
+    recordUnhandled(entry) { unhandled.push(entry); },
+    passed(checkName) { lastCheck = checkName; },
+    /** Await a fixture signal for at most `ms`; on timeout print diagnostics and exit 1. */
+    async within(promise, label, ms = waitMs) {
+      waitingFor = label;
+      let timer;
+      try {
+        return await Promise.race([
+          promise,
+          new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`timeout after ${ms}ms`)), ms); }),
+        ]);
+      } catch (error) {
+        return fail(`${label}: ${error?.message || error}`);
+      } finally {
+        clearTimeout(timer);
+        if (waitingFor === label) waitingFor = '(none)';
+      }
+    },
+    fail,
+    stop() {
+      clearTimeout(watchdog);
+      process.off('uncaughtException', onCrash);
+      process.off('unhandledRejection', onCrash);
+    },
+  };
+}
