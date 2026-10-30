@@ -44,6 +44,31 @@
 - Pre-push and PR checks are recorded on the implementation PR's exact head.
 - Test artifacts remain outside the repository in the resume job's `.log.d`.
 
+## CI fix round R2 (PC-J133R, 2026-10-31)
+
+- CI run 41117776949 on `a80009b6f` was red in two places that the run above
+  skipped or did not include (it had no `TEST_PG_URL`, and the node suite was
+  not run):
+  - `tests/test_client_write_invariant_postgres.py`: the invariant harness
+    applies every forward migration ≥ 320, and 343 aborted with
+    `relation "storage.buckets" does not exist`. The harness now models the
+    Supabase platform `storage` schema in `_create_database()`, beside `auth`:
+    a superuser-owned `storage.buckets` with the six T001 rows (NULL/NULL;
+    `vocab-audio` public) and only `USAGE` + `SELECT, UPDATE` for the
+    NOSUPERUSER runner. The migration and its own 343 harness are unchanged.
+  - `frontend/tests/sprint-20-14f-alpha-diagram-image.test.mjs` pinned
+    `raise HTTPException(exc.http_status, str(exc))`. FR-003 intentionally
+    makes 413/415 carry the structured body, so the pin now requires
+    `exc.detail` and also pins `InvalidImageError.detail` (structured body for
+    413/415, original text otherwise). `api.js` already reads `detail.message`.
+- Red: both failures reproduced locally on `a80009b6f` (PG 16.2; Node 24.22.2).
+  Green: invariant + 343 files 39 passed on PG 16.2 and on PG 17.11; the node
+  file 27/27, with negative controls (router back to `str(exc)`, or 415 dropped
+  from the service mapping) each failing it.
+- Full backend `tests/` with `REQUIRE_PG=1` and the CI `*_TEST_DATABASE_URL`s
+  on a local PG 16 cluster: **14,871 passed, 47 skipped, 0 failed**. Full node
+  suite (CI command, Node 24): **13,375 passed, 1 skipped, 0 failed**.
+
 ## Data evidence
 
 - T001 census (staging, read-only, 2026-10-29 11:24:57Z): six buckets, all

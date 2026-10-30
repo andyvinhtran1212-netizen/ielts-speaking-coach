@@ -104,7 +104,8 @@ def _apply(database: str, migration: Path) -> str:
     if result.returncode or "__apply_migration_status__=processed" not in result.stdout:
         raise RuntimeError(
             f"{migration.name} did not apply on the invariant harness. If it needs pre-320 objects "
-            f"this shape lacks, extend _pre_320() in {Path(__file__).name}.\n{result.stderr}")
+            f"this shape lacks, extend _pre_320() (a Supabase platform schema such as auth or "
+            f"storage: _create_database()) in {Path(__file__).name}.\n{result.stderr}")
     return result.stderr
 
 
@@ -379,6 +380,17 @@ def _create_database() -> tuple[str, bool]:
         $$;
         GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role, {OWNER};
         GRANT EXECUTE ON FUNCTION auth.uid() TO anon, authenticated, service_role;
+        -- 343: Supabase's storage schema (platform-owned, not the runner's), the six
+        -- buckets with the staging T001 NULL limits; the runner may read and update rows.
+        CREATE SCHEMA storage;
+        CREATE TABLE storage.buckets (id text PRIMARY KEY, name text NOT NULL,
+            public boolean DEFAULT false, file_size_limit bigint, allowed_mime_types text[]);
+        INSERT INTO storage.buckets (id, name, public)
+            SELECT bucket, bucket, bucket = 'vocab-audio' FROM unnest(ARRAY['audio-responses',
+                'listening-audio', 'listening-images', 'reading-images', 'writing-images',
+                'vocab-audio']) AS bucket;
+        GRANT USAGE ON SCHEMA storage TO {OWNER};
+        GRANT SELECT, UPDATE ON storage.buckets TO {OWNER};
         CREATE FOREIGN DATA WRAPPER client_invariant_fdw;
         CREATE SERVER client_invariant_server FOREIGN DATA WRAPPER client_invariant_fdw;
         GRANT USAGE ON FOREIGN SERVER client_invariant_server TO {OWNER};""")
