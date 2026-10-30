@@ -45,6 +45,45 @@ code deploy.
   read of `auth.audit_log_entries` succeeds (gate R5). Without it FR-010
   cannot be met and enforcement does not start.
 
+## First run and backfill (staging and production)
+
+The cron's first run starts the Auth log cursor at the newest entry
+(`staff_security_sweep_cursor_initialized`), so the factor events between
+applying 332 and that run would never be audited. Each environment closes
+that gap once, before its cron service exists, in this order:
+
+1. Dry run: `python -m scripts.staff_security_sweep --backfill`. It reads in
+   one read-only transaction, writes nothing, and logs one
+   `staff_security_sweep_backfill_summary` line: 332's `applied_at` (read from
+   `public._schema_migrations`, never typed in), the oldest log entry, the
+   start (the later of the two) and end, the entry time range in UTC+7,
+   entries per action, rows it would write per event, skips per reason
+   (`before_332`, `not_admin`, `unknown_user`, `step_up`, `duplicate`,
+   `unparseable`) and the number of affected accounts. It prints no email,
+   token or secret.
+2. The Leader reviews those counts. `staff_security_audit` is append-only, so
+   a wrong row cannot be removed.
+3. `--backfill --commit` writes the same rows with the step 1 mapping, the
+   role held at the event, and the `detail.auth_log_entry_id` key, so a re-run
+   duplicates nothing. Each row carries `detail.backfill = true` and a
+   `detail.backfill_run_id`. Entries before 332 are only counted, because the
+   role history starts with 332. **No owner alert and no email** for these
+   old events (Leader, 2026-10-29): no `owner_alert_outbox` row is written,
+   so "Lịch sử quyền" shows them with no alert status. With no cursor yet,
+   the last batch's transaction also creates the cursor at the end entry. If
+   a cursor already exists (a cron ran first), the backfill stops at it and
+   leaves it unchanged. It never touches the factor snapshot or existing
+   outbox rows.
+4. Only then create the cron service. Its first run finds the cursor and goes
+   on from it: no `staff_security_sweep_cursor_initialized` line, no gap and
+   no overlap.
+
+Staging: steps 1–4 wait for Vinh's approval of the staging cron and sweep
+configuration (cron service, `RESEND_API_KEY`, `OWNER_ALERT_EMAILS`).
+Production has the same gap, so T013 follows the same steps after R1, with
+the start taken from production's own 332 `applied_at`. Vinh approves it at
+the promotion.
+
 ## Staging
 
 - **S1.** Apply `332_staff_security_audit.sql` with the advisory-locked runner
@@ -65,8 +104,8 @@ code deploy.
     is false;
   - `has_function_privilege('service_role', 'public.fn_bootstrap_admin_recovery(uuid,text,text)', 'EXECUTE')`
     is false.
-- **S3.** Deploy the merged staging SHA with `ADMIN_AAL2_ENFORCE=false` and
-  start the cron service. Confirm that `admin_aal2_would_block` lines appear
+- **S3.** Deploy the merged staging SHA with `ADMIN_AAL2_ENFORCE=false`, run
+  "First run and backfill" above, and only then start the cron service. Confirm that `admin_aal2_would_block` lines appear
   for AAL1 admin traffic, and that nothing else changed (the AC7 log excerpt).
 - **S4.** Vinh and every staging admin enroll at `/admin/mfa`, including a
   backup factor (Q1). Run P4.
@@ -121,8 +160,9 @@ code deploy.
 - **R1.** Only through the `staging` → `main` promotion PR, with Vinh's
   explicit authorization for migration 332. Apply 332 under the advisory lock
   before the backend promotion. Run the S2 queries read-only.
-- **R2.** Deploy with `ADMIN_AAL2_ENFORCE=false`. Confirm the cron is running
-  and P3 passed on production.
+- **R2.** Deploy with `ADMIN_AAL2_ENFORCE=false`. Run "First run and
+  backfill" above on production (dry run, Leader review, `--commit`), then
+  create the cron. Confirm the cron is running and P3 passed on production.
 - **R3.** Production admins enroll, including the backup factor. Run P4
   read-only on production.
 - **R4.** On Vinh's go (Q6), set `ADMIN_AAL2_ENFORCE=true` on the production

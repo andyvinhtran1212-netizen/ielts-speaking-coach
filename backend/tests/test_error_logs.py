@@ -312,16 +312,16 @@ class TestFrontendIngress:
     @pytest.mark.parametrize("raw", [
         b'{"message":"x","extra":{"ms":1e309}}',        # overflows to inf
         b'{"message":"x","extra":{"ms":[-Infinity]}}',
-        b'{"message":NaN}',                             # wrong type, echoed as input
+        b'{"message":NaN}',                             # wrong type
     ])
     def test_non_finite_number_is_a_serializable_422(self, client, fake_db, raw):
-        # F10 (Codex, PR #1754): the 422 body echoes the rejected input; a
-        # non-finite number in it must not turn the response into a 500 that
-        # lands in the backend exception log.
+        # F10 (#1754), PC-J188: malformed numbers stay a 422 without reflecting
+        # rejected input or creating a backend exception log.
         r = client.post("/api/error-logs", content=raw,
                         headers={"content-type": "application/json"})
         assert r.status_code == 422
         assert r.json()["detail"]
+        assert all(set(error) == {"loc", "msg", "type"} for error in r.json()["detail"])
         assert fake_db.tables.get("error_logs", []) == []
 
     def test_truncates_long_message(self, client, fake_db):
