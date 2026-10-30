@@ -756,6 +756,21 @@ def test_get_test_detail_prefers_assembled_over_full(monkeypatch):
     assert "assembled.mp3" in out["audio_url"]
 
 
+def test_get_test_detail_uses_parent_audio_without_section_audio(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake, full_audio_storage_path="tests/x/full.mp3")
+    _seed_sections_with_exercises(fake, test["id"])
+    for section in fake.tables["listening_content"]:
+        section["audio_storage_path"] = None
+
+    out = _run(listening_router.get_published_listening_test(
+        test_id=test["id"], authorization=authz,
+    ))
+
+    assert "full.mp3" in out["audio_url"]
+    assert len(out["sections"]) == 4
+
+
 def test_get_test_detail_404_for_draft(monkeypatch):
     fake, authz = _patch(monkeypatch)
     test = _seed_test(fake, status="draft")

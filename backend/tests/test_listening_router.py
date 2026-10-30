@@ -164,6 +164,94 @@ def _run(coro):
     return asyncio.run(coro)
 
 
+@pytest.mark.parametrize("status", ["draft", "published"])
+@pytest.mark.parametrize("path", [None, ""])
+def test_admin_content_without_section_audio_does_not_call_storage(
+    monkeypatch, caplog, status, path,
+):
+    from unittest.mock import Mock
+    from supabase import create_client
+
+    row = {"id": "c1", "status": status, "audio_storage_path": path,
+           "test_id": "parent-test", "title": "Section without separate audio"}
+    fake = _FakeAdminClient({"listening_content": [row]})
+    # Exercise the pinned SDK: URL(None) raises the production constructor
+    # error before HTTP. The permissive fake would silently sign "None".
+    sdk = create_client("https://example.supabase.co", "test-key")
+    fake.storage = Mock(wraps=sdk.storage)
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+
+    out = _run(listening_router.admin_get_listening_content(
+        content_id="c1", authorization=authz,
+    ))
+
+    assert out["audio_signed_url"] is None
+    assert out["audio_storage_path"] == path
+    assert out["test_id"] == "parent-test"
+    assert out["title"] == row["title"]
+    fake.storage.from_.assert_not_called()
+    assert "admin signed URL failed" not in caplog.text
+
+
+@pytest.mark.parametrize("url_key", ["signedURL", "signed_url"])
+def test_admin_content_signs_existing_section_audio(monkeypatch, url_key):
+    from unittest.mock import Mock
+
+    fake = _FakeAdminClient({"listening_content": [{
+        "id": "c1", "status": "draft", "audio_storage_path": "tests/x/s1.mp3",
+    }]})
+    sign = Mock(return_value={url_key: "https://storage.test/signed"})
+    monkeypatch.setattr(_FakeStorageBucket, "create_signed_url", sign)
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+
+    out = _run(listening_router.admin_get_listening_content(
+        content_id="c1", authorization=authz,
+    ))
+
+    assert out["audio_signed_url"] == "https://storage.test/signed"
+    sign.assert_called_once_with("tests/x/s1.mp3", 3600)
+
+
+def test_admin_content_still_reports_real_storage_failure(monkeypatch, caplog):
+    from unittest.mock import Mock
+
+    fake = _FakeAdminClient({"listening_content": [{
+        "id": "c1", "status": "draft", "audio_storage_path": "tests/x/s1.mp3",
+    }]})
+    sign = Mock(side_effect=RuntimeError("storage unavailable"))
+    monkeypatch.setattr(_FakeStorageBucket, "create_signed_url", sign)
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+
+    out = _run(listening_router.admin_get_listening_content(
+        content_id="c1", authorization=authz,
+    ))
+
+    assert out["audio_signed_url"] is None
+    assert out["audio_storage_path"] == "tests/x/s1.mp3"
+    assert "admin signed URL failed content_id=c1: storage unavailable" in caplog.text
+
+
+def test_student_cannot_read_draft_content_without_section_audio(monkeypatch):
+    from unittest.mock import Mock
+
+    fake = _FakeAdminClient({"listening_content": [{
+        "id": "c1", "status": "draft", "audio_storage_path": None,
+    }]})
+    fake.storage = Mock()
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_user_auth(monkeypatch)
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.get_listening_content(
+            content_id="c1", authorization=authz,
+        ))
+    assert exc.value.status_code == 404
+    fake.storage.from_.assert_not_called()
+
+
 # ── GET /api/listening/content/{id} ──────────────────────────────────
 
 
