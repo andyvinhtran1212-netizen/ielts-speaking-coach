@@ -136,3 +136,17 @@ Preconditions:
   a separate write after the claim";
   `test_migration_323_users_role_single_check.py::test_application_writes_only_values_the_constraint_allows`
   still pins the canonical `'instructor'` literal, at the new write.
+
+## Codex r4422345951 follow-up (2026-10-30)
+
+- P2 fix: the archive-race undo never overwrites a newer successful activation
+  of the same user. If the re-read row carries another `access_code_used`,
+  nothing is restored; the undo UPDATE always compare-and-swaps on this
+  request's code and on every restored field (`permissions` as jsonb text).
+  The lost/indeterminate-claim `is_active=false` undo has the same guard.
+- CR P3: a 0-row promote with the role unchanged is labelled `write_failed`;
+  a role raised by someone else is audited as `promote_role` with
+  `after.noop=true`.
+- Red/green: 7 new cases in `test_class_archive_activate.py` fail on
+  `a4f64497c` and pass with the fix (interleaving before the undo's read and
+  before its write, permissions CAS, unclaimed-claim undo, promote labels).

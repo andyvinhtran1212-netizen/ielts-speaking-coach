@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 from datetime import datetime, timedelta, timezone
@@ -109,7 +110,7 @@ def _activation_error(exc: BaseException, *, context: str, ref: str,
 def _audit_promote_attempt(
     user_id: str, code_id: str | None, *,
     ok: bool, before_role: str | None = None, intended_email: str | None = None,
-    after_role: str = "instructor",
+    after_role: str = "instructor", noop: bool = False,
 ) -> None:
     """Append one row to access_code_audit for a role-promote attempt. BEST-EFFORT:
     never raises (a logging failure must not break/block activation). Records
@@ -122,7 +123,7 @@ def _audit_promote_attempt(
             "code_id":        code_id,
             "target_user_id": user_id,
             "before":         {"role": before_role} if ok else None,
-            "after":          ({"role": after_role} if ok
+            "after":          ({"role": after_role, **({"noop": True} if noop else {})} if ok
                                else {"reason": "email_mismatch", "intended_email": intended_email}),
         }).execute()
     except Exception as e:
@@ -548,27 +549,37 @@ def _restore_class_activation_snapshot(
 
     Only fields Step 3 actually changed are restored, and only while they still
     hold the value Step 3 wrote: a concurrent admin change (e.g. is_active=false
-    or stripped permissions) wins over the snapshot. Returns (ok, fields that may
-    still hold this request's values when not ok).
+    or stripped permissions) wins over the snapshot. Nothing is restored once the
+    row carries another code: a newer activation of the same user owns it
+    (Codex r4422345951). Returns (ok, fields that may still hold this request's
+    values when not ok).
     """
     changed = {key: snapshot.get(key) for key, value in written.items()
                if value != snapshot.get(key)}
+    own_code = written["access_code_used"]
     for attempt in range(2):
         try:
             if not changed:
                 return True, []
-            rows = (supabase_admin.table("users").select(", ".join(changed))
+            rows = (supabase_admin.table("users")
+                    .select(", ".join(sorted({*changed, "access_code_used"})))
                     .eq("id", user_id).limit(1).execute().data or [])
             if not rows:
                 raise RuntimeError("activation compensation found no user")
+            if rows[0].get("access_code_used") != own_code:
+                return True, []
             restore = {key: value for key, value in changed.items()
                        if rows[0].get(key) == written[key]}
             if not restore:
                 return True, []
-            query = supabase_admin.table("users").update(restore).eq("id", user_id)
+            # Compare-and-swap on ownership and on every restored field (jsonb as
+            # its JSON text), so a write landing after the read above is kept.
+            query = (supabase_admin.table("users").update(restore)
+                     .eq("id", user_id).eq("access_code_used", own_code))
             for key in restore:
-                if not isinstance(written[key], (list, dict)):
-                    query = query.eq(key, written[key])  # compare-and-swap on scalars
+                if key != "access_code_used":
+                    value = written[key]
+                    query = query.eq(key, json.dumps(value) if isinstance(value, (list, dict)) else value)
             if not query.execute().data:
                 raise RuntimeError("activation compensation updated no user")
             return True, []
@@ -581,12 +592,13 @@ def _restore_class_activation_snapshot(
 
 
 def _promote_after_claim(user_id: str, before_role: str | None,
-                         request_id: str) -> tuple[str | None, str | None]:
+                         request_id: str) -> tuple[str | None, str | None, bool]:
     """W-2 promote, run only after this request owns the code (SA-REVIEW-152).
 
     Upgrade-only compare-and-swap on the Step 2 role, one retry. Returns
-    (final_role, failure_reason); failure_reason is None when the account ends
-    at instructor or above.
+    (final_role, failure_reason, noop); failure_reason is None when the account
+    ends at instructor or above, noop is True when that role was written by
+    someone else (this request's CAS matched no row).
     """
     final_role: str | None = None
     for attempt in range(2):
@@ -595,20 +607,20 @@ def _promote_after_claim(user_id: str, before_role: str | None,
             if before_role is not None:
                 query = query.eq("role", before_role)
             if query.execute().data:
-                return "instructor", None
+                return "instructor", None, False
             # 0 rows: the role changed since Step 2 (never overwrite it), or the
             # client returned no representation — read back to tell them apart.
             rows = (supabase_admin.table("users").select("role")
                     .eq("id", user_id).limit(1).execute().data or [])
             final_role = rows[0].get("role") if rows else None
             if final_role in ("instructor", "admin"):
-                return final_role, None
-            return final_role, "role_changed"
+                return final_role, None, True
+            return final_role, "write_failed" if final_role == before_role else "role_changed", False
         except Exception as e:
             # 332 (account_suspended) or, on this role-only write, 336
             # (account_suspended_role_change): the trigger rolled it back.
             if staff_security.raised_code(e) in ("account_suspended", "account_suspended_role_change"):
-                return before_role, "account_suspended"
+                return before_role, "account_suspended", False
             logger.warning("[auth] instructor promote attempt=%s request_id=%s user=%s: %s",
                            attempt + 1, request_id, user_id, _exc_tag(e))
     try:  # record the real final role in the audit; None = unknown
@@ -619,8 +631,8 @@ def _promote_after_claim(user_id: str, before_role: str | None,
         logger.warning("[auth] promote read-back failed request_id=%s user=%s: %s",
                        request_id, user_id, _exc_tag(e))
     if final_role in ("instructor", "admin"):
-        return final_role, None
-    return final_role, "write_failed"
+        return final_role, None, False
+    return final_role, "write_failed", False
 
 
 def _audit_promote_failed(user_id: str, code_id: str | None, *, before_role: str | None,
@@ -1059,9 +1071,10 @@ async def activate_account(
         # enrolled on a code another user owns (PR #589 review, comments 1 & 2).
         if not was_already_active:
             try:
+                # CAS: a newer activation of this user (another code) keeps its state.
                 supabase_admin.table("users").update(
                     {"is_active": False}
-                ).eq("id", user_id).execute()
+                ).eq("id", user_id).eq("access_code_used", code).eq("is_active", True).execute()
             except Exception as e:
                 logger.error(
                     "[auth] race rollback of is_active FAILED for user=%s (critical): %s",
@@ -1108,12 +1121,13 @@ async def activate_account(
     # reported after Steps 5–6 (the code stays this user's), never silently.
     promote_failure: str | None = None
     if will_promote:
-        final_role, promote_failure = _promote_after_claim(
+        final_role, promote_failure, promote_noop = _promote_after_claim(
             user_id, user_before.get("role"), request_id,
         )
         if promote_failure is None:
             _audit_promote_attempt(user_id, access_code_row.get("id"), ok=True,
-                                   before_role=current_role, after_role=final_role)
+                                   before_role=current_role, after_role=final_role,
+                                   noop=promote_noop)
         else:
             logger.critical("[auth] instructor promote FAILED after claim request_id=%s user=%s "
                             "code_id=%s reason=%s", request_id, user_id,

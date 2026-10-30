@@ -30,6 +30,13 @@ AUDIT_COLUMNS = {
 }
 
 
+def _eq(stored, value):
+    # PostgREST compares a jsonb column with its JSON text (eq.["a"]).
+    if isinstance(stored, (list, dict)) and isinstance(value, str):
+        return stored == json.loads(value)
+    return stored == value
+
+
 class Query:
     def __init__(self, db, table):
         self.db, self.name = db, table
@@ -80,7 +87,7 @@ class Query:
         if self.name == "access_code_audit" and self.op == "insert":
             assert self.values.keys() <= AUDIT_COLUMNS, "migration 099 has no detail column"
         rows = db.tables.setdefault(self.name, [])
-        matches = [row for row in rows if all(row.get(k) == v for k, v in self.filters.items())]
+        matches = [row for row in rows if all(_eq(row.get(k), v) for k, v in self.filters.items())]
         if self.op == "select":
             if self.fields != "*":
                 fields = [f.strip() for f in self.fields.split(",")]
@@ -574,6 +581,35 @@ def test_promote_failure_after_claim_is_audited_with_final_state(
     assert DB_TEXT not in response.text and DB_TEXT not in caplog.text
 
 
+@pytest.mark.parametrize("concurrent_role", [None, "admin"])
+def test_promote_cas_miss_is_labelled_by_what_happened(world, monkeypatch, concurrent_role):
+    """P3 :599-606 / :1114-1116: a 0-row promote with the role unchanged is a
+    write failure; a role someone else raised is audited as a no-op."""
+    db, client = world
+    use_instructor_code(db)
+    original = Query.execute
+
+    def promote_matches_no_row(query):
+        if query.name == "users" and query.op == "update" and query.values == {"role": "instructor"}:
+            if concurrent_role is None:
+                return SimpleNamespace(data=[])
+            db.tables["users"][0]["role"] = concurrent_role  # Step 2 role CAS now misses
+        return original(query)
+
+    monkeypatch.setattr(Query, "execute", promote_matches_no_row)
+    response = activate(client)
+    audits = [(a["action"], a["after"]) for a in promote_audits(db)]
+    if concurrent_role is None:
+        assert response.status_code == 503, response.text
+        assert db.tables["users"][0]["role"] == "user"
+        assert [(action, after["reason"]) for action, after in audits] == [
+            ("promote_role_failed", "write_failed")]
+    else:
+        assert response.status_code == 200, response.text
+        assert db.tables["users"][0]["role"] == "admin"
+        assert audits == [("promote_role", {"role": "admin", "noop": True})]
+
+
 @pytest.mark.parametrize("guard", ["account_suspended", "account_suspended_role_change"])
 def test_suspension_during_promote_returns_suspended_and_audits(world, monkeypatch, guard):
     from postgrest.exceptions import APIError
@@ -613,6 +649,85 @@ def test_compensation_keeps_concurrent_admin_changes(world, monkeypatch):
     reverts = [w[2] for w in writes if w[0] == "users" and w[2].get("is_active") is not True]
     assert reverts == [{"access_code_used": "PREVIOUS"}]
     assert_unused(db)
+
+
+OTHER_ACTIVATION = {"is_active": True, "access_code_used": "OTHERCODE", "permissions": ["practice_single"]}
+
+
+@pytest.mark.parametrize("window", ["before_read", "before_write"])
+def test_compensation_never_undoes_a_newer_successful_activation(world, monkeypatch, window):
+    """Codex r4422345951: request B (another code, same user) succeeds while
+    request A (archived class code) is between its Step 3 write and its undo.
+    B's activation must survive: the row now belongs to B's code."""
+    db, client = world
+    db.tables["users"][0].update(is_active=False, access_code_used=None, permissions=None)
+
+    def other_activation_succeeds(query):
+        is_revert = (query.name == "users" and query.op == "update"
+                     and query.values.get("is_active") is not True)
+        if (window == "before_read" and query.name == "students" and query.op != "select") or (
+                window == "before_write" and is_revert):
+            db.tables["users"][0].update(OTHER_ACTIVATION)
+
+    writes = record_writes(monkeypatch, other_activation_succeeds)
+    db.archive_race = True
+    response = activate(client)
+    assert response.status_code == 400, response.text
+    assert response.json()["detail"] == GENERIC
+    user = db.tables["users"][0]
+    assert {key: user[key] for key in OTHER_ACTIVATION} == OTHER_ACTIVATION
+    assert user["role"] == "user"
+    # Every undo write is guarded by this request's own code (CAS ownership).
+    reverts = [w for w in writes if w[0] == "users" and w[2].get("is_active") is not True]
+    assert len(reverts) == (0 if window == "before_read" else 1)
+    assert not audit_detail(db)["compensation_failed"]
+    assert_unused(db)
+
+
+def test_compensation_permissions_compare_and_swap(world, monkeypatch):
+    """P3 :569-571: an admin permission change between the undo's read and its
+    write wins; the other fields Step 3 wrote are still restored."""
+    db, client = world
+    db.tables["users"][0].update(is_active=False)
+
+    def admin_strips_permissions_mid_undo(query):
+        if (query.name == "users" and query.op == "update" and query.values.get("is_active") is False
+                and "permissions" in query.values):
+            db.tables["users"][0]["permissions"] = []
+
+    writes = record_writes(monkeypatch, admin_strips_permissions_mid_undo)
+    db.archive_race = True
+    response = activate(client)
+    assert response.status_code == 400, response.text
+    user = db.tables["users"][0]
+    assert user["permissions"] == []
+    assert user["is_active"] is False and user["access_code_used"] == "PREVIOUS"
+    reverts = [w[2] for w in writes if w[0] == "users" and w[2].get("is_active") is not True]
+    assert reverts == [
+        {"is_active": False, "access_code_used": "PREVIOUS", "permissions": ["writing"]},
+        {"is_active": False, "access_code_used": "PREVIOUS"},
+    ]
+    assert not audit_detail(db)["compensation_failed"]
+    assert_unused(db)
+
+
+@pytest.mark.parametrize("outcome", ["indeterminate", "lost"])
+def test_unclaimed_rollback_keeps_a_newer_successful_activation(world, monkeypatch, outcome):
+    """P3 :1056-1069: the lost/indeterminate-claim undo is guarded the same way."""
+    db, client = world
+
+    def other_activation_then_claim(query):
+        if query.name == "access_codes" and query.op == "update":
+            db.tables["users"][0].update(OTHER_ACTIVATION)
+            if outcome == "indeterminate":
+                raise RuntimeError(DB_TEXT)
+            db.tables["access_codes"][0].update(is_used=True, used_by="learner-2")
+
+    record_writes(monkeypatch, other_activation_then_claim)
+    response = activate(client)
+    assert response.status_code == (503 if outcome == "indeterminate" else 400), response.text
+    user = db.tables["users"][0]
+    assert {key: user[key] for key in OTHER_ACTIVATION} == OTHER_ACTIVATION
 
 
 def test_student_code_conflict_log_has_code_id_not_code(world, caplog):
