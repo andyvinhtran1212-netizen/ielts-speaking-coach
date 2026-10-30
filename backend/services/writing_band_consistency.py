@@ -14,12 +14,13 @@ from services.gemini_writing_grader import (
 # Kept in sync with instructor-compose-util.js by shared preview/persist tests.
 # Bare "overall" often introduces a count ("Overall 3 main points"), so it is a
 # claim only before band/score, ":"/"=" or a score modifier ("is", "là",
-# "hiện tại", "của bạn"…), or a valid band that ends the clause (punctuation,
-# a dash, "band"/"điểm", or a "/ 9", "out of 9", "trên 9" denominator).
+# "hiện tại", "của bạn"…), a band written with a decimal ("5.5", "6.0": never
+# a count), or an integer band that ends the clause (punctuation, a dash,
+# "band"/"điểm", or a "/ 9", "out of 9", "trên 9" denominator).
 _BAND_CLAIM = re.compile(
     r"(?:^|[^\w])(?:band(?:\s+score)?|score|điểm|"
     r"overall(?:\s+(?:band|score)|(?=\s*(?:[:=]|(?:hiện tại|tổng|của em|của bạn|bài này|là|is|ở|mức)\s))|"
-    r"(?=\s+(?:[0-8](?:[.,][05])?|9(?:[.,]0)?)(?![.,]?\d)(?:[ \t]*(?:/|out[ \t]+of|trên)[ \t]*9(?:[.,]0)?(?![.,]?\d)|[ \t]*(?:[.!?;,:()\"'”’\r\n—–]|$)|[ \t]+-(?:\s|$)|[ \t]+(?:band|điểm)(?!\w))))|"
+    r"(?=\s+(?:[0-8][.,][05]|9[.,]0)(?![.,]?\d))|(?=\s+(?:[0-8](?:[.,][05])?|9(?:[.,]0)?)(?![.,]?\d)(?:[ \t]*(?:/|out[ \t]+of|trên)[ \t]*9(?:[.,]0)?(?![.,]?\d)|[ \t]*(?:[.!?;,:()\"'”’\r\n—–]|$)|[ \t]+-(?:\s|$)|[ \t]+(?:band|điểm)(?!\w))))|"
     r"kết\s+quả(?:\s+tổng\s+thể)?|"
     r"your\s+(?:essay|writing)\s+(?:achieves|scores|is\s+at)|"
     r"(?:bài(?:\s+(?:viết|làm))?(?:\s+(?:này|của\s+(?:em|bạn)))?|em|bạn)"

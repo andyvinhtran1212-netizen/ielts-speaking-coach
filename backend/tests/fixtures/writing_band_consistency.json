@@ -765,5 +765,31 @@
       "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
       "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
     }
+  },
+  {
+    "id": "overall-decimal-prose-claim-replaced",
+    "base_band": 5.5,
+    "bands": [6, 6, 6, 6],
+    "overview": "Overall 5.5 reflects limited idea development. Overall 5,5 cho thấy ý chưa sâu. Bố cục rõ.",
+    "trajectory": {"current_band": 5.5, "average_last_5": 6.7, "trend": "improving", "trend_explanation": "Bài này ở band 5.5.", "next_target": "Từ band 5.5, hãy lên 6.0."},
+    "expected": {
+      "overall": 6.0,
+      "overview": "Bài viết đạt band 6.0. Bố cục rõ.",
+      "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
+      "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
+    }
+  },
+  {
+    "id": "overall-integer-prose-count-not-claim",
+    "base_band": 5.5,
+    "bands": [6, 6, 6, 6],
+    "overview": "Overall 2 key ideas stand out. Overall 4 body sentences use linking words.",
+    "trajectory": {"current_band": 5.5, "average_last_5": 6.7, "trend": "improving", "trend_explanation": "Bài này ở band 5.5.", "next_target": "Từ band 5.5, hãy lên 6.0."},
+    "expected": {
+      "overall": 6.0,
+      "overview": "Overall 2 key ideas stand out. Overall 4 body sentences use linking words.",
+      "explanation": "Bài này đạt band 6.0, thấp hơn mức trung bình 5 bài gần nhất (6.7).",
+      "target": "Mục tiêu tiếp theo là band 6.5; ưu tiên cải thiện theo nhận xét ở từng tiêu chí."
+    }
   }
 ]
