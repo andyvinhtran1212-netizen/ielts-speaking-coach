@@ -49,6 +49,14 @@ _UNAFFIRMED = re.compile(
 )
 _HISTORY = re.compile(r"lich su|bai truoc|5 bai|nam bai|previous|earlier|historical")
 _CURRENT = re.compile(r"bai (?:viet )?(?:nay|hien tai)|current essay|this essay")
+# One claim about both the current and previous essays, e.g. "bài này và các
+# bài trước đều ...": naming the current essay does not scope it away from history.
+_JOINT_SCOPE = re.compile(
+    r"(?:bai (?:viet )?(?:nay|hien tai)|(?:current|this) essay)\s+(?:va|lan|cung nhu|and|as well as)\s+"
+    r"(?:(?:cac|nhung|the|its|my|your)\s+)?(?:bai (?:viet )?truoc|previous|earlier)|"
+    r"(?:bai (?:viet )?truoc|(?:previous|earlier) essays?)\s+(?:va|lan|cung nhu|and|as well as)\s+"
+    r"(?:(?:the|this)\s+)?(?:bai (?:viet )?(?:nay|hien tai)|(?:current|this) essay)"
+)
 _NO_PATTERNS = re.compile(
     r"(?:chua|khong) (?:co |ghi nhan |thay )*(?:pattern|mau|loi).{0,25}lap lai|"
     r"no (?:recurring|repeated) (?:patterns?|errors?)"
@@ -75,7 +83,17 @@ _CRITICISM = re.compile(
     r"wrong|incorrect|error|mistake|not|awkward|unnatural)\b"
 )
 # Advice in another clause is a warning to keep, even without a proposal verb.
-_ADVICE = re.compile(r"\b(?:nen|can|kiem tra|should|need|needs|check|verify)\b")
+# De-accented "cần" is English "can", so it only counts in Vietnamese text.
+_ADVICE = re.compile(r"\b(?:nen|kiem tra|should|need|needs|check|verify)\b")
+_VI_ADVICE = re.compile(r"\bcan\b")
+# Reassurance is not a warning: "không cần thay đổi", "không có lỗi", "no errors".
+_REASSURANCE = re.compile(
+    r"\b(?:khong|chua)\s+(?:(?:co|mac|thay|con|gap)\s+)*(?:loi|sai sot|van de)\b|"
+    r"\bkhong\s+(?:can|phai)\s+(?:thay doi|sua|chinh sua|kiem tra)\b|"
+    r"\b(?:no|without)\s+(?:\w+\s+)?(?:errors?|mistakes?|problems?|issues?)\b|"
+    r"\b(?:no need|(?:do|does|did)(?: not|n['’]t) need|needn['’]t|need not)\s+(?:to\s+)?"
+    r"(?:change|fix|revise|edit|check)\b"
+)
 _AGE_GROUP = re.compile(r"\b(\d{1,2})\s*[-–—]\s*(\d{1,2})[ -]+year[ -]+olds\b")
 _TASK_RESPONSE = re.compile(r"\bTask Response\b", re.IGNORECASE)
 _NEUTRAL = "Tham khảo các lỗi và gợi ý cụ thể trong phần phân tích."
@@ -89,9 +107,23 @@ def _data_error(explanation: str) -> bool:
     return _unnegated(_DATA_ERROR, _plain(explanation))
 
 
+# A negation reaches across a few words of its own clause ("không phải là lỗi
+# X", "không làm X") but not past a clause break, so "không phải X mà là Y"
+# denies X only. "chua"/"no" must stay adjacent: they also spell "chứa"/"nó".
+_CLAUSE_BREAK = re.compile(r".*(?:[,;:.!?()]|\b(?:ma|nhung|va|tuy nhien|but|and|however|rather|whereas)\b)",
+                           re.DOTALL)
+_NEGATED_TAIL = re.compile(
+    r"(?:\b(?:khong|not|never|without)|n['’]t)(?:\s+[\w'’-]+){0,3}\s+$|\b(?:chua|no)\s+$"
+)
+
+
 def _unnegated(pattern: re.Pattern, text: str) -> bool:
-    return any(not re.search(r"(?:khong(?: phai)?|chua|not|no|without)\s+$", text[:m.start()])
-               for m in pattern.finditer(text))
+    def negated(start: int) -> bool:
+        prefix = text[:start]
+        brk = _CLAUSE_BREAK.match(prefix)
+        return bool(_NEGATED_TAIL.search(prefix[brk.end():] if brk else prefix))
+
+    return any(not negated(m.start()) for m in pattern.finditer(text))
 
 
 def _affirmed(pattern: re.Pattern, text: str) -> bool:
@@ -184,11 +216,11 @@ def repair_writing_consistency(feedback: WritingFeedback, task_type: str) -> lis
                     if ss.get("common_issues") == [] and not _STRUCTURE_SCOPE.search(plain):
                         sentence = "Chưa ghi nhận mẫu lỗi cấu trúc câu lặp lại trong dữ liệu cấu trúc câu."
                     # common_issues are copied from previous essays, so they
-                    # cannot contradict a claim about the current essay.
-                    elif ss.get("common_issues") and not (
+                    # cannot contradict a claim about the current essay only.
+                    elif ss.get("common_issues") and (_JOINT_SCOPE.search(plain) or not (
                         _CURRENT.search(plain)
                         or (key == "current_essay_observation" and not historical)
-                    ):
+                    )):
                         continue
                     elif not _STRUCTURE_SCOPE.search(plain) and (
                         feedback.recurringPatterns or {}
@@ -208,11 +240,14 @@ def repair_writing_consistency(feedback: WritingFeedback, task_type: str) -> lis
 
     flagged = [p for m in feedback.mistakeAnalysis if (p := _phrase_pattern(m.original))]
 
-    def warns(clause: str) -> bool:
+    def warns(clause: str, vietnamese: bool) -> bool:
         rest = clause
         for p in flagged:
             rest = p.sub("", rest)
-        return bool(_CRITICISM.search(rest) or _ADVICE.search(rest) or _PROPOSAL.search(clause)
+        rest = _REASSURANCE.sub(" ", rest)
+        return bool(_CRITICISM.search(rest) or _ADVICE.search(rest)
+                    or (vietnamese and _VI_ADVICE.search(rest))
+                    or _PROPOSAL.search(_REASSURANCE.sub(" ", clause))
                     or _unnegated(_DATA_ERROR, rest))
 
     def narrative(text: str, *, allow_empty: bool = False) -> str:
@@ -232,7 +267,8 @@ def repair_writing_consistency(feedback: WritingFeedback, task_type: str) -> lis
                            for clause in clauses for p in flagged)
             # Never drop a warning: a sentence that also criticises or proposes
             # in another clause is kept whole rather than rewritten.
-            if not conflict or any(warns(clause) for clause in clauses):
+            vietnamese = plain != sentence.casefold()
+            if not conflict or any(warns(clause, vietnamese) for clause in clauses):
                 kept.append(sentence)
         value = text if kept == sentences else " ".join(kept)
         if text and not value and not allow_empty:
