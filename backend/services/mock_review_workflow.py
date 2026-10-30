@@ -759,11 +759,21 @@ def set_retest_flags_for_sitting(
         raise SkillNotInSittingError(refused)
     stored = {s: bool(retest_flags.get(s)) for s in skills if s in retest_flags}
 
+    # The released check above is a pre-read; a concurrent release can land
+    # before this write, so the UPDATE carries the same guard (PR #2089).
     response = supabase_admin.table("mock_exam_reviews").update({
         "retest_flags": stored,
-    }).eq("id", str(review["id"])).execute()
+    }).eq("id", str(review["id"])).neq("status", "released").execute()
     if not response.data:
-        raise NotFoundError(f"Review {review['id']} not found")
+        existing = supabase_admin.table("mock_exam_reviews").select(
+            "id, status",
+        ).eq("id", str(review["id"])).limit(1).execute()
+        if not existing.data:
+            raise NotFoundError(f"Review {review['id']} not found")
+        raise ConflictError(
+            f"Sitting {sitting_id} đã công bố — không thể đổi quyết định test lại. "
+            "Thu hồi trước nếu cần."
+        )
     logger.info(
         "[mock-review] retest flags set from roster sitting=%s by=%s flags=%s",
         sitting_id, admin_id, stored,
@@ -899,11 +909,36 @@ def release_results(
         )
 
     review = response.data[0]
-    # Lift the seal on the sitting — scores become visible from here.
-    supabase_admin.table("mock_exam_sittings").update({
+    # Lift the seal on the sitting — scores become visible from here. The void
+    # check above is a pre-read: a void committing after it (and after the
+    # review flip, which void_sitting then leaves alone) must not be unsealed,
+    # so the guard is in the UPDATE itself (PR #2089). fn_void_sitting refuses
+    # a released sitting, so once this matches no void can follow.
+    unsealed = supabase_admin.table("mock_exam_sittings").update({
         "status": "released",
         "sealed": False,
-    }).eq("id", str(review["sitting_id"])).execute()
+    }).eq("id", str(review["sitting_id"])).neq("status", "void").execute()
+    if not unsealed.data:
+        # The sitting was voided in between. Leave it sealed and give the review
+        # the state void_sitting would have given it had it landed first.
+        try:
+            supabase_admin.table("mock_exam_reviews").update({
+                "status":          "void",
+                "released_at":     None,
+                "released_by":     None,
+                "release_channel": None,
+                "delivered_at":    None,
+            }).eq("id", str(review_id)).eq("status", "released").execute()
+        except Exception:  # noqa: BLE001 — the 409 below still reports the refusal
+            logger.exception(
+                "[mock-review] release: review void-back failed review=%s sitting=%s",
+                review_id, review["sitting_id"],
+            )
+        logger.warning(
+            "[mock-review] release refused: sitting=%s voided during release review=%s",
+            review["sitting_id"], review_id,
+        )
+        raise ConflictError("Lượt thi đã bị huỷ — không thể công bố kết quả.")
 
     # Deliver the Writing feedback in the same action — CÔNG BỐ is the one
     # moment everything unlocks for the student (2026-07-12). Only a 'reviewed'

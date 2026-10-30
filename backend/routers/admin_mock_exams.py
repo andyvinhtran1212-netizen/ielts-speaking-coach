@@ -30,6 +30,8 @@ console lives in admin_mock_reviews.py.
 from __future__ import annotations
 
 import asyncio
+import inspect
+import logging
 import weakref
 from contextlib import suppress
 from datetime import timezone
@@ -46,6 +48,7 @@ from services import mock_exam_service as svc
 from services import mock_review_workflow as wf
 
 router = APIRouter(prefix="/admin/mock-exams", tags=["admin-mock-exams"])
+logger = logging.getLogger(__name__)
 
 
 # Keep each assignment batch and its sitting refreshes/revocations together.
@@ -71,6 +74,48 @@ async def _assignment_write(exam_id, fn, *args, **kwargs):
             if not work.cancelled():
                 work.exception()
             raise
+
+
+# Strong references to dispatches of cancelled requests until they end.
+_cancelled_dispatches: set = set()
+
+
+def _dispatch_detached(fn, *args) -> None:
+    """Run a BackgroundTasks-style job without a response to own it."""
+    async def _run() -> None:
+        try:
+            if inspect.iscoroutinefunction(fn):
+                await fn(*args)
+            else:
+                await asyncio.to_thread(fn, *args)
+        except Exception:  # noqa: BLE001 — same as a crashed BackgroundTask
+            logger.exception("[admin-mock] cancelled-request dispatch failed: %s", fn.__name__)
+
+    task = asyncio.create_task(_run())
+    _cancelled_dispatches.add(task)
+    task.add_done_callback(_cancelled_dispatches.discard)
+
+
+async def _claim_then_dispatch(claim, background_tasks: BackgroundTasks):
+    """Run the sync ``claim`` in a worker thread; it returns ``(result, jobs)``
+    with ``jobs`` as ``(fn, *args)`` tuples that its writes made this request
+    responsible for. Normally they run as BackgroundTasks. A cancelled request
+    never sends a response, so BackgroundTasks never run, while the thread's
+    claim still commits: wait for the thread and give the jobs their own task."""
+    work = asyncio.ensure_future(asyncio.to_thread(claim))
+    try:
+        result, jobs = await asyncio.shield(work)
+    except asyncio.CancelledError:
+        while not work.done():
+            with suppress(asyncio.CancelledError):
+                await asyncio.wait({work})
+        if not work.cancelled() and work.exception() is None:
+            for fn, *args in work.result()[1]:
+                _dispatch_detached(fn, *args)
+        raise
+    for fn, *args in jobs:
+        background_tasks.add_task(fn, *args)
+    return result
 
 
 def _window_instant(value) -> str | None:
@@ -419,17 +464,13 @@ async def collect_section(
                 "Phần thi vừa được chuyển bởi thao tác khác; chưa xếp hàng thu bài. "
                 "Tải lại trang để đối chiếu.",
             )
-        return info
-
-    info = await asyncio.to_thread(_collect)
-    background_tasks.add_task(
         # No from_section: the stale-screen check already ran, synchronously,
         # against the state at request time. Re-checking it inside the queued
         # task would fail the sweep whenever a legitimate advance happened in
         # between — losing the very papers this call accepted responsibility for.
-        svc.collect_section_after_flush_grace,
-        exam_id, admin["id"], info["section"],
-    )
+        return info, [(svc.collect_section_after_flush_grace, exam_id, admin["id"], info["section"])]
+
+    info = await _claim_then_dispatch(_collect, background_tasks)
     return {**info, "queued": True}
 
 
@@ -549,7 +590,7 @@ async def bulk_grade_writing(
     await require_admin(authorization)
 
     def _claim_writing():
-        jobs: list[tuple[str, str]] = []
+        jobs: list[tuple] = []
         queued: list[str] = []
         skipped: list[str] = []
         short: list[str] = []
@@ -573,7 +614,7 @@ async def bulk_grade_writing(
                 selected_model=body.selected_model,
             )
             for essay_id, job_id in res["queued"]:
-                jobs.append((essay_id, job_id))
+                jobs.append((essay_service._bg_grade_essay, essay_id, job_id))
                 queued.append(essay_id)
             short.extend(res["short"])
             skipped.extend(res["skipped"])
@@ -586,10 +627,7 @@ async def bulk_grade_writing(
             "grading_tier":   body.grading_tier,
         }, jobs
 
-    out, jobs = await asyncio.to_thread(_claim_writing)
-    for essay_id, job_id in jobs:
-        background_tasks.add_task(essay_service._bg_grade_essay, essay_id, job_id)
-    return out
+    return await _claim_then_dispatch(_claim_writing, background_tasks)
 
 
 @router.post("/writing/essays/{essay_id}/skip-grading")

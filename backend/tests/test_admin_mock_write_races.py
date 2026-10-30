@@ -332,3 +332,156 @@ def test_final_bands_losing_race_with_release_preserves_released_state(app, monk
         assert sitting["sealed"] is False
 
     asyncio.run(scenario())
+
+
+def _pause_execute(monkeypatch, db, loop, entered, release, should_pause):
+    """Hold the first matching DB statement until ``release`` is set."""
+    real_table = db.table
+    paused = []
+
+    def table(name):
+        query = real_table(name)
+        execute = query.execute
+
+        def paused_execute():
+            if not paused and should_pause(name, query):
+                paused.append(name)
+                loop.call_soon_threadsafe(entered.set)
+                assert release.wait(5), "test did not release the paused worker"
+            return execute()
+
+        query.execute = paused_execute
+        return query
+
+    monkeypatch.setattr(db, "table", table)
+
+
+def _reviewed_sitting(monkeypatch, db):
+    db.tables["mock_exam_reviews"] = [{
+        "id": "review-1", "sitting_id": "sitting-1", "status": "reviewed",
+        "claimed_by": "admin-1", "final_bands": {"reading": 6.5, "overall": 6.5},
+        "retest_flags": {},
+    }]
+    db.tables["mock_exam_sittings"][0]["status"] = "under_review"
+    monkeypatch.setattr(proctor.wf, "_required_skills", lambda *_: ("reading",))
+    monkeypatch.setattr(proctor.wf, "_unconvertible_skills", lambda *_: set())
+
+
+def test_retest_flags_losing_race_with_release_is_409(app, monkeypatch, write_db):
+    """P2-4: the released pre-check is stale by the time the UPDATE runs."""
+    _reviewed_sitting(monkeypatch, write_db)
+    release = threading.Event()
+
+    async def scenario():
+        loop, entered = asyncio.get_running_loop(), asyncio.Event()
+        _pause_execute(monkeypatch, write_db, loop, entered, release,
+                       lambda name, q: name == "mock_exam_reviews" and q.op == "update"
+                       and "retest_flags" in q.payload)
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            flags = asyncio.create_task(client.post("/admin/mock-exams/sittings/sitting-1/retest-flags",
+                                                    json={"retest_flags": {"reading": True}}))
+            try:
+                await asyncio.wait_for(entered.wait(), 5)
+                published = await client.post("/admin/mock-exams/exam-1/bulk-release",
+                                              json={"sitting_ids": ["sitting-1"]})
+                assert published.json() == {"released": ["sitting-1"], "skipped": []}
+            finally:
+                release.set()
+                flagged = await flags
+        assert flagged.status_code == 409, flagged.text
+        review = write_db.tables["mock_exam_reviews"][0]
+        assert review["status"] == "released"
+        assert review["retest_flags"] == {}
+
+    asyncio.run(scenario())
+
+
+def test_void_between_release_steps_keeps_sitting_void_and_sealed(app, monkeypatch, write_db):
+    """P2-5: a void landing after the review flips must not be unsealed."""
+    _reviewed_sitting(monkeypatch, write_db)
+    release = threading.Event()
+
+    async def scenario():
+        loop, entered = asyncio.get_running_loop(), asyncio.Event()
+        _pause_execute(monkeypatch, write_db, loop, entered, release,
+                       lambda name, q: name == "mock_exam_sittings" and q.op == "update"
+                       and q.payload.get("status") == "released")
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            publish = asyncio.create_task(client.post("/admin/mock-exams/exam-1/bulk-release",
+                                                      json={"sitting_ids": ["sitting-1"]}))
+            try:
+                await asyncio.wait_for(entered.wait(), 5)
+                voided = await client.post("/admin/mock-exams/sittings/sitting-1/void",
+                                           json={"reason": "máy hỏng"})
+                assert voided.status_code == 200, voided.text
+            finally:
+                release.set()
+                published = await publish
+        assert published.status_code == 200
+        assert published.json()["released"] == []
+        assert [s["sitting_id"] for s in published.json()["skipped"]] == ["sitting-1"]
+        sitting = write_db.tables["mock_exam_sittings"][0]
+        review = write_db.tables["mock_exam_reviews"][0]
+        assert sitting["status"] == "void" and sitting["sealed"] is True
+        # Same end state as a void that lands first: the review is cancelled too.
+        assert review["status"] == "void"
+        assert review.get("released_at") is None
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("route", ["collect", "bulk-grade"])
+def test_cancelled_request_still_dispatches_claimed_work(app, monkeypatch, route):
+    """P2-6: the claim commits in the thread; a cancelled request never runs
+    its BackgroundTasks, so the dispatch needs an owner of its own."""
+    release = threading.Event()
+    dispatched_args = []
+
+    async def scenario():
+        loop, entered, dispatched = asyncio.get_running_loop(), asyncio.Event(), asyncio.Event()
+
+        def paused(result):
+            loop.call_soon_threadsafe(entered.set)
+            assert release.wait(5), "test did not release the claim worker"
+            return result
+
+        if route == "collect":
+            monkeypatch.setattr(proctor.svc, "collect_preflight",
+                                lambda *_: {"section": "reading", "submitted": 1, "total": 1})
+            monkeypatch.setattr(proctor.svc, "mark_section_collected", lambda *_: paused(True))
+
+            def sweep(*args):
+                dispatched_args.append(args)
+                loop.call_soon_threadsafe(dispatched.set)
+            monkeypatch.setattr(proctor.svc, "collect_section_after_flush_grace", sweep)
+            request = ("/admin/mock-exams/exam-1/collect?from_section=reading", {})
+        else:
+            monkeypatch.setattr(proctor.svc, "get_sitting", lambda sid: {
+                "id": sid, "mock_exam_id": "exam-1",
+                "essay_task1_id": "essay-1", "essay_task2_id": None,
+            })
+            monkeypatch.setattr(proctor.svc, "claim_mock_writing_grading", lambda *_a, **_k: paused(
+                {"queued": [("essay-1", "job-1")], "short": [], "skipped": []}))
+
+            async def grade(*args):
+                dispatched_args.append(args)
+                dispatched.set()
+            monkeypatch.setattr(proctor.essay_service, "_bg_grade_essay", grade)
+            request = ("/admin/mock-exams/exam-1/writing/bulk-grade", {"sitting_ids": ["sitting-1"]})
+
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            call = asyncio.create_task(client.post(request[0], json=request[1]))
+            try:
+                await asyncio.wait_for(entered.wait(), 5)
+                call.cancel()
+                await asyncio.sleep(0)
+                call.cancel()  # repeated cancellation must not drop the dispatch
+            finally:
+                release.set()
+                result = (await asyncio.gather(call, return_exceptions=True))[0]
+            assert isinstance(result, asyncio.CancelledError)
+            await asyncio.wait_for(dispatched.wait(), 5)
+
+    asyncio.run(scenario())
+    expected = ("exam-1", "admin-1", "reading") if route == "collect" else ("essay-1", "job-1")
+    assert dispatched_args == [expected]
