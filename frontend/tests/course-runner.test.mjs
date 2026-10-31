@@ -1899,14 +1899,14 @@ describe('bank CHỈ có câu tự luận (codex #935)', () => {
   });
 
   test('bank rỗng hoàn toàn vẫn bị từ chối', async () => {
-    await assert.rejects(() => run({ questions: [] }), /chưa có câu hỏi nào/);
+    await assert.rejects(() => run({ questions: [] }), /chưa có câu hỏi\./);
   });
 
   // PC-J315: trang phân biệt bank rỗng / lỗi bộ nhớ trình duyệt với lỗi kết
   // nối bằng `err.code`; lỗi không mã vẫn là lỗi kết nối.
   test('bank rỗng mang mã bank_empty', async () => {
     await assert.rejects(() => run({ questions: [] }),
-      { code: 'bank_empty', message: 'Bài tập này chưa có câu hỏi nào.' });
+      { code: 'bank_empty', message: 'Bài tập này chưa có câu hỏi.' });
   });
 });
 

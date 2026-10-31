@@ -853,7 +853,7 @@ export function createRunner({
       writingQs = qs.filter(function (q) { return q.type === 'writing'; });
       qs = qs.filter(isCourseQuizQuestion);
       if (!qs.length && !writingQs.length) {
-        throw codedError('Bài tập này chưa có câu hỏi nào.', 'bank_empty');
+        throw codedError('Bài tập này chưa có câu hỏi.', 'bank_empty');
       }
       // Lane xem kết quả tuyệt đối không khôi phục/chốt/mở phiên. Nếu chạy qua
       // flow thường, một lần bấm "Xem kết quả" có thể đẻ quiz session rỗng.
