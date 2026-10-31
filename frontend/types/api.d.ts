@@ -19350,6 +19350,29 @@ export interface components {
              */
             release_now: boolean;
         };
+        /** MyEssayDetailOut */
+        MyEssayDetailOut: {
+            /** Essay */
+            essay: {
+                [key: string]: unknown;
+            };
+            feedback: components["schemas"]["MyEssayFeedbackOut"] | null;
+            /** Instructor Note */
+            instructor_note: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** MyEssayFeedbackOut */
+        MyEssayFeedbackOut: {
+            /**
+             * Band Source
+             * @description Who set the bands shown: 'ai' = AI grade (incl. a human text edit or an F2 mix that kept AI bands exactly), 'teacher' = a human changed or chose bands that cannot be proven AI-identical, 'unknown' = legacy row without a recognised source. Only 'ai' is an estimate.
+             * @enum {string}
+             */
+            band_source: "ai" | "teacher" | "unknown";
+        } & {
+            [key: string]: unknown;
+        };
         /** NextItemResponse */
         NextItemResponse: {
             /** Complete */
@@ -31943,7 +31966,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MyEssayDetailOut"];
                 };
             };
             /** @description Validation Error */
