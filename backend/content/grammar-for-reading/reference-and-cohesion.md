@@ -84,7 +84,7 @@ Hỏi: *it/they* thay cho vật nào hay sự việc nào? Lưu ý *it* có th�
 
 Cụm **the former / the latter** trỏ về "cái trước / cái sau" trong hai thứ vừa nhắc:
 
-- *Cars and bikes both cause problems; **the former** pollute, **the latter** clog pavements.* → former = cars, latter = bikes.
+- *Cars and bikes both cause problems; **the former** pollute, while **the latter** clog pavements.* → former = cars, latter = bikes.
 
 <!-- anchor: reference-and-cohesion.pitfall -->
 ## Bẫy khi đọc
