@@ -35,8 +35,8 @@ def framed(sql: str) -> str:
     ('ALTER TABLE public.t OWNER TO "Owner X";', {"Owner X"}),
     ('ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT ON TABLES TO x;', {"x"}),
     ('CREATE POLICY p ON public.t FOR SELECT TO policy_reader USING (true);', {"policy_reader"}),
-    ('CREATE SCHEMA x AUTHORIZATION schema_owner;', {"schema_owner"}),
-    ('GRANT role_x TO role_y GRANTED BY role_z;', {"role_x", "role_y", "role_z"}),
+    ('ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA "public" REVOKE ALL ON FUNCTIONS FROM PUBLIC;', set()),
+    ('GRANT SELECT ON TABLE public.t TO x GRANTED BY role_z;', {"x", "role_z"}),
     ('GRANT UPDATE (a, b) ON TABLE public.t TO x WITH GRANT OPTION;', {"x"}),
     ('REVOKE GRANT OPTION FOR SELECT ON TABLE public.t FROM x CASCADE;', {"x"}),
     ('-- GRANT SELECT ON public.t TO ghost;\n'
@@ -63,11 +63,43 @@ def test_extracts_role_references_from_pg_dump_statements(sql, expected):
     ('ALTER DEFAULT PRIVILEGES FOR ROLE other IN SCHEMA public GRANT SELECT ON TABLES TO anon;',
      'FOR ROLE postgres'),
     ('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO anon;', 'FOR ROLE postgres'),
+    ('ALTER DEFAULT PRIVILEGES FOR ROLE postgres GRANT SELECT ON TABLES TO anon;', 'IN SCHEMA public'),
+    ('ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA evil GRANT SELECT ON TABLES TO anon;', 'IN SCHEMA public'),
+    ('ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public, evil GRANT SELECT ON TABLES TO anon;', 'IN SCHEMA public'),
+    ('ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA "Public" GRANT SELECT ON TABLES TO anon;', 'IN SCHEMA public'),
     ('GRANT SELECT ON public.t TO x', 'unterminated'),
 ])
 def test_refuses_unsupported_restore_authority(sql, error):
     with pytest.raises(ValueError, match=error):
         referenced_roles(sql)
+
+
+@pytest.mark.parametrize("sql, error", [
+    ('ALTER ROLE anon BYPASSRLS;', 'dump alters a role, database or system setting \\(ALTER ROLE\\)'),
+    ('alter\nrole anon BYPASSRLS;', 'dump alters a role, database or system setting \\(ALTER ROLE\\)'),
+    ('ALTER USER anon SET search_path TO evil;', 'dump alters a role, database or system setting \\(ALTER USER\\)'),
+    ('ALTER GROUP g ADD USER anon;', 'dump alters a role, database or system setting \\(ALTER GROUP\\)'),
+    ('ALTER DATABASE app SET standard_conforming_strings TO off;', 'dump alters a role, database or system setting \\(ALTER DATABASE\\)'),
+    ("ALTER SYSTEM SET log_statement = 'none';", 'dump alters a role, database or system setting \\(ALTER SYSTEM\\)'),
+    ('CREATE ROLE evil;', 'dump creates a role, database or schema \\(CREATE ROLE\\)'),
+    ('CREATE USER evil;', 'dump creates a role, database or schema \\(CREATE USER\\)'),
+    ('CREATE GROUP evil;', 'dump creates a role, database or schema \\(CREATE GROUP\\)'),
+    ('CREATE DATABASE evil;', 'dump creates a role, database or schema \\(CREATE DATABASE\\)'),
+    ('CREATE SCHEMA evil;', 'dump creates a role, database or schema \\(CREATE SCHEMA\\)'),
+    ('CREATE SCHEMA IF NOT EXISTS evil;', 'dump creates a role, database or schema \\(CREATE SCHEMA\\)'),
+    ('CREATE SCHEMA public;', 'dump creates a role, database or schema \\(CREATE SCHEMA\\)'),
+    ('CREATE SCHEMA x AUTHORIZATION schema_owner;', 'dump creates a role, database or schema \\(CREATE SCHEMA\\)'),
+    ('GRANT service_role TO anon;', 'dump grants or revokes role membership'),
+    ('GRANT "service_role" TO anon WITH ADMIN OPTION;', 'dump grants or revokes role membership'),
+    ('REVOKE authenticated FROM anon;', 'dump grants or revokes role membership'),
+    ('REVOKE ADMIN OPTION FOR service_role FROM anon;', 'dump grants or revokes role membership'),
+    ('GRANT role_x TO role_y GRANTED BY role_z;', 'dump grants or revokes role membership'),
+    ('CREATE RULE r AS ON INSERT TO public.t DO ALSO NOTIFY x;', 'dump contains CREATE RULE'),
+    ('create\nor replace rule r AS ON INSERT TO public.t DO ALSO NOTIFY x;', 'dump contains CREATE RULE'),
+])
+def test_refuses_cluster_and_role_ddl(sql, error):
+    with pytest.raises(ValueError, match=error):
+        preflight_dump(framed(sql), KEY)
 
 
 ROLE_CHANGE = "changes the restore role"
@@ -201,7 +233,7 @@ def test_pg_dump_framing_passes():
     ("COMMENT ON TABLE public.t IS 1_e'a';", "numeric literal"),
     ("COMMENT ON TABLE public.t IS 1\u00e9'a';", "numeric literal"),
     # psql ends a -- comment at CR as well as LF.
-    ("-- note\r\\! touch /tmp/x\nGRANT SELECT ON public.t TO anon;", "meta-command"),
+    ("-- note\r\\! touch /tmp/x\nGRANT SELECT ON public.t TO anon;", "carriage return"),
     # CR P2-2: with standard_conforming_strings off psql reads '\' ' as one
     # literal; a routine can switch it without any SET this scanner sees.
     ("COMMENT ON TABLE public.t IS '\\' '; COMMIT; COMMENT ON TABLE public.t IS 'q' -- '\n;",
@@ -235,6 +267,15 @@ def test_refuses_where_psql_could_lex_differently(sql, error):
     "CREATE MATERIALIZED VIEW public.mv AS\n SELECT 1 AS a\n  WITH NO DATA;",
     "SET client_encoding = 'UTF8';\nSET NAMES 'UTF8';",
     "SECURITY LABEL FOR p ON TABLE public.t IS 'x';",
+    "ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT ON TABLES TO anon;",
+    "ALTER TABLE ONLY public.users ALTER COLUMN role SET DEFAULT 'user'::text;",
+    "ALTER FUNCTION public.f() SET search_path TO '';",
+    "CREATE OR REPLACE FUNCTION public.f() RETURNS text LANGUAGE sql AS $$ SELECT 'ALTER ROLE anon BYPASSRLS; ALTER DATABASE app SET standard_conforming_strings TO off; ALTER SYSTEM SET log_statement = ''none''; CREATE RULE r AS ON INSERT TO public.t DO ALSO NOTIFY x;' $$;",
+    "CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;",
+    "GRANT USAGE ON SCHEMA public TO anon;",
+    "REVOKE ALL ON TABLE public.t FROM PUBLIC;",
+    "COMMENT ON SCHEMA public IS 'ALTER DATABASE app SET standard_conforming_strings TO off; ALTER SYSTEM SET log_statement = ''none''; CREATE RULE r;';",
+    "COMMENT ON TABLE public.t IS 'C:\\r';",
 ])
 def test_pg_dump_output_still_passes(sql):
     assert preflight_dump(framed(sql), KEY) == BASE_ROLES
@@ -306,6 +347,36 @@ def test_preflight_cli_requires_the_run_key(tmp_path):
     )
     assert result.returncode == 1
     assert "restrict key" in result.stderr
+
+
+@pytest.mark.parametrize("sql", [
+    framed("COMMENT ON TABLE public.t IS 'a';\n").replace("\n", "\r\n"),
+    framed("COMMENT ON TABLE public.t\r IS 'a';\n"),
+    framed("-- x\r\nCOMMENT ON TABLE public.t IS 'a';\n"),
+    framed("COMMENT ON TABLE public.t IS 'a';\r\n"),
+], ids=["crlf-file", "bare-cr", "comment-cr", "crlf-statement"])
+def test_refuses_carriage_returns(sql):
+    with pytest.raises(ValueError, match="dump contains a carriage return"):
+        preflight_dump(sql, KEY)
+
+
+@pytest.mark.parametrize("sql", [
+    framed("COMMENT ON TABLE public.t IS 'a';\n").replace("\n", "\r\n"),
+    framed("COMMENT ON TABLE public.t\r IS 'a';\n"),
+    framed("-- x\r\nCOMMENT ON TABLE public.t IS 'a';\n"),
+], ids=["crlf-file", "bare-cr", "comment-cr"])
+def test_preflight_cli_refuses_carriage_returns(tmp_path, sql):
+    dump = tmp_path / "dump.sql"
+    dump.write_bytes(sql.encode("utf-8"))
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), str(dump)],
+        input=json.dumps({"roles": sorted(BASE_ROLES), "global_default_acl": False}),
+        capture_output=True, text=True, env={"PATH": "/usr/bin:/bin", "STAGING_CLONE_RESTRICT_KEY": KEY},
+    )
+    assert result.returncode == 1
+    assert "REFUSED: dump contains a carriage return" in result.stderr
+    assert "preflight passed" not in result.stdout
+    assert KEY not in result.stdout + result.stderr
 
 
 @pytest.mark.parametrize("version, identical, error", [

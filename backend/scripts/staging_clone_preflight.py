@@ -87,6 +87,8 @@ def lex(sql: str) -> list[str]:
     in both modes."""
     if "\0" in sql:
         raise ValueError("dump contains a NUL character")
+    if "\r" in sql:
+        raise ValueError("dump contains a carriage return (CRLF dump)")
     tokens = lex_mode(sql, True)
     try:
         escaped = lex_mode(sql, False)
@@ -155,6 +157,10 @@ def check_session_control(tokens: list[str], upper: list[str]) -> None:
         raise ValueError(f"dump contains transaction control ({upper[0]})")
     if upper[0] in RESTORE_TIME_CODE:
         raise ValueError(f"dump contains {upper[0]}")
+    if upper[0] == "ALTER" and len(upper) > 1 and upper[1] in {"ROLE", "USER", "GROUP", "DATABASE", "SYSTEM"}:
+        raise ValueError(f"dump alters a role, database or system setting (ALTER {upper[1]})")
+    if upper[0] in {"GRANT", "REVOKE"} and "ON" not in upper:
+        raise ValueError("dump grants or revokes role membership")
     for i, token in enumerate(upper):
         if token not in {"SET", "RESET"}:
             continue
@@ -196,6 +202,10 @@ def check_session_control(tokens: list[str], upper: list[str]) -> None:
         kind = upper[1:]
         while kind[:1] and kind[0] in {"GLOBAL", "LOCAL", "TEMP", "TEMPORARY", "UNLOGGED", "OR", "REPLACE"}:
             kind = kind[1:]
+        if kind[:1] and kind[0] in {"ROLE", "USER", "GROUP", "DATABASE", "SCHEMA"}:
+            raise ValueError(f"dump creates a role, database or schema (CREATE {kind[0]})")
+        if kind[:1] == ["RULE"]:
+            raise ValueError("dump contains CREATE RULE")
         depth = 0
         for token in kind if kind[:1] == ["TABLE"] else []:
             depth += {"(": 1, ")": -1}.get(token, 0)
@@ -246,8 +256,10 @@ def referenced_roles(sql: str, key: str | None = None) -> set[str]:
         check_session_control(tokens, upper)
         if upper[:3] == ["ALTER", "DEFAULT", "PRIVILEGES"]:
             # The managed supabase_admin defaults were already filtered out.
-            if upper[3:5] != ["FOR", "ROLE"] or role_name(tokens[5]) != "postgres":
-                raise ValueError("default privileges must be FOR ROLE postgres")
+            if (len(tokens) < 10 or upper[3:5] != ["FOR", "ROLE"]
+                    or role_name(tokens[5]) != "postgres" or upper[6:8] != ["IN", "SCHEMA"]
+                    or name(tokens[8]) != "public" or upper[9] not in {"GRANT", "REVOKE"}):
+                raise ValueError("default privileges must be FOR ROLE postgres IN SCHEMA public")
             roles.add(role_name(tokens[5]))
         # Privilege lists can contain function signatures, column names or
         # quoted identifiers named TO/FROM: the role list follows the LAST
@@ -259,17 +271,12 @@ def referenced_roles(sql: str, key: str | None = None) -> set[str]:
             if not positions:
                 raise ValueError("unrecognized dump ACL statement")
             roles.update(role_list(tokens, positions[-1] + 1))
-            if upper[0] in {"GRANT", "REVOKE"} and "ON" not in upper:
-                start = 1 if upper[0] == "GRANT" else 4 if upper[1:4] == ["ADMIN", "OPTION", "FOR"] else 1
-                roles.update(role_list(tokens, start))
         if upper[0] == "ALTER" and "OWNER" in upper:
             for i in range(len(tokens) - 2):
                 if upper[i:i + 2] == ["OWNER", "TO"]:
                     roles.add(role_name(tokens[i + 2]))
         if upper[:2] == ["CREATE", "POLICY"] and "TO" in upper:
             roles.update(role_list(tokens, upper.index("TO") + 1))
-        if upper[:2] == ["CREATE", "SCHEMA"] and "AUTHORIZATION" in upper:
-            roles.add(role_name(tokens[upper.index("AUTHORIZATION") + 1]))
         if "GRANTED" in upper:
             for i in range(len(tokens) - 2):
                 if upper[i:i + 2] == ["GRANTED", "BY"]:
@@ -293,7 +300,7 @@ def main() -> int:
         catalog = json.load(sys.stdin)
         if catalog["global_default_acl"]:
             raise ValueError("target has global default ACL entries (defaclnamespace=0)")
-        sql = Path(sys.argv[1]).read_text(encoding="utf-8")
+        sql = Path(sys.argv[1]).read_bytes().decode("utf-8")
         # Passed by the clone script; never printed.
         key = os.environ.get("STAGING_CLONE_RESTRICT_KEY", "")
         missing = preflight_dump(sql, key) - set(catalog["roles"])
