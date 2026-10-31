@@ -258,6 +258,12 @@ Ngôn ngữ xu hướng cũng hữu ích trong Speaking khi mô tả thay đổi
 
 ---
 
+## Lỗi người Việt hay gặp
+
+Khi dịch "tăng lên", hãy phân biệt *rose **to** 80* (mức cuối là 80) với *rose **by** 20* (lượng tăng là 20). Với danh từ, *a rise **in** prices* nêu đại lượng thay đổi, còn *a rise **of** 20%* nêu lượng tăng.
+
+Đừng dịch "được tăng lên" thành *was risen*: **rise** là nội động từ. Cũng cần đổi dạng từ khi đổi cấu trúc: *prices rose **sharply*** dùng trạng từ, còn *a **sharp** rise in prices* dùng tính từ trước danh từ.
+
 ## Bài tập luyện
 
 ### Điền giới từ đúng (by / to / from / of / at / in)
@@ -277,16 +283,16 @@ Ngôn ngữ xu hướng cũng hữu ích trong Speaking khi mô tả thay đổi
 
 **Giới từ:**
 
-1. from 5 million **to** 8 million
-2. **of** 20%
-3. **by** 15%
-4. **at** 90%
-5. **in** tourism
+1. **from** 5 million **to** 8 million. Cặp *from…to…* nêu mức đầu và mức cuối, không phải lượng tăng.
+2. **of** 20%. Sau danh từ *increase*, *of* giới thiệu lượng thay đổi.
+3. **by** 15%. Sau động từ *increased*, *by* chỉ lượng tăng; *to* sẽ chỉ mức đạt tới.
+4. **at** 90%. *Peaked at* cho biết giá trị cao nhất mà số liệu đạt được.
+5. **in** tourism. *In* nêu lĩnh vực có sự suy giảm; con số chỉ lượng giảm, nếu có, mới đi với *of*.
 
 **Viết lại:**
 
-1. There was **a sharp rise** in prices.
-2. Sales **declined gradually**.
+1. There was **a sharp rise** in prices. Khi đổi động từ *rose* thành danh từ *rise*, đổi trạng từ *sharply* thành tính từ **sharp** và thêm mạo từ **a**.
+2. Sales **declined gradually**. Khi đổi danh từ *decline* thành động từ quá khứ **declined**, đổi tính từ *gradual* thành trạng từ **gradually**.
 
 ---
 

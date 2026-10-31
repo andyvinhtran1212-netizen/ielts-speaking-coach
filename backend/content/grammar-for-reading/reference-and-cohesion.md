@@ -92,7 +92,7 @@ Cụm **the former / the latter** trỏ về "cái trước / cái sau" trong ha
 ### Bẫy 1: Trỏ nhầm danh từ gần nhất về mặt vị trí
 Danh từ **gần nhất** chưa chắc đúng — phải hợp cả **số** lẫn **nghĩa**.
 
-- *The report criticised the ministers' plans because **they** were vague.* → they = plans (không phải ministers).
+- *The plans were criticised by the ministers because **they** were vague.* → they = plans (không phải ministers, dù ministers đứng gần hơn).
 
 ### Bẫy 2: Bỏ qua tham chiếu tới cả một ý
 *This/that* có thể thay cả câu trước; đừng chỉ tìm một danh từ.
@@ -103,6 +103,36 @@ Danh từ **gần nhất** chưa chắc đúng — phải hợp cả **số** l�
 1. Gặp it/they/this/such → dừng lại, truy về trước.
 2. Kiểm tra số (ít/nhiều) và nghĩa để chọn đúng "cái được thay".
 3. Thay thử vào câu để xác nhận nghĩa vẫn logic.
+
+## Lỗi người Việt hay gặp
+
+Dịch mọi *it* thành "nó" hoặc mọi *this* thành "cái này" có thể làm mất mối nối giữa các ý. Hãy gọi tên đầy đủ điều được nhắc lại trước khi dịch cả câu.
+
+- *The shop closed early. This disappointed the customers.* → **This** = việc cửa hàng đóng sớm, không phải riêng cửa hàng hay khách hàng.
+- *It is cold today.* → **It** là chủ ngữ giả trong câu nói về thời tiết, không có một vật cụ thể để truy tìm.
+- *Tea and coffee are available; the latter is decaffeinated.* → **the latter** = coffee, vì đây là đối tượng được nhắc sau trong cặp.
+
+Không chọn đáp án chỉ vì một danh từ đứng sát đại từ. Kiểm tra số ít/số nhiều rồi thay thử cả cụm vào câu để xem nghĩa có hợp lý không.
+
+## Bài tập luyện
+
+### Gọi tên điều được tham chiếu
+
+Với mỗi từ in đậm, viết rõ danh từ hoặc sự việc nó thay thế; nếu là chủ ngữ giả, hãy nói rõ.
+
+1. *The cartons were left beside the door because **they** were too heavy to carry upstairs.*
+2. *The lift stopped working. **This** delayed the delivery.*
+3. *Lan packed a notebook and a torch; **the former** was blue.*
+4. *Lan packed a notebook and a torch; **the latter** needed new batteries.*
+5. ***It** is raining outside.*
+
+### Đáp án và giải thích
+
+1. **The cartons**. *They* là số nhiều, phù hợp với *cartons*; *door* là số ít và không phải vật cần mang lên tầng trong ngữ cảnh này.
+2. **Việc thang máy ngừng hoạt động**. *This* tóm lại cả sự việc vừa nêu; sự việc đó làm chậm việc giao hàng.
+3. **A notebook**. *The former* chỉ đối tượng thứ nhất trong cặp *a notebook and a torch*.
+4. **A torch**. *The latter* chỉ đối tượng thứ hai; chi tiết cần pin mới cũng phù hợp với đèn pin.
+5. **Chủ ngữ giả**. Câu dùng cấu trúc nói về thời tiết *It is raining*, nên không cần tìm một danh từ ở câu trước làm tiền ngữ.
 
 ## Tóm tắt nhanh
 

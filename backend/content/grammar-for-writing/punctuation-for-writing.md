@@ -99,7 +99,38 @@ Sửa bằng một trong ba cách:
 
 ## Ứng dụng trong bài thi
 
-**Writing:** comma splice là lỗi chính xác hay gặp; soát lại mọi dấu phẩy nằm giữa hai mệnh đề độc lập.
+**Writing:** comma splice là lỗi về độ chính xác (accuracy) hay gặp; soát lại mọi dấu phẩy nằm giữa hai mệnh đề độc lập.
+
+## Lỗi người Việt hay gặp
+
+Khi đọc thành tiếng, một chỗ ngừng hơi có thể khiến người học đặt dấu phẩy dù câu chưa cho phép. Trước khi đặt dấu, hãy tìm chủ ngữ và động từ của từng vế.
+
+- ❌ *The keys, are on the desk.*
+- ✅ *The keys are on the desk.* Không có phần chêm để biện minh cho dấu phẩy giữa chủ ngữ và động từ.
+- ❌ *The shop was closed, therefore we went home.*
+- ✅ *The shop was closed; therefore, we went home.* *Therefore* là trạng từ liên kết; nó không tự biến dấu phẩy thành dấu nối hai mệnh đề độc lập.
+
+Với phần chêm ở giữa câu, tìm cả dấu mở lẫn dấu đóng. Đừng chỉ thêm một dấu phẩy rồi để phần chính của câu nhập vào thông tin phụ.
+
+## Bài tập luyện
+
+### Sửa dấu câu
+
+Giữ nguyên các từ; có thể tách câu và đổi chữ đầu thành chữ hoa khi cần.
+
+1. *The rain stopped we left the house.*
+2. *Although the box was small it was heavy.*
+3. *The keys, are on the desk.*
+4. *My neighbour, a retired nurse grows herbs.*
+5. *We packed three things: a map, a torch and a blanket.* Câu này có cần sửa không? Vì sao?
+
+### Đáp án và giải thích
+
+1. *The rain stopped. We left the house.* Hoặc: *The rain stopped; we left the house.* Hai vế đều độc lập; dấu chấm hoặc chấm phẩy tránh lỗi run-on.
+2. *Although the box was small, it was heavy.* Dấu phẩy phân cách mệnh đề phụ nhượng bộ mở đầu với mệnh đề chính.
+3. *The keys are on the desk.* Bỏ dấu phẩy vì nó đang tách chủ ngữ *the keys* khỏi động từ *are* mà không có phần chêm.
+4. *My neighbour, a retired nurse, grows herbs.* Cụm danh từ *a retired nurse* là phần chêm; thêm dấu phẩy đóng trước *grows* để khung chính vẫn là *My neighbour grows herbs.*
+5. **Không cần sửa**. *We packed three things* là mệnh đề hoàn chỉnh; phần sau dấu hai chấm liệt kê ba vật đó. Có thể thêm dấu phẩy trước *and* nếu dùng cách liệt kê này nhất quán.
 
 ## Tóm tắt nhanh
 
