@@ -143,3 +143,35 @@ def test_threaded_void_wins_over_stalled_repair(app, db, monkeypatch, status):
         app, db, monkeypatch, writer, lambda query: query.payload.get("status") == "lrw_submitted",
     ))
     assert result == {"repaired": 0}
+
+
+@pytest.mark.parametrize("finalize", [False, True])
+def test_threaded_void_wins_over_student_writing_capture(app, db, monkeypatch, finalize):
+    from routers import mock_exams as student
+
+    _seed(db, "lrw_in_progress")
+    db.tables["writing_essays"] = []
+    sitting = db.tables["mock_exam_sittings"][0]
+    sitting.update({
+        "assigned_skills": ["writing"],
+        "writing_started_at": datetime.now(timezone.utc).isoformat(),
+        "writing_submission": {"task2": {"text": "Last accepted draft"}},
+    })
+    monkeypatch.setattr(student, "get_supabase_user", AsyncMock(return_value={"id": "learner-1"}))
+    app.include_router(student.router)
+
+    async def writer(client):
+        action = "sections/writing/submit" if finalize else "writing"
+        return await client.post(f"/api/mock-exams/sittings/sitting-1/{action}", json={
+            "task1_text": "Stale task one", "task2_text": "Stale task two",
+        })
+
+    response = asyncio.run(_race_void(
+        app, db, monkeypatch, writer, lambda query: "writing_submission" in query.payload,
+    ))
+    assert sitting["writing_submission"] == {"task2": {"text": "Last accepted draft"}}
+    assert sitting.get("writing_submitted_at") is None
+    assert not sitting.get("essay_task1_id")
+    assert not sitting.get("essay_task2_id")
+    assert db.tables["writing_essays"] == []
+    assert response.status_code == 409

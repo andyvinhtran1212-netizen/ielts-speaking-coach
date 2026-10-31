@@ -1085,7 +1085,7 @@ def submit_writing(
         update[_SUBMITTED_COL["writing"]] = now
     resp = supabase_admin.table("mock_exam_sittings").update(update).eq(
         "id", str(sitting_id),
-    ).is_("writing_submitted_at", "null").execute()
+    ).eq("status", "lrw_in_progress").is_("writing_submitted_at", "null").execute()
     if not resp.data:
         raise SittingConflictError(
             "Phần Writing vừa được thu — bản nháp gửi sau không được ghi đè."

@@ -381,9 +381,12 @@ def save_speaking_assessment(review_id: UUID, admin_id: UUID, payload: dict) -> 
     notes["speaking"] = spk
     draft = dict(review.get("ai_draft") or {})
     draft["speaking"] = {"band": overall}
-    supabase_admin.table("mock_exam_reviews").update(
+    # Bulk release may publish after the pre-read; guard the write itself.
+    response = supabase_admin.table("mock_exam_reviews").update(
         {"per_skill_notes": notes, "ai_draft": draft},
-    ).eq("id", str(review_id)).execute()
+    ).eq("id", str(review_id)).neq("status", "released").execute()
+    if not response.data:
+        raise ConflictError("Đã công bố — không sửa bài chấm Speaking nữa.")
     logger.info("[mock-review] speaking assessment saved review=%s by=%s overall=%s",
                 review_id, admin_id, overall)
     return {"review_id": str(review_id), "overall": overall}
