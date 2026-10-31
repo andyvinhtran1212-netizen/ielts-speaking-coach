@@ -326,7 +326,8 @@ async def list_assignments(
             .execute().data
         ) or []
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi tải bài giao: {exc}")
+        logger.error("[class] list assignments failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tải bài giao. Vui lòng thử lại.") from None
 
     # Repair any hand-in whose ledger write failed at completion time. The
     # student's completed session is the durable evidence; the practice page
@@ -365,7 +366,8 @@ async def list_assignments(
     except Exception as exc:
         # Say so rather than rendering zeros: "0 đã nộp" is a claim about the
         # class that a failed query has not earned.
-        raise HTTPException(500, f"Lỗi khi tính tiến độ nộp bài: {exc}")
+        logger.error("[class] assignment progress failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tính tiến độ nộp bài. Vui lòng thử lại.") from None
 
     result: dict[str, Any] = {
         "assignments": [{**a, "progress": progress.get(a["id"])} for a in rows]
@@ -785,7 +787,8 @@ def _course_bank_assignment_revision(bank_id: str) -> str:
             "quiz_course_bank_assignment_revision", {"p_bank_id": bank_id},
         ).execute().data
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Không đọc được phiên bản bộ bài tập: {exc}")
+        logger.error("[class] course bank revision read failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Không đọc được phiên bản bộ bài tập. Vui lòng thử lại.") from None
     if isinstance(data, list):
         data = data[0] if data else None
         if isinstance(data, dict):
@@ -2051,7 +2054,8 @@ async def return_student_work(
     except ReturnNotPossible as exc:
         raise HTTPException(409, str(exc))
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi khi trả bài: {exc}")
+        logger.error("[class] return student work failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi trả bài. Vui lòng thử lại.") from None
 
     logger.info("[class] admin trả bài lớp=%s bài giao=%s học viên=%s",
                 cohort_id, assignment_id, student_id)
@@ -2757,7 +2761,8 @@ async def create_assignment(
             replay = _existing_grammar_give(cohort_id, give_id, fingerprint)
             if replay:
                 return replay
-        raise HTTPException(500, f"Lỗi khi giao bài: {exc}")
+        logger.error("[class] create assignment failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi giao bài. Vui lòng thử lại.") from None
 
     return result
 
@@ -2802,7 +2807,8 @@ async def backfill_assignment(
     except SubsetNeedsStudentsError as exc:
         raise HTTPException(400, str(exc))
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi bù người nhận: {exc}")
+        logger.error("[class] backfill assignment failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi bù người nhận. Vui lòng thử lại.") from None
 
 
 class AssignmentPatch(BaseModel):
@@ -2839,7 +2845,8 @@ async def update_assignment(
             .execute()
         )
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi cập nhật bài giao: {exc}")
+        logger.error("[class] update assignment failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi cập nhật bài giao. Vui lòng thử lại.") from None
 
     if not r.data:
         raise HTTPException(404, "Không tìm thấy bài giao trong lớp này")
@@ -2868,7 +2875,8 @@ async def class_action_log(
         page = read_class_actions(supabase_admin, cohort_id=cohort_id,
                                   limit=limit, before=before)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi khi đọc nhật ký thao tác: {exc}")
+        logger.error("[class] action log read failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi đọc nhật ký thao tác. Vui lòng thử lại.") from None
     rows = page["actions"]
 
     # Gắn TÊN bài giao và TÊN học viên vào từng dòng: một nhật ký toàn mã uuid
@@ -2976,7 +2984,8 @@ async def update_assignment_due(
         # nộp trễ thành đúng hạn" chứ không phải một câu từ chối chung chung.
         raise HTTPException(409, exc.payload)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi khi đổi hạn: {exc}")
+        logger.error("[class] due date change failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi đổi hạn. Vui lòng thử lại.") from None
 
     logger.info("[class] admin đổi hạn lớp=%s bài giao=%s → %s",
                 cohort_id, assignment_id, new_due_at)
@@ -3022,7 +3031,8 @@ async def delete_assignment(
                 409,
                 "Đã có học viên bắt đầu bài này — không xoá được. Hãy lưu trữ bài giao thay vì xoá.",
             ) from exc
-        raise HTTPException(500, f"Lỗi khi xoá bài giao: {exc}")
+        logger.error("[class] delete assignment failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi xoá bài giao. Vui lòng thử lại.") from None
 
     if deleted is None:
         raise HTTPException(404, "Không tìm thấy bài giao trong lớp này")

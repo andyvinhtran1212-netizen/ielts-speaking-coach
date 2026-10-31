@@ -1560,17 +1560,17 @@ async def admin_generate_d1_batch(
     try:
         stats = _generate_and_insert_batch(body.words, body.count, auth_user["id"])
     except GeminiBatchError as e:
-        logger.error("[admin/exercises] batch job=%s FAILED: %s", job_id, e)
+        logger.error("[admin/exercises] batch job=%s FAILED: %s", job_id, e, exc_info=True)
         raise HTTPException(
             status_code=502,
-            detail=f"Generation failed: {e}",
-        )
+            detail="Không tạo được bài tập. Vui lòng thử lại.",
+        ) from None
     except Exception as e:
-        logger.error("[admin/exercises] batch job=%s unexpected error: %s", job_id, e)
+        logger.error("[admin/exercises] batch job=%s unexpected error: %s", job_id, e, exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Batch insert failed: {e}",
-        )
+            detail="Không lưu được lô bài tập. Vui lòng thử lại.",
+        ) from None
 
     inserted = stats["inserted_count"]
     failed_chunks = stats["failed_chunks"]

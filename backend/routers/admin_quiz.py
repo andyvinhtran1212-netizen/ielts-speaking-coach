@@ -178,7 +178,8 @@ async def list_banks(
     try:
         return q.order("skill_area").order("code").execute().data or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn banks: {exc}")
+        logger.error("[admin-quiz] list banks failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn banks. Vui lòng thử lại.") from None
 
 
 @router.get("/banks/{bank_id}/analytics")
@@ -266,7 +267,8 @@ async def get_bank(bank_id: UUID, authorization: str | None = Header(None)):
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn bank: {exc}")
+        logger.error("[admin-quiz] get bank failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn bank. Vui lòng thử lại.") from None
     return {"bank": bank[0], "questions": questions}
 
 
@@ -286,7 +288,8 @@ async def update_bank(
     except Exception as exc:  # noqa: BLE001
         if 'grammar_managed_bank_' in str(exc):
             raise HTTPException(409,'Bank Grammar đã được giữ theo phiên bản; dùng thao tác sửa đã duyệt.') from exc
-        raise HTTPException(500, f"Lỗi cập nhật bank: {exc}")
+        logger.error("[admin-quiz] update bank failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi cập nhật bank. Vui lòng thử lại.") from None
     if not res.data:
         raise HTTPException(404, "Không tìm thấy bank")
     return res.data[0]
@@ -321,5 +324,6 @@ async def delete_bank(bank_id: UUID, authorization: str | None = Header(None)):
                 "Bank Advanced Vocabulary là nội dung bất biến; hãy bỏ xuất bản "
                 "để ngăn giao bài mới.",
             ) from exc
-        raise HTTPException(500, f"Lỗi xoá bank: {exc}")
+        logger.error("[admin-quiz] delete bank failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi xoá bank. Vui lòng thử lại.") from None
     return {"id": str(bank_id), "deleted": True}

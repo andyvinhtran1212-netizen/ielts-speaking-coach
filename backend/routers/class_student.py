@@ -678,7 +678,8 @@ async def my_assignments(authorization: str | None = Header(default=None)):
             out["homework_stale"] = True
         return out
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi tải bài tập: {exc}")
+        logger.error("[class] my assignments failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tải bài tập. Vui lòng thử lại.") from None
 
 
 @router.post(
