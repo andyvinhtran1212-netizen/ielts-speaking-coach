@@ -5,11 +5,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
+import { fileURLToPath } from 'node:url';
+import { descendants } from './fixtures/owned-process-tree.mjs';
 
 const runnerSource = await readFile(new URL('../tooling/run-flow-repeat.mjs', import.meta.url), 'utf8');
 const groupSource = await readFile(new URL('../tooling/process-group.mjs', import.meta.url), 'utf8');
 const readme = await readFile(new URL('../tooling/README.md', import.meta.url), 'utf8');
 const shellSource = /```bash\n(# Shell fallback[\s\S]*?)```/.exec(readme)[1];
+const reaper = fileURLToPath(new URL('./fixtures/reap-children.py', import.meta.url));
 
 // A server plus a sleeping worker, like next dev -> next-server. The parent
 // reaps its worker on TERM, but never forwards TERM: leader-only kills leak.
@@ -66,6 +69,8 @@ async function harness(t, { helper = groupSource, runner = runnerSource, env = {
   let child;
   let output = '';
   let result;
+  let closed;
+  let clean = false;
   const pidLog = join(dir, 'pids.jsonl');
   const records = async () => {
     const text = await readFile(pidLog, 'utf8').catch((error) => { if (error.code === 'ENOENT') return ''; throw error; });
@@ -74,16 +79,20 @@ async function harness(t, { helper = groupSource, runner = runnerSource, env = {
     return rows;
   };
   t.after(async () => {
-    await records();
-    // Independent fallback: mutations must fail assertions without leaking.
-    if (child?.pid) ids.add(child.pid);
-    for (const [pid, pgid] of members(ids)) {
-      if (ids.has(pgid)) { try { process.kill(-pgid, 'SIGKILL'); } catch {} }
-      try { process.kill(pid, 'SIGKILL'); } catch {}
+    try {
+      if (child) {
+        // EOF asks our subreaper to kill only its current descendants and wait
+        // for them, independently of the helper mutated by negative controls.
+        child.stdin.end();
+        assert.deepEqual(await closed, { code: 0, signal: null });
+        assert.equal(clean, true, 'supervisor must wait until it has no children');
+      }
+      await records();
+      await until(() => members(ids).length === 0, 'fallback process cleanup');
+      assert.deepEqual(descendants(process.pid), [], 'test left live or zombie descendants');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
     }
-    if (result) await result;
-    await until(() => members(ids).length === 0, 'fallback process cleanup');
-    await rm(dir, { recursive: true, force: true });
   });
   await mkdir(join(dir, 'tooling'), { recursive: true });
   await mkdir(join(dir, 'node_modules/next/dist/bin'), { recursive: true });
@@ -100,24 +109,42 @@ async function harness(t, { helper = groupSource, runner = runnerSource, env = {
     ids, records,
     get output() { return output; },
     start(extra = []) {
-      child = spawn(shell ? 'bash' : process.execPath, shell ? ['shell.sh'] : [
+      const command = shell ? ['bash', 'shell.sh'] : [process.execPath,
         'tooling/run-flow-repeat.mjs', '--flow', 'tooling/fake-flow.mjs', '--runs', '2', ...extra,
-      ], { cwd: dir, env: { ...process.env, PID_LOG: pidLog, ...env }, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
-      ids.add(child.pid);
+      ];
+      child = spawn('python3', [reaper, ...command], {
+        cwd: dir, env: { ...process.env, PID_LOG: pidLog, ...env }, stdio: ['pipe', 'pipe', 'pipe', 'pipe'], detached: true,
+      });
       const collect = (chunk) => {
         output += chunk;
         for (const match of output.matchAll(/PGID=(\d+)/g)) ids.add(Number(match[1]));
       };
       child.stdout.on('data', collect); child.stderr.on('data', collect);
-      result = new Promise((done, reject) => {
+      closed = new Promise((done, reject) => {
         child.once('error', reject);
         child.once('close', (code, signal) => done({ code, signal }));
+      });
+      result = new Promise((done, reject) => {
+        child.once('error', reject);
+        let buffer = '';
+        child.stdio[3].on('data', (chunk) => {
+          buffer += chunk;
+          let newline;
+          while ((newline = buffer.indexOf('\n')) !== -1) {
+            const event = JSON.parse(buffer.slice(0, newline));
+            buffer = buffer.slice(newline + 1);
+            if (event.clean) clean = true;
+            else done(event);
+          }
+        });
+        child.once('close', () => reject(new Error(`Supervisor exited before command result: ${output}`)));
       });
       return { child, result };
     },
     async assertClean() {
       await records();
       assert.deepEqual(members(ids), [], `owned PID/PGID remains; output:\n${output}`);
+      assert.deepEqual(descendants(child.pid), [], 'supervisor still owns live or zombie children');
     },
   };
 }
@@ -137,6 +164,21 @@ test('failed flows still repeat and clean fixture, next, flow and workers', { ti
   assert.match(h.output, /0 pass \/ 2 fail/);
   assert.equal(h.output.match(/cleanup verified/g)?.length, 2);
   await h.assertClean();
+});
+
+test('failed repeats never signal groups already reaped in earlier rounds', { timeout: 30000 }, async (t) => {
+  const runner = `
+    const realKill = process.kill.bind(process);
+    process.kill = (pid, signal) => {
+      if (signal === 'SIGKILL') console.log('EXIT_FALLBACK_SIGNAL', pid);
+      return realKill(pid, signal);
+    };
+  ` + runnerSource;
+  const h = await harness(t, { runner, env: { STUB_FAIL: '2' } });
+  assert.equal((await h.start().result).code, 1);
+  assert.match(h.output, /0 pass \/ 2 fail/);
+  await h.assertClean();
+  assert.doesNotMatch(h.output, /EXIT_FALLBACK_SIGNAL/);
 });
 
 for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 129]]) {
@@ -166,6 +208,16 @@ test('SIGKILL escalation waits until the stubborn server groups are gone', { tim
   const started = Date.now();
   assert.equal((await h.start(['--runs', '1']).result).code, 0);
   assert.ok(Date.now() - started >= 5000);
+  await h.assertClean();
+});
+
+test('killing a fake server and its worker together reaps every descendant', { timeout: 30000 }, async (t) => {
+  const h = await harness(t, { env: { STUB_WAIT: '1' } });
+  const run = h.start(['--runs', '1']);
+  await until(async () => (await h.records()).some(({ role }) => role === 'flow'), 'flow readiness');
+  const server = (await h.records()).find(({ role }) => role === 'next');
+  process.kill(-server.pid, 'SIGKILL');
+  assert.equal((await run.result).code, 1);
   await h.assertClean();
 });
 

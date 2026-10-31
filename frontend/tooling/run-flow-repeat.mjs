@@ -72,7 +72,7 @@ async function freePort() {
 async function repeat() {
   const controller = new AbortController();
   const { signal } = controller;
-  const allGroups = [];
+  const liveGroups = new Set();
   let current = [];
   let passed = 0;
   let failed = 0;
@@ -90,7 +90,11 @@ async function repeat() {
   process.on('uncaughtException', onFatal);
   process.on('unhandledRejection', onFatal);
   const fallback = () => {
-    for (const { child } of allGroups) void killGroup(child, 'SIGKILL').catch(() => {});
+    for (const { child, ended } of liveGroups) {
+      // An unreaped direct child still owns its PID. Once it exits, a reused
+      // PGID cannot establish ownership; async cleanup audits its workers.
+      if (!ended) void killGroup(child, 'SIGKILL').catch(() => {});
+    }
   };
   process.on('exit', fallback);
   let onAbort;
@@ -110,7 +114,7 @@ async function repeat() {
       child.once('exit', (code, signal) => { entry.ended = true; done({ code, signal }); });
     });
     current.push(entry);
-    allGroups.push(entry);
+    liveGroups.add(entry);
     const output = (chunk) => {
       entry.output = (entry.output + chunk).slice(-12000);
       if (label === 'flow') process.stdout.write(chunk);
@@ -138,6 +142,10 @@ async function repeat() {
     const errors = results.filter(({ status }) => status === 'rejected').map(({ reason }) => reason);
     const remaining = groupMembers(current);
     if (remaining.length) errors.push(new Error(`Owned processes remain (PID PGID STAT COMMAND):\n${remaining.join('\n')}`));
+    else {
+      await Promise.all(current.map((entry) => entry.done));
+      for (const entry of current) liveGroups.delete(entry);
+    }
     if (errors.length) throw new AggregateError(errors, 'Process group cleanup failed');
     console.log('[repeat] cleanup verified: no owned group members');
   }
@@ -192,7 +200,7 @@ async function repeat() {
     }
   } finally {
     try {
-      const remaining = groupMembers(allGroups);
+      const remaining = groupMembers([...liveGroups]);
       if (remaining.length) throw new Error(`Final audit found owned processes:\n${remaining.join('\n')}`);
       console.log('[repeat] final audit: no owned group members');
     } catch (error) { exitCode ||= 1; console.error(error); }

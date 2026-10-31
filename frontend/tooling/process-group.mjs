@@ -6,7 +6,9 @@
 //   group (leader and workers such as next-server). The signal is sent
 //   synchronously, so `void killGroup(child, 'SIGKILL')` is safe in an 'exit'
 //   handler. The promise resolves once no group member remains; SIGKILL follows
-//   after graceMs. Repeat calls and never-spawned children are no-ops.
+//   after graceMs, then rejects if the group remains after another second.
+//   The owner must reap orphaned descendants (e.g. a test-owned subreaper).
+//   Repeat calls and never-spawned children are no-ops.
 import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 
