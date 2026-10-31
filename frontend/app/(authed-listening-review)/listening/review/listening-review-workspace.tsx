@@ -264,6 +264,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, webExplana
             questionNumber={Number(item.q_num)}
             persistenceEnabled={!preview && Boolean(attemptId)}
             onReplayAudio={onLocate}
+            replayWindow={win}
             getAudioPosition={getAudioPosition}
             correctionRequired={!item.correct}
           />
