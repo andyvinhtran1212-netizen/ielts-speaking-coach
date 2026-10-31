@@ -76,11 +76,12 @@ def test_clone_dumps_schema_and_acls_and_restores_the_same_dump():
     )
     assert dump_command == [
         "pg_dump", "$PROD_URL", "--schema-only", "--schema=public", "--no-owner",
-        "-f", "$DUMP",
+        "--restrict-key=$RESTRICT_KEY", "-f", "$DUMP",
     ]
     restore = source[source.index('psql "$STAGING_URL" -X -1'):source.index('echo "== baselining')]
     assert '-v ON_ERROR_STOP=1 -q' in restore
-    assert '-f "$ROOT/backend/scripts/sql/staging_clone_reset.sql" -f "$DUMP"' in restore
+    assert ('-f "$ROOT/backend/scripts/sql/staging_clone_reset.sql" \\\n'
+            '  -f <(printf \'\\\\restrict %s\\n\' "$RESTORE_RESTRICT_KEY") -f "$DUMP"') in restore
     assert '-f "$ROOT/backend/scripts/sql/staging_clone_postconditions.sql"' in restore
     preflight = source.index('python3 "$ROOT/backend/scripts/staging_clone_preflight.py" "$DUMP"')
     assert preflight < source.index(restore)

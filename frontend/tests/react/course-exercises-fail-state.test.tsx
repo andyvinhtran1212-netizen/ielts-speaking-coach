@@ -302,7 +302,8 @@ describe('course-exercises error states', () => {
       throw new DOMException('quota', 'QuotaExceededError');
     });
     (document.querySelector('.cx-opt') as HTMLButtonElement).click();
-    expect(el('cx-save-note').dataset.state).toBe('error');
+    // runner.answer() is async (PC-J411R2): the refusal lands after a tick.
+    await waitFor(() => expect(el('cx-save-note').dataset.state).toBe('error'));
     expect(el('cx-save-note-text').textContent).toBe(
       'Không lưu được trên trình duyệt này. Hãy tắt chế độ ẩn danh hoặc thử trình duyệt khác.');
     expect(document.body.textContent).not.toContain('Chưa lưu được đáp án trên máy');
@@ -319,7 +320,7 @@ describe('course-exercises error states', () => {
     // Not via the storage path: the runner refuses with its own, uncoded message.
     vi.spyOn(crypto, 'randomUUID').mockImplementation(() => { throw new Error('Lỗi khác'); });
     (document.querySelector('.cx-opt') as HTMLButtonElement).click();
-    expect(el('cx-save-note').dataset.state).toBe('error');
+    await waitFor(() => expect(el('cx-save-note').dataset.state).toBe('error'));
     expect(el('cx-save-note-text').textContent).toBe('Lỗi khác');
   });
 });

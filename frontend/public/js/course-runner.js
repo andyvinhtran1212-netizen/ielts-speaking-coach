@@ -226,9 +226,36 @@ export function createRunner({
   const outboxKey = () => 'cx-outbox:' + JSON.stringify([
     userId, bank && bank.id, itemId, rev, sessionId,
   ]) + ':';
+  // Rows queued while keys were still served sit under the old fingerprint,
+  // which can no longer be computed without keys. Move the ones of THIS
+  // account, bank, item and session (and of this stage's questions) to the
+  // current prefix so they are replayed, not stranded, after the switch.
+  function migrateOutbox(prefix) {
+    const base = 'cx-outbox:';
+    const allowed = new Set(stageQuestions().map((q) => q.qid));
+    const names = [];
+    for (let i = 0; i < storage.length; i++) {
+      const name = storage.key(i);
+      if (name && name.startsWith(base) && !name.startsWith(prefix)) names.push(name);
+    }
+    names.forEach((name) => {
+      let id = null;
+      let row = null;
+      try {
+        id = JSON.parse(name.slice(base.length, name.lastIndexOf(':')));
+        row = JSON.parse(storage.getItem(name));
+      } catch (e) { return; }
+      if (!Array.isArray(id) || id.length !== 5 || id[0] !== userId
+          || id[1] !== (bank && bank.id) || id[2] !== itemId || id[4] !== sessionId
+          || !row || typeof row.client_id !== 'string' || !allowed.has(row.qid)) return;
+      storage.setItem(prefix + row.client_id, JSON.stringify(row));
+      storage.removeItem(name);
+    });
+  }
   function readOutbox() {
     if (!storage || !sessionId) return [];
     const prefix = outboxKey();
+    if (answersWithheld) migrateOutbox(prefix);
     const keys = [];
     for (let i = 0; i < storage.length; i++) {
       const name = storage.key(i);
@@ -263,7 +290,10 @@ export function createRunner({
     // local prefix without exposing correctness in a sealed assessment.
     while (at < list.length && byQid.has(list[at].qid)) {
       const row = byQid.get(list[at].qid);
-      marks[at++] = answersSealed ? 'answered' : (row.is_correct ? 'right' : 'wrong');
+      // A withheld-key row still carries the client placeholder; its verdict
+      // arrives with the flush that follows recovery.
+      marks[at++] = (answersSealed || answersWithheld)
+        ? 'answered' : (row.is_correct ? 'right' : 'wrong');
     }
   }
   // Vân tay bộ đề: đổi câu HOẶC đổi đáp án (re-import) đều đổi vân tay. Trạng
@@ -282,6 +312,13 @@ export function createRunner({
   // localStorage không thể tự bật quyền review.
   let reviewOnly = false;
   let answersSealed = false;
+  // Course banks arrive WITHOUT keys (SA-BANK-ANSWERS). Outside a sealed
+  // one-sitting test the server grades each answer once it is on record and
+  // returns the verdict in the /progress ack; `awaiting` is the answer whose
+  // verdict the page is waiting for.
+  let answersWithheld = false;
+  const feedbackByClient = new Map();
+  let awaiting = null;
   let expiryPending = false;
   let omittedTimedAnswers = false;
 
@@ -360,6 +397,10 @@ export function createRunner({
     // chặng bổ trợ) mà cho server dựng lại từ QID Grammar canonical đã lưu.
     if (v.rev !== rev) {
       if (legacyRev && v.rev === legacyRev) return 'legacy-filter';
+      // Without keys the fingerprint can only cover question ids, so a state
+      // saved while keys were still served never matches it. Let the server's
+      // canonical progress decide, exactly as on a fresh device.
+      if (answersWithheld) return 'legacy-filter';
       // Re-import thật (đổi QID/đáp án) vẫn là một bài khác và phải reset sạch.
       return 'stale';
     }
@@ -693,6 +734,7 @@ export function createRunner({
       }
       writeOutbox([], batch.map((row) => row.client_id));
       if (!keepalive) eagerRetryAttempt = 0;
+      if (Array.isArray(ack.feedback)) ack.feedback.forEach(rememberFeedback);
     } catch (err) {
       if (isSupersededTimedProgress(err)) {
         // Another tab has already moved the assignment to a retake/full-retry
@@ -764,7 +806,7 @@ export function createRunner({
     // Câu tự luận KHÔNG gửi: backend bỏ qua mọi lượt thiếu `is_correct`, nên gửi
     // đi là gửi vào hư không; ghi một giá trị đúng/sai bịa ra thì làm sai chính
     // con số giáo viên đọc.
-    if (ok === null) return;
+    if (ok === null) return null;
     const row = {
       client_id: uuid(),
       item_key: q.item_key || q.qid,
@@ -783,6 +825,55 @@ export function createRunner({
       throw codedError('Chưa lưu được đáp án trên máy. Kiểm tra dung lượng hoặc quyền lưu của trình duyệt rồi chọn lại.', 'storage_unavailable');
     }
     pending.push(row);
+    return row;
+  }
+
+  function rememberFeedback(fb) {
+    if (!fb || typeof fb.client_id !== 'string' || typeof fb.qid !== 'string'
+        || typeof fb.is_correct !== 'boolean') return;
+    feedbackByClient.set(fb.client_id, fb);
+    // Rows recovered from the outbox show neutral until their verdict arrives.
+    const list = stageQuestions();
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].qid === fb.qid && marks[i] === 'answered') {
+        marks[i] = fb.is_correct ? 'right' : 'wrong';
+      }
+    }
+  }
+
+  /**
+   * Chờ máy chủ chấm câu vừa trả lời. Đáp án đã nằm trong hàng đợi bền (outbox)
+   * nên lỗi mạng KHÔNG mất bài: trả `{pending, error}` để trang cho thử lại, và
+   * không bao giờ tự chấm khi chưa có kết quả của máy chủ.
+   */
+  async function awaitFeedback() {
+    const w = awaiting;
+    if (!w) return null;
+    if (!feedbackByClient.has(w.clientId)) {
+      const run = inflight.then(() => flush());
+      inflight = run.catch(() => { /* the row stays queued for the retry */ });
+      try { await run; } catch (err) {
+        return {
+          pending: true,
+          error: (err && err.message) || 'Chưa gửi được đáp án lên máy chủ.',
+        };
+      }
+    }
+    const fb = feedbackByClient.get(w.clientId);
+    if (!fb) {
+      return { pending: true, error: 'Máy chủ chưa trả kết quả chấm. Hãy thử lại.' };
+    }
+    awaiting = null;
+    marks[w.index] = fb.is_correct ? 'right' : 'wrong';
+    // `fb.answer` is the ORIGINAL option index; a revision shows shuffled ones.
+    const key = Number.isInteger(fb.answer)
+      ? (w.q._perm ? w.q._perm.indexOf(fb.answer) : fb.answer) : null;
+    return {
+      correct: fb.is_correct,
+      trap: fb.is_correct ? null : (fb.why_wrong || null),
+      explain: fb.explain || '',
+      answer: key,
+    };
   }
 
   return {
@@ -803,6 +894,8 @@ export function createRunner({
     get hasOpenSession() { return Boolean(sessionId) && !sessionEnded; },
     get reviewOnly() { return reviewOnly; },
     get answersSealed() { return answersSealed; },
+    get answersWithheld() { return answersWithheld; },
+    get awaitingFeedback() { return Boolean(awaiting); },
     get expiryPending() { return expiryPending; },
     get superseded() { return superseded; },
     get isTimed() { return Boolean(mastery && mastery.is_timed); },
@@ -834,6 +927,9 @@ export function createRunner({
       // vẫn do các endpoint backend kiểm bằng assignment item.
       reviewOnly = Boolean(options.reviewOnly || (r.mastery && r.mastery.review_only));
       answersSealed = Boolean(r.mastery && r.mastery.answers_sealed);
+      answersWithheld = Boolean(r.mastery && r.mastery.answers_withheld);
+      feedbackByClient.clear();
+      awaiting = null;
       expiryPending = Boolean(r.mastery && r.mastery.expiry_pending);
       omittedTimedAnswers = false;
       retakeNo = Math.max(0, Number((r.mastery && r.mastery.retakes) || 0));
@@ -932,8 +1028,14 @@ export function createRunner({
 
     show() { answered = false; shownAt = now(); },
 
-    /** Trả lời một câu trắc nghiệm. */
-    answer(picked) {
+    /**
+     * Trả lời một câu trắc nghiệm. ASYNC: bank course không mang đáp án, nên
+     * kết quả của bài mastery đến từ máy chủ SAU khi lượt làm đã được ghi.
+     */
+    async answer(picked) {
+      // A redraw while a verdict is pending must not record a second answer:
+      // the first one is already queued, so keep waiting for ITS verdict.
+      if (awaiting && awaiting.index === at) return awaitFeedback();
       if (answered || this.isTimedOut()) return null;
       const q = this.current();
       if (answersSealed) {
@@ -946,6 +1048,15 @@ export function createRunner({
           inflight = inflight.then(() => flush()).catch(() => {});
         }
         return { sealed: true, correct: null, trap: null, explain: '' };
+      }
+      if (answersWithheld) {
+        // `false` is a placeholder the backend replaces with its own grade.
+        // Flush at once (BATCH = 1): the feedback is the ack of this row.
+        const row = queue(q, false, String(q._perm ? q._perm[picked] : picked));
+        answered = true;
+        marks[at] = 'answered';
+        awaiting = { clientId: row.client_id, q, index: at };
+        return awaitFeedback();
       }
       const ok = picked === q.answer;
       // Gửi vị trí GỐC của phương án, không phải vị trí hiển thị: ở bài kiểm
@@ -968,8 +1079,12 @@ export function createRunner({
         correct: ok,
         trap: ok ? null : ((q.why_wrong || {})[String(picked)] || null),
         explain: q.explain || '',
+        answer: q.answer,
       };
     },
+
+    /** Gửi lại câu đang chờ chấm (sau lỗi mạng). Không tạo lượt làm mới. */
+    retryFeedback() { return awaitFeedback(); },
 
     /** Câu tự luận: không chấm, chỉ mở đáp án mẫu để tự đối chiếu. */
     selfCheck() {
@@ -991,17 +1106,23 @@ export function createRunner({
       const endedBy = options.endedBy === 'time_cap' ? 'time_cap' : 'completed';
       const list = stageQuestions();
       let graded = list.filter(isCourseQuizQuestion).length;
-      let right = marks.filter((m) => m === 'right').length;
+      let right = 0;
+      let axes = {};
+      // Server verdicts of recovered rows can land during the flush below, so
+      // the tally runs again after it, before the totals are sent.
+      const tally = () => {
+        right = marks.filter((m) => m === 'right').length;
+        axes = {};
+        list.forEach((q, i) => {
+          if (marks[i] !== 'wrong' || !q.item_key) return;
+          axes[q.item_key] = (axes[q.item_key] || 0) + 1;
+        });
+      };
+      tally();
       // Khôi phục vào màn kết quả trên một máy chưa có `marks`: đếm từ mảng
       // rỗng ra 0 là bịa một điểm số cho một chặng ĐÃ CHẤM XONG. Dùng con số
       // máy chủ giữ. Không có phiên nào để chốt lại nên đây thuần là hiển thị.
       if (restored && !marks.length) { right = restored.right; graded = restored.graded; }
-
-      const axes = {};
-      list.forEach((q, i) => {
-        if (marks[i] !== 'wrong' || !q.item_key) return;
-        axes[q.item_key] = (axes[q.item_key] || 0) + 1;
-      });
 
       // Tạo phiên có thể hỏng lúc mở bài. Nút "Gửi lại" phải thử mở lại thật,
       // không được gọi mãi một flush không có sessionId rồi bắt làm lại 10 câu.
@@ -1013,6 +1134,7 @@ export function createRunner({
         try {
           await inflight;        // chờ lượt đẩy nền xong rồi mới xét hàng đợi
           if (endedBy !== 'time_cap') await flush();
+          if (answersWithheld && marks.length) tally();
           // Batch còn lại chỉ là bằng chứng idempotency: timeout RPC KHÔNG chèn
           // câu mới sau hạn. Nó chỉ ACK khi mọi client_id đã được /progress
           // nhận trước cutoff, rồi tự tính điểm từ ledger canonical.

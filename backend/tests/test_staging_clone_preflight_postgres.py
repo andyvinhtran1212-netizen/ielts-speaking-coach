@@ -7,18 +7,21 @@ not live baselining or curated-vocabulary migrations (covered separately).
 """
 
 from contextlib import ExitStack, contextmanager
+import json
 import os
 from pathlib import Path
 import secrets
 import shutil
 import socket
 import subprocess
+import sys
 
 import pytest
 
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 STAGING_REF = "zjphffoujxkpltixsbzj"
+PROD_REF = "huwsmtubwulikhlmcirx"
 LEDGER = [f"{number}_{name}.sql" for number, name in [
     (234, "vocab_curated_identity_and_editorial"),
     (235, "vocab_curated_tasks_attempts_mastery"),
@@ -49,7 +52,8 @@ class Cluster:
              "--pwfile", str(password_file), "--no-locale", "--encoding=UTF8"], self.env)
 
     def dsn(self, database="postgres", *, staging=False):
-        app = STAGING_REF if staging else "synthetic_source"
+        # The clone script requires each URL to name its own project ref.
+        app = STAGING_REF if staging else f"synthetic_source_{PROD_REF}"
         return f"postgresql://postgres@127.0.0.1:{self.port}/{database}?application_name={app}"
 
     def sql(self, sql, name, database="postgres"):
@@ -73,7 +77,9 @@ def local_cluster(directory, binaries, password_file, pgpass):
     try:
         run([str(binaries / "pg_ctl"), "-D", str(directory / "data"),
              "-l", str(directory / "server.log"), "-o",
-             f"-h 127.0.0.1 -k {directory} -p {cluster.port} -F", "-w", "start"], cluster.env)
+             # DSNs use loopback TCP; disable the unused Unix socket so long
+             # evidence/basetemp paths cannot exceed AF_UNIX's path limit.
+             f"-h 127.0.0.1 -k '' -p {cluster.port} -F", "-w", "start"], cluster.env)
         yield cluster
     finally:
         try:
@@ -118,7 +124,7 @@ def clusters(tmp_path_factory):
         pgpass.unlink(missing_ok=True)
 
 
-def sandbox(tmp_path, source, target, database, injection=""):
+def sandbox(tmp_path, source, target, database, injection="", appended=""):
     root = tmp_path / "sandbox"
     scripts = root / "backend/scripts"
     (scripts / "sql").mkdir(parents=True)
@@ -136,24 +142,74 @@ def sandbox(tmp_path, source, target, database, injection=""):
                       '  touch "$TEST_BASELINE_MARKER"\n'
                       '  psql "$2" -X -q -v ON_ERROR_STOP=1 -f "$TEST_LEDGER_SQL"\nfi\n')
     runner.chmod(0o700)
-    # Instrument pg_dump, without replacing the real dump. Inject a SQL error
-    # AFTER the actual ACLs to prove rollback even when preflight succeeded.
+    # Instrument pg_dump, without replacing the real dump. Inject SQL AFTER the
+    # actual ACLs, inside the \restrict block (just before \unrestrict), to
+    # prove rollback even when preflight succeeded; `appended` follows the
+    # \unrestrict line, as a hand-edited dump would. @KEY@ becomes the dump's
+    # own \restrict key: whoever edits the dump file can read it there.
     wrapper = root / "bin"
     wrapper.mkdir()
     dump = wrapper / "pg_dump"
     dump.write_text('#!/usr/bin/env bash\nset -euo pipefail\n'
                     '"$TEST_REAL_PG_DUMP" "$@"\n'
+                    'for arg in "$@"; do\n'
+                    '  [[ "$arg" != --restrict-key=* ]] || printf %s "${arg#*=}" > "$TEST_RESTRICT_KEY"\n'
+                    'done\n'
                     'while [[ "$1" != "-f" ]]; do shift; done\n'
-                    'cat "$TEST_INJECTION_SQL" >> "$2"\n'
+                    'grep -q \'^\\\\unrestrict \' "$2"\n'
+                    'awk -v inj="$TEST_INJECTION_SQL" -v app="$TEST_APPENDED_SQL" \''
+                    'function emit(file, line) { while ((getline line < file) > 0) '
+                    '{ gsub(/@KEY@/, key, line); print line } } '
+                    '/^\\\\restrict / { key = $2 } /^\\\\unrestrict / { emit(inj) } { print } '
+                    'END { emit(app) }\' "$2" > "$2.inj"\n'
+                    'mv "$2.inj" "$2"\n'
                     'stat -c %a "$2" > "$TEST_DUMP_MODE"\n')
     dump.chmod(0o700)
+    # Observe generated keys without putting either value in test output or
+    # argv. The restore key must differ from the old, on-disk dump frame key.
+    python = wrapper / "python3"
+    python.write_text('#!/usr/bin/env bash\nset -euo pipefail\n'
+                      'if [[ "${1:-}" == -c && "${2:-}" == "import secrets; print(secrets.token_hex(32))" ]]; then\n'
+                      '  key=$("$TEST_REAL_PYTHON" "$@")\n'
+                      '  printf "%s\\n" "$key" >> "$TEST_GENERATED_KEYS"\n'
+                      '  printf "%s\\n" "$key"\n'
+                      'else exec "$TEST_REAL_PYTHON" "$@"; fi\n')
+    python.chmod(0o700)
+    psql = wrapper / "psql"
+    psql.write_text('#!/usr/bin/env python3\n'
+                    'import json, os, sys\nfrom pathlib import Path\n'
+                    'if "-1" in sys.argv:\n'
+                    '    sys.path.insert(0, os.environ["TEST_PREFLIGHT_DIR"])\n'
+                    '    from staging_clone_preflight import lex\n'
+                    '    keys = Path(os.environ["TEST_GENERATED_KEYS"]).read_text().splitlines()\n'
+                    '    dumps = list(Path(os.environ["TMPDIR"]).glob("prod_schema_*.sql"))\n'
+                    '    sql = dumps[0].read_bytes().decode("utf-8")\n'
+                    '    audit = {"dump_count": len(dumps), "restore_key_on_disk": keys[-1] in sql,\n'
+                    '             "meta_commands": sum(t.startswith("\\\\") for t in lex(sql))}\n'
+                    '    Path(os.environ["TEST_RESTORE_AUDIT"]).write_text(json.dumps(audit))\n'
+                    'os.execv(os.environ["TEST_REAL_PSQL"], ["psql", *sys.argv[1:]])\n')
+    psql.chmod(0o700)
+    # Preserve CR bytes in the actual dump, including its framing/header.
+    if injection == "@CRLF_DUMP@":
+        dump.write_text(dump.read_text() +
+                        'python3 - "$2" <<\'PY\'\n'
+                        'from pathlib import Path\nimport sys\n'
+                        'p = Path(sys.argv[1]); p.write_bytes(p.read_bytes().replace(b"\\n", b"\\r\\n"))\n'
+                        'PY\n')
+        injection = ""
     injection_sql = root / "injection.sql"
     injection_sql.write_text(injection)
+    appended_sql = root / "appended.sql"
+    appended_sql.write_text(appended)
     temporary = root / "temporary"
     temporary.mkdir(mode=0o700)
     env = dict(source.env, PATH=f"{wrapper}:{source.env['PATH']}", TMPDIR=str(temporary),
                TEST_REAL_PG_DUMP=str(source.binaries / "pg_dump"),
-               TEST_INJECTION_SQL=str(injection_sql), TEST_DUMP_MODE=str(root / "dump-mode"),
+               TEST_INJECTION_SQL=str(injection_sql), TEST_APPENDED_SQL=str(appended_sql),
+               TEST_DUMP_MODE=str(root / "dump-mode"), TEST_RESTRICT_KEY=str(root / "restrict-key"),
+               TEST_REAL_PYTHON=sys.executable, TEST_GENERATED_KEYS=str(root / "generated-keys"),
+               TEST_REAL_PSQL=str(source.binaries / "psql"), TEST_PREFLIGHT_DIR=str(scripts),
+               TEST_RESTORE_AUDIT=str(root / "restore-audit.json"),
                TEST_BASELINE_MARKER=str(root / "baseline-reached"), TEST_LEDGER_SQL=str(ledger))
     return root, scripts / "staging_clone_schema_from_prod.sh", env
 
@@ -161,6 +217,8 @@ def sandbox(tmp_path, source, target, database, injection=""):
 @pytest.mark.parametrize("case, diagnostic", [
     ("missing_role", 'target missing roles: ["Reader, X missing_role"]'),
     ("role_present", None),
+    ("natural_dump", None),
+    ("allowed_ddl", None),
     ("restore_error", "division by zero"),
     ("global_acl", "global default ACL"),
     ("global_other", "global default ACL"),
@@ -173,6 +231,39 @@ def sandbox(tmp_path, source, target, database, injection=""):
     ("default_write", "client_default_write_privilege_survives"),
     ("sequence_update", "client_sequence_update_survives"),
     ("users_policy", "users_update_policy_not_hardened"),
+    # PC-J367: hand-edited dumps (SA retest P2-P6, P8, P9, P11) stop before reset.
+    ("set_local_role", "changes the restore role (SET ROLE)"),
+    ("set_session_role", "changes the restore role (SET ROLE)"),
+    ("set_config_role", "changes the restore role (set_config)"),
+    ("local_session_auth", "changes the restore role (SET SESSION AUTHORIZATION)"),
+    ("commit_then_error", "transaction control"),
+    ("begin_commit", "transaction control"),
+    ("shell_meta_appended", "meta-command"),
+    ("shell_meta_inline", "meta-command"),
+    ("connect_meta", "meta-command"),
+    # PC-J394 (CR P2-1/P2-2 PoCs): psql and the scanner must not disagree on
+    # where a literal ends, even when the dump knows its own \restrict key.
+    ("numeric_junk_unrestrict", "numeric literal followed by identifier characters"),
+    ("sco_off_commit", "lex differently with standard_conforming_strings on and off"),
+    ("set_config_sco_off", "set_config outside pg_dump's search_path header"),
+    # PC-J417: these must fail BEFORE reset, not only in a postcondition.
+    ("adp_no_schema", "IN SCHEMA public"),
+    ("alter_database_sco", "dump alters a role, database or system setting (ALTER DATABASE)"),
+    ("alter_system", "dump alters a role, database or system setting (ALTER SYSTEM)"),
+    ("create_schema_evil", "dump creates a role, database or schema (CREATE SCHEMA)"),
+    ("alter_role_bypassrls", "dump alters a role, database or system setting (ALTER ROLE)"),
+    ("grant_role_membership", "dump grants or revokes role membership"),
+    ("create_rule", "dump contains CREATE RULE"),
+    ("crlf_dump", "carriage return"),
+    ("bare_cr_dump", "carriage return"),
+    ("hidden_sjis_old_key", "wrong key"),
+    ("hidden_gbk_old_key", "wrong key"),
+    ("hidden_sjis_other_key", "wrong key"),
+    ("hidden_gbk_other_key", "wrong key"),
+    # A switch hidden in a function body passes preflight; the postcondition
+    # rolls the restore back on ownership or the final role.
+    ("hidden_role_switch", "restored_object_not_owned_by_restore_role"),
+    ("hidden_role_left", "restore_role_changed"),
 ])
 def test_clone_preflight_and_atomic_restore(clusters, tmp_path, case, diagnostic):
     source, target = clusters
@@ -229,24 +320,122 @@ def test_clone_preflight_and_atomic_restore(clusters, tmp_path, case, diagnostic
     if case == "global_other":
         target.sql("CREATE ROLE global_reader; ALTER DEFAULT PRIVILEGES GRANT SELECT ON TABLES TO global_reader;",
                    "global-other", database)
-    root, script, env = sandbox(tmp_path, source, target, database,
-                                "SELECT 1/0;\n" if case == "restore_error" else "")
+    catalog_sql = ("SELECT json_build_object("
+                   "'evil_schema', EXISTS(SELECT FROM pg_namespace WHERE nspname = 'evil'), "
+                   "'settings', (SELECT coalesce(json_agg(s ORDER BY setdatabase, setrole)::text, '[]') "
+                   "FROM pg_db_role_setting s), "
+                   "'global_acl', (SELECT coalesce(json_agg(a ORDER BY oid)::text, '[]') "
+                   "FROM pg_default_acl a WHERE defaclnamespace = 0), "
+                   "'anon_bypassrls', (SELECT rolbypassrls FROM pg_roles WHERE rolname = 'anon'), "
+                   "'memberships', (SELECT json_agg(m ORDER BY roleid, member, grantor)::text "
+                   "FROM pg_auth_members m));")
+    catalog_before = target.sql(catalog_sql, f"catalog-before-{case}", database)
+    decoy_oid = target.sql("SELECT 'public.decoy'::regclass::oid;", f"decoy-oid-{case}", database)
+    marker = tmp_path / "meta-command-ran"
+    # A non-volatile ADD COLUMN default is evaluated once, at restore time.
+    become = ("CREATE FUNCTION public.become(r text) RETURNS text LANGUAGE sql STABLE "
+              "AS $$ SELECT set_config('role', r, false) $$;\n"
+              "ALTER TABLE public.filler_1 ADD COLUMN switch_1 text DEFAULT public.become('service_role');\n"
+              "CREATE TABLE public.svc_owned(id int);\n")
+    injection, appended = {
+        "adp_no_schema": ("ALTER DEFAULT PRIVILEGES FOR ROLE postgres GRANT SELECT ON TABLES TO anon;\n", ""),
+        "alter_database_sco": (f"ALTER DATABASE {database} SET standard_conforming_strings TO off;\n", ""),
+        "alter_system": ("ALTER SYSTEM SET log_statement = 'none';\n", ""),
+        "create_schema_evil": ("CREATE SCHEMA evil; GRANT USAGE ON SCHEMA evil TO anon;\n", ""),
+        "alter_role_bypassrls": ("ALTER ROLE anon BYPASSRLS;\n", ""),
+        "grant_role_membership": ("GRANT service_role TO anon;\n", ""),
+        "create_rule": ("CREATE RULE r AS ON INSERT TO public.users DO ALSO NOTIFY x;\n", ""),
+        "crlf_dump": ("@CRLF_DUMP@", ""),
+        "bare_cr_dump": ("COMMENT ON TABLE public.users\r IS 'x';\n", ""),
+        # Positive peers: ALTER FUNCTION, object ACLs, and DDL words in an
+        # opaque routine body/comment are not top-level cluster commands.
+        "allowed_ddl": ("ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA \"public\" "
+                        "REVOKE ALL ON FUNCTIONS FROM PUBLIC;\n"
+                        "CREATE OR REPLACE FUNCTION public.ddl_words() RETURNS text LANGUAGE sql AS $$ "
+                        "SELECT 'ALTER DATABASE app SET standard_conforming_strings TO off; "
+                        "ALTER SYSTEM SET log_statement = ''none''; CREATE RULE r;' $$;\n"
+                        "ALTER FUNCTION public.ddl_words() SET search_path TO '';\n"
+                        "GRANT USAGE ON SCHEMA public TO anon;\n"
+                        "REVOKE ALL ON TABLE public.users FROM PUBLIC;\n"
+                        "COMMENT ON SCHEMA public IS 'CREATE SCHEMA evil; ALTER ROLE anon BYPASSRLS;';\n"
+                        "COMMENT ON TABLE public.users IS 'C:\\r';\n", ""),
+        # Runtime error after the real ACLs; a top-level SELECT and CREATE
+        # TABLE ... AS are now refused, an ADD COLUMN default still runs.
+        "restore_error": ("ALTER TABLE public.filler_0 ADD COLUMN boom integer DEFAULT (1/0);\n", ""),
+        "set_local_role": ("SET LOCAL ROLE service_role;\nCREATE TABLE public.svc_owned(id int);\n"
+                           "RESET ROLE;\n", ""),
+        "set_session_role": ("SET SESSION ROLE service_role;\nCREATE TABLE public.svc_owned(id int);\n"
+                             "RESET ROLE;\n", ""),
+        "set_config_role": ("SELECT pg_catalog.set_config('role', 'service_role', true);\n"
+                            "CREATE TABLE public.svc_owned(id int);\n", ""),
+        "local_session_auth": ("SET LOCAL SESSION AUTHORIZATION service_role;\n", ""),
+        "commit_then_error": ("COMMIT;\nCREATE TABLE public.boom AS SELECT 1/0 AS x;\n", ""),
+        "begin_commit": ("BEGIN;\nGRANT SELECT ON TABLE public.filler_6 TO anon;\nCOMMIT;\n", ""),
+        "shell_meta_appended": ("", f"\\! touch {marker}\n"),
+        "shell_meta_inline": (f"GRANT SELECT ON TABLE public.filler_6 TO anon; \\! touch {marker}\n", ""),
+        "connect_meta": ("", "\\connect postgres\nCREATE TABLE public.boom AS SELECT 1/0 AS x;\n"),
+        "hidden_role_switch": (become + "ALTER TABLE public.svc_owned ADD COLUMN switch_2 text "
+                               "DEFAULT public.become('none');\n", ""),
+        # CR P2-1: psql >= 15 reads 1e as one junk token, so E'x\' is no string.
+        "numeric_junk_unrestrict": ("COMMENT ON TABLE public.filler_0 IS 1e'x\\'\n\\unrestrict @KEY@\n"
+                                    f"\\! touch {marker}\n\\restrict @KEY@\n-- '\n;\n", ""),
+        # CR P2-2: once a routine turns standard_conforming_strings off, psql
+        # reads '\' ' as one literal and sends the COMMIT.
+        "sco_off_commit": ("CREATE TABLE public.z AS SELECT pg_catalog.set_config("
+                           "'standard_conforming_strings', 'off', false) AS x;\n"
+                           "COMMENT ON TABLE public.filler_0 IS '\\' '; COMMIT; "
+                           "COMMENT ON TABLE public.filler_0 IS 'q' -- '\n;\n"
+                           "CREATE TABLE public.boom AS SELECT 1/0 AS x;\n", ""),
+        # The set_config layer alone, without a desynchronizing literal.
+        "set_config_sco_off": ("ALTER TABLE public.filler_0 ADD COLUMN x text DEFAULT "
+                               "pg_catalog.set_config('standard_conforming_strings', 'off', false);\n", ""),
+        "hidden_role_left": (become, ""),
+    }.get(case, ("", ""))
+    if case.startswith("hidden_sjis_") or case.startswith("hidden_gbk_"):
+        encoding, char = ("SJIS", "Á") if "sjis" in case else ("GBK", "ặ")
+        unlock = "@KEY@" if case.endswith("old_key") else "notThisRunsKey"
+        injection = ("CREATE FUNCTION public.enc() RETURNS integer LANGUAGE sql STABLE AS $$ "
+                     f"SELECT 0 FROM pg_catalog.set_config('client_encoding', '{encoding}', false) $$;\n"
+                     "ALTER TABLE public.filler_1 ADD COLUMN enc integer DEFAULT public.enc();\n"
+                     f"COMMENT ON TABLE public.filler_2 IS '{char}' || '\n"
+                     f"\\unrestrict {unlock}\n\\! touch {marker}\n\\restrict {unlock}\n';\n")
+    root, script, env = sandbox(tmp_path, source, target, database, injection, appended)
     result = subprocess.run(["bash", str(script)], env=env, capture_output=True, text=True, timeout=60)
     (root / "clone.result").write_text(result.stdout + result.stderr)
     assert (root / "dump-mode").read_text().strip() == "600"
+    # A fresh key per run went to pg_dump; it is never printed.
+    key = (root / "restrict-key").read_text()
+    assert len(key) == 64 and int(key, 16) >= 0
+    assert key not in result.stdout + result.stderr
+    generated_keys = (root / "generated-keys").read_text().splitlines()
+    assert all(value not in result.stdout + result.stderr for value in generated_keys)
+    if "preflight passed" in result.stdout:
+        assert len(generated_keys) == 2
+        assert generated_keys[0] != generated_keys[1]
+        assert json.loads((root / "restore-audit.json").read_text()) == {
+            "dump_count": 1, "restore_key_on_disk": False, "meta_commands": 0}
+    assert not marker.exists(), "no psql meta-command from the dump may run"
     assert not list((root / "temporary").iterdir()), "dump and .tmp must be removed"
     if diagnostic:
         assert result.returncode != 0
         assert diagnostic in result.stderr
         assert not (root / "baseline-reached").exists()
         assert target.sql("SELECT id FROM public.decoy;", f"decoy-survived-{case}", database) == "42"
+        assert target.sql("SELECT 'public.decoy'::regclass::oid;", f"decoy-oid-after-{case}", database) == decoy_oid
+        assert target.sql(catalog_sql, f"catalog-after-{case}", database) == catalog_before
+        assert target.sql("SELECT NOT EXISTS(SELECT FROM pg_namespace WHERE nspname = 'evil');",
+                          f"no-evil-{case}", database) == "t"
         assert target.sql("SELECT to_regclass('public.users') IS NULL;",
                           f"no-partial-restore-{case}", database) == "t"
         if case in {"restore_error", "postcondition_error", "log_truncate", "definer_execute",
-                    "column_update", "default_write", "sequence_update", "users_policy"}:
+                    "column_update", "default_write", "sequence_update", "users_policy",
+                    "hidden_role_switch", "hidden_role_left", "hidden_sjis_old_key", "hidden_gbk_old_key",
+                    "hidden_sjis_other_key", "hidden_gbk_other_key"}:
             assert "preflight passed" in result.stdout
             assert "restoring atomically" in result.stdout
         else:
+            assert "REFUSED:" in result.stderr
+            assert "== resetting" not in result.stdout
             assert "restoring atomically" not in result.stdout
     else:
         assert result.returncode == 0, result.stderr
@@ -254,6 +443,8 @@ def test_clone_preflight_and_atomic_restore(clusters, tmp_path, case, diagnostic
         assert target.sql("SELECT to_regclass('public.decoy') IS NULL;", "decoy-replaced", database) == "t"
         assert target.sql("SELECT has_table_privilege('anon','public.users','UPDATE'), "
                           "has_table_privilege('service_role','public.class_action_log','TRUNCATE'), "
-                          "has_function_privilege('anon','public.private_definer()','EXECUTE'), "
-                          "has_table_privilege('Reader, X role_present','public.users','SELECT');",
-                          "restored-acls", database) == "f|f|f|t"
+                          "has_function_privilege('anon','public.private_definer()','EXECUTE');",
+                          f"restored-acls-{case}", database) == "f|f|f"
+        if case == "role_present":
+            assert target.sql("SELECT has_table_privilege('Reader, X role_present','public.users','SELECT');",
+                              "restored-reader", database) == "t"
