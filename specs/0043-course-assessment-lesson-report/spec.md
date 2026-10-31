@@ -44,6 +44,7 @@ modify it.
 - Chỉ số liệu từ bài đã chốt mới vào bảng. Em đang làm, chưa mở bài hay chưa
   kích hoạt tài khoản hiện trạng thái tương ứng, không hiện số.
 - **Giảng viên** có trang riêng trong `/instructor` để xem cùng báo cáo này, nhưng chỉ của lớp mình đứng tên (anh Vinh duyệt: "làm cả trang giảng viên"). Trang chỉ để đọc và không mở được từng câu.
+- Với bài dạng mastery (được làm lại), số theo buổi là **kết quả lần làm đầu**, có nhãn "Mốc lần làm đầu, không đối chiếu điểm chính thức". Làm lại hay làm bản sửa đạt điểm cao hơn thì số theo buổi vẫn giữ lần đầu (anh Vinh chốt 31/10).
 - "Buổi yếu" là buổi có kết quả dưới 60%; buổi đạt đúng 60% thì không tính là yếu. Nếu đề bị sửa sau khi giao, báo cáo không hiện số.
 - Học viên không thấy gì mới. Không gửi email hay thông báo nào.
 
@@ -131,8 +132,8 @@ Today the product cannot answer that question:
 
 - **FR-001:** Each auto-graded Course quiz question (`_is_course_quiz_question`: type `mcq` or null and `counts_toward_mastery` not false) of the assignment's bank resolves to at most one lesson tag `BNN`. Sources are tried in this order, first match wins: (1) the bank's `meta.lesson_map[qid]` when it matches `^B[0-9]{2}$`; (2) `quiz_questions.skill` when it matches `^B[0-9]{2}$`; (3) `quiz_questions.item_key` when, after NFC normalization and trimming, it matches `Buổi NN` case-insensitively (one or more spaces, one or two digits), normalized to `B` plus two zero-padded digits; (4) otherwise the question is untagged. `subtype`/`dang`, `points`, any other `item_key` text and client-supplied attempt fields (`quiz_attempts.skill`/`item_key`) never decide the lesson. The report states tag coverage as `complete`, `partial` (with the untagged count) or `none`, the number of questions resolved from each source, and `tag_conflicts`: the count of questions where a lower-priority source names a different lesson than the winning one. A conflict is a warning, not a refusal. Writing and other non-quiz sections are excluded and named as excluded.
 - **FR-002:** `import_course_assessment_bank.py` stores each question's validated `lesson_primary` in the bank's `meta.lesson_map` (`{qid: "Bxx"}`) and the per-lesson counts in `meta.lesson_counts` for every new create or replace. The dry-run output and all validations stay unchanged, and no other column or row changes. Banks that are already imported are not modified.
-- **FR-003:** For each learner (one row per `class_assignment_items` row of the assignment), the graded answer set comes from the canonical verdict. For `single_attempt`, these are the sessions listed in the latest completed main-run attempt of `mastery.attempts`. For `mastery` mode, it is the first answer per question across that item's `kind='run'` sessions, which is the rule the existing reports use. Every answer is regraded on the server against the bank key with `grade_attempt`. Each lesson reports `correct`, `answered` and `total`, where `total` is the number of bank quiz questions with that tag. `pct = correct / total × 100`, rounded to one decimal. Unanswered questions count as not correct.
-- **FR-004:** For a quiz-only assignment (`section_counts == {"quiz"}`), the sum of a learner's lesson `correct` values plus the correct untagged questions must match the official `class_assignment_items.score` within 0.05 percentage points. Otherwise the row carries `score_mismatch` and the report-level `stale` flag. For a multi-section assignment, the row states that lesson numbers cover the quiz section only and does not reconcile.
+- **FR-003:** For each learner (one row per `class_assignment_items` row of the assignment), the graded answer set comes from the canonical verdict. For `single_attempt`, these are the sessions listed in the latest completed main-run attempt of `mastery.attempts`. For `mastery` mode, it is the first answer per question across that item's `kind='run'` sessions, which is the rule the existing reports use. These mastery numbers are a **first-attempt baseline** (owner decision Q6): a later full retry or a passing revision does not change them, and each such row carries `baseline: "first_attempt"`. Every answer is regraded on the server against the bank key with `grade_attempt`. Each lesson reports `correct`, `answered` and `total`, where `total` is the number of bank quiz questions with that tag. `pct = correct / total × 100`, rounded to one decimal. Unanswered questions count as not correct.
+- **FR-004:** For a quiz-only `single_attempt` assignment (`section_counts == {"quiz"}`), the sum of a learner's lesson `correct` values plus the correct untagged questions must match the official `class_assignment_items.score` within 0.05 percentage points. Otherwise the row carries `score_mismatch` and the report-level `stale` flag. For a multi-section assignment, the row states that lesson numbers cover the quiz section only and does not reconcile. A `mastery` row is never reconciled against the official score (owner decision Q6). It carries `reconciled: false`, never `score_mismatch`, never sets `stale` for a score difference, and the UI labels it "Mốc lần làm đầu, không đối chiếu điểm chính thức".
 - **FR-005:** Each learner row has one state: `no_account`, `untouched`, `in_progress`, `graded` or `timed_out`. Only `graded` and `timed_out` rows carry lesson numbers. A learner whose item survives a class move or an archive still appears, with a marker. No row is dropped because `user_id` is null.
 - **FR-006:** The class result covers only rows with numbers. For each lesson it reports the summed `correct`/`total`, `pct`, the number of learners for whom that lesson is weak, and `counted`/`assigned` learner counts. `sample_low` is true when fewer than 3 learners are counted.
 - **FR-007:** A lesson is weak when its `pct` is strictly below 60 (`LESSON_WEAK_PCT = 60`, owner decision 3). A lesson at exactly 60.0% is not weak. Each learner's up to 3 lowest weak lessons are flagged, with ties broken by lesson number. The class shows its weak lessons and the 3 lowest lessons by class `pct`. Lessons are always listed in numeric order B01→Bnn, with untagged last. The highlight is carried by text, not by colour alone.
@@ -226,7 +227,12 @@ Today the product cannot answer that question:
 ## Edge cases
 
 - The same qid is answered twice because a stage was redone. FR-003's rule
-  applies, and a single shared helper with the verdict keeps both counts equal.
+  applies. For `single_attempt`, a single shared helper with the verdict keeps
+  both counts equal. For `mastery`, the first answer stays the baseline and the
+  row is not reconciled (FR-004, owner decision Q6).
+- A mastery learner scores 60%, then passes a full retry or a revision at
+  100%. The lesson numbers still show the first attempt, the row is labelled
+  "Mốc lần làm đầu", and there is no `score_mismatch` and no `stale`.
 - An attempt's qid is not in the bank. It is excluded, counted in
   `unmatched_answers`, and sets `stale`.
 - A learner has a verdict but the sessions it lists are missing. The row is
@@ -285,3 +291,11 @@ All questions in the draft are resolved. None remain open.
   has not merged by then, T004 is rebased after it.
 - **Q5 → refuse on drift.** Vinh: "Đề bị sửa sau khi giao thì không hiện số".
   FR-008 keeps 409 `lesson_report_revision_drift` with no numbers.
+- **Q6 → mastery numbers are a first-attempt baseline.** Vinh chose option
+  (a) on 2026-10-31 (UTC+7), in this chat with Claude, after review thread
+  r4422843556 showed FR-003 and FR-004 cannot both hold for a mastery learner
+  with a full retry or a passing revision. FR-003 keeps the first answer per
+  qid for mastery mode, and FR-004 reconciles `single_attempt` only. The
+  rejected option (b), reporting the verdict's session set, would always
+  reconcile but would show post-retry results and lose the diagnosis of which
+  lessons were weak at first.

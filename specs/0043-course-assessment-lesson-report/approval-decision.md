@@ -33,3 +33,18 @@ neither re-imported nor modified.
 Scope: there is no migration. Code goes to staging first. Promotion to
 production needs the owner's explicit authorization at the `staging` →
 `main` promotion, as for every release.
+
+## Owner decision on 2026-10-31 (Q6)
+
+Vinh (repository owner) decided on 2026-10-31 (UTC+7), in his chat with
+Claude, to take option (a) for review thread r4422843556: mastery-mode lesson
+numbers are a first-attempt baseline and are not reconciled against the
+official score. Claude only proposed the options; the decision is the owner's.
+
+- FR-003: mastery mode keeps the first answer per qid; rows carry
+  `baseline: "first_attempt"`.
+- FR-004: reconciliation applies to quiz-only `single_attempt` assignments.
+  Mastery rows carry `reconciled: false`, never `score_mismatch`, and never set
+  `stale` for a score difference.
+- Rejected option (b): report the verdict's session set. It always reconciles
+  but shows post-retry results and loses the first-attempt diagnosis.

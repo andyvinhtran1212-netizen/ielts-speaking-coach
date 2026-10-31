@@ -28,7 +28,8 @@ number is **TBD (Leader assigns)**.
     regraded with `quiz_service.grade_attempt`.
     - The per-qid duplicate rule is **extracted from `course_verdict`** into a
       shared helper in `quiz_service`, so the verdict and the report cannot
-      diverge (FR-004). This is a pure refactor and the verdict's behaviour does
+      diverge for `single_attempt` (FR-004). Mastery rows are a first-attempt
+      baseline and are not reconciled (owner decision Q6). This is a pure refactor and the verdict's behaviour does
       not change. It is covered by the existing verdict tests and a new
       equality test.
   - `revision_state(assignment, bank_id, items, key_of)` implements FR-008. It
@@ -108,7 +109,7 @@ number is **TBD (Leader assigns)**.
   - `weak_pct`
   - `lessons: [{tag, label, total}]`
   - `class: {counted, assigned, sample_low, lessons: [{tag, correct, total, pct, weak, weak_learners}], weakest: [tag]}`
-  - `learners: [{student_id, name, student_code, state, moved_or_archived, score, score_mismatch, quiz_only, lessons: [{tag, correct, answered, total, pct, weak}], weakest: [tag]}]`
+  - `learners: [{student_id, name, student_code, state, moved_or_archived, score, score_mismatch, reconciled, baseline, quiz_only, lessons: [{tag, correct, answered, total, pct, weak}], weakest: [tag]}]`
   - `unmatched_answers`, `stale`
   - The 409 body is `{code: "lesson_report_revision_drift", detail}`, and the
     422 body is `{code: "lesson_report_not_applicable", detail}`.
