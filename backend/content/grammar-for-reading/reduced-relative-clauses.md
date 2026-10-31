@@ -112,7 +112,9 @@ Khi mệnh đề mang nghĩa **bị động**, rút thành **V3**:
 
 Mẹo đọc: V3 ngay sau danh từ = "danh từ **bị/được** làm gì". Cụm *by…* thường theo sau xác nhận nghĩa bị động.
 
-Ngoài ra, bài đọc hay rút gọn bằng **to-V** sau *the first / the last / the only* hoặc so sánh nhất: *the first person **to reach** the summit* (= the first person who reached the summit), *the last country **to adopt** the euro* (= the last country that adopted the euro).
+### Rút gọn bằng to-V
+
+Bài đọc hay rút gọn bằng **to-V** sau *the first / the last / the only* hoặc so sánh nhất: *the first person **to reach** the summit* (= the first person who reached the summit), *the last country **to adopt** the euro* (= the last country that adopted the euro).
 
 <!-- anchor: reduced-relative-clauses.pitfall -->
 ## Bẫy khi đọc
@@ -130,6 +132,35 @@ Ngoài ra, bài đọc hay rút gọn bằng **to-V** sau *the first / the last 
 1. Thấy danh từ + V-ing/V3 ngay sau → nghi ngờ mệnh đề rút gọn.
 2. Tạm nhóm cụm phân từ để lộ **động từ chính**, rồi ghép lại thông tin bổ nghĩa khi hiểu câu.
 3. Xác định chủ động (V-ing) hay bị động (V3) để hiểu đúng ai làm gì.
+
+## Lỗi người Việt hay gặp
+
+Khi dịch sang tiếng Việt, người học dễ thêm "đang" trước mọi V-ing hoặc đọc V3 như một động từ quá khứ. Hãy xác định vai trò của cụm từ trước khi chọn cách dịch.
+
+- ❌ *The boxes delivered yesterday are in storage.* → coi *delivered* là động từ chính rồi bỏ qua *are*.
+- ✅ *delivered yesterday* bổ nghĩa cho *boxes*; động từ chính là **are**. Khung câu: *The boxes are in storage.*
+- ❌ *people working here* → luôn hiểu là "những người đang làm việc ngay lúc này".
+- ✅ Cụm này có thể chỉ những người làm việc tại đây nói chung. Cần ngữ cảnh để biết hoạt động thường lệ hay đang diễn ra.
+
+Với *the visitor questioning the guide*, người khách đặt câu hỏi. Với *the visitor questioned by the guide*, người hướng dẫn hỏi người khách. Đừng chọn chủ động hay bị động chỉ theo danh từ đứng đầu.
+
+## Bài tập luyện
+
+### Tìm khung câu và mở rộng cụm rút gọn
+
+1. Tìm động từ chính: *The letter delivered this morning contains the address.*
+2. Mở rộng phần in đậm: *Residents **living near the park** use this entrance.*
+3. Mở rộng phần in đậm, dùng hiện tại đơn bị động: *Tools **stored in this cupboard** belong to the workshop.*
+4. Chọn dạng đúng khi người biên tập là người đọc: *The editor ___ the notes is in her office.* (reviewing / reviewed)
+5. Mở rộng phần in đậm: *The first volunteer **to arrive** opened the gate.*
+
+### Đáp án và giải thích
+
+1. **contains**. *delivered this morning* là cụm bị động rút gọn bổ nghĩa cho *letter*; khung chính là *The letter contains the address.*
+2. *Residents **who live near the park** use this entrance.* Người dân thực hiện hành động *live*, nên cụm V-ing mang nghĩa chủ động. *Who are living* cũng đúng nếu ngữ cảnh nói về nơi ở tạm thời.
+3. *Tools **that are stored in this cupboard** belong to the workshop.* Dụng cụ được cất, không tự cất thứ khác; vì vậy dùng **are stored**.
+4. **reviewing**. Người biên tập thực hiện việc đọc ghi chú; *is* mới là động từ chính của câu. *Reviewed* sẽ khiến người biên tập thành đối tượng được xem xét.
+5. *The first volunteer **who arrived** opened the gate.* *To arrive* bổ nghĩa sau *the first volunteer*, nói thứ tự đến; thời gian quá khứ được xác định qua ngữ cảnh *opened*.
 
 ## Tóm tắt nhanh
 

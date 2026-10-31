@@ -55,7 +55,7 @@ anchors:
 <!-- anchor: avoiding-informal-grammar.overview -->
 ## Tóm tắt
 
-IELTS Writing dùng **văn viết trang trọng** (bán trang trọng cho Task 2). Nhiều thí sinh viết như đang nói — mất điểm ở giọng (register).
+IELTS Writing dùng **văn viết trang trọng** (bán trang trọng cho Task 2; riêng thư GT Task 1 chọn giọng theo người nhận, xem phần Ứng dụng). Nhiều thí sinh viết như đang nói — mất điểm ở giọng (register).
 
 <!-- anchor: avoiding-informal-grammar.signals -->
 ### Dấu hiệu văn nói cần tránh
@@ -100,6 +100,33 @@ Nêu quan điểm trực tiếp thay vì hỏi ngược người đọc.
 **Task 2:** giọng bán trang trọng — cho phép quan điểm cá nhân nhưng không viết tắt, không tiếng lóng.
 
 **Academic Task 1 (report):** trang trọng. **General Training Task 1 (letter):** chọn giọng theo người nhận: trang trọng (cơ quan, công ty), bán trang trọng (người quen), thân mật (bạn bè; viết tắt chấp nhận được).
+
+## Lỗi người Việt hay gặp
+
+Khi luyện viết từ hội thoại, người học dễ mang nguyên dạng rút gọn hoặc cách gọi thân mật sang đoạn văn học thuật. Hãy xác định người đọc và mục đích trước khi sửa từ.
+
+- Với đoạn văn trang trọng: *Kids can't use this entrance.* → *Children cannot use this entrance.* Dạng đầy đủ và danh từ trung tính phù hợp hơn.
+- Với thư cho bạn thân: *I'm glad you can come.* có thể hoàn toàn phù hợp. Không cần đổi mọi thư GT Task 1 thành giọng báo cáo.
+
+Đừng thay từ máy móc chỉ vì từ mới dài hơn. *Many* đi với danh từ đếm được số nhiều; *much* đi với danh từ không đếm được. Giữ quan điểm của người viết khi sửa giọng: *I believe* vẫn có thể dùng trong Task 2, còn *It can be argued that* chỉ giới thiệu một lập luận.
+
+## Bài tập luyện
+
+### Chọn giọng theo người nhận
+
+1. Viết đầy đủ cho đoạn văn trang trọng: *The service isn't available today.*
+2. Đổi cách gọi thân mật: *Kids need safe places to play.*
+3. Chọn dạng phù hợp: *The team collected ___ information.* (many / a great deal of)
+4. Giữ rõ đây là ý kiến của người viết: *I think the proposal is practical.* Có thể thay *I think* bằng cụm nào trong bảng ở trên?
+5. Trong thư GT Task 1 gửi bạn thân, *I'm looking forward to seeing you* có bắt buộc đổi thành *I am* không?
+
+### Đáp án và giải thích
+
+1. *The service **is not** available today.* Viết đầy đủ *isn't* giúp câu phù hợp với yêu cầu giọng trang trọng của bài tập.
+2. ***Children** need safe places to play.* *Children* là cách gọi trung tính hơn *kids*; nội dung câu vẫn giữ nguyên.
+3. **a great deal of**. *Information* là danh từ không đếm được nên không dùng *many information*. Cụm được chọn vừa đúng cấu trúc vừa phù hợp văn trang trọng.
+4. ***I believe** the proposal is practical.* Hoặc: ***In my view**, the proposal is practical.* Hai cách đều giữ rõ lập trường cá nhân; không tự đổi thành một nhận định vô chủ thể.
+5. **Không bắt buộc**. Thư gửi bạn thân có thể dùng dạng rút gọn để giữ giọng thân mật phù hợp người nhận. Quy tắc tránh viết tắt trong đoạn học thuật không áp dụng máy móc cho loại thư này.
 
 ## Tóm tắt nhanh
 
