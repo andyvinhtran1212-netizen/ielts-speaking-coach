@@ -4,12 +4,12 @@
 // Usage: node tooling/verify-grammar-navigation-flow.mjs http://localhost:3000
 //        node tooling/verify-grammar-navigation-flow.mjs --standalone [base]
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
 import { noun, verb, related } from './grammar-navigation-fixtures.mjs';
+import { killGroup, spawnGroup } from './process-group.mjs';
 
 const args = process.argv.slice(2);
 const standalone = args.includes('--standalone');
@@ -24,27 +24,75 @@ let fixtureOrigin = process.env.AVER_API_BASE || `http://127.0.0.1:${process.env
 let fixture;
 let next;
 let nextOutput = '';
-async function waitForChild(child, ready) {
-  await new Promise((resolve, reject) => {
-    const timer = setTimeout(() => { clearInterval(poll); reject(new Error('Standalone fixture server startup timed out')); }, 20000);
-    const poll = setInterval(() => {
-      if (child.exitCode != null) { clearTimeout(timer); clearInterval(poll); reject(new Error('Standalone fixture server exited during startup')); }
-      else if (ready()) { clearTimeout(timer); clearInterval(poll); resolve(); }
-    }, 100);
-  });
-}
 let browser;
+let cleanupPromise;
+const startupAbort = new AbortController();
+function cleanup() {
+  cleanupPromise ??= (async () => {
+    const results = await Promise.allSettled([
+      killGroup(next).then(() => { next = undefined; }),
+      killGroup(fixture).then(() => { fixture = undefined; }),
+      browser?.close(),
+    ]);
+    const errors = results.filter((result) => result.status === 'rejected').map((result) => result.reason);
+    if (errors.length) throw new AggregateError(errors, 'Standalone server cleanup failed');
+  })();
+  return cleanupPromise;
+}
+const onSignal = (signal) => {
+  startupAbort.abort(new Error(`Standalone verification interrupted by ${signal}`));
+  void cleanup().catch(console.error).finally(() => process.exit(signal === 'SIGINT' ? 130 : 143));
+};
+const onExit = () => {
+  // process.exit() cannot await cleanup; this also covers an unexpected exit.
+  void killGroup(next, 'SIGKILL');
+  void killGroup(fixture, 'SIGKILL');
+};
+if (standalone) {
+  process.on('SIGINT', onSignal);
+  process.on('SIGTERM', onSignal);
+  process.on('exit', onExit);
+}
+async function waitForChild(child, ready) {
+  try {
+    startupAbort.signal.throwIfAborted();
+    await new Promise((resolve, reject) => {
+      const finish = (error) => {
+        clearTimeout(timer);
+        clearInterval(poll);
+        child.off('error', finish);
+        child.off('exit', onChildExit);
+        startupAbort.signal.removeEventListener('abort', onAbort);
+        if (error) reject(error); else resolve();
+      };
+      const onChildExit = () => finish(new Error('Standalone fixture server exited during startup'));
+      const onAbort = () => finish(startupAbort.signal.reason);
+      const timer = setTimeout(() => finish(new Error('Standalone fixture server startup timed out')), 20000);
+      const poll = setInterval(() => {
+        if (child.exitCode != null || child.signalCode != null) onChildExit();
+        else if (ready()) finish();
+      }, 100);
+      child.once('error', finish);
+      child.once('exit', onChildExit);
+      startupAbort.signal.addEventListener('abort', onAbort, { once: true });
+    });
+    startupAbort.signal.throwIfAborted();
+  } catch (error) {
+    await cleanup();
+    throw error;
+  }
+}
 let checks = 0;
 const check = (label, ok) => { assert.ok(ok, label); checks += 1; console.log(`✓ ${label}`); };
 try {
   if (standalone) {
     let fixtureOutput = '';
-    fixture = spawn(process.execPath, ['tooling/next-native-fixture-api.mjs'], { cwd: frontend, env: { ...process.env, NEXT_NATIVE_FIXTURE_PORT: '0' }, stdio: ['ignore', 'pipe', 'pipe'] });
+    fixture = spawnGroup(process.execPath, ['tooling/next-native-fixture-api.mjs'], { cwd: frontend, env: { ...process.env, NEXT_NATIVE_FIXTURE_PORT: '0' }, stdio: ['ignore', 'pipe', 'pipe'] });
     fixture.stdout.on('data', (data) => { fixtureOutput += data; });
     fixture.stderr.on('data', (data) => { nextOutput += data; });
     await waitForChild(fixture, () => /listening on (http:\/\/127\.0\.0\.1:\d+)/.test(fixtureOutput));
     fixtureOrigin = /listening on (http:\/\/127\.0\.0\.1:\d+)/.exec(fixtureOutput)[1];
-    next = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--hostname', base.hostname, '--port', base.port], {
+    next = spawnGroup(process.execPath, ['node_modules/next/dist/bin/next', 'dev', '--hostname', base.hostname, '--port', base.port], {
       cwd: frontend, env: { ...process.env, AVER_API_BASE: fixtureOrigin, AVER_ENVIRONMENT: 'test' }, stdio: ['ignore', 'pipe', 'pipe'],
     });
     next.stdout.on('data', (data) => { nextOutput = (nextOutput + data).slice(-12000); });
@@ -145,7 +193,11 @@ try {
 } catch (error) {
   console.error(nextOutput.slice(-5000)); throw error;
 } finally {
-  if (browser) await browser.close();
-  next?.kill('SIGTERM');
-  fixture?.kill('SIGTERM');
+  try {
+    await cleanup();
+  } finally {
+    process.off('SIGINT', onSignal);
+    process.off('SIGTERM', onSignal);
+    if (!next && !fixture) process.off('exit', onExit);
+  }
 }

@@ -12742,10 +12742,13 @@ export interface paths {
          *     can prove whether prod Railway is on stale code (Scenario A) vs the
          *     matcher itself dropping anchors (B/C/D).
          *
-         *     Mapping inventory stays public (open-source ids, no PII). The Railway
-         *     deployment identifiers (git SHA, deployment/service/env names) aid
-         *     fingerprinting, so they're redacted for anonymous callers and returned
-         *     only to admins (an admin curl with a Bearer token still gets them).
+         *     The route stays unauthenticated so probes can reach it, but anonymous
+         *     callers get only ``status`` and ``timestamp``; the Railway deployment
+         *     identifiers (git SHA, branch, deployment/service/env names) and the
+         *     ``grammar_mappings`` inventory (counts, sentinel ids) are redacted and
+         *     returned only to admins (an admin curl with a Bearer token still gets
+         *     them).  The block was renamed from ``mappings`` because that name was
+         *     misread as a migration count (PC-1028-12).
          */
         get: operations["health_runtime_health_runtime_get"];
         put?: never;
@@ -19318,6 +19321,21 @@ export interface components {
              */
             hide_subbands: boolean;
         };
+        /** MfaRequiredDetail */
+        MfaRequiredDetail: {
+            /**
+             * Code
+             * @constant
+             */
+            code: "mfa_required";
+            /**
+             * Next Step
+             * @enum {string}
+             */
+            next_step: "none" | "enroll" | "challenge";
+            /** Message */
+            message: string;
+        };
         /** MicrocheckAnswer */
         MicrocheckAnswer: {
             kp: components["schemas"]["KpRef"];
@@ -21983,6 +22001,11 @@ export interface components {
             /** Sign In Restored */
             sign_in_restored?: boolean | null;
         };
+        /** StaffForbiddenResponse */
+        StaffForbiddenResponse: {
+            /** Detail */
+            detail: components["schemas"]["StepUpRequiredDetail"] | components["schemas"]["MfaRequiredDetail"] | string;
+        };
         /** StartGradingRequest */
         StartGradingRequest: {
             /**
@@ -22038,6 +22061,23 @@ export interface components {
         StatusIn: {
             /** Status */
             status: string;
+        };
+        /** StepUpRequiredDetail */
+        StepUpRequiredDetail: {
+            /**
+             * Code
+             * @constant
+             */
+            code: "step_up_required";
+            /**
+             * Next Step
+             * @constant
+             */
+            next_step: "challenge";
+            /** Max Age Seconds */
+            max_age_seconds: number;
+            /** Message */
+            message: string;
         };
         /** StrengthResponse */
         StrengthResponse: {
@@ -23964,6 +24004,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserRoleChangeOut"];
+                };
+            };
+            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffForbiddenResponse"];
                 };
             };
             /** @description Validation Error */
@@ -26086,6 +26135,15 @@ export interface operations {
                     "application/json": components["schemas"]["StaffActiveOut"];
                 };
             };
+            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffForbiddenResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -26121,6 +26179,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RevokeSessionsOut"];
+                };
+            };
+            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffForbiddenResponse"];
                 };
             };
             /** @description Validation Error */

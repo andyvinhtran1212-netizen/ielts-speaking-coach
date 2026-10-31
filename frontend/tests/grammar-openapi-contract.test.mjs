@@ -95,5 +95,5 @@ test('report action follows server-owned assigned versus self-serve identity', (
   // booted with (`sessionId`), and replies are tagged with the boot generation.
   assert.match(DIAGNOSTIC, /const sessionId = switched \? '' : requestedSession;/);
   assert.match(DIAGNOSTIC, /requestedView === 'report'\) await showReport\(sessionId, gen\)/);
-  assert.match(DIAGNOSTIC, /report\.assigned \? <a[^>]+href="\/my-class">Quay lại My Class<\/a> : <a[^>]+href="\/grammar-checkup">Làm lượt mới<\/a>/);
+  assert.match(DIAGNOSTIC, /report\.assigned \? <a[^>]+href="\/my-class">Quay lại Lớp học<\/a> : <a[^>]+href="\/grammar-checkup">Làm lượt mới<\/a>/);
 });

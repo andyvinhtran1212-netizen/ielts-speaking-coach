@@ -146,6 +146,14 @@ export function retakeClone(q, rng) {
   };
 }
 
+// Lỗi mang `code` để trang phân biệt bank rỗng / bộ nhớ trình duyệt hỏng với
+// lỗi kết nối (PC-J315). Lỗi không mã vẫn là lỗi kết nối như cũ.
+function codedError(message, code) {
+  const err = new Error(message);
+  /** @type {any} */ (err).code = code;
+  return err;
+}
+
 export function createRunner({
   api, storage, userId = null, now = () => Date.now(),
   schedule = (fn, delay) => setTimeout(fn, delay),
@@ -247,7 +255,7 @@ export function createRunner({
   function recoverOutbox() {
     if (!sessionId || sessionEnded) return;
     try { pending = readOutbox(); } catch (e) {
-      throw new Error('Chưa đọc được đáp án lưu trên máy. Kiểm tra quyền lưu của trình duyệt rồi thử tải lại tiến độ.');
+      throw codedError('Chưa đọc được đáp án lưu trên máy. Kiểm tra quyền lưu của trình duyệt rồi thử tải lại tiến độ.', 'storage_unavailable');
     }
     const list = stageQuestions();
     const byQid = new Map(pending.map((row) => [row.qid, row]));
@@ -772,7 +780,7 @@ export function createRunner({
       throw new Error('Chưa có phiên lưu đáp án. Hãy tải lại bài rồi thử lại.');
     }
     try { writeOutbox([row]); } catch (e) {
-      throw new Error('Chưa lưu được đáp án trên máy. Kiểm tra dung lượng hoặc quyền lưu của trình duyệt rồi chọn lại.');
+      throw codedError('Chưa lưu được đáp án trên máy. Kiểm tra dung lượng hoặc quyền lưu của trình duyệt rồi chọn lại.', 'storage_unavailable');
     }
     pending.push(row);
   }
@@ -845,7 +853,7 @@ export function createRunner({
       writingQs = qs.filter(function (q) { return q.type === 'writing'; });
       qs = qs.filter(isCourseQuizQuestion);
       if (!qs.length && !writingQs.length) {
-        throw new Error('Bài tập này chưa có câu hỏi nào.');
+        throw codedError('Bài tập này chưa có câu hỏi.', 'bank_empty');
       }
       // Lane xem kết quả tuyệt đối không khôi phục/chốt/mở phiên. Nếu chạy qua
       // flow thường, một lần bấm "Xem kết quả" có thể đẻ quiz session rỗng.

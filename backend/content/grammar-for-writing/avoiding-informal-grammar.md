@@ -73,10 +73,12 @@ IELTS Writing dùng **văn viết trang trọng** (bán trang trọng cho Task 2
 |---|---|
 | don't / can't | do not / cannot |
 | a lot of | many / a significant number of |
+| a lot of research | much / a great deal of research |
 | get better | improve |
+| get worse | deteriorate |
 | big problem | major issue |
 | kids | children |
-| I think… | Có thể giữ cho ý kiến bản thân; It can be argued that diễn đạt khả năng lập luận, không tự giữ cùng lập trường |
+| I think… | *In my view / I believe* (Task 2 vẫn được nêu ý kiến). *It can be argued that…* chỉ giới thiệu một lập luận, không nhất thiết là quan điểm của người viết. |
 
 Giọng học thuật thường **khách quan** hơn: dùng bị động, danh hoá, và tránh *you*.
 
@@ -96,10 +98,11 @@ Nêu quan điểm trực tiếp thay vì hỏi ngược người đọc.
 ## Ứng dụng trong bài thi
 
 **Task 2:** giọng bán trang trọng — cho phép quan điểm cá nhân nhưng không viết tắt, không tiếng lóng.
-**Task 1 (formal letter/report):** trang trọng hoàn toàn.
+
+**Academic Task 1 (report):** trang trọng. **General Training Task 1 (letter):** chọn giọng theo người nhận: trang trọng (cơ quan, công ty), bán trang trọng (người quen), thân mật (bạn bè; viết tắt chấp nhận được).
 
 ## Tóm tắt nhanh
 
 - Tránh viết tắt, phrasal verb thông tục, tiếng lóng, câu hỏi tu từ
-- Chọn theo nghĩa và cấu trúc: “a lot of people → many people”, “a lot of research → much/a great deal of research”; get không luôn là obtain (get worse → deteriorate) và kids thường → children
+- Chọn từ trang trọng phù hợp nghĩa (a lot of → many / much tuỳ danh từ đếm được hay không)
 - Giọng khách quan; hạn chế *you*

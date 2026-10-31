@@ -81,14 +81,18 @@ describe('route-scoped independent scripts survive App Router navigation', () =>
 describe('ordered route dependencies use the sequential client loader', () => {
   const chainSource = readFileSync(join(frontend, 'components/route-script-chain.tsx'), 'utf8');
 
-  test('loader advances only from Next Script onReady and reports load errors', () => {
+  // PC-J280: a step remounted while its src is still loading never gets
+  // onReady from next/script, so every step waits on the shared per-src
+  // registry (native load/error on the injected element) instead.
+  test('loader advances from the shared per-src load registry and reports load errors', () => {
     assert.match(chainSource, /^['"]use client['"];?/);
     assert.match(chainSource, /import Script from ['"]next\/script['"]/);
     assert.match(chainSource, /strategy="afterInteractive"/);
-    assert.match(
-      chainSource,
-      /onReady=\{\(\) => \{[\s\S]*?reportScriptReady\(script\.src\);[\s\S]*?setReady\(true\);/,
-    );
+    assert.match(chainSource, /const scriptRegistry = new Map<string, ScriptEntry>\(\)/);
+    assert.match(chainSource, /addEventListener\('load', \(\) => settleScript\(src, 'loaded'\)/);
+    assert.match(chainSource, /addEventListener\('error', \(\) => settleScript\(src, 'failed'\)/);
+    assert.match(chainSource, /onReady=\{\(\) => settleFromNextScript\(script\.src, 'loaded'\)\}/);
+    assert.match(chainSource, /if \(outcome === 'loaded'\) \{\s*reportScriptReady\(src\);/);
     assert.match(chainSource, /ready && index \+ 1 < scripts\.length/);
     assert.match(chainSource, /type: 'route_script_load_failed'/);
   });

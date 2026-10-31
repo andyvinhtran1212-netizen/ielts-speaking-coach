@@ -134,4 +134,8 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 
 | RLSCLEANUP-0039 | No RLS policy depends on the revoked admin or instructor helper functions, and learner or instructor JWTs have no direct access to the 21 admin-managed tables | approved | high | [spec](0039-rls-admin-policy-cleanup/spec.md) |
 
+| VOCABGUARD-0040 | A review or task of a published curated vocabulary version can never be moved to another version | approved | high | [spec](0040-vocab-curated-published-child-guard/spec.md) |
+
+| CALAPPEND-0041 | The class action log is append-only for every role, and no role can wipe it with TRUNCATE | approved | high | [spec](0041-class-action-log-append-only/spec.md) |
+
 | LESSONREPORT-0043 | Teachers see a course assessment's results per lesson for each learner and the whole class, with the weakest lessons highlighted | approved | high | [spec](0043-course-assessment-lesson-report/spec.md) |

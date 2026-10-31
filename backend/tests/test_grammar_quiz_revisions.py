@@ -32,8 +32,7 @@ def canonical_engine(pg, *, timezone=None,poolclass=None):
     return engine
 
 
-@pytest_asyncio.fixture
-async def canonical(pg):
+async def _canonical_setup(pg):
     source = parse_reviewed_source(CODE,SOURCE)
     original = [{**question} for question in source.questions]
     next(question for question in original if question['qid']=='ps_vspc_a1')['answer'] = 0
@@ -46,6 +45,15 @@ async def canonical(pg):
         yield pg,engine
     finally:
         await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def canonical(pg):
+    gen = _canonical_setup(pg)
+    try:
+        yield await anext(gen)
+    finally:
+        await gen.aclose()
 
 
 @pytest.mark.asyncio

@@ -1,0 +1,32 @@
+/* ADMINAAL2-0032 TOTP code UI: the /admin/mfa page and the Amendment 1 step-up
+   prompt (FR-020), which AdminAccessGate opens on ANY admin page. The prompt
+   links this file itself (AdminStepUpDialog), so a direct load of e.g.
+   /admin/users is styled without its layout knowing about it. The dialog frame
+   is scoped to .amfa-dialog(-backdrop): two classes outrank a page's own
+   page-local .acd-dialog copy whatever the link order, and this file never
+   restyles that page's other dialogs. Tokens only, no motion. */
+.amfa-code{display:grid;gap:var(--av-space-2)}
+.amfa-code label,.amfa-select span{font-size:var(--av-fs-sm);font-weight:var(--av-fw-semibold)}
+.amfa-code input{width:min(100%,12rem);min-height:44px;padding:0 var(--av-space-3);border:1px solid var(--av-border-default);border-radius:var(--av-radius-md);background:var(--av-surface-page);color:var(--av-text-primary);font:inherit;font-size:var(--av-fs-lg);letter-spacing:.2em}
+.amfa-code__actions{display:flex;flex-wrap:wrap;gap:var(--av-space-2)}
+.amfa-error{min-height:1.2em;margin:0;color:var(--av-error);font-size:var(--av-fs-sm)}
+.amfa-select{display:grid;gap:var(--av-space-1)}
+.amfa-select select{min-height:40px;max-width:100%;border:1px solid var(--av-border-default);border-radius:var(--av-radius-md);background:var(--av-surface-page);color:var(--av-text-primary);font:inherit}
+.amfa-notice{display:flex;flex-wrap:wrap;align-items:center;gap:var(--av-space-2) var(--av-space-3);padding:var(--av-space-3) var(--av-space-4);border:1px solid var(--av-border-default);border-radius:var(--av-radius-lg);font-size:var(--av-fs-sm)}
+.amfa-notice.is-success{border-color:color-mix(in srgb,var(--av-success) 30%,transparent);background:var(--av-success-soft);color:var(--av-text-primary)}
+.amfa-notice.is-warn{border-color:var(--av-warning);background:var(--av-warning-soft);color:var(--av-text-primary)}
+.amfa-notice.is-error{border-color:color-mix(in srgb,var(--av-error) 30%,transparent);background:var(--av-error-soft);color:var(--av-text-primary)}
+
+/* Shared Dialog (components/admin-directory-ui.tsx) frame for the MFA dialogs. */
+.acd-dialog-backdrop.amfa-dialog-backdrop{position:fixed;z-index:1200;inset:0;display:grid;place-items:center;padding:var(--av-space-4);background:color-mix(in srgb,var(--av-surface-page) 74%,transparent)}
+.acd-dialog.amfa-dialog{display:grid;grid-template-rows:auto minmax(0,1fr) auto;width:min(100%,480px);max-height:calc(100dvh - var(--av-space-8));overflow:hidden;border:1px solid var(--av-border-default);border-radius:var(--av-radius-xl);background:var(--av-surface-card);color:var(--av-text-primary);box-shadow:var(--av-shadow-xl)}
+.acd-dialog.amfa-dialog:focus{outline:0}
+.amfa-dialog .acd-dialog__head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--av-space-4);padding:var(--av-space-6);border-bottom:1px solid var(--av-border-subtle)}
+.amfa-dialog .acd-dialog__head h2{margin:0;font-size:var(--av-fs-lg)}
+.amfa-dialog .acd-dialog__description{margin-top:var(--av-space-2);color:var(--av-text-secondary);font-size:var(--av-fs-sm);line-height:1.6}
+.amfa-dialog .acd-icon-button{display:grid;width:44px;height:44px;flex:0 0 auto;place-items:center;border:1px solid var(--av-border-default);border-radius:var(--av-radius-pill);background:transparent;color:var(--av-text-primary);font:inherit;font-size:22px}
+.amfa-dialog .acd-dialog__body{display:grid;gap:var(--av-space-3);min-height:0;padding:var(--av-space-6);overflow-y:auto}
+.amfa-dialog .acd-dialog__actions{display:flex;justify-content:flex-end;gap:var(--av-space-2);padding:var(--av-space-4) var(--av-space-6);border-top:1px solid var(--av-border-subtle)}
+.amfa-dialog :is(a,button,input,select):focus-visible{outline:2px solid var(--av-primary);outline-offset:2px}
+
+@media(max-width:430px){.acd-dialog-backdrop.amfa-dialog-backdrop{align-items:end;padding:0}.acd-dialog.amfa-dialog{width:100%;border-radius:var(--av-radius-xl) var(--av-radius-xl) 0 0}}

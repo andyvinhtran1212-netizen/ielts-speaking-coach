@@ -20,6 +20,7 @@ Convention notes:
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
 import logging
 import time
@@ -41,6 +42,7 @@ from models.writing_feedback import (
 )
 from services.writing_history import format_history_for_prompt
 from services.writing_prompt_loader import get_prompt_loader
+from services.writing_feedback_consistency import repair_writing_consistency
 from services.ai_pricing import estimate_token_cost, token_rate
 from services import ai_failure_log, ai_router, ai_usage_logger
 from services.gemini_compat import generation_config_kwargs
@@ -267,12 +269,12 @@ class GeminiWritingGrader:
         tier = config.grading_tier
 
         if tier == GradingTier.STANDARD:
-            return await self._grade_standard(config, loader)
-        if tier == GradingTier.DEEP:
-            return await self._grade_deep(config, loader)
-        if tier == GradingTier.INSTRUCTOR:
-            return await self._grade_instructor(config, loader)
-        if tier == GradingTier.QUICK:
+            result = await self._grade_standard(config, loader)
+        elif tier == GradingTier.DEEP:
+            result = await self._grade_deep(config, loader)
+        elif tier == GradingTier.INSTRUCTOR:
+            result = await self._grade_instructor(config, loader)
+        elif tier == GradingTier.QUICK:
             raise ValueError(
                 "Quick tier was removed in Sprint 2.7a.1 (orthogonality "
                 "conflict with Levels L3–L5). Use 'standard' tier with "
@@ -280,7 +282,24 @@ class GeminiWritingGrader:
                 "layer rejects this earlier with 400 — reaching the "
                 "grader means a bypass; investigate the call site."
             )
-        raise ValueError(f"Unknown grading tier: {tier!r}")
+        else:
+            raise ValueError(f"Unknown grading tier: {tier!r}")
+
+        # Check the assembled result so Deep additions/score changes cannot
+        # reintroduce contradictions. Repairs never spend another AI call.
+        # They run on a copy: a repair bug keeps the unrepaired feedback
+        # instead of failing a grade that was already paid for.
+        try:
+            feedback = copy.deepcopy(result.feedback)
+            repaired = repair_writing_consistency(feedback, config.task_type)
+        except Exception as e:
+            logger.warning("[grader] consistency repair failed, keeping unrepaired "
+                           "feedback: %s", type(e).__name__)
+        else:
+            result.feedback = feedback
+            if repaired:
+                logger.info("[grader] consistency repairs: %s", ", ".join(repaired))
+        return result
 
     async def _grade_instructor(
         self,
@@ -760,6 +779,7 @@ class GeminiWritingGrader:
 
         history_block = format_history_for_prompt(
             config.history, config.trajectory, config.sentence_structure,
+            task_type=config.task_type,
         )
         if history_block:
             parts.append(history_block)

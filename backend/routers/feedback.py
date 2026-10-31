@@ -354,7 +354,8 @@ async def submit_feedback(
             })
         if "uq_feedback_rating" in msg or "duplicate key" in msg or "23505" in msg:
             raise HTTPException(409, "Bạn đã đánh giá đề này rồi.")
-        raise HTTPException(500, f"Không lưu được feedback: {exc}")
+        logger.error("[feedback] insert failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Không lưu được feedback. Vui lòng thử lại.") from None
 
     return {"id": row["id"], "status": "new"}
 

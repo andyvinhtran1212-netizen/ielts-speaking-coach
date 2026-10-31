@@ -20,6 +20,7 @@ because `class_assignments.lesson_id` is ON DELETE SET NULL (mig 177/178).
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Any
 
@@ -28,6 +29,8 @@ from pydantic import BaseModel, Field, field_validator
 
 from database import supabase_admin
 from routers.admin import require_admin
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin/cohorts", tags=["admin", "class-lessons"])
 
@@ -115,7 +118,8 @@ async def list_lessons(cohort_id: str, authorization: str | None = Header(defaul
             .eq("cohort_id", cohort_id).execute().data
         ) or []
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi tải buổi học: {exc}")
+        logger.error("[class-lessons] list lessons failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tải buổi học. Vui lòng thử lại.") from None
 
     return {"lessons": sorted(rows, key=_sort_key)}
 
@@ -142,7 +146,8 @@ async def create_lesson(
     try:
         r = supabase_admin.table("class_lessons").insert(payload).execute()
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi tạo buổi học: {exc}")
+        logger.error("[class-lessons] create lesson failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tạo buổi học. Vui lòng thử lại.") from None
     if not r.data:
         raise HTTPException(500, "Không tạo được buổi học")
     return r.data[0]
@@ -172,7 +177,8 @@ async def update_lesson(
             .eq("id", lesson_id).eq("cohort_id", cohort_id).execute()
         )
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi cập nhật buổi học: {exc}")
+        logger.error("[class-lessons] update lesson failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi cập nhật buổi học. Vui lòng thử lại.") from None
     if not r.data:
         raise HTTPException(404, "Không tìm thấy buổi học trong lớp này")
     return r.data[0]
@@ -194,6 +200,7 @@ async def delete_lesson(
             .eq("id", lesson_id).eq("cohort_id", cohort_id).execute()
         )
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi xoá buổi học: {exc}")
+        logger.error("[class-lessons] delete lesson failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi xoá buổi học. Vui lòng thử lại.") from None
     if not r.data:
         raise HTTPException(404, "Không tìm thấy buổi học trong lớp này")

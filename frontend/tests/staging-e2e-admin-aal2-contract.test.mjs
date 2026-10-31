@@ -386,3 +386,36 @@ test('release provenance preserves AAL1 operation before the CI secret is config
   assert.equal(result.evidence.admin_aal, 'aal1');
   assert.equal(result.calls.length, 1);
 });
+
+// ── Amendment 1 (FR-020): a fresh AAL2 before each sensitive step ──────────
+
+test('freshAdminToken runs a new password grant + TOTP verify on every call', async () => {
+  await withEnv({ E2E_PASSWORD: 'pw', [helpers.ADMIN_TOTP_ENV]: SECRET }, async () => {
+    const request = fakeRequest([
+      passwordStep(), challengeStep(), verifyStep(),
+      passwordStep(), challengeStep(), verifyStep(200, { access_token: 'aal2-token-2', refresh_token: 'r3', expires_in: 3600 }),
+    ]);
+    assert.equal(await helpers.freshAdminToken(request), 'aal2-token');
+    assert.equal(await helpers.freshAdminToken(request), 'aal2-token-2');
+    assert.equal(request.calls.filter((c) => /\/verify$/.test(c.url)).length, 2);
+  });
+});
+
+test('STEP_UP_ROUTE_PATTERN names exactly the three FR-020 admin routes', () => {
+  for (const path of ['/admin/users/${id}/role', '/admin/users/u1/active', '/admin/users/${encodeURIComponent(id)}/revoke-sessions']) {
+    assert.match(path, helpers.STEP_UP_ROUTE_PATTERN, path);
+  }
+  for (const path of ['/admin/users', '/admin/users/u1/security-audit', '/admin/mfa/status', '/admin/users/u1/roles-history']) {
+    assert.doesNotMatch(path, helpers.STEP_UP_ROUTE_PATTERN, path);
+  }
+});
+
+test('a staging spec that calls a step-up route takes its admin token from freshAdminToken', () => {
+  const offenders = specFiles.filter((file) => {
+    const source = readFileSync(path.join(E2E_DIR, file), 'utf8');
+    if (!helpers.STEP_UP_ROUTE_PATTERN.test(source)) return false;
+    const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
+    return !helperBindings(sourceFile).has('freshAdminToken') || !/await freshAdminToken\(request\)/.test(source);
+  });
+  assert.deepEqual(offenders, []);
+});
