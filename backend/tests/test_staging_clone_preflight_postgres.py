@@ -333,10 +333,15 @@ def test_clone_preflight_and_atomic_restore(clusters, tmp_path, case, diagnostic
     decoy_oid = target.sql("SELECT 'public.decoy'::regclass::oid;", f"decoy-oid-{case}", database)
     marker = tmp_path / "meta-command-ran"
     # A non-volatile ADD COLUMN default is evaluated once, at restore time.
+    # service_role holds USAGE only on public (SVCPRIV-0042 FR-007), so a role
+    # switched to it can no longer create. The switch case grants CREATE to
+    # another role inside the dump, so the ownership postcondition still runs.
     become = ("CREATE FUNCTION public.become(r text) RETURNS text LANGUAGE sql STABLE "
               "AS $$ SELECT set_config('role', r, false) $$;\n"
-              "ALTER TABLE public.filler_1 ADD COLUMN switch_1 text DEFAULT public.become('service_role');\n"
-              "CREATE TABLE public.svc_owned(id int);\n")
+              "ALTER TABLE public.filler_1 ADD COLUMN switch_1 text DEFAULT public.become('service_role');\n")
+    switch = ("GRANT CREATE ON SCHEMA public TO authenticated;\n"
+              + become.replace("'service_role'", "'authenticated'")
+              + "CREATE TABLE public.svc_owned(id int);\n")
     injection, appended = {
         "adp_no_schema": ("ALTER DEFAULT PRIVILEGES FOR ROLE postgres GRANT SELECT ON TABLES TO anon;\n", ""),
         "alter_database_sco": (f"ALTER DATABASE {database} SET standard_conforming_strings TO off;\n", ""),
@@ -374,7 +379,7 @@ def test_clone_preflight_and_atomic_restore(clusters, tmp_path, case, diagnostic
         "shell_meta_appended": ("", f"\\! touch {marker}\n"),
         "shell_meta_inline": (f"GRANT SELECT ON TABLE public.filler_6 TO anon; \\! touch {marker}\n", ""),
         "connect_meta": ("", "\\connect postgres\nCREATE TABLE public.boom AS SELECT 1/0 AS x;\n"),
-        "hidden_role_switch": (become + "ALTER TABLE public.svc_owned ADD COLUMN switch_2 text "
+        "hidden_role_switch": (switch + "ALTER TABLE public.svc_owned ADD COLUMN switch_2 text "
                                "DEFAULT public.become('none');\n", ""),
         # CR P2-1: psql >= 15 reads 1e as one junk token, so E'x\' is no string.
         "numeric_junk_unrestrict": ("COMMENT ON TABLE public.filler_0 IS 1e'x\\'\n\\unrestrict @KEY@\n"
