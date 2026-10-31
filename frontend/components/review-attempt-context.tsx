@@ -127,16 +127,18 @@ const UNAVAILABLE_REASONS: Readonly<Record<string, string>> = {
   post_test_capture_required: 'Lời giải chi tiết sẽ mở sau khi bạn hoàn thành phần tự đánh giá sau bài làm.',
   content_release_gates_blocked: 'Lời giải chi tiết của đề này đang được biên tập, chưa phát hành.',
   content_version_unavailable: 'Phiên bản lời giải dành cho bài này chưa sẵn sàng.',
+  report_only: 'Bài này chỉ báo cáo kết quả, không có lời giải chi tiết.',
 };
 
 /**
  * Why a card has no solution, from the backend's `web_explanation_access`
- * (FR-015 truthful unavailable state). No access object means the paper has
- * no web explanation at all; an allowed one means only this question lacks it.
+ * (FR-015 truthful unavailable state). No access object, or an open one
+ * (`allowed`, or Listening report_only's `available` key), means only this
+ * question lacks a solution; a closed one names the paper-level reason.
  */
 export function reviewExplanationUnavailableReason(access: unknown): string {
   const row = record(access);
-  if (!row || row.allowed === true) return 'Câu này chưa có lời giải chi tiết.';
+  if (!row || row.allowed === true || row.available === true) return 'Câu này chưa có lời giải chi tiết.';
   return UNAVAILABLE_REASONS[String(row.reason)] || 'Lời giải chi tiết chưa mở cho bài này.';
 }
 
