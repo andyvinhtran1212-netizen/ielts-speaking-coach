@@ -112,6 +112,36 @@ def _apply(database: str, migration: Path) -> str:
 
 def _pre_320() -> str:
     own = "USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid())"
+    # 344's pre-existing admin tables, verbatim CREATE definitions, in FK order.
+    # mock_exams is the parent required by 154's mock_exam_assignments.
+    admin_tables = (
+        ("035_writing_prompts_library.sql", "writing_prompts"),
+        ("061_error_logs.sql", "error_logs"),
+        ("082_writing_tips.sql", "writing_tips"),
+        ("084_essay_regrade_requests.sql", "essay_regrade_requests"),
+        ("145_mock_exam_definition.sql", "mock_exams"),
+        ("154_mock_exam_retake_mode.sql", "mock_exam_assignments"),
+        ("175_courses.sql", "courses"),
+        ("176_class_lessons.sql", "class_lessons"),
+        ("183_speaking_lesson_sets.sql", "speaking_lesson_sets"),
+        ("183_speaking_lesson_sets.sql", "speaking_lesson_set_questions"),
+        ("185_speaking_progress_marks.sql", "speaking_progress_marks"),
+        ("198_class_action_log.sql", "class_action_log"),
+    )
+    admin_schema = "\n".join(re.search(
+        rf"CREATE TABLE IF NOT EXISTS {table} \(.*?^\);",
+        (MIGRATIONS / filename).read_text(encoding="utf-8"), re.S | re.M)[0]
+        for filename, table in admin_tables)
+    admin_helpers = "\n".join(re.search(
+        rf"CREATE OR REPLACE FUNCTION public.{helper}\(\).*?"
+        r"\$\$ LANGUAGE plpgsql SECURITY DEFINER STABLE;",
+        (MIGRATIONS / filename).read_text(encoding="utf-8"), re.S)[0]
+        for filename, helper in (
+            ("033_writing_coach_tables.sql", "is_current_user_admin"),
+            ("106_instructor_role_foundation.sql", "is_current_user_instructor")))
+    helper_revokes = "\n".join(re.findall(
+        r"^REVOKE EXECUTE ON FUNCTION public.is_current_user_(?:admin|instructor)\(\)[^;]*;",
+        (MIGRATIONS / "108_security_hardening.sql").read_text(encoding="utf-8"), re.M))
     return f"""
         SET search_path = public, pg_temp;
         CREATE TABLE _schema_migrations (filename text PRIMARY KEY,
@@ -319,6 +349,14 @@ def _pre_320() -> str:
             timestamptz, timestamptz, jsonb) RETURNS jsonb LANGUAGE sql AS $$ SELECT '{{}}'::jsonb $$;
         GRANT EXECUTE ON FUNCTION fn_finalize_d1_attempt(uuid, uuid, integer, real, integer,
             timestamptz, timestamptz, jsonb) TO authenticated;
+        {admin_schema}
+        {admin_helpers}
+        {helper_revokes}
+        {"".join(f'ALTER TABLE {table} ENABLE ROW LEVEL SECURITY;'
+                 for table in ("access_codes", "cohorts", "students", "writing_assignments",
+                               "writing_drafts", "writing_essays", "writing_feedback",
+                               "class_assignments", "class_assignment_items",
+                               *(table for _, table in admin_tables)))}
     """
 
 
@@ -328,6 +366,7 @@ def _pre_320_history() -> str:
         r"(?:REVOKE|GRANT) ALL ON TABLE student_cohort_memberships[^;]*", m326.SQL_227))
     assert table_grants.count(";") == 2, "227 table grants changed; re-check the roster privileges"
     return "\n".join((m326._227_writers("public"), table_grants, _writing_tables_without_revoke(),
+                      "ALTER TABLE writing_assignment_requests ENABLE ROW LEVEL SECURITY;",
                       m331._schema_sql(m331.SQL_228, "public"),
                       "SET search_path = public, pg_temp;",
                       (MIGRATIONS / "116_writing_grade_ratings.sql").read_text(encoding="utf-8")))

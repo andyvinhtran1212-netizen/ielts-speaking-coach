@@ -36,10 +36,37 @@ PAPERUPDATEDAT-0037 and 339 is GRAMMARAUDIT-0019 Revision 2 (reserved by the
 Leader on 2026-10-29). Every number from 331 to 339 now has a file. 340
 is the AIBUDGET-0033 hardening. 345 is
 PC-J119 (RLS-ADMIN-INLINE-AAL2 + GRAMMAR-FN-SEARCHPATH, spec ADMINAAL2-0032),
-reserved by the Leader on 2026-10-29; 341–344 are reserved for other open
-work and must not be reused. 346 is PC-J153 (CLASSARCHIVE-0030 FR-003),
+reserved by the Leader on 2026-10-29; 341–343 are reserved for other open
+work and must not be reused. 344 is PC-J131R (RLSCLEANUP-0039, RLS-ADMIN +
+BL-11), reserved by the Leader on 2026-10-29. 346 is PC-J153 (CLASSARCHIVE-0030 FR-003),
 assigned by the Leader on 2026-10-29. 347 is PC-J163 (listening_tests client revoke,
 spec LISTENING-0005), given by the Leader on 2026-10-29.
+
+Migration `344` (PC-J131R, RLSCLEANUP-0039) drops the 29 policies calling
+`is_current_user_admin()` / `is_current_user_instructor()` and the three dead
+BL-11 write policies on `error_logs`, `essay_regrade_requests` and
+`writing_drafts`. It revokes SELECT through TRIGGER, plus MAINTAIN on PG17,
+from `anon` and `authenticated` on the 21 tables in the spec's T001 catalog.
+Migration 320 must already be in the ledger; all 21 tables must exist with
+RLS enabled. No data changes or grants. The postconditions check effective
+client table/column privileges (including PUBLIC and inherited grants), RLS,
+unchanged `service_role` ACL entries, unchanged helper ACLs, and unchanged
+non-target policies. Surviving PUBLIC/column grants or helper policies in
+any schema abort the transaction instead of expanding the drop/revoke scope.
+The learner own-read policies stay. Migration 345 already revokes client
+access to `access_codes`; 344 repeats that revoke safely and never recreates
+`"Admin only"`. It does not touch the six other 345 tables, the 332 audit
+tables or `public.regrade_requests` (342). One transaction, `lock_timeout`
+5 seconds, re-runnable. Group `rls_admin_cleanup` in `forward-policy.tsv`:
+merging does not apply it. The Leader applies staging first, after
+STAGING_FREEZE is lifted, with the advisory-locked runner; production only
+at a separately authorized staging-to-main promotion approved by Vinh.
+The guarded manual down script is
+`rollback/344_rls_admin_policy_cleanup.sql`: set
+`aver.allow_rls_admin_policy_rollback = 'on'` in that session first. It
+recreates the original 32 policies only when all client table/column
+privileges and both helpers' client EXECUTE are still closed. It never
+restores a table privilege or helper EXECUTE and is safe to repeat.
 
 Migration `347` (PC-J163) revokes ALL on `listening_tests` from `PUBLIC`,
 `anon` and `authenticated` (MAINTAIN included on PG 17). 295 closed the other
