@@ -635,6 +635,10 @@ on:
       - 'frontend/tooling/verify-admin-writing-flow.mjs'
       - 'frontend/tooling/verify-admin-grammar-articles-flow.mjs'
       - 'frontend/tooling/verify-admin-users-flow.mjs'
+      - 'frontend/app/(authed-admin-mfa)/**'
+      - 'frontend/public/css/admin-mfa-next.css'
+      - 'frontend/tooling/admin-mfa-stub.mjs'
+      - 'frontend/tooling/verify-admin-mfa-flow.mjs'
       - 'frontend/tooling/verify-admin-classes-flow.mjs'
       - 'frontend/tooling/verify-admin-class-detail-flow.mjs'
       - 'frontend/tooling/verify-admin-class-homework-flow.mjs'
@@ -1295,6 +1299,13 @@ jobs:
       # UI báo thành công; không chạm dữ liệu thật.
       - name: Kiểm luồng Admin Users native
         run: node tooling/verify-admin-users-flow.mjs "http://localhost:$TEST_PORT"
+
+      # ADMINAAL2-0032 T010: AdminAccessGate + /admin/mfa. Fixture stubs every
+      # API and Supabase Auth MFA endpoint: enforced AAL1 redirect, report-only
+      # banner, enroll/challenge/wrong code/429/remove with a fresh code, and
+      # the api.js `mfa_required` navigation. No real factor or account.
+      - name: Kiểm luồng Admin MFA (AAL2) native
+        run: node tooling/verify-admin-mfa-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/classes` là directory có mutation. Runner chứng minh mọi write
       # được canonical reload, rollup/course lookup lỗi không bị bịa thành 0/rỗng,
