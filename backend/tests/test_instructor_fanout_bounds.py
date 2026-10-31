@@ -122,3 +122,50 @@ def test_unknown_fields_are_still_ignored():
         r = client.post(URL, json={"request_id": _rid(), "prompt_ids": [PB], "cohort_id": CB, "legacy_flag": True},
                         headers=HDR)
     assert r.status_code == 201, r.text
+
+
+# ── PC-J115: single-student assign (`AssignBody`) gets the same bounds ────────
+
+ASSIGN_URL = "/instructor/assignments"
+
+
+@pytest.mark.parametrize("override", [
+    pytest.param({"instructions": "x" * 2001}, id="instructions-2001"),
+    pytest.param({"analysis_level": 0}, id="analysis_level-0"),
+    pytest.param({"analysis_level": 6}, id="analysis_level-6"),
+])
+def test_assign_out_of_bounds_body_is_422_before_any_db_call(override):
+    store = _seed()
+    before = [dict(r) for r in store["writing_assignments"]]
+    body = {"prompt_id": PB, "student_id": SB, **override}
+    with _as_b(store) as (client, fake):
+        r = client.post(ASSIGN_URL, json=body, headers=HDR)
+    assert r.status_code == 422, r.text
+    assert fake.calls == []                              # refused before any read or write
+    assert store["writing_assignments"] == before
+
+
+@pytest.mark.parametrize("instructions,level", [
+    pytest.param("x" * 2000, 5, id="upper"),
+    pytest.param(None, 1, id="lower"),
+])
+def test_assign_boundary_values_are_accepted(instructions, level):
+    store = _seed()
+    with _as_b(store) as (client, _fake):
+        r = client.post(ASSIGN_URL, json={"prompt_id": PB, "student_id": SB,
+                                          "instructions": instructions, "analysis_level": level},
+                        headers=HDR)
+    assert r.status_code == 201, r.text
+    assert (r.json()["instructions"], r.json()["analysis_level"]) == (instructions, level)
+    created = [a for a in store["writing_assignments"] if a.get("id") == r.json()["id"]]
+    assert [(a["instructions"], a["analysis_level"]) for a in created] == [(instructions, level)]
+
+
+def test_assign_default_level_and_unknown_fields_still_accepted():
+    """Default analysis_level stays 3; no extra="forbid" on AssignBody either."""
+    store = _seed()
+    with _as_b(store) as (client, _fake):
+        r = client.post(ASSIGN_URL, json={"prompt_id": PB, "student_id": SB, "legacy_flag": True},
+                        headers=HDR)
+    assert r.status_code == 201, r.text
+    assert r.json()["analysis_level"] == 3
