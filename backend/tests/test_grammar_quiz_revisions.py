@@ -81,7 +81,7 @@ async def test_actual_cutover_learner_list_is_current_but_owned_legacy_url_still
     assert listed[0]['id']==str(result.corrected_bank_id) and listed[0]['code']==CODE
     fake.responses={('quiz_banks','select'):[old],('quiz_questions','select'):questions,
         ('rpc','grammar_quiz_state'):legacy_state}
-    legacy=await router.get_bank(pg.old,authorization='test')
+    legacy=json.loads((await router.get_bank(pg.old,authorization='test')).body)
     # J411R2 learner allowlist: every stored column the player uses (keys
     # included — Grammar still grades in the browser) and nothing else; only
     # the internal `bank_id`/`created_at` and unrendered `pairs` are dropped.
