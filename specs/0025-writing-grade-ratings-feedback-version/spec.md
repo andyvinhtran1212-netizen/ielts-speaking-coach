@@ -1,7 +1,7 @@
 ---
 id: WRITINGRATE-0025
 title: Repair writing_grade_ratings drift so admin grade ratings key on the graded run
-status: approved
+status: implementing
 risk: high
 owner: product
 ---

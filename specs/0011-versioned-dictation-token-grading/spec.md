@@ -1,7 +1,7 @@
 ---
 id: DICTATIONTOKEN-0011
 title: Version dictation word grading and distinguish punctuation in reports
-status: approved
+status: implementing
 risk: high
 owner: product
 ---

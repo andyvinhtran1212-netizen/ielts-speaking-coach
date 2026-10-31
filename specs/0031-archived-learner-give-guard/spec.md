@@ -1,7 +1,7 @@
 ---
 id: GIVEARCHIVE-0031
 title: A Writing give can never create work for an archived learner, even when the archive lands mid-request
-status: approved
+status: implementing
 risk: high
 owner: product
 ---
