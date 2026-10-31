@@ -3776,6 +3776,7 @@ async def admin_preview_listening_test(
 
     synthetic = {
         "test_id":         test_id,
+        "_admin_preview":  True,  # server-only; never persisted or accepted from learners
         # status 'submitted' is what makes the page render the review layout;
         # nothing is persisted, so this is a rendering hint, not a claim.
         "status":          "submitted",
