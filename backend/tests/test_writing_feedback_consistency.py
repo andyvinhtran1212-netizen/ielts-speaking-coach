@@ -1,0 +1,249 @@
+"""PC-J167 synthetic regression cohort: no database or real providers."""
+
+import json
+from copy import deepcopy
+from pathlib import Path
+
+import pytest
+
+from models.writing_feedback import WritingFeedback
+from services.writing_feedback_consistency import repair_writing_consistency
+from services.writing_prompt_loader import WritingPromptLoader
+from services.writing_history import format_history_for_prompt
+
+
+@pytest.fixture
+def feedback():
+    payload = json.loads((Path(__file__).parent / "fixtures/writing_task1_consistency.json").read_text())
+    return WritingFeedback.model_validate(payload)
+
+
+def test_reported_task1_failures_are_repaired_without_changing_scores_or_history(feedback):
+    before = feedback.model_dump()
+    paths = repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.criteriaFeedback.mainCriterion.title == "Task Achievement"
+    assert feedback.bandTrajectoryAnalysis["criteria_breakdown"][0]["criterion"] == "Task Achievement"
+    assert [m.mistakeType for m in feedback.mistakeAnalysis] == ["Data Accuracy", "Data Accuracy", "Word Choice"]
+    assert all(m.criterion == "Task Achievement" for m in feedback.mistakeAnalysis[:2])
+    assert "levelled off" not in feedback.criteriaFeedback.lexicalResource.feedback
+    assert "'rose'" in feedback.criteriaFeedback.lexicalResource.feedback
+    assert feedback.keyTakeaways.strengths == ["Overview rõ ràng."]
+    assert "đơn giản" not in feedback.sentenceStructureAnalysis["summary"]
+    assert "cấu trúc câu" in feedback.sentenceStructureAnalysis["summary"]
+    assert "mâu thuẫn logic" not in feedback.coherenceAnalysis[0].explanation.lower()
+    assert "sai so với dữ liệu biểu đồ" in feedback.coherenceAnalysis[0].issue
+    assert "18–30-year-olds" in feedback.improvedEssay
+    assert feedback.recurringPatterns == before["recurringPatterns"]
+    assert feedback.overallBandScore == before["overallBandScore"]
+    for key, item in before["criteriaFeedback"].items():
+        assert getattr(feedback.criteriaFeedback, key).bandScore == item["bandScore"]
+    assert [m.original for m in feedback.mistakeAnalysis] == [m["original"] for m in before["mistakeAnalysis"]]
+    assert [m.suggestion for m in feedback.mistakeAnalysis] == [m["suggestion"] for m in before["mistakeAnalysis"]]
+    assert paths and all("levelled off" not in path for path in paths)
+    assert repair_writing_consistency(feedback, "task1_academic") == []
+
+
+@pytest.mark.parametrize("task", ["task1_academic", "task1_general", "task2"])
+def test_task_type_is_authoritative_for_all_criterion_labels(feedback, task):
+    feedback.criteriaFeedback.mainCriterion.title = "Unreliable model label"
+    repair_writing_consistency(feedback, task)
+    expected = "Task Achievement" if task.startswith("task1") else "Task Response"
+    assert feedback.criteriaFeedback.mainCriterion.title == expected
+    assert feedback.bandTrajectoryAnalysis["criteria_breakdown"][0]["criterion"] == expected
+    assert feedback.bandTrajectoryAnalysis["criteria_breakdown"][1]["criterion"] == "Lexical Resource"
+    if task != "task1_academic":
+        assert all(m.mistakeType == "Word Choice" for m in feedback.mistakeAnalysis)
+
+
+@pytest.mark.parametrize("claim", [
+    "Cấu trúc câu đơn giản, cần câu phức.",
+    "Bài này chủ yếu sử dụng câu đơn.",
+    "The current essay only uses simple sentences.",
+    "Bài này chưa có câu phức.",
+])
+@pytest.mark.parametrize("gra", [6, 7, 8])
+def test_structure_claims_follow_gra_without_raising_the_band(feedback, claim, gra):
+    feedback.criteriaFeedback.grammaticalRange.bandScore = gra
+    feedback.sentenceStructureAnalysis = {"summary": claim}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert (feedback.sentenceStructureAnalysis["summary"] == claim) == (gra < 7)
+    assert feedback.criteriaFeedback.grammaticalRange.bandScore == gra
+
+
+@pytest.mark.parametrize("claim", [
+    "Qua 5 bài trước, cấu trúc câu đơn giản.",
+    "Câu này đơn giản; có thể ghép với câu kế tiếp.",
+    "Bài có câu phức nhưng cần sử dụng linh hoạt hơn.",
+    "Cần thêm câu phức khi so sánh hai nhóm.",
+    "Earlier essays only use simple sentences.",
+    "Bài này không chỉ sử dụng câu đơn.",
+    "Bài này không thiếu câu phức.",
+])
+def test_specific_advice_and_explicit_history_survive_high_gra(feedback, claim):
+    feedback.sentenceStructureAnalysis = {"summary": claim}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.sentenceStructureAnalysis["summary"] == claim
+
+
+@pytest.mark.parametrize("claim", [
+    "Các cấu trúc câu đơn giản được sử dụng hiệu quả, xen kẽ với câu phức.",
+    "Bài này chủ yếu dùng câu đơn nhưng kết hợp tốt với câu phức.",
+    "Simple sentences are used effectively alongside complex structures.",
+])
+@pytest.mark.parametrize("gra", [7, 8])
+def test_positive_mixed_structure_observations_survive_high_gra(feedback, claim, gra):
+    feedback.criteriaFeedback.grammaticalRange.bandScore = gra
+    feedback.sentenceStructureAnalysis = {"summary": claim}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.sentenceStructureAnalysis["summary"] == claim
+
+
+@pytest.mark.parametrize("claim", [
+    "Cấu trúc câu đơn giản, thiếu đa dạng.",
+    "Cấu trúc câu đơn giản, cần đa dạng hơn.",
+    "Cấu trúc câu đơn giản, không hiệu quả.",
+    "The essay only uses simple sentences and needs more variety.",
+])
+def test_negated_or_aspirational_range_words_do_not_shield_blanket_claims(feedback, claim):
+    feedback.sentenceStructureAnalysis = {"summary": claim}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.sentenceStructureAnalysis["summary"] != claim
+
+
+@pytest.mark.parametrize("claim", [
+    "Từ 'informations' là sai dù các số liệu được mô tả chính xác.",
+    "Từ 'informations' chưa đúng, các số liệu được mô tả chính xác.",
+    "The word 'informations' is wrong, although the figures are accurate.",
+    "Mặc dù các số liệu chính xác, từ 'informations' cần sửa thành 'information'.",
+])
+def test_criticism_of_a_flagged_word_survives_praise_of_something_else(feedback, claim):
+    feedback.mistakeAnalysis[2].original = "informations"
+    feedback.criteriaFeedback.lexicalResource.feedback = claim
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.criteriaFeedback.lexicalResource.feedback == claim
+
+
+@pytest.mark.parametrize("claim", [
+    "Từ 'informations' được dùng chính xác.",
+    "The word 'informations' is used accurately and natural.",
+])
+def test_explicit_praise_of_a_flagged_word_is_still_removed(feedback, claim):
+    feedback.mistakeAnalysis[2].original = "informations"
+    feedback.criteriaFeedback.lexicalResource.feedback = claim
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.criteriaFeedback.lexicalResource.feedback != claim
+
+
+@pytest.mark.parametrize("claim", [
+    "Cụm 'levelled off' chưa chính xác.",
+    "Cụm 'levelled off' không phù hợp với xu hướng này.",
+    "The phrase 'levelled off' is not accurate.",
+    "The phrase 'levelled off' is inaccurate and inappropriate.",
+    "Thay 'levelled off' bằng 'rose' để mô tả chính xác.",
+    "For accurate reporting, replace 'levelled off' with 'rose'.",
+    "Ở bài trước, em dùng 'levelled off' chính xác.",
+    "Trong bản sửa, 'levelled off' phù hợp với câu mới.",
+    "Em dùng 'rose' phù hợp; tuy nhiên 'levelled off' chưa chính xác.",
+    "Em dùng 'levelled office' phù hợp.",
+])
+def test_criticism_contrasts_and_other_phrases_are_preserved(feedback, claim):
+    feedback.criteriaFeedback.lexicalResource.feedback = claim
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.criteriaFeedback.lexicalResource.feedback == claim
+
+
+@pytest.mark.parametrize("explanation", [
+    "Mô tả sai so với số liệu biểu đồ.",
+    "Xu hướng không chính xác: khoảng cách tăng.",
+    "The comparison contradicts the chart data.",
+    "Incorrect figures are reported here.",
+])
+def test_data_errors_have_a_separate_type(feedback, explanation):
+    feedback.mistakeAnalysis[0].explanation = explanation
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.mistakeAnalysis[0].mistakeType == "Data Accuracy"
+
+
+def test_real_word_choice_and_internal_logic_errors_are_preserved(feedback):
+    item = feedback.coherenceAnalysis[0]
+    item.issue = "Mâu thuẫn logic"
+    item.explanation = "Hai câu trong bài phủ định lẫn nhau."
+    feedback.mistakeAnalysis[0].explanation = "Dùng sai collocation khi mô tả biểu đồ."
+    before = item.model_dump()
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.mistakeAnalysis[0].mistakeType == "Word Choice"
+    assert item.model_dump() == before
+
+
+def test_negated_data_criticism_and_empty_optional_sections_are_unchanged(feedback):
+    from models.writing_feedback import CounterargumentAnalysis
+
+    feedback.mistakeAnalysis[0].explanation = "Không sai số liệu, nhưng collocation chưa tự nhiên."
+    feedback.counterargumentAnalysis = CounterargumentAnalysis()
+    feedback.criteriaFeedback.coherenceCohesion.feedback = ""
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.mistakeAnalysis[0].mistakeType == "Word Choice"
+    assert feedback.counterargumentAnalysis.feedback == ""
+    assert feedback.criteriaFeedback.coherenceCohesion.feedback == ""
+
+
+def test_unaffected_multiline_feedback_is_preserved_verbatim(feedback):
+    text = "Đoạn mở đầu rõ ràng.\n\nCác đoạn thân bài được nhóm tốt."
+    feedback.criteriaFeedback.coherenceCohesion.feedback = text
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.criteriaFeedback.coherenceCohesion.feedback == text
+
+
+def test_pattern_denials_are_scoped_and_do_not_overwrite_history(feedback):
+    feedback.recurringPatterns["summary"] = "Chưa có pattern lặp lại."
+    feedback.sentenceStructureAnalysis["common_issues"] = [{"pattern": "run-on", "count": 3}]
+    original = deepcopy(feedback.sentenceStructureAnalysis["common_issues"])
+    repair_writing_consistency(feedback, "task1_academic")
+    assert "Chưa có pattern" not in feedback.recurringPatterns["summary"]
+    assert "Chưa có pattern" not in feedback.sentenceStructureAnalysis["summary"]
+    assert feedback.sentenceStructureAnalysis["common_issues"] == original
+
+
+def test_unscoped_denial_cannot_hide_known_lexical_patterns_when_syntax_history_is_absent(feedback):
+    feedback.sentenceStructureAnalysis = {"summary": "Chưa có pattern lặp lại."}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert "Chưa có pattern" not in feedback.sentenceStructureAnalysis["summary"]
+    assert feedback.recurringPatterns["stillRecurring"] == ["Word Choice (9 lần)"]
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("18-30 year olds", "18–30-year-olds"),
+    ("18–30 year-olds", "18–30-year-olds"),
+    ("18-30-year-olds", "18–30-year-olds"),
+    ("18–30-year-olds", "18–30-year-olds"),
+    ("30 years old", "30 years old"),
+    ("an 18-year-old learner", "an 18-year-old learner"),
+])
+def test_age_group_nouns_are_fixed_only_in_rewrite(feedback, text, expected):
+    feedback.improvedEssay = text
+    feedback.mistakeAnalysis[0].original = text
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.improvedEssay == expected
+    assert feedback.mistakeAnalysis[0].original == text
+
+
+@pytest.mark.parametrize("version", ["v1", "v2"])
+@pytest.mark.parametrize("level", [1, 2, 3, 4, 5])
+def test_consistency_prompt_reaches_every_supported_level(version, level):
+    prompt = WritingPromptLoader(version).load(level)
+    for instruction in ("Internal consistency check", 'mistakeType: "Data Accuracy"',
+                        "criteria_breakdown", "GRA 7+", "18–30-year-olds"):
+        assert instruction in prompt
+
+
+@pytest.mark.parametrize("task", ["task1_academic", "task1_general", "task2"])
+def test_history_prompt_uses_current_task_label_without_mutating_the_aggregate(task):
+    trajectory = {"essays_analyzed": 5, "average_last_5": 6.7, "trend": "stable", "trend_delta": 0,
+                  "criteria_breakdown": [{"criterion": "Task Response", "average": 6.7, "trend": "stable"}]}
+    before = deepcopy(trajectory)
+    prompt = format_history_for_prompt(None, trajectory, task_type=task)
+    label = "Task Achievement" if task.startswith("task1") else "Task Response"
+    assert f"{label}: average 6.7, trend stable" in prompt
+    if task.startswith("task1"):
+        assert "Task Response" not in prompt
+    assert trajectory == before

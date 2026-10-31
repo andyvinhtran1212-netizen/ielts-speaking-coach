@@ -310,7 +310,8 @@ def _require_permission(user_id: str, mode: str) -> None:
     try:
         perms = get_user_access_code_permissions_cached(user_id)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi khi kiểm tra quyền: {e}")
+        logger.error("[sessions] permission lookup failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Lỗi khi kiểm tra quyền. Vui lòng thử lại.") from None
 
     if has_permission(perms, required):
         return
@@ -335,7 +336,8 @@ def _require_active(user_id: str) -> None:
             .execute()
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi khi kiểm tra tài khoản: {e}")
+        logger.error("[sessions] account lookup failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Lỗi khi kiểm tra tài khoản. Vui lòng thử lại.") from None
 
     if not r.data or not r.data[0].get("is_active"):
         raise HTTPException(status_code=403, detail="Tài khoản chưa được kích hoạt")
@@ -357,7 +359,8 @@ def require_speaking_entitlement(user_id: str, session: dict | None) -> None:
         try:
             perms = get_user_access_code_permissions_cached(user_id)
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Lỗi khi kiểm tra quyền: {e}")
+            logger.error("[sessions] speaking entitlement lookup failed: %s", e, exc_info=True)
+            raise HTTPException(status_code=500, detail="Lỗi khi kiểm tra quyền. Vui lòng thử lại.") from None
         if not any(has_permission(perms, scope) for scope in sorted(SPEAKING_PERMISSIONS)):
             raise HTTPException(
                 status_code=403,
@@ -403,7 +406,8 @@ def _resolve_full_test_attempt_id(user_id: str, body: CreateSessionBody) -> str 
             .execute()
         )
     except Exception as e:
-        raise HTTPException(500, f"Lỗi khi kiểm tra chuỗi Full Test: {e}")
+        logger.error("[sessions] full test chain lookup failed: %s", e, exc_info=True)
+        raise HTTPException(500, "Lỗi khi kiểm tra chuỗi Full Test. Vui lòng thử lại.") from None
 
     row = (result.data or [None])[0]
     if (
@@ -478,7 +482,8 @@ def _find_replayable_full_test_part(
             .execute()
         )
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi kiểm tra Part Full Test đã tạo: {exc}")
+        logger.error("[sessions] full test part replay lookup failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi kiểm tra Part Full Test đã tạo. Vui lòng thử lại.") from None
 
     rows = result.data or []
     if not rows:
@@ -611,7 +616,8 @@ async def create_session(
         try:
             quota = get_user_session_quota(user_id)
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Lỗi khi kiểm tra quota: {e}")
+            logger.error("[sessions] quota lookup failed: %s", e, exc_info=True)
+            raise HTTPException(status_code=500, detail="Lỗi khi kiểm tra quota. Vui lòng thử lại.") from None
 
         if not quota["unlimited"] and quota["used"] >= quota["limit"]:
             raise HTTPException(
@@ -691,7 +697,8 @@ async def create_session(
             )
         if "session_id_conflict" in str(e):
             raise HTTPException(status_code=409, detail="Mã tạo phiên đã được dùng cho yêu cầu khác")
-        raise HTTPException(status_code=500, detail=f"Không thể tạo session: {e}")
+        logger.error("[sessions] create failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Không thể tạo session. Vui lòng thử lại.") from None
 
     rows = result.data or []
     if not rows:
@@ -904,7 +911,8 @@ async def list_sessions(
 
         result = q.execute()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Không thể tải sessions: {e}")
+        logger.error("[sessions] list failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Không thể tải sessions. Vui lòng thử lại.") from None
 
     rows = result.data or []
     # Sprint 16.2.1 (model v2) — augment each row with read-time retention info
@@ -955,7 +963,8 @@ async def get_session_stats(
         )
         sessions = s_res.data or []
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi khi tải sessions: {e}")
+        logger.error("[sessions] stats lookup failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Lỗi khi tải sessions. Vui lòng thử lại.") from None
 
     # total_sessions (all statuses)
     try:
@@ -1095,7 +1104,8 @@ async def get_session(
             .execute()
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi khi tải session: {e}")
+        logger.error("[sessions] get failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Lỗi khi tải session. Vui lòng thử lại.") from None
 
     if not s_result.data:
         raise HTTPException(status_code=404, detail="Session không tồn tại")
@@ -1269,7 +1279,8 @@ async def get_session_audio_urls(
             .execute()
         )
     except Exception as e:
-        raise HTTPException(500, f"Lỗi khi tải session: {e}")
+        logger.error("[sessions] audio-urls session lookup failed: %s", e, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tải session. Vui lòng thử lại.") from None
 
     if not s_res.data:
         raise HTTPException(404, "Session không tồn tại hoặc không có quyền truy cập")
@@ -1283,7 +1294,8 @@ async def get_session_audio_urls(
             .execute()
         )
     except Exception as e:
-        raise HTTPException(500, f"Lỗi khi tải responses: {e}")
+        logger.error("[sessions] audio-urls responses lookup failed: %s", e, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tải bản ghi âm. Vui lòng thử lại.") from None
 
     responses = r_res.data or []
     complete = await attach_playback_urls(supabase_admin, responses)
@@ -1891,7 +1903,8 @@ async def finalize_full_test(
             .execute()
         )
     except Exception as e:
-        raise HTTPException(500, f"Lỗi khi kiểm tra sessions: {e}")
+        logger.error("[sessions] finalize-full-test sessions lookup failed: %s", e, exc_info=True)
+        raise HTTPException(500, "Lỗi khi kiểm tra sessions. Vui lòng thử lại.") from None
 
     found_ids = {s["id"] for s in (s_res.data or [])}
     missing = [sid for sid in all_ids if sid not in found_ids]
@@ -1927,7 +1940,8 @@ async def finalize_full_test(
             .execute()
         )
     except Exception as e:
-        raise HTTPException(500, f"Lỗi khi kiểm tra bộ câu hỏi Full Test: {e}")
+        logger.error("[sessions] finalize-full-test questions lookup failed: %s", e, exc_info=True)
+        raise HTTPException(500, "Lỗi khi kiểm tra bộ câu hỏi Full Test. Vui lòng thử lại.") from None
     _validate_full_test_question_counts(all_ids, q_res.data or [])
 
     # Mark all sessions 'submitted' immediately — history shows "Đang phân tích".
@@ -2067,7 +2081,8 @@ async def complete_session(
             .execute()
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi khi tải session: {e}")
+        logger.error("[sessions] complete lookup failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Lỗi khi tải session. Vui lòng thử lại.") from None
 
     if not s_result.data:
         raise HTTPException(status_code=404, detail="Session không tồn tại")
@@ -2178,7 +2193,8 @@ async def complete_session(
             )
         result = update_query.execute()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Không thể hoàn thành session: {e}")
+        logger.error("[sessions] complete update failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Không thể hoàn thành session. Vui lòng thử lại.") from None
 
     if not result.data:
         fresh_result = (

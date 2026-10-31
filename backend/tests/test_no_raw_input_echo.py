@@ -73,7 +73,9 @@ ALLOWED: dict[tuple[str, str, str], tuple[int, str]] = {
     ("routers/admin_mock_exams.py", "skip_writing_grading", "str(e)"): (2, APP_AUTHORED),
     ("routers/admin_mock_exams.py", "update_exam", "str(e)"): (2, APP_AUTHORED),
     ("routers/admin_mock_exams.py", "void_sitting", "str(e)"): (2, APP_AUTHORED),
-    ("routers/admin_mock_reviews.py", "_raise_for", "str(e)"): (5, J213 + "; any other exception type gets a generic message"),
+    # 6 since the staging merge: staging added the SkillNotInSittingError
+    # site, input clipped at mock_review_workflow.py:86-97.
+    ("routers/admin_mock_reviews.py", "_raise_for", "str(e)"): (6, J213 + "; any other exception type gets a generic message"),
     ("routers/admin_writing.py", "extract_essay_file", "str(exc)"): (1, "FileExtractError messages are constants (docx failure names only the exception class)"),
     ("routers/admin_writing_assignments.py", "fan_out_to_cohort", "body.expected_student_count; len(student_ids)"): (1, TYPED_INT),
     ("routers/admin_writing_prompts.py", "update_prompt", "str(e)"): (1, "assert_can_unreserve names DB exam codes only"),

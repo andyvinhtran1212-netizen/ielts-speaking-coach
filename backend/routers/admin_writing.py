@@ -222,7 +222,8 @@ def _revoke_essay(essay_id: str) -> dict:
             .execute()
         )
     except Exception as exc:
-        raise HTTPException(500, f"Database update failed: {exc}")
+        _logger.error("[admin-writing] revoke failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Không cập nhật được dữ liệu bài viết. Vui lòng thử lại.") from None
     if not r.data:
         return {"essay_id": essay_id, "ok": False, "status": None, "reason": "not_found"}
 
@@ -552,7 +553,8 @@ async def update_feedback(
             .execute()
         )
     except Exception as exc:
-        raise HTTPException(500, f"Database update failed: {exc}")
+        _logger.error("[admin-writing] feedback update failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Không cập nhật được dữ liệu bài viết. Vui lòng thử lại.") from None
 
     if not r.data:
         raise HTTPException(404, "Essay not found")
@@ -960,7 +962,8 @@ async def update_instructor_note(
             .execute()
         )
     except Exception as exc:
-        raise HTTPException(500, f"Database update failed: {exc}")
+        _logger.error("[admin-writing] instructor note update failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Không cập nhật được dữ liệu bài viết. Vui lòng thử lại.") from None
 
     if not r.data:
         raise HTTPException(404, "Essay not found")
@@ -1094,7 +1097,8 @@ async def trigger_regrade(
             .execute()
         )
     except Exception as exc:
-        raise HTTPException(500, f"Database update failed: {exc}")
+        _logger.error("[admin-writing] regrade update failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Không cập nhật được dữ liệu bài viết. Vui lòng thử lại.") from None
 
     # Reuse the SAGA leg from Sprint 2.7.1: schedule_grading_job inserts
     # the writing_jobs row and returns the job id; the router adds the

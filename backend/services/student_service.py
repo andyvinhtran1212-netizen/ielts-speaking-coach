@@ -60,7 +60,7 @@ def create_student(*, data: dict, admin_id: str) -> dict:
             )
         except Exception as exc:
             logger.error("[students] user_id pre-check failed: %s", exc)
-            raise HTTPException(500, f"Database lookup failed: {exc}")
+            raise HTTPException(500, "Không đọc được dữ liệu học viên. Vui lòng thử lại.") from None
         if existing.data:
             row = existing.data[0]
             raise HTTPException(
@@ -80,7 +80,7 @@ def create_student(*, data: dict, admin_id: str) -> dict:
                 detail=f"student_code already exists: {clip_user_value(data.get('student_code'))!r}",
             )
         logger.error("[students] insert failed: %s", exc)
-        raise HTTPException(500, f"Database insert failed: {exc}")
+        raise HTTPException(500, "Không tạo được học viên. Vui lòng thử lại.") from None
 
     rows = r.data or []
     if not rows:
@@ -309,7 +309,7 @@ def update_student(*, student_id: str, data: dict) -> dict:
         )
     except Exception as exc:
         logger.error("[students] update failed: %s", exc)
-        raise HTTPException(500, f"Database update failed: {exc}")
+        raise HTTPException(500, "Không cập nhật được học viên. Vui lòng thử lại.") from None
 
     if not r.data:
         raise HTTPException(404, "Student not found")
@@ -339,7 +339,7 @@ def archive_student(
         }).execute()
     except Exception as exc:
         logger.error("[students] archive failed student=%s: %s", student_id, exc)
-        raise HTTPException(500, f"Không lưu trữ được học viên: {exc}")
+        raise HTTPException(500, "Không lưu trữ được học viên. Vui lòng thử lại.") from None
     result = r.data
     if result is None:
         raise HTTPException(404, "Student not found")
@@ -371,7 +371,7 @@ def restore_student(
         }).execute()
     except Exception as exc:
         logger.error("[students] restore failed student=%s: %s", student_id, exc)
-        raise HTTPException(500, f"Không khôi phục được học viên: {exc}")
+        raise HTTPException(500, "Không khôi phục được học viên. Vui lòng thử lại.") from None
     result = r.data
     if result is None:
         raise HTTPException(404, "Student not found")
