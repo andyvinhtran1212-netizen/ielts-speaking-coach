@@ -1397,3 +1397,88 @@ def test_course_completed_before_journey_never_submits_verdict(monkeypatch, tmp_
                    for _, p, _ in requests)
     assert "POST /api/quiz/course/verdict" not in report["steps"][0]["endpoints"]
     assert report["steps"][0]["sessions"] == []
+
+
+# ── Codex #2083 yIivY: no new Speaking/Writing requests after stop/deadline ──
+
+_SPEAKING_REQUESTS = [
+    ("GET", "/auth/me"),
+    ("POST", "/api/analytics/events"),
+    ("POST", "/sessions"),
+    ("POST", "/sessions/S1/questions/generate"),
+    ("POST", "/sessions/S1/responses"),
+    ("GET", "/sessions/S1"),
+    ("POST", "/api/analytics/events"),
+]
+_SPEAKING_FALLBACK_REQUESTS = (
+    _SPEAKING_REQUESTS[:4] + [("GET", "/sessions/S1/questions")] + _SPEAKING_REQUESTS[4:]
+)
+_WRITING_REQUESTS = [
+    ("GET", "/auth/me"),
+    ("POST", "/api/analytics/events"),
+    ("GET", "/api/writing/my-assignments"),
+    ("POST", "/api/writing/my-assignments/A1/renderer-affinity"),
+    ("POST", "/api/writing/my-assignments/A1/submit"),
+    ("GET", "/api/writing/my-essays"),
+    ("POST", "/api/analytics/events"),
+]
+
+
+@pytest.mark.parametrize("interruption", ["abort", "deadline"])
+@pytest.mark.parametrize("flow,generate_status,expected,cutoff", [
+    pytest.param(flow, status, requests, cutoff, id=f"{flow}-{status}-after-{cutoff}")
+    for flow, status, requests in [
+        ("speaking", 200, _SPEAKING_REQUESTS),
+        ("speaking", 503, _SPEAKING_FALLBACK_REQUESTS),
+        ("writing", 200, _WRITING_REQUESTS),
+    ]
+    for cutoff in range(len(requests))
+])
+def test_speaking_writing_stop_before_each_new_request(
+    monkeypatch, interruption, flow, generate_status, expected, cutoff,
+):
+    """Interrupt before startup or during each request, including polling reads."""
+    ctx = _exam_context()
+    ctx.args.max_speaking_grades = 2
+    ctx.args.max_writing_grades = 1
+    ctx.args.beacon_seconds = 0.05
+    ctx.audio = b"mock audio"
+    ctx.writing_targets = {1: "A1"}
+    seen = []
+
+    def interrupt():
+        if interruption == "abort":
+            ctx.stop.set()
+        else:
+            ctx.deadline = lt.time.monotonic() - 1
+
+    async def handler(request):
+        seen.append((request.method, request.url.path))
+        await asyncio.sleep(0)
+        if len(seen) == cutoff:
+            interrupt()
+        path = request.url.path
+        if path == "/sessions":
+            return httpx.Response(201, json={"session_id": "S1"})
+        if path.endswith("/questions/generate"):
+            return httpx.Response(generate_status, json=[{"id": "Q1"}])
+        if path.endswith("/questions"):
+            return httpx.Response(200, json=[{"id": "Q1"}])
+        return httpx.Response(200, json={"ok": True})
+
+    _mock_exam_client(monkeypatch, handler)
+    if cutoff == 0:
+        interrupt()
+    asyncio.run(lt.FLOWS[flow](ctx, 1, 1, "test-token"))
+
+    assert seen == expected[:cutoff]
+    assert ctx.rec.grades["speaking"] == sum(
+        path.endswith(("/questions/generate", "/responses")) for _, path in expected[:cutoff]
+    )
+    assert ctx.rec.grades["writing"] == sum(
+        path.endswith("/submit") for _, path in expected[:cutoff]
+    )
+    assert ctx.rec.generate_calls == sum(
+        path.endswith("/questions/generate") for _, path in expected[:cutoff]
+    )
+    assert ctx.rec.notes == []

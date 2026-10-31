@@ -587,8 +587,14 @@ async def speaking_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
     rnd = random.Random(a.seed * 1000 + vu)
     ui = f"user#{account}/vu{vu}"
     async with make_client(a.base_url, a.request_timeout) as c:
+        if ctx.stop.is_set() or time.monotonic() >= ctx.deadline:
+            return
         await call(rec, c, "GET", "/auth/me", "GET /auth/me", token=token)
+        if ctx.stop.is_set() or time.monotonic() >= ctx.deadline:
+            return
         await beacon(ctx, c, token, "/speaking", ui)
+        if ctx.stop.is_set() or time.monotonic() >= ctx.deadline:
+            return
         # 403 = account not activated, 429 = code quota / daily cap (sessions.py).
         st, s = await call(rec, c, "POST", "/sessions", "POST /sessions", token=token,
                            quota_statuses=(403, 429),
@@ -601,22 +607,32 @@ async def speaking_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
                              "account": f"user#{account}", "vu": vu, "t": rec.t()})
         # generate may call Gemini (topic not in the library), so it spends
         # the same capped Speaking budget as a graded upload.
+        if ctx.stop.is_set() or time.monotonic() >= ctx.deadline:
+            return
         st = None
         if _take_grade(ctx, "speaking"):
             rec.generate_calls += 1
             st, qs = await call(rec, c, "POST", f"/sessions/{sid}/questions/generate",
                                 "POST /sessions/{id}/questions/generate", token=token, json={})
         if st != 200:
+            if ctx.stop.is_set() or time.monotonic() >= ctx.deadline:
+                return
             st, qs = await call(rec, c, "GET", f"/sessions/{sid}/questions",
                                 "GET /sessions/{id}/questions", token=token)
         qid = next((q.get("id") for q in (qs if isinstance(qs, list) else [])
                     if isinstance(q, dict) and q.get("id")), None)
+        if ctx.stop.is_set() or time.monotonic() >= ctx.deadline:
+            return
         if qid and _take_grade(ctx, "speaking"):
             await call(rec, c, "POST", f"/sessions/{sid}/responses", "POST /sessions/{id}/responses",
                        token=token, data={"question_id": str(qid)},
                        files={"audio_file": ("loadtest.wav", ctx.audio, "audio/wav")})
         while await _sleep_or_stop(ctx, _jitter(a.beacon_seconds, rnd)):
+            if ctx.stop.is_set() or time.monotonic() >= ctx.deadline:
+                return
             await call(rec, c, "GET", f"/sessions/{sid}", "GET /sessions/{id}", token=token)
+            if ctx.stop.is_set() or time.monotonic() >= ctx.deadline:
+                return
             await beacon(ctx, c, token, "/speaking", ui)
 
 
@@ -625,10 +641,18 @@ async def writing_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
     rnd = random.Random(a.seed * 1000 + vu)
     ui = f"user#{account}/vu{vu}"
     async with make_client(a.base_url, a.request_timeout) as c:
+        if ctx.stop.is_set() or time.monotonic() >= ctx.deadline:
+            return
         await call(rec, c, "GET", "/auth/me", "GET /auth/me", token=token)
+        if ctx.stop.is_set() or time.monotonic() >= ctx.deadline:
+            return
         await beacon(ctx, c, token, "/writing", ui)
+        if ctx.stop.is_set() or time.monotonic() >= ctx.deadline:
+            return
         await call(rec, c, "GET", "/api/writing/my-assignments", "GET /api/writing/my-assignments",
                    token=token)
+        if ctx.stop.is_set() or time.monotonic() >= ctx.deadline:
+            return
         target = ctx.writing_targets.get(account)
         if target:
             # The Writing workspace claims a renderer lease before submit can
@@ -639,6 +663,8 @@ async def writing_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
             if st != 200:
                 rec.notes.append(f"{ui}: writing renderer lease failed status={st}; no submit")
                 target = None
+        if ctx.stop.is_set() or time.monotonic() >= ctx.deadline:
+            return
         if target and _take_grade(ctx, "writing"):
             essay = ("The chart compares figures across three years. " * 30).strip()
             request_id = str(uuid.uuid4())
@@ -649,8 +675,12 @@ async def writing_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
                                  "request_id": request_id, "status": st,
                                  "account": f"user#{account}", "vu": vu, "t": rec.t()})
         while await _sleep_or_stop(ctx, _jitter(a.beacon_seconds, rnd)):
+            if ctx.stop.is_set() or time.monotonic() >= ctx.deadline:
+                return
             await call(rec, c, "GET", "/api/writing/my-essays", "GET /api/writing/my-essays",
                        token=token)
+            if ctx.stop.is_set() or time.monotonic() >= ctx.deadline:
+                return
             await beacon(ctx, c, token, "/writing", ui)
 
 
