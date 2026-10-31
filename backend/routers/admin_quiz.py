@@ -30,7 +30,8 @@ from routers.admin import require_admin
 from services.async_pg_engine import create_asyncpg_engine
 from services.quiz_import import PublishState, import_quiz_file
 from models.grammar_quiz_revisions import (
-    MAX_SOURCE_BYTES, GrammarRevisionCommitRequest, GrammarRevisionCommitResult,
+    MAX_SOURCE_BYTES, AdminQuizBankDetailResponse, GrammarRevisionCommitRequest,
+    GrammarRevisionCommitResult,
     GrammarRevisionErrorResponse, GrammarRevisionPreview, GrammarRevisionPreviewRequest,
     GrammarRevisionRead,
 )
@@ -250,8 +251,11 @@ async def quiz_student_detail(
     return quiz_service.admin_student_detail(str(user_id), skill_area=skill_area)
 
 
-@router.get("/banks/{bank_id}")
+@router.get("/banks/{bank_id}", response_model=AdminQuizBankDetailResponse,
+            response_model_exclude_unset=True)
 async def get_bank(bank_id: UUID, authorization: str | None = Header(None)):
+    """Editor read: every column, keys included. Uses its own admin model —
+    the learner allowlist (`StudentQuizQuestion`) would drop the keys."""
     await require_admin(authorization)
     try:
         bank = (

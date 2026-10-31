@@ -10245,7 +10245,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Bank */
+        /**
+         * Get Bank
+         * @description Editor read: every column, keys included. Uses its own admin model —
+         *     the learner allowlist (`StudentQuizQuestion`) would drop the keys.
+         */
         get: operations["get_bank_admin_quiz_banks__bank_id__get"];
         put?: never;
         post?: never;
@@ -13637,6 +13641,44 @@ export interface components {
             content_payload?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** AdminQuizBankDetailResponse */
+        AdminQuizBankDetailResponse: {
+            /** Bank */
+            bank: {
+                [key: string]: unknown;
+            };
+            /** Questions */
+            questions: components["schemas"]["AdminQuizQuestion"][];
+        };
+        /**
+         * AdminQuizQuestion
+         * @description Teacher/admin editor row: every stored column, keys included.
+         *
+         *     Deliberately a separate model: the learner allowlist above must never be
+         *     reused for the editor (it would drop keys), nor this one for learners.
+         */
+        AdminQuizQuestion: {
+            /** Qid */
+            qid: string;
+            /** Answer */
+            answer?: unknown;
+            /** Accept */
+            accept?: unknown;
+            /** Explain */
+            explain?: unknown;
+            /** Why Wrong */
+            why_wrong?: unknown;
+            /** Hint */
+            hint?: unknown;
+            /** Pairs */
+            pairs?: unknown;
+            /** Mask */
+            mask?: unknown;
+            /** Segments */
+            segments?: unknown;
+        } & {
+            [key: string]: unknown;
         };
         /** AdminResponseRegradeResponse */
         AdminResponseRegradeResponse: {
@@ -20145,6 +20187,24 @@ export interface components {
             /** Updated At */
             updated_at?: string | null;
         };
+        /**
+         * QuizAttemptFeedback
+         * @description Server verdict for ONE Course mastery answer that is already recorded.
+         */
+        QuizAttemptFeedback: {
+            /** Qid */
+            qid: string;
+            /** Client Id */
+            client_id?: string | null;
+            /** Is Correct */
+            is_correct: boolean;
+            /** Answer */
+            answer?: number | null;
+            /** Why Wrong */
+            why_wrong?: string | null;
+            /** Explain */
+            explain?: string | null;
+        };
         /** QuizBankPlayResponse */
         QuizBankPlayResponse: {
             /** Bank */
@@ -20152,16 +20212,16 @@ export interface components {
                 [key: string]: unknown;
             };
             /** Questions */
-            questions: {
-                [key: string]: unknown;
-            }[];
+            questions: components["schemas"]["StudentQuizQuestion"][];
             /** Word Cards */
             word_cards: {
                 [key: string]: unknown;
             };
             grammar?: components["schemas"]["ManagedGrammarSessionState"] | null;
-        } & {
-            [key: string]: unknown;
+            /** Mastery */
+            mastery?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** QuizSessionEndResponse */
         QuizSessionEndResponse: {
@@ -20187,8 +20247,8 @@ export interface components {
             /** Word Stats */
             word_stats: number;
             grammar?: components["schemas"]["ManagedGrammarSessionState"] | null;
-        } & {
-            [key: string]: unknown;
+            /** Feedback */
+            feedback?: components["schemas"]["QuizAttemptFeedback"][] | null;
         };
         /** QuizSessionStartResponse */
         QuizSessionStartResponse: {
@@ -20202,8 +20262,10 @@ export interface components {
                 [key: string]: unknown;
             }[];
             grammar?: components["schemas"]["ManagedGrammarSessionState"] | null;
-        } & {
-            [key: string]: unknown;
+            /** Timer */
+            timer?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** ReadingAttemptTotalsOut */
         ReadingAttemptTotalsOut: {
@@ -22089,6 +22151,65 @@ export interface components {
             state: string;
             /** Independent Items */
             independent_items: number;
+        };
+        /**
+         * StudentQuizQuestion
+         * @description One question as the learner's player may see it (SA-BANK-ANSWERS §5.1).
+         *
+         *     `extra='forbid'` makes a column added to `quiz_questions` fail closed
+         *     instead of riding `select("*")` to every learner.  The key-bearing fields
+         *     are optional: Grammar/Vocab self-study still grades in the browser (QĐ-5,
+         *     until J412), while Course banks never carry them (graded on the server).
+         *     Value types stay permissive: the allowlist is the security boundary, and a
+         *     surprising JSONB shape must not take a working learner page down.
+         */
+        StudentQuizQuestion: {
+            /** Id */
+            id?: unknown;
+            /** Qid */
+            qid: string;
+            /** Item Key */
+            item_key?: unknown;
+            /** Type */
+            type?: unknown;
+            /** Subtype */
+            subtype?: unknown;
+            /** Input */
+            input?: unknown;
+            /** Skill */
+            skill?: unknown;
+            /** Pair */
+            pair?: unknown;
+            /** Counts Toward Mastery */
+            counts_toward_mastery?: unknown;
+            /** Prompt */
+            prompt?: unknown;
+            /** Options */
+            options?: unknown;
+            /** Segments */
+            segments?: unknown;
+            /** Mask */
+            mask?: unknown;
+            /** Points */
+            points?: unknown;
+            /** Order */
+            order?: unknown;
+            /** Audio Url */
+            audio_url?: unknown;
+            /** Article Url */
+            article_url?: unknown;
+            /** Grammar Article Slug */
+            grammar_article_slug?: unknown;
+            /** Answer */
+            answer?: unknown;
+            /** Accept */
+            accept?: unknown;
+            /** Explain */
+            explain?: unknown;
+            /** Why Wrong */
+            why_wrong?: unknown;
+            /** Hint */
+            hint?: unknown;
         };
         /** StudyAnswer */
         StudyAnswer: {
@@ -40790,7 +40911,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminQuizBankDetailResponse"];
                 };
             };
             /** @description Validation Error */

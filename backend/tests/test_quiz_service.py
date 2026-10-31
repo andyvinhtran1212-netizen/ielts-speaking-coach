@@ -334,10 +334,8 @@ def test_untimed_single_attempt_keeps_answers_sealed_when_refresh_fails(
 
     assert out["mastery"]["answers_sealed"] is True
     question = out["questions"][0]
-    assert question["answer"] is None
-    assert question["accept"] is None
-    assert question["explain"] is None
-    assert question["why_wrong"] is None
+    # J411R2: a Course row carries no key fields at all (absent, not null).
+    assert not {"answer", "accept", "explain", "why_wrong"} & set(question)
 
 
 def test_timed_near_pass_bank_read_adopts_retake_phase_not_run():
@@ -1265,6 +1263,8 @@ def test_timed_course_progress_uses_atomic_admission_timestamp_rpc():
         ("rpc", "quiz_insert_timed_course_attempts"): [{
             **attempt, "created_at": "2999-09-15T10:01:00+00:00",
         }],
+        # Course rows are graded on the server in every mode (J411R2).
+        ("quiz_questions", "select"): [{"qid": "q1", "answer": 1}],
     })
     with patch.object(quiz_service, "supabase_admin", fake):
         out = quiz_service.log_progress(
@@ -1275,6 +1275,8 @@ def test_timed_course_progress_uses_atomic_admission_timestamp_rpc():
                if call["table"] == "rpc:quiz_insert_timed_course_attempts")
     assert rpc["payload"]["p_session_id"] == _SESS
     assert rpc["payload"]["p_attempts"][0]["client_id"] == attempt["client_id"]
+    # The client claimed `is_correct=True` for "0"; the key is 1.
+    assert rpc["payload"]["p_attempts"][0]["is_correct"] is False
     assert not any(call["table"] == "quiz_attempts" and call["op"] == "upsert"
                    for call in fake.calls)
 
@@ -1308,6 +1310,7 @@ def test_superseded_timed_progress_returns_a_stable_conflict_code(rpc_error):
         }],
         ("rpc", "quiz_insert_timed_course_attempts"):
             Exception(rpc_error),
+        ("quiz_questions", "select"): [{"qid": "q1", "answer": 0}],
     })
     with patch.object(quiz_service, "supabase_admin", fake):
         with pytest.raises(HTTPException) as error:
