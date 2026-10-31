@@ -1988,8 +1988,12 @@ def _reconcile_terminal(sitting_id: str, exam: Optional[dict] = None) -> dict:
             "status": new_status,
         }).eq("id", str(sitting_id)).eq("status", sitting["status"]).execute()
         if not transitioned.data:
-            # A concurrent void/review transition wins. Do not queue a review
-            # using the stale pre-transition snapshot.
+            # Another reconciler may already have reached the same state (or
+            # review may have advanced it). Return that committed success;
+            # the winner owns review creation. A void is still a conflict.
+            fresh = get_sitting(sitting_id) or {}
+            if fresh.get("status") in (new_status, "all_submitted", "under_review", "released"):
+                return fresh
             raise SittingConflictError("Trạng thái lượt thi vừa thay đổi — tải lại trang.")
         sitting = transitioned.data[0]
 
@@ -2008,7 +2012,17 @@ def _ensure_review(sitting: dict) -> None:
     except Exception:  # noqa: BLE001 — drafting must never block finalisation
         logger.exception("[mock-exam] ai_draft assembly failed sitting=%s", sitting["id"])
         ai_draft = {}
-    mock_review_workflow.create_review(sitting["id"], ai_draft=ai_draft)
+    review = mock_review_workflow.create_review(sitting["id"], ai_draft=ai_draft)
+    # The terminal UPDATE and review INSERT are separate requests. Void can
+    # finish between them, finding no review to cancel. Check AFTER insertion
+    # so either void sees the row or this path cancels it, including a claim
+    # that raced the check. release_results independently refuses void sittings.
+    fresh = get_sitting(sitting["id"]) or {}
+    if fresh.get("status") == "void":
+        supabase_admin.table("mock_exam_reviews").update({
+            "status": "void",
+        }).eq("id", str(review["id"])).not_.in_("status", ["released", "void"]).execute()
+        raise SittingConflictError("Lượt thi đã bị huỷ — không thể đưa vào hàng đợi chấm.")
     logger.info("[mock-exam] sitting=%s all_submitted → review queued", sitting["id"])
 
 
@@ -3564,10 +3578,16 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
         # not-yet-terminal sitting.
         elif sections and all(sitting.get(_SUBMITTED_COL[s]) for s in sections) \
                 and sitting.get("status") in ("registered", "lrw_in_progress"):
-            supabase_admin.table("mock_exam_sittings").update({
-                "status": "lrw_submitted",
-            }).eq("id", sitting["id"]).execute()
-            _reconcile_terminal(sitting["id"], exam)
+            try:
+                retried = supabase_admin.table("mock_exam_sittings").update({
+                    "status": "lrw_submitted",
+                }).eq("id", sitting["id"]).eq("status", sitting["status"]).execute()
+                if not retried.data:
+                    continue  # void or another finalizer won; keep sweeping
+                _reconcile_terminal(sitting["id"], exam)
+            except SittingConflictError:
+                logger.info("[retake-reaper] concurrent finalisation sitting=%s", sitting["id"])
+                continue
             touched += 1
     if collected:
         logger.info("[retake-reaper] collected=%d across %d sitting(s)", collected, touched)
