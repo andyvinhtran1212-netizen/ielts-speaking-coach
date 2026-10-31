@@ -162,8 +162,11 @@ test('actual card click retains assignment URL so a lost ACK can recover after r
   h.respond = async (method, path) => { if (path.endsWith('/execute')) throw Error('lost ACK'); return original(method, path); };
   const button = { closest: () => ({ getAttribute: name => name === 'data-assignment-id' ? h.assignment : 'next' }),
     addEventListener: (name, callback) => { h.click = callback; } };
-  h.list = { innerHTML: '', querySelectorAll: () => [button] };
-  h.renderCards(); h.click();
+  h.list = { innerHTML: '', attributes: new Map([['aria-busy', 'true']]),
+    removeAttribute(name) { this.attributes.delete(name); }, querySelectorAll: () => [button] };
+  h.renderCards();
+  assert.equal(h.list.attributes.has('aria-busy'), false);
+  h.click();
   assert.equal(new URL(h.window.location.href).searchParams.get('assignment_id'), h.assignment);
   for (let i = 0; i < 20 && !h.notices.length; i++) await new Promise(setImmediate);
   assert.equal(h.notices.length, 1); assert.equal(h.rows.size, 1);
