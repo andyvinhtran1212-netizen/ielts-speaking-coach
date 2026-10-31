@@ -544,8 +544,11 @@ def _confirmed_activation(user_id: str, code_id: str, code: str, email: str | No
                 .eq("user_id", user_id).limit(20).execute().data or [])
     student = next((row for row in students if not row.get("archived_at")), {})
     cohort_id = current_code.get("cohort_id")
-    if superseded and cohort_id and str(student.get("cohort_id")) != str(cohort_id):
-        cohort_id = None  # the newer code moved the student: this class's gives are not theirs
+    # A newer code moving students.cohort_id is additive (227); only a left
+    # membership means this class's gives are no longer theirs (Codex r4429865937).
+    if superseded and cohort_id and not (student.get("id") and student_is_active_in_cohort(
+            supabase_admin, str(student["id"]), str(cohort_id), student.get("cohort_id"))):
+        cohort_id = None
     return {"status": "ok", "role": users[0].get("role"), "student_id": student.get("id"),
             "promote_role": "instructor" if promote else None, "cohort_id": cohort_id}
 

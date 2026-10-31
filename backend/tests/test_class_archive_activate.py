@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 import routers.auth as auth
+from services.class_membership_service import student_is_active_in_cohort as REAL_IS_ACTIVE_IN_COHORT
 from services.cohort_assignment_service import backfill_cohort_writing_assignments as REAL_BACKFILL
 from services.request_context import request_id_scope
 
@@ -1711,9 +1712,10 @@ def test_double_submit_on_one_loop_backfills_the_late_joiner_once(world, monkeyp
 
 # ── Codex r4429669479 (R13): a lost receipt, then a newer activation ─────────
 
-def lose_receipt_after_newer_activation(db, monkeypatch, other_cohort):
+def lose_receipt_after_newer_activation(db, monkeypatch, other_cohort, after_newer=None):
     """Code A's transaction commits and its response is lost; before this
-    request reconciles, the same user fully activates ordinary code B."""
+    request reconciles, the same user fully activates ordinary code B (then
+    `after_newer` runs, still before the reconciliation)."""
     import asyncio
 
     db.tables["access_codes"].append({
@@ -1733,6 +1735,8 @@ def lose_receipt_after_newer_activation(db, monkeypatch, other_cohort):
             call.execute()
             newer.append(asyncio.run(auth.activate_account(
                 auth.ActivateRequest(access_code="OTHERCODE"), "Bearer fake")))
+            if after_newer:
+                after_newer()
             raise RuntimeError(DB_TEXT)
         return SimpleNamespace(execute=execute)
     monkeypatch.setattr(db, "rpc", rpc)
@@ -1763,28 +1767,81 @@ def test_lost_instructor_receipt_after_newer_activation_still_promotes(world, mo
     assert auth._claim_followup_locks == {}
 
 
-@pytest.mark.parametrize("other_cohort", [None, "class-2"])
-def test_lost_class_receipt_after_newer_activation_backfills_only_the_current_class(
-        world, monkeypatch, other_cohort):
-    db, client = world
-    db.tables["writing_assignments"] = [{
-        "id": "wa-classmate", "prompt_id": "prompt-1", "student_id": "classmate-1",
-        "cohort_id": COHORT, "status": "submitted", "assignment_group_id": "group-1",
+def mirror_legacy_membership_sync(db, monkeypatch):
+    """Migration 227: writing students.cohort_id upserts an active membership
+    and never deactivates another one, so a primary-pointer move is additive."""
+    original = db.table
+
+    def table(name):
+        query = original(name)
+        if name != "students":
+            return query
+        run = query.execute
+
+        def execute():
+            result = run()
+            if query.op in {"insert", "update"}:
+                memberships = db.tables.setdefault("student_cohort_memberships", [])
+                for row in result.data or []:
+                    if not row.get("cohort_id"):
+                        continue
+                    key = (row["id"], row["cohort_id"])
+                    found = [m for m in memberships if (m["student_id"], m["cohort_id"]) == key]
+                    if found:
+                        found[0]["is_active"] = True
+                    else:
+                        memberships.append({"id": str(uuid4()), "student_id": row["id"],
+                                            "cohort_id": row["cohort_id"], "is_active": True})
+            return result
+        query.execute = execute
+        return query
+    monkeypatch.setattr(db, "table", table)
+
+
+def class_give(cohort_id, prompt_id):
+    return {
+        "id": f"wa-{prompt_id}", "prompt_id": prompt_id, "student_id": f"classmate-{prompt_id}",
+        "cohort_id": cohort_id, "status": "submitted", "assignment_group_id": f"group-{prompt_id}",
         "name": "Task 2", "allow_soft_check": False, "assigned_by": "gv-1", "deadline": None,
         "instructions": None, "is_timed": False, "time_limit_minutes": None,
         "analysis_level": None, "grading_tier": None,
-    }]
+    }
+
+
+@pytest.mark.parametrize("other_cohort, left_first_class, expected", [
+    (None, False, {("prompt-1", COHORT)}),
+    # B moves the primary pointer but the class-1 membership stays (227).
+    ("class-2", False, {("prompt-1", COHORT), ("prompt-2", "class-2")}),
+    # The student really left class-1 before A reconciled.
+    ("class-2", True, {("prompt-2", "class-2")}),
+])
+def test_lost_class_receipt_after_newer_activation_backfills_every_active_class(
+        world, monkeypatch, other_cohort, left_first_class, expected):
+    db, client = world
+    db.tables["writing_assignments"] = [class_give(COHORT, "prompt-1"), class_give("class-2", "prompt-2")]
     monkeypatch.setattr("services.cohort_assignment_service.backfill_cohort_writing_assignments",
                         REAL_BACKFILL)
-    lose_receipt_after_newer_activation(db, monkeypatch, other_cohort)
+    monkeypatch.setattr(auth, "student_is_active_in_cohort", REAL_IS_ACTIVE_IN_COHORT)
+    mirror_legacy_membership_sync(db, monkeypatch)
+
+    def leave_first_class():
+        for membership in db.tables["student_cohort_memberships"]:
+            if membership["cohort_id"] == COHORT:
+                membership["is_active"] = False
+
+    lose_receipt_after_newer_activation(
+        db, monkeypatch, other_cohort, after_newer=leave_first_class if left_first_class else None)
     response = activate(client)
     assert response.status_code == 200, response.text
     assert db.tables["users"][0]["access_code_used"] == "OTHERCODE"
     student = next(s for s in db.tables["students"] if s.get("user_id") == USER)
     assert student["cohort_id"] == (other_cohort or COHORT)
+    active = {m["cohort_id"] for m in db.tables["student_cohort_memberships"]
+              if m["student_id"] == student["id"] and m["is_active"]}
+    assert active == {cohort for _prompt, cohort in expected}
     assert {(r["user_id"], r["code_id"]) for r in db.tables["user_code_assignments"]} == {
         (USER, "code-1"), (USER, "code-2")}
-    mine = [(r["prompt_id"], r["cohort_id"]) for r in db.tables["writing_assignments"]
-            if r["student_id"] == student["id"]]
-    # Code A's class gives go only to a student still in that class.
-    assert mine == ([] if other_cohort else [("prompt-1", COHORT)])
+    mine = {(r["prompt_id"], r["cohort_id"]) for r in db.tables["writing_assignments"]
+            if r["student_id"] == student["id"]}
+    # Code A's class gives go to every class the student is still an active member of.
+    assert mine == expected
