@@ -1,0 +1,12 @@
+# UI state matrix
+
+| Surface | Loading | Empty | Success | Error/retry | Permission | Responsive/theme/a11y |
+| --- | --- | --- | --- | --- | --- | --- |
+| Admin assignment workspace, tab "Theo buổi" (`admin-class-submissions.tsx`) | The tab panel shows "Đang tổng hợp theo buổi…" with `aria-busy`. The other tabs stay usable, and a stale request is ignored through the existing `sequence` ref | `lesson_tags="none"`: the tab is not rendered. No learner has been graded yet: "Chưa có học viên nào chốt bài — số liệu theo buổi sẽ hiện khi có bài đã chốt." The per-learner states are still listed | The class table B01…Bnn shows correct/total, %, weak learner count and the "Cần ôn" label. The "3 buổi yếu nhất" line, the learner × lesson matrix with each learner's weakest flagged, and counted/assigned appear. Banners show for `partial` tags, `keys_verified`/`unknown` revision, `sealed=false` ("Chưa tới hạn — số liệu còn đổi"), `sample_low` and multi-section `quiz_only=false` | Network/5xx: an inline error with a "Thử lại" button that refetches. `stale`: a warning banner and unreadable rows marked "Không đọc được", never zero. 409 drift: a blocking explanation with no numbers. 422: "Bài này không có báo cáo theo buổi" | Admin only (`require_admin`, AAL2 per 0032). 401/403 use the existing admin redirect. 404 shows "Không tìm thấy bài giao trong lớp này" | The table has `<th scope>` headers and a caption. The learner column is sticky and the table scrolls horizontally in a focusable region with `aria-label`. Tabs keep the existing arrow-key roving `tabIndex`. Weak cells carry text and an icon, not colour alone. Aver tokens work in light and dark themes. No motion |
+| Instructor "Kết quả theo buổi" (FR-013) | Skeleton list, then the same report loading state | "Lớp của thầy/cô chưa có bài theo buổi nào có nhãn buổi." | The same read-only report, without the Inspect link | Same as the admin row, with retry | `/instructor` guard (active instructor or admin). A class that is not owned shows "Không tìm thấy." with no hint that it exists | Same as the admin row |
+
+Canonical data: every number comes from the report endpoint. The client never
+regroups answers. Reloading refetches and shows the same values, because the
+endpoint is read-only and deterministic for the stored data. Opening a learner
+from the matrix moves focus to the existing "Inspect học viên" panel heading,
+and "Quay lại" returns focus to that learner's row header.
