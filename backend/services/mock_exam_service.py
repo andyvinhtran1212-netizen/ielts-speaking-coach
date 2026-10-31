@@ -1594,13 +1594,17 @@ def start_section(sitting_id: str, user_id: str, section: str) -> dict:
     updates = {started_col: _now_iso()}
     if sitting["status"] == "registered":
         updates["status"] = "lrw_in_progress"
+    # Repeat the read status so a concurrent void cannot start a new clock.
     resp = supabase_admin.table("mock_exam_sittings").update(updates).eq(
         "id", str(sitting_id),
-    ).is_(started_col, "null").execute()
+    ).eq("status", sitting["status"]).is_(started_col, "null").execute()
     if not resp.data:
+        fresh = get_sitting(sitting_id)
+        if fresh and fresh["status"] == "void":
+            raise SittingConflictError("Lượt thi đã bị huỷ — không thể bắt đầu phần thi.")
         # Someone stamped this clock between the read above and this write —
         # another tab, or a double-click. Idempotent, same as the guard above.
-        return get_sitting(sitting_id) or {**sitting, **updates}
+        return fresh or {**sitting, **updates}
 
     # THE OTHER HALF OF THE REASSIGNMENT RACE. `_refresh_open_sitting()` now
     # compare-and-sets on every clock being null, which covers the ordering
@@ -1745,9 +1749,14 @@ def submit_section(
     exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
     sections = _sitting_sections(sitting, exam)   # retake → assigned, seq → configured
     if sections and all(sitting.get(_SUBMITTED_COL[s]) for s in sections):
-        supabase_admin.table("mock_exam_sittings").update({
+        # Void/review may have committed since the section stamp was read.
+        transitioned = supabase_admin.table("mock_exam_sittings").update({
             "status": "lrw_submitted",
-        }).eq("id", str(sitting_id)).execute()
+        }).eq("id", str(sitting_id)).in_("status", ["registered", "lrw_in_progress"]).execute()
+        if not transitioned.data:
+            fresh = get_sitting(sitting_id) or {}
+            if fresh.get("status") == "void":
+                raise SittingConflictError("Lượt thi đã bị huỷ — không thể nộp phần thi.")
         logger.info("[mock-exam] sitting=%s LRW submitted", sitting_id)
         return _reconcile_terminal(sitting_id)
     return sitting
@@ -3228,10 +3237,10 @@ def _collect_section_for_sitting(sitting: dict, section: str,
         claimed_at = update[col]
         claim = supabase_admin.table("mock_exam_sittings").update(update).eq(
             "id", sitting["id"],
-        ).is_(col, "null").execute()
+        ).in_("status", ["registered", "lrw_in_progress"]).is_(col, "null").execute()
         if not claim.data:
             logger.info(
-                "[mock-exam] sitting=%s section=%s already claimed by another sweep",
+                "[mock-exam] sitting=%s section=%s claim skipped — sitting changed",
                 sitting["id"], section,
             )
             return False
@@ -3257,9 +3266,13 @@ def _collect_section_for_sitting(sitting: dict, section: str,
             # unreachable by every repair path (_reconcile_terminal does not
             # come back from all_submitted).
             terminal_started = True
-            supabase_admin.table("mock_exam_sittings").update({
+            transitioned = supabase_admin.table("mock_exam_sittings").update({
                 "status": "lrw_submitted",
-            }).eq("id", sitting["id"]).execute()
+            }).eq("id", sitting["id"]).in_("status", ["registered", "lrw_in_progress"]).execute()
+            if not transitioned.data:
+                current = get_sitting(sitting["id"]) or {}
+                if current.get("status") == "void":
+                    return False
             _reconcile_terminal(sitting["id"], exam_for_scope)
         return True
     except Exception:  # noqa: BLE001
@@ -3431,9 +3444,11 @@ def reconcile_stalled_sittings(exam_id: Optional[str] = None) -> dict:
         # a class waiting on Speaking costs no queries per tick.
         try:
             if row["status"] in ("registered", "lrw_in_progress"):
-                supabase_admin.table("mock_exam_sittings").update({
+                transitioned = supabase_admin.table("mock_exam_sittings").update({
                     "status": "lrw_submitted",
-                }).eq("id", row["id"]).execute()
+                }).eq("id", row["id"]).eq("status", row["status"]).execute()
+                if not transitioned.data:
+                    continue
             _reconcile_terminal(row["id"], exams[str(row["mock_exam_id"])])
             logger.warning(
                 "[mock-exam] sitting=%s was stalled at %s with the paper fully in "
