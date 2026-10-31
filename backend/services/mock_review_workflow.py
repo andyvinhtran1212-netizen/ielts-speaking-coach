@@ -63,6 +63,20 @@ class ValidationError(MockReviewError):
     """Final bands incomplete / out of range."""
 
 
+_SKILL_KEY_MAX_CHARS = 64
+_REFUSED_MESSAGE_MAX = 5
+_REFUSED_DETAIL_MAX = 10
+
+
+def _clip_skill_key(key) -> str:
+    """A refused key as it may appear in a 422: control characters/newlines
+    dropped, at most _SKILL_KEY_MAX_CHARS characters plus '…'."""
+    text = "".join(ch for ch in str(key) if ch.isprintable()) or "?"
+    if len(text) > _SKILL_KEY_MAX_CHARS:
+        text = text[:_SKILL_KEY_MAX_CHARS] + "…"
+    return text
+
+
 class SkillNotInSittingError(ValidationError):
     """A retest flag was ticked for a skill this sitting does not carry.
 
@@ -70,8 +84,16 @@ class SkillNotInSittingError(ValidationError):
     UI labels them so the console can show it verbatim (PC-J146)."""
 
     def __init__(self, skills: list):
-        self.skills = list(skills)
-        names = ", ".join(s.capitalize() if s in _SKILLS else str(s) for s in self.skills)
+        refused = list(skills)
+        # Unknown keys are client input echoed into a 422 body: clip each one
+        # and cap how many are listed so a large payload is not reflected
+        # back (PC-J213). Real skills sort first, so they are always shown.
+        self.skills = [_clip_skill_key(s) for s in refused[:_REFUSED_DETAIL_MAX]]
+        labels = [raw.capitalize() if raw in _SKILLS else clipped
+                  for raw, clipped in zip(refused, self.skills[:_REFUSED_MESSAGE_MAX])]
+        names = ", ".join(labels)
+        if len(refused) > len(labels):
+            names += f" và {len(refused) - len(labels)} kỹ năng khác"
         super().__init__(f"Kỹ năng {names} không thuộc lượt thi này.")
 
 
@@ -262,6 +284,16 @@ def _retest_skills(review: dict, required: tuple) -> tuple:
     return tuple(s for s in _SKILLS if s in allowed)
 
 
+def _refused_retest_skills(retest_flags: dict, allowed) -> list:
+    """The ticked (truthy) retest flags a write must refuse: a known skill
+    outside ``allowed``, then any unknown key.  An untick (false) is never
+    refused — the console posts all four keys.  One rule for the roster
+    (set_retest_flags_for_sitting) and the final-band save (PC-J213)."""
+    refused = [s for s in _SKILLS if s not in allowed and retest_flags.get(s)]
+    refused += [s for s, v in retest_flags.items() if s not in _SKILLS and v]
+    return refused
+
+
 # ── Workflow ──────────────────────────────────────────────────────────
 
 
@@ -335,7 +367,7 @@ def release(review_id: UUID, admin_id: UUID) -> dict:
         "status":     "queued",
         "claimed_by": None,
         "claimed_at": None,
-    }).eq("id", str(review_id)).eq("claimed_by", str(admin_id)).execute()
+    }).eq("id", str(review_id)).eq("claimed_by", str(admin_id)).eq("status", "claimed").execute()
     if not response.data:
         existing = supabase_admin.table("mock_exam_reviews").select(
             "id, status, claimed_by",
@@ -381,9 +413,12 @@ def save_speaking_assessment(review_id: UUID, admin_id: UUID, payload: dict) -> 
     notes["speaking"] = spk
     draft = dict(review.get("ai_draft") or {})
     draft["speaking"] = {"band": overall}
-    supabase_admin.table("mock_exam_reviews").update(
+    # Bulk release may publish after the pre-read; guard the write itself.
+    response = supabase_admin.table("mock_exam_reviews").update(
         {"per_skill_notes": notes, "ai_draft": draft},
-    ).eq("id", str(review_id)).execute()
+    ).eq("id", str(review_id)).neq("status", "released").execute()
+    if not response.data:
+        raise ConflictError("Đã công bố — không sửa bài chấm Speaking nữa.")
     logger.info("[mock-review] speaking assessment saved review=%s by=%s overall=%s",
                 review_id, admin_id, overall)
     return {"review_id": str(review_id), "overall": overall}
@@ -402,12 +437,16 @@ def save_final_bands(
     The overall is ALWAYS recomputed here (verified mean), never trusted from
     the client — same posture as writing overall bands. Required skills come from
     the exam config (Speaking optional for LRW-only exams). Auth: only the
-    current claimant may save (filter inside the UPDATE).
+    current claimant may save, from 'claimed' or 'reviewed' only (filters inside
+    the UPDATE, so a concurrent release cannot be overwritten).
 
     retest_flags (2026-07-12, mig 152) is the admin's independent PASS/FAIL
     judgment per skill — {skill: bool} — separate from the score. Only keys
     for the sitting's required or canonically live-assessed skills are kept;
-    an unset/False flag means "no retest needed" for that skill.
+    an unset/False flag means "no retest needed" for that skill. Ticking
+    (true) any other or unknown skill raises SkillNotInSittingError before
+    anything is written — the same rule as set_retest_flags_for_sitting
+    (PC-J213); a false flag for such a skill is still ignored.
     """
     review = get_review(review_id)
     if not review:
@@ -463,6 +502,10 @@ def save_final_bands(
     # blank, not a partial average dressed up as a total.
     overall = None if missing else compute_overall(final_bands, banded)
     stored["overall"] = overall
+    if retest_flags is not None:
+        refused = _refused_retest_skills(retest_flags, banded)
+        if refused:
+            raise SkillNotInSittingError(refused)
 
     update: dict = {
         "status":      "reviewed",
@@ -479,16 +522,22 @@ def save_final_bands(
 
     response = supabase_admin.table("mock_exam_reviews").update(update).eq(
         "id", str(review_id),
-    ).eq("claimed_by", str(admin_id)).execute()
+    ).eq("claimed_by", str(admin_id)).in_("status", ["claimed", "reviewed"]).execute()
     if not response.data:
         existing = supabase_admin.table("mock_exam_reviews").select(
             "id, status, claimed_by",
         ).eq("id", str(review_id)).limit(1).execute()
         if not existing.data:
             raise NotFoundError(f"Review {review_id} not found")
-        raise PermissionError(
-            f"Review {review_id} is not claimed by admin {admin_id}; "
-            f"cannot save final bands."
+        cur = existing.data[0]
+        if cur.get("claimed_by") != str(admin_id):
+            raise PermissionError(
+                f"Review {review_id} is not claimed by admin {admin_id}; "
+                f"cannot save final bands."
+            )
+        raise ConflictError(
+            f"Review {review_id} is in status={cur['status']!r}; "
+            f"must be 'claimed' or 'reviewed' before saving final bands."
         )
     # Sync the sitting-level needs_retest flag (mig 153) UP from the final
     # per-skill decision — but only ever SET it true, never clear it here. The
@@ -746,17 +795,26 @@ def set_retest_flags_for_sitting(
     # only by _required_skills(), silently dropped ``speaking``, and the UI
     # correctly reported that the backend had not confirmed the selected flag.
     skills = _retest_skills(review, _required_skills(review["sitting_id"]))
-    refused = [s for s in _SKILLS if s not in skills and retest_flags.get(s)]
-    refused += [s for s, v in retest_flags.items() if s not in _SKILLS and v]
+    refused = _refused_retest_skills(retest_flags, skills)
     if refused:
         raise SkillNotInSittingError(refused)
     stored = {s: bool(retest_flags.get(s)) for s in skills if s in retest_flags}
 
+    # The released check above is a pre-read; a concurrent release can land
+    # before this write, so the UPDATE carries the same guard (PR #2089).
     response = supabase_admin.table("mock_exam_reviews").update({
         "retest_flags": stored,
-    }).eq("id", str(review["id"])).execute()
+    }).eq("id", str(review["id"])).neq("status", "released").execute()
     if not response.data:
-        raise NotFoundError(f"Review {review['id']} not found")
+        existing = supabase_admin.table("mock_exam_reviews").select(
+            "id, status",
+        ).eq("id", str(review["id"])).limit(1).execute()
+        if not existing.data:
+            raise NotFoundError(f"Review {review['id']} not found")
+        raise ConflictError(
+            f"Sitting {sitting_id} đã công bố — không thể đổi quyết định test lại. "
+            "Thu hồi trước nếu cần."
+        )
     logger.info(
         "[mock-review] retest flags set from roster sitting=%s by=%s flags=%s",
         sitting_id, admin_id, stored,
@@ -892,11 +950,36 @@ def release_results(
         )
 
     review = response.data[0]
-    # Lift the seal on the sitting — scores become visible from here.
-    supabase_admin.table("mock_exam_sittings").update({
+    # Lift the seal on the sitting — scores become visible from here. The void
+    # check above is a pre-read: a void committing after it (and after the
+    # review flip, which void_sitting then leaves alone) must not be unsealed,
+    # so the guard is in the UPDATE itself (PR #2089). fn_void_sitting refuses
+    # a released sitting, so once this matches no void can follow.
+    unsealed = supabase_admin.table("mock_exam_sittings").update({
         "status": "released",
         "sealed": False,
-    }).eq("id", str(review["sitting_id"])).execute()
+    }).eq("id", str(review["sitting_id"])).neq("status", "void").execute()
+    if not unsealed.data:
+        # The sitting was voided in between. Leave it sealed and give the review
+        # the state void_sitting would have given it had it landed first.
+        try:
+            supabase_admin.table("mock_exam_reviews").update({
+                "status":          "void",
+                "released_at":     None,
+                "released_by":     None,
+                "release_channel": None,
+                "delivered_at":    None,
+            }).eq("id", str(review_id)).eq("status", "released").execute()
+        except Exception:  # noqa: BLE001 — the 409 below still reports the refusal
+            logger.exception(
+                "[mock-review] release: review void-back failed review=%s sitting=%s",
+                review_id, review["sitting_id"],
+            )
+        logger.warning(
+            "[mock-review] release refused: sitting=%s voided during release review=%s",
+            review["sitting_id"], review_id,
+        )
+        raise ConflictError("Lượt thi đã bị huỷ — không thể công bố kết quả.")
 
     # Deliver the Writing feedback in the same action — CÔNG BỐ is the one
     # moment everything unlocks for the student (2026-07-12). Only a 'reviewed'

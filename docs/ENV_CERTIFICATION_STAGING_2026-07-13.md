@@ -22,6 +22,105 @@ Phạm vi certify lần này: **backend staging**. Frontend staging chưa certif
 | Dữ liệu | 0 rows toàn bộ | Kiểm tra `pg_stat_user_tables` |
 | DB password | Rotate 2026-07-13, cập nhật `.env.staging` + Railway | |
 
+Script clone chỉ phủ schema **`public`**; ACL/policy của `auth` và `storage`
+trên staging không được đồng bộ. Script giữ ACL của object và default privileges
+của role migration trong schema dump, không cấp lại `GRANT ALL` trên object cho
+các role ứng dụng sau restore. Chỉ
+default ACL của role quản lý `supabase_admin` được loại khỏi dump vì `postgres`
+không có quyền restore chúng (xem migration 320); ứng dụng không tạo object bằng
+role này. Phần `supabase_admin` của migration 320 trên production có thể vẫn
+chưa được Supabase support áp dụng; default ACL đó đã bị lọc nên không ảnh hưởng
+staging. ACL sau clone phụ thuộc migration head của production **tại lúc dump**:
+các giới hạn của migration 204/320 (và 356 khi đã áp dụng ở nguồn) được giữ nguyên.
+Dump vẫn chỉ chứa cấu trúc, không có dữ liệu; phải đối chiếu migration head của
+nguồn trước khi baseline, vì clone không tự bổ sung migration chỉ có trên staging.
+Đây là hợp đồng của script hiện tại,
+không phải bằng chứng đã chạy lại clone hay certify database.
+
+### Runbook trước lần clone được Leader cho phép
+
+1. Cần `psql >= 17.6` (dump mới có `\restrict`), `pg_dump` tương thích server và
+   Python 3. Xác nhận source/target và migration head, không ghi DSN/secret vào
+   log. Script từ chối source URL trùng target URL và giữ các guard project ref;
+   source URL phải chứa ref production và không chứa ref staging (pooler và
+   direct là hai chuỗi khác nhau nhưng cùng DB). Không in URL hay ref.
+2. Dump chỉ `public`, schema-only, giữ ACL, `--no-owner`; file tạm có quyền 0600
+   (`umask 077`), trap xoá cả dump và `.tmp`. Lọc `CREATE SCHEMA public` và default
+   ACL `supabase_admin` trước mọi bước phá huỷ. Mỗi lần chạy sinh một key
+   `\restrict` ngẫu nhiên (64 hex) chỉ trong biến shell, không in ra, truyền vào
+   `pg_dump --restrict-key` và (qua env) vào preflight. Nội dung lấy từ nguồn không
+   biết key nên không thể `\unrestrict` psql. Sau preflight, bỏ đúng hai frame
+   được lexer nhận diện (giữ nguyên chuỗi/thân hàm có nội dung giống frame), kiểm
+   không còn meta-command, rồi sinh key restore mới. Key mới chỉ đi qua pipe
+   `-f <(printf …)`, giữa reset và dump; không nằm trong dump hay argv của psql.
+   `printf` là builtin của Bash. Key cũ nằm trong argv của `pg_dump` lúc dump
+   chạy (pg_dump không có cách khác), nên chỉ chạy trên máy vận hành riêng.
+3. Preflight chỉ đọc catalog staging (`BEGIN READ ONLY`): đối chiếu mọi owner,
+   grantee/revokee, role policy/default ACL trong SQL với `pg_roles`; thiếu role
+   thì in tên và dừng trước DROP. Từ chối mọi dạng đổi role (`SET`/`RESET` với
+   `ROLE` hoặc `SESSION AUTHORIZATION` ở bất kỳ vị trí token nào, kể cả `LOCAL`/
+   `SESSION`, và `set_config('role'|'session_authorization', …)`), mọi câu điều
+   khiển transaction (`BEGIN`, `START`, `COMMIT`, `END`, `ROLLBACK`, `ABORT`,
+   `SAVEPOINT`, `RELEASE`, `PREPARE`), câu chạy code lúc restore mà pg_dump
+   không sinh (`DO`, `CALL`, `SELECT` ngoài `set_config('search_path')`, …), và
+   mọi meta-command psql trừ đúng một cặp `\restrict <key>`/`\unrestrict <key>`
+   bao quanh toàn bộ SQL, dùng đúng key của lần chạy này (kể cả meta-command giữa
+   dòng). Chỉ nhận câu mở đầu bằng `SET`, `SELECT` (đúng câu
+   `set_config('search_path', '', false)`), `CREATE`, `ALTER`, `COMMENT`, `GRANT`,
+   `REVOKE`, `SECURITY`; từ chối DML, `CREATE TABLE … AS`, `SELECT … INTO`,
+   materialized view không `WITH NO DATA`, và `set_config` ở mọi vị trí khác.
+   PC-J417: từ chối `ALTER ROLE|USER|GROUP|DATABASE|SYSTEM`,
+   `CREATE ROLE|USER|GROUP|DATABASE|SCHEMA`, `CREATE [OR REPLACE] RULE`, và
+   `GRANT`/`REVOKE` role membership (không có token `ON`). Chỉ kiểm token của
+   câu SQL, không kiểm nội dung literal hoặc thân hàm được quote; object ACL,
+   `ALTER FUNCTION … SET search_path` và cột tên `role` vẫn được nhận.
+   Scanner không phải parser của psql: nó từ chối mọi chỗ hai bên có thể đọc
+   khác nhau. Gồm số dính chữ (`1e'…`, psql ≥15 đọc là một token), E-string và
+   `U&`-literal (pg_dump với `standard_conforming_strings=on` không sinh), chuỗi/
+   dollar quote chưa đóng, comment lồng nhau, NUL, mọi CR (`\r`, kể cả trong
+   comment/literal hoặc dump CRLF), và
+   ký tự non-ASCII đứng ngay trước `\` trong literal (SJIS/GBK có thể nuốt
+   `\`). Dump phải được đọc **giống hệt** khi `standard_conforming_strings` bật
+   và tắt, vì một hàm chạy lúc restore có thể tắt nó mà scanner không thấy. Từ
+   chối `SET`/`SET NAMES` đổi `standard_conforming_strings`/`client_encoding`.
+   Hàm chạy lúc restore (ví dụ default của `ADD COLUMN`) có thể đổi
+   `client_encoding`, nhưng key cũ đọc từ dump không mở được restrict mode của
+   phiên restore. Các PoC SJIS/GBK dùng key cũ bị psql dừng và rollback; marker
+   không được tạo. Cùng uid vận hành/root vẫn có thể sửa script hay đọc bộ nhớ;
+   pipe không cô lập khỏi quyền đó. Đổi role ẩn bị postcondition bắt.
+   CLI đọc byte UTF-8 nguyên trạng, không chuẩn hoá newline: CRLF và CR đơn lẻ
+   dừng trước reset, kể cả khi dòng `CREATE SCHEMA public` không được grep lọc.
+   Chuỗi hai ký tự backslash + `r` vẫn hợp lệ.
+   Default ACL phải đúng `FOR ROLE postgres IN SCHEMA public GRANT|REVOKE …`;
+   schema `"public"` hợp lệ, còn `"Public"`, schema khác, nhiều schema hay thiếu
+   `IN SCHEMA` đều bị từ chối. Từ chối **bất kỳ** entry
+   `pg_default_acl.defaclnamespace=0` trên target. Global defaults tồn tại qua
+   DROP SCHEMA và có thể âm thầm thêm quyền. Không tự tạo role hay sửa ACL để
+   vượt preflight; cần xem xét nguyên nhân trước lần chạy lại.
+4. Reset + restore + postcondition dựa trên migration 320 bước 8 chạy trong
+   **một** phiên `psql -X -1 -v ON_ERROR_STOP=1`, rồi mới COMMIT. Reset ghi lại
+   role restore (biến psql) trước dump; postcondition yêu cầu phiên kết thúc
+   đúng role đó và mọi object trong `public` (trừ thành viên extension) thuộc
+   role đó, để chặn cả đổi role ẩn trong thân hàm. Postcondition cũng kiểm quyền client trên bảng/cột/sequence/default ACL, policy users, hàm
+   SECURITY DEFINER không thuộc extension và quyền TRUNCATE/MAINTAIN của
+   service_role trên class_action_log. Lỗi SQL hoặc quyền còn hở thì rollback
+   cả DROP; không để schema restore dở. Giữ target yên trong lúc chạy: preflight
+   catalog không khoá các thao tác quản trị role/default ACL đồng thời.
+5. Baseline ledger và curated_vocab vẫn chạy **sau COMMIT**, ngoài transaction
+   này; lỗi ở đó cần đối chiếu ledger/schema trước khi tiếp tục, không coi là
+   clone hoàn tất. Không tự restore thử trên cluster phụ trong script: extension,
+   role và quyền Supabase không được tái tạo chính xác bằng PG thường; preflight
+   và transaction bảo vệ trực tiếp target. Test hồi quy dùng hai cluster PG local
+   bỏ đi, chỉ dữ liệu giả, SCRAM trên 127.0.0.1.
+
+Giữ chính sách bootstrap có từ trước: `GRANT ALL ON SCHEMA public TO postgres,
+service_role` cho service_role quyền CREATE trên schema; ACL schema sau restore
+có thể là hợp của grant này và dump, dù ACL object được giữ theo nguồn.
+`--no-owner` làm object (kể cả hàm SECURITY DEFINER) thuộc role restore, thường
+là postgres. Hàm tạo ngoài repo/dashboard có owner khác cần được audit trước
+lần clone thật vì đổi owner có thể đổi quyền thực thi; script không chứng nhận
+owner parity hoặc ACL/policy ngoài `public`.
+
 ## Cách ly production — PROVEN
 
 | Kiểm tra | Staging | Production | Kết luận |

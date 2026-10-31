@@ -160,7 +160,16 @@ def test_submit_section_writing_claim_does_not_block_the_loop():
 
 
 def test_exam_submit_attempt_does_not_block_the_loop():
-    submit = _Slow({"attempt_id": "a1", "score": 3})
+    held = []
+
+    class _SlowLocked(_Slow):
+        def __call__(self, *args, **kwargs):
+            # The admin import lock stays held while the worker thread reads
+            # the answer key, so an import cannot delete it mid-grade.
+            held.append(exams_router.exam_service.import_lock().locked())
+            return super().__call__(*args, **kwargs)
+
+    submit = _SlowLocked({"attempt_id": "a1", "score": 3})
     with patch("routers.exams.get_supabase_user", new=AsyncMock(return_value=_USER)), \
          patch("routers.exams.exam_service.submit_attempt", new=submit):
         url = "/api/exams/toeic-1/attempts"
@@ -169,7 +178,10 @@ def test_exam_submit_attempt_does_not_block_the_loop():
             [lambda c: c.post(url, json=body, headers=_AUTH),
              lambda c: c.post(url, json=body, headers=_AUTH)])
 
-    _assert_not_blocking(responses, ping, ping_s, total_s, n=2)
+    # Exam play/submit serialise on the import lock (as they did on the loop
+    # before the offload); the loop itself stays free for /ping.
+    _assert_not_blocking(responses, ping, ping_s, total_s, n=1)
+    assert held == [True, True]
     assert responses[0].json() == {"attempt_id": "a1", "score": 3}
     # Same positional arguments the handler passed before the offload.
     assert submit.calls[0] == ((_USER["id"], "toeic-1", [{"q_num": 1, "user_answer": "A"}]), {})

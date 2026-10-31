@@ -16,8 +16,7 @@ SQL = (MIGRATIONS / "248_writing_admission_execution.sql").read_text()
 TTL_SQL = (MIGRATIONS / "224_active_player_resume_ttl.sql").read_text()
 
 
-@pytest.fixture(scope="module")
-def schema(probe):
+def _build_schema(probe):
     def scoped(sql):
         return sql.replace("public.", f"{probe}.").replace("pg_catalog,public", f"pg_catalog,{probe}") \
             .replace("pg_catalog, public", f"pg_catalog, {probe}").replace("search_path = public,", f"search_path = {probe},")
@@ -47,6 +46,11 @@ def schema(probe):
     psql(scoped(SQL))
     rotate(probe)
     return probe
+
+
+@pytest.fixture(scope="module")
+def schema(probe):
+    return _build_schema(probe)
 
 
 def seed(schema, *, short=False):
