@@ -953,9 +953,11 @@ def attach_attempt(
             )
         # else: fall through and re-bind to the fresh (resumed) attempt.
 
-    supabase_admin.table("mock_exam_sittings").update({
+    linked = supabase_admin.table("mock_exam_sittings").update({
         link_col: str(attempt_id),
-    }).eq("id", str(sitting_id)).execute()
+    }).eq("id", str(sitting_id)).not_.in_("status", ["released", "void"]).execute()
+    if not linked.data:
+        raise SittingConflictError("Trạng thái lượt thi vừa thay đổi — tải lại trang.")
     supabase_admin.table(domain_table).update({
         "sitting_id": str(sitting_id),
     }).eq("id", str(attempt_id)).execute()
@@ -1874,10 +1876,12 @@ def record_speaking(sitting_id: str, user_id: str, session_ids: list[str]) -> di
                 "Bài Speaking chưa hoàn thành (chưa nộp hoặc chưa có phần nói)."
             )
 
-    supabase_admin.table("mock_exam_sittings").update({
+    recorded = supabase_admin.table("mock_exam_sittings").update({
         "speaking_session_ids": ids,
         "speaking_completed_at": _now_iso(),
-    }).eq("id", str(sitting_id)).execute()
+    }).eq("id", str(sitting_id)).not_.in_("status", ["released", "void"]).execute()
+    if not recorded.data:
+        raise SittingConflictError("Trạng thái lượt thi vừa thay đổi — tải lại trang.")
     logger.info(
         "[mock-exam] sitting=%s speaking recorded (%d sessions)",
         sitting_id, len(ids),

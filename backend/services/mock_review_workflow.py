@@ -335,7 +335,7 @@ def release(review_id: UUID, admin_id: UUID) -> dict:
         "status":     "queued",
         "claimed_by": None,
         "claimed_at": None,
-    }).eq("id", str(review_id)).eq("claimed_by", str(admin_id)).execute()
+    }).eq("id", str(review_id)).eq("claimed_by", str(admin_id)).eq("status", "claimed").execute()
     if not response.data:
         existing = supabase_admin.table("mock_exam_reviews").select(
             "id, status, claimed_by",
