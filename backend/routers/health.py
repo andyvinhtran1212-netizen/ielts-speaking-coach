@@ -223,12 +223,27 @@ async def health_runtime(authorization: str | None = Header(default=None)) -> di
     can prove whether prod Railway is on stale code (Scenario A) vs the
     matcher itself dropping anchors (B/C/D).
 
-    Mapping inventory stays public (open-source ids, no PII). The Railway
-    deployment identifiers (git SHA, deployment/service/env names) aid
-    fingerprinting, so they're redacted for anonymous callers and returned
-    only to admins (an admin curl with a Bearer token still gets them).
+    The route stays unauthenticated so probes can reach it, but anonymous
+    callers get only ``status`` and ``timestamp``; the Railway deployment
+    identifiers (git SHA, branch, deployment/service/env names) and the
+    ``grammar_mappings`` inventory (counts, sentinel ids) are redacted and
+    returned only to admins (an admin curl with a Bearer token still gets
+    them).  The block was renamed from ``mappings`` because that name was
+    misread as a migration count (PC-1028-12).
     """
     is_admin = await _is_admin(authorization)
+    if not is_admin:
+        return {
+            "status": "ok",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "git_sha":          _REDACTED,
+            "git_branch":       _REDACTED,
+            "deployment_id":    _REDACTED,
+            "service_name":     _REDACTED,
+            "environment_name": _REDACTED,
+            "grammar_mappings": _REDACTED,
+        }
+
     mappings_by_slug = grammar_service._load_mappings()  # cached on service
     all_mapping_ids: list[str] = []
     for slug_mappings in mappings_by_slug.values():
@@ -246,12 +261,12 @@ async def health_runtime(authorization: str | None = Header(default=None)) -> di
     return {
         "status": "ok",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "git_sha":          os.environ.get("RAILWAY_GIT_COMMIT_SHA", "unknown") if is_admin else _REDACTED,
-        "git_branch":       os.environ.get("RAILWAY_GIT_BRANCH", "unknown") if is_admin else _REDACTED,
-        "deployment_id":    os.environ.get("RAILWAY_DEPLOYMENT_ID",  "unknown") if is_admin else _REDACTED,
-        "service_name":     os.environ.get("RAILWAY_SERVICE_NAME",   "unknown") if is_admin else _REDACTED,
-        "environment_name": os.environ.get("RAILWAY_ENVIRONMENT_NAME", "unknown") if is_admin else _REDACTED,
-        "mappings": {
+        "git_sha":          os.environ.get("RAILWAY_GIT_COMMIT_SHA", "unknown"),
+        "git_branch":       os.environ.get("RAILWAY_GIT_BRANCH", "unknown"),
+        "deployment_id":    os.environ.get("RAILWAY_DEPLOYMENT_ID",  "unknown"),
+        "service_name":     os.environ.get("RAILWAY_SERVICE_NAME",   "unknown"),
+        "environment_name": os.environ.get("RAILWAY_ENVIRONMENT_NAME", "unknown"),
+        "grammar_mappings": {
             "active_count":       active_count,
             "expected_count":     _EXPECTED_MAPPING_COUNT,
             "mappings_match":     active_count == _EXPECTED_MAPPING_COUNT,

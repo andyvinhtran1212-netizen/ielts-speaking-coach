@@ -2,6 +2,7 @@
 
 import { Fragment, type ReactNode } from 'react';
 import { noteTemplateTree } from '@/lib/note-template-tree.mjs';
+import { splitNumberedBlanks } from '@/lib/numbered-blank.mjs';
 
 const record = (value: unknown): Record<string, any> | null => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : null;
 const list = (value: unknown): any[] => Array.isArray(value) ? value : [];
@@ -18,12 +19,11 @@ export function ReviewContextNotice({ value }: { value: unknown }) {
 }
 
 function numberedBlanks(value: string): ReactNode {
-  return value.split(/(\{\{\s*\d{1,3}\s*\}\})/g).map((part, index) => {
-    const match = /^\{\{\s*(\d{1,3})\s*\}\}$/.exec(part);
-    return match ? <span key={index} className="review-context-blank" aria-label={`Chỗ trống câu ${Number(match[1])}`}>
-      <strong>[Câu {Number(match[1])}]</strong> ______
-    </span> : part;
-  });
+  // `{{n}} ____` is one blank (RV-05); the authored underscores are not repeated.
+  return splitNumberedBlanks(value).map((part, index) => typeof part === 'string' ? part
+    : <span key={index} className="review-context-blank" aria-label={`Chỗ trống câu ${part.qNum}`}>
+      <strong>[Câu {part.qNum}]</strong> ______
+    </span>);
 }
 
 function segment(value: unknown): ReactNode {
@@ -99,12 +99,32 @@ export function reviewAnswerChoices(value: unknown, answer: unknown): Choice[] {
 }
 
 /** "B — opening of paragraph B" beside a stored answer letter; the letter itself stays as stored. */
-export function ReviewAnswerChoiceText({ context, answer }: { context: unknown; answer: unknown }) {
+export function ReviewAnswerChoiceText({ context, answer, className = 'rr-card__ans-text' }: { context: unknown; answer: unknown; className?: string }) {
   const choices = reviewAnswerChoices(context, answer);
   if (!choices.length) return null;
-  return <span className="rr-card__ans-text">{choices.map((choice, index) => <span key={index}>
+  return <span className={className}>{choices.map((choice, index) => <span key={index}>
     {choices.length > 1 ? `${choice.label} — ${choice.text}` : `— ${choice.text}`}
   </span>)}</span>;
+}
+
+const UNAVAILABLE_REASONS: Readonly<Record<string, string>> = {
+  disabled_by_admin: 'Lời giải chi tiết đang tắt cho bài này theo cài đặt của giáo viên hoặc quản trị viên.',
+  waiting_for_admin_result_release: 'Lời giải chi tiết sẽ mở khi kết quả bài thi được công bố.',
+  waiting_for_admin_explanation_release: 'Lời giải chi tiết sẽ mở khi giáo viên hoặc quản trị viên công bố lời giải.',
+  post_test_capture_required: 'Lời giải chi tiết sẽ mở sau khi bạn hoàn thành phần tự đánh giá sau bài làm.',
+  content_release_gates_blocked: 'Lời giải chi tiết của đề này đang được biên tập, chưa phát hành.',
+  content_version_unavailable: 'Phiên bản lời giải dành cho bài này chưa sẵn sàng.',
+};
+
+/**
+ * Why a card has no solution, from the backend's `web_explanation_access`
+ * (FR-015 truthful unavailable state). No access object means the paper has
+ * no web explanation at all; an allowed one means only this question lacks it.
+ */
+export function reviewExplanationUnavailableReason(access: unknown): string {
+  const row = record(access);
+  if (!row || row.allowed === true) return 'Câu này chưa có lời giải chi tiết.';
+  return UNAVAILABLE_REASONS[String(row.reason)] || 'Lời giải chi tiết chưa mở cho bài này.';
 }
 
 /** Collapsed-card summary of a paragraph list: letters only, never paragraph text. */
