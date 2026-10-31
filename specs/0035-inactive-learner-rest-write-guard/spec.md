@@ -1,7 +1,7 @@
 ---
 id: INACTIVEWRITE-0035
 title: An inactive account cannot write Vocabulary or flashcard rows through any path, including direct Supabase REST
-status: approved
+status: implementing
 risk: high
 owner: product
 ---

@@ -1,7 +1,7 @@
 ---
 id: CODEUNIQ-0028
 title: Access codes are unique and canonical in the repository schema
-status: approved
+status: implementing
 risk: high
 owner: product
 ---

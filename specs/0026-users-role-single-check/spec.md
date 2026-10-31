@@ -1,7 +1,7 @@
 ---
 id: ROLECHECK-0026
 title: Admins can make a user an instructor because users.role has one correct CHECK
-status: approved
+status: implementing
 risk: high
 owner: product
 ---

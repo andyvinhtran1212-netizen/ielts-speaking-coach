@@ -75,9 +75,9 @@ draft -> approved -> implementing -> verified -> shipped
 | MOCKOPS-0006 | Admin Mock Test operations workspace at scale | implementing | high | [spec](0006-admin-mock-test-operations/spec.md) |
 | WRITINGNAV-0007 | Canonical admin Writing navigation context | implementing | high | [spec](0007-writing-navigation-contract/spec.md) |
 | MOCKATTACH-0008 | Mock Reading and Listening attempt integrity | implementing | high | [spec](0008-mock-attempt-integrity/spec.md) |
-| LISTENING80-0009 | Source-faithful 80-day Listening practice collection | approved | high | [spec](0009-listening-80-days/spec.md) |
+| LISTENING80-0009 | Source-faithful 80-day Listening practice collection | implementing | high | [spec](0009-listening-80-days/spec.md) |
 
-| DICTATIONTOKEN-0011 | Version dictation word grading and distinguish punctuation in reports | approved | high | [spec](0011-versioned-dictation-token-grading/spec.md) |
+| DICTATIONTOKEN-0011 | Version dictation word grading and distinguish punctuation in reports | implementing | high | [spec](0011-versioned-dictation-token-grading/spec.md) |
 
 | READINGGRAMMAR-0012 | Correct L1 Reading grammar analysis without replacing passage questions | implementing | medium | [spec](0012-reading-grammar-focus-edit/spec.md) |
 
@@ -85,50 +85,50 @@ draft -> approved -> implementing -> verified -> shipped
 
 | GRAMMARCUTOVER-0014 | Preserve Grammar quiz history during bounded bank revision cutover | approved | high | [spec](0014-grammar-bank-revision-cutover/spec.md) |
 
-| GRAMMARTEXT-0015 | Require exact authored forms for bounded Grammar questions while preserving old work | approved | high | [spec](0015-grammar-exact-form-policy/spec.md) |
+| GRAMMARTEXT-0015 | Require exact authored forms for bounded Grammar questions while preserving old work | implementing | high | [spec](0015-grammar-exact-form-policy/spec.md) |
 
-| MOCKREPAIR-0016 | Preserve mock paper security and repair Reading and Listening work truthfully | approved | critical | [spec](0016-mock-content-remediation/spec.md) |
+| MOCKREPAIR-0016 | Preserve mock paper security and repair Reading and Listening work truthfully | implementing | critical | [spec](0016-mock-content-remediation/spec.md) |
 
 Progress and remaining acceptance are reconciled in [the implementation status ledger](IMPLEMENTATION_STATUS.md). A deployed application does not by itself close a feature acceptance gate.
 
 | LEARNERDRAFT-0010 | Preserve Reading answers and Speaking preparation within a browser tab | implementing | medium | [spec](0010-learner-draft-preservation/spec.md) |
 
-| GRAMMARAUDIT-0019 | Close the October Grammar audit while preserving every learner revision | approved | high | [spec](0019-grammar-audit-remediation/spec.md) |
+| GRAMMARAUDIT-0019 | Close the October Grammar audit while preserving every learner revision | implementing | high | [spec](0019-grammar-audit-remediation/spec.md) |
 
-| VOCABSETS-0020 | Vocabulary class sets and unified learning workspace | approved | high | [spec](0020-vocabulary-class-sets/spec.md) |
+| VOCABSETS-0020 | Vocabulary class sets and unified learning workspace | implementing | high | [spec](0020-vocabulary-class-sets/spec.md) |
 
 | READINGPRACTICE-0021 | Repair Reading practice and support sentence translation in place | implementing | high | [spec](0021-reading-practice-support/spec.md) |
 
 | REVEXPLAIN-0022 | Bind reviewed interactive explanations to Cambridge revision papers and name approval refusals | implementing | high | [spec](0022-revision-explanation-binding/spec.md) |
 
-| SECWRITE-0022 | Client roles cannot write privilege, score or session data | approved | critical | [spec](0022-client-write-privilege-lockdown/spec.md) |
+| SECWRITE-0022 | Client roles cannot write privilege, score or session data | implementing | critical | [spec](0022-client-write-privilege-lockdown/spec.md) |
 
-| AIOPS-0024 | Admin AI dashboard with model control, token spend and failure log | approved | high | [spec](0024-admin-ai-model-control/spec.md) |
+| AIOPS-0024 | Admin AI dashboard with model control, token spend and failure log | implementing | high | [spec](0024-admin-ai-model-control/spec.md) |
 
 | REVEXPLAIN-0023 | Bind Cambridge REV papers by marking-equivalent keys and document accepted forms | implementing | high | [spec](0023-revision-explanation-key-equivalence/spec.md) |
 
-| WRITINGRATE-0025 | Repair writing_grade_ratings drift so admin grade ratings key on the graded run | approved | high | [spec](0025-writing-grade-ratings-feedback-version/spec.md) |
+| WRITINGRATE-0025 | Repair writing_grade_ratings drift so admin grade ratings key on the graded run | implementing | high | [spec](0025-writing-grade-ratings-feedback-version/spec.md) |
 
-| ROLECHECK-0026 | Admins can make a user an instructor because users.role has one correct CHECK | approved | high | [spec](0026-users-role-single-check/spec.md) |
+| ROLECHECK-0026 | Admins can make a user an instructor because users.role has one correct CHECK | implementing | high | [spec](0026-users-role-single-check/spec.md) |
 
-| ASSIGNDRAFT-0027 | Deleting a writing assignment can never erase a learner's draft | approved | high | [spec](0027-writing-draft-assignment-delete-guard/spec.md) |
+| ASSIGNDRAFT-0027 | Deleting a writing assignment can never erase a learner's draft | implementing | high | [spec](0027-writing-draft-assignment-delete-guard/spec.md) |
 
-| CODEUNIQ-0028 | Access codes are unique and canonical in the repository schema | approved | high | [spec](0028-access-code-unique-canonical/spec.md) |
+| CODEUNIQ-0028 | Access codes are unique and canonical in the repository schema | implementing | high | [spec](0028-access-code-unique-canonical/spec.md) |
 
-| STUDENTARCHIVE-0029 | Admin student delete archives the learner with an audit trail instead of erasing their work | approved | critical | [spec](0029-student-archive/spec.md) |
+| STUDENTARCHIVE-0029 | Admin student delete archives the learner with an audit trail instead of erasing their work | implementing | critical | [spec](0029-student-archive/spec.md) |
 | CLASSARCHIVE-0030 | An archived class is hidden from learners, takes no new learners or work, and closes its open work without losing it | approved | high | [spec](0030-class-archive/spec.md) |
 
-| GIVEARCHIVE-0031 | A Writing give can never create work for an archived learner, even when the archive lands mid-request | approved | high | [spec](0031-archived-learner-give-guard/spec.md) |
+| GIVEARCHIVE-0031 | A Writing give can never create work for an archived learner, even when the archive lands mid-request | implementing | high | [spec](0031-archived-learner-give-guard/spec.md) |
 
 | ADMINAAL2-0032 | Admin powers require a verified second factor and a suspended or demoted staff account loses access on its next request | approved | critical | [spec](0032-admin-aal2-staff-guard/spec.md) |
 
-| ACTIVATELIMIT-0034 | Access-code activation attempts are limited per learner across every backend worker, and the limit fails closed | approved | high | [spec](0034-activate-attempt-rate-limit/spec.md) |
+| ACTIVATELIMIT-0034 | Access-code activation attempts are limited per learner across every backend worker, and the limit fails closed | implementing | high | [spec](0034-activate-attempt-rate-limit/spec.md) |
 
-| INACTIVEWRITE-0035 | An inactive account cannot write Vocabulary or flashcard rows through any path, including direct Supabase REST | approved | high | [spec](0035-inactive-learner-rest-write-guard/spec.md) |
+| INACTIVEWRITE-0035 | An inactive account cannot write Vocabulary or flashcard rows through any path, including direct Supabase REST | implementing | high | [spec](0035-inactive-learner-rest-write-guard/spec.md) |
 
 | ASYNCAUTH-0036 | Per-request auth and permission checks can run on the async DB client behind USE_ASYNC_DB without changing any access decision | approved | high | [spec](0036-async-db-auth-layer/spec.md) |
 
-| PAPERUPDATEDAT-0037 | Every change to a Reading or Listening paper advances updated_at, and admins see that a Mock Test hides its public source | approved | high | [spec](0037-mock-paper-updated-at-and-hide-warning/spec.md) |
+| PAPERUPDATEDAT-0037 | Every change to a Reading or Listening paper advances updated_at, and admins see that a Mock Test hides its public source | implementing | high | [spec](0037-mock-paper-updated-at-and-hide-warning/spec.md) |
 
 | STORAGELIMITS-0038 | Each Storage bucket accepts only the file sizes and types the app writes, and an oversize or wrong-type upload gets a clear 413 or 415 | approved | high | [spec](0038-storage-bucket-limits/spec.md) |
 

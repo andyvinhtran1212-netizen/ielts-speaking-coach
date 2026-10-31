@@ -1,7 +1,7 @@
 ---
 id: VOCABSETS-0020
 title: Vocabulary class sets and unified learning workspace
-status: approved
+status: implementing
 risk: high
 owner: product
 ---

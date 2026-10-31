@@ -1,6 +1,7 @@
 # Implementation and acceptance status
 
-Reconciled on **2026-09-26**. This is a navigation ledger, not a replacement for
+Reconciled on **2026-09-26** (0000–0008) and **2026-10-31** (0009–0040, staging
+`11bbfd227fbe39815758f4ffa470cffaa7059cb3`). This is a navigation ledger, not a replacement for
 each feature's tasks or requirement evidence. `implementing` includes an existing
 candidate or deployed implementation with unfinished acceptance. It does not
 authorize activation, paid evaluation, content publication or schema changes.
@@ -43,6 +44,53 @@ land on the base before new feature code; no implementation/migration is include
 | --- | --- | --- |
 | [GRAMMARCUTOVER-0014](0014-grammar-bank-revision-cutover/verification.md) | Independent twelve-code technical amendment/source bindings; historical six-code/erasure approvals retained | All10FR PENDING: additive schema/grants/actual PostgreSQL races, immutable history/cohort/reset/admission proof, missing staging predecessors, fresh canonical extras/why_wrong/backup, exact deployed SHAs and explicit single-final-bundle cutover/rollback. |
 | [GRAMMARTEXT-0015](0015-grammar-exact-form-policy/verification.md) | Exact final18 authored-source hashes independently approved;75question/133field/fivearticle deltas;49exact/9legacy text policies | All12FR PENDING: raw META/canonical wire ownership, typed matching ACK, pure preflight/engine activation, lost ACK/reset-stale/terminal/history behavior, actual map persistence, canonical publication and staging/production release. Source approval does not close feature gates. |
+
+## Spec status reconciliation — 2026-10-31
+
+Checked against staging `11bbfd227fbe39815758f4ffa470cffaa7059cb3` with
+`git log origin/staging --grep=<SPEC-ID>`, the migration files in
+`backend/migrations/` and the merged pull requests (including reverts). A spec
+moves from `approved` to `implementing` only when implementation is merged on
+staging and still present after any revert. `implementing` does not close any
+acceptance gate. "Tasks" counts ticked `T` boxes in `tasks.md` after this
+change. Specs marked *deferred* have an open pull request that edits their
+`spec.md`/`tasks.md`, so their status was left for that pull request.
+
+| Spec | Status | Tasks | Implementation on staging / note |
+| --- | --- | --- | --- |
+| [LISTENING80-0009](0009-listening-80-days/verification.md) | implementing (was approved) | 7/10 | #1558 (migration 304). T008–T010 open. |
+| [LEARNERDRAFT-0010](0010-learner-draft-preservation/verification.md) | implementing | 5/8 | Unchanged. |
+| [DICTATIONTOKEN-0011](0011-versioned-dictation-token-grading/verification.md) | implementing (was approved) | 7/9 | #1561 (migration 305). T008–T009 open. |
+| [READINGGRAMMAR-0012](0012-reading-grammar-focus-edit/verification.md) | implementing | 5/8 | Unchanged. |
+| [WRITINGMODAL-0013](0013-writing-content-modal-history/verification.md) | implementing | 5/6 | Unchanged. |
+| [GRAMMARCUTOVER-0014](0014-grammar-bank-revision-cutover/verification.md) | approved (*deferred*, #2071) | see tasks | Migration 309 landed with #1563. Status change left to #2071. |
+| [GRAMMARTEXT-0015](0015-grammar-exact-form-policy/verification.md) | implementing (was approved) | 17/21 | #1563 (exact-form engine, typed ACK, reset marker). #1979 is the docs-only Revision 1. Staging cutover and promotion tasks open. |
+| [MOCKREPAIR-0016](0016-mock-content-remediation/verification.md) | implementing (was approved) | 6/13 | Own migrations 306–308, 310, 311, 315, 316; #1574, #1597, then #1886, #1891, #1893, #1951, #1956. T007 partial. |
+| [GRAMMARLESSON-0017](0017-grammar-lesson-assignments/verification.md) | approved (*deferred*, #2074) | 6/8 | #1569 (migration 312). Status change left to #2074. |
+| [MASTER30FULL-0018](0018-master30-full-bank-assignments/verification.md) | shipped | 8/8 | Unchanged. |
+| [GRAMMARAUDIT-0019](0019-grammar-audit-remediation/verification.md) | implementing (was approved) | 7/17 | #1623/#1625 (migration 314); Revision 1 #1861, #1850; Revision 2 #1940 (migration 339). Revision 2/3 owner approval is still recorded as awaiting in `approval-decision.md`. |
+| [VOCABSETS-0020](0020-vocabulary-class-sets/verification.md) | implementing (was approved) | 7/9 | #1662 (migration 317). T008–T009 open. |
+| [READINGPRACTICE-0021](0021-reading-practice-support/verification.md) | implementing | 8/9 | Unchanged. |
+| [REVEXPLAIN-0022](0022-revision-explanation-binding/verification.md) | implementing | 7/8 | Unchanged. |
+| [SECWRITE-0022](0022-client-write-privilege-lockdown/verification.md) | implementing (was approved) | 5/10 | #1719 and #1721 (migration 320). T004 ticked from #1717. Amendment 1 migrations 349/351 are not merged. |
+| [REVEXPLAIN-0023](0023-revision-explanation-key-equivalence/verification.md) | implementing | 4/4 | Unchanged. |
+| [AIOPS-0024](0024-admin-ai-model-control/verification.md) | implementing (was approved) | 8/9 | #1837 (migration 322). T008 staging journey partial. |
+| [WRITINGRATE-0025](0025-writing-grade-ratings-feedback-version/verification.md) | implementing (was approved) | 3/5 | #1834 (migration 321), test #1922. T003 rating round trip pending. |
+| [ROLECHECK-0026](0026-users-role-single-check/verification.md) | implementing (was approved) | 7/8 | #1743 (migration 323). T008 real instructor promotion pending. |
+| [ASSIGNDRAFT-0027](0027-writing-draft-assignment-delete-guard/verification.md) | implementing (was approved) | 9/9 | #1744 (migration 324), Revision 1 #1872. All tasks ticked; requirement evidence not re-checked here. |
+| [CODEUNIQ-0028](0028-access-code-unique-canonical/verification.md) | implementing (was approved) | 8/8 | #1748 (migration 325). All tasks ticked; requirement evidence not re-checked here. |
+| [STUDENTARCHIVE-0029](0029-student-archive/verification.md) | implementing (was approved) | 9/12 | #1746 (migration 326). T008 staging AC run partial. |
+| [CLASSARCHIVE-0030](0030-class-archive/verification.md) | approved (*deferred*, #2059) | 4/14 | #1900 (migration 337), migration 346. Status change left until #2059 lands. |
+| [GIVEARCHIVE-0031](0031-archived-learner-give-guard/verification.md) | implementing (was approved) | 6/8 | #1756 (migration 331). T007 staging journey partial. |
+| [ADMINAAL2-0032](0032-admin-aal2-staff-guard/verification.md) | approved (*deferred*, #2023) | 12/17 | Present: migrations 332, 336, 345; #1855, #1880, #1884, #1885, #1896, #1928. Reverted by #2030: #1898 (re-landed by #2035), #1936 and #1996 (not re-landed; the applied 352 file is kept by `b47ba2015`). |
+| [AIBUDGET-0033](0033-ai-budget-hard-cap/verification.md) | approved (*deferred*, #1945) | 4/14 | Present: T001 #1883, T002 #1889 (migration 333), T003 #1905 (dormant after the revert), T005 #1925, migration 340 #1931. T004 #1927 (and test fix #1958) reverted by #2025, not re-landed. |
+| [ACTIVATELIMIT-0034](0034-activate-attempt-rate-limit/verification.md) | implementing (was approved) | 6/7 | #1847 (migration 334). T006 11-attempt probe pending. |
+| [INACTIVEWRITE-0035](0035-inactive-learner-rest-write-guard/verification.md) | implementing (was approved) | 4/5 | #1829 (migration 335), tests #1917. T004 REST probes pending. |
+| [ASYNCAUTH-0036](0036-async-db-auth-layer/verification.md) | approved (*deferred*, #2097) | 5/7 | #1857, #1890, #1910, Revision 2 #1929. Status change left to #2097. |
+| [PAPERUPDATEDAT-0037](0037-mock-paper-updated-at-and-hide-warning/verification.md) | implementing (was approved) | 6/7 | #1877 (migration 338). T005 visibility-toggle probe pending; Amendment 1 (FR-006, #2014): migration 353 not merged. |
+| [STORAGELIMITS-0038](0038-storage-bucket-limits/verification.md) | approved (*deferred*, #2107) | 1/5 | No implementation merged; migration 343 is in open #2107. |
+| [RLSCLEANUP-0039](0039-rls-admin-policy-cleanup/verification.md) | approved (*deferred*, #2117) | 1/5 | No implementation merged; migration 344 is in open #2117. |
+| [VOCABGUARD-0040](0040-vocab-curated-published-child-guard/verification.md) | approved | 0/3 | No implementation merged; migration 355 is in open #2114. |
 
 ## Closing a row
 

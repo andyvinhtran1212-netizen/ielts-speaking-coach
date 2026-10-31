@@ -1,7 +1,7 @@
 ---
 id: ACTIVATELIMIT-0034
 title: Access-code activation attempts are limited per learner across every backend worker, and the limit fails closed
-status: approved
+status: implementing
 risk: high
 owner: product
 ---

@@ -1,7 +1,7 @@
 ---
 id: STUDENTARCHIVE-0029
 title: Admin student delete archives the learner with an audit trail instead of erasing their work
-status: approved
+status: implementing
 risk: critical
 owner: product
 ---
