@@ -258,6 +258,11 @@ await page.getByText('Đã giao bài cho học viên.', { exact: true }).waitFor
 check('giao lẻ cho học viên đã có đề cũng hỏi xác nhận', dialogs.length === 5 && /^Học viên này đã được giao đề /.test(dialogs[4]));
 check('both assignment targets send Vietnam offset from a New York browser', assignmentPosts.length === 3 && assignmentPosts.every(({ body }) => body.deadline === '2026-10-27T23:00:00+07:00'));
 check('giao lẻ không gửi name khi bỏ trống', !Object.hasOwn(assignmentPosts[2].body, 'name'));
+// INSTRUCTORGIVE-0044: every give carries a UUID request_id; the gives above all
+// succeeded, so each one is a new intent with its own id.
+const giveIds = assignmentPosts.map(({ body }) => body.request_id);
+check('mỗi lần giao gửi request_id UUID riêng', giveIds.every((id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id)))
+  && new Set(giveIds).size === giveIds.length, JSON.stringify(giveIds));
 
 await page.getByRole('button', { name: 'Lớp & Mã' }).click();
 await page.getByLabel('Tên lớp mới').fill('Lớp xác minh canonical');

@@ -94,6 +94,11 @@ export function InstructorDashboard() {
   // PC-J114: `pending` is state read from this render's closure, so two events
   // before the next render both pass it. This ref locks synchronously.
   const submittingRef = useRef(false);
+  // INSTRUCTORGIVE-0044: one request_id per give intent (account, target, path
+  // and body). Re-sending the same give after an error or a lost response
+  // reuses the id, so the backend replays instead of giving twice; a success
+  // or any change to the give starts a new id.
+  const giveRequest = useRef<{ intent: string; id: string } | null>(null);
   const accountKey = status === 'signed-in' && user?.id ? user.id : '';
   const accountRef = useRef(accountKey);
   accountRef.current = accountKey;
@@ -320,7 +325,12 @@ export function InstructorDashboard() {
     const promptTitle = data.prompts.find((prompt) => prompt.id === promptId)?.title || '';
     // W-06: re-giving is allowed (ALLOW + WARN) but must be a deliberate choice.
     const confirmRegive = async (existing: unknown) => !existing || askConfirm(duplicateGiveConfirmMessage(existing, promptTitle, target as 'cohort' | 'student'));
-    const resetOnSuccess = (ok: boolean | undefined) => { if (ok) { form.reset(); setAssignmentTarget('cohort'); } };
+    const resetOnSuccess = (ok: boolean | undefined) => { if (ok) { giveRequest.current = null; form.reset(); setAssignmentTarget('cohort'); } };
+    const withRequestId = (path: string, body: Record<string, unknown>) => {
+      const intent = JSON.stringify([accountRef.current, asInstructor, path, body]);
+      if (giveRequest.current?.intent !== intent) giveRequest.current = { intent, id: crypto.randomUUID() };
+      return { ...body, request_id: giveRequest.current.id };
+    };
     // Keep other mutation buttons disabled while the lock spans confirmation.
     // Both are handed to mutate() in the same tick after the account check.
     const submitGive = async (confirm: () => Promise<boolean>, send: () => Promise<boolean | undefined>) => {
@@ -353,7 +363,7 @@ export function InstructorDashboard() {
         // unless the re-give of this class was just confirmed above.
         if (!sameClassGive && !(await confirmCohortOverlap(promptId, cohortId, promptTitle))) return false;
         return true;
-      }, () => mutate('assignment', () => window.api.post(requestPath('/instructor/assignments/fan-out'), body), fanOutResultBanner)).then(resetOnSuccess);
+      }, () => mutate('assignment', () => window.api.post(requestPath('/instructor/assignments/fan-out'), withRequestId('/instructor/assignments/fan-out', body)), fanOutResultBanner)).then(resetOnSuccess);
       return;
     }
     const studentId = String(values.get('student_id') || '');
@@ -365,7 +375,7 @@ export function InstructorDashboard() {
     void submitGive(async () => {
       if (!(await confirmRegive(existingGive))) return false;
       return true;
-    }, () => mutate('assignment', () => window.api.post(requestPath('/instructor/assignments'), body), ASSIGNMENT_COPY.studentSuccess)).then(resetOnSuccess);
+    }, () => mutate('assignment', () => window.api.post(requestPath('/instructor/assignments'), withRequestId('/instructor/assignments', body)), ASSIGNMENT_COPY.studentSuccess)).then(resetOnSuccess);
   };
 
   const confirmCohortOverlap = async (promptId: string, cohortId: string, promptTitle: string) => {

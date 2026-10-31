@@ -281,13 +281,16 @@ test('assignment form names the give, confirms re-gives, resets and surfaces dup
   assert.match(VIEW, /askConfirm\(duplicateGiveConfirmMessage\(/);
   // the confirm is awaited before mutate, so cancelling sends no request
   const studentConfirm = VIEW.indexOf('if (!(await confirmRegive(existingGive))) return false;');
-  assert.ok(studentConfirm >= 0 && studentConfirm < VIEW.indexOf("requestPath('/instructor/assignments'), body)"));
+  assert.ok(studentConfirm >= 0 && studentConfirm < VIEW.indexOf("requestPath('/instructor/assignments'), withRequestId('/instructor/assignments', body))"));
   const classConfirm = VIEW.indexOf('if (!(await confirmRegive(sameClassGive))) return false;');
   assert.ok(classConfirm >= 0 && classConfirm < VIEW.indexOf('await confirmCohortOverlap(promptId, cohortId, promptTitle)'));
   assert.ok(classConfirm < VIEW.indexOf("'/instructor/assignments/fan-out'"));
   assert.match(VIEW, /const resetOnSuccess = [^\n]*form\.reset\(\)/);
   assert.equal((VIEW.match(/\.then\(resetOnSuccess\)/g) || []).length, 2);
-  assert.match(VIEW, /'\/instructor\/assignments\/fan-out'\), body\), fanOutResultBanner\)/);
+  assert.match(VIEW, /withRequestId\('\/instructor\/assignments\/fan-out', body\)\), fanOutResultBanner\)/);
+  // INSTRUCTORGIVE-0044: a successful give clears the request_id; a retry of the same give reuses it.
+  assert.match(VIEW, /const resetOnSuccess = [^\n]*giveRequest\.current = null/);
+  assert.match(VIEW, /if \(giveRequest\.current\?\.intent !== intent\) giveRequest\.current = \{ intent, id: crypto\.randomUUID\(\) \};/);
   assert.match(VIEW, /typeof success === 'function' \? success\(result\)/);
 });
 

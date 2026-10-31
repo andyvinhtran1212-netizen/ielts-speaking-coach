@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from tests.test_instructor_routes_isolation import B, CB, PB, SB, _FakeSB, _seed, _u
+from tests.test_instructor_routes_isolation import B, CB, PB, SB, _FakeSB, _rid, _seed, _u
 
 URL = "/instructor/assignments/fan-out"
 HDR = {"Authorization": "Bearer x"}
@@ -74,7 +74,7 @@ def _store_with_prompts(n: int) -> tuple[dict, list[str]]:
 def test_out_of_bounds_body_is_422_before_any_db_call(override):
     store, _ids = _store_with_prompts(21)
     before = [dict(r) for r in store["writing_assignments"]]
-    body = {"prompt_ids": [PB], "cohort_id": CB, **override}
+    body = {"request_id": _rid(), "prompt_ids": [PB], "cohort_id": CB, **override}
     with _as_b(store) as (client, fake):
         r = client.post(URL, json=body, headers=HDR)
     assert r.status_code == 422, r.text
@@ -85,7 +85,7 @@ def test_out_of_bounds_body_is_422_before_any_db_call(override):
 def test_upper_bounds_are_accepted():
     store, _ids = _store_with_prompts(0)
     with _as_b(store) as (client, _fake):
-        r = client.post(URL, json={"prompt_ids": [PB], "cohort_id": CB,
+        r = client.post(URL, json={"request_id": _rid(), "prompt_ids": [PB], "cohort_id": CB,
                                    "instructions": "x" * 2000, "analysis_level": 5},
                         headers=HDR)
     assert r.status_code == 201, r.text
@@ -96,7 +96,7 @@ def test_upper_bounds_are_accepted():
 def test_twenty_prompts_fan_out_one_row_each():
     store, ids = _store_with_prompts(20)
     with _as_b(store) as (client, _fake):
-        r = client.post(URL, json={"prompt_ids": ids, "cohort_id": CB}, headers=HDR)
+        r = client.post(URL, json={"request_id": _rid(), "prompt_ids": ids, "cohort_id": CB}, headers=HDR)
     assert r.status_code == 201, r.text
     assert r.json()["created_count"] == 20               # 1 student (SB) × 20 prompts
     created = [a for a in store["writing_assignments"] if a.get("assignment_group_id") == r.json()["group_id"]]
@@ -107,7 +107,7 @@ def test_twenty_prompts_fan_out_one_row_each():
 def test_repeated_prompt_ids_are_deduplicated_in_order():
     store, (p1, p2) = _store_with_prompts(2)
     with _as_b(store) as (client, _fake):
-        r = client.post(URL, json={"prompt_ids": [p2, PB, p2, p1, PB], "cohort_id": CB},
+        r = client.post(URL, json={"request_id": _rid(), "prompt_ids": [p2, PB, p2, p1, PB], "cohort_id": CB},
                         headers=HDR)
     assert r.status_code == 201, r.text
     assert r.json()["created_count"] == 3                # not 5: one row per distinct prompt
@@ -119,6 +119,6 @@ def test_unknown_fields_are_still_ignored():
     """No extra="forbid": an older client sending a stray field keeps working."""
     store, _ids = _store_with_prompts(0)
     with _as_b(store) as (client, _fake):
-        r = client.post(URL, json={"prompt_ids": [PB], "cohort_id": CB, "legacy_flag": True},
+        r = client.post(URL, json={"request_id": _rid(), "prompt_ids": [PB], "cohort_id": CB, "legacy_flag": True},
                         headers=HDR)
     assert r.status_code == 201, r.text

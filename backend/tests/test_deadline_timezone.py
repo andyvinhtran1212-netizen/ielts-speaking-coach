@@ -64,6 +64,8 @@ def api():
     db.rpc.return_value.execute.return_value = MagicMock(data={
         'created': [{'id': ASSIGNMENT}], 'created_count': 1,
         'group_id': COHORT, 'duplicates_warning': [],
+        # INSTRUCTORGIVE-0044 receipt keys (individual row + fan-out counts).
+        'assignment': {'id': ASSIGNMENT}, 'student_count': 1, 'assignment_ids': [ASSIGNMENT],
     })
     with patch.object(instructor, '_me', AsyncMock(return_value=OWNER)), \
          patch.object(instructor, 'instructor_db', return_value=db), \
@@ -71,6 +73,7 @@ def api():
          patch.object(admin, 'require_admin', AsyncMock(return_value={'id': OWNER})), \
          patch.object(admin, 'supabase_admin', db), \
          patch.object(admin, '_read_assignment_request_receipt', return_value=None), \
+         patch('services.instructor_give_service.replay_give', return_value=None), \
          patch.object(admin, 'active_student_ids_for_cohort', return_value=[STUDENT]), \
          patch('services.cohort_assignment_service.active_students_for_cohort',
                return_value=[{'id': STUDENT, 'instructor_id': OWNER}]):
@@ -90,16 +93,13 @@ def test_api_deadline_write(api, path, deadline):
     else:
         body['prompt_ids' if 'fanout' in path or path.startswith('admin') else 'prompt_id'] = [PROMPT] if 'fanout' in path or path.startswith('admin') else PROMPT
         body['cohort_id' if 'fanout' in path else 'student_ids' if path.startswith('admin') else 'student_id'] = COHORT if 'fanout' in path else [STUDENT] if path.startswith('admin') else STUDENT
-        if path.endswith('rpc'):
-            body['request_id'] = ASSIGNMENT
+        # Every give writes through an idempotent RPC (admin PC-J37, instructor 0044).
+        body['request_id'] = ASSIGNMENT
         response = client.post(prefix + ('/fan-out' if 'fanout' in path else ''), json=body)
         assert response.status_code == 201, response.text
-        if path.endswith('rpc'):
-            written = db.rpc.call_args.args[1]['p_deadline']
-            assert parse_deadline(db.rpc.call_args.args[1]['p_request_payload']['deadline']) == parse_deadline(written)
-        else:
-            payload = db.table.return_value.insert.call_args.args[0]
-            written = (payload[0] if isinstance(payload, list) else payload)['deadline']
+        written = db.rpc.call_args.args[1]['p_deadline']
+        assert parse_deadline(db.rpc.call_args.args[1]['p_request_payload']['deadline']) == parse_deadline(written)
+        db.table.return_value.insert.assert_not_called()
     assert response.status_code in (200, 201), response.text
     assert datetime.fromisoformat(written).utcoffset() is not None
     assert parse_deadline(written) == (datetime(2026, 10, 27, 12, tzinfo=timezone.utc) if deadline == '2026-10-27' else EXPECTED)

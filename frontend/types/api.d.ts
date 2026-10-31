@@ -4342,7 +4342,8 @@ export interface paths {
          * Create Assignment
          * @description Assign ONE prompt to ONE of my students, with an optional deadline.
          *     Owner-guarded: both the prompt and the student must be mine (else 403).
-         *     The accessor stamps assigned_by=me.
+         *     INSTRUCTORGIVE-0044: `request_id` is required; a retry with the same id
+         *     and body returns the first row, another body → 409 (no new row).
          */
         post: operations["create_assignment_instructor_assignments_post"];
         delete?: never;
@@ -4383,7 +4384,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Fan Out */
+        /**
+         * Fan Out
+         * @description N of my prompts → every active member of my class, as one group.
+         *     INSTRUCTORGIVE-0044: `request_id` is required (same replay/409 contract
+         *     as the individual give).
+         */
         post: operations["fan_out_instructor_assignments_fan_out_post"];
         delete?: never;
         options?: never;
@@ -16950,6 +16956,11 @@ export interface components {
         };
         /** FanOutBody */
         FanOutBody: {
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
             /** Prompt Ids */
             prompt_ids: string[];
             /**
@@ -23127,6 +23138,11 @@ export interface components {
          * @description Single-student assign (one prompt → one of MY students).
          */
         routers__instructor__AssignBody: {
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
             /**
              * Prompt Id
              * Format: uuid
