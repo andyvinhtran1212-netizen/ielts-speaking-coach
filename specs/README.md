@@ -136,4 +136,6 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 
 | VOCABGUARD-0040 | A review or task of a published curated vocabulary version can never be moved to another version | approved | high | [spec](0040-vocab-curated-published-child-guard/spec.md) |
 
+| CALAPPEND-0041 | The class action log is append-only for every role, and no role can wipe it with TRUNCATE | approved | high | [spec](0041-class-action-log-append-only/spec.md) |
+
 | SVCPRIV-0042 | service_role loses public table maintenance privileges and schema CREATE, and unpinned public functions get a fixed search_path, to block owner-run planted triggers, function overloads and temp-object shadowing | draft | critical | [spec](0042-service-role-table-maintenance-revoke/spec.md) |

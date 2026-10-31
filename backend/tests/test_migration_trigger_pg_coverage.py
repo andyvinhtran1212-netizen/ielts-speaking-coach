@@ -75,7 +75,7 @@ KNOWN_UNCOVERED = {
     "trg_mock_sittings_updated_at": ("146_mock_exam_sittings.sql", "Legacy sitting timestamp has no PG execution test", "PC-J262 baseline"),
     "trg_mock_reviews_updated_at": ("147_mock_exam_reviews.sql", "Legacy mock-review timestamp has no PG execution test", "PC-J262 baseline"),
     "trg_band_conversion_updated_at": ("148_mock_sitting_links_and_band_tables.sql", "Legacy band-table timestamp has no PG execution test", "PC-J262 baseline"),
-    "trg_sessions_full_test_attempt_id": ("204_reconcile_course_and_gate_e_schema.sql", "Only the ACL statement is exercised here; filename heuristic warns, but speaking trigger still needs coverage", "PC-J262 baseline; follow-up unassigned"),
+    "trg_sessions_full_test_attempt_id": ("204_reconcile_course_and_gate_e_schema.sql", "Only the ACL block is exercised here; the Speaking trigger still needs named PG evidence", "PC-J262 baseline; follow-up unassigned"),
     "trg_fulfil_writing_regrade_on_delivery": ("205_writing_regrade_atomic_transitions.sql", "Delivery/regrade fulfilment lacks a PG behavior test", "PC-J262 baseline; follow-up unassigned"),
     "trg_guard_published_vocab_version": ("234_vocab_curated_identity_and_editorial.sql", "Published version immutability PG coverage pending", "PC-J260"),
     "trg_guard_published_vocab_review": ("234_vocab_curated_identity_and_editorial.sql", "Published review immutability PG coverage pending", "PC-J260"),
@@ -91,6 +91,10 @@ KNOWN_UNCOVERED = {
     "guard_single_attempt_course_session": ("284_single_attempt_course_assignments.sql", "Course session admission PG coverage pending", "PC-J261"),
     "guard_single_attempt_course_answer": ("284_single_attempt_course_assignments.sql", "Course answer admission PG coverage pending", "PC-J261"),
 }
+
+# The ACL test executes only one block of 204. A filename reference cannot
+# establish evidence for its unrelated Speaking trigger, even if debt is removed.
+REQUIRES_NAMED_PG_EVIDENCE = {("sessions", "trg_sessions_full_test_attempt_id")}
 
 # table -> PG test path relative to root; this means the file deliberately
 # executes the table's coexisting triggers, not merely separate unit tests.
@@ -208,7 +212,7 @@ def pg_covered(root, *, live=None):
     identifiers = set(re.findall(r"[\w$]+", evidence))
     live = inventory(root) if live is None else live
     return {key for key, trigger in live.items()
-            if trigger.migration in evidence or any(
+            if (key not in REQUIRES_NAMED_PG_EVIDENCE and trigger.migration in evidence) or any(
                 name in identifiers or (not re.fullmatch(r"[\w$]+", name) and
                     re.search(rf"(?<![\w$]){re.escape(name)}(?![\w$])", evidence))
                 for name in (trigger.name, trigger.function))}
@@ -316,6 +320,27 @@ def test_covered_known_uncovered_entry_only_warns(tmp_path, monkeypatch):
     monkeypatch.setitem(KNOWN_UNCOVERED, "t_new", ("001_first.sql", "Existing coverage debt", "TEST-1"))
     with pytest.warns(UserWarning, match="có thể xoá khỏi KNOWN_UNCOVERED"):
         assert_pg_coverage(root)
+
+
+@pytest.mark.parametrize("reference", ["filename", "trigger", "function"])
+def test_204_acl_filename_does_not_cover_the_speaking_trigger(tmp_path, monkeypatch, reference):
+    name = "trg_sessions_full_test_attempt_id"
+    filename = KNOWN_UNCOVERED[name][0]
+    function = "fn_sessions_full_test_attempt_id"
+    sql = f"CREATE TRIGGER {name} BEFORE UPDATE ON sessions FOR EACH ROW EXECUTE FUNCTION {function}();"
+    evidence = {"filename": filename, "trigger": name, "function": function}[reference]
+    root = _tree(tmp_path, {filename: sql}, {"test_acl_pg.py": f"# TEST_PG_URL {evidence}"})
+    if reference == "filename":
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            assert_pg_coverage(root)
+        assert not caught, "ACL-only evidence must not suggest deleting Speaking coverage debt"
+        monkeypatch.delitem(KNOWN_UNCOVERED, name)
+        with pytest.raises(AssertionError, match=f"{name} on sessions"):
+            assert_pg_coverage(root)
+    else:
+        with pytest.warns(UserWarning, match=f"{name}: có thể xoá khỏi KNOWN_UNCOVERED"):
+            assert_pg_coverage(root)
 
 
 def test_known_stack_becomes_a_warning_when_followup_file_lands(tmp_path, monkeypatch):

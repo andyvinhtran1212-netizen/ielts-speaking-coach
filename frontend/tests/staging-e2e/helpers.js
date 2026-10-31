@@ -250,6 +250,21 @@ async function signIn(request, role) {
   return (await signInSession(request, role)).access_token;
 }
 
+// ADMINAAL2-0032 Amendment 1 (FR-020): these admin routes need a TOTP entered
+// within ADMIN_STEP_UP_MINUTES (15). A spec must not reuse an admin token from
+// an earlier step for them (tests/staging-e2e-admin-aal2-contract.test.mjs).
+const STEP_UP_ROUTE_PATTERN = /\/admin\/users\/[^'"`\s]*\/(?:role|active|revoke-sessions)\b/;
+
+/**
+ * A NEW admin sign-in for one sensitive step: password grant + TOTP verify,
+ * so the token's amr TOTP time is "now". Call it right before each request
+ * that matches STEP_UP_ROUTE_PATTERN. Without STAGING_E2E_ADMIN_TOTP_SECRET
+ * this is an AAL1 token, which passes only while ADMIN_STEP_UP_ENFORCE is off.
+ */
+async function freshAdminToken(request) {
+  return (await signInSession(request, 'admin')).access_token;
+}
+
 /**
  * Remove one synthetic Speaking session through the staging-only admin seam.
  * Cleanup is intentionally fail-loud: a green soak run must not consume a
@@ -274,6 +289,8 @@ module.exports.STAGING_SUPABASE = STAGING_SUPABASE;
 module.exports.STAGING_ANON = STAGING_ANON;
 module.exports.signIn = signIn;
 module.exports.signInSession = signInSession;
+module.exports.freshAdminToken = freshAdminToken;
+module.exports.STEP_UP_ROUTE_PATTERN = STEP_UP_ROUTE_PATTERN;
 module.exports.totpCode = totpCode;
 module.exports.ADMIN_TOTP_ENV = ADMIN_TOTP_ENV;
 module.exports.identityEmail = identityEmail;

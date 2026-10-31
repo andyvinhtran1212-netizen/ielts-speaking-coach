@@ -2,6 +2,8 @@
 
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 
+import { joinDialogStack } from '@/components/admin-directory-ui';
+
 import { PERMISSIONS } from './admin-user-types';
 
 export function messageOf(caught: unknown) {
@@ -72,7 +74,12 @@ export function Dialog({ open, title, description, children, actions, onClose, b
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
     panelRef.current?.focus();
+    // Shared stack: the step-up code prompt opens over this (busy) dialog and
+    // must own Tab/Escape until it closes; this trap would otherwise pull
+    // every Tab back to this disabled panel.
+    const layer = joinDialogStack();
     const onKey = (event: KeyboardEvent) => {
+      if (!layer.isTopmost()) return;
       if (event.key === 'Escape' && !busyRef.current) onCloseRef.current();
       if (event.key !== 'Tab') return;
       const panel = panelRef.current;
@@ -98,6 +105,7 @@ export function Dialog({ open, title, description, children, actions, onClose, b
     document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('keydown', onKey);
+      layer.leave();
       previous?.focus?.();
     };
   }, [open]);
