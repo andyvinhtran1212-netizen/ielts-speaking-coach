@@ -1,7 +1,7 @@
 // Live, reversible acceptance for the deployed course selectors. Only the
 // uniquely named synthetic prompt is changed; no class assignments are made.
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 const { primeBypassCookie, signInSession, STAGING_API, STAGING_SUPABASE } = require('./helpers');
 
 let cleanupPrompt;

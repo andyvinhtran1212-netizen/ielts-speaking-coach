@@ -5,7 +5,7 @@
 //   3. the landing stats come from the staging API (staging DB), not
 //      production.
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 const { BYPASS_HEADERS, PRODUCTION_ORIGINS, primeBypassCookie } = require('./helpers');
 
 test.beforeEach(async ({ context, baseURL }) => {

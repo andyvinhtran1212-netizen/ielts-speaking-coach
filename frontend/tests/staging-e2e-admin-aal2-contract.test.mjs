@@ -22,7 +22,9 @@ const ROOT = path.resolve(HERE, '..', '..');
 
 test('every staging release authentication step receives the CI TOTP secret', () => {
   const workflow = readFileSync(path.join(ROOT, '.github/workflows/staging-release-smoke.yml'), 'utf8');
-  const authSteps = workflow.split(/\n      - name: /).filter((step) => step.includes('E2E_PASSWORD:'));
+  const authSteps = workflow.split(/\n      - name: /).filter((step) => (
+    step.includes('E2E_PASSWORD:') && !step.includes('scan-artifact-secrets.mjs')
+  ));
   assert.equal(authSteps.length, 3, 'both provenance steps and the browser suite must authenticate');
   for (const step of authSteps) {
     assert.match(step, /STAGING_E2E_ADMIN_TOTP_SECRET: \$\{\{ secrets\.STAGING_E2E_ADMIN_TOTP_SECRET \}\}/);

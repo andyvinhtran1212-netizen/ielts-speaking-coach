@@ -114,8 +114,24 @@ jobs:
           RELEASE_PROVENANCE_REQUIRED: 'true'
         run: node tooling/capture-staging-release-provenance.mjs
 
-      - name: Upload staging release evidence
+      # PC-J437: artifacts bypass the Actions log masker. Redact in place,
+      # then fail closed on any bearer/JWT/bypass value; a red guard blocks
+      # the upload and keeps the job red.
+      - name: Sanitize + scan release evidence
+        id: provenance_artifact_guard
         if: always() && steps.staging_provenance.outcome == 'success'
+        working-directory: frontend
+        timeout-minutes: 2
+        env:
+          STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          STAGING_E2E_ADMIN_TOTP_SECRET: ${{ secrets.STAGING_E2E_ADMIN_TOTP_SECRET }}
+        run: |
+          node tooling/sanitize-artifacts.mjs test-results/staging-release-provenance.json
+          node tooling/scan-artifact-secrets.mjs test-results/staging-release-provenance.json
+
+      - name: Upload staging release evidence
+        if: always() && steps.staging_provenance.outcome == 'success' && steps.provenance_artifact_guard.outcome == 'success'
         uses: actions/upload-artifact@v6
         timeout-minutes: 2
         with:
@@ -124,8 +140,21 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload browser report on failure
+      - name: Sanitize + scan browser report
+        id: report_artifact_guard
         if: failure()
+        working-directory: frontend
+        timeout-minutes: 3
+        env:
+          STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          STAGING_E2E_ADMIN_TOTP_SECRET: ${{ secrets.STAGING_E2E_ADMIN_TOTP_SECRET }}
+        run: |
+          node tooling/sanitize-artifacts.mjs playwright-report test-results/staging-e2e-results.json
+          node tooling/scan-artifact-secrets.mjs playwright-report test-results/staging-e2e-results.json
+
+      - name: Upload browser report on failure
+        if: failure() && steps.report_artifact_guard.outcome == 'success'
         uses: actions/upload-artifact@v6
         timeout-minutes: 3
         with:

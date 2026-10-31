@@ -136,7 +136,10 @@ describe('permanent Next-native browser regression workflow', () => {
   });
 
   test('always stops its local server and preserves failure evidence', () => {
-    assert.match(WORKFLOW, /name: Nộp log server khi lỗi\n\s+if: \$\{\{ failure\(\) \}\}/);
+    // PC-J437: the evidence upload still runs on failure, but only after the
+    // sanitize + secret-scan guard step passed.
+    assert.match(WORKFLOW, /name: Che \+ quét secret trong log trước khi nộp\n\s+id: native_log_artifact_guard\n\s+if: \$\{\{ failure\(\) \}\}/);
+    assert.match(WORKFLOW, /name: Nộp log server khi lỗi\n\s+if: \$\{\{ failure\(\) && steps\.native_log_artifact_guard\.outcome == 'success' \}\}/);
     assert.match(WORKFLOW, /name: Dừng Next\n\s+if: \$\{\{ always\(\) \}\}/);
     assert.match(WORKFLOW, /next-native-fixture-api\.log/);
     assert.match(WORKFLOW, /kill "\$\(cat \/tmp\/next-native-fixture-api\.pid\)"/);

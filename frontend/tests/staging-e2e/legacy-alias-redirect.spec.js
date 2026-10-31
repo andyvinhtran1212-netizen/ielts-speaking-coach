@@ -7,7 +7,7 @@
 //      preserve query/hash/theme, with zero console errors and zero
 //      production-origin requests across the whole journey.
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 const {
   primeBypassCookie,
   BYPASS_HEADERS,

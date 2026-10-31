@@ -13,7 +13,7 @@
 // (`sb-<ref>-auth-token`) BEFORE page scripts run — the same storage the
 // legacy CDN client reads, so this exercises the real coexistence auth path.
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 const { primeBypassCookie, signIn, identityEmail, STAGING_SUPABASE } = require('./helpers');
 
 const STORAGE_KEY = `sb-${new URL(STAGING_SUPABASE).hostname.split('.')[0]}-auth-token`;
