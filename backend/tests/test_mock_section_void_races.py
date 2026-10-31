@@ -72,7 +72,9 @@ async def _race_void(app, db, monkeypatch, writer, target):
         assert void.json()["status"] == "void"
         assert (await client.get("/ping")).status_code == 200
 
-    assert writer_threads and set(writer_threads) == {threading.get_ident()}
+    # Student writers run in a worker thread since #2088; others on the loop.
+    # Either way the writer and the void must race on different threads.
+    assert writer_threads and void_threads and void_threads[0] not in writer_threads
     assert void_threads and void_threads[0] != threading.get_ident()
     fresh = proctor.svc.get_sitting("sitting-1")
     assert fresh["status"] == "void"

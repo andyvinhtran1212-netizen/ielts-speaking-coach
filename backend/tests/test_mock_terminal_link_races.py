@@ -105,7 +105,9 @@ async def _race_terminal(app, db, monkeypatch, terminal, writer, target):
             assert finished.json()["status"] == "void"
         assert (await client.get("/ping")).status_code == 200
 
-    assert writer_threads == [threading.get_ident()]
+    # Student writers run in a worker thread since #2088; others on the loop.
+    # Either way the writer and the terminal must race on different threads.
+    assert writer_threads and terminal_threads and terminal_threads[0] not in writer_threads
     assert terminal_threads and terminal_threads[0] != threading.get_ident()
     assert proctor.svc.get_sitting("sitting-1") == committed["sitting"]
     assert proctor.wf.get_review("review-1") == committed["review"]

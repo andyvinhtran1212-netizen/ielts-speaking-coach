@@ -1,4 +1,5 @@
 """Owner-scoped canonical flags; no answer, source-key or result projection."""
+import asyncio
 from uuid import UUID
 
 from fastapi import APIRouter, Header
@@ -21,14 +22,28 @@ def _guard(skill, attempt, *, write):
                         purpose="flags_write" if write else "flags_read")
 
 
+# PC-J423: the owner lookup, the policy guard and the flag read/write are sync
+# PostgREST calls, so each runs in a worker thread instead of on the event loop.
+def _flag_state_sync(skill, attempt):
+    _guard(skill, attempt, write=False)
+    return flag_state_response(supabase_admin, skill, attempt)
+
+
+def _patch_flag_sync(skill, attempt, body, **owner):
+    _guard(skill, attempt, write=True)
+    return patch_review_flag(supabase_admin, skill, attempt, body, **owner)
+
+
 async def _reading_owner(attempt_id, authorization, anon_id):
     user = await reading_student._optional_auth(authorization)
-    return reading_student._fetch_attempt_owned(str(attempt_id), user, anon_id)
+    return await asyncio.to_thread(
+        reading_student._fetch_attempt_owned, str(attempt_id), user, anon_id)
 
 
 async def _listening_owner(attempt_id, authorization):
     user = await listening._require_auth(authorization)
-    return listening._fetch_attempt_or_404(str(attempt_id), user["id"])
+    return await asyncio.to_thread(
+        listening._fetch_attempt_or_404, str(attempt_id), user["id"])
 
 
 @router.get("/api/reading/test/attempts/{attempt_id}/review-flags",
@@ -38,8 +53,7 @@ async def get_reading_review_flags(
     x_reading_anon: str | None = Header(default=None, alias="X-Reading-Anon"),
 ):
     attempt = await _reading_owner(attempt_id, authorization, x_reading_anon)
-    _guard("reading", attempt, write=False)
-    return flag_state_response(supabase_admin, "reading", attempt)
+    return await asyncio.to_thread(_flag_state_sync, "reading", attempt)
 
 
 @router.patch("/api/reading/test/attempts/{attempt_id}/review-flags",
@@ -50,10 +64,10 @@ async def patch_reading_review_flags(
     x_reading_anon: str | None = Header(default=None, alias="X-Reading-Anon"),
 ):
     attempt = await _reading_owner(attempt_id, authorization, x_reading_anon)
-    _guard("reading", attempt, write=True)
     owner = attempt.get("user_id")
-    return patch_review_flag(supabase_admin, "reading", attempt, body,
-                             user_id=owner, anon_id=x_reading_anon if owner is None else None)
+    return await asyncio.to_thread(
+        _patch_flag_sync, "reading", attempt, body,
+        user_id=owner, anon_id=x_reading_anon if owner is None else None)
 
 
 @router.get("/api/listening/tests/attempts/{attempt_id}/review-flags",
@@ -62,8 +76,7 @@ async def get_listening_review_flags(
     attempt_id: UUID, authorization: str | None = Header(default=None),
 ):
     attempt = await _listening_owner(attempt_id, authorization)
-    _guard("listening", attempt, write=False)
-    return flag_state_response(supabase_admin, "listening", attempt)
+    return await asyncio.to_thread(_flag_state_sync, "listening", attempt)
 
 
 @router.patch("/api/listening/tests/attempts/{attempt_id}/review-flags",
@@ -73,6 +86,5 @@ async def patch_listening_review_flags(
     authorization: str | None = Header(default=None),
 ):
     attempt = await _listening_owner(attempt_id, authorization)
-    _guard("listening", attempt, write=True)
-    return patch_review_flag(supabase_admin, "listening", attempt, body,
-                             user_id=attempt["user_id"])
+    return await asyncio.to_thread(
+        _patch_flag_sync, "listening", attempt, body, user_id=attempt["user_id"])
