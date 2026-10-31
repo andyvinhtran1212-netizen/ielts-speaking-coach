@@ -84,8 +84,8 @@ for (const [label, impl] of IMPLS) {
 
     const s = M.speaking({ last_band: 6.0, sessions_count: 12 });
     assert.equal(s.primary.value, '6.0');
-    assert.match(s.sub, /12 session/);
-    assert.equal(M.speaking({}).sub, 'Chưa luyện session nào');
+    assert.equal(s.sub, '12 buổi đã luyện');
+    assert.equal(M.speaking({}).sub, 'Chưa luyện buổi nào');
 
     assert.deepEqual(plain(M.grammar({ lessons_viewed: 7, catalogue_total: 137 })),
       { primary: { value: '7', unit: 'bài đã xem' }, sub: 'Trong thư viện 137 bài' });

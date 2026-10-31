@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { MyClassWorkspace } from './my-class-workspace';
 
 export const metadata: Metadata = {
-  title: 'My Class · Aver Learning',
+  title: 'Lớp học · Aver Learning',
   robots: { index: false, follow: false },
 };
 

@@ -850,7 +850,8 @@ def list_published_banks(*, skill_area: str | None = None, topic_id: str | None 
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn banks: {exc}")
+        logger.error("[quiz] published bank list failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn bộ câu hỏi. Vui lòng thử lại.") from None
 
 
 def _assignment_item_for(
@@ -1032,7 +1033,8 @@ def get_bank_for_play(
             .eq("id", bank_id).limit(1).execute()
         ).data
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn bank: {exc}")
+        logger.error("[quiz] play bank lookup failed bank=%s: %s", bank_id, exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn bộ câu hỏi. Vui lòng thử lại.") from None
     if not b:
         raise HTTPException(404, "Không tìm thấy bank")
     bank = b[0]
@@ -1203,7 +1205,8 @@ def get_bank_for_play(
             .eq("bank_id", bank_id).order("order").execute()
         ).data or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn câu hỏi: {exc}")
+        logger.error("[quiz] play questions lookup failed bank=%s: %s", bank_id, exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn câu hỏi. Vui lòng thử lại.") from None
     # ĐÁP ÁN MẪU CỦA CÂU TỰ LUẬN KHÔNG ĐI QUA ĐƯỜNG NÀY.
     #
     # `select("*")` trả cả `explain` (đáp án mẫu) và `accept`. Lọc ở trình duyệt
@@ -1431,7 +1434,8 @@ def _save_course_section_result(
             else:
                 raise HTTPException(409, f"Phần {section} đã được nộp ở nơi khác.")
         else:
-            raise HTTPException(500, f"Lỗi lưu kết quả phần {section}: {exc}")
+            logger.error("[quiz] course section save failed section=%s: %s", section, exc, exc_info=True)
+            raise HTTPException(500, f"Lỗi lưu kết quả phần {section}. Vui lòng thử lại.") from None
     saved_answers = saved.get("answers") or submitted
     saved_answer_key = saved.get("answer_key") or answer_rows
     result = {
@@ -1482,7 +1486,8 @@ def _review_course_section_result(
                 .eq("section", section).execute().data) or []
         rows = _course_rows_for_attempt(all_rows, attempt_no)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi đọc kết quả phần {section}: {exc}") from exc
+        logger.error("[quiz] course section review read failed section=%s: %s", section, exc, exc_info=True)
+        raise HTTPException(500, f"Lỗi đọc kết quả phần {section}. Vui lòng thử lại.") from None
     if not rows:
         raise HTTPException(404, f"Chưa có kết quả phần {section} cho bài giao này")
     saved = rows[0]
@@ -1532,7 +1537,8 @@ def course_reading_solution(*, user_id: str, bank_id: str,
         rows = (supabase_admin.table("quiz_banks").select("meta")
                 .eq("id", bank_id).limit(1).execute().data) or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi đọc đáp án bài đọc: {exc}")
+        logger.error("[quiz] course reading solution read failed bank=%s: %s", bank_id, exc, exc_info=True)
+        raise HTTPException(500, "Lỗi đọc đáp án bài đọc. Vui lòng thử lại.") from None
     reading = (((rows[0] if rows else {}).get("meta") or {}).get("short_reading"))
     if not isinstance(reading, dict):
         raise HTTPException(404, "Bài tập này không có bài đọc thêm")
@@ -1581,7 +1587,8 @@ def course_listening_solution(*, user_id: str, bank_id: str,
         rows = (supabase_admin.table("quiz_banks").select("meta")
                 .eq("id", bank_id).limit(1).execute().data) or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi đọc đáp án bài nghe: {exc}")
+        logger.error("[quiz] course listening solution read failed bank=%s: %s", bank_id, exc, exc_info=True)
+        raise HTTPException(500, "Lỗi đọc đáp án bài nghe. Vui lòng thử lại.") from None
     listening = (((rows[0] if rows else {}).get("meta") or {}).get("short_listening"))
     solution = listening.get("solution") if isinstance(listening, dict) else None
     answers = solution.get("answers") if isinstance(solution, dict) else None
@@ -1655,7 +1662,8 @@ def _bank_meta_or_404(
             .eq("id", bank_id).limit(1).execute()
         ).data
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn bank: {exc}")
+        logger.error("[quiz] bank meta lookup failed bank=%s: %s", bank_id, exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn bộ câu hỏi. Vui lòng thử lại.") from None
     if not b:
         raise HTTPException(404, "Không tìm thấy bank")
     bank = b[0]
@@ -1788,7 +1796,8 @@ def _owned_session(session_id: str, user_id: str) -> dict:
             .eq("id", session_id).limit(1).execute()
         ).data
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn session: {exc}")
+        logger.error("[quiz] session lookup failed session=%s: %s", session_id, exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn phiên làm bài. Vui lòng thử lại.") from None
     if not rows:
         raise HTTPException(404, "Không tìm thấy session")
     if rows[0]["user_id"] != user_id:
@@ -1821,7 +1830,8 @@ def _assert_retake_allowed(item: dict | None) -> None:
                        .select("content_config").eq("id", item["assignment_id"])
                        .limit(1).execute().data) or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi kiểm tra quyền làm bài kiểm tra lại: {exc}")
+        logger.error("[quiz] retake eligibility check failed item=%s: %s", item.get("id"), exc, exc_info=True)
+        raise HTTPException(500, "Lỗi kiểm tra quyền làm bài kiểm tra lại. Vui lòng thử lại.") from None
     cur = rows[0] if rows else {}
     attempts = ((cur.get("mastery") or {}).get("attempts")) or []
     cfg = mastery_config(assignments[0] if assignments else None)
@@ -2035,7 +2045,8 @@ def start_session(
         except Exception as exc:  # noqa: BLE001
             if bank.get('code') in grammar_quiz_session.REVIEWED_SOURCES:
                 raise grammar_quiz_session.storage_error(exc) from exc
-            raise HTTPException(500, f"Lỗi tạo session: {exc}")
+            logger.error("[quiz] session insert failed bank=%s: %s", bank_id, exc, exc_info=True)
+            raise HTTPException(500, "Lỗi tạo phiên làm bài. Vui lòng thử lại.") from None
         if not res.data:
             raise HTTPException(500, "Insert session không trả về dòng nào")
         session_id = res.data[0]["id"]
@@ -2068,7 +2079,8 @@ def get_resume(*, user_id: str, bank_id: str) -> list[dict]:
             .execute()
         ).data or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi đọc tiến độ (resume): {exc}")
+        logger.error("[quiz] resume read failed bank=%s: %s", bank_id, exc, exc_info=True)
+        raise HTTPException(500, "Lỗi đọc tiến độ. Vui lòng thử lại.") from None
     return rows
 
 
@@ -2712,7 +2724,8 @@ def reset_progress(*, user_id: str, bank_id: str) -> dict:
         supabase_admin.table("quiz_word_stats").delete() \
             .eq("user_id", user_id).eq("bank_id", bank_id).execute()
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi xoá tiến độ: {exc}")
+        logger.error("[quiz] progress reset failed bank=%s: %s", bank_id, exc, exc_info=True)
+        raise HTTPException(500, "Lỗi xoá tiến độ. Vui lòng thử lại.") from None
     return {"ok": True}
 
 
@@ -2783,7 +2796,8 @@ def _assert_quiz_progress_writable(session: dict) -> dict:
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi kiểm tra đồng hồ làm bài: {exc}") from exc
+        logger.error("[quiz] timer writability check failed item=%s: %s", item_id, exc, exc_info=True)
+        raise HTTPException(500, "Lỗi kiểm tra đồng hồ làm bài. Vui lòng thử lại.") from None
     assignment = assignments[0]
     if assignment.get("skill") != COURSE_AREA:
         if ended:
@@ -2930,7 +2944,8 @@ def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_st
                 raise HTTPException(
                     409, "Cấu hình thời gian của bài không hợp lệ.",
                 ) from exc
-            raise HTTPException(500, f"Lỗi ghi attempts: {exc}")
+            logger.error("[quiz] attempts write failed session=%s: %s", session_id, exc, exc_info=True)
+            raise HTTPException(500, "Không ghi được câu trả lời. Vui lòng thử lại.") from None
         # Feed only the NEWLY-inserted attempts into the KP evidence store. With
         # ignore_duplicates the upsert RETURNs just the rows it inserted, so a
         # retried/keepalive re-send (same client_id) records no duplicate evidence
@@ -2971,7 +2986,8 @@ def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_st
                 message=f"quiz progress: word_stats upsert failed: {exc}",
                 user_id=user_id, url=f"/api/quiz/sessions/{session_id}/progress",
                 extra={"stage": "word_stats", "n_word_stats": len(stat_rows)})
-            raise HTTPException(500, f"Lỗi ghi word_stats: {exc}")
+            logger.error("[quiz] word stats write failed session=%s: %s", session_id, exc, exc_info=True)
+            raise HTTPException(500, "Không ghi được thống kê từ. Vui lòng thử lại.") from None
 
     out = {"ok": True, "attempts": len(attempt_rows), "word_stats": len(stat_rows)}
     if (course_session and attempt_rows and write_policy.get("completion_mode")

@@ -8,6 +8,8 @@ Pins:
   - ADMINAAL2-0032 FR-019 (migration 336): a suspended account's role change
     is refused by the database; the route answers 409 with a Vietnamese
     message, and the same change works after reactivation
+  - PC-J66 F05: an unmapped RPC error with no audit row for the request stays
+    a 500 that revokes nothing (lost answers: test_admin_staff_security_routes)
 """
 
 from __future__ import annotations
@@ -47,6 +49,9 @@ class _TableQuery:
         return self
 
     def order(self, *_args, **_kw):
+        return self
+
+    def limit(self, *_args, **_kw):
         return self
 
     def execute(self):
@@ -269,12 +274,64 @@ class TestSuspendedAccountRoleChange:
         assert body["changed"] is True and body["sessions_revoked"] is True
         assert fake_db.tables["users"][0]["role"] == "student"
 
-    def test_any_other_database_error_stays_a_500(self, client, fake_db):
+    def test_any_other_database_error_stays_a_500(self, client, fake_db, revoked):
         u = self._suspended(fake_db)
         fake_db.role_guard_message = "account_suspended"
         r = client.patch(f"/admin/users/{u['id']}/role", json={"role": "student"}, headers=_ADMIN_AUTH)
         assert r.status_code == 500
         assert fake_db.tables["users"][0]["role"] == "instructor"
+        # No audit row carries this request's id, so nothing committed and
+        # nothing is revoked (PC-J66 F05).
+        assert revoked == []
+
+    def test_same_role_without_a_demotion_on_record_revokes_nothing(self, client, fake_db, revoked):
+        u = self._suspended(fake_db)
+        fake_db.tables["staff_security_audit"] = [{
+            "id": str(uuid4()), "target_user_id": u["id"], "event": "role_changed",
+            "before": {"role": "student"}, "after": {"role": "instructor"}}]
+        r = client.patch(f"/admin/users/{u['id']}/role", json={"role": "instructor"}, headers=_ADMIN_AUTH)
+        assert r.status_code == 200 and r.json()["sessions_revoked"] is None
+        assert revoked == []
+
+
+
+class TestRoleStepUp:
+    """ADMINAAL2-0032 Amendment 1 FR-020 (spec.md AC12) on the role route:
+    under ADMIN_STEP_UP_ENFORCE a TOTP older than 15 minutes is refused before
+    the RPC, so nothing changes; a fresh one changes the role."""
+
+    @staticmethod
+    def _bearer(totp_age):
+        from tests.test_staff_guard import aal2_claims, jwt
+        return {"Authorization": f"Bearer {jwt(aal2_claims(_ADMIN_ID, totp_age=totp_age))}"}
+
+    @pytest.fixture
+    def guarded(self, fake_db, revoked, monkeypatch):
+        from config import settings
+        from main import app
+        from tests.test_staff_guard import VERIFIED
+
+        monkeypatch.setattr(settings, "ADMIN_STEP_UP_ENFORCE", True)
+        monkeypatch.setattr(settings, "ADMIN_STEP_UP_MINUTES", 15)
+        admin = {"id": _ADMIN_ID, "email": "admin@x", "factors": VERIFIED}
+        with patch("routers.admin.require_admin", new=AsyncMock(return_value=admin)):
+            with TestClient(app) as c:
+                yield c
+
+    def test_totp_16_minutes_old_is_403_and_changes_nothing(self, guarded, fake_db, revoked):
+        u = _seed_user(fake_db, role="instructor")
+        r = guarded.patch(f"/admin/users/{u['id']}/role", json={"role": "student"}, headers=self._bearer(16 * 60))
+        assert r.status_code == 403, r.text
+        assert r.json()["detail"]["code"] == "step_up_required"
+        assert r.json()["detail"]["max_age_seconds"] == 900
+        assert fake_db.rpc_calls == [] and revoked == []
+        assert fake_db.tables["users"][0]["role"] == "instructor"
+
+    def test_totp_14_minutes_old_changes_the_role(self, guarded, fake_db, revoked):
+        u = _seed_user(fake_db, role="instructor")
+        r = guarded.patch(f"/admin/users/{u['id']}/role", json={"role": "student"}, headers=self._bearer(14 * 60))
+        assert r.status_code == 200, r.text
+        assert fake_db.tables["users"][0]["role"] == "student" and len(fake_db.rpc_calls) == 1
 
 
 class TestUnassignedCodesPool:

@@ -2,6 +2,7 @@
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
+import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011'; const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
 const adminId = '00000000-0000-0000-0000-000000000125'; const session = JSON.stringify({ access_token: 'admin-writing-tips-not-real', refresh_token: 'x', expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: adminId, email: 'admin-writing-tips@local' } });
@@ -25,6 +26,7 @@ await page.route('**/*', async (route) => {
   if (path === '/admin/writing/content/import' && method === 'POST') { const dry = parsed.searchParams.get('dry_run') === 'true'; if (dry && ++dryRuns === 2) return json({ parsed_data: null, validation_errors: [{ field: 'frontmatter', message: 'Thiếu YAML frontmatter' }], dry_run: true, committed_id: null, action: null }); const preview = { content_type: 'tip', title: 'Imported tip', slug: 'imported-tip', task_type: 'task_2', category: 'ideas', published: false, display_order: 2, type_data: {}, body_markdown: '# Imported' }; if (!dry && !rows.some((row) => row.id === imported.id)) rows.push(imported); return json({ parsed_data: preview, validation_errors: [], dry_run: dry, committed_id: dry ? null : imported.id, action: dry ? null : 'created' }); }
   return json({ detail: `unhandled ${method} ${path}` }, 500);
 });
+await stubAdminMfaStatus(page);
 
 await page.goto(`${BASE}/admin/writing/tips?task_type=task_2&q=safe`, { waitUntil: 'domcontentloaded' }); await page.getByRole('heading', { name: 'Mẹo viết', exact: true }).waitFor();
 // The page heading is visible before the list effect runs; wait for canonical data.

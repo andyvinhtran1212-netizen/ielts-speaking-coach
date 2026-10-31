@@ -32,7 +32,7 @@ def wire(monkeypatch):
     engine=MagicMock(url='postgresql+asyncpg://fixture@127.0.0.1/aver_ux_wire')
     engine.dispose=AsyncMock()
     monkeypatch.setattr(admin,'_db_engine',engine)
-    monkeypatch.setattr(admin_quiz,'create_async_engine',MagicMock(return_value=engine))
+    monkeypatch.setattr(admin_quiz,'create_asyncpg_engine',MagicMock(return_value=engine))
     app=FastAPI(); app.include_router(admin_quiz.router); app.include_router(quiz.router)
     return TestClient(app),app
 
@@ -79,8 +79,8 @@ def test_concrete_wire_uses_existing_engine_authenticated_actor_and_keeps_curren
     assert response.status_code==200 and response.json()['current_matches_committed'] is False
     assert commit.await_args.args[:3]==(admin._db_engine,CODE,ACTOR)
     from sqlalchemy.pool import NullPool
-    assert admin_quiz.create_async_engine.call_count==2
-    admin_quiz.create_async_engine.assert_called_with(admin._db_engine.url,poolclass=NullPool)
+    assert admin_quiz.create_asyncpg_engine.call_count==2
+    admin_quiz.create_asyncpg_engine.assert_called_with(admin._db_engine.url,poolclass=NullPool)
     assert admin._db_engine.dispose.await_count==2
     assert commit.await_args.args[3].model_dump(mode='json')==payload
     schema=app.openapi(); paths=schema['paths']['/admin/quiz/grammar-revisions/{canonical_code}/commit']

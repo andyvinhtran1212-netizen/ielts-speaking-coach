@@ -131,3 +131,9 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 | PAPERUPDATEDAT-0037 | Every change to a Reading or Listening paper advances updated_at, and admins see that a Mock Test hides its public source | approved | high | [spec](0037-mock-paper-updated-at-and-hide-warning/spec.md) |
 
 | STORAGELIMITS-0038 | Each Storage bucket accepts only the file sizes and types the app writes, and an oversize or wrong-type upload gets a clear 413 or 415 | approved | high | [spec](0038-storage-bucket-limits/spec.md) |
+
+| RLSCLEANUP-0039 | No RLS policy depends on the revoked admin or instructor helper functions, and learner or instructor JWTs have no direct access to the 21 admin-managed tables | approved | high | [spec](0039-rls-admin-policy-cleanup/spec.md) |
+
+| VOCABGUARD-0040 | A review or task of a published curated vocabulary version can never be moved to another version | approved | high | [spec](0040-vocab-curated-published-child-guard/spec.md) |
+
+| CALAPPEND-0041 | The class action log is append-only for every role, and no role can wipe it with TRUNCATE | approved | high | [spec](0041-class-action-log-append-only/spec.md) |
