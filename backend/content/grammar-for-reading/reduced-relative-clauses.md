@@ -98,6 +98,8 @@ Một số mệnh đề quan hệ mang nghĩa **chủ động** có thể rút t
 - The company **that produces** solar panels → The company **producing** solar panels
 - Passengers **who travel** without tickets → Passengers **travelling** without tickets
 
+Không rút gọn thành V-ing được khi mệnh đề nói về một hành động xảy ra một lần trong quá khứ: *the man **who stole** the car* ≠ *the man **stealing** the car* (cụm V-ing không diễn đạt được một vụ lấy cắp đã xảy ra xong).
+
 Mẹo đọc: V-ing ngay sau danh từ thường mô tả việc danh từ đó làm. Phân từ không mang thì độc lập; không tự suy ra "đang" hoặc "luôn" chỉ từ V-ing. Kiểm tra ngữ cảnh và thời gian của câu, vì không phải mọi mệnh đề quan hệ đều có thể rút gọn máy móc mà giữ nguyên nghĩa.
 
 <!-- anchor: reduced-relative-clauses.passive-v3 -->
@@ -110,6 +112,8 @@ Khi mệnh đề mang nghĩa **bị động**, rút thành **V3**:
 
 Mẹo đọc: V3 ngay sau danh từ = "danh từ **bị/được** làm gì". Cụm *by…* thường theo sau xác nhận nghĩa bị động.
 
+Ngoài ra, bài đọc hay rút gọn bằng **to-V** sau *the first / the last / the only* hoặc so sánh nhất: *the first person **to reach** the summit* (= the first person who reached the summit), *the last country **to adopt** the euro* (= the last country that adopted the euro).
+
 <!-- anchor: reduced-relative-clauses.pitfall -->
 ## Bẫy khi đọc
 
@@ -119,7 +123,7 @@ Mẹo đọc: V3 ngay sau danh từ = "danh từ **bị/được** làm gì". C�
 
 ### Bẫy 2: Nhầm V-ing chủ động với V3 bị động
 
-- *the man **interviewing** the CEO* = người **đang phỏng vấn** (chủ động)
+- *the man **interviewing** the CEO* = người phỏng vấn CEO (chủ động: anh ta làm việc phỏng vấn)
 - *the man **interviewed** by the CEO* = người **được** phỏng vấn (bị động)
 
 ### Chiến lược giải mã
