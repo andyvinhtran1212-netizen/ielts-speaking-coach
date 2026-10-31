@@ -47,7 +47,8 @@ DROP SCHEMA IF EXISTS public CASCADE;
 CREATE SCHEMA public;
 COMMENT ON SCHEMA public IS 'standard public schema';
 GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role;
-GRANT ALL ON SCHEMA public TO postgres, service_role;
+-- service_role gets USAGE only (line above); CREATE would let it shadow pg_catalog functions used by SECURITY DEFINER code (SVCPRIV-0042 FR-007, PC-J497)
+GRANT ALL ON SCHEMA public TO postgres;
 SQL
 
 echo "== applying schema to staging"
