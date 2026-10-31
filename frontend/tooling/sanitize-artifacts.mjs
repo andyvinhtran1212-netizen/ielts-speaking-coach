@@ -15,12 +15,13 @@ import redaction from './redact-secrets.cjs';
 const { PLAYWRIGHT_REPORT_RE, redactSecrets, readZip, writeZip, isZip, isText } = redaction;
 
 const MAX_DEPTH = 4;
-const BASE64_BODY_RE = /("body"\s*:\s*")([A-Za-z0-9+/]{16,}={0,2})(")/g;
+const BASE64_BODY_RE = /("(?:body|postData)"\s*:\s*")([A-Za-z0-9+/]{16,}={0,2})(")/g;
 
 class UnreadableArchive extends Error {}
 
 function redactText(text, options, depth) {
-  // JSON reporter stores inline attachments as base64 `body` fields.
+  // JSON reporter stores inline attachments as base64 `body` fields; protocol
+  // request bodies are base64 `postData`.
   const withBodies = text.replace(BASE64_BODY_RE, (whole, open, body, close) => {
     const decoded = Buffer.from(body, 'base64');
     const next = sanitizeBuffer(decoded, options, depth + 1);

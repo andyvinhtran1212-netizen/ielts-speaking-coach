@@ -203,7 +203,8 @@ function secretMatchRanges(text, options) {
   const literals = literalPattern(options);
   if (typeof text !== 'string' || text === '') return [];
   const ranges = [];
-  for (const match of text.matchAll(/Bearer\s+(ey[A-Za-z0-9._-]*)/g)) {
+  // Same token shape as BEARER_RE, so opaque (non-JWT) tokens are caught too.
+  for (const match of text.matchAll(/\bBearer[ \t]+(?!\[REDACTED)([A-Za-z0-9._~+/=-]{8,})/gi)) {
     const token = match[1];
     const whole = token.match(new RegExp(`^${JWT_SOURCE}$`));
     if (!(whole && isPublicAnonJwt(token))) ranges.push([match.index, match.index + match[0].length]);

@@ -647,7 +647,7 @@ test('short secret configurations fail closed even for empty input, without prin
   assert.deepEqual(redaction.secretLiteralsFromEnv({ E2E_PASSWORD: spaced }), [spaced], 'password whitespace belongs to the secret');
 });
 
-test('unsupported binary base64 payloads in arbitrary fields stay blocked after sanitize', async () => {
+test('unsupported binary base64 payloads in declared fields stay blocked after sanitize', async () => {
   const { scanBuffer } = await import(pathToFileURL(SCAN).href);
   const { sanitizeBuffer } = await import(pathToFileURL(SANITIZE).href);
   const options = { literals: [MIXED_PW] };
@@ -656,7 +656,7 @@ test('unsupported binary base64 payloads in arbitrary fields stay blocked after 
   for (const bytes of [compressed, opaque]) {
     for (const alphabet of ['base64', 'base64url']) {
       const encoded = bytes.toString(alphabet);
-      for (const field of ['payload', 'arbitraryEvidence', 'text', 'body', 'postData']) {
+      for (const field of ['body', 'postData']) {
         let json = JSON.stringify({ [field]: encoded });
         for (const depth of [0, 1, 2, 3]) {
           const input = Buffer.from(json);
@@ -670,12 +670,13 @@ test('unsupported binary base64 payloads in arbitrary fields stay blocked after 
       assert.equal(scanBuffer(sanitizeBuffer(dataUri, options), options).unscannable, true);
     }
   }
-  // The exact Codex case must also fail through the upload-guard CLI, which
-  // prints only a path/flag and keeps the secret out of both output streams.
+  // The Codex Brotli payload in a declared field must also fail through the
+  // upload-guard CLI, which prints only a path/flag and keeps the secret out
+  // of both output streams.
   const dir = mkdtempSync(path.join(os.tmpdir(), 'pcj481-base64-binary-'));
   try {
     const file = path.join(dir, 'evidence.json');
-    writeFileSync(file, JSON.stringify({ payload: compressed.toString('base64') }));
+    writeFileSync(file, JSON.stringify({ postData: compressed.toString('base64') }));
     const env = { E2E_PASSWORD: MIXED_PW };
     assert.equal(run(SANITIZE, [file], env).status, 0);
     const scanned = run(SCAN, [file], env);
@@ -710,13 +711,12 @@ test('clean staging provenance SHAs and trace identifiers remain scannable witho
     assert.deepEqual(scanBuffer(Buffer.from(json), NO_ENV), { count: 0, unscannable: false }, `depth ${depth}`);
     json = JSON.stringify({ trace: json });
   }
-  for (const field of ['payload', 'arbitraryEvidence', 'body']) {
-    assert.equal(scanBuffer(Buffer.from(JSON.stringify({ [field]: sha })), NO_ENV).unscannable, true, 'payloads have no identifier exemption');
+  for (const field of ['body', 'postData']) {
+    assert.equal(scanBuffer(Buffer.from(JSON.stringify({ [field]: sha })), NO_ENV).unscannable, true, 'declared payloads have no identifier exemption');
   }
-  // A base64 payload under an identifier-looking key is still unsupported
-  // binary unless it also has the validated literal digest/UUID format.
-  const compressed = zlib.brotliCompressSync(Buffer.from(JSON.stringify({ note: MIXED_PW }))).toString('base64');
-  assert.equal(scanBuffer(Buffer.from(JSON.stringify({ source_sha: compressed })), { literals: [MIXED_PW] }).unscannable, true);
+  // An identifier-looking key never hides an encoded secret.
+  const encoded = Buffer.from(JSON.stringify({ note: MIXED_PW })).toString('base64');
+  assert.equal(scanBuffer(Buffer.from(JSON.stringify({ source_sha: encoded })), { literals: [MIXED_PW] }).count, 1);
   const dir = mkdtempSync(path.join(os.tmpdir(), 'pcj481-clean-provenance-'));
   try {
     const file = path.join(dir, 'staging-release-provenance.json');
@@ -732,4 +732,76 @@ test('clean staging provenance SHAs and trace identifiers remain scannable witho
   const rawSecret = Buffer.from(JSON.stringify({ source_sha: sha }));
   assert.equal(scanBuffer(rawSecret, { literals: [sha] }).count, 1, 'schema recognition never suppresses configured secret occurrences');
   assert.deepEqual(scanBuffer(sanitizeBuffer(rawSecret, { literals: [sha] }), { literals: [sha] }), { count: 0, unscannable: false });
+});
+
+test('a clean Playwright report and JSON results pass: paths and kebab-case ids are not payloads', async () => {
+  const { scanBuffer } = await import(pathToFileURL(SCAN).href);
+  const { sanitizeBuffer } = await import(pathToFileURL(SANITIZE).href);
+  // Shapes from a passing run: base64-alphabet values that decode to opaque bytes.
+  const results = JSON.stringify({
+    config: {
+      rootDir: '/home/runner/work/ielts-speaking-coach/ielts-speaking-coach/frontend',
+      projects: [{ outputDir: '/home/runner/work/ielts-speaking-coach/frontend/test-results' }],
+    },
+  });
+  const viewer = 'm.jsx("div",{"data-testid":"test-result-attachments-pane",children:x})';
+  for (const buffer of [
+    Buffer.from(results),
+    Buffer.from(playwrightReportHtml([['report.json', results]]) + `<script>${viewer}</script>`),
+  ]) {
+    assert.deepEqual(scanBuffer(buffer, NO_ENV), { count: 0, unscannable: false });
+    assert.deepEqual(scanBuffer(sanitizeBuffer(buffer, NO_ENV), NO_ENV), { count: 0, unscannable: false });
+  }
+});
+
+test('arbitrary JSON values are not decoded as payloads, but configured literals are still caught', async () => {
+  const { scanBuffer } = await import(pathToFileURL(SCAN).href);
+  const options = { literals: [MIXED_PW] };
+  // Trade-off (PC-J437): only body/postData/data: URIs are declared binary.
+  // A secret Brotli-compressed into a custom field is not something Playwright
+  // writes, and decoding every field blocks every real report.
+  const compressed = zlib.brotliCompressSync(Buffer.from(JSON.stringify({ note: MIXED_PW }))).toString('base64');
+  assert.deepEqual(scanBuffer(Buffer.from(JSON.stringify({ payload: compressed })), options), { count: 0, unscannable: false });
+  // Plain and base64 forms of a configured literal stay caught in any field.
+  for (const value of [MIXED_PW, Buffer.from(MIXED_PW).toString('base64'), Buffer.from(`x ${MIXED_PW} y`).toString('base64')]) {
+    assert.ok(scanBuffer(Buffer.from(JSON.stringify({ payload: value })), options).count >= 1);
+  }
+});
+
+test('opaque bearer tokens are caught in text and decoded postData, then sanitized', async () => {
+  const { scanBuffer } = await import(pathToFileURL(SCAN).href);
+  const { sanitizeBuffer } = await import(pathToFileURL(SANITIZE).href);
+  // Assembled so this source file does not itself hold a bearer-shaped literal.
+  const header = ['Authorization:', 'Bearer', 'opaqueFAKE' + 'o'.repeat(24)].join(' ');
+  for (const input of [
+    Buffer.from(header),
+    Buffer.from(JSON.stringify({ postData: Buffer.from(header).toString('base64') })),
+    Buffer.from(JSON.stringify({ body: Buffer.from(JSON.stringify({ log: header })).toString('base64') })),
+  ]) {
+    assert.equal(scanBuffer(input, NO_ENV).count, 1);
+    const clean = sanitizeBuffer(input, NO_ENV);
+    assert.deepEqual(scanBuffer(clean, NO_ENV), { count: 0, unscannable: false });
+  }
+  // Already-redacted values and the public anon key do not fail the guard.
+  assert.equal(countSecretMatches('Authorization: Bearer [REDACTED]', NO_ENV), 0);
+  const anon = `eyJ${Buffer.from('{"alg":"HS256"}').toString('base64url').slice(3)}.${Buffer.from('{"role":"anon"}').toString('base64url')}.sigFAKE`;
+  assert.equal(countSecretMatches(`Authorization: Bearer ${anon}`, NO_ENV), 0);
+});
+
+test('web fonts, video and wasm inside a trace are scannable; other binary stays blocked', async () => {
+  const { scanBuffer } = await import(pathToFileURL(SCAN).href);
+  const media = [
+    Buffer.from('wOF2\0\0\0\0rest', 'latin1'),
+    Buffer.from('wOFF\0\0\0\0rest', 'latin1'),
+    Buffer.from('OTTO\0\0\0\0rest', 'latin1'),
+    Buffer.from([0x00, 0x01, 0x00, 0x00, 0x00, 0x10, 0xfe]),
+    Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0x9f, 0x42, 0x86]),
+    Buffer.concat([Buffer.from([0, 0, 0, 0x20]), Buffer.from('ftypisom', 'latin1'), Buffer.from([0xfe])]),
+    Buffer.from([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]),
+  ];
+  for (const data of media) {
+    assert.deepEqual(scanBuffer(writeZip([{ name: 'resources/a', data }]), NO_ENV), { count: 0, unscannable: false });
+  }
+  const opaque = Buffer.from([0, 0x13, 0x37, 0xfe, 0, 1]);
+  assert.equal(scanBuffer(writeZip([{ name: 'resources/b', data: opaque }]), NO_ENV).unscannable, true);
 });

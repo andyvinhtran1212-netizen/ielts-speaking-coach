@@ -16,12 +16,14 @@ import redaction from './redact-secrets.cjs';
 const { PLAYWRIGHT_REPORT_RE, countSecretMatches, secretMatchRanges, resolveLiterals, readZip, isZip, isText } = redaction;
 
 const MAX_DEPTH = 4;
-// Inline attachments and protocol Binary fields must decode, even when binary.
+// Only the places Playwright stores binary are decoded as declared base64:
+// inline attachment `body`, protocol `postData` and `data:` URIs. These must
+// decode, and unsupported bytes there fail closed. An arbitrary JSON value is
+// not treated as a payload: paths and kebab-case ids share the base64 alphabet
+// and decode to opaque bytes. Configured literals are still matched in every
+// raw/escaped/URL/base64 form, and long runs are opened below when they decode
+// to text, ZIP, gzip or an image.
 const BASE64_BODY_RE = /\\*"(?:body|postData)\\*"\s*:\s*\\*"([A-Za-z0-9+/_-]{16,}={0,2})\\*"/g;
-// A complete base64 JSON value is an identifiable payload regardless of key.
-// Quote delimiters may themselves be JSON-escaped in trace/report strings.
-// Incidental alphabet-only words embedded in ordinary text are handled below.
-const BASE64_FIELD_RE = /\\*"(?<key>[^"\r\n]*?)\\*"\s*:\s*\\*"(?<encoded>[A-Za-z0-9+/_-]{24,}={0,2})\\*"/g;
 const BASE64_DATA_RE = /\bdata:[^,\s"'<>]*;base64,([A-Za-z0-9+/_-]+={0,2})/g;
 const BASE64_RUN_RE = /[A-Za-z0-9+/_-]{24,}={0,2}/g;
 
@@ -36,6 +38,18 @@ function isImage(buffer) {
     || (buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP');
 }
 
+// Report and trace resources a browser run produces: images, web fonts,
+// WebM/MP4 video and WebAssembly. Any other binary stays unscannable.
+function isKnownMedia(buffer) {
+  const head = buffer.subarray(0, 4);
+  return isImage(buffer)
+    || ['wOFF', 'wOF2', 'OTTO'].includes(head.toString('ascii'))
+    || head.equals(Buffer.from([0x00, 0x01, 0x00, 0x00]))
+    || head.equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))
+    || buffer.subarray(4, 8).toString('ascii') === 'ftyp'
+    || head.equals(Buffer.from([0x00, 0x61, 0x73, 0x6d]));
+}
+
 function decodeBase64(encoded) {
   const compact = encoded.replace(/\s+/g, '');
   const bytes = Buffer.from(compact, 'base64');
@@ -43,17 +57,6 @@ function decodeBase64(encoded) {
   // Buffer.from is permissive (it silently truncates malformed input).
   if (bytes.toString('base64').replace(/=+$/, '') !== normalized) return null;
   return bytes;
-}
-
-// Provenance Git SHAs and trace IDs share the base64 alphabet. Recognize
-// their schema role AND their digest/UUID format, without exempting payloads
-// just because their property happens to be named "id" or "hash".
-function isLiteralIdentifier(key, value) {
-  if (!key) return false;
-  const name = key.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
-  if (!/(?:^|_)(?:id|sha(?:1|256|384|512)?|hash|checksum|release|commit)$/.test(name)) return false;
-  return /^(?:[a-f0-9]{32}|[a-f0-9]{40}|[a-f0-9]{64}|[a-f0-9]{96}|[a-f0-9]{128})$/i.test(value)
-    || /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(value);
 }
 
 /** { count, unscannable } for one buffer, recursing into archives. */
@@ -83,7 +86,7 @@ export function scanBuffer(buffer, options, depth = 0) {
     return scanBuffer(decoded, options, depth + 1);
   }
   if (!isText(buffer)) {
-    return { count: countSecretMatches(buffer.toString('latin1'), options), unscannable: !isImage(buffer) };
+    return { count: countSecretMatches(buffer.toString('latin1'), options), unscannable: !isKnownMedia(buffer) };
   }
   const text = buffer.toString('utf8');
   const hits = secretMatchRanges(text, options);
@@ -107,27 +110,14 @@ export function scanBuffer(buffer, options, depth = 0) {
     const inner = zip && isZip(zip) ? scanBuffer(zip, options, depth + 1) : { count: 0, unscannable: true };
     addDecoded(start, start + report[2].length, inner);
   }
-  for (const { pattern, declaredEncoding } of [
-    { pattern: BASE64_BODY_RE, declaredEncoding: true },
-    { pattern: BASE64_FIELD_RE, declaredEncoding: false },
-    { pattern: BASE64_DATA_RE, declaredEncoding: true },
-  ]) {
+  for (const pattern of [BASE64_BODY_RE, BASE64_DATA_RE]) {
     for (const match of text.matchAll(pattern)) {
-      const encoded = match.groups?.encoded || match[1];
+      const encoded = match[1];
       const start = match.index + match[0].lastIndexOf(encoded);
       const end = start + encoded.length;
       if (overlapsDecoded(start, end)) continue;
+      // A declared encoding must decode; its bytes are scanned even when binary.
       const decoded = decodeBase64(encoded);
-      // An arbitrary word need not be valid base64. Explicit attachment/data
-      // encodings must decode; a canonical full-field payload must be scanned
-      // even when its bytes identify unsupported compression or opaque binary.
-      if (!decoded && !declaredEncoding) continue;
-      if (decoded && !declaredEncoding && isLiteralIdentifier(match.groups?.key, encoded)
-        && !(isText(decoded) || isZip(decoded) || isGzip(decoded) || isImage(decoded))) {
-        // Raw literal/JWT matches were counted above and are never exempted.
-        decodedRegions.push([start, end]);
-        continue;
-      }
       addDecoded(start, end, decoded ? scanBuffer(decoded, options, depth + 1) : { count: 0, unscannable: true });
     }
   }
