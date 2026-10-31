@@ -20,6 +20,7 @@ from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user
 from services.analytics import fire_event
+from services.errors import clip_user_value
 from services.d1_question_generator import generate_d1_question
 from services.feature_flags import is_vocab_bank_enabled
 from services.mastery import (
@@ -1000,7 +1001,7 @@ async def add_vocab_manual(
     except Exception as e:
         err = str(e)
         if "unique" in err.lower() or "duplicate" in err.lower():
-            raise HTTPException(409, f"'{body.headword}' is already in your vocab bank")
+            raise HTTPException(409, f"'{clip_user_value(body.headword)}' is already in your vocab bank")
         logger.error("[vocab_bank POST] manual insert failed for user=%s: %s", user_id, e, exc_info=True)
         raise HTTPException(500, "Không lưu được từ vựng. Vui lòng thử lại.") from None
 

@@ -39,6 +39,7 @@ from typing import Optional
 from uuid import UUID
 
 from database import supabase_admin
+from services.errors import clip_user_value
 
 logger = logging.getLogger(__name__)
 
@@ -702,7 +703,9 @@ def create_sitting(user_id: str, code: str) -> dict:
     """
     exam = get_published_exam(code)
     if not exam:
-        raise NotFoundError(f"Không tìm thấy kỳ thi đã publish với mã {code!r}.")
+        raise NotFoundError(
+            f"Không tìm thấy kỳ thi đã publish với mã {clip_user_value(code)!r}."
+        )
 
     # RESUME FIRST: return an existing non-terminal sitting before applying the
     # entry gates. A mid-exam student who refreshes after the admin CLOSED the
@@ -861,7 +864,9 @@ def attach_attempt(
     """
     binding = _SECTION_ATTEMPT.get(section)
     if not binding:
-        raise SittingConflictError(f"Section không gắn được attempt: {section!r}")
+        raise SittingConflictError(
+            f"Section không gắn được attempt: {clip_user_value(section)!r}"
+        )
     link_col, domain_table, exam_test_col = binding
 
     sitting = get_sitting(sitting_id)
@@ -1528,7 +1533,7 @@ def start_section(sitting_id: str, user_id: str, section: str) -> dict:
     section's clock is already running, returns the sitting unchanged (a refresh
     mid-section must NOT restart the timer)."""
     if section not in _LRW_ORDER:
-        raise SittingConflictError(f"Section không hợp lệ: {section!r}")
+        raise SittingConflictError(f"Section không hợp lệ: {clip_user_value(section)!r}")
     sitting = get_sitting(sitting_id)
     if not sitting:
         raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
@@ -1631,7 +1636,7 @@ def submit_section(
     the terminal state (same as the old submit_lrw's tail).
     """
     if section not in _LRW_ORDER:
-        raise SittingConflictError(f"Section không hợp lệ: {section!r}")
+        raise SittingConflictError(f"Section không hợp lệ: {clip_user_value(section)!r}")
     sitting = get_sitting(sitting_id)
     if not sitting:
         raise NotFoundError(f"Sitting {sitting_id} không tồn tại.")
@@ -4429,7 +4434,7 @@ def live_exams_using(kind: str, content_id) -> list[dict]:
         "writing":   ("writing_task1_prompt_id", "writing_task2_prompt_id"),
     }.get(kind)
     if not col or not content_id:
-        raise ValueError(f"kind không hợp lệ: {kind!r}")
+        raise ValueError(f"kind không hợp lệ: {clip_user_value(kind)!r}")
     try:
         rows = supabase_admin.table("mock_exams").select(
             "id, code, status, " + ", ".join(col),

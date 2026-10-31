@@ -32,6 +32,7 @@ from models.instructor_review import (
 )
 from routers.admin import require_admin
 from services import instructor_workflow
+from services.errors import clip_user_value
 from services.core_attempt_outcomes import observe_writing_batch
 from services.core_writing_observation import observe_writing_partial_failure
 from services.instructor_workflow import (
@@ -83,10 +84,15 @@ async def get_queue(
     else:
         # Validate every status string at the boundary; an unknown
         # value should 400 rather than silently match nothing.
-        try:
-            status_filter = [InstructorReviewStatus(s) for s in status]
-        except ValueError as e:
-            raise HTTPException(400, f"Invalid status value: {e}")
+        status_filter = []
+        for s in status:
+            try:
+                status_filter.append(InstructorReviewStatus(s))
+            except ValueError:
+                # PC-J225: name the refused value clipped, not the enum's
+                # own message (which repeats it in full).
+                raise HTTPException(
+                    400, f"Invalid status value: {clip_user_value(s)!r}")
 
     return instructor_workflow.get_queue(
         status_filter=status_filter,

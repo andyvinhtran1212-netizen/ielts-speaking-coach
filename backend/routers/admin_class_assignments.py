@@ -31,6 +31,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from database import supabase_admin
 from services import speaking_flags
+from services.errors import clip_user_value
 from services import speaking_question_audio as sqa
 from routers.admin import require_admin
 from services.course_pronunciation_manifest import pronunciation_content_hash
@@ -2966,7 +2967,7 @@ async def update_assignment_due(
     try:
         new_due_at = compose_due_at(body.due_date, due_time)
     except ValueError:
-        raise HTTPException(422, f"Ngày hạn không hợp lệ: {body.due_date!r} "
+        raise HTTPException(422, f"Ngày hạn không hợp lệ: {clip_user_value(body.due_date)!r} "
                                  "(cần dạng YYYY-MM-DD)")
 
     try:

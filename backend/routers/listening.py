@@ -40,6 +40,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
 
 from config import settings
+from services.errors import clip_user_value, describe_parse_error
 from models.dictation_grading import (
     DictationAttemptStartResponse, DictationCapabilities, DictationGrade,
     DictationPolicyErrorResponse, DictationResumeResponse, DictationSentenceGrade,
@@ -873,7 +874,7 @@ async def post_listening_attempt(
     if body.mode not in {"dictation", "gist", "true_false", "mcq"}:
         raise HTTPException(
             422,
-            f"mode='{body.mode}' not supported — "
+            f"mode='{clip_user_value(body.mode)}' not supported — "
             "supported: dictation | gist | true_false | mcq.",
         )
     if not body.content_id and not body.exercise_id:
@@ -2919,7 +2920,7 @@ def _read_markdown_upload(upload: UploadFile, label: str) -> bytes:
     if not name.endswith(_CONVERT_ALLOWED_EXTENSIONS):
         raise HTTPException(
             422,
-            f"{label} phải là file .md hoặc .markdown (nhận: {upload.filename!r})",
+            f"{label} phải là file .md hoặc .markdown (nhận: {clip_user_value(upload.filename)!r})",
         )
     data = upload.file.read()
     if len(data) == 0:
@@ -2940,7 +2941,7 @@ def _read_json_upload(upload: UploadFile, label: str) -> dict:
     import json as _json
     name = (upload.filename or "").lower()
     if not name.endswith(".json"):
-        raise HTTPException(422, f"{label} phải là file .json (nhận: {upload.filename!r})")
+        raise HTTPException(422, f"{label} phải là file .json (nhận: {clip_user_value(upload.filename)!r})")
     data = upload.file.read()
     if not data:
         raise HTTPException(422, f"{label} rỗng — không đọc được nội dung.")
@@ -2949,7 +2950,7 @@ def _read_json_upload(upload: UploadFile, label: str) -> dict:
     try:
         return _json.loads(data.decode("utf-8"))
     except Exception as exc:
-        raise HTTPException(422, f"{label} không phải JSON hợp lệ: {exc}") from exc
+        raise HTTPException(422, f"{label} không phải JSON hợp lệ: {describe_parse_error(exc)}") from exc
 
 
 def _read_text_upload(upload: UploadFile, label: str, *, exts: tuple) -> bytes:
@@ -2957,7 +2958,7 @@ def _read_text_upload(upload: UploadFile, label: str, *, exts: tuple) -> bytes:
     large) + caller-chosen extensions."""
     name = (upload.filename or "").lower()
     if not name.endswith(exts):
-        raise HTTPException(422, f"{label} phải là file {' / '.join(exts)} (nhận: {upload.filename!r})")
+        raise HTTPException(422, f"{label} phải là file {' / '.join(exts)} (nhận: {clip_user_value(upload.filename)!r})")
     data = upload.file.read()
     if not data:
         raise HTTPException(422, f"{label} rỗng — không đọc được nội dung.")
@@ -2991,7 +2992,7 @@ async def admin_import_fulltest_dry_run(
         )
     except Exception as exc:
         logger.exception("Full-test import dry-run failed")
-        raise HTTPException(422, f"Lỗi khi phân tích full-test pack: {exc}") from exc
+        raise HTTPException(422, f"Lỗi khi phân tích full-test pack: {describe_parse_error(exc)}") from exc
 
     preview = result.as_preview()
 
@@ -3043,7 +3044,7 @@ async def admin_import_fulltest_commit(
 
     audio_name = (audio.filename or "").lower()
     if not audio_name.endswith(".mp3"):
-        raise HTTPException(422, f"Audio phải là .mp3 (nhận: {audio.filename!r})")
+        raise HTTPException(422, f"Audio phải là .mp3 (nhận: {clip_user_value(audio.filename)!r})")
     audio_bytes = audio.file.read()
     if len(audio_bytes) > _FULLTEST_MAX_AUDIO_BYTES:
         raise HTTPException(422, f"Audio quá lớn ({len(audio_bytes)//(1024*1024)} MB > 60 MB).")
@@ -3054,7 +3055,7 @@ async def admin_import_fulltest_commit(
             qp_bytes.decode("utf-8"), sol_bytes.decode("utf-8"), timings_dict)
     except Exception as exc:
         logger.exception("Full-test commit parse failed")
-        raise HTTPException(422, f"Lỗi khi phân tích full-test pack: {exc}") from exc
+        raise HTTPException(422, f"Lỗi khi phân tích full-test pack: {describe_parse_error(exc)}") from exc
     if not res.ok:
         raise HTTPException(422, {"message": "Pack không hợp lệ — sửa rồi import lại.",
                                   "errors": res.errors, "warnings": res.warnings})
@@ -3351,7 +3352,7 @@ async def admin_sync_drill(
     try:
         parsed = listening_drill_import.parse_drill(sj, timing_dict, solution_bytes.decode("utf-8"))
     except (UnicodeDecodeError, ValueError) as exc:
-        raise HTTPException(422, f"Không phân tích được nguồn drill: {exc}") from exc
+        raise HTTPException(422, f"Không phân tích được nguồn drill: {describe_parse_error(exc)}") from exc
     if parsed.errors:
         raise HTTPException(422, {"message": "Drill không hợp lệ.", "errors": parsed.errors})
 
@@ -3491,7 +3492,7 @@ async def admin_import_drill_dry_run(
         res = listening_drill_import.parse_drill(sj, timings_dict, solution_text)
     except Exception as exc:
         logger.exception("Drill import dry-run failed")
-        raise HTTPException(422, f"Lỗi khi phân tích drill JSON: {exc}") from exc
+        raise HTTPException(422, f"Lỗi khi phân tích drill JSON: {describe_parse_error(exc)}") from exc
 
     test_ext = (res.test_metadata.get("test_id")
                 or sj.get("test_id") or sj.get("drill_id") or "")
@@ -3550,7 +3551,7 @@ async def admin_import_drill_commit(
     if audio is not None:
         audio_name = (audio.filename or "").lower()
         if not audio_name.endswith(".mp3"):
-            raise HTTPException(422, f"Audio phải là .mp3 (nhận: {audio.filename!r})")
+            raise HTTPException(422, f"Audio phải là .mp3 (nhận: {clip_user_value(audio.filename)!r})")
         # Audio without timings would publish an "audio-ready" drill whose
         # exercises have NO audio_windows — the review's per-question 🔊 replay
         # (driven solely by item.audio_window) would silently vanish. Require
@@ -3572,7 +3573,7 @@ async def admin_import_drill_commit(
         res = listening_drill_import.parse_drill(sj, timings_dict, solution_text)
     except Exception as exc:
         logger.exception("Drill commit parse failed")
-        raise HTTPException(422, f"Lỗi khi phân tích drill JSON: {exc}") from exc
+        raise HTTPException(422, f"Lỗi khi phân tích drill JSON: {describe_parse_error(exc)}") from exc
     if res.errors:
         raise HTTPException(422, {"message": "Drill không hợp lệ — sửa rồi import lại.",
                                   "errors": res.errors, "warnings": res.warnings})
@@ -4333,7 +4334,7 @@ async def admin_upload_test_full_audio(
 
     name = (audio.filename or "").lower()
     if not name.endswith(".mp3"):
-        raise HTTPException(422, f"Audio phải là .mp3 (nhận: {audio.filename!r})")
+        raise HTTPException(422, f"Audio phải là .mp3 (nhận: {clip_user_value(audio.filename)!r})")
     data = audio.file.read()
 
     result = listening_audio.validate_full_audio(data)
@@ -4400,7 +4401,7 @@ async def admin_upload_test_section_audio(
 
     name = (audio.filename or "").lower()
     if not name.endswith(".mp3"):
-        raise HTTPException(422, f"Audio phải là .mp3 (nhận: {audio.filename!r})")
+        raise HTTPException(422, f"Audio phải là .mp3 (nhận: {clip_user_value(audio.filename)!r})")
     data = audio.file.read()
 
     result = listening_audio.validate_section_audio(data)
