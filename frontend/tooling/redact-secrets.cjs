@@ -54,13 +54,42 @@ function resolveLiterals(options) {
   return options && Array.isArray(options.literals) ? options.literals : secretLiteralsFromEnv();
 }
 
+// A literal reaches an artifact in more forms than its raw one: JSON reports
+// escape `"` and `\` (again per level when a JSON string holds serialized
+// JSON, e.g. a report quoting a trace entry), and URLs/form bodies
+// percent-encode it. Redaction and the guard share one pattern so they agree
+// on every form.
+const JSON_ESCAPE_LEVELS = 3;
+
+function literalVariants(literal) {
+  const variants = [literal];
+  let escaped = literal;
+  for (let level = 0; level < JSON_ESCAPE_LEVELS; level += 1) {
+    escaped = JSON.stringify(escaped).slice(1, -1);
+    variants.push(escaped);
+  }
+  const uri = encodeURIComponent(literal);
+  variants.push(uri, uri.replace(/%20/g, '+'), new URLSearchParams({ v: literal }).toString().slice(2));
+  return variants;
+}
+
+/** One regex for every form of every secret literal, longest first; null if none. */
+function literalPattern(options) {
+  const variants = new Set();
+  for (const literal of resolveLiterals(options)) {
+    if (typeof literal !== 'string' || literal.length < MIN_LITERAL_LENGTH) continue;
+    for (const variant of literalVariants(literal)) variants.add(variant);
+  }
+  if (!variants.size) return null;
+  const sorted = [...variants].sort((a, b) => b.length - a.length);
+  return new RegExp(sorted.map((v) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g');
+}
+
 /** Redact bearer tokens, JWTs, auth cookies, bypass values and known env secrets. */
 function redactSecrets(text, options) {
   if (typeof text !== 'string' || text === '') return text;
-  let out = text;
-  for (const literal of resolveLiterals(options)) {
-    if (literal && literal.length >= MIN_LITERAL_LENGTH) out = out.split(literal).join(REDACTED);
-  }
+  const literals = literalPattern(options);
+  const out = literals ? text.replace(literals, REDACTED) : text;
   return out
     .replace(HEADER_RE, (_, name, sep) => `${name}${sep}${REDACTED}`)
     .replace(JSON_FIELD_RE, (_, name, sep) => `"${name}"${sep}"${REDACTED}"`)
@@ -115,9 +144,8 @@ function countSecretMatches(text, options) {
   for (const match of text.matchAll(new RegExp(JWT_SOURCE, 'g'))) {
     if (!isPublicAnonJwt(match[0])) count += 1;
   }
-  for (const literal of resolveLiterals(options)) {
-    if (literal && literal.length >= MIN_LITERAL_LENGTH) count += text.split(literal).length - 1;
-  }
+  const literals = literalPattern(options);
+  if (literals) count += (text.match(literals) || []).length;
   return count;
 }
 

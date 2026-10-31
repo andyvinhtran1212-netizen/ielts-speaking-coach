@@ -8,7 +8,7 @@ import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const { load: loadYaml } = require('js-yaml');
@@ -244,6 +244,121 @@ test('password/TOTP literals in report and trace are missed with bypass-only env
       for (const literal of literals) assert.ok(!text.includes(literal), 'archive entry must contain zero literal matches');
       assert.equal(JSON.parse(text).note, 'form filled [REDACTED]; step-up setup [REDACTED]');
     }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// PC-J481 R2 (Codex P2) — JSON reports escape `"` and `\`, nested JSON escapes
+// them twice, URLs percent-encode. Synthetic passwords only.
+const QUOTE_PW = 'pwFAKE"quote' + 'q'.repeat(10);
+const BACKSLASH_PW = 'pwFAKE\\slash' + 's'.repeat(10);
+const MIXED_PW = 'pwFAKE"\\mix' + 'm'.repeat(10);
+const TRAILING_PW = 'pwFAKEtail' + 't'.repeat(10) + '\\';
+const URL_PW = 'pwFAKE sp&amp%' + 'u'.repeat(10);
+const ESCAPE_PWS = [QUOTE_PW, BACKSLASH_PW, MIXED_PW, TRAILING_PW, URL_PW];
+
+function secretForms(secret) {
+  const json = JSON.stringify(secret).slice(1, -1);
+  const twice = JSON.stringify(json).slice(1, -1);
+  const uri = encodeURIComponent(secret);
+  return [...new Set([
+    secret, json, twice, JSON.stringify(twice).slice(1, -1), uri, uri.replace(/%20/g, '+'),
+    new URLSearchParams({ v: secret }).toString().slice(2),
+  ])];
+}
+
+function assertNoForm(text, secret, label) {
+  for (const form of secretForms(secret)) assert.ok(!text.includes(form), `${label}: a form of the secret survived`);
+}
+
+test('literal secrets are redacted and counted when JSON-escaped, double-escaped or URL-encoded', () => {
+  for (const secret of ESCAPE_PWS) {
+    const options = { literals: [secret] };
+    const note = `form filled ${secret} then submitted`;
+    const samples = {
+      raw: note,
+      json: JSON.stringify({ note }),
+      nested: JSON.stringify({ trace: JSON.stringify({ note }) }),
+      nestedTwice: JSON.stringify({ html: JSON.stringify({ trace: JSON.stringify({ note }) }) }),
+      url: `https://staging.averlearning.com/login?next=%2Fhome&note=${encodeURIComponent(secret)}`,
+      form: `email=qa%40example.com&note=${new URLSearchParams({ v: secret }).toString().slice(2)}`,
+    };
+    for (const [kind, text] of Object.entries(samples)) {
+      const label = `${JSON.stringify(secret).slice(0, 12)} ${kind}`;
+      assert.equal(countSecretMatches(text, NO_ENV), 0, `${label}: only the literal can find it`);
+      assert.ok(countSecretMatches(text, options) > 0, `${label}: guard must count the leak`);
+      const clean = redactSecrets(text, options);
+      assertNoForm(clean, secret, label);
+      assert.equal(countSecretMatches(clean, options), 0, `${label}: nothing left to count`);
+      assert.equal(redactSecrets(clean, options), clean, `${label}: idempotent`);
+    }
+    // Longest form wins, so no escaped tail breaks the JSON around it.
+    assert.equal(JSON.parse(redactSecrets(samples.json, options)).note, 'form filled [REDACTED] then submitted');
+    const nested = JSON.parse(JSON.parse(redactSecrets(samples.nested, options)).trace);
+    assert.equal(nested.note, 'form filled [REDACTED] then submitted');
+  }
+  assert.equal(countSecretMatches(JSON.stringify({ note: 'pwFAKE"' }), { literals: ['pwFAKE"'] }), 0, 'short literals stay ignored');
+});
+
+test('escaped password literals in JSON, trace zip and HTML report fail the guard and are sanitized', async () => {
+  const { scanBuffer } = await import(pathToFileURL(SCAN).href);
+  const { sanitizeBuffer } = await import(pathToFileURL(SANITIZE).href);
+  const payloads = {
+    json: (secret) => JSON.stringify({ note: `form filled ${secret}` }),
+    nested: (secret) => JSON.stringify({ trace: JSON.stringify({ note: `form filled ${secret}` }) }),
+  };
+  const containers = {
+    json: (payload) => Buffer.from(payload),
+    'trace-zip': (payload) => writeZip([{ name: 'trace.trace', data: Buffer.from(payload) }]),
+    'html-base64-zip': (payload) => Buffer.from(playwrightReportHtml([['report.json', payload]])),
+  };
+  const unpack = {
+    json: (buffer) => buffer.toString('utf8'),
+    'trace-zip': (buffer) => readZip(buffer)[0].data.toString('utf8'),
+    'html-base64-zip': (buffer) => {
+      const embedded = buffer.toString('utf8').match(redaction.PLAYWRIGHT_REPORT_RE);
+      assert.ok(embedded, 'HTML report remains openable');
+      return readZip(Buffer.from(embedded[2], 'base64'))[0].data.toString('utf8');
+    },
+  };
+  for (const secret of [QUOTE_PW, BACKSLASH_PW, MIXED_PW]) {
+    const options = { literals: [secret] };
+    for (const [payloadKind, payload] of Object.entries(payloads)) {
+      for (const [container, pack] of Object.entries(containers)) {
+        const label = `${JSON.stringify(secret).slice(0, 12)} ${payloadKind} ${container}`;
+        const buffer = pack(payload(secret));
+        assert.deepEqual(scanBuffer(buffer, NO_ENV), { count: 0, unscannable: false }, `${label}: only the literal can find it`);
+        const before = scanBuffer(buffer, options);
+        assert.ok(before.count > 0 && !before.unscannable, `${label}: guard must count the leak`);
+        const clean = sanitizeBuffer(buffer, options);
+        assert.deepEqual(scanBuffer(clean, options), { count: 0, unscannable: false }, `${label}: guard passes after sanitize`);
+        const text = unpack[container](clean);
+        assertNoForm(text, secret, label);
+        const parsed = JSON.parse(text);
+        const note = payloadKind === 'nested' ? JSON.parse(parsed.trace).note : parsed.note;
+        assert.equal(note, 'form filled [REDACTED]', `${label}: JSON stays parseable`);
+      }
+    }
+  }
+
+  // Same path through the CLIs with the secret supplied only via E2E_PASSWORD.
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'pcj481-escaped-'));
+  try {
+    const env = { E2E_PASSWORD: QUOTE_PW };
+    writeFileSync(path.join(dir, 'results.json'), payloads.json(QUOTE_PW));
+    writeFileSync(path.join(dir, 'trace.zip'), containers['trace-zip'](payloads.nested(QUOTE_PW)));
+    writeFileSync(path.join(dir, 'index.html'), containers['html-base64-zip'](payloads.nested(QUOTE_PW)));
+    const before = run(SCAN, [dir], env);
+    assert.equal(before.status, 1, 'guard must reject escaped password literals');
+    assert.match(before.stdout, /3 file\(s\) scanned, 3 flagged/);
+    assertNoForm(before.stdout + before.stderr, QUOTE_PW, 'guard output');
+    const sanitized = run(SANITIZE, [dir], env);
+    assert.equal(sanitized.status, 0, sanitized.stderr);
+    assertNoForm(sanitized.stdout + sanitized.stderr, QUOTE_PW, 'sanitize output');
+    const after = run(SCAN, [dir], env);
+    assert.equal(after.status, 0, after.stdout + after.stderr);
+    assert.match(after.stdout, /3 file\(s\) scanned, 0 flagged/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
