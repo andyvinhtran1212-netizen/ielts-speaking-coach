@@ -5,23 +5,34 @@
 //    (loading.tsx) before the article fetch resolves, so `notFound()` in the
 //    page can only produce a soft 404: HTTP 200 + noindex (see
 //    generateMetadata in app/(public-content)/grammar/[category]/[slug]/page.tsx).
-//    A key missing from a fresh backend article list is rewritten to a
-//    prerendered 404 that renders inside the Grammar layout; everything else
-//    (known article, list unavailable) passes through unchanged.
+//    A key missing from a fresh backend article list is rewritten to a path
+//    no route matches, so Next serves the root 404 (app/not-found.tsx) with
+//    its full server HTML; everything else (known article, list unavailable)
+//    passes through unchanged.
 //
-// 2. SEC-CSP-NONCE step 1 (PC-J38): a per-request nonce for the signed-in
-//    route groups (every layout that renders AuthedShell), sent as
-//    Content-Security-Policy-Report-Only. Next reads the nonce from the
-//    request header and stamps its own scripts; AuthedShell reads `x-nonce`
-//    for its inline scripts. The enforced CSP from next.config.ts is
-//    untouched. docs/CONTENT_SECURITY_POLICY.md has the rollout.
+// 2. SEC-CSP-NONCE: a per-request nonce for the AuthedShell route groups.
+//    Step 2 may enforce it on staging/previews only. Setting the blocking
+//    response header also supplies the nonce to Vercel's PPR resume render;
+//    Report-Only alone cannot do that (SA-1029-CSP1). Public and production
+//    routes retain the baseline from next.config.ts. See the CSP runbook.
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { API_BASE } from '@/lib/backend';
 import { articleKeys, createArticleIndex } from '@/lib/grammar-article-index.mjs';
-import { buildNonceReportOnlyPolicy } from '@/tooling/content-security-policy.mjs';
+import {
+  buildNonceEnforcedPolicy,
+  buildNonceReportOnlyPolicy,
+  nonceHostAllowed,
+  nonceRouteAllowed,
+  NONCE_SAME_ORIGIN_FRAME_ROUTES,
+  sameOriginFramePolicy,
+} from '@/tooling/content-security-policy.mjs';
 
-const GRAMMAR_ARTICLE_NOT_FOUND_PATH = '/grammar/article-not-found';
+// `_`-prefixed folders are private in the App Router, so no page can claim
+// this path (tooling/verify-grammar-404-ssr-flow.mjs checks the served HTML).
+// (A notFound() page inside the Grammar layout prerendered as a bare
+// `__next_error__` shell: no CSS, no <title> until JS ran — PC-J230.)
+const GRAMMAR_ARTICLE_NOT_FOUND_PATH = '/__aver-not-found';
 
 // Shorter than ABORT_MS: a slow list must not hold every article request.
 const INDEX_TIMEOUT_MS = 2000;
@@ -79,10 +90,34 @@ function nonceReportOnly(request: NextRequest) {
   return response;
 }
 
+function noncePolicy(request: NextRequest) {
+  // Matcher exclusions are checked again here so direct calls and future
+  // matcher edits cannot enable a blocking nonce policy on public/prod URLs.
+  if (!nonceRouteAllowed(request.nextUrl.pathname)) return NextResponse.next();
+  if (process.env.AVER_CSP_NONCE_ENFORCE !== '1') return nonceReportOnly(request);
+  if (process.env.VERCEL_ENV === 'production' || !nonceHostAllowed(request.nextUrl.hostname)) {
+    return NextResponse.next();
+  }
+
+  const nonce = createNonce();
+  const baseline = buildNonceEnforcedPolicy(nonce, process.env);
+  const policy = NONCE_SAME_ORIGIN_FRAME_ROUTES.includes(request.nextUrl.pathname)
+    ? sameOriginFramePolicy(baseline) : baseline;
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('content-security-policy', policy);
+  requestHeaders.delete('content-security-policy-report-only');
+  requestHeaders.set('x-nonce', nonce);
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  // `set` replaces next.config.ts's baseline header; never append a second
+  // policy. The deployed checker rejects combined policies as well as gaps.
+  response.headers.set('Content-Security-Policy', policy);
+  return response;
+}
+
 export async function proxy(request: NextRequest) {
   return request.nextUrl.pathname.startsWith('/grammar/')
     ? grammarArticle(request)
-    : nonceReportOnly(request);
+    : noncePolicy(request);
 }
 
 // The production hosts never reach the nonce branch: its routes stay static

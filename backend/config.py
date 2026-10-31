@@ -1,7 +1,28 @@
+import logging
 from functools import lru_cache
+import ipaddress
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
+
+logger = logging.getLogger(__name__)
+
+
+def _bounded_int_or_default(name: str, value, low: int, high: int, default: int) -> int:
+    """ADMINAAL2-0032 Amendment 1: a whole number in [low, high]; anything
+    else (text, a fraction, a bool, out of range) is the safe default plus
+    one error log at startup. Unset or blank is the default without a log."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return default
+    parsed = None
+    if isinstance(value, int) and not isinstance(value, bool):
+        parsed = value
+    elif isinstance(value, str) and value.strip().isascii() and value.strip().isdigit():
+        parsed = int(value.strip())
+    if parsed is None or not low <= parsed <= high:
+        logger.error("[config] %s=%r is not a whole number in %d–%d; using %d", name, value, low, high, default)
+        return default
+    return parsed
 
 
 class Settings(BaseSettings):
@@ -16,6 +37,19 @@ class Settings(BaseSettings):
     # deployment (1/true/yes/on). Ignored in production, always — see
     # services/cors_policy.py. Development allows localhost without it.
     CORS_ALLOW_LOCALHOST: str = ""
+    # PC-J202/J183, SA decision 2026-10-29: only these explicitly trusted
+    # proxy CIDRs may be skipped in XFF. No inferred private/Cloudflare trust.
+    # Comma-separated CIDRs; default empty. See docs/CLIENT_IP_TRUST.md.
+    TRUSTED_PROXY_CIDRS: str = ""
+
+    @field_validator("TRUSTED_PROXY_CIDRS")
+    @classmethod
+    def validate_trusted_proxy_cidrs(cls, value: str) -> str:
+        value = value.strip()
+        if value:
+            for cidr in value.split(","):
+                ipaddress.ip_network(cidr.strip())
+        return value
 
     # Signed backend → Next cache invalidation. The admin vocabulary routes
     # mutate runtime DB content while Next caches public reads. Configure both
@@ -53,6 +87,20 @@ class Settings(BaseSettings):
     # (spec FR-017, rollout.md). Standard boolean parsing: an unparseable
     # value fails startup instead of choosing a mode. Runbook value: `false`.
     ADMIN_AAL2_ENFORCE: bool = False
+    # ADMINAAL2-0032 Amendment 1. AAL2 counts for admin rights only while the
+    # token's amr totp entry is at most this many hours old (FR-012); refresh
+    # does not renew it. Whole hours 1–12; anything else → 12 plus one startup
+    # error log.
+    ADMIN_AAL2_MAX_AGE_HOURS: int = 12
+    # Step-up (FR-020): role change, suspend/reactivate and session revocation
+    # need a TOTP entered within this many minutes. Whole minutes 1–15;
+    # anything else → 15 plus one startup error log.
+    ADMIN_STEP_UP_MINUTES: int = 15
+    # False = report-only: behaviour unchanged plus one
+    # `admin_step_up_would_block` warning per request. True = 403
+    # `step_up_required`. Only true/false (any case); any other value → false
+    # plus one startup error log. Enabling it is a separate, approved switch.
+    ADMIN_STEP_UP_ENFORCE: bool = False
     # Private outcome-evidence foundation. Requires migration 240 and explicit
     # rollout/coverage verification; never enabled implicitly by a code deploy.
     CORE_ATTEMPT_EVIDENCE_ENABLED: bool = False
@@ -413,6 +461,29 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
+
+    @field_validator("ADMIN_AAL2_MAX_AGE_HOURS", mode="before")
+    @classmethod
+    def _strict_aal2_max_age_hours(cls, value):
+        return _bounded_int_or_default("ADMIN_AAL2_MAX_AGE_HOURS", value, 1, 12, 12)
+
+    @field_validator("ADMIN_STEP_UP_MINUTES", mode="before")
+    @classmethod
+    def _strict_step_up_minutes(cls, value):
+        return _bounded_int_or_default("ADMIN_STEP_UP_MINUTES", value, 1, 15, 15)
+
+    @field_validator("ADMIN_STEP_UP_ENFORCE", mode="before")
+    @classmethod
+    def _strict_step_up_enforce(cls, value):
+        if isinstance(value, bool):
+            return value
+        text = value.strip().lower() if isinstance(value, str) else None
+        if text == "true":
+            return True
+        if text in ("false", ""):
+            return False
+        logger.error("[config] ADMIN_STEP_UP_ENFORCE=%r is not true/false; using false", value)
+        return False
 
     @property
     def ASYNC_DATABASE_URL(self) -> str:
