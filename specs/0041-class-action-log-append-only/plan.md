@@ -2,7 +2,8 @@
 
 ## Architecture impact
 
-- Database only, one table: migration 356 on `public.class_action_log`.
+- Database only, one table: migration 356 on `public.class_action_log`, after
+  migration 344 (RLSCLEANUP-0039). Deployment order is **344 then 356**.
   - `CREATE OR REPLACE TRIGGER trg_class_action_log_no_truncate BEFORE
     TRUNCATE ON public.class_action_log FOR EACH STATEMENT`, executing
     `fn_class_action_log_append_only()` (198) or a new function in the 332
@@ -13,16 +14,23 @@
     because PG 16 rejects the keyword); repeat `REVOKE TRUNCATE … FROM PUBLIC,
     anon, authenticated, service_role` (idempotent, same as 204).
   - `REVOKE UPDATE, DELETE ON public.class_action_log FROM service_role`;
-    repeat for PUBLIC, anon and authenticated (FR-004; their 320 revokes stay
-    effective). The row trigger from 198 remains unchanged as a second layer.
-  - `COMMENT ON POLICY cal_admin_append ON public.class_action_log IS …`
-    (FR-003).
+    repeat for PUBLIC, anon and authenticated (FR-004; these are no-ops for
+    client roles after 320/344). The row trigger from 198 remains unchanged
+    as a second layer.
+  - No policy DDL or `COMMENT ON POLICY` (FR-003). Migration 344 owns dropping
+    `cal_admin_append` / `cal_admin_read` and revoking every anon/authenticated
+    privilege; 356 must work when the policies are already absent.
   - A postcondition `DO` block that aborts unless the trigger exists and is
     enabled, `service_role` has SELECT and INSERT, and `service_role`/PUBLIC
     have no TRIGGER, REFERENCES, TRUNCATE (or MAINTAIN on PG 17+), and
     service_role/PUBLIC/anon/authenticated have no UPDATE or DELETE, including
     column UPDATE grants. Fail on residual effective privileges rather than
     claiming the final SELECT/INSERT-only matrix holds.
+  - The deployed-state postcheck additionally asserts both policies absent
+    and no anon/authenticated table or column privileges after 344 then 356.
+    The isolated pre-344 fixture instead compares policy/client-ACL state
+    before and after 356; it is not a deployment prerequisite or permission
+    to bypass 344.
   - No `GRANT` statement, no data change, no change to 198's row trigger,
     function body, policies or RLS.
 - FastAPI and frontend: unchanged. The backend only INSERTs
@@ -30,16 +38,18 @@
 
 ## Data and contracts
 
-- Privilege target after 356 on `public.class_action_log`:
+- Privilege target after **344 then 356** on `public.class_action_log`:
 
   | Role | SELECT | INSERT | UPDATE | DELETE | TRUNCATE | REFERENCES | TRIGGER | MAINTAIN (PG17) |
   | --- | --- | --- | --- | --- | --- | --- | --- | --- |
   | service_role | yes | yes | no | no | no | no | no | no |
-  | anon, authenticated | yes (RLS) | no | no | no | no | no | no | no |
+  | anon, authenticated | no | no | no | no | no | no | no | no |
   | PUBLIC | no | no | no | no | no | no | no | no |
 
-  service_role has SELECT and INSERT only. anon/authenticated retain their
-  SELECT-only matrix from 320; their UPDATE/DELETE revokes are repeated.
+  service_role has SELECT and INSERT only. anon/authenticated have no
+  privileges after 344; 356's defensive UPDATE/DELETE revokes do not change
+  that state. RLS stays enabled; both policies remain absent. Only the
+  isolated legacy fixture without 344 retains 320's SELECT-only client ACL.
 - Errors: service_role UPDATE/DELETE fail with ACL `42501` before the trigger;
   the owner, or service_role after an isolated test re-grant, still gets the
   198 `P0001` message. TRUNCATE is ACL `42501` for service_role or trigger
@@ -67,12 +77,23 @@
 - The 356 down script is owned by spec 0042 T001 (#2060,
   FR-008/Scenario 10). It must not grant UPDATE/DELETE or `GRANT ALL`, and must
   not re-grant TRIGGER, REFERENCES or MAINTAIN (SA F5).
+- Down must not restore either policy, issue a policy comment, or restore
+  any anon/authenticated privilege removed by 344. Verify down against both
+  fixture states below; it preserves their respective policy/client ACLs.
 
 ## Verification strategy
 
 - Real PostgreSQL (harness of `test_client_write_invariant_postgres.py` /
   `test_class_action_log_postgres.py`, Supabase-style default ACL, PG 16
-  required, PG 17 advisory) loading 198, 204, 320 and 356 from the files:
+  required, PG 17 advisory). Write both fixtures first and show red on the
+  old implementation where applicable:
+  - Primary: replay 198, 204, 320, 344 and 356 from files, including 344's
+    prerequisites; snapshot immediately after 344 to prove both policies
+    absent and all anon/authenticated privileges revoked before 356.
+  - Legacy control: replay 198, 204, 320 and 356 without 344; snapshot the
+    two policy definitions/comments and SELECT-only client ACL before 356.
+    356 must succeed without changing that state. This control does not
+    satisfy the deployed 0039 contract or change the 344-then-356 order.
   - FR-001: owner TRUNCATE → `P0001`; `SET ROLE service_role` TRUNCATE →
     `42501`, and `P0001` after the test re-grants TRUNCATE; UPDATE/DELETE as
     owner → `P0001` with the 198 message; service_role → `42501`, then
@@ -80,7 +101,11 @@
   - FR-002: privilege matrix above via `has_table_privilege`,
     `has_any_column_privilege` and `aclexplode`; INSERT as `service_role`
     and SELECT succeed; MAINTAIN only on PG 17+.
-  - FR-003: `pg_policies` unchanged; `obj_description` of the policy.
+  - FR-003: after 344, policies stay absent and anon/authenticated have no
+    effective table/column privileges; without 344, policy definitions,
+    comments and client ACLs match the pre-356 snapshot. Assert both states
+    after first apply, second apply and down; no missing-policy error and
+    no policy DDL/comment in 356 up or down.
   - FR-004: non-owner, non-superuser service_role via `SET LOCAL ROLE` with
     `current_user` asserted; UPDATE and DELETE each → `42501` on a seeded row,
     including an isolated owner-disabled-row-trigger control to prove ACL

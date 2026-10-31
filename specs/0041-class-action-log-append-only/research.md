@@ -1,6 +1,6 @@
 # Research
 
-## Current state (staging, read-only)
+## Historical pre-344 state (staging, read-only)
 
 From the Security Auditor's check in `reviews/PR-2022.md` (staging
 `4c9becc28`, PostgreSQL 17.6):
@@ -27,6 +27,10 @@ From the Security Auditor's check in `reviews/PR-2022.md` (staging
   REFERENCES/TRIGGER, PG 17 MAINTAIN):
   `backend/migrations/320_client_write_privilege_lockdown.sql`; it does not
   touch `service_role`.
+- Approved [`RLSCLEANUP-0039`](../0039-rls-admin-policy-cleanup/spec.md)
+  FR-001/FR-002: migration 344 drops `cal_admin_append` / `cal_admin_read`
+  and revokes all anon/authenticated privileges on this table. The snapshot
+  above predates that cleanup and is not the target state for 356.
 - Precedent for a statement-level TRUNCATE trigger on audit tables:
   `332_staff_security_audit.sql:208-225`, `333` (`ai_budget_raise_events`).
 
@@ -70,3 +74,21 @@ From the Security Auditor's check in `reviews/PR-2022.md` (staging
   text matches; this amended spec provides FR-001..FR-004. PC-J347 changes
   intent documents only; no migration is applied and no database write or
   mutation probe is performed as part of this spec-only amendment.
+
+## 344/356 compatibility audit
+
+- Codex P1 `r4429549850` on #2045 identified the conflict: an unconditional
+  policy comment in 356 would fail after 344, while keeping the policies or
+  client SELECT privileges would contradict approved 0039. Deployment order
+  is **344 then 356**; 356 makes no policy change and does not depend on
+  either policy's existence. FR-003 is retained for compatibility coverage.
+- At the verified job-start heads (#2045 `798d17a1c`, #2054 `69169ae2f`),
+  neither migration 344 nor 356, a 356 down script, or the planned 356 test
+  module exists. The addendum's conditional implementation fixes and
+  fixtures-first failing migration run therefore do not apply on these
+  branches. T001 must supply both real fixtures before its implementation
+  fix: primary with 344 already applied, legacy control without 344.
+- 0039 FR-003's service_role preservation check is safer as an in-transaction
+  before/after snapshot in 344 rather than a comparison against the older
+  T001 baseline, because 356 intentionally reduces service_role ACLs later.
+  This alignment records that integration note without implementing 344.
