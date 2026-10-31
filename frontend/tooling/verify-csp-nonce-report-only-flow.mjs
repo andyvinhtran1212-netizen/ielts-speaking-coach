@@ -10,6 +10,7 @@
 // read are fixture-backed; nothing is written.
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
+import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3000';
 const api = new URL(process.env.AVER_API_BASE || 'http://127.0.0.1:3999');
@@ -101,6 +102,7 @@ async function newPage(browser, signedIn, apiCalls = []) {
     // Pages may show their own error state; this verifier only judges CSP.
     return json({ detail: 'No fixture for this request' }, 404);
   });
+  await stubAdminMfaStatus(context);
   return { context, page: await context.newPage() };
 }
 

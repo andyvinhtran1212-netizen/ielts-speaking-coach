@@ -2,6 +2,7 @@
 
 import { Fragment, type ReactNode } from 'react';
 import { noteTemplateTree } from '@/lib/note-template-tree.mjs';
+import { splitNumberedBlanks } from '@/lib/numbered-blank.mjs';
 
 const record = (value: unknown): Record<string, any> | null => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : null;
 const list = (value: unknown): any[] => Array.isArray(value) ? value : [];
@@ -18,12 +19,11 @@ export function ReviewContextNotice({ value }: { value: unknown }) {
 }
 
 function numberedBlanks(value: string): ReactNode {
-  return value.split(/(\{\{\s*\d{1,3}\s*\}\})/g).map((part, index) => {
-    const match = /^\{\{\s*(\d{1,3})\s*\}\}$/.exec(part);
-    return match ? <span key={index} className="review-context-blank" aria-label={`Chỗ trống câu ${Number(match[1])}`}>
-      <strong>[Câu {Number(match[1])}]</strong> ______
-    </span> : part;
-  });
+  // `{{n}} ____` is one blank (RV-05); the authored underscores are not repeated.
+  return splitNumberedBlanks(value).map((part, index) => typeof part === 'string' ? part
+    : <span key={index} className="review-context-blank" aria-label={`Chỗ trống câu ${part.qNum}`}>
+      <strong>[Câu {part.qNum}]</strong> ______
+    </span>);
 }
 
 function segment(value: unknown): ReactNode {
@@ -69,6 +69,19 @@ function tableSummary(template: Record<string, any> | null): { before: unknown; 
     before: summaryLines.slice(0, start).join('\n').trim(),
     after: summaryLines.slice(start + tableLines.length).join('\n').trim(),
   };
+}
+
+/**
+ * Listening mcq_multi stores its question in the instruction (the test player shows only that) and in each
+ * prompt; the review card already shows the prompt, so drop instruction lines that only repeat a prompt line.
+ */
+function instructionWithoutPrompt(instruction: unknown, prompt: unknown): unknown {
+  if (typeof instruction !== 'string' || typeof prompt !== 'string') return instruction;
+  const normalize = (line: string) => line.replace(/\s+/g, ' ').trim().toLowerCase();
+  const promptLines = new Set(prompt.split(/\r?\n/).map(normalize).filter(Boolean));
+  const lines = instruction.split(/\r?\n/);
+  const kept = lines.filter(line => !promptLines.has(normalize(line)));
+  return kept.length === lines.length ? instruction : kept.join('\n').trim();
 }
 
 type Choice = { label: string; text: string };
@@ -136,7 +149,7 @@ export function ReviewParagraphSummary({ value }: { value: unknown }) {
 }
 
 /** Read only authored display fields. Never reconstruct a bank from answer keys. */
-export function ReviewQuestionContext({ value }: { value: unknown }) {
+export function ReviewQuestionContext({ value, prompt }: { value: unknown; prompt?: unknown }) {
   const context = record(value);
   if (!context) return null;
   const options = Array.isArray(context.options) ? context.options
@@ -147,7 +160,7 @@ export function ReviewQuestionContext({ value }: { value: unknown }) {
     ? `data:image/svg+xml;utf8,${encodeURIComponent(context.map_svg)}`
     : context.map_image_url || context.image_url;
   const imageAlt = context.image_alt || (typeof template?.heading === 'string' && template.heading.trim()) || 'Sơ đồ của câu hỏi';
-  const instruction = context.instructions || context.instruction || context.word_limit_text || context.word_limit;
+  const instruction = instructionWithoutPrompt(context.instructions || context.instruction || context.word_limit_text || context.word_limit, prompt);
   const provenance = record(context.context_provenance);
   const banks = options.length || list(context.paragraph_labels).length;
   const paragraphPreviews = new Map(options.length ? [] : labelledChoices(context).map(choice => [choice.label, choice.text]));

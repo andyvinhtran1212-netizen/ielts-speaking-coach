@@ -541,6 +541,8 @@ def format_history_for_prompt(
     patterns: dict | None,
     trajectory: dict | None = None,
     sentence_structure: dict | None = None,
+    *,
+    task_type: str | None = None,
 ) -> str:
     """Format Phase 1.5a recurring-patterns, Phase 1.5b
     band-trajectory, and Phase 1.5c sentence-structure-history
@@ -608,6 +610,11 @@ def format_history_for_prompt(
         if breakdown:
             lines.append("- Chi tiết theo tiêu chí:")
             for c in breakdown:
+                # The aggregate shares band_main_criterion across tasks. Give
+                # the current task its correct label without mutating history.
+                criterion = c["criterion"]
+                if task_type and criterion in {"Task Response", "Task Achievement"}:
+                    criterion = "Task Achievement" if task_type.startswith("task1") else "Task Response"
                 # Sprint 1.5b.1 — use the canonical key name "average" in
                 # the narrative line. Phase 1.5b shipped with "avg" here as
                 # a readability shorthand; Gemini saw the visible label and
@@ -616,7 +623,7 @@ def format_history_for_prompt(
                 # `c.average`, so the cell rendered as "avg —". Aligning
                 # the narrative to the canonical key removes the prime.
                 lines.append(
-                    f"  - {c['criterion']}: average {c['average']}, trend {c['trend']}"
+                    f"  - {criterion}: average {c['average']}, trend {c['trend']}"
                 )
         lines.append("")
 

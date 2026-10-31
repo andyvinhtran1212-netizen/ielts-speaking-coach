@@ -67,7 +67,8 @@ def list_topics(skill_area: str | None = None) -> list[dict]:
     try:
         rows = q.order("skill_area").order("order").order("title").execute().data or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn topics: {exc}")
+        logger.error("[topics] list failed: %s", exc)
+        raise HTTPException(500, "Không đọc được danh sách topic. Vui lòng thử lại.") from None
     return rows
 
 
@@ -78,7 +79,8 @@ def get_topic(topic_id: str) -> dict:
             .select("*").eq("id", topic_id).limit(1).execute()
         ).data
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn topic: {exc}")
+        logger.error("[topics] lookup failed: %s", exc)
+        raise HTTPException(500, "Không đọc được topic. Vui lòng thử lại.") from None
     if not rows:
         raise HTTPException(404, "Không tìm thấy topic")
     return rows[0]
@@ -121,7 +123,8 @@ def create_topic(
         msg = str(exc).lower()
         if "duplicate" in msg or "unique" in msg or "23505" in msg:
             raise HTTPException(409, f"Topic đã tồn tại: {skill_area}/{slug}")
-        raise HTTPException(500, f"Lỗi tạo topic: {exc}")
+        logger.error("[topics] insert failed: %s", exc)
+        raise HTTPException(500, "Không tạo được topic. Vui lòng thử lại.") from None
     if not res.data:
         raise HTTPException(500, "Insert topic không trả về dòng nào")
     return res.data[0]
@@ -192,7 +195,8 @@ def update_topic(topic_id: str, data: dict) -> dict:
         msg = str(exc).lower()
         if "duplicate" in msg or "unique" in msg or "23505" in msg:
             raise HTTPException(409, "Trùng (skill_area, slug) với topic khác")
-        raise HTTPException(500, f"Lỗi cập nhật topic: {exc}")
+        logger.error("[topics] update failed: %s", exc)
+        raise HTTPException(500, "Không cập nhật được topic. Vui lòng thử lại.") from None
     return res.data[0] if res.data else get_topic(topic_id)
 
 
@@ -203,7 +207,8 @@ def _row_count(table: str, topic_id: str) -> int:
             .select("id", count="exact").eq("topic_id", topic_id).execute()
         )
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi đếm {table}: {exc}")
+        logger.error("[topics] count %s failed: %s", table, exc)
+        raise HTTPException(500, "Không đếm được nội dung topic. Vui lòng thử lại.") from None
     return res.count if res.count is not None else len(res.data or [])
 
 
@@ -224,7 +229,8 @@ def delete_topic(topic_id: str) -> dict:
     try:
         supabase_admin.table("content_topics").delete().eq("id", topic_id).execute()
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi xoá topic: {exc}")
+        logger.error("[topics] delete failed: %s", exc)
+        raise HTTPException(500, "Không xoá được topic. Vui lòng thử lại.") from None
     return {"id": topic_id, "deleted": True}
 
 
@@ -241,7 +247,8 @@ def get_topic_bundle(topic_id: str) -> dict:
             .execute()
         ).data or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn vocab_cards: {exc}")
+        logger.error("[topics] vocabulary lookup failed: %s", exc)
+        raise HTTPException(500, "Không đọc được từ vựng của topic. Vui lòng thử lại.") from None
     try:
         banks = (
             supabase_admin.table("quiz_banks")
@@ -253,7 +260,8 @@ def get_topic_bundle(topic_id: str) -> dict:
             .execute()
         ).data or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn quiz_banks: {exc}")
+        logger.error("[topics] quiz bank lookup failed: %s", exc)
+        raise HTTPException(500, "Không đọc được bộ câu hỏi của topic. Vui lòng thử lại.") from None
 
     return {
         "topic": topic,

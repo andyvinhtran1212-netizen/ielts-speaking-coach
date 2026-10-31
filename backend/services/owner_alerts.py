@@ -322,15 +322,17 @@ class DispatchSummary:
     skipped_claimed: int = 0
     unconfigured: bool = False
     missing: str = ""        # names of the missing settings, never their values
+    disabled: bool = False
 
 
 async def dispatch_due(store: OutboxStore, *, config: TransportConfig | None = None,
-                       send: Sender = send_via_resend, limit: int = 50) -> DispatchSummary:
-    """Send every due outbox row once. Never raises for a send failure."""
+                       send: Sender = send_via_resend, limit: int = 50,
+                       disabled: bool = False) -> DispatchSummary:
+    """Send due rows once, or only read them when disabled. Never raises for a send failure."""
     config = config or transport_config()
     rows = await store.due(max_attempts=MAX_ATTEMPTS, limit=limit)
-    summary = DispatchSummary(due=len(rows))
-    if not rows:
+    summary = DispatchSummary(due=len(rows), disabled=disabled)
+    if disabled or not rows:
         return summary
     if not config.ready:
         summary.unconfigured = True

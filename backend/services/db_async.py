@@ -172,7 +172,7 @@ async def aexecute(build: Callable[[Any], Any], *, sync_client: Any = None) -> A
                 raise
             # The failed connection is discarded by the pool, so the retry
             # gets a fresh one; a second failure propagates to the caller's
-            # existing error contract (gate 503, guard 500, ...).
+            # existing error contract (gate 503, guard 503, ...).
             _counts["retries"] += 1
             logger.warning("[async-db] retry %s", {
                 "request_id": current_request_id(), "method": method,

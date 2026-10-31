@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
+import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
@@ -71,6 +72,7 @@ await page.route('**/*', async (route) => {
   if (path === '/admin/mock-exams/exam-1/writing/bulk-grade') return json({ queued: [], skipped: [], short: [], retest_skipped: [] }, 202);
   return json({ detail: `unhandled fixture ${method} ${path}` }, 500);
 });
+await stubAdminMfaStatus(page);
 
 await page.goto(`${BASE}/admin/mock-reviews?mock_exam_id=exam-1`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Nhận bài, chấm nháp & trả kết quả' }).waitFor();

@@ -112,7 +112,7 @@ the shared async client, including callers that use it with the flag off (see
   `:90–102`).
 - **One retry for reads.** `aexecute` re-sends a GET/HEAD once after a
   dead-socket `httpx.TransportError` (`backend/services/db_async.py:54–66`,
-  `:166–181`). The pool drops the failed connection, so the retry goes out on
+  `:167–181`). The pool drops the failed connection, so the retry goes out on
   a fresh one. POST/PATCH/DELETE requests are never re-sent. Since #1910
   (PC-J84, closing PC-J68 F2) RPCs are never re-sent either, even when called
   with `get=True` or `head=True`, and a `PoolTimeout` is not retried.
