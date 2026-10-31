@@ -667,7 +667,18 @@ def record_post_test_capture(
         "item_count": len(normalized),
         "skipped_reason": skipped_reason,
     }
-    inserted = supabase_admin.table("mock_post_test_captures").insert(capture).execute().data or []
+    try:
+        inserted = supabase_admin.table("mock_post_test_captures").insert(capture).execute().data or []
+    except Exception as exc:
+        # 23505: another process committed a capture for this attempt after our
+        # pre-check. Answer like the pre-check would have: replay or 409.
+        code = getattr(exc, "code", None)
+        winner = _capture_row(skill, attempt_id) if code == "23505" else None
+        if not winner:
+            raise
+        if winner.get("payload_hash") != digest:
+            raise CaptureConflictError("Post-test capture đã chốt với nội dung khác.") from exc
+        return {"capture": winner, "attempt": attempt, "replayed": True}
     if not inserted:
         raise CorrectionError("Không chốt được post-test capture.")
     return {"capture": inserted[0], "attempt": attempt, "replayed": False}

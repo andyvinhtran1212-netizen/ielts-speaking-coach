@@ -41,7 +41,8 @@ async def list_exams(
 @router.get("/{test_id}")
 async def get_exam(test_id: str, authorization: str | None = Header(default=None)):
     await get_supabase_user(authorization)
-    return exam_service.get_for_play(test_id)
+    async with exam_service.import_lock():
+        return exam_service.get_for_play(test_id)
 
 
 @router.post("/{test_id}/attempts")
@@ -49,8 +50,9 @@ async def submit_exam_attempt(
     test_id: str, body: SubmitBody, authorization: str | None = Header(default=None)
 ):
     user = await get_supabase_user(authorization)
-    return exam_service.submit_attempt(
-        user["id"], test_id, [a.model_dump() for a in body.answers])
+    async with exam_service.import_lock():
+        return exam_service.submit_attempt(
+            user["id"], test_id, [a.model_dump() for a in body.answers])
 
 
 @router.get("/attempts/{attempt_id}/review")

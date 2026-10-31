@@ -953,9 +953,11 @@ def attach_attempt(
             )
         # else: fall through and re-bind to the fresh (resumed) attempt.
 
-    supabase_admin.table("mock_exam_sittings").update({
+    linked = supabase_admin.table("mock_exam_sittings").update({
         link_col: str(attempt_id),
-    }).eq("id", str(sitting_id)).execute()
+    }).eq("id", str(sitting_id)).not_.in_("status", ["released", "void"]).execute()
+    if not linked.data:
+        raise SittingConflictError("Trạng thái lượt thi vừa thay đổi — tải lại trang.")
     supabase_admin.table(domain_table).update({
         "sitting_id": str(sitting_id),
     }).eq("id", str(attempt_id)).execute()
@@ -1085,7 +1087,7 @@ def submit_writing(
         update[_SUBMITTED_COL["writing"]] = now
     resp = supabase_admin.table("mock_exam_sittings").update(update).eq(
         "id", str(sitting_id),
-    ).is_("writing_submitted_at", "null").execute()
+    ).eq("status", "lrw_in_progress").is_("writing_submitted_at", "null").execute()
     if not resp.data:
         raise SittingConflictError(
             "Phần Writing vừa được thu — bản nháp gửi sau không được ghi đè."
@@ -1177,12 +1179,22 @@ def _promote_writing_essays(sitting_id: str) -> None:
                 # own user_id, not the reviewing admin.
                 admin_id=str(sitting["user_id"]),
             )
-            updates[link_col] = row_info["essay_id"]
+            essay_id = row_info["essay_id"]
+            linked = supabase_admin.table("mock_exam_sittings").update({
+                link_col: essay_id,
+            }).eq("id", str(sitting_id)).is_(link_col, "null").execute()
+            if not linked.data:
+                # A different process/submit path already linked this task (or
+                # the sitting disappeared). Never overwrite it or leave our
+                # unused pending essay in the mock grading queue. Keep the
+                # existing idempotent result; backfill re-reads the sitting.
+                supabase_admin.table("writing_essays").delete().eq(
+                    "id", str(essay_id),
+                ).execute()
+                continue
+            updates[link_col] = essay_id
 
         if updates:
-            supabase_admin.table("mock_exam_sittings").update(updates).eq(
-                "id", str(sitting_id),
-            ).execute()
             logger.info(
                 "[mock-exam] sitting=%s promoted writing essays: %s", sitting_id, updates,
             )
@@ -1509,12 +1521,18 @@ def skip_mock_writing_grading(essay_id: str, *, admin_id: str) -> dict:
     if writing_meets_min_words(essay):
         raise SittingConflictError("Bài đủ số từ — hãy chấm thay vì bỏ qua.")
     try:
-        supabase_admin.table("writing_essays").update({
+        response = supabase_admin.table("writing_essays").update({
             "grading_skipped_at": _now_iso(),
             "grading_skipped_by": str(admin_id),
-        }).eq("id", str(essay_id)).execute()
+        }).eq("id", str(essay_id)).eq("status", "pending").is_(
+            "grading_skipped_at", "null",
+        ).execute()
     except Exception as exc:  # noqa: BLE001
         raise MockExamError(f"Lỗi cập nhật bài viết: {exc}")
+    if not response.data:
+        raise SittingConflictError(
+            "Bài viết vừa được chấm hoặc bỏ qua bởi thao tác khác — tải lại trang."
+        )
     return {"ok": True, "essay_id": str(essay_id), "grading_skipped": True}
 
 
@@ -1578,13 +1596,17 @@ def start_section(sitting_id: str, user_id: str, section: str) -> dict:
     updates = {started_col: _now_iso()}
     if sitting["status"] == "registered":
         updates["status"] = "lrw_in_progress"
+    # Repeat the read status so a concurrent void cannot start a new clock.
     resp = supabase_admin.table("mock_exam_sittings").update(updates).eq(
         "id", str(sitting_id),
-    ).is_(started_col, "null").execute()
+    ).eq("status", sitting["status"]).is_(started_col, "null").execute()
     if not resp.data:
+        fresh = get_sitting(sitting_id)
+        if fresh and fresh["status"] == "void":
+            raise SittingConflictError("Lượt thi đã bị huỷ — không thể bắt đầu phần thi.")
         # Someone stamped this clock between the read above and this write —
         # another tab, or a double-click. Idempotent, same as the guard above.
-        return get_sitting(sitting_id) or {**sitting, **updates}
+        return fresh or {**sitting, **updates}
 
     # THE OTHER HALF OF THE REASSIGNMENT RACE. `_refresh_open_sitting()` now
     # compare-and-sets on every clock being null, which covers the ordering
@@ -1729,9 +1751,14 @@ def submit_section(
     exam = get_published_exam_by_id(sitting["mock_exam_id"]) or {}
     sections = _sitting_sections(sitting, exam)   # retake → assigned, seq → configured
     if sections and all(sitting.get(_SUBMITTED_COL[s]) for s in sections):
-        supabase_admin.table("mock_exam_sittings").update({
+        # Void/review may have committed since the section stamp was read.
+        transitioned = supabase_admin.table("mock_exam_sittings").update({
             "status": "lrw_submitted",
-        }).eq("id", str(sitting_id)).execute()
+        }).eq("id", str(sitting_id)).in_("status", ["registered", "lrw_in_progress"]).execute()
+        if not transitioned.data:
+            fresh = get_sitting(sitting_id) or {}
+            if fresh.get("status") == "void":
+                raise SittingConflictError("Lượt thi đã bị huỷ — không thể nộp phần thi.")
         logger.info("[mock-exam] sitting=%s LRW submitted", sitting_id)
         return _reconcile_terminal(sitting_id)
     return sitting
@@ -1849,10 +1876,12 @@ def record_speaking(sitting_id: str, user_id: str, session_ids: list[str]) -> di
                 "Bài Speaking chưa hoàn thành (chưa nộp hoặc chưa có phần nói)."
             )
 
-    supabase_admin.table("mock_exam_sittings").update({
+    recorded = supabase_admin.table("mock_exam_sittings").update({
         "speaking_session_ids": ids,
         "speaking_completed_at": _now_iso(),
-    }).eq("id", str(sitting_id)).execute()
+    }).eq("id", str(sitting_id)).not_.in_("status", ["released", "void"]).execute()
+    if not recorded.data:
+        raise SittingConflictError("Trạng thái lượt thi vừa thay đổi — tải lại trang.")
     logger.info(
         "[mock-exam] sitting=%s speaking recorded (%d sessions)",
         sitting_id, len(ids),
@@ -1903,10 +1932,14 @@ def admin_record_speaking(sitting_id: str, admin_id: str) -> dict:
             "Kỳ thi này chưa có bài Speaking nào hoàn thành để ghi nhận."
         )
 
-    supabase_admin.table("mock_exam_sittings").update({
+    stamped = supabase_admin.table("mock_exam_sittings").update({
         "speaking_session_ids":  ids,
         "speaking_completed_at": _now_iso(),
-    }).eq("id", str(sitting_id)).execute()
+    }).eq("id", str(sitting_id)).not_.in_("status", ["released", "void"]).is_(
+        "speaking_completed_at", "null",
+    ).execute()
+    if not stamped.data:
+        raise SittingConflictError("Lượt thi vừa thay đổi hoặc đã ghi nhận Speaking — tải lại trang.")
     logger.info("[mock-exam] sitting=%s speaking recorded by ADMIN=%s (%d sessions)",
                 sitting_id, admin_id, len(ids))
     return _reconcile_terminal(sitting_id)
@@ -1964,10 +1997,18 @@ def _reconcile_terminal(sitting_id: str, exam: Optional[dict] = None) -> dict:
         return sitting  # speaking-only-so-far or nothing terminal yet
 
     if new_status != sitting["status"]:
-        supabase_admin.table("mock_exam_sittings").update({
+        transitioned = supabase_admin.table("mock_exam_sittings").update({
             "status": new_status,
-        }).eq("id", str(sitting_id)).execute()
-        sitting = {**sitting, "status": new_status}
+        }).eq("id", str(sitting_id)).eq("status", sitting["status"]).execute()
+        if not transitioned.data:
+            # Another reconciler may already have reached the same state (or
+            # review may have advanced it). Return that committed success;
+            # the winner owns review creation. A void is still a conflict.
+            fresh = get_sitting(sitting_id) or {}
+            if fresh.get("status") in (new_status, "all_submitted", "under_review", "released"):
+                return fresh
+            raise SittingConflictError("Trạng thái lượt thi vừa thay đổi — tải lại trang.")
+        sitting = transitioned.data[0]
 
     if new_status == "all_submitted":
         _ensure_review(sitting)
@@ -1984,7 +2025,17 @@ def _ensure_review(sitting: dict) -> None:
     except Exception:  # noqa: BLE001 — drafting must never block finalisation
         logger.exception("[mock-exam] ai_draft assembly failed sitting=%s", sitting["id"])
         ai_draft = {}
-    mock_review_workflow.create_review(sitting["id"], ai_draft=ai_draft)
+    review = mock_review_workflow.create_review(sitting["id"], ai_draft=ai_draft)
+    # The terminal UPDATE and review INSERT are separate requests. Void can
+    # finish between them, finding no review to cancel. Check AFTER insertion
+    # so either void sees the row or this path cancels it, including a claim
+    # that raced the check. release_results independently refuses void sittings.
+    fresh = get_sitting(sitting["id"]) or {}
+    if fresh.get("status") == "void":
+        supabase_admin.table("mock_exam_reviews").update({
+            "status": "void",
+        }).eq("id", str(review["id"])).not_.in_("status", ["released", "void"]).execute()
+        raise SittingConflictError("Lượt thi đã bị huỷ — không thể đưa vào hàng đợi chấm.")
     logger.info("[mock-exam] sitting=%s all_submitted → review queued", sitting["id"])
 
 
@@ -2520,10 +2571,19 @@ def set_open(exam_id: str, is_open: bool, admin_id: str) -> dict:
             _require_exam_content_ready(exam, sections=readiness_sections)
         except ValueError as exc:
             raise SittingConflictError(str(exc)) from exc
-    resp = supabase_admin.table("mock_exams").update({
+    query = supabase_admin.table("mock_exams").update({
         "is_open": bool(is_open),
-    }).eq("id", str(exam_id)).execute()
+    }).eq("id", str(exam_id))
+    if is_open:
+        # Repeat the pre-check at the write: a final advance or unpublish may
+        # have committed meanwhile. active_section is NOT NULL (migration 151).
+        query = query.eq("status", "published").neq("active_section", "done")
+    resp = query.execute()
     if not resp.data:
+        if is_open:
+            raise SittingConflictError(
+                "Kỳ thi vừa kết thúc hoặc không còn được publish — tải lại trang."
+            )
         raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
     logger.info("[mock-exam] exam=%s is_open=%s by admin=%s", exam_id, is_open, admin_id)
     return resp.data[0]
@@ -3181,10 +3241,10 @@ def _collect_section_for_sitting(sitting: dict, section: str,
         claimed_at = update[col]
         claim = supabase_admin.table("mock_exam_sittings").update(update).eq(
             "id", sitting["id"],
-        ).is_(col, "null").execute()
+        ).in_("status", ["registered", "lrw_in_progress"]).is_(col, "null").execute()
         if not claim.data:
             logger.info(
-                "[mock-exam] sitting=%s section=%s already claimed by another sweep",
+                "[mock-exam] sitting=%s section=%s claim skipped — sitting changed",
                 sitting["id"], section,
             )
             return False
@@ -3210,9 +3270,13 @@ def _collect_section_for_sitting(sitting: dict, section: str,
             # unreachable by every repair path (_reconcile_terminal does not
             # come back from all_submitted).
             terminal_started = True
-            supabase_admin.table("mock_exam_sittings").update({
+            transitioned = supabase_admin.table("mock_exam_sittings").update({
                 "status": "lrw_submitted",
-            }).eq("id", sitting["id"]).execute()
+            }).eq("id", sitting["id"]).in_("status", ["registered", "lrw_in_progress"]).execute()
+            if not transitioned.data:
+                current = get_sitting(sitting["id"]) or {}
+                if current.get("status") == "void":
+                    return False
             _reconcile_terminal(sitting["id"], exam_for_scope)
         return True
     except Exception:  # noqa: BLE001
@@ -3384,9 +3448,11 @@ def reconcile_stalled_sittings(exam_id: Optional[str] = None) -> dict:
         # a class waiting on Speaking costs no queries per tick.
         try:
             if row["status"] in ("registered", "lrw_in_progress"):
-                supabase_admin.table("mock_exam_sittings").update({
+                transitioned = supabase_admin.table("mock_exam_sittings").update({
                     "status": "lrw_submitted",
-                }).eq("id", row["id"]).execute()
+                }).eq("id", row["id"]).eq("status", row["status"]).execute()
+                if not transitioned.data:
+                    continue
             _reconcile_terminal(row["id"], exams[str(row["mock_exam_id"])])
             logger.warning(
                 "[mock-exam] sitting=%s was stalled at %s with the paper fully in "
@@ -3531,10 +3597,16 @@ def reap_expired_retake_sittings(grace_seconds: int = 30) -> dict:
         # not-yet-terminal sitting.
         elif sections and all(sitting.get(_SUBMITTED_COL[s]) for s in sections) \
                 and sitting.get("status") in ("registered", "lrw_in_progress"):
-            supabase_admin.table("mock_exam_sittings").update({
-                "status": "lrw_submitted",
-            }).eq("id", sitting["id"]).execute()
-            _reconcile_terminal(sitting["id"], exam)
+            try:
+                retried = supabase_admin.table("mock_exam_sittings").update({
+                    "status": "lrw_submitted",
+                }).eq("id", sitting["id"]).eq("status", sitting["status"]).execute()
+                if not retried.data:
+                    continue  # void or another finalizer won; keep sweeping
+                _reconcile_terminal(sitting["id"], exam)
+            except SittingConflictError:
+                logger.info("[retake-reaper] concurrent finalisation sitting=%s", sitting["id"])
+                continue
             touched += 1
     if collected:
         logger.info("[retake-reaper] collected=%d across %d sitting(s)", collected, touched)
