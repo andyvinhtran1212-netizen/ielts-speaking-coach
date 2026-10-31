@@ -79,7 +79,14 @@ class _Query:
         return self
 
     def eq(self, col, val):
+        if col == "permissions" and isinstance(val, str):
+            val = json.loads(val)
         self.filters.append(lambda r, c=col, v=val: str(r.get(c)) == str(v) if v is not None else r.get(c) is None)
+        return self
+
+    def is_(self, col, val):
+        assert val == "null"
+        self.filters.append(lambda r, c=col: r.get(c) is None)
         return self
 
     def in_(self, col, vals):
@@ -224,6 +231,11 @@ class FakeDB:
             })
 
     def rpc(self, name, params):
+        if name == "fn_activation_serialize":
+            from activation_rpc_fake import activation_rpc
+            if self.on_execute:
+                self.on_execute("users", "update")
+            return activation_rpc(self, name, params)
         assert name == "fn_set_staff_privilege", name
         self.rpc_calls.append(dict(params))
         return _Rpc(lambda: self._set_staff_privilege(**params))

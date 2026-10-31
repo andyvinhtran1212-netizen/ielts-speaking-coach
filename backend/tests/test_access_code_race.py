@@ -73,6 +73,10 @@ class _Builder:
     def eq(self, col, val):
         self._filters.append((col, val)); return self
 
+    def is_(self, col, val):
+        assert val == "null"
+        self._filters.append((col, None)); return self
+
     def limit(self, *_a, **_k):
         return self
 
@@ -84,6 +88,15 @@ class _Builder:
 
 
 class _RaceClient:
+    def rpc(self, name, params):
+        from activation_rpc_fake import activation_rpc
+        if not self._update_claims:
+            if self._reread_raises:
+                self.transaction_receipt = {"status": "activation_conflict"}
+            else:
+                self.tables["access_codes"][0].update(is_used=True, used_by=self._reread_used_by)
+        return activation_rpc(self, name, params)
+
     """`update_claims` controls whether the conditional access_codes UPDATE
     returns a row (won) or [] (lost). On a loss, the access_codes RE-READ
     reports the row owned by `reread_used_by`."""
@@ -103,6 +116,14 @@ class _RaceClient:
         self._students_insert_id = students_insert_id
         self._existing_student = existing_student
         self._ac_selects = 0
+        self.tables = {
+            "users": [{"id": _USER_ID, "role": "user", "is_active": user_is_active}],
+            "access_codes": [self._code_row(is_used=first_is_used, used_by=first_used_by)],
+            "students": [dict(existing_student)] if existing_student else [],
+            "student_cohort_memberships": ([{"student_id": existing_student["id"],
+                                             "cohort_id": existing_student["cohort_id"], "is_active": True}]
+                                           if existing_student else []),
+        }
 
     def table(self, name):
         return _Builder(self, name)
@@ -124,25 +145,21 @@ class _RaceClient:
 
         if t == "access_codes" and a == "select":
             self._ac_selects += 1
-            if self._ac_selects == 1:
-                # Step 1 read — the (possibly stale) pre-claim view.
-                r.data = [self._code_row(is_used=self._first_is_used,
-                                         used_by=self._first_used_by)]
-            else:
-                # Step 4 re-read after a 0-row conditional UPDATE.
-                if self._reread_raises:
-                    raise RuntimeError("simulated PostgREST outage on claim re-read")
-                r.data = [self._code_row(is_used=True, used_by=self._reread_used_by)]
+            r.data = [dict(self.tables["access_codes"][0])]
         elif t == "access_codes" and a == "update":
-            r.data = [self._code_row(is_used=True, used_by=_USER_ID)] if self._update_claims else []
+            self.tables["access_codes"][0].update(rec["payload"])
+            r.data = [dict(self.tables["access_codes"][0])]
         elif t == "users" and a == "select":
-            r.data = [{"id": _USER_ID, "role": "user", "is_active": self._user_is_active}]
+            r.data = [dict(self.tables["users"][0])]
+        elif t == "users" and a == "update":
+            self.tables["users"][0].update(rec["payload"])
+            r.data = [dict(self.tables["users"][0])]
         elif t == "students" and a == "insert":
-            r.data = [{"id": self._students_insert_id}] if self._students_insert_id else []
-        elif t == "students" and a == "select" and self._existing_student:
-            r.data = [self._existing_student]
-        # students select → [] (no target → enroll INSERT branch); every other
-        # write (users update, students delete, assignments upsert) → [].
+            r.data = [{"id": self._students_insert_id, **rec["payload"]}] if self._students_insert_id else []
+            self.tables["students"].extend(r.data)
+        elif t == "students" and a == "select":
+            r.data = [dict(row) for row in self.tables["students"]
+                      if all(row.get(k) == v for k, v in rec["filters"])]
         return r
 
 
@@ -178,7 +195,9 @@ def test_loser_of_race_is_rejected_and_rolled_back(monkeypatch):
         if c["table"] == "users" and c["action"] == "update"
         and isinstance(c["payload"], dict) and c["payload"].get("is_active") is False
     ]
-    assert rollbacks, "loser must roll back its own is_active=True"
+    assert client.tables["users"][0]["is_active"] is False
+    assert client.tables["access_codes"][0]["used_by"] == _OTHER_USER
+    assert client.tables["students"] == []
 
 
 def test_loser_already_active_via_other_code_is_not_deactivated(monkeypatch):
@@ -280,7 +299,9 @@ def test_indeterminate_claim_fails_closed(monkeypatch):
         if c["table"] == "users" and c["action"] == "update"
         and isinstance(c["payload"], dict) and c["payload"].get("is_active") is False
     ]
-    assert rollbacks, "indeterminate claim must roll back is_active"
+    assert client.tables["users"][0]["is_active"] is False
+    assert client.tables["access_codes"][0]["is_used"] is False
+    assert client.tables["students"] == []
 
 
 def test_loser_enrollment_side_effects_are_undone(monkeypatch):
@@ -301,7 +322,10 @@ def test_loser_enrollment_side_effects_are_undone(monkeypatch):
         if c["table"] == "students" and c["action"] == "delete"
         and ("id", "orphan-student-id") in c["filters"]
     ]
-    assert deletes, "the loser's inserted students row must be undone"
+    assert client.tables["students"] == []
+    assert client.tables["student_cohort_memberships"] == []
+    assert client.tables["users"][0]["is_active"] is False
+    assert client.tables["access_codes"][0]["used_by"] == _OTHER_USER
 
     assigns = [c for c in client.calls if c["table"] == "user_code_assignments"]
     assert not assigns, "loser must not create an assignment row"
@@ -325,4 +349,8 @@ def test_loser_removes_only_the_provisional_new_class_membership(monkeypatch):
     with pytest.raises(HTTPException) as ei:
         _run(auth_module.activate_account(_payload(), authorization="Bearer x"))
     assert ei.value.status_code == 400
-    assert removed == [("student-1", "cohort-new")]
+    assert client.tables["students"] == [client._existing_student]
+    assert client.tables["student_cohort_memberships"] == [
+        {"student_id": "student-1", "cohort_id": "cohort-old", "is_active": True}]
+    assert client.tables["users"][0]["is_active"] is True
+    assert client.tables["access_codes"][0]["used_by"] == _OTHER_USER

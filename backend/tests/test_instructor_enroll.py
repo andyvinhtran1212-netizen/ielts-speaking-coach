@@ -85,6 +85,10 @@ class _Q:
 
 
 class _FakeSB:
+    def rpc(self, name, params):
+        from activation_rpc_fake import activation_rpc
+        return activation_rpc(self, name, params)
+
     def __init__(self, store, write_raises=()):
         self.store = store; self.write_raises = set(write_raises)
     def table(self, name): return _Q(name, self)

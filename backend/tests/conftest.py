@@ -100,6 +100,20 @@ def _activation_gate_defaults_active(monkeypatch):
     monkeypatch.setattr(activation_gate, "alookup_is_active", _active)
 
 
+# Codex r4427781861 — /auth/activate runs Steps 5–6 in its worker thread on
+# that thread's own client (database.thread_supabase_admin). Tests replace
+# routers.auth.supabase_admin with a fake; let the per-thread client follow it,
+# so those steps write to the fake instead of opening a live Supabase client.
+# Tests that need a distinct per-thread client patch thread_supabase_admin.
+@pytest.fixture(autouse=True)
+def _auth_thread_client_follows_patched_admin(monkeypatch):
+    try:
+        from routers import auth
+    except Exception:
+        return
+    monkeypatch.setattr(auth, "thread_supabase_admin", lambda: auth.supabase_admin, raising=False)
+
+
 @pytest.fixture
 def live_activation_gate(monkeypatch):
     """Run the REAL activation gate (and is_active lookup) in this test."""

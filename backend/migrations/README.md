@@ -20,10 +20,10 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-30 the highest is `352`, allocated by the
-Leader to PC-J201, so by that rule the next new migration is `353`. Ask the
-Leader before taking it; 348–351 are reserved for other work and must not be
-reused.
+sequence is dense. As of 2026-10-30 the highest is `359`, reserved by the Leader for
+PC-J447 (#2059), so by that rule the next new migration is `360`. Ask the
+Leader before taking it; 348–358 are allocated or reserved for other work and
+must not be reused.
 The runner applies any unapplied file regardless of order.
 Numbers 321–326 belong to 321 WRITINGRATE-0025, 322 AIOPS-0024 (#1837), 323
 ROLECHECK-0026, 324 ASSIGNDRAFT-0027, 325 CODEUNIQ-0028 and 326
@@ -901,3 +901,15 @@ remain compatible. Apply308 only through the locked runner after setting
 session;308 records the SHA on the service-only activation function. Do not
 include308 in the migration-before-code batch. It activates typed admission
 and frozen snapshots for new work, with no backfill or regrade of old work.
+
+Migration 359 (`activation_serialize`, pending feature) adds the service-role-only
+`fn_activation_serialize` RPC. Its per-user transaction advisory lock covers fresh
+account/code/profile checks, activation, enrollment and the code claim. Native
+rollback includes membership trigger writes; the router performs no compensation
+UPDATE or DELETE. It neither installs nor depends on migration 337/346 objects.
+Leader alone applies 359 to staging in the freeze window **after
+SA-DESIGN-359 APPROVE**, using the advisory-locked runner. Production follows only
+at an authorised staging→main promotion. Deploy the previous backend before
+running `rollback/359_activation_serialize.sql`; rollback preserves account,
+enrollment and claim data. This PR supplies migration files only; hosted
+application remains blocked pending that design approval.

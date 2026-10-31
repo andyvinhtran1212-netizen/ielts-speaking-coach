@@ -68,6 +68,10 @@ class _Query:
     def eq(self, col, val):
         self.filters.append((col, lambda v, val=val: v == val)); return self
 
+    def is_(self, col, val):
+        assert val == "null"
+        self.filters.append((col, lambda v: v is None)); return self
+
     def in_(self, col, vals):
         self.fake.prechecks.append((self.table, list(vals)))
         self.filters.append((col, lambda v, vals=set(vals): v in vals)); return self
@@ -98,6 +102,10 @@ class _Query:
 
 
 class _FakeSB:
+    def rpc(self, name, params):
+        from activation_rpc_fake import activation_rpc
+        return activation_rpc(self, name, params)
+
     def __init__(self, tables=None, insert_failures=None):
         self.tables = tables or {}
         self.insert_failures = insert_failures or {}

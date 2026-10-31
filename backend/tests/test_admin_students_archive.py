@@ -154,7 +154,13 @@ class FakeDB:
         self.before_write = None   # hook(db, table, action, payload): simulate a concurrent commit
 
     def table(self, name): return _Query(self, name)
-    def rpc(self, name, params): return _Rpc(self, name, params)
+    def rpc(self, name, params):
+        if name == "fn_activation_serialize":
+            from activation_rpc_fake import activation_rpc
+            if self.before_write:
+                self.before_write(self, "users", "update", {"is_active": True})
+            return activation_rpc(self, name, params)
+        return _Rpc(self, name, params)
 
     def writes(self, action: str | None = None) -> list:
         return [c for c in self.calls if c[1] != "select" and (action is None or c[1] == action)]
