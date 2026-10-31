@@ -31,6 +31,12 @@ follows:
 - Alert email is sent through Resend from `alerts@averlearning.com`
   (FR-015).
 
+**Amendment 1** (FR-025, AC15) was approved by Vinh on **2026-10-29 at
+14:44** (UTC+7), verbatim "Duyệt cả 5 theo đề xuất", and verified by the
+Leader. It makes every manual regrade idempotent per click, with
+migration **342**. See [Amendment 1](#amendment-1--idempotent-manual-regrade-fr-025)
+and [`approval-decision.md`](approval-decision.md#amendment-1-1444-2026-10-29-utc7).
+
 Sources:
 
 - Product brief `AI-BUDGET` (Feature Developer, 2026-10-27 23:10; spec
@@ -97,6 +103,19 @@ Q11 và gói giá Azure lúc 16:26) quy định:
   `OWNER_ALERT_EMAILS`) ở 50%, 80%, 100% trần tháng (Anthropic: 80% và
   100%) và khi chạm trần ngày, mỗi ngưỡng đúng 1 lần mỗi kỳ, và mỗi lần tăng
   ngân sách tạm thời được cấp, kết thúc sớm hoặc hết hạn.
+- **Sửa đổi 1 (FR-025, anh Vinh duyệt 29/10/2026 14:44):** admin/giáo
+  viên bấm "Chấm lại" 2 lần, hoặc mạng retry, thì hiện có thể gọi AI và
+  tính phí 2 lần:
+  - Speaking chấm lại đồng bộ và không có khoá.
+  - Writing kiểm `status` rồi `UPDATE … .eq("id")` mà không so-và-đổi
+    (`admin_writing.py:1016-1081`), nên 2 request song song đều qua được.
+
+  Sửa đổi này:
+  - Bắt buộc header `Idempotency-Key` (UUID do trình duyệt sinh mỗi lần
+    bấm).
+  - Lưu khoá trong DB (migration 342, bảng mới `public.regrade_requests`).
+  - Gửi lại cùng khoá thì trả kết quả cũ, hoặc 409 nếu lượt đầu đang
+    chạy. Kết quả: đúng 1 lần gọi provider và 1 lần tính phí.
 
 ## Problem
 
@@ -169,6 +188,10 @@ exist today.
   cap on its own (FR-022).
 - One additive migration (333), a sweeper job, and a rollout and rollback
   plan.
+- Amendment 1: one manual regrade click, or any retry of that click,
+  means at most one paid provider call and one charge, for Speaking and
+  Writing, admin and instructor (FR-025), with one additive migration
+  (342).
 
 ## Non-goals
 
@@ -292,6 +315,53 @@ exist today.
   - **Generation:** a trigger on `responses` advances the session's `generation` in the same transaction as any insert, delete or update of a band-bearing column (`overall_band`, `final_band_p`, `final_overall_band`, `feedback`, `grading_status`). This covers the live route, the drain, admin regrade, the pronunciation routes and any future writer.
   - **Session writers:** every writer of `sessions` band columns saves through the one generation-checked function `fn_ai_session_bands_write` (`plan.md` item 7). The writers are `PATCH /sessions/{id}/complete`, `_complete_session_internal` (Full Test finalisation), `update_session_bands` (after pronunciation), admin regrade-response, admin regrade-session, admin rebuild-summary, and the sweeper refresh. Each one reads `generation` before it reads the responses, computes, and writes only if no response has changed since. On `stale` it recomputes, at most 3 times, and then writes unacknowledged, so the row stays owed and the sweeper refreshes a `completed` session.
   - **Deferred responses:** admin regrade of a response whose `grading_status` is `awaiting_budget` is refused with 409 `grading_deferred`, because the queue grades it. Admin regrade-session leaves such a response to the queue and reports it as pending, not as failed.
+- **FR-025:** Manual regrade is idempotent per click (Amendment 1, approved by Vinh 2026-10-29 14:44). One "Chấm lại" click, or any retry of that click, makes at most one paid provider call and one charge, for Speaking and Writing, admin and instructor. The idempotency record lives in the new table `public.regrade_requests` (migration 342, [Amendment 1](#amendment-1--idempotent-manual-regrade-fr-025)).
+  1. **Routes:**
+     - `POST /admin/responses/{response_id}/regrade` (`admin.py:4475`)
+     - `POST /admin/sessions/{session_id}/regrade` (`admin.py:4585`)
+     - `POST /admin/writing/essays/{essay_id}/regrade` (`admin_writing.py:960`)
+     - `POST /instructor/essays/{essay_id}/regrade` (`instructor.py:529`). Included by Vinh's decision; same Writing pipeline as FR-011.
+
+     The learner `regrade-request` routes are out of scope (they make no AI call).
+  2. **Key source:**
+     - Header `Idempotency-Key`: a client-generated UUID (v4, canonical 36 characters).
+     - It is generated once when the admin confirms the action, and reused for every automatic or manual retry of that same action (same dialog). A new click after a terminal result makes a new key.
+     - A malformed key → 422 `idempotency_key_invalid`.
+     - Missing key → 428 `idempotency_key_required`, when `REGRADE_IDEMPOTENCY_REQUIRED=true`.
+  3. **Rollout flag:**
+     - Default `false`, with strict parsing (an invalid value → `true`, fail-safe). While `false`, a missing key is accepted: the server generates a key and logs `regrade_idempotency_key_missing` once per request. The per-resource in-flight lock (item 5) still applies.
+     - Order (N-1 safe): (a) backend adds `Idempotency-Key` to `_CORS_HEADERS` (`main.py:174`), (b) the frontend sends the key, (c) staging sets the flag to `true`.
+     - Sending the header to an old backend fails CORS preflight, so (a) must deploy first.
+  4. **Scope:**
+     - A record is unique on `(actor_id, resource_kind, resource_id, idempotency_key)`.
+     - `resource_kind ∈ {speaking_response, speaking_session, writing_essay}`. Admin and instructor share `writing_essay`, so they block each other.
+     - The record also stores `surface` (admin|instructor) and `body_sha256` of the canonical body + query (e.g. `force`, `instructor_note`).
+     - Same key with a different actor, resource, surface or body → 422 `idempotency_key_mismatch`. No provider call, and the other actor's result is not revealed.
+  5. **In-flight lock:**
+     - At most one `in_flight` record per `(resource_kind, resource_id)` (partial unique index).
+     - A different key while one is in flight → 409 `regrade_in_flight` with `Retry-After`.
+     - A response regrade whose session has an in-flight `speaking_session` record → 409 `regrade_in_flight`, and the reverse too.
+     - Writing also makes the `graded|reviewed|delivered|failed → grading` transition a compare-and-set (`.in_("status", …)` + affected-row check); 0 rows → the existing 409.
+  6. **Claim before any side effect:**
+     - Order: guard (`require_admin`/`require_instructor`, AAL2 rules of 0032), then claim, then the existing validation and the provider call.
+     - A validation refusal before any provider call (404/409/422 of today) deletes the claim, so the key is reusable.
+     - Claim RPC failure or timeout → 503 `regrade_unavailable`, no provider call (fail closed, like FR-006).
+  7. **Replay:**
+     - Same key, record `succeeded` or `failed` (failed after a provider call) → return the stored HTTP status and JSON body, plus header `Idempotent-Replayed: true`. No provider call, no counter change, no new `grading_events` row.
+     - Same key while `in_flight` → 409 `regrade_in_flight`.
+     - Writing records become `succeeded` at the 202 (job enqueued), storing `job_id`. The essay `grading` status then guards the job.
+  8. **TTL:**
+     - In-flight lease is 15 minutes (`lease_expires_at`). An expired lease can be reclaimed by the same key. A crash after the provider answered but before the result was stored may be charged once more, the same exception as FR-013.
+     - Each record has an execution `attempt`, 1 at the first claim. Only reclaiming an expired lease increments it and renews the lease, as the deferred-job claim does with `attempts` (FR-013). A duplicate while the lease is still valid gets 409 `regrade_in_flight` (item 7) and leaves `attempt` unchanged.
+     - Finish and release name the attempt they belong to. A worker whose attempt was reclaimed changes nothing on the record, so only the current attempt stores the result.
+     - Terminal records are kept 24 hours, then deleted by the T008 sweeper (`ai_budget_sweep`). Until T008 merges, deletion is opportunistic on claim.
+  9. **Reservation key:** every reservation made by a regrade uses a request key derived from the claim and its attempt, not a random value:
+     - `regrade:<resource_kind>:<resource_id>:<idempotency_key>:<attempt>[:<response_id>]`
+     - A reclaimed attempt therefore gets a new request key and a new reservation, and can complete. An ordinary duplicate keeps the same attempt, so it never reaches a new key (item 7 answers it first).
+     - The old attempt's reservation is never reused or released by the new attempt, because its provider request may have been sent (FR-004). Whatever the dead worker left `reserved` is settled once at its estimate by `fn_ai_budget_expire` (FR-014); a line it already settled or released stays as it is. Committed spend therefore counts each attempt's reservation exactly once: the old one at most at its estimate, the new one at its actual cost.
+     - The Writing job's reservations use the job id that the claim stored (and the job's own attempt, FR-013). A Writing claim makes no reservation of its own.
+     - If the idempotency table were bypassed, `fn_ai_budget_reserve` replay (`AIBudgetReplay`) still refuses a second grant for the same attempt. The caller maps a replay to 409 `regrade_in_flight` or to the stored result, never to a second provider call.
+  10. **Telemetry:** the existing `admin_regrade` `grading_events` row (#1809) gains `idempotency_key` in metadata. A replay writes no telemetry row, only one INFO log line `regrade_replay`.
 
 ## Acceptance scenarios
 
@@ -486,6 +556,27 @@ counts calls). No real traffic is needed.
   `update_session_bands` after pronunciation, admin regrade-session,
   rebuild-summary and `_complete_session_internal`.
 
+### AC15 — Double click or retry charges once (FR-025)
+
+Offline tests; the staging run is in T010.
+
+1. Two concurrent requests with the same key → provider stub called once. One reservation, one `ai_usage_logs` line per provider, `regrade_count` +1, one `admin_regrade` event. The second request gets the same body (replay) or 409 `regrade_in_flight`.
+2. A retry after completion with the same key → same status and body, `Idempotent-Replayed: true`, 0 extra provider calls.
+3. A different key while in flight → 409. After completion, a new key → a new regrade (deliberate).
+4. Same key with a different resource, actor, surface or body → 422 `idempotency_key_mismatch`, 0 calls.
+5. Bad key → 422. Missing key with the flag `true` → 428. With the flag `false` → today's behaviour plus one log line and the in-flight lock.
+6. Claim RPC error or timeout → 503 `regrade_unavailable`, 0 provider calls, no counter change.
+7. Writing: two concurrent admin+instructor regrades of one essay → one `writing_jobs` row and one job charge.
+8. Expired lease → same key reclaims with `attempt + 1` (full recovery: item 12). A response regrade during a session regrade → 409.
+9. A role `user` or inactive staff member → 403 before any `regrade_requests` row (inventory/AST test of 0032 T004 stays green).
+10. Postconditions: no grant to `anon`/`authenticated`, RLS on, both unique indexes present. PG16+17.
+11. Staging (`staging.averlearning.com`, fixture provider mode): a double click in `/admin/speaking/sessions` and `/admin/writing/grade` yields 1 `ai_usage_logs` row set per regrade. The CORS preflight for `Idempotency-Key` returns 200.
+12. Crash after reserve, then recovery (Speaking response and session regrade):
+    - **Given** a regrade with key K is claimed (attempt 1) and granted its reservation, and the worker dies before the provider call returns, so the record stays `in_flight` and the reservation stays `reserved`.
+    - **When** a retry with K arrives while the lease is still valid → 409 `regrade_in_flight`, `attempt` still 1, 0 provider calls, no new reservation.
+    - **When** the lease has expired and a retry with K arrives → the claim returns `claimed` with attempt 2, the reservation for the attempt-2 key is granted (not a replay), the provider stub is called once, and the record becomes `succeeded` with the result stored. A further retry with K replays that result with `Idempotent-Replayed: true` and 0 calls.
+    - **Then** the attempt-1 reservation is settled once at its estimate by `fn_ai_budget_expire` (status `expired`) and is never granted again. Committed spend equals the attempt-1 estimate plus the attempt-2 actual, and `fn_ai_budget_recompute` finds no difference. A late finish from the attempt-1 worker changes nothing on the record.
+
 ## Edge cases
 
 - **Counting at the cap.** Estimates are upper bounds. Actual cost can only
@@ -570,7 +661,7 @@ counts calls). No real traffic is needed.
 
 ## Success criteria
 
-- In offline tests AC1–AC14 all pass. Provider stubs record zero calls in
+- In offline tests AC1–AC15 all pass. Provider stubs record zero calls in
   every refusal scenario.
 - On staging, with a low cap, the brief's message is shown for Speaking and
   Writing and survives a reload. The queue drains with zero double grades
@@ -579,6 +670,117 @@ counts calls). No real traffic is needed.
   of each provider console per day. No day exceeds the daily cap by more
   than one in-flight estimate.
 - No 5xx from a non-AI route is attributable to the budget service.
+
+## Amendment 1 — idempotent manual regrade (FR-025)
+
+- **Status:** approved by Vinh on 2026-10-29 at 14:44 (UTC+7), verbatim
+  "Duyệt cả 5 theo đề xuất". The Leader verified it directly in the
+  Leader chat (`handoff/leader/20261029-1442-fd-questions-vinh.md` (d)).
+  The decisions are in
+  [Owner decisions](#decision-of-1444-2026-10-29-utc7--amendment-1) and
+  [`approval-decision.md`](approval-decision.md#amendment-1-1444-2026-10-29-utc7).
+- **Author:** Feature Developer, 2026-10-29 14:40 (UTC+7), read-only
+  against `origin/staging` @ `f69055f65`.
+- **Source:** brief H-1028-FD7 part (b)
+  (`handoff/leader/20261028-0925-feature-developer-brief-regrade-telemetry-idempotent.md`).
+  Part (a), the telemetry, shipped in #1809/#1862. Part (b) was not in
+  0033 before this amendment: AC3 covers learner retries by
+  `submission_id` only, and PC-J64 (T006) moves the regrade pipeline
+  without adding a client key.
+- **Migration: 342** (Leader reserved). File only. Applied to staging in
+  T010, and to production only at a promotion Vinh authorises.
+- **Correction before merge (PC-J205, Codex on #1945):** the approved
+  key formula left out the execution attempt, so a same-key reclaim of an
+  expired lease (approved in item 8) rebuilt the old reservation key, got
+  a replay from `fn_ai_budget_reserve` and stayed `regrade_in_flight`.
+  FR-025 items 8–9 now add the attempt counter of the deferred-job design,
+  and AC15 item 12 tests the recovery. No owner decision changes.
+
+### Goal
+
+One "Chấm lại" click, or any retry of that click, means at most one paid
+provider call and one charge, for Speaking and Writing, admin and
+instructor.
+
+### Problem
+
+An admin or instructor who clicks "Chấm lại" twice, or a network retry,
+can call the AI and be charged twice today:
+
+- The Speaking regrade is synchronous and takes no lock.
+- The Writing regrade checks `status` and then runs
+  `UPDATE … .eq("id")` without a compare-and-set
+  (`admin_writing.py:1016-1081`), so two concurrent requests both pass.
+
+### User flow
+
+1. The admin clicks "Chấm lại". The browser makes a UUID and sends POST +
+   `Idempotency-Key`.
+2. The network drops and the browser (or the admin) resends with the same
+   key. The server sees the record:
+   - still running → 409 "Đang chấm lại, vui lòng đợi…"
+   - finished → returns the same result.
+
+   Either way, the AI is not called again.
+3. The admin wants to grade again on purpose: a new click makes a new
+   key, and the regrade runs (MAX_VERSIONS limits still apply).
+
+### API (summary; details in FR-025)
+
+- Request header `Idempotency-Key: <uuid>` on the 4 regrade routes.
+- New responses:
+  - 409 `regrade_in_flight` (+ `Retry-After`)
+  - 422 `idempotency_key_invalid` / `idempotency_key_mismatch`
+  - 428 `idempotency_key_required` (when the flag is on)
+  - 503 `regrade_unavailable`
+  - replay header `Idempotent-Replayed: true`
+- OpenAPI and `frontend/types/api.d.ts` updated. CORS allows the header.
+
+### Why it needs a DB change
+
+The key must hold across Railway workers and restarts. The 334/F09
+lesson: an in-memory dict per worker does not work. It also needs a
+unique constraint so two concurrent requests cannot both claim.
+
+`ai_budget_reservations.request_key` alone is not enough, for three
+reasons:
+
+1. In `shadow`, when a request is unrecorded
+   (`allow_unrecorded`/`would_refuse`), or when the `ai_budget` migration
+   group is off, nothing is recorded, so nothing deduplicates.
+2. It stores no response to replay.
+3. The Writing regrade enqueues a job before any reservation exists.
+
+### Table name
+
+The new table is **`public.regrade_requests`** (migration 342): the
+staff-side idempotency record of a manual regrade click. It is a
+different table from **`essay_regrade_requests`** (migration 084), where a
+learner asks for a Writing regrade and no AI is called. Migration 084's
+RLS policies are named `regrade_requests_admin_all` and
+`regrade_requests_student_insert`. RLSCLEANUP-0039 (PC-J130/J131,
+migration 344) drops those two policies of `essay_regrade_requests`. It
+does not concern `public.regrade_requests`, which has RLS on and no
+policy at all (`service_role` only, `plan.md` Amendment 1).
+
+### Security notes
+
+- The key is not a secret, but replay is scoped to the actor: an admin
+  cannot read another admin's stored result by guessing a key.
+- `response` holds transcript/feedback. It is service-role only, deleted
+  after 24 h, and never logged.
+- The guard runs before the claim, so unauthenticated callers cannot
+  create rows (no write amplification). Key length is fixed at 36.
+- Fail closed on store errors. Never fall back to "call the provider
+  anyway".
+- No change to learner routes or to the money path (no payments, no live
+  keys). Prod apply only at a Vinh-authorised promotion.
+
+### Order
+
+After PC-J64 (T006, moves the regrade pipeline in `admin.py`) and PC-J54
+(T007, Writing) merge, so `admin.py` changes once. Before T010 (staging
+rollout), so AC15 runs there. The code is T014 (`tasks.md`).
 
 ## Owner decisions
 
@@ -591,7 +793,25 @@ superseded text is noted. Q4 and Q6–Q9 were not overridden, so their
 recommended defaults stand as written. Vinh answered Q10, Q11 and the
 Azure price tier under Q1 at **16:26** the same day (UTC+7), relayed with
 the instruction to update this PR. At **22:34** the same day (UTC+7) Vinh
-approved the learner copy of the unmeasurable-recording 422.
+approved the learner copy of the unmeasurable-recording 422. On
+**2026-10-29 at 14:44** (UTC+7) Vinh approved Amendment 1 (FR-025).
+
+### Decision of 14:44 (2026-10-29, UTC+7) — Amendment 1
+
+Vinh approved verbatim "Duyệt cả 5 theo đề xuất"; the Leader verified it
+directly in the Leader chat
+(`handoff/leader/20261029-1442-fd-questions-vinh.md` (d)).
+
+- FR-025 + migration 342 approved. → FR-025, AC15, `plan.md` Amendment 1,
+  T014.
+- Instructor route included. → FR-025 item 1.
+- Terminal records TTL 24 h. In-flight lease 15 min (part of the approved
+  proposal). → FR-025 item 8.
+- The UI text for 409 `regrade_in_flight` ("Đang chấm lại, vui lòng
+  đợi…") goes to Content Manager for wording only. It does not block
+  implementation. → `ui-states.md` R1.
+- Implement after PC-J64 (T006) and PC-J54 (T007) merge. Production only
+  at a promotion Vinh authorises. → T014, T010, T011.
 
 ### Decision of 22:34 (2026-10-28, UTC+7)
 

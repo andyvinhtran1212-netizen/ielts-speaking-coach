@@ -1,7 +1,8 @@
 # Verification
 
 All rows are PENDING. The spec is approved (2026-10-28, decisions of
-09:11/09:13 and 09:35), but nothing has been implemented yet. The tests named below are defined in `plan.md` §Verification
+09:11/09:13 and 09:35; Amendment 1 on 2026-10-29 14:44), but nothing
+has been implemented yet. The tests named below are defined in `plan.md` §Verification
 strategy. V-queries are read-only.
 
 ## Requirement coverage
@@ -32,6 +33,7 @@ strategy. V-queries are read-only.
 | FR-022 | kind=test; ref=backend/tests/test_ai_budget_raise.py and backend/tests/test_migration_333_ai_budget.py (AC12: AAL2 always required, every caller refused while the 0032 reader is absent; amount up to 100% of the base cap, 1–24 hours, reason, hard scopes only, one-active and three-a-month limits; append-only events; one alert and email per grant, end and expiry; effective cap reverts at expires_at without the sweeper; RPC failure writes nothing) plus kind=journey; ref=frontend/tooling/verify-ai-budget-raise.mjs and rollout.md S3 raise rehearsal plus kind=query; ref=plan.md V8 | PENDING |
 | FR-023 | kind=test; ref=backend/tests/test_ai_budget_speaking_deferred.py (AC13: the S0 Azure row prices the estimate at the duration sent to Azure, Part 2 segment or whole answer, and settles at that duration; Azure line refused for cap, missing price row or budget_unavailable → graded at once with no 503 and no job, pronunciation_status skipped_budget, band_p null, test-mode overall = ielts_round(mean(FC, LR, GRA)), practice band unchanged; kill switch still defers; a drained job can also skip P; Full Test /pronunciation/full fills P on a sampled skipped_budget response with _pron_band_from_scores, a four-criterion overall_band and status completed, re-aggregates the session, and leaves the marker unchanged when refused or without a usable score) plus kind=journey; ref=frontend/tooling/verify-ai-budget-*.mjs (P5/P5b exact text and the "Điểm tổng tính trên 3 tiêu chí" band label before and after reload; T1 label on the instructor matrix and admin Speaking session view; reason shown to admins only) plus kind=journey; ref=rollout.md S3 Azure skip | PENDING |
 | FR-024 | kind=test; ref=backend/tests/test_ai_budget_speaking_deferred.py and backend/tests/test_migration_333_ai_budget.py (AC14: admin regrade-response interleaved between a refresh's response read and write → refresh stale, final band is the regraded one, nothing owed; drain commit interleaved inside an admin write, update_session_bands, regrade-session, rebuild-summary and _complete_session_internal → stale and recompute; the trigger advances generation once per band-bearing write and not on rollback; response writes raced with fn_ai_session_bands_write never deadlock; admin regrade of an awaiting_budget response → 409 grading_deferred) | PENDING |
+| FR-025 | kind=test; ref=backend/tests/test_regrade_idempotency.py and backend/tests/test_migration_342_regrade_idempotency.py (AC15: two concurrent same-key requests → one provider stub call, one reservation, one ai_usage_logs line per provider, regrade_count +1, one admin_regrade event, the second gets the replayed body or 409 regrade_in_flight; same-key retry after completion → same status and body with Idempotent-Replayed: true and 0 calls; a different key in flight → 409, a new key after completion → a new regrade; key reused on another resource, actor, surface or body → 422 idempotency_key_mismatch, 0 calls; bad key → 422, missing key → 428 with the flag true and today's behaviour plus one log line and the lock with it false; claim RPC error or timeout → 503 regrade_unavailable, 0 calls, no counter change; concurrent admin + instructor Writing regrade → one writing_jobs row and one job charge; expired lease reclaimed by the same key with attempt + 1; crash after reserve → 409 while the lease is valid with attempt unchanged, then after expiry the same key reserves under the attempt-2 key (no replay), calls the stub once and succeeds, the attempt-1 reservation is settled once at its estimate by fn_ai_budget_expire, committed spend = attempt-1 estimate + attempt-2 actual, and a late attempt-1 finish returns lease_lost; response regrade during a session regrade → 409; role user or inactive staff → 403 before any regrade_requests row; postconditions RLS on, no anon/authenticated grant, both unique indexes; PostgreSQL 16 and 17) plus kind=journey; ref=specs/0033-ai-budget-hard-cap/spec.md AC15 item 11 on staging in T010 (double click in /admin/speaking/sessions and /admin/writing/grade → one ai_usage_logs row set per regrade; Idempotency-Key CORS preflight 200) | PENDING |
 
 ## Contract evidence
 
@@ -40,6 +42,13 @@ strategy. V-queries are read-only.
   schemas, the 503 detail model, and additive `grading_status` and
   `grading_pending` fields. `frontend/types/api.d.ts` must be regenerated
   in T009.
+- Amendment 1 (FR-025): the `Idempotency-Key` request header on the four
+  regrade routes, the 409 `regrade_in_flight`, 422
+  `idempotency_key_invalid` / `idempotency_key_mismatch`, 428
+  `idempotency_key_required` and 503 `regrade_unavailable` responses and
+  the `Idempotent-Replayed` header. `frontend/types/api.d.ts` is
+  regenerated in T014. CORS allows `Idempotency-Key` before the frontend
+  sends it.
 - Backward compatibility: an old frontend treats the new 503 as
   `ambiguous_commit` and reads back the saved row. Writing submit is
   unchanged. The 333 objects are unused by the N-1 backend.
