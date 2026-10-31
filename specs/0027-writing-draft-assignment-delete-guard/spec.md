@@ -1,7 +1,7 @@
 ---
 id: ASSIGNDRAFT-0027
 title: Deleting a writing assignment can never erase a learner's draft
-status: implementing
+status: verified
 risk: high
 owner: product
 ---

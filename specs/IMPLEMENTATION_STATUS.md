@@ -54,7 +54,10 @@ moves from `approved` to `implementing` only when implementation is merged on
 staging and still present after any revert. `implementing` does not close any
 acceptance gate. "Tasks" counts ticked `T` boxes in `tasks.md` after this
 change. Specs marked *deferred* have an open pull request that edits their
-`spec.md`/`tasks.md`, so their status was left for that pull request.
+`spec.md`/`tasks.md`, so their status was left for that pull request. A spec
+moves to `verified` only when every task is ticked and every FR has PASS,
+MANUAL or reasoned N/A evidence in `verification.md` (`validate_specs.py`
+final-status rule).
 
 | Spec | Status | Tasks | Implementation on staging / note |
 | --- | --- | --- | --- |
@@ -68,17 +71,17 @@ change. Specs marked *deferred* have an open pull request that edits their
 | [MOCKREPAIR-0016](0016-mock-content-remediation/verification.md) | implementing (was approved) | 6/13 | Own migrations 306–308, 310, 311, 315, 316; #1574, #1597, then #1886, #1891, #1893, #1951, #1956. T007 partial. |
 | [GRAMMARLESSON-0017](0017-grammar-lesson-assignments/verification.md) | approved (*deferred*, #2074) | 6/8 | #1569 (migration 312). Status change left to #2074. |
 | [MASTER30FULL-0018](0018-master30-full-bank-assignments/verification.md) | shipped | 8/8 | Unchanged. |
-| [GRAMMARAUDIT-0019](0019-grammar-audit-remediation/verification.md) | implementing (was approved) | 7/17 | #1623/#1625 (migration 314); Revision 1 #1861, #1850; Revision 2 #1940 (migration 339). Revision 2/3 owner approval is still recorded as awaiting in `approval-decision.md`. |
-| [VOCABSETS-0020](0020-vocabulary-class-sets/verification.md) | implementing (was approved) | 7/9 | #1662 (migration 317). T008–T009 open. |
+| [GRAMMARAUDIT-0019](0019-grammar-audit-remediation/verification.md) | implementing (was approved) | 7/17 | #1623/#1625 (migration 314); Revision 1 #1861, #1850; Revision 2 #1940 (migration 339). The owner approved FR-007 (Revision 2 and 3) as "FR007 ok" (t641u, 2026-10-30 07:07 UTC+7, #1977 head `4f92b06`); `approval-decision.md` is not updated yet (follow-up). The CM sign-off parts of T014 are still to be checked. |
+| [VOCABSETS-0020](0020-vocabulary-class-sets/verification.md) | implementing (was approved) | 7/9 | #1662 (migration 317). T008 fix #1664 and promotion #1663 merged 2026-10-14; migration 317 applied on production 2026-10-14. Staging/production acceptance evidence for T008/T009 is not recorded yet (`verification.md:44` still says #1663 is open). |
 | [READINGPRACTICE-0021](0021-reading-practice-support/verification.md) | implementing | 8/9 | Unchanged. |
 | [REVEXPLAIN-0022](0022-revision-explanation-binding/verification.md) | implementing | 7/8 | Unchanged. |
 | [SECWRITE-0022](0022-client-write-privilege-lockdown/verification.md) | implementing (was approved) | 5/10 | #1719 and #1721 (migration 320). T004 ticked from #1717. Amendment 1 migrations 349/351 are not merged. |
-| [REVEXPLAIN-0023](0023-revision-explanation-key-equivalence/verification.md) | implementing | 4/4 | Unchanged. |
+| [REVEXPLAIN-0023](0023-revision-explanation-key-equivalence/verification.md) | verified (was implementing) | 4/4 | #1745. All tasks ticked (T004 production commit and read-back); FR-001…FR-008 PASS in `verification.md`. |
 | [AIOPS-0024](0024-admin-ai-model-control/verification.md) | implementing (was approved) | 8/9 | #1837 (migration 322). T008 staging journey partial. |
 | [WRITINGRATE-0025](0025-writing-grade-ratings-feedback-version/verification.md) | implementing (was approved) | 3/5 | #1834 (migration 321), test #1922. T003 rating round trip pending. |
 | [ROLECHECK-0026](0026-users-role-single-check/verification.md) | implementing (was approved) | 7/8 | #1743 (migration 323). T008 real instructor promotion pending. |
-| [ASSIGNDRAFT-0027](0027-writing-draft-assignment-delete-guard/verification.md) | implementing (was approved) | 9/9 | #1744 (migration 324), Revision 1 #1872. All tasks ticked; requirement evidence not re-checked here. |
-| [CODEUNIQ-0028](0028-access-code-unique-canonical/verification.md) | implementing (was approved) | 8/8 | #1748 (migration 325). All tasks ticked; requirement evidence not re-checked here. |
+| [ASSIGNDRAFT-0027](0027-writing-draft-assignment-delete-guard/verification.md) | verified (was approved) | 9/9 | #1744 (migration 324), Revision 1 #1872; promoted by #1763. All tasks ticked (T008 production apply); FR-001…FR-004 PASS in `verification.md`. |
+| [CODEUNIQ-0028](0028-access-code-unique-canonical/verification.md) | verified (was approved) | 8/8 | #1748 (migration 325); promoted by #1763. All tasks ticked (T008 production apply); FR-001…FR-004 PASS and FR-005 MANUAL in `verification.md`. |
 | [STUDENTARCHIVE-0029](0029-student-archive/verification.md) | implementing (was approved) | 9/12 | #1746 (migration 326). T008 staging AC run partial. |
 | [CLASSARCHIVE-0030](0030-class-archive/verification.md) | approved (*deferred*, #2059) | 4/14 | #1900 (migration 337), migration 346. Status change left until #2059 lands. |
 | [GIVEARCHIVE-0031](0031-archived-learner-give-guard/verification.md) | implementing (was approved) | 6/8 | #1756 (migration 331). T007 staging journey partial. |
