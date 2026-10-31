@@ -181,3 +181,77 @@ it.each(['cohort', 'student'] as const)('%s give does not send if the account ch
   expect(await screen.findByText('Nguyễn An')).toBeTruthy();
   expect(post).not.toHaveBeenCalled();
 });
+
+// INSTRUCTORGIVE-0044 (PC-J192): every give carries a request_id; re-sending the
+// same give after an error or lost response reuses it so the backend replays.
+const GIVE_PATHS = { cohort: FAN_OUT, student: '/instructor/assignments' } as const;
+const giveCalls = (target: 'cohort' | 'student') => post.mock.calls.filter(([path]) => path === GIVE_PATHS[target]);
+const requestIds = (target: 'cohort' | 'student') => giveCalls(target).map(([, body]) => (body as { request_id?: string }).request_id);
+const giveResult = { id: 'a9', student_count: 1, created_count: 1, duplicates_warning: [] };
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+it.each(['cohort', 'student'] as const)('%s give: a retry after a lost response resends the same request_id', async (target) => {
+  let attempt = 0;
+  post.mockImplementation(async (path: string) => {
+    if (path === PREVIEW) return { student_count: 1, duplicate_student_ids: [] };
+    if (path === GIVE_PATHS[target]) {
+      attempt += 1;
+      if (attempt === 1) throw Object.assign(new Error('Không kết nối được máy chủ.'), { status: 0 });
+      return giveResult;
+    }
+    throw new Error(`unexpected POST ${path}`);
+  });
+  const { form } = await openGiveForm(target);
+
+  fireEvent.submit(form);
+  expect(await screen.findByText(/Không kết nối được máy chủ\./)).toBeTruthy();
+  fireEvent.submit(form);
+  expect(await screen.findByText(target === 'cohort' ? 'Đã giao bài cho lớp.' : 'Đã giao bài cho học viên.')).toBeTruthy();
+
+  const [first, retry] = requestIds(target);
+  expect(first).toMatch(UUID);
+  expect(retry).toBe(first);
+});
+
+it.each(['cohort', 'student'] as const)('%s give: a deliberate new give after success gets a new request_id', async (target) => {
+  post.mockImplementation(async (path: string) => {
+    if (path === PREVIEW) return { student_count: 1, duplicate_student_ids: [] };
+    if (path === GIVE_PATHS[target]) return giveResult;
+    throw new Error(`unexpected POST ${path}`);
+  });
+  const { form } = await openGiveForm(target);
+  fireEvent.submit(form);
+  expect(await screen.findByText(target === 'cohort' ? 'Đã giao bài cho lớp.' : 'Đã giao bài cho học viên.')).toBeTruthy();
+
+  // The form was reset; fill it again for a second, intended give.
+  fireEvent.change(within(form).getByLabelText('Đề bài'), { target: { value: 'p1' } });
+  if (target === 'cohort') {
+    fireEvent.change(within(form).getByLabelText('Lớp'), { target: { value: 'c1' } });
+  } else {
+    fireEvent.click(within(form).getByRole('radio', { name: 'Học viên lẻ' }));
+    fireEvent.change(within(form).getByLabelText('Học viên lẻ', { selector: 'select' }), { target: { value: 's1' } });
+  }
+  fireEvent.submit(form);
+  await waitFor(() => expect(giveCalls(target)).toHaveLength(2));
+  const [first, second] = requestIds(target);
+  expect(first).toMatch(UUID);
+  expect(second).toMatch(UUID);
+  expect(second).not.toBe(first);
+});
+
+it('changing the give after a failure gets a new request_id', async () => {
+  post.mockImplementation(async (path: string) => {
+    if (path === PREVIEW) return { student_count: 1, duplicate_student_ids: [] };
+    if (path === FAN_OUT) throw Object.assign(new Error('Lỗi máy chủ.'), { status: 500 });
+    throw new Error(`unexpected POST ${path}`);
+  });
+  const { form } = await openGiveForm();
+  fireEvent.submit(form);
+  expect(await screen.findByText(/Lỗi máy chủ\./)).toBeTruthy();
+  fireEvent.change(within(form).getByLabelText('Tên bài (học viên sẽ thấy)'), { target: { value: 'Buổi 6' } });
+  fireEvent.submit(form);
+  await waitFor(() => expect(fanOutCalls()).toHaveLength(2));
+  const [first, second] = requestIds('cohort');
+  expect(second).not.toBe(first);
+  expect((fanOutCalls()[1][1] as { name?: string }).name).toBe('Buổi 6');
+});

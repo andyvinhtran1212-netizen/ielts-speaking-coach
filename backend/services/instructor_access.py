@@ -242,6 +242,16 @@ def instructor_fan_out(me: Any, db=None, **kwargs):
     return fan_out_assignment(client, assigned_by=me, owner_id=me, **kwargs)
 
 
+def instructor_fan_out_roster(me: Any, db=None, *, prompt_ids, cohort_id) -> list[str]:
+    """INSTRUCTORGIVE-0044 — the ownership gates of instructor_fan_out without
+    the write (PermissionError on any cross-owner target); returns the target
+    student ids for the idempotent RPC."""
+    me = _require_me(me)
+    from services.cohort_assignment_service import verified_fan_out_roster
+    client = db if db is not None else supabase_admin
+    return verified_fan_out_roster(client, prompt_ids=prompt_ids, cohort_id=cohort_id, owner_id=me)
+
+
 def instructor_fan_out_preview(me: Any, db=None, *, prompt_ids, cohort_id):
     """BL-18 — read-only preview_fan_out_overlap scoped to `me`: same ownership
     gates as instructor_fan_out (PermissionError on any cross-owner target)."""

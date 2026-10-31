@@ -4,9 +4,11 @@ EVERY endpoint:
   • gates on require_instructor (role ∈ {instructor, admin}); admin uses /admin/*
     see-all and does NOT rely on these routes for its own work.
   • touches owner-scoped tables ONLY through the W-3 accessor / wrappers
-    (instructor_db / instructor_essays / instructor_fan_out / instructor_list_essays)
+    (instructor_db / instructor_essays / instructor_fan_out_roster / instructor_list_essays)
     so the owner filter can never be forgotten. The grep-test enforces no direct
-    supabase_admin on a registry owner-table here.
+    supabase_admin on a registry owner-table here. The two give routes write
+    through the idempotent RPC (INSTRUCTORGIVE-0044, mig 360), which stamps
+    assigned_by=me and re-checks ownership inside its transaction.
   • derives `me` from the auth context (require_instructor return), never the body.
 
 Ownership violations raise PermissionError → 403 (global handler, generic message).
@@ -48,7 +50,7 @@ from __future__ import annotations
 import io
 from datetime import datetime, timezone
 from typing import Literal, Optional
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import logging
 
@@ -60,15 +62,15 @@ from database import supabase_admin
 from models.writing_give_preview import DuplicatesPreviewOut
 from services.cohort_assignment_service import Deadline, normalize_deadline
 from routers.admin import require_instructor
-from services import essay_service, instructor_workflow, student_service, test_data_visibility
+from services import essay_service, instructor_give_service, instructor_workflow, student_service, test_data_visibility
 from services.access_code_gen import insert_with_unique_codes
 from services.core_attempt_outcomes import observe_writing_batch
 from services.writing_image_access import attach_signed_image_urls
 from services.core_writing_observation import note_writing_mutation, observe_writing_partial_failure
 from services.instructor_access import (
     instructor_db,
-    instructor_fan_out,
     instructor_fan_out_preview,
+    instructor_fan_out_roster,
     instructor_list_essays,
     assert_essay_owned,
 )
@@ -195,6 +197,7 @@ async def delete_prompt(request: Request, prompt_id: UUID, authorization: str | 
 class FanOutBody(BaseModel):
     # Bounds match the admin fan-out (PC-J114): an out-of-range analysis_level
     # used to reach the DB CHECK (mig 104) and surface as a 500.
+    request_id: UUID                                    # INSTRUCTORGIVE-0044 idempotency key
     prompt_ids: list[UUID] = Field(..., min_length=1, max_length=20)
     cohort_id: UUID
     name: Optional[str] = Field(None, max_length=200)   # matches admin fan-out
@@ -214,6 +217,7 @@ class FanOutBody(BaseModel):
 
 class AssignBody(BaseModel):
     """Single-student assign (one prompt → one of MY students)."""
+    request_id: UUID                                    # INSTRUCTORGIVE-0044 idempotency key
     prompt_id: UUID
     student_id: UUID
     name: Optional[str] = Field(None, max_length=200)   # W-06: label the student sees
@@ -277,8 +281,15 @@ async def delete_assignment(request: Request, assignment_id: UUID, authorization
 async def create_assignment(request: Request, body: AssignBody, authorization: str | None = Header(None)):
     """Assign ONE prompt to ONE of my students, with an optional deadline.
     Owner-guarded: both the prompt and the student must be mine (else 403).
-    The accessor stamps assigned_by=me."""
+    INSTRUCTORGIVE-0044: `request_id` is required; a retry with the same id
+    and body returns the first row, another body → 409 (no new row)."""
     me = await _me(authorization, request)
+    request_payload = body.model_dump(mode="json", exclude={"request_id"})
+    replay = instructor_give_service.replay_give(
+        supabase_admin, body.request_id, owner=me, give_kind="individual",
+        request_payload=request_payload)
+    if replay is not None:
+        return replay
     p = (instructor_db(me).table("writing_prompts").select("id")
          .eq("id", str(body.prompt_id)).limit(1).execute())
     if not p.data:
@@ -289,42 +300,52 @@ async def create_assignment(request: Request, body: AssignBody, authorization: s
         raise HTTPException(403, "Học viên không thuộc bạn.")
     if s.data[0].get("archived_at"):
         raise student_service.student_archived_error([str(body.student_id)])
-    payload = {
-        "prompt_id":      str(body.prompt_id),
-        "student_id":     str(body.student_id),
-        "name":           body.name,
-        # A named give gets its own group (as admin gives do) so the learner
-        # dashboard, which shows `name` only on group headers, displays it.
-        "assignment_group_id": str(uuid4()) if body.name else None,
-        "deadline":       body.deadline.isoformat() if body.deadline else None,
-        "instructions":   body.instructions,
-        "analysis_level": body.analysis_level,
-        "grading_tier":   body.grading_tier,
-    }
-    try:
-        r = instructor_db(me).table("writing_assignments").insert(payload).execute()  # stamps assigned_by=me
-    except Exception as exc:
-        # 331: archived after the check above → no row was created.
-        student_service.raise_if_student_archived(supabase_admin, exc, [str(body.student_id)])
-        raise
-    return (r.data or [{}])[0]
+    # The RPC re-checks ownership, stamps assigned_by=me and, as before, gives
+    # a named give its own group so the learner dashboard shows the name.
+    return instructor_give_service.create_give(
+        supabase_admin, body.request_id, owner=me, give_kind="individual",
+        request_payload=request_payload,
+        prompt_ids=[str(body.prompt_id)],
+        candidate_student_ids=[str(body.student_id)],
+        student_id=str(body.student_id),
+        name=body.name,
+        deadline=body.deadline.isoformat() if body.deadline else None,
+        instructions=body.instructions,
+        analysis_level=body.analysis_level,
+        grading_tier=body.grading_tier,
+    )
 
 
 @router.post("/assignments/fan-out", status_code=status.HTTP_201_CREATED)
 async def fan_out(request: Request, body: FanOutBody, authorization: str | None = Header(None)):
+    """N of my prompts → every active member of my class, as one group.
+    INSTRUCTORGIVE-0044: `request_id` is required (same replay/409 contract
+    as the individual give)."""
     me = await _me(authorization, request)
-    # instructor_fan_out enforces prompt/cohort/student ownership → PermissionError → 403.
-    result = instructor_fan_out(
-        me, supabase_admin,
-        prompt_ids=body.prompt_ids, cohort_id=body.cohort_id,
-        name=body.name, allow_soft_check=body.allow_soft_check,
-        deadline=body.deadline, instructions=body.instructions,   # W-6b-2: deadline now wired
+    request_payload = body.model_dump(mode="json", exclude={"request_id"})
+    replay = instructor_give_service.replay_give(
+        supabase_admin, body.request_id, owner=me, give_kind="fan_out",
+        request_payload=request_payload)
+    if replay is not None:
+        return replay
+    # instructor_fan_out_roster enforces prompt/cohort/student ownership → PermissionError → 403.
+    student_ids = instructor_fan_out_roster(
+        me, supabase_admin, prompt_ids=body.prompt_ids, cohort_id=body.cohort_id)
+    if not student_ids:
+        raise HTTPException(400, instructor_give_service.EMPTY_ROSTER_MESSAGE)
+    return instructor_give_service.create_give(
+        supabase_admin, body.request_id, owner=me, give_kind="fan_out",
+        request_payload=request_payload,
+        prompt_ids=[str(p) for p in body.prompt_ids],
+        candidate_student_ids=student_ids,
+        cohort_id=str(body.cohort_id),
+        name=body.name,
+        allow_soft_check=body.allow_soft_check,
+        deadline=body.deadline.isoformat() if body.deadline else None,
+        instructions=body.instructions,
         analysis_level=body.analysis_level,
         grading_tier=body.grading_tier,
     )
-    if result["student_count"] == 0:
-        raise HTTPException(400, "Lớp này chưa có học viên nào.")
-    return result
 
 
 class FanOutPreviewBody(BaseModel):
