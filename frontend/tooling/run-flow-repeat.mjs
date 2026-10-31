@@ -70,6 +70,11 @@ async function freePort() {
 }
 
 async function repeat() {
+  if (values.mode === 'dev') {
+    // Same step as npm predev: public/vendor/ is gitignored, so without it
+    // next dev serves 404 for /vendor/* and journeys fail falsely.
+    execFileSync(process.execPath, ['tooling/vendor-runtime.mjs'], { cwd: frontend, stdio: 'inherit' });
+  }
   const controller = new AbortController();
   const { signal } = controller;
   const liveGroups = new Set();

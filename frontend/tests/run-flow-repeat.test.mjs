@@ -43,6 +43,12 @@ worker.once('message', () => {
   });
 });
 `;
+// Records its turn in PID_LOG so tests can order it against fixture/Next starts.
+const vendorSource = `
+import { appendFileSync } from 'node:fs';
+appendFileSync(process.env.PID_LOG, JSON.stringify({pid:process.pid,role:'vendor'})+'\\n');
+if (process.env.STUB_VENDOR_FAIL) { console.error('injected vendor failure'); process.exit(3); }
+`;
 const flowSource = `
 import { appendFileSync } from 'node:fs';
 appendFileSync(process.env.PID_LOG, JSON.stringify({pid:process.pid,role:'flow'})+'\\n');
@@ -103,6 +109,7 @@ async function harness(t, { helper = groupSource, runner = runnerSource, env = {
   await writeFile(join(dir, 'node_modules/next/dist/bin/next'), serverSource);
   // The extensionless Next bin is a module in its actual npm package too.
   await writeFile(join(dir, 'node_modules/next/package.json'), '{"type":"module"}');
+  await writeFile(join(dir, 'tooling/vendor-runtime.mjs'), vendorSource);
   await writeFile(join(dir, 'tooling/fake-flow.mjs'), flowSource);
   await writeFile(join(dir, 'shell.sh'), shellSource);
   return {
@@ -163,6 +170,31 @@ test('failed flows still repeat and clean fixture, next, flow and workers', { ti
   assert.equal((await h.start(['--mode', 'dev']).result).code, 1);
   assert.match(h.output, /0 pass \/ 2 fail/);
   assert.equal(h.output.match(/cleanup verified/g)?.length, 2);
+  await h.assertClean();
+});
+
+test('dev mode vendors runtime bundles before any server starts', { timeout: 30000 }, async (t) => {
+  const h = await harness(t);
+  assert.deepEqual(await h.start(['--mode', 'dev', '--runs', '1']).result, { code: 0, signal: null });
+  const roles = (await h.records()).map(({ role }) => role);
+  assert.equal(roles.filter((role) => role === 'vendor').length, 1);
+  assert.equal(roles[0], 'vendor', `vendor must run before fixture/next: ${roles}`);
+  assert.ok(roles.includes('next'));
+  await h.assertClean();
+});
+
+test('start mode leaves vendoring to prebuild', { timeout: 30000 }, async (t) => {
+  const h = await harness(t);
+  assert.deepEqual(await h.start(['--runs', '1']).result, { code: 0, signal: null });
+  assert.ok(!(await h.records()).some(({ role }) => role === 'vendor'));
+  await h.assertClean();
+});
+
+test('a failing dev vendor step stops before spawning servers', { timeout: 30000 }, async (t) => {
+  const h = await harness(t, { env: { STUB_VENDOR_FAIL: '1' } });
+  assert.notEqual((await h.start(['--mode', 'dev']).result).code, 0);
+  assert.match(h.output, /injected vendor failure/);
+  assert.doesNotMatch(h.output, /PGID=/);
   await h.assertClean();
 });
 

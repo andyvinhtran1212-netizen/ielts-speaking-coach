@@ -1,7 +1,7 @@
 # Local flow repeats
 
 From `frontend`, install with `npm ci` and build once with synthetic fixture settings: `AVER_ENVIRONMENT=test VERCEL_ENV=development AVER_API_BASE=http://127.0.0.1:3999 AVER_SUPABASE_URL=https://example.supabase.co AVER_SUPABASE_ANON_KEY=test-anon-key npm run build`.
-Run `node tooling/run-flow-repeat.mjs --flow tooling/verify-vocabulary-class-sets-flow.mjs --runs 5` (default `--mode start`; use `--mode dev` without a build).
+Run `node tooling/run-flow-repeat.mjs --flow tooling/verify-vocabulary-class-sets-flow.mjs --runs 5` (default `--mode start`; use `--mode dev` without a build, which first runs `tooling/vendor-runtime.mjs` like `npm run dev` and stops if it fails).
 Each round owns fresh loopback ports, fixture, Next and flow process groups; TERM gets 5 seconds before KILL, followed by a process-table audit. Failures and interruptions exit nonzero.
 Add `--isolate-net` on Linux to run everything in a new network namespace with loopback only (`unshare` and `ip` required; missing permissions fail closed).
 
