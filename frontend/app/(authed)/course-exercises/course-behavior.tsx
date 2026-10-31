@@ -16,6 +16,29 @@ import { useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
+// Nút/link hành động của màn lỗi nằm NGOÀI `#cx-error` (PC-J328), nên ghi lại
+// câu lỗi không còn tự xoá chúng: gỡ cùng lúc khi báo lỗi mới hay khi phiên
+// chạy này bị huỷ, để lượt chạy sau không mang theo nút của lượt trước.
+function clearErrorActions() {
+  document.querySelectorAll('[data-cx-error-action]').forEach((node) => node.remove());
+}
+
+// Đổi tài khoản chạy lại effect trên CÙNG khung CourseShell (không remount),
+// nên lượt mới phải bắt đầu từ màn ban đầu của khung: huy hiệu lưu hiện lại ở
+// trạng thái chờ, khung chặng ẩn, "Đang mở bài tập…" hiện, `#cx-error` rỗng và
+// không còn nút/link của lượt trước. Huy hiệu chỉ bị ẩn lại nếu chính lượt này
+// cũng gặp 4xx/bank rỗng (PC-J330).
+function resetErrorScreen() {
+  clearErrorActions();
+  const $ = (id: string) => document.getElementById(id);
+  const error = $('cx-error'); if (error) { error.hidden = true; error.textContent = ''; }
+  const loading = $('cx-loading'); if (loading) loading.hidden = false;
+  const stage = $('cx-stage'); if (stage) stage.hidden = true;
+  const note = $('cx-save-note'); if (note) { note.hidden = false; note.dataset.state = 'idle'; }
+  // Cùng câu `idle` của setSaveState và của CourseShell.
+  const label = $('cx-save-note-text'); if (label) label.textContent = 'Sẽ lưu khi hoàn thành chặng';
+}
+
 export function CourseBehavior() {
   const { status, user } = useAuth();
   // Khoá theo ID người dùng, KHÔNG dùng cờ "đã chạy một lần": đổi tài khoản giữa
@@ -33,6 +56,7 @@ export function CourseBehavior() {
     if (status !== 'signed-in' || !user?.id) return;
     if (bootedFor.current === user.id) return;
     bootedFor.current = user.id;
+    resetErrorScreen();
 
     let disposed = false;
     let runner: any = null;
@@ -106,6 +130,7 @@ export function CourseBehavior() {
       // `badge` thay câu trên huy hiệu khi lỗi lưu không phải do mạng (PC-J315).
       const fail = (msg: string, opts: { connection?: boolean; badge?: string } = {}) => {
         const l = $('cx-loading'); if (l) l.hidden = true;
+        clearErrorActions();
         const e = $('cx-error'); if (e) { e.hidden = false; e.textContent = msg; }
         if (opts.connection === false) {
           const note = $('cx-save-note'); if (note) note.hidden = true;
@@ -113,14 +138,25 @@ export function CourseBehavior() {
         }
         setSaveState('error', opts.badge || 'Không thể kết nối để lưu');
       };
-      // Link đặt NGAY SAU `#cx-error`, không nằm trong nó: vùng báo lỗi chỉ chứa
-      // câu báo lỗi, trình đọc màn hình không đọc lẫn chữ của nút (PC-J323).
+      // Nút/link đặt NGAY SAU `#cx-error`, không nằm trong nó: vùng báo lỗi chỉ
+      // chứa câu báo lỗi, trình đọc màn hình không đọc lẫn chữ của nút
+      // (PC-J323/J328). Mỗi loại chỉ một cái; thứ tự: tải lại rồi Về Lớp học.
+      const placeErrorAction = (action: HTMLElement, kind: 'retry' | 'back') => {
+        const box = $('cx-error');
+        if (!box) return;
+        document.querySelector(`[data-cx-error-action="${kind}"]`)?.remove();
+        action.classList.add('cx-error-action');
+        action.dataset.cxErrorAction = kind;
+        const retry = kind === 'back'
+          ? document.querySelector('[data-cx-error-action="retry"]') : null;
+        (retry || box).insertAdjacentElement('afterend', action);
+      };
       const appendBackToClass = () => {
         const back = document.createElement('a');
-        back.className = 'av-button av-button-primary cx-error-action';
+        back.className = 'av-button av-button-primary';
         back.href = '/my-class';
         back.textContent = 'Về Lớp học';
-        $('cx-error')?.insertAdjacentElement('afterend', back);
+        placeErrorAction(back, 'back');
       };
       const appendRetry = () => {
         const retry = document.createElement('button');
@@ -128,7 +164,7 @@ export function CourseBehavior() {
         retry.className = 'av-button av-button-primary';
         retry.textContent = 'Thử tải lại tiến độ';
         retry.onclick = () => window.location.reload();
-        $('cx-error')?.appendChild(retry);
+        placeErrorAction(retry, 'retry');
       };
       // Bộ nhớ trình duyệt bị chặn/hỏng không phải lỗi mạng (PC-J315/J323).
       const STORAGE_BADGE = 'Không lưu được trên trình duyệt này';
@@ -1451,6 +1487,7 @@ export function CourseBehavior() {
     return () => {
       disposed = true;
       if (bootedFor.current === user.id) bootedFor.current = null;
+      clearErrorActions();
       pronunciationVisible = false;
       pauseSectionTimers();
       // A Next soft navigation unmounts this client island without firing

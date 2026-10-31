@@ -16,15 +16,24 @@
 // are transient and keep the connection badge; the "Về Lớp học" link sits
 // after `#cx-error`, not inside the error text; a storage failure while
 // answering shows the storage sentence instead of the runner's raw text.
+//
+// PC-J328: the "Thử tải lại tiến độ" button sits right after `#cx-error` too,
+// so the error region reads only the error sentence; a second failure (a new
+// run of the effect) leaves exactly one button.
+//
+// PC-J330 (Codex on #2039): switching accounts reruns the effect on the same
+// shell. A 4xx / empty bank of the previous account hid the save badge and left
+// its error sentence and actions; the new run starts from the shell's initial
+// screen and hides the badge again only for its own 4xx / empty bank.
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { cleanup, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const wire = vi.hoisted(() => ({ apiReady: true }));
+const wire = vi.hoisted(() => ({ apiReady: true, userId: 'student-1' }));
 vi.mock('@/lib/auth/auth-provider', () => ({
-  useAuth: () => ({ status: 'signed-in', user: { id: 'student-1' } }),
+  useAuth: () => ({ status: 'signed-in', user: { id: wire.userId } }),
 }));
 vi.mock('@/lib/when-global-ready.mjs', () => ({
   whenGlobalReady: vi.fn(async () => wire.apiReady),
@@ -56,8 +65,24 @@ function backLinkAfter(box: HTMLElement) {
   return back;
 }
 
+const RETRY = 'Thử tải lại tiến độ';
+const retryButtons = () => Array.from(document.querySelectorAll('button'))
+  .filter((b) => b.textContent === RETRY);
+
+/** The retry button: right after `#cx-error`, never inside it, only one. */
+function retryAfter(box: HTMLElement) {
+  expect(box.querySelector('button')).toBeNull();
+  expect(box.textContent).not.toContain(RETRY);
+  const retry = box.nextElementSibling as HTMLButtonElement | null;
+  expect(retry?.tagName).toBe('BUTTON');
+  expect(retry?.textContent).toBe(RETRY);
+  expect(retryButtons()).toHaveLength(1);
+  return retry;
+}
+
 beforeEach(() => {
   wire.apiReady = true;
+  wire.userId = 'student-1';
   (window as unknown as { api: unknown }).api = { get: vi.fn(), post: vi.fn() };
 });
 afterEach(() => {
@@ -161,7 +186,7 @@ describe('course-exercises error states', () => {
     expect(back?.getAttribute('href')).toBe('/my-class');
     expect(back?.textContent).toBe('Về Lớp học');
     // Reloading cannot produce questions: no retry button.
-    expect(box.querySelector('button')).toBeNull();
+    expect(retryButtons()).toHaveLength(0);
     // The bank was read once; no quiz session was opened for it.
     expect(api.get).toHaveBeenCalledTimes(1);
     expect(api.post).not.toHaveBeenCalled();
@@ -182,7 +207,7 @@ describe('course-exercises error states', () => {
     expect(el('cx-save-note-text').textContent).toBe(STORAGE_BADGE);
     expect(document.body.textContent).not.toContain(CONNECTION_BADGE);
     // Storage may recover (permission granted, space freed): retry stays.
-    expect(box.querySelector('button')?.textContent).toBe('Thử tải lại tiến độ');
+    retryAfter(box);
   });
 
   it('an untagged runner failure (course-resume read lost) keeps the connection badge (negative control)', async () => {
@@ -213,7 +238,9 @@ describe('course-exercises error states', () => {
     expect(el('cx-save-note').hidden).toBe(false);
     expect(el('cx-save-note').dataset.state).toBe('error');
     expect(el('cx-save-note-text').textContent).toBe(STORAGE_BADGE);
-    expect(box.querySelector('button')?.textContent).toBe('Thử tải lại tiến độ');
+    expect(box.textContent).toBe(
+      'Không lưu được trên trình duyệt này. Hãy tắt chế độ ẩn danh hoặc thử trình duyệt khác.');
+    retryAfter(box);
     // No runner was built: nothing was read or opened.
     expect(api.get).not.toHaveBeenCalled();
     expect(api.post).not.toHaveBeenCalled();
@@ -227,7 +254,34 @@ describe('course-exercises error states', () => {
     expect(el('cx-save-note').hidden).toBe(false);
     expect(el('cx-save-note').dataset.state).toBe('error');
     expect(el('cx-save-note-text').textContent).toBe(CONNECTION_BADGE);
-    expect(box.querySelector('button')?.textContent).toBe('Thử tải lại tiến độ');
+    expect(box.textContent).toBe('Không mở được bài tập: HTTP ' + status);
+    retryAfter(box);
+  });
+
+  it('a second failure (new run for another account) still leaves exactly one retry button', async () => {
+    (window.api as unknown as { get: ReturnType<typeof vi.fn> }).get
+      .mockRejectedValue(Object.assign(new Error('HTTP 503'), { status: 503 }));
+    const view = renderPage('?bank=b-twice');
+    const box = await errorShown();
+    retryAfter(box);
+    // Account switch between tabs: the effect runs again on the same shell
+    // and fails again with a different sentence.
+    (window.api as unknown as { get: ReturnType<typeof vi.fn> }).get
+      .mockRejectedValue(Object.assign(new Error('HTTP 502'), { status: 502 }));
+    wire.userId = 'student-2';
+    view.rerender(<><CourseShell /><CourseBehavior /></>);
+    await waitFor(() => expect(box.textContent).toBe('Không mở được bài tập: HTTP 502'));
+    retryAfter(box);
+  });
+
+  it('a run that is torn down takes its retry button with it', async () => {
+    (window.api as unknown as { get: ReturnType<typeof vi.fn> }).get
+      .mockRejectedValue(Object.assign(new Error('HTTP 503'), { status: 503 }));
+    const view = renderPage('?bank=b-teardown');
+    retryAfter(await errorShown());
+    // Unmount only the behaviour island; the shell (and `#cx-error`) stays.
+    view.rerender(<><CourseShell /></>);
+    expect(retryButtons()).toHaveLength(0);
   });
 
   it.each([400, 403, 404])('a %i refusal still hides the connection badge', async (status) => {
@@ -267,5 +321,94 @@ describe('course-exercises error states', () => {
     (document.querySelector('.cx-opt') as HTMLButtonElement).click();
     expect(el('cx-save-note').dataset.state).toBe('error');
     expect(el('cx-save-note-text').textContent).toBe('Lỗi khác');
+  });
+});
+
+describe('course-exercises account switch on the same shell (PC-J330)', () => {
+  const getMock = () => (window.api as unknown as { get: ReturnType<typeof vi.fn> }).get;
+  const refuse = (status: number) => () => getMock()
+    .mockRejectedValue(Object.assign(new Error('HTTP ' + status), { status }));
+
+  function switchAccount(view: ReturnType<typeof render>, userId: string) {
+    wire.userId = userId;
+    view.rerender(<><CourseShell /><CourseBehavior /></>);
+  }
+
+  /** Nothing of a previous error screen is left; the badge shows. */
+  function noErrorLeft() {
+    expect(el('cx-error').hidden).toBe(true);
+    expect(el('cx-error').textContent).toBe('');
+    expect(document.querySelector('[data-cx-error-action]')).toBeNull();
+    expect(retryButtons()).toHaveLength(0);
+    expect(Array.from(document.querySelectorAll('a'))
+      .filter((a) => a.textContent === 'Về Lớp học')).toHaveLength(0);
+    expect(el('cx-save-note').hidden).toBe(false);
+    expect(el('cx-save-note').hasAttribute('hidden')).toBe(false);
+  }
+
+  beforeEach(() => {
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {}); // jsdom: not implemented
+  });
+
+  it.each([
+    ['403', refuse(403)],
+    ['404', refuse(404)],
+    ['an empty bank', () => { bankApi([]); }],
+  ])('account A gets %s, account B loads: badge back, no error or actions left', async (_case, failA) => {
+    failA();
+    const view = renderPage('?bank=b1');
+    await errorShown();
+    expect(el('cx-save-note').hidden).toBe(true);
+
+    bankApi([mcq]);
+    switchAccount(view, 'student-2');
+    await waitFor(() => expect(document.querySelector('.cx-opt')).not.toBeNull());
+    noErrorLeft();
+    expect(el('cx-save-note').dataset.state).toBe('idle');
+    expect(el('cx-save-note-text').textContent).toBe('Sẽ lưu khi hoàn thành chặng');
+    expect(el('cx-loading').hidden).toBe(true);
+  });
+
+  it('account A gets 403, account B gets 503: the connection badge is visible', async () => {
+    refuse(403)();
+    const view = renderPage('?bank=b1');
+    await errorShown();
+    expect(el('cx-save-note').hidden).toBe(true);
+
+    refuse(503)();
+    switchAccount(view, 'student-2');
+    await waitFor(() => expect(el('cx-error').textContent).toBe('Không mở được bài tập: HTTP 503'));
+    expect(el('cx-save-note').hidden).toBe(false);
+    expect(el('cx-save-note').dataset.state).toBe('error');
+    expect(el('cx-save-note-text').textContent).toBe(CONNECTION_BADGE);
+    retryAfter(el('cx-error'));
+  });
+
+  it('the new run starts from the initial screen before its load answers', async () => {
+    refuse(404)();
+    const view = renderPage('?bank=b1');
+    await errorShown();
+
+    // Account B's bank read never answers: only the reset is visible.
+    getMock().mockImplementation(() => new Promise(() => {}));
+    switchAccount(view, 'student-2');
+    noErrorLeft();
+    expect(el('cx-loading').hidden).toBe(false);
+    expect(el('cx-stage').hidden).toBe(true);
+    expect(el('cx-save-note').dataset.state).toBe('idle');
+  });
+
+  it('account A loads, account B gets 403: the badge is hidden for B', async () => {
+    bankApi([mcq]);
+    const view = renderPage('?bank=b1');
+    await waitFor(() => expect(document.querySelector('.cx-opt')).not.toBeNull());
+    expect(el('cx-save-note').hidden).toBe(false);
+
+    refuse(403)();
+    switchAccount(view, 'student-2');
+    await waitFor(() => expect(el('cx-error').textContent).toBe('Không mở được bài tập: HTTP 403'));
+    expect(el('cx-error').hidden).toBe(false);
+    expect(el('cx-save-note').hidden).toBe(true);
+    expect(document.body.textContent).not.toContain(CONNECTION_BADGE);
   });
 });
