@@ -109,3 +109,21 @@ it('shows an mcq_multi question once on an opened card when the instruction also
   expect(card.querySelector('.review-question-context')?.textContent).toContain('Choose TWO letters, A–E.');
   expect(card.textContent!.split(question)).toHaveLength(2);
 });
+
+it('keeps a no-solution mcq_multi card context visible while unopened and still shows its question once (PC-J488: RV-02 + PC-J211)', async () => {
+  const raw = structuredClone(fixture.group_review);
+  const question = 'Which TWO benefits for children of learning to write did BOTH students find surprising?';
+  raw.review = raw.review.map((row: any, i: number) => ({ ...row, q_num: 21 + i, prompt: question, solution: {},
+    question_context: { ...row.question_context, question_id: `728216be-2118-5cab-b063-9f19b7ebfc8e:${21 + i}`,
+      instruction: `Choose TWO letters, A–E.\n${question}` },
+  }));
+  getWith.mockResolvedValue(raw);
+  const view = render(<ListeningReviewWorkspace />);
+  await screen.findByRole('button', { name: 'Câu 21 — xem trước', exact: true });
+  // Q21 is the default current card; Q22 is neither opened nor selected.
+  const card = view.container.querySelector('#listening-review-q-22')!;
+  expect(card.classList.contains('is-open')).toBe(false);
+  expect(card.classList.contains('is-current')).toBe(false);
+  expect(card.querySelector('.review-question-context')?.textContent).toContain('Choose TWO letters, A–E.');
+  expect(card.textContent!.split(question)).toHaveLength(2);
+});
