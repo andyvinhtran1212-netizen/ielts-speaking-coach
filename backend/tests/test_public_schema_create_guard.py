@@ -250,3 +250,18 @@ def test_clone_keeps_service_role_usage_on_public():
         if "public" in schemas and privileges == {"USAGE"} and "service_role" in grantees
     ]
     assert len(usage) == 1, usage
+
+
+def test_clone_postconditions_refuse_service_role_create_on_public():
+    # The dump replays the source's schema ACL after reset.sql, so a CREATE the
+    # repo never grants can still arrive from production; check the result.
+    source = _blank_comments(
+        (REPO / "backend/scripts/sql/staging_clone_postconditions.sql").read_text(encoding="utf-8")
+    )
+    check = re.search(
+        r"IF\s+has_schema_privilege\(\s*'service_role'\s*,\s*'public'\s*,\s*'CREATE'\s*\)\s+THEN\s+"
+        r"RAISE\s+EXCEPTION\s+'service_role_can_create_in_public'\s*;",
+        source,
+        re.IGNORECASE,
+    )
+    assert check, "postconditions must fail the clone when service_role can CREATE in public"
