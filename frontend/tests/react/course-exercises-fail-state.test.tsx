@@ -10,6 +10,12 @@
 // An empty bank (`bank_empty`) is a neutral notice with the way back; a broken
 // browser storage (`storage_unavailable`) says so on the badge. Untagged
 // errors stay connection errors.
+//
+// PC-J323: a throwing `window.localStorage` getter (blocked site data, some
+// private modes) used to leave the page stuck on "Đang mở bài tập…"; 408/429
+// are transient and keep the connection badge; the "Về Lớp học" link sits
+// after `#cx-error`, not inside the error text; a storage failure while
+// answering shows the storage sentence instead of the runner's raw text.
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -40,6 +46,14 @@ const el = (id: string) => document.getElementById(id) as HTMLElement;
 async function errorShown() {
   await waitFor(() => expect(el('cx-error').hidden).toBe(false));
   return el('cx-error');
+}
+
+/** The "Về Lớp học" link: right after `#cx-error`, never inside it. */
+function backLinkAfter(box: HTMLElement) {
+  expect(box.querySelector('a')).toBeNull();
+  const back = box.nextElementSibling as HTMLAnchorElement | null;
+  expect(back?.tagName).toBe('A');
+  return back;
 }
 
 beforeEach(() => {
@@ -77,9 +91,10 @@ describe('course-exercises error states', () => {
     expect(box.textContent).toContain('Liên kết bài tập chưa đầy đủ. Hãy mở bài từ Lớp học.');
     expect(document.body.textContent).not.toContain('?bank=');
     expect(document.body.textContent).not.toContain(CONNECTION_BADGE);
-    const back = box.querySelector('a');
+    const back = backLinkAfter(box);
     expect(back?.getAttribute('href')).toBe('/my-class');
     expect(back?.textContent).toBe('Về Lớp học');
+    expect(box.textContent).not.toContain('Về Lớp học');
     expect(el('cx-save-note').hidden).toBe(true);
     expect(el('cx-stage').hidden).toBe(true);
     expect(el('cx-loading').hidden).toBe(true);
@@ -96,6 +111,7 @@ describe('course-exercises error states', () => {
     expect(el('cx-save-note').dataset.state).toBe('error');
     expect(el('cx-save-note-text').textContent).toBe(CONNECTION_BADGE);
     expect(box.querySelector('a[href="/my-class"]')).toBeNull();
+    expect(document.querySelector('.cx-error-action')).toBeNull();
   });
 
   it('a 4xx refusal from the bank read is not shown as a connection error', async () => {
@@ -141,7 +157,7 @@ describe('course-exercises error states', () => {
     expect(el('cx-save-note').hidden).toBe(true);
     expect(el('cx-stage').hidden).toBe(true);
     expect(el('cx-loading').hidden).toBe(true);
-    const back = box.querySelector('a');
+    const back = backLinkAfter(box);
     expect(back?.getAttribute('href')).toBe('/my-class');
     expect(back?.textContent).toBe('Về Lớp học');
     // Reloading cannot produce questions: no retry button.
@@ -180,5 +196,76 @@ describe('course-exercises error states', () => {
     expect(box.textContent).toContain('Chưa tải được tiến độ đã lưu');
     expect(el('cx-save-note').hidden).toBe(false);
     expect(el('cx-save-note-text').textContent).toBe(CONNECTION_BADGE);
+  });
+
+  it('a throwing localStorage getter shows the storage sentence instead of hanging on "Đang mở bài tập…"', async () => {
+    const api = bankApi([mcq]);
+    vi.spyOn(window, 'localStorage', 'get').mockImplementation(() => {
+      throw new DOMException('The operation is insecure.', 'SecurityError');
+    });
+    renderPage('?bank=b1');
+    const box = await errorShown();
+    expect(el('cx-loading').hidden).toBe(true);
+    expect(box.textContent).toContain(
+      'Không lưu được trên trình duyệt này. Hãy tắt chế độ ẩn danh hoặc thử trình duyệt khác.');
+    expect(box.textContent).not.toContain('insecure');
+    expect(document.body.textContent).not.toContain(CONNECTION_BADGE);
+    expect(el('cx-save-note').hidden).toBe(false);
+    expect(el('cx-save-note').dataset.state).toBe('error');
+    expect(el('cx-save-note-text').textContent).toBe(STORAGE_BADGE);
+    expect(box.querySelector('button')?.textContent).toBe('Thử tải lại tiến độ');
+    // No runner was built: nothing was read or opened.
+    expect(api.get).not.toHaveBeenCalled();
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it.each([408, 429])('a transient %i keeps the connection badge and the retry button', async (status) => {
+    (window.api as unknown as { get: ReturnType<typeof vi.fn> }).get
+      .mockRejectedValue(Object.assign(new Error('HTTP ' + status), { status }));
+    renderPage('?bank=b-' + status);
+    const box = await errorShown();
+    expect(el('cx-save-note').hidden).toBe(false);
+    expect(el('cx-save-note').dataset.state).toBe('error');
+    expect(el('cx-save-note-text').textContent).toBe(CONNECTION_BADGE);
+    expect(box.querySelector('button')?.textContent).toBe('Thử tải lại tiến độ');
+  });
+
+  it.each([400, 403, 404])('a %i refusal still hides the connection badge', async (status) => {
+    (window.api as unknown as { get: ReturnType<typeof vi.fn> }).get
+      .mockRejectedValue(Object.assign(new Error('HTTP ' + status), { status }));
+    renderPage('?bank=b-' + status);
+    await errorShown();
+    expect(el('cx-save-note').hidden).toBe(true);
+    expect(document.body.textContent).not.toContain(CONNECTION_BADGE);
+  });
+
+  it('a storage failure while answering shows the storage sentence, not the runner text', async () => {
+    bankApi([mcq]);
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {}); // jsdom: not implemented
+    renderPage('?bank=b1');
+    await waitFor(() => expect(document.querySelector('.cx-opt')).not.toBeNull());
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('quota', 'QuotaExceededError');
+    });
+    (document.querySelector('.cx-opt') as HTMLButtonElement).click();
+    expect(el('cx-save-note').dataset.state).toBe('error');
+    expect(el('cx-save-note-text').textContent).toBe(
+      'Không lưu được trên trình duyệt này. Hãy tắt chế độ ẩn danh hoặc thử trình duyệt khác.');
+    expect(document.body.textContent).not.toContain('Chưa lưu được đáp án trên máy');
+    expect(document.body.textContent).not.toContain(CONNECTION_BADGE);
+    // The choice was not acknowledged: the options stay open to pick again.
+    expect((document.querySelector('.cx-opt') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('an answer error without a storage code still shows the runner text (negative control)', async () => {
+    bankApi([mcq]);
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {}); // jsdom: not implemented
+    renderPage('?bank=b1');
+    await waitFor(() => expect(document.querySelector('.cx-opt')).not.toBeNull());
+    // Not via the storage path: the runner refuses with its own, uncoded message.
+    vi.spyOn(crypto, 'randomUUID').mockImplementation(() => { throw new Error('Lỗi khác'); });
+    (document.querySelector('.cx-opt') as HTMLButtonElement).click();
+    expect(el('cx-save-note').dataset.state).toBe('error');
+    expect(el('cx-save-note-text').textContent).toBe('Lỗi khác');
   });
 });
