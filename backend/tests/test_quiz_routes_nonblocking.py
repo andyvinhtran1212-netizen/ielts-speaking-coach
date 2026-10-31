@@ -54,7 +54,7 @@ def payloads():
         'get_bank_for_play': {
             'bank': {'id': BANK, 'title': 'Đề kiểm tra 300 câu'},
             'questions': [{'qid': f'q-{i}', 'type': 'mcq',
-                           'stem': 'Chọn câu phù hợp với ngữ cảnh. ' * 28,
+                           'prompt': 'Chọn câu phù hợp với ngữ cảnh. ' * 28,
                            'options': ['One', 'Two', 'Three', 'Four']} for i in range(300)],
             'word_cards': {},
         },

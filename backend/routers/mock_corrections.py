@@ -6,6 +6,8 @@ paper, score and historical attempts untouched.
 """
 from __future__ import annotations
 
+import asyncio
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
@@ -89,6 +91,27 @@ def _service_error(exc: Exception) -> HTTPException:
     return HTTPException(500, str(exc))
 
 
+# (skill, attempt_id) -> [lock, holders]. Serialises two tabs capturing the same
+# attempt inside this process so their per-item upserts cannot interleave; an
+# entry is dropped when its last holder leaves, so the map stays bounded.
+# Across processes the UNIQUE capture row is the backstop (replay or 409).
+_capture_locks: dict[tuple[str, str], list] = {}
+
+
+@asynccontextmanager
+async def _capture_lock(skill: str, attempt_id: str):
+    key = (skill, attempt_id.lower())
+    entry = _capture_locks.setdefault(key, [asyncio.Lock(), 0])
+    entry[1] += 1
+    try:
+        async with entry[0]:
+            yield
+    finally:
+        entry[1] -= 1
+        if not entry[1]:
+            del _capture_locks[key]
+
+
 @router.post("/{skill}/attempts/{attempt_id}/post-test-capture")
 async def submit_post_test_capture(
     skill: Literal["reading", "listening"],
@@ -98,20 +121,35 @@ async def submit_post_test_capture(
 ):
     user = await get_supabase_user(authorization)
     try:
-        recorded = svc.record_post_test_capture(
-            skill,
-            attempt_id,
-            user["id"],
-            [item.model_dump() for item in body.items],
-        )
-        attempt = recorded["attempt"]
-        access = svc.explanation_access(skill, attempt)
-        return {
-            "capture": recorded["capture"],
-            "replayed": recorded["replayed"],
-            "result": svc.learner_result_payload(skill, attempt),
-            "web_explanation_access": svc.public_access_metadata(access),
-        }
+        def _capture():
+            recorded = svc.record_post_test_capture(
+                skill,
+                attempt_id,
+                user["id"],
+                [item.model_dump() for item in body.items],
+            )
+            attempt = recorded["attempt"]
+            access = svc.explanation_access(skill, attempt)
+            return {
+                "capture": recorded["capture"],
+                "replayed": recorded["replayed"],
+                "result": svc.learner_result_payload(skill, attempt),
+                "web_explanation_access": svc.public_access_metadata(access),
+            }
+
+        async with _capture_lock(skill, attempt_id):
+            work = asyncio.ensure_future(asyncio.to_thread(_capture))
+            try:
+                return await asyncio.shield(work)
+            except asyncio.CancelledError:
+                # A thread outlives request cancellation. Retain the lock until
+                # it finishes, even if the request is cancelled again.
+                while not work.done():
+                    with suppress(asyncio.CancelledError):
+                        await asyncio.wait({work})
+                if not work.cancelled():
+                    work.exception()
+                raise
     except svc.CorrectionError as exc:
         raise _service_error(exc) from exc
 
@@ -126,7 +164,8 @@ async def submit_correction_event(
 ):
     user = await get_supabase_user(authorization)
     try:
-        return svc.record_correction_event(
+        return await asyncio.to_thread(
+            svc.record_correction_event,
             skill,
             attempt_id,
             user["id"],
@@ -153,7 +192,7 @@ async def patch_class_policy(
     if "content_version" in patch:
         patch["content_version"] = patch.pop("content_version")
     try:
-        return svc.update_class_assignment_policy(assignment_id, patch, admin["id"])
+        return await asyncio.to_thread(svc.update_class_assignment_policy, assignment_id, patch, admin["id"])
     except svc.CorrectionError as exc:
         raise _service_error(exc) from exc
 
@@ -169,7 +208,7 @@ async def patch_mock_policy(
     if "content_version" in patch:
         patch["web_explanation_content_version"] = patch.pop("content_version")
     try:
-        return svc.update_mock_exam_policy(exam_id, patch, admin["id"])
+        return await asyncio.to_thread(svc.update_mock_exam_policy, exam_id, patch, admin["id"])
     except svc.CorrectionError as exc:
         raise _service_error(exc) from exc
 
@@ -186,7 +225,7 @@ async def patch_public_policy(
     if "content_version" in patch:
         patch["web_explanation_content_version"] = patch.pop("content_version")
     try:
-        return svc.update_public_test_policy(skill, test_id, patch, admin["id"])
+        return await asyncio.to_thread(svc.update_public_test_policy, skill, test_id, patch, admin["id"])
     except svc.CorrectionError as exc:
         raise _service_error(exc) from exc
 
@@ -199,7 +238,8 @@ async def approve_content_version(
 ):
     admin = await require_admin(authorization)
     try:
-        return svc.approve_content_version(
+        return await asyncio.to_thread(
+            svc.approve_content_version,
             content_version,
             admin["id"],
             rights_approved=body.rights_approved,
@@ -216,13 +256,13 @@ async def content_version_health(
     authorization: str | None = Header(default=None),
 ):
     await require_admin(authorization)
-    return svc.content_health(content_version)
+    return await asyncio.to_thread(svc.content_health, content_version)
 
 
 @admin_router.get("/content-health")
 async def all_content_health(authorization: str | None = Header(default=None)):
     await require_admin(authorization)
-    return svc.content_health()
+    return await asyncio.to_thread(svc.content_health)
 
 
 @admin_router.get("/items/{item_attempt_id}/timeline")
@@ -232,7 +272,7 @@ async def item_timeline(
 ):
     await require_admin(authorization)
     try:
-        return svc.admin_item_timeline(item_attempt_id)
+        return await asyncio.to_thread(svc.admin_item_timeline, item_attempt_id)
     except svc.CorrectionError as exc:
         raise _service_error(exc) from exc
 
@@ -247,7 +287,8 @@ async def performance_summary(
 ):
     await require_admin(authorization)
     try:
-        return svc.admin_performance_summary(
+        return await asyncio.to_thread(
+            svc.admin_performance_summary,
             learner_id=learner_id,
             skill=skill,
             class_assignment_id=class_assignment_id,

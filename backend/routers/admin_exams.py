@@ -8,6 +8,9 @@ a list that includes drafts. Admin-gated (require_admin).
 """
 from __future__ import annotations
 
+import asyncio
+from contextlib import suppress
+
 from fastapi import APIRouter, File, Header, Query, UploadFile
 
 from routers.admin import require_admin
@@ -16,10 +19,27 @@ from services import exam_service
 router = APIRouter(prefix="/admin/exams", tags=["admin-exams"])
 
 
+async def _commit_import(text: str):
+    # Student play/submit share this lock, so they cannot read a deleted key.
+    async with exam_service.import_lock():
+        work = asyncio.ensure_future(asyncio.to_thread(exam_service.import_exam, text, dry_run=False))
+        try:
+            return await asyncio.shield(work)
+        except asyncio.CancelledError:
+            # Cancellation cannot stop the thread between metadata upsert and
+            # question replacement. Keep the lock until every write finishes.
+            while not work.done():
+                with suppress(asyncio.CancelledError):
+                    await asyncio.wait({work})
+            if not work.cancelled():
+                work.exception()
+            raise
+
+
 @router.get("")
 async def admin_list_exams(authorization: str | None = Header(default=None)):
     await require_admin(authorization)
-    return {"exams": exam_service.admin_list_all()}
+    return {"exams": await asyncio.to_thread(exam_service.admin_list_all)}
 
 
 @router.post("/import")
@@ -34,4 +54,6 @@ async def admin_import_exam(
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
         return {"ok": False, "validation_errors": [{"field": "file", "message": "File phải là UTF-8."}]}
-    return exam_service.import_exam(text, dry_run=dry_run)
+    if dry_run:
+        return await asyncio.to_thread(exam_service.import_exam, text, dry_run=True)
+    return await _commit_import(text)

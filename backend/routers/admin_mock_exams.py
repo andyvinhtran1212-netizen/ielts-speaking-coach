@@ -29,6 +29,11 @@ console lives in admin_mock_reviews.py.
 """
 from __future__ import annotations
 
+import asyncio
+import inspect
+import logging
+import weakref
+from contextlib import suppress
 from datetime import timezone
 from typing import Annotated, Literal
 
@@ -43,6 +48,97 @@ from services import mock_exam_service as svc
 from services import mock_review_workflow as wf
 
 router = APIRouter(prefix="/admin/mock-exams", tags=["admin-mock-exams"])
+logger = logging.getLogger(__name__)
+
+
+# Keep exam validation/publication and assignment batches/refreshes serial.
+# Strong references in holders/waiters retain a lock only while it is in use.
+_assignment_write_locks: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
+
+
+async def _assignment_write(exam_id, fn, *args, **kwargs):
+    key = str(exam_id).lower()
+    lock = _assignment_write_locks.get(key)
+    if lock is None:
+        lock = _assignment_write_locks[key] = asyncio.Lock()
+    async with lock:
+        work = asyncio.ensure_future(asyncio.to_thread(fn, *args, **kwargs))
+        try:
+            return await asyncio.shield(work)
+        except asyncio.CancelledError:
+            # Threads cannot be interrupted. A cancelled request must retain
+            # the exam lock until its entire edit, write/refresh or remove finishes.
+            while not work.done():
+                with suppress(asyncio.CancelledError):
+                    await asyncio.wait({work})
+            if not work.cancelled():
+                work.exception()
+            raise
+
+
+# Backfill reads missing links before creating essays. Keep same-exam promotes
+# serial, including after cancellation while their worker is still writing.
+_writing_promote_locks: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
+
+
+async def _writing_promote(exam_id):
+    key = str(exam_id).lower()
+    lock = _writing_promote_locks.get(key)
+    if lock is None:
+        lock = _writing_promote_locks[key] = asyncio.Lock()
+    async with lock:
+        work = asyncio.ensure_future(asyncio.to_thread(svc.backfill_promote_writing, exam_id))
+        try:
+            return await asyncio.shield(work)
+        except asyncio.CancelledError:
+            while not work.done():
+                with suppress(asyncio.CancelledError):
+                    await asyncio.wait({work})
+            if not work.cancelled():
+                work.exception()
+            raise
+
+
+# Strong references to dispatches of cancelled requests until they end.
+_cancelled_dispatches: set = set()
+
+
+def _dispatch_detached(fn, *args) -> None:
+    """Run a BackgroundTasks-style job without a response to own it."""
+    async def _run() -> None:
+        try:
+            if inspect.iscoroutinefunction(fn):
+                await fn(*args)
+            else:
+                await asyncio.to_thread(fn, *args)
+        except Exception:  # noqa: BLE001 — same as a crashed BackgroundTask
+            logger.exception("[admin-mock] cancelled-request dispatch failed: %s", fn.__name__)
+
+    task = asyncio.create_task(_run())
+    _cancelled_dispatches.add(task)
+    task.add_done_callback(_cancelled_dispatches.discard)
+
+
+async def _claim_then_dispatch(claim, background_tasks: BackgroundTasks):
+    """Run the sync ``claim`` in a worker thread; it returns ``(result, jobs)``
+    with ``jobs`` as ``(fn, *args)`` tuples that its writes made this request
+    responsible for. Normally they run as BackgroundTasks. A cancelled request
+    never sends a response, so BackgroundTasks never run, while the thread's
+    claim still commits: wait for the thread and give the jobs their own task."""
+    work = asyncio.ensure_future(asyncio.to_thread(claim))
+    try:
+        result, jobs = await asyncio.shield(work)
+    except asyncio.CancelledError:
+        while not work.done():
+            with suppress(asyncio.CancelledError):
+                await asyncio.wait({work})
+        if not work.cancelled() and work.exception() is None:
+            for fn, *args in work.result()[1]:
+                _dispatch_detached(fn, *args)
+        raise
+    for fn, *args in jobs:
+        background_tasks.add_task(fn, *args)
+    return result
 
 
 def _window_instant(value) -> str | None:
@@ -234,7 +330,7 @@ class BulkGradeBody(BaseModel):
 @router.get("", response_model=AdminMockExamListResponse)
 async def list_exams(authorization: str | None = Header(default=None)):
     await require_admin(authorization)
-    return {"exams": svc.admin_list_exams()}
+    return {"exams": await asyncio.to_thread(svc.admin_list_exams)}
 
 
 @router.get("/reading-tests")
@@ -243,7 +339,7 @@ async def available_reading_tests(authorization: str | None = Header(default=Non
     NOT hide tests already assigned to another mock exam — unlike the student
     practice list, a reading test may be reused across several mock exams."""
     await require_admin(authorization)
-    return {"items": svc.admin_available_reading_tests()}
+    return {"items": await asyncio.to_thread(svc.admin_available_reading_tests)}
 
 
 @router.get("/picker", response_model=AdminExamPickerPage)
@@ -255,14 +351,14 @@ async def exam_picker_page(
     authorization: str | None = Header(default=None),
 ):
     await require_admin(authorization)
-    return svc.admin_exam_picker_page(kind, q.strip(), limit, offset)
+    return await asyncio.to_thread(svc.admin_exam_picker_page, kind, q.strip(), limit, offset)
 
 
 @router.post("")
 async def create_exam(body: ExamCreate, authorization: str | None = Header(default=None)):
     admin = await require_admin(authorization)
     try:
-        return svc.admin_create_exam(body.model_dump(exclude_none=True), admin["id"])
+        return await asyncio.to_thread(svc.admin_create_exam, body.model_dump(exclude_none=True), admin["id"])
     except svc.DuplicateExamCodeError as e:
         raise HTTPException(409, str(e))
     except ValueError as e:
@@ -278,7 +374,7 @@ async def update_exam(
     if body.status is not None and body.status not in ("draft", "published", "archived"):
         raise HTTPException(400, "status không hợp lệ.")
     try:
-        return svc.admin_update_exam(exam_id, patch, admin["id"])
+        return await _assignment_write(exam_id, svc.admin_update_exam, exam_id, patch, admin["id"])
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
     except ValueError as e:
@@ -292,7 +388,7 @@ async def set_open(
     """Live toggle — open the exam so students can start, or close it."""
     admin = await require_admin(authorization)
     try:
-        return svc.set_open(exam_id, body.is_open, admin["id"])
+        return await asyncio.to_thread(svc.set_open, exam_id, body.is_open, admin["id"])
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
     except svc.SittingConflictError as e:
@@ -315,7 +411,7 @@ async def advance_section(
     """
     admin = await require_admin(authorization)
     try:
-        out = svc.advance_section(exam_id, admin["id"], body.from_section)
+        out = await asyncio.to_thread(svc.advance_section, exam_id, admin["id"], body.from_section)
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
     except svc.SittingConflictError as e:
@@ -364,39 +460,40 @@ async def collect_section(
     the open one; passing an earlier one re-sweeps it — the recovery path when a
     background sweep died half-way."""
     admin = await require_admin(authorization)
-    try:
-        info = svc.collect_preflight(exam_id, section, from_section)
-    except svc.NotFoundError as e:
-        raise HTTPException(404, str(e))
-    except svc.SittingConflictError as e:
-        raise HTTPException(409, str(e))
-    except svc.MockExamError as e:
-        # A lookup failure is NOT "0 bài đã thu" — the preflight does the count
-        # SYNCHRONOUSLY precisely so a dead database is a real error here rather
-        # than a 202 followed by a background sweep that collects nothing
-        # (Codex review, PR #844).
-        raise HTTPException(503, str(e))
-    # Close admissions synchronously — the pause must hold from the moment the
-    # request is accepted, not from whenever the queued sweep happens to run.
-    marked = svc.mark_section_collected(exam_id, info["section"])
-    # For a fresh collection, a false compare-and-set means advance won the
-    # race after preflight. Do not queue an uncoordinated sweep against the old
-    # section. Recovery re-sweeps intentionally target an earlier section, so
-    # their marker update is expected to be a no-op.
-    if info["section"] == from_section and not marked:
-        raise HTTPException(
-            409,
-            "Phần thi vừa được chuyển bởi thao tác khác; chưa xếp hàng thu bài. "
-            "Tải lại trang để đối chiếu.",
-        )
-    background_tasks.add_task(
+
+    def _collect():
+        try:
+            info = svc.collect_preflight(exam_id, section, from_section)
+        except svc.NotFoundError as e:
+            raise HTTPException(404, str(e))
+        except svc.SittingConflictError as e:
+            raise HTTPException(409, str(e))
+        except svc.MockExamError as e:
+            # A lookup failure is NOT "0 bài đã thu" — the preflight does the count
+            # SYNCHRONOUSLY precisely so a dead database is a real error here rather
+            # than a 202 followed by a background sweep that collects nothing
+            # (Codex review, PR #844).
+            raise HTTPException(503, str(e))
+        # Close admissions synchronously — the pause must hold from the moment the
+        # request is accepted, not from whenever the queued sweep happens to run.
+        marked = svc.mark_section_collected(exam_id, info["section"])
+        # For a fresh collection, a false compare-and-set means advance won the
+        # race after preflight. Do not queue an uncoordinated sweep against the old
+        # section. Recovery re-sweeps intentionally target an earlier section, so
+        # their marker update is expected to be a no-op.
+        if info["section"] == from_section and not marked:
+            raise HTTPException(
+                409,
+                "Phần thi vừa được chuyển bởi thao tác khác; chưa xếp hàng thu bài. "
+                "Tải lại trang để đối chiếu.",
+            )
         # No from_section: the stale-screen check already ran, synchronously,
         # against the state at request time. Re-checking it inside the queued
         # task would fail the sweep whenever a legitimate advance happened in
         # between — losing the very papers this call accepted responsibility for.
-        svc.collect_section_after_flush_grace,
-        exam_id, admin["id"], info["section"],
-    )
+        return info, [(svc.collect_section_after_flush_grace, exam_id, admin["id"], info["section"])]
+
+    info = await _claim_then_dispatch(_collect, background_tasks)
     return {**info, "queued": True}
 
 
@@ -407,7 +504,7 @@ async def section_progress(
     """Live "đã nộp X/Y" counts per section — informs when to advance."""
     await require_admin(authorization)
     try:
-        return svc.admin_section_progress(exam_id)
+        return await asyncio.to_thread(svc.admin_section_progress, exam_id)
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
 
@@ -420,7 +517,7 @@ async def live_monitor(exam_id: str, authorization: str | None = Header(default=
     holds, last activity). One poll, batched lookups, persisted state only."""
     await require_admin(authorization)
     try:
-        return svc.admin_live_monitor(exam_id)
+        return await asyncio.to_thread(svc.admin_live_monitor, exam_id)
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
 
@@ -428,7 +525,7 @@ async def live_monitor(exam_id: str, authorization: str | None = Header(default=
 @router.get("/{exam_id}/sittings")
 async def list_sittings(exam_id: str, authorization: str | None = Header(default=None)):
     await require_admin(authorization)
-    return {"sittings": svc.admin_list_sittings(exam_id)}
+    return {"sittings": await asyncio.to_thread(svc.admin_list_sittings, exam_id)}
 
 
 @router.get("/{exam_id}/retest-summary")
@@ -436,7 +533,7 @@ async def retest_summary(exam_id: str, authorization: str | None = Header(defaul
     """Per-skill "cần test lại" counts for this exam's class — how many
     sittings an admin flagged, broken out per skill, plus the roster."""
     await require_admin(authorization)
-    return wf.retest_summary(exam_id)
+    return await asyncio.to_thread(wf.retest_summary, exam_id)
 
 
 @router.get("/{exam_id}/roster")
@@ -445,14 +542,14 @@ async def roster(exam_id: str, authorization: str | None = Header(default=None))
     per-skill preliminary snapshot (L/R correct count, Writing word counts,
     Speaking session count) + claim status. Replaces the flat review queue."""
     await require_admin(authorization)
-    return {"roster": wf.roster(exam_id)}
+    return {"roster": await asyncio.to_thread(wf.roster, exam_id)}
 
 
 @router.get("/{exam_id}/assignments")
 async def list_assignments(exam_id: str, authorization: str | None = Header(default=None)):
     """Per-student retake assignments for this exam (with student names)."""
     await require_admin(authorization)
-    return {"assignments": assign_svc.list_assignments(exam_id)}
+    return {"assignments": await asyncio.to_thread(assign_svc.list_assignments, exam_id)}
 
 
 @router.post("/{exam_id}/assignments")
@@ -465,7 +562,9 @@ async def create_assignments(
     admin = await require_admin(authorization)
     rows = [r.model_dump() for r in body.assignments]
     try:
-        return assign_svc.assign(
+        return await _assignment_write(
+            exam_id,
+            assign_svc.assign,
             exam_id, rows, created_by=admin["id"], source_exam_id=body.source_exam_id,
         )
     except (assign_svc.InvalidWindowError, assign_svc.UnservableSkillError) as e:
@@ -484,7 +583,9 @@ async def delete_assignment(
     doing two things silently under one verb."""
     admin = await require_admin(authorization)
     try:
-        out = assign_svc.remove(exam_id, student_id, admin_id=admin["id"])
+        out = await _assignment_write(
+            exam_id, assign_svc.remove, exam_id, student_id, admin_id=admin["id"],
+        )
     except assign_svc.RevocationError as e:
         # The assignment is gone but an open sitting survived, so access was
         # NOT revoked. Answering ok:true here would show the admin a revocation
@@ -511,41 +612,45 @@ async def bulk_grade_writing(
     the single endpoint, so the downstream pipeline is unchanged."""
     await require_admin(authorization)
 
-    queued: list[str] = []
-    skipped: list[str] = []
-    short: list[str] = []
-    retest_skipped: list[str] = []
-    for sitting_id in body.sitting_ids:
-        sitting = svc.get_sitting(sitting_id)
-        # Only grade essays for a sitting that actually belongs to this exam —
-        # never let a stray id reach into another exam's work.
-        if not sitting or str(sitting.get("mock_exam_id")) != str(exam_id):
-            continue
-        # Early retest flag → this student is retaking; don't grade their Writing.
-        if sitting.get("needs_retest"):
-            retest_skipped.append(str(sitting_id))
-            continue
-        # Word-count-gated claim: too-short essays are reported in `short` (held
-        # for the admin's grade-anyway / skip decision), not auto-queued.
-        res = svc.claim_mock_writing_grading(
-            [sitting.get("essay_task1_id"), sitting.get("essay_task2_id")],
-            grading_tier=body.grading_tier,
-            analysis_level=body.analysis_level,
-            selected_model=body.selected_model,
-        )
-        for essay_id, job_id in res["queued"]:
-            background_tasks.add_task(essay_service._bg_grade_essay, essay_id, job_id)
-            queued.append(essay_id)
-        short.extend(res["short"])
-        skipped.extend(res["skipped"])
+    def _claim_writing():
+        jobs: list[tuple] = []
+        queued: list[str] = []
+        skipped: list[str] = []
+        short: list[str] = []
+        retest_skipped: list[str] = []
+        for sitting_id in body.sitting_ids:
+            sitting = svc.get_sitting(sitting_id)
+            # Only grade essays for a sitting that actually belongs to this exam —
+            # never let a stray id reach into another exam's work.
+            if not sitting or str(sitting.get("mock_exam_id")) != str(exam_id):
+                continue
+            # Early retest flag → this student is retaking; don't grade their Writing.
+            if sitting.get("needs_retest"):
+                retest_skipped.append(str(sitting_id))
+                continue
+            # Word-count-gated claim: too-short essays are reported in `short` (held
+            # for the admin's grade-anyway / skip decision), not auto-queued.
+            res = svc.claim_mock_writing_grading(
+                [sitting.get("essay_task1_id"), sitting.get("essay_task2_id")],
+                grading_tier=body.grading_tier,
+                analysis_level=body.analysis_level,
+                selected_model=body.selected_model,
+            )
+            for essay_id, job_id in res["queued"]:
+                jobs.append((essay_service._bg_grade_essay, essay_id, job_id))
+                queued.append(essay_id)
+            short.extend(res["short"])
+            skipped.extend(res["skipped"])
 
-    return {
-        "queued":         queued,
-        "skipped":        skipped,
-        "short":          short,
-        "retest_skipped": retest_skipped,
-        "grading_tier":   body.grading_tier,
-    }
+        return {
+            "queued":         queued,
+            "skipped":        skipped,
+            "short":          short,
+            "retest_skipped": retest_skipped,
+            "grading_tier":   body.grading_tier,
+        }, jobs
+
+    return await _claim_then_dispatch(_claim_writing, background_tasks)
 
 
 @router.post("/writing/essays/{essay_id}/skip-grading")
@@ -559,7 +664,7 @@ async def skip_writing_grading(
     self-submit essay out of its own queue."""
     admin = await require_admin(authorization)
     try:
-        return svc.skip_mock_writing_grading(essay_id, admin_id=admin["id"])
+        return await asyncio.to_thread(svc.skip_mock_writing_grading, essay_id, admin_id=admin["id"])
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
     except svc.SittingConflictError as e:
@@ -575,7 +680,7 @@ async def promote_writing(
     promotion feature shipped → text captured, no essay rows, nothing to grade).
     Idempotent; does NOT grade (use bulk-grade next). Returns per-sitting counts."""
     await require_admin(authorization)
-    return svc.backfill_promote_writing(exam_id)
+    return await _writing_promote(exam_id)
 
 
 @router.post("/sittings/{sitting_id}/retest")
@@ -587,7 +692,8 @@ async def set_sitting_retest(
     before any grading budget is spent."""
     admin = await require_admin(authorization)
     try:
-        return svc.set_sitting_retest(
+        return await asyncio.to_thread(
+            svc.set_sitting_retest,
             sitting_id, admin["id"], body.needs_retest, body.reason,
         )
     except svc.NotFoundError as e:
@@ -619,10 +725,14 @@ async def bulk_claim(
     admin = await require_admin(authorization)
     if not body.sitting_ids:
         return {"claimed": [], "skipped": []}
-    ids, foreign = _scope_to_exam(exam_id, body.sitting_ids)
-    out = wf.bulk_claim_sittings(ids, admin["id"])
-    out["skipped"] = out["skipped"] + foreign
-    return out
+
+    def _apply():
+        ids, foreign = _scope_to_exam(exam_id, body.sitting_ids)
+        out = wf.bulk_claim_sittings(ids, admin["id"])
+        out["skipped"] = out["skipped"] + foreign
+        return out
+
+    return await asyncio.to_thread(_apply)
 
 
 @router.post("/{exam_id}/bulk-final-bands")
@@ -642,10 +752,14 @@ async def bulk_final_bands(
     admin = await require_admin(authorization)
     if not body.sitting_ids:
         return {"saved": [], "skipped": []}
-    ids, foreign = _scope_to_exam(exam_id, body.sitting_ids)
-    out = wf.bulk_save_final_bands(ids, admin["id"])
-    out["skipped"] = out["skipped"] + foreign
-    return out
+
+    def _apply():
+        ids, foreign = _scope_to_exam(exam_id, body.sitting_ids)
+        out = wf.bulk_save_final_bands(ids, admin["id"])
+        out["skipped"] = out["skipped"] + foreign
+        return out
+
+    return await asyncio.to_thread(_apply)
 
 
 @router.post("/{exam_id}/bulk-release")
@@ -667,10 +781,14 @@ async def bulk_release(
     admin = await require_admin(authorization)
     if not body.sitting_ids:
         return {"released": [], "skipped": []}
-    ids, foreign = _scope_to_exam(exam_id, body.sitting_ids)
-    out = wf.bulk_release_sittings(ids, admin["id"])
-    out["skipped"] = out["skipped"] + foreign
-    return out
+
+    def _apply():
+        ids, foreign = _scope_to_exam(exam_id, body.sitting_ids)
+        out = wf.bulk_release_sittings(ids, admin["id"])
+        out["skipped"] = out["skipped"] + foreign
+        return out
+
+    return await asyncio.to_thread(_apply)
 
 
 @router.post("/sittings/{sitting_id}/retest-flags")
@@ -686,7 +804,8 @@ async def set_sitting_retest_flags(
     """
     admin = await require_admin(authorization)
     try:
-        return wf.set_retest_flags_for_sitting(
+        return await asyncio.to_thread(
+            wf.set_retest_flags_for_sitting,
             sitting_id, admin["id"], body.retest_flags,
         )
     except wf.SkillNotInSittingError as e:
@@ -713,7 +832,7 @@ async def sitting_pacing(
     it."""
     await require_admin(authorization)
     try:
-        return svc.sitting_pacing(sitting_id)
+        return await asyncio.to_thread(svc.sitting_pacing, sitting_id)
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
 
@@ -730,7 +849,7 @@ async def admin_record_speaking(
     never attach work the student didn't do."""
     admin = await require_admin(authorization)
     try:
-        return svc.admin_record_speaking(sitting_id, admin["id"])
+        return await asyncio.to_thread(svc.admin_record_speaking, sitting_id, admin["id"])
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
     except svc.SittingConflictError as e:
@@ -743,7 +862,7 @@ async def void_sitting(
 ):
     admin = await require_admin(authorization)
     try:
-        return svc.void_sitting(sitting_id, admin["id"], body.reason)
+        return await asyncio.to_thread(svc.void_sitting, sitting_id, admin["id"], body.reason)
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
     except svc.SittingConflictError as e:

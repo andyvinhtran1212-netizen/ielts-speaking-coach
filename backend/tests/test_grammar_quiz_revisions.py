@@ -32,8 +32,7 @@ def canonical_engine(pg, *, timezone=None,poolclass=None):
     return engine
 
 
-@pytest_asyncio.fixture
-async def canonical(pg):
+async def _canonical_setup(pg):
     source = parse_reviewed_source(CODE,SOURCE)
     original = [{**question} for question in source.questions]
     next(question for question in original if question['qid']=='ps_vspc_a1')['answer'] = 0
@@ -46,6 +45,15 @@ async def canonical(pg):
         yield pg,engine
     finally:
         await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def canonical(pg):
+    gen = _canonical_setup(pg)
+    try:
+        yield await anext(gen)
+    finally:
+        await gen.aclose()
 
 
 @pytest.mark.asyncio
@@ -74,7 +82,15 @@ async def test_actual_cutover_learner_list_is_current_but_owned_legacy_url_still
     fake.responses={('quiz_banks','select'):[old],('quiz_questions','select'):questions,
         ('rpc','grammar_quiz_state'):legacy_state}
     legacy=json.loads((await router.get_bank(pg.old,authorization='test')).body)
-    assert legacy['bank']['id']==str(pg.old) and legacy['questions']==questions
+    # J411R2 learner allowlist: every stored column the player uses (keys
+    # included — Grammar still grades in the browser) and nothing else; only
+    # the internal `bank_id`/`created_at` and unrendered `pairs` are dropped.
+    from models.grammar_quiz_revisions import StudentQuizQuestion
+    allowed=set(StudentQuizQuestion.model_fields)
+    assert {k for q in questions for k in q}-allowed <= {'bank_id','created_at','pairs'}
+    assert legacy['bank']['id']==str(pg.old) and legacy['questions']==[
+        {k:v for k,v in q.items() if k in allowed} for q in questions]
+    assert all({'answer','accept','explain'} <= set(q) for q in legacy['questions'])
     assert legacy['grammar']['content_state']=='legacy' and legacy['grammar']['can_continue_legacy'] is True
     assert all(call['op'] in {'select','rpc'} for call in fake.calls)
 
