@@ -7,6 +7,17 @@ from pydantic_settings import BaseSettings
 
 # Shortest TRUSTED_PROXY_CIDRS prefix length accepted per IP version (PC-J227).
 _MIN_TRUSTED_PREFIX = {4: 8, 6: 32}
+# PC-J368 (P3-SA-1): every TRUSTED_PROXY_CIDRS entry must sit inside one of
+# these internal ranges. Explicit list, not is_global: Python 3.11 reports
+# Teredo 2001::/32 as non-global.
+_INTERNAL_PROXY_RANGES = tuple(ipaddress.ip_network(cidr) for cidr in (
+    "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",  # RFC 1918
+    "100.64.0.0/10",  # CGNAT (RFC 6598)
+    "127.0.0.0/8", "169.254.0.0/16",  # loopback, link-local
+    "fc00::/7", "fe80::/10", "::1/128",  # ULA, link-local, loopback
+))
+# Hops are unwrapped to IPv4 before matching, so a mapped CIDR never matches.
+_IPV4_MAPPED = ipaddress.ip_network("::ffff:0:0/96")
 
 logger = logging.getLogger(__name__)
 
@@ -55,13 +66,36 @@ class Settings(BaseSettings):
             for cidr in value.split(","):
                 cidr = cidr.strip()
                 network = ipaddress.ip_network(cidr)
+                if network.version == 6 and network.subnet_of(_IPV4_MAPPED):
+                    raise ValueError(
+                        f"TRUSTED_PROXY_CIDRS: {cidr[:64]} là CIDR IPv4-mapped "
+                        "(::ffff:0:0/96), không bao giờ khớp vì hop đã unwrap về IPv4; "
+                        "ghi dải IPv4 tương ứng, xem docs/CLIENT_IP_TRUST.md"
+                    )
                 if network.prefixlen < _MIN_TRUSTED_PREFIX[network.version]:
                     raise ValueError(
                         f"TRUSTED_PROXY_CIDRS: {cidr[:64]} quá rộng (IPv4 tối thiểu /8, "
                         "IPv6 tối thiểu /32); chỉ ghi dải proxy nội bộ đã đo, "
                         "xem docs/CLIENT_IP_TRUST.md"
                     )
+                if not any(network.version == internal.version
+                           and network.subnet_of(internal)
+                           for internal in _INTERNAL_PROXY_RANGES):
+                    raise ValueError(
+                        f"TRUSTED_PROXY_CIDRS: {cidr[:64]} không nằm trong dải nội bộ "
+                        "(10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, "
+                        "127.0.0.0/8, 169.254.0.0/16, fc00::/7, fe80::/10, ::1); "
+                        "dải công khai không được tin, xem docs/CLIENT_IP_TRUST.md"
+                    )
         return value
+
+    def __setattr__(self, name, value):
+        # PC-J368 (P3-SA-3): a runtime assignment runs the same validator as
+        # startup. Scoped to this field; other settings keep plain assignment.
+        if name == "TRUSTED_PROXY_CIDRS":
+            self.__pydantic_validator__.validate_assignment(self, name, value)
+            return
+        super().__setattr__(name, value)
 
     # Signed backend → Next cache invalidation. The admin vocabulary routes
     # mutate runtime DB content while Next caches public reads. Configure both

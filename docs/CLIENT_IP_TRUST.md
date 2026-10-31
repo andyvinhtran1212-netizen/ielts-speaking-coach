@@ -27,9 +27,23 @@ rejects the whole list. There is no exception list and no WARNING mode. If
 Railway's internal proxy turns out to sit in ULA space, record the measured
 range (`/32` or narrower, e.g. `fd12:3456::/32`), never `fc00::/7`.
 
-Do not write IPv4-mapped CIDRs such as `::ffff:10.0.0.0/104`. Hops are
-unwrapped to IPv4 before matching, so those entries never match (SA-J202-3).
-Use the IPv4 CIDR instead.
+PC-J368 (P3-SA-1) also requires every entry to sit inside an internal
+range: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10`
+(CGNAT), `127.0.0.0/8`, `169.254.0.0/16`, `fc00::/7`, `fe80::/10` or `::1`,
+still subject to the `/8` and `/32` floor. A public range that passes the
+floor (`1.0.0.0/8`, `34.0.0.0/8` GCP, `2606:4700::/32` Cloudflare,
+`2001::/32` Teredo, `64:ff9b::/96` NAT64, 6to4 `2002::/16` subnets, a bare
+public IP) fails startup with a "không nằm trong dải nội bộ" error. The
+list is explicit; `is_global` is not used because Python 3.11 reports Teredo
+as non-global.
+
+IPv4-mapped CIDRs (`::ffff:0:0/96` and every subnet, e.g.
+`::ffff:10.0.0.0/104`) fail startup with an "IPv4-mapped" error. Hops are
+unwrapped to IPv4 before matching, so those entries would never match
+(SA-J202-3). Use the IPv4 CIDR instead.
+
+Assigning `settings.TRUSTED_PROXY_CIDRS` at runtime (tests included) runs
+the same validator (P3-SA-3); a rejected value leaves the old value in place.
 
 No deployment ranges have been approved by this change. Every value set for
 this variable needs its source and measurement date. Before setting it,
@@ -37,6 +51,18 @@ record the exact CIDRs, authoritative range source, verification date and
 deployment path in the release evidence. Confirm the proxy appends
 the previous peer correctly before allowing the scan to cross it. Synthetic
 CIDRs in tests do not authorize those ranges on a deployment.
+
+Release checks (READ-ONLY, no env change):
+
+- Before merging a change to this validator into `staging`, read
+  `TRUSTED_PROXY_CIDRS` on Railway staging. It must be unset/empty, or every
+  entry must pass the rules above; otherwise the backend will not start
+  after deploy. Repeat on Railway production before promotion.
+- Read `FORWARDED_ALLOW_IPS` on Railway staging and production before
+  promotion. It must not be `*` (SA P3-SA-2). With `*`, uvicorn's proxy
+  headers set the socket peer from the caller's leftmost hop, which the peer
+  fallback above would then trust. The repo has no start command or default
+  for it; uvicorn's default is `127.0.0.1`.
 
 PR #1933 remains **HOLD** for this task. Before promotion, J177 must match
 Railway HTTP-log `srcIp` to the rightmost XFF hop for both ordinary and
