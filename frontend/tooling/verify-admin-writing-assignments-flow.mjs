@@ -2,6 +2,7 @@
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
+import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const FIXTURE_API_PREFIX = '/__fixture_api';
@@ -75,6 +76,7 @@ await page.route('**/*', async (route) => {
   }
   return json({ detail: `unhandled ${method} ${path}` }, 500);
 });
+await stubAdminMfaStatus(page);
 
 await page.goto(`${BASE}/admin/writing/assignments`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Bàn giao bài', exact: true }).waitFor(); await page.getByText(hostile, { exact: true }).waitFor();

@@ -1899,7 +1899,39 @@ describe('bank CHỈ có câu tự luận (codex #935)', () => {
   });
 
   test('bank rỗng hoàn toàn vẫn bị từ chối', async () => {
-    await assert.rejects(() => run({ questions: [] }), /chưa có câu hỏi nào/);
+    await assert.rejects(() => run({ questions: [] }), /chưa có câu hỏi\./);
+  });
+
+  // PC-J315: trang phân biệt bank rỗng / lỗi bộ nhớ trình duyệt với lỗi kết
+  // nối bằng `err.code`; lỗi không mã vẫn là lỗi kết nối.
+  test('bank rỗng mang mã bank_empty', async () => {
+    await assert.rejects(() => run({ questions: [] }),
+      { code: 'bank_empty', message: 'Bài tập này chưa có câu hỏi.' });
+  });
+});
+
+describe('lỗi bộ nhớ trình duyệt mang mã storage_unavailable (PC-J315)', () => {
+  test('đọc outbox hỏng lúc tải bài', async () => {
+    const storage = memStore();
+    storage.setItem('x', '1');
+    storage.key = () => { throw new Error('SecurityError'); };
+    await assert.rejects(() => run({ questions: [mcq(1)], storage }),
+      { code: 'storage_unavailable', message: /Chưa đọc được đáp án lưu trên máy/ });
+  });
+
+  test('ghi đáp án vào máy bị chặn (quota / private mode)', async () => {
+    const { r, storage } = await run({ questions: [mcq(1)] });
+    storage.setItem = () => { throw new Error('QuotaExceededError'); };
+    assert.throws(() => r.answer(0),
+      { code: 'storage_unavailable', message: /Chưa lưu được đáp án trên máy/ });
+  });
+
+  test('lỗi mạng lúc tải bài không mang mã', async () => {
+    await assert.rejects(() => run({ questions: [mcq(1)], failResume: true }), (err) => {
+      assert.match(err.message, /Chưa tải được tiến độ đã lưu/);
+      assert.equal(err.code, undefined);
+      return true;
+    });
   });
 });
 

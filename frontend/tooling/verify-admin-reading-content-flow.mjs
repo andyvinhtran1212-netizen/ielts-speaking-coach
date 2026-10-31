@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
+import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
@@ -38,6 +39,7 @@ await page.route('**/*', async (route) => {
   if (parsed.pathname.endsWith('/share') && method === 'POST') return json({ test_id: item.slug, share: { token: 'share-only-token', expires_at: '2026-08-20T00:00:00Z' } });
   return json({});
 });
+await stubAdminMfaStatus(page);
 
 await page.goto(`${BASE}/admin/reading/content`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Thư viện nội dung Reading', exact: true }).waitFor();

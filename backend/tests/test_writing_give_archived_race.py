@@ -300,6 +300,12 @@ def test_other_insert_errors_keep_their_mapping_on_the_instructor_paths(path, bo
     with me, access, patch("routers.instructor.supabase_admin", db):
         r = TestClient(app, raise_server_exceptions=False).post(path, headers=AUTH, json=body)
     assert r.status_code == 500, r.text
+    detail = r.json()["detail"]
+    assert detail["error_code"] == "internal_error"
+    assert isinstance(detail["ref"], str) and detail["ref"]
+    assert "student_archived" not in r.text
+    for leaked_text in ("23503", "foreign key", "prompt_id", "is not present"):
+        assert leaked_text not in r.text.lower()
     assert len(attempts) == 1
     assert db.tables["writing_assignments"] == []
 
