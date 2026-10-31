@@ -21,7 +21,7 @@ const BASE64_BODY_RE = /\\*"(?:body|postData)\\*"\s*:\s*\\*"([A-Za-z0-9+/_-]{16,
 // A complete base64 JSON value is an identifiable payload regardless of key.
 // Quote delimiters may themselves be JSON-escaped in trace/report strings.
 // Incidental alphabet-only words embedded in ordinary text are handled below.
-const BASE64_FIELD_RE = /\\*"[^"\r\n]*?\\*"\s*:\s*\\*"([A-Za-z0-9+/_-]{24,}={0,2})\\*"/g;
+const BASE64_FIELD_RE = /\\*"(?<key>[^"\r\n]*?)\\*"\s*:\s*\\*"(?<encoded>[A-Za-z0-9+/_-]{24,}={0,2})\\*"/g;
 const BASE64_DATA_RE = /\bdata:[^,\s"'<>]*;base64,([A-Za-z0-9+/_-]+={0,2})/g;
 const BASE64_RUN_RE = /[A-Za-z0-9+/_-]{24,}={0,2}/g;
 
@@ -43,6 +43,17 @@ function decodeBase64(encoded) {
   // Buffer.from is permissive (it silently truncates malformed input).
   if (bytes.toString('base64').replace(/=+$/, '') !== normalized) return null;
   return bytes;
+}
+
+// Provenance Git SHAs and trace IDs share the base64 alphabet. Recognize
+// their schema role AND their digest/UUID format, without exempting payloads
+// just because their property happens to be named "id" or "hash".
+function isLiteralIdentifier(key, value) {
+  if (!key) return false;
+  const name = key.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
+  if (!/(?:^|_)(?:id|sha(?:1|256|384|512)?|hash|checksum|release|commit)$/.test(name)) return false;
+  return /^(?:[a-f0-9]{32}|[a-f0-9]{40}|[a-f0-9]{64}|[a-f0-9]{96}|[a-f0-9]{128})$/i.test(value)
+    || /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(value);
 }
 
 /** { count, unscannable } for one buffer, recursing into archives. */
@@ -102,14 +113,21 @@ export function scanBuffer(buffer, options, depth = 0) {
     { pattern: BASE64_DATA_RE, declaredEncoding: true },
   ]) {
     for (const match of text.matchAll(pattern)) {
-      const start = match.index + match[0].lastIndexOf(match[1]);
-      const end = start + match[1].length;
+      const encoded = match.groups?.encoded || match[1];
+      const start = match.index + match[0].lastIndexOf(encoded);
+      const end = start + encoded.length;
       if (overlapsDecoded(start, end)) continue;
-      const decoded = decodeBase64(match[1]);
+      const decoded = decodeBase64(encoded);
       // An arbitrary word need not be valid base64. Explicit attachment/data
       // encodings must decode; a canonical full-field payload must be scanned
       // even when its bytes identify unsupported compression or opaque binary.
       if (!decoded && !declaredEncoding) continue;
+      if (decoded && !declaredEncoding && isLiteralIdentifier(match.groups?.key, encoded)
+        && !(isText(decoded) || isZip(decoded) || isGzip(decoded) || isImage(decoded))) {
+        // Raw literal/JWT matches were counted above and are never exempted.
+        decodedRegions.push([start, end]);
+        continue;
+      }
       addDecoded(start, end, decoded ? scanBuffer(decoded, options, depth + 1) : { count: 0, unscannable: true });
     }
   }

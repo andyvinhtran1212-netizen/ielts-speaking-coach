@@ -693,3 +693,43 @@ test('incidental alphabet-only identifiers in ordinary diagnostics do not become
   assert.deepEqual(scanBuffer(Buffer.from(`diagnostic ${text} remains readable`), NO_ENV), { count: 0, unscannable: false });
   assert.deepEqual(scanBuffer(Buffer.from(JSON.stringify({ note: `diagnostic ${text} remains readable` })), NO_ENV), { count: 0, unscannable: false });
 });
+
+test('clean staging provenance SHAs and trace identifiers remain scannable without exempting secret matches', async () => {
+  const { scanBuffer } = await import(pathToFileURL(SCAN).href);
+  const { sanitizeBuffer } = await import(pathToFileURL(SANITIZE).href);
+  const sha = '0123456789abcdef'.repeat(2) + '01234567';
+  const uuid = ['01234567', '89ab', 'cdef', '0123', '456789abcdef'].join('-');
+  const evidence = {
+    schema_version: 1, source_sha: sha, frontend_release: sha, backend_release: sha,
+    runtime_environment: 'staging', frontend_git_ref: 'staging',
+    backend_git_branch: 'staging', admin_aal: 'aal2', ok: true,
+    request_id: uuid, traceId: sha,
+  };
+  let json = JSON.stringify(evidence);
+  for (const depth of [0, 1, 2, 3]) {
+    assert.deepEqual(scanBuffer(Buffer.from(json), NO_ENV), { count: 0, unscannable: false }, `depth ${depth}`);
+    json = JSON.stringify({ trace: json });
+  }
+  for (const field of ['payload', 'arbitraryEvidence', 'body']) {
+    assert.equal(scanBuffer(Buffer.from(JSON.stringify({ [field]: sha })), NO_ENV).unscannable, true, 'payloads have no identifier exemption');
+  }
+  // A base64 payload under an identifier-looking key is still unsupported
+  // binary unless it also has the validated literal digest/UUID format.
+  const compressed = zlib.brotliCompressSync(Buffer.from(JSON.stringify({ note: MIXED_PW }))).toString('base64');
+  assert.equal(scanBuffer(Buffer.from(JSON.stringify({ source_sha: compressed })), { literals: [MIXED_PW] }).unscannable, true);
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'pcj481-clean-provenance-'));
+  try {
+    const file = path.join(dir, 'staging-release-provenance.json');
+    writeFileSync(file, JSON.stringify(evidence));
+    assert.equal(run(SANITIZE, [file]).status, 0);
+    const scan = run(SCAN, [file]);
+    assert.equal(scan.status, 0, scan.stdout + scan.stderr);
+    assert.match(scan.stdout, /1 file\(s\) scanned, 0 flagged/);
+    assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), evidence);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  const rawSecret = Buffer.from(JSON.stringify({ source_sha: sha }));
+  assert.equal(scanBuffer(rawSecret, { literals: [sha] }).count, 1, 'schema recognition never suppresses configured secret occurrences');
+  assert.deepEqual(scanBuffer(sanitizeBuffer(rawSecret, { literals: [sha] }), { literals: [sha] }), { count: 0, unscannable: false });
+});
