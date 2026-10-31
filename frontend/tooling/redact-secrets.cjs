@@ -15,8 +15,8 @@ const zlib = require('node:zlib');
 const REDACTED = '[REDACTED]';
 
 // Environment variables whose literal values must never reach an artifact.
-// Only values long enough to be secrets are used (a 3-char value would turn
-// every report into noise).
+// Configured nonempty secrets shorter than the minimum fail closed rather
+// than silently disabling literal protection.
 const SECRET_ENV_NAMES = Object.freeze([
   'STAGING_BYPASS',
   'STAGING_PROTECTION_BYPASS',
@@ -34,66 +34,132 @@ const TOKEN_FIELDS = 'access_token|refresh_token|provider_token|provider_refresh
 // lines) or newline, so the rest of the message stays readable.
 const HEADER_RE = /(?<![\w-])(authorization|proxy-authorization|apikey|cookie|set-cookie|x-vercel-protection-bypass|x-api-key)(\\?["']?[ \t]*[:=][ \t]*\\?["']?)([^\r\n"'`\\\x1b<]+)/gi;
 const JSON_FIELD_RE = new RegExp(`"(${TOKEN_FIELDS})"(\\s*:\\s*)"(?:[^"\\\\\\r\\n]|\\\\.)*"`, 'g');
-const ESCAPED_JSON_FIELD_RE = new RegExp(`\\\\"(${TOKEN_FIELDS})\\\\"(\\s*:\\s*)\\\\"(?:(?!\\\\")[^\\r\\n])*\\\\"`, 'g');
+// Encode both the delimiter and an inner JSON escape at the same depth.
+// A value's escaped quote is E + D, whereas its closing delimiter is just D.
+// Consuming E first prevents stopping at the first quote inside a password.
+const ESCAPED_JSON_FIELDS = [3, 2, 1].map((level) => {
+  let delimiter = '"';
+  let escape = '\\';
+  for (let n = 0; n < level; n += 1) {
+    delimiter = jsonEscape(delimiter);
+    escape = jsonEscape(escape);
+  }
+  const d = regexEscape(delimiter);
+  const e = regexEscape(escape);
+  const plain = '[^"\\\\\\r\\n]';
+  return {
+    pattern: new RegExp(`(${d}(?:${TOKEN_FIELDS})${d}\\s*:\\s*${d})(?:${plain}|${e}(?:${e}|${d}|${plain}))*${d}`, 'g'),
+    delimiter,
+  };
+});
 const QUERY_RE = /(?<![\w-])(access_token|refresh_token|provider_token|token_hash|apikey|x-vercel-protection-bypass)=([^&\s"'\\#\x1b<]+)/gi;
 const COOKIE_RE = /(?<![\w-])(sb-[A-Za-z0-9_-]*auth-token(?:[.-][A-Za-z0-9]+)?|sb-access-token|sb-refresh-token|_vercel_jwt|__prerender_bypass|__vercel_live_token)=([^;\s"'\\\x1b<]+)/g;
 const COOKIE_JSON_RE = /("name"\s*:\s*"(?:sb-[^"]*|_vercel_jwt|__prerender_bypass|__vercel_live_token)"\s*,\s*"value"\s*:\s*")(?:[^"\\]|\\.)*"/g;
 const BEARER_RE = /\b(Bearer)[ \t]+(?!\[REDACTED)[A-Za-z0-9._~+/=-]{8,}/gi;
 const JWT_RE = new RegExp(JWT_SOURCE, 'g');
 
+function validateLiteral(value) {
+  if (typeof value !== 'string' || value.length < MIN_LITERAL_LENGTH) {
+    // Never include the rejected value in the error (including CLI stacks).
+    throw new Error(`Configured artifact secrets must contain at least ${MIN_LITERAL_LENGTH} characters`);
+  }
+  return value;
+}
+
 function secretLiteralsFromEnv(env = process.env) {
   const values = new Set();
   for (const name of SECRET_ENV_NAMES) {
     const value = env[name];
-    if (typeof value === 'string' && value.trim().length >= MIN_LITERAL_LENGTH) values.add(value.trim());
+    if (value !== undefined && value !== '') values.add(validateLiteral(value));
   }
   return [...values];
 }
 
 function resolveLiterals(options) {
-  return options && Array.isArray(options.literals) ? options.literals : secretLiteralsFromEnv();
+  return options && Array.isArray(options.literals)
+    ? options.literals.map(validateLiteral)
+    : secretLiteralsFromEnv();
 }
 
-// A literal reaches an artifact in more forms than its raw one: JSON reports
-// escape `"` and `\` (again per level when a JSON string holds serialized
-// JSON, e.g. a report quoting a trace entry), and URLs/form bodies
-// percent-encode it. Redaction and the guard share one pattern so they agree
-// on every form.
-const JSON_ESCAPE_LEVELS = 3;
+function regexEscape(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function jsonEscape(value) {
+  return JSON.stringify(value).slice(1, -1);
+}
+
+function htmlEscape(value, numeric = false) {
+  const entities = numeric
+    ? { '&': '&#38;', '<': '&#60;', '>': '&#62;', '"': '&#34;', "'": '&#x27;' }
+    : { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  return value.replace(/[&<>"']/g, (char) => entities[char]);
+}
+
+// Only base64 characters depending entirely on secret bytes are stable when
+// surrounding text changes. Include each of the three possible byte offsets.
+function alignedBase64(literal, offset, alphabet) {
+  const bytes = Buffer.from(literal, 'utf8');
+  const encoded = Buffer.concat([Buffer.alloc(offset), bytes]).toString(alphabet);
+  return encoded.slice(Math.ceil(8 * offset / 6), Math.floor(8 * (offset + bytes.length) / 6));
+}
 
 function literalVariants(literal) {
-  const variants = [literal];
+  const uri = encodeURIComponent(literal);
+  const variants = [literal, uri, encodeURIComponent(uri), uri.replace(/%20/g, '+'),
+    new URLSearchParams({ v: literal }).toString().slice(2),
+    htmlEscape(literal), htmlEscape(literal, true), htmlEscape(jsonEscape(literal))];
   let escaped = literal;
-  for (let level = 0; level < JSON_ESCAPE_LEVELS; level += 1) {
-    escaped = JSON.stringify(escaped).slice(1, -1);
+  for (let level = 0; level < 3; level += 1) {
+    escaped = jsonEscape(escaped);
     variants.push(escaped);
   }
-  const uri = encodeURIComponent(literal);
-  variants.push(uri, uri.replace(/%20/g, '+'), new URLSearchParams({ v: literal }).toString().slice(2));
+  for (const alphabet of ['base64', 'base64url']) {
+    for (const offset of [0, 1, 2]) variants.push(alignedBase64(literal, offset, alphabet));
+  }
   return variants;
 }
 
-/** One regex for every form of every secret literal, longest first; null if none. */
+// Serializers escape different subsets of characters. Each UTF-16 code unit
+// may independently be raw, JSON-escaped, a Unicode escape, or an HTML entity.
+function literalFlexSource(literal) {
+  return literal.split('').map((char) => {
+    const hex = char.charCodeAt(0).toString(16).padStart(4, '0');
+    const alternatives = new Set([char, `\\u${hex}`, `\\u${hex.toUpperCase()}`,
+      htmlEscape(char), htmlEscape(char, true)]);
+    if (char === "'") alternatives.add('&apos;');
+    let escaped = char;
+    for (let level = 0; level < 3; level += 1) {
+      escaped = jsonEscape(escaped);
+      alternatives.add(escaped);
+    }
+    const fixed = [...alternatives].sort((a, b) => b.length - a.length).map(regexEscape);
+    const hexPattern = hex.replace(/[a-f]/g, (c) => `[${c}${c.toUpperCase()}]`);
+    const numericHex = hexPattern.replace(/^0+/, '');
+    fixed.push(`\\\\u${hexPattern}`, `&#0*${char.charCodeAt(0)};`, `&#[xX]0*${numericHex || '0'};`);
+    return `(?:${fixed.join('|')})`;
+  }).join('');
+}
+
+/** One shared, non-overlapping regex for all literal forms, longest first. */
 function literalPattern(options) {
-  const variants = new Set();
-  for (const literal of resolveLiterals(options)) {
-    if (typeof literal !== 'string' || literal.length < MIN_LITERAL_LENGTH) continue;
-    for (const variant of literalVariants(literal)) variants.add(variant);
-  }
-  if (!variants.size) return null;
-  const sorted = [...variants].sort((a, b) => b.length - a.length);
-  return new RegExp(sorted.map((v) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g');
+  const literals = [...new Set(resolveLiterals(options))];
+  if (!literals.length) return null;
+  const variants = [...new Set(literals.flatMap(literalVariants))].sort((a, b) => b.length - a.length);
+  return new RegExp([...variants.map(regexEscape), ...literals.map(literalFlexSource)].join('|'), 'g');
 }
 
 /** Redact bearer tokens, JWTs, auth cookies, bypass values and known env secrets. */
 function redactSecrets(text, options) {
-  if (typeof text !== 'string' || text === '') return text;
   const literals = literalPattern(options);
-  const out = literals ? text.replace(literals, REDACTED) : text;
+  if (typeof text !== 'string' || text === '') return text;
+  let out = literals ? text.replace(literals, REDACTED) : text;
+  for (const { pattern, delimiter } of ESCAPED_JSON_FIELDS) {
+    out = out.replace(pattern, (_, prefix) => `${prefix}${REDACTED}${delimiter}`);
+  }
   return out
     .replace(HEADER_RE, (_, name, sep) => `${name}${sep}${REDACTED}`)
     .replace(JSON_FIELD_RE, (_, name, sep) => `"${name}"${sep}"${REDACTED}"`)
-    .replace(ESCAPED_JSON_FIELD_RE, (_, name, sep) => `\\"${name}\\"${sep}\\"${REDACTED}\\"`)
     .replace(QUERY_RE, (_, name) => `${name}=${REDACTED}`)
     .replace(COOKIE_RE, (_, name) => `${name}=${REDACTED}`)
     .replace(COOKIE_JSON_RE, (_, prefix) => `${prefix}${REDACTED}"`)
@@ -132,21 +198,34 @@ function isPublicAnonJwt(token) {
   }
 }
 
-/** Number of secret-looking hits in `text`. Never returns the hits. */
-function countSecretMatches(text, options) {
-  if (typeof text !== 'string' || text === '') return 0;
-  let count = 0;
+/** Match spans are internal metadata; callers never print matched values. */
+function secretMatchRanges(text, options) {
+  const literals = literalPattern(options);
+  if (typeof text !== 'string' || text === '') return [];
+  const ranges = [];
   for (const match of text.matchAll(/Bearer\s+(ey[A-Za-z0-9._-]*)/g)) {
     const token = match[1];
     const whole = token.match(new RegExp(`^${JWT_SOURCE}$`));
-    if (!(whole && isPublicAnonJwt(token))) count += 1;
+    if (!(whole && isPublicAnonJwt(token))) ranges.push([match.index, match.index + match[0].length]);
   }
   for (const match of text.matchAll(new RegExp(JWT_SOURCE, 'g'))) {
-    if (!isPublicAnonJwt(match[0])) count += 1;
+    if (!isPublicAnonJwt(match[0])) ranges.push([match.index, match.index + match[0].length]);
   }
-  const literals = literalPattern(options);
-  if (literals) count += (text.match(literals) || []).length;
-  return count;
+  if (literals) {
+    for (const match of text.matchAll(literals)) ranges.push([match.index, match.index + match[0].length]);
+  }
+  const merged = [];
+  for (const range of ranges.sort((a, b) => a[0] - b[0] || b[1] - a[1])) {
+    const last = merged[merged.length - 1];
+    if (last && range[0] < last[1]) last[1] = Math.max(last[1], range[1]);
+    else merged.push(range);
+  }
+  return merged;
+}
+
+/** Number of secret-looking occurrences, with overlapping detectors counted once. */
+function countSecretMatches(text, options) {
+  return secretMatchRanges(text, options).length;
 }
 
 // ---------------------------------------------------------------------------
@@ -256,12 +335,12 @@ function writeZip(entries) {
 }
 
 function isZip(buffer) {
-  return buffer.length >= 4 && buffer.readUInt32LE(0) === 0x04034b50;
+  return buffer.length >= 4 && [0x04034b50, 0x06054b50].includes(buffer.readUInt32LE(0));
 }
 
-/** True when the bytes are UTF-8 text (no NUL, valid encoding). */
+/** True for valid UTF-8 without binary control bytes (ANSI logs are text). */
 function isText(buffer) {
-  if (buffer.includes(0)) return false;
+  if (buffer.some((byte) => byte < 0x20 && ![9, 10, 13, 27].includes(byte))) return false;
   try {
     new TextDecoder('utf-8', { fatal: true }).decode(buffer);
     return true;
@@ -275,6 +354,8 @@ module.exports = {
   SECRET_ENV_NAMES,
   PLAYWRIGHT_REPORT_RE,
   secretLiteralsFromEnv,
+  resolveLiterals,
+  secretMatchRanges,
   redactSecrets,
   redactError,
   countSecretMatches,

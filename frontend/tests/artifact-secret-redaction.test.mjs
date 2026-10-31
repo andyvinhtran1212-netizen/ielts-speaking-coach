@@ -8,6 +8,7 @@ import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import zlib from 'node:zlib';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const require = createRequire(import.meta.url);
@@ -98,7 +99,8 @@ test('literal secret values from the environment are redacted and counted', () =
   assertClean(redactSecrets(text, { literals: [FAKE_BYPASS] }));
   assert.equal(countSecretMatches(text, { literals: [FAKE_BYPASS] }), 1);
   assert.equal(countSecretMatches(text, NO_ENV), 0);
-  assert.deepEqual(redaction.secretLiteralsFromEnv({ STAGING_BYPASS: FAKE_BYPASS, E2E_PASSWORD: 'short' }), [FAKE_BYPASS]);
+  assert.deepEqual(redaction.secretLiteralsFromEnv({ STAGING_BYPASS: FAKE_BYPASS }), [FAKE_BYPASS]);
+  assert.throws(() => redaction.secretLiteralsFromEnv({ STAGING_BYPASS: FAKE_BYPASS, E2E_PASSWORD: 'short' }), /at least 8/);
 });
 
 test('guard patterns flag bearer and raw JWTs but not the public Supabase anon key', () => {
@@ -109,7 +111,7 @@ test('guard patterns flag bearer and raw JWTs but not the public Supabase anon k
   assert.equal(countSecretMatches(`apikey: ${anon}\nAuthorization: Bearer ${anon}`, NO_ENV), 0);
   const userPayload = Buffer.from(JSON.stringify({ role: 'authenticated', sub: 'u1' })).toString('base64url');
   const user = ['eyJhbGciOiJIUzI1NiJ9', userPayload, 'sigFAKE'].join('.');
-  assert.equal(countSecretMatches(`Authorization: Bearer ${user}`, NO_ENV), 2);
+  assert.equal(countSecretMatches(`Authorization: Bearer ${user}`, NO_ENV), 1, 'overlapping bearer and JWT detectors count one occurrence');
   assert.equal(countSecretMatches(redactSecrets(`Authorization: Bearer ${user}`, NO_ENV), NO_ENV), 0);
 });
 
@@ -298,7 +300,7 @@ test('literal secrets are redacted and counted when JSON-escaped, double-escaped
     const nested = JSON.parse(JSON.parse(redactSecrets(samples.nested, options)).trace);
     assert.equal(nested.note, 'form filled [REDACTED] then submitted');
   }
-  assert.equal(countSecretMatches(JSON.stringify({ note: 'pwFAKE"' }), { literals: ['pwFAKE"'] }), 0, 'short literals stay ignored');
+  assert.throws(() => countSecretMatches(JSON.stringify({ note: 'pwFAKE"' }), { literals: ['pwFAKE"'] }), /at least 8/, 'short literals fail closed');
 });
 
 test('escaped password literals in JSON, trace zip and HTML report fail the guard and are sanitized', async () => {
@@ -433,33 +435,61 @@ const UPLOAD_GUARDS = {
   '.github/workflows/next-native-browser.yml': 2,
 };
 
+function missingGuardSecrets(workflow, file) {
+  const missing = [];
+  let guardCount = 0;
+  for (const [jobName, job] of Object.entries(workflow.jobs)) {
+    const steps = job.steps || [];
+    const guards = steps.filter((step) => step.run?.includes('scan-artifact-secrets.mjs'));
+    guardCount += guards.length;
+    const required = new Map();
+    for (const env of [workflow.env, job.env, ...steps.map((step) => step.env)]) {
+      for (const [name, value] of Object.entries(env || {})) {
+        if (!SECRET_ENV_NAMES.includes(name)) continue;
+        assert.match(value, /^\$\{\{\s*secrets\.[A-Za-z_]\w*\s*\}\}$/, `${file}: ${jobName}/${name} must come from secrets`);
+        if (required.has(name)) assert.equal(value, required.get(name), `${file}: ${jobName}/${name} has conflicting sources`);
+        required.set(name, value);
+      }
+    }
+    for (const guard of guards) {
+      const effective = { ...workflow.env, ...job.env, ...guard.env };
+      for (const [name, value] of required) {
+        if (effective[name] !== value) missing.push(`${file}: ${jobName}/${guard.id || guard.name}: ${name} must use ${value}`);
+      }
+    }
+  }
+  return { missing, guardCount };
+}
+
 test('every artifact guard receives every secret env used by its job from the same GitHub secret', () => {
   const missing = [];
   for (const [file, expected] of Object.entries(UPLOAD_GUARDS)) {
     const workflow = loadYaml(readFileSync(path.join(ROOT, file), 'utf8'));
-    let guardCount = 0;
-    for (const [jobName, job] of Object.entries(workflow.jobs)) {
-      const steps = job.steps || [];
-      const guards = steps.filter((step) => step.run?.includes('scan-artifact-secrets.mjs'));
-      guardCount += guards.length;
-      const required = new Map();
-      for (const step of steps) {
-        for (const [name, value] of Object.entries(step.env || {})) {
-          if (!SECRET_ENV_NAMES.includes(name)) continue;
-          assert.match(value, /^\$\{\{\s*secrets\.[A-Za-z_]\w*\s*\}\}$/, `${file}: ${jobName}/${name} must come from secrets`);
-          if (required.has(name)) assert.equal(value, required.get(name), `${file}: ${jobName}/${name} has conflicting sources`);
-          required.set(name, value);
-        }
-      }
-      for (const guard of guards) {
-        for (const [name, value] of required) {
-          if (guard.env?.[name] !== value) missing.push(`${file}: ${jobName}/${guard.id || guard.name}: ${name} must use ${value}`);
-        }
-      }
-    }
-    assert.equal(guardCount, expected, `${file}: all artifact guards must be checked`);
+    const result = missingGuardSecrets(workflow, file);
+    assert.equal(result.guardCount, expected, `${file}: all artifact guards must be checked`);
+    missing.push(...result.missing);
   }
   assert.deepEqual(missing, [], 'artifact guards must inherit every job secret env with the same source');
+});
+
+test('guard invariant checks workflow/job env inheritance and rejects shadowed or missing bindings', () => {
+  for (const level of ['workflow', 'job', 'step']) {
+    const env = { E2E_PASSWORD: '${{ secrets.E2E_PASSWORD }}' };
+    const auth = { run: 'authenticate' };
+    const guard = { id: 'guard', run: 'node tooling/scan-artifact-secrets.mjs report' };
+    const job = { steps: [auth, guard] };
+    const workflow = { jobs: { smoke: job } };
+    const owner = level === 'workflow' ? workflow : level === 'job' ? job : auth;
+    owner.env = env;
+    if (level === 'step') guard.env = { ...env };
+    assert.deepEqual(missingGuardSecrets(workflow, level), { missing: [], guardCount: 1 });
+    guard.env = { E2E_PASSWORD: '${{ secrets.WRONG_SOURCE }}' };
+    assert.throws(() => missingGuardSecrets(workflow, level), /conflicting sources/, level);
+    delete guard.env;
+    if (level === 'step') assert.equal(missingGuardSecrets(workflow, level).missing.length, 1);
+    owner.env = { E2E_PASSWORD: 'untrusted literal' };
+    assert.throws(() => missingGuardSecrets(workflow, level), /must come from secrets/, level);
+  }
 });
 
 test('every artifact upload in the staging/PR workflows waits for sanitize + scan', () => {
@@ -488,7 +518,131 @@ test('the new redaction sources hold no secret-like literal', () => {
     'tests/staging-e2e/fixtures.js',
     'tests/staging-e2e/redaction-reporter.js',
     'tests/artifact-secret-redaction.test.mjs',
+    'tests/artifact-secret-variants.test.mjs',
   ].map((file) => path.join(FRONTEND, file));
   const scan = run(SCAN, files);
   assert.equal(scan.status, 0, scan.stdout);
+});
+
+// R3: the original 16 SA cases live in artifact-secret-variants.test.mjs.
+// These cases cover the addendum and the privacy/counting contracts it expands.
+test('every configured secret env detects URL 2x, numeric HTML and mixed per-character Unicode', () => {
+  const secret = ['pwFAKE', '"\\ +&<>', "'/", 'tail'].join('');
+  const unicode = secret.split('').map((c, i) => i % 2 ? c : '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0').toUpperCase()).join('');
+  const forms = [
+    encodeURIComponent(encodeURIComponent(secret)),
+    secret.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c]),
+    secret.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`),
+    secret.split('').map((c) => `&#x${c.charCodeAt(0).toString(16)};`).join(''),
+    secret.split('').map((c) => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0')).join(''),
+    unicode,
+  ];
+  for (const name of SECRET_ENV_NAMES) {
+    const options = { literals: redaction.secretLiteralsFromEnv({ [name]: secret }) };
+    for (const form of forms) {
+      assert.equal(countSecretMatches(`x ${form} y`, options), 1, name);
+      const clean = redactSecrets(`x ${form} y`, options);
+      assert.equal(clean, 'x [REDACTED] y', name);
+      assert.equal(countSecretMatches(clean, options), 0, name);
+    }
+  }
+});
+
+test('base64 and base64url secret substrings cover every byte alignment with surrounding text', async () => {
+  const { scanBuffer } = await import(pathToFileURL(SCAN).href);
+  // Non-ASCII UTF-8 and punctuation exercise both alphabets and byte lengths.
+  for (const secret of [MIXED_PW, 'JBSW' + 'Y3DP'.repeat(6), 'bypFAKE' + '12345'.repeat(3), 'pwFAKE' + 'ÿ?>é🙂']) {
+    const options = { literals: [secret] };
+    for (const alphabet of ['base64', 'base64url']) {
+      for (const offset of [0, 1, 2]) {
+        const encoded = Buffer.concat([Buffer.alloc(offset, 0x41), Buffer.from(secret), Buffer.from('suffix')]).toString(alphabet);
+        assert.equal(countSecretMatches(encoded, options), 1, `${alphabet}/${offset}`);
+        assert.equal(countSecretMatches(redactSecrets(encoded, options), options), 0);
+        assert.deepEqual(scanBuffer(Buffer.from(JSON.stringify({ payload: encoded })), options), { count: 1, unscannable: false });
+      }
+    }
+  }
+});
+
+test('escaped password fields consume inner quotes/backslashes completely at JSON levels 1–3', () => {
+  for (const password of [QUOTE_PW, MIXED_PW, TRAILING_PW, MIXED_PW + '\n' + TRAILING_PW]) {
+    for (const depth of [0, 1, 2, 3]) {
+      let serialized = JSON.stringify({ password, ok: 'diagnostics remain' });
+      for (let n = 0; n < depth; n += 1) serialized = JSON.stringify({ trace: serialized });
+      let clean = redactSecrets(serialized, NO_ENV);
+      for (let n = 0; n < depth; n += 1) clean = JSON.parse(clean).trace;
+      assert.deepEqual(JSON.parse(clean), { password: '[REDACTED]', ok: 'diagnostics remain' });
+    }
+  }
+});
+
+test('overlapping literal variants, JWT and decoded base64 matches count each occurrence once', async () => {
+  const { scanBuffer } = await import(pathToFileURL(SCAN).href);
+  const options = { literals: [FAKE_JWT, FAKE_JWT] };
+  assert.equal(countSecretMatches(`Bearer ${FAKE_JWT}`, options), 1);
+  assert.equal(countSecretMatches(`${FAKE_JWT} ${FAKE_JWT}`, options), 2);
+  const encoded = Buffer.from(`${FAKE_JWT} ${FAKE_JWT}`).toString('base64');
+  assert.deepEqual(scanBuffer(Buffer.from(`{"postData":"${encoded}"}`), options), { count: 2, unscannable: false });
+  const report = Buffer.from(playwrightReportHtml([['r.json', JSON.stringify({ note: `${FAKE_JWT} ${FAKE_JWT}` })]]));
+  assert.deepEqual(scanBuffer(report, options), { count: 2, unscannable: false });
+});
+
+test('scanner decompresses nested gzip and ZIP and rejects corrupt/unknown binary entries', async () => {
+  const { scanBuffer } = await import(pathToFileURL(SCAN).href);
+  const options = { literals: [MIXED_PW] };
+  for (const pack of [
+    (body) => zlib.gzipSync(body),
+    (body) => writeZip([{ name: 'resources/a.gz', data: zlib.gzipSync(body) }]),
+    (body) => zlib.gzipSync(writeZip([{ name: 'trace.trace', data: body }])),
+  ]) {
+    assert.deepEqual(scanBuffer(pack(Buffer.from(JSON.stringify({ note: MIXED_PW }))), options), { count: 1, unscannable: false });
+    assert.deepEqual(scanBuffer(pack(Buffer.from('{"ok":true}')), options), { count: 0, unscannable: false });
+  }
+  const opaque = Buffer.from([0, 0x13, 0x37, 0xfe, 0, 1]);
+  const corruptGzip = zlib.gzipSync(Buffer.from('clean')).subarray(0, 12);
+  const unsupportedZip = writeZip([{ name: 'r.dat', data: Buffer.from('clean') }]);
+  unsupportedZip.writeUInt16LE(99, unsupportedZip.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02])) + 10);
+  for (const buffer of [opaque, corruptGzip, unsupportedZip, zlib.brotliCompressSync(Buffer.from(MIXED_PW)), Buffer.from('RIFFxxxxWAVE\0', 'utf8')]) {
+    assert.equal(scanBuffer(buffer, options).unscannable, true);
+    assert.equal(scanBuffer(writeZip([{ name: 'resources/opaque', data: buffer }]), options).unscannable, true);
+  }
+  for (const buffer of [
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 1, 2, 3]),
+    Buffer.from([0xff, 0xd8, 0xff, 0, 0xff, 0xd9]),
+    Buffer.from('RIFF\0\0\0\0WEBP', 'utf8'),
+  ]) assert.deepEqual(scanBuffer(buffer, options), { count: 0, unscannable: false });
+});
+
+test('scanner opens base64 in arbitrary fields, including encoded gzip and double-encoded JSON', async () => {
+  const { scanBuffer } = await import(pathToFileURL(SCAN).href);
+  const options = { literals: [MIXED_PW] };
+  const body = Buffer.from(JSON.stringify({ note: MIXED_PW }));
+  const base64 = body.toString('base64');
+  for (const field of ['body', 'postData', 'payload', 'text']) {
+    for (const bytes of [body, Buffer.from(base64), zlib.gzipSync(body)]) {
+      const payload = JSON.stringify({ [field]: bytes.toString('base64') });
+      assert.deepEqual(scanBuffer(Buffer.from(payload), options), { count: 1, unscannable: false }, field);
+    }
+  }
+  assert.equal(scanBuffer(Buffer.from(JSON.stringify({ postData: Buffer.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]).toString('base64') })), options).unscannable, true);
+});
+
+test('short secret configurations fail closed even for empty input, without printing values', async () => {
+  const { scanBuffer, scanPaths } = await import(pathToFileURL(SCAN).href);
+  const short = 'short';
+  const emptyZip = writeZip([]);
+  for (const name of SECRET_ENV_NAMES) {
+    assert.throws(() => redaction.secretLiteralsFromEnv({ [name]: short }), /at least 8/);
+    const result = run(SCAN, ['nonexistent-artifact'], { [name]: short });
+    assert.equal(result.status, 1);
+    assert.ok(!(result.stdout + result.stderr).includes(short), 'error must not print the value');
+    assert.match(result.stderr, /upload is blocked/);
+  }
+  const options = { literals: [short] };
+  assert.throws(() => countSecretMatches('', options), /at least 8/);
+  assert.throws(() => redactSecrets('', options), /at least 8/);
+  assert.throws(() => scanBuffer(emptyZip, options), /at least 8/);
+  assert.throws(() => scanPaths([], options), /at least 8/);
+  const spaced = '  pwFAKE spaces  ';
+  assert.deepEqual(redaction.secretLiteralsFromEnv({ E2E_PASSWORD: spaced }), [spaced], 'password whitespace belongs to the secret');
 });

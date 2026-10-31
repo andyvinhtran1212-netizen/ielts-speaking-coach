@@ -10,15 +10,40 @@
 import { lstatSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import zlib from 'node:zlib';
 import redaction from './redact-secrets.cjs';
 
-const { PLAYWRIGHT_REPORT_RE, countSecretMatches, readZip, isZip, isText } = redaction;
+const { PLAYWRIGHT_REPORT_RE, countSecretMatches, secretMatchRanges, resolveLiterals, readZip, isZip, isText } = redaction;
 
 const MAX_DEPTH = 4;
-const BASE64_BODY_RE = /"body"\s*:\s*"([A-Za-z0-9+/]{16,}={0,2})"/g;
+// Inline attachments and protocol Binary fields must decode, even when binary.
+const BASE64_BODY_RE = /"(?:body|postData)"\s*:\s*"([A-Za-z0-9+/_-]{16,}={0,2})"/g;
+const BASE64_RUN_RE = /[A-Za-z0-9+/_-]{24,}={0,2}/g;
+
+function isGzip(buffer) {
+  return buffer[0] === 0x1f && buffer[1] === 0x8b;
+}
+
+function isImage(buffer) {
+  return buffer.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47]))
+    || buffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))
+    || ['GIF87a', 'GIF89a'].includes(buffer.subarray(0, 6).toString('ascii'))
+    || (buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP');
+}
+
+function decodeBase64(encoded) {
+  const compact = encoded.replace(/\s+/g, '');
+  const bytes = Buffer.from(compact, 'base64');
+  const normalized = compact.replace(/-/g, '+').replace(/_/g, '/').replace(/=+$/, '');
+  // Buffer.from is permissive (it silently truncates malformed input).
+  if (bytes.toString('base64').replace(/=+$/, '') !== normalized) return null;
+  return bytes;
+}
 
 /** { count, unscannable } for one buffer, recursing into archives. */
 export function scanBuffer(buffer, options, depth = 0) {
+  // Validate even empty archives/files or missing targets, not just text hits.
+  if (depth === 0) options = { literals: resolveLiterals(options) };
   if (depth > MAX_DEPTH) return { count: 0, unscannable: true };
   if (isZip(buffer)) {
     let entries;
@@ -32,24 +57,57 @@ export function scanBuffer(buffer, options, depth = 0) {
       return { count: total.count + inner.count, unscannable: total.unscannable || inner.unscannable };
     }, { count: 0, unscannable: false });
   }
-  const text = isText(buffer) ? buffer.toString('utf8') : buffer.toString('latin1');
-  let count = countSecretMatches(text, options);
-  let unscannable = false;
-  const report = text.match(PLAYWRIGHT_REPORT_RE);
-  if (report) {
-    const zip = Buffer.from(report[2].replace(/\s+/g, ''), 'base64');
-    if (!isZip(zip)) {
-      unscannable = true;
-    } else {
-      const inner = scanBuffer(zip, options, depth + 1);
-      count += inner.count;
-      unscannable = unscannable || inner.unscannable;
+  if (isGzip(buffer)) {
+    let decoded;
+    try {
+      decoded = zlib.gunzipSync(buffer);
+    } catch {
+      return { count: 0, unscannable: true };
     }
+    return scanBuffer(decoded, options, depth + 1);
+  }
+  if (!isText(buffer)) {
+    return { count: countSecretMatches(buffer.toString('latin1'), options), unscannable: !isImage(buffer) };
+  }
+  const text = buffer.toString('utf8');
+  const hits = secretMatchRanges(text, options);
+  let count = hits.length;
+  let unscannable = false;
+  const decodedRegions = [];
+  function addDecoded(start, end, inner) {
+    // A stable base64 literal span and its decoded secret are the same leak.
+    // Preserve distinct inner occurrences while avoiding overlapping counts.
+    const direct = hits.filter(([a, b]) => a < end && b > start).length;
+    count += Math.max(0, inner.count - direct);
+    unscannable ||= inner.unscannable;
+    decodedRegions.push([start, end]);
+  }
+  const overlapsDecoded = (start, end) => decodedRegions.some(([a, b]) => a < end && b > start);
+
+  // Consume the report first so its ZIP is not scanned again as a generic run.
+  for (const report of text.matchAll(new RegExp(PLAYWRIGHT_REPORT_RE.source, 'g'))) {
+    const start = report.index + report[1].length;
+    const zip = decodeBase64(report[2]);
+    const inner = zip && isZip(zip) ? scanBuffer(zip, options, depth + 1) : { count: 0, unscannable: true };
+    addDecoded(start, start + report[2].length, inner);
   }
   for (const match of text.matchAll(BASE64_BODY_RE)) {
-    const inner = scanBuffer(Buffer.from(match[1], 'base64'), options, depth + 1);
-    count += inner.count;
-    unscannable = unscannable || inner.unscannable;
+    const start = match.index + match[0].indexOf(match[1]);
+    const end = start + match[1].length;
+    if (overlapsDecoded(start, end)) continue;
+    const decoded = decodeBase64(match[1]);
+    addDecoded(start, end, decoded ? scanBuffer(decoded, options, depth + 1) : { count: 0, unscannable: true });
+  }
+  // Protocol fields need not be named "body". Inspect every long base64 run,
+  // including url-safe runs. Ordinary identifiers also match this alphabet;
+  // recurse when their decoded bytes identify text, ZIP, gzip or an image.
+  for (const match of text.matchAll(BASE64_RUN_RE)) {
+    const start = match.index;
+    const end = start + match[0].length;
+    if (overlapsDecoded(start, end)) continue;
+    const decoded = decodeBase64(match[0]);
+    if (!decoded || !(isText(decoded) || isZip(decoded) || isGzip(decoded) || isImage(decoded))) continue;
+    addDecoded(start, end, scanBuffer(decoded, options, depth + 1));
   }
   return { count, unscannable };
 }
@@ -72,6 +130,7 @@ function* walk(target) {
 
 /** Scan files/dirs. Returns { findings: [{ file, count, unscannable }], missing, scanned }. */
 export function scanPaths(targets, options) {
+  options = { literals: resolveLiterals(options) };
   const findings = [];
   const missing = [];
   let scanned = 0;
@@ -111,5 +170,10 @@ function main(argv) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  process.exitCode = main(process.argv.slice(2));
+  try {
+    process.exitCode = main(process.argv.slice(2));
+  } catch {
+    console.error('::error::Artifact secret guard: invalid secret configuration or unreadable input; the upload is blocked.');
+    process.exitCode = 1;
+  }
 }
