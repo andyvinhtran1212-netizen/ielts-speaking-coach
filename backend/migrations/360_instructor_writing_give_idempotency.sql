@@ -16,7 +16,8 @@
 -- The 228 RPC is not touched (it has no grading_tier either).
 --
 -- Ownership is re-checked inside the transaction (defence in depth behind the
--- route's own W-3 checks): every prompt created_by = owner; a fan-out's class
+-- route's own W-3 checks): the owner is an active instructor or admin (checked
+-- before the ledger); every prompt created_by = owner; a fan-out's class
 -- created_by = owner and no active member owned by another instructor; an
 -- individual give's learner instructor_id = owner. The class roster is the
 -- active memberships, locked FOR SHARE as in 228. The 331 (archived learner)
@@ -28,6 +29,11 @@
 -- MIGRATION_FEATURES=instructor_give_idempotency, BEFORE the backend that
 -- calls the RPC; production only at an authorised staging -> main promotion.
 -- One transaction, additive, re-runnable; no existing data is changed.
+--
+-- The definer pins search_path = pg_catalog, pg_temp and names every relation
+-- and type with public.: with public on the path, a function created there
+-- with an exact-type signature (e.g. public.array_length(uuid[], int)) would
+-- win overload resolution over the polymorphic built-in and run as the owner.
 --
 -- Rollback (deploy the pre-0044 backend first; then a new forward migration):
 --   BEGIN;
@@ -62,7 +68,9 @@ BEGIN
                ('writing_assignments', 'analysis_level'),
                ('writing_prompts', 'created_by'),
                ('cohorts', 'created_by'),
-               ('students', 'instructor_id'))) <> 7 THEN
+               ('students', 'instructor_id'),
+               ('users', 'role'),
+               ('users', 'is_active'))) <> 9 THEN
         RAISE EXCEPTION 'instructor_give_prerequisite_column_missing';
     END IF;
 END $$;
@@ -110,7 +118,7 @@ CREATE OR REPLACE FUNCTION public.fn_create_instructor_writing_give_idempotent(
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, pg_temp
+SET search_path = pg_catalog, pg_temp
 AS $$
 DECLARE
     v_prompt_count integer := COALESCE(array_length(p_prompt_ids, 1), 0);
@@ -144,17 +152,23 @@ BEGIN
        OR p_grading_tier IS NULL OR p_grading_tier NOT IN ('standard', 'deep') THEN
         RAISE EXCEPTION 'instructor_give_request_invalid' USING ERRCODE = '22023';
     END IF;
+    -- Defence in depth behind the route's require_instructor: the owner must
+    -- be an active instructor or admin, before any ledger read or write.
+    IF NOT EXISTS (SELECT 1 FROM public.users
+                    WHERE id = p_owner AND role IN ('instructor', 'admin') AND is_active) THEN
+        RAISE EXCEPTION 'instructor_give_owner_not_staff' USING ERRCODE = '42501';
+    END IF;
 
     -- A concurrent request with the same id waits here on the primary key
     -- until the first one commits (then replays) or rolls back (then runs).
-    INSERT INTO instructor_writing_assignment_requests (id, assigned_by, give_kind, request_payload)
+    INSERT INTO public.instructor_writing_assignment_requests (id, assigned_by, give_kind, request_payload)
     VALUES (p_request_id, p_owner, p_give_kind, p_request_payload)
     ON CONFLICT (id) DO NOTHING;
 
     IF NOT FOUND THEN
         SELECT assigned_by, give_kind, request_payload, receipt
           INTO v_existing_owner, v_existing_kind, v_existing_payload, v_receipt
-          FROM instructor_writing_assignment_requests
+          FROM public.instructor_writing_assignment_requests
          WHERE id = p_request_id
          FOR UPDATE;
         IF NOT FOUND OR v_existing_owner IS DISTINCT FROM p_owner THEN
@@ -170,13 +184,13 @@ BEGIN
         RETURN v_receipt || jsonb_build_object('replayed', true);
     END IF;
 
-    IF (SELECT count(*) FROM writing_prompts
+    IF (SELECT count(*) FROM public.writing_prompts
          WHERE id = ANY (p_prompt_ids) AND created_by = p_owner) <> v_prompt_count THEN
         RAISE EXCEPTION 'instructor_give_not_owned' USING ERRCODE = '42501';
     END IF;
 
     IF p_give_kind = 'individual' THEN
-        IF NOT EXISTS (SELECT 1 FROM students
+        IF NOT EXISTS (SELECT 1 FROM public.students
                         WHERE id = p_student_id AND instructor_id = p_owner) THEN
             RAISE EXCEPTION 'instructor_give_not_owned' USING ERRCODE = '42501';
         END IF;
@@ -187,26 +201,26 @@ BEGIN
             v_group_id := gen_random_uuid();
         END IF;
     ELSE
-        IF NOT EXISTS (SELECT 1 FROM cohorts
+        IF NOT EXISTS (SELECT 1 FROM public.cohorts
                         WHERE id = p_cohort_id AND created_by = p_owner) THEN
             RAISE EXCEPTION 'instructor_give_not_owned' USING ERRCODE = '42501';
         END IF;
         -- Same roster lock as the 228 cohort branch: a membership cannot end
         -- between this read and the insert.
         PERFORM m.id
-           FROM student_cohort_memberships m
+           FROM public.student_cohort_memberships m
           WHERE m.cohort_id = p_cohort_id AND m.is_active
           FOR SHARE OF m;
         SELECT array_agg(DISTINCT m.student_id ORDER BY m.student_id)
           INTO v_student_ids
-          FROM student_cohort_memberships m
+          FROM public.student_cohort_memberships m
          WHERE m.cohort_id = p_cohort_id AND m.is_active;
         IF v_student_ids IS NULL THEN
             RAISE EXCEPTION 'instructor_give_roster_empty' USING ERRCODE = '22023';
         END IF;
         -- W-3 student branch: a member owned by ANOTHER instructor is refused;
         -- an unowned (NULL) member of my own class is allowed, as before.
-        IF EXISTS (SELECT 1 FROM students
+        IF EXISTS (SELECT 1 FROM public.students
                     WHERE id = ANY (v_student_ids)
                       AND instructor_id IS NOT NULL AND instructor_id <> p_owner) THEN
             RAISE EXCEPTION 'instructor_give_not_owned' USING ERRCODE = '42501';
@@ -217,19 +231,19 @@ BEGIN
     -- Allow + warn: learners who already hold any of these prompts.
     SELECT COALESCE(jsonb_agg(DISTINCT student_id::text ORDER BY student_id::text), '[]'::jsonb)
       INTO v_duplicates
-      FROM writing_assignments
+      FROM public.writing_assignments
      WHERE prompt_id = ANY (p_prompt_ids)
        AND student_id = ANY (v_student_ids);
 
     WITH inserted AS (
-        INSERT INTO writing_assignments (
+        INSERT INTO public.writing_assignments (
             prompt_id, student_id, cohort_id, assignment_group_id, name,
             allow_soft_check, assigned_by, deadline, instructions,
             analysis_level, grading_tier
         )
         SELECT prompt_rows.prompt_id, student_rows.student_id, p_cohort_id, v_group_id, p_name,
                COALESCE(p_allow_soft_check, false), p_owner, p_deadline, p_instructions,
-               p_analysis_level, p_grading_tier::grading_tier_enum
+               p_analysis_level, p_grading_tier::public.grading_tier_enum
           FROM unnest(v_student_ids) AS student_rows(student_id)
          CROSS JOIN unnest(p_prompt_ids) AS prompt_rows(prompt_id)
         RETURNING *
@@ -252,7 +266,7 @@ BEGIN
         );
     END IF;
 
-    UPDATE instructor_writing_assignment_requests
+    UPDATE public.instructor_writing_assignment_requests
        SET receipt = v_receipt, updated_at = now()
      WHERE id = p_request_id;
     RETURN v_receipt || jsonb_build_object('replayed', false);
@@ -299,9 +313,16 @@ BEGIN
        OR NOT has_function_privilege('service_role', v_fn, 'EXECUTE') THEN
         RAISE EXCEPTION 'instructor_give_service_role_missing';
     END IF;
-    IF NOT (SELECT prosecdef AND proconfig @> ARRAY['search_path=public, pg_temp']
+    IF NOT (SELECT prosecdef AND proconfig @> ARRAY['search_path=pg_catalog, pg_temp']
               FROM pg_proc WHERE oid = v_fn) THEN
         RAISE EXCEPTION 'instructor_give_rpc_not_pinned_security_definer';
+    END IF;
+    -- CREATE OR REPLACE keeps the owner of a function planted earlier: the
+    -- definer must run as the role applying this migration.
+    IF (SELECT proowner FROM pg_proc WHERE oid = v_fn)
+       IS DISTINCT FROM (SELECT oid FROM pg_roles WHERE rolname = current_user) THEN
+        RAISE EXCEPTION 'instructor_give_rpc_unexpected_owner: %',
+            (SELECT pg_get_userbyid(proowner) FROM pg_proc WHERE oid = v_fn);
     END IF;
 END $$;
 

@@ -48,7 +48,7 @@ def test_one_additive_transaction_with_lock_timeout():
                       r"DISABLE\s+TRIGGER", r"session_replication_role"):
         assert not re.search(forbidden, CODE, re.M | re.I), forbidden
     # The only UPDATE is the RPC writing its own receipt.
-    assert re.findall(r"UPDATE\s+(\S+)", CODE) == [LEDGER]
+    assert re.findall(r"UPDATE\s+(\S+)", CODE) == [f"public.{LEDGER}"]
 
 
 def test_never_touches_the_admin_ledger_or_the_admin_rpc():
@@ -59,7 +59,7 @@ def test_never_touches_the_admin_ledger_or_the_admin_rpc():
 
 def test_rpc_is_pinned_definer_executable_by_service_role_only():
     fn = m326._function(SQL, RPC)
-    assert "SECURITY DEFINER\nSET search_path = public, pg_temp" in fn
+    assert "SECURITY DEFINER\nSET search_path = pg_catalog, pg_temp\nAS $$" in fn
     assert re.search(rf"REVOKE ALL ON FUNCTION public\.{RPC}\([^)]*\)\s*FROM PUBLIC, anon, authenticated;", CODE)
     assert re.search(rf"GRANT EXECUTE ON FUNCTION public\.{RPC}\([^)]*\)\s*TO service_role;", CODE)
     assert f"REVOKE ALL ON public.{LEDGER}\n    FROM PUBLIC, anon, authenticated, service_role;" in CODE
@@ -68,9 +68,36 @@ def test_rpc_is_pinned_definer_executable_by_service_role_only():
 
 def test_rpc_writes_grading_tier_and_replays_before_any_ownership_read():
     fn = m326._function(SQL, RPC)
-    assert "p_grading_tier::grading_tier_enum" in fn
+    assert "p_grading_tier::public.grading_tier_enum" in fn
     assert fn.index("ON CONFLICT (id) DO NOTHING") < fn.index("instructor_give_not_owned")
     assert "FOR SHARE OF m" in fn
+
+
+# Every relation and type the definer names. With public on its search_path, a
+# function created in public with an exact-type signature (SA-1: e.g.
+# public.array_length(uuid[], int)) beats the polymorphic built-in and runs as
+# the owner, so the path is pg_catalog, pg_temp and each of these is public.-named.
+RELATIONS = ("instructor_writing_assignment_requests", "writing_assignments", "writing_prompts",
+             "cohorts", "students", "student_cohort_memberships", "users", "grading_tier_enum")
+
+
+def test_rpc_search_path_excludes_public_and_every_relation_is_schema_qualified():
+    fn = m326._function(SQL, RPC)
+    assert re.findall(r"SET search_path\s*=\s*([^\n]+)", fn) == ["pg_catalog, pg_temp"]
+    body = m326._strip_comments(fn[fn.index("AS $$"):])
+    for name in RELATIONS:
+        assert not re.findall(rf"(?<![\w.]){name}\b", body), f"unqualified {name}"
+        assert re.search(rf"\bpublic\.{name}\b", body), name
+    # The postcondition pins the same path and the owner.
+    assert "proconfig @> ARRAY['search_path=pg_catalog, pg_temp']" in CODE
+    assert "instructor_give_rpc_unexpected_owner" in CODE
+
+
+def test_rpc_requires_an_active_staff_owner_before_the_ledger():
+    fn = m326._function(SQL, RPC)
+    guard = fn.index("instructor_give_owner_not_staff")
+    assert "role IN ('instructor', 'admin') AND is_active" in fn[:guard]
+    assert guard < fn.index("ON CONFLICT (id) DO NOTHING")
 
 
 def test_forward_policy_holds_it_out_of_the_merge_apply():
@@ -105,7 +132,8 @@ def _build(schema: str, *, apply: bool = True) -> None:
             GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role;
         SET search_path = {schema}, pg_temp;
         CREATE TYPE grading_tier_enum AS ENUM ('quick', 'standard', 'deep', 'instructor');
-        CREATE TABLE users (id uuid PRIMARY KEY);
+        CREATE TABLE users (id uuid PRIMARY KEY, role text NOT NULL DEFAULT 'instructor',
+                            is_active boolean NOT NULL DEFAULT true);
         CREATE TABLE cohorts (id uuid PRIMARY KEY, created_by uuid REFERENCES users(id));
         CREATE TABLE students (id uuid PRIMARY KEY, instructor_id uuid REFERENCES users(id),
                                archived_at timestamptz);
@@ -385,6 +413,74 @@ def test_invalid_requests_are_refused_before_any_write(schema, kw):
     with pytest.raises(RuntimeError, match="instructor_give_request_invalid"):
         _call(schema, **args)
     assert _ledger(schema, args["request_id"]) == 0
+
+
+@pytest.mark.parametrize("role,active", [("student", True), ("user", True), ("instructor", False),
+                                         ("admin", False)])
+def test_owner_must_be_an_active_instructor_or_admin(schema, role, active):
+    cohort, prompts, _students = _class(schema)
+    owner = str(uuid4())
+    _q(schema, f"INSERT INTO users VALUES ('{owner}', 'instructor', true);"
+               f"UPDATE cohorts SET created_by = '{owner}' WHERE id = '{cohort}';"
+               f"UPDATE writing_prompts SET created_by = '{owner}' WHERE id IN ('{prompts[0]}', '{prompts[1]}');"
+               f"UPDATE students SET instructor_id = '{owner}' WHERE id IN (SELECT student_id "
+               f"FROM student_cohort_memberships WHERE cohort_id = '{cohort}')")
+    replayed = str(uuid4())
+    _call(schema, request_id=replayed, owner=owner, prompts=prompts, cohort=cohort)
+    _q(schema, f"UPDATE users SET role = '{role}', is_active = {str(active).lower()} WHERE id = '{owner}'")
+    rid = str(uuid4())
+    with pytest.raises(RuntimeError, match="instructor_give_owner_not_staff"):
+        _call(schema, request_id=rid, owner=owner, prompts=prompts[:1], cohort=cohort)
+    with pytest.raises(RuntimeError, match="instructor_give_owner_not_staff"):   # no replay either
+        _call(schema, request_id=replayed, owner=owner, prompts=prompts, cohort=cohort)
+    assert _ledger(schema, rid) == 0
+    assert _count(schema, f"cohort_id = '{cohort}'") == 4
+
+
+def test_functions_created_in_the_schema_do_not_shadow_the_built_ins(schema):
+    """SA-1 repro shape: exact-type overloads of polymorphic built-ins the RPC
+    calls. With the old `search_path = public, pg_temp` they were picked and
+    raised here; with pg_catalog, pg_temp they are never resolved."""
+    shadows = {
+        "array_length(uuid[], integer)": "integer",
+        "array_position(uuid[], uuid)": "integer",
+        "jsonb_build_object(text, boolean)": "jsonb",
+    }
+    for signature, returns in shadows.items():
+        psql(f"CREATE FUNCTION {schema}.{signature} RETURNS {returns} LANGUAGE plpgsql AS "
+             f"$$ BEGIN RAISE EXCEPTION 'shadow_resolved'; END $$; "
+             f"GRANT EXECUTE ON FUNCTION {schema}.{signature} TO service_role")
+    try:
+        cohort, prompts, _students = _class(schema)
+        rid = str(uuid4())
+        first = _call(schema, request_id=rid, prompts=prompts, cohort=cohort)
+        again = _call(schema, request_id=rid, prompts=prompts, cohort=cohort)
+        assert first["created_count"] == 4 and again["replayed"] is True
+        # The probes are reachable: the same call text outside the definer resolves them.
+        with pytest.raises(RuntimeError, match="shadow_resolved"):
+            psql(f"SET search_path = {schema}, pg_temp; SELECT array_length(ARRAY[gen_random_uuid()], 1)")
+    finally:
+        for signature in shadows:
+            psql(f"DROP FUNCTION {schema}.{signature}")
+
+
+def test_postcondition_aborts_when_the_rpc_was_planted_by_another_role(probe):
+    """CREATE OR REPLACE keeps an existing function's owner (SA-5)."""
+    other = "give360_own_" + uuid4().hex[:8]
+    try:
+        _build(other, apply=False)
+        psql(f"CREATE FUNCTION {other}.{RPC}(p_request_id uuid, p_owner uuid, p_give_kind text, "
+             "p_request_payload jsonb, p_prompt_ids uuid[], p_cohort_id uuid DEFAULT NULL, "
+             "p_student_id uuid DEFAULT NULL, p_name text DEFAULT NULL, "
+             "p_allow_soft_check boolean DEFAULT false, p_deadline timestamptz DEFAULT NULL, "
+             "p_instructions text DEFAULT NULL, p_analysis_level integer DEFAULT 3, "
+             "p_grading_tier text DEFAULT 'standard') RETURNS jsonb LANGUAGE sql AS $$ SELECT '{}'::jsonb $$; "
+             f"ALTER FUNCTION {other}.{RPC}({SIGNATURE}) OWNER TO service_role")
+        with pytest.raises(RuntimeError, match="instructor_give_rpc_unexpected_owner: service_role"):
+            psql(_schema_sql(SQL, other))
+        assert psql(f"SELECT to_regclass('{other}.{LEDGER}') IS NULL") == "t"   # whole file rolled back
+    finally:
+        psql(f"DROP SCHEMA IF EXISTS {other} CASCADE")
 
 
 def test_clients_cannot_execute_the_rpc_or_touch_the_ledger(schema):

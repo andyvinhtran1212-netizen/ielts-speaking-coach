@@ -35,8 +35,8 @@ GiveKind = Literal["individual", "fan_out"]
 LEDGER = "instructor_writing_assignment_requests"
 RPC = "fn_create_instructor_writing_give_idempotent"
 
-REQUEST_MISMATCH_MESSAGE = "request_id đã được dùng với nội dung khác."
-REQUEST_OTHER_OWNER_MESSAGE = "request_id không thuộc tài khoản này."
+REQUEST_MISMATCH_MESSAGE = "Yêu cầu giao bài này đã được gửi trước đó với nội dung khác. Vui lòng tải lại trang rồi giao lại."
+REQUEST_OTHER_OWNER_MESSAGE = "Yêu cầu giao bài này không thuộc tài khoản của bạn. Vui lòng tải lại trang rồi thử lại."
 REQUEST_INCOMPLETE_MESSAGE = "Yêu cầu giao bài đang được xử lý. Vui lòng thử lại."
 EMPTY_ROSTER_MESSAGE = "Lớp này chưa có học viên nào."
 
@@ -145,7 +145,7 @@ def create_give(
             raise HTTPException(422, "Dữ liệu giao bài không hợp lệ.") from exc
         if "instructor_give_roster_empty" in message:
             raise HTTPException(400, EMPTY_ROSTER_MESSAGE) from exc
-        if "instructor_give_not_owned" in message:
+        if "instructor_give_not_owned" in message or "instructor_give_owner_not_staff" in message:
             # Same generic 403 as the W-3 pre-checks (main.py PermissionError handler).
             raise PermissionError(f"instructor give: ownership changed for request {request_id}") from exc
         raise

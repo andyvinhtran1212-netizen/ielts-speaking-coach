@@ -122,6 +122,7 @@ so an admin teaching from /instructor would lose the instructor tier and the
 - A replay returns the stored first result, not today's row state (e.g. the row may since be submitted).
 - Two different `request_id`s with the same body are two intents: two gives (allow + warn).
 - The legacy `students.cohort_id` roster fallback is no longer used by the class give: the RPC reads active memberships (canonical since 227). The route pre-check still reads it, so a class with only legacy rows gets 400 from the RPC.
+- An instructor who lost access to a learner or class after a completed give can still replay that give's own receipt with the same `request_id` and body: the response is the stored first result and nothing is written (SA-4, accepted by design). Losing the instructor role or being deactivated is refused before any ledger read (403 at the route; the RPC also refuses an owner that is not an active instructor or admin).
 - Deadlock between a class give and a learner archive (pre-existing, 228/331): one side aborts with 40P01 and nothing is half-written.
 
 ## Success criteria
@@ -137,7 +138,7 @@ so an admin teaching from /instructor would lose the instructor tier and the
 3. **D3 — required at once** (ticket): no optional phase; an old open tab gets 422 until reload.
 4. **D4 — `assigned_by … ON DELETE CASCADE`** on the new ledger: `writing_assignments.assigned_by` is `SET NULL`, so receipts must not start blocking a user delete (206 uses RESTRICT).
 5. **D5 — both routes** (ticket): individual give and class fan-out.
-6. **D6 — copy (Content Manager review):** the two new 409 messages in FR-003/FR-004 and the backstop "Yêu cầu giao bài đang được xử lý. Vui lòng thử lại." / "Dữ liệu giao bài không hợp lệ."; the response does not expose a `replayed` flag, so both responses are identical (the server logs replays).
+6. **D6 — copy (Content Manager review):** the two new 409 messages in FR-003/FR-004 and the backstop "Yêu cầu giao bài đang được xử lý. Vui lòng thử lại." / "Dữ liệu giao bài không hợp lệ."; the response does not expose a `replayed` flag, so both responses are identical (the server logs replays). CM review 31/10 (CM-TEXT-2116): instructors must not see "request_id", so the API returns "Yêu cầu giao bài này đã được gửi trước đó với nội dung khác. Vui lòng tải lại trang rồi giao lại." (FR-003) and "Yêu cầu giao bài này không thuộc tài khoản của bạn. Vui lòng tải lại trang rồi thử lại." (FR-004); the incomplete and 422 backstop messages are kept verbatim. The FR-003/FR-004 lines keep their original quotes because FR text is frozen once implementation commits exist; this decision is the wording that ships.
 
 ## Open questions
 

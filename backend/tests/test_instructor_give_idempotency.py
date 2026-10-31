@@ -110,7 +110,7 @@ def test_same_request_id_with_another_body_is_409_and_writes_nothing(path, chang
         before = [dict(r) for r in _rows(store)]
         r = client.post(path, json=_body(path, rid, **change), headers=HDR)
     assert r.status_code == 409, r.text
-    assert r.json()["detail"] == "request_id đã được dùng với nội dung khác."
+    assert r.json()["detail"] == "Yêu cầu giao bài này đã được gửi trước đó với nội dung khác. Vui lòng tải lại trang rồi giao lại."
     assert _rows(store) == before
 
 
@@ -136,7 +136,7 @@ def test_another_instructor_cannot_reuse_a_request_id(path):
         # A replays B's id with B's exact body: refused, and B's result is not disclosed.
         r = client.post(path, json=_body(path, rid), headers=HDR)
     assert r.status_code == 409, r.text
-    assert r.json()["detail"] == "request_id không thuộc tài khoản này."
+    assert r.json()["detail"] == "Yêu cầu giao bài này không thuộc tài khoản của bạn. Vui lòng tải lại trang rồi thử lại."
     assert str(first.json().get("id") or first.json().get("group_id")) not in r.text
     assert store["writing_assignments"] == before
 
@@ -200,10 +200,11 @@ def test_rpc_receives_the_auth_owner_and_the_give_options():
 @pytest.mark.parametrize("path", [INDIVIDUAL, FAN_OUT])
 @pytest.mark.parametrize("raised,status,detail", [
     ("instructor_give_not_owned", 403, "Bạn không có quyền với tài nguyên này."),
+    ("instructor_give_owner_not_staff", 403, "Bạn không có quyền với tài nguyên này."),
     ("instructor_give_request_incomplete", 409, "Yêu cầu giao bài đang được xử lý. Vui lòng thử lại."),
     ("instructor_give_request_invalid", 422, "Dữ liệu giao bài không hợp lệ."),
-    ("instructor_give_request_owned_by_other", 409, "request_id không thuộc tài khoản này."),
-    ("instructor_give_request_payload_mismatch", 409, "request_id đã được dùng với nội dung khác."),
+    ("instructor_give_request_owned_by_other", 409, "Yêu cầu giao bài này không thuộc tài khoản của bạn. Vui lòng tải lại trang rồi thử lại."),
+    ("instructor_give_request_payload_mismatch", 409, "Yêu cầu giao bài này đã được gửi trước đó với nội dung khác. Vui lòng tải lại trang rồi giao lại."),
 ])
 def test_rpc_refusals_map_to_the_route_contract(path, raised, status, detail):
     store = _seed()
