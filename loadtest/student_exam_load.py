@@ -302,12 +302,23 @@ def make_client(base_url: str, timeout_s: float):
     )
 
 
+def _time_cap_conflict(status, body) -> bool:
+    """Only the backend's explicit clock-expiry conflicts are expected."""
+    return status == 409 and isinstance(body, dict) and body.get("detail") in (
+        "Đã hết thời gian làm bài — đáp án này không được ghi.",
+        "Đã hết thời gian làm bài — hãy nộp lượt hết giờ.",
+    )
+
+
 async def call(rec: Recorder, client, method: str, path: str, endpoint: str,
-               token: str | None = None, quota_statuses: tuple[int, ...] = (), **kw):
+               token: str | None = None, quota_statuses: tuple[int, ...] = (),
+               allow_time_cap: bool = False, **kw):
     """One timed request. Returns (status_code|None, json|None).
 
     ``quota_statuses`` are 4xx codes the route uses for account quota or
-    activation refusals; they are counted as quota_rejections, not errors."""
+    activation refusals; they are counted as quota_rejections, not errors.
+    ``allow_time_cap`` keeps explicit timed-exam expiry 409s in status/latency
+    metrics without counting an ordinary clock cutoff as a load error."""
     import httpx
     headers = dict(kw.pop("headers", {}) or {})
     if token:
@@ -324,13 +335,14 @@ async def call(rec: Recorder, client, method: str, path: str, endpoint: str,
         rec.add(endpoint, (time.monotonic() - t0) * 1000, type(exc).__name__, False, False)
         return None, None
     ms = (time.monotonic() - t0) * 1000
-    ok = 200 <= resp.status_code < 300
-    rec.add(endpoint, ms, str(resp.status_code), ok, False,
-            quota=resp.status_code in quota_statuses)
     try:
         body = resp.json()
     except ValueError:
         body = None
+    ok = (200 <= resp.status_code < 300
+          or (allow_time_cap and _time_cap_conflict(resp.status_code, body)))
+    rec.add(endpoint, ms, str(resp.status_code), ok, False,
+            quota=resp.status_code in quota_statuses)
     return resp.status_code, body
 
 
@@ -417,6 +429,31 @@ def adopt_resume(sv, n_questions: int, *, item_id: str | None = None) -> tuple[i
     return stage, sid, answered
 
 
+def _exam_timer_deadlines(timer, requested_at: float) -> tuple[float, float]:
+    """Conservative answer cutoff and safe server-expiry wait, on our clock.
+
+    Like the runner, charge the round trip before allowing another answer.
+    Waiting the sampled allowance from receipt before finalizing avoids an
+    early time_cap PATCH (422) without trusting the client's wall clock.
+    """
+    if not isinstance(timer, dict) or not timer.get("is_timed"):
+        return math.inf, math.inf
+    if timer.get("invalid"):
+        raise ValueError("invalid assignment timer")
+    if timer.get("is_expired"):
+        return requested_at, requested_at
+    remaining = timer.get("time_remaining_seconds")
+    precise = bool(timer.get("sampled_at") and timer.get("expires_at"))
+    if precise:
+        remaining = (datetime.fromisoformat(timer["expires_at"].replace("Z", "+00:00"))
+                     - datetime.fromisoformat(timer["sampled_at"].replace("Z", "+00:00"))).total_seconds()
+    if not isinstance(remaining, (int, float)) or not math.isfinite(remaining) or remaining < 0:
+        raise ValueError("invalid assignment timer allowance")
+    # Older integer-only snapshots truncate the remaining second down.
+    finalize_remaining = remaining + (1 if not precise and isinstance(remaining, int) else 0)
+    return requested_at + remaining, time.monotonic() + finalize_remaining
+
+
 async def exam_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
     a, rec = ctx.args, ctx.rec
     rnd = random.Random(a.seed * 1000 + vu)
@@ -424,8 +461,14 @@ async def exam_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
     class_item = account_class_item(a, account)
     item_q = {"class_item": class_item} if class_item else {}
     async with make_client(a.base_url, a.request_timeout) as c:
+        if ctx.stop.is_set() or time.monotonic() >= ctx.deadline:
+            return
         await call(rec, c, "GET", "/auth/me", "GET /auth/me", token=token)
+        if ctx.stop.is_set() or time.monotonic() >= ctx.deadline:
+            return
         await beacon(ctx, c, token, "/course-exercises", ui)
+        if ctx.stop.is_set() or time.monotonic() >= ctx.deadline:
+            return
         st, bank = await call(rec, c, "GET", f"/api/quiz/banks/{a.bank_id}",
                               "GET /api/quiz/banks/{id}", token=token, params=item_q)
         if st != 200 or not isinstance(bank, dict):
@@ -443,6 +486,9 @@ async def exam_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
         item_q = {"class_item": class_item} if class_item else {}
         timed = bool(mastery.get("is_timed"))
         sealed = bool(mastery.get("answers_sealed"))
+        if ctx.stop.is_set() or time.monotonic() >= ctx.deadline:
+            return
+        timer_requested_at = time.monotonic()
         st, sv = await call(rec, c, "GET", f"/api/quiz/banks/{a.bank_id}/course-resume",
                            "GET /api/quiz/banks/{id}/course-resume", token=token, params=item_q)
         if st != 200 or not isinstance(sv, dict):
@@ -452,6 +498,43 @@ async def exam_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
         # The runner restores the current main run's completed IDs on resume.
         completed_sessions = list(dict.fromkeys(
             sid for sid in sv.get("completed") or [] if isinstance(sid, str)))
+        timer_cutoff, timer_finalize_at = _exam_timer_deadlines(sv.get("timer"), timer_requested_at)
+        timed = timed or math.isfinite(timer_cutoff)
+
+        async def submit_verdict(timed_out: bool) -> None:
+            if ctx.stop.is_set() or time.monotonic() >= ctx.deadline:
+                return
+            st, _ = await call(rec, c, "POST", "/api/quiz/course/verdict",
+                               "POST /api/quiz/course/verdict", token=token, json={
+                                   "bank_id": a.bank_id, **item_q,
+                                   "session_ids": completed_sessions, "timed_out": timed_out,
+                               })
+            if st is None or not 200 <= st < 300:
+                rec.notes.append(f"{ui}: verdict failed status={st}")
+
+        async def finish_time_cap(sid=None, graded=0, right=0, started=0.0) -> None:
+            if ctx.stop.is_set() or time.monotonic() >= ctx.deadline:
+                return
+            wait = timer_finalize_at - time.monotonic()
+            if wait > 0 and not await _sleep_or_stop(ctx, wait):
+                return
+            if ctx.stop.is_set() or time.monotonic() >= ctx.deadline:
+                return
+            if sid:
+                st, _ = await call(rec, c, "PATCH", f"/api/quiz/sessions/{sid}",
+                                   "PATCH /api/quiz/sessions/{id}", token=token, json={
+                                       "duration_sec": round(time.monotonic() - started),
+                                       "total_questions": graded, "total_correct": right,
+                                       "total_wrong": max(0, graded - right),
+                                       "ended_by": "time_cap", "attempts": [],
+                                   })
+                if st is None or not 200 <= st < 300:
+                    rec.notes.append(f"{ui}: finalization failed status={st}; no stage advance")
+                    return
+                if str(sid) not in completed_sessions:
+                    completed_sessions.append(str(sid))
+            await submit_verdict(True)
+
         last_beacon = time.monotonic()
         while time.monotonic() < ctx.deadline and not ctx.stop.is_set():
             # Like resumedFinal in the runner: results only, no new attempt.
@@ -462,13 +545,20 @@ async def exam_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
                 # Continue the open session the server reports, like the runner.
                 sid, resume_sid = resume_sid, None
             else:
+                if time.monotonic() >= timer_cutoff:
+                    await finish_time_cap()
+                    return
                 body = {"bank_id": a.bank_id, **item_q}
+                timer_requested_at = time.monotonic()
                 st, s = await call(rec, c, "POST", "/api/quiz/sessions", "POST /api/quiz/sessions",
                                    token=token, json=body)
                 sid = (s.get("session_id") or s.get("id")) if isinstance(s, dict) else None
                 if not sid:
                     rec.notes.append(f"{ui}: session open failed status={st}")
                     return
+                if isinstance(s.get("timer"), dict):
+                    timer_cutoff, timer_finalize_at = _exam_timer_deadlines(s["timer"], timer_requested_at)
+                    timed = timed or math.isfinite(timer_cutoff)
             rec.sessions.append({"session_id": str(sid), "account": f"user#{account}",
                                  "vu": vu, "bank_id": a.bank_id, "class_item": class_item,
                                  "resumed": resumed, "t": rec.t()})
@@ -485,24 +575,41 @@ async def exam_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
             right = 0 if sealed else sum(correct is True for correct in saved.values())
             started = time.monotonic()
             for q in chunk:
+                if time.monotonic() >= timer_cutoff:
+                    break
                 think = _jitter(a.answer_seconds, rnd)
-                if not await _sleep_or_stop(ctx, think):
+                if not await _sleep_or_stop(ctx, min(think, timer_cutoff - time.monotonic())):
+                    break
+                if time.monotonic() >= timer_cutoff:
                     break
                 row = _attempt_row(q, rnd, sealed, int(think * 1000))
                 pending.append(row)
                 graded += 1
                 right += 1 if row["is_correct"] else 0
                 if len(pending) >= BATCH or timed:
-                    st, _ = await call(rec, c, "POST", f"/api/quiz/sessions/{sid}/progress",
+                    st, result = await call(rec, c, "POST", f"/api/quiz/sessions/{sid}/progress",
                                        "POST /api/quiz/sessions/{id}/progress", token=token,
+                                       allow_time_cap=timed,
                                        json={"attempts": pending, "word_stats": []})
+                    if timed and _time_cap_conflict(st, result):
+                        # This row was refused; the timeout RPC scores only
+                        # acknowledged ledger rows, never late client answers.
+                        graded -= len(pending)
+                        right -= sum(row["is_correct"] for row in pending)
+                        pending = []
+                        timer_cutoff = timer_finalize_at = time.monotonic()
+                        break
                     if st is None or not 200 <= st < 300:
                         rec.notes.append(f"{ui}: progress failed status={st}; session left open")
                         return
                     pending = []
-                if time.monotonic() - last_beacon >= a.beacon_seconds:
+                if (not ctx.stop.is_set() and time.monotonic() < min(ctx.deadline, timer_cutoff)
+                        and time.monotonic() - last_beacon >= a.beacon_seconds):
                     last_beacon = time.monotonic()
                     await beacon(ctx, c, token, "/course-exercises", ui)
+            if time.monotonic() >= timer_cutoff:
+                await finish_time_cap(sid, graded, right, started)
+                return
             if pending:
                 st, _ = await call(rec, c, "POST", f"/api/quiz/sessions/{sid}/progress",
                                    "POST /api/quiz/sessions/{id}/progress", token=token,
@@ -513,12 +620,18 @@ async def exam_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
             # A deadline/abort flushes the prefix but must not complete a stage.
             if graded != len(stage_questions):
                 return
-            st, _ = await call(rec, c, "PATCH", f"/api/quiz/sessions/{sid}", "PATCH /api/quiz/sessions/{id}",
-                       token=token, json={
+            if ctx.stop.is_set() or time.monotonic() >= ctx.deadline:
+                return
+            st, result = await call(rec, c, "PATCH", f"/api/quiz/sessions/{sid}", "PATCH /api/quiz/sessions/{id}",
+                       token=token, allow_time_cap=timed, json={
                            "duration_sec": round(time.monotonic() - started),
                            "total_questions": graded, "total_correct": right,
                            "total_wrong": max(0, graded - right), "ended_by": None,
                        })
+            if timed and _time_cap_conflict(st, result):
+                timer_cutoff = timer_finalize_at = time.monotonic()
+                await finish_time_cap(sid, graded, right, started)
+                return
             if st is None or not 200 <= st < 300:
                 rec.notes.append(f"{ui}: finalization failed status={st}; no stage advance")
                 return
@@ -527,25 +640,22 @@ async def exam_student(ctx: Ctx, vu: int, account: int, token: str) -> None:
             if time.monotonic() >= ctx.deadline or ctx.stop.is_set():
                 return
             # _advanceStage: re-read canonical stage, then open the next session.
+            timer_requested_at = time.monotonic()
             st, sv = await call(rec, c, "GET", f"/api/quiz/banks/{a.bank_id}/course-resume",
                                "GET /api/quiz/banks/{id}/course-resume", token=token, params=item_q)
             if st != 200 or not isinstance(sv, dict):
                 rec.notes.append(f"{ui}: course-resume failed status={st}; no new quiz work")
                 return
             next_stage, resume_sid, answered = adopt_resume(sv, len(questions), item_id=class_item)
+            timer_cutoff, timer_finalize_at = _exam_timer_deadlines(sv.get("timer"), timer_requested_at)
             if resume_sid == str(sid):
                 resume_sid = None
             stage = next_stage if next_stage > stage else stage + 1
             if stage * STAGE >= len(questions):
-                if time.monotonic() >= ctx.deadline or ctx.stop.is_set():
-                    return
-                st, _ = await call(rec, c, "POST", "/api/quiz/course/verdict",
-                                   "POST /api/quiz/course/verdict", token=token, json={
-                                       "bank_id": a.bank_id, **item_q,
-                                       "session_ids": completed_sessions, "timed_out": False,
-                                   })
-                if st is None or not 200 <= st < 300:
-                    rec.notes.append(f"{ui}: verdict failed status={st}")
+                if time.monotonic() >= timer_cutoff:
+                    await finish_time_cap()
+                else:
+                    await submit_verdict(False)
                 return
 
 
@@ -1107,6 +1217,8 @@ def validate_args(args, environ: dict[str, str]) -> None:
         raise ProdGuardError(f"production host mentioned in env: {', '.join(hits)}")
     if not math.isfinite(args.ready_interval) or (args.ready_interval != 0 and args.ready_interval < 30):
         raise SystemExit("--ready-interval must be 0 or >= 30 seconds (finite)")
+    if not math.isfinite(args.beacon_seconds) or args.beacon_seconds <= 0:
+        raise SystemExit("--beacon-seconds must be > 0 seconds (finite)")
     args.max_speaking_grades = max(0, min(args.max_speaking_grades, MAX_SPEAKING_GRADES_CEILING))
     args.max_writing_grades = max(0, min(args.max_writing_grades, MAX_WRITING_GRADES_CEILING))
     # The synthetic WAV is 3 s, below the 15 s Part 1 minimum: graded uploads

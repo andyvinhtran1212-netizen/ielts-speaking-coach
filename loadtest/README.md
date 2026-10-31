@@ -36,6 +36,11 @@ before/after a hotfix.
 - `POST /sessions` 403/429 (account not activated, code quota, daily cap) are
   reported as `quota 4xx`, not as load errors, and do not stop the ladder.
   Failed or non-200 `/health/async-db` probes are listed as probe failures.
+- A timed quiz's normal clock expiry stops answers and submits a
+  `time_cap` finalization followed by a timeout course verdict. An explicit
+  server expiry 409 on an in-flight progress or normal finalization request
+  follows the same path: it remains visible in HTTP status/latency metrics
+  without increasing the load error rate. Other failures still count as errors.
 - Tokens are read from `LOADTEST_ACCOUNTS_FILE` (one access token per line,
   or a JSON list of strings / `{"token": ...}`) or `LOADTEST_TOKEN_1..n`.
   They are never printed; reports name accounts `user#k`. Supabase access
@@ -105,6 +110,7 @@ python loadtest/student_exam_load.py \
   `--ladder-max-p95-ms` (10 s).
 - `--abort-on-health-p95-ms` (default 5000) stops the run when the rolling
   `/health` p95 passes the limit. The results are still written.
+- `--beacon-seconds` must be finite and greater than zero.
 - Exit codes: 0 done (including a ladder stopped by its limits), 2 refused by
   the production guard, 3 no accounts, 4 staging busy (steps skipped), 5 busy
   check unreadable or busy marker already present.
@@ -114,7 +120,12 @@ python loadtest/student_exam_load.py \
   no new quiz sessions or answers, including when reused across ladder steps.
   A deadline or abort flushes pending answers and leaves partial stages open
   for the next run. A failed progress request stops that student without
-  finalizing the session; only fully answered, acknowledged stages are finalized.
+  finalizing the session; normal finalization requires a fully answered,
+  acknowledged stage. Assignment expiry finalizes the acknowledged prefix with
+  `ended_by: time_cap` and requests the verdict with `timed_out: true`, without
+  opening another stage. The timer is adopted from `course-resume` and refreshed
+  from session creation and subsequent resume reads. The run's abort/deadline
+  guards still take precedence over timeout finalization and verdict requests.
   A failed finalization PATCH (non-2xx or transport failure) stops the student,
   records the error in metrics and notes, and never opens the next stage.
   After the final stage, the journey submits one `POST /api/quiz/course/verdict`, included in the endpoint metrics table.

@@ -1482,3 +1482,349 @@ def test_speaking_writing_stop_before_each_new_request(
         path.endswith("/questions/generate") for _, path in expected[:cutoff]
     )
     assert ctx.rec.notes == []
+
+
+# ── R6: assignment expiry is a normal timeout submission ──────────────────
+
+class _TimedExam:
+    """Local clock and HTTP ledger; no wall-clock waits or live requests."""
+
+    def __init__(self, monkeypatch, *, resumed=True, precise=True):
+        self.now = 1000.0
+        self.expires = self.now + 2
+        self.think = 3.0
+        self.requests = []
+        self.saved = [{"qid": "q10", "is_correct": None}] if resumed else []
+        self.finalized = []
+        self.resumed = resumed
+        self.precise = precise
+        self.resume_delay = 0
+        self.progress_failure = None
+        self.patch_failure = None
+        self.verdict_failure = None
+        self.interruption = None
+        self.expire_after_patch = False
+        self.interrupt_on = None
+        self.n_questions = 20
+        self.ctx = _exam_context()
+        self.ctx.rec.started = self.now
+        self.ctx.deadline = self.now + 60
+        self.ctx.args.class_item = "I1"
+        self.ctx.args.beacon_seconds = 100
+        monkeypatch.setattr(lt.time, "monotonic", lambda: self.now)
+        monkeypatch.setattr(lt, "_jitter", lambda *args: self.think)
+        monkeypatch.setattr(lt, "_sleep_or_stop", self.sleep)
+        _mock_exam_client(monkeypatch, self.handler)
+
+    def timer(self):
+        result = {"is_timed": True, "is_expired": self.now >= self.expires,
+                  "time_remaining_seconds": max(0, self.expires - self.now)}
+        if self.precise:
+            result.update({
+                "sampled_at": lt.datetime.fromtimestamp(self.now, lt.timezone.utc).isoformat(),
+                "expires_at": lt.datetime.fromtimestamp(self.expires, lt.timezone.utc).isoformat(),
+                # The real backend truncates seconds; precise timestamps win.
+                "time_remaining_seconds": int(result["time_remaining_seconds"]),
+            })
+        return result
+
+    async def sleep(self, ctx, seconds):
+        self.now += max(0, min(seconds, ctx.deadline - self.now))
+        if self.interruption == "abort" and not self.interrupt_on:
+            ctx.stop.set()
+        return not ctx.stop.is_set() and self.now < ctx.deadline
+
+    def handler(self, request):
+        method, path = request.method, request.url.path
+        body = json.loads(request.content) if request.content else None
+        self.requests.append((method, path, body, self.now))
+        assert request.headers["authorization"] == "Bearer t"
+        if path == "/api/quiz/banks/B1":
+            return httpx.Response(200, json={
+                "questions": [{"qid": f"q{i}", "item_key": f"k{i}", "type": "mcq"}
+                              for i in range(self.n_questions)],
+                "mastery": {"item_id": "I1", "is_timed": True, "answers_sealed": True}})
+        if path.endswith("/course-resume"):
+            timer = self.timer()
+            self.now += self.resume_delay
+            return httpx.Response(200, json={
+                "stage": (1 if self.resumed else 0) + len(self.finalized),
+                "item_id": "I1", "session_id": "S0" if self.resumed and not self.finalized else None,
+                "answered": self.saved if not self.finalized else [],
+                "completed": ["PRIOR", "PRIOR"] if self.resumed else [], "timer": timer})
+        if path == "/api/quiz/sessions":
+            return httpx.Response(201, json={"session_id": "S0", "timer": self.timer()})
+        if path.endswith("/progress"):
+            failure = self.progress_failure
+            if failure:
+                self.now = max(self.now, self.expires)
+                if failure == "timeout":
+                    raise httpx.ReadTimeout("fake timeout", request=request)
+                detail = ("Đã hết thời gian làm bài — đáp án này không được ghi."
+                          if failure == "expiry" else "Unrelated conflict")
+                return httpx.Response(409 if failure in {"expiry", "conflict"} else failure,
+                                      json={"detail": detail})
+            if self.now >= self.expires:
+                return httpx.Response(409, json={
+                    "detail": "Đã hết thời gian làm bài — đáp án này không được ghi."})
+            self.saved.extend(body["attempts"])
+        if method == "PATCH":
+            if self.patch_failure == "expiry" and body.get("ended_by") != "time_cap":
+                self.now = self.expires
+                return httpx.Response(409, json={
+                    "detail": "Đã hết thời gian làm bài — hãy nộp lượt hết giờ."})
+            if self.patch_failure and self.patch_failure != "expiry":
+                return httpx.Response(self.patch_failure, json={"detail": "Unrelated failure"})
+            if body.get("ended_by") == "time_cap":
+                assert self.now >= self.expires, "finalize must not precede server expiry"
+                self.interrupt("patch")
+            self.finalized.append(body)
+            if self.expire_after_patch:
+                self.now = self.expires
+        if path == "/api/quiz/course/verdict" and self.verdict_failure:
+            return httpx.Response(self.verdict_failure, json={"detail": "verdict failed"})
+        if path == "/api/quiz/course/verdict":
+            assert not body["timed_out"] or self.now >= self.expires
+        return httpx.Response(200, json={"ok": True})
+
+    def interrupt(self, point):
+        if self.interrupt_on == point:
+            if self.interruption == "abort":
+                self.ctx.stop.set()
+            else:
+                self.ctx.deadline = self.now
+
+    def run(self):
+        asyncio.run(lt.exam_student(self.ctx, 0, 1, "t"))
+
+    def bodies(self, method, suffix):
+        return [body for m, path, body, _ in self.requests if m == method and path.endswith(suffix)]
+
+    def assert_timeout(self):
+        assert len(self.finalized) == 1
+        assert self.finalized[0]["ended_by"] == "time_cap"
+        assert self.finalized[0]["total_questions"] == len(self.saved)
+        assert self.finalized[0]["total_correct"] == 0
+        assert self.finalized[0].get("attempts", []) == []
+        assert self.bodies("POST", "/course/verdict") == [{
+            "bank_id": "B1", "class_item": "I1", "timed_out": True,
+            "session_ids": ["PRIOR", "S0"] if self.resumed else ["S0"]}]
+        assert self.requests[-1][1] == "/api/quiz/course/verdict"
+        assert not self.ctx.rec.notes
+        overall = self.ctx.rec.overall()
+        assert overall["errors"] == 0
+        assert lt.step_broke({"stop_reason": "deadline", "overall": overall}, 0, 10000) is None
+
+
+@pytest.mark.parametrize("resumed", [False, True])
+@pytest.mark.parametrize("precise", [False, True])
+def test_exam_timer_expires_before_next_answer(monkeypatch, resumed, precise):
+    exam = _TimedExam(monkeypatch, resumed=resumed, precise=precise)
+    exam.run()
+    assert not exam.bodies("POST", "/progress")
+    exam.assert_timeout()
+
+
+def test_exam_timer_stops_mid_stage_with_acknowledged_answers(monkeypatch):
+    exam = _TimedExam(monkeypatch)
+    exam.think = 0.75
+    exam.expires = exam.now + 1.8
+    exam.run()
+    assert len(exam.bodies("POST", "/progress")) == 2
+    assert all(at < exam.expires for m, p, _, at in exam.requests if p.endswith("/progress"))
+    exam.assert_timeout()
+
+
+@pytest.mark.parametrize("delay", [0.5, 3])
+def test_exam_timer_charges_resume_latency_and_waits_for_server_expiry(monkeypatch, delay):
+    exam = _TimedExam(monkeypatch)
+    exam.resume_delay = delay
+    exam.run()
+    assert not exam.bodies("POST", "/progress")
+    exam.assert_timeout()
+
+
+def test_exam_expiry_progress_race_is_expected_and_finalizes(monkeypatch):
+    exam = _TimedExam(monkeypatch)
+    exam.think = 0.5
+    exam.progress_failure = "expiry"
+    exam.run()
+    assert len(exam.bodies("POST", "/progress")) == 1
+    exam.assert_timeout()
+    stats = exam.ctx.rec.by_endpoint["POST /api/quiz/sessions/{id}/progress"].summary()
+    assert stats["statuses"] == {"409": 1} and stats["errors"] == 0
+
+
+def test_exam_expiry_normal_patch_race_switches_to_time_cap(monkeypatch):
+    exam = _TimedExam(monkeypatch)
+    exam.think = 0
+    exam.patch_failure = "expiry"
+    exam.run()
+    assert len(exam.bodies("PATCH", "/S0")) == 2
+    exam.assert_timeout()
+    stats = exam.ctx.rec.by_endpoint["PATCH /api/quiz/sessions/{id}"].summary()
+    assert stats["statuses"] == {"200": 1, "409": 1} and stats["errors"] == 0
+
+
+def test_exam_expiry_between_stages_never_opens_next_session(monkeypatch):
+    exam = _TimedExam(monkeypatch, resumed=False)
+    exam.think = 0
+    exam.expire_after_patch = True
+    exam.run()
+    assert len(exam.bodies("POST", "/api/quiz/sessions")) == 1
+    assert len(exam.finalized) == 1 and exam.finalized[0]["ended_by"] is None
+    assert exam.bodies("POST", "/course/verdict") == [{
+        "bank_id": "B1", "class_item": "I1", "timed_out": True, "session_ids": ["S0"]}]
+    assert exam.ctx.rec.overall()["errors"] == 0
+
+
+@pytest.mark.parametrize("interruption", ["abort", "deadline"])
+def test_exam_timeout_respects_run_stop_and_deadline(monkeypatch, interruption):
+    exam = _TimedExam(monkeypatch)
+    if interruption == "abort":
+        exam.interruption = "abort"
+    else:
+        exam.ctx.deadline = exam.now + 1
+    exam.run()
+    assert not exam.bodies("PATCH", "/S0")
+    assert not exam.bodies("POST", "/course/verdict")
+    assert not exam.bodies("POST", "/progress")
+
+
+@pytest.mark.parametrize("failure", ["conflict", 503, "timeout"])
+def test_exam_other_progress_failures_still_count_as_errors(monkeypatch, failure):
+    exam = _TimedExam(monkeypatch)
+    exam.think = 0.5
+    exam.progress_failure = failure
+    exam.run()
+    assert not exam.finalized and not exam.bodies("POST", "/course/verdict")
+    assert exam.ctx.rec.overall()["errors"] == 1
+    assert "progress failed" in exam.ctx.rec.notes[0]
+
+
+@pytest.mark.parametrize("endpoint", ["patch", "verdict"])
+def test_exam_timeout_submission_failures_still_count_as_errors(monkeypatch, endpoint):
+    exam = _TimedExam(monkeypatch)
+    setattr(exam, f"{endpoint}_failure", 503)
+    exam.run()
+    if endpoint == "patch":
+        assert not exam.bodies("POST", "/course/verdict")
+    else:
+        assert len(exam.bodies("POST", "/course/verdict")) == 1
+    assert exam.ctx.rec.overall()["errors"] == 1
+    assert exam.ctx.rec.notes
+
+
+@pytest.mark.parametrize("interruption", ["abort", "deadline"])
+@pytest.mark.parametrize("cutoff", range(4))
+def test_exam_startup_stops_before_each_new_request(monkeypatch, interruption, cutoff):
+    ctx = _exam_context()
+    expected = [("GET", "/auth/me"), ("POST", "/api/analytics/events"),
+                ("GET", "/api/quiz/banks/B1"), ("GET", "/api/quiz/banks/B1/course-resume")]
+    seen = []
+
+    def interrupt():
+        if interruption == "abort":
+            ctx.stop.set()
+        else:
+            ctx.deadline = lt.time.monotonic() - 1
+
+    def handler(request):
+        seen.append((request.method, request.url.path))
+        if len(seen) == cutoff:
+            interrupt()
+        return httpx.Response(200, json={"questions": [{"qid": "q0", "type": "mcq"}]})
+
+    _mock_exam_client(monkeypatch, handler)
+    if cutoff == 0:
+        interrupt()
+    asyncio.run(lt.exam_student(ctx, 0, 1, "t"))
+    assert seen == expected[:cutoff]
+
+
+@pytest.mark.parametrize("seconds", ["0", "-1", "nan", "inf"])
+def test_beacon_seconds_must_be_positive_before_network(monkeypatch, seconds):
+    monkeypatch.setattr(httpx, "AsyncClient", _NoNetwork)
+    with pytest.raises(SystemExit, match="--beacon-seconds must be > 0"):
+        lt.main(["--base-url", "http://localhost:8000", "--bank-id", "B1", "--users", "1",
+                 "--beacon-seconds", seconds], environ={"LOADTEST_TOKEN_1": "t"})
+
+
+@pytest.mark.parametrize("seconds", [0.1, 10])
+def test_positive_beacon_seconds_remain_valid(seconds):
+    args = lt.build_parser().parse_args([
+        "--base-url", "http://localhost:8000", "--bank-id", "B1", "--beacon-seconds", str(seconds)])
+    lt.validate_args(args, {})
+
+
+@pytest.mark.parametrize("interruption", ["abort", "deadline"])
+def test_exam_timeout_patch_inflight_stop_never_sends_verdict(monkeypatch, interruption):
+    exam = _TimedExam(monkeypatch)
+    exam.interruption = interruption
+    exam.interrupt_on = "patch"
+    exam.run()
+    assert len(exam.finalized) == 1 and exam.finalized[0]["ended_by"] == "time_cap"
+    assert not exam.bodies("POST", "/course/verdict")
+
+
+def test_exam_final_stage_expiry_during_resume_waits_before_verdict(monkeypatch):
+    exam = _TimedExam(monkeypatch, resumed=False)
+    exam.n_questions = 10
+    exam.think = 0.11  # first stage takes 1.1 s of the 2 s allowance
+    exam.resume_delay = 0.5
+    exam.run()
+    assert len(exam.finalized) == 1 and exam.finalized[0]["ended_by"] is None
+    assert len(exam.bodies("POST", "/course/verdict")) == 1
+    assert exam.bodies("POST", "/course/verdict")[0]["timed_out"] is True
+    assert exam.ctx.rec.overall()["errors"] == 0
+
+
+def test_exam_integer_timer_zero_is_not_early_server_finalization(monkeypatch):
+    exam = _TimedExam(monkeypatch, precise=False)
+    exam.expires = exam.now + 0.7
+    timer = exam.timer
+
+    def truncated_timer():
+        result = timer()
+        result["time_remaining_seconds"] = int(result["time_remaining_seconds"])
+        return result
+
+    exam.timer = truncated_timer
+    exam.run()
+    assert not exam.bodies("POST", "/progress")
+    exam.assert_timeout()
+
+
+def test_time_cap_expiry_does_not_abort_capacity_ladder(monkeypatch, tmp_path):
+    calls = []
+
+    def handler(request):
+        path = request.url.path
+        body = json.loads(request.content) if request.content else None
+        calls.append((request.method, path, body))
+        if path == "/api/quiz/banks/B1":
+            return httpx.Response(200, json={"questions": [
+                {"qid": "q0", "item_key": "k0", "type": "mcq"}],
+                "mastery": {"item_id": "I1", "is_timed": True}})
+        if path.endswith("/course-resume"):
+            return httpx.Response(200, json={"stage": 0, "session_id": "S0", "item_id": "I1",
+                "answered": [], "completed": [], "timer": {
+                    "is_timed": True, "is_expired": False, "time_remaining_seconds": 0.02}})
+        if path.endswith("/progress"):
+            return httpx.Response(409, json={
+                "detail": "Đã hết thời gian làm bài — đáp án này không được ghi."})
+        return httpx.Response(200, json={"ok": True})
+
+    report = _run_mocked(monkeypatch, tmp_path, handler, [
+        "--bank-id", "B1", "--ladder", "1,2", "--sessions-per-user", "2",
+        "--duration-seconds", "1", "--answer-seconds", "3", "--step-cooldown-seconds", "0",
+        "--ladder-max-error-rate", "0", "--abort-on-health-p95-ms", "0"])
+    assert [step["users"] for step in report["steps"]] == [1, 2]
+    assert report["broke_at"] is None
+    assert not any(path.endswith("/progress") for _, path, _ in calls)
+    patches = [body for method, _, body in calls if method == "PATCH"]
+    verdicts = [body for _, path, body in calls if path.endswith("/course/verdict")]
+    assert len(patches) == len(verdicts) == 3
+    assert all(body["ended_by"] == "time_cap" for body in patches)
+    assert all(body["timed_out"] is True for body in verdicts)
+    assert all(step["overall"]["errors"] == 0 and not step["notes"] for step in report["steps"])
