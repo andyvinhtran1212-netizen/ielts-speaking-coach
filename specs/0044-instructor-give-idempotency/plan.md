@@ -4,9 +4,12 @@
 
 - Database owns idempotency: migration 360 adds the ledger
   `instructor_writing_assignment_requests` and the SECURITY DEFINER RPC
-  `fn_create_instructor_writing_give_idempotent` (`search_path = public,
-  pg_temp`, EXECUTE for `service_role` only). In one transaction it validates
-  the request, inserts the ledger row `ON CONFLICT (id) DO NOTHING` (a
+  `fn_create_instructor_writing_give_idempotent` (`search_path = pg_catalog,
+  pg_temp` with every relation and type `public.`-qualified, so a function
+  created in `public` cannot shadow a built-in (SA-1); owner asserted in the
+  postcondition; EXECUTE for `service_role` only). In one transaction it
+  validates the request, refuses an owner that is not an active instructor or
+  admin (SA-2), inserts the ledger row `ON CONFLICT (id) DO NOTHING` (a
   concurrent same-id request waits on the primary key), replays a completed
   receipt for the same owner/kind/payload or refuses, re-checks ownership,
   locks the active roster `FOR SHARE` (as 228), computes the allow + warn
@@ -37,8 +40,8 @@
 - `POST /instructor/assignments/fan-out` body: + `request_id`. Response
   unchanged: `{student_count, created_count, group_id, duplicates_warning,
   assignment_ids}`.
-- New errors: 409 `request_id đã được dùng với nội dung khác.`, 409
-  `request_id không thuộc tài khoản này.`, 409 `Yêu cầu giao bài đang được xử
+- New errors (wording signed by CM 31/10, see D6): 409 `Yêu cầu giao bài này đã được gửi trước đó với nội dung khác. Vui lòng tải lại trang rồi giao lại.`, 409
+  `Yêu cầu giao bài này không thuộc tài khoản của bạn. Vui lòng tải lại trang rồi thử lại.`, 409 `Yêu cầu giao bài đang được xử
   lý. Vui lòng thử lại.` (not reachable in practice: the receipt is written
   in the same transaction), 422 when `request_id` is missing.
 - `request_payload` = the body without `request_id` (`model_dump(mode="json")`),
