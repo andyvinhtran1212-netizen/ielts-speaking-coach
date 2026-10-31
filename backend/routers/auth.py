@@ -519,7 +519,10 @@ def _confirmed_activation(user_id: str, code_id: str, code: str, email: str | No
     """Read-only reconciliation after a lost atomic RPC response; never retry it.
 
     The immutable claim proves the transaction committed. Check the current
-    account too, so an admin deactivation or newer activation is never undone.
+    account too, so an admin deactivation is never undone. A newer activation
+    (another code) may have replaced access_code_used since: this code's
+    promote and Steps 5–6 still finish, and none of them rewrites that newer
+    activation (Codex r4429669479).
     """
     codes = (supabase_admin.table("access_codes").select("*")
              .eq("id", code_id).limit(1).execute().data or [])
@@ -527,20 +530,24 @@ def _confirmed_activation(user_id: str, code_id: str, code: str, email: str | No
         return None
     users = (supabase_admin.table("users").select("*")
              .eq("id", user_id).limit(1).execute().data or [])
-    if not users or not users[0].get("is_active") or users[0].get("access_code_used") != code:
+    if not users or not users[0].get("is_active"):
         return None
     if users[0].get("suspended_at"):
         return None
+    superseded = users[0].get("access_code_used") != code
     current_code = codes[0]
     promote = (current_code.get("grants_role") or "").strip().lower() == "instructor"
     if promote and (not _norm_email(current_code.get("intended_email"))
                     or _norm_email(current_code.get("intended_email")) != _norm_email(email)):
         return None
-    students = (supabase_admin.table("students").select("id, archived_at")
+    students = (supabase_admin.table("students").select("id, archived_at, cohort_id")
                 .eq("user_id", user_id).limit(20).execute().data or [])
     student = next((row for row in students if not row.get("archived_at")), {})
+    cohort_id = current_code.get("cohort_id")
+    if superseded and cohort_id and str(student.get("cohort_id")) != str(cohort_id):
+        cohort_id = None  # the newer code moved the student: this class's gives are not theirs
     return {"status": "ok", "role": users[0].get("role"), "student_id": student.get("id"),
-            "promote_role": "instructor" if promote else None, "cohort_id": current_code.get("cohort_id")}
+            "promote_role": "instructor" if promote else None, "cohort_id": cohort_id}
 
 
 def _promote_after_claim(user_id: str, before_role: str | None,

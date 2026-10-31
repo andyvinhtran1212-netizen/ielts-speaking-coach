@@ -1707,3 +1707,84 @@ def test_double_submit_on_one_loop_backfills_the_late_joiner_once(world, monkeyp
     assert {(r["user_id"], r["code_id"], r["is_active"])
             for r in db.tables.get("user_code_assignments", [])} == {(USER, "code-1", True)}
     assert auth._claim_followup_locks == {}, "per-user lock entry leaked"
+
+
+# ── Codex r4429669479 (R13): a lost receipt, then a newer activation ─────────
+
+def lose_receipt_after_newer_activation(db, monkeypatch, other_cohort):
+    """Code A's transaction commits and its response is lost; before this
+    request reconciles, the same user fully activates ordinary code B."""
+    import asyncio
+
+    db.tables["access_codes"].append({
+        "id": "code-2", "code": "OTHERCODE", "cohort_id": other_cohort, "is_used": False,
+        "used_by": None, "used_at": None, "permissions": ["writing"]})
+    if other_cohort:
+        db.tables["cohorts"].append({"id": other_cohort, "is_active": True,
+                                     "archived_at": None, "created_by": None})
+    original, newer = db.rpc, []
+
+    def rpc(name, params):
+        call = original(name, params)
+        if name != "fn_activation_serialize" or params["p_code"] != CODE or newer:
+            return call
+
+        def execute():
+            call.execute()
+            newer.append(asyncio.run(auth.activate_account(
+                auth.ActivateRequest(access_code="OTHERCODE"), "Bearer fake")))
+            raise RuntimeError(DB_TEXT)
+        return SimpleNamespace(execute=execute)
+    monkeypatch.setattr(db, "rpc", rpc)
+    return newer
+
+
+def test_lost_instructor_receipt_after_newer_activation_still_promotes(world, monkeypatch):
+    db, client = world
+    use_instructor_code(db)
+    newer = lose_receipt_after_newer_activation(db, monkeypatch, other_cohort=None)
+    response = activate(client)
+    assert newer == [{"success": True, "message": "Tài khoản đã được kích hoạt!"}]
+    assert response.status_code == 200, response.text
+    user = db.tables["users"][0]
+    assert user["role"] == "instructor", "instructor code consumed but role not granted"
+    # The newer activation's account fields are kept, not rewritten to code A's.
+    assert (user["is_active"], user["access_code_used"], user["permissions"]) == (
+        True, "OTHERCODE", ["writing"])
+    assert {(r["user_id"], r["code_id"], r["is_active"])
+            for r in db.tables["user_code_assignments"]} == {(USER, "code-1", True), (USER, "code-2", True)}
+    assert [(a["action"], a["before"], a["after"]) for a in promote_audits(db)] == [
+        ("promote_role", {"role": "user"}, {"role": "instructor"})]
+    # A retry of code A stops at Step 1 and changes nothing.
+    calls = len(db.calls)
+    retry = activate(client)
+    assert retry.status_code == 400 and retry.json()["detail"] == "Bạn đã kích hoạt mã này rồi."
+    assert all(op == "select" for _table, op in db.calls[calls:])
+    assert auth._claim_followup_locks == {}
+
+
+@pytest.mark.parametrize("other_cohort", [None, "class-2"])
+def test_lost_class_receipt_after_newer_activation_backfills_only_the_current_class(
+        world, monkeypatch, other_cohort):
+    db, client = world
+    db.tables["writing_assignments"] = [{
+        "id": "wa-classmate", "prompt_id": "prompt-1", "student_id": "classmate-1",
+        "cohort_id": COHORT, "status": "submitted", "assignment_group_id": "group-1",
+        "name": "Task 2", "allow_soft_check": False, "assigned_by": "gv-1", "deadline": None,
+        "instructions": None, "is_timed": False, "time_limit_minutes": None,
+        "analysis_level": None, "grading_tier": None,
+    }]
+    monkeypatch.setattr("services.cohort_assignment_service.backfill_cohort_writing_assignments",
+                        REAL_BACKFILL)
+    lose_receipt_after_newer_activation(db, monkeypatch, other_cohort)
+    response = activate(client)
+    assert response.status_code == 200, response.text
+    assert db.tables["users"][0]["access_code_used"] == "OTHERCODE"
+    student = next(s for s in db.tables["students"] if s.get("user_id") == USER)
+    assert student["cohort_id"] == (other_cohort or COHORT)
+    assert {(r["user_id"], r["code_id"]) for r in db.tables["user_code_assignments"]} == {
+        (USER, "code-1"), (USER, "code-2")}
+    mine = [(r["prompt_id"], r["cohort_id"]) for r in db.tables["writing_assignments"]
+            if r["student_id"] == student["id"]]
+    # Code A's class gives go only to a student still in that class.
+    assert mine == ([] if other_cohort else [("prompt-1", COHORT)])
