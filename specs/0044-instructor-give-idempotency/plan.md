@@ -50,7 +50,8 @@
 
 | Path | Before | After |
 | --- | --- | --- |
-| same give sent twice (lost response, second tab, API) | two gives | one give, same response twice |
+| same give sent twice (lost response in the same tab, or API with the same `request_id`) | two gives | one give, same response twice |
+| same give retried from another tab (D7) | two gives | two gives, second carries `duplicates_warning` (visible, removable) |
 | same `request_id`, other body or other route | n/a | 409, nothing written |
 | `request_id` of another account | n/a | 409, nothing written |
 | no `request_id` | 201 | 422, no DB call |

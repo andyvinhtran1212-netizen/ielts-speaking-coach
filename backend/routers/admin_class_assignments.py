@@ -888,8 +888,20 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
             )
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
+        quiz_only = set(weight_snapshot.get("section_counts") or {}) == {"quiz"}
+        # A final assessment is a graded one-sitting test, never "retry until
+        # you pass" (SA-BANK-ANSWERS / J411R2 (e)). Only the quiz-only shape is
+        # enforced here: a final that also has Reading/Listening/Writing/
+        # Pronunciation cannot be single-attempt yet (below) and awaits an
+        # owner decision instead of a silently relaxed rule.
+        if (quiz_only and body.completion_mode != "single_attempt"
+                and (bank.get("meta") or {}).get("assessment_kind") == "final"):
+            raise HTTPException(
+                400,
+                "Bài kiểm tra cuối khoá phải giao ở chế độ một lượt.",
+            )
         if (body.completion_mode == "single_attempt"
-                and set(weight_snapshot.get("section_counts") or {}) != {"quiz"}):
+                and not quiz_only):
             raise HTTPException(
                 400,
                 "Chế độ một lượt hiện chỉ dùng cho bộ trắc nghiệm thuần. "

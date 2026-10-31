@@ -423,25 +423,86 @@ export function CourseBehavior() {
         window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
       }
 
-      function onAnswered(picked: number) {
+      // The click waiting for a server verdict owns the question until it
+      // resolves; a second click must not record a second answer.
+      let answering = false;
+      let lastPicked = -1;
+
+      function markPicked(picked: number) {
+        document.querySelectorAll('.cx-opt').forEach((node) => {
+          const el = node as HTMLButtonElement;
+          el.disabled = true;
+          const selected = Number(el.dataset.i) === picked;
+          el.dataset.r = selected ? 'selected' : 'off';
+          if (selected && !el.querySelector('.cx-opt__state')) {
+            el.insertAdjacentHTML('beforeend', '<span class="cx-opt__state">Đã chọn</span>');
+          }
+        });
+      }
+
+      /** Bank course không mang đáp án: chờ máy chủ chấm câu vừa ghi. */
+      function renderChecking() {
+        $('cx-why')!.innerHTML = '<div class="cx-answer-summary is-sealed" aria-busy="true">'
+          + '<div><strong>Đang chấm…</strong>'
+          + '<span>Đáp án đã được ghi nhận, đang chờ kết quả từ hệ thống.</span></div></div>';
+        $('cx-next')!.innerHTML = '';
+        setSaveState('saving', 'Đang gửi đáp án để chấm…');
+      }
+
+      async function onAnswered(picked: number) {
+        if (answering) return;
         const q = runner.current();
+        const serverChecked = runner.answersWithheld && !runner.answersSealed;
+        answering = true;
+        lastPicked = picked;
+        if (serverChecked) {
+          markPicked(picked);
+          renderChecking();
+        }
         let res;
-        try { res = runner.answer(picked); } catch (err: any) {
+        try { res = await runner.answer(picked); } catch (err: any) {
+          answering = false;
+          if (disposed) return;
+          // Nothing was recorded: draw the question again so it can be chosen.
+          renderQuestion();
           setSaveState('error', err?.code === 'storage_unavailable'
             ? STORAGE_MESSAGE
             : err?.message || 'Chưa lưu được đáp án. Hãy chọn lại.');
           return;
         }
-        if (!res) return;
-        setSaveState('saving', 'Đã lưu trên máy · đang đồng bộ với máy chủ…');
+        answering = false;
+        if (disposed || !res) return;
+        renderAnswer(q, picked, res);
+      }
+
+      async function retryCheck() {
+        if (answering) return;
+        const q = runner.current();
+        answering = true;
+        renderChecking();
+        const res = await runner.retryFeedback();
+        answering = false;
+        if (disposed || !res) return;
+        renderAnswer(q, lastPicked, res);
+      }
+
+      function renderAnswer(q: any, picked: number, res: any) {
+        if (res.pending) {
+          // Không chấm khi chưa có kết quả máy chủ; đáp án vẫn nằm trong hàng
+          // đợi trên máy nên "Thử lại" gửi lại đúng lượt ấy, không tạo lượt mới.
+          markPicked(picked);
+          $('cx-why')!.innerHTML = '<div class="cx-answer-summary" data-ok="pending" role="alert">'
+            + '<div><strong>Chưa nhận được kết quả chấm</strong>'
+            + `<span>${esc(res.error || 'Kiểm tra kết nối rồi thử lại.')}</span></div></div>`;
+          $('cx-next')!.innerHTML =
+            '<button class="av-button av-button-primary" id="cx-check-retry" type="button">Thử lại</button>';
+          setSaveState('error', 'Đáp án vẫn lưu trên máy · chưa chấm được');
+          renderStage();
+          return;
+        }
         if (res.sealed) {
-          document.querySelectorAll('.cx-opt').forEach((node) => {
-            const el = node as HTMLButtonElement;
-            el.disabled = true;
-            const selected = Number(el.dataset.i) === picked;
-            el.dataset.r = selected ? 'selected' : 'off';
-            if (selected) el.insertAdjacentHTML('beforeend', '<span class="cx-opt__state">Đã chọn</span>');
-          });
+          setSaveState('saving', 'Đã lưu trên máy · đang đồng bộ với máy chủ…');
+          markPicked(picked);
           $('cx-why')!.innerHTML = '<div class="cx-answer-summary is-sealed">'
             + '<div><strong>Đã ghi nhận lựa chọn</strong>'
             + '<span>Đáp án và giải thích sẽ mở sau khi bạn nộp toàn bộ bài.</span></div></div>';
@@ -450,11 +511,17 @@ export function CourseBehavior() {
           renderStage();
           return;
         }
+        setSaveState(runner.answersWithheld ? 'saved' : 'saving',
+          runner.answersWithheld ? 'Đã lưu và chấm trên hệ thống'
+            : 'Đã lưu trên máy · đang đồng bộ với máy chủ…');
+        // The key comes from the result (server verdict for Course banks).
+        const key = Number.isInteger(res.answer) ? res.answer : -1;
         document.querySelectorAll('.cx-opt').forEach((node) => {
           const el = node as HTMLButtonElement;
           el.disabled = true;
+          el.querySelectorAll('.cx-opt__state').forEach((badge) => badge.remove());
           const idx = Number(el.dataset.i);
-          const role = idx === q.answer
+          const role = idx === key
             ? (idx === picked ? 'hit' : 'key')
             : (idx === picked ? 'miss' : 'off');
           el.dataset.r = role;
@@ -470,10 +537,13 @@ export function CourseBehavior() {
             el.insertAdjacentHTML('beforeend', `<span class="cx-opt__state">${label}</span>`);
           }
         });
-        const answerText = (q.options && q.options[q.answer]) || '';
+        const answerText = (key >= 0 && q.options && q.options[key]) || '';
         $('cx-why')!.innerHTML = `<div class="cx-answer-summary" data-ok="${res.correct}">`
           + `<div><strong>${res.correct ? 'Chính xác' : 'Chưa đúng'}</strong>`
-          + `<span>Đáp án đúng: ${esc(KEYS[q.answer])}${answerText ? ` · ${md(answerText)}` : ''}</span></div></div>`
+          + (key >= 0
+            ? `<span>Đáp án đúng: ${esc(KEYS[key])}${answerText ? ` · ${md(answerText)}` : ''}</span>`
+            : '')
+          + '</div></div>'
           + `<div class="cx-why"><h2 class="cx-why__label">Giải thích</h2>`
           + `<div class="course-explain">${formatCourseExplanation(res.explain)}</div>`
           + (q.item_key ? `<span class="cx-why__axis">Trục: ${esc(q.item_key)}</span>` : '')
@@ -1358,7 +1428,8 @@ export function CourseBehavior() {
       onClick = (e: Event) => {
         const t = e.target as HTMLElement;
         const opt = t.closest?.('.cx-opt') as HTMLButtonElement | null;
-        if (opt && !opt.disabled) return onAnswered(Number(opt.dataset.i));
+        if (opt && !opt.disabled) return void onAnswered(Number(opt.dataset.i));
+        if (t.id === 'cx-check-retry') return void retryCheck();
         if (t.id === 'cx-go') { runner.next(); return renderQuestion(); }
         if (t.id === 'cx-reveal') return onSelfCheck();
         if (t.id === 'cx-more') return void advanceStageFlow();

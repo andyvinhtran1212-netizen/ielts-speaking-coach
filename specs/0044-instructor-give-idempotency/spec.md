@@ -1,16 +1,18 @@
 ---
 id: INSTRUCTORGIVE-0044
 title: A teacher's repeated or retried Writing give from /instructor creates the homework once
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # A teacher's repeated or retried Writing give from /instructor creates the homework once
 
-Status: **draft — needs Vinh's approval** (decisions D1–D6 below). Spec number
-0044 is proposed by job 1ad (0041–0043 are held by open spec PRs); the Leader
-confirms it. Migration number **360** was allocated by the Leader on
+Status: **approved by Vinh on 2026-10-31 (UTC+7)**, in his chat with Claude:
+decisions D1–D6 as recommended below, spec number 0044, and D7 (the retry
+commitment covers the same dashboard tab only). Claude proposed the options; the
+decision is the owner's. See [`approval-decision.md`](approval-decision.md).
+Spec number 0044 was proposed by job 1ad (0041–0043 are held by open spec PRs). Migration number **360** was allocated by the Leader on
 2026-10-31. Origin: PC-J100 design (step b, option (b)), PC-J117 count on
 staging, ticket PC-J192.
 
@@ -20,9 +22,10 @@ Hôm nay, ở trang /instructor, nếu giáo viên bấm "Giao bài" rồi mạn
 (máy chủ đã ghi bài nhưng trình duyệt không nhận được trả lời), bấm lại sẽ tạo
 **thêm một lần giao giống hệt**: học viên thấy hai bài trùng. Staging đã có một
 cặp như vậy (giao lẻ, cách nhau 4 giây, ngày 27/10). Sau thay đổi này mỗi lần
-giao mang một mã yêu cầu (`request_id`). Bấm lại đúng lần giao đó, kể cả từ
-tab khác hay sau khi lỗi mạng, chỉ trả lại kết quả của lần đầu; không có bài
-mới. Giáo viên vẫn thấy thông báo "Đã giao bài…" như bình thường. Muốn giao
+giao mang một mã yêu cầu (`request_id`). Bấm lại đúng lần giao đó **trong cùng tab** sau khi lỗi
+mạng chỉ trả lại kết quả của lần đầu; không có bài mới. Giao lại từ **tab khác**
+được tính là một lần giao mới: bài trùng vẫn hiện ra trong danh sách (kèm cảnh
+báo trùng) và xoá được, không bị mất trong im lặng (anh Vinh chốt 31/10). Giáo viên vẫn thấy thông báo "Đã giao bài…" như bình thường. Muốn giao
 thêm một lần nữa có chủ ý (ví dụ buổi mới) thì vẫn được, như hiện nay. Nếu cùng
 mã mà nội dung khác, hoặc mã của tài khoản khác, hệ thống từ chối và không tạo
 gì. Một tab /instructor đã mở từ trước khi cập nhật cần tải lại trang một lần.
@@ -121,6 +124,7 @@ so an admin teaching from /instructor would lose the instructor tier and the
 - A refused request (403/400/409) leaves no ledger row; the same id can be retried after the cause is fixed.
 - A replay returns the stored first result, not today's row state (e.g. the row may since be submitted).
 - Two different `request_id`s with the same body are two intents: two gives (allow + warn).
+- A retry of the same give from **another tab** (or another browser) carries a different `request_id`, because the pending id lives only in the tab that made the first attempt (D7). It creates a second give with `duplicates_warning`; the duplicate stays visible on the dashboard and can be removed. Only a retry in the same tab is guaranteed to replay.
 - The legacy `students.cohort_id` roster fallback is no longer used by the class give: the RPC reads active memberships (canonical since 227). The route pre-check still reads it, so a class with only legacy rows gets 400 from the RPC.
 - An instructor who lost access to a learner or class after a completed give can still replay that give's own receipt with the same `request_id` and body: the response is the stored first result and nothing is written (SA-4, accepted by design). Losing the instructor role or being deactivated is refused before any ledger read (403 at the route; the RPC also refuses an owner that is not an active instructor or admin).
 - Deadlock between a class give and a learner archive (pre-existing, 228/331): one side aborts with 40P01 and nothing is half-written.
@@ -140,6 +144,8 @@ so an admin teaching from /instructor would lose the instructor tier and the
 5. **D5 — both routes** (ticket): individual give and class fan-out.
 6. **D6 — copy (Content Manager review):** the two new 409 messages in FR-003/FR-004 and the backstop "Yêu cầu giao bài đang được xử lý. Vui lòng thử lại." / "Dữ liệu giao bài không hợp lệ."; the response does not expose a `replayed` flag, so both responses are identical (the server logs replays). CM review 31/10 (CM-TEXT-2116): instructors must not see "request_id", so the API returns "Yêu cầu giao bài này đã được gửi trước đó với nội dung khác. Vui lòng tải lại trang rồi giao lại." (FR-003) and "Yêu cầu giao bài này không thuộc tài khoản của bạn. Vui lòng tải lại trang rồi thử lại." (FR-004); the incomplete and 422 backstop messages are kept verbatim. The FR-003/FR-004 lines keep their original quotes because FR text is frozen once implementation commits exist; this decision is the wording that ships.
 
+7. **D7 — retry commitment is per tab (owner decision 2026-10-31, option (a)):** idempotent replay is promised for a retry in the same /instructor tab. A retry from another tab is a new intent: a visible, removable duplicate with `duplicates_warning`, never a silent loss. Rejected option (b): persist the pending `request_id` in `localStorage` keyed by the give body; it adds complexity and could block a deliberate re-give.
+
 ## Open questions
 
-- Approval of D1–D6 and of the spec number 0044.
+None. D1–D7 and the spec number were approved by Vinh on 2026-10-31.
