@@ -736,15 +736,18 @@ def _json_safe_numbers(value):
     return value
 
 
-# F10 (Codex, PR #1754): FastAPI's default 422 echoes the rejected `input`.
-# Python's JSON parser turns 1e309 / NaN / Infinity into non-finite floats,
-# which JSONResponse refuses to serialize, so a malformed (often anonymous)
-# body became a 500 and a backend error_logs row. Same shape as the default
-# handler; only non-finite numbers are rendered as strings.
+# PC-J188: expose only the public validation diagnostics. Rejected input and
+# validator context can contain sensitive values; exclude them before encoding.
+# Keep F10 (#1754)'s non-finite-number guard so malformed JSON numbers cannot
+# turn a validation error into a 500 during response serialization.
 @app.exception_handler(RequestValidationError)
 async def request_validation_handler(request: Request, exc: RequestValidationError):
+    errors = [
+        {key: error[key] for key in ("loc", "msg", "type") if key in error}
+        for error in exc.errors()
+    ]
     return JSONResponse(status_code=422,
-                        content={"detail": _json_safe_numbers(jsonable_encoder(exc.errors()))})
+                        content={"detail": _json_safe_numbers(jsonable_encoder(errors))})
 
 
 # ── P0-5 / C-1.3 — sanitize EXPLICIT HTTPExceptions before they reach the client.
@@ -771,7 +774,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
             safe_path, _ = _safe_error_request_context(request)
             if _handled_5xx_log_allowed(error_code, safe_path):
                 payload = {
-                    "level":      "error",
+                    "level":      "warning" if exc.status_code == 503 and error_code == "feature_disabled" else "error",
                     "source":     "backend",
                     "message":    f"HTTP {exc.status_code} {error_code}",
                     "url":        safe_path,

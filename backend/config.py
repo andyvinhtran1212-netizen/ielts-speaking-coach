@@ -1,8 +1,8 @@
 import logging
 from functools import lru_cache
+import ipaddress
 
-from pydantic import Field
-from pydantic import field_validator  # ADMINAAL2-0032 Amendment 1 strict parsing
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,19 @@ class Settings(BaseSettings):
     # deployment (1/true/yes/on). Ignored in production, always — see
     # services/cors_policy.py. Development allows localhost without it.
     CORS_ALLOW_LOCALHOST: str = ""
+    # PC-J202/J183, SA decision 2026-10-29: only these explicitly trusted
+    # proxy CIDRs may be skipped in XFF. No inferred private/Cloudflare trust.
+    # Comma-separated CIDRs; default empty. See docs/CLIENT_IP_TRUST.md.
+    TRUSTED_PROXY_CIDRS: str = ""
+
+    @field_validator("TRUSTED_PROXY_CIDRS")
+    @classmethod
+    def validate_trusted_proxy_cidrs(cls, value: str) -> str:
+        value = value.strip()
+        if value:
+            for cidr in value.split(","):
+                ipaddress.ip_network(cidr.strip())
+        return value
 
     # Signed backend → Next cache invalidation. The admin vocabulary routes
     # mutate runtime DB content while Next caches public reads. Configure both

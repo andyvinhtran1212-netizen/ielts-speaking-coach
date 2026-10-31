@@ -29,7 +29,7 @@ from typing import Any
 import google.generativeai as genai
 
 from config import settings
-from services import ai_budget, ai_usage_logger
+from services import ai_usage_logger
 
 logger = logging.getLogger(__name__)
 
@@ -223,15 +223,7 @@ def _enrich_single_chunk(
             ),
             system_instruction=chosen_prompt,
         )
-        with ai_budget.guard_sync(
-            "google", chosen_model, "vocab_enrichment",
-            ai_budget.estimate_or_none("google", chosen_model, input_text=[chosen_prompt, user_prompt],
-                                       max_tokens=4096),
-            request_key=ai_budget.attempt_key("vocab_enrichment"), operation="enrich_chunk",
-        ) as lease:
-            # No hidden gapic retry (AIBUDGET-0033 FR-001).
-            resp = model.generate_content(user_prompt, request_options=ai_budget.gemini_request_options())
-            lease.settle(ai_budget.gemini_actual_usd(chosen_model, resp))
+        resp = model.generate_content(user_prompt)
         ai_usage_logger.log_gemini_response(
             resp,
             model=chosen_model,
@@ -240,9 +232,6 @@ def _enrich_single_chunk(
             metadata={"word_count": len(words)},
         )
         raw = resp.text or ""
-    except (ai_budget.AIBudgetRefused, ai_budget.AIBudgetReplay):
-        # AIBUDGET-0033 FR-008: not a VocabEnrichmentError, so the chunk loop stops.
-        raise
     except Exception as e:
         logger.error("[vocab_enrich] Gemini call failed (model=%s): %s", chosen_model, e)
         raise VocabEnrichmentError(f"Gemini call failed (model={chosen_model}): {e}") from e

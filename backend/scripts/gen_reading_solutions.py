@@ -141,35 +141,27 @@ def main(argv=None) -> int:
     from config import settings
     if not settings.GEMINI_API_KEY:
         print("GEMINI_API_KEY chưa đặt — export rồi chạy lại."); return 1
-    from services import ai_budget
     genai.configure(api_key=settings.GEMINI_API_KEY)
     model = genai.GenerativeModel(settings.GEMINI_PRO_MODEL)
-
-    def generate(prompt: str, operation: str) -> str:
-        # AIBUDGET-0033 FR-001: reserved, one attempt, no hidden retry.
-        return ai_budget.generate_content_sync(
-            model, settings.GEMINI_PRO_MODEL, prompt,
-            feature="reading_solution_generation", operation=operation,
-        ).text or ""
 
     drafts = []
     for body, q in targets:
         qn = q.get("q_num")
         wrongs = wrong_options(q)
-        draft_raw = generate(_DRAFT_PROMPT.format(
+        draft_raw = model.generate_content(_DRAFT_PROMPT.format(
             passage=body, qtype=q.get("question_type"), prompt=q.get("prompt", ""),
             options=_fmt_options(q), answer=q.get("answer"),
             wrongs=wrongs if wrongs else "(không có)",
-        ), "draft")
+        )).text or ""
         draft = _extract_json(draft_raw)
         if not draft:
             drafts.append({"q_num": qn, "error": "draft JSON parse failed", "raw": draft_raw[:400]})
             continue
 
-        verdict_raw = generate(_VERIFY_PROMPT.format(
+        verdict_raw = model.generate_content(_VERIFY_PROMPT.format(
             passage=body, prompt=q.get("prompt", ""), answer=q.get("answer"),
             draft=json.dumps(draft, ensure_ascii=False, indent=2),
-        ), "verify")
+        )).text or ""
         verdict = _extract_json(verdict_raw) or {"ok": None, "problems": ["verify parse failed"]}
 
         gate = validate_solution_depth({**q, "solution": draft}, f"Q{qn}")

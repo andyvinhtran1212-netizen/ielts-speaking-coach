@@ -883,13 +883,25 @@ async def admin_set_user_role(
         raise HTTPException(404, "User not found") from None
 
     request_id = current_request_id()
-    change = staff_security.set_staff_privilege(
-        supabase_admin, actor_id=admin_id, target_id=target, role=role,
-        request_id=request_id, refusal=_suspended_role_change_refusal,
-    )
+    try:
+        change = staff_security.set_staff_privilege(
+            supabase_admin, actor_id=admin_id, target_id=target, role=role,
+            request_id=request_id, refusal=_suspended_role_change_refusal,
+        )
+    except staff_security.PrivilegeOutcomeUnknown:
+        # The RPC may have committed before its answer was lost (PC-J66 F05):
+        # its audit row carries this request's id. Found → carry on as a
+        # committed change, so a demotion still revokes; otherwise the 500.
+        change = _committed_role_change(target, request_id, role)
+        if change is None:
+            raise
     sessions_revoked = revoke_error = None
-    if change.changed and staff_security.removes_staff_privilege(
-            change.before.get("role"), change.after.get("role")):
+    if change.changed:
+        revoke = staff_security.removes_staff_privilege(
+            change.before.get("role"), change.after.get("role"))
+    else:
+        revoke = _demotion_may_be_unrevoked(target, role)
+    if revoke:
         # A suspended account's role is frozen (FR-019), so a demotion never
         # bans: the demoted account may sign in again under its new role.
         outcome, _ = await staff_security.revoke_and_record(
@@ -901,6 +913,49 @@ async def admin_set_user_role(
     return {"ok": True, "id": target, "role": role, "changed": change.changed,
             "audit_id": change.audit_id, "sessions_revoked": sessions_revoked,
             "revoke_error": revoke_error}
+
+
+def _committed_role_change(target: str, request_id: str | None, role: str):
+    """The change to ``role`` this request committed, or None — also when the
+    audit or the account is unreadable (logged); the caller then answers the
+    RPC's 500 and a repeat finishes the revocation
+    (``_demotion_may_be_unrevoked``). The request id can come from the
+    client's X-Request-ID, so an older row that shares a replayed id is not
+    proof on its own: the row must end at ``role`` and the account's current
+    role, read fresh, must be ``role`` too."""
+    try:
+        change = staff_security.committed_privilege_change(
+            supabase_admin, target_id=target, request_id=request_id, event="role_changed")
+        if change is None or change.after.get("role") != role:
+            return None
+        account = staff_security.read_privilege_row(supabase_admin, target)
+    except Exception as exc:
+        logger.error("[admin] role change outcome lookup failed target=%s: %r", target, exc)
+        return None
+    if not account or account.get("role") != role:
+        return None
+    return change
+
+
+def _demotion_may_be_unrevoked(target: str, role: str) -> bool:
+    """A repeat of a demotion revokes again (PC-J66 F05): its first attempt
+    may have committed without revoking (answer lost, then a 500), and a
+    success of the delete is not audited, so a repeat cannot tell the two
+    apart. The delete is idempotent; the account signs in again under its
+    current role. True when the newest role change removed staff privilege
+    and led to ``role``, or when the audit cannot be read (fail closed)."""
+    if role == "admin":
+        return False
+    try:
+        last = staff_security.last_role_change(supabase_admin, target)
+    except Exception as exc:
+        logger.error("[admin] role history lookup failed target=%s, revoking: %r", target, exc)
+        return True
+    if not last:
+        return False
+    before, after = last.get("before") or {}, last.get("after") or {}
+    return after.get("role") == role and staff_security.removes_staff_privilege(
+        before.get("role"), after.get("role"))
 
 
 @router.get("/users", response_model=list[AdminUserDirectoryRowOut])
