@@ -7,11 +7,24 @@ import sys
 
 import pytest
 
-from scripts.staging_clone_preflight import referenced_roles
+from scripts.staging_clone_preflight import preflight_dump, referenced_roles
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts/staging_clone_preflight.py"
 BASE_ROLES = {"postgres", "anon", "authenticated", "service_role"}
+# pg_dump 17.6+ framing: one \restrict before and one \unrestrict after all SQL,
+# with the per-run key the clone script passed to pg_dump --restrict-key.
+KEY = "3f9c" * 16
+HEADER = ("--\n-- PostgreSQL database dump\n--\n\n\\restrict " + KEY + "\n\n"
+          "SET statement_timeout = 0;\nSET client_encoding = 'UTF8';\n"
+          "SET standard_conforming_strings = on;\n"
+          "SELECT pg_catalog.set_config('search_path', '', false);\n"
+          "SET check_function_bodies = false;\nSET row_security = off;\n")
+FOOTER = "\n--\n-- PostgreSQL database dump complete\n--\n\n\\unrestrict " + KEY + "\n\n"
+
+
+def framed(sql: str) -> str:
+    return HEADER + sql + FOOTER
 
 
 @pytest.mark.parametrize("sql, expected", [
@@ -22,15 +35,22 @@ BASE_ROLES = {"postgres", "anon", "authenticated", "service_role"}
     ('ALTER TABLE public.t OWNER TO "Owner X";', {"Owner X"}),
     ('ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT ON TABLES TO x;', {"x"}),
     ('CREATE POLICY p ON public.t FOR SELECT TO policy_reader USING (true);', {"policy_reader"}),
-    ('CREATE SCHEMA x AUTHORIZATION schema_owner;', {"schema_owner"}),
-    ('GRANT role_x TO role_y GRANTED BY role_z;', {"role_x", "role_y", "role_z"}),
+    ('ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA "public" REVOKE ALL ON FUNCTIONS FROM PUBLIC;', set()),
+    ('GRANT SELECT ON TABLE public.t TO x GRANTED BY role_z;', {"x", "role_z"}),
     ('GRANT UPDATE (a, b) ON TABLE public.t TO x WITH GRANT OPTION;', {"x"}),
     ('REVOKE GRANT OPTION FOR SELECT ON TABLE public.t FROM x CASCADE;', {"x"}),
     ('-- GRANT SELECT ON public.t TO ghost;\n'
      'CREATE FUNCTION public.f() RETURNS text LANGUAGE sql AS $body$ '
      "SELECT 'SET SESSION AUTHORIZATION ghost; GRANT ALL TO ghost;' $body$;\n"
-     '\\restrict local_key\nGRANT EXECUTE ON FUNCTION public.f() TO PUBLIC;\n'
-     '\\unrestrict local_key\n', set()),
+     'GRANT EXECUTE ON FUNCTION public.f() TO PUBLIC;\n', set()),
+    ('\\restrict localKey9\nGRANT EXECUTE ON FUNCTION public.f() TO PUBLIC;\n'
+     '\\unrestrict localKey9\n', set()),
+    # Ordinary uses of a column named role, and pg_dump function SET clauses.
+    ("ALTER TABLE ONLY public.users ALTER COLUMN role SET DEFAULT 'user'::text;\n"
+     "CREATE INDEX users_role ON public.users USING btree (role);\n"
+     "CREATE FUNCTION public.g() RETURNS void LANGUAGE sql SET search_path TO '' AS $$ $$;\n"
+     "CREATE TRIGGER t BEFORE UPDATE OF role ON public.users FOR EACH ROW EXECUTE FUNCTION public.h();\n"
+     "COMMENT ON TABLE public.users IS 'C:\\path\\x';\n", set()),
 ])
 def test_extracts_role_references_from_pg_dump_statements(sql, expected):
     assert referenced_roles(sql) == BASE_ROLES | expected
@@ -43,6 +63,10 @@ def test_extracts_role_references_from_pg_dump_statements(sql, expected):
     ('ALTER DEFAULT PRIVILEGES FOR ROLE other IN SCHEMA public GRANT SELECT ON TABLES TO anon;',
      'FOR ROLE postgres'),
     ('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO anon;', 'FOR ROLE postgres'),
+    ('ALTER DEFAULT PRIVILEGES FOR ROLE postgres GRANT SELECT ON TABLES TO anon;', 'IN SCHEMA public'),
+    ('ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA evil GRANT SELECT ON TABLES TO anon;', 'IN SCHEMA public'),
+    ('ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public, evil GRANT SELECT ON TABLES TO anon;', 'IN SCHEMA public'),
+    ('ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA "Public" GRANT SELECT ON TABLES TO anon;', 'IN SCHEMA public'),
     ('GRANT SELECT ON public.t TO x', 'unterminated'),
 ])
 def test_refuses_unsupported_restore_authority(sql, error):
@@ -50,15 +74,259 @@ def test_refuses_unsupported_restore_authority(sql, error):
         referenced_roles(sql)
 
 
+@pytest.mark.parametrize("sql, error", [
+    ('ALTER ROLE anon BYPASSRLS;', 'dump alters a role, database or system setting \\(ALTER ROLE\\)'),
+    ('alter\nrole anon BYPASSRLS;', 'dump alters a role, database or system setting \\(ALTER ROLE\\)'),
+    ('ALTER USER anon SET search_path TO evil;', 'dump alters a role, database or system setting \\(ALTER USER\\)'),
+    ('ALTER GROUP g ADD USER anon;', 'dump alters a role, database or system setting \\(ALTER GROUP\\)'),
+    ('ALTER DATABASE app SET standard_conforming_strings TO off;', 'dump alters a role, database or system setting \\(ALTER DATABASE\\)'),
+    ("ALTER SYSTEM SET log_statement = 'none';", 'dump alters a role, database or system setting \\(ALTER SYSTEM\\)'),
+    ('CREATE ROLE evil;', 'dump creates a role, database or schema \\(CREATE ROLE\\)'),
+    ('CREATE USER evil;', 'dump creates a role, database or schema \\(CREATE USER\\)'),
+    ('CREATE GROUP evil;', 'dump creates a role, database or schema \\(CREATE GROUP\\)'),
+    ('CREATE DATABASE evil;', 'dump creates a role, database or schema \\(CREATE DATABASE\\)'),
+    ('CREATE SCHEMA evil;', 'dump creates a role, database or schema \\(CREATE SCHEMA\\)'),
+    ('CREATE SCHEMA IF NOT EXISTS evil;', 'dump creates a role, database or schema \\(CREATE SCHEMA\\)'),
+    ('CREATE SCHEMA public;', 'dump creates a role, database or schema \\(CREATE SCHEMA\\)'),
+    ('CREATE SCHEMA x AUTHORIZATION schema_owner;', 'dump creates a role, database or schema \\(CREATE SCHEMA\\)'),
+    ('GRANT service_role TO anon;', 'dump grants or revokes role membership'),
+    ('GRANT "service_role" TO anon WITH ADMIN OPTION;', 'dump grants or revokes role membership'),
+    ('REVOKE authenticated FROM anon;', 'dump grants or revokes role membership'),
+    ('REVOKE ADMIN OPTION FOR service_role FROM anon;', 'dump grants or revokes role membership'),
+    ('GRANT role_x TO role_y GRANTED BY role_z;', 'dump grants or revokes role membership'),
+    ('CREATE RULE r AS ON INSERT TO public.t DO ALSO NOTIFY x;', 'dump contains CREATE RULE'),
+    ('create\nor replace rule r AS ON INSERT TO public.t DO ALSO NOTIFY x;', 'dump contains CREATE RULE'),
+])
+def test_refuses_cluster_and_role_ddl(sql, error):
+    with pytest.raises(ValueError, match=error):
+        preflight_dump(framed(sql), KEY)
+
+
+ROLE_CHANGE = "changes the restore role"
+
+
+# P3-N1: every SET/RESET role form at any token position, and set_config.
+@pytest.mark.parametrize("sql", [
+    'SET LOCAL ROLE service_role;',
+    'SET SESSION ROLE service_role;',
+    'set   session\n\tauthorization   dashboard_user;',
+    'SET LOCAL SESSION AUTHORIZATION dashboard_user;',
+    'SET role = service_role;',
+    'SET "role" TO service_role;',
+    "SET session_authorization TO 'x';",
+    'RESET ROLE;',
+    'RESET SESSION AUTHORIZATION;',
+    'ALTER FUNCTION public.f() SET role TO service_role;',
+    'CREATE FUNCTION public.f() RETURNS int LANGUAGE sql SET role = service_role AS $$ SELECT 1 $$;',
+])
+def test_refuses_every_role_change_form(sql):
+    with pytest.raises(ValueError, match=ROLE_CHANGE):
+        referenced_roles(sql)
+
+
+@pytest.mark.parametrize("sql, error", [
+    ("SELECT pg_catalog.set_config('role', 'service_role', true);", ROLE_CHANGE),
+    ("SELECT set_config('ROLE', 'service_role', false);", ROLE_CHANGE),
+    ("SELECT \"set_config\"('session_authorization', 'x', false);", ROLE_CHANGE),
+    ("CREATE TABLE public.t AS SELECT set_config('role', 'service_role', false);", ROLE_CHANGE),
+    # A non-literal name could be anything, including role.
+    ("CREATE TABLE public.t AS SELECT set_config(E'role', 'x', false);", "escape"),
+    ("CREATE TABLE public.t AS SELECT set_config('ro' || 'le', 'x', false);", "set_config"),
+    # Code that pg_dump --schema-only never runs at restore time.
+    ("SELECT public.switch_role();", "top-level SELECT"),
+    ("SELECT pg_catalog.set_config('statement_timeout', '0', false);", "top-level SELECT"),
+    ("DO $$BEGIN PERFORM set_config('role', 'service_role', false); END$$;", "DO"),
+    ("CALL public.switch_role();", "CALL"),
+    ("EXECUTE switch_role;", "EXECUTE"),
+    ("WITH x AS (SELECT public.switch_role()) SELECT 1;", "WITH"),
+    ("COPY (SELECT public.switch_role()) TO STDOUT;", "COPY"),
+    ("REFRESH MATERIALIZED VIEW public.mv;", "REFRESH"),
+    ("SELECT pg_catalog.set_config('search_path', '', false), public.switch_role();", "top-level SELECT"),
+])
+def test_refuses_set_config_role_and_restore_time_code(sql, error):
+    with pytest.raises(ValueError, match=error):
+        referenced_roles(sql)
+
+
+# P3-N2: transaction control breaks the atomicity of psql -1.
+@pytest.mark.parametrize("sql", [
+    "BEGIN;", "begin\n  transaction;", "START TRANSACTION;", "COMMIT;", "commit\n;", "END;",
+    "ROLLBACK;", "ABORT;", "SAVEPOINT s;", "RELEASE SAVEPOINT s;", "RELEASE s;",
+    "ROLLBACK TO SAVEPOINT s;", "PREPARE TRANSACTION 'x';", "COMMIT PREPARED 'x';",
+    "ROLLBACK PREPARED 'x';", "PREPARE p AS SELECT 1;",
+])
+def test_refuses_transaction_control(sql):
+    with pytest.raises(ValueError, match="transaction control"):
+        referenced_roles(sql)
+
+
+# P3-N3: only one \restrict/\unrestrict pair, at the edges; no other meta-command
+# anywhere, and no lexer state that would make psql see a backslash we did not.
+@pytest.mark.parametrize("sql, error", [
+    ("\\! touch /tmp/x\n", "meta-command"),
+    ("GRANT SELECT ON public.t TO anon; \\! touch /tmp/x\n", "meta-command"),
+    ("\\connect app\n", "meta-command"),
+    ("\\c app\n", "meta-command"),
+    ("\\o /tmp/out\n", "meta-command"),
+    ("\\i /tmp/other.sql\n", "meta-command"),
+    ("\\copy public.t from '/tmp/x'\n", "meta-command"),
+    ("\\set ON_ERROR_STOP 0\n", "meta-command"),
+    ("GRANT SELECT ON public.t TO anon \\gexec\n", "meta-command"),
+    # psql reads E'\'' as one string, so the \! after it would be live;
+    # pg_dump (standard_conforming_strings=on) never writes E'' (PC-J394).
+    ("COMMENT ON TABLE public.t IS E'\\'' \\! touch /tmp/x ';\n", "escape"),
+    # psql dollar tags may use any non-ASCII letter.
+    # (psql would then also leave the trailing quote unterminated.)
+    ("COMMENT ON TABLE public.t IS $\u00e9$ ' $\u00e9$; \\! touch /tmp/x\n';\n", "meta-command|unterminated"),
+    # Block comments nest in psql; a non-nesting scan would hide the \!.
+    ("/* /* */ ' */ \\! touch /tmp/x\n';\n", "nested block comment"),
+    ("/* never closed\n", "unterminated block comment"),
+    ("SET standard_conforming_strings = off;", "standard_conforming_strings"),
+    ("SET client_encoding = 'SJIS';", "client_encoding"),
+    ("RESET ALL;", "RESET"),
+])
+def test_refuses_meta_commands_and_lexer_desync(sql, error):
+    with pytest.raises(ValueError, match=error):
+        preflight_dump(framed(sql), KEY)
+
+
+@pytest.mark.parametrize("dump, error", [
+    ("GRANT SELECT ON public.t TO anon;\n", "exactly one"),
+    ("\\restrict k3Y\nGRANT SELECT ON public.t TO anon;\n", "exactly one"),
+    ("\\restrict k3Y\nGRANT SELECT ON public.t TO anon;\n\\unrestrict other\n", "same key"),
+    ("GRANT SELECT ON public.t TO anon;\n\\restrict k3Y\n\\unrestrict k3Y\n", "before"),
+    ("\\restrict k3Y\n\\unrestrict k3Y\nGRANT SELECT ON public.t TO anon;\n", "after"),
+    ("\\restrict k3Y\n\\restrict k3Y\nGRANT SELECT ON public.t TO anon;\n\\unrestrict k3Y\n",
+     "exactly one"),
+    ("\\restrict k3Y\nGRANT SELECT ON public.t TO anon;\n\\unrestrict k3Y\n\\! touch /tmp/x\n",
+     "meta-command"),
+    ("\\restrict k3Y \\! touch /tmp/x\nGRANT SELECT ON public.t TO anon;\n\\unrestrict k3Y\n",
+     "restrict"),
+    ("SET row_security = off; \\restrict k3Y\nGRANT SELECT ON public.t TO anon;\n\\unrestrict k3Y\n",
+     "before"),
+    # A well-formed pair is not enough: it must use this run's key.
+    ("\\restrict other\nGRANT SELECT ON public.t TO anon;\n\\unrestrict other\n", "not the one"),
+])
+def test_requires_one_restrict_pair_at_the_edges(dump, error):
+    with pytest.raises(ValueError, match=error):
+        preflight_dump(dump.replace("k3Y", KEY), KEY)
+
+
+@pytest.mark.parametrize("key", ["", "k3Y", "a" * 31, KEY + "!"])
+def test_requires_a_strong_key_for_this_run(key):
+    with pytest.raises(ValueError, match="restrict key"):
+        preflight_dump(framed("GRANT SELECT ON TABLE public.t TO anon;\n").replace(KEY, key or "x"), key)
+
+
+def test_pg_dump_framing_passes():
+    assert preflight_dump(framed("GRANT SELECT ON TABLE public.t TO anon;\n"), KEY) == BASE_ROLES
+
+
+# PC-J394 (CR P2-1): wherever psql and this scanner could disagree on where a
+# literal or comment ends, refuse; CR's PoC hid \unrestrict + \! that way.
+@pytest.mark.parametrize("sql, error", [
+    (f"COMMENT ON TABLE public.t IS 1e'x\\'\n\\unrestrict {KEY}\n\\! touch /tmp/x\n"
+     f"\\restrict {KEY}\n-- '\n;\n", "numeric literal"),
+    ("COMMENT ON TABLE public.t IS 1x'a';", "numeric literal"),
+    ("COMMENT ON TABLE public.t IS 0x1F;", "numeric literal"),
+    ("COMMENT ON TABLE public.t IS .5e'a';", "numeric literal"),
+    ("COMMENT ON TABLE public.t IS 1_e'a';", "numeric literal"),
+    ("COMMENT ON TABLE public.t IS 1\u00e9'a';", "numeric literal"),
+    # psql ends a -- comment at CR as well as LF.
+    ("-- note\r\\! touch /tmp/x\nGRANT SELECT ON public.t TO anon;", "carriage return"),
+    # CR P2-2: with standard_conforming_strings off psql reads '\' ' as one
+    # literal; a routine can switch it without any SET this scanner sees.
+    ("COMMENT ON TABLE public.t IS '\\' '; COMMIT; COMMENT ON TABLE public.t IS 'q' -- '\n;",
+     "lex differently"),
+    ("COMMENT ON TABLE public.t IS 'a\\';", "lex differently"),
+    ("COMMENT ON TABLE public.t IS e'a';", "escape"),
+    ("COMMENT ON TABLE public.t IS U&'d\\0061t\\+000061';", "Unicode-escape"),
+    ("SELECT U&\"set\\005fconfig\"('role', 'x', false);", "Unicode-escape"),
+    ("SET u&\"rol\\0065\" TO service_role;", "Unicode-escape"),
+    # A routine may switch client_encoding to SJIS (and the literal mode to
+    # escapes): psql then reads \u00c1\\ as one character and \\' as an escape.
+    ("COMMENT ON TABLE public.t IS '\u00c1\\\\'; COMMIT; COMMENT ON TABLE public.t IS '';",
+     "non-ASCII character directly before a backslash"),
+    ("COMMENT ON TABLE public.t IS 'never closed;\n", "unterminated"),
+    ("COMMENT ON TABLE \"never closed;\n", "unterminated"),
+    ("CREATE FUNCTION public.f() RETURNS int LANGUAGE sql AS $b$ SELECT 1;\n", "unterminated dollar"),
+    ("COMMENT ON TABLE public.t IS 'a\0b';", "NUL"),
+])
+def test_refuses_where_psql_could_lex_differently(sql, error):
+    with pytest.raises(ValueError, match=error):
+        preflight_dump(framed(sql), KEY)
+
+
+# The same scanner still reads what pg_dump writes.
+@pytest.mark.parametrize("sql", [
+    "CREATE TABLE public.t (a double precision DEFAULT 1e-05, b numeric(10,2) DEFAULT 1.5, "
+    "c numeric DEFAULT .5, d bigint DEFAULT 1_000, e integer DEFAULT 1E+3);",
+    "COMMENT ON TABLE public.t IS 'C:\\path\\x ''quoted'' \\d+ \u00e9t\u00e9';",
+    "ALTER TABLE ONLY public.t ADD CONSTRAINT t_c CHECK ((c ~ '^\\d+$'::text));",
+    "CREATE FUNCTION public.f() RETURNS text LANGUAGE plpgsql AS $_$ BEGIN RETURN E'\\''; END $_$;",
+    "CREATE MATERIALIZED VIEW public.mv AS\n SELECT 1 AS a\n  WITH NO DATA;",
+    "SET client_encoding = 'UTF8';\nSET NAMES 'UTF8';",
+    "SECURITY LABEL FOR p ON TABLE public.t IS 'x';",
+    "ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT ON TABLES TO anon;",
+    "ALTER TABLE ONLY public.users ALTER COLUMN role SET DEFAULT 'user'::text;",
+    "ALTER FUNCTION public.f() SET search_path TO '';",
+    "CREATE OR REPLACE FUNCTION public.f() RETURNS text LANGUAGE sql AS $$ SELECT 'ALTER ROLE anon BYPASSRLS; ALTER DATABASE app SET standard_conforming_strings TO off; ALTER SYSTEM SET log_statement = ''none''; CREATE RULE r AS ON INSERT TO public.t DO ALSO NOTIFY x;' $$;",
+    "CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;",
+    "GRANT USAGE ON SCHEMA public TO anon;",
+    "REVOKE ALL ON TABLE public.t FROM PUBLIC;",
+    "COMMENT ON SCHEMA public IS 'ALTER DATABASE app SET standard_conforming_strings TO off; ALTER SYSTEM SET log_statement = ''none''; CREATE RULE r;';",
+    "COMMENT ON TABLE public.t IS 'C:\\r';",
+])
+def test_pg_dump_output_still_passes(sql):
+    assert preflight_dump(framed(sql), KEY) == BASE_ROLES
+
+
+# PC-J394 (CR P2-2): set_config anywhere but pg_dump's search_path header, and
+# any statement pg_dump --schema-only does not write, including those running
+# a query (DML, CREATE TABLE ... AS, SELECT INTO, a populated materialized view).
+@pytest.mark.parametrize("sql, error", [
+    ("CREATE TABLE public.z AS SELECT pg_catalog.set_config('standard_conforming_strings', 'off', false) AS x;",
+     "set_config outside"),
+    ("CREATE VIEW public.v AS SELECT set_config('client_encoding', 'SJIS', false);", "set_config outside"),
+    ("ALTER TABLE public.t ADD COLUMN x text DEFAULT pg_catalog.set_config('client_encoding', 'SJIS', false);",
+     "set_config outside"),
+    ("CREATE POLICY p ON public.t USING (set_config('standard_conforming_strings', 'off', true) = 'off');",
+     "set_config outside"),
+    ("SET NAMES 'SJIS';", "client_encoding"),
+    ("SET LOCAL NAMES 'GBK';", "client_encoding"),
+    ("SET client_encoding TO DEFAULT;", "client_encoding"),
+    ("SELECT 1 INTO public.z;", "top-level SELECT"),
+    ("CREATE TABLE public.z AS SELECT 1;", "CREATE TABLE ... AS"),
+    ("CREATE UNLOGGED TABLE IF NOT EXISTS public.z (a) AS SELECT 1;", "CREATE TABLE ... AS"),
+    ("CREATE TEMP TABLE z AS EXECUTE p;", "CREATE TABLE ... AS"),
+    ("CREATE MATERIALIZED VIEW public.mv AS SELECT 1;", "WITH DATA"),
+    ("CREATE MATERIALIZED VIEW public.mv AS SELECT 1 WITH DATA;", "WITH DATA"),
+    ("INSERT INTO public.t VALUES (1);", "does not emit"),
+    ("UPDATE public.t SET a = 1;", "does not emit"),
+    ("DELETE FROM public.t;", "does not emit"),
+    ("MERGE INTO public.t USING public.s ON true WHEN MATCHED THEN DELETE;", "does not emit"),
+    ("TRUNCATE public.t;", "does not emit"),
+    ("LOAD 'x';", "does not emit"),
+    ("DECLARE c CURSOR FOR SELECT 1;", "does not emit"),
+    ("LOCK TABLE public.t;", "does not emit"),
+    ("DROP TABLE public.t;", "does not emit"),
+    ("ANALYZE public.t;", "does not emit"),
+    ('"insert" INTO public.t VALUES (1);', "does not emit"),
+])
+def test_refuses_code_that_runs_or_switches_lexer_state(sql, error):
+    with pytest.raises(ValueError, match=error):
+        preflight_dump(framed(sql), KEY)
+
+
 @pytest.mark.parametrize("global_acl, missing", [(True, False), (False, True), (False, False)])
 def test_preflight_cli_fails_closed_before_reset(tmp_path, global_acl, missing):
     dump = tmp_path / "dump.sql"
-    dump.write_text('GRANT SELECT ON public.t TO "Missing, Role";')
+    dump.write_text(framed('GRANT SELECT ON public.t TO "Missing, Role";'))
     roles = BASE_ROLES | (set() if missing else {"Missing, Role"})
     result = subprocess.run(
         [sys.executable, str(SCRIPT), str(dump)],
         input=json.dumps({"roles": sorted(roles), "global_default_acl": global_acl}),
-        capture_output=True, text=True,
+        capture_output=True, text=True, env={"PATH": "/usr/bin:/bin", "STAGING_CLONE_RESTRICT_KEY": KEY},
     )
     assert result.returncode == int(global_acl or missing)
     if global_acl:
@@ -67,6 +335,48 @@ def test_preflight_cli_fails_closed_before_reset(tmp_path, global_acl, missing):
         assert '"Missing, Role"' in result.stderr
     else:
         assert "preflight passed" in result.stdout
+
+
+def test_preflight_cli_requires_the_run_key(tmp_path):
+    dump = tmp_path / "dump.sql"
+    dump.write_text(framed("GRANT SELECT ON TABLE public.t TO anon;"))
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), str(dump)],
+        input=json.dumps({"roles": sorted(BASE_ROLES), "global_default_acl": False}),
+        capture_output=True, text=True, env={"PATH": "/usr/bin:/bin"},
+    )
+    assert result.returncode == 1
+    assert "restrict key" in result.stderr
+
+
+@pytest.mark.parametrize("sql", [
+    framed("COMMENT ON TABLE public.t IS 'a';\n").replace("\n", "\r\n"),
+    framed("COMMENT ON TABLE public.t\r IS 'a';\n"),
+    framed("-- x\r\nCOMMENT ON TABLE public.t IS 'a';\n"),
+    framed("COMMENT ON TABLE public.t IS 'a';\r\n"),
+], ids=["crlf-file", "bare-cr", "comment-cr", "crlf-statement"])
+def test_refuses_carriage_returns(sql):
+    with pytest.raises(ValueError, match="dump contains a carriage return"):
+        preflight_dump(sql, KEY)
+
+
+@pytest.mark.parametrize("sql", [
+    framed("COMMENT ON TABLE public.t IS 'a';\n").replace("\n", "\r\n"),
+    framed("COMMENT ON TABLE public.t\r IS 'a';\n"),
+    framed("-- x\r\nCOMMENT ON TABLE public.t IS 'a';\n"),
+], ids=["crlf-file", "bare-cr", "comment-cr"])
+def test_preflight_cli_refuses_carriage_returns(tmp_path, sql):
+    dump = tmp_path / "dump.sql"
+    dump.write_bytes(sql.encode("utf-8"))
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), str(dump)],
+        input=json.dumps({"roles": sorted(BASE_ROLES), "global_default_acl": False}),
+        capture_output=True, text=True, env={"PATH": "/usr/bin:/bin", "STAGING_CLONE_RESTRICT_KEY": KEY},
+    )
+    assert result.returncode == 1
+    assert "REFUSED: dump contains a carriage return" in result.stderr
+    assert "preflight passed" not in result.stdout
+    assert KEY not in result.stdout + result.stderr
 
 
 @pytest.mark.parametrize("version, identical, error", [
@@ -102,3 +412,40 @@ def test_client_version_and_identical_url_guards_precede_dump(tmp_path, version,
     assert result.returncode != 0
     assert error in result.stderr
     assert not marker.exists()
+
+
+# P3-8: different strings can still name one database (pooler vs direct host),
+# so the source must positively name production and never staging.
+@pytest.mark.parametrize("prod_url, error", [
+    ("postgresql://postgres@127.0.0.1:1/test?application_name=some_other_project",
+     "production URL does not name the production project"),
+    ("postgresql://postgres.huwsmtubwulikhlmcirx@127.0.0.1:1/test?application_name=zjphffoujxkpltixsbzj",
+     "production URL names the staging project"),
+])
+def test_source_url_must_name_production_and_not_staging(tmp_path, prod_url, error):
+    root = tmp_path / "sandbox"
+    scripts = root / "backend/scripts"
+    scripts.mkdir(parents=True)
+    clone = scripts / "staging_clone_schema_from_prod.sh"
+    clone.write_text(SCRIPT.with_name(clone.name).read_text())
+    staging_url = "postgresql://postgres.zjphffoujxkpltixsbzj@127.0.0.1:2/test"
+    (root / "backend/.env").write_text(f"DATABASE_URL={prod_url}\n")
+    (root / "backend/.env.staging").write_text(f"DATABASE_URL={staging_url}\n")
+    wrapper = root / "bin"
+    wrapper.mkdir()
+    psql = wrapper / "psql"
+    psql.write_text("#!/bin/sh\nprintf '%s\\n' 'psql (PostgreSQL) 17.6'\n")
+    psql.chmod(0o700)
+    dump = wrapper / "pg_dump"
+    dump.write_text('#!/bin/sh\ntouch "$TEST_DUMP_MARKER"\nexit 99\n')
+    dump.chmod(0o700)
+    marker = root / "dump-reached"
+    result = subprocess.run(["bash", str(clone)], capture_output=True, text=True,
+                            env={"PATH": f"{wrapper}:/usr/bin:/bin", "LC_ALL": "C.UTF-8",
+                                 "TEST_DUMP_MARKER": str(marker)})
+    assert result.returncode != 0
+    assert error in result.stderr
+    assert not marker.exists()
+    # Neither the URLs nor the project refs are echoed to the operator log.
+    for secret in (prod_url, staging_url, "huwsmtubwulikhlmcirx", "zjphffoujxkpltixsbzj"):
+        assert secret not in result.stdout + result.stderr

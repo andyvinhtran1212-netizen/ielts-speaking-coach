@@ -23,6 +23,10 @@ Namespace note: distinct from /api/exams (the MCQ module). Prefix /api/mock-exam
   GET  /api/mock-exams/sittings/{id}/result                 — 403 until released, then TRF
 """
 from __future__ import annotations
+import asyncio
+import contextlib
+import logging
+import weakref
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 from pydantic import BaseModel, Field
@@ -34,6 +38,40 @@ from services import mock_review_workflow as review_wf
 from services.writing_image_access import attach_signed_image_urls
 
 router = APIRouter(prefix="/api/mock-exams", tags=["mock-exams"])
+logger = logging.getLogger(__name__)
+
+# PC-J423: the sync service calls now run in worker threads. Before that the
+# single event loop serialised every write, and several service writes are
+# read-check-write over a sitting snapshot (start_section checks the OTHER
+# clocks, then compare-and-sets only its own). So one student's mock-exam
+# writes stay serialised in this process; different students run in parallel.
+_student_write_locks: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
+
+
+def _student_write_lock(user_id) -> asyncio.Lock:
+    key = str(user_id)
+    lock = _student_write_locks.get(key)
+    if lock is None:
+        lock = _student_write_locks[key] = asyncio.Lock()
+    return lock
+
+
+async def _student_write(user_id, fn, *args):
+    """Run the sync write ``fn(*args)`` in a worker thread under the student's lock."""
+    async with _student_write_lock(user_id):
+        work = asyncio.ensure_future(asyncio.to_thread(fn, *args))
+        try:
+            return await asyncio.shield(work)
+        except asyncio.CancelledError:
+            # A thread cannot be interrupted: keep the lock until it ends, however
+            # often this request is cancelled, so the student's next write still
+            # sees this one's result. asyncio.wait never cancels ``work``.
+            while not work.done():
+                with contextlib.suppress(asyncio.CancelledError):
+                    await asyncio.wait({work})
+            if not work.cancelled():
+                work.exception()  # retrieve it: no "exception never retrieved"
+            raise
 
 
 def _raise_for(e: Exception):
@@ -89,7 +127,7 @@ class IntegrityBody(BaseModel):
 async def list_open(authorization: str | None = Header(default=None)):
     """Open exams the student can start (published + is_open + cohort-eligible)."""
     user = await get_supabase_user(authorization)
-    return {"exams": svc.list_open_exams(user["id"])}
+    return {"exams": await asyncio.to_thread(svc.list_open_exams, user["id"])}
 
 
 @router.get("/my-sittings")
@@ -97,14 +135,14 @@ async def my_sittings(authorization: str | None = Header(default=None)):
     """The caller's own sittings (resume targets + released results) — powers the
     student home's mock section + result tile."""
     user = await get_supabase_user(authorization)
-    return {"sittings": svc.list_my_sittings(user["id"])}
+    return {"sittings": await asyncio.to_thread(svc.list_my_sittings, user["id"])}
 
 
 @router.post("/{code}/sittings")
 async def open_sitting(code: str, authorization: str | None = Header(default=None)):
     user = await get_supabase_user(authorization)
     try:
-        return svc.create_sitting(user["id"], code)
+        return await _student_write(user["id"], svc.create_sitting, user["id"], code)
     except Exception as e:  # noqa: BLE001 — mapped to HTTP below
         _raise_for(e)
 
@@ -114,10 +152,17 @@ async def get_sitting_state(
     sitting_id: str, authorization: str | None = Header(default=None),
 ):
     user = await get_supabase_user(authorization)
+    return await asyncio.to_thread(_sitting_state_sync, sitting_id, user["id"])
+
+
+def _sitting_state_sync(sitting_id: str, user_id) -> dict:
+    """Body of GET /sittings/{id} after auth. Every step is a sync PostgREST /
+    Storage call, so it runs in ONE worker thread (PC-J423) — the runner polls
+    this during a live exam and must not hold the event loop."""
     sitting = svc.get_sitting(sitting_id)
     if not sitting:
         raise HTTPException(404, "Sitting không tồn tại.")
-    if str(sitting.get("user_id")) != str(user["id"]):
+    if str(sitting.get("user_id")) != str(user_id):
         raise HTTPException(403, "Sitting không thuộc về bạn.")
     exam = svc.get_published_exam_by_id(sitting["mock_exam_id"])
     if svc.is_retake(exam):
@@ -180,7 +225,8 @@ async def acknowledge_collection_flush(
     """
     user = await get_supabase_user(authorization)
     try:
-        return svc.acknowledge_collection_flush(sitting_id, user["id"], section)
+        return await _student_write(
+            user["id"], svc.acknowledge_collection_flush, sitting_id, user["id"], section)
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 
@@ -195,7 +241,7 @@ async def start_section(
     admin's advance instead."""
     user = await get_supabase_user(authorization)
     try:
-        return svc.start_section(sitting_id, user["id"], section)
+        return await _student_write(user["id"], svc.start_section, sitting_id, user["id"], section)
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 
@@ -207,7 +253,8 @@ async def attach_attempt(
 ):
     user = await get_supabase_user(authorization)
     try:
-        return svc.attach_attempt(sitting_id, user["id"], body.section, body.attempt_id)
+        return await _student_write(
+            user["id"], svc.attach_attempt, sitting_id, user["id"], body.section, body.attempt_id)
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 
@@ -219,7 +266,8 @@ async def submit_writing(
 ):
     user = await get_supabase_user(authorization)
     try:
-        return svc.submit_writing(sitting_id, user["id"], body.task1_text, body.task2_text)
+        return await _student_write(
+            user["id"], svc.submit_writing, sitting_id, user["id"], body.task1_text, body.task2_text)
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 
@@ -238,9 +286,48 @@ async def submit_section(
     they land 'graded' + ready for admin review without a manual "Bắt đầu chấm"
     click (the review + release still gate on the admin approving each)."""
     user = await get_supabase_user(authorization)
+    queued: list = []
+    try:
+        result = await _student_write(
+            user["id"], _submit_section_sync, sitting_id, user["id"], section, body, queued,
+        )
+    except asyncio.CancelledError:
+        # PC-J468: _student_write re-raises only once the thread has ended, so
+        # the claim may already have moved the essays pending→grading, and a
+        # resubmit cannot claim them again. No response will run BackgroundTasks.
+        for essay_id, job_id in queued:
+            _dispatch_cancelled_submit_grading(essay_id, job_id)
+        raise
+    for essay_id, job_id in queued:
+        background_tasks.add_task(essay_service._bg_grade_essay, essay_id, job_id)
+    return result
+
+
+# Strong references to the grading tasks of cancelled submits until they end.
+_cancelled_submit_gradings: set = set()
+
+
+def _dispatch_cancelled_submit_grading(essay_id: str, job_id: str) -> None:
+    async def _run() -> None:
+        try:
+            await essay_service._bg_grade_essay(essay_id, job_id)
+        except Exception:  # noqa: BLE001 — same as a crashed BackgroundTask
+            logger.exception("[grade %s] cancelled-submit dispatch failed", essay_id)
+
+    task = asyncio.create_task(_run())
+    _cancelled_submit_gradings.add(task)
+    task.add_done_callback(_cancelled_submit_gradings.discard)
+
+
+def _submit_section_sync(sitting_id: str, user_id, section: str,
+                         body: SectionSubmitBody, queued: list):
+    """Sync body of the section submit, run in ONE worker thread (PC-J423).
+    Returns the result and appends the claimed grading jobs to ``queued`` as
+    soon as the claim returns, so a cancelled request still sees them (PC-J468).
+    Same order of writes as before."""
     try:
         result = svc.submit_section(
-            sitting_id, user["id"], section, body.task1_text, body.task2_text,
+            sitting_id, user_id, section, body.task1_text, body.task2_text,
         )
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
@@ -254,8 +341,7 @@ async def submit_section(
         graded = svc.claim_mock_writing_grading(
             [sitting.get("essay_task1_id"), sitting.get("essay_task2_id")]
         )
-        for essay_id, job_id in graded["queued"]:
-            background_tasks.add_task(essay_service._bg_grade_essay, essay_id, job_id)
+        queued.extend(graded["queued"])
     return result
 
 
@@ -272,7 +358,8 @@ async def record_integrity(
     Monotonic + idempotent, so a retry cannot inflate or erase anything."""
     user = await get_supabase_user(authorization)
     try:
-        return svc.record_integrity(sitting_id, user["id"], body.model_dump())
+        return await _student_write(
+            user["id"], svc.record_integrity, sitting_id, user["id"], body.model_dump())
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 
@@ -284,7 +371,8 @@ async def record_speaking(
 ):
     user = await get_supabase_user(authorization)
     try:
-        return svc.record_speaking(sitting_id, user["id"], body.session_ids)
+        return await _student_write(
+            user["id"], svc.record_speaking, sitting_id, user["id"], body.session_ids)
     except Exception as e:  # noqa: BLE001
         _raise_for(e)
 
@@ -295,10 +383,16 @@ async def get_result(
 ):
     """The TRF result — 403 until the sitting is released (server-side seal)."""
     user = await get_supabase_user(authorization)
+    return await asyncio.to_thread(_result_sync, sitting_id, user["id"])
+
+
+def _result_sync(sitting_id: str, user_id) -> dict:
+    """Sync body of GET /sittings/{id}/result after auth, run in ONE worker
+    thread (PC-J423) so the reads never hold the event loop."""
     sitting = svc.get_sitting(sitting_id)
     if not sitting:
         raise HTTPException(404, "Sitting không tồn tại.")
-    if str(sitting.get("user_id")) != str(user["id"]):
+    if str(sitting.get("user_id")) != str(user_id):
         raise HTTPException(403, "Sitting không thuộc về bạn.")
     if sitting.get("status") != "released":
         raise HTTPException(403, "Kết quả đang chờ giám khảo duyệt.")

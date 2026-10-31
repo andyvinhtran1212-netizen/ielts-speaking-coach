@@ -152,14 +152,18 @@ def test_non_global_untrusted_hop_never_lets_a_caller_public_hop_win(edge):
     ('192.168.0.0/16', '192.168.255.255', '192.169.0.0'),
     ('172.16.0.0/12', '172.31.255.255', '172.32.0.0'),
     ('127.0.0.0/8', '127.0.0.1', '128.0.0.1'),
-    ('203.0.113.9/32', '203.0.113.9', '203.0.113.10'),
-    ('fc00::/7', 'fdff::5', 'fe00::5'),
-    ('fe80::/10', 'febf::5', 'fec0::5'),
+    ('169.254.0.0/16', '169.254.255.255', '169.255.0.0'),
+    ('10.1.2.3/32', '10.1.2.3', '10.1.2.4'),
+    ('fd12:3456::/32', 'fd12:3456:ffff::5', 'fd12:3457::5'),
+    ('fe80::/32', 'fe80::5', 'fe80:1::5'),
     ('::1/128', '::1', '::2'),
-    ('2001:db8:1::/48', '2001:db8:1::1', '2001:db8:2::1'),
+    ('fd12:3456:1::/48', 'fd12:3456:1::1', 'fd12:3456:2::1'),
 ])
 def test_configured_proxy_skips_exactly_one_hop_and_stops_at_untrusted(cidr, proxy, outside, monkeypatch):
     # Synthetic configurations only: none of these ranges is trusted by default.
+    # PC-J368: assignment is validated now, so every row is an internal range
+    # at or above the prefix floor (was 203.0.113.9/32, fc00::/7, fe80::/10,
+    # 2001:db8:1::/48, which only passed because setattr skipped the validator).
     monkeypatch.setattr(settings, 'TRUSTED_PROXY_CIDRS', cidr)
     for spoof in ('9.9.9.9', '9.9.9.10'):
         assert client_address(EDGE, f'{spoof}, 203.0.113.20, {proxy}', 'peer') == '203.0.113.20'
@@ -186,10 +190,12 @@ def test_all_trusted_hops_fall_back_to_real_ip_then_peer(monkeypatch):
 def test_proxy_allowlist_is_empty_by_default_and_configurable_from_env(monkeypatch):
     monkeypatch.delenv('TRUSTED_PROXY_CIDRS', raising=False)
     assert Settings(_env_file=None).TRUSTED_PROXY_CIDRS == ''
-    monkeypatch.setenv('TRUSTED_PROXY_CIDRS', ' 10.0.0.0/8, fc00::/7 ')
+    # PC-J227: fc00::/7 is now below the IPv6 /32 floor; a measured-style /32
+    # keeps the same IPv6-plus-IPv4 trusted chain under test.
+    monkeypatch.setenv('TRUSTED_PROXY_CIDRS', ' 10.0.0.0/8, fd12:3456::/32 ')
     configured = Settings(_env_file=None)
     monkeypatch.setattr(settings, 'TRUSTED_PROXY_CIDRS', configured.TRUSTED_PROXY_CIDRS)
-    assert client_address(None, '203.0.113.20, fd00::1, 10.0.0.1', 'peer') == '203.0.113.20'
+    assert client_address(None, '203.0.113.20, fd12:3456::1, 10.0.0.1', 'peer') == '203.0.113.20'
 
 
 @pytest.mark.parametrize('cidrs', ['garbage', '10.0.0.1/8', '10.0.0.0/33',
@@ -197,6 +203,105 @@ def test_proxy_allowlist_is_empty_by_default_and_configurable_from_env(monkeypat
 def test_invalid_proxy_cidr_fails_configuration(cidrs):
     with pytest.raises(ValidationError):
         Settings(_env_file=None, TRUSTED_PROXY_CIDRS=cidrs)
+
+
+@pytest.mark.parametrize('cidrs,offender,floor', [
+    ('0.0.0.0/0', '0.0.0.0/0', '/8'),
+    ('::/0', '::/0', '/32'),
+    ('0.0.0.0/1', '0.0.0.0/1', '/8'),
+    ('128.0.0.0/1', '128.0.0.0/1', '/8'),
+    ('10.0.0.0/7', '10.0.0.0/7', '/8'),
+    ('2001:db8::/31', '2001:db8::/31', '/32'),
+    ('fc00::/7', 'fc00::/7', '/32'),
+    ('fe80::/10', 'fe80::/10', '/32'),
+    ('10.0.0.0/8, 0.0.0.0/0', '0.0.0.0/0', '/8'),
+])
+def test_overly_broad_proxy_cidr_fails_startup_from_env(cidrs, offender, floor, monkeypatch):
+    # PC-J227 (SA-J202-1): through the real env + validator path, one broad
+    # entry fails the whole list, so X-Real-IP never becomes caller-chosen.
+    monkeypatch.setenv('TRUSTED_PROXY_CIDRS', cidrs)
+    with pytest.raises(ValidationError) as exc:
+        Settings(_env_file=None)
+    message = str(exc.value)
+    assert 'quá rộng' in message and floor in message and offender in message
+    assert 'docs/CLIENT_IP_TRUST.md' in message
+
+
+@pytest.mark.parametrize('cidrs', ['', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16',
+                                   '100.64.0.0/10', '127.0.0.0/8', '169.254.0.0/16',
+                                   '10.1.2.3', '100.127.255.0/24', 'fd12:3456::/32',
+                                   'fc00::/32', 'fd12:3456:1::/48', 'fe80::/32', '::1/128', '::1',
+                                   ' 10.0.0.0/8 , fd12:3456::/32,  100.64.0.0/10 '])
+def test_internal_proxy_cidr_at_or_above_prefix_floor_is_accepted_from_env(cidrs, monkeypatch):
+    monkeypatch.setenv('TRUSTED_PROXY_CIDRS', cidrs)
+    assert Settings(_env_file=None).TRUSTED_PROXY_CIDRS == cidrs.strip()
+
+
+@pytest.mark.parametrize('cidrs,offender', [
+    # P3-SA-1: the prefix floor alone accepted these public ranges.
+    ('1.0.0.0/8', '1.0.0.0/8'),
+    ('34.0.0.0/8', '34.0.0.0/8'),  # GCP, easy to mislabel as "Railway"
+    ('2606:4700::/32', '2606:4700::/32'),  # Cloudflare
+    ('2001::/32', '2001::/32'),  # Teredo: is_global is False on Python 3.11
+    ('203.0.113.9/32', '203.0.113.9/32'),
+    ('8.8.8.8', '8.8.8.8'),
+    ('2001:db8::/32', '2001:db8::/32'),
+    ('64:ff9b::/96', '64:ff9b::/96'),  # NAT64
+    ('2002:a00::/32', '2002:a00::/32'),  # 6to4 wrapping 10.0.0.0/16
+    ('100.0.0.0/9', '100.0.0.0/9'),  # floor-sized, wider than 100.64.0.0/10
+    ('172.0.0.0/11', '172.0.0.0/11'),  # wider than 172.16.0.0/12
+    ('::/64', '::/64'),  # contains ::ffff:0:0/96
+    ('10.0.0.0/8, 34.0.0.0/8', '34.0.0.0/8'),
+])
+def test_public_proxy_cidr_fails_startup_from_env(cidrs, offender, monkeypatch):
+    # PC-J368 (P3-SA-1): a public range the attacker can rent or route through
+    # would let their own edge hop be skipped. Membership in the internal
+    # allowlist is explicit, never derived from is_global.
+    monkeypatch.setenv('TRUSTED_PROXY_CIDRS', cidrs)
+    with pytest.raises(ValidationError) as exc:
+        Settings(_env_file=None)
+    message = str(exc.value)
+    assert 'không nằm trong dải nội bộ' in message and offender in message
+    assert 'docs/CLIENT_IP_TRUST.md' in message
+
+
+@pytest.mark.parametrize('cidrs,offender', [
+    ('::ffff:0:0/96', '::ffff:0:0/96'),
+    ('::ffff:0.0.0.0/96', '::ffff:0.0.0.0/96'),
+    ('::ffff:10.0.0.0/104', '::ffff:10.0.0.0/104'),
+    ('::ffff:127.0.0.1/128', '::ffff:127.0.0.1/128'),
+    ('::ffff:10.0.0.1', '::ffff:10.0.0.1'),
+    ('10.0.0.0/8, ::ffff:0:0/96', '::ffff:0:0/96'),
+])
+def test_ipv4_mapped_proxy_cidr_fails_startup_from_env(cidrs, offender, monkeypatch):
+    # CR P3 (PR #2061): hops are unwrapped to IPv4, so a mapped CIDR never
+    # matches. Reject it with its own message instead of accepting it silently.
+    monkeypatch.setenv('TRUSTED_PROXY_CIDRS', cidrs)
+    with pytest.raises(ValidationError) as exc:
+        Settings(_env_file=None)
+    message = str(exc.value)
+    assert 'IPv4-mapped' in message and offender in message
+    assert 'docs/CLIENT_IP_TRUST.md' in message
+
+
+@pytest.mark.parametrize('cidrs', ['0.0.0.0/0', '34.0.0.0/8', '::ffff:0:0/96', 'garbage'])
+def test_runtime_assignment_runs_the_proxy_cidr_validator(cidrs, monkeypatch):
+    # P3-SA-3: assignment used to bypass the validator, so a test or runtime
+    # write could install a list startup would reject. The value is unchanged.
+    monkeypatch.setattr(settings, 'TRUSTED_PROXY_CIDRS', '10.0.0.0/8')
+    with pytest.raises(ValidationError):
+        settings.TRUSTED_PROXY_CIDRS = cidrs
+    assert settings.TRUSTED_PROXY_CIDRS == '10.0.0.0/8'
+    fresh = Settings(_env_file=None, TRUSTED_PROXY_CIDRS='')
+    with pytest.raises(ValidationError):
+        fresh.TRUSTED_PROXY_CIDRS = cidrs
+    assert fresh.TRUSTED_PROXY_CIDRS == ''
+
+
+def test_runtime_assignment_of_an_internal_proxy_cidr_is_normalized(monkeypatch):
+    monkeypatch.setattr(settings, 'TRUSTED_PROXY_CIDRS', ' 10.0.0.0/8, fd12:3456::/32 ')
+    assert settings.TRUSTED_PROXY_CIDRS == '10.0.0.0/8, fd12:3456::/32'
+    assert client_address(None, '203.0.113.20, fd12:3456::1, 10.0.0.1', 'peer') == '203.0.113.20'
 
 
 def test_oversize_header_cannot_push_the_edge_hop_out(monkeypatch):
