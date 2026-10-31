@@ -1,5 +1,7 @@
 // Native Mock Writing must preserve the complete operational scope after the
 // operator opens an essay, saves it, and explicitly returns to the queue.
+import { AAL2_STATUS } from '../admin-mfa-stub.mjs';
+
 const ESSAY = 'essay-admin-filter-return';
 const UPDATED = 'Bản sửa dùng để xác minh quay lại đúng phạm vi Failed.';
 const CONTEXT = 'mocklane=1&cohort_id=c1&overdue=1&embed=1&queue_status=failed&q=Lan+Anh&page=2&page_size=50';
@@ -11,6 +13,8 @@ export default {
   expectFinalUrl: `/admin/writing/queue?${CONTEXT}`,
   canned: [
     [/\/auth\/me$/, { id: '00000000-0000-0000-0000-000000000000', email: 'admin@local', role: 'admin' }],
+    // ADMINAAL2-0032 T010: AdminAccessGate fails closed on the `{}` catch-all.
+    [/\/admin\/mfa\/status$/, AAL2_STATUS],
     [new RegExp(`/admin/writing/essays/${ESSAY}$`), {
       id: ESSAY,
       status: 'graded',
