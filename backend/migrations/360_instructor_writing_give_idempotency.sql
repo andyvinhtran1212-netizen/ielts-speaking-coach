@@ -324,6 +324,12 @@ BEGIN
         RAISE EXCEPTION 'instructor_give_rpc_unexpected_owner: %',
             (SELECT pg_get_userbyid(proowner) FROM pg_proc WHERE oid = v_fn);
     END IF;
+    -- Applied by a client role by mistake: the definer would run as that role.
+    IF (SELECT pg_get_userbyid(proowner) FROM pg_proc WHERE oid = v_fn)
+       IN ('service_role', 'anon', 'authenticated') THEN
+        RAISE EXCEPTION 'instructor_give_rpc_client_owner: %',
+            (SELECT pg_get_userbyid(proowner) FROM pg_proc WHERE oid = v_fn);
+    END IF;
 END $$;
 
 COMMIT;

@@ -125,6 +125,7 @@ def test_unknown_fields_are_still_ignored():
 
 
 # ── PC-J115: single-student assign (`AssignBody`) gets the same bounds ────────
+# INSTRUCTORGIVE-0044 FR-001/D3: request_id is required on both /instructor give routes (PR #2116).
 
 ASSIGN_URL = "/instructor/assignments"
 
@@ -137,10 +138,11 @@ ASSIGN_URL = "/instructor/assignments"
 def test_assign_out_of_bounds_body_is_422_before_any_db_call(override):
     store = _seed()
     before = [dict(r) for r in store["writing_assignments"]]
-    body = {"prompt_id": PB, "student_id": SB, **override}
+    body = {"request_id": _rid(), "prompt_id": PB, "student_id": SB, **override}
     with _as_b(store) as (client, fake):
         r = client.post(ASSIGN_URL, json=body, headers=HDR)
     assert r.status_code == 422, r.text
+    assert [e["loc"] for e in r.json()["detail"]] == [["body", next(iter(override))]]   # the bound, not request_id
     assert fake.calls == []                              # refused before any read or write
     assert store["writing_assignments"] == before
 
@@ -152,7 +154,7 @@ def test_assign_out_of_bounds_body_is_422_before_any_db_call(override):
 def test_assign_boundary_values_are_accepted(instructions, level):
     store = _seed()
     with _as_b(store) as (client, _fake):
-        r = client.post(ASSIGN_URL, json={"prompt_id": PB, "student_id": SB,
+        r = client.post(ASSIGN_URL, json={"request_id": _rid(), "prompt_id": PB, "student_id": SB,
                                           "instructions": instructions, "analysis_level": level},
                         headers=HDR)
     assert r.status_code == 201, r.text
@@ -165,7 +167,8 @@ def test_assign_default_level_and_unknown_fields_still_accepted():
     """Default analysis_level stays 3; no extra="forbid" on AssignBody either."""
     store = _seed()
     with _as_b(store) as (client, _fake):
-        r = client.post(ASSIGN_URL, json={"prompt_id": PB, "student_id": SB, "legacy_flag": True},
+        r = client.post(ASSIGN_URL, json={"request_id": _rid(), "prompt_id": PB, "student_id": SB,
+                                          "legacy_flag": True},
                         headers=HDR)
     assert r.status_code == 201, r.text
     assert r.json()["analysis_level"] == 3

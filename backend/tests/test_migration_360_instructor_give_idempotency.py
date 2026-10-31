@@ -91,6 +91,9 @@ def test_rpc_search_path_excludes_public_and_every_relation_is_schema_qualified(
     # The postcondition pins the same path and the owner.
     assert "proconfig @> ARRAY['search_path=pg_catalog, pg_temp']" in CODE
     assert "instructor_give_rpc_unexpected_owner" in CODE
+    # ... and the owner is not a client role (SA P3, PC-J502).
+    assert re.search(r"IN \('service_role', 'anon', 'authenticated'\) THEN\s*"
+                     r"RAISE EXCEPTION 'instructor_give_rpc_client_owner: %'", CODE)
 
 
 def test_rpc_requires_an_active_staff_owner_before_the_ledger():
@@ -479,6 +482,21 @@ def test_postcondition_aborts_when_the_rpc_was_planted_by_another_role(probe):
         with pytest.raises(RuntimeError, match="instructor_give_rpc_unexpected_owner: service_role"):
             psql(_schema_sql(SQL, other))
         assert psql(f"SELECT to_regclass('{other}.{LEDGER}') IS NULL") == "t"   # whole file rolled back
+    finally:
+        psql(f"DROP SCHEMA IF EXISTS {other} CASCADE")
+
+
+def test_postcondition_aborts_when_applied_by_a_client_role(probe):
+    """Owner == current_user still passes if service_role applies the file (SA P3, PC-J502)."""
+    other = "give360_cli_" + uuid4().hex[:8]
+    try:
+        _build(other, apply=False)
+        psql(f"GRANT CREATE ON SCHEMA {other} TO service_role")
+        with pytest.raises(RuntimeError, match="instructor_give_rpc_client_owner: service_role"):
+            psql("SET ROLE service_role; " + _schema_sql(SQL, other))
+        assert psql(f"SELECT to_regclass('{other}.{LEDGER}') IS NULL") == "t"   # whole file rolled back
+        assert psql(f"SELECT count(*) FROM pg_proc WHERE proname = '{RPC}' "
+                    f"AND pronamespace = '{other}'::regnamespace") == "0"
     finally:
         psql(f"DROP SCHEMA IF EXISTS {other} CASCADE")
 
