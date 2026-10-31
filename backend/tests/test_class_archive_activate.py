@@ -1632,3 +1632,78 @@ def test_cancelled_class_activation_still_records_assignment_and_backfill(
     assert not returned_early, "handler returned while its DB worker still ran"
     # Steps 5–6 ran on the worker thread's own client, never on the event loop.
     assert client_threads and loop_thread not in client_threads
+    assert auth._claim_followup_locks == {}, "per-user lock entry leaked"
+
+
+# ── G4 (CR R11): a double submit backfills the late joiner once ──────────────
+
+def test_double_submit_on_one_loop_backfills_the_late_joiner_once(world, monkeypatch):
+    """Two concurrent submits of one class code by the same user, on one event
+    loop. Migration 359 answers the second, after the first committed, with the
+    same ok receipt incl. student_id and cohort_id (its same-user branch), so
+    both run Steps 5–6. writing_assignments has no UNIQUE on (student, group,
+    prompt) and the backfill is read-skip-insert: the two runs must not overlap."""
+    import asyncio
+
+    db, _ = world
+    db.tables["writing_assignments"] = [{
+        "id": "wa-classmate", "prompt_id": "prompt-1", "student_id": "classmate-1",
+        "cohort_id": COHORT, "status": "submitted", "assignment_group_id": "group-1",
+        "name": "Task 2", "allow_soft_check": False, "assigned_by": "gv-1", "deadline": None,
+        "instructions": None, "is_timed": False, "time_limit_minutes": None,
+        "analysis_level": None, "grading_tier": None,
+    }]
+    monkeypatch.setattr("services.cohort_assignment_service.backfill_cohort_writing_assignments",
+                        REAL_BACKFILL)
+    # Both requests pass Step 1 (code unused) before either transaction claims it.
+    both_at_rpc = threading.Barrier(2, timeout=10)
+    db.before_transaction = lambda _params: both_at_rpc.wait()
+    original_rpc = db.rpc
+
+    def rpc(name, params):
+        call = original_rpc(name, params)
+        if name != "fn_activation_serialize":
+            return call
+
+        def execute():
+            receipt = call.execute().data
+            if receipt.get("status") == "ok" and "student_id" not in receipt:
+                # 359 same-user branch: role, promote_role, cohort_id, student_id.
+                student = next(s for s in db.tables["students"] if s.get("user_id") == USER)
+                receipt = {**receipt, "cohort_id": COHORT, "student_id": student["id"]}
+            return SimpleNamespace(data=receipt)
+        return SimpleNamespace(execute=execute)
+    monkeypatch.setattr(db, "rpc", rpc)
+    # Each backfill's "what do I already have" read is answered only once the
+    # other backfill has read too (or after 1.5 s): two overlapping runs both
+    # read nothing and both insert.
+    both_read, readers = threading.Barrier(2, timeout=1.5), []
+    original_execute = Query.execute
+
+    def execute(self):
+        result = original_execute(self)
+        if (self.name, self.op) == ("writing_assignments", "select") and "student_id" in self.filters:
+            readers.append(threading.get_ident())
+            try:
+                both_read.wait()
+            except threading.BrokenBarrierError:
+                pass
+        return result
+    monkeypatch.setattr(Query, "execute", execute)
+
+    async def double_submit():
+        submit = lambda: auth.activate_account(auth.ActivateRequest(access_code=CODE), "Bearer fake")
+        return await asyncio.gather(submit(), submit(), return_exceptions=True)
+    results = asyncio.run(double_submit())
+
+    assert [r.get("success") if isinstance(r, dict) else repr(r) for r in results] == [True, True]
+    code = db.tables["access_codes"][0]
+    assert code["is_used"] is True and code["used_by"] == USER
+    student = next(s for s in db.tables["students"] if s.get("user_id") == USER)
+    assert len(readers) == 2, "both requests ran Step 6"
+    mine = [r for r in db.tables["writing_assignments"] if r["student_id"] == student["id"]]
+    assert [(r["prompt_id"], r["cohort_id"], r["assignment_group_id"], r["status"]) for r in mine] == [
+        ("prompt-1", COHORT, "group-1", "pending")], f"duplicate backfill: {len(mine)} rows"
+    assert {(r["user_id"], r["code_id"], r["is_active"])
+            for r in db.tables.get("user_code_assignments", [])} == {(USER, "code-1", True)}
+    assert auth._claim_followup_locks == {}, "per-user lock entry leaked"

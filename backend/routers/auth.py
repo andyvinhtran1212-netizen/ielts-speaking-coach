@@ -2,6 +2,8 @@ import asyncio
 import json
 import logging
 import re
+import threading
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from time import perf_counter
 
@@ -587,14 +589,45 @@ def _promote_after_claim(user_id: str, before_role: str | None,
     return final_role, "write_failed", False
 
 
+# Steps 5–6 run one at a time per user (CR R11, G4). Migration 359 answers a
+# same-user double submit with the first one's ok receipt, so both requests
+# reach Step 6; its read-skip-insert backfill (no UNIQUE on writing_assignments)
+# must not overlap with itself. Taken and released inside the worker thread,
+# which a cancelled request cannot interrupt and its shielded unit waits for.
+_claim_followup_locks: dict[str, list] = {}
+_claim_followup_locks_guard = threading.Lock()
+
+
+@contextmanager
+def _claim_followup_lock(user_id: str):
+    with _claim_followup_locks_guard:
+        entry = _claim_followup_locks.setdefault(user_id, [threading.Lock(), 0])
+        entry[1] += 1
+    try:
+        with entry[0]:
+            yield
+    finally:
+        with _claim_followup_locks_guard:
+            entry[1] -= 1
+            if not entry[1]:
+                del _claim_followup_locks[user_id]
+
+
 def _record_claim_followups(user_id: str, code_id: str, student_id: str | None,
                             cohort_id: str | None) -> None:
     """Steps 5–6 for a claim this request committed (Codex r4427781861).
 
     Runs inside the shielded activation worker, so a cancelled request still
     lands them: the code is claimed and a retry stops at Step 1. Both steps are
-    idempotent and best-effort. Uses this thread's own client, not the shared one.
+    idempotent and best-effort, and serialized per user (_claim_followup_lock).
+    Uses this thread's own client, not the shared one.
     """
+    with _claim_followup_lock(str(user_id)):
+        _record_claim_followups_locked(user_id, code_id, student_id, cohort_id)
+
+
+def _record_claim_followups_locked(user_id: str, code_id: str, student_id: str | None,
+                                   cohort_id: str | None) -> None:
     try:
         db = thread_supabase_admin()
     except Exception as e:
