@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { answerOptions, candidateErrorOptions, localiseSpeaker } from '@/lib/web-explanation-model.mjs';
+import { listeningReviewClipClock } from '@/lib/listening-review-model.mjs';
 
 type Skill = 'reading' | 'listening';
 type EventName = 'correction_result_seen' | 'evidence_attempt_submitted'
@@ -13,6 +14,8 @@ export type EvidenceSelection = {
   response: string;
   locator: Record<string, unknown>;
 };
+
+export type ReplayWindow = { start: number; end: number; section?: string | null };
 
 type EvidenceRow = {
   location: string;
@@ -175,6 +178,7 @@ export function WebExplanationPanel({
   evidenceSelection = null,
   onStartReadingSelection,
   onReplayAudio,
+  replayWindow = null,
   getAudioPosition,
   correctionRequired = true,
 }: {
@@ -186,6 +190,8 @@ export function WebExplanationPanel({
   evidenceSelection?: EvidenceSelection | null;
   onStartReadingSelection?: () => void;
   onReplayAudio?: () => void;
+  // The range onReplayAudio plays. Listening shows it as the "Audio" label.
+  replayWindow?: ReplayWindow | null;
   getAudioPosition?: () => number | null;
   correctionRequired?: boolean;
 }) {
@@ -201,8 +207,17 @@ export function WebExplanationPanel({
   const repair = object?.correction_flow?.same_source_repair || {};
   const sourceRows = useMemo(() => {
     const source = evidenceRows(explanation.source_evidence);
-    return source.length ? source : evidenceRows(explanation.evidence_location_or_audio_anchor);
-  }, [explanation.evidence_location_or_audio_anchor, explanation.source_evidence]);
+    const rows = source.length ? source : evidenceRows(explanation.evidence_location_or_audio_anchor);
+    if (skill !== 'listening') return rows;
+    // The frozen object's timestamp is authored separately from the replay
+    // window and is full-test time even for a mini test (RPL-01). Label the
+    // range the replay button really plays, once, never the stored timestamp.
+    const played = replayWindow
+      ? `${replayWindow.section ? `${replayWindow.section} · ` : ''}${listeningReviewClipClock(replayWindow.start)}–${listeningReviewClipClock(replayWindow.end)}`
+      : '';
+    return rows.map((row, index) => ({ ...row, timestamp: index === 0 ? played : '' }))
+      .filter((row) => row.location || row.quote || row.relation || row.timestamp);
+  }, [explanation.evidence_location_or_audio_anchor, explanation.source_evidence, replayWindow, skill]);
   const choices = useMemo(
     () => answerOptions(object, clean) as Array<[string, string]>,
     [object],
@@ -329,7 +344,7 @@ export function WebExplanationPanel({
         <div className="wex-evidence-actions">
           {skill === 'reading'
             ? <button type="button" className="av-button av-button-secondary" onClick={onStartReadingSelection}>Bôi chọn trong bài đọc</button>
-            : <><button type="button" className="av-button av-button-secondary" onClick={onReplayAudio}>Nghe đoạn câu này</button><button type="button" className="av-button av-button-secondary" onClick={markAudioPosition}>Đánh dấu mốc đang nghe</button></>}
+            : <>{replayWindow && onReplayAudio ? <button type="button" className="av-button av-button-secondary" onClick={onReplayAudio}>Nghe đoạn câu này</button> : null}<button type="button" className="av-button av-button-secondary" onClick={markAudioPosition}>Đánh dấu mốc đang nghe</button></>}
           <button type="button" className="av-button av-button-tertiary" onClick={markNotFound}>Tôi chưa tìm được</button>
         </div>
         {localEvidence ? <div className="wex-selection" role="status"><span>Bằng chứng bạn chọn</span><p>{localEvidence.response}</p></div> : null}
