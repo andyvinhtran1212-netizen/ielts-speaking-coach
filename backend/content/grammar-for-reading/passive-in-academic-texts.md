@@ -68,7 +68,8 @@ Bị động = **be + V3**. Văn học thuật thích bị động vì:
 Tìm **be (is/are/was/were/been/being) + V3**, kể cả khi có trạng từ chen giữa:
 
 - *were **carefully** measured*, *has been **repeatedly** confirmed*
-- Các động từ tường thuật bị động rất hay gặp: *is said to, is thought to, is reported to, is known to*.
+
+Các động từ tường thuật bị động rất hay gặp: *is said to, is thought to, is reported to, is known to*.
 
 Bị động cũng xuất hiện dạng **rút gọn** (mệnh đề quan hệ bị động): *rules **introduced** in 2010* = *rules that were introduced…*
 
@@ -94,10 +95,52 @@ Khi câu hỏi hỏi "ai/ cái gì gây ra", hãy tìm cụm *by…* hoặc suy 
 ### Chiến lược giải mã
 1. Thấy **be + V3** → chủ ngữ là **đối tượng chịu tác động**.
 2. Tìm tác nhân ở cụm *by* (nếu có).
-3. Với *is said/thought to* → xác định nguồn và lập trường; tường thuật bị động không tự biến thông tin thành tin đồn.
+3. Với *is said/thought to*: nguồn không được nêu tên; thông tin có thể đáng tin hoặc không, tuỳ bài viết dẫn chứng thế nào.
+
+## Lỗi người Việt hay mắc
+
+Tiếng Việt đánh dấu bị động bằng "bị" (thường cho việc không hay) hoặc "được" (thường cho việc tốt). Câu trung tính thì nhiều khi không cần cả hai: "Ngôi nhà xây năm 1990". Người học quen dựa vào "bị/được" để nhận ra bị động, nên khi câu tiếng Anh mang nghĩa trung tính, họ **bỏ sót** bị động và hiểu sai ai làm, ai chịu tác động.
+
+### Lỗi 1: Bỏ sót bị động trung tính
+
+*The samples were analysed in two laboratories.*
+
+- ❌ Dịch "mẫu phân tích ở hai phòng thí nghiệm", nghe như mẫu tự phân tích.
+- ✅ *were analysed* = be + V3: mẫu **được** (ai đó) phân tích. Chủ ngữ là đối tượng chịu tác động; người phân tích không được nêu.
+
+### Lỗi 2: Đoán bị động theo nghĩa tốt hay xấu
+
+*Students were given extra time* (có thể dịch "được"), *The patients were monitored for six months* (trung tính). Đừng dựa vào cảm giác tốt hay xấu. Việc cần làm là xác định **ai làm** và **ai chịu tác động**.
+
+### Lỗi 3: Lấy V3 rút gọn làm động từ chính
+
+*In the UK, most of the energy consumed by households is used for heating.*
+
+- ❌ Đọc *consumed* là động từ chính, rồi không biết *is used* làm gì trong câu.
+- ✅ *consumed by households* = *that is consumed by households* (bị động rút gọn). Động từ chính là *is used*.
+
+## Bài tập luyện
+
+### Ai làm, ai chịu tác động?
+
+Với mỗi động từ bị động, cho biết ai (cái gì) thực hiện hành động và ai (cái gì) chịu tác động.
+
+1. *The new vaccine was developed by a team in Oxford.*
+2. *Thousands of trees have been cut down to make way for the road.*
+3. *Farmers are being encouraged by the government to plant native species.*
+4. *The results, which were checked by two independent reviewers, are reported in Table 2.*
+5. *Pollution caused by traffic is said to reduce life expectancy in the city.*
+
+### Đáp án
+
+1. *was developed*: ai làm = *a team in Oxford*; chịu tác động = *the new vaccine*.
+2. *have been cut down*: ai làm = không nêu (có thể là những người làm đường); chịu tác động = *thousands of trees*.
+3. *are being encouraged*: ai làm = *the government*; chịu tác động = *farmers*. Người trồng cây là nông dân, nhưng người khuyến khích là chính phủ.
+4. *were checked*: ai làm = *two independent reviewers*; chịu tác động = *the results*. *are reported*: ai làm = không nêu (thường là tác giả nghiên cứu); chịu tác động = *the results*.
+5. *caused* (bị động rút gọn): ai làm = *traffic*; chịu tác động = *pollution*. *is said*: người nói không được nêu tên; đây là ý kiến được tường thuật lại, chưa phải khẳng định của tác giả.
 
 ## Tóm tắt nhanh
 
 - Bị động = be + V3; chủ ngữ là đối tượng chịu tác động
 - Tác nhân đi sau *by*, thường bị lược
-- *is said/thought to* tường thuật nguồn chưa được nêu; mức chắc chắn tùy nguồn và ngữ cảnh, không tự thấp hơn mọi câu chủ động
+- *is said/thought to* = tường thuật lại ý kiến chung; mức chắc chắn tuỳ ngữ cảnh

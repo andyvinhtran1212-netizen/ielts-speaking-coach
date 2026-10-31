@@ -47,7 +47,7 @@ anchors:
   location: '### Ellipsis — lược bỏ từ đã biết'
   type: section
 - id: ellipsis-and-substitution.substitution
-  location: '### Substitution — thay bằng one / do so / so'
+  location: '### Substitution — thay bằng one / do so / so / neither'
   type: section
 - id: ellipsis-and-substitution.pitfall
   location: '## Bẫy khi đọc'
@@ -58,6 +58,7 @@ anchors:
 ## Tóm tắt
 
 Hai cách tránh lặp:
+
 - **Ellipsis:** bỏ hẳn từ vì người đọc tự hiểu.
 - **Substitution:** thay từ đã nêu bằng một từ ngắn (*one, do so, so, neither*).
 
@@ -69,20 +70,21 @@ Hiểu câu = **khôi phục** phần bị lược hoặc bị thay.
 Phần lặp lại bị bỏ đi:
 
 - *She can speak French, and he can [speak French] too.*
-- *Some students passed; other students did not pass.* → others thay other students; không chèn students sau others.
+- *Some students passed; **others** did not [pass].* → *others* = other students (thay thế); sau *did not* lược *pass* (ellipsis).
 - Sau *and/but/or*, động từ hoặc danh từ lặp thường bị lược.
 
 Khôi phục lại phần trong ngoặc để hiểu trọn ý.
 
 <!-- anchor: ellipsis-and-substitution.substitution -->
-### Substitution — thay bằng one / do so / so
+### Substitution — thay bằng one / do so / so / neither
 
 | Từ thay | Thay cho | Ví dụ |
 |---|---|---|
 | **one / ones** | một danh từ đếm được | *I prefer the red **one**.* (one = shirt/car…) |
-| **do so / do that** | cả một cụm động từ | *They banned it, and rightly **did so**.* |
+| **do so / do that** | cả một cụm động từ | *The government promised to cut fees, and it **did so** within a year.* (do so = cut fees) |
 | **so** | cả một mệnh đề (sau think/hope/say) | *Will it rain? I think **so**.* |
 | **neither / nor** | phủ định của mệnh đề trước | *She didn't agree, and **neither** did he.* |
+| **that / those (of)** | danh từ đã nêu (thường trong so sánh) | *The population of Tokyo is larger than **that of** London.* (that = the population) |
 
 <!-- anchor: ellipsis-and-substitution.pitfall -->
 ## Bẫy khi đọc
@@ -97,6 +99,51 @@ Khôi phục lại phần trong ngoặc để hiểu trọn ý.
 1. Gặp *one/do so/so/neither* hoặc câu cụt sau and/but → nghi có thay/lược.
 2. Truy về mệnh đề trước để khôi phục phần đầy đủ.
 3. Đọc lại câu đã khôi phục để chắc nghĩa.
+
+## Lỗi người Việt hay mắc
+
+Tiếng Việt thường lặp lại danh từ: "dân số Tokyo lớn hơn dân số London". Tiếng Anh tránh lặp bằng *one, that of, those, do so, so*. Vì không quen kiểu thay thế này, người học không nhận ra từ thay thế đang **đứng thay cho danh từ nào**.
+
+### Lỗi 1: Hiểu *that of* như "rằng" hoặc "cái đó"
+
+*The population of Tokyo is larger than that of London.*
+
+- ❌ Hiểu thành: "lớn hơn cái đó của London" mà không biết "cái đó" là gì, hoặc đọc *that* là "rằng".
+- ✅ *that* = *the population*. Câu đầy đủ: *…larger than the population of London.*
+
+### Lỗi 2: Hiểu *one* là con số "một"
+
+*The old bridge was replaced by a stronger one.*
+
+- ❌ Hiểu *one* là con số "một" rồi không biết "một cái gì" được nói tới.
+- ✅ *one* = *bridge*: cây cầu cũ được thay bằng **một cây cầu chắc hơn**.
+
+### Lỗi 3: Hiểu *so* sau *think/hope* là "vì vậy"
+
+*Will prices fall next year? Most analysts do not think so.*
+
+- ❌ Hiểu thành: "phần lớn nhà phân tích không nghĩ, vì vậy…".
+- ✅ *so* = *that prices will fall next year*. Phần lớn nhà phân tích **không cho rằng giá sẽ giảm**.
+
+## Bài tập luyện
+
+### Khôi phục phần bị lược hoặc bị thay
+
+Viết lại phần bị lược, hoặc cho biết từ in đậm thay cho gì.
+
+1. *Wealthy countries can afford to cut emissions quickly; poorer **ones** cannot.*
+2. *The average salary in the capital is higher than **that** in rural areas.*
+3. *Researchers were asked to publish their raw data, but few **did so**.*
+4. *Men's earnings rose by 3%, and women's by 5%.*
+5. *Students who had a mentor were more likely to finish the course than **those** who did not.*
+
+### Đáp án
+
+1. *ones* = *countries*; sau *cannot* lược *afford to cut emissions quickly*. → *poorer countries cannot afford to cut emissions quickly.*
+2. *that* = *the average salary*. → *…higher than the average salary in rural areas.*
+3. *did so* = *published their raw data*. → *few researchers published their raw data.*
+4. Sau *women's* lược *earnings rose*. → *women's earnings rose by 5%.*
+5. *those* = *students*; sau *did not* lược *have a mentor*. → *…than students who did not have a mentor.*
 
 ## Tóm tắt nhanh
 

@@ -1017,6 +1017,12 @@
   backdrop-filter: blur(14px);
 }
 
+/* `display` của hai khung này đè thuộc tính `hidden` của trình duyệt, nên
+   khung chặng rỗng và huy hiệu lưu vẫn hiện khi script đã ẩn chúng
+   (UIA-1030-01: màn lỗi còn một khung tiến độ trống). */
+.cx-stage[hidden],
+.cx-save-note[hidden] { display: none; }
+
 .cx-stage__label { line-height: var(--av-lh-snug); }
 .cx-stage__ticks i { height: 10px; }
 .cx-stage__ticks i[data-s='now'] { transform: scaleY(1.35); }

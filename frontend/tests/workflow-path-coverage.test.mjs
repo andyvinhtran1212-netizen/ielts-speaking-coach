@@ -74,23 +74,73 @@ function readPaths(src) {
   // đọc nhầm bộ lọc. Repo hiện chưa có ca đó — neo sẵn để nó không thành bẫy.
   const pr = lines.findIndex((l) => /^\s*pull_request:\s*$/.test(l));
   if (pr < 0) return null;
+  // Chỉ tìm `paths:` TRONG thân trigger `pull_request` (thụt sâu hơn nó), để
+  // một `paths:` ở chỗ khác trong tệp không bị đọc nhầm thành bộ lọc trigger.
+  const prIndent = lines[pr].search(/\S/);
+  let prEnd = lines.length;
+  for (let n = pr + 1; n < lines.length; n += 1) {
+    const l = lines[n];
+    if (/^\s*(#|$)/.test(l)) continue;
+    if (l.search(/\S/) <= prIndent) { prEnd = n; break; }
+  }
   // `paths-ignore:` có nghĩa NGƯỢC LẠI; regex đòi `paths:` rồi hết dòng nên
   // không dính, và ta cũng không giả vờ hiểu nó.
-  const i = lines.findIndex((l, n) => n > pr && /^\s*paths:\s*$/.test(l));
+  let i = lines.findIndex((l, n) => n > pr && n < prEnd && /^\s*paths:\s*$/.test(l));
+  // Workflow có check BẮT BUỘC không được lọc ở trigger (bị lọc thì check không
+  // bao giờ báo về và GitHub chặn merge). `backend-tests.yml` lọc trong bộ lọc
+  // `run_tests:` của job `changes` (dorny/paths-filter, quantifier `some`); job
+  // nặng skip khi nó ra 'false'. Đọc danh sách đó thay cho trigger.
+  let kind = 'trigger';
+  if (i < 0) {
+    const f = lines.findIndex((l) => /^\s*filters:\s*\|\s*$/.test(l));
+    if (f >= 0) i = lines.findIndex((l, n) => n > f && /^\s*run_tests:\s*$/.test(l));
+    kind = 'filter';
+  }
   if (i < 0) return null;
   const out = [];
+  let itemIndent = -1;
   for (let j = i + 1; j < lines.length; j += 1) {
     const l = lines[j];
     if (/^\s*#/.test(l) || /^\s*$/.test(l)) continue;
     if (!/^\s*-\s/.test(l)) break;                   // hết khối danh sách
+    // Mục ở độ thụt KHÁC là danh sách khác (vd. step `- name:` ngay sau khối
+    // `filters: |`), không phải glob của bộ lọc này.
+    if (itemIndent < 0) itemIndent = l.search(/\S/);
+    if (l.search(/\S/) !== itemIndent) break;
     const m = /^\s*-\s*'([^']+)'\s*$/.exec(l) || /^\s*-\s*"([^"]+)"\s*$/.exec(l);
     // Dòng VẪN là một mục danh sách nhưng không đọc được (không nháy, hoặc glob
     // phủ định `!…` mà bộ này cố tình không diễn giải). Im lặng bỏ qua sẽ làm
     // danh sách glob ngắn đi và chốt yếu đi mà không ai hay — nên ném thẳng.
     if (!m) throw new Error(`không đọc được mục paths: ${JSON.stringify(l)}`);
+    // `!…` ở trigger có nghĩa LOẠI THEO THỨ TỰ (GitHub), bộ này không mô hình
+    // hoá — ném thẳng. Trong bộ lọc paths-filter thì nghĩa khác, xem `matcher`.
+    if (kind === 'trigger' && m[1].startsWith('!')) {
+      throw new Error(`glob phủ định ở trigger chưa được hỗ trợ: ${m[1]}`);
+    }
     out.push(m[1]);
   }
+  out.kind = kind;
   return out;
+}
+
+/**
+ * Vị từ «tệp này kích hoạt test?» cho một danh sách đọc bởi `readPaths`.
+ *
+ * Trigger: khớp một glob nào đó. Bộ lọc paths-filter với quantifier `some`:
+ * khớp MỘT mục bất kỳ, và mục `!g` là matcher BÙ (picomatch đảo kết quả) — tức
+ * khớp mọi tệp mà `g` không khớp. Đó là cách `'!specs/**'` nghĩa là «mọi tệp
+ * ngoài specs/» (dorny/paths-filter v4.0.3 src/filter.ts createRuleItem).
+ */
+function matcher(paths) {
+  const preds = paths.map((g) => {
+    if (paths.kind === 'filter' && g.startsWith('!')) {
+      const re = globToRe(g.slice(1));
+      return (p) => !re.test(p);
+    }
+    const re = globToRe(g);
+    return (p) => re.test(p);
+  });
+  return (p) => preds.some((pred) => pred(p));
 }
 
 /**
@@ -311,7 +361,7 @@ describe('workflow — tệp được CHẠY phải nằm trong paths', () => {
     if (!files.length) continue;
 
     test(`${w.name} — mọi phụ thuộc đều kích hoạt được workflow`, () => {
-      const res = w.paths.map(globToRe);
+      const runs = matcher(w.paths);
       const missing = new Set();
       for (const f of files) {
         for (const dep of dependencies(f)) {
@@ -321,7 +371,7 @@ describe('workflow — tệp được CHẠY phải nằm trong paths', () => {
           // không khớp chuỗi `frontend/public`, mà GitHub cũng chẳng bao giờ liệt
           // kê một thư mục trong danh sách tệp-đã-đổi.
           const probe = statSync(dep).isDirectory() ? `${rel}/x` : rel;
-          if (!res.some((re) => re.test(probe))) {
+          if (!runs(probe)) {
             missing.add(statSync(dep).isDirectory() ? `${rel}/** (cả cây)` : rel);
           }
         }
@@ -347,10 +397,10 @@ describe('workflow — tệp được CHẠY phải nằm trong paths', () => {
     const self = fileURLToPath(import.meta.url);
     const runner = workflows.find((w) => executedFiles(w.src).includes(self));
     assert.ok(runner, 'không workflow nào thực sự chạy tệp test này — nó vô dụng');
-    const res = runner.paths.map(globToRe);
+    const runs = matcher(runner.paths);
     for (const other of ['.github/workflows/next-native-browser.yml',
                          '.github/workflows/route-manifest.yml']) {
-      assert.ok(res.some((re) => re.test(other)),
+      assert.ok(runs(other),
         `${runner.name} không chạy khi ${other} đổi — thêm '.github/workflows/**'`);
     }
   });
@@ -378,5 +428,122 @@ describe('workflow — tệp được CHẠY phải nằm trong paths', () => {
     assert.ok(m('a/b.js', 'a/b.js'));
     assert.ok(!m('a/b.js', 'a/c.js'));
     assert.ok(!m('docs/*.md', 'docs/x/y.md'));
+  });
+});
+
+/**
+ * Đường dẫn `specs/…` CÓ THẬT mà mã test nêu tên (chuỗi trong tệp test). Thô
+ * nhưng thiên về an toàn: thấy dư thì phải giải thích trong NOT_READ, thấy
+ * thiếu thì không có — trừ đường dựng từ hằng, phủ riêng bằng
+ * REQUIRED_FOUNDATION_FILES ở dưới.
+ */
+function specPathsNamedByTests() {
+  const out = new Map();
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) {
+        if (e.name === 'node_modules' || e.name === 'fixtures') continue;
+        walk(full);
+        continue;
+      }
+      if (!/\.(py|mjs|cjs|js|ts|tsx)$/.test(e.name)) continue;
+      // Bỏ docstring Python và dòng THUẦN chú thích: ở đó đường dẫn spec chỉ là
+      // chỉ dẫn nguồn (vd. «specs/0029-…/research.md §4»), không phải lệnh đọc.
+      // Không có bước này, mỗi docstring mới dẫn một spec sẽ làm đỏ PR không liên quan.
+      const src = readFileSync(full, 'utf8')
+        .replace(/"""[\s\S]*?"""|'''[\s\S]*?'''/g, '')
+        .split('\n')
+        .filter((l) => !/^\s*(#|\/\/|\/\*|\*)/.test(l))
+        .join('\n');
+      for (const m of src.matchAll(/specs\/[\w][\w./-]*/g)) {
+        const rel = m[0].replace(/[./]+$/, '');
+        if (!existsSync(path.join(ROOT, rel))) continue;
+        if (!out.has(rel)) out.set(rel, path.relative(ROOT, full));
+      }
+    }
+  };
+  walk(path.join(ROOT, 'backend/tests'));
+  walk(path.join(ROOT, 'frontend/tests'));
+  return out;
+}
+
+// Chuỗi `specs/…` trong test mà KHÔNG phải đọc tệp repo. Mỗi mục phải nêu lý do;
+// đừng thêm vào đây để làm xanh — nếu test thật sự đọc tệp, thêm nó vào bộ lọc.
+// Khoá viết KHÔNG kèm tiền tố `specs/`: viết đủ thì chính tệp này nêu tên một
+// tệp spec có thật, và cả hai bộ dò (ở trên và dưới) tính nó là phụ thuộc.
+const NOT_READ = {
+  '0000-sdd-foundation': 'test_validate_specs.py dựng thư mục này trong repo tạm (tmp_path)',
+  'general/UI-IMPROVEMENTS.md': 'test_validate_specs.py ghi tệp này trong repo tạm (tmp_path)',
+};
+
+describe('backend-tests.yml — job nặng chỉ skip khi MỌI tệp là spec không-test-đọc', () => {
+  const bt = workflows.find((w) => w.name === 'backend-tests.yml');
+  const runs = matcher(bt.paths);
+  // Một PR chạy test khi CÓ tệp kích hoạt (paths-filter ra 'true' khi ≥1 tệp khớp).
+  const prRuns = (files) => files.some(runs);
+
+  test('bộ lọc là allowlist dạng bù, không phải danh sách glob «chạy khi khớp»', () => {
+    assert.equal(bt.paths.kind, 'filter');
+    assert.equal(bt.paths[0], '!specs/**',
+      'mục đầu phải là `!specs/**` — mọi tệp ngoài specs/ đều chạy test');
+    assert.ok(bt.paths.slice(1).every((g) => g.startsWith('specs/')),
+      `ngoài mục bù, chỉ được liệt kê tệp specs/ mà test đọc: ${bt.paths}`);
+    assert.match(bt.src, /^\s+predicate-quantifier: some\s*$/m,
+      'nghĩa «mục `!g` = mọi tệp g không khớp» chỉ đúng với quantifier `some`');
+  });
+
+  test('ca âm: PR chỉ sửa fixture/docs ngoài specs/ vẫn CHẠY test', () => {
+    for (const f of ['docs/grammar-quiz-banks/x.md', 'data/rubric/x.json',
+      'data/rubric/cambridge_speaking_descriptors.json', 'data/course_pronunciation/x.json',
+      'AGENTS.md', 'commission/x.md', 'source_material/x.txt', '.github/workflows/x.yml']) {
+      assert.ok(prRuns([f]), `${f} phải chạy test`);
+    }
+  });
+
+  test('ca âm: tệp spec mà test đọc vẫn CHẠY test', () => {
+    for (const f of ['specs/_meta/x', 'specs/_meta/constitution.md', 'specs/_templates/plan.md',
+      'specs/README.md', 'specs/0019-grammar-audit-remediation/source-scope.json',
+      'specs/0032-admin-aal2-staff-guard/rollout.md']) {
+      assert.ok(prRuns([f]), `${f} phải chạy test`);
+    }
+  });
+
+  test('chỉ PR toàn-spec (không tệp nào test đọc) mới skip', () => {
+    assert.equal(prRuns(['specs/0040-foo/spec.md']), false);
+    // Đường dẫn bịa (không có thật) để bộ dò phụ thuộc không tính chúng.
+    assert.equal(prRuns(['specs/0040-foo/spec.md', 'specs/0040-foo/verification.md',
+      'specs/0041-bar/README.md', 'specs/0041-bar/data.json']), false);
+    assert.equal(prRuns(['specs/0040-foo/spec.md', 'docs/grammar-quiz-banks/x.md']), true,
+      'một tệp ngoài specs/ là đủ để chạy');
+    assert.equal(prRuns(['specs/0040-foo/spec.md', 'specs/_meta/constitution.md']), true);
+  });
+
+  test('mọi tệp specs/ mà test đọc đều nằm ngoài vùng skip', () => {
+    const named = specPathsNamedByTests();
+    assert.ok(named.has('specs/0019-grammar-audit-remediation/source-scope.json'),
+      'bộ dò không thấy cả ca đã biết — bộ dò hỏng?');
+    // Đường dựng từ hằng: validate_specs.py đọc `specs / relative` cho từng mục
+    // REQUIRED_FOUNDATION_FILES, và test_validate_specs.py chép chúng từ repo thật.
+    const validator = readFileSync(path.join(ROOT, 'backend/scripts/validate_specs.py'), 'utf8');
+    const block = /REQUIRED_FOUNDATION_FILES = \(([\s\S]*?)\)/.exec(validator);
+    assert.ok(block, 'không thấy REQUIRED_FOUNDATION_FILES trong validate_specs.py');
+    const foundation = [...block[1].matchAll(/"([^"]+)"/g)].map((m) => `specs/${m[1]}`);
+    assert.ok(foundation.length >= 5, `REQUIRED_FOUNDATION_FILES quá ngắn: ${foundation}`);
+    for (const f of foundation) named.set(f, 'backend/scripts/validate_specs.py');
+
+    const skipped = [];
+    for (const [rel, by] of named) {
+      if (rel.slice('specs/'.length) in NOT_READ) continue;
+      const probe = statSync(path.join(ROOT, rel)).isDirectory() ? `${rel}/x` : rel;
+      if (!runs(probe)) skipped.push(`${rel} (${by})`);
+    }
+    assert.deepEqual(skipped, [],
+      'test đọc những tệp spec này nhưng PR chỉ sửa chúng sẽ SKIP test — thêm chúng '
+      + 'vào bộ lọc `run_tests` của job `changes`, đừng nới lỏng test này.');
+    for (const rel of Object.keys(NOT_READ)) {
+      assert.ok(named.has(`specs/${rel}`),
+        `NOT_READ cũ: không test nào còn nêu specs/${rel} — xoá mục đó`);
+    }
   });
 });

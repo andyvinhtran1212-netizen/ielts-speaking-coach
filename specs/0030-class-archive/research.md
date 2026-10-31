@@ -657,6 +657,12 @@ without an exemption. Two items to add when T002 writes 337:
    snapshot trigger only fills `NEW` fields, and the guard reads only
    `NEW.assignment_id`.
 
+Amendment 1 (2026-10-29, PC-J153): the INSERT-only rule above stays true for
+the 337 triggers, but it left one gap (audit PC-J106 F4): an UPDATE that
+*moves* work into an archived class. §11.4 closes it with separate
+value-changed UPDATE triggers in migration 346, which none of the paths above
+fire.
+
 ### 11.2 Live bodies vs. repo migrations
 
 **No drift.** All 22 live bodies are byte-identical (`md5(prosrc)`) to the
@@ -779,3 +785,76 @@ SELECT w.status, w.is_timed, count(*), min(w.created_at), max(w.created_at), cou
 Raw outputs and the compare script are kept outside the repo in
 `/workspace/qa/q14l-t002a/` (`live_funcs.json`, `compare.json`, `q1a.out`,
 `q1b.out`, `*.sql`).
+
+### 11.4 Moving existing work into an archived class (Amendment 1, PC-J153, migration 346)
+
+**Gap.** The three 337 work guards are `BEFORE INSERT` only (§11.1, `tgtype =
+7`). With 337 alone, these UPDATEs pass and put existing work into an archived
+class:
+
+- `class_assignments.cohort_id` → an archived class;
+- `writing_assignments.cohort_id` → an archived class (also from NULL, which
+  turns an individual give into a cohort give);
+- `class_assignment_items.assignment_id` → an assignment of an archived class.
+
+Reach: `anon`/`authenticated` have no write privilege on these tables (PC-J106
+c4), and no backend path changes these columns. Python only updates
+`due_at`/`updated_at`/`content_config` on `class_assignments`
+(`class_assignment_service.py`, `repair_course_inline_supplements.py`), item
+progress columns, and `deadline`/`instructions`/`status` on
+`writing_assignments` (`instructor.py`, `writing_student.py`,
+`writing_assignment_status_sync.py`); no migration body sets these columns on
+these tables. So only the service role or the SQL editor could do it. The
+Leader chose to close it (2026-10-29 16:12), not to accept it as residual risk.
+
+**Design (migration 346).**
+
+- Three new triggers, one per table: `trg_guard_class_assignment_cohort_move`,
+  `trg_guard_writing_give_cohort_move` and `trg_guard_class_item_cohort_move`.
+  Each is `BEFORE UPDATE OF <column> … FOR EACH ROW WHEN (NEW.<column> IS
+  DISTINCT FROM OLD.<column>)` and calls the unchanged 337 guard function.
+  Those functions read only `NEW` and never `TG_OP`, so an UPDATE is judged by
+  its destination class exactly like an INSERT: they lock the class `FOR
+  SHARE` and raise `cohort_archived` if it is archived.
+- 337's INSERT triggers are not widened. A `WHEN` clause cannot read `OLD` on a
+  trigger that also fires on INSERT. Without it, any statement that only names
+  the column (`SET cohort_id = cohort_id`) would take the class lock and be
+  judged. Widening would also break 337's own `tgtype = 7` postcondition on a
+  re-apply.
+- Reaper, full retry, timed start, the Advanced Vocabulary and grammar
+  finalisers, due-date changes and Writing status changes do not name the
+  guarded column, so the new triggers never fire for them (§11.1 holds).
+- Trigger order: `trg_guard_class_item_cohort_move` sorts before
+  `trg_snapshot_timed_course_item_cutoff` and
+  `update_class_assignment_items_updated_at`. The give trigger sorts after the
+  331 learner guard, so `student_archived` still wins.
+- Pre-/postconditions: the file aborts with `migration_337_missing` or
+  `migration_337_guard_missing` unless the 337 functions and enabled INSERT
+  triggers (`tgtype = 7`) exist. Afterwards it checks each move guard:
+  enabled, bound to its 337 function, `tgtype = 19` (BEFORE ROW UPDATE),
+  `tgattr` = exactly the guarded column, and the `WHEN` clause. It also checks
+  that the 337 INSERT guards are unchanged and that the reused functions are
+  still pinned definers with no client EXECUTE.
+- Rollback (file header): drop the three triggers. It must run **before** any
+  337 rollback, because those drop the guard functions, and PostgreSQL refuses
+  that while the 346 triggers depend on them.
+- Release: group `class_archive` in `forward-policy.tsv`, applied after 337
+  with `MIGRATION_FEATURES=class_archive` under the advisory lock. Merging
+  applies nothing: staging is applied by the Leader, production only at an
+  authorised promotion.
+
+**Evidence.** `backend/tests/test_migration_346_class_archive_update_guards.py`
+(PG16 and PG17, on the 337 harness):
+
+- negative control: with 337 alone every move passes; after 346 every move is
+  refused;
+- catalog: `tgtype` 19, `tgattr`, the `WHEN` clause, and 337 still at 7;
+- the move matrix and no row change on refusal;
+- moves to active or legacy classes, and out of an archived class, pass;
+- same-class UPDATEs on an archived class pass;
+- restore re-allows the move;
+- `student_archived` precedence;
+- archive-first lock race;
+- re-applying 337 then 346;
+- rollback, idempotent, and ordered before the 337 light rollback;
+- preconditions.

@@ -2,7 +2,7 @@ import logging
 import math
 import os
 import sys
-from time import perf_counter
+from time import monotonic, perf_counter
 
 # listening-fulltest-md-import hotfix — force UTF-8 stdio. Railway/Nixpacks can
 # launch Python with an ASCII locale (UTF-8 Mode OFF → sys.stdout.encoding ==
@@ -520,6 +520,78 @@ def _insert_error_log_safely(payload: dict) -> None:
         logger.error("[error_logs] Background INSERT failed: %s", e)
 
 
+# PC-J92 — handled 5xx HTTPExceptions (e.g. 503 activation_unavailable) are
+# persisted too, but a broken dependency answers EVERY request with the same
+# 5xx, so capture is bounded three ways. All limits are PER PROCESS (with N
+# uvicorn workers / Railway replicas the effective ceilings are N x these):
+#   * _HANDLED_5XX_LOG_LIMIT rows per (error_code, route template) per window;
+#   * _HANDLED_5XX_LOG_GLOBAL_LIMIT rows per window across all keys, because an
+#     outage 503s every route and each route template is its own key;
+#   * _HANDLED_5XX_LOG_MAX_IN_FLIGHT inserts at once. Each insert holds a
+#     default-executor worker for up to the sync client's 120 s timeout when
+#     Supabase hangs, so a saturated capture is skipped instead of queued.
+# Skipped rows are counted in _handled_5xx_log_dropped (by reason) and the
+# first global / in-flight skip of each window logs one process warning.
+_HANDLED_5XX_LOG_LIMIT = 10
+_HANDLED_5XX_LOG_GLOBAL_LIMIT = 60
+_HANDLED_5XX_LOG_WINDOW_S = 60.0
+_HANDLED_5XX_LOG_MAX_KEYS = 512
+_HANDLED_5XX_LOG_MAX_IN_FLIGHT = 4
+_handled_5xx_log_windows: dict[tuple[str, str], list] = {}
+# [window start, rows in window, saturation warning logged in window]
+_handled_5xx_log_global_window: list = [float("-inf"), 0, False]
+# Strong references: asyncio keeps only weak references to running tasks.
+_handled_5xx_log_tasks: set = set()
+_handled_5xx_log_dropped: dict[str, int] = {
+    "key_limit": 0, "key_table_full": 0, "global_limit": 0, "in_flight": 0,
+}
+# Injectable so tests move this clock without patching time.monotonic globally.
+_handled_5xx_clock = monotonic
+
+
+def _handled_5xx_log_skip(reason: str) -> bool:
+    _handled_5xx_log_dropped[reason] += 1
+    glob = _handled_5xx_log_global_window
+    if reason in ("global_limit", "in_flight") and not glob[2]:
+        glob[2] = True
+        logger.warning("[error_logs] handled-5xx capture saturated (%s); skipping "
+                       "rows for the rest of this window, dropped=%s",
+                       reason, _handled_5xx_log_dropped)
+    return False
+
+
+def _handled_5xx_log_allowed(error_code: str, path: str) -> bool:
+    """Fixed-window counters; runs on the event loop thread, so no lock.
+
+    Checks run cheapest-to-recover first and a skipped row consumes no
+    budget: in-flight inserts, then the per-key window, then the global one.
+    """
+    now = _handled_5xx_clock()
+    glob = _handled_5xx_log_global_window
+    if now - glob[0] >= _HANDLED_5XX_LOG_WINDOW_S:
+        glob[:] = [now, 0, False]
+    if len(_handled_5xx_log_tasks) >= _HANDLED_5XX_LOG_MAX_IN_FLIGHT:
+        return _handled_5xx_log_skip("in_flight")
+    key = (error_code, path)
+    window = _handled_5xx_log_windows.get(key)
+    fresh = window is None or now - window[0] >= _HANDLED_5XX_LOG_WINDOW_S
+    if not fresh and window[1] >= _HANDLED_5XX_LOG_LIMIT:
+        return _handled_5xx_log_skip("key_limit")
+    if glob[1] >= _HANDLED_5XX_LOG_GLOBAL_LIMIT:
+        return _handled_5xx_log_skip("global_limit")
+    if fresh:
+        if len(_handled_5xx_log_windows) >= _HANDLED_5XX_LOG_MAX_KEYS:
+            for stale in [k for k, (started, _) in _handled_5xx_log_windows.items()
+                          if now - started >= _HANDLED_5XX_LOG_WINDOW_S]:
+                del _handled_5xx_log_windows[stale]
+            if len(_handled_5xx_log_windows) >= _HANDLED_5XX_LOG_MAX_KEYS:
+                return _handled_5xx_log_skip("key_table_full")
+        window = _handled_5xx_log_windows[key] = [now, 0]
+    window[1] += 1
+    glob[1] += 1
+    return True
+
+
 def _bounded_traceback(trace: str, limit: int = 5000) -> str:
     """Bound a traceback while retaining both the request frame and root cause.
 
@@ -664,15 +736,18 @@ def _json_safe_numbers(value):
     return value
 
 
-# F10 (Codex, PR #1754): FastAPI's default 422 echoes the rejected `input`.
-# Python's JSON parser turns 1e309 / NaN / Infinity into non-finite floats,
-# which JSONResponse refuses to serialize, so a malformed (often anonymous)
-# body became a 500 and a backend error_logs row. Same shape as the default
-# handler; only non-finite numbers are rendered as strings.
+# PC-J188: expose only the public validation diagnostics. Rejected input and
+# validator context can contain sensitive values; exclude them before encoding.
+# Keep F10 (#1754)'s non-finite-number guard so malformed JSON numbers cannot
+# turn a validation error into a 500 during response serialization.
 @app.exception_handler(RequestValidationError)
 async def request_validation_handler(request: Request, exc: RequestValidationError):
+    errors = [
+        {key: error[key] for key in ("loc", "msg", "type") if key in error}
+        for error in exc.errors()
+    ]
     return JSONResponse(status_code=422,
-                        content={"detail": _json_safe_numbers(jsonable_encoder(exc.errors()))})
+                        content={"detail": _json_safe_numbers(jsonable_encoder(errors))})
 
 
 # ── P0-5 / C-1.3 — sanitize EXPLICIT HTTPExceptions before they reach the client.
@@ -688,6 +763,37 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     import uuid as _uuid
     request_id = getattr(request.state, "request_id", None) or str(_uuid.uuid4())
     detail = safe_detail(exc.status_code, exc.detail, ref=request_id)
+    if exc.status_code >= 500:
+        # PC-J92 — persist handled 5xx to error_logs like the unhandled handler
+        # (fire-and-forget, never raises). Only the error_code, route template,
+        # method and request id: no body, query, token, message or DB trace.
+        try:
+            import asyncio as _asyncio
+            error_code = detail.get("error_code") if isinstance(detail, dict) else None
+            error_code = str(error_code or "internal_error")[:100]
+            safe_path, _ = _safe_error_request_context(request)
+            if _handled_5xx_log_allowed(error_code, safe_path):
+                payload = {
+                    "level":      "warning" if exc.status_code == 503 and error_code == "feature_disabled" else "error",
+                    "source":     "backend",
+                    "message":    f"HTTP {exc.status_code} {error_code}",
+                    "url":        safe_path,
+                    "request_id": request_id,
+                    "extra": {
+                        "method":      request.method,
+                        "status_code": exc.status_code,
+                        "error_code":  error_code,
+                        "handled":     True,
+                    },
+                }
+                task = _asyncio.create_task(
+                    _asyncio.to_thread(_insert_error_log_safely, payload)
+                )
+                _handled_5xx_log_tasks.add(task)
+                task.add_done_callback(_handled_5xx_log_tasks.discard)
+        except Exception as e:
+            logger.error("[error_logs] handled-5xx capture skipped (req=%s): %s",
+                         request_id, e.__class__.__name__)
     headers = dict(getattr(exc, "headers", None) or {})
     headers.setdefault("X-Request-ID", request_id)
     return JSONResponse(status_code=exc.status_code,

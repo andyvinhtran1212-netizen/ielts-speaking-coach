@@ -273,6 +273,9 @@
 .rr-card__ans.is-user code,
 .rr-card.is-correct .rr-card__ans.is-user code,
 .rr-card__ans.is-correct code { padding: 0; background: transparent; color: var(--av-text-primary); overflow-wrap: anywhere; }
+.rr-card__ans-text { overflow-wrap: anywhere; line-height: var(--av-lh-relaxed); }
+.rr-card__ans-text > span { display: block; }
+.rr-card__nosol { margin: var(--av-space-3) 0 0; color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
 .rr-card.is-incorrect .rr-card__ans.is-user { border-color: var(--av-error); background: var(--av-error-soft); }
 .rr-card.is-correct .rr-card__ans.is-user,
 .rr-card__ans.is-correct { border-color: var(--av-success); background: var(--av-success-soft); }

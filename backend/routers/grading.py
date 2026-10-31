@@ -21,6 +21,7 @@ import hashlib
 import json
 import logging
 import os
+import time
 import uuid
 from functools import lru_cache
 from datetime import datetime, timezone
@@ -505,7 +506,8 @@ async def grade_response_endpoint(
                 .limit(1)
             )
         except Exception as e:
-            raise HTTPException(500, f"Lỗi khi tải session: {e}")
+            logger.error("[grading] session lookup failed session=%s: %s", session_id, e, exc_info=True)
+            raise HTTPException(500, "Lỗi khi tải session. Vui lòng thử lại.") from None
 
         if not s_res.data:
             raise HTTPException(404, "Session không tồn tại hoặc không có quyền truy cập")
@@ -527,7 +529,8 @@ async def grade_response_endpoint(
                 .limit(1)
             )
         except Exception as e:
-            raise HTTPException(500, f"Lỗi khi tải câu hỏi: {e}")
+            logger.error("[grading] question lookup failed session=%s question=%s: %s", session_id, question_id, e, exc_info=True)
+            raise HTTPException(500, "Lỗi khi tải câu hỏi. Vui lòng thử lại.") from None
 
         if not q_res.data:
             raise HTTPException(404, "Câu hỏi không tồn tại trong session này")
@@ -597,7 +600,10 @@ async def grade_response_endpoint(
         logger.info("[grading] gọi Whisper STT (from bytes, %d B)...", file_size)
 
         try:
+            # BL-09: wall time of the whole STT call (provider retries included).
+            stt_started = time.monotonic()
             stt = await transcribe_from_bytes(audio_bytes, filename=filename)
+            stt_latency_ms = int((time.monotonic() - stt_started) * 1000)
         except Exception as e:
             logger.error("[grading] Whisper thất bại: %s", e)
             _mark_session_error(session_id, "stt_failed", "whisper", str(e))
@@ -666,6 +672,7 @@ async def grade_response_endpoint(
             audio_seconds=duration_sec,
             feature="speaking_stt",
             operation="transcribe_response",
+            latency_ms=stt_latency_ms,
             # The response row is created only after the duration/reliability
             # gates below.  At STT time the question is the stable resource
             # available for correlation; session_id keeps the attempt context.
@@ -1274,7 +1281,7 @@ async def grade_response_endpoint(
         raise
     except Exception as e:
         logger.exception("[grading] lỗi không mong đợi tại step=%s: %s", step, e)
-        raise HTTPException(500, f"Lỗi xử lý tại bước '{step}': {e}")
+        raise HTTPException(500, "Lỗi khi chấm bài. Vui lòng thử lại.") from None
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────

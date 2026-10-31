@@ -2,6 +2,8 @@
 // draft → PATCH full feedback để chuyển graded→reviewed → POST deliver.
 // Mạng bị chặn; /auth/me fixture có role admin nên flow này phủ
 // workspace thật mà G1 denied-state không thể phủ.
+import { AAL2_STATUS } from '../admin-mfa-stub.mjs';
+
 const ESSAY = 'essay-admin-1';
 const UPDATED = 'Nhận xét tổng quan đã được admin chỉnh sửa.';
 
@@ -12,6 +14,8 @@ export default {
 
   canned: [
     [/\/auth\/me$/, { id: '00000000-0000-0000-0000-000000000000', email: 'admin@local', role: 'admin' }],
+    // ADMINAAL2-0032 T010: AdminAccessGate fails closed on the `{}` catch-all.
+    [/\/admin\/mfa\/status$/, AAL2_STATUS],
     [new RegExp(`/admin/writing/essays/${ESSAY}$`), {
       id: ESSAY,
       status: 'graded',

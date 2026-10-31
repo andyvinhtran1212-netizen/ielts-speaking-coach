@@ -334,19 +334,27 @@ def test_quota_below_limit_is_allowed(env, monkeypatch):
     assert resp.status_code == 200
 
 
-def test_quota_lookup_failure_fails_open(env):
+def test_quota_lookup_failure_fails_closed(env):
+    # AIBUDGET-0033 FR-006: a ledger outage refuses the paid call.
     env.db.raises = RuntimeError("db down")
-    resp = _run(tts_module.text_to_speech(_body(), authorization="Bearer x"))
-    assert resp.status_code == 200
-    assert len(env.synth_calls) == 1
+    with pytest.raises(HTTPException) as error:
+        _run(tts_module.text_to_speech(_body(), authorization="Bearer x"))
+    assert error.value.status_code == 503
+    assert error.value.detail["error_code"] == "ai_budget_exhausted"
+    assert error.value.refusal.reason == "budget_unavailable"
+    assert env.synth_calls == []
 
 
-def test_non_positive_quota_disables_the_cap(env, monkeypatch):
+def test_non_positive_quota_is_config_invalid(env, monkeypatch):
+    # AIBUDGET-0033 FR-006: a cap <= 0 refuses, never "no cap".
     monkeypatch.setattr(tts_module.settings, "TTS_DAILY_LIMIT_PER_USER", 0)
-    env.db.count = 10_000
-    resp = _run(tts_module.text_to_speech(_body(), authorization="Bearer x"))
-    assert resp.status_code == 200
+    env.db.count = 0
+    with pytest.raises(HTTPException) as error:
+        _run(tts_module.text_to_speech(_body(), authorization="Bearer x"))
+    assert error.value.status_code == 503
+    assert error.value.refusal.reason == "config_invalid"
     assert env.db.tables == []
+    assert env.synth_calls == []
 
 
 # ── The 502 wrapper must not swallow guard HTTPExceptions ──────────────────
@@ -416,11 +424,14 @@ def test_ip_window_slides(env, monkeypatch):
     tts_module._throttle_ip(request)  # oldest hit expired → allowed again
 
 
-def test_non_positive_ip_budget_disables_the_throttle(env, monkeypatch):
+def test_non_positive_ip_budget_is_config_invalid(env, monkeypatch):
+    # AIBUDGET-0033 FR-006: a per-IP budget <= 0 refuses, never "no throttle".
     monkeypatch.setattr(tts_module.settings, "TTS_IP_MAX_PER_MINUTE", 0)
     request = SimpleNamespace(headers={"x-forwarded-for": "203.0.113.12"}, client=None)
-    for _ in range(5):
+    with pytest.raises(HTTPException) as error:
         tts_module._throttle_ip(request)
+    assert error.value.status_code == 503
+    assert error.value.refusal.reason == "config_invalid"
     assert tts_module._ip_hits == {}
 
 
@@ -440,18 +451,44 @@ def test_caller_supplied_first_forwarded_hops_share_one_ip_budget(env, monkeypat
     assert len(env.synth_calls) == 2
 
 
-def test_real_ip_keys_the_throttle_over_forwarded_hops(env, monkeypatch):
+def test_forwarded_hop_keys_before_real_ip_then_real_ip_before_peer(env, monkeypatch):
+    # PC-J202/J177/J179: X-Real-IP can be spoofed via CF-Connecting-IP on
+    # WARP. Prefer the rightmost untrusted XFF hop regardless of globalness;
+    # use X-Real-IP only when XFF yields no key, then fall back to the peer.
     monkeypatch.setattr(tts_module.settings, "TTS_IP_MAX_PER_MINUTE", 1)
     client = _client()
-    real = {"Authorization": "Bearer x", "X-Real-IP": "203.0.113.21"}
-    assert client.post("/tts", json={"text": "Hi"},
-                       headers={**real, "X-Forwarded-For": "1.1.1.1, 10.0.0.1"}).status_code == 200
-    assert client.post("/tts", json={"text": "Hi"},
-                       headers={**real, "X-Forwarded-For": "2.2.2.2, 10.0.0.2"}).status_code == 429
-    # Another X-Real-IP behind the same forwarded chain has its own window.
-    assert client.post("/tts", json={"text": "Hi"},
-                       headers={"Authorization": "Bearer x", "X-Real-IP": "198.51.100.21",
-                                "X-Forwarded-For": "1.1.1.1, 10.0.0.1"}).status_code == 200
+    auth = {"Authorization": "Bearer x"}
+    for edge in ("10.0.0.1", "203.0.113.21", "52.95.110.21"):
+        assert client.post("/tts", json={"text": "Hi"}, headers={
+            **auth, "X-Forwarded-For": f"1.1.1.1, {edge}",
+            "X-Real-IP": "198.51.100.21"}).status_code == 200
+        assert client.post("/tts", json={"text": "Hi"}, headers={
+            **auth, "X-Forwarded-For": f"2.2.2.2, {edge}",
+            "X-Real-IP": "198.51.100.22"}).status_code == 429
+    assert len(env.synth_calls) == 3
+    # Without XFF, two X-Real-IP values keep independent budgets.
+    real = {**auth, "X-Real-IP": "192.0.2.1"}
+    assert client.post("/tts", json={"text": "Hi"}, headers=real).status_code == 200
+    assert client.post("/tts", json={"text": "Hi"}, headers=real).status_code == 429
+    assert client.post("/tts", json={"text": "Hi"}, headers={
+        **auth, "X-Real-IP": "192.0.2.2"}).status_code == 200
+    # With neither usable header, the socket peer keys.
+    assert client.post("/tts", json={"text": "Hi"}, headers=auth).status_code == 200
+    assert client.post("/tts", json={"text": "Hi"}, headers=auth).status_code == 429
+    assert len(env.synth_calls) == 6
+
+
+@pytest.mark.parametrize("real_ip", [None, "192.0.2.3"])
+def test_invalid_rightmost_forwarded_hop_stops_at_real_ip_or_peer(env, monkeypatch, real_ip):
+    # Never skip junk and cross into caller-controlled hops to its left.
+    monkeypatch.setattr(tts_module.settings, "TTS_IP_MAX_PER_MINUTE", 2)
+    client = _client()
+    for spoof, status in (("1.1.1.1", 200), ("2.2.2.2", 200), ("3.3.3.3", 429)):
+        headers = {"Authorization": "Bearer x", "X-Forwarded-For": f"{spoof}, unknown"}
+        if real_ip:
+            headers["X-Real-IP"] = real_ip
+        assert client.post("/tts", json={"text": "Hi"}, headers=headers).status_code == status
+    assert len(env.synth_calls) == 2
 
 
 def test_client_ip_falls_back_to_socket_peer_without_headers():

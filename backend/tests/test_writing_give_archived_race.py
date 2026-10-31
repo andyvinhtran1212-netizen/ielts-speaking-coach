@@ -146,17 +146,49 @@ def test_admin_idempotent_fan_out_refused_by_the_trigger_is_409(details):
         r = _client().post("/admin/writing/assignments/fan-out", headers=AUTH, json={
             "request_id": REQUEST_ID, "prompt_ids": [PROMPT, PROMPT_2], "cohort_id": COHORT_ID})
     _assert_409(r)
-    assert db.tables["writing_assignments"] == []
+    assert [name for name, _ in db.rpcs] == ["fn_create_writing_assignments_idempotent"]
+    assert db.writes() == [] and db.tables["writing_assignments"] == []
 
 
-def test_instructor_fan_out_refuses_the_whole_give():
+def _roster(db: FakeDB, order: tuple[str, ...]) -> None:
+    """Pin the roster order: students and memberships are read in table order."""
+    rows = {r["id"]: r for r in db.tables["students"]}
+    db.tables["students"] = [rows[sid] for sid in order]
+    db.tables["student_cohort_memberships"] = [
+        {"id": f"m{n}", "student_id": sid, "cohort_id": COHORT_ID, "is_active": True}
+        for n, sid in enumerate(order, 1)]
+
+
+def _record_inserts(db: FakeDB, hook) -> list[list[dict]]:
+    """Install `hook` and record every writing_assignments insert it sees,
+    including the refused ones (FakeDB logs a write only after the hook)."""
+    attempts: list[list[dict]] = []
+
+    def recording(db_, table, action, payload):
+        if table == "writing_assignments" and action == "insert":
+            attempts.append([dict(r) for r in (payload if isinstance(payload, list) else [payload])])
+        hook(db_, table, action, payload)
+    db.before_write = recording
+    return attempts
+
+
+@pytest.mark.parametrize("order", [(ACTIVE_ID, RACER), (RACER, ACTIVE_ID)],
+                         ids=["active-first", "archived-first"])
+def test_instructor_fan_out_refuses_the_whole_give(order):
+    """FR-004: one learner archived mid-give → the whole class give is refused.
+    With the active learner first, a row-by-row insert that stops at the first
+    error would already have written their rows; the fan-out sends one batch."""
     db = _db()
-    db.before_write = _trigger()
+    _roster(db, order)
+    attempts = _record_inserts(db, _trigger())
     me, access = _instructor_patches(db)
     with me, access, patch("routers.instructor.supabase_admin", db):
         r = _client().post("/instructor/assignments/fan-out", headers=AUTH, json={
-            "prompt_ids": [PROMPT], "cohort_id": COHORT_ID})
+            "prompt_ids": [PROMPT, PROMPT_2], "cohort_id": COHORT_ID})
     _assert_409(r)
+    [batch] = attempts
+    assert sorted((row["student_id"], row["prompt_id"]) for row in batch) == sorted(
+        (sid, pid) for sid in order for pid in (PROMPT, PROMPT_2))
     assert db.tables["writing_assignments"] == []
 
 
@@ -167,16 +199,24 @@ def _open_give() -> dict:
             "time_limit_minutes": None, "analysis_level": 3, "grading_tier": "standard"}
 
 
+def _open_gives() -> list[dict]:
+    """Two open gives already fanned out to the class (two prompts, one group)."""
+    return [_open_give(), {**_open_give(), "id": "g-row-2", "prompt_id": PROMPT_2}]
+
+
 def test_late_joiner_backfill_archived_mid_request_is_409_with_nothing_created():
     from services.cohort_assignment_service import backfill_cohort_writing_assignments
-    db = _db(writing_assignments=[_open_give()])
-    db.before_write = _trigger()
+    db = _db(writing_assignments=_open_gives())
+    attempts = _record_inserts(db, _trigger())
     with pytest.raises(HTTPException) as error:
         backfill_cohort_writing_assignments(db, student_id=RACER, cohort_id=COHORT_ID)
     assert error.value.status_code == 409
     assert error.value.detail["code"] == "student_archived"
     assert error.value.detail["student_ids"] == [RACER]
-    assert [r["student_id"] for r in db.tables["writing_assignments"]] == [ACTIVE_ID]
+    # Every open give in one refused batch; nothing created for the learner.
+    [batch] = attempts
+    assert sorted((row["student_id"], row["prompt_id"]) for row in batch) == sorted([(RACER, PROMPT), (RACER, PROMPT_2)])
+    assert [r["student_id"] for r in db.tables["writing_assignments"]] == [ACTIVE_ID, ACTIVE_ID]
 
 
 def test_activation_step6_stays_best_effort_when_the_backfill_is_refused(caplog):
@@ -234,6 +274,52 @@ def test_other_insert_errors_still_fail_as_500():
             json={"request_id": REQUEST_ID, "prompt_ids": [PROMPT], "student_ids": [ACTIVE_ID]})
     assert r.status_code == 500
     assert db.tables["writing_assignments"] == []
+
+
+def _other_error() -> APIError:
+    return APIError({"message": "insert or update on table violates foreign key constraint",
+                     "code": "23503", "details": "Key (prompt_id) is not present"})
+
+
+def _fail_insert(error: APIError):
+    def hook(db, table, action, payload):
+        if table == "writing_assignments" and action == "insert":
+            raise error
+    return hook
+
+
+@pytest.mark.parametrize("path,body", [
+    ("/instructor/assignments", {"prompt_id": PROMPT, "student_id": RACER}),
+    ("/instructor/assignments/fan-out", {"prompt_ids": [PROMPT, PROMPT_2], "cohort_id": COHORT_ID}),
+])
+def test_other_insert_errors_keep_their_mapping_on_the_instructor_paths(path, body):
+    db = _db()
+    attempts = _record_inserts(db, _fail_insert(_other_error()))
+    me, access = _instructor_patches(db)
+    from main import app
+    with me, access, patch("routers.instructor.supabase_admin", db):
+        r = TestClient(app, raise_server_exceptions=False).post(path, headers=AUTH, json=body)
+    assert r.status_code == 500, r.text
+    detail = r.json()["detail"]
+    assert detail["error_code"] == "internal_error"
+    assert isinstance(detail["ref"], str) and detail["ref"]
+    assert "student_archived" not in r.text
+    for leaked_text in ("23503", "foreign key", "prompt_id", "is not present"):
+        assert leaked_text not in r.text.lower()
+    assert len(attempts) == 1
+    assert db.tables["writing_assignments"] == []
+
+
+def test_other_insert_errors_keep_their_mapping_on_the_backfill():
+    from services.cohort_assignment_service import backfill_cohort_writing_assignments
+    db = _db(writing_assignments=_open_gives())
+    original = _other_error()
+    attempts = _record_inserts(db, _fail_insert(original))
+    with pytest.raises(APIError) as error:
+        backfill_cohort_writing_assignments(db, student_id=RACER, cohort_id=COHORT_ID)
+    assert error.value is original   # re-raised unchanged, not wrapped as a 409
+    assert len(attempts) == 1
+    assert [r["student_id"] for r in db.tables["writing_assignments"]] == [ACTIVE_ID, ACTIVE_ID]
 
 
 def test_mapping_helper_contract():

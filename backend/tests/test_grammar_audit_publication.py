@@ -8,11 +8,12 @@ import pytest
 
 from models.grammar_quiz_revisions import GrammarRevisionCommitRequest, GrammarRevisionPreviewRequest
 from services import grammar_quiz_revisions as owner
-from services.grammar_quiz_revision_source import FOLLOWUP_CODE, REVIEWED_SOURCES, parse_reviewed_source
+from services.grammar_quiz_revision_source import REVIEWED_SOURCES, parse_reviewed_source
 from test_grammar_quiz_revision_boundary import pg, encoded
 from test_grammar_quiz_revisions import canonical_engine, canonical
 
 ROOT = Path(__file__).parents[2]
+FOLLOWUP_CODE = 'G-grammar-for-reading-long-sentence-untangling'
 
 
 async def command(engine, code, raw):
@@ -139,7 +140,7 @@ async def test_current_admin_asgi_capture_uses_real_pg_and_public_models(canonic
     def request_engine(url,*,poolclass):
         assert url==engine.url
         return canonical_engine(pg,poolclass=poolclass)
-    monkeypatch.setattr(admin_quiz,'create_async_engine',request_engine)
+    monkeypatch.setattr(admin_quiz,'create_asyncpg_engine',request_engine)
     app=FastAPI();app.include_router(admin_quiz.router)
     path='/admin/quiz/grammar-revisions/G-tenses-present-simple'
     captured=[]

@@ -44,7 +44,7 @@ def test_event_attributes_user_from_token(monkeypatch):
     async def _user(_authz): return {"id": "u1"}
     stub = _InsertStub()
     monkeypatch.setattr(analytics_module, "get_supabase_user", _user)
-    monkeypatch.setattr(analytics_module, "supabase_admin", stub)
+    monkeypatch.setattr(analytics_module, "thread_supabase_admin", lambda: stub)
     out = _run(analytics_module.record_event(_payload(), authorization="Bearer x"))
     assert out == {"ok": True}
     assert stub.inserted[0]["user_id"] == "u1"
@@ -52,7 +52,7 @@ def test_event_attributes_user_from_token(monkeypatch):
 
 def test_event_anonymous_when_no_auth(monkeypatch):
     stub = _InsertStub()
-    monkeypatch.setattr(analytics_module, "supabase_admin", stub)
+    monkeypatch.setattr(analytics_module, "thread_supabase_admin", lambda: stub)
     _run(analytics_module.record_event(_payload(), authorization=None))
     assert stub.inserted[0]["user_id"] is None
 
@@ -61,7 +61,7 @@ def test_event_attribution_never_raises_on_bad_token(monkeypatch):
     async def _boom(_authz): raise RuntimeError("bad token")
     stub = _InsertStub()
     monkeypatch.setattr(analytics_module, "get_supabase_user", _boom)
-    monkeypatch.setattr(analytics_module, "supabase_admin", stub)
+    monkeypatch.setattr(analytics_module, "thread_supabase_admin", lambda: stub)
     out = _run(analytics_module.record_event(_payload(), authorization="Bearer bad"))
     assert out == {"ok": True}                       # tracking never fails the request
     assert stub.inserted[0]["user_id"] is None        # degrades to anonymous

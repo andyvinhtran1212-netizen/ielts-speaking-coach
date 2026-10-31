@@ -20,6 +20,14 @@ FR-001 now describes the implemented insert-if-absent first-visit
 provisioning instead of the existing sync query, see
 [`approval-decision.md`](approval-decision.md).
 
+Revision 2: on 2026-10-29 13:58 (UTC+7) Vinh decided (SPEC-DECISIONS-J76 F-4)
+that a DB failure or error on these reads answers **503** for the learner
+activation gate, the staff guards and `/auth/check-active`, in both flag
+states. The spec said 500 for the staff guards while the code already returned
+503; `/auth/check-active` moves from 500 to 503. The body keeps the sanitized
+`{error_code, message, ref}` shape, see
+[`approval-decision.md`](approval-decision.md).
+
 ## Tóm tắt (tiếng Việt)
 
 Backend chỉ có một event loop, và mọi lần kiểm tra quyền trên **mỗi** request
@@ -68,7 +76,7 @@ on staging and production.
 
 ## Non-goals
 
-- Changing who gets access or what any endpoint returns: no new rule, filter, column or error message.
+- Changing who gets access or what any endpoint returns: no new rule, filter, column or error message. The one exception is Revision 2: `/auth/check-active` answers a lookup failure with 503 instead of 500, with the same body.
 - Writing gates (`require_writing_permission`, `get_current_student`): J05-G.
 - `/api/class/me` reconcile writes: J05-F, needs the Assignment Tracker.
 - Instructor data queries and the dashboard `loadAll` refetch: J05-C / J05-D.
@@ -81,7 +89,7 @@ on staging and production.
 
 - A learner opens `/home`, `/writing/dashboard` or `/my-class`: the same pages, data and redirects as today, with less waiting while other users are active.
 - An inactive learner is blocked with the same 403, and a gate lookup failure still fails closed with the same 503.
-- An instructor or admin opens a staff page: the same role decisions and 401/403/500 contract as today.
+- An instructor or admin opens a staff page: the same role decisions and 401/403/503 contract as today; a role or `is_active` lookup failure is 503.
 
 ## Requirements
 
@@ -116,7 +124,8 @@ on staging and production.
 ## Edge cases
 
 - A gate `is_active` lookup error or timeout: 503 in both flag states, never treated as active.
-- A staff role lookup error: 500 in both flag states, never a role downgrade or upgrade.
+- A staff role lookup error: 503 in both flag states, never a role downgrade or upgrade (Revision 2).
+- A `/auth/check-active` lookup error or timeout: 503 in both flag states with the sanitized `{error_code, message, ref}` detail, never reported as active (Revision 2).
 - First `/auth/me` for a new auth user: the same insert-if-absent provisioning and the same error contract in both states; two concurrent first visits both succeed with one `users` row.
 - HTTP/2 on the async pool would hit the 19,999-stream GOAWAY cap; FR-003 pins HTTP/1.1.
 - Flag on also switches the `grading.py` reads already wired to the facade; Speaking grading is watched in the measurement window (`rollout.md`).

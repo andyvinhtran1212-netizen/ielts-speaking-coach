@@ -26,6 +26,7 @@ export const AUTH_ME_REUSE_MS = 10000;
 export const AUTH_ME_TIMEOUT_MS = 15000;
 export const AUTH_ME_TIMEOUT_MESSAGE = 'Hết thời gian chờ /auth/me.';
 const REGISTRY_KEY = '__averAuthMeSingleFlight';
+const REQUEST_SEQ_KEY = '__averRequestIdSeq';
 
 function registryOf(scope) {
   if (!scope[REGISTRY_KEY]) {
@@ -34,12 +35,27 @@ function registryOf(scope) {
   return scope[REGISTRY_KEY];
 }
 
-/** Read a /auth/me Response once into a record every caller can share. */
-async function recordOf(response) {
+/**
+ * X-Request-ID value: a UUID, or `${prefix}-${ms}-${seq}` without crypto.randomUUID.
+ * The sequence keeps two IDs minted in the same millisecond apart; like the
+ * registry it lives on the global so both module copies draw from one counter.
+ * @param {string} prefix
+ * @returns {string}
+ */
+export function newRequestId(prefix) {
+  const uuid = globalThis.crypto?.randomUUID?.();
+  if (uuid) return uuid;
+  const seq = globalThis[REQUEST_SEQ_KEY] ?? 0;
+  Object.defineProperty(globalThis, REQUEST_SEQ_KEY, { value: seq + 1, configurable: true, writable: true });
+  return `${prefix}-${Date.now()}-${seq}`;
+}
+
+/** Read a /auth/me Response once; each caller receives its own payload copy. */
+async function recordOf(response, requestId) {
   const text = await response.text();
   let payload = null;
   try { payload = text ? JSON.parse(text) : null; } catch { /* null payload */ }
-  return Object.freeze({ ok: response.ok, status: response.status, payload });
+  return Object.freeze({ ok: response.ok, status: response.status, payload, requestId });
 }
 
 function abortError() {
@@ -50,8 +66,13 @@ function abortError() {
 
 /** This caller stops waiting on abort; the shared request keeps running for the others. */
 function forCaller(promise, signal) {
+  if (signal?.aborted) return Promise.reject(abortError());
+  promise = promise.then(({ ok, status, payload, requestId }) => {
+    const clone = typeof globalThis.structuredClone === 'function'
+      ? globalThis.structuredClone : (value) => JSON.parse(JSON.stringify(value));
+    return Object.freeze({ ok, status, payload: clone(payload), requestId });
+  });
   if (!signal) return promise;
-  if (signal.aborted) return Promise.reject(abortError());
   return new Promise((resolve, reject) => {
     const onAbort = () => reject(abortError());
     signal.addEventListener('abort', onAbort, { once: true });
@@ -64,10 +85,10 @@ function forCaller(promise, signal) {
 
 /**
  * @param {string} token  Supabase access token the request is sent with.
- * @param {(signal: AbortSignal) => Promise<Response>} send  Sends GET /auth/me
- *        with `token`; only the first caller's `send` runs.
+ * @param {(signal: AbortSignal, requestId: string) => Promise<Response>} send  Sends GET /auth/me
+ *        with `token` and X-Request-ID `requestId`; only the first caller's `send` runs.
  * @param {{ signal?: AbortSignal, timeoutMs?: number, now?: () => number, scope?: object }} [options]
- * @returns {Promise<Readonly<{ ok: boolean, status: number, payload: any }>>}
+ * @returns {Promise<Readonly<{ ok: boolean, status: number, payload: any, requestId: string }>>}
  */
 export function sharedAuthMe(token, send, options = {}) {
   const {
@@ -76,7 +97,11 @@ export function sharedAuthMe(token, send, options = {}) {
     now = () => Date.now(),
     scope = globalThis,
   } = options;
-  if (!token) return forCaller(Promise.resolve().then(() => send(new AbortController().signal)).then(recordOf), signal);
+  if (!token) {
+    const requestId = newRequestId('auth-me-request');
+    return forCaller(Promise.resolve().then(() => send(new AbortController().signal, requestId))
+      .then((response) => recordOf(response, requestId)), signal);
+  }
   const registry = registryOf(scope);
   const current = registry.entry;
   if (current && current.token === token
@@ -85,13 +110,14 @@ export function sharedAuthMe(token, send, options = {}) {
   }
   const controller = new AbortController();
   let timer;
-  const entry = { token, settledAt: null, promise: null };
+  const entry = { token, requestId: newRequestId('auth-me-request'), settledAt: null, promise: null };
   const drop = () => { if (registry.entry === entry) registry.entry = null; };
   const deadline = new Promise((_, reject) => {
     timer = setTimeout(() => { reject(new Error(AUTH_ME_TIMEOUT_MESSAGE)); controller.abort(); }, timeoutMs);
   });
   entry.promise = Promise.race([
-    Promise.resolve().then(() => send(controller.signal)).then(recordOf),
+    Promise.resolve().then(() => send(controller.signal, entry.requestId))
+      .then((response) => recordOf(response, entry.requestId)),
     deadline,
   ]).then(
     (record) => {

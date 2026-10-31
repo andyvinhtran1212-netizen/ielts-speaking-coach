@@ -63,6 +63,40 @@ class ValidationError(MockReviewError):
     """Final bands incomplete / out of range."""
 
 
+_SKILL_KEY_MAX_CHARS = 64
+_REFUSED_MESSAGE_MAX = 5
+_REFUSED_DETAIL_MAX = 10
+
+
+def _clip_skill_key(key) -> str:
+    """A refused key as it may appear in a 422: control characters/newlines
+    dropped, at most _SKILL_KEY_MAX_CHARS characters plus '…'."""
+    text = "".join(ch for ch in str(key) if ch.isprintable()) or "?"
+    if len(text) > _SKILL_KEY_MAX_CHARS:
+        text = text[:_SKILL_KEY_MAX_CHARS] + "…"
+    return text
+
+
+class SkillNotInSittingError(ValidationError):
+    """A retest flag was ticked for a skill this sitting does not carry.
+
+    `skills` lists the refused keys; the message names them the way the admin
+    UI labels them so the console can show it verbatim (PC-J146)."""
+
+    def __init__(self, skills: list):
+        refused = list(skills)
+        # Unknown keys are client input echoed into a 422 body: clip each one
+        # and cap how many are listed so a large payload is not reflected
+        # back (PC-J213). Real skills sort first, so they are always shown.
+        self.skills = [_clip_skill_key(s) for s in refused[:_REFUSED_DETAIL_MAX]]
+        labels = [raw.capitalize() if raw in _SKILLS else clipped
+                  for raw, clipped in zip(refused, self.skills[:_REFUSED_MESSAGE_MAX])]
+        names = ", ".join(labels)
+        if len(refused) > len(labels):
+            names += f" và {len(refused) - len(labels)} kỹ năng khác"
+        super().__init__(f"Kỹ năng {names} không thuộc lượt thi này.")
+
+
 # ── Helpers ───────────────────────────────────────────────────────────
 
 
@@ -187,8 +221,6 @@ def _required_skills(sitting_id: UUID | str) -> tuple:
     Listening band). Writing is always required. Speaking is required only
     when the exam defines a speaking component (mirrors the sitting-side
     reconciliation)."""
-    from services import mock_exam_service  # local import avoids import-order coupling
-
     s = supabase_admin.table("mock_exam_sittings").select(
         "mock_exam_id, assigned_skills",
     ).eq("id", str(sitting_id)).limit(1).execute()
@@ -196,11 +228,21 @@ def _required_skills(sitting_id: UUID | str) -> tuple:
         return _SKILLS
     sitting = s.data[0]
     e = supabase_admin.table("mock_exams").select(
-        "exam_mode, speaking_topic_set, listening_test_id, reading_test_id",
+        _REQUIRED_SKILLS_EXAM_COLS,
     ).eq("id", str(sitting["mock_exam_id"])).limit(1).execute()
     if not e.data:
         return _SKILLS
-    exam = e.data[0]
+    return _required_skills_for(e.data[0], sitting)
+
+
+_REQUIRED_SKILLS_EXAM_COLS = "exam_mode, speaking_topic_set, listening_test_id, reading_test_id"
+
+
+def _required_skills_for(exam: dict, sitting: dict) -> tuple:
+    """_required_skills' rule over already-loaded rows — lets roster() apply it
+    to a whole class with one exam read instead of two queries per sitting."""
+    from services import mock_exam_service  # local import avoids import-order coupling
+
     # Retake: the reviewer bands ONLY the skills THIS student was assigned (the
     # sitting's snapshot), not the exam's full config — a writing-only retake on
     # a full mock must not force Listening/Reading/Speaking bands with no work,
@@ -230,6 +272,26 @@ def _live_assessed_extra_skills(review: dict, required: tuple) -> tuple:
         if skill not in required
         and (draft.get(skill) is not None or notes.get(skill) is not None)
     )
+
+
+def _retest_skills(review: dict, required: tuple) -> tuple:
+    """The skills a review may carry a 'cần test lại' flag for: the sitting's
+    required skills plus any canonically live-assessed extra (#1849).  The
+    single rule behind both the roster's ``retest_skills`` and the write path
+    of set_retest_flags_for_sitting, so the UI never offers a box the backend
+    would refuse.  Order-stable by _SKILLS."""
+    allowed = set(required) | set(_live_assessed_extra_skills(review, required))
+    return tuple(s for s in _SKILLS if s in allowed)
+
+
+def _refused_retest_skills(retest_flags: dict, allowed) -> list:
+    """The ticked (truthy) retest flags a write must refuse: a known skill
+    outside ``allowed``, then any unknown key.  An untick (false) is never
+    refused — the console posts all four keys.  One rule for the roster
+    (set_retest_flags_for_sitting) and the final-band save (PC-J213)."""
+    refused = [s for s in _SKILLS if s not in allowed and retest_flags.get(s)]
+    refused += [s for s, v in retest_flags.items() if s not in _SKILLS and v]
+    return refused
 
 
 # ── Workflow ──────────────────────────────────────────────────────────
@@ -377,7 +439,10 @@ def save_final_bands(
     retest_flags (2026-07-12, mig 152) is the admin's independent PASS/FAIL
     judgment per skill — {skill: bool} — separate from the score. Only keys
     for the sitting's required or canonically live-assessed skills are kept;
-    an unset/False flag means "no retest needed" for that skill.
+    an unset/False flag means "no retest needed" for that skill. Ticking
+    (true) any other or unknown skill raises SkillNotInSittingError before
+    anything is written — the same rule as set_retest_flags_for_sitting
+    (PC-J213); a false flag for such a skill is still ignored.
     """
     review = get_review(review_id)
     if not review:
@@ -433,6 +498,10 @@ def save_final_bands(
     # blank, not a partial average dressed up as a total.
     overall = None if missing else compute_overall(final_bands, banded)
     stored["overall"] = overall
+    if retest_flags is not None:
+        refused = _refused_retest_skills(retest_flags, banded)
+        if refused:
+            raise SkillNotInSittingError(refused)
 
     update: dict = {
         "status":      "reviewed",
@@ -694,9 +763,12 @@ def set_retest_flags_for_sitting(
     decision — grading is never blocked by it. Clearing a skill here therefore
     also never clears needs_retest; /sittings/{id}/retest stays its only owner.
 
-    Unknown skills and skills the exam does not require are dropped, so a stale
-    client cannot write a band-less skill into the record. Released reviews are
-    frozen — same posture as save_final_bands.
+    The tickable skills are _retest_skills (required + live-assessed extra).
+    Ticking (true) any other or unknown skill raises SkillNotInSittingError and
+    writes nothing — dropping it and answering 200 left the console with a box
+    that un-ticked itself and a generic error (PC-J146). An untick (false) for
+    such a skill is still ignored: the console posts all four keys. Released
+    reviews are frozen — same posture as save_final_bands.
     """
     review = get_review_for_sitting(sitting_id)
     if not review:
@@ -706,14 +778,16 @@ def set_retest_flags_for_sitting(
             f"Sitting {sitting_id} đã công bố — không thể đổi quyết định test lại. "
             "Thu hồi trước nếu cần."
         )
-    required = _required_skills(review["sitting_id"])
     # A teacher-assessed Speaking component may live outside the exam's
     # speaking_topic_set.  It is still a real review skill once the direct
     # assessment has been saved, so the roster must retain its retest flag just
     # as save_final_bands retains its band.  Previously this endpoint filtered
     # only by _required_skills(), silently dropped ``speaking``, and the UI
     # correctly reported that the backend had not confirmed the selected flag.
-    skills = required + _live_assessed_extra_skills(review, required)
+    skills = _retest_skills(review, _required_skills(review["sitting_id"]))
+    refused = _refused_retest_skills(retest_flags, skills)
+    if refused:
+        raise SkillNotInSittingError(refused)
     stored = {s: bool(retest_flags.get(s)) for s in skills if s in retest_flags}
 
     response = supabase_admin.table("mock_exam_reviews").update({
@@ -1156,10 +1230,16 @@ def roster(mock_exam_id: str) -> list[dict]:
     sittings = supabase_admin.table("mock_exam_sittings").select(
         "id, user_id, status, listening_attempt_id, reading_attempt_id, "
         "writing_submission, essay_task1_id, essay_task2_id, speaking_session_ids, "
-        "needs_retest",
+        "needs_retest, assigned_skills",
     ).eq("mock_exam_id", str(mock_exam_id)).neq("status", "void").execute().data or []
     if not sittings:
         return []
+    # One exam read for the whole class: retest_skills applies _required_skills'
+    # rule per sitting without its two queries per row.
+    exam_rows = supabase_admin.table("mock_exams").select(
+        _REQUIRED_SKILLS_EXAM_COLS,
+    ).eq("id", str(mock_exam_id)).limit(1).execute().data or []
+    exam = exam_rows[0] if exam_rows else None
 
     def _load_attempts(table: str, col: str) -> dict:
         ids = [s[col] for s in sittings if s.get(col)]
@@ -1177,7 +1257,9 @@ def roster(mock_exam_id: str) -> list[dict]:
         # ai_draft/final_bands feed the roster's Writing band (see _writing_band):
         # the column showed word counts only, so the examiner had to open every
         # row to see a band Listening/Reading already show inline.
-        "id, sitting_id, status, claimed_by, ai_draft, final_bands, retest_flags",
+        # per_skill_notes: _retest_skills' live-assessment stamp, with ai_draft.
+        "id, sitting_id, status, claimed_by, ai_draft, final_bands, retest_flags, "
+        "per_skill_notes",
     ).in_("sitting_id", [s["id"] for s in sittings]).execute().data or []
     review_by_sitting = {rv["sitting_id"]: rv for rv in reviews}
 
@@ -1250,11 +1332,15 @@ def roster(mock_exam_id: str) -> list[dict]:
             # Which skills the admin decided the student must retake. Distinct
             # from needs_retest above: that one gates Writing bulk-grade, this is
             # the per-skill record the roster's picker reads and writes.
-            # Only the true ones — the picker renders a fixed L/R/W set and the
-            # write path drops whatever this exam does not require, so the roster
-            # never pays _required_skills' per-sitting query (N+1 on a 13-row
-            # class; assigned_skills is per-sitting, so it cannot be hoisted).
+            # Only the true ones; retest_skills below says which boxes exist.
             "retest_flags":   {k: bool(v) for k, v in (rv.get("retest_flags") or {}).items() if v},
+            # The skills the picker may tick for THIS sitting — the same
+            # _retest_skills rule the write path enforces (422 otherwise), so
+            # the console disables the rest instead of offering a box the
+            # backend refuses (PC-J146: a Reading-only retake showed L/W/S).
+            "retest_skills":  list(_retest_skills(
+                rv, _required_skills_for(exam, s) if exam else _SKILLS,
+            )),
         })
     out.sort(key=lambda r: (r["student_name"] or "").lower())
     return out

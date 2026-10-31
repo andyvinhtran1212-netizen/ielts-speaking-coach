@@ -1942,10 +1942,172 @@ def test_save_final_bands_persists_retest_flags(fake_db, svc, wf):
     saved = wf.save_final_bands(
         review["id"], admin,
         {"listening": 5.0, "reading": 5.5, "writing": 4.0, "speaking": 6.0},
-        retest_flags={"writing": True, "listening": False, "unknown_skill": True},
+        retest_flags={"writing": True, "listening": False, "unknown_skill": False},
     )
-    # unknown_skill dropped — only keys for required skills survive
+    # an unticked unknown_skill is ignored — only keys for required skills
+    # survive (a TICKED unknown key is refused: PC-J213, tests below)
     assert saved["retest_flags"] == {"writing": True, "listening": False}
+
+
+# ── PC-J213: save_final_bands refuses out-of-sitting retest flags (422) ──
+# It used to drop a ticked flag for a skill outside the banded set (or an
+# unknown key) and answer 200 — the same silent-drop PC-J146 removed from the
+# roster path. Both paths now share _refused_retest_skills and one 422 body.
+
+_LRW_BANDS = {"listening": 6.0, "reading": 6.0, "writing": 6.0}
+
+
+def _claimed_lrw_review(fake_db, svc, wf):
+    sid = _lrw_sitting(fake_db, svc)
+    review = wf.get_review_for_sitting(sid)
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == review["id"])
+    rv["retest_flags"] = {"reading": True}
+    return sid, rv, admin
+
+
+def _snapshot(fake_db, sid, rv):
+    sit = next(s for s in fake_db.rows("mock_exam_sittings") if s["id"] == sid)
+    return (rv["status"], dict(rv.get("final_bands") or {}),
+            dict(rv.get("retest_flags") or {}), bool(sit.get("needs_retest")))
+
+
+def test_save_final_bands_refuses_ticked_skill_outside_sitting(fake_db, svc, wf):
+    sid, rv, admin = _claimed_lrw_review(fake_db, svc, wf)   # LRW, no speaking
+    before = _snapshot(fake_db, sid, rv)
+    with pytest.raises(wf.SkillNotInSittingError) as exc:
+        wf.save_final_bands(rv["id"], admin, _LRW_BANDS,
+                            retest_flags={"speaking": True})
+    assert exc.value.skills == ["speaking"]
+    assert str(exc.value) == "Kỹ năng Speaking không thuộc lượt thi này."
+    # nothing written: status, final_bands, retest_flags, sitting needs_retest
+    assert _snapshot(fake_db, sid, rv) == before
+    assert before[0] == "claimed" and before[3] is False
+
+
+def test_save_final_bands_refuses_ticked_unknown_key(fake_db, svc, wf):
+    sid, rv, admin = _claimed_lrw_review(fake_db, svc, wf)
+    before = _snapshot(fake_db, sid, rv)
+    with pytest.raises(wf.SkillNotInSittingError) as exc:
+        wf.save_final_bands(rv["id"], admin, _LRW_BANDS,
+                            retest_flags={"writing": True, "unknown_skill": True})
+    assert exc.value.skills == ["unknown_skill"]
+    assert _snapshot(fake_db, sid, rv) == before
+
+
+def test_save_final_bands_ignores_unticked_skill_outside_sitting(fake_db, svc, wf):
+    """The detail form posts all four keys; false for a skill the sitting does
+    not carry is not an error and is simply not stored."""
+    sid, rv, admin = _claimed_lrw_review(fake_db, svc, wf)
+    saved = wf.save_final_bands(rv["id"], admin, _LRW_BANDS, retest_flags={
+        "listening": False, "reading": False, "writing": True, "speaking": False,
+    })
+    assert saved["status"] == "reviewed"
+    assert saved["retest_flags"] == {"listening": False, "reading": False, "writing": True}
+
+
+def test_save_final_bands_band_errors_and_conflict_keep_precedence(fake_db, svc, wf):
+    """Released → 409 and a band ValidationError still win over a refused
+    retest flag (existing check order kept)."""
+    sid, rv, admin = _claimed_lrw_review(fake_db, svc, wf)
+    with pytest.raises(wf.ValidationError) as exc:
+        wf.save_final_bands(rv["id"], admin, {**_LRW_BANDS, "writing": 12.0},
+                            retest_flags={"speaking": True})
+    assert not isinstance(exc.value, wf.SkillNotInSittingError)
+    rv["status"] = "released"
+    with pytest.raises(wf.ConflictError):
+        wf.save_final_bands(rv["id"], admin, _LRW_BANDS, retest_flags={"speaking": True})
+
+
+def _post_final_bands(review_id, admin, body):
+    from unittest.mock import AsyncMock, patch
+    from fastapi.testclient import TestClient
+    from main import app
+    with patch("routers.admin_mock_reviews.require_admin",
+               new=AsyncMock(return_value={"id": str(admin)})):
+        return TestClient(app).post(
+            f"/admin/mock-reviews/{review_id}/final-bands",
+            json=body, headers={"Authorization": "Bearer faketoken"},
+        )
+
+
+def test_final_bands_route_422_for_skill_outside_sitting(fake_db, svc, wf):
+    sid, rv, admin = _claimed_lrw_review(fake_db, svc, wf)
+    before = _snapshot(fake_db, sid, rv)
+    r = _post_final_bands(rv["id"], admin, {
+        "final_bands": _LRW_BANDS,
+        "retest_flags": {"listening": False, "reading": False,
+                         "writing": False, "speaking": True},
+    })
+    assert r.status_code == 422, r.text
+    assert r.json()["detail"] == {
+        "error": "skill_not_in_sitting", "skills": ["speaking"],
+        "message": "Kỹ năng Speaking không thuộc lượt thi này.",
+    }
+    assert _snapshot(fake_db, sid, rv) == before
+
+
+def test_final_bands_route_other_validation_stays_400_and_released_409(fake_db, svc, wf):
+    sid, rv, admin = _claimed_lrw_review(fake_db, svc, wf)
+    r = _post_final_bands(rv["id"], admin, {"final_bands": {**_LRW_BANDS, "writing": 12.0},
+                                            "retest_flags": {"speaking": True}})
+    assert r.status_code == 400, r.text
+    assert isinstance(r.json()["detail"], str)
+    r = _post_final_bands(rv["id"], admin, {"final_bands": _LRW_BANDS,
+                                            "retest_flags": {"writing": True}})
+    assert r.status_code == 200, r.text
+    rv["status"] = "released"
+    r = _post_final_bands(rv["id"], admin, {"final_bands": _LRW_BANDS,
+                                            "retest_flags": {"speaking": True}})
+    assert r.status_code == 409, r.text
+
+
+def test_skill_not_in_sitting_clips_a_long_unknown_key():
+    from services import mock_review_workflow as wf
+    e = wf.SkillNotInSittingError(["x" * 500])
+    assert e.skills == ["x" * 64 + "…"]
+    assert len(e.skills[0]) <= 65
+    assert str(e) == f"Kỹ năng {'x' * 64}… không thuộc lượt thi này."
+
+
+def test_skill_not_in_sitting_strips_control_chars_and_keeps_real_labels():
+    from services import mock_review_workflow as wf
+    e = wf.SkillNotInSittingError(["speaking", "listening\n", "a\r\nb\tc"])
+    assert e.skills == ["speaking", "listening", "abc"]
+    # only a real skill key gets the UI label — a look-alike unknown key does not
+    assert str(e) == "Kỹ năng Speaking, listening, abc không thuộc lượt thi này."
+
+
+def test_skill_not_in_sitting_caps_how_many_keys_are_echoed():
+    from services import mock_review_workflow as wf
+    keys = ["listening"] + [f"k{i:02d}" for i in range(49)]
+    e = wf.SkillNotInSittingError(keys)
+    assert e.skills == keys[:10]
+    assert str(e) == ("Kỹ năng Listening, k00, k01, k02, k03 và 45 kỹ năng khác "
+                      "không thuộc lượt thi này.")
+
+
+def test_both_routes_clip_and_cap_unknown_keys(fake_db, svc, wf):
+    """/final-bands and /retest-flags share the rule and the clipped body."""
+    flags = {"y" * 500: True, **{f"bogus{i:02d}": True for i in range(49)}}
+    expected_skills = ["y" * 64 + "…"] + [f"bogus{i:02d}" for i in range(9)]
+
+    sid, rv, admin = _claimed_lrw_review(fake_db, svc, wf)
+    r1 = _post_final_bands(rv["id"], admin, {"final_bands": _LRW_BANDS,
+                                             "retest_flags": flags})
+    _seed_retest_fixture(fake_db)
+    r2 = _post_retest_flags(flags)
+    for r in (r1, r2):
+        assert r.status_code == 422, r.text
+        detail = r.json()["detail"]
+        assert detail["error"] == "skill_not_in_sitting"
+        assert detail["skills"] == expected_skills
+        assert detail["message"] == (
+            f"Kỹ năng {'y' * 64}…, bogus00, bogus01, bogus02, bogus03 "
+            "và 45 kỹ năng khác không thuộc lượt thi này."
+        )
+        assert len(r.text) < 2000
 
 
 def test_retest_summary_counts_per_skill_and_lists_students(fake_db, svc, wf):
@@ -2102,14 +2264,100 @@ def test_roster_retest_flags_unticking_clears(fake_db, svc, wf, monkeypatch):
     assert not any(rv["retest_flags"].values())
 
 
-def test_roster_retest_flags_drop_unrequired_skills(fake_db, svc, wf, monkeypatch):
-    """A stale client must not write a skill this exam doesn't even run."""
+def test_roster_retest_flags_refuse_ticking_unrequired_skills(fake_db, svc, wf, monkeypatch):
+    """A stale client must not write a skill this exam doesn't even run — and
+    ticking one is refused loudly, not dropped behind a 200 (PC-J146: the
+    console then showed a generic error and a box that un-ticked itself)."""
     _seed_retest_fixture(fake_db)
     monkeypatch.setattr(wf, "_required_skills", lambda _sid: ("reading", "writing"))
-    wf.set_retest_flags_for_sitting("sit-1", "admin-1", {"listening": True, "reading": True})
     rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
-    assert "listening" not in rv["retest_flags"]
-    assert rv["retest_flags"]["reading"] is True
+    rv["retest_flags"] = {"reading": False}
+    with pytest.raises(wf.SkillNotInSittingError) as exc:
+        wf.set_retest_flags_for_sitting(
+            "sit-1", "admin-1", {"listening": True, "reading": True, "bogus": True},
+        )
+    assert exc.value.skills == ["listening", "bogus"]
+    assert str(exc.value) == "Kỹ năng Listening, bogus không thuộc lượt thi này."
+    assert rv["retest_flags"] == {"reading": False}, "a refused post writes nothing"
+
+
+def test_roster_retest_flags_ignore_unticked_unrequired_skills(fake_db, svc, wf, monkeypatch):
+    """The console posts all four keys; an untick for a skill outside the
+    sitting is not an error and is simply not stored."""
+    _seed_retest_fixture(fake_db)
+    monkeypatch.setattr(wf, "_required_skills", lambda _sid: ("reading",))
+    wf.set_retest_flags_for_sitting("sit-1", "admin-1", {
+        "listening": False, "reading": True, "writing": False, "speaking": False,
+    })
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    assert rv["retest_flags"] == {"reading": True}
+
+
+def _seed_reading_only_retake(fake_db):
+    """WM 2026-10-29 shape: a retake exam whose sitting was assigned Reading only."""
+    _seed_retest_fixture(fake_db)
+    fake_db.seed("mock_exams", {"id": "ex-1", "exam_mode": "retake",
+                                "listening_test_id": "lt-1", "reading_test_id": "rt-1",
+                                "speaking_topic_set": None})
+    sit = next(s for s in fake_db.rows("mock_exam_sittings") if s["id"] == "sit-1")
+    sit["assigned_skills"] = ["reading"]
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    rv["retest_flags"] = {"reading": False}
+    return rv
+
+
+def _post_retest_flags(flags):
+    from unittest.mock import AsyncMock, patch
+    from fastapi.testclient import TestClient
+    from main import app
+    with patch("routers.admin_mock_exams.require_admin",
+               new=AsyncMock(return_value={"id": "admin-1"})):
+        return TestClient(app).post(
+            "/admin/mock-exams/sittings/sit-1/retest-flags",
+            json={"retest_flags": flags}, headers={"Authorization": "Bearer faketoken"},
+        )
+
+
+def test_retest_flags_route_422_for_skill_outside_reading_only_retake(fake_db, wf):
+    rv = _seed_reading_only_retake(fake_db)
+    r = _post_retest_flags({"listening": True, "reading": False,
+                            "writing": False, "speaking": False})
+    assert r.status_code == 422, r.text
+    assert r.json()["detail"] == {
+        "error": "skill_not_in_sitting", "skills": ["listening"],
+        "message": "Kỹ năng Listening không thuộc lượt thi này.",
+    }
+    assert rv["retest_flags"] == {"reading": False}
+
+
+def test_retest_flags_route_saves_the_sittings_own_skill(fake_db, wf):
+    rv = _seed_reading_only_retake(fake_db)
+    r = _post_retest_flags({"listening": False, "reading": True,
+                            "writing": False, "speaking": False})
+    assert r.status_code == 200, r.text
+    assert r.json()["retest_flags"] == {"reading": True}
+    assert rv["retest_flags"] == {"reading": True}
+
+
+def test_retest_flags_route_released_stays_409(fake_db, wf):
+    rv = _seed_reading_only_retake(fake_db)
+    rv["status"] = "released"
+    r = _post_retest_flags({"reading": True})
+    assert r.status_code == 409, r.text
+    assert rv["retest_flags"] == {"reading": False}
+
+
+def test_roster_exposes_the_tickable_retest_skills(fake_db, svc, wf):
+    """retest_skills is the same rule the write path enforces, so the console
+    can disable every box the backend would refuse."""
+    rv = _seed_reading_only_retake(fake_db)
+    assert wf.roster("ex-1")[0]["retest_skills"] == ["reading"]
+    # A live teacher-assessed Speaking makes Speaking tickable (#1849 boundary).
+    rv["per_skill_notes"] = {"speaking": {"intro": "Giáo viên chấm trực tiếp."}}
+    assert wf.roster("ex-1")[0]["retest_skills"] == ["reading", "speaking"]
+    # No exam row → the same all-skills fallback _required_skills uses.
+    fake_db.tables["mock_exams"] = []
+    assert wf.roster("ex-1")[0]["retest_skills"] == ["listening", "reading", "writing", "speaking"]
 
 
 def test_roster_retest_flags_keep_teacher_assessed_speaking_extra(

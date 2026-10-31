@@ -67,12 +67,13 @@ Cùng chủ đề nhưng **mức chắc chắn khác nhau** → có thể quyế
 
 | Mức | Tín hiệu ngôn ngữ |
 |---|---|
-| **Cam kết/nhấn khẳng định** | will, clearly, undoubtedly; is là dạng ngữ pháp, không thang xác suất cố định |
-| **Xác suất / xu hướng / tần suất** | likely, probably / tends to / generally, usually — chức năng khác nhau |
+| **Cam kết/nhấn khẳng định** | will, clearly, undoubtedly, certainly (động từ chia thường như *causes* cũng là khẳng định trực tiếp) |
+| **Xác suất** | likely, probably |
+| **Xu hướng/tần suất** | tends to, generally, usually |
 | **Thận trọng (hedged)** | may, might, could, suggests, appears, seems, possibly |
 | **Hạn định phạm vi** | some, often, in many cases, to some extent |
 
-Proves/shows/indicates/suggests/hints thể hiện cách nguồn trình bày bằng chứng; không là thang tuyệt đối cho mọi ngữ cảnh. Xác định ai phát biểu và căn cứ nào.
+Các động từ *proves, shows, indicates, suggests, hints at* cho biết bằng chứng được trình bày mạnh hay yếu (*proves* mạnh nhất, *hints at* yếu nhất). Mức độ vẫn phụ thuộc ngữ cảnh: luôn xác định ai nói và dựa vào đâu.
 
 <!-- anchor: hedging-and-certainty-in-reading.tfng -->
 ### Vì sao quan trọng cho T/F/NG
@@ -97,6 +98,45 @@ Một chữ *may/some/often* đổi hoàn toàn mức khẳng định — đừn
 1. Gạch chân từ chỉ mức chắc chắn trong cả bài lẫn câu hỏi.
 2. So nội dung và mức khẳng định: mạnh hơn chưa đủ chọn FALSE. Theo [IELTS Reading format](https://ielts.org/take-a-test/test-types/ielts-academic-test/ielts-academic-format-reading), FALSE cần mâu thuẫn, NOT GIVEN là chưa xác nhận hoặc bác bỏ.
 3. Phân biệt tiếng nói tác giả với ý được trích dẫn.
+
+## Lỗi người Việt hay mắc
+
+Trong tiếng Việt, "có thể" dùng cho cả khả năng thật (*can*) lẫn phỏng đoán (*may, might, could*), và chữ này rất dễ rơi mất khi tóm ý trong đầu. Kết quả: người học nhớ một câu rào đón thành một câu **khẳng định**.
+
+### Lỗi 1: Dịch *may* thành "sẽ"
+
+*The new drug may reduce the risk of stroke.*
+
+- ❌ Hiểu thành: "thuốc mới sẽ giảm nguy cơ đột quỵ", rồi chọn TRUE cho câu hỏi *The new drug reduces the risk of stroke.*
+- ✅ *may* chỉ nêu một khả năng. Bài chưa xác nhận thuốc có giảm nguy cơ thật hay không, nên câu hỏi trên thường là **NOT GIVEN** (chỉ FALSE nếu bài có thông tin mâu thuẫn).
+
+### Lỗi 2: Dịch đúng "có thể" nhưng quên nó khi so với câu hỏi
+
+Người học dịch đúng *may* là "có thể", nhưng khi so với câu hỏi lại chỉ nhớ "thuốc giảm nguy cơ". Hãy ghi mức độ cạnh câu: *may/might* = có khả năng · *likely* = khá chắc · *will/clearly* = chắc chắn.
+
+### Lỗi 3: Coi mọi "có thể" như nhau
+
+*Exercise can lower blood pressure* cho biết việc này **có xảy ra**, ít nhất ở một số người. *Exercise might lower blood pressure* cho biết người viết **chưa chắc**. Cả hai đều dịch là "có thể", nhưng mức chắc chắn khác nhau.
+
+## Bài tập luyện
+
+### TRUE, FALSE hay NOT GIVEN?
+
+Chỉ dựa vào câu trong bài.
+
+1. Bài: *Regular exercise may slow memory decline in older adults.* Câu hỏi: *Regular exercise slows memory decline in older adults.*
+2. Bài: *The study clearly shows that the new crop variety needs less water than older varieties.* Câu hỏi: *According to the study, the new variety requires less water than older ones.*
+3. Bài: *Most of the experts interviewed supported the plan, although two strongly opposed it.* Câu hỏi: *All the experts interviewed supported the plan.*
+4. Bài: *Critics claim that the tax will harm small businesses.* Câu hỏi: *The tax will harm small businesses.*
+5. Bài: *There is no evidence that the additive is harmful at the levels used in food.* Câu hỏi: *Scientists have proved that the additive is safe.*
+
+### Đáp án
+
+1. **NOT GIVEN.** *may* chỉ là khả năng; bài không xác nhận cũng không phủ định rằng tập thể dục làm chậm suy giảm trí nhớ.
+2. **TRUE.** *clearly shows* là khẳng định mạnh; *requires less water* diễn đạt lại *needs less water*.
+3. **FALSE.** Bài nói rõ có hai chuyên gia phản đối, mâu thuẫn với *All*.
+4. **NOT GIVEN.** Bài chỉ tường thuật ý của người phê bình (*Critics claim*), không xác nhận thuế sẽ gây hại cho doanh nghiệp nhỏ.
+5. **NOT GIVEN.** "Không có bằng chứng là có hại" chưa phải "đã chứng minh là an toàn"; câu hỏi mạnh hơn bài nhưng không mâu thuẫn với bài.
 
 ## Tóm tắt nhanh
 

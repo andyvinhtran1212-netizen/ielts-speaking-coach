@@ -1,3 +1,5 @@
+import { numberedBlankPattern } from './numbered-blank.mjs';
+
 const ORIGINS = new Set(['full', 'mini', 'mock', 'my-class', 'admin']);
 
 const text = (value) => String(value ?? '').trim();
@@ -144,6 +146,7 @@ export function normalizeReadingReview(payload) {
     title: text(payload.title) || text(payload.test_id) || 'Chữa bài Reading',
     preview,
     contextSource: payload.context_source && typeof payload.context_source === 'object' ? payload.context_source : null,
+    webExplanationAccess: payload.web_explanation_access && typeof payload.web_explanation_access === 'object' ? payload.web_explanation_access : null,
     score,
     maxScore: maxScore ?? review.length,
     bandEstimate: band,
@@ -199,10 +202,11 @@ const PLACEHOLDER_PROMPT = /^\s*\(?\s*see\s+(summary|notes|table|form)\s+above\s
 
 export function readingReviewPrompt(item) {
   const prompt = String(item?.prompt ?? '');
-  if (prompt && !PLACEHOLDER_PROMPT.test(prompt)) return prompt.replace(/\{\{\s*\d{1,3}\s*\}\}/g, '____');
+  // `{{n}} ____` is one blank (RV-05), so it becomes a single `____`.
+  if (prompt && !PLACEHOLDER_PROMPT.test(prompt)) return prompt.replace(numberedBlankPattern(), '____');
   const authored = text(item?.solution?.question_text)
     .replace(/^["“”']+/, '').replace(/["“”']+$/, '').trim();
-  return (authored || prompt).replace(/\{\{\s*\d{1,3}\s*\}\}/g, '____');
+  return (authored || prompt).replace(numberedBlankPattern(), '____');
 }
 
 export function splitReviewProse(value) {

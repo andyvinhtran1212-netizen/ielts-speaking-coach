@@ -296,7 +296,7 @@ async def _atomic_reading_updates_async(
 ) -> None:
     import asyncpg
 
-    connection = await asyncpg.connect(database_dsn)
+    connection = await asyncpg.connect(database_dsn, statement_cache_size=0)
     try:
         async with connection.transaction():
             for old, patch in plan:

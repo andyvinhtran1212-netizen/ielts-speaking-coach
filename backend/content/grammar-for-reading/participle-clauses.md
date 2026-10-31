@@ -64,7 +64,7 @@ Trong bài này, xét mệnh đề phân từ bổ nghĩa cho mệnh đề chín
 - **Facing rising costs**, the firm cut its workforce. *(= Because it faced…)*
 - **Discovered in 1994**, the site changed our view of history. *(= After it was discovered…)*
 
-Chủ ngữ của phân từ **thường trùng** với chủ ngữ của mệnh đề chính.
+Chủ ngữ ngầm hiểu của phân từ **phải** là chủ ngữ của mệnh đề chính; nếu không, câu bị treo (xem Bẫy 1).
 
 Phân từ là dạng **không hữu hạn**, không có thì độc lập. Tên *present participle* không có nghĩa rằng V-ing luôn chỉ hiện tại hay hai việc luôn xảy ra cùng lúc. Trong *Using satellite data, researchers mapped climate patterns*, **mapped** mới là động từ hữu hạn ở quá khứ đơn; *Using…* diễn tả cách thức nghiên cứu.
 
@@ -98,17 +98,55 @@ Phân từ mở đầu mặc định thuộc về **chủ ngữ chính** ngay sa
 
 Về mặt logic, "the conclusion" không thể *review* — đây là câu treo (dangling); trong bài đọc chuẩn, hãy tìm tác nhân thật ở ngữ cảnh.
 
+✅ *Having reviewed the data, **the researchers** revised the conclusion.*
+
 ### Bẫy 2: Nhầm Having + V3 với thì hoàn thành của câu
 *Having + V3* chỉ là phân từ, KHÔNG phải động từ chính — động từ chính nằm ở mệnh đề sau dấu phẩy.
 
 ### Chiến lược giải mã
 1. Nhận diện phân từ không hữu hạn và tạm nhóm phần này để tìm động từ hữu hạn.
-2. Với kiểu phân từ mở đầu không có chủ ngữ riêng trong bài này, kiểm tra chủ ngữ ngầm hiểu có khớp chủ ngữ chính hay không.
+2. Kiểm tra chủ ngữ ngầm hiểu của phân từ có trùng chủ ngữ chính không.
 3. Suy ra quan hệ thời gian/nguyên nhân/kết quả hoặc bối cảnh từ cả câu, không chỉ từ vị trí hay dạng V-ing.
+
+## Lỗi người Việt hay mắc
+
+Tiếng Việt không có dạng phân từ; chữ "đã" đặt trước động từ cho biết việc đã xảy ra, và câu có "đã + động từ" thường là vị ngữ chính. Vì thế, khi dịch *Having completed* thành "đã hoàn thành", người học dễ coi đây là **động từ chính** của câu. Tiếng Việt cũng hay lược chủ ngữ, nên người học ít khi tự hỏi chủ ngữ ngầm hiểu của phân từ là ai.
+
+### Lỗi 1: Coi Having + V3 là động từ chính
+
+*Having completed the survey, the participants received a small payment.*
+
+- ❌ Hiểu thành: ý chính là "những người tham gia đã hoàn thành khảo sát".
+- ✅ Động từ hữu hạn là *received*. Ý chính: họ **nhận một khoản tiền nhỏ**; *Having completed…* chỉ cho biết việc này xảy ra sau khi họ làm xong khảo sát.
+
+### Lỗi 2: Đọc V3 mở đầu câu như hành động chủ động ở quá khứ
+
+*Built in the 1960s, the tower is now being demolished.*
+
+- ❌ Hiểu thành: toà tháp "đã xây" một thứ gì đó, và cả câu nói về quá khứ.
+- ✅ *Built* mang nghĩa bị động: toà tháp **được xây** vào thập niên 1960. Động từ chính *is being demolished* ở hiện tại: bây giờ toà tháp đang bị phá dỡ.
+
+## Bài tập luyện
+
+### Phân từ diễn tả quan hệ gì, chủ ngữ ngầm hiểu là ai?
+
+1. *Having lost its main source of funding, the charity closed two of its centres.*
+2. *Exposed to sunlight, the chemical breaks down within hours.*
+3. *The river burst its banks, flooding hundreds of homes.*
+4. *Walking through the old town, visitors can see buildings from five different centuries.*
+5. *Not knowing the local language, the researchers relied on an interpreter.*
+
+### Đáp án
+
+1. **Nguyên nhân** (và xảy ra trước): vì đã mất nguồn tài trợ chính. Chủ ngữ ngầm hiểu: *the charity*.
+2. **Điều kiện / thời gian**: khi (nếu) bị phơi dưới ánh nắng. Chủ ngữ ngầm hiểu: *the chemical* (nghĩa bị động: hoá chất bị phơi nắng).
+3. **Kết quả**: khiến hàng trăm ngôi nhà bị ngập. Chủ ngữ ngầm hiểu: *the river* (việc sông tràn bờ khiến hàng trăm ngôi nhà bị ngập).
+4. **Thời gian / bối cảnh**: khi đi bộ qua phố cổ. Chủ ngữ ngầm hiểu: *visitors*.
+5. **Nguyên nhân**: vì không biết tiếng địa phương. Chủ ngữ ngầm hiểu: *the researchers*.
 
 ## Tóm tắt nhanh
 
 - V-ing thường chủ động; V3 thường bị động; Having+V3 nhấn mạnh việc đã xảy ra trước
 - Phân từ không có thì độc lập; V-ing không mặc định là hiện tại hoặc cùng lúc
-- Với cụm phân từ mở đầu trong các ví dụ trên, kiểm tra chủ ngữ ngầm hiểu có khớp chủ ngữ chính hay không
+- Kiểm tra chủ ngữ ngầm hiểu của phân từ có trùng chủ ngữ chính không
 - Cụm phân từ cuối câu có thể nêu kết quả hoặc thông tin đi kèm; đọc quan hệ theo ngữ cảnh

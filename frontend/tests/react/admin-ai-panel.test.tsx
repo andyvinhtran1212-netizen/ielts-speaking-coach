@@ -171,6 +171,93 @@ describe('AdminAiPanel', () => {
     expect(within(row).queryByText('DB override')).toBeNull();
   });
 
+  it('shows the field-level 422 message on the rejected row only and keeps canonical values', async () => {
+    render(<AdminAiPanel />);
+    fireEvent.change(await screen.findByLabelText('Model Claude cho Chấm Writing'), { target: { value: 'claude-haiku-5-5' } });
+    api.patchAdminAiModel.mockRejectedValueOnce(Object.assign(new Error('HTTP 422'), {
+      status: 422,
+      detail: { error_code: 'ai_override_invalid', field: 'anthropic_model', message: 'anthropic_model không nằm trong danh sách cho phép.' },
+    }));
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu lựa chọn cho Chấm Writing' }));
+
+    const rejected = screen.getByRole('row', { name: /Chấm Writing/ });
+    const alert = await within(rejected).findByRole('alert');
+    expect(alert.textContent).toBe('anthropic_model không nằm trong danh sách cho phép.');
+    expect(within(screen.getByRole('row', { name: /Soát bài tự luận/ })).queryByRole('alert')).toBeNull();
+    expect(within(rejected).queryByText('DB override')).toBeNull();
+    // The unsaved choice stays editable so the admin can correct it and retry.
+    expect((screen.getByLabelText('Model Claude cho Chấm Writing') as HTMLSelectElement).value).toBe('claude-haiku-5-5');
+    expect((screen.getByRole('button', { name: 'Lưu lựa chọn cho Chấm Writing' }) as HTMLButtonElement).disabled).toBe(false);
+    expect(api.getAdminAiModels).toHaveBeenCalledTimes(1);
+  });
+
+  it('flags stored override fields that the backend reported as invalid', async () => {
+    api.getAdminAiModels.mockResolvedValueOnce(models({
+      features: [
+        feature('writing_grading', {
+          override: {
+            preferred_provider: null, anthropic_model: null, updated_at: '2026-10-26T05:01:00Z',
+            updated_by: 'a1', updated_by_email: 'owner@example.com',
+            invalid_fields: ['preferred_provider', 'anthropic_model'],
+          },
+        }),
+        feature('course_writing', {
+          override: {
+            preferred_provider: 'gemini', anthropic_model: null, updated_at: '2026-10-26T05:01:00Z',
+            updated_by: 'a1', updated_by_email: 'owner@example.com', invalid_fields: [],
+          },
+        }),
+      ],
+    }));
+    render(<AdminAiPanel />);
+    const flagged = await screen.findByRole('row', { name: /Chấm Writing/ });
+    expect(within(flagged).getByText('Giá trị DB không hợp lệ đã bị bỏ qua: preferred_provider, anthropic_model')).toBeTruthy();
+    // The ignored values never reach the controls.
+    expect((screen.getByLabelText('Nhà cung cấp ưu tiên cho Chấm Writing') as HTMLSelectElement).value).toBe('');
+    expect((screen.getByLabelText('Model Claude cho Chấm Writing') as HTMLSelectElement).value).toBe('');
+    // An empty list is not flagged.
+    expect(within(screen.getByRole('row', { name: /Soát bài tự luận/ })).queryByText(/Giá trị DB không hợp lệ/)).toBeNull();
+  });
+
+  it('labels an unavailable store and shows the server refusal when a save is attempted', async () => {
+    api.getAdminAiModels.mockResolvedValueOnce(models({
+      store: { status: 'unavailable', last_refreshed_at: '2026-10-26T04:00:00Z', last_error: 'APIError', ttl_seconds: 30 },
+    }));
+    render(<AdminAiPanel />);
+    const status = await screen.findByText('Không đọc được cấu hình DB — đang dùng env/mặc định code.');
+    expect(status.getAttribute('role')).toBe('status');
+    expect(status.className).toContain('is-unavailable');
+    expect(screen.queryByText(/Cấu hình DB đồng bộ/)).toBeNull();
+
+    fireEvent.change(screen.getByLabelText('Nhà cung cấp ưu tiên cho Chấm Writing'), { target: { value: 'gemini' } });
+    api.patchAdminAiModel.mockRejectedValueOnce(Object.assign(new Error('HTTP 503'), {
+      status: 503,
+      detail: { error_code: 'ai_override_store_unavailable', status: 'unavailable', message: 'Không lưu được lựa chọn model; cấu hình hiện tại không đổi.' },
+    }));
+    const save = screen.getByRole('button', { name: 'Lưu lựa chọn cho Chấm Writing' }) as HTMLButtonElement;
+    // Pinned on purpose: Save stays enabled when the store is unavailable; the server refuses (503).
+    // Product decision pending (PR-1926 Q1). Change this assert deliberately if Q1 decides to disable Save.
+    expect(save.disabled).toBe(false);
+    fireEvent.click(save);
+    const row = screen.getByRole('row', { name: /Chấm Writing/ });
+    expect((await within(row).findByRole('alert')).textContent).toBe('Không lưu được lựa chọn model; cấu hình hiện tại không đổi.');
+    expect(within(row).queryByText('DB override')).toBeNull();
+    expect(screen.getByText('Không đọc được cấu hình DB — đang dùng env/mặc định code.')).toBeTruthy();
+  });
+
+  it('labels a stale store cache distinctly from ok and unavailable', async () => {
+    api.getAdminAiModels.mockResolvedValueOnce(models({
+      store: { status: 'stale', last_refreshed_at: '2026-10-26T04:00:00Z', last_error: null, ttl_seconds: 30 },
+    }));
+    render(<AdminAiPanel />);
+    const status = await screen.findByText('Bộ đệm cấu hình DB đã quá hạn — đang dùng env/mặc định code.');
+    expect(status.getAttribute('role')).toBe('status');
+    expect(status.className).toContain('is-stale');
+    expect(screen.queryByText(/Cấu hình DB đồng bộ/)).toBeNull();
+    expect(screen.queryByText(/Không đọc được cấu hình DB/)).toBeNull();
+    expect(screen.getByRole('row', { name: /Chấm Writing/ })).toBeTruthy();
+  });
+
   it('shows store problems, permission errors and retries the models panel', async () => {
     api.getAdminAiModels.mockRejectedValueOnce(Object.assign(new Error('HTTP 403'), { status: 403 }));
     render(<AdminAiPanel />);

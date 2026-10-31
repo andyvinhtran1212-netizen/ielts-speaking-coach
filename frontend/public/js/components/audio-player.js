@@ -52,6 +52,8 @@
  *   handle (e.g. show "Audio expired, refresh the page").
  */
 
+import { segmentStopDelayMs } from './media-segment-stop.js';
+
 const STYLE = /* css */ `
 :host {
   display: block;
@@ -300,7 +302,10 @@ export class AverAudioPlayer extends HTMLElement {
   play() {
     if (!this._audio) return;
     this._clearPlaybackTimers();
-    if (this._isSegmentMode() && this._audio.currentTime >= this._segmentEnd() - 0.01) {
+    // A final clip whose stored end is at/after the media end stops on the
+    // native `ended` with currentTime = duration < end. play() on ended media
+    // restarts at 0:00, so treat `ended` as the clip end too.
+    if (this._isSegmentMode() && (this._audio.ended || this._audio.currentTime >= this._segmentEnd() - 0.01)) {
       this._audio.currentTime = this._segmentStart();
     }
     const playback = this._audio.play();
@@ -386,13 +391,11 @@ export class AverAudioPlayer extends HTMLElement {
     if (this._segmentTimer) { clearTimeout(this._segmentTimer); this._segmentTimer = null; }
     const a = this._audio;
     if (!a || a.paused || !this._isSegmentMode()) return;
-    const remaining = this._segmentEnd() - a.currentTime;
-    const rate = Math.max(0.1, Number(a.playbackRate) || 1);
     this._segmentTimer = setTimeout(() => {
       this._segmentTimer = null;
       this._enforceSegmentEnd();
       this._scheduleSegmentEnd();
-    }, Math.max(16, remaining / rate * 1000));
+    }, segmentStopDelayMs(a.currentTime, this._segmentEnd(), a.playbackRate));
   }
 
   _applySegmentBounds() {

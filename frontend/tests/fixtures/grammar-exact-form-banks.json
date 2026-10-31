@@ -21,13 +21,13 @@
       },
       {
         "path": "backend/content/grammar-for-reading/long-sentence-untangling.md",
-        "sha256": "6402f4573051114a9cb60d2823ea32fc98eee3e5acda813eb5f394ef0e9c1510",
-        "bytes": 5673
+        "sha256": "c427ff17129812508952f5b87974870f7a1e78c714fa9894f5d1ef8edb66bee7",
+        "bytes": 8895
       },
       {
         "path": "backend/content/grammar-for-reading/participle-clauses.md",
-        "sha256": "489c669cc69866f728b42440a4802883017a16c6adc3b90cb0b7358a68d85496",
-        "bytes": 5365
+        "sha256": "0ba62186dd04766ad7636d434b3829b925d003f88409f3b85e731f0bd80d69fd",
+        "bytes": 7930
       },
       {
         "path": "backend/content/grammar-for-reading/reduced-relative-clauses.md",

@@ -26,6 +26,86 @@ export function overallFromPicks(bands) {
   return roundHalf(nums.reduce((a, b) => a + b, 0) / nums.length);
 }
 
+// Mirror services/writing_band_consistency.py. Shared fixtures verify that
+// the learner preview and the persisted composed version have identical prose.
+// Unicode classes avoid lookbehind so this also works in Safari 15.
+const BAND_CLAIM = /(?:^|[^\p{L}\p{N}_])(?:band(?:\s+score)?|score|điểm|overall|kết\s+quả(?:\s+tổng\s+thể)?|your\s+(?:essay|writing)\s+(?:achieves|scores|is\s+at)|(?:bài(?:\s+(?:viết|làm))?(?:\s+(?:này|của\s+(?:em|bạn)))?|em|bạn)\s+(?:hiện\s+)?(?:đạt|ở(?:\s+mức)?))\s*(?:(?:hiện tại|tổng|của em|của bạn|bài này|là|is|ở|mức|band|score)\s+)*[:=]?\s*([0-9](?:[.,]\d+)?)(?![\p{L}\p{N}_]|[.,]\d|\s*(?:phút|câu|từ|đoạn|lần|ý|minutes?|words?|sentences?|paragraphs?)(?![\p{L}\p{N}_]))/giu;
+const TARGET_BAND = /(?:^|[^\p{L}\p{N}_])(?:để\s+(?:lên|đạt(?:\s+được)?)|muốn[^.!?;:\n,]*?|to\s+(?:reach|achieve|get)|target|aim(?:ing)?\s+(?:for|at)|goal|mục\s+tiêu[^.!?;:\n,]*?)\s+(?:(?:is|là)\s+)?(?:(?:an?|the)\s+)?(?:band(?:\s+score)?|overall(?:\s+band)?(?:\s+score)?)(?:\s+of)?\s*(?:(?:is|là)\s+)?[:=]?\s*([0-9](?:[.,]\d+)?)(?![\p{L}\p{N}_]|[.,]\d)/giu;
+const MISSING_IMAGE_CAVEAT_MARKER = 'Chấm không có hình';
+const MISSING_IMAGE_CAVEAT = '⚠️ Chấm không có hình — độ chính xác nội dung Task 1 Academic hạn chế. ';
+
+function hasStaleClaim(sentence, overall) {
+  // Compare target-number positions, rather than exempting the whole sentence.
+  const targets = new Set([...sentence.matchAll(TARGET_BAND)]
+    .filter((match) => Number(match[1].replace(',', '.')) >= overall)
+    .map((match) => match.index + match[0].length));
+  return [...sentence.matchAll(BAND_CLAIM)].some((match) =>
+    Number(match[1].replace(',', '.')) !== overall && !targets.has(match.index + match[0].length));
+}
+
+function summaryFlagsMissingImage(summary) {
+  return summary.trimStart().startsWith('⚠️') && summary.includes(MISSING_IMAGE_CAVEAT_MARKER);
+}
+
+function validBand(value) {
+  if (typeof value !== 'number' && (typeof value !== 'string' || !value.trim())) return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 && number <= 9 ? number : null;
+}
+
+function splitSentences(body) {
+  const separator = /[.!?]\s+/g;
+  const sentences = [];
+  let start = 0;
+  let match;
+  while ((match = separator.exec(body)) !== null) {
+    sentences.push(body.slice(start, match.index + 1));
+    start = separator.lastIndex;
+  }
+  sentences.push(body.slice(start));
+  return sentences;
+}
+
+function alignOverallBandFeedback(feedback, overall) {
+  const modelBand = feedback.overallBandScore;
+  feedback.overallBandScore = overall;
+  const value = feedback.bandTrajectoryAnalysis;
+  const trajectory = value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+  const changed = modelBand !== overall || (trajectory && validBand(trajectory.current_band) !== overall);
+  if (changed) {
+    const summary = feedback.overallBandScoreSummary || '';
+    const missingImage = summaryFlagsMissingImage(summary);
+    const caveat = missingImage ? MISSING_IMAGE_CAVEAT : '';
+    let body = summary;
+    while (summaryFlagsMissingImage(body)) {
+      body = body.trimStart();
+      const markerEnd = body.indexOf(MISSING_IMAGE_CAVEAT_MARKER) + MISSING_IMAGE_CAVEAT_MARKER.length;
+      const end = /[.!?](?:\s|$)|[\r\n]/.exec(body.slice(markerEnd));
+      body = end ? body.slice(markerEnd + end.index + end[0].length).trimStart() : '';
+    }
+    const sentences = splitSentences(body);
+    const kept = sentences.filter((sentence) => !hasStaleClaim(sentence, overall));
+    const removedClaim = kept.length !== sentences.length;
+    if (removedClaim || caveat) {
+      feedback.overallBandScoreSummary = caveat + (removedClaim ? `Bài viết đạt band ${overall.toFixed(1)}. ` : '')
+        + (kept.join(' ') || 'Hãy dựa vào nhận xét theo từng tiêu chí để chọn điểm cần cải thiện.');
+    }
+  }
+  if (!trajectory) return;
+  trajectory.current_band = overall;
+  if (!changed) return;
+  let explanation = `Bài này đạt band ${overall.toFixed(1)}`;
+  const average = validBand(trajectory.average_last_5);
+  if (average !== null) {
+    const comparison = overall > average ? 'cao hơn' : overall < average ? 'thấp hơn' : 'bằng';
+    explanation += `, ${comparison} mức trung bình 5 bài gần nhất (${average})`;
+  }
+  trajectory.trend_explanation = explanation + '.';
+  trajectory.next_target = overall < 9
+    ? `Mục tiêu tiếp theo là band ${Math.min(9, overall + 0.5).toFixed(1)}; ưu tiên cải thiện theo nhận xét ở từng tiêu chí.`
+    : 'Duy trì band 9.0 và tiếp tục luyện tập để giữ chất lượng ổn định.';
+}
+
 /**
  * Assemble the composed feedback_json from per-criterion picks.
  *
@@ -55,6 +135,6 @@ export function assembleComposed(versionsById, baseVersion, picks) {
   }
   out.criteriaFeedback = cf;
   // Mix overall ≠ any source's → recompute from the 4 picked bands.
-  out.overallBandScore = overallFromPicks(pickedBands);
+  alignOverallBandFeedback(out, overallFromPicks(pickedBands));
   return out;
 }

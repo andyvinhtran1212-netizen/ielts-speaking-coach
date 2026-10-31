@@ -154,7 +154,7 @@ check('authored hostile prompt is rendered as text',
 await page.locator('audio-player').evaluate((node) => {
   node.seekTo = (seconds) => { window.__listeningReviewSeek = seconds; };
 });
-await page.getByRole('button', { name: /Nghe đoạn Section 2 · 0:12–0:18/ }).click();
+await page.getByRole('button', { name: /Nghe đoạn Section 2 · 0:12\.5–0:18\.0/ }).click();
 check('timestamp uses the real audio window and synchronizes transcript',
   await page.evaluate(() => window.__listeningReviewSeek) === 12.5
     && await page.getByRole('tab', { name: 'Section 2' }).getAttribute('aria-selected') === 'true'
@@ -170,8 +170,10 @@ await page.getByRole('button', { name: 'Câu 2 — đúng' }).click();
 check('palette jump reveals a card hidden by the active filter',
   await page.locator('#listening-review-q-2').isVisible()
     && await page.getByRole('button', { name: 'Tất cả' }).getAttribute('aria-pressed') === 'true');
+// The fixture has no web_explanation_access, so the fallback states that this
+// question has no solution (RV-04 reason copy, review-attempt-context.tsx).
 check('an empty authored solution preserves the explicit expandable fallback',
-  await page.locator('#listening-review-q-2').getByText('Chưa có lời giải chi tiết.', { exact: true }).isVisible()
+  await page.locator('#listening-review-q-2').getByText('Câu này chưa có lời giải chi tiết.', { exact: true }).isVisible()
     && await page.locator('#listening-review-q-2 .lr-card__top').getAttribute('aria-expanded') === 'true');
 
 await page.setViewportSize({ width: 375, height: 812 });

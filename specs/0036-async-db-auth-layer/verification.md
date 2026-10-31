@@ -5,7 +5,7 @@
 | Requirement | Evidence | Result |
 | --- | --- | --- |
 | FR-001 | kind=test; ref=backend/tests/test_async_auth_db_layer.py (flag-off never touches the async client; same results as the sync path) plus backend/tests/test_async_db_scaffold.py (flag default off) and the staging `/health/async-db` check after merge | PENDING |
-| FR-002 | kind=test; ref=backend/tests/test_async_auth_db_layer.py (live permissions, account summary, gate 403/503 and memo, staff guards per role and activation state plus 500 path, `/auth/me` incl. provisioning and error contract, `/auth/check-active`, `/api/student/permissions`: same result, status/detail and query sequence in both flag states) plus the staging same-account parity diff; open failure: PC-J68 F6 (§ "Open parity failure in lookup-failure cases") | PENDING |
+| FR-002 | kind=test; ref=backend/tests/test_async_auth_db_layer.py (live permissions, account summary, gate 403/503 and memo, staff guards per role and activation state plus the 503 lookup-failure path, `/auth/me` incl. provisioning and error contract, `/auth/check-active` incl. the 503 lookup-failure contract, `/api/student/permissions`: same result, status/detail and query sequence in both flag states) plus backend/tests/test_async_auth_fail_closed_http.py (flag on over a real async client: gate, staff guards and `/auth/check-active` lookup failures are 503, never active or staff) plus the staging same-account parity diff; open failure: PC-J68 F6 (§ "Open parity failure in lookup-failure cases") | PENDING |
 | FR-003 | kind=test; ref=backend/tests/test_async_auth_db_layer.py (flag-on never touches the sync singleton, concurrent gate lookups overlap on one loop, async pool HTTP/1.1, closed on shutdown) | PENDING |
 | FR-004 | kind=test; ref=backend/tests/test_student_home_aggregator.py (behaviour tests against sequential and concurrent builders) plus backend/tests/test_async_auth_db_layer.py (per-thread clients, sections overlap) | PENDING |
 | FR-005 | kind=test; ref=backend/tests/test_async_db_scaffold.py (exact facade allowlist, `admin.py` guard-only pin) | PENDING |
@@ -112,7 +112,7 @@ the shared async client, including callers that use it with the flag off (see
   `:90–102`).
 - **One retry for reads.** `aexecute` re-sends a GET/HEAD once after a
   dead-socket `httpx.TransportError` (`backend/services/db_async.py:54–66`,
-  `:166–181`). The pool drops the failed connection, so the retry goes out on
+  `:167–181`). The pool drops the failed connection, so the retry goes out on
   a fresh one. POST/PATCH/DELETE requests are never re-sent. Since #1910
   (PC-J84, closing PC-J68 F2) RPCs are never re-sent either, even when called
   with `get=True` or `head=True`, and a `PoolTimeout` is not retried.
@@ -203,8 +203,8 @@ end the same way in both states:
   can succeed. With the flag off, the same fault returns the existing error:
   503 from the activation gate (`backend/services/activation_gate.py:166`)
   and the staff guards (`backend/services/staff_guard.py:257`, `:269`), and
-  500 from `/auth/me` (`backend/routers/auth.py:231`, `:253`) and
-  `/auth/check-active` (`:331`).
+  500 from `/auth/me` (`backend/routers/auth.py:231`, `:253`), and 503
+  from `/auth/check-active` (`:334`; 500 before Revision 2).
 - A read that takes between 15 s and 120 s succeeds with the flag off but
   fails with the flag on, with the same error responses.
 
