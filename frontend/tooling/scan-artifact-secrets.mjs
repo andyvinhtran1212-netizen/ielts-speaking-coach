@@ -17,7 +17,12 @@ const { PLAYWRIGHT_REPORT_RE, countSecretMatches, secretMatchRanges, resolveLite
 
 const MAX_DEPTH = 4;
 // Inline attachments and protocol Binary fields must decode, even when binary.
-const BASE64_BODY_RE = /"(?:body|postData)"\s*:\s*"([A-Za-z0-9+/_-]{16,}={0,2})"/g;
+const BASE64_BODY_RE = /\\*"(?:body|postData)\\*"\s*:\s*\\*"([A-Za-z0-9+/_-]{16,}={0,2})\\*"/g;
+// A complete base64 JSON value is an identifiable payload regardless of key.
+// Quote delimiters may themselves be JSON-escaped in trace/report strings.
+// Incidental alphabet-only words embedded in ordinary text are handled below.
+const BASE64_FIELD_RE = /\\*"[^"\r\n]*?\\*"\s*:\s*\\*"([A-Za-z0-9+/_-]{24,}={0,2})\\*"/g;
+const BASE64_DATA_RE = /\bdata:[^,\s"'<>]*;base64,([A-Za-z0-9+/_-]+={0,2})/g;
 const BASE64_RUN_RE = /[A-Za-z0-9+/_-]{24,}={0,2}/g;
 
 function isGzip(buffer) {
@@ -91,12 +96,22 @@ export function scanBuffer(buffer, options, depth = 0) {
     const inner = zip && isZip(zip) ? scanBuffer(zip, options, depth + 1) : { count: 0, unscannable: true };
     addDecoded(start, start + report[2].length, inner);
   }
-  for (const match of text.matchAll(BASE64_BODY_RE)) {
-    const start = match.index + match[0].indexOf(match[1]);
-    const end = start + match[1].length;
-    if (overlapsDecoded(start, end)) continue;
-    const decoded = decodeBase64(match[1]);
-    addDecoded(start, end, decoded ? scanBuffer(decoded, options, depth + 1) : { count: 0, unscannable: true });
+  for (const { pattern, declaredEncoding } of [
+    { pattern: BASE64_BODY_RE, declaredEncoding: true },
+    { pattern: BASE64_FIELD_RE, declaredEncoding: false },
+    { pattern: BASE64_DATA_RE, declaredEncoding: true },
+  ]) {
+    for (const match of text.matchAll(pattern)) {
+      const start = match.index + match[0].lastIndexOf(match[1]);
+      const end = start + match[1].length;
+      if (overlapsDecoded(start, end)) continue;
+      const decoded = decodeBase64(match[1]);
+      // An arbitrary word need not be valid base64. Explicit attachment/data
+      // encodings must decode; a canonical full-field payload must be scanned
+      // even when its bytes identify unsupported compression or opaque binary.
+      if (!decoded && !declaredEncoding) continue;
+      addDecoded(start, end, decoded ? scanBuffer(decoded, options, depth + 1) : { count: 0, unscannable: true });
+    }
   }
   // Protocol fields need not be named "body". Inspect every long base64 run,
   // including url-safe runs. Ordinary identifiers also match this alphabet;

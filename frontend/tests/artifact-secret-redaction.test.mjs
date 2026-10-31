@@ -646,3 +646,50 @@ test('short secret configurations fail closed even for empty input, without prin
   const spaced = '  pwFAKE spaces  ';
   assert.deepEqual(redaction.secretLiteralsFromEnv({ E2E_PASSWORD: spaced }), [spaced], 'password whitespace belongs to the secret');
 });
+
+test('unsupported binary base64 payloads in arbitrary fields stay blocked after sanitize', async () => {
+  const { scanBuffer } = await import(pathToFileURL(SCAN).href);
+  const { sanitizeBuffer } = await import(pathToFileURL(SANITIZE).href);
+  const options = { literals: [MIXED_PW] };
+  const compressed = zlib.brotliCompressSync(Buffer.from(JSON.stringify({ note: MIXED_PW })));
+  const opaque = Buffer.from([0, 0x13, 0x37, 0xfe, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+  for (const bytes of [compressed, opaque]) {
+    for (const alphabet of ['base64', 'base64url']) {
+      const encoded = bytes.toString(alphabet);
+      for (const field of ['payload', 'arbitraryEvidence', 'text', 'body', 'postData']) {
+        let json = JSON.stringify({ [field]: encoded });
+        for (const depth of [0, 1, 2, 3]) {
+          const input = Buffer.from(json);
+          assert.equal(scanBuffer(input, options).unscannable, true, `${field}/${alphabet}/${depth}: before`);
+          assert.equal(scanBuffer(sanitizeBuffer(input, options), options).unscannable, true, `${field}/${alphabet}/${depth}: after`);
+          json = JSON.stringify({ trace: json });
+        }
+      }
+      const dataUri = Buffer.from(`<a href="data:application/octet-stream;base64,${encoded}">evidence</a>`);
+      assert.equal(scanBuffer(dataUri, options).unscannable, true);
+      assert.equal(scanBuffer(sanitizeBuffer(dataUri, options), options).unscannable, true);
+    }
+  }
+  // The exact Codex case must also fail through the upload-guard CLI, which
+  // prints only a path/flag and keeps the secret out of both output streams.
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'pcj481-base64-binary-'));
+  try {
+    const file = path.join(dir, 'evidence.json');
+    writeFileSync(file, JSON.stringify({ payload: compressed.toString('base64') }));
+    const env = { E2E_PASSWORD: MIXED_PW };
+    assert.equal(run(SANITIZE, [file], env).status, 0);
+    const scanned = run(SCAN, [file], env);
+    assert.equal(scanned.status, 1);
+    assert.match(scanned.stdout, /1 file\(s\) scanned, 1 flagged/);
+    assert.ok(!(scanned.stdout + scanned.stderr).includes(MIXED_PW));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('incidental alphabet-only identifiers in ordinary diagnostics do not become binary payloads', async () => {
+  const { scanBuffer } = await import(pathToFileURL(SCAN).href);
+  const text = 'x'.repeat(32); // canonical base64, decoded bytes are opaque
+  assert.deepEqual(scanBuffer(Buffer.from(`diagnostic ${text} remains readable`), NO_ENV), { count: 0, unscannable: false });
+  assert.deepEqual(scanBuffer(Buffer.from(JSON.stringify({ note: `diagnostic ${text} remains readable` })), NO_ENV), { count: 0, unscannable: false });
+});
