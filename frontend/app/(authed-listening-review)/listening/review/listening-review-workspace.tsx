@@ -241,7 +241,7 @@ function QuestionCard({ item, expanded, selected, preview, attemptId, webExplana
     </div>
     {item.prompt ? <div className="lr-card__prompt">{inlineNodes(item.prompt)}</div> : null}
     {/* Without a solution the options/context are the only help, so they are always shown (RV-02). */}
-    {expanded || selected || !hasSolutionDetail ? <ReviewQuestionContext value={item.question_context} /> : null}
+    {expanded || selected || !hasSolutionDetail ? <ReviewQuestionContext value={item.question_context} prompt={item.prompt} /> : null}
     <div className="lr-card__answers">
       {!preview ? <div className="lr-card__ans is-user"><span>Bạn:</span> <code>{item.user_answer || '—'}</code>
         <ReviewAnswerChoiceText className="lr-card__ans-text" context={item.question_context} answer={item.user_answer} /></div> : null}

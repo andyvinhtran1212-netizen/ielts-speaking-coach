@@ -133,3 +133,36 @@ it('keeps authored inline SVG inert and preserves the existing image URL and hea
   view.rerender(<ReviewQuestionContext value={{ map_svg: '', map_image_url: 'https://fixture.test/map.png', image_alt: 'Authored map' }} />);
   expect(screen.getByRole('img', { name: 'Authored map' }).getAttribute('src')).toBe('https://fixture.test/map.png');
 });
+// PC-J211 — Listening mcq_multi rows carry the question in payload.instruction (the test player renders
+// only the instruction for mcq_multi) and again in the per-question prompt; the review card already shows
+// the prompt, so its context must not repeat it. Shape from staging ILR-LIS-CAM-B20-T4 Q21 (exercise 728216be).
+const b20t4Q21 = {
+  prompt: 'Which TWO benefits for children of learning to write did BOTH students find surprising?',
+  context: { instruction: 'Choose TWO letters, A–E.\nWhich TWO benefits for children of learning to write did BOTH students find surprising?',
+    options: [{ label: 'A', text: 'improved fine motor skills' }, { label: 'C', text: 'improved concentration' }] },
+};
+it('does not repeat the card prompt inside the instruction context (PC-J211 B20-T4 Q21–22)', () => {
+  const { container } = render(<ReviewQuestionContext value={b20t4Q21.context} prompt={b20t4Q21.prompt} />);
+  expect(container.textContent).toContain('Choose TWO letters, A–E.');
+  expect(container.textContent).not.toContain('Which TWO benefits');
+  expect(screen.getByText(/improved concentration/)).toBeTruthy();
+});
+it('drops a repeated line even when the stored prompt still carries a second paraphrase line, and keeps distinct lines', () => {
+  const prompt = `${b20t4Q21.prompt}\nWhich TWO benefits did both students find surprising?`;
+  const { container } = render(<ReviewQuestionContext value={{ instruction: `Choose TWO letters, A–E.\n  which two BENEFITS for children of learning to write did both students find surprising?  \nNB Choose carefully.` }} prompt={prompt} />);
+  expect(container.textContent).toContain('Choose TWO letters, A–E.');
+  expect(container.textContent).toContain('NB Choose carefully.');
+  expect(container.textContent).not.toMatch(/which two benefits/i);
+});
+it('keeps the instruction unchanged without a prompt or when nothing repeats', () => {
+  const instruction = 'Choose TWO letters, A–E.\nWhich TWO benefits for children of learning to write did BOTH students find surprising?';
+  const bare = render(<ReviewQuestionContext value={{ instruction }} />);
+  expect(bare.container.textContent).toContain('Which TWO benefits for children');
+  cleanup();
+  const other = render(<ReviewQuestionContext value={{ instruction }} prompt="For children with dyspraxia, which TWO problems are EASIEST to correct?" />);
+  expect(other.container.textContent).toContain('Which TWO benefits for children');
+});
+it('renders no empty instruction paragraph when the instruction is only the prompt', () => {
+  const { container } = render(<ReviewQuestionContext value={{ instruction: b20t4Q21.prompt }} prompt={b20t4Q21.prompt} />);
+  expect(container.querySelector('.review-question-context')).toBeNull();
+});
