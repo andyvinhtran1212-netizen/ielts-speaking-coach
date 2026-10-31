@@ -22,11 +22,19 @@ import {
   normalizeOpsPayload,
   normalizeOverviewPayload,
   normalizeTrendsPayload,
+  partialFailureStats,
+  partialFailureTiles,
   periodDelta,
   safeActivityLink,
 } from '@/lib/admin-overview-model.mjs';
 
 const REFRESH_MS = 5 * 60 * 1000;
+// Copy pending Content Manager review on the PR (PC-J216).
+export const PARTIAL_FAILURE_COPY = {
+  banner: (tiles: string) => `⚠ Một số số liệu chưa tải được: ${tiles}. Các mục này đang tạm ẩn số; hãy tải lại trang sau ít phút.`,
+  unavailable: 'Chưa tải được',
+  activityUnavailable: 'Chưa tải được hoạt động gần đây.',
+};
 type WindowDays = 7 | 30 | 90;
 type Pane = 'ops' | 'content';
 type SeriesKey = 'practices' | 'visitors' | 'tokens';
@@ -194,26 +202,40 @@ function SkillCard({ name, children }: { name: keyof typeof SKILL_LINKS; childre
   );
 }
 
+function Unavailable() {
+  return (
+    <span className="ov-unavailable" title={PARTIAL_FAILURE_COPY.unavailable} data-unavailable="">
+      <span aria-hidden="true">— ⚠</span>
+      <span className="ov-visually-hidden">{PARTIAL_FAILURE_COPY.unavailable}</span>
+    </span>
+  );
+}
+
 function SkillStat({
   label,
   value,
   format,
+  unavailable,
 }: {
   label: string;
   value: unknown;
   format?: (value: number) => string;
+  unavailable?: boolean;
 }) {
   const normalized = finiteNumber(value);
   return (
     <div>
       <span className="stat-label">{label}</span>
-      <span className="stat-num">{normalized == null ? '—' : format ? format(normalized) : String(value)}</span>
+      <span className="stat-num">
+        {unavailable ? <Unavailable /> : normalized == null ? '—' : format ? format(normalized) : String(value)}
+      </span>
     </div>
   );
 }
 
-function ActivityFeed({ data, error }: { data: any[]; error: string | null }) {
+function ActivityFeed({ data, error, unavailable }: { data: any[]; error: string | null; unavailable?: boolean }) {
   if (error) return <div className="activity-empty" role="alert">Không tải được dữ liệu: {error}</div>;
+  if (!data.length && unavailable) return <div className="activity-empty">{PARTIAL_FAILURE_COPY.activityUnavailable}</div>;
   if (!data.length) return <div className="activity-empty">Chưa có hoạt động nào trong 30 ngày qua.</div>;
   return (
     <div>
@@ -400,6 +422,9 @@ export function AdminOverview() {
   const errors = overview?.errors || {};
   const accessCodes = overview?.accessCodes || {};
   const codeMix = accessCodes.by_type || {};
+  const failedStats = partialFailureStats(overview?.partialFailures) as Set<string>;
+  const failedTiles = partialFailureTiles(overview?.partialFailures) as string[];
+  const failed = (stat: string) => failedStats.has(stat);
   const anyLoading = loadingScope != null || contentLoading;
 
   return (
@@ -555,26 +580,32 @@ export function AdminOverview() {
         aria-labelledby="tab-content"
         hidden={pane !== 'content'}
       >
+        {failedTiles.length > 0 && (
+          <div className="ov-partial-banner" role="status" data-testid="partial-failures">
+            {PARTIAL_FAILURE_COPY.banner(failedTiles.join(', '))}
+          </div>
+        )}
+
         <section className="stat-grid" aria-label="Số liệu học viên" aria-busy={contentLoading || undefined}>
           <div className="stat-tile">
             <span className="label">Tổng học viên</span>
-            <span className="value">{formatInteger(students.total)}</span>
-            <span className="delta">{finiteNumber(students.active_30d) == null ? '—' : `${formatInteger(students.active_30d)} hoạt động trong 30 ngày`}</span>
+            <span className="value">{failed('students.total') ? <Unavailable /> : formatInteger(students.total)}</span>
+            <span className="delta">{failed('students.active_30d') ? <Unavailable /> : finiteNumber(students.active_30d) == null ? '—' : `${formatInteger(students.active_30d)} hoạt động trong 30 ngày`}</span>
           </div>
           <div className="stat-tile">
             <span className="label">Đang hoạt động (7 ngày)</span>
-            <span className="value">{formatInteger(students.active_7d)}</span>
-            <span className="delta">{finiteNumber(students.active_30d) == null ? '—' : `${formatInteger(students.active_30d)} trong 30 ngày`}</span>
+            <span className="value">{failed('students.active_7d') ? <Unavailable /> : formatInteger(students.active_7d)}</span>
+            <span className="delta">{failed('students.active_30d') ? <Unavailable /> : finiteNumber(students.active_30d) == null ? '—' : `${formatInteger(students.active_30d)} trong 30 ngày`}</span>
           </div>
-          <Link className={`stat-tile is-clickable${Number(errors.undismissed || 0) > 0 ? ' is-warning' : ''}`} href="/admin/error-logs">
+          <Link className={`stat-tile is-clickable${!failed('errors.undismissed') && Number(errors.undismissed || 0) > 0 ? ' is-warning' : ''}`} href="/admin/error-logs">
             <span className="label">Lỗi chưa xử lý</span>
-            <span className="value">{formatInteger(errors.undismissed)}</span>
-            <span className="delta">{finiteNumber(errors.last_24h) == null ? '—' : `${formatInteger(errors.last_24h)} trong 24h qua`}</span>
+            <span className="value">{failed('errors.undismissed') ? <Unavailable /> : formatInteger(errors.undismissed)}</span>
+            <span className="delta">{failed('errors.last_24h') ? <Unavailable /> : finiteNumber(errors.last_24h) == null ? '—' : `${formatInteger(errors.last_24h)} trong 24h qua`}</span>
           </Link>
           <Link className="stat-tile is-clickable" href="/admin/users?tab=codes">
             <span className="label">Mã đang dùng</span>
-            <span className="value">{formatInteger(accessCodes.active)}</span>
-            <span className="delta">Đại trà {formatInteger(codeMix.mass || 0)} · Trực tiếp {formatInteger(codeMix.direct || 0)} · NV {formatInteger(codeMix.staff || 0)}</span>
+            <span className="value">{failed('access_codes.active') ? <Unavailable /> : formatInteger(accessCodes.active)}</span>
+            <span className="delta">{failed('access_codes.active') ? <Unavailable /> : <>Đại trà {formatInteger(codeMix.mass || 0)} · Trực tiếp {formatInteger(codeMix.direct || 0)} · NV {formatInteger(codeMix.staff || 0)}</>}</span>
           </Link>
         </section>
 
@@ -582,31 +613,31 @@ export function AdminOverview() {
           <h2 className="ov-section-title">Hoạt động theo kỹ năng</h2>
           <section className="skill-grid" aria-label="Tóm tắt theo kỹ năng">
             <SkillCard name="speaking">
-              <SkillStat label="7 ngày" value={skills.speaking?.sessions_7d} />
-              <SkillStat label="Tổng" value={skills.speaking?.sessions_total} />
-              <SkillStat label="Band TB" value={finiteNumber(skills.speaking?.avg_band_7d) == null ? '—' : Number(skills.speaking.avg_band_7d).toFixed(1)} />
+              <SkillStat label="7 ngày" value={skills.speaking?.sessions_7d} unavailable={failed('speaking.sessions_7d')} />
+              <SkillStat label="Tổng" value={skills.speaking?.sessions_total} unavailable={failed('speaking.sessions_total')} />
+              <SkillStat label="Band TB" value={finiteNumber(skills.speaking?.avg_band_7d) == null ? '—' : Number(skills.speaking.avg_band_7d).toFixed(1)} unavailable={failed('speaking.avg_band_7d')} />
             </SkillCard>
             <SkillCard name="writing">
-              <SkillStat label="7 ngày" value={skills.writing?.essays_7d} />
-              <SkillStat label="Tổng" value={skills.writing?.essays_total} />
-              <SkillStat label="Chưa trả kết quả" value={skills.writing?.feedback_pending} />
+              <SkillStat label="7 ngày" value={skills.writing?.essays_7d} unavailable={failed('writing.essays_7d')} />
+              <SkillStat label="Tổng" value={skills.writing?.essays_total} unavailable={failed('writing.essays_total')} />
+              <SkillStat label="Chưa trả kết quả" value={skills.writing?.feedback_pending} unavailable={failed('writing.feedback_pending')} />
             </SkillCard>
             <SkillCard name="reading">
-              <SkillStat label="7 ngày" value={skills.reading?.attempts_7d} />
-              <SkillStat label="Tổng" value={skills.reading?.attempts_total} />
-              <SkillStat label="Đúng TB" value={skills.reading?.avg_score_7d} format={(value) => `${Math.round(value * 100)}%`} />
+              <SkillStat label="7 ngày" value={skills.reading?.attempts_7d} unavailable={failed('reading.attempts_7d')} />
+              <SkillStat label="Tổng" value={skills.reading?.attempts_total} unavailable={failed('reading.attempts_total')} />
+              <SkillStat label="Đúng TB" value={skills.reading?.avg_score_7d} format={(value) => `${Math.round(value * 100)}%`} unavailable={failed('reading.avg_score_7d')} />
             </SkillCard>
             <SkillCard name="listening">
-              <SkillStat label="7 ngày" value={skills.listening?.attempts_7d} />
-              <SkillStat label="Tổng" value={skills.listening?.attempts_total} />
-              <SkillStat label="Đúng TB" value={skills.listening?.avg_score_7d} format={(value) => `${Math.round(value * 100)}%`} />
-              <SkillStat label="Chép ch.tả 7d" value={skills.listening?.dictation_7d} />
+              <SkillStat label="7 ngày" value={skills.listening?.attempts_7d} unavailable={failed('listening.attempts_7d')} />
+              <SkillStat label="Tổng" value={skills.listening?.attempts_total} unavailable={failed('listening.attempts_total')} />
+              <SkillStat label="Đúng TB" value={skills.listening?.avg_score_7d} format={(value) => `${Math.round(value * 100)}%`} unavailable={failed('listening.avg_score_7d')} />
+              <SkillStat label="Chép ch.tả 7d" value={skills.listening?.dictation_7d} unavailable={failed('listening.dictation_7d')} />
             </SkillCard>
             <SkillCard name="vocab">
-              <SkillStat label="Đang học" value={skills.vocab?.due_review_today} />
-              <SkillStat label="Tổng" value={skills.vocab?.words_total} />
+              <SkillStat label="Đang học" value={skills.vocab?.due_review_today} unavailable={failed('vocab.due_review_today')} />
+              <SkillStat label="Tổng" value={skills.vocab?.words_total} unavailable={failed('vocab.words_total')} />
             </SkillCard>
-            <SkillCard name="grammar"><SkillStat label="Đề xuất 7d" value={skills.grammar?.articles_viewed_7d} /></SkillCard>
+            <SkillCard name="grammar"><SkillStat label="Đề xuất 7d" value={skills.grammar?.articles_viewed_7d} unavailable={failed('grammar.articles_viewed_7d')} /></SkillCard>
             <Link href="/admin/mock-tests" className="admin-hub-card">
               <h3>Thi thử (Mock Test) — 4 kỹ năng</h3>
               <div className="skill-stats"><div><span className="stat-label">Quản lý đề · phòng thi trực tiếp · duyệt bài · chấm Writing — trong một khu</span></div></div>
@@ -620,7 +651,7 @@ export function AdminOverview() {
           <div className="activity-feed" aria-busy={contentLoading || undefined}>
             {contentLoading && !overview
               ? <div className="activity-loading" role="status">Đang tải…</div>
-              : <ActivityFeed data={overview?.recentActivity || []} error={overviewError} />}
+              : <ActivityFeed data={overview?.recentActivity || []} error={overviewError} unavailable={failed('activity')} />}
           </div>
         </div>
 

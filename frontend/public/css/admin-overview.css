@@ -60,6 +60,9 @@ aver-admin-chrome[data-collapsed="1"] > .overview-shell {
 .stat-tile .value { font-family: var(--av-font-mono); font-size: var(--av-fs-2xl); font-weight: var(--av-fw-semibold); color: var(--av-text-primary); }
 .stat-tile .delta { font-size: var(--av-fs-xs); color: var(--av-text-secondary); }
 .stat-tile.is-warning { border-color: var(--av-warning, var(--av-brand-amber-400)); }
+.ov-partial-banner { padding: var(--av-space-3) var(--av-space-4); border-radius: var(--av-radius-md); font-size: var(--av-fs-sm); color: var(--av-text-primary); background: var(--av-warning-soft); border: 1px solid var(--av-warning); overflow-wrap: anywhere; }
+.ov-unavailable { color: var(--av-warning); white-space: nowrap; }
+.ov-visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
 .ov-section-title { font-size: var(--av-fs-xs); text-transform: uppercase; letter-spacing: var(--av-tracking-widest); color: var(--av-text-muted); font-weight: var(--av-fw-semibold); margin: var(--av-space-3) 0 var(--av-space-1); }
 .skill-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--av-space-3); }
