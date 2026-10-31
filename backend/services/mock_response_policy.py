@@ -42,6 +42,34 @@ def _text(value: str, policy: dict) -> str:
     return value if policy["settings"].get("case_sensitive", False) else value.casefold()
 
 
+# Sentence punctuation an examiner ignores at either end of a typed answer.
+# Anything else (hyphen, slash, brackets, digits, apostrophe) stays significant,
+# and so does every character between the first and last word.
+_EDGE_PUNCT = ".,;:!?"
+_EDGE_RE = re.compile(rf"^[\s{re.escape(_EDGE_PUNCT)}]+|[\s{re.escape(_EDGE_PUNCT)}]+$")
+_TRAILING_RE = re.compile(rf"[\s{re.escape(_EDGE_PUNCT)}]+$")
+# Quotes count only as one matched pair wrapping the whole answer ("travel",
+# “travel”); a lone or unpaired quote, e.g. a possessive students', is kept.
+_QUOTE_PAIRS = {'"': '"', "'": "'", "\u201c": "\u201d", "\u2018": "\u2019"}
+
+
+def _strip_edge_punct(value: str) -> str:
+    """Remove whitespace, ``. , ; : ! ?`` and wrapping quote pairs at both
+    ends, repeatedly ("travel..", '"travel."' -> "travel"). Used for literal
+    and written-number forms, on the learner answer and every accepted form."""
+    while True:
+        stripped = _EDGE_RE.sub("", value)
+        if len(stripped) >= 2 and _QUOTE_PAIRS.get(stripped[0]) == stripped[-1]:
+            stripped = stripped[1:-1]
+        if stripped == value:
+            return value
+        value = stripped
+
+
+def _literal(value: str, policy: dict) -> str:
+    return _text(_strip_edge_punct(value), policy)
+
+
 def _number(value: str, settings: dict) -> tuple[bool, Decimal] | None:
     value = value.strip()
     unit = settings.get("unit", "")
@@ -174,20 +202,41 @@ def validate_response_policy(raw: Any) -> dict:
 
 
 def policy_answer_matches(user: str | None, raw_policy: dict) -> bool:
+    """Mark one answer against a reviewed policy.
+
+    ``literal`` and written ``number`` forms ignore edge punctuation (see
+    ``_strip_edge_punct``) and then compare whitespace-collapsed text, casefolded
+    unless ``case_sensitive``; ``max_words`` counts the stripped answer. Numeric
+    ``number`` answers may end in ``. , ; : ! ?``. Inner punctuation, spelling,
+    diacritics, and ``phone``/``date``/``option_id`` matching are unchanged.
+    """
     policy = validate_response_policy(raw_policy)
     if not isinstance(user, str) or not user.strip() or len(user) > 512:
         return False
     kind, settings = policy["kind"], policy["settings"]
     if kind == "number":
+        # Trailing sentence punctuation is dropped only when what remains is a
+        # valid number ("11,000." -> 11000, "3." -> 3); "11.5" and a unit that
+        # itself ends in "." parse first, so no decimal value or unit changes.
         parsed = _number(user, settings)
+        if parsed is None:
+            parsed = _number(_TRAILING_RE.sub("", user), settings)
         if parsed is not None:
             return parsed == _number(policy["accepted_answers"][0], settings)
         # Written numbers are item-reviewed forms, never a blanket conversion.
-        return any(_number(form, settings) is None and _text(user, policy) == _text(form, policy) for form in policy["accepted_answers"])
+        return any(_number(form, settings) is None and _literal(user, policy) == _literal(form, policy) for form in policy["accepted_answers"])
     if kind == "phone":
         return _phone(user, settings) == _phone(policy["accepted_answers"][0], settings)
+    if kind == "literal":
+        # Edge punctuation is not an answer word: "Travel." is "travel" and
+        # "travel ." is one word. Date and option_id compare text unchanged.
+        user = _strip_edge_punct(user)
+        if not user:
+            return False
     if policy.get("max_words") is not None and len(user.split()) > policy["max_words"]:
         return False
+    if kind == "literal":
+        return any(_literal(user, policy) == _literal(form, policy) for form in policy["accepted_answers"])
     return any(_text(user, policy) == _text(form, policy) for form in policy["accepted_answers"])
 
 

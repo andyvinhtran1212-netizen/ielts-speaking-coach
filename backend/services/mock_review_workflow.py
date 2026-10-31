@@ -63,6 +63,20 @@ class ValidationError(MockReviewError):
     """Final bands incomplete / out of range."""
 
 
+_SKILL_KEY_MAX_CHARS = 64
+_REFUSED_MESSAGE_MAX = 5
+_REFUSED_DETAIL_MAX = 10
+
+
+def _clip_skill_key(key) -> str:
+    """A refused key as it may appear in a 422: control characters/newlines
+    dropped, at most _SKILL_KEY_MAX_CHARS characters plus '…'."""
+    text = "".join(ch for ch in str(key) if ch.isprintable()) or "?"
+    if len(text) > _SKILL_KEY_MAX_CHARS:
+        text = text[:_SKILL_KEY_MAX_CHARS] + "…"
+    return text
+
+
 class SkillNotInSittingError(ValidationError):
     """A retest flag was ticked for a skill this sitting does not carry.
 
@@ -70,8 +84,16 @@ class SkillNotInSittingError(ValidationError):
     UI labels them so the console can show it verbatim (PC-J146)."""
 
     def __init__(self, skills: list):
-        self.skills = list(skills)
-        names = ", ".join(s.capitalize() if s in _SKILLS else str(s) for s in self.skills)
+        refused = list(skills)
+        # Unknown keys are client input echoed into a 422 body: clip each one
+        # and cap how many are listed so a large payload is not reflected
+        # back (PC-J213). Real skills sort first, so they are always shown.
+        self.skills = [_clip_skill_key(s) for s in refused[:_REFUSED_DETAIL_MAX]]
+        labels = [raw.capitalize() if raw in _SKILLS else clipped
+                  for raw, clipped in zip(refused, self.skills[:_REFUSED_MESSAGE_MAX])]
+        names = ", ".join(labels)
+        if len(refused) > len(labels):
+            names += f" và {len(refused) - len(labels)} kỹ năng khác"
         super().__init__(f"Kỹ năng {names} không thuộc lượt thi này.")
 
 
@@ -262,6 +284,16 @@ def _retest_skills(review: dict, required: tuple) -> tuple:
     return tuple(s for s in _SKILLS if s in allowed)
 
 
+def _refused_retest_skills(retest_flags: dict, allowed) -> list:
+    """The ticked (truthy) retest flags a write must refuse: a known skill
+    outside ``allowed``, then any unknown key.  An untick (false) is never
+    refused — the console posts all four keys.  One rule for the roster
+    (set_retest_flags_for_sitting) and the final-band save (PC-J213)."""
+    refused = [s for s in _SKILLS if s not in allowed and retest_flags.get(s)]
+    refused += [s for s, v in retest_flags.items() if s not in _SKILLS and v]
+    return refused
+
+
 # ── Workflow ──────────────────────────────────────────────────────────
 
 
@@ -407,7 +439,10 @@ def save_final_bands(
     retest_flags (2026-07-12, mig 152) is the admin's independent PASS/FAIL
     judgment per skill — {skill: bool} — separate from the score. Only keys
     for the sitting's required or canonically live-assessed skills are kept;
-    an unset/False flag means "no retest needed" for that skill.
+    an unset/False flag means "no retest needed" for that skill. Ticking
+    (true) any other or unknown skill raises SkillNotInSittingError before
+    anything is written — the same rule as set_retest_flags_for_sitting
+    (PC-J213); a false flag for such a skill is still ignored.
     """
     review = get_review(review_id)
     if not review:
@@ -463,6 +498,10 @@ def save_final_bands(
     # blank, not a partial average dressed up as a total.
     overall = None if missing else compute_overall(final_bands, banded)
     stored["overall"] = overall
+    if retest_flags is not None:
+        refused = _refused_retest_skills(retest_flags, banded)
+        if refused:
+            raise SkillNotInSittingError(refused)
 
     update: dict = {
         "status":      "reviewed",
@@ -746,8 +785,7 @@ def set_retest_flags_for_sitting(
     # only by _required_skills(), silently dropped ``speaking``, and the UI
     # correctly reported that the backend had not confirmed the selected flag.
     skills = _retest_skills(review, _required_skills(review["sitting_id"]))
-    refused = [s for s in _SKILLS if s not in skills and retest_flags.get(s)]
-    refused += [s for s, v in retest_flags.items() if s not in _SKILLS and v]
+    refused = _refused_retest_skills(retest_flags, skills)
     if refused:
         raise SkillNotInSittingError(refused)
     stored = {s: bool(retest_flags.get(s)) for s in skills if s in retest_flags}
