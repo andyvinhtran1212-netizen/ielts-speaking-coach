@@ -59,7 +59,7 @@ describe('shared runtime survives App Router client navigation', () => {
 
   test('optional reporter failure does not strand the required API bridge', () => {
     assert.match(ROUTE_CHAIN, /continueOnError\?: boolean/);
-    assert.match(ROUTE_CHAIN, /if \(script\.continueOnError\) setReady\(true\)/);
+    assert.match(ROUTE_CHAIN, /outcome === 'failed' && !!script\?\.continueOnError/);
     assert.match(RUNTIME_BOUNDARY, /error-reporter\.js', continueOnError: true/);
   });
 
