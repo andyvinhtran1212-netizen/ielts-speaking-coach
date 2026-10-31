@@ -10,6 +10,7 @@ import {
   MFA_RATE_LIMIT_WAIT_MS,
   abandonedTotpFactors,
   adminMfaMode,
+  adminMfaUrl,
   formatFactorDate,
   isCompleteTotpCode,
   isInactiveError,
@@ -395,6 +396,7 @@ function ManagePanel({ mfa, initialFactors, onNeedsAal2 }: {
         title="Gỡ yếu tố xác thực"
         description={`Nhập một mã 6 số mới để xác nhận gỡ “${removing?.friendly_name || 'Ứng dụng xác thực'}”.`}
         onClose={() => setRemoving(null)}
+        {...MFA_DIALOG_CLASSES}
         actions={<button type="button" className="adm-btn-secondary" onClick={() => setRemoving(null)}>Hủy</button>}
       >
         {verified.length > 1 && (
@@ -428,6 +430,119 @@ function ManagePanel({ mfa, initialFactors, onNeedsAal2 }: {
         )}
       </Dialog>
     </section>
+  );
+}
+
+/**
+ * The code form, notices and the scoped dialog frame (public/css). The step-up
+ * prompt can open on any admin page, so it adds the file to <head> itself when
+ * the gate mounts it, long before a refusal can open it. Appended rather than
+ * rendered as a React `precedence` link: that would hold the gate's whole
+ * ready commit until the file loads. /admin/mfa lists it in its layout.
+ */
+export const ADMIN_MFA_DIALOG_STYLESHEET = '/css/admin-mfa-dialog.css';
+const MFA_DIALOG_CLASSES = { panelClassName: 'amfa-dialog', backdropClassName: 'amfa-dialog-backdrop' };
+
+function useAdminMfaDialogStylesheet() {
+  useEffect(() => {
+    if (document.querySelector(`link[rel="stylesheet"][href="${ADMIN_MFA_DIALOG_STYLESHEET}"]`)) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = ADMIN_MFA_DIALOG_STYLESHEET;
+    document.head.appendChild(link);
+  }, []);
+}
+
+/** ADMINAAL2-0032 Amendment 1 (FR-020); Content Manager approved 2026-10-29. */
+export const STEP_UP_PROMPT = 'Thao tác này cần nhập lại mã xác thực 2 bước.';
+
+/**
+ * Step-up code prompt (FR-020, ui-states.md), opened by AdminAccessGate when
+ * a sensitive admin call answers 403 `step_up_required`. A fresh
+ * `mfa.challenge` + `verify` renews the session's `amr` TOTP time; only then
+ * does `onVerified` let the shared transport resend the request (once).
+ * Labels, buttons and errors are this page's own.
+ */
+export function AdminStepUpDialog({ open, onVerified, onClose }: {
+  open: boolean;
+  onVerified: () => void;
+  onClose: () => void;
+}) {
+  const [factors, setFactors] = useState<Factor[] | null>(null);
+  const [failure, setFailure] = useState('');
+  const [factorId, setFactorId] = useState('');
+  const [attempt, setAttempt] = useState(0);
+  const mfa = open ? mfaClient() : null;
+  useAdminMfaDialogStylesheet();
+
+  useEffect(() => {
+    if (!open) return;
+    let dead = false;
+    setFactors(null);
+    setFailure('');
+    const client = mfaClient();
+    if (!client) {
+      setFailure('Không tải được công cụ xác thực. Vui lòng tải lại trang.');
+      return;
+    }
+    (async () => {
+      try {
+        const verified = verifiedTotpFactors(await readFactors(client)) as Factor[];
+        if (dead) return;
+        setFactors(verified);
+        setFactorId(verified[0]?.id ?? '');
+      } catch {
+        if (!dead) setFailure(ADMIN_MFA_COPY.listFailed);
+      }
+    })();
+    return () => { dead = true; };
+  }, [open, attempt]);
+
+  return (
+    <Dialog
+      open={open}
+      title="Xác thực 2 bước"
+      description={STEP_UP_PROMPT}
+      onClose={onClose}
+      {...MFA_DIALOG_CLASSES}
+      actions={<button type="button" className="adm-btn-secondary" onClick={onClose}>Hủy</button>}
+    >
+      {failure ? (
+        <div className="amfa-notice is-error" role="alert">
+          <span>{failure}</span>
+          <button type="button" className="adm-btn-secondary" onClick={() => setAttempt((n) => n + 1)}>Thử lại</button>
+        </div>
+      ) : factors === null ? (
+        <p role="status">Đang tải danh sách…</p>
+      ) : !factors.length || !mfa ? (
+        <div className="amfa-notice is-warn" role="alert">
+          <span>Chưa có yếu tố xác thực nào.</span>
+          <a href={adminMfaUrl(window.location.pathname, window.location.search)}>Thiết lập xác thực 2 bước</a>
+        </div>
+      ) : (
+        <>
+          {factors.length > 1 && (
+            <label className="amfa-select">
+              <span>Yếu tố xác thực</span>
+              <select value={factorId} onChange={(event) => setFactorId(event.target.value)}>
+                {factors.map((factor) => <option key={factor.id} value={factor.id}>{factor.friendly_name || 'Ứng dụng xác thực'}</option>)}
+              </select>
+            </label>
+          )}
+          <TotpForm
+            id="admin-step-up-code"
+            label="Mã 6 số"
+            submitLabel="Xác thực"
+            autoFocus
+            onVerify={async (code) => {
+              const failureValue = await verifyCode(mfa, factorId, code);
+              if (!failureValue) onVerified();
+              return failureValue;
+            }}
+          />
+        </>
+      )}
+    </Dialog>
   );
 }
 
