@@ -497,7 +497,6 @@ routers/grammar.py::mark_recommendation_clicked::db.execute	1	G3	Existing inline
 routers/grammar.py::save_article::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
 routers/grammar.py::track_article_view::db.execute	3	G3	Existing inline sync DB execution; offload in G3.
 routers/grammar.py::unsave_article::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
-routers/health.py::health_quiz_write::services.quiz_service.quiz_write_health	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
 routers/instructor.py::_me::routers.instructor._audit_impersonate	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/instructor.py::_me::routers.instructor._role_of	2	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/instructor.py::claim_review::services.instructor_workflow.claim	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
