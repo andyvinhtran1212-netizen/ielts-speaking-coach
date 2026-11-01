@@ -44,6 +44,10 @@ unwrapped to IPv4 before matching, so those entries would never match
 
 Assigning `settings.TRUSTED_PROXY_CIDRS` at runtime (tests included) runs
 the same validator (P3-SA-3); a rejected value leaves the old value in place.
+Writes that skip it (`object.__setattr__`, `model_copy(update=…)`,
+`Settings.model_construct`) are re-checked by `client_address()` at use: any
+bad entry means no proxy is trusted, with one warning that gives a reason
+code and entry count, never the CIDR (PC-J377 / SA-4).
 
 No deployment ranges have been approved by this change. Every value set for
 this variable needs its source and measurement date. Before setting it,

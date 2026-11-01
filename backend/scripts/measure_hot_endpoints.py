@@ -7,23 +7,27 @@ answers the one question the pre-P0 perf plan could not: of the ~1.15s a warm
 (`auth` stage) versus the sync `.execute()` DB round-trips (`db` stage)?
 P3.1/P3.2 only touch `db` — if `auth` dominates, they are the wrong fix.
 
-Two independent signals, so you get useful data even without a token:
+Two independent signals:
 
-  1. /health/async-db  (NO token) — the event-loop-lag monitor. Under real
-     concurrency a blocking sync .execute() on the loop thread shows up as
-     elevated lag_ms_p95/max. If p95 is low, the loop is NOT being blocked
-     meaningfully and P3.1 (async migration) buys nothing.
+  1. /health/async-db  (needs an ADMIN Bearer token) — the event-loop-lag
+     monitor. Under real concurrency a blocking sync .execute() on the loop
+     thread shows up as elevated lag_ms_p95/max. If p95 is low, the loop is
+     NOT being blocked meaningfully and P3.1 (async migration) buys nothing.
+     Since PC-J275 the saturation snapshot is admin-only: without a token (or
+     with a non-admin token) the route answers status + timestamp only, so
+     the no-token mode CANNOT read lag and says so.
 
   2. /auth/me + /api/dashboard/init  (needs a Bearer token AND the server
      started with ENABLE_SERVER_TIMING=true) — parses the W3C Server-Timing
      response header into total/auth/db/app and reports the spread over N runs.
 
 Usage:
-    # ambient loop-lag only (no token needed):
+    # no token: only checks the probe is reachable — loop lag is admin-only
     python3 scripts/measure_hot_endpoints.py --base https://<railway-app> --n 8
 
-    # full breakdown (flag must be ON server-side; grab the token from the
-    # browser: Supabase session → access_token):
+    # loop lag + full breakdown (admin token for the lag; Server-Timing flag
+    # must be ON server-side; grab the token from the browser: Supabase
+    # session → access_token). The token is sent, never printed:
     TOKEN=eyJhbGciOi... python3 scripts/measure_hot_endpoints.py \
         --base https://<railway-app> --n 8
 
@@ -85,13 +89,19 @@ def _fmt_stats(label: str, values: list[float]) -> str:
     )
 
 
-def measure_loop_lag(base: str) -> None:
-    print("\n── 1. Event-loop lag  (/health/async-db, no token) ─────────────────")
-    status, _, body, wall = _get(f"{base}/health/async-db", token=None)
+def measure_loop_lag(base: str, token: str | None) -> None:
+    mode = "admin token" if token else "no token"
+    print(f"\n── 1. Event-loop lag  (/health/async-db, {mode}) ─────────────────")
+    status, _, body, wall = _get(f"{base}/health/async-db", token=token)
     if status != 200:
         print(f"  ⚠ /health/async-db returned {status} — cannot read lag")
         return
     data = json.loads(body or b"{}")
+    if "event_loop_lag" not in data:
+        # PC-J275: anonymous / non-admin callers get status + timestamp only.
+        print("  ⚠ no event_loop_lag in the response — the lag snapshot is "
+              "admin-only; set TOKEN to an admin's access_token to read it")
+        return
     lag = data.get("event_loop_lag", {}) or {}
     print(f"  use_async_db={data.get('use_async_db')}  "
           f"async_client_initialised={data.get('async_client_initialised')}")
@@ -159,7 +169,7 @@ def main() -> int:
     args = ap.parse_args()
 
     print(f"Base: {args.base}")
-    measure_loop_lag(args.base)
+    measure_loop_lag(args.base, args.token)
 
     if not args.token:
         print("\nNo TOKEN provided → skipping /auth/me + /api/dashboard/init "

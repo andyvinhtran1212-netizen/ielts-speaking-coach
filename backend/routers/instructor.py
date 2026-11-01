@@ -47,6 +47,7 @@ The admin_instructor_queue.py review-queue (admin-only) and admin_writing* are u
 
 from __future__ import annotations
 
+import asyncio
 import io
 from datetime import datetime, timezone
 from typing import Literal, Optional
@@ -698,7 +699,8 @@ async def list_students(request: Request, authorization: str | None = Header(Non
     hide = test_data_visibility.hide_for(user_id=me)
     if hide:
         rows = test_data_visibility.drop_test_students(rows)
-    return _flag_hidden_cohorts(rows, _hidden_cohort_ids(me, hide))
+    hidden = await asyncio.to_thread(_hidden_cohort_ids, me, hide)
+    return _flag_hidden_cohorts(rows, hidden)
 
 
 @router.get("/students/{student_id}")
@@ -760,7 +762,8 @@ async def list_codes(request: Request, authorization: str | None = Header(None))
          .select("id, code, is_used, used_by, used_at, is_active, cohort_id, "
                  "notes, grants_role, permissions, created_at")
          .order("created_at", desc=True).execute())
-    hidden = _hidden_cohort_ids(me, test_data_visibility.hide_for(user_id=me))
+    hide = await asyncio.to_thread(test_data_visibility.hide_for, user_id=me)
+    hidden = await asyncio.to_thread(_hidden_cohort_ids, me, hide)
     return _flag_hidden_cohorts(r.data or [], hidden)
 
 

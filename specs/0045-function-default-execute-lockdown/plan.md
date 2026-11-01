@@ -24,19 +24,26 @@
 1. Record the runner (`current_user`) and the `service_role` executable-set
    snapshot (all functions in non-platform schemas, extension members
    excluded) in a temp table or `DO`-local variable for FR-004 (d).
-2. FR-002: for each registry row, `REVOKE ALL … FROM PUBLIC, anon` and
+2. FR-002: for each registry row, resolve the schema-qualified signature
+   with `to_regprocedure` (NULL aborts), `REVOKE ALL … FROM PUBLIC, anon` and
    `GRANT EXECUTE … TO <listed roles>`. Keep `service_role` where the step 1
    snapshot had it.
 3. FR-003 (if Q-J364-2 = yes): loop over the catalog set described in the FR;
    preserve `service_role` explicitly, then `REVOKE EXECUTE … FROM PUBLIC,
-   anon, authenticated`. Order by `regprocedure` text for a stable log.
-4. FR-001: loop over the actable owner roles; global `REVOKE … FROM PUBLIC`,
-   `public` `REVOKE … FROM PUBLIC, anon, authenticated`, `public` `GRANT …
-   TO service_role`.
+   anon, authenticated`. Exclude registry functions by
+   `p.oid = to_regprocedure(signature)`, never by `regprocedure::text`
+   (that text depends on `search_path`). Order by `regprocedure` text only
+   for a stable log.
+4. FR-001: loop over the actable owner roles (including every role with
+   CREATE on `public` or `app_private`, e.g. `service_role`); global
+   `REVOKE … FROM PUBLIC`, `public` `REVOKE … FROM PUBLIC, anon,
+   authenticated`, `public` `GRANT … TO service_role`, and per-schema
+   `REVOKE … FROM PUBLIC, anon, authenticated` in any other non-platform
+   schema where the role has a reaching `f` row.
 5. FR-004 postcondition (a)–(d) and the WARNING. Restore the runner role by
    name after each probe.
 
-Header: the 320-style read-only verification block (DRIFT-1/DRIFT-2 from
+Header: the 320-style read-only verification block (DRIFT-1/DRIFT-2/DRIFT-3 from
 `rollout.md`), the production pre-check, the manual rollback statements
 (`rollout.md` §Rollback) and the restore note. There is no
 `backend/migrations/rollback/NNN_*.sql`, because FR-005 rule (3) forbids
@@ -59,7 +66,9 @@ statement names `MAINTAIN`.
   disjoint from SVCPRIV-0042 T001/T004, except
   `backend/tests/test_client_write_invariant_postgres.py`, which 0042 T004
   (358) also lists. If both are open at once, the Leader orders them and the
-  second rebases by `git merge origin/staging`.
+  second rebases by `git merge origin/staging`. Leader order: 358
+  (SVCPRIV-0042 T004) merges before 0045 T001; T001 merges origin/staging
+  first.
 - `NNN` has no ordering dependency on 341, 356, 357 or 358. It must be
   numbered after every migration merged before it, so that FR-003's apply-time
   set includes their functions (the T001 cross-check is re-run on its base).
@@ -85,5 +94,5 @@ statement names `MAINTAIN`.
   42501 on a residue RPC and for success on R1 and R2.
 - FR-005 guard with mutation fixtures; FR-006 invariant with new negative
   controls.
-- Staging: DRIFT-1/DRIFT-2 before and after, smoke journeys of Scenarios 2,
+- Staging: DRIFT-1/DRIFT-2/DRIFT-3 before and after, smoke journeys of Scenarios 2,
   3, 5 and 6, and Railway logs for `permission denied for function` over 24 h.

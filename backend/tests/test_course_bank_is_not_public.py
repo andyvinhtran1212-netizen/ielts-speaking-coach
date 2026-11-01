@@ -73,7 +73,7 @@ class _Table:
         return self
 
     def order(self, *_a, **_k): return self
-    def limit(self, *_a): return self
+    def limit(self, *_a, **_k): return self
     def update(self, payload): self._patch = payload; return self
     def insert(self, payload):
         row = dict(payload if isinstance(payload, dict) else payload[0])

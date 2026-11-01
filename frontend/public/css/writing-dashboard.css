@@ -91,6 +91,10 @@ main { position: relative; z-index: 1; }
 
 /* ── Writing-permission preview banner (Sprint 5.2) ──────────────── */
 
+/* Keep the shell's geometry while permissions are pending. The banner and
+   content paint together, even when the lists arrive before permissions. */
+.wd-permissions-pending { visibility: hidden; }
+
 .wd-preview-banner {
   background: var(--av-warning-soft);
   border: 1px solid var(--av-warning);

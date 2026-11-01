@@ -27,12 +27,14 @@ import sys
 from pathlib import Path
 
 from services.course_assessment_import import (
-    DEFAULT_SCOPE, normalize_assessment_rows, parse_lesson_scope, source_sha256,
+    DEFAULT_SCOPE, AssessmentValidationError, canonical_lesson_scope,
+    normalize_assessment_rows, source_sha256,
 )
 
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("import-course-assessment")
+MAX_LISTED_ERRORS = 50
 
 
 def _course(db, code: str) -> dict:
@@ -71,7 +73,6 @@ def _commit_bank(db, *, existing: list[dict], payload: dict,
 def _bank_payload(*, course: dict, code: str, title: str, kind: str, scope: str,
                   expected_count: int, path: Path, raw: list[dict],
                   rows: list[dict]) -> dict:
-    first, last = parse_lesson_scope(scope)
     return {
         "code": code,
         "title": title,
@@ -84,7 +85,7 @@ def _bank_payload(*, course: dict, code: str, title: str, kind: str, scope: str,
         "meta": {
             "nguon": path.name,
             "assessment_kind": kind,
-            "scope": f"B{first:02d}-B{last:02d}",
+            "scope": canonical_lesson_scope(scope),
             "question_format": "multiple_choice_5",
             "option_count": 5,
             "expected_question_count": expected_count,
@@ -92,6 +93,13 @@ def _bank_payload(*, course: dict, code: str, title: str, kind: str, scope: str,
             "source_sha256": source_sha256(raw),
         },
     }
+
+
+def _validation_report(errors: list[str]) -> str:
+    lines = [f"Bộ đề còn {len(errors)} lỗi:", *errors[:MAX_LISTED_ERRORS]]
+    if len(errors) > MAX_LISTED_ERRORS:
+        lines.append(f"… còn {len(errors) - MAX_LISTED_ERRORS} lỗi")
+    return "\n".join(lines)
 
 
 def main() -> int:
@@ -116,11 +124,15 @@ def main() -> int:
         raw = json.loads(path.read_text(encoding="utf-8"))
         rows = normalize_assessment_rows(
             raw, expected_count=args.expected_count, scope=args.scope)
+    except AssessmentValidationError as exc:
+        # Nothing has been written yet; --commit is refused the same way.
+        raise SystemExit(_validation_report(exc.errors)) from exc
     except (json.JSONDecodeError, ValueError) as exc:
         raise SystemExit(str(exc)) from exc
 
     logger.info("Bank: %s · %s · %s · phạm vi %s · %d câu trắc nghiệm × 5 đáp án",
-                args.code, args.title, args.kind, args.scope.strip(), len(rows))
+                args.code, args.title, args.kind, canonical_lesson_scope(args.scope),
+                len(rows))
     by_lesson: dict[str, int] = {}
     for source in raw:
         lesson = str(source.get("lesson_primary") or "?")
