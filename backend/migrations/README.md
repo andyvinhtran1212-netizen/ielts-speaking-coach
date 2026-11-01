@@ -42,6 +42,20 @@ work and must not be reused. 346 is PC-J153 (CLASSARCHIVE-0030 FR-003),
 assigned by the Leader on 2026-10-29. 347 is PC-J163 (listening_tests client revoke,
 spec LISTENING-0005), given by the Leader on 2026-10-29.
 
+Migration `355` (PC-J267, VOCABGUARD-0040 FR-001) replaces only the published
+curated vocabulary review/task guards from 234/235. UPDATE checks both OLD and
+NEW parent versions and rejects either published parent with the existing
+immutable error; INSERT still checks NEW and DELETE still checks OLD. Parent
+rows are locked `FOR SHARE` in ascending UUID order. No data, trigger, owner,
+grant or RLS changes; one transaction with a 5 s lock timeout, re-runnable. The
+executable manual down script in the file header restores the 234/235 bodies
+and reopens the bypass. `forward-policy.tsv` holds 355 in the separate
+`vocab_curated_guard_reparent` group so opting into the original `curated_vocab`
+group does not authorize this apply. The Leader verifies 234/235 are applied,
+then explicitly opts in with `MIGRATION_FEATURES=vocab_curated_guard_reparent`
+under the advisory-locked runner and STAGING_FREEZE, staging first. Production
+requires separate owner approval at promotion; merging does not apply 355.
+
 Migration `347` (PC-J163) revokes ALL on `listening_tests` from `PUBLIC`,
 `anon` and `authenticated` (MAINTAIN included on PG 17). 295 closed the other
 Listening content tables but missed this one, which kept the 320-narrowed
@@ -314,8 +328,8 @@ changes its role. `PATCH /admin/users/{id}/role` maps the error to a 409 with a
 Vietnamese message. It sorts after 332's suspension guard, so activation still
 fails with `account_suspended`. It aborts with
 `suspended_non_staff_account_exists` while a suspended row holds a non-staff
-role (repair that out of band first). It is held back with 332 (group
-`admin_aal2`) and applied after it, on staging first. One transaction, no data
+role (repair that out of band first). It shipped with 332 (former group
+`admin_aal2`) and was applied after it, on staging first. One transaction, no data
 change, re-runnable; the rollback is in the file header.
 
 Migration `334` (ACTIVATELIMIT-0034, F09) moves the `POST /auth/activate`
@@ -395,11 +409,15 @@ while saved work waits for grading or a raise is active, and keeps the raise
 events. It misses an owed class-score sync (PC-J67 F03), so roll back 333
 only with ROLLBACK (b) in the 340 header, never with the 333 header script.
 
-Migration `332` (ADMINAAL2-0032) adds the staff security audit. It is held
-back by `forward-policy.tsv` (group `admin_aal2`), so apply it only with
-`MIGRATION_FEATURES=admin_aal2` through the advisory-locked runner, on staging
+Migration `332` (ADMINAAL2-0032) adds the staff security audit. It was held
+back by `forward-policy.tsv` (group `admin_aal2`) and applied with
+`MIGRATION_FEATURES=admin_aal2` through the advisory-locked runner, staging
 first (`specs/0032-admin-aal2-staff-guard/rollout.md` S1/S2), before the 0032
-backend. It adds:
+backend. Production applied 332 and 336 on 2026-10-29 (04:53Z, ledger confirmed
+read-only by the Release Manager), so both are now normal forward migrations
+with no policy row (PC-J354). The `admin_aal2` group no longer holds 332 or
+336; it is kept only for later work in the same spec, such as 341. It
+adds:
 
 - the `public.users` suspension marker (`suspended_at`, `suspended_by`,
   `suspension_reason`, set and cleared together and never on an active row);

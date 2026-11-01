@@ -52,6 +52,7 @@ from services.class_membership_service import (
     active_students_for_cohort,
     student_is_active_in_cohort,
 )
+from services.errors import clip_user_value
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +90,9 @@ def parse_due_time(raw: Optional[str]) -> time:
         hh, mm = raw.split(":")
         return time(int(hh), int(mm))
     except (ValueError, AttributeError) as exc:
-        raise ValueError(f"Giờ hạn không hợp lệ: {raw!r} (cần dạng HH:MM)") from exc
+        raise ValueError(
+            f"Giờ hạn không hợp lệ: {clip_user_value(raw)!r} (cần dạng HH:MM)"
+        ) from exc
 
 
 def compose_due_at(due_date: Optional[str | date], due_time: time = DEFAULT_DUE_TIME) -> Optional[str]:
