@@ -1,7 +1,7 @@
 ---
 id: PAPERUPDATEDAT-0037
 title: Every change to a Reading or Listening paper advances updated_at, and admins see that a Mock Test hides its public source
-status: approved
+status: implementing
 risk: high
 owner: product
 ---

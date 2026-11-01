@@ -139,27 +139,97 @@ class ManagedGrammarSessionState(_StrictModel):
     text_match_policy: TextMatchPolicy | None = None
 
 
-class QuizBankPlayResponse(BaseModel):
-    model_config = ConfigDict(extra='allow')
+class StudentQuizQuestion(_StrictModel):
+    """One question as the learner's player may see it (SA-BANK-ANSWERS §5.1).
+
+    `extra='forbid'` makes a column added to `quiz_questions` fail closed
+    instead of riding `select("*")` to every learner.  The key-bearing fields
+    are optional: Grammar/Vocab self-study still grades in the browser (QĐ-5,
+    until J412), while Course banks never carry them (graded on the server).
+    Value types stay permissive: the allowlist is the security boundary, and a
+    surprising JSONB shape must not take a working learner page down.
+    """
+    id: Any = None
+    qid: StrictStr
+    item_key: Any = None
+    type: Any = None
+    subtype: Any = None
+    input: Any = None
+    skill: Any = None
+    pair: Any = None
+    counts_toward_mastery: Any = None
+    prompt: Any = None
+    options: Any = None
+    segments: Any = None
+    mask: Any = None
+    points: Any = None
+    order: Any = None
+    audio_url: Any = None
+    article_url: Any = None
+    grammar_article_slug: Any = None
+    answer: Any = None
+    accept: Any = None
+    explain: Any = None
+    why_wrong: Any = None
+    hint: Any = None
+
+
+class QuizBankPlayResponse(_StrictModel):
     bank: dict[str,Any]
-    questions: list[dict[str,Any]]
+    questions: list[StudentQuizQuestion]
     word_cards: dict[str,Any]
     grammar: ManagedGrammarSessionState | None = None
+    mastery: dict[str,Any] | None = None
 
 
-class QuizSessionStartResponse(BaseModel):
+class AdminQuizQuestion(BaseModel):
+    """Teacher/admin editor row: every stored column, keys included.
+
+    Deliberately a separate model: the learner allowlist above must never be
+    reused for the editor (it would drop keys), nor this one for learners.
+    """
     model_config = ConfigDict(extra='allow')
+    qid: StrictStr
+    answer: Any = None
+    accept: Any = None
+    explain: Any = None
+    why_wrong: Any = None
+    hint: Any = None
+    pairs: Any = None
+    mask: Any = None
+    segments: Any = None
+
+
+class AdminQuizBankDetailResponse(_StrictModel):
+    bank: dict[str,Any]
+    questions: list[AdminQuizQuestion]
+
+
+class QuizSessionStartResponse(_StrictModel):
     session_id: UUID
     resume: list[dict[str,Any]]
     grammar: ManagedGrammarSessionState | None = None
+    # Course sessions only: the canonical assignment clock at session start.
+    timer: dict[str,Any] | None = None
 
 
-class QuizSessionProgressResponse(BaseModel):
-    model_config = ConfigDict(extra='allow')
+class QuizAttemptFeedback(_StrictModel):
+    """Server verdict for ONE Course mastery answer that is already recorded."""
+    qid: StrictStr
+    client_id: StrictStr | None = None
+    is_correct: StrictBool
+    answer: int | None = None
+    why_wrong: StrictStr | None = None
+    explain: StrictStr | None = None
+
+
+class QuizSessionProgressResponse(_StrictModel):
     ok: StrictBool
     attempts: int = Field(ge=0,le=200)
     word_stats: int = Field(ge=0,le=200)
     grammar: ManagedGrammarSessionState | None = None
+    # Course mastery only, and only for rows this request now has on record.
+    feedback: list[QuizAttemptFeedback] | None = None
 
 
 class QuizSessionEndResponse(BaseModel):

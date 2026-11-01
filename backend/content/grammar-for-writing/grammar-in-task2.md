@@ -136,7 +136,7 @@ Hai phần tư điểm Task 2 là **Grammatical Range and Accuracy** và **Coher
 - Governments should subsidise public transport, **which** would reduce both congestion and pollution.
 - Policies **that** ignore long-term costs rarely succeed.
 
-> "**, which**" (mệnh đề quan hệ không-xác-định) cực mạnh để thêm hệ quả/bình luận vào cuối câu — và rất dễ dùng đúng.
+> "**, which**" (mệnh đề quan hệ không-xác-định) hữu ích để thêm hệ quả/bình luận vào cuối câu; kiểm tra *which* trỏ rõ về cái gì.
 
 ---
 
@@ -154,6 +154,7 @@ Câu điều kiện thể hiện giả định và hệ quả — rất hợp es
 
 - **If** governments **invest** in renewable energy, emissions **will** fall. *(Type 1)*
 - **If** education **were** free, more people **would** attend university. *(Type 2)*
+- **If** governments **had invested** in public transport earlier, cities **would be** less congested now. *(Mixed)*
 - **Unless** action **is taken**, the situation will worsen.
 
 ---
@@ -299,7 +300,8 @@ Task 2 là văn bán trang trọng — tránh:
 | Song song / nhấn mạnh | not only... but also / What is needed is... |
 
 **Quy tắc vàng:**
+
 - Đa dạng CÓ KIỂM SOÁT: xen câu đơn và phức chính xác > câu dài sai
 - "however/therefore" = trạng từ → dấu chấm/chấm phẩy, không dấu phẩy nối câu
-- Điều kiện Type 1: if + present, will + V (không dùng will chỉ đánh dấu tương lai; vẫn có if you will help cho ý sẵn lòng)
+- Type 1: *if + present, will + V*. Không dùng *will* trong vế *if* để nói tương lai (ngoại lệ: *if you will help…* = nếu bạn sẵn lòng)
 - Tránh viết tắt và từ thân mật (kids, a lot of, get worse)

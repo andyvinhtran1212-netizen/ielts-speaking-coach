@@ -27,6 +27,8 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from postgrest.exceptions import APIError
 
+import instructor_give_fake
+
 from test_admin_students_archive import (
     ACTIVE_ID, ADMIN, ARCHIVED_AT, AUTH, COHORT_ID, INSTRUCTOR, PROMPT, USER_ID,
     FakeDB, _activate, _client, _code_row, _instructor_patches, _row, _writing_patches,
@@ -35,6 +37,7 @@ from test_admin_students_archive import (
 RACER = "00000000-0000-0000-0000-000000000003"   # archived mid-request
 PROMPT_2 = "00000000-0000-0000-0000-00000000bbb2"
 REQUEST_ID = "00000000-0000-4000-8000-000000000331"
+INSTRUCTOR_REQUEST_ID = "00000000-0000-4000-8000-000000000360"
 
 
 def _trigger_error(student_id: str | None) -> APIError:
@@ -69,6 +72,13 @@ def _rpc_trigger(db: FakeDB, racer: str = RACER, *, details: bool = True):
 
 
 def _db(**tables) -> FakeDB:
+    db = _tables_db(**tables)
+    # INSTRUCTORGIVE-0044: the instructor give routes write through mig 360's RPC.
+    db.rpc_results[instructor_give_fake.RPC] = lambda params: instructor_give_fake.emulate_instructor_give(db, params)
+    return db
+
+
+def _tables_db(**tables) -> FakeDB:
     return FakeDB({
         "students": [_row(ACTIVE_ID, archived=False), _row(RACER, archived=False)],
         "writing_assignments": [], "writing_assignment_requests": [],
@@ -128,7 +138,7 @@ def test_instructor_individual_give_archived_mid_request_is_409():
     me, access = _instructor_patches(db)
     with me, access, patch("routers.instructor.supabase_admin", db):
         r = _client().post("/instructor/assignments", headers=AUTH,
-                           json={"prompt_id": PROMPT, "student_id": RACER})
+                           json={"request_id": INSTRUCTOR_REQUEST_ID, "prompt_id": PROMPT, "student_id": RACER})
     _assert_409(r)
     assert db.tables["writing_assignments"] == []
 
@@ -184,7 +194,7 @@ def test_instructor_fan_out_refuses_the_whole_give(order):
     me, access = _instructor_patches(db)
     with me, access, patch("routers.instructor.supabase_admin", db):
         r = _client().post("/instructor/assignments/fan-out", headers=AUTH, json={
-            "prompt_ids": [PROMPT, PROMPT_2], "cohort_id": COHORT_ID})
+            "request_id": INSTRUCTOR_REQUEST_ID, "prompt_ids": [PROMPT, PROMPT_2], "cohort_id": COHORT_ID})
     _assert_409(r)
     [batch] = attempts
     assert sorted((row["student_id"], row["prompt_id"]) for row in batch) == sorted(
@@ -289,8 +299,9 @@ def _fail_insert(error: APIError):
 
 
 @pytest.mark.parametrize("path,body", [
-    ("/instructor/assignments", {"prompt_id": PROMPT, "student_id": RACER}),
-    ("/instructor/assignments/fan-out", {"prompt_ids": [PROMPT, PROMPT_2], "cohort_id": COHORT_ID}),
+    ("/instructor/assignments", {"request_id": INSTRUCTOR_REQUEST_ID, "prompt_id": PROMPT, "student_id": RACER}),
+    ("/instructor/assignments/fan-out", {"request_id": INSTRUCTOR_REQUEST_ID, "prompt_ids": [PROMPT, PROMPT_2],
+                                         "cohort_id": COHORT_ID}),
 ])
 def test_other_insert_errors_keep_their_mapping_on_the_instructor_paths(path, body):
     db = _db()

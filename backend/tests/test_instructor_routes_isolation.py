@@ -19,11 +19,14 @@ from __future__ import annotations
 
 import contextlib
 import re
+import uuid
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+
+import instructor_give_fake
 
 
 # ── valid-UUID fixtures (routes type ids as UUID — keep that strong typing) ───
@@ -114,6 +117,15 @@ class _FakeSB:
     def table(self, name):
         return _Q(name, self.store)
 
+    def rpc(self, name, params):
+        # INSTRUCTORGIVE-0044: the give routes write through mig 360's RPC.
+        return instructor_give_fake.rpc(self, name, params)
+
+
+def _rid() -> str:
+    """A fresh give request_id (INSTRUCTORGIVE-0044)."""
+    return str(uuid.uuid4())
+
 
 def _seed():
     return {
@@ -169,8 +181,8 @@ ROUTES = [
     ("GET",    "/instructor/assignments/{id}",         "read1",  AA, None, None),
     ("PATCH",  "/instructor/assignments/{id}",         "write1", AA, {"instructions": "hacked"}, None),
     ("DELETE", "/instructor/assignments/{id}",         "write1", AA, None, None),
-    ("POST",   "/instructor/assignments",              "action", None, {"prompt_id": PA, "student_id": SA}, None),
-    ("POST",   "/instructor/assignments/fan-out",      "action", None, {"prompt_ids": [PA], "cohort_id": CA}, None),
+    ("POST",   "/instructor/assignments",              "action", None, {"request_id": _rid(), "prompt_id": PA, "student_id": SA}, None),
+    ("POST",   "/instructor/assignments/fan-out",      "action", None, {"request_id": _rid(), "prompt_ids": [PA], "cohort_id": CA}, None),
     ("POST",   "/instructor/assignments/duplicates-preview", "action", None, {"prompt_ids": [PA], "cohort_id": CA}, None),
     ("GET",    "/instructor/essays",                   "list",   None, None, EA),
     ("GET",    "/instructor/essays/{id}",              "read1",  EA, None, None),
@@ -331,7 +343,7 @@ def test_fan_out_cross_owner_prompt_is_403():
     store = _seed()
     with _as(B, store) as (client, _st):
         r = client.post("/instructor/assignments/fan-out",
-                        json={"prompt_ids": [PA], "cohort_id": CA},
+                        json={"request_id": _rid(), "prompt_ids": [PA], "cohort_id": CA},
                         headers={"Authorization": "Bearer x"})
     assert r.status_code == 403, r.text
 
@@ -358,7 +370,7 @@ def test_duplicates_preview_matches_the_fan_out_duplicates_warning():
                               json={"prompt_ids": [PA], "cohort_id": CA},
                               headers={"Authorization": "Bearer x"}).json()
         given = client.post("/instructor/assignments/fan-out",
-                            json={"prompt_ids": [PA], "cohort_id": CA},
+                            json={"request_id": _rid(), "prompt_ids": [PA], "cohort_id": CA},
                             headers={"Authorization": "Bearer x"})
     assert given.status_code == 201, given.text
     assert preview["duplicate_student_ids"] == given.json()["duplicates_warning"]
@@ -434,8 +446,8 @@ def _tier_for(store, assignment):
 
 
 @pytest.mark.parametrize("path,body", [
-    ("/instructor/assignments/fan-out", {"prompt_ids": [PADM], "cohort_id": CADM}),
-    ("/instructor/assignments", {"prompt_id": PADM, "student_id": SADM}),
+    ("/instructor/assignments/fan-out", {"request_id": _rid(), "prompt_ids": [PADM], "cohort_id": CADM}),
+    ("/instructor/assignments", {"request_id": _rid(), "prompt_id": PADM, "student_id": SADM}),
 ])
 def test_w05_admin_role_instructor_give_grades_instructor_and_reaches_queue(path, body):
     store = _seed_admin_teacher()
@@ -444,6 +456,10 @@ def test_w05_admin_role_instructor_give_grades_instructor_and_reaches_queue(path
         assert r.status_code == 201, r.text
         rows = [w for w in st["writing_assignments"] if w["assigned_by"] == ADM]
         assert len(rows) == 1 and rows[0]["student_id"] == SADM
+        # INSTRUCTORGIVE-0044: the /instructor receipt goes to its own ledger,
+        # never to the admin-tools ledger that W-05 reads as "admin tools".
+        assert st["writing_assignment_requests"] == []
+        assert [q["assigned_by"] for q in st["instructor_writing_assignment_requests"]] == [ADM]
 
         # Submit-time tier: role is 'admin', but the give came from /instructor.
         assert _tier_for(st, rows[0]) == "instructor"
@@ -615,7 +631,7 @@ def test_assign_own_prompt_and_student_with_deadline():
     store = _seed()
     with _as(B, store) as (client, st):
         r = client.post("/instructor/assignments",
-                        json={"prompt_id": PB, "student_id": SB,
+                        json={"request_id": _rid(), "prompt_id": PB, "student_id": SB,
                               "deadline": "2026-12-01T00:00:00+00:00"},
                         headers={"Authorization": "Bearer x"})
     assert r.status_code == 201, r.text
@@ -629,7 +645,7 @@ def test_assign_single_student_persists_name():
     store = _seed()
     with _as(B, store) as (client, st):
         r = client.post("/instructor/assignments",
-                        json={"prompt_id": PB, "student_id": SB, "name": "Buổi 5 — Task 2"},
+                        json={"request_id": _rid(), "prompt_id": PB, "student_id": SB, "name": "Buổi 5 — Task 2"},
                         headers={"Authorization": "Bearer x"})
     assert r.status_code == 201, r.text
     rows = [a for a in st["writing_assignments"] if a.get("prompt_id") == PB and a.get("student_id") == SB]
@@ -643,14 +659,14 @@ def test_assign_single_student_persists_name():
 def test_assign_without_name_keeps_null_and_rejects_overlong_name():
     store = _seed()
     with _as(B, store) as (client, st):
-        ok = client.post("/instructor/assignments", json={"prompt_id": PB, "student_id": SB},
+        ok = client.post("/instructor/assignments", json={"request_id": _rid(), "prompt_id": PB, "student_id": SB},
                          headers={"Authorization": "Bearer x"})
         before = len(st["writing_assignments"])
         too_long = client.post("/instructor/assignments",
-                               json={"prompt_id": PB, "student_id": SB, "name": "x" * 201},
+                               json={"request_id": _rid(), "prompt_id": PB, "student_id": SB, "name": "x" * 201},
                                headers={"Authorization": "Bearer x"})
         fan_too_long = client.post("/instructor/assignments/fan-out",
-                                   json={"prompt_ids": [PB], "cohort_id": CB, "name": "x" * 201},
+                                   json={"request_id": _rid(), "prompt_ids": [PB], "cohort_id": CB, "name": "x" * 201},
                                    headers={"Authorization": "Bearer x"})
     assert ok.status_code == 201, ok.text
     assert ok.json().get("name") is None
@@ -663,7 +679,7 @@ def test_fanout_persists_name_on_every_row():
     store = _seed()
     with _as(B, store) as (client, st):
         r = client.post("/instructor/assignments/fan-out",
-                        json={"prompt_ids": [PB], "cohort_id": CB, "name": "Buổi 5"},
+                        json={"request_id": _rid(), "prompt_ids": [PB], "cohort_id": CB, "name": "Buổi 5"},
                         headers={"Authorization": "Bearer x"})
     assert r.status_code == 201, r.text
     group = r.json()["group_id"]
@@ -675,7 +691,7 @@ def test_assign_cross_tenant_student_403():
     store = _seed()
     with _as(B, store) as (client, st):
         r = client.post("/instructor/assignments",
-                        json={"prompt_id": PB, "student_id": SA},   # B's prompt, A's student
+                        json={"request_id": _rid(), "prompt_id": PB, "student_id": SA},   # B's prompt, A's student
                         headers={"Authorization": "Bearer x"})
     assert r.status_code == 403, r.text
     # B created nothing for A's student (the pre-existing seed row AA is A's own).
@@ -687,7 +703,7 @@ def test_fanout_deadline_is_wired():
     store = _seed()
     with _as(B, store) as (client, st):
         r = client.post("/instructor/assignments/fan-out",
-                        json={"prompt_ids": [PB], "cohort_id": CB,    # B's prompt + B's cohort
+                        json={"request_id": _rid(), "prompt_ids": [PB], "cohort_id": CB,    # B's prompt + B's cohort
                               "deadline": "2026-11-15T00:00:00+00:00"},
                         headers={"Authorization": "Bearer x"})
     assert r.status_code == 201, r.text

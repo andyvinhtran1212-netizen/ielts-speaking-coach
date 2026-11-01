@@ -63,6 +63,19 @@ Otherwise roll back (see the triggers below).
   evidence. Then repeat the staging steps 2–4 with read-only checks and the
   same rollback.
 
+## Revision 3 — flag off in worker threads (Q5: b)
+
+- `USE_ASYNC_DB` stays off on staging and production. No environment variable,
+  executor size or migration changes.
+- Staging: merge through the normal gate after CR. Then run the 30-learner
+  FINAL load test (001j7 / ladder scenario, after #2093) with the flag off and
+  record against the deployed SHA: `[loop-lag]` max and p95, `/health` p95, and
+  5xx and 401/403/503 counts per route, compared with the previous run of the
+  same scenario. Keep it only if loop lag max and `/health` p95 are lower and
+  the error counts do not rise.
+- Production: the Revision 3 code reaches production only with a promotion
+  that Vinh approves separately. "Q5: b" does not approve the promotion.
+
 ## Rollback and repair
 
 - **Flag rollback (FR-007):** set `USE_ASYNC_DB=false` on the Railway service
@@ -84,6 +97,11 @@ Otherwise roll back (see the triggers below).
   - the auth endpoints' p95 is not lower than with the flag off.
 - **Code rollback:** revert the implementation merge. Concurrent home-summary
   then also returns to sequential. No schema or data impact.
+- **Revision 3 rollback:** revert the Revision 3 implementation merge and
+  redeploy. There is no separate flag: `USE_ASYNC_DB=false` keeps the
+  worker-thread path. Triggers: any parity difference with the flag off, a rise
+  in 5xx or 401/403/503, a mixed or wrong-user response, or a G4 race found on
+  staging. No schema or data impact.
 - **Repair:** none needed. The converted paths only read, except the existing
   `/auth/me` first-visit insert and the `last_seen_at` update, which keep their
   sync-path semantics.

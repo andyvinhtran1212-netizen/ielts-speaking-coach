@@ -12,7 +12,7 @@
 // fixture payload values, so it doubles as a config-drift guard (if staging
 // silently flips back to real providers, this suite goes red on purpose).
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 const { cleanupE2ESession, STAGING_API, signIn } = require('./helpers');
 
 test.describe.serial('Gate A flows', () => {
