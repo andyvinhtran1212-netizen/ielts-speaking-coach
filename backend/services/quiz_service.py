@@ -3088,7 +3088,8 @@ def _assert_course_session_accepting(session: dict, ended_by: str = "completed")
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi kiểm tra hạn nộp: {exc}")
+        logger.error("[quiz] check submission deadline failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi kiểm tra hạn nộp. Vui lòng thử lại.") from None
     assignment = assignments[0]
     if assignment.get("skill") != COURSE_AREA:
         return
@@ -3222,7 +3223,8 @@ def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
                .is_("ended_by", "null")
                .execute())
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi kết thúc session: {exc}")
+        logger.error("[quiz] end session failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi kết thúc phiên làm bài. Vui lòng thử lại.") from None
     if not res.data:
         winner = _owned_session(session_id, user_id)
         if winner.get("ended_at") or winner.get("ended_by"):
@@ -3777,7 +3779,8 @@ def course_writing_state(
                  .execute().data) or []) if item else []
         rows = _course_rows_for_attempt(all_rows, attempt_no)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi đọc phần tự luận: {exc}")
+        logger.error("[quiz] read course writing failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi đọc phần tự luận. Vui lòng thử lại.") from None
 
     sub = rows[0] if rows else None
     complete_sub = bool(sub) and not _writing_row_is_broken(sub)
@@ -3862,7 +3865,8 @@ def save_course_writing_draft(*, user_id: str, bank_id: str,
                     .execute().data) or []
         done = _course_rows_for_attempt(all_done, attempt_no)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi kiểm lượt nộp: {exc}")
+        logger.error("[quiz] check writing draft submission failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi kiểm lượt nộp. Vui lòng thử lại.") from None
     # Dòng hỏng hoàn toàn KHÔNG chặn lưu nháp: em ấy còn phải nộp lại, và chặn
     # ở đây là bắt gõ lại mọi thứ trong một tab duy nhất (codex #971).
     if done and not _writing_row_is_broken(done[0]):
@@ -3892,7 +3896,8 @@ def save_course_writing_draft(*, user_id: str, bank_id: str,
         supabase_admin.table("course_writing_drafts").upsert(
             row, on_conflict="class_assignment_item_id,attempt_no").execute()
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi lưu nháp: {exc}")
+        logger.error("[quiz] save writing draft failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi lưu nháp. Vui lòng thử lại.") from None
     return {"saved": len(kept), "item_id": item["id"]}
 
 
@@ -3933,7 +3938,8 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
               .eq("bank_id", bank_id).eq("type", "writing")
               .order("order").execute().data) or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi đọc đề tự luận: {exc}")
+        logger.error("[quiz] read writing questions failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi đọc đề tự luận. Vui lòng thử lại.") from None
     if not qs:
         raise HTTPException(404, "Bài tập này không có phần tự luận")
 
@@ -3978,7 +3984,8 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
                    .execute().data) or []
         already = _course_rows_for_attempt(all_submissions, attempt_no)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi kiểm lượt nộp: {exc}")
+        logger.error("[quiz] check writing submission failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi kiểm lượt nộp. Vui lòng thử lại.") from None
     # Dòng cũ còn BẤT KỲ câu chưa chấm được thì KHÔNG phải một lượt hoàn tất.
     # Cho chấm lại TẠI CHỖ, dùng lại đúng dòng ấy.
     retry_of = retry_stamp = None
@@ -4064,7 +4071,8 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
         # ĐẦU TIÊN mới là bản thật.
         if "23505" in str(exc) or "duplicate key" in str(exc).lower():
             raise HTTPException(409, "Phần tự luận chỉ nộp được một lần.")
-        raise HTTPException(500, f"Lỗi lưu bài tự luận: {exc}")
+        logger.error("[quiz] save course writing failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi lưu bài tự luận. Vui lòng thử lại.") from None
 
     saved = (res.data or [{}])[0]
 
@@ -4271,7 +4279,8 @@ def _course_live_required_sections(bank_id: str) -> list[str]:
                               .select("id").eq("bank_id", bank_id)
                               .eq("is_active", True).limit(1).execute().data) or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi đọc cấu trúc bài tập: {exc}") from exc
+        logger.error("[quiz] read course structure failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi đọc cấu trúc bài tập. Vui lòng thử lại.") from None
 
     meta = (bank_rows[0].get("meta") or {}) if bank_rows else {}
     required: list[str] = []
@@ -4350,7 +4359,8 @@ def begin_course_full_retry(
                 query = query.eq("updated_at", item["updated_at"])
             changed = query.execute().data or []
         except Exception as exc:  # noqa: BLE001
-            raise HTTPException(500, f"Không mở được lượt làm lại: {exc}") from exc
+            logger.error("[quiz] begin course full retry failed: %s", exc, exc_info=True)
+            raise HTTPException(500, "Không mở được lượt làm lại. Vui lòng thử lại.") from None
         if changed:
             return {"ok": True, "item_id": item["id"],
                     "attempt_no": next_no, "already_started": False}
@@ -4395,7 +4405,8 @@ def _course_completion_evidence(
             all_pronunciation_rows, attempt_no,
         )[:1]
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi đọc kết quả các phần: {exc}")
+        logger.error("[quiz] read course section results failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi đọc kết quả các phần. Vui lòng thử lại.") from None
 
     if writing_rows:
         row = writing_rows[0]
@@ -4574,7 +4585,8 @@ def _ensure_course_result_receipt(
                  .select("submitted_at").eq("id", item["id"])
                  .limit(1).execute().data) or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"{error_message}: {exc}") from exc
+        logger.error("[quiz] read course result receipt failed: %s", exc, exc_info=True)
+        raise HTTPException(500, error_message) from None
     if not check or not check[0].get("submitted_at"):
         raise HTTPException(500, error_message)
 
@@ -4638,7 +4650,8 @@ def refresh_course_completion(
         except HTTPException:
             raise
         except Exception as exc:  # noqa: BLE001
-            raise HTTPException(500, f"Lỗi đọc sổ hoàn thành: {exc}")
+            logger.error("[quiz] read course completion ledger failed: %s", exc, exc_info=True)
+            raise HTTPException(500, "Lỗi đọc sổ hoàn thành. Vui lòng thử lại.") from None
 
         assignment = assignment_rows[0] if assignment_rows else {}
         cfg = mastery_config(assignment)
@@ -4740,7 +4753,8 @@ def refresh_course_completion(
                 q = q.eq("updated_at", item["updated_at"])
             changed = q.execute().data or []
         except Exception as exc:  # noqa: BLE001
-            raise HTTPException(500, f"Lỗi ghi sổ hoàn thành: {exc}")
+            logger.error("[quiz] write course completion ledger failed: %s", exc, exc_info=True)
+            raise HTTPException(500, "Lỗi ghi sổ hoàn thành. Vui lòng thử lại.") from None
         if not changed:
             continue
 
@@ -4848,7 +4862,8 @@ def course_verdict(
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi đọc dữ liệu xét đạt: {exc}")
+        logger.error("[quiz] read course verdict data failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi đọc dữ liệu xét đạt. Vui lòng thử lại.") from None
     if not cur:
         raise HTTPException(404, "Không tìm thấy mục bài giao")
     cur = cur[0]
