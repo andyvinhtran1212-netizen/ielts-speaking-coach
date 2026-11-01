@@ -316,6 +316,9 @@ def sandbox(tmp_path, source, target, database, injection="", appended=""):
     ("invariant_name_pattern", "migration_acl_invariant_violated: public.grammar_quiz_fixture_helper():service_role"),
     ("invariant_target_schema", "migration_acl_invariant_violated: app_private:anon:USAGE [335]"),
     ("invariant_missing", "migration_acl_invariant_object_missing: relation public.listening_test_attempts"),
+    # Codex P2 (PR #2138): column-level grants count too (attacl, not relacl).
+    ("invariant_column_update", "migration_acl_invariant_violated: public.mock_attempt_review_flags:service_role:UPDATE [307]"),
+    ("invariant_column_public", "public.student_cohort_memberships:public:SELECT [227]"),
 ])
 def test_clone_preflight_and_atomic_restore(clusters, tmp_path, case, diagnostic):
     source, target = clusters
@@ -355,6 +358,10 @@ def test_clone_preflight_and_atomic_restore(clusters, tmp_path, case, diagnostic
         seed.append("GRANT EXECUTE ON FUNCTION public.fn_users_suspension_role_guard() TO service_role;")
     if case == "invariant_name_pattern":
         seed.append("GRANT EXECUTE ON FUNCTION public.grammar_quiz_fixture_helper() TO service_role;")
+    if case == "invariant_column_update":
+        seed.append("GRANT UPDATE (id) ON public.mock_attempt_review_flags TO service_role;")
+    if case == "invariant_column_public":
+        seed.append("GRANT SELECT (id) ON public.student_cohort_memberships TO PUBLIC;")
     if case == "invariant_missing":
         seed.append("DROP TABLE public.listening_test_attempts;")
     if case in {"missing_role", "role_present"}:

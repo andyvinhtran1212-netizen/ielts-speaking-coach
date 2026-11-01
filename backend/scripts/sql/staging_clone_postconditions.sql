@@ -485,9 +485,17 @@ BEGIN
          WHERE t.oid IS NOT NULL
            AND CASE WHEN p.privilege = 'MAINTAIN'
                          AND current_setting('server_version_num')::int < 170000 THEN false
+                    -- Column grants (GRANT UPDATE (col) ...) live in attacl, not relacl.
                     WHEN r.role = 'public'
                     THEN EXISTS (SELECT 1 FROM aclexplode(t.acl) a
                                   WHERE a.grantee = 0 AND a.privilege_type = p.privilege)
+                      OR EXISTS (SELECT 1 FROM pg_attribute att
+                                  CROSS JOIN aclexplode(att.attacl) a
+                                  WHERE t.objtype = 'r' AND att.attrelid = t.oid
+                                    AND att.attnum > 0 AND NOT att.attisdropped
+                                    AND a.grantee = 0 AND a.privilege_type = p.privilege)
+                    WHEN t.objtype = 'r' AND p.privilege IN ('SELECT', 'INSERT', 'UPDATE', 'REFERENCES')
+                    THEN has_any_column_privilege(r.role, t.oid, p.privilege)
                     WHEN t.objtype = 'r' THEN has_table_privilege(r.role, t.oid, p.privilege)
                     WHEN t.objtype = 'f' THEN has_function_privilege(r.role, t.oid, p.privilege)
                     ELSE has_schema_privilege(r.role, t.oid, p.privilege) END
