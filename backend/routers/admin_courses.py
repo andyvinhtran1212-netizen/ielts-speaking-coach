@@ -119,7 +119,7 @@ async def update_course(
         )
     except Exception as exc:
         if "duplicate key" in str(exc).lower() or "unique" in str(exc).lower():
-            raise HTTPException(409, f"Mã khoá '{updates.get('code')}' đã tồn tại.")
+            raise HTTPException(409, f"Mã khoá '{clip_user_value(updates.get('code'))}' đã tồn tại.")
         logger.error("[admin-courses] update course failed: %s", exc, exc_info=True)
         raise HTTPException(500, "Lỗi khi cập nhật khoá học. Vui lòng thử lại.") from None
 
