@@ -234,6 +234,12 @@ Dùng khi muốn cân nhắc hai mặt (rất hợp Part 3 và discussion essay)
 
 ---
 
+## Lỗi người Việt hay gặp
+
+Đừng giữ nguyên cả hai nửa của cặp "mặc dù… nhưng…" khi chuyển sang tiếng Anh. Với cùng một quan hệ tương phản, dùng *Although it was cold, we went out* hoặc *It was cold, but we went out*.
+
+Một điểm dễ nhầm nữa là dịch "mặc dù" luôn thành *despite*. Hãy nhìn cấu trúc phía sau: *despite **the cold*** là cụm danh từ; *although **it was cold*** là mệnh đề. Nếu muốn giữ mệnh đề sau *despite*, cần **the fact that**. Trước khi sửa một câu tương phản, kiểm tra cả ý nghĩa lẫn cấu trúc theo sau từ nối.
+
 ## Bài tập luyện
 
 ### Chọn / điền connector đúng
@@ -259,13 +265,13 @@ Dùng khi muốn cân nhắc hai mặt (rất hợp Part 3 và discussion essay)
 1. Although (theo sau là mệnh đề)
 2. However (đầu câu mới, có dấu phẩy sau)
 3. Despite (theo sau là danh từ "his lack of experience")
-4. whereas
+4. **whereas**. Hai vế đều có chủ ngữ–động từ và nêu hai lựa chọn đối chiếu nhau; *despite* không đứng trực tiếp trước mệnh đề *others enjoy the countryside*.
 
 **Viết lại:**
 
-1. Despite the risk(s), the company approved the project. / Despite being risky, the project was approved.
-2. Despite the fact that it was raining heavily, the match continued.
-3. Although the plan is cheap, it is unrealistic.
+1. Despite the risk(s), the company approved the project. / Despite being risky, the project was approved. *Despite* đi với cụm danh từ hoặc V-ing. Trong cách thứ hai, chủ ngữ **the project** cũng là đối tượng có tính chất *risky*; không viết *Despite being risky, the company…* nếu ý là dự án có rủi ro.
+2. Despite the fact that it was raining heavily, the match continued. Cụm **the fact that** cho phép giữ nguyên mệnh đề đầy đủ *it was raining heavily* sau *despite*.
+3. Although the plan is cheap, it is unrealistic. *Although* trực tiếp mở đầu mệnh đề nhượng bộ; bỏ *however* khi gộp hai câu theo yêu cầu này và không thêm *but*.
 
 ---
 

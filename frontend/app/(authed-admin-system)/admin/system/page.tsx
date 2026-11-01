@@ -15,7 +15,7 @@ export default function AdminSystemPage() {
           <header className="sys-header">
             <h1>Hệ thống</h1>
             <p className="subtitle">
-              AI usage tracking + alerts. Sprint 12.8 carve cuối cùng từ admin.html monolith.
+              Chi phí AI và sự cố chấm bài.
             </p>
           </header>
 
