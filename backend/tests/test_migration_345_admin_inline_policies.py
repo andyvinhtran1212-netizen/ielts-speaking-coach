@@ -728,3 +728,114 @@ def test_postcondition_rejects_an_unsafe_state(pre, setup, text, marker):
     # The failed run left nothing behind (one transaction).
     assert _catalog(database) == before
     assert sql(database, "SELECT count(*) FROM lemma_overrides") == "2"
+
+
+# PC-J169 (SA 2026-10-29): 345's step-6 check reads has_table_privilege for
+# SELECT … TRIGGER only, and its REVOKE removes only the runner's own grants.
+# A grant passed on by another role (WITH GRANT OPTION) survives both when it
+# is column-level INSERT/UPDATE/REFERENCES or MAINTAIN (PG17). 345 is approved
+# and pinned, so the read-only verifier below closes that gap after apply.
+VERIFIER = BACKEND / "scripts" / "verify_migration_345_client_acl.sql"
+VERIFIER_SQL = VERIFIER.read_text(encoding="utf-8")
+DELEGATE = "admin345_delegate"
+INHERITED = "admin345_inherited"
+VERIFIED = "verify_345_client_acl: ok"
+
+
+def _verify(database: str) -> str:
+    """The verifier's last line, run read-only as the runner, or its error."""
+    try:
+        return _run(database, "SET default_transaction_read_only = on;\n" + VERIFIER_SQL,
+                    role=RUNNER).splitlines()[-1]
+    except RuntimeError as error:
+        return str(error)
+
+
+def _pg17() -> bool:
+    return int(sql("postgres", "SHOW server_version_num")) >= 170000
+
+
+def _ensure_role(name: str) -> None:
+    sql("postgres", f"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='{name}') THEN"
+                    f" CREATE ROLE {name} NOSUPERUSER NOBYPASSRLS NOLOGIN; END IF; END $$;")
+
+
+def test_client_acl_verifier_is_read_only_and_covers_the_345_tables():
+    code = _strip_sql_comments(VERIFIER_SQL)
+    match = re.search(r"revoked_tables CONSTANT TEXT\[\] := ARRAY\[(.*?)\];", code, re.S)
+    assert match and match.group(1) == _array("revoked_tables")
+    assert "aclexplode(c.relacl)" in code and "aclexplode(att.attacl)" in code
+    assert "'MAINTAIN'" in code and "current_setting('server_version_num')::int >= 170000" in code
+    assert not re.search(r"^\s*\\", VERIFIER_SQL, re.M), "no psql meta-command (Management API)"
+    for forbidden in (r"\bGRANT\b", r"\bREVOKE\b", r"\bINSERT\s+INTO\b", r"^\s*UPDATE\s", r"DELETE\s+FROM",
+                      r"\b(?:ALTER|CREATE|DROP)\s", r"\bSET\s", r"\bCOMMIT\b"):
+        assert not re.search(forbidden, code, re.M | re.I), forbidden
+    readme = (MIGRATIONS / "README.md").read_text(encoding="utf-8")
+    assert "backend/scripts/verify_migration_345_client_acl.sql" in readme
+
+
+def test_client_acl_verifier_passes_after_345(world):
+    assert _verify(world["db"]) == VERIFIED
+
+
+def test_client_acl_verifier_fails_before_345_and_on_a_missing_table(pre):
+    database, _ = pre
+    # 320 left anon/authenticated SELECT, granted by the runner (owner).
+    assert ("client_acl_entry_remains: access_codes:anon:SELECT/admin345_runner, "
+            "access_codes:authenticated:SELECT/admin345_runner, lemma_overrides:anon:SELECT") in _verify(database)
+    _apply(database)
+    assert _verify(database) == VERIFIED
+    sql(database, "DROP TABLE lemma_overrides")
+    assert "revoked_table_missing: lemma_overrides" in _verify(database)
+
+
+# (table, grant, entry the verifier must name). The grantor is DELEGATE, who
+# holds ALL on the table WITH GRANT OPTION from the runner.
+DELEGATED = [
+    ("lemma_overrides", "GRANT INSERT (lemma) ON lemma_overrides TO anon",
+     "lemma_overrides.lemma:anon:INSERT/admin345_delegate"),
+    ("user_feedback", "GRANT UPDATE (message) ON user_feedback TO authenticated",
+     "user_feedback.message:authenticated:UPDATE/admin345_delegate"),
+    ("access_codes", "GRANT REFERENCES (id) ON access_codes TO PUBLIC",
+     "access_codes.id:PUBLIC:REFERENCES/admin345_delegate"),
+    ("lemma_overrides", "GRANT MAINTAIN ON lemma_overrides TO authenticated",
+     "lemma_overrides:authenticated:MAINTAIN/admin345_delegate"),
+]
+
+
+@pytest.mark.parametrize(("table", "grant", "entry"), DELEGATED,
+                         ids=["column-insert-anon", "column-update-authenticated",
+                              "column-references-public", "maintain-pg17"])
+def test_a_delegated_grant_passes_345_and_fails_the_verifier(pre, table, grant, entry):
+    database, _ = pre
+    _ensure_role(DELEGATE)
+    _run(database, f"GRANT ALL ON {table} TO {DELEGATE} WITH GRANT OPTION;", role=RUNNER)
+    if "MAINTAIN" in grant and not _pg17():
+        # PG16 has no MAINTAIN privilege, so there is nothing to leave behind.
+        with pytest.raises(RuntimeError, match="unrecognized privilege type"):
+            _run(database, grant, role=DELEGATE)
+        _apply(database)
+        assert _verify(database) == VERIFIED
+        return
+    _run(database, grant, role=DELEGATE)
+    # Red: 345 applies cleanly and its own postcondition does not see the grant.
+    _apply(database)
+    # The verifier names that one entry and nothing else.
+    assert re.search(rf"ERROR:  client_acl_entry_remains: {re.escape(entry)}$", _verify(database), re.M)
+    # Green once the delegate revokes it: the verifier named exactly that entry.
+    _run(database, grant.replace("GRANT", "REVOKE", 1).replace(" TO ", " FROM "), role=DELEGATE)
+    assert _verify(database) == VERIFIED
+
+
+def test_a_privilege_inherited_through_membership_fails_the_verifier(pre):
+    database, _ = pre
+    _ensure_role(INHERITED)
+    _run(database, f"GRANT UPDATE (lemma) ON lemma_overrides TO {INHERITED};", role=RUNNER)
+    _apply(database)
+    # No ACL entry names anon, so only the effective check can see it.
+    sql(database, f"GRANT {INHERITED} TO anon")
+    try:
+        assert "client_privilege_effective_remains: lemma_overrides:anon:UPDATE" in _verify(database)
+    finally:
+        sql(database, f"REVOKE {INHERITED} FROM anon")
+    assert _verify(database) == VERIFIED

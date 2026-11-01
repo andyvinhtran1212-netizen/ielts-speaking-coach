@@ -210,7 +210,7 @@ S + is/are + V-ed (past participle)
 | **the -est / most** | China had **the highest** figure. |
 | **(not) as ... as** | Sales were **not as high as** expected. |
 | **twice / three times as ... as** | Imports were **twice as high as** exports. |
-| **X times more than** | Spending was **three times higher than** in 2000. |
+| **X times more than** | Spending was **three times higher than** in 2000. (*three times as high as* an toàn hơn; *three times higher than* hay gặp nhưng có người hiểu là ×4) |
 
 - The figure for France was **significantly higher than** that for Spain.
 - Among all countries, Japan recorded **the lowest** rate.
@@ -257,7 +257,7 @@ S + is/are + V-ed (past participle)
 ### Mạo từ với số liệu
 
 - ❌ Number of cars increased. → ✅ **The** number of cars increased.
-- ❌ Sales reached peak. → ✅ Sales reached **a** peak.
+- ❌ Sales reached peak. → ✅ Sales reached **a peak of** 5 million in 2015.
 
 ---
 
@@ -315,6 +315,12 @@ Gộp hai số liệu đối lập trong một câu (whereas / while) thay vì h
 
 ---
 
+## Lỗi người Việt hay gặp
+
+Khi diễn đạt "số lượng các…", người học dễ nhìn danh từ số nhiều cuối cụm rồi chọn động từ số nhiều. Trong *the number of parcels*, danh từ trung tâm là **number**, nên viết *The number of parcels has increased*, không phải *have increased*.
+
+Một lỗi khác là dịch "tăng 10%" mà chưa phân biệt **lượng tăng** và **mức đạt tới**. *Increased by 10%* nói lượng tăng; *increased to 10%* nói mức cuối. Trước khi chọn giới từ, hãy tự hỏi con số mô tả phần thay đổi hay điểm đến. Khi so sánh, hai vế phải cùng loại: một **figure** được so với một **figure**, không so trực tiếp với tên quốc gia.
+
 ## Bài tập luyện
 
 ### Sửa lỗi trong câu Task 1
@@ -323,13 +329,15 @@ Gộp hai số liệu đối lập trong một câu (whereas / while) thay vì h
 2. The chart showed the number of visitors and it have risen sharply.
 3. First, they collect the beans, then dry them. *(đổi sang bị động)*
 4. The figure for China was higher than France.
+5. The number of parcels have increased this month.
 
 ### Đáp án (gợi ý)
 
-1. Sales increased **by** 20% between 2000 and 2010. *(hoặc: There was an increase **of** 20%.)*
-2. The chart **shows** the number of visitors, which **has** risen sharply.
-3. First, the beans **are collected**, then **(are) dried**.
-4. The figure for China was higher than **that for** France.
+1. Sales increased **by** 20% between 2000 and 2010. *(hoặc: There was an increase **of** 20%.)* Sau động từ *increase*, **by** chỉ lượng thay đổi; sau danh từ *increase*, dùng **of** cho lượng đó.
+2. The chart **shows** the number of visitors, which **has** risen sharply. *Shows* mô tả biểu đồ đang được trình bày; *has* hoà hợp với danh từ trung tâm số ít **number**, không phải *visitors*.
+3. First, the beans **are collected** and then **dried**. *(hoặc tách 2 câu: …are collected. They are then dried.)* Hạt là đối tượng chịu tác động nên dùng bị động. Hai phân từ *collected* và *dried* dùng chung **are**; không nối hai mệnh đề độc lập chỉ bằng dấu phẩy.
+4. The figure for China was higher than **that for** France. *That* thay cho **the figure**, để so số liệu của Trung Quốc với số liệu của Pháp thay vì so số liệu với một quốc gia.
+5. The number of parcels **has** increased this month. Chủ ngữ có danh từ trung tâm **number** số ít, nên dùng **has**, dù *parcels* ở cuối cụm là số nhiều.
 
 ---
 
@@ -338,12 +346,13 @@ Gộp hai số liệu đối lập trong một câu (whereas / while) thay vì h
 | Mảng | Quy tắc | Ví dụ |
 |------|---------|-------|
 | Thì | biểu đồ = present; dữ liệu quá khứ = past | shows / rose |
-| Thể trong process | Chọn theo tác nhân/vai nghĩa: manufacture thường bị động; water evaporates chủ động | is heated / evaporates |
+| Thể trong process | Các bước sản xuất thường dùng bị động; bước tự diễn ra (*water evaporates*) dùng chủ động | is heated / evaporates |
 | So sánh | -er than / the -est / that of | higher than that of... |
 | Giới từ | to (mức), by (lượng), from...to, of | rose by 10% to 80% |
 | Hoà hợp | the number of + số ít | The number ... has |
 
 **Quy tắc vàng:**
+
 - "rose **by** + lượng", "rose **to** + mức", "a rise **of** + lượng" — KHÔNG "rose of"
 - Biểu đồ luôn dùng present (shows/illustrates); dữ liệu có mốc quá khứ dùng past
 - Process diagram → bị động (is/are + V-ed) cho bước được tác động; chủ động cho bước tự diễn ra (evaporates)

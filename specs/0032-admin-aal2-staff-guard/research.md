@@ -533,6 +533,20 @@ unverified factor.
   password and then verify can kill each other's half-finished sign-ins.
   Serialize the admin sign-in, or retry on `session_not_found`.
 
+### 9.7 First sweep run leaves a gap (PC-J139, 2026-10-29)
+
+On staging the sweep never ran after 332 was applied: no cron service, 0
+`staff_security_sweep_cursor` rows and 0 `staff_mfa_factor_snapshot` rows
+(Web Manager, 2026-10-29 14:56 UTC+7). The first run starts the cursor at the
+newest entry by design, so every factor event between 332 and that run would
+stay unaudited. The spec does not say how the first run treats that history.
+The decision, within FR-010: a one-off `--backfill` from 332's `applied_at`,
+using the step 1 mapping and dedupe key, with no owner alert or email for the
+old events (Leader, 2026-10-29 15:02). Events before 332 are not written,
+because `role_at` relies on the role history that starts with 332. The
+procedure is rollout.md "First run and backfill". Production has the same gap
+at its first run, so T013 uses the same procedure.
+
 ## 10. Amendment 1: AAL2 max age, step-up and factor deletion (2026-10-29)
 
 Read-only against `origin/staging` by the Feature Developer at `f69055f65`

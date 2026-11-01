@@ -42,3 +42,12 @@ it, and on production before promotion. Publish each follow-up only after its
 environment runs the exact implementation SHA, through admin preview/commit with
 backups and readback. Rollback before publication restores the 314 function
 bodies; after publication, disable new starts on the v3 bank and keep v1/v2.
+
+## Revision 3 follow-ups
+
+Same order as Revision 2, after it: the Revision 3 migration lands on each
+environment after 339 and before the implementation deploy that depends on it.
+Publish each follow-up only after its environment runs the exact implementation
+SHA, through admin preview/commit with backups and readback. Rollback before
+publication restores the 339 function bodies; after publication, disable new
+starts on the v3 bank and keep v1/v2.

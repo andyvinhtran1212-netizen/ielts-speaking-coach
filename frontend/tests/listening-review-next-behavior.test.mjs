@@ -22,6 +22,7 @@ const read = (...parts) => readFileSync(path.join(ROOT, ...parts), 'utf8');
 const CLIENT = read('app', '(authed-listening-review)', 'listening', 'review', 'listening-review-workspace.tsx');
 const LAYOUT = read('app', '(authed-listening-review)', 'layout.tsx');
 const PAGE = read('app', '(authed-listening-review)', 'listening', 'review', 'page.tsx');
+const REVIEW_CONTEXT = read('components', 'review-attempt-context.tsx');
 const NEXT_CSS = read('public', 'css', 'listening-review-next.css');
 const LEGACY_HTML = read('tests', 'fixtures', 'legacy-html-retired', 'pages', 'listening-review.html');
 const LEGACY_JS = read('public', 'js', 'listening-review.js');
@@ -195,7 +196,9 @@ describe('Listening review native controller contract', () => {
 
   test('keeps an expandable fallback when a submitted item has no authored solution', () => {
     assert.match(CLIENT, /hasSolutionDetail/);
-    assert.match(CLIENT, /Chưa có lời giải chi tiết\./);
+    // The fallback now states why the solution is missing (web_explanation_access, RV-04).
+    assert.match(CLIENT, /<p className="lr-sol__empty">\{reviewExplanationUnavailableReason\(webExplanationAccess\)\}<\/p>/);
+    assert.match(REVIEW_CONTEXT, /Câu này chưa có lời giải chi tiết\./);
     assert.match(CLIENT, /aria-expanded=\{expanded\}/);
   });
 });

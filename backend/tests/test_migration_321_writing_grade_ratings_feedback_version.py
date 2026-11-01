@@ -268,13 +268,17 @@ def catalog(name):
 
 
 def outside_migration_scope(snapshot):
-    """Ignore only 321's column/key replacement and backfill bookkeeping."""
+    """Ignore only 321's column/key replacement and backfill bookkeeping.
+
+    oid of unrelated constraints/indexes must survive 321; only the replaced
+    keys may be recreated.
+    """
     columns, constraints, indexes, rows = snapshot
     replaced_keys = {"writing_grade_ratings_essay_id_key", COMPOSITE}
     return (
         [c for c in columns if c[1] != "feedback_version"],
-        [c[1:] for c in constraints if c[1] not in replaced_keys],
-        [i[1:] for i in indexes if i[1].split(".")[-1] not in replaced_keys],
+        [c for c in constraints if c[1] not in replaced_keys],
+        [i for i in indexes if i[1].split(".")[-1] not in replaced_keys],
         [{k: v for k, v in r.items() if k not in {"feedback_version", "xmin"}} for r in rows],
     )
 

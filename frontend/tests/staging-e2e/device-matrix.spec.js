@@ -3,7 +3,7 @@
 // an iPhone viewport. WebKit emulation is NOT real Safari/iOS evidence; the
 // synthetic compatibility coverage, not real Safari/iOS certification.
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 const { PRODUCTION_ORIGINS, primeBypassCookie } = require('./helpers');
 const { automated_projects: automatedProjects } = require('../../tooling/staging-device-matrix.json');
 

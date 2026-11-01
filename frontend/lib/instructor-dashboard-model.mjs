@@ -67,9 +67,33 @@ export function normalizeInstructorStudents(value) {
       fullName: text(row.full_name) || 'Học viên',
       studentCode: text(row.student_code) || '—',
       cohortId: nullableText(row.cohort_id),
+      cohortHidden: row.cohort_hidden === true,
       userId: nullableText(row.user_id),
     });
   });
+}
+
+/** Class-column copy. HIDDEN = placeholder pending Content Manager review (PC-J215). */
+export const COHORT_LABEL_COPY = Object.freeze({
+  hidden: 'Lớp đã ẩn',
+  unknown: 'Lớp không xác định',
+  none: '—',
+});
+
+/**
+ * PC-J215 — the "Lớp" cell of a student or code row. While staging hides test
+ * data, /instructor/cohorts drops QA classes but students/codes keep their
+ * cohort_id and arrive with `cohort_hidden: true`; say "hidden", not "unknown".
+ *
+ * @param {string | null} cohortId
+ * @param {boolean} cohortHidden
+ * @param {ReadonlyMap<string, string>} names cohort id → name
+ */
+export function cohortLabel(cohortId, cohortHidden, names) {
+  if (!cohortId) return COHORT_LABEL_COPY.none;
+  const name = names?.get(cohortId);
+  if (name) return name;
+  return cohortHidden ? COHORT_LABEL_COPY.hidden : COHORT_LABEL_COPY.unknown;
 }
 
 export function normalizeInstructorPrompts(value) {
@@ -92,6 +116,7 @@ export function normalizeInstructorCodes(value) {
       code,
       isUsed: row.is_used,
       cohortId: nullableText(row.cohort_id),
+      cohortHidden: row.cohort_hidden === true,
     });
   });
 }

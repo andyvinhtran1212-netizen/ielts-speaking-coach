@@ -7,7 +7,8 @@ floor counts and tightness vary per level — see each level's
 ## `mistakeAnalysis` — approach (cumulative L1+)
 
 Populate `mistakeAnalysis` with every error found in the essay. Categorise
-each by `criterion` (Task Response, Coherence & Cohesion, Lexical Resource,
+each by `criterion` (Task Achievement for Task 1 / Task Response for Task 2,
+Coherence & Cohesion, Lexical Resource,
 or Grammatical Range & Accuracy).
 
 Common categories to flag:
@@ -44,7 +45,8 @@ grammar/coherence/word-choice issues you flagged in the analysis sections.
 For each of the 4 IELTS criteria (`mainCriterion`, `coherenceCohesion`,
 `lexicalResource`, `grammaticalRange`):
 
-- `title`: the criterion name in English (e.g., "Task Response").
+- `title`: the criterion name in English; use "Task Achievement" for Task 1
+  and "Task Response" for Task 2 on `mainCriterion`.
 - `explanation`: Vietnamese, 1–2 sentences explaining what the criterion
   measures.
 - `feedback`: Vietnamese, specific feedback for THIS essay (not generic).

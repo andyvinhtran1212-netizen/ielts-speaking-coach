@@ -16,3 +16,13 @@ report `/workspace/cc-jobs/security-auditor/avr-read-002-ispublic-flip-1028.md`:
 Scope: staging only. The Leader applies 338 to staging under the advisory lock.
 This does not authorize applying 338 to production; that needs the owner's
 explicit authorization at the `staging` → `main` promotion.
+
+## Amendment 1 — FR-006 (Listening package transitions under the 306 policy trigger)
+
+**State: APPROVED** by Vinh on 2026-10-30 at 06:58 (UTC+7), verbatim "Ok theo đề xuất" (approving Q-0600-SPEC0037-FR006 as proposed), relayed by the Leader. Proposed 2026-10-30 by the Project
+Coordinator (PC-J252) after PC-J242 reproduced SQLSTATE 55000
+`listening_package_child_immutable` on a permitted package publish
+(`306_mock_paper_policy_and_admission.sql:717-724` bumps `policy_revision`;
+`295_listening_content_programmes.sql:625,681-686` does not allow it).
+Vinh approves the exact FR-006 text in `spec.md`; implementation (migration
+353) starts only after this amendment is merged into `staging`.

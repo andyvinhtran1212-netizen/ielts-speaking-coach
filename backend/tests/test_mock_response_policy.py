@@ -76,7 +76,8 @@ def test_literal_has_only_reviewed_forms_no_plural_synonym_or_optional_word_rule
     p = policy("literal", ["hair"])
     assert policy_answer_matches(" HAIR ", p)
     assert not policy_answer_matches("hairs", p)
-    assert not policy_answer_matches("hair.", p)
+    assert policy_answer_matches("hair.", p)  # PC-J223: edge punctuation is not part of the answer.
+    assert not policy_answer_matches("hair-", p)
     assert not policy_answer_matches("fur", p)
     assert not policy_answer_matches("11000", policy("literal", ["11,000"]))
     assert not policy_answer_matches("food consumption", policy("literal", ["(food) consumption"]))
@@ -222,3 +223,118 @@ def test_new_reading_multi_select_retains_cardinality(answer, correct):
     key = [{"q_num": 1, "question_type": "mcq_multi", "answer": ["A", "C"],
             "response_policy": policy("option_id", ["A", "C"])}]
     assert reading.grade_attempt([{"q_num": 1, "user_answer": answer}], key)["per_question"][0]["correct"] is correct
+
+
+# PC-J223: staging ILR-LIS-025-R12 Q5/Q30/Q34 policies (kind, settings, word cap
+# and accepted forms verbatim from C05-CM-check; provenance is synthetic).
+def l025(q, kind, forms, max_words, **settings):
+    p = policy(kind, forms, **settings)
+    p["policy_id"] = f"ILR-LIS-025/{q}/source-v1.1/response-v1"
+    p["max_words"] = max_words
+    return p
+
+
+Q5 = l025("S1_B1/Q5", "literal", ["travel", "transport"], 3, case_sensitive=False)
+Q30 = l025("S3_B3/Q30", "number", ["11,000", "11000", "eleven thousand"], 2, locale="en")
+Q34 = l025("S4_B1/Q34", "literal", ["two-dimensional material", "2D material"], 2, case_sensitive=False)
+
+
+@pytest.mark.parametrize("user", [
+    "Travel.", "travel.", "travel,", "travel;", "travel:", "travel!", "travel?",
+    "travel. ", "travel..", "travel .", " travel ", ".travel", "travel?!", "Transport.",
+    '"travel"', "\u201ctravel\u201d", "'travel'", "\u2018travel\u2019", '"travel."', '"travel".',
+])
+def test_literal_ignores_edge_sentence_punctuation_and_wrapping_quotes(user):
+    assert policy_answer_matches(user, Q5)
+
+
+@pytest.mark.parametrize("user", ["two-dimensional material.", "2D material.", "2d material!", "Two-Dimensional Material. "])
+def test_literal_multiword_form_with_trailing_full_stop(user):
+    assert policy_answer_matches(user, Q34)
+
+
+@pytest.mark.parametrize("p,user", [
+    (Q34, "2-D material"), (Q34, "2D-material"), (Q34, "two.dimensional material"),
+    (Q34, "two dimensional material"), (Q34, "two dimensional material."), (Q34, "materials."),
+    (Q34, "2D materials."), (Q5, "travelling."), (Q5, "travel costs."), (Q5, "accommodation."),
+    (Q5, "."), (Q5, "?!"), (Q5, " . "), (Q5, '""'), (Q5, '"travel'), (Q5, "travel'"), (Q5, '"travel\u201d'),
+    (Q5, "(travel)"), (Q5, "travel-"), (Q5, "/travel"), (Q5, "tra.vel"),
+])
+def test_literal_inner_punctuation_wrong_words_and_bare_punctuation_stay_wrong(p, user):
+    assert policy_answer_matches(user, p) is False
+
+
+def test_literal_case_sensitivity_and_word_limit_apply_after_stripping():
+    strict = policy("literal", ["travel"], case_sensitive=True)
+    assert policy_answer_matches("travel.", strict)
+    assert not policy_answer_matches("Travel.", strict)
+    capped = dict(Q5, max_words=1)
+    assert policy_answer_matches("travel .", capped)
+    assert policy_answer_matches("travel . ! ?", capped)
+    assert not policy_answer_matches("travel costs.", dict(capped, accepted_answers=["travel"]))
+    assert not policy_answer_matches("a two-dimensional material.", Q34)  # 3 words > max_words 2
+
+
+def test_literal_accepted_form_edge_punctuation_is_symmetric():
+    p = policy("literal", ["etc."])
+    assert policy_answer_matches("etc", p)
+    assert policy_answer_matches("etc.", p)
+    assert not policy_answer_matches("et.c", p)
+
+
+@pytest.mark.parametrize("user,correct", [
+    ("11000.", True), ("11,000.", True), ("11,000,", True), ("11000 .", True), ("11000!?", True),
+    ("Eleven thousand.", True), ("11000", True), ("11,000", True),
+    ("1.1000", False), ("11.000.", False), ("11,00.", False), ("-11000.", False),
+    (".11000", False), ("11000 people.", False), ("eleven thousands.", False), (".", False),
+])
+def test_number_trailing_punctuation_keeps_value(user, correct):
+    assert policy_answer_matches(user, Q30) is correct
+
+
+def test_number_trailing_strip_never_changes_decimal_value_or_unit():
+    p = policy("number", ["11.5"], locale="en")
+    assert policy_answer_matches("11.5.", p)
+    assert not policy_answer_matches("11.", p)
+    assert not policy_answer_matches("11", p)
+    assert policy_answer_matches("3.", policy("number", ["3"], locale="en"))
+    assert policy_answer_matches("11.000,", policy("number", ["11000"], locale="de"))
+    assert policy_answer_matches("11,5.", policy("number", ["11,5"], locale="de"))
+    ft = policy("number", ["12 ft."], locale="en", unit="ft.")
+    assert policy_answer_matches("12 ft.", ft)
+    assert not policy_answer_matches("12 ft", ft)
+    assert policy_answer_matches("12 km.", policy("number", ["12 km"], locale="en", unit="km"))
+
+
+def test_number_authored_forms_stay_strict():
+    with pytest.raises(ResponsePolicyError):
+        validate_response_policy(policy("number", ["11000."], locale="en"))
+
+
+def test_phone_date_and_option_id_do_not_gain_edge_stripping():
+    assert not policy_answer_matches("0412665903.", policy("phone", ["0412665903"], presentation_separators=[" "]))
+    assert not policy_answer_matches("May 4, 2026.", policy("date", ["May 4, 2026"]))
+    assert not policy_answer_matches("A.", policy("option_id", ["A"]))
+    assert not policy_answer_matches('"A"', policy("option_id", ["A"]))
+
+
+@pytest.mark.parametrize("grader", [listening, reading])
+def test_graders_mark_trailing_full_stop_correct_under_pinned_policy(grader):
+    key = attach_response_policies([
+        {"q_num": 5, "answer": "travel", "alternatives": ["transport"]},
+        {"q_num": 30, "answer": "11,000", "alternatives": ["11000", "eleven thousand"]},
+        {"q_num": 34, "answer": "two-dimensional material", "alternatives": ["2D material"]},
+    ], {5: Q5, 30: Q30, 34: Q34})
+    result = grader.grade_attempt([
+        {"q_num": 5, "user_answer": "Travel."},
+        {"q_num": 30, "user_answer": "11,000."},
+        {"q_num": 34, "user_answer": "two-dimensional material."},
+    ], key)
+    assert [row["correct"] for row in result["per_question"]] == [True, True, True]
+    assert result["score"] == 3
+    wrong = grader.grade_attempt([
+        {"q_num": 5, "user_answer": "travelling."},
+        {"q_num": 30, "user_answer": "1.1000"},
+        {"q_num": 34, "user_answer": "2-D material."},
+    ], key)
+    assert wrong["score"] == 0

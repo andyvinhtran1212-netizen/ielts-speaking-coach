@@ -76,6 +76,37 @@
   Supabase itself creates in `public` as `supabase_admin` would be
   client-writable; re-applying 320 (or the relation query) detects it.
 
+## Amendment 1
+
+### (b) FR-011 — migration 351
+
+- Forward-policy `pending_feature` group `dashboard_rpcs_revoke`: merging
+  applies nothing. The Leader/RM applies it on staging with the advisory-locked
+  runner; production only at a promotion approved by Vinh. No backend deploy.
+- Verify with the read-only query in the 351 header: anon and authenticated
+  `false`, service_role `true`, no `=X` PUBLIC entry; then view `/admin`
+  overview and trends and confirm no `fn_dashboard_*` 42501 or RPC fallback in
+  the backend log.
+- Emergency rollback only: the GRANT in the 351 header restores the old ACL.
+- One backend-only dashboard function still has client EXECUTE:
+  `public.fn_dashboard_daily_practices(p_since timestamptz)` (migration 139) is
+  called only by the backend through the service role, but 351 does not revoke
+  it. A separate ticket follows after Amendment 1 is approved.
+
+### (c) FR-012 — migration 349
+
+- Amendment 1 exceptions (tables that keep a client privilege although RLS is
+  enabled and they have no policy): none. Security Auditor classification
+  2026-10-29 (36 tables, all REVOKE; `listening_tests` handled by migration
+  347).
+- FR-012 holds on an environment only after both 347 and 349 are applied.
+  Production was not classified; re-run the Security Auditor catalog query
+  read-only on production before the promotion that carries 349.
+- Forward-policy `pending_feature`: merging applies nothing. Staging first by
+  the Leader/RM under the advisory lock; production only at a promotion
+  approved by Vinh. Emergency rollback only: the GRANT SELECT statements in the
+  349 header.
+
 ## Rollback and repair
 
 - Never re-grant blanket client writes; that reopens F01/F03/F04.

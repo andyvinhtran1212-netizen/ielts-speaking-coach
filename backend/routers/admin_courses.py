@@ -14,6 +14,7 @@ archive pattern.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Header, HTTPException, Query
@@ -22,6 +23,8 @@ from pydantic import BaseModel, Field
 from database import supabase_admin
 from models.admin_courses import AdminCourseListOut
 from routers.admin import require_admin
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin/courses", tags=["admin", "courses"])
 
@@ -59,7 +62,8 @@ async def list_courses(
     try:
         r = q.order("sort_order").execute()
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi tải danh sách khoá học: {exc}")
+        logger.error("[admin-courses] list courses failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tải danh sách khoá học. Vui lòng thử lại.") from None
     return {"courses": r.data or []}
 
 
@@ -83,7 +87,8 @@ async def create_course(
         # can act on it, so say which one it is instead of dumping the driver error.
         if "duplicate key" in str(exc).lower() or "unique" in str(exc).lower():
             raise HTTPException(409, f"Mã khoá '{body.code}' đã tồn tại.")
-        raise HTTPException(500, f"Lỗi khi tạo khoá học: {exc}")
+        logger.error("[admin-courses] create course failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tạo khoá học. Vui lòng thử lại.") from None
     if not r.data:
         raise HTTPException(500, "Không tạo được khoá học")
     return r.data[0]
@@ -114,7 +119,8 @@ async def update_course(
     except Exception as exc:
         if "duplicate key" in str(exc).lower() or "unique" in str(exc).lower():
             raise HTTPException(409, f"Mã khoá '{updates.get('code')}' đã tồn tại.")
-        raise HTTPException(500, f"Lỗi khi cập nhật khoá học: {exc}")
+        logger.error("[admin-courses] update course failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi cập nhật khoá học. Vui lòng thử lại.") from None
 
     if not r.data:
         raise HTTPException(404, "Không tìm thấy khoá học")

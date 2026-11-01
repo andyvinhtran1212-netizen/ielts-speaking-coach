@@ -57,7 +57,8 @@ def test_atomic_reading_repair_rolls_back_when_any_predicate_drifts(monkeypatch)
 
     connection = FakeConnection()
 
-    async def connect(_dsn):
+    async def connect(_dsn, *, statement_cache_size):
+        assert statement_cache_size == 0
         return connection
 
     monkeypatch.setitem(sys.modules, "asyncpg", SimpleNamespace(connect=connect))

@@ -232,6 +232,18 @@ async def test_invalid_output_becomes_a_fallback_signal(claude_on, usage_rows, m
 
 
 @pytest.mark.asyncio
+async def test_empty_answer_rejection_carries_its_billed_usage(claude_on, usage_rows):
+    """PC-J164: callers summing a run's cost need the usage of every rejection."""
+    claude_on.results = [_message("", in_tok=300, out_tok=20)]
+    with pytest.raises(ai_router.AnthropicAttemptError) as err:
+        await ai_router.call_anthropic("writing_grading", system="S", user="U", max_tokens=50,
+                                       operation="pass1", validate=json.loads)
+    assert err.value.error_code == "empty_body"
+    assert err.value.model == "claude-sonnet-5-5"
+    assert (err.value.usage["input_tokens"], err.value.usage["output_tokens"]) == (300, 20)
+
+
+@pytest.mark.asyncio
 async def test_ungrounded_rejection_records_its_code_and_detail(claude_on, usage_rows, caplog):
     from services.writing_feedback_grounding import UngroundedWritingFeedbackError
 
