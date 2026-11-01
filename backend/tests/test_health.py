@@ -17,6 +17,8 @@ Coverage:
   the grammar_mappings inventory is admin-only.
 - /health/ready anonymous body carries status codes only (no table names,
   feature-flag state or scope text).
+- /health/async-db anonymous / non-admin body is status + timestamp only and
+  reads no saturation snapshot; admins get the full snapshot.
 - /health/grammar-check reuses one live probe within its TTL; a probe error
   surfaces a generic code, never the exception text.
 - /api/public-stats is cached and logs (never returns) count-query errors.
@@ -293,6 +295,73 @@ def test_health_ready_anonymous_returns_status_codes_only(monkeypatch):
     body = repr(out)
     for table in health_module._CRITICAL_TABLES:
         assert f"'{table}'" not in body
+
+
+# ── /health/async-db ─────────────────────────────────────────────────────────
+
+
+_ASYNC_DB_ADMIN_KEYS = {
+    "status", "timestamp", "use_async_db", "async_client_initialised",
+    "event_loop_lag", "aexecute", "postgrest_pool", "executor",
+}
+
+
+def _forbid_async_db_snapshots(monkeypatch):
+    """Make every saturation snapshot raise so a caller that reaches one fails."""
+    import database
+    from services import db_async, loop_monitor
+
+    def _boom(*_args, **_kwargs):
+        raise AssertionError("saturation snapshot read for a non-admin caller")
+
+    monkeypatch.setattr(loop_monitor, "snapshot", _boom)
+    monkeypatch.setattr(db_async, "snapshot", _boom)
+    monkeypatch.setattr(database, "async_pool_snapshot", _boom)
+    monkeypatch.setattr(health_module, "_default_executor_snapshot", _boom)
+
+
+def test_health_async_db_anonymous_gets_status_only(monkeypatch):
+    """PC-J275 — loop lag, in-flight calls, pool and executor saturation are
+    admin-only; an anonymous caller gets status + timestamp and none of the
+    snapshots is even computed."""
+    monkeypatch.setattr(health_module, "_is_admin", _anonymous)
+    _forbid_async_db_snapshots(monkeypatch)
+
+    out = _run(health_module.health_async_db(None))
+    assert set(out) == {"status", "timestamp"}
+    assert out["status"] == "ok"
+    assert out["timestamp"]
+
+
+def test_health_async_db_admin_gets_full_snapshot(monkeypatch):
+    monkeypatch.setattr(health_module, "_is_admin", _admin)
+
+    out = _run(health_module.health_async_db("Bearer admin"))
+    assert set(out) == _ASYNC_DB_ADMIN_KEYS
+    assert "lag_ms_p95" in out["event_loop_lag"]
+    assert "in_flight" in out["aexecute"]
+
+
+@pytest.mark.parametrize("authorization", ["Bearer not-an-admin", "garbage"])
+def test_health_async_db_non_admin_token_is_anonymous_200(monkeypatch, authorization):
+    """A learner's token or a malformed header falls back to the anonymous body
+    with HTTP 200 — through the real _is_admin, so a require_admin refusal is
+    what drives the redaction."""
+    from fastapi import FastAPI, HTTPException
+    from fastapi.testclient import TestClient
+    from routers import admin as admin_module
+
+    async def _refuse(_authorization, **_kwargs):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    monkeypatch.setattr(admin_module, "require_admin", _refuse)
+    _forbid_async_db_snapshots(monkeypatch)
+
+    app = FastAPI()
+    app.include_router(health_module.router)
+    r = TestClient(app).get("/health/async-db", headers={"Authorization": authorization})
+    assert r.status_code == 200
+    assert set(r.json()) == {"status", "timestamp"}
 
 
 # ── /health/grammar-check ────────────────────────────────────────────────────

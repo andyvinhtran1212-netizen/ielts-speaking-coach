@@ -12784,7 +12784,11 @@ export interface paths {
          *     and the rolling event-loop-lag stats from the monitor. With the flag OFF
          *     this is the "before" baseline: under real concurrency a blocking sync
          *     ``.execute()`` on the loop thread shows up as elevated lag_ms_p95/max here.
-         *     Unauthenticated by design (no PII; booleans + timings).
+         *
+         *     The route stays reachable without a token, but anonymous (and non-admin)
+         *     callers get only ``status`` and ``timestamp``: loop lag, in-flight calls,
+         *     pool and executor saturation tell an attacker when the backend is close
+         *     to overload (PC-J275). Admins (Bearer token) get the full snapshot.
          */
         get: operations["health_async_db_health_async_db_get"];
         put?: never;
@@ -45390,7 +45394,9 @@ export interface operations {
     health_async_db_health_async_db_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -45405,6 +45411,15 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

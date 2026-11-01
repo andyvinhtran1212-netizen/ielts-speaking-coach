@@ -385,7 +385,7 @@ async def health_runtime(authorization: str | None = Header(default=None)) -> di
 
 
 @router.get("/health/async-db")
-async def health_async_db() -> dict:
+async def health_async_db(authorization: str | None = Header(default=None)) -> dict:
     """
     P0-1 (C-1.1) async-DB scaffold status + event-loop-lag baseline.
 
@@ -393,8 +393,18 @@ async def health_async_db() -> dict:
     and the rolling event-loop-lag stats from the monitor. With the flag OFF
     this is the "before" baseline: under real concurrency a blocking sync
     ``.execute()`` on the loop thread shows up as elevated lag_ms_p95/max here.
-    Unauthenticated by design (no PII; booleans + timings).
+
+    The route stays reachable without a token, but anonymous (and non-admin)
+    callers get only ``status`` and ``timestamp``: loop lag, in-flight calls,
+    pool and executor saturation tell an attacker when the backend is close
+    to overload (PC-J275). Admins (Bearer token) get the full snapshot.
     """
+    if not await _is_admin(authorization):
+        return {
+            "status": "ok",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
     from services import db_async, loop_monitor
     from database import async_client_initialised, async_pool_snapshot
 
