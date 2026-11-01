@@ -260,6 +260,11 @@ def _pre_320() -> str:
             created_at timestamptz NOT NULL DEFAULT now(), feature text, operation text,
             status text NOT NULL DEFAULT 'success', error_code text, thinking_tokens integer,
             pricing_version text, cost_source text NOT NULL DEFAULT 'catalog_estimate');
+        -- 351 requires the backend-only dashboard functions from 139.
+        CREATE TABLE analytics_events (
+            user_id uuid, event_name text, created_at timestamptz NOT NULL DEFAULT now());
+        {(MIGRATIONS / "139_admin_dashboard_exact_count_rpcs.sql").read_text(encoding="utf-8")}
+
         {m325.REPO_TABLE}
         ALTER TABLE access_codes
             ADD COLUMN cohort_id uuid REFERENCES cohorts(id) ON DELETE SET NULL,
