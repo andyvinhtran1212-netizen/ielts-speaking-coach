@@ -1,0 +1,3 @@
+# Load-test only; never installed into the backend image.
+httpx>=0.27
+pytest>=8
