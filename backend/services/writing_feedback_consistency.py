@@ -156,8 +156,8 @@ def _without_clauses(sentence: str, drop, warning=None) -> str:
     Only the rejected clause and its leading marker go; the other clauses keep
     their original wording. Returns "" when every clause is rejected.
 
-    With warning(), a comma also ends a clause when the clause after it is a
-    kept warning, and a clause hanging on a rejected one by "nhưng"/"but"
+    With warning(), a comma also ends a clause when the clause before or after
+    it is a kept warning, and a clause hanging on a rejected one by "nhưng"/"but"
     without its own warning goes with it ("... câu đơn nhưng đúng ngữ pháp").
     """
     # Find boundaries before folding accents: "những" is not "nhưng".
@@ -166,8 +166,10 @@ def _without_clauses(sentence: str, drop, warning=None) -> str:
         cuts = sorted(marks + [(m.start(), m.end()) for m in re.finditer(",", sentence)])
         commas = []
         for k, (start, end) in enumerate(cuts):
+            preceding = _plain(sentence[cuts[k - 1][1] if k else 0:start])
             following = _plain(sentence[end:cuts[k + 1][0] if k + 1 < len(cuts) else len(sentence)])
-            if sentence[start:end] == "," and warning(following) and not drop(following):
+            if sentence[start:end] == "," and any(warning(part) and not drop(part)
+                                                  for part in (preceding, following)):
                 commas.append((start, end))
         marks = sorted(marks + commas)
     starts = [0] + [end for _, end in marks]

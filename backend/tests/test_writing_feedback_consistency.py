@@ -609,6 +609,24 @@ def test_comma_separated_correction_advice_survives_low_range_removal(feedback, 
     assert feedback.sentenceStructureAnalysis["current_essay_observation"] == expected
 
 
+@pytest.mark.parametrize("claim,expected", [
+    ("Lỗi mạo từ ở đoạn 1 cần sửa, bài này chủ yếu dùng câu đơn.",
+     "Lỗi mạo từ ở đoạn 1 cần sửa."),
+    ("You should fix the article errors in paragraph 1, the current essay only uses simple sentences.",
+     "You should fix the article errors in paragraph 1."),
+    ("Bài này chủ yếu dùng câu đơn, từ vựng phù hợp, không cần sửa gì thêm.",
+     "Tham khảo các lỗi và gợi ý cụ thể trong phần phân tích."),
+])
+@pytest.mark.parametrize("gra", [7, 8])
+def test_correction_advice_before_a_comma_survives_low_range_removal(feedback, claim, expected, gra):
+    # Codex P2 (PR-2149): advice before the comma is as independent as advice
+    # after it; reassurance is not advice and goes with the claim.
+    feedback.criteriaFeedback.grammaticalRange.bandScore = gra
+    feedback.sentenceStructureAnalysis = {"current_essay_observation": claim}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.sentenceStructureAnalysis["current_essay_observation"] == expected
+
+
 @pytest.mark.parametrize("claim", [
     "Bài này chủ yếu dùng câu đơn một cách hiệu quả.",
     "Bài này chủ yếu dùng câu đơn, cấu trúc câu chính xác.",
