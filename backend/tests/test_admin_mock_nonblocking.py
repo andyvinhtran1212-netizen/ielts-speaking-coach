@@ -1,6 +1,7 @@
 """PC-J425: proctor polling and post-test capture must leave the loop free."""
 
 import asyncio
+import gc
 import threading
 import time
 from copy import deepcopy
@@ -50,7 +51,15 @@ def _request_with_ping(app, gate, method, path, **kwargs):
                 gate.release()
             return await request, ping, in_flight
 
-    response, ping, in_flight = asyncio.run(scenario())
+    # A full (gen 2) collection can pause the loop ~0.3 s on a CI runner. It is
+    # not sync I/O, so keep the collector out of the nonblocking scenario.
+    was_enabled = gc.isenabled()
+    gc.disable()
+    try:
+        response, ping, in_flight = asyncio.run(scenario())
+    finally:
+        if was_enabled:
+            gc.enable()
     assert ping.json() == {"ok": True}
     assert not gate.timed_out, f"{path} ran its sync call on the event loop"
     assert in_flight, f"/ping must finish while {path} is still parked in its worker"

@@ -31,7 +31,13 @@ module.exports = defineConfig({
   // retries FORBIDDEN, same rationale as staging-e2e (F4): a synthetic verdict
   // that only passes on retry is a flaky verdict, must fail loudly.
   retries: 0,
-  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
+  reporter: process.env.CI
+    ? [
+        ['./tests/staging-e2e/redaction-reporter.js'],
+        ['github'],
+        ['html', { open: 'never' }],
+      ]
+    : 'list',
   use: {
     baseURL: process.env.PRODUCTION_SMOKE_BASE_URL || 'https://averlearning.com',
     screenshot: 'only-on-failure',

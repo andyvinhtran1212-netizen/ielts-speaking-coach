@@ -28,6 +28,8 @@ import contextlib
 import logging
 import weakref
 
+import logging
+
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 from pydantic import BaseModel, Field
 
@@ -36,6 +38,8 @@ from services import essay_service
 from services import mock_exam_service as svc
 from services import mock_review_workflow as review_wf
 from services.writing_image_access import attach_signed_image_urls
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/mock-exams", tags=["mock-exams"])
 logger = logging.getLogger(__name__)
@@ -74,6 +78,9 @@ async def _student_write(user_id, fn, *args):
             raise
 
 
+_UNEXPECTED_ERROR_MESSAGE = "Không xử lý được yêu cầu kỳ thi. Vui lòng tải lại trang và thử lại."
+
+
 def _raise_for(e: Exception):
     """Translate a service error into the right HTTP status."""
     if isinstance(e, svc.NotFoundError):
@@ -82,7 +89,12 @@ def _raise_for(e: Exception):
         raise HTTPException(403, str(e))
     if isinstance(e, svc.SittingConflictError):
         raise HTTPException(409, str(e))
-    raise HTTPException(400, str(e))
+    if isinstance(e, (svc.MockExamError, HTTPException)):
+        raise HTTPException(400, str(e))
+    # PC-J225: any other exception (a driver error quoting the path value, a
+    # ValueError from parsing) is not a message written for the student.
+    logger.warning("[mock-exams] unexpected %s mapped to 400", e.__class__.__name__)
+    raise HTTPException(400, _UNEXPECTED_ERROR_MESSAGE)
 
 
 class AttachBody(BaseModel):
