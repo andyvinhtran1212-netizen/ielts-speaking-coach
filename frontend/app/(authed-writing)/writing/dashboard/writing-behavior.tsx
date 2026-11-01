@@ -553,9 +553,14 @@ function wireEssayFilterTabs(ps: PageState, on: ListenerRegistrar) {
 async function loadTips(api: any, ps: PageState) {
   const generation = ps.generation;
   const request = ++ps.tipsRequest;
-  hide('tips-empty'); hide('tips-error'); hide('tips-list');
-  const loadingEl = $('tips-loading');
-  if (loadingEl) loadingEl.classList.remove('hidden');
+  // Every dialog/history reconcile re-reads the list. Keep a rendered list in
+  // place meanwhile: hiding it shrinks the page and the browser clamps the
+  // learner's scroll position (PC-J431).
+  if (!ps.tipsLoaded) {
+    hide('tips-empty'); hide('tips-error'); hide('tips-list');
+    const loadingEl = $('tips-loading');
+    if (loadingEl) loadingEl.classList.remove('hidden');
+  }
   try {
     // Không có hạn giờ thì tab "Mẹo viết" đứng ở "Đang tải mẹo…" mãi khi
     // lấy phiên/backend treo — cùng lỗi với hai danh sách ở #1696.
@@ -572,7 +577,7 @@ async function loadTips(api: any, ps: PageState) {
   } catch (err: any) {
     if (ps.dead || ps.generation !== generation || request !== ps.tipsRequest) return { items: [], enabled: false };
     ps.allTips = []; ps.tipsLoaded = false;
-    hide('tips-loading');
+    hide('tips-loading'); hide('tips-empty'); hide('tips-list');
     const errMsg = $('tips-error-msg');
     if (errMsg) errMsg.textContent = 'Không tải được mẹo viết: ' + ((err && err.message) || 'lỗi không xác định');
     show('tips-error');
@@ -1676,6 +1681,16 @@ async function loadEssays(api: any, ms: ModalState): Promise<boolean> {
   }
 }
 
+// Horizontal-only reveal: scrollIntoView would also scroll the page vertically.
+function revealActiveTab(tabs: HTMLElement) {
+  const active = tabs.querySelector<HTMLElement>('.tab-btn.active:not([hidden])');
+  if (!active) return;
+  const item = active.getBoundingClientRect();
+  const strip = tabs.getBoundingClientRect();
+  if (item.left < strip.left) tabs.scrollLeft -= strip.left - item.left;
+  else if (item.right > strip.right) tabs.scrollLeft += item.right - strip.right;
+}
+
 function setTabActive(tab: string, ps: PageState, api: any) {
   const assignBtn = $('tab-assignments');
   const essayBtn = $('tab-essays');
@@ -1686,8 +1701,10 @@ function setTabActive(tab: string, ps: PageState, api: any) {
   if (essayBtn) essayBtn.classList.toggle('active', tab === 'essays');
   if (tipsBtn) tipsBtn.classList.toggle('active', tab === 'tips');
   if (pbBtn) pbBtn.classList.toggle('active', tab === 'prompt-bank');
-  document.querySelector<HTMLElement>('.wd-tabs .tab-btn.active:not([hidden])')
-    ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  // Every content reconcile (dialog open/close, history) selects the tab, so
+  // reveal it inside the strip only and never move the learner's page.
+  const tabs = document.querySelector<HTMLElement>('.wd-tabs');
+  if (tabs) revealActiveTab(tabs);
 
   const contAssignments = $('content-assignments');
   const contEssays = $('content-essays');
@@ -1914,13 +1931,7 @@ export function WritingBehavior() {
         const resize = new ResizeObserver(() => {
           // Late tab/count reads may resize the strip while the learner is
           // reading below it. Adjust this scroller without moving the page.
-          const active = tabs.querySelector<HTMLElement>('.tab-btn.active:not([hidden])');
-          if (active) {
-            const item = active.getBoundingClientRect();
-            const strip = tabs.getBoundingClientRect();
-            if (item.left < strip.left) tabs.scrollLeft -= strip.left - item.left;
-            else if (item.right > strip.right) tabs.scrollLeft += item.right - strip.right;
-          }
+          revealActiveTab(tabs);
           updateOverflow();
         });
         resize.observe(tabs);
