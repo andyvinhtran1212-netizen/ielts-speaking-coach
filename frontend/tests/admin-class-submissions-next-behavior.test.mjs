@@ -209,6 +209,15 @@ describe('admin class submissions model', () => {
     assert.equal(report.history[0].next_action, 'retake');
     assert.equal(report.summary.latest_pct, 70);
     assert.equal(report.summary.baseline_quiz_pct, 50);
+    // Backend N-1 chưa gửi baseline_total: model trả null để UI giữ correct/answered.
+    assert.equal(report.summary.baseline_total, null);
+  });
+
+  test('keeps the single-attempt baseline denominator from the backend (PC-J373)', () => {
+    const report = normalizeStudentReport({ questions: [{ qid: 'q1', item_key: 'Articles', is_correct: true }], history: [], totals: { answered: 15, correct: 15 }, summary: { completion_mode: 'single_attempt', baseline_quiz_pct: 5, baseline_correct: 15, baseline_answered: 15, baseline_total: 300 } });
+    assert.equal(report.summary.baseline_quiz_pct, 5);
+    assert.equal(report.summary.baseline_total, 300);
+    assert.equal(normalizeStudentReport({ questions: [], history: [], summary: { baseline_total: 0 } }).summary.baseline_total, null);
   });
 
   test('preserves one-sitting report semantics for the shared report renderer', () => {

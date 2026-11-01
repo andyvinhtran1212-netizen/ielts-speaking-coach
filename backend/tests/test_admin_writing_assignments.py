@@ -534,6 +534,7 @@ def test_patch_status_submitted_auto_stamps_submitted_at():
                     .select.return_value.eq.return_value.limit.return_value)
     select_chain.execute.return_value = MagicMock(data=[{"status": "in_progress"}])
     update_chain = mock_db.table.return_value.update.return_value.eq.return_value
+    update_chain.eq.return_value = update_chain
     update_chain.execute.return_value = MagicMock(data=[
         {"id": _ASSIGN_ID, "status": "submitted"},
     ])
@@ -570,6 +571,7 @@ def _patch_with_current_status(current: str):
                     .select.return_value.eq.return_value.limit.return_value)
     select_chain.execute.return_value = MagicMock(data=[{"status": current}])
     update_chain = mock_db.table.return_value.update.return_value.eq.return_value
+    update_chain.eq.return_value = update_chain
     update_chain.execute.return_value = MagicMock(data=[{"id": _ASSIGN_ID}])
     return mock_db
 

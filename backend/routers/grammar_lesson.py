@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Header
@@ -85,14 +86,14 @@ class AnswerBody(BaseModel):
 @router.get("/items/{item_id}", response_model=LessonState)
 async def read_item(item_id: str, authorization: str | None = Header(default=None)):
     user = await get_supabase_user(authorization)
-    return service.read_item(user["id"], item_id)
+    return await asyncio.to_thread(service.read_item, user["id"], item_id)
 
 
 @router.post("/items/{item_id}/start", response_model=LessonState,
              dependencies=[Depends(require_flag(service.FLAG, default=False))])
 async def start_item(item_id: str, authorization: str | None = Header(default=None)):
     user = await get_supabase_user(authorization)
-    return service.start_item(user["id"], item_id)
+    return await asyncio.to_thread(service.start_item, user["id"], item_id)
 
 
 @router.post("/items/{item_id}/answers", response_model=LessonState,
@@ -100,6 +101,6 @@ async def start_item(item_id: str, authorization: str | None = Header(default=No
 async def answer_item(item_id: str, body: AnswerBody,
                       authorization: str | None = Header(default=None)):
     user = await get_supabase_user(authorization)
-    return service.answer_item(user["id"], item_id,
+    return await asyncio.to_thread(service.answer_item, user["id"], item_id,
                                body.question_id, body.selected_index,
                                answer_text=body.answer_text)

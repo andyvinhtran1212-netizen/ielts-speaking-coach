@@ -86,8 +86,8 @@ ALLOWED: dict[tuple[str, str, str], tuple[int, str]] = {
     ("routers/admin_mock_reviews.py", "_raise_for", "str(e)"): (6, J213 + "; any other exception type gets a generic message"),
     ("routers/admin_reading.py", "admin_upload_diagram_image", "str(exc)"): (1, "InvalidImageError (reading_image.upload_diagram_image): constants and byte counts only; dynamic status = its http_status (PC-J226 F5)"),
     ("routers/admin_writing.py", "extract_essay_file", "str(exc)"): (1, "FileExtractError messages are constants (docx failure names only the exception class)"),
-    ("routers/admin_writing_assignments.py", "fan_out_to_cohort", "body.expected_student_count"): (1, TYPED_INT),
-    ("routers/admin_writing_prompts.py", "update_prompt", "str(e)"): (1, "assert_can_unreserve names DB exam codes only"),
+    ("routers/admin_writing_assignments.py", "_fan_out_to_cohort_sync", "body.expected_student_count"): (1, TYPED_INT),
+    ("routers/admin_writing_prompts.py", "_update_prompt_sync", "str(e)"): (1, "assert_can_unreserve names DB exam codes only"),
     ("routers/admin_writing_prompts.py", "upload_image", "str(exc)"): (1, "upload_prompt_image: sizes and constants only"),
     ("routers/export.py", "export_session_pdf", "str(exc)"): (1, "session id was already matched by the owner query above (uuid column)"),
     # PC-J226 F5: names bound by `except … as ve` are group A too.
@@ -107,15 +107,16 @@ ALLOWED: dict[tuple[str, str, str], tuple[int, str]] = {
     ("routers/listening.py", "grade_listening_test_dictation", "body.sentence_idx"): (1, TYPED_INT),
     ("routers/listening.py", "start_listening_test_attempt", "str(exc)"): (2, "class-item gate errors are constants or name server-side task fields"),
     ("routers/mock_exams.py", "_raise_for", "str(e)"): (4, "MockExamError family: section/code clipped at source, ids after uuid lookup; any other exception gets a generic message"),
-    ("routers/reading_student.py", "start_reading_test_attempt", "str(exc)"): (2, "class-item gate errors are constants or name server-side task fields"),
+    ("routers/reading_student.py", "_start_reading_test_attempt_sync", "str(exc)"): (2, "class-item gate errors are constants or name server-side task fields"),
     ("routers/sessions.py", "_bind_session_to_mock_if_requested", "exc"): (1, "bind_session_to_sitting errors: constants, DB status, sitting id after uuid lookup"),
     ("routers/sessions.py", "_complete_session_internal", "session_id; e"): (1, "background finalizer only; never reaches a response"),
     ("routers/sessions.py", "_resolve_full_test_attempt_id", "body.part - 1"): (1, TYPED_INT),
     ("routers/sessions.py", "_resolve_full_test_attempt_id", "body.part; body.part - 1"): (1, TYPED_INT),
     ("routers/sessions.py", "create_session", "str(e)"): (2, "class-item gate errors are constants or name server-side task fields"),
     ("routers/vocab_units.py", "admin_set_vocab_pilot_cohort", "str(exc)"): (1, "constant message"),
-    ("routers/vocab_units.py", "open_my_vocab_recommendation", "str(exc)"): (1, "constant message"),
-    ("routers/vocab_units.py", "resolve_my_vocab_context_links", "str(exc)"): (1, "constant message (limit constant)"),
+    # Both sites now sit in the threaded load_for_learner closures of
+    # open_my_vocab_recommendation and resolve_my_vocab_context_links.
+    ("routers/vocab_units.py", "load_for_learner", "str(exc)"): (2, "constant messages (one names a limit constant)"),
     ("routers/writing_student.py", "extract_essay_text", "str(exc)"): (1, "FileExtractError messages are constants (docx failure names only the exception class)"),
 }
 
@@ -152,8 +153,8 @@ ALLOWED_B: dict[tuple[str, str, str], tuple[int, str]] = {
     ("routers/admin_writing.py", "update_feedback", "current_status"): (1, DB_VALUE),
     ("routers/admin_writing.py", "update_instructor_note", "current_status"): (1, DB_VALUE),
     ("routers/admin_writing_assignments.py", "_validate_status_transition", "current; target; allowed_str"): (1, "current = DB status; target matched AssignmentUpdate.status pattern; allowed_str from the constant matrix"),
-    ("routers/admin_writing_prompts.py", "update_prompt", "', '.join(invalid_nulls)"): (1, "keys of PromptUpdate.model_dump(): model field names only"),
-    ("routers/admin_writing_regrade.py", "action_regrade_request", "result.get('status')"): (1, DB_VALUE),
+    ("routers/admin_writing_prompts.py", "_update_prompt_sync", "', '.join(invalid_nulls)"): (1, "keys of PromptUpdate.model_dump(): model field names only"),
+    ("routers/admin_writing_regrade.py", "_action_regrade_request_sync", "result.get('status')"): (1, DB_VALUE),
     ("routers/auth.py", "_rate_limit_activate", "str(retry_after_s)"): (1, SERVER_NUMBER),
     ("routers/auth.py", "_rate_limit_activate", "verdict"): (1, "RPC result; the ValueError is caught into a generic 503 (safe_error)"),
     ("routers/auth.py", "update_profile", "', '.join(valid_levels)"): (1, CONSTANT_B),

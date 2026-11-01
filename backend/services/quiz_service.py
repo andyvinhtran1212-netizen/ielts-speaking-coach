@@ -35,6 +35,7 @@ from services.class_membership_service import active_cohort_ids_for_student
 from database import supabase_admin
 from services import grammar_quiz_session
 from services.grammar_quiz_resolution import current_banks
+from services.quiz_bank_cache import VersionedContentCache
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +139,69 @@ _STUDENT_QUESTION_FIELDS = frozenset(
 # key-bearing parts of match/missing-letter/syllable rows.
 _COURSE_WITHHELD_FIELDS = ("answer", "accept", "explain", "why_wrong", "hint",
                            "pairs", "mask", "segments")
+
+
+# PC-J434 — bank content is the same for every learner, so `get_bank_for_play`
+# serves the question rows from a per-process cache keyed by bank id and the
+# bank's content version, read fresh from the DB on every request (see
+# `_content_version`). The TTL bounds writers the version cannot see: offline
+# scripts that UPDATE a `quiz_questions` row in place (fix_vocab_quiz_*,
+# pregen_course_question_audio). Word cards change independently of the bank
+# (TTS pregen fills `audio_headword`) and the popup is best-effort, so they are
+# cached by topic on a shorter TTL only.
+_BANK_CONTENT_TTL_SECONDS = 300
+_WORD_CARDS_TTL_SECONDS = 120
+_bank_content_cache = VersionedContentCache(
+    "questions", ttl_seconds=_BANK_CONTENT_TTL_SECONDS, max_entries=32)
+_word_cards_cache = VersionedContentCache(
+    "word_cards", ttl_seconds=_WORD_CARDS_TTL_SECONDS, max_entries=64)
+# Count and newest `created_at` of the bank's questions, embedded in the bank
+# read so the version costs no extra round trip.
+_BANK_VERSION_EMBEDS = "qn:quiz_questions(count), qmax:quiz_questions(created_at)"
+
+
+def _content_version(row: dict):
+    """Version of a bank's question set, or ``None`` when the row lacks it.
+
+    `quiz_questions` has no `updated_at`. Every replace path (DELETE + INSERT
+    in `quiz_replace_questions` / `import_quiz_bank_atomic`) gives the new
+    rows a fresh `created_at`, and deleting or adding a row changes the count.
+    `quiz_banks.updated_at` alone is not enough: the course exercise importer
+    updates the bank row first and replaces the questions in a later request,
+    so a read between the two would pin the old questions to the new
+    timestamp."""
+    try:
+        count = row["qn"][0]["count"]
+        newest = row["qmax"][0]["created_at"] if row["qmax"] else None
+    except (KeyError, IndexError, TypeError):
+        return None
+    return (row.get("updated_at"), row.get("grammar_new_starts_enabled"),
+            count, newest)
+
+
+def _bank_questions_for_play(bank_id: str, version) -> tuple[list[dict], bool]:
+    """(question rows exactly as stored, has_writing) — a private copy that the
+    caller may strip/seal/annotate freely. Raises when the read fails."""
+    def load():
+        rows = (
+            supabase_admin.table("quiz_questions").select(_STUDENT_QUESTION_COLUMNS)
+            .eq("bank_id", bank_id).order("order").execute()
+        ).data or []
+        return rows, any(q.get("type") == "writing" for q in rows)
+    return _bank_content_cache.get(bank_id, version, load)
+
+
+def _bank_has_writing_for_play(bank_id: str, version) -> bool | None:
+    """`bank_has_writing` answered from the same versioned content the payload
+    uses; ``None`` (unknown) when that read fails, like `bank_has_writing`."""
+    if version is None:
+        return bank_has_writing(bank_id)
+    try:
+        return _bank_questions_for_play(bank_id, version)[1]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[quiz] không đếm được câu tự luận bank=%s: %s — giữ "
+                       "trạng thái CHƯA BIẾT", bank_id, exc)
+        return None
 
 
 def _student_question(row: dict, *, course: bool) -> dict:
@@ -942,6 +1006,15 @@ def _assignment_item_for(
         eligible = [row for row in rows if eligible_for_access(row)]
         if not eligible:
             return None
+        if not assignment_item_id and len(eligible) > 1:
+            # Bank-only bookmarks prefer unfinished work, then the newest
+            # assignment. Stable sorting keeps item id ascending for ties.
+            eligible.sort(key=lambda row: row["id"])
+            eligible.sort(key=lambda row: (
+                not (row.get("submitted_at") or row.get("passed_at")),
+                _at(owned_by_id[row["assignment_id"]].get("created_at"))
+                or datetime.min.replace(tzinfo=timezone.utc),
+            ), reverse=True)
         # Carry the deadline already read above to the player. Authorization is
         # still checked again when the stage is finalized.
         item = dict(eligible[0])
@@ -1029,15 +1102,22 @@ def get_bank_for_play(
     cho nó — đó là kho của giáo viên, không phải nội dung tự chọn."""
     try:
         b = (
-            supabase_admin.table("quiz_banks").select(_STUDENT_BANK_COLUMNS)
-            .eq("id", bank_id).limit(1).execute()
+            supabase_admin.table("quiz_banks")
+            .select(_STUDENT_BANK_COLUMNS, _BANK_VERSION_EMBEDS)
+            .eq("id", bank_id)
+            .order("created_at", desc=True, foreign_table="qmax")
+            .limit(1, foreign_table="qmax")
+            .limit(1).execute()
         ).data
     except Exception as exc:  # noqa: BLE001
         logger.error("[quiz] play bank lookup failed bank=%s: %s", bank_id, exc, exc_info=True)
         raise HTTPException(500, "Lỗi truy vấn bộ câu hỏi. Vui lòng thử lại.") from None
     if not b:
         raise HTTPException(404, "Không tìm thấy bank")
-    bank = b[0]
+    # The bank row itself is never cached: gates (`is_published`, assignment,
+    # runtime kind) and `grammar_new_starts_enabled` always use this read.
+    content_version = _content_version(b[0])
+    bank = {k: v for k, v in b[0].items() if k not in ("qn", "qmax")}
     mastery_state = None
     course_item = None
     course_preflight_assignment = None
@@ -1151,7 +1231,7 @@ def get_bank_for_play(
             effective_timer = assignment_timer_state(effective_item, assignment)
             learner_action = course_assignment_action_with_session_truth(
                 effective_item, assignment, bank_id=bank_id, user_id=str(user_id),
-                writing_expected=(bank_has_writing(bank_id)
+                writing_expected=(_bank_has_writing_for_play(bank_id, content_version)
                                   if effective_item.get("passed_at")
                                   and not effective_item.get("submitted_at")
                                   else None),
@@ -1200,10 +1280,7 @@ def get_bank_for_play(
     elif not bank.get("is_published"):
         raise HTTPException(404, "Không tìm thấy bank")
     try:
-        questions = (
-            supabase_admin.table("quiz_questions").select(_STUDENT_QUESTION_COLUMNS)
-            .eq("bank_id", bank_id).order("order").execute()
-        ).data or []
+        questions, _ = _bank_questions_for_play(bank_id, content_version)
     except Exception as exc:  # noqa: BLE001
         logger.error("[quiz] play questions lookup failed bank=%s: %s", bank_id, exc, exc_info=True)
         raise HTTPException(500, "Lỗi truy vấn câu hỏi. Vui lòng thử lại.") from None
@@ -1724,17 +1801,27 @@ def _word_cards_for(bank: dict) -> dict:
     error or missing card → the key is simply absent and the popup link hides."""
     if bank.get("skill_area") == "grammar" or not bank.get("topic_id"):
         return {}
+    topic_id = bank["topic_id"]
+
+    def load():
+        return _load_word_cards(topic_id), None
     try:
-        rows = (
-            supabase_admin.table("vocab_cards").select(
-                "headword, definition_vi, definition_en, gloss_vi, pronunciation, "
-                "syllables, part_of_speech, level, register, example, "
-                "audio_headword, audio_example, collocations, synonyms, antonyms, "
-                "related_words, word_family, common_error, memory_hook, lists, source"
-            ).eq("topic_id", bank["topic_id"]).execute()
-        ).data or []
+        # Topic-scoped, TTL only (PC-J434): a failed read is not cached.
+        cards, _ = _word_cards_cache.get(topic_id, (), load)
     except Exception:  # noqa: BLE001
         return {}
+    return cards
+
+
+def _load_word_cards(topic_id: str) -> dict:
+    rows = (
+        supabase_admin.table("vocab_cards").select(
+            "headword, definition_vi, definition_en, gloss_vi, pronunciation, "
+            "syllables, part_of_speech, level, register, example, "
+            "audio_headword, audio_example, collocations, synonyms, antonyms, "
+            "related_words, word_family, common_error, memory_hook, lists, source"
+        ).eq("topic_id", topic_id).execute()
+    ).data or []
     cards = {}
     for c in rows:
         # Skip exam-ONLY vocab (a pure AWL/TOEIC/THPT import sharing this topic): the
@@ -5251,7 +5338,8 @@ def course_verdict(
         except Exception as exc:  # noqa: BLE001
             # Kết luận mà không ghi được thì KHÔNG được báo đạt — học viên sẽ
             # rời trang với niềm tin đã xong trong khi giáo viên không thấy gì.
-            raise HTTPException(500, f"Lỗi ghi kết luận: {exc}")
+            logger.error("[quiz] write course verdict failed: %s", exc, exc_info=True)
+            raise HTTPException(500, "Lỗi ghi kết luận. Vui lòng thử lại.") from None
         if res.data:
             break
         try:
@@ -5259,7 +5347,8 @@ def course_verdict(
                      .select("id, passed_at, submitted_at, mastery, score, updated_at")
                      .eq("id", item["id"]).limit(1).execute().data) or []
         except Exception as exc:  # noqa: BLE001
-            raise HTTPException(500, f"Lỗi đọc lại sổ sau tranh chấp ghi: {exc}")
+            logger.error("[quiz] re-read course ledger after write conflict failed: %s", exc, exc_info=True)
+            raise HTTPException(500, "Lỗi đọc lại sổ sau tranh chấp ghi. Vui lòng thử lại.") from None
         if not fresh:
             raise HTTPException(404, "Không tìm thấy mục bài giao")
         cur = fresh[0]
@@ -5325,8 +5414,11 @@ def course_verdict(
                          .select("submitted_at").eq("id", item["id"]).limit(1)
                          .execute().data) or []
             except Exception as exc:  # noqa: BLE001
+                logger.error("[quiz] confirm course hand-in after pass failed: %s", exc, exc_info=True)
                 raise HTTPException(
-                    500, f"Đã đạt nhưng chưa xác nhận được trạng thái thu bài: {exc}")
+                    500,
+                    "Đã đạt nhưng chưa xác nhận được trạng thái thu bài. Vui lòng thử lại.",
+                ) from None
             if not check or not check[0].get("submitted_at"):
                 raise HTTPException(500, "Đã tính điểm nhưng chưa thu được bài; hãy thử lại")
     return payload
@@ -5972,6 +6064,7 @@ def course_answer_report(*, user_id: str, bank_id: str,
         "baseline_quiz_pct": None,
         "baseline_correct": 0,
         "baseline_answered": 0,
+        "baseline_total": None,
     }
 
     sessions = [x for x in owned_sessions if (x.get("kind") or "run") == "run"]
@@ -6093,12 +6186,23 @@ def course_answer_report(*, user_id: str, bank_id: str,
         "bank_title": bank.get("title"),
         "scope": "baseline_quiz",
     }
-    baseline_pct = (round(out["totals"]["correct"] / out["totals"]["answered"] * 100, 1)
-                    if out["totals"]["answered"] else None)
+    # Bài một lượt chấm trên TOÀN BỘ câu trắc nghiệm có đáp án của bank — đúng
+    # thước `course_verdict` dùng (`len(key)`), kể cả khi hết giờ giữa chừng.
+    # Chia cho số câu đã trả lời thì em làm đúng 15/300 rồi hết giờ hiện "100%"
+    # cạnh điểm chính thức 5% (PC-J373). Chế độ mastery giữ correct/answered.
+    if completion_mode == COURSE_COMPLETION_SINGLE_ATTEMPT:
+        baseline_total = sum(1 for q in qs_rows
+                             if _is_course_quiz_question(q)
+                             and q.get("answer") is not None) or None
+    else:
+        baseline_total = out["totals"]["answered"] or None
+    baseline_pct = (round(out["totals"]["correct"] / baseline_total * 100, 1)
+                    if baseline_total else None)
     out["summary"] = {**out["summary"],
         "baseline_quiz_pct": baseline_pct,
         "baseline_correct": out["totals"]["correct"],
         "baseline_answered": out["totals"]["answered"],
+        "baseline_total": baseline_total,
     }
     return out
 
@@ -6552,7 +6656,8 @@ def bank_analytics(bank_id: str) -> dict:
             .select("id", count="exact").eq("bank_id", bank_id).execute()
         )
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn analytics: {exc}")
+        logger.error("[quiz] bank analytics failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn thống kê. Vui lòng thử lại.") from None
     session_count = sc.count if sc.count is not None else len(sc.data or [])
     return {"items": items, "skills": skills, "session_count": session_count}
 
@@ -6567,7 +6672,8 @@ def admin_student_rollup(skill_area: str = "vocab") -> dict:
         rows = supabase_admin.rpc(
             "quiz_admin_student_rollup", {"p_skill_area": skill_area}).execute().data or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn rollup: {exc}")
+        logger.error("[quiz] admin student rollup failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn tổng hợp học viên. Vui lòng thử lại.") from None
 
     uids = [r["user_id"] for r in rows if r.get("user_id")]
     users: dict[str, dict] = {}
@@ -6579,7 +6685,8 @@ def admin_student_rollup(skill_area: str = "vocab") -> dict:
             ).data or []
             users = {u["id"]: u for u in ur}
         except Exception as exc:  # noqa: BLE001
-            raise HTTPException(500, f"Lỗi truy vấn user: {exc}")
+            logger.error("[quiz] admin student rollup users failed: %s", exc, exc_info=True)
+            raise HTTPException(500, "Lỗi truy vấn học viên. Vui lòng thử lại.") from None
 
     students = []
     for r in rows:
@@ -6646,7 +6753,8 @@ def admin_student_detail(user_id: str, skill_area: str = "vocab") -> dict:
                 .order("started_at", desc=True).limit(20).execute()
             ).data or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn phiên (scoped): {exc}")
+        logger.error("[quiz] admin student detail sessions failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn phiên của học viên. Vui lòng thử lại.") from None
 
     info: dict = {}
     try:
@@ -6715,7 +6823,8 @@ def _bank_ids_for_skill(skill_area: str | None) -> list[str] | None:
             .eq("skill_area", skill_area).execute()
         ).data or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn bank theo kỹ năng: {exc}")
+        logger.error("[quiz] banks for skill failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn bộ câu hỏi theo kỹ năng. Vui lòng thử lại.") from None
     return [r["id"] for r in rows if r.get("id")]
 
 
@@ -6802,7 +6911,8 @@ def student_mistakes(user_id: str, skill_area: str | None = None) -> dict:
             q.order("created_at", desc=True).limit(_MISTAKE_ATTEMPT_CAP).execute()
         ).data or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn câu đã trả lời sai: {exc}")
+        logger.error("[quiz] student mistakes attempts failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn câu đã trả lời sai. Vui lòng thử lại.") from None
     if not attempts:
         return {"items": [], "total_missed_words": 0}
     scanned = len(attempts)
@@ -6819,7 +6929,8 @@ def student_mistakes(user_id: str, skill_area: str | None = None) -> dict:
             ).data or []
         }
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn bank: {exc}")
+        logger.error("[quiz] student mistakes banks failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn bộ câu hỏi. Vui lòng thử lại.") from None
 
     # A one-sitting Course assessment stamps server-owned `is_correct` on every
     # saved batch, before hand-in. Listing those rows here would publish the key
@@ -6866,7 +6977,8 @@ def student_mistakes(user_id: str, skill_area: str | None = None) -> dict:
                     .eq("bank_id", bank_id).in_("qid", qids[i:i + 100]).execute()
                 ).data or []
             except Exception as exc:  # noqa: BLE001
-                raise HTTPException(500, f"Lỗi truy vấn câu hỏi: {exc}")
+                logger.error("[quiz] student mistakes questions failed: %s", exc, exc_info=True)
+                raise HTTPException(500, "Lỗi truy vấn câu hỏi. Vui lòng thử lại.") from None
             _attach_article_urls(rows)
             for r in rows:
                 questions[(r["bank_id"], r["qid"])] = r
@@ -6979,7 +7091,8 @@ def _sealed_course_session_ids(session_ids: list) -> set[str]:
         assignments = {str(r["id"]): r for r in _rows(
             "class_assignments", "id, content_config", assignment_ids)}
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi kiểm tra trạng thái nộp bài: {exc}")
+        logger.error("[quiz] sealed course sessions failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi kiểm tra trạng thái nộp bài. Vui lòng thử lại.") from None
     sealed: set[str] = set()
     for sid in ids:
         session = sessions.get(sid)
@@ -7015,7 +7128,8 @@ def student_progress(user_id: str, skill_area: str | None = None) -> dict:
             .execute()
         ).data or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn tiến độ: {exc}")
+        logger.error("[quiz] student progress failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn tiến độ. Vui lòng thử lại.") from None
 
     by_bank: dict[str, dict] = {
         r["bank_id"]: {
@@ -7035,7 +7149,8 @@ def student_progress(user_id: str, skill_area: str | None = None) -> dict:
             ).data or []
             meta = {r["id"]: r for r in rows}
         except Exception as exc:  # noqa: BLE001
-            raise HTTPException(500, f"Lỗi truy vấn bank: {exc}")
+            logger.error("[quiz] student progress banks failed: %s", exc, exc_info=True)
+            raise HTTPException(500, "Lỗi truy vấn bộ câu hỏi. Vui lòng thử lại.") from None
 
     banks = []
     for bid, cnt in by_bank.items():
@@ -7068,7 +7183,8 @@ def student_progress(user_id: str, skill_area: str | None = None) -> dict:
         sessions = (sq.not_.is_("ended_at", "null")
                     .order("started_at", desc=True).limit(20).execute().data or [])
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn phiên: {exc}")
+        logger.error("[quiz] student progress sessions failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn phiên. Vui lòng thử lại.") from None
 
     # Lifetime totals for the "Thống kê của tôi" header (total practice time,
     # session count, words mastered, avg accuracy). Words-mastered is the truthful
@@ -7084,7 +7200,8 @@ def student_progress(user_id: str, skill_area: str | None = None) -> dict:
             aq = aq.in_("bank_id", scoped_bank_ids)
         all_sess = aq.execute().data or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn tổng hợp phiên: {exc}")
+        logger.error("[quiz] student progress session totals failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn tổng hợp phiên. Vui lòng thử lại.") from None
     # Count only FINALIZED sessions: start_session inserts a row when the quiz page
     # opens, so a learner who opens quiz.html and leaves before finish() PATCHes
     # leaves an ended_at-less row. Including it would inflate the session count with
