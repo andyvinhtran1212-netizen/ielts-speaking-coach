@@ -36,13 +36,15 @@ import time
 from starlette.exceptions import HTTPException
 from starlette.responses import JSONResponse
 
-from config import settings
+from config import TrustedProxyCidrError, settings, validate_trusted_proxy_cidr_list
 
 
 # Enough for the edge hop plus a few internal proxies; hops further left are
 # caller-supplied anyway, and a huge header must not cost a huge parse.
 _MAX_INSPECTED_HOPS = 8
 _MAX_HOP_LENGTH = 64
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_ip(value):
@@ -77,7 +79,16 @@ def _key(ip):
 
 @lru_cache(maxsize=1)
 def _trusted_proxy_networks(cidrs):
-    return tuple(ipaddress.ip_network(cidr.strip()) for cidr in cidrs.split(',')) if cidrs else ()
+    """The startup rules again at use (PC-J377 / SA-4): object.__setattr__,
+    model_copy(update=) and model_construct skip the Settings validator. Any
+    bad entry trusts no proxy at all; the log names a reason, never a CIDR."""
+    try:
+        return validate_trusted_proxy_cidr_list(cidrs)
+    except ValueError as exc:
+        reason = exc.reason if isinstance(exc, TrustedProxyCidrError) else 'unparseable'
+        logger.warning('[client-ip] TRUSTED_PROXY_CIDRS rejected at use: reason=%s entries=%d; '
+                       'trusting no proxy', reason, len(cidrs.split(',')))
+        return ()
 
 
 def client_address(real_ip, forwarded_for, peer):

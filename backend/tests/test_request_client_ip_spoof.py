@@ -304,6 +304,67 @@ def test_runtime_assignment_of_an_internal_proxy_cidr_is_normalized(monkeypatch)
     assert client_address(None, '203.0.113.20, fd12:3456::1, 10.0.0.1', 'peer') == '203.0.113.20'
 
 
+def _install_bypassing_validator(path, cidrs, monkeypatch):
+    """SA-4: the three in-process writes that skip the Settings validator."""
+    if path == 'object_setattr':
+        object.__setattr__(settings, 'TRUSTED_PROXY_CIDRS', cidrs)
+        installed = settings
+    elif path == 'model_copy':
+        installed = settings.model_copy(update={'TRUSTED_PROXY_CIDRS': cidrs})
+    else:
+        installed = Settings.model_construct(TRUSTED_PROXY_CIDRS=cidrs)
+    monkeypatch.setattr(request_safety, 'settings', installed)
+    request_safety._trusted_proxy_networks.cache_clear()
+    return installed
+
+
+def _proxy_warnings(caplog):
+    return [r for r in caplog.records
+            if r.name == 'services.request_safety' and r.levelname == 'WARNING']
+
+
+_BYPASS_PATHS = ['object_setattr', 'model_copy', 'model_construct']
+
+
+@pytest.mark.parametrize('path', _BYPASS_PATHS)
+@pytest.mark.parametrize('cidrs,hop,key,reason', [
+    ('0.0.0.0/0', '10.0.0.1', '10.0.0.1', 'too_broad'),
+    ('::/0', 'fd12::1', 'fd12::/64', 'too_broad'),
+    ('::ffff:0:0/96', '::ffff:8.8.8.9', '8.8.8.9', 'ipv4_mapped'),
+    ('8.8.8.0/24', '8.8.8.9', '8.8.8.9', 'not_internal'),
+    ('10.0.0.0/8, 0.0.0.0/0', '10.0.0.1', '10.0.0.1', 'too_broad'),
+    ('garbage', '10.0.0.1', '10.0.0.1', 'unparseable'),
+    ('10.0.0.0/8,', '10.0.0.1', '10.0.0.1', 'unparseable'),
+])
+def test_validator_bypass_fails_closed_at_use(path, cidrs, hop, key, reason, monkeypatch, caplog):
+    # PC-J377 (SA-4): these writes skip validate_trusted_proxy_cidrs, so the
+    # model still holds the bad list. client_address re-checks it at use and
+    # trusts no proxy: the rightmost hop keys, never the caller's X-Real-IP.
+    caplog.set_level('WARNING', logger='services.request_safety')
+    installed = _install_bypassing_validator(path, cidrs, monkeypatch)
+    assert installed.TRUSTED_PROXY_CIDRS == cidrs
+    for _ in range(3):
+        assert client_address('9.9.9.9', f'1.1.1.1, {hop}', 'peer') == key
+    [record] = _proxy_warnings(caplog)
+    message = record.getMessage()
+    assert f'reason={reason}' in message
+    assert f'entries={len(cidrs.split(","))}' in message
+    for entry in cidrs.split(','):
+        if entry.strip():
+            assert entry.strip() not in message
+
+
+@pytest.mark.parametrize('path', _BYPASS_PATHS)
+@pytest.mark.parametrize('cidrs,hop', [('10.0.0.0/8', '10.0.0.1'),
+                                       ('fc00::/32', 'fc00::1'),
+                                       ('10.0.0.0/8, fd12:3456::/32', 'fd12:3456::1')])
+def test_validator_bypass_with_an_internal_cidr_still_skips_the_proxy(path, cidrs, hop, monkeypatch, caplog):
+    caplog.set_level('WARNING', logger='services.request_safety')
+    _install_bypassing_validator(path, cidrs, monkeypatch)
+    assert client_address('9.9.9.9', f'1.1.1.1, {hop}', 'peer') == '1.1.1.1'
+    assert not _proxy_warnings(caplog)
+
+
 def test_oversize_header_cannot_push_the_edge_hop_out(monkeypatch):
     # Count parsed hops instead of timing. Stop immediately at an untrusted
     # hop; an all-trusted suffix still cannot exceed the eight-hop bound.

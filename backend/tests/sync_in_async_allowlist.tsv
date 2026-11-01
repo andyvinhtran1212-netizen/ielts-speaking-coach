@@ -497,7 +497,6 @@ routers/grammar.py::mark_recommendation_clicked::db.execute	1	G3	Existing inline
 routers/grammar.py::save_article::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
 routers/grammar.py::track_article_view::db.execute	3	G3	Existing inline sync DB execution; offload in G3.
 routers/grammar.py::unsave_article::db.execute	1	G3	Existing inline sync DB execution; offload in G3.
-routers/health.py::health_quiz_write::services.quiz_service.quiz_write_health	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
 routers/instructor.py::_me::routers.instructor._audit_impersonate	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/instructor.py::_me::routers.instructor._role_of	2	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/instructor.py::claim_review::services.instructor_workflow.claim	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
@@ -529,8 +528,6 @@ routers/instructor.py::get_prompt::services.writing_image_access.attach_signed_i
 routers/instructor.py::get_student::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
 routers/instructor.py::list_assignments::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
 routers/instructor.py::list_codes::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
-routers/instructor.py::list_codes::routers.instructor._hidden_cohort_ids	1	G6	Existing staging #1984 hidden-test-class lookup reaches blocking I/O; offload caller in G6.
-routers/instructor.py::list_codes::services.test_data_visibility.hide_for	1	G6	Existing staging #1984 hidden-test-class lookup reaches blocking I/O; offload caller in G6.
 routers/instructor.py::list_cohorts::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
 routers/instructor.py::list_cohorts::services.test_data_visibility.hide_for	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/instructor.py::list_essay_versions::services.essay_service.get_live_versions	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
@@ -539,7 +536,6 @@ routers/instructor.py::list_essays::services.instructor_access.instructor_list_e
 routers/instructor.py::list_prompts::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
 routers/instructor.py::list_prompts::services.writing_image_access.attach_signed_image_urls	1	G6	Existing sync helper reaches Storage signing; offload caller in G6.
 routers/instructor.py::list_students::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
-routers/instructor.py::list_students::routers.instructor._hidden_cohort_ids	1	G6	Existing staging #1984 hidden-test-class lookup reaches blocking I/O; offload caller in G6.
 routers/instructor.py::list_students::services.test_data_visibility.drop_test_students	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/instructor.py::list_students::services.test_data_visibility.hide_for	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/instructor.py::mint_codes::db.execute	1	G6	Existing inline sync DB execution; offload in G6.

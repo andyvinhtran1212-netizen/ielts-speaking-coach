@@ -241,3 +241,137 @@ def test_cli_dry_run_without_scope_refuses_a_b20_question(tmp_path, monkeypatch)
     ])
     with pytest.raises(SystemExit, match="B01–B11"):
         script.main()
+
+
+# ── One dry-run lists every question error (PC-J375) ────────────────────────
+
+def test_collects_every_question_error_in_one_pass_with_the_same_wording():
+    from services.course_assessment_import import AssessmentValidationError
+
+    rows = [_row(1), _row(2), _row(3)]
+    del rows[0]["dang"]
+    del rows[0]["classroom_alignment"]
+    rows[2].update(dap_an=3, dap_an_chu="E")
+    with pytest.raises(AssessmentValidationError) as caught:
+        normalize_assessment_rows(rows, expected_count=3)
+    assert caught.value.errors == [
+        "[MID-001] thiếu mã dạng.",
+        "[MID-001] chưa được xác nhận khớp nội dung lớp học.",
+        "[MID-003] dap_an_chu không khớp dap_an.",
+    ]
+    # Callers that catch ValueError keep working and see every message.
+    assert isinstance(caught.value, ValueError)
+    assert str(caught.value) == "\n".join(caught.value.errors)
+
+
+def test_missing_traps_are_listed_with_the_other_errors_of_the_question():
+    from services.course_assessment_import import AssessmentValidationError
+
+    row = _row(1)
+    del row["dang"], row["bay"], row["ma_bay"], row["classroom_alignment"]
+    with pytest.raises(AssessmentValidationError) as caught:
+        normalize_assessment_rows([row], expected_count=1)
+    assert caught.value.errors == [
+        "[MID-001] thiếu mã dạng.",
+        "[MID-001] chưa được xác nhận khớp nội dung lớp học.",
+        "[MID-001] bay phải có đúng 5 ô.",
+        "[MID-001] ma_bay phải có đúng 5 ô.",
+    ]
+
+
+def _expected_mapped(number: int, order: int) -> dict:
+    return {
+        "qid": f"MID-{number:03d}", "item_key": f"khung câu {number}",
+        "type": "mcq", "subtype": "A1", "input": "choice", "skill": "KHUNG-CAU",
+        "pair": "thuan", "counts_toward_mastery": True,
+        "prompt": f"Chọn đáp án đúng cho câu {number}.", "hint": None,
+        "options": ["one", "two", "three", "four", "five"], "answer": 4,
+        "accept": None, "segments": None, "mask": None, "pairs": None,
+        "explain": "Five là đáp án đúng.",
+        "why_wrong": {"0": "bẫy 1", "1": "bẫy 2", "2": "bẫy 3", "3": "bẫy 4"},
+        "points": 2, "audio_url": None, "grammar_article_slug": None,
+        "order": order,
+    }
+
+
+def test_valid_file_maps_every_row_unchanged_and_in_order():
+    rows = [_row(1), _row(2), _row(3)]
+    for row in rows[1:]:
+        row["pa"] = [f"{value} {row['id']}" for value in row["pa"]]
+    out = normalize_assessment_rows(rows, expected_count=3)
+    expected = [_expected_mapped(1, 0), _expected_mapped(2, 1), _expected_mapped(3, 2)]
+    for row in expected[1:]:
+        row["options"] = [f"{value} {row['qid']}" for value in row["options"]]
+    assert out == expected
+
+
+@pytest.mark.parametrize("rows", [[{}, {}], [_row(1)], "not a list"])
+def test_bank_level_count_error_still_stops_before_question_checks(rows):
+    from services.course_assessment_import import AssessmentValidationError
+
+    with pytest.raises(ValueError, match="Bộ đề cần đúng 3 câu") as caught:
+        normalize_assessment_rows(rows, expected_count=3)
+    assert not isinstance(caught.value, AssessmentValidationError)
+
+
+def _run_cli(monkeypatch, tmp_path, rows, *extra):
+    import json as _json
+    import sys as _sys
+
+    from scripts import import_course_assessment_bank as script
+
+    source = tmp_path / "FINAL.json"
+    source.write_text(_json.dumps(rows), encoding="utf-8")
+    monkeypatch.setattr(_sys, "argv", [
+        "import_course_assessment_bank", "--file", str(source), "--course", "C1",
+        "--code", "C1-FINAL", "--title", "Cuối khoá", "--kind", "final",
+        "--expected-count", str(len(rows)), *extra,
+    ])
+    return script.main()
+
+
+def test_cli_lists_every_error_and_commit_writes_nothing(tmp_path, monkeypatch):
+    import sys as _sys
+    import types
+
+    db = _ImportDb(rpc_result=[{"bank_id": "bank-new", "written": 3}])
+    monkeypatch.setitem(_sys.modules, "database",
+                        types.SimpleNamespace(supabase_admin=db))
+    rows = _scoped_rows("B01", "B12", "B20")
+    del rows[0]["dang"]
+    del rows[0]["classroom_alignment"]
+    rows[2].update(dap_an=3, dap_an_chu="E")
+    with pytest.raises(SystemExit) as caught:
+        _run_cli(monkeypatch, tmp_path, rows, "--scope", "B01-B20", "--commit")
+    # A string SystemExit code exits with status 1 after printing the report.
+    assert caught.value.code == "\n".join([
+        "Bộ đề còn 3 lỗi:",
+        "[MID-001] thiếu mã dạng.",
+        "[MID-001] chưa được xác nhận khớp nội dung lớp học.",
+        "[MID-003] dap_an_chu không khớp dap_an.",
+    ])
+    assert db.calls == []
+
+
+def test_cli_report_lists_the_first_fifty_errors_and_counts_the_rest(tmp_path, monkeypatch):
+    rows = [_row(number) for number in range(1, 61)]
+    for row in rows:
+        del row["dang"]
+    with pytest.raises(SystemExit) as caught:
+        _run_cli(monkeypatch, tmp_path, rows)
+    lines = caught.value.code.split("\n")
+    assert lines[0] == "Bộ đề còn 60 lỗi:"
+    assert lines[1:51] == [f"[MID-{n:03d}] thiếu mã dạng." for n in range(1, 51)]
+    assert lines[51:] == ["… còn 10 lỗi"]
+
+
+def test_cli_summary_logs_the_canonical_scope_stored_in_metadata(
+        tmp_path, monkeypatch, caplog):
+    import logging
+
+    caplog.set_level(logging.INFO, logger="import-course-assessment")
+    assert _run_cli(monkeypatch, tmp_path, _scoped_rows("B01", "B20"),
+                    "--scope", " B01-B20 ") == 0
+    summary = next(record.getMessage() for record in caplog.records
+                   if record.getMessage().startswith("Bank:"))
+    assert "· phạm vi B01-B20 ·" in summary
