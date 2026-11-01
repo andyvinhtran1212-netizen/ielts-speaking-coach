@@ -20,13 +20,21 @@ The second factor (research.md §9.1, §9.6) is satisfied only when ALL hold:
   * the GoTrue user object lists at least one ``verified`` TOTP factor. An
     AAL2 token keeps ``aal2`` for up to an hour after its factor is deleted,
     so the claim alone is not enough. A missing ``factors`` key means none;
-  * the ``amr`` ``totp`` entry is at most ``TOTP_MAX_AGE_SECONDS`` old.
-    Refresh does not renew that timestamp; a missing entry counts as expired.
+  * the ``amr`` ``totp`` entry is at most ``ADMIN_AAL2_MAX_AGE_HOURS`` old
+    (default 12, Amendment 1 FR-012). Refresh does not renew that timestamp;
+    a missing entry counts as expired, and one more than
+    ``_CLOCK_SKEW_SECONDS`` in the future is invalid.
 
 ``ADMIN_AAL2_ENFORCE`` (default false) decides what an unsatisfied admin gets:
 403 ``mfa_required`` when true, otherwise the old behaviour plus exactly one
 ``admin_aal2_would_block`` warning per request (FR-003). A role, ``is_active``
 or assurance lookup failure is a 503 and never grants.
+
+Step-up (Amendment 1, FR-020): :func:`require_recent_mfa` runs after that
+guard on the privilege-changing routes and asks for a TOTP entered within
+``ADMIN_STEP_UP_MINUTES`` (default 15). ``ADMIN_STEP_UP_ENFORCE`` (default
+false) decides between 403 ``step_up_required`` and one
+``admin_step_up_would_block`` warning per request.
 """
 
 from __future__ import annotations
@@ -41,6 +49,7 @@ from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Literal, Optional
 
 from fastapi import HTTPException
+from pydantic import BaseModel
 
 from config import settings
 from services import activation_gate
@@ -49,7 +58,6 @@ logger = logging.getLogger(__name__)
 
 AAL1 = "aal1"
 AAL2 = "aal2"
-TOTP_MAX_AGE_SECONDS = 12 * 60 * 60
 # GoTrue stamps amr with its own clock; tolerate this much skew before a
 # future timestamp is treated as invalid.
 _CLOCK_SKEW_SECONDS = 300
@@ -57,6 +65,8 @@ _CLOCK_SKEW_SECONDS = 300
 MFA_REQUIRED_MESSAGE = "Cần xác thực 2 bước để dùng quyền admin."
 LOOKUP_FAILED_DETAIL = "Không kiểm tra được quyền truy cập. Vui lòng thử lại."
 WOULD_BLOCK_EVENT = "admin_aal2_would_block"
+STEP_UP_REQUIRED_MESSAGE = "Thao tác này cần nhập lại mã xác thực 2 bước."
+STEP_UP_WOULD_BLOCK_EVENT = "admin_step_up_would_block"
 
 ADMIN_ROLE_DENIED = "Bạn không có quyền truy cập trang này"
 INSTRUCTOR_ROLE_DENIED = "Bạn không có quyền truy cập trang giảng viên"
@@ -80,7 +90,7 @@ _request: ContextVar[Optional[dict]] = ContextVar("staff_guard_request", default
 
 
 def begin_request(scope: dict) -> object:
-    return _request.set({"scope": scope, "would_block": set()})
+    return _request.set({"scope": scope, "would_block": set(), "step_up_would_block": set()})
 
 
 def reset_request(token: object) -> None:
@@ -106,7 +116,7 @@ class Assurance:
     verified_factor_count: int
     totp_verified_at: Optional[float]
     satisfied: bool
-    reason: str          # ok | aal1 | no_verified_factor | totp_missing | totp_expired
+    reason: str          # ok | aal1 | no_verified_factor | totp_invalid | totp_expired
     next_step: NextStep
 
 
@@ -157,6 +167,24 @@ def _totp_verified_at(claims: dict) -> Optional[float]:
     return float(max(stamps)) if stamps else None
 
 
+def aal2_max_age_seconds() -> int:
+    """FR-012 window. ``config`` already maps an invalid value to 12 h; a
+    value set around it (tests, a bad patch) falls back the same way, so no
+    value can widen or disable the check."""
+    hours = settings.ADMIN_AAL2_MAX_AGE_HOURS
+    if isinstance(hours, bool) or not isinstance(hours, int) or not 1 <= hours <= 12:
+        hours = 12
+    return hours * 60 * 60
+
+
+def step_up_max_age_seconds() -> int:
+    """FR-020 window, with the same fallback (15 min)."""
+    minutes = settings.ADMIN_STEP_UP_MINUTES
+    if isinstance(minutes, bool) or not isinstance(minutes, int) or not 1 <= minutes <= 15:
+        minutes = 15
+    return minutes * 60
+
+
 def evaluate_admin_assurance(
     auth_user: dict, authorization: str | None, *, now: float | None = None,
 ) -> Assurance:
@@ -171,9 +199,11 @@ def evaluate_admin_assurance(
         reason = "aal1"
     elif verified < 1:
         reason = "no_verified_factor"
-    elif totp_at is None or totp_at > now + _CLOCK_SKEW_SECONDS:
-        reason = "totp_missing"
-    elif now - totp_at > TOTP_MAX_AGE_SECONDS:
+    elif totp_at is None:
+        reason = "totp_expired"  # a missing amr entry counts as expired (FR-012)
+    elif totp_at > now + _CLOCK_SKEW_SECONDS:
+        reason = "totp_invalid"
+    elif now - totp_at > aal2_max_age_seconds():
         reason = "totp_expired"
     else:
         reason = "ok"
@@ -243,6 +273,101 @@ def apply_admin_assurance(auth_user: dict, authorization: str | None, *, allow_a
     if enforce:
         raise mfa_required_exception(assurance.next_step)
     _log_would_block(user_id, assurance)
+
+
+# ── Step-up (Amendment 1, FR-020) ────────────────────────────────────────────
+
+class MfaRequiredDetail(BaseModel):
+    code: Literal["mfa_required"]
+    next_step: NextStep
+    message: str
+
+
+class StepUpRequiredDetail(BaseModel):
+    code: Literal["step_up_required"]
+    next_step: Literal["challenge"]
+    max_age_seconds: int
+    message: str
+
+
+class StaffForbiddenResponse(BaseModel):
+    # A role or inactive denial is a plain Vietnamese string.
+    detail: StepUpRequiredDetail | MfaRequiredDetail | str
+
+
+# OpenAPI ``responses=`` for every route that calls require_recent_mfa.
+STEP_UP_RESPONSES: dict = {
+    403: {
+        "model": StaffForbiddenResponse,
+        "description": "Not an active admin, `mfa_required` (FR-012), or "
+                       "`step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020)",
+    },
+}
+
+
+def step_up_enforcement_enabled() -> bool:
+    return settings.ADMIN_STEP_UP_ENFORCE is True
+
+
+def step_up_required_exception() -> HTTPException:
+    return HTTPException(
+        status_code=403,
+        detail={
+            "code": "step_up_required",
+            "next_step": "challenge",
+            "max_age_seconds": step_up_max_age_seconds(),
+            "message": STEP_UP_REQUIRED_MESSAGE,
+        },
+    )
+
+
+def _log_step_up_would_block(user_id: str, assurance: Assurance, now: float) -> None:
+    ctx = _request.get()
+    if ctx is not None:
+        if user_id in ctx["step_up_would_block"]:
+            return
+        ctx["step_up_would_block"].add(user_id)
+    method, route = current_route()
+    age = None if assurance.totp_verified_at is None else int(now - assurance.totp_verified_at)
+    fields = {
+        "event": STEP_UP_WOULD_BLOCK_EVENT,
+        "user_id": user_id,
+        "method": method or None,
+        "route": route or None,
+        "aal": assurance.aal,
+        "reason": assurance.reason if assurance.reason != "ok" else "totp_stale",
+        "totp_age_seconds": age,
+        "max_age_seconds": step_up_max_age_seconds(),
+    }
+    logger.warning("%s %s", STEP_UP_WOULD_BLOCK_EVENT, json.dumps(fields, sort_keys=True))
+
+
+def require_recent_mfa(auth_user: dict, authorization: str | None) -> None:
+    """Step-up for privilege-changing routes (FR-020). Call it right after the
+    route's ``require_admin`` (the FR-001 guard), before any database read or
+    write, audit or outbox row. Passes only when the accepted token's
+    assurance holds AND its ``amr`` totp entry is at most
+    ``ADMIN_STEP_UP_MINUTES`` old. Otherwise 403 ``step_up_required`` under
+    ``ADMIN_STEP_UP_ENFORCE``, or exactly one would-block warning per request.
+
+    The inventory test (tests/test_staff_guard_inventory.py) pins every route
+    that calls this."""
+    enforce = step_up_enforcement_enabled()
+    user_id = str(auth_user.get("id") or "") if isinstance(auth_user, dict) else ""
+    now = time.time()
+    try:
+        assurance = evaluate_admin_assurance(auth_user, authorization, now=now)
+        fresh = assurance.satisfied and now - assurance.totp_verified_at <= step_up_max_age_seconds()
+    except Exception as exc:  # defensive: never grant on a bug
+        logger.error("[staff_guard] step-up check failed user=%s: %r", user_id, exc)
+        if enforce:
+            raise HTTPException(503, LOOKUP_FAILED_DETAIL)
+        return
+    if fresh:
+        return
+    if enforce:
+        raise step_up_required_exception()
+    _log_step_up_would_block(user_id, assurance, now)
 
 
 # ── Role ─────────────────────────────────────────────────────────────────────

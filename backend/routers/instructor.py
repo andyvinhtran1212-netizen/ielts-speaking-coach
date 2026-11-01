@@ -218,8 +218,8 @@ class AssignBody(BaseModel):
     student_id: UUID
     name: Optional[str] = Field(None, max_length=200)   # W-06: label the student sees
     deadline: Optional[Deadline] = None
-    instructions: Optional[str] = None
-    analysis_level: int = 3
+    instructions: Optional[str] = Field(None, max_length=2000)   # same bounds as FanOutBody (PC-J115)
+    analysis_level: int = Field(3, ge=1, le=5)          # AI depth L1–L5 (mig 104)
     grading_tier: Literal["standard", "deep"] = "standard"  # AI pass depth (W-L3)
 
 
@@ -612,13 +612,37 @@ async def revoke_delivery(request: Request, essay_id: UUID, authorization: str |
 
 # ── Cohorts (owner = created_by) ─────────────────────────────────────────────
 
+def _is_hidden_test_cohort(cohort: dict) -> bool:
+    """The staging test-data hide rule for a class (applies only while hiding is on)."""
+    return test_data_visibility.is_test_label(cohort.get("name"))
+
+
+def _hidden_cohort_ids(me: str, hide: bool) -> set[str]:
+    """My classes that /cohorts drops for me (empty when ``hide`` is off).
+
+    Students and codes still carry those cohort_ids, so their rows are flagged
+    ``cohort_hidden`` and the dashboard can say the class is hidden rather than
+    unknown. One cohorts read per request, only while hiding is on.
+    """
+    if not hide:
+        return set()
+    r = instructor_db(me).table("cohorts").select("id, name").execute()
+    return {str(c["id"]) for c in (r.data or []) if c.get("id") and _is_hidden_test_cohort(c)}
+
+
+def _flag_hidden_cohorts(rows: list[dict], hidden: set[str]) -> list[dict]:
+    for row in rows:
+        row["cohort_hidden"] = bool(row.get("cohort_id")) and str(row["cohort_id"]) in hidden
+    return rows
+
+
 @router.get("/cohorts")
 async def list_cohorts(request: Request, authorization: str | None = Header(None)):
     me = await _me(authorization, request)
     r = instructor_db(me).table("cohorts").select("*").order("created_at", desc=True).execute()
     rows = r.data or []
     if test_data_visibility.hide_for(user_id=me):
-        rows = [c for c in rows if not test_data_visibility.is_test_label(c.get("name"))]
+        rows = [c for c in rows if not _is_hidden_test_cohort(c)]
     return rows
 
 
@@ -650,9 +674,10 @@ async def list_students(request: Request, authorization: str | None = Header(Non
     r = (instructor_db(me).table("students").select("*").is_("archived_at", "null")
          .order("created_at", desc=True).execute())
     rows = r.data or []
-    if test_data_visibility.hide_for(user_id=me):
+    hide = test_data_visibility.hide_for(user_id=me)
+    if hide:
         rows = test_data_visibility.drop_test_students(rows)
-    return rows
+    return _flag_hidden_cohorts(rows, _hidden_cohort_ids(me, hide))
 
 
 @router.get("/students/{student_id}")
@@ -714,7 +739,8 @@ async def list_codes(request: Request, authorization: str | None = Header(None))
          .select("id, code, is_used, used_by, used_at, is_active, cohort_id, "
                  "notes, grants_role, permissions, created_at")
          .order("created_at", desc=True).execute())
-    return r.data or []
+    hidden = _hidden_cohort_ids(me, test_data_visibility.hide_for(user_id=me))
+    return _flag_hidden_cohorts(r.data or [], hidden)
 
 
 @router.post("/codes", status_code=status.HTTP_201_CREATED)

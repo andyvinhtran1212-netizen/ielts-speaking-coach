@@ -227,6 +227,27 @@ test('splits rubric warnings exactly like the student player display groups', ()
   assert.deepEqual(defaultIssues(rubricPaper(crossing, passages)).map((issue) => issue.split(' ')[0]), ['Q12–13', 'Q14–15']);
 });
 
+test('warns about a {{n}} marker followed by an underscore run and diagram prompts with raw markup (RV-05, T-DIAG)', () => {
+  const markupIssues = (paper) => normalizeReadingAdminPreview(paper).issues.filter((issue) => issue.includes('{{') || issue.includes('(sơ đồ)'));
+  // B15-T1 shape: every Q19–22 row repeats the summary, so the marker is reported once.
+  const summary = 'drop in {{21}} ________ of cars; yearly {{22}} of each car; {{ 23 }}___ end';
+  const summaryRows = block('summary_completion', 21, 23, (qNum) => ({ word_limit: 'ONE WORD ONLY', ...(qNum === 21 ? { template: { summary_text: summary } } : {}) }))
+    .map((row) => ({ ...row, prompt: summary }));
+  assert.deepEqual(markupIssues(rubricPaper(summaryRows)), [
+    '{{21}}, {{23}} có dãy "___" ngay sau; player và trang chữa bài hiển thị thành một ô — nên xoá dãy gạch dưới khỏi template.',
+  ]);
+  const tableRows = block('table_completion', 31, 31, { word_limit: 'ONE WORD ONLY', template: { headers: ['Stage', 'Detail'], rows: [['Start', ['{{31}}\t____ wide']]] } });
+  assert.match(markupIssues(rubricPaper(tableRows))[0], /^\{\{31\}\} có dãy/);
+  assert.deepEqual(markupIssues(rubricPaper(block('summary_completion', 1, 2, { word_limit: 'ONE WORD ONLY', template: { summary_text: 'a {{1}} b ____ {{2}} __ c' } }))), []);
+  // B21-T4 shape: the flow chart, a markdown image and markers sit in each diagram row prompt.
+  const diagramRows = block('flow_chart_completion', 8, 10, { word_limit: 'ONE WORD ONLY' })
+    .map((row) => ({ ...row, prompt: row.q_num === 8 ? 'Steps\n![Flow](assets/q8.png)\nuse {{10}} to transport' : 'Use the visual shown with Question 8.' }));
+  assert.deepEqual(markupIssues(rubricPaper(diagramRows)), [
+    'Q8 (sơ đồ) có prompt chứa ảnh markdown hoặc {{n}}; player bỏ ảnh và hiện {{n}} thành "(n) ______" — nên để mỗi câu một bước sạch.',
+  ]);
+  assert.deepEqual(markupIssues(rubricPaper(block('sentence_completion', 1, 1, { word_limit: 'ONE WORD ONLY' }).map((row) => ({ ...row, prompt: '![x](y) {{1}}' })))), []);
+});
+
 test('admin word-limit list stays in lockstep with the student player', () => {
   const controller = read('lib', 'reading-exam-controller.mjs');
   const literal = /const WORD_LIMITS = new Set\(\[([\s\S]*?)\]\);/.exec(controller)?.[1];

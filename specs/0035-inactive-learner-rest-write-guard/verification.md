@@ -39,4 +39,18 @@
   12:48:38Z (19:48:38 UTC+7) (`/workspace/qa/pcj60/ledger.out.tsv`). Staging
   `56a8c344f` contains #1829: Tests run 40784593322 is green. Pending: the
   inactive/active REST probes (T004, PC-1028-17).
-- Production verification: pending T005. 335 is not on `main` yet.
+- Production verification (2026-10-29, owner Vinh 10:53 UTC+7, option A): 335
+  applied to production under `pg_advisory_lock(173204,1)`, one request, before
+  promotion PR #1906 merged. Read-only postcheck: the header catalog query
+  returns 0 rows; 18 RESTRICTIVE `require_active_account_*` policies; RLS on for
+  the 6 learner tables; `app_private.is_current_user_active()` SECURITY
+  DEFINER, `search_path=""`, EXECUTE authenticated only; anon-writable 0; same
+  as the staging postcheck. Source: `/workspace/cc-jobs/release-1029.md`,
+  `/workspace/cc-jobs/rel1029/out/apply-335.json`, `q00b-post335.json`.
+  Railway production deployment `ab70b603` and
+  Vercel production deployment 7404494270 are SUCCESS on the merge SHA. No production write probe
+  (rollout). Pending: the staging REST probes (T004, Security Auditor).
+
+| Migration | Staging apply (ledger) | Production apply (ledger) | Merge to `main` |
+| --- | --- | --- | --- |
+| `335_learner_jwt_writes_require_active_account.sql` | 2026-10-28 12:48:38Z (19:48:38 UTC+7), `/workspace/qa/pcj60/ledger.out.tsv` | 2026-10-29 04:52:11Z (11:52:11 UTC+7), `rel1029/out/apply-335.json` | #1906 `584b7e418e38a0be869933538fe78e9737c4f30b`, 2026-10-29 12:01:31 UTC+7 |

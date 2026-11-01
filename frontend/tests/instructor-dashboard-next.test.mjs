@@ -8,7 +8,9 @@ import {
   ASSIGNMENT_COPY,
   AUTH_SETTLE_TIMEOUT_MS,
   assignmentTone,
+  COHORT_LABEL_COPY,
   buildInstructorMatrix,
+  cohortLabel,
   cohortOverlapConfirmMessage,
   duplicateGiveConfirmMessage,
   fanOutResultBanner,
@@ -39,14 +41,36 @@ describe('/instructor native dashboard model', () => {
     assert.deepEqual(normalizeInstructorProfile({ id: 'u1', role: 'instructor' }), { id: 'u1', role: 'instructor', email: null });
     assert.equal(normalizeInstructorProfile({ id: 'u1' }), null);
     assert.deepEqual(normalizeInstructorCohorts([{ id: 'c1', name: 'Class 1', created_at: '2026-01-01' }]), [{ id: 'c1', name: 'Class 1', createdAt: '2026-01-01' }]);
-    assert.deepEqual(normalizeInstructorStudents([{ id: 's1', full_name: 'An', student_code: 'HV1', cohort_id: 'c1', user_id: null }]), [{ id: 's1', fullName: 'An', studentCode: 'HV1', cohortId: 'c1', userId: null }]);
+    assert.deepEqual(normalizeInstructorStudents([{ id: 's1', full_name: 'An', student_code: 'HV1', cohort_id: 'c1', user_id: null }]), [{ id: 's1', fullName: 'An', studentCode: 'HV1', cohortId: 'c1', cohortHidden: false, userId: null }]);
     assert.deepEqual(normalizeInstructorPrompts([{ id: 'p1', title: 'Task', task_type: 'task2' }]), [{ id: 'p1', title: 'Task', taskType: 'task2' }]);
-    assert.deepEqual(normalizeInstructorCodes([{ id: 'k1', code: 'ABC', is_used: false, cohort_id: null }]), [{ id: 'k1', code: 'ABC', isUsed: false, cohortId: null }]);
+    assert.deepEqual(normalizeInstructorCodes([{ id: 'k1', code: 'ABC', is_used: false, cohort_id: null }]), [{ id: 'k1', code: 'ABC', isUsed: false, cohortId: null, cohortHidden: false }]);
     assert.deepEqual(normalizeInstructorAssignments([{ id: 'a1', prompt_id: 'p1', student_id: 's1', status: 'assigned' }]), [{ id: 'a1', promptId: 'p1', studentId: 's1', status: 'assigned', essayId: null, deadline: null, cohortId: null, groupId: null, name: null, createdAt: null, isLate: false }]);
     assert.deepEqual(normalizeInstructorQueue([{ essay_id: 'e1', task_type: 'task2', review: { id: 'r1', status: 'queued' } }]), [{ essayId: 'e1', reviewId: 'r1', status: 'queued', studentEmail: null, taskType: 'task2', submittedAt: null }]);
     assert.equal(normalizeInstructorStudents({ rows: [] }), null);
     assert.equal(normalizeInstructorAssignments([{ id: 'a1', prompt_id: 'p1' }]), null);
     assert.equal(normalizeInstructorAssignments([{ id: 'a1', prompt_id: 'p1', student_id: 's1' }]), null);
+  });
+
+  test('PC-J215: rows in a class hidden by the staging test-data hide say "Lớp đã ẩn", not "Lớp không xác định"', () => {
+    const [hiddenStudent] = normalizeInstructorStudents([{ id: 's1', cohort_id: 'k-qa', cohort_hidden: true }]);
+    const [hiddenCode] = normalizeInstructorCodes([{ code: 'AAA', is_used: false, cohort_id: 'k-qa', cohort_hidden: true }]);
+    assert.equal(hiddenStudent.cohortHidden, true);
+    assert.equal(hiddenCode.cohortHidden, true);
+    // Missing or non-boolean flags (older backend) read as not hidden.
+    assert.equal(normalizeInstructorStudents([{ id: 's2', cohort_id: 'k1' }])[0].cohortHidden, false);
+    assert.equal(normalizeInstructorCodes([{ code: 'B', is_used: true, cohort_hidden: 'true' }])[0].cohortHidden, false);
+
+    const names = new Map([['k-real', 'Lớp 10A']]);
+    assert.equal(COHORT_LABEL_COPY.hidden, 'Lớp đã ẩn');
+    assert.equal(cohortLabel('k-real', false, names), 'Lớp 10A');
+    assert.equal(cohortLabel('k-qa', true, names), 'Lớp đã ẩn');
+    assert.equal(cohortLabel('k-gone', false, names), 'Lớp không xác định');
+    assert.equal(cohortLabel(null, false, names), '—');
+    assert.equal(cohortLabel(null, true, names), '—');
+    // Both "Lớp" columns go through the one helper; no inline fallback copy remains.
+    assert.match(VIEW, /cohortLabel\(student\.cohortId, student\.cohortHidden, cohortNames\)/);
+    assert.match(VIEW, /cohortLabel\(code\.cohortId, code\.cohortHidden, cohortNames\)/);
+    assert.doesNotMatch(VIEW, /Lớp không xác định|Lớp đã ẩn/);
   });
 
   test('normalizes student summary without treating malformed recent essays as empty', () => {

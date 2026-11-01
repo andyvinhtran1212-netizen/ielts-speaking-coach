@@ -162,6 +162,8 @@
 .lr-card__answers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--av-space-2); }
 .lr-card__ans { min-width: 0; padding: var(--av-space-3); border: 1px solid var(--av-border-subtle); border-radius: var(--av-radius-md); background: var(--av-surface-sunken); color: var(--av-text-secondary); }
 .lr-card__ans code { color: var(--av-text-primary); overflow-wrap: anywhere; }
+.lr-card__ans-text { display: block; overflow-wrap: anywhere; line-height: var(--av-lh-relaxed); }
+.lr-card__ans-text > span { display: block; }
 .lr-card.is-incorrect .lr-card__ans.is-user { border-color: var(--av-error); background: var(--av-error-soft); }
 .lr-card.is-correct .lr-card__ans.is-user,
 .lr-card__ans.is-correct { border-color: var(--av-success); background: var(--av-success-soft); }

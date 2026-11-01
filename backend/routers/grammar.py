@@ -14,6 +14,7 @@ GET /api/grammar/compare/{slug}             → two articles side-by-side
 GET /api/grammar/search?q=...              → keyword search (≤20 results)
 """
 
+import logging
 from datetime import datetime, timedelta, timezone
 from collections import Counter
 
@@ -33,6 +34,8 @@ from models.grammar_content import (
 from routers.auth import get_supabase_user
 from services.grammar_content import CONTENT_DIR, GROUPS_FILE, MAPPING_FILE, grammar_service
 from services.public_cache import cacheable_json, content_last_modified
+
+logger = logging.getLogger(__name__)
 
 
 class ViewBody(BaseModel):
@@ -149,7 +152,8 @@ async def mark_recommendation_clicked(
             .execute()
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi cập nhật recommendation: {e}")
+        logger.error("[grammar] recommendation click failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Lỗi cập nhật recommendation. Vui lòng thử lại.") from None
 
     if not result.data:
         raise HTTPException(status_code=404, detail="Recommendation không tồn tại")
@@ -219,7 +223,8 @@ async def track_article_view(
                 "last_viewed_at":  now_iso,
             }).execute()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi track view: {e}")
+        logger.error("[grammar] track view failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Lỗi track view. Vui lòng thử lại.") from None
 
     return {"ok": True}
 
@@ -245,7 +250,8 @@ async def save_article(
             "article_title":  title,
         }, on_conflict="user_id,article_slug").execute()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi lưu bài: {e}")
+        logger.error("[grammar] save article failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Lỗi lưu bài. Vui lòng thử lại.") from None
 
     return {"ok": True}
 
@@ -264,7 +270,8 @@ async def unsave_article(
             "user_id", user_id
         ).eq("article_slug", slug).execute()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi xóa bài đã lưu: {e}")
+        logger.error("[grammar] unsave article failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Lỗi xóa bài đã lưu. Vui lòng thử lại.") from None
 
     return {"ok": True}
 
@@ -335,7 +342,8 @@ async def get_dashboard_data(
             .execute()
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi truy vấn dữ liệu: {e}")
+        logger.error("[grammar] dashboard query failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Lỗi truy vấn dữ liệu. Vui lòng thử lại.") from None
 
     # The content index owns eligibility, titles and categories. Stored history
     # may refer to removed content or operational documents, but is not deleted.

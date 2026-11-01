@@ -1,0 +1,25 @@
+/* /admin/mfa (ADMINAAL2-0032 T010). Single column at 390 px, tokens only so
+   light and dark both follow the theme, no motion. */
+.amfa-shell{display:grid;gap:var(--av-space-6);width:min(100%,40rem);margin-inline:auto;padding:var(--av-space-6) var(--av-space-4)}
+.amfa-header h1{margin:0}
+.amfa-header .subtitle{margin:var(--av-space-2) 0 0}
+.amfa-state{margin:0;color:var(--av-text-secondary);font-size:var(--av-fs-sm)}
+.amfa-state--done{color:var(--av-success,var(--av-primary));font-weight:var(--av-fw-semibold)}
+.amfa-card{display:grid;gap:var(--av-space-4);padding:var(--av-space-6);border:1px solid var(--av-border-default);border-radius:var(--av-radius-xl);background:var(--av-surface-card);color:var(--av-text-primary)}
+.amfa-card h2{margin:0;font-size:var(--av-fs-lg)}
+.amfa-card p{margin:0;color:var(--av-text-secondary);font-size:var(--av-fs-sm);line-height:1.6}
+.amfa-card>button,.amfa-cancel{justify-self:start}
+.amfa-steps{margin:0;padding-left:var(--av-space-6);color:var(--av-text-secondary);font-size:var(--av-fs-sm);line-height:1.6}
+.amfa-qr{display:block;width:192px;height:192px;padding:var(--av-space-2);border:1px solid var(--av-border-default);border-radius:var(--av-radius-md);background:white}
+/* The QR stays dark-on-light in both themes: authenticator scanners need the contrast. */
+.amfa-secret{display:flex;flex-wrap:wrap;align-items:center;gap:var(--av-space-2) var(--av-space-3);font-size:var(--av-fs-sm)}
+.amfa-secret code{padding:var(--av-space-1) var(--av-space-2);border-radius:var(--av-radius-sm);background:var(--av-surface-sunken);color:var(--av-text-primary);font-size:var(--av-fs-sm);overflow-wrap:anywhere;user-select:all}
+.amfa-factors{display:grid;gap:var(--av-space-2);margin:0;padding:0;list-style:none}
+.amfa-factor{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--av-space-2) var(--av-space-4);padding:var(--av-space-3) var(--av-space-4);border:1px solid var(--av-border-subtle);border-radius:var(--av-radius-md)}
+.amfa-factor div{display:grid;gap:var(--av-space-1)}
+.amfa-factor span{color:var(--av-text-secondary);font-size:var(--av-fs-sm)}
+/* The code form, factor select, notices and the dialog frame live in
+   admin-mfa-dialog.css, shared with the step-up prompt on every admin page. */
+.amfa-shell :is(a,button,input,select):focus-visible{outline:2px solid var(--av-primary);outline-offset:2px}
+
+@media(max-width:430px){.amfa-shell{padding:var(--av-space-4) var(--av-space-3)}.amfa-card{padding:var(--av-space-4)}}

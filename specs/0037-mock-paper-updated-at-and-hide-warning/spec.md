@@ -114,6 +114,19 @@ never states plainly that saving removes the source from the public library.
 - **FR-005:** Hide-on-copy is unchanged: the create payload still sends
   `private_content_copy: true` with `*_is_public: false`, and the backend still
   hides a public source.
+- **FR-006:** A permitted Listening package status transition (publish or
+  archive through `set_listening_content_package_status`, which sets
+  `app.listening_package_status_transition` to that package) succeeds on the
+  package's `listening_tests` rows while `trg_mock_paper_policy` is active: the
+  row takes the new `status` and `is_public`, `policy_revision` rises by exactly
+  one, one `mock_correction_release_events` row is written, and `updated_at`
+  advances. `fn_protect_listening_package_child` additionally accepts only the
+  `policy_revision` change that `fn_guard_mock_paper_policy` derives in that
+  transition; every other package-row change, a visibility or status change
+  outside a package transition, and raw content edits are still refused with
+  `listening_package_child_immutable` and leave no release event. Migration 353
+  is forward-only in one transaction with `lock_timeout = '5s'`, changes no row,
+  and is re-runnable.
 
 ## Acceptance scenarios
 
@@ -147,7 +160,10 @@ never states plainly that saving removes the source from the public library.
 - Admin lists ordered by `updated_at desc` now reorder after visibility, lock
   and share changes.
 - 80-day Listening package rows: `fn_protect_listening_package_child`
-  allow-lists `updated_at`, so permitted status transitions keep working.
+  allow-lists `updated_at`, but not the `policy_revision` that 306 bumps on a
+  status/visibility change, so a permitted package publish/archive was refused
+  with `listening_package_child_immutable` (found by PC-J242 on local PG17,
+  2026-10-30). Amendment 1 adds FR-006 and migration 353.
 - A superuser can still disable triggers; that bypass is out of scope.
 
 ## Success criteria

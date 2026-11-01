@@ -8,6 +8,9 @@ owner: product
 
 # Client roles cannot write privilege, score or session data
 
+**Amendment 1** — approved by Vinh item by item: (b) FR-011, migration 351, and (c) FR-012, migration 349, on 2026-10-30 at 06:58 (UTC+7), verbatim "Ok theo đề xuất". Relayed by the Leader. Item (d) FR-013, migration 350, was deferred by Vinh and is not in this amendment. See
+[`approval-decision.md`](approval-decision.md).
+
 ## Problem
 
 The staging security audit of 2026-10-25 (verified by the project manager)
@@ -45,6 +48,12 @@ The browser never needs these writes; FastAPI is the only business backend.
   change to role, activation, permissions, feature flags or other server-owned
   columns from a client role, even through a SECURITY DEFINER wrapper.
 - Remove client EXECUTE on SECURITY DEFINER trigger functions.
+- Amendment 1 (b): remove client EXECUTE (`PUBLIC`, `anon`, `authenticated`)
+  from the four backend-only admin dashboard aggregate functions of migration
+  139, keeping `service_role` (FR-011, migration 351).
+- Amendment 1 (c): remove every client table and column privilege from
+  `public` tables that have row-level security enabled and no policy, keeping
+  `service_role` (FR-012, migration 349; `listening_tests` by migration 347).
 - Re-check activation and the session mode's permission on Speaking question
   generation, custom questions, cue-card generation, grading and full-test
   pronunciation.
@@ -53,7 +62,8 @@ The browser never needs these writes; FastAPI is the only business backend.
 
 ## Non-goals
 
-- Changing read access, SELECT policies or Storage policies.
+- Changing read access, SELECT policies or Storage policies, except
+  Amendment 1 FR-011 (client EXECUTE on four backend-only dashboard functions) and FR-012 (client privileges on RLS-enabled tables without policies).
 - Moving the Vocabulary bank and flashcard learner-token writes to the service
   role (learner-owned content and SRS schedule, not grades).
 - Changing default EXECUTE privileges for functions: SECURITY INVOKER RPCs
@@ -109,6 +119,23 @@ The browser never needs these writes; FastAPI is the only business backend.
   (403) and an account without the session mode's permission (403) unless the
   session answers a class assignment, after confirming ownership (404 for a
   foreign session) and before any AI call or quota use.
+- **FR-011:** `PUBLIC`, `anon` and `authenticated` cannot execute the
+  backend-only admin dashboard aggregates `public.fn_dashboard_visitors(timestamptz)`,
+  `public.fn_dashboard_tokens_called(timestamptz)`,
+  `public.fn_dashboard_daily_visitors(timestamptz)` and
+  `public.fn_dashboard_daily_tokens(timestamptz)` (migration 139, SECURITY
+  INVOKER), whoever granted the privilege; `service_role` keeps EXECUTE, so
+  `GET /admin/dashboard/overview` and `/trends` keep exact server-side counts
+  instead of the 1000-row fallback. The revoking migration changes no other
+  function, table, policy or default ACL, writes no rows, is idempotent, and
+  aborts if a signature is missing, a function is not SECURITY INVOKER, or any
+  client EXECUTE survives.
+- **FR-012:** Every `public` table that has row-level security enabled and no
+  policy grants no table or column privilege to `PUBLIC`, `anon` or
+  `authenticated`, except tables named with a reason in rollout.md (Amendment 1
+  exceptions); `service_role` keeps its privileges. The revoking migration
+  writes no rows, is idempotent and aborts if a listed table keeps a client
+  privilege, whoever granted it.
 
 ## Acceptance scenarios
 

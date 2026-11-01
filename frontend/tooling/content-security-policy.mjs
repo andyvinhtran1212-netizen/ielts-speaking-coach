@@ -97,6 +97,12 @@ export function buildContentSecurityPolicy(env = process.env) {
 // script-src, sent as Content-Security-Policy-Report-Only by proxy.ts on the
 // signed-in route groups. The enforced policy above is unchanged.
 export const NONCE_REPORT_ONLY_FLAG = 'AVER_CSP_NONCE_REPORT_ONLY';
+export const NONCE_ENFORCE_FLAG = 'AVER_CSP_NONCE_ENFORCE';
+
+/** Step 2 is opt-in, and cannot be enabled in a Vercel production build. */
+export function nonceEnforceEnabled(env = process.env) {
+  return env[NONCE_ENFORCE_FLAG] === '1' && env.VERCEL_ENV !== 'production';
+}
 
 /**
  * Whether this build renders the AuthedShell routes per request with a nonce.
@@ -105,6 +111,9 @@ export const NONCE_REPORT_ONLY_FLAG = 'AVER_CSP_NONCE_REPORT_ONLY';
  * enable it from the staging measurements.
  */
 export function nonceReportOnlyEnabled(env = process.env) {
+  // This flag also controls AuthedShell's request-time nonce read. Enforcing
+  // must enable that read even when Report-Only was explicitly switched off.
+  if (nonceEnforceEnabled(env)) return true;
   const flag = env[NONCE_REPORT_ONLY_FLAG];
   if (flag === '1') return true;
   if (flag === '0') return false;
@@ -118,13 +127,43 @@ export function nonceReportOnlyEnabled(env = process.env) {
  * browsers that honour a nonce ignore it.
  */
 export function buildNonceReportOnlyPolicy(nonce, env = process.env) {
-  if (!/^[A-Za-z0-9+/]{16,}={0,2}$/.test(nonce || '')) {
+  if (!/^[A-Za-z0-9+/]{16,}={0,2}$/.test(nonce || '') || /\s/.test(nonce)) {
     throw new Error('content-security-policy: nonce must be base64 of >= 12 random bytes');
   }
   const sources = ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'", "'unsafe-inline'"];
   if (env.NODE_ENV === 'development') sources.push("'unsafe-eval'");
   return `script-src ${sources.join(' ')}`;
 }
+
+/** Full blocking policy: change only script-src from the existing baseline. */
+export function buildNonceEnforcedPolicy(nonce, env = process.env) {
+  const script = buildNonceReportOnlyPolicy(nonce, env);
+  const toolbar = env.VERCEL_ENV && env.VERCEL_ENV !== 'production'
+    ? ` ${VERCEL_TOOLBAR_SOURCES.script.join(' ')}` : '';
+  return buildContentSecurityPolicy(env).replace(/script-src [^;]+/, `${script}${toolbar}`);
+}
+
+/** Runtime defense in addition to the proxy's production-host exclusion. */
+export function nonceHostAllowed(hostname) {
+  return hostname === 'staging.averlearning.com'
+    || hostname === 'localhost' || hostname === '127.0.0.1'
+    || /^[a-z0-9-]+(?:\.[a-z0-9-]+)*\.vercel\.app$/i.test(hostname);
+}
+
+// Next requires a literal matcher in proxy.ts. The route inventory tests keep
+// this runtime guard aligned with that matcher and every AuthedShell layout.
+export function nonceRouteAllowed(pathname) {
+  return /^\/(?:admin|advanced-vocabulary|course-exercises|d1-exercise|exam|exercises|flashcard-study|flashcards|full-test|full-test-result|grammar-checkup|grammar-lessons|home|instructor|listening|mock|mock-exam|my-class|onboarding|practice|profile|quiz|reading|result|speaking|writing)(?:\/|$)/.test(pathname)
+    || /^\/vocabulary\/.+/.test(pathname);
+}
+
+// These are the nonce routes from next.config.ts's framing allowlist. Exact
+// matches preserve its existing policy (children keep frame-ancestors none).
+export const NONCE_SAME_ORIGIN_FRAME_ROUTES = Object.freeze([
+  '/listening/test/session', '/reading/exam/session',
+  '/admin/mock-exams', '/admin/mock-live', '/admin/mock-reviews',
+  '/admin/writing/queue', '/admin/writing/status', '/admin/writing/grade',
+]);
 
 /** Same policy for the allow-listed same-origin embeddable workspaces. */
 export function sameOriginFramePolicy(policy) {
