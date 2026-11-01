@@ -63,6 +63,7 @@ ADMIN_CHECK_NAMES = GUARD_NAMES | {"_is_admin", "holds_admin_privilege", "resolv
 SOFT_ADMIN_ROUTES = {
     ("GET", "/health/ready"): "unredacted diagnostics",
     ("GET", "/health/runtime"): "unredacted diagnostics",
+    ("GET", "/health/async-db"): "saturation snapshot (PC-J275)",
     ("GET", "/api/listening/tests/attempts/{attempt_id}/review"): "other user's sealed attempt",
     ("GET", "/api/reading/test/attempts/{attempt_id}/review"): "other user's sealed attempt",
     ("POST", "/sessions"): "admin daily-quota bypass",
