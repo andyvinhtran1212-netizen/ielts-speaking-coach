@@ -421,11 +421,26 @@ BEGIN
         ('relation', 'public.student_lifecycle_audit', 'public anon authenticated', 'ALL', '326', NULL),
         ('relation', 'public.student_lifecycle_audit', 'service_role', 'UPDATE DELETE TRUNCATE', '326', NULL),
         ('function', 'public.fn_guard_writing_assignment_student_archived()', 'public anon authenticated', 'EXECUTE', '331', NULL),
+        ('relation', 'public.staff_security_audit', 'public anon authenticated', 'ALL', '332', NULL),
+        ('relation', 'public.staff_security_audit', 'service_role', 'UPDATE DELETE TRUNCATE REFERENCES TRIGGER MAINTAIN', '332', NULL),
+        ('relation', 'public.owner_alert_outbox', 'public anon authenticated', 'ALL', '332', NULL),
+        ('relation', 'public.owner_alert_outbox', 'service_role', 'DELETE TRUNCATE REFERENCES TRIGGER MAINTAIN', '332', NULL),
+        ('relation', 'public.staff_mfa_factor_snapshot', 'public anon authenticated', 'ALL', '332', NULL),
+        ('relation', 'public.staff_mfa_factor_snapshot', 'service_role', 'TRUNCATE REFERENCES TRIGGER MAINTAIN', '332', NULL),
+        ('relation', 'public.staff_security_sweep_cursor', 'public anon authenticated', 'ALL', '332', NULL),
+        ('relation', 'public.staff_security_sweep_cursor', 'service_role', 'TRUNCATE REFERENCES TRIGGER MAINTAIN', '332', NULL),
+        ('function', 'public.fn_users_suspension_guard()', 'public anon authenticated service_role', 'EXECUTE', '332', NULL),
+        ('function', 'public.fn_staff_security_audit_append_only()', 'public anon authenticated service_role', 'EXECUTE', '332', NULL),
+        ('function', 'public.fn_staff_security_record(uuid,text,uuid,uuid,text,jsonb,jsonb,text,text,jsonb,bool)', 'public anon authenticated service_role', 'EXECUTE', '332', NULL),
+        ('function', 'public.fn_users_privilege_audit()', 'public anon authenticated service_role', 'EXECUTE', '332', NULL),
+        ('function', 'public.fn_set_staff_privilege(uuid,uuid,text,bool,text,text)', 'public anon authenticated', 'EXECUTE', '332', NULL),
+        ('function', 'public.fn_bootstrap_admin_recovery(uuid,text,text)', 'public anon authenticated service_role', 'EXECUTE', '332', NULL),
         ('relation', 'public.activation_attempts', 'public anon authenticated', 'ALL', '334', NULL),
         ('relation', 'public.activation_attempts', 'service_role', 'INSERT UPDATE DELETE TRUNCATE REFERENCES TRIGGER MAINTAIN', '334', NULL),
         ('function', 'public.fn_activate_attempt_check(uuid)', 'public anon authenticated', 'EXECUTE', '334', NULL),
         ('schema', 'app_private', 'public anon', 'USAGE CREATE', '335', NULL),
-        ('function', 'app_private.is_current_user_active()', 'public anon', 'EXECUTE', '335', NULL)
+        ('function', 'app_private.is_current_user_active()', 'public anon', 'EXECUTE', '335', NULL),
+        ('function', 'public.fn_users_suspension_role_guard()', 'public anon authenticated service_role', 'EXECUTE', '336', NULL)
     ), target AS (
         SELECT i.*, o.oid, o.label, o.objtype, o.acl
           FROM invariant i

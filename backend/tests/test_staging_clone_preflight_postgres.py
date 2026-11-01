@@ -309,6 +309,10 @@ def sandbox(tmp_path, source, target, database, injection="", appended=""):
     # Codex P2 (PR #2138): REVOKE ALL also pins MAINTAIN for service_role on PG 17.
     ("invariant_service_maintain", "public.listening_programme_start_drain_gates:service_role:MAINTAIN [303]"),
     ("invariant_partial_maintain", "migration_acl_invariant_violated: public.activation_attempts:service_role:MAINTAIN"),
+    # 332/336 became prod-active after #2058: the append-only staff audit
+    # keeps service_role to SELECT/INSERT, and 336's guard stays unexecutable.
+    ("invariant_staff_audit_delete", "migration_acl_invariant_violated: public.staff_security_audit:service_role:DELETE [332]"),
+    ("invariant_role_guard_execute", "public.fn_users_suspension_role_guard():service_role:EXECUTE [336]"),
     ("invariant_name_pattern", "migration_acl_invariant_violated: public.grammar_quiz_fixture_helper():service_role"),
     ("invariant_target_schema", "migration_acl_invariant_violated: app_private:anon:USAGE [335]"),
     ("invariant_missing", "migration_acl_invariant_object_missing: relation public.listening_test_attempts"),
@@ -345,6 +349,10 @@ def test_clone_preflight_and_atomic_restore(clusters, tmp_path, case, diagnostic
         seed.append("GRANT MAINTAIN ON public.listening_programme_start_drain_gates TO service_role;")
     if case == "invariant_partial_maintain":
         seed.append("GRANT MAINTAIN ON public.activation_attempts TO service_role;")
+    if case == "invariant_staff_audit_delete":
+        seed.append("GRANT DELETE ON public.staff_security_audit TO service_role;")
+    if case == "invariant_role_guard_execute":
+        seed.append("GRANT EXECUTE ON FUNCTION public.fn_users_suspension_role_guard() TO service_role;")
     if case == "invariant_name_pattern":
         seed.append("GRANT EXECUTE ON FUNCTION public.grammar_quiz_fixture_helper() TO service_role;")
     if case == "invariant_missing":

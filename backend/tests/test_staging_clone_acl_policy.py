@@ -371,8 +371,10 @@ ACL_MIGRATION_COVERAGE = {
     "322_ai_model_overrides_and_failures.sql": (INVARIANT,),
     "326_student_archive.sql": (INVARIANT,),
     "331_writing_assignment_archived_student_guard.sql": (INVARIANT,),
+    "332_staff_security_audit.sql": (INVARIANT,),
     "334_activate_attempt_rate_limit.sql": (INVARIANT,),
     "335_learner_jwt_writes_require_active_account.sql": (INVARIANT,),
+    "336_suspended_account_role_guard.sql": (INVARIANT,),
     "339_grammar_quiz_followup_codes.sql": (INVARIANT,),
 }
 _SQL_COMMENT = re.compile(r"/\*.*?\*/|--[^\n]*", re.DOTALL)
