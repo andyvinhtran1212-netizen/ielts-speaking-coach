@@ -47,7 +47,8 @@ function loadRetakeFlow() {
   return (env) => {
     const fn = new Function('$', 'lastVerdict', 'runner', 'renderQuestion', 'esc', 'setSaveState',
       'reportSeq', 'reportLoad',
-      `return (async () => {${body}})();`);
+      `let disposed = false;
+       return (async () => {${body}})();`);
     return fn(env.$, env.lastVerdict, env.runner, env.renderQuestion,
       env.esc || ((value) => String(value)), env.setSaveState || (() => {}), 0, null);
   };
@@ -73,6 +74,7 @@ function loadReportFlow(env) {
     'requestedItem', 'lastVerdict', 'esc',
     `let reportLoad = null;
      let reportSeq = 0;
+     let disposed = false;
      return async function showReport(options = {}) {${body}};`,
   );
   return factory(
@@ -469,6 +471,7 @@ describe('chuyển chặng trên giao diện', () => {
     const body = functionBody('advanceStageFlow');
     const factory = new Function('$', 'runner', 'renderQuestion', 'setSaveState', `
       let stageAdvance = null;
+      let disposed = false;
       return function advanceStageFlow() {${body}};
     `);
     return factory(env.$, env.runner, env.renderQuestion, env.setSaveState || (() => {}));

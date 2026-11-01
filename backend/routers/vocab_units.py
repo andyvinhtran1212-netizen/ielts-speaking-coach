@@ -170,7 +170,8 @@ async def list_learning_units(
     problem_tag: str | None = Query(default=None, max_length=80),
 ):
     try:
-        items = vocab_units.list_units(
+        items = await to_thread(
+            vocab_units.list_units,
             level=level, unit_type=unit_type, problem_tag=problem_tag,
         )
         return {"count": len(items), "units": items}
@@ -181,7 +182,7 @@ async def list_learning_units(
 @router.get("/api/vocabulary/units/{unit_slug}", dependencies=[Depends(_read_switch)])
 async def get_learning_unit(unit_slug: str):
     try:
-        return vocab_units.get_unit(unit_slug)
+        return await to_thread(vocab_units.get_unit, unit_slug)
     except Exception as exc:
         raise _translate_domain_error(exc) from exc
 
@@ -189,7 +190,7 @@ async def get_learning_unit(unit_slug: str):
 @router.get("/api/vocabulary/pathways", dependencies=[Depends(_read_switch)])
 async def list_learning_pathways():
     try:
-        items = vocab_units.list_pathways()
+        items = await to_thread(vocab_units.list_pathways)
         return {"count": len(items), "pathways": items}
     except Exception as exc:
         raise _translate_domain_error(exc) from exc
@@ -198,16 +199,20 @@ async def list_learning_pathways():
 @router.get("/api/me/vocabulary/today")
 async def get_my_vocab_today(authorization: str | None = Header(default=None)):
     user = await get_supabase_user(authorization)
-    _require_learner_gate(user["id"])
-    try:
-        return vocab_units.get_today(
-            user["id"],
-            include_recommendations=runtime_flags.is_enabled(
-                "vocab_unit_recommendations", default=False,
-            ),
-        )
-    except Exception as exc:
-        raise _translate_domain_error(exc) from exc
+
+    def load_for_learner():
+        _require_learner_gate(user["id"])
+        try:
+            return vocab_units.get_today(
+                user["id"],
+                include_recommendations=runtime_flags.is_enabled(
+                    "vocab_unit_recommendations", default=False,
+                ),
+            )
+        except Exception as exc:
+            raise _translate_domain_error(exc) from exc
+
+    return await to_thread(load_for_learner)
 
 
 @router.get("/api/me/vocabulary/unit-mastery")
@@ -217,13 +222,17 @@ async def get_my_vocab_mastery(
     authorization: str | None = Header(default=None),
 ):
     user = await get_supabase_user(authorization)
-    _require_learner_gate(user["id"])
-    try:
-        return vocab_units.get_user_mastery(
-            user["id"], page=page, page_size=page_size,
-        )
-    except Exception as exc:
-        raise _translate_domain_error(exc) from exc
+
+    def load_for_learner():
+        _require_learner_gate(user["id"])
+        try:
+            return vocab_units.get_user_mastery(
+                user["id"], page=page, page_size=page_size,
+            )
+        except Exception as exc:
+            raise _translate_domain_error(exc) from exc
+
+    return await to_thread(load_for_learner)
 
 
 @router.post("/api/me/vocabulary/context-links")
@@ -232,13 +241,17 @@ async def resolve_my_vocab_context_links(
     authorization: str | None = Header(default=None),
 ):
     user = await get_supabase_user(authorization)
-    _require_learner_gate(user["id"])
-    try:
-        return vocab_context_links.resolve_context_links(body.terms)
-    except vocab_context_links.VocabContextLookupError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except Exception as exc:
-        raise _translate_domain_error(exc) from exc
+
+    def load_for_learner():
+        _require_learner_gate(user["id"])
+        try:
+            return vocab_context_links.resolve_context_links(body.terms)
+        except vocab_context_links.VocabContextLookupError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except Exception as exc:
+            raise _translate_domain_error(exc) from exc
+
+    return await to_thread(load_for_learner)
 
 
 @router.post("/api/me/vocabulary/recommendations/{recommendation_id}/open")
@@ -248,23 +261,27 @@ async def open_my_vocab_recommendation(
     authorization: str | None = Header(default=None),
 ):
     user = await get_supabase_user(authorization)
-    _require_learner_gate(user["id"])
-    if not runtime_flags.is_enabled("vocab_unit_recommendations", default=False):
-        raise HTTPException(status_code=503, detail={
-            "error_code": "feature_disabled",
-            "flag": "vocab_unit_recommendations",
-            "message": "Recommendation Vocab Curated đang tạm khóa.",
-        })
-    try:
-        return vocab_pilot_metrics.open_recommendation(
-            user_id=user["id"],
-            recommendation_id=str(recommendation_id),
-            unit_slug=body.unit_slug,
-        )
-    except vocab_pilot_metrics.VocabRecommendationNotFound as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except Exception as exc:
-        raise _translate_domain_error(exc) from exc
+
+    def load_for_learner():
+        _require_learner_gate(user["id"])
+        if not runtime_flags.is_enabled("vocab_unit_recommendations", default=False):
+            raise HTTPException(status_code=503, detail={
+                "error_code": "feature_disabled",
+                "flag": "vocab_unit_recommendations",
+                "message": "Recommendation Vocab Curated đang tạm khóa.",
+            })
+        try:
+            return vocab_pilot_metrics.open_recommendation(
+                user_id=user["id"],
+                recommendation_id=str(recommendation_id),
+                unit_slug=body.unit_slug,
+            )
+        except vocab_pilot_metrics.VocabRecommendationNotFound as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except Exception as exc:
+            raise _translate_domain_error(exc) from exc
+
+    return await to_thread(load_for_learner)
 
 
 @router.post("/api/vocabulary/tasks/{task_id}/attempt")
@@ -274,13 +291,17 @@ async def submit_vocab_task_attempt(
     authorization: str | None = Header(default=None),
 ):
     user = await get_supabase_user(authorization)
-    _require_learner_gate(user["id"], write=True)
-    try:
-        return vocab_units.submit_attempt(
-            user["id"], str(task_id), str(body.attempt_id), body.response.model_dump(),
-        )
-    except Exception as exc:
-        raise _translate_domain_error(exc) from exc
+
+    def load_for_learner():
+        _require_learner_gate(user["id"], write=True)
+        try:
+            return vocab_units.submit_attempt(
+                user["id"], str(task_id), str(body.attempt_id), body.response.model_dump(),
+            )
+        except Exception as exc:
+            raise _translate_domain_error(exc) from exc
+
+    return await to_thread(load_for_learner)
 
 
 async def _require_curated_admin(authorization):
@@ -296,7 +317,7 @@ async def admin_get_vocab_pilot_metrics(
 ):
     await _require_curated_admin(authorization)
     try:
-        return vocab_pilot_metrics.get_metrics(days=int(days))
+        return await to_thread(vocab_pilot_metrics.get_metrics, days=int(days))
     except Exception as exc:
         raise _translate_domain_error(exc) from exc
 
@@ -309,7 +330,8 @@ async def admin_set_vocab_pilot_cohort(
 ):
     admin = await _require_curated_admin(authorization)
     try:
-        return vocab_pilot_metrics.set_cohort_flag(
+        return await to_thread(
+            vocab_pilot_metrics.set_cohort_flag,
             user_id=str(user_id), enabled=body.enabled, changed_by=admin["id"],
         )
     except vocab_pilot_metrics.VocabPilotUserNotFound as exc:
@@ -327,7 +349,8 @@ async def admin_list_vocab_editorial_units(
 ):
     await _require_curated_admin(authorization)
     try:
-        return vocab_units.list_editorial_units(
+        return await to_thread(
+            vocab_units.list_editorial_units,
             status=status, offset=offset, limit=limit,
         )
     except Exception as exc:
@@ -341,7 +364,7 @@ async def admin_get_vocab_editorial_unit(
 ):
     await _require_curated_admin(authorization)
     try:
-        return vocab_units.get_editorial_unit(str(unit_id))
+        return await to_thread(vocab_units.get_editorial_unit, str(unit_id))
     except Exception as exc:
         raise _translate_domain_error(exc) from exc
 
@@ -353,7 +376,7 @@ async def admin_create_vocab_unit(
 ):
     admin = await _require_curated_admin(authorization)
     try:
-        return vocab_units.create_unit(body.model_dump(), admin["id"])
+        return await to_thread(vocab_units.create_unit, body.model_dump(), admin["id"])
     except Exception as exc:
         raise _translate_domain_error(exc) from exc
 
@@ -366,7 +389,8 @@ async def admin_create_vocab_version(
 ):
     admin = await _require_curated_admin(authorization)
     try:
-        return vocab_units.create_version(
+        return await to_thread(
+            vocab_units.create_version,
             str(unit_id),
             content=body.content,
             sources=body.sources,
@@ -385,7 +409,7 @@ async def admin_validate_vocab_version(
 ):
     await _require_curated_admin(authorization)
     try:
-        return vocab_units.validate_version(str(version_id))
+        return await to_thread(vocab_units.validate_version, str(version_id))
     except Exception as exc:
         raise _translate_domain_error(exc) from exc
 
@@ -398,7 +422,8 @@ async def admin_review_vocab_version(
 ):
     admin = await _require_curated_admin(authorization)
     try:
-        return vocab_units.review_version(
+        return await to_thread(
+            vocab_units.review_version,
             str(version_id), review_type=body.review_type, decision=body.decision,
             notes=body.notes, admin_id=admin["id"],
         )
@@ -413,7 +438,7 @@ async def admin_publish_vocab_version(
 ):
     admin = await _require_curated_admin(authorization)
     try:
-        return vocab_units.publish_version(str(version_id), admin["id"])
+        return await to_thread(vocab_units.publish_version, str(version_id), admin["id"])
     except Exception as exc:
         raise _translate_domain_error(exc) from exc
 
@@ -426,7 +451,8 @@ async def admin_rollback_vocab_version(
 ):
     admin = await _require_curated_admin(authorization)
     try:
-        return vocab_units.rollback_version(
+        return await to_thread(
+            vocab_units.rollback_version,
             str(unit_id), str(body.version_id), admin["id"],
         )
     except Exception as exc:

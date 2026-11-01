@@ -385,6 +385,9 @@ test('a transient timed eager 5xx retries before cutoff and needs no late insert
   const runner = createRunner({
     api, storage: null, now: () => clock,
     schedule(fn, delay) { scheduled.push({ fn, delay }); },
+    // PC-J435 jitters retries into (step/2, step]; a zero draw is the plain
+    // step, so this test keeps pinning the exact backoff schedule.
+    random: () => 0,
   });
   await runner.load('b1', { assignmentItemId: 'item-timed' });
   runner.show();
@@ -536,6 +539,8 @@ test('timed eager retry backoff is bounded during a persistent outage', async ()
       delays.push(delay);
       scheduled.push({ fn, delay });
     },
+    // Zero jitter draw = the plain backoff step (jitter bounds: PC-J435 tests).
+    random: () => 0,
   });
   await runner.load('b1', { assignmentItemId: 'item-timed' });
   runner.show();

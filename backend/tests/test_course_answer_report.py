@@ -10,6 +10,8 @@ from __future__ import annotations
 import inspect
 from unittest.mock import patch
 
+import pytest
+
 from services import quiz_service as qs
 
 
@@ -339,9 +341,9 @@ def test_the_redaction_lists_the_kept_fields_INSTEAD_of_deleting_the_rest():
 # từ chính bộ câu ấy.
 
 def _report(*, passed, assignment_id=None, with_quiz=True,
-            completion_mode="mastery"):
+            completion_mode="mastery", questions=None, attempts=None):
     """Chạy trọn `course_answer_report` với một cơ sở dữ liệu giả."""
-    QS = [{"qid": "q0", "type": "mcq", "subtype": "gap", "item_key": "chia động từ",
+    QS = questions if questions is not None else [{"qid": "q0", "type": "mcq", "subtype": "gap", "item_key": "chia động từ",
            "prompt": "She ___ to school.", "options": ["go", "goes"], "answer": 1,
            "explain": "ngôi thứ ba số ít", "why_wrong": {"0": "thiếu -es"}, "order": 0},
           {"qid": "q1", "type": "mcq", "subtype": "gap", "item_key": "mạo từ",
@@ -375,7 +377,8 @@ def _report(*, passed, assignment_id=None, with_quiz=True,
                                    "class_assignment_item_id": "i1",
                                    "duration_sec": 60, "ended_at": "2026-08-06T01:00:00+00:00"}]
                                   if with_quiz else []),
-                "quiz_attempts": ([{"session_id": "s1", "qid": "q0", "is_correct": False,
+                "quiz_attempts": (attempts if attempts is not None else
+                                  [{"session_id": "s1", "qid": "q0", "is_correct": False,
                                    "answer_given": "0", "response_time_ms": 9000,
                                    "created_at": "2026-08-06T00:59:00+00:00"},
                                   {"session_id": "s1", "qid": "q1", "is_correct": True,
@@ -479,6 +482,51 @@ def test_single_attempt_report_has_result_only_summary_and_unlocked_answers():
     assert d["summary"]["pass_pct"] is None
     assert d["summary"]["near_pass_pct"] is None
     assert d["questions"][0]["answer"] is not None
+
+
+def _bank(n, *, with_answer=True):
+    return [{"qid": f"q{i}", "type": "mcq", "subtype": "gap", "item_key": "mạo từ",
+             "prompt": f"câu {i}", "options": ["a", "an"],
+             "answer": 1 if with_answer else None,
+             "explain": None, "why_wrong": {}, "order": i} for i in range(n)]
+
+
+def _correct_attempts(n):
+    return [{"session_id": "s1", "qid": f"q{i}", "is_correct": True,
+             "answer_given": "1", "response_time_ms": 4000,
+             "created_at": f"2026-08-06T00:{i:02d}:00+00:00"} for i in range(n)]
+
+
+@pytest.mark.parametrize("assignment_id", ["a1", None])
+def test_single_attempt_baseline_divides_by_the_whole_bank_like_the_official_score(
+        assignment_id):
+    # PC-J373: 15 câu đúng trên bank 300 câu rồi hết giờ. Điểm chính thức chia
+    # cho cả bank (5%); "Trắc nghiệm lượt đầu" phải ra đúng con số ấy, không phải
+    # 15/15 = 100%.
+    d = _report(passed=False, assignment_id=assignment_id,
+                completion_mode="single_attempt",
+                questions=_bank(300), attempts=_correct_attempts(15))
+    assert d["totals"]["answered"] == 15 and d["totals"]["correct"] == 15
+    assert d["summary"]["baseline_quiz_pct"] == 5.0
+    assert d["summary"]["baseline_total"] == 300
+    assert d["summary"]["baseline_answered"] == 15
+
+
+def test_mastery_baseline_still_divides_by_answered_questions():
+    d = _report(passed=False, assignment_id="a1",
+                questions=_bank(300), attempts=_correct_attempts(15))
+    assert d["summary"]["baseline_quiz_pct"] == 100.0
+    assert d["summary"]["baseline_total"] == 15
+
+
+@pytest.mark.parametrize("questions", [[], _bank(3, with_answer=False)])
+def test_single_attempt_baseline_is_none_when_the_bank_has_no_gradable_question(
+        questions):
+    d = _report(passed=False, assignment_id="a1",
+                completion_mode="single_attempt",
+                questions=questions, attempts=_correct_attempts(3))
+    assert d["summary"]["baseline_quiz_pct"] is None
+    assert d["summary"]["baseline_total"] is None
 
 
 def test_a_writing_only_teacher_report_keeps_the_mastery_summary_without_quiz_sessions():
