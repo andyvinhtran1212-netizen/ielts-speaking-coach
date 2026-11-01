@@ -1,20 +1,27 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { once } from 'node:events';
-import { after, test } from 'node:test';
+import { afterEach, test } from 'node:test';
 import { killGroup, spawnGroup } from '../tooling/process-group.mjs';
+import { descendants } from './fixtures/owned-process-tree.mjs';
 
 // Fallback so a regressed helper fails (or times out) without leaking children.
-const spawned = new Set();
-after(() => {
-  for (const pid of spawned) {
-    try { process.kill(pid, 'SIGKILL'); } catch {}
+const spawned = new Map();
+afterEach(async () => {
+  for (const [child, reaped] of spawned) {
+    if (child.pid && child.exitCode === null && child.signalCode === null) await killGroup(child, 'SIGKILL');
+    await reaped;
   }
+  spawned.clear();
+  assert.deepEqual(descendants(process.pid), [], 'test left live or zombie descendants');
 });
 
 function start(source) {
   const child = spawnGroup(process.execPath, ['-e', source], { stdio: ['ignore', 'pipe', 'inherit'] });
-  spawned.add(child.pid);
+  spawned.set(child, new Promise((done) => {
+    child.once('exit', done);
+    child.once('error', done);
+  }));
   return child;
 }
 
@@ -24,7 +31,6 @@ async function ready(child) {
     output += chunk;
     if (output.includes('\n')) {
       const pid = Number(output.trim());
-      spawned.add(pid);
       return pid;
     }
   }

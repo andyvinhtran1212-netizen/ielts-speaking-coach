@@ -67,7 +67,7 @@ Một bài band cao **đọc trôi**: mỗi câu nối tự nhiên vào câu tr�
 | **Liên kết từ vựng** | đồng nghĩa, từ khái quát hơn; lặp lại từ cũng được nếu rõ hơn | *cars → automobiles → these vehicles* (chú ý *vehicles* rộng hơn *cars*) |
 | **Danh hoá nối ý** | ý cuối câu này → chủ đề câu sau | *Prices rose. This **increase**…* |
 
-Đừng chỉ dựa vào từ nối — band 7 cần dùng nhiều loại công cụ liên kết một cách phù hợp, không chỉ từ nối.
+Đừng chỉ dựa vào từ nối: band 7 cần dùng nhiều loại công cụ liên kết một cách phù hợp.
 
 <!-- anchor: cohesion-devices-in-writing.themerheme -->
 ### Liên kết chủ đề: ý cũ trước, ý mới sau
@@ -93,6 +93,33 @@ Band 7+ yêu cầu liên kết **đa dạng**, không chỉ transition words.
 ## Ứng dụng trong bài thi
 
 **Writing Task 2:** mở đoạn bằng câu chủ đề, nối các câu bằng tham chiếu + từ đồng nghĩa, dùng từ nối ở chỗ quan hệ thật sự đổi hướng.
+
+## Lỗi người Việt hay gặp
+
+Người học hay dịch từng câu riêng rồi thêm *Moreover* hoặc *However* ở đầu câu sau. Cần xác định quan hệ giữa hai ý trước: bổ sung, tương phản hay kết quả?
+
+- ❌ *The gate was locked. Moreover, we could not enter.*
+- ✅ *The gate was locked. As a result, we could not enter.* Việc không vào được là kết quả của việc cổng bị khoá.
+
+Một lỗi khác là thay danh từ bằng một từ rộng hơn để tránh lặp nhưng làm đổi nhóm đang nói đến. Nếu câu trước chỉ nói về *bicycles*, dùng *these vehicles* có thể được khi phạm vi vẫn rõ; không tự mở rộng kết luận sang mọi phương tiện. Khi hai danh từ đều có thể là tiền ngữ, lặp lại danh từ cụ thể thường rõ hơn dùng *it*.
+
+## Bài tập luyện
+
+### Nối ý mà giữ rõ nghĩa
+
+1. Chọn từ nối: *The path was icy. ___, we walked slowly.* (As a result / Moreover)
+2. Chọn từ nối: *The room is small. ___, it has enough space for two desks.* (However / Therefore)
+3. Điền cụm danh từ tham chiếu việc tăng giá: *Ticket prices increased. This ___ surprised regular passengers.*
+4. Viết lại câu sau để nói rõ **chiếc laptop** cần sửa: *The laptop was beside the printer. It needed repairs.*
+5. Gọi tên thông tin cũ ở đầu câu thứ hai: *We bought a shelf. This shelf holds our gardening books.*
+
+### Đáp án và giải thích
+
+1. **As a result**. Đường đóng băng dẫn đến việc đi chậm; đây là quan hệ kết quả, không chỉ thêm một thông tin ngang hàng.
+2. **However**. Đủ chỗ đặt hai bàn là điều tương phản với kỳ vọng do *small* gợi ra; không phải hệ quả của phòng nhỏ.
+3. **increase** hoặc **rise**. *This increase/rise* danh hoá sự việc giá vé tăng và đưa ý đã biết lên đầu câu mới.
+4. *The laptop was beside the printer. **The laptop** needed repairs.* Cả hai vật đều số ít, nên lặp lại *the laptop* loại bỏ sự mơ hồ của *it*.
+5. **This shelf**. Cụm này nhắc lại *a shelf* ở câu trước rồi dẫn sang thông tin mới là công dụng chứa sách; câu vẫn liên kết dù không có từ nối đầu câu.
 
 ## Tóm tắt nhanh
 

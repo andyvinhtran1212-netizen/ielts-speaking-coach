@@ -172,6 +172,39 @@ function FeedbackList({ items, tone }: { items: string[]; tone: 'success' | 'war
   ));
 }
 
+interface TopFix {
+  text: string;
+  detail?: string;
+  count: number;
+}
+
+function TopFixes({ items }: { items: TopFix[] }) {
+  if (!items.length) return null;
+  return (
+    <section className="card p-5" aria-labelledby="result-top-fixes-title">
+      <h2
+        className="result-card-eyebrow result-card-eyebrow--improve text-xs font-bold uppercase tracking-wider mb-3"
+        id="result-top-fixes-title"
+      >
+        {items.length} việc cần sửa trước
+      </h2>
+      <ol className="result-feedback-list space-y-2 text-sm" style={{ listStyle: 'decimal', paddingLeft: '1.25rem' }}>
+        {items.map((item) => (
+          <li key={item.text} style={{ overflowWrap: 'anywhere' }}>
+            <span>{item.text}</span>
+            {item.count > 1 ? (
+              <span style={{ color: 'var(--av-text-secondary)' }}> (gặp ở {item.count} câu)</span>
+            ) : null}
+            {item.detail ? (
+              <p className="text-xs mt-1" style={{ color: 'var(--av-text-secondary)' }}>{item.detail}</p>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 function BandValue({ value, className = '' }: { value: unknown; className?: string }) {
   return <div className={`${className} ${bandClass(value)}`.trim()}>{formatBand(value)}</div>;
 }
@@ -1122,7 +1155,16 @@ function ResultContent({ view, requestKey }: { view: any; requestKey: string }) 
           <div className="ds-section-head" style={{ marginBottom: 8 }}>Band tổng quan</div>
           <BandValue className="ds-band-value" value={view.overall} />
           <div className="ds-band-label">Overall Band Score</div>
+          <p className="text-xs mt-2" style={{ color: 'var(--av-text-secondary)' }}>
+            Band ước tính: do AI chấm, không phải điểm thi IELTS chính thức.
+          </p>
         </div>
+        {view.reliabilityNote ? (
+          <div className="ds-warning-banner mb-4" role="status">
+            <span className="ds-warning-icon" aria-hidden="true">🎙️</span>
+            <p className="ds-warning-message">{view.reliabilityNote.message}</p>
+          </div>
+        ) : null}
         {!view.isPractice ? (
           <div className="grid grid-cols-2 gap-3">
             {[
@@ -1139,6 +1181,8 @@ function ResultContent({ view, requestKey }: { view: any; requestKey: string }) 
           </div>
         ) : null}
       </section>
+
+      <TopFixes items={view.topFixes} />
 
       <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="card p-5">
