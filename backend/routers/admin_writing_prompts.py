@@ -20,6 +20,8 @@ silent empty result on RLS denial.
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import logging
 from typing import Optional
 from uuid import UUID
@@ -145,6 +147,17 @@ async def list_prompts(
     `is_active=false` to inspect deactivated rows for restore."""
     await require_admin(authorization)
 
+    return await asyncio.to_thread(
+        _list_prompts_sync, task_type, difficulty, is_active, limit,
+    )
+
+
+def _list_prompts_sync(
+    task_type: Optional[str],
+    difficulty: Optional[str],
+    is_active: Optional[bool],
+    limit: int,
+):
     q = (
         supabase_admin.table("writing_prompts")
         .select("*")
@@ -166,15 +179,15 @@ async def list_prompts(
 
 def _maybe_trigger_analysis(
     prompt_row: dict,
-    background_tasks: BackgroundTasks,
+    dispatches: list,
     *,
     requested_by: str,
     trigger: str,
 ) -> None:
     """Kick off answer-key extraction when a task1_academic prompt's chart is new
     or replaced (image public_id != the one the analysis was derived from). Sets
-    status='pending' synchronously so the UI reflects it immediately, then runs
-    the vision extraction in the background."""
+    status='pending' synchronously so the UI reflects it immediately, then queues
+    the vision extraction on ``dispatches`` for _run_prompt_write to start."""
     if not writing_prompt_analysis.image_needs_analysis(prompt_row):
         return
     pid = prompt_row["id"]
@@ -183,10 +196,57 @@ def _maybe_trigger_analysis(
     )
     if pending_token is None:
         return
-    background_tasks.add_task(
-        writing_prompt_analysis.run_and_store_analysis, pid, pending_token,
-        requested_by=requested_by, trigger=trigger,
-    )
+    dispatches.append((pid, pending_token, requested_by, trigger))
+
+
+async def _run_prompt_write(background_tasks: BackgroundTasks, fn, *args):
+    """Run the sync write ``fn(*args, dispatches)`` in a worker thread, then start
+    every extraction it marked 'pending'.
+
+    PC-J482: the thread cannot be interrupted, so a request cancelled while it
+    waits still gets 'pending' written, and a cancelled request never runs its
+    BackgroundTasks. On cancel, wait for the thread, start the extractions on
+    tasks this module owns, then re-raise."""
+    dispatches: list = []
+    work = asyncio.ensure_future(asyncio.to_thread(fn, *args, dispatches))
+    try:
+        result = await asyncio.shield(work)
+    except asyncio.CancelledError:
+        # asyncio.wait never cancels ``work``; a repeated cancel only restarts it.
+        while not work.done():
+            with contextlib.suppress(asyncio.CancelledError):
+                await asyncio.wait({work})
+        if not work.cancelled() and work.exception() is None:
+            for dispatch in dispatches:
+                _dispatch_cancelled_analysis(*dispatch)
+        raise
+    for prompt_id, pending_token, requested_by, trigger in dispatches:
+        background_tasks.add_task(
+            writing_prompt_analysis.run_and_store_analysis, prompt_id, pending_token,
+            requested_by=requested_by, trigger=trigger,
+        )
+    return result
+
+
+# Strong references to the extractions of cancelled requests until they end.
+_cancelled_analysis_runs: set = set()
+
+
+def _dispatch_cancelled_analysis(
+    prompt_id: str, pending_token: str, requested_by: str, trigger: str,
+) -> None:
+    async def _run() -> None:
+        try:
+            await writing_prompt_analysis.run_and_store_analysis(
+                prompt_id, pending_token, requested_by=requested_by, trigger=trigger,
+            )
+        except Exception:  # same as a crashed BackgroundTask
+            logger.exception("[prompt-analysis] cancelled-request dispatch failed prompt=%s",
+                             prompt_id)
+
+    task = asyncio.create_task(_run())
+    _cancelled_analysis_runs.add(task)
+    task.add_done_callback(_cancelled_analysis_runs.discard)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -200,6 +260,10 @@ async def create_prompt(
     schedules answer-key extraction (docs/WRITING_TASK1_ANALYSIS_SPEC.md)."""
     admin = await require_admin(authorization)
 
+    return await _run_prompt_write(background_tasks, _create_prompt_sync, body, admin)
+
+
+def _create_prompt_sync(body: PromptCreate, admin: dict, dispatches: list):
     payload = body.model_dump()
     payload["prompt_image_url"] = canonical_image_ref(payload.get("prompt_image_url"))
     image_url = payload.get("prompt_image_url")
@@ -217,7 +281,7 @@ async def create_prompt(
     if not r.data:
         raise HTTPException(500, "Failed to create prompt")
     _maybe_trigger_analysis(
-        r.data[0], background_tasks, requested_by=admin["id"], trigger="create",
+        r.data[0], dispatches, requested_by=admin["id"], trigger="create",
     )
     out = dict(r.data[0])
     attach_signed_image_urls([out])
@@ -269,7 +333,9 @@ async def upload_image(
     file_bytes = await file.read()
 
     try:
-        result = upload_prompt_image(file_bytes, filename_hint=file.filename)
+        result = await asyncio.to_thread(
+            upload_prompt_image, file_bytes, filename_hint=file.filename,
+        )
     except ValueError as exc:
         raise HTTPException(400, str(exc))
     except Exception as exc:
@@ -293,6 +359,11 @@ async def discard_unattached_image(
     deliberately not a general-purpose storage delete surface.
     """
     await require_admin(authorization)
+
+    return await asyncio.to_thread(_discard_unattached_image_sync, body)
+
+
+def _discard_unattached_image_sync(body: DiscardImageRequest):
     if not body.public_id.startswith("prompts/"):
         raise HTTPException(400, "Invalid prompt image path")
     referenced = (
@@ -316,6 +387,10 @@ async def get_prompt(
     """Fetch one prompt by id.  404 if missing or soft-deleted."""
     await require_admin(authorization)
 
+    return await asyncio.to_thread(_get_prompt_sync, prompt_id)
+
+
+def _get_prompt_sync(prompt_id: UUID):
     r = (
         supabase_admin.table("writing_prompts")
         .select("*")
@@ -342,6 +417,17 @@ async def update_prompt(
     answer-key extraction (and the prior analysis is re-reviewed)."""
     admin = await require_admin(authorization)
 
+    return await _run_prompt_write(
+        background_tasks, _update_prompt_sync, prompt_id, body, admin,
+    )
+
+
+def _update_prompt_sync(
+    prompt_id: UUID,
+    body: PromptUpdate,
+    admin: dict,
+    dispatches: list,
+):
     # `exclude_unset=True` distinguishes an omitted field from an explicit
     # JSON null. Difficulty and image columns are nullable by contract; all
     # other fields reject null rather than silently pretending no change was
@@ -445,7 +531,7 @@ async def update_prompt(
     # while an analysis is pending must not start a duplicate model call.
     if image_changed:
         _maybe_trigger_analysis(
-            r.data[0], background_tasks, requested_by=admin["id"], trigger="update",
+            r.data[0], dispatches, requested_by=admin["id"], trigger="update",
         )
     out = dict(r.data[0])
     attach_signed_image_urls([out])
@@ -476,6 +562,16 @@ async def reanalyze_prompt_image(
     Un-reviews the current analysis until the new run is approved."""
     admin = await require_admin(authorization)
 
+    return await _run_prompt_write(
+        background_tasks, _reanalyze_prompt_image_sync, prompt_id, admin,
+    )
+
+
+def _reanalyze_prompt_image_sync(
+    prompt_id: UUID,
+    admin: dict,
+    dispatches: list,
+):
     row = (
         supabase_admin.table("writing_prompts")
         .select("id, task_type, prompt_image_url, prompt_image_public_id")
@@ -494,10 +590,7 @@ async def reanalyze_prompt_image(
     )
     if pending_token is None:
         raise HTTPException(409, "Prompt image changed; reload before re-analyzing")
-    background_tasks.add_task(
-        writing_prompt_analysis.run_and_store_analysis, str(prompt_id), pending_token,
-        requested_by=admin["id"], trigger="reanalyze",
-    )
+    dispatches.append((str(prompt_id), pending_token, admin["id"], "reanalyze"))
     return {"status": "pending", "prompt_id": str(prompt_id)}
 
 
@@ -512,6 +605,10 @@ async def review_prompt_analysis(
     grades. Sets status='ready' since approved content is, by definition, ready."""
     await require_admin(authorization)
 
+    return await asyncio.to_thread(_review_prompt_analysis_sync, prompt_id, body)
+
+
+def _review_prompt_analysis_sync(prompt_id: UUID, body: PromptAnalysisReview):
     existing = (
         supabase_admin.table("writing_prompts")
         .select(
@@ -570,6 +667,10 @@ async def soft_delete_prompt(
     the admin can attach a new image."""
     await require_admin(authorization)
 
+    return await asyncio.to_thread(_soft_delete_prompt_sync, prompt_id)
+
+
+def _soft_delete_prompt_sync(prompt_id: UUID):
     # Read the existing public_id for optimistic concurrency. The object itself
     # is intentionally retained for historical essay snapshots.
     existing = (

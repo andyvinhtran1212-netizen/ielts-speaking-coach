@@ -45,7 +45,8 @@ _content_cache: dict[str, Any] = {}
 
 
 def clear_content_cache() -> None:
-    _content_cache.clear()
+    global _content_cache
+    _content_cache = {}
 
 
 def _active_release() -> dict[str, Any]:
@@ -83,9 +84,11 @@ def _release_by_id(release_id: str) -> dict[str, Any]:
 
 
 def _content(release: dict[str, Any]) -> dict[str, Any]:
+    global _content_cache
     release_id = str(release["id"])
-    if _content_cache.get("release_id") == release_id:
-        return _content_cache
+    cache = _content_cache
+    if cache.get("release_id") == release_id:
+        return cache
     items = (
         supabase_admin.table("grammar_items").select("*")
         .eq("release_id", release_id).range(0, 999).execute().data
@@ -103,18 +106,19 @@ def _content(release: dict[str, Any]) -> dict[str, Any]:
             "error_code": "grammar_content_incomplete",
             "message": "Kho Grammar Check-up chưa đủ nội dung.",
         })
-    _content_cache.clear()
-    _content_cache.update({
+    cache = {
         "release_id": release_id,
         "items": items,
         "by_id": {str(row["item_id"]): row for row in items},
         "routes": routes,
         "route_by_attribute": defaultdict(list),
         "learner_copy": {str(row["attribute_id"]): row.get("learner_copy") or {} for row in misconceptions},
-    })
+    }
     for row in routes:
-        _content_cache["route_by_attribute"][str(row["attribute_id"])].append(row)
-    return _content_cache
+        cache["route_by_attribute"][str(row["attribute_id"])].append(row)
+    # Publish only a complete view; in-flight readers retain their release.
+    _content_cache = cache
+    return cache
 
 
 def _student_for_user(user_id: str) -> Optional[dict[str, Any]]:
