@@ -20,7 +20,7 @@ from fastapi.testclient import TestClient
 from starlette.requests import Request
 
 import main
-from services.errors import safe_error
+from services.errors import GENERIC_MESSAGE, safe_error
 
 # Captured at import, before conftest's autouse fixture swaps in a no-op.
 _REAL_INSERT = main._insert_error_log_safely
@@ -128,6 +128,49 @@ def test_activation_unavailable_503_inserts_exactly_one_error_log(live_activate_
     raw = json.dumps(row)
     for secret in (ACCESS_CODE, BEARER, "fake.jwt", USER_ID, "db-host", "could not connect"):
         assert secret not in raw, f"{secret!r} leaked into error_logs"
+
+
+@pytest.mark.parametrize(("status", "error_code", "level"), [
+    (503, "feature_disabled", "warning"),
+    (500, "feature_disabled", "error"),
+    (502, "feature_disabled", "error"),
+    (504, "feature_disabled", "error"),
+    (503, "activation_unavailable", "error"),
+    (500, "internal_error", "error"),
+])
+def test_only_503_feature_disabled_is_logged_as_warning(payloads, status, error_code, level):
+    detail = {"error_code": error_code, "message": "Tính năng đang tạm khóa.",
+              "flag": "vocab_units_read"}
+    request = _req(method="POST", query=b"token=secret-query-token")
+    request.state.request_id = "pc-j322-request"
+    resp = _handle(HTTPException(status, detail, headers={"Retry-After": "15"}), request)
+
+    assert resp.status_code == status
+    assert json.loads(resp.body) == {"detail": detail}
+    assert resp.headers["Retry-After"] == "15"
+    assert resp.headers["X-Request-ID"] == "pc-j322-request"
+    assert payloads == [{
+        "level": level, "source": "backend",
+        "message": f"HTTP {status} {error_code}",
+        "url": "/things/{thing_id}", "request_id": "pc-j322-request",
+        "extra": {"method": "POST", "status_code": status,
+                  "error_code": error_code, "handled": True},
+    }]
+
+
+@pytest.mark.parametrize("key", ["error", "code"])
+def test_feature_disabled_aliases_stay_sanitized_errors(payloads, key):
+    request = _req()
+    request.state.request_id = "pc-j322-alias"
+    resp = _handle(HTTPException(503, {key: "feature_disabled"}), request)
+
+    assert resp.status_code == 503
+    assert json.loads(resp.body) == {"detail": {
+        "error_code": "internal_error", "message": GENERIC_MESSAGE, "ref": "pc-j322-alias",
+    }}
+    assert len(payloads) == 1
+    assert payloads[0]["level"] == "error"
+    assert payloads[0]["message"] == "HTTP 503 internal_error"
 
 
 def test_failing_insert_keeps_the_same_503(live_activate_rate_limit, monkeypatch, caplog):

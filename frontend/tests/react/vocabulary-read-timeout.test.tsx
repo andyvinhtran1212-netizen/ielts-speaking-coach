@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { VocabularyHubBehavior } from '@/app/(authed-vocabulary-hub)/vocabulary/hub/vocabulary-hub-behavior';
 import { D1ExercisePlayer, D1_LOAD_TIMEOUT_MS } from '@/app/(authed-d1-exercise)/d1-exercise/d1-exercise-player';
-import { VOCAB_READ_EMPTY_MESSAGE, VOCAB_READ_TIMEOUT_MESSAGE, VOCAB_READ_TIMEOUT_MS } from '@/components/vocabulary-workspace';
+import { VOCAB_GENERIC_ERROR_MESSAGE, VOCAB_NETWORK_ERROR_MESSAGE, VOCAB_READ_EMPTY_MESSAGE, VOCAB_READ_TIMEOUT_MESSAGE, VOCAB_READ_TIMEOUT_MS, messageOf } from '@/components/vocabulary-workspace';
 
 // U-13 / V-HUB / BL-17 — a read that never settles, or settles with nothing,
 // must end in a visible error with a retry instead of an endless "Đang tải".
@@ -65,6 +65,31 @@ it('hub: a null read (401 bounce or empty body) is an error with Retry, not load
   expect(screen.getByRole('alert').textContent).toContain(VOCAB_READ_EMPTY_MESSAGE);
   expect(screen.getByRole('button', { name: 'Thử lại' })).toBeTruthy();
   expect(screen.queryByText('Đang tải bộ từ của bạn…')).toBeNull();
+});
+
+// PC-J148 — an offline fetch rejects with the browser's English TypeError text;
+// the learner sees the Vietnamese connection line, never the raw message.
+it.each(['Failed to fetch', 'NetworkError when attempting to fetch resource.', 'Load failed'])('hub sets: an offline read (%s) shows the Vietnamese connection error with Retry', async raw => {
+  mocks.view = 'sets';
+  let offline = true;
+  const transport = hubApi(async () => { if (offline) throw new TypeError(raw); return catalog; });
+  render(<VocabularyHubBehavior />);
+  await flush();
+  const alert = screen.getByRole('alert');
+  expect(alert.textContent).toContain(VOCAB_NETWORK_ERROR_MESSAGE);
+  expect(alert.textContent).not.toContain(raw);
+  offline = false;
+  fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+  await flush();
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect(transport.getWith.mock.calls.filter(([url]) => url === '/api/vocabulary-sets')).toHaveLength(2);
+});
+
+it('messageOf: non-network TypeErrors get the generic line; HTTP and own errors keep their text', () => {
+  expect(messageOf(new TypeError("Cannot read properties of undefined (reading 'sets')"))).toBe(VOCAB_GENERIC_ERROR_MESSAGE);
+  expect(messageOf(Object.assign(new Error('Không tìm thấy bộ từ.'), { status: 404 }))).toBe('Không tìm thấy bộ từ.');
+  expect(messageOf(new Error(VOCAB_READ_TIMEOUT_MESSAGE))).toBe(VOCAB_READ_TIMEOUT_MESSAGE);
+  expect(messageOf('boom')).toBe(VOCAB_GENERIC_ERROR_MESSAGE);
 });
 
 it('hub lookup: a hung topic library read ends in Retry', async () => {

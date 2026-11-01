@@ -2,6 +2,7 @@
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
+import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
@@ -27,6 +28,7 @@ await page.route('**/*', async (route) => {
   if (parsed.pathname === '/auth/me') return json({ id: adminId, email: 'admin-reading@local', role: 'admin' });
   return json({});
 });
+await stubAdminMfaStatus(page);
 
 await page.goto(`${BASE}/admin/reading`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Reading workspace', exact: true }).waitFor();

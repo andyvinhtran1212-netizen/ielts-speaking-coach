@@ -774,7 +774,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
             safe_path, _ = _safe_error_request_context(request)
             if _handled_5xx_log_allowed(error_code, safe_path):
                 payload = {
-                    "level":      "error",
+                    "level":      "warning" if exc.status_code == 503 and error_code == "feature_disabled" else "error",
                     "source":     "backend",
                     "message":    f"HTTP {exc.status_code} {error_code}",
                     "url":        safe_path,
