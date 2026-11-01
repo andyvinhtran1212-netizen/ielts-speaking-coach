@@ -18,6 +18,7 @@ from email.utils import format_datetime
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
+from services.errors import clip_user_value
 from services.public_cache import cacheable_json, content_last_modified
 from services.vocab_content import CATEGORIES_FILE, CONTENT_DIR, vocab_service
 
@@ -114,7 +115,7 @@ async def get_category_cards(category: str, request: Request) -> Response:
     stack consumed by flashcards + exercises. 404 when the category is unknown."""
     cards = vocab_service.get_category_cards(category)
     if cards is None:
-        raise HTTPException(status_code=404, detail=f"Category '{category}' not found")
+        raise HTTPException(status_code=404, detail=f"Category '{clip_user_value(category)}' not found")
     return cacheable_json(
         {"category": category, "count": len(cards), "cards": cards},
         request,
@@ -152,7 +153,7 @@ async def get_exam_cards(list_slug: str, request: Request) -> Response:
     404 when the list slug is unknown."""
     cards = vocab_service.get_exam_cards(list_slug)
     if cards is None:
-        raise HTTPException(status_code=404, detail=f"Exam list '{list_slug}' not found")
+        raise HTTPException(status_code=404, detail=f"Exam list '{clip_user_value(list_slug)}' not found")
     return cacheable_json(
         {
             "list": list_slug,
@@ -172,7 +173,7 @@ async def get_article(category: str, slug: str, request: Request) -> Response:
     if data is None:
         raise HTTPException(
             status_code=404,
-            detail=f"Article '{category}/{slug}' not found",
+            detail=f"Article '{clip_user_value(category)}/{clip_user_value(slug)}' not found",
         )
     return cacheable_json(data, request, last_modified=_last_modified())
 

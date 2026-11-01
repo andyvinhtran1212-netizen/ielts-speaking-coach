@@ -39,7 +39,7 @@ from models.grammar_content import GrammarArticleDocument
 from database import supabase_admin
 from services.async_pg_engine import create_asyncpg_engine
 from services.class_assignment_service import sync_class_item_score
-from services.errors import clip_user_value
+from services.errors import clip_user_value, clip_user_values
 from services.core_attempt_observation import bind_owned_attempt, note_operation_failure, observe_operation
 from services.class_membership_service import active_memberships_for_students, add_student
 from services import admin_dashboard, ai_usage_logger, test_data_visibility
@@ -449,7 +449,7 @@ def _validate_code_type_combo(code_type: str, cohort_id: str | None) -> None:
     domain but doesn't enforce the cross-column rule.
     """
     if code_type not in _VALID_CODE_TYPES:
-        raise HTTPException(422, f"code_type phải là một trong {_VALID_CODE_TYPES}, got {code_type!r}")
+        raise HTTPException(422, f"code_type phải là một trong {_VALID_CODE_TYPES}, got {clip_user_value(code_type)!r}")
     if code_type == "direct" and not cohort_id:
         raise HTTPException(422, "code_type='direct' bắt buộc phải có cohort_id")
     if code_type in ("mass", "staff") and cohort_id:
@@ -4832,7 +4832,7 @@ async def admin_rebuild_summary(
     found_ids = {s["id"] for s in found_rows}
     missing = [sid for sid in all_ids if sid not in found_ids]
     if missing:
-        raise HTTPException(404, f"Session không tồn tại: {missing}")
+        raise HTTPException(404, f"Session không tồn tại: {clip_user_values(missing)}")
 
     # A multi-part rebuild is allowed only for one canonical Full Test. Never
     # let caller-supplied IDs aggregate unrelated learners or attempts.
@@ -5755,7 +5755,7 @@ async def admin_create_lemma_override(
     except Exception as exc:
         msg = str(exc)
         if "duplicate" in msg.lower() or "unique" in msg.lower():
-            raise HTTPException(409, f"Override for '{insert['original_word']}' already exists.")
+            raise HTTPException(409, f"Override for '{clip_user_value(insert['original_word'])}' already exists.")
         raise HTTPException(500, f"Create failed: {exc}")
 
     try:
@@ -5969,10 +5969,10 @@ async def admin_preview_grammar_article(
 
     summary = grammar_service.get_article_by_slug(slug)
     if not summary:
-        raise HTTPException(404, f"Article '{slug}' not found")
+        raise HTTPException(404, f"Article '{clip_user_value(slug)}' not found")
     article = grammar_service.get_article(summary["category"], slug)
     if not article:
-        raise HTTPException(404, f"Article '{slug}' not found")
+        raise HTTPException(404, f"Article '{clip_user_value(slug)}' not found")
     return article
 
 

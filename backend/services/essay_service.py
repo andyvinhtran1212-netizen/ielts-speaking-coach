@@ -50,6 +50,7 @@ from services.writing_history import (
     get_sentence_structure_history,
 )
 from services.band_rounding import overall_from_criteria
+from services.errors import clip_user_value
 from services.writing_band_consistency import align_overall_band_feedback
 from services.mistake_authenticity import drop_noncorrection_mistakes
 from services.class_membership_service import active_student_ids_for_cohort
@@ -1454,7 +1455,7 @@ def list_essays(
     student_id/cohort_id filter must belong to the owner (else PermissionError).
     """
     if status and status not in _ALLOWED_STATUSES:
-        raise HTTPException(400, f"Invalid status: {status!r}")
+        raise HTTPException(400, f"Invalid status: {clip_user_value(status)!r}")
 
     # W-3 — instructor ownership gate on the requested filters (fail-closed).
     if owner_id is not None:
@@ -1528,7 +1529,7 @@ def list_essays_page(
     re-reading essay membership after statuses or soft deletes may change.
     """
     if status and status not in _ALLOWED_STATUSES:
-        raise HTTPException(400, f"Invalid status: {status!r}")
+        raise HTTPException(400, f"Invalid status: {clip_user_value(status)!r}")
 
     receipt = supabase_admin.rpc("fn_admin_writing_queue_page", {
         "p_status": status,

@@ -35,6 +35,7 @@ from database import supabase_admin
 from models.writing_feedback import PromptImageAnalysis
 from routers.admin import require_admin
 from services import writing_prompt_analysis
+from services.errors import clip_user_value
 from services.writing_image_access import attach_signed_image_urls, canonical_image_ref
 from services.writing_prompt_image import (
     delete_prompt_image,
@@ -327,7 +328,7 @@ async def upload_image(
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(
             400,
-            f"File must be an image (got Content-Type: {file.content_type!r}).",
+            f"File must be an image (got Content-Type: {clip_user_value(repr(file.content_type))}).",
         )
 
     file_bytes = await file.read()

@@ -345,7 +345,7 @@ def _validate_true_false_payload(payload: dict) -> dict:
         if ans not in _TF_VALID:
             raise HTTPException(
                 422,
-                f"Statement {i} answer must be T / F / NG (got '{raw_stmt.get('answer')}').",
+                f"Statement {i} answer must be T / F / NG (got '{clip_user_value(raw_stmt.get('answer'))}').",
             )
         out.append({"idx": idx_v, "text": text, "answer": ans})
     return {"statements": out}
@@ -2630,7 +2630,7 @@ async def admin_patch_listening_test(
                 .execute()
             )
             if dup.data:
-                raise HTTPException(422, f"Test ID '{new_id}' đã tồn tại.")
+                raise HTTPException(422, f"Test ID '{clip_user_value(new_id)}' đã tồn tại.")
         update["test_id"] = new_id
 
     if body.title is not None:
@@ -3095,7 +3095,7 @@ async def admin_import_fulltest_commit(
     )
     if dup.data:
         raise HTTPException(
-            422, f"Test ID '{test_id_external}' đang ACTIVE (status={dup.data[0].get('status')}) "
+            422, f"Test ID '{clip_user_value(test_id_external)}' đang ACTIVE (status={dup.data[0].get('status')}) "
                  f"— archive bản cũ rồi import lại, hoặc đổi test_id.")
 
     test_uuid = str(uuid.uuid4())
@@ -3270,7 +3270,7 @@ async def _publish_drill(
                 (detail.get(key) or "").strip()
                 for key in ("why_correct", "script", "translation_vi")
             ):
-                raise HTTPException(422, f"Câu {q or '?'} thiếu lời giải/script/audio window.")
+                raise HTTPException(422, f"Câu {clip_user_value(q or '?')} thiếu lời giải/script/audio window.")
             answer_count += 1
 
     # Publish descendants first. A retry converges after any interrupted write.
@@ -3601,7 +3601,7 @@ async def admin_import_drill_commit(
     )
     if dup.data:
         raise HTTPException(
-            422, f"Test ID '{test_id_external}' đang ACTIVE (status={dup.data[0].get('status')}) "
+            422, f"Test ID '{clip_user_value(test_id_external)}' đang ACTIVE (status={dup.data[0].get('status')}) "
                  f"— archive bản cũ rồi import lại.")
 
     test_uuid = str(uuid.uuid4())
