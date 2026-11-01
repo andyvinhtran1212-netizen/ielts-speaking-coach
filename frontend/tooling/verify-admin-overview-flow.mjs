@@ -8,6 +8,7 @@ import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 import { storageKey } from './supabase-session.mjs';
+import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
@@ -186,6 +187,7 @@ await page.route('**/*', async (route) => {
   }
   return route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: '{}' });
 });
+await stubAdminMfaStatus(page);
 
 await page.goto(BASE + ROUTE, { waitUntil: 'domcontentloaded' });
 try {

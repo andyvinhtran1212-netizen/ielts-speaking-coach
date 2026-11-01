@@ -25,7 +25,9 @@ from __future__ import annotations
 import threading
 import copy
 import json
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
@@ -1942,10 +1944,172 @@ def test_save_final_bands_persists_retest_flags(fake_db, svc, wf):
     saved = wf.save_final_bands(
         review["id"], admin,
         {"listening": 5.0, "reading": 5.5, "writing": 4.0, "speaking": 6.0},
-        retest_flags={"writing": True, "listening": False, "unknown_skill": True},
+        retest_flags={"writing": True, "listening": False, "unknown_skill": False},
     )
-    # unknown_skill dropped — only keys for required skills survive
+    # an unticked unknown_skill is ignored — only keys for required skills
+    # survive (a TICKED unknown key is refused: PC-J213, tests below)
     assert saved["retest_flags"] == {"writing": True, "listening": False}
+
+
+# ── PC-J213: save_final_bands refuses out-of-sitting retest flags (422) ──
+# It used to drop a ticked flag for a skill outside the banded set (or an
+# unknown key) and answer 200 — the same silent-drop PC-J146 removed from the
+# roster path. Both paths now share _refused_retest_skills and one 422 body.
+
+_LRW_BANDS = {"listening": 6.0, "reading": 6.0, "writing": 6.0}
+
+
+def _claimed_lrw_review(fake_db, svc, wf):
+    sid = _lrw_sitting(fake_db, svc)
+    review = wf.get_review_for_sitting(sid)
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == review["id"])
+    rv["retest_flags"] = {"reading": True}
+    return sid, rv, admin
+
+
+def _snapshot(fake_db, sid, rv):
+    sit = next(s for s in fake_db.rows("mock_exam_sittings") if s["id"] == sid)
+    return (rv["status"], dict(rv.get("final_bands") or {}),
+            dict(rv.get("retest_flags") or {}), bool(sit.get("needs_retest")))
+
+
+def test_save_final_bands_refuses_ticked_skill_outside_sitting(fake_db, svc, wf):
+    sid, rv, admin = _claimed_lrw_review(fake_db, svc, wf)   # LRW, no speaking
+    before = _snapshot(fake_db, sid, rv)
+    with pytest.raises(wf.SkillNotInSittingError) as exc:
+        wf.save_final_bands(rv["id"], admin, _LRW_BANDS,
+                            retest_flags={"speaking": True})
+    assert exc.value.skills == ["speaking"]
+    assert str(exc.value) == "Kỹ năng Speaking không thuộc lượt thi này."
+    # nothing written: status, final_bands, retest_flags, sitting needs_retest
+    assert _snapshot(fake_db, sid, rv) == before
+    assert before[0] == "claimed" and before[3] is False
+
+
+def test_save_final_bands_refuses_ticked_unknown_key(fake_db, svc, wf):
+    sid, rv, admin = _claimed_lrw_review(fake_db, svc, wf)
+    before = _snapshot(fake_db, sid, rv)
+    with pytest.raises(wf.SkillNotInSittingError) as exc:
+        wf.save_final_bands(rv["id"], admin, _LRW_BANDS,
+                            retest_flags={"writing": True, "unknown_skill": True})
+    assert exc.value.skills == ["unknown_skill"]
+    assert _snapshot(fake_db, sid, rv) == before
+
+
+def test_save_final_bands_ignores_unticked_skill_outside_sitting(fake_db, svc, wf):
+    """The detail form posts all four keys; false for a skill the sitting does
+    not carry is not an error and is simply not stored."""
+    sid, rv, admin = _claimed_lrw_review(fake_db, svc, wf)
+    saved = wf.save_final_bands(rv["id"], admin, _LRW_BANDS, retest_flags={
+        "listening": False, "reading": False, "writing": True, "speaking": False,
+    })
+    assert saved["status"] == "reviewed"
+    assert saved["retest_flags"] == {"listening": False, "reading": False, "writing": True}
+
+
+def test_save_final_bands_band_errors_and_conflict_keep_precedence(fake_db, svc, wf):
+    """Released → 409 and a band ValidationError still win over a refused
+    retest flag (existing check order kept)."""
+    sid, rv, admin = _claimed_lrw_review(fake_db, svc, wf)
+    with pytest.raises(wf.ValidationError) as exc:
+        wf.save_final_bands(rv["id"], admin, {**_LRW_BANDS, "writing": 12.0},
+                            retest_flags={"speaking": True})
+    assert not isinstance(exc.value, wf.SkillNotInSittingError)
+    rv["status"] = "released"
+    with pytest.raises(wf.ConflictError):
+        wf.save_final_bands(rv["id"], admin, _LRW_BANDS, retest_flags={"speaking": True})
+
+
+def _post_final_bands(review_id, admin, body):
+    from unittest.mock import AsyncMock, patch
+    from fastapi.testclient import TestClient
+    from main import app
+    with patch("routers.admin_mock_reviews.require_admin",
+               new=AsyncMock(return_value={"id": str(admin)})):
+        return TestClient(app).post(
+            f"/admin/mock-reviews/{review_id}/final-bands",
+            json=body, headers={"Authorization": "Bearer faketoken"},
+        )
+
+
+def test_final_bands_route_422_for_skill_outside_sitting(fake_db, svc, wf):
+    sid, rv, admin = _claimed_lrw_review(fake_db, svc, wf)
+    before = _snapshot(fake_db, sid, rv)
+    r = _post_final_bands(rv["id"], admin, {
+        "final_bands": _LRW_BANDS,
+        "retest_flags": {"listening": False, "reading": False,
+                         "writing": False, "speaking": True},
+    })
+    assert r.status_code == 422, r.text
+    assert r.json()["detail"] == {
+        "error": "skill_not_in_sitting", "skills": ["speaking"],
+        "message": "Kỹ năng Speaking không thuộc lượt thi này.",
+    }
+    assert _snapshot(fake_db, sid, rv) == before
+
+
+def test_final_bands_route_other_validation_stays_400_and_released_409(fake_db, svc, wf):
+    sid, rv, admin = _claimed_lrw_review(fake_db, svc, wf)
+    r = _post_final_bands(rv["id"], admin, {"final_bands": {**_LRW_BANDS, "writing": 12.0},
+                                            "retest_flags": {"speaking": True}})
+    assert r.status_code == 400, r.text
+    assert isinstance(r.json()["detail"], str)
+    r = _post_final_bands(rv["id"], admin, {"final_bands": _LRW_BANDS,
+                                            "retest_flags": {"writing": True}})
+    assert r.status_code == 200, r.text
+    rv["status"] = "released"
+    r = _post_final_bands(rv["id"], admin, {"final_bands": _LRW_BANDS,
+                                            "retest_flags": {"speaking": True}})
+    assert r.status_code == 409, r.text
+
+
+def test_skill_not_in_sitting_clips_a_long_unknown_key():
+    from services import mock_review_workflow as wf
+    e = wf.SkillNotInSittingError(["x" * 500])
+    assert e.skills == ["x" * 64 + "…"]
+    assert len(e.skills[0]) <= 65
+    assert str(e) == f"Kỹ năng {'x' * 64}… không thuộc lượt thi này."
+
+
+def test_skill_not_in_sitting_strips_control_chars_and_keeps_real_labels():
+    from services import mock_review_workflow as wf
+    e = wf.SkillNotInSittingError(["speaking", "listening\n", "a\r\nb\tc"])
+    assert e.skills == ["speaking", "listening", "abc"]
+    # only a real skill key gets the UI label — a look-alike unknown key does not
+    assert str(e) == "Kỹ năng Speaking, listening, abc không thuộc lượt thi này."
+
+
+def test_skill_not_in_sitting_caps_how_many_keys_are_echoed():
+    from services import mock_review_workflow as wf
+    keys = ["listening"] + [f"k{i:02d}" for i in range(49)]
+    e = wf.SkillNotInSittingError(keys)
+    assert e.skills == keys[:10]
+    assert str(e) == ("Kỹ năng Listening, k00, k01, k02, k03 và 45 kỹ năng khác "
+                      "không thuộc lượt thi này.")
+
+
+def test_both_routes_clip_and_cap_unknown_keys(fake_db, svc, wf):
+    """/final-bands and /retest-flags share the rule and the clipped body."""
+    flags = {"y" * 500: True, **{f"bogus{i:02d}": True for i in range(49)}}
+    expected_skills = ["y" * 64 + "…"] + [f"bogus{i:02d}" for i in range(9)]
+
+    sid, rv, admin = _claimed_lrw_review(fake_db, svc, wf)
+    r1 = _post_final_bands(rv["id"], admin, {"final_bands": _LRW_BANDS,
+                                             "retest_flags": flags})
+    _seed_retest_fixture(fake_db)
+    r2 = _post_retest_flags(flags)
+    for r in (r1, r2):
+        assert r.status_code == 422, r.text
+        detail = r.json()["detail"]
+        assert detail["error"] == "skill_not_in_sitting"
+        assert detail["skills"] == expected_skills
+        assert detail["message"] == (
+            f"Kỹ năng {'y' * 64}…, bogus00, bogus01, bogus02, bogus03 "
+            "và 45 kỹ năng khác không thuộc lượt thi này."
+        )
+        assert len(r.text) < 2000
 
 
 def test_retest_summary_counts_per_skill_and_lists_students(fake_db, svc, wf):
@@ -2742,6 +2906,151 @@ def _seed_essay(fake_db, eid, task_type, word_count, status="pending", sitting_i
         "id": eid, "task_type": task_type, "word_count": word_count,
         "status": status, "sitting_id": sitting_id,
     })
+
+
+@pytest.fixture
+def grading_scheduler(fake_db, monkeypatch):
+    """Observe scheduling while retaining real job inserts in the shared fake."""
+    from services import essay_service
+    scheduler = Mock(wraps=essay_service.schedule_grading_job)
+    monkeypatch.setattr(essay_service, "schedule_grading_job", scheduler)
+    return scheduler
+
+
+def test_claim_pending_for_grading_rejects_skipped(fake_db, svc, grading_scheduler):
+    from services import essay_service
+    _seed_essay(fake_db, "e1", "task2", 40)
+    svc.skip_mock_writing_grading("e1", admin_id="admin-1")
+    before = copy.deepcopy(fake_db.rows("writing_essays")[0])
+
+    out = essay_service.claim_pending_for_grading(
+        "e1", grading_tier="standard", analysis_level=3,
+    )
+
+    assert out is None
+    assert fake_db.rows("writing_essays")[0] == before
+    grading_scheduler.assert_not_called()
+    assert fake_db.rows("writing_jobs") == []
+
+
+@pytest.mark.parametrize("status", ["pending", "grading"])
+def test_claim_pending_for_grading_status_guard(fake_db, grading_scheduler, status):
+    from services import essay_service
+    _seed_essay(fake_db, "e1", "task2", 300, status=status)
+    fake_db.rows("writing_essays")[0]["grading_skipped_at"] = None
+
+    out = essay_service.claim_pending_for_grading(
+        "e1", grading_tier="instructor", analysis_level=4,
+    )
+
+    if status == "pending":
+        grading_scheduler.assert_called_once_with(
+            essay_id="e1", grading_tier="instructor", analysis_level=4,
+            selected_model="gemini-2.5-pro",
+        )
+        assert len(fake_db.rows("writing_jobs")) == 1
+        assert out["job_id"] == fake_db.rows("writing_jobs")[0]["id"]
+        assert fake_db.rows("writing_essays")[0]["grading_tier"] == "instructor"
+    else:
+        assert out is None
+        grading_scheduler.assert_not_called()
+        assert fake_db.rows("writing_jobs") == []
+    assert fake_db.rows("writing_essays")[0]["status"] == "grading"
+    assert fake_db.rows("writing_essays")[0]["grading_skipped_at"] is None
+
+
+def test_claim_pending_for_grading_concurrent_claims(fake_db, grading_scheduler):
+    from services import essay_service
+    _seed_essay(fake_db, "e1", "task2", 300)
+    barrier = threading.Barrier(2)
+
+    def claim():
+        # Both callers see independent pending snapshots before either UPDATE.
+        with fake_db.lock:
+            essay = copy.deepcopy(fake_db.table("writing_essays").select("*")
+                                  .eq("id", "e1").execute().data[0])
+        barrier.wait(timeout=5)
+        out = essay_service.claim_pending_for_grading(
+            essay["id"], grading_tier="standard", analysis_level=3,
+        )
+        assert essay["status"] == "pending"
+        return out
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda _: claim(), range(2)))
+
+    assert sum(result is not None for result in results) == 1
+    grading_scheduler.assert_called_once()
+    assert len(fake_db.rows("writing_jobs")) == 1
+    assert fake_db.rows("writing_essays")[0]["status"] == "grading"
+
+
+@pytest.mark.parametrize("skipped", [True, False])
+def test_start_grading_skipped_claim_guard(
+    fake_db, svc, grading_scheduler, monkeypatch, skipped,
+):
+    from fastapi import BackgroundTasks
+    from fastapi.testclient import TestClient
+    from main import app
+    from routers import admin_writing
+    from services import essay_service
+
+    _seed_essay(fake_db, "e1", "task2", 40)
+    if skipped:
+        svc.skip_mock_writing_grading("e1", admin_id="admin-1")
+    before = copy.deepcopy(fake_db.rows("writing_essays")[0])
+    monkeypatch.setattr(admin_writing, "supabase_admin", fake_db)
+    monkeypatch.setattr(admin_writing, "require_admin", AsyncMock(return_value={"id": "admin-1"}))
+    monkeypatch.setattr(admin_writing, "observe_writing_batch", AsyncMock())
+    add_task = Mock()
+    monkeypatch.setattr(BackgroundTasks, "add_task", add_task)
+
+    response = TestClient(app).post(
+        "/admin/writing/essays/e1/start-grading", json={},
+        headers={"Authorization": "Bearer fake.admin.jwt"},
+    )
+
+    if skipped:
+        assert response.status_code == 409, response.text
+        assert response.json()["detail"] == (
+            "Essay đang ở trạng thái 'pending' — chỉ chấm được essay 'pending'."
+        )
+        assert fake_db.rows("writing_essays")[0] == before
+        grading_scheduler.assert_not_called()
+        add_task.assert_not_called()
+        assert fake_db.rows("writing_jobs") == []
+    else:
+        assert response.status_code == 202, response.text
+        grading_scheduler.assert_called_once()
+        assert len(fake_db.rows("writing_jobs")) == 1
+        add_task.assert_called_once_with(
+            essay_service._bg_grade_essay, "e1", response.json()["job_id"],
+        )
+        assert fake_db.rows("writing_essays")[0]["status"] == "grading"
+
+
+@pytest.mark.parametrize("word_count", [40, 300])
+@pytest.mark.parametrize("options", [{}, {"analysis_level": 5, "selected_model": "gemini-2.5-flash"}])
+def test_claim_mock_writing_grading_rejects_skipped(
+    fake_db, svc, grading_scheduler, word_count, options,
+):
+    _seed_essay(fake_db, "e1", "task2", word_count)
+    # Also exercise a stamped row that passes the word gate: rejection must
+    # come from the atomic claim, rather than only the existing short-word gate.
+    fake_db.rows("writing_essays")[0].update({
+        "grading_skipped_at": "2026-10-31T00:00:00Z",
+        "grading_skipped_by": "admin-1",
+    })
+    before = copy.deepcopy(fake_db.rows("writing_essays")[0])
+
+    out = svc.claim_mock_writing_grading(["e1"], **options)
+
+    assert out["queued"] == []
+    assert set(out) == {"queued", "short", "skipped"}
+    assert out["short"] + out["skipped"] == ["e1"]
+    assert fake_db.rows("writing_essays")[0] == before
+    grading_scheduler.assert_not_called()
+    assert fake_db.rows("writing_jobs") == []
 
 
 def test_claim_mock_writing_grading_gates_short_and_claims_long(fake_db, svc, monkeypatch):

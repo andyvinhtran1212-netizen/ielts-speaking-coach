@@ -29,8 +29,58 @@ export function overallFromPicks(bands) {
 // Mirror services/writing_band_consistency.py. Shared fixtures verify that
 // the learner preview and the persisted composed version have identical prose.
 // Unicode classes avoid lookbehind so this also works in Safari 15.
-const BAND_CLAIM = /(?:^|[^\p{L}\p{N}_])(?:band(?:\s+score)?|score|điểm|(?:bài(?:\s+viết)?(?:\s+(?:này|của\s+(?:em|bạn)))?|em|bạn)\s+(?:hiện\s+)?(?:đạt|ở(?:\s+mức)?))\s*(?:(?:hiện tại|tổng|của em|của bạn|bài này|là|ở|mức|band|score)\s+)*[:=]?\s*[0-9](?:[.,]\d+)?(?![\p{L}\p{N}_]|[.,]\d|\s*(?:phút|câu|từ|đoạn|lần|ý|minutes?|words?|sentences?|paragraphs?)(?![\p{L}\p{N}_]))/iu;
+// Bare "overall" is a claim only before band/score, ":"/"=" or a score modifier
+// ("is", "là", "hiện tại", "của bạn"…), a band written with a decimal ("5.5",
+// "6.0": never a count), or an integer band ending the clause (punctuation, a
+// dash, "band"/"điểm", or a "/ 9", "out of 9", "trên 9" denominator).
+const BAND_CLAIM = /(?:^|[^\p{L}\p{N}_])(?:band(?:\s+score)?|score|điểm|overall(?:\s+(?:band|score)|(?=\s*(?:[:=]|(?:hiện tại|tổng|của em|của bạn|bài này|là|is|ở|mức)\s))|(?=\s+(?:[0-8][.,][05]|9[.,]0)(?![.,]?\d))|(?=\s+(?:[0-8](?:[.,][05])?|9(?:[.,]0)?)(?![.,]?\d)(?:[ \t]*(?:\/|out[ \t]+of|trên)[ \t]*9(?:[.,]0)?(?![.,]?\d)|[ \t]*(?:[.!?;,:()"'”’\r\n—–]|$)|[ \t]+-(?:\s|$)|[ \t]+(?:band|điểm)(?![\p{L}\p{N}_]))))|kết\s+quả(?:\s+tổng\s+thể)?|your\s+(?:essay|writing)\s+(?:achieves|scores|is\s+at)|(?:bài(?:\s+(?:viết|làm))?(?:\s+(?:này|của\s+(?:em|bạn)))?|em|bạn)\s+(?:hiện\s+)?(?:đạt|ở(?:\s+mức)?))\s*(?:(?:hiện tại|tổng|của em|của bạn|bài này|là|is|ở|mức|band|score)\s+)*[:=]?\s*([0-9](?:[.,]\d+)?)(?![\p{L}\p{N}_]|[.,]\d|\s*(?:phút|câu|từ|đoạn|lần|ý|minutes?|words?|sentences?|paragraphs?|ideas?|reasons?|examples?|arguments?|issues?|errors?|mistakes?|ý\s+chính|luận\s+điểm|lỗi)(?![\p{L}\p{N}_]))/giu;
+const TARGET_BAND = /(?:^|[^\p{L}\p{N}_])(?:để\s+(?:lên|đạt(?:\s+được)?)|muốn[^.!?;:\n,]*?|to\s+(?:reach|achieve|get)|target|aim(?:ing)?\s+(?:for|at)|goal|mục\s+tiêu[^.!?;:\n,]*?)\s+(?:(?:is|là)\s+)?(?:(?:an?|the)\s+)?(?:band(?:\s+score)?|overall(?:\s+band)?(?:\s+score)?)(?:\s+of)?\s*(?:(?:is|là)\s+)?[:=]?\s*([0-9](?:[.,]\d+)?)(?![\p{L}\p{N}_]|[.,]\d)/giu;
+const MISSING_IMAGE_CAVEAT_MARKER = 'Chấm không có hình';
+const WARNING = '⚠️';
 const MISSING_IMAGE_CAVEAT = '⚠️ Chấm không có hình — độ chính xác nội dung Task 1 Academic hạn chế. ';
+
+// End positions of advice targeting a band at or above the final band.
+function targets(sentence, overall) {
+  return new Set([...sentence.matchAll(TARGET_BAND)]
+    .filter((match) => Number(match[1].replace(',', '.')) >= overall)
+    .map((match) => match.index + match[0].length));
+}
+
+function claims(sentence, overall) {
+  // Compare target-number positions, rather than exempting the whole sentence.
+  const advice = targets(sentence, overall);
+  return [...sentence.matchAll(BAND_CLAIM)]
+    .filter((match) => !advice.has(match.index + match[0].length))
+    .map((match) => Number(match[1].replace(',', '.')));
+}
+
+function hasStaleClaim(sentence, overall) {
+  return claims(sentence, overall).some((band) => band !== overall);
+}
+
+function hasCurrentClaim(sentence, overall) {
+  return claims(sentence, overall).includes(overall);
+}
+
+function asSentence(text) {
+  const trimmed = text.trim();
+  const capitalised = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  return /[.!?]$/.test(capitalised) ? capitalised : capitalised + '.';
+}
+
+// Drop a stale-claim sentence, but keep target advice after a ';'. Keep only
+// clauses carrying their own target advice: any other clause may depend on
+// the dropped score ("thấp hơn mức trung bình 6.0").
+function withoutStaleClaim(sentence, overall) {
+  if (!hasStaleClaim(sentence, overall)) return sentence;
+  const advice = sentence.split(';').map((clause) => clause.trim())
+    .filter((clause) => targets(clause, overall).size && !hasStaleClaim(clause, overall));
+  return advice.length ? asSentence(advice.join('; ')) : null;
+}
+
+function summaryFlagsMissingImage(summary) {
+  return summary.trimStart().startsWith('⚠️') && summary.includes(MISSING_IMAGE_CAVEAT_MARKER);
+}
 
 function validBand(value) {
   if (typeof value !== 'number' && (typeof value !== 'string' || !value.trim())) return null;
@@ -59,14 +109,31 @@ function alignOverallBandFeedback(feedback, overall) {
   const changed = modelBand !== overall || (trajectory && validBand(trajectory.current_band) !== overall);
   if (changed) {
     const summary = feedback.overallBandScoreSummary || '';
-    const missingImage = summary.trimStart().startsWith('⚠️') && summary.includes('Chấm không có hình');
+    const missingImage = summaryFlagsMissingImage(summary);
     const caveat = missingImage ? MISSING_IMAGE_CAVEAT : '';
-    let body = caveat ? summary.trimStart() : summary;
-    if (caveat && body.startsWith(caveat)) body = body.slice(caveat.length);
+    // Cut only the leading ⚠️ and the sentence/line holding the marker;
+    // sentences written before the marker are content, not caveat.
+    let body = summary;
+    const leading = [];
+    while (summaryFlagsMissingImage(body)) {
+      body = body.trimStart().slice(WARNING.length);
+      const marker = body.indexOf(MISSING_IMAGE_CAVEAT_MARKER);
+      const start = [...body.slice(0, marker).matchAll(/[.!?]\s+|[\r\n]/g)]
+        .reduce((_, match) => match.index + match[0].length, 0);
+      if (body.slice(0, start).trim()) leading.push(asSentence(body.slice(0, start)));
+      const markerEnd = marker + MISSING_IMAGE_CAVEAT_MARKER.length;
+      const end = /[.!?](?:\s|$)|[\r\n]/.exec(body.slice(markerEnd));
+      body = end ? body.slice(markerEnd + end.index + end[0].length).trimStart() : '';
+    }
+    body = [...leading, body].filter(Boolean).join(' ');
     const sentences = splitSentences(body);
-    const kept = sentences.filter((sentence) => !BAND_CLAIM.test(sentence));
-    if (kept.length !== sentences.length) {
-      feedback.overallBandScoreSummary = `${caveat}Bài viết đạt band ${overall.toFixed(1)}. `
+    const kept = sentences.map((sentence) => withoutStaleClaim(sentence, overall))
+      .filter((sentence) => sentence !== null);
+    const removedClaim = sentences.some((sentence) => hasStaleClaim(sentence, overall));
+    // A kept sentence may already state the final band; never repeat it.
+    const addBand = removedClaim && !kept.some((sentence) => hasCurrentClaim(sentence, overall));
+    if (removedClaim || caveat) {
+      feedback.overallBandScoreSummary = caveat + (addBand ? `Bài viết đạt band ${overall.toFixed(1)}. ` : '')
         + (kept.join(' ') || 'Hãy dựa vào nhận xét theo từng tiêu chí để chọn điểm cần cải thiện.');
     }
   }

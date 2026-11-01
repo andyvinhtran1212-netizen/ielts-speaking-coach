@@ -56,7 +56,7 @@ anchors:
 <!-- anchor: complex-sentences-for-task2.overview -->
 ## Tóm tắt
 
-Câu phức = một mệnh đề chính + một hay nhiều mệnh đề phụ. Dùng **đúng và đa dạng** là điều kiện cho band 7 ở tiêu chí Grammatical Range.
+Câu phức = một mệnh đề chính + một hay nhiều mệnh đề phụ. Dùng **đúng và đa dạng** là điều kiện cho band 7 ở tiêu chí Grammatical Range and Accuracy (mô tả band 7: "a variety of complex structures" và "frequent error-free sentences").
 
 <!-- anchor: complex-sentences-for-task2.types -->
 ### Bốn kiểu mệnh đề phụ hữu ích
@@ -73,7 +73,7 @@ Trộn vài kiểu này trong một đoạn cho thấy "range" — nhưng chất
 <!-- anchor: complex-sentences-for-task2.control -->
 ### Viết câu phức có kiểm soát
 
-1. **Một ý chính, một mệnh đề phụ** cho mỗi câu — đừng nhồi 4 mệnh đề.
+1. Thường **1–2 mệnh đề phụ** mỗi câu là đủ; đừng nhồi 4 mệnh đề.
 2. Đặt mệnh đề nhượng bộ/điều kiện **đầu câu** (kèm phẩy) để nhấn ý chính ở sau.
 3. Kiểm tra mỗi mệnh đề phụ đều **gắn** vào mệnh đề chính, không đứng một mình (fragment).
 
@@ -82,6 +82,9 @@ Trộn vài kiểu này trong một đoạn cho thấy "range" — nhưng chất
 
 ### Lỗi 1: Câu phức thành run-on
 Nhồi nhiều mệnh đề không có liên từ/dấu câu đúng → run-on. Chia nhỏ.
+
+- ❌ *Cities are crowded people still move there.*
+- ✅ *Although cities are crowded, people still move there.*
 
 ### Lỗi 2: Mệnh đề phụ đứng một mình (fragment)
 - ❌ *Although the policy was expensive.* *(chưa đủ câu)*
@@ -92,7 +95,36 @@ Giám khảo chấm **độ chính xác**; một câu phức đúng hơn ba câu
 
 ## Ứng dụng trong bài thi
 
-**Task 2:** mỗi đoạn thân bài nên có ít nhất một câu phức dùng đúng (nhượng bộ hoặc điều kiện) để đạt range mà vẫn accuracy.
+**Task 2:** mỗi đoạn thân bài nên có ít nhất một câu phức dùng đúng (nhượng bộ hoặc điều kiện) để có độ đa dạng mà vẫn chính xác.
+
+## Lỗi người Việt hay gặp
+
+Trong tiếng Việt, "mặc dù… nhưng…" và "vì… nên…" rất tự nhiên. Khi chuyển sang tiếng Anh, người học dễ giữ cả hai từ nối cho cùng một cặp mệnh đề.
+
+- ❌ *Although the bag was heavy, but Mai carried it home.*
+- ✅ *Although the bag was heavy, Mai carried it home.* Hoặc: *The bag was heavy, but Mai carried it home.*
+- ❌ *Because the shop was closed, so we went home.*
+- ✅ *Because the shop was closed, we went home.*
+
+Sau khi chọn liên từ, kiểm tra vế còn lại có chủ ngữ và động từ chính. Cụm bắt đầu bằng *although* hay *because* không tự thành câu hoàn chỉnh. Đừng kéo dài câu chỉ để thêm mệnh đề; mỗi mệnh đề phải đóng góp một quan hệ rõ ràng.
+
+## Bài tập luyện
+
+### Gộp hoặc sửa câu
+
+1. Gộp bằng *because*: *We stayed indoors. It was raining.*
+2. Bỏ từ nối thừa: *Although the café was busy, but we found a table.*
+3. Hoàn thành ý bằng mệnh đề chính: *If the library opens early, ___.*
+4. Gộp bằng mệnh đề quan hệ: *I borrowed a ladder. The ladder belongs to my neighbour.*
+5. Sửa mảnh câu bằng cách gộp hai phần: *Although the route was longer. We chose it because it was quieter.*
+
+### Đáp án và giải thích
+
+1. *We stayed indoors **because it was raining**.* *Because* đưa nguyên nhân vào mệnh đề phụ, gắn với ý chính là ở trong nhà.
+2. ***Although** the café was busy, we found a table.* Bỏ **but**, vì *although* đã biểu thị quan hệ nhượng bộ cho hai vế này.
+3. *If the library opens early, **we will return the books before work**.* Đây là một gợi ý; mệnh đề chính có chủ ngữ *we* và động từ *will return*. Vế *if* dùng hiện tại đơn để nói điều kiện tương lai.
+4. *I borrowed a ladder **that belongs to my neighbour**.* *That* thay cho *the ladder* và làm chủ ngữ của mệnh đề quan hệ, nên không thêm *it* sau *that*.
+5. ***Although the route was longer, we chose it because it was quieter**.* Đổi dấu chấm thành dấu phẩy để nối mệnh đề nhượng bộ với mệnh đề chính. Mệnh đề *because* giải thích lý do lựa chọn; hai liên từ phục vụ hai quan hệ khác nhau.
 
 ## Tóm tắt nhanh
 

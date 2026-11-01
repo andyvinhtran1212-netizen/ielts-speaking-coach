@@ -13,6 +13,8 @@ Coverage:
 - /health/ready returns degraded when DB query throws.
 - /health/ready returns degraded when GEMINI_API_KEY is empty.
 - /health/ready feature_flags block reflects current settings values (admin).
+- /health/runtime anonymous body carries status + redacted placeholders only;
+  the grammar_mappings inventory is admin-only.
 - /health/ready anonymous body carries status codes only (no table names,
   feature-flag state or scope text).
 - /health/grammar-check reuses one live probe within its TTL; a probe error
@@ -103,6 +105,37 @@ def test_health_runtime_redacts_release_branch_for_anonymous(monkeypatch):
     assert out["git_branch"] == health_module._REDACTED
 
 
+def test_health_runtime_anonymous_gets_status_only(monkeypatch):
+    """PC-J229 — the grammar-mapping inventory (counts, sentinel ids) is
+    admin-only; an anonymous caller sees status, timestamp and redacted
+    placeholders, nothing else."""
+    monkeypatch.setattr(health_module, "_is_admin", _anonymous)
+    monkeypatch.setattr(
+        health_module.grammar_service,
+        "_load_mappings",
+        lambda: {"slug": [{"mapping_id": sid} for sid in health_module._SPRINT_6_SENTINEL_IDS]},
+    )
+    monkeypatch.setenv("RAILWAY_DEPLOYMENT_ID", "dep-123")
+
+    out = _run(health_module.health_runtime(None))
+    redacted = health_module._REDACTED
+    assert out == {
+        "status": "ok",
+        "timestamp": out["timestamp"],
+        "git_sha": redacted,
+        "git_branch": redacted,
+        "deployment_id": redacted,
+        "service_name": redacted,
+        "environment_name": redacted,
+        "grammar_mappings": redacted,
+    }
+    assert out["timestamp"]
+    body = repr(out)
+    for leaked in ("mappings_match", "active_count", "sentinel_presence", "dep-123",
+                   *health_module._SPRINT_6_SENTINEL_IDS):
+        assert leaked not in body
+
+
 def test_health_runtime_expected_count_matches_mapping_file(monkeypatch):
     """BL-24 — cce1f566b added M051–M064 without bumping the constant, so
     staging reported mappings_match=false (61 vs 47) for five months. The
@@ -123,16 +156,15 @@ def test_health_runtime_expected_count_matches_mapping_file(monkeypatch):
         "in routers/health.py with the reason"
     )
 
-    async def _anonymous(_authorization):
-        return False
-
-    monkeypatch.setattr(health_module, "_is_admin", _anonymous)
+    # The inventory is admin-only since PC-J229.
+    monkeypatch.setattr(health_module, "_is_admin", _admin)
     # A fresh instance so another test's cached or patched index cannot leak in.
     monkeypatch.setattr(health_module, "grammar_service", GrammarContentService())
-    out = _run(health_module.health_runtime(None))
-    assert out["mappings"]["active_count"] == len(active_ids)
-    assert out["mappings"]["mappings_match"] is True
-    assert out["mappings"]["sprint_6_loaded"] is True
+    out = _run(health_module.health_runtime("Bearer admin"))
+    assert "mappings" not in out
+    assert out["grammar_mappings"]["active_count"] == len(active_ids)
+    assert out["grammar_mappings"]["mappings_match"] is True
+    assert out["grammar_mappings"]["sprint_6_loaded"] is True
 
 
 # ── /health/ready ────────────────────────────────────────────────────────────

@@ -651,16 +651,32 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     import traceback as _traceback
     import uuid as _uuid
 
+    from services.errors import find_validation_error, redacted_traceback, summarize_validation_error
+
     request_id = getattr(request.state, "request_id", None) or str(_uuid.uuid4())
     safe_path, safe_query = _safe_error_request_context(request)
+    # PC-J225: str() of a validation error (pydantic, or FastAPI's
+    # Request/ResponseValidationError — also when wrapped as a cause/context)
+    # quotes the rejected input; log and persist only its type/loc summary and
+    # a traceback whose exception lines are replaced the same way.
+    validation_error = find_validation_error(exc)
+    if validation_error is not None:
+        summary = summarize_validation_error(validation_error)
+        if validation_error is not exc:
+            summary = f"{exc.__class__.__name__} <- {summary}"
+        message = summary
+        stack = redacted_traceback(exc)
+    else:
+        message = str(exc) or exc.__class__.__name__
+        stack = _traceback.format_exc()
     logger.error("[error] Unhandled exception on %s (req=%s): %s",
-                 safe_path, request_id, exc)
+                 safe_path, request_id, message if validation_error is not None else exc)
 
     payload = {
         "level":      "error",
         "source":     "backend",
-        "message":    (str(exc) or exc.__class__.__name__)[:1000],
-        "stack":      _bounded_traceback(_traceback.format_exc()),
+        "message":    message[:1000],
+        "stack":      _bounded_traceback(stack),
         "url":        safe_path,
         "request_id": request_id,
         "extra": {
@@ -736,15 +752,18 @@ def _json_safe_numbers(value):
     return value
 
 
-# F10 (Codex, PR #1754): FastAPI's default 422 echoes the rejected `input`.
-# Python's JSON parser turns 1e309 / NaN / Infinity into non-finite floats,
-# which JSONResponse refuses to serialize, so a malformed (often anonymous)
-# body became a 500 and a backend error_logs row. Same shape as the default
-# handler; only non-finite numbers are rendered as strings.
+# PC-J188: expose only the public validation diagnostics. Rejected input and
+# validator context can contain sensitive values; exclude them before encoding.
+# Keep F10 (#1754)'s non-finite-number guard so malformed JSON numbers cannot
+# turn a validation error into a 500 during response serialization.
 @app.exception_handler(RequestValidationError)
 async def request_validation_handler(request: Request, exc: RequestValidationError):
+    errors = [
+        {key: error[key] for key in ("loc", "msg", "type") if key in error}
+        for error in exc.errors()
+    ]
     return JSONResponse(status_code=422,
-                        content={"detail": _json_safe_numbers(jsonable_encoder(exc.errors()))})
+                        content={"detail": _json_safe_numbers(jsonable_encoder(errors))})
 
 
 # ── P0-5 / C-1.3 — sanitize EXPLICIT HTTPExceptions before they reach the client.
@@ -771,7 +790,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
             safe_path, _ = _safe_error_request_context(request)
             if _handled_5xx_log_allowed(error_code, safe_path):
                 payload = {
-                    "level":      "error",
+                    "level":      "warning" if exc.status_code == 503 and error_code == "feature_disabled" else "error",
                     "source":     "backend",
                     "message":    f"HTTP {exc.status_code} {error_code}",
                     "url":        safe_path,

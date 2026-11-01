@@ -4,7 +4,7 @@
 // @ts-check
 
 const https = require('node:https');
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 
 const {
   BYPASS_HEADERS,

@@ -533,6 +533,20 @@ class GradingResult(BaseModel):
     # documented on that column's COMMENT (migration 046).
     tier_metadata: dict = Field(default_factory=dict)
 
+    # PC-J164 — every provider call behind this result, in order: provider,
+    # model, status, error_code, tokens, cost_usd, served (+ pass for Deep).
+    # cost_usd above is their sum, so rejected attempts are counted.
+    # Persisted to writing_feedback.provenance by essay_service.
+    grading_attempts: list[dict] = Field(default_factory=list)
+
+    # PC-J218 — True when a billed call in grading_attempts has no cost (model
+    # without a price, usage missing, or cut off in flight): cost_usd is then a
+    # lower bound, never an estimate. unpriced_models names the models that
+    # returned usage without a price. ai_usage_logs stays the reconciliation
+    # source. Recorded in writing_feedback.provenance only when True.
+    cost_incomplete: bool = False
+    unpriced_models: list[str] = Field(default_factory=list)
+
     # Allow the BaseModel union (WritingFeedback OR WritingFeedbackDeep
     # in 2.7b; previously WritingFeedbackQuick before 2.7a.1's revert)
     # to flow through without strict-mode rejecting the subclass.

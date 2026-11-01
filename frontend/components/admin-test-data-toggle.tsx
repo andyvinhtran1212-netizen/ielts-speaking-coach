@@ -10,18 +10,23 @@ import {
   type AdminTestDataVisibilityWire,
 } from '@/lib/admin-test-data-api';
 
+function isEmbeddedAdminFrame() {
+  return new URLSearchParams(window.location.search).get('embed') === '1';
+}
+
 /**
  * TASK B2 — staging only. The backend hides E2E/QA test data from list views
  * when HIDE_TEST_DATA is on; this bar lets an admin opt in to see it. Renders
- * nothing (and asks nothing) off staging, or unless the backend reports hiding
- * as active. The state shown is the server's answer for this browser, and a
+ * nothing (and asks nothing) off staging or in an embedded admin frame, whose
+ * parent owns the toggle, or unless the backend reports hiding as active.
+ * The state shown is the server's answer for this browser, and a
  * change reloads so every panel refetches canonical data with the new header.
  */
 export function AdminTestDataToggle() {
   const [visibility, setVisibility] = useState<AdminTestDataVisibilityWire | null>(null);
 
   useEffect(() => {
-    if (!isStagingRuntime()) return;
+    if (!isStagingRuntime() || isEmbeddedAdminFrame()) return;
     let dead = false;
     getAdminTestDataVisibility()
       .then((payload) => { if (!dead) setVisibility(normalizeTestDataVisibility(payload)); })

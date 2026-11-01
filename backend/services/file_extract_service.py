@@ -60,7 +60,10 @@ def extract_text_from_docx(file_bytes: bytes) -> str:
     try:
         document = docx.Document(io.BytesIO(file_bytes))
     except Exception as exc:
-        raise FileExtractError(f"Không đọc được file .docx: {exc}")
+        # PC-J225: the SDK's text can quote the upload; name only its class.
+        raise FileExtractError(
+            f"Không đọc được file .docx ({type(exc).__name__})."
+        ) from exc
 
     parts: list[str] = []
 

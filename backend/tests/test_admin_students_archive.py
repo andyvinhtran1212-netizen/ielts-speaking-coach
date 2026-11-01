@@ -382,12 +382,13 @@ def test_instructor_cannot_give_writing_to_an_archived_learner():
     me, access = _instructor_patches(db)
     prompt = "00000000-0000-0000-0000-0000000000f1"
     db.tables["writing_prompts"] = [{"id": prompt, "created_by": INSTRUCTOR}]
-    with me, access:
+    with me, access, patch("routers.instructor.supabase_admin", db):
         r = _client().post("/instructor/assignments",
-                           json={"prompt_id": prompt, "student_id": ARCHIVED_ID}, headers=AUTH)
+                           json={"request_id": "00000000-0000-4000-8000-000000000360",
+                                 "prompt_id": prompt, "student_id": ARCHIVED_ID}, headers=AUTH)
     assert r.status_code == 409, r.text
     assert r.json()["detail"]["code"] == "student_archived"
-    assert db.writes("insert") == []
+    assert db.writes("insert") == [] and db.rpcs == []
 
 
 def _writing_patches(db):

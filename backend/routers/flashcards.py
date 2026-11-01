@@ -29,6 +29,7 @@ from config import settings
 from database import supabase_admin
 from routers.auth import get_supabase_user
 from services.feature_flags import is_flashcard_enabled
+from services.errors import clip_user_value
 from services.pg_search import ilike_eq_any_filter, ilike_or_filter
 from services.rate_limit import enforce_flashcard_rate_limit
 from services.srs import update_srs
@@ -137,14 +138,17 @@ def _normalize_filter_config(cfg: dict | None) -> dict:
             continue
         if key in ("topics", "categories"):
             if not isinstance(val, list):
-                raise ValueError(f"filter_config.{key} must be a list")
+                raise ValueError(f"filter_config.{clip_user_value(key)} must be a list")
             cleaned = [str(v).strip() for v in val if str(v).strip()]
             if not cleaned:
                 continue
             if key == "categories":
                 bad = [c for c in cleaned if c not in _VALID_SOURCE_TYPES]
                 if bad:
-                    raise ValueError(f"unknown categories: {bad}")
+                    # PC-J225: count only — the refused values are client input.
+                    raise ValueError(
+                        f"filter_config.categories chứa {len(bad)} giá trị không hợp lệ"
+                    )
             out[key] = cleaned
         elif key == "search":
             s = str(val).strip()

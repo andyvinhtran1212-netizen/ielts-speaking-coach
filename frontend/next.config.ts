@@ -5,7 +5,9 @@ import type { NextConfig } from 'next';
 
 import {
   buildContentSecurityPolicy,
+  NONCE_ENFORCE_FLAG,
   NONCE_REPORT_ONLY_FLAG,
+  nonceEnforceEnabled,
   nonceReportOnlyEnabled,
   sameOriginFramePolicy,
 } from './tooling/content-security-policy.mjs';
@@ -50,11 +52,11 @@ const nextConfig: NextConfig = {
   // in app/ is the only real router).
   pageExtensions: ['tsx', 'ts'],
 
-  // PC-J38: one build-time answer, inlined into proxy.ts (runtime) and
-  // AuthedShell (prerender), so a Report-Only header is never sent for routes
-  // that were built static, whatever the server's runtime environment says.
+  // One build-time answer for proxy.ts and AuthedShell. Enforcement implies
+  // request-time rendering and is hard-disabled for Vercel production builds.
   env: {
     [NONCE_REPORT_ONLY_FLAG]: nonceReportOnlyEnabled(process.env) ? '1' : '0',
+    [NONCE_ENFORCE_FLAG]: nonceEnforceEnabled(process.env) ? '1' : '0',
   },
 
   async rewrites() {

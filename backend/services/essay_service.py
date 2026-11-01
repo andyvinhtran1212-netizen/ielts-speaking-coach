@@ -30,6 +30,7 @@ from config import settings
 from database import supabase_admin
 from models.writing_feedback import (
     GraderConfig,
+    GradingResult,
     GradingTier,
     WritingFeedback,
     validate_level_coverage,
@@ -138,6 +139,35 @@ def _model_for_attempt(primary_model: str, attempt_no: int, max_attempts: int) -
     ):
         return settings.WRITING_FALLBACK_MODEL
     return primary_model
+
+
+def _grading_provenance(job_id: str, requested_model: str, attempt_model: str,
+                        result: GradingResult) -> dict:
+    """writing_feedback.provenance for an AI run (PC-J164).
+
+    ``job_id`` keeps the idempotent-persist lookup and the admin cost
+    reconciliation working. ``requested_model`` is writing_essays.selected_model,
+    ``attempt_model`` what this job attempt asked the grader for (differs on the
+    final-attempt fallback), ``model_used`` the model whose answer was served
+    (Claude when the Anthropic-primary attempt served it). ``ai_attempts`` lists
+    every provider call; result.cost_usd is their total. A result without an
+    attempt log (a test double) records an empty one rather than failing.
+    ``cost_incomplete`` (PC-J218) is added only when cost_usd misses a billed
+    call; ai_usage_logs remains the reconciliation source."""
+    attempts = list(getattr(result, "grading_attempts", None) or [])
+    provenance = {
+        "job_id": job_id,
+        "requested_model": requested_model,
+        "attempt_model": attempt_model,
+        "model_used": result.model_used,
+        "ai_attempt_count": len(attempts),
+        "rejected_attempt_count": sum(1 for a in attempts if not a.get("served")),
+        "ai_attempts": attempts,
+    }
+    if getattr(result, "cost_incomplete", False) is True:
+        provenance["cost_incomplete"] = True
+        provenance["unpriced_models"] = list(result.unpriced_models)
+    return provenance
 
 
 def _record_attempt_failure(
@@ -459,8 +489,9 @@ def claim_pending_for_grading(
     endpoint (2026-07-12).
 
     The tier metadata + status flip is one guarded UPDATE (WHERE status=
-    'pending'); a zero-row result means the essay was already claimed/graded by
-    a concurrent request, so this returns None (caller treats as skip/409) and
+    'pending' AND grading_skipped_at IS NULL); a zero-row result means the essay
+    was skipped or already claimed/graded by a concurrent request, so this
+    returns None (caller treats as skip/409) and
     NO job is scheduled. On success returns schedule_grading_job's
     {"job_id", "eta_seconds"}. Caller must still add the request-scoped
     _bg_grade_essay BackgroundTask — a service can't own request lifecycle."""
@@ -474,6 +505,7 @@ def claim_pending_for_grading(
         })
         .eq("id", essay_id)
         .eq("status", "pending")
+        .is_("grading_skipped_at", "null")
         .execute()
     )
     if not claimed.data:
@@ -1067,6 +1099,11 @@ async def _bg_grade_essay(
             "tokens_output":            result.tokens_output,
             "cost_usd":                 result.cost_usd,
             "grading_duration_ms":      result.grading_duration_ms,
+            # PC-J164: cost_usd is the sum of every billed provider call; the
+            # per-call breakdown and the requested vs serving model live here.
+            # writing_essays.selected_model stays the requested model.
+            "provenance":               _grading_provenance(
+                job_id, primary_model, model, result),
         }
         # GV-1b — versioned write. First grade → version 1; regrade → next
         # version (kept, NOT overwriting prior versions, so they stay
@@ -1095,7 +1132,6 @@ async def _bg_grade_essay(
             feedback_row["version"]        = version
             feedback_row["source"]         = _source_for_tier(result.grading_tier)
             feedback_row["parent_version"] = parent
-            feedback_row["provenance"]     = {"job_id": job_id}
             supabase_admin.table("writing_feedback").insert(feedback_row).execute()
 
         # Sprint 2.7b — persist Deep tier per-pass metadata to the
