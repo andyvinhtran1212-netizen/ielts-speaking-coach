@@ -699,6 +699,9 @@ on:
       - 'frontend/public/js/**'
       - 'frontend/tooling/verify-*.mjs'
       - 'frontend/tooling/next-native-fixture-api.mjs'
+      - 'frontend/tooling/redact-secrets.cjs'
+      - 'frontend/tooling/sanitize-artifacts.mjs'
+      - 'frontend/tooling/scan-artifact-secrets.mjs'
       - 'frontend/tests/**'
       - 'backend/**'
   push:
@@ -1350,8 +1353,29 @@ jobs:
       - name: Cổng đường-ghi
         run: node tooling/verify-write-flows.mjs "http://localhost:$TEST_PORT"
 
-      - name: Nộp log server khi lỗi
+      # PC-J437: artifact không qua bộ che log của Actions. Che tại chỗ rồi
+      # quét; còn bearer/JWT thì bước này đỏ và KHÔNG nộp artifact.
+      - name: Che + quét secret trong log trước khi nộp
+        id: native_log_artifact_guard
         if: ${{ failure() }}
+        run: |
+          node tooling/sanitize-artifacts.mjs \
+            /tmp/next-native-browser.log \
+            /tmp/next-native-fixture-api.log \
+            /tmp/dictation-versioned-browser.json \
+            /tmp/grammar-managed-quiz-browser.json \
+            /tmp/grammar-quiz-history-browser.json \
+            /tmp/admin-grammar-revision-browser.json
+          node tooling/scan-artifact-secrets.mjs \
+            /tmp/next-native-browser.log \
+            /tmp/next-native-fixture-api.log \
+            /tmp/dictation-versioned-browser.json \
+            /tmp/grammar-managed-quiz-browser.json \
+            /tmp/grammar-quiz-history-browser.json \
+            /tmp/admin-grammar-revision-browser.json
+
+      - name: Nộp log server khi lỗi
+        if: ${{ failure() && steps.native_log_artifact_guard.outcome == 'success' }}
         uses: actions/upload-artifact@v6
         with:
           name: next-native-browser-log-${{ github.run_id }}
@@ -1406,8 +1430,16 @@ jobs:
       - name: Chạy suite reading-native (bố cục FR-018)
         run: npx playwright test -c playwright.reading-native.config.js
 
-      - name: Nộp ảnh và trace khi lỗi
+      # Trace là zip: sanitize/scan mở zip để che và quét bên trong.
+      - name: Che + quét secret trong ảnh và trace trước khi nộp
+        id: reading_native_artifact_guard
         if: ${{ failure() }}
+        run: |
+          node tooling/sanitize-artifacts.mjs test-results
+          node tooling/scan-artifact-secrets.mjs test-results
+
+      - name: Nộp ảnh và trace khi lỗi
+        if: ${{ failure() && steps.reading_native_artifact_guard.outcome == 'success' }}
         uses: actions/upload-artifact@v6
         with:
           name: reading-native-layout-${{ github.run_id }}-${{ github.run_attempt }}

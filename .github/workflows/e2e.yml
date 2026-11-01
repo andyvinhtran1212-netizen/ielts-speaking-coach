@@ -60,8 +60,17 @@ jobs:
         if: always()
         run: npm run test:e2e:speaking-regression
 
-      - name: Upload Speaking browser regression evidence
+      # PC-J437: artifacts bypass the Actions log masker. Redact in place,
+      # then fail closed on any bearer/JWT value; a red guard blocks the upload.
+      - name: Sanitize + scan Speaking regression evidence
+        id: speaking_evidence_guard
         if: always()
+        run: |
+          node tooling/sanitize-artifacts.mjs test-results/speaking-regression-results.json
+          node tooling/scan-artifact-secrets.mjs test-results/speaking-regression-results.json
+
+      - name: Upload Speaking browser regression evidence
+        if: always() && steps.speaking_evidence_guard.outcome == 'success'
         uses: actions/upload-artifact@v6
         with:
           name: speaking-browser-regression-${{ github.run_id }}-${{ github.run_attempt }}
@@ -70,8 +79,16 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload report on failure
+      # Traces inside test-results are zips: sanitize/scan open them.
+      - name: Sanitize + scan failure report
+        id: e2e_report_guard
         if: failure()
+        run: |
+          node tooling/sanitize-artifacts.mjs playwright-report test-results
+          node tooling/scan-artifact-secrets.mjs playwright-report test-results
+
+      - name: Upload report on failure
+        if: failure() && steps.e2e_report_guard.outcome == 'success'
         uses: actions/upload-artifact@v6
         with:
           name: playwright-e2e-failure-${{ github.run_id }}

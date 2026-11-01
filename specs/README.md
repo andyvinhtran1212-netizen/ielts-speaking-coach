@@ -142,4 +142,6 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 
 | LESSONREPORT-0043 | Teachers see a course assessment's results per lesson for each learner and the whole class, with the weakest lessons highlighted | approved | high | [spec](0043-course-assessment-lesson-report/spec.md) |
 
+| INSTRUCTORGIVE-0044 | A teacher's repeated or retried Writing give from /instructor creates the homework once | approved | high | [spec](0044-instructor-give-idempotency/spec.md) |
+
 | FNEXEC-0045 | A new database function cannot be called by anonymous or signed-in clients unless a migration grants it explicitly, and only the two functions clients really use stay callable | draft | high | [spec](0045-function-default-execute-lockdown/spec.md) |

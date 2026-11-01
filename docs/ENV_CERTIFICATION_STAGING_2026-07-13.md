@@ -113,9 +113,11 @@ không phải bằng chứng đã chạy lại clone hay certify database.
    và transaction bảo vệ trực tiếp target. Test hồi quy dùng hai cluster PG local
    bỏ đi, chỉ dữ liệu giả, SCRAM trên 127.0.0.1.
 
-Giữ chính sách bootstrap có từ trước: `GRANT ALL ON SCHEMA public TO postgres,
-service_role` cho service_role quyền CREATE trên schema; ACL schema sau restore
-có thể là hợp của grant này và dump, dù ACL object được giữ theo nguồn.
+Reset chỉ cho service_role quyền USAGE trên schema public (`GRANT ALL ON SCHEMA
+public TO postgres`, SVCPRIV-0042 FR-007). Dump vẫn phát lại ACL schema của
+nguồn, nên nếu nguồn còn cấp CREATE cho service_role thì postcondition
+`service_role_can_create_in_public` dừng và rollback clone; ACL object vẫn giữ
+theo nguồn.
 `--no-owner` làm object (kể cả hàm SECURITY DEFINER) thuộc role restore, thường
 là postgres. Hàm tạo ngoài repo/dashboard có owner khác cần được audit trước
 lần clone thật vì đổi owner có thể đổi quyền thực thi; script không chứng nhận

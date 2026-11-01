@@ -159,7 +159,7 @@ def test_guard_allows_narrow_grants_and_comments():
         # GRANT ALL ON ALL TABLES IN SCHEMA public TO anon;
         -- GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
         /* GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role; */
-        GRANT ALL ON SCHEMA public TO postgres, service_role;
+        GRANT ALL ON SCHEMA public TO postgres;
         GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres;
         GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon, authenticated;
         GRANT SELECT, INSERT ON TABLE public.class_action_log TO service_role;

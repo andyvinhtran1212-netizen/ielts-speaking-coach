@@ -24,7 +24,7 @@
 // `git push origin origin/main:refs/heads/staging --force` (người dùng chạy).
 // Nếu route chưa có, test SKIP kèm lý do rõ ràng thay vì đỏ nhập nhằng — một
 // test đỏ vì môi trường chưa đồng bộ sẽ bị học cách phớt lờ.
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 const {
   cleanupE2ESession, primeBypassCookie, signIn, identityEmail, STAGING_API,
   STAGING_SUPABASE, STAGING_ANON,

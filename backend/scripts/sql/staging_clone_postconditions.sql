@@ -185,6 +185,12 @@ BEGIN
         RAISE EXCEPTION 'service_role_can_maintain_or_truncate_class_action_log';
     END IF;
 
+    -- SVCPRIV-0042 FR-007: reset.sql grants service_role USAGE only, but the
+    -- dump replays the source's schema ACL, so check the effective privilege.
+    IF has_schema_privilege('service_role', 'public', 'CREATE') THEN
+        RAISE EXCEPTION 'service_role_can_create_in_public';
+    END IF;
+
     IF EXISTS (SELECT 1 FROM pg_policies
                 WHERE schemaname = 'public' AND tablename = 'users'
                   AND policyname = 'Users can update own data'
