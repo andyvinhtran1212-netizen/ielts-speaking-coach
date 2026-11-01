@@ -16,6 +16,16 @@ Deferred free variables use each consumer's lexical bindings; captured iterator
 objects and map/filter callables keep their construction-time bindings. Every
 visible consumer is checked conservatively, without proving iterator exhaustion.
 The aexecute facade's flag-off blocking branch remains a G7 debt of its own.
+
+Known gaps, accepted by the owner on 2026-11-01 (review is the backstop):
+- A lambda invoked in place, e.g. ``(lambda: requests.get(url))()`` or
+  ``to_thread((lambda: fetch())())``, is treated as deferred, so its body is
+  not scanned.
+- A nested helper resolves free aliases against the enclosing function's
+  final bindings, not those live at each call, so rebinding an alias after
+  the call (``fetch = requests.get``; ``save()``; ``fetch = cached``) can
+  hide or invent a finding.
+A grep on 2026-11-01 found no in-place lambda call in the backend.
 """
 
 from __future__ import annotations
