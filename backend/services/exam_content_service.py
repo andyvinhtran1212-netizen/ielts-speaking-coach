@@ -14,6 +14,7 @@ from typing import Iterable, Optional
 
 from database import supabase_admin
 from services.class_assignment_service import active_exam_assignment_references
+from services.errors import clip_user_value
 from services.mock_correction_service import AUTO_SERVABLE, READY_EDITORIAL, READY_RIGHTS
 
 logger = logging.getLogger(__name__)
@@ -57,7 +58,7 @@ def _assert_kind(kind: str) -> tuple:
         return _KINDS[kind]
     except KeyError:
         raise UnknownKindError(
-            f"content_kind phải là một trong {sorted(_KINDS)} — nhận {kind!r}."
+            f"content_kind phải là một trong {sorted(_KINDS)} — nhận {clip_user_value(kind)!r}."
         ) from None
 
 
@@ -80,7 +81,7 @@ def set_course_level(kind: str, content_id: str, level: Optional[str]) -> dict:
         "id", str(content_id),
     ).execute()
     if not resp.data:
-        raise LookupError(f"Không tìm thấy nội dung {kind}/{content_id}.")
+        raise LookupError(f"Không tìm thấy nội dung {kind}/{clip_user_value(content_id)}.")
     return resp.data[0]
 
 
@@ -136,7 +137,7 @@ def set_status(kind: str, content_id: str, status: str, *, actor_id=None, expect
         .limit(1).execute().data or []
     )
     if not rows:
-        raise LookupError(f"Không tìm thấy nội dung {kind}/{content_id}.")
+        raise LookupError(f"Không tìm thấy nội dung {kind}/{clip_user_value(content_id)}.")
     current = rows[0]
 
     if next_status == "published":
@@ -159,7 +160,7 @@ def _assert_content_exists(kind: str, content_id: str) -> None:
         "id", str(content_id),
     ).limit(1).execute().data or []
     if not rows:
-        raise LookupError(f"Không tìm thấy nội dung {kind}/{content_id}.")
+        raise LookupError(f"Không tìm thấy nội dung {kind}/{clip_user_value(content_id)}.")
 
 
 def set_cohorts(kind: str, content_id: str, cohort_ids: Iterable[str],

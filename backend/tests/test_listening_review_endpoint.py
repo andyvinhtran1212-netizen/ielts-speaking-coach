@@ -15,7 +15,8 @@ from pathlib import Path
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
 
 from models.listening_programmes import ListeningAttemptReviewResponse
 from routers import listening as L
@@ -314,3 +315,115 @@ def test_map_signing_runs_only_after_existing_review_guards(monkeypatch, guard, 
         _run(L.get_listening_test_attempt_review("att-1", authorization="x"))
     assert exc.value.status_code == status
     signer.assert_not_called()
+
+
+@pytest.fixture
+def preview_explanation_db(monkeypatch):
+    from services import mock_correction_service
+
+    attempt = deepcopy(_ATTEMPT_SUBMITTED)
+    attempt["id"] = "00000000-0000-4000-8000-000000000001"
+    # Arbitrary persisted JSON must never become a top-level preview capability.
+    attempt["result_summary"] = {"_admin_preview": True}
+    _patch(monkeypatch, attempt)
+    db = _DB(attempt)
+    db._d = deepcopy(db._d)
+    db._d["listening_tests"][0].update(
+        public_practice_enabled=True, web_explanation_mode="disabled",
+    )
+    db._d["listening_exercises"][0]["payload"]["answers"] = [
+        {"q_num": 1, "answer": "Brighton"},
+        {"q_num": 2, "answer": "BN1 6QR"},
+    ]
+    db._d["web_explanation_objects"] = [{
+        "question_number": q, "content_version": "v1", "object_id": f"listening-q{q}",
+        "rights_status": "PENDING", "editorial_status": "APPROVED",
+        "serving_status": "BLOCKED_PENDING_RIGHTS_REVIEW",
+        "payload": {"object_id": f"listening-q{q}", "rationale": f"Explanation {q}"},
+    } for q in range(1, 41)]
+    monkeypatch.setattr(L, "supabase_admin", db)
+    monkeypatch.setattr(mock_correction_service, "supabase_admin", db)
+    monkeypatch.setattr(L, "_is_admin", AsyncMock(return_value=False))
+    return db
+
+
+def _set_explanation_rights(db, blocked):
+    if not blocked:
+        for row in db._d["web_explanation_objects"]:
+            row.update(rights_status="APPROVED", serving_status="ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES")
+
+
+@pytest.mark.parametrize("blocked_rights", [False, True])
+def test_admin_preview_attaches_disabled_web_explanations(monkeypatch, preview_explanation_db, blocked_rights):
+    db = preview_explanation_db
+    _set_explanation_rights(db, blocked_rights)
+    before = deepcopy(db._d)
+    guard = AsyncMock(return_value={"id": "admin"})
+    monkeypatch.setattr(L, "require_admin", guard)
+    app = FastAPI()
+    app.include_router(L.admin_router)
+
+    with TestClient(app) as client:
+        # The initial response and a full reload both read the same canonical objects.
+        for _ in range(2):
+            response = client.get("/admin/listening/tests/t-uuid/preview", headers={"Authorization": "Bearer fixture"})
+            assert response.status_code == 200
+            out = response.json()
+            assert out["preview"] is True and out["attempt_id"] is None
+            assert out["score"] is None and out["band_estimate"] is None
+            assert out["web_explanation_access"] == {
+                "has_content": True, "allowed": True, "reason": "admin_preview", "content_version": "v1",
+            }
+            assert [item["web_explanation_object"] for item in out["review"]] == [
+                row["payload"] for row in db._d["web_explanation_objects"][:2]
+            ]
+            assert "_admin_preview" not in out
+    assert guard.await_count == 2
+    assert db._d == before
+
+
+@pytest.mark.parametrize("blocked_rights", [False, True])
+def test_learner_cannot_enable_preview_on_same_disabled_paper(preview_explanation_db, blocked_rights):
+    db = preview_explanation_db
+    _set_explanation_rights(db, blocked_rights)
+    before = deepcopy(db._d)
+    attempt = db._d["listening_test_attempts"][0]
+    app = FastAPI()
+    app.include_router(L.user_router)
+
+    with TestClient(app) as client:
+        response = client.get(
+            f'/api/listening/tests/attempts/{attempt["id"]}/review?_admin_preview=true&admin_preview=1',
+            headers={"Authorization": "Bearer fixture"},
+        )
+    assert response.status_code == 200
+    out = response.json()
+    assert out["web_explanation_access"]["allowed"] is False
+    assert out["web_explanation_access"]["reason"] == (
+        "content_release_gates_blocked" if blocked_rights else "disabled_by_admin"
+    )
+    assert all("web_explanation_object" not in item for item in out["review"])
+    assert "_admin_preview" not in attempt
+    assert db._d == before
+
+
+@pytest.mark.parametrize("role", [None, "student", "instructor"])
+def test_listening_preview_enforces_real_admin_guard_before_content(monkeypatch, role):
+    from types import SimpleNamespace
+    from routers import admin
+
+    if role is not None:
+        monkeypatch.setattr(admin, "get_supabase_user", AsyncMock(return_value={"id": "non-admin"}))
+        monkeypatch.setattr(admin, "_staff_role_row", AsyncMock(return_value=SimpleNamespace(data=[{"role": role}])))
+    db = Mock()
+    builder = Mock()
+    monkeypatch.setattr(L, "supabase_admin", db)
+    monkeypatch.setattr(L, "_assemble_listening_review", builder)
+    app = FastAPI()
+    app.include_router(L.admin_router)
+
+    with TestClient(app) as client:
+        response = client.get("/admin/listening/tests/t-uuid/preview", headers={"Authorization": "Bearer fixture"} if role else {})
+    assert response.status_code == (403 if role else 401)
+    db.table.assert_not_called()
+    builder.assert_not_called()

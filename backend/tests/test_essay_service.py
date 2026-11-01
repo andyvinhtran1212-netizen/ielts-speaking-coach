@@ -575,6 +575,25 @@ async def test_bg_grade_essay_persists_run_cost_and_model_provenance(monkeypatch
                    for c in fake.calls if c["op"] == "update")
 
 
+def test_grading_provenance_flags_an_incomplete_run_cost():
+    """PC-J218: cost_incomplete + unpriced_models are added only when the run
+    total misses a billed call; ai_usage_logs stays the reconciliation source."""
+    from models.writing_feedback import GradingResult
+
+    def result(**extra):
+        return GradingResult(
+            feedback=_valid_feedback_obj(), model_used="gemini-x", cost_usd=0.002,
+            grading_duration_ms=1, prompt_version="v2.3", **extra,
+        )
+
+    flagged = essay_service._grading_provenance(
+        _JOB_ID, "gemini-x", "gemini-x",
+        result(cost_incomplete=True, unpriced_models=["gemini-x"]))
+    assert (flagged["cost_incomplete"], flagged["unpriced_models"]) == (True, ["gemini-x"])
+    plain = essay_service._grading_provenance(_JOB_ID, "gemini-x", "gemini-x", result())
+    assert "cost_incomplete" not in plain and "unpriced_models" not in plain
+
+
 @pytest.mark.asyncio
 async def test_bg_grade_essay_increments_attempt_counter(monkeypatch):
     """Sprint W-MM: each BG run bumps writing_jobs.attempt_count (per-essay retry

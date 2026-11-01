@@ -651,16 +651,32 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     import traceback as _traceback
     import uuid as _uuid
 
+    from services.errors import find_validation_error, redacted_traceback, summarize_validation_error
+
     request_id = getattr(request.state, "request_id", None) or str(_uuid.uuid4())
     safe_path, safe_query = _safe_error_request_context(request)
+    # PC-J225: str() of a validation error (pydantic, or FastAPI's
+    # Request/ResponseValidationError — also when wrapped as a cause/context)
+    # quotes the rejected input; log and persist only its type/loc summary and
+    # a traceback whose exception lines are replaced the same way.
+    validation_error = find_validation_error(exc)
+    if validation_error is not None:
+        summary = summarize_validation_error(validation_error)
+        if validation_error is not exc:
+            summary = f"{exc.__class__.__name__} <- {summary}"
+        message = summary
+        stack = redacted_traceback(exc)
+    else:
+        message = str(exc) or exc.__class__.__name__
+        stack = _traceback.format_exc()
     logger.error("[error] Unhandled exception on %s (req=%s): %s",
-                 safe_path, request_id, exc)
+                 safe_path, request_id, message if validation_error is not None else exc)
 
     payload = {
         "level":      "error",
         "source":     "backend",
-        "message":    (str(exc) or exc.__class__.__name__)[:1000],
-        "stack":      _bounded_traceback(_traceback.format_exc()),
+        "message":    message[:1000],
+        "stack":      _bounded_traceback(stack),
         "url":        safe_path,
         "request_id": request_id,
         "extra": {
