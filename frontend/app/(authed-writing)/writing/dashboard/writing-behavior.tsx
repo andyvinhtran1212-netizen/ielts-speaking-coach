@@ -1702,6 +1702,20 @@ function setTabActive(tab: string, ps: PageState, api: any) {
   // The bounded content controller owns canonical reads on tab/history changes.
 }
 
+async function prepareWritingPreview(permissions: Promise<any>, isCurrent: () => boolean) {
+  try {
+    const perms = await permissions;
+    if (perms && isCurrent()) {
+      $('writing-preview-banner')?.classList.toggle('hidden', perms.writing === true);
+    }
+  } catch {
+    // Preserve the existing permission-failure behavior; the post-render gate
+    // reports the error. A failed/bounded read must not leave content invisible.
+  } finally {
+    if (isCurrent()) $('content')?.classList.remove('wd-permissions-pending');
+  }
+}
+
 async function applyWritingPermissionGating(apiOrPromise: any, isCurrent: () => boolean) {
   try {
     const perms = await (apiOrPromise && typeof apiOrPromise.then === 'function'
@@ -1709,12 +1723,10 @@ async function applyWritingPermissionGating(apiOrPromise: any, isCurrent: () => 
       : apiOrPromise.get('/api/student/permissions'));
     if (!perms || !isCurrent()) return;
     const permitted = perms.writing === true;
-    const banner = $('writing-preview-banner');
     const assignmentButtons = document.querySelectorAll<HTMLButtonElement>('.btn-start-assignment');
     const modalSubmit = $('modal-btn-submit') as HTMLButtonElement | null;
 
     if (permitted) {
-      if (banner) banner.classList.add('hidden');
       assignmentButtons.forEach((btn) => {
         btn.disabled = false;
         btn.classList.remove('opacity-50', 'cursor-not-allowed');
@@ -1726,7 +1738,6 @@ async function applyWritingPermissionGating(apiOrPromise: any, isCurrent: () => 
         modalSubmit.title = '';
       }
     } else {
-      if (banner) banner.classList.remove('hidden');
       assignmentButtons.forEach((btn) => {
         btn.disabled = true;
         btn.classList.add('opacity-50', 'cursor-not-allowed');
@@ -1852,6 +1863,8 @@ export function WritingBehavior() {
     // Account switch must hide the previous learner synchronously, before the
     // new canonical reads resolve. Empty counts/lists are preferable to a
     // momentary cross-account disclosure.
+    $('content')?.classList.add('wd-permissions-pending');
+    hide('writing-preview-banner');
     ['assignments-count', 'essays-count'].forEach((id) => {
       const el = $(id);
       if (el) el.textContent = '';
@@ -2040,10 +2053,10 @@ export function WritingBehavior() {
         load: async () => {
           // ASYNC LOADS (now that listeners are attached)
           void contentNavigation?.reconcile();
-          // Start the permission read with the two list calls. Gating still runs
-          // after render: it toggles buttons that do not exist until the lists paint.
+          // Resolve banner layout before the content's first paint. Button
+          // gating stays after render, when the assignment buttons exist.
           permissionsPromise = getWithTimeout(api, '/api/student/permissions');
-          permissionsPromise.catch(() => {});
+          void prepareWritingPreview(permissionsPromise, isCurrent);
           const [assignmentsOk, essaysOk] = await Promise.all([loadAssignments(api, ms), loadEssays(api, ms)]);
           return assignmentsOk && essaysOk;
         },
