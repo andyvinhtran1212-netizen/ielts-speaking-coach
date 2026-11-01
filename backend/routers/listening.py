@@ -648,6 +648,13 @@ def _fetch_published_listening_content_with_signed_url(content_id: str) -> dict:
         raise HTTPException(404, "Listening content not found or not published")
 
     row = res.data[0]
+    safe = {field: row.get(field) for field in _STUDENT_LISTENING_CONTENT_FIELDS}
+
+    # Bundle sections may use only the parent test's audio. A missing section
+    # path is normal (same contract as the admin route), not a storage outage.
+    if not row.get("audio_storage_path"):
+        safe["audio_signed_url"] = None
+        return safe
 
     # Sign the audio URL with the Supabase admin client (private bucket
     # → only the server can mint URLs). 3600s TTL = Supabase default.
@@ -669,7 +676,6 @@ def _fetch_published_listening_content_with_signed_url(content_id: str) -> dict:
             "Listening audio storage not configured. See migration 056 header.",
         )
 
-    safe = {field: row.get(field) for field in _STUDENT_LISTENING_CONTENT_FIELDS}
     safe["audio_signed_url"] = audio_signed_url
     return safe
 
