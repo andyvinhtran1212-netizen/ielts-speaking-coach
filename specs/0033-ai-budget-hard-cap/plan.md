@@ -1207,7 +1207,7 @@ independent of the 333/340/341 objects.
   - `resource_id uuid not null`
   - `idempotency_key uuid not null`
   - `body_sha256 text not null`
-  - `state text check (in_flight|succeeded|failed)`
+  - `state text check (in_flight|succeeded|failed|expired)`
   - `http_status int`
   - `response jsonb`
   - `job_id uuid`
@@ -1218,24 +1218,56 @@ independent of the 333/340/341 objects.
 - **Indexes and security:**
   - Unique `(actor_id, resource_kind, resource_id, idempotency_key)`.
   - Partial unique `(resource_kind, resource_id) WHERE state='in_flight'`.
+    It stays unchanged: an expired blocker is terminalized before a new
+    in-flight row is inserted, within the same claim transaction.
   - RLS on. Nothing granted to `anon`/`authenticated`. `service_role`
     only.
 - **RPCs**, `SECURITY DEFINER`, fixed `search_path`, EXECUTE for
   `service_role` only:
-  - `fn_regrade_claim(...) → {outcome: claimed|replay|in_flight|mismatch, id, attempt, …}`,
-    atomic. A new record starts at `attempt = 1`. Taking over an expired
-    lease (15-minute lease) with the same key sets `attempt = attempt + 1`
-    and a new `lease_expires_at` in the same statement; a same-key claim
-    while the lease is valid returns `in_flight` and changes nothing. It
-    also refuses a `speaking_response` claim while its session has an
-    in-flight `speaking_session` record, and the reverse (FR-025 item 5).
-    Until T008 merges, it deletes terminal records older than 24 hours
-    opportunistically.
+  - `fn_regrade_claim(...) → {outcome: claimed|replay|in_flight|mismatch, id, attempt, superseded_ids, …}`,
+    atomic. Lock order: take the transaction-scoped advisory lock for
+    the parent Speaking session (the same lock for a session claim and
+    all its response claims), or for the Writing essay, before reading
+    blockers; then lock the target and cross-blocking `in_flight` rows
+    `FOR UPDATE` in `(resource_kind, resource_id, id)` order. This also
+    serializes claims when no request row exists yet. Check key scope
+    and body mismatch before takeover (FR-025 item 4). Replay a matching
+    terminal key before checking in-flight blockers; the blocker checks
+    below apply only when the key has no terminal result.
+    - A new record starts at `attempt = 1`. Reclaiming a still-in-flight
+      expired lease (15 minutes, `lease_expires_at <= now()`) with the
+      same key sets `attempt = attempt + 1` and renews `lease_expires_at`
+      in the same statement. A valid lease (`lease_expires_at > now()`),
+      with either the same or a different key, returns `in_flight` and
+      changes nothing, with `Retry-After` equal to the blocking lease's
+      remaining seconds rounded up. The same valid-lease rule applies
+      to session/response cross-blocking (FR-025 item 5).
+    - **Different-key expiry takeover:** terminalize expired target and
+      cross-blocking rows as `state = 'expired'`, `completed_at = now()`,
+      `http_status = 409`,
+      `response = {"detail": {"code": "regrade_superseded"}}`. If no
+      valid blocker remains, insert the new `in_flight` row at attempt 1
+      in that same transaction, returning `claimed` and the old row ids
+      in `superseded_ids`. This includes a different actor with their own
+      key; same-key scope mismatches still return `mismatch`. The old
+      rows leave the partial unique index before the insert.
+    - A matching terminal `expired` key returns `replay` with its stored
+      409/body and `Idempotent-Replayed: true`, with no provider call or
+      new reservation, even when the sweeper terminalized it before a
+      same-key retry. Existing generic frontend error handling applies;
+      there is no new Vietnamese string.
+    - Never reuse or release a superseded worker's reservation:
+      `fn_ai_budget_expire` settles its reserved estimate once (FR-014).
+      The new key uses `regrade:<kind>:<id>:<new key>:1[:<response_id>]`.
+      Until T008 merges, claim also deletes terminal rows (including
+      `expired`) older than 24 hours from `completed_at` opportunistically;
+      expiry takeover is already sufficient to prevent permanent locks.
   - `fn_regrade_finish(id, attempt, state, http_status, response, job_id)`
     and `fn_regrade_release(id, attempt)` act only on an `in_flight`
     record whose `attempt` matches, and otherwise return `lease_lost` and
     change nothing (a worker whose lease was reclaimed cannot overwrite
-    the current attempt).
+    the current attempt; an `expired` row is fenced even when its attempt
+    number matches).
 - Idempotent DDL, read-only postconditions, a guarded down script, and
   README entries.
 
@@ -1253,13 +1285,21 @@ independent of the 333/340/341 objects.
   compare-and-set (`.in_("status", …)` + affected-row check; 0 rows → the
   existing 409). The record becomes `succeeded` at the 202 with the
   `job_id`, and the job's reservations use that job id.
-- T008's `ai_budget_sweep` deletes terminal records older than 24 hours.
+- T008's `ai_budget_sweep` processes one claim scope at a time using the
+  same advisory-then-row lock order as `fn_regrade_claim`. It atomically
+  changes only rows still `in_flight` with `lease_expires_at <= now()` to
+  `expired`, setting the same `completed_at`, stored 409/body and fence
+  as claim-time takeover. It never reuses or releases their reservations;
+  `fn_ai_budget_expire` handles those independently. It then deletes
+  terminal records, including `expired`, older than 24 hours from
+  `completed_at`.
 
 ### API contract and rollout order
 
 - OpenAPI and `frontend/types/api.d.ts` gain the `Idempotency-Key`
   request header on the four routes, the 409 `regrade_in_flight`
-  (+ `Retry-After`), 422 `idempotency_key_invalid` /
+  (+ `Retry-After`) and replayed 409 `regrade_superseded` for `expired`
+  keys, 422 `idempotency_key_invalid` /
   `idempotency_key_mismatch`, 428 `idempotency_key_required` and 503
   `regrade_unavailable` responses, and the `Idempotent-Replayed: true`
   response header.
@@ -1269,7 +1309,9 @@ independent of the 333/340/341 objects.
      preflight, so this deploys first.
   2. **Frontend:** the regrade dialogs generate one UUID when the admin
      or instructor confirms, reuse it for every retry of that action, and
-     show the 409 text of `ui-states.md` R1.
+     show the `regrade_in_flight` 409 text of `ui-states.md` R1. An
+     `expired` key's `regrade_superseded` uses existing generic error
+     handling; a new deliberate click generates a new key.
   3. **Flag:** staging sets `REGRADE_IDEMPOTENCY_REQUIRED=true`
      (default `false`; an invalid value reads as `true`). Production only
      at a promotion Vinh authorises.
@@ -1297,13 +1339,23 @@ independent of the 333/340/341 objects.
   idempotent re-apply and the guarded down script, on PostgreSQL 16 and
   17 (AC15 items 1, 8 and 10), plus the `attempt` increment on takeover
   only and `lease_lost` from a finish or release with an old attempt
-  (AC15 item 12).
-- **`backend/tests/test_regrade_idempotency.py`**: AC15 items 1–9 and 12
+  (AC15 item 12). Item 13 adds new-key takeover, the `expired` state and
+  stored 409 replay, late finish/release fencing, valid/expired
+  session/response cross-blockers in both directions, and claim/sweep
+  races (with at most one new in-flight claim).
+- **`backend/tests/test_regrade_idempotency.py`**: AC15 items 1–9, 12 and 13
   with a counting provider stub and a failing claim RPC. Item 12 kills the
   worker after the reservation is granted, checks the 409 while the lease
   is valid, expires the lease, and checks that the retry reserves under
   the attempt-2 key, calls the stub once, finishes, and that committed
   spend is the expired attempt-1 estimate plus the attempt-2 actual.
+  Item 13 crashes a headerless request under the default-false flag:
+  a new-key retry gets 409 and no reservation before expiry, then
+  terminalizes K1, claims K2 at attempt 1 and calls the stub once after
+  expiry. K1's late finish/release returns `lease_lost` and its retry
+  replays `regrade_superseded`; spend is K1's estimate plus K2's actual,
+  with no recompute drift. Cover both cross-blocking directions and
+  recovery with claim-time expiry alone and with T008's sweeper.
 - Kept green: `test_admin_regrade_manual.py`,
   `test_regrade_telemetry_pc_j09.py`, `test_regrade_status_resilience.py`,
   and the 0032 T004 inventory/AST test.
