@@ -549,6 +549,17 @@ _handled_5xx_log_dropped: dict[str, int] = {
 _handled_5xx_clock = monotonic
 
 
+# PC-J234: unhandled exceptions use the same per-process in-flight ceiling,
+# with their own retained tasks and drop count. No per-key or row-rate limit.
+_UNHANDLED_ERROR_LOG_MAX_IN_FLIGHT = _HANDLED_5XX_LOG_MAX_IN_FLIGHT
+_UNHANDLED_ERROR_LOG_WINDOW_S = _HANDLED_5XX_LOG_WINDOW_S
+_unhandled_error_log_tasks: set = set()
+_unhandled_error_log_dropped: dict[str, int] = {"in_flight": 0}
+# [window start, saturation warning logged in window]
+_unhandled_error_log_window: list = [float("-inf"), False]
+_unhandled_error_log_clock = monotonic
+
+
 def _handled_5xx_log_skip(reason: str) -> bool:
     _handled_5xx_log_dropped[reason] += 1
     glob = _handled_5xx_log_global_window
@@ -685,9 +696,23 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
         },
     }
     try:
-        _asyncio.create_task(
-            _asyncio.to_thread(_insert_error_log_safely, payload)
-        )
+        now = _unhandled_error_log_clock()
+        window = _unhandled_error_log_window
+        if now - window[0] >= _UNHANDLED_ERROR_LOG_WINDOW_S:
+            window[:] = [now, False]
+        # This check and task registration run without yielding on the loop.
+        if len(_unhandled_error_log_tasks) >= _UNHANDLED_ERROR_LOG_MAX_IN_FLIGHT:
+            _unhandled_error_log_dropped["in_flight"] += 1
+            if not window[1]:
+                window[1] = True
+                logger.warning("[error_logs] unhandled capture saturated (in_flight); "
+                               "skipping row, dropped=%s", _unhandled_error_log_dropped)
+        else:
+            task = _asyncio.create_task(
+                _asyncio.to_thread(_insert_error_log_safely, payload)
+            )
+            _unhandled_error_log_tasks.add(task)
+            task.add_done_callback(_unhandled_error_log_tasks.discard)
     except RuntimeError:
         # No running loop (e.g. during shutdown) — swallow.
         pass
