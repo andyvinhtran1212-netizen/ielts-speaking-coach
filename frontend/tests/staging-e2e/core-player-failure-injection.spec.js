@@ -6,7 +6,7 @@
 // controller must reconcile the canonical response and must not replay POST.
 const { mkdirSync, rmSync, writeFileSync } = require('node:fs');
 const path = require('node:path');
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 const {
   cleanupE2ESession,
   PRODUCTION_ORIGINS,

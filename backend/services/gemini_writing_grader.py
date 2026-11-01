@@ -20,6 +20,7 @@ Convention notes:
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
 import logging
 import time
@@ -289,7 +290,7 @@ class GeminiWritingGrader:
         # They run on a copy: a repair bug keeps the unrepaired feedback
         # instead of failing a grade that was already paid for.
         try:
-            feedback = result.feedback.model_copy(deep=True)
+            feedback = copy.deepcopy(result.feedback)
             repaired = repair_writing_consistency(feedback, config.task_type)
         except Exception as e:
             logger.warning("[grader] consistency repair failed, keeping unrepaired "

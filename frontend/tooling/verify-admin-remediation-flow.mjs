@@ -3,6 +3,7 @@
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
+import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = process.argv[2] || 'http://127.0.0.1:3110';
 const SB = process.env.SUPABASE_URL || 'https://example.supabase.co';
@@ -65,6 +66,7 @@ await context.route('**/*', async (route) => {
   if (path === '/admin/vocabulary/pilot-metrics') return pilotReady ? json(metrics) : json(unavailable, 503);
   return json({});
 });
+await stubAdminMfaStatus(context);
 
 try {
   for (let index = 0; index < contexts.length; index += 1) {

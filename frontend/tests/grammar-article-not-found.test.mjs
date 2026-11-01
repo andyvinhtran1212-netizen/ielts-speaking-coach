@@ -1,9 +1,11 @@
 // A non-existent Grammar article answers a real HTTP 404 (content audit
 // 2026-10-27): the article route streams under cacheComponents, so proxy.ts
 // decides from the backend article list before rendering and rewrites a miss
-// to a statically prerendered 404 inside the Grammar layout.
+// to a path no route matches, so Next serves the root 404 with its full
+// server HTML (PC-J230). The served HTML itself is checked after a build by
+// tooling/verify-grammar-404-ssr-flow.mjs.
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, test } from 'node:test';
@@ -82,20 +84,34 @@ describe('grammar article 404 wiring', () => {
     assert.match(proxy, /matcher: \[\n\s*'\/grammar\/:category\/:slug',/);
     assert.match(proxy, /pathname\.startsWith\('\/grammar\/'\)\n\s*\? grammarArticle\(request\)/);
     assert.match(proxy, /\/api\/grammar\/categories/);
-    assert.match(proxy, /const GRAMMAR_ARTICLE_NOT_FOUND_PATH = '\/grammar\/article-not-found'/);
+    assert.match(proxy, /const GRAMMAR_ARTICLE_NOT_FOUND_PATH = '\/__aver-not-found'/);
     assert.match(proxy, /=== false;/, 'only a definite miss (false) is a 404; null passes through');
     assert.match(proxy, /NextResponse\.rewrite\(new URL\(GRAMMAR_ARTICLE_NOT_FOUND_PATH, request\.url\)\)/);
     assert.match(proxy, /: NextResponse\.next\(\)/);
   });
 
-  test('the rewrite target is a static page whose notFound() is prerendered as a real 404', () => {
-    const page = read('app', '(public-content)', 'grammar', 'article-not-found', 'page.tsx');
-    assert.match(page, /notFound\(\);/);
-    // Any request-time API would stream the shell first and turn this into a 200 soft 404.
-    assert.doesNotMatch(page, /\bawait\b|connection\(|cookies\(|headers\(|searchParams|params/);
+  test('the rewrite target matches no app route, so the root 404 renders it', () => {
+    // PC-J230: the old target, a static notFound() page inside the Grammar
+    // layout, prerendered as a bare `__next_error__` shell (no CSS, no
+    // <title> until JS ran). An unmatched path gets the root 404 instead.
+    assert.equal(existsSync(path.join(FRONTEND, 'app', '(public-content)', 'grammar', 'article-not-found')), false);
+    assert.ok(existsSync(path.join(FRONTEND, 'app', 'not-found.tsx')));
+    // A root-level segment is the only way a page could claim
+    // `/__aver-not-found`: walk the route groups that sit at the URL root.
+    const rootSegments = [];
+    const collect = (dir) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        if (/^\(.*\)$/.test(entry.name)) collect(path.join(dir, entry.name));
+        else rootSegments.push(entry.name);
+      }
+    };
+    collect(path.join(FRONTEND, 'app'));
+    assert.ok(rootSegments.includes('grammar'), 'the walk reaches the route groups');
+    assert.deepEqual(rootSegments.filter((name) => name.startsWith('[') || name === '__aver-not-found'), []);
   });
 
-  test('the Grammar 404 renders the shared error card inside the token-loading public layout', () => {
+  test('the fail-open soft 404 renders the shared error card inside the token-loading public layout', () => {
     const notFound = read('app', '(public-content)', 'grammar', 'not-found.tsx');
     assert.match(notFound, /export \{ default \} from '\.\.\/\.\.\/not-found';/);
     assert.match(read('app', '(public-content)', 'layout.tsx'), /<link rel="stylesheet" href="\/css\/aver-design\/tokens\.css" \/>/);

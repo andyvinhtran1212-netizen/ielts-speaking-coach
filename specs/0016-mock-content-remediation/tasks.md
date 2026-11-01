@@ -32,6 +32,13 @@
   `depends: T002; owns: domain graders, protected content metadata/import validators`
   Done in [#1574](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1574) (FR-009/FR-010): `services/mock_response_policy.py`, the
   Reading and Listening graders and the content importers.
+  PC-J223 (2026-10-30): `literal` answers and written `number` forms ignore
+  edge whitespace, `. , ; : ! ?` and one wrapping quote pair (`"…"`, `'…'`,
+  `“…”`, `‘…’`) on both the learner answer and every accepted form, and
+  `max_words` counts the stripped answer. A numeric `number` answer may end in
+  `. , ; : ! ?` when the rest still parses. Inner punctuation, case
+  sensitivity, spelling and `phone`/`date`/`option_id` matching are unchanged;
+  authored forms are validated as before. No regrade (FR-011).
 - [x] T006 Persist canonical atomic owner/question flags and complete immutable
   submission context snapshots, with legacy provenance and private media paths.
   Sequence domain-router/migration edits with T003/T004 owner. `depends: T004,T005;

@@ -81,7 +81,7 @@ anchors:
 <!-- anchor: task1-trend-grammar.overview -->
 ## Tóm tắt
 
-Một biểu đồ theo thời gian thể hiện thay đổi. Luyện động từ, dạng danh từ, mức độ và giới từ để mô tả dữ liệu chính xác; không suy Band 6/7 chỉ từ việc dùng went up hay luân phiên từ đồng nghĩa. Band phụ thuộc cách đáp ứng yêu cầu và chất lượng toàn bài. Bốn mảng:
+Một biểu đồ theo thời gian thể hiện thay đổi. Luyện động từ, dạng danh từ, mức độ và giới từ để mô tả dữ liệu chính xác. Bốn mảng:
 
 | Mảng | Công cụ | Ví dụ |
 |------|---------|-------|
@@ -90,13 +90,13 @@ Một biểu đồ theo thời gian thể hiện thay đổi. Luyện động t�
 | **Mức độ (adv/adj)** | sharply / gradually; a steep / slight... | rose **sharply** / **a slight** rise |
 | **Giới từ** | by / to / from...to / of / at | rose **by** 10% **to** 50% |
 
-> Hai cách diễn đạt cùng một ý — **động từ + trạng từ** ("prices rose sharply") và **danh từ + tính từ** ("there was a sharp rise in prices") — luân phiên hai cách này là bí quyết đa dạng câu trong Task 1.
+> Hai cách diễn đạt cùng một ý — **động từ + trạng từ** ("prices rose sharply") và **danh từ + tính từ** ("there was a sharp rise in prices") — luân phiên hai cách này giúp câu đa dạng hơn.
 
 ---
 
 ## Tại sao quan trọng
 
-Task 1 chấm đều bốn tiêu chí. Lặp increased không tự giới hạn band; ưu tiên mô tả đúng dữ liệu rồi luyện đa dạng phù hợp. Đa dạng động từ xu hướng + chuyển đổi động từ↔danh từ + giới từ chính xác là cách trực tiếp nhất nâng cả hai tiêu chí.
+Task 1 chấm đều bốn tiêu chí. Ưu tiên mô tả đúng dữ liệu trước, rồi mới đa dạng hoá cách diễn đạt cho phù hợp. Đa dạng động từ xu hướng + chuyển đổi động từ↔danh từ + giới từ chính xác là cách trực tiếp nâng Lexical Resource và Grammatical Range and Accuracy.
 
 ---
 
@@ -162,7 +162,7 @@ Danh từ + tính từ:    There was a sharp rise in prices.
 ```
 
 - Imports **fell dramatically** = There was **a dramatic fall** in imports.
-- The figure **increased steadily** = There was **a steady increase**.
+- The figure **increased steadily** = There was **a steady increase in the figure**.
 
 ---
 
@@ -182,6 +182,7 @@ Danh từ + tính từ:    There was a sharp rise in prices.
 - Numbers **fell from** 500 **to** 300.
 
 ⚠ Lỗi kinh điển người Việt:
+
 - ❌ increased **of** 10% → ✅ increased **by** 10%
 - ❌ rose **with** 5% → ✅ rose **by** 5%
 
@@ -217,7 +218,7 @@ Khi số không tròn, dùng ngôn ngữ xấp xỉ:
 <!-- anchor: task1-trend-grammar.cross-skill -->
 ## CROSS-SKILL — ngôn ngữ xu hướng khi NÓI
 
-Ngôn ngữ xu hướng cũng hữu ích trong Speaking khi mô tả thay đổi (Part 1/2), nhưng **đơn giản hơn**:
+Ngôn ngữ xu hướng cũng hữu ích trong Speaking khi mô tả thay đổi (Part 1, 2 và 3), nhưng **đơn giản hơn**:
 
 | Writing (Task 1) | Speaking |
 |------------------|----------|
@@ -244,7 +245,7 @@ Ngôn ngữ xu hướng cũng hữu ích trong Speaking khi mô tả thay đổi
 
 ### Lỗi 3: Lặp một động từ
 
-- Increased/rose/grew có thể thay nhau theo ngữ cảnh; climbed/surged thêm sắc thái mức tăng, chỉ dùng khi biểu đồ hỗ trợ. Không thay increased chỉ để tránh lặp.
+- Lặp *increased* quá nhiều làm bài đơn điệu; thay bằng *rose/grew* khi cùng nghĩa, chỉ dùng *surged/soared* khi biểu đồ thật sự tăng mạnh.
 
 ### Lỗi 4: Lệch dạng adv/adj
 
@@ -275,6 +276,7 @@ Ngôn ngữ xu hướng cũng hữu ích trong Speaking khi mô tả thay đổi
 ### Đáp án (gợi ý)
 
 **Giới từ:**
+
 1. from 5 million **to** 8 million
 2. **of** 20%
 3. **by** 15%
@@ -282,6 +284,7 @@ Ngôn ngữ xu hướng cũng hữu ích trong Speaking khi mô tả thay đổi
 5. **in** tourism
 
 **Viết lại:**
+
 1. There was **a sharp rise** in prices.
 2. Sales **declined gradually**.
 
@@ -298,6 +301,7 @@ Ngôn ngữ xu hướng cũng hữu ích trong Speaking khi mô tả thay đổi
 | Xấp xỉ | around / just over / nearly | just under 70% |
 
 **Quy tắc vàng:**
+
 - "rose **by** + lượng", "rose **to** + mức", "a rise **of** + lượng", "a rise **in** + chủ đề"
 - "rise/fall" là nội động từ — KHÔNG bị động ("was risen" sai)
 - Luân phiên động từ+trạng từ ↔ danh từ+tính từ để đa dạng câu

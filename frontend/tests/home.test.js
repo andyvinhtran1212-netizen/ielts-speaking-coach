@@ -201,7 +201,7 @@ test('METRIC_FORMATTERS produce expected shapes for each skill', () => {
   // Speaking: band + sessions count.
   const s = formatters.speaking({ last_band: 6.0, sessions_count: 12 });
   assert.equal(s.primary.value, '6.0');
-  assert.match(s.sub, /12 session/);
+  assert.equal(s.sub, '12 buổi đã luyện');
 
   // Grammar: lessons_viewed.
   const g = formatters.grammar({ lessons_viewed: 7 });

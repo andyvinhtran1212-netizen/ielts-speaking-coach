@@ -71,6 +71,19 @@ function tableSummary(template: Record<string, any> | null): { before: unknown; 
   };
 }
 
+/**
+ * Listening mcq_multi stores its question in the instruction (the test player shows only that) and in each
+ * prompt; the review card already shows the prompt, so drop instruction lines that only repeat a prompt line.
+ */
+function instructionWithoutPrompt(instruction: unknown, prompt: unknown): unknown {
+  if (typeof instruction !== 'string' || typeof prompt !== 'string') return instruction;
+  const normalize = (line: string) => line.replace(/\s+/g, ' ').trim().toLowerCase();
+  const promptLines = new Set(prompt.split(/\r?\n/).map(normalize).filter(Boolean));
+  const lines = instruction.split(/\r?\n/);
+  const kept = lines.filter(line => !promptLines.has(normalize(line)));
+  return kept.length === lines.length ? instruction : kept.join('\n').trim();
+}
+
 type Choice = { label: string; text: string };
 
 /** Lettered choices the student saw: authored options, else the frozen paragraph openings. */
@@ -99,12 +112,32 @@ export function reviewAnswerChoices(value: unknown, answer: unknown): Choice[] {
 }
 
 /** "B — opening of paragraph B" beside a stored answer letter; the letter itself stays as stored. */
-export function ReviewAnswerChoiceText({ context, answer }: { context: unknown; answer: unknown }) {
+export function ReviewAnswerChoiceText({ context, answer, className = 'rr-card__ans-text' }: { context: unknown; answer: unknown; className?: string }) {
   const choices = reviewAnswerChoices(context, answer);
   if (!choices.length) return null;
-  return <span className="rr-card__ans-text">{choices.map((choice, index) => <span key={index}>
+  return <span className={className}>{choices.map((choice, index) => <span key={index}>
     {choices.length > 1 ? `${choice.label} — ${choice.text}` : `— ${choice.text}`}
   </span>)}</span>;
+}
+
+const UNAVAILABLE_REASONS: Readonly<Record<string, string>> = {
+  disabled_by_admin: 'Lời giải chi tiết đang tắt cho bài này theo cài đặt của giáo viên hoặc quản trị viên.',
+  waiting_for_admin_result_release: 'Lời giải chi tiết sẽ mở khi kết quả bài thi được công bố.',
+  waiting_for_admin_explanation_release: 'Lời giải chi tiết sẽ mở khi giáo viên hoặc quản trị viên công bố lời giải.',
+  post_test_capture_required: 'Lời giải chi tiết sẽ mở sau khi bạn hoàn thành phần tự đánh giá sau bài làm.',
+  content_release_gates_blocked: 'Lời giải chi tiết của đề này đang được biên tập, chưa phát hành.',
+  content_version_unavailable: 'Phiên bản lời giải dành cho bài này chưa sẵn sàng.',
+};
+
+/**
+ * Why a card has no solution, from the backend's `web_explanation_access`
+ * (FR-015 truthful unavailable state). No access object means the paper has
+ * no web explanation at all; an allowed one means only this question lacks it.
+ */
+export function reviewExplanationUnavailableReason(access: unknown): string {
+  const row = record(access);
+  if (!row || row.allowed === true) return 'Câu này chưa có lời giải chi tiết.';
+  return UNAVAILABLE_REASONS[String(row.reason)] || 'Lời giải chi tiết chưa mở cho bài này.';
 }
 
 /** Collapsed-card summary of a paragraph list: letters only, never paragraph text. */
@@ -114,7 +147,7 @@ export function ReviewParagraphSummary({ value }: { value: unknown }) {
 }
 
 /** Read only authored display fields. Never reconstruct a bank from answer keys. */
-export function ReviewQuestionContext({ value }: { value: unknown }) {
+export function ReviewQuestionContext({ value, prompt }: { value: unknown; prompt?: unknown }) {
   const context = record(value);
   if (!context) return null;
   const options = Array.isArray(context.options) ? context.options
@@ -125,7 +158,7 @@ export function ReviewQuestionContext({ value }: { value: unknown }) {
     ? `data:image/svg+xml;utf8,${encodeURIComponent(context.map_svg)}`
     : context.map_image_url || context.image_url;
   const imageAlt = context.image_alt || (typeof template?.heading === 'string' && template.heading.trim()) || 'Sơ đồ của câu hỏi';
-  const instruction = context.instructions || context.instruction || context.word_limit_text || context.word_limit;
+  const instruction = instructionWithoutPrompt(context.instructions || context.instruction || context.word_limit_text || context.word_limit, prompt);
   const provenance = record(context.context_provenance);
   const banks = options.length || list(context.paragraph_labels).length;
   const paragraphPreviews = new Map(options.length ? [] : labelledChoices(context).map(choice => [choice.label, choice.text]));

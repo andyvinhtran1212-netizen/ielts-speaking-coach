@@ -99,6 +99,51 @@ Khi đọc, *three times as high as* = ×3; *increased by 200%* cũng là ×3 (t
 2. Xác định **chiều** (hơn/kém/tương đương) — cảnh giác *not as…as, less…than*.
 3. Với số liệu, đọc kỹ **gấp bội** và **trạng từ mức độ**.
 
+## Lỗi người Việt hay mắc
+
+Trong tiếng Việt, so sánh kém thường nói là "không … bằng" hoặc "ít … hơn". Khi đọc nhanh và dịch thầm trong đầu, người học hay đánh rơi chữ "không" hoặc chữ "ít", nên hiểu **ngược chiều** so sánh.
+
+### Lỗi 1: Dịch *not as big as* thành "không to bằng" rồi hiểu ngược chiều
+
+*City A is not as big as City B.*
+
+- ❌ Hiểu thành: A to bằng hoặc to hơn B (chỉ còn nhớ *as big as* = "to bằng").
+- ✅ A **nhỏ hơn** B (A < B). Câu dịch "A không to bằng B" là đúng, nhưng hãy ghi ngay ký hiệu A < B thay vì giữ câu dịch trong đầu.
+
+### Lỗi 2: Đọc lướt *less*, chỉ còn "… hơn"
+
+*Wind power is less expensive than coal.*
+
+- ❌ Hiểu thành: điện gió đắt hơn than (chỉ còn *expensive than* = "đắt hơn").
+- ✅ Điện gió **rẻ hơn** than. *less* + tính từ = kém hơn về tính chất đó.
+
+### Lỗi 3: Bỏ qua *unlike* ở đầu câu
+
+*Unlike wheat, rice needs a lot of water.*
+
+- ❌ Hiểu thành: cả lúa mì và lúa gạo đều cần nhiều nước.
+- ✅ Chỉ lúa gạo cần nhiều nước; *unlike* báo rằng lúa mì **khác** ở điểm này.
+
+## Bài tập luyện
+
+### A > B hay A < B?
+
+Với mỗi câu, A là chủ ngữ của mệnh đề chính, B là đối tượng được so sánh với A. Cho biết A > B hay A < B, và so về tiêu chí nào.
+
+1. *In 2020, rural households were not as likely as urban households to own a computer.*
+2. *Rail freight is less polluting than road freight.*
+3. *Unlike the control group, the treated group showed a clear improvement.*
+4. *The museum's winter visitor numbers were not as low as the manager had feared.*
+5. *Older employees were less willing than younger employees to switch to the new software.*
+
+### Đáp án
+
+1. A = hộ nông thôn, B = hộ thành thị → **A < B** về khả năng có máy tính.
+2. A = vận tải hàng bằng đường sắt, B = bằng đường bộ → **A < B** về mức gây ô nhiễm (đường sắt ít ô nhiễm hơn).
+3. A = nhóm được điều trị, B = nhóm đối chứng → **A > B** về mức cải thiện; *unlike* cho biết nhóm đối chứng không cải thiện rõ.
+4. A = số khách thực tế mùa đông, B = mức người quản lý lo sợ → **A > B**: số khách thực tế **cao hơn** mức lo sợ. *not as low as* = không thấp bằng.
+5. A = nhân viên lớn tuổi, B = nhân viên trẻ → **A < B** về mức sẵn lòng chuyển sang phần mềm mới.
+
 ## Tóm tắt nhanh
 
 - Đọc đúng chiều: *not as…as / less…than* = kém hơn
