@@ -12,6 +12,14 @@
   no anon/authenticated table or column privileges, RLS enabled. Stop the
   deployment if that state is not established; the pre-344 fixture is only
   an isolated compatibility control.
+- **RLSCLEANUP-0039 T003 PASS** (the Leader has applied 344 on staging and
+  diffed the `service_role` ACL against the T001 baseline) before 356 is
+  applied on staging; in production, 0039 T005 is done before 0041 T003.
+- Migration 356 also checks this itself before changing anything (FR-003):
+  if the ledger `public._schema_migrations` has no `344_*` row, or
+  `cal_admin_append` / `cal_admin_read` still exists, it raises an exception
+  and changes nothing (fail closed). Staging and production always have the
+  ledger table; only the isolated legacy test fixture runs without it.
 
 ## Staging
 
@@ -43,14 +51,18 @@ lock and run the same read-only postcheck. No production write probes.
 
 ## Rollback and repair
 
-- The 356 down script is owned by spec 0042 T001 (#2060,
-  FR-008/Scenario 10). It must not grant UPDATE/DELETE or `GRANT ALL`, and must
-  not re-grant TRIGGER, REFERENCES or MAINTAIN (SA F5).
+- The 356 down script is owned by this spec's T001 (SA F5, PC-J499); spec
+  0042 T001 only scans it and runs its post-NNN regression (0042
+  FR-008/Scenario 10). It must not grant UPDATE/DELETE or `GRANT ALL`, and
+  must not re-grant TRIGGER, REFERENCES, TRUNCATE or MAINTAIN (SA F5).
 - It must not recreate or comment on either policy, or restore any
   anon/authenticated privilege removed by 344. A 356 rollback leaves 344's
   policy removal and client lockdown intact; verify the same read-only
   policy/ACL/RLS postcheck after down. T001 also tests that down preserves the
   separate pre-344 fixture's policy/client-ACL state.
+- If both must be rolled back, run **down 356 first, then down 344**.
+  Running down 344 while 356 is still applied is outside this spec and must
+  follow 0039's rollout.
 - No data to repair: 356 changes no rows. If a legitimate operation is refused
   after apply (none is known: the backend only INSERTs and SELECTs), roll back
   356 first, then fix in a spec revision.
