@@ -937,10 +937,32 @@ test('P3-4 already-redacted opaque fields and cookies stay clean', () => {
   }
 });
 
+for (const [prefix, name, separator, valuePrefix, suffix] of [
+  ['<td>', 'x-vercel-protection-bypass', ': ', '', '</td>'],
+  ['(', 'x-api-key', ': ', '', ')'],
+  ['[', 'authorization', ': ', 'Token ', ']'],
+  ['|', 'apikey', ': ', '', ''],
+  [';', 'cookie', ': ', 'foo=', ''],
+  ['=', 'cookie', '=', '', ''],
+]) {
+  test(`R2 P2-1 headers after ${prefix} remain redacted without configured literals`, () => {
+    // Opaque fakes avoid JWT, Bearer, auth-cookie and literal fallback matches.
+    const value = valuePrefix + 'opaqueFAKE' + 'r'.repeat(24);
+    const input = `${prefix}${name}${separator}${value}${suffix}`;
+    const clean = redactSecrets(input, NO_ENV);
+    assert.ok(!clean.includes(value), 'the opaque header value must be removed');
+    assert.ok(clean.startsWith(`${prefix}${name}${separator}[REDACTED]`));
+    if (suffix === '</td>') assert.ok(clean.endsWith(suffix), 'HTML markup stays intact');
+    assert.equal(redactSecrets(clean, NO_ENV), clean, 'redaction remains idempotent');
+  });
+}
+
 test('P3-5 trace JS resources retain valid cookie code while headers and raw JWTs are protected', async () => {
   const { scanBuffer } = await import(pathToFileURL(SCAN).href);
   const { sanitizeBuffer } = await import(pathToFileURL(SANITIZE).href);
   const js = 'document.cookie="a="+b;x.setRequestHeader("authorization",t);document.cookie=a+b;x.send(t);';
+  assert.equal(redactSecrets(js, NO_ENV), js, 'plain JS cookie code stays unchanged');
+  assert.equal(countSecretMatches(js, NO_ENV), 0, 'plain JS has no secret matches');
   const network = JSON.stringify({ cookie: `${'sb-project-auth-token'}=${FAKE_COOKIE}`, authorization: `Bearer ${FAKE_JWT}` });
   const zip = writeZip([
     { name: 'resources/app.js', data: Buffer.from(js) },

@@ -32,10 +32,11 @@ const TOKEN_FIELDS = 'access_token|refresh_token|provider_token|provider_refresh
 // (`"authorization":"Bearer x"`) and escaped JSON (`\"cookie\":\"sb-..\"`).
 // The value stops at a quote, backslash, ESC (Playwright colours call-log
 // lines) or newline, so the rest of the message stays readable.
-// Require a log/header boundary or a JSON key, not a JS property such as
-// document.cookie. String arguments like setRequestHeader("authorization", t)
-// have no key/value separator and are left intact too.
-const HEADER_RE = /(?<![^\s"'{,])(authorization|proxy-authorization|apikey|cookie|set-cookie|x-vercel-protection-bypass|x-api-key)(\\?["']?[ \t]*[:=][ \t]*\\?["']?)([^\r\n"'`\\\x1b<]+)/gi;
+// Preserve punctuation boundaries used by headers in HTML and diagnostics,
+// while excluding JS properties such as document.cookie and $cookie.
+// String arguments like setRequestHeader("authorization", t) have no
+// key/value separator and are left intact too.
+const HEADER_RE = /(?<![\w.$-])(authorization|proxy-authorization|apikey|cookie|set-cookie|x-vercel-protection-bypass|x-api-key)(\\?["']?[ \t]*[:=][ \t]*\\?["']?)([^\r\n"'`\\\x1b<]+)/gi;
 const JSON_FIELD_RE = new RegExp(`"(${TOKEN_FIELDS})"(\\s*:\\s*)"((?:[^"\\\\\\r\\n]|\\\\.)*)"`, 'g');
 // Encode both the delimiter and an inner JSON escape at the same depth.
 // A value's escaped quote is E + D, whereas its closing delimiter is just D.
