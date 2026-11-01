@@ -841,6 +841,8 @@ function renderDeadlines(assignments: any[]) {
   const surface = $('deadlines-surface');
   const list = $('deadlines-list');
   if (!surface || !list) return;
+  surface.classList.remove('is-loading');
+  surface.removeAttribute('aria-busy');
 
   const withDeadline = (assignments || [])
     // Khối này có tên “sắp đến hạn”. Bài đã quá hạn vẫn xuất hiện ở thẻ bài
@@ -930,6 +932,8 @@ function buildAssignmentCardHtml(a: any): string {
 function renderAssignments(assignments: any[], ms: ModalState) {
   const list = $('assignments-list');
   const empty = $('assignments-empty');
+  hide('assignments-loading');
+  list?.removeAttribute('aria-busy');
 
   if (!assignments || assignments.length === 0) {
     if (list) list.innerHTML = '';
@@ -1630,6 +1634,9 @@ async function loadAssignments(api: any, ms: ModalState): Promise<boolean> {
   } catch (err: any) {
     if (ps.dead || ps.generation !== generation) return true;
     const list = $('assignments-list');
+    hide('deadlines-surface');
+    hide('assignments-loading');
+    list?.removeAttribute('aria-busy');
     if (list) {
       list.innerHTML = '<div class="wd-inline-error">' + escapeHtml(
         err?.timeout ? err.message : loadFailureMessage(
@@ -1679,6 +1686,8 @@ function setTabActive(tab: string, ps: PageState, api: any) {
   if (essayBtn) essayBtn.classList.toggle('active', tab === 'essays');
   if (tipsBtn) tipsBtn.classList.toggle('active', tab === 'tips');
   if (pbBtn) pbBtn.classList.toggle('active', tab === 'prompt-bank');
+  document.querySelector<HTMLElement>('.wd-tabs .tab-btn.active:not([hidden])')
+    ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 
   const contAssignments = $('content-assignments');
   const contEssays = $('content-essays');
@@ -1849,7 +1858,19 @@ export function WritingBehavior() {
     });
     const assignmentsList = $('assignments-list');
     const essaysList = $('essays-list');
-    if (assignmentsList) assignmentsList.innerHTML = '<p class="text-sm py-8 text-center" style="color:var(--av-text-muted)">Đang tải…</p>';
+    if (assignmentsList) {
+      assignmentsList.setAttribute('aria-busy', 'true');
+      assignmentsList.innerHTML = '';
+    }
+    show('assignments-loading');
+    const deadlinesSurface = $('deadlines-surface');
+    if (deadlinesSurface) {
+      deadlinesSurface.classList.remove('hidden');
+      deadlinesSurface.classList.add('is-loading');
+      deadlinesSurface.setAttribute('aria-busy', 'true');
+    }
+    const deadlinesList = $('deadlines-list');
+    if (deadlinesList) deadlinesList.innerHTML = '<div class="wd-deadline-row" aria-hidden="true"><span class="wd-skeleton-line">&nbsp;</span></div>'.repeat(2);
     if (essaysList) essaysList.innerHTML = '<p class="text-sm py-8 text-center" style="color:var(--av-text-muted)">Đang tải…</p>';
     hide('assignments-empty');
     hide('essays-empty');
@@ -1881,6 +1902,33 @@ export function WritingBehavior() {
       const tabEssays = $('tab-essays');
       const tabTips = $('tab-tips');
       const tabPromptBank = $('tab-prompt-bank');
+      const tabs = document.querySelector<HTMLElement>('.wd-tabs');
+      if (tabs) {
+        const updateOverflow = () => {
+          const start = tabs.scrollLeft > 1;
+          const end = tabs.scrollLeft + tabs.clientWidth < tabs.scrollWidth - 1;
+          const overflow = start ? (end ? 'both' : 'start') : (end ? 'end' : 'none');
+          tabs.dataset.overflow = overflow;
+          if (tabs.parentElement) tabs.parentElement.dataset.overflow = overflow;
+        };
+        const resize = new ResizeObserver(() => {
+          // Late tab/count reads may resize the strip while the learner is
+          // reading below it. Adjust this scroller without moving the page.
+          const active = tabs.querySelector<HTMLElement>('.tab-btn.active:not([hidden])');
+          if (active) {
+            const item = active.getBoundingClientRect();
+            const strip = tabs.getBoundingClientRect();
+            if (item.left < strip.left) tabs.scrollLeft -= strip.left - item.left;
+            else if (item.right > strip.right) tabs.scrollLeft += item.right - strip.right;
+          }
+          updateOverflow();
+        });
+        resize.observe(tabs);
+        tabs.querySelectorAll('.tab-btn').forEach(tab => resize.observe(tab));
+        cleanups.push(() => resize.disconnect());
+        on(tabs, 'scroll', updateOverflow);
+        updateOverflow();
+      }
       const tipModalClose = $('tip-modal-close');
       const tipModalBackdrop = $('tip-modal-backdrop');
       const spellBtnBack = $('spell-btn-back');
