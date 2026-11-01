@@ -94,7 +94,7 @@ ALLOWED: dict[tuple[str, str, str], tuple[int, str]] = {
     ("routers/listening.py", "grade_listening_test_dictation", "body.sentence_idx; len(units)"): (1, TYPED_INT),
     ("routers/listening.py", "start_listening_test_attempt", "str(exc)"): (2, "class-item gate errors are constants or name server-side task fields"),
     ("routers/mock_exams.py", "_raise_for", "str(e)"): (4, "MockExamError family: section/code clipped at source, ids after uuid lookup; any other exception gets a generic message"),
-    ("routers/reading_student.py", "start_reading_test_attempt", "str(exc)"): (2, "class-item gate errors are constants or name server-side task fields"),
+    ("routers/reading_student.py", "_start_reading_test_attempt_sync", "str(exc)"): (2, "class-item gate errors are constants or name server-side task fields"),
     ("routers/sessions.py", "_bind_session_to_mock_if_requested", "exc"): (1, "bind_session_to_sitting errors: constants, DB status, sitting id after uuid lookup"),
     ("routers/sessions.py", "_complete_session_internal", "session_id; e"): (1, "background finalizer only; never reaches a response"),
     ("routers/sessions.py", "_resolve_full_test_attempt_id", "body.part - 1"): (1, TYPED_INT),
