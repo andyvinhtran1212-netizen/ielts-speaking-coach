@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
+import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
@@ -138,6 +139,7 @@ await page.route('**/*', async (route) => {
   if (path === '/admin/cohorts/class-2/assignments' && method === 'POST') return json({ id: 'class-assignment-1', ...body });
   return json({ detail: `unhandled fixture ${method} ${path}` }, 500);
 });
+await stubAdminMfaStatus(page);
 
 const initialPaths = ['/auth/me', '/admin/mock-exams', '/admin/cohorts'];
 const initialReads = Promise.all(initialPaths.map((path) => page.waitForResponse((response) => new URL(response.url()).pathname === path)));

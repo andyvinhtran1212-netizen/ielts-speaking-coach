@@ -64,7 +64,7 @@ export const METRIC_FORMATTERS = {
     const band = s.last_band != null ? s.last_band.toFixed(1) : '—';
     return {
       primary: { value: band, unit: 'band' },
-      sub: s.sessions_count ? s.sessions_count + ' session đã luyện' : 'Chưa luyện session nào',
+      sub: s.sessions_count ? s.sessions_count + ' buổi đã luyện' : 'Chưa luyện buổi nào',
     };
   },
   grammar(s) {

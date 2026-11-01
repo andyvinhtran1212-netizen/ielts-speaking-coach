@@ -1,12 +1,12 @@
 # Verification
 
-## Current implementation checkpoint — 2026-10-01
+## Historical implementation checkpoint — 2026-10-01
 
 Approved base `47fbb311` landed separately before implementation. The current
 implementation base is `0d9b886c`, integrating the Listening80 staging change with
 reviewed task preservation and regenerated API `946acb1e`. The frozen integrated
 backend passed **10089 tests / 38 documented skips** with actual PostgreSQL groups
-required; no Grammar306, Dictation305, Listening304 or Reading PG group was skipped.
+required; no Grammar309, Dictation305, Listening304 or Reading PG group was skipped.
 Final frontend gates passed **10591 Node / 0 skips**, **286 React**, strict and legacy
 TypeScript, and the rebuilt production Next bundle. The first Node invocation's
 two interpreter-environment skips are retained; the configured-venv invocation
@@ -32,7 +32,7 @@ snapshots. Its503 case withholds one snapshot question without corrupting PG.
 Six historical-read table digests are unchanged. The narrow missing-question
 guard does not identify missing-parent/NULL managed-history markers.
 
-Staging read-only preflight found ledger294,304/305 applied,306 absent and only306
+Staging read-only preflight found ledger294,304/305 applied,309 absent and only309
 pending. Relevant prerequisite catalog checks passed, while the raw result remains
 FAIL for five historical ledger filenames; SQL provenance for160/263 is UNKNOWN.
 The twelve canonical codes are missing in that staging footprint; this authorizes
@@ -43,7 +43,7 @@ predecessors and fresh canonical extras/backup gates remain open.
 Spec governance validates17features and its88contract tests pass.
 All22 requirement rows below remain PENDING. Exact-head CI, live principal/grants/
 schema cache, fresh canonical/extras/backup/cutover, exact staging/promotion/
-production and manual evidence are separate gates. No live306 migration, canonical
+production and manual evidence are separate gates. No live309 migration, canonical
 cutover or historical regrade has occurred.
 
 ## Requirement coverage

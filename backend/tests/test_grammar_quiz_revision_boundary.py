@@ -375,8 +375,8 @@ async def test_atomic_import_unmanaged_behavior_and_entry_gate_before_topic_lock
 async def test_direct_progress_waits_at_statement_gate_then_rejects_new_managed_scope(pg):
     # Real producer owns publication; hold its transaction at corrected INSERT.
     from services import grammar_quiz_revisions as owner
-    from test_grammar_quiz_revisions import canonical_engine,canonical,commit_request
-    gen=canonical.__wrapped__(pg);_,engine=await anext(gen)
+    from test_grammar_quiz_revisions import _canonical_setup,commit_request
+    gen=_canonical_setup(pg);_,engine=await anext(gen)
     request=await commit_request((pg,engine))
     c=await pg.connection(); latch=int.from_bytes(uuid4().bytes[:7],'big');tasks=[]
     try:
