@@ -969,9 +969,10 @@ async def activate_account(
                 _promote_after_claim, user_id, user_before.get("role"), request_id,
             )
             if promote_failure is None:
-                _audit_promote_attempt(user_id, access_code_row.get("id"), ok=True,
-                                       before_role=current_role, after_role=final_role,
-                                       noop=promote_noop)
+                await asyncio.to_thread(
+                    _audit_promote_attempt, user_id, access_code_row.get("id"), ok=True,
+                    before_role=current_role, after_role=final_role, noop=promote_noop,
+                )
             else:
                 logger.critical("[auth] instructor promote FAILED after claim request_id=%s user=%s "
                                 "code_id=%s reason=%s", request_id, user_id,
