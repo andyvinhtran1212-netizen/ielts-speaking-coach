@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from postgrest.exceptions import APIError
 
 from routers import admin_exams, admin_mock_exams as proctor, mock_corrections
+from tests.loop_gate import WAIT, LoopGate, until
 
 
 @pytest.fixture
@@ -31,21 +32,28 @@ def app(monkeypatch):
     return app
 
 
-def _request_with_ping(app, method, path, **kwargs):
+@pytest.fixture
+def gate():
+    return LoopGate()
+
+
+def _request_with_ping(app, gate, method, path, **kwargs):
+    """/ping must complete while the route's stubbed sync call is parked in a worker."""
     async def scenario():
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
-            start = time.perf_counter()
             request = asyncio.create_task(client.request(method, path, **kwargs))
-            await asyncio.sleep(0.05)
-            ping = await client.get("/ping")
-            elapsed = time.perf_counter() - start
-            in_flight = not request.done()
-            return await request, ping, elapsed, in_flight
+            try:
+                parked = await until(lambda: gate.inside > 0, stop=request)
+                ping = await asyncio.wait_for(client.get("/ping"), WAIT)
+                in_flight = parked and not request.done() and not gate.released
+            finally:
+                gate.release()
+            return await request, ping, in_flight
 
-    response, ping, elapsed, in_flight = asyncio.run(scenario())
+    response, ping, in_flight = asyncio.run(scenario())
     assert ping.json() == {"ok": True}
-    assert elapsed < 0.2, f"/ping waited {elapsed:.3f}s behind {path}"
-    assert in_flight, "the lightweight request must finish while sync I/O is still running"
+    assert not gate.timed_out, f"{path} ran its sync call on the event loop"
+    assert in_flight, f"/ping must finish while {path} is still parked in its worker"
     return response
 
 
@@ -55,40 +63,40 @@ def _request_with_ping(app, method, path, **kwargs):
     ("/admin/mock-exams", proctor.svc, "admin_list_exams", []),
     ("/admin/exams", admin_exams.exam_service, "admin_list_all", []),
 ])
-def test_slow_console_read_does_not_block(app, monkeypatch, path, module, name, payload):
+def test_slow_console_read_does_not_block(app, gate, monkeypatch, path, module, name, payload):
     calls = []
 
     def slow(*args, **kwargs):
         calls.append((args, threading.get_ident()))
-        time.sleep(0.5)
+        gate.park()
         return payload
 
     monkeypatch.setattr(module, name, slow)
-    response = _request_with_ping(app, "GET", path)
+    response = _request_with_ping(app, gate, "GET", path)
     assert response.status_code == 200
     assert response.json() == ({"exams": payload} if name in {"admin_list_all", "admin_list_exams"} else payload)
     assert len(calls) == 1 and calls[0][1] != threading.get_ident()
 
 
-def test_slow_exam_import_does_not_block(app, monkeypatch):
+def test_slow_exam_import_does_not_block(app, gate, monkeypatch):
     def slow(text, *, dry_run):
         assert text == "# QA exam" and dry_run is True
-        time.sleep(0.5)
+        gate.park()
         return {"ok": True}
 
     monkeypatch.setattr(admin_exams.exam_service, "import_exam", slow)
-    response = _request_with_ping(app, "POST", "/admin/exams/import", files={"file": ("qa.md", b"# QA exam")})
+    response = _request_with_ping(app, gate, "POST", "/admin/exams/import", files={"file": ("qa.md", b"# QA exam")})
     assert response.status_code == 200 and response.json() == {"ok": True}
 
 
 @pytest.mark.parametrize("slow_step", ["preflight", "mark"])
-def test_collect_keeps_preflight_marker_and_background_order_without_blocking(app, monkeypatch, slow_step):
+def test_collect_keeps_preflight_marker_and_background_order_without_blocking(app, gate, monkeypatch, slow_step):
     calls = []
 
     def step(name):
         calls.append((name, threading.get_ident()))
         if name == slow_step:
-            time.sleep(0.5)
+            gate.park()
 
     def preflight(exam_id, section, from_section):
         assert (exam_id, section, from_section) == ("exam-1", None, "reading")
@@ -107,7 +115,7 @@ def test_collect_keeps_preflight_marker_and_background_order_without_blocking(ap
     monkeypatch.setattr(proctor.svc, "collect_preflight", preflight)
     monkeypatch.setattr(proctor.svc, "mark_section_collected", mark)
     monkeypatch.setattr(proctor.svc, "collect_section_after_flush_grace", sweep)
-    response = _request_with_ping(app, "POST", "/admin/mock-exams/exam-1/collect?from_section=reading")
+    response = _request_with_ping(app, gate, "POST", "/admin/mock-exams/exam-1/collect?from_section=reading")
     assert response.status_code == 202
     assert response.json() == {"section": "reading", "pending": 3, "queued": True}
     assert [name for name, _ in calls] == ["preflight", "mark", "sweep"]
@@ -115,14 +123,14 @@ def test_collect_keeps_preflight_marker_and_background_order_without_blocking(ap
 
 
 @pytest.mark.parametrize("slow_step", ["record", "access", "result"])
-def test_capture_preserves_release_boundary_and_order_without_blocking(app, monkeypatch, slow_step):
+def test_capture_preserves_release_boundary_and_order_without_blocking(app, gate, monkeypatch, slow_step):
     calls = []
     attempt = {"id": "attempt-1"}
 
     def step(name):
         calls.append((name, threading.get_ident()))
         if name == slow_step:
-            time.sleep(0.5)
+            gate.park()
 
     def record(skill, attempt_id, user_id, items):
         assert (skill, attempt_id, user_id) == ("reading", "attempt-1", "learner-1")
@@ -143,7 +151,7 @@ def test_capture_preserves_release_boundary_and_order_without_blocking(app, monk
     monkeypatch.setattr(mock_corrections.svc, "record_post_test_capture", record)
     monkeypatch.setattr(mock_corrections.svc, "explanation_access", access)
     monkeypatch.setattr(mock_corrections.svc, "learner_result_payload", result)
-    response = _request_with_ping(app, "POST", "/api/mock-corrections/reading/attempts/attempt-1/post-test-capture",
+    response = _request_with_ping(app, gate, "POST", "/api/mock-corrections/reading/attempts/attempt-1/post-test-capture",
                                   json={"items": [{"question_number": 1, "confidence": 3}]})
     assert response.status_code == 200
     assert response.json() == {"capture": {"id": "capture-1"}, "replayed": False,
@@ -161,13 +169,13 @@ def test_capture_preserves_release_boundary_and_order_without_blocking(app, monk
     ("bulk-release", "bulk_release_sittings", "released"),
 ])
 @pytest.mark.parametrize("slow_step", ["scope", "write"])
-def test_bulk_review_scopes_before_writing_without_blocking(app, monkeypatch, action, service, result_key, slow_step):
+def test_bulk_review_scopes_before_writing_without_blocking(app, gate, monkeypatch, action, service, result_key, slow_step):
     calls = []
 
     def step(name):
         calls.append((name, threading.get_ident()))
         if name == slow_step:
-            time.sleep(0.5)
+            gate.park()
 
     def scope(exam_id, ids):
         assert (exam_id, ids) == ("exam-1", ["mine", "foreign"])
@@ -181,7 +189,7 @@ def test_bulk_review_scopes_before_writing_without_blocking(app, monkeypatch, ac
 
     monkeypatch.setattr(proctor.svc, "sittings_in_exam", scope)
     monkeypatch.setattr(proctor.wf, service, write)
-    response = _request_with_ping(app, "POST", f"/admin/mock-exams/exam-1/{action}",
+    response = _request_with_ping(app, gate, "POST", f"/admin/mock-exams/exam-1/{action}",
                                   json={"sitting_ids": ["mine", "foreign"]})
     assert response.status_code == 200
     assert response.json() == {result_key: ["mine"], "skipped": [{"sitting_id": "foreign", "reason": "Không thuộc đề này."}]}
@@ -190,13 +198,13 @@ def test_bulk_review_scopes_before_writing_without_blocking(app, monkeypatch, ac
 
 
 @pytest.mark.parametrize("slow_step", ["get", "claim"])
-def test_bulk_grade_claims_in_order_and_runs_background_without_blocking(app, monkeypatch, slow_step):
+def test_bulk_grade_claims_in_order_and_runs_background_without_blocking(app, gate, monkeypatch, slow_step):
     calls = []
 
     def step(name, value):
         calls.append((name, value, threading.get_ident()))
         if name == slow_step and sum(item[0] == name for item in calls) == 1:
-            time.sleep(0.5)
+            gate.park()
 
     def get(sitting_id):
         step("get", sitting_id)
@@ -215,7 +223,7 @@ def test_bulk_grade_claims_in_order_and_runs_background_without_blocking(app, mo
     monkeypatch.setattr(proctor.svc, "get_sitting", get)
     monkeypatch.setattr(proctor.svc, "claim_mock_writing_grading", claim)
     monkeypatch.setattr(proctor.essay_service, "_bg_grade_essay", grade)
-    response = _request_with_ping(app, "POST", "/admin/mock-exams/exam-1/writing/bulk-grade",
+    response = _request_with_ping(app, gate, "POST", "/admin/mock-exams/exam-1/writing/bulk-grade",
                                   json={"sitting_ids": ["sitting-1", "sitting-2"], "grading_tier": "instructor"})
     assert response.status_code == 202
     assert response.json() == {"queued": ["essay-1", "essay-2"], "skipped": [], "short": [],
