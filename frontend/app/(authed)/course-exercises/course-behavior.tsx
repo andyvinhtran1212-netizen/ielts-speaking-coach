@@ -16,6 +16,8 @@ import { useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
+import { COURSE_TITLE, COURSE_TITLE_META, SAVE_NOTE_IDLE } from './course-copy';
+
 // Nút/link hành động của màn lỗi nằm NGOÀI `#cx-error` (PC-J328), nên ghi lại
 // câu lỗi không còn tự xoá chúng: gỡ cùng lúc khi báo lỗi mới hay khi phiên
 // chạy này bị huỷ, để lượt chạy sau không mang theo nút của lượt trước.
@@ -23,20 +25,38 @@ function clearErrorActions() {
   document.querySelectorAll('[data-cx-error-action]').forEach((node) => node.remove());
 }
 
+// Các khối nội dung bài mà một lượt chạy vẽ vào bằng innerHTML. Trong
+// CourseShell chúng đều rỗng và ẩn sẵn, React không có node con nào bên trong.
+const CONTENT_BLOCKS = [
+  'cx-q', 'cx-next', 'cx-done', 'cx-reading', 'cx-listening', 'cx-pronunciation', 'cx-report',
+];
+
 // Đổi tài khoản chạy lại effect trên CÙNG khung CourseShell (không remount),
 // nên lượt mới phải bắt đầu từ màn ban đầu của khung: huy hiệu lưu hiện lại ở
-// trạng thái chờ, khung chặng ẩn, "Đang mở bài tập…" hiện, `#cx-error` rỗng và
-// không còn nút/link của lượt trước. Huy hiệu chỉ bị ẩn lại nếu chính lượt này
-// cũng gặp 4xx/bank rỗng (PC-J330).
-function resetErrorScreen() {
+// trạng thái chờ, khung chặng ẩn và rỗng, "Đang mở bài tập…" hiện, `#cx-error`
+// rỗng và không còn nút/link của lượt trước. Huy hiệu chỉ bị ẩn lại nếu chính
+// lượt này cũng gặp 4xx/bank rỗng (PC-J330). Tiêu đề, câu hỏi, bài đọc, bài
+// nghe, báo cáo… của tài khoản trước cũng phải đi, kể cả khi lượt mới chỉ tới
+// màn lỗi — không thì bài của A hiện cạnh lỗi của B (PC-J339).
+function resetCourseScreen() {
   clearErrorActions();
   const $ = (id: string) => document.getElementById(id);
   const error = $('cx-error'); if (error) { error.hidden = true; error.textContent = ''; }
   const loading = $('cx-loading'); if (loading) loading.hidden = false;
+  const title = $('cx-title'); if (title) title.textContent = COURSE_TITLE;
+  const titleMeta = $('cx-title-meta'); if (titleMeta) titleMeta.textContent = COURSE_TITLE_META;
   const stage = $('cx-stage'); if (stage) stage.hidden = true;
+  const stageLabel = $('cx-stage-label'); if (stageLabel) stageLabel.textContent = '';
+  const stageTicks = $('cx-stage-ticks'); if (stageTicks) stageTicks.textContent = '';
+  const timer = $('cx-timer');
+  if (timer) { timer.hidden = true; timer.textContent = ''; delete timer.dataset.urgent; }
+  for (const id of CONTENT_BLOCKS) {
+    const block = $(id); if (block) { block.hidden = true; block.textContent = ''; }
+  }
+  // Cờ "báo cáo đã dựng" của lượt trước không được cho lượt này bỏ qua tải lại.
+  const report = $('cx-report'); if (report) delete report.dataset.crReady;
   const note = $('cx-save-note'); if (note) { note.hidden = false; note.dataset.state = 'idle'; }
-  // Cùng câu `idle` của setSaveState và của CourseShell.
-  const label = $('cx-save-note-text'); if (label) label.textContent = 'Sẽ lưu khi hoàn thành chặng';
+  const label = $('cx-save-note-text'); if (label) label.textContent = SAVE_NOTE_IDLE;
 }
 
 export function CourseBehavior() {
@@ -56,7 +76,7 @@ export function CourseBehavior() {
     if (status !== 'signed-in' || !user?.id) return;
     if (bootedFor.current === user.id) return;
     bootedFor.current = user.id;
-    resetErrorScreen();
+    resetCourseScreen();
 
     let disposed = false;
     let runner: any = null;
@@ -94,7 +114,7 @@ export function CourseBehavior() {
         const label = $('cx-save-note-text');
         if (!note || !label) return;
         const copy = {
-          idle: 'Sẽ lưu khi hoàn thành chặng',
+          idle: SAVE_NOTE_IDLE,
           saving: 'Đang lưu tiến độ…',
           saved: 'Đã lưu tiến độ',
           error: 'Chưa lưu được tiến độ',
@@ -231,7 +251,7 @@ export function CourseBehavior() {
       }
       if (disposed) return;
       const title = $('cx-title');
-      if (title) title.textContent = runner.bank.title || 'Bài tập theo buổi';
+      if (title) title.textContent = runner.bank.title || COURSE_TITLE;
       const titleMeta = $('cx-title-meta');
       const shortReading = runner.bank?.meta?.short_reading;
       const shortListening = runner.bank?.meta?.short_listening;

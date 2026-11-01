@@ -96,6 +96,32 @@ update PR #1773. It is recorded as written.
   behaviour stays as specified: no provider call, no reservation, no
   storage and no daily grading quota used.)*
 
+## Amendment 1, 14:44 (2026-10-29, UTC+7)
+
+**State: APPROVED by the human owner.** Vinh approved Amendment 1
+(FR-025, AC15, idempotent manual regrade) on 2026-10-29 at 14:44 (UTC+7).
+The answer, verbatim: "Duyệt cả 5 theo đề xuất". The Leader verified it
+directly in the Leader chat (`handoff/leader/20261029-1442-fd-questions-vinh.md`
+(d)). The amendment was drafted by the Feature Developer at 14:40 against
+`origin/staging` @ `f69055f65`, from brief H-1028-FD7 part (b). The four
+decisions are recorded as written:
+
+1. **FR-025 + migration 342 approved.** *(Adds FR-025 and AC15. Migration
+   342 is reserved by the Leader. The table is `public.regrade_requests`,
+   not migration 084's `essay_regrade_requests`.)*
+2. **Instructor route included.** `POST /instructor/essays/{essay_id}/regrade`
+   is covered with the three admin routes; it uses the same Writing
+   pipeline as FR-011.
+3. **Terminal records TTL 24 h. In-flight lease 15 min** (part of the
+   approved proposal).
+4. **The UI text for 409 `regrade_in_flight` ("Đang chấm lại, vui lòng
+   đợi…") goes to Content Manager for wording only. It does not block
+   implementation.** *(`ui-states.md` R1.)*
+
+Sequencing, from the same approval: implement after PC-J64 (T006) and
+PC-J54 (T007) merge (T014). Production only at a promotion Vinh
+authorises.
+
 Where each decision lands is listed in
 [`spec.md` → Owner decisions](spec.md#owner-decisions).
 
@@ -108,8 +134,8 @@ No owner question is open. These preconditions remain:
 - ADMINAAL2-0032's AAL2 reader exists before the raise routes accept any
   caller (decision (e), T013).
 
-This approves the intent in `spec.md` (FR-001…FR-024) and the rollout in
-`rollout.md`. It does not authorize applying 333 to any database, setting
+This approves the intent in `spec.md` (FR-001…FR-025) and the rollout in
+`rollout.md`. It does not authorize applying 333 or 342 to any database, setting
 any Railway variable or secret, or any production step. Staging follows
 the staging-first runbook, and production needs Vinh's explicit
 authorization at the `staging` → `main` promotion.

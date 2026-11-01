@@ -39,6 +39,7 @@ from services.content_import_service import (
     slugify,
     validate_content,
 )
+from services.errors import clip_user_value
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +152,7 @@ async def create_tip(
         if _is_unique_violation(exc):
             raise HTTPException(
                 409,
-                f"Slug '{payload['slug']}' đã tồn tại. Vui lòng đổi slug.",
+                f"Slug '{clip_user_value(payload['slug'])}' đã tồn tại. Vui lòng đổi slug.",
             )
         logger.error("create_tip insert failed: %s", exc)
         raise HTTPException(500, "Không tạo được mẹo viết.")
