@@ -5,7 +5,9 @@ import {
   buildSessionResult,
   grammarResources,
   parseFeedback,
+  reliabilityNote,
   safeMediaUrl,
+  topFixes,
   transcriptSegments,
 } from '../lib/speaking-session-result-model.mjs';
 
@@ -283,5 +285,184 @@ describe('native session-result grammar resources', () => {
       }),
     ], null);
     assert.deepEqual(resources, []);
+  });
+});
+
+describe('native session-result view model — R3 top fixes', () => {
+  const practice = (extra = {}) => ({ grammar_issues: [], vocabulary_issues: [], ...extra });
+  const completed = (responses, extra = {}) => buildSessionResult({
+    id: 's1',
+    status: 'completed',
+    overall_band: 6,
+    questions: responses.map((_, index) => question(`q${index + 1}`)),
+    responses,
+    ...extra,
+  });
+
+  test('a correction repeated in two practice answers ranks first and keeps its explanation', () => {
+    const fixes = topFixes([
+      response('q1', practice({
+        grammar_issues: ['Thiếu mạo từ'],
+        corrections: [{ original: 'I go there yesterday', corrected: 'I went there yesterday', explanation: 'Quá khứ đơn' }],
+      })),
+      response('q2', practice({
+        vocabulary_issues: ['Lặp từ "good"'],
+        corrections: [{ original: 'i go  there yesterday', corrected: 'I went there yesterday ', explanation: '' }],
+      })),
+    ]);
+    assert.deepEqual(fixes[0], {
+      text: 'I go there yesterday → I went there yesterday',
+      detail: 'Quá khứ đơn',
+      count: 2,
+    });
+    assert.deepEqual(fixes.slice(1).map((fix) => fix.text), ['Thiếu mạo từ', 'Lặp từ "good"']);
+  });
+
+  test('equal answer counts tie-break correction > grammar > vocabulary > improvements', () => {
+    const fixes = topFixes([
+      response('q1', practice({
+        improvements: ['Nói dài hơn'],
+        vocabulary_issues: ['Từ vựng đơn giản'],
+        grammar_issues: ['Sai thì'],
+        corrections: [{ original: 'a', corrected: 'b' }],
+      })),
+    ]);
+    assert.deepEqual(fixes.map((fix) => fix.text), ['a → b', 'Sai thì', 'Từ vựng đơn giản']);
+    assert.ok(fixes.every((fix) => fix.count === 1 && !('detail' in fix)));
+  });
+
+  test('same source and count tie-break by first position in question then array order', () => {
+    const fixes = topFixes([
+      response('q1', practice({ grammar_issues: ['B', 'A'] })),
+      response('q2', practice({ grammar_issues: ['C', 'D'] })),
+    ]);
+    assert.deepEqual(fixes.map((fix) => fix.text), ['B', 'A', 'C']);
+  });
+
+  test('a repeat inside one answer counts once; text shared across sources takes the best priority', () => {
+    const fixes = topFixes([
+      response('q1', practice({ grammar_issues: ['X', 'x'], improvements: ['Y'] })),
+      response('q2', { improvements: ['Y', 'Z'] }),
+      response('q3', practice({ vocabulary_issues: ['Z'], grammar_issues: ['Z '] })),
+    ]);
+    // Z appears as a grammar issue in q3, so it outranks Y (improvements only).
+    assert.deepEqual(fixes, [
+      { text: 'Z', count: 2 },
+      { text: 'Y', count: 2 },
+      { text: 'X', count: 1 },
+    ]);
+  });
+
+  test('test mode with only improvements still yields fixes', () => {
+    const view = completed([
+      response('q1', { band_fc: 6, improvements: ['Mở rộng ý', 'Dùng từ nối'] }),
+      response('q2', { band_fc: 6, improvements: ['Dùng từ nối'] }),
+    ], { mode: 'test_part' });
+    assert.equal(view.isPractice, false);
+    assert.deepEqual(view.topFixes, [
+      { text: 'Dùng từ nối', count: 2 },
+      { text: 'Mở rộng ý', count: 1 },
+    ]);
+  });
+
+  test('fewer than three items shows what exists; no items yields []', () => {
+    assert.deepEqual(topFixes([response('q1', practice({ grammar_issues: ['Only'] }))]), [
+      { text: 'Only', count: 1 },
+    ]);
+    assert.deepEqual(completed([response('q1', practice({ strengths: ['Tốt'] }))]).topFixes, []);
+    assert.deepEqual(topFixes([]), []);
+  });
+
+  test('never more than three', () => {
+    const fixes = topFixes([response('q1', practice({ grammar_issues: ['1', '2', '3', '4', '5'] }))]);
+    assert.deepEqual(fixes.map((fix) => fix.text), ['1', '2', '3']);
+  });
+
+  test('unfinished or sealed sessions yield no fixes', () => {
+    const responses = [response('q1', practice({ grammar_issues: ['Sai thì'] }))];
+    assert.deepEqual(completed(responses, { status: 'in_progress' }).topFixes, []);
+    assert.deepEqual(completed(responses, { results_sealed: true }).topFixes, []);
+    assert.equal(completed(responses).topFixes.length, 1);
+  });
+
+  test('failed and unparseable responses are skipped', () => {
+    const fixes = topFixes([
+      response('q1', { _failed: true, improvements: ['Từ phản hồi lỗi'] }),
+      response('q2', '{not json'),
+      response('q3', { improvements: ['Từ status failed'] }, { grading_status: 'failed' }),
+      response('q4', JSON.stringify({ improvements: ['Hợp lệ'] })),
+    ]);
+    assert.deepEqual(fixes, [{ text: 'Hợp lệ', count: 1 }]);
+  });
+
+  test('NFD and NFC spellings of the same Vietnamese text merge', () => {
+    const nfc = 'Phát âm đuôi -ed';
+    const nfd = nfc.normalize('NFD');
+    assert.notEqual(nfc, nfd);
+    const fixes = topFixes([
+      response('q1', { improvements: [nfd] }),
+      response('q2', { improvements: [`  ${nfc.toUpperCase()}`] }),
+    ]);
+    assert.deepEqual(fixes, [{ text: nfc, count: 2 }]);
+  });
+
+  test('corrections missing original or corrected are ignored', () => {
+    assert.deepEqual(topFixes([response('q1', practice({
+      corrections: [{ original: 'a', corrected: '' }, { corrected: 'b' }, null],
+    }))]), []);
+  });
+});
+
+describe('native session-result view model — reliability note', () => {
+  const LOW = 'Âm thanh ghi âm có chất lượng hạn chế — điểm số và nhận xét lần này chỉ mang tính tham khảo. '
+    + 'Hãy thử ghi âm lại ở nơi yên tĩnh hơn hoặc nói to và rõ hơn để nhận được đánh giá chính xác hơn.';
+  const MEDIUM = 'Một số phần nhận xét có thể cần xem như gợi ý tham khảo — chất lượng âm thanh hoặc tốc độ nói '
+    + 'có thể ảnh hưởng nhẹ đến độ chính xác của đánh giá.';
+  const r = (extra) => response('q', {}, extra);
+
+  test('low beats medium and high', () => {
+    assert.deepEqual(
+      reliabilityNote([r({ score_confidence: 'high' }), r({ score_confidence: 'low' }), r({ score_confidence: 'medium' })]),
+      { level: 'low', message: LOW },
+    );
+  });
+
+  test('medium beats high', () => {
+    assert.deepEqual(
+      reliabilityNote([r({ score_confidence: 'high' }), r({ score_confidence: 'medium' })]),
+      { level: 'medium', message: MEDIUM },
+    );
+  });
+
+  test('all high, missing or unknown values give null', () => {
+    assert.equal(reliabilityNote([r({ score_confidence: 'high' })]), null);
+    assert.equal(reliabilityNote([r({})]), null);
+    assert.equal(reliabilityNote([r({ score_confidence: 'constructor' })]), null);
+    assert.equal(reliabilityNote([]), null);
+  });
+
+  test('assessment_confidence is the fallback when score_confidence is empty', () => {
+    assert.equal(reliabilityNote([r({ score_confidence: null, assessment_confidence: 'low' })]).level, 'low');
+    assert.equal(reliabilityNote([r({ score_confidence: '', assessment_confidence: 'medium' })]).level, 'medium');
+    assert.equal(reliabilityNote([r({ score_confidence: 'high', assessment_confidence: 'low' })]), null);
+  });
+
+  test('wording matches the practice.js reliability copy verbatim', async () => {
+    const { readFileSync } = await import('node:fs');
+    const source = readFileSync(new URL('../public/js/practice.js', import.meta.url), 'utf8');
+    const start = source.indexOf('function _nativeReliabilityView');
+    const body = source.slice(start, source.indexOf('\n  }\n', start));
+    const joined = [...body.matchAll(/'([^']*)'/g)].map((m) => m[1]).join('');
+    assert.ok(joined.includes(LOW), 'low copy drifted from practice.js');
+    assert.ok(joined.includes(MEDIUM), 'medium copy drifted from practice.js');
+  });
+
+  test('buildSessionResult exposes the note and drops it for sealed sessions', () => {
+    const session = {
+      id: 's1', status: 'completed', questions: [question('q1')],
+      responses: [response('q1', {}, { score_confidence: 'medium' })],
+    };
+    assert.equal(buildSessionResult(session).reliabilityNote.level, 'medium');
+    assert.equal(buildSessionResult({ ...session, results_sealed: true }).reliabilityNote, null);
   });
 });
