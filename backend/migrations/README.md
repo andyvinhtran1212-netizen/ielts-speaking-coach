@@ -401,7 +401,8 @@ back by `forward-policy.tsv` (group `admin_aal2`) and applied with
 first (`specs/0032-admin-aal2-staff-guard/rollout.md` S1/S2), before the 0032
 backend. Production applied 332 and 336 on 2026-10-29 (04:53Z, ledger confirmed
 read-only by the Release Manager), so both are now normal forward migrations
-with no policy row and the `admin_aal2` group no longer exists (PC-J354). It
+with no policy row (PC-J354). The `admin_aal2` group no longer holds 332 or
+336; it is kept only for later work in the same spec, such as 341. It
 adds:
 
 - the `public.users` suspension marker (`suspended_at`, `suspended_by`,

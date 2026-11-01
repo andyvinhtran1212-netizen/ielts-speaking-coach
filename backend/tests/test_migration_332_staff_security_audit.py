@@ -176,11 +176,11 @@ def test_forward_policy_no_longer_holds_332_after_its_production_release():
     # PC-J354: 332 is in the staging and production ledgers, so it is a normal
     # forward migration again (a fresh database applies it in numeric order).
     rows = [line.split("\t") for line in (MIGRATIONS / "forward-policy.tsv").read_text(
-        encoding="utf-8").splitlines() if line.startswith(NAME) or "\tadmin_aal2\t" in line]
+        encoding="utf-8").splitlines() if line.startswith(NAME)]
     assert rows == []
     readme = (MIGRATIONS / "README.md").read_text(encoding="utf-8")
     assert "Migration `332` (ADMINAAL2-0032)" in readme
-    assert "the `admin_aal2` group no longer exists (PC-J354)" in readme
+    assert "The `admin_aal2` group no longer holds 332 or\n336" in readme
 
 
 def test_no_other_migration_drops_or_bypasses_the_332_guards():
