@@ -71,7 +71,7 @@ ACTIVATION_EXEMPT_ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/health"): "uptime probe, no auth",
     ("GET", "/health/ready"): "readiness probe, no auth (admin-only detail is role-gated inside)",
     ("GET", "/health/runtime"): "runtime probe, no auth (admin-only detail is role-gated inside)",
-    ("GET", "/health/async-db"): "async-DB probe, no auth",
+    ("GET", "/health/async-db"): "async-DB probe, no auth (admin-only saturation detail is role-gated inside)",
     ("GET", "/health/grammar-check"): "grammar-checker probe, no auth",
     ("GET", "/health/quiz-write"): "quiz-write probe, no auth",
     ("GET", "/sitemap-grammar.xml"): "public SEO sitemap",
