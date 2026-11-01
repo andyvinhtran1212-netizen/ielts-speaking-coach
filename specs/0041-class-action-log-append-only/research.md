@@ -92,3 +92,18 @@ From the Security Auditor's check in `reviews/PR-2022.md` (staging
   before/after snapshot in 344 rather than a comparison against the older
   T001 baseline, because 356 intentionally reduces service_role ACLs later.
   This alignment records that integration note without implementing 344.
+
+## Decisions and open items (PC-J499, 2026-10-31)
+
+- Decision: 356 checks the 344 state itself and fails closed. SA's round-2
+  proposal (`reviews/PR-2054.md`, P3-R2-3) was a `RAISE WARNING` when the
+  ledger lacks 344 or a policy remains, because the order 344 → 356 was held
+  only by operator steps. The Leader chose `RAISE EXCEPTION` instead (FR-003):
+  when `public._schema_migrations` exists and has no `344_*` row, or either
+  `cal_admin_append` / `cal_admin_read` remains, 356 aborts before any change.
+  The check runs only when the ledger table exists, so the isolated legacy
+  fixture (no 344, no ledger) still passes as a compatibility control; every
+  deployed environment has the ledger. The down of 356 and its after-down
+  `42501` assertion are owned by this spec's T001, not spec 0042.
+- Open: SA F3 proposes `tgenabled='A'`; decision pending (FD/Leader).
+  `rollout.md` still expects `tgenabled = 'O'` until that decision.

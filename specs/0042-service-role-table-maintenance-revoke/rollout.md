@@ -7,8 +7,8 @@
   PR.
 - PR #2055 plus PC-J350's schema grant follow-up are merged: the clone uses
   USAGE only for API roles, never CREATE/ALL on schema public (FR-007).
-- Every rollback passes FR-006, including a corrected down of 356 under F5.
-  No older-number rollback exemption is allowed.
+- Every rollback passes FR-006, including the down of 356, corrected under
+  CALAPPEND-0041 T001 (F5). No older-number rollback exemption is allowed.
 - Migration 358 (FR-010, T004) is merged and held by its `pending_feature`
   entry; it is applied after 357 (PC-J365). Until 358 is applied and SA's
   358 retest passes, the temp-view-shadow path (P2-R2-1) stays open and
@@ -162,9 +162,11 @@ WARNING.
 - No data changes, so there is nothing to repair.
 - Never run a down that re-grants TRIGGER, REFERENCES, TRUNCATE or MAINTAIN,
   schema CREATE, privileged role membership or ownership to an API role.
-  This includes down 356: fix F5 before release and recheck privileges after
-  exercising its corrected down in the harness. Its number being below NNN
-  does not make it safe.
+  This includes down 356: it is corrected under CALAPPEND-0041 T001 (F5)
+  before release; this spec rechecks privileges after exercising that down
+  in the harness with 344, 356 and NNN applied. Its number being below NNN
+  does not make it safe. If both 356 and 344 must be rolled back, run down
+  356 first, then down 344 (CALAPPEND-0041 `rollout.md`).
 - If a legitimate path is refused with `42501` (none is known,
   `research.md` §3):
   1. Capture the statement and object from the logs.

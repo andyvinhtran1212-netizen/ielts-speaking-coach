@@ -20,6 +20,11 @@
   - No policy DDL or `COMMENT ON POLICY` (FR-003). Migration 344 owns dropping
     `cal_admin_append` / `cal_admin_read` and revoking every anon/authenticated
     privilege; 356 must work when the policies are already absent.
+  - A fail-closed self-check `DO` block runs first, before any change
+    (FR-003): if `public._schema_migrations` exists and has no `344_*` row,
+    or exists and either `cal_admin_append` or `cal_admin_read` is still on
+    the table, it raises an exception, so 356 changes nothing. Without the
+    ledger table (the isolated legacy fixture only) the check is skipped.
   - A postcondition `DO` block that aborts unless the trigger exists and is
     enabled, `service_role` has SELECT and INSERT, and `service_role`/PUBLIC
     have no TRIGGER, REFERENCES, TRUNCATE (or MAINTAIN on PG 17+), and
@@ -74,9 +79,10 @@
 
 - Staging first, under the advisory lock, after STAGING_FREEZE is lifted
   (`rollout.md`); production only at an authorized promotion.
-- The 356 down script is owned by spec 0042 T001 (#2060,
-  FR-008/Scenario 10). It must not grant UPDATE/DELETE or `GRANT ALL`, and must
-  not re-grant TRIGGER, REFERENCES or MAINTAIN (SA F5).
+- The 356 down script is owned by this spec's T001 (SA F5, PC-J499); spec
+  0042 T001 only scans it (0042 FR-006) and runs its post-NNN regression
+  (0042 FR-008/Scenario 10). It must not grant UPDATE/DELETE or `GRANT ALL`,
+  and must not re-grant TRIGGER, REFERENCES, TRUNCATE or MAINTAIN (SA F5).
 - Down must not restore either policy, issue a policy comment, or restore
   any anon/authenticated privilege removed by 344. Verify down against both
   fixture states below; it preserves their respective policy/client ACLs.
@@ -89,11 +95,17 @@
   old implementation where applicable:
   - Primary: replay 198, 204, 320, 344 and 356 from files, including 344's
     prerequisites; snapshot immediately after 344 to prove both policies
-    absent and all anon/authenticated privileges revoked before 356.
-  - Legacy control: replay 198, 204, 320 and 356 without 344; snapshot the
-    two policy definitions/comments and SELECT-only client ACL before 356.
-    356 must succeed without changing that state. This control does not
-    satisfy the deployed 0039 contract or change the 344-then-356 order.
+    absent and all anon/authenticated privileges revoked before 356. The 344
+    step uses the real merged `344_*.sql` file (T001 depends on 0039 T002);
+    the fixture must not simulate 344 in place of that file. The fixture
+    creates `public._schema_migrations` with 344's `344_*` row, as the runner
+    records it, so the FR-003 self-check runs and passes.
+  - Legacy control: replay 198, 204, 320 and 356 without 344 and without the
+    ledger table; snapshot the two policy definitions/comments and
+    SELECT-only client ACL before 356. With no ledger the FR-003 self-check
+    is skipped; 356 must succeed without changing that state. This control
+    is for compatibility only: it does not satisfy the deployed 0039 contract
+    or change the 344-then-356 order.
   - FR-001: owner TRUNCATE → `P0001`; `SET ROLE service_role` TRUNCATE →
     `42501`, and `P0001` after the test re-grants TRUNCATE; UPDATE/DELETE as
     owner → `P0001` with the 198 message; service_role → `42501`, then
@@ -105,12 +117,16 @@
     effective table/column privileges; without 344, policy definitions,
     comments and client ACLs match the pre-356 snapshot. Assert both states
     after first apply, second apply and down; no missing-policy error and
-    no policy DDL/comment in 356 up or down.
+    no policy DDL/comment in 356 up or down. Self-check refusals: with the
+    ledger present but no `344_*` row, and with that row but either policy
+    recreated, 356 raises before any change and the catalog snapshot is
+    unchanged.
   - FR-004: non-owner, non-superuser service_role via `SET LOCAL ROLE` with
     `current_user` asserted; UPDATE and DELETE each → `42501` on a seeded row,
     including an isolated owner-disabled-row-trigger control to prove ACL
     refusal precedes the trigger. ACCESS EXCLUSIVE LOCK and SELECT FOR UPDATE
-    each → `42501`; INSERT/SELECT succeed. After the down script, effective
+    each → `42501`; INSERT/SELECT succeed. After the down script (both the
+    down and this assertion belong to T001), effective
     UPDATE/DELETE privileges remain false and both statements still → `42501`;
     statically reject direct UPDATE/DELETE grants and `GRANT ALL` in down.
   - Second apply of 356 stays green.
