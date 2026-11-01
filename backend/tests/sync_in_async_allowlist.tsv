@@ -529,8 +529,6 @@ routers/instructor.py::get_prompt::services.writing_image_access.attach_signed_i
 routers/instructor.py::get_student::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
 routers/instructor.py::list_assignments::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
 routers/instructor.py::list_codes::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
-routers/instructor.py::list_codes::routers.instructor._hidden_cohort_ids	1	G6	Existing staging #1984 hidden-test-class lookup reaches blocking I/O; offload caller in G6.
-routers/instructor.py::list_codes::services.test_data_visibility.hide_for	1	G6	Existing staging #1984 hidden-test-class lookup reaches blocking I/O; offload caller in G6.
 routers/instructor.py::list_cohorts::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
 routers/instructor.py::list_cohorts::services.test_data_visibility.hide_for	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/instructor.py::list_essay_versions::services.essay_service.get_live_versions	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
@@ -539,7 +537,6 @@ routers/instructor.py::list_essays::services.instructor_access.instructor_list_e
 routers/instructor.py::list_prompts::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
 routers/instructor.py::list_prompts::services.writing_image_access.attach_signed_image_urls	1	G6	Existing sync helper reaches Storage signing; offload caller in G6.
 routers/instructor.py::list_students::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
-routers/instructor.py::list_students::routers.instructor._hidden_cohort_ids	1	G6	Existing staging #1984 hidden-test-class lookup reaches blocking I/O; offload caller in G6.
 routers/instructor.py::list_students::services.test_data_visibility.drop_test_students	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/instructor.py::list_students::services.test_data_visibility.hide_for	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/instructor.py::mint_codes::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
