@@ -48,7 +48,8 @@ async def export_session_pdf(
             .execute()
         )
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi kiểm tra session: {exc}")
+        logger.error("[export] session lookup failed session=%s: %s", session_id, exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi kiểm tra session. Vui lòng thử lại.") from None
 
     if not s_res.data:
         raise HTTPException(404, "Session không tồn tại hoặc không có quyền truy cập")
@@ -60,8 +61,8 @@ async def export_session_pdf(
     except ValueError as exc:
         raise HTTPException(404, str(exc))
     except RuntimeError as exc:
-        logger.error("[export] PDF render failed for session=%s: %s", session_id, exc)
-        raise HTTPException(500, f"Không thể tạo PDF: {exc}")
+        logger.error("[export] PDF render failed for session=%s: %s", session_id, exc, exc_info=True)
+        raise HTTPException(500, "Không thể tạo PDF. Vui lòng thử lại.") from None
 
     # ── Filename ───────────────────────────────────────────────────────────────
     date_tag = datetime.now(timezone.utc).strftime("%Y-%m-%d")

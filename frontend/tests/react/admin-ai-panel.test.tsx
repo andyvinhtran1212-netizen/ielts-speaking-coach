@@ -234,7 +234,11 @@ describe('AdminAiPanel', () => {
       status: 503,
       detail: { error_code: 'ai_override_store_unavailable', status: 'unavailable', message: 'Không lưu được lựa chọn model; cấu hình hiện tại không đổi.' },
     }));
-    fireEvent.click(screen.getByRole('button', { name: 'Lưu lựa chọn cho Chấm Writing' }));
+    const save = screen.getByRole('button', { name: 'Lưu lựa chọn cho Chấm Writing' }) as HTMLButtonElement;
+    // Pinned on purpose: Save stays enabled when the store is unavailable; the server refuses (503).
+    // Product decision pending (PR-1926 Q1). Change this assert deliberately if Q1 decides to disable Save.
+    expect(save.disabled).toBe(false);
+    fireEvent.click(save);
     const row = screen.getByRole('row', { name: /Chấm Writing/ });
     expect((await within(row).findByRole('alert')).textContent).toBe('Không lưu được lựa chọn model; cấu hình hiện tại không đổi.');
     expect(within(row).queryByText('DB override')).toBeNull();

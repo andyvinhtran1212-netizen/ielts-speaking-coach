@@ -5,6 +5,7 @@ import re
 
 from services.gemini_writing_grader import (
     GeminiWritingGrader,
+    MISSING_IMAGE_CAVEAT_MARKER,
     summary_flags_missing_image,
 )
 
@@ -12,14 +13,41 @@ from services.gemini_writing_grader import (
 # Match score language, never a quantity merely equal to an old band.
 # Kept in sync with instructor-compose-util.js by shared preview/persist tests.
 _BAND_CLAIM = re.compile(
-    r"(?:^|[^\w])(?:band(?:\s+score)?|score|điểm|"
-    r"(?:bài(?:\s+viết)?(?:\s+(?:này|của\s+(?:em|bạn)))?|em|bạn)"
+    r"(?:^|[^\w])(?:band(?:\s+score)?|score|điểm|overall|kết\s+quả(?:\s+tổng\s+thể)?|"
+    r"your\s+(?:essay|writing)\s+(?:achieves|scores|is\s+at)|"
+    r"(?:bài(?:\s+(?:viết|làm))?(?:\s+(?:này|của\s+(?:em|bạn)))?|em|bạn)"
     r"\s+(?:hiện\s+)?(?:đạt|ở(?:\s+mức)?))\s*"
-    r"(?:(?:hiện tại|tổng|của em|của bạn|bài này|là|ở|mức|band|score)\s+)*"
-    r"[:=]?\s*[0-9](?:[.,]\d+)?"
+    r"(?:(?:hiện tại|tổng|của em|của bạn|bài này|là|is|ở|mức|band|score)\s+)*"
+    r"[:=]?\s*(?P<band>[0-9](?:[.,]\d+)?)"
     r"(?!\w|[.,]\d|\s*(?:phút|câu|từ|đoạn|lần|ý|minutes?|words?|sentences?|paragraphs?)\b)",
     re.IGNORECASE,
 )
+# Accept the "overall" wording _BAND_CLAIM recognises ("target overall is 7.0"),
+# so target advice is not mistaken for a wrong attained score.
+_TARGET_BAND = re.compile(
+    r"(?:^|[^\w])(?:để\s+(?:lên|đạt(?:\s+được)?)|muốn[^.!?;:\n,]*?|"
+    r"to\s+(?:reach|achieve|get)|target|aim(?:ing)?\s+(?:for|at)|goal|"
+    r"mục\s+tiêu[^.!?;:\n,]*?)"
+    r"\s+(?:(?:is|là)\s+)?(?:(?:an?|the)\s+)?"
+    r"(?:band(?:\s+score)?|overall(?:\s+band)?(?:\s+score)?)(?:\s+of)?"
+    r"\s*(?:(?:is|là)\s+)?[:=]?\s*"
+    r"(?P<band>[0-9](?:[.,]\d+)?)(?!\w|[.,]\d)",
+    re.IGNORECASE,
+)
+
+
+def _has_stale_claim(sentence: str, overall: float) -> bool:
+    # Match each target's number, so a later current-band claim in the same
+    # sentence cannot hide behind advice ("target band 7, currently band 5.5").
+    targets = {
+        match.end("band") for match in _TARGET_BAND.finditer(sentence)
+        if float(match["band"].replace(",", ".")) >= overall
+    }
+    return any(
+        float(match["band"].replace(",", ".")) != overall
+        and match.end("band") not in targets
+        for match in _BAND_CLAIM.finditer(sentence)
+    )
 
 
 def _band(value: object) -> float | None:
@@ -65,13 +93,19 @@ def align_overall_band_feedback(feedback: dict, overall: float) -> None:
             GeminiWritingGrader._MISSING_IMAGE_CAVEAT
             if summary_flags_missing_image(summary) else ""
         )
-        body = summary.lstrip().removeprefix(caveat) if caveat else summary
+        body = summary
+        while summary_flags_missing_image(body):
+            body = body.lstrip()
+            marker_end = body.index(MISSING_IMAGE_CAVEAT_MARKER) + len(MISSING_IMAGE_CAVEAT_MARKER)
+            end = re.search(r"[.!?](?:\s|$)|[\r\n]", body[marker_end:])
+            body = body[marker_end + end.end():].lstrip() if end else ""
         sentences = re.split(r"(?<=[.!?])\s+", body)
-        kept = [sentence for sentence in sentences if not _BAND_CLAIM.search(sentence)]
-        if len(kept) != len(sentences):
+        kept = [sentence for sentence in sentences if not _has_stale_claim(sentence, overall)]
+        removed_claim = len(kept) != len(sentences)
+        if removed_claim or caveat:
             qualitative = " ".join(kept)
             feedback["overallBandScoreSummary"] = (
-                f"{caveat}Bài viết đạt band {overall:.1f}. "
+                caveat + (f"Bài viết đạt band {overall:.1f}. " if removed_claim else "")
                 + (qualitative or
                    "Hãy dựa vào nhận xét theo từng tiêu chí để chọn điểm cần cải thiện.")
             )

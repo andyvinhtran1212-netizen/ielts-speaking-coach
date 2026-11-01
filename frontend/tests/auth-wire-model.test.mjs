@@ -35,8 +35,14 @@ const me = {
 describe('auth wire normalizers', () => {
   test('accept exact canonical identity and profile payloads', () => {
     assert.deepEqual(normalizeAuthRoleIdentity(me), {
-      id: me.id, email: me.email, role: me.role,
+      id: me.id, email: me.email, role: me.role, is_active: true,
     });
+    // ADMINAAL2-0032 T010: is_active is carried for the staff gates; a payload
+    // that omits it reports null ("not reported"), never a guessed true.
+    assert.deepEqual(normalizeAuthRoleIdentity({ id: me.id, email: me.email, role: 'admin' }), {
+      id: me.id, email: me.email, role: 'admin', is_active: null,
+    });
+    assert.equal(normalizeAuthRoleIdentity({ ...me, is_active: false }).is_active, false);
     assert.equal(normalizeAuthMe(me), me);
     const full = {
       ...profile,
@@ -56,6 +62,8 @@ describe('auth wire normalizers', () => {
     assert.equal(normalizeAuthMe({ ...me, flashcard_enabled: 1 }), null);
     assert.equal(normalizeAuthActiveStatus({ is_active: 'false' }), null);
     assert.equal(normalizeAuthRoleIdentity({ id: me.id, email: me.email, role: '' }), null);
+    assert.equal(normalizeAuthRoleIdentity({ ...me, is_active: 'false' }), null);
+    assert.equal(normalizeAuthRoleIdentity({ ...me, is_active: null }), null);
   });
 
   test('rejects incomplete profile statistics and non-finite bands', () => {

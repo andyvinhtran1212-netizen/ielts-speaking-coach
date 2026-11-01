@@ -1535,6 +1535,32 @@
           "changed_by": "PR #1948, commit d85d20c52, merged to staging as b1e097693"
         }
       ]
+    },
+    {
+      "revision": 2,
+      "date": "2026-10-31",
+      "ticket": "PC-J238",
+      "note": "Record-only, checked on staging b2346ca6c after PR #1994 (PC-J141, Grammar-for-Reading C3). The approved academic_articles and Revision 1 stay unchanged historical records. The approved_* fields below retain the original approval; Revision 1 retains the previous current_sha256/current_bytes, which match the first parent of the #1994 staging merge. All three scoped Grammar-for-Reading articles were rehashed and match frontend/tests/fixtures/grammar-exact-form-banks.json provenance.source_files in SHA-256 and bytes. reduced-relative-clauses.md is unchanged (190fd721393ed092ac8587ee630cb999ef682eaa2ce5d2c4c1d9424c03b86541, 5586 bytes). This revision changes only the source-scope records.",
+      "article_hash_history": [
+        {
+          "path": "backend/content/grammar-for-reading/long-sentence-untangling.md",
+          "approved_sha256": "6402f4573051114a9cb60d2823ea32fc98eee3e5acda813eb5f394ef0e9c1510",
+          "approved_bytes": 5673,
+          "approved_commit": "7f0459ef9",
+          "current_sha256": "c427ff17129812508952f5b87974870f7a1e78c714fa9894f5d1ef8edb66bee7",
+          "current_bytes": 8895,
+          "changed_by": "PR #1994 (PC-J141), last content commit ed0b707ae, merged to staging as b2346ca6c"
+        },
+        {
+          "path": "backend/content/grammar-for-reading/participle-clauses.md",
+          "approved_sha256": "489c669cc69866f728b42440a4802883017a16c6adc3b90cb0b7358a68d85496",
+          "approved_bytes": 5365,
+          "approved_commit": "7f0459ef9",
+          "current_sha256": "0ba62186dd04766ad7636d434b3829b925d003f88409f3b85e731f0bd80d69fd",
+          "current_bytes": 7930,
+          "changed_by": "PR #1994 (PC-J141), last content commit ed0b707ae, merged to staging as b2346ca6c"
+        }
+      ]
     }
   ]
 }

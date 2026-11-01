@@ -62,7 +62,7 @@ Mệnh đề quan hệ (who/which/that/whose/where) thêm thông tin về một 
 Hai câu ngắn → một câu phức:
 
 - *Many students take part-time jobs. These jobs reduce study time.*
-- → *Many students take part-time jobs, **which reduce study time**.*
+- → *Many students take part-time jobs, **which reduces their study time**.* (which = việc đi làm thêm; *which* có thể thay cả mệnh đề phía trước)
 
 Cách này tăng **Grammatical Range** và giảm lặp — giám khảo IELTS đánh giá cao câu phức dùng đúng.
 
@@ -71,10 +71,10 @@ Cách này tăng **Grammatical Range** và giảm lặp — giám khảo IELTS �
 
 | Loại | Dấu phẩy | Vai trò | Ví dụ |
 |---|---|---|---|
-| **Xác định** (defining) | KHÔNG phẩy | thông tin **thiết yếu** | *Students **who cheat** should be punished.* |
+| **Xác định** (defining) | KHÔNG phẩy | thông tin **thiết yếu** | *Students **who cheat** should be punished.* / *the city **where** I grew up* |
 | **Không xác định** (non-defining) | CÓ phẩy | thông tin **thêm** | *My teacher, **who is very strict**, cancelled the test.* |
 
-Quy tắc: mệnh đề có giới hạn nhóm/người/vật đang nói tới không? Nếu đối tượng đã được nhận diện độc lập và mệnh đề chỉ bổ sung, dùng **phẩy**. Bỏ đi vẫn đủ cú pháp không đủ để phân loại. **that** chỉ dùng cho mệnh đề xác định (không phẩy).
+Quy tắc: nếu mệnh đề giúp xác định ta đang nói về người/vật nào → không phẩy. Nếu người/vật đã rõ (tên riêng, *my mother*…) và mệnh đề chỉ thêm thông tin → có phẩy. **that** chỉ dùng cho mệnh đề xác định.
 
 <!-- anchor: relative-clauses-in-writing.pitfall -->
 ## Lỗi thường gặp
@@ -95,5 +95,5 @@ Quy tắc: mệnh đề có giới hạn nhóm/người/vật đang nói tới k
 ## Tóm tắt nhanh
 
 - Gộp câu ngắn bằng who/which để nâng band
-- Không phẩy = thiết yếu (dùng that được); có phẩy = thông tin thêm (dùng which)
+- Không phẩy = thiết yếu (dùng that được); có phẩy = thông tin thêm (dùng which cho vật, who cho người; không dùng that)
 - Không lặp đại từ trong mệnh đề quan hệ

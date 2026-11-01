@@ -6,6 +6,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { execFileSync } from 'node:child_process';
 import { marked } from 'marked';
+import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = new URL(process.argv[2] || 'http://localhost:3011').origin;
 const API = 'https://assigned-grammar-fixture.invalid';
@@ -104,6 +105,7 @@ async function runTeacher() {
     if (request.method() === 'GET' || url.pathname === '/api/analytics/events' || url.pathname === '/api/error-logs') return json({});
     throw new Error(`Unexpected teacher mutation: ${request.method()} ${url.pathname}`);
   });
+  await stubAdminMfaStatus(context);
   page.on('pageerror', (error) => errors.push(String(error)));
   page.setDefaultTimeout(15000);
   try {
@@ -306,6 +308,7 @@ async function runTeacherReport() {
     if (request.method() === 'GET' || url.pathname === '/api/analytics/events' || url.pathname === '/api/error-logs') return json({});
     throw new Error(`Unexpected report mutation: ${request.method()} ${url.pathname}`);
   });
+  await stubAdminMfaStatus(context);
   page.on('pageerror', (error) => errors.push(String(error)));
   page.setDefaultTimeout(15000);
   try {

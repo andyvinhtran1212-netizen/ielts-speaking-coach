@@ -30,6 +30,7 @@ from config import settings
 from database import supabase_admin
 from models.writing_feedback import (
     GraderConfig,
+    GradingResult,
     GradingTier,
     WritingFeedback,
     validate_level_coverage,
@@ -138,6 +139,29 @@ def _model_for_attempt(primary_model: str, attempt_no: int, max_attempts: int) -
     ):
         return settings.WRITING_FALLBACK_MODEL
     return primary_model
+
+
+def _grading_provenance(job_id: str, requested_model: str, attempt_model: str,
+                        result: GradingResult) -> dict:
+    """writing_feedback.provenance for an AI run (PC-J164).
+
+    ``job_id`` keeps the idempotent-persist lookup and the admin cost
+    reconciliation working. ``requested_model`` is writing_essays.selected_model,
+    ``attempt_model`` what this job attempt asked the grader for (differs on the
+    final-attempt fallback), ``model_used`` the model whose answer was served
+    (Claude when the Anthropic-primary attempt served it). ``ai_attempts`` lists
+    every provider call; result.cost_usd is their total. A result without an
+    attempt log (a test double) records an empty one rather than failing."""
+    attempts = list(getattr(result, "grading_attempts", None) or [])
+    return {
+        "job_id": job_id,
+        "requested_model": requested_model,
+        "attempt_model": attempt_model,
+        "model_used": result.model_used,
+        "ai_attempt_count": len(attempts),
+        "rejected_attempt_count": sum(1 for a in attempts if not a.get("served")),
+        "ai_attempts": attempts,
+    }
 
 
 def _record_attempt_failure(
@@ -1067,6 +1091,11 @@ async def _bg_grade_essay(
             "tokens_output":            result.tokens_output,
             "cost_usd":                 result.cost_usd,
             "grading_duration_ms":      result.grading_duration_ms,
+            # PC-J164: cost_usd is the sum of every billed provider call; the
+            # per-call breakdown and the requested vs serving model live here.
+            # writing_essays.selected_model stays the requested model.
+            "provenance":               _grading_provenance(
+                job_id, primary_model, model, result),
         }
         # GV-1b — versioned write. First grade → version 1; regrade → next
         # version (kept, NOT overwriting prior versions, so they stay
@@ -1095,7 +1124,6 @@ async def _bg_grade_essay(
             feedback_row["version"]        = version
             feedback_row["source"]         = _source_for_tier(result.grading_tier)
             feedback_row["parent_version"] = parent
-            feedback_row["provenance"]     = {"job_id": job_id}
             supabase_admin.table("writing_feedback").insert(feedback_row).execute()
 
         # Sprint 2.7b — persist Deep tier per-pass metadata to the

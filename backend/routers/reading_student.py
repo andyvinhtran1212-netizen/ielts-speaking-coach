@@ -125,8 +125,9 @@ def _gen_anon_id() -> str:
 
 
 def _client_ip(request: Request | None) -> str | None:
-    # X-Real-IP → last XFF hop → peer (services/request_safety.py). The first
-    # XFF hop is caller-supplied, so it must not change the anon_src hash.
+    # Rightmost untrusted XFF hop → X-Real-IP → peer (request_safety.py).
+    # Only configured proxy CIDRs may be skipped; an invalid hop stops the
+    # scan. The same rule keys the ingress/TTS budgets (PC-J202/J183).
     return request_client_ip(request)
 
 

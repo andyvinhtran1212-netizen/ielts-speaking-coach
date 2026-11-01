@@ -266,7 +266,8 @@ async def generate_questions(
             .execute()
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi khi tải session: {e}")
+        logger.error("[questions] generate session lookup failed session=%s: %s", session_id, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Lỗi khi tải session. Vui lòng thử lại.") from None
 
     if not s_result.data:
         raise HTTPException(status_code=404, detail="Session không tồn tại")
@@ -293,7 +294,8 @@ async def generate_questions(
             .execute()
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi khi kiểm tra câu hỏi: {e}")
+        logger.error("[questions] existing questions lookup failed session=%s: %s", session_id, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Lỗi khi kiểm tra câu hỏi. Vui lòng thử lại.") from None
 
     if existing.data:
         # Đường trả nhanh cũng phải lọc. Gọi lại /generate trên một phiên đã có
@@ -327,8 +329,8 @@ async def generate_questions(
             # KHÔNG rơi sang Gemini: bài tập lớp phải là ĐÚNG đề được giao. Sinh
             # một bộ câu khác sẽ ghi nhận em ấy "đã làm bài" trong khi em trả lời
             # một đề không ai giao.
-            logger.error("[questions] pinned insert failed session=%s: %s", session_id, e)
-            raise HTTPException(500, f"Không dựng được đề đã giao: {e}")
+            logger.error("[questions] pinned insert failed session=%s: %s", session_id, e, exc_info=True)
+            raise HTTPException(500, "Không dựng được đề đã giao. Vui lòng thử lại.") from None
 
     # ── Check topic library first ──────────────────────────────────────────────
     # If the topic exists in the admin-managed library and has pre-generated
@@ -463,7 +465,8 @@ async def generate_questions(
             if winner:
                 logger.info("[questions] generate insert lost race session=%s — returning existing set", session_id)
                 return redact_questions(sorted(winner, key=lambda q: q["order_num"]))
-        raise HTTPException(status_code=500, detail=f"Không thể lưu câu hỏi: {e}")
+        logger.error("[questions] generate insert failed session=%s: %s", session_id, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Không thể lưu câu hỏi. Vui lòng thử lại.") from None
 
     saved = sorted(result.data, key=lambda q: q["order_num"])
 
@@ -533,7 +536,8 @@ async def save_custom_questions(
             .execute()
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi khi tải session: {e}")
+        logger.error("[questions] custom session lookup failed session=%s: %s", session_id, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Lỗi khi tải session. Vui lòng thử lại.") from None
 
     if not s_result.data:
         raise HTTPException(status_code=404, detail="Session không tồn tại")
@@ -612,7 +616,8 @@ async def save_custom_questions(
             if winner:
                 logger.info("[questions] custom insert lost race session=%s — returning existing set", session_id)
                 return redact_questions(sorted(winner, key=lambda q: q["order_num"]))
-        raise HTTPException(status_code=500, detail=f"Không thể lưu câu hỏi: {e}")
+        logger.error("[questions] custom insert failed session=%s: %s", session_id, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Không thể lưu câu hỏi. Vui lòng thử lại.") from None
 
     return redact_questions(sorted(result.data, key=lambda q: q["order_num"]))
 
@@ -728,7 +733,8 @@ async def list_questions(
             .execute()
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi khi tải session: {e}")
+        logger.error("[questions] list session lookup failed session=%s: %s", session_id, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Lỗi khi tải session. Vui lòng thử lại.") from None
 
     if not s_result.data:
         raise HTTPException(status_code=404, detail="Session không tồn tại")
@@ -742,7 +748,8 @@ async def list_questions(
             .execute()
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Không thể tải câu hỏi: {e}")
+        logger.error("[questions] list questions lookup failed session=%s: %s", session_id, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Không thể tải câu hỏi. Vui lòng thử lại.") from None
 
     # Trang kết quả gọi đúng endpoint này. Giấu chữ sau khi phiên đã xong sẽ
     # hiện câu hỏi TRỐNG ở đó — người học không xem lại được mình trả lời câu nào.
