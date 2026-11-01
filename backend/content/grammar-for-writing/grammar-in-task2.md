@@ -136,7 +136,7 @@ Hai phần tư điểm Task 2 là **Grammatical Range and Accuracy** và **Coher
 - Governments should subsidise public transport, **which** would reduce both congestion and pollution.
 - Policies **that** ignore long-term costs rarely succeed.
 
-> "**, which**" (mệnh đề quan hệ không-xác-định) cực mạnh để thêm hệ quả/bình luận vào cuối câu — và rất dễ dùng đúng.
+> "**, which**" (mệnh đề quan hệ không-xác-định) hữu ích để thêm hệ quả/bình luận vào cuối câu; kiểm tra *which* trỏ rõ về cái gì.
 
 ---
 
@@ -154,6 +154,7 @@ Câu điều kiện thể hiện giả định và hệ quả — rất hợp es
 
 - **If** governments **invest** in renewable energy, emissions **will** fall. *(Type 1)*
 - **If** education **were** free, more people **would** attend university. *(Type 2)*
+- **If** governments **had invested** in public transport earlier, cities **would be** less congested now. *(Mixed)*
 - **Unless** action **is taken**, the situation will worsen.
 
 ---
@@ -269,6 +270,12 @@ Task 2 là văn bán trang trọng — tránh:
 
 ---
 
+## Lỗi người Việt hay gặp
+
+Người học dễ dịch nguyên cặp "mặc dù… nhưng…" thành *although…but* hoặc "vì… nên…" thành *because…so*. Với cùng một cặp mệnh đề, chọn một cách nối: *Although the room is small, it is comfortable* hoặc *The room is small, but it is comfortable*.
+
+Khi nói về tương lai, cũng dễ thêm *will* vào cả hai vế điều kiện. Với điều kiện loại 1 thông thường, viết *If the shop opens early, we will visit it*: vế *if* dùng hiện tại đơn, vế chính có thể dùng *will*. Sau cùng, kiểm tra xem từ nối có đúng chức năng không: *however* cần dấu chấm hoặc chấm phẩy trước khi nối hai mệnh đề độc lập.
+
 ## Bài tập luyện
 
 ### Sửa / nâng cấp câu cho Task 2
@@ -277,13 +284,15 @@ Task 2 là văn bán trang trọng — tránh:
 2. If the government will reduce taxes, businesses will grow.
 3. Social media destroys relationships. *(thêm hedging)*
 4. Kids spend a lot of time on phones and it's bad. *(làm trang trọng)*
+5. The service is convenient. It is expensive. *(gộp bằng although, không thêm but)*
 
 ### Đáp án (gợi ý)
 
-1. **Because** pollution poses a serious threat to public health, governments must act decisively.
-2. If the government **reduces** taxes, businesses will grow.
-3. Social media **can weaken** relationships **in certain cases**. / It **could be argued that** social media **tends to** harm deep relationships.
-4. Children **spend a great deal of** time on their phones, **which can have** negative effects.
+1. **Because** pollution is a problem, governments must act. *Because* biến nguyên nhân thành mệnh đề phụ, nối với hành động ở mệnh đề chính mà không thêm *so*.
+2. If the government **reduces** taxes, businesses will grow. Điều kiện loại 1 dùng hiện tại đơn trong vế *if* để nói tương lai; bỏ **will** ở vế này.
+3. Social media **can weaken** relationships **in certain cases**. / It **could be argued that** social media **tends to** harm deep relationships. *Can / tends to / in certain cases* giảm mức khẳng định tuyệt đối của *destroys*; đây là cách giới hạn nhận định, không phải tự thêm bằng chứng.
+4. Children **spend a great deal of** time on their phones, **which can have** negative effects. *Children* trung tính hơn *kids*, *time* không đếm được nên đi với *a great deal of*. Mệnh đề *which* nhắc lại việc dùng điện thoại nhiều; câu không còn dạng rút gọn *it's*.
+5. **Although** the service is convenient, it is expensive. *Although* theo sau bởi một mệnh đề đầy đủ; dấu phẩy ngăn mệnh đề nhượng bộ mở đầu với mệnh đề chính. Không thêm **but** cho cùng quan hệ này.
 
 ---
 
@@ -299,7 +308,8 @@ Task 2 là văn bán trang trọng — tránh:
 | Song song / nhấn mạnh | not only... but also / What is needed is... |
 
 **Quy tắc vàng:**
+
 - Đa dạng CÓ KIỂM SOÁT: xen câu đơn và phức chính xác > câu dài sai
 - "however/therefore" = trạng từ → dấu chấm/chấm phẩy, không dấu phẩy nối câu
-- Điều kiện Type 1: if + present, will + V (không dùng will chỉ đánh dấu tương lai; vẫn có if you will help cho ý sẵn lòng)
+- Type 1: *if + present, will + V*. Không dùng *will* trong vế *if* để nói tương lai (ngoại lệ: *if you will help…* = nếu bạn sẵn lòng)
 - Tránh viết tắt và từ thân mật (kids, a lot of, get worse)

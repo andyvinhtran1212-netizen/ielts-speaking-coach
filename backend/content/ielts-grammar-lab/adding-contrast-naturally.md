@@ -87,7 +87,7 @@ Tương phản là một trong những quan hệ ý nghĩa được examiner đ�
 
 ## Tại sao quan trọng
 
-Trong **Writing Task 2** (đặc biệt discussion / advantages-disadvantages), tương phản là xương sống: nêu một mặt rồi phản biện mặt kia. Trong **Speaking Part 3**, examiner thường hỏi "some people think X, others think Y" — bạn cần nối hai quan điểm trái chiều mượt mà. Dùng đa dạng contrast connectors ăn điểm cả **Grammatical Range** lẫn **Coherence & Cohesion**.
+Trong **Writing Task 2** (đặc biệt discussion / advantages-disadvantages), tương phản là xương sống: nêu một mặt rồi phản biện mặt kia. Trong **Speaking Part 3**, examiner thường hỏi "some people think X, others think Y" — bạn cần nối hai quan điểm trái chiều mượt mà. Dùng đa dạng contrast connectors ăn điểm cả **Grammatical Range and Accuracy** lẫn **Coherence & Cohesion**.
 
 ---
 
@@ -123,7 +123,7 @@ Although [S + V], [main clause]
 | **while / whereas** | so sánh hai vế đối lập (thường cân bằng, không phải bất ngờ) |
 
 - **Even though** she had little experience, she handled the crisis impressively.
-- It's expensive, I'll buy it **though**. *(though cuối câu — văn nói)*
+- It's expensive. I'll buy it, **though**. *(though cuối câu — văn nói)*
 
 ⚠ **KHÔNG kết hợp với "but":** ❌ *Although it was late, but he kept working.* → ✅ *Although it was late, he kept working.*
 
@@ -142,6 +142,7 @@ Despite [noun / V-ing], [main clause]
 - **Despite** working long hours, he never seemed tired. *(despite + V-ing)*
 
 ⚠ **KHÔNG theo sau bằng mệnh đề trực tiếp:**
+
 - ❌ Despite it was raining...
 - ✅ Despite **the rain**... (danh từ)
 - ✅ Despite **the fact that** it was raining... (despite + the fact that + clause)
@@ -174,6 +175,8 @@ Dùng khi muốn cân nhắc hai mặt (rất hợp Part 3 và discussion essay)
 
 > Có thể dùng riêng "**on the other hand**" để giới thiệu mặt đối lập mà không cần "on the one hand" trước đó. Xem thêm bài **Balanced Arguments Grammar**.
 
+⚠ *On the contrary* dùng để bác bỏ ý vừa nêu, không dùng như *on the other hand* (mặt khác).
+
 ---
 
 <!-- anchor: adding-contrast-naturally.writing-tuong-phan-trong-task-2 -->
@@ -197,6 +200,7 @@ Dùng khi muốn cân nhắc hai mặt (rất hợp Part 3 và discussion essay)
 | On the other hand | But on the flip side... / But at the same time... |
 
 **Part 3 example:**
+
 - Q: "Do you think technology has made people closer or more distant?"
 - ✅ "I'd say it's a bit of both, really. **On one hand,** we can talk to anyone instantly, no matter where they are. **But then again,** a lot of people are glued to their phones even when they're with family — **so even though** we're more 'connected', we might actually be a bit more distant in real life."
 
@@ -230,6 +234,12 @@ Dùng khi muốn cân nhắc hai mặt (rất hợp Part 3 và discussion essay)
 
 ---
 
+## Lỗi người Việt hay gặp
+
+Đừng giữ nguyên cả hai nửa của cặp "mặc dù… nhưng…" khi chuyển sang tiếng Anh. Với cùng một quan hệ tương phản, dùng *Although it was cold, we went out* hoặc *It was cold, but we went out*.
+
+Một điểm dễ nhầm nữa là dịch "mặc dù" luôn thành *despite*. Hãy nhìn cấu trúc phía sau: *despite **the cold*** là cụm danh từ; *although **it was cold*** là mệnh đề. Nếu muốn giữ mệnh đề sau *despite*, cần **the fact that**. Trước khi sửa một câu tương phản, kiểm tra cả ý nghĩa lẫn cấu trúc theo sau từ nối.
+
 ## Bài tập luyện
 
 ### Chọn / điền connector đúng
@@ -251,15 +261,17 @@ Dùng khi muốn cân nhắc hai mặt (rất hợp Part 3 và discussion essay)
 ### Đáp án (gợi ý)
 
 **Chọn/điền:**
+
 1. Although (theo sau là mệnh đề)
 2. However (đầu câu mới, có dấu phẩy sau)
 3. Despite (theo sau là danh từ "his lack of experience")
-4. whereas
+4. **whereas**. Hai vế đều có chủ ngữ–động từ và nêu hai lựa chọn đối chiếu nhau; *despite* không đứng trực tiếp trước mệnh đề *others enjoy the countryside*.
 
 **Viết lại:**
-1. Despite the risk(s), the company approved the project. / Despite being risky, the project was approved.
-2. Despite the fact that it was raining heavily, the match continued.
-3. Although the plan is cheap, it is unrealistic.
+
+1. Despite the risk(s), the company approved the project. / Despite being risky, the project was approved. *Despite* đi với cụm danh từ hoặc V-ing. Trong cách thứ hai, chủ ngữ **the project** cũng là đối tượng có tính chất *risky*; không viết *Despite being risky, the company…* nếu ý là dự án có rủi ro.
+2. Despite the fact that it was raining heavily, the match continued. Cụm **the fact that** cho phép giữ nguyên mệnh đề đầy đủ *it was raining heavily* sau *despite*.
+3. Although the plan is cheap, it is unrealistic. *Although* trực tiếp mở đầu mệnh đề nhượng bộ; bỏ *however* khi gộp hai câu theo yêu cầu này và không thêm *but*.
 
 ---
 
@@ -274,6 +286,7 @@ Dùng khi muốn cân nhắc hai mặt (rất hợp Part 3 và discussion essay)
 | Hai mặt | On the one hand... on the other hand | On the one hand... |
 
 **Quy tắc vàng:**
+
 - Một câu tương phản chỉ dùng **một** connector (không "although... but...")
 - **Despite / In spite of** + danh từ/V-ing; **Although** + mệnh đề
 - **However** = trạng từ → dấu chấm/chấm phẩy, KHÔNG dấu phẩy nối câu

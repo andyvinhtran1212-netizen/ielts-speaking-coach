@@ -20,7 +20,7 @@ from fastapi.testclient import TestClient
 from starlette.requests import Request
 
 import main
-from services.errors import safe_error
+from services.errors import GENERIC_MESSAGE, safe_error
 
 # Captured at import, before conftest's autouse fixture swaps in a no-op.
 _REAL_INSERT = main._insert_error_log_safely
@@ -130,6 +130,49 @@ def test_activation_unavailable_503_inserts_exactly_one_error_log(live_activate_
         assert secret not in raw, f"{secret!r} leaked into error_logs"
 
 
+@pytest.mark.parametrize(("status", "error_code", "level"), [
+    (503, "feature_disabled", "warning"),
+    (500, "feature_disabled", "error"),
+    (502, "feature_disabled", "error"),
+    (504, "feature_disabled", "error"),
+    (503, "activation_unavailable", "error"),
+    (500, "internal_error", "error"),
+])
+def test_only_503_feature_disabled_is_logged_as_warning(payloads, status, error_code, level):
+    detail = {"error_code": error_code, "message": "Tính năng đang tạm khóa.",
+              "flag": "vocab_units_read"}
+    request = _req(method="POST", query=b"token=secret-query-token")
+    request.state.request_id = "pc-j322-request"
+    resp = _handle(HTTPException(status, detail, headers={"Retry-After": "15"}), request)
+
+    assert resp.status_code == status
+    assert json.loads(resp.body) == {"detail": detail}
+    assert resp.headers["Retry-After"] == "15"
+    assert resp.headers["X-Request-ID"] == "pc-j322-request"
+    assert payloads == [{
+        "level": level, "source": "backend",
+        "message": f"HTTP {status} {error_code}",
+        "url": "/things/{thing_id}", "request_id": "pc-j322-request",
+        "extra": {"method": "POST", "status_code": status,
+                  "error_code": error_code, "handled": True},
+    }]
+
+
+@pytest.mark.parametrize("key", ["error", "code"])
+def test_feature_disabled_aliases_stay_sanitized_errors(payloads, key):
+    request = _req()
+    request.state.request_id = "pc-j322-alias"
+    resp = _handle(HTTPException(503, {key: "feature_disabled"}), request)
+
+    assert resp.status_code == 503
+    assert json.loads(resp.body) == {"detail": {
+        "error_code": "internal_error", "message": GENERIC_MESSAGE, "ref": "pc-j322-alias",
+    }}
+    assert len(payloads) == 1
+    assert payloads[0]["level"] == "error"
+    assert payloads[0]["message"] == "HTTP 503 internal_error"
+
+
 def test_failing_insert_keeps_the_same_503(live_activate_rate_limit, monkeypatch, caplog):
     baseline = _activate()
 
@@ -182,16 +225,56 @@ def test_handler_4xx_response_unchanged_and_not_logged(payloads, status):
     assert payloads == []
 
 
+# PC-J439: pin the request id. Without it the handler falls back to a random
+# uuid4 (main.http_exception_handler), whose hex can contain "abc" (~0.7% of
+# runs) and fail the leak check below for a reason unrelated to the leak.
+FIXED_REQUEST_ID = "00000000-0000-0000-0000-000000000500"
+
+
+def _assert_no_sanitized_leak(raw):
+    assert "hunter2" not in raw and "abc" not in raw and "/things/42" not in raw
+
+
+def _sanitized_500():
+    request = _req(query=b"token=abc&view=1")
+    request.state.request_id = FIXED_REQUEST_ID
+    return _handle(HTTPException(500, "db failed: password=hunter2"), request)
+
+
 def test_sanitized_500_logs_internal_error_without_the_leaked_text(payloads):
-    resp = _handle(HTTPException(500, "db failed: password=hunter2"),
-                   _req(query=b"token=abc&view=1"))
+    resp = _sanitized_500()
     assert resp.status_code == 500
     assert json.loads(resp.body)["detail"]["error_code"] == "internal_error"
+    assert json.loads(resp.body)["detail"]["ref"] == FIXED_REQUEST_ID
     assert len(payloads) == 1
+    assert payloads[0]["request_id"] == FIXED_REQUEST_ID
     assert payloads[0]["extra"]["error_code"] == "internal_error"
     assert payloads[0]["url"] == "/things/{thing_id}"
     raw = json.dumps(payloads[0])
-    assert "hunter2" not in raw and "abc" not in raw and "/things/42" not in raw
+    _assert_no_sanitized_leak(raw)
+
+
+def test_sanitized_leak_check_passes_on_the_clean_payload(payloads):
+    _sanitized_500()
+    assert len(payloads) == 1
+    _assert_no_sanitized_leak(json.dumps(payloads[0]))
+
+
+@pytest.mark.parametrize("field, leaked", [
+    ("extra", "token=abc"),
+    ("message", "db failed: password=hunter2"),
+    ("url", "/things/42"),
+])
+def test_sanitized_leak_check_catches_a_planted_leak(payloads, field, leaked):
+    _sanitized_500()
+    assert len(payloads) == 1
+    planted = json.loads(json.dumps(payloads[0]))
+    if field == "extra":
+        planted["extra"]["query"] = leaked
+    else:
+        planted[field] = leaked
+    with pytest.raises(AssertionError):
+        _assert_no_sanitized_leak(json.dumps(planted))
 
 
 # ── storm guard: 10 rows / 60 s per (error_code, route template) ────────────

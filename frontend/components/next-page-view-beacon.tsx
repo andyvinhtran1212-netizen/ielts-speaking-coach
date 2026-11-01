@@ -16,6 +16,12 @@ export function NextPageViewBeacon() {
   const [scriptReady, setScriptReady] = useState(false);
 
   useEffect(() => {
+    if (typeof (window as AverTelemetryWindow).aver?.trackPageView === 'function') {
+      setScriptReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
     if (!scriptReady) return;
     (window as AverTelemetryWindow).aver?.trackPageView?.();
   }, [pathname, scriptReady]);
@@ -25,6 +31,8 @@ export function NextPageViewBeacon() {
       src="/js/analytics-beacon.js"
       strategy="afterInteractive"
       onReady={() => setScriptReady(true)}
+      // next/script only calls onLoad after an in-flight src is remounted.
+      onLoad={() => setScriptReady(true)}
     />
   );
 }

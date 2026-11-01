@@ -652,3 +652,216 @@ def test_would_block_log_carries_the_route_template_not_the_raw_path(harness, ca
         harness.get("/admin/listening/content/00000000-0000-0000-0000-000000000001", token)
     [record] = would_block_records(caplog)
     assert would_block_fields(record)["route"] == "/admin/listening/content/{content_id}"
+
+
+# ── Amendment 1: AAL2 max age (FR-012, spec.md AC11) ─────────────────────────
+
+def _config_errors(caplog, name: str) -> list:
+    return [r for r in caplog.records
+            if r.name == "config" and r.levelno == logging.ERROR and name in r.getMessage()]
+
+
+def test_aal2_max_age_defaults_to_12_hours():
+    assert Settings(_env_file=None).ADMIN_AAL2_MAX_AGE_HOURS == 12
+    assert staff_guard.aal2_max_age_seconds() == 12 * HOUR
+
+
+def test_totp_12h_plus_1s_is_refused_under_enforcement(harness):
+    harness.enforce()
+    stale = accept("admin-active", aal2_claims("admin-active", totp_age=12 * HOUR + 1), factors=VERIFIED)
+    exc = denied(admin_module.require_admin, stale)
+    assert exc.status_code == 403 and is_mfa_required(exc, "challenge")
+
+
+def test_totp_11h59m_is_allowed_under_enforcement(harness):
+    harness.enforce()
+    fresh = accept("admin-active", aal2_claims("admin-active", totp_age=11 * HOUR + 59 * 60), factors=VERIFIED)
+    assert run_guard(admin_module.require_admin, fresh)["id"] == "admin-active"
+
+
+@pytest.mark.parametrize("amr,reason", [
+    (None, "totp_expired"), ([], "totp_expired"),
+    ([{"method": "password", "timestamp": int(NOW)}], "totp_expired"),
+    ([{"method": "totp", "timestamp": "yesterday"}], "totp_expired"),
+    ([{"method": "totp", "timestamp": int(NOW + 301)}], "totp_invalid"),
+], ids=["absent", "empty", "password-only", "non-numeric", "future-beyond-skew"])
+def test_missing_amr_counts_as_expired_and_a_future_one_is_invalid(amr, reason):
+    claims = {"sub": "admin-active", "aal": "aal2"}
+    if amr is not None:
+        claims["amr"] = amr
+    user = {"id": "admin-active", "factors": VERIFIED}
+    a = staff_guard.evaluate_admin_assurance(user, f"Bearer {jwt(claims)}", now=NOW)
+    assert not a.satisfied and a.reason == reason and a.next_step == "challenge"
+
+
+def test_future_amr_within_the_clock_skew_is_accepted():
+    claims = {"sub": "admin-active", "aal": "aal2", "amr": [{"method": "totp", "timestamp": int(NOW) + 300}]}
+    user = {"id": "admin-active", "factors": VERIFIED}
+    assert staff_guard.evaluate_admin_assurance(user, f"Bearer {jwt(claims)}", now=int(NOW)).satisfied
+
+
+@pytest.mark.parametrize("value", ["abc", "0", "48", "-1", "12.5", "13", "١٢"])
+def test_invalid_aal2_max_age_falls_back_to_12_with_a_startup_log(monkeypatch, caplog, value):
+    monkeypatch.setenv("ADMIN_AAL2_MAX_AGE_HOURS", value)
+    with caplog.at_level(logging.ERROR, logger="config"):
+        assert Settings(_env_file=None).ADMIN_AAL2_MAX_AGE_HOURS == 12
+    assert len(_config_errors(caplog, "ADMIN_AAL2_MAX_AGE_HOURS")) == 1
+
+
+@pytest.mark.parametrize("value,hours", [("1", 1), ("6", 6), (" 12 ", 12)])
+def test_valid_aal2_max_age_is_used(monkeypatch, caplog, value, hours):
+    monkeypatch.setenv("ADMIN_AAL2_MAX_AGE_HOURS", value)
+    with caplog.at_level(logging.ERROR, logger="config"):
+        assert Settings(_env_file=None).ADMIN_AAL2_MAX_AGE_HOURS == hours
+    assert _config_errors(caplog, "ADMIN_AAL2_MAX_AGE_HOURS") == []
+
+
+def test_a_shorter_configured_max_age_is_enforced(harness, monkeypatch):
+    harness.enforce()
+    monkeypatch.setattr(settings, "ADMIN_AAL2_MAX_AGE_HOURS", 6)
+    token = accept("admin-active", aal2_claims("admin-active", totp_age=6 * HOUR + 1), factors=VERIFIED)
+    assert is_mfa_required(denied(admin_module.require_admin, token), "challenge")
+
+
+@pytest.mark.parametrize("value", [0, 48, 10**6, "12", True, None])
+def test_no_max_age_value_can_widen_or_disable_the_check(monkeypatch, value):
+    monkeypatch.setattr(settings, "ADMIN_AAL2_MAX_AGE_HOURS", value)
+    assert staff_guard.aal2_max_age_seconds() == 12 * HOUR
+
+
+def test_report_only_expired_totp_logs_one_totp_expired_line_and_succeeds(harness, caplog):
+    stale = accept("admin-active", aal2_claims("admin-active", totp_age=12 * HOUR + 1), factors=VERIFIED)
+    with caplog.at_level(logging.WARNING, logger=staff_guard.logger.name):
+        resp = harness.get("/admin/users", stale)
+    assert resp.status_code != 403 and harness.users.touched == ["users.order"]
+    records = would_block_records(caplog)
+    assert len(records) == 1
+    assert would_block_fields(records[0])["reason"] == "totp_expired"
+
+
+# ── Amendment 1: step-up (FR-020, spec.md AC12) ──────────────────────────────
+
+def step_up_records(caplog):
+    return [r for r in caplog.records if r.getMessage().startswith(staff_guard.STEP_UP_WOULD_BLOCK_EVENT)]
+
+
+def _step_up(uid: str, totp_age: float, *, factors=VERIFIED):
+    token = jwt(aal2_claims(uid, totp_age=totp_age))
+    return staff_guard.require_recent_mfa({"id": uid, "factors": factors}, f"Bearer {token}")
+
+
+@pytest.fixture
+def step_up(monkeypatch):
+    monkeypatch.setattr(settings, "ADMIN_STEP_UP_ENFORCE", False)
+    monkeypatch.setattr(settings, "ADMIN_STEP_UP_MINUTES", 15)
+
+    def enforce(on: bool = True):
+        monkeypatch.setattr(settings, "ADMIN_STEP_UP_ENFORCE", on)
+
+    return enforce
+
+
+def test_step_up_defaults():
+    s = Settings(_env_file=None)
+    assert s.ADMIN_STEP_UP_MINUTES == 15 and s.ADMIN_STEP_UP_ENFORCE is False
+
+
+def test_step_up_16_minutes_is_refused_under_enforcement(step_up):
+    step_up()
+    with pytest.raises(HTTPException) as ei:
+        _step_up("admin-active", 16 * 60)
+    assert ei.value.status_code == 403
+    assert ei.value.detail == {
+        "code": "step_up_required", "next_step": "challenge", "max_age_seconds": 900,
+        "message": "Thao tác này cần nhập lại mã xác thực 2 bước.",
+    }
+
+
+def test_step_up_14_minutes_passes_under_enforcement(step_up, caplog):
+    step_up()
+    with caplog.at_level(logging.WARNING, logger=staff_guard.logger.name):
+        assert _step_up("admin-active", 14 * 60) is None
+    assert step_up_records(caplog) == []
+
+
+@pytest.mark.parametrize("factors,claims", [
+    (VERIFIED, aal1_claims("admin-active")),                    # no fresh TOTP at all
+    ([], aal2_claims("admin-active", totp_age=60)),            # factor deleted
+    (VERIFIED, aal2_claims("someone-else", totp_age=60)),      # another subject's payload
+    (VERIFIED, {"sub": "admin-active", "aal": "aal2"}),        # missing amr
+], ids=["aal1", "no-verified-factor", "other-sub", "missing-amr"])
+def test_step_up_needs_a_satisfied_second_factor(step_up, factors, claims):
+    step_up()
+    with pytest.raises(HTTPException) as ei:
+        staff_guard.require_recent_mfa({"id": "admin-active", "factors": factors}, f"Bearer {jwt(claims)}")
+    assert ei.value.detail["code"] == "step_up_required"
+
+
+def test_step_up_report_only_logs_exactly_one_line_per_request(step_up, caplog):
+    ctx = staff_guard.begin_request({"method": "PATCH", "path": "/admin/users/{user_id}/role"})
+    try:
+        with caplog.at_level(logging.WARNING, logger=staff_guard.logger.name):
+            assert _step_up("admin-active", 16 * 60) is None
+            assert _step_up("admin-active", 16 * 60) is None
+    finally:
+        staff_guard.reset_request(ctx)
+    records = step_up_records(caplog)
+    assert len(records) == 1
+    fields = json.loads(records[0].getMessage().split(" ", 1)[1])
+    assert fields["event"] == "admin_step_up_would_block"
+    assert fields["route"] == "/admin/users/{user_id}/role" and fields["method"] == "PATCH"
+    assert fields["reason"] == "totp_stale" and fields["max_age_seconds"] == 900
+    assert 16 * 60 <= fields["totp_age_seconds"] <= 16 * 60 + 5
+    assert set(fields) == {"event", "user_id", "method", "route", "aal", "reason",
+                           "totp_age_seconds", "max_age_seconds"}
+
+
+def test_step_up_uses_the_configured_window(step_up, monkeypatch):
+    step_up()
+    monkeypatch.setattr(settings, "ADMIN_STEP_UP_MINUTES", 5)
+    with pytest.raises(HTTPException) as ei:
+        _step_up("admin-active", 6 * 60)
+    assert ei.value.detail["max_age_seconds"] == 300
+    assert _step_up("admin-active", 4 * 60) is None
+
+
+@pytest.mark.parametrize("value", ["abc", "0", "16", "60", "7.5"])
+def test_invalid_step_up_minutes_fall_back_to_15_with_a_startup_log(monkeypatch, caplog, value):
+    monkeypatch.setenv("ADMIN_STEP_UP_MINUTES", value)
+    with caplog.at_level(logging.ERROR, logger="config"):
+        assert Settings(_env_file=None).ADMIN_STEP_UP_MINUTES == 15
+    assert len(_config_errors(caplog, "ADMIN_STEP_UP_MINUTES")) == 1
+
+
+@pytest.mark.parametrize("value", [0, 16, 10**6, "15", False, None])
+def test_no_step_up_minutes_value_can_widen_or_disable_the_check(monkeypatch, value):
+    monkeypatch.setattr(settings, "ADMIN_STEP_UP_MINUTES", value)
+    assert staff_guard.step_up_max_age_seconds() == 15 * 60
+
+
+@pytest.mark.parametrize("value,expected", [("true", True), ("TRUE", True), (" True ", True),
+                                            ("false", False), ("False", False), ("", False)])
+def test_step_up_enforce_accepts_only_true_or_false(monkeypatch, caplog, value, expected):
+    monkeypatch.setenv("ADMIN_STEP_UP_ENFORCE", value)
+    with caplog.at_level(logging.ERROR, logger="config"):
+        assert Settings(_env_file=None).ADMIN_STEP_UP_ENFORCE is expected
+    assert _config_errors(caplog, "ADMIN_STEP_UP_ENFORCE") == []
+
+
+@pytest.mark.parametrize("value", ["maybe", "1", "yes", "on", "enforce", "flase"])
+def test_invalid_step_up_enforce_is_false_with_a_startup_log(monkeypatch, caplog, value):
+    monkeypatch.setenv("ADMIN_STEP_UP_ENFORCE", value)
+    with caplog.at_level(logging.ERROR, logger="config"):
+        assert Settings(_env_file=None).ADMIN_STEP_UP_ENFORCE is False
+    assert len(_config_errors(caplog, "ADMIN_STEP_UP_ENFORCE")) == 1
+
+
+def test_step_up_assurance_failure_never_grants(step_up, monkeypatch):
+    def boom(*_a, **_k):
+        raise RuntimeError("bug")
+
+    monkeypatch.setattr(staff_guard, "evaluate_admin_assurance", boom)
+    step_up()
+    with pytest.raises(HTTPException) as ei:
+        _step_up("admin-active", 60)
+    assert ei.value.status_code == 503

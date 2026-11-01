@@ -11,6 +11,7 @@ ON DELETE SET NULL so even if a row is hard-deleted later, students
 survive.
 """
 
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Header, HTTPException
@@ -30,6 +31,8 @@ from services.class_membership_service import (
     add_students,
     remove_student,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin/cohorts", tags=["admin", "cohorts"])
 
@@ -93,7 +96,8 @@ async def list_cohorts(
                 supabase_admin, is_active=is_active, course_id=course_id
             )
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi tải danh sách lớp: {exc}")
+        logger.error("[cohorts] list failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tải danh sách lớp. Vui lòng thử lại.") from None
     if test_data_visibility.hide_for(email=admin.get("email"), is_admin=True):
         result["cohorts"] = [
             c for c in result["cohorts"] if not test_data_visibility.is_test_label(c.get("name"))
@@ -121,7 +125,8 @@ async def create_cohort(
     try:
         r = supabase_admin.table("cohorts").insert(payload).execute()
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi tạo lớp: {exc}")
+        logger.error("[cohorts] create failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tạo lớp. Vui lòng thử lại.") from None
     if not r.data:
         raise HTTPException(500, "Không tạo được lớp")
     return r.data[0]
@@ -165,7 +170,8 @@ async def update_cohort(
             .execute()
         )
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi cập nhật lớp: {exc}")
+        logger.error("[cohorts] update failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi cập nhật lớp. Vui lòng thử lại.") from None
 
     if not r.data:
         raise HTTPException(404, "Không tìm thấy lớp")
@@ -199,7 +205,8 @@ async def cohort_members(cohort_id: str, authorization: str | None = Header(defa
             supabase_admin, cohort_id, "id, student_code, full_name, user_id")
         students.sort(key=lambda row: (row.get("full_name") or "").casefold())
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi tải thành viên: {exc}")
+        logger.error("[cohorts] members lookup failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tải thành viên. Vui lòng thử lại.") from None
 
     user_ids = [s["user_id"] for s in students if s.get("user_id")]
     agg = _aggregate_usage_for_users(user_ids) if user_ids else {}
@@ -284,7 +291,8 @@ async def remove_cohort_member(
             "reason": "cohort removal",
         }).in_("code_id", code_ids).eq("user_id", user_id).eq("is_active", True).execute()
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi gỡ thành viên: {exc}")
+        logger.error("[cohorts] member removal failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi gỡ thành viên. Vui lòng thử lại.") from None
 
 
 # ── CANONICAL MULTI-CLASS ROSTER ─────────────────────────────────────────────
@@ -328,7 +336,8 @@ async def assign_student_to_cohort(
         # Migration 326 guard: an archived learner cannot rejoin a class.
         if student_service.is_student_archived_error(exc):
             raise student_service.student_archived_error([body.student_id]) from exc
-        raise HTTPException(500, f"Lỗi khi gán học viên vào lớp: {exc}")
+        logger.error("[cohorts] student assignment failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi gán học viên vào lớp. Vui lòng thử lại.") from None
 
     return {"ok": True, "student_id": body.student_id, "cohort_id": cohort_id}
 
@@ -366,7 +375,8 @@ async def bulk_assign_students_to_cohort(
             except Exception:
                 archived = []
             raise student_service.student_archived_error(archived) from exc
-        raise HTTPException(500, f"Lỗi khi gán học viên vào lớp: {exc}")
+        logger.error("[cohorts] bulk student assignment failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi gán học viên vào lớp. Vui lòng thử lại.") from None
 
     return {"ok": True, "cohort_id": cohort_id, "assigned": assigned}
 
@@ -383,7 +393,8 @@ async def remove_student_from_cohort(
     try:
         remove_student(supabase_admin, student_id=student_id, cohort_id=cohort_id)
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi gỡ học viên khỏi lớp: {exc}")
+        logger.error("[cohorts] student removal failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi gỡ học viên khỏi lớp. Vui lòng thử lại.") from None
 
 
 @router.get("/{cohort_id}/progress")
@@ -412,4 +423,5 @@ async def cohort_progress_matrix(
     try:
         return cohort_progress(supabase_admin, cohort_id)
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi tính tiến độ lớp: {exc}")
+        logger.error("[cohorts] progress calculation failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tính tiến độ lớp. Vui lòng thử lại.") from None

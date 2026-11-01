@@ -15,7 +15,26 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
   return <label className="acd-field"><span>{label}</span>{children}{hint && <small>{hint}</small>}</label>;
 }
 
-export function Dialog({ open, title, description, children, actions, onClose, busy = false, panelClassName = '' }: {
+// Open dialogs, topmost last. Only the topmost one handles Escape and the Tab
+// trap, so a dialog opened over another (the admin step-up code prompt over a
+// confirm dialog) keeps the keyboard. Page-local dialogs that can sit under
+// that prompt (admin-user-ui.tsx) join the same stack.
+const openDialogs: object[] = [];
+
+/** Push an open dialog on the shared stack; `leave()` when it closes. */
+export function joinDialogStack() {
+  const layer = {};
+  openDialogs.push(layer);
+  return {
+    isTopmost: () => openDialogs[openDialogs.length - 1] === layer,
+    leave: () => {
+      const index = openDialogs.indexOf(layer);
+      if (index >= 0) openDialogs.splice(index, 1);
+    },
+  };
+}
+
+export function Dialog({ open, title, description, children, actions, onClose, busy = false, panelClassName = '', backdropClassName = '' }: {
   open: boolean;
   title: string;
   description?: ReactNode;
@@ -24,6 +43,7 @@ export function Dialog({ open, title, description, children, actions, onClose, b
   onClose: () => void;
   busy?: boolean;
   panelClassName?: string;
+  backdropClassName?: string;
 }) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -40,9 +60,11 @@ export function Dialog({ open, title, description, children, actions, onClose, b
   // where keyboard focus still belongs to the background trigger.
   useLayoutEffect(() => {
     if (!open) return;
+    const layer = joinDialogStack();
     const previous = openerRef.current || (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     panelRef.current?.focus();
     const onKey = (event: KeyboardEvent) => {
+      if (!layer.isTopmost()) return;
       if (event.key === 'Escape' && !busyRef.current) closeRef.current();
       if (event.key !== 'Tab') return;
       const panel = panelRef.current;
@@ -71,6 +93,7 @@ export function Dialog({ open, title, description, children, actions, onClose, b
     document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('keydown', onKey);
+      layer.leave();
       openerRef.current = null;
       if (previous?.isConnected) previous.focus();
     };
@@ -78,7 +101,7 @@ export function Dialog({ open, title, description, children, actions, onClose, b
 
   if (!open) return null;
   return (
-    <div className="acd-dialog-backdrop" onFocusCapture={(event) => {
+    <div className={`acd-dialog-backdrop${backdropClassName ? ` ${backdropClassName}` : ''}`} onFocusCapture={(event) => {
       // A child's autoFocus runs before the panel effect; its first focus-in still carries the opener.
       const previous = event.relatedTarget;
       if (!openerRef.current && previous instanceof HTMLElement && previous.isConnected && !event.currentTarget.contains(previous)) openerRef.current = previous;

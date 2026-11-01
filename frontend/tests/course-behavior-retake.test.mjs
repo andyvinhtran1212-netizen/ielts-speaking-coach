@@ -17,6 +17,8 @@ const SRC = readFileSync(
   new URL('../app/(authed)/course-exercises/course-behavior.tsx', import.meta.url), 'utf8');
 const SHELL = readFileSync(
   new URL('../app/(authed)/course-exercises/page-shell.tsx', import.meta.url), 'utf8');
+const COPY = readFileSync(
+  new URL('../app/(authed)/course-exercises/course-copy.ts', import.meta.url), 'utf8');
 
 function functionBody(name) {
   const marker = `function ${name}`;
@@ -45,7 +47,8 @@ function loadRetakeFlow() {
   return (env) => {
     const fn = new Function('$', 'lastVerdict', 'runner', 'renderQuestion', 'esc', 'setSaveState',
       'reportSeq', 'reportLoad',
-      `return (async () => {${body}})();`);
+      `let disposed = false;
+       return (async () => {${body}})();`);
     return fn(env.$, env.lastVerdict, env.runner, env.renderQuestion,
       env.esc || ((value) => String(value)), env.setSaveState || (() => {}), 0, null);
   };
@@ -71,6 +74,7 @@ function loadReportFlow(env) {
     'requestedItem', 'lastVerdict', 'esc',
     `let reportLoad = null;
      let reportSeq = 0;
+     let disposed = false;
      return async function showReport(options = {}) {${body}};`,
   );
   return factory(
@@ -428,7 +432,9 @@ describe('thời lượng từng phần chỉ tính khi màn đang hiện', () =
 describe('chỉ báo lưu phản ánh persistence thật', () => {
   test('shell bắt đầu trung tính, không khẳng định đã tự động lưu', () => {
     assert.match(SHELL, /id="cx-save-note"[\s\S]*data-state="idle"/);
-    assert.match(SHELL, /Sẽ lưu khi hoàn thành chặng/);
+    // Một nguồn chữ cho shell, setSaveState('idle') và reset đầu lượt (PC-J339).
+    assert.match(SHELL, /<span id="cx-save-note-text">\{SAVE_NOTE_IDLE\}<\/span>/);
+    assert.match(COPY, /export const SAVE_NOTE_IDLE = 'Sẽ lưu khi hoàn thành chặng';/);
     assert.doesNotMatch(SHELL, />Tự động lưu tiến độ</);
   });
 
@@ -436,7 +442,9 @@ describe('chỉ báo lưu phản ánh persistence thật', () => {
     const note = { dataset: {} };
     const text = { textContent: '' };
     const $ = (id) => id === 'cx-save-note' ? note : id === 'cx-save-note-text' ? text : null;
-    const setState = new Function('$', 'state', 'message', functionBody('setSaveState'));
+    const setState = new Function(
+      'SAVE_NOTE_IDLE', '$', 'state', 'message', functionBody('setSaveState'),
+    ).bind(null, 'Sẽ lưu khi hoàn thành chặng');
 
     setState($, 'saving');
     assert.equal(note.dataset.state, 'saving');
@@ -447,6 +455,9 @@ describe('chỉ báo lưu phản ánh persistence thật', () => {
     setState($, 'saved');
     assert.equal(note.dataset.state, 'saved');
     assert.equal(text.textContent, 'Đã lưu tiến độ');
+    setState($, 'idle');
+    assert.equal(note.dataset.state, 'idle');
+    assert.equal(text.textContent, 'Sẽ lưu khi hoàn thành chặng');
   });
 
   test('kết quả finishStage là nguồn quyết định saved hay error', () => {
@@ -460,6 +471,7 @@ describe('chuyển chặng trên giao diện', () => {
     const body = functionBody('advanceStageFlow');
     const factory = new Function('$', 'runner', 'renderQuestion', 'setSaveState', `
       let stageAdvance = null;
+      let disposed = false;
       return function advanceStageFlow() {${body}};
     `);
     return factory(env.$, env.runner, env.renderQuestion, env.setSaveState || (() => {}));

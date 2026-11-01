@@ -294,6 +294,46 @@ class TestSuspendedAccountRoleChange:
         assert revoked == []
 
 
+
+class TestRoleStepUp:
+    """ADMINAAL2-0032 Amendment 1 FR-020 (spec.md AC12) on the role route:
+    under ADMIN_STEP_UP_ENFORCE a TOTP older than 15 minutes is refused before
+    the RPC, so nothing changes; a fresh one changes the role."""
+
+    @staticmethod
+    def _bearer(totp_age):
+        from tests.test_staff_guard import aal2_claims, jwt
+        return {"Authorization": f"Bearer {jwt(aal2_claims(_ADMIN_ID, totp_age=totp_age))}"}
+
+    @pytest.fixture
+    def guarded(self, fake_db, revoked, monkeypatch):
+        from config import settings
+        from main import app
+        from tests.test_staff_guard import VERIFIED
+
+        monkeypatch.setattr(settings, "ADMIN_STEP_UP_ENFORCE", True)
+        monkeypatch.setattr(settings, "ADMIN_STEP_UP_MINUTES", 15)
+        admin = {"id": _ADMIN_ID, "email": "admin@x", "factors": VERIFIED}
+        with patch("routers.admin.require_admin", new=AsyncMock(return_value=admin)):
+            with TestClient(app) as c:
+                yield c
+
+    def test_totp_16_minutes_old_is_403_and_changes_nothing(self, guarded, fake_db, revoked):
+        u = _seed_user(fake_db, role="instructor")
+        r = guarded.patch(f"/admin/users/{u['id']}/role", json={"role": "student"}, headers=self._bearer(16 * 60))
+        assert r.status_code == 403, r.text
+        assert r.json()["detail"]["code"] == "step_up_required"
+        assert r.json()["detail"]["max_age_seconds"] == 900
+        assert fake_db.rpc_calls == [] and revoked == []
+        assert fake_db.tables["users"][0]["role"] == "instructor"
+
+    def test_totp_14_minutes_old_changes_the_role(self, guarded, fake_db, revoked):
+        u = _seed_user(fake_db, role="instructor")
+        r = guarded.patch(f"/admin/users/{u['id']}/role", json={"role": "student"}, headers=self._bearer(14 * 60))
+        assert r.status_code == 200, r.text
+        assert fake_db.tables["users"][0]["role"] == "student" and len(fake_db.rpc_calls) == 1
+
+
 class TestUnassignedCodesPool:
     """GET /admin/access-codes/pool — the 'ready to assign' pool. Declared
     before /access-codes/{code_id} so 'pool' isn't parsed as a code_id."""
