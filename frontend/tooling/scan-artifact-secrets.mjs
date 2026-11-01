@@ -60,7 +60,7 @@ function decodeBase64(encoded) {
 }
 
 /** { count, unscannable } for one buffer, recursing into archives. */
-export function scanBuffer(buffer, options, depth = 0) {
+export function scanBuffer(buffer, options, depth = 0, { isHtml = false } = {}) {
   // Validate even empty archives/files or missing targets, not just text hits.
   if (depth === 0) options = { literals: resolveLiterals(options) };
   if (depth > MAX_DEPTH) return { count: 0, unscannable: true };
@@ -71,8 +71,8 @@ export function scanBuffer(buffer, options, depth = 0) {
     } catch {
       return { count: countSecretMatches(buffer.toString('latin1'), options), unscannable: true };
     }
-    return entries.reduce((total, { data }) => {
-      const inner = scanBuffer(data, options, depth + 1);
+    return entries.reduce((total, { name, data }) => {
+      const inner = scanBuffer(data, options, depth + 1, { isHtml: /\.html?$/i.test(name) });
       return { count: total.count + inner.count, unscannable: total.unscannable || inner.unscannable };
     }, { count: 0, unscannable: false });
   }
@@ -91,7 +91,10 @@ export function scanBuffer(buffer, options, depth = 0) {
   const text = buffer.toString('utf8');
   const hits = secretMatchRanges(text, options);
   let count = hits.length;
-  let unscannable = false;
+  // A changed HTML report wrapper must never bypass embedded ZIP scanning.
+  // JS tooling sources also mention the marker; they are not HTML reports.
+  let unscannable = (isHtml || /^\s*</.test(text))
+    && text.includes('playwrightReportBase64') && !PLAYWRIGHT_REPORT_RE.test(text);
   const decodedRegions = [];
   function addDecoded(start, end, inner) {
     // A stable base64 literal span and its decoded secret are the same leak.
@@ -164,7 +167,7 @@ export function scanPaths(targets, options) {
         continue;
       }
       scanned += 1;
-      const { count, unscannable } = scanBuffer(readFileSync(file), options);
+      const { count, unscannable } = scanBuffer(readFileSync(file), options, 0, { isHtml: /\.html?$/i.test(file) });
       if (count || unscannable) findings.push({ file, count, unscannable });
     }
   }
