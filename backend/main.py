@@ -133,6 +133,11 @@ logging.basicConfig(
     force=True,
 )
 
+# Starlette re-raises after our 500 handler; uvicorn logs that exception again.
+from services.errors import ValidationLogFilter
+
+logging.getLogger("uvicorn.error").addFilter(ValidationLogFilter())
+
 # Reduce noise from common libraries (keep our app at INFO).
 logging.getLogger("uvicorn.access").setLevel(logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)
