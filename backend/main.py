@@ -135,6 +135,9 @@ logging.basicConfig(
 
 # Reduce noise from common libraries (keep our app at INFO).
 logging.getLogger("uvicorn.access").setLevel(logging.INFO)
+from services.log_redaction import AccessLogRedactionFilter
+
+logging.getLogger("uvicorn.access").addFilter(AccessLogRedactionFilter())
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
