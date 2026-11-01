@@ -1,7 +1,7 @@
 ---
 id: GRAMMARTEXT-0015
 title: Require exact authored forms for bounded Grammar questions while preserving old work
-status: approved
+status: implementing
 risk: high
 owner: product
 ---

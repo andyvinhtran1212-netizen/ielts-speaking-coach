@@ -398,11 +398,11 @@ def test_the_play_endpoint_never_ships_writing_answers():
         out = qs.get_bank_for_play("b1", user_id="u1")
 
     by = {q["qid"]: q for q in out["questions"]}
-    assert by["E1"]["explain"] is None, "đáp án mẫu của câu tự luận không được đi qua đây"
-    assert by["E1"]["accept"] is None
-    # Trắc nghiệm thì VẪN phải có — client chấm tại chỗ và hiện giải thích ngay.
-    assert by["M1"]["explain"] == "giải thích trắc nghiệm"
-    assert by["M1"]["answer"] == 0
+    assert "explain" not in by["E1"], "đáp án mẫu của câu tự luận không được đi qua đây"
+    assert "accept" not in by["E1"]
+    # J411R2: trắc nghiệm của bank course cũng KHÔNG mang đáp án/giải thích nữa.
+    # Máy chủ chấm và trả phản hồi qua /progress SAU khi lượt làm đã được ghi.
+    assert "explain" not in by["M1"] and "answer" not in by["M1"]
 
 
 # ── Nộp tự luận đi qua cổng hoàn thành hợp nhất ─────────────────────────────

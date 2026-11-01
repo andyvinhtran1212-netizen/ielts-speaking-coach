@@ -55,7 +55,7 @@ anchors:
 <!-- anchor: cohesion-devices-in-writing.overview -->
 ## Tóm tắt
 
-Một bài band cao **đọc trôi**: mỗi câu nối tự nhiên vào câu trước. Đó là **cohesion** — chiếm 25% điểm Writing (Coherence & Cohesion).
+Một bài band cao **đọc trôi**: mỗi câu nối tự nhiên vào câu trước. Đó là **cohesion**, một nửa của tiêu chí Coherence and Cohesion (tiêu chí này chiếm 25% điểm mỗi bài Writing).
 
 <!-- anchor: cohesion-devices-in-writing.tools -->
 ### Bốn công cụ liên kết
@@ -64,10 +64,10 @@ Một bài band cao **đọc trôi**: mỗi câu nối tự nhiên vào câu tr�
 |---|---|---|
 | **Từ nối** | báo quan hệ ý | *However, As a result, Moreover* |
 | **Tham chiếu** | đại từ thay danh từ | *This trend…, These policies…* |
-| **Liên kết từ vựng** | đồng nghĩa/từ khái quát/cụ thể; giữ phạm vi, có thể lặp khi rõ hơn | *cars → these cars → automobiles*; vehicles rộng hơn cars, chỉ thay khi nhóm quy chiếu vẫn rõ |
+| **Liên kết từ vựng** | đồng nghĩa, từ khái quát hơn; lặp lại từ cũng được nếu rõ hơn | *cars → automobiles → these vehicles* (chú ý *vehicles* rộng hơn *cars*) |
 | **Danh hoá nối ý** | ý cuối câu này → chủ đề câu sau | *Prices rose. This **increase**…* |
 
-Đừng chỉ dựa vào từ nối — **tham chiếu + đồng nghĩa** mới cho band 7+.
+Đừng chỉ dựa vào từ nối — band 7 cần dùng nhiều loại công cụ liên kết một cách phù hợp, không chỉ từ nối.
 
 <!-- anchor: cohesion-devices-in-writing.themerheme -->
 ### Liên kết chủ đề: ý cũ trước, ý mới sau
