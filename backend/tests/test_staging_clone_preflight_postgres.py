@@ -18,6 +18,8 @@ import sys
 
 import pytest
 
+from test_staging_clone_acl_policy import clone_acl_invariants
+
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 STAGING_REF = "zjphffoujxkpltixsbzj"
@@ -30,6 +32,39 @@ LEDGER = [f"{number}_{name}.sql" for number, name in [
     (238, "vocab_curated_pilot_metrics"),
     (239, "vocab_curated_context_lookups"),
 ]]
+
+
+def invariant_fixture():
+    """(source DDL, target DDL) creating every migration ACL invariant object
+    with none of the privileges its row forbids. Only schema public is dumped,
+    so other schemas are created on the target, where the clone leaves them."""
+    source, target, functions = [], [], set()
+
+    def function(name, statements):
+        if name not in functions:
+            functions.add(name)
+            statements += [f"CREATE FUNCTION {name} RETURNS void LANGUAGE plpgsql AS $$BEGIN END$$;",
+                           f"REVOKE ALL ON FUNCTION {name} FROM PUBLIC;"]
+
+    for row in clone_acl_invariants():
+        obj = row["object"]
+        if row["kind"] == "schema":
+            target += [f"CREATE SCHEMA IF NOT EXISTS {obj};", f"REVOKE ALL ON SCHEMA {obj} FROM PUBLIC;"]
+        elif row["kind"] == "relation":
+            source += [f"CREATE TABLE IF NOT EXISTS {obj}(id int);",
+                       f"REVOKE ALL ON TABLE {obj} FROM PUBLIC, anon, authenticated;"]
+        elif row["kind"] == "function":
+            function(obj, source if obj.startswith("public.") else target)
+        elif row["kind"] == "function_name":
+            if not any(name.startswith(f"public.{obj}(") for name in functions):
+                function(f"public.{obj}()", source)
+        else:
+            helper = "public." + row["object"].replace("%", "fixture_helper") + "()"
+            function(helper, source)
+            for exempt in (row["exempt"] or "").split():
+                function(exempt, source)
+                source.append(f"GRANT EXECUTE ON FUNCTION {exempt} TO {row['roles']};")
+    return source, target
 
 
 def run(args, env):
@@ -129,8 +164,11 @@ def sandbox(tmp_path, source, target, database, injection="", appended=""):
     scripts = root / "backend/scripts"
     (scripts / "sql").mkdir(parents=True)
     for filename in ("staging_clone_schema_from_prod.sh", "staging_clone_preflight.py",
+                     "staging_clone_pending_acl.py",
                      "sql/staging_clone_reset.sql", "sql/staging_clone_postconditions.sql"):
         shutil.copyfile(SCRIPTS / filename, scripts / filename)
+    # Read by the print-only staging-first ACL report; nothing is applied.
+    shutil.copytree(SCRIPTS.parent / "migrations", root / "backend/migrations")
     (root / "backend/.env").write_text(f"DATABASE_URL={source.dsn(database)}\n")
     (root / "backend/.env.staging").write_text(f"DATABASE_URL={target.dsn(database, staging=True)}\n")
     ledger = root / "fixture-ledger.sql"
@@ -264,6 +302,13 @@ def sandbox(tmp_path, source, target, database, injection="", appended=""):
     # rolls the restore back on ownership or the final role.
     ("hidden_role_switch", "restored_object_not_owned_by_restore_role"),
     ("hidden_role_left", "restore_role_changed"),
+    # PC-J498: a privilege a prod-active migration revoked, back in the dump.
+    ("invariant_select", "migration_acl_invariant_violated: public.student_cohort_memberships:anon:SELECT [227]"),
+    ("invariant_public_execute", "public.is_current_user_admin():public:EXECUTE [108]"),
+    ("invariant_service_role", "migration_acl_invariant_violated: public.ai_model_overrides:service_role:TRUNCATE"),
+    ("invariant_name_pattern", "migration_acl_invariant_violated: public.grammar_quiz_fixture_helper():service_role"),
+    ("invariant_target_schema", "migration_acl_invariant_violated: app_private:anon:USAGE [335]"),
+    ("invariant_missing", "migration_acl_invariant_object_missing: relation public.listening_test_attempts"),
 ])
 def test_clone_preflight_and_atomic_restore(clusters, tmp_path, case, diagnostic):
     source, target = clusters
@@ -285,6 +330,18 @@ def test_clone_preflight_and_atomic_restore(clusters, tmp_path, case, diagnostic
     seed += [f"CREATE TABLE public.{name}(id int);" for name in (
         "vocab_learning_units", "vocab_unit_tasks", "vocab_unit_recommendations",
         "vocab_speaking_signal_maps", "vocab_context_lookup_terms")]
+    invariant_source, invariant_target = invariant_fixture()
+    seed += invariant_source
+    if case == "invariant_select":
+        seed.append("GRANT SELECT ON public.student_cohort_memberships TO anon;")
+    if case == "invariant_public_execute":
+        seed.append("GRANT EXECUTE ON FUNCTION public.is_current_user_admin() TO PUBLIC;")
+    if case == "invariant_service_role":
+        seed.append("GRANT TRUNCATE ON public.ai_model_overrides TO service_role;")
+    if case == "invariant_name_pattern":
+        seed.append("GRANT EXECUTE ON FUNCTION public.grammar_quiz_fixture_helper() TO service_role;")
+    if case == "invariant_missing":
+        seed.append("DROP TABLE public.listening_test_attempts;")
     if case in {"missing_role", "role_present"}:
         source.sql(f'CREATE ROLE "Reader, X {case}";', f"reader-{case}")
         seed.append(f'GRANT SELECT ON public.users TO "Reader, X {case}";')
@@ -315,6 +372,9 @@ def test_clone_preflight_and_atomic_restore(clusters, tmp_path, case, diagnostic
     source.sql("\n".join(seed), f"seed-{case}", database)
     target.sql("CREATE TABLE public.decoy(id int); INSERT INTO public.decoy VALUES (42);",
                f"decoy-{case}", database)
+    target.sql("\n".join(invariant_target), f"invariant-target-{case}", database)
+    if case == "invariant_target_schema":
+        target.sql("GRANT USAGE ON SCHEMA app_private TO anon;", "invariant-target-grant", database)
     if case == "global_acl":
         target.sql("ALTER DEFAULT PRIVILEGES GRANT TRUNCATE ON TABLES TO anon;", "global-acl", database)
     if case == "global_other":
@@ -435,7 +495,7 @@ def test_clone_preflight_and_atomic_restore(clusters, tmp_path, case, diagnostic
         if case in {"restore_error", "postcondition_error", "log_truncate", "definer_execute",
                     "column_update", "default_write", "sequence_update", "users_policy",
                     "hidden_role_switch", "hidden_role_left", "hidden_sjis_old_key", "hidden_gbk_old_key",
-                    "hidden_sjis_other_key", "hidden_gbk_other_key"}:
+                    "hidden_sjis_other_key", "hidden_gbk_other_key"} or case.startswith("invariant_"):
             assert "preflight passed" in result.stdout
             assert "restoring atomically" in result.stdout
         else:
@@ -445,6 +505,9 @@ def test_clone_preflight_and_atomic_restore(clusters, tmp_path, case, diagnostic
     else:
         assert result.returncode == 0, result.stderr
         assert (root / "baseline-reached").exists()
+        # Print-only report of staging-first ACL groups the clone leaves out.
+        assert "WARNING: staging-first ACL migrations NOT re-applied" in result.stdout
+        assert "MIGRATION_FEATURES=listening_tests_revoke " in result.stdout
         assert target.sql("SELECT to_regclass('public.decoy') IS NULL;", "decoy-replaced", database) == "t"
         assert target.sql("SELECT has_table_privilege('anon','public.users','UPDATE'), "
                           "has_table_privilege('service_role','public.class_action_log','TRUNCATE'), "
