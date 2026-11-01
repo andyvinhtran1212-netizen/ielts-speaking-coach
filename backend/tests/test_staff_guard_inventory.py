@@ -62,6 +62,7 @@ ADMIN_CHECK_NAMES = GUARD_NAMES | {"_is_admin", "holds_admin_privilege", "resolv
 # fails the AAL2 rule is treated as a non-admin (tests/test_staff_guard.py).
 SOFT_ADMIN_ROUTES = {
     ("GET", "/health/ready"): "unredacted diagnostics",
+    ("GET", "/health/quiz-write"): "unredacted diagnostics",
     ("GET", "/health/runtime"): "unredacted diagnostics",
     ("GET", "/health/async-db"): "saturation snapshot (PC-J275)",
     ("GET", "/api/listening/tests/attempts/{attempt_id}/review"): "other user's sealed attempt",

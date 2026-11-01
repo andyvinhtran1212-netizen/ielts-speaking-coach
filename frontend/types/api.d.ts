@@ -12843,6 +12843,11 @@ export interface paths {
          *     CONFLICT") after a manual migration without a PostgREST schema reload, while
          *     quiz_sessions inserts kept working. Always HTTP 200; the ``status`` field
          *     (healthy | error) carries the verdict.
+         *
+         *     The probe runs off the event loop, single-flight, and its result is reused
+         *     for ``_QUIZ_WRITE_PROBE_TTL_SECONDS`` by every caller (admins included);
+         *     ``checked_at`` is when the live probe ran. Raw error text (``err``) is
+         *     returned to admins (Bearer token) only.
          */
         get: operations["health_quiz_write_health_quiz_write_get"];
         put?: never;
@@ -45449,7 +45454,9 @@ export interface operations {
     health_quiz_write_health_quiz_write_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -45464,6 +45471,15 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

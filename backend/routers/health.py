@@ -17,6 +17,7 @@ state are returned to admins (Bearer token) only.
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import contextvars
+import copy
 from datetime import datetime, timezone
 import logging
 import os
@@ -483,8 +484,53 @@ async def health_grammar_check() -> dict:
     }
 
 
+# /health/quiz-write is public and each probe sends two synchronous PostgREST
+# upserts. Run them off the event loop in one shared in-flight task (a caller
+# that disconnects cannot start a second probe), reuse the verdict for a short
+# TTL, and return raw PostgREST error text to admins only.
+_QUIZ_WRITE_PROBE_TTL_SECONDS = 15.0
+_quiz_write_probe_cache: tuple[float, dict] | None = None
+_quiz_write_probe_task: asyncio.Task | None = None
+_QUIZ_WRITE_PUBLIC_CHECK_KEYS = ("ok", "note")
+
+
+async def _run_quiz_write_probe() -> dict:
+    from services.quiz_service import quiz_write_health
+
+    global _quiz_write_probe_cache, _quiz_write_probe_task
+    try:
+        result = await asyncio.to_thread(quiz_write_health)
+        cached = {"result": result, "checked_at": datetime.now(timezone.utc).isoformat()}
+        _quiz_write_probe_cache = (time.monotonic(), cached)
+        return cached
+    finally:
+        _quiz_write_probe_task = None
+
+
+async def _quiz_write_probe() -> dict:
+    global _quiz_write_probe_task
+    if (_quiz_write_probe_cache is not None
+            and time.monotonic() - _quiz_write_probe_cache[0] < _QUIZ_WRITE_PROBE_TTL_SECONDS):
+        return _quiz_write_probe_cache[1]
+    if _quiz_write_probe_task is None:
+        _quiz_write_probe_task = asyncio.create_task(_run_quiz_write_probe())
+    return await asyncio.shield(_quiz_write_probe_task)
+
+
+def _public_quiz_write(result: dict) -> dict:
+    # Allow-list per check: the probe notes are fixed strings, ``err`` is raw
+    # PostgREST text (table, column, constraint names).
+    return {
+        "ok": result["ok"],
+        "checks": {
+            name: {key: check[key] for key in _QUIZ_WRITE_PUBLIC_CHECK_KEYS if key in check}
+            for name, check in result["checks"].items()
+        },
+    }
+
+
 @router.get("/health/quiz-write")
-async def health_quiz_write() -> dict:
+async def health_quiz_write(authorization: str | None = Header(default=None)) -> dict:
     """Probe that quiz progress-saving works — i.e. PostgREST recognizes the ON
     CONFLICT unique constraints (migration 119) that log_progress upserts depend
     on. This catches the exact failure that silently broke vocab/grammar quiz
@@ -492,12 +538,18 @@ async def health_quiz_write() -> dict:
     CONFLICT") after a manual migration without a PostgREST schema reload, while
     quiz_sessions inserts kept working. Always HTTP 200; the ``status`` field
     (healthy | error) carries the verdict.
-    """
-    from services.quiz_service import quiz_write_health
 
-    result = quiz_write_health()
+    The probe runs off the event loop, single-flight, and its result is reused
+    for ``_QUIZ_WRITE_PROBE_TTL_SECONDS`` by every caller (admins included);
+    ``checked_at`` is when the live probe ran. Raw error text (``err``) is
+    returned to admins (Bearer token) only.
+    """
+    is_admin = await _is_admin(authorization)
+    cached = await _quiz_write_probe()
+    result = cached["result"]
     return {
         "status": "healthy" if result["ok"] else "error",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "quiz_write": result,
+        "checked_at": cached["checked_at"],
+        "quiz_write": copy.deepcopy(result) if is_admin else _public_quiz_write(result),
     }
