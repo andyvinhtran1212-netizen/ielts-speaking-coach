@@ -77,8 +77,8 @@ ALLOWED: dict[tuple[str, str, str], tuple[int, str]] = {
     # site, input clipped at mock_review_workflow.py:86-97.
     ("routers/admin_mock_reviews.py", "_raise_for", "str(e)"): (6, J213 + "; any other exception type gets a generic message"),
     ("routers/admin_writing.py", "extract_essay_file", "str(exc)"): (1, "FileExtractError messages are constants (docx failure names only the exception class)"),
-    ("routers/admin_writing_assignments.py", "fan_out_to_cohort", "body.expected_student_count; len(student_ids)"): (1, TYPED_INT),
-    ("routers/admin_writing_prompts.py", "update_prompt", "str(e)"): (1, "assert_can_unreserve names DB exam codes only"),
+    ("routers/admin_writing_assignments.py", "_fan_out_to_cohort_sync", "body.expected_student_count; len(student_ids)"): (1, TYPED_INT),
+    ("routers/admin_writing_prompts.py", "_update_prompt_sync", "str(e)"): (1, "assert_can_unreserve names DB exam codes only"),
     ("routers/admin_writing_prompts.py", "upload_image", "str(exc)"): (1, "upload_prompt_image: sizes and constants only"),
     ("routers/export.py", "export_session_pdf", "str(exc)"): (1, "session id was already matched by the owner query above (uuid column)"),
     ("routers/instructor.py", "claim_review", "str(e)"): (1, UUID_LOOKUP),
