@@ -8,6 +8,7 @@ import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { Script } from 'node:vm';
 import zlib from 'node:zlib';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -65,10 +66,10 @@ test('redactSecrets removes bearer tokens, JWTs, auth cookies and bypass values 
     `Authorization: Bearer ${FAKE_JWT}`,
     `authorization: Bearer ${FAKE_JWT}`,
     `token was ${FAKE_JWT} at login`,
-    `{"access_token":"${FAKE_JWT}","refresh_token":"${FAKE_REFRESH}","user":{"id":"u1"}}`,
+    JSON.stringify({ access_token: FAKE_JWT, refresh_token: FAKE_REFRESH, user: { id: 'u1' } }),
     `{\\"access_token\\":\\"${FAKE_JWT}\\",\\"refresh_token\\":\\"${FAKE_REFRESH}\\"}`,
-    `cookie: sb-abc-auth-token=${FAKE_COOKIE}; _vercel_jwt=${FAKE_JWT}`,
-    `set-cookie: _vercel_jwt=${FAKE_COOKIE}; Path=/; HttpOnly`,
+    `cookie: ${'sb-abc-auth-token'}=${FAKE_COOKIE}; ${'_vercel_jwt'}=${FAKE_JWT}`,
+    `set-cookie: ${'_vercel_jwt'}=${FAKE_COOKIE}; Path=/; HttpOnly`,
     `x-vercel-protection-bypass: ${FAKE_BYPASS}`,
     `"x-vercel-protection-bypass":"${FAKE_BYPASS}"`,
     `https://staging.averlearning.com/?x-vercel-protection-bypass=${FAKE_BYPASS}&x=1`,
@@ -804,4 +805,156 @@ test('web fonts, video and wasm inside a trace are scannable; other binary stays
   }
   const opaque = Buffer.from([0, 0x13, 0x37, 0xfe, 0, 1]);
   assert.equal(scanBuffer(writeZip([{ name: 'resources/b', data: opaque }]), NO_ENV).unscannable, true);
+});
+
+// PC-J483: isolate synchronous regex work so a regression cannot block the
+// test runner's event loop and defeat node:test's own timeout.
+for (const operation of ['redactSecrets', 'countSecretMatches']) {
+  for (const shape of ['repeated-prefix', 'base64-json']) {
+    test(`P3-1 ${operation} handles ${shape} in under one second`, { timeout: 4000 }, (t) => {
+      const result = spawnSync(process.execPath, ['-e', `
+        const { ${operation}: operation } = require('./frontend/tooling/redact-secrets.cjs');
+        const text = ${shape === 'repeated-prefix'
+          ? "'eyJ'.repeat(100 * 1024)"
+          : "Buffer.from(JSON.stringify(Array.from({ length: 35000 }, () => ({ a: 0 })))).toString('base64')"};
+        const start = performance.now();
+        operation(text, { literals: [] });
+        process.stdout.write(JSON.stringify({ bytes: text.length, ms: performance.now() - start }));
+      `], { cwd: ROOT, encoding: 'utf8', env: { PATH: process.env.PATH }, timeout: 1500 });
+      assert.equal(result.error?.code, undefined, `${operation}/${shape}: exceeded subprocess timeout`);
+      assert.equal(result.status, 0, result.stderr);
+      const { bytes, ms } = JSON.parse(result.stdout);
+      t.diagnostic(`${operation}/${shape}: ${bytes} bytes, ${ms.toFixed(2)} ms`);
+      assert.ok(ms < 1000, `${operation}/${shape}: ${ms.toFixed(2)} ms >= 1000 ms`);
+    });
+  }
+}
+
+test('P3-1 JWT detection preserves adjacent letters, digits and escaped JSON', () => {
+  for (const text of [FAKE_JWT, `abc123${FAKE_JWT}tail9`, `0${FAKE_JWT}`, JSON.stringify({ trace: JSON.stringify({ note: FAKE_JWT }) })]) {
+    assert.equal(countSecretMatches(text, NO_ENV), 1);
+    assertClean(redactSecrets(text, NO_ENV));
+    assert.equal(countSecretMatches(redactSecrets(text, NO_ENV), NO_ENV), 0);
+  }
+  const large = 'eyJ' + 'h'.repeat(8192) + '.eyJ' + 'p'.repeat(8192) + '.' + 's'.repeat(8192);
+  assert.equal(countSecretMatches(large, NO_ENV), 1, 'long valid JWT segments remain protected');
+  assert.equal(redactSecrets(large, NO_ENV), '[REDACTED]');
+});
+
+test('P3-2 unfamiliar report wrappers fail closed in scan and sanitize', async (t) => {
+  const { scanBuffer } = await import(pathToFileURL(SCAN).href);
+  const { sanitizeBuffer } = await import(pathToFileURL(SANITIZE).href);
+  const canonical = playwrightReportHtml([['report.json', '{"ok":true}']]);
+  const zip = canonical.match(redaction.PLAYWRIGHT_REPORT_RE)[2];
+  const cases = [
+    canonical.replace('<template id=', '<template class="changed" id='),
+    canonical.replace('application/zip', 'application/octet-stream'),
+    `<script>const playwrightReportBase64 = "${zip}";</script>`,
+    canonical.replace(zip, zip + '!'),
+    canonical.replace(zip, 'AAAA'),
+    canonical.replace(zip, zip + 'A'), // permissive Buffer decoding must not hide trailing junk
+  ];
+  for (const [index, html] of cases.entries()) {
+    await t.test(`wrapper ${index}`, () => {
+      assert.equal(scanBuffer(Buffer.from(html), NO_ENV).unscannable, true);
+      assert.throws(() => sanitizeBuffer(Buffer.from(html), NO_ENV), /report|zip|base64/i);
+      const dir = mkdtempSync(path.join(os.tmpdir(), 'pcj483-report-'));
+      try {
+        const file = path.join(dir, 'index.html');
+        writeFileSync(file, html);
+        const before = run(SCAN, [file]);
+        assert.equal(before.status, 1);
+        assert.match(before.stdout, /archive could not be opened/);
+        assert.equal(run(SANITIZE, [file]).status, 0);
+        assert.equal(existsSync(file), false, 'unreadable reports are removed like corrupt ZIPs');
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  }
+  await t.test('HTML paths retain report context even without an opening tag', () => {
+    const text = 'playwrightReportBase64 = ' + zip;
+    const nested = writeZip([{ name: 'report/index.html', data: Buffer.from(text) }]);
+    assert.equal(scanBuffer(nested, NO_ENV).unscannable, true);
+    assert.throws(() => sanitizeBuffer(nested, NO_ENV), /report/i);
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'pcj483-html-path-'));
+    try {
+      const file = path.join(dir, 'index.html');
+      writeFileSync(file, text);
+      assert.equal(run(SCAN, [file]).status, 1);
+      assert.equal(run(SANITIZE, [file]).status, 0);
+      assert.equal(existsSync(file), false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+test('P3-4 opaque keys, refresh fields and auth cookies are counted without printing values', async (t) => {
+  const key = 'sb_' + 'secret_' + 'k'.repeat(24);
+  const samples = [key, JSON.stringify({ refresh_token: FAKE_REFRESH }), JSON.stringify({ provider_refresh_token: FAKE_REFRESH }), `${'sb-project-auth-token'}=${FAKE_COOKIE}`, `${'sb-project-auth-token.0'}=${FAKE_COOKIE}`];
+  for (const name of ['refresh_token', 'provider_refresh_token']) {
+    let json = JSON.stringify({ [name]: FAKE_REFRESH });
+    for (const depth of [1, 2, 3]) {
+      json = JSON.stringify({ trace: json });
+      samples.push(json);
+    }
+  }
+  for (const [index, sample] of samples.entries()) {
+    await t.test(`opaque form ${index}`, () => {
+      assert.equal(countSecretMatches(sample, NO_ENV), 1);
+      assert.equal(countSecretMatches(redactSecrets(sample, NO_ENV), NO_ENV), 0);
+    });
+  }
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'pcj483-opaque-'));
+  try {
+    const file = path.join(dir, 'trace.network');
+    writeFileSync(file, samples.join('\n'));
+    const before = run(SCAN, [file]);
+    assert.equal(before.status, 1);
+    assert.match(before.stdout, new RegExp(`${samples.length} secret-like match\\(es\\)`));
+    for (const secret of [key, FAKE_REFRESH, FAKE_COOKIE]) assert.ok(!(before.stdout + before.stderr).includes(secret));
+    assert.equal(run(SANITIZE, [file]).status, 0);
+    assert.equal(run(SCAN, [file]).status, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('P3-4 already-redacted opaque fields and cookies stay clean', () => {
+  for (const marker of ['[REDACTED]', '[REDACTED: token]']) {
+    let json = JSON.stringify({ refresh_token: marker, provider_refresh_token: marker });
+    for (const depth of [0, 1, 2, 3]) {
+      assert.equal(countSecretMatches(json, NO_ENV), 0);
+      json = JSON.stringify({ trace: json });
+    }
+    assert.equal(countSecretMatches(`${'sb-project-auth-token'}=${marker}`, NO_ENV), 0);
+  }
+  assert.equal(countSecretMatches('sb_' + 'secret_[REDACTED]', NO_ENV), 0);
+  // Contextual detectors must not double-count a JWT or a configured literal.
+  for (const sample of [JSON.stringify({ refresh_token: FAKE_JWT }), `${'sb-project-auth-token'}=${FAKE_JWT}`]) {
+    assert.equal(countSecretMatches(sample, { literals: [FAKE_JWT] }), 1);
+  }
+});
+
+test('P3-5 trace JS resources retain valid cookie code while headers and raw JWTs are protected', async () => {
+  const { scanBuffer } = await import(pathToFileURL(SCAN).href);
+  const { sanitizeBuffer } = await import(pathToFileURL(SANITIZE).href);
+  const js = 'document.cookie="a="+b;x.setRequestHeader("authorization",t);document.cookie=a+b;x.send(t);';
+  const network = JSON.stringify({ cookie: `${'sb-project-auth-token'}=${FAKE_COOKIE}`, authorization: `Bearer ${FAKE_JWT}` });
+  const zip = writeZip([
+    { name: 'resources/app.js', data: Buffer.from(js) },
+    { name: 'resources/token.js', data: Buffer.from(`const value="${FAKE_JWT}";`) },
+    { name: 'trace.network', data: Buffer.from(network + `\nCookie: ${'sb-project-auth-token'}=${FAKE_COOKIE}`) },
+  ]);
+  assert.ok(scanBuffer(zip, NO_ENV).count >= 1, 'JWT in JS is scanned');
+  const clean = sanitizeBuffer(zip, NO_ENV);
+  const entries = readZip(clean);
+  assert.doesNotThrow(() => new Script(entries[0].data.toString('utf8')));
+  assert.equal(entries[0].data.toString('utf8'), js, 'cookie property assignments are not header fields');
+  assert.doesNotThrow(() => new Script(entries[1].data.toString('utf8')));
+  assertClean(entries[1].data.toString('utf8'));
+  assertClean(entries[2].data.toString('utf8'));
+  assert.deepEqual(JSON.parse(entries[2].data.toString('utf8').split('\n')[0]), { cookie: '[REDACTED]', authorization: '[REDACTED]' });
+  assert.deepEqual(scanBuffer(clean, NO_ENV), { count: 0, unscannable: false });
 });

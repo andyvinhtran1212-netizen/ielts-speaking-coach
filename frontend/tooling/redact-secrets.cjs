@@ -32,8 +32,11 @@ const TOKEN_FIELDS = 'access_token|refresh_token|provider_token|provider_refresh
 // (`"authorization":"Bearer x"`) and escaped JSON (`\"cookie\":\"sb-..\"`).
 // The value stops at a quote, backslash, ESC (Playwright colours call-log
 // lines) or newline, so the rest of the message stays readable.
-const HEADER_RE = /(?<![\w-])(authorization|proxy-authorization|apikey|cookie|set-cookie|x-vercel-protection-bypass|x-api-key)(\\?["']?[ \t]*[:=][ \t]*\\?["']?)([^\r\n"'`\\\x1b<]+)/gi;
-const JSON_FIELD_RE = new RegExp(`"(${TOKEN_FIELDS})"(\\s*:\\s*)"(?:[^"\\\\\\r\\n]|\\\\.)*"`, 'g');
+// Require a log/header boundary or a JSON key, not a JS property such as
+// document.cookie. String arguments like setRequestHeader("authorization", t)
+// have no key/value separator and are left intact too.
+const HEADER_RE = /(?<![^\s"'{,])(authorization|proxy-authorization|apikey|cookie|set-cookie|x-vercel-protection-bypass|x-api-key)(\\?["']?[ \t]*[:=][ \t]*\\?["']?)([^\r\n"'`\\\x1b<]+)/gi;
+const JSON_FIELD_RE = new RegExp(`"(${TOKEN_FIELDS})"(\\s*:\\s*)"((?:[^"\\\\\\r\\n]|\\\\.)*)"`, 'g');
 // Encode both the delimiter and an inner JSON escape at the same depth.
 // A value's escaped quote is E + D, whereas its closing delimiter is just D.
 // Consuming E first prevents stopping at the first quote inside a password.
@@ -48,7 +51,7 @@ const ESCAPED_JSON_FIELDS = [3, 2, 1].map((level) => {
   const e = regexEscape(escape);
   const plain = '[^"\\\\\\r\\n]';
   return {
-    pattern: new RegExp(`(${d}(?:${TOKEN_FIELDS})${d}\\s*:\\s*${d})(?:${plain}|${e}(?:${e}|${d}|${plain}))*${d}`, 'g'),
+    pattern: new RegExp(`(${d}(?:${TOKEN_FIELDS})${d}\\s*:\\s*${d})((?:${plain}|${e}(?:${e}|${d}|${plain}))*)${d}`, 'g'),
     delimiter,
   };
 });
@@ -56,7 +59,12 @@ const QUERY_RE = /(?<![\w-])(access_token|refresh_token|provider_token|token_has
 const COOKIE_RE = /(?<![\w-])(sb-[A-Za-z0-9_-]*auth-token(?:[.-][A-Za-z0-9]+)?|sb-access-token|sb-refresh-token|_vercel_jwt|__prerender_bypass|__vercel_live_token)=([^;\s"'\\\x1b<]+)/g;
 const COOKIE_JSON_RE = /("name"\s*:\s*"(?:sb-[^"]*|_vercel_jwt|__prerender_bypass|__vercel_live_token)"\s*,\s*"value"\s*:\s*")(?:[^"\\]|\\.)*"/g;
 const BEARER_RE = /\b(Bearer)[ \t]+(?!\[REDACTED)[A-Za-z0-9._~+/=-]{8,}/gi;
-const JWT_RE = new RegExp(JWT_SOURCE, 'g');
+// Start once per base64url run and stop the prefix at its first eyJ. Retrying
+// every eyJ in a long dotless run was quadratic. Capture only the JWT so an
+// adjacent identifier prefix is preserved and the protected token set stays
+// unchanged (including arbitrarily long segments).
+const JWT_RE = new RegExp(`(?<![A-Za-z0-9_-])(?:(?!eyJ)[A-Za-z0-9_-])*(${JWT_SOURCE})`, 'g');
+const OPAQUE_KEY_RE = /sb_secret_[A-Za-z0-9_-]{20,}/g;
 
 function validateLiteral(value) {
   if (typeof value !== 'string' || value.length < MIN_LITERAL_LENGTH) {
@@ -164,7 +172,8 @@ function redactSecrets(text, options) {
     .replace(COOKIE_RE, (_, name) => `${name}=${REDACTED}`)
     .replace(COOKIE_JSON_RE, (_, prefix) => `${prefix}${REDACTED}"`)
     .replace(BEARER_RE, (_, word) => `${word} ${REDACTED}`)
-    .replace(JWT_RE, REDACTED);
+    .replace(JWT_RE, (whole, token) => whole.slice(0, -token.length) + REDACTED)
+    .replace(OPAQUE_KEY_RE, REDACTED);
 }
 
 /** Redact an Error (message, stack, cause chain) in place and return it. */
@@ -209,8 +218,29 @@ function secretMatchRanges(text, options) {
     const whole = token.match(new RegExp(`^${JWT_SOURCE}$`));
     if (!(whole && isPublicAnonJwt(token))) ranges.push([match.index, match.index + match[0].length]);
   }
-  for (const match of text.matchAll(new RegExp(JWT_SOURCE, 'g'))) {
-    if (!isPublicAnonJwt(match[0])) ranges.push([match.index, match.index + match[0].length]);
+  for (const match of text.matchAll(JWT_RE)) {
+    if (!isPublicAnonJwt(match[1])) {
+      ranges.push([match.index + match[0].length - match[1].length, match.index + match[0].length]);
+    }
+  }
+  for (const match of text.matchAll(OPAQUE_KEY_RE)) {
+    ranges.push([match.index, match.index + match[0].length]);
+  }
+  const isUnredacted = (value) => value && !value.startsWith('[REDACTED');
+  for (const match of text.matchAll(JSON_FIELD_RE)) {
+    if (/^(?:refresh_token|provider_refresh_token)$/.test(match[1]) && isUnredacted(match[3])) {
+      ranges.push([match.index, match.index + match[0].length]);
+    }
+  }
+  for (const { pattern } of ESCAPED_JSON_FIELDS) {
+    for (const match of text.matchAll(pattern)) {
+      if (/\b(?:refresh_token|provider_refresh_token)\b/.test(match[1]) && isUnredacted(match[2])) {
+        ranges.push([match.index, match.index + match[0].length]);
+      }
+    }
+  }
+  for (const match of text.matchAll(COOKIE_RE)) {
+    if (isUnredacted(match[2])) ranges.push([match.index, match.index + match[0].length]);
   }
   if (literals) {
     for (const match of text.matchAll(literals)) ranges.push([match.index, match.index + match[0].length]);
