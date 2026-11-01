@@ -20,9 +20,10 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-30 the highest is `352`, allocated by the
-Leader to PC-J201, so by that rule the next new migration is `353`. Ask the
-Leader before taking it; 348–351 are reserved for other work and must not be
+sequence is dense. As of 2026-10-31 the highest is `360`, allocated by the
+Leader to PC-J192 (INSTRUCTORGIVE-0044), so by that rule the next new
+migration is `361`. Ask the Leader before taking it; 348–351 are reserved for other
+work, and 353–359 without a file here may be held by open PRs: none may be
 reused.
 The runner applies any unapplied file regardless of order.
 Numbers 321–326 belong to 321 WRITINGRATE-0025, 322 AIOPS-0024 (#1837), 323
@@ -56,6 +57,26 @@ or column privilege (a grant from another grantor survives the REVOKE), or if
 staging first under the advisory lock, production only at an authorised
 promotion. One transaction, no data change, re-runnable; the emergency-only
 rollback (the old SELECT grant) is in the file header.
+
+Migration `360` (PC-J192, INSTRUCTORGIVE-0044, number allocated by the
+Leader on 2026-10-31) makes the two `/instructor` Writing gives idempotent. It
+adds the ledger `instructor_writing_assignment_requests` (PK = client
+`request_id`, `assigned_by` ON DELETE CASCADE, `give_kind`, payload, receipt)
+and the SECURITY DEFINER RPC `fn_create_instructor_writing_give_idempotent`,
+which in one transaction records the request, replays a completed receipt for
+the same owner and body, refuses another body or another owner, re-checks
+prompt/class/learner ownership, locks the active roster `FOR SHARE` (as 228)
+and inserts with `grading_tier`. It is deliberately separate from
+`writing_assignment_requests`: a receipt there marks admin-tool gives for W-05,
+so an admin teaching from `/instructor` keeps the instructor tier; 206/228 are
+not touched. RLS is on with no policy; clients have no table or EXECUTE
+privilege and `service_role` keeps SELECT plus EXECUTE only; the postcondition
+checks this. One additive transaction, re-runnable, no existing data change.
+Group `instructor_give_idempotency` in `forward-policy.tsv`: merging does not
+apply it; staging first under the advisory lock with
+`MIGRATION_FEATURES=instructor_give_idempotency` BEFORE the 0044 backend (the
+new backend's give routes answer 500 without the RPC), production only at an
+authorised promotion. Rollback SQL is in the header (pre-0044 backend first).
 
 Migration `352` (PC-J201, ADMINAAL2-0032 FR-010/FR-011, SA #1936 P3 c–f)
 adds the private `staff_mfa_status_throttle` table for shared admission to the
@@ -293,8 +314,8 @@ changes its role. `PATCH /admin/users/{id}/role` maps the error to a 409 with a
 Vietnamese message. It sorts after 332's suspension guard, so activation still
 fails with `account_suspended`. It aborts with
 `suspended_non_staff_account_exists` while a suspended row holds a non-staff
-role (repair that out of band first). It is held back with 332 (group
-`admin_aal2`) and applied after it, on staging first. One transaction, no data
+role (repair that out of band first). It shipped with 332 (former group
+`admin_aal2`) and was applied after it, on staging first. One transaction, no data
 change, re-runnable; the rollback is in the file header.
 
 Migration `334` (ACTIVATELIMIT-0034, F09) moves the `POST /auth/activate`
@@ -374,11 +395,15 @@ while saved work waits for grading or a raise is active, and keeps the raise
 events. It misses an owed class-score sync (PC-J67 F03), so roll back 333
 only with ROLLBACK (b) in the 340 header, never with the 333 header script.
 
-Migration `332` (ADMINAAL2-0032) adds the staff security audit. It is held
-back by `forward-policy.tsv` (group `admin_aal2`), so apply it only with
-`MIGRATION_FEATURES=admin_aal2` through the advisory-locked runner, on staging
+Migration `332` (ADMINAAL2-0032) adds the staff security audit. It was held
+back by `forward-policy.tsv` (group `admin_aal2`) and applied with
+`MIGRATION_FEATURES=admin_aal2` through the advisory-locked runner, staging
 first (`specs/0032-admin-aal2-staff-guard/rollout.md` S1/S2), before the 0032
-backend. It adds:
+backend. Production applied 332 and 336 on 2026-10-29 (04:53Z, ledger confirmed
+read-only by the Release Manager), so both are now normal forward migrations
+with no policy row (PC-J354). The `admin_aal2` group no longer holds 332 or
+336; it is kept only for later work in the same spec, such as 341. It
+adds:
 
 - the `public.users` suspension marker (`suspended_at`, `suspended_by`,
   `suspension_reason`, set and cleared together and never on an active row);

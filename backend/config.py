@@ -1,8 +1,42 @@
+import logging
 from functools import lru_cache
 import ipaddress
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
+
+# Shortest TRUSTED_PROXY_CIDRS prefix length accepted per IP version (PC-J227).
+_MIN_TRUSTED_PREFIX = {4: 8, 6: 32}
+# PC-J368 (P3-SA-1): every TRUSTED_PROXY_CIDRS entry must sit inside one of
+# these internal ranges. Explicit list, not is_global: Python 3.11 reports
+# Teredo 2001::/32 as non-global.
+_INTERNAL_PROXY_RANGES = tuple(ipaddress.ip_network(cidr) for cidr in (
+    "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",  # RFC 1918
+    "100.64.0.0/10",  # CGNAT (RFC 6598)
+    "127.0.0.0/8", "169.254.0.0/16",  # loopback, link-local
+    "fc00::/7", "fe80::/10", "::1/128",  # ULA, link-local, loopback
+))
+# Hops are unwrapped to IPv4 before matching, so a mapped CIDR never matches.
+_IPV4_MAPPED = ipaddress.ip_network("::ffff:0:0/96")
+
+logger = logging.getLogger(__name__)
+
+
+def _bounded_int_or_default(name: str, value, low: int, high: int, default: int) -> int:
+    """ADMINAAL2-0032 Amendment 1: a whole number in [low, high]; anything
+    else (text, a fraction, a bool, out of range) is the safe default plus
+    one error log at startup. Unset or blank is the default without a log."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return default
+    parsed = None
+    if isinstance(value, int) and not isinstance(value, bool):
+        parsed = value
+    elif isinstance(value, str) and value.strip().isascii() and value.strip().isdigit():
+        parsed = int(value.strip())
+    if parsed is None or not low <= parsed <= high:
+        logger.error("[config] %s=%r is not a whole number in %d–%d; using %d", name, value, low, high, default)
+        return default
+    return parsed
 
 
 class Settings(BaseSettings):
@@ -25,11 +59,43 @@ class Settings(BaseSettings):
     @field_validator("TRUSTED_PROXY_CIDRS")
     @classmethod
     def validate_trusted_proxy_cidrs(cls, value: str) -> str:
+        # PC-J227 (SA-J202-1): a too-short prefix trusts caller-controlled
+        # hops, so the key falls back to a spoofable X-Real-IP. Fail startup.
         value = value.strip()
         if value:
             for cidr in value.split(","):
-                ipaddress.ip_network(cidr.strip())
+                cidr = cidr.strip()
+                network = ipaddress.ip_network(cidr)
+                if network.version == 6 and network.subnet_of(_IPV4_MAPPED):
+                    raise ValueError(
+                        f"TRUSTED_PROXY_CIDRS: {cidr[:64]} là CIDR IPv4-mapped "
+                        "(::ffff:0:0/96), không bao giờ khớp vì hop đã unwrap về IPv4; "
+                        "ghi dải IPv4 tương ứng, xem docs/CLIENT_IP_TRUST.md"
+                    )
+                if network.prefixlen < _MIN_TRUSTED_PREFIX[network.version]:
+                    raise ValueError(
+                        f"TRUSTED_PROXY_CIDRS: {cidr[:64]} quá rộng (IPv4 tối thiểu /8, "
+                        "IPv6 tối thiểu /32); chỉ ghi dải proxy nội bộ đã đo, "
+                        "xem docs/CLIENT_IP_TRUST.md"
+                    )
+                if not any(network.version == internal.version
+                           and network.subnet_of(internal)
+                           for internal in _INTERNAL_PROXY_RANGES):
+                    raise ValueError(
+                        f"TRUSTED_PROXY_CIDRS: {cidr[:64]} không nằm trong dải nội bộ "
+                        "(10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, "
+                        "127.0.0.0/8, 169.254.0.0/16, fc00::/7, fe80::/10, ::1); "
+                        "dải công khai không được tin, xem docs/CLIENT_IP_TRUST.md"
+                    )
         return value
+
+    def __setattr__(self, name, value):
+        # PC-J368 (P3-SA-3): a runtime assignment runs the same validator as
+        # startup. Scoped to this field; other settings keep plain assignment.
+        if name == "TRUSTED_PROXY_CIDRS":
+            self.__pydantic_validator__.validate_assignment(self, name, value)
+            return
+        super().__setattr__(name, value)
 
     # Signed backend → Next cache invalidation. The admin vocabulary routes
     # mutate runtime DB content while Next caches public reads. Configure both
@@ -67,6 +133,20 @@ class Settings(BaseSettings):
     # (spec FR-017, rollout.md). Standard boolean parsing: an unparseable
     # value fails startup instead of choosing a mode. Runbook value: `false`.
     ADMIN_AAL2_ENFORCE: bool = False
+    # ADMINAAL2-0032 Amendment 1. AAL2 counts for admin rights only while the
+    # token's amr totp entry is at most this many hours old (FR-012); refresh
+    # does not renew it. Whole hours 1–12; anything else → 12 plus one startup
+    # error log.
+    ADMIN_AAL2_MAX_AGE_HOURS: int = 12
+    # Step-up (FR-020): role change, suspend/reactivate and session revocation
+    # need a TOTP entered within this many minutes. Whole minutes 1–15;
+    # anything else → 15 plus one startup error log.
+    ADMIN_STEP_UP_MINUTES: int = 15
+    # False = report-only: behaviour unchanged plus one
+    # `admin_step_up_would_block` warning per request. True = 403
+    # `step_up_required`. Only true/false (any case); any other value → false
+    # plus one startup error log. Enabling it is a separate, approved switch.
+    ADMIN_STEP_UP_ENFORCE: bool = False
     # Private outcome-evidence foundation. Requires migration 240 and explicit
     # rollout/coverage verification; never enabled implicitly by a code deploy.
     CORE_ATTEMPT_EVIDENCE_ENABLED: bool = False
@@ -427,6 +507,29 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
+
+    @field_validator("ADMIN_AAL2_MAX_AGE_HOURS", mode="before")
+    @classmethod
+    def _strict_aal2_max_age_hours(cls, value):
+        return _bounded_int_or_default("ADMIN_AAL2_MAX_AGE_HOURS", value, 1, 12, 12)
+
+    @field_validator("ADMIN_STEP_UP_MINUTES", mode="before")
+    @classmethod
+    def _strict_step_up_minutes(cls, value):
+        return _bounded_int_or_default("ADMIN_STEP_UP_MINUTES", value, 1, 15, 15)
+
+    @field_validator("ADMIN_STEP_UP_ENFORCE", mode="before")
+    @classmethod
+    def _strict_step_up_enforce(cls, value):
+        if isinstance(value, bool):
+            return value
+        text = value.strip().lower() if isinstance(value, str) else None
+        if text == "true":
+            return True
+        if text in ("false", ""):
+            return False
+        logger.error("[config] ADMIN_STEP_UP_ENFORCE=%r is not true/false; using false", value)
+        return False
 
     @property
     def ASYNC_DATABASE_URL(self) -> str:

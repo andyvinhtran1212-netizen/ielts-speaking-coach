@@ -14,6 +14,8 @@
 | FR-008 | kind=test; ref=backend/tests/test_migration_320_client_write_lockdown.py (applied twice; postcondition rejects a client-executable definer, and a client-writable existing relation even when another owner's default ACL only warns) | PENDING |
 | FR-009 | kind=test; ref=backend/tests/test_migration_320_client_write_lockdown.py (definer triggers not callable by clients and still fire for authenticated and service_role) | PENDING |
 | FR-010 | kind=test; ref=backend/tests/test_speaking_entitlement_guard.py (guard decisions; generate/custom/cue-card/grading/pronunciation wiring) | PENDING |
+| FR-011 | kind=test; ref=backend/tests/test_migration_351_dashboard_rpcs_client_revoke.py (PG16/17: client EXECUTE denied with 42501 on the four functions after 351, service_role still returns data, exact ACL, applied twice, other-grantor grant aborts, rollback round trip); command=git grep -n fn_dashboard -- frontend returns 0 lines (no client caller); staging catalog query from the 351 header after the Leader/RM apply pending | PENDING |
+| FR-012 | kind=test; ref=backend/tests/test_migration_349_rls_zero_policy_client_revoke.py (PG16/17: no PUBLIC/anon/authenticated table or column privilege on any listed table, broad USING (true) policy denied with 42501, service_role privileges unchanged, applied twice, other-grantor grant aborts, missing table aborts, rollback round trip); query=global catalog check (RLS enabled, 0 policies, any client privilege) returns 0 rows after 347 and 349 on staging, pending | PENDING |
 
 ## Contract evidence
 

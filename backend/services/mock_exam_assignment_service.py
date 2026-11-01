@@ -16,6 +16,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from database import supabase_admin
+from services.errors import clip_user_value, clip_user_values
 
 logger = logging.getLogger(__name__)
 
@@ -106,10 +107,11 @@ def _assert_servable(exam_id, merged: dict) -> None:
                 wanted.setdefault(s, []).append(uid)
     if not wanted:
         return
-    detail = "; ".join(
-        f"{_SKILL_LABEL.get(s, s)} ({len(uids)} học viên)"
+    # PC-J225: an unknown skill key is client input — clip it, list at most 10.
+    detail = "; ".join(clip_user_values((
+        f"{_SKILL_LABEL.get(s) or clip_user_value(s)} ({len(uids)} học viên)"
         for s, uids in wanted.items()
-    )
+    ), limit=120))
     raise UnservableSkillError(
         f"Đề test lại {exam.get('code') or exam_id!r} chưa có nội dung cho: {detail}. "
         "Gắn đề cho kĩ năng đó rồi gán lại, hoặc bỏ tick kĩ năng đó — nếu gán "
@@ -127,7 +129,9 @@ def _parse_ts(value):
     try:
         return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     except ValueError as exc:
-        raise InvalidWindowError(f"Thời điểm không hợp lệ: {value!r}") from exc
+        raise InvalidWindowError(
+            f"Thời điểm không hợp lệ: {clip_user_value(value)!r}"
+        ) from exc
 
 
 def _validate_window(open_from, open_until) -> None:
@@ -232,7 +236,17 @@ def assign(exam_id, rows, *, created_by, source_exam_id=None) -> dict:
             supabase_admin.table("mock_exam_assignments").update(payload).eq(
                 "id", existing[uid]).execute()
         else:
-            supabase_admin.table("mock_exam_assignments").insert(payload).execute()
+            try:
+                supabase_admin.table("mock_exam_assignments").insert(payload).execute()
+            except Exception as exc:
+                msg = str(exc).lower()
+                if "23505" not in msg and "duplicate key" not in msg:
+                    raise
+                # A concurrent assign inserted after our snapshot; refresh it
+                # just like an assignment that existed before this request.
+                if not supabase_admin.table("mock_exam_assignments").update(payload).eq(
+                        "exam_id", str(exam_id)).eq("user_id", uid).execute().data:
+                    raise  # the conflicting row is gone: nothing was assigned
         assigned.append(uid)
 
         # D2 — carry the edit onto a sitting the student ALREADY opened.

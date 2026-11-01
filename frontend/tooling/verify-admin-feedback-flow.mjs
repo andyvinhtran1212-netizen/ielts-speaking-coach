@@ -3,6 +3,7 @@
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
+import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const NEXT_ONLY = process.argv.includes('--next-only');
@@ -61,6 +62,7 @@ await page.route('**/*', async (route) => {
   }
   return json({});
 });
+await stubAdminMfaStatus(page);
 
 await page.goto(`${BASE}/admin/feedback`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Phản hồi người học', exact: true }).waitFor({ state: 'visible' });

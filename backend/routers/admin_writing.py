@@ -19,7 +19,7 @@ import logging
 
 from fastapi import APIRouter, BackgroundTasks, File, Header, HTTPException, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from database import supabase_admin
 from models.admin_writing_queue import AdminWritingQueuePageOut, AdminWritingQueueRowOut
@@ -28,6 +28,7 @@ from routers.admin import require_admin
 from services import essay_service, instructor_workflow, writing_assignment_status_sync
 from services.core_attempt_outcomes import observe_writing_batch
 from services.core_writing_observation import note_writing_mutation, observe_writing_partial_failure
+from services.errors import clip_user_value, validation_error_details
 from services.file_extract_service import (
     MAX_EXTRACTED_CHARS,
     FileExtractError,
@@ -221,7 +222,8 @@ def _revoke_essay(essay_id: str) -> dict:
             .execute()
         )
     except Exception as exc:
-        raise HTTPException(500, f"Database update failed: {exc}")
+        _logger.error("[admin-writing] revoke failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Không cập nhật được dữ liệu bài viết. Vui lòng thử lại.") from None
     if not r.data:
         return {"essay_id": essay_id, "ok": False, "status": None, "reason": "not_found"}
 
@@ -464,6 +466,9 @@ async def grade_ratings_summary(authorization: str | None = Header(None)):
 
 # ── Endpoints (W3 — still placeholders) ───────────────────────────────
 
+_EDITS_INVALID_MESSAGE = "Edits không đúng schema"
+
+
 @router.patch("/essays/{essay_id}/feedback")
 @observe_writing_partial_failure
 async def update_feedback(
@@ -485,10 +490,19 @@ async def update_feedback(
     """
     admin = await require_admin(authorization)
 
+    # PC-J225: str(ValidationError) quotes the rejected input and the pydantic
+    # version — return only {loc, msg, type} per error, like the global 422.
     try:
         validated = WritingFeedback(**edits)
-    except Exception as exc:
-        raise HTTPException(422, f"Edits fail schema: {exc}")
+    except ValidationError as exc:
+        raise HTTPException(422, detail={
+            "error_code": "edits_invalid", "message": _EDITS_INVALID_MESSAGE,
+            "errors": validation_error_details(exc),
+        })
+    except Exception:  # noqa: BLE001 — e.g. TypeError on an unusable key
+        raise HTTPException(422, detail={
+            "error_code": "edits_invalid", "message": _EDITS_INVALID_MESSAGE,
+        })
 
     current_status = _fetch_status_or_404(str(essay_id))
     if current_status not in ("graded", "reviewed"):
@@ -539,7 +553,8 @@ async def update_feedback(
             .execute()
         )
     except Exception as exc:
-        raise HTTPException(500, f"Database update failed: {exc}")
+        _logger.error("[admin-writing] feedback update failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Không cập nhật được dữ liệu bài viết. Vui lòng thử lại.") from None
 
     if not r.data:
         raise HTTPException(404, "Essay not found")
@@ -584,7 +599,7 @@ async def mark_delivered(
     if body.method not in _ALLOWED_DELIVERY_METHODS:
         raise HTTPException(
             400,
-            f"Invalid delivery method: {body.method!r}. "
+            f"Invalid delivery method: {clip_user_value(body.method)!r}. "
             f"Allowed: {sorted(_ALLOWED_DELIVERY_METHODS)}",
         )
 
@@ -661,7 +676,7 @@ async def bulk_mark_delivered(
     if body.method not in _ALLOWED_DELIVERY_METHODS:
         raise HTTPException(
             400,
-            f"Invalid delivery method: {body.method!r}. "
+            f"Invalid delivery method: {clip_user_value(body.method)!r}. "
             f"Allowed: {sorted(_ALLOWED_DELIVERY_METHODS)}",
         )
 
@@ -947,7 +962,8 @@ async def update_instructor_note(
             .execute()
         )
     except Exception as exc:
-        raise HTTPException(500, f"Database update failed: {exc}")
+        _logger.error("[admin-writing] instructor note update failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Không cập nhật được dữ liệu bài viết. Vui lòng thử lại.") from None
 
     if not r.data:
         raise HTTPException(404, "Essay not found")
@@ -1081,7 +1097,8 @@ async def trigger_regrade(
             .execute()
         )
     except Exception as exc:
-        raise HTTPException(500, f"Database update failed: {exc}")
+        _logger.error("[admin-writing] regrade update failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Không cập nhật được dữ liệu bài viết. Vui lòng thử lại.") from None
 
     # Reuse the SAGA leg from Sprint 2.7.1: schedule_grading_job inserts
     # the writing_jobs row and returns the job id; the router adds the

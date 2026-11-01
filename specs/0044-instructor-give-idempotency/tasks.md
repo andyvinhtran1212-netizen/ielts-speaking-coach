@@ -1,0 +1,10 @@
+# Tasks
+
+- [ ] T001 Approve INSTRUCTORGIVE-0044 (decisions D1–D6) and confirm spec number 0044; migration 360 is allocated. `owns: specs/0044-instructor-give-idempotency/*, specs/README.md`
+- [ ] T002 Migration 360, README note and forward-policy row. `owns: backend/migrations/360_instructor_writing_give_idempotency.sql, backend/migrations/README.md, backend/migrations/forward-policy.tsv` `depends: T001`
+- [ ] T003 Backend: `instructor_give_service`, required `request_id` on both /instructor give routes, fan-out roster pre-check without write. `owns: backend/services/instructor_give_service.py, backend/routers/instructor.py, backend/services/instructor_access.py, backend/services/cohort_assignment_service.py` `depends: T001`
+- [ ] T004 Static, PostgreSQL and two-session tests for 360; invariant chain shape. `owns: backend/tests/test_migration_360_instructor_give_idempotency.py, backend/tests/test_client_write_invariant_postgres.py` `depends: T002`
+- [ ] T005 Route tests and updates of existing give tests to the required `request_id`. `owns: backend/tests/test_instructor_give_idempotency.py, backend/tests/instructor_give_fake.py, backend/tests/test_instructor_routes_isolation.py, backend/tests/test_instructor_fanout_bounds.py, backend/tests/test_writing_give_archived_race.py, backend/tests/test_deadline_timezone.py, backend/tests/test_admin_students_archive.py` `depends: T003`
+- [ ] T006 Frontend: one `request_id` per give intent; React, source and browser-verifier tests; regenerate `api.d.ts`. `owns: frontend/app/(authed-instructor)/instructor/instructor-dashboard.tsx, frontend/tests/react/instructor-dashboard-double-submit.test.tsx, frontend/tests/instructor-dashboard-next.test.mjs, frontend/tooling/verify-instructor-dashboard-flow.mjs, frontend/types/api.d.ts` `depends: T003`
+- [ ] T007 Staging: apply 360 under the advisory lock with `MIGRATION_FEATURES=instructor_give_idempotency`, deploy the merged SHA, run S1–S4 (`rollout.md`); AT retest. `depends: T002, T003, T004, T005, T006`
+- [ ] T008 Production, only with Vinh's authorization at a staging → main promotion: apply 360 before the backend, then P1–P2 read-only. `depends: T007`

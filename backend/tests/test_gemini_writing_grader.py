@@ -836,6 +836,289 @@ async def test_gemini_text_accessor_error_preserves_billed_usage(
         assert rows[1].get("thinking_tokens") is None
 
 
+# ── PC-J218: a billed call without a price flags the total, never estimates ──
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cancel_attempt", [1, 2], ids=["initial", "repair"])
+async def test_claude_cancelled_mid_flight_records_attempt_and_reraises(
+    writing_providers, cancel_attempt,
+):
+    """PC-J459: caller cancellation survives both Claude await branches."""
+    import asyncio
+    from contextlib import suppress
+
+    from models.writing_feedback import WritingFeedback
+
+    state = writing_providers
+    in_flight = asyncio.Event()
+
+    async def hang():
+        in_flight.set()
+        await asyncio.Event().wait()
+
+    # A grounding rejection is repairable; an API error would fall back instead.
+    state.claude = [UNGROUNDED_CLAUDE] * (cancel_attempt - 1) + [hang]
+    config = _grounded_config()
+    attempts = []
+    task = asyncio.create_task(state.grader._try_claude(
+        "writing_grading", system_prompt="Grade the essay", user_prompt=config.essay_text,
+        image=None, parse_schema=WritingFeedback,
+        usage_context=state.grader._usage_context(config, "pass1"),
+        source_essay=config.essay_text, source_task_type=config.task_type,
+        source_prompt=config.prompt_text, attempt_log=attempts,
+    ))
+    try:
+        await asyncio.wait_for(in_flight.wait(), timeout=5)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    finally:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+
+    assert task.cancelled()
+    assert len(state.claude_requests) == len(attempts) == cancel_attempt
+    assert state.gemini_calls == []
+    assert [(a["provider"], a["model"], a["status"], a["error_code"], a["served"])
+            for a in attempts] == [
+        ("anthropic", "claude-sonnet-5-5", "invalid_response", "ungrounded_feedback", False),
+    ] * (cancel_attempt - 1) + [
+        ("anthropic", "claude-sonnet-5-5", "cancelled", "cancelled", False),
+    ]
+    cancelled = attempts[-1]
+    assert (cancelled["input_tokens"], cancelled["output_tokens"], cancelled["cost_usd"]) == (
+        None, None, None)
+    claude_rows = [r for r in state.rows if r["service"] == "claude"]
+    assert len(claude_rows) == cancel_attempt
+    assert (claude_rows[-1]["status"], claude_rows[-1]["error_code"],
+            claude_rows[-1]["usage_event_id"]) == (
+        "cancelled", "cancelled", f"writing:test:pass1:anthropic:{cancel_attempt}")
+
+
+@pytest.mark.asyncio
+async def test_deep_claude_repair_timeout_flags_pass_and_run_cost_incomplete(
+    writing_providers, monkeypatch,
+):
+    """PC-J459: the real repair wait_for cancels Claude; Gemini serves Deep.
+
+    Deep passes 2/3 use Gemini only. Expiring the outer pass-1 deadline raises
+    without a result, so use the Claude repair deadline inside pass 1 here.
+    """
+    import asyncio
+    from types import SimpleNamespace
+
+    from models.writing_feedback import GradingTier
+    from services import gemini_writing_grader as gwg
+
+    state = writing_providers
+    in_flight = asyncio.Event()
+
+    async def hang():
+        in_flight.set()
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(gwg, "CLAUDE_REPAIR_MIN_S", 0.0)
+    monkeypatch.setattr(gwg, "CLAUDE_TOTAL_BUDGET_S", 1.0)
+    state.claude = [UNGROUNDED_CLAUDE, hang]
+    state.gemini = [GOOD_CLAUDE, '{"rationale": "No changes needed"}',
+                    '{"sentence_rewrites": []}']
+
+    def generate(contents, **_kw):
+        state.gemini_calls.append(contents)
+        return SimpleNamespace(
+            candidates=[SimpleNamespace(finish_reason=SimpleNamespace(name="STOP"))],
+            text=state.gemini[len(state.gemini_calls) - 1],
+            usage_metadata=SimpleNamespace(prompt_token_count=100, candidates_token_count=100,
+                                           thoughts_token_count=0, total_token_count=200),
+        )
+
+    gwg.genai.GenerativeModel.return_value.generate_content = generate
+    config = _grounded_config()
+    config.grading_tier = GradingTier.DEEP
+    result = await asyncio.wait_for(state.grader.grade_essay(config), timeout=10)
+
+    assert in_flight.is_set() and len(state.claude_requests) == 2
+    assert len(state.gemini_calls) == 3
+    assert result.grading_tier == GradingTier.DEEP
+    assert result.prompt_version.endswith("-deep")
+    assert "degraded_at" not in result.tier_metadata
+    assert result.cost_incomplete is True and result.unpriced_models == []
+    assert result.tier_metadata["pass1"]["cost_incomplete"] is True
+    for pass_name in ("pass2", "pass3"):
+        assert "cost_incomplete" not in result.tier_metadata[pass_name]
+    assert [(a["provider"], a["pass"], a["status"], a["error_code"])
+            for a in result.grading_attempts] == [
+        ("anthropic", "pass1", "invalid_response", "ungrounded_feedback"),
+        ("anthropic", "pass1", "error", "timeout"),
+        ("google", "pass1", "success", None),
+        ("google", "pass2", "success", None),
+        ("google", "pass3", "success", None),
+    ]
+    timed_out = result.grading_attempts[1]
+    assert timed_out["model"] == "claude-sonnet-5-5" and timed_out["served"] is False
+    assert (timed_out["input_tokens"], timed_out["output_tokens"], timed_out["cost_usd"]) == (
+        None, None, None)
+    assert result.cost_usd == pytest.approx(sum(
+        a["cost_usd"] for a in result.grading_attempts if a["cost_usd"] is not None))
+    claude_rows = [r for r in state.rows if r["service"] == "claude"]
+    assert [(r["status"], r["error_code"], r["usage_event_id"]) for r in claude_rows] == [
+        ("invalid_response", "ungrounded_feedback", "writing:test:pass1:anthropic:1"),
+        ("cancelled", "cancelled", "writing:test:pass1:anthropic:2"),
+    ]
+
+
+def _claude_reply_without_usage(text: str, *, omit_usage: bool = False):
+    from types import SimpleNamespace
+
+    async def reply():
+        response = SimpleNamespace(
+            content=[SimpleNamespace(type="text", text=text)], stop_reason="end_turn",
+        )
+        if not omit_usage:
+            response.usage = None
+        return response
+    return reply
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("omit_usage", [False, True], ids=["none", "absent"])
+async def test_claude_served_without_usage_flags_incomplete(
+    writing_providers, caplog, omit_usage,
+):
+    import logging
+
+    state = writing_providers
+    state.claude = [_claude_reply_without_usage(GOOD_CLAUDE, omit_usage=omit_usage)]
+    with caplog.at_level(logging.WARNING):
+        result = await state.grader.grade_essay(_grounded_config())
+
+    assert result.model_used == "claude-sonnet-5-5"
+    assert state.gemini_calls == []
+    assert result.cost_incomplete is True and result.unpriced_models == []
+    assert result.cost_usd is None
+    assert (result.tokens_input, result.tokens_output) == (None, None)
+    [served] = result.grading_attempts
+    assert (served["status"], served["served"]) == ("success", True)
+    assert (served["cost_usd"], served["input_tokens"], served["output_tokens"]) == (None, None, None)
+    warnings = [r.getMessage() for r in caplog.records
+                if r.getMessage().startswith("writing_cost_incomplete")]
+    assert warnings == ["writing_cost_incomplete model=claude-sonnet-5-5 reason=missing_usage pass=pass1"]
+    assert "dedicated bus lanes" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_claude_rejected_without_usage_keeps_only_known_cost(writing_providers, caplog):
+    import logging
+
+    state = writing_providers
+    state.claude = [_claude_reply_without_usage(UNGROUNDED_CLAUDE),
+                    _claude_reply(GOOD_CLAUDE, 700, 6000)]
+    with caplog.at_level(logging.WARNING):
+        result = await state.grader.grade_essay(_grounded_config())
+
+    assert result.cost_usd == pytest.approx(_sonnet_cost(700, 6000))
+    assert result.cost_incomplete is True and result.unpriced_models == []
+    first, second = result.grading_attempts
+    assert (first["status"], first["error_code"], first["served"]) == (
+        "invalid_response", "ungrounded_feedback", False)
+    assert (first["cost_usd"], first["input_tokens"], first["output_tokens"]) == (None, None, None)
+    assert state.grader._cost_gap_reason(first) == "missing_usage"
+    assert second["served"] is True and state.grader._cost_gap_reason(second) is None
+    warnings = [r.getMessage() for r in caplog.records
+                if r.getMessage().startswith("writing_cost_incomplete")]
+    assert warnings == ["writing_cost_incomplete model=claude-sonnet-5-5 reason=missing_usage pass=pass1"]
+    assert "dedicated bus lanes" not in caplog.text and "subsidies" not in caplog.text
+
+
+@pytest.mark.parametrize("status", ["success", "invalid_response"])
+def test_claude_zero_usage_is_missing_usage(grader, status):
+    attempt = grader._claude_attempt_record("claude-sonnet-5-5", {
+        "input_tokens": 0, "output_tokens": 0,
+        "cache_read_tokens": 0, "cache_write_tokens": 0,
+    }, status)
+    assert (attempt["cost_usd"], attempt["input_tokens"], attempt["output_tokens"]) == (None, None, None)
+    assert grader._cost_gap_reason(attempt) == "missing_usage"
+
+
+def test_claude_unbilled_error_without_usage_is_not_a_cost_gap(grader):
+    attempt = grader._claude_attempt_record("claude-sonnet-5-5", None, "error",
+                                           error_code="network")
+    assert attempt["cost_usd"] is None
+    assert grader._cost_gap_reason(attempt) is None
+
+
+@pytest.mark.asyncio
+async def test_unpriced_served_model_keeps_priced_calls_and_flags_incomplete(
+    writing_providers, monkeypatch, caplog,
+):
+    import logging
+    from types import SimpleNamespace
+
+    from services import gemini_writing_grader as gwg
+
+    state = writing_providers
+    # Rejected Claude call: 500 in / 100 out on sonnet = $0.002, not repaired.
+    state.claude = [_claude_reply('{"overallBandScore": 6.5 "truncated', 500, 100)]
+    real_estimate = gwg.estimate_token_cost
+    monkeypatch.setattr(gwg, "estimate_token_cost",
+                        lambda provider, model, **kw: (None, None) if provider == "google"
+                        else real_estimate(provider, model, **kw))
+
+    def generate(contents, **_kw):
+        state.gemini_calls.append(contents)
+        return SimpleNamespace(
+            candidates=[SimpleNamespace(finish_reason=SimpleNamespace(name="STOP"))],
+            text=GOOD_CLAUDE,
+            usage_metadata=SimpleNamespace(prompt_token_count=700, candidates_token_count=6000,
+                                           thoughts_token_count=0, total_token_count=6700),
+        )
+
+    gwg.genai.GenerativeModel.return_value.generate_content = generate
+    with caplog.at_level(logging.WARNING, logger=gwg.logger.name):
+        result = await state.grader.grade_essay(_grounded_config())
+
+    assert result.model_used == "gemini-3.8-flash"
+    assert result.cost_usd == pytest.approx(0.002)
+    assert result.cost_incomplete is True
+    assert result.unpriced_models == ["gemini-3.8-flash"]
+    served = result.grading_attempts[-1]
+    assert served["served"] is True and served["cost_usd"] is None
+    assert (served["input_tokens"], served["output_tokens"]) == (700, 6000)
+    warnings = [r.getMessage() for r in caplog.records
+                if r.getMessage().startswith("writing_cost_incomplete")]
+    assert warnings == ["writing_cost_incomplete model=gemini-3.8-flash reason=unpriced pass=pass1"]
+    assert "dedicated bus lanes" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_fully_priced_run_is_not_flagged(writing_providers):
+    state = writing_providers
+    state.claude = [_claude_reply(UNGROUNDED_CLAUDE, 900, 9000),
+                    _claude_reply(GOOD_CLAUDE, 700, 6000)]
+    result = await state.grader.grade_essay(_grounded_config())
+
+    assert result.cost_usd == pytest.approx(_sonnet_cost(900, 9000) + _sonnet_cost(700, 6000))
+    assert result.cost_incomplete is False and result.unpriced_models == []
+
+
+def test_run_cost_without_a_priced_call_returns_the_served_cost(grader):
+    unpriced = grader._attempt_record("google", "gemini-x", "success",
+                                      usage={"input_tokens": 10, "output_tokens": 10})
+    assert grader._run_cost(0.5, []) == 0.5
+    assert grader._run_cost(None, [unpriced]) is None
+    assert grader._cost_gaps([unpriced]) == ["gemini-x"]
+
+
+def test_unbilled_api_error_is_not_a_cost_gap(grader):
+    error = grader._attempt_record("google", "gemini-x", "error", error_code="RuntimeError")
+    priced = grader._attempt_record("google", "gemini-x", "success", cost_usd=0.01,
+                                    usage={"input_tokens": 10, "output_tokens": 10})
+    assert grader._cost_gaps([error, priced]) is None
+    timed_out = grader._attempt_record("anthropic", "claude-x", "error", error_code="timeout")
+    assert grader._cost_gaps([timed_out, priced]) == []
+
+
 # ── AIOPS-0024 FR-007: failure-log outcomes around the grounding repair ──
 
 
