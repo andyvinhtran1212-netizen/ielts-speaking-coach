@@ -101,8 +101,9 @@ ALLOWED: dict[tuple[str, str, str], tuple[int, str]] = {
     ("routers/sessions.py", "_resolve_full_test_attempt_id", "body.part; body.part - 1"): (1, TYPED_INT),
     ("routers/sessions.py", "create_session", "str(e)"): (2, "class-item gate errors are constants or name server-side task fields"),
     ("routers/vocab_units.py", "admin_set_vocab_pilot_cohort", "str(exc)"): (1, "constant message"),
-    ("routers/vocab_units.py", "open_my_vocab_recommendation", "str(exc)"): (1, "constant message"),
-    ("routers/vocab_units.py", "resolve_my_vocab_context_links", "str(exc)"): (1, "constant message (limit constant)"),
+    # Both sites now sit in the threaded load_for_learner closures of
+    # open_my_vocab_recommendation and resolve_my_vocab_context_links.
+    ("routers/vocab_units.py", "load_for_learner", "str(exc)"): (2, "constant messages (one names a limit constant)"),
     ("routers/writing_student.py", "extract_essay_text", "str(exc)"): (1, "FileExtractError messages are constants (docx failure names only the exception class)"),
 }
 
