@@ -222,10 +222,8 @@ DECLARE
     missing TEXT;
     leaks TEXT;
 BEGIN
-    CREATE TEMP TABLE pg_temp.clone_acl_invariant(
-        kind TEXT, object TEXT, roles TEXT, privileges TEXT, migrations TEXT, exempt TEXT
-    ) ON COMMIT DROP;
-    INSERT INTO pg_temp.clone_acl_invariant VALUES
+    -- One statement without DDL, so the block also runs in BEGIN READ ONLY.
+    WITH invariant(kind, object, roles, privileges, migrations, exempt) AS (VALUES
         ('function', 'public.append_paste_event(uuid,uuid,jsonb)', 'public anon authenticated', 'EXECUTE', '108', NULL),
         ('function', 'public.is_current_user_admin()', 'public anon authenticated', 'EXECUTE', '108', NULL),
         ('function', 'public.is_current_user_instructor()', 'public anon authenticated', 'EXECUTE', '108', NULL),
@@ -425,62 +423,63 @@ BEGIN
         ('relation', 'public.activation_attempts', 'service_role', 'INSERT UPDATE DELETE TRUNCATE REFERENCES TRIGGER', '334', NULL),
         ('function', 'public.fn_activate_attempt_check(uuid)', 'public anon authenticated', 'EXECUTE', '334', NULL),
         ('schema', 'app_private', 'public anon', 'USAGE CREATE', '335', NULL),
-        ('function', 'app_private.is_current_user_active()', 'public anon', 'EXECUTE', '335', NULL);
-
-    CREATE TEMP TABLE pg_temp.clone_acl_target ON COMMIT DROP AS
-    SELECT i.*, o.oid, o.label, o.objtype, o.acl
-      FROM pg_temp.clone_acl_invariant i
-      LEFT JOIN LATERAL (
-          SELECT c.oid, c.oid::regclass::text, 'r'::"char",
-                 COALESCE(c.relacl, acldefault('r', c.relowner))
-            FROM pg_class c
-           WHERE i.kind = 'relation' AND c.oid = to_regclass(i.object)
-          UNION ALL
-          SELECT p.oid, p.oid::regprocedure::text, 'f'::"char",
-                 COALESCE(p.proacl, acldefault('f', p.proowner))
-            FROM pg_proc p
-           WHERE (i.kind = 'function' AND p.oid = to_regprocedure(i.object))
-              OR (i.kind IN ('function_name', 'function_like')
-                  AND p.pronamespace = 'public'::regnamespace
-                  AND CASE WHEN i.kind = 'function_name' THEN p.proname = i.object
-                           ELSE p.proname LIKE i.object END
-                  AND NOT EXISTS (SELECT 1 FROM unnest(string_to_array(i.exempt, ' ')) e
-                                   WHERE to_regprocedure(e) = p.oid))
-          UNION ALL
-          SELECT n.oid, n.nspname::text, 'n'::"char",
-                 COALESCE(n.nspacl, acldefault('n', n.nspowner))
-            FROM pg_namespace n
-           WHERE i.kind = 'schema' AND n.nspname = i.object
-      ) o(oid, label, objtype, acl) ON TRUE;
-
-    -- An exempt signature that no longer resolves would widen the row silently.
-    SELECT string_agg(DISTINCT format('%s %s [%s]', kind, object, migrations), ', ')
-      INTO missing
-      FROM (SELECT kind, object, migrations FROM pg_temp.clone_acl_target WHERE oid IS NULL
-            UNION ALL
-            SELECT i.kind, e, i.migrations
-              FROM pg_temp.clone_acl_invariant i
-             CROSS JOIN unnest(string_to_array(i.exempt, ' ')) e
-             WHERE to_regprocedure(e) IS NULL) m;
+        ('function', 'app_private.is_current_user_active()', 'public anon', 'EXECUTE', '335', NULL)
+    ), target AS (
+        SELECT i.*, o.oid, o.label, o.objtype, o.acl
+          FROM invariant i
+          LEFT JOIN LATERAL (
+              SELECT c.oid, c.oid::regclass::text, 'r'::"char",
+                     COALESCE(c.relacl, acldefault('r', c.relowner))
+                FROM pg_class c
+               WHERE i.kind = 'relation' AND c.oid = to_regclass(i.object)
+              UNION ALL
+              SELECT p.oid, p.oid::regprocedure::text, 'f'::"char",
+                     COALESCE(p.proacl, acldefault('f', p.proowner))
+                FROM pg_proc p
+               WHERE (i.kind = 'function' AND p.oid = to_regprocedure(i.object))
+                  OR (i.kind IN ('function_name', 'function_like')
+                      AND p.pronamespace = 'public'::regnamespace
+                      AND CASE WHEN i.kind = 'function_name' THEN p.proname = i.object
+                               ELSE p.proname LIKE i.object END
+                      AND NOT EXISTS (SELECT 1 FROM unnest(string_to_array(i.exempt, ' ')) e
+                                       WHERE to_regprocedure(e) = p.oid))
+              UNION ALL
+              SELECT n.oid, n.nspname::text, 'n'::"char",
+                     COALESCE(n.nspacl, acldefault('n', n.nspowner))
+                FROM pg_namespace n
+               WHERE i.kind = 'schema' AND n.nspname = i.object
+          ) o(oid, label, objtype, acl) ON TRUE
+    ), unresolved AS (
+        SELECT kind, object, migrations FROM target WHERE oid IS NULL
+        UNION ALL
+        -- An exempt signature that no longer resolves would widen the row silently.
+        SELECT i.kind, e, i.migrations
+          FROM invariant i
+         CROSS JOIN unnest(string_to_array(i.exempt, ' ')) e
+         WHERE to_regprocedure(e) IS NULL
+    ), leak AS (
+        SELECT format('%s:%s:%s [%s]', t.label, r.role, p.privilege, t.migrations) AS entry
+          FROM target t
+         CROSS JOIN unnest(string_to_array(t.roles, ' ')) r(role)
+         CROSS JOIN unnest(CASE WHEN t.privileges = 'ALL'
+                                THEN ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE',
+                                           'TRUNCATE', 'REFERENCES', 'TRIGGER']
+                                ELSE string_to_array(t.privileges, ' ') END) p(privilege)
+         WHERE t.oid IS NOT NULL
+           AND CASE WHEN r.role = 'public'
+                    THEN EXISTS (SELECT 1 FROM aclexplode(t.acl) a
+                                  WHERE a.grantee = 0 AND a.privilege_type = p.privilege)
+                    WHEN t.objtype = 'r' THEN has_table_privilege(r.role, t.oid, p.privilege)
+                    WHEN t.objtype = 'f' THEN has_function_privilege(r.role, t.oid, p.privilege)
+                    ELSE has_schema_privilege(r.role, t.oid, p.privilege) END
+    )
+    SELECT (SELECT string_agg(DISTINCT format('%s %s [%s]', kind, object, migrations), ', ')
+              FROM unresolved),
+           (SELECT string_agg(entry, ', ' ORDER BY entry) FROM leak)
+      INTO missing, leaks;
     IF missing IS NOT NULL THEN
         RAISE EXCEPTION 'migration_acl_invariant_object_missing: %', missing;
     END IF;
-
-    SELECT string_agg(format('%s:%s:%s [%s]', t.label, r.role, p.privilege, t.migrations), ', '
-                      ORDER BY t.label, r.role, p.privilege)
-      INTO leaks
-      FROM pg_temp.clone_acl_target t
-     CROSS JOIN unnest(string_to_array(t.roles, ' ')) r(role)
-     CROSS JOIN unnest(CASE WHEN t.privileges = 'ALL'
-                            THEN ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE',
-                                       'TRUNCATE', 'REFERENCES', 'TRIGGER']
-                            ELSE string_to_array(t.privileges, ' ') END) p(privilege)
-     WHERE CASE WHEN r.role = 'public'
-                THEN EXISTS (SELECT 1 FROM aclexplode(t.acl) a
-                              WHERE a.grantee = 0 AND a.privilege_type = p.privilege)
-                WHEN t.objtype = 'r' THEN has_table_privilege(r.role, t.oid, p.privilege)
-                WHEN t.objtype = 'f' THEN has_function_privilege(r.role, t.oid, p.privilege)
-                ELSE has_schema_privilege(r.role, t.oid, p.privilege) END;
     IF leaks IS NOT NULL THEN
         RAISE EXCEPTION 'migration_acl_invariant_violated: %', leaks;
     END IF;

@@ -376,12 +376,13 @@ ACL_MIGRATION_COVERAGE = {
     "339_grammar_quiz_followup_codes.sql": (INVARIANT,),
 }
 _SQL_COMMENT = re.compile(r"/\*.*?\*/|--[^\n]*", re.DOTALL)
+INVARIANT_HEAD = "WITH invariant(kind, object, roles, privileges, migrations, exempt) AS (VALUES"
 _REVOKE = re.compile(r"\bREVOKE\b(?P<privileges>[^;]*?)\bON\b(?P<target>[^;]*?)\bFROM\b(?P<roles>[^;]*)",
                      re.IGNORECASE)
 _INVARIANT_ROW = re.compile(
     r"^\s+\('(?P<kind>relation|function|function_name|function_like|schema)', '(?P<object>[^']+)', "
     r"'(?P<roles>[a-z_ ]+)', '(?P<privileges>[A-Z ]+)', '(?P<migrations>[0-9a-z ]+)', "
-    r"(?:NULL|'(?P<exempt>[^']+)')\)[,;]$",
+    r"(?:NULL|'(?P<exempt>[^']+)')\),?$",
     re.MULTILINE,
 )
 
@@ -418,8 +419,8 @@ def acl_migrations() -> dict[str, list[re.Match]]:
 def clone_acl_invariants() -> list[dict[str, str]]:
     """Rows of the migration ACL invariant table in staging_clone_postconditions.sql."""
     source = POSTCONDITIONS.read_text(encoding="utf-8")
-    table = source[source.index("INSERT INTO pg_temp.clone_acl_invariant VALUES"):]
-    table = table[:table.index(";\n") + 2]
+    table = source[source.index(INVARIANT_HEAD):]
+    table = table[:table.index("\n    ), target AS (")]
     rows = [m.groupdict() for m in _INVARIANT_ROW.finditer(table)]
     assert len(rows) == table.count("\n        ('"), "unparsed invariant row"
     return rows
@@ -510,7 +511,7 @@ def test_invariant_rows_must_name_a_listed_migration(monkeypatch, tmp_path):
     # A new row is parsed, and a row for a migration not listed above is red.
     copy = tmp_path / "postconditions.sql"
     source = POSTCONDITIONS.read_text(encoding="utf-8")
-    head = "INSERT INTO pg_temp.clone_acl_invariant VALUES\n"
+    head = INVARIANT_HEAD + "\n"
     row = "        ('relation', 'public.t', 'anon', 'SELECT', '999', NULL),\n"
     copy.write_text(source.replace(head, head + row), encoding="utf-8")
     monkeypatch.setitem(globals(), "POSTCONDITIONS", copy)
@@ -550,12 +551,15 @@ def test_coverage_turns_red_for_a_revoke_without_a_row(monkeypatch, tmp_path):
 
 def test_postconditions_fail_closed_on_invariant_violation_and_missing_object():
     source = _SQL_COMMENT.sub(" ", POSTCONDITIONS.read_text(encoding="utf-8"))
-    block = source[source.index("pg_temp.clone_acl_invariant("):]
+    block = source[source.index(INVARIANT_HEAD):]
     assert re.search(r"IF missing IS NOT NULL THEN\s+RAISE EXCEPTION "
                      r"'migration_acl_invariant_object_missing: %', missing;", block)
     assert re.search(r"IF leaks IS NOT NULL THEN\s+RAISE EXCEPTION "
                      r"'migration_acl_invariant_violated: %', leaks;", block)
     assert "RAISE WARNING" not in block
+    # One DDL-free statement: the same block runs as a read-only pre-check.
+    statements = re.sub(r"'[^']*'", "''", block)
+    assert not re.search(r"\b(?:CREATE|INSERT|UPDATE|DELETE|DROP|ALTER|GRANT|REVOKE)\b", statements)
 
 
 # ── PC-J498 (J497 part C): staging-first ACL groups are reported, not applied
