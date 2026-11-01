@@ -21,6 +21,11 @@ ALLOWED_SUBTYPES = {
 }
 OPTION_COUNT = 5
 _INTERNAL_MARKER = re.compile(r"\[(?:C|U)\]|\bN[1-6]\b|bậc\s+[23]", re.IGNORECASE)
+# The midterm covers B01–B11; an end-of-course final covers more lessons.  The
+# operator declares the range and every question must fall inside it.
+DEFAULT_SCOPE = "B01-B11"
+_SCOPE_RE = re.compile(r"B(\d{2})-B(\d{2})")
+_LESSON_RE = re.compile(r"B(\d{2})")
 
 
 def _required_text(value, label: str, qid: str) -> str:
@@ -30,10 +35,22 @@ def _required_text(value, label: str, qid: str) -> str:
     return text
 
 
+def parse_lesson_scope(scope: str) -> tuple[int, int]:
+    """``"B01-B20"`` → ``(1, 20)``; anything else is refused."""
+    match = _SCOPE_RE.fullmatch(str(scope or "").strip())
+    start, end = (int(match.group(1)), int(match.group(2))) if match else (0, 0)
+    if not match or start < 1 or end < start:
+        raise ValueError(
+            f"phạm vi buổi không hợp lệ: {scope!r} (dạng B01-B20).")
+    return start, end
+
+
 def normalize_assessment_rows(
-    rows: list[dict], *, expected_count: int,
+    rows: list[dict], *, expected_count: int, scope: str = DEFAULT_SCOPE,
 ) -> list[dict]:
     """Validate the complete source before returning any warehouse rows."""
+    first, last = parse_lesson_scope(scope)
+    scope_label = f"B{first:02d}–B{last:02d}"
     if not isinstance(rows, list) or len(rows) != expected_count:
         actual = len(rows) if isinstance(rows, list) else "không phải danh sách"
         raise ValueError(f"Bộ đề cần đúng {expected_count} câu, hiện có {actual}.")
@@ -62,8 +79,9 @@ def normalize_assessment_rows(
         if source.get("so_phuong_an") != OPTION_COUNT:
             raise ValueError(f"[{qid}] so_phuong_an phải bằng {OPTION_COUNT}.")
         lesson = _required_text(source.get("lesson_primary"), "buổi chính", qid)
-        if not re.fullmatch(r"B(?:0[1-9]|1[01])", lesson):
-            raise ValueError(f"[{qid}] buổi chính phải nằm trong B01–B11.")
+        lesson_match = _LESSON_RE.fullmatch(lesson)
+        if not lesson_match or not first <= int(lesson_match.group(1)) <= last:
+            raise ValueError(f"[{qid}] buổi chính phải nằm trong {scope_label}.")
         if source.get("classroom_alignment") is not True:
             raise ValueError(f"[{qid}] chưa được xác nhận khớp nội dung lớp học.")
 

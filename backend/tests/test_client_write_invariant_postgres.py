@@ -328,9 +328,24 @@ def _pre_320_history() -> str:
         r"(?:REVOKE|GRANT) ALL ON TABLE student_cohort_memberships[^;]*", m326.SQL_227))
     assert table_grants.count(";") == 2, "227 table grants changed; re-check the roster privileges"
     return "\n".join((m326._227_writers("public"), table_grants, _writing_tables_without_revoke(),
+                      _instructor_give_shape(),
                       m331._schema_sql(m331.SQL_228, "public"),
                       "SET search_path = public, pg_temp;",
                       (MIGRATIONS / "116_writing_grade_ratings.sql").read_text(encoding="utf-8")))
+
+
+def _instructor_give_shape() -> str:
+    """What migration 360 (INSTRUCTORGIVE-0044) reads: the grading_tier enum
+    column (044/115), prompt ownership (035) and class ownership (060)."""
+    return """
+        SET search_path = public, pg_temp;
+        CREATE TYPE grading_tier_enum AS ENUM ('quick', 'standard', 'deep', 'instructor');
+        ALTER TABLE writing_assignments
+            ADD COLUMN grading_tier grading_tier_enum NOT NULL DEFAULT 'standard';
+        ALTER TABLE cohorts ADD COLUMN created_by uuid REFERENCES users(id) ON DELETE SET NULL;
+        CREATE TABLE writing_prompts (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            created_by uuid REFERENCES users(id) ON DELETE SET NULL);
+    """
 
 
 def _writing_tables_without_revoke() -> str:

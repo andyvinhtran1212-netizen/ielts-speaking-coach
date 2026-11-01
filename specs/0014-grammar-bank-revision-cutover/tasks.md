@@ -14,41 +14,58 @@
       See ../0015-grammar-exact-form-policy/approval.md; base landing remains separate.
 - [x] Land this approved amendment with0015 approval on base before new implementation.
       PR1562 merged47fbb311; implementation worktree subsequently integrated0d9b886c.
-- [ ] Add backward-compatible migration and actual PostgreSQL race/restore tests.
+- [x] Add backward-compatible migration and actual PostgreSQL race/restore tests.
+      Evidence: PR #1563, merge `3b5e036ce`; `backend/migrations/309_grammar_quiz_revision_cutover.sql`
+      and `backend/tests/test_grammar_quiz_revisions.py:410`.
 - [x] Implement bounded admin preview/CAS/cutover/readback models/service/routes.
 - [x] Add managed-bank safeguards at all actual write boundaries.
-- [ ] Preserve migration119 canonical account erasure under the cutover scope;
+- [x] Preserve migration119 canonical account erasure under the cutover scope;
       prove absent-owner-only child FK exceptions, live-owner refusal, no other
       owner/content/receipt changes and concurrent erasure/cutover serialization.
-- [ ] Prove cohort classification and immutable new-session provenance on PG;
+      Evidence: `backend/migrations/309_grammar_quiz_revision_cutover.sql:71-92`
+      (`grammar_quiz_account_erasure_scope` / `grammar_quiz_account_erasure_gate`),
+      `backend/tests/test_grammar_quiz_revision_boundary.py:508` and
+      `backend/tests/test_grammar_quiz_revisions.py:410`.
+- [x] Prove cohort classification and immutable new-session provenance on PG;
       block unknown cohorts before publication, atomically consume admission at
       first canonical all-mastery progress, retain parallel attempt history
       without stale mastery regression, and enforce row/byte bounds.
+      Evidence: `backend/services/grammar_quiz_revision_classifier.py`,
+      `backend/tests/test_grammar_quiz_revisions.py:176` (unknown cohort),
+      `backend/tests/test_grammar_quiz_revisions.py:391` (bounds), and
+      `backend/tests/test_grammar_quiz_revision_boundary.py:234-274` (admission/mastery).
 - [x] Implement deterministic article mapping and frozen compatible start,
       owned legacy continuation/history, progress and completion contracts.
 - [x] Generate wire types, runtime validation and admin/learner UI states.
 - [x] Run affected full local suites and independent whole-contract review.
 - [ ] Record actual-PG and exact-SHA staging migration/browser evidence.
 - [ ] Promote code with matching backend/frontend SHAs; no automatic cutover.
+      → gộp vào 0019 T008/T012/T013.
 - [ ] Execute reviewed bounded admin cutover and verify each canonical bank.
+      → gộp vào 0019 T008/T012/T013.
 - [ ] Verify historical question/source/result hashes and legacy continuation.
+      → gộp vào 0019 T008/T012/T013.
 - [ ] Record production evidence and safe rollback/new-start-disable drill.
+      → gộp vào 0019 T008/T012/T013.
 
-Current state: the separately approved amendment/0015 landed47fbb311 before
+Historical implementation checkpoint (01/10/2026): the separately approved amendment/0015 landed47fbb311 before
 implementation; the current integrated base is0d9b886c. Final18 academic/source bytes
-and bounded backend/306, engine, Native, Admin and History source are independently
+and bounded backend/309, engine, Native, Admin and History source are independently
 reviewed. Final local gates:10089backend/38documentedSKIP,10591Node/0SKIP,286React,
 both types/build,311Native/64scenarios,134History/9scenarios,25Admin/24computed
 snapshots,9shared quiz.32 native contrast UNKNOWN/8 disabled exemptions remain
 separate. Local completion does not close any of22PENDING feature rows. Spec governance validates17features/88contract tests; final status prose review,
-exact-head CI and staging306/catalog after-readback remain open;
+exact-head CI and staging309/catalog after-readback remain open;
 raw staging preflight retains five historical ledger filenames (160/263 provenance
 UNKNOWN) and twelve missing canonical codes. Fresh extras/why_wrong, predecessor/
 backup, manual/live/cutover/promotion/production gates remain PENDING. No canonical
 cutover or historical regrade has run.
 
-- [ ] Implement exact12/one-final-source-bundle raw META multiplicity/hash gates;
+- [x] Implement exact12/one-final-source-bundle raw META multiplicity/hash gates;
       preserve all extras and read-only why_wrong academic preflight for changed keys.
+      Evidence: `backend/services/grammar_quiz_revision_source.py:22-110`
+      (reviewed manifest/source hashes, raw META guard and `text_match_by_qid` equality).
+      The eligibility bindings were later extended by 0019; see the scope note in plan.md.
 - [x] Implement existing current reset's set-once grammar_reset_at marking before
       stats deletion; no history/attempt/completion edits, no direct/client clearing.
 - [x] Prove owned unmarked current run/continuation group remaining/completion gate;

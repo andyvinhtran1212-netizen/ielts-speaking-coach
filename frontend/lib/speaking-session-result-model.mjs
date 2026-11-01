@@ -178,6 +178,95 @@ function aggregateLists(responses) {
   };
 }
 
+// R3 "N việc cần sửa trước": the items that recur across the most answers.
+// Source order doubles as the tie-break priority (corrections are the most
+// concrete, free-text improvements the least).
+const FIX_SOURCES = Object.freeze(['grammar_issues', 'vocabulary_issues', 'improvements']);
+
+function fixKey(value) {
+  return String(value == null ? '' : value)
+    .normalize('NFC')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+}
+
+function fixText(value) {
+  return String(value == null ? '' : value).normalize('NFC').trim().replace(/\s+/g, ' ');
+}
+
+export function topFixes(responses, max = 3) {
+  const items = new Map();
+  let position = 0;
+  const note = (key, priority, text, detail, seenInResponse) => {
+    const current = items.get(key);
+    if (!current) {
+      items.set(key, { text, detail, count: 1, priority, first: position });
+      seenInResponse.add(key);
+    } else {
+      if (!seenInResponse.has(key)) {
+        current.count += 1;
+        seenInResponse.add(key);
+      }
+      if (priority < current.priority) current.priority = priority;
+      if (!current.detail && detail) current.detail = detail;
+    }
+    position += 1;
+  };
+  for (const response of Array.isArray(responses) ? responses : []) {
+    if (response?.grading_status === 'failed') continue;
+    const feedback = parseFeedback(response?.feedback);
+    if (!feedback || feedback._failed === true) continue;
+    const seenInResponse = new Set();
+    for (const correction of Array.isArray(feedback.corrections) ? feedback.corrections : []) {
+      const original = fixText(correction?.original);
+      const corrected = fixText(correction?.corrected);
+      if (!original || !corrected) continue;
+      note(
+        `c\u0000${fixKey(original)}\u0000${fixKey(corrected)}`,
+        0,
+        `${original} → ${corrected}`,
+        fixText(correction?.explanation),
+        seenInResponse,
+      );
+    }
+    FIX_SOURCES.forEach((source, index) => {
+      for (const value of Array.isArray(feedback[source]) ? feedback[source] : []) {
+        if (typeof value !== 'string') continue;
+        const text = fixText(value);
+        if (!text) continue;
+        note(`s\u0000${fixKey(text)}`, index + 1, text, '', seenInResponse);
+      }
+    });
+  }
+  return [...items.values()]
+    .sort((a, b) => (b.count - a.count) || (a.priority - b.priority) || (a.first - b.first))
+    .slice(0, max)
+    .map(({ text, detail, count }) => (detail ? { text, detail, count } : { text, count }));
+}
+
+const CONFIDENCE_RANK = Object.freeze({ low: 0, medium: 1, high: 2 });
+
+// Wording mirrors practice.js `_nativeReliabilityView` so both surfaces say the same thing.
+const RELIABILITY_NOTES = Object.freeze({
+  low: 'Âm thanh ghi âm có chất lượng hạn chế — điểm số và nhận xét lần này chỉ mang tính tham khảo. '
+    + 'Hãy thử ghi âm lại ở nơi yên tĩnh hơn hoặc nói to và rõ hơn để nhận được đánh giá chính xác hơn.',
+  medium: 'Một số phần nhận xét có thể cần xem như gợi ý tham khảo — chất lượng âm thanh hoặc tốc độ nói '
+    + 'có thể ảnh hưởng nhẹ đến độ chính xác của đánh giá.',
+});
+
+export function reliabilityNote(responses) {
+  let lowest = null;
+  for (const response of Array.isArray(responses) ? responses : []) {
+    const level = String(response?.score_confidence || response?.assessment_confidence || '');
+    if (!Object.hasOwn(CONFIDENCE_RANK, level)) continue;
+    if (lowest == null || CONFIDENCE_RANK[level] < CONFIDENCE_RANK[lowest]) lowest = level;
+  }
+  return lowest && RELIABILITY_NOTES[lowest]
+    ? { level: lowest, message: RELIABILITY_NOTES[lowest] }
+    : null;
+}
+
 export function transcriptSegments(transcript, grammarCheck) {
   const raw = String(transcript == null ? '' : transcript);
   const errors = Array.isArray(grammarCheck?.errors) ? grammarCheck.errors : [];
@@ -493,5 +582,7 @@ export function buildSessionResult(session, categoriesPayload = null, audioItems
     takeaway: isCompleted && isPractice ? lists.takeaway : '',
     cards: isSealed ? [] : responseCards(questions, responses, audioUrlMap),
     grammarResources: grammarResources(responses, categoriesPayload),
+    topFixes: isCompleted && !isSealed ? topFixes(responses) : [],
+    reliabilityNote: isSealed ? null : reliabilityNote(responses),
   };
 }

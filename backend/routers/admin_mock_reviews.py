@@ -16,6 +16,7 @@ aggregates the 4-skill final decision + release.
 """
 from __future__ import annotations
 
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException, Query
@@ -24,6 +25,8 @@ from pydantic import BaseModel, Field
 from routers.admin import require_admin
 from services import mock_exam_service as svc
 from services import mock_review_workflow as wf
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin/mock-reviews", tags=["admin-mock-reviews"])
 
@@ -50,13 +53,24 @@ class ReleaseBody(BaseModel):
 def _raise_for(e: Exception):
     if isinstance(e, wf.NotFoundError):
         raise HTTPException(404, str(e))
+    if isinstance(e, wf.SkillNotInSittingError):
+        # Before ValidationError (its base): nothing was written, and the body
+        # matches /admin/mock-exams/sittings/{id}/retest-flags (PC-J213).
+        raise HTTPException(422, detail={
+            "error": "skill_not_in_sitting", "skills": e.skills, "message": str(e),
+        })
     if isinstance(e, wf.ValidationError):
         raise HTTPException(400, str(e))
     if isinstance(e, wf.ConflictError):
         raise HTTPException(409, str(e))
     if isinstance(e, PermissionError):
         raise HTTPException(403, str(e))
-    raise HTTPException(400, str(e))
+    if isinstance(e, (wf.MockReviewError, svc.MockExamError, HTTPException)):
+        raise HTTPException(400, str(e))
+    # PC-J225: any other exception's text (driver error, parse error) is not a
+    # message written for the console and can quote the request.
+    logger.warning("[admin-mock-reviews] unexpected %s mapped to 400", e.__class__.__name__)
+    raise HTTPException(400, "Không xử lý được yêu cầu. Vui lòng tải lại trang và thử lại.")
 
 
 @router.get("")

@@ -205,7 +205,8 @@ async def list_error_logs(
     try:
         r = q.order("occurred_at", desc=True).range(offset, offset + limit - 1).execute()
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi tải báo lỗi: {exc}")
+        logger.error("[error_logs] list failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tải báo lỗi. Vui lòng thử lại.") from None
 
     return {
         "items":  r.data or [],
@@ -265,7 +266,8 @@ async def error_log_migration_stats(
                 truncated = True
                 break
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi tổng hợp migration-stats: {exc}")
+        logger.error("[error_logs] migration-stats aggregation failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tổng hợp migration-stats. Vui lòng thử lại.") from None
 
     groups: dict[tuple[str, str], dict] = {}
     for row in rows:
@@ -549,7 +551,8 @@ async def error_log_rollback_metrics(
         )
         error_rows = _fetch_all("error_logs", "url, extra, occurred_at", "occurred_at")
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi tổng hợp rollback-metrics: {exc}")
+        logger.error("[error_logs] rollback-metrics aggregation failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tổng hợp rollback-metrics. Vui lòng thử lại.") from None
 
     def _impl_bucket(tag) -> str:
         return tag if tag in ("next", "legacy") else "untagged"
@@ -1066,7 +1069,8 @@ async def dismiss_error_log(
     try:
         r = supabase_admin.table("error_logs").update(update).eq("id", log_id).execute()
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi xử lý báo lỗi: {exc}")
+        logger.error("[error_logs] dismiss failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi xử lý báo lỗi. Vui lòng thử lại.") from None
     if not r.data:
         raise HTTPException(404, "Không tìm thấy báo lỗi")
     return {"dismissed": True}
@@ -1087,7 +1091,8 @@ async def undismiss_error_log(
             .execute()
         )
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi reset báo lỗi: {exc}")
+        logger.error("[error_logs] undismiss failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi reset báo lỗi. Vui lòng thử lại.") from None
     if not r.data:
         raise HTTPException(404, "Không tìm thấy báo lỗi")
     return {"undismissed": True}
@@ -1123,7 +1128,8 @@ async def generate_test_error(
     try:
         supabase_admin.table("error_logs").insert(payload).execute()
     except Exception as exc:
-        raise HTTPException(500, f"Không tạo được log test: {exc}")
+        logger.error("[error_logs] test log generation failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Không tạo được log test. Vui lòng thử lại.") from None
     return {"generated": error_type}
 
 

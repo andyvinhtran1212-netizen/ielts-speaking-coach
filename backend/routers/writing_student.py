@@ -43,6 +43,7 @@ from services.core_attempt_observation import bind_owned_attempt, observe_operat
 from routers.auth import get_supabase_user
 from services.public_cache import cacheable_json
 from services.writing_image_access import attach_signed_image_urls
+from services.band_rounding import overall_from_criteria
 from services import activation_gate
 from services import essay_service
 from services import core_admission
@@ -411,7 +412,111 @@ async def list_my_essays(student: dict = Depends(get_current_student)):
     }
 
 
-@router.get("/my-essays/{essay_id}")
+# PC-J403 — who set the band the student sees. Derived read-only from the
+# version chain (no stored flag): AI versions are immutable, so a composed
+# version can be compared band-for-band with the AI rows it came from.
+BandSource = Literal["ai", "teacher", "unknown"]
+
+_CRITERION_BAND_COLS = {
+    "mainCriterion":     "band_main_criterion",
+    "coherenceCohesion": "band_coherence_cohesion",
+    "lexicalResource":   "band_lexical_resource",
+    "grammaticalRange":  "band_grammatical_range",
+}
+_BAND_COLS = ("overall_band_score", *_CRITERION_BAND_COLS.values())
+# Internal lineage columns read for the derivation; never sent to the student
+# (provenance carries edited_by / mixed_by user ids).
+_FEEDBACK_INTERNAL_COLS = ("version", "source", "parent_version", "provenance")
+
+
+class MyEssayFeedbackOut(BaseModel):
+    # Existing feedback keys (feedback_json, band columns, created_at) stay open.
+    model_config = ConfigDict(extra="allow")
+
+    band_source: BandSource = Field(description=(
+        "Who set the bands shown: 'ai' = AI grade (incl. a human text edit or "
+        "an F2 mix that kept AI bands exactly), 'teacher' = a human changed or "
+        "chose bands that cannot be proven AI-identical, 'unknown' = legacy row "
+        "without a recognised source. Only 'ai' is an estimate."
+    ))
+
+
+class MyEssayDetailOut(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    essay: dict
+    feedback: Optional[MyEssayFeedbackOut]
+    instructor_note: Optional[str]
+
+
+def _is_ai_source(source) -> bool:
+    return isinstance(source, str) and source.startswith("ai_")
+
+
+def _same_band(a, b) -> bool:
+    try:
+        return a is not None and b is not None and abs(float(a) - float(b)) < 1e-9
+    except (TypeError, ValueError):
+        return False
+
+
+def _mix_keeps_ai_bands(current: dict, picks: dict, rows: dict) -> bool:
+    """F2 mix: every criterion band equals the band of the AI version it was
+    picked from, and the overall is the deterministic overall of those bands."""
+    if set(picks) != set(_CRITERION_BAND_COLS):
+        return False
+    picked = []
+    for crit, col in _CRITERION_BAND_COLS.items():
+        src = rows.get(picks[crit])
+        if not src or not _is_ai_source(src.get("source")):
+            return False
+        if not _same_band(current.get(col), src.get(col)):
+            return False
+        picked.append(src[col])
+    return _same_band(current.get("overall_band_score"), overall_from_criteria(*picked))
+
+
+def _band_source(essay_id: str, current: dict) -> BandSource:
+    source = current.get("source")
+    if _is_ai_source(source):
+        return "ai"
+    if source != "composed":
+        return "unknown"
+    # A composed version is human-made. It stays an estimate only when its 5
+    # bands are provably AI bands; anything unverifiable is 'teacher'.
+    provenance = current.get("provenance") if isinstance(current.get("provenance"), dict) else {}
+    picks = provenance.get("block_sources") if isinstance(provenance.get("block_sources"), dict) else {}
+    try:
+        picks = {crit: int(v) for crit, v in picks.items()}
+    except (TypeError, ValueError):
+        picks = {}
+    parent = current.get("parent_version")
+    wanted = set(picks.values()) | ({int(parent)} if isinstance(parent, int) else set())
+    wanted.discard(current.get("version"))
+    if not wanted:
+        return "teacher"
+    try:
+        rows = (
+            # version-management: the AI ancestors are non-current, so the
+            # current-only view cannot return them. Read-only band comparison.
+            supabase_admin.table("writing_feedback")
+            .select("version, source, " + ", ".join(_BAND_COLS))
+            .eq("essay_id", essay_id).in_("version", sorted(wanted)).execute()
+        ).data or []
+    except Exception as e:
+        logger.warning("[writing-student] band source lookup failed essay=%s: %s", essay_id, e)
+        return "teacher"
+    by_version = {r.get("version"): r for r in rows}
+    parent_row = by_version.get(parent)
+    if (parent_row and _is_ai_source(parent_row.get("source"))
+            and all(_same_band(current.get(c), parent_row.get(c)) for c in _BAND_COLS)):
+        return "ai"
+    if picks and _mix_keeps_ai_bands(current, picks, by_version):
+        return "ai"
+    return "teacher"
+
+
+@router.get("/my-essays/{essay_id}", response_model=MyEssayDetailOut)
 async def get_my_essay(
     essay_id: str,
     student: dict = Depends(get_current_student),
@@ -478,14 +583,20 @@ async def get_my_essay(
                     "feedback_json, overall_band_score, "
                     "band_main_criterion, band_coherence_cohesion, "
                     "band_lexical_resource, band_grammatical_range, "
-                    "created_at"
+                    "created_at, version, source, parent_version, provenance"
                 )
                 .eq("essay_id", essay_id)
                 .order("created_at", desc=True)
                 .limit(1)
                 .execute()
             )
-            feedback = fb_result.data[0] if fb_result.data else None
+            row = fb_result.data[0] if fb_result.data else None
+            if row is not None:
+                band_source = _band_source(essay_id, row)
+                for col in _FEEDBACK_INTERNAL_COLS:
+                    row.pop(col, None)
+                row["band_source"] = band_source
+            feedback = row
         except Exception as e:
             # Feedback fetch failure shouldn't 500 the whole essay
             # detail — return the essay with feedback=None so the UI

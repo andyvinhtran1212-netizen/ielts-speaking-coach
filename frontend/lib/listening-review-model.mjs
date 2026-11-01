@@ -233,6 +233,7 @@ export function normalizeListeningReview(payload) {
     title: text(payload.title) || text(payload.test_id) || 'Chữa bài Listening',
     preview,
     contextSource: payload.context_source && typeof payload.context_source === 'object' ? payload.context_source : null,
+    webExplanationAccess: payload.web_explanation_access && typeof payload.web_explanation_access === 'object' ? payload.web_explanation_access : null,
     score,
     maxScore: maxScore ?? review.length,
     bandEstimate,

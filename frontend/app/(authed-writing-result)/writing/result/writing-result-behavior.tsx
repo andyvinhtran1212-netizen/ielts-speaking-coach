@@ -18,6 +18,8 @@ import {
 } from '@/lib/writing-result-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
+import { WritingTopFixes } from './writing-top-fixes';
+
 type ResultView =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
@@ -352,6 +354,7 @@ function WritingResultReady({ view, essayId }: { view: Extract<ResultView, { kin
             <div><p className="review-intro__eyebrow">Lộ trình cải thiện</p><h2 id="review-intro-title">Tập trung vào điều tạo khác biệt cho bài tiếp theo</h2></div>
             <p>Đọc phần ưu tiên trước, đối chiếu trực tiếp với bài viết có đánh dấu lỗi, rồi mới đi sâu vào từng tiêu chí.</p>
           </section>
+          <WritingTopFixes feedbackJson={fj} mistakesTabLabel={TABS.find((item) => item.key === 'loi')!.label} />
           <div className="review-workspace">
             <div className="feedback-column">
               <div className="feedback-column__heading"><div><span>Phản hồi học tập</span><h2>Nhận xét dành cho em</h2></div><p>Bắt đầu ở “Ưu tiên”, sau đó chuyển tới lỗi cần sửa.</p></div>
@@ -374,7 +377,7 @@ function WritingResultReady({ view, essayId }: { view: Extract<ResultView, { kin
               <TabPanel active={tab === 'tongquan'} panel="tongquan">
                 {section('key-takeaways', '🎓 Key Takeaways')}{section('overview', '📊 Tổng quan')}{section('criteria', '🎯 4 tiêu chí IELTS')}{section('trajectory', '📈 Diễn biến band')}
               </TabPanel>
-              <TabPanel active={tab === 'loi'} panel="loi">{section('mistakes', '❌ Lỗi sai')}{section('recurring', '🔁 Lỗi lặp lại')}</TabPanel>
+              <TabPanel active={tab === 'loi'} panel="loi">{section('mistakes', '❌ Lỗi cần sửa')}{section('recurring', '🔁 Lỗi lặp lại')}</TabPanel>
               <TabPanel active={tab === 'nangcao'} panel="nangcao">
                 {section('lexical', '📚 Từ vựng')}{section('sentence-structure', '🏗 Cấu trúc câu')}{section('coherence', '🧩 Coherence')}{section('idea-development', '💡 Idea Development')}{section('counterargument', '⚖ Counterargument')}
               </TabPanel>

@@ -6,6 +6,7 @@ import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 import { storageKey } from './supabase-session.mjs';
+import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
@@ -102,6 +103,7 @@ await page.route('**/*', async (route) => {
   if (parsed.pathname === `/admin/cohorts/${cohortId}/assignments/asg-course/return/st-a` && method === 'POST') { returned = true; return json({ returned: true, draft_restored: 1, audit_logged: true }); }
   return json({});
 });
+await stubAdminMfaStatus(page);
 
 const reads = (path) => requests.filter((item) => item.method === 'GET' && item.path === path);
 await page.goto(`${BASE}/admin/classes/${cohortId}?assignment_id=asg-course`, { waitUntil: 'domcontentloaded' });

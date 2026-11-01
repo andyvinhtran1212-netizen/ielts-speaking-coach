@@ -2,7 +2,10 @@
 
 Current runbook for the `Content-Security-Policy` header on every Next
 response. The policy is built by `frontend/tooling/content-security-policy.mjs`
-and attached in `frontend/next.config.ts` `headers()`. `frontend/vercel.json`
+and attached in `frontend/next.config.ts` `headers()`. The staging-only nonce
+enforcement option replaces that header in `frontend/proxy.ts` on signed-in
+routes; see [step 2](#enforced-nonce-on-staging-sec-csp-nonce-step-2-pc-j221).
+`frontend/vercel.json`
 sets no headers. Tests: `frontend/tests/post-migration-security-headers.test.mjs`.
 
 Next compiles `headers()` into the build output, so the policy is fixed per
@@ -10,7 +13,8 @@ build by the build environment (`VERCEL_ENV`, `AVER_*`, `NODE_ENV`). It is not
 evaluated per request.
 
 A second, non-blocking header — `Content-Security-Policy-Report-Only` with a
-per-request nonce — is added on the signed-in routes of non-production builds.
+per-request nonce — is added on the signed-in routes of non-production builds
+when enforcement is off.
 See [Report-Only nonce policy](#report-only-nonce-policy-sec-csp-nonce-step-1).
 
 ## Directives
@@ -119,12 +123,13 @@ data exfiltration through `fetch`/XHR/WebSocket. Markdown and HTML renderers
 that use DOMPurify keep sanitising their output; this policy does not replace
 them.
 
-A nonce policy is being trialled in Report-Only mode; see the next section.
+Signed-in non-production routes support the Report-Only trial and the opt-in
+enforced nonce policy below. Public routes retain the baseline above.
 
 ## Report-Only nonce policy (SEC-CSP-NONCE step 1)
 
-PC-J38 / SEC-20261028-05. The enforced header above is unchanged. On the
-signed-in routes, `frontend/proxy.ts` also sends:
+PC-J38 / SEC-20261028-05. With enforcement off, the blocking header above is
+unchanged. On the signed-in routes, `frontend/proxy.ts` also sends:
 
 ```
 Content-Security-Policy-Report-Only: script-src 'self' 'nonce-<per request>' 'strict-dynamic' 'unsafe-inline'
@@ -216,18 +221,105 @@ be enforced as it is.
   `*.vercel.app` is allowed, without userinfo or a non-443 port; other origins are refused before any request.
   It makes two GETs per signed-in route and checks that the
   nonces differ and that every `<script>` carries the header nonce. Today it
-  fails on staging and passes on `next start`.
+  fails on staging with enforcement off and passes on `next start`.
 
-Turning it on for production, and step 2 (enforcing the nonce policy), are
-owner decisions based on the staging TTFB and report data. Before enforcing it
-site-wide, the public layouts' inline scripts (`(marketing)`, `(public-auth)`,
-`(public-content)`) need a nonce or a hash. Those pages are static today and are
-not part of step 1.
+Step 2 below implements option A approved for staging. SA-1029-CSP1 remains
+open until Security Auditor and UI Auditor pass their checks after Leader
+enables it. Production requires separate owner approval and is locked out by
+this implementation. Before enforcing it site-wide, the public layouts'
+inline scripts (`(marketing)`, `(public-auth)`, `(public-content)`) need a nonce
+or a hash; these static pages remain outside this rollout.
+
+## Enforced nonce on staging (SEC-CSP-NONCE step 2, PC-J221)
+
+`AVER_CSP_NONCE_ENFORCE=1|0` is a **build-time** flag, default **0**. It is
+inlined through `next.config.ts`, alongside the existing render flag.
+`nonceEnforceEnabled()` always returns false for `VERCEL_ENV=production`,
+even when the new flag is `1`. Enabling enforcement also turns on the existing
+AuthedShell request-time nonce read, even if `AVER_CSP_NONCE_REPORT_ONLY=0`.
+
+The runtime host allowlist is `staging.averlearning.com`, `*.vercel.app`,
+`localhost` and `127.0.0.1`. Other hosts receive no enforced nonce policy from
+the proxy. The existing production-host matcher exclusion remains in place.
+Public routes (`/`, `/login`, `/grammar`, `/vocabulary`, `/pricing`) retain
+their original headers.
+
+On the AuthedShell routes, the proxy generates 16 random bytes per request
+and sends the full baseline policy with only `script-src` replaced:
+
+```text
+script-src 'self' 'nonce-<per request>' 'strict-dynamic' 'unsafe-inline' https://vercel.live
+```
+
+The toolbar source is included only for non-production Vercel environments;
+local development also keeps `'unsafe-eval'`. All other directives and
+configured API/Supabase origins stay the same. The existing embeddable route
+allowlist retains `frame-ancestors 'self'` and `X-Frame-Options: SAMEORIGIN`.
+
+The policy is set on **both request and response**, and `x-nonce` carries the
+same value to AuthedShell. Client-supplied blocking CSP, Report-Only CSP and
+`x-nonce` cannot choose the nonce. Enforcement sends **no Report-Only header**
+and adds no `report-to` or `report-uri` endpoint.
+
+The proxy uses `headers.set`, replacing the static blocking policy from
+`next.config.ts`; it must never append another policy. Multiple blocking
+policies intersect in a browser and would break the trusted script chain.
+The deployed checker rejects comma-combined policies as well as missing or
+mismatched nonces. Verify raw header field count with curl on the branch
+preview before merging.
+
+| Build / route | Flag absent or `0` | Flag `1` |
+| --- | --- | --- |
+| Vercel Production, all routes | Original static blocking CSP | Identical; enforcement is hard-disabled |
+| Preview, AuthedShell route on an allowed host | Original blocking CSP + existing nonce Report-Only trial | One full blocking CSP with fresh nonce; no Report-Only |
+| Preview, public route | Original blocking CSP; no Report-Only | Identical |
+| Enforcement build, unlisted host | N/A | No nonce policy added by proxy; static blocking CSP remains |
+
+### Enable and verify
+
+Only Leader sets `AVER_CSP_NONCE_ENFORCE=1` in the frontend Vercel project's
+**Preview environment, branch `staging`**, then redeploys the current staging
+release. Do not set or change the variable in Production. Record the enabling
+time in UTC+7 and the deployment SHA.
+
+Before that, test an enforcement-enabled preview of the feature branch:
+
+```bash
+node frontend/tooling/check-csp-nonce-deployed.mjs --enforced <preview-origin>
+```
+
+It makes two GETs each to `/home`, `/admin`, `/profile`, `/vocabulary/hub`:
+every script must carry the blocking-header nonce and the nonce must change.
+It also checks that the four public routes retain the original full blocking
+policy and have no Report-Only header. Deployment Protection uses the
+`VERCEL_AUTOMATION_BYPASS_SECRET` environment variable without printing it.
+Use curl with that header supplied privately and count the raw
+`Content-Security-Policy` lines: exactly one per response.
+
+After staging enablement, SA checks these headers plus rejection of
+client-supplied nonce headers. UIA checks the signed-in learner, admin and
+instructor journeys, both themes at 360/1280 px, with zero CSP console errors.
+Any QA login must finish with `signOut({ scope: 'local' })`.
+
+### Quick rollback (Leader)
+
+1. In Vercel's frontend project, **Preview environment, branch `staging`**,
+   set `AVER_CSP_NONCE_ENFORCE=0` or remove it, then **Redeploy** the current
+   staging release. A redeploy is required because the flag is inlined at build.
+2. For an urgent revert, use Vercel **Instant Rollback / promote** to the
+   preceding staging deployment. Keep this within Preview/staging.
+3. Check `curl -sI https://staging.averlearning.com/home`, with the protection
+   bypass header supplied privately: the blocking `script-src` must again be
+   `'self' 'unsafe-inline' …`, with **no nonce**. The old Report-Only trial may
+   remain and its known Vercel gap is expected. Do not print the bypass value.
+
+Do not modify Production variables or promote this preview to Production.
 
 ## Verifying
 
 - Unit: `node --test frontend/tests/post-migration-security-headers.test.mjs
-  frontend/tests/csp-nonce-report-only.test.mjs`.
+  frontend/tests/csp-nonce-report-only.test.mjs
+  frontend/tests/csp-nonce-enforce.test.mjs`.
 - Build output: after `next build`, `.next/routes-manifest.json` → `headers[]`
   holds the compiled policy for the build environment.
 - Browser smoke: on staging, open `/login`, `/`, `/grammar`, `/home` and

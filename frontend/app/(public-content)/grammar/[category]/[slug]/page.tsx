@@ -38,8 +38,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   // The contract here: 404 body + noindex, so nothing gets indexed.
   //
   // The HARD 404 (content audit 2026-10-27) is decided before render by
-  // `proxy.ts`, which rewrites keys missing from the backend article list to
-  // the prerendered `/grammar/article-not-found`. This branch is the fail-open
+  // `proxy.ts`, which rewrites keys missing from the backend article list to a
+  // path no route matches (the root 404). This branch is the fail-open
   // fallback when that list is unavailable.
   if (!article) notFound();
   // Byte-faithful to the legacy client-side SEO block (grammar.js):

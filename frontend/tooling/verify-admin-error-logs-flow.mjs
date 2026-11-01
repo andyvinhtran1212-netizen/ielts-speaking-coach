@@ -6,6 +6,7 @@ import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 import { storageKey } from './supabase-session.mjs';
+import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
@@ -149,6 +150,7 @@ await page.route('**/*', async (route) => {
   }
   return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
 });
+await stubAdminMfaStatus(page);
 
 await page.goto(BASE + ROUTE, { waitUntil: 'domcontentloaded' });
 try { await page.getByRole('heading', { name: 'Báo lỗi', exact: true }).waitFor({ state: 'visible' }); }
@@ -229,10 +231,20 @@ await page.waitForFunction(() => {
   const checkbox = document.querySelector('input[type="checkbox"]');
   return checkbox && !checkbox.checked;
 });
-await page.waitForTimeout(950);
-check('dogfood exception chấp nhận 500, bỏ ẩn noise và tự reload',
-  requests.filter((item) => item.method === 'POST' && item.path === '/admin/error-logs/test').length === 1
-    && await page.getByText('Mục thử nghiệm — không phải lỗi thật', { exact: false }).count() >= 1);
+// The component schedules its reload 800 ms after the POST settles and only
+// re-enables "Tạo lỗi test" once list, stats and migration have all resolved;
+// while the list reloads the table shows a loading state instead of rows.
+const dogfoodReloaded = await page.waitForFunction(() => {
+  const button = Array.from(document.querySelectorAll('button')).find((item) => item.textContent?.trim() === 'Tạo lỗi test');
+  return button && !button.disabled;
+}, null, { timeout: 10_000 }).then(() => true, () => false);
+const noiseShown = await page.getByText('Mục thử nghiệm — không phải lỗi thật', { exact: false }).first()
+  .waitFor({ state: 'visible', timeout: 10_000 }).then(() => true, () => false);
+const dogfoodPosts = requests.filter((item) => item.method === 'POST' && item.path === '/admin/error-logs/test').length;
+check('dogfood exception gửi POST test đúng 1 lần và chấp nhận 500',
+  dogfoodPosts === 1, `${dogfoodPosts} POST`);
+check('dogfood exception tự reload xong, bỏ ẩn noise và hiện dòng thử nghiệm',
+  dogfoodReloaded && noiseShown, `reload xong=${dogfoodReloaded}, dòng thử nghiệm hiện=${noiseShown}`);
 
 const readsBeforeRefresh = requests.length;
 await page.getByRole('button', { name: 'Tải lại' }).click();

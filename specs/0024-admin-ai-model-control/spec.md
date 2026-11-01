@@ -1,7 +1,7 @@
 ---
 id: AIOPS-0024
 title: Admin AI dashboard with model control, token spend and failure log
-status: approved
+status: implementing
 risk: high
 owner: product
 ---
