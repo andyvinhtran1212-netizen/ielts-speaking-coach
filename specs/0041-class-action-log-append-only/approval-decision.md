@@ -18,9 +18,11 @@ Context of the question (ticket PC-J286, `reviews/PR-2022.md` P3-SA-1/2/3):
 1. TRUNCATE on `class_action_log` is refused only by the ACL (204:22-23);
    332 and 333 already add a `BEFORE TRUNCATE` trigger to their audit tables.
 2. `service_role` still holds TRIGGER, REFERENCES and MAINTAIN on the table.
-3. The policy `cal_admin_append` was inert since 320 (P3-SA-3). Approved
-   RLSCLEANUP-0039 assigns removal of it and `cal_admin_read`, plus all
-   anon/authenticated privileges on the table, to migration 344.
+3. The policy `cal_admin_append` is inert since 320; by default it is only
+   commented, not dropped.
+   Updated 31/10 (001n4, PC-J499): approved RLSCLEANUP-0039 assigns removal
+   of it and `cal_admin_read`, plus all anon/authenticated privileges on the
+   table, to migration 344.
 4. One migration; the Leader assigned number 356 (2026-10-30 08:27 UTC+7) and
    spec number 0041 (ticket PC-J343).
 
