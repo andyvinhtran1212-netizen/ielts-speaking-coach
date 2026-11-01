@@ -24,10 +24,18 @@ const exercises = [
   { id: A, sentence: 'People must ___ to change.', answer: 'adapt', options: ['adapt', 'freeze', 'delay', 'reject'], source: 'personalized' },
   { id: B, sentence: 'Trees ___ in spring.', answer: 'grow', options: ['fall', 'grow', 'sleep', 'wait'], source: 'admin_fallback' },
 ];
+// PC-J253: a green run takes well under a minute. The journey awaits every
+// fixture signal through guard.within (15 s) and the whole script is capped,
+// so a missing signal fails fast with diagnostics instead of stalling CI.
+const guard = createFlowWatchdog({ name: 'verify-d1-exercise-flow', totalMs: 6 * 60_000 });
 const results = [];
-const check = (name, ok, detail = '') => {
+// A failed check stops the journey here, while the page still shows the
+// failing state, and prints the guard's diagnostics.
+const check = async (name, ok, detail = '') => {
   results.push({ name, ok, detail });
   console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`);
+  if (ok) guard.passed(name);
+  else await guard.fail(`check failed: ${name}${detail ? ` — ${detail}` : ''}`);
 };
 
 async function launch() {
@@ -74,6 +82,8 @@ let resolveGenerationOldAttempt;
 const generationOldAttemptStarted = new Promise((resolve) => { resolveGenerationOldAttempt = resolve; });
 let resolveGenerationNewAttempt;
 const generationNewAttemptStarted = new Promise((resolve) => { resolveGenerationNewAttempt = resolve; });
+let releaseGenerationNewAttempt;
+const generationNewAttemptRelease = new Promise((resolve) => { releaseGenerationNewAttempt = resolve; });
 let staleRetryArmed = false;
 let staleRetryOldPosts = 0;
 let resolveStaleRetryFirst;
@@ -91,6 +101,17 @@ const resumeOwnerSwitchInstalled = new Promise((resolve) => { resolveResumeOwner
 let final401Armed = false;
 let resolveFinal401;
 const final401Started = new Promise((resolve) => { resolveFinal401 = resolve; });
+// PC-J253: resolved when the fixture dispatches a delayed stale response. The
+// page may already have aborted that request, so no browser event is certain.
+const answered = {};
+const sentLate = {};
+for (const key of ['foreignOwner', 'unauthorized', 'bootstrap401', 'attempt401', 'complete401', 'generationOld', 'refreshGenerationOld']) {
+  answered[key] = new Promise((resolve) => { sentLate[key] = resolve; });
+}
+const fulfilled = (key, pending) => {
+  sentLate[key]();
+  return pending;
+};
 
 const supabaseStub = `
 window.__AVER_SUPABASE_CLIENT__ = { auth: {
@@ -99,6 +120,7 @@ window.__AVER_SUPABASE_CLIENT__ = { auth: {
       localStorage.removeItem('d1-delay-auth-once');
       window.__d1DelayedAuthStarted = true;
       await new Promise(function (resolve) { setTimeout(resolve, 500); });
+      window.__d1DelayedAuthSettled = true;
     }
     var currentUser = window.__d1CurrentUser || '${USER}';
     var foreign = currentUser === '${FOREIGN_USER}';
@@ -110,6 +132,19 @@ window.__AVER_SUPABASE_CLIENT__ = { auth: {
 } };`;
 
 await context.addInitScript({ content: supabaseStub });
+// PC-J253: <aver-chrome> and the player share one /auth/me per token
+// (PC-J147). Whichever starts first owns the request, so a check that must
+// answer the player's own /auth/me (resume owner switch, 401 refresh retry)
+// hung whenever the chrome won. For those loads only, give the chrome its
+// documented page-owned role source so the player's read is the only one.
+await context.addInitScript(() => {
+  if (window.top !== window || localStorage.getItem('d1-page-owns-auth-me-once') !== '1') return;
+  localStorage.removeItem('d1-page-owns-auth-me-once');
+  const mark = () => {
+    document.querySelectorAll('aver-chrome:not([role-source])').forEach((el) => el.setAttribute('role-source', 'page'));
+  };
+  new MutationObserver(mark).observe(document, { childList: true, subtree: true });
+});
 
 await context.route('**/*', async (route) => {
   const request = route.request();
@@ -118,6 +153,7 @@ await context.route('**/*', async (route) => {
   if (url.origin === BASE) return route.continue();
   if (url.origin !== API) return route.abort();
   requests.push(`${request.method()} ${url.pathname}`);
+  guard.recordRequest(request);
   const headers = {
     'access-control-allow-origin': '*',
     'access-control-allow-methods': 'GET,POST,OPTIONS',
@@ -131,6 +167,8 @@ await context.route('**/*', async (route) => {
       && request.headers()['x-request-id']) {
       resumeOwnerSwitchArmed = false;
       resolveResumeOwnerSwitch();
+      // Bounded by the journey's guard.within on resumeOwnerSwitchStarted and
+      // the watchdog: the journey installs it right after that signal.
       await resumeOwnerSwitchInstalled;
     }
     if (refresh401Armed
@@ -139,10 +177,12 @@ await context.route('**/*', async (route) => {
       refresh401Armed = false;
       refreshRetryExpected = true;
       resolveRefresh401();
+      // Bounded like resumeOwnerSwitchInstalled above.
       await refreshTokenInstalled;
       return json({ detail: 'Old token expired' }, 401);
     }
-    if (refreshRetryExpected && request.headers().authorization === 'Bearer refreshed-token') {
+    if (refreshRetryExpected && request.headers().authorization === 'Bearer refreshed-token'
+      && request.headers()['x-request-id']) {
       refreshRetryExpected = false;
       refreshRetrySeen = true;
       resolveRefreshRetry();
@@ -151,7 +191,7 @@ await context.route('**/*', async (route) => {
       bootstrap401Armed = false;
       resolveBootstrap401();
       await new Promise((resolve) => setTimeout(resolve, 300));
-      return json({ detail: 'Token expired' }, 401);
+      return fulfilled('bootstrap401', json({ detail: 'Token expired' }, 401));
     }
     return json({ id: USER, d1_enabled: true });
   }
@@ -191,7 +231,7 @@ await context.route('**/*', async (route) => {
     }
     resolveForeignOwnerMiss();
     await new Promise((resolve) => setTimeout(resolve, 300));
-    return json({ detail: 'Session not found' }, 404);
+    return fulfilled('foreignOwner', json({ detail: 'Session not found' }, 404));
   }
   if (request.method() === 'GET' && url.pathname === `/api/exercises/d1/sessions/${UNAUTHORIZED_SESSION}`) {
     if (request.headers().authorization === 'Bearer foreign-token') {
@@ -205,7 +245,7 @@ await context.route('**/*', async (route) => {
     }
     resolveUnauthorizedResponse();
     await new Promise((resolve) => setTimeout(resolve, 300));
-    return json({ detail: 'Token expired' }, 401);
+    return fulfilled('unauthorized', json({ detail: 'Token expired' }, 401));
   }
   if (request.method() === 'GET' && url.pathname === `/api/exercises/d1/sessions/${COMPLETE_401_SESSION}`) {
     if (request.headers().authorization === 'Bearer foreign-token') {
@@ -236,7 +276,7 @@ await context.route('**/*', async (route) => {
       if (refreshGenerationOldPosts === 1) {
         resolveRefreshGenerationOld();
         await new Promise((resolve) => setTimeout(resolve, 500));
-        return json({ detail: 'Old token expired' }, 401);
+        return fulfilled('refreshGenerationOld', json({ detail: 'Old token expired' }, 401));
       }
       return json({ attempt_id: ATT_A, persisted: true, replayed: false, is_correct: true, correct_answer: 'adapt', score: 1, srs_updated: true, srs_rating: 'good' });
     }
@@ -256,11 +296,13 @@ await context.route('**/*', async (route) => {
       generationOldAttemptSeen = true;
       resolveGenerationOldAttempt();
       await new Promise((resolve) => setTimeout(resolve, 500));
-      return json({ attempt_id: ATT_A, persisted: true, replayed: false, is_correct: true, correct_answer: 'adapt', score: 1, srs_updated: true, srs_rating: 'good' });
+      return fulfilled('generationOld', json({ attempt_id: ATT_A, persisted: true, replayed: false, is_correct: true, correct_answer: 'adapt', score: 1, srs_updated: true, srs_rating: 'good' }));
     }
     if (generationRaceArmed && body.user_answer === 'freeze') {
       resolveGenerationNewAttempt();
-      await new Promise((resolve) => setTimeout(resolve, 900));
+      // Held until the test has checked the lock after the old ACK, so the
+      // new ACK always lands second (it used to be a 900 ms delay).
+      await guard.within(generationNewAttemptRelease, 'fixture: release new-generation ACK');
       generationRaceArmed = false;
       return json({ attempt_id: ATT_B, persisted: true, replayed: false, is_correct: false, correct_answer: 'adapt', score: 0, srs_updated: false, srs_rating: null });
     }
@@ -268,7 +310,7 @@ await context.route('**/*', async (route) => {
       attempt401Armed = false;
       resolveAttempt401();
       await new Promise((resolve) => setTimeout(resolve, 300));
-      return json({ detail: 'Token expired' }, 401);
+      return fulfilled('attempt401', json({ detail: 'Token expired' }, 401));
     }
     await new Promise((resolve) => setTimeout(resolve, 350));
     if (!persistedAttempts.some((item) => item.exercise_id === A)) {
@@ -296,49 +338,51 @@ await context.route('**/*', async (route) => {
       complete401Armed = false;
       resolveComplete401();
       await new Promise((resolve) => setTimeout(resolve, 300));
-      return json({ detail: 'Token expired' }, 401);
+      return fulfilled('complete401', json({ detail: 'Token expired' }, 401));
     }
     return json({ detail: 'Session not found' }, 404);
   }
   if (url.pathname === '/api/error-logs' || url.pathname === '/api/analytics/events') return json({ ok: true });
+  guard.recordUnhandled(`${request.method()} ${url.pathname}`);
   return json({});
 });
 
 const page = await context.newPage();
+guard.watchPage(page);
 page.on('pageerror', (error) => pageErrors.push(String(error)));
 await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Điền từ đúng vào ngữ cảnh' }).waitFor();
-check('feature gate đọc canonical /auth/me', requests.includes('GET /auth/me'));
+await check('feature gate đọc canonical /auth/me', requests.includes('GET /auth/me'));
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).click();
 await page.getByText('People must _____ to change.').waitFor();
-check('session id được ghi vào URL để resume', new URL(page.url()).searchParams.get('session') === SESSION);
-check('registry recovery được namespace theo account', await page.evaluate(([userId, sessionId]) => {
+await check('session id được ghi vào URL để resume', new URL(page.url()).searchParams.get('session') === SESSION);
+await check('registry recovery được namespace theo account', await page.evaluate(([userId, sessionId]) => {
   const raw = localStorage.getItem(`aver:d1:active-session:${userId}`);
   return raw ? JSON.parse(raw).includes(sessionId) : false;
 }, [USER, SESSION]));
 
 await page.getByRole('button', { name: 'adapt' }).click();
 const next = page.getByRole('button', { name: 'Câu tiếp theo →' });
-check('Next khóa trong lúc canonical attempt đang lưu', await next.isDisabled());
+await check('Next khóa trong lúc canonical attempt đang lưu', await next.isDisabled());
 await page.getByText('Đã ghi nhận vào lịch ôn tập.').waitFor();
-check('Next chỉ mở sau ACK persisted', !(await next.isDisabled()) && attemptBodies[0]?.client_attempt_id);
+await check('Next chỉ mở sau ACK persisted', !(await next.isDisabled()) && attemptBodies[0]?.client_attempt_id);
 await page.reload({ waitUntil: 'domcontentloaded' });
 await page.getByText('Trees _____ in spring.').waitFor();
-check('reload khôi phục đúng câu chưa làm từ snapshot + attempt canonical', requests.includes(`GET /api/exercises/d1/sessions/${SESSION}`));
+await check('reload khôi phục đúng câu chưa làm từ snapshot + attempt canonical', requests.includes(`GET /api/exercises/d1/sessions/${SESSION}`));
 
 await page.getByRole('button', { name: 'fall' }).click();
 await page.getByRole('button', { name: 'Thử lưu lại' }).waitFor();
 const keyB = attemptBodies.filter((body) => body.user_answer === 'fall').map((body) => body.client_attempt_id);
-check('hai transient retries dùng cùng client_attempt_id', keyB.length === 2 && new Set(keyB).size === 1);
+await check('hai transient retries dùng cùng client_attempt_id', keyB.length === 2 && new Set(keyB).size === 1);
 await page.getByRole('button', { name: 'Thử lưu lại' }).click();
 await page.getByText('✓ Đã lưu bài.').waitFor();
 const keyBAfterManual = attemptBodies.filter((body) => body.user_answer === 'fall').map((body) => body.client_attempt_id);
-check('manual retry vẫn dùng key gốc', keyBAfterManual.length === 3 && new Set(keyBAfterManual).size === 1);
+await check('manual retry vẫn dùng key gốc', keyBAfterManual.length === 3 && new Set(keyBAfterManual).size === 1);
 await page.getByRole('button', { name: 'Xem kết quả' }).click();
 await page.getByRole('heading', { name: 'Kết quả luyện tập' }).waitFor();
-check('summary canonical đủ đúng/sai và đã complete', completed && await page.getByText('1/2').count() === 1 && await page.getByText('Đáp án grow').count() === 1);
-check('resume pointer được xóa sau completion', new URL(page.url()).searchParams.get('session') === null);
-check('completion chỉ loại session đã xong khỏi registry', await page.evaluate((userId) => {
+await check('summary canonical đủ đúng/sai và đã complete', completed && await page.getByText('1/2').count() === 1 && await page.getByText('Đáp án grow').count() === 1);
+await check('resume pointer được xóa sau completion', new URL(page.url()).searchParams.get('session') === null);
+await check('completion chỉ loại session đã xong khỏi registry', await page.evaluate((userId) => {
   return localStorage.getItem(`aver:d1:active-session:${userId}`) === null;
 }, USER));
 
@@ -347,9 +391,9 @@ await page.getByRole('button', { name: 'Ôn lại câu sai' }).click();
 await page.getByRole('button', { name: 'grow' }).click();
 await page.getByRole('button', { name: 'Kết thúc ôn tập' }).click();
 await page.getByRole('heading', { name: 'Kết quả luyện tập' }).waitFor();
-check('revision local-only không tạo attempt/SRS mới', attemptBodies.length === attemptsBeforeReview);
-check('mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
-check('không có pageerror', pageErrors.length === 0, pageErrors.join(' | '));
+await check('revision local-only không tạo attempt/SRS mới', attemptBodies.length === attemptsBeforeReview);
+await check('mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+await check('không có pageerror', pageErrors.length === 0, pageErrors.join(' | '));
 
 await page.evaluate(([userId, sessionId]) => {
   localStorage.setItem(`aver:d1:active-session:${userId}`, JSON.stringify([sessionId]));
@@ -357,7 +401,7 @@ await page.evaluate(([userId, sessionId]) => {
 }, [USER, SESSION]);
 await page.goto(`${BASE}/d1-exercise?session=${FOREIGN_SESSION}`, { waitUntil: 'domcontentloaded' });
 await page.getByText('Trees _____ in spring.').waitFor();
-check('URL foreign 404 fallback ngay sang registry account',
+await check('URL foreign 404 fallback ngay sang registry account',
   new URL(page.url()).searchParams.get('session') === SESSION
   && requests.includes(`GET /api/exercises/d1/sessions/${FOREIGN_SESSION}`));
 
@@ -372,7 +416,7 @@ await page.evaluate(([userId, activeId, staleId]) => {
 }, [USER, SESSION, FOREIGN_SESSION]);
 await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
 await page.getByText('Trees _____ in spring.').waitFor();
-check('registry thử toàn bộ session mới→cũ trước khi hiện Start', await page.evaluate(
+await check('registry thử toàn bộ session mới→cũ trước khi hiện Start', await page.evaluate(
   ([userId, activeId]) => {
     const scoped = localStorage.getItem(`aver:d1:active-session:${userId}`);
     return new URL(window.location.href).searchParams.get('session') === activeId
@@ -389,7 +433,7 @@ await page.evaluate(([userId, sessionId]) => {
 }, [USER, SESSION]);
 await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
 await page.getByText('Trees _____ in spring.').waitFor();
-check('singleton legacy chỉ bị claim sau resume user-scoped thành công', await page.evaluate(([userId, sessionId]) => {
+await check('singleton legacy chỉ bị claim sau resume user-scoped thành công', await page.evaluate(([userId, sessionId]) => {
   const scoped = localStorage.getItem(`aver:d1:active-session:${userId}`);
   return localStorage.getItem('aver:d1:active-session') === null
     && !!scoped && JSON.parse(scoped).includes(sessionId);
@@ -402,17 +446,18 @@ await page.evaluate(([userId, sessionId]) => {
 // so its next getSession is the resume lookup. A getSession call ordinal is
 // not stable: aver-chrome and api.js read the session at racy points too.
 resumeOwnerSwitchArmed = true;
+await page.evaluate(() => localStorage.setItem('d1-page-owns-auth-me-once', '1'));
 const resumeRequestsBefore = requests.filter(
   (entry) => entry === `GET /api/exercises/d1/sessions/${SESSION}`,
 ).length;
 await page.goto(`${BASE}/d1-exercise?session=${SESSION}`, { waitUntil: 'domcontentloaded' });
-await resumeOwnerSwitchStarted;
+await guard.within(resumeOwnerSwitchStarted, "player's /auth/me during resume (owner switch)");
 await page.evaluate(([foreignUserId]) => {
   window.__d1CurrentUser = foreignUserId;
 }, [FOREIGN_USER]);
 resolveResumeOwnerSwitchInstalled();
 await page.getByText(/Tài khoản đã thay đổi trước khi gửi yêu cầu/).waitFor();
-check('token owner đổi trong resume không xóa registry của account cũ', await page.evaluate(([userId, sessionId]) => {
+await check('token owner đổi trong resume không xóa registry của account cũ', await page.evaluate(([userId, sessionId]) => {
   const scoped = localStorage.getItem(`aver:d1:active-session:${userId}`);
   return !!scoped && JSON.parse(scoped).includes(sessionId);
 }, [USER, SESSION]) && requests.filter(
@@ -420,7 +465,7 @@ check('token owner đổi trong resume không xóa registry của account cũ', 
 ).length === resumeRequestsBefore);
 await page.reload({ waitUntil: 'domcontentloaded' });
 await page.getByText('Trees _____ in spring.').waitFor();
-check('account cũ vẫn resume được đúng session sau token race',
+await check('account cũ vẫn resume được đúng session sau token race',
   new URL(page.url()).searchParams.get('session') === SESSION);
 
 await page.evaluate(([userId, foreignUserId]) => {
@@ -430,7 +475,7 @@ await page.evaluate(([userId, foreignUserId]) => {
   window.__d1CurrentUser = userId;
 }, [USER, FOREIGN_USER]);
 await page.goto(`${BASE}/d1-exercise?session=${FOREIGN_OWNER_SESSION}`, { waitUntil: 'domcontentloaded' });
-await foreignOwnerMissStarted;
+await guard.within(foreignOwnerMissStarted, 'fixture: old-account 404 for foreign-owner session');
 await page.evaluate(([foreignUserId]) => {
   window.__d1CurrentUser = foreignUserId;
   window.__d1AuthCallback?.('SIGNED_IN', {
@@ -439,10 +484,13 @@ await page.evaluate(([foreignUserId]) => {
   });
 }, [FOREIGN_USER]);
 await page.getByText('Trees _____ in spring.').waitFor();
+await guard.within(answered.foreignOwner, 'fixture: late 404 of the old account sent');
+// The late response has been dispatched; this pause lets it arrive and only
+// proves it changes nothing (there is no event for "nothing happened").
 await page.waitForTimeout(350);
-check('404 trễ của account cũ không xóa query resume của account mới',
+await check('404 trễ của account cũ không xóa query resume của account mới',
   new URL(page.url()).searchParams.get('session') === FOREIGN_OWNER_SESSION);
-check('account mới claim query session vào đúng registry', await page.evaluate(([userId, sessionId]) => {
+await check('account mới claim query session vào đúng registry', await page.evaluate(([userId, sessionId]) => {
   const scoped = localStorage.getItem(`aver:d1:active-session:${userId}`);
   return !!scoped && JSON.parse(scoped).includes(sessionId);
 }, [FOREIGN_USER, FOREIGN_OWNER_SESSION]));
@@ -453,7 +501,7 @@ await page.evaluate(([userId, foreignUserId]) => {
   window.__d1CurrentUser = userId;
 }, [USER, FOREIGN_USER]);
 await page.goto(`${BASE}/d1-exercise?session=${UNAUTHORIZED_SESSION}`, { waitUntil: 'domcontentloaded' });
-await unauthorizedResponseStarted;
+await guard.within(unauthorizedResponseStarted, 'fixture: old-account 401 for resume');
 await page.evaluate(([foreignUserId]) => {
   window.__d1CurrentUser = foreignUserId;
   window.__d1AuthCallback?.('SIGNED_IN', {
@@ -462,11 +510,14 @@ await page.evaluate(([foreignUserId]) => {
   });
 }, [FOREIGN_USER]);
 await page.getByText('Trees _____ in spring.').waitFor();
+await guard.within(answered.unauthorized, 'fixture: late resume 401 of the old account sent');
+// The late response has been dispatched; this pause lets it arrive and only
+// proves it changes nothing (there is no event for "nothing happened").
 await page.waitForTimeout(350);
-check('401 trễ của account cũ không redirect account mới về login',
+await check('401 trễ của account cũ không redirect account mới về login',
   new URL(page.url()).pathname === '/d1-exercise'
   && new URL(page.url()).searchParams.get('session') === UNAUTHORIZED_SESSION);
-check('account mới giữ được session sau stale 401', await page.evaluate(([userId, sessionId]) => {
+await check('account mới giữ được session sau stale 401', await page.evaluate(([userId, sessionId]) => {
   const scoped = localStorage.getItem(`aver:d1:active-session:${userId}`);
   return !!scoped && JSON.parse(scoped).includes(sessionId);
 }, [FOREIGN_USER, UNAUTHORIZED_SESSION]));
@@ -477,7 +528,7 @@ await page.evaluate(([userId, foreignUserId]) => {
   localStorage.removeItem(`aver:d1:active-session:${foreignUserId}`);
 }, [USER, FOREIGN_USER]);
 await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
-await bootstrap401Started;
+await guard.within(bootstrap401Started, 'fixture: old-account 401 for /auth/me bootstrap');
 await page.evaluate(([foreignUserId]) => {
   window.__d1CurrentUser = foreignUserId;
   window.__d1AuthCallback?.('SIGNED_IN', {
@@ -486,8 +537,11 @@ await page.evaluate(([foreignUserId]) => {
   });
 }, [FOREIGN_USER]);
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
+await guard.within(answered.bootstrap401, 'fixture: late /auth/me 401 of the old account sent');
+// The late response has been dispatched; this pause lets it arrive and only
+// proves it changes nothing (there is no event for "nothing happened").
 await page.waitForTimeout(350);
-check('401 trễ ở feature bootstrap không redirect account mới',
+await check('401 trễ ở feature bootstrap không redirect account mới',
   new URL(page.url()).pathname === '/d1-exercise');
 
 attempt401Armed = true;
@@ -498,7 +552,7 @@ await page.evaluate(([userId, foreignUserId]) => {
 await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).click();
 await page.getByRole('button', { name: 'adapt' }).click();
-await attempt401Started;
+await guard.within(attempt401Started, 'fixture: old-account 401 for attempt');
 await page.evaluate(([foreignUserId]) => {
   window.__d1CurrentUser = foreignUserId;
   window.__d1AuthCallback?.('SIGNED_IN', {
@@ -507,8 +561,11 @@ await page.evaluate(([foreignUserId]) => {
   });
 }, [FOREIGN_USER]);
 await page.getByText('Trees _____ in spring.').waitFor();
+await guard.within(answered.attempt401, 'fixture: late attempt 401 of the old account sent');
+// The late response has been dispatched; this pause lets it arrive and only
+// proves it changes nothing (there is no event for "nothing happened").
 await page.waitForTimeout(350);
-check('401 trễ khi lưu attempt không redirect account mới',
+await check('401 trễ khi lưu attempt không redirect account mới',
   new URL(page.url()).pathname === '/d1-exercise');
 
 complete401Armed = true;
@@ -517,7 +574,7 @@ await page.evaluate(([userId, foreignUserId]) => {
   localStorage.removeItem(`aver:d1:active-session:${foreignUserId}`);
 }, [USER, FOREIGN_USER]);
 await page.goto(`${BASE}/d1-exercise?session=${COMPLETE_401_SESSION}`, { waitUntil: 'domcontentloaded' });
-await complete401Started;
+await guard.within(complete401Started, 'fixture: old-account 401 for complete');
 await page.evaluate(([foreignUserId]) => {
   window.__d1CurrentUser = foreignUserId;
   window.__d1AuthCallback?.('SIGNED_IN', {
@@ -526,17 +583,22 @@ await page.evaluate(([foreignUserId]) => {
   });
 }, [FOREIGN_USER]);
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
+await guard.within(answered.complete401, 'fixture: late complete 401 of the old account sent');
+// The late response has been dispatched; this pause lets it arrive and only
+// proves it changes nothing (there is no event for "nothing happened").
 await page.waitForTimeout(350);
-check('401 trễ khi complete không redirect account mới',
+await check('401 trễ khi complete không redirect account mới',
   new URL(page.url()).pathname === '/d1-exercise');
 
 refresh401Armed = true;
 await page.evaluate(([userId, foreignUserId]) => {
   localStorage.removeItem(`aver:d1:active-session:${userId}`);
   localStorage.removeItem(`aver:d1:active-session:${foreignUserId}`);
+  localStorage.setItem('d1-page-owns-auth-me-once', '1');
 }, [USER, FOREIGN_USER]);
+const refreshAuthMeBefore = requests.length;
 await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
-await refresh401Started;
+await guard.within(refresh401Started, "player's /auth/me with the old token (401 refresh)");
 await page.evaluate(([userId]) => {
   window.__d1CurrentUser = userId;
   window.__d1AccessToken = 'refreshed-token';
@@ -546,10 +608,12 @@ await page.evaluate(([userId]) => {
 // adjacent generation tests; emitting one here would add an unrelated React
 // lifecycle race to the request retry contract.
 resolveRefreshTokenInstalled();
+// The retry precedes the Start screen, so a missing retry fails here, named.
+await guard.within(refreshRetryObserved, '401 token cũ retry một lần bằng token refresh cùng account');
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
-await Promise.race([refreshRetryObserved, page.waitForTimeout(2_000)]);
-check('401 token cũ retry một lần bằng token refresh cùng account',
-  refreshRetrySeen && new URL(page.url()).pathname === '/d1-exercise');
+await check('401 token cũ retry một lần bằng token refresh cùng account',
+  refreshRetrySeen && new URL(page.url()).pathname === '/d1-exercise'
+  && requests.slice(refreshAuthMeBefore).filter((entry) => entry === 'GET /auth/me').length === 2);
 
 generationRaceArmed = true;
 persistedAttempts.length = 0;
@@ -560,7 +624,7 @@ await page.evaluate(([userId, foreignUserId]) => {
 await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).click();
 await page.getByRole('button', { name: 'adapt' }).click();
-await generationOldAttemptStarted;
+await guard.within(generationOldAttemptStarted, 'fixture: old-generation attempt A');
 await page.evaluate(([foreignUserId]) => {
   window.__d1CurrentUser = foreignUserId;
   window.__d1AuthCallback?.('SIGNED_IN', {
@@ -578,12 +642,16 @@ await page.evaluate(([userId]) => {
 }, [USER]);
 await page.getByText('People must _____ to change.').waitFor();
 await page.getByRole('button', { name: 'freeze' }).click();
-await generationNewAttemptStarted;
-await page.waitForTimeout(550);
-check('ACK generation A cũ không mở khóa attempt A mới',
+await guard.within(generationNewAttemptStarted, 'fixture: new-generation attempt A');
+await guard.within(answered.generationOld, 'fixture: old-generation ACK sent');
+// The late response has been dispatched; this pause lets it arrive and only
+// proves it changes nothing (there is no event for "nothing happened").
+await page.waitForTimeout(350);
+await check('ACK generation A cũ không mở khóa attempt A mới',
   await page.getByRole('button', { name: 'Câu tiếp theo →' }).isDisabled());
+releaseGenerationNewAttempt();
 await page.getByText('✓ Đã lưu bài.').waitFor();
-check('attempt generation mới tự mở khóa sau đúng ACK',
+await check('attempt generation mới tự mở khóa sau đúng ACK',
   !(await page.getByRole('button', { name: 'Câu tiếp theo →' }).isDisabled()));
 
 staleRetryArmed = true;
@@ -596,7 +664,7 @@ await page.evaluate(([userId, foreignUserId]) => {
 await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).click();
 await page.getByRole('button', { name: 'adapt' }).click();
-await staleRetryFirstStarted;
+await guard.within(staleRetryFirstStarted, 'fixture: old-generation transient 503');
 await page.evaluate(([foreignUserId]) => {
   window.__d1CurrentUser = foreignUserId;
   window.__d1AuthCallback?.('SIGNED_IN', {
@@ -615,8 +683,10 @@ await page.evaluate(([userId]) => {
 await page.getByText('People must _____ to change.').waitFor();
 await page.getByRole('button', { name: 'freeze' }).click();
 await page.getByText('✓ Đã lưu bài.').waitFor();
+// The old generation's retry would leave 500 ms after its 503 (player backoff),
+// which was before this point; 600 ms proves it never leaves.
 await page.waitForTimeout(600);
-check('generation cũ không dispatch transient retry sau A→B→A', staleRetryOldPosts === 1);
+await check('generation cũ không dispatch transient retry sau A→B→A', staleRetryOldPosts === 1);
 
 refreshGenerationRaceArmed = true;
 refreshGenerationOldPosts = 0;
@@ -629,7 +699,7 @@ await page.evaluate(([userId, foreignUserId]) => {
 await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).click();
 await page.getByRole('button', { name: 'adapt' }).click();
-await refreshGenerationOldStarted;
+await guard.within(refreshGenerationOldStarted, 'fixture: old-generation attempt (delayed 401)');
 await page.evaluate(([foreignUserId]) => {
   window.__d1CurrentUser = foreignUserId;
   window.__d1AccessToken = 'foreign-token';
@@ -650,8 +720,10 @@ await page.evaluate(([userId]) => {
 await page.getByText('People must _____ to change.').waitFor();
 await page.getByRole('button', { name: 'freeze' }).click();
 await page.getByText('✓ Đã lưu bài.').waitFor();
+await guard.within(answered.refreshGenerationOld, 'fixture: old-generation 401 sent');
+// A 401 retry is dispatched at once; this pause only proves none leaves.
 await page.waitForTimeout(600);
-check('generation cũ không redispatch bằng token refresh sau A→B→A',
+await check('generation cũ không redispatch bằng token refresh sau A→B→A',
   refreshGenerationOldPosts === 1);
 refreshGenerationRaceArmed = false;
 
@@ -667,6 +739,7 @@ await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).click();
 const adaptPostsBeforeDelayedToken = attemptBodies.filter((body) => body.user_answer === 'adapt').length;
 await page.evaluate(() => {
   window.__d1DelayedAuthStarted = false;
+  window.__d1DelayedAuthSettled = false;
   localStorage.setItem('d1-delay-auth-once', '1');
 });
 await page.getByRole('button', { name: 'adapt' }).click();
@@ -691,8 +764,11 @@ await page.evaluate(([userId]) => {
 await page.getByText('People must _____ to change.').waitFor();
 await page.getByRole('button', { name: 'freeze' }).click();
 await page.getByText('✓ Đã lưu bài.').waitFor();
+await page.waitForFunction(() => window.__d1DelayedAuthSettled === true);
+// The delayed token lookup has returned; a stale dispatch would follow at
+// once, so this pause only proves none leaves.
 await page.waitForTimeout(600);
-check('generation cũ không dispatch sau token lookup trễ A→B→A',
+await check('generation cũ không dispatch sau token lookup trễ A→B→A',
   attemptBodies.filter((body) => body.user_answer === 'adapt').length === adaptPostsBeforeDelayedToken);
 initialDispatchRaceArmed = false;
 
@@ -706,10 +782,110 @@ await page.goto(`${BASE}/d1-exercise`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
 final401Armed = true;
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).click();
-await final401Started;
+await guard.within(final401Started, 'fixture: final 401 for current token');
 await page.waitForURL('**/login');
-check('401 cuối của token hiện hành redirect về login', new URL(page.url()).pathname === '/login');
+await check('401 cuối của token hiện hành redirect về login', new URL(page.url()).pathname === '/login');
 
 await context.close();
 await browser.close();
+guard.stop();
 if (results.some((item) => !item.ok)) process.exitCode = 1;
+
+// PC-J253 — fail-fast guard. The same copy is in verify-d1-exercise-flow.mjs
+// and verify-vocabulary-class-sets-flow.mjs: a new imported tooling module
+// must be listed in next-native-browser.yml `paths` (workflow-path-coverage).
+// It bounds every awaited fixture signal and the whole script; on failure it
+// prints the last passed check, the awaited label, the URL, recent API
+// requests (token class only, never the token), unhandled fixture requests,
+// page/console errors and 2 kB of the page text, then exits 1.
+function createFlowWatchdog({ name, totalMs, waitMs = 15_000 }) {
+  const startedAt = Date.now();
+  const requests = [];
+  const unhandled = [];
+  const pageErrors = [];
+  let page = null;
+  let lastCheck = '(none)';
+  let waitingFor = '(none)';
+  let failing = false;
+  const tokenClass = (authorization) => {
+    if (!authorization) return 'none';
+    const known = String(authorization).replace(/^Bearer\s+/i, '').match(/^(fixture|refreshed|foreign)(?:-|$)/);
+    return known ? known[1] : 'other';
+  };
+  const bounded = (read, fallback) => {
+    let timer;
+    return Promise.race([
+      Promise.resolve().then(read).catch((error) => `${fallback}: ${String(error?.message || error).split('\n')[0]}`),
+      new Promise((resolve) => { timer = setTimeout(() => resolve(fallback), 5_000); }),
+    ]).finally(() => clearTimeout(timer));
+  };
+  async function fail(reason) {
+    if (failing) return new Promise(() => {});
+    failing = true;
+    const lines = [
+      `✗ ${name}: ${reason}`,
+      `  elapsed: ${((Date.now() - startedAt) / 1000).toFixed(1)}s`,
+      `  last passed check: ${lastCheck}`,
+      `  waiting for: ${waitingFor}`,
+      `  url: ${page ? await bounded(() => page.url(), '(url unavailable)') : '(no page)'}`,
+      '  last 30 API requests (method path · x-request-id · token):',
+      ...requests.slice(-30).map((entry) => `    ${entry}`),
+      `  unhandled fixture requests: ${unhandled.length ? unhandled.join(', ') : '(none)'}`,
+      `  page errors / console errors: ${pageErrors.length ? '' : '(none)'}`,
+      ...pageErrors.slice(-20).map((entry) => `    ${entry}`),
+    ];
+    if (page) {
+      const text = await bounded(() => page.evaluate(() => document.body?.innerText ?? '(no body)'), '(body unavailable)');
+      lines.push('  document.body.innerText (first 2000 chars):');
+      lines.push(...String(text).slice(0, 2_000).split('\n').map((line) => `    | ${line}`));
+    }
+    console.log(lines.join('\n'));
+    process.exit(1);
+    return new Promise(() => {});
+  }
+  const watchdog = setTimeout(() => { void fail(`watchdog: script exceeded ${Math.round(totalMs / 1000)}s`); }, totalMs);
+  watchdog.unref();
+  // Playwright timeouts and assertion errors surface as a rejected top-level
+  // await; report them with the same diagnostics instead of a bare stack.
+  const onCrash = (error) => { void fail(`uncaught error: ${error?.stack || error}`); };
+  process.on('uncaughtException', onCrash);
+  process.on('unhandledRejection', onCrash);
+  return {
+    watchPage(target) {
+      page = target;
+      target.on('pageerror', (error) => pageErrors.push(`pageerror: ${String(error).split('\n')[0]}`));
+      target.on('console', (message) => {
+        if (message.type() === 'error') pageErrors.push(`console.error: ${message.text().slice(0, 300)}`);
+      });
+    },
+    recordRequest(request) {
+      const headers = request.headers();
+      requests.push(`${request.method()} ${new URL(request.url()).pathname} · ${headers['x-request-id'] ? 'xrid' : 'no-xrid'} · ${tokenClass(headers.authorization)}`);
+      if (requests.length > 120) requests.splice(0, requests.length - 30);
+    },
+    recordUnhandled(entry) { unhandled.push(entry); },
+    passed(checkName) { lastCheck = checkName; },
+    /** Await a fixture signal for at most `ms`; on timeout print diagnostics and exit 1. */
+    async within(promise, label, ms = waitMs) {
+      waitingFor = label;
+      let timer;
+      try {
+        return await Promise.race([
+          promise,
+          new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`timeout after ${ms}ms`)), ms); }),
+        ]);
+      } catch (error) {
+        return fail(`${label}: ${error?.message || error}`);
+      } finally {
+        clearTimeout(timer);
+        if (waitingFor === label) waitingFor = '(none)';
+      }
+    },
+    fail,
+    stop() {
+      clearTimeout(watchdog);
+      process.off('uncaughtException', onCrash);
+      process.off('unhandledRejection', onCrash);
+    },
+  };
+}

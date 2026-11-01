@@ -56,7 +56,7 @@ anchors:
 <!-- anchor: complex-sentences-for-task2.overview -->
 ## Tóm tắt
 
-Câu phức = một mệnh đề chính + một hay nhiều mệnh đề phụ. Dùng **đúng và đa dạng** là điều kiện cho band 7 ở tiêu chí Grammatical Range.
+Câu phức = một mệnh đề chính + một hay nhiều mệnh đề phụ. Dùng **đúng và đa dạng** là điều kiện cho band 7 ở tiêu chí Grammatical Range and Accuracy (mô tả band 7: "a variety of complex structures" và "frequent error-free sentences").
 
 <!-- anchor: complex-sentences-for-task2.types -->
 ### Bốn kiểu mệnh đề phụ hữu ích
@@ -73,7 +73,7 @@ Trộn vài kiểu này trong một đoạn cho thấy "range" — nhưng chất
 <!-- anchor: complex-sentences-for-task2.control -->
 ### Viết câu phức có kiểm soát
 
-1. **Một ý chính, một mệnh đề phụ** cho mỗi câu — đừng nhồi 4 mệnh đề.
+1. Thường **1–2 mệnh đề phụ** mỗi câu là đủ; đừng nhồi 4 mệnh đề.
 2. Đặt mệnh đề nhượng bộ/điều kiện **đầu câu** (kèm phẩy) để nhấn ý chính ở sau.
 3. Kiểm tra mỗi mệnh đề phụ đều **gắn** vào mệnh đề chính, không đứng một mình (fragment).
 
@@ -82,6 +82,9 @@ Trộn vài kiểu này trong một đoạn cho thấy "range" — nhưng chất
 
 ### Lỗi 1: Câu phức thành run-on
 Nhồi nhiều mệnh đề không có liên từ/dấu câu đúng → run-on. Chia nhỏ.
+
+- ❌ *Cities are crowded people still move there.*
+- ✅ *Although cities are crowded, people still move there.*
 
 ### Lỗi 2: Mệnh đề phụ đứng một mình (fragment)
 - ❌ *Although the policy was expensive.* *(chưa đủ câu)*
@@ -92,7 +95,7 @@ Giám khảo chấm **độ chính xác**; một câu phức đúng hơn ba câu
 
 ## Ứng dụng trong bài thi
 
-**Task 2:** mỗi đoạn thân bài nên có ít nhất một câu phức dùng đúng (nhượng bộ hoặc điều kiện) để đạt range mà vẫn accuracy.
+**Task 2:** mỗi đoạn thân bài nên có ít nhất một câu phức dùng đúng (nhượng bộ hoặc điều kiện) để có độ đa dạng mà vẫn chính xác.
 
 ## Tóm tắt nhanh
 

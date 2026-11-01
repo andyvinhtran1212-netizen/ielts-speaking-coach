@@ -1,6 +1,7 @@
 """Metadata-only outcome contracts. No learner content, remote DB or AI calls."""
 
 import asyncio
+import math
 from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -36,7 +37,7 @@ def test_writing_batch_drains_actual_nested_assignment_tasks(monkeypatch, cancel
                 # Arm the real fanout deadline only once sibling cleanup starts.
                 # Setup must not race a 10ms wall-clock budget on a slow runner.
                 timeout = original_timeout(None)
-                timeouts.append(timeout)
+                timeouts.append((delay, timeout))
                 return timeout
             monkeypatch.setattr(asyncio, "timeout", deferred_timeout)
         tasks = []
@@ -73,8 +74,13 @@ def test_writing_batch_drains_actual_nested_assignment_tasks(monkeypatch, cancel
         if cancellation == "deadline_during_drain":
             await asyncio.wait_for(draining.wait(), 1)
             assert not task.done()
-            # Lookup has finished; the last context entered is per-essay fanout.
-            drain_timeout = timeouts[-1]
+            fanout_delay = outcomes.OUTCOME_BUDGET_SECONDS * (1 + math.ceil(row_count / 4))
+            fanout_timeouts = [timeout for delay, timeout in timeouts if delay == fanout_delay]
+            assert len(fanout_timeouts) == 1, (
+                f"Expected exactly one fanout timeout with delay={fanout_delay}, "
+                f"found {len(fanout_timeouts)}; recorded delays={[delay for delay, _ in timeouts]}"
+            )
+            drain_timeout = fanout_timeouts[0]
             drain_timeout.reschedule(asyncio.get_running_loop().time())
         if cancellation == "external":
             task.cancel()

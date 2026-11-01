@@ -26,6 +26,8 @@ import { MockPostTestCapture } from '@/components/mock-post-test-capture';
 import { useAttemptReviewFlags } from '@/lib/use-attempt-review-flags';
 import { AttemptReviewFlagStatus } from '@/components/attempt-review-flag-status';
 import { formatReadingPassage } from '@/lib/reading-passage-presentation.mjs';
+import { numberedBlankPattern, plainDiagramPrompt } from '@/lib/numbered-blank.mjs';
+import { examResultNextStepTitle, examResultOutcomes } from '@/lib/exam-result-outcomes.mjs';
 
 type AnswerMap = Map<number, string>;
 type SaveState = Map<number, 'pending' | 'retrying' | 'failed'>;
@@ -405,9 +407,10 @@ function FlowingCompletionRun({ run, answers, saveStates, flagged, flagReady, cu
   const byNumber = new Map(run.map((question) => [question.q_num, question]));
   const renderTemplate = (source: string, keyPrefix: string): ReactNode[] => {
     const nodes: ReactNode[] = [];
-    const marker = /\{\{\s*(\d{1,3})\s*\}\}/g;
     let last = 0;
     let match: RegExpExecArray | null;
+    // A trailing `____` after `{{n}}` is the same blank (RV-05), not a second gap.
+    const marker = numberedBlankPattern();
     while ((match = marker.exec(source)) !== null) {
       if (match.index > last) nodes.push(source.slice(last, match.index));
       const qNum = Number(match[1]);
@@ -491,7 +494,7 @@ function DiagramImageRun({ run, answers, saveStates, flagged, flagReady, current
       onFocus={() => onCurrent(question.q_num)}
     >
       <span className="exam-diagram-row__num">{question.q_num}</span>
-      <span className="exam-diagram-row__prompt">{question.prompt || ''}</span>
+      <span className="exam-diagram-row__prompt">{plainDiagramPrompt(question.prompt)}</span>
       <input
         aria-label={`Answer ${question.q_num}`}
         autoComplete="off"
@@ -619,8 +622,7 @@ function ResultView({ result, title, attemptId, anonId, from, sittingId }: {
   const rows = Array.isArray(result?.per_question) ? result.per_question : [];
   const maxScore = Number(result?.max_score ?? rows.length) || rows.length;
   const score = Number.isFinite(Number(result?.score)) ? Number(result.score) : rows.filter((row: any) => row.correct).length;
-  const answered = rows.filter((row: any) => String(row.user_answer ?? '').trim()).length;
-  const needsReview = Math.max(0, maxScore - score);
+  const outcomes = examResultOutcomes(rows);
   const accuracy = maxScore ? Math.round((score / maxScore) * 100) : 0;
   return (
     <main className="exam-result-shell reading-next-state">
@@ -643,24 +645,24 @@ function ResultView({ result, title, attemptId, anonId, from, sittingId }: {
           <div className="exam-result-metrics">
             <div><span>Correct</span><strong>{score}<small>/{maxScore}</small></strong></div>
             <div><span>Accuracy</span><strong>{accuracy}<small>%</small></strong></div>
-            <div><span>Answered</span><strong>{answered}<small>/{maxScore}</small></strong></div>
-            <div><span>Review needed</span><strong>{needsReview}</strong></div>
+            <div><span>Incorrect</span><strong>{outcomes.incorrect}</strong></div>
+            <div><span>Unanswered</span><strong>{outcomes.unanswered}</strong></div>
           </div>
         </section>
 
         <section className="exam-result-review-card" aria-labelledby="reading-result-review-title">
           <div className="exam-result-section-heading">
             <div><p>QUESTION MAP</p><h2 id="reading-result-review-title">Overview of {maxScore} questions</h2></div>
-            <div className="exam-result-legend" aria-label="Legend"><span className="is-correct" />Correct <span className="is-wrong" />Review needed <span className="is-empty" />Unanswered</div>
+            <div className="exam-result-legend" aria-label="Legend"><span className="is-correct" />Correct <span className="is-wrong" />Incorrect <span className="is-empty" />Unanswered</div>
           </div>
           <div className="exam-result-question-map">{rows.map((row: any) => {
             const empty = !String(row.user_answer ?? '').trim();
-            return <span className={empty ? 'is-empty' : row.correct ? 'is-correct' : 'is-wrong'} aria-label={`Question ${row.q_num}: ${empty ? 'unanswered' : row.correct ? 'correct' : 'review needed'}`} key={row.q_num}>{row.q_num}</span>;
+            return <span className={empty ? 'is-empty' : row.correct ? 'is-correct' : 'is-wrong'} aria-label={`Question ${row.q_num}: ${empty ? 'unanswered' : row.correct ? 'correct' : 'incorrect'}`} key={row.q_num}>{row.q_num}</span>;
           })}</div>
         </section>
 
         <section className="exam-result-next-step">
-          <div><p className="exam-result-eyebrow">NEXT STEP</p><h2>{needsReview ? `Review ${needsReview} incorrect answers` : 'Review your answers'}</h2><p>Compare the passage, answers and explanations for each question in the review.</p></div>
+          <div><p className="exam-result-eyebrow">NEXT STEP</p><h2>{examResultNextStepTitle(outcomes, 'Review your answers')}</h2><p>Compare the passage, answers and explanations for each question in the review.</p></div>
           <div className="exam-result-actions">
             {attemptId ? <a className="exam-btn exam-btn--primary" href={readingReviewHref(attemptId, { anonId, from, sittingId })}>Review answers <span aria-hidden="true">→</span></a> : null}
             <a className="exam-btn" href={readingLibraryHref(from, sittingId)}>Back to tests</a>

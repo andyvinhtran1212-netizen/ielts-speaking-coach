@@ -11,7 +11,9 @@ a TOEIC answer moves the learner's grammar mastery just like Speaking/SRS/quiz.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import weakref
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -26,6 +28,20 @@ logger = logging.getLogger(__name__)
 
 EXAM_SOURCES = ("toeic_rc", "toeic_lc", "thpt_qg", "grammar_reading", "grammar_practice", "vocab_context")
 QUESTION_TYPES = ("mcq_single",)
+
+
+# Shared by committed imports and student play/submit in the single ASGI loop.
+# Holders/waiters keep it alive; idle locks do not retain an old event loop.
+_import_lock: weakref.ReferenceType[asyncio.Lock] | None = None
+
+
+def import_lock() -> asyncio.Lock:
+    global _import_lock
+    lock = _import_lock() if _import_lock is not None else None
+    if lock is None:
+        lock = asyncio.Lock()
+        _import_lock = weakref.ref(lock)
+    return lock
 
 
 def _now() -> str:
@@ -216,6 +232,8 @@ def get_for_play(test_id: str) -> dict:
     qs = (supabase_admin.table("exam_questions")
           .select("q_num, question_type, prompt, options, order_num")  # no answer/solution/explanation
           .eq("test_id", test_id).order("order_num").execute().data or [])
+    if not qs:
+        raise HTTPException(409, "Đề chưa có câu hỏi hoặc đang cập nhật. Vui lòng tải lại và thử lại.")
     return {
         "id": test["id"], "exam_source": test["exam_source"], "code": test["code"],
         "title": test["title"], "part": test.get("part"),
@@ -230,6 +248,8 @@ def submit_attempt(user_id: str, test_id: str, answers: list[dict]) -> dict:
     qs = (supabase_admin.table("exam_questions")
           .select("q_num, prompt, options, answer, solution, explanation, grammar_slug")
           .eq("test_id", test_id).execute().data or [])
+    if not qs:
+        raise HTTPException(409, "Đề chưa có câu hỏi hoặc đang cập nhật. Vui lòng tải lại và thử lại.")
     answer_key = [{"q_num": q["q_num"], "answer": q.get("answer")} for q in qs]
     result = grade_exam(answers, answer_key)
 

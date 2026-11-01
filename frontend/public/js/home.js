@@ -92,8 +92,8 @@
       return {
         primary: { value: band, unit: 'band' },
         sub: s.sessions_count
-          ? s.sessions_count + ' session đã luyện'
-          : 'Chưa luyện session nào',
+          ? s.sessions_count + ' buổi đã luyện'
+          : 'Chưa luyện buổi nào',
       };
     },
     grammar(s) {
