@@ -60,7 +60,7 @@ ALLOWED: dict[tuple[str, str, str], tuple[int, str]] = {
     ("routers/admin_instructor_queue.py", "release_review", "str(e)"): (2, UUID_LOOKUP),
     ("routers/admin_mock_exams.py", "admin_record_speaking", "str(e)"): (2, APP_AUTHORED),
     ("routers/admin_mock_exams.py", "advance_section", "str(e)"): (2, "from_section is regex-validated; ids reach messages only after a uuid lookup"),
-    ("routers/admin_mock_exams.py", "collect_section", "str(e)"): (2, "section / from_section are regex-validated query params"),
+    ("routers/admin_mock_exams.py", "_collect", "str(e)"): (2, "section / from_section are regex-validated query params"),
     ("routers/admin_mock_exams.py", "create_assignments", "str(e)"): (1, "InvalidWindowError / UnservableSkillError clip the client value and list"),
     ("routers/admin_mock_exams.py", "create_exam", "str(e)"): (2, APP_AUTHORED),
     ("routers/admin_mock_exams.py", "delete_assignment", "str(e)"): (1, "RevocationError: constant text + count"),
