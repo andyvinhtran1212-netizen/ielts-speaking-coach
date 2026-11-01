@@ -26,6 +26,7 @@ from services.core_attempt_outcomes import observe_speaking_background
 from services import activation_gate
 from services import staff_guard
 from services.recording_audio import attach_playback_urls, PLAYBACK_TTL
+from services.errors import clip_user_values
 from services.speaking_submission import submission_id, submission_revision
 from services.question_visibility import redact_questions, should_reveal
 from routers.auth import get_supabase_user
@@ -1909,7 +1910,7 @@ async def finalize_full_test(
     found_ids = {s["id"] for s in (s_res.data or [])}
     missing = [sid for sid in all_ids if sid not in found_ids]
     if missing:
-        raise HTTPException(404, f"Session(s) không tồn tại hoặc không có quyền: {missing}")
+        raise HTTPException(404, f"Session(s) không tồn tại hoặc không có quyền: {clip_user_values(missing)}")
 
     _validate_full_test_chain(all_ids, s_res.data or [])
     bind_owned_attempt((s_res.data or [])[0])
