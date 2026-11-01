@@ -139,6 +139,10 @@ async def test_repair_failure_keeps_unrepaired_feedback_and_grades(
     assert len(state.rows) == (3 if tier == "deep" else 1)
     assert all(row["status"] == "success" for row in state.rows)
     warnings = [r for r in caplog.records if r.name == gwg.logger.name and r.levelno >= 30]
+    # The fakes return no usage metadata, so cost-gap warnings (PC-J218) may
+    # appear too; they carry no essay text. Exactly one repair warning remains.
+    assert all(ESSAY not in r.getMessage() for r in warnings)
+    warnings = [r for r in warnings if not r.getMessage().startswith("writing_cost_incomplete ")]
     assert len(warnings) == 1
     assert warnings[0].getMessage() == (
         "[grader] consistency repair failed, keeping unrepaired feedback: RuntimeError"
