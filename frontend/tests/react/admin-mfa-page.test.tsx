@@ -107,3 +107,37 @@ describe('/admin/mfa cancel while adding a factor', () => {
     expect(fake.factors.map((f) => f.id)).toEqual(['f1', 'new-2']);
   });
 });
+
+describe('/admin/mfa factor removal (Amendment 1, spec.md AC12)', () => {
+  async function openRemove() {
+    render(<AdminMfa />);
+    await screen.findByRole('heading', { name: 'Yếu tố xác thực' });
+    fireEvent.click(screen.getByRole('button', { name: 'Gỡ' }));
+    await screen.findByRole('dialog');
+  }
+
+  it('deletes the factor only after a fresh challenge + verify, in that order', async () => {
+    const order: string[] = [];
+    fake.mfa.challenge.mockImplementation(async () => { order.push('challenge'); return { data: { id: 'ch-9' }, error: null }; });
+    fake.mfa.verify.mockImplementation(async () => { order.push('verify'); return { data: {}, error: null }; });
+    const unenroll = fake.mfa.unenroll.getMockImplementation()!;
+    fake.mfa.unenroll.mockImplementation(async (args) => { order.push('unenroll'); return unenroll(args); });
+    await openRemove();
+    expect(fake.mfa.unenroll).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Mã 6 số'), { target: { value: '654321' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gỡ yếu tố' }));
+    await waitFor(() => expect(fake.mfa.unenroll).toHaveBeenCalledWith({ factorId: 'f1' }));
+    expect(order).toEqual(['challenge', 'verify', 'unenroll']);
+    expect(fake.mfa.verify).toHaveBeenCalledWith({ factorId: 'f1', challengeId: 'ch-9', code: '654321' });
+  });
+
+  it('a wrong code deletes nothing', async () => {
+    fake.mfa.verify.mockImplementation(async () => ({ data: null, error: { status: 422, code: 'mfa_verification_failed', message: 'Invalid TOTP code entered' } }));
+    await openRemove();
+    fireEvent.change(screen.getByLabelText('Mã 6 số'), { target: { value: '000000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gỡ yếu tố' }));
+    expect(await screen.findByText('Mã không đúng hoặc đã hết hạn — thử lại')).toBeTruthy();
+    expect(fake.mfa.unenroll).not.toHaveBeenCalled();
+    expect(fake.factors.map((f) => f.id)).toEqual(['f1']);
+  });
+});

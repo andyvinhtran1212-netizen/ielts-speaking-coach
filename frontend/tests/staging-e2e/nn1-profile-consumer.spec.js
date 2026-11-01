@@ -9,7 +9,7 @@
 // Reversible: snapshots the profile first and restores it in afterAll, so the
 // shared smoke student is left as found (same discipline as pilot-4).
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 const { STAGING_API, signIn } = require('./helpers');
 
 const auth = (t) => ({ Authorization: `Bearer ${t}` });

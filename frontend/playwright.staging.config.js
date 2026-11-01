@@ -31,8 +31,11 @@ module.exports = defineConfig({
   timeout: 45_000,
   // A run that only passes on retry is not a trustworthy release smoke.
   retries: 0,
+  // PC-J437: the redaction reporter runs first and scrubs bearer tokens /
+  // bypass values from errors and stdio before github/json/html read them.
   reporter: process.env.CI
     ? [
+        ['./tests/staging-e2e/redaction-reporter.js'],
         ['github'],
         ['json', { outputFile: 'test-results/staging-e2e-results.json' }],
         ['html', { open: 'never' }],

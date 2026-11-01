@@ -15,7 +15,7 @@
 //
 // Identities: staging_seed.py --ns smoke (student mutates, admin flips).
 // @ts-check
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 const {
   primeBypassCookie, signIn, identityEmail, STAGING_API, STAGING_SUPABASE, STAGING_ANON,
 } = require('./helpers');

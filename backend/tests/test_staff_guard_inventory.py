@@ -10,6 +10,10 @@
 3. Every route of the app is classified: staff, one of the known soft admin
    checks (research.md §1.4 + the quota bypass), or free of admin checks. A
    new admin check outside the staff prefixes fails here until it is reviewed.
+4. Step-up (Amendment 1, FR-020): the routes that call ``require_recent_mfa``
+   are exactly ``STEP_UP_ROUTES``, each calls it as the statement right after
+   its guard, and each refuses a 16-minute-old TOTP under
+   ``ADMIN_STEP_UP_ENFORCE=true`` with no database call.
 """
 
 from __future__ import annotations
@@ -37,6 +41,7 @@ from tests.test_staff_guard import (  # shared fakes
     _AuthClient,
     _DB,
     aal1_claims,
+    aal2_claims,
     accept,
     is_mfa_required,
 )
@@ -314,3 +319,99 @@ def test_soft_checks_go_through_the_staff_guard():
     create_session = next(r for m, p, r in ROUTES if (m, p) == ("POST", "/sessions")).endpoint
     src = inspect.getsource(create_session)
     assert "holds_admin_privilege" in src and '.select("role")' not in src
+
+
+# ── 4. Step-up routes (Amendment 1, FR-020) ──────────────────────────────────
+
+# Every route that depends on require_recent_mfa. The AIBUDGET-0033 raise /
+# end-raise routes join this list when they land (PC-J138).
+STEP_UP_ROUTES = frozenset({
+    ("PATCH", "/admin/users/{user_id}/role"),
+    ("PATCH", "/admin/users/{user_id}/active"),
+    ("POST", "/admin/users/{user_id}/revoke-sessions"),
+})
+
+
+def _route_fn(route: APIRoute, cache: dict) -> ast.AST:
+    module = route.endpoint.__module__
+    functions = cache.setdefault(module, _module_functions(module))
+    return functions.get(route.endpoint.__name__) or _fn_ast(route.endpoint)
+
+
+def test_routes_that_use_require_recent_mfa_are_exactly_the_step_up_routes():
+    found = {(m, p) for m, p, r in ROUTES if "require_recent_mfa" in _called_names(r.endpoint)}
+    assert found == STEP_UP_ROUTES, (
+        f"new: {sorted(found - STEP_UP_ROUTES)}  missing: {sorted(STEP_UP_ROUTES - found)}"
+    )
+    # Nothing outside the route handlers calls it (a helper would hide which
+    # routes are covered).
+    callers = []
+    for path in sorted(ROUTERS_DIR.glob("*.py")):
+        for fn in ast.walk(ast.parse(path.read_text())):
+            if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)) and any(
+                isinstance(n, ast.Call) and _call_name(n) == "require_recent_mfa" for n in ast.walk(fn)
+            ):
+                callers.append((f"routers.{path.stem}", fn.name))
+    handlers = {(r.endpoint.__module__, r.endpoint.__name__) for m, p, r in ROUTES if (m, p) in STEP_UP_ROUTES}
+    assert set(callers) == handlers and len(callers) == len(STEP_UP_ROUTES)
+
+
+def test_step_up_is_the_statement_right_after_the_guard():
+    cache: dict = {}
+    offenders = []
+    for method, path, route in ROUTES:
+        if (method, path) not in STEP_UP_ROUTES:
+            continue
+        fn = _route_fn(route, cache)
+        body = list(fn.body)
+        if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
+            body = body[1:]
+        guard, step_up = body[0], body[1] if len(body) > 1 else None
+        call = _awaited_call(guard)
+        ok = (
+            call is not None and _call_name(call) == "require_admin"
+            and isinstance(guard, ast.Assign) and isinstance(guard.targets[0], ast.Name)
+            and isinstance(step_up, ast.Expr) and isinstance(step_up.value, ast.Call)
+            and _call_name(step_up.value) == "require_recent_mfa"
+            and [ast.unparse(a) for a in step_up.value.args] == [guard.targets[0].id, "authorization"]
+        )
+        if not ok:
+            offenders.append(f"{method} {path}: {ast.unparse(guard)[:80]} / "
+                             f"{ast.unparse(step_up)[:80] if step_up else '<none>'}")
+    assert not offenders, "step-up must directly follow `x = await require_admin(authorization)`:\n  " + \
+        "\n  ".join(offenders)
+
+
+def test_every_step_up_route_refuses_a_stale_totp_before_any_db_call(live_activation_gate, monkeypatch):
+    TOKENS.clear()
+    db = _DB()
+    for module in (admin_module, activation_gate):
+        monkeypatch.setattr(module, "supabase_admin", db)
+    monkeypatch.setattr(auth_module, "_get_auth_http_client", lambda: _AuthClient([]))
+    monkeypatch.setattr(settings, "ADMIN_AAL2_ENFORCE", True)
+    monkeypatch.setattr(settings, "ADMIN_STEP_UP_ENFORCE", True)
+    monkeypatch.setattr(settings, "ADMIN_STEP_UP_MINUTES", 15)
+    # AAL2 is valid for FR-001 (well inside 12 h), but older than 15 minutes.
+    token = accept("admin-active", aal2_claims("admin-active", totp_age=16 * 60), factors=VERIFIED)
+    engine_calls: list = []
+
+    class _NoEngine:
+        def __getattr__(self, name):
+            engine_calls.append(name)
+            raise AssertionError(f"engine.{name} reached")
+
+    monkeypatch.setattr(admin_module, "_db_engine", _NoEngine())
+    try:
+        refused = []
+        for method, path, route in ROUTES:
+            if (method, path) not in STEP_UP_ROUTES:
+                continue
+            with pytest.raises(HTTPException) as ei:
+                _call_endpoint(route, method, f"Bearer {token}")
+            assert ei.value.status_code == 403, (method, path, ei.value.detail)
+            assert ei.value.detail["code"] == "step_up_required", (method, path)
+            refused.append((method, path))
+        assert set(refused) == STEP_UP_ROUTES
+        assert db.touched == [] and db.inserts == [] and engine_calls == []
+    finally:
+        TOKENS.clear()
