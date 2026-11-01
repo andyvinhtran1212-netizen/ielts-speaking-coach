@@ -153,8 +153,8 @@ export function GrammarCheckup() {
   // Until signed in, render only the neutral loading state: no error box or
   // setup screen may flash before the signed-out redirect (U-03 / G-01).
   if (status !== 'signed-in' || owner !== account || phase === 'loading') return <main className="gd-shell"><div className="gd-empty">Đang mở Grammar Check-up…</div></main>;
-  if (phase === 'error') return <main className="gd-shell"><div className="gd-empty gd-error" role="alert"><strong>Không mở được Grammar Check-up.</strong><p>{error}</p><a className="av-button av-button-secondary" href="/my-class">Quay lại My Class</a></div></main>;
-  if (phase === 'assigned-only') return <main className="gd-shell"><div className="gd-empty"><strong>Grammar Check-up đang ở giai đoạn giao qua lớp.</strong><p>Hãy mở bài Grammar giáo viên đã giao trong My Class. Chế độ tự luyện công khai sẽ được mở ở một đợt riêng sau khi hoàn tất đánh giá thực tế.</p><a className="av-button av-button-primary" href="/my-class">Mở My Class</a></div></main>;
+  if (phase === 'error') return <main className="gd-shell"><div className="gd-empty gd-error" role="alert"><strong>Không mở được Grammar Check-up.</strong><p>{error}</p><a className="av-button av-button-secondary" href="/my-class">Quay lại Lớp học</a></div></main>;
+  if (phase === 'assigned-only') return <main className="gd-shell"><div className="gd-empty"><strong>Grammar Check-up đang ở giai đoạn giao qua lớp.</strong><p>Hãy mở bài Grammar giáo viên đã giao trong Lớp học. Chế độ tự luyện công khai sẽ được mở ở một đợt riêng sau khi hoàn tất đánh giá thực tế.</p><a className="av-button av-button-primary" href="/my-class">Mở Lớp học</a></div></main>;
 
   if (phase === 'setup') return (
     <main className="gd-shell">
@@ -202,12 +202,12 @@ export function GrammarCheckup() {
 
   if (phase === 'report' && report) return (
     <main className="gd-shell gd-report">
-      <a className="gd-back" href="/my-class">← Quay lại My Class</a>
+      <a className="gd-back" href="/my-class">← Quay lại Lớp học</a>
       <header className="gd-report-hero"><p className="gd-eyebrow">GRAMMAR READINESS PROFILE</p><h1>Bản đồ ưu tiên của bạn</h1><p>{report.calibration_note}</p></header>
       <section className="gd-report-section"><div className="gd-section-title"><span>01</span><div><p>Ưu tiên ôn tập</p><h2>Tập trung tối đa ba điểm gốc</h2></div></div>{report.priorities.length ? <div className="gd-priority-list">{report.priorities.map((priority, index) => <article className="gd-priority" key={priority.attribute_id}><div className="gd-priority-no">{index + 1}</div><div><div className="gd-priority-head"><span>{priority.attribute_id}</span><span>{priority.confidence_label}</span></div><h3>{priority.title}</h3><p>{priority.observed_pattern}</p><p className="gd-risk">{priority.risk}</p>{priority.contrast_example && <code>{priority.contrast_example}</code>}<p><strong>Bước tiếp theo:</strong> {priority.next_action}</p><div className="gd-evidence">{priority.evidence_status.independent_items} mẫu độc lập{priority.lesson_sources ? ` · Ôn B${priority.lesson_sources.replaceAll('B', '').replaceAll(',', ', B')}` : ''}</div>{priority.route_id && <a className="av-button av-button-secondary" href={`/grammar-checkup/review/${encodeURIComponent(priority.route_id)}?session=${encodeURIComponent(report.session_id)}`}>Mở tuyến ôn</a>}</div></article>)}</div> : <div className="gd-empty">Chưa có điểm yếu đủ bằng chứng để đưa vào top ưu tiên.</div>}</section>
       <section className="gd-report-grid"><div><p className="gd-kicker">Điểm đang làm được</p><h2>Tín hiệu tích cực</h2>{report.strengths.length ? report.strengths.map((row) => <div className="gd-mini-card" key={row.attribute_id}><strong>{row.title}</strong><span>{row.state === 'CONFIRMED_STRENGTH' ? 'Đã xác nhận' : 'Tạm thời'} · {row.independent_items} mẫu</span></div>) : <p>Chưa có vùng đủ bằng chứng để gọi là điểm mạnh.</p>}</div><div><p className="gd-kicker">Cần thêm bằng chứng</p><h2>Chưa kết luận</h2><div className="gd-tags">{report.insufficient_evidence.map((row) => <span key={row.attribute_id}>{row.attribute_id} · {row.title}</span>)}</div></div></section>
       <div className="gd-note"><strong>Phần productive:</strong> {report.productive_note}</div>
-      <div className="gd-report-actions"><a className="av-button av-button-secondary" href="/grammar">Mở Grammar Wiki</a>{report.assigned ? <a className="av-button av-button-primary" href="/my-class">Quay lại My Class</a> : <a className="av-button av-button-primary" href="/grammar-checkup">Làm lượt mới</a>}</div>
+      <div className="gd-report-actions"><a className="av-button av-button-secondary" href="/grammar">Mở Grammar Wiki</a>{report.assigned ? <a className="av-button av-button-primary" href="/my-class">Quay lại Lớp học</a> : <a className="av-button av-button-primary" href="/grammar-checkup">Làm lượt mới</a>}</div>
     </main>
   );
 

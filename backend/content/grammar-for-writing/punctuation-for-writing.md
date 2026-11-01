@@ -64,7 +64,7 @@ Dấu câu là "đèn giao thông" của câu. Dùng sai khiến câu rối và 
 | Sau mệnh đề phụ mở đầu | *Although costs rose**,** profits grew.* |
 | Trước liên từ nối hai mệnh đề độc lập | *Costs rose**,** but profits grew.* |
 | Ngăn cách phần chêm (hai phẩy) | *The plan**,** however**,** failed.* |
-| Liệt kê | *cars**,** buses**,** and trains* |
+| Liệt kê | *cars**,** buses**,** and trains* (dấu phẩy trước *and* là tuỳ chọn, chỉ cần dùng nhất quán) |
 
 <!-- anchor: punctuation-for-writing.splice -->
 ### Comma splice và run-on
@@ -75,6 +75,7 @@ Hai mệnh đề độc lập **không** được nối bằng mỗi dấu phẩ
 - ❌ **Run-on:** *Costs rose profits fell.*
 
 Sửa bằng một trong ba cách:
+
 1. Dấu chấm: *Costs rose. Profits fell.*
 2. Chấm phẩy: *Costs rose; profits fell.*
 3. Liên từ: *Costs rose, **so** profits fell.* / *…, **and** profits fell.*
@@ -84,7 +85,7 @@ Sửa bằng một trong ba cách:
 <!-- anchor: punctuation-for-writing.pitfall -->
 ## Lỗi thường gặp
 
-### Lỗi 1: Comma splice (lỗi phổ biến nhất)
+### Lỗi 1: Comma splice (rất hay gặp)
 - ❌ *Technology is useful, it can be misused.*
 - ✅ *Technology is useful**, but** it can be misused.*
 
@@ -93,11 +94,12 @@ Sửa bằng một trong ba cách:
 - ✅ *The benefits are clear: it is cheaper and faster.*
 
 ### Lỗi 3: Thiếu phẩy sau mệnh đề phụ mở đầu
+- ❌ *If prices fall demand rises.*
 - ✅ *If prices fall**,** demand rises.*
 
 ## Ứng dụng trong bài thi
 
-**Writing:** comma splice là một loại lỗi accuracy cần kiểm; không có dữ liệu ở đây để gọi là phần lớn — kiểm tra mọi dấu phẩy nối hai mệnh đề độc lập.
+**Writing:** comma splice là lỗi chính xác hay gặp; soát lại mọi dấu phẩy nằm giữa hai mệnh đề độc lập.
 
 ## Tóm tắt nhanh
 
