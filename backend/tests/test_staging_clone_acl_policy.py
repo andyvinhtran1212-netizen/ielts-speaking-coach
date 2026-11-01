@@ -498,7 +498,8 @@ def test_invariant_rows_are_well_formed():
         roles = row["roles"].split()
         assert roles and set(roles) <= APP_ROLES and len(set(roles)) == len(roles), row
         privileges = set(row["privileges"].split())
-        allowed = {"relation": {"ALL", "SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"},
+        allowed = {"relation": {"ALL", "SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER",
+                                "MAINTAIN"},
                    "schema": {"USAGE", "CREATE"}}.get(row["kind"], {"EXECUTE"})
         assert privileges and privileges <= allowed and ("ALL" not in privileges or privileges == {"ALL"}), row
         if row["kind"] == "function":

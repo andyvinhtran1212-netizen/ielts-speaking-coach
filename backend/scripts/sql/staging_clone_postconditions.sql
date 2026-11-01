@@ -213,7 +213,9 @@ END $$;
 --         overload) | function_like (public proname LIKE object) | schema
 --   'public' is the PUBLIC pseudo-role, read from the ACL itself; the other
 --   roles use effective privileges. Relation ALL = SELECT, INSERT, UPDATE,
---   DELETE, TRUNCATE, REFERENCES, TRIGGER (client MAINTAIN is checked above).
+--   DELETE, TRUNCATE, REFERENCES, TRIGGER and, on PG 17+, MAINTAIN; rows that
+--   a REVOKE ALL left partly re-granted list MAINTAIN too. MAINTAIN is
+--   skipped below PG 17, where it does not exist.
 --   exempt (function_like only): regprocedures a later migration re-granted.
 -- A missing object fails as well: the ledger would then claim a migration
 -- whose objects the clone does not have.
@@ -385,7 +387,7 @@ BEGIN
         ('relation', 'public.reading_test_attempts', 'public anon authenticated', 'ALL', '306', NULL),
         ('function', 'public.fn_patch_mock_attempt_review_flag(text,uuid,uuid,text,int4,bool,int8,uuid)', 'public anon authenticated', 'EXECUTE', '307', NULL),
         ('relation', 'public.mock_attempt_review_flags', 'public anon authenticated', 'ALL', '307', NULL),
-        ('relation', 'public.mock_attempt_review_flags', 'service_role', 'INSERT UPDATE DELETE TRUNCATE REFERENCES TRIGGER', '307', NULL),
+        ('relation', 'public.mock_attempt_review_flags', 'service_role', 'INSERT UPDATE DELETE TRUNCATE REFERENCES TRIGGER MAINTAIN', '307', NULL),
         ('function_like', 'grammar_quiz_%', 'public anon authenticated', 'EXECUTE', '309 314 339', NULL),
         ('function_like', 'grammar_quiz_%', 'service_role', 'EXECUTE', '309 314 339', 'public.grammar_quiz_start_service(uuid,uuid,text,text) public.grammar_quiz_start_service(uuid,uuid,text,text,text) public.grammar_quiz_progress_service(uuid,uuid,jsonb,jsonb) public.grammar_quiz_end_service(uuid,uuid,jsonb) public.grammar_quiz_reset_service(uuid,uuid) public.grammar_quiz_state(uuid,uuid)'),
         ('function', 'public.create_assigned_grammar_lesson_attempt(uuid,uuid,uuid,text,text,text,jsonb)', 'public anon authenticated', 'EXECUTE', '312 313', NULL),
@@ -405,11 +407,11 @@ BEGIN
         ('function', 'public.fn_finalize_d1_attempt_for_user(uuid,uuid,uuid,int4,float4,int4,timestamptz,timestamptz,jsonb)', 'public anon authenticated', 'EXECUTE', '320', NULL),
         ('function', 'public.fn_guard_users_privileged_columns()', 'public anon authenticated', 'EXECUTE', '320', NULL),
         ('relation', 'public.ai_model_override_audit', 'public anon authenticated', 'ALL', '322', NULL),
-        ('relation', 'public.ai_model_override_audit', 'service_role', 'UPDATE DELETE TRUNCATE REFERENCES TRIGGER', '322', NULL),
+        ('relation', 'public.ai_model_override_audit', 'service_role', 'UPDATE DELETE TRUNCATE REFERENCES TRIGGER MAINTAIN', '322', NULL),
         ('relation', 'public.ai_model_overrides', 'public anon authenticated', 'ALL', '322', NULL),
-        ('relation', 'public.ai_model_overrides', 'service_role', 'TRUNCATE REFERENCES TRIGGER', '322', NULL),
+        ('relation', 'public.ai_model_overrides', 'service_role', 'TRUNCATE REFERENCES TRIGGER MAINTAIN', '322', NULL),
         ('relation', 'public.ai_provider_failures', 'public anon authenticated', 'ALL', '322', NULL),
-        ('relation', 'public.ai_provider_failures', 'service_role', 'UPDATE DELETE TRUNCATE REFERENCES TRIGGER', '322', NULL),
+        ('relation', 'public.ai_provider_failures', 'service_role', 'UPDATE DELETE TRUNCATE REFERENCES TRIGGER MAINTAIN', '322', NULL),
         ('function', 'public.fn_admin_ai_failure_rollup(timestamptz,timestamptz)', 'public anon authenticated', 'EXECUTE', '322', NULL),
         ('function', 'public.fn_admin_ai_usage_rollup(timestamptz,timestamptz)', 'public anon authenticated', 'EXECUTE', '322', NULL),
         ('function', 'public.fn_ai_model_override_audit()', 'public anon authenticated', 'EXECUTE', '322', NULL),
@@ -420,7 +422,7 @@ BEGIN
         ('relation', 'public.student_lifecycle_audit', 'service_role', 'UPDATE DELETE TRUNCATE', '326', NULL),
         ('function', 'public.fn_guard_writing_assignment_student_archived()', 'public anon authenticated', 'EXECUTE', '331', NULL),
         ('relation', 'public.activation_attempts', 'public anon authenticated', 'ALL', '334', NULL),
-        ('relation', 'public.activation_attempts', 'service_role', 'INSERT UPDATE DELETE TRUNCATE REFERENCES TRIGGER', '334', NULL),
+        ('relation', 'public.activation_attempts', 'service_role', 'INSERT UPDATE DELETE TRUNCATE REFERENCES TRIGGER MAINTAIN', '334', NULL),
         ('function', 'public.fn_activate_attempt_check(uuid)', 'public anon authenticated', 'EXECUTE', '334', NULL),
         ('schema', 'app_private', 'public anon', 'USAGE CREATE', '335', NULL),
         ('function', 'app_private.is_current_user_active()', 'public anon', 'EXECUTE', '335', NULL)
@@ -463,10 +465,12 @@ BEGIN
          CROSS JOIN unnest(string_to_array(t.roles, ' ')) r(role)
          CROSS JOIN unnest(CASE WHEN t.privileges = 'ALL'
                                 THEN ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE',
-                                           'TRUNCATE', 'REFERENCES', 'TRIGGER']
+                                           'TRUNCATE', 'REFERENCES', 'TRIGGER', 'MAINTAIN']
                                 ELSE string_to_array(t.privileges, ' ') END) p(privilege)
          WHERE t.oid IS NOT NULL
-           AND CASE WHEN r.role = 'public'
+           AND CASE WHEN p.privilege = 'MAINTAIN'
+                         AND current_setting('server_version_num')::int < 170000 THEN false
+                    WHEN r.role = 'public'
                     THEN EXISTS (SELECT 1 FROM aclexplode(t.acl) a
                                   WHERE a.grantee = 0 AND a.privilege_type = p.privilege)
                     WHEN t.objtype = 'r' THEN has_table_privilege(r.role, t.oid, p.privilege)

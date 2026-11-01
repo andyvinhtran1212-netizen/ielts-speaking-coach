@@ -306,6 +306,9 @@ def sandbox(tmp_path, source, target, database, injection="", appended=""):
     ("invariant_select", "migration_acl_invariant_violated: public.student_cohort_memberships:anon:SELECT [227]"),
     ("invariant_public_execute", "public.is_current_user_admin():public:EXECUTE [108]"),
     ("invariant_service_role", "migration_acl_invariant_violated: public.ai_model_overrides:service_role:TRUNCATE"),
+    # Codex P2 (PR #2138): REVOKE ALL also pins MAINTAIN for service_role on PG 17.
+    ("invariant_service_maintain", "public.listening_programme_start_drain_gates:service_role:MAINTAIN [303]"),
+    ("invariant_partial_maintain", "migration_acl_invariant_violated: public.activation_attempts:service_role:MAINTAIN"),
     ("invariant_name_pattern", "migration_acl_invariant_violated: public.grammar_quiz_fixture_helper():service_role"),
     ("invariant_target_schema", "migration_acl_invariant_violated: app_private:anon:USAGE [335]"),
     ("invariant_missing", "migration_acl_invariant_object_missing: relation public.listening_test_attempts"),
@@ -338,6 +341,10 @@ def test_clone_preflight_and_atomic_restore(clusters, tmp_path, case, diagnostic
         seed.append("GRANT EXECUTE ON FUNCTION public.is_current_user_admin() TO PUBLIC;")
     if case == "invariant_service_role":
         seed.append("GRANT TRUNCATE ON public.ai_model_overrides TO service_role;")
+    if case == "invariant_service_maintain":
+        seed.append("GRANT MAINTAIN ON public.listening_programme_start_drain_gates TO service_role;")
+    if case == "invariant_partial_maintain":
+        seed.append("GRANT MAINTAIN ON public.activation_attempts TO service_role;")
     if case == "invariant_name_pattern":
         seed.append("GRANT EXECUTE ON FUNCTION public.grammar_quiz_fixture_helper() TO service_role;")
     if case == "invariant_missing":
