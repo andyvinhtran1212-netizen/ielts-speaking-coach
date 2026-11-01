@@ -132,7 +132,6 @@ POSITION = "enumerate() position, or a value already checked to be an int/float 
 TYPED_PATH = "int- or uuid-typed path/body value (FastAPI rejects other text with 422 first)"
 
 ALLOWED_B: dict[tuple[str, str, str], tuple[int, str]] = {
-    ("config.py", "validate_trusted_proxy_cidrs", "cidr[:64]"): (3, "operator env var parsed at startup (already sliced to 64), not a request value"),
     ("main.py", "permission_error_handler", "str(_uuid.uuid4())"): (1, "server-generated request id"),
     ("routers/admin.py", "_run_regrade_response", "response_id"): (2, DB_VALUE),
     ("routers/admin.py", "_validate_code_type_combo", "code_type"): (1, VALIDATED + " (in _VALID_CODE_TYPES; the refusing branch clips)"),
