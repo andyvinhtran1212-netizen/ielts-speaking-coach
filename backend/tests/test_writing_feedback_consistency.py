@@ -590,6 +590,25 @@ def test_praise_of_another_skill_does_not_shield_a_low_range_claim(feedback, cla
     assert "câu đơn" not in observation and "simple sentences" not in observation
 
 
+@pytest.mark.parametrize("claim,expected", [
+    ("Bài này chủ yếu dùng câu đơn, từ vựng phù hợp, cần sửa lỗi hòa hợp chủ vị ở đoạn 2.",
+     "Cần sửa lỗi hòa hợp chủ vị ở đoạn 2."),
+    ("The current essay only uses simple sentences, the vocabulary is appropriate, "
+     "but subject-verb agreement in paragraph 2 needs fixing.",
+     "Subject-verb agreement in paragraph 2 needs fixing."),
+    ("The current essay only uses simple sentences, you should fix the article errors in paragraph 1.",
+     "You should fix the article errors in paragraph 1."),
+])
+@pytest.mark.parametrize("gra", [7, 8])
+def test_comma_separated_correction_advice_survives_low_range_removal(feedback, claim, expected, gra):
+    # Codex P2 (PR-2149): the low-range claim goes, the correction advice stays
+    # (fixed by #2154's comma-warning split; pinned here at GRA 7 and 8).
+    feedback.criteriaFeedback.grammaticalRange.bandScore = gra
+    feedback.sentenceStructureAnalysis = {"current_essay_observation": claim}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.sentenceStructureAnalysis["current_essay_observation"] == expected
+
+
 @pytest.mark.parametrize("claim", [
     "Bài này chủ yếu dùng câu đơn một cách hiệu quả.",
     "Bài này chủ yếu dùng câu đơn, cấu trúc câu chính xác.",
