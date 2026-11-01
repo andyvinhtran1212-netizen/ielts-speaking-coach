@@ -5260,7 +5260,8 @@ def course_verdict(
         except Exception as exc:  # noqa: BLE001
             # Kết luận mà không ghi được thì KHÔNG được báo đạt — học viên sẽ
             # rời trang với niềm tin đã xong trong khi giáo viên không thấy gì.
-            raise HTTPException(500, f"Lỗi ghi kết luận: {exc}")
+            logger.error("[quiz] write course verdict failed: %s", exc, exc_info=True)
+            raise HTTPException(500, "Lỗi ghi kết luận. Vui lòng thử lại.") from None
         if res.data:
             break
         try:
@@ -5268,7 +5269,8 @@ def course_verdict(
                      .select("id, passed_at, submitted_at, mastery, score, updated_at")
                      .eq("id", item["id"]).limit(1).execute().data) or []
         except Exception as exc:  # noqa: BLE001
-            raise HTTPException(500, f"Lỗi đọc lại sổ sau tranh chấp ghi: {exc}")
+            logger.error("[quiz] re-read course ledger after write conflict failed: %s", exc, exc_info=True)
+            raise HTTPException(500, "Lỗi đọc lại sổ sau tranh chấp ghi. Vui lòng thử lại.") from None
         if not fresh:
             raise HTTPException(404, "Không tìm thấy mục bài giao")
         cur = fresh[0]
@@ -5334,8 +5336,11 @@ def course_verdict(
                          .select("submitted_at").eq("id", item["id"]).limit(1)
                          .execute().data) or []
             except Exception as exc:  # noqa: BLE001
+                logger.error("[quiz] confirm course hand-in after pass failed: %s", exc, exc_info=True)
                 raise HTTPException(
-                    500, f"Đã đạt nhưng chưa xác nhận được trạng thái thu bài: {exc}")
+                    500,
+                    "Đã đạt nhưng chưa xác nhận được trạng thái thu bài. Vui lòng thử lại.",
+                ) from None
             if not check or not check[0].get("submitted_at"):
                 raise HTTPException(500, "Đã tính điểm nhưng chưa thu được bài; hãy thử lại")
     return payload
@@ -6573,7 +6578,8 @@ def bank_analytics(bank_id: str) -> dict:
             .select("id", count="exact").eq("bank_id", bank_id).execute()
         )
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn analytics: {exc}")
+        logger.error("[quiz] bank analytics failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn thống kê. Vui lòng thử lại.") from None
     session_count = sc.count if sc.count is not None else len(sc.data or [])
     return {"items": items, "skills": skills, "session_count": session_count}
 
@@ -6588,7 +6594,8 @@ def admin_student_rollup(skill_area: str = "vocab") -> dict:
         rows = supabase_admin.rpc(
             "quiz_admin_student_rollup", {"p_skill_area": skill_area}).execute().data or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn rollup: {exc}")
+        logger.error("[quiz] admin student rollup failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn tổng hợp học viên. Vui lòng thử lại.") from None
 
     uids = [r["user_id"] for r in rows if r.get("user_id")]
     users: dict[str, dict] = {}
@@ -6600,7 +6607,8 @@ def admin_student_rollup(skill_area: str = "vocab") -> dict:
             ).data or []
             users = {u["id"]: u for u in ur}
         except Exception as exc:  # noqa: BLE001
-            raise HTTPException(500, f"Lỗi truy vấn user: {exc}")
+            logger.error("[quiz] admin student rollup users failed: %s", exc, exc_info=True)
+            raise HTTPException(500, "Lỗi truy vấn học viên. Vui lòng thử lại.") from None
 
     students = []
     for r in rows:
@@ -6667,7 +6675,8 @@ def admin_student_detail(user_id: str, skill_area: str = "vocab") -> dict:
                 .order("started_at", desc=True).limit(20).execute()
             ).data or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn phiên (scoped): {exc}")
+        logger.error("[quiz] admin student detail sessions failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn phiên của học viên. Vui lòng thử lại.") from None
 
     info: dict = {}
     try:
@@ -6736,7 +6745,8 @@ def _bank_ids_for_skill(skill_area: str | None) -> list[str] | None:
             .eq("skill_area", skill_area).execute()
         ).data or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn bank theo kỹ năng: {exc}")
+        logger.error("[quiz] banks for skill failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn bộ câu hỏi theo kỹ năng. Vui lòng thử lại.") from None
     return [r["id"] for r in rows if r.get("id")]
 
 
@@ -6823,7 +6833,8 @@ def student_mistakes(user_id: str, skill_area: str | None = None) -> dict:
             q.order("created_at", desc=True).limit(_MISTAKE_ATTEMPT_CAP).execute()
         ).data or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn câu đã trả lời sai: {exc}")
+        logger.error("[quiz] student mistakes attempts failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn câu đã trả lời sai. Vui lòng thử lại.") from None
     if not attempts:
         return {"items": [], "total_missed_words": 0}
     scanned = len(attempts)
@@ -6840,7 +6851,8 @@ def student_mistakes(user_id: str, skill_area: str | None = None) -> dict:
             ).data or []
         }
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn bank: {exc}")
+        logger.error("[quiz] student mistakes banks failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn bộ câu hỏi. Vui lòng thử lại.") from None
 
     # A one-sitting Course assessment stamps server-owned `is_correct` on every
     # saved batch, before hand-in. Listing those rows here would publish the key
@@ -6887,7 +6899,8 @@ def student_mistakes(user_id: str, skill_area: str | None = None) -> dict:
                     .eq("bank_id", bank_id).in_("qid", qids[i:i + 100]).execute()
                 ).data or []
             except Exception as exc:  # noqa: BLE001
-                raise HTTPException(500, f"Lỗi truy vấn câu hỏi: {exc}")
+                logger.error("[quiz] student mistakes questions failed: %s", exc, exc_info=True)
+                raise HTTPException(500, "Lỗi truy vấn câu hỏi. Vui lòng thử lại.") from None
             _attach_article_urls(rows)
             for r in rows:
                 questions[(r["bank_id"], r["qid"])] = r
@@ -7000,7 +7013,8 @@ def _sealed_course_session_ids(session_ids: list) -> set[str]:
         assignments = {str(r["id"]): r for r in _rows(
             "class_assignments", "id, content_config", assignment_ids)}
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi kiểm tra trạng thái nộp bài: {exc}")
+        logger.error("[quiz] sealed course sessions failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi kiểm tra trạng thái nộp bài. Vui lòng thử lại.") from None
     sealed: set[str] = set()
     for sid in ids:
         session = sessions.get(sid)
@@ -7036,7 +7050,8 @@ def student_progress(user_id: str, skill_area: str | None = None) -> dict:
             .execute()
         ).data or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn tiến độ: {exc}")
+        logger.error("[quiz] student progress failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn tiến độ. Vui lòng thử lại.") from None
 
     by_bank: dict[str, dict] = {
         r["bank_id"]: {
@@ -7056,7 +7071,8 @@ def student_progress(user_id: str, skill_area: str | None = None) -> dict:
             ).data or []
             meta = {r["id"]: r for r in rows}
         except Exception as exc:  # noqa: BLE001
-            raise HTTPException(500, f"Lỗi truy vấn bank: {exc}")
+            logger.error("[quiz] student progress banks failed: %s", exc, exc_info=True)
+            raise HTTPException(500, "Lỗi truy vấn bộ câu hỏi. Vui lòng thử lại.") from None
 
     banks = []
     for bid, cnt in by_bank.items():
@@ -7089,7 +7105,8 @@ def student_progress(user_id: str, skill_area: str | None = None) -> dict:
         sessions = (sq.not_.is_("ended_at", "null")
                     .order("started_at", desc=True).limit(20).execute().data or [])
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn phiên: {exc}")
+        logger.error("[quiz] student progress sessions failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn phiên. Vui lòng thử lại.") from None
 
     # Lifetime totals for the "Thống kê của tôi" header (total practice time,
     # session count, words mastered, avg accuracy). Words-mastered is the truthful
@@ -7105,7 +7122,8 @@ def student_progress(user_id: str, skill_area: str | None = None) -> dict:
             aq = aq.in_("bank_id", scoped_bank_ids)
         all_sess = aq.execute().data or []
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn tổng hợp phiên: {exc}")
+        logger.error("[quiz] student progress session totals failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi truy vấn tổng hợp phiên. Vui lòng thử lại.") from None
     # Count only FINALIZED sessions: start_session inserts a row when the quiz page
     # opens, so a learner who opens quiz.html and leaves before finish() PATCHes
     # leaves an ended_at-less row. Including it would inflate the session count with
