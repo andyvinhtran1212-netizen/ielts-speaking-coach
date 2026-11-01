@@ -33,3 +33,8 @@ test('offscreen AI table labels are positioned inside the scroll container', () 
   // escape overflow-x:auto and widen the document even with a 1px clip.
   assert.match(declarationsFor('.ai-table-wrap'), /(?:^|[;\s])position:\s*relative\s*;/);
 });
+
+test('focusable AI table regions show a visible keyboard focus ring', () => {
+  // PC-J400: the scroll regions are tabIndex=0 so keyboard users can scroll them.
+  assert.match(declarationsFor('.ai-table-wrap:focus-visible'), /(?:^|[;\s])outline:\s*2px solid var\(--av-primary\)\s*;/);
+});

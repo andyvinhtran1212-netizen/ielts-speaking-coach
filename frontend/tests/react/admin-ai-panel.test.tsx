@@ -313,6 +313,35 @@ describe('AdminAiPanel', () => {
     expect(time.textContent).toContain('27');
   });
 
+  it('names every scrollable AI table region in Vietnamese and puts it in the Tab order', async () => {
+    api.getAdminAiUsage.mockResolvedValue(usage({ ...zeroTotals, calls: 1, priced_calls: 1, cost_usd: 0.01 }));
+    api.getAdminAiFailures.mockResolvedValue(failures({
+      totals: { total: 1, retry: 0, fallback: 1, final: 0 },
+      by_provider_feature: [{ provider: 'anthropic', feature: 'course_writing', total: 1, retry: 0, fallback: 1, final: 0, by_error_type: { timeout: 1 } }],
+      recent: [{ id: 1, created_at: '2026-10-26T17:30:00Z', feature: 'course_writing', provider: 'anthropic', model: 'claude-haiku-5-5', route_slot: null, attempt: null, error_type: 'timeout', error_code: null, outcome: 'fallback' }],
+    }));
+    const { container } = render(<AdminAiPanel />);
+    await screen.findByText('timeout × 1');
+    const names = [
+      'Bảng thứ tự nhà cung cấp và model',
+      'Bảng token theo tính năng',
+      'Bảng token theo nhà cung cấp',
+      'Bảng lỗi theo nhà cung cấp và tính năng',
+      'Bảng lỗi gần nhất',
+    ];
+    const wraps = [...container.querySelectorAll<HTMLElement>('.ai-table-wrap')];
+    expect(wraps.map((wrap) => wrap.getAttribute('aria-label'))).toEqual(names);
+    for (const name of names) {
+      const region = screen.getByRole('region', { name });
+      expect(region.classList.contains('ai-table-wrap')).toBe(true);
+      expect(region.querySelector('table')).toBeTruthy();
+      // tabIndex 0 = sequential (Tab) focus order; arrow keys then scroll it.
+      expect(region.tabIndex).toBe(0);
+      region.focus();
+      expect(document.activeElement).toBe(region);
+    }
+  });
+
   it('shows usage errors with retry and the failure-log migration state independently', async () => {
     api.getAdminAiUsage.mockRejectedValueOnce(Object.assign(new Error('HTTP 503'), {
       status: 503, detail: { error_code: 'ai_dashboard_not_migrated', message: 'Chưa áp dụng migration 322 — chưa có tổng hợp token.' },
