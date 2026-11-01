@@ -114,6 +114,40 @@ def _course_reading_for_play(reading: dict) -> dict:
     reading_for_play["has_solution"] = True
     return reading_for_play
 
+# Learner wire allowlists (SA-BANK-ANSWERS, J411R2). Column constants instead of
+# `select("*")`, following `exam_service`: a column added later (or an internal
+# one such as `import_batch_id`) does not reach the browser by default. The
+# response models enforce the same list with `extra='forbid'`.
+_STUDENT_BANK_COLUMNS = (
+    "id, topic_id, code, title, skill_area, meta, words_count, version, "
+    "is_published, course_id, lesson_no, updated_at, grammar_canonical_code, "
+    "grammar_revision, grammar_is_current, grammar_predecessor_bank_id, "
+    "grammar_retired_at, grammar_new_starts_enabled"
+)
+_STUDENT_QUESTION_COLUMNS = (
+    "id, qid, item_key, type, subtype, input, skill, pair, counts_toward_mastery, "
+    "prompt, options, segments, mask, points, order, audio_url, "
+    "grammar_article_slug, answer, accept, explain, why_wrong, hint"
+)
+_STUDENT_BANK_FIELDS = frozenset(c.strip() for c in _STUDENT_BANK_COLUMNS.split(","))
+# `article_url` is derived on the server from `grammar_article_slug`.
+_STUDENT_QUESTION_FIELDS = frozenset(
+    c.strip() for c in _STUDENT_QUESTION_COLUMNS.split(",")) | {"article_url"}
+# A Course bank is graded on the server for every completion mode, so none of
+# these leave it: keys, explanations, per-option traps, hints and the
+# key-bearing parts of match/missing-letter/syllable rows.
+_COURSE_WITHHELD_FIELDS = ("answer", "accept", "explain", "why_wrong", "hint",
+                           "pairs", "mask", "segments")
+
+
+def _student_question(row: dict, *, course: bool) -> dict:
+    out = {k: v for k, v in row.items() if k in _STUDENT_QUESTION_FIELDS}
+    if course:
+        for field in _COURSE_WITHHELD_FIELDS:
+            out.pop(field, None)
+    return out
+
+
 _ATTEMPT_FIELDS = ("client_id", "item_key", "qid", "skill", "type", "subtype",
                    "is_correct", "answer_given", "response_time_ms", "attempt_no")
 _WORD_STAT_FIELDS = ("item_key", "correct_count", "wrong_count", "first_try_correct",
@@ -987,14 +1021,15 @@ def get_bank_for_play(
     bank_id: str, user_id: str | None = None,
     assignment_item_id: str | None = None,
 ) -> dict:
-    """Bank META + questions WITH answers, for the authed player. 404 unless the
-    bank exists AND is published.
+    """Bank META + questions for the authed player. 404 unless the bank exists
+    AND is published. Self-study banks still carry their keys (QĐ-5, client
+    grading until J412); Course banks never do — see `_COURSE_WITHHELD_FIELDS`.
 
     Bank theo BUỔI HỌC còn một chốt nữa: phải ĐƯỢC GIAO. Xuất bản không mở cửa
     cho nó — đó là kho của giáo viên, không phải nội dung tự chọn."""
     try:
         b = (
-            supabase_admin.table("quiz_banks").select("*")
+            supabase_admin.table("quiz_banks").select(_STUDENT_BANK_COLUMNS)
             .eq("id", bank_id).limit(1).execute()
         ).data
     except Exception as exc:  # noqa: BLE001
@@ -1166,7 +1201,7 @@ def get_bank_for_play(
         raise HTTPException(404, "Không tìm thấy bank")
     try:
         questions = (
-            supabase_admin.table("quiz_questions").select("*")
+            supabase_admin.table("quiz_questions").select(_STUDENT_QUESTION_COLUMNS)
             .eq("bank_id", bank_id).order("order").execute()
         ).data or []
     except Exception as exc:  # noqa: BLE001
@@ -1184,17 +1219,6 @@ def get_bank_for_play(
             q["explain"] = None
             q["accept"] = None
             q["answer"] = None
-
-    # One-sitting assessments are genuinely sealed, not merely hidden in CSS.
-    # The browser receives the prompt and choices but no key or explanation
-    # until the canonical verdict moves the assignment to read-only review.
-    if mastery_state and mastery_state.get("answers_sealed"):
-        for q in questions:
-            if _is_course_quiz_question(q):
-                q["answer"] = None
-                q["accept"] = None
-                q["explain"] = None
-                q["why_wrong"] = None
 
     # BÀI ĐỌC THÊM: passage, từ vựng và câu hỏi đi cùng đề; bản dịch + đáp án
     # chỉ tới sau khi học viên chủ động đối chiếu. Lọc ở máy chủ — xoá bằng JS
@@ -1257,11 +1281,24 @@ def get_bank_for_play(
             if initial_session_id:
                 mastery_state["initial_session_id"] = initial_session_id
 
-    out = {"bank": bank, "questions": questions, "word_cards": word_cards}
     grammar_quiz_session.validate_bank_policy(bank,questions)
+    # EVERY Course bank is sealed on this read, whatever its completion mode,
+    # and in review too (review reads `/course/report`). Mastery feedback comes
+    # from `/progress` only after the answer is on record; single-attempt
+    # feedback only after hand-in. Hiding keys in the browser would be
+    # decoration: the Network tab shows the response (SA-BANK-ANSWERS).
+    is_course = bank.get("skill_area") == COURSE_AREA
+    out = {
+        "bank": {k: v for k, v in bank.items() if k in _STUDENT_BANK_FIELDS},
+        "questions": [_student_question(q, course=is_course) for q in questions],
+        "word_cards": word_cards,
+    }
     if user_id and grammar_quiz_session.is_managed(bank):
         out['grammar'] = grammar_quiz_session.bank_state(supabase_admin,str(user_id),bank)
     if mastery_state is not None:
+        if is_course:
+            # Tells the runner to take correctness from the server response.
+            mastery_state["answers_withheld"] = True
         out["mastery"] = mastery_state
     return out
 
@@ -2784,30 +2821,36 @@ def _assert_quiz_progress_writable(session: dict) -> dict:
     return {
         "timed": bool(timer.get("is_timed")),
         "completion_mode": course_completion_mode(assignment),
+        "course": True,
     }
 
 
-def _grade_single_attempt_rows(bank_id: str, rows: list[dict]) -> None:
-    """Stamp server-owned correctness without returning the key to the browser."""
+def _grade_single_attempt_rows(bank_id: str, rows: list[dict]) -> dict[str, dict]:
+    """Stamp server-owned correctness without returning the key to the browser.
+
+    Returns the question rows it read (key, explanation, traps) so mastery
+    feedback can reuse them instead of reading the bank a second time.
+    """
     qids = sorted({str(row.get("qid")) for row in rows if row.get("qid")})
     if not qids:
-        return
+        return {}
     try:
         questions = (supabase_admin.table("quiz_questions")
-                     .select("qid, answer")
+                     .select("qid, answer, explain, why_wrong")
                      .eq("bank_id", bank_id).in_("qid", qids)
                      .execute().data) or []
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, "Chưa chấm được đáp án để lưu tiến độ.") from exc
-    keys = {str(row.get("qid")): row.get("answer") for row in questions}
-    if set(qids) != set(keys):
+    by_qid = {str(row.get("qid")): row for row in questions}
+    if set(qids) != set(by_qid):
         raise HTTPException(422, "Có câu trả lời không thuộc bộ đề hiện tại.")
     for row in rows:
         qid = str(row.get("qid") or "")
-        graded = grade_attempt(row.get("answer_given"), keys.get(qid))
+        graded = grade_attempt(row.get("answer_given"), by_qid[qid].get("answer"))
         if graded is None:
             raise HTTPException(422, "Có câu trả lời không chấm được.")
         row["is_correct"] = graded
+    return by_qid
 
 
 def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_stats: list[dict]) -> dict:
@@ -2854,9 +2897,14 @@ def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_st
         row["attempt_no"] = _coerce_int(row.get("attempt_no"))
         row.update({"user_id": user_id, "session_id": session_id, "bank_id": bank_id})
         attempt_rows.append(row)
-    if (attempt_rows and write_policy.get("completion_mode")
-            == COURSE_COMPLETION_SINGLE_ATTEMPT):
-        _grade_single_attempt_rows(bank_id, attempt_rows)
+    # Course banks reach the browser without keys (`get_bank_for_play`), so the
+    # client's `is_correct` is only a placeholder there: the server grades every
+    # Course row, in every completion mode, before anything is stored.
+    course_session = bool(write_policy.get("course"))
+    course_keys: dict[str, dict] = {}
+    inserted_rows: list[dict] = []
+    if attempt_rows and course_session:
+        course_keys = _grade_single_attempt_rows(bank_id, attempt_rows)
     if attempt_rows:
         try:
             if timed_course:
@@ -2902,7 +2950,8 @@ def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_st
         # ignore_duplicates the upsert RETURNs just the rows it inserted, so a
         # retried/keepalive re-send (same client_id) records no duplicate evidence
         # and can't double-count a quiz answer toward mastery.
-        _record_quiz_kp_evidence(user_id, bank_id, getattr(attempts_resp, "data", None) or [])
+        inserted_rows = getattr(attempts_resp, "data", None) or []
+        _record_quiz_kp_evidence(user_id, bank_id, inserted_rows)
 
     stat_rows = []
     for w in word_stats:
@@ -2940,7 +2989,81 @@ def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_st
             logger.error("[quiz] word stats write failed session=%s: %s", session_id, exc, exc_info=True)
             raise HTTPException(500, "Không ghi được thống kê từ. Vui lòng thử lại.") from None
 
-    return {"ok": True, "attempts": len(attempt_rows), "word_stats": len(stat_rows)}
+    out = {"ok": True, "attempts": len(attempt_rows), "word_stats": len(stat_rows)}
+    if (course_session and attempt_rows and write_policy.get("completion_mode")
+            != COURSE_COMPLETION_SINGLE_ATTEMPT):
+        out["feedback"] = _course_attempt_feedback(
+            bank_id=bank_id, session_id=session_id, user_id=user_id,
+            client_ids=[row.get("client_id") for row in attempt_rows],
+            inserted=inserted_rows, keys=course_keys,
+        )
+    return out
+
+
+def _course_attempt_feedback(*, bank_id: str, session_id: str, user_id: str,
+                             client_ids: list, inserted: list[dict],
+                             keys: dict[str, dict]) -> list[dict]:
+    """Per-answer feedback for Course mastery rows that are ON RECORD.
+
+    Built from stored rows, never from the request: the rows the INSERT just
+    returned, plus — only for a replayed `client_id` (retry after a lost
+    response) — the row stored the first time, read back. A `client_id` that is
+    not stored in THIS session gets nothing. So looking at a key always costs a
+    recorded answer, and the verdict counts only the first answer per question.
+    """
+    ids = {str(cid) for cid in client_ids if cid}
+    if not ids:
+        return []
+    stored = [row for row in inserted
+              if str(row.get("client_id")) in ids
+              and str(row.get("session_id")) == str(session_id)
+              and str(row.get("user_id")) == str(user_id)]
+    replayed = sorted(ids - {str(row.get("client_id")) for row in stored})
+    try:
+        if replayed:
+            stored += (supabase_admin.table("quiz_attempts")
+                       .select("client_id, qid, answer_given")
+                       .eq("session_id", session_id).eq("user_id", user_id)
+                       .in_("client_id", replayed).execute().data) or []
+        missing = sorted({str(row.get("qid")) for row in stored
+                          if row.get("qid") and str(row.get("qid")) not in keys})
+        if missing:
+            keys = {**keys, **{
+                str(row.get("qid")): row for row in (
+                    supabase_admin.table("quiz_questions")
+                    .select("qid, answer, explain, why_wrong")
+                    .eq("bank_id", bank_id).in_("qid", missing).execute().data
+                ) or []
+            }}
+    except Exception as exc:  # noqa: BLE001
+        # The answers are saved; the browser retries the same client_ids and
+        # gets the stored verdict without creating a second attempt.
+        raise HTTPException(
+            500, "Đã lưu đáp án nhưng chưa đọc được kết quả chấm. Hãy thử lại.",
+        ) from exc
+    feedback = []
+    for row in stored:
+        question = keys.get(str(row.get("qid") or ""))
+        if not question:
+            continue
+        answer = question.get("answer")
+        correct = grade_attempt(row.get("answer_given"), answer) is True
+        try:
+            picked = str(int(str(row.get("answer_given")).strip()))
+        except (TypeError, ValueError):
+            picked = None
+        traps = question.get("why_wrong")
+        trap = (traps.get(picked) if not correct and picked is not None
+                and isinstance(traps, dict) else None)
+        feedback.append({
+            "qid": str(row["qid"]),
+            "client_id": str(row.get("client_id")),
+            "is_correct": correct,
+            "answer": answer if isinstance(answer, int) else None,
+            "why_wrong": str(trap) if trap else None,
+            "explain": str(question.get("explain") or "") or None,
+        })
+    return feedback
 
 
 def _assert_course_session_accepting(session: dict, ended_by: str = "completed") -> None:
@@ -6654,7 +6777,8 @@ def student_mistakes(user_id: str, skill_area: str | None = None) -> dict:
     try:
         q = (
             supabase_admin.table("quiz_attempts")
-            .select("bank_id, item_key, qid, skill, type, answer_given, created_at")
+            .select("bank_id, session_id, item_key, qid, skill, type, "
+                    "answer_given, created_at")
             .eq("user_id", user_id).eq("is_correct", False)
         )
         if bank_ids is not None:
@@ -6664,6 +6788,38 @@ def student_mistakes(user_id: str, skill_area: str | None = None) -> dict:
         ).data or []
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi truy vấn câu đã trả lời sai: {exc}")
+    if not attempts:
+        return {"items": [], "total_missed_words": 0}
+    scanned = len(attempts)
+
+    # Bank meta for the card headers (and to know which rows are Course).
+    try:
+        meta = {
+            r["id"]: r for r in (
+                supabase_admin.table("quiz_banks")
+                .select("id, code, title, skill_area, grammar_canonical_code, "
+                        "grammar_revision, grammar_is_current")
+                .in_("id", list({a.get("bank_id") for a in attempts
+                                 if a.get("bank_id")})).execute()
+            ).data or []
+        }
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi truy vấn bank: {exc}")
+
+    # A one-sitting Course assessment stamps server-owned `is_correct` on every
+    # saved batch, before hand-in. Listing those rows here would publish the key
+    # early — not only via `correct_answer`: the mere PRESENCE of a question in
+    # this list says the chosen option was wrong (answer "A" everywhere, read
+    # which questions show up). So the whole row stays out until hand-in.
+    course_sessions = [a.get("session_id") for a in attempts
+                       if (meta.get(a.get("bank_id")) or {}).get("skill_area")
+                       == COURSE_AREA]
+    sealed_sessions = _sealed_course_session_ids(course_sessions)
+    attempts = [a for a in attempts
+                if not ((meta.get(a.get("bank_id")) or {}).get("skill_area")
+                        == COURSE_AREA
+                        and (not a.get("session_id")
+                             or str(a.get("session_id")) in sealed_sessions))]
     if not attempts:
         return {"items": [], "total_missed_words": 0}
 
@@ -6699,19 +6855,6 @@ def student_mistakes(user_id: str, skill_area: str | None = None) -> dict:
             _attach_article_urls(rows)
             for r in rows:
                 questions[(r["bank_id"], r["qid"])] = r
-
-    # Bank meta for the card headers.
-    try:
-        meta = {
-            r["id"]: r for r in (
-                supabase_admin.table("quiz_banks")
-                .select("id, code, title, skill_area, grammar_canonical_code, "
-                        "grammar_revision, grammar_is_current")
-                .in_("id", list({k[0] for k in by_q})).execute()
-            ).data or []
-        }
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi truy vấn bank: {exc}")
 
     # Mastery state per word, so a word already fixed reads as fixed.
     stats: dict[tuple[str, str], dict] = {}
@@ -6782,8 +6925,61 @@ def student_mistakes(user_id: str, skill_area: str | None = None) -> dict:
         "items": items[:_MISTAKE_ITEM_CAP],
         "total_missed_words": len(items),
         "attempts_scanned": len(attempts),
-        "capped": len(attempts) >= _MISTAKE_ATTEMPT_CAP,
+        "capped": scanned >= _MISTAKE_ATTEMPT_CAP,
     }
+
+
+def _sealed_course_session_ids(session_ids: list) -> set[str]:
+    """Course sessions whose one-sitting assignment is not handed in yet.
+
+    Decided per SESSION (its own assignment item), not per bank: the same bank
+    can be issued twice to one learner (class transfer), and a finished copy
+    must not unseal an open one. An item or assignment that cannot be read is
+    treated as sealed. A session without an item predates single-attempt mode
+    (migration 284 came long after items were stamped on sessions) and stays
+    on the mastery contract.
+    """
+    ids = sorted({str(sid) for sid in session_ids if sid})
+    if not ids:
+        return set()
+
+    def _rows(table: str, columns: str, values: list[str]) -> list[dict]:
+        rows: list[dict] = []
+        for i in range(0, len(values), 100):
+            rows.extend((supabase_admin.table(table).select(columns)
+                         .in_("id", values[i:i + 100]).execute().data) or [])
+        return rows
+
+    try:
+        sessions = {str(r["id"]): r for r in _rows(
+            "quiz_sessions", "id, class_assignment_item_id", ids)}
+        item_ids = sorted({str(r["class_assignment_item_id"])
+                           for r in sessions.values()
+                           if r.get("class_assignment_item_id")})
+        items = {str(r["id"]): r for r in _rows(
+            "class_assignment_items",
+            "id, assignment_id, submitted_at, mastery", item_ids)}
+        assignment_ids = sorted({str(r["assignment_id"]) for r in items.values()
+                                 if r.get("assignment_id")})
+        assignments = {str(r["id"]): r for r in _rows(
+            "class_assignments", "id, content_config", assignment_ids)}
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi kiểm tra trạng thái nộp bài: {exc}")
+    sealed: set[str] = set()
+    for sid in ids:
+        session = sessions.get(sid)
+        if session is None:
+            sealed.add(sid)
+            continue
+        item_id = session.get("class_assignment_item_id")
+        if not item_id:
+            continue
+        item = items.get(str(item_id))
+        assignment = assignments.get(str((item or {}).get("assignment_id") or ""))
+        if item is None or assignment is None or single_attempt_answers_sealed(
+                item, assignment):
+            sealed.add(sid)
+    return sealed
 
 
 def student_progress(user_id: str, skill_area: str | None = None) -> dict:

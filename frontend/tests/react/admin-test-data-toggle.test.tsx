@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('client-only', () => ({}));
@@ -14,11 +14,34 @@ const reload = vi.fn();
 beforeEach(() => {
   window.localStorage.clear();
   window.__AVER_RUNTIME_CONFIG__ = { environment: 'staging' };
-  Object.defineProperty(window, 'location', { configurable: true, value: { ...window.location, reload } });
+  Object.defineProperty(window, 'location', { configurable: true, value: { ...window.location, search: '', reload } });
 });
 afterEach(() => { cleanup(); reload.mockReset(); vi.mocked(getBrowserJson).mockClear(); delete window.__AVER_RUNTIME_CONFIG__; });
 
 describe('TASK B2 staging test-data toggle', () => {
+  it.each(['?embed=1', '?mock_exam_id=x&embed=1', '?embed=1&mocklane=1'])(
+    'renders nothing and asks nothing in an embedded admin frame (%s)',
+    async (search) => {
+      window.location.search = search;
+      visibility.payload = { hiding_enabled: true, showing_test_data: true };
+      const view = render(<AdminTestDataToggle />);
+      await act(async () => {});
+      expect(getBrowserJson).not.toHaveBeenCalled();
+      expect(view.container.innerHTML).toBe('');
+    },
+  );
+
+  it.each(['', '?embed=0'])(
+    'keeps the toggle and visibility request on a standalone admin page (%s)',
+    async (search) => {
+      window.location.search = search;
+      visibility.payload = { hiding_enabled: true, showing_test_data: true };
+      render(<AdminTestDataToggle />);
+      expect(await screen.findByRole('button', { name: 'Ẩn dữ liệu kiểm thử' })).toBeTruthy();
+      expect(getBrowserJson).toHaveBeenCalledExactlyOnceWith('/admin/test-data/visibility');
+    },
+  );
+
   it('renders nothing unless the backend reports hiding as active', async () => {
     for (const payload of [{}, null, { hiding_enabled: false, showing_test_data: false },
       { hiding_enabled: true }, { hiding_enabled: 'true', showing_test_data: false }]) {

@@ -1,7 +1,7 @@
 ---
 id: GRAMMARAUDIT-0019
 title: Close the October Grammar audit while preserving every learner revision
-status: approved
+status: implementing
 risk: high
 owner: product
 ---

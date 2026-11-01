@@ -67,12 +67,12 @@ anchors:
 <!-- anchor: reference-and-cohesion.pronoun-ref -->
 ### Đại từ thay danh từ: it / they / them
 
-Đại từ có thể trỏ về đối tượng/cả sự việc hợp về số và nghĩa; không bắt buộc danh từ gần nhất:
+Đại từ trỏ về danh từ (hoặc sự việc) hợp cả về số lẫn nghĩa, không nhất thiết là danh từ đứng gần nhất:
 
-- *The scientists published their data, and **it** was soon challenged.* → *it* = the data (không phải scientists).
+- *The scientists published their data, and **it** was soon challenged.* → *it* = the data (không phải scientists). (*data* có thể số ít hoặc số nhiều; gặp *they* cũng có thể là data.)
 - **they/them** thay danh từ số nhiều; **it** thay số ít hoặc một khái niệm.
 
-Hỏi it/they quy chiếu đối tượng hay sự việc nào? “It is raining” có it giả không tiền ngữ; “He lost his job. It upset him” có it chỉ cả sự việc.
+Hỏi: *it/they* thay cho vật nào hay sự việc nào? Lưu ý *it* có thể không thay cho gì cả (*It is raining.*), hoặc thay cả một sự việc (*He lost his job. **It** upset him.* → it = việc mất việc).
 
 <!-- anchor: reference-and-cohesion.this-such -->
 ### this / these / such thay cả một ý
@@ -80,9 +80,11 @@ Hỏi it/they quy chiếu đối tượng hay sự việc nào? “It is raining
 **This/these/such** có thể trỏ về **cả một mệnh đề/ý** vừa nêu:
 
 - *Sea levels are rising. **This trend** threatens cities.* → this trend = việc mực nước biển dâng.
-- *Some claim the data is flawed. **Such criticism** is common.* → such criticism = lời chê data sai.
+- *Some claim the data is flawed. **Such criticism** is common.* → such criticism = ý kiến cho rằng dữ liệu bị sai.
 
-Cụm **the former / the latter** trỏ về "cái trước / cái sau" trong hai thứ vừa nhắc.
+Cụm **the former / the latter** trỏ về "cái trước / cái sau" trong hai thứ vừa nhắc:
+
+- *Cars and bikes both cause problems; **the former** pollute, while **the latter** clog pavements.* → former = cars, latter = bikes.
 
 <!-- anchor: reference-and-cohesion.pitfall -->
 ## Bẫy khi đọc
@@ -90,8 +92,12 @@ Cụm **the former / the latter** trỏ về "cái trước / cái sau" trong ha
 ### Bẫy 1: Trỏ nhầm danh từ gần nhất về mặt vị trí
 Danh từ **gần nhất** chưa chắc đúng — phải hợp cả **số** lẫn **nghĩa**.
 
+- *The report criticised the ministers' plans because **they** were vague.* → they = plans (không phải ministers).
+
 ### Bẫy 2: Bỏ qua tham chiếu tới cả một ý
 *This/that* có thể thay cả câu trước; đừng chỉ tìm một danh từ.
+
+- *Prices doubled in a year. **This** shocked analysts.* → this = việc giá tăng gấp đôi trong một năm.
 
 ### Chiến lược giải mã
 1. Gặp it/they/this/such → dừng lại, truy về trước.
@@ -101,5 +107,5 @@ Danh từ **gần nhất** chưa chắc đúng — phải hợp cả **số** l�
 ## Tóm tắt nhanh
 
 - Từ tham chiếu trỏ ngược để tránh lặp
-- it/they và this/such có nhiều cách quy chiếu; this book chỉ một vật, it có thể chỉ sự việc hoặc là chủ ngữ giả
+- *it/they* thường thay một danh từ; *this/such + danh từ* có thể thay cả một ý; *it* cũng có thể là chủ ngữ giả
 - Truy "cái được thay" theo cả số lẫn nghĩa, không chỉ vị trí

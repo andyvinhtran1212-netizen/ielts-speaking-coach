@@ -65,3 +65,53 @@ spec says 503.
   activation probe treats any non-2xx as unknown and fails open, unchanged.
 - Unchanged: risk `high`, flag default off, access decisions, the
   `/auth/me` error contract and the rollout.
+
+## Revision 3 — flag-off paths run the sync query in a worker thread (Q5: b)
+
+**State: APPROVED by the human owner.** 2026-10-30 22:13 (UTC+7) Vinh chọn
+Q5: b (t1098u, Leader báo): khi cờ tắt, các đường a* và `aexecute` chạy truy
+vấn sync trong worker thread; cờ vẫn tắt.
+
+The question (Q5 in the Leader's 2026-10-30 question batch) offered (a) enable
+`USE_ASYNC_DB` again, or (b) amend this spec so that with the flag off the a*
+functions and `aexecute` run their query in a worker thread
+(`asyncio.to_thread`) instead of on the event loop, with results, error codes
+and query order unchanged and the flag still off. Vinh answered "Q5: b". The
+Leader's addendum of 2026-10-30 22:28 (UTC+7) adds:
+
+- (a) Q5: b includes `aexecute`, so every path it pulls in is in scope:
+  `routers/grading.py` (seven calls, one of them an insert),
+  `services/student_service.py`, the `routers/admin.py` staff role read and
+  `/auth/check-active`. Their existing tests stay green and are not edited to
+  pass.
+- (b) Sharing the sync singleton across threads rests on the job 001jy
+  evidence (PR #2093, `test_supabase_singleton_threadsafe.py`, "THREADSAFE:
+  SAFE"). The implementation corrects the code comments that forbid it
+  (`backend/database.py:228–234`, `backend/services/db_async.py:20–23`,
+  `:182–183`) and the spec records the library versions.
+- (c) "Q5: b" is enough to write this amendment and its code and to merge to
+  `staging` through the normal gate. **Production still needs Vinh's separate
+  approval at the promotion.**
+- (d) #2093 (PC-J428) already runs `/auth/me` (`get_me`) in a worker thread
+  with the flag off.
+
+Spec text changed:
+
+- `spec.md`: a Revision 3 paragraph; the Vietnamese summary no longer says the
+  flag-off code runs exactly as today; Problem, Scope and Non-goals extended;
+  FR-001 now says the flag-off sync query runs in a worker thread, awaited in
+  sequence; new FR-008 (exact flag-off scope, matching FR-005) and FR-009
+  (thread-safety evidence and version pins, comment fix, G4 check for writes);
+  Scenario 4; edge cases for the per-request memo, the concurrency change,
+  thread safety, the executor, cancellation and rollback; success criteria for
+  the flag-off load test and parity.
+- `plan.md`, `tasks.md`, `verification.md`, `rollout.md`: the implementation,
+  tests, checks and rollback (revert the code; there is no separate flag).
+
+Behaviour change: with the flag off, these queries no longer block the event
+loop, and requests for the same entity that used to run one after another can
+now overlap (G4). Unchanged: risk `high`, `USE_ASYNC_DB` default off on
+staging and production, access decisions, bodies, statuses, error details, the
+503 fail-closed contract, the query sequence, the per-request memo, the test
+seams, Revisions 1 and 2, the executor size, and no migration or environment
+change.

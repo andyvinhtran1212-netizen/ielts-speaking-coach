@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, writeFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
+import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = process.argv[2] || 'http://127.0.0.1:3034';
 const SB = process.env.SUPABASE_URL || 'https://example.supabase.co';
@@ -73,6 +74,7 @@ try {
     if (path.startsWith('/api/feedback/') || path.startsWith('/api/analytics/')) return json({});
     unexpected.push(request.url()); return route.abort();
   });
+  await stubAdminMfaStatus(context);
   page = await context.newPage();
   page.setDefaultTimeout(10000);
   page.on('pageerror', (error) => browserErrors.push(String(error)));

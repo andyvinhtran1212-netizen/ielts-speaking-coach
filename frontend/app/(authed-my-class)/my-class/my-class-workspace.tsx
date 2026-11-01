@@ -373,7 +373,7 @@ function ReadyView({
     <>
       <header className="mc-hero">
         <div className="mc-head">
-          <p className="mc-eyebrow">MY CLASS</p>
+          <p className="mc-eyebrow">LỚP HỌC</p>
           <h1>{selectedClass?.name || (snapshot.classes.length > 1 ? `${snapshot.classes.length} lớp đang học` : snapshot.classInfo?.name) || 'Lớp của tôi'}</h1>
           {course && <div className="mc-course"><span className="mc-course-code">{course.code}</span>{course.name}</div>}
           <p className="mc-lead">Theo dõi việc cần làm, nhịp nộp bài và nội dung mới nhất từ lớp.</p>
@@ -678,7 +678,7 @@ export function MyClassWorkspace() {
       <main className="mc-shell">
         <section>
           <header className="mc-head mc-head--empty">
-            <p className="mc-eyebrow">MY CLASS</p><h1>Không gian lớp học của bạn</h1>
+            <p className="mc-eyebrow">LỚP HỌC</p><h1>Không gian lớp học của bạn</h1>
             <p className="mc-lead">Bài tập, deadline và nội dung từng buổi sẽ được gom về một nơi.</p>
           </header>
           <div className="mc-empty">Bạn chưa được xếp vào lớp nào. Khi giảng viên thêm bạn vào lớp, bài tập và nội dung buổi học sẽ hiện ở đây.</div>
