@@ -64,16 +64,17 @@ _NO_PATTERNS = re.compile(
 _STRUCTURE_SCOPE = re.compile(r"cau truc|cau don|cau phuc|sentence|syntactic")
 # Error domains a recurring-pattern denial or a stillRecurring item can name,
 # by criterion. A denial that names none of them covers every domain.
+# Locations ("đoạn văn", "paragraph", "sentence") name where, not which error.
 _ERROR_DOMAINS = {
     "grammar": re.compile(
-        r"ngu phap|grammar|grammatical|cau truc|cau don|cau phuc|cau ghep|sentence|run-on|fragment|"
+        r"ngu phap|grammar|grammatical|cau truc|cau don|cau phuc|cau ghep|sentence structure|run-on|fragment|"
         r"chia (?:dong tu|thi)|\btense|hoa hop|chu vi|subject[- ]verb|agreement|mao tu|\barticles?\b|"
         r"gioi tu|preposition|so (?:it|nhieu)|plural|singular|bi dong|passive|menh de|clause|"
         r"dau cau|punctuation"),
     "lexical": re.compile(
         r"tu vung|\b(?:dung|chon|lap) tu\b|tu loai|dang tu|\bwords?\b|vocabulary|lexical|collocation|"
         r"ket hop tu|chinh ta|spelling|paraphras"),
-    "coherence": re.compile(r"lien ket|mach lac|coheren|cohesi|linking|tu noi|lien tu|doan van|paragraph"),
+    "coherence": re.compile(r"lien ket|mach lac|coheren|cohesi|linking|tu noi|lien tu|paragraphing"),
     "task": re.compile(
         r"so lieu|du lieu|\bdata\b|task (?:achievement|response)|overview|tong quan|y tuong|\bideas?\b|"
         r"lap luan|argument"),
@@ -127,21 +128,39 @@ _CLAUSE_SPLIT = re.compile(
 )
 
 
-def _without_clauses(sentence: str, drop) -> str:
+def _without_clauses(sentence: str, drop, warning=None) -> str:
     """Rebuild sentence without the clauses whose plain text drop() rejects.
 
     Only the rejected clause and its leading marker go; the other clauses keep
     their original wording. Returns "" when every clause is rejected.
+
+    With warning(), a comma also ends a clause when the clause after it is a
+    kept warning, and a clause hanging on a rejected one by "nhưng"/"but"
+    without its own warning goes with it ("... câu đơn nhưng đúng ngữ pháp").
     """
     # Find boundaries before folding accents: "những" is not "nhưng".
     marks = [(m.start(), m.end()) for m in _CLAUSE_SPLIT.finditer(sentence)]
+    if warning:
+        cuts = sorted(marks + [(m.start(), m.end()) for m in re.finditer(",", sentence)])
+        commas = []
+        for k, (start, end) in enumerate(cuts):
+            following = _plain(sentence[end:cuts[k + 1][0] if k + 1 < len(cuts) else len(sentence)])
+            if sentence[start:end] == "," and warning(following) and not drop(following):
+                commas.append((start, end))
+        marks = sorted(marks + commas)
     starts = [0] + [end for _, end in marks]
     ends = [start for start, _ in marks] + [len(sentence)]
     clauses = [_plain(sentence[start:end]) for start, end in zip(starts, ends)]
     if not any(drop(clause) for clause in clauses):
         return sentence
+    rejected = [bool(clause.strip(" ,;:")) and drop(clause) for clause in clauses]
+    if warning:
+        for k in range(1, len(clauses)):
+            if (rejected[k - 1] and _plain(sentence[marks[k - 1][0]:marks[k - 1][1]]) in {"nhung", "but"}
+                    and not warning(clauses[k])):
+                rejected[k] = True
     # An empty clause before a leading marker ("Mặc dù ...") is not content.
-    kept = [k for k, clause in enumerate(clauses) if clause.strip(" ,;:") and not drop(clause)]
+    kept = [k for k, clause in enumerate(clauses) if clause.strip(" ,;:") and not rejected[k]]
     if not kept:
         return ""
     pieces = [sentence[starts[k] if k == kept[0] else marks[k - 1][0]:ends[k]]
@@ -176,7 +195,13 @@ _DATA_DENIAL_PREFIXES = (
     "khong phai do", "khong phai vi", "khong phai la loi do",
     "not a", "not an", "not because", "not because the", "not that", "not that the",
 )
-_DATA_DENIAL_TAIL = re.compile(r"\b(?:" + "|".join(map(re.escape, _DATA_DENIAL_PREFIXES)) + r")\s+$")
+# "does not mean that X", "không phải chỗ đó X": the negation governs X.
+# A location "đó" is not the cause "do", and "notice that" is not a denial.
+_DATA_DENIAL_TAIL = re.compile(
+    r"(?:\b(?:" + "|".join(map(re.escape, _DATA_DENIAL_PREFIXES)) + r")|"
+    r"(?:\bnot|n['’]t)\s+(?:mean|say|think|suggest|imply|show|indicate)s?\s+that(?:\s+the)?|"
+    r"\bkhong phai (?:la )?(?:cho|o|trong) (?:do|nay))\s+$"
+)
 
 
 def _unnegated(pattern: re.Pattern, text: str) -> bool:
@@ -199,6 +224,14 @@ def _blanket_low_range(plain: str) -> bool:
     return (_unnegated(_LOW_RANGE, plain)
             and not _affirmed(_MIXED_RANGE, plain)
             and not (_affirmed(_PRAISE, plain) and not _NEGATED_PRAISE.search(plain)))
+
+
+def _warns(clause: str, vietnamese: bool) -> bool:
+    """A criticism, advice or data error in a plain clause, reassurance aside."""
+    rest = _REASSURANCE.sub(" ", clause)
+    return bool(_CRITICISM.search(rest) or _ADVICE.search(rest)
+                or (vietnamese and _VI_ADVICE.search(rest))
+                or _PROPOSAL.search(rest) or _unnegated(_DATA_ERROR, rest))
 
 
 def _phrase_pattern(original: str) -> re.Pattern | None:
@@ -275,9 +308,11 @@ def repair_writing_consistency(feedback: WritingFeedback, task_type: str) -> lis
                 if (feedback.criteriaFeedback.grammaticalRange.bandScore >= 7
                         and _blanket_low_range(plain) and not historical
                         and (key == "current_essay_observation" or _CURRENT.search(plain))):
+                    vietnamese = plain != sentence.casefold()
                     sentence = _without_clauses(sentence, lambda clause: (
                         _unnegated(_LOW_RANGE, clause)
-                        and not (_HISTORY.search(clause) and not _CURRENT.search(clause))))
+                        and not (_HISTORY.search(clause) and not _CURRENT.search(clause))),
+                        lambda clause: _warns(clause, vietnamese))
                     if not sentence:
                         continue
                     plain = _plain(sentence)
