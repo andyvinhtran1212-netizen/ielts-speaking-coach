@@ -38,7 +38,7 @@ class _Table:
         self._rows = [r for r in self._rows if str(r.get(f)) == str(v)]
         return self
     def order(self, *_a, **_k): return self
-    def limit(self, *_a): return self
+    def limit(self, *_a, **_k): return self
     def execute(self): return _Resp(self._rows)
 
 

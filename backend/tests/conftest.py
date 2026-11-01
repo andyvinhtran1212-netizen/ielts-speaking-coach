@@ -141,6 +141,20 @@ def live_activation_gate(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _reset_quiz_bank_content_cache():
+    """PC-J434 — the quiz player caches bank questions and word cards per
+    process. Each test builds its own fake DB under the same bank/topic ids,
+    so one test's cached content must never answer another's read."""
+    try:
+        from services import quiz_service
+        quiz_service._bank_content_cache.clear()
+        quiz_service._word_cards_cache.clear()
+    except Exception:
+        pass
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _reset_listening_gist_burst_window():
     """W-03 — Listening gist grading keeps a module-global per-user minute
     window; clear it so one test's attempts never throttle another's."""
