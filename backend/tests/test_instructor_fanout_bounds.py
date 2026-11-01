@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from tests.test_instructor_routes_isolation import B, CB, PB, SB, _FakeSB, _seed, _u
+from tests.test_instructor_routes_isolation import B, CB, PB, SB, _FakeSB, _rid, _seed, _u
 
 URL = "/instructor/assignments/fan-out"
 HDR = {"Authorization": "Bearer x"}
@@ -74,7 +74,7 @@ def _store_with_prompts(n: int) -> tuple[dict, list[str]]:
 def test_out_of_bounds_body_is_422_before_any_db_call(override):
     store, _ids = _store_with_prompts(21)
     before = [dict(r) for r in store["writing_assignments"]]
-    body = {"prompt_ids": [PB], "cohort_id": CB, **override}
+    body = {"request_id": _rid(), "prompt_ids": [PB], "cohort_id": CB, **override}
     with _as_b(store) as (client, fake):
         r = client.post(URL, json=body, headers=HDR)
     assert r.status_code == 422, r.text
@@ -85,7 +85,7 @@ def test_out_of_bounds_body_is_422_before_any_db_call(override):
 def test_upper_bounds_are_accepted():
     store, _ids = _store_with_prompts(0)
     with _as_b(store) as (client, _fake):
-        r = client.post(URL, json={"prompt_ids": [PB], "cohort_id": CB,
+        r = client.post(URL, json={"request_id": _rid(), "prompt_ids": [PB], "cohort_id": CB,
                                    "instructions": "x" * 2000, "analysis_level": 5},
                         headers=HDR)
     assert r.status_code == 201, r.text
@@ -96,7 +96,7 @@ def test_upper_bounds_are_accepted():
 def test_twenty_prompts_fan_out_one_row_each():
     store, ids = _store_with_prompts(20)
     with _as_b(store) as (client, _fake):
-        r = client.post(URL, json={"prompt_ids": ids, "cohort_id": CB}, headers=HDR)
+        r = client.post(URL, json={"request_id": _rid(), "prompt_ids": ids, "cohort_id": CB}, headers=HDR)
     assert r.status_code == 201, r.text
     assert r.json()["created_count"] == 20               # 1 student (SB) × 20 prompts
     created = [a for a in store["writing_assignments"] if a.get("assignment_group_id") == r.json()["group_id"]]
@@ -107,7 +107,7 @@ def test_twenty_prompts_fan_out_one_row_each():
 def test_repeated_prompt_ids_are_deduplicated_in_order():
     store, (p1, p2) = _store_with_prompts(2)
     with _as_b(store) as (client, _fake):
-        r = client.post(URL, json={"prompt_ids": [p2, PB, p2, p1, PB], "cohort_id": CB},
+        r = client.post(URL, json={"request_id": _rid(), "prompt_ids": [p2, PB, p2, p1, PB], "cohort_id": CB},
                         headers=HDR)
     assert r.status_code == 201, r.text
     assert r.json()["created_count"] == 3                # not 5: one row per distinct prompt
@@ -119,12 +119,13 @@ def test_unknown_fields_are_still_ignored():
     """No extra="forbid": an older client sending a stray field keeps working."""
     store, _ids = _store_with_prompts(0)
     with _as_b(store) as (client, _fake):
-        r = client.post(URL, json={"prompt_ids": [PB], "cohort_id": CB, "legacy_flag": True},
+        r = client.post(URL, json={"request_id": _rid(), "prompt_ids": [PB], "cohort_id": CB, "legacy_flag": True},
                         headers=HDR)
     assert r.status_code == 201, r.text
 
 
 # ── PC-J115: single-student assign (`AssignBody`) gets the same bounds ────────
+# INSTRUCTORGIVE-0044 FR-001/D3: request_id is required on both /instructor give routes (PR #2116).
 
 ASSIGN_URL = "/instructor/assignments"
 
@@ -137,10 +138,11 @@ ASSIGN_URL = "/instructor/assignments"
 def test_assign_out_of_bounds_body_is_422_before_any_db_call(override):
     store = _seed()
     before = [dict(r) for r in store["writing_assignments"]]
-    body = {"prompt_id": PB, "student_id": SB, **override}
+    body = {"request_id": _rid(), "prompt_id": PB, "student_id": SB, **override}
     with _as_b(store) as (client, fake):
         r = client.post(ASSIGN_URL, json=body, headers=HDR)
     assert r.status_code == 422, r.text
+    assert [e["loc"] for e in r.json()["detail"]] == [["body", next(iter(override))]]   # the bound, not request_id
     assert fake.calls == []                              # refused before any read or write
     assert store["writing_assignments"] == before
 
@@ -152,7 +154,7 @@ def test_assign_out_of_bounds_body_is_422_before_any_db_call(override):
 def test_assign_boundary_values_are_accepted(instructions, level):
     store = _seed()
     with _as_b(store) as (client, _fake):
-        r = client.post(ASSIGN_URL, json={"prompt_id": PB, "student_id": SB,
+        r = client.post(ASSIGN_URL, json={"request_id": _rid(), "prompt_id": PB, "student_id": SB,
                                           "instructions": instructions, "analysis_level": level},
                         headers=HDR)
     assert r.status_code == 201, r.text
@@ -165,7 +167,8 @@ def test_assign_default_level_and_unknown_fields_still_accepted():
     """Default analysis_level stays 3; no extra="forbid" on AssignBody either."""
     store = _seed()
     with _as_b(store) as (client, _fake):
-        r = client.post(ASSIGN_URL, json={"prompt_id": PB, "student_id": SB, "legacy_flag": True},
+        r = client.post(ASSIGN_URL, json={"request_id": _rid(), "prompt_id": PB, "student_id": SB,
+                                          "legacy_flag": True},
                         headers=HDR)
     assert r.status_code == 201, r.text
     assert r.json()["analysis_level"] == 3
