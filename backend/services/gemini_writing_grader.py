@@ -20,9 +20,11 @@ Convention notes:
 from __future__ import annotations
 
 import asyncio
+import builtins
 import copy
 import json
 import logging
+import re
 import time
 from typing import Optional
 
@@ -42,7 +44,7 @@ from models.writing_feedback import (
 )
 from services.writing_history import format_history_for_prompt
 from services.writing_prompt_loader import get_prompt_loader
-from services.writing_feedback_consistency import repair_writing_consistency
+from services.writing_feedback_consistency import ConsistencyRepairError, repair_writing_consistency
 from services.ai_pricing import estimate_token_cost, token_rate
 from services import ai_failure_log, ai_router, ai_usage_logger
 from services.gemini_compat import generation_config_kwargs
@@ -58,6 +60,29 @@ from services.writing_feedback_grounding import (
 _REPAIRABLE = (UngroundedWritingFeedbackError, MissingMistakeAnalysisError)
 
 logger = logging.getLogger(__name__)
+
+# A repair error message such as "'int' object is not iterable" helps debugging,
+# but a message can also quote learner or model text. Only words Python uses in
+# such messages (builtin and builtin-type names, plus the phrasing) are logged;
+# every other word, digits included, becomes "…".
+_ERROR_MESSAGE_WORDS = frozenset(
+    {name.casefold() for name in dir(builtins)}
+    | {name.casefold() for kind in (str, bytes, list, tuple, dict, set, int, float, type(None))
+       for name in dir(kind)}
+    | set("""nonetype object is not iterable subscriptable callable has no attribute unhashable
+             unsupported operand types for and or to of in index out expected instance found can
+             only concatenate argument arguments must be got an a takes positional keyword but
+             were was given sequence item key missing required unexpected cannot convert
+             implicitly""".split())
+)
+_REPAIR_ERROR_MAX_CHARS = 200
+
+
+def _repair_error_message(error: BaseException) -> str:
+    text = re.sub(r"\w+", lambda m: m.group() if m.group().casefold() in _ERROR_MESSAGE_WORDS
+                  and not m.group().isdigit() else "…", str(error))
+    text = re.sub(r"…(?:[^\w…]*…)+", "…", " ".join(text.split()))
+    return text[:_REPAIR_ERROR_MAX_CHARS]
 
 
 # ── Pricing (USD per 1M tokens) — verified by Andy 2026-05-04 ────────
@@ -289,12 +314,17 @@ class GeminiWritingGrader:
         # reintroduce contradictions. Repairs never spend another AI call.
         # They run on a copy: a repair bug keeps the unrepaired feedback
         # instead of failing a grade that was already paid for.
+        step = "copy"
         try:
             feedback = copy.deepcopy(result.feedback)
+            step = "repair"
             repaired = repair_writing_consistency(feedback, config.task_type)
         except Exception as e:
-            logger.warning("[grader] consistency repair failed, keeping unrepaired "
-                           "feedback: %s", type(e).__name__)
+            # Step, type and a redacted message only: never learner/model text.
+            if isinstance(e, ConsistencyRepairError) and e.__cause__ is not None:
+                step, e = e.step, e.__cause__
+            logger.warning("[grader] consistency repair failed at %s, keeping unrepaired "
+                           "feedback: %s: %s", step, type(e).__name__, _repair_error_message(e))
         else:
             result.feedback = feedback
             if repaired:
