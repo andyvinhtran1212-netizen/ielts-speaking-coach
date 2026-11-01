@@ -6,6 +6,7 @@
 import { existsSync, mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
+import { stubAdminMfaStatus } from './admin-mfa-stub.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3000';
 const SHOT_DIR = process.env.LAYOUT_SHOT_DIR || '';
@@ -49,6 +50,7 @@ async function measure(width, height, theme) {
     if (method === 'GET' && parsed.pathname === '/admin/sessions') return json(rows);
     return json({});
   });
+  await stubAdminMfaStatus(page);
 
   await page.goto(`${BASE}/admin/speaking/sessions`, { waitUntil: 'domcontentloaded' });
   await page.getByRole('heading', { name: '50 session đã tải' }).waitFor();
