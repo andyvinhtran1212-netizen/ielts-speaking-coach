@@ -381,10 +381,16 @@ BEGIN
         ('function_name', 'fn_mutate_mock_paper_policy', 'public anon authenticated', 'EXECUTE', '306', NULL),
         ('function_name', 'fn_resolve_mock_paper_access', 'public anon authenticated', 'EXECUTE', '306', NULL),
         ('relation', 'public.listening_public_practice_catalog', 'public anon authenticated', 'ALL', '306', NULL),
-        ('relation', 'public.listening_test_attempts', 'public anon authenticated', 'ALL', '306', NULL),
+        ('relation', 'public.listening_test_attempts', 'public anon', 'ALL', '306', NULL),
+        ('relation', 'public.listening_test_attempts', 'authenticated', 'INSERT UPDATE DELETE TRUNCATE REFERENCES TRIGGER MAINTAIN', '306', NULL),
+        -- 306 grants authenticated SELECT on these columns only (expected answers stay sealed).
+        ('relation', 'public.listening_test_attempts', 'authenticated', 'SELECT', '306', 'id test_id user_id status answers started_at resume_expires_at renderer_affinity sitting_id class_assignment_item_id attempt_purpose paper_revision policy_revision'),
         ('relation', 'public.mock_paper_attempt_snapshots', 'public anon authenticated', 'ALL', '306', NULL),
         ('relation', 'public.reading_public_practice_catalog', 'public anon authenticated', 'ALL', '306', NULL),
-        ('relation', 'public.reading_test_attempts', 'public anon authenticated', 'ALL', '306', NULL),
+        ('relation', 'public.reading_test_attempts', 'public anon', 'ALL', '306', NULL),
+        ('relation', 'public.reading_test_attempts', 'authenticated', 'INSERT UPDATE DELETE TRUNCATE REFERENCES TRIGGER MAINTAIN', '306', NULL),
+        -- 306 grants authenticated SELECT on these columns only (expected answers stay sealed).
+        ('relation', 'public.reading_test_attempts', 'authenticated', 'SELECT', '306', 'id test_id user_id status answers started_at resume_expires_at renderer_affinity sitting_id class_assignment_item_id attempt_purpose paper_revision policy_revision'),
         ('function', 'public.fn_patch_mock_attempt_review_flag(text,uuid,uuid,text,int4,bool,int8,uuid)', 'public anon authenticated', 'EXECUTE', '307', NULL),
         ('relation', 'public.mock_attempt_review_flags', 'public anon authenticated', 'ALL', '307', NULL),
         ('relation', 'public.mock_attempt_review_flags', 'service_role', 'INSERT UPDATE DELETE TRUNCATE REFERENCES TRIGGER MAINTAIN', '307', NULL),
@@ -473,7 +479,7 @@ BEGIN
         SELECT i.kind, e, i.migrations
           FROM invariant i
          CROSS JOIN unnest(string_to_array(i.exempt, ' ')) e
-         WHERE to_regprocedure(e) IS NULL
+         WHERE i.kind = 'function_like' AND to_regprocedure(e) IS NULL
     ), leak AS (
         SELECT format('%s:%s:%s [%s]', t.label, r.role, p.privilege, t.migrations) AS entry
           FROM target t
@@ -494,8 +500,13 @@ BEGIN
                                   WHERE t.objtype = 'r' AND att.attrelid = t.oid
                                     AND att.attnum > 0 AND NOT att.attisdropped
                                     AND a.grantee = 0 AND a.privilege_type = p.privilege)
+                    -- A relation row's exempt columns may carry this column privilege.
                     WHEN t.objtype = 'r' AND p.privilege IN ('SELECT', 'INSERT', 'UPDATE', 'REFERENCES')
-                    THEN has_any_column_privilege(r.role, t.oid, p.privilege)
+                    THEN has_table_privilege(r.role, t.oid, p.privilege)
+                      OR EXISTS (SELECT 1 FROM pg_attribute att
+                                  WHERE att.attrelid = t.oid AND att.attnum > 0 AND NOT att.attisdropped
+                                    AND NOT att.attname::text = ANY (string_to_array(COALESCE(t.exempt, ''), ' '))
+                                    AND has_column_privilege(r.role, t.oid, att.attnum, p.privilege))
                     WHEN t.objtype = 'r' THEN has_table_privilege(r.role, t.oid, p.privilege)
                     WHEN t.objtype = 'f' THEN has_function_privilege(r.role, t.oid, p.privilege)
                     ELSE has_schema_privilege(r.role, t.oid, p.privilege) END

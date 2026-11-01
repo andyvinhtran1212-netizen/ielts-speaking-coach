@@ -418,6 +418,15 @@ def acl_migrations() -> dict[str, list[re.Match]]:
     return found
 
 
+def migration_306_column_grant() -> tuple[str, list[str], list[str]]:
+    """306's GRANT SELECT(<columns>) ... TO authenticated: (statement, tables, columns)."""
+    sql = (MIGRATIONS / "306_mock_paper_policy_and_admission.sql").read_text(encoding="utf-8")
+    grants = list(re.finditer(r"(?m)^GRANT SELECT\((?P<columns>[^)]+)\)\s+ON (?P<tables>\S+) TO authenticated;", sql))
+    assert len(grants) == 1, "306 must keep exactly one authenticated column GRANT"
+    return (grants[0][0], grants[0]["tables"].split(","),
+            [column for column in re.split(r"[,\s]+", grants[0]["columns"]) if column])
+
+
 def clone_acl_invariants() -> list[dict[str, str]]:
     """Rows of the migration ACL invariant table in staging_clone_postconditions.sql."""
     source = POSTCONDITIONS.read_text(encoding="utf-8")
@@ -507,7 +516,30 @@ def test_invariant_rows_are_well_formed():
         if row["kind"] == "function":
             # Built-in type names only: the dump empties search_path.
             assert re.fullmatch(r"[a-z_]+\.[a-z0-9_]+\(([a-z0-9_]+(\[\])?(,[a-z0-9_]+(\[\])?)*)?\)", row["object"]), row
-        assert (row["exempt"] is None) or row["kind"] == "function_like", row
+        if row["exempt"] is not None and row["kind"] == "relation":
+            # Exempt column names: only a column-level privilege of a non-PUBLIC role.
+            assert privileges <= {"SELECT", "INSERT", "UPDATE", "REFERENCES"} and "public" not in roles, row
+            assert all(re.fullmatch(r"[a-z_][a-z0-9_]*", column) for column in row["exempt"].split()), row
+        else:
+            assert (row["exempt"] is None) or row["kind"] == "function_like", row
+
+
+def test_column_exemptions_are_exactly_306s_column_grant():
+    # 306 seals expected answers: authenticated may SELECT only these columns.
+    _, tables, columns = migration_306_column_grant()
+    exempt = {(row["object"], row["roles"], row["privileges"], row["migrations"], row["exempt"])
+              for row in clone_acl_invariants() if row["kind"] == "relation" and row["exempt"]}
+    assert exempt == {(table, "authenticated", "SELECT", "306", " ".join(columns)) for table in tables}
+    for table in tables:
+        rows = [row for row in clone_acl_invariants() if row["object"] == table]
+        forbidden = {(role, privilege) for row in rows for role in row["roles"].split()
+                     for privilege in (["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES",
+                                        "TRIGGER", "MAINTAIN"] if row["privileges"] == "ALL"
+                                       else row["privileges"].split())}
+        # Every app-client privilege is still pinned; SELECT only outside 306's columns.
+        assert forbidden == {(role, privilege) for role in ("public", "anon", "authenticated")
+                             for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE",
+                                               "REFERENCES", "TRIGGER", "MAINTAIN")}, table
 
 
 def test_invariant_rows_must_name_a_listed_migration(monkeypatch, tmp_path):

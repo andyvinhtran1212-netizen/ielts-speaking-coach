@@ -18,7 +18,7 @@ import sys
 
 import pytest
 
-from test_staging_clone_acl_policy import clone_acl_invariants
+from test_staging_clone_acl_policy import clone_acl_invariants, migration_306_column_grant
 
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
@@ -318,7 +318,17 @@ def sandbox(tmp_path, source, target, database, injection="", appended=""):
     ("invariant_missing", "migration_acl_invariant_object_missing: relation public.listening_test_attempts"),
     # Codex P2 (PR #2138): column-level grants count too (attacl, not relacl).
     ("invariant_column_update", "migration_acl_invariant_violated: public.mock_attempt_review_flags:service_role:UPDATE [307]"),
-    ("invariant_column_public", "public.student_cohort_memberships:public:SELECT [227]"),
+    # The PUBLIC column grant is found in attacl, and the roles inheriting it are named too.
+    ("invariant_column_public", "migration_acl_invariant_violated: public.student_cohort_memberships:anon:SELECT [227], "
+                                "public.student_cohort_memberships:authenticated:SELECT [227], "
+                                "public.student_cohort_memberships:public:SELECT [227]"),
+    # CR P2-1 (PR #2138): 306's own column SELECT to authenticated is prod
+    # truth; anything wider on the attempt tables is still a leak.
+    ("invariant_306_column_grant", None),
+    ("invariant_306_table_select", "migration_acl_invariant_violated: public.reading_test_attempts:authenticated:SELECT [306]"),
+    ("invariant_306_unlisted_column", "migration_acl_invariant_violated: public.listening_test_attempts:authenticated:SELECT [306]"),
+    # The column exemption is SELECT-only (column writes also fail the earlier lockdown check).
+    ("invariant_306_column_references", "migration_acl_invariant_violated: public.reading_test_attempts:authenticated:REFERENCES [306]"),
 ])
 def test_clone_preflight_and_atomic_restore(clusters, tmp_path, case, diagnostic):
     source, target = clusters
@@ -362,6 +372,19 @@ def test_clone_preflight_and_atomic_restore(clusters, tmp_path, case, diagnostic
         seed.append("GRANT UPDATE (id) ON public.mock_attempt_review_flags TO service_role;")
     if case == "invariant_column_public":
         seed.append("GRANT SELECT (id) ON public.student_cohort_memberships TO PUBLIC;")
+    if case.startswith("invariant_306_"):
+        # The attempt tables as prod has them: 306's columns and its GRANT, verbatim.
+        grant, tables, columns = migration_306_column_grant()
+        seed += [f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} text;"
+                 for table in tables for column in columns if column != "id"]
+        seed += [f"ALTER TABLE {table} ADD COLUMN expected_answers jsonb;" for table in tables]
+        seed.append(grant)
+    if case == "invariant_306_table_select":
+        seed.append("GRANT SELECT ON public.reading_test_attempts TO authenticated;")
+    if case == "invariant_306_unlisted_column":
+        seed.append("GRANT SELECT (expected_answers) ON public.listening_test_attempts TO authenticated;")
+    if case == "invariant_306_column_references":
+        seed.append("GRANT REFERENCES (answers) ON public.reading_test_attempts TO authenticated;")
     if case == "invariant_missing":
         seed.append("DROP TABLE public.listening_test_attempts;")
     if case in {"missing_role", "role_present"}:
@@ -538,3 +561,10 @@ def test_clone_preflight_and_atomic_restore(clusters, tmp_path, case, diagnostic
         if case == "role_present":
             assert target.sql("SELECT has_table_privilege('Reader, X role_present','public.users','SELECT');",
                               "restored-reader", database) == "t"
+        if case == "invariant_306_column_grant":
+            # The clone keeps prod's column ACL; the sealed column stays unreadable.
+            assert target.sql("SELECT has_column_privilege('authenticated','public.reading_test_attempts','answers','SELECT'), "
+                              "has_column_privilege('authenticated','public.listening_test_attempts','policy_revision','SELECT'), "
+                              "has_column_privilege('authenticated','public.reading_test_attempts','expected_answers','SELECT'), "
+                              "has_table_privilege('authenticated','public.reading_test_attempts','SELECT');",
+                              "restored-306-columns", database) == "t|t|f|f"
