@@ -76,8 +76,16 @@ jobs:
           grep "SYNTHETIC_VERDICT" smoke.out | sed 's/^.*SYNTHETIC_VERDICT //' >> "$GITHUB_STEP_SUMMARY" || echo "(no verdict line — run crashed before summary)" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload HTML report
+      - name: Sanitize + scan production smoke artifacts
+        id: guard_production_smoke
         if: always()
+        working-directory: frontend
+        run: |
+          node tooling/sanitize-artifacts.mjs playwright-report
+          node tooling/scan-artifact-secrets.mjs playwright-report
+
+      - name: Upload HTML report
+        if: always() && steps.guard_production_smoke.outcome == 'success'
         uses: actions/upload-artifact@v6
         with:
           name: production-smoke-report
