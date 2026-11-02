@@ -446,38 +446,6 @@ def test_middleware_joins_repeated_forwarded_lines():
         ('X-Forwarded-For', '9.9.9.9'), ('X-Forwarded-For', EDGE)]).status_code == 429
 
 
-def test_ip_probe_log_is_staging_only_and_opt_in(monkeypatch, caplog):
-    # TEMPORARY with request_safety._log_ip_probe (PC-J142 Bước 0): remove both
-    # before promote.
-    client = _safety_client()
-    probe = {'X-Aver-IP-Probe': '1', 'X-Forwarded-For': f'8.8.8.8, {EDGE}', 'X-Real-IP': '8.8.8.8'}
-    # SA-1933-4 (PC-J184): headers that join a line to Railway's HTTP log
-    # (srcIp) or show what a Cloudflare egress passes through.
-    extra = {'X-Railway-Request-Id': 'rq-sa1933', 'CF-Connecting-IP': '9.9.9.9',
-             'CF-Ray': '8c0ffee-SIN', 'True-Client-IP': '9.9.9.8',
-             'Forwarded': 'for=9.9.9.7;proto=https', 'X-Envoy-External-Address': '9.9.9.6',
-             'Via': '1.1 sa-proxy'}
-    caplog.set_level('DEBUG', logger='services.request_safety.ip_probe')
-    monkeypatch.setattr(settings, 'ENVIRONMENT', 'production')
-    client.post('/api/analytics/events', json={}, headers=probe)
-    monkeypatch.setattr(settings, 'ENVIRONMENT', 'staging')
-    client.post('/api/analytics/events', json={}, headers={**probe, 'X-Aver-IP-Probe': '0'})
-    assert not [r for r in caplog.records if '[ip-probe]' in r.getMessage()]
-    client.post('/api/analytics/events?token=secret', json={}, headers={
-        **probe, **extra, 'Authorization': 'Bearer secret', 'Cookie': 'sb=secret'})
-    [record] = [r for r in caplog.records if '[ip-probe]' in r.getMessage()]
-    message = record.getMessage()
-    assert EDGE in message and 'testclient' in message
-    for name, value in extra.items():
-        assert f'{name.lower()}={[value]!r}' in message
-    assert 'secret' not in message and '/api/' not in message
-    # Long values stay capped per line, as for X-Real-IP.
-    caplog.clear()
-    client.post('/api/analytics/events', json={}, headers={**probe, 'Via': 'v' * 1000})
-    [record] = [r for r in caplog.records if '[ip-probe]' in r.getMessage()]
-    assert f"via={['v' * 256]!r}" in record.getMessage()
-
-
 # ── /tts burst throttle ────────────────────────────────────────────────────
 
 @pytest.fixture

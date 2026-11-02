@@ -126,37 +126,6 @@ def request_client_ip(request):
                           request.client.host if request.client else None)
 
 
-# TEMPORARY (PC-J142 Bước 0, SA-1029-XFF1) — REMOVE BEFORE PROMOTE. Records
-# what Railway's edge forwards for a request that opts in with
-# "X-Aver-IP-Probe: 1", on staging only: no path, user or token is logged.
-# The logger has its own DEBUG level because the app logs at INFO.
-_ip_probe_logger = logging.getLogger(__name__ + '.ip_probe')
-_ip_probe_logger.setLevel(logging.DEBUG)
-
-
-# Header -> per-line length cap. x-railway-request-id joins a line to the
-# Railway HTTP log (srcIp); the CF/Forwarded/Envoy/Via headers show what a
-# Cloudflare egress passes through (SA-1933-4, PC-J184).
-_IP_PROBE_HEADERS = (
-    ('x-real-ip', 256), ('x-forwarded-for', 512), ('x-railway-request-id', 256),
-    ('cf-connecting-ip', 256), ('cf-ray', 256), ('true-client-ip', 256),
-    ('forwarded', 256), ('x-envoy-external-address', 256), ('via', 256),
-)
-
-
-def _log_ip_probe(scope, headers):
-    if headers.get(b'x-aver-ip-probe') != b'1' or settings.ENVIRONMENT != 'staging':
-        return
-    raw = scope.get('headers', [])
-    client = scope.get('client')
-    # Every line of each header, in arrival order: repeated lines are evidence.
-    _ip_probe_logger.debug(
-        '[ip-probe] ' + ' '.join(f'{name}=%r' for name, _ in _IP_PROBE_HEADERS) + ' client.host=%r',
-        *([v.decode('latin-1')[:limit] for k, v in raw if k == name.encode()][:4]
-          for name, limit in _IP_PROBE_HEADERS),
-        client[0] if client else None)
-
-
 class RequestSafetyMiddleware:
     def __init__(self, app, *, upload_limit=64 * 1024 * 1024,
                  log_limit=64 * 1024, log_per_minute=600,
@@ -208,7 +177,6 @@ class RequestSafetyMiddleware:
         if scope['type'] != 'http':
             return await self.app(scope, receive, send)
         headers = dict(scope.get('headers', []))
-        _log_ip_probe(scope, headers)
         is_log = scope.get('method') == 'POST' and scope.get('path', '').rstrip('/') == '/api/error-logs'
         is_analytics = (scope.get('method') == 'POST'
                         and scope.get('path', '').rstrip('/') == '/api/analytics/events')
