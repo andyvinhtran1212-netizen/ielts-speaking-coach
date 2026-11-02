@@ -283,7 +283,7 @@ Một ví dụ mạnh:
 
 ### Writing Task 2 — đoạn văn mẫu với ví dụ được dùng đúng:
 
-*"One major advantage of remote working is that it reduces commuting time, allowing employees to use those hours more productively. **For instance**, a survey by Owl Labs found that remote workers save an average of 40 minutes daily by not commuting — time many redirect towards exercise, family, or professional development. This is particularly beneficial in congested cities **such as** London or Tokyo, where many commuters spend over an hour travelling each way. **To illustrate** the economic impact, a Stanford study found that productivity among remote workers increased by 13% compared to their office-based counterparts."* (Trong bài thi không cần số liệu thật; đừng bịa con số.)
+*"One major advantage of remote working is that it reduces commuting time, allowing employees to use those hours more productively. **For instance**, a worker who no longer spends an hour travelling each way can redirect that time towards exercise, family, or professional development. This is particularly beneficial in congested cities **such as** London or Tokyo, where long commutes are common. **To illustrate** the economic impact, a company that spares its staff a daily commute may find that employees arrive less fatigued and spend more of their working day on core tasks."* (Đoạn mẫu này là giả định minh họa cách dùng connector, không dẫn nghiên cứu cụ thể; không nên bịa nguồn hay con số trong bài thi.)
 
 ### Speaking Part 3 — câu trả lời tự nhiên:
 
@@ -301,7 +301,7 @@ Hãy thêm một ví dụ vào mỗi câu dưới đây, bắt đầu bằng con
 
 1. Technology has significantly improved healthcare outcomes. ___...
 2. Many cities are struggling with air pollution. ___...
-3. Several European countries have excellent public transport systems, ___...
+3. Several European countries, ___, have excellent public transport systems.
 4. Young people today face economic pressures their parents did not. ___...
 
 ### Chọn connector phù hợp
@@ -323,8 +323,8 @@ Hãy thêm một ví dụ vào mỗi câu dưới đây, bắt đầu bằng con
    *(Câu gốc đã kết thúc bằng dấu chấm, nên ví dụ là một câu mới: For example đứng đầu câu, theo sau là dấu phẩy.)*
 2. ...air pollution. **A case in point is** Delhi, where schools have sometimes been closed because of severe smog.
    *(A case in point is giới thiệu một trường hợp cụ thể làm bằng chứng cho nhận định vừa nêu.)*
-3. ...public transport systems, **such as** Switzerland and Austria.
-   *(Câu gốc kết thúc bằng dấu phẩy và ví dụ chỉ là cụm danh từ gắn vào câu, nên dùng such as, không mở câu mới.)*
+3. Several European countries, **such as** Switzerland and Austria, have excellent public transport systems.
+   *(Ví dụ phải đứng ngay sau danh từ nó minh họa — "countries" — nên dùng such as kẹp giữa hai dấu phẩy. Đặt sau "systems" sẽ khiến Switzerland và Austria bị hiểu là ví dụ của hệ thống giao thông.)*
 4. ...their parents did not. **In particular**, housing in many big cities now costs far more compared with young people's incomes.
    *(In particular chọn ra một áp lực nổi bật nhất trong nhóm áp lực kinh tế vừa nêu.)*
 
