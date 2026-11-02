@@ -376,6 +376,7 @@ def _pre_320_history() -> str:
                       _instructor_give_shape(),
                       m331._schema_sql(m331.SQL_228, "public"),
                       "SET search_path = public, pg_temp;",
+                      (MIGRATIONS / "198_class_action_log.sql").read_text(encoding="utf-8"),
                       (MIGRATIONS / "116_writing_grade_ratings.sql").read_text(encoding="utf-8")))
 
 

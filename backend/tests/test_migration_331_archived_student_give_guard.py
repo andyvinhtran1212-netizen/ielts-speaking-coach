@@ -111,9 +111,48 @@ def test_no_other_migration_drops_replaces_or_bypasses_the_guard():
             continue
         code = m326._strip_comments(path.read_text(encoding="utf-8"))
         assert TRIGGER not in code and FUNCTION not in code, path.name
-        assert not re.search(r"session_replication_role", code, re.I), path.name
+        # 356 reads this permission to fail closed on a trigger-bypass grant:
+        # the direct literal (the allowed read used by the control below) and
+        # the membership form that covers every role service_role can become
+        # (CALAPPEND-0041 SA-R4-1). Exempt only these two complete checks; every
+        # other mention still fails, including SET/ALTER/set_config in a function.
+        without_permission_check = re.sub(
+            r"\bhas_parameter_privilege\(\s*'service_role'\s*,\s*"
+            r"'session_replication_role'\s*,\s*'SET'\s*\)"
+            r"|\bpg_has_role\(\s*'service_role'::name\s*,\s*m\.oid\s*,\s*'MEMBER'\s*\)\s*"
+            r"AND\s+has_parameter_privilege\(\s*m\.oid\s*,\s*'session_replication_role'\s*,\s*'SET'\s*\)",
+            "", code, flags=re.I,
+        )
+        assert not re.search(r"session_replication_role", without_permission_check, re.I), path.name
         assert not re.search(r"ALTER\s+TABLE\s+(?:ONLY\s+)?(?:public\.)?writing_assignments\b[^;]*"
                              r"DISABLE\s+TRIGGER", code, re.I), path.name
+
+
+@pytest.mark.parametrize("mutation", [
+    "SET session_replication_role = replica;",
+    "SET LOCAL session_replication_role TO replica;",
+    'SET SESSION "session_replication_role" = replica;',
+    "ALTER SYSTEM SET session_replication_role = replica;",
+    "ALTER DATABASE postgres SET session_replication_role = replica;",
+    "ALTER ROLE service_role SET session_replication_role = replica;",
+    "ALTER FUNCTION public.bypass() SET session_replication_role = replica;",
+    "SELECT set_config('session_replication_role', 'replica', true);",
+    "DO $$ BEGIN PERFORM pg_catalog.set_config('session_replication_role', 'replica', true); END $$;",
+    "DO $$ BEGIN EXECUTE 'SET session_replication_role = replica'; END $$;",
+    "DO $$ BEGIN EXECUTE $sql$SET LOCAL session_replication_role = replica$sql$; END $$;",
+    "SET /* permission check follows */ session_replication_role = replica;",
+    "RESET session_replication_role;",
+])
+def test_replication_guard_still_rejects_mutations(tmp_path, monkeypatch, mutation):
+    check = "SELECT has_parameter_privilege('service_role', 'session_replication_role', 'SET');\n"
+    path = tmp_path / "999_replication_guard_control.sql"
+    monkeypatch.setattr(__import__(__name__), "MIGRATIONS", tmp_path)
+    path.write_text(check, encoding="utf-8")
+    test_no_other_migration_drops_replaces_or_bypasses_the_guard()
+    # The same scan must still reject a mutation beside the allowed read.
+    path.write_text(check + mutation, encoding="utf-8")
+    with pytest.raises(AssertionError, match=path.name):
+        test_no_other_migration_drops_replaces_or_bypasses_the_guard()
 
 
 def test_only_the_326_functions_write_archived_at():
