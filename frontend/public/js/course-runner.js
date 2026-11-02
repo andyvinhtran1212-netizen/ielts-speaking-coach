@@ -42,7 +42,7 @@ const BATCH = 5;
 // từ câu cũ nhất, và không bao giờ qua mốc NEAR_END_MS trước khi hết giờ. Còn
 // lại ≤ NEAR_END_MS thì mỗi câu đẩy ngay, và cả phút cuối là cửa sổ retry.
 const TIMED_BATCH = BATCH;
-const FLUSH_MS = 15000;
+const FLUSH_MS = 45000;
 const NEAR_END_MS = 60000;
 
 export const KEYS = ['A', 'B', 'C', 'D', 'E'];

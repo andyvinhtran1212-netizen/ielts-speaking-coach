@@ -84,7 +84,6 @@ ALLOWED: dict[tuple[str, str, str], tuple[int, str]] = {
     # 6 since the staging merge: staging added the SkillNotInSittingError
     # site, input clipped at mock_review_workflow.py:86-97.
     ("routers/admin_mock_reviews.py", "_raise_for", "str(e)"): (6, J213 + "; any other exception type gets a generic message"),
-    ("routers/admin_reading.py", "admin_upload_diagram_image", "str(exc)"): (1, "InvalidImageError (reading_image.upload_diagram_image): constants and byte counts only; dynamic status = its http_status (PC-J226 F5)"),
     ("routers/admin_writing.py", "extract_essay_file", "str(exc)"): (1, "FileExtractError messages are constants (docx failure names only the exception class)"),
     ("routers/admin_writing_assignments.py", "_fan_out_to_cohort_sync", "body.expected_student_count"): (1, TYPED_INT),
     ("routers/admin_writing_prompts.py", "_update_prompt_sync", "str(e)"): (1, "assert_can_unreserve names DB exam codes only"),
@@ -159,7 +158,6 @@ ALLOWED_B: dict[tuple[str, str, str], tuple[int, str]] = {
     ("routers/auth.py", "update_profile", "', '.join(valid_levels)"): (1, CONSTANT_B),
     ("routers/feedback.py", "_check_rating", "name"): (1, LITERAL_ARG),
     ("routers/grading.py", "grade_response_endpoint", "duration_sec; max_dur"): (1, SERVER_NUMBER + " (STT duration, config limit)"),
-    ("routers/grading.py", "grade_response_endpoint", "file_size / (1024 * 1024)"): (1, SERVER_NUMBER + " (len of the upload)"),
     ("routers/instructor.py", "regrade_essay", "essay.get('status')"): (1, DB_VALUE),
     ("routers/instructor.py", "regrade_essay", "essay_service.MAX_VERSIONS"): (1, SERVER_NUMBER),
     ("routers/instructor.py", "revoke_delivery", "cur.get('status')"): (1, DB_VALUE),

@@ -265,10 +265,17 @@ describe('Sprint 20.14f-α — admin upload + delete endpoints', () => {
     assert.match(router, /_DIAGRAM_FLOW_TYPES\s*=\s*\(\s*['"]diagram_label_completion['"]\s*,\s*['"]flow_chart_completion['"]/);
   });
 
-  test('upload endpoint catches InvalidImageError → HTTPException with carried status', () => {
+  // STORAGELIMITS-0038 FR-003: 413/415 carry the structured storage_limits body
+  // (error_code, max_bytes|allowed, Vietnamese message); other statuses keep the text.
+  test('upload endpoint catches InvalidImageError → HTTPException with carried status and detail', () => {
     assert.match(
       router,
-      /except\s+InvalidImageError\s+as\s+exc:\s*\n\s*raise\s+HTTPException\(exc\.http_status,\s*str\(exc\)\)/,
+      /except\s+InvalidImageError\s+as\s+exc:\s*\n\s*raise\s+HTTPException\(exc\.http_status,\s*exc\.detail\)/,
+    );
+    const svc = read('backend/services/reading_image.py');
+    assert.match(
+      svc,
+      /self\.detail\s*=\s*\(upload_error\(['"]reading-images['"],\s*http_status\)\.detail\s*if\s+http_status\s+in\s+\(413,\s*415\)\s+else\s+message\)/,
     );
   });
 
