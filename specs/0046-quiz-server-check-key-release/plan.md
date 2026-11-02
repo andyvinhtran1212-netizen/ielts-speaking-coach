@@ -77,10 +77,13 @@ Errors (no key field in any error body): 404 not owned / missing; 409
 Grammar refusals as in `/progress`; 422 unknown qid, malformed body,
 ungradable question; 500 storage error (row not stored, no key).
 
-Order inside `check_answer`: ownership (404) → replay read-back by
-`client_id` (FR-004; returns the stored verdict even if the session has since
-ended) → Course/Advanced Vocabulary refusal → ended-session refusal → qid
-lookup → grade → store → respond. Review (FR-016): after the qid lookup, one
+Order inside `check_answer`: ownership (404) → Course/Advanced Vocabulary
+refusal (FR-002; before any read of `quiz_attempts`, so a Course
+single_attempt row stored through `/progress` can never be replayed through
+`/check` to obtain its key) → replay read-back by `client_id` (FR-004;
+returns the stored verdict even if the session has since ended — the
+ended-session exception applies to eligible self-study sessions only) →
+ended-session refusal → qid lookup → grade → store → respond. Review (FR-016): after the qid lookup, one
 read `quiz_attempts` (user, bank, qid, limit 1); none → 409
 `review_needs_attempt`; else grade and respond with `replayed=false`, no
 write, no KP evidence.

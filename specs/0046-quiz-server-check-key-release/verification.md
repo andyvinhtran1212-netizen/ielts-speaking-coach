@@ -5,9 +5,9 @@
 | Requirement | Evidence | Result |
 | --- | --- | --- |
 | FR-001 | kind=test; ref=backend/tests/test_quiz_check_endpoint.py (row stored before response, response = one qid, why_wrong of picked option only, metadata from question row; red before the route exists) | PENDING |
-| FR-002 | kind=test; ref=backend/tests/test_quiz_check_endpoint.py (Course session 409 no key, session with class item 409, Advanced Vocabulary 409) | PENDING |
+| FR-002 | kind=test; ref=backend/tests/test_quiz_check_endpoint.py (Course session 409 no key, session with class item 409, Advanced Vocabulary 409; replay bypass: store a single_attempt Course answer through `/progress`, then `/check` the same session with the same `client_id` and answer → 409 `check_not_for_course`, no key field, row count unchanged, red if the read-back runs before the scope check) | PENDING |
 | FR-003 | kind=test; ref=backend/tests/test_quiz_check_endpoint.py (foreign session 404, ended 409, foreign qid 422, malformed 422, nothing stored, no key field in any error body) plus PG managed reset refusal | PENDING |
-| FR-004 | kind=test; ref=backend/tests/test_quiz_check_endpoint.py (replay returns stored verdict, stored answer wins, one row; client_id of another session 409 no key; same qid new client_id = new row) | PENDING |
+| FR-004 | kind=test; ref=backend/tests/test_quiz_check_endpoint.py (replay returns stored verdict, stored answer wins, one row; client_id of another session 409 no key; same qid new client_id = new row; replay of a stored client_id in a Course or Advanced Vocabulary session 409 no key, ended or not) | PENDING |
 | FR-005 | kind=test; ref=backend/tests/test_quiz_answer_grader_parity.py plus frontend/tests/quiz-grader-parity.test.mjs (same fixture, every branch; integer branch equals grade_attempt) | PENDING |
 | FR-006 | kind=test; ref=backend/tests/test_quiz_server_grading.py (legacy and managed PG: forged is_correct ignored; row without is_correct graded not dropped; metadata from question row; missing qid 422 not 500 in self-study and Course; /check rows not duplicated; single_attempt write after due_at 409) | PENDING |
 | FR-007 | kind=test; ref=backend/tests/test_quiz_server_grading.py (timed time-cap PG: forged flag → stored rows, RPC totals, /mistakes and report all wrong) | PENDING |
@@ -87,6 +87,8 @@ runtime behavior in this draft-only PR.
 - Missing/unknown client contract marker on a self-study bank refetch is
   blocked (409, no questions); the pre-FR-010 tab reset/reopen journey passes.
 - `/check` reveals no key before a stored attempt; none for a sealed Course item.
+- A single_attempt Course answer saved through `/progress` and replayed through
+  `/check` with the same session and `client_id` returns 409 with no key.
 - Forged `is_correct` has no effect (`/progress`, time-cap).
 - Time-cap rows regraded.
 - A handed-in learner sees no key before `due_at`.

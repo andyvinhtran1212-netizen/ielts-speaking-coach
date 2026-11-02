@@ -170,12 +170,20 @@ Người dùng sẽ thấy gì sau thay đổi này:
   Course session (bank `skill_area='course'`, or the rule `/progress` uses:
   the session's assignment item belongs to an assignment with
   `skill='course'`) returns 409 `check_not_for_course` with no key. Advanced Vocabulary returns
-  409 as on `GET /banks/{id}`.
+  409 as on `GET /banks/{id}`. These scope refusals run right after the
+  FR-003 ownership check and **before** the FR-004 replay read-back, so a
+  `client_id` whose row was stored through `/progress` in a Course session
+  (for example a single_attempt answer) gets 409 with no key, never its
+  stored verdict.
 - **FR-003:** (ownership and state) a session that does not exist or belongs
   to another user returns 404 with no key (same message as `_owned_session`).
   An ended session (`ended_at` or `ended_by` set) returns 409 with no key,
   **after** the FR-004 replay read-back (a retry of a stored `client_id`
-  still gets its stored verdict when the session ended in between). A
+  still gets its stored verdict when the session ended in between). This
+  ended-session exception applies only to sessions that passed the FR-002
+  scope check; it never lets a Course or Advanced Vocabulary session reach
+  the read-back. Order: ownership (404) → FR-002 scope (409) → FR-004
+  read-back → ended-session refusal (409) → qid lookup. A
   managed Grammar session gets the same refusals as `/progress`
   (reset-stale, revision mismatch, policy ACK) because it writes through the
   same managed RPC. A `qid` not in the session's bank or revision returns 422
@@ -184,7 +192,9 @@ Người dùng sẽ thấy gì sau thay đổi này:
   unique index, migration 119). A replay of a `client_id` already stored for
   the same user and session returns the verdict and key of the **stored**
   row (the stored `answer_given` wins over the replayed one) and stores
-  nothing new. A `client_id` already stored under another session or user
+  nothing new. The read-back runs only after the FR-002 scope check passed:
+  a Course or Advanced Vocabulary session returns 409 with no key even when
+  the `client_id` is already stored for that user and session. A `client_id` already stored under another session or user
   returns 409 with no key. A new `client_id` for a `qid` already answered in
   the session is a new attempt (the adaptive loop legitimately re-asks).
 - **FR-005:** (server grader) one Python grader

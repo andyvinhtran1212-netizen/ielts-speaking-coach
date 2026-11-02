@@ -20,9 +20,12 @@ on `staging` (merged `c7ed31b32`).
   backend/tests/test_quiz_answer_grader_parity.py,
   frontend/tests/quiz-grader-parity.test.mjs` `depends: T001`
 - [ ] T003 `/check` (FR-001..FR-004): route + service, legacy and managed
-  write paths, replay read-back before the ended check, refusals, review
+  write paths, Course/Advanced Vocabulary refusal before the replay
+  read-back, replay read-back before the ended check, refusals, review
   checks (FR-016). Tests: key only after the stored row; no key for foreign
   qid, foreign session, ended session, Course session, client_id conflict;
+  single_attempt Course answer stored through `/progress` then replayed
+  through `/check` with the same `client_id` → 409, no key;
   replay returns stored verdict also after the session ended; managed reset
   refusal; review: key for an answered qid, 409 and no key for an unanswered
   one, nothing stored. `owns: backend/routers/quiz.py, backend/services/quiz_service.py
