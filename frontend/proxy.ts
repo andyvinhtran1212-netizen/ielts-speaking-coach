@@ -7,8 +7,8 @@
 //    generateMetadata in app/(public-content)/grammar/[category]/[slug]/page.tsx).
 //    A key missing from a fresh backend article list is rewritten to a path
 //    no route matches, so Next serves the root 404 (app/not-found.tsx) with
-//    its full server HTML; everything else (known article, list unavailable)
-//    passes through unchanged.
+//    its full server HTML. If the list is unavailable, confirm a 404 from
+//    the article endpoint itself; articles and backend errors pass through.
 //
 // 2. SEC-CSP-NONCE: a per-request nonce for the AuthedShell route groups.
 //    Step 2 may enforce it on staging/previews only. Setting the blocking
@@ -62,8 +62,25 @@ async function grammarArticle(request: NextRequest) {
   const slug = segment(rawSlug);
   // A segment that is not valid percent-encoding cannot name an article (the
   // route itself would answer 500 while decoding params).
-  const missing = category === null || slug === null
-    || (await articleIndex.has(category, slug)) === false;
+  const indexed = category === null || slug === null
+    ? false : await articleIndex.has(category, slug);
+  let missing = indexed === false;
+  if (indexed === null) {
+    // PC-J526: page-level notFound() is too late once the loading shell has
+    // streamed. Only an explicit article 404 can establish a miss here;
+    // timeouts and other statuses retain the route's fail-closed handling.
+    try {
+      const res = await fetch(`${API_BASE}/api/grammar/article/${encodeURIComponent(category!)}/${encodeURIComponent(slug!)}`, {
+        signal: AbortSignal.timeout(INDEX_TIMEOUT_MS),
+        cache: 'no-store',
+        redirect: 'manual',
+      });
+      missing = res.status === 404;
+      await res.body?.cancel();
+    } catch {
+      // Let the article loader handle backend/network errors (B17/B12).
+    }
+  }
   return missing
     ? NextResponse.rewrite(new URL(GRAMMAR_ARTICLE_NOT_FOUND_PATH, request.url))
     : NextResponse.next();

@@ -9,8 +9,14 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, test } from 'node:test';
+import { createRequire } from 'node:module';
+import ts from 'typescript';
 
 import { articleKeys, createArticleIndex } from '../lib/grammar-article-index.mjs';
+import * as csp from '../tooling/content-security-policy.mjs';
+
+const require = createRequire(import.meta.url);
+const { NextRequest } = require('next/server');
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const read = (...parts) => readFileSync(path.join(FRONTEND, ...parts), 'utf8');
@@ -85,7 +91,7 @@ describe('grammar article 404 wiring', () => {
     assert.match(proxy, /pathname\.startsWith\('\/grammar\/'\)\n\s*\? grammarArticle\(request\)/);
     assert.match(proxy, /\/api\/grammar\/categories/);
     assert.match(proxy, /const GRAMMAR_ARTICLE_NOT_FOUND_PATH = '\/__aver-not-found'/);
-    assert.match(proxy, /=== false;/, 'only a definite miss (false) is a 404; null passes through');
+    assert.match(proxy, /=== false;/, 'only a definite miss is a 404');
     assert.match(proxy, /NextResponse\.rewrite\(new URL\(GRAMMAR_ARTICLE_NOT_FOUND_PATH, request\.url\)\)/);
     assert.match(proxy, /: NextResponse\.next\(\)/);
   });
@@ -120,11 +126,11 @@ describe('grammar article 404 wiring', () => {
     assert.deepEqual(readdirSync(path.join(FRONTEND, 'public')).filter((name) => name.startsWith(target)), []);
   });
 
-  test('the fail-open soft 404 renders the shared card without a second tokens.css link', () => {
-    // PC-J239: when the article list is unavailable the proxy passes through
-    // and the article route's notFound() renders this inside the public-content
-    // layout, which links tokens.css. Re-exporting the root 404 (which links
-    // tokens itself) loaded it twice; the card alone carries no stylesheet.
+  test('the route-level not-found keeps the shared card without a second tokens.css link', () => {
+    // PC-J239: a route-level notFound() (e.g. content removed after the proxy
+    // check) renders inside the public-content layout, which links tokens.css.
+    // Re-exporting the root 404 (which links tokens itself) loaded it twice;
+    // the card alone carries no stylesheet.
     const tokensLink = /<link rel="stylesheet" href="\/css\/aver-design\/tokens\.css" \/>/;
     const notFound = read('app', '(public-content)', 'grammar', 'not-found.tsx');
     assert.match(notFound, /export \{ default \} from '\.\.\/\.\.\/not-found-card';/);
@@ -134,4 +140,60 @@ describe('grammar article 404 wiring', () => {
     assert.match(read('app', '(public-content)', 'layout.tsx'), tokensLink);
     assert.match(read('app', 'not-found.tsx'), tokensLink, 'the root 404 still links its own tokens');
   });
+});
+
+// Exercise the real proxy with isolated dependencies, as the J221 CSP tests do.
+function proxyFor(indexed, fetch) {
+  const compiled = ts.transpileModule(read('proxy.ts'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const modules = {
+    '@/lib/backend': { API_BASE: 'https://fixture.invalid' },
+    '@/lib/grammar-article-index.mjs': { createArticleIndex: () => ({ has: async () => indexed }) },
+    '@/tooling/content-security-policy.mjs': csp,
+  };
+  const exports = {};
+  new Function('require', 'exports', 'fetch', compiled)(
+    (name) => modules[name] ?? require(name), exports, fetch,
+  );
+  return exports.proxy;
+}
+
+describe('Grammar proxy when the category index is unavailable (PC-J526)', () => {
+  const request = () => new NextRequest('https://staging.averlearning.com/grammar/tenses/missing');
+
+  for (const status of [200, 302, 401, 404, 500, 503]) {
+    test(`article HTTP ${status}: only a confirmed 404 rewrites before streaming`, async () => {
+      const calls = [];
+      const response = new Response('{}', { status });
+      const proxy = proxyFor(null, async (url, options) => {
+        calls.push(url);
+        assert.equal(options.cache, 'no-store');
+        assert.equal(options.redirect, 'manual');
+        assert.ok(options.signal instanceof AbortSignal, 'fallback fetch is bounded');
+        return response;
+      });
+      const result = await proxy(request());
+      assert.deepEqual(calls, ['https://fixture.invalid/api/grammar/article/tenses/missing']);
+      assert.equal(result.headers.get('x-middleware-rewrite'),
+        status === 404 ? 'https://staging.averlearning.com/__aver-not-found' : null);
+      assert.equal(result.headers.get('x-middleware-next'), status === 404 ? null : '1');
+      assert.equal(response.bodyUsed, true, 'unused article body is released');
+    });
+  }
+
+  for (const error of [new TypeError('network unavailable'), new DOMException('timed out', 'TimeoutError')]) {
+    test(`article ${error.name} keeps the route's error handling`, async () => {
+      const result = await proxyFor(null, async () => { throw error; })(request());
+      assert.equal(result.headers.get('x-middleware-rewrite'), null);
+      assert.equal(result.headers.get('x-middleware-next'), '1');
+    });
+  }
+
+  for (const indexed of [true, false]) {
+    test(`index ${indexed} needs no fallback fetch`, async () => {
+      const result = await proxyFor(indexed, () => assert.fail('unexpected fallback fetch'))(request());
+      assert.equal(result.headers.has('x-middleware-rewrite'), !indexed);
+    });
+  }
 });
