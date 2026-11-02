@@ -52,8 +52,8 @@ Spec đề xuất:
    flashcard/từ vựng). Cả hai **đã có GRANT tường minh** trong repo (212, 335).
    Vì vậy không hàm nào client cần mà chỉ dựa vào mặc định. Migration vẫn GRANT
    lại cho chắc và ghi vào một danh sách (registry) trong repo.
-3. **Dọn phần thừa**: trên staging còn 41 hàm khác mà anon/authenticated gọi
-   được chỉ nhờ mặc định cũ (16 RPC backend gọi bằng `service_role`, 1 hàm cũ
+3. **Dọn phần thừa**: trên staging còn 40 hàm khác mà anon/authenticated gọi
+   được chỉ nhờ mặc định cũ (15 RPC backend gọi bằng `service_role`, 1 hàm cũ
    không ai gọi và 24 hàm trigger), cộng quyền anon thừa trên hàm ôn flashcard.
    Đề xuất thu quyền client trên các hàm đó và giữ nguyên quyền `service_role`.
    Việc này cần anh Vinh chọn (Q-J364-2).
@@ -61,7 +61,9 @@ Spec đề xuất:
    migration mới phải có REVOKE và GRANT EXECUTE tường minh trong cùng file.
    GRANT cho anon/authenticated chỉ được phép với hàm có trong registry.
 5. **Hậu điều kiện và câu truy vấn drift** (có cột owner, chạy được trên PG
-   15–17) để SA kiểm định kỳ trên staging và production.
+   15–17) để SA kiểm định kỳ trên staging và production: DRIFT-1 (quyền mặc
+   định), DRIFT-2 (hàm mở quá mức) và DRIFT-3 (hàm trong registry bị thiếu
+   quyền, ví dụ bị tạo lại ngoài migration).
 
 Rủi ro chính: một migration sau này DROP rồi CREATE lại một trong hai hàm
 client mà quên GRANT. Khi đó ôn flashcard sẽ lỗi. Guard tĩnh và test invariant
@@ -112,11 +114,14 @@ chặn trường hợp này trước khi merge.
 ## Scope
 
 - The default function ACL of every owner role the migration runner can act
-  for (superuser, or member of that role): `postgres`, the runner itself and
-  every role that owns a `public` function or holds a global or `public`
-  function default ACL. Global layer: no EXECUTE for PUBLIC. `public` layer:
-  no EXECUTE for PUBLIC, anon or authenticated, while `service_role` keeps
-  its EXECUTE (FR-001).
+  for (superuser, or member of that role): `postgres`, the runner itself,
+  every role that owns an app function, every role that holds a global or
+  per-schema function default ACL in a non-platform schema, and every role
+  with CREATE on `public` or `app_private` (`service_role` on staging).
+  Global layer: no EXECUTE for PUBLIC. `public` layer: no EXECUTE for PUBLIC,
+  anon or authenticated, while `service_role` keeps its EXECUTE. Per-schema
+  layer of any other non-platform schema: no EXECUTE for PUBLIC, anon or
+  authenticated (FR-001).
 - A repository registry of the functions that anon or authenticated must be
   able to execute, with explicit grants in `NNN` (FR-002).
 - Removal of client EXECUTE from every other existing app function, keeping
@@ -135,7 +140,7 @@ chặn trường hợp này trước khi merge.
   loses), except that new functions in schemas other than `public` no longer
   get it through PUBLIC (see Edge cases and Q-J364-3).
 - Default ACLs of roles the runner cannot act for (`supabase_admin` on hosted
-  Supabase) and of other schemas (`storage`, where `postgres` holds
+  Supabase) and of platform schemas (`storage`, where `postgres` holds
   `f {postgres, anon, authenticated, service_role = X}`; `graphql`,
   `graphql_public`). Reported, not changed (Q-J364-5).
 - Extension member functions (`pg_depend.deptype = 'e'`). Their ACL is
@@ -153,7 +158,7 @@ chặn trường hợp này trước khi merge.
 
 - An anonymous visitor who has the public anon key calls
   `POST /rest/v1/rpc/<function>` for any app function. Today this works for
-  the 41 residue functions (FR-003) and for any future function on the
+  the 40 residue functions (FR-003) and for any future function on the
   default. After `NNN` they all get `permission denied for function`
   (SQLSTATE 42501).
 - A signed-in learner reviews a flashcard. The backend calls
@@ -185,21 +190,38 @@ chặn trường hợp này trước khi merge.
   `ALTER DEFAULT PRIVILEGES FOR ROLE R IN SCHEMA public REVOKE EXECUTE ON
   FUNCTIONS FROM PUBLIC, anon, authenticated`;
   `ALTER DEFAULT PRIVILEGES FOR ROLE R IN SCHEMA public GRANT EXECUTE ON
-  FUNCTIONS TO service_role`.
-  `R` ranges over `postgres`, `current_user`, every owner of a `public`
-  function and every role with a function default ACL row in the global or
-  `public` layer, filtered to roles where the runner is superuser or
-  `pg_has_role(current_user, R, 'MEMBER')` (the 320 step 2 rule). `FUNCTIONS`
-  covers procedures. The per-schema-only form in the ticket must not be used
+  FUNCTIONS TO service_role`;
+  and, for every other non-platform schema `S` (e.g. `app_private`; the
+  platform list is the one in DRIFT-2, `rollout.md`) where `R` has a
+  per-schema function default ACL row that reaches PUBLIC, anon or
+  authenticated, `ALTER DEFAULT PRIVILEGES FOR ROLE R IN SCHEMA S REVOKE
+  EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated` (staging has no such
+  row today; `/workspace/qa/pr2119/README.md:69-70`).
+  `R` ranges over `postgres`, `current_user`, every owner of a function in a
+  non-platform schema, every role with a function default ACL row in the
+  global layer or in the per-schema layer of any non-platform schema, and
+  every role with CREATE on `public` or `app_private`
+  (`has_schema_privilege(r, 'public', 'CREATE') OR has_schema_privilege(r,
+  'app_private', 'CREATE')`; on staging this adds `service_role`, which has
+  `UC` on `public`). The set is filtered to roles where the runner is
+  superuser or `pg_has_role(current_user, R, 'MEMBER')` (the 320 step 2
+  rule); `postgres` is a member of `service_role`, so `service_role` is
+  actable. When SVCPRIV-0042 FR-009 (migration 357) revokes CREATE on
+  `public` from `service_role`, the set shrinks by itself; the two specs do
+  not conflict. `FUNCTIONS` covers procedures. The per-schema-only form in the ticket must not be used
   on its own. The FR-004 postcondition rejects it (Scenario 8).
 
 - **FR-002:** The repository keeps a client-callable function registry
   `backend/migrations/client-callable-functions.tsv` with the columns
-  `signature` (the `regprocedure` text, schema-qualified outside `public`),
+  `signature` (schema-qualified **always**, e.g.
+  `public.fn_apply_srs_review_idempotent(...)`, in the `regprocedure` input
+  form; matched against the catalog by `p.oid = to_regprocedure(signature)`,
+  never by comparing `regprocedure::text`, so no check depends on
+  `search_path`),
   `roles` (subset of `anon`, `authenticated`), `kind` (`rpc` / `rls-helper`
   / `view` / `default` / `check`), `caller` (file:line or policy name) and
   `reason`. At `NNN` it contains exactly:
-  `fn_apply_srs_review_idempotent(uuid,uuid,text,integer,real,integer,timestamp with time zone,timestamp with time zone)`
+  `public.fn_apply_srs_review_idempotent(uuid,uuid,text,integer,real,integer,timestamp with time zone,timestamp with time zone)`
   for `authenticated`, kind `rpc`, caller `backend/routers/flashcards.py:1331`;
   and `app_private.is_current_user_active()` for `authenticated`, kind
   `rls-helper`, caller the six `require_active_account_*` policy sets of 335.
@@ -216,18 +238,19 @@ chặn trường hợp này trước khi merge.
   execute: if `has_function_privilege('service_role', f, 'EXECUTE')` is true
   beforehand, `GRANT EXECUTE ON FUNCTION f TO service_role`; then `REVOKE
   EXECUTE ON FUNCTION f FROM PUBLIC, anon, authenticated`. On staging
-  (2026-10-31) this is the 41 functions N02–N17 and T01–T24 in
+  (2026-10-31) this is the 40 functions N02–N17 and T01–T24 in
   `research.md` §2. A function that `service_role` cannot execute today (for
   example the 309 loop that revokes `service_role`) gets no grant. The set is
   computed from the catalog at apply time, never hard-coded, and T002/T003
   must list it read-only before the apply (rollout.md). If Vinh defers this FR
-  (Q-J364-2), FR-004 (c) and FR-006 must allow-list these 41 by signature
+  (Q-J364-2), FR-004 (c) and FR-006 must allow-list these 40 by signature
   until a follow-up migration removes them.
 
 - **FR-004:** `NNN` ends with a postcondition that aborts the transaction
   (`RAISE EXCEPTION`, stable error codes below) unless all of these hold:
   (a) `client_default_execute_survives`: for each owner role `R` the runner can
-  act for, `SET LOCAL ROLE R` and creating a probe function
+  act for (the FR-001 set, including every role with CREATE on `public` or
+  `app_private`, e.g. `service_role`), `SET LOCAL ROLE R` and creating a probe function
   `public.__nnn_default_probe()` gives `has_function_privilege` false for anon
   and authenticated and true for `service_role`. The probe is dropped in the
   same transaction. The role is then restored **by name** to the runner
@@ -236,18 +259,27 @@ chặn trường hợp này trước khi merge.
   ROLE <runner>` from a superuser session, and `RESET ROLE` would run the
   rest of the migration as that superuser. An owner `R` without CREATE on
   `public` is checked with the DRIFT-1 computation for `R` instead of a probe.
+  In addition, for every actable `R` the DRIFT-1 computation returns no row
+  in any layer: the global layer and the per-schema layer of every
+  non-platform schema (so a per-schema default in `app_private` that reaches
+  anon, which the `public` probe cannot see, also aborts).
   A default ACL has no `has_*` function, so this effective test is required;
   reading `pg_default_acl` rows alone is not enough (case A of `probe_a.out`).
-  (b) `client_callable_registry_mismatch`: every registry entry exists and is
-  executable by exactly its listed client roles (missing function, missing
-  role or an extra client role fails).
+  (b) `client_callable_registry_mismatch`: every registry entry exists
+  (`to_regprocedure(signature)` is not NULL) and is executable by exactly its
+  listed client roles (missing function, missing role or an extra client role
+  fails). This is the DRIFT-3 check.
   (c) `client_executable_function_outside_registry`: no other function in a
   non-platform schema, extension members excluded, is executable by anon or
   authenticated, whether directly, through PUBLIC or through role membership.
+  "Other" means `p.oid` is not `to_regprocedure(signature)` of a registry
+  row for that role; `regprocedure::text` is never compared, so the result is
+  the same under any `search_path`, including `''`.
   (d) `service_role_execute_changed`: the set of functions `service_role` can
   execute, recorded at the start of `NNN`, is unchanged.
-  An owner role the runner cannot act for whose global or `public` function
-  default still reaches anon or authenticated (including the built-in PUBLIC
+  An owner role the runner cannot act for whose global function default, or
+  per-schema function default in any non-platform schema, still reaches anon
+  or authenticated (including the built-in PUBLIC
   grant when it has no global row) raises
   `WARNING client_default_execute_not_revocable_by_runner: <role>:<layer>,…`,
   not an exception (320 precedent). It only affects functions that role
@@ -304,25 +336,33 @@ chặn trường hợp này trước khi merge.
   extended. After the whole chain (320 → latest, including `NNN`) on its
   hosted-Supabase harness, (i) the set of `(function, client role)` pairs
   executable by anon or authenticated in non-platform schemas equals the
-  registry exactly (any kind, not only definers; this replaces check (c)'s
-  definer allow-list); (ii) a probe function created as the runner is not
-  client-executable. New negative controls: a `GRANT EXECUTE` to anon on an
+  registry exactly, matched by `p.oid = to_regprocedure(signature)` (any
+  kind, not only definers; this replaces check (c)'s definer allow-list);
+  (ii) a probe function created as the runner is not client-executable. New negative controls: a `GRANT EXECUTE` to anon on an
   invoker function, a registry function recreated without its grant, a
   re-added schema default `GRANT EXECUTE ON FUNCTIONS TO anon`, and the
   per-schema-only REVOKE of the ticket. Each must be reported. Runs on PG 16
   (CI) and PG 17 (advisory job).
 
-- **FR-007:** `rollout.md` §Observability carries two read-only drift queries,
-  DRIFT-1 (default ACL) and DRIFT-2 (existing functions). Both return an
-  `owner` column, run unchanged on PG 15, 16 and 17 (they use only
-  `pg_default_acl`, `aclexplode`, `acldefault`, `has_function_privilege`,
-  `pg_has_role` and `pg_proc.prokind`; no `MAINTAIN` keyword, so no version
-  gate), and use effective privilege functions so membership and PUBLIC are
-  counted. Expected after `NNN`: DRIFT-2 returns zero rows, and DRIFT-1 returns
-  only rows for owners the runner cannot act for (`supabase_admin`). The SA
-  runs both on staging and production as a recurring check, after every
-  migration that creates or replaces functions, and after every restore or DR
-  drill.
+- **FR-007:** `rollout.md` §Observability carries three read-only drift
+  queries: DRIFT-1 (default ACL: global layer and the per-schema layer of
+  every non-platform schema, for the FR-001 owner set including roles with
+  CREATE on `public`/`app_private`), DRIFT-2 (existing functions executable by
+  a client role outside the registry) and DRIFT-3 (registry health: a registry
+  function that is missing, that a listed role cannot execute, or that an
+  unlisted client role can execute). All three return an `owner` column, run
+  unchanged on PG 15, 16 and 17 (they use only `pg_default_acl`,
+  `aclexplode`, `acldefault`, `has_function_privilege`,
+  `has_schema_privilege`, `pg_has_role`, `to_regprocedure` and
+  `pg_proc.prokind`; no `MAINTAIN` keyword, so no version gate), and use
+  effective privilege functions so membership and PUBLIC are counted.
+  Registry signatures are resolved with `to_regprocedure`, so DRIFT-2 and
+  DRIFT-3 run as `postgres` (or any role with USAGE on every registry schema).
+  Expected after `NNN`: DRIFT-2 and DRIFT-3 return zero rows, and DRIFT-1
+  returns only rows for owners the runner cannot act for (`supabase_admin`).
+  The SA runs all three on staging and production as a recurring check, after
+  every migration that creates or replaces functions, and after every restore
+  or DR drill.
 
 - **FR-008:** `NNN` changes only `pg_proc.proacl` of the functions named in
   FR-002/FR-003 and the function rows (`defaclobjtype = 'f'`) of
@@ -420,7 +460,7 @@ chặn trường hợp này trước khi merge.
 
 - **Given** a restore through `restore_into_project.sh` into a project with
   stock Supabase defaults
-- **When** DRIFT-1 and DRIFT-2 run
+- **When** DRIFT-1, DRIFT-2 and DRIFT-3 run
 - **Then** they report the re-opened defaults and functions; re-applying `NNN`
   (idempotent) and 320 clears them
 
@@ -484,7 +524,7 @@ chặn trường hợp này trước khi merge.
   **every** restored function, including ones that had an explicit `REVOKE …
   FROM PUBLIC, anon, authenticated`. The `--schema=public` pre-data restore
   does not bring back `pg_default_acl` rows either. This already affects the
-  320 and later definer revokes today. Rollout requires DRIFT-1/DRIFT-2 after
+  320 and later definer revokes today. Rollout requires DRIFT-1/DRIFT-2/DRIFT-3 after
   every restore, plus re-applying `NNN` and 320 (Q-J364-6).
 - **Concurrency.** `ALTER DEFAULT PRIVILEGES`, `GRANT` and `REVOKE` take
   catalog locks only. A concurrent `CREATE FUNCTION` in another session uses
@@ -493,10 +533,11 @@ chặn trường hợp này trước khi merge.
 
 ## Success criteria
 
-- On staging after `NNN`: DRIFT-2 returns zero rows, and DRIFT-1 returns no row
-  for `postgres` (before: 4 `postgres` rows and 2 `supabase_admin` rows; after:
-  only the `supabase_admin` built-in PUBLIC rows, which the runner cannot
-  change).
+- On staging after `NNN`: DRIFT-2 and DRIFT-3 return zero rows, and DRIFT-1
+  returns no row for `postgres` or `service_role` (before, with the revised
+  owner set: 4 `postgres` rows, 2 `service_role` rows and 2 `supabase_admin`
+  rows; after: only the `supabase_admin` built-in PUBLIC rows, which the
+  runner cannot change).
 - Exactly two `(function, role)` pairs are client-executable in app schemas:
   the registry.
 - The flashcard review, Vocabulary write, Speaking session creation, grading,
@@ -516,11 +557,11 @@ Answers come from Vinh through the Leader. T000 records them verbatim and sets
   `IN SCHEMA public` form in the ticket has no effect on anon/authenticated.
   Recommendation: **yes**.
 - **Q-J364-2 (residue cleanup, FR-003).** Also revoke client EXECUTE from the
-  41 existing staging functions that no client uses (16 service-role RPCs, 1
+  40 existing staging functions that no client uses (15 service-role RPCs, 1
   uncalled legacy RPC, 24 trigger functions), in the same migration?
   Recommendation: **yes, same migration**. Triggers do not need EXECUTE, and
   `service_role` keeps exactly its current rights (FR-004 (d)). If deferred,
-  FR-004 (c)/FR-006 allow-list the 41 signatures until a follow-up.
+  FR-004 (c)/FR-006 allow-list the 40 signatures until a follow-up.
 - **Q-J364-3 (service_role default outside `public`).** Keep `service_role`
   EXECUTE only through the `public` per-schema default (recommended; new
   functions in other schemas need an explicit grant, consistent with
@@ -538,5 +579,5 @@ Answers come from Vinh through the Leader. T000 records them verbatim and sets
 - **Q-J364-6 (DR restore).** The restore path re-opens client EXECUTE on
   every function (and the 320 table defaults). Open a separate ticket so
   `restore_into_project.sh` / `restore_drill.sh` re-apply the privilege
-  migrations and run DRIFT-1/DRIFT-2 automatically? Recommendation: **yes,
+  migrations and run DRIFT-1/DRIFT-2/DRIFT-3 automatically? Recommendation: **yes,
   separate ticket**; this spec only adds the manual check to rollout.

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { runInNewContext } from 'node:vm';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 import { WritingResultBehavior } from '@/app/(authed-writing-result)/writing/result/writing-result-behavior';
@@ -72,7 +72,9 @@ it('renders the ranked fixes as a labelled ordered list between the intro and th
   expect(document.querySelector('#band-display')?.textContent).toBe('Band 6.5');
   expect(document.body.textContent).not.toContain('Band ước tính');
   expect(document.body.textContent).not.toContain('Lỗi sai');
-  expect(document.title).toBe('Phân tích bài viết — Band 6.5');
+  // The title is written by a passive effect. findByRole resolves on the DOM
+  // commit, which can land before React flushes that effect.
+  await waitFor(() => expect(document.title).toBe('Phân tích bài viết — Band 6.5'));
 });
 
 it('labels an areas-only list as improvements rather than mistakes', async () => {

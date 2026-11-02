@@ -138,6 +138,34 @@ def test_explicit_praise_of_a_flagged_word_is_still_removed(feedback, claim):
 
 
 @pytest.mark.parametrize("claim", [
+    "Từ 'informations' không chỉ chính xác mà còn tự nhiên.",
+    "Từ 'informations' trong lời mô tả rất tự nhiên.",
+    "Từ 'informations' chứa nghĩa phù hợp với câu.",
+])
+def test_praise_with_criticism_homographs_of_a_flagged_word_is_removed(feedback, claim):
+    # CR P3 (PR-2048 re-review): de-accented "không chỉ ... mà còn", "lời" and
+    # "chứa" spell criticism words, so this pure praise used to survive.
+    feedback.mistakeAnalysis[2].original = "informations"
+    feedback.criteriaFeedback.lexicalResource.feedback = claim
+    repair_writing_consistency(feedback, "task1_academic")
+    assert "informations" not in feedback.criteriaFeedback.lexicalResource.feedback
+
+
+@pytest.mark.parametrize("claim", [
+    "Từ 'informations' có lỗi, dù các số liệu được mô tả chính xác.",
+    "Tu 'informations' co loi, du cac so lieu duoc mo ta chinh xac.",
+    "Tu 'informations' chua dung, du cac so lieu duoc mo ta chinh xac.",
+    "Từ 'informations' không chỉ sai mà còn gượng ép, dù số liệu chính xác.",
+    "Từ 'informations' không chỉ rõ nghĩa, dù các số liệu được mô tả chính xác.",
+])
+def test_real_or_unaccented_criticism_beside_praise_is_kept(feedback, claim):
+    feedback.mistakeAnalysis[2].original = "informations"
+    feedback.criteriaFeedback.lexicalResource.feedback = claim
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.criteriaFeedback.lexicalResource.feedback == claim
+
+
+@pytest.mark.parametrize("claim", [
     "Cụm 'levelled off' chưa chính xác.",
     "Cụm 'levelled off' không phù hợp với xu hướng này.",
     "The phrase 'levelled off' is not accurate.",
@@ -334,6 +362,37 @@ def test_negation_that_governs_the_cause_still_denies_the_data_error(feedback, e
     assert feedback.mistakeAnalysis[2].criterion == "Lexical Resource"
 
 
+@pytest.mark.parametrize("explanation", [
+    "This does not mean that the data is wrong; the word is too informal.",
+    "It doesn't suggest that the figures are wrong; the verb is too informal.",
+    "I don't think that the data is wrong; the collocation is unnatural.",
+    "The essay does not say that the figures are wrong.",
+    "Không phải chỗ đó sai số liệu, mà là từ chưa tự nhiên.",
+], ids=["not-mean-that", "doesnt-suggest-that", "dont-think-that", "not-say-that", "cho-do"])
+def test_negated_report_verb_or_location_still_denies_the_data_error(feedback, explanation):
+    # CR P3 (PR-2053 re-review 4): "not mean/say/think … that" governs the
+    # data claim, and the location "chỗ đó" is not the cause "do".
+    mistake = feedback.mistakeAnalysis[2]
+    mistake.explanation = explanation
+    repair_writing_consistency(feedback, "task1_academic")
+    assert mistake.mistakeType == "Word Choice"
+    assert mistake.criterion == "Lexical Resource"
+    assert mistake.explanation == explanation
+
+
+@pytest.mark.parametrize("explanation,expected", [
+    ("Em không đọc kỹ nên sai số liệu năm 2010.", "Data Accuracy"),
+    ("Không cẩn thận nên sai số liệu.", "Data Accuracy"),
+    ("Không phải do sai số liệu mà do collocation.", "Word Choice"),
+    ("Không phải vì số liệu sai, mà vì collocation chưa tự nhiên.", "Word Choice"),
+    ("The writer does not notice that the figures are wrong.", "Data Accuracy"),
+])
+def test_round3_causal_cases_are_unchanged_by_report_verb_denials(feedback, explanation, expected):
+    feedback.mistakeAnalysis[2].explanation = explanation
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.mistakeAnalysis[2].mistakeType == expected
+
+
 @pytest.mark.parametrize("sections", [
     {"sentenceStructureAnalysis": None, "bandTrajectoryAnalysis": None, "recurringPatterns": None},
     {"sentenceStructureAnalysis": {}, "bandTrajectoryAnalysis": {}, "recurringPatterns": {}},
@@ -357,6 +416,74 @@ def test_optional_analysis_shapes_preserve_unknown_data_and_still_repair(feedbac
     assert feedback.mistakeAnalysis[0].mistakeType == "Data Accuracy"
     assert "levelled off" not in feedback.criteriaFeedback.lexicalResource.feedback
     assert "18–30-year-olds" in feedback.improvedEssay
+
+
+def _assert_other_repairs_ran(feedback):
+    assert feedback.criteriaFeedback.mainCriterion.title == "Task Achievement"
+    assert feedback.mistakeAnalysis[0].mistakeType == "Data Accuracy"
+    assert "levelled off" not in feedback.criteriaFeedback.lexicalResource.feedback
+    assert "18–30-year-olds" in feedback.improvedEssay
+
+
+@pytest.mark.parametrize("breakdown", [
+    7, 6.5, "Task Response", None, True, {"criterion": "Task Response"}, {},
+], ids=["int", "float", "string", "none", "bool", "dict-not-list", "empty-dict"])
+def test_unusual_criteria_breakdown_is_skipped_and_other_parts_repaired(feedback, breakdown):
+    # CR P3 (PR-2053): criteria_breakdown 7 raised TypeError, so the learner
+    # lost every consistency repair. Unreadable parts stay as they are.
+    feedback.bandTrajectoryAnalysis = {"current_band": 7, "criteria_breakdown": deepcopy(breakdown)}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.bandTrajectoryAnalysis == {"current_band": 7, "criteria_breakdown": breakdown}
+    _assert_other_repairs_ran(feedback)
+
+
+@pytest.mark.parametrize("rows,expected", [
+    ([7, "Task Response", None, ["Task Response"], {"criterion": "Task Response"}],
+     [7, "Task Response", None, ["Task Response"], {"criterion": "Task Achievement"}]),
+    ([{"average": 6}, {"criterion": None}, {"criterion": 7}, {"criterion": "Task Response"}],
+     [{"average": 6}, {"criterion": None}, {"criterion": 7}, {"criterion": "Task Achievement"}]),
+], ids=["non-dict-rows", "dict-rows-missing-or-odd-criterion"])
+def test_unusual_breakdown_rows_are_skipped_and_valid_rows_repaired(feedback, rows, expected):
+    feedback.bandTrajectoryAnalysis = {"criteria_breakdown": rows}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.bandTrajectoryAnalysis == {"criteria_breakdown": expected}
+    _assert_other_repairs_ran(feedback)
+
+
+@pytest.mark.parametrize("still", [7, None, True, [], [7, None, []]],
+                         ids=["int", "none", "bool", "empty-list", "only-odd-items"])
+def test_unusual_still_recurring_is_not_a_recurring_pattern(feedback, still):
+    summary = "Không có lỗi lặp lại."
+    feedback.recurringPatterns = {"summary": summary, "stillRecurring": deepcopy(still)}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.recurringPatterns == {"summary": summary, "stillRecurring": still}
+    _assert_other_repairs_ran(feedback)
+
+
+def test_valid_still_recurring_items_beside_odd_ones_are_still_used(feedback):
+    still = [7, None, "Word Choice (9 lần)"]
+    feedback.recurringPatterns = {"summary": "Không có lỗi dùng từ lặp lại.", "stillRecurring": still}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.recurringPatterns["summary"] == "Các mẫu lỗi còn lặp lại được liệt kê bên dưới."
+    assert feedback.recurringPatterns["stillRecurring"] == [7, None, "Word Choice (9 lần)"]
+
+
+@pytest.mark.parametrize("issues", [7, "run-on", {"pattern": "run-on"}, [7, None]],
+                         ids=["int", "string", "dict-not-list", "only-odd-items"])
+def test_unusual_common_issues_are_not_structure_history(feedback, issues):
+    summary = "Chưa có lỗi cấu trúc câu lặp lại."
+    feedback.sentenceStructureAnalysis = {"summary": summary, "common_issues": deepcopy(issues)}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.sentenceStructureAnalysis == {"summary": summary, "common_issues": issues}
+    _assert_other_repairs_ran(feedback)
+
+
+def test_valid_common_issues_beside_odd_ones_are_still_history(feedback):
+    feedback.sentenceStructureAnalysis = {
+        "summary": "Chưa có lỗi cấu trúc câu lặp lại.", "common_issues": [7, {"pattern": "run-on"}],
+    }
+    repair_writing_consistency(feedback, "task1_academic")
+    assert "lặp lại" not in feedback.sentenceStructureAnalysis["summary"]
 
 
 def test_unaffected_multiline_feedback_is_preserved_verbatim(feedback):
@@ -448,6 +575,73 @@ def test_blanket_current_essay_range_claims_are_still_removed_at_high_gra(feedba
     assert feedback.sentenceStructureAnalysis[key] != claim
 
 
+@pytest.mark.parametrize("claim", [
+    "Bài này chủ yếu dùng câu đơn, từ vựng phù hợp.",
+    "Bài này chủ yếu dùng câu đơn, cách liên kết đoạn văn hiệu quả.",
+    "The current essay only uses simple sentences, and the vocabulary is appropriate.",
+])
+@pytest.mark.parametrize("gra", [7, 8])
+def test_praise_of_another_skill_does_not_shield_a_low_range_claim(feedback, claim, gra):
+    # CR P3 (PR-2048 re-review): vocabulary praise says nothing about range.
+    feedback.criteriaFeedback.grammaticalRange.bandScore = gra
+    feedback.sentenceStructureAnalysis = {"current_essay_observation": claim}
+    repair_writing_consistency(feedback, "task1_academic")
+    observation = feedback.sentenceStructureAnalysis["current_essay_observation"]
+    assert "câu đơn" not in observation and "simple sentences" not in observation
+
+
+@pytest.mark.parametrize("claim,expected", [
+    ("Bài này chủ yếu dùng câu đơn, từ vựng phù hợp, cần sửa lỗi hòa hợp chủ vị ở đoạn 2.",
+     "Cần sửa lỗi hòa hợp chủ vị ở đoạn 2."),
+    ("The current essay only uses simple sentences, the vocabulary is appropriate, "
+     "but subject-verb agreement in paragraph 2 needs fixing.",
+     "Subject-verb agreement in paragraph 2 needs fixing."),
+    ("The current essay only uses simple sentences, you should fix the article errors in paragraph 1.",
+     "You should fix the article errors in paragraph 1."),
+])
+@pytest.mark.parametrize("gra", [7, 8])
+def test_comma_separated_correction_advice_survives_low_range_removal(feedback, claim, expected, gra):
+    # Codex P2 (PR-2149): the low-range claim goes, the correction advice stays
+    # (fixed by #2154's comma-warning split; pinned here at GRA 7 and 8).
+    feedback.criteriaFeedback.grammaticalRange.bandScore = gra
+    feedback.sentenceStructureAnalysis = {"current_essay_observation": claim}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.sentenceStructureAnalysis["current_essay_observation"] == expected
+
+
+@pytest.mark.parametrize("claim,expected", [
+    ("Lỗi mạo từ ở đoạn 1 cần sửa, bài này chủ yếu dùng câu đơn.",
+     "Lỗi mạo từ ở đoạn 1 cần sửa."),
+    ("You should fix the article errors in paragraph 1, the current essay only uses simple sentences.",
+     "You should fix the article errors in paragraph 1."),
+    ("Bài này chủ yếu dùng câu đơn, từ vựng phù hợp, không cần sửa gì thêm.",
+     "Tham khảo các lỗi và gợi ý cụ thể trong phần phân tích."),
+])
+@pytest.mark.parametrize("gra", [7, 8])
+def test_correction_advice_before_a_comma_survives_low_range_removal(feedback, claim, expected, gra):
+    # Codex P2 (PR-2149): advice before the comma is as independent as advice
+    # after it; reassurance is not advice and goes with the claim.
+    feedback.criteriaFeedback.grammaticalRange.bandScore = gra
+    feedback.sentenceStructureAnalysis = {"current_essay_observation": claim}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.sentenceStructureAnalysis["current_essay_observation"] == expected
+
+
+@pytest.mark.parametrize("claim", [
+    "Bài này chủ yếu dùng câu đơn một cách hiệu quả.",
+    "Bài này chủ yếu dùng câu đơn, cấu trúc câu chính xác.",
+    "Bài này chủ yếu dùng câu đơn, ngữ pháp chính xác.",
+    "Bài này chủ yếu dùng câu đơn, phù hợp với dạng bài.",
+    "The current essay only uses simple sentences, and they are accurate.",
+])
+@pytest.mark.parametrize("gra", [7, 8])
+def test_praise_of_the_structure_still_shields_a_low_range_claim(feedback, claim, gra):
+    feedback.criteriaFeedback.grammaticalRange.bandScore = gra
+    feedback.sentenceStructureAnalysis = {"current_essay_observation": claim}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.sentenceStructureAnalysis["current_essay_observation"] == claim
+
+
 @pytest.mark.parametrize("key,claim,expected", [
     ("current_essay_observation", "Bài này chủ yếu sử dụng câu đơn; lỗi hòa hợp chủ vị ở đoạn 2 cần sửa.",
      "Lỗi hòa hợp chủ vị ở đoạn 2 cần sửa."),
@@ -470,6 +664,39 @@ def test_high_gra_removes_only_the_low_range_clause(feedback, key, claim, expect
     feedback.sentenceStructureAnalysis = {key: claim}
     repair_writing_consistency(feedback, "task1_academic")
     assert feedback.sentenceStructureAnalysis[key] == expected
+
+
+@pytest.mark.parametrize("claim,expected", [
+    ("Bài này chủ yếu dùng câu đơn, lỗi mạo từ cần sửa.", "Lỗi mạo từ cần sửa."),
+    ("Bài này chủ yếu dùng câu đơn, ví dụ ở đoạn 1, lỗi mạo từ cần sửa.", "Lỗi mạo từ cần sửa."),
+    ("Bài này chủ yếu dùng câu đơn nhưng ĐÚNG ngữ pháp.",
+     "Tham khảo các lỗi và gợi ý cụ thể trong phần phân tích."),
+    ("This essay only uses simple sentences but in every paragraph.",
+     "Tham khảo các lỗi và gợi ý cụ thể trong phần phân tích."),
+    ("Bài này chủ yếu dùng câu đơn nhưng ĐÚNG ngữ pháp; lỗi mạo từ cần sửa.", "Lỗi mạo từ cần sửa."),
+    ("Bài này chủ yếu dùng câu đơn, nhưng ngữ pháp chưa chính xác.", "Ngữ pháp chưa chính xác."),
+    ("Bài này, chưa có câu phức.", "Tham khảo các lỗi và gợi ý cụ thể trong phần phân tích."),
+    ("Bài này chủ yếu sử dụng câu đơn; lỗi hòa hợp chủ vị ở đoạn 2 cần sửa.",
+     "Lỗi hòa hợp chủ vị ở đoạn 2 cần sửa."),
+    ("Các bài trước chủ yếu dùng câu đơn; bài này cũng vậy.",
+     "Các bài trước chủ yếu dùng câu đơn; bài này cũng vậy."),
+])
+@pytest.mark.parametrize("gra", [7, 8])
+def test_high_gra_comma_warning_survives_and_no_fragment_is_left(feedback, claim, expected, gra):
+    # CR P3 (PR-2053 re-review 4): a comma ends the low-range clause only when
+    # a warning follows it; a bare "nhưng/but" remainder is not left dangling.
+    feedback.criteriaFeedback.grammaticalRange.bandScore = gra
+    feedback.sentenceStructureAnalysis = {"current_essay_observation": claim}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.sentenceStructureAnalysis["current_essay_observation"] == expected
+
+
+def test_comma_low_range_claim_is_kept_below_gra_7(feedback):
+    claim = "Bài này chủ yếu dùng câu đơn, lỗi mạo từ cần sửa."
+    feedback.criteriaFeedback.grammaticalRange.bandScore = 6
+    feedback.sentenceStructureAnalysis = {"current_essay_observation": claim}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.sentenceStructureAnalysis["current_essay_observation"] == claim
 
 
 @pytest.mark.parametrize("gra", [7, 8])
@@ -613,6 +840,20 @@ def test_recurring_denial_of_a_listed_error_type_is_still_removed(feedback, stil
     feedback.recurringPatterns = {"summary": summary, "improvements": [], "stillRecurring": still}
     repair_writing_consistency(feedback, "task1_academic")
     assert feedback.recurringPatterns["summary"] == expected
+    assert feedback.recurringPatterns["stillRecurring"] == still
+
+
+@pytest.mark.parametrize("summary", [
+    "Không có lỗi lặp lại trong đoạn văn.",
+    "No recurring errors in your sentences.",
+])
+def test_recurring_denial_naming_only_a_location_is_a_blanket_denial(feedback, summary):
+    # CR P3 (PR-2053 re-review 4): "đoạn văn"/"sentence" say where, not
+    # which error, so the denial still contradicts recurring Word Choice.
+    still = ["Word Choice (9 lần)"]
+    feedback.recurringPatterns = {"summary": summary, "improvements": [], "stillRecurring": still}
+    repair_writing_consistency(feedback, "task1_academic")
+    assert feedback.recurringPatterns["summary"] == "Các mẫu lỗi còn lặp lại được liệt kê bên dưới."
     assert feedback.recurringPatterns["stillRecurring"] == still
 
 

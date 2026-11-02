@@ -144,8 +144,11 @@ async def test_repair_failure_keeps_unrepaired_feedback_and_grades(
     assert all(ESSAY not in r.getMessage() for r in warnings)
     warnings = [r for r in warnings if not r.getMessage().startswith("writing_cost_incomplete ")]
     assert len(warnings) == 1
+    # The step is named; the message keeps only Python error wording, so the
+    # essay and summary quoted in it are reduced to "…".
     assert warnings[0].getMessage() == (
-        "[grader] consistency repair failed, keeping unrepaired feedback: RuntimeError"
+        "[grader] consistency repair failed at repair, keeping unrepaired feedback: "
+        "RuntimeError: … of … a …."
     )
     assert warnings[0].exc_info is None
     assert "repair bug" not in caplog.text
@@ -161,6 +164,7 @@ async def test_repair_failure_keeps_unrepaired_feedback_and_grades(
     {"sentenceStructureAnalysis": [], "bandTrajectoryAnalysis": {"criteria_breakdown": []}},
     {"sentenceStructureAnalysis": {"summary": [], "current_essay_observation": {"custom": None}},
      "bandTrajectoryAnalysis": {"criteria_breakdown": [None, [], 7, {}], "summary": None}},
+    # Used to raise TypeError in repair (CR P3, PR-2053); now skipped.
     {"sentenceStructureAnalysis": {"summary": "Custom summary", "sentenceUpgrades": []},
      "bandTrajectoryAnalysis": {"criteria_breakdown": 7}},
 ], ids=["null", "empty-dicts", "empty-lists", "free-form-dicts", "repair-type-error"])
@@ -174,13 +178,62 @@ async def test_optional_analysis_shapes_cannot_lose_a_paid_grade(writing_provide
 
     assert len(state.claude_requests) == 1 and state.gemini_calls == []
     assert len(state.rows) == 1 and state.rows[0]["status"] == "success"
-    if sections["bandTrajectoryAnalysis"] == {"criteria_breakdown": 7}:
-        # A valid free-form dict can fail halfway through repair. Keep all of it.
-        expected = state.grader._parse_response(json.dumps(payload))
-        state.grader._inject_missing_image_caveat(expected)
-        assert result.feedback.model_dump() == expected.model_dump()
-        assert "consistency repair failed" in caplog.text
-    else:
-        assert result.feedback.criteriaFeedback.mainCriterion.title == "Task Achievement"
-        assert "18–30-year-olds" in result.feedback.improvedEssay
-        assert "consistency repair failed" not in caplog.text
+    # Every free-form shape completes the repair; unreadable parts stay as sent.
+    assert result.feedback.criteriaFeedback.mainCriterion.title == "Task Achievement"
+    assert result.feedback.mistakeAnalysis[0].mistakeType == "Data Accuracy"
+    assert "18–30-year-olds" in result.feedback.improvedEssay
+    assert "consistency repair failed" not in caplog.text
+    if isinstance(sections["bandTrajectoryAnalysis"], dict):
+        assert (result.feedback.bandTrajectoryAnalysis.get("criteria_breakdown")
+                == sections["bandTrajectoryAnalysis"].get("criteria_breakdown"))
+
+
+@pytest.mark.asyncio
+async def test_repair_failure_log_names_the_step_without_learner_text(writing_providers, monkeypatch, caplog):
+    from services import gemini_writing_grader as gwg
+    from services import writing_feedback_consistency as wfc
+
+    state = writing_providers
+    payload = _payload()
+    state.claude = [json.dumps(payload)]
+    learner_quote = payload["mistakeAnalysis"][0]["explanation"]
+
+    def broken_data_check(explanation):
+        # A shape error whose message quotes learner/model text and essay text.
+        raise TypeError(f"'{explanation}' object is not iterable; {ESSAY} " + "x" * 400)
+
+    monkeypatch.setattr(wfc, "_data_error", broken_data_check)
+    with caplog.at_level("INFO", logger=gwg.logger.name):
+        result = await state.grader.grade_essay(_config())
+
+    assert len(state.rows) == 1 and state.rows[0]["status"] == "success"
+    assert result.feedback.mistakeAnalysis[0].mistakeType != "Data Accuracy"  # Unrepaired copy kept.
+    warnings = [r for r in caplog.records if "consistency repair failed" in r.getMessage()]
+    assert len(warnings) == 1 and warnings[0].levelname == "WARNING"
+    message = warnings[0].getMessage()
+    assert message == (
+        "[grader] consistency repair failed at mistakeAnalysis[0], keeping unrepaired feedback: TypeError: "
+        "'….' object is not iterable; … of … a …"
+    )
+    assert learner_quote not in caplog.text
+    assert ESSAY not in caplog.text
+    for sentence in ESSAY.split(". "):
+        assert sentence.rstrip(".") not in caplog.text
+    assert warnings[0].exc_info is None
+
+
+@pytest.mark.parametrize("error,expected", [
+    (TypeError("'int' object is not iterable"), "'int' object is not iterable"),
+    (AttributeError("'NoneType' object has no attribute 'get'"), "'NoneType' object has no attribute 'get'"),
+    (IndexError("list index out of range"), "list index out of range"),
+    (KeyError("criterion"), "'…'"),
+    (KeyError(ESSAY), "'… of … a ….'"),
+    (ValueError(f"invalid literal for int() with base 10: '{ESSAY}'"), "… for int() … of … a ….'"),
+    (RuntimeError("Lỗi dùng từ: 'informations' — học viên Nguyễn Văn A"), "… A"),
+    (TypeError("object is not iterable " * 30), ("object is not iterable " * 30)[:200]),
+])
+def test_repair_error_message_keeps_python_wording_only(error, expected):
+    from services.gemini_writing_grader import _repair_error_message
+
+    assert _repair_error_message(error) == expected
+    assert len(_repair_error_message(error)) <= 200

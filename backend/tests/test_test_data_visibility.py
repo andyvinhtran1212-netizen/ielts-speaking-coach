@@ -481,6 +481,36 @@ def test_instructor_rows_never_flag_hidden_classes_when_hiding_is_off(staging, m
     assert not any(r["cohort_hidden"] for r in students + codes)
     assert "eq.created_by" not in db.ops("cohorts")   # no class read without hiding
 
+
+def test_instructor_hidden_class_lookups_run_off_the_event_loop(staging, monkeypatch):
+    """PC-J422: the PC-J215 class read (and /codes' hide check) is sync I/O, so
+    it runs in a worker thread instead of blocking every request on the loop."""
+    import threading
+    from routers import instructor
+    db = _hidden_cohort_db()
+    call = _instructor_lists(monkeypatch, db)
+    loop_thread = threading.get_ident()   # asyncio.run drives the loop here
+    on_loop = []
+
+    def watch(owner, name):
+        real = getattr(owner, name)
+
+        def wrapped(*args, **kwargs):
+            on_loop.append((name, threading.get_ident() == loop_thread))
+            return real(*args, **kwargs)
+        monkeypatch.setattr(owner, name, wrapped)
+
+    watch(instructor, "_hidden_cohort_ids")
+    students = call("list_students")
+    assert on_loop == [("_hidden_cohort_ids", False)]
+    assert [r["id"] for r in students if r["cohort_hidden"]] == ["s-qa"]
+
+    on_loop.clear()
+    watch(tdv, "hide_for")
+    codes = call("list_codes")
+    assert on_loop == [("hide_for", False), ("_hidden_cohort_ids", False)]
+    assert [r["id"] for r in codes if r["cohort_hidden"]] == ["c-qa"]
+
 # ── Learner catalogues ───────────────────────────────────────────────────────
 
 

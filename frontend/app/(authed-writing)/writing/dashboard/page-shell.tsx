@@ -34,8 +34,8 @@ export function WritingShell() {
 
         {/* Greeting — P0-3 LCP fix. Rendered OUTSIDE #content (always visible)
              so the LCP h1 paints at the CSS/font floor (~1s) instead of waiting
-             for the data chain (auth + my-assignments + my-essays + permissions)
-             that reveals #content (~7.6s before). Name/code fill progressively
+             for auth/permissions to establish #content's initial layout.
+             Name/code fill progressively
              via renderStudent() once loadEssays/loadAssignments resolve; the
              placeholders default to renderStudent's own no-data fallbacks. */}
         <section className="mb-8">
@@ -55,7 +55,7 @@ export function WritingShell() {
           </p>
         </section>
 
-        {/* Loading state (kept for JS compat; hidden by default — content is always visible) */}
+        {/* Loading state (kept for JS compat; hidden by default). */}
         <div id="loading" className="hidden text-center py-16" role="status" aria-live="polite">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-teal-light border-t-transparent"></div>
           <p className="mt-3 text-gray-300">Đang tải...</p>
@@ -78,10 +78,10 @@ export function WritingShell() {
         </div>
 
         {/* Main content */}
-        <div id="content">
+        <div id="content" className="wd-permissions-pending">
           <div id="writing-submit-notice" className="wd-submit-notice hidden" role="status"></div>
-          {/* Sprint 5.2 — Writing permission preview banner (hidden by default,
-               revealed when GET /api/student/permissions returns writing=false). */}
+          {/* Decide the preview banner before the content's first paint;
+               button gating still runs after the canonical lists render. */}
           <div id="writing-preview-banner" className="wd-preview-banner hidden mb-6 flex items-start gap-3">
             <span className="wd-preview-banner__icon" aria-hidden="true">🔒</span>
             <div className="text-sm">

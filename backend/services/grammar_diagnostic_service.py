@@ -412,9 +412,11 @@ def next_item(user_id: str, session_id: str) -> dict[str, Any]:
     baseline_limit = LIMITS[session["test_length"]][0]
     phase = "BASELINE" if len(responses) < baseline_limit else "CONFIRMATION"
     if phase != session.get("current_phase"):
-        supabase_admin.table("grammar_diagnostic_sessions").update({
+        updated = supabase_admin.table("grammar_diagnostic_sessions").update({
             "current_phase": phase, "updated_at": datetime.now(timezone.utc).isoformat(),
-        }).eq("id", session_id).eq("user_id", user_id).execute()
+        }).eq("id", session_id).eq("user_id", user_id).eq("status", "in_progress").execute().data
+        if not updated:
+            raise HTTPException(409, detail={"error_code": "diagnostic_exhausted", "message": "Phiên này không còn câu độc lập phù hợp."})
 
     try:
         history = (
@@ -443,9 +445,11 @@ def next_item(user_id: str, session_id: str) -> dict[str, Any]:
             candidates = scoped
             break
     if not candidates:
-        supabase_admin.table("grammar_diagnostic_sessions").update({
+        updated = supabase_admin.table("grammar_diagnostic_sessions").update({
             "status": "exhausted", "updated_at": datetime.now(timezone.utc).isoformat(),
-        }).eq("id", session_id).eq("user_id", user_id).execute()
+        }).eq("id", session_id).eq("user_id", user_id).eq("status", "in_progress").execute().data
+        if not updated:
+            raise HTTPException(409, detail={"error_code": "diagnostic_exhausted", "message": "Phiên này không còn câu độc lập phù hợp."})
         raise HTTPException(409, detail={
             "error_code": "diagnostic_exhausted",
             "message": "Đã hết mẫu độc lập phù hợp; hệ thống không tái sử dụng câu cũ.",

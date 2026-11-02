@@ -48,6 +48,7 @@ on:
       - 'frontend/app/(authed-writing)/**'
       - 'frontend/tooling/verify-writing-admission-flow.mjs'
       - 'frontend/tooling/verify-writing-dashboard-layout-flow.mjs'
+      - 'frontend/tooling/verify-writing-dashboard-tab-scroll-flow.mjs'
       - 'frontend/tooling/verify-learning-context-flow.mjs'
       - 'frontend/tooling/verify-grammar-navigation-flow.mjs'
       - 'frontend/tooling/grammar-navigation-fixtures.mjs'
@@ -840,6 +841,9 @@ jobs:
 
       - name: Kiểm CLS và cuộn tab Writing dashboard
         run: node tooling/verify-writing-dashboard-layout-flow.mjs "http://localhost:$TEST_PORT"
+
+      - name: Kiểm chọn tab Writing giữ vị trí cuộn trang
+        run: node tooling/verify-writing-dashboard-tab-scroll-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm context Reading và Listening
         run: node tooling/verify-learning-context-flow.mjs "http://localhost:$TEST_PORT"

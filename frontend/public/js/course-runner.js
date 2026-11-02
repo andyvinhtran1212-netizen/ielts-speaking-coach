@@ -236,6 +236,14 @@ export function createRunner({
   // Hẹn giờ FLUSH_MS của câu sealed có giờ cũ nhất đang được giữ. Mỗi hẹn giờ
   // mang một token; đẩy theo mẻ thì bỏ token, nên hẹn giờ cũ tới sau là no-op.
   let heldFlush = null;
+  // Trang đã dọn lượt này (đổi tài khoản, rời trang): KHÔNG request nào của
+  // hàng đợi được bắt đầu nữa. Request mới lấy token của người ĐANG đăng nhập,
+  // nên một flush xếp sau batch đang treo, hay một hẹn giờ retry, sẽ gửi câu
+  // của A bằng token của B (PC-J362). Câu chưa gửi vẫn nằm trong outbox của A.
+  let disposed = false;
+  function assertLive() {
+    if (disposed) throw codedError('Lượt làm bài này đã đóng.', 'runner_disposed');
+  }
 
   const key = () => 'cx:' + (userId ? userId + ':' : '') + (bank && bank.id);
   // Keep unacknowledged rows (including a request in flight) across abrupt
@@ -730,6 +738,7 @@ export function createRunner({
    * ngay sau đó và ghi một điểm số "đã xong" cho những câu chưa hề tới máy chủ.
    */
   async function flush({ keepalive = false } = {}) {
+    assertLive();
     if (!sessionId) return;
     const queued = pending.splice(0, pending.length);
     // pagehide phải cứu cả batch thường đang bay lẫn phần chưa gửi. Trước đây
@@ -1180,6 +1189,7 @@ export function createRunner({
       if (sessionId && !sessionEnded && !resumedRetakeFinal) {
         try {
           await inflight;        // chờ lượt đẩy nền xong rồi mới xét hàng đợi
+          assertLive();          // PATCH hết giờ cũng mang các câu còn trong hàng đợi
           if (endedBy !== 'time_cap') await flush();
           if (answersWithheld && marks.length) tally();
           // Batch còn lại chỉ là bằng chứng idempotency: timeout RPC KHÔNG chèn
@@ -1308,5 +1318,8 @@ export function createRunner({
 
     /** Đóng tab giữa chừng: đẩy nốt bằng fetch keepalive. */
     leave() { return flush({ keepalive: true }).catch(() => { /* hết cách */ }); },
+
+    /** Dọn lượt: từ đây không gửi gì nữa; câu chưa gửi chờ trong outbox. */
+    dispose() { disposed = true; heldFlush = null; },
   };
 }
