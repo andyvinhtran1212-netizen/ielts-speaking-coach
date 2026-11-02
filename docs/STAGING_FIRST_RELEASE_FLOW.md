@@ -4,7 +4,7 @@
 
 | Git ref | Frontend/backend environment | Data |
 | --- | --- | --- |
-| Feature branch | Vercel Preview → staging services | Supabase staging |
+| Feature branch | Vercel Preview (opt-in `[preview]`, see [AGENT_WORKFLOW.md](AGENT_WORKFLOW.md)) → staging services | Supabase staging |
 | `staging` | `staging.averlearning.com` + Railway staging | Supabase staging |
 | `main` | `www.averlearning.com` + Railway production | Supabase production |
 

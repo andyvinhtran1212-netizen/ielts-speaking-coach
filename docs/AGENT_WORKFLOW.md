@@ -140,6 +140,21 @@ unchecked pre-release task does not prove that the currently deployed code is
 unreleased. Reconcile release evidence and requirement evidence explicitly.
 Update stale current-status text instead of accumulating contradictory notes.
 
+### Vercel preview deployments are opt-in
+
+`frontend/vercel.json` runs `frontend/tooling/vercel-ignore-build.sh` as the
+Ignored Build Step. `main` and `staging` always build. Any other branch builds
+a preview only when it opts in **and** changes a frontend-affecting path under
+`frontend/` (app, components, lib, types, public, package/lockfile, Next/Vercel
+config, build tooling) since its last deployed commit or its merge-base with
+`origin/staging`. Docs, specs, `backend/`, migrations, `.github/` and test-only
+changes never build a preview.
+
+When UI review needs a preview URL, add `[preview]` to the commit message of
+the pushed head commit, or push from a branch named `preview/<slug>`. Without
+it, the branch gets no preview; CI and the staging deployment are unaffected.
+An opted-in push with no frontend change since that base still skips.
+
 After completion, remove a task-owned temporary worktree only when it is clean,
 its work is recoverable and cleanup is authorized. Preserve unrelated branches
 and stashes. Verify the final working-tree status and report any retained work.
