@@ -265,8 +265,8 @@ def test_anonymous_ingress_is_rate_limited_per_client(path, limits):
 
 def test_caller_supplied_forwarded_hops_do_not_mint_fresh_budgets():
     client = TestClient(safety_app(log_per_client_per_minute=2, log_per_minute=100))
-    # The rightmost untrusted hop (appended by our edge proxy) identifies
-    # the client, regardless of whether the address is global.
+    # Without X-Real-IP, the rightmost untrusted hop identifies the client,
+    # regardless of whether the address is global.
     for spoof in ('8.8.8.8', '10.0.0.2'):
         assert client.post('/api/error-logs', json={'message': 'x'},
                            headers=_xff(spoof, '52.95.110.1')).status_code == 200
@@ -276,7 +276,7 @@ def test_caller_supplied_forwarded_hops_do_not_mint_fresh_budgets():
 
 def test_real_ip_separates_clients_behind_an_explicitly_trusted_proxy(monkeypatch):
     # PC-J202: only configured proxy hops may be skipped, including private
-    # ones. An all-trusted chain falls back to X-Real-IP.
+    # ones. PC-J520: X-Real-IP keys before any forwarded hop.
     monkeypatch.setattr(settings, "TRUSTED_PROXY_CIDRS", "10.0.0.0/8")
     client = TestClient(safety_app(log_per_client_per_minute=1, log_per_minute=100))
     proxy = _xff('10.0.0.1')
@@ -287,17 +287,21 @@ def test_real_ip_separates_clients_behind_an_explicitly_trusted_proxy(monkeypatc
                        headers={**proxy, 'x-real-ip': '198.51.100.9'}).status_code == 200
 
 
-def test_spoofed_real_ip_cannot_move_an_untrusted_forwarded_hop_off_its_bucket(monkeypatch):
-    # SA-1029-XFF1: Railway's edge can copy X-Real-IP from the caller's first
-    # XFF hop, so an untrusted forwarded hop outranks X-Real-IP.
+def test_real_ip_keys_before_the_shared_edge_pop_hop(monkeypatch):
+    # PC-J520 (J177): Railway's edge overwrites X-Real-IP with the source and
+    # appends a shared, rotating CDN77 PoP as the rightmost XFF hop. The
+    # source keeps one bucket over rotating PoPs; a neighbour has its own.
     monkeypatch.setattr(settings, "TRUSTED_PROXY_CIDRS", "10.0.0.0/8")
     client = TestClient(safety_app(log_per_client_per_minute=1, log_per_minute=100))
-    edge = _xff('52.95.110.1')
-    assert client.post('/api/error-logs', json={'message': 'x'}, headers=edge).status_code == 200
-    for spoof in ({**edge, 'x-real-ip': '8.8.8.8'}, {**_xff('8.8.8.8', '52.95.110.1'), 'x-real-ip': '8.8.8.8'},
-                  {**_xff('52.95.110.1', '10.0.0.3'), 'x-real-ip': '1.1.1.1'}):
+    src = {'x-real-ip': '104.28.242.153'}
+    assert client.post('/api/error-logs', json={'message': 'x'},
+                       headers={**_xff('104.28.242.153', '152.233.68.98'), **src}).status_code == 200
+    for again in ({**_xff('104.28.242.153', '152.233.15.123'), **src},
+                  {**_xff('104.28.242.153', '152.233.68.98', '10.0.0.3'), **src}):
         assert client.post('/api/error-logs', json={'message': 'x'},
-                           headers=spoof).status_code == 429
+                           headers=again).status_code == 429
+    assert client.post('/api/error-logs', json={'message': 'x'}, headers={
+        **_xff('104.28.242.154', '152.233.68.98'), 'x-real-ip': '104.28.242.154'}).status_code == 200
 
 
 @pytest.mark.parametrize('hops', [('10.0.0.2', '10.0.0.3'), ('10.0.0.4',),

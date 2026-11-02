@@ -104,15 +104,55 @@
     WHERE n.nspname = 'public' AND a.grantee = 0
       AND a.privilege_type = 'CREATE';
    ```
-   After 358 (FR-010), also expect 0 rows:
+   After 358 (FR-010), also expect 0 rows (routines whose `search_path` is
+   missing, `''`, or whose last entry is not exactly `pg_temp`; a name that
+   only ends in `pg_temp`, such as `not_pg_temp`, is reported):
 
    ```sql
-   SELECT p.oid::regprocedure AS routine, pg_get_userbyid(p.proowner) AS owner
+   SELECT p.oid::regprocedure AS routine, pg_get_userbyid(p.proowner) AS owner,
+          (SELECT c FROM unnest(p.proconfig) c
+            WHERE c LIKE 'search_path=%') AS search_path
      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname = 'public'
+    WHERE n.nspname IN ('public', 'app_private')
+      AND p.prokind IN ('f', 'p')
+      AND NOT EXISTS (
+        SELECT 1 FROM pg_depend d
+         WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid
+           AND d.deptype = 'e')
       AND NOT EXISTS (
         SELECT 1 FROM unnest(COALESCE(p.proconfig, ARRAY[]::text[])) c
-         WHERE c LIKE 'search_path=%');
+         WHERE c ~ '^search_path=([^,]+,)*[[:space:]]*(pg_temp|"pg_temp")[[:space:]]*$');
+   ```
+
+   Match the complete final entry, including paired quotes when present.
+   `public, not_pg_temp` is drift: a schema-name suffix does not explicitly
+   place the temporary schema last. Run this read-only regression self-check;
+   expect 0 rows (any returned row is a classification mismatch):
+
+   ```sql
+   WITH cases(setting, expected_drift) AS (
+     VALUES
+       (NULL::text, true),
+       ('search_path=', true),
+       ('search_path=""', true),
+       ('search_path=public', true),
+       ('search_path=public, not_pg_temp', true),
+       ('search_path=public, "not_pg_temp"', true),
+       ('search_path=public, pg_temp_extra', true),
+       ('search_path=pg_temp, public', true),
+       ('search_path=public, "other, pg_temp"', true),
+       ('search_path=public, pg_temp', false),
+       ('search_path=pg_catalog, public, pg_temp', false),
+       ('search_path=pg_catalog, pg_temp', false),
+       ('search_path=public, "pg_temp"', false),
+       ('search_path=public,pg_temp  ', false),
+       ('search_path=pg_temp', false)
+   )
+   SELECT setting, expected_drift
+     FROM cases
+    WHERE NOT COALESCE(setting ~
+      '^search_path=([^,]+,)*[[:space:]]*(pg_temp|"pg_temp")[[:space:]]*$', false)
+      <> expected_drift;
    ```
 3. `has_table_privilege('service_role','public.users','TRIGGER')` is false,
    and SELECT/INSERT/UPDATE/DELETE on `public.users` and
@@ -151,6 +191,14 @@ as its own step:
    SA's 358 retest passed (P2-R2-1), and SA's
    written resolution of existing planted objects, TEMP/other-schema risks
    and un-actable defaults. No owner-execution path may remain unaddressed.
+
+5. Migration 341 and its follow-up 341b (group `admin_aal2`) stay off
+   production until 357 is applied on production and its read-only
+   postcheck shows no API role with CREATE on schema `public` (Vinh,
+   2026-11-02, answering Q-J357-4). While service_role can create objects
+   in `public`, it can plant a `public.jsonb_build_object` overload that
+   341's SECURITY DEFINER functions resolve to. A DRY_RUN that lists 341 or
+   341b for production before that postcheck passes stops the promotion.
 
 No production write probes. If production has `supabase_admin` default ACLs
 the runner cannot change (expected, as for 320), file the Supabase-support

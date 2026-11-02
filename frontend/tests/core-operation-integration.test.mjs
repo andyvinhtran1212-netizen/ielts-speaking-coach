@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import ts from 'typescript';
 import { anonymousReadingScope, createCoreOperationTransport, coreOperationHeaders, clearCoreOperationIntents } from '../lib/core-operation-intent.mjs';
 import { clearLearnerTabDraftAccount, invalidateLearnerTabDraftOwner } from '../lib/learner-tab-drafts.mjs';
+import { setAuthMeAccount } from '../lib/auth/auth-me-single-flight.mjs';
 
 const HEADER = 'X-Core-Operation-ID';
 const files = {
@@ -16,7 +17,7 @@ const files = {
   mock: '../app/(authed-mock-exam)/mock-exam/mock-exam-runner.tsx',
 };
 function actualHandler(file, name, scope) {
-  scope = { anonymousReadingScope, admissionRequired: false, flagApi: { flush: async () => true }, ...scope };
+  scope = { anonymousReadingScope, setAuthMeAccount, admissionRequired: false, flagApi: { flush: async () => true }, ...scope };
   const source = readFileSync(new URL(files[file], import.meta.url), 'utf8');
   const ast = ts.createSourceFile('handler.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   let found;

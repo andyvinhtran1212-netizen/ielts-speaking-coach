@@ -39,8 +39,9 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   //
   // The HARD 404 (content audit 2026-10-27) is decided before render by
   // `proxy.ts`, which rewrites keys missing from the backend article list to a
-  // path no route matches (the root 404). This branch is the fail-open
-  // fallback when that list is unavailable.
+  // path no route matches (the root 404). When the list is unavailable it
+  // checks the article endpoint for a 404 before rendering (PC-J526).
+  // This remains a guard if the article disappears after the proxy check.
   if (!article) notFound();
   // Byte-faithful to the legacy client-side SEO block (grammar.js):
   //   title = `${article.title} — IELTS Grammar | Aver Learning`

@@ -116,6 +116,18 @@ it('a sealed (teacher-graded mock) session shows neither the estimate label nor 
   expect(screen.queryByText(LOW)).toBeNull();
 });
 
+it.each([
+  { status: 'in_progress', overall_band: null },
+  { status: 'completed', overall_band: null },
+])('hides the estimate when the displayed overall band is unavailable: %j', async (extra) => {
+  api.session = session([], extra);
+  render(<SessionResultBehavior />);
+
+  await screen.findByText('Overall Band Score');
+  expect(document.querySelector('.ds-band-value')?.textContent).toBe('—');
+  expect(screen.queryByText(ESTIMATE)).toBeNull();
+});
+
 it('the teacher-graded Mock result page never labels its band as an AI estimate', () => {
   const source = readFileSync(resolve(
     process.cwd(),

@@ -69,9 +69,9 @@ _FEATURE = "question_tts"
 
 
 def _client_ip(request: Request | None) -> str | None:
-    # Same key as RequestSafetyMiddleware: rightmost untrusted XFF hop →
-    # X-Real-IP → peer. Only configured proxy CIDRs may be skipped; an invalid
-    # hop stops the scan (PC-J202/J183).
+    # Same key as RequestSafetyMiddleware: X-Real-IP → rightmost untrusted
+    # XFF hop → peer. Only configured proxy CIDRs may be skipped; an invalid
+    # hop stops the scan (PC-J202/J183, PC-J520).
     return request_client_ip(request)
 
 

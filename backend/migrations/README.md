@@ -106,6 +106,31 @@ re-runnable; re-running 341 restores the `NEW.id` audit body, so re-run 361
 after it. Its header rollback drops only the 361 trigger and function and
 restores the 341 audit body; it grants nothing.
 
+Migration `356` (PC-J286, CALAPPEND-0041 FR-001..004) adds the statement trigger
+`trg_class_action_log_no_truncate` and its pinned, `P0001`-raising function.
+It keeps 198's row trigger unchanged and revokes UPDATE, DELETE, TRUNCATE,
+TRIGGER, REFERENCES and PG17 MAINTAIN from `service_role` / PUBLIC; backend
+SELECT and INSERT remain. Managed databases must have the 344 ledger row and
+neither old `cal_admin_*` policy before any change; a ledger-free legacy test
+control preserves its policies and client SELECT ACL. Postconditions reject
+residual effective table/column privileges (including those a role reaches by
+`SET ROLE` through a membership), a disabled row trigger, unsafe service-role
+ownership/membership, client EXECUTE on the trigger function (SA-R4-1, P3) or
+replication-parameter grants. No policy
+DDL, grants or data changes; one transaction, 5 s lock timeout, re-runnable.
+The `class_action_log_append_only` forward-policy group holds it out of normal
+applies. This job opens a PR only: the Leader must separately authorize the
+staging apply with SA and establish STAGING_FREEZE; production requires its
+own authorized promotion. Deployment order is **344 then 356**. Rollback is
+assigned to the separate 0042 task by the PC-J401 job addendum: it must keep
+privileges revoked and policies absent, and run before any down 344. There is no
+356 down script in this patch. Trigger mode remains `O` as approved: an owner
+with permission to set `session_replication_role=replica` can deliberately
+bypass it; service_role must have no such parameter permission.
+After an authorized apply, check the trigger catalog, effective privilege
+matrix and policy absence per `specs/0041-class-action-log-append-only/rollout.md`.
+Watch for the warning `[class] KHÔNG ghi được nhật ký` on failed backend inserts.
+
 Migration `355` (PC-J267, VOCABGUARD-0040 FR-001) replaces only the published
 curated vocabulary review/task guards from 234/235. UPDATE checks both OLD and
 NEW parent versions and rejects either published parent with the existing

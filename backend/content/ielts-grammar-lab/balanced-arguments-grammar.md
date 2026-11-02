@@ -83,7 +83,7 @@ Câu hỏi IELTS hiếm khi có đáp án một chiều. "Discuss both views", "
 
 ## Tại sao quan trọng
 
-Trong **Writing Task 2 discussion essay**, tiêu chí Task Response đòi bạn trình bày **cả hai quan điểm** trước khi đưa ý kiến. Trong **Speaking Part 3**, một lập trường có thể được phát triển tốt bằng lý do và ví dụ; không bắt buộc hai phía. Cấu trúc cân bằng giúp bạn vừa thể hiện **Grammatical Range** (cấu trúc tương phản, song song) vừa **Coherence** (lập luận có tổ chức).
+Trong **Writing Task 2 discussion essay**, tiêu chí Task Response đòi bạn bàn cả hai quan điểm **và** nêu ý kiến của mình (có thể nêu ngay từ mở bài). Trong **Speaking Part 3**, một lập trường có thể được phát triển tốt bằng lý do và ví dụ; không bắt buộc hai phía. Cấu trúc cân bằng giúp bạn vừa thể hiện **Grammatical Range** (cấu trúc tương phản, song song) vừa **Coherence** (lập luận có tổ chức).
 
 ---
 
@@ -115,7 +115,7 @@ Although [concession], [your view].
 - **While it is true that** social media can spread misinformation, it also gives ordinary people a powerful voice.
 - **Although** public transport requires heavy investment, the long-term benefits clearly justify the cost.
 
-> Đây là cấu trúc "concession" mạnh nhất cho Task 2: cho thấy bạn hiểu phía đối lập nhưng vẫn bảo vệ được quan điểm.
+> Đây là cấu trúc nhượng bộ rất hữu ích cho Task 2: cho thấy bạn hiểu phía đối lập nhưng vẫn bảo vệ được quan điểm.
 
 ---
 
@@ -160,6 +160,7 @@ neither [X] nor [Y]
 - **Neither** banning the activity **nor** ignoring its consequences will work.
 
 ⚠ **Song song về dạng từ:** hai vế phải cùng loại (danh từ–danh từ, động từ–động từ).
+
 - ❌ not only expensive but also it is hard. → ✅ not only **expensive** but also **hard**.
 
 ---
@@ -188,6 +189,7 @@ While both views have merit, [quan điểm nghiêng của bạn]
 | That said | But then again... / But at the same time... |
 
 **Part 3 example:**
+
 - Q: "Is it better for children to grow up in the city or the countryside?"
 - ✅ "Well, **there are two sides to this**. **On one hand,** cities offer better schools and opportunities. **But then again,** the countryside is safer and healthier, with more space to play. **It's true that** city kids get more exposure, **but** if you ask me, **I'd lean towards** the countryside for the early years."
 
@@ -199,7 +201,7 @@ While both views have merit, [quan điểm nghiêng của bạn]
 ### Lỗi 1: Chỉ trình bày một mặt khi đề yêu cầu cả hai
 
 - ❌ Task 2 "discuss both views" nhưng chỉ viết về một bên → mất điểm Task Response.
-- ✅ Luôn dành ít nhất một đoạn cho mỗi quan điểm.
+- ✅ Với đề discuss both views, phát triển đủ cả hai quan điểm (thường mỗi quan điểm một đoạn thân bài).
 
 ### Lỗi 2: "On the one hand" mà không có "on the other hand"
 
@@ -234,11 +236,12 @@ While both views have merit, [quan điểm nghiêng của bạn]
 ### Đáp án (gợi ý)
 
 1. **While / Although** remote work saves commuting time, it can also feel isolating.
-2. **That said / Admittedly though,** the long-term benefits are significant.
+2. **That said / However / Nevertheless,** the long-term benefits are significant. *(Câu đầu nêu nhược điểm; câu sau chuyển sang ý trái chiều.)*
 3. both **vision** and **the ability to listen**
 4. **On the other hand / That said,** they can be stressful and crowded.
 
 **Song song:**
+
 1. **Not only is** the course interesting, **but it also teaches** useful skills.
 
 ---
@@ -254,6 +257,7 @@ While both views have merit, [quan điểm nghiêng của bạn]
 | Liệt kê song song | not only... but also / both... and |
 
 **Quy tắc vàng:**
+
 - Đề "discuss both views" → bắt buộc trình bày CẢ HAI mặt
 - Công nhận phía đối lập (concession) làm lập luận của bạn mạnh hơn, không yếu hơn
 - Cấu trúc song song phải cân về dạng từ (not only ADJ but also ADJ)

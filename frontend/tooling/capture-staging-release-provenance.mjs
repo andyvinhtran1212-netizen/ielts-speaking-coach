@@ -1,7 +1,8 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import stagingHelpers from '../tests/staging-e2e/helpers.js';
+import { supersedingStagingHead } from './staging-release-superseded.mjs';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const outputPath = path.join(FRONTEND, 'test-results', 'staging-release-provenance.json');
@@ -25,6 +26,7 @@ const evidence = {
   staging_origin: stagingOrigin,
   source_sha: sourceSha || null,
   ok: false,
+  superseded_by: null,
   runtime_environment: null,
   frontend_release: null,
   frontend_git_ref: null,
@@ -55,7 +57,7 @@ try {
   const supabaseAnonKey = field(runtimeSource, 'supabaseAnonKey');
 
   if (evidence.runtime_environment !== 'staging' || evidence.frontend_git_ref !== 'staging' ||
-      evidence.frontend_release !== sourceSha || evidence.api_base !== expectedApi ||
+      !shaPattern.test(evidence.frontend_release) || evidence.api_base !== expectedApi ||
       supabaseUrl !== expectedSupabase || !supabaseAnonKey) {
     throw new Error('runtime-config-environment-or-origin-mismatch');
   }
@@ -94,6 +96,9 @@ try {
     evidence.backend_git_branch === 'staging' &&
     evidence.backend_environment_name === 'staging';
   if (!evidence.ok) evidence.error = 'release-provenance-incomplete';
+  if (!evidence.ok && process.env.STAGING_RELEASE_ALLOW_SUPERSEDED === 'true') {
+    evidence.superseded_by = supersedingStagingHead(evidence);
+  }
 } catch (error) {
   let message = String(error?.message || error);
   for (const secret of [bypass, password, totpSecret]) {
@@ -106,6 +111,16 @@ mkdirSync(path.dirname(outputPath), { recursive: true });
 writeFileSync(outputPath, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
 console.log(`Staging release provenance: ${evidence.ok ? 'OK' : 'INVALID'}`);
 if (evidence.admin_aal) console.log(`Staging admin assurance: ${evidence.admin_aal}`);
-if (process.env.RELEASE_PROVENANCE_REQUIRED === 'true' && !evidence.ok) {
+if (evidence.superseded_by) {
+  console.log(`::notice::superseded by ${evidence.superseded_by}`);
+  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, 'superseded=true\n');
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+      `Staging release smoke: **superseded by ${evidence.superseded_by}**\n\n` +
+      `Run: ${sourceSha}\n\nFrontend: ${evidence.frontend_release}\n\nBackend: ${evidence.backend_release}\n\n` +
+      'Both deployments contain this run. The current staging head still requires its full smoke.\n');
+  }
+}
+if (process.env.RELEASE_PROVENANCE_REQUIRED === 'true' && !evidence.ok && !evidence.superseded_by) {
   process.exitCode = 1;
 }

@@ -9,21 +9,25 @@ WAF replacement); only the client address is retained, never user identifiers.
 Client key (client_address(); the same rule keys RequestSafetyMiddleware, the
 /tts burst throttle and the Reading anon_src hash):
 
-1. the first UNTRUSTED X-Forwarded-For hop scanning from the right. Only hops
-   in settings.TRUSTED_PROXY_CIDRS may be skipped (default: no trusted ranges).
-   Private and other non-global addresses are valid keys, never implicit
-   proxies. An invalid hop stops the scan; caller hops to its left cannot key;
-2. else X-Real-IP;
+1. a valid X-Real-IP that is not in settings.TRUSTED_PROXY_CIDRS;
+2. else the first UNTRUSTED X-Forwarded-For hop scanning from the right. Only
+   hops in settings.TRUSTED_PROXY_CIDRS may be skipped (default: no trusted
+   ranges). Private and other non-global addresses are valid keys, never
+   implicit proxies. An invalid hop stops the scan; caller hops to its left
+   cannot key;
 3. else the socket peer.
 
-X-Real-IP is not preferred over an untrusted X-Forwarded-For hop: SA-1029-XFF1
-measured on staging that, for a caller whose egress is Cloudflare's (WARP,
-AS13335), Railway's edge sets X-Real-IP from the caller's LEFTMOST XFF hop, so
-"X-Forwarded-For: <random>, ..." minted a fresh budget per request. J179 also
-identified caller-supplied CF-Connecting-IP via WARP as an X-Real-IP spoofing
-path. J177 must verify the edge appends/overwrites the true source in XFF on
-both ordinary and Cloudflare paths before promotion. Ports/brackets are
-stripped from valid IPs; IPv6 is keyed per /64.
+X-Real-IP comes first because of what Railway's edge sends (PC-J177, staging
+02/11, WARP and GitHub-runner egress, 91 requests): it drops the caller's
+X-Forwarded-For and rebuilds it as "<srcIp>, <edge PoP>", and overwrites
+X-Real-IP with srcIp. The rightmost hop is a CDN77 PoP address shared by every
+client on that PoP and rotating per request, so keying on it (PR #1933) put
+different learners in one bucket (PC-J520). Caller-supplied X-Real-IP,
+X-Forwarded-For and CF-Connecting-IP never changed the key on either path;
+the older SA-1029-XFF1 finding (X-Real-IP copied from the caller's leftmost
+hop) did not reproduce. No CDN77/edge range is trusted here: the ranges are
+unpublished and can change. Ports/brackets are stripped from valid IPs; IPv6 is
+keyed per /64.
 If the key is ever forged or collapses to one proxy address, the per-worker
 ceiling still holds.
 """
@@ -92,21 +96,23 @@ def _trusted_proxy_networks(cidrs):
 
 
 def client_address(real_ip, forwarded_for, peer):
-    """Rightmost untrusted XFF hop, else X-Real-IP, else peer (module doc).
-    Stop at invalid hops, including empty entries. The 8-hop bound limits
-    work; exhausting it on trusted proxies falls back without scanning left."""
-    entries = (forwarded_for or '').rsplit(',', _MAX_INSPECTED_HOPS)[-_MAX_INSPECTED_HOPS:]
+    """Untrusted X-Real-IP, else rightmost untrusted XFF hop, else peer
+    (module doc). The XFF scan stops at invalid hops, including empty
+    entries. The 8-hop bound limits work; exhausting it on trusted proxies
+    falls back to the peer without scanning left."""
     trusted = _trusted_proxy_networks(settings.TRUSTED_PROXY_CIDRS)
+    ip = _parse_ip(real_ip)
+    if ip is not None and not any(ip in network for network in trusted):
+        return _key(ip)
+    entries = (forwarded_for or '').rsplit(',', _MAX_INSPECTED_HOPS)[-_MAX_INSPECTED_HOPS:]
     for entry in reversed(entries):
         ip = _parse_ip(entry)
         if ip is None:
             break
         if not any(ip in network for network in trusted):
             return _key(ip)
-    for ip in (_parse_ip(real_ip), _parse_ip(peer)):
-        if ip is not None:
-            return _key(ip)
-    return peer
+    ip = _parse_ip(peer)
+    return _key(ip) if ip is not None else peer
 
 
 def request_client_ip(request):
