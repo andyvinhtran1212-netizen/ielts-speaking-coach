@@ -119,8 +119,17 @@ class _EchoHandler(BaseHTTPRequestHandler):
         pass
 
 
+class _EchoServer(ThreadingHTTPServer):
+    # PC-J558: the default listen backlog of 5 overflowed whenever the accept
+    # thread lagged behind the 32 workers' initial connect burst. Linux then
+    # fell back to SYN cookies and could reset a connection: ECONNRESET in
+    # CI. Keep the backlog above the worker count so the server under test
+    # never refuses.
+    request_queue_size = 128
+
+
 def test_singleton_shared_by_threads_over_the_real_http11_pool(monkeypatch):
-    server = ThreadingHTTPServer(('127.0.0.1', 0), _EchoHandler)
+    server = _EchoServer(('127.0.0.1', 0), _EchoHandler)
     server.daemon_threads = True
     server.lock, server.seen, server.mismatches, server.connections = threading.Lock(), set(), [], set()
     serving = threading.Thread(target=server.serve_forever, daemon=True)
