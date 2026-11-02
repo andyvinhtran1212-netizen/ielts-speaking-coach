@@ -112,6 +112,11 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
   // `{}` lên đè bản dự phòng đang có — chỉ cần mở trang trên mạng chậm rồi
   // chuyển app.
   let ready = false;
+  // Lượt của trang đã bị huỷ (đổi tài khoản / rời trang). Một lượt nạp trả về
+  // muộn hay một nhịp lưu tự động còn đếm KHÔNG được gửi nháp nữa: request mới
+  // lấy token của người đang đăng nhập LÚC ẤY, không phải của người đã gõ
+  // (PC-J352).
+  let disposed = false;
   const activeTimer = createActiveTimer(now);
 
   function loadDraft() {
@@ -148,8 +153,11 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
    * bản trong máy vẫn còn nguyên.
    */
   function pushDraft({ keepalive = false } = {}) {
-    if (submitted || !bankId || !ready) return Promise.resolve();
+    if (disposed || submitted || !bankId || !ready) return Promise.resolve();
     const send = () => {
+      // Một lượt đã xếp hàng có thể chỉ chạy sau khi đổi tài khoản. Keepalive
+      // lúc rời trang vẫn bắn ngay, trước dispose, để giữ đoạn vừa gõ.
+      if (disposed && !keepalive) return null;
       // Chụp nội dung Ở THỜI ĐIỂM GỬI: gõ thêm trong lúc xếp hàng thì lượt này
       // phải mang bản mới nhất, không phải bản lúc nó được xếp vào hàng.
       const body = JSON.stringify(draft);
@@ -182,7 +190,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
   }
 
   function schedulePush() {
-    if (submitted) return;
+    if (submitted || disposed) return;
     if (pushTimer) clearTimeout(pushTimer);
     pushTimer = setTimeout(() => { pushTimer = null; pushDraft(); }, PUSH_DELAY_MS);
   }
@@ -303,6 +311,15 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       if (pushTimer) { clearTimeout(pushTimer); pushTimer = null; }
       return pushDraft({ keepalive: true })
         .catch(() => { /* hết cách — bản trong máy vẫn còn */ });
+    },
+
+    /**
+     * Thôi gửi nháp cho lượt này. Rời trang: gọi SAU `flushDraft()` để giữ
+     * đoạn vừa gõ. Đổi tài khoản: gọi TRƯỚC flush để không dùng token mới.
+     */
+    dispose() {
+      disposed = true;
+      if (pushTimer) { clearTimeout(pushTimer); pushTimer = null; }
     },
 
     /** Ghi một câu vào nháp. Trả về số câu còn thiếu. */

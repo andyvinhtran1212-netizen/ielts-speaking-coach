@@ -149,6 +149,11 @@ END
 $$;
 SQL
 
+# Print only: other staging-first groups stay unapplied until Leader/owner
+# re-applies them (PC-J498). A lister error is reported, never silent.
+python3 "$ROOT/backend/scripts/staging_clone_pending_acl.py" "$ROOT/backend/migrations" curated_vocab ||
+  echo "WARNING: could not list staging-first ACL migrations; check backend/migrations/forward-policy.tsv" >&2
+
 echo "== verify: table count in staging public schema"
 psql "$STAGING_URL" -tAc "select count(*) from information_schema.tables where table_schema='public';"
 echo "done — staging schema now mirrors production structure (no data)."

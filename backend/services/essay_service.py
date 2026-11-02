@@ -50,11 +50,13 @@ from services.writing_history import (
     get_sentence_structure_history,
 )
 from services.band_rounding import overall_from_criteria
+from services.errors import clip_user_value
 from services.writing_band_consistency import align_overall_band_feedback
 from services.mistake_authenticity import drop_noncorrection_mistakes
 from services.class_membership_service import active_student_ids_for_cohort
 from services.core_attempt_outcomes import observe_writing_background, observe_writing_batch
 from services.core_writing_observation import note_writing_mutation
+from services.errors import summarize_validation_error
 from services import writing_assignment_status_sync
 
 logger = logging.getLogger(__name__)
@@ -405,8 +407,8 @@ def create_essay_row_only(*, data: dict, admin_id: str) -> dict:
     try:
         er = supabase_admin.table("writing_essays").insert(essay_payload).execute()
     except Exception as exc:
-        logger.error("[essays] insert failed: %s", exc)
-        raise HTTPException(500, f"Database insert failed: {exc}")
+        logger.error("[essays] insert failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Không lưu được bài viết. Vui lòng thử lại.") from None
 
     if not er.data:
         raise HTTPException(500, "writing_essays insert returned no rows")
@@ -460,8 +462,8 @@ def schedule_grading_job(
     try:
         jr = supabase_admin.table("writing_jobs").insert(payload).execute()
     except Exception as exc:
-        logger.error("[essays] job insert failed essay=%s: %s", essay_id, exc)
-        raise HTTPException(500, f"Database insert failed: {exc}")
+        logger.error("[essays] job insert failed essay=%s: %s", essay_id, exc, exc_info=True)
+        raise HTTPException(500, "Không xếp được lượt chấm. Vui lòng thử lại.") from None
 
     if not jr.data:
         raise HTTPException(500, "writing_jobs insert returned no rows")
@@ -489,8 +491,9 @@ def claim_pending_for_grading(
     endpoint (2026-07-12).
 
     The tier metadata + status flip is one guarded UPDATE (WHERE status=
-    'pending'); a zero-row result means the essay was already claimed/graded by
-    a concurrent request, so this returns None (caller treats as skip/409) and
+    'pending' AND grading_skipped_at IS NULL); a zero-row result means the essay
+    was skipped or already claimed/graded by a concurrent request, so this
+    returns None (caller treats as skip/409) and
     NO job is scheduled. On success returns schedule_grading_job's
     {"job_id", "eta_seconds"}. Caller must still add the request-scoped
     _bg_grade_essay BackgroundTask — a service can't own request lifecycle."""
@@ -504,6 +507,7 @@ def claim_pending_for_grading(
         })
         .eq("id", essay_id)
         .eq("status", "pending")
+        .is_("grading_skipped_at", "null")
         .execute()
     )
     if not claimed.data:
@@ -1451,7 +1455,7 @@ def list_essays(
     student_id/cohort_id filter must belong to the owner (else PermissionError).
     """
     if status and status not in _ALLOWED_STATUSES:
-        raise HTTPException(400, f"Invalid status: {status!r}")
+        raise HTTPException(400, f"Invalid status: {clip_user_value(status)!r}")
 
     # W-3 — instructor ownership gate on the requested filters (fail-closed).
     if owner_id is not None:
@@ -1525,7 +1529,7 @@ def list_essays_page(
     re-reading essay membership after statuses or soft deletes may change.
     """
     if status and status not in _ALLOWED_STATUSES:
-        raise HTTPException(400, f"Invalid status: {status!r}")
+        raise HTTPException(400, f"Invalid status: {clip_user_value(status)!r}")
 
     receipt = supabase_admin.rpc("fn_admin_writing_queue_page", {
         "p_status": status,
@@ -1874,8 +1878,8 @@ def upsert_grade_rating(*, essay_id: str, rating: int, note: str, rated_by: str)
             .execute()
         )
     except Exception as exc:
-        logger.error("[grade-rating] upsert failed essay=%s: %s", essay_id, exc)
-        raise HTTPException(500, f"Database upsert failed: {exc}")
+        logger.error("[grade-rating] upsert failed essay=%s: %s", essay_id, exc, exc_info=True)
+        raise HTTPException(500, "Không lưu được đánh giá. Vui lòng thử lại.") from None
     return (r.data or [payload])[0]
 
 
@@ -1951,7 +1955,11 @@ def get_essay_render_context(essay_id: str) -> dict:
     try:
         feedback = WritingFeedback(**feedback_json)
     except Exception as exc:
-        raise HTTPException(500, f"Stored feedback fails schema: {exc}")
+        # Stored feedback quotes the student's essay: log type/loc only, no
+        # traceback or exception text (either would carry the rejected input).
+        logger.error("[essays] stored feedback fails schema essay=%s: %s",
+                     essay_id, summarize_validation_error(exc))
+        raise HTTPException(500, "Không đọc được nhận xét đã lưu. Vui lòng thử lại.") from None
 
     sr = (
         supabase_admin.table("students")

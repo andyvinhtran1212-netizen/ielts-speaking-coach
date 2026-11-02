@@ -19,6 +19,7 @@ from config import settings
 from routers import auth, quiz
 from services import access_code_permissions as permissions
 from services.activation_gate import require_active_learner
+from tests.loop_gate import WAIT, LoopGate, until
 
 BANK = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
 SESSION = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
@@ -92,36 +93,42 @@ async def request(app, method, path, body=None):
         return await client.request(method, path, json=body)
 
 
-async def concurrent_requests(app, method, path, body=None):
-    ticks, done = [time.perf_counter()], asyncio.Event()
+async def concurrent_requests(app, gate, method, path, body=None):
+    """Both requests' sync calls must be parked in workers at once while the loop
+    keeps ticking an unrelated heartbeat task; only then are they released."""
+    ticks, done = [0], asyncio.Event()
     async def heartbeat():
         while not done.is_set():
-            await asyncio.sleep(.01)
-            ticks.append(time.perf_counter())
+            await asyncio.sleep(.001)
+            ticks[0] += 1
     beat = asyncio.create_task(heartbeat())
-    await asyncio.sleep(0)
-    start = time.perf_counter()
+    calls = asyncio.gather(request(app, method, path, body), request(app, method, path, body))
     try:
-        responses = await asyncio.gather(request(app, method, path, body), request(app, method, path, body))
+        overlapped = await until(lambda: gate.inside >= 2, stop=calls)
+        seen = ticks[0]
+        beat_while_parked = await until(lambda: ticks[0] >= seen + 3, stop=calls)
+        parked = overlapped and beat_while_parked and not calls.done() and not gate.released
     finally:
-        elapsed = time.perf_counter() - start
+        gate.release()
         done.set()
-        await beat
-    return responses, elapsed, max(b - a for a, b in zip(ticks, ticks[1:]))
+    responses = await asyncio.wait_for(calls, WAIT)
+    await beat
+    assert not gate.timed_out, f'{path} ran its sync call on the event loop'
+    assert parked, f'{gate.inside} of 2 calls parked together while the loop ticked'
+    return responses
 
 
 @pytest.mark.parametrize('method,path,service,body,status', HOT)
 def test_hot_routes_overlap_without_blocking_heartbeat(app, monkeypatch, payloads, method, path, service, body, status):
     threads, loop_thread = [], threading.get_ident()
+    gate = LoopGate()
     def slow(*args, **kwargs):
         threads.append(threading.get_ident())
-        time.sleep(.5)
+        gate.park()
         return deepcopy(payloads[service])
     monkeypatch.setattr(quiz.quiz_service, service, slow)
-    responses, elapsed, gap = asyncio.run(concurrent_requests(app, method, path, body))
+    responses = asyncio.run(concurrent_requests(app, gate, method, path, body))
     assert [r.status_code for r in responses] == [status, status]
-    assert gap < .1, f'heartbeat gap {gap:.3f}s'
-    assert .5 <= elapsed < .8, f'two 500ms requests took {elapsed:.3f}s'
     assert len(threads) == 2 and all(t != loop_thread for t in threads)
 
 
@@ -189,6 +196,7 @@ def test_service_http_errors_keep_status_and_detail(app, monkeypatch, method, pa
 class MeDB:
     def __init__(self, row):
         self.row, self.delay, self.first_visit, self.async_mode = row, 0, False, False
+        self.park = None
         self.calls = []
     def table(self, name):
         assert name == 'users'
@@ -216,6 +224,7 @@ class MeDB:
                         await asyncio.sleep(owner.delay)
                         return self.finish()
                     return run()
+                if owner.park: owner.park()
                 time.sleep(owner.delay)
                 return self.finish()
         return Builder()
@@ -236,18 +245,17 @@ def me_setup(app, monkeypatch):
 
 @pytest.mark.parametrize('slow_layer', ['db', 'permissions', 'flashcard', 'runtime'])
 def test_me_sync_reads_overlap_without_blocking_heartbeat(app, me_setup, monkeypatch, slow_layer):
-    if slow_layer == 'db': me_setup.delay = .5
+    gate = LoopGate()
+    if slow_layer == 'db': me_setup.park = gate.park
     else:
         def slow(*args, **kwargs):
-            time.sleep(.5)
+            gate.park()
             return ['practice_single'] if slow_layer == 'permissions' else True
         if slow_layer == 'permissions': monkeypatch.setattr(permissions, 'get_user_access_code_permissions', slow)
         elif slow_layer == 'flashcard': monkeypatch.setattr(auth, 'is_flashcard_enabled', slow)
         else: monkeypatch.setattr(auth.runtime_flags, 'is_enabled', slow)
-    responses, elapsed, gap = asyncio.run(concurrent_requests(app, 'GET', '/auth/me'))
+    responses = asyncio.run(concurrent_requests(app, gate, 'GET', '/auth/me'))
     assert [r.status_code for r in responses] == [200, 200]
-    assert gap < .1, f'heartbeat gap {gap:.3f}s'
-    assert .5 <= elapsed < .8
 
 
 @pytest.mark.parametrize('async_mode', [False, True])

@@ -65,7 +65,7 @@ draft -> approved -> implementing -> verified -> shipped
 | GRAMMAR-0001 | Timed grammar midterm assessment banks | implementing | high | [spec](0001-timed-grammar-midterm-assessments/spec.md) |
 | AVOC-0002 | Advanced Vocabulary self-paced core 30 | implementing | high | [spec](0002-advanced-vocabulary-self-paced/spec.md) |
 | MASTER30-0003 | MASTER30 Grammar Diagnostic and Adaptive Review | implementing | high | [spec](0003-master30-grammar-diagnostic/spec.md) |
-| GRAMMARLESSON-0017 | Assign individual MASTER30 Grammar lessons to Course 5 learners | approved | high | [spec](0017-grammar-lesson-assignments/spec.md) |
+| GRAMMARLESSON-0017 | Assign individual MASTER30 Grammar lessons to Course 5 learners | shipped | high | [spec](0017-grammar-lesson-assignments/spec.md) |
 | MASTER30FULL-0018 | Assign the complete original MASTER30 Grammar banks | shipped | high | [spec](0018-master30-full-bank-assignments/spec.md) |
 | AI-0004 | AI model usage observability and controlled model rollout | implementing | high | [spec](0004-ai-model-usage-observability/spec.md) |
 | AIBUDGET-0033 | Paid AI stops at hard budgets, Claude alerts on a soft budget, and learner work waits safely for grading | approved | critical | [spec](0033-ai-budget-hard-cap/spec.md) |

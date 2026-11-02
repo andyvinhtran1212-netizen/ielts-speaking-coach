@@ -553,9 +553,14 @@ function wireEssayFilterTabs(ps: PageState, on: ListenerRegistrar) {
 async function loadTips(api: any, ps: PageState) {
   const generation = ps.generation;
   const request = ++ps.tipsRequest;
-  hide('tips-empty'); hide('tips-error'); hide('tips-list');
-  const loadingEl = $('tips-loading');
-  if (loadingEl) loadingEl.classList.remove('hidden');
+  // Every dialog/history reconcile re-reads the list. Keep a rendered list in
+  // place meanwhile: hiding it shrinks the page and the browser clamps the
+  // learner's scroll position (PC-J431).
+  if (!ps.tipsLoaded) {
+    hide('tips-empty'); hide('tips-error'); hide('tips-list');
+    const loadingEl = $('tips-loading');
+    if (loadingEl) loadingEl.classList.remove('hidden');
+  }
   try {
     // Không có hạn giờ thì tab "Mẹo viết" đứng ở "Đang tải mẹo…" mãi khi
     // lấy phiên/backend treo — cùng lỗi với hai danh sách ở #1696.
@@ -572,7 +577,7 @@ async function loadTips(api: any, ps: PageState) {
   } catch (err: any) {
     if (ps.dead || ps.generation !== generation || request !== ps.tipsRequest) return { items: [], enabled: false };
     ps.allTips = []; ps.tipsLoaded = false;
-    hide('tips-loading');
+    hide('tips-loading'); hide('tips-empty'); hide('tips-list');
     const errMsg = $('tips-error-msg');
     if (errMsg) errMsg.textContent = 'Không tải được mẹo viết: ' + ((err && err.message) || 'lỗi không xác định');
     show('tips-error');
@@ -841,6 +846,8 @@ function renderDeadlines(assignments: any[]) {
   const surface = $('deadlines-surface');
   const list = $('deadlines-list');
   if (!surface || !list) return;
+  surface.classList.remove('is-loading');
+  surface.removeAttribute('aria-busy');
 
   const withDeadline = (assignments || [])
     // Khối này có tên “sắp đến hạn”. Bài đã quá hạn vẫn xuất hiện ở thẻ bài
@@ -930,6 +937,8 @@ function buildAssignmentCardHtml(a: any): string {
 function renderAssignments(assignments: any[], ms: ModalState) {
   const list = $('assignments-list');
   const empty = $('assignments-empty');
+  hide('assignments-loading');
+  list?.removeAttribute('aria-busy');
 
   if (!assignments || assignments.length === 0) {
     if (list) list.innerHTML = '';
@@ -1630,6 +1639,9 @@ async function loadAssignments(api: any, ms: ModalState): Promise<boolean> {
   } catch (err: any) {
     if (ps.dead || ps.generation !== generation) return true;
     const list = $('assignments-list');
+    hide('deadlines-surface');
+    hide('assignments-loading');
+    list?.removeAttribute('aria-busy');
     if (list) {
       list.innerHTML = '<div class="wd-inline-error">' + escapeHtml(
         err?.timeout ? err.message : loadFailureMessage(
@@ -1669,6 +1681,16 @@ async function loadEssays(api: any, ms: ModalState): Promise<boolean> {
   }
 }
 
+// Horizontal-only reveal: scrollIntoView would also scroll the page vertically.
+function revealActiveTab(tabs: HTMLElement) {
+  const active = tabs.querySelector<HTMLElement>('.tab-btn.active:not([hidden])');
+  if (!active) return;
+  const item = active.getBoundingClientRect();
+  const strip = tabs.getBoundingClientRect();
+  if (item.left < strip.left) tabs.scrollLeft -= strip.left - item.left;
+  else if (item.right > strip.right) tabs.scrollLeft += item.right - strip.right;
+}
+
 function setTabActive(tab: string, ps: PageState, api: any) {
   const assignBtn = $('tab-assignments');
   const essayBtn = $('tab-essays');
@@ -1679,6 +1701,10 @@ function setTabActive(tab: string, ps: PageState, api: any) {
   if (essayBtn) essayBtn.classList.toggle('active', tab === 'essays');
   if (tipsBtn) tipsBtn.classList.toggle('active', tab === 'tips');
   if (pbBtn) pbBtn.classList.toggle('active', tab === 'prompt-bank');
+  // Every content reconcile (dialog open/close, history) selects the tab, so
+  // reveal it inside the strip only and never move the learner's page.
+  const tabs = document.querySelector<HTMLElement>('.wd-tabs');
+  if (tabs) revealActiveTab(tabs);
 
   const contAssignments = $('content-assignments');
   const contEssays = $('content-essays');
@@ -1693,6 +1719,20 @@ function setTabActive(tab: string, ps: PageState, api: any) {
   // The bounded content controller owns canonical reads on tab/history changes.
 }
 
+async function prepareWritingPreview(permissions: Promise<any>, isCurrent: () => boolean) {
+  try {
+    const perms = await permissions;
+    if (perms && isCurrent()) {
+      $('writing-preview-banner')?.classList.toggle('hidden', perms.writing === true);
+    }
+  } catch {
+    // Preserve the existing permission-failure behavior; the post-render gate
+    // reports the error. A failed/bounded read must not leave content invisible.
+  } finally {
+    if (isCurrent()) $('content')?.classList.remove('wd-permissions-pending');
+  }
+}
+
 async function applyWritingPermissionGating(apiOrPromise: any, isCurrent: () => boolean) {
   try {
     const perms = await (apiOrPromise && typeof apiOrPromise.then === 'function'
@@ -1700,12 +1740,10 @@ async function applyWritingPermissionGating(apiOrPromise: any, isCurrent: () => 
       : apiOrPromise.get('/api/student/permissions'));
     if (!perms || !isCurrent()) return;
     const permitted = perms.writing === true;
-    const banner = $('writing-preview-banner');
     const assignmentButtons = document.querySelectorAll<HTMLButtonElement>('.btn-start-assignment');
     const modalSubmit = $('modal-btn-submit') as HTMLButtonElement | null;
 
     if (permitted) {
-      if (banner) banner.classList.add('hidden');
       assignmentButtons.forEach((btn) => {
         btn.disabled = false;
         btn.classList.remove('opacity-50', 'cursor-not-allowed');
@@ -1717,7 +1755,6 @@ async function applyWritingPermissionGating(apiOrPromise: any, isCurrent: () => 
         modalSubmit.title = '';
       }
     } else {
-      if (banner) banner.classList.remove('hidden');
       assignmentButtons.forEach((btn) => {
         btn.disabled = true;
         btn.classList.add('opacity-50', 'cursor-not-allowed');
@@ -1843,13 +1880,27 @@ export function WritingBehavior() {
     // Account switch must hide the previous learner synchronously, before the
     // new canonical reads resolve. Empty counts/lists are preferable to a
     // momentary cross-account disclosure.
+    $('content')?.classList.add('wd-permissions-pending');
+    hide('writing-preview-banner');
     ['assignments-count', 'essays-count'].forEach((id) => {
       const el = $(id);
       if (el) el.textContent = '';
     });
     const assignmentsList = $('assignments-list');
     const essaysList = $('essays-list');
-    if (assignmentsList) assignmentsList.innerHTML = '<p class="text-sm py-8 text-center" style="color:var(--av-text-muted)">Đang tải…</p>';
+    if (assignmentsList) {
+      assignmentsList.setAttribute('aria-busy', 'true');
+      assignmentsList.innerHTML = '';
+    }
+    show('assignments-loading');
+    const deadlinesSurface = $('deadlines-surface');
+    if (deadlinesSurface) {
+      deadlinesSurface.classList.remove('hidden');
+      deadlinesSurface.classList.add('is-loading');
+      deadlinesSurface.setAttribute('aria-busy', 'true');
+    }
+    const deadlinesList = $('deadlines-list');
+    if (deadlinesList) deadlinesList.innerHTML = '<div class="wd-deadline-row" aria-hidden="true"><span class="wd-skeleton-line">&nbsp;</span></div>'.repeat(2);
     if (essaysList) essaysList.innerHTML = '<p class="text-sm py-8 text-center" style="color:var(--av-text-muted)">Đang tải…</p>';
     hide('assignments-empty');
     hide('essays-empty');
@@ -1881,6 +1932,27 @@ export function WritingBehavior() {
       const tabEssays = $('tab-essays');
       const tabTips = $('tab-tips');
       const tabPromptBank = $('tab-prompt-bank');
+      const tabs = document.querySelector<HTMLElement>('.wd-tabs');
+      if (tabs) {
+        const updateOverflow = () => {
+          const start = tabs.scrollLeft > 1;
+          const end = tabs.scrollLeft + tabs.clientWidth < tabs.scrollWidth - 1;
+          const overflow = start ? (end ? 'both' : 'start') : (end ? 'end' : 'none');
+          tabs.dataset.overflow = overflow;
+          if (tabs.parentElement) tabs.parentElement.dataset.overflow = overflow;
+        };
+        const resize = new ResizeObserver(() => {
+          // Late tab/count reads may resize the strip while the learner is
+          // reading below it. Adjust this scroller without moving the page.
+          revealActiveTab(tabs);
+          updateOverflow();
+        });
+        resize.observe(tabs);
+        tabs.querySelectorAll('.tab-btn').forEach(tab => resize.observe(tab));
+        cleanups.push(() => resize.disconnect());
+        on(tabs, 'scroll', updateOverflow);
+        updateOverflow();
+      }
       const tipModalClose = $('tip-modal-close');
       const tipModalBackdrop = $('tip-modal-backdrop');
       const spellBtnBack = $('spell-btn-back');
@@ -1992,10 +2064,10 @@ export function WritingBehavior() {
         load: async () => {
           // ASYNC LOADS (now that listeners are attached)
           void contentNavigation?.reconcile();
-          // Start the permission read with the two list calls. Gating still runs
-          // after render: it toggles buttons that do not exist until the lists paint.
+          // Resolve banner layout before the content's first paint. Button
+          // gating stays after render, when the assignment buttons exist.
           permissionsPromise = getWithTimeout(api, '/api/student/permissions');
-          permissionsPromise.catch(() => {});
+          void prepareWritingPreview(permissionsPromise, isCurrent);
           const [assignmentsOk, essaysOk] = await Promise.all([loadAssignments(api, ms), loadEssays(api, ms)]);
           return assignmentsOk && essaysOk;
         },

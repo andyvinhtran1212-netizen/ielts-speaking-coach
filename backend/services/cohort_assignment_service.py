@@ -288,7 +288,12 @@ def normalize_deadline(value: datetime | date | str | None) -> Optional[datetime
         try:
             day = date.fromisoformat(raw)
         except ValueError:
-            parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            try:
+                parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            except ValueError:
+                # Constant text: the stdlib message quotes the raw input, and
+                # this ValueError becomes the 422 `msg` (PC-J226 F4).
+                raise ValueError("Hạn nộp phải là ngày/giờ ISO") from None
         else:
             parsed = datetime.combine(day, DEFAULT_DUE_TIME)
     else:

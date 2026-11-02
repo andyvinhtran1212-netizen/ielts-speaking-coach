@@ -49,9 +49,11 @@ is approved.
 - Every public relation is covered. Priority groups only order named checks
   and fixtures, including access_codes and user_code_assignments. They are
   never an optional reduced apply scope.
-- FR-006 scans **all** rollback files without a numeric exemption. Correct
-  the down of 356 under F5 before release; any other violating rollback must
-  be made safe before the guard passes. Include table/default grants, role
+- FR-006 scans **all** rollback files without a numeric exemption, including
+  the down of 356. That down is owned and corrected by CALAPPEND-0041 T001
+  (F5, 0041 FR-003/FR-004: no policy DDL/comment, no restoration of 344's
+  client privileges); this spec only scans and regresses it. Any other
+  violating rollback must be made safe before the guard passes. Include table/default grants, role
   memberships, ownership changes, schema CREATE/ALL and dynamic SQL strings
   such as `EXECUTE format('GRANT …')` in the mutation fixtures.
 - The NNN `pending_feature` forward-policy entry is mandatory, not optional.
@@ -113,8 +115,9 @@ Privilege target for every `public` relation not owned by `service_role`:
 - Ordering:
   - After #2055 and the J350 follow-up removing the API-role schema CREATE
     grant; #2055 alone does not satisfy FR-007/FR-009.
-  - Independent of 341/356 forward applies; the unsafe down of 356 must
-    nevertheless be corrected before release (FR-008).
+  - Independent of 341/356 forward applies; the down of 356 must
+    nevertheless be corrected under CALAPPEND-0041 T001 before release
+    (FR-008); this spec only scans and regresses it.
   - Q-J357-3 blocks production promotion and closure of P2-SA-1 until SA's
     environment-specific decision is recorded. Staging ACLs do not prove
     production ACLs.
@@ -131,9 +134,10 @@ Privilege target for every `public` relation not owned by `service_role`:
     probes, with both negative controls and refused planting after NNN;
   - overload-shadow probes with only table rights revoked as the negative
     control, then schema CREATE revoked, plus an inherited-CREATE abort;
-  - corrected down-356 regression (genuine service_role UPDATE/DELETE on
-    `class_action_log` → 42501 after the down) and synthetic pre-NNN
-    clone/baseline/apply;
+  - down-356 regression with 344, 356 and NNN applied (genuine
+    service_role UPDATE/DELETE on `class_action_log` → 42501 after the
+    down; both policies absent, no anon/authenticated table or column
+    privileges) and synthetic pre-NNN clone/baseline/apply;
   - Scenario 12 for 358: temp-view shadow through an FK cascade, red before
     and green after 358, with an owner-path negative control.
 - Static guard plus `.sql`, `.sh`, `.py` mutation fixtures for scenario 6,

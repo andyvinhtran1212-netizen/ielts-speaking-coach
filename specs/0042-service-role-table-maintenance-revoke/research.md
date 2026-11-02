@@ -378,3 +378,7 @@ future definer functions can reach it.
   (PR #2054 F5). A rollback executes after a forward migration irrespective
   of its number. FR-006 must scan every rollback, and FR-008 requires the
   down correction before release; this spec-only revision does not edit it.
+- Since PC-J499 (2026-10-31) the down of 356 is owned and corrected by
+  CALAPPEND-0041 T001 (no policy DDL/comment, no restoration of 344's client
+  privileges). This spec only scans it (FR-006) and regresses it after NNN
+  with 344 applied (FR-008, Scenario 10).

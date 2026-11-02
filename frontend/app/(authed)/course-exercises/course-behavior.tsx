@@ -11,7 +11,7 @@
 // được layout (authed) khởi tạo ở DOMContentLoaded — trang legacy trước đó gọi
 // `initSupabase` bằng một thẻ script nội tuyến chạy TRƯỚC cả SDK `defer`, nên
 // nó ném lỗi và mọi request đi không kèm token.
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
@@ -65,6 +65,12 @@ export function CourseBehavior() {
   // hai tab giữ nguyên status 'signed-in' và chỉ `user` đổi, nên một cờ một-lần
   // sẽ để nguyên tiến độ của người trước trên màn hình (review #742).
   const bootedFor = useRef<string | null>(null);
+  // Cập nhật trước passive cleanup của lượt cũ: cùng tài khoản là rời trang,
+  // còn đổi/mất tài khoản thì không được flush nháp bằng token hiện hành.
+  const currentAccount = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    currentAccount.current = status === 'signed-in' ? user?.id || null : null;
+  }, [status, user?.id]);
 
   // U-03: fail closed for signed-out visitors (ADR-011) — replace() like
   // /profile so Back cannot restore the private shell.
@@ -85,6 +91,7 @@ export function CourseBehavior() {
     let disposed = false;
     let runner: any = null;
     let pronunciation: any = null;
+    let writing: any = null;
     let pronunciationVisible = false;
     let onClick: ((e: Event) => void) | null = null;
     let onLeave: (() => void) | null = null;
@@ -331,7 +338,7 @@ export function CourseBehavior() {
       // Phần tự luận nạp RIÊNG và không chặn phần trắc nghiệm: nó chỉ cần thiết
       // khi học viên đã đi hết các chặng, còn một lỗi ở đây không được làm cả
       // bài tập không mở được.
-      const writing = CW.createWriting({
+      writing = CW.createWriting({
         api: courseApi, storage,
         // localStorage là bộ nhớ CHUNG của trình duyệt: hai học viên dùng chung
         // một máy mà khoá nháp chỉ theo bank sẽ mở ra bài của nhau.
@@ -1620,14 +1627,28 @@ export function CourseBehavior() {
       clearErrorActions();
       pronunciationVisible = false;
       pauseSectionTimers();
+      // Đổi/mất tài khoản: token hiện hành (kể cả `_lastToken` mà keepalive
+      // của api.js dùng) không còn là của A, nên KHÔNG flush gì của A. Câu trắc
+      // nghiệm và nháp chưa gửi vẫn nằm trong khoá lưu của A (PC-J353/PC-J362).
+      const accountChanged = currentAccount.current !== user.id;
+      if (accountChanged) {
+        if (runner) runner.dispose();
+        if (writing) writing.dispose();
+      }
       // A Next soft navigation unmounts this client island without firing
       // pagehide. Flush through the same path so queued quiz answers and the
       // writing draft are not stranded until a later browser lifecycle event.
       try {
-        if (onLeave) onLeave();
+        if (accountChanged) { /* nothing of A may leave with B's token */ }
+        else if (onLeave) onLeave();
         else if (runner?.leave) runner.leave();
       } catch { /* lifecycle teardown must continue removing listeners */ }
       if (pronunciation) pronunciation.destroy();
+      // Sau lượt flush ở trên: một lượt nạp tự luận trả về muộn, một flush xếp
+      // sau batch đang treo hay một hẹn giờ retry không được gửi dữ liệu của
+      // tài khoản trước bằng token của tài khoản sau (PC-J352/PC-J362).
+      if (runner) runner.dispose();
+      if (writing) writing.dispose();
       if (onClick) document.removeEventListener('click', onClick);
       if (onInput) document.removeEventListener('input', onInput);
       if (onLeave) window.removeEventListener('pagehide', onLeave);
