@@ -856,6 +856,7 @@ def _suspended_role_change_refusal(exc: Exception) -> HTTPException | None:
 async def admin_set_user_role(
     user_id: str,
     payload: UserRolePayload,
+    background_tasks: BackgroundTasks,
     authorization: str | None = Header(default=None),
 ):
     """Sprint 12.8 — change a user's role.
@@ -906,7 +907,7 @@ async def admin_set_user_role(
         change = _committed_role_change(target, request_id, role)
         if change is None:
             raise
-    sessions_revoked = revoke_error = None
+    sessions_revoked = revoke_error = revoke_audit_id = None
     if change.changed:
         revoke = staff_security.removes_staff_privilege(
             change.before.get("role"), change.after.get("role"))
@@ -915,12 +916,14 @@ async def admin_set_user_role(
     if revoke:
         # A suspended account's role is frozen (FR-019), so a demotion never
         # bans: the demoted account may sign in again under its new role.
-        outcome, _ = await staff_security.revoke_and_record(
+        outcome, revoke_audit_id = await staff_security.revoke_and_record(
             supabase_admin, target_id=target, actor_id=admin_id, ban=False,
             trigger="role_change", engine=_db_engine, auth_admin=None,  # no ban
             request_id=request_id,
         )
         sessions_revoked, revoke_error = outcome.sessions_revoked, outcome.revoke_error
+    # Committed: the owner alerts go out after the response (FR-011).
+    staff_security.schedule_owner_alerts(background_tasks, _db_engine, change.audit_id, revoke_audit_id)
     return {"ok": True, "id": target, "role": role, "changed": change.changed,
             "audit_id": change.audit_id, "sessions_revoked": sessions_revoked,
             "revoke_error": revoke_error}
