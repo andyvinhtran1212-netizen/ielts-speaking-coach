@@ -535,7 +535,7 @@ class LocalPgRunner:
 
     async def _run(self, fn: Callable):
         import asyncpg
-        connection = await asyncpg.connect(self.url)
+        connection = await asyncpg.connect(self.url, statement_cache_size=0)
         try:
             return await fn(connection)
         finally:
