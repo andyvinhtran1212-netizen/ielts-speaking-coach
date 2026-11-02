@@ -19,6 +19,7 @@ spec.loader.exec_module(wm)
 CID = "10000000-0000-0000-0000-000000000001"
 TASK = "20000000-0000-0000-0000-000000000001"
 STUDENT = "30000000-0000-0000-0000-000000000001"
+GROUP = "50000000-0000-0000-0000-000000000001"
 TOKEN = "test-header.test-payload.test-signature"
 
 
@@ -209,6 +210,7 @@ def test_journey_orders_late_join_after_give_and_distinguishes_backfill(monkeypa
     """Exercise orchestration with published response shapes, never live APIs."""
     marker = "E2E-unit"
     late_id = "30000000-0000-0000-0000-000000000002"
+    late_assignment = "20000000-0000-0000-0000-000000000002"
     user_ids = {role: f"40000000-0000-0000-0000-00000000000{i}" for i, role in enumerate(wm.ROLES, 1)}
     members, writing, class_items, cohorts, codes, events = [], [], [], [], [], []
     config = wm.Config(wm.STAGING_URL, {r: TOKEN for r in wm.ROLES})
@@ -239,16 +241,23 @@ def test_journey_orders_late_join_after_give_and_distinguishes_backfill(monkeypa
             members.append({"student_id": sid})
             if role == "LATE_STUDENT":
                 assert writing, "Late enrolment must happen after give"
+                writing.append({"id": late_assignment, "assignment_group_id": GROUP,
+                                "name": marker + " · Writing"})
             return {"success": True}
         if path == f"/admin/cohorts/{CID}/members":
             return {"members": members}
         if path == "/instructor/prompts":
             return {"id": TASK, **body}
         if path == "/instructor/assignments/fan-out":
-            writing.append({"id": TASK, "cohort_id": CID, "name": body["name"]})
-            return {"created_count": 1}
+            writing.append({"id": TASK, "assignment_group_id": GROUP, "name": body["name"]})
+            return {"created_count": 1, "group_id": GROUP, "assignment_ids": [TASK]}
         if path == "/api/writing/my-assignments":
-            return {"assignments": writing}
+            # The real learner list projection omits cohort_id; a late join
+            # receives a different assignment ID in the original give group.
+            assignment_id = late_assignment if role == "LATE_STUDENT" else TASK
+            rows = [dict(r) for r in writing if r["id"] == assignment_id]
+            assert all("cohort_id" not in r for r in rows)
+            return {"assignments": rows}
         if path == f"/admin/cohorts/{CID}/assignments":
             class_items.append({"item_id": TASK, "submitted_at": None,
                                 "assignment": {"id": TASK, "cohort_id": CID, **body}})

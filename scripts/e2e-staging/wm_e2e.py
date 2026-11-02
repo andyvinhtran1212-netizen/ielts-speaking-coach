@@ -268,7 +268,10 @@ class Journey:
                           "cohort_id": cid, "name": self.marker + " · Writing", "instructions": self.marker})
         check(give.get("created_count") == 1, "Writing give did not create exactly one assignment")
         early_writing = self.call("STUDENT", "GET", "/api/writing/my-assignments")["assignments"]
-        check(sum(r.get("cohort_id") == cid and self.owned(r, "name") for r in early_writing) == 1,
+        # Learner Writing lists expose group/name/assignment IDs, not cohort_id.
+        group_id = str(UUID(give["group_id"]))
+        check(sum(r["id"] in give["assignment_ids"] and r.get("assignment_group_id") == group_id
+                  and self.owned(r, "name") for r in early_writing) == 1,
               "Writing give is absent or duplicated in the learner's canonical list")
         print("PASS instructor Writing give and learner list")
         self.skip("Writing submit + grading: no server fixture; submit automatically schedules paid AI. Give only; no draft/start.")
@@ -291,7 +294,8 @@ class Journey:
             self.join("LATE_STUDENT", cid, students["LATE_STUDENT"], {s["id"] for s in students.values()})
             # Writing backfills on activation; the other skills require explicit backfill.
             late_writing = self.call("LATE_STUDENT", "GET", "/api/writing/my-assignments")["assignments"]
-            check(any(r.get("cohort_id") == cid and self.owned(r, "name") for r in late_writing),
+            check(sum(r.get("assignment_group_id") == group_id and self.owned(r, "name")
+                      for r in late_writing) == 1,
                   "Late join did not automatically receive the open Writing give")
             for aid in assignments.values():
                 self.call("ADMIN", "POST", f"/admin/cohorts/{cid}/assignments/{aid}/backfill",
