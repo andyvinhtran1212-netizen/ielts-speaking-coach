@@ -384,7 +384,6 @@ routers/cohorts.py::list_cohorts::services.class_service.list_cohorts_with_rollu
 routers/cohorts.py::list_cohorts::services.test_data_visibility.hide_for	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/cohorts.py::remove_cohort_member::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
 routers/cohorts.py::remove_student_from_cohort::services.class_membership_service.remove_student	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
-routers/cohorts.py::update_cohort::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
 routers/course_pronunciation.py::pronunciation_state::services.course_pronunciation.get_state	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
 routers/error_logs.py::dismiss_error_log::db.execute	1	G7	Existing inline sync DB execution; offload in G7.
 routers/error_logs.py::error_log_migration_stats::db.execute	1	G7	Existing inline sync DB execution; offload in G7.
