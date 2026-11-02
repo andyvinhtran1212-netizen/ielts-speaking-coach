@@ -244,9 +244,18 @@ def _claims(role: str, user_id: str | None = None) -> str:
     return json.dumps(claims)
 
 
+def _role_sql(role: str, sql: str, user_id: str | None = None) -> str:
+    """P3-SA-8: role switch, assertion and operation share one transaction."""
+    setup = (f"SET LOCAL ROLE {role}; DO $$ BEGIN ASSERT current_user = '{role}'; END $$; "
+             f"SELECT set_config('request.jwt.claims', '{_claims(role, user_id)}', true); ")
+    # Concurrency callers already supply BEGIN/COMMIT around their lock hold.
+    if re.match(r"\s*BEGIN\s*;", sql, re.I):
+        return re.sub(r"^\s*BEGIN\s*;", "BEGIN; " + setup, sql, count=1, flags=re.I)
+    return f"BEGIN; {setup} {sql}; COMMIT;"
+
+
 def _as(role: str, sql: str, user_id: str | None = None) -> str:
-    out = psql(f"SET ROLE {role}; SELECT set_config('request.jwt.claims', '{_claims(role, user_id)}', false);"
-               f" {sql}")
+    out = psql(_role_sql(role, sql, user_id))
     return out.splitlines()[-1] if out else ""
 
 
@@ -344,6 +353,9 @@ def db():
       IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon; END IF;
       IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated; END IF;
       IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='service_role') THEN CREATE ROLE service_role BYPASSRLS; END IF;
+      ASSERT (SELECT count(*) FROM pg_roles
+               WHERE rolname IN ('anon', 'authenticated', 'service_role') AND NOT rolsuper) = 3,
+             'API fixture roles must be NOSUPERUSER (SA P3-4)';
     END $$;""")
     psql("ALTER ROLE service_role BYPASSRLS")
     schema = "student_archive_" + uuid4().hex
@@ -650,7 +662,15 @@ def _race(first: str, second: str, delay: float = 0.4) -> tuple[tuple, tuple]:
 
 
 def _svc(sql: str) -> str:
-    return f"SET ROLE service_role; SELECT set_config('request.jwt.claims', '{_claims('service_role')}', false); {sql}"
+    return _role_sql("service_role", sql)
+
+
+@pytest.mark.parametrize("explicit_transaction", [False, True])
+def test_service_harness_switches_role_inside_the_operation_transaction(db, explicit_transaction):
+    sql = "SELECT current_user || ':' || rolsuper FROM pg_roles WHERE rolname = current_user"
+    if explicit_transaction:
+        sql = f"BEGIN; {sql}; COMMIT;"
+    assert psql(_svc(sql)).splitlines()[-1] == "service_role:false"
 
 
 @pytest.mark.parametrize("writer", ["single", "bulk", "trigger"])

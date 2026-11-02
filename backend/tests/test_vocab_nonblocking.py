@@ -2,7 +2,6 @@
 
 import asyncio
 import threading
-import time
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -12,36 +11,35 @@ from fastapi import BackgroundTasks, HTTPException
 from models.vocabulary_sets import CardCreate, SessionStart
 from routers import advanced_vocab, kp, vocab_units, vocabulary_sets
 from services import advanced_vocab_rewrite_grader, advanced_vocab_service as advanced
+from tests.loop_gate import WAIT, LoopGate, until
 
 
 class SlowIO:
+    """Parks the stubbed I/O in a LoopGate until the test, on the loop, releases it."""
+
     def __init__(self):
-        self.started = threading.Event()
-        self.finished = threading.Event()
+        self.gate = LoopGate()
 
     def __call__(self):
-        self.started.set()
-        time.sleep(0.5)
-        self.finished.set()
+        self.gate.park()
 
 
 def responsive(call, slow):
     async def scenario():
-        started = time.perf_counter()
         request = asyncio.create_task(call())
         try:
-            # The timer is registered before the handler starts. Blocking the
-            # loop delays this independent coroutine by the full I/O duration.
-            await asyncio.sleep(0.02)
-            elapsed = time.perf_counter() - started
-            during_io = slow.started.is_set() and not slow.finished.is_set()
+            # This coroutine keeps running on the loop while the I/O is parked;
+            # I/O on the loop thread would hold it until the gate's WAIT.
+            entered = await until(lambda: slow.gate.inside >= 1, stop=request)
+            during_io = entered and not request.done() and not slow.gate.released
         finally:
-            result = await request
-        return result, elapsed, during_io
+            slow.gate.release()
+        result = await asyncio.wait_for(request, WAIT)
+        return result, during_io
 
-    result, elapsed, during_io = asyncio.run(scenario())
-    assert elapsed < 0.2, f"light coroutine waited {elapsed:.3f}s behind vocabulary I/O"
-    assert during_io, "light coroutine must finish while the slow operation is running"
+    result, during_io = asyncio.run(scenario())
+    assert not slow.gate.timed_out, "the slow vocabulary I/O ran on the event loop"
+    assert during_io, "light coroutine must run while the slow operation is in flight"
     return result
 
 
