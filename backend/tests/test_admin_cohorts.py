@@ -21,8 +21,9 @@ router writes round-trip correctly.
 
 from __future__ import annotations
 
-from uuid import uuid4
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -150,6 +151,22 @@ class _FakeSupabase:
     def table(self, name: str):
         return _TableQuery(self, name)
 
+    def rpc(self, name: str, params: dict):
+        # Only what TestCohortPatch needs: fn_archive_cohort (migration 337)
+        # flips the row; the RPC's own behaviour is covered on PostgreSQL in
+        # test_migration_337_class_archive.py.
+        self.rpc_calls = [*getattr(self, "rpc_calls", []), (name, params)]
+        assert name == "fn_archive_cohort", name
+        rows = [r for r in self.tables["cohorts"] if r["id"] == params["p_cohort_id"]]
+        if not rows:
+            return SimpleNamespace(execute=lambda: _Resp(None))
+        rows[0].update(is_active=False, archived_at="2026-11-02T12:00:00+00:00")
+        counts = {"active_members": 0, "open_writing_gives": 0,
+                  "open_class_items": 0, "unused_class_codes": 0}
+        receipt = {"status": "archived", "archived_at": rows[0]["archived_at"],
+                   "counts": counts, "legacy_upgrade": False}
+        return SimpleNamespace(execute=lambda: _Resp(receipt))
+
 
 # ── Test client fixtures ──────────────────────────────────────────────
 
@@ -246,17 +263,23 @@ class TestCohortList:
 
 class TestCohortPatch:
     def test_archive_cohort(self, client, fake_db):
+        # CLASSARCHIVE-0030 W14: the flag is written by fn_archive_cohort, not
+        # by a plain UPDATE, and the response carries the RPC receipt.
+        cid = "aaaaaaaa-0000-0000-0000-000000000001"
         fake_db.tables["cohorts"] = [
-            {"id": "c1", "name": "A", "is_active": True, "created_at": "x"}
+            {"id": cid, "name": "A", "is_active": True, "created_at": "x"}
         ]
         r = client.patch(
-            "/admin/cohorts/c1",
+            f"/admin/cohorts/{cid}",
             json={"is_active": False},
             headers=_ADMIN_AUTH,
         )
         assert r.status_code == 200
         assert r.json()["is_active"] is False
+        assert r.json()["archive_receipt"]["status"] == "archived"
         assert fake_db.tables["cohorts"][0]["is_active"] is False
+        assert fake_db.rpc_calls == [("fn_archive_cohort", {
+            "p_cohort_id": cid, "p_actor": _ADMIN_USER["id"], "p_reason": None})]
 
     def test_patch_404_unknown(self, client):
         r = client.patch("/admin/cohorts/nope", json={"name": "X"}, headers=_ADMIN_AUTH)
