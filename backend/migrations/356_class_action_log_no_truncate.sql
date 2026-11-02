@@ -6,7 +6,8 @@
 
 BEGIN;
 SET LOCAL lock_timeout = '5s';
-SET LOCAL search_path = public, pg_temp;
+-- service_role can CREATE in public; exclude it from builtin resolution.
+SET LOCAL search_path = pg_catalog, pg_temp;
 
 -- Fail before DDL/ACL changes on a managed database. A ledger-free legacy
 -- fixture is supported only to prove independence from the old policies.
@@ -29,7 +30,7 @@ $prerequisite$;
 CREATE OR REPLACE FUNCTION public.fn_class_action_log_no_truncate()
 RETURNS trigger
 LANGUAGE plpgsql
-SET search_path = public, pg_temp
+SET search_path = pg_catalog, pg_temp
 AS $$
 BEGIN
     RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE =
@@ -37,6 +38,8 @@ BEGIN
         'tắt trigger trg_class_action_log_no_truncate một cách có ý thức.';
 END;
 $$;
+
+REVOKE EXECUTE ON FUNCTION public.fn_class_action_log_no_truncate() FROM PUBLIC;
 
 CREATE OR REPLACE TRIGGER trg_class_action_log_no_truncate
     BEFORE TRUNCATE ON public.class_action_log

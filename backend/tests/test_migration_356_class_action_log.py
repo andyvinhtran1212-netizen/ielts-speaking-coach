@@ -105,7 +105,10 @@ def test_double_apply_preserves_policy_client_acl_and_data(before356):
                        "AND tgname='trg_class_action_log_no_truncate'") == "34|O"
         assert [t for t in after["triggers"] if t[0] == "trg_class_action_log_append_only"] == before["triggers"]
         assert sql(db, "SELECT proconfig::text,prosecdef FROM pg_proc "
-                       "WHERE oid='public.fn_class_action_log_no_truncate()'::regprocedure") == '{"search_path=public, pg_temp"}|f'
+                       "WHERE oid='public.fn_class_action_log_no_truncate()'::regprocedure") == '{"search_path=pg_catalog, pg_temp"}|f'
+        assert sql(db, "SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) a "
+                       "WHERE p.oid='public.fn_class_action_log_no_truncate()'::regprocedure "
+                       "AND a.grantee=0 AND a.privilege_type='EXECUTE'") == "0"
         for role in ("anon", "authenticated", "service_role"):
             privileges = PRIVILEGES + (("MAINTAIN",) if int(sql(db, "SHOW server_version_num")) >= 170000 else ())
             for privilege in privileges:
@@ -171,6 +174,40 @@ def test_public_grants_are_removed_too(before356):
             assert sql(db, f"SELECT has_table_privilege('{role}','{TABLE}','{privilege}')") == "f"
 
 
+def test_service_role_public_overloads_cannot_regrant_privileges(before356):
+    db, _, _ = before356
+    # Match the hosted schema ACL: the non-owner service role can plant
+    # overloads that win resolution of unknown/text arguments in public.
+    run(db, "GRANT CREATE ON SCHEMA public TO service_role;", role=None)
+    run(db, """
+        DO $$ BEGIN ASSERT current_user = 'service_role'; END $$;
+        CREATE FUNCTION public.has_table_privilege(r text, t text, p text)
+        RETURNS boolean LANGUAGE plpgsql AS $$
+        BEGIN
+            IF current_user <> 'service_role' THEN
+                EXECUTE 'GRANT UPDATE, DELETE, TRUNCATE, TRIGGER '
+                        'ON public.class_action_log TO service_role';
+            END IF;
+            RETURN r = 'service_role' AND p IN ('SELECT', 'INSERT');
+        END;
+        $$;
+        CREATE FUNCTION public.has_any_column_privilege(r text, t text, p text)
+        RETURNS boolean LANGUAGE sql AS $$ SELECT false $$;
+    """, role="service_role")
+    assert sql(db, "SELECT proowner = 'service_role'::regrole FROM pg_catalog.pg_proc "
+                   "WHERE oid = 'public.has_table_privilege(text,text,text)'::regprocedure") == "t"
+
+    run(db, migration())
+
+    # Qualify the oracle so the planted functions cannot falsify the result.
+    for privilege in ("UPDATE", "DELETE", "TRUNCATE", "TRIGGER", "REFERENCES"):
+        assert sql(db, f"SELECT pg_catalog.has_table_privilege('service_role','{TABLE}',"
+                       f"'{privilege}')") == "f", privilege
+    for privilege in ("SELECT", "INSERT"):
+        assert sql(db, f"SELECT pg_catalog.has_table_privilege('service_role','{TABLE}',"
+                       f"'{privilege}')") == "t", privilege
+
+
 @pytest.mark.parametrize("setup", [
     "DELETE FROM public._schema_migrations WHERE filename LIKE '344\\_%' ESCAPE '\\';",
     "CREATE POLICY cal_admin_read ON public.class_action_log FOR SELECT TO authenticated USING (true);",
@@ -224,4 +261,5 @@ def test_up_is_held_no_policy_ddl_or_grants():
     code = invariant.m320._strip_sql_comments(migration())
     assert not re.search(r"\bGRANT\b|(?:CREATE|DROP|ALTER|COMMENT ON)\s+POLICY", code, re.I)
     assert "SET LOCAL lock_timeout = '5s'" in code
+    assert "SET LOCAL search_path = pg_catalog, pg_temp;" in code
     assert f"{NAME}\tpending_feature\tclass_action_log_append_only\t" in (MIGRATIONS / "forward-policy.tsv").read_text()
