@@ -7,6 +7,8 @@ the function names are the anchors.
 
 - `backend/routers/quiz.py`: new `POST /sessions/{session_id}/check`
   (`asyncio.to_thread`, never `aexecute`, as every route in this router).
+  Bank GET accepts the optional `quiz_contract` query parameter; FR-009
+  enforces `server-check-v1` for self-study before returning any questions.
   `CourseVerdictBody` unchanged on the wire.
 - `backend/services/quiz_service.py`:
   - new `check_answer(user_id, session_id, body)`;
@@ -19,7 +21,8 @@ the function names are the anchors.
   - `end_session`: time-cap rows graded before the RPC; self-study totals
     counted from stored rows;
   - `get_bank_for_play`: self-study projection without key fields (FR-009,
-    behind the rollout order, see `rollout.md`), plus `answer_word_count` and
+    after the rollout prerequisites and client-contract gate, see
+    `rollout.md`), plus `answer_word_count` and
     `text_match_eligible`;
   - new `single_attempt_key_released(item, assignment, siblings)` used by
     `_course_review_gate`, `_sealed_course_session_ids` and the
@@ -34,6 +37,7 @@ the function names are the anchors.
 - `backend/routers/admin_class_assignments.py`: summary and per-learner rows
   expose `session_count`, `attempt_count` from the latest ledger entry.
 - Frontend: `public/js/quiz-engine.js`, `app/(authed-quiz-player)/quiz/quiz-player.tsx`,
+  `lib/quiz-player-api.ts` (send the contract marker on every bank fetch),
   `public/js/quiz-text-match-policy.js` (eligibility from
   `text_match_eligible` instead of `accept`), `public/js/course-runner.js`
   (one re-post on `verdict_sessions_incomplete`), course result/review page
@@ -128,6 +132,21 @@ for every bank (computed in `get_bank_for_play` from the row the server
 read). The model becomes key-free for every mode; the admin model
 (`AdminQuizQuestion`) is unchanged.
 
+The FR-010 player sends `quiz_contract=server-check-v1` on every self-study
+bank GET through `quiz-player-api.ts`, including the fetch in managed
+Grammar `resetProgress()` and reopening a bank in the same tab. The query
+parameter is optional on the wire so old requests reach the explicit
+compatibility refusal rather than FastAPI's generic missing-field 422.
+Before FR-009, requests without the marker still receive today's keyed
+self-study payload. With FR-009, after existing auth/access checks and
+before building the play payload, the server rejects a missing or unknown
+marker with 409 and `{detail: {code: 'quiz_client_refresh_required',
+message: 'Bài luyện tập đã cập nhật. Hãy tải lại trang để tiếp tục.'}}`.
+The error contains no questions or key fields. The exact supported marker
+receives the key-free payload. No request can opt into legacy keys after
+FR-009. Course requests and their admission behavior are unchanged; no
+migration or flag is needed.
+
 ### Key release (FR-011/FR-012)
 
 `single_attempt_key_released(item, assignment, now, all_items_submitted)`:
@@ -177,9 +196,20 @@ to PC/Leader (ticket rule).
   stored truth is correct; the old player still grades locally for display.
 - New frontend + old backend: `/check` 404/405 → the player shows the error
   state and does not grade locally. Avoided by deploying backend first.
-- After FR-009: an old bundle would see no key. Avoided because FR-009 is a
-  separate PR promoted after FR-010 is live; a tab left open across both
-  promotions recovers on reload (stored truth is correct throughout).
+- After FR-009: a pre-FR-010 tab sends no contract marker, so the server
+  returns 409 `quiz_client_refresh_required` without questions on every
+  self-study bank refetch. Existing bank-load error handling blocks the
+  reset/reopen path before the old grader/policy validator sees a key-free
+  bank. Old JavaScript cannot acquire new error-specific UI by deployment;
+  it shows its existing error and requires a full page reload. FR-010
+  clients handle this code with the refresh state in `ui-states.md`; the
+  action reloads the page, not just the bank. A reload loads the current
+  bundle and marker; then `/check` supplies verdicts. Separate promotions
+  remain required, but the server gate protects tabs spanning them.
+- Keys downloaded before FR-009 remain in an old tab's memory and cannot
+  be recalled. That tab may keep using its cached keyed bank without a
+  refetch; FR-006/FR-008 still own stored correctness and totals. This gate
+  prevents incompatible fresh payloads, not access to already-downloaded keys.
 
 ## UI and interaction
 
@@ -204,7 +234,9 @@ See `rollout.md`.
 Pytest through TestClient + response models for every FR; PG tests where an
 RPC is involved (managed Grammar `progress`, timed finalize); node tests for
 engine and parity; a browser verifier for the player states; staging SA
-retest. Red-before-green evidence for FR-001/003/006/007/011/013.
+retest. Red-before-green evidence for FR-001/003/006/007/009/011/013,
+including the FR-009 missing/unknown marker refusal and the pre-upgrade
+tab reset/reopen journey across both promotions.
 
 ## Future direction (not built)
 

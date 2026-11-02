@@ -241,7 +241,15 @@ Người dùng sẽ thấy gì sau thay đổi này:
   fields are added so the player keeps today's prompts:
   `answer_word_count` (the shared word count of the accepted forms, or null)
   and `text_match_eligible` (whether the question may carry a text-match
-  policy entry). No player mode receives a key field.
+  policy entry). No player mode receives a key field. FR-010 players send
+  `quiz_contract=server-check-v1` on every self-study bank GET, including
+  reset/reopen requests. With FR-009, the server requires that exact marker:
+  missing or unknown values return 409 `quiz_client_refresh_required` with
+  no questions or key fields, before building/returning the play payload.
+  Existing auth, ownership and bank-access checks still apply. Old clients
+  are blocked on refetch until a full page reload loads FR-010 JavaScript;
+  deployment order alone does not protect already-open tabs. No legacy-key
+  fallback is allowed after FR-009. Course bank admission is unchanged.
 - **FR-010:** (player uses server verdicts) `quiz-engine.js` separates
   "record an answer" from "apply a verdict": the engine creates the attempt
   (with `client_id`) and applies credit, mastery, carry-over and counters only
@@ -332,9 +340,20 @@ Người dùng sẽ thấy gì sau thay đổi này:
 
 ### Scenario 4 — self-study payload has no key
 
-- **Given** any self-study bank
-- **When** a learner GETs it
+- **Given** any self-study bank after FR-009
+- **When** an FR-010 player GETs it with `quiz_contract=server-check-v1`
 - **Then** no question has `answer`, `accept`, `explain` or `why_wrong`
+
+### Scenario 4a — a pre-upgrade tab refetches after key removal
+
+- **Given** a pre-FR-010 managed Grammar tab kept open across the FR-010
+  and FR-009 promotions
+- **When** `resetProgress()` refetches its bank without the contract marker
+- **Then** the server returns 409 `quiz_client_refresh_required`, no
+  questions or key fields reach the old grader/policy validator, and the
+  old tab enters its existing load-error state; reopening without a full
+  page reload stays blocked. A full page reload loads the FR-010 player,
+  which sends the marker, gets a key-free bank and grades through `/check`.
 
 ### Scenario 5 — handed in before the deadline
 
@@ -363,9 +382,12 @@ Người dùng sẽ thấy gì sau thay đổi này:
   player shows the ended-session message and reloads canonical progress.
 - **Managed Grammar reset or revision cut-over during a session:** the
   managed RPC refuses as `/progress` does; no key.
-- **Old browser bundle after FR-009:** no keys in the payload; the old engine
-  would grade every answer wrong. Avoided by ordering (FR-009 only after the
-  FR-010 frontend is live, `rollout.md`).
+- **Old browser bundle after FR-009:** the server rejects an unmarked bank
+  refetch with 409 `quiz_client_refresh_required` before delivering any
+  questions. The old tab displays its existing load error; a full page
+  reload is required. Keys already downloaded before FR-009 cannot be
+  recalled; an old tab using only its cached bank may still show local
+  feedback, while FR-006/FR-008 keep persisted correctness/totals on the server.
 - **`due_at` null:** release only when every item is handed in; a learner
   who never hands in keeps the key closed for the class (Q-3).
 - **Teacher extends `due_at` after release:** re-sealed on the next read, but

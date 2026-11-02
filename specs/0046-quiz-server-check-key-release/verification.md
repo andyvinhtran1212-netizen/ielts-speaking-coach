@@ -12,8 +12,8 @@
 | FR-006 | kind=test; ref=backend/tests/test_quiz_server_grading.py (legacy and managed PG: forged is_correct ignored; row without is_correct graded not dropped; metadata from question row; missing qid 422 not 500 in self-study and Course; /check rows not duplicated; single_attempt write after due_at 409) | PENDING |
 | FR-007 | kind=test; ref=backend/tests/test_quiz_server_grading.py (timed time-cap PG: forged flag → stored rows, RPC totals, /mistakes and report all wrong) | PENDING |
 | FR-008 | kind=test; ref=backend/tests/test_quiz_server_grading.py (self-study and Course non-time-cap end: totals = stored counts whatever the body says; managed summary carries counted totals) | PENDING |
-| FR-009 | kind=test; ref=backend/tests/test_quiz_bank_student_payload.py (tightened: no mode, Grammar current/legacy, Vocab, Course every mode, has answer/accept/explain/why_wrong; derived fields correct) | PENDING |
-| FR-010 | kind=test; ref=frontend/tests/quiz-engine.test.mjs (credit only after verdict, no local grading, retry same client_id, identical loop given same verdicts) plus frontend/tests/react quiz-player states plus browser verifier | PENDING |
+| FR-009 | kind=test; ref=backend/tests/test_quiz_bank_student_payload.py (missing/unknown contract marker → 409 quiz_client_refresh_required, no questions or key fields; server-check-v1 → 200 key-free; auth/access and Course admission unchanged; no mode, Grammar current/legacy, Vocab, Course every mode, has answer/accept/explain/why_wrong; derived fields correct; red before guard) plus pre-upgrade-tab journey below | PENDING |
+| FR-010 | kind=test; ref=frontend/tests/quiz-engine.test.mjs (credit only after verdict, no local grading, retry same client_id, identical loop given same verdicts) plus frontend/tests/react quiz-player states, API marker on initial/reset/reopen bank GET, full page reload on refresh-required, plus browser verifier | PENDING |
 | FR-011 | kind=test; ref=backend/tests/test_single_attempt_key_release.py (A handed in, B not: sealed before due_at on report, mistakes, resume; open after; null due_at → all_submitted; read error sealed; due_at moved later re-seals; teacher path unchanged) | PENDING |
 | FR-012 | kind=test; ref=backend/tests/test_single_attempt_key_release.py (sealed body fields) plus course review page test for both notices | PENDING |
 | FR-013 | kind=test; ref=backend/tests/test_course_verdict_session_collection.py (abandoned wrong session then 100 % session: verdict reflects abandoned answers, red on staging before the fix; dropped session 422 with ids; recorded-verdict replay; >40 sessions; on-time not turned into timeout; reaper mastery vs single_attempt; full-retry boundary; retake union) plus frontend/tests/course-runner*.test.mjs (one re-post) | PENDING |
@@ -32,8 +32,39 @@ only the verdict re-post test for `course-runner.js`.
 - OpenAPI/type drift: `frontend/types/api.d.ts` regenerated with the new
   route and models; `test_openapi_contract` green.
 - Backward compatibility: `/progress` and `PATCH /sessions` wire unchanged
-  (`is_correct` optional and ignored); payload key removal gated by rollout
-  step B.
+  (`is_correct` optional and ignored); before FR-009, unmarked bank GETs
+  still work. After FR-009, the server enforces `quiz_contract=server-check-v1`
+  before returning self-study questions (rollout step B); missing/unknown
+  values return 409 `quiz_client_refresh_required`, not a key-free 200 to
+  an old grader. Course admission stays unchanged.
+
+### Pre-upgrade tab across both promotions (FR-009/FR-010)
+
+PENDING T005/T006/T009; this is build/release acceptance, not evidence of
+runtime behavior in this draft-only PR.
+
+1. Before FR-010, open a managed Grammar bank in a QA learner tab and keep
+   its pre-FR-010 JavaScript running. Record the frontend deployment SHA.
+2. Deploy FR-010 with keys retained, then FR-009 with the server guard;
+   keep the tab open across both promotions. Record both exact backend
+   and frontend deployment SHAs. New FR-010 clients send the marker on
+   initial, reset and reopen fetches.
+3. In the original tab invoke `resetProgress()` and reopen/refetch the bank
+   without reloading the page. Verify every unmarked bank GET returns
+   409 `quiz_client_refresh_required`, no questions or key fields, and the
+   tab shows its existing load error without grading a fresh bank or
+   passing it to the old policy validator. A client without the supported
+   marker stays blocked however long it has been open.
+4. Perform a full page reload: the new bundle sends
+   `quiz_contract=server-check-v1`, receives 200 without key fields and
+   answers via `/check`; displayed verdict and stored attempt agree.
+5. Probe missing and unknown markers for managed/legacy Grammar and Vocab:
+   same 409/no questions. Supported marker: 200 key-free. Existing auth,
+   ownership/access refusals and Course admission stay unchanged. Verify
+   the FR-010 refresh-required UI performs a full page reload, not a bank
+   refetch (375/1280, light/dark, keyboard and screen reader).
+6. Attach the red-before-guard/passing-after route tests and browser/network
+   evidence with deployment SHAs. Block FR-009 promotion if any check fails.
 
 ## Data evidence
 
@@ -53,6 +84,8 @@ only the verdict re-post test for `course-runner.js`.
 ## SA retest (ticket)
 
 - GET Grammar/Vocab has no key field.
+- Missing/unknown client contract marker on a self-study bank refetch is
+  blocked (409, no questions); the pre-FR-010 tab reset/reopen journey passes.
 - `/check` reveals no key before a stored attempt; none for a sealed Course item.
 - Forged `is_correct` has no effect (`/progress`, time-cap).
 - Time-cap rows regraded.
