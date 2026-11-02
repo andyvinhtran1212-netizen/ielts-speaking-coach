@@ -207,8 +207,12 @@ service_role requirements on its merge base because it is a high-risk path.
   the admin log view still reads them.
 - The migration postconditions fail closed unless `pg_class.relowner` is the
   `postgres` role, service_role is neither superuser nor a member of that owner,
-  and `has_parameter_privilege('service_role', 'session_replication_role', 'SET')`
-  is false. Both triggers retain their expected events and row/statement level.
+  and no role `m` in `pg_roles` satisfying
+  `pg_has_role('service_role'::name, m.oid, 'MEMBER')` has
+  `has_parameter_privilege(m.oid, 'session_replication_role', 'SET')` true.
+  This membership-aware check includes service_role itself and NOINHERIT
+  memberships, covering privileges reachable through SET ROLE (356 R3, #2173).
+  Both triggers retain their expected events and row/statement level.
 - Every scenario has a passing real-PostgreSQL test on PG 16 (required CI) and
   PG 17.
 
