@@ -52,7 +52,10 @@ row or owner alert. Now `fn_set_staff_privilege` and
 `fn_bootstrap_admin_recovery` write one row in the owner-only
 `staff_privilege_evidence` table (RLS on, no grant to any API role), keyed by
 transaction id and target, right before their single UPDATE. The row is gone
-before they return. The suspension guard opens only on that evidence. The role
+before they return. PC-J358 (SA P3-2) also adds an owner-only deferred
+constraint trigger: COMMIT fails with `staff_privilege_evidence_not_consumed`
+if any evidence remains, including a row whose key an owner changed. The
+suspension guard opens only on that evidence. The role
 freeze opens only on the bootstrap's evidence (FR-019). The audit trigger always
 writes exactly one row: `admin_api` with the RPC's labels, `bootstrap_recovery`
 for the bootstrap, and otherwise `service` (a real `service_role` session with
@@ -69,6 +72,21 @@ P2-SA-1 (PC-J356) removes service_role's TRIGGER, REFERENCES and TRUNCATE on
 the owner inside the staff RPC. Postconditions require those privileges to be
 absent and the evidence ACL to grant nothing to any non-owner. Trigger checks
 accept enabled (`O`) and always enabled (`A`) guards.
+PC-J358 also rejects client INSERT/UPDATE/DELETE drift, column-level I/U/R,
+and table-control grants through membership even with INHERIT FALSE
+(SA-R4-1/2); membership is checked conservatively with `MEMBER`. Migration
+checks call `pg_catalog` functions explicitly to prevent an overload in
+`public` from running as the migration owner (SA-R4-3). Broader service-role
+schema/function hardening still belongs to 358.
+For manual dumps, use `pg_dump --exclude-table-data=public.staff_privilege_evidence`
+alongside the normal dump options: retain its schema, never restore transient
+transaction evidence into another cluster (SA P3-2). The trigger normally
+keeps it empty; do not treat it as durable audit data. The rollback requires
+restoring service_role INSERT on `ai_model_override_audit` when reverting its
+trigger to SECURITY INVOKER. The historical client sequence GRANT in the
+header is marked **DO NOT RUN** (SA P3-6). The pre-existing `updated_by`
+attribution and parent-table owner TRUNCATE gaps remain documented in the
+341 header (SA P3-5); this patch does not close them.
 341 is held by `forward-policy.tsv` as `pending_feature admin_aal2`: apply only
 with `MIGRATION_FEATURES=admin_aal2` through the advisory-locked runner, staging
 first after SA review, production only at an explicitly authorised

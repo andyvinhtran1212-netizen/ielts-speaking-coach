@@ -287,3 +287,44 @@ on Supabase project `zjphffoujxkpltixsbzj`:
 
 This follow-up does not enable enforcement. T012 still requires its separate
 rollout and recovery acceptance; the live CI evidence above is a prerequisite.
+
+
+## PC-J358: migration 341 hardening after #2050 (2026-11-02)
+
+FR-009/FR-011/FR-019, with AIOPS-0024 FR-003: scoped follow-up to #2050
+(merge `d5b1048cb7cb29aecc90626cdf5ed2a4a211624c`), based on staging
+`5d84042ba4144c19781cba9617846e0731e3bc25`. Before edits, a staging-only
+Management API request used `read_only: true` and `SET TRANSACTION READ ONLY`:
+341 had no ledger row and `staff_privilege_evidence` did not exist. No remote
+migration, data write, production access, flag change or real email was part
+of this verification.
+
+- SA P3-2: the probe2-equivalent owner-planted evidence survived an unrelated
+  RPC and committed before the patch. Test-first run: seven new regression
+  cases failed against the merged implementation. A deferred constraint
+  trigger now rejects COMMIT with `staff_privilege_evidence_not_consumed`,
+  including after a planted row's key changes; RPC/bootstrap still commit.
+- SA P3-4: the 326/332 harness asserts NOSUPERUSER API roles and switches role
+  inside the operation transaction with `ASSERT current_user`. Negative
+  controls elevate each API role locally and prove fixture refusal.
+- SA P3-7: the audit consumes OLD.id evidence, matching the guards; an owner
+  changing users.id retains the bootstrap audit labels and leaves no evidence.
+- SA-R4-1/2/3: regression coverage checks column I/U/R, client I/U/D,
+  NOINHERIT/SET membership and an attacker-owned exact text overload.
+- SA P3-5 stays a known gap in the 341 header: arbitrary service-role
+  `updated_by` attribution and unaudited parent-table owner TRUNCATE. P3-6's
+  rollback comments require the service-role INSERT grant and mark the
+  historical client sequence GRANT DO NOT RUN. Manual dump instructions in
+  `backend/migrations/README.md` exclude transient evidence data.
+
+Local PostgreSQL 17: **438 passed, zero skips** across the complete 326,
+331, 332, 336, 337, 341 and 346 migration suites. A second run of the final
+341 suite (including rollback function cleanup) plus its shared-harness
+consumers (admin staff routes, owner alerts, security sweep and cohort response
+model) passed **411 tests, zero skips**. Commands, red/green output
+and the read-only staging receipt are retained under
+`/workspace/cc-jobs/job-q-1go-pc-j358-mig341-sa-p3.log.d/` (`red.result`,
+`focused.result`, `affected.result`, `consumers.result`, `staging-ledger.request.json`,
+`staging-ledger.result.json`). Local clusters are stopped and deleted after
+each group. Independent SA retest/closure and any authorised staging apply
+remain pending; these results do not close the live acceptance gates above.

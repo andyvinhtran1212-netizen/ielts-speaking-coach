@@ -138,7 +138,7 @@ def test_evidence_table_and_acls():
 
 def test_users_table_control_privileges_are_revoked():
     assert "REVOKE TRIGGER, REFERENCES, TRUNCATE ON public.users FROM service_role;" in CODE
-    assert re.search(r"IF current_setting\('server_version_num'\)::int >= 170000 THEN\s+"
+    assert re.search(r"IF pg_catalog.current_setting\('server_version_num'\)::int >= 170000 THEN\s+"
                      r"EXECUTE 'REVOKE MAINTAIN ON public\.users FROM service_role';", CODE)
 
 
@@ -494,6 +494,54 @@ def test_evidence_does_not_outlive_the_rpc_inside_one_transaction(db):
     assert "account_suspended" in error and _state(s, target)["role"] == "instructor"
 
 
+@pytest.mark.parametrize("rekey", [False, True])
+def test_leftover_evidence_aborts_at_commit_after_an_unrelated_rpc(fresh, rekey):
+    """SA probe2/P3-2: an owner-planted row must not survive the RPC's commit."""
+    s = fresh
+    admin, victim, other = (_user(s, role, True) for role in ("admin", "instructor", "instructor"))
+    sql = f"""
+        BEGIN;
+        INSERT INTO {s}.{EVIDENCE}(target_user_id, kind, audit_id, actor_user_id, reason)
+        VALUES ('{victim}', 'rpc', gen_random_uuid(), '{admin}', 'probe2 leftover');
+        {_rpc_sql(s, admin, other, active=False, reason='routine suspend')};
+        {f"UPDATE {s}.{EVIDENCE} SET target_user_id = gen_random_uuid(), xact_id = '1'::xid8;" if rekey else ''}
+        DO $$ BEGIN
+            ASSERT (SELECT count(*) FROM {s}.{EVIDENCE}) = 1, 'insert/RPC must finish before COMMIT';
+        END $$;
+        COMMIT;
+    """
+    assert "staff_privilege_evidence_not_consumed" in _fails(_owner, sql)
+    assert _evidence_rows(s) == "0"
+    assert _state(s, other)["is_active"] is True
+
+
+def test_consumed_evidence_commits_with_a_deferred_owner_check(db):
+    s = db
+    admin, target = _user(s, "admin", True), _user(s, "instructor", True)
+    _rpc(s, admin, target, active=False, reason="deferred check under service_role")
+    assert _evidence_rows(s) == "0"
+    assert _state(s, target)["is_active"] is False
+    assert psql(f"SELECT tgdeferrable AND tginitdeferred FROM pg_trigger "
+                f"WHERE tgrelid = '{s}.{EVIDENCE}'::regclass "
+                "AND tgname = 'trg_staff_privilege_evidence_consumed'") == "t"
+
+
+def test_audit_consumes_old_id_evidence_when_owner_changes_user_id(fresh):
+    s = fresh
+    target, replacement, audit_id = _user(s, "instructor", True), str(uuid4()), str(uuid4())
+    _owner(f"""BEGIN;
+        INSERT INTO {s}.{EVIDENCE}(target_user_id, kind, audit_id, operator)
+        VALUES ('{target}', 'bootstrap', '{audit_id}', 'synthetic owner');
+        UPDATE {s}.users SET id = '{replacement}', is_active = false WHERE id = '{target}';
+        DO $$ BEGIN ASSERT NOT EXISTS (SELECT 1 FROM {s}.{EVIDENCE}); END $$;
+        COMMIT;
+    """)
+    rows = _audit(s, replacement)
+    assert len(rows) == 1 and rows[0]["id"] == audit_id
+    assert rows[0]["event"] == "bootstrap_recovery"
+    assert rows[0]["detail"] == {"operator": "synthetic owner"}
+
+
 def test_bootstrap_writes_one_row_with_forged_settings_ignored(fresh):
     s = fresh
     admin, target = _user(s, "admin", True), _user(s, "admin", True)
@@ -613,6 +661,15 @@ def test_precondition_aborts_and_creates_nothing(missing, marker):
      "REVOKE INSERT ON {s}." + EVIDENCE + " FROM PUBLIC", "staff_privilege_evidence_privileges_wrong"),
     ("ALTER TABLE {s}." + EVIDENCE + " DISABLE ROW LEVEL SECURITY",
      "ALTER TABLE {s}." + EVIDENCE + " ENABLE ROW LEVEL SECURITY", "staff_privilege_evidence_rls_off"),
+    ("ALTER TABLE {s}." + EVIDENCE + " DISABLE TRIGGER trg_staff_privilege_evidence_consumed",
+     "ALTER TABLE {s}." + EVIDENCE + " ENABLE TRIGGER trg_staff_privilege_evidence_consumed",
+     "staff_privilege_evidence_commit_guard_wrong"),
+    ("ALTER FUNCTION {s}.fn_staff_privilege_evidence_consumed() SECURITY INVOKER",
+     "ALTER FUNCTION {s}.fn_staff_privilege_evidence_consumed() SECURITY DEFINER",
+     "staff_privilege_evidence_commit_guard_wrong"),
+    ("GRANT EXECUTE ON FUNCTION {s}.fn_staff_privilege_evidence_consumed() TO service_role",
+     "REVOKE EXECUTE ON FUNCTION {s}.fn_staff_privilege_evidence_consumed() FROM service_role",
+     "staff_privilege_evidence_commit_guard_wrong"),
     ("INSERT INTO {s}." + EVIDENCE + " (target_user_id, kind, audit_id) VALUES (gen_random_uuid(), 'rpc', "
      "gen_random_uuid())", "DELETE FROM {s}." + EVIDENCE, "staff_privilege_evidence_not_empty"),
     ("ALTER TABLE {s}.users DISABLE TRIGGER trg_users_suspension_role_guard",
@@ -633,11 +690,23 @@ def test_precondition_aborts_and_creates_nothing(missing, marker):
      "ai_model_override_audit_trigger_missing"),
     *[(f"GRANT {priv} ON {{s}}.users TO {role}",
        f"REVOKE {priv} ON {{s}}.users FROM {role}", f"users_client_role_privileges_wrong: {role}:{priv}")
-      for role in ("anon", "authenticated") for priv in ("TRIGGER", "REFERENCES", "TRUNCATE")],
+      for role in ("anon", "authenticated")
+      for priv in ("TRIGGER", "REFERENCES", "TRUNCATE", "INSERT", "UPDATE", "DELETE")],
+    *[(f"GRANT {priv}(id) ON {{s}}.users TO {role}",
+       f"REVOKE {priv}(id) ON {{s}}.users FROM {role}", f"users_client_role_privileges_wrong: {role}:{priv}")
+      for role in ("anon", "authenticated") for priv in ("INSERT", "UPDATE", "REFERENCES")],
+    ("GRANT REFERENCES(id) ON {s}.users TO service_role",
+     "REVOKE REFERENCES(id) ON {s}.users FROM service_role", "users_service_role_privileges_wrong"),
 ])
 def test_postcondition_block_aborts_on_drift(db, tamper, revert, marker):
     s = db
     _owner(_postcondition_sql(s))   # clean state passes
+    if marker == "staff_privilege_evidence_not_empty":
+        # P3-2 now forbids committing the fixture row. Keep the same drift
+        # assertion inside its inserting transaction, before the commit guard.
+        assert marker in _fails(_owner, f"BEGIN; {tamper.format(s=s)}; {_postcondition_sql(s)}; COMMIT;")
+        assert _evidence_rows(s) == "0"
+        return
     _owner(tamper.format(s=s))
     try:
         if marker.startswith("users_client_role_privileges_wrong:"):
@@ -646,6 +715,43 @@ def test_postcondition_block_aborts_on_drift(db, tamper, revert, marker):
     finally:
         _owner(revert.format(s=s))
     _owner(_postcondition_sql(s))
+
+
+@pytest.mark.parametrize("role", ["anon", "authenticated", "service_role"])
+def test_postcondition_refuses_users_privileges_via_set_role(db, role):
+    """SA-R4-1: NOINHERIT membership still permits SET ROLE on PG16/17."""
+    s, group = db, "guc341_member_" + uuid4().hex
+    psql(f"CREATE ROLE {group} NOSUPERUSER NOLOGIN")
+    try:
+        _owner(f"GRANT USAGE ON SCHEMA {s} TO {group}; GRANT TRUNCATE ON {s}.users TO {group}")
+        psql(f"GRANT {group} TO {role} WITH INHERIT FALSE, SET TRUE")
+        assert psql(f"SELECT has_table_privilege('{role}', '{s}.users', 'TRUNCATE')") == "f"
+        assert psql(f"BEGIN; SET LOCAL ROLE {role}; SET LOCAL ROLE {group}; "
+                    f"SELECT has_table_privilege(current_user, '{s}.users', 'TRUNCATE'); ROLLBACK") == "t"
+        marker = ("users_service_role_privileges_wrong" if role == "service_role"
+                  else "users_client_role_privileges_wrong")
+        assert marker in _fails(_owner, _postcondition_sql(s))
+        assert marker in _fails(_owner, _migrated(s))
+    finally:
+        psql(f"REVOKE {group} FROM {role}")
+        _owner(f"REVOKE ALL ON {s}.users FROM {group}; REVOKE USAGE ON SCHEMA {s} FROM {group}")
+        psql(f"DROP ROLE {group}")
+
+
+def test_migration_checks_ignore_attacker_privilege_overload(fresh):
+    """SA-R4-3: an exact text overload must never run as the migration owner."""
+    s = fresh
+    _owner(f"GRANT CREATE ON SCHEMA {s} TO service_role")
+    _svc(f"""CREATE FUNCTION {s}.has_table_privilege(text, text, text) RETURNS boolean
+        LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'attacker_overload_called'; END $$;
+        GRANT EXECUTE ON FUNCTION {s}.has_table_privilege(text,text,text) TO PUBLIC;
+    """)
+    _owner(f"GRANT TRIGGER ON {s}.users TO anon, authenticated, service_role")
+    # SET ROLE leaves the runner's search_path unchanged, as on hosted PG.
+    for sql in (_postcondition_sql(s), _migrated(s)):
+        error = _fails(_owner, f"SET search_path = {s}, pg_catalog; {sql}")
+        assert "attacker_overload_called" not in error
+        assert "users_" in error and "privileges_wrong" in error
 
 
 def test_postcondition_refuses_maintain_on_pg17(db):

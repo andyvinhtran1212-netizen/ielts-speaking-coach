@@ -254,8 +254,22 @@ def _require_pg() -> None:
       IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='{OWNER}') THEN
         CREATE ROLE {OWNER} NOSUPERUSER NOLOGIN NOBYPASSRLS;
       END IF;
+      ASSERT (SELECT count(*) FROM pg_roles
+               WHERE rolname IN ('anon', 'authenticated', 'service_role', '{OWNER}') AND NOT rolsuper) = 4,
+             'API roles and migration owner must be NOSUPERUSER (SA P3-4)';
     END $$;""")
     psql("ALTER ROLE service_role BYPASSRLS")
+
+
+@pytest.mark.parametrize("role", ["anon", "authenticated", "service_role"])
+def test_harness_refuses_superuser_api_roles(role):
+    _require_pg()
+    psql(f"ALTER ROLE {role} SUPERUSER")
+    try:
+        with pytest.raises(RuntimeError, match="API roles and migration owner must be NOSUPERUSER"):
+            _require_pg()
+    finally:
+        psql(f"ALTER ROLE {role} NOSUPERUSER")
 
 
 def _build(schema: str, *, guard_320: bool = True) -> None:
