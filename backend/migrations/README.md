@@ -19,10 +19,12 @@ and must not be "filled in" by tooling:
 
 ## Finding the next number
 
-Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-31 the highest is `360`, allocated by the
-Leader to PC-J192 (INSTRUCTORGIVE-0044), so by that rule the next new
-migration is `361`. Ask the Leader before taking it; 348–351 are reserved for other
+Take the max numeric prefix across `*.sql` and open work and add 1 — do **not**
+assume the sequence is dense. In this branch the highest is `362`.
+PC-J522 starts from staging's maximum `360`; `361` is held
+by the in-flight PC-J358 follow-up (`1pd`, PR #2180). `362` is the PC-J522
+BUCKET50 correction below, so the next new migration is `363` after checking
+open PRs and reservations. Ask the Leader before taking it; 348–351 are reserved for other
 work, and 353–359 without a file here may be held by open PRs: none may be
 reused.
 The runner applies any unapplied file regardless of order.
@@ -131,6 +133,17 @@ Group `storage_bucket_limits` in `forward-policy.tsv`: no apply on merge;
 Leader applies staging under the advisory lock. Production census and apply
 require Vinh's separate approval at promotion; verify rollback values first.
 The project-wide cap still applies (staging 50 MiB).
+
+Migration `362` (PC-J522, STORAGELIMITS-0038; BUCKET50 a, Vinh t1246u
+02/11 06:37) follows immutable 343, confirmed in the staging ledger at
+2026-11-02 01:51:21Z. It sets only `listening-audio.file_size_limit` to
+`52428800` (50 MiB); all MIME types, visibility, other buckets and objects
+are unchanged. One transaction, 5 s lock timeout, idempotent; a missing bucket
+or failed postcondition aborts. The header down script restores the historical
+343 limit only. Same `pending_feature storage_bucket_limits` group: no apply
+on merge; Leader applies staging under the advisory lock, then checks the
+bucket value and uploads up to 50 MiB. Production remains uninspected and
+requires separate owner authorization at promotion.
 
 Migration `347` (PC-J163) revokes ALL on `listening_tests` from `PUBLIC`,
 `anon` and `authenticated` (MAINTAIN included on PG 17). 295 closed the other
