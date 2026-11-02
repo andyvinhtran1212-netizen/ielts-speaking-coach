@@ -403,7 +403,7 @@ await scenario('Step-up trên dialog Tạm khóa / Mở khóa: chỉ dùng bàn 
 
 await scenario('/admin/mfa từ chối non-admin', { role: 'user' }, async (page, state) => {
   await page.goto(`${BASE}/admin/mfa`, { waitUntil: 'domcontentloaded' });
-  await page.getByText('🔒 Admin Access Required').waitFor({ state: 'visible' });
+  await page.getByText('🔒 Trang này chỉ dành cho quản trị viên').waitFor({ state: 'visible' });
   check('non-admin thấy trạng thái bị từ chối, có link về /home', await page.locator('#state-denied a[href="/home"]').count() === 1);
   check('non-admin không đọc trạng thái MFA hay factor', !state.requests.some((item) => item.path === '/admin/mfa/status' || item.path === '/auth/v1/user'));
 });
