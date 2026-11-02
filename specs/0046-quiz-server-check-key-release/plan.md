@@ -30,6 +30,8 @@ the function names are the anchors.
     Course play payload (`answers_sealed`, `word_cards`);
   - `close_dead_course_sessions` and the FR-013 seal close through the
     same counting function;
+  - `_record_quiz_kp_evidence` skipped for rows of a single_attempt
+    Course item (FR-006, FR-019);
   - `get_bank_for_play`: `answer_word_count` and `text_match_eligible`
     on every bank from rollout step A (FR-010 build, keys still present);
     self-study projection without key fields only in step B (FR-009, after
@@ -412,6 +414,7 @@ without FR-019), T011 (REST rows).
 | "Bài của tôi" item rows (`class_student`) | `state`, `submitted_at`, `passed_at`, `course_action` | No | unchanged |
 | same | `score` | Whole-item verdict result after hand-in (Q-9); per-session score no longer written | FR-008 |
 | `GET /api/student/home-summary` | `quiz_sessions` count | No | unchanged |
+| `GET /api/me/kp-mastery`, `GET /api/me/roadmap` | `items[].score`/status per grammar KP | **Yes** today for a grammar-linked Course question (`log_progress` records ±1 from the server verdict) | no KP evidence from single_attempt rows (FR-006) |
 | Supabase REST, learner JWT | `quiz_attempts` rows | Yes | no row (FR-017) |
 | same | `quiz_sessions` rows (`total_correct`, `accuracy`) | **Yes** (staging: `SELECT` granted) | no row (FR-017) |
 | same | `quiz_questions`; `class_assignment_items` | No row (RLS without policy; no grant, staging 02/11) | unchanged |
@@ -419,7 +422,8 @@ without FR-019), T011 (REST rows).
 ### Persistence and migration
 
 One migration (Q-8), no new column, table or index; one new function
-and two replaced functions. Data writes go to existing columns
+and four replaced functions (guard, managed end, timed finalize, timed
+insert). Data writes go to existing columns
 (`quiz_attempts`, `quiz_sessions` totals and, for the FR-013 seal,
 `ended_at`/`ended_by`, `class_assignment_items.mastery` jsonb, including
 the new `superseded` list). The unique `client_id` index
@@ -430,18 +434,22 @@ Migration `<next>_course_answer_after_seal_guard.sql` (forward only,
 
 - FR-018: `CREATE OR REPLACE FUNCTION public.guard_single_attempt_course_answer()`,
   same name, trigger and `SECURITY DEFINER`/`search_path` as migration 284.
-  Body: (1) `SELECT ended_at, ended_by, class_assignment_item_id FROM
-  quiz_sessions WHERE id = NEW.session_id FOR SHARE` (every insert);
-  (2) find whether the item is Course without further locks
-  (`class_assignment_items` → `class_assignments`, `skill='course'`);
-  (3) `ended_at` or `ended_by` set → `RAISE EXCEPTION
+  Body: (1) read the session's `class_assignment_item_id` without a lock
+  and find whether its item is Course (`class_assignment_items` →
+  `class_assignments`, `skill='course'`); (2) Course: today's `cai`/`ca`
+  `FOR UPDATE` read; (3) `SELECT ended_at, ended_by,
+  class_assignment_item_id FROM quiz_sessions WHERE id = NEW.session_id
+  FOR SHARE` (every insert; for Course, re-check the item id is
+  unchanged); (4) `ended_at` or `ended_by` set → `RAISE EXCEPTION
   'course_session_closed'` (Course) or `'quiz_session_closed'` (any other
   session) `USING ERRCODE = '55000'`; not Course → `RETURN NEW`;
-  (4) Course: today's `cai`/`ca` `FOR UPDATE` read and single_attempt
-  rules. Lock order
-  `qs` → `cai` → `ca`, as `quiz_insert_timed_course_attempts` (migration
-  279, `FOR UPDATE OF qs, cai, ca, scm`). Existing writers stay valid: the
-  timed progress RPC (279) and `quiz_finalize_timed_course_session` (275)
+  (5) Course: today's single_attempt rules. Lock order: item before
+  session (FR-018), as `quiz_start_timed_course_session` (migration 270,
+  `cai`/`ca`/`scm` then the existing `qs`). Inside the timed RPCs the
+  guard re-takes locks its transaction already holds. Previous text
+  (`qs` → `cai` → `ca`, "as migration 279") is withdrawn: 270 takes the
+  opposite order (Codex self-review R10). Existing writers stay valid: the
+  timed progress RPC (279) and `quiz_finalize_timed_course_session` (276)
   insert while the session is still open and end it later in the same
   transaction; untimed `/progress` already refuses ended sessions at
   admission; self-study `/progress` and `/check` refuse an ended session
@@ -451,6 +459,18 @@ Migration `<next>_course_answer_after_seal_guard.sql` (forward only,
   `log_progress`, `/check`); one that inserts into an ended session is a
   STOP. Re-issue the migration 285 `REVOKE ALL … FROM PUBLIC, anon,
   authenticated` on the function.
+- FR-018 lock order: `CREATE OR REPLACE` of
+  `quiz_finalize_timed_course_session` (from its latest definition,
+  migration 276) and `quiz_insert_timed_course_attempts` (migration 279)
+  with the same signatures, grants and results; only the lock sequence
+  changes to item first: unlocked read of the session's item id →
+  `cai`/`ca` (`scm` for 279) `FOR UPDATE` → `qs` `FOR UPDATE` → re-check
+  the session's item and owner (mismatch → the function's existing
+  not-accessible exception). After this, every transaction that locks
+  both takes the item first: 270 start/adopt, 276 finalize, 279 insert,
+  the FR-018 guard and the session-insert guard
+  (`guard_single_attempt_course_session`, item only). The FR-008 close
+  functions and the managed RPCs lock no Course item row.
 - FR-008: `CREATE FUNCTION public.quiz_close_sessions_counted(p_user uuid,
   p_session_ids uuid[], p_ended_by text, p_summary jsonb) RETURNS SETOF
   public.quiz_sessions`, `SECURITY DEFINER`, `search_path=public,pg_temp`,
@@ -478,7 +498,8 @@ Migration `<next>_course_answer_after_seal_guard.sql` (forward only,
   public.quiz_sessions FROM anon, authenticated;`. Precedent:
   `347_listening_tests_client_revoke.sql`.
 - Rollback file: restores the migration 284 guard body, the latest
-  `grammar_quiz_end_service` body, both policies and grants, and drops
+  `grammar_quiz_end_service`, 276 finalize and 279 insert bodies, both
+  policies and grants, and drops
   `quiz_close_sessions_counted` (roll back the code that calls it first).
   Rolling back FR-018 reopens the late-row race and the totals race;
   rollback is for a broken insert path only.
@@ -499,6 +520,12 @@ Migration `<next>_course_answer_after_seal_guard.sql` (forward only,
   pair for `quiz_close_sessions_counted` with a legacy self-study insert
   and with an untimed Course insert, and for the seal over two open
   sessions with an insert held in each (no deadlock, both counted).
+  Lock order (Codex self-review R10, red first for the 270/276 pair on
+  the current schema): concurrent timed adopt (270) vs finalize (276),
+  adopt vs timed insert (279), untimed Course insert vs seal, and finalize
+  vs seal, each run with both start orders under a `lock_timeout` → no
+  `40P01` deadlock and both complete or one gets its existing business
+  error.
 
 If the build finds that any FR needs another column, table, index or RPC
 change, it STOPs and reports to PC/Leader (ticket rule).
@@ -515,7 +542,9 @@ change, it STOPs and reports to PC/Leader (ticket rule).
   after an end, which old admission already refuses) fails as a 500 with
   nothing stored. Old code with the replaced `grammar_quiz_end_service`
   stores counted totals instead of the client's: the intended FR-008
-  result. Old code never calls `quiz_close_sessions_counted`.
+  result. Old code never calls `quiz_close_sessions_counted`. The
+  re-sequenced timed finalize and insert RPCs keep their signatures,
+  errors and results, so old and new code call them unchanged.
 - New backend + old frontend: GET still carries keys until the separate
   FR-009 PR lands (step B in `rollout.md`); `/progress` ignores the client flag, so
   stored truth is correct; the old player still grades locally for display.

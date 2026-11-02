@@ -55,7 +55,9 @@ on `staging` (merged `c7ed31b32`).
   legacy and Course; red with the 309 end RPC: stale 9/9 after a committed
   tenth row); a repeated end returns the same totals; missing qid → 422 not
   500; single_attempt write after `due_at` → 409; single_attempt end writes
-  no item `score`. `owns: backend/services/quiz_service.py
+  no item `score`; a single_attempt answer on a grammar-linked question
+  records no KP evidence (`/api/me/kp-mastery` unchanged), a mastery and a
+  self-study one still do. `owns: backend/services/quiz_service.py
   (log_progress, end_session, close_dead_course_sessions),
   backend/tests/test_quiz_server_grading.py` `depends: T002, T011`
 - [ ] T005 Player on server verdicts (FR-010): engine record/apply split,
@@ -112,9 +114,13 @@ on `staging` (merged `c7ed31b32`).
   `anon`/`authenticated`; inserts into open self-study, non-Course homework
   and managed Grammar sessions still store; the timed progress and
   finalize RPCs still store their rows; two concurrent inserts in sessions
-  of one item and a seal over both do not deadlock. Rollback file
-  restores the migration 284 body, the latest end-RPC body, policies and
-  grants, and drops the new function. Staging apply through the locked
+  of one item and a seal over both do not deadlock; lock order item →
+  session in the replaced 276 finalize and 279 insert: concurrent timed
+  adopt (270) vs finalize and vs insert, untimed insert vs seal, finalize
+  vs seal, both start orders, no `40P01` (red first for 270 vs 276 on the
+  current schema). Rollback file restores the migration 284 body, the
+  latest end-RPC, 276 and 279 bodies, policies and grants, and drops the
+  new function. Staging apply through the locked
   runner before T004 merges.
   `owns: backend/migrations/<next>_course_answer_after_seal_guard.sql,
   backend/migrations/rollback/<next>_course_answer_after_seal_guard.sql,
@@ -134,7 +140,8 @@ on `staging` (merged `c7ed31b32`).
   response-field table (end response incl. the unchanged-replay of an
   ended session, `/api/quiz/progress` with and without `skill_area` incl.
   `avg_accuracy`, `/course-resume`, bank payload `answers_sealed` and
-  `word_cards`, `/course/report`, `/mistakes`, "Bài của tôi") is identical
+  `word_cards`, `/course/report`, `/mistakes`, "Bài của tôi",
+  `/api/me/kp-mastery`, `/api/me/roadmap` on a grammar-linked question) is identical
   between the two runs and has `null` totals; no item `score` written by
   the end; after release the totals show; teacher views show them
   throughout.

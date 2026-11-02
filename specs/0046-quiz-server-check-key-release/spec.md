@@ -172,8 +172,10 @@ Người dùng sẽ thấy gì sau thay đổi này:
   session row lock and refuses a row for an ended session (Course and
   self-study), so no answer can be stored after a seal or an end
   (FR-018); one counting close function for the Python ends and the
-  managed Grammar end RPC count totals under that lock (FR-008); learners
-  lose direct REST `SELECT` on `quiz_attempts` and `quiz_sessions`
+  managed Grammar end RPC count totals under that lock (FR-008); one
+  item-before-session lock order, which re-sequences the locks of the
+  timed finalize and timed insert RPCs (FR-018); learners lose direct
+  REST `SELECT` on `quiz_attempts` and `quiz_sessions`
   (FR-017).
 
 ## Non-goals
@@ -303,7 +305,12 @@ Người dùng sẽ thấy gì sau thay đổi này:
   single_attempt Course item that is not handed in, `/progress` is refused
   (409) once the assignment no longer accepts submissions
   (`is_accepting_submissions` false), so no answer can be stored after the
-  key may have opened.
+  key may have opened. KP evidence (`_record_quiz_kp_evidence`, ±1 per
+  stored answer on a question with `grammar_article_slug`) is recorded
+  for self-study and mastery Course rows only, never for a row of a
+  single_attempt Course item (FR-019; it would make `/api/me/kp-mastery`
+  and `/api/me/roadmap` a correctness oracle; not deferred to release,
+  Q-10).
 - **FR-007:** (time-cap path) `end_session` with `ended_by='time_cap'` and a
   final batch forwards only what the verification-only RPC needs
   (`client_id` and row identity); the client flag is never forwarded or used
@@ -524,14 +531,28 @@ Người dùng sẽ thấy gì sau thay đổi này:
 - **FR-018:** (no answer stored after a seal) the existing `BEFORE INSERT`
   trigger function on `quiz_attempts`
   (`guard_single_attempt_course_answer`, migration 284) is replaced so
-  that, for **every** insert, it first takes `FOR SHARE` on the row's
-  `quiz_sessions` row in its own statement (the same `qs` → `cai` → `ca`
-  lock order as the timed insert RPC, migration 279) and raises when that
-  row has `ended_at` or `ended_by` set: `course_session_closed` (ERRCODE
-  `55000`) for a session whose item belongs to an assignment with
-  `skill='course'` (any `completion_mode`, timed or not), else
-  `quiz_session_closed` (same ERRCODE). For a Course session it then keeps
-  today's `cai`/`ca` lock and single_attempt rules. Because the seal, a
+  that, for **every** insert, it takes `FOR SHARE` on the row's
+  `quiz_sessions` row and raises when that row has `ended_at` or
+  `ended_by` set: `course_session_closed` (ERRCODE `55000`) for a session
+  whose item belongs to an assignment with `skill='course'` (any
+  `completion_mode`, timed or not), else `quiz_session_closed` (same
+  ERRCODE). For a Course session it first takes today's `cai`/`ca`
+  `FOR UPDATE` and only then the session share lock, then applies
+  today's single_attempt rules. **Lock order** (one order for every
+  transaction that locks both an item and a session): item rows
+  (`cai` → `ca` → `scm`) before `quiz_sessions` rows, as the timed
+  start/adopt RPC (migration 270) already does. The migration replaces
+  the two writers that lock the session first today: the timed finalize
+  (`quiz_finalize_timed_course_session`, latest definition migration
+  276: `qs` then `cai`/`ca`) and the timed insert
+  (`quiz_insert_timed_course_attempts`, migration 279: one `FOR UPDATE OF
+  qs, cai, ca, scm`, whose row order is the plan's): each reads the
+  session's item id without a lock, locks the item rows, then locks the
+  session `FOR UPDATE` and re-checks that it still belongs to that item
+  (else its existing not-accessible error). Logic, errors and results
+  are otherwise unchanged. The FR-008 close functions lock session rows
+  only (several in id order) and no item row, so they cannot close a
+  cycle with an item-first transaction. Because the seal, a
   normal end, the managed end RPC and the dead-session sweep all lock that
   row `FOR UPDATE` before closing it (FR-008), each one waits for
   in-flight inserts to commit, counts them, and every insert after it is
@@ -574,7 +595,10 @@ Người dùng sẽ thấy gì sau thay đổi này:
   `total`, `pct`, the item `score` on "Bài của tôi" and the bank
   payload's attempt history), one value per learner, written once at
   hand-in over every question of the bank, after which no answer of that
-  learner can change (Q-9).
+  learner can change (Q-9). Side channels count as outputs: no KP
+  evidence is recorded from a single_attempt row (FR-006), so
+  `/api/me/kp-mastery` and `/api/me/roadmap` do not move with its
+  correctness.
 
 ## Acceptance scenarios
 
@@ -827,7 +851,9 @@ Decisions the job recommends; Vinh confirms by approving this spec.
 - **Q-8 (migration, CR R9, R10):** earlier drafts said "no migration".
   Closing the late-row race, the totals race and the direct REST reads
   needs one: the FR-018 trigger function replacement (now covering every
-  session), the FR-008 `quiz_close_sessions_counted` function and
+  session) with one item-before-session lock order (which also
+  re-sequences the locks of the timed finalize and timed insert RPCs),
+  the FR-008 `quiz_close_sessions_counted` function and
   `grammar_quiz_end_service` replacement, and the FR-017 revokes on
   `quiz_attempts` and `quiz_sessions`. Alternative considered: keep
   late rows and filter them on every read path by recording the scored
@@ -845,3 +871,10 @@ Decisions the job recommends; Vinh confirms by approving this spec.
   for that learner. Recommendation: keep it visible. Alternative: hide
   the score too until release (FR-011), which changes "Bài của tôi" and
   the runner's result screen.
+- **Q-10 (KP evidence from assessments, Codex self-review R10):** a
+  single_attempt answer on a grammar-linked question records no KP
+  evidence at all (FR-006), because the KP mastery and roadmap reads
+  would show its correctness before release. Alternative: record it at
+  release (needs a release-time job or a marker, i.e. stored state; out
+  of scope). Recommendation: none; KP mastery is a practice signal and
+  mastery Course and self-study answers still feed it.
