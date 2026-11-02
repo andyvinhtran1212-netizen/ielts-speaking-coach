@@ -195,7 +195,12 @@ async def availability(authorization: str | None = Header(default=None)) -> Avai
 @router.post("/sessions", response_model=SessionResponse)
 async def create_session(body: SessionCreate, authorization: str | None = Header(default=None)) -> SessionResponse:
     user = await get_supabase_user(authorization)
-    return await asyncio.to_thread(service.create_session, user["id"], **body.model_dump())
+    if body.class_assignment_item_id:
+        # The assigned RPC already serialises under a per-learner DB lock.
+        return await asyncio.to_thread(service.create_session, user["id"], **body.model_dump())
+    # Self-serve reuses the learner's open session; keep that check-then-insert
+    # serial with the learner's other writes.
+    return await _learner_write(user["id"], service.create_session, user["id"], **body.model_dump())
 
 
 @router.get("/sessions", response_model=SessionListResponse)
