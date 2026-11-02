@@ -20,6 +20,7 @@ acceptance, postconditions and forward-only repair in `spec.md`, `plan.md`
 and `rollout.md` (1gs items 1, 2, 5–8). FR-001..FR-004, approved status,
 risk and product behavior are unchanged. Item 4 remains cancelled under
 PC-J401; this amendment changes no migration or code.
+Amendment changelog — PC-J557: làm rõ câu hậu điều kiện `session_replication_role` theo 356 R3; FR không đổi.
 Spec number 0041 and migration number **356**: assigned by the Leader
 (migration 356 on 2026-10-30 08:27 UTC+7).
 Origin: Security Auditor notes P3-SA-1, P3-SA-2 and P3-SA-3 on #2022
