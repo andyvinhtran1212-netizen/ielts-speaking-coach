@@ -346,6 +346,7 @@ def test_d4_submit_fails_closed_on_unparseable_started_at():
     }
     test_row = {"id": "t-uuid", "test_id": "T1", "time_limit_minutes": 60, "module": "academic"}
     mock_db.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.side_effect = [
+        MagicMock(data=[attempt_row]),  # ownership preflight before locking
         MagicMock(data=[attempt_row]),
         MagicMock(data=[test_row]),
     ]
@@ -376,6 +377,7 @@ def test_d4_submit_fails_closed_on_missing_started_at():
     }
     test_row = {"id": "t-uuid", "test_id": "T1", "time_limit_minutes": 60, "module": "academic"}
     mock_db.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.side_effect = [
+        MagicMock(data=[attempt_row]),  # ownership preflight before locking
         MagicMock(data=[attempt_row]),
         MagicMock(data=[test_row]),
     ]
