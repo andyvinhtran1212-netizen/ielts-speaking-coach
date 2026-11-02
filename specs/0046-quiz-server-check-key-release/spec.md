@@ -310,7 +310,7 @@ Người dùng sẽ thấy gì sau thay đổi này:
   for self-study and mastery Course rows only, never for a row of a
   single_attempt Course item (FR-019; it would make `/api/me/kp-mastery`
   and `/api/me/roadmap` a correctness oracle; not deferred to release,
-  Q-10).
+  Q-10 answered: bỏ).
 - **FR-007:** (time-cap path) `end_session` with `ended_by='time_cap'` and a
   final batch forwards only what the verification-only RPC needs
   (`client_id` and row identity); the client flag is never forwarded or used
@@ -404,7 +404,8 @@ Người dùng sẽ thấy gì sau thay đổi này:
   unchanged. (Checked: Reading/Listening solution routes cannot apply because
   single_attempt is MCQ-only. Per-session totals are correctness too and
   follow FR-019; the whole-item hand-in score is the only correctness
-  count a learner sees before release, see FR-019 and Q-9.)
+  count a learner sees before release, see FR-019 and Q-9 (answered:
+  giữ).)
 - **FR-012:** (sealed-after-hand-in state) while FR-011 keeps a handed-in
   item sealed, `/course/report` returns `sealed: true`, `handed_in: true`,
   `answers_release_at` (the `due_at`, or null) and `release_rule`
@@ -595,8 +596,8 @@ Người dùng sẽ thấy gì sau thay đổi này:
   `total`, `pct`, the item `score` on "Bài của tôi" and the bank
   payload's attempt history), one value per learner, written once at
   hand-in over every question of the bank, after which no answer of that
-  learner can change (Q-9). Side channels count as outputs: no KP
-  evidence is recorded from a single_attempt row (FR-006), so
+  learner can change (Q-9, answered: giữ). Side channels count as outputs: no KP
+  evidence is recorded from a single_attempt row (FR-006, Q-10), so
   `/api/me/kp-mastery` and `/api/me/roadmap` do not move with its
   correctness.
 
@@ -822,6 +823,8 @@ Người dùng sẽ thấy gì sau thay đổi này:
 ## Open questions
 
 Decisions the job recommends; Vinh confirms by approving this spec.
+Q-9 and Q-10 were answered by Vinh on 03/11 (t1312u, Leader báo); Q-8
+(migration) stays open.
 
 - **Q-1 (QĐ-5):** QĐ-5 accepted a client-visible key so the browser could
   grade instantly and reveal the key on grading. This spec keeps the
@@ -860,21 +863,27 @@ Decisions the job recommends; Vinh confirms by approving this spec.
   attempt ids in each ledger entry. Rejected: it needs the same filter in
   four read paths, cannot cover the direct REST read, and depends on
   per-row bookkeeping instead of one lock. Recommendation: the migration.
-- **Q-9 (whole-item score before release, CR R10):** FR-019 withholds
-  every per-session count, but keeps the item's hand-in result
-  (`/course/verdict` `pct`, the "Bài của tôi" score) visible right after
-  hand-in, as today (FR-012). It is one count over the whole bank,
-  written once, after which the learner cannot answer again; it already
-  exists today (the verdict regrades from `answer_given`), so this spec
-  does not create it. An extreme hand-in (a timed item that expires
-  with one answer stored) makes it equal to one question's correctness
-  for that learner. Recommendation: keep it visible. Alternative: hide
-  the score too until release (FR-011), which changes "Bài của tôi" and
-  the runner's result screen.
-- **Q-10 (KP evidence from assessments, Codex self-review R10):** a
-  single_attempt answer on a grammar-linked question records no KP
-  evidence at all (FR-006), because the KP mastery and roadmap reads
-  would show its correctness before release. Alternative: record it at
-  release (needs a release-time job or a marker, i.e. stored state; out
-  of scope). Recommendation: none; KP mastery is a practice signal and
-  mastery Course and self-study answers still feed it.
+  **Q-8 vẫn mở:** phạm vi migration (thay `grammar_quiz_end_service`, RPC
+  timed finalize/insert, thêm `quiz_close_sessions_counted`, revoke
+  FR-017) cần anh Vinh duyệt riêng khi có PR migration. Not approved by
+  the 03/11 decision below.
+- **Q-9 (whole-item score before release, CR R10): ĐÃ TRẢ LỜI (Vinh
+  t1312u 03/11 02:16 UTC+7, Leader báo): giữ.** The item's whole-item
+  hand-in result (`/course/verdict` `correct`/`total`/`pct`, the
+  `mastery.attempts` history, the "Bài của tôi" `score`) stays visible
+  right after hand-in, before release, as today (FR-012). FR-019 still
+  withholds every per-session count. It is one count over the whole
+  bank, written once, after which the learner cannot answer again; it
+  already exists today (the verdict regrades from `answer_given`), so
+  this spec does not create it. An extreme hand-in (a timed item that
+  expires with one answer stored) makes it equal to one question's
+  correctness for that learner; accepted. Hiding the score until
+  release is no longer an option of this spec.
+- **Q-10 (KP evidence from assessments, Codex self-review R10): ĐÃ TRẢ
+  LỜI (Vinh t1312u 03/11 02:16 UTC+7, Leader báo): bỏ.** A
+  single_attempt answer records no KP evidence at all (FR-006), before
+  or after release; `/api/me/kp-mastery` and `/api/me/roadmap` never
+  show the correctness of a single_attempt answer. Recording it at
+  release (a release-time job or a marker, i.e. stored state) is out of
+  scope. KP mastery stays a practice signal fed by mastery Course and
+  self-study answers. Decision: no KP evidence from single_attempt rows.

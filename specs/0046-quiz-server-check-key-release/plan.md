@@ -374,8 +374,10 @@ staging privilege check of 02/11 18:35 (read-only). Teacher/admin paths
 (`assignment_id`, admin views) are out of the learner threat model and
 unchanged. Tests: T007 (`test_single_attempt_key_release.py`, one probe
 per row: a single stored answer, right in one run and wrong in the
-other, must give byte-identical learner bodies; red against FR-008
-without FR-019), T011 (REST rows).
+other, must give byte-identical learner bodies, except the whole-item
+hand-in result after hand-in (rows marked Q-9 below; Q-9 answered: giữ);
+`/api/me/kp-mastery` and `/api/me/roadmap` stay byte-identical (Q-10
+answered: bỏ); red against FR-008 without FR-019), T011 (REST rows).
 
 | Endpoint | Field | Leaks before release? | Rule after this change |
 | --- | --- | --- | --- |

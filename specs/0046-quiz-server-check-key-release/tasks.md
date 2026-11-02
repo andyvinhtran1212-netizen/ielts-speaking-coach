@@ -142,9 +142,18 @@ on `staging` (merged `c7ed31b32`).
   `avg_accuracy`, `/course-resume`, bank payload `answers_sealed` and
   `word_cards`, `/course/report`, `/mistakes`, "Bài của tôi",
   `/api/me/kp-mastery`, `/api/me/roadmap` on a grammar-linked question) is identical
-  between the two runs and has `null` totals; no item `score` written by
-  the end; after release the totals show; teacher views show them
-  throughout.
+  between the two runs and has `null` totals, with one exemption (CR R11
+  P3-1, Q-9 answered: giữ): after hand-in the whole-item hand-in result
+  may differ between the right and the wrong run — `/course/verdict`
+  `correct`/`total`/`pct` at hand-in, the `mastery.attempts` entry of the
+  bank payload and the "Bài của tôi" item `score` after hand-in; the
+  test compares every other field of those bodies and asserts the
+  per-session totals stay `null`; before hand-in there is no exemption.
+  `/api/me/kp-mastery` and `/api/me/roadmap` bodies are asserted
+  byte-identical between the two runs, before and after hand-in and
+  after release (Q-10 answered: bỏ, no KP evidence from single_attempt
+  rows); no item `score` written by the end; after release the totals
+  show; teacher views show them throughout.
   `owns: backend/services/quiz_service.py (release helper, review gate,
   mistakes filter, resume, locked-session totals in end_session response
   and student_progress, play payload), course review page,
