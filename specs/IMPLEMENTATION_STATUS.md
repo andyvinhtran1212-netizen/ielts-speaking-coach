@@ -1,7 +1,8 @@
 # Implementation and acceptance status
 
-Reconciled on **2026-09-26** (0000–0008) and **2026-10-31** (0009–0040, staging
-`11bbfd227fbe39815758f4ffa470cffaa7059cb3`). This is a navigation ledger, not a replacement for
+Reconciled on **2026-09-26** (0000–0008), **2026-10-31** (0009–0036, staging
+`11bbfd227fbe39815758f4ffa470cffaa7059cb3`) and **2026-11-02** (0037–0044,
+staging `b636255a6206314aa31e9691a912eee99a535d34`). This is a navigation ledger, not a replacement for
 each feature's tasks or requirement evidence. `implementing` includes an existing
 candidate or deployed implementation with unfinished acceptance. It does not
 authorize activation, paid evaluation, content publication or schema changes.
@@ -59,6 +60,14 @@ moves to `verified` only when every task is ticked and every FR has PASS,
 MANUAL or reasoned N/A evidence in `verification.md` (`validate_specs.py`
 final-status rule).
 
+Rows 0037–0044 were refreshed on 2026-11-02 from their current `tasks.md`,
+`spec.md` and merged PRs present at staging
+`b636255a6206314aa31e9691a912eee99a535d34`, after PC-J541's #2202 merged.
+Their Status column preserves canonical spec metadata; an implementation
+can be merged while that metadata still says `approved`. Task counts include
+T000 where present. Staging application evidence is cited separately from
+unchecked acceptance tasks; this refresh makes no new production claim.
+
 | Spec | Status | Tasks | Implementation on staging / note |
 | --- | --- | --- | --- |
 | [LISTENING80-0009](0009-listening-80-days/verification.md) | implementing (was approved) | 7/10 | #1558 (migration 304). T008–T010 open. |
@@ -90,10 +99,14 @@ final-status rule).
 | [ACTIVATELIMIT-0034](0034-activate-attempt-rate-limit/verification.md) | implementing (was approved) | 6/7 | #1847 (migration 334). T006 11-attempt probe pending. |
 | [INACTIVEWRITE-0035](0035-inactive-learner-rest-write-guard/verification.md) | implementing (was approved) | 4/5 | #1829 (migration 335), tests #1917. T004 REST probes pending. |
 | [ASYNCAUTH-0036](0036-async-db-auth-layer/verification.md) | approved (*deferred*, #2097) | 5/7 | #1857, #1890, #1910, Revision 2 #1929. Status change left to #2097. |
-| [PAPERUPDATEDAT-0037](0037-mock-paper-updated-at-and-hide-warning/verification.md) | implementing (was approved) | 6/7 | #1877 (migration 338). T005 visibility-toggle probe pending; Amendment 1 (FR-006, #2014): migration 353 not merged. |
-| [STORAGELIMITS-0038](0038-storage-bucket-limits/verification.md) | approved (*deferred*, #2107) | 1/5 | No implementation merged; migration 343 is in open #2107. |
-| [RLSCLEANUP-0039](0039-rls-admin-policy-cleanup/verification.md) | approved (*deferred*, #2117) | 1/5 | No implementation merged; migration 344 is in open #2117. |
-| [VOCABGUARD-0040](0040-vocab-curated-published-child-guard/verification.md) | approved | 0/3 | No implementation merged; migration 355 is in open #2114. |
+| [PAPERUPDATEDAT-0037](0037-mock-paper-updated-at-and-hide-warning/verification.md) | implementing | 6/7 | #1877 (migration 338) merged; T005 QA visibility-toggle probe remains open. Amendments FR-006 (#2014) and FR-007 (#2193) merged as specs; migration 353 implementation remains in open #2204. |
+| [STORAGELIMITS-0038](0038-storage-bucket-limits/verification.md) | approved; implementation merged | 2/5 | #2107 (migration 343, upload limits) merged. Migration register records staging apply on 2026-11-02 08:51 UTC+7; T003 full staging acceptance, T004 production and T005 wording review remain unchecked. Open #2188 carries the Listening bucket-cap follow-up (migration 362). |
+| [RLSCLEANUP-0039](0039-rls-admin-policy-cleanup/verification.md) | approved; implementation merged | 3/5 | #2117 (migration 344) merged. T003 staging apply and read-only catalog/ACL comparison recorded in [tasks](0039-rls-admin-policy-cleanup/tasks.md): ledger 2026-11-02 01:49:14Z, 21 tables retain RLS, no helper/BL-11 policies or client privileges; later 356 explains the reduced class-action-log ACL. T004 learner/instructor JWT probes and T005 production remain unchecked. |
+| [VOCABGUARD-0040](0040-vocab-curated-published-child-guard/verification.md) | approved; implementation merged | 1/3 | #2114 (migration 355) merged; #2202 reconciled T001. Migration register records staging apply on 2026-11-01 17:37 UTC+7; T002 staging function-body postcheck and T003 production remain unchecked. |
+| [CALAPPEND-0041](0041-class-action-log-append-only/verification.md) | approved; implementation merged | 0/3 | #2173 (migration 356) merged; #2189 amended rollout/SA acceptance. Read-only staging ledger records 356 at 2026-11-02 11:47:54Z, after 344. T001 implementation checklist remains unreconciled; T002 complete staging/SA acceptance and T003 production remain unchecked. |
+| [SVCPRIV-0042](0042-service-role-table-maintenance-revoke/verification.md) | approved | 1/6 | Approval #2170 and ordering clarification #2200 merged; only T000 is checked. T001 table-maintenance revoke remains open; schema CREATE migration 357 (#2196, T005) and routine search-path migration 358 (#2201, T004) remain open PRs. T002/T003 staging/production acceptance is unchecked. |
+| [LESSONREPORT-0043](0043-course-assessment-lesson-report/verification.md) | approved | 1/9 | Spec-only #2075 merged; only T000 approval is checked. T001–T006 implementation and T007–T008 staging/security acceptance remain open; no lesson-report implementation is recorded in the staging tree. |
+| [INSTRUCTORGIVE-0044](0044-instructor-give-idempotency/verification.md) | approved; implementation merged | 6/8 | Approval #2121 and implementation #2125 (migration 360, backend/frontend idempotency) merged; #2202 reconciled T001–T006. T007 complete staging S1–S4/AT retest and T008 production P1–P2 acceptance remain unchecked. Migration application alone does not close these gates. |
 
 ## Closing a row
 
