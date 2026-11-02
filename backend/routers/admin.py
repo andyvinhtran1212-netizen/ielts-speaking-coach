@@ -39,7 +39,7 @@ from models.grammar_content import GrammarArticleDocument
 from database import supabase_admin
 from services.async_pg_engine import create_asyncpg_engine
 from services.class_assignment_service import sync_class_item_score
-from services.errors import clip_user_value, clip_user_values
+from services.errors import clip_user_value, clip_user_values, new_ref
 from services.core_attempt_observation import bind_owned_attempt, note_operation_failure, observe_operation
 from services.class_membership_service import active_memberships_for_students, add_student
 from services import admin_dashboard, ai_usage_logger, test_data_visibility
@@ -3167,13 +3167,16 @@ async def bulk_delete_topics(
                 }
                 for topic_id in undeleted_ids
             ])
-        except Exception as exc:
+        except Exception:
+            ref = new_ref()
+            logger.error("[admin] bulk delete topics failed ref=%s", ref, exc_info=True)
             failed_ids.extend(existing_ids)
             errors.append({
                 "topic_id": None,
                 "topic_title": None,
-                "message": f"Lỗi khi xóa topics: {exc}",
+                "message": "Không xóa được topics, vui lòng thử lại.",
                 "code": "delete_failed",
+                "ref": ref,
             })
 
     return {
@@ -4777,9 +4780,12 @@ async def admin_regrade_session(
         except HTTPException as exc:
             failed_ids.append(resp["id"])
             failed_errors.append(f"{resp['id']}: {exc.detail}")
-        except Exception as exc:
+        except Exception:
+            ref = new_ref()
+            logger.error("[admin/regrade-session] response=%s failed ref=%s",
+                         resp["id"], ref, exc_info=True)
             failed_ids.append(resp["id"])
-            failed_errors.append(f"{resp['id']}: {exc}")
+            failed_errors.append(f"{resp['id']}: Chấm lại thất bại, vui lòng thử lại. (ref={ref})")
 
     # Read persisted truth back after the loop. A grader call can return without
     # producing a usable row, and a response outside the immediate exception
