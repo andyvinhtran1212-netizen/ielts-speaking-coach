@@ -9,14 +9,11 @@
 //
 // The source tests cannot see any of that, so this runs against a real
 // `next build`. It starts its own `next start` on free ports with a fixture
-// API that knows exactly one article (the proxy needs a successful list to
-// call a miss; the shared next-native fixture has none, so the proxy fails
-// open there), then checks the served HTML and a JS-off / JS-on browser.
+// API that knows exactly one article, then checks the served HTML and a
+// JS-off / JS-on browser with and without a working article list.
 //
-// PC-J239 adds a second mode, `categories-503`: the list endpoint fails, so
-// the proxy fails open and the article route itself calls notFound() inside
-// the public-content layout (the soft 404). That layout already links
-// tokens.css, so the Grammar not-found must not link it a second time.
+// PC-J526: `categories-503` must meet the same HTTP/SSR/no-JS contract when
+// the list is unavailable. Keep PC-J239's exactly-once tokens checks too.
 //
 // Usage (from frontend/, after `npm run build`):
 //   node tooling/verify-grammar-404-ssr-flow.mjs                 # both modes
@@ -43,11 +40,7 @@ const WIDTHS = [390, 1280];
 
 // `list-ok`: the fixture lists the one article, so the proxy calls a miss and
 // rewrites it to the root 404 (PC-J230). `categories-503`: the list fails,
-// the proxy fails open, and the article route's own notFound() renders the
-// Grammar not-found inside the public-content layout (PC-J239). That soft 404
-// streams: it answers 200 and its card arrives in the RSC payload, so it shows
-// only with JS. Neither is this mode's subject (that is the proxy's fail-open
-// trade-off); it checks tokens.css stays single once React adds the card.
+// so the proxy must confirm a missing article directly before streaming.
 const MODES = {
   'list-ok': {
     categoriesUp: true,
@@ -59,8 +52,7 @@ const MODES = {
   },
   'categories-503': {
     categoriesUp: false,
-    soft: true,
-    notFound: ['/grammar/tenses/khong-ton-tai'],
+    notFound: ['/grammar/tenses/khong-ton-tai', '/grammar/xyz/abc'],
   },
 };
 const requested = process.argv[2];
@@ -133,6 +125,18 @@ function fixtureApi({ categoriesUp }) {
       response.end(JSON.stringify(ARTICLE_JSON));
       return;
     }
+    if (url.pathname === '/api/grammar/article/tenses/backend-unavailable'
+        || url.pathname === '/api/grammar/home') {
+      response.statusCode = 503;
+      response.end(JSON.stringify({ detail: 'Fixture: content unavailable' }));
+      return;
+    }
+    if (url.pathname.startsWith('/api/grammar/article/')) {
+      // The backend's real article miss (routers/grammar.py get_article).
+      response.statusCode = 404;
+      response.end(JSON.stringify({ detail: `Article '${url.pathname.slice('/api/grammar/article/'.length)}' not found` }));
+      return;
+    }
     response.statusCode = 404;
     response.end(JSON.stringify({ detail: 'No fixture for this endpoint' }));
   });
@@ -140,7 +144,7 @@ function fixtureApi({ categoriesUp }) {
 
 // One fixture API + `next start` per mode: the proxy caches the article list
 // (and backs off after a failed load), so the modes cannot share a server.
-async function runMode(name, { categoriesUp, soft = false, notFound }) {
+async function runMode(name, { categoriesUp, notFound }) {
   console.log(`\n— mode ${name}`);
   const fixture = fixtureApi({ categoriesUp });
   const fixturePort = await listen(fixture);
@@ -168,14 +172,6 @@ async function runMode(name, { categoriesUp, soft = false, notFound }) {
     for (const route of notFound) {
       const res = await fetch(BASE + route, { redirect: 'manual' });
       const html = await res.text();
-      if (soft) {
-        const tokenSheets = (html.match(/<link rel="stylesheet"[^>]*>/g) || []).filter((tag) => tag.includes(`href="${TOKENS}"`));
-        console.log(`  (info) [${name}] ${route}: soft 404 answers ${res.status}`);
-        check(tokenSheets.length === 1, `[${name}] ${route}: tokens.css linked exactly once (${tokenSheets.length})`);
-        check(/<meta name="robots" content="noindex/.test(html), `[${name}] ${route}: noindex`);
-        check(!html.includes('__next_error__'), `[${name}] ${route}: served HTML is not the __next_error__ shell`);
-        continue;
-      }
       // Criteria live in grammar-404-ssr-checks.mjs so the negative fixtures in
       // tests/grammar-404-ssr-checks.test.mjs prove they fail on the J77 shell.
       for (const { ok, label } of notFoundHtmlChecks(route, res.status, html)) check(ok, label);
@@ -188,10 +184,21 @@ async function runMode(name, { categoriesUp, soft = false, notFound }) {
     check(articleHtml.includes(ARTICLE.title) && !articleHtml.includes('__next_error__'),
       `[${name}] ${articleRoute}: the article renders`);
 
+    if (!categoriesUp) {
+      for (const [route, endpoint] of [
+        ['/grammar/tenses/backend-unavailable', '/api/grammar/article/tenses/backend-unavailable'],
+        ['/grammar', '/api/grammar/home'],
+      ]) {
+        const response = await fetch(BASE + route);
+        const html = await response.text();
+        check(response.status !== 404 && !/<h1[^>]*id="not-found-title"/.test(html),
+          `${route}: backend 503 does not become a 404`);
+        check(nextLog.includes(`backend 503 for ${endpoint}`), `${route}: loader still throws on backend 503 (B17/B12)`);
+      }
+    }
+
     browser = await chromium.launch();
-    // The soft 404 card exists only after React renders the streamed payload,
-    // which is also where its duplicate tokens <link> came from.
-    for (const javaScriptEnabled of soft ? [true] : [false, true]) {
+    for (const javaScriptEnabled of [false, true]) {
       for (const width of WIDTHS) {
         const context = await browser.newContext({ javaScriptEnabled, viewport: { width, height: 844 } });
         // Never leave the local server (fonts, telemetry, Supabase).
@@ -204,7 +211,7 @@ async function runMode(name, { categoriesUp, soft = false, notFound }) {
           const response = await page.goto(BASE + route, { waitUntil: 'load' });
           if (javaScriptEnabled) await page.waitForLoadState('networkidle');
           const card = page.locator('#not-found-title');
-          if (!soft) check(response?.status() === 404, `${mode} ${route}: status 404`);
+          check(response?.status() === 404, `${mode} ${route}: status 404`);
           check(await card.isVisible(), `${mode} ${route}: 404 card visible`);
           // The card's padding is var(--av-space-12): non-zero only when both the
           // CSS module and tokens.css applied.
@@ -237,4 +244,4 @@ if (failures.length) {
   console.error(`\n${failures.length} check(s) failed`);
   process.exit(1);
 }
-console.log('\nGrammar 404 renders server-side with CSS, like the root 404; the soft 404 links tokens.css once');
+console.log('\nGrammar 404 renders server-side with CSS and one tokens.css link, including when categories returns 503');
