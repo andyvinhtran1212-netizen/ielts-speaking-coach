@@ -38,9 +38,9 @@ Leader on 2026-10-29). Every number from 331 to 339 now has a file. 340
 is the AIBUDGET-0033 hardening. 345 is
 PC-J119 (RLS-ADMIN-INLINE-AAL2 + GRAMMAR-FN-SEARCHPATH, spec ADMINAAL2-0032),
 reserved by the Leader on 2026-10-29; 341 is PC-J88 (STAFF-GUC-BYPASS +
-MIG322-HARDEN, #2050), assigned by the Leader on 2026-10-29; 342–343 are reserved
-for other open work and must not be reused (343 = J133R). 344 is PC-J131R
-(RLSCLEANUP-0039, RLS-ADMIN + BL-11), reserved by the Leader on 2026-10-29. 346 is PC-J153 (CLASSARCHIVE-0030 FR-003),
+MIG322-HARDEN, #2050), assigned by the Leader on 2026-10-29; 342 is reserved
+for other open work and must not be reused (343 is PC-J133R, STORAGELIMITS-0038). 344 is PC-J131R (RLSCLEANUP-0039, RLS-ADMIN +
+BL-11), reserved by the Leader on 2026-10-29. 346 is PC-J153 (CLASSARCHIVE-0030 FR-003),
 assigned by the Leader on 2026-10-29. 347 is PC-J163 (listening_tests client revoke,
 spec LISTENING-0005), given by the Leader on 2026-10-29.
 
@@ -119,6 +119,18 @@ The guarded manual down script is
 recreates the original 32 policies only when all client table/column
 privileges and both helpers' client EXECUTE are still closed. It never
 restores a table privilege or helper EXECUTE and is safe to repeat.
+
+Migration `343` (PC-J133R, STORAGELIMITS-0038) sets the T001 size/MIME limits
+on the six Storage buckets. It updates only `file_size_limit` and
+`allowed_mime_types`; visibility and existing objects stay unchanged, including
+private `writing-images`. One transaction, `lock_timeout` 5s, re-runnable;
+missing buckets or incorrect postconditions abort. The header contains the
+read-only postcheck and a down script restoring the staging T001 `NULL`/`NULL`
+values. Deploy the upload checks and Speaking MIME normalisation first.
+Group `storage_bucket_limits` in `forward-policy.tsv`: no apply on merge;
+Leader applies staging under the advisory lock. Production census and apply
+require Vinh's separate approval at promotion; verify rollback values first.
+The project-wide cap still applies (staging 50 MiB).
 
 Migration `347` (PC-J163) revokes ALL on `listening_tests` from `PUBLIC`,
 `anon` and `authenticated` (MAINTAIN included on PG 17). 295 closed the other
