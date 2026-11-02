@@ -30,9 +30,59 @@ const REQUEST_SEQ_KEY = '__averRequestIdSeq';
 
 function registryOf(scope) {
   if (!scope[REGISTRY_KEY]) {
-    Object.defineProperty(scope, REGISTRY_KEY, { value: { entry: null }, configurable: true });
+    Object.defineProperty(scope, REGISTRY_KEY, {
+      value: { entry: null, accountId: undefined, profile: null, listeners: new Set() },
+      configurable: true,
+    });
   }
   return scope[REGISTRY_KEY];
+}
+
+function clonePayload(value) {
+  const clone = typeof globalThis.structuredClone === 'function'
+    ? globalThis.structuredClone : (payload) => JSON.parse(JSON.stringify(payload));
+  return clone(value);
+}
+
+function publishProfile(registry, profile) {
+  registry.profile = profile;
+  registry.listeners.forEach((listener) => listener());
+}
+
+/**
+ * Observe the last successful shell/page profile without sending or retrying.
+ * Unlike request reuse, this document-only snapshot has no timer: auth ownership
+ * clears it. A copy prevents a reader from changing another reader's flags.
+ * @param {string | null} accountId
+ * @param {{ scope?: object }} [options]
+ * @returns {any | null}
+ */
+export function getAuthMeProfile(accountId, { scope = globalThis } = {}) {
+  const profile = registryOf(scope).profile;
+  return accountId && profile?.id === accountId ? clonePayload(profile) : null;
+}
+
+/** @param {() => void} listener
+ * @param {{ scope?: object }} [options]
+ */
+export function subscribeAuthMeProfile(listener, { scope = globalThis } = {}) {
+  const registry = registryOf(scope);
+  registry.listeners.add(listener);
+  return () => { registry.listeners.delete(listener); };
+}
+
+/**
+ * AuthProvider owns account lifecycle. Preserve an initial shell flight that
+ * started before auth mounted, but discard old flights on account change/logout.
+ * @param {string | null} accountId
+ * @param {{ scope?: object }} [options]
+ */
+export function setAuthMeAccount(accountId, { scope = globalThis } = {}) {
+  const registry = registryOf(scope);
+  if (registry.accountId === accountId) return;
+  if (registry.accountId !== undefined || !accountId) registry.entry = null;
+  registry.accountId = accountId;
+  if (registry.profile && registry.profile.id !== accountId) publishProfile(registry, null);
 }
 
 /**
@@ -68,9 +118,7 @@ function abortError() {
 function forCaller(promise, signal) {
   if (signal?.aborted) return Promise.reject(abortError());
   promise = promise.then(({ ok, status, payload, requestId }) => {
-    const clone = typeof globalThis.structuredClone === 'function'
-      ? globalThis.structuredClone : (value) => JSON.parse(JSON.stringify(value));
-    return Object.freeze({ ok, status, payload: clone(payload), requestId });
+    return Object.freeze({ ok, status, payload: clonePayload(payload), requestId });
   });
   if (!signal) return promise;
   return new Promise((resolve, reject) => {
@@ -111,7 +159,11 @@ export function sharedAuthMe(token, send, options = {}) {
   const controller = new AbortController();
   let timer;
   const entry = { token, requestId: newRequestId('auth-me-request'), settledAt: null, promise: null };
-  const drop = () => { if (registry.entry === entry) registry.entry = null; };
+  const drop = () => {
+    if (registry.entry !== entry) return;
+    registry.entry = null;
+    if (registry.profile) publishProfile(registry, null);
+  };
   const deadline = new Promise((_, reject) => {
     timer = setTimeout(() => { reject(new Error(AUTH_ME_TIMEOUT_MESSAGE)); controller.abort(); }, timeoutMs);
   });
@@ -123,8 +175,17 @@ export function sharedAuthMe(token, send, options = {}) {
     (record) => {
       clearTimeout(timer);
       // Only a real profile is reused; an empty or non-OK reply is re-read.
-      if (record.ok && record.payload && typeof record.payload === 'object') entry.settledAt = now();
-      else drop();
+      if (record.ok && record.payload && typeof record.payload === 'object') {
+        entry.settledAt = now();
+        // An old request still resolves to its original callers, but cannot
+        // repopulate the observer after logout, an account switch or a new flight.
+        if (registry.entry === entry) {
+          const profile = record.payload;
+          const matches = typeof profile.id === 'string' && profile.id
+            && (registry.accountId === undefined || registry.accountId === profile.id);
+          publishProfile(registry, matches ? profile : null);
+        }
+      } else drop();
       return record;
     },
     (error) => { clearTimeout(timer); drop(); throw error; },

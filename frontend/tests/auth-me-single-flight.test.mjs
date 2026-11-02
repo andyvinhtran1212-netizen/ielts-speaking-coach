@@ -330,3 +330,53 @@ describe('PC-J147 wiring — one /auth/me on /d1-exercise and /vocabulary/hub', 
     assert.match(HUB, /profileRead\.then\(\(me\) => \{ if \(!dead\) shareRoleWithChrome\(me\.role \?\? null, isCurrent\); \}/);
   });
 });
+
+describe('shell-owned profile observer — no requests or retries', () => {
+  it('reads/subscribes across module copies, survives the reuse deadline, and isolates payload edits', async () => {
+    const { getAuthMeProfile, subscribeAuthMeProfile, setAuthMeAccount } = await import('../public/js/auth-me-single-flight.js');
+    const copy = await import('../public/js/auth-me-single-flight.js?observer-copy');
+    const scope = {};
+    let notifications = 0;
+    const stop = copy.subscribeAuthMeProfile(() => { notifications += 1; }, { scope });
+    assert.equal(getAuthMeProfile('A', { scope }), null);
+    setAuthMeAccount('A', { scope });
+    const { calls, send } = controlledSend();
+    const shell = sharedAuthMe('tok-A', send, { scope, now: () => 0 });
+    await tick();
+    assert.equal(getAuthMeProfile('A', { scope }), null);
+    calls[0].resolve(json({ id: 'A', vocab_bank_enabled: true, nested: { value: 1 } }));
+    await shell;
+    assert.equal(notifications, 1);
+    const profile = copy.getAuthMeProfile('A', { scope });
+    profile.nested.value = 2;
+    assert.equal(getAuthMeProfile('A', { scope }).nested.value, 1);
+    assert.equal(getAuthMeProfile('B', { scope }), null);
+    assert.equal(calls.length, 1);
+    stop();
+    setAuthMeAccount(null, { scope });
+    assert.equal(getAuthMeProfile('A', { scope }), null);
+    assert.equal(notifications, 1, 'unsubscribe removes the observer');
+    setAuthMeAccount('A', { scope });
+    assert.equal(getAuthMeProfile('A', { scope }), null);
+    assert.equal(calls.length, 1, 'reads, subscriptions and account changes never send');
+  });
+
+  it('never publishes mismatched, failed, or superseded profiles', async () => {
+    const { getAuthMeProfile, setAuthMeAccount } = await import('../public/js/auth-me-single-flight.js');
+    const scope = {};
+    setAuthMeAccount('B', { scope });
+    await sharedAuthMe('tok-wrong', async () => json({ id: 'A', vocab_bank_enabled: true }), { scope });
+    assert.equal(getAuthMeProfile('A', { scope }), null);
+    assert.equal(getAuthMeProfile('B', { scope }), null);
+    await sharedAuthMe('tok-error', async () => json({ id: 'B', vocab_bank_enabled: true }, 403), { scope });
+    assert.equal(getAuthMeProfile('B', { scope }), null);
+    const { calls, send } = controlledSend();
+    const old = sharedAuthMe('tok-B', send, { scope });
+    await tick();
+    setAuthMeAccount(null, { scope });
+    setAuthMeAccount('B', { scope });
+    calls[0].resolve(json({ id: 'B', vocab_bank_enabled: true }));
+    await old;
+    assert.equal(getAuthMeProfile('B', { scope }), null);
+  });
+});
