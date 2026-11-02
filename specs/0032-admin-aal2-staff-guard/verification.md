@@ -131,6 +131,44 @@ PC-J300 head; enforcement remains a separate, unauthorized switch.
 | Wire contract and UI | Regenerate OpenAPI and `frontend/types/api.d.ts` with additive cool-off `reason` and generation-route 403. Extend `frontend/tests/admin-mfa-transport.test.mjs` and the admin code fixture journey: cool-off surfaces the wait with no challenge/resend, stale-TOTP still retries once; verify immediate post-action and full-reload code-list truth. Older consumers can resend only once and remain refused. | PENDING |
 | Review and handoff | SA reviews the spec PR and the exact PC-J300 head; Feature Developer reads the spec PR for alignment. Record local suite commands/counts, exact SHA, OpenAPI drift and fixture evidence here. J300 is released only after the spec PR merges, with the existing job plus “phương án a + c”; no flag switch is authorized by either job. | PENDING |
 
+### AC13 Auth version and assurance regression evidence (PC-J567)
+
+Read-only staging observation on **2026-11-03 03:59 UTC+7**:
+`GET https://zjphffoujxkpltixsbzj.supabase.co/auth/v1/health` returned
+HTTP 200, `name="GoTrue"`, **`version="v2.197.0"`** for
+`ielts-coach-staging`. Only the health endpoint was read; no Auth mutation,
+DB write or flag change. Re-check this version before enabling enforcement.
+
+The AC13 fixed-clock factor fixtures above correspond to SA's source audit
+of `supabase/auth` **v2.197.0**:
+
+- [`factor.go:401`](https://github.com/supabase/auth/blob/v2.197.0/internal/models/factor.go#L401)
+  writes only `last_challenged_at` for a challenge.
+  [`factor.go:416–429`](https://github.com/supabase/auth/blob/v2.197.0/internal/models/factor.go#L416-L429)
+  updates `updated_at` for friendly-name, phone and status changes.
+- [`mfa.go:673`](https://github.com/supabase/auth/blob/v2.197.0/internal/api/mfa.go#L673),
+  [`:825`](https://github.com/supabase/auth/blob/v2.197.0/internal/api/mfa.go#L825)
+  and [`:939`](https://github.com/supabase/auth/blob/v2.197.0/internal/api/mfa.go#L939)
+  guard the status update with `!factor.IsVerified()`. Re-challenging and
+  verifying an already verified TOTP factor therefore does not restart the
+  cool-off. Renaming a factor does restart it through `updated_at`; the
+  separate P3-2 spec clarification remains outside PC-J567.
+
+SA P3-1 regression pair in `backend/tests/test_staff_guard.py` uses a factor
+created 30 days ago and updated 60 seconds ago: password-only AAL1 receives
+403 with the ordinary step-up message and no cool-off reason; fresh AAL2
+receives `new_factor_cooloff`. The AAL1 test also appends malformed factor
+metadata and requires 503, proving assurance failure does not skip parsing.
+Local verification: `pytest tests/test_staff_guard.py
+tests/test_staff_guard_inventory.py -q` from `backend/` → **289 passed**;
+the affected access-code, staff-security, role and sync-I/O suites →
+**514 passed, 3 skipped** (local PostgreSQL unavailable). SA's unchanged
+`probe2.py` run against this checkout returns the ordinary step-up 403 with
+no `reason`. All 78 pre-existing guard test functions and their assertions
+are unchanged; the regression pair adds exactly two test functions.
+`STEP_UP_COOLOFF_MESSAGE` remains the CM-approved text. SA-2213-R3 retest and
+exact merged-staging CI remain pending; this evidence does not enable flags.
+
 ### PC-J300 offline evidence (2026-11-02, base `b636255a6`)
 
 Exact PR head SHA and CI links are in the PC-J300 PR body. Claims and
@@ -145,7 +183,8 @@ fixtures only: no live GoTrue, DB write, environment change or real mail.
   naive or malformed → the existing 503 under enforcement, error log and no
   would-block line under report-only) and refuses when either is less than
   86400 s old or in the future. `require_recent_mfa` gives the cool-off
-  precedence, adds `reason: "new_factor_cooloff"` and the 24-hour message
+  precedence over stale step-up TOTP only when assurance is satisfied, adds
+  `reason: "new_factor_cooloff"` and the 24-hour message
   while keeping `next_step` and `max_age_seconds`; one would-block line
   per request carries the same reason. `backend/routers/admin.py`
   `POST /admin/access-codes/generate` normalizes `grants_role` right after

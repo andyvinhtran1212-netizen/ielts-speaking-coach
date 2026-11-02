@@ -1028,6 +1028,34 @@ COOLOFF_DETAIL = {
 ALMOST = T - (DAY - 1)   # 23 h 59 m 59 s old
 
 
+def test_aal1_recent_factor_step_up_does_not_disclose_cooloff(frozen, monkeypatch):
+    # AAL1 can reach step-up while the ordinary admin guard is report-only.
+    monkeypatch.setattr(settings, "ADMIN_AAL2_ENFORCE", False)
+    claims = {"sub": "admin-active", "aal": "aal1",
+              "amr": [{"method": "password", "timestamp": int(T - 60)}]}
+    bearer = f"Bearer {jwt(claims)}"
+    factors = [_factor("f-1", created=T - 30 * DAY, updated=T - 60)]
+    detail = _refusal(factors, bearer=bearer)
+    assert detail == {
+        "code": "step_up_required", "next_step": "challenge", "max_age_seconds": 900,
+        "message": staff_guard.STEP_UP_REQUIRED_MESSAGE,
+    }
+    assert "reason" not in detail
+    assert staff_guard.STEP_UP_COOLOFF_REASON not in json.dumps(detail)
+    assert detail["message"] != staff_guard.STEP_UP_COOLOFF_MESSAGE
+
+    # Assurance failure must not short-circuit validation of any factor.
+    factors.append({**OLD, "updated_at": "malformed"})
+    with pytest.raises(HTTPException) as ei:
+        _recent_mfa(factors, bearer=bearer)
+    assert ei.value.status_code == 503 and ei.value.detail == staff_guard.LOOKUP_FAILED_DETAIL
+
+
+def test_aal2_fresh_totp_recent_factor_step_up_keeps_cooloff(frozen):
+    factors = [_factor("f-1", created=T - 30 * DAY, updated=T - 60)]
+    assert _refusal(factors, totp_at=T - 60) == COOLOFF_DETAIL
+
+
 @pytest.mark.parametrize("factors", [
     [_factor("f-new", created=ALMOST)],
     [_factor("f-1", created=T - 30 * DAY, updated=ALMOST)],

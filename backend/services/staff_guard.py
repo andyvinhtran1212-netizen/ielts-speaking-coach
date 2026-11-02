@@ -416,7 +416,8 @@ def require_recent_mfa(auth_user: dict, authorization: str | None) -> None:
     assurance holds AND its ``amr`` totp entry is at most
     ``ADMIN_STEP_UP_MINUTES`` old AND no verified TOTP factor in the accepted
     ``auth_user["factors"]`` was created or updated in the last 24 hours
-    (FR-020a; the cool-off reason wins when both fail). Otherwise 403
+    (FR-020a; with satisfied assurance, cool-off takes precedence over a
+    stale step-up TOTP). Otherwise 403
     ``step_up_required`` under ``ADMIN_STEP_UP_ENFORCE``, or exactly one
     would-block warning per request. Unusable factor timestamps are a lookup
     failure (503 under enforcement), never an old factor.
@@ -428,7 +429,9 @@ def require_recent_mfa(auth_user: dict, authorization: str | None) -> None:
     now = time.time()
     try:
         assurance = evaluate_admin_assurance(auth_user, authorization, now=now)
-        cooloff = _recent_factor_change(auth_user, now)
+        # Always validate factor metadata, including for unsatisfied assurance.
+        recent_factor_change = _recent_factor_change(auth_user, now)
+        cooloff = assurance.satisfied and recent_factor_change
         fresh = assurance.satisfied and now - assurance.totp_verified_at <= step_up_max_age_seconds()
     except Exception as exc:  # malformed factor metadata or a bug: never grant
         logger.error("[staff_guard] step-up check failed user=%s: %r", user_id, exc)
