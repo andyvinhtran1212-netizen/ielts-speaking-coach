@@ -242,7 +242,7 @@ async def resolve_my_vocab_context_links(
 ):
     user = await get_supabase_user(authorization)
 
-    def load_for_learner():
+    def _load_context_links():
         _require_learner_gate(user["id"])
         try:
             return vocab_context_links.resolve_context_links(body.terms)
@@ -251,7 +251,7 @@ async def resolve_my_vocab_context_links(
         except Exception as exc:
             raise _translate_domain_error(exc) from exc
 
-    return await to_thread(load_for_learner)
+    return await to_thread(_load_context_links)
 
 
 @router.post("/api/me/vocabulary/recommendations/{recommendation_id}/open")
@@ -262,7 +262,7 @@ async def open_my_vocab_recommendation(
 ):
     user = await get_supabase_user(authorization)
 
-    def load_for_learner():
+    def _load_recommendation():
         _require_learner_gate(user["id"])
         if not runtime_flags.is_enabled("vocab_unit_recommendations", default=False):
             raise HTTPException(status_code=503, detail={
@@ -281,7 +281,7 @@ async def open_my_vocab_recommendation(
         except Exception as exc:
             raise _translate_domain_error(exc) from exc
 
-    return await to_thread(load_for_learner)
+    return await to_thread(_load_recommendation)
 
 
 @router.post("/api/vocabulary/tasks/{task_id}/attempt")
