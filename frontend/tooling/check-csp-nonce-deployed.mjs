@@ -23,16 +23,19 @@ export const PUBLIC_PATHS = ['/', '/login', '/grammar', '/vocabulary'];
 // PC-J566 (`--enforced` only): unmatched URLs under signed-in prefixes get the
 // proxy's nonce policy, so the root 404 must render with that nonce. The
 // `notFound()` inside the 80-days day page streams under Suspense, so it is a
-// soft 404 (HTTP 200 + noindex), as before. `/nope-top-level` is the public
-// 404 control: no nonce, the original blocking policy.
+// soft 404 (HTTP 200 + noindex), as before. `/nope-top-level` and
+// `/login/nope-xyz` are the public 404 controls (SA-1029-CSP1 F1: 404s under
+// /login are outside the proxy matcher): no nonce, the original blocking
+// policy, scripts allowed by its 'unsafe-inline'.
 export const SIGNED_IN_NOT_FOUND_PATHS = Object.freeze([
   { path: '/practice', status: 404 },
   { path: '/home/does-not-exist', status: 404 },
   { path: '/vocabulary/nope/xyz/abc', status: 404 },
   { path: '/admin/nope-xyz', status: 404 },
+  { path: '/instructor/nope-xyz', status: 404 },
   { path: '/listening/ielts/80-days/999', status: 200 },
 ]);
-export const PUBLIC_NOT_FOUND_PATHS = ['/nope-top-level'];
+export const PUBLIC_NOT_FOUND_PATHS = ['/nope-top-level', '/login/nope-xyz'];
 
 /** Only the staging alias and Vercel previews may receive the bypass secret. */
 export function bypassAllowed(origin) {

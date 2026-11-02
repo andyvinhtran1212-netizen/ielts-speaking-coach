@@ -1,5 +1,5 @@
 // PC-J566 / SEC-CSP-NONCE: 404s under the signed-in prefixes. proxy.ts gives
-// every `/home/…`, `/admin/…`, `/vocabulary/…/…` URL the nonce policy by
+// every `/home/…`, `/admin/…`, `/instructor/…`, `/vocabulary/…/…` URL the nonce policy by
 // prefix, including URLs no route matches. Next serves those from the root
 // not-found page; prerendered, it carried no nonce, so the enforced policy on
 // staging blocked all 19 scripts (reports/cspenf-staging-20261103-0226.md).
@@ -8,8 +8,8 @@
 // exactly one policy carrying a fresh per-request nonce, every served <script>
 // carrying it, the 404 card in the server HTML, then Chromium: 0
 // `securitypolicyviolation` events, 0 console CSP errors, and React hydrated
-// (so 0 reports means the scripts actually ran). The public 404 control keeps
-// the original nonce-free policy. CSP is not bypassed.
+// (so 0 reports means the scripts actually ran). The public 404 controls
+// (`/nope-top-level`, `/login/nope-xyz`) keep the original nonce-free policy. CSP is not bypassed.
 //
 //   node tooling/verify-csp-nonce-404-flow.mjs http://localhost:3000             # Report-Only build (CI default)
 //   node tooling/verify-csp-nonce-404-flow.mjs --enforced http://localhost:3000  # AVER_CSP_NONCE_ENFORCE=1 build
@@ -31,17 +31,20 @@ const CARD = '404 · Không tìm thấy';
 const BASELINE_SCRIPT = /(^|; )script-src 'self' 'unsafe-inline'(;| |$)/;
 
 const ROUTES = [
-  // a. a signed-in prefix with no index page; b. nested; c. admin.
+  // a. a signed-in prefix with no index page; b. nested; c. admin, instructor.
   { path: '/practice', status: 404 },
   { path: '/home/does-not-exist', status: 404 },
   { path: '/vocabulary/nope/xyz/abc', status: 404 },
   { path: '/admin/nope-xyz', status: 404 },
+  { path: '/instructor/nope-xyz', status: 404 },
   // d. notFound() in a request-time page under <Suspense>: a soft 404
   // (HTTP 200 + noindex) under cacheComponents, unchanged by PC-J566; the
   // card streams in the RSC payload. It must still carry the nonce.
   { path: '/listening/ielts/80-days/999', status: 200, softNotFound: true },
-  // Public control: the root 404 without the proxy's nonce policy.
+  // Public controls: the root 404 without the proxy's nonce policy. /login is
+  // outside the proxy matcher (SA-1029-CSP1 F1), so its 404 must stay here.
   { path: '/nope-top-level', status: 404, public: true },
+  { path: '/login/nope-xyz', status: 404, public: true },
 ];
 
 const failures = [];

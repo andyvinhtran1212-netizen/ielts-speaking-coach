@@ -276,15 +276,17 @@ preview before merging.
 | Enforcement build, unlisted host | N/A | No nonce policy added by proxy; static blocking CSP remains |
 
 **404s under the signed-in prefixes (PC-J566).** The proxy picks routes by URL
-prefix, so an unmatched URL such as `/home/x`, `/admin/x` or `/practice` also
-gets the nonce policy, and Next answers it with the root `app/not-found.tsx`.
+prefix, so an unmatched URL such as `/home/x`, `/admin/x`, `/instructor/x` or
+`/practice` also gets the nonce policy, and Next answers it with the root
+`app/not-found.tsx`.
 With the render flag on, that page calls `connection()` (plus `instant =
 false`) so `/_not-found` renders per request with the request nonce, keeping
 HTTP 404 and the server-rendered card. A prerendered copy had no nonce, and the
 enforced policy blocked all its scripts. Production (flag off) keeps the
 prerendered 404. On staging the public 404 (`/nope-top-level`,
 `/__aver-not-found`) is also rendered per request, with the same HTML and the
-original nonce-free policy.
+original nonce-free policy. 404s under `/login` are outside the proxy matcher
+and keep that baseline too (SA-1029-CSP1 F1); `/login/nope-xyz` is a control.
 
 ### Enable and verify
 
@@ -302,9 +304,10 @@ node frontend/tooling/check-csp-nonce-deployed.mjs --enforced <preview-origin>
 It makes two GETs each to `/home`, `/admin`, `/profile`, `/vocabulary/hub`:
 every script must carry the blocking-header nonce and the nonce must change.
 With `--enforced` it does the same for the signed-in 404s `/practice`,
-`/home/does-not-exist`, `/vocabulary/nope/xyz/abc` and `/admin/nope-xyz` (HTTP
-404), plus `/listening/ielts/80-days/999` (soft 404, HTTP 200), and checks that
-`/nope-top-level` is a 404 with the original policy.
+`/home/does-not-exist`, `/vocabulary/nope/xyz/abc`, `/admin/nope-xyz` and
+`/instructor/nope-xyz` (HTTP 404), plus `/listening/ielts/80-days/999` (soft
+404, HTTP 200), and checks that `/nope-top-level` and `/login/nope-xyz` are 404s
+with the original policy.
 It also checks that the four public routes retain the original full blocking
 policy and have no Report-Only header. Deployment Protection uses the
 `VERCEL_AUTOMATION_BYPASS_SECRET` environment variable without printing it.

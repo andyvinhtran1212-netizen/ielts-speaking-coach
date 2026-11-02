@@ -1378,7 +1378,8 @@ jobs:
 
       # PC-J566: URL 404 dưới prefix đã đăng nhập cũng nhận policy nonce của
       # proxy, nên trang 404 gốc phải render theo request với đúng nonce đó
-      # (HTTP 404, thẻ 404 trong HTML SSR); `/nope-top-level` giữ baseline.
+      # (HTTP 404, thẻ 404 trong HTML SSR); `/nope-top-level` và
+      # `/login/nope-xyz` giữ baseline.
       # Staging chạy AVER_CSP_NONCE_ENFORCE=1 (cờ inline lúc build), nên build
       # lại với cờ bật ở CUỐI job để không đổi build của các verifier trên,
       # rồi kiểm dưới policy chặn thật: mọi script mang nonce, 0 violation.

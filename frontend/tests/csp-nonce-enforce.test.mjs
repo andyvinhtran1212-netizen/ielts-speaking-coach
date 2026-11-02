@@ -273,8 +273,11 @@ describe('root 404 under signed-in prefixes (PC-J566)', () => {
       assert.equal(response.headers.get('x-middleware-request-x-nonce'), null, pathname);
     }
     assert.deepEqual(SIGNED_IN_NOT_FOUND_PATHS.map(({ path: p }) => p), [
-      '/practice', '/home/does-not-exist', '/vocabulary/nope/xyz/abc', '/admin/nope-xyz', '/listening/ielts/80-days/999',
+      '/practice', '/home/does-not-exist', '/vocabulary/nope/xyz/abc', '/admin/nope-xyz', '/instructor/nope-xyz',
+      '/listening/ielts/80-days/999',
     ]);
+    // SA-1029-CSP1 F1: /login 404s get the public baseline and stay the control.
+    assert.deepEqual(PUBLIC_NOT_FOUND_PATHS, ['/nope-top-level', '/login/nope-xyz']);
   });
 
   test('the analyzer accepts the expected 404 status and rejects any other', () => {
@@ -340,6 +343,6 @@ describe('root 404 under signed-in prefixes (PC-J566)', () => {
     for (const { path: p } of SIGNED_IN_NOT_FOUND_PATHS) assert.ok(unstamped.stderr.includes(`${p} #1: 1/1 <script> tags lack the request nonce`), unstamped.stderr);
     const nonced = await runEnforcedChecker({ publicNotFoundNonce: true });
     assert.equal(nonced.code, 1);
-    assert.match(nonced.stderr, /\/nope-top-level: public 404 blocking policy differs from the original nonce-free baseline/);
+    for (const p of PUBLIC_NOT_FOUND_PATHS) assert.ok(nonced.stderr.includes(`${p}: public 404 blocking policy differs from the original nonce-free baseline`), nonced.stderr);
   });
 });
