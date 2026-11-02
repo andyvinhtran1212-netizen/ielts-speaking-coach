@@ -1697,7 +1697,10 @@ export interface paths {
          *     (``ok: false``, ``changed: false``, ``sign_in_restored: false``), the
          *     account stays suspended with its role frozen (FR-019), and repeating this
          *     request retries. A ban can therefore never outlive the marker, which is
-         *     the only state this route can retry from. A repeat of the same request
+         *     the only state this route can retry from. Before the unban it revokes the
+         *     sessions again; a reactivation that succeeds answers
+         *     ``sessions_revoked: true`` (null on a repeat for an account already
+         *     active, where nothing is revoked). A repeat of the same request
          *     writes no second audit row. Requests for the same account are serialized
          *     across workers; a lock that cannot be taken is a 503 ``target_busy``
          *     before any change.
