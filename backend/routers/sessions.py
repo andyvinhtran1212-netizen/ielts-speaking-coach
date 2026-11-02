@@ -1701,7 +1701,10 @@ def _complete_session_internal(session_id: str) -> None:
     # test_full), and this path completes sessions without going through
     # PATCH /complete. Without this the hand-in would never be recorded and the
     # teacher would see the homework as missing however well the student did.
-    _record_class_submission({**session, **update_payload, "id": session_id})
+    # finalize_full_test already refused the hand-in of an archived class, and
+    # completed_at here is the later aggregation time, not the hand-in time.
+    _record_class_submission({**session, **update_payload, "id": session_id},
+                             archive_gated=True)
 
 
 def _check_all_responses_graded(session_ids: list) -> bool:
@@ -2010,7 +2013,7 @@ async def finalize_full_test(
 
 # ── PATCH /sessions/{session_id}/complete ──────────────────────────────────────
 
-def _record_class_submission(session: dict) -> bool:
+def _record_class_submission(session: dict, *, archive_gated: bool = False) -> bool:
     """GĐ 2 — record a completed speaking session against its class assignment.
 
     Best-effort on purpose: a graded session must still complete when the ledger
@@ -2022,6 +2025,9 @@ def _record_class_submission(session: dict) -> bool:
     turn an on-time hand-in into a late one; it also means calling this from the
     already-completed path repairs a previously failed write instead of
     duplicating a good one.
+
+    ``archive_gated``: the hand-in already passed the archive gate when it was
+    accepted (the Full Test finaliser), so the archive is not compared again.
     """
     item_id = session.get("class_assignment_item_id")
     if not item_id:
@@ -2066,9 +2072,9 @@ def _record_class_submission(session: dict) -> bool:
         # CLASSARCHIVE-0030 FR-004: an archived class takes no hand-in. Same
         # clock as the deadline: a session completed before the archive is
         # still credited on the retry path. complete_session refuses an
-        # in-progress session up front; this covers the replay, the full-test
-        # finaliser and an archive racing the completion.
-        if a_rows and cohort_archived_by(
+        # in-progress session up front; this covers the replay and an archive
+        # racing the completion.
+        if a_rows and not archive_gated and cohort_archived_by(
             cohort_archive_row(supabase_admin, a_rows[0].get("cohort_id")),
             completed_at,
         ):

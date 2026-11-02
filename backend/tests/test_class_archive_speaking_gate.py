@@ -240,7 +240,7 @@ def test_a_completed_result_replays_and_is_credited_only_before_the_archive(
     assert bool(marks) is credited
 
 
-# ── _record_class_submission (replay, full-test finaliser, archive race) ──
+# ── _record_class_submission (replay, archive race) ──────────────────────
 
 @pytest.mark.parametrize(("cohort", "completed_at", "credited"), [
     (ARCHIVED, AFTER, False),
@@ -258,6 +258,20 @@ def test_record_class_submission_refuses_a_hand_in_after_the_archive(
     assert sessions_module._record_class_submission(
         _session(status="completed", completed_at=completed_at)) is credited
     assert bool(marks) is credited
+
+
+def test_a_full_test_accepted_before_the_archive_keeps_its_credit(monkeypatch):
+    # finalize_full_test gated the hand-in; the background finaliser stamps
+    # completed_at later, after the archive, and must still credit it.
+    marks: list = []
+    db = _DB(ARCHIVED, sessions=[_session(status="submitted", mode="test_full")])
+    monkeypatch.setattr(sessions_module, "supabase_admin", db)
+    monkeypatch.setattr(sessions_module, "_compute_session_bands",
+                        lambda _sid: {"overall_band": 6.5, "band_fc": 6.5})
+    monkeypatch.setattr(sessions_module, "mark_item_submitted",
+                        lambda _db, **kw: marks.append(kw) or True)
+    sessions_module._complete_session_internal("sess-1")
+    assert [m["item_id"] for m in marks] == ["item-1"]
 
 
 # ── POST /sessions/finalize-full-test ────────────────────────────────────
