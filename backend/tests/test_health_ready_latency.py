@@ -305,26 +305,42 @@ def test_readiness_does_not_block_concurrent_liveness(monkeypatch, ready_client)
 
 
 @pytest.mark.parametrize("blocked_table,check", [("users", "database"), ("sessions", "migrations")])
-def test_hung_database_probe_has_bounded_response(monkeypatch, ready_client, blocked_table, check):
-    database = SlowDatabase(blocked_table=blocked_table)
+def test_hung_database_probe_has_bounded_response(
+    monkeypatch, ready_client, probe_clock, blocked_table, check,
+):
+    # The hung read stays parked until after the response, so the response
+    # cannot have waited for it; virtual time shows it waited exactly T.
+    gate = LoopGate()
+    database = SlowDatabase(pause=lambda table: gate.park() if table == blocked_table else None)
     monkeypatch.setattr(health, "supabase_admin", database)
     monkeypatch.setattr(health, "_READY_PROBE_TIMEOUT_SECONDS", 0.15, raising=False)
 
     async def exercise():
         async with ready_client as client:
-            start = time.perf_counter()
+            readiness = asyncio.create_task(client.get("/health/ready"))
             try:
-                response = await client.get("/health/ready")
-                elapsed = time.perf_counter() - start
+                # Every other probe has returned; only the hung one still waits.
+                assert await until(
+                    lambda: gate.inside == 1 and len(probe_clock.waiters) == 1,
+                    stop=readiness,
+                )
+                assert not readiness.done()
+                probe_clock.advance(health._READY_PROBE_TIMEOUT_SECONDS)
+                response = await asyncio.wait_for(readiness, WAIT)
+                assert not gate.released
                 assert response.status_code == 200
                 body = response.json()
                 assert body["status"] == "degraded"
                 assert body["checks"][check]["status"] in {"fail", "timeout"}
-                assert elapsed < 0.4, f"hung {check} probe took {elapsed:.3f}s"
+                gate.release()
+                assert await until(lambda: not health._ready_probe_tasks)
+                assert not gate.timed_out
             finally:
-                database.release.set()
+                gate.release()
+                await asyncio.wait_for(readiness, WAIT)
 
     asyncio.run(exercise())
+    assert database.calls[blocked_table] == 1
 
 
 @pytest.mark.parametrize("blocked_step", ["flag", "schema"])
