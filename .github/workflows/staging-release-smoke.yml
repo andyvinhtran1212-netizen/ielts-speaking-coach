@@ -67,6 +67,7 @@ jobs:
           npx playwright install --with-deps chromium webkit
 
       - name: Wait for exact frontend and backend staging release
+        id: wait_for_release
         working-directory: frontend
         timeout-minutes: 12
         env:
@@ -75,6 +76,7 @@ jobs:
           STAGING_E2E_ADMIN_TOTP_SECRET: ${{ secrets.STAGING_E2E_ADMIN_TOTP_SECRET }}
           RELEASE_SOURCE_SHA: ${{ steps.source_revision.outputs.sha }}
           RELEASE_PROVENANCE_REQUIRED: 'true'
+          STAGING_RELEASE_ALLOW_SUPERSEDED: 'true'
         run: |
           for ATTEMPT in $(seq 1 60); do
             if node tooling/capture-staging-release-provenance.mjs; then
@@ -87,11 +89,13 @@ jobs:
           exit 1
 
       - name: Grammar checker runs on the staging backend
+        if: steps.wait_for_release.outputs.superseded != 'true'
         timeout-minutes: 3
         run: scripts/ci/check-grammar-health.sh https://ielts-speaking-coach-staging.up.railway.app
 
       - name: Run live staging release smoke
         id: release_smoke
+        if: steps.wait_for_release.outputs.superseded != 'true'
         working-directory: frontend
         timeout-minutes: 20
         env:
@@ -103,7 +107,7 @@ jobs:
 
       - name: Verify exact frontend and backend staging release
         id: staging_provenance
-        if: always()
+        if: always() && steps.wait_for_release.outputs.superseded != 'true'
         working-directory: frontend
         timeout-minutes: 3
         env:
@@ -112,6 +116,7 @@ jobs:
           STAGING_E2E_ADMIN_TOTP_SECRET: ${{ secrets.STAGING_E2E_ADMIN_TOTP_SECRET }}
           RELEASE_SOURCE_SHA: ${{ steps.source_revision.outputs.sha }}
           RELEASE_PROVENANCE_REQUIRED: 'true'
+          STAGING_RELEASE_ALLOW_SUPERSEDED: 'true'
         run: node tooling/capture-staging-release-provenance.mjs
 
       # PC-J437: artifacts bypass the Actions log masker. Redact in place,
