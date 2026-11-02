@@ -86,7 +86,8 @@ describe('AdminAccessGate assurance', () => {
     wire.identity = { ...admin, is_active: false };
     renderGate();
     expect(await screen.findByText('Tài khoản chưa được kích hoạt — liên hệ admin')).toBeTruthy();
-    expect(screen.getByRole('alert').textContent).toContain('Admin Access Required');
+    expect(screen.getByRole('alert').textContent).toContain('🔒 Trang này chỉ dành cho quản trị viên');
+    expect(screen.getByRole('alert').textContent).not.toContain('Admin Access Required');
     expect(getAdminMfaStatus).not.toHaveBeenCalled();
     expect(screen.queryByText('ADMIN DATA')).toBeNull();
   });
@@ -109,7 +110,9 @@ describe('AdminAccessGate assurance', () => {
   it('non-admins keep the unchanged denied state', async () => {
     wire.identity = { ...admin, role: 'instructor' };
     renderGate();
-    expect(await screen.findByText('🔒 Admin Access Required')).toBeTruthy();
+    expect(await screen.findByText('🔒 Trang này chỉ dành cho quản trị viên')).toBeTruthy();
+    expect(screen.getByRole('link', { name: '← Quay lại trang chủ' }).getAttribute('href')).toBe('/home');
+    expect(screen.getByRole('alert').textContent).not.toContain('Admin Access Required');
     expect(screen.queryByText('Tài khoản chưa được kích hoạt — liên hệ admin')).toBeNull();
     expect(getAdminMfaStatus).not.toHaveBeenCalled();
   });
