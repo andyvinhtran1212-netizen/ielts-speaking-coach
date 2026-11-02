@@ -131,6 +131,12 @@ function fixtureApi({ categoriesUp }) {
       response.end(JSON.stringify({ detail: 'Fixture: content unavailable' }));
       return;
     }
+    if (url.pathname.startsWith('/api/grammar/article/')) {
+      // The backend's real article miss (routers/grammar.py get_article).
+      response.statusCode = 404;
+      response.end(JSON.stringify({ detail: `Article '${url.pathname.slice('/api/grammar/article/'.length)}' not found` }));
+      return;
+    }
     response.statusCode = 404;
     response.end(JSON.stringify({ detail: 'No fixture for this endpoint' }));
   });

@@ -159,13 +159,20 @@ function proxyFor(indexed, fetch) {
   return exports.proxy;
 }
 
+// The body the backend sends for a real article miss (routers/grammar.py get_article).
+const ARTICLE_MISS = JSON.stringify({ detail: "Article 'tenses/missing' not found" });
+const jsonResponse = (status, body = ARTICLE_MISS) => new Response(body, {
+  status,
+  headers: { 'content-type': 'application/json' },
+});
+
 describe('Grammar proxy when the category index is unavailable (PC-J526)', () => {
   const request = () => new NextRequest('https://staging.averlearning.com/grammar/tenses/missing');
 
   for (const status of [200, 302, 401, 404, 500, 503]) {
     test(`article HTTP ${status}: only a confirmed 404 rewrites before streaming`, async () => {
       const calls = [];
-      const response = new Response('{}', { status });
+      const response = jsonResponse(status);
       const proxy = proxyFor(null, async (url, options) => {
         calls.push(url);
         assert.equal(options.cache, 'no-store');
@@ -178,6 +185,25 @@ describe('Grammar proxy when the category index is unavailable (PC-J526)', () =>
       assert.equal(result.headers.get('x-middleware-rewrite'),
         status === 404 ? 'https://staging.averlearning.com/__aver-not-found' : null);
       assert.equal(result.headers.get('x-middleware-next'), status === 404 ? null : '1');
+      assert.equal(response.bodyUsed, true, 'unused article body is released');
+    });
+  }
+
+  // A gateway, host or framework 404 is not the backend's article miss, so it
+  // passes through to the article loader instead of rewriting to the 404 page.
+  const notAMiss = [
+    ['text/plain', 'Not Found'],
+    ['text/html; charset=utf-8', '<!doctype html><html><body><h1>404 Not Found</h1></body></html>'],
+    ['application/json', JSON.stringify({ detail: 'Not Found' })],
+    ['application/json', 'Article not found'],
+    ['text/plain', ARTICLE_MISS],
+  ];
+  for (const [contentType, body] of notAMiss) {
+    test(`article 404 as ${contentType} ${JSON.stringify(body).slice(0, 40)} keeps the route's error handling`, async () => {
+      const response = new Response(body, { status: 404, headers: { 'content-type': contentType } });
+      const result = await proxyFor(null, async () => response)(request());
+      assert.equal(result.headers.get('x-middleware-rewrite'), null);
+      assert.equal(result.headers.get('x-middleware-next'), '1');
       assert.equal(response.bodyUsed, true, 'unused article body is released');
     });
   }

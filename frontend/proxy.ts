@@ -7,8 +7,9 @@
 //    generateMetadata in app/(public-content)/grammar/[category]/[slug]/page.tsx).
 //    A key missing from a fresh backend article list is rewritten to a path
 //    no route matches, so Next serves the root 404 (app/not-found.tsx) with
-//    its full server HTML. If the list is unavailable, confirm a 404 from
-//    the article endpoint itself; articles and backend errors pass through.
+//    its full server HTML. If the list is unavailable, confirm a miss from
+//    the article endpoint itself (its JSON article-not-found, not a gateway
+//    404); articles and backend errors pass through.
 //
 // 2. SEC-CSP-NONCE: a per-request nonce for the AuthedShell route groups.
 //    Step 2 may enforce it on staging/previews only. Setting the blocking
@@ -56,6 +57,20 @@ function segment(raw: string) {
   }
 }
 
+// The backend's article miss (routers/grammar.py get_article) is a JSON body
+// `{"detail": "Article '<category>/<slug>' not found"}`. Any other 404 (a
+// gateway, host or framework miss) is not evidence that the article is gone.
+const BACKEND_ARTICLE_MISS = /^Article '.*' not found$/;
+
+async function isBackendArticleMiss(res: Response) {
+  if (res.status !== 404 || !/^application\/json\b/i.test(res.headers.get('content-type') ?? '')) {
+    await res.body?.cancel();
+    return false;
+  }
+  const body = (await res.json().catch(() => null)) as { detail?: unknown } | null;
+  return typeof body?.detail === 'string' && BACKEND_ARTICLE_MISS.test(body.detail);
+}
+
 async function grammarArticle(request: NextRequest) {
   const [, , rawCategory = '', rawSlug = ''] = request.nextUrl.pathname.split('/');
   const category = segment(rawCategory);
@@ -67,16 +82,16 @@ async function grammarArticle(request: NextRequest) {
   let missing = indexed === false;
   if (indexed === null) {
     // PC-J526: page-level notFound() is too late once the loading shell has
-    // streamed. Only an explicit article 404 can establish a miss here;
-    // timeouts and other statuses retain the route's fail-closed handling.
+    // streamed. Only the backend's own article 404 can establish a miss here;
+    // gateway 404s, timeouts and other statuses retain the route's fail-closed
+    // handling.
     try {
       const res = await fetch(`${API_BASE}/api/grammar/article/${encodeURIComponent(category!)}/${encodeURIComponent(slug!)}`, {
         signal: AbortSignal.timeout(INDEX_TIMEOUT_MS),
         cache: 'no-store',
         redirect: 'manual',
       });
-      missing = res.status === 404;
-      await res.body?.cancel();
+      missing = await isBackendArticleMiss(res);
     } catch {
       // Let the article loader handle backend/network errors (B17/B12).
     }
