@@ -241,9 +241,12 @@ service_role requirements on its merge base because it is a high-risk path.
    note for the 344 implementer; this spec alignment does not change 344 or
    introduce a new migration number.
 4. Migration 356 uses `SET LOCAL lock_timeout = '5s'` in its transaction,
-   before trigger DDL. An allowed long-lived reader can leave CREATE TRIGGER
-   queued and INSERT waiting behind it (`/workspace/qa/pr2054/sa-probe-convoy.out`);
-   the timeout bounds each lock wait and aborts the transaction on timeout.
+   before trigger DDL. A long-lived INSERT can hold `ROW EXCLUSIVE` and leave
+   CREATE TRIGGER's `SHARE ROW EXCLUSIVE` lock queued
+   ([PostgreSQL 17 locking](https://www.postgresql.org/docs/17/explicit-locking.html#LOCKING-TABLES)).
+   The SA convoy artifact (`/workspace/qa/pr2054/sa-probe-convoy.out`)
+   demonstrates the general owner-DDL queueing risk. The timeout bounds each
+   lock wait and aborts the transaction on timeout.
    This is an implementation-plan clarification, not a migration edit here.
 5. Down 356 retains FR-004's revokes. A legitimate UPDATE/DELETE consumer
    discovered after apply requires a spec revision and a newly approved
