@@ -209,10 +209,12 @@ def test_admin_writing_prompt_upload_content_type_is_clipped():
                              files={"file": ("a.txt", b"x", long_type)})
         short = _client().post("/admin/writing/prompts/upload-image", headers=AUTH,
                                files={"file": ("a.txt", b"x", "text/plain")})
-    assert bad.status_code == 400
-    _clipped(bad.json()["detail"])
-    assert short.status_code == 400
-    assert short.json()["detail"] == "File must be an image (got Content-Type: 'text/plain')."
+    # PC-J133R FR-004 (#2107): a non-image is a structured 415 that names no
+    # request value at all, which is stricter than the 64-char clip it replaced.
+    for response in (bad, short):
+        assert response.status_code == 415
+        assert response.json()["detail"]["error_code"] == "unsupported_media_type"
+    assert MARKER not in bad.text and TAIL not in bad.text
 
 
 def test_admin_course_duplicate_code_is_clipped():

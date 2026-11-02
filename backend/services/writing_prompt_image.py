@@ -38,6 +38,8 @@ import time
 import uuid
 from typing import Any, Optional
 
+from services.storage_limits import check_upload, raise_storage_error, upload_error
+
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +66,14 @@ def detect_format(data: bytes) -> Optional[str]:
     if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "webp"
     return None
+
+
+class ImageUploadError(ValueError):
+    """Keep the service's ValueError contract, with a structured HTTP refusal."""
+
+    def __init__(self, message: str, status: int):
+        super().__init__(message)
+        self.http_error = upload_error("writing-images", status)
 
 
 def upload_prompt_image(
@@ -94,14 +104,14 @@ def upload_prompt_image(
             "empty or corrupted."
         )
     if len(file_bytes) > MAX_BYTES:
-        raise ValueError(
+        raise ImageUploadError(
             f"Image file too large ({len(file_bytes) / 1024 / 1024:.2f} MB) "
-            f"— the upload limit is {MAX_BYTES // (1024 * 1024)} MB."
+            f"— the upload limit is {MAX_BYTES // (1024 * 1024)} MB.", 413,
         )
 
     fmt = detect_format(file_bytes)
     if fmt is None:
-        raise ValueError("Unsupported image format. Accepted: PNG, JPG, WebP.")
+        raise ImageUploadError("Unsupported image format. Accepted: PNG, JPG, WebP.", 415)
 
     # Lazy imports keep import-time light + match reading_image's pattern.
     from database import supabase_admin
@@ -110,6 +120,7 @@ def upload_prompt_image(
     bucket = settings.WRITING_IMAGES_BUCKET
     storage_path = f"prompts/{uuid.uuid4()}-{int(time.time())}.{fmt}"
     content_type = "image/jpeg" if fmt == "jpg" else f"image/{fmt}"
+    check_upload("writing-images", len(file_bytes), content_type)
 
     try:
         supabase_admin.storage.from_(bucket).upload(
@@ -118,6 +129,7 @@ def upload_prompt_image(
             {"content-type": content_type, "upsert": "true"},
         )
     except Exception as exc:
+        raise_storage_error("writing-images", exc)
         # Log the REAL error (don't swallow it) so a genuine storage /
         # bucket-missing failure is diagnosable; re-raise → router 500.
         logger.error(
