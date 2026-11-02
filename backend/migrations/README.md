@@ -20,11 +20,10 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and open work and add 1 — do **not**
-assume the sequence is dense. In this branch the highest is `362`.
-PC-J522 starts from staging's maximum `360`; `361` is held
-by the in-flight PC-J358 follow-up (`1pd`, PR #2180). `362` is the PC-J522
-BUCKET50 correction below, so the next new migration is `363` after checking
-open PRs and reservations. Ask the Leader before taking it; 348–351 are reserved for other
+assume the sequence is dense. As of 2026-11-02 the highest is `362`, the PC-J522
+BUCKET50 correction below; `361` is allocated by the Leader to PC-J358 (#2180;
+`360` is PC-J192, INSTRUCTORGIVE-0044), so by that rule the next new
+migration is `363` after checking open PRs and reservations. Ask the Leader before taking it; 348–351 are reserved for other
 work, and 353–359 without a file here may be held by open PRs: none may be
 reused.
 The runner applies any unapplied file regardless of order.
@@ -78,6 +77,60 @@ staging→main promotion. It needs no backend change.
 One transaction, no data change, re-runnable. Re-running 322/332/336 restores
 the weak bodies, so re-run 341 after them. The rollback in the header reopens
 F1.
+
+Migration `361` (PC-J358; SA P3-2, P3-7, SA-R4-1/2/3, SA-2180-1 on #2180)
+is the forward hardening of 341, which is applied on staging and never
+edited. It needs 341 in `_schema_migrations` and runs after it: on staging on
+top of the applied 341, on production back to back with 341 at one promotion
+(the runner records 341 before opening 361). An owner-only deferred constraint
+trigger rejects COMMIT with `staff_privilege_evidence_not_consumed` while any
+evidence row remains, including a row whose key an owner changed; the RPC and
+the bootstrap still consume theirs and commit. The audit trigger consumes the
+evidence by `OLD.id`, like both guards. The postconditions repeat 341's and
+also refuse client INSERT/UPDATE/DELETE, column-level I/U/R and privileges
+reachable through a membership even with INHERIT FALSE (`MEMBER`,
+fail-closed). The whole file runs under `SET LOCAL search_path = pg_catalog,
+pg_temp`; catalog functions are called as `pg_catalog.<fn>` and the anyarray
+operators as `OPERATOR(pg_catalog.||)` / `OPERATOR(pg_catalog.@>)`, because an
+exact `text[]` copy in `public` would win over them even with `pg_catalog`
+first. The precondition aborts with `catalog_name_shadowed_in_public` if
+`public` holds a function or operator named like one the file uses. For manual
+dumps use `pg_dump --exclude-table-data=public.staff_privilege_evidence`: the
+table holds transient evidence, never audit data. The 341 header's client
+sequence GRANT is **DO NOT RUN** (SA P3-6); the `updated_by` attribution and
+parent-table owner TRUNCATE gaps (SA P3-5) stay open. 361 is held by
+`forward-policy.tsv` as `pending_feature admin_aal2`: apply only with
+`MIGRATION_FEATURES=admin_aal2` through the advisory-locked runner, staging
+first after SA review, production only at an explicitly authorised
+staging→main promotion after 341. One transaction, no data change,
+re-runnable; re-running 341 restores the `NEW.id` audit body, so re-run 361
+after it. Its header rollback drops only the 361 trigger and function and
+restores the 341 audit body; it grants nothing.
+
+Migration `356` (PC-J286, CALAPPEND-0041 FR-001..004) adds the statement trigger
+`trg_class_action_log_no_truncate` and its pinned, `P0001`-raising function.
+It keeps 198's row trigger unchanged and revokes UPDATE, DELETE, TRUNCATE,
+TRIGGER, REFERENCES and PG17 MAINTAIN from `service_role` / PUBLIC; backend
+SELECT and INSERT remain. Managed databases must have the 344 ledger row and
+neither old `cal_admin_*` policy before any change; a ledger-free legacy test
+control preserves its policies and client SELECT ACL. Postconditions reject
+residual effective table/column privileges (including those a role reaches by
+`SET ROLE` through a membership), a disabled row trigger, unsafe service-role
+ownership/membership, client EXECUTE on the trigger function (SA-R4-1, P3) or
+replication-parameter grants. No policy
+DDL, grants or data changes; one transaction, 5 s lock timeout, re-runnable.
+The `class_action_log_append_only` forward-policy group holds it out of normal
+applies. This job opens a PR only: the Leader must separately authorize the
+staging apply with SA and establish STAGING_FREEZE; production requires its
+own authorized promotion. Deployment order is **344 then 356**. Rollback is
+assigned to the separate 0042 task by the PC-J401 job addendum: it must keep
+privileges revoked and policies absent, and run before any down 344. There is no
+356 down script in this patch. Trigger mode remains `O` as approved: an owner
+with permission to set `session_replication_role=replica` can deliberately
+bypass it; service_role must have no such parameter permission.
+After an authorized apply, check the trigger catalog, effective privilege
+matrix and policy absence per `specs/0041-class-action-log-append-only/rollout.md`.
+Watch for the warning `[class] KHÔNG ghi được nhật ký` on failed backend inserts.
 
 Migration `355` (PC-J267, VOCABGUARD-0040 FR-001) replaces only the published
 curated vocabulary review/task guards from 234/235. UPDATE checks both OLD and

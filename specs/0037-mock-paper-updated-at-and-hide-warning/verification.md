@@ -10,6 +10,18 @@
 | FR-004 | kind=test; ref=frontend/tests/react/mock-public-source-hide-warning.test.tsx (public source warns, private/empty/Writing do not); ci=Tests run 40784593322 on staging `56a8c344f`, 2 passed | PASS |
 | FR-005 | kind=test; ref=frontend/tests/react/mock-private-draft-create.test.tsx (payload unchanged) and backend/tests/test_migration_338_paper_updated_at_triggers.py (copy still hides the source); ci=Tests run 40784593322 on staging `56a8c344f`: mock-private-draft-create.test.tsx 2 passed, test_migration_338_paper_updated_at_triggers.py 29 passed | PASS |
 | FR-006 | kind=test; ref=backend/tests/test_migration_338_paper_updated_at_triggers.py (`test_package_status_transition_with_real_306_advances_timestamp_and_policy[status-update]`, `[package-publish-rpc]`, from PC-J242 commit c541cb9be) plus a 353 migration test; not implemented yet | PENDING |
+| FR-007 | PC-J512 (job 1on, migration 353) must verify publish/archive leaves `mock_content_revision` unchanged (`after == before`), increments `policy_revision` exactly once and writes one release event per paper; status-only UPDATE on both Listening child tables preserves attempts and `fn_mock_overlap_valid` grants; status plus a content column bumps once; other column changes and INSERT/DELETE retain existing behaviour; migration 353 carries FR-006 and FR-007 atomically, changes no row and is re-runnable; implementation and retest pending | PENDING |
+
+## Known gap — Q-J252-IMPORT (OPEN)
+
+Importing a new package with migration 306 active can still raise SQLSTATE
+55000: INSERT into `listening_content` fires the source trigger, whose UPDATE
+of `listening_tests` requires the package transition GUC. Source: job 1dh,
+`audit/import-base.result`; FD question
+`handoff/leader/20261102-0950-fd-questions-vinh.md`, Q-J252-IMPORT.
+The question remains OPEN with Vinh. J252 option 1 does not decide it;
+migration 353 covers FR-006 and FR-007 only. Import remediation is outside
+PC-J536 and remains pending a separate decision.
 
 ## Contract evidence
 

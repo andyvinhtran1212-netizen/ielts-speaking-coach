@@ -290,6 +290,17 @@ def create_session(
         else:
             rows = []
     else:
+        # One open self-serve session per learner: a repeated or second-tab
+        # start resumes it. The router serialises this check with the
+        # learner's other writes; there is no DB constraint for this scope.
+        open_rows = (
+            supabase_admin.table("grammar_diagnostic_sessions").select("*")
+            .eq("user_id", user_id).is_("class_assignment_item_id", "null")
+            .eq("status", "in_progress").order("started_at", desc=True)
+            .limit(1).execute().data
+        ) or []
+        if open_rows:
+            return session_summary(user_id, open_rows[0])
         rows = supabase_admin.table("grammar_diagnostic_sessions").insert(row).execute().data or []
     if not rows:
         raise HTTPException(500, "Không tạo được phiên Grammar Check-up")

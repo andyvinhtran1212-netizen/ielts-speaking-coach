@@ -17,14 +17,16 @@ import httpx
 from fastapi import FastAPI
 
 from routers import analytics as analytics_module
+from tests.loop_gate import WAIT, LoopGate, until
 
 
 class _SlowInsert:
     """Per-thread client double whose execute() blocks like a slow round-trip."""
 
-    def __init__(self, delay=0.0, fail=False):
+    def __init__(self, delay=0.0, fail=False, gate=None):
         self.delay = delay
         self.fail = fail
+        self.gate = gate  # a LoopGate parks execute() until the test releases it
         self.inserted = []
         self.threads = []
         self.finished = 0
@@ -34,6 +36,8 @@ class _SlowInsert:
 
     def execute(self):
         self.threads.append(threading.get_ident())
+        if self.gate is not None:
+            self.gate.park()
         time.sleep(self.delay)
         self.finished += 1
         if self.fail:
@@ -64,43 +68,55 @@ def _event():
 
 
 def test_slow_insert_does_not_block_other_requests(monkeypatch):
-    stub = _SlowInsert(delay=0.6)
+    gate = LoopGate()
+    stub = _SlowInsert(gate=gate)
     _patch(monkeypatch, stub)
 
     async def scenario():
         transport = httpx.ASGITransport(app=_app())
         async with httpx.AsyncClient(transport=transport, base_url="http://t") as client:
-            start = time.perf_counter()
             beacon = asyncio.create_task(client.post("/api/analytics/events", json=_event()))
-            await asyncio.sleep(0.05)  # let the beacon reach its insert
-            ping = await client.get("/ping")
-            ping_s = time.perf_counter() - start
-            insert_running = stub.inserted and not stub.finished
-            return await beacon, ping, ping_s, insert_running
+            try:
+                entered = await until(lambda: gate.inside >= 1, stop=beacon)
+                # The insert is parked: an insert on the loop thread would hold
+                # /ping until the gate's WAIT.
+                ping = await asyncio.wait_for(client.get("/ping"), WAIT)
+                insert_running = entered and not beacon.done() and not gate.released
+            finally:
+                gate.release()
+            return await asyncio.wait_for(beacon, WAIT), ping, insert_running
 
-    beacon, ping, ping_s, insert_running = asyncio.run(scenario())
+    beacon, ping, insert_running = asyncio.run(scenario())
     assert ping.status_code == 200
-    # Timed from the beacon's start: an insert on the loop thread would hold
-    # /ping for its whole 0.6 s.
-    assert ping_s < 0.3, f"/ping waited {ping_s:.3f}s behind the analytics insert"
+    assert not gate.timed_out, "the analytics insert ran on the event loop"
     assert insert_running, "/ping answered while the insert was still in flight"
     assert beacon.status_code == 200 and beacon.json() == {"ok": True}
     assert len(stub.inserted) == 1
 
 
 def test_concurrent_beacons_overlap_instead_of_serialising(monkeypatch):
-    stub = _SlowInsert(delay=0.3)
+    gate = LoopGate()
+    stub = _SlowInsert(gate=gate)
     _patch(monkeypatch, stub)
     payload = analytics_module.AnalyticsEventPayload(**_event())
 
     async def five():
-        start = time.perf_counter()
-        await asyncio.gather(*(analytics_module.record_event(payload, authorization=None)
-                               for _ in range(5)))
-        return time.perf_counter() - start
+        calls = asyncio.gather(*(analytics_module.record_event(payload, authorization=None)
+                                 for _ in range(5)))
+        try:
+            # All five inserts must be parked at once; serialised inserts
+            # never get past one.
+            overlapped = await until(lambda: gate.inside >= 5, stop=calls)
+            in_flight = gate.inside
+            overlapped = overlapped and not calls.done() and not gate.released
+        finally:
+            gate.release()
+        return await asyncio.wait_for(calls, WAIT), overlapped, in_flight
 
-    # Five 300 ms inserts on the loop thread would take 1.5 s.
-    assert asyncio.run(five()) < 0.9
+    out, overlapped, in_flight = asyncio.run(five())
+    assert not gate.timed_out, "an insert ran on the event loop, or the inserts were serialised"
+    assert overlapped, f"only {in_flight} of 5 inserts were in flight together"
+    assert out == [{"ok": True}] * 5
     assert len(stub.inserted) == 5
 
 

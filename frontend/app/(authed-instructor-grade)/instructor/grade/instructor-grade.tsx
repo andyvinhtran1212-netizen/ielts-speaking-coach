@@ -82,7 +82,7 @@ function FeedbackPreview({ feedback }: { feedback: any }) {
       const renderer = renderers.SECTION_RENDERERS[sectionKey];
       if (!renderer) return [];
       try {
-        return [{ key: sectionKey, title: SECTION_LABELS[sectionKey] || sectionKey, html: renderer(value) }];
+        return [{ key: sectionKey, title: SECTION_LABELS[sectionKey] || sectionKey, html: renderer(value, { isStaffViewer: true }) }];
       } catch {
         return [];
       }

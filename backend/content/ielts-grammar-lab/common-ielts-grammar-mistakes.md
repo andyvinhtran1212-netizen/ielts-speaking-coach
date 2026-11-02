@@ -72,9 +72,12 @@ anchors:
 ## Tóm tắt
 
 Dưới đây là 10 lỗi ngữ pháp mà thí sinh Việt Nam mắc nhiều nhất trong IELTS. Mỗi lỗi đều có:
+
 - Giải thích **tại sao** hay bị sai
 - Ví dụ lỗi ❌ và cách sửa ✅
 - Mẹo ghi nhớ để tránh trong tương lai
+
+---
 
 ## Tại sao quan trọng
 
@@ -139,6 +142,8 @@ Tiếng Việt không biến đổi động từ theo thì, nên người Việt
 | always, usually, every day | Present Simple |
 | tomorrow, next week, in the future | Future (will / going to) |
 
+> Từ tín hiệu không tự quyết định thì: “I am working here every day this month” là lịch tạm thời; “I know the answer now” là trạng thái; for two years có thể thuộc khoảng quá khứ đã kết thúc. Has finished/is working khác can work/do work.
+
 ---
 
 <!-- anchor: common-ielts-grammar-mistakes.loi-3-nham-mao-tu-a-an-the -->
@@ -172,6 +177,8 @@ Tiếng Việt không có mạo từ, nên người Việt thường bỏ mạo 
 | Nhạc cụ (play the piano), hệ thống (the government) | **the** |
 | Tên riêng, tên quốc gia (thường) | **∅** |
 
+> Lần nhắc đầu vẫn dùng the nếu đối tượng đã xác định theo hoàn cảnh: “Please close the door”.
+
 ---
 
 ## Lỗi 4: Sai Word Form (Dạng từ)
@@ -199,11 +206,11 @@ Người Việt học từ vựng thường nhớ nghĩa mà không nhớ dạng
 | Vị trí trong câu | Dạng từ cần |
 |-----------------|------------|
 | Sau a/an/the, trước noun | Adjective |
-| Bổ ngữ miêu tả sau linking be/seem/become/feel | Thường adjective; có thể NP (She is a doctor). Be trợ động từ có is working/is treated |
+| Bổ ngữ miêu tả sau linking be/seem/become/feel | Thường là tính từ; cũng có thể là cụm danh từ (*She is a doctor*). Khi *be* là trợ động từ thì theo sau là V-ing/V3 (*is working, is treated*). |
 | Sau động từ (bổ nghĩa cho V) | Adverb |
 | Sau giới từ | Cụm danh từ hoặc V-ing: without speaking |
 | Chủ ngữ của câu | Noun |
-| Sau modal verb / trợ động từ | Verb (bare infinitive) |
+| Sau modal verb hoặc *do/does/did* | Verb (bare infinitive) |
 
 ---
 
@@ -292,7 +299,7 @@ Câu điều kiện yêu cầu phối hợp thì chính xác giữa if-clause v�
 - ✅ If I **had** more time, I would travel the world.
   *(Type 2: if + Past Simple, NOT "would have")*
 
-- “If she **studied** harder, she would have passed the exam” cần ngữ cảnh điều kiện về thói quen → kết quả quá khứ. Nếu nói lần ôn tập quá khứ cụ thể đã bỏ lỡ:
+- ⚠ *If she studied harder, she would have passed the exam.* chỉ đúng khi *studied harder* nói về thói quen hay tính cách chung (điều kiện hỗn hợp). Nếu nói về một lần ôn thi cụ thể đã qua, dùng Type 3:
 - ✅ If she **had studied** harder, she would have passed the exam.
   *(Type 3 cho sự việc quá khứ cụ thể; không cấm mọi điều kiện hỗn hợp)*
 
@@ -306,7 +313,7 @@ Câu điều kiện yêu cầu phối hợp thì chính xác giữa if-clause v�
 
 ---
 
-## Lỗi 8: Passive Voice — Quên "been"
+## Lỗi 8: Passive Voice — thiếu *be/been/being* hoặc sai V3
 
 ### Tại sao hay bị sai
 
@@ -380,7 +387,7 @@ Mệnh đề phụ (subordinate clause) bắt đầu bằng because, although, w
 
 ### Dấu hiệu nhận biết
 
-Nếu bắt đầu câu bằng: *although, because, since, when, while, if, unless, after, before, even though* → **câu đó KHÔNG thể kết thúc bằng dấu chấm** — phải có mệnh đề chính theo sau.
+Nếu bắt đầu câu bằng: *although, because, since, when, while, if, unless, after, before, even though* → mệnh đề đó **không được đứng một mình rồi chấm câu**; mệnh đề chính phải nằm trong cùng câu.
 
 ---
 
@@ -430,5 +437,3 @@ Trước khi nộp bài Task 1 hoặc Task 2, kiểm tra nhanh 10 điểm sau:
 8. The new regulations **were introduced in January**. *(tháng Một đã qua; giữ thời gian và dùng bị động quá khứ)*
 9. **Although he was tired**, he continued working. *(không thể kết thúc bằng dấu chấm sau "tired")*
 10. I am very **interested** in environmental issues. *(interested in = adj; interesting = adj mô tả sự vật)*
-
-> Từ tín hiệu không tự quyết định thì: “I am working here every day this month” là lịch tạm thời; “I know the answer now” là trạng thái; for two years có thể thuộc khoảng quá khứ đã kết thúc. Has finished/is working khác can work/do work. Lần nhắc đầu vẫn dùng the nếu đối tượng đã xác định theo hoàn cảnh: “Please close the door”.

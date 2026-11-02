@@ -12,7 +12,8 @@ serialised ones did.
 
 The fake DB returns DEEP COPIES and makes each statement atomic, like PostgREST;
 it emulates mig 088's one-active-attempt unique index and mig 224's answer
-trigger. No network I/O.
+trigger. No network I/O. Concurrency proofs park the stubbed sync work in a
+``LoopGate`` (tests/loop_gate.py) or a Barrier instead of timing it (PC-J514).
 """
 
 from __future__ import annotations
@@ -36,6 +37,7 @@ from routers import reading_student as rs
 from services import core_attempt_observation as obs
 from services import mock_correction_service, mock_exam_service, mock_paper_policy
 from services.class_assignment_service import DeadlinePassedError, ItemNotFoundError
+from tests.loop_gate import WAIT, LoopGate, until
 
 U1 = "00000000-0000-0000-0000-0000000000a1"
 U2 = "00000000-0000-0000-0000-0000000000a2"
@@ -209,6 +211,7 @@ class _Env:
         self.capture = None
         self.observations = []
         self.slow = defaultdict(float)   # helper name -> seconds of blocking work
+        self.pause = {}                  # helper name -> sync callable run inside it (gate/barrier)
         self.mp = monkeypatch
         self.seed()
 
@@ -218,21 +221,21 @@ class _Env:
             return {"id": TOKENS[authorization], "email": "x@x"}
 
         def published_test(test_id):
-            time.sleep(self.slow["published"])
+            self._block("published")
             rows = [r for r in self.db.rows("reading_tests") if r["test_id"] == test_id]
             if not rows:
                 raise HTTPException(404, "Reading test not found or not published")
             return rows[0]
 
         def detail(test_id, password=None, user_id=None, class_item=None, sitting_id=None):
-            time.sleep(self.slow["detail"])
+            self._block("detail")
             test = published_test(test_id)
             return {**test, "locked": False, "passages": []}
 
         real_owned = rs._fetch_attempt_owned
 
         def owned(attempt_id, user, anon_id):
-            time.sleep(self.slow["owned"])
+            self._block("owned")
             return real_owned(attempt_id, user, anon_id)
 
         def class_item(db, user_id, item, *, skill, test_id):
@@ -266,6 +269,11 @@ class _Env:
         mp.setattr(mock_exam_service, "is_sealed", lambda sitting_id: str(sitting_id) in self.sealed)
         mp.setattr(obs, "_emit_safely", capture_emit)
         mp.setattr(settings, "CORE_ATTEMPT_EVIDENCE_ENABLED", True)
+
+    def _block(self, name):
+        time.sleep(self.slow[name])
+        if name in self.pause:
+            self.pause[name]()
 
     def seed(self):
         t = self.db.tables
@@ -335,16 +343,6 @@ def _call(client, kind, *, auth="Bearer u1", attempt_id=None, json=None, params=
     raise AssertionError(kind)
 
 
-async def _heartbeat(stop):
-    """Largest gap between 10 ms ticks of a light coroutine while work runs."""
-    worst, last = 0.0, time.perf_counter()
-    while not stop.is_set():
-        await asyncio.sleep(0.01)
-        now = time.perf_counter()
-        worst, last = max(worst, now - last), now
-    return worst
-
-
 # ── (a) two learners in parallel, the loop stays responsive ──────────
 
 
@@ -352,30 +350,46 @@ async def _heartbeat(stop):
     ("boot", "detail"), ("start", "published"), ("submit", "owned"), ("save", "owned"),
 ])
 def test_blocking_work_runs_off_the_event_loop(env, kind, slow):
-    env.slow[slow] = 0.5
+    """Both learners' sync work must be parked in workers at once while the loop
+    keeps ticking a heartbeat and serves /ping; only then are they released."""
+    gate = LoopGate()
+    env.pause[slow] = gate.park
     a1, a2 = env.attempt(U1)["id"], env.attempt(U2)["id"]
     ids = {"Bearer u1": a1, "Bearer u2": a2}
 
     async def scenario(client):
-        stop = asyncio.Event()
-        beat = asyncio.create_task(_heartbeat(stop))
-        await asyncio.sleep(0.02)
-        started = time.perf_counter()
-        responses = await asyncio.gather(*[
+        ticks, done = [0], asyncio.Event()
+
+        async def heartbeat():
+            while not done.is_set():
+                await asyncio.sleep(0.001)
+                ticks[0] += 1
+
+        beat = asyncio.create_task(heartbeat())
+        calls = asyncio.gather(*[
             _call(client, kind, auth=auth, attempt_id=ids[auth]) for auth in ("Bearer u1", "Bearer u2")
         ])
-        elapsed = time.perf_counter() - started
-        ping_started = time.perf_counter()
-        ping = await client.get("/ping")
-        ping_s = time.perf_counter() - ping_started
-        stop.set()
-        return responses, elapsed, await beat, ping, ping_s
+        try:
+            overlapped = await until(lambda: gate.inside >= 2, stop=calls)
+            seen = ticks[0]
+            beat_while_parked = await until(lambda: ticks[0] >= seen + 3, stop=calls)
+            ping = await asyncio.wait_for(client.get("/ping"), WAIT)
+            parked = overlapped and beat_while_parked and not calls.done() and not gate.released
+        finally:
+            gate.release()
+            done.set()
+        responses = await asyncio.wait_for(calls, WAIT)
+        await beat
+        return responses, ping, parked
 
-    responses, elapsed, worst_gap, ping, ping_s = _run(env, scenario)
+    responses, ping, parked = _run(env, scenario)
     assert [r.status_code for r in responses] == [200, 200], [r.text for r in responses]
-    assert ping.status_code == 200 and ping_s < 0.2
-    assert elapsed < 0.85, f"{kind}: two learners took {elapsed:.2f}s — serialised on the loop"
-    assert worst_gap < 0.2, f"{kind}: event loop blocked {worst_gap:.2f}s"
+    assert ping.status_code == 200
+    assert not gate.timed_out, (
+        f"{kind}: a parked call timed out: the sync work ran on the event loop, "
+        f"or the two learners were serialised ({gate.inside} call(s) entered)")
+    assert parked, f"{kind}: {gate.inside} of 2 learners parked together while the loop ticked and served /ping"
+    assert threading.get_ident() not in gate.threads
 
 
 # ── (b) response / status / message unchanged ────────────────────────
@@ -594,10 +608,15 @@ def test_save_rejected_states(env):
 
 def test_save_trigger_expiry_410(env):
     row = env.attempt(U1)
+    reads = []
 
     def expire_behind_save():
-        with env.db.lock:
-            env.db.tables["reading_test_attempts"][0]["status"] = "submitted"
+        reads.append(True)
+        # Let the ownership preflight succeed, then expire after the write's
+        # fresh read so the DB trigger still exercises the stale-save path.
+        if len(reads) == 2:
+            with env.db.lock:
+                env.db.tables["reading_test_attempts"][0]["status"] = "submitted"
 
     env.db.hooks.append((lambda q: q.name == "reading_test_attempts" and q.op == "select", expire_behind_save))
 
@@ -690,6 +709,116 @@ def test_concurrent_learners_keep_their_own_observation(env):
 # ── SAME-ENTITY-SERIAL (G4 checklist) ─────────────────────────────────
 
 
+@pytest.mark.parametrize("kind", ["submit", "save"])
+@pytest.mark.parametrize("auth", [None, "Bearer invalid"])
+def test_missing_credentials_rejected_before_write_queue(env, monkeypatch, kind, auth):
+    entered = []
+    real_write = rs._learner_write
+
+    async def write(*args):
+        entered.append(args[0])
+        return await real_write(*args)
+
+    monkeypatch.setattr(rs, "_learner_write", write)
+
+    async def scenario(client):
+        return await _call(client, kind, auth=auth, attempt_id=str(uuid.uuid4()))
+
+    response = _run(env, scenario)
+    assert response.status_code == 401
+    assert entered == [], "credentialless requests must not enter the write queue"
+    assert env.db.statements == []
+
+
+@pytest.mark.parametrize("kind", ["submit", "save"])
+@pytest.mark.parametrize("case,status", [("other-user", 403), ("wrong-anon", 403),
+                                        ("bearer-only-share", 403), ("missing", 404)])
+def test_unowned_attempt_rejected_before_write_queue(env, monkeypatch, kind, case, status):
+    row = env.attempt(None, anon_id=ANON) if case in {"wrong-anon", "bearer-only-share"} else env.attempt(U2)
+    entered = []
+    real_write = rs._learner_write
+
+    async def write(*args):
+        entered.append(args[0])
+        return await real_write(*args)
+
+    monkeypatch.setattr(rs, "_learner_write", write)
+
+    async def scenario(client):
+        return await _call(client, kind, attempt_id=str(uuid.uuid4()) if case == "missing" else row["id"],
+                           anon="wrong" if case == "wrong-anon" else None)
+
+    response = _run(env, scenario)
+    assert response.status_code == status
+    assert entered == [], "ownership must be verified before taking any write lock"
+    assert all(op == "select" for _, op in env.db.statements)
+
+
+@pytest.mark.parametrize("kind", ["submit", "save"])
+@pytest.mark.parametrize("owner", ["user", "anon"])
+def test_write_keys_use_canonical_owned_attempt(env, monkeypatch, kind, owner):
+    row = env.attempt(U1) if owner == "user" else env.attempt(None, anon_id=ANON)
+    checked, entered = [], []
+    real_owned, real_write = rs._fetch_attempt_owned, rs._learner_write
+
+    def owned(*args):
+        attempt = real_owned(*args)
+        checked.append(attempt["id"])
+        return attempt
+
+    async def write(keys, *args):
+        assert checked == [row["id"]], "verify ownership before deriving locks"
+        entered.append(keys)
+        return await real_write(keys, *args)
+
+    monkeypatch.setattr(rs, "_fetch_attempt_owned", owned)
+    monkeypatch.setattr(rs, "_learner_write", write)
+
+    async def scenario(client):
+        # Optional Bearer auth cannot own a share-link attempt.
+        return await _call(client, kind, attempt_id=row["id"], anon=ANON if owner == "anon" else None)
+
+    response = _run(env, scenario)
+    assert response.status_code == 200, response.text
+    expected = (f"attempt:{row['id']}",)
+    if owner == "user":
+        expected = (f"user:{U1}", *expected)
+    assert entered == [expected]
+    assert checked == [row["id"], row["id"]], "re-read mutable state under the lock"
+
+
+@pytest.mark.parametrize("kind", ["submit", "save"])
+@pytest.mark.parametrize("auth", [None, "Bearer u1"])
+def test_distinct_share_attempts_do_not_share_a_write_lock(env, monkeypatch, kind, auth):
+    gate = LoopGate()
+    name = "_submit_reading_test_attempt_sync" if kind == "submit" else "_patch_reading_test_attempt_answer_sync"
+    real_write = getattr(rs, name)
+
+    def parked_write(*args):
+        gate.park()
+        return real_write(*args)
+
+    monkeypatch.setattr(rs, name, parked_write)
+    # The same anon capability can resume multiple attempts, and the frontend
+    # may attach the same logged-in user's Bearer token to all share requests.
+    rows = [env.attempt(None, anon_id=ANON), env.attempt(None, anon_id=ANON)]
+
+    async def scenario(client):
+        calls = asyncio.gather(*[_call(client, kind, auth=auth, anon=ANON, attempt_id=row["id"]) for row in rows])
+        try:
+            overlapped = await until(lambda: gate.inside == 2, stop=calls)
+            ping = await asyncio.wait_for(client.get("/ping"), WAIT)
+            parked = overlapped and not gate.released and not calls.done()
+        finally:
+            gate.release()
+        return await asyncio.wait_for(calls, WAIT), ping, parked
+
+    responses, ping, parked = _run(env, scenario)
+    assert [r.status_code for r in responses] == [200, 200], [r.text for r in responses]
+    assert ping.status_code == 200
+    assert parked and not gate.timed_out, "independent share attempts must enter their write bodies together"
+
+
 def _pause_until(event, timeout=0.6):
     return lambda: event.wait(timeout)
 
@@ -765,9 +894,11 @@ def test_two_submits_same_attempt_exactly_one_grades(env):
 # attempt can be reached with and without auth (Codex review on #2105).
 @pytest.mark.parametrize("owner,submit_auth,save_auth", [
     ("user", "Bearer u1", "Bearer u1"),
+    ("anon", None, None),
     ("anon", "Bearer u1", None),
     ("anon", None, "Bearer u1"),
-], ids=["owned", "anon-submit-with-bearer", "anon-save-with-bearer"])
+    ("anon", "Bearer u1", "Bearer u2"),
+], ids=["owned", "anon", "anon-submit-with-bearer", "anon-save-with-bearer", "anon-different-bearers"])
 def test_submit_and_autosave_never_drop_an_acknowledged_answer(env, owner, submit_auth, save_auth):
     env.db.delay = 0.02
     row = env.attempt(U1) if owner == "user" else env.attempt(None, anon_id=ANON)
@@ -813,39 +944,77 @@ def test_submit_and_autosave_never_drop_an_acknowledged_answer(env, owner, submi
 
 
 def test_different_learners_are_not_serialised(env):
-    env.slow["owned"] = 0.4
+    # Each learner's autosave waits inside its sync body until the other
+    # learner's is inside too; a shared lock (or the loop) breaks the barrier.
+    both_inside = threading.Barrier(2, timeout=WAIT)
+
+    def meet():
+        with contextlib.suppress(threading.BrokenBarrierError):
+            both_inside.wait()
+
+    env.pause["owned"] = meet
     a1, a2 = env.attempt(U1)["id"], env.attempt(U2)["id"]
 
     async def scenario(client):
-        started = time.perf_counter()
-        responses = await asyncio.gather(_call(client, "save", attempt_id=a1),
-                                         _call(client, "save", auth="Bearer u2", attempt_id=a2))
-        return responses, time.perf_counter() - started
+        return await asyncio.gather(_call(client, "save", attempt_id=a1),
+                                    _call(client, "save", auth="Bearer u2", attempt_id=a2))
 
-    responses, elapsed = _run(env, scenario)
+    responses = _run(env, scenario)
+    assert not both_inside.broken, "the two learners' autosaves never ran at the same time"
     assert [r.status_code for r in responses] == [200, 200]
-    assert elapsed < 0.7
 
 
-def test_cancelled_request_keeps_learner_lock_until_thread_ends(env):
-    env.slow["owned"] = 0.3
-    row = env.attempt(U1)
+@pytest.mark.parametrize("owner", ["user", "anon"])
+def test_cancelled_request_keeps_learner_lock_until_thread_ends(env, monkeypatch, owner):
+    gate = LoopGate()
+    order = []
+    real_write = rs._patch_reading_test_attempt_answer_sync
+
+    def parked_write(*args):
+        if order:
+            order.append("second-start")
+        else:
+            order.append("first-start")
+            gate.park()
+            order.append("first-end")
+        return real_write(*args)
+
+    # Ownership now has a read-only preflight; park the actual write body to
+    # continue proving cancellation retains every write lock until it ends.
+    monkeypatch.setattr(rs, "_patch_reading_test_attempt_answer_sync", parked_write)
+    row = env.attempt(U1) if owner == "user" else env.attempt(None, anon_id=ANON)
+    credentials = {"auth": "Bearer u1"} if owner == "user" else {"auth": None, "anon": ANON}
+
+    async def turns(n=5):  # loop iterations, not wall-clock time
+        for _ in range(n):
+            await asyncio.sleep(0)
 
     async def scenario(client):
-        first = asyncio.create_task(_call(client, "save", attempt_id=row["id"]))
-        await asyncio.sleep(0.1)
-        first.cancel()
-        started = time.perf_counter()
-        second = await _call(client, "save", attempt_id=row["id"], json={"q_num": 3, "user_answer": "A"})
-        waited = time.perf_counter() - started
+        first = asyncio.create_task(_call(client, "save", attempt_id=row["id"], **credentials))
+        try:
+            parked = await until(lambda: gate.inside > 0, stop=first)
+            first.cancel()
+            await turns()
+            keys = (f"user:{U1}", f"attempt:{row['id']}") if owner == "user" else (f"attempt:{row['id']}",)
+            held = parked and all(rs._learner_write_lock(key).locked() for key in keys) and not first.done()
+            second = asyncio.create_task(
+                _call(client, "save", attempt_id=row["id"], json={"q_num": 3, "user_answer": "A"}, **credentials))
+            await turns()
+            queued = "second-start" not in order
+        finally:
+            gate.release()
+        response = await asyncio.wait_for(second, WAIT)
         with contextlib.suppress(asyncio.CancelledError):
             await first
-        return second, waited
+        return response, held, queued
 
-    second, waited = _run(env, scenario)
+    second, held, queued = _run(env, scenario)
+    assert not gate.timed_out, "the save ran its sync work on the event loop"
+    assert held, "the cancelled save released the learner lock while its thread still ran"
+    assert queued, "the next save entered its sync body while the cancelled one was still running"
     assert second.status_code == 200
     # The cancelled save's thread still ran to completion before the next one.
-    assert waited >= 0.15
+    assert order == ["first-start", "first-end", "second-start"]
     assert {a["q_num"] for a in env.db.rows("reading_attempt_answers")} == {2, 3}
 
 

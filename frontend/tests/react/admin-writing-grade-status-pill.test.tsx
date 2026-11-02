@@ -36,6 +36,30 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
+it('PC-J531 labels learner history correctly in the native admin preview tabs', async () => {
+  const get = vi.fn().mockResolvedValue({
+    ...ESSAY,
+    feedback: { overall_band_score: 6.5, feedback_json: {
+      recurringPatterns: { summary: 'Lịch sử lỗi lặp lại.' },
+      sentenceStructureAnalysis: {
+        summary: 'Lịch sử cấu trúc câu.',
+        current_essay_observation: 'Quan sát riêng bài này.',
+      },
+    } },
+  });
+  Object.defineProperty(window, 'api', { configurable: true, value: { get } });
+  render(<StrictMode><AdminWritingGradeBehavior /></StrictMode>);
+
+  fireEvent.click(await screen.findByRole('tab', { name: /Nhận xét lỗi/ }));
+  const recurringLabel = screen.getByText('Nhận xét chung qua các bài gần đây của học viên (không riêng bài này):');
+  expect(recurringLabel.tagName).toBe('STRONG');
+  expect(screen.queryByText('Nhận xét chung qua các bài gần đây của bạn (không riêng bài này):')).toBeNull();
+
+  fireEvent.click(screen.getByRole('tab', { name: /Phân tích nâng cao/ }));
+  expect(screen.getByText('Nhận xét chung về cấu trúc câu qua các bài gần đây (không riêng bài này):').tagName).toBe('STRONG');
+  expect(screen.getByText('Quan sát riêng bài này.')).toBeTruthy();
+});
+
 // W-GRADE-STALE-STATUS (PC-J26): the pill and the status-gated buttons follow
 // each status the backend answers — reviewed after "Lưu & duyệt", delivered
 // after "Trả bài", reviewed after "Thu hồi" — without a page reload, and never

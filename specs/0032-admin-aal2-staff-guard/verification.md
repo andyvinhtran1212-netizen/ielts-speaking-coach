@@ -287,3 +287,66 @@ on Supabase project `zjphffoujxkpltixsbzj`:
 
 This follow-up does not enable enforcement. T012 still requires its separate
 rollout and recovery acceptance; the live CI evidence above is a prerequisite.
+
+
+## PC-J358: migration 361, forward hardening of 341 (2026-11-02)
+
+FR-009/FR-011/FR-019, with AIOPS-0024 FR-003: scoped follow-up to #2050
+(merge `d5b1048cb7cb29aecc90626cdf5ed2a4a211624c`), delivered by PR #2180 as
+the new forward migration
+`backend/migrations/361_staff_privilege_evidence_commit_guard.sql` (number
+allocated by the Leader on 2026-11-02). CR round R2 rejected the first head
+(`2c38b26a6`), which edited 341 in place: 341 was already in the staging
+ledger (applied 2026-11-02 06:40:15Z), so the runner would skip it on staging
+and production would get different 341 content. 341 is restored byte-identical
+to the applied staging blob `91c3ed7a4aedfaa4830d27981b71354f519b918c`
+(sha256 `bc7027fb…9551f`), pinned by
+`test_341_is_byte_identical_to_the_blob_applied_on_staging`. No remote
+database request, migration application, flag change, production access or
+real email was part of this work.
+
+- SA P3-2: a deferred constraint trigger with an owner-only SECURITY DEFINER
+  function (search_path `pg_catalog, pg_temp`, no EXECUTE for any API role)
+  rejects COMMIT with `staff_privilege_evidence_not_consumed` while any
+  evidence remains, including a row whose key an owner changed; the RPC and
+  the bootstrap still commit.
+- SA P3-7: `fn_users_privilege_audit` is 341's body with evidence consumed by
+  `OLD.id`, matching both guards; the postcondition refuses a NEW.id body
+  (`staff_privilege_audit_evidence_key_wrong`, e.g. after a 341 re-run).
+- SA-R4-1/2: postconditions refuse column I/U/R, client I/U/D and users
+  privileges reachable through a membership even with INHERIT FALSE.
+- SA-R4-3 / SA-2180-1: `SET LOCAL search_path = pg_catalog, pg_temp` right
+  after `BEGIN`, catalog functions called as `pg_catalog.<fn>`, `||`/`@>`
+  written as `OPERATOR(pg_catalog.…)`, and a precondition
+  (`catalog_name_shadowed_in_public`) that aborts if `public` holds a function
+  or operator named like one the file uses. A test plants exact `text[]`
+  `||`/`@>` operators as service_role: on the 341 postcondition they run as the
+  owner and hide a TRIGGER grant (negative control); on 361 the drift is
+  reported and no attacker code runs, with the runner path `<schema>` and
+  `<schema>, pg_catalog`.
+- Preconditions: 341 in `_schema_migrations` and its objects present
+  (`migration_341_missing`), empty evidence table. Both release paths are
+  tested: on top of an applied 341 with audit history (staging) and 341 then
+  361 back to back (production, also through the real locked applier in
+  `test_client_write_invariant_postgres.py`); a second 361 run leaves the
+  catalog unchanged. The header rollback drops only the 361 trigger/function,
+  restores the 341 audit body and grants nothing.
+- SA P3-4: the 326/332 harness asserts NOSUPERUSER API roles and switches role
+  inside the operation transaction with `ASSERT current_user`.
+- SA P3-5 stays a known gap (service-role `updated_by` attribution, unaudited
+  parent-table owner TRUNCATE); SA P3-6: the 341 header's client sequence
+  GRANT is marked DO NOT RUN in the 361 header and README.
+
+361 is `pending_feature admin_aal2` in `forward-policy.tsv`: merge applies
+nothing. Staging apply only with Leader authorization through the
+advisory-locked runner, production only at an authorised promotion after 341.
+Local PostgreSQL 17.11 (disposable loopback SCRAM cluster, deleted after):
+test-first, a stub 361 failed 76 of the new cases (`red-stub.result`) and a
+361 without the pinned path, operator qualification and shadow precondition
+failed all 8 SA-2180-1 cases with the attacker operators running as the
+owner (`red-sa2180.result`); the final 361 suite passed 191. The CI PG17 job
+file set (every `test_migration_*.py` plus the listed PostgreSQL suites,
+including the real locked applier running 341 then 361) passed **1863, zero
+skips, zero failures** (`pg17job.result`). Logs are under
+`/workspace/cc-jobs/job-q-1pd-fix-2180-r2-mig361.log.d/`. Independent SA
+retest (SA-RETEST-361-2180-R2) remains pending.
