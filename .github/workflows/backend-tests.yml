@@ -106,7 +106,9 @@ jobs:
 
   # PC-J14 / BL-14: the serial job ran 9–15 min of pytest (10–16.5 min total)
   # against its 25-minute budget. The suite now runs as four file shards in
-  # parallel. `backend` below keeps the required context name for branch
+  # parallel, balanced by measured per-file duration (PC-J515). Refresh the
+  # committed snapshot manually: docs/CI_PYTEST_SHARDS.md.
+  # `backend` below keeps the required context name for branch
   # protection and staging-promotion-gate.yml: it is green only when every
   # shard and the full collection are green and the shards ran each collected
   # test exactly once (`scripts/ci_pytest_shards.py verify`).
@@ -204,7 +206,7 @@ jobs:
         working-directory: backend
         run: |
           python scripts/ci_pytest_shards.py run --total 4 --index ${{ matrix.shard }} \
-            --out ci-pytest -- -v --tb=short
+            --out ci-pytest -- -v --tb=short --durations=20
 
       - name: Upload shard node ids
         if: always() && env.RUN_TESTS == 'true'
@@ -371,7 +373,8 @@ jobs:
           python3 scripts/ci_pytest_shards.py verify --dir ci-pytest --total 4 \
             --weights-out ci-pytest/weights.json
 
-      - name: Upload refreshed shard weights
+      # Candidate artifact only; CI never rewrites the committed weights.
+      - name: Upload measured shard weights for manual refresh
         if: always()
         uses: actions/upload-artifact@v6
         with:
