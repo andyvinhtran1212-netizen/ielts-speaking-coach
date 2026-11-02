@@ -619,21 +619,41 @@ def test_pg_commit_refuses_when_objects_changed_after_the_dry_run(schema):
     assert objects_snapshot(schema, "reading", paper_id) == before
 
 
-def test_pg_commit_refuses_when_an_approval_landed_after_the_dry_run(schema):
-    """Statuses are copied into the new rows, so a status change must also stop the commit."""
+@pytest.mark.parametrize("column,value", [
+    ("editorial_status", "APPROVED"),
+    ("rights_status", "APPROVED"),
+    ("serving_status", "NOT_SERVABLE"),
+    ("binding_status", "UNBOUND"),
+])
+def test_pg_commit_refuses_when_a_status_changed_after_the_dry_run(schema, column, value):
+    """Statuses are copied into the new rows, so a flip of any one of them must stop the commit."""
     data = reading_paper()
     seed(schema, data)
     expected = apply_fix_in_db(schema, data)
     paper_id = data["tests"][0]["id"]
     runner, plan = load_and_plan(schema, "reading", data["tests"][0]["test_id"], expected)
-    pg(f"""UPDATE {schema}.web_explanation_objects SET rights_status='APPROVED', editorial_status='APPROVED'
-            WHERE reading_test_id=$1::uuid AND is_current""", paper_id)
+    pg(f"""UPDATE {schema}.web_explanation_objects SET {column} = $1
+            WHERE reading_test_id=$2::uuid AND is_current""", value, paper_id)
     before = objects_snapshot(schema, "reading", paper_id)
 
     with pytest.raises(Exception) as caught:
         runner.execute(sync.render_commit_sql(plan, schema=schema))
     assert "pcj156_precondition" in str(caught.value)
     assert objects_snapshot(schema, "reading", paper_id) == before
+
+
+def test_pg_readback_flags_a_retired_row_that_changed_after_the_lock(schema):
+    data = reading_paper()
+    seed(schema, data)
+    expected = apply_fix_in_db(schema, data)
+    runner, plan = load_and_plan(schema, "reading", data["tests"][0]["test_id"], expected)
+    runner.execute(sync.render_commit_sql(plan, schema=schema))
+    assert sync.readback(runner, plan, schema=schema)["ok"] is True
+
+    pg(f"UPDATE {schema}.web_explanation_objects SET editorial_status='APPROVED' WHERE id=$1::uuid",
+       plan["preconditions"][0]["id"])
+    check = sync.readback(runner, plan, schema=schema)
+    assert check["ok"] is False and check["retired_rows"] == 39
 
 
 def test_pg_commit_refuses_when_the_paper_changed_after_the_dry_run(schema):
@@ -670,3 +690,113 @@ def test_pg_load_reports_pins_and_pairing(schema):
                                                "rows": []}, expected_rows_sha256="sha")
     assert any("MOCK-PAIR" in r for r in caught.value.reasons)
     assert any("bài giao" in r for r in caught.value.reasons)
+
+
+# ── CLI commit on PostgreSQL: what is reported when the wire misbehaves ─────
+
+class FlakyRunner:
+    """LocalPgRunner on the disposable schema, failing where a test says so.
+
+    The CLI hard-codes `public`, so `public.` is rewritten to the test schema
+    here (the fixture's migration 319 does the same).
+    """
+
+    def __init__(self, schema, *, before_execute=None, fail_execute=None, fail_readback=False):
+        self.inner = pg_runner(schema)
+        self.schema = schema
+        self.before_execute = before_execute
+        self.fail_execute = fail_execute
+        self.fail_readback = fail_readback
+        self.executed = False
+
+    def _sql(self, sql):
+        return sql.replace("public.", self.schema + ".")
+
+    def load(self, sql):
+        if self.executed and self.fail_readback:
+            raise RuntimeError("readback connection refused")
+        return self.inner.load(self._sql(sql))
+
+    def execute(self, sql):
+        if self.before_execute:
+            self.before_execute()
+        try:
+            response = self.inner.execute(self._sql(sql))
+        finally:
+            self.executed = True
+        if self.fail_execute:
+            raise RuntimeError(self.fail_execute)
+        return response
+
+
+def _cli_commit(tmp_path, monkeypatch, capsys, runner, data, expected):
+    """Dry run, then commit through main() with the reviewed plan SHA; returns (code, result, captured)."""
+    after = tmp_path / "after.json"
+    after.write_text(json.dumps(expected))
+    monkeypatch.setattr(sync, "make_runner", lambda args: runner)
+    base = ["--skill", "reading", "--paper", data["tests"][0]["test_id"], "--expected-rows", str(after)]
+    assert sync.main(base) == 0
+    sha = json.loads(capsys.readouterr().out)["dry_run"]["sha256"]
+    request = tmp_path / "req.sql"
+    code = sync.main(base + ["--commit", "--expected-plan-sha", sha, "--request-out", str(request)])
+    result = json.loads((tmp_path / "req.sql.result").read_text())
+    return code, result, capsys.readouterr()
+
+
+def test_pg_cli_lost_response_after_the_commit_is_read_back_as_committed(schema, tmp_path, monkeypatch, capsys):
+    data = reading_paper()
+    seed(schema, data)
+    expected = apply_fix_in_db(schema, data)
+    code, result, captured = _cli_commit(tmp_path, monkeypatch, capsys,
+                                         FlakyRunner(schema, fail_execute="connection reset by peer"),
+                                         data, expected)
+    assert code == 4
+    assert "connection reset by peer" in result["execute_error"]
+    assert result["outcome"] == "committed" and result["readback"]["ok"] is True
+    assert "committed" in captured.err
+
+
+def test_pg_cli_approval_between_replan_and_transaction_is_refused_and_nothing_is_written(
+        schema, tmp_path, monkeypatch, capsys):
+    """The Codex P2 race through the real CLI: an approval lands after the replan, before the transaction."""
+    data = reading_paper()
+    seed(schema, data)
+    expected = apply_fix_in_db(schema, data)
+    paper_id = data["tests"][0]["id"]
+
+    def approve_between_replan_and_transaction():
+        pg(f"""UPDATE {schema}.web_explanation_objects SET editorial_status='APPROVED'
+                WHERE reading_test_id=$1::uuid AND question_number=4 AND is_current""", paper_id)
+
+    code, result, captured = _cli_commit(tmp_path, monkeypatch, capsys,
+                                         FlakyRunner(schema, before_execute=approve_between_replan_and_transaction),
+                                         data, expected)
+    assert code == 4
+    assert "pcj156_precondition" in result["execute_error"]
+    assert result["outcome"] == "not_written"
+    assert "not_written" in captured.err
+    status = pg(f"""SELECT editorial_status FROM {schema}.web_explanation_objects
+                     WHERE reading_test_id=$1::uuid AND question_number=4 AND is_current""", paper_id)
+    assert status[0]["editorial_status"] == "APPROVED"
+
+
+def test_pg_cli_failed_response_with_unreadable_state_is_reported_as_unknown(schema, tmp_path, monkeypatch, capsys):
+    data = reading_paper()
+    seed(schema, data)
+    expected = apply_fix_in_db(schema, data)
+    code, result, captured = _cli_commit(tmp_path, monkeypatch, capsys,
+                                         FlakyRunner(schema, fail_execute="timeout", fail_readback=True),
+                                         data, expected)
+    assert code == 4
+    assert result["outcome"] == "unknown" and "error" in result["readback"]
+    assert "unknown" in captured.err
+
+
+def test_pg_cli_readback_failure_after_a_clean_commit_still_writes_the_result(schema, tmp_path, monkeypatch, capsys):
+    data = reading_paper()
+    seed(schema, data)
+    expected = apply_fix_in_db(schema, data)
+    code, result, _ = _cli_commit(tmp_path, monkeypatch, capsys, FlakyRunner(schema, fail_readback=True),
+                                  data, expected)
+    assert code == 5
+    assert "response" in result and "error" in result["readback"]

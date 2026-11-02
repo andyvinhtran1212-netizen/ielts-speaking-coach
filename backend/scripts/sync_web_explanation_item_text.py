@@ -37,7 +37,8 @@ Default is a read-only dry run that prints the plan and its SHA-256. A commit
 re-plans from the live rows, requires `--expected-plan-sha` equal to the
 reviewed dry run, writes the exact SQL to `--request-out`, then sends it as
 ONE transaction whose preconditions re-check every column of the current
-objects (payload and statuses), the paper rows and the pins. Staging only: there is no production target.
+objects (the whole row, except `is_current`), the paper rows and the pins.
+Staging only: there is no production target.
 
     python backend/scripts/sync_web_explanation_item_text.py --skill reading \\
         --paper ILR-RDG-CAM-B13-T2 \\
@@ -399,7 +400,7 @@ SELECT jsonb_build_object(
     'rows', (SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY {order}), '[]'::jsonb) FROM {rows}),
     'paper_md5', {_paper_md5_sql(skill, schema, paper)},
     'objects', (SELECT COALESCE(jsonb_agg((to_jsonb(o) - 'imported_by')
-                    || jsonb_build_object('row_md5', md5(to_jsonb(o)::text))
+                    || jsonb_build_object('row_md5', md5((to_jsonb(o) - 'is_current')::text))
                     ORDER BY o.question_number, o.content_version, o.id), '[]'::jsonb)
                   FROM {schema}.web_explanation_objects o WHERE o.{skill}_test_id = {paper}),
     'class_pins', (SELECT COALESCE(jsonb_agg(to_jsonb(b)), '[]'::jsonb) FROM ({blockers['class_pins']}) b),
@@ -435,10 +436,11 @@ DECLARE n integer;
 BEGIN
     PERFORM 1 FROM {table} WHERE {fk} = {paper} AND is_current ORDER BY question_number FOR UPDATE;
     PERFORM 1 FROM {paper_rows} FOR SHARE OF x;
+    -- every column but is_current (this transaction moves that flag itself)
     SELECT count(*) INTO n FROM {table} o
       JOIN (VALUES {checks}) AS e(id, row_md5) ON e.id = o.id
      WHERE o.{fk} = {paper} AND o.is_current AND o.content_version = {_lit(plan['source_version'])}
-       AND md5(to_jsonb(o)::text) = e.row_md5;
+       AND md5((to_jsonb(o) - 'is_current')::text) = e.row_md5;
     IF n <> 40 OR (SELECT count(*) FROM {table} WHERE {fk} = {paper} AND is_current) <> 40 THEN
         RAISE EXCEPTION 'pcj156_precondition: current objects changed since the dry run (% of 40 match)', n;
     END IF;
@@ -474,22 +476,48 @@ COMMIT;
 
 
 def readback(runner, plan: dict, *, schema: str = "public") -> dict:
-    """Re-load the paper after a commit: the new version is current and nothing is left to sync."""
+    """Re-load the paper after a commit: the new version is current and nothing is left to sync.
+
+    A retired row counts only if it still hashes to the row_md5 that was LOCKED at
+    plan time (everything but is_current), so the check is against the locked
+    state, not against the plan's own copy of it.
+    """
     data = runner.load(load_sql(plan["skill"], plan["paper"]["test_id"], schema=schema))
-    current = [o for o in data.get("objects") or [] if o.get("is_current")]
+    objects = data.get("objects") or []
+    current = [o for o in objects if o.get("is_current")]
     by_q = {o["question_number"]: o for o in current}
     wanted = {row["question_number"]: row for row in plan["rows"]}
+    locked = {p["id"]: p["row_md5"] for p in plan["preconditions"]}
     result = {
         "current_rows": len(current),
         "current_versions": sorted({o["content_version"] for o in current}),
         "rows_equal_plan": all(by_q.get(q) and all(by_q[q].get(c) == wanted[q].get(c) for c in COPIED)
                                for q in wanted),
-        "retired_rows": sum(1 for o in data.get("objects") or []
-                            if o["id"] in {p["id"] for p in plan["preconditions"]} and not o.get("is_current")),
+        "retired_rows": sum(1 for o in objects
+                            if not o.get("is_current") and o["id"] in locked
+                            and o.get("row_md5") == locked[o["id"]]),
     }
     result["ok"] = (result["current_rows"] == 40 and result["current_versions"] == [plan["target_version"]]
                     and result["rows_equal_plan"] and result["retired_rows"] == 40)
     return result
+
+
+def _read_back(runner, plan: dict) -> dict:
+    """readback, but a failure is recorded instead of raised: the commit may already have landed."""
+    try:
+        return readback(runner, plan)
+    except Exception as exc:  # noqa: BLE001 — the result file must still be written
+        return {"ok": False, "error": f"đọc lại thất bại: {exc}"}
+
+
+def _outcome(check: dict, plan: dict) -> str:
+    """committed | not_written | unknown, judged only from the state read back after the attempt."""
+    if check.get("ok"):
+        return "committed"
+    if ("error" not in check and check.get("current_versions") == [plan["source_version"]]
+            and check.get("retired_rows") == 0):
+        return "not_written"
+    return "unknown"
 
 
 # ── runners ─────────────────────────────────────────────────────────────────
@@ -613,16 +641,21 @@ def main(argv: list[str] | None = None) -> int:
     args.request_out.write_text(sql)
     result_path = args.request_out.with_name(args.request_out.name + ".result")
     try:
-        result = runner.execute(sql)
-    except Exception as exc:  # noqa: BLE001 — record the failure, then stop
-        result_path.write_text(f"FAILED: {exc}\n")
-        print(f"Commit thất bại, không có gì được ghi: {exc}", file=sys.stderr)
+        response = runner.execute(sql)
+    except Exception as exc:  # noqa: BLE001 — a lost response may still have committed
+        check = _read_back(runner, plan)
+        outcome = _outcome(check, plan)
+        report = {"execute_error": str(exc), "outcome": outcome, "readback": check}
+        result_path.write_text(json.dumps(report, ensure_ascii=False, indent=2, default=str))
+        print(json.dumps(report, ensure_ascii=False, indent=2), file=sys.stderr)
+        print(f"Commit báo lỗi ({exc}). Outcome sau khi đọc lại: {outcome}. Chi tiết: {result_path}",
+              file=sys.stderr)
         return 4
-    check = readback(runner, plan)
-    result_path.write_text(json.dumps({"response": result, "readback": check}, ensure_ascii=False, indent=2,
+    check = _read_back(runner, plan)
+    result_path.write_text(json.dumps({"response": response, "readback": check}, ensure_ascii=False, indent=2,
                                       default=str))
     print(json.dumps({"committed": _summary(plan), "readback": check}, ensure_ascii=False, indent=2))
-    return 0 if check["ok"] else 5
+    return 0 if check.get("ok") else 5
 
 
 if __name__ == "__main__":
