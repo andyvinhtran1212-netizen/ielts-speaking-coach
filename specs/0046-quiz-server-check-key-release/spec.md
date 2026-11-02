@@ -1,5 +1,5 @@
 ---
-id: SERVERCHECK-NNNN
+id: SERVERCHECK-0046
 title: Self-study quiz answers are graded on the server one question at a time, no learner can forge a correct answer, and a one-sitting assessment key stays closed until the class deadline
 status: draft
 risk: high
@@ -12,7 +12,7 @@ Status: **draft, not approved**. Job 1j2 (PC-J412 + addendum PC-J412R2 +
 Leader addenda 30/10 21:27, 22:12, 22:14) writes the spec only. Build (step 2)
 starts only after Vinh approves this spec on `staging` and is queued by the
 Leader as a separate job.
-Spec number: requested from FD (spec number register,
+Spec number: **0046**, allocated by FD on 02/11 09:35 (spec number register,
 `/workspace/cc-jobs/spec-number-register.md`).
 Origin: SA-BANK-ANSWERS (`/workspace/qa/sa-bank-answers/report.md` §5 items
 3–6 and follow-up Q2-B, Q2-C, Q3), CR `reviews/PR-2091.md` (21:21, 22:12).

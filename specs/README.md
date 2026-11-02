@@ -145,3 +145,5 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 | INSTRUCTORGIVE-0044 | A teacher's repeated or retried Writing give from /instructor creates the homework once | approved | high | [spec](0044-instructor-give-idempotency/spec.md) |
 
 | FNEXEC-0045 | A new database function cannot be called by anonymous or signed-in clients unless a migration grants it explicitly, and only the two functions clients really use stay callable | draft | high | [spec](0045-function-default-execute-lockdown/spec.md) |
+
+| SERVERCHECK-0046 | Self-study quiz answers are graded on the server one question at a time, no learner can forge a correct answer, and a one-sitting assessment key stays closed until the class deadline | draft | high | [spec](0046-quiz-server-check-key-release/spec.md) |
