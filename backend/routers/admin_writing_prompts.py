@@ -206,7 +206,12 @@ async def _run_prompt_write(background_tasks: BackgroundTasks, fn, *args):
     PC-J482: the thread cannot be interrupted, so a request cancelled while it
     waits still gets 'pending' written, and a cancelled request never runs its
     BackgroundTasks. On cancel, wait for the thread, start the extractions on
-    tasks this module owns, then re-raise."""
+    tasks this module owns, then re-raise.
+
+    PC-J533: an error response never runs BackgroundTasks either, so when ``fn``
+    raises after marking 'pending' the extractions start the same way and the
+    error is re-raised unchanged. Each run is bound to its pending token, so a
+    newer request's 'pending' is never touched by it."""
     dispatches: list = []
     work = asyncio.ensure_future(asyncio.to_thread(fn, *args, dispatches))
     try:
@@ -216,9 +221,13 @@ async def _run_prompt_write(background_tasks: BackgroundTasks, fn, *args):
         while not work.done():
             with contextlib.suppress(asyncio.CancelledError):
                 await asyncio.wait({work})
-        if not work.cancelled() and work.exception() is None:
+        if not work.cancelled():
             for dispatch in dispatches:
-                _dispatch_cancelled_analysis(*dispatch)
+                _dispatch_owned_analysis(*dispatch)
+        raise
+    except Exception:
+        for dispatch in dispatches:
+            _dispatch_owned_analysis(*dispatch)
         raise
     for prompt_id, pending_token, requested_by, trigger in dispatches:
         background_tasks.add_task(
@@ -228,11 +237,11 @@ async def _run_prompt_write(background_tasks: BackgroundTasks, fn, *args):
     return result
 
 
-# Strong references to the extractions of cancelled requests until they end.
-_cancelled_analysis_runs: set = set()
+# Strong references to the extractions of cancelled or failed requests until they end.
+_owned_analysis_runs: set = set()
 
 
-def _dispatch_cancelled_analysis(
+def _dispatch_owned_analysis(
     prompt_id: str, pending_token: str, requested_by: str, trigger: str,
 ) -> None:
     async def _run() -> None:
@@ -241,12 +250,11 @@ def _dispatch_cancelled_analysis(
                 prompt_id, pending_token, requested_by=requested_by, trigger=trigger,
             )
         except Exception:  # same as a crashed BackgroundTask
-            logger.exception("[prompt-analysis] cancelled-request dispatch failed prompt=%s",
-                             prompt_id)
+            logger.exception("[prompt-analysis] owned dispatch failed prompt=%s", prompt_id)
 
     task = asyncio.create_task(_run())
-    _cancelled_analysis_runs.add(task)
-    task.add_done_callback(_cancelled_analysis_runs.discard)
+    _owned_analysis_runs.add(task)
+    task.add_done_callback(_owned_analysis_runs.discard)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
