@@ -34,8 +34,9 @@
 --   · no search_path       → public, pg_temp
 --   · ''                   → pg_catalog, pg_temp (bodies are fully
 --                            qualified; the 358 tests run them)
---   · any other list whose last entry is not pg_temp → the same list with
---     pg_temp removed and appended: `pg_catalog, public` → `pg_catalog,
+--   · any other list whose last entry is not pg_temp, or that also names
+--     pg_temp earlier (PostgreSQL keeps the FIRST occurrence) → the same list
+--     with every pg_temp removed and one appended: `pg_catalog, public` → `pg_catalog,
 --     public, pg_temp`, `public` → `public, pg_temp`.
 -- Plus one narrowing ordered by the Leader (08:50 addendum, SA via
 -- PR-2116): the 224 UPDATE trigger function
@@ -71,7 +72,8 @@
 --     search_path=pg_catalog, pg_temp (search_path_pin_not_applied);
 --   · no routine (prokind f or p) in public or app_private lacks a
 --     search_path, has search_path = '' or has one whose last entry is not
---     pg_temp (routine_search_path_not_pg_temp_last).
+--     pg_temp or that names pg_temp before the end
+--     (routine_search_path_not_pg_temp_last).
 --
 -- One transaction, lock_timeout 5s. No row is written. Re-runnable: a second
 -- run finds nothing to pin and its postconditions still hold. No backend
@@ -86,7 +88,8 @@
 --     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
 --    WHERE n.nspname IN ('public', 'app_private') AND p.prokind IN ('f', 'p')
 --      AND NOT EXISTS (SELECT 1 FROM unnest(coalesce(p.proconfig, '{}')) c
---                       WHERE c ~ '^search_path=(.+, )?pg_temp$');
+--                       WHERE c ~ '^search_path=(.+, )?pg_temp$'
+--                         AND c !~ '(=|, )pg_temp, ');
 --
 -- Rollback: none. The down of 358 is a deliberate no-op. Removing or
 -- shortening the pin reopens P2-R2-1 (owner code execution through a temp
@@ -116,7 +119,7 @@ BEGIN
            AND p.prokind IN ('f', 'p')
     ), target AS (
         SELECT * FROM routine
-         WHERE path IS NULL OR path !~ '^(.+, )?pg_temp$'
+         WHERE path IS NULL OR path !~ '^(.+, )?pg_temp$' OR path ~ '(^|, )pg_temp, '
             OR (oid = to_regprocedure('public.fn_guard_active_player_terminal_mutation()')
                 AND path IS DISTINCT FROM 'pg_catalog, pg_temp')
     )
@@ -165,7 +168,7 @@ BEGIN
                                         || 'pg_temp'::text, ', ')
                END AS pinned
           FROM routine
-         WHERE path IS NULL OR path !~ '^(.+, )?pg_temp$'
+         WHERE path IS NULL OR path !~ '^(.+, )?pg_temp$' OR path ~ '(^|, )pg_temp, '
             OR (oid = to_regprocedure('public.fn_guard_active_player_terminal_mutation()')
                 AND path IS DISTINCT FROM 'pg_catalog, pg_temp')
          ORDER BY fn::text
@@ -192,7 +195,7 @@ BEGIN
      WHERE n.nspname IN ('public', 'app_private')
        AND p.prokind IN ('f', 'p')
        AND NOT EXISTS (SELECT 1 FROM unnest(coalesce(p.proconfig, '{}'::text[])) AS c
-                        WHERE c ~ '^search_path=(.+, )?pg_temp$');
+                        WHERE c ~ '^search_path=(.+, )?pg_temp$' AND c !~ '(=|, )pg_temp, ');
     IF v_gaps IS NOT NULL THEN
         RAISE EXCEPTION 'routine_search_path_not_pg_temp_last: %', v_gaps;
     END IF;

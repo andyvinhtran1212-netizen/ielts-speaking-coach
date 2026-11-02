@@ -559,7 +559,7 @@ SELECT 'e:routine_search_path_not_pg_temp_last|' || p.oid::regprocedure || '|'
  WHERE p.pronamespace IN ('public'::regnamespace, COALESCE(to_regnamespace('app_private'), 0))
    AND p.prokind IN ('f', 'p')
    AND NOT EXISTS (SELECT 1 FROM unnest(COALESCE(p.proconfig, '{{}}'::text[])) c
-                    WHERE c ~ '^search_path=(.+, )?pg_temp$')
+                    WHERE c ~ '^search_path=(.+, )?pg_temp$' AND c !~ '(=|, )pg_temp, ')
 UNION ALL
 SELECT 'd:writing_grade_ratings_rls_off|writing_grade_ratings|'
  WHERE NOT COALESCE((SELECT relrowsecurity FROM pg_class
@@ -828,7 +828,7 @@ NEGATIVE = {
         " CREATE FUNCTION public.inv94_no_pg_temp() RETURNS int LANGUAGE sql"
         " SET search_path = pg_catalog, public AS $$ SELECT 1 $$;"
         " CREATE FUNCTION public.inv94_pg_temp_first() RETURNS int LANGUAGE sql"
-        " SET search_path = pg_temp, public AS $$ SELECT 1 $$;"
+        " SET search_path = pg_temp, public, pg_temp AS $$ SELECT 1 $$;"
         " CREATE FUNCTION app_private.inv94_empty() RETURNS int LANGUAGE sql"
         " SET search_path = '' AS $$ SELECT 1 $$;",
         ["e:routine_search_path_not_pg_temp_last|app_private.inv94_empty()|",

@@ -155,7 +155,8 @@ def path_problem(items: list[str] | None) -> str | None:
         return "unpinned"
     if items in ([], [""]):
         return "empty search_path"
-    if items[-1] != "pg_temp":
+    # PostgreSQL keeps the first pg_temp of a list, so a second one at the end does not help.
+    if items[-1] != "pg_temp" or "pg_temp" in items[:-1]:
         return "pg_temp not last"
     return None
 
@@ -245,6 +246,8 @@ SET search_path = public, pg_temp AS $$ BEGIN RETURN NEW; END $$;"""
      ["pg_temp not last public.d: pg_temp, public"]),
     ("CREATE PROCEDURE public.d() LANGUAGE sql SET search_path = pg_temp, pg_catalog AS $$ SELECT 1 $$;",
      ["pg_temp not last public.d: pg_temp, pg_catalog"]),
+    ("CREATE FUNCTION public.d() RETURNS int LANGUAGE sql SET search_path = pg_temp, public, pg_temp "
+     "AS $$ SELECT 1 $$;", ["pg_temp not last public.d: pg_temp, public, pg_temp"]),
     # One literal is one schema name, not a list.
     ("CREATE FUNCTION public.d() RETURNS int LANGUAGE sql SET search_path = 'public, pg_temp' AS $$ SELECT 1 $$;",
      ["pg_temp not last public.d: public, pg_temp"]),

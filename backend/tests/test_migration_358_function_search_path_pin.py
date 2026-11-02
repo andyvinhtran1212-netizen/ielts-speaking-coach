@@ -82,7 +82,7 @@ UNPINNED = """SELECT coalesce(string_agg(p.oid::regprocedure::text, ',' ORDER BY
   FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
  WHERE n.nspname IN ('public', 'app_private') AND p.prokind IN ('f', 'p')
    AND NOT EXISTS (SELECT 1 FROM unnest(coalesce(p.proconfig, '{}'::text[])) c
-                    WHERE c ~ '^search_path=(.+, )?pg_temp$')"""
+                    WHERE c ~ '^search_path=(.+, )?pg_temp$' AND c !~ '(=|, )pg_temp, ')"""
 
 
 def _create_statement(migration: str, signature: str) -> str:
@@ -124,8 +124,9 @@ def test_every_scan_is_public_and_app_private_without_exclusions():
     code = re.sub(r"\s+", " ", CODE)
     assert code.count("n.nspname IN ('public', 'app_private')") == 3
     assert code.count("p.prokind IN ('f', 'p')") == 3
-    assert code.count("path !~ '^(.+, )?pg_temp$'") == 2
-    assert code.count("WHERE c ~ '^search_path=(.+, )?pg_temp$'") == 1
+    assert code.count("path !~ '^(.+, )?pg_temp$' OR path ~ '(^|, )pg_temp, '") == 2
+    # PostgreSQL keeps the first pg_temp of a list, so a second one at the end does not help.
+    assert code.count("WHERE c ~ '^search_path=(.+, )?pg_temp$' AND c !~ '(=|, )pg_temp, '") == 1
     assert "deptype" not in CODE and "pg_depend" not in CODE, "no extension exclusion (header says why)"
     assert not re.search(r"\bproname\b", CODE), "no name list: every non-compliant routine is pinned"
     # The one named routine is the Leader-ordered 224 narrowing.
@@ -705,6 +706,8 @@ def test_pins_every_unsafe_path_keeps_other_settings_and_leaves_safe_ones_and_ot
             SET search_path = "$user", public SET statement_timeout = '7s' AS $$ SELECT 1 $$;
         CREATE FUNCTION public.fn_pg_temp_first() RETURNS int LANGUAGE sql
             SET search_path = pg_temp, public AS $$ SELECT 1 $$;
+        CREATE FUNCTION public.fn_pg_temp_twice() RETURNS int LANGUAGE sql
+            SET search_path = pg_temp, public, pg_temp AS $$ SELECT 1 $$;
         CREATE FUNCTION public.fn_empty() RETURNS int LANGUAGE sql SET search_path = '' AS $$ SELECT 1 $$;
         CREATE FUNCTION public.fn_safe() RETURNS int LANGUAGE sql SET search_path = public, pg_temp AS $$ SELECT 1 $$;
         CREATE FUNCTION public.fn_safe_catalog() RETURNS int LANGUAGE sql
@@ -728,6 +731,7 @@ def test_pins_every_unsafe_path_keeps_other_settings_and_leaves_safe_ones_and_ot
         "fn_public_only()": PIN,
         "fn_user_first()": 'search_path="$user", public, pg_temp;statement_timeout=7s',
         "fn_pg_temp_first()": PIN,
+        "fn_pg_temp_twice()": PIN,
         "fn_empty()": CATALOG_PIN,
         # Already pg_temp-last: left exactly as they were.
         "fn_safe()": PIN,
