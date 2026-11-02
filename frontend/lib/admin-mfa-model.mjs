@@ -23,6 +23,7 @@ export const MFA_RATE_LIMIT_WAIT_MS = 30_000;
 export const ADMIN_MFA_COPY = Object.freeze({
   checking: 'Đang kiểm tra trạng thái xác thực…',
   redirecting: 'Đang chuyển tới xác thực 2 bước…',
+  denied: '🔒 Trang này chỉ dành cho quản trị viên',
   inactive: 'Tài khoản chưa được kích hoạt — liên hệ admin',
   reportOnlyBanner: 'Hãy bật xác thực 2 bước — sắp bắt buộc',
   enrolled: 'Đã bật xác thực 2 bước',

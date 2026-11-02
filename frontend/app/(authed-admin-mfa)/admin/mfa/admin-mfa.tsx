@@ -608,7 +608,7 @@ export function AdminMfa() {
   } else if (value.phase === 'denied') {
     body = (
       <div id="state-denied" className="adm-access-state" role="alert">
-        <h2 className="adm-access-state__title">🔒 Admin Access Required</h2>
+        <h2 className="adm-access-state__title">{ADMIN_MFA_COPY.denied}</h2>
         {value.inactive && <p className="adm-access-state__message">{ADMIN_MFA_COPY.inactive}</p>}
         <Link href="/home" className="adm-access-state__action">← Quay lại trang chủ</Link>
       </div>
