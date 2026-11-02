@@ -170,7 +170,7 @@ service_role requirements on its merge base because it is a high-risk path.
 - **And** the fixture asserts `pg_roles.rolsuper = false` for anon, authenticated and service_role, and `rolbypassrls = false, false, true` respectively; service_role is neither the table owner nor a member of the owner role
 - **When** separate transactions use `SET LOCAL ROLE service_role` (asserting `current_user`) to UPDATE and DELETE the row
 - **Then** both fail with `42501` before any row trigger executes; in an isolated negative control with the row trigger disabled by the owner, the same statements still fail with `42501` and the row stays unchanged
-- **And** disabling the row trigger requires an `ACCESS EXCLUSIVE` table lock: this control runs only in an isolated test database, never on staging or production
+- **And** disabling the row trigger takes a `SHARE ROW EXCLUSIVE` table lock ([PostgreSQL 17 ALTER TABLE](https://www.postgresql.org/docs/17/sql-altertable.html#SQL-ALTERTABLE-DISABLE-ENABLE-TRIGGER)), which conflicts with INSERT's `ROW EXCLUSIVE`: this control runs only in an isolated test database, never on staging or production
 - **When** service_role attempts the denied table and row lock modes in Scenario 3, each fails with `42501`; the three allowed table lock modes and ordinary INSERT and SELECT still succeed
 - **When** the 356 down script (owned by this spec's T001, which also owns this assertion) runs, UPDATE/DELETE remain absent for service_role, PUBLIC, anon and authenticated; repeating service_role UPDATE/DELETE still yields `42501`. The down script has no direct UPDATE/DELETE grant and no broad grant that restores them
 

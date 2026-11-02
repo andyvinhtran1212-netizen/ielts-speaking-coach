@@ -148,8 +148,9 @@
   - FR-004: non-owner, non-superuser service_role via `SET LOCAL ROLE` with
     `current_user` asserted; UPDATE and DELETE each → `42501` on a seeded row,
     including an isolated owner-disabled-row-trigger control to prove ACL
-    refusal precedes the trigger. Disabling that row trigger takes ACCESS
-    EXCLUSIVE; this control is isolated-test-only, never staging or production.
+    refusal precedes the trigger. Disabling that row trigger takes SHARE ROW
+    EXCLUSIVE, which conflicts with INSERT's ROW EXCLUSIVE; this control is
+    isolated-test-only, never staging or production (spec Scenario 6).
     All denied row/table lock modes in Data and contracts → `42501`;
     the three allowed table lock modes and INSERT/SELECT succeed. After the
     down script (both the down and this assertion belong to T001), effective

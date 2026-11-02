@@ -44,9 +44,10 @@
      state rather than assume the policies exist.
 3. No write probes on staging: TRUNCATE/UPDATE/DELETE behaviour is covered by
    the PostgreSQL tests in T001. Scenario 6's owner-disabled-row-trigger
-   control takes an ACCESS EXCLUSIVE lock and runs only in an isolated test
-   database, never on staging or production. A teacher due-date change on QA
-   data and the admin log view may be checked as a smoke test.
+   control takes a SHARE ROW EXCLUSIVE lock, which conflicts with INSERT's
+   ROW EXCLUSIVE, and runs only in an isolated test database, never on staging
+   or production (spec Scenario 6). A teacher due-date change on QA data and
+   the admin log view may be checked as a smoke test.
 
 ## Production
 
