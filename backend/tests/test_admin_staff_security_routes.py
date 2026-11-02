@@ -817,6 +817,13 @@ class TestRevocationFailure:
         failed = db.audits("sessions_revoke_failed")
         assert len(failed) == 1 and db.tables["owner_alert_outbox"] == []
         assert any("has no owner alert until the next revocation" in m for m in caplog.messages)
+        # Reads recover before the direct connection: expose the orphan until
+        # a retry actually persists its missing outbox row.
+        db.fail_tables.discard("owner_alert_outbox")
+        history = client.get(f"/admin/users/{INSTRUCTOR}/security-audit", headers=AUTH)
+        assert history.status_code == 200, history.text
+        orphan = next(row for row in history.json()["rows"] if row["id"] == failed[0]["id"])
+        assert orphan["alert_status"] == "not_recorded"
         # Both paths back: the retry revokes and enqueues the missing alert in
         # its own audit transaction.
         engine.fail = False
@@ -1364,6 +1371,33 @@ class TestRoleChangeAnswerLost:
 class TestSecurityAudit:
     def _history(self, client, uid, **params):
         return client.get(f"/admin/users/{uid}/security-audit", params=params, headers=AUTH)
+
+    @pytest.mark.parametrize("status", [None, "pending", "sent", "failed"])
+    def test_revocation_failure_uses_outbox_status_or_not_recorded(self, client, db, status):
+        audit_id = str(uuid.uuid4())
+        db.table("staff_security_audit").insert({
+            "id": audit_id, "event": "sessions_revoke_failed", "source": "admin_api",
+            "target_user_id": INSTRUCTOR, "actor_user_id": ADMIN,
+        }).execute()
+        if status is not None:
+            db.table("owner_alert_outbox").insert({"audit_id": audit_id, "status": status}).execute()
+        response = self._history(client, INSTRUCTOR)
+        assert response.status_code == 200, response.text
+        assert response.json()["rows"][0]["alert_status"] == (status or "not_recorded")
+
+    @pytest.mark.parametrize("event,source", [
+        ("sessions_revoked", "admin_api"),
+        ("sessions_revoke_failed", "out_of_band"),
+        ("role_changed", "admin_api"),
+    ])
+    def test_other_orphan_rows_do_not_get_not_recorded(self, client, db, event, source):
+        db.table("staff_security_audit").insert({
+            "event": event, "source": source, "target_user_id": INSTRUCTOR,
+            "actor_user_id": ADMIN, "before": {"role": "instructor"}, "after": {"role": "student"},
+        }).execute()
+        response = self._history(client, INSTRUCTOR)
+        assert response.status_code == 200, response.text
+        assert response.json()["rows"][0]["alert_status"] is None
 
     def test_rows_newest_first_with_actor_email_and_alert_status(self, client, db, engine):
         _active(client, ADMIN2, False)                     # admin event → alert

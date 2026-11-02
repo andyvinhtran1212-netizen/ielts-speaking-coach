@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
+import weakref
 from typing import Dict, Literal, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header
 from pydantic import BaseModel, Field
@@ -18,6 +22,34 @@ router = APIRouter(
     tags=["grammar-diagnostic"],
     dependencies=[Depends(require_flag("master30_grammar_diagnostic", default=False))],
 )
+
+
+_learner_write_locks: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
+
+
+async def _learner_write(user_id: str, fn, *args, **kwargs):
+    # Selection reads learner-wide exposure history across sessions. Keep it
+    # serial with the learner's other writes, as on the original event loop.
+    try:
+        key = str(UUID(user_id))
+    except ValueError:
+        key = user_id
+    lock = _learner_write_locks.get(key)
+    if lock is None:
+        lock = _learner_write_locks[key] = asyncio.Lock()
+    async with lock:
+        work = asyncio.create_task(asyncio.to_thread(fn, *args, **kwargs))
+        try:
+            return await asyncio.shield(work)
+        except asyncio.CancelledError:
+            # A cancelled request cannot stop a running thread. Retain the
+            # lock through repeated cancellation until its write has ended.
+            while not work.done():
+                with contextlib.suppress(asyncio.CancelledError):
+                    await asyncio.wait({work})
+            if not work.cancelled():
+                work.exception()
+            raise
 
 
 class SessionCreate(BaseModel):
@@ -154,34 +186,34 @@ class EducatorReportResponse(LearnerReportResponse):
 async def availability(authorization: str | None = Header(default=None)) -> AvailabilityResponse:
     await get_supabase_user(authorization)
     return AvailabilityResponse(
-        assigned_only=not runtime_flags.is_enabled(
+        assigned_only=not await asyncio.to_thread(lambda: runtime_flags.is_enabled(
             "master30_grammar_self_serve", default=False,
-        ),
+        )),
     )
 
 
 @router.post("/sessions", response_model=SessionResponse)
 async def create_session(body: SessionCreate, authorization: str | None = Header(default=None)) -> SessionResponse:
     user = await get_supabase_user(authorization)
-    return service.create_session(user["id"], **body.model_dump())
+    return await asyncio.to_thread(service.create_session, user["id"], **body.model_dump())
 
 
 @router.get("/sessions", response_model=SessionListResponse)
 async def list_sessions(authorization: str | None = Header(default=None)) -> SessionListResponse:
     user = await get_supabase_user(authorization)
-    return {"sessions": service.learner_history(user["id"])}
+    return {"sessions": await asyncio.to_thread(service.learner_history, user["id"])}
 
 
 @router.get("/sessions/{session_id}", response_model=SessionResponse)
 async def get_session(session_id: str, authorization: str | None = Header(default=None)) -> SessionResponse:
     user = await get_supabase_user(authorization)
-    return service.session_summary(user["id"], session_id)
+    return await asyncio.to_thread(service.session_summary, user["id"], session_id)
 
 
 @router.post("/sessions/{session_id}/next", response_model=NextItemResponse)
 async def next_item(session_id: str, authorization: str | None = Header(default=None)) -> NextItemResponse:
     user = await get_supabase_user(authorization)
-    return service.next_item(user["id"], session_id)
+    return await _learner_write(user["id"], service.next_item, user["id"], session_id)
 
 
 @router.post("/sessions/{session_id}/responses", response_model=ResponseAccepted)
@@ -191,7 +223,9 @@ async def submit_response(
     authorization: str | None = Header(default=None),
 ) -> ResponseAccepted:
     user = await get_supabase_user(authorization)
-    return service.record_response(user["id"], session_id, **body.model_dump())
+    return await _learner_write(
+        user["id"], service.record_response, user["id"], session_id, **body.model_dump(),
+    )
 
 
 @router.post("/sessions/{session_id}/complete", response_model=LearnerReportSnapshotResponse)
@@ -200,7 +234,7 @@ async def complete_session(
     authorization: str | None = Header(default=None),
 ) -> LearnerReportSnapshotResponse:
     user = await get_supabase_user(authorization)
-    return service.finalize_session(user["id"], session_id)
+    return await _learner_write(user["id"], service.finalize_session, user["id"], session_id)
 
 
 @router.get("/sessions/{session_id}/report", response_model=LearnerReportResponse)
@@ -209,4 +243,4 @@ async def get_report(
     authorization: str | None = Header(default=None),
 ) -> LearnerReportResponse:
     user = await get_supabase_user(authorization)
-    return service.learner_report(user["id"], session_id)
+    return await asyncio.to_thread(service.learner_report, user["id"], session_id)

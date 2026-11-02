@@ -111,9 +111,27 @@ describe('grammar article 404 wiring', () => {
     assert.deepEqual(rootSegments.filter((name) => name.startsWith('[') || name === '__aver-not-found'), []);
   });
 
-  test('the fail-open soft 404 renders the shared error card inside the token-loading public layout', () => {
+  test('no public/ file or directory can answer the rewrite target either', () => {
+    // PC-J235: a static asset at the target (e.g. public/__aver-not-found.html)
+    // would be served instead of the root 404. Name read from proxy.ts so a
+    // renamed target is still covered.
+    const target = proxy.match(/const GRAMMAR_ARTICLE_NOT_FOUND_PATH = '\/([^'/]+)'/)?.[1];
+    assert.ok(target, 'GRAMMAR_ARTICLE_NOT_FOUND_PATH is a single root segment');
+    assert.deepEqual(readdirSync(path.join(FRONTEND, 'public')).filter((name) => name.startsWith(target)), []);
+  });
+
+  test('the fail-open soft 404 renders the shared card without a second tokens.css link', () => {
+    // PC-J239: when the article list is unavailable the proxy passes through
+    // and the article route's notFound() renders this inside the public-content
+    // layout, which links tokens.css. Re-exporting the root 404 (which links
+    // tokens itself) loaded it twice; the card alone carries no stylesheet.
+    const tokensLink = /<link rel="stylesheet" href="\/css\/aver-design\/tokens\.css" \/>/;
     const notFound = read('app', '(public-content)', 'grammar', 'not-found.tsx');
-    assert.match(notFound, /export \{ default \} from '\.\.\/\.\.\/not-found';/);
-    assert.match(read('app', '(public-content)', 'layout.tsx'), /<link rel="stylesheet" href="\/css\/aver-design\/tokens\.css" \/>/);
+    assert.match(notFound, /export \{ default \} from '\.\.\/\.\.\/not-found-card';/);
+    const card = read('app', 'not-found-card.tsx');
+    assert.match(card, /id="not-found-title"/);
+    assert.doesNotMatch(card, /<link\b|href="[^"]*tokens\.css"/);
+    assert.match(read('app', '(public-content)', 'layout.tsx'), tokensLink);
+    assert.match(read('app', 'not-found.tsx'), tokensLink, 'the root 404 still links its own tokens');
   });
 });

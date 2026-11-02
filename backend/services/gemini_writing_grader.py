@@ -20,9 +20,11 @@ Convention notes:
 from __future__ import annotations
 
 import asyncio
+import builtins
 import copy
 import json
 import logging
+import re
 import time
 from typing import Optional
 
@@ -42,7 +44,7 @@ from models.writing_feedback import (
 )
 from services.writing_history import format_history_for_prompt
 from services.writing_prompt_loader import get_prompt_loader
-from services.writing_feedback_consistency import repair_writing_consistency
+from services.writing_feedback_consistency import ConsistencyRepairError, repair_writing_consistency
 from services.ai_pricing import estimate_token_cost, token_rate
 from services import ai_failure_log, ai_router, ai_usage_logger
 from services.gemini_compat import generation_config_kwargs
@@ -58,6 +60,29 @@ from services.writing_feedback_grounding import (
 _REPAIRABLE = (UngroundedWritingFeedbackError, MissingMistakeAnalysisError)
 
 logger = logging.getLogger(__name__)
+
+# A repair error message such as "'int' object is not iterable" helps debugging,
+# but a message can also quote learner or model text. Only words Python uses in
+# such messages (builtin and builtin-type names, plus the phrasing) are logged;
+# every other word, digits included, becomes "…".
+_ERROR_MESSAGE_WORDS = frozenset(
+    {name.casefold() for name in dir(builtins)}
+    | {name.casefold() for kind in (str, bytes, list, tuple, dict, set, int, float, type(None))
+       for name in dir(kind)}
+    | set("""nonetype object is not iterable subscriptable callable has no attribute unhashable
+             unsupported operand types for and or to of in index out expected instance found can
+             only concatenate argument arguments must be got an a takes positional keyword but
+             were was given sequence item key missing required unexpected cannot convert
+             implicitly""".split())
+)
+_REPAIR_ERROR_MAX_CHARS = 200
+
+
+def _repair_error_message(error: BaseException) -> str:
+    text = re.sub(r"\w+", lambda m: m.group() if m.group().casefold() in _ERROR_MESSAGE_WORDS
+                  and not m.group().isdigit() else "…", str(error))
+    text = re.sub(r"…(?:[^\w…]*…)+", "…", " ".join(text.split()))
+    return text[:_REPAIR_ERROR_MAX_CHARS]
 
 
 # ── Pricing (USD per 1M tokens) — verified by Andy 2026-05-04 ────────
@@ -289,12 +314,17 @@ class GeminiWritingGrader:
         # reintroduce contradictions. Repairs never spend another AI call.
         # They run on a copy: a repair bug keeps the unrepaired feedback
         # instead of failing a grade that was already paid for.
+        step = "copy"
         try:
             feedback = copy.deepcopy(result.feedback)
+            step = "repair"
             repaired = repair_writing_consistency(feedback, config.task_type)
         except Exception as e:
-            logger.warning("[grader] consistency repair failed, keeping unrepaired "
-                           "feedback: %s", type(e).__name__)
+            # Step, type and a redacted message only: never learner/model text.
+            if isinstance(e, ConsistencyRepairError) and e.__cause__ is not None:
+                step, e = e.step, e.__cause__
+            logger.warning("[grader] consistency repair failed at %s, keeping unrepaired "
+                           "feedback: %s: %s", step, type(e).__name__, _repair_error_message(e))
         else:
             result.feedback = feedback
             if repaired:
@@ -401,6 +431,7 @@ class GeminiWritingGrader:
         # PC-J164: rejected/failed calls were billed too — cost_usd is the
         # run total; tokens stay those of the served answer.
         cost = self._run_cost(cost, attempts)
+        unpriced_models = self._flag_cost_gaps(attempts, "pass1")
 
         return GradingResult(
             feedback=feedback,
@@ -413,6 +444,8 @@ class GeminiWritingGrader:
             prompt_version=stamp,
             grading_tier=GradingTier.STANDARD,
             grading_attempts=self._tag_pass(attempts, "pass1"),
+            cost_incomplete=unpriced_models is not None,
+            unpriced_models=unpriced_models or [],
         )
 
     # ── Sprint 2.7b — Deep tier 3-pass flow ───────────────────────────
@@ -468,6 +501,8 @@ class GeminiWritingGrader:
             "thinking_tokens": pass1.thinking_tokens,
             "cost_usd":      pass1.cost_usd,
         }
+        if pass1.cost_incomplete:
+            tier_metadata["pass1"]["cost_incomplete"] = True
 
         # Build the eventual Deep result we'll return — we mutate this
         # as later passes succeed; if they fail, the previous state is
@@ -487,6 +522,7 @@ class GeminiWritingGrader:
             )
         except Exception as e:
             logger.warning("[deep] Pass 2 failed, degrading to Pass 1: %s", e)
+            self._mark_timed_out(pass2_attempts, e)
             grading_attempts += self._tag_pass(pass2_attempts, "pass2")
             tier_metadata["pass2"] = {
                 "duration_ms": int((time.time() - pass2_start) * 1000),
@@ -494,6 +530,7 @@ class GeminiWritingGrader:
                 # Billed calls of the failed pass; _build_deep_result adds it.
                 "cost_usd": self._run_cost(None, pass2_attempts),
             }
+            self._note_pass_cost_gaps(tier_metadata["pass2"], pass2_attempts, "pass2")
             tier_metadata["degraded_at"] = "pass2"
             tier_metadata["degraded_error"] = str(e)[:500]
             return self._build_deep_result(
@@ -537,6 +574,7 @@ class GeminiWritingGrader:
                 )
             ),
         }
+        self._note_pass_cost_gaps(tier_metadata["pass2"], pass2_attempts, "pass2")
 
         # Apply Pass 2 deltas to a fresh merged-feedback copy.
         merged_feedback = self._merge_pass1_pass2(pass1.feedback, pass2_output)
@@ -553,12 +591,14 @@ class GeminiWritingGrader:
             logger.warning(
                 "[deep] Pass 3 failed, degrading to merged Pass 1+2: %s", e,
             )
+            self._mark_timed_out(pass3_attempts, e)
             grading_attempts += self._tag_pass(pass3_attempts, "pass3")
             tier_metadata["pass3"] = {
                 "duration_ms": int((time.time() - pass3_start) * 1000),
                 "error": str(e)[:500],
                 "cost_usd": self._run_cost(None, pass3_attempts),
             }
+            self._note_pass_cost_gaps(tier_metadata["pass3"], pass3_attempts, "pass3")
             tier_metadata["degraded_at"] = "pass3"
             tier_metadata["degraded_error"] = str(e)[:500]
             return self._build_deep_result(
@@ -589,6 +629,7 @@ class GeminiWritingGrader:
             "cost_usd":       pass3_cost,
             "rewrites_count": len(pass3_output.sentence_rewrites),
         }
+        self._note_pass_cost_gaps(tier_metadata["pass3"], pass3_attempts, "pass3")
 
         # All 3 passes succeeded — full Deep result.
         deep_feedback = WritingFeedbackDeep(
@@ -744,6 +785,8 @@ class GeminiWritingGrader:
             total_cost       += meta.get("cost_usd") or 0.0
             total_duration_ms += meta.get("duration_ms") or 0
 
+        # Per-pass gaps were logged where they occurred; this is the run flag.
+        unpriced_models = GeminiWritingGrader._cost_gaps(grading_attempts or [])
         return GradingResult(
             feedback=feedback,
             model_used=model_used or settings.GEMINI_PRO_MODEL,
@@ -756,6 +799,8 @@ class GeminiWritingGrader:
             grading_tier=GradingTier.DEEP,
             tier_metadata=tier_metadata,
             grading_attempts=grading_attempts or [],
+            cost_incomplete=unpriced_models is not None,
+            unpriced_models=unpriced_models or [],
         )
 
     # ── Internal helpers ──────────────────────────────────────────────
@@ -1073,6 +1118,7 @@ class GeminiWritingGrader:
         for attempt in range(MAX_RETRIES):
             attempt_started = time.monotonic()
             attempt_logged = False
+            attempts_before = len(attempts)
             usage: dict = {}
             try:
                 response = await asyncio.to_thread(
@@ -1149,6 +1195,10 @@ class GeminiWritingGrader:
                 return response_text, usage
 
             except asyncio.CancelledError:
+                if len(attempts) == attempts_before:
+                    # Cut off mid-call (Deep pass wait_for or a job cancel):
+                    # the request was sent, its bill is unknown.
+                    note("cancelled", {}, "cancelled")
                 if not attempt_logged:
                     await self._log_writing_usage(
                         model_name, {}, usage_context, attempt,
@@ -1277,6 +1327,12 @@ class GeminiWritingGrader:
                     remaining = CLAUDE_TOTAL_BUDGET_S - (time.monotonic() - started)
                     result, (text, _) = await asyncio.wait_for(call, timeout=remaining)
                 break
+            except asyncio.CancelledError:
+                # The caller's deadline (a Deep pass wait_for) or a job cancel
+                # cut this request off mid-flight: its bill is unknown.
+                attempts.append(self._attempt_record(
+                    "anthropic", claude_model, "cancelled", error_code="cancelled"))
+                raise
             except asyncio.TimeoutError:
                 logger.warning(
                     "[ai_router] feature=%s provider=anthropic repair exceeded the %.0f s "
@@ -1343,10 +1399,18 @@ class GeminiWritingGrader:
             "served": False,
         }
 
+    @staticmethod
+    def _claude_usage_missing(raw_usage: dict | None) -> bool:
+        # Match ai_router's ledger rule: a real Anthropic answer has input
+        # tokens, so the router's all-zero counts mean usage is missing.
+        return raw_usage is None or not any(raw_usage.get(key, 0) for key in (
+            "input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens",
+        ))
+
     @classmethod
     def _claude_attempt_record(cls, model: str, raw_usage: dict | None, status: str, *,
                                error_code: str | None = None) -> dict:
-        if raw_usage is None:
+        if cls._claude_usage_missing(raw_usage):
             return cls._attempt_record("anthropic", model, status, error_code=error_code)
         usage = cls._claude_usage(model, raw_usage)
         return cls._attempt_record("anthropic", model, status, error_code=error_code,
@@ -1367,11 +1431,13 @@ class GeminiWritingGrader:
 
     @classmethod
     def _claude_served(cls, feature: str, text: str, model: str,
-                       raw_usage: dict, record: dict | None = None) -> tuple[str, dict]:
+                       raw_usage: dict | None, record: dict | None = None) -> tuple[str, dict]:
         logger.info("[ai_router] feature=%s served_by=anthropic model=%s", feature, model)
         if record is not None:
             record["served"] = True
-        tokens = cls._claude_usage(model, raw_usage)
+        tokens = ({"input_tokens": None, "output_tokens": None, "cost_usd": None}
+                  if cls._claude_usage_missing(raw_usage)
+                  else cls._claude_usage(model, raw_usage))
         usage = {
             "input_tokens": tokens["input_tokens"],
             "output_tokens": tokens["output_tokens"],
@@ -1576,6 +1642,65 @@ class GeminiWritingGrader:
         if not priced:
             return served_cost
         return round(sum(priced), 6)
+
+    @staticmethod
+    def _cost_gap_reason(attempt: dict) -> Optional[str]:
+        """Why a billed call is missing from _run_cost, or None (PC-J218).
+
+        "unpriced": usage came back but the model has no price.
+        "timeout"/"cancelled": the request was cut off in flight.
+        "missing_usage": an answer came back without usage.
+        An API error without usage is not billed by token and is not a gap."""
+        if attempt.get("cost_usd") is not None:
+            return None
+        if attempt.get("input_tokens") is not None or attempt.get("output_tokens") is not None:
+            return "unpriced"
+        if attempt.get("status") == "cancelled" or attempt.get("error_code") == "timeout":
+            return attempt.get("error_code") or "cancelled"
+        if attempt.get("status") != "error":
+            return "missing_usage"
+        return None
+
+    @classmethod
+    def _cost_gaps(cls, attempts: list) -> Optional[list[str]]:
+        """None when the run total is complete. Otherwise the total is a lower
+        bound — never an estimate — and the list names the models that
+        returned usage without a price (empty when every gap is a call
+        without usage, e.g. one cut off in flight)."""
+        reasons = [(a, cls._cost_gap_reason(a)) for a in attempts]
+        if not any(reason for _, reason in reasons):
+            return None
+        unpriced: list[str] = []
+        for a, reason in reasons:
+            if reason == "unpriced" and a.get("model") not in unpriced:
+                unpriced.append(a.get("model"))
+        return unpriced
+
+    @classmethod
+    def _flag_cost_gaps(cls, attempts: list, pass_name: str) -> Optional[list[str]]:
+        """_cost_gaps plus one WARNING per unaccounted call (no essay text)."""
+        for a in attempts:
+            reason = cls._cost_gap_reason(a)
+            if reason:
+                logger.warning(
+                    "writing_cost_incomplete model=%s reason=%s pass=%s",
+                    a.get("model"), reason, pass_name,
+                )
+        return cls._cost_gaps(attempts)
+
+    @classmethod
+    def _note_pass_cost_gaps(cls, meta: dict, attempts: list, pass_name: str) -> None:
+        if cls._flag_cost_gaps(attempts, pass_name) is not None:
+            meta["cost_incomplete"] = True
+
+    @staticmethod
+    def _mark_timed_out(attempts: list, error: BaseException) -> None:
+        """A Deep pass deadline cancels the call in flight, which recorded
+        itself as cancelled; name the cause on that record."""
+        if isinstance(error, asyncio.TimeoutError):
+            for a in attempts:
+                if a.get("status") == "cancelled" and a.get("error_code") == "cancelled":
+                    a["error_code"] = "timeout"
 
     @staticmethod
     def _tag_pass(attempts: list, pass_name: str) -> list:

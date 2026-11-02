@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any, Literal
 from uuid import UUID
 
@@ -117,7 +118,8 @@ class ControlledRewriteCompleteResponse(BaseModel):
 @router.get("/lessons/{bank_id}")
 async def lesson(bank_id: UUID, item: UUID, authorization: str | None = Header(None)):
     user = await get_supabase_user(authorization)
-    return advanced_vocab_service.learner_lesson(
+    return await asyncio.to_thread(
+        advanced_vocab_service.learner_lesson,
         user_id=user["id"], bank_id=str(bank_id), item_id=str(item),
     )
 
@@ -127,7 +129,8 @@ async def complete_vocabulary(
     body: VocabularyCompleteBody, authorization: str | None = Header(None),
 ):
     user = await get_supabase_user(authorization)
-    return advanced_vocab_service.complete_vocabulary(
+    return await asyncio.to_thread(
+        advanced_vocab_service.complete_vocabulary,
         user_id=user["id"], bank_id=body.bank_id, item_id=body.item_id,
         seen_lexeme_ids=body.seen_lexeme_ids,
     )
@@ -139,7 +142,8 @@ async def start_practice(
     authorization: str | None = Header(None),
 ) -> PracticeStartResponse:
     user = await get_supabase_user(authorization)
-    result = advanced_vocab_service.start_practice(
+    result = await asyncio.to_thread(
+        advanced_vocab_service.start_practice,
         user_id=user["id"], bank_id=body.bank_id,
         item_id=body.item_id, stage=body.stage,
     )
@@ -149,7 +153,8 @@ async def start_practice(
 @router.post("/practice/answer")
 async def answer_practice(body: PracticeAnswerBody, authorization: str | None = Header(None)):
     user = await get_supabase_user(authorization)
-    return advanced_vocab_service.answer_practice(
+    return await asyncio.to_thread(
+        advanced_vocab_service.answer_practice,
         user_id=user["id"], bank_id=body.bank_id, item_id=body.item_id,
         stage=body.stage, qid=body.qid, answer=body.answer,
         response_time_ms=body.response_time_ms,
@@ -159,7 +164,8 @@ async def answer_practice(body: PracticeAnswerBody, authorization: str | None = 
 @router.post("/reading")
 async def submit_reading(body: AdvancedVocabSectionSubmitBody, authorization: str | None = Header(None)):
     user = await get_supabase_user(authorization)
-    return advanced_vocab_service.submit_reading(
+    return await asyncio.to_thread(
+        advanced_vocab_service.submit_reading,
         user_id=user["id"], bank_id=body.bank_id, item_id=body.item_id,
         answers=body.answers, duration_sec=body.duration_sec,
     )
@@ -184,7 +190,8 @@ async def complete_controlled_rewrite(
 @router.post("/listening")
 async def submit_listening(body: AdvancedVocabSectionSubmitBody, authorization: str | None = Header(None)):
     user = await get_supabase_user(authorization)
-    return advanced_vocab_service.submit_listening(
+    return await asyncio.to_thread(
+        advanced_vocab_service.submit_listening,
         user_id=user["id"], bank_id=body.bank_id, item_id=body.item_id,
         answers=body.answers, duration_sec=body.duration_sec,
     )
@@ -195,7 +202,8 @@ async def complete_listening_guided_retry(
     body: AdvancedVocabSectionSubmitBody, authorization: str | None = Header(None),
 ):
     user = await get_supabase_user(authorization)
-    return advanced_vocab_service.complete_listening_guided_retry(
+    return await asyncio.to_thread(
+        advanced_vocab_service.complete_listening_guided_retry,
         user_id=user["id"], bank_id=body.bank_id, item_id=body.item_id,
         answers=body.answers,
     )
@@ -206,4 +214,4 @@ async def assignment_results(
     assignment_id: UUID, authorization: str | None = Header(None),
 ):
     await require_admin(authorization)
-    return advanced_vocab_service.assignment_results(assignment_id=str(assignment_id))
+    return await asyncio.to_thread(advanced_vocab_service.assignment_results, assignment_id=str(assignment_id))

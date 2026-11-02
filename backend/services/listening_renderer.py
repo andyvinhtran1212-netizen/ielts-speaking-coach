@@ -287,13 +287,21 @@ def run_elevenlabs_render_job(
 
     # ── Step 2: upload to bucket ──────────────────────────────────────────────
     storage_path = f"ai/{job_id}.mp3"
+    from services.storage_limits import check_upload, map_storage_error
     try:
+        check_upload("listening-audio", audio_size_bytes, "audio/mpeg")
         supabase_admin.storage.from_(settings.LISTENING_AUDIO_BUCKET).upload(
             storage_path,
             mp3_bytes,
             {"content-type": "audio/mpeg"},
         )
     except Exception as e:
+        refusal = map_storage_error("listening-audio", e)
+        if refusal is not None:
+            # Background jobs cannot return an HTTP response. Keep the existing
+            # archived failure signal and record the structured refusal reason.
+            _mark_render_failed(job_id, str(refusal))
+            return
         msg = str(e).lower()
         if "not found" in msg or "bucket" in msg:
             logger.error(

@@ -183,8 +183,15 @@
     if (isEmpty(v) || typeof v !== 'object' || Array.isArray(v)) return emptyShape();
     var html = '';
 
+    // The summary is written from the learner's recent graded essays, not
+    // this essay alone; the label says so (CM-approved wording, PC-J369).
     if (v.summary && String(v.summary).trim()) {
-      html += '<div class="callout-info">' + renderString(String(v.summary)) + '</div>';
+      html += '<div class="callout-info">' +
+        '<strong class="recurring-summary-label">' +
+          escapeHtml('Nhận xét chung qua các bài gần đây của bạn (không riêng bài này):') +
+        '</strong>' +
+        renderString(String(v.summary)) +
+      '</div>';
     }
 
     var improvements = Array.isArray(v.improvements) ? v.improvements.filter(Boolean) : [];

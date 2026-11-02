@@ -310,7 +310,7 @@ function ModelsPanel({ onLabels }: { onLabels: (labels: Record<string, string>) 
       {error && <PanelError message={error} onRetry={load} />}
       {loading && !data && <div className="ai-loading" role="status">Đang tải cấu hình model…</div>}
       {data && (
-        <div className="ai-table-wrap">
+        <div className="ai-table-wrap" role="region" aria-label="Bảng thứ tự nhà cung cấp và model" tabIndex={0}>
           <table className="ai-table">
             <caption className="ai-visually-hidden">Thứ tự nhà cung cấp và model theo tính năng</caption>
             <thead>
@@ -408,7 +408,7 @@ function UsageTable({ caption, rows, nameOf }: {
   nameOf: (key: string) => string;
 }) {
   return (
-    <div className="ai-table-wrap">
+    <div className="ai-table-wrap" role="region" aria-label={`Bảng token ${caption.toLowerCase()}`} tabIndex={0}>
       <table className="ai-table is-numeric">
         <caption>{caption}</caption>
         <thead>
@@ -517,7 +517,7 @@ function FailuresPanel({ range, labels }: { range: AiWindowKey; labels: Record<s
             <div><dt>Chuyển dự phòng</dt><dd>{formatCount(data.totals.fallback)}</dd></div>
             <div><dt>Thất bại cuối</dt><dd>{formatCount(data.totals.final)}</dd></div>
           </dl>
-          <div className="ai-table-wrap">
+          <div className="ai-table-wrap" role="region" aria-label="Bảng lỗi theo nhà cung cấp và tính năng" tabIndex={0}>
             <table className="ai-table">
               <caption>Theo nhà cung cấp và tính năng</caption>
               <thead>
@@ -547,7 +547,7 @@ function FailuresPanel({ range, labels }: { range: AiWindowKey; labels: Record<s
               </tbody>
             </table>
           </div>
-          <div className="ai-table-wrap">
+          <div className="ai-table-wrap" role="region" aria-label="Bảng lỗi gần nhất" tabIndex={0}>
             <table className="ai-table">
               <caption>{`${data.recent.length} lỗi gần nhất (giờ Sài Gòn)`}</caption>
               <thead>

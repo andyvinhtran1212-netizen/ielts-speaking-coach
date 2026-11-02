@@ -350,7 +350,9 @@ def run(execute: bool, limit: Optional[int], workers: int,
                       f"({len(resp.content)} bytes, {ctype})")
                 continue
             try:
-                supabase_admin.storage.from_(w["bucket"]).upload(
+                from services.storage_limits import upload_with_error_mapping
+                upload_with_error_mapping(
+                    w["bucket"], supabase_admin.storage.from_(w["bucket"]).upload,
                     path=w["path"],
                     file=resp.content,
                     file_options={"content-type": ctype, "upsert": "true"},

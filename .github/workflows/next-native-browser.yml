@@ -47,6 +47,8 @@ on:
       - 'frontend/public/css/mock-hub.css'
       - 'frontend/app/(authed-writing)/**'
       - 'frontend/tooling/verify-writing-admission-flow.mjs'
+      - 'frontend/tooling/verify-writing-dashboard-layout-flow.mjs'
+      - 'frontend/tooling/verify-writing-dashboard-tab-scroll-flow.mjs'
       - 'frontend/tooling/verify-learning-context-flow.mjs'
       - 'frontend/tooling/verify-grammar-navigation-flow.mjs'
       - 'frontend/tooling/grammar-navigation-fixtures.mjs'
@@ -418,6 +420,7 @@ on:
       - 'frontend/public/js/admin-speaking-topics.js'
       - 'frontend/tooling/verify-admin-speaking-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
+      - 'frontend/tooling/verify-admin-speaking-sessions-layout-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-topics-flow.mjs'
       - 'frontend/app/(authed-admin-mock-tests)/**'
       - 'frontend/lib/admin-mock-tests-model.mjs'
@@ -631,6 +634,7 @@ on:
       - 'frontend/tooling/verify-admin-grammar-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
+      - 'frontend/tooling/verify-admin-speaking-sessions-layout-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-topics-flow.mjs'
       - 'frontend/tooling/verify-admin-writing-flow.mjs'
       - 'frontend/tooling/verify-admin-grammar-articles-flow.mjs'
@@ -698,6 +702,7 @@ on:
       - 'frontend/public/css/**'
       - 'frontend/public/js/**'
       - 'frontend/tooling/verify-*.mjs'
+      - 'frontend/tooling/grammar-404-ssr-checks.mjs'
       - 'frontend/tooling/next-native-fixture-api.mjs'
       - 'frontend/tooling/redact-secrets.cjs'
       - 'frontend/tooling/sanitize-artifacts.mjs'
@@ -778,6 +783,11 @@ jobs:
           tail -40 /tmp/next-native-browser.log
           exit 1
 
+      # PC-J230 / J77 F1-F2: tự chạy next start và fixture riêng trên cổng trống,
+      # không dùng server :3000 ở trên.
+      - name: Kiểm 404 Grammar render phía server có CSS
+        run: node tooling/verify-grammar-404-ssr-flow.mjs
+
       - name: Kiểm boundary Pricing pre-launch
         run: node tooling/verify-pricing-redirect-flow.mjs "http://localhost:$TEST_PORT"
 
@@ -828,6 +838,12 @@ jobs:
 
       - name: Kiểm luồng Writing learner native
         run: node tooling/verify-writing-admission-flow.mjs "http://localhost:$TEST_PORT"
+
+      - name: Kiểm CLS và cuộn tab Writing dashboard
+        run: node tooling/verify-writing-dashboard-layout-flow.mjs "http://localhost:$TEST_PORT"
+
+      - name: Kiểm chọn tab Writing giữ vị trí cuộn trang
+        run: node tooling/verify-writing-dashboard-tab-scroll-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm context Reading và Listening
         run: node tooling/verify-learning-context-flow.mjs "http://localhost:$TEST_PORT"
@@ -1189,6 +1205,12 @@ jobs:
       # failure truth and canonical GET readback after every write.
       - name: Kiểm luồng Admin Speaking Sessions native
         run: node tooling/verify-admin-speaking-sessions-flow.mjs "http://localhost:$TEST_PORT"
+
+      # UIA-1030-A1: with the admin sidebar open at 1280/1366 px the filter grid
+      # pushed the page sideways. Pins no page overflow, wrapped filter actions
+      # and the table scrolling inside its own frame (light/dark, 390 unchanged).
+      - name: Kiểm bố cục Admin Speaking Sessions không tràn ngang
+        run: node tooling/verify-admin-speaking-sessions-layout-flow.mjs "http://localhost:$TEST_PORT"
 
       # Topics mutates topic/question libraries and AI rotation. The fixture
       # pins safe missing-only semantics, exact payloads and canonical readback.

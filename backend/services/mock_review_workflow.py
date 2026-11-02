@@ -32,6 +32,7 @@ from uuid import UUID
 
 from database import supabase_admin
 from services.band_rounding import ielts_round, overall_from_criteria
+from services.errors import clip_user_value
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +110,7 @@ def _coerce_band(value) -> float:
     try:
         b = float(value)
     except (TypeError, ValueError):
-        raise ValidationError(f"band {value!r} is not a number")
+        raise ValidationError(f"band {clip_user_value(repr(value))} is not a number")
     if not (0.0 <= b <= 9.0):
         raise ValidationError(f"band {b} out of range [0, 9]")
     return b
@@ -876,7 +877,7 @@ def release_results(
     endpoints (which check sitting.sealed) start returning scores.
     """
     if channel not in ("in_app", "email", "manual"):
-        raise ValidationError(f"unknown release channel {channel!r}")
+        raise ValidationError(f"unknown release channel {clip_user_value(channel)!r}")
 
     # Hard block: gate for ANY existing review, NOT only one this pre-read sees as
     # 'reviewed'. Gating on the pre-read status would race the atomic UPDATE below

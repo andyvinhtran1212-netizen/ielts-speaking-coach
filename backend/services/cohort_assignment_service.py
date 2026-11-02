@@ -121,6 +121,22 @@ def preview_fan_out_overlap(
     return {"student_count": len(student_ids), "duplicate_student_ids": sorted(already)}
 
 
+def verified_fan_out_roster(
+    db,
+    *,
+    prompt_ids: list[UUID],
+    cohort_id: UUID,
+    owner_id: str,
+) -> list[str]:
+    """INSTRUCTORGIVE-0044 — the W-3 gates of an instructor fan-out without the
+    write: prompt/cohort/student ownership (PermissionError) and the student
+    ids the give targets. The write itself is the idempotent RPC (mig 360)."""
+    prompt_strs = [str(p) for p in prompt_ids]
+    cohort_str = str(cohort_id)
+    _verify_fanout_ownership(db, str(owner_id), prompt_strs, cohort_str)
+    return _fan_out_roster(db, cohort_str, owner_id)
+
+
 def fan_out_assignment(
     db,
     *,
@@ -272,7 +288,12 @@ def normalize_deadline(value: datetime | date | str | None) -> Optional[datetime
         try:
             day = date.fromisoformat(raw)
         except ValueError:
-            parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            try:
+                parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            except ValueError:
+                # Constant text: the stdlib message quotes the raw input, and
+                # this ValueError becomes the 422 `msg` (PC-J226 F4).
+                raise ValueError("Hạn nộp phải là ngày/giờ ISO") from None
         else:
             parsed = datetime.combine(day, DEFAULT_DUE_TIME)
     else:

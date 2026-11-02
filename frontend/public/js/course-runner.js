@@ -31,6 +31,20 @@ export const STAGE = 10;
 // Đẩy lượt làm theo mẻ. Nhỏ hơn thì tốn request; lớn hơn thì mất nhiều khi rớt.
 const BATCH = 5;
 
+// Bài kiểm tra một lượt CÓ GIỜ (sealed, single_attempt) cũng gom mẻ (PC-J435):
+// trước đây nó đẩy từng câu, nên 30 học viên làm FINAL 300 câu là ~30 request
+// /progress cho mỗi nhịp nghĩ. Mastery (`answersWithheld`) KHÔNG gom: phản hồi
+// đúng/sai của câu chính là ACK của request đó.
+//
+// Câu trả lời đúng hạn chỉ được tính nếu /progress nhận nó TRƯỚC ranh giới máy
+// chủ (mig 276: time_cap chỉ xác minh, không chèn câu mới). Nên một câu chỉ
+// được giữ ở client khi còn xa giờ: tối đa TIMED_BATCH câu, tối đa FLUSH_MS kể
+// từ câu cũ nhất, và không bao giờ qua mốc NEAR_END_MS trước khi hết giờ. Còn
+// lại ≤ NEAR_END_MS thì mỗi câu đẩy ngay, và cả phút cuối là cửa sổ retry.
+const TIMED_BATCH = BATCH;
+const FLUSH_MS = 45000;
+const NEAR_END_MS = 60000;
+
 export const KEYS = ['A', 'B', 'C', 'D', 'E'];
 
 /**
@@ -157,6 +171,7 @@ function codedError(message, code) {
 export function createRunner({
   api, storage, userId = null, now = () => Date.now(),
   schedule = (fn, delay) => setTimeout(fn, delay),
+  random = Math.random,
   onSuperseded = () => {},
 }) {
   let bank = null;
@@ -218,6 +233,17 @@ export function createRunner({
   let eagerRetryAttempt = 0;
   let eagerRetryScheduled = false;
   let superseded = false;
+  // Hẹn giờ FLUSH_MS của câu sealed có giờ cũ nhất đang được giữ. Mỗi hẹn giờ
+  // mang một token; đẩy theo mẻ thì bỏ token, nên hẹn giờ cũ tới sau là no-op.
+  let heldFlush = null;
+  // Trang đã dọn lượt này (đổi tài khoản, rời trang): KHÔNG request nào của
+  // hàng đợi được bắt đầu nữa. Request mới lấy token của người ĐANG đăng nhập,
+  // nên một flush xếp sau batch đang treo, hay một hẹn giờ retry, sẽ gửi câu
+  // của A bằng token của B (PC-J362). Câu chưa gửi vẫn nằm trong outbox của A.
+  let disposed = false;
+  function assertLive() {
+    if (disposed) throw codedError('Lượt làm bài này đã đóng.', 'runner_disposed');
+  }
 
   const key = () => 'cx:' + (userId ? userId + ':' : '') + (bank && bank.id);
   // Keep unacknowledged rows (including a request in flight) across abrupt
@@ -712,6 +738,7 @@ export function createRunner({
    * ngay sau đó và ghi một điểm số "đã xong" cho những câu chưa hề tới máy chủ.
    */
   async function flush({ keepalive = false } = {}) {
+    assertLive();
     if (!sessionId) return;
     const queued = pending.splice(0, pending.length);
     // pagehide phải cứu cả batch thường đang bay lẫn phần chưa gửi. Trước đây
@@ -789,9 +816,13 @@ export function createRunner({
     const retryIndex = Math.min(eagerRetryAttempt, eagerRetryDelays.length - 1);
     const configured = eagerRetryDelays[retryIndex];
     eagerRetryAttempt = Math.min(eagerRetryAttempt + 1, eagerRetryDelays.length);
+    // Equal jitter in (configured/2, configured]: when staging is congested
+    // thirty browsers that failed together must not all retry on the same
+    // beat. `random() = 0` is the plain backoff step.
+    const jittered = Math.round(configured * (1 - random() * 0.5));
     // Leave a small admission margin instead of deliberately firing at the
     // exact boundary.  Very short remaining windows retry immediately once.
-    const delay = Math.max(0, Math.min(configured, remaining - 25));
+    const delay = Math.max(0, Math.min(jittered, remaining - 25));
     eagerRetryScheduled = true;
     schedule(function () {
       eagerRetryScheduled = false;
@@ -800,6 +831,32 @@ export function createRunner({
       inflight = inflight.then(() => flush())
         .catch(() => { /* flush restored and scheduled the next bounded retry */ });
     }, delay);
+  }
+
+  function flushInBackground() {
+    inflight = inflight.then(() => flush()).catch(() => { /* lượt làm đã quay lại hàng đợi */ });
+  }
+
+  // Sealed + có giờ: đẩy khi đủ mẻ, khi đã ở phút cuối, hoặc khi câu cũ nhất
+  // đang giữ đã chờ FLUSH_MS (hẹn giờ không bao giờ vượt mốc NEAR_END_MS).
+  // Ẩn tab / rời trang vẫn đẩy hết qua `leave()`; outbox giữ câu khi tải lại.
+  function flushTimedSealed() {
+    const remaining = timerRemainingMilliseconds();
+    if (pending.length >= TIMED_BATCH || !(remaining > NEAR_END_MS)) {
+      heldFlush = null;
+      flushInBackground();
+      return;
+    }
+    // Đã có hẹn giờ cho một câu cũ hơn: nó tới sớm hơn hạn của câu này.
+    if (heldFlush) return;
+    const token = {};
+    heldFlush = token;
+    schedule(function () {
+      if (heldFlush !== token) return;
+      heldFlush = null;
+      if (!sessionId || sessionEnded || !pending.length) return;
+      flushInBackground();
+    }, Math.min(FLUSH_MS, remaining - NEAR_END_MS));
   }
 
   function queue(q, ok, given) {
@@ -1044,9 +1101,8 @@ export function createRunner({
         queue(q, false, String(q._perm ? q._perm[picked] : picked));
         answered = true;
         marks[at] = 'answered';
-        if (pending.length >= BATCH || (mastery && mastery.is_timed)) {
-          inflight = inflight.then(() => flush()).catch(() => {});
-        }
+        if (mastery && mastery.is_timed) flushTimedSealed();
+        else if (pending.length >= BATCH) flushInBackground();
         return { sealed: true, correct: null, trap: null, explain: '' };
       }
       if (answersWithheld) {
@@ -1133,6 +1189,7 @@ export function createRunner({
       if (sessionId && !sessionEnded && !resumedRetakeFinal) {
         try {
           await inflight;        // chờ lượt đẩy nền xong rồi mới xét hàng đợi
+          assertLive();          // PATCH hết giờ cũng mang các câu còn trong hàng đợi
           if (endedBy !== 'time_cap') await flush();
           if (answersWithheld && marks.length) tally();
           // Batch còn lại chỉ là bằng chứng idempotency: timeout RPC KHÔNG chèn
@@ -1261,5 +1318,8 @@ export function createRunner({
 
     /** Đóng tab giữa chừng: đẩy nốt bằng fetch keepalive. */
     leave() { return flush({ keepalive: true }).catch(() => { /* hết cách */ }); },
+
+    /** Dọn lượt: từ đây không gửi gì nữa; câu chưa gửi chờ trong outbox. */
+    dispose() { disposed = true; heldFlush = null; },
   };
 }

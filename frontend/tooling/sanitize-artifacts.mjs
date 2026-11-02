@@ -19,7 +19,7 @@ const BASE64_BODY_RE = /("(?:body|postData)"\s*:\s*")([A-Za-z0-9+/]{16,}={0,2})(
 
 class UnreadableArchive extends Error {}
 
-function redactText(text, options, depth) {
+function redactText(text, options, depth, isHtml) {
   // JSON reporter stores inline attachments as base64 `body` fields; protocol
   // request bodies are base64 `postData`.
   const withBodies = text.replace(BASE64_BODY_RE, (whole, open, body, close) => {
@@ -28,10 +28,17 @@ function redactText(text, options, depth) {
     return next === decoded ? whole : `${open}${next.toString('base64')}${close}`;
   });
   const report = withBodies.match(PLAYWRIGHT_REPORT_RE);
+  if (!report && (isHtml || /^\s*</.test(withBodies)) && withBodies.includes('playwrightReportBase64')) {
+    throw new UnreadableArchive('unrecognized embedded report format');
+  }
   if (!report) return redactSecrets(withBodies, options);
   let zip;
   try {
-    zip = Buffer.from(report[2].replace(/\s+/g, ''), 'base64');
+    const encoded = report[2].replace(/\s+/g, '');
+    zip = Buffer.from(encoded, 'base64');
+    if (zip.toString('base64').replace(/=+$/, '') !== encoded.replace(/=+$/, '')) {
+      throw new UnreadableArchive('invalid embedded report base64');
+    }
     zip = sanitizeBuffer(zip, options, depth + 1, { requireZip: true });
   } catch (error) {
     throw new UnreadableArchive(error.message);
@@ -47,7 +54,7 @@ function redactText(text, options, depth) {
 }
 
 /** Return a sanitized copy of `buffer` (the same object when unchanged). */
-export function sanitizeBuffer(buffer, options, depth = 0, { requireZip = false } = {}) {
+export function sanitizeBuffer(buffer, options, depth = 0, { requireZip = false, isHtml = false } = {}) {
   if (depth > MAX_DEPTH) throw new UnreadableArchive('archive nesting too deep');
   if (isZip(buffer)) {
     let entries;
@@ -58,7 +65,7 @@ export function sanitizeBuffer(buffer, options, depth = 0, { requireZip = false 
     }
     let changed = false;
     const next = entries.map(({ name, data }) => {
-      const clean = sanitizeBuffer(data, options, depth + 1);
+      const clean = sanitizeBuffer(data, options, depth + 1, { isHtml: /\.html?$/i.test(name) });
       if (clean !== data) changed = true;
       return { name, data: clean };
     });
@@ -67,7 +74,7 @@ export function sanitizeBuffer(buffer, options, depth = 0, { requireZip = false 
   if (requireZip) throw new UnreadableArchive('embedded report is not a zip');
   if (!isText(buffer)) return buffer;
   const text = buffer.toString('utf8');
-  const clean = redactText(text, options, depth);
+  const clean = redactText(text, options, depth, isHtml);
   return clean === text ? buffer : Buffer.from(clean, 'utf8');
 }
 
@@ -98,7 +105,7 @@ export function sanitizePaths(targets, options) {
       }
       const original = readFileSync(file);
       try {
-        const clean = sanitizeBuffer(original, options);
+        const clean = sanitizeBuffer(original, options, 0, { isHtml: /\.html?$/i.test(file) });
         if (clean !== original) {
           writeFileSync(file, clean);
           result.changed.push(file);

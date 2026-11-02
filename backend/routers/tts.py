@@ -170,7 +170,8 @@ def _load_owned_session(user_id: str, session_id: UUID | None) -> dict | None:
             .execute()
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi khi tải session: {e}")
+        logger.error("[tts] session lookup failed session=%s: %s", session_id, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Lỗi khi tải phiên luyện. Vui lòng thử lại.") from None
     if not result.data:
         raise HTTPException(status_code=404, detail="Session không tồn tại")
     return result.data[0]
@@ -228,5 +229,5 @@ async def text_to_speech(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("[tts] OpenAI TTS failed: %s", e)
-        raise HTTPException(502, f"TTS service error: {e}")
+        logger.error("[tts] OpenAI TTS failed: %s", e, exc_info=True)
+        raise HTTPException(502, "Dịch vụ đọc mẫu đang lỗi. Vui lòng thử lại.") from None

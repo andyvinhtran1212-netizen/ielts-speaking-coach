@@ -4342,7 +4342,8 @@ export interface paths {
          * Create Assignment
          * @description Assign ONE prompt to ONE of my students, with an optional deadline.
          *     Owner-guarded: both the prompt and the student must be mine (else 403).
-         *     The accessor stamps assigned_by=me.
+         *     INSTRUCTORGIVE-0044: `request_id` is required; a retry with the same id
+         *     and body returns the first row, another body → 409 (no new row).
          */
         post: operations["create_assignment_instructor_assignments_post"];
         delete?: never;
@@ -4383,7 +4384,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Fan Out */
+        /**
+         * Fan Out
+         * @description N of my prompts → every active member of my class, as one group.
+         *     INSTRUCTORGIVE-0044: `request_id` is required (same replay/409 contract
+         *     as the individual give).
+         */
         post: operations["fan_out_instructor_assignments_fan_out_post"];
         delete?: never;
         options?: never;
@@ -12778,7 +12784,11 @@ export interface paths {
          *     and the rolling event-loop-lag stats from the monitor. With the flag OFF
          *     this is the "before" baseline: under real concurrency a blocking sync
          *     ``.execute()`` on the loop thread shows up as elevated lag_ms_p95/max here.
-         *     Unauthenticated by design (no PII; booleans + timings).
+         *
+         *     The route stays reachable without a token, but anonymous (and non-admin)
+         *     callers get only ``status`` and ``timestamp``: loop lag, in-flight calls,
+         *     pool and executor saturation tell an attacker when the backend is close
+         *     to overload (PC-J275). Admins (Bearer token) get the full snapshot.
          */
         get: operations["health_async_db_health_async_db_get"];
         put?: never;
@@ -12833,6 +12843,11 @@ export interface paths {
          *     CONFLICT") after a manual migration without a PostgREST schema reload, while
          *     quiz_sessions inserts kept working. Always HTTP 200; the ``status`` field
          *     (healthy | error) carries the verdict.
+         *
+         *     The probe runs off the event loop, single-flight, and its result is reused
+         *     for ``_QUIZ_WRITE_PROBE_TTL_SECONDS`` by every caller (admins included);
+         *     ``checked_at`` is when the live probe ran. Raw error text (``err``) is
+         *     returned to admins (Bearer token) only.
          */
         get: operations["health_quiz_write_health_quiz_write_get"];
         put?: never;
@@ -16992,6 +17007,11 @@ export interface components {
         };
         /** FanOutBody */
         FanOutBody: {
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
             /** Prompt Ids */
             prompt_ids: string[];
             /**
@@ -19407,6 +19427,29 @@ export interface components {
              */
             release_now: boolean;
         };
+        /** MyEssayDetailOut */
+        MyEssayDetailOut: {
+            /** Essay */
+            essay: {
+                [key: string]: unknown;
+            };
+            feedback: components["schemas"]["MyEssayFeedbackOut"] | null;
+            /** Instructor Note */
+            instructor_note: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** MyEssayFeedbackOut */
+        MyEssayFeedbackOut: {
+            /**
+             * Band Source
+             * @description Who set the bands shown: 'ai' = AI grade (incl. a human text edit or an F2 mix that kept AI bands exactly), 'teacher' = a human changed or chose bands that cannot be proven AI-identical, 'unknown' = legacy row without a recognised source. Only 'ai' is an estimate.
+             * @enum {string}
+             */
+            band_source: "ai" | "teacher" | "unknown";
+        } & {
+            [key: string]: unknown;
+        };
         /** NextItemResponse */
         NextItemResponse: {
             /** Complete */
@@ -20911,7 +20954,7 @@ export interface components {
             /** Reason */
             reason?: string | null;
             /** Alert Status */
-            alert_status?: ("pending" | "sent" | "failed") | null;
+            alert_status?: ("pending" | "sent" | "failed" | "not_recorded") | null;
         };
         /** SessionAudioUrl */
         SessionAudioUrl: {
@@ -23285,6 +23328,11 @@ export interface components {
          * @description Single-student assign (one prompt → one of MY students).
          */
         routers__instructor__AssignBody: {
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
             /**
              * Prompt Id
              * Format: uuid
@@ -32128,7 +32176,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MyEssayDetailOut"];
                 };
             };
             /** @description Validation Error */
@@ -45351,7 +45399,9 @@ export interface operations {
     health_async_db_health_async_db_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -45366,6 +45416,15 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -45395,7 +45454,9 @@ export interface operations {
     health_quiz_write_health_quiz_write_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -45410,6 +45471,15 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

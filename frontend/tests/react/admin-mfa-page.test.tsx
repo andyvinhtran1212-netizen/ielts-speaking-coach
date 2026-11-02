@@ -11,6 +11,7 @@ vi.mock('@/lib/auth-api', () => ({
 vi.mock('@/lib/admin-mfa-api', () => ({ getAdminMfaStatus: vi.fn(async () => wire.status) }));
 
 import { AdminMfa } from '@/app/(authed-admin-mfa)/admin/mfa/admin-mfa';
+import { getAuthorizationIdentity } from '@/lib/auth-api';
 
 type Factor = { id: string; factor_type: string; status: string; friendly_name: string; created_at: string };
 
@@ -56,6 +57,17 @@ beforeEach(() => {
   wire.status = { aal: 'aal2', enforce: true, verified_factor_count: 1, next_step: 'none' };
 });
 afterEach(() => { cleanup(); replace.mockReset(); });
+
+describe('/admin/mfa refuses a non-admin (PC-J148 item 6)', () => {
+  it('shows the Vietnamese denied title with the home link and never reads MFA state', async () => {
+    vi.mocked(getAuthorizationIdentity).mockResolvedValueOnce({ id: 'admin-1', email: 'u@x.test', role: 'user', is_active: true } as never);
+    render(<AdminMfa />);
+    expect(await screen.findByRole('heading', { name: '🔒 Trang này chỉ dành cho quản trị viên' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: '← Quay lại trang chủ' }).getAttribute('href')).toBe('/home');
+    expect(screen.getByRole('alert').textContent).not.toContain('Admin Access Required');
+    expect(fake.mfa.listFactors).not.toHaveBeenCalled();
+  });
+});
 
 describe('/admin/mfa stale AAL2 (backend next_step: challenge)', () => {
   it('offers the challenge, not factor management, and returns to next after verifying', async () => {

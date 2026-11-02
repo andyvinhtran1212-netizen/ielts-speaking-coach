@@ -34,13 +34,13 @@ export function WritingShell() {
 
         {/* Greeting — P0-3 LCP fix. Rendered OUTSIDE #content (always visible)
              so the LCP h1 paints at the CSS/font floor (~1s) instead of waiting
-             for the data chain (auth + my-assignments + my-essays + permissions)
-             that reveals #content (~7.6s before). Name/code fill progressively
+             for auth/permissions to establish #content's initial layout.
+             Name/code fill progressively
              via renderStudent() once loadEssays/loadAssignments resolve; the
              placeholders default to renderStudent's own no-data fallbacks. */}
         <section className="mb-8">
           <p className="eyebrow">Writing</p>
-          <h1 className="text-2xl md:text-3xl font-semibold mb-2">
+          <h1 className="wd-greeting-title text-2xl md:text-3xl font-semibold mb-2">
             {/* "Chào bạn" is static (site-wide "bạn" register); the comma +
                 name are JS-owned so the no-name case reads "Chào bạn 👋", not
                 "Chào bạn, ". renderStudent() fills #greeting-sep + #greeting-name together. */}
@@ -55,7 +55,7 @@ export function WritingShell() {
           </p>
         </section>
 
-        {/* Loading state (kept for JS compat; hidden by default — content is always visible) */}
+        {/* Loading state (kept for JS compat; hidden by default). */}
         <div id="loading" className="hidden text-center py-16" role="status" aria-live="polite">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-teal-light border-t-transparent"></div>
           <p className="mt-3 text-gray-300">Đang tải...</p>
@@ -78,10 +78,10 @@ export function WritingShell() {
         </div>
 
         {/* Main content */}
-        <div id="content">
+        <div id="content" className="wd-permissions-pending">
           <div id="writing-submit-notice" className="wd-submit-notice hidden" role="status"></div>
-          {/* Sprint 5.2 — Writing permission preview banner (hidden by default,
-               revealed when GET /api/student/permissions returns writing=false). */}
+          {/* Decide the preview banner before the content's first paint;
+               button gating still runs after the canonical lists render. */}
           <div id="writing-preview-banner" className="wd-preview-banner hidden mb-6 flex items-start gap-3">
             <span className="wd-preview-banner__icon" aria-hidden="true">🔒</span>
             <div className="text-sm">
@@ -95,22 +95,24 @@ export function WritingShell() {
           </div>
 
           {/* Phase 2.3b — tab nav */}
-          <div className="wd-tabs flex border-b border-white/10 mb-6 gap-1">
-            <button id="tab-assignments" type="button" className="tab-btn active">
-              📋 Bài giao
-              <span id="assignments-count" className="ml-1 text-xs text-gray-500"></span>
-            </button>
-            <button id="tab-essays" type="button" className="tab-btn">
-              📝 Bài đã nộp
-              <span id="essays-count" className="ml-1 text-xs text-gray-500"></span>
-            </button>
-            <button id="tab-tips" type="button" className="tab-btn">
-              💡 Mẹo viết
-            </button>
-            {/* R1 — "Kho đề": hidden until the prompt-bank endpoint returns enabled:true */}
-            <button id="tab-prompt-bank" type="button" className="tab-btn" hidden>
-              📚 Kho đề
-            </button>
+          <div className="wd-tabs-frame mb-6">
+            <div className="wd-tabs flex border-b border-white/10 gap-1">
+              <button id="tab-assignments" type="button" className="tab-btn active">
+                📋 Bài giao
+                <span id="assignments-count" className="ml-1 text-xs text-gray-500"></span>
+              </button>
+              <button id="tab-essays" type="button" className="tab-btn">
+                📝 Bài đã nộp
+                <span id="essays-count" className="ml-1 text-xs text-gray-500"></span>
+              </button>
+              <button id="tab-tips" type="button" className="tab-btn">
+                💡 Mẹo viết
+              </button>
+              {/* R1 — "Kho đề": hidden until the prompt-bank endpoint returns enabled:true */}
+              <button id="tab-prompt-bank" type="button" className="tab-btn" hidden>
+                📚 Kho đề
+              </button>
+            </div>
           </div>
 
           {/* Tab 1 — Bài giao (active assignments awaiting submission) */}
@@ -119,12 +121,18 @@ export function WritingShell() {
                  Built client-side from the active assignments that carry a
                  deadline, sorted soonest-first with an urgency colour cue.
                  Hidden when no active assignment has a deadline. */}
-            <div id="deadlines-surface" className="wd-deadlines hidden" aria-label="Bài sắp đến hạn">
+            <div id="deadlines-surface" className="wd-deadlines is-loading" aria-label="Bài sắp đến hạn" aria-busy="true">
               <h2 className="wd-deadlines__title">⏰ Bài sắp đến hạn</h2>
-              <div id="deadlines-list" className="wd-deadlines__list"></div>
+              <div id="deadlines-list" className="wd-deadlines__list">
+                {[0, 1].map(key => <div key={key} className="wd-deadline-row" aria-hidden="true"><span className="wd-skeleton-line">&nbsp;</span></div>)}
+              </div>
             </div>
 
-            <div id="assignments-list" className="space-y-3"><p className="text-sm py-8 text-center" style={{color:'var(--av-text-muted)'}}>Đang tải…</p></div>
+            <div id="assignments-loading" className="space-y-3" role="status">
+              <span className="sr-only">Đang tải…</span>
+              {[0, 1].map(key => <div key={key} className="assignment-card wd-assignment-placeholder" aria-hidden="true"><span className="wd-skeleton-line">&nbsp;</span></div>)}
+            </div>
+            <div id="assignments-list" className="space-y-3" aria-busy="true"></div>
             <div id="assignments-empty" className="wd-empty hidden">
               <div className="wd-empty__icon" aria-hidden="true">📋</div>
               <p className="wd-empty__title">Em chưa có bài giao nào</p>

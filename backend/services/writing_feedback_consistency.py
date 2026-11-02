@@ -64,16 +64,17 @@ _NO_PATTERNS = re.compile(
 _STRUCTURE_SCOPE = re.compile(r"cau truc|cau don|cau phuc|sentence|syntactic")
 # Error domains a recurring-pattern denial or a stillRecurring item can name,
 # by criterion. A denial that names none of them covers every domain.
+# Locations ("đoạn văn", "paragraph", "sentence") name where, not which error.
 _ERROR_DOMAINS = {
     "grammar": re.compile(
-        r"ngu phap|grammar|grammatical|cau truc|cau don|cau phuc|cau ghep|sentence|run-on|fragment|"
+        r"ngu phap|grammar|grammatical|cau truc|cau don|cau phuc|cau ghep|sentence structure|run-on|fragment|"
         r"chia (?:dong tu|thi)|\btense|hoa hop|chu vi|subject[- ]verb|agreement|mao tu|\barticles?\b|"
         r"gioi tu|preposition|so (?:it|nhieu)|plural|singular|bi dong|passive|menh de|clause|"
         r"dau cau|punctuation"),
     "lexical": re.compile(
         r"tu vung|\b(?:dung|chon|lap) tu\b|tu loai|dang tu|\bwords?\b|vocabulary|lexical|collocation|"
         r"ket hop tu|chinh ta|spelling|paraphras"),
-    "coherence": re.compile(r"lien ket|mach lac|coheren|cohesi|linking|tu noi|lien tu|doan van|paragraph"),
+    "coherence": re.compile(r"lien ket|mach lac|coheren|cohesi|linking|tu noi|lien tu|paragraphing"),
     "task": re.compile(
         r"so lieu|du lieu|\bdata\b|task (?:achievement|response)|overview|tong quan|y tuong|\bideas?\b|"
         r"lap luan|argument"),
@@ -89,11 +90,12 @@ _PROPOSAL = re.compile(
     r"\b(?:replace|rewrite|suggest|instead|should|could|corrected|revised)\b"
 )
 _NEGATED_PRAISE = re.compile(
-    r"(?:khong|chua|kem|thieu|not|isn't|isnt|inaccurate|inappropriate)"
+    r"(?:khong|chua|kem|thieu|not|isn't|isnt|inaccurate|inappropriate)(?!_)"  # "chua_" is "chứa".
     r".{0,22}(?:phu hop|chinh xac|hieu qua|tu nhien|tot|accurate|appropriate|effective|natural)"
 )
 # Criticism in the same clause makes the praise ambiguous or about another
 # subject; the criticism must survive, so such clauses are never deleted.
+# Match it on _claim_plain() text, where homographs no longer spell it.
 _CRITICISM = re.compile(
     r"\b(?:sai|loi|chua|khong|thieu|guong ep|"
     r"wrong|incorrect|error|mistake|not|awkward|unnatural)\b"
@@ -110,9 +112,30 @@ _REASSURANCE = re.compile(
     r"\b(?:no need|(?:do|does|did)(?: not|n['’]t) need|needn['’]t|need not)\s+(?:to\s+)?"
     r"(?:change|fix|revise|edit|check)\b"
 )
+# De-accented, "lời"/"lợi" spell "loi" (lỗi) and "chứa" spells "chua" (chưa).
+# Only the criticism spelling, or a word typed without any accents, counts.
+_CRITICISM_SPELLINGS = {"loi": "lỗi", "chua": "chưa", "khong": "không", "thieu": "thiếu", "sai": "sai"}
+_HOMOGRAPH_WORD = re.compile(r"\w+")
+# Additive "không chỉ/những X mà còn Y" praises both X and Y; it negates nothing.
+_ADDITIVE = re.compile(r"\bkhong (?:chi|nhung)\b(?=.*\bma (?:con|ca)\b)")
 _AGE_GROUP = re.compile(r"\b(\d{1,2})\s*[-–—]\s*(\d{1,2})[ -]+year[ -]+olds\b")
 _TASK_RESPONSE = re.compile(r"\bTask Response\b", re.IGNORECASE)
 _NEUTRAL = "Tham khảo các lỗi và gợi ý cụ thể trong phần phân tích."
+
+
+def _claim_plain(text: str) -> str:
+    """_plain() for praise/criticism checks: homographs and additive
+    "không chỉ ... mà còn" no longer spell criticism words."""
+
+    def mark(match: re.Match) -> str:
+        word = match.group()
+        plain = _plain(word)
+        if plain not in _CRITICISM_SPELLINGS or word in (plain, _CRITICISM_SPELLINGS[plain]):
+            return word
+        return plain + "_"  # "loi_" is no longer the word "loi".
+
+    text = _HOMOGRAPH_WORD.sub(mark, unicodedata.normalize("NFC", text.casefold()))
+    return _ADDITIVE.sub(" ", _plain(text))
 
 
 def _sentences(text: str) -> list[str]:
@@ -127,21 +150,41 @@ _CLAUSE_SPLIT = re.compile(
 )
 
 
-def _without_clauses(sentence: str, drop) -> str:
+def _without_clauses(sentence: str, drop, warning=None) -> str:
     """Rebuild sentence without the clauses whose plain text drop() rejects.
 
     Only the rejected clause and its leading marker go; the other clauses keep
     their original wording. Returns "" when every clause is rejected.
+
+    With warning(), a comma also ends a clause when the clause before or after
+    it is a kept warning, and a clause hanging on a rejected one by "nhưng"/"but"
+    without its own warning goes with it ("... câu đơn nhưng đúng ngữ pháp").
     """
     # Find boundaries before folding accents: "những" is not "nhưng".
     marks = [(m.start(), m.end()) for m in _CLAUSE_SPLIT.finditer(sentence)]
+    if warning:
+        cuts = sorted(marks + [(m.start(), m.end()) for m in re.finditer(",", sentence)])
+        commas = []
+        for k, (start, end) in enumerate(cuts):
+            preceding = _plain(sentence[cuts[k - 1][1] if k else 0:start])
+            following = _plain(sentence[end:cuts[k + 1][0] if k + 1 < len(cuts) else len(sentence)])
+            if sentence[start:end] == "," and any(warning(part) and not drop(part)
+                                                  for part in (preceding, following)):
+                commas.append((start, end))
+        marks = sorted(marks + commas)
     starts = [0] + [end for _, end in marks]
     ends = [start for start, _ in marks] + [len(sentence)]
     clauses = [_plain(sentence[start:end]) for start, end in zip(starts, ends)]
     if not any(drop(clause) for clause in clauses):
         return sentence
+    rejected = [bool(clause.strip(" ,;:")) and drop(clause) for clause in clauses]
+    if warning:
+        for k in range(1, len(clauses)):
+            if (rejected[k - 1] and _plain(sentence[marks[k - 1][0]:marks[k - 1][1]]) in {"nhung", "but"}
+                    and not warning(clauses[k])):
+                rejected[k] = True
     # An empty clause before a leading marker ("Mặc dù ...") is not content.
-    kept = [k for k, clause in enumerate(clauses) if clause.strip(" ,;:") and not drop(clause)]
+    kept = [k for k, clause in enumerate(clauses) if clause.strip(" ,;:") and not rejected[k]]
     if not kept:
         return ""
     pieces = [sentence[starts[k] if k == kept[0] else marks[k - 1][0]:ends[k]]
@@ -176,7 +219,13 @@ _DATA_DENIAL_PREFIXES = (
     "khong phai do", "khong phai vi", "khong phai la loi do",
     "not a", "not an", "not because", "not because the", "not that", "not that the",
 )
-_DATA_DENIAL_TAIL = re.compile(r"\b(?:" + "|".join(map(re.escape, _DATA_DENIAL_PREFIXES)) + r")\s+$")
+# "does not mean that X", "không phải chỗ đó X": the negation governs X.
+# A location "đó" is not the cause "do", and "notice that" is not a denial.
+_DATA_DENIAL_TAIL = re.compile(
+    r"(?:\b(?:" + "|".join(map(re.escape, _DATA_DENIAL_PREFIXES)) + r")|"
+    r"(?:\bnot|n['’]t)\s+(?:mean|say|think|suggest|imply|show|indicate)s?\s+that(?:\s+the)?|"
+    r"\bkhong phai (?:la )?(?:cho|o|trong) (?:do|nay))\s+$"
+)
 
 
 def _unnegated(pattern: re.Pattern, text: str) -> bool:
@@ -195,10 +244,27 @@ def _affirmed(pattern: re.Pattern, text: str) -> bool:
                for m in pattern.finditer(text))
 
 
+def _structure_praise(plain: str) -> bool:
+    """Praise in a comma part about grammar or naming no other skill, e.g.
+    "câu đơn, phù hợp với dạng bài" but not "câu đơn, từ vựng phù hợp"."""
+    return any(_affirmed(_PRAISE, part) and (
+        _ERROR_DOMAINS["grammar"].search(part)
+        or not any(domain.search(part) for name, domain in _ERROR_DOMAINS.items() if name != "grammar"))
+        for part in re.split(r"[,;:()]", plain))
+
+
 def _blanket_low_range(plain: str) -> bool:
     return (_unnegated(_LOW_RANGE, plain)
             and not _affirmed(_MIXED_RANGE, plain)
-            and not (_affirmed(_PRAISE, plain) and not _NEGATED_PRAISE.search(plain)))
+            and not (_structure_praise(plain) and not _NEGATED_PRAISE.search(plain)))
+
+
+def _warns(clause: str, vietnamese: bool) -> bool:
+    """A criticism, advice or data error in a plain clause, reassurance aside."""
+    rest = _REASSURANCE.sub(" ", clause)
+    return bool(_CRITICISM.search(rest) or _ADVICE.search(rest)
+                or (vietnamese and _VI_ADVICE.search(rest))
+                or _PROPOSAL.search(rest) or _unnegated(_DATA_ERROR, rest))
 
 
 def _phrase_pattern(original: str) -> re.Pattern | None:
@@ -209,13 +275,45 @@ def _phrase_pattern(original: str) -> re.Pattern | None:
     return re.compile(r"(?<!\w)" + r"[\W_]+".join(map(re.escape, words)) + r"(?!\w)")
 
 
+def _items(value) -> list:
+    """Entries of a free-form list the repair can read; any other shape
+    (number, string, None, dict) is skipped and left as the model sent it."""
+    return value if isinstance(value, list) else []
+
+
+def _still_recurring(recurring) -> list:
+    """stillRecurring patterns: a name, a dict or a list of them; odd entries
+    such as numbers or None are not patterns."""
+    still = recurring.get("stillRecurring") if isinstance(recurring, dict) else None
+    return [item for item in (still if isinstance(still, list) else [still])
+            if isinstance(item, (str, dict)) and item]
+
+
+class ConsistencyRepairError(Exception):
+    """A repair step failed. Carries only the step's field path, which is safe
+    to log; the original exception is __cause__."""
+
+    def __init__(self, step: str):
+        super().__init__(step)
+        self.step = step
+
+
 def repair_writing_consistency(feedback: WritingFeedback, task_type: str) -> list[str]:
     """Repair in place and return field paths only, safe for operational logs.
 
     No extra provider calls and no retry/fallback/billing changes. Labels come
     from task_type; data errors require an explicit accuracy criticism already
     present in the answer. Ambiguous semantic contradictions are left alone.
+    Raises ConsistencyRepairError naming the step if a repair fails.
     """
+    step = ["criteriaFeedback.mainCriterion.title"]
+    try:
+        return _repair(feedback, task_type, step)
+    except Exception as e:
+        raise ConsistencyRepairError(step[0]) from e
+
+
+def _repair(feedback: WritingFeedback, task_type: str, step: list[str]) -> list[str]:
     changed: list[str] = []
 
     def assign(obj, key: str, value, path: str):
@@ -231,15 +329,17 @@ def repair_writing_consistency(feedback: WritingFeedback, task_type: str) -> lis
     main = feedback.criteriaFeedback.mainCriterion
     assign(main, "title", "Task Achievement" if task1 else "Task Response",
            "criteriaFeedback.mainCriterion.title")
-    trajectory = feedback.bandTrajectoryAnalysis or {}
-    for i, row in enumerate(trajectory.get("criteria_breakdown") or []):
-        if isinstance(row, dict) and _plain(str(row.get("criterion", ""))) in {
+    step[0] = "bandTrajectoryAnalysis.criteria_breakdown"
+    trajectory = feedback.bandTrajectoryAnalysis if isinstance(feedback.bandTrajectoryAnalysis, dict) else {}
+    for i, row in enumerate(_items(trajectory.get("criteria_breakdown"))):
+        if isinstance(row, dict) and isinstance(row.get("criterion"), str) and _plain(row["criterion"]) in {
             "task response", "task achievement", "tr", "ta",
         }:
             assign(row, "criterion", main.title,
                    f"bandTrajectoryAnalysis.criteria_breakdown[{i}].criterion")
 
     for i, mistake in enumerate(feedback.mistakeAnalysis):
+        step[0] = f"mistakeAnalysis[{i}]"
         if task1:
             assign(mistake, "criterion", _TASK_RESPONSE.sub("Task Achievement", mistake.criterion),
                    f"mistakeAnalysis[{i}].criterion")
@@ -252,6 +352,7 @@ def repair_writing_consistency(feedback: WritingFeedback, task_type: str) -> lis
 
     if task_type == "task1_academic":
         for i, item in enumerate(feedback.coherenceAnalysis or []):
+            step[0] = f"coherenceAnalysis[{i}]"
             if _data_error(item.issue + " " + item.explanation):
                 for key in ("issue", "explanation"):
                     value = re.sub(r"mâu thuẫn logic|logical contradiction", "sai so với dữ liệu biểu đồ",
@@ -260,9 +361,13 @@ def repair_writing_consistency(feedback: WritingFeedback, task_type: str) -> lis
 
     ss = feedback.sentenceStructureAnalysis
     if isinstance(ss, dict):
+        # common_issues is copied history; only its dict/str entries count.
+        issues = ss.get("common_issues")
+        history_errors = any(isinstance(item, (str, dict)) and item for item in _items(issues))
         for key in ("summary", "current_essay_observation"):
             if not isinstance(ss.get(key), str):
                 continue
+            step[0] = f"sentenceStructureAnalysis.{key}"
             sentences = _sentences(ss[key])
             kept = []
             for sentence in sentences:
@@ -275,38 +380,39 @@ def repair_writing_consistency(feedback: WritingFeedback, task_type: str) -> lis
                 if (feedback.criteriaFeedback.grammaticalRange.bandScore >= 7
                         and _blanket_low_range(plain) and not historical
                         and (key == "current_essay_observation" or _CURRENT.search(plain))):
+                    vietnamese = plain != sentence.casefold()
                     sentence = _without_clauses(sentence, lambda clause: (
                         _unnegated(_LOW_RANGE, clause)
-                        and not (_HISTORY.search(clause) and not _CURRENT.search(clause))))
+                        and not (_HISTORY.search(clause) and not _CURRENT.search(clause))),
+                        lambda clause: _warns(clause, vietnamese))
                     if not sentence:
                         continue
                     plain = _plain(sentence)
                 if _NO_PATTERNS.search(plain):
                     # A sentence-structure summary cannot deny lexical patterns.
                     # Scope the claim to the supplied syntax history, if empty.
-                    if ss.get("common_issues") == [] and not _STRUCTURE_SCOPE.search(plain):
+                    if issues == [] and not _STRUCTURE_SCOPE.search(plain):
                         sentence = "Chưa ghi nhận mẫu lỗi cấu trúc câu lặp lại trong dữ liệu cấu trúc câu."
                     # common_issues are copied from previous essays, so they
                     # cannot contradict a claim about the current essay only.
-                    elif ss.get("common_issues") and (_JOINT_SCOPE.search(plain) or not (
+                    elif history_errors and (_JOINT_SCOPE.search(plain) or not (
                         _CURRENT.search(plain)
                         or (key == "current_essay_observation" and not historical)
                     )):
                         continue
-                    elif not _STRUCTURE_SCOPE.search(plain) and (
-                        feedback.recurringPatterns or {}
-                    ).get("stillRecurring"):
+                    elif not _STRUCTURE_SCOPE.search(plain) and _still_recurring(feedback.recurringPatterns):
                         continue
                 kept.append(sentence)
             value = ss[key] if kept == sentences else " ".join(kept) or _NEUTRAL
             assign(ss, key, value, f"sentenceStructureAnalysis.{key}")
 
+    step[0] = "recurringPatterns.summary"
     recurring = feedback.recurringPatterns
-    if isinstance(recurring, dict) and recurring.get("stillRecurring"):
+    still = _still_recurring(recurring)
+    if still:
         summary = recurring.get("summary")
         if isinstance(summary, str) and _NO_PATTERNS.search(_plain(summary)):
-            still = recurring["stillRecurring"]
-            listed = {name for item in (still if isinstance(still, list) else [still])
+            listed = {name for item in still
                       for name, domain in _ERROR_DOMAINS.items() if domain.search(_plain(str(item)))}
 
             # A denial contradicts stillRecurring only for the error types it
@@ -320,6 +426,7 @@ def repair_writing_consistency(feedback: WritingFeedback, task_type: str) -> lis
             assign(recurring, "summary", summary if kept == sentences else " ".join(kept) or
                    "Các mẫu lỗi còn lặp lại được liệt kê bên dưới.", "recurringPatterns.summary")
 
+    step[0] = "mistakeAnalysis.original"
     flagged = [p for m in feedback.mistakeAnalysis if (p := _phrase_pattern(m.original))]
 
     def warns(clause: str, vietnamese: bool) -> bool:
@@ -337,7 +444,7 @@ def repair_writing_consistency(feedback: WritingFeedback, task_type: str) -> lis
         kept = []
         for sentence in sentences:
             plain = _plain(sentence)
-            clauses = [_plain(clause) for clause in _CLAUSE_SPLIT.split(sentence)]
+            clauses = [_claim_plain(clause) for clause in _CLAUSE_SPLIT.split(sentence)]
             conflict = any(p.search(clause) and _PRAISE.search(p.sub("", clause))
                            and not _NEGATED_PRAISE.search(p.sub("", clause))
                            and not _CRITICISM.search(p.sub("", clause))
@@ -358,18 +465,23 @@ def repair_writing_consistency(feedback: WritingFeedback, task_type: str) -> lis
     for name in ("mainCriterion", "coherenceCohesion", "lexicalResource", "grammaticalRange"):
         criterion = getattr(feedback.criteriaFeedback, name)
         for key in ("feedback", "explanation"):
+            step[0] = f"criteriaFeedback.{name}.{key}"
             assign(criterion, key, narrative(getattr(criterion, key)),
                    f"criteriaFeedback.{name}.{key}")
+    step[0] = "keyTakeaways.strengths"
     assign(feedback.keyTakeaways, "strengths",
            [clean for s in feedback.keyTakeaways.strengths if (clean := narrative(s, allow_empty=True))],
            "keyTakeaways.strengths")
+    step[0] = "overallBandScoreSummary"
     assign(feedback, "overallBandScoreSummary", narrative(feedback.overallBandScoreSummary),
            "overallBandScoreSummary")
     for section in ("coherenceAnalysis", "ideaDevelopmentAnalysis"):
         for i, item in enumerate(getattr(feedback, section) or []):
             for key in ("issue", "explanation"):
+                step[0] = f"{section}[{i}].{key}"
                 assign(item, key, narrative(getattr(item, key)), f"{section}[{i}].{key}")
     if feedback.counterargumentAnalysis:
+        step[0] = "counterargumentAnalysis.feedback"
         item = feedback.counterargumentAnalysis
         assign(item, "feedback", narrative(item.feedback), "counterargumentAnalysis.feedback")
     for section in ("sentenceStructureAnalysis", "recurringPatterns", "bandTrajectoryAnalysis"):
@@ -377,8 +489,10 @@ def repair_writing_consistency(feedback: WritingFeedback, task_type: str) -> lis
         if isinstance(obj, dict):
             for key in ("summary", "current_essay_observation", "trend_explanation"):
                 if isinstance(obj.get(key), str):
+                    step[0] = f"{section}.{key}"
                     assign(obj, key, narrative(obj[key]), f"{section}.{key}")
 
+    step[0] = "improvedEssay"
     assign(feedback, "improvedEssay", _AGE_GROUP.sub(r"\1–\2-year-olds", feedback.improvedEssay),
            "improvedEssay")
     return list(dict.fromkeys(changed))
