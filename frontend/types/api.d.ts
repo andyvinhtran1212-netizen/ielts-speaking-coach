@@ -20954,7 +20954,7 @@ export interface components {
             /** Reason */
             reason?: string | null;
             /** Alert Status */
-            alert_status?: ("pending" | "sent" | "failed") | null;
+            alert_status?: ("pending" | "sent" | "failed" | "not_recorded") | null;
         };
         /** SessionAudioUrl */
         SessionAudioUrl: {

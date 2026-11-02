@@ -25,6 +25,42 @@
 | FR-019 | kind=test; ref=backend/tests/test_migration_336_suspended_account_role_guard.py (role change of a suspended account refused through the RPC, service REST, owner and superuser SQL; allowed after reactivation; bootstrap exempt; preconditions, postconditions, rollback); kind=test; ref=backend/tests/test_admin_user_role.py (409 account_suspended_role_change with the Vietnamese message); kind=journey; ref=spec.md AC10 on staging after 336 is applied | PENDING |
 | FR-020 | kind=test; ref=backend/tests/test_staff_guard.py and backend/tests/test_admin_staff_security_routes.py and backend/tests/test_admin_user_role.py (spec.md AC12: TOTP 16 min + ADMIN_STEP_UP_ENFORCE=true on PATCH role, PATCH active, POST revoke-sessions → 403 step_up_required with no row change, no staff_security_audit row, no outbox row; 14 min succeeds; report-only one admin_step_up_would_block line; invalid config → 15 / false); kind=test; ref=backend/tests/test_staff_guard_inventory.py (every route that uses require_recent_mfa); kind=test; ref=frontend node test that the UI resends exactly once after a successful challenge; kind=journey; ref=spec.md AC12 on staging: report-only logs, helpers.js fresh AAL2 before sensitive steps, live Staging E2E green; enforcement on staging only in lot 11 or later; Amendment 2 planned: kind=test; ref=backend/tests/test_staff_guard.py (FR-020a/AC13: any verified factor, both timestamps, 24 h boundary, no bypass, report-only reason); kind=test; ref=backend/tests/test_access_code_generation.py and backend/tests/test_staff_guard_inventory.py (AC14: conditional grants_role guard, both branches, zero side effects); kind=test; ref=frontend/tests/admin-mfa-transport.test.mjs and frontend/tests/admin-access-codes.test.mjs (cool-off wait without prompt/retry, stale-TOTP retry once, immediate/reload truth); kind=check; ref=specs/0032-admin-aal2-staff-guard/spec.md AC13–AC15 and Amendment 2 delivery gate (SA review, no flag enablement) | PENDING |
 
+## PC-J150 — missing revocation alert status (FR-011, FR-015)
+
+- Prerequisite #1928 merged at `2026-10-30T08:57:15Z`: merge commit
+  `d94c303e7e1e886228b64ada802a2ef58456a991`, PR head
+  `721ce781c8eee96a2e84e614db9f6d3d4c115406`. At the starting staging SHA
+  `bf22c10ee5e83dcd96beda1ee338eef63059480c`, the affected backend service
+  and response model were unchanged from #1928 and had no `not_recorded`.
+- Red/green: before the implementation change, the new missing-outbox case
+  and the extended retry test failed (`2 failed, 6 passed`): history returned
+  `null`. After the change, all 116 tests in
+  `backend/tests/test_admin_staff_security_routes.py` passed with
+  `REQUIRE_PG=1` against a disposable local PostgreSQL 17 cluster.
+- `TestSecurityAudit::test_revocation_failure_uses_outbox_status_or_not_recorded`
+  covers an `admin_api` revocation failure without an outbox row and with
+  `pending`, `sent`, and `failed` rows. The shared event/source predicate also
+  generates the retry enqueue SQL. `test_other_orphan_rows_do_not_get_not_recorded`
+  excludes successful retries, `out_of_band` failures, and instructor role changes.
+- `TestRevocationFailure::test_failure_audit_write_failing_still_answers_the_committed_change`
+  now reads the orphan as `not_recorded` before retry and as `pending` after
+  retry, retaining every existing assertion. The unchanged reload/outbox and
+  newest-first tests also pass.
+- `frontend/tests/admin-users-staff-security.test.mjs` asserts the exact label
+  and failed tone. `frontend/tests/react/admin-users-staff-security.test.tsx`
+  checks the owner-alert cell, the `null` dash, and reopening with `pending`.
+  Full Node tests: 13,711 passed, 1 existing skip; React: 986 passed.
+  Strict and legacy TypeScript checks, Next build, and regeneration of
+  `frontend/types/api.d.ts` with the CI OpenAPI command passed.
+- Local Next browser fixture: both themes show the label and `null` dash;
+  a full page reload with the updated API response shows `pending` without
+  the old label (four history reads, no browser exceptions). Screenshots:
+  [light](evidence/pc-j150-not-recorded-light.png),
+  [dark](evidence/pc-j150-not-recorded-dark.png). Every remote request was
+  intercepted; only synthetic fixture data was used.
+- No migration, staging database write, production access, real email, or
+  Railway change. Staging merge remains Leader-owned after CI is green (00e).
+
 ## Amendment 1 evidence (AC11, AC12) — offline done, staging PENDING
 
 Approved 2026-10-29 14:44 (UTC+7); implementation is T016 (PC-J135), after

@@ -102,6 +102,7 @@ const ALERT_LABELS = Object.freeze({
   sent: { text: 'đã gửi', tone: 'sent' },
   pending: { text: 'đang chờ', tone: 'pending' },
   failed: { text: '⚠ gửi lỗi', tone: 'failed' },
+  not_recorded: { text: 'cảnh báo chưa ghi được', tone: 'failed' },
 });
 
 export const UNKNOWN_ACTOR = 'không rõ (ngoài ứng dụng)';
