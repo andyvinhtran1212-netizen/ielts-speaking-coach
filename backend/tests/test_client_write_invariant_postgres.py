@@ -26,13 +26,14 @@ After the chain:
       by PUBLIC/anon, nor by authenticated except the 335 helper;
   (d) T1: writing_grade_ratings keeps RLS on and anon/authenticated cannot
       write it (catalog and a real SET ROLE probe);
-  (e) SVCPRIV-0042 FR-010 (358): no function or procedure in public lacks a
-      search_path in proconfig, so no trigger or RPC resolves names through a
-      caller's pg_temp while it runs as the owner.
+  (e) SVCPRIV-0042 FR-010 (358, PGTEMP option a): every function and
+      procedure in public and app_private has a search_path whose last entry
+      is pg_temp (not missing, not ''), so no trigger or RPC resolves names
+      through a caller's pg_temp while it runs as the owner.
 Negative controls (a writable view, matview, foreign table and partitioned
 table, an unnarrowed supabase_admin default ACL, a definer left on default
-EXECUTE, a dropped restrictive policy, RLS off, an unpinned function) prove
-each check fires.
+EXECUTE, a dropped restrictive policy, RLS off, an unpinned function, a
+pg_temp-first or empty search_path) prove each check fires.
 
 Set TEST_PG_URL to a LOCAL disposable cluster and REQUIRE_PG=1 to forbid skips.
 """
@@ -553,11 +554,12 @@ SELECT 'c:security_definer_public_execute|' || p.oid::regprocedure || '|PUBLIC'
  WHERE p.prosecdef AND acl.grantee = 0 AND acl.privilege_type = 'EXECUTE'
    AND n.nspname <> ALL ({_array(PLATFORM_SCHEMAS)}) AND n.nspname NOT LIKE 'pg\\_temp%'
 UNION ALL
-SELECT 'e:public_function_without_search_path|' || p.oid::regprocedure || '|'
+SELECT 'e:routine_search_path_not_pg_temp_last|' || p.oid::regprocedure || '|'
   FROM pg_proc p
- WHERE p.pronamespace = 'public'::regnamespace AND p.prokind IN ('f', 'p')
+ WHERE p.pronamespace IN ('public'::regnamespace, COALESCE(to_regnamespace('app_private'), 0))
+   AND p.prokind IN ('f', 'p')
    AND NOT EXISTS (SELECT 1 FROM unnest(COALESCE(p.proconfig, '{{}}'::text[])) c
-                    WHERE c LIKE 'search_path=%')
+                    WHERE c ~ '^search_path=(.+, )?pg_temp$')
 UNION ALL
 SELECT 'd:writing_grade_ratings_rls_off|writing_grade_ratings|'
  WHERE NOT COALESCE((SELECT relrowsecurity FROM pg_class
@@ -816,14 +818,24 @@ NEGATIVE = {
         OWNER,
         "ALTER TABLE public.writing_grade_ratings DISABLE ROW LEVEL SECURITY;",
         ["d:writing_grade_ratings_rls_off|writing_grade_ratings|"]),
-    # FR-010 (358): a later migration adds a function without a search_path.
+    # FR-010 (358, PGTEMP a): a later migration adds a routine without a
+    # search_path, with pg_temp missing or not last, or with ''.
     "function_without_search_path": (
         OWNER,
         "CREATE FUNCTION public.inv94_unpinned() RETURNS trigger LANGUAGE plpgsql"
         " AS $$ BEGIN RETURN NEW; END $$;"
-        " CREATE PROCEDURE public.inv94_unpinned_proc() LANGUAGE sql AS $$ SELECT 1 $$;",
-        ["e:public_function_without_search_path|inv94_unpinned()|",
-         "e:public_function_without_search_path|inv94_unpinned_proc()|"]),
+        " CREATE PROCEDURE public.inv94_unpinned_proc() LANGUAGE sql AS $$ SELECT 1 $$;"
+        " CREATE FUNCTION public.inv94_no_pg_temp() RETURNS int LANGUAGE sql"
+        " SET search_path = pg_catalog, public AS $$ SELECT 1 $$;"
+        " CREATE FUNCTION public.inv94_pg_temp_first() RETURNS int LANGUAGE sql"
+        " SET search_path = pg_temp, public AS $$ SELECT 1 $$;"
+        " CREATE FUNCTION app_private.inv94_empty() RETURNS int LANGUAGE sql"
+        " SET search_path = '' AS $$ SELECT 1 $$;",
+        ["e:routine_search_path_not_pg_temp_last|app_private.inv94_empty()|",
+         "e:routine_search_path_not_pg_temp_last|inv94_no_pg_temp()|",
+         "e:routine_search_path_not_pg_temp_last|inv94_pg_temp_first()|",
+         "e:routine_search_path_not_pg_temp_last|inv94_unpinned()|",
+         "e:routine_search_path_not_pg_temp_last|inv94_unpinned_proc()|"]),
     "t1_writing_grade_ratings_client_insert": (
         OWNER,
         "GRANT INSERT ON public.writing_grade_ratings TO authenticated;",
