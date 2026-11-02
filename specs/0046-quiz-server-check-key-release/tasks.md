@@ -42,14 +42,22 @@ on `staging` (merged `c7ed31b32`).
 - [ ] T004 Server grading everywhere (FR-006..FR-008): `log_progress` grades
   every self-study row, ignores client flag (no filter), metadata from the
   question row, 422 on missing/foreign qid (also
-  `_grade_single_attempt_rows`, CR P3); time-cap forwards no flag; totals
-  counted for every non-time-cap end; single_attempt `/progress` refused
-  after `due_at`. Tests: forged `is_correct` ignored in legacy, managed (PG)
+  `_grade_single_attempt_rows`, CR P3); time-cap forwards no flag; every
+  non-time-cap end closes through `quiz_close_sessions_counted` (managed:
+  replaced `grammar_quiz_end_service`), no Python count; no per-session
+  `score` for single_attempt; seal and dead-session sweep through the same
+  function; `quiz_session_closed`/`course_session_closed` mapped to 409 in
+  `/progress` and `/check`; single_attempt `/progress` refused after
+  `due_at`. Tests: forged `is_correct` ignored in legacy, managed (PG)
   and time-cap (PG) paths; a row without `is_correct` is graded, not dropped;
-  totals equal stored counts (self-study and Course); missing qid → 422 not
-  500; single_attempt write after `due_at` → 409. `owns: backend/services/quiz_service.py
-  (log_progress, end_session), backend/tests/test_quiz_server_grading.py`
-  `depends: T002`
+  totals equal stored counts (self-study and Course) whatever the body
+  says; overlapping check/end (CR R10 P2-1, PG, both orders, managed,
+  legacy and Course; red with the 309 end RPC: stale 9/9 after a committed
+  tenth row); a repeated end returns the same totals; missing qid → 422 not
+  500; single_attempt write after `due_at` → 409; single_attempt end writes
+  no item `score`. `owns: backend/services/quiz_service.py
+  (log_progress, end_session, close_dead_course_sessions),
+  backend/tests/test_quiz_server_grading.py` `depends: T002, T011`
 - [ ] T005 Player on server verdicts (FR-010): engine record/apply split,
   player states, retry with the same `client_id`, review from verdicts,
   policy eligibility from `text_match_eligible` (from T001, already in the
@@ -84,34 +92,56 @@ on `staging` (merged `c7ed31b32`).
   step B). `owns: backend/routers/quiz.py, backend/services/quiz_service.py
   (get_bank_for_play), backend/tests/test_quiz_bank_student_payload.py`
   `depends: T005`
-- [ ] T011 Migration (FR-017, FR-018), through `/db-migrate`, before T007
-  and T008.
+- [ ] T011 Migration (FR-008 functions, FR-017, FR-018), through
+  `/db-migrate`, before T004, T007 and T008.
   First the read-only inventory on staging and production: no client code,
   RPC or view callable by `anon`/`authenticated` reads `quiz_attempts` with
-  the caller's privileges (else STOP). PG tests first (red on the current
-  schema): a learner JWT `SELECT` on `quiz_attempts` returns rows today and
-  none after; an insert into an ended Course session (mastery untimed,
-  timed, single_attempt) is stored today and raises `course_session_closed`
-  after, nothing stored; a held insert in an open Course session blocks a
-  concurrent `UPDATE quiz_sessions SET ended_at …` until it commits, and a
-  read after that update sees the row; self-study, non-Course homework and
-  managed Grammar inserts are unaffected and take no session lock; the
-  timed progress and finalize RPCs still store their rows; two concurrent
-  inserts in sessions of one item and a seal do not deadlock. Rollback
-  file restores the migration 284 body, policy and grant. Staging apply
-  through the locked runner before T008 merges.
+  or `quiz_sessions` with the caller's privileges (else STOP), and every
+  `quiz_attempts` writer inserts only into open sessions (else STOP). PG
+  tests first (red on the current schema): a learner JWT `SELECT` on
+  `quiz_attempts` and on `quiz_sessions` returns rows today and none
+  after; an insert into an ended Course session (mastery untimed, timed,
+  single_attempt) is stored today and raises `course_session_closed`
+  after, and into an ended self-study session raises
+  `quiz_session_closed`, nothing stored; a held insert in an open session
+  (Course and self-study) blocks a concurrent
+  `quiz_close_sessions_counted` until it commits, and the close counts it;
+  the overlapping managed progress/end pair of `plan.md` (red with the 309
+  end RPC); `quiz_close_sessions_counted` returns ended rows unchanged,
+  refuses a foreign id with nothing closed, and has no `EXECUTE` for
+  `anon`/`authenticated`; inserts into open self-study, non-Course homework
+  and managed Grammar sessions still store; the timed progress and
+  finalize RPCs still store their rows; two concurrent inserts in sessions
+  of one item and a seal over both do not deadlock. Rollback file
+  restores the migration 284 body, the latest end-RPC body, policies and
+  grants, and drops the new function. Staging apply through the locked
+  runner before T004 merges.
   `owns: backend/migrations/<next>_course_answer_after_seal_guard.sql,
   backend/migrations/rollback/<next>_course_answer_after_seal_guard.sql,
   backend/tests/test_migration_<next>_course_answer_after_seal_guard.py`
   `depends: T001`
-- [ ] T007 One-sitting key release (FR-011, FR-012) and course review copy.
+- [ ] T007 One-sitting key release (FR-011, FR-012), correctness totals
+  withheld while locked (FR-019) and course review copy.
   Tests: A handed in, B not → A sealed before `due_at`, open after; null
   `due_at` opens only when all items handed in; read error → sealed;
   `due_at` moved later re-seals; `/mistakes`, `/course/report`,
-  `/course-resume` all follow; teacher path unchanged.
+  `/course-resume` all follow; teacher path unchanged. Paused one-question
+  probe (CR R10 P1-1, red first: with FR-008 and without FR-019 the end
+  response shows `total_correct` 0 vs 1): timed and untimed single_attempt
+  item, one stored answer, session ended `paused` and `completed`, once
+  before hand-in and once after hand-in before release; run twice, answer
+  right and answer wrong; every learner body of the `plan.md`
+  response-field table (end response incl. the unchanged-replay of an
+  ended session, `/api/quiz/progress` with and without `skill_area` incl.
+  `avg_accuracy`, `/course-resume`, bank payload `answers_sealed` and
+  `word_cards`, `/course/report`, `/mistakes`, "Bài của tôi") is identical
+  between the two runs and has `null` totals; no item `score` written by
+  the end; after release the totals show; teacher views show them
+  throughout.
   `owns: backend/services/quiz_service.py (release helper, review gate,
-  mistakes filter, resume), course review page,
-  backend/tests/test_single_attempt_key_release.py` `depends: T001, T011`
+  mistakes filter, resume, locked-session totals in end_session response
+  and student_progress, play payload), course review page,
+  backend/tests/test_single_attempt_key_release.py` `depends: T001, T004, T011`
 - [ ] T008 Verdict collection and policy (FR-013..FR-015): server collection,
   422 with missing ids, `mastery_score_policy()`, ledger counts, teacher
   views, runner re-post (at most twice), reaper on the collected set
@@ -164,8 +194,8 @@ on `staging` (merged `c7ed31b32`).
   `/course-resume` `retake`. One parametrised test walks every Course row
   of the `plan.md` case table: for refused and sealed rows it asserts no
   key field in the body and nothing stored; for rows where the table
-  allows feedback (9, 15a, 17) it asserts the expected `feedback` for the
-  stored rows only; for each row it also checks the `/mistakes`, report
+  allows feedback (9, 15a, 16, 17) it asserts the expected `feedback` for
+  the stored rows only; for each row it also checks the `/mistakes`, report
   and resume output the table names.
   `owns: backend/services/quiz_service.py
   (course_verdict, Course write admission, `course_session_closed`

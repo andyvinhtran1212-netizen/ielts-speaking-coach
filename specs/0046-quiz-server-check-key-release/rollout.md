@@ -4,8 +4,8 @@
 
 - This spec approved on `staging` by Vinh (Q-1..Q-5 answered by approval).
 - #2091 (J411R2) on `staging` (done, `c7ed31b32`).
-- One migration, `<next>_course_answer_after_seal_guard.sql` (FR-017,
-  FR-018; Q-8), applied to each environment before the build code that
+- One migration, `<next>_course_answer_after_seal_guard.sql` (FR-008
+  functions, FR-017, FR-018; Q-8), applied to each environment before the build code that
   depends on it. No environment variable, no flag. Key removal (FR-009) is
   ordered by deploy steps and enforced by the server's client-contract
   gate, not by a flag. Deployment order does not upgrade already-open tabs.
@@ -14,11 +14,15 @@
 
 A0. Apply the migration to staging through the locked runner (advisory
    lock, ledger row), after the read-only inventory of T011 and before
-   the build PR (T008) merges. Verify read-only: ledger row present,
-   `has_table_privilege('authenticated','public.quiz_attempts','SELECT')`
-   false, no `quiz_attempts_select` policy, guard body contains
-   `course_session_closed`. Smoke on staging: one Grammar self-study
-   answer, one untimed mastery and one timed Course answer still store.
+   the build PR (T004/T007/T008) merges. Verify read-only: ledger row
+   present, `has_table_privilege` false for `anon` and `authenticated` on
+   `public.quiz_attempts` and `public.quiz_sessions`, no
+   `quiz_attempts_select`/`quiz_sessions_select` policy, guard body
+   contains `course_session_closed` and `quiz_session_closed`,
+   `quiz_close_sessions_counted` exists (`service_role` only). Smoke on
+   staging: one Grammar self-study (legacy and managed) answer, one untimed
+   mastery and one timed Course answer still store; ending each session
+   stores totals equal to a read-only recount.
 A. Merge the build PR (backend `/check`, server grading, derived
    `answer_word_count`/`text_match_eligible` on every bank, frontend player
    on `/check`, key release, verdict collection with the session seal). The
@@ -70,7 +74,14 @@ C. Journeys with QA accounts only (no real learners, no email):
       read-only that no session listed in any QA ledger `superseded` has
       a `quiz_attempts` row.
    5a. With the QA learner's own JWT, `GET /rest/v1/quiz_attempts?select=qid,is_correct&limit=1`
-      returns no row (FR-017). Do not record the JWT.
+      and `GET /rest/v1/quiz_sessions?select=total_correct,accuracy&limit=1`
+      return no row (FR-017). Do not record the JWT.
+   5b. single_attempt QA assignment with `due_at` in the future: store one
+      answer, pause the session, then read the PATCH response,
+      `/api/quiz/progress`, `/course-resume` and "Bài của tôi" in
+      DevTools: no `total_correct`/`total_wrong`/`accuracy` value, no
+      `last_stage`, no score; repeat after hand-in, before release
+      (FR-019). The racing end is proven by the T004/T011 PG tests.
    6. `/check` latency: 30 samples, p95 recorded.
    6a. Intermediate deployment (after A, before B): a Grammar QA bank with a
       nonempty explicit `text_match_by_qid` policy loads in the FR-010
