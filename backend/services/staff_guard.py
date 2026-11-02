@@ -79,8 +79,8 @@ STEP_UP_WOULD_BLOCK_EVENT = "admin_step_up_would_block"
 FACTOR_COOLOFF_SECONDS = 24 * 60 * 60
 STEP_UP_COOLOFF_REASON = "new_factor_cooloff"
 STEP_UP_COOLOFF_MESSAGE = (
-    "Mã xác thực 2 bước vừa được thêm hoặc thay đổi. "
-    "Cần chờ đủ 24 giờ kể từ lúc đó mới làm được thao tác này."
+    "Phương thức xác thực 2 bước vừa được thêm hoặc thay đổi. "
+    "Vui lòng chờ đủ 24 giờ kể từ lúc đó rồi thực hiện lại thao tác này."
 )
 
 ADMIN_ROLE_DENIED = "Bạn không có quyền truy cập trang này"

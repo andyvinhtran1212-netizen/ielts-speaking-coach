@@ -256,7 +256,7 @@ const STEP_UP_EVENT = 'aver:admin-step-up-required';
 const STALE = { code: 'step_up_required', next_step: 'challenge', max_age_seconds: 900,
   message: 'Thao tác này cần nhập lại mã xác thực 2 bước.' };
 const COOLOFF = { ...STALE, reason: 'new_factor_cooloff',
-  message: 'Mã xác thực 2 bước vừa được thêm hoặc thay đổi. Cần chờ đủ 24 giờ kể từ lúc đó mới làm được thao tác này.' };
+  message: 'Phương thức xác thực 2 bước vừa được thêm hoặc thay đổi. Vui lòng chờ đủ 24 giờ kể từ lúc đó rồi thực hiện lại thao tác này.' };
 
 /** Persisted fixture state shared by every "page load". */
 function fixtureBackend({ cooloff }) {

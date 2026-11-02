@@ -232,7 +232,7 @@ test('api.js mirrors the gate step-up event name', () => {
 const COOLOFF_DETAIL = {
   ...STEP_UP_DETAIL,
   reason: 'new_factor_cooloff',
-  message: 'Mã xác thực 2 bước vừa được thêm hoặc thay đổi. Cần chờ đủ 24 giờ kể từ lúc đó mới làm được thao tác này.',
+  message: 'Phương thức xác thực 2 bước vừa được thêm hoặc thay đổi. Vui lòng chờ đủ 24 giờ kể từ lúc đó rồi thực hiện lại thao tác này.',
 };
 const cooledOff = () => ({ status: 403, body: { detail: COOLOFF_DETAIL } });
 
