@@ -106,7 +106,7 @@ not proof that the Amendment 2 controls pass.
   must show `require_recent_mfa` in the same inventory test when they land
   (PC-J138).
 
-## Amendment 2 verification plan (AC13–AC15) — implementation PENDING
+## Amendment 2 verification plan (AC13–AC15) — offline done (PC-J300), SA review PENDING
 
 Approval source: **Leader báo anh Vinh duyệt FR020 a c 30/10 13:38
 (t744s2552)**, 2026 (UTC+7), Q-0935-FR020-AMEND2 / PC-J346. Prerequisite
@@ -117,7 +117,10 @@ T018 (PC-J300, phương án a + c) starts after this spec PR merges.
 real-GoTrue attack reproduction or real-recipient email is part of this job.
 
 FR-020a is a subclause of FR-020; its evidence belongs to the FR-020 row
-above. All tests below are **planned**, not executed Amendment 2 evidence.
+above. PC-J300 implemented the rows below; its offline results are in
+"PC-J300 offline evidence" after the table. Each row stays `PENDING` until
+CI is green on the merged staging SHA and SA has reviewed the exact
+PC-J300 head; enforcement remains a separate, unauthorized switch.
 
 | Scope | Required evidence in PC-J300 | Result |
 | --- | --- | --- |
@@ -127,6 +130,78 @@ above. All tests below are **planned**, not executed Amendment 2 evidence.
 | FR-012 / AC15 non-finite claims | Extend `backend/tests/test_staff_guard.py`: NaN/±inf alone and mixed, fresh/expired finite companion in either order, bool/non-numeric rejection, future-skew rule; AAL2 enforced → `mfa_required`, report-only → `totp_expired` log without conversion error; step-up enforced/report-only follow their existing contract with no finite TOTP. | PENDING |
 | Wire contract and UI | Regenerate OpenAPI and `frontend/types/api.d.ts` with additive cool-off `reason` and generation-route 403. Extend `frontend/tests/admin-mfa-transport.test.mjs` and the admin code fixture journey: cool-off surfaces the wait with no challenge/resend, stale-TOTP still retries once; verify immediate post-action and full-reload code-list truth. Older consumers can resend only once and remain refused. | PENDING |
 | Review and handoff | SA reviews the spec PR and the exact PC-J300 head; Feature Developer reads the spec PR for alignment. Record local suite commands/counts, exact SHA, OpenAPI drift and fixture evidence here. J300 is released only after the spec PR merges, with the existing job plus “phương án a + c”; no flag switch is authorized by either job. | PENDING |
+
+### PC-J300 offline evidence (2026-11-02, base `b636255a6`)
+
+Exact PR head SHA and CI links are in the PC-J300 PR body. Claims and
+fixtures only: no live GoTrue, DB write, environment change or real mail.
+`ADMIN_STEP_UP_ENFORCE` is not switched on anywhere.
+
+- **Code:** `backend/services/staff_guard.py` — `_finite_timestamp` drops
+  `NaN`/`±inf` (and an int beyond float range) before the latest `amr`
+  TOTP timestamp is taken; `_recent_factor_change` reads every verified
+  TOTP factor of the accepted `auth_user["factors"]`, parses both
+  `created_at` and `updated_at` as offset-bearing RFC 3339 instants (missing,
+  naive or malformed → the existing 503 under enforcement, error log and no
+  would-block line under report-only) and refuses when either is less than
+  86400 s old or in the future. `require_recent_mfa` gives the cool-off
+  precedence, adds `reason: "new_factor_cooloff"` and the 24-hour message
+  while keeping `next_step` and `max_age_seconds`; one would-block line
+  per request carries the same reason. `backend/routers/admin.py`
+  `POST /admin/access-codes/generate` normalizes `grants_role` right after
+  `require_admin` and calls `require_recent_mfa` only when it is non-null,
+  before validation or any DB call. `frontend/public/js/api.js` skips the
+  prompt and resend for the cool-off reason; stale-TOTP retry-once is kept.
+- **AC13:** `backend/tests/test_staff_guard.py` (fixed clock: single,
+  updated-only, created-only, both factor orders, backup, future; exactly
+  24 h and older pass, 24 h − 1 s refused, 24 h with a stale TOTP still the
+  15-minute refusal; unverified/phone ignored; refresh and second challenge
+  no bypass; 8 unusable-metadata shapes × 3 factor orders fail closed under
+  both flags; report-only one reasoned line, no email/token; FR-001 guard
+  unaffected; no DB or GoTrue I/O), `backend/tests/test_staff_guard_inventory.py`
+  (every step-up route, conditional route included, refuses a recent factor
+  with a 5 s TOTP before any DB/engine call),
+  `backend/tests/test_admin_staff_security_routes.py` and
+  `backend/tests/test_admin_user_role.py` (PATCH role, PATCH active, POST
+  revoke-sessions: cool-off 403 with no row, RPC, GoTrue, lock, audit or
+  outbox change; report-only 200 with one `new_factor_cooloff` line).
+- **AC14:** `backend/tests/test_access_code_generation.py` (16 min refused
+  with no table call or audit, also `" INSTRUCTOR "`; 14 min with old
+  factors → `{created, codes}` with role and email; fresh TOTP + recent
+  factor → cool-off; report-only stale/cool-off create and log once;
+  omitted/null/empty/whitespace never call the step-up; unsupported role
+  guarded first then the existing 400; missing email keeps its 400; a failed
+  FR-001 guard never reaches the step-up; OpenAPI 403 and optional reason)
+  and the inventory (AST pin of guard → pure normalization → `if
+  grants_role is not None: require_recent_mfa(...)`, plus an ordinary-body
+  control that reaches the handler DB without the step-up).
+- **AC15:** `backend/tests/test_staff_guard.py` (NaN, +inf, −inf, all three,
+  an int beyond float range → no TOTP; mixed with fresh/expired finite in
+  both orders; bool, non-numeric and skew rules; AAL2 enforced → `mfa_required`,
+  report-only → one `totp_expired` line with no guard error; step-up
+  enforced → 403 without cool-off reason, report-only → one line with
+  `totp_age_seconds: null`).
+- **Wire/UI:** `frontend/types/api.d.ts` regenerated with openapi-typescript
+  7.13.0 from the in-process `app.openapi()` (additive optional `reason`,
+  generate-route 403). `frontend/tests/admin-mfa-transport.test.mjs`
+  (cool-off on all four routes: wait message, no prompt, one request;
+  negative control; stale then cool-off = one resend then thrown) and
+  `frontend/tests/admin-access-codes.test.mjs` (role-code fixture backend:
+  stale → one prompt, one resend, code in the immediate and reloaded list;
+  closed prompt and cool-off → one request, no code before or after reload;
+  ordinary code → no prompt). No Next admin form sends `grants_role` today,
+  so role-code UI evidence is the shared transport fixture.
+- **Runs:** backend affected set (20 files: staff guard, inventory, role,
+  staff security, access codes ×11, cohorts, instructor promote, writing
+  permission gating, sweep, owner alerts, API docs) **712 passed, 36
+  skipped** (local PostgreSQL-only cases); frontend files that load
+  `api.js` or `api.d.ts` on Node 24.22.2: 883 passed, 7 failed in 6 files
+  that also fail on base (ENOENT on gitignored legacy
+  `frontend/public/pages/*.html`); `tsc --noEmit` and
+  `tsc --noEmit -p tsconfig.legacy.json` exit 0.
+- **Negative controls:** with `staff_guard.py` and `admin.py` restored to
+  base, 79 of the new backend cases fail (every AC13/AC14/AC15 group);
+  with base `api.js`, the 5 cool-off transport/journey cases fail.
 
 ### PC-J298 spec-only validation (2026-11-02)
 

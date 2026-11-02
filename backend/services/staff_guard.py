@@ -23,7 +23,9 @@ The second factor (research.md §9.1, §9.6) is satisfied only when ALL hold:
   * the ``amr`` ``totp`` entry is at most ``ADMIN_AAL2_MAX_AGE_HOURS`` old
     (default 12, Amendment 1 FR-012). Refresh does not renew that timestamp;
     a missing entry counts as expired, and one more than
-    ``_CLOCK_SKEW_SECONDS`` in the future is invalid.
+    ``_CLOCK_SKEW_SECONDS`` in the future is invalid. Only finite numeric
+    timestamps count (Amendment 2): ``NaN`` and ``±inf`` are dropped before
+    the latest one is taken.
 
 ``ADMIN_AAL2_ENFORCE`` (default false) decides what an unsatisfied admin gets:
 403 ``mfa_required`` when true, otherwise the old behaviour plus exactly one
@@ -34,7 +36,10 @@ Step-up (Amendment 1, FR-020): :func:`require_recent_mfa` runs after that
 guard on the privilege-changing routes and asks for a TOTP entered within
 ``ADMIN_STEP_UP_MINUTES`` (default 15). ``ADMIN_STEP_UP_ENFORCE`` (default
 false) decides between 403 ``step_up_required`` and one
-``admin_step_up_would_block`` warning per request.
+``admin_step_up_would_block`` warning per request. Amendment 2 (FR-020a) adds
+a 24-hour cool-off: a verified TOTP factor of the accepted Auth user whose
+``created_at`` or ``updated_at`` is less than 24 hours old refuses step-up
+with ``reason="new_factor_cooloff"``, however fresh the TOTP.
 """
 
 from __future__ import annotations
@@ -43,9 +48,11 @@ import base64
 import binascii
 import json
 import logging
+import math
 import time
 from contextvars import ContextVar
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Awaitable, Callable, Literal, Optional
 
 from fastapi import HTTPException
@@ -67,6 +74,14 @@ LOOKUP_FAILED_DETAIL = "Không kiểm tra được quyền truy cập. Vui lòng
 WOULD_BLOCK_EVENT = "admin_aal2_would_block"
 STEP_UP_REQUIRED_MESSAGE = "Thao tác này cần nhập lại mã xác thực 2 bước."
 STEP_UP_WOULD_BLOCK_EVENT = "admin_step_up_would_block"
+# Amendment 2 (FR-020a): a new or changed verified TOTP factor must age this
+# long before it can back a step-up. No owner bypass.
+FACTOR_COOLOFF_SECONDS = 24 * 60 * 60
+STEP_UP_COOLOFF_REASON = "new_factor_cooloff"
+STEP_UP_COOLOFF_MESSAGE = (
+    "Mã xác thực 2 bước vừa được thêm hoặc thay đổi. "
+    "Cần chờ đủ 24 giờ kể từ lúc đó mới làm được thao tác này."
+)
 
 ADMIN_ROLE_DENIED = "Bạn không có quyền truy cập trang này"
 INSTRUCTOR_ROLE_DENIED = "Bạn không có quyền truy cập trang giảng viên"
@@ -155,16 +170,61 @@ def _verified_totp_count(auth_user: dict) -> int:
     )
 
 
+def _finite_timestamp(value: Any) -> Optional[float]:
+    """A numeric, non-boolean, finite ``amr`` timestamp, else None. ``NaN``
+    compares false with everything and ``±inf`` is no instant, so neither may
+    reach ``max`` or the age checks (Amendment 2, FR-012)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        stamp = float(value)
+    except OverflowError:  # an int beyond float range is no instant either
+        return None
+    return stamp if math.isfinite(stamp) else None
+
+
 def _totp_verified_at(claims: dict) -> Optional[float]:
     amr = claims.get("amr")
     if not isinstance(amr, list):
         return None
     stamps = [
-        entry.get("timestamp") for entry in amr
+        _finite_timestamp(entry.get("timestamp")) for entry in amr
         if isinstance(entry, dict) and entry.get("method") == "totp"
     ]
-    stamps = [s for s in stamps if isinstance(s, (int, float)) and not isinstance(s, bool)]
-    return float(max(stamps)) if stamps else None
+    stamps = [s for s in stamps if s is not None]
+    return max(stamps) if stamps else None
+
+
+def _factor_instant(value: Any) -> float:
+    """UTC epoch seconds of a GoTrue factor timestamp (RFC 3339 with an
+    offset). Missing, naive or malformed → ValueError: the caller fails
+    closed rather than assuming the factor is old (FR-020a)."""
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("factor timestamp missing")
+    parsed = datetime.fromisoformat(value.strip())
+    if parsed.utcoffset() is None:
+        raise ValueError("factor timestamp has no UTC offset")
+    return parsed.timestamp()
+
+
+def _recent_factor_change(auth_user: dict, now: float) -> bool:
+    """FR-020a: does ANY verified TOTP factor of the accepted Auth user have a
+    ``created_at`` or ``updated_at`` less than 24 hours before ``now``? A
+    future timestamp is not 24 hours old. Every such factor is parsed, so one
+    unusable timestamp raises even when another factor is already recent."""
+    factors = auth_user.get("factors")
+    if not isinstance(factors, list):
+        return False
+    recent = False
+    for factor in factors:
+        if not (isinstance(factor, dict)
+                and factor.get("status") == "verified"
+                and factor.get("factor_type") == "totp"):
+            continue
+        for key in ("created_at", "updated_at"):
+            if now - _factor_instant(factor.get(key)) < FACTOR_COOLOFF_SECONDS:
+                recent = True
+    return recent
 
 
 def aal2_max_age_seconds() -> int:
@@ -288,6 +348,9 @@ class StepUpRequiredDetail(BaseModel):
     next_step: Literal["challenge"]
     max_age_seconds: int
     message: str
+    # Amendment 2 (FR-020a), only on a cool-off refusal: a fresh TOTP cannot
+    # clear it, so the client shows the wait instead of a challenge.
+    reason: Optional[Literal["new_factor_cooloff"]] = None
 
 
 class StaffForbiddenResponse(BaseModel):
@@ -300,7 +363,8 @@ STEP_UP_RESPONSES: dict = {
     403: {
         "model": StaffForbiddenResponse,
         "description": "Not an active admin, `mfa_required` (FR-012), or "
-                       "`step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020)",
+                       "`step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020; "
+                       "`reason: new_factor_cooloff` for a factor under 24 hours old)",
     },
 }
 
@@ -309,19 +373,21 @@ def step_up_enforcement_enabled() -> bool:
     return settings.ADMIN_STEP_UP_ENFORCE is True
 
 
-def step_up_required_exception() -> HTTPException:
-    return HTTPException(
-        status_code=403,
-        detail={
-            "code": "step_up_required",
-            "next_step": "challenge",
-            "max_age_seconds": step_up_max_age_seconds(),
-            "message": STEP_UP_REQUIRED_MESSAGE,
-        },
-    )
+def step_up_required_exception(*, cooloff: bool = False) -> HTTPException:
+    # ``next_step`` and ``max_age_seconds`` (the 15-minute window, not the
+    # 24-hour cool-off) stay on a cool-off refusal for wire compatibility.
+    detail = {
+        "code": "step_up_required",
+        "next_step": "challenge",
+        "max_age_seconds": step_up_max_age_seconds(),
+        "message": STEP_UP_COOLOFF_MESSAGE if cooloff else STEP_UP_REQUIRED_MESSAGE,
+    }
+    if cooloff:
+        detail["reason"] = STEP_UP_COOLOFF_REASON
+    return HTTPException(status_code=403, detail=detail)
 
 
-def _log_step_up_would_block(user_id: str, assurance: Assurance, now: float) -> None:
+def _log_step_up_would_block(user_id: str, assurance: Assurance, now: float, *, cooloff: bool) -> None:
     ctx = _request.get()
     if ctx is not None:
         if user_id in ctx["step_up_would_block"]:
@@ -335,7 +401,8 @@ def _log_step_up_would_block(user_id: str, assurance: Assurance, now: float) -> 
         "method": method or None,
         "route": route or None,
         "aal": assurance.aal,
-        "reason": assurance.reason if assurance.reason != "ok" else "totp_stale",
+        "reason": STEP_UP_COOLOFF_REASON if cooloff
+                  else (assurance.reason if assurance.reason != "ok" else "totp_stale"),
         "totp_age_seconds": age,
         "max_age_seconds": step_up_max_age_seconds(),
     }
@@ -347,8 +414,12 @@ def require_recent_mfa(auth_user: dict, authorization: str | None) -> None:
     route's ``require_admin`` (the FR-001 guard), before any database read or
     write, audit or outbox row. Passes only when the accepted token's
     assurance holds AND its ``amr`` totp entry is at most
-    ``ADMIN_STEP_UP_MINUTES`` old. Otherwise 403 ``step_up_required`` under
-    ``ADMIN_STEP_UP_ENFORCE``, or exactly one would-block warning per request.
+    ``ADMIN_STEP_UP_MINUTES`` old AND no verified TOTP factor in the accepted
+    ``auth_user["factors"]`` was created or updated in the last 24 hours
+    (FR-020a; the cool-off reason wins when both fail). Otherwise 403
+    ``step_up_required`` under ``ADMIN_STEP_UP_ENFORCE``, or exactly one
+    would-block warning per request. Unusable factor timestamps are a lookup
+    failure (503 under enforcement), never an old factor.
 
     The inventory test (tests/test_staff_guard_inventory.py) pins every route
     that calls this."""
@@ -357,17 +428,18 @@ def require_recent_mfa(auth_user: dict, authorization: str | None) -> None:
     now = time.time()
     try:
         assurance = evaluate_admin_assurance(auth_user, authorization, now=now)
+        cooloff = _recent_factor_change(auth_user, now)
         fresh = assurance.satisfied and now - assurance.totp_verified_at <= step_up_max_age_seconds()
-    except Exception as exc:  # defensive: never grant on a bug
+    except Exception as exc:  # malformed factor metadata or a bug: never grant
         logger.error("[staff_guard] step-up check failed user=%s: %r", user_id, exc)
         if enforce:
             raise HTTPException(503, LOOKUP_FAILED_DETAIL)
         return
-    if fresh:
+    if fresh and not cooloff:
         return
     if enforce:
-        raise step_up_required_exception()
-    _log_step_up_would_block(user_id, assurance, now)
+        raise step_up_required_exception(cooloff=cooloff)
+    _log_step_up_would_block(user_id, assurance, now, cooloff=cooloff)
 
 
 # ── Role ─────────────────────────────────────────────────────────────────────

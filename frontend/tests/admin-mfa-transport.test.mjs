@@ -226,3 +226,57 @@ test('api.js mirrors the gate step-up event name', () => {
   assert.ok(source.includes(`'${STEP_UP_EVENT}'`));
   assert.ok(gate.includes(`'${STEP_UP_EVENT}'`));
 });
+
+// ── Amendment 2 (FR-020a): cool-off refusal → wait, no prompt, no resend ────
+
+const COOLOFF_DETAIL = {
+  ...STEP_UP_DETAIL,
+  reason: 'new_factor_cooloff',
+  message: 'Mã xác thực 2 bước vừa được thêm hoặc thay đổi. Cần chờ đủ 24 giờ kể từ lúc đó mới làm được thao tác này.',
+};
+const cooledOff = () => ({ status: 403, body: { detail: COOLOFF_DETAIL } });
+
+for (const [label, call] of [
+  ['PATCH role', (api) => api.patch('/admin/users/u1/role', { role: 'student' })],
+  ['PATCH active', (api) => api.patch('/admin/users/u1/active', { is_active: false, reason: 'abc' })],
+  ['POST revoke-sessions', (api) => api.post('/admin/users/u1/revoke-sessions', {})],
+  ['POST role-granting code', (api) => api.post('/admin/access-codes/generate', { count: 1, grants_role: 'instructor', intended_email: 'gv@example.test' })],
+]) {
+  test(`cool-off on ${label}: rejects with the wait message, no prompt, sent once`, async () => {
+    const { api, sent, prompts } = loadStepUp({ responses: [cooledOff()], onStepUp: verifyThen(true) });
+    await assert.rejects(call(api), (error) => {
+      assert.equal(error.status, 403);
+      assert.equal(error.detail.reason, 'new_factor_cooloff');
+      assert.equal(error.message, COOLOFF_DETAIL.message);
+      return true;
+    });
+    assert.deepEqual(prompts, []);
+    assert.equal(sent.length, 1);
+  });
+}
+
+test('negative control: the same refusal without the cool-off reason still prompts and resends once', async () => {
+  const { api, sent, prompts } = loadStepUp({
+    responses: [refused(), { status: 200, body: { ok: true } }], onStepUp: verifyThen(true),
+  });
+  assert.equal((await api.patch('/admin/users/u1/role', { role: 'student' })).ok, true);
+  assert.deepEqual([prompts.length, sent.length], [1, 2]);
+});
+
+test('a stale refusal followed by a cool-off refusal is thrown after one resend (older-consumer path)', async () => {
+  const { api, sent, prompts } = loadStepUp({ responses: [refused(), cooledOff()], onStepUp: verifyThen(true) });
+  await assert.rejects(api.patch('/admin/users/u1/role', { role: 'student' }),
+    (error) => error.status === 403 && error.detail.reason === 'new_factor_cooloff');
+  assert.deepEqual(prompts, [900]);
+  assert.equal(sent.length, 2);
+});
+
+test('a cool-off refusal does not leave a pending prompt behind', async () => {
+  const { api, sent, prompts } = loadStepUp({
+    responses: [cooledOff(), refused(), { status: 200, body: { ok: true } }], onStepUp: verifyThen(true),
+  });
+  await assert.rejects(api.patch('/admin/users/u1/role', { role: 'student' }), (error) => error.status === 403);
+  assert.equal((await api.patch('/admin/users/u1/role', { role: 'student' })).ok, true);
+  assert.deepEqual(prompts, [900]);
+  assert.equal(sent.length, 3);
+});
