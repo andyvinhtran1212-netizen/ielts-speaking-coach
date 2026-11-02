@@ -84,8 +84,10 @@ TRIGGER, REFERENCES and PG17 MAINTAIN from `service_role` / PUBLIC; backend
 SELECT and INSERT remain. Managed databases must have the 344 ledger row and
 neither old `cal_admin_*` policy before any change; a ledger-free legacy test
 control preserves its policies and client SELECT ACL. Postconditions reject
-residual effective table/column privileges, a disabled row trigger, unsafe
-service-role ownership/membership or replication-parameter grants. No policy
+residual effective table/column privileges (including those a role reaches by
+`SET ROLE` through a membership), a disabled row trigger, unsafe service-role
+ownership/membership, client EXECUTE on the trigger function (SA-R4-1, P3) or
+replication-parameter grants. No policy
 DDL, grants or data changes; one transaction, 5 s lock timeout, re-runnable.
 The `class_action_log_append_only` forward-policy group holds it out of normal
 applies. This job opens a PR only: the Leader must separately authorize the

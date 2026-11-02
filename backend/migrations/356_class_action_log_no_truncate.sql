@@ -39,7 +39,10 @@ BEGIN
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION public.fn_class_action_log_no_truncate() FROM PUBLIC;
+-- Supabase default privileges grant EXECUTE on new public functions to anon,
+-- authenticated and service_role (mig 341 pattern): revoke each explicitly.
+REVOKE EXECUTE ON FUNCTION public.fn_class_action_log_no_truncate()
+    FROM PUBLIC, anon, authenticated, service_role;
 
 CREATE OR REPLACE TRIGGER trg_class_action_log_no_truncate
     BEFORE TRUNCATE ON public.class_action_log
@@ -62,6 +65,7 @@ DECLARE
     table_owner oid;
     privilege text;
     role_name text;
+    via_role name;
     denied text[] := ARRAY['UPDATE', 'DELETE', 'TRUNCATE', 'TRIGGER', 'REFERENCES']
         || CASE WHEN current_setting('server_version_num')::int >= 170000
                 THEN ARRAY['MAINTAIN'] ELSE ARRAY[]::text[] END;
@@ -75,7 +79,10 @@ BEGIN
        OR (SELECT rolsuper FROM pg_roles WHERE rolname = 'service_role') THEN
         RAISE EXCEPTION 'class_action_log_356_unsafe_owner_or_service_role';
     END IF;
-    IF has_parameter_privilege('service_role', 'session_replication_role', 'SET') THEN
+    -- Membership-aware (see the table checks below): SET ROLE reaches these too.
+    IF EXISTS (SELECT 1 FROM pg_roles m
+                WHERE pg_has_role('service_role'::name, m.oid, 'MEMBER')
+                  AND has_parameter_privilege(m.oid, 'session_replication_role', 'SET')) THEN
         RAISE EXCEPTION 'class_action_log_356_replication_privilege';
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_trigger
@@ -92,17 +99,39 @@ BEGIN
                       AND tgfoid = 'public.fn_class_action_log_no_truncate()'::regprocedure) THEN
         RAISE EXCEPTION 'class_action_log_356_truncate_trigger_missing_or_disabled';
     END IF;
+    -- P3: the trigger function is not client-executable, directly or through
+    -- a membership that SET ROLE reaches (Supabase default ACL grants EXECUTE).
+    IF EXISTS (SELECT 1 FROM pg_proc p
+                WHERE p.oid = 'public.fn_class_action_log_no_truncate()'::regprocedure
+                  AND (p.proacl IS NULL OR EXISTS (SELECT 1 FROM aclexplode(p.proacl) a
+                                                    WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE'))) THEN
+        RAISE EXCEPTION 'class_action_log_356_trigger_function_public_execute';
+    END IF;
+    SELECT r.rolname, m.rolname INTO role_name, via_role
+      FROM (VALUES ('anon'), ('authenticated'), ('service_role')) r(rolname)
+      JOIN pg_roles m ON pg_has_role(r.rolname::name, m.oid, 'MEMBER')
+     WHERE has_function_privilege(m.oid, 'public.fn_class_action_log_no_truncate()', 'EXECUTE')
+     ORDER BY 1, 2 LIMIT 1;
+    IF via_role IS NOT NULL THEN
+        RAISE EXCEPTION 'class_action_log_356_trigger_function_execute: % via %', role_name, via_role;
+    END IF;
     IF NOT has_table_privilege('service_role', 'public.class_action_log', 'SELECT')
        OR NOT has_table_privilege('service_role', 'public.class_action_log', 'INSERT') THEN
         RAISE EXCEPTION 'class_action_log_356_backend_privilege_missing';
     END IF;
-    FOREACH privilege IN ARRAY denied LOOP
-        IF has_table_privilege('service_role', 'public.class_action_log', privilege)
-           OR (privilege IN ('UPDATE', 'REFERENCES') AND
-               has_any_column_privilege('service_role', 'public.class_action_log', privilege)) THEN
-            RAISE EXCEPTION 'class_action_log_356_service_privilege: %', privilege;
-        END IF;
-    END LOOP;
+    -- SA-R4-1 (mig 341 pattern): has_table_privilege(role) ignores privileges
+    -- reached through NOINHERIT memberships, which SET ROLE still grants. Check
+    -- every role service_role can become (MEMBER, fail-closed), not only itself.
+    SELECT m.rolname, p.priv INTO via_role, privilege
+      FROM pg_roles m CROSS JOIN unnest(denied) p(priv)
+     WHERE pg_has_role('service_role'::name, m.oid, 'MEMBER')
+       AND (has_table_privilege(m.oid, 'public.class_action_log', p.priv)
+            OR (p.priv IN ('UPDATE', 'REFERENCES')
+                AND has_any_column_privilege(m.oid, 'public.class_action_log', p.priv)))
+     ORDER BY m.rolname, p.priv LIMIT 1;
+    IF via_role IS NOT NULL THEN
+        RAISE EXCEPTION 'class_action_log_356_service_privilege: % via %', privilege, via_role;
+    END IF;
     -- Inspect PUBLIC directly too; has_table_privilege cannot name pseudo-role PUBLIC.
     IF EXISTS (SELECT 1 FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) a
                 WHERE c.oid = 'public.class_action_log'::regclass AND a.grantee = 0)
@@ -111,15 +140,20 @@ BEGIN
         RAISE EXCEPTION 'class_action_log_356_public_privilege';
     END IF;
     FOREACH role_name IN ARRAY ARRAY['anon', 'authenticated'] LOOP
-        IF has_table_privilege(role_name, 'public.class_action_log', 'UPDATE,DELETE')
-           OR has_any_column_privilege(role_name, 'public.class_action_log', 'UPDATE') THEN
+        -- Membership-aware as above: check every role role_name can become.
+        IF EXISTS (SELECT 1 FROM pg_roles m
+                    WHERE pg_has_role(role_name::name, m.oid, 'MEMBER')
+                      AND (has_table_privilege(m.oid, 'public.class_action_log', 'UPDATE,DELETE')
+                           OR has_any_column_privilege(m.oid, 'public.class_action_log', 'UPDATE'))) THEN
             RAISE EXCEPTION 'class_action_log_356_client_write_privilege: %', role_name;
         END IF;
         IF to_regclass('public._schema_migrations') IS NOT NULL THEN
             FOREACH privilege IN ARRAY ARRAY['SELECT', 'INSERT'] || denied LOOP
-                IF has_table_privilege(role_name, 'public.class_action_log', privilege)
-                   OR (privilege IN ('SELECT', 'INSERT', 'UPDATE', 'REFERENCES') AND
-                       has_any_column_privilege(role_name, 'public.class_action_log', privilege)) THEN
+                IF EXISTS (SELECT 1 FROM pg_roles m
+                            WHERE pg_has_role(role_name::name, m.oid, 'MEMBER')
+                              AND (has_table_privilege(m.oid, 'public.class_action_log', privilege)
+                                   OR (privilege IN ('SELECT', 'INSERT', 'UPDATE', 'REFERENCES') AND
+                                       has_any_column_privilege(m.oid, 'public.class_action_log', privilege)))) THEN
                     RAISE EXCEPTION 'class_action_log_356_client_privilege: % %', role_name, privilege;
                 END IF;
             END LOOP;

@@ -263,3 +263,110 @@ def test_up_is_held_no_policy_ddl_or_grants():
     assert "SET LOCAL lock_timeout = '5s'" in code
     assert "SET LOCAL search_path = pg_catalog, pg_temp;" in code
     assert f"{NAME}\tpending_feature\tclass_action_log_append_only\t" in (MIGRATIONS / "forward-policy.tsv").read_text()
+
+
+# SA-R4-1 (mig 341 pattern): a NOINHERIT membership with SET TRUE is not seen by
+# has_*_privilege(role), but SET ROLE still reaches its privileges. Each case
+# applies 356 again to the migrated database and must fail closed.
+MEMBERSHIP_CASES = [
+    ("service_role", "UPDATE", "service_privilege"),
+    ("service_role", "DELETE", "service_privilege"),
+    ("service_role", "TRUNCATE", "service_privilege"),
+    ("service_role", "TRIGGER", "service_privilege"),
+    ("service_role", "REFERENCES", "service_privilege"),
+    ("service_role", "UPDATE(action)", "service_privilege"),
+    ("anon", "UPDATE", "client_write_privilege"),
+    ("anon", "DELETE", "client_write_privilege"),
+    ("anon", "UPDATE(action)", "client_write_privilege"),
+    ("authenticated", "UPDATE", "client_write_privilege"),
+    ("authenticated", "DELETE", "client_write_privilege"),
+    ("authenticated", "UPDATE(action)", "client_write_privilege"),
+]
+
+
+def _table_probe(who, privilege):
+    name = privilege.split("(")[0]
+    function = "has_any_column_privilege" if "(" in privilege else "has_table_privilege"
+    return f"{function}({who},'{TABLE}','{name}')"
+
+
+def _drop_group(db, group, *statements):
+    # DROP OWNED clears this database's grants; DROP ROLE needs the cluster.
+    try:
+        run(db, " ".join(statements) + f" DROP OWNED BY {group};", role=None)
+    finally:
+        sql("postgres", f"DROP ROLE IF EXISTS {group}")
+
+
+@pytest.mark.parametrize("role,privilege,kind", MEMBERSHIP_CASES)
+def test_reapply_refuses_table_privilege_reached_via_set_role(applied, role, privilege, kind):
+    db, _, _ = applied
+    group = "cal356_member_" + uuid4().hex
+    try:
+        run(db, f"CREATE ROLE {group} NOLOGIN; GRANT {privilege} ON {TABLE} TO {group}; "
+                f"GRANT {group} TO {role} WITH INHERIT FALSE, SET TRUE;", role=None)
+        assert sql(db, f"SELECT {_table_probe(repr(role), privilege)}") == "f"
+        assert run(db, f"BEGIN; SET LOCAL ROLE {role}; SET LOCAL ROLE {group}; "
+                       f"SELECT {_table_probe('current_user', privilege)}; ROLLBACK;", role=None) == "t"
+        before = snapshot(db)
+        with pytest.raises(RuntimeError, match=f"class_action_log_356_{kind}"):
+            run(db, migration())
+        assert snapshot(db) == before
+    finally:
+        _drop_group(db, group, f"REVOKE {group} FROM {role};")
+
+
+def test_reapply_refuses_replication_parameter_reached_via_set_role(applied):
+    db, _, _ = applied
+    group = "cal356_member_" + uuid4().hex
+    try:
+        run(db, f"CREATE ROLE {group} NOLOGIN; GRANT SET ON PARAMETER session_replication_role TO {group}; "
+                f"GRANT {group} TO service_role WITH INHERIT FALSE, SET TRUE;", role=None)
+        assert sql(db, "SELECT has_parameter_privilege('service_role','session_replication_role','SET')") == "f"
+        assert run(db, f"BEGIN; SET LOCAL ROLE service_role; SET LOCAL ROLE {group}; "
+                       "SELECT has_parameter_privilege(current_user,'session_replication_role','SET'); "
+                       "ROLLBACK;", role=None) == "t"
+        before = snapshot(db)
+        with pytest.raises(RuntimeError, match="class_action_log_356_replication_privilege"):
+            run(db, migration())
+        assert snapshot(db) == before
+    finally:
+        _drop_group(db, group, f"REVOKE SET ON PARAMETER session_replication_role FROM {group};",
+                    f"REVOKE {group} FROM service_role;")
+
+
+@pytest.mark.parametrize("role", ["anon", "authenticated", "service_role"])
+def test_reapply_refuses_trigger_function_execute_reached_via_set_role(applied, role):
+    db, _, _ = applied
+    function = "public.fn_class_action_log_no_truncate()"
+    group = "cal356_member_" + uuid4().hex
+    try:
+        run(db, f"CREATE ROLE {group} NOLOGIN; GRANT EXECUTE ON FUNCTION {function} TO {group}; "
+                f"GRANT {group} TO {role} WITH INHERIT FALSE, SET TRUE;", role=None)
+        assert sql(db, f"SELECT has_function_privilege('{role}','{function}','EXECUTE')") == "f"
+        assert run(db, f"BEGIN; SET LOCAL ROLE {role}; SET LOCAL ROLE {group}; "
+                       f"SELECT has_function_privilege(current_user,'{function}','EXECUTE'); "
+                       "ROLLBACK;", role=None) == "t"
+        before = snapshot(db)
+        with pytest.raises(RuntimeError, match="class_action_log_356_trigger_function_execute"):
+            run(db, migration())
+        assert snapshot(db) == before
+    finally:
+        _drop_group(db, group, f"REVOKE {group} FROM {role};")
+
+
+# P3 (mig 341 pattern): the trigger function is created by the runner, so
+# Supabase's default ACL grants it EXECUTE to client roles unless revoked.
+@pytest.mark.parametrize("role", ["anon", "authenticated", "service_role"])
+def test_trigger_function_is_not_client_executable(applied, role):
+    db, _, _ = applied
+    assert sql(db, f"SELECT has_function_privilege('{role}','public.fn_class_action_log_no_truncate()','EXECUTE')") == "f"
+
+
+def test_trigger_function_has_no_explicit_client_acl_entries(applied):
+    db, _, _ = applied
+    assert sql(db, "SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) a "
+                   "LEFT JOIN pg_roles r ON r.oid = a.grantee "
+                   "WHERE p.oid='public.fn_class_action_log_no_truncate()'::regprocedure "
+                   "AND a.privilege_type='EXECUTE' "
+                   "AND (a.grantee=0 OR r.rolname IN ('anon','authenticated','service_role'))") == "0"

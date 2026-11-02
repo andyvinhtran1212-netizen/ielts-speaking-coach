@@ -111,12 +111,16 @@ def test_no_other_migration_drops_replaces_or_bypasses_the_guard():
             continue
         code = m326._strip_comments(path.read_text(encoding="utf-8"))
         assert TRIGGER not in code and FUNCTION not in code, path.name
-        # 356 reads this permission to fail closed on a trigger-bypass grant.
-        # Exempt only that complete literal check; every other mention still
-        # fails, including SET/ALTER/set_config inside a function or EXECUTE.
+        # 356 reads this permission to fail closed on a trigger-bypass grant:
+        # the direct literal (the allowed read used by the control below) and
+        # the membership form that covers every role service_role can become
+        # (CALAPPEND-0041 SA-R4-1). Exempt only these two complete checks; every
+        # other mention still fails, including SET/ALTER/set_config in a function.
         without_permission_check = re.sub(
             r"\bhas_parameter_privilege\(\s*'service_role'\s*,\s*"
-            r"'session_replication_role'\s*,\s*'SET'\s*\)",
+            r"'session_replication_role'\s*,\s*'SET'\s*\)"
+            r"|\bpg_has_role\(\s*'service_role'::name\s*,\s*m\.oid\s*,\s*'MEMBER'\s*\)\s*"
+            r"AND\s+has_parameter_privilege\(\s*m\.oid\s*,\s*'session_replication_role'\s*,\s*'SET'\s*\)",
             "", code, flags=re.I,
         )
         assert not re.search(r"session_replication_role", without_permission_check, re.I), path.name
