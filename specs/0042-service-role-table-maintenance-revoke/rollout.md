@@ -105,7 +105,8 @@
       AND a.privilege_type = 'CREATE';
    ```
    After 358 (FR-010), also expect 0 rows (routines whose `search_path` is
-   missing, `''`, or does not end with `pg_temp`):
+   missing, `''`, or whose last entry is not exactly `pg_temp`; a name that
+   only ends in `pg_temp`, such as `not_pg_temp`, is reported):
 
    ```sql
    SELECT p.oid::regprocedure AS routine, pg_get_userbyid(p.proowner) AS owner,
