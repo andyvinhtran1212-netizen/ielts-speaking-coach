@@ -120,7 +120,38 @@
            AND d.deptype = 'e')
       AND NOT EXISTS (
         SELECT 1 FROM unnest(COALESCE(p.proconfig, ARRAY[]::text[])) c
-         WHERE c ~ '^search_path=.*pg_temp"?$');
+         WHERE c ~ '^search_path=([^,]+,)*[[:space:]]*(pg_temp|"pg_temp")[[:space:]]*$');
+   ```
+
+   Match the complete final entry, including paired quotes when present.
+   `public, not_pg_temp` is drift: a schema-name suffix does not explicitly
+   place the temporary schema last. Run this read-only regression self-check;
+   expect 0 rows (any returned row is a classification mismatch):
+
+   ```sql
+   WITH cases(setting, expected_drift) AS (
+     VALUES
+       (NULL::text, true),
+       ('search_path=', true),
+       ('search_path=""', true),
+       ('search_path=public', true),
+       ('search_path=public, not_pg_temp', true),
+       ('search_path=public, "not_pg_temp"', true),
+       ('search_path=public, pg_temp_extra', true),
+       ('search_path=pg_temp, public', true),
+       ('search_path=public, "other, pg_temp"', true),
+       ('search_path=public, pg_temp', false),
+       ('search_path=pg_catalog, public, pg_temp', false),
+       ('search_path=pg_catalog, pg_temp', false),
+       ('search_path=public, "pg_temp"', false),
+       ('search_path=public,pg_temp  ', false),
+       ('search_path=pg_temp', false)
+   )
+   SELECT setting, expected_drift
+     FROM cases
+    WHERE NOT COALESCE(setting ~
+      '^search_path=([^,]+,)*[[:space:]]*(pg_temp|"pg_temp")[[:space:]]*$', false)
+      <> expected_drift;
    ```
 3. `has_table_privilege('service_role','public.users','TRIGGER')` is false,
    and SELECT/INSERT/UPDATE/DELETE on `public.users` and
