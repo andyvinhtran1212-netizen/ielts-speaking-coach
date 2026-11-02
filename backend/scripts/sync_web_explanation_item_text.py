@@ -36,8 +36,8 @@ The whole paper is refused, with every reason, when:
 Default is a read-only dry run that prints the plan and its SHA-256. A commit
 re-plans from the live rows, requires `--expected-plan-sha` equal to the
 reviewed dry run, writes the exact SQL to `--request-out`, then sends it as
-ONE transaction whose preconditions re-check the objects, the paper rows and
-the pins. Staging only: there is no production target.
+ONE transaction whose preconditions re-check every column of the current
+objects (payload and statuses), the paper rows and the pins. Staging only: there is no production target.
 
     python backend/scripts/sync_web_explanation_item_text.py --skill reading \\
         --paper ILR-RDG-CAM-B13-T2 \\
@@ -77,7 +77,7 @@ COPIED = ("object_id", "source_test_key", "skill", "book_number", "test_number",
           "reading_test_id", "listening_test_id", "payload", "source_hash", "audit_verdict",
           "rights_status", "editorial_status", "serving_status", "binding_status")
 KNOWN_COLUMNS = set(COPIED) | {"id", "content_version", "is_current", "import_batch_id", "imported_by",
-                               "created_at", "payload_md5"}
+                               "created_at", "row_md5"}
 # The importer's item taxonomy names for the reading row types that differ.
 READING_TYPE_ALIASES = {"notes_completion": "note_completion", "mcq_single": "multiple_choice_single",
                         "mcq_multi": "multiple_choice_multiple"}
@@ -342,7 +342,7 @@ def build_plan(data: dict, *, expected_rows: dict, expected_rows_sha256: str) ->
         "source_version": source_version, "target_version": target_version,
         "changed_questions": sorted(int(q) for q in changes),
         "changes": changes, "review_notes": notes,
-        "preconditions": [{"id": o["id"], "object_id": o["object_id"], "payload_md5": o.get("payload_md5")}
+        "preconditions": [{"id": o["id"], "object_id": o["object_id"], "row_md5": o.get("row_md5")}
                           for o in current],
         "rows": rows,
     }
@@ -399,7 +399,7 @@ SELECT jsonb_build_object(
     'rows', (SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY {order}), '[]'::jsonb) FROM {rows}),
     'paper_md5', {_paper_md5_sql(skill, schema, paper)},
     'objects', (SELECT COALESCE(jsonb_agg((to_jsonb(o) - 'imported_by')
-                    || jsonb_build_object('payload_md5', md5(o.payload::text))
+                    || jsonb_build_object('row_md5', md5(to_jsonb(o)::text))
                     ORDER BY o.question_number, o.content_version, o.id), '[]'::jsonb)
                   FROM {schema}.web_explanation_objects o WHERE o.{skill}_test_id = {paper}),
     'class_pins', (SELECT COALESCE(jsonb_agg(to_jsonb(b)), '[]'::jsonb) FROM ({blockers['class_pins']}) b),
@@ -415,7 +415,7 @@ def render_commit_sql(plan: dict, *, schema: str = "public") -> str | None:
     paper = _lit(plan["paper"]["id"]) + "::uuid"
     table = f"{schema}.web_explanation_objects"
     ids = ", ".join(_lit(p["id"]) + "::uuid" for p in plan["preconditions"])
-    checks = ", ".join(f"({_lit(p['id'])}::uuid, {_lit(p['payload_md5'])})" for p in plan["preconditions"])
+    checks = ", ".join(f"({_lit(p['id'])}::uuid, {_lit(p['row_md5'])})" for p in plan["preconditions"])
     object_ids = ", ".join(_lit(p["object_id"]) for p in plan["preconditions"])
     blockers = _blockers_sql(skill, schema, paper)
     paper_rows, _ = _paper_rows_sql(skill, schema, paper)
@@ -436,9 +436,9 @@ BEGIN
     PERFORM 1 FROM {table} WHERE {fk} = {paper} AND is_current ORDER BY question_number FOR UPDATE;
     PERFORM 1 FROM {paper_rows} FOR SHARE OF x;
     SELECT count(*) INTO n FROM {table} o
-      JOIN (VALUES {checks}) AS e(id, payload_md5) ON e.id = o.id
+      JOIN (VALUES {checks}) AS e(id, row_md5) ON e.id = o.id
      WHERE o.{fk} = {paper} AND o.is_current AND o.content_version = {_lit(plan['source_version'])}
-       AND md5(o.payload::text) = e.payload_md5;
+       AND md5(to_jsonb(o)::text) = e.row_md5;
     IF n <> 40 OR (SELECT count(*) FROM {table} WHERE {fk} = {paper} AND is_current) <> 40 THEN
         RAISE EXCEPTION 'pcj156_precondition: current objects changed since the dry run (% of 40 match)', n;
     END IF;

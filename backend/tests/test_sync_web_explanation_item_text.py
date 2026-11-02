@@ -36,7 +36,7 @@ def _object(skill, paper_id, q, item, **extra):
         "book_number": 20, "test_number": 1, "question_number": q,
         "reading_test_id": paper_id if skill == "reading" else None,
         "listening_test_id": paper_id if skill == "listening" else None,
-        "payload": payload, "payload_md5": f"md5-{q}", "source_hash": f"h{q}",
+        "payload": payload, "row_md5": f"md5-{q}", "source_hash": f"h{q}",
         "audit_verdict": "CONFIRMED", "rights_status": "BLOCKED_PENDING_RIGHTS_REVIEW",
         "editorial_status": "GENERATED_REQUIRES_EDITORIAL_REVIEW",
         "serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES", "binding_status": "BOUND",
@@ -611,6 +611,23 @@ def test_pg_commit_refuses_when_objects_changed_after_the_dry_run(schema):
     runner, plan = load_and_plan(schema, "reading", data["tests"][0]["test_id"], expected)
     pg(f"""UPDATE {schema}.web_explanation_objects SET payload = payload || '{{"x":1}}'::jsonb
             WHERE reading_test_id=$1::uuid AND question_number=7""", paper_id)
+    before = objects_snapshot(schema, "reading", paper_id)
+
+    with pytest.raises(Exception) as caught:
+        runner.execute(sync.render_commit_sql(plan, schema=schema))
+    assert "pcj156_precondition" in str(caught.value)
+    assert objects_snapshot(schema, "reading", paper_id) == before
+
+
+def test_pg_commit_refuses_when_an_approval_landed_after_the_dry_run(schema):
+    """Statuses are copied into the new rows, so a status change must also stop the commit."""
+    data = reading_paper()
+    seed(schema, data)
+    expected = apply_fix_in_db(schema, data)
+    paper_id = data["tests"][0]["id"]
+    runner, plan = load_and_plan(schema, "reading", data["tests"][0]["test_id"], expected)
+    pg(f"""UPDATE {schema}.web_explanation_objects SET rights_status='APPROVED', editorial_status='APPROVED'
+            WHERE reading_test_id=$1::uuid AND is_current""", paper_id)
     before = objects_snapshot(schema, "reading", paper_id)
 
     with pytest.raises(Exception) as caught:
