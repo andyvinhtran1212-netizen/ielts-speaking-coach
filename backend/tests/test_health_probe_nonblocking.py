@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from routers import health
 from services import quiz_service
+from tests.loop_gate import WAIT, LoopGate, until
 
 RAW_ERR = 'relation "quiz_attempts" column secret_col does not exist'
 HEALTHY = {"ok": True, "checks": {
@@ -32,12 +33,15 @@ class FakeProbe:
     def __init__(self, result=HEALTHY, delay=0.0):
         self.result = result
         self.delay = delay
+        self.gate = None  # a LoopGate parks the call until the test releases it
         self.calls = 0
         self.lock = threading.Lock()
 
     def __call__(self):
         with self.lock:
             self.calls += 1
+        if self.gate is not None:
+            self.gate.park()
         time.sleep(self.delay)
         return self.result
 
@@ -71,29 +75,24 @@ def _expire_cache():
 
 
 def test_quiz_write_probe_does_not_block_the_event_loop(probe):
-    probe.delay = 0.5
+    probe.gate = gate = LoopGate()
 
     async def exercise():
-        lags = []
-        stop = asyncio.Event()
+        request = asyncio.create_task(health.health_quiz_write(authorization=None))
+        try:
+            # This coroutine keeps running on the loop while the probe is
+            # parked; a probe on the loop thread would hold it until WAIT.
+            entered = await until(lambda: gate.inside >= 1, stop=request)
+            parked = entered and not request.done() and not gate.released
+        finally:
+            gate.release()
+        return await asyncio.wait_for(request, WAIT), parked
 
-        async def ticker():
-            while not stop.is_set():
-                before = time.perf_counter()
-                await asyncio.sleep(0.01)
-                lags.append(time.perf_counter() - before - 0.01)
-
-        tick = asyncio.create_task(ticker())
-        body = await health.health_quiz_write(authorization=None)
-        stop.set()
-        await tick
-        return body, lags
-
-    body, lags = asyncio.run(exercise())
+    body, parked = asyncio.run(exercise())
     assert body["status"] == "healthy"
     assert probe.calls == 1
-    assert len(lags) > 10
-    assert max(lags) < 0.1, f"event loop stalled {max(lags):.3f}s during the probe"
+    assert not gate.timed_out, "the quiz-write probe ran on the event loop"
+    assert parked, "the loop did not run while the probe was in flight"
 
 
 def test_quiz_write_probe_is_single_flight_and_cached_for_ttl(probe):
