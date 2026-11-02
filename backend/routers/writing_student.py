@@ -1755,11 +1755,16 @@ async def upsert_my_draft(
     _refresh_writing_renderer_lease(str(assignment_id), student_id)
 
     if assignment["status"] == "pending":
+        # Compare-and-set on `pending`: the status read above is stale after
+        # the awaited class gate, and a submit that committed meanwhile must
+        # never be flipped back to `in_progress`.
+        transitioned = None
         try:
-            (
+            transitioned = (
                 supabase_admin.table("writing_assignments")
                 .update({"status": "in_progress"})
                 .eq("id", str(assignment_id))
+                .eq("status", "pending")
                 .execute()
             )
         except Exception as exc:
@@ -1770,6 +1775,12 @@ async def upsert_my_draft(
                 "failed assignment=%s: %s",
                 assignment_id, exc,
             )
+        if transitioned is not None and not transitioned.data:
+            fresh = await asyncio.to_thread(
+                _resolve_active_assignment, student_id, str(assignment_id),
+            )
+            if fresh["status"] not in _ACTIVE_ASSIGNMENT_STATES:
+                raise HTTPException(409, "Bài viết đã đổi trạng thái. Vui lòng tải lại.")
 
     return r.data[0]
 

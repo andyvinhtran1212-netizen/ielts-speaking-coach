@@ -15,6 +15,8 @@
 
 from __future__ import annotations
 
+import copy
+import threading
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -78,6 +80,10 @@ class _Q:
         self.mode, self.payload = "upsert", payload
         return self
 
+    def delete(self):
+        self.mode = "delete"
+        return self
+
     def execute(self):
         self.db.calls.append((self.table, self.mode, self.payload))
         failure = self.db.fail.get(self.table)
@@ -90,7 +96,12 @@ class _Q:
         if self.mode == "update":
             for row in rows:
                 row.update(self.payload)
-        return SimpleNamespace(data=[dict(r) for r in rows])
+        if self.mode == "delete":
+            self.db.tables[self.table] = [r for r in self.db.tables[self.table]
+                                          if not any(r is x for x in rows)]
+        # Reads hand out snapshots, like PostgREST: a later write never
+        # changes a row a handler already read.
+        return SimpleNamespace(data=copy.deepcopy(rows))
 
 
 class _Db:
@@ -247,6 +258,91 @@ def test_a_failed_class_read_never_opens_the_draft_gate(monkeypatch):
     response = _draft(client, give)
     assert response.status_code == 500 and "private-db-value" not in response.text
     assert db.writes() == []
+
+
+
+# ── T006: the awaited class gate vs. the pending→in_progress move ────────
+# The draft save reads the give, awaits the class gate off the event loop,
+# then moves pending→in_progress. Whatever committed during that await must
+# survive: the move is a compare-and-set on status = pending.
+
+def _park_first_draft_gate(monkeypatch):
+    """Park the first class-gate call (the draft save) until released."""
+    real = writing._require_class_accepts_work
+    parked, release, calls = threading.Event(), threading.Event(), []
+
+    def gate(assignment):
+        real(assignment)
+        calls.append(assignment["id"])
+        if len(calls) == 1:
+            parked.set()
+            assert release.wait(10), "draft save was never released"
+    monkeypatch.setattr(writing, "_require_class_accepts_work", gate)
+    return parked, release
+
+
+def _run(target, out, key):
+    def body():
+        out[key] = target()
+    t = threading.Thread(target=body)
+    t.start()
+    return t
+
+
+def test_a_submit_during_the_draft_class_gate_is_never_flipped_back(monkeypatch):
+    give = _give(ACTIVE)   # pending, untimed
+    db, _client = _make(monkeypatch, [give])
+    monkeypatch.setattr(writing, "detect_flags", lambda _t: [])
+    monkeypatch.setattr(writing, "_replay_committed_submission", lambda *_a, **_k: None)
+    monkeypatch.setattr(writing.essay_service, "create_essay_row_only",
+                        lambda **_k: {"essay_id": "e-1", "eta_seconds": 1})
+    monkeypatch.setattr(writing.essay_service, "schedule_grading_job",
+                        lambda **_k: {"job_id": "j-1", "eta_seconds": 1})
+    monkeypatch.setattr(writing.essay_service, "_bg_grade_essay", lambda *_a: None)
+    parked, release = _park_first_draft_gate(monkeypatch)
+    out: dict = {}
+    # One app event loop for both requests, as in one uvicorn worker.
+    with TestClient(_client.app) as client:
+        draft = _run(lambda: _draft(client, give), out, "draft")
+        assert parked.wait(10), "draft save never reached the class gate"
+        submit = _run(lambda: _submit(client, give), out, "submit")
+        submit.join(10)
+        assert not submit.is_alive()
+        release.set()
+        draft.join(10)
+        assert not draft.is_alive()
+
+    assert out["submit"].status_code == 200, out["submit"].text
+    assert out["submit"].json()["status"] == "submitted"
+    row = db.tables["writing_assignments"][0]
+    assert (row["status"], row["essay_id"]) == ("submitted", "e-1")
+    assert out["draft"].status_code == 409
+    assert out["draft"].json()["detail"] == "Bài viết đã đổi trạng thái. Vui lòng tải lại."
+
+
+def test_a_concurrent_save_that_already_moved_the_give_still_saves(monkeypatch):
+    give = _give(ACTIVE)   # pending
+    db, _client = _make(monkeypatch, [give])
+    parked, release = _park_first_draft_gate(monkeypatch)
+    out: dict = {}
+    with TestClient(_client.app) as client:
+        draft = _run(lambda: _draft(client, give), out, "draft")
+        assert parked.wait(10)
+        # Another tab's save moved the give while this one was parked.
+        db.tables["writing_assignments"][0]["status"] = "in_progress"
+        release.set()
+        draft.join(10)
+        assert not draft.is_alive()
+
+    assert out["draft"].status_code == 200, out["draft"].text
+    assert db.tables["writing_assignments"][0]["status"] == "in_progress"
+
+
+def test_an_uncontended_save_moves_a_pending_give_to_in_progress(monkeypatch):
+    give = _give(ACTIVE)
+    db, client = _make(monkeypatch, [give])
+    assert _draft(client, give).status_code == 200
+    assert db.tables["writing_assignments"][0]["status"] == "in_progress"
 
 
 # ── T006: submit and auto-submit ─────────────────────────────────────────
