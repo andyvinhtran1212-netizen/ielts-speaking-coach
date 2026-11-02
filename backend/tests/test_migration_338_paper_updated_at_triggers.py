@@ -536,6 +536,22 @@ def test_a_non_package_listening_row_is_not_locked_and_advances(package_probe):
 
 # ── Real 306 + 295 + 338 on the same package-owned Listening paper ──────────
 
+M353 = MIGRATIONS / "353_listening_package_status_revision.sql"
+M353_TABLES = ("listening_tests", "listening_content", "listening_exercises", "listening_lessons",
+               "listening_content_packages", "mock_correction_release_events")
+
+
+def migrated_353(schema: str, path: Path = M353) -> str:
+    return (path.read_text(encoding="utf-8")
+            .replace("pg_catalog, public, pg_temp", f"pg_catalog, {schema}, pg_temp")
+            .replace("public.", schema + "."))
+
+
+def m353_rows(schema: str) -> dict[str, list[str]]:
+    return {table: [r["v"] for r in query(f"SELECT to_jsonb(x)::text v FROM {schema}.{table} x ORDER BY 1")]
+            for table in M353_TABLES}
+
+
 @pytest.fixture
 def package_policy_probe(paper_probe, programme_probe):  # noqa: F811
     s = paper_probe
@@ -585,6 +601,12 @@ def package_policy_probe(paper_probe, programme_probe):  # noqa: F811
     assert paper['updated_at'] == OLD
     assert paper['policy_revision'] == paper['mock_content_revision'] == 0
     assert not events(s, paper['id'])
+    # Migration 353 (0037 FR-006 + FR-007) fixes the package status RPC on this
+    # stack. Apply it twice (re-runnable); it changes no row.
+    seeded = m353_rows(s)
+    query(migrated_353(s))
+    query(migrated_353(s))
+    assert m353_rows(s) == seeded
     yield {**programme_probe, 'schema': s, 'paper': paper, 'package_uuid': paper['content_package_id']}
 
 
