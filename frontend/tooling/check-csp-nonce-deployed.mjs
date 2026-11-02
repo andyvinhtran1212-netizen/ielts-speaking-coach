@@ -20,6 +20,19 @@ const REPORT_ONLY = /^script-src 'self' 'nonce-([A-Za-z0-9+/]{16,}={0,2})' 'stri
 const ENFORCED_SCRIPT = /^script-src 'self' 'nonce-([A-Za-z0-9+/]{16,}={0,2})' 'strict-dynamic' 'unsafe-inline'( 'unsafe-eval')?( https:\/\/vercel\.live)?$/;
 export const SIGNED_IN_PATHS = ['/home', '/admin', '/profile', '/vocabulary/hub'];
 export const PUBLIC_PATHS = ['/', '/login', '/grammar', '/vocabulary'];
+// PC-J566 (`--enforced` only): unmatched URLs under signed-in prefixes get the
+// proxy's nonce policy, so the root 404 must render with that nonce. The
+// `notFound()` inside the 80-days day page streams under Suspense, so it is a
+// soft 404 (HTTP 200 + noindex), as before. `/nope-top-level` is the public
+// 404 control: no nonce, the original blocking policy.
+export const SIGNED_IN_NOT_FOUND_PATHS = Object.freeze([
+  { path: '/practice', status: 404 },
+  { path: '/home/does-not-exist', status: 404 },
+  { path: '/vocabulary/nope/xyz/abc', status: 404 },
+  { path: '/admin/nope-xyz', status: 404 },
+  { path: '/listening/ielts/80-days/999', status: 200 },
+]);
+export const PUBLIC_NOT_FOUND_PATHS = ['/nope-top-level'];
 
 /** Only the staging alias and Vercel previews may receive the bypass secret. */
 export function bypassAllowed(origin) {
@@ -55,7 +68,9 @@ export function auditNonceResponse({ reportOnly, contentSecurityPolicy, html }, 
 export function auditNonceRoute(path, first, second, options = {}) {
   const failures = [];
   [first, second].forEach(({ status }, i) => {
-    if (!(status >= 200 && status < 300)) failures.push(`${path} #${i + 1}: HTTP ${status}; expected a successful document response (2xx)`);
+    if (options.status !== undefined) {
+      if (status !== options.status) failures.push(`${path} #${i + 1}: HTTP ${status}; expected HTTP ${options.status}`);
+    } else if (!(status >= 200 && status < 300)) failures.push(`${path} #${i + 1}: HTTP ${status}; expected a successful document response (2xx)`);
   });
   if (failures.length) return failures;
   const audits = [first, second].map((response) => auditNonceResponse(response, options));
@@ -106,6 +121,25 @@ async function main(base, options) {
     // document is rendered per request by the resume. The nonce comparison
     // above is what proves no nonce is shared.
     console.log(`${found.length ? '✗' : '✓'} ${path} HTTP ${second.status}: ${a.scripts - a.unnonced.length}/${a.scripts} scripts carry the nonce; x-vercel-cache=${second.vercelCache ?? '-'}; cache-control=${second.cacheControl ?? '-'}`);
+  }
+  if (options.enforced) {
+    for (const { path, status } of SIGNED_IN_NOT_FOUND_PATHS) {
+      const first = await get(base, path);
+      const second = await get(base, path);
+      const found = auditNonceRoute(path, first, second, { ...options, status });
+      failures.push(...found);
+      const a = auditNonceResponse(second, options);
+      console.log(`${found.length ? '✗' : '✓'} ${path} HTTP ${second.status} (expected ${status}): ${a.scripts - a.unnonced.length}/${a.scripts} scripts carry the nonce; x-vercel-cache=${second.vercelCache ?? '-'}`);
+    }
+    for (const path of PUBLIC_NOT_FOUND_PATHS) {
+      const res = await get(base, path);
+      const found = [];
+      if (res.status !== 404) found.push(`${path}: HTTP ${res.status}; expected HTTP 404`);
+      if (res.reportOnly !== null) found.push(`${path}: public 404 sent a Report-Only header`);
+      if (!publicPolicy || res.contentSecurityPolicy !== publicPolicy) found.push(`${path}: public 404 blocking policy differs from the original nonce-free baseline`);
+      failures.push(...found);
+      console.log(`${found.length ? '✗' : '✓'} ${path} HTTP ${res.status}: public 404, original blocking policy`);
+    }
   }
   for (const path of PUBLIC_PATHS) {
     const res = await get(base, path);

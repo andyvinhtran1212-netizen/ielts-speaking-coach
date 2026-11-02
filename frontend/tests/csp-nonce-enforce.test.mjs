@@ -2,7 +2,9 @@
 // isolated build environments. No authentication or remote requests needed.
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { globSync, readFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,7 +13,12 @@ import ts from 'typescript';
 import * as csp from '../tooling/content-security-policy.mjs';
 import * as articleIndex from '../lib/grammar-article-index.mjs';
 import * as legacyRedirects from '../tooling/legacy-url-redirects.mjs';
-import { auditNonceResponse, auditNonceRoute } from '../tooling/check-csp-nonce-deployed.mjs';
+import {
+  auditNonceResponse,
+  auditNonceRoute,
+  PUBLIC_NOT_FOUND_PATHS,
+  SIGNED_IN_NOT_FOUND_PATHS,
+} from '../tooling/check-csp-nonce-deployed.mjs';
 
 const require = createRequire(import.meta.url);
 const { NextRequest } = require('next/server');
@@ -231,5 +238,108 @@ describe('build configuration safety', () => {
       { key: 'Permissions-Policy', value: 'camera=(), geolocation=(), payment=(), usb=()' },
       { key: 'Content-Security-Policy', value: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https://ielts-speaking-coach-production.up.railway.app https://huwsmtubwulikhlmcirx.supabase.co; form-action 'self'" },
     ]);
+  });
+});
+
+// PC-J566: an unmatched URL under a signed-in prefix gets the proxy's nonce
+// policy, and Next answers it with the root not-found page. Prerendered, that
+// page carried no nonce, so staging's enforced policy blocked all its scripts.
+// Browser evidence on a real build: tooling/verify-csp-nonce-404-flow.mjs.
+describe('root 404 under signed-in prefixes (PC-J566)', () => {
+  const OTHER = 'EBESExQVFhcYGRobHB0eHw==';
+  const options = { enforced: true };
+  const stamped = (nonce, status = 404) => ({
+    status, reportOnly: null,
+    contentSecurityPolicy: csp.buildNonceEnforcedPolicy(nonce, PREVIEW),
+    html: `<script nonce="${nonce}" src="/_next/static/chunk.js"></script><script nonce="${nonce}">self.__next_f=[]</script>`,
+  });
+
+  test('the root not-found renders per request exactly when the nonce render flag is on', () => {
+    const source = readFileSync(path.join(FRONTEND, 'app/not-found.tsx'), 'utf8');
+    assert.match(source, /^import \{ connection \} from 'next\/server';$/m);
+    assert.match(source, /if \(process\.env\.AVER_CSP_NONCE_REPORT_ONLY === '1'\) await connection\(\);/);
+    // cacheComponents rejects a blocking request-time render without it.
+    assert.match(source, /^export const instant = false;$/m);
+    // The 404 card and its tokens stay in the server HTML.
+    assert.match(source, /<link rel="stylesheet" href="\/css\/aver-design\/tokens\.css" \/><NotFoundCard \/>/);
+  });
+
+  test('the proxy gives the probed signed-in 404 URLs the enforced nonce policy, and the public 404 none', async () => {
+    const proxy = proxyFor(PREVIEW);
+    for (const { path: pathname } of SIGNED_IN_NOT_FOUND_PATHS) enforcedHeader(await proxy(request(pathname)));
+    for (const pathname of PUBLIC_NOT_FOUND_PATHS) {
+      const response = await proxy(request(pathname));
+      assert.equal(response.headers.get('content-security-policy'), null, pathname);
+      assert.equal(response.headers.get('x-middleware-request-x-nonce'), null, pathname);
+    }
+    assert.deepEqual(SIGNED_IN_NOT_FOUND_PATHS.map(({ path: p }) => p), [
+      '/practice', '/home/does-not-exist', '/vocabulary/nope/xyz/abc', '/admin/nope-xyz', '/listening/ielts/80-days/999',
+    ]);
+  });
+
+  test('the analyzer accepts the expected 404 status and rejects any other', () => {
+    const route = (status) => auditNonceRoute('/home/x', stamped(NONCE, status), stamped(OTHER, status), { ...options, status: 404 });
+    assert.deepEqual(route(404), []);
+    for (const status of [200, 302, 500]) assert.match(route(status).join(), new RegExp(`/home/x #1: HTTP ${status}; expected HTTP 404`));
+    // Without an expected status the 2xx rule of the signed-in pages still applies.
+    assert.match(auditNonceRoute('/home', stamped(NONCE), stamped(OTHER), options).join(), /HTTP 404; expected a successful document/);
+  });
+
+  test('the analyzer fails the staging shape: an enforced nonce header over an unstamped prerendered 404', () => {
+    const unstamped = (nonce) => ({ ...stamped(nonce), html: '<script src="/_next/static/chunk.js" async=""></script><script>self.__next_f=[]</script>' });
+    const found = auditNonceRoute('/admin/nope-xyz', unstamped(NONCE), unstamped(OTHER), { ...options, status: 404 });
+    assert.equal(found.length, 2);
+    assert.match(found[0], /2\/2 <script> tags lack the request nonce/);
+    assert.equal(auditNonceResponse(unstamped(NONCE), options).unnonced.length, 2);
+  });
+
+  async function runEnforcedChecker({ notFoundStamped = true, publicNotFoundNonce = false } = {}) {
+    const counts = new Map();
+    const server = createServer((req, res) => {
+      const n = counts.get(req.url) ?? 0;
+      counts.set(req.url, n + 1);
+      const nonce = n % 2 ? OTHER : NONCE;
+      const expected = SIGNED_IN_NOT_FOUND_PATHS.find(({ path: p }) => p === req.url);
+      const signedIn = ['/home', '/admin', '/profile', '/vocabulary/hub'].includes(req.url) || expected;
+      const publicNotFound = PUBLIC_NOT_FOUND_PATHS.includes(req.url);
+      const nonced = signedIn || (publicNotFound && publicNotFoundNonce);
+      const body = nonced && (notFoundStamped || !expected) ? stamped(nonce).html : '<script src="/_next/static/chunk.js"></script>';
+      res.writeHead(expected?.status ?? (publicNotFound ? 404 : 200), {
+        'content-type': 'text/html',
+        'content-security-policy': nonced ? csp.buildNonceEnforcedPolicy(nonce, PREVIEW) : csp.buildContentSecurityPolicy(PREVIEW),
+      });
+      res.end(body);
+    });
+    await new Promise((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', resolve);
+    });
+    try {
+      return await new Promise((resolve) => {
+        execFile(process.execPath, [
+          path.join(FRONTEND, 'tooling/check-csp-nonce-deployed.mjs'), '--enforced', `http://127.0.0.1:${server.address().port}`,
+        ], { timeout: 30_000, env: { ...process.env, VERCEL_AUTOMATION_BYPASS_SECRET: '' } },
+        (error, stdout, stderr) => resolve({ code: error?.code ?? 0, stdout, stderr, counts }));
+      });
+    } finally {
+      await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    }
+  }
+
+  test('the enforced CLI probes every 404 URL twice and the public 404 once, and passes stamped 404s', async () => {
+    const result = await runEnforcedChecker();
+    assert.equal(result.code, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, /\bPASS\b/);
+    for (const { path: p } of SIGNED_IN_NOT_FOUND_PATHS) assert.equal(result.counts.get(p), 2, p);
+    for (const p of PUBLIC_NOT_FOUND_PATHS) assert.equal(result.counts.get(p), 1, p);
+  });
+
+  test('the enforced CLI fails unstamped signed-in 404s and a nonce policy on the public 404', async () => {
+    const unstamped = await runEnforcedChecker({ notFoundStamped: false });
+    assert.equal(unstamped.code, 1);
+    for (const { path: p } of SIGNED_IN_NOT_FOUND_PATHS) assert.ok(unstamped.stderr.includes(`${p} #1: 1/1 <script> tags lack the request nonce`), unstamped.stderr);
+    const nonced = await runEnforcedChecker({ publicNotFoundNonce: true });
+    assert.equal(nonced.code, 1);
+    assert.match(nonced.stderr, /\/nope-top-level: public 404 blocking policy differs from the original nonce-free baseline/);
   });
 });
