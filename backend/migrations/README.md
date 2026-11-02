@@ -20,10 +20,10 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-11-02 the highest is `361`, allocated by the
-Leader to PC-J358 (#2180; `360` is PC-J192, INSTRUCTORGIVE-0044), so by that
-rule the next new migration is `362`. Ask the Leader before taking it; 348–351 are reserved for other
-work, and 353–359 without a file here may be held by open PRs: none may be
+sequence is dense. As of 2026-11-02 the highest is `363`, allocated by the
+Leader to PC-J538 (`361` is PC-J358, #2180; `360` is PC-J192, INSTRUCTORGIVE-0044),
+so by that rule the next new migration is `364`. Ask the Leader before taking it; 348–351 are reserved for other
+work, and 353–359 and 362 without a file here may be held by open PRs: none may be
 reused.
 The runner applies any unapplied file regardless of order.
 Numbers 321–326 belong to 321 WRITINGRATE-0025, 322 AIOPS-0024 (#1837), 323
@@ -105,6 +105,33 @@ staging→main promotion after 341. One transaction, no data change,
 re-runnable; re-running 341 restores the `NEW.id` audit body, so re-run 361
 after it. Its header rollback drops only the 361 trigger and function and
 restores the 341 audit body; it grants nothing.
+
+Migration `363` (PC-J538; SA-2180-R3-2 on #2180) pins the users audit trigger
+chain after 361, which it never edits. `fn_users_privilege_audit` (SECURITY
+DEFINER) and the writer it calls, `fn_staff_security_record` (SECURITY
+INVOKER, so it runs as the definer), kept `search_path = public, pg_temp`
+and called `jsonb_build_object`, `gen_random_uuid`, `current_setting`,
+`pg_current_xact_id` and `now` without a schema. A role with CREATE on
+`public` could add an exact typed overload (for example
+`jsonb_build_object(text,text,text,boolean,text,timestamptz)`) that beats the
+catalog's VARIADIC version and runs as the owner on the next users update. 363
+recreates both with their current bodies, `SET search_path = pg_catalog,
+pg_temp` and `pg_catalog.<fn>` calls; owner, security mode and the owner-only
+ACL are unchanged. It needs 361 in `_schema_migrations` (`migration_361_missing`)
+and refuses with `catalog_name_shadowed_in_public` while a shadow is already
+planted (remove it first: it is an incident). The postcondition checks the
+exact `proconfig`, no unqualified catalog call in either body, the OLD.id key,
+owner and EXECUTE, and the trigger. Order is 361 → 363: on staging on top of
+the applied 361, on production back to back after 341 and 361 at one
+promotion. 363 is held by `forward-policy.tsv` as `pending_feature
+admin_aal2`: apply only with `MIGRATION_FEATURES=admin_aal2` through the
+advisory-locked runner, staging first after SA review, production only at an
+explicitly authorised staging→main promotion after 361. One transaction, no
+data change, re-runnable; re-running 332, 341 or 361 restores the `public`
+path, so re-run 363 after it. `rollback/363_users_privilege_audit_search_path.sql`
+restores the 361/332 bodies, reopens SA-2180-R3-2 and grants nothing. Other
+definers with `search_path = public, pg_temp` (`fn_set_staff_privilege`,
+`fn_ai_model_override_audit`) are not covered by 363.
 
 Migration `356` (PC-J286, CALAPPEND-0041 FR-001..004) adds the statement trigger
 `trg_class_action_log_no_truncate` and its pinned, `P0001`-raising function.
