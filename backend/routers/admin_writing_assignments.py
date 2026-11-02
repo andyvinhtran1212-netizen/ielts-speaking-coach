@@ -41,7 +41,7 @@ from services.cohort_assignment_service import (
     existing_give_student_ids,
     preview_fan_out_overlap,
 )
-from services import student_service
+from services import class_archive_service, student_service
 from services.class_membership_service import active_student_ids_for_cohort
 from services.writing_assignment_delete_guard import delete_unstarted_assignment
 from services.writing_image_access import attach_signed_image_urls
@@ -495,6 +495,9 @@ def _fan_out_to_cohort_sync(body: FanOutCreate, admin: dict):
     if replay is not None:
         return replay
 
+    # CLASSARCHIVE-0030 W9: an archived class takes no new give (409); the
+    # replay above still returns a request that completed before the archive.
+    class_archive_service.require_cohort_accepts_work(supabase_admin, str(body.cohort_id))
     student_ids = active_student_ids_for_cohort(
         supabase_admin, str(body.cohort_id))
     if not student_ids:
@@ -522,6 +525,8 @@ def _fan_out_to_cohort_sync(body: FanOutCreate, admin: dict):
     except Exception as exc:
         # 331 backstop (archive ends memberships, so roster_changed is usual).
         student_service.raise_if_student_archived(supabase_admin, exc, student_ids)
+        # 337 backstop: the class was archived after the pre-check.
+        class_archive_service.raise_if_cohort_archived(exc)
         message = str(exc)
         if "payload_mismatch" in message:
             raise HTTPException(409, "request_id đã được dùng với nội dung khác.") from exc

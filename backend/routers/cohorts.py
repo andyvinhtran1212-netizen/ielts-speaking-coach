@@ -359,10 +359,13 @@ async def add_cohort_member(
     admin_id = admin.get("id") if isinstance(admin, dict) else None
 
     cohort = (
-        supabase_admin.table("cohorts").select("id").eq("id", cohort_id).limit(1).execute().data
+        supabase_admin.table("cohorts").select("*").eq("id", cohort_id).limit(1).execute().data
     ) or []
     if not cohort:
         raise HTTPException(404, "Không tìm thấy lớp")
+    # CLASSARCHIVE-0030 W5: refused before any code is issued.
+    if class_archive_service.is_cohort_archived(cohort[0]):
+        raise class_archive_service.cohort_archived_error()
 
     # W-03 — mirror generate-and-assign: the target must be a real user, and the
     # admin-granted code activates the account (compensated on failure), so the
@@ -434,16 +437,22 @@ async def assign_student_to_cohort(
     admin = await require_admin(authorization)
 
     cohort = (
-        supabase_admin.table("cohorts").select("id").eq("id", cohort_id).limit(1).execute().data
+        supabase_admin.table("cohorts").select("*").eq("id", cohort_id).limit(1).execute().data
     ) or []
     if not cohort:
         raise HTTPException(404, "Không tìm thấy lớp")
 
     srow = (
-        supabase_admin.table("students").select("id").eq("id", body.student_id).limit(1).execute().data
+        supabase_admin.table("students").select("*").eq("id", body.student_id).limit(1).execute().data
     ) or []
     if not srow:
         raise HTTPException(404, "Không tìm thấy học viên")
+    # CLASSARCHIVE-0030 W3. Precedence (research.md §4.1): an archived learner
+    # gets student_archived first, as the 326 guard would answer.
+    if class_archive_service.is_cohort_archived(cohort[0]):
+        if srow[0].get("archived_at"):
+            raise student_service.student_archived_error([body.student_id])
+        raise class_archive_service.cohort_archived_error()
 
     try:
         add_student(
@@ -454,6 +463,8 @@ async def assign_student_to_cohort(
         # Migration 326 guard: an archived learner cannot rejoin a class.
         if student_service.is_student_archived_error(exc):
             raise student_service.student_archived_error([body.student_id]) from exc
+        # Migration 337 guard: the class was archived after the pre-check.
+        class_archive_service.raise_if_cohort_archived(exc)
         logger.error("[cohorts] student assignment failed: %s", exc, exc_info=True)
         raise HTTPException(500, "Lỗi khi gán học viên vào lớp. Vui lòng thử lại.") from None
 
@@ -474,10 +485,22 @@ async def bulk_assign_students_to_cohort(
     admin = await require_admin(authorization)
 
     cohort = (
-        supabase_admin.table("cohorts").select("id").eq("id", cohort_id).limit(1).execute().data
+        supabase_admin.table("cohorts").select("*").eq("id", cohort_id).limit(1).execute().data
     ) or []
     if not cohort:
         raise HTTPException(404, "Không tìm thấy lớp")
+    # CLASSARCHIVE-0030 W4: the whole batch is refused. An archived learner in
+    # the batch gets student_archived first (research.md §4.1 precedence); if
+    # that lookup fails the batch is still refused, as cohort_archived.
+    if class_archive_service.is_cohort_archived(cohort[0]):
+        try:
+            archived = await asyncio.to_thread(
+                student_service.archived_student_ids, supabase_admin, body.student_ids)
+        except Exception:
+            archived = []
+        if archived:
+            raise student_service.student_archived_error(archived)
+        raise class_archive_service.cohort_archived_error()
 
     try:
         assigned = add_students(
@@ -493,6 +516,7 @@ async def bulk_assign_students_to_cohort(
             except Exception:
                 archived = []
             raise student_service.student_archived_error(archived) from exc
+        class_archive_service.raise_if_cohort_archived(exc)
         logger.error("[cohorts] bulk student assignment failed: %s", exc, exc_info=True)
         raise HTTPException(500, "Lỗi khi gán học viên vào lớp. Vui lòng thử lại.") from None
 
