@@ -127,6 +127,7 @@ never states plainly that saving removes the source from the public library.
   `listening_package_child_immutable` and leave no release event. Migration 353
   is forward-only in one transaction with `lock_timeout = '5s'`, changes no row,
   and is re-runnable.
+- **FR-007:** `fn_guard_mock_paper_source` (trigger `trg_mock_paper_source`, migration 306) does not bump `listening_tests.mock_content_revision` when an UPDATE on `listening_content` or `listening_exercises` changes only `status` (and optionally `updated_at`). Any other column change on those rows still bumps it exactly as today, and INSERT/DELETE behaviour is unchanged. As a result a package publish or archive through `set_listening_content_package_status` succeeds with `mock_content_revision` unchanged (the PC-J242 assert `after == before` holds), `policy_revision` rises by exactly one (FR-006), and one `mock_correction_release_events` row is written. Migration 353 carries both FR-006 and FR-007 in one transaction with `lock_timeout = '5s'`, changes no row, and is re-runnable. Overlap grants (`fn_mock_overlap_valid`) keep their validity across a status-only transition.
 
 ## Acceptance scenarios
 
@@ -163,7 +164,9 @@ never states plainly that saving removes the source from the public library.
   allow-lists `updated_at`, but not the `policy_revision` that 306 bumps on a
   status/visibility change, so a permitted package publish/archive was refused
   with `listening_package_child_immutable` (found by PC-J242 on local PG17,
-  2026-10-30). Amendment 1 adds FR-006 and migration 353.
+  2026-10-30). Amendment 1 adds FR-006 and migration 353. Amendment 2 adds
+  FR-007 to the same migration (see `approval-decision.md`).
+- A status-only change is not content: it does not invalidate attempts, overlap grants or mock content revision. A status change combined with any content column in the same UPDATE bumps the revision once.
 - A superuser can still disable triggers; that bypass is out of scope.
 
 ## Success criteria

@@ -26,3 +26,7 @@ Coordinator (PC-J252) after PC-J242 reproduced SQLSTATE 55000
 `295_listening_content_programmes.sql:625,681-686` does not allow it).
 Vinh approves the exact FR-006 text in `spec.md`; implementation (migration
 353) starts only after this amendment is merged into `staging`.
+
+## Amendment 2 — FR-007 (status-only Listening child changes)
+
+Amendment 2 — J252: 1, Vinh t1246u 2026-11-02 06:37 UTC+7 (Leader báo)
