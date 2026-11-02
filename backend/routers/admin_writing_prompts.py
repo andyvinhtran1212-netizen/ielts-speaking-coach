@@ -35,7 +35,9 @@ from database import supabase_admin
 from models.writing_feedback import PromptImageAnalysis
 from routers.admin import require_admin
 from services import writing_prompt_analysis
-from services.errors import new_ref
+from services.errors import (
+    find_validation_error, new_ref, redacted_traceback, summarize_validation_error,
+)
 from services.writing_image_access import attach_signed_image_urls, canonical_image_ref
 from services.writing_prompt_image import (
     delete_prompt_image,
@@ -225,10 +227,18 @@ async def _run_prompt_write(background_tasks: BackgroundTasks, fn, *args):
         if not work.cancelled():
             exc = work.exception()
             if exc is not None:
-                logger.error(
-                    "[writing-prompts] write failed after request cancellation ref=%s",
-                    new_ref(), exc_info=(type(exc), exc, exc.__traceback__),
-                )
+                validation_error = find_validation_error(exc)
+                if validation_error is not None:
+                    logger.error(
+                        "[writing-prompts] write failed after request cancellation ref=%s type=%s: %s\n%s",
+                        new_ref(), type(exc).__name__,
+                        summarize_validation_error(validation_error), redacted_traceback(exc),
+                    )
+                else:
+                    logger.error(
+                        "[writing-prompts] write failed after request cancellation ref=%s",
+                        new_ref(), exc_info=(type(exc), exc, exc.__traceback__),
+                    )
             for dispatch in dispatches:
                 _dispatch_owned_analysis(*dispatch)
         raise

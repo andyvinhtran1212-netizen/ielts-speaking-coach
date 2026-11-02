@@ -7,6 +7,8 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from fastapi import BackgroundTasks
+from fastapi.exceptions import RequestValidationError, ResponseValidationError
+from pydantic import BaseModel, ValidationError
 
 from routers import admin_writing_prompts as prompts
 from tests.loop_gate import LoopGate, WAIT, until
@@ -99,3 +101,76 @@ def test_cancelled_write_logs_worker_failure_and_dispatches_each_token_once(
             loop.set_exception_handler(previous_handler)
 
     asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("cancels", [1, 2])
+@pytest.mark.parametrize("kind", ["pydantic", "request", "response", "wrapped", "group"])
+def test_cancelled_write_redacts_validation_input(monkeypatch, caplog, cancels, kind):
+    gate = LoopGate()
+    sensitive = "private-prompt-input-7c91"
+
+    class Payload(BaseModel):
+        count: int
+
+    try:
+        Payload(count=sensitive)
+    except ValidationError as exc:
+        validation_error = exc
+    if kind in {"request", "response"}:
+        error_class = RequestValidationError if kind == "request" else ResponseValidationError
+        validation_error = error_class([{
+            "type": "int_parsing", "loc": ("body", "count"), "input": sensitive,
+            "msg": f"Invalid value: {sensitive}", "ctx": {"value": sensitive},
+        }])
+    # Prove the fixture would leak when rendered as a normal exception.
+    assert sensitive in str(validation_error)
+    pending = ("prompt-id", "pending-token", "admin-id", "update")
+    dispatch = Mock()
+    monkeypatch.setattr(prompts, "new_ref", Mock(return_value="a1b2c3d4"))
+    monkeypatch.setattr(prompts, "_dispatch_owned_analysis", dispatch)
+    caplog.set_level(logging.ERROR, logger=prompts.__name__)
+
+    def write(dispatches):
+        dispatches.append(pending)
+        gate.park()
+        if kind == "wrapped":
+            raise RuntimeError(str(validation_error)) from validation_error
+        if kind == "group":
+            raise ExceptionGroup("write failed", [validation_error, ValueError(sensitive)])
+        raise validation_error
+
+    async def scenario():
+        background = BackgroundTasks()
+        request = asyncio.create_task(prompts._run_prompt_write(background, write))
+        try:
+            assert await until(lambda: gate.inside == 1, stop=request)
+            for _ in range(cancels):
+                request.cancel()
+                await asyncio.sleep(0)
+                assert not request.done()
+        finally:
+            gate.release()
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(request, WAIT)
+        assert request.cancelled()
+        assert not gate.timed_out
+        assert not background.tasks
+        dispatch.assert_called_once_with(*pending)
+
+    asyncio.run(scenario())
+    records = [record for record in caplog.records if record.name == prompts.__name__]
+    assert len(records) == 1
+    record = records[0]
+    assert record.levelno == logging.ERROR
+    assert "ref=a1b2c3d4" in record.getMessage()
+    assert sensitive not in caplog.text
+    expected_type = {"wrapped": "RuntimeError", "group": "ExceptionGroup"}.get(
+        kind, type(validation_error).__name__,
+    )
+    assert expected_type in record.getMessage()
+    assert "int_parsing at" in caplog.text
+    assert "count" in caplog.text
+    assert "Traceback (most recent call last):" in caplog.text
+    assert "test_admin_writing_prompt_cancel_log.py" in caplog.text
+    assert "in write\n" in caplog.text
+    assert record.exc_info is None
