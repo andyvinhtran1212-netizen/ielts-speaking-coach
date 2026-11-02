@@ -545,7 +545,9 @@ class TestReactivate:
         assert r.status_code == 200, r.text
         body = r.json()
         assert body["is_active"] is True and body["suspended_at"] is None and body["changed"] is True
-        assert body["sign_in_restored"] is True and body["sessions_revoked"] is None
+        # The revocation before the unban is confirmed, so it is reported (PC-J159).
+        assert body["sign_in_restored"] is True and body["sessions_revoked"] is True
+        assert body["revoke_error"] is None
         assert db.user(INSTRUCTOR)["suspended_at"] is None and db.user(INSTRUCTOR)["is_active"] is True
         assert db.auth.admin.calls[-1] == (INSTRUCTOR, "none")
         assert INSTRUCTOR not in db.auth.admin.banned
@@ -570,11 +572,13 @@ class TestReactivate:
         db.auth.admin.fail_unban = False
         retry = _active(client, INSTRUCTOR, True)
         assert retry.json()["ok"] is True and retry.json()["changed"] is True
-        assert retry.json()["sign_in_restored"] is True
+        assert retry.json()["sign_in_restored"] is True and retry.json()["sessions_revoked"] is True
         assert INSTRUCTOR not in db.auth.admin.banned and db.user(INSTRUCTOR)["suspended_at"] is None
         assert len(db.audits()) == 2   # suspend + reactivate, none for the failed attempt
         again = _active(client, INSTRUCTOR, True)
         assert again.json()["changed"] is False and again.json()["sign_in_restored"] is None
+        # Already active: nothing is revoked, so not applicable (null).
+        assert again.json()["sessions_revoked"] is None
 
     def test_unban_happens_before_the_marker_is_cleared(self, client, db):
         _active(client, INSTRUCTOR, False)
@@ -660,7 +664,9 @@ class TestReactivate:
         _active(client, INSTRUCTOR, False)
         r = _active(client, INSTRUCTOR, True, reason="đã đổi mật khẩu")
         assert r.json()["ok"] is True and r.json()["sign_in_restored"] is True
-        assert r.json()["sessions_revoked"] is None and r.json()["revoke_error"] is None
+        # PC-J159: the confirmed pre-unban revocation is reported as true
+        # (was null). It still writes no audit row of its own (part B pending).
+        assert r.json()["sessions_revoked"] is True and r.json()["revoke_error"] is None
         assert [a["event"] for a in db.audits()] == ["active_changed", "active_changed"]
 
 
@@ -720,6 +726,7 @@ class TestReactivateAfterFailedRevocation:
         assert r.status_code == 200, r.text
         body = r.json()
         assert body["ok"] is True and body["changed"] is True and body["sign_in_restored"] is True
+        assert body["sessions_revoked"] is True and body["revoke_error"] is None
         assert body["is_active"] is True and body["suspended_at"] is None
         assert seen == [0], "the ban was lifted while old sessions still existed"
         assert engine.sessions.get(target, 0) == 0
