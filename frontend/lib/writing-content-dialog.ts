@@ -189,8 +189,12 @@ export function createWritingContentDialog(options: Options) {
     if (validWritingContentMarker(marker, options.account, window.location.pathname, query, window.history.state?.[WRITING_LIBRARY_MARKER])) {
       window.history.back();
     } else {
+      const tabs = document.querySelector<HTMLElement>('.wd-tabs');
+      const left = tabs?.scrollLeft ?? 0;
       window.history.replaceState(clearMarker(merge()), '', writingContentLibraryHref(query.tab));
       void reconcile(false);
+      // Library-only reconciliation selects/reveals its tab synchronously.
+      if (tabs) tabs.scrollLeft = left;
     }
   }
   function tab(tab: string) {

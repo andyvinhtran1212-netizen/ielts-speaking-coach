@@ -127,6 +127,52 @@
     return _lastToken;
   }
 
+  // Mirrors lib/admin-mfa-model.mjs (adminMfaUrl / ACCOUNT_INACTIVE_EVENT).
+  function _toAdminMfa() {
+    var loc = window.location;
+    var here = loc.pathname || '/';
+    if (here === '/admin/mfa' || here.indexOf('/admin/mfa/') === 0) return;
+    var target = '/admin/mfa?next=' + encodeURIComponent(here + (loc.search || ''));
+    if (typeof loc.replace === 'function') loc.replace(target);
+    else loc.href = target;
+  }
+
+  function _announceInactive() {
+    try { window.dispatchEvent(new CustomEvent('aver:account-inactive')); } catch (_) {}
+  }
+
+  // ADMINAAL2-0032 Amendment 1 (FR-020): a 403 `step_up_required` asks the
+  // page for a fresh TOTP. AdminAccessGate claims the event (preventDefault)
+  // and calls detail.resolve(true) once mfa.challenge + verify succeeded, or
+  // resolve(false) when the dialog is closed. Unclaimed → false at once.
+  // Concurrent refusals share one dialog. The pending promise is stored
+  // BEFORE the event is dispatched: an unclaimed event settles synchronously,
+  // and storing afterwards would pin an already-settled `false` for every
+  // later refusal (no new event even once the gate has mounted).
+  var _stepUpPending = null;
+  function _requestStepUp(detail) {
+    if (_stepUpPending) return _stepUpPending;
+    var resolvePending;
+    var pending = new Promise(function (resolve) { resolvePending = resolve; });
+    _stepUpPending = pending;
+    var settled = false;
+    function done(ok) {
+      if (settled) return;
+      settled = true;
+      if (_stepUpPending === pending) _stepUpPending = null;
+      resolvePending(ok === true);
+    }
+    var claimed = false;
+    try {
+      claimed = !window.dispatchEvent(new CustomEvent('aver:admin-step-up-required', {
+        cancelable: true,
+        detail: { maxAgeSeconds: detail && detail.max_age_seconds, resolve: done },
+      }));
+    } catch (_) { claimed = false; }
+    if (!claimed) done(false);
+    return pending;
+  }
+
   async function _apiRequest(method, path, body, isFormData, extraHeaders, opts) {
     // Đường `keepalive` KHÔNG ĐƯỢC `await` trước khi gọi `fetch`.
     //
@@ -243,6 +289,26 @@
       // call + the server's sanitizer ref when the 5xx body carries one.
       thrown.request_id = requestId;
       thrown.ref = (isObj && detail.ref) || null;
+      // ADMINAAL2-0032 FR-013: an admin call refused for a missing second
+      // factor goes to /admin/mfa (as 401 goes to /login); the page itself
+      // is exempt so it can show its own state. An inactive staff 403 is
+      // announced so an already-rendered admin page shows its denied state.
+      // Both still throw, with .status/.detail, so no caller sees success.
+      if (response.status === 403 && !(opts && opts.noRedirect)) {
+        if (isObj && detail.code === 'mfa_required') _toAdminMfa();
+        else if (detail === 'Tài khoản chưa được kích hoạt') _announceInactive();
+        else if (isObj && detail.code === 'step_up_required' && !(opts && (opts.keepalive || opts._stepUpResent))) {
+          // FR-020: the server refused before any change, so after a fresh
+          // TOTP the SAME request is sent once more with the new token — and
+          // never a second time: a repeated refusal is thrown to the caller.
+          if (await _requestStepUp(detail)) {
+            var resendOpts = {};
+            if (opts) { for (var optKey in opts) resendOpts[optKey] = opts[optKey]; }
+            resendOpts._stepUpResent = true;
+            return _apiRequest(method, path, body, isFormData, extraHeaders, resendOpts);
+          }
+        }
+      }
       throw thrown;
     }
 

@@ -296,7 +296,7 @@ async def _atomic_reading_updates_async(
 ) -> None:
     import asyncpg
 
-    connection = await asyncpg.connect(database_dsn)
+    connection = await asyncpg.connect(database_dsn, statement_cache_size=0)
     try:
         async with connection.transaction():
             for old, patch in plan:
@@ -396,6 +396,10 @@ def _ensure_flow_asset(config: dict, asset: Path | None, *, apply: bool) -> None
             })
             stored = bucket.download(path)
         except Exception as exc:
+            from services.storage_limits import map_storage_error
+            mapped = map_storage_error("listening-images", exc)
+            if mapped is not None:
+                raise RuntimeError(str(mapped)) from exc
             raise RuntimeError("flowchart upload failed") from exc
         if hashlib.sha256(stored).hexdigest() != FLOW_SHA:
             raise RuntimeError("uploaded flowchart hash mismatch")

@@ -106,7 +106,9 @@ jobs:
 
   # PC-J14 / BL-14: the serial job ran 9–15 min of pytest (10–16.5 min total)
   # against its 25-minute budget. The suite now runs as four file shards in
-  # parallel. `backend` below keeps the required context name for branch
+  # parallel, balanced by measured per-file duration (PC-J515). Refresh the
+  # committed snapshot manually: docs/CI_PYTEST_SHARDS.md.
+  # `backend` below keeps the required context name for branch
   # protection and staging-promotion-gate.yml: it is green only when every
   # shard and the full collection are green and the shards ran each collected
   # test exactly once (`scripts/ci_pytest_shards.py verify`).
@@ -204,7 +206,7 @@ jobs:
         working-directory: backend
         run: |
           python scripts/ci_pytest_shards.py run --total 4 --index ${{ matrix.shard }} \
-            --out ci-pytest -- -v --tb=short
+            --out ci-pytest -- -v --tb=short --durations=20
 
       - name: Upload shard node ids
         if: always() && env.RUN_TESTS == 'true'
@@ -267,9 +269,23 @@ jobs:
       # A wrong image tag would silently turn this into a second PG 16 run.
       - name: Server is PostgreSQL 17
         run: |
+          : "${TEST_PG_URL:?TEST_PG_URL is required for PostgreSQL 17 verification}"
           VERSION=$(psql "$TEST_PG_URL" -Atc 'show server_version_num')
           echo "server_version_num=$VERSION"
           [ "$VERSION" -ge 170000 ] && [ "$VERSION" -lt 180000 ]
+
+      # PC-J367: the staging clone tests run the real clone script against two
+      # disposable loopback SCRAM clusters they start themselves, so they need
+      # PG 17.6+ server and client binaries, not the service container.
+      - name: Install PostgreSQL 17 binaries for the clone tests
+        run: |
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo sed -i 's/^#*[[:space:]]*create_main_cluster.*/create_main_cluster = false/' \
+            /etc/postgresql-common/createcluster.conf
+          sudo apt-get install -y --no-install-recommends postgresql-17
+          /usr/lib/postgresql/17/bin/postgres --version
+          echo "STAGING_CLONE_PG_BIN=/usr/lib/postgresql/17/bin" >> "$GITHUB_ENV"
 
       - name: Run migration/privilege tests on PostgreSQL 17
         working-directory: backend
@@ -277,9 +293,12 @@ jobs:
           python -m pytest -v --tb=short \
             tests/test_migration_*.py \
             tests/test_rls_no_inline_admin_role_policy.py \
+            tests/test_class_action_log_postgres.py \
+            tests/test_client_write_invariant_postgres.py \
             tests/test_mock_paper_policy_postgres.py \
             tests/test_mock_private_draft_postgres.py \
-            tests/test_activate_rate_limit.py
+            tests/test_activate_rate_limit.py \
+            tests/test_staging_clone_preflight_postgres.py
 
   backend-collect:
     name: Backend pytest collection + anchor drift
@@ -354,7 +373,8 @@ jobs:
           python3 scripts/ci_pytest_shards.py verify --dir ci-pytest --total 4 \
             --weights-out ci-pytest/weights.json
 
-      - name: Upload refreshed shard weights
+      # Candidate artifact only; CI never rewrites the committed weights.
+      - name: Upload measured shard weights for manual refresh
         if: always()
         uses: actions/upload-artifact@v6
         with:

@@ -153,7 +153,9 @@ def _commit_one(test_id: str, res, audio_bytes, status: str, hashes: dict) -> di
 
     try:
         supabase_admin.table("listening_tests").insert(test_payload).execute()
-        supabase_admin.storage.from_(settings.LISTENING_AUDIO_BUCKET).upload(
+        from services.storage_limits import upload_with_error_mapping
+        upload_with_error_mapping(
+            "listening-audio", supabase_admin.storage.from_(settings.LISTENING_AUDIO_BUCKET).upload,
             storage_path, audio_bytes,
             {"content-type": "audio/mpeg", "x-upsert": "true"})
         content_row = dict(res.content_row)

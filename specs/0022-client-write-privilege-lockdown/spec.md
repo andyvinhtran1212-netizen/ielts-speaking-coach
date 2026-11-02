@@ -1,7 +1,7 @@
 ---
 id: SECWRITE-0022
 title: Client roles cannot write privilege, score or session data
-status: approved
+status: implementing
 risk: critical
 owner: product
 ---

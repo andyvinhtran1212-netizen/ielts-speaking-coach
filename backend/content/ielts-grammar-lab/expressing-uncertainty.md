@@ -121,7 +121,7 @@ S + might/may/could + V (bare)
 |----------|--------------|-------|
 | **perhaps / maybe** | thấp | **Perhaps** the biggest factor is cost. |
 | **possibly** | thấp | This is **possibly** the most effective solution. |
-| **probably / likely** | cao | The situation will **probably** improve. |
+| **probably / likely** | khá cao | The situation will **probably** improve. |
 | **arguably** | có thể lập luận rằng | This is **arguably** the best approach. |
 
 - **Maybe** people are simply too busy to cook these days.
@@ -179,9 +179,9 @@ S + tend(s) to + V
 *"Banning cars will solve air pollution. Everyone will benefit and the environment will recover completely."*
 
 **Hedged (giới hạn nhận định):**
-*"Banning cars **could help reduce** air pollution. **Some** people **may** benefit, and the environment **might** recover more fully. *(Giữ chính sách cấm; phạm vi/kết quả cần theo dữ kiện.)*"*
+*"Banning cars **could help reduce** air pollution. **Some** residents **may** benefit, and air quality **might** improve noticeably."*
 
-**Phân tích:** could/may/might chỉ khả năng; some chỉ phạm vi; fully chỉ mức hoàn toàn, không phải hedge về xác suất.
+**Phân tích:** could/may/might giảm mức chắc chắn; *some* giới hạn phạm vi.
 
 ---
 
@@ -195,6 +195,7 @@ S + tend(s) to + V
 | I'm not entirely certain | I'm not 100% sure, but... |
 
 **Part 3 example:**
+
 - Q: "Will printed books disappear in the future?"
 - ✅ "Hmm, **it's hard to say for sure**, but I **don't think** they'll disappear completely. E-books **might** take over for things like textbooks, **but** a lot of people **still seem to** prefer the feel of a real book — **so probably** print will shrink rather than vanish."
 
@@ -218,7 +219,7 @@ S + tend(s) to + V
 - ❌ Maybe it might possibly perhaps be true. (loãng nghĩa)
 - ✅ Chọn **một** lớp hedging: *It might be true.* / *Perhaps it's true.*
 
-### Lỗi 4: "It seems" + to be thừa
+### Lỗi 4: Lặp *seem* trong cùng một câu
 
 - ⚠ "It seems that he is tired" / "He seems tired" / "He seems to be tired" đều đúng — nhưng đừng dùng "It seems he seems...".
 
@@ -242,12 +243,14 @@ S + tend(s) to + V
 ### Đáp án (gợi ý)
 
 **Làm mềm:**
+
 1. Technology **can** make people **somewhat** lazy. / Technology **tends to** make people lazy **in some ways**.
 2. City life **can often be** stressful.
 3. **Many** people **seem to** prefer working from home.
 4. This policy **could** help **address** the problem.
 
 **Viết lại:**
+
 1. The decline **may have been** caused by the recession.
 2. Students **tend not to** read enough. / Students **tend to** read too little.
 3. This is **arguably / possibly** the best solution.
@@ -266,6 +269,7 @@ S + tend(s) to + V
 | Tránh tuyệt đối | most / often / in many cases | In many cases, ... |
 
 **Quy tắc vàng:**
+
 - Tránh "all / always / never / everyone" trong câu lập luận — dùng "most / often / tend to"
 - Tránh chồng những từ gần nghĩa dư thừa; vẫn có thể kết hợp giới hạn xác suất, phạm vi và nguồn vì chúng có chức năng khác nhau
 - Speaking: "I'm not 100% sure, but..." vừa hedging vừa mua thời gian

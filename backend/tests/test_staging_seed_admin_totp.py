@@ -164,3 +164,118 @@ def test_gotrue_error_summary_carries_no_request_body(monkeypatch):
                              apikey="anon-key", body={"email": "e", "password": PASSWORD})
     assert str(exc.value) == "POST /auth/v1/token -> HTTP 400 invalid_credentials"
     assert exc.value.__cause__ is None and exc.value.__suppress_context__
+
+
+# ── seed(): every precondition runs before the first write (job 1oh) ─────
+
+
+class FakeQuery:
+    def __init__(self, sb, table):
+        self.sb, self.table, self.op, self.payload, self.filters = sb, table, "select", None, []
+
+    def select(self, *_):
+        return self
+
+    def eq(self, column, value):
+        self.filters.append((column, value))
+        return self
+
+    def limit(self, _):
+        return self
+
+    def update(self, payload):
+        self.op, self.payload = "update", payload
+        return self
+
+    def insert(self, payload):
+        self.op, self.payload = "insert", payload
+        return self
+
+    def upsert(self, payload):
+        self.op, self.payload = "upsert", payload
+        return self
+
+    def execute(self):
+        from types import SimpleNamespace
+        if self.op == "select":
+            rows = [r for r in self.sb.rows.get(self.table, [])
+                    if all(r.get(c) == v for c, v in self.filters)]
+            return SimpleNamespace(data=rows)
+        self.sb.events.append(("db-write", self.op, self.table))
+        return SimpleNamespace(data=[{"id": f"{self.table}-{len(self.sb.events)}"}])
+
+
+class FakeSupabase:
+    """Every seeded identity already exists, so a reseed rotates 4 passwords."""
+
+    def __init__(self, events):
+        from types import SimpleNamespace
+        self.events = events
+        ids = {"student": "s-id", "unactivated": "u-id", "instructor": "i-id", "admin": UID}
+        self.rows = {"users": [{"id": i, "email": staging_seed._email(r, "smoke")} for r, i in ids.items()]}
+        self.auth = SimpleNamespace(admin=SimpleNamespace(
+            update_user_by_id=lambda uid, attrs: events.append(("password", uid)),
+            create_user=lambda attrs: events.append(("create_user", attrs["email"])),
+            list_users=lambda **_: [],
+        ))
+
+    def table(self, name):
+        return FakeQuery(self, name)
+
+
+@pytest.fixture
+def seed_env(monkeypatch, gotrue):
+    events: list[tuple] = []
+    fake_gotrue = gotrue(factors=[{"id": "kept", "factor_type": "totp", "status": "verified"}])
+
+    def logged_gotrue(method, url, **kwargs):
+        events.append(("gotrue", method, url.removeprefix(URL)))
+        return fake_gotrue(method, url, **kwargs)
+
+    monkeypatch.setattr(staging_seed, "_gotrue", logged_gotrue)
+    monkeypatch.setattr(staging_seed, "_staging_auth_env", lambda: AUTH_ENV)
+    monkeypatch.setattr(staging_seed, "_client", lambda: FakeSupabase(events))
+    return events
+
+
+@pytest.mark.parametrize("stored", [None, "", "NOT-BASE32!"])
+def test_seed_changes_no_password_when_the_totp_precondition_fails(seed_env, tmp_path, capsys, stored):
+    secret_file = tmp_path / "admin.env"
+    if stored is not None:
+        staging_seed._write_totp_secret(secret_file, stored, "note")
+    with pytest.raises(SystemExit) as exc:
+        staging_seed.seed("smoke", PASSWORD, secret_file, False)
+
+    assert not [e for e in seed_env if e[0] in {"password", "create_user", "db-write"}], seed_env
+    assert seed_env == [("gotrue", "GET", f"/auth/v1/admin/users/{UID}/factors")], "precheck is read-only"
+    message = str(exc.value)
+    assert "--reset-admin-totp" in message and "Nothing was changed" in message
+    out = capsys.readouterr()
+    assert "seeding staging namespace" not in out.out
+    _assert_no_secret(message + out.out + out.err, PASSWORD)
+
+
+def test_seed_refuses_a_directory_as_the_totp_file_before_any_write(seed_env, tmp_path):
+    with pytest.raises(SystemExit) as exc:
+        staging_seed.seed("smoke", PASSWORD, tmp_path, False)
+    assert "is a directory" in str(exc.value)
+    assert seed_env == []
+
+
+def test_seed_checks_the_totp_precondition_before_rotating_passwords(seed_env, tmp_path):
+    secret_file = tmp_path / "admin.env"
+    staging_seed._write_totp_secret(secret_file, RFC_SECRET, "note")
+    staging_seed.seed("smoke", PASSWORD, secret_file, False)
+
+    first_write = next(i for i, e in enumerate(seed_env) if e[0] in {"password", "db-write"})
+    assert ("gotrue", "GET", f"/auth/v1/admin/users/{UID}/factors") in seed_env[:first_write]
+    assert [e[1] for e in seed_env if e[0] == "password"] == ["s-id", "u-id", "i-id", UID]
+    assert ("gotrue", "POST", "/auth/v1/factors/kept/verify") in seed_env[first_write:]
+
+
+def test_seed_reset_skips_the_factor_precheck(seed_env, tmp_path):
+    secret_file = tmp_path / "creds" / "admin.env"
+    staging_seed.seed("smoke", PASSWORD, secret_file, True)
+    assert seed_env.index(("password", "s-id")) < seed_env.index(
+        ("gotrue", "GET", f"/auth/v1/admin/users/{UID}/factors"))
+    assert staging_seed._read_totp_secret(secret_file) == RFC_SECRET

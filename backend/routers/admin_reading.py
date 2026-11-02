@@ -44,6 +44,7 @@ from services.reading_grammar_focus import (
     ReadingGrammarFocusError, edit_focus, read_focus,
 )
 from services.class_assignment_service import active_exam_assignment_references
+from services.errors import clip_user_value
 from services.content_import_service import (
     FrontmatterError,
     _split_frontmatter,
@@ -787,7 +788,7 @@ def _fetch_admin_test_or_404(test_id: str) -> dict:
         .execute()
     )
     if not res.data:
-        raise HTTPException(404, f"Reading test {test_id!r} not found.")
+        raise HTTPException(404, f"Reading test {clip_user_value(test_id)!r} not found.")
     return res.data[0]
 
 
@@ -979,7 +980,7 @@ async def admin_set_reading_exam_only(
     value = bool(body.get("exam_only"))
     rows = supabase_admin.table("reading_tests").select("id").eq("test_id", test_id).limit(1).execute().data or []
     if not rows:
-        raise HTTPException(404, f"Không tìm thấy đề đọc '{test_id}'.")
+        raise HTTPException(404, f"Không tìm thấy đề đọc '{clip_user_value(test_id)}'.")
     from services.mock_paper_policy import mutate
     row = mutate(supabase_admin, "reading", rows[0]["id"], {"exam_only": value}, actor["id"],
                  expected_revision=body.get("expected_revision"))
@@ -999,7 +1000,7 @@ async def admin_set_reading_visibility(
     value = bool(body.get("is_public"))
     rows = supabase_admin.table("reading_tests").select("id").eq("test_id", test_id).limit(1).execute().data or []
     if not rows:
-        raise HTTPException(404, f"Không tìm thấy đề đọc '{test_id}'.")
+        raise HTTPException(404, f"Không tìm thấy đề đọc '{clip_user_value(test_id)}'.")
     from services.mock_paper_policy import mutate
     row = mutate(supabase_admin, "reading", rows[0]["id"], {"is_public": value}, actor["id"],
                  expected_revision=body.get("expected_revision"), overlap=body.get("overlap"))
@@ -1029,7 +1030,7 @@ async def admin_lock_reading_test(
         .select("id,metadata").eq("test_id", test_id).limit(1).execute()
     )
     if not res.data:
-        raise HTTPException(404, f"Reading test {test_id!r} not found.")
+        raise HTTPException(404, f"Reading test {clip_user_value(test_id)!r} not found.")
     row = res.data[0]
     metadata = dict(row.get("metadata") or {})
 
@@ -1085,7 +1086,7 @@ async def admin_share_reading_test(
         .select("id,metadata").eq("test_id", test_id).limit(1).execute()
     )
     if not res.data:
-        raise HTTPException(404, f"Reading test {test_id!r} not found.")
+        raise HTTPException(404, f"Reading test {clip_user_value(test_id)!r} not found.")
     row = res.data[0]
     metadata = dict(row.get("metadata") or {})
 
@@ -1223,7 +1224,7 @@ def _fetch_question_or_404(question_id: str) -> dict:
         .execute()
     )
     if not res.data:
-        raise HTTPException(404, f"Reading question {question_id} not found.")
+        raise HTTPException(404, f"Reading question {clip_user_value(question_id)} not found.")
     row = res.data[0]
     if row.get("question_type") not in _DIAGRAM_FLOW_TYPES:
         raise HTTPException(
@@ -1316,7 +1317,7 @@ async def admin_upload_diagram_image(
             uploaded_by=admin_user.get("id"),
         )
     except InvalidImageError as exc:
-        raise HTTPException(exc.http_status, str(exc))
+        raise HTTPException(exc.http_status, exc.detail)
 
     # Merge metadata into payload.template. The existing payload may
     # already carry a template (e.g. summary_text on summary_completion

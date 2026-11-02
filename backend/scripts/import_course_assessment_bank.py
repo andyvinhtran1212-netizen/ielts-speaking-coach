@@ -7,6 +7,13 @@ Example (dry-run by default)::
       --code C1-MIDTERM-B01-B11-120 --title "Giữa kỳ B01–B11 · 120 câu" \
       --kind midterm --expected-count 120
 
+An end-of-course final declares the lessons it covers::
+
+    python -m scripts.import_course_assessment_bank \
+      --file FINAL-B01-B20_120.json --course C1 \
+      --code C1-FINAL-B01-B20-120 --title "Cuối khoá B01–B20 · 120 câu" \
+      --kind final --scope B01-B20 --expected-count 120
+
 Add ``--commit`` only after the dry-run passes.  Course banks stay private and
 become available through a class assignment; ``is_published`` never opens them.
 """
@@ -19,11 +26,15 @@ import logging
 import sys
 from pathlib import Path
 
-from services.course_assessment_import import normalize_assessment_rows, source_sha256
+from services.course_assessment_import import (
+    DEFAULT_SCOPE, AssessmentValidationError, canonical_lesson_scope,
+    normalize_assessment_rows, source_sha256,
+)
 
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("import-course-assessment")
+MAX_LISTED_ERRORS = 50
 
 
 def _course(db, code: str) -> dict:
@@ -59,13 +70,48 @@ def _commit_bank(db, *, existing: list[dict], payload: dict,
     return bank_id, result["written"]
 
 
+def _bank_payload(*, course: dict, code: str, title: str, kind: str, scope: str,
+                  expected_count: int, path: Path, raw: list[dict],
+                  rows: list[dict]) -> dict:
+    return {
+        "code": code,
+        "title": title,
+        "skill_area": "course",
+        "course_id": course["id"],
+        "lesson_no": None,
+        "words_count": len(rows),
+        "source": f"course-{course['code']}-assessment-json",
+        "is_published": False,
+        "meta": {
+            "nguon": path.name,
+            "assessment_kind": kind,
+            "scope": canonical_lesson_scope(scope),
+            "question_format": "multiple_choice_5",
+            "option_count": 5,
+            "expected_question_count": expected_count,
+            "sections": ["quiz"],
+            "source_sha256": source_sha256(raw),
+        },
+    }
+
+
+def _validation_report(errors: list[str]) -> str:
+    lines = [f"Bộ đề còn {len(errors)} lỗi:", *errors[:MAX_LISTED_ERRORS]]
+    if len(errors) > MAX_LISTED_ERRORS:
+        lines.append(f"… còn {len(errors) - MAX_LISTED_ERRORS} lỗi")
+    return "\n".join(lines)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--file", required=True)
     parser.add_argument("--course", required=True)
     parser.add_argument("--code", required=True)
     parser.add_argument("--title", required=True)
-    parser.add_argument("--kind", choices=("midterm", "post_midterm_practice"), required=True)
+    parser.add_argument("--kind", choices=("midterm", "post_midterm_practice", "final"),
+                        required=True)
+    parser.add_argument("--scope", default=DEFAULT_SCOPE,
+                        help="Các buổi đề được phủ, ví dụ B01-B20 (mặc định B01-B11).")
     parser.add_argument("--expected-count", type=int, required=True)
     parser.add_argument("--commit", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
@@ -76,12 +122,17 @@ def main() -> int:
         raise SystemExit(f"Không thấy tệp {path}.")
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
-        rows = normalize_assessment_rows(raw, expected_count=args.expected_count)
+        rows = normalize_assessment_rows(
+            raw, expected_count=args.expected_count, scope=args.scope)
+    except AssessmentValidationError as exc:
+        # Nothing has been written yet; --commit is refused the same way.
+        raise SystemExit(_validation_report(exc.errors)) from exc
     except (json.JSONDecodeError, ValueError) as exc:
         raise SystemExit(str(exc)) from exc
 
-    logger.info("Bank: %s · %s · %d câu trắc nghiệm × 5 đáp án",
-                args.code, args.title, len(rows))
+    logger.info("Bank: %s · %s · %s · phạm vi %s · %d câu trắc nghiệm × 5 đáp án",
+                args.code, args.title, args.kind, canonical_lesson_scope(args.scope),
+                len(rows))
     by_lesson: dict[str, int] = {}
     for source in raw:
         lesson = str(source.get("lesson_primary") or "?")
@@ -102,26 +153,11 @@ def main() -> int:
     existing = (supabase_admin.table("quiz_banks").select("id, code")
                 .eq("course_id", course["id"]).eq("code", args.code)
                 .limit(1).execute().data) or []
-    payload = {
-        "code": args.code,
-        "title": args.title,
-        "skill_area": "course",
-        "course_id": course["id"],
-        "lesson_no": None,
-        "words_count": len(rows),
-        "source": f"course-{course['code']}-assessment-json",
-        "is_published": False,
-        "meta": {
-            "nguon": path.name,
-            "assessment_kind": args.kind,
-            "scope": "B01-B11",
-            "question_format": "multiple_choice_5",
-            "option_count": 5,
-            "expected_question_count": args.expected_count,
-            "sections": ["quiz"],
-            "source_sha256": source_sha256(raw),
-        },
-    }
+    payload = _bank_payload(
+        course=course, code=args.code, title=args.title, kind=args.kind,
+        scope=args.scope, expected_count=args.expected_count, path=path,
+        raw=raw, rows=rows,
+    )
     try:
         bank_id, written = _commit_bank(
             supabase_admin, existing=existing, payload=payload, rows=rows,

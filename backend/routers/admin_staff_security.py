@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 import uuid
 
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query
 
 import routers.admin as admin_module
 from models.staff_security import (
@@ -68,10 +68,12 @@ async def admin_mfa_status(authorization: str | None = Header(default=None)):
     }
 
 
-@router.patch("/users/{user_id}/active", response_model=StaffActiveOut)
+@router.patch("/users/{user_id}/active", response_model=StaffActiveOut,
+              responses=staff_guard.STEP_UP_RESPONSES)
 async def admin_set_staff_active(
     user_id: str,
     payload: StaffActiveIn,
+    background_tasks: BackgroundTasks,
     authorization: str | None = Header(default=None),
 ):
     """Suspend (``is_active: false``) or reactivate an admin or instructor.
@@ -90,6 +92,7 @@ async def admin_set_staff_active(
     before any change.
     """
     admin = await require_admin(authorization)
+    staff_guard.require_recent_mfa(admin, authorization)  # FR-020, before any DB call
     target = _target_id(user_id)
     actor = _actor(admin)
     if actor == target:
@@ -118,12 +121,14 @@ async def admin_set_staff_active(
                 # confirmed (PC-J66 F01). A failure changes nothing: it is
                 # audited and alerted like any revocation failure, answers
                 # sessions_revoked=false + revoke_error, and a repeat retries.
-                outcome, _ = await staff_security.revoke_and_record(
+                outcome, revoke_audit_id = await staff_security.revoke_and_record(
                     db, target_id=target, actor_id=actor, ban=True, trigger="reactivate",
                     engine=admin_module._db_engine, auth_admin=_auth_admin(),
                     reason=payload.reason.strip(), request_id=request_id,
                 )
                 if not outcome.sessions_revoked:
+                    staff_security.schedule_owner_alerts(
+                        background_tasks, admin_module._db_engine, revoke_audit_id)
                     return {
                         "ok": False, "id": target, "is_active": bool(current.get("is_active")),
                         "suspended_at": current.get("suspended_at"), "changed": False,
@@ -148,16 +153,20 @@ async def admin_set_staff_active(
                 _reban_if_still_suspended(db, target)
             raise
 
+        revoke_audit_id = None
         if change.suspended:
             # Also on a repeat: the revocation is idempotent and a repeat is how
             # a caller re-asserts the suspension's ban (research.md §9.2).
-            outcome, _ = await staff_security.revoke_and_record(
+            outcome, revoke_audit_id = await staff_security.revoke_and_record(
                 db, target_id=target, actor_id=actor, ban=True, trigger="suspend",
                 engine=admin_module._db_engine, auth_admin=_auth_admin(),
                 reason=payload.reason.strip(), request_id=request_id,
             )
             sessions_revoked, revoke_error = outcome.sessions_revoked, outcome.revoke_error
 
+        # Committed: the owner alerts go out after the response (FR-011).
+        staff_security.schedule_owner_alerts(
+            background_tasks, admin_module._db_engine, change.audit_id, revoke_audit_id)
         after = change.after or {}
         return {
             "ok": True,
@@ -172,9 +181,11 @@ async def admin_set_staff_active(
         }
 
 
-@router.post("/users/{user_id}/revoke-sessions", response_model=RevokeSessionsOut)
+@router.post("/users/{user_id}/revoke-sessions", response_model=RevokeSessionsOut,
+             responses=staff_guard.STEP_UP_RESPONSES)
 async def admin_revoke_staff_sessions(
     user_id: str,
+    background_tasks: BackgroundTasks,
     payload: RevokeSessionsIn | None = None,
     authorization: str | None = Header(default=None),
 ):
@@ -184,6 +195,7 @@ async def admin_revoke_staff_sessions(
     serialized with suspension and reactivation of the same account. Every
     attempt is audited; a failure also alerts the owner."""
     admin = await require_admin(authorization)
+    staff_guard.require_recent_mfa(admin, authorization)  # FR-020, before any DB call
     target = _target_id(user_id)
     actor = _actor(admin)
     # The row is read under the lock, so the ban mode cannot go stale.
@@ -205,6 +217,7 @@ async def admin_revoke_staff_sessions(
             trigger="retry", engine=admin_module._db_engine, auth_admin=_auth_admin(),
             reason=reason, request_id=current_request_id(), record_success=True,
         )
+        staff_security.schedule_owner_alerts(background_tasks, admin_module._db_engine, audit_id)
         return {
             "ok": outcome.sessions_revoked,
             "sessions_revoked": outcome.sessions_revoked,

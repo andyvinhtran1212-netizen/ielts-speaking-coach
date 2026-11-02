@@ -112,9 +112,17 @@ jobs:
           PROBE_PASSWORD: ${{ secrets.PROBE_PASSWORD }}
         run: node tooling/authed-probe.mjs --mode "$PROBE_MODE"
 
+      - name: Sanitize + scan g2 ledgers before cache
+        id: guard_g2_cache
+        if: ${{ always() && env.PROBE_MODE != 'verdict' }}
+        working-directory: frontend
+        run: |
+          node tooling/sanitize-artifacts.mjs out/g2-ledger-*.jsonl
+          node tooling/scan-artifact-secrets.mjs out/g2-ledger-*.jsonl
+
       # Chỉ lưu sổ CỦA CHÍNH chế độ này — không đụng vào sổ của chế độ kia.
       - name: Lưu sổ ${{ env.PROBE_MODE }}
-        if: ${{ always() && env.PROBE_MODE != 'verdict' }}
+        if: ${{ always() && env.PROBE_MODE != 'verdict' && steps.guard_g2_cache.outcome == 'success' }}
         uses: actions/cache/save@v5
         with:
           path: frontend/out/g2-ledger-${{ env.PROBE_MODE }}.jsonl
@@ -144,8 +152,16 @@ jobs:
             echo "::notice::G2 chưa đạt sàn — bình thường khi đang tích luỹ mẫu. Job vẫn xanh vì probe chạy được."
           fi
 
-      - name: Nộp sổ làm chứng cứ
+      - name: Sanitize + scan g2 ledger artifacts
+        id: guard_g2_artifacts
         if: ${{ always() }}
+        working-directory: frontend
+        run: |
+          node tooling/sanitize-artifacts.mjs out/g2-ledger-*.jsonl
+          node tooling/scan-artifact-secrets.mjs out/g2-ledger-*.jsonl
+
+      - name: Nộp sổ làm chứng cứ
+        if: ${{ always() && steps.guard_g2_artifacts.outcome == 'success' }}
         uses: actions/upload-artifact@v6
         with:
           name: g2-ledger-${{ github.run_id }}

@@ -36,6 +36,7 @@ from uuid import UUID
 from config import settings
 from database import supabase_admin
 from services.db_async import aexecute
+from services.errors import clip_user_values
 
 logger = logging.getLogger(__name__)
 
@@ -246,7 +247,7 @@ def validate_permissions_or_raise(permissions: list[str]) -> None:
     invalid = [p for p in permissions if p not in ALLOWED_PERMISSIONS]
     if invalid:
         raise ValueError(
-            f"Unknown permission values: {sorted(set(invalid))}. "
+            f"Unknown permission values: {clip_user_values(sorted(set(map(str, invalid))))}. "
             f"Allowed: {sorted(ALLOWED_PERMISSIONS)}."
         )
 

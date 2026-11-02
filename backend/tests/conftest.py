@@ -10,8 +10,10 @@ Supabase (e.g. test_rls_vocab_integration, test_exercise_rls) detect their
 own RLS_TEST_USER_* env vars and skip otherwise.
 """
 
+import asyncio
 import os
 import socket
+import sys
 
 import pytest
 
@@ -22,6 +24,18 @@ os.environ.setdefault("SUPABASE_SERVICE_KEY", "test-service-key")
 # schema closed. Forced (not setdefault) so a developer's ENABLE_API_DOCS=1 in
 # backend/.env cannot change what tests/test_api_docs_closed.py asserts.
 os.environ["ENABLE_API_DOCS"] = "0"
+
+
+@pytest.fixture(autouse=True)
+def _fresh_health_ready_probe(monkeypatch):
+    """Readiness TTL/in-flight state belongs to one test's event loop and DB."""
+    health = sys.modules.get("routers.health")
+    if health is None:
+        return
+
+    monkeypatch.setattr(health, "_ready_probe_cache", None, raising=False)
+    monkeypatch.setattr(health, "_ready_probe_lock", asyncio.Lock(), raising=False)
+    monkeypatch.setattr(health, "_ready_probe_tasks", {}, raising=False)
 
 
 # Sprint 5.2 — Writing permission gate is checked on every Writing
@@ -110,6 +124,20 @@ def live_activation_gate(monkeypatch):
     monkeypatch.setattr(activation_gate, "alookup_is_active",
                         _ACTIVATION_GATE_ORIGINALS["alookup_is_active"])
     return activation_gate
+
+
+@pytest.fixture(autouse=True)
+def _reset_quiz_bank_content_cache():
+    """PC-J434 — the quiz player caches bank questions and word cards per
+    process. Each test builds its own fake DB under the same bank/topic ids,
+    so one test's cached content must never answer another's read."""
+    try:
+        from services import quiz_service
+        quiz_service._bank_content_cache.clear()
+        quiz_service._word_cards_cache.clear()
+    except Exception:
+        pass
+    yield
 
 
 @pytest.fixture(autouse=True)

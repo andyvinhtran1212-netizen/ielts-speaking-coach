@@ -19,8 +19,8 @@ def _payload():
     return json.loads((Path(__file__).parent / "fixtures/writing_task1_consistency.json").read_text())
 
 
-def _config(**overrides):
-    return GraderConfig(task_type="task1_academic", prompt_text="Describe the chart.",
+def _config(task_type="task1_academic", **overrides):
+    return GraderConfig(task_type=task_type, prompt_text="Describe the chart.",
                         essay_text=ESSAY, analysis_level=3, **overrides)
 
 
@@ -62,6 +62,9 @@ async def test_deep_final_merge_rechecks_added_errors_and_changed_gra(writing_pr
     payload = _payload()
     payload["criteriaFeedback"]["grammaticalRange"]["bandScore"] = 6
     payload["criteriaFeedback"]["lexicalResource"]["feedback"] = "Em dùng 'rose rapidly' phù hợp."
+    # summary is the five-essay overview (Codex r4421899085); the GRA recheck
+    # applies to the current-essay observation.
+    payload["sentenceStructureAnalysis"]["current_essay_observation"] = "Cấu trúc câu đơn giản, cần câu phức."
     state.claude = [json.dumps(payload)]
     state.gemini = [json.dumps({
         "band_score_adjustments": {"grammaticalRange": 7},
@@ -74,7 +77,7 @@ async def test_deep_final_merge_rechecks_added_errors_and_changed_gra(writing_pr
     assert len(state.claude_requests) == 1
     assert len(state.gemini_calls) == (4 if fail_pass3 else 2)  # Existing retry budget only.
     assert result.feedback.criteriaFeedback.grammaticalRange.bandScore == 7
-    assert "đơn giản" not in result.feedback.sentenceStructureAnalysis["summary"]
+    assert "đơn giản" not in result.feedback.sentenceStructureAnalysis["current_essay_observation"]
     assert "rose rapidly" not in result.feedback.criteriaFeedback.lexicalResource.feedback
     assert result.feedback.mistakeAnalysis[-1].mistakeType == "Data Accuracy"
     assert result.feedback.criteriaFeedback.mainCriterion.title == "Task Achievement"
@@ -82,21 +85,155 @@ async def test_deep_final_merge_rechecks_added_errors_and_changed_gra(writing_pr
 
 
 @pytest.mark.asyncio
-async def test_repair_failure_keeps_unrepaired_feedback_and_grades(writing_providers, monkeypatch, caplog):
+@pytest.mark.parametrize("provider", ["anthropic", "gemini"])
+@pytest.mark.parametrize("tier", ["standard", "deep", "instructor"])
+@pytest.mark.parametrize("task_type", ["task1_academic", "task2"])
+async def test_repair_failure_keeps_unrepaired_feedback_and_grades(
+    writing_providers, monkeypatch, caplog, provider, tier, task_type,
+):
+    from config import settings
     from services import gemini_writing_grader as gwg
-
-    def broken_repair(feedback, task_type):
-        feedback.criteriaFeedback.mainCriterion.title = "partially repaired"
-        raise RuntimeError("repair bug")
 
     state = writing_providers
     state.claude = [json.dumps(_payload())]
-    monkeypatch.setattr(gwg, "repair_writing_consistency", broken_repair)
-    with caplog.at_level("WARNING", logger=gwg.logger.name):
-        result = await state.grader.grade_essay(_config(grading_tier="standard"))
+    state.gemini = ([json.dumps(_payload())] if provider == "gemini" else []) + [
+        '{"band_score_adjustments": {}}', '{"sentence_rewrites": []}',
+    ]
+    if provider == "gemini":
+        monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "")
 
+    # Capture the entire paid result immediately before the final repair.
+    grade_tier = getattr(state.grader, f"_grade_{tier}")
+    original = {}
+
+    async def capture_unrepaired(config, loader):
+        result = await grade_tier(config, loader)
+        original["result"] = result.model_dump()
+        original["feedback"] = result.feedback
+        return result
+
+    monkeypatch.setattr(state.grader, f"_grade_{tier}", capture_unrepaired)
+    repair_calls = []
+
+    def broken_repair(feedback, task_type):
+        repair_calls.append(task_type)
+        assert feedback is not original["feedback"]
+        feedback.criteriaFeedback.mainCriterion.title = "partially repaired"
+        feedback.keyTakeaways.strengths.clear()
+        feedback.sentenceStructureAnalysis["common_issues"].append({"pattern": "partial"})
+        feedback.bandTrajectoryAnalysis["criteria_breakdown"][0]["criterion"] = "partial"
+        # Exception messages can contain learner/model text; only the type is safe.
+        raise RuntimeError(f"repair bug: {ESSAY} {feedback.overallBandScoreSummary}")
+
+    monkeypatch.setattr(gwg, "repair_writing_consistency", broken_repair)
+    with caplog.at_level("INFO", logger=gwg.logger.name):
+        result = await state.grader.grade_essay(_config(task_type, grading_tier=tier))
+
+    assert repair_calls == [task_type]
+    assert result.feedback is original["feedback"]
+    assert result.model_dump() == original["result"]
     assert result.feedback.criteriaFeedback.mainCriterion.title == "Task Response"
     assert "levelled off" in result.feedback.criteriaFeedback.lexicalResource.feedback
-    assert len(state.claude_requests) == 1
+    assert len(state.claude_requests) == (provider == "anthropic")
+    assert len(state.gemini_calls) == (provider == "gemini") + (2 if tier == "deep" else 0)
+    assert len(state.rows) == (3 if tier == "deep" else 1)
+    assert all(row["status"] == "success" for row in state.rows)
+    warnings = [r for r in caplog.records if r.name == gwg.logger.name and r.levelno >= 30]
+    # The fakes return no usage metadata, so cost-gap warnings (PC-J218) may
+    # appear too; they carry no essay text. Exactly one repair warning remains.
+    assert all(ESSAY not in r.getMessage() for r in warnings)
+    warnings = [r for r in warnings if not r.getMessage().startswith("writing_cost_incomplete ")]
+    assert len(warnings) == 1
+    # The step is named; the message keeps only Python error wording, so the
+    # essay and summary quoted in it are reduced to "…".
+    assert warnings[0].getMessage() == (
+        "[grader] consistency repair failed at repair, keeping unrepaired feedback: "
+        "RuntimeError: … of … a …."
+    )
+    assert warnings[0].exc_info is None
+    assert "repair bug" not in caplog.text
+    assert ESSAY not in caplog.text
+    assert original["feedback"].overallBandScoreSummary not in caplog.text
+    assert "consistency repairs:" not in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("sections", [
+    {"sentenceStructureAnalysis": None, "bandTrajectoryAnalysis": None},
+    {"sentenceStructureAnalysis": {}, "bandTrajectoryAnalysis": {}},
+    {"sentenceStructureAnalysis": [], "bandTrajectoryAnalysis": {"criteria_breakdown": []}},
+    {"sentenceStructureAnalysis": {"summary": [], "current_essay_observation": {"custom": None}},
+     "bandTrajectoryAnalysis": {"criteria_breakdown": [None, [], 7, {}], "summary": None}},
+    # Used to raise TypeError in repair (CR P3, PR-2053); now skipped.
+    {"sentenceStructureAnalysis": {"summary": "Custom summary", "sentenceUpgrades": []},
+     "bandTrajectoryAnalysis": {"criteria_breakdown": 7}},
+], ids=["null", "empty-dicts", "empty-lists", "free-form-dicts", "repair-type-error"])
+async def test_optional_analysis_shapes_cannot_lose_a_paid_grade(writing_providers, sections, caplog):
+    state = writing_providers
+    payload = _payload()
+    payload.update(sections)
+    state.claude = [json.dumps(payload)]
+
+    result = await state.grader.grade_essay(_config())
+
+    assert len(state.claude_requests) == 1 and state.gemini_calls == []
     assert len(state.rows) == 1 and state.rows[0]["status"] == "success"
-    assert "consistency repair failed" in caplog.text and "RuntimeError" in caplog.text
+    # Every free-form shape completes the repair; unreadable parts stay as sent.
+    assert result.feedback.criteriaFeedback.mainCriterion.title == "Task Achievement"
+    assert result.feedback.mistakeAnalysis[0].mistakeType == "Data Accuracy"
+    assert "18–30-year-olds" in result.feedback.improvedEssay
+    assert "consistency repair failed" not in caplog.text
+    if isinstance(sections["bandTrajectoryAnalysis"], dict):
+        assert (result.feedback.bandTrajectoryAnalysis.get("criteria_breakdown")
+                == sections["bandTrajectoryAnalysis"].get("criteria_breakdown"))
+
+
+@pytest.mark.asyncio
+async def test_repair_failure_log_names_the_step_without_learner_text(writing_providers, monkeypatch, caplog):
+    from services import gemini_writing_grader as gwg
+    from services import writing_feedback_consistency as wfc
+
+    state = writing_providers
+    payload = _payload()
+    state.claude = [json.dumps(payload)]
+    learner_quote = payload["mistakeAnalysis"][0]["explanation"]
+
+    def broken_data_check(explanation):
+        # A shape error whose message quotes learner/model text and essay text.
+        raise TypeError(f"'{explanation}' object is not iterable; {ESSAY} " + "x" * 400)
+
+    monkeypatch.setattr(wfc, "_data_error", broken_data_check)
+    with caplog.at_level("INFO", logger=gwg.logger.name):
+        result = await state.grader.grade_essay(_config())
+
+    assert len(state.rows) == 1 and state.rows[0]["status"] == "success"
+    assert result.feedback.mistakeAnalysis[0].mistakeType != "Data Accuracy"  # Unrepaired copy kept.
+    warnings = [r for r in caplog.records if "consistency repair failed" in r.getMessage()]
+    assert len(warnings) == 1 and warnings[0].levelname == "WARNING"
+    message = warnings[0].getMessage()
+    assert message == (
+        "[grader] consistency repair failed at mistakeAnalysis[0], keeping unrepaired feedback: TypeError: "
+        "'….' object is not iterable; … of … a …"
+    )
+    assert learner_quote not in caplog.text
+    assert ESSAY not in caplog.text
+    for sentence in ESSAY.split(". "):
+        assert sentence.rstrip(".") not in caplog.text
+    assert warnings[0].exc_info is None
+
+
+@pytest.mark.parametrize("error,expected", [
+    (TypeError("'int' object is not iterable"), "'int' object is not iterable"),
+    (AttributeError("'NoneType' object has no attribute 'get'"), "'NoneType' object has no attribute 'get'"),
+    (IndexError("list index out of range"), "list index out of range"),
+    (KeyError("criterion"), "'…'"),
+    (KeyError(ESSAY), "'… of … a ….'"),
+    (ValueError(f"invalid literal for int() with base 10: '{ESSAY}'"), "… for int() … of … a ….'"),
+    (RuntimeError("Lỗi dùng từ: 'informations' — học viên Nguyễn Văn A"), "… A"),
+    (TypeError("object is not iterable " * 30), ("object is not iterable " * 30)[:200]),
+])
+def test_repair_error_message_keeps_python_wording_only(error, expected):
+    from services.gemini_writing_grader import _repair_error_message
+
+    assert _repair_error_message(error) == expected
+    assert len(_repair_error_message(error)) <= 200

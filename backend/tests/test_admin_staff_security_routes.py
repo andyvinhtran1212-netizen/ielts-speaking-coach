@@ -817,6 +817,13 @@ class TestRevocationFailure:
         failed = db.audits("sessions_revoke_failed")
         assert len(failed) == 1 and db.tables["owner_alert_outbox"] == []
         assert any("has no owner alert until the next revocation" in m for m in caplog.messages)
+        # Reads recover before the direct connection: expose the orphan until
+        # a retry actually persists its missing outbox row.
+        db.fail_tables.discard("owner_alert_outbox")
+        history = client.get(f"/admin/users/{INSTRUCTOR}/security-audit", headers=AUTH)
+        assert history.status_code == 200, history.text
+        orphan = next(row for row in history.json()["rows"] if row["id"] == failed[0]["id"])
+        assert orphan["alert_status"] == "not_recorded"
         # Both paths back: the retry revokes and enqueues the missing alert in
         # its own audit transaction.
         engine.fail = False
@@ -1365,6 +1372,33 @@ class TestSecurityAudit:
     def _history(self, client, uid, **params):
         return client.get(f"/admin/users/{uid}/security-audit", params=params, headers=AUTH)
 
+    @pytest.mark.parametrize("status", [None, "pending", "sent", "failed"])
+    def test_revocation_failure_uses_outbox_status_or_not_recorded(self, client, db, status):
+        audit_id = str(uuid.uuid4())
+        db.table("staff_security_audit").insert({
+            "id": audit_id, "event": "sessions_revoke_failed", "source": "admin_api",
+            "target_user_id": INSTRUCTOR, "actor_user_id": ADMIN,
+        }).execute()
+        if status is not None:
+            db.table("owner_alert_outbox").insert({"audit_id": audit_id, "status": status}).execute()
+        response = self._history(client, INSTRUCTOR)
+        assert response.status_code == 200, response.text
+        assert response.json()["rows"][0]["alert_status"] == (status or "not_recorded")
+
+    @pytest.mark.parametrize("event,source", [
+        ("sessions_revoked", "admin_api"),
+        ("sessions_revoke_failed", "out_of_band"),
+        ("role_changed", "admin_api"),
+    ])
+    def test_other_orphan_rows_do_not_get_not_recorded(self, client, db, event, source):
+        db.table("staff_security_audit").insert({
+            "event": event, "source": source, "target_user_id": INSTRUCTOR,
+            "actor_user_id": ADMIN, "before": {"role": "instructor"}, "after": {"role": "student"},
+        }).execute()
+        response = self._history(client, INSTRUCTOR)
+        assert response.status_code == 200, response.text
+        assert response.json()["rows"][0]["alert_status"] is None
+
     def test_rows_newest_first_with_actor_email_and_alert_status(self, client, db, engine):
         _active(client, ADMIN2, False)                     # admin event → alert
         engine.fail = True
@@ -1492,3 +1526,104 @@ class TestMfaStatus:
     def test_signed_out_is_401(self, harness):
         api, _ = harness
         assert api.get("/admin/mfa/status").status_code == 401
+
+
+# ── Step-up (Amendment 1, FR-020, spec.md AC12) ──────────────────────────────
+
+def _step_up_bearer(totp_age: float, *, uid: str = ADMIN) -> dict:
+    from tests.test_staff_guard import aal2_claims, jwt
+
+    return {"Authorization": f"Bearer {jwt(aal2_claims(uid, totp_age=totp_age))}"}
+
+
+# The three sensitive routes, each with a request that changes something when
+# it runs (suspend, demote, revoke).
+STEP_UP_CALLS = {
+    "PATCH active": lambda c, h: c.patch(f"/admin/users/{INSTRUCTOR}/active",
+                                         json={"is_active": False, "reason": "tài khoản bị lộ"}, headers=h),
+    "PATCH role": lambda c, h: c.patch(f"/admin/users/{INSTRUCTOR}/role", json={"role": "student"}, headers=h),
+    "POST revoke-sessions": lambda c, h: c.post(f"/admin/users/{INSTRUCTOR}/revoke-sessions", json={}, headers=h),
+}
+
+
+@pytest.fixture
+def step_up_client(db, engine, monkeypatch):
+    """The FR-001 guard passes (an AAL2 admin with a verified factor), so the
+    only open question is the step-up's 15-minute window."""
+    from main import app
+    from config import settings
+    from tests.test_staff_guard import VERIFIED
+
+    monkeypatch.setattr(settings, "ADMIN_STEP_UP_ENFORCE", False)
+    monkeypatch.setattr(settings, "ADMIN_STEP_UP_MINUTES", 15)
+    guard = AsyncMock(return_value={"id": ADMIN, "email": "admin@example.test", "factors": VERIFIED})
+    with patch.object(sec_module, "require_admin", new=guard), \
+            patch.object(admin_module, "require_admin", new=guard):
+        with TestClient(app, raise_server_exceptions=False) as c:
+            yield c, monkeypatch
+
+
+def _state(db, engine) -> dict:
+    return {"tables": copy.deepcopy(db.tables), "sessions": dict(engine.sessions)}
+
+
+class TestStepUp:
+    @pytest.mark.parametrize("call", list(STEP_UP_CALLS))
+    def test_totp_16_minutes_old_under_enforcement_is_403_before_any_db_call(
+            self, step_up_client, db, engine, call):
+        from config import settings
+
+        client, monkeypatch = step_up_client
+        monkeypatch.setattr(settings, "ADMIN_STEP_UP_ENFORCE", True)
+        before = _state(db, engine)
+        r = STEP_UP_CALLS[call](client, _step_up_bearer(16 * 60))
+        assert r.status_code == 403, r.text
+        assert r.json()["detail"] == {
+            "code": "step_up_required", "next_step": "challenge", "max_age_seconds": 900,
+            "message": "Thao tác này cần nhập lại mã xác thực 2 bước.",
+        }
+        # No row change, no staff_security_audit row, no outbox row — and not
+        # even a read, a lock or a GoTrue call.
+        assert _state(db, engine) == before
+        assert db.ops == [] and db.rpc_calls == [] and db.auth.admin.calls == []
+        assert engine.statements == [] and engine.lock_statements == []
+        assert db.audits() == [] and db.tables["owner_alert_outbox"] == []
+
+    @pytest.mark.parametrize("call", list(STEP_UP_CALLS))
+    def test_totp_14_minutes_old_under_enforcement_succeeds(self, step_up_client, db, engine, call):
+        from config import settings
+
+        client, monkeypatch = step_up_client
+        monkeypatch.setattr(settings, "ADMIN_STEP_UP_ENFORCE", True)
+        r = STEP_UP_CALLS[call](client, _step_up_bearer(14 * 60))
+        assert r.status_code == 200, r.text
+        assert r.json()["ok"] is True
+        assert engine.sessions.get(INSTRUCTOR, 0) == 0  # the action ran
+
+    @pytest.mark.parametrize("call", list(STEP_UP_CALLS))
+    def test_report_only_logs_one_would_block_line_and_succeeds(self, step_up_client, db, engine, call, caplog):
+        import logging
+
+        from services import staff_guard
+
+        client, _ = step_up_client
+        with caplog.at_level(logging.WARNING, logger=staff_guard.logger.name):
+            r = STEP_UP_CALLS[call](client, _step_up_bearer(16 * 60))
+        assert r.status_code == 200, r.text
+        lines = [rec.getMessage() for rec in caplog.records
+                 if rec.getMessage().startswith(staff_guard.STEP_UP_WOULD_BLOCK_EVENT)]
+        assert len(lines) == 1, lines
+        assert '"reason": "totp_stale"' in lines[0] and '"max_age_seconds": 900' in lines[0]
+        assert '"user_id": "%s"' % ADMIN in lines[0]
+
+    def test_enforcement_covers_an_aal1_session(self, step_up_client, db, engine):
+        # ADMIN_AAL2_ENFORCE off lets an AAL1 admin past FR-001; step-up still
+        # asks for a code (a value never disables the check).
+        from config import settings
+        from tests.test_staff_guard import aal1_claims, jwt
+
+        client, monkeypatch = step_up_client
+        monkeypatch.setattr(settings, "ADMIN_STEP_UP_ENFORCE", True)
+        r = STEP_UP_CALLS["PATCH role"](client, {"Authorization": f"Bearer {jwt(aal1_claims(ADMIN))}"})
+        assert r.status_code == 403 and r.json()["detail"]["code"] == "step_up_required"
+        assert db.ops == [] and db.rpc_calls == []

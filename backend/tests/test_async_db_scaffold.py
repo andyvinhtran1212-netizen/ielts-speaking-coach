@@ -92,11 +92,21 @@ def test_loop_monitor_snapshot_shape():
         assert key in snap, f"missing {key}"
 
 
-def test_health_async_db_endpoint_reports_baseline():
+def test_health_async_db_endpoint_reports_baseline(monkeypatch):
+    # PC-J275: the saturation snapshot is admin-only, so this baseline reads it
+    # as an admin. The anonymous status-only body is pinned in test_health.py
+    # (test_health_async_db_anonymous_gets_status_only and the non-admin token
+    # case through the real _is_admin).
     from main import app
+    from routers import health as health_module
+
+    async def _admin(_authorization):
+        return True
+
+    monkeypatch.setattr(health_module, "_is_admin", _admin)
 
     client = TestClient(app)
-    r = client.get("/health/async-db")
+    r = client.get("/health/async-db", headers={"Authorization": "Bearer admin"})
     assert r.status_code == 200
     body = r.json()
     assert body["use_async_db"] is False

@@ -20,9 +20,10 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-30 the highest is `352`, allocated by the
-Leader to PC-J201, so by that rule the next new migration is `353`. Ask the
-Leader before taking it; 348–351 are reserved for other work and must not be
+sequence is dense. As of 2026-10-31 the highest is `360`, allocated by the
+Leader to PC-J192 (INSTRUCTORGIVE-0044), so by that rule the next new
+migration is `361`. Ask the Leader before taking it; 348–351 are reserved for other
+work, and 353–359 without a file here may be held by open PRs: none may be
 reused.
 The runner applies any unapplied file regardless of order.
 Numbers 321–326 belong to 321 WRITINGRATE-0025, 322 AIOPS-0024 (#1837), 323
@@ -36,10 +37,125 @@ PAPERUPDATEDAT-0037 and 339 is GRAMMARAUDIT-0019 Revision 2 (reserved by the
 Leader on 2026-10-29). Every number from 331 to 339 now has a file. 340
 is the AIBUDGET-0033 hardening. 345 is
 PC-J119 (RLS-ADMIN-INLINE-AAL2 + GRAMMAR-FN-SEARCHPATH, spec ADMINAAL2-0032),
-reserved by the Leader on 2026-10-29; 341–344 are reserved for other open
-work and must not be reused. 346 is PC-J153 (CLASSARCHIVE-0030 FR-003),
+reserved by the Leader on 2026-10-29; 341 is PC-J88 (STAFF-GUC-BYPASS +
+MIG322-HARDEN, #2050), assigned by the Leader on 2026-10-29; 342 is reserved
+for other open work and must not be reused (343 is PC-J133R, STORAGELIMITS-0038). 344 is PC-J131R (RLSCLEANUP-0039, RLS-ADMIN +
+BL-11), reserved by the Leader on 2026-10-29. 346 is PC-J153 (CLASSARCHIVE-0030 FR-003),
 assigned by the Leader on 2026-10-29. 347 is PC-J163 (listening_tests client revoke,
 spec LISTENING-0005), given by the Leader on 2026-10-29.
+
+Migration `341` (PC-J88; Security Auditor PC-J74 F1/F2/F3, ADMINAAL2-0032
+and AIOPS-0024) stops the 332/336 staff triggers trusting session settings. A
+direct SQL session could `SET LOCAL aver.bootstrap`/`aver.staff_privilege`/
+`aver.actor_id` and turn a suspended account into an active admin with no audit
+row or owner alert. Now `fn_set_staff_privilege` and
+`fn_bootstrap_admin_recovery` write one row in the owner-only
+`staff_privilege_evidence` table (RLS on, no grant to any API role), keyed by
+transaction id and target, right before their single UPDATE. The row is gone
+before they return. The suspension guard opens only on that evidence. The role
+freeze opens only on the bootstrap's evidence (FR-019). The audit trigger always
+writes exactly one row: `admin_api` with the RPC's labels, `bootstrap_recovery`
+for the bootstrap, and otherwise `service` (a real `service_role` session with
+a service JWT) or `out_of_band` with no actor, reason or request id. Admin
+changes still queue one outbox row. If the audit trigger is missing (332 header
+rollback), both functions write that one row themselves. Function names,
+arguments, results, security mode, `search_path` and ACLs are unchanged.
+Migration 341 also revokes client privileges on the 322 identity sequences
+(F2), and makes `fn_ai_model_override_audit` SECURITY DEFINER (F3). For F3,
+`service_role` loses INSERT on `ai_model_override_audit` and a BEFORE TRUNCATE
+trigger refuses TRUNCATE for every role. PC-J74 F5 is covered by `345`.
+P2-SA-1 (PC-J356) removes service_role's TRIGGER, REFERENCES and TRUNCATE on
+`public.users`, plus MAINTAIN on PG17+, to block a planted trigger executing as
+the owner inside the staff RPC. Postconditions require those privileges to be
+absent and the evidence ACL to grant nothing to any non-owner. Trigger checks
+accept enabled (`O`) and always enabled (`A`) guards.
+341 is held by `forward-policy.tsv` as `pending_feature admin_aal2`: apply only
+with `MIGRATION_FEATURES=admin_aal2` through the advisory-locked runner, staging
+first after SA review, production only at an explicitly authorised
+staging→main promotion. It needs no backend change.
+One transaction, no data change, re-runnable. Re-running 322/332/336 restores
+the weak bodies, so re-run 341 after them. The rollback in the header reopens
+F1.
+
+Migration `356` (PC-J286, CALAPPEND-0041 FR-001..004) adds the statement trigger
+`trg_class_action_log_no_truncate` and its pinned, `P0001`-raising function.
+It keeps 198's row trigger unchanged and revokes UPDATE, DELETE, TRUNCATE,
+TRIGGER, REFERENCES and PG17 MAINTAIN from `service_role` / PUBLIC; backend
+SELECT and INSERT remain. Managed databases must have the 344 ledger row and
+neither old `cal_admin_*` policy before any change; a ledger-free legacy test
+control preserves its policies and client SELECT ACL. Postconditions reject
+residual effective table/column privileges (including those a role reaches by
+`SET ROLE` through a membership), a disabled row trigger, unsafe service-role
+ownership/membership, client EXECUTE on the trigger function (SA-R4-1, P3) or
+replication-parameter grants. No policy
+DDL, grants or data changes; one transaction, 5 s lock timeout, re-runnable.
+The `class_action_log_append_only` forward-policy group holds it out of normal
+applies. This job opens a PR only: the Leader must separately authorize the
+staging apply with SA and establish STAGING_FREEZE; production requires its
+own authorized promotion. Deployment order is **344 then 356**. Rollback is
+assigned to the separate 0042 task by the PC-J401 job addendum: it must keep
+privileges revoked and policies absent, and run before any down 344. There is no
+356 down script in this patch. Trigger mode remains `O` as approved: an owner
+with permission to set `session_replication_role=replica` can deliberately
+bypass it; service_role must have no such parameter permission.
+After an authorized apply, check the trigger catalog, effective privilege
+matrix and policy absence per `specs/0041-class-action-log-append-only/rollout.md`.
+Watch for the warning `[class] KHÔNG ghi được nhật ký` on failed backend inserts.
+
+Migration `355` (PC-J267, VOCABGUARD-0040 FR-001) replaces only the published
+curated vocabulary review/task guards from 234/235. UPDATE checks both OLD and
+NEW parent versions and rejects either published parent with the existing
+immutable error; INSERT still checks NEW and DELETE still checks OLD. Parent
+rows are locked `FOR SHARE` in ascending UUID order. No data, trigger, owner,
+grant or RLS changes; one transaction with a 5 s lock timeout, re-runnable. The
+executable manual down script in the file header restores the 234/235 bodies
+and reopens the bypass. `forward-policy.tsv` holds 355 in the separate
+`vocab_curated_guard_reparent` group so opting into the original `curated_vocab`
+group does not authorize this apply. The Leader verifies 234/235 are applied,
+then explicitly opts in with `MIGRATION_FEATURES=vocab_curated_guard_reparent`
+under the advisory-locked runner and STAGING_FREEZE, staging first. Production
+requires separate owner approval at promotion; merging does not apply 355.
+
+348–350 remain allocated to other jobs; do not reuse them. 351 is PC-J220,
+allocated by the Leader on 2026-10-29 (350 belongs to PC-J170).
+
+Migration `344` (PC-J131R, RLSCLEANUP-0039) drops the 29 policies calling
+`is_current_user_admin()` / `is_current_user_instructor()` and the three dead
+BL-11 write policies on `error_logs`, `essay_regrade_requests` and
+`writing_drafts`. It revokes SELECT through TRIGGER, plus MAINTAIN on PG17,
+from `anon` and `authenticated` on the 21 tables in the spec's T001 catalog.
+Migration 320 must already be in the ledger; all 21 tables must exist with
+RLS enabled. No data changes or grants. The postconditions check effective
+client table/column privileges (including PUBLIC and inherited grants), RLS,
+unchanged `service_role` ACL entries, unchanged helper ACLs, and unchanged
+non-target policies. Surviving PUBLIC/column grants or helper policies in
+any schema abort the transaction instead of expanding the drop/revoke scope.
+The learner own-read policies stay. Migration 345 already revokes client
+access to `access_codes`; 344 repeats that revoke safely and never recreates
+`"Admin only"`. It does not touch the six other 345 tables, the 332 audit
+tables or `public.regrade_requests` (342). One transaction, `lock_timeout`
+5 seconds, re-runnable. Group `rls_admin_cleanup` in `forward-policy.tsv`:
+merging does not apply it. The Leader applies staging first, after
+STAGING_FREEZE is lifted, with the advisory-locked runner; production only
+at a separately authorized staging-to-main promotion approved by Vinh.
+The guarded manual down script is
+`rollback/344_rls_admin_policy_cleanup.sql`: set
+`aver.allow_rls_admin_policy_rollback = 'on'` in that session first. It
+recreates the original 32 policies only when all client table/column
+privileges and both helpers' client EXECUTE are still closed. It never
+restores a table privilege or helper EXECUTE and is safe to repeat.
+
+Migration `343` (PC-J133R, STORAGELIMITS-0038) sets the T001 size/MIME limits
+on the six Storage buckets. It updates only `file_size_limit` and
+`allowed_mime_types`; visibility and existing objects stay unchanged, including
+private `writing-images`. One transaction, `lock_timeout` 5s, re-runnable;
+missing buckets or incorrect postconditions abort. The header contains the
+read-only postcheck and a down script restoring the staging T001 `NULL`/`NULL`
+values. Deploy the upload checks and Speaking MIME normalisation first.
+Group `storage_bucket_limits` in `forward-policy.tsv`: no apply on merge;
+Leader applies staging under the advisory lock. Production census and apply
+require Vinh's separate approval at promotion; verify rollback values first.
+The project-wide cap still applies (staging 50 MiB).
 
 Migration `347` (PC-J163) revokes ALL on `listening_tests` from `PUBLIC`,
 `anon` and `authenticated` (MAINTAIN included on PG 17). 295 closed the other
@@ -56,6 +172,47 @@ or column privilege (a grant from another grantor survives the REVOKE), or if
 staging first under the advisory lock, production only at an authorised
 promotion. One transaction, no data change, re-runnable; the emergency-only
 rollback (the old SELECT grant) is in the file header.
+
+Migration `360` (PC-J192, INSTRUCTORGIVE-0044, number allocated by the
+Leader on 2026-10-31) makes the two `/instructor` Writing gives idempotent. It
+adds the ledger `instructor_writing_assignment_requests` (PK = client
+`request_id`, `assigned_by` ON DELETE CASCADE, `give_kind`, payload, receipt)
+and the SECURITY DEFINER RPC `fn_create_instructor_writing_give_idempotent`,
+which in one transaction records the request, replays a completed receipt for
+the same owner and body, refuses another body or another owner, re-checks
+prompt/class/learner ownership, locks the active roster `FOR SHARE` (as 228)
+and inserts with `grading_tier`. It is deliberately separate from
+`writing_assignment_requests`: a receipt there marks admin-tool gives for W-05,
+so an admin teaching from `/instructor` keeps the instructor tier; 206/228 are
+not touched. RLS is on with no policy; clients have no table or EXECUTE
+privilege and `service_role` keeps SELECT plus EXECUTE only; the postcondition
+checks this. One additive transaction, re-runnable, no existing data change.
+Group `instructor_give_idempotency` in `forward-policy.tsv`: merging does not
+apply it; staging first under the advisory lock with
+`MIGRATION_FEATURES=instructor_give_idempotency` BEFORE the 0044 backend (the
+new backend's give routes answer 500 without the RPC), production only at an
+authorised promotion. Rollback SQL is in the header (pre-0044 backend first).
+
+Migration `351` (PC-J220) revokes EXECUTE from `PUBLIC`, `anon` and
+`authenticated` on four migration-139 SECURITY INVOKER RPCs, each with one
+`timestamptz` argument: `fn_dashboard_daily_tokens`, `fn_dashboard_tokens_called`,
+`fn_dashboard_daily_visitors` and `fn_dashboard_visitors`. Only
+`services/admin_dashboard.py` calls them, with `supabase_admin` behind
+`require_admin`; the frontend and user-JWT backend clients do not call them.
+`fn_dashboard_daily_practices` is outside this change. All four exact signatures
+must exist and be SECURITY INVOKER or the transaction aborts. The postcondition
+requires no effective client EXECUTE, no PUBLIC ACL entry (including grants
+from another grantor), and retained `service_role` EXECUTE. An explicit service
+grant is preserved or added if missing, preventing silent fallback to capped
+dashboard counts. One transaction, `lock_timeout = '5s'`, no data writes,
+re-runnable; emergency-only rollback restores EXECUTE to PUBLIC/anon/authenticated
+as recorded in the old staging ACL. Group `dashboard_rpcs_revoke` is
+`pending_feature`: **merging does not apply it (merge KHÔNG áp)**. Leader/RM
+applies it to staging through the advisory-locked runner; production only at a
+Vinh-approved promotion. It can follow 349 but does not require it. After apply,
+run the catalog query in the SQL header (client false/false, service true, no
+PUBLIC `=X`), then view admin overview/trends and check backend logs for RPC
+42501/fallback. No staging or production application is part of this code job.
 
 Migration `352` (PC-J201, ADMINAAL2-0032 FR-010/FR-011, SA #1936 P3 c–f)
 adds the private `staff_mfa_status_throttle` table for shared admission to the
@@ -293,8 +450,8 @@ changes its role. `PATCH /admin/users/{id}/role` maps the error to a 409 with a
 Vietnamese message. It sorts after 332's suspension guard, so activation still
 fails with `account_suspended`. It aborts with
 `suspended_non_staff_account_exists` while a suspended row holds a non-staff
-role (repair that out of band first). It is held back with 332 (group
-`admin_aal2`) and applied after it, on staging first. One transaction, no data
+role (repair that out of band first). It shipped with 332 (former group
+`admin_aal2`) and was applied after it, on staging first. One transaction, no data
 change, re-runnable; the rollback is in the file header.
 
 Migration `334` (ACTIVATELIMIT-0034, F09) moves the `POST /auth/activate`
@@ -374,11 +531,15 @@ while saved work waits for grading or a raise is active, and keeps the raise
 events. It misses an owed class-score sync (PC-J67 F03), so roll back 333
 only with ROLLBACK (b) in the 340 header, never with the 333 header script.
 
-Migration `332` (ADMINAAL2-0032) adds the staff security audit. It is held
-back by `forward-policy.tsv` (group `admin_aal2`), so apply it only with
-`MIGRATION_FEATURES=admin_aal2` through the advisory-locked runner, on staging
+Migration `332` (ADMINAAL2-0032) adds the staff security audit. It was held
+back by `forward-policy.tsv` (group `admin_aal2`) and applied with
+`MIGRATION_FEATURES=admin_aal2` through the advisory-locked runner, staging
 first (`specs/0032-admin-aal2-staff-guard/rollout.md` S1/S2), before the 0032
-backend. It adds:
+backend. Production applied 332 and 336 on 2026-10-29 (04:53Z, ledger confirmed
+read-only by the Release Manager), so both are now normal forward migrations
+with no policy row (PC-J354). The `admin_aal2` group no longer holds 332 or
+336; it is kept only for later work in the same spec, such as 341. It
+adds:
 
 - the `public.users` suspension marker (`suspended_at`, `suspended_by`,
   `suspension_reason`, set and cleared together and never on an active row);

@@ -275,11 +275,67 @@ def _ensure_admin_totp(
     print(f"  + {email} TOTP factor enrolled and verified; secret written to {secret_file}")
 
 
+def _find_user_id(sb, email: str) -> str | None:
+    """Read-only lookup of a seeded identity (users row, else orphan auth user)."""
+    existing = sb.table("users").select("id").eq("email", email).limit(1).execute()
+    if existing.data:
+        return existing.data[0]["id"]
+    page = 1
+    while batch := sb.auth.admin.list_users(page=page, per_page=100):
+        for u in batch:
+            if (u.email or "").lower() == email.lower():
+                return u.id
+        page += 1
+    return None
+
+
+def _precheck_admin_totp(sb, auth_env: tuple[str, str, str], ns: str,
+                         secret_file: Path, reset: bool) -> None:
+    """Fail before any write when the admin TOTP step cannot succeed.
+
+    Reads only: the users row / auth user list, the admin's factor list and
+    the local secret file. Runs before the first password rotation so a bad
+    --admin-totp-file never leaves the namespace half-rotated (job 1oh).
+    A well-formed but wrong secret is still caught only by the GoTrue verify
+    in _ensure_admin_totp: that needs the admin to sign in with the new
+    password, so it cannot run before the rotation.
+    """
+    url, service, _ = auth_env
+    email = _email("admin", ns)
+    if secret_file.is_dir():
+        sys.exit(f"--admin-totp-file {secret_file} is a directory")
+    ancestor = secret_file.parent
+    while not ancestor.exists():
+        ancestor = ancestor.parent
+    if not (ancestor.is_dir() and os.access(ancestor, os.W_OK | os.X_OK)):
+        sys.exit(f"--admin-totp-file {secret_file}: {ancestor} is not a writable directory")
+    uid = None if reset else _find_user_id(sb, email)
+    if uid is None:
+        return  # reset or first seed: the TOTP step enrolls a new factor
+    factors = _gotrue("GET", f"{url}/auth/v1/admin/users/{uid}/factors", apikey=service) or []
+    if not any(f.get("factor_type") == "totp" and f.get("status") == "verified" for f in factors):
+        return
+    stored = _read_totp_secret(secret_file)
+    if not stored:
+        sys.exit(f"admin {email} has a verified TOTP factor but {secret_file} holds no "
+                 f"{ADMIN_TOTP_ENV}; rerun with --reset-admin-totp to enroll a new one. "
+                 "Nothing was changed.")
+    try:
+        _totp(stored)
+    except (ValueError, binascii.Error):
+        sys.exit(f"{ADMIN_TOTP_ENV} in {secret_file} is not valid base32; rerun with "
+                 "--reset-admin-totp to enroll a new one. Nothing was changed.")
+
+
 def seed(ns: str, password: str, totp_file: Path, reset_totp: bool) -> None:
     auth_env = _staging_auth_env()
     if not auth_env[2]:
         sys.exit("SUPABASE_ANON_KEY missing in backend/.env.staging (needed for the admin TOTP step)")
     sb = _client()
+    try:
+        _precheck_admin_totp(sb, auth_env, ns, totp_file, reset_totp)
+    except GoTrueError as exc:
+        sys.exit(f"admin TOTP precheck failed (nothing was changed): {exc}")
     print(f"== seeding staging namespace '{ns}'")
     student = _ensure_user(sb, "student", ns, password)
     _ensure_user(sb, "unactivated", ns, password)

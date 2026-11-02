@@ -71,6 +71,19 @@ function tableSummary(template: Record<string, any> | null): { before: unknown; 
   };
 }
 
+/**
+ * Listening mcq_multi stores its question in the instruction (the test player shows only that) and in each
+ * prompt; the review card already shows the prompt, so drop instruction lines that only repeat a prompt line.
+ */
+function instructionWithoutPrompt(instruction: unknown, prompt: unknown): unknown {
+  if (typeof instruction !== 'string' || typeof prompt !== 'string') return instruction;
+  const normalize = (line: string) => line.replace(/\s+/g, ' ').trim().toLowerCase();
+  const promptLines = new Set(prompt.split(/\r?\n/).map(normalize).filter(Boolean));
+  const lines = instruction.split(/\r?\n/);
+  const kept = lines.filter(line => !promptLines.has(normalize(line)));
+  return kept.length === lines.length ? instruction : kept.join('\n').trim();
+}
+
 type Choice = { label: string; text: string };
 
 /** Lettered choices the student saw: authored options, else the frozen paragraph openings. */
@@ -114,16 +127,18 @@ const UNAVAILABLE_REASONS: Readonly<Record<string, string>> = {
   post_test_capture_required: 'Lời giải chi tiết sẽ mở sau khi bạn hoàn thành phần tự đánh giá sau bài làm.',
   content_release_gates_blocked: 'Lời giải chi tiết của đề này đang được biên tập, chưa phát hành.',
   content_version_unavailable: 'Phiên bản lời giải dành cho bài này chưa sẵn sàng.',
+  report_only: 'Bài này chỉ báo cáo kết quả, không có lời giải chi tiết.',
 };
 
 /**
  * Why a card has no solution, from the backend's `web_explanation_access`
- * (FR-015 truthful unavailable state). No access object means the paper has
- * no web explanation at all; an allowed one means only this question lacks it.
+ * (FR-015 truthful unavailable state). No access object, or an open one
+ * (`allowed`, or Listening report_only's `available` key), means only this
+ * question lacks a solution; a closed one names the paper-level reason.
  */
 export function reviewExplanationUnavailableReason(access: unknown): string {
   const row = record(access);
-  if (!row || row.allowed === true) return 'Câu này chưa có lời giải chi tiết.';
+  if (!row || row.allowed === true || row.available === true) return 'Câu này chưa có lời giải chi tiết.';
   return UNAVAILABLE_REASONS[String(row.reason)] || 'Lời giải chi tiết chưa mở cho bài này.';
 }
 
@@ -134,7 +149,7 @@ export function ReviewParagraphSummary({ value }: { value: unknown }) {
 }
 
 /** Read only authored display fields. Never reconstruct a bank from answer keys. */
-export function ReviewQuestionContext({ value }: { value: unknown }) {
+export function ReviewQuestionContext({ value, prompt }: { value: unknown; prompt?: unknown }) {
   const context = record(value);
   if (!context) return null;
   const options = Array.isArray(context.options) ? context.options
@@ -145,7 +160,7 @@ export function ReviewQuestionContext({ value }: { value: unknown }) {
     ? `data:image/svg+xml;utf8,${encodeURIComponent(context.map_svg)}`
     : context.map_image_url || context.image_url;
   const imageAlt = context.image_alt || (typeof template?.heading === 'string' && template.heading.trim()) || 'Sơ đồ của câu hỏi';
-  const instruction = context.instructions || context.instruction || context.word_limit_text || context.word_limit;
+  const instruction = instructionWithoutPrompt(context.instructions || context.instruction || context.word_limit_text || context.word_limit, prompt);
   const provenance = record(context.context_provenance);
   const banks = options.length || list(context.paragraph_labels).length;
   const paragraphPreviews = new Map(options.length ? [] : labelledChoices(context).map(choice => [choice.label, choice.text]));

@@ -12,7 +12,18 @@ export type VocabSet = components['schemas']['SetOut'];
 export type VocabSession = components['schemas']['SessionOut'];
 export type StudyMode = components['schemas']['SessionStart']['mode'];
 export const modeLabels: Record<StudyMode, string> = { flashcards: 'Thẻ ghi nhớ', learn: 'Luyện nhớ', cloze: 'Điền từ theo ngữ cảnh', test: 'Kiểm tra' };
-export function messageOf(e: unknown) { return e instanceof Error ? e.message : 'Không tải/lưu được dữ liệu. Vui lòng thử lại.'; }
+export const VOCAB_GENERIC_ERROR_MESSAGE = 'Không tải/lưu được dữ liệu. Vui lòng thử lại.';
+export const VOCAB_NETWORK_ERROR_MESSAGE = 'Không kết nối được máy chủ. Bạn kiểm tra mạng rồi thử lại nhé.';
+/**
+ * PC-J148 — fetch rejects with a TypeError whose browser text ("Failed to
+ * fetch", "NetworkError when attempting…", "Load failed") is English and
+ * meaningless to a learner. Any other TypeError is a client bug, not a
+ * connection problem, so it gets the generic line instead of its raw text.
+ */
+export function messageOf(e: unknown) {
+  if (e instanceof TypeError) return /failed to fetch|networkerror|load failed|network request failed/i.test(e.message) ? VOCAB_NETWORK_ERROR_MESSAGE : VOCAB_GENERIC_ERROR_MESSAGE;
+  return e instanceof Error ? e.message : VOCAB_GENERIC_ERROR_MESSAGE;
+}
 
 /** A changed account unmounts all private state before starting its next read. */
 export function VocabularyAccount({ children }: { children: (key: string) => ReactNode }) {
