@@ -35,6 +35,7 @@ from database import supabase_admin
 from models.writing_feedback import PromptImageAnalysis
 from routers.admin import require_admin
 from services import writing_prompt_analysis
+from services.errors import new_ref
 from services.writing_image_access import attach_signed_image_urls, canonical_image_ref
 from services.writing_prompt_image import (
     delete_prompt_image,
@@ -222,6 +223,12 @@ async def _run_prompt_write(background_tasks: BackgroundTasks, fn, *args):
             with contextlib.suppress(asyncio.CancelledError):
                 await asyncio.wait({work})
         if not work.cancelled():
+            exc = work.exception()
+            if exc is not None:
+                logger.error(
+                    "[writing-prompts] write failed after request cancellation ref=%s",
+                    new_ref(), exc_info=(type(exc), exc, exc.__traceback__),
+                )
             for dispatch in dispatches:
                 _dispatch_owned_analysis(*dispatch)
         raise
