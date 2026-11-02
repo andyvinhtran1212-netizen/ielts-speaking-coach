@@ -63,6 +63,9 @@ REVOKE_UNAVAILABLE = "revocation_unavailable"
 
 STAFF_ROLES = ("admin", "instructor")
 
+# Shared by retry enqueue SQL and history's missing-outbox status (PC-J150).
+_REVOCATION_ALERT_MATCH = {"event": "sessions_revoke_failed", "source": "admin_api"}
+
 TARGET_BUSY_MESSAGE = "Đang có thao tác khác trên tài khoản này. Vui lòng thử lại."
 # Waits behind another worker's GoTrue calls; past this the request is a 503.
 TARGET_LOCK_TIMEOUT = "15s"
@@ -368,6 +371,7 @@ def _enqueue_missing_alerts_sql() -> str:
     the REST fallback below. Same email-safe payload as migration 332's
     ``fn_staff_security_record`` (no reason text, token or request body)."""
     s = AUDIT_SCHEMA
+    alert_match = " AND ".join(f"a.{key} = '{value}'" for key, value in _REVOCATION_ALERT_MATCH.items())
     return (
         f"INSERT INTO {s}.owner_alert_outbox (audit_id, event, payload) "
         "SELECT a.id, a.event, jsonb_build_object("
@@ -379,7 +383,7 @@ def _enqueue_missing_alerts_sql() -> str:
         f"LEFT JOIN {s}.users t ON t.id = a.target_user_id "
         f"LEFT JOIN {s}.users u ON u.id = a.actor_user_id "
         "WHERE a.target_user_id = CAST(:target AS uuid) "
-        "AND a.event = 'sessions_revoke_failed' AND a.source = 'admin_api' "
+        f"AND {alert_match} "
         f"AND NOT EXISTS (SELECT 1 FROM {s}.owner_alert_outbox o WHERE o.audit_id = a.id) "
         "ON CONFLICT (audit_id) DO NOTHING"
     )
@@ -550,6 +554,11 @@ def security_history(db: Any, user_id: str, *, limit: int) -> list[dict]:
     out = []
     for r in rows:
         actor = str(r.get("actor_user_id") or "") or None
+        alert_status = status_by_audit.get(str(r["id"]))
+        if str(r["id"]) not in status_by_audit and all(
+            r.get(key) == value for key, value in _REVOCATION_ALERT_MATCH.items()
+        ):
+            alert_status = "not_recorded"
         out.append({
             "id": str(r["id"]),
             "occurred_at": r.get("occurred_at"),
@@ -560,6 +569,6 @@ def security_history(db: Any, user_id: str, *, limit: int) -> list[dict]:
             "before": r.get("before"),
             "after": r.get("after"),
             "reason": r.get("reason"),
-            "alert_status": status_by_audit.get(str(r["id"])),
+            "alert_status": alert_status,
         })
     return out

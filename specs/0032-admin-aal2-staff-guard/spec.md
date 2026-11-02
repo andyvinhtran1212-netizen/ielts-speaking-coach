@@ -28,6 +28,15 @@ xuất", item (a), verified by the Leader. It amends FR-012, adds FR-020, AC11
 and AC12, and revises Q5 to "step-up 15 minutes". See
 [Amendment 1](#amendment-1-aal2-max-age-and-15-minute-step-up-q5-revised) and
 [Rủi ro còn lại](#rủi-ro-còn-lại-residual-risk).
+Amendment 2 approval source: **Leader báo anh Vinh duyệt FR020 a c 30/10
+13:38 (t744s2552)**, 2026 (UTC+7), for Q-0935-FR020-AMEND2 (PC-J346).
+It adds the 24-hour new-factor cool-off (FR-020a, a subclause of FR-020),
+step-up for access-code generation with `grants_role`, and the FR-012
+non-finite timestamp rule. Amendment 1 implementation #2023 merged into
+staging as `55258077f712cde9cdbb9dec482ae164e7d98e9a` on 2026-10-31.
+This amendment is spec-only (PC-J298); implementation is PC-J300 after this
+spec PR merges. `ADMIN_STEP_UP_ENFORCE` stays **OFF in every environment**;
+this amendment authorizes no flag or environment changes.
 
 ## Thay đổi người dùng thấy (tóm tắt cho anh Vinh)
 
@@ -49,6 +58,12 @@ and AC12, and revises Q5 to "step-up 15 minutes". See
   cần mã nhập trong 15 phút gần nhất; nếu cũ hơn, trang hỏi lại: "Thao tác này
   cần nhập lại mã xác thực 2 bước." Trước hết chỉ ghi log (report-only); bật
   bắt buộc là một bước riêng sau đó.
+- **Amendment 2 (anh Vinh chọn a + c, 30/10 13:38):** khi bật bắt buộc
+  step-up sau này, admin có bất kỳ yếu tố TOTP đã xác minh vừa được thêm hoặc
+  thay đổi chưa đủ 24 giờ phải chờ đủ 24 giờ trước các thao tác FR-020, kể cả
+  khi vừa nhập đúng mã. Áp dụng cả admin vừa thiết lập hợp lệ, không có đường
+  owner duyệt bỏ qua. Tạo mã kích hoạt có cấp vai trò (`grants_role`) cũng
+  thuộc các thao tác cần step-up; mã thường không đổi.
 - **Giảng viên chưa kích hoạt / bị tắt** mở `/instructor` sẽ được chuyển về
   `/login` để nhập mã kích hoạt, và không thấy dữ liệu (lỗi production đang gặp,
   sửa ở PR #1771). Nếu tài khoản bị tắt khi đang mở trang, trang hiện "Tài
@@ -111,6 +126,10 @@ compromised admin out is not possible from the product.
 - Amendment 1: a configurable AAL2 max age (12 h from the last TOTP entry) and
   a 15-minute step-up on privilege-changing and budget routes, report-only
   first. Code and config only, no migration.
+- Amendment 2: a 24-hour cool-off for any newly created or updated verified
+  TOTP factor on FR-020 routes, conditional step-up for access-code generation
+  with `grants_role`, and rejection of non-finite TOTP timestamps. Uses the
+  already accepted Auth user object; no migration or new database lookup.
 
 ## Non-goals
 
@@ -159,7 +178,7 @@ compromised admin out is not possible from the product.
 - **FR-009:** Every change of `users.role` or `users.is_active`, and every insert of a `users` row with role admin or instructor, writes exactly one row to the append-only `staff_security_audit` in the same database transaction. This applies to every path: admin API, service code, RPC, or SQL editor. The row holds `target_user_id`, `actor_user_id` (null when unknown), `source` (`admin_api`, `service`, `out_of_band`), `before`, `after`, `reason`, `request_id` and `occurred_at`. `anon` and `authenticated` cannot read or write the table. `service_role` may only insert and select. No role used by the application may update, delete or truncate it.
 - **FR-010:** For an account with role admin, every TOTP factor enrollment, verification and deletion produces its own `staff_security_audit` row (`mfa_factor_enrolled` / `mfa_factor_verified` / `mfa_factor_deleted`, factor id, never the secret) within 5 minutes. This holds even when a factor is created and removed between two sweeps. The event source is Supabase Auth's append-only audit log, read by a durable cursor. A factor snapshot diff is only a backstop. If staging gate R5 shows the Auth audit log cannot provide these events, implementation stops and the guarantee is re-approved before T007; it is never silently narrowed.
 - **FR-011:** The owner recipients configured in the backend environment receive one email for each of these events: an account gains admin, an account loses admin, an admin is suspended or reactivated, a factor is verified or deleted on an admin account, or staff session revocation fails. This holds whatever the event's source, including `out_of_band`. The email names the event, target email, actor email or "không rõ (ngoài ứng dụng)", time in Vietnam time, and source. It never contains tokens, secrets or factor secrets. No email goes to learners or instructors. Delivery is recorded per audit row (`pending`, `sent`, `failed`) and retried up to 5 times. A failure is logged and shown in the admin security history.
-- **FR-012:** `/admin/mfa` lets a signed-in admin enroll a TOTP factor (QR code plus a copyable text secret, then a 6-digit confirmation), complete a challenge from an AAL1 session, list factors, and add a backup factor. A factor can be removed only from an AAL2 session after entering a fresh code on that page. The page returns only to a same-origin `next` path that starts with `/admin/`, and to `/admin` otherwise. *(Amended by Amendment 1, 2026-10-29.)* AAL2 counts for admin rights only while `now − amr.totp.timestamp ≤ ADMIN_AAL2_MAX_AGE_HOURS` (default 12). Refresh does not renew the timestamp. A missing `amr` entry counts as expired. Over the limit → 403 `{code:"mfa_required", next_step:"challenge"}` under enforcement. Report-only otherwise (one `admin_aal2_would_block` line with `reason=totp_expired`).
+- **FR-012:** `/admin/mfa` lets a signed-in admin enroll a TOTP factor (QR code plus a copyable text secret, then a 6-digit confirmation), complete a challenge from an AAL1 session, list factors, and add a backup factor. A factor can be removed only from an AAL2 session after entering a fresh code on that page. The page returns only to a same-origin `next` path that starts with `/admin/`, and to `/admin` otherwise. *(Amended by Amendments 1 and 2, 2026-10-29/30.)* AAL2 counts for admin rights only while `now − amr.totp.timestamp ≤ ADMIN_AAL2_MAX_AGE_HOURS` (default 12). Refresh does not renew the timestamp. Only finite numeric, non-boolean TOTP timestamps count: discard `NaN`, `+inf` and `-inf` before selecting the latest valid entry; if none remains, treat it as no TOTP (`totp_expired`), like a missing `amr` entry. Over the limit or no valid entry → 403 `{code:"mfa_required", next_step:"challenge"}` under enforcement. Report-only otherwise (one `admin_aal2_would_block` line with `reason=totp_expired`, without a timestamp conversion error).
 - **FR-013:** Admin pages never render admin data to an admin who lacks AAL2 while enforcement is on. `AdminAccessGate` and the shared transport navigate to `/admin/mfa?next=<current path>` whenever the backend returns `mfa_required`, on first load and on any later admin call. An inactive account never reaches admin children: the phase-0 activation redirect sends it to `/login`, and an inactive 403 from any admin call shows the denied state. In report-only mode an AAL1 admin sees a dismissible banner linking to `/admin/mfa`.
 - **FR-014:** `/instructor`, `/instructor/grade` and `/instructor/compare` never render instructor data to an inactive account. On load and on reload the phase-0 activation redirect (PR #1771) sends it to `/login`. When an instructor API returns the inactive 403 after the page has loaded (suspension mid-session), the page replaces its content with the denied state "Tài khoản chưa được kích hoạt — liên hệ admin" instead of a generic load error.
 - **FR-015:** `GET /admin/users/{user_id}/security-audit` (AAL2 admin) returns that user's audit rows newest first, including alert delivery status. The admin users panel shows them as "Lịch sử quyền". A lookup failure renders "⚠ không tải được lịch sử", never an empty list.
@@ -167,7 +186,7 @@ compromised admin out is not possible from the product.
 - **FR-017:** Enforcement is enabled in an environment only after a read-only query shows every active admin with at least one verified TOTP factor, and either at least two such admins or one admin with an offline backup factor. The recovery runbook (`rollout.md` §Rollback and repair) has been executed on staging with measured durations. It covers: flag off, factor reset, backup factor, a clean-admin RPC repair, and a control-plane bootstrap that restores the first admin when no eligible admin exists. The bootstrap is executable only by the database owner, never by `service_role` or the app. It refuses while any eligible admin exists, and it is audited and emailed.
 - **FR-018:** No other path can make a suspended account active again: self-service `/auth/activate` with any access code, admin-issued codes, student restore (`fn_restore_student`), or a direct SQL update. The database refuses any `is_active` change from false to true while `suspended_at` is set, unless the change comes through the FR-006 reactivation. This holds under concurrent requests. `/auth/activate` refuses a suspended account with 403 `{"code": "account_suspended"}` before the access code is claimed, so the code stays unused. `/auth/me` and `/auth/check-active` report `suspended: true`, and `/login` shows "Tài khoản đang bị tạm khóa — liên hệ admin" instead of the activation dialog. This holds even when session revocation or the sign-in ban failed.
 - **FR-019:** The role of a suspended account cannot change. While `users.suspended_at` is set, the database refuses any change of `users.role` with SQLSTATE P0001 and the message `account_suspended_role_change`. This includes `fn_set_staff_privilege`, alone or combined with reactivation in one call, as well as service-role REST, the SQL editor and a superuser. Only the owner-only `fn_bootstrap_admin_recovery` (FR-017) is exempt, because it clears the marker in the same write. An admin first reactivates the account (FR-006), then changes its role. Repeating the current role is still a no-op. `PATCH /admin/users/{user_id}/role` answers 409 `{"code": "account_suspended_role_change", "message": "Không thể đổi vai trò của tài khoản đang bị tạm khóa. Hãy mở khóa tài khoản trước, rồi đổi vai trò."}`, changes nothing, and the admin users panel shows that message. Migration 336 enforces this rule. It refuses to apply while a suspended account already holds a non-staff role, because the rule would leave that account impossible to reactivate in the app.
-- **FR-020:** *(Amendment 1, 2026-10-29.)* Step-up: `PATCH /admin/users/{user_id}/role`, `PATCH /admin/users/{user_id}/active`, `POST /admin/users/{user_id}/revoke-sessions`, and every AIBUDGET-0033 budget-mutation route (raise, end raise), depend on `require_recent_mfa()`. That check passes only if `now − amr.totp.timestamp ≤ ADMIN_STEP_UP_MINUTES` (default 15). Under `ADMIN_STEP_UP_ENFORCE=true`, a failure is 403 `{code:"step_up_required", next_step:"challenge", max_age_seconds}`, raised **before any DB read or write and before any audit row**. Under `false` (default): one `admin_step_up_would_block` log line per request and today's behaviour. Step-up is only evaluated after the FR-001 guard has passed.
+- **FR-020:** *(Amendments 1 and 2, 2026-10-29/30.)* Step-up: `PATCH /admin/users/{user_id}/role`, `PATCH /admin/users/{user_id}/active`, `POST /admin/users/{user_id}/revoke-sessions`, every AIBUDGET-0033 budget-mutation route (raise, end raise), and `POST /admin/access-codes/generate` when normalized `grants_role IS NOT NULL`, depend on `require_recent_mfa()`. That check passes only with satisfied admin assurance, `now − amr.totp.timestamp ≤ ADMIN_STEP_UP_MINUTES` (default 15), and the FR-020a cool-off satisfied: no verified TOTP factor in the accepted `auth_user["factors"]` has a `created_at` or `updated_at` less than 24 hours old. Under `ADMIN_STEP_UP_ENFORCE=true`, a failure is 403 `{code:"step_up_required", next_step:"challenge", max_age_seconds}`, adding `reason:"new_factor_cooloff"` for the cool-off, raised **before any handler DB read or write and before any audit or outbox row** (the FR-001 guard's existing authorization reads precede it). Under `false` (default): one `admin_step_up_would_block` log line per request, with the same cool-off reason when applicable, and today's behaviour. Step-up is only evaluated after the FR-001 guard has passed. The 24-hour cool-off has no owner-approval bypass; see Amendment 2 for timestamp, conditional-route and response behavior.
 
 ## Acceptance scenarios
 
@@ -245,7 +264,8 @@ Offline tests:
 
 ### AC12 — Step-up within 15 minutes for sensitive routes (FR-020, FR-012; Amendment 1 draft AC11)
 
-Offline tests:
+Offline tests (use verified TOTP factors at least 24 hours old to isolate
+the freshness rule from Amendment 2's cool-off):
 
 - TOTP 16 min old + `ADMIN_STEP_UP_ENFORCE=true` on PATCH role, PATCH active or POST revoke-sessions → 403 `step_up_required`. No row changes, no `staff_security_audit` row, no outbox row.
 - 14 min → succeeds.
@@ -264,6 +284,78 @@ Staging (`staging.averlearning.com`, staging Supabase, synthetic admin), for AC1
 AC11 and AC12 were numbered AC10 and AC11 in the approved Amendment 1 draft
 (`/workspace/specs-drafts/0032-amendment-q5-step-up.md`). They are renumbered
 here only because AC10 already belongs to FR-019. The content is unchanged.
+Amendment 2 adds the old-factor fixture precondition to AC12 and the
+separate AC13–AC15 cases below.
+
+### AC13 — Any new verified TOTP factor blocks step-up for 24 hours (FR-020a under FR-020)
+
+Offline claims/fixtures only; never call live GoTrue to reproduce an attack:
+
+- With `ADMIN_STEP_UP_ENFORCE=true`, valid AAL2 and a TOTP entered just now,
+  any verified TOTP factor whose `created_at` **or** `updated_at` is 23 h
+  59 m 59 s old → 403 `step_up_required`, `reason=new_factor_cooloff`, before
+  handler DB reads/writes, locks, GoTrue mutations, audit or outbox rows.
+  Cover every implemented FR-020 route, including a role-granting code.
+- A second, older factor does not exempt the user. Test both factor orders,
+  an old `created_at` with a recent `updated_at`, and a recent `created_at`
+  with an old `updated_at`. A backup factor is subject to the same rule.
+- All verified TOTP factors' timestamps exactly 24 h old, or older, plus
+  fresh TOTP → allowed. A stale TOTP remains refused by the 15-minute rule.
+  Unverified TOTP and non-TOTP factors do not start this cool-off.
+- A future factor timestamp does not qualify as 24 h old. Missing or
+  malformed verified-factor timestamps fail closed with the existing 503
+  lookup-failure contract under enforcement; they never grant step-up.
+- Another successful challenge, token refresh or selecting the old factor
+  cannot bypass a recent factor still in the accepted Auth factor list.
+- Report-only → success and exactly one `admin_step_up_would_block` line
+  with `reason=new_factor_cooloff`, even when TOTP is also stale; no token,
+  factor secret, email or body in that log.
+- The UI presents the 24-hour wait from the refusal, without a TOTP prompt
+  or automatic resend for this reason. A legitimate new enrollment waits
+  too; there is no owner-approval bypass. At 24 h, a user retry succeeds only
+  if the other guards pass. Verify on the fixture UI that immediate state
+  and reload both leave the refused action unapplied.
+
+### AC14 — Role-granting access-code generation needs step-up (FR-020)
+
+- `POST /admin/access-codes/generate` with `grants_role="instructor"`, a valid
+  bound `intended_email`, old verified factors and a TOTP 16 min old → 403
+  `step_up_required` under enforcement, before code generation/insertion or
+  entitlement audit/outbox writes. With a TOTP 14 min old → the existing
+  `{created, codes}` success contract, with existing role/email validation.
+- A fresh TOTP with a recent verified factor → AC13's cool-off refusal.
+  Report-only preserves generation and logs exactly one would-block line
+  for the applicable stale/cool-off reason.
+- Omitted or null `grants_role`, and values the existing normalization maps
+  to null (empty/whitespace), preserve ordinary-code behavior: the FR-001
+  guard still applies, with no step-up or cool-off. A normalized non-null
+  value, including `" INSTRUCTOR "`, takes the conditional guard before any
+  domain DB call; unsupported roles keep the existing validation refusal
+  once authorization passes.
+- The route inventory includes this conditional call, pins its position
+  after `require_admin` and pure normalization but before any domain DB
+  access, and tests both granting and ordinary-code branches. Existing
+  unconditional FR-020 routes retain their immediate-after-guard checks.
+- In the fixture admin code UI, a stale-code refusal prompts once and
+  resends exactly once after verification; a cool-off refusal waits without
+  retry. The code list after the action and after reload matches persisted
+  fixture state, with no code created for either refusal.
+
+### AC15 — Non-finite TOTP timestamps never satisfy assurance (FR-012)
+
+- Claims containing only a `NaN`, `+inf` or `-inf` TOTP timestamp (each
+  separately and in combination) count as no TOTP. With AAL2 enforcement on
+  → 403 `mfa_required`, `next_step=challenge`, reason `totp_expired` in the
+  assurance evaluation; no domain side effects.
+- Report-only → existing behavior and one `admin_aal2_would_block` line with
+  `reason=totp_expired`; no integer conversion error or non-finite log value.
+- Mix each non-finite entry with a fresh finite timestamp in either order:
+  only the finite value counts. Mix with an expired finite timestamp: still
+  expired. Boolean/non-numeric timestamps remain invalid and the existing
+  future-time skew rule still applies.
+- With AAL2 report-only and step-up enforced, no finite TOTP still yields
+  403 `step_up_required` (using old verified factors to isolate this rule).
+  Step-up report-only logs once without raising on conversion.
 
 ## Amendment 1: AAL2 max age and 15-minute step-up (Q5 revised)
 
@@ -275,6 +367,9 @@ SEC-20261028-03 F-03 Gap B
 Migration: **none** (code and config only). Prod: only at a promotion Vinh
 authorises, and enforcement only on his go (as for T013). The code inventory
 behind it is in [`research.md`](research.md) §10.
+This section records Amendment 1; Amendment 2 below adds an independent
+cool-off and the conditional access-code route. The successful resend in
+the flow below assumes every verified factor has cleared the cool-off.
 
 ### Goal
 
@@ -349,29 +444,120 @@ detective control. This limitation is stated in `research.md` §10.2.
 - AIBUDGET-0033 T013 (raise routes) must adopt `require_recent_mfa` when it
   lands (PC-J138).
 
+## Amendment 2: new-factor cool-off and role-granting access codes
+
+Approval source: **Leader báo anh Vinh duyệt FR020 a c 30/10 13:38
+(t744s2552)**, 2026 (UTC+7), for Q-0935-FR020-AMEND2. Options **a + c**
+were selected; option b (accepting the risk instead of a cool-off) was not.
+Sources: SA review of #2023 head `033aefc0f`, `reviews/PR-2023.md`
+P1-1/P2-2/P3-1, and Leader PC-J346. PC-J298 follows merged #2023 and changes
+only this spec, tasks and verification; PC-J300 implements after the spec
+PR merges. No migration, extra DB request, flag, owner exception or new
+factor-deletion proxy is introduced.
+
+### FR-020a — 24-hour cool-off for a new or changed verified TOTP factor
+
+FR-020a is the named subclause of canonical **FR-020** (the repository's
+requirement IDs and coverage rows use `FR-NNN`); its evidence maps to FR-020
+and AC13, not to a separate requirement row.
+
+- `require_recent_mfa()` uses only the `factors` array of the **Auth user
+  object already accepted for this request**, never a client-supplied factor
+  list or an extra DB lookup. Inspect **every** factor with
+  `factor_type="totp"` and `status="verified"`, not just the first or the
+  factor used for the latest challenge.
+- Parse both `created_at` and `updated_at` as UTC instants. If
+  `now − created_at < 86400` **or** `now − updated_at < 86400` seconds for
+  any such factor, step-up is blocked under enforcement. Exactly 86400
+  seconds clears this rule; it does not waive the 15-minute TOTP check.
+  Future timestamps do not establish sufficient age. Both timestamps must
+  be usable; missing or malformed metadata uses the existing fail-closed
+  503 lookup-failure behavior under enforcement, never an assumption that
+  the factor is old. Keep the existing report-only error behavior.
+- When factor metadata is usable and the cool-off and stale-TOTP rules
+  both fail, the cool-off reason takes precedence. Under enforcement return
+  403 `step_up_required` with `reason="new_factor_cooloff"`. Preserve the
+  existing `next_step="challenge"` and `max_age_seconds` fields for wire
+  compatibility; `max_age_seconds` still describes the 15-minute window,
+  not the 24-hour cool-off. The message explains that the new or changed
+  factor must age 24 hours. Under report-only emit exactly one
+  `admin_step_up_would_block` line with that reason and preserve behavior.
+- The shared frontend transport recognizes this reason before its generic
+  step-up handler: show the wait message and leave the action refused,
+  without opening a challenge or automatically resending. Fresh TOTP cannot
+  clear factor age. Existing stale-TOTP handling still prompts and retries
+  once; older consumers may do that once and receive the same cool-off
+  refusal, with no mutation.
+- **Giới hạn:** admin vừa enroll hợp lệ cũng phải chờ đủ 24 giờ kể từ mốc
+  `created_at`/`updated_at` mới nhất của mọi factor TOTP verified. Không có
+  đường owner duyệt bỏ qua. Thêm factor dự phòng cũng chịu giới hạn này.
+  Enrollment and other admin routes outside FR-020 keep their current rules.
+
+### Conditional access-code step-up (option c)
+
+`POST /admin/access-codes/generate` runs the FR-001 guard, then the existing
+pure normalization `(body.grants_role or "").strip().lower() or None`.
+When the result is non-null it calls `require_recent_mfa()` before any
+domain DB read/write, code creation or audit side effect. This covers
+`grants_role="instructor"`, which `/auth/activate` later uses to promote
+the email-bound recipient. Ordinary codes (normalized null) keep their
+current behavior and never call this dependency. The route's existing
+role allow-list, email binding and `{created, codes}` success body remain.
+The inventory must express the conditional guard rather than requiring
+step-up for all code generation. OpenAPI and `frontend/types/api.d.ts`
+document this route's additive 403 and the optional cool-off `reason` field.
+
+### Non-finite TOTP timestamps (FR-012, P3-1)
+
+Filter `NaN`, positive infinity and negative infinity out of numeric
+`amr.totp.timestamp` candidates before taking the latest timestamp. No
+finite candidate is the existing missing-TOTP case (`totp_expired`), not
+valid AAL2. Existing finite-age, future-skew and boolean rejection rules
+remain. Logs must not try to convert a non-finite value to an integer.
+AC15 covers both enforcement flags and mixed finite/non-finite claims.
+
+### Delivery and enforcement
+
+`ADMIN_STEP_UP_ENFORCE` remains **OFF everywhere**. This spec approval and
+PC-J300 do not authorize switching it on. Before any later enablement,
+PC-J300 must implement AC13–AC15, SA must review spec and code, and the
+Leader must give the staging go; production still needs Vinh's separate
+authorization. Feature Developer reads this spec PR to align admin designs;
+no separate implementation ticket is added. All attack regression tests
+use claims/fixtures, never real GoTrue attack calls or real recipient mail.
+
 ## Rủi ro còn lại (residual risk)
 
-Accepted by Leader 29/10/2026 14:53 (UTC+7).
+The UI-only deletion limitation was accepted by Leader 29/10/2026 14:53
+(UTC+7). Amendment 2 (Vinh **a + c**, 30/10 13:38) requires the cool-off;
+it does not select option b or waive that control.
 
-- **Factor delete is not enforced on the server.**
-  - The `/admin/mfa` page calls Supabase Auth (`mfa.unenroll`) **directly from
-    the browser**. The FastAPI backend never sees the request, so
-    `require_recent_mfa()` cannot run on it.
-  - GoTrue itself only requires an AAL2 session to delete a verified factor.
-    It does not require a fresh TOTP within 15 minutes.
-  - Anyone holding a stolen AAL2 session (≤ 12 h old) could therefore delete a
-    factor without a new code by calling GoTrue directly, skipping the UI.
-- **Controls in place:**
-  - (1) A UI gate: `/admin/mfa` runs a fresh `challenge`+`verify` immediately
-    before `unenroll` (AC12 node test).
-  - (2) A detective backstop: the factor-deleted owner alert of ADMINAAL2-0032
-    T007 (`staff_security_sweep.py`, Auth audit-log cursor + snapshot). It
-    emails the owner within one sweep run (≤ 5 minutes, cron `*/5`).
-  - (3) Admin rights still expire 12 h after the last TOTP (FR-012).
-- **Not mitigated:** the deletion itself. Recovery is to re-enroll and review
-  the alert. The risk is recorded in `research.md` and `verification.md`.
-  Closing it needs a server-side proxy for factor deletion, which is out of
-  scope here and can be proposed later.
+- **Stolen AAL2 session, unenroll → re-enroll.** `/admin/mfa` calls GoTrue
+  directly for factor enrollment and deletion; FastAPI cannot gate those
+  calls. An attacker holding a stolen AAL2 session can bypass the page's
+  fresh-code UI check, delete a factor, enroll and verify their own TOTP,
+  then obtain a fresh `amr.totp`. A new TOTP can therefore renew the 12-hour
+  and 15-minute windows; those windows alone do not stop this attack.
+- **Controls:** the existing UI fresh `challenge`+`verify` before `unenroll`;
+  the FR-010/FR-011 T007 Auth audit-log sweep and owner alerts for **both
+  `mfa_factor_verified` and `mfa_factor_deleted`** within one sweep (≤ 5 min,
+  including verify/delete between runs); and FR-020a's 24-hour cool-off on
+  every FR-020 route when implemented and enforced. A legitimate re-enroll
+  has the same wait, with no owner bypass. While enforcement is OFF the
+  cool-off is report-only and provides no preventive block.
+- **Limits of the factor-list check:** it sees current verified factors,
+  not deleted-factor history. If an attacker removes the new factor while
+  leaving an older verified factor, its timestamps disappear from the
+  current list; FR-020a cannot prove that no recent factor existed. Nor does
+  it stop an attacker who retains the session and waits out the cool-off.
+  These remain detective/recovery cases for the verified/deleted alerts;
+  the check does not guarantee server-side prevention of factor deletion
+  or every re-enrollment sequence.
+- **Recovery:** investigate both alerts, suspend the compromised account
+  and revoke sessions through the existing staff controls, then recover
+  factors under the existing runbook. A newly enrolled recovery factor
+  remains subject to FR-020a. A factor-deletion proxy or durable factor
+  history would require a separate approved scope, not this amendment.
 
 ## Edge cases
 
@@ -426,6 +612,13 @@ Accepted by Leader 29/10/2026 14:53 (UTC+7).
 - Recovery drill: flag-off path restores access in ≤ 10 minutes, factor-reset
   path in ≤ 30 minutes (targets; measured values recorded in
   `verification.md`).
+- With step-up enforced, every implemented FR-020 route refuses a recent
+  verified TOTP factor with `reason=new_factor_cooloff`, including the
+  conditional role-granting code path; exactly 24 hours plus fresh TOTP
+  passes (AC13, AC14). Ordinary-code generation retains FR-001 behavior.
+- Non-finite TOTP timestamps never satisfy FR-012 and never break
+  report-only logging (AC15). Amendment 2 evidence stays pending until
+  PC-J300 and its SA review; flags remain OFF in this spec job.
 
 ## Owner decisions
 
@@ -488,3 +681,10 @@ the wording of the default that was approved.
   became FR-019 and migration 336, after #1806 reached staging. It prevents a
   suspended instructor from being demoted to student and then being
   impossible to restore in the app.
+- **Q12: Q-0935-FR020-AMEND2.** *Leader báo anh Vinh duyệt FR020 a c
+  30/10 13:38 (t744s2552), 2026 (UTC+7).* Choose (a) the 24-hour cool-off
+  on any new/changed verified TOTP factor (`reason=new_factor_cooloff`),
+  without an owner bypass, and (c) step-up for access-code generation with
+  `grants_role`. Option (b), accepting the risk instead of the cool-off,
+  was not selected. FR-012 also excludes NaN/±inf timestamps (SA P3-1).
+  `ADMIN_STEP_UP_ENFORCE` remains OFF everywhere.
