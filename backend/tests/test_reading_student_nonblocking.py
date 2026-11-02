@@ -608,10 +608,15 @@ def test_save_rejected_states(env):
 
 def test_save_trigger_expiry_410(env):
     row = env.attempt(U1)
+    reads = []
 
     def expire_behind_save():
-        with env.db.lock:
-            env.db.tables["reading_test_attempts"][0]["status"] = "submitted"
+        reads.append(True)
+        # Let the ownership preflight succeed, then expire after the write's
+        # fresh read so the DB trigger still exercises the stale-save path.
+        if len(reads) == 2:
+            with env.db.lock:
+                env.db.tables["reading_test_attempts"][0]["status"] = "submitted"
 
     env.db.hooks.append((lambda q: q.name == "reading_test_attempts" and q.op == "select", expire_behind_save))
 
@@ -704,6 +709,116 @@ def test_concurrent_learners_keep_their_own_observation(env):
 # ── SAME-ENTITY-SERIAL (G4 checklist) ─────────────────────────────────
 
 
+@pytest.mark.parametrize("kind", ["submit", "save"])
+@pytest.mark.parametrize("auth", [None, "Bearer invalid"])
+def test_missing_credentials_rejected_before_write_queue(env, monkeypatch, kind, auth):
+    entered = []
+    real_write = rs._learner_write
+
+    async def write(*args):
+        entered.append(args[0])
+        return await real_write(*args)
+
+    monkeypatch.setattr(rs, "_learner_write", write)
+
+    async def scenario(client):
+        return await _call(client, kind, auth=auth, attempt_id=str(uuid.uuid4()))
+
+    response = _run(env, scenario)
+    assert response.status_code == 401
+    assert entered == [], "credentialless requests must not enter the write queue"
+    assert env.db.statements == []
+
+
+@pytest.mark.parametrize("kind", ["submit", "save"])
+@pytest.mark.parametrize("case,status", [("other-user", 403), ("wrong-anon", 403),
+                                        ("bearer-only-share", 403), ("missing", 404)])
+def test_unowned_attempt_rejected_before_write_queue(env, monkeypatch, kind, case, status):
+    row = env.attempt(None, anon_id=ANON) if case in {"wrong-anon", "bearer-only-share"} else env.attempt(U2)
+    entered = []
+    real_write = rs._learner_write
+
+    async def write(*args):
+        entered.append(args[0])
+        return await real_write(*args)
+
+    monkeypatch.setattr(rs, "_learner_write", write)
+
+    async def scenario(client):
+        return await _call(client, kind, attempt_id=str(uuid.uuid4()) if case == "missing" else row["id"],
+                           anon="wrong" if case == "wrong-anon" else None)
+
+    response = _run(env, scenario)
+    assert response.status_code == status
+    assert entered == [], "ownership must be verified before taking any write lock"
+    assert all(op == "select" for _, op in env.db.statements)
+
+
+@pytest.mark.parametrize("kind", ["submit", "save"])
+@pytest.mark.parametrize("owner", ["user", "anon"])
+def test_write_keys_use_canonical_owned_attempt(env, monkeypatch, kind, owner):
+    row = env.attempt(U1) if owner == "user" else env.attempt(None, anon_id=ANON)
+    checked, entered = [], []
+    real_owned, real_write = rs._fetch_attempt_owned, rs._learner_write
+
+    def owned(*args):
+        attempt = real_owned(*args)
+        checked.append(attempt["id"])
+        return attempt
+
+    async def write(keys, *args):
+        assert checked == [row["id"]], "verify ownership before deriving locks"
+        entered.append(keys)
+        return await real_write(keys, *args)
+
+    monkeypatch.setattr(rs, "_fetch_attempt_owned", owned)
+    monkeypatch.setattr(rs, "_learner_write", write)
+
+    async def scenario(client):
+        # Optional Bearer auth cannot own a share-link attempt.
+        return await _call(client, kind, attempt_id=row["id"], anon=ANON if owner == "anon" else None)
+
+    response = _run(env, scenario)
+    assert response.status_code == 200, response.text
+    expected = (f"attempt:{row['id']}",)
+    if owner == "user":
+        expected = (f"user:{U1}", *expected)
+    assert entered == [expected]
+    assert checked == [row["id"], row["id"]], "re-read mutable state under the lock"
+
+
+@pytest.mark.parametrize("kind", ["submit", "save"])
+@pytest.mark.parametrize("auth", [None, "Bearer u1"])
+def test_distinct_share_attempts_do_not_share_a_write_lock(env, monkeypatch, kind, auth):
+    gate = LoopGate()
+    name = "_submit_reading_test_attempt_sync" if kind == "submit" else "_patch_reading_test_attempt_answer_sync"
+    real_write = getattr(rs, name)
+
+    def parked_write(*args):
+        gate.park()
+        return real_write(*args)
+
+    monkeypatch.setattr(rs, name, parked_write)
+    # The same anon capability can resume multiple attempts, and the frontend
+    # may attach the same logged-in user's Bearer token to all share requests.
+    rows = [env.attempt(None, anon_id=ANON), env.attempt(None, anon_id=ANON)]
+
+    async def scenario(client):
+        calls = asyncio.gather(*[_call(client, kind, auth=auth, anon=ANON, attempt_id=row["id"]) for row in rows])
+        try:
+            overlapped = await until(lambda: gate.inside == 2, stop=calls)
+            ping = await asyncio.wait_for(client.get("/ping"), WAIT)
+            parked = overlapped and not gate.released and not calls.done()
+        finally:
+            gate.release()
+        return await asyncio.wait_for(calls, WAIT), ping, parked
+
+    responses, ping, parked = _run(env, scenario)
+    assert [r.status_code for r in responses] == [200, 200], [r.text for r in responses]
+    assert ping.status_code == 200
+    assert parked and not gate.timed_out, "independent share attempts must enter their write bodies together"
+
+
 def _pause_until(event, timeout=0.6):
     return lambda: event.wait(timeout)
 
@@ -779,9 +894,11 @@ def test_two_submits_same_attempt_exactly_one_grades(env):
 # attempt can be reached with and without auth (Codex review on #2105).
 @pytest.mark.parametrize("owner,submit_auth,save_auth", [
     ("user", "Bearer u1", "Bearer u1"),
+    ("anon", None, None),
     ("anon", "Bearer u1", None),
     ("anon", None, "Bearer u1"),
-], ids=["owned", "anon-submit-with-bearer", "anon-save-with-bearer"])
+    ("anon", "Bearer u1", "Bearer u2"),
+], ids=["owned", "anon", "anon-submit-with-bearer", "anon-save-with-bearer", "anon-different-bearers"])
 def test_submit_and_autosave_never_drop_an_acknowledged_answer(env, owner, submit_auth, save_auth):
     env.db.delay = 0.02
     row = env.attempt(U1) if owner == "user" else env.attempt(None, anon_id=ANON)
@@ -847,34 +964,41 @@ def test_different_learners_are_not_serialised(env):
     assert [r.status_code for r in responses] == [200, 200]
 
 
-def test_cancelled_request_keeps_learner_lock_until_thread_ends(env):
+@pytest.mark.parametrize("owner", ["user", "anon"])
+def test_cancelled_request_keeps_learner_lock_until_thread_ends(env, monkeypatch, owner):
     gate = LoopGate()
     order = []
+    real_write = rs._patch_reading_test_attempt_answer_sync
 
-    def owned_call():
+    def parked_write(*args):
         if order:
             order.append("second-start")
-            return
-        order.append("first-start")
-        gate.park()
-        order.append("first-end")
+        else:
+            order.append("first-start")
+            gate.park()
+            order.append("first-end")
+        return real_write(*args)
 
-    env.pause["owned"] = owned_call
-    row = env.attempt(U1)
+    # Ownership now has a read-only preflight; park the actual write body to
+    # continue proving cancellation retains every write lock until it ends.
+    monkeypatch.setattr(rs, "_patch_reading_test_attempt_answer_sync", parked_write)
+    row = env.attempt(U1) if owner == "user" else env.attempt(None, anon_id=ANON)
+    credentials = {"auth": "Bearer u1"} if owner == "user" else {"auth": None, "anon": ANON}
 
     async def turns(n=5):  # loop iterations, not wall-clock time
         for _ in range(n):
             await asyncio.sleep(0)
 
     async def scenario(client):
-        first = asyncio.create_task(_call(client, "save", attempt_id=row["id"]))
+        first = asyncio.create_task(_call(client, "save", attempt_id=row["id"], **credentials))
         try:
             parked = await until(lambda: gate.inside > 0, stop=first)
             first.cancel()
             await turns()
-            held = parked and rs._learner_write_lock(f"user:{U1}").locked() and not first.done()
+            keys = (f"user:{U1}", f"attempt:{row['id']}") if owner == "user" else (f"attempt:{row['id']}",)
+            held = parked and all(rs._learner_write_lock(key).locked() for key in keys) and not first.done()
             second = asyncio.create_task(
-                _call(client, "save", attempt_id=row["id"], json={"q_num": 3, "user_answer": "A"}))
+                _call(client, "save", attempt_id=row["id"], json={"q_num": 3, "user_answer": "A"}, **credentials))
             await turns()
             queued = "second-start" not in order
         finally:
