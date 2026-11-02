@@ -82,11 +82,11 @@ Ví dụ tốt là ví dụ **cụ thể**, **liên quan**, và được **giớ
 
 ## Tại sao quan trọng
 
-Writing Task 2 đánh giá phát triển và hỗ trợ ý trong Task Response; Task 1 dùng Task Achievement. Coherence and Cohesion xét tổ chức và liên kết ý. Không suy trần band chỉ từ số ví dụ.
+Writing Task 2 đánh giá phát triển và hỗ trợ ý trong Task Response; Task 1 dùng Task Achievement. Coherence and Cohesion xét tổ chức và liên kết ý. Không suy ra band chỉ từ số lượng ví dụ.
 
 Trong Speaking, ví dụ giúp bạn nói dài hơn một cách tự nhiên và chứng minh khả năng **expand on a topic** — tiêu chí Fluency & Coherence.
 
-Tuy nhiên, nếu chỉ dùng "for example" mãi, bài nói/viết sẽ đơn điệu và examiner sẽ không thấy Lexical Range.
+Tuy nhiên, nếu chỉ dùng "for example" mãi, bài nói/viết sẽ đơn điệu và examiner khó thấy độ đa dạng từ vựng (Lexical Resource).
 
 ---
 
@@ -104,8 +104,7 @@ Hai cụm từ này hoàn toàn thay thế cho nhau — đứng đầu câu, the
 
 - Many factors contribute to poor academic performance. **For instance**, inadequate sleep has been shown to significantly impair memory consolidation and concentration.
 
-> **Lưu ý:** "For example" và "for instance" đứng đầu câu mới — luôn có dấu phẩy sau.
-> Không dùng "For example" ở giữa câu như "such as".
+> **Lưu ý:** thường đứng đầu câu, theo sau là dấu phẩy. Nếu đặt giữa câu, tách bằng hai dấu phẩy. Không dùng thay *such as* để liệt kê.
 
 ---
 
@@ -140,7 +139,7 @@ Dùng khi ví dụ sau đó là một đoạn dài, chi tiết — thường tro
 
 - The impact of social media on self-image cannot be underestimated. **To illustrate**, the [RSPH #StatusOfMind report (2017)](https://www.rsph.org.uk/our-work/publications/statusofmind/) used a survey of young people’s ratings of social-media platforms; Instagram received the most negative overall rating. The survey alone does not establish causation.
 
-- Education systems can adapt successfully even in low-resource environments. **To demonstrate**, in a hypothetical case, a school improved learning outcomes after introducing teacher training. *(ví dụ giả định; không phải kết quả thực tế về Finland)*
+- Education systems can adapt successfully even in low-resource environments. **To demonstrate**, schools that introduce regular teacher training often report better learning outcomes, even with limited budgets.
 
 ---
 
@@ -223,7 +222,7 @@ Trong Speaking, những connectors này nghe **tự nhiên và conversational** 
 | Situation | WRITING phù hợp | SPEAKING phù hợp |
 |-----------|-----------------|-----------------|
 | Giới thiệu ví dụ | For example, / For instance, / To illustrate, | For example, / Like, / Take...for example |
-| Nhấn mạnh nhóm | In particular, / Particularly | In particular, / Especially, / Like |
+| Nhấn mạnh nhóm | In particular, / Particularly | In particular, / Especially, |
 | Nêu tên cụ thể | Namely, | Well, specifically... / I mean, take... |
 | Ví dụ tích hợp câu | such as | like (informal) |
 | Ví dụ từ nghiên cứu | Research shows that... / A study found that... | Studies suggest that... / I read somewhere that... |
@@ -234,12 +233,15 @@ Trong Speaking, những connectors này nghe **tự nhiên và conversational** 
 ## STRUCTURE: Ví dụ hiệu quả = Cụ thể + Liên quan + Phát triển
 
 Một ví dụ yếu:
+
 - "For example, technology is used by many people." (quá chung chung)
 
 Một ví dụ mạnh:
-- "**For example**, in Japan, the introduction of cashless payment systems in the 2010s dramatically reduced transaction times in retail stores — some convenience chains reported a 40% improvement in checkout speed."
+
+- "**For example**, in Japan, many convenience stores now accept cashless payments, which has made checking out noticeably faster."
 
 **Ba yêu cầu của ví dụ tốt:**
+
 1. **Cụ thể** (specific): tên quốc gia, con số, tình huống thật
 2. **Liên quan** (relevant): ví dụ phải trực tiếp support luận điểm
 3. **Phát triển** (developed): không chỉ kể ví dụ mà còn giải thích tại sao nó liên quan
@@ -249,7 +251,7 @@ Một ví dụ mạnh:
 <!-- anchor: giving-examples-naturally.loi-thuong-gap -->
 ## Lỗi thường gặp
 
-### Lỗi 1: "For example" ở giữa câu thay vì đầu câu
+### Lỗi 1: Thiếu dấu phẩy khi đặt *for example* giữa câu
 
 - ❌ Technology, for example is changing education. → ✅ Technology, **for example,** is changing education. *(thiếu dấu phẩy thứ hai)*
 - ✅ Technology is changing education. **For example**, online platforms now allow students to learn from world-class universities for free.
@@ -281,7 +283,7 @@ Một ví dụ mạnh:
 
 ### Writing Task 2 — đoạn văn mẫu với ví dụ được dùng đúng:
 
-*"One major advantage of remote working is that it reduces commuting time, allowing employees to use those hours more productively. **For instance**, a survey by Owl Labs found that remote workers save an average of 40 minutes daily by not commuting — time many redirect towards exercise, family, or professional development. This is particularly beneficial in congested cities, **such as** London or Tokyo, where average commutes can exceed 90 minutes each way. **To illustrate** the economic impact, a Stanford study found that productivity among remote workers increased by 13% compared to their office-based counterparts."*
+*"One major advantage of remote working is that it reduces commuting time, allowing employees to use those hours more productively. **For instance**, a survey by Owl Labs found that remote workers save an average of 40 minutes daily by not commuting — time many redirect towards exercise, family, or professional development. This is particularly beneficial in congested cities **such as** London or Tokyo, where many commuters spend over an hour travelling each way. **To illustrate** the economic impact, a Stanford study found that productivity among remote workers increased by 13% compared to their office-based counterparts."* (Trong bài thi không cần số liệu thật; đừng bịa con số.)
 
 ### Speaking Part 3 — câu trả lời tự nhiên:
 
@@ -315,7 +317,19 @@ Hãy thêm một ví dụ vào mỗi câu dưới đây, bắt đầu bằng con
 
 ### Đáp án
 
+**Thêm ví dụ (gợi ý):**
+
+1. ...outcomes. **For example**, wearable devices now allow doctors to monitor some patients' heart rates from a distance.
+   *(Câu gốc đã kết thúc bằng dấu chấm, nên ví dụ là một câu mới: For example đứng đầu câu, theo sau là dấu phẩy.)*
+2. ...air pollution. **A case in point is** Delhi, where schools have sometimes been closed because of severe smog.
+   *(A case in point is giới thiệu một trường hợp cụ thể làm bằng chứng cho nhận định vừa nêu.)*
+3. ...public transport systems, **such as** Switzerland and Austria.
+   *(Câu gốc kết thúc bằng dấu phẩy và ví dụ chỉ là cụm danh từ gắn vào câu, nên dùng such as, không mở câu mới.)*
+4. ...their parents did not. **In particular**, housing in many big cities now costs far more compared with young people's incomes.
+   *(In particular chọn ra một áp lực nổi bật nhất trong nhóm áp lực kinh tế vừa nêu.)*
+
 **Connector:**
+
 1. such as | 2. For example / To illustrate | 3. namely | 4. in particular | 5. Think about | 6. like
 
 ---
@@ -336,6 +350,7 @@ Hãy thêm một ví dụ vào mỗi câu dưới đây, bắt đầu bằng con
 | **Take...for example** | Đầu câu | Informal (S) | Take South Korea, for example. |
 
 **Quy tắc vàng:**
+
 - Ví dụ phải **cụ thể, liên quan, và được phát triển** — không chỉ kể tên
 - Trong Writing: dùng "such as", "for example", "to illustrate", "namely"
 - Trong Speaking: dùng "like", "take...for example", "think about"

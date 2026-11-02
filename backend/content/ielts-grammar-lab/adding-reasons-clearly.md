@@ -77,7 +77,8 @@ Có nhiều cách hơn "because" để đưa ra lý do — và dùng đúng các
 |------|----------|-------------|
 | **Cơ bản (clause)** | because, since, as | Subject + Verb |
 | **Giới từ (noun phrase)** | because of, due to, owing to | Noun / Noun phrase |
-| **Trang trọng (clause)** | given that, seeing as, in that | Subject + Verb |
+| **Trang trọng (clause)** | given that, in that | Subject + Verb |
+| **Thân mật (clause)** | seeing as / seeing that | Subject + Verb |
 | **Kết quả (đầu câu)** | therefore, consequently, as a result | — |
 | **Giải thích thêm** | this is because, the reason is that | — |
 
@@ -126,7 +127,7 @@ Since [S + V], [Main clause]
 As [S + V], [Main clause]
 ```
 
-- **As** urban populations continue to grow, pressure on infrastructure intensifies.
+- **As** public transport is limited in rural areas, most residents rely on private cars.
 - **As** the clinic is closed, patients must wait until morning. *(nguyên nhân)*
 - “As the evidence suggests...” dẫn nguồn/theo bằng chứng, không phải as nguyên nhân.
 
@@ -210,17 +211,17 @@ Seeing as [S + V], [Main clause]
 
 ---
 
-## NHÓM 4: RESULT CONNECTORS — kết quả của lý do (đứng đầu câu)
+## NHÓM 4: RESULT CONNECTORS — nêu kết quả sau khi đã có lý do
 
-Khi muốn bắt đầu câu bằng kết quả rồi mới nêu lý do ngầm định, dùng:
+Khi câu trước đã nêu lý do và câu sau nêu kết quả, mở câu sau bằng:
 
 | Connector | Ví dụ |
 |-----------|-------|
-| **Therefore** | Population is ageing rapidly. **Therefore**, healthcare spending will inevitably increase. |
+| **Therefore** | **The** population is ageing rapidly. **Therefore**, healthcare spending will inevitably increase. |
 | **Consequently** | Investment fell sharply. **Consequently**, thousands of jobs were lost. |
 | **As a result** | Air pollution worsened. **As a result**, respiratory diseases became more common. |
 | **Hence** | Demand increased. **Hence**, prices rose. |
-| **Thus** | Data was inconclusive. **Thus**, further research is required. |
+| **Thus** | **The** data **were** inconclusive. **Thus**, further research is required. |
 
 ---
 
@@ -257,7 +258,7 @@ Pattern này rất hữu ích trong Writing Task 2 để tách luận điểm v�
 
 **Ví dụ đoạn văn hoàn chỉnh:**
 
-*"One significant benefit of higher education is improved career prospects. **This is because** universities equip graduates with both specialised knowledge and transferable skills such as critical thinking and communication. **For instance**, a study by the OECD found that degree holders earn, on average, 56% more than those with only secondary-level qualifications. **As a result**, access to higher education can be a powerful tool for reducing socioeconomic inequality."*
+*"One significant benefit of higher education is improved career prospects. **This is because** universities equip graduates with both specialised knowledge and transferable skills such as critical thinking and communication. **For instance**, a study by the OECD found that degree holders earn, on average, 56% more than those with only secondary-level qualifications. **As a result**, access to higher education can be a powerful tool for reducing socioeconomic inequality."* (Trong phòng thi không cần số liệu chính xác; đừng bịa số. Có thể viết *research suggests that…*)
 
 **Phân tích:** Claim (improved career prospects) + Reason (because universities equip graduates) + Evidence (OECD study) + Result (reduce inequality).
 
@@ -276,8 +277,9 @@ Trong Speaking Part 3, đưa lý do theo kiểu **thân mật hơn** — tránh 
 | This can be attributed to | It's mostly down to... / It has a lot to do with... |
 
 **Part 3 example:**
+
 - Q: "Why do you think young people are less likely to vote than older people?"
-- ✅ "I think **the main reason is** that many young people feel disconnected from the political process — **as if** their vote doesn't actually make a difference. **And also**, young adults are often dealing with so many immediate pressures, like education and employment, that politics feels distant. **On top of that**, political messaging is rarely targeted at younger demographics in a way that resonates with them."
+- ✅ "I think **the main reason is** that many young people feel disconnected from the political process — as if their vote doesn't actually make a difference. **And also**, young adults are often dealing with so many immediate pressures, like education and employment, that politics feels distant. **On top of that**, political messaging is rarely targeted at younger demographics in a way that resonates with them."
 
 ---
 
@@ -297,7 +299,7 @@ Trong Speaking Part 3, đưa lý do theo kiểu **thân mật hơn** — tránh 
 
 ### Lỗi 3: "This is because" mà không có câu trước
 
-- ✅ Bắt đầu đoạn bằng “This is because...” nếu this quy chiếu rõ về nhận định trước đó, kể cả ở đoạn trước.
+- ❌ Mở đoạn đầu tiên bằng *This is because…* khi chưa có nhận định nào để *this* quy chiếu.
 - ✅ "This is because" phải theo sau một statement đã nêu trước đó.
 
 ### Lỗi 4: Nêu lý do nhưng không develop
@@ -330,15 +332,17 @@ Trong Speaking Part 3, đưa lý do theo kiểu **thân mật hơn** — tránh 
 ### Đáp án (gợi ý)
 
 **Hoàn thành câu:**
+
 1. ...because cities offer better employment and lifestyle opportunities.
 2. ...since the current model fails to prepare students for modern workplaces.
 3. Due to/Owing to advances in technology (hoặc: Because technology has made remote work possible...)
 4. This is because / The reason is that / One key reason is that
 
 **Viết lại:**
+
 1. Given that climate change is accelerating, governments must act now.
 2. She succeeded owing to her determination.
-3. As a result of increasing pollution, health problems are rising. / Air pollution is worsening. Consequently, health problems are on the rise.
+3. As a result of increasing pollution, health problems are rising.
 
 ---
 
@@ -354,6 +358,7 @@ Trong Speaking Part 3, đưa lý do theo kiểu **thân mật hơn** — tránh 
 | Kết quả từ lý do | therefore / consequently / as a result | ...Therefore, action is needed. |
 
 **Quy tắc vàng:**
+
 - Mỗi luận điểm PHẢI có lý do hỗ trợ
 - Chọn cấu trúc theo quan hệ ý và văn phong; không có số loại tối thiểu để đạt band
 - Writing: dùng trang trọng hơn (given that, due to, this is because)

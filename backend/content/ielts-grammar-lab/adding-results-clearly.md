@@ -108,7 +108,8 @@ Result connectors được chấm ở **hai** tiêu chí: **Grammatical Range** 
 
 > "So" tự nhiên, hơi thân mật — tuyệt vời cho Speaking, dùng được trong Writing nhưng đừng lạm dụng (Writing học thuật thích therefore/consequently hơn).
 
-So that thường chỉ mục đích nhưng cũng chỉ kết quả: “The roads flooded, so that no buses could run”. So có thể lược that khi chỉ mục đích; xét nghĩa và ngữ cảnh.
+*So that* thường chỉ mục đích; đôi khi (văn trang trọng) chỉ kết quả: *The roads flooded, so that no buses could run.* Trong văn nói, *so that* chỉ mục đích có thể lược *that* (*He saved money so he could travel*). Vì vậy cần dựa vào dấu phẩy và ngữ cảnh.
+
 - He saved money **so that** he could travel. (mục đích — *để* đi du lịch)
 - He saved money, **so** he could travel. (kết quả — vì thế anh ấy *đã có thể* đi)
 
@@ -117,7 +118,7 @@ So that thường chỉ mục đích nhưng cũng chỉ kết quả: “The road
 <!-- anchor: adding-results-clearly.nhom-2-therefore-consequently-as-a-result-trang-tu-lien-ket-formal -->
 ## NHÓM 2: THEREFORE, CONSEQUENTLY, AS A RESULT — trạng từ liên kết (formal)
 
-Đây là **conjunctive adverbs** — chúng KHÔNG nối hai mệnh đề bằng dấu phẩy. Trong mẫu nối hai mệnh đề độc lập, dùng dấu chấm/chấm phẩy thay vì chỉ dấu phẩy. Trạng từ còn đứng giữa câu: “Demand therefore rose”; “Demand rose; hence prices increased” không buộc dấu phẩy sau hence.
+Đây là **conjunctive adverbs** — chúng KHÔNG nối hai mệnh đề bằng dấu phẩy. Trong mẫu nối hai mệnh đề độc lập, dùng dấu chấm/chấm phẩy thay vì chỉ dấu phẩy. Các trạng từ này cũng có thể đứng giữa câu (*Demand therefore rose.*). Dấu phẩy sau *thus/hence* là tuỳ chọn.
 
 ```
 [Clause]. Therefore, [clause].
@@ -157,7 +158,7 @@ Khi muốn nhấn mạnh **mức độ** dẫn tới kết quả, dùng cấu tr
 ```
 
 - It was **such a popular policy that** other countries quickly copied it.
-- They were **such convincing arguments that** the committee changed its decision.
+- They made **such convincing arguments that** the committee changed its decision.
 
 ### SO MUCH / SO MANY + danh từ + THAT
 
@@ -203,7 +204,7 @@ Một đoạn body thuyết phục thường khép lại bằng **kết quả / 
 
 *"Investing heavily in public transport brings clear environmental benefits. When reliable trains and buses are available, fewer people rely on private cars. **As a result,** urban air pollution falls and traffic congestion eases. Singapore's integrated transit network, for instance, has kept car ownership remarkably low; **consequently,** the city enjoys cleaner air than many comparable metropolises. **This is why** sustained investment in public transport should be a priority for fast-growing cities."*
 
-**Phân tích:** Claim (public transport benefits) → Reason (fewer cars) → Result (**as a result** + **consequently**) → Example (Singapore) → Implication (**this is why**). Bốn cách nối kết quả khác nhau trong một đoạn.
+**Phân tích:** Claim (public transport benefits) → Reason (fewer cars) → Result (**as a result** + **consequently**) → Example (Singapore) → Implication (**this is why**). Ba cách nối kết quả khác nhau trong một đoạn.
 
 ---
 
@@ -219,6 +220,7 @@ Khi nói, đừng dùng "thus/hence" — nghe cứng như đọc văn. Chọn c�
 | Hence | So basically... |
 
 **Part 3 example:**
+
 - Q: "Why are fewer young people reading newspapers?"
 - ✅ "Well, most news is free online now and updates instantly, **so** there's not much reason to buy a paper. **And that means** print circulation has been falling for years — **which is why** a lot of newspapers have moved entirely to digital. **So in the end,** it's really just people following convenience."
 
@@ -235,7 +237,7 @@ Khi nói, đừng dùng "thus/hence" — nghe cứng như đọc văn. Chọn c�
 - ✅ Prices increased**.** Therefore, people bought less.
 - ✅ Prices increased**;** therefore, people bought less.
 
-> "Therefore" KHÔNG phải liên từ — không nối được hai mệnh đề bằng dấu phẩy. Xem thêm bài **Run-On Sentences**.
+> "Therefore" KHÔNG phải liên từ — không nối được hai mệnh đề bằng dấu phẩy. Xem thêm bài [Run-On Sentences](/grammar/error-clinic/run-on-sentences).
 
 ### Lỗi 2: Lặp "so" quá nhiều
 
@@ -283,12 +285,14 @@ Khi nói, đừng dùng "thus/hence" — nghe cứng như đọc văn. Chọn c�
 ### Đáp án (gợi ý)
 
 **Hoàn thành câu:**
+
 1. As a result / Consequently / Therefore
 2. so ... that (Demand was **so** high **that** the company doubled its production.)
 3. resulting (...two years running, **resulting in** severe food shortages.)
 4. so / which is why (..., **so** many high-street shops have closed.)
 
 **Viết lại:**
+
 1. The test was **so hard that** many students failed.
 2. Tourism collapsed, **resulting in** rising unemployment.
 3. Prices increased**.** Therefore, demand fell. — HOẶC — Prices increased**;** therefore, demand fell.
@@ -306,7 +310,8 @@ Khi nói, đừng dùng "thus/hence" — nghe cứng như đọc văn. Chọn c�
 | Giải thích kết quả | which is why / this is why | sau mệnh đề | ..., which is why demand fell |
 
 **Quy tắc vàng:**
+
 - "so" = liên từ (dấu phẩy); "therefore/consequently/as a result" = trạng từ (dấu chấm/chấm phẩy)
-- Xen kẽ ít nhất 3 cấu trúc kết quả khác nhau trong một bài viết
+- Xen kẽ các cấu trúc kết quả khi hợp nghĩa; không cần đủ một số lượng tối thiểu.
 - Phân biệt **so + adj** vs **such + (a) + noun**, và **so** (kết quả) vs **so that** (mục đích)
 - Writing: therefore / consequently / resulting in — Speaking: so / that's why / which means
