@@ -10,8 +10,17 @@ on `staging` (merged `c7ed31b32`).
 - [ ] T001 Contracts: `QuizCheckBody`, `QuizCheckResponse`, sealed
   `/course/report` fields, `verdict_sessions_incomplete` 422 body, ledger
   `session_count`/`attempt_count`, optional bank GET `quiz_contract` query
-  and its 409 refresh-required response; regenerate `frontend/types/api.d.ts`.
+  and its 409 refresh-required response, `course_session_consumed` 409 body;
+  derived `answer_word_count` and `text_match_eligible` on
+  `StudentQuizQuestion`, computed in `get_bank_for_play` for every bank
+  while the keys are still present (rollout step A, required before T005
+  deploys). Tests: derived fields next to the keys for Grammar
+  current/legacy and Vocab; eligibility equals today's `accept`-based rule
+  for every question of a bank with an explicit `text_match_by_qid` policy.
+  Regenerate `frontend/types/api.d.ts`.
   `owns: backend/models/grammar_quiz_revisions.py, backend/routers/quiz.py,
+  backend/services/quiz_service.py (get_bank_for_play derived fields),
+  backend/tests/test_quiz_bank_student_payload.py (derived fields),
   frontend/types/api.d.ts`
 - [ ] T002 Server grader and parity fixture (FR-005): shared fixture, node
   and pytest parity tests (red first), `quiz_answer_grader.py`.
@@ -43,20 +52,25 @@ on `staging` (merged `c7ed31b32`).
   `depends: T002`
 - [ ] T005 Player on server verdicts (FR-010): engine record/apply split,
   player states, retry with the same `client_id`, review from verdicts,
-  policy eligibility from `text_match_eligible`. Send
+  policy eligibility from `text_match_eligible` (from T001, already in the
+  keyed step-A payload; a payload without it is a load error). Send
   `quiz_contract=server-check-v1` through `quiz-player-api.ts` on every
   self-study bank GET (initial load, managed reset, reopen); add a full page
   reload action for `quiz_client_refresh_required`, without local grading.
   Node tests for
   `quiz-engine.js` (credit only after verdict; no local grading; retry
-  idempotent; adaptive loop unchanged given the same verdicts) and React/API
-  tests for player states, marker on every bank fetch and refresh action.
+  idempotent; adaptive loop unchanged given the same verdicts), a policy
+  validator test on a keyed step-A payload with derived fields and an
+  explicit `text_match_by_qid` policy (bank accepted, typo mode applied),
+  and React/API tests for player states, marker on every bank fetch and
+  refresh action.
   `owns: frontend/lib/quiz-player-api.ts, frontend/public/js/quiz-engine.js,
   frontend/public/js/quiz-text-match-policy.js,
   frontend/app/(authed-quiz-player)/quiz/quiz-player.tsx,
   frontend/tests/quiz-engine*.test.mjs, frontend/tests/react/quiz-player*`
-  `depends: T003`
-- [ ] T006 Key-free self-study payload (FR-009): projection, derived fields,
+  `depends: T001, T003`
+- [ ] T006 Key-free self-study payload (FR-009): projection without keys
+  (derived fields already shipped by T001),
   `test_quiz_bank_student_payload.py` tightened to "no mode has a key
   field". First add red route tests: missing or unknown `quiz_contract`
   returns 409 `quiz_client_refresh_required` with no questions or key fields;
@@ -87,8 +101,20 @@ on `staging` (merged `c7ed31b32`).
   422; > 40 collected sessions accepted; abandoned session does not turn an
   on-time completion into a timeout; reaper in mastery mode; single_attempt
   reaper orphan rule unchanged; retake union; full-retry boundary; NULL
-  kind = run; teacher rows show counts. `owns: backend/services/quiz_service.py
-  (course_verdict), backend/routers/admin_class_assignments.py,
+  kind = run; teacher rows show counts. Seal (FR-013): after a recorded
+  failing verdict that collected an open session, `/progress` to that
+  session with a new and with a replayed `client_id` → 409
+  `course_session_consumed`, body has no `feedback`/`answer`/`accept`/
+  `explain`/`why_wrong`, no row stored (red first: with collection but
+  without the seal it returns 200 with feedback); a 422 incomplete verdict seals
+  nothing; seal update failure or a still-open re-read → 500, nothing
+  recorded, retry collects the same sessions; concurrent normal end keeps
+  `completed`; race seam (session sealed between admission and store) →
+  409 without feedback; a new retake/full-retry session still accepts
+  answers; runner drops the batch and reloads on `course_session_consumed`.
+  `owns: backend/services/quiz_service.py
+  (course_verdict, Course write admission, log_progress feedback re-read),
+  backend/routers/admin_class_assignments.py,
   frontend/public/js/course-runner.js, admin homework view,
   backend/tests/test_course_verdict_session_collection.py,
   frontend/tests/course-runner*.test.mjs` `depends: T001`

@@ -20,27 +20,32 @@ the function names are the anchors.
     included);
   - `end_session`: time-cap rows graded before the RPC; self-study totals
     counted from stored rows;
-  - `get_bank_for_play`: self-study projection without key fields (FR-009,
-    after the rollout prerequisites and client-contract gate, see
-    `rollout.md`), plus `answer_word_count` and
-    `text_match_eligible`;
+  - `get_bank_for_play`: `answer_word_count` and `text_match_eligible`
+    on every bank from rollout step A (FR-010 build, keys still present);
+    self-study projection without key fields only in step B (FR-009, after
+    the rollout prerequisites and client-contract gate, see `rollout.md`);
   - new `single_attempt_key_released(item, assignment, siblings)` used by
     `_course_review_gate`, `_sealed_course_session_ids` and the
     `/course-resume` builder; `single_attempt_answers_sealed` keeps its
     current meaning (handed in or not) for write admission;
-  - `course_verdict`: server-side session collection, `mastery_score_policy()`,
-    `session_count`/`attempt_count` in the ledger entry.
+  - `course_verdict`: server-side session collection, seal of the
+    collected open sessions before scoring (FR-013), `mastery_score_policy()`,
+    `session_count`/`attempt_count` in the ledger entry;
+  - `_assert_quiz_progress_writable` / `log_progress` (Course branch):
+    409 `course_session_consumed` for a sealed or consumed session before
+    any read-back, and a post-store session re-read before mastery feedback.
 - `backend/models/grammar_quiz_revisions.py`: `QuizCheckBody`,
-  `QuizCheckResponse` (`extra='forbid'`); `StudentQuizQuestion` keeps the key
-  fields optional until FR-009 lands, then drops them and adds the two
-  derived fields.
+  `QuizCheckResponse` (`extra='forbid'`); `StudentQuizQuestion` gains the two
+  derived fields in step A (T001, with the keys still optional) and drops
+  the key fields only when FR-009 lands (step B).
 - `backend/routers/admin_class_assignments.py`: summary and per-learner rows
   expose `session_count`, `attempt_count` from the latest ledger entry.
 - Frontend: `public/js/quiz-engine.js`, `app/(authed-quiz-player)/quiz/quiz-player.tsx`,
   `lib/quiz-player-api.ts` (send the contract marker on every bank fetch),
   `public/js/quiz-text-match-policy.js` (eligibility from
   `text_match_eligible` instead of `accept`), `public/js/course-runner.js`
-  (one re-post on `verdict_sessions_incomplete`), course result/review page
+  (one re-post on `verdict_sessions_incomplete`; `course_session_consumed`
+  handled as a superseded session), course result/review page
   (sealed-after-hand-in copy), admin class homework views (two counts).
   `frontend/types/api.d.ts` regenerated.
 
@@ -128,12 +133,20 @@ choice `" 01 "`). `frontend/tests/quiz-grader-parity.test.mjs` and
 
 ### Payload (FR-009)
 
-`StudentQuizQuestion` for self-study: key fields removed from the projection
+Derived fields, step A (T001, before T005 deploys): `answer_word_count:
+int | None` and `text_match_eligible: bool` are added for every bank,
+computed in `get_bank_for_play` from the row the server read, while the
+self-study keys are still in the payload. `text_match_eligible` is computed
+with the same rule `quiz-text-match-policy.js` applies to `accept` today
+(`input` is `text`, `type` in `TEXT_TYPES`, a valid `accept` list), so
+on the intermediate deployment the FR-010 validator accepts exactly the
+policy entries the old one did. The FR-010 validator then reads only the
+derived field.
+
+Key removal, step B (T006): key fields removed from the projection
 `_STUDENT_QUESTION_COLUMNS` path for self-study (Course is already without
-them); `answer_word_count: int | None`, `text_match_eligible: bool` added
-for every bank (computed in `get_bank_for_play` from the row the server
-read). The model becomes key-free for every mode; the admin model
-(`AdminQuizQuestion`) is unchanged.
+them). The model becomes key-free for every mode; the derived fields stay;
+the admin model (`AdminQuizQuestion`) is unchanged.
 
 The FR-010 player sends `quiz_contract=server-check-v1` on every self-study
 bank GET through `quiz-player-api.ts`, including the fetch in managed
@@ -183,11 +196,39 @@ rule `/my-class` uses), and only when `due_at` is null or in the future. `/cours
   session with attempts"; sample size counts distinct qids.
 - Ledger entry gains `session_count`, `attempt_count` (jsonb inside
   `class_assignment_items.mastery`, no schema change).
+- Seal (FR-013), order inside `course_verdict` (mastery):
+  replay → collection → completeness (422 seals nothing) → seal → attempts
+  read → score → ledger write. Seal = one PostgREST update on
+  `quiz_sessions` `.in_("id", open_collected).is_("ended_at","null")
+  .is_("ended_by","null")` setting `ended_at=now`, `ended_by='abandoned'`
+  (the value the dead-session sweep already writes; every stage count and
+  verdict filter keys on `'completed'`), then a re-read of the
+  collected ids: any `ended_at` still NULL → 500, nothing recorded. Totals
+  of a sealed session are then written from the attempts just read (the
+  FR-008 counting rule; a failure there is logged and does not fail the
+  verdict, the attempts table stays canonical). No new column, value check
+  or RPC: `ended_by` is free text (migration 119) and the managed Grammar
+  session trigger (migration 309) never sees Course sessions. Timed Course
+  `/progress` goes through the session-locking RPC (migrations 276/279),
+  which already refuses an ended session under the row lock.
+- Write admission (`_assert_quiz_progress_writable`, Course branch, the
+  item row it already reads): session `ended_by='abandoned'`, or its id in
+  any `item.mastery.attempts[*].sessions` → 409 `{code:
+  'course_session_consumed', message: 'Lượt làm này đã được xét kết quả.
+  Đang tải lại tiến độ mới nhất.'}`. It runs before the replay read-back
+  of `_course_attempt_feedback`, so a replayed `client_id` gets no key
+  either. In `log_progress`, after the rows are stored and before
+  `_course_attempt_feedback`, one read of `quiz_sessions.ended_at, ended_by`
+  for this session; ended → the same 409 without feedback. Why this closes
+  the race: the verdict seals before it reads attempts, so a batch whose
+  re-read saw the session open was stored before the attempt read and is
+  scored; a batch stored after the seal never receives feedback.
 
 ### Persistence and migration
 
 No migration. All writes go to existing columns (`quiz_attempts`,
-`quiz_sessions` totals, `class_assignment_items.mastery` jsonb). The unique
+`quiz_sessions` totals and, for the FR-013 seal, `ended_at`/`ended_by`,
+`class_assignment_items.mastery` jsonb). The unique
 `client_id` index (migration 119) already exists. If the build finds that
 any FR needs a new column, table, index or RPC change, it STOPs and reports
 to PC/Leader (ticket rule).
@@ -197,8 +238,9 @@ to PC/Leader (ticket rule).
 - New backend + old frontend: GET still carries keys until the separate
   FR-009 PR lands (step B in `rollout.md`); `/progress` ignores the client flag, so
   stored truth is correct; the old player still grades locally for display.
-- New frontend + old backend: `/check` 404/405 → the player shows the error
-  state and does not grade locally. Avoided by deploying backend first.
+- New frontend + old backend: `/check` 404/405, and the bank GET has no
+  `text_match_eligible` → the player shows the error state and does not
+  grade locally. Avoided by deploying backend first (step A).
 - After FR-009: a pre-FR-010 tab sends no contract marker, so the server
   returns 409 `quiz_client_refresh_required` without questions on every
   self-study bank refetch. Existing bank-load error handling blocks the

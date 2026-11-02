@@ -10,19 +10,25 @@
 
 ## Staging
 
-A. Merge the build PR (backend `/check`, server grading, frontend player on
-   `/check`, key release, verdict collection). The player sends
-   `quiz_contract=server-check-v1` on every self-study bank GET, including
-   managed Grammar reset and reopen. Self-study keys stay in the payload
-   at this step; the new player ignores them, and unmarked old clients
-   still work. Before this deployment, keep a pre-FR-010 QA tab open for
-   the step C.7 compatibility probe.
+A. Merge the build PR (backend `/check`, server grading, derived
+   `answer_word_count`/`text_match_eligible` on every bank, frontend player
+   on `/check`, key release, verdict collection with the session seal). The
+   player sends `quiz_contract=server-check-v1` on every self-study bank
+   GET, including managed Grammar reset and reopen. Self-study keys stay in
+   the payload at this step next to the derived fields; the new player
+   ignores the keys and reads text-match eligibility and word counts only
+   from the derived fields, and unmarked old clients still work. Railway
+   must serve the derived fields before the FR-010 frontend is used (the
+   build PR deploys backend first; check `/api/quiz/banks/{id}` on the
+   deployed SHA carries `text_match_eligible`). Before this deployment,
+   keep a pre-FR-010 QA tab open for the step C.7 compatibility probe.
 B. Merge the separate FR-009 PR (T006) only after the FR-010 frontend is
    live on Vercel for the same environment (check the deployment SHA).
    This PR also enforces the server gate: after auth/access checks, a
    missing or unknown `quiz_contract` on a self-study bank GET returns
    409 `quiz_client_refresh_required`, with no questions or key fields,
-   before building/returning the play payload. Only `server-check-v1`
+   before building/returning the play payload. Step B only removes the
+   keys and enforces the gate; it adds no field. Only `server-check-v1`
    receives the key-free bank; no legacy-key fallback. Course admission
    is unchanged. Do not promote key removal until the route guard tests
    and C.7 pass on staging; block the release if either fails.
@@ -38,7 +44,19 @@ C. Journeys with QA accounts only (no real learners, no email):
       the past (QA assignment only) the review opens.
    5. Mastery QA item: abandoned session + full run → verdict 422 then
       correct verdict with the abandoned answers counted; teacher view counts.
+      Then, with a second QA tab still open on a collected session of a
+      failing verdict, post `/progress` there: 409 `course_session_consumed`,
+      no `feedback`/key field in the response (DevTools), no new row
+      (read-only `select count(*) from quiz_attempts where session_id =
+      '<id>'` unchanged), the session shows `ended_by='abandoned'`; the
+      retake/full retry in a new session still records answers.
    6. `/check` latency: 30 samples, p95 recorded.
+   6a. Intermediate deployment (after A, before B): a Grammar QA bank with a
+      nonempty explicit `text_match_by_qid` policy loads in the FR-010
+      player (policy validator accepts it), GET shows keys plus
+      `text_match_eligible`/`answer_word_count`, and a one-edit typo on an
+      `exact` qid grades wrong while a `typo_tolerant` qid grades right via
+      `/check`. Record the deployment SHAs. Block step B if it fails.
    7. Keep the pre-FR-010 tab open across A and B. Trigger managed Grammar
       `resetProgress()` and reopen the bank without a page reload: every
       bank refetch lacks the marker and returns 409

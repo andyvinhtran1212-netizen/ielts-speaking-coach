@@ -40,8 +40,12 @@ Người dùng sẽ thấy gì sau thay đổi này:
   không chuyển được đáp án cho em chưa làm.
 - **Bài mastery của khoá học:** phiên bỏ dở vẫn được tính. Lần trả lời **đầu
   tiên** của mỗi câu là điểm chính thức (anh Vinh chốt 30/10, "mastery a").
-  Mở một phiên phụ để xem đáp án rồi bỏ đi không còn giúp được điểm. Giáo viên
-  thấy thêm số phiên và số lần trả lời của từng em.
+  Mở một phiên phụ để xem đáp án rồi bỏ đi không còn giúp được điểm. Khi đã
+  xét kết quả, mọi phiên được tính vào lượt xét đó bị khoá: tab còn mở trên
+  phiên ấy không gửi thêm câu trả lời được và không nhận đáp án nữa (hiện
+  "Lượt làm này đã được xét kết quả. Đang tải lại tiến độ mới nhất."); làm
+  lại thì vào phiên mới. Giáo viên thấy thêm số phiên và số lần trả lời của
+  từng em.
 - Không có migration, không đổi biến môi trường.
 
 ## Problem
@@ -104,8 +108,8 @@ Người dùng sẽ thấy gì sau thay đổi này:
 - One-sitting key release at the assignment deadline (or when every assigned
   learner has handed in) on every learner read path.
 - `/course/verdict` (mastery mode) collects every unconsumed session of the
-  item itself; one scoring policy function; teacher sees session and attempt
-  counts.
+  item itself and write-locks the ones it consumes; one scoring policy
+  function; teacher sees session and attempt counts.
 
 ## Non-goals
 
@@ -247,11 +251,13 @@ Người dùng sẽ thấy gì sau thay đổi này:
 - **FR-009:** (self-study payload without key) once FR-010 is deployed,
   `GET /api/quiz/banks/{id}` for self-study banks no longer contains
   `answer`, `accept`, `explain` or `why_wrong` (keys absent, not null).
-  `hint` stays (it is shown before answering by design). Two derived non-key
-  fields are added so the player keeps today's prompts:
-  `answer_word_count` (the shared word count of the accepted forms, or null)
-  and `text_match_eligible` (whether the question may carry a text-match
-  policy entry). No player mode receives a key field. FR-010 players send
+  `hint` stays (it is shown before answering by design). The two derived
+  non-key fields that keep today's prompts, `answer_word_count` (the shared
+  word count of the accepted forms, or null) and `text_match_eligible`
+  (whether the question may carry a text-match policy entry), are not part
+  of FR-009: they ship earlier, with FR-010, next to the keys (rollout step
+  A), and FR-009 only removes the keys. No player mode receives a key
+  field. FR-010 players send
   `quiz_contract=server-check-v1` on every self-study bank GET, including
   reset/reopen requests. With FR-009, the server requires that exact marker:
   missing or unknown values return 409 `quiz_client_refresh_required` with
@@ -267,6 +273,12 @@ Người dùng sẽ thấy gì sau thay đổi này:
   pending, success, error and retry states in `ui-states.md`, never grades
   locally, never advances without a verdict, and builds the end-of-session
   review from verdicts it received. A retry re-sends the same `client_id`.
+  Text-match policy eligibility and the word-count prompt come from the
+  derived `text_match_eligible` and `answer_word_count` fields, never from
+  `accept`; every bank GET carries them from the FR-010 deployment on, while
+  the keys are still present, so a bank with an explicit `text_match_by_qid`
+  policy validates and plays on the intermediate deployment. A bank payload
+  without `text_match_eligible` is a load error (no fallback to `accept`).
 - **FR-011:** (one-sitting key release) for a single_attempt Course item,
   every learner read path that reveals per-question correctness or the key
   (`/course/report` level 2, `/mistakes` rows, `/course-resume` `is_correct`
@@ -297,12 +309,36 @@ Người dùng sẽ thấy gì sau thay đổi này:
   `verdict_sessions_incomplete` and the missing ids (the learner's own
   sessions); the runner re-posts once with them. The 40-session request cap
   is replaced by a cap of 200 that is never below the collected count. A
-  collected session that was never ended contributes its attempts (before
-  the timed cutoff) but does not count as an unfinished session for the
-  "every session completed" and on-time checks; coverage (every MCQ answered)
-  still decides. The timed reaper calls the verdict with the collected set.
-  single_attempt items keep today's verdict rules (no feedback, nothing to
-  peek), including the reaper's orphan subset.
+  collected session that was not completed (`ended_by` NULL, `paused` or
+  `abandoned`) contributes its attempts (before the timed cutoff) but does
+  not count as an unfinished session for the "every session completed" and
+  on-time checks; coverage (every MCQ answered) still decides. The timed
+  reaper calls the verdict with the collected set. single_attempt items keep
+  today's verdict rules (no feedback, nothing to peek), including the
+  reaper's orphan subset.
+  **Seal (write lock):** a collected session is consumed by the verdict, so
+  it must stop accepting answers before the verdict is scored. After the
+  completeness check passes (a 422 seals nothing) and **before** the
+  verdict reads the attempts it scores, the server ends every collected
+  session that is still open (`ended_at` and `ended_by` NULL) with
+  `ended_by='abandoned'`, `ended_at=now()`, in one conditional update
+  (`… and ended_at is null and ended_by is null`, so a concurrent normal end
+  keeps its own `completed`/`time_cap`), then re-reads the collected
+  sessions; any one still open → 500, no verdict recorded. Paused and other
+  ended sessions are already write-locked. From then on `/progress` to a
+  sealed or consumed (listed in a recorded mastery attempt) Course session
+  returns 409 `{code: 'course_session_consumed'}` before any read-back, with
+  no `feedback`, no key field and nothing stored, for new and replayed
+  `client_id`s alike. A `/progress` batch that passed admission before the
+  seal re-reads its session after storing and before building mastery
+  feedback; if the session has ended meanwhile it returns the same 409
+  without feedback (the stored rows stay; they never revealed a key). A
+  batch whose re-read still saw the session open was stored before the seal
+  and therefore before the verdict's attempt read, so its feedback belongs
+  to an answer the verdict scores. A verdict that fails after the seal
+  records nothing; the sealed sessions stay unconsumed and the retry
+  collects them again. The runner treats `course_session_consumed` as a
+  superseded session: drops the queued batch and reloads canonical progress.
 - **FR-014:** (one scoring policy) the score over the collected sessions is
   computed by a single function `mastery_score_policy()`. The default and
   approved policy (Vinh 30/10 22:13, "mastery a") is **first stored attempt
@@ -382,6 +418,15 @@ Người dùng sẽ thấy gì sau thay đổi này:
 - **Then** 422 `verdict_sessions_incomplete` with the abandoned id; listing
   it too gives a verdict where those qids count as wrong (first attempt)
 
+### Scenario 6a — a consumed session cannot be used to peek
+
+- **Given** the second verdict of Scenario 6 was recorded as not passed
+  while the abandoned session was still open (never ended)
+- **When** the learner posts `/progress` to that session (new or replayed
+  `client_id`)
+- **Then** 409 `course_session_consumed`, no `feedback` and no key field in
+  the body, no row stored; a new retake/full-retry session still works
+
 ## Edge cases
 
 - **Network failure after the row is stored:** the retry with the same
@@ -414,6 +459,13 @@ Người dùng sẽ thấy gì sau thay đổi này:
   counts distinct qids.
 - **A legitimately lost session id** (tab closed, other device): the 422
   carries the missing ids and the runner re-posts once with them.
+- **Open mastery session after a failing verdict** (second tab, or a
+  learner keeping a throwaway tab open to read feedback): the verdict sealed
+  it, so `/progress` returns 409 `course_session_consumed` with no key; the
+  retake/full retry runs in a new session (FR-013 seal).
+- **Answer in flight while the verdict seals:** the post-store session
+  re-read refuses feedback (409, no key) unless the row was stored before
+  the seal, in which case the verdict scored it (FR-013).
 - **Learner still in an open single_attempt session at `due_at`:** further
   `/progress` writes are refused (FR-006), as a hand-in after `due_at` is.
 - **Review of a never-answered question:** 409 `review_needs_attempt`
@@ -424,7 +476,8 @@ Người dùng sẽ thấy gì sau thay đổi này:
 - SA retest PASS on: GET self-study without key; `/check` reveals no key
   before a stored attempt and none for sealed items; forged `is_correct`
   ignored; time-cap regraded; handed-in learner sees no key before `due_at`;
-  mastery peek via abandoned session closed.
+  mastery peek via abandoned session closed, including writes to a session
+  a verdict consumed.
 - Learner-perceived feedback latency on staging: p95 of `/check` ≤ 1.5 s
   under normal load (measured in `verification.md`).
 - No increase in self-study 5xx rate after release (Railway logs, 24 h).
