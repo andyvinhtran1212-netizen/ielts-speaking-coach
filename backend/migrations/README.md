@@ -37,11 +37,45 @@ PAPERUPDATEDAT-0037 and 339 is GRAMMARAUDIT-0019 Revision 2 (reserved by the
 Leader on 2026-10-29). Every number from 331 to 339 now has a file. 340
 is the AIBUDGET-0033 hardening. 345 is
 PC-J119 (RLS-ADMIN-INLINE-AAL2 + GRAMMAR-FN-SEARCHPATH, spec ADMINAAL2-0032),
-reserved by the Leader on 2026-10-29; 341–343 are reserved for other open
-work and must not be reused. 344 is PC-J131R (RLSCLEANUP-0039, RLS-ADMIN +
+reserved by the Leader on 2026-10-29; 341 is PC-J88 (STAFF-GUC-BYPASS +
+MIG322-HARDEN, #2050), assigned by the Leader on 2026-10-29; 342 is reserved
+for other open work and must not be reused (343 is PC-J133R, STORAGELIMITS-0038). 344 is PC-J131R (RLSCLEANUP-0039, RLS-ADMIN +
 BL-11), reserved by the Leader on 2026-10-29. 346 is PC-J153 (CLASSARCHIVE-0030 FR-003),
 assigned by the Leader on 2026-10-29. 347 is PC-J163 (listening_tests client revoke,
 spec LISTENING-0005), given by the Leader on 2026-10-29.
+
+Migration `341` (PC-J88; Security Auditor PC-J74 F1/F2/F3, ADMINAAL2-0032
+and AIOPS-0024) stops the 332/336 staff triggers trusting session settings. A
+direct SQL session could `SET LOCAL aver.bootstrap`/`aver.staff_privilege`/
+`aver.actor_id` and turn a suspended account into an active admin with no audit
+row or owner alert. Now `fn_set_staff_privilege` and
+`fn_bootstrap_admin_recovery` write one row in the owner-only
+`staff_privilege_evidence` table (RLS on, no grant to any API role), keyed by
+transaction id and target, right before their single UPDATE. The row is gone
+before they return. The suspension guard opens only on that evidence. The role
+freeze opens only on the bootstrap's evidence (FR-019). The audit trigger always
+writes exactly one row: `admin_api` with the RPC's labels, `bootstrap_recovery`
+for the bootstrap, and otherwise `service` (a real `service_role` session with
+a service JWT) or `out_of_band` with no actor, reason or request id. Admin
+changes still queue one outbox row. If the audit trigger is missing (332 header
+rollback), both functions write that one row themselves. Function names,
+arguments, results, security mode, `search_path` and ACLs are unchanged.
+Migration 341 also revokes client privileges on the 322 identity sequences
+(F2), and makes `fn_ai_model_override_audit` SECURITY DEFINER (F3). For F3,
+`service_role` loses INSERT on `ai_model_override_audit` and a BEFORE TRUNCATE
+trigger refuses TRUNCATE for every role. PC-J74 F5 is covered by `345`.
+P2-SA-1 (PC-J356) removes service_role's TRIGGER, REFERENCES and TRUNCATE on
+`public.users`, plus MAINTAIN on PG17+, to block a planted trigger executing as
+the owner inside the staff RPC. Postconditions require those privileges to be
+absent and the evidence ACL to grant nothing to any non-owner. Trigger checks
+accept enabled (`O`) and always enabled (`A`) guards.
+341 is held by `forward-policy.tsv` as `pending_feature admin_aal2`: apply only
+with `MIGRATION_FEATURES=admin_aal2` through the advisory-locked runner, staging
+first after SA review, production only at an explicitly authorised
+staging→main promotion. It needs no backend change.
+One transaction, no data change, re-runnable. Re-running 322/332/336 restores
+the weak bodies, so re-run 341 after them. The rollback in the header reopens
+F1.
 
 Migration `355` (PC-J267, VOCABGUARD-0040 FR-001) replaces only the published
 curated vocabulary review/task guards from 234/235. UPDATE checks both OLD and
@@ -85,6 +119,18 @@ The guarded manual down script is
 recreates the original 32 policies only when all client table/column
 privileges and both helpers' client EXECUTE are still closed. It never
 restores a table privilege or helper EXECUTE and is safe to repeat.
+
+Migration `343` (PC-J133R, STORAGELIMITS-0038) sets the T001 size/MIME limits
+on the six Storage buckets. It updates only `file_size_limit` and
+`allowed_mime_types`; visibility and existing objects stay unchanged, including
+private `writing-images`. One transaction, `lock_timeout` 5s, re-runnable;
+missing buckets or incorrect postconditions abort. The header contains the
+read-only postcheck and a down script restoring the staging T001 `NULL`/`NULL`
+values. Deploy the upload checks and Speaking MIME normalisation first.
+Group `storage_bucket_limits` in `forward-policy.tsv`: no apply on merge;
+Leader applies staging under the advisory lock. Production census and apply
+require Vinh's separate approval at promotion; verify rollback values first.
+The project-wide cap still applies (staging 50 MiB).
 
 Migration `347` (PC-J163) revokes ALL on `listening_tests` from `PUBLIC`,
 `anon` and `authenticated` (MAINTAIN included on PG 17). 295 closed the other
