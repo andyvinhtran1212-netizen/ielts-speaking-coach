@@ -35,6 +35,16 @@ The merge commit created on `main` can make the branch SHAs differ even when
 their deployed trees are identical. That is normal release metadata. New work
 continues from `origin/staging`; do not reset one protected branch onto another.
 
+An older staging smoke may finish with a `superseded by <SHA>` notice and step
+summary when the refreshed staging head contains its source commit and both
+serving releases are newer descendants on that same staging history. If this
+happens while waiting for deployment, the old run skips its grammar/browser
+smoke. Supersession leaves exact-release evidence `ok: false`; it cannot replace
+the current head's full smoke. The latest SHA, rollbacks, unrelated deployments
+and unavailable ancestry still fail exact-release verification. Browser failures
+already recorded remain failures even if deployment changes before final
+verification.
+
 ## Database migrations
 
 Migrations are deployed separately from Git refs:
