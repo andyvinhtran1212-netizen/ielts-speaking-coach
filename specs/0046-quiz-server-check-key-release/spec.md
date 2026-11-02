@@ -41,10 +41,11 @@ Người dùng sẽ thấy gì sau thay đổi này:
 - **Bài mastery của khoá học:** phiên bỏ dở vẫn được tính. Lần trả lời **đầu
   tiên** của mỗi câu là điểm chính thức (anh Vinh chốt 30/10, "mastery a").
   Mở một phiên phụ để xem đáp án rồi bỏ đi không còn giúp được điểm. Khi đã
-  xét kết quả, mọi phiên được tính vào lượt xét đó bị khoá: tab còn mở trên
-  phiên ấy không gửi thêm câu trả lời được và không nhận đáp án nữa (hiện
-  "Lượt làm này đã được xét kết quả. Đang tải lại tiến độ mới nhất."); làm
-  lại thì vào phiên mới. Giáo viên thấy thêm số phiên và số lần trả lời của
+  xét kết quả, **mọi phiên đang mở** của bài đó bị khoá, kể cả phiên chưa trả
+  lời câu nào (ví dụ một tab mở sẵn từ trước để chờ làm lại toàn bài): tab
+  còn mở trên phiên ấy không gửi thêm câu trả lời được và không nhận đáp án
+  nữa (hiện "Lượt làm này đã được xét kết quả. Đang tải lại tiến độ mới
+  nhất."); làm lại thì vào phiên mới. Giáo viên thấy thêm số phiên và số lần trả lời của
   từng em.
 - Không có migration, không đổi biến môi trường.
 
@@ -108,7 +109,8 @@ Người dùng sẽ thấy gì sau thay đổi này:
 - One-sitting key release at the assignment deadline (or when every assigned
   learner has handed in) on every learner read path.
 - `/course/verdict` (mastery mode) collects every unconsumed session of the
-  item itself and write-locks the ones it consumes; one scoring policy
+  item itself, write-locks every open session of the item (empty ones
+  included) and accepts answers only in current-generation sessions; one scoring policy
   function; teacher sees session and attempt counts.
 
 ## Non-goals
@@ -301,13 +303,19 @@ Người dùng sẽ thấy gì sau thay đổi này:
   throwaway session can reveal keys), `/course/verdict` first returns an
   already recorded verdict whose session list equals the request (replay,
   unchanged). Otherwise it reads, on the server, every session of (user,
-  bank, assignment item, phase; `kind` NULL counts as `run`) that has at
-  least one stored attempt and is not consumed (not listed in an earlier
-  recorded mastery attempt and not older than the latest full-retry
-  boundary), including sessions that were never ended. If the client's
+  bank, assignment item; any `kind`, NULL counts as `run`) that has at
+  least one stored attempt and is in the **current generation**: not
+  listed in an earlier recorded mastery attempt (`sessions`), not listed
+  as superseded by one (`superseded`, below), and, for a ledger entry
+  recorded before this change (no `superseded` key), created after that
+  entry's `at`. This includes sessions that were never ended. The phase
+  (run or retake) still decides which qids are scored and which rules
+  apply; a collected session of the other `kind` contributes only its
+  attempts. If the client's
   `session_ids` omits any of them it returns 422 with code
   `verdict_sessions_incomplete` and the missing ids (the learner's own
-  sessions); the runner re-posts once with them. The 40-session request cap
+  sessions); the runner re-posts with them, at most twice (a second 422 can
+  follow the seal, below). The 40-session request cap
   is replaced by a cap of 200 that is never below the collected count. A
   collected session that was not completed (`ended_by` NULL, `paused` or
   `abandoned`) contributes its attempts (before the timed cutoff) but does
@@ -316,27 +324,48 @@ Người dùng sẽ thấy gì sau thay đổi này:
   reaper calls the verdict with the collected set. single_attempt items keep
   today's verdict rules (no feedback, nothing to peek), including the
   reaper's orphan subset.
-  **Seal (write lock):** a collected session is consumed by the verdict, so
-  it must stop accepting answers before the verdict is scored. After the
-  completeness check passes (a 422 seals nothing) and **before** the
-  verdict reads the attempts it scores, the server ends every collected
-  session that is still open (`ended_at` and `ended_by` NULL) with
+  **Seal (write lock):** every session the verdict sees is closed before
+  the verdict reads the attempts it scores, whether or not it has attempts
+  and whatever its `kind`. After the first completeness check passes (that
+  422 seals nothing), the server ends **every open session of (user, bank,
+  assignment item)** (`ended_at` and `ended_by` NULL; empty sessions, other
+  phase and sessions opened before an earlier verdict included) with
   `ended_by='abandoned'`, `ended_at=now()`, in one conditional update
   (`… and ended_at is null and ended_by is null`, so a concurrent normal end
-  keeps its own `completed`/`time_cap`), then re-reads the collected
-  sessions; any one still open → 500, no verdict recorded. Paused and other
-  ended sessions are already write-locked. From then on `/progress` to a
-  sealed or consumed (listed in a recorded mastery attempt) Course session
-  returns 409 `{code: 'course_session_consumed'}` before any read-back, with
-  no `feedback`, no key field and nothing stored, for new and replayed
-  `client_id`s alike. A `/progress` batch that passed admission before the
+  keeps its own `completed`/`time_cap`). It then re-reads the item's
+  sessions and collects again: a session of the first collection still
+  open → 500, nothing recorded; a closed current-generation session that
+  gained its first attempt between the first collection and the seal and
+  is not in `session_ids` → the same 422 `verdict_sessions_incomplete`
+  (sessions stay sealed and unconsumed, the re-post collects them). The
+  recorded ledger entry lists the collected sessions in `sessions` and
+  every other closed current-generation session the re-read saw (no
+  attempts) in `superseded`. A session still open in the re-read was
+  created after the seal and belongs to the next generation. Paused and
+  other ended sessions are already write-locked.
+  **Write admission (current generation only):** `/progress` to a mastery
+  Course session returns 409 `{code: 'course_session_consumed'}` before any
+  read-back, with no `feedback`, no key field and nothing stored, for new
+  and replayed `client_id`s alike, when the session is ended (sealed
+  included), is listed in any ledger entry's `sessions` or `superseded`,
+  was created at or before the `at` of a ledger entry recorded before this
+  change, or its `kind` is not the one the latest entry allows (`run`
+  without an entry, after `retry_full` or while a multi-section attempt
+  waits for another section; `retake` after `retake`; none after
+  `passed`/`timed_out`). This closes a session opened before a verdict but
+  left empty (it is sealed and superseded, or, for a verdict recorded
+  before this change, older than its `at`), so it cannot be used to read
+  keys before a full retry or retake. A `/progress` batch that passed
+  admission before the
   seal re-reads its session after storing and before building mastery
   feedback; if the session has ended meanwhile it returns the same 409
   without feedback (the stored rows stay; they never revealed a key). A
-  batch whose re-read still saw the session open was stored before the seal
-  and therefore before the verdict's attempt read, so its feedback belongs
-  to an answer the verdict scores. A verdict that fails after the seal
-  records nothing; the sealed sessions stay unconsumed and the retry
+  batch whose re-read still saw the session open was stored either before
+  the seal (the post-seal collection sees it, so the verdict scores it or
+  answers 422) or in a session created after the seal (next generation,
+  collected by the next verdict whatever its `kind`), so every answer that
+  received feedback is scored by a verdict. A verdict that fails after the
+  seal records nothing; the sealed sessions stay unconsumed and the retry
   collects them again. The runner treats `course_session_consumed` as a
   superseded session: drops the queued batch and reloads canonical progress.
 - **FR-014:** (one scoring policy) the score over the collected sessions is
@@ -427,6 +456,20 @@ Người dùng sẽ thấy gì sau thay đổi này:
 - **Then** 409 `course_session_consumed`, no `feedback` and no key field in
   the body, no row stored; a new retake/full-retry session still works
 
+### Scenario 6b — an empty session opened before a failing verdict cannot be used to peek
+
+- **Given** an untimed mastery Course item, a run session E opened in a
+  second tab with no answer, and a failing verdict with next action
+  `retry_full` (or `retake`) recorded from other sessions
+- **When** the learner posts `/progress` to E (new or replayed `client_id`)
+  before starting the full retry
+- **Then** 409 `course_session_consumed`, no `feedback` and no key field in
+  the body, no row stored; E shows `ended_by='abandoned'` and is listed in
+  the entry's `superseded`; a run session opened after the verdict still
+  records answers and gets feedback. The same request against an item whose
+  failing verdict was recorded before this change (no seal, no
+  `superseded`) is refused because E is older than the entry's `at`
+
 ## Edge cases
 
 - **Network failure after the row is stored:** the retry with the same
@@ -458,14 +501,25 @@ Người dùng sẽ thấy gì sau thay đổi này:
   retake sessions are collected; first attempt per qid; the sample-size rule
   counts distinct qids.
 - **A legitimately lost session id** (tab closed, other device): the 422
-  carries the missing ids and the runner re-posts once with them.
+  carries the missing ids and the runner re-posts with them (at most twice).
 - **Open mastery session after a failing verdict** (second tab, or a
   learner keeping a throwaway tab open to read feedback): the verdict sealed
   it, so `/progress` returns 409 `course_session_consumed` with no key; the
   retake/full retry runs in a new session (FR-013 seal).
 - **Answer in flight while the verdict seals:** the post-store session
   re-read refuses feedback (409, no key) unless the row was stored before
-  the seal, in which case the verdict scored it (FR-013).
+  the seal, in which case the post-seal collection sees it: the verdict
+  scores it, or answers 422 if the client did not list the session (FR-013).
+- **Empty session opened before a failing verdict** (Codex r4441040944):
+  sealed by the verdict and listed as `superseded`, so `/progress` returns
+  409 with no key; for a verdict recorded before this change, refused
+  because the session is older than the entry's `at` (FR-013).
+- **Session of the wrong kind for the current step** (a new `run` session
+  while a `retake` is due, a `retake` session after `retry_full`): 409
+  `course_session_consumed`, no key (FR-013).
+- **Session opened while a verdict is in flight** (after its seal): not
+  sealed, not collected by that verdict; any answer it stores with feedback
+  is collected by the next verdict whatever its `kind` (FR-013).
 - **Learner still in an open single_attempt session at `due_at`:** further
   `/progress` writes are refused (FR-006), as a hand-in after `due_at` is.
 - **Review of a never-answered question:** 409 `review_needs_attempt`
@@ -477,7 +531,7 @@ Người dùng sẽ thấy gì sau thay đổi này:
   before a stored attempt and none for sealed items; forged `is_correct`
   ignored; time-cap regraded; handed-in learner sees no key before `due_at`;
   mastery peek via abandoned session closed, including writes to a session
-  a verdict consumed.
+  a verdict consumed and to an empty session opened before the verdict.
 - Learner-perceived feedback latency on staging: p95 of `/check` ≤ 1.5 s
   under normal load (measured in `verification.md`).
 - No increase in self-study 5xx rate after release (Railway logs, 24 h).

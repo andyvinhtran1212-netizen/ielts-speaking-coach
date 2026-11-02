@@ -28,12 +28,15 @@ the function names are the anchors.
     `_course_review_gate`, `_sealed_course_session_ids` and the
     `/course-resume` builder; `single_attempt_answers_sealed` keeps its
     current meaning (handed in or not) for write admission;
-  - `course_verdict`: server-side session collection, seal of the
-    collected open sessions before scoring (FR-013), `mastery_score_policy()`,
-    `session_count`/`attempt_count` in the ledger entry;
+  - `course_verdict`: server-side session collection, seal of every open
+    session of the item before scoring, re-collection after the seal
+    (FR-013), `mastery_score_policy()`, `session_count`/`attempt_count`/
+    `superseded` in the ledger entry;
   - `_assert_quiz_progress_writable` / `log_progress` (Course branch):
-    409 `course_session_consumed` for a sealed or consumed session before
-    any read-back, and a post-store session re-read before mastery feedback.
+    409 `course_session_consumed` for a session that is ended, consumed,
+    superseded, older than a pre-change entry or of a `kind` the latest
+    entry does not allow, before any read-back, and a post-store session
+    re-read before mastery feedback.
 - `backend/models/grammar_quiz_revisions.py`: `QuizCheckBody`,
   `QuizCheckResponse` (`extra='forbid'`); `StudentQuizQuestion` gains the two
   derived fields in step A (T001, with the keys still optional) and drops
@@ -44,7 +47,7 @@ the function names are the anchors.
   `lib/quiz-player-api.ts` (send the contract marker on every bank fetch),
   `public/js/quiz-text-match-policy.js` (eligibility from
   `text_match_eligible` instead of `accept`), `public/js/course-runner.js`
-  (one re-post on `verdict_sessions_incomplete`; `course_session_consumed`
+  (at most two re-posts on `verdict_sessions_incomplete`; `course_session_consumed`
   handled as a superseded session), course result/review page
   (sealed-after-hand-in copy), admin class homework views (two counts).
   `frontend/types/api.d.ts` regenerated.
@@ -176,59 +179,135 @@ rule `/my-class` uses), and only when `due_at` is null or in the future. `/cours
 ### Verdict (FR-013..FR-015)
 
 - Mastery mode only. Order: existing recorded-verdict replay match (exact
-  session list) → collection → completeness → scoring.
-- Collection: `quiz_sessions` where `user_id`, `bank_id`,
-  `class_assignment_item_id = item.id`, `coalesce(kind,'run') = phase`,
-  `created_at > full_retry_boundary`, `id not in consumed` (all `sessions` in
-  `item.mastery.attempts`), and at least one `quiz_attempts` row (paged).
+  session list; also the multi-section update of that entry) → collection
+  → completeness → seal → re-collection → attempts read → score → ledger
+  write. The whole sequence runs inside the existing `updated_at` CAS loop;
+  a CAS conflict restarts from the collection (sealed sessions stay closed
+  and unconsumed).
+- Current generation of (user, bank, item), one helper
+  `_course_session_generation(session, item)` used by collection and write
+  admission: the session id is in no ledger entry's `sessions` or
+  `superseded`; for every entry without a `superseded` key (recorded before
+  this change) `created_at > entry.at` (the full-retry boundary is the
+  newest such `at`; same app-vs-DB clock comparison as today's
+  `_full_retry_boundary`); and, for admission only, `kind` (NULL = `run`)
+  is the kind the latest entry allows: no entry → `run`; `retry_full` →
+  `run`; latest entry without a recorded action (multi-section attempt
+  waiting for another section) → `run`; `retake` → `retake`;
+  `passed`/`timed_out`/`completed` → none. These are the kinds the timed
+  start RPC (migration 270) and `_assert_retake_allowed` already enforce at
+  creation. Collection is `kind`-agnostic so an answer stored in a session
+  opened while a verdict was in flight is still collected by the next one.
+- Collection: current-generation sessions of (`user_id`, `bank_id`,
+  `class_assignment_item_id = item.id`) with at least one `quiz_attempts`
+  row (paged). The phase (`run`/`retake`) decides the scored qid set and
+  rules only.
 - `client_ids ⊉ collected` → 422 `{code: 'verdict_sessions_incomplete',
   missing_session_ids: [...]}`. Listed sessions outside the collected set
   keep today's checks (owner/bank/item, ended). Request cap 200, never below
   `len(collected)`.
-- A collected session with `ended_by` NULL/`paused` contributes attempts
-  (before the timed cutoff) and is excluded from the "every session
+- A collected session with `ended_by` NULL/`paused`/`abandoned` contributes
+  attempts (before the timed cutoff) and is excluded from the "every session
   completed" and `sessions_finished_on_time` checks; coverage decides.
 - Timed reaper (`_reap…` ~5740-5800): in mastery mode it passes the
   collected set; its orphan-subset rule stays for single_attempt only.
 - `mastery_score_policy(attempts) -> dict[qid, attempt]`: first by server
   `created_at`, tie by `id`. The timed cutoff filter is applied before it.
-- Retake: the "exactly one session" rule becomes "every unconsumed retake
-  session with attempts"; sample size counts distinct qids.
-- Ledger entry gains `session_count`, `attempt_count` (jsonb inside
-  `class_assignment_items.mastery`, no schema change).
-- Seal (FR-013), order inside `course_verdict` (mastery):
-  replay → collection → completeness (422 seals nothing) → seal → attempts
-  read → score → ledger write. Seal = one PostgREST update on
-  `quiz_sessions` `.in_("id", open_collected).is_("ended_at","null")
-  .is_("ended_by","null")` setting `ended_at=now`, `ended_by='abandoned'`
-  (the value the dead-session sweep already writes; every stage count and
-  verdict filter keys on `'completed'`), then a re-read of the
-  collected ids: any `ended_at` still NULL → 500, nothing recorded. Totals
-  of a sealed session are then written from the attempts just read (the
-  FR-008 counting rule; a failure there is logged and does not fail the
-  verdict, the attempts table stays canonical). No new column, value check
-  or RPC: `ended_by` is free text (migration 119) and the managed Grammar
-  session trigger (migration 309) never sees Course sessions. Timed Course
+- Retake: the "exactly one session" rule becomes "every collected session
+  with attempts"; sample size counts distinct qids.
+- Ledger entry gains `session_count`, `attempt_count` and `superseded`
+  (list of session ids; jsonb inside `class_assignment_items.mastery`, no
+  schema change; not part of the learner-safe `_course_attempt_history`
+  shape).
+- Seal (FR-013): one PostgREST update on `quiz_sessions`
+  `.eq("user_id").eq("bank_id").eq("class_assignment_item_id", item.id)
+  .is_("ended_at","null").is_("ended_by","null")` setting `ended_at=now`,
+  `ended_by='abandoned'` (the value the dead-session sweep already writes;
+  every stage count and verdict filter keys on `'completed'`). It closes
+  every open session of the item, not only the collected ones: empty
+  sessions, the other phase, and sessions opened before an earlier verdict.
+  Then one re-read of the item's sessions (with attempt existence):
+  a first-collection session still open → 500, nothing recorded; the
+  re-collected set (closed current-generation sessions with attempts) not
+  covered by `client_ids` → 422 `verdict_sessions_incomplete` (sealed,
+  nothing recorded, the re-post collects them); closed current-generation
+  sessions without attempts → `superseded`; sessions still open were
+  created after the seal → next generation, untouched. Totals of a sealed
+  session are then written from the attempts just read (the FR-008 counting
+  rule; a failure there is logged and does not fail the verdict, the
+  attempts table stays canonical). No new column, value check or RPC:
+  `ended_by` is free text (migration 119) and the managed Grammar session
+  trigger (migration 309) never sees Course sessions. Timed Course
   `/progress` goes through the session-locking RPC (migrations 276/279),
   which already refuses an ended session under the row lock.
-- Write admission (`_assert_quiz_progress_writable`, Course branch, the
-  item row it already reads): session `ended_by='abandoned'`, or its id in
-  any `item.mastery.attempts[*].sessions` → 409 `{code:
+- Write admission (`_assert_quiz_progress_writable`, Course branch, mastery
+  mode, the item row it already reads plus the session's `kind` and
+  `created_at` from `_owned_session`): ended (sealed included) or not in the
+  current generation (above, `kind` rule included) → 409 `{code:
   'course_session_consumed', message: 'Lượt làm này đã được xét kết quả.
   Đang tải lại tiến độ mới nhất.'}`. It runs before the replay read-back
   of `_course_attempt_feedback`, so a replayed `client_id` gets no key
-  either. In `log_progress`, after the rows are stored and before
-  `_course_attempt_feedback`, one read of `quiz_sessions.ended_at, ended_by`
-  for this session; ended → the same 409 without feedback. Why this closes
-  the race: the verdict seals before it reads attempts, so a batch whose
-  re-read saw the session open was stored before the attempt read and is
-  scored; a batch stored after the seal never receives feedback.
+  either, and before the timed RPC call. In `log_progress`, after the rows
+  are stored and before `_course_attempt_feedback`, one read of
+  `quiz_sessions.ended_at, ended_by` for this session; ended → the same 409
+  without feedback. Why this closes the race: the verdict seals before it
+  re-collects and reads attempts, so a batch whose re-read saw the session
+  open was stored before the seal (re-collected: scored, or 422) or lives
+  in a session created after the seal (next generation, collected next
+  time); a batch stored after the seal never receives feedback.
+- The Codex r4441040944 case (empty session E opened before a failing
+  `retry_full` verdict): E is open at the seal → sealed and listed in
+  `superseded` → `/progress` 409 before any read-back. For a verdict
+  recorded before this change (no seal ran): E's `created_at` ≤ that
+  entry's `at` → 409. Either way E never yields feedback, so the
+  `created_at > full_retry_boundary` exclusion can no longer drop answers
+  that revealed a key.
+
+### Answer-protection case table (FR-002, FR-011, FR-013)
+
+Every session state against every learner endpoint that can return a key or
+per-question correctness. "Key" = `answer`, `accept`, `explain`,
+`why_wrong` or `feedback`. Read paths = `/course/report` level 2,
+`/mistakes` rows, `/course-resume` `is_correct`/`last_stage`. Course
+`GET /banks/{id}` carries no key in any state (#2091) and self-study GET
+carries none after FR-009; neither is repeated per row.
+
+| # | Session state | `/check` | `/progress` (new `client_id`) | Replayed `client_id` | Read paths | Test (task) |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | Self-study open (legacy Grammar, managed Grammar, Vocab, self-study bank as non-Course homework) | Store, then key of that qid only | Stored, server-graded; response has counts, no key | `/check`: stored verdict of the stored row; `/progress`: deduplicated, no key | Not Course, no seal | T003, T004 |
+| 2 | Self-study, empty (no attempt yet) | As 1; review check → 409 `review_needs_attempt` | As 1 | n/a | n/a | T003 |
+| 3 | Self-study ended (completed/paused/time_cap, other tab) | Replay → stored verdict (key already revealed for that stored answer); new → 409, no key | 409 ended | As `/check` | n/a | T003 |
+| 4 | Self-study review session | Key only for a qid with a stored attempt in the bank; else 409; nothing stored | Managed RPC refuses (`grammar_review_read_only`) | n/a | n/a | T003 |
+| 5 | `client_id` already stored under another session or user | 409 `client_id_conflict`, no key | Dedup ignores it; feedback read-back filters on this session → nothing | same | n/a | T003, T008 |
+| 6 | Session of another user / missing | 404, no key | 403/404 (`_owned_session`), nothing stored | same | Teacher paths only | T003 |
+| 7 | Advanced Vocabulary | 409 before read-back | No key in self-study `/progress` response | 409 | n/a | T003 |
+| 8 | Course, any mode, any state | 409 `check_not_for_course` before read-back | see 9–22 | `/check` 409 before read-back | see 9–22 | T003 |
+| 9 | Mastery, current generation, open (no entry; or created after the latest entry with the allowed `kind`) | 409 (8) | Stored, graded, `feedback` for the stored rows | Feedback of the row stored in this session | Mastery unchanged (answered rows) | T008 |
+| 10 | Mastery, collected by a verdict, was open → sealed (`abandoned`) | 409 | 409 `course_session_consumed`, nothing stored | 409 before read-back | Answered rows only | T008 (red: collection without seal) |
+| 11 | Mastery, collected, already ended | 409 | 409 (ended or consumed) | 409 | Answered rows only | T008 |
+| 12 | **Mastery, empty, opened before a failing verdict (`retry_full` or `retake`), new ledger entry** | 409 | 409: sealed + `superseded` | 409 | No rows | T008 (red: Codex r4441040944) |
+| 13 | **Same as 12, verdict recorded before this change** (no seal, no `superseded`) | 409 | 409: `created_at` ≤ entry `at` | 409 | No rows | T008 |
+| 14 | Mastery, `kind` not allowed now (`run` while a retake is due; `retake` after `retry_full`; anything after `passed`) | 409 | 409 `course_session_consumed` | 409 | n/a | T008 |
+| 15 | Mastery, batch admitted before the seal, stored after it | 409 | Rows stay, 409 without feedback (post-store re-read) | Next replay → 409 at admission | Rows without feedback | T008 race seam |
+| 16 | Mastery, batch stored before the seal in a session the client did not list | 409 | Feedback (session was open) | — | — | T008: post-seal re-collection → 422, re-post scores it |
+| 17 | Mastery, session opened after the seal while the verdict is in flight | 409 | Feedback if admitted; rows collected by the next verdict whatever `kind`; refused after the ledger write if `kind` not allowed | As `/progress` | Answered rows | T008 |
+| 18 | Mastery, first completeness 422 (no seal) | 409 | Unchanged (still current generation) | — | — | T008 |
+| 19 | Mastery, verdict failed after the seal (500/CAS exhausted) | 409 | 409 (sealed); next verdict collects them (not consumed, not superseded) | 409 | — | T008 |
+| 20 | Mastery, `paused`, `completed`, `time_cap` | 409 | 409 ended | 409 | Answered rows | existing + T008 |
+| 21 | Mastery, item passed / timed expired | 409 | 409 (`review` / timer) | 409 | Answered rows | existing |
+| 22 | Timed Course `end_session` `time_cap` with final batch | 409 | Verification-only RPC, no key in response | — | — | T004 |
+| 23 | single_attempt, open, not handed in, before `due_at` | 409 | Stored, graded, **no** `feedback` | No feedback | Sealed | #2091 + T004 |
+| 24 | single_attempt, after `due_at`, not handed in | 409 | 409 (FR-006) | 409 | Sealed | T004 |
+| 25 | single_attempt, handed in, before release | 409 | 409 (`review`) | 409 | Sealed (FR-011), `handed_in`, `answers_release_at` | T007 |
+| 26 | single_attempt, handed in, released (`due_at` passed or all active learners handed in) | 409 | 409 | 409 | Open for the learner's own rows | T007 |
+| 27 | single_attempt, release read error, or `due_at` moved later | 409 | 409 | 409 | Sealed | T007 |
 
 ### Persistence and migration
 
 No migration. All writes go to existing columns (`quiz_attempts`,
 `quiz_sessions` totals and, for the FR-013 seal, `ended_at`/`ended_by`,
-`class_assignment_items.mastery` jsonb). The unique
+`class_assignment_items.mastery` jsonb, including the new `superseded`
+list). The unique
 `client_id` index (migration 119) already exists. If the build finds that
 any FR needs a new column, table, index or RPC change, it STOPs and reports
 to PC/Leader (ticket rule).

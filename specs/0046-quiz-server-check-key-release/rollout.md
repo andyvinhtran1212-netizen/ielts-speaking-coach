@@ -50,6 +50,12 @@ C. Journeys with QA accounts only (no real learners, no email):
       (read-only `select count(*) from quiz_attempts where session_id =
       '<id>'` unchanged), the session shows `ended_by='abandoned'`; the
       retake/full retry in a new session still records answers.
+      Also open a third QA tab on an empty run session **before** the
+      failing verdict, never answer in it, then after the `retry_full`
+      verdict post `/progress` there: same 409, no key, count stays 0, the
+      session shows `ended_by='abandoned'` and its id is in the ledger
+      entry's `superseded` (read-only select of
+      `class_assignment_items.mastery`).
    6. `/check` latency: 30 samples, p95 recorded.
    6a. Intermediate deployment (after A, before B): a Grammar QA bank with a
       nonempty explicit `text_match_by_qid` policy loads in the FR-010

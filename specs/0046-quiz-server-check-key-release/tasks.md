@@ -94,7 +94,8 @@ on `staging` (merged `c7ed31b32`).
   backend/tests/test_single_attempt_key_release.py` `depends: T001`
 - [ ] T008 Verdict collection and policy (FR-013..FR-015): server collection,
   422 with missing ids, `mastery_score_policy()`, ledger counts, teacher
-  views, runner re-post once, reaper on the collected set (mastery only).
+  views, runner re-post (at most twice), reaper on the collected set
+  (mastery only).
   Tests: abandoned wrong session + 100 % session → verdict reflects the
   abandoned answers (red on staging before the fix); dropped session → 422;
   replay of a recorded verdict after a full retry → recorded verdict, not
@@ -112,6 +113,22 @@ on `staging` (merged `c7ed31b32`).
   `completed`; race seam (session sealed between admission and store) →
   409 without feedback; a new retake/full-retry session still accepts
   answers; runner drops the batch and reloads on `course_session_consumed`.
+  Pre-verdict empty session (Codex r4441040944, red first: with the
+  collected-only seal it returns 200 with feedback): untimed mastery item,
+  empty run session E opened, failing `retry_full` verdict recorded from
+  other sessions, then `/progress` to E with a new and a replayed
+  `client_id` → 409 `course_session_consumed`, no key field in the body,
+  row count of E stays 0, E `ended_by='abandoned'` and listed in
+  `superseded`; same for a `retake` verdict; same against a ledger entry
+  recorded before this change (no `superseded`, E older than `at`); a run
+  session opened after the verdict still gets feedback. Kind rule: a `run`
+  session while a retake is due and a `retake` session after `retry_full`
+  → 409. Post-seal re-collection: a session that gets its first attempt
+  between the first collection and the seal → 422 with its id, sealed,
+  nothing recorded, re-post scores it. A session opened after the seal
+  stays open, is not superseded, and its attempts are collected by the
+  next verdict. One parametrised test walks every Course row of the
+  `plan.md` case table and asserts no key field in any response body.
   `owns: backend/services/quiz_service.py
   (course_verdict, Course write admission, log_progress feedback re-read),
   backend/routers/admin_class_assignments.py,
