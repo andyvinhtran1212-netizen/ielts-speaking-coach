@@ -693,6 +693,8 @@ on:
       - 'frontend/proxy.ts'
       - 'frontend/tooling/content-security-policy.mjs'
       - 'frontend/tooling/check-csp-nonce-deployed.mjs'
+      - 'frontend/tooling/nonce-route-table.mjs'
+      - 'frontend/tooling/runtime-origins.mjs'
       - 'frontend/playwright.reading-native.config.js'
       - 'frontend/package-lock.json'
       - 'frontend/package.json'
@@ -1376,13 +1378,16 @@ jobs:
       - name: Cổng đường-ghi
         run: node tooling/verify-write-flows.mjs "http://localhost:$TEST_PORT"
 
-      # PC-J566: URL 404 dưới prefix đã đăng nhập cũng nhận policy nonce của
-      # proxy, nên trang 404 gốc phải render theo request với đúng nonce đó
-      # (HTTP 404, thẻ 404 trong HTML SSR); `/nope-top-level` và
-      # `/login/nope-xyz` giữ baseline.
+      # PC-J566 (hướng b, SA-1029-CSP1 F1): Next trả URL không khớp route nào
+      # bằng trang 404 gốc prerender tĩnh, script không thể mang nonce. Proxy
+      # chỉ gắn policy nonce cho URL có trong bảng route của chính build, nên
+      # 404 dưới prefix đã đăng nhập nhận baseline công khai (không nonce),
+      # route thật giữ nonce. Verifier so bảng đó với routes-manifest đã dựng,
+      # thử path-confusion và header giả, kiểm Chromium 0 violation.
       # Staging chạy AVER_CSP_NONCE_ENFORCE=1 (cờ inline lúc build), nên build
-      # lại với cờ bật ở CUỐI job để không đổi build của các verifier trên,
-      # rồi kiểm dưới policy chặn thật: mọi script mang nonce, 0 violation.
+      # lại với cờ bật ở CUỐI job để không đổi build của các verifier trên.
+      # Fixture test-only (notFound() ngoài Suspense, mục 5) chỉ được chép vào
+      # app/ cho bản build này, không commit vào app/.
       # Next cũ dừng trước khi build: pid trong file là của npx, còn
       # next-server con mới giữ cổng, nên dừng cả process đang nghe cổng và
       # chờ cổng trống. Pid mới thay pid cũ cho bước "Dừng Next".
@@ -1400,6 +1405,9 @@ jobs:
             echo "::error::Next cũ vẫn giữ cổng $TEST_PORT"
             exit 1
           fi
+          probe='app/(authed-home)/home/csp-not-found-probe/[id]'
+          mkdir -p "$probe"
+          cp tests/fixtures/csp-not-found-probe/not-found-outside-suspense.tsx "$probe/page.tsx"
           npm run build
           npx next start -p "$TEST_PORT" >> /tmp/next-native-browser.log 2>&1 &
           echo $! > /tmp/next-native-browser.pid
@@ -1411,7 +1419,7 @@ jobs:
           tail -40 /tmp/next-native-browser.log
           exit 1
 
-      - name: Kiểm CSP nonce trên trang 404 đã đăng nhập (enforce)
+      - name: Kiểm CSP trên trang 404 đã đăng nhập (enforce, baseline không nonce)
         run: node tooling/verify-csp-nonce-404-flow.mjs --enforced "http://localhost:$TEST_PORT"
 
       # PC-J437: artifact không qua bộ che log của Actions. Che tại chỗ rồi
