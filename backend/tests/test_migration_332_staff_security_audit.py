@@ -185,15 +185,15 @@ def test_forward_policy_no_longer_holds_332_after_its_production_release():
 
 def test_no_other_migration_drops_or_bypasses_the_332_guards():
     # 341 is the reviewed PC-J88 hardening of these functions (evidence instead
-    # of session settings), pinned by its own suite
-    # (test_migration_341_staff_guc_and_ai_override_hardening.py). It may
+    # of session settings) and 361 its PC-J358 forward hardening, each pinned
+    # by its own suite (test_migration_341_* / test_migration_361_*). They may
     # replace them but never drop or disable them, or set the old bypass.
-    hardening = "341_staff_guc_and_ai_override_hardening.sql"
+    hardening = {"341_staff_guc_and_ai_override_hardening.sql", "361_staff_privilege_evidence_commit_guard.sql"}
     for path in sorted(MIGRATIONS.glob("*.sql")):
         if path.name == NAME:
             continue
         code = m326._strip_comments(path.read_text(encoding="utf-8"))
-        if path.name == hardening:
+        if path.name in hardening:
             assert not re.search(r"\bDROP\b|DISABLE\s+TRIGGER|aver\.", code, re.I), path.name
             continue
         for name in ("trg_users_suspension_guard", "fn_users_suspension_guard",
@@ -254,8 +254,22 @@ def _require_pg() -> None:
       IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='{OWNER}') THEN
         CREATE ROLE {OWNER} NOSUPERUSER NOLOGIN NOBYPASSRLS;
       END IF;
+      ASSERT (SELECT count(*) FROM pg_roles
+               WHERE rolname IN ('anon', 'authenticated', 'service_role', '{OWNER}') AND NOT rolsuper) = 4,
+             'API roles and migration owner must be NOSUPERUSER (SA P3-4)';
     END $$;""")
     psql("ALTER ROLE service_role BYPASSRLS")
+
+
+@pytest.mark.parametrize("role", ["anon", "authenticated", "service_role"])
+def test_harness_refuses_superuser_api_roles(role):
+    _require_pg()
+    psql(f"ALTER ROLE {role} SUPERUSER")
+    try:
+        with pytest.raises(RuntimeError, match="API roles and migration owner must be NOSUPERUSER"):
+            _require_pg()
+    finally:
+        psql(f"ALTER ROLE {role} NOSUPERUSER")
 
 
 def _build(schema: str, *, guard_320: bool = True) -> None:

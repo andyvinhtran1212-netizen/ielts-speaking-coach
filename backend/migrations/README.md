@@ -20,9 +20,9 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-31 the highest is `360`, allocated by the
-Leader to PC-J192 (INSTRUCTORGIVE-0044), so by that rule the next new
-migration is `361`. Ask the Leader before taking it; 348–351 are reserved for other
+sequence is dense. As of 2026-11-02 the highest is `361`, allocated by the
+Leader to PC-J358 (#2180; `360` is PC-J192, INSTRUCTORGIVE-0044), so by that
+rule the next new migration is `362`. Ask the Leader before taking it; 348–351 are reserved for other
 work, and 353–359 without a file here may be held by open PRs: none may be
 reused.
 The runner applies any unapplied file regardless of order.
@@ -76,6 +76,35 @@ staging→main promotion. It needs no backend change.
 One transaction, no data change, re-runnable. Re-running 322/332/336 restores
 the weak bodies, so re-run 341 after them. The rollback in the header reopens
 F1.
+
+Migration `361` (PC-J358; SA P3-2, P3-7, SA-R4-1/2/3, SA-2180-1 on #2180)
+is the forward hardening of 341, which is applied on staging and never
+edited. It needs 341 in `_schema_migrations` and runs after it: on staging on
+top of the applied 341, on production back to back with 341 at one promotion
+(the runner records 341 before opening 361). An owner-only deferred constraint
+trigger rejects COMMIT with `staff_privilege_evidence_not_consumed` while any
+evidence row remains, including a row whose key an owner changed; the RPC and
+the bootstrap still consume theirs and commit. The audit trigger consumes the
+evidence by `OLD.id`, like both guards. The postconditions repeat 341's and
+also refuse client INSERT/UPDATE/DELETE, column-level I/U/R and privileges
+reachable through a membership even with INHERIT FALSE (`MEMBER`,
+fail-closed). The whole file runs under `SET LOCAL search_path = pg_catalog,
+pg_temp`; catalog functions are called as `pg_catalog.<fn>` and the anyarray
+operators as `OPERATOR(pg_catalog.||)` / `OPERATOR(pg_catalog.@>)`, because an
+exact `text[]` copy in `public` would win over them even with `pg_catalog`
+first. The precondition aborts with `catalog_name_shadowed_in_public` if
+`public` holds a function or operator named like one the file uses. For manual
+dumps use `pg_dump --exclude-table-data=public.staff_privilege_evidence`: the
+table holds transient evidence, never audit data. The 341 header's client
+sequence GRANT is **DO NOT RUN** (SA P3-6); the `updated_by` attribution and
+parent-table owner TRUNCATE gaps (SA P3-5) stay open. 361 is held by
+`forward-policy.tsv` as `pending_feature admin_aal2`: apply only with
+`MIGRATION_FEATURES=admin_aal2` through the advisory-locked runner, staging
+first after SA review, production only at an explicitly authorised
+staging→main promotion after 341. One transaction, no data change,
+re-runnable; re-running 341 restores the `NEW.id` audit body, so re-run 361
+after it. Its header rollback drops only the 361 trigger and function and
+restores the 341 audit body; it grants nothing.
 
 Migration `356` (PC-J286, CALAPPEND-0041 FR-001..004) adds the statement trigger
 `trg_class_action_log_no_truncate` and its pinned, `P0001`-raising function.
