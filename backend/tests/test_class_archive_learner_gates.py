@@ -401,6 +401,62 @@ def test_grammar_lesson_public_state_cannot_submit_when_archived(monkeypatch):
     assert (archived["can_submit"], archived["class_archived"]) == (False, True)
 
 
+def _grammar_lesson_http(monkeypatch, cohort, *, attempt=None):
+    """The real router + _public_state: response_model must keep class_archived."""
+    from unittest.mock import AsyncMock
+
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from routers import grammar_lesson as route
+    from services import runtime_flags
+
+    db = _DB({"cohorts": [cohort]})
+    monkeypatch.setattr(gl, "supabase_admin", db)
+    monkeypatch.setattr(gl, "_version_enabled", lambda _v: True)
+    monkeypatch.setattr(gl, "_current_content", lambda *_a: None)
+    monkeypatch.setattr(gl, "is_accepting_submissions", lambda _a: True)
+    monkeypatch.setattr(runtime_flags, "is_enabled", lambda *_a, **_k: True)
+    assignment = {"id": "a1", "title": "Bài 1", "cohort_id": "c1", "content_config": {
+        "content_version": gl.CURRENT_VERSION, "lesson_id": "L1", "question_count": 1,
+        "release_id": "r1", "content_sha256": "x"}}
+    monkeypatch.setattr(gl, "_entitlement", lambda *_a: ({"id": "i1"}, assignment))
+    monkeypatch.setattr(gl, "_owned_attempt", lambda *_a: attempt)
+    monkeypatch.setattr(route, "get_supabase_user", AsyncMock(return_value={"id": "u1"}))
+    app = FastAPI()
+    app.include_router(route.router)
+    return db, TestClient(app)
+
+
+_LESSON_ATTEMPT = {"id": "t1", "status": "in_progress", "answers": {}, "question_count": 1,
+                   "content_snapshot": {"focus": "f", "questions": [
+                       {"id": "q1", "prompt": "p", "options": ["a", "b"]}]}}
+
+
+@pytest.mark.parametrize("attempt", [None, _LESSON_ATTEMPT])
+@pytest.mark.parametrize("cohort, archived", [(ARCHIVED, True), (ACTIVE, False), (LEGACY, False)])
+def test_grammar_lesson_http_state_carries_class_archived(monkeypatch, cohort, archived, attempt):
+    """CR R4 P3-1: LessonState used to drop class_archived from the response."""
+    _, client = _grammar_lesson_http(monkeypatch, cohort, attempt=attempt)
+    paths = ["/api/grammar/lessons/items/i1"]
+    if attempt:
+        paths.append("/api/grammar/lessons/items/i1/start")
+    for path in paths:
+        resp = (client.post if path.endswith("/start") else client.get)(path)
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert (body["class_archived"], body["can_submit"]) == (archived, not archived), path
+
+
+def test_grammar_lesson_http_answer_in_an_archived_class_is_still_409(monkeypatch):
+    db, client = _grammar_lesson_http(monkeypatch, ARCHIVED, attempt=_LESSON_ATTEMPT)
+    resp = client.post("/api/grammar/lessons/items/i1/answers",
+                       json={"question_id": "q1", "selected_index": 0})
+    assert resp.status_code == 409
+    assert resp.json()["detail"]["code"] == cas.COHORT_ARCHIVED_CODE
+    assert db.rpcs == []
+
+
 # ── Grammar diagnostic ───────────────────────────────────────────────────
 
 def _diagnostic(monkeypatch, cohort):
