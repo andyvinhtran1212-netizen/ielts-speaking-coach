@@ -9,6 +9,9 @@
   USAGE only for API roles, never CREATE/ALL on schema public (FR-007).
 - Every rollback passes FR-006, including the down of 356, corrected under
   CALAPPEND-0041 T001 (F5). No older-number rollback exemption is allowed.
+- **357 → NNN:** T005's migration 357 is applied on the target and its
+  FR-009 postcheck passes before NNN. NNN only re-checks FR-009 under
+  FR-004 and aborts if 357 is missing; it does not revoke schema CREATE.
 - Migration 358 (FR-010, T004) is merged and held by its `pending_feature`
   entry; it is applied after 357 (PC-J365). Until 358 is applied and SA's
   358 retest passes, the temp-view-shadow path (P2-R2-1) stays open and
@@ -49,7 +52,8 @@
 
 ## Staging
 
-1. The Leader applies `NNN` on `ielts-coach-staging` with the
+1. Verify 357 is applied on `ielts-coach-staging` and its FR-009 postcheck
+   passes, then the Leader applies `NNN` on that target with the
    advisory-locked runner, following the job-rules A logging steps
    (`SENDING` / `RESULT`).
 2. Read-only postcheck (drift query). Expect 0 rows:
@@ -162,7 +166,9 @@
    `sa2050_probe.py` section "== P"; expect `42501` at `CREATE TRIGGER`.
    Rerun the synthetic overload and direct-DML FK controls from
    `/workspace/qa/pr2060/`: planted child triggers run as postgres without
-   NNN; after NNN, planting triggers and both public overloads fails with 42501.
+   NNN; after 357 and NNN, planting triggers and both public overloads fails
+   with 42501. The overload protection is supplied by 357 (T005); NNN
+   re-checks that schema state.
    After 358, rerun `/workspace/qa/pr2060/r2/probe_temp_shadow.sql` on SA's
    disposable PG: no attacker marker and `has_table_privilege(
    'service_role','public.users','TRIGGER')` stays false.
@@ -184,7 +190,8 @@ as its own step:
 1. Read-only ledger and pre-apply catalog, explicitly recording public schema
    ACL/effective CREATE and every non-postgres public relation owner. Staging
    evidence alone is insufficient. Record the pre-promotion part of Q-J357-3.
-2. Apply `NNN` under the advisory lock.
+2. Verify 357 is applied on this target and its FR-009 postcheck passes,
+   then apply `NNN` under the advisory lock.
 3. Run the same read-only postcheck.
 4. Q-J357-3 is a blocking gate for promotion and closing P2-SA-1/PC-J357:
    require FR-001/FR-003/FR-009/FR-010 evidence for the production apply,
@@ -212,7 +219,7 @@ WARNING.
   schema CREATE, privileged role membership or ownership to an API role.
   This includes down 356: it is corrected under CALAPPEND-0041 T001 (F5)
   before release; this spec rechecks privileges after exercising that down
-  in the harness with 344, 356 and NNN applied. Its number being below NNN
+  in the harness with 344, 356, 357 and NNN applied. Its number being below NNN
   does not make it safe. If both 356 and 344 must be rolled back, run down
   356 first, then down 344 (CALAPPEND-0041 `rollout.md`).
 - If a legitimate path is refused with `42501` (none is known,
@@ -230,8 +237,8 @@ WARNING.
   `NNN`, its mandatory `pending_feature` policy must leave NNN unapplied
   during `--baseline`; clear or refuse an inherited `MIGRATION_FEATURES`
   selection of NNN's group before baselining. Inspect the ledger and ACLs,
-  then apply NNN through
-  the authorized explicit feature selection. If a baseline falsely recorded
+  then apply 357 first when missing, followed by NNN, through
+  the authorized explicit feature selections. If a baseline falsely recorded
   it, stop and reconcile through the supported runner workflow; an ordinary
   apply would skip it. Scenario 11 proves the full synthetic sequence.
 - After every restore or DR drill (including `scripts/backup/`
