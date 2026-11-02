@@ -122,6 +122,13 @@ def _owned_item(bank_id: str, user_id: str, item_id: str, *, review: bool = Fals
     item = finder(bank_id, user_id, assignment_item_id=item_id)
     if not item or str(item.get("id")) != str(item_id):
         raise HTTPException(404, "Không tìm thấy bài giao còn hiệu lực")
+    if not review and item.get("class_archived"):
+        # CLASSARCHIVE-0030 FR-004: Advanced Vocabulary has no finish lane.
+        # The quiz gate already refuses an untimed archived item; this also
+        # closes a timed one (research.md §5). Review reads stay open.
+        from services.class_archive_service import cohort_archived_error
+
+        raise cohort_archived_error(learner=True)
     return item
 
 

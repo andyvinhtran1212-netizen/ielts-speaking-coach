@@ -11,6 +11,10 @@ from services.class_assignment_service import (
     is_accepting_submissions,
     is_assignment_open,
 )
+from services.class_archive_service import (
+    cohort_accepts_work,
+    require_cohort_accepts_work,
+)
 from services.class_membership_service import student_is_active_in_cohort
 from services.grammar_diagnostic_service import APPROVED_MANIFEST_SHA256
 from services.grammar_lesson_content import (
@@ -206,7 +210,8 @@ def _owned_attempt(item_id: str, user_id: str) -> dict[str, Any] | None:
     return attempt
 
 
-def _public_state(item: dict, assignment: dict, attempt: dict | None) -> dict:
+def _public_state(item: dict, assignment: dict, attempt: dict | None,
+                  *, class_archived: bool = False) -> dict:
     config = assignment.get("content_config") or {}
     version = (attempt or {}).get("content_version") or config.get("content_version") or CURRENT_VERSION
     active = _version_enabled(str(version))
@@ -255,7 +260,10 @@ def _public_state(item: dict, assignment: dict, attempt: dict | None) -> dict:
         "instructions": assignment.get("instructions"),
         "due_at": assignment.get("due_at"),
         "status": status,
-        "can_submit": bool(can_submit and status != "completed"),
+        # CLASSARCHIVE-0030 Variant A: the lesson stays readable in an archived
+        # class, but no new start or answer is accepted there.
+        "can_submit": bool(can_submit and status != "completed" and not class_archived),
+        "class_archived": class_archived,
         "answered_count": answered,
         "correct_count": correct,
         "question_count": total,
@@ -268,7 +276,10 @@ def _public_state(item: dict, assignment: dict, attempt: dict | None) -> dict:
 
 def read_item(user_id: str, item_id: str) -> dict:
     item, assignment = _entitlement(user_id, item_id)
-    return _public_state(item, assignment, _owned_attempt(item_id, user_id))
+    return _public_state(
+        item, assignment, _owned_attempt(item_id, user_id),
+        class_archived=not cohort_accepts_work(supabase_admin, assignment.get("cohort_id")),
+    )
 
 
 def _translate_write_error(exc: Exception) -> None:
@@ -293,7 +304,13 @@ def start_item(user_id: str, item_id: str) -> dict:
     config = assignment["content_config"]
     existing = _owned_attempt(item_id, user_id)
     if existing:
-        return _public_state(item, assignment, existing)
+        return _public_state(
+            item, assignment, existing,
+            class_archived=not cohort_accepts_work(supabase_admin, assignment.get("cohort_id")),
+        )
+    # CLASSARCHIVE-0030 FR-004: a new start in an archived class is refused
+    # before the RPC (312 reads memberships only, not the class state).
+    require_cohort_accepts_work(supabase_admin, assignment.get("cohort_id"), learner=True)
     if not _version_enabled(config["content_version"]):
         raise HTTPException(503, "Ngân hàng Grammar đang tạm khóa. Lịch sử đã lưu vẫn được giữ.")
     if not is_accepting_submissions(assignment):
@@ -323,6 +340,7 @@ def start_item(user_id: str, item_id: str) -> dict:
 def answer_item(user_id: str, item_id: str, question_id: str,
                 selected_index: int | None = None, *, answer_text: str | None = None) -> dict:
     item, assignment = _entitlement(user_id, item_id)
+    require_cohort_accepts_work(supabase_admin, assignment.get("cohort_id"), learner=True)
     existing = _owned_attempt(item_id, user_id)
     version = (existing or {}).get("content_version") or (assignment.get("content_config") or {}).get("content_version", CURRENT_VERSION)
     if not _version_enabled(version):

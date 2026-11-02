@@ -26,6 +26,7 @@ duyệt" placeholder without a separate poll.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 from datetime import datetime, timedelta, timezone
@@ -45,6 +46,7 @@ from services.public_cache import cacheable_json
 from services.writing_image_access import attach_signed_image_urls
 from services.band_rounding import overall_from_criteria
 from services import activation_gate
+from services import class_archive_service
 from services import essay_service
 from services import core_admission
 from services import test_data_visibility
@@ -1372,6 +1374,98 @@ def _admin_gave_via_instructor_workflow(assignment: dict, admin_id: str) -> bool
         return False
 
 
+# ── Class archive (CLASSARCHIVE-0030 FR-004, Variant A + D3) ─────────────
+#
+# A give of an ARCHIVED class (``is_active = false AND archived_at IS NOT
+# NULL``) takes no new start, draft edit or submission. The one exception (D3)
+# is a timed give started before the archive: it may still save, submit and
+# auto-submit until submitted, because Writing has no reaper. A legacy inactive
+# class (``archived_at IS NULL``) is never gated, and an individual give
+# (``cohort_id IS NULL``) has no class to archive. No database guard covers
+# learner drafts or submissions, so these checks are the only enforcement. A
+# failed class read never opens a gate and never reports "not archived".
+
+_CLASS_STATE_UNAVAILABLE = "Không kiểm tra được trạng thái lớp. Vui lòng thử lại."
+
+
+def _class_rows_by_id(cohort_ids) -> dict[str, dict]:
+    """Class rows for the given ids in batched reads; a DB error propagates."""
+    ids = list(dict.fromkeys(str(value) for value in cohort_ids if value))
+    rows: dict[str, dict] = {}
+    for offset in range(0, len(ids), 100):
+        for row in (
+            supabase_admin.table("cohorts").select("*")
+            .in_("id", ids[offset:offset + 100]).execute().data
+        ) or []:
+            if isinstance(row, dict) and row.get("id"):
+                rows[str(row["id"])] = row
+    return rows
+
+
+def _class_archive_fields(assignment: dict, cohort_row: Optional[dict]) -> dict:
+    archived = class_archive_service.is_cohort_archived(cohort_row)
+    return {
+        "class_archived": archived,
+        "archive_finish_allowed": (
+            archived and class_archive_service.archive_finish_allowed(assignment, cohort_row)
+        ),
+    }
+
+
+def _class_archive_state(assignment: dict) -> dict:
+    """``class_archived`` / ``archive_finish_allowed`` for one give.
+
+    Raises the generic 500 when the class cannot be read.
+    """
+    cohort_id = assignment.get("cohort_id")
+    if not cohort_id:
+        return _class_archive_fields(assignment, None)
+    try:
+        cohort_row = class_archive_service.cohort_archive_row(supabase_admin, cohort_id)
+    except Exception as exc:
+        logger.warning(
+            "[writing-student] class archive lookup failed assignment=%s: %s",
+            assignment.get("id"), exc,
+        )
+        raise HTTPException(500, _CLASS_STATE_UNAVAILABLE) from None
+    return _class_archive_fields(assignment, cohort_row)
+
+
+def _require_class_accepts_work(assignment: dict) -> None:
+    """409 ``cohort_archived`` for a give of an archived class, except D3."""
+    state = _class_archive_state(assignment)
+    if state["class_archived"] and not state["archive_finish_allowed"]:
+        raise class_archive_service.cohort_archived_error(learner=True)
+
+
+def _require_class_accepts_admission(student_id: str, assignment_id: str) -> None:
+    """The same gate in front of the admission RPCs, which read the row themselves.
+
+    A missing row is left to the RPC, which owns the symmetric not-found answer.
+    """
+    try:
+        rows = (
+            supabase_admin.table("writing_assignments")
+            .select("id, cohort_id, is_timed, started_at, submitted_at")
+            .eq("id", assignment_id).eq("student_id", student_id)
+            .limit(1).execute().data
+        ) or []
+    except Exception as exc:
+        logger.warning(
+            "[writing-student] admission class lookup failed assignment=%s: %s",
+            assignment_id, exc,
+        )
+        raise HTTPException(500, _CLASS_STATE_UNAVAILABLE,
+                            headers={"Cache-Control": "private, no-store"}) from None
+    if not rows:
+        return
+    try:
+        _require_class_accepts_work(rows[0])
+    except HTTPException as exc:
+        exc.headers = {"Cache-Control": "private, no-store"}
+        raise
+
+
 def _resolve_active_assignment(student_id: str, assignment_id: str) -> dict:
     """Fetch one assignment owned by `student_id`. 404s on any miss
     (wrong owner OR nonexistent) — same symmetry rule as the essay
@@ -1421,7 +1515,7 @@ async def list_my_assignments(
         supabase_admin.table("writing_assignments")
         .select(
             "id, status, deadline, instructions, "
-            "created_at, submitted_at, delivered_at, essay_id, "
+            "created_at, submitted_at, delivered_at, essay_id, cohort_id, "
             "assignment_group_id, name, allow_soft_check, "
             "is_timed, time_limit_minutes, started_at, auto_submitted, renderer_affinity, "
             "renderer_affinity_claimed_at, renderer_affinity_expires_at, "
@@ -1464,6 +1558,20 @@ async def list_my_assignments(
                 student_id, exc,
             )
 
+    # One batched class read for the A-10 fields. A failure fails the list:
+    # reporting "not archived" for a class that may be archived is untrue.
+    cohort_rows: dict[str, dict] = {}
+    cohort_ids = [a.get("cohort_id") for a in assignments if a.get("cohort_id")]
+    if cohort_ids:
+        try:
+            cohort_rows = await asyncio.to_thread(_class_rows_by_id, cohort_ids)
+        except Exception as exc:
+            logger.warning(
+                "[writing-student] class archive lookup failed student=%s: %s",
+                student_id, exc,
+            )
+            raise HTTPException(500, "Lỗi khi tải bài giao") from None
+
     annotated = []
     for a in assignments:
         a = _effective_writing_renderer(a)
@@ -1473,6 +1581,7 @@ async def list_my_assignments(
             "has_draft":         d is not None,
             "draft_word_count":  (d or {}).get("word_count", 0),
             "draft_updated_at":  (d or {}).get("updated_at"),
+            **_class_archive_fields(a, cohort_rows.get(str(a.get("cohort_id") or ""))),
         })
     attach_signed_image_urls([a.get("writing_prompts") for a in annotated])
 
@@ -1507,6 +1616,7 @@ async def get_my_assignment(
         )
         d = None
 
+    assignment.update(await asyncio.to_thread(_class_archive_state, assignment))
     timer = _compute_timer_state(assignment)
     attach_signed_image_urls([assignment.get("writing_prompts")])
     return {
@@ -1537,6 +1647,7 @@ async def claim_writing_assignment_renderer_affinity(
             409,
             f"Không thể mở trình soạn thảo — trạng thái bài là '{assignment['status']}'.",
         )
+    await asyncio.to_thread(_require_class_accepts_work, assignment)
 
     try:
         result = supabase_admin.rpc(
@@ -1597,6 +1708,9 @@ async def upsert_my_draft(
             409,
             f"Không thể chỉnh draft — trạng thái bài là '{assignment['status']}'.",
         )
+    # Before the expiry 410: a D3 give still reaches the auto-submit, any other
+    # give of an archived class is refused as closed.
+    await asyncio.to_thread(_require_class_accepts_work, assignment)
     # Sprint 2.6.1 — IELTS-mode timer expiry check.
     # The auto-stamp branch that used to live here was REMOVED:
     # `started_at` is now stamped explicitly by POST /start when the
@@ -1719,6 +1833,9 @@ async def submit_my_assignment(
     if replay is not None:
         return replay
 
+    # After the replay: a submission that committed before the archive keeps
+    # returning its receipt. The auto-submit comes through here too (D3).
+    await asyncio.to_thread(_require_class_accepts_work, assignment)
     _require_writing_renderer_lease(assignment)
 
     prompt = assignment.get("writing_prompts") or {}
@@ -2206,6 +2323,7 @@ async def enter_my_writing_baseline(assignment_id: UUID, body: WritingBaselineEn
     response.headers["Cache-Control"] = "private, no-store"
     try:
         core_admission.require_admission_access("fn_enter_writing_baseline", {"p_allow_start": body.allow_start})
+        await asyncio.to_thread(_require_class_accepts_admission, student["id"], str(assignment_id))
         result = await core_admission.enter_writing_baseline(UUID(student["user_id"]), UUID(student["id"]),
             assignment_id, body.launch_nonce, body.allow_start)
     except _WRITING_ADMISSION_ERRORS as error:
@@ -2240,6 +2358,7 @@ async def prepare_my_writing_admission(
     response.headers["Cache-Control"] = "private, no-store"
     try:
         core_admission.require_admission_access("fn_prepare_writing_admission")
+        await asyncio.to_thread(_require_class_accepts_admission, student["id"], str(assignment_id))
         result = await core_admission.prepare_writing_admission(
             UUID(student["user_id"]), UUID(student["id"]), assignment_id, body.launch_nonce)
     except _WRITING_ADMISSION_ERRORS as error:
@@ -2260,6 +2379,7 @@ async def execute_my_writing_admission(
     response.headers["Cache-Control"] = "private, no-store"
     try:
         core_admission.require_admission_access("fn_execute_writing_admission")
+        await asyncio.to_thread(_require_class_accepts_admission, student["id"], str(assignment_id))
         result = await core_admission.execute_writing_admission(
             UUID(student["user_id"]), UUID(student["id"]), assignment_id, command_id, body.generation)
     except _WRITING_ADMISSION_ERRORS as error:
@@ -2329,7 +2449,8 @@ async def start_assignment(
         supabase_admin.table("writing_assignments")
         .select(
             "status, is_timed, time_limit_minutes, started_at, auto_submitted, "
-            "renderer_affinity, renderer_affinity_claimed_at, renderer_affinity_expires_at"
+            "renderer_affinity, renderer_affinity_claimed_at, renderer_affinity_expires_at, "
+            "cohort_id, submitted_at"
         )
         .eq("id", str(assignment_id))
         .eq("student_id", student_id)
@@ -2351,6 +2472,9 @@ async def start_assignment(
             409,
             f"Không thể bắt đầu — trạng thái bài là '{row['status']}'.",
         )
+    # A new start in an archived class is refused; re-opening a D3 give that
+    # was already running before the archive is not a new start.
+    await asyncio.to_thread(_require_class_accepts_work, {**row, "id": str(assignment_id)})
     _require_writing_renderer_lease(row)
 
     update_payload: dict = {}

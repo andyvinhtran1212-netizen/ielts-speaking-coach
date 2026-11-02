@@ -52,6 +52,7 @@ from services.class_membership_service import (
     active_students_for_cohort,
     student_is_active_in_cohort,
 )
+from services.class_archive_service import require_cohort_accepts_work
 from services.errors import clip_user_value
 
 logger = logging.getLogger(__name__)
@@ -1053,6 +1054,12 @@ def validate_class_item_for_session(
     ):
         raise TaskMismatchError("Bạn không còn thuộc lớp đã giao bài này")
 
+    # CLASSARCHIVE-0030 FR-004 (Variant A): an archived class takes no new
+    # session or attempt for its items. The 409 is an HTTPException on purpose:
+    # every caller maps only this module's errors, so it reaches the client as
+    # the learner `cohort_archived` body. A legacy inactive class still accepts.
+    require_cohort_accepts_work(db, assignment.get("cohort_id"), learner=True)
+
     cfg = assignment.get("content_config") or {}
     expected_mode = cfg.get("mode") or "practice"
     expected_part = cfg.get("part") or 1
@@ -1120,6 +1127,12 @@ def validate_class_item_for_test(db, user_id: str, item_id: str,
         student[0].get("cohort_id"),
     ):
         raise TaskMismatchError("Bạn không còn thuộc lớp đã giao bài này")
+
+    # CLASSARCHIVE-0030 FR-004 (Variant A): an archived class takes no new
+    # session or attempt for its items. The 409 is an HTTPException on purpose:
+    # every caller maps only this module's errors, so it reaches the client as
+    # the learner `cohort_archived` body. A legacy inactive class still accepts.
+    require_cohort_accepts_work(db, assignment.get("cohort_id"), learner=True)
 
     if assignment.get("skill") != skill:
         raise TaskMismatchError("Bài tập này không phải bài của kỹ năng đang làm.")

@@ -16,6 +16,7 @@ from fastapi import HTTPException
 
 from database import supabase_admin
 from services.class_assignment_service import is_accepting_submissions, is_assignment_open
+from services.class_archive_service import require_cohort_accepts_work
 from services.class_membership_service import student_is_active_in_cohort
 from services import runtime_flags
 
@@ -161,6 +162,9 @@ def _assignment_config(user_id: str, item_id: str) -> dict[str, Any]:
     assignment = entitled["assignment"]
     if not is_assignment_open(assignment):
         raise HTTPException(404, "Bài tập không còn mở")
+    # CLASSARCHIVE-0030 FR-004 (untimed): no new or resumed session in an
+    # archived class; the immutable report stays readable (learner_report).
+    require_cohort_accepts_work(supabase_admin, assignment.get("cohort_id"), learner=True)
     existing = (
         supabase_admin.table("grammar_diagnostic_sessions").select("*")
         .eq("class_assignment_item_id", item_id).limit(1).execute().data
@@ -194,6 +198,9 @@ def _require_session_accepting(user_id: str, session: dict[str, Any]) -> None:
         return
     if not is_accepting_submissions(assignment):
         raise HTTPException(409, "Đã quá hạn nộp — bài tập này không còn nhận bài.")
+    # Same treatment as a passed cutoff: an archived class's session takes no
+    # answer or finalisation; ``learner_report`` keeps the report readable.
+    require_cohort_accepts_work(supabase_admin, assignment.get("cohort_id"), learner=True)
 
 
 def _translate_assignment_write_error(exc: Exception) -> None:
