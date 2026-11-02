@@ -204,6 +204,34 @@ def test_a_full_retry_in_an_archived_class_is_409(item):
     _assert_learner_409(exc_info)
 
 
+@pytest.mark.parametrize("cohort,opened_min,action,refused", [
+    # Finish lane: the timed run opened before the archive may be resumed.
+    (ARCHIVED, 15, "start", False),
+    (ARCHIVED, 15, "continue", False),
+    # A retake or a full retry is a new start, also in the finish lane.
+    (ARCHIVED, 15, "retake", True),
+    (ARCHIVED, 15, "retry_full", True),
+    (ARCHIVED, 15, None, True),
+    # Clock opened after the archive (or never): closed lane.
+    (ARCHIVED, 5, "continue", True),
+    (ARCHIVED, None, "start", True),
+    (ACTIVE, None, "start", False),
+    (LEGACY, 5, "retake", False),
+])
+def test_course_start_archive_rule_matches_the_session_lane(cohort, opened_min, action, refused):
+    opened = (NOW - timedelta(minutes=opened_min)).isoformat() if opened_min else None
+    item = {"id": "i1", "opened_at": opened, "submitted_at": None, "timed_limit_minutes": 60}
+    assignment = {"cohort_id": "c1", "content_config": {"time_limit_minutes": 60}}
+    assert qs.course_start_archive_refused(item, assignment, cohort, action) is refused
+
+
+def test_an_untimed_course_item_has_no_finish_lane_at_the_start():
+    item = {"id": "i1", "opened_at": (NOW - timedelta(minutes=15)).isoformat(),
+            "submitted_at": None}
+    assert qs.course_start_archive_refused(
+        item, {"cohort_id": "c1", "content_config": {}}, ARCHIVED, "continue") is True
+
+
 def test_session_writes_are_refused_unless_the_finish_lane():
     item = {"id": "i1", "opened_at": None, "submitted_at": None}
     assignment = {"cohort_id": "c1", "content_config": {}}

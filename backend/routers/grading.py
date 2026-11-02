@@ -39,7 +39,7 @@ from services import fluency_signals
 from services.db_async import aexecute
 from services.core_attempt_observation import bind_owned_attempt, note_operation_failure, note_owned_speaking_audio, observe_operation
 from routers.auth import get_supabase_user
-from routers.sessions import require_speaking_entitlement
+from routers.sessions import refuse_if_class_session_archived, require_speaking_entitlement
 from services.whisper import transcribe_from_bytes
 from services import claude_grader
 from services import azure_pronunciation
@@ -540,6 +540,11 @@ async def grade_response_endpoint(
 
         retry_safe = isinstance(submission_id, str) and bool(submission_id)
         if not retry_safe:
+            # CLASSARCHIVE-0030 FR-004: no answer for an archived class's item.
+            # A retry-safe upload checks after its replay lookup below, so a
+            # lost acknowledgement of an earlier answer still replays.
+            step = "class_archive"
+            await refuse_if_class_session_archived(session)
             enforce_grading_rate_limit(user_id, settings.MAX_GRADINGS_PER_USER_PER_DAY)
             record_grading_attempt(user_id)
 
@@ -575,6 +580,8 @@ async def grade_response_endpoint(
             ext = _guess_ext(audio_file.filename, audio_file.content_type)
             storage_path = f"{user_id}/{session_id}/{question_id}.{submission_id}.{hashlib.sha256(audio_bytes).hexdigest()}{ext}"
             check_submission(baseline, submission_id, storage_path, expected_revision)
+            step = "class_archive"
+            await refuse_if_class_session_archived(session)
 
         else:
             submission_id = str(uuid.uuid4())

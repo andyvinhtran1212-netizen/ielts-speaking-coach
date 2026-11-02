@@ -111,6 +111,44 @@ def require_cohort_accepts_work(db, cohort_id: Optional[str], *, learner: bool =
         raise cohort_archived_error(learner=learner)
 
 
+def class_item_cohort_id(db, item_id: Optional[str]) -> Optional[str]:
+    """The class of one class assignment item, ``None`` when unknown.
+
+    A DB error propagates.
+    """
+    if not item_id:
+        return None
+    items = (
+        db.table("class_assignment_items").select("assignment_id")
+        .eq("id", str(item_id)).limit(1).execute()
+    ).data or []
+    if not items or not items[0].get("assignment_id"):
+        return None
+    rows = (
+        db.table("class_assignments").select("cohort_id")
+        .eq("id", str(items[0]["assignment_id"])).limit(1).execute()
+    ).data or []
+    return str(rows[0]["cohort_id"]) if rows and rows[0].get("cohort_id") else None
+
+
+def require_class_item_accepts_work(db, item_id: Optional[str], *,
+                                    learner: bool = False) -> None:
+    """``require_cohort_accepts_work`` for the class of a class assignment item."""
+    require_cohort_accepts_work(db, class_item_cohort_id(db, item_id), learner=learner)
+
+
+def cohort_archived_by(cohort_row: Optional[Mapping[str, Any]], at: Any) -> bool:
+    """True when the class is archived and its ``archived_at`` is at or before ``at``.
+
+    A missing or unreadable ``at`` counts as after the archive.
+    """
+    if not is_cohort_archived(cohort_row):
+        return False
+    archived = _parse_ts(cohort_row.get("archived_at"))
+    moment = _parse_ts(at)
+    return archived is None or moment is None or moment >= archived
+
+
 def archive_finish_allowed(assignment: Mapping[str, Any],
                            cohort_row: Optional[Mapping[str, Any]]) -> bool:
     """D3: a timed Writing give started before the archive may still be finished.

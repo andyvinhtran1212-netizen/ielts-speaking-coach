@@ -34,6 +34,7 @@ from routers.auth import get_supabase_user
 from services.quiz_service import (
     bank_has_writing,
     course_assignment_action_with_session_truth,
+    course_start_archive_refused,
     reconcile_course_items,
 )
 from services.class_assignment_service import (
@@ -51,7 +52,11 @@ from services.writing_give_status import (
     writing_result_path,
     writing_review_state,
 )
-from services.class_archive_service import cohort_accepts_work, cohort_archived_error
+from services.class_archive_service import (
+    cohort_accepts_work,
+    cohort_archive_row,
+    cohort_archived_error,
+)
 from services.class_membership_service import (
     active_cohort_ids_for_student,
     student_is_active_in_cohort,
@@ -754,14 +759,22 @@ async def start_assignment(
     # đã xong vẫn mở, còn mọi lối LÀM TIẾP hay BẮT ĐẦU đều nhận 409. Chỉ hỏi
     # trạng thái lớp ở những lối cần, để một lượt đọc lớp hỏng không chặn việc
     # xem lại kết quả. Lớp lưu trữ cũ (chưa áp dụng) vẫn nhận bài như trước.
-    async def refuse_if_class_archived() -> None:
+    # Bài Course hỏi đúng luật của quiz_service: bài tính giờ đã mở đồng hồ
+    # trước lúc lưu trữ (làn "finish") vẫn được quay lại làm nốt lượt đang chạy.
+    async def refuse_if_class_archived(course_action: str | None = None) -> None:
         try:
-            accepts = await asyncio.to_thread(
-                cohort_accepts_work, supabase_admin, assignment.get("cohort_id"))
+            if skill == "course":
+                cohort_row = await asyncio.to_thread(
+                    cohort_archive_row, supabase_admin, assignment.get("cohort_id"))
+                refused = course_start_archive_refused(
+                    item, assignment, cohort_row, course_action)
+            else:
+                refused = not await asyncio.to_thread(
+                    cohort_accepts_work, supabase_admin, assignment.get("cohort_id"))
         except Exception as exc:
             logger.error("[class] class archive state read failed item=%s: %s", item_id, exc)
             raise HTTPException(500, "Không mở được bài tập. Vui lòng thử lại.") from None
-        if not accepts:
+        if refused:
             raise cohort_archived_error(learner=True)
 
     # Bài Speaking ĐÃ CÓ phiên thì mở lại CHÍNH phiên ấy — kể cả khi đã quá hạn.
@@ -883,8 +896,9 @@ async def start_assignment(
         }
 
     # Every lane above only reads finished work; from here on the learner starts
-    # or continues work, which an archived class no longer accepts.
-    await refuse_if_class_archived()
+    # or continues work, which an archived class no longer accepts (except a
+    # timed Course run opened before the archive).
+    await refuse_if_class_archived(course_action)
 
     # 409, not 404: the task exists and is theirs — it simply lapsed. Saying "not
     # found" would read as a bug to a student looking straight at it on the list.

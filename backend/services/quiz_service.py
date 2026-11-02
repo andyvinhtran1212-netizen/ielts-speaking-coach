@@ -955,6 +955,38 @@ def _course_archive_lane(item: dict, assignment: dict,
     return "closed"
 
 
+def archive_lane_refuses(lane: str | None, kind: str) -> bool:
+    """Whether an archive lane refuses a session of ``kind`` (FR-004).
+
+    ``kind`` is the quiz session kind (``"run"`` / ``"retake"``) or
+    ``"retry_full"``. The "finish" lane may only keep its run going; a retake or
+    a full retry is a new start. This is the one rule for the session start
+    (``_ensure_timed_course_session``) and the /class start navigation
+    (``course_start_archive_refused``).
+    """
+    return lane == "closed" or (lane == "finish" and kind != "run")
+
+
+# The learner action a /class start resumes, as a session kind.
+_COURSE_ACTION_KIND = {"start": "run", "continue": "run",
+                       "retake": "retake", "retry_full": "retry_full"}
+
+
+def course_start_archive_refused(item: dict, assignment: dict,
+                                 cohort_row: dict | None,
+                                 course_action: str | None) -> bool:
+    """Whether /class start must answer a Course item with the learner 409.
+
+    ``cohort_row`` is the item's class row (``select("*")``). An active or
+    legacy inactive class never refuses. In an archived class only a timed item
+    in the "finish" lane may resume its run; every other action is refused.
+    """
+    lane = _course_archive_lane(item, assignment, cohort_row)
+    if lane is None:
+        return False
+    return archive_lane_refuses(lane, _COURSE_ACTION_KIND.get(course_action or "", ""))
+
+
 def _session_class_archive_gate(item: dict, assignment: dict) -> None:
     """Refuse a write on a Course session whose class is archived ("closed")."""
     rows = _archived_cohort_rows([assignment.get("cohort_id")])
@@ -2055,8 +2087,7 @@ def _ensure_timed_course_session(
     # (a new start) and no retake opens; only a window opened before the
     # archive is resumed ("finish" lane). The 264/270 RPC reads memberships,
     # not the class state, so this Python gate is the enforcement.
-    lane = item.get("class_archive_lane")
-    if lane == "closed" or (lane == "finish" and kind != "run"):
+    if archive_lane_refuses(item.get("class_archive_lane"), kind):
         raise cohort_archived_error(learner=True)
     if item.get("opened_at") and timer.get("is_expired"):
         if not allow_expired_existing:

@@ -385,6 +385,70 @@ async def test_unfinished_speaking_session_in_a_legacy_class_reopens():
     assert out["session_id"] == "sess-1"
 
 
+def _timed_course_db(*, opened_min, archived_min=10, mastery=None):
+    now = datetime.now(timezone.utc)
+    cohort = {**ARCHIVED, "archived_at": (now - timedelta(minutes=archived_min)).isoformat()}
+    item = {"opened_at": (now - timedelta(minutes=opened_min)).isoformat(),
+            "timed_limit_minutes": 60, "state": "opened", "submitted_at": None,
+            **({"mastery": mastery} if mastery else {})}
+    return _start_db(cohort, skill="course", item=item,
+                     content_config={"time_limit_minutes": 60})
+
+
+@pytest.mark.asyncio
+async def test_a_timed_course_run_opened_before_the_archive_resumes():
+    # quiz_service's "finish" lane: the run may still be answered and handed
+    # in, so /class start must lead back to it (Codex #2212 thread 4444542443).
+    out = await _start(_timed_course_db(opened_min=15))
+    assert out["skill"] == "course" and out["course_action"] == "start"
+    assert out["timer"]["is_timed"] is True and out["timer"]["is_expired"] is False
+
+
+@pytest.mark.asyncio
+async def test_a_timed_course_retake_in_the_finish_lane_is_refused():
+    mastery = {"attempts": [{"pct": 60, "completed": True, "next_action": "retake",
+                             "at": datetime.now(timezone.utc).isoformat()}]}
+    with pytest.raises(HTTPException) as caught:
+        await _start(_timed_course_db(opened_min=15, mastery=mastery))
+    assert caught.value.status_code == 409
+    assert caught.value.detail == LEARNER_409
+
+
+@pytest.mark.asyncio
+async def test_a_timed_course_clock_opened_after_the_archive_is_refused():
+    with pytest.raises(HTTPException) as caught:
+        await _start(_timed_course_db(opened_min=5))
+    assert caught.value.status_code == 409
+    assert caught.value.detail == LEARNER_409
+
+
+@pytest.mark.asyncio
+async def test_an_untimed_course_item_in_an_archived_class_is_refused():
+    db = _start_db(ARCHIVED, skill="course")
+    with pytest.raises(HTTPException) as caught:
+        await _start(db)
+    assert caught.value.status_code == 409
+    assert caught.value.detail == LEARNER_409
+    assert db.updates == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cohort", [ACTIVE, LEGACY])
+async def test_course_items_in_active_and_legacy_classes_start_as_before(cohort):
+    out = await _start(_start_db(cohort, skill="course"))
+    assert out["skill"] == "course" and out["course_action"] == "start"
+
+
+@pytest.mark.asyncio
+async def test_course_start_archive_lookup_failure_is_generic():
+    db = _timed_course_db(opened_min=15)
+    db.fail.add("cohorts")
+    with pytest.raises(HTTPException) as caught:
+        await _start(db)
+    assert caught.value.status_code == 500
+    assert DB_TEXT not in str(caught.value.detail)
+
+
 @pytest.mark.asyncio
 async def test_start_archive_lookup_failure_is_generic():
     db = _start_db(ACTIVE)
