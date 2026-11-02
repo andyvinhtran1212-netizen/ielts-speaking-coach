@@ -692,6 +692,7 @@ on:
       - 'frontend/next.config.ts'
       - 'frontend/proxy.ts'
       - 'frontend/tooling/content-security-policy.mjs'
+      - 'frontend/tooling/check-csp-nonce-deployed.mjs'
       - 'frontend/playwright.reading-native.config.js'
       - 'frontend/package-lock.json'
       - 'frontend/package.json'
@@ -1374,6 +1375,43 @@ jobs:
       # Không cần secret, không ghi vào đâu (mạng bị chặn, dữ liệu trả sẵn).
       - name: Cổng đường-ghi
         run: node tooling/verify-write-flows.mjs "http://localhost:$TEST_PORT"
+
+      # PC-J566: URL 404 dưới prefix đã đăng nhập cũng nhận policy nonce của
+      # proxy, nên trang 404 gốc phải render theo request với đúng nonce đó
+      # (HTTP 404, thẻ 404 trong HTML SSR); `/nope-top-level` giữ baseline.
+      # Staging chạy AVER_CSP_NONCE_ENFORCE=1 (cờ inline lúc build), nên build
+      # lại với cờ bật ở CUỐI job để không đổi build của các verifier trên,
+      # rồi kiểm dưới policy chặn thật: mọi script mang nonce, 0 violation.
+      # Next cũ dừng trước khi build: pid trong file là của npx, còn
+      # next-server con mới giữ cổng, nên dừng cả process đang nghe cổng và
+      # chờ cổng trống. Pid mới thay pid cũ cho bước "Dừng Next".
+      - name: Build lại với CSP nonce enforce và khởi động lại Next
+        env:
+          AVER_CSP_NONCE_ENFORCE: '1'
+        run: |
+          listeners=$(ss -Hltnp "sport = :$TEST_PORT" | grep -o 'pid=[0-9]*' | cut -d= -f2 | sort -u || true)
+          kill "$(cat /tmp/next-native-browser.pid)" $listeners 2>/dev/null || true
+          for i in $(seq 1 20); do
+            curl -s -o /dev/null "http://localhost:$TEST_PORT/" || break
+            sleep 1
+          done
+          if curl -s -o /dev/null "http://localhost:$TEST_PORT/"; then
+            echo "::error::Next cũ vẫn giữ cổng $TEST_PORT"
+            exit 1
+          fi
+          npm run build
+          npx next start -p "$TEST_PORT" >> /tmp/next-native-browser.log 2>&1 &
+          echo $! > /tmp/next-native-browser.pid
+          for i in $(seq 1 40); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$TEST_PORT/grammar" || true)
+            if [ "$code" = "200" ]; then echo "Next (enforce) sẵn sàng sau ${i}s"; exit 0; fi
+            sleep 1
+          done
+          tail -40 /tmp/next-native-browser.log
+          exit 1
+
+      - name: Kiểm CSP nonce trên trang 404 đã đăng nhập (enforce)
+        run: node tooling/verify-csp-nonce-404-flow.mjs --enforced "http://localhost:$TEST_PORT"
 
       # PC-J437: artifact không qua bộ che log của Actions. Che tại chỗ rồi
       # quét; còn bearer/JWT thì bước này đỏ và KHÔNG nộp artifact.
