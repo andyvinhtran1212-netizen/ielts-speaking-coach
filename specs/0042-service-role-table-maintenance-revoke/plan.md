@@ -63,13 +63,23 @@ is approved.
 - NNN does not touch functions, triggers, policies, RLS flags, ownership, data,
   sequences, function EXECUTE or other schemas. No GRANT statement in NNN
   (FR-002, FR-008).
-- Migration 358 (FR-010, T004, PC-J406) is separate from NNN and applied
-  after 357. It sets `search_path = public, pg_temp` on every `public`
-  function whose `proconfig` has no `search_path`, with a fail-closed
-  zero-unpinned postcondition and a `pending_feature` entry. It changes only
-  `proconfig`: no body, owner, ACL or trigger (FR-008). Its static guard
-  rejects new unpinned `CREATE [OR REPLACE] FUNCTION` in
-  `backend/migrations/**`.
+- Migration 357 (FR-009, T005, PC-J365) is separate from NNN: it revokes
+  CREATE on schema `public` from `service_role`, anon, authenticated and
+  PUBLIC, keeps USAGE, and is applied before 358.
+- Migration 358 (FR-010, T004, PC-J406, PGTEMP option a) is separate from
+  NNN and applied after 357. It runs `ALTER ROUTINE … SET search_path = …`
+  on every function/procedure defined by project migrations in `public` and
+  `app_private` so that `pg_temp` is always present and last (none →
+  `public, pg_temp`; `pg_catalog, public` → `pg_catalog, public, pg_temp`;
+  `public` → `public, pg_temp`; `''` → `pg_catalog, pg_temp`). It raises
+  `unpinned_function_not_owned_by_runner` if a target routine is not owned
+  by the runner, has a fail-closed postcondition (no routine in those
+  schemas whose `search_path` is missing, `''` or not ending with
+  `pg_temp`) and a `pending_feature` entry. It changes only `proconfig`: no
+  body, owner, ACL, volatility or trigger (FR-008). Its static guard
+  rejects any new `CREATE [OR REPLACE] FUNCTION|PROCEDURE` in
+  `backend/migrations/**` without `SET search_path`, with
+  `search_path = ''`, or with `pg_temp` not last.
 - FastAPI, frontend, OpenAPI: unchanged.
 - Tests (T001):
   - `backend/tests/test_migration_NNN_service_role_table_maintenance_revoke.py`:
@@ -139,7 +149,12 @@ Privilege target for every `public` relation not owned by `service_role`:
     down; both policies absent, no anon/authenticated table or column
     privileges) and synthetic pre-NNN clone/baseline/apply;
   - Scenario 12 for 358: temp-view shadow through an FK cascade, red before
-    and green after 358, with an owner-path negative control.
+    and green after 358, with an owner-path negative control;
+  - FR-010 (b) for 358: temp-view/temp-domain shadow against one
+    `fn_admin_*` definer and one former `''` routine, red before and green
+    after 358;
+  - search_path guard fixtures: missing `SET search_path`, `''`, and
+    `pg_temp` not last each fail; `…, pg_temp` passes.
 - Static guard plus `.sql`, `.sh`, `.py` mutation fixtures for scenario 6,
   including rollback files below NNN and every forbidden grant family.
 - Full backend suite on the worktree; `bash -n` not needed (no shell change).
