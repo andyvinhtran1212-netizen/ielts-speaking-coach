@@ -104,15 +104,23 @@
     WHERE n.nspname = 'public' AND a.grantee = 0
       AND a.privilege_type = 'CREATE';
    ```
-   After 358 (FR-010), also expect 0 rows:
+   After 358 (FR-010), also expect 0 rows (routines whose `search_path` is
+   missing, `''`, or does not end with `pg_temp`):
 
    ```sql
-   SELECT p.oid::regprocedure AS routine, pg_get_userbyid(p.proowner) AS owner
+   SELECT p.oid::regprocedure AS routine, pg_get_userbyid(p.proowner) AS owner,
+          (SELECT c FROM unnest(p.proconfig) c
+            WHERE c LIKE 'search_path=%') AS search_path
      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname = 'public'
+    WHERE n.nspname IN ('public', 'app_private')
+      AND p.prokind IN ('f', 'p')
+      AND NOT EXISTS (
+        SELECT 1 FROM pg_depend d
+         WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid
+           AND d.deptype = 'e')
       AND NOT EXISTS (
         SELECT 1 FROM unnest(COALESCE(p.proconfig, ARRAY[]::text[])) c
-         WHERE c LIKE 'search_path=%');
+         WHERE c ~ '^search_path=.*pg_temp"?$');
    ```
 3. `has_table_privilege('service_role','public.users','TRIGGER')` is false,
    and SELECT/INSERT/UPDATE/DELETE on `public.users` and
