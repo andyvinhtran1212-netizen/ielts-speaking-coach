@@ -105,7 +105,7 @@ function RenderedFeedback({ sectionKey, value }: { sectionKey: string; value: un
     const renderer = window.WritingRenderers?.SECTION_RENDERERS?.[sectionKey];
     try {
       return renderer
-        ? renderer(value)
+        ? renderer(value, { isStaffViewer: true })
         : window.WritingRenderers?.emptyShape?.('— Renderer chưa sẵn sàng —') || '';
     } catch (caught) {
       console.error('[admin-writing-grade] renderer failed', sectionKey, caught);

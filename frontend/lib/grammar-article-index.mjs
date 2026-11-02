@@ -5,9 +5,10 @@
 //
 // The index is the backend's own article list (`/api/grammar/categories`),
 // the same in-memory map `get_article()` reads, so a listed key always loads.
-// It fails OPEN: when the list is unavailable the answer is `null` and the
-// request falls through to the route, which keeps its existing behaviour
-// (article, error boundary, or soft 404). Only a fresh list can say "missing".
+// It fails OPEN: when the list is unavailable the answer is `null`. The proxy
+// then checks the article endpoint for a confirmed 404 (PC-J526); all other
+// outcomes keep the route's existing article/error handling. Only a fresh
+// list can say "missing" without that fallback request.
 
 /** `${category}/${slug}` keys from the `/api/grammar/categories` payload. */
 export function articleKeys(categories) {

@@ -384,7 +384,6 @@ routers/cohorts.py::list_cohorts::services.class_service.list_cohorts_with_rollu
 routers/cohorts.py::list_cohorts::services.test_data_visibility.hide_for	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/cohorts.py::remove_cohort_member::db.execute	2	G6	Existing inline sync DB execution; offload in G6.
 routers/cohorts.py::remove_student_from_cohort::services.class_membership_service.remove_student	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
-routers/cohorts.py::update_cohort::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
 routers/course_pronunciation.py::pronunciation_state::services.course_pronunciation.get_state	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
 routers/error_logs.py::dismiss_error_log::db.execute	1	G7	Existing inline sync DB execution; offload in G7.
 routers/error_logs.py::error_log_migration_stats::db.execute	1	G7	Existing inline sync DB execution; offload in G7.
@@ -946,18 +945,11 @@ routers/writing_student.py::submit_my_assignment::services.essay_service.schedul
 routers/writing_student.py::upsert_my_draft::db.execute	2	G2	Existing inline sync DB execution; offload in G2.
 routers/writing_student.py::upsert_my_draft::routers.writing_student._refresh_writing_renderer_lease	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
 routers/writing_student.py::upsert_my_draft::routers.writing_student._resolve_active_assignment	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
-services/access_code_permissions.py::aget_account_permissions_summary::services.access_code_permissions.get_account_permissions_summary	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
-services/access_code_permissions.py::aget_user_access_code_permissions::services.access_code_permissions.get_user_access_code_permissions	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
-services/access_code_permissions.py::aget_user_access_code_permissions_cached::services.access_code_permissions.get_user_access_code_permissions_cached	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
-services/access_code_permissions.py::astudent_has_writing_assignment::services.access_code_permissions.student_has_writing_assignment	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
-services/access_code_permissions.py::astudent_id_for_user::services.access_code_permissions.student_id_for_user	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
-services/activation_gate.py::alookup_is_active::services.activation_gate.lookup_is_active	1	G7	Existing sync helper reaches blocking I/O; offload caller in G7.
 services/course_pronunciation.py::submit::db.execute	4	G2	Existing inline sync DB execution; offload in G2.
 services/course_pronunciation.py::submit::services.course_pronunciation._assignment_item	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
 services/course_pronunciation.py::submit::services.course_pronunciation._existing_by_client	3	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
 services/course_pronunciation.py::submit::services.course_pronunciation._set_for_bank	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
 services/course_pronunciation.py::submit::services.quiz_service.refresh_course_completion	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
-services/db_async.py::aexecute::db.execute	1	G7	USE_ASYNC_DB-off executes sync on loop; G7 must preserve facade contract.
 services/essay_service.py::_bg_grade_essay::db.execute	11	G2	Existing inline sync DB execution; offload in G2. Wait for #2066 then 1hz.
 services/essay_service.py::_bg_grade_essay::services.essay_service._ancestor_versions	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2. Wait for #2066 then 1hz.
 services/essay_service.py::_bg_grade_essay::services.essay_service._gc_orphan_versions	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2. Wait for #2066 then 1hz.

@@ -367,6 +367,13 @@ describe('cổng hoàn thành bài nhiều phần', () => {
     assert.match(reviewHub, /cx-listening-open/);
   });
 
+  test('phần tự luận nạp theo đúng item đã mở, như đọc, nghe và phát âm', () => {
+    // Codex P1 (#2166): cùng bank giao hai lần, mở lần cũ hơn thì nháp và bài
+    // nộp tự luận không được đổ sang lần giao mới hơn mà server tự chọn.
+    assert.match(SRC, /writing\.load\(bankId, runner\.reviewOnly \? requestedItem : sectionAssignmentItem\)/);
+    assert.doesNotMatch(SRC, /writing\.load\(bankId, runner\.reviewOnly \? requestedItem : null\)/);
+  });
+
   test('review hub không suy phần đã nộp từ bank live', () => {
     const reviewHub = functionBody('renderReviewHub');
     assert.doesNotMatch(reviewHub, /\(reading\.exists\s*\?/);

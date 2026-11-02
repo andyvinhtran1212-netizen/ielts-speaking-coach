@@ -1,21 +1,27 @@
 ---
 id: SVCPRIV-0042
 title: service_role loses public table maintenance privileges and schema CREATE, and unpinned public functions get a fixed search_path, to block owner-run planted triggers, function overloads and temp-object shadowing
-status: draft
+status: approved
 risk: critical
 owner: product
 ---
 
 # service_role loses public table maintenance privileges and schema CREATE, and unpinned public functions get a fixed search_path, to block owner-run planted triggers, function overloads and temp-object shadowing
 
-Status: **draft, chưa duyệt**. Job PC-J357 (1gn) chỉ viết spec, không viết
-migration. Chỉ mở phiếu migration (T001) sau khi anh Vinh duyệt các câu hỏi ở
-mục *Open questions* (Leader chuyển câu hỏi).
-Spec number 0042 is provisional (0039–0041 are taken by open PRs); the Leader
-may renumber. The migration number is assigned by the Leader when T001 is
-opened and is written `NNN` below. FR-010 is a separate migration that the
-Leader numbered **358** (PC-J406); it is applied after 357 (PC-J365,
-schema CREATE) and is not part of `NNN`.
+Approval: approved by Vinh 2026-11-02 06:37 UTC+7 (t1246u, "Ok hết theo đề xuất"; see [approval-decision.md](approval-decision.md))
+
+The approval covers FR-001…FR-010. It includes two amendments: FR-010 is
+worded as "function/procedure (routine)" to match migration 358
+(`ALTER ROUTINE`, precondition `unpinned_function_not_owned_by_runner`), and
+PGTEMP option a widens FR-010 so that every routine's `search_path` ends with
+`pg_temp`.
+FR-009 (schema CREATE) is migration **357** (PC-J365, job 1h1). FR-010 is
+migration **358** (PC-J406), applied after 357. The table-privilege
+migration of FR-001…FR-008 (T001) has no number yet. The Leader assigns it
+when T001 is opened, and it is written `NNN` below. Neither 357 nor 358 is
+part of `NNN`. **357 is applied before NNN; NNN's FR-004 postcondition
+re-checks FR-009 and aborts if 357 is missing.** This order applies on each
+target environment, including a synthetic clone whose source lacks 357.
 Origin: Security Auditor P2-SA-1 and its "separate, wider ticket" note in
 `reviews/PR-2050.md` (SA review of migration 341, 2026-10-30 15:10–15:40
 UTC+7). The later PR #2060 SA catalog snapshot (2026-10-30) counted 150 of
@@ -23,6 +29,22 @@ UTC+7). The later PR #2060 SA catalog snapshot (2026-10-30) counted 150 of
 that grants it again to new tables and CREATE on schema `public`.
 Merged with PC-J350 (F10 of #2045, clone script `GRANT ALL`), which already
 has PR #2055; its remaining schema grant also needs correction (FR-007).
+
+## Amendment — 2026-11-02 (PC-J530, follow-up to #2170)
+
+This clarification implements FD section 3 and CR's ordering finding in
+`reviews/PR-2170.md`; it leaves the approved FR-001…FR-010 text verbatim.
+357 owns the schema CREATE revoke and its primary tests (T005). NNN owns
+the table/default-ACL revokes (T001) and only re-checks FR-009. The plan,
+tasks and acceptance scenarios below now state the prerequisite 357 → NNN.
+
+Correction to the illustrative staging parenthetical in FR-010 item 2:
+read it as **the five `fn_admin_*` SECURITY DEFINER routines of migrations
+297–302**. Migrations 334 and 335 define `fn_activate_attempt_check` and
+`app_private.is_current_user_active`, respectively; their `search_path = ''`
+belongs to item 3. This amendment corrects the example only; the requirement
+still covers every routine. See the catalog table in
+[verification.md](verification.md).
 
 ## Tóm tắt (tiếng Việt)
 
@@ -39,14 +61,15 @@ rồi tự xoá dấu vết khi phiên kết thúc. SA đã chạy lại đượ
 
 Migration `NNN` sẽ thu bốn quyền mà backend không dùng (TRIGGER, REFERENCES,
 TRUNCATE và MAINTAIN trên PG 17) khỏi `service_role` trên **mọi** bảng
-`public`, kể cả quyền mặc định cho bảng tạo sau này. Đồng thời thu CREATE
-trên schema `public` khỏi `service_role`, anon, authenticated và PUBLIC để
-không thể cài hàm overload rồi chạy dưới quyền owner qua RPC definer.
+`public`, kể cả quyền mặc định cho bảng tạo sau này. Migration 357 (FR-009)
+thu CREATE trên schema `public` khỏi `service_role`, anon, authenticated và
+PUBLIC để không thể cài hàm overload rồi chạy dưới quyền owner qua RPC definer.
 Riêng đường "bóng" qua object TEMP (service_role tạo `TEMP VIEW` trùng tên
 bảng mà một hàm trigger chưa pin `search_path` đọc, rồi kích FK CASCADE chạy
 dưới owner) thì NNN một mình không chặn được. Migration 358 (FR-010) đóng
-đường này bằng cách pin `search_path = public, pg_temp` cho mọi hàm `public`
-chưa pin, không đổi thân hàm.
+đường này: mọi function/procedure (routine) của dự án trong `public` và
+`app_private` có `search_path` kết thúc bằng `pg_temp` (PGTEMP phương án a),
+không đổi thân hàm.
 Migration giữ nguyên SELECT, INSERT, UPDATE và DELETE. Kèm theo là hậu điều kiện trong migration,
 test chạy trên PostgreSQL thật, và một guard tĩnh để migration hay script sau
 này không cấp lại các quyền đó. Script clone staging (J350, PR #2055) cũng không
@@ -99,6 +122,13 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
   name in `pg_temp` first, and the planted function runs as `postgres` and
   grants `TRIGGER ON public.users` back to `service_role`. Pinning
   `search_path = public, pg_temp` stops it (FR-010).
+- A pinned `search_path` that omits `pg_temp` is the same path: PostgreSQL
+  then searches `pg_temp` first for tables, views and types. On staging,
+  the 5 `fn_admin_*` SECURITY DEFINER routines of migrations 297–302 use
+  `pg_catalog, public`, and `fn_activate_attempt_check` (334) and
+  `app_private.is_current_user_active` (335) use `''` (SA, PC-J455,
+  Q-0600-PGTEMP). FR-010 (PGTEMP option a) makes `pg_temp` the last entry
+  of every routine's `search_path`.
 - TRUNCATE skips RLS and row triggers, so it can empty append-only audit
   tables. REFERENCES lets a role add foreign keys that block owner deletes.
   MAINTAIN (PG 17) allows `LOCK … ACCESS EXCLUSIVE`, VACUUM FULL, CLUSTER and
@@ -115,13 +145,15 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
 - The same four privileges are removed from every default ACL that applies to
   new `public` tables, in both the schema-scoped and the global form, for every
   owner the runner can act for.
-- `REVOKE CREATE ON SCHEMA public FROM service_role, anon, authenticated,
-  PUBLIC`, with an effective-privilege postcondition and overload-shadow
-  tests (FR-009). Schema USAGE stays unchanged.
-- Migration 358 (FR-010): pin `search_path = public, pg_temp` on every
-  `public` function without a `search_path` entry, with a fail-closed
-  postcondition, a temp-view-shadow regression and a static guard for new
-  unpinned function definitions. Only `proconfig` changes (FR-008).
+- Migration 357 (FR-009): `REVOKE CREATE ON SCHEMA public FROM
+  service_role, anon, authenticated, PUBLIC`, with an effective-privilege
+  postcondition and overload-shadow tests. Schema USAGE stays unchanged.
+- Migration 358 (FR-010): pin `search_path` on every function/procedure
+  (routine) defined by project migrations in schemas `public` and
+  `app_private` so that `pg_temp` is always present and always last, with
+  an owner precondition, a fail-closed postcondition, temp-object-shadow
+  regressions and a static guard for new routine definitions. Only
+  `proconfig` changes (FR-008).
 - An in-migration postcondition that aborts the transaction on any drift. It
   includes a probe table created and dropped inside the transaction.
 - Real-PostgreSQL tests on PG 16 and PG 17, including SA's P2-SA-1 repro as
@@ -139,7 +171,8 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
   them.
 - Schemas other than `public` (`auth`, `storage`, `extensions`, `realtime`,
   `vault` and other Supabase-managed schemas), sequences, and function EXECUTE
-  grants.
+  grants. The one exception is FR-010, which also pins `search_path` on
+  project routines in `app_private`.
 - Revoking the TEMP privilege on the database. The proven TEMP-shadow path
   through unpinned functions is closed by FR-010 (migration 358), not by a
   TEMP revoke. REVOKE TEMP is extra defence in depth under its own ticket,
@@ -164,8 +197,9 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
 - Security Auditor / product owner: a leaked service key used on a direct
   connection cannot plant a trigger on any public table (NNN) or an overload
   in schema `public` (FR-009) to execute as the owner. It also cannot shadow
-  a table read by an unpinned public function with a temp object and reach
-  it through an owner-run FK cascade; that path is closed by FR-010
+  a table read by a routine whose `search_path` lacks a trailing `pg_temp`
+  with a temp object and reach it through an owner-run FK cascade or a
+  definer call; that path is closed by FR-010
   (migration 358), not by NNN alone, and stays open until 358 is applied.
   Existing planted objects and residual paths require triage under Q-J357-3
   before P2-SA-1 is closed.
@@ -183,11 +217,15 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
 - **FR-005:** On a real PostgreSQL 16 and 17 harness with a Supabase-style default ACL (`GRANT ALL ON TABLES TO anon, authenticated, service_role`) and the migrations that create the priority-1 tables, after NNN a session that is genuinely `service_role` (`SET LOCAL ROLE service_role` with `ASSERT current_user = 'service_role'` and fixture checks `rolsuper = false` for anon, authenticated and service_role, per P3-SA-8) gets SQLSTATE `42501` for `CREATE TRIGGER` on each priority-1 table, for `TRUNCATE` on each, for creating a table with `FOREIGN KEY … REFERENCES public.users(id)` in a harness-only scratch schema owned by `service_role`, and on PG 17 for `LOCK TABLE public.activation_attempts IN ACCESS EXCLUSIVE MODE` (a table where `service_role` has only SELECT); SA's P2-SA-1 sequence (planted `pg_temp` trigger, then `fn_set_staff_privilege`) stops at step 1 with `42501`, and no `users` row or ACL changes. The same session can still SELECT, INSERT, UPDATE and DELETE on representative backend tables, and `fn_set_staff_privilege`, `fn_archive_student`, `fn_restore_student`, `fn_add_student_cohort_membership`, `fn_remove_student_cohort_membership`, `fn_archive_cohort` and `fn_restore_cohort` succeed exactly as before NNN. A negative control built without NNN shows that the planted trigger does run as the owner.
 - **FR-006:** A static test scans every forward migration numbered above NNN, **ALL** files in `backend/migrations/rollback/` regardless of number (including the down of 356), and every `.sh`, `.sql` or `.py` file under `backend/scripts/**` and the repository-root `scripts/**` (including `scripts/backup/**`, whose `restore_into_project.sh` restores dump ACLs). Only historical **forward** migrations numbered at or below NNN are exempt. Outside actual SQL/shell/Python comments it rejects: table/default-ACL `GRANT ALL [PRIVILEGES]`, TRIGGER, REFERENCES, TRUNCATE or MAINTAIN to `service_role`, PUBLIC, anon or authenticated (including `ON ALL TABLES IN SCHEMA`); `GRANT pg_maintain`, `pg_write_all_data` or `postgres TO service_role`; `ALTER … OWNER TO service_role`; and `GRANT CREATE` or `GRANT ALL [PRIVILEGES] ON SCHEMA public` to any targeted grantee. SQL strings in `EXECUTE format('GRANT …')`, script heredocs and Python strings are executable SQL for this check, not comments; literal format arguments identifying the grantee/schema are covered. Committed mutation fixtures exercise every forbidden family across `.sql`, `.sh` and `.py`, including mixed case, multiline/quoted names, a rollback below NNN, and `EXECUTE format('GRANT …')`. Safe explicit CRUD/USAGE grants and comments pass. `backend/migrations/README.md` documents explicit CRUD grants and no schema CREATE for API roles.
 - **FR-007:** The clone script must not re-grant the four targeted table privileges or CREATE on schema `public` to `service_role`, PUBLIC, anon or authenticated, directly, through ALL or through table default ACLs. PR #2055 supplies the object-ACL dump change, but is insufficient while `GRANT ALL ON SCHEMA public TO postgres, service_role` remains; PC-J350 or its follow-up must replace that API-role grant with USAGE only before FR-006/FR-007 can pass. After any clone, re-run the FR-001/FR-003/FR-009 read-only postchecks before using staging for evidence. NNN must have a mandatory `pending_feature` entry in `backend/migrations/forward-policy.tsv` so a clone's `--baseline` leaves it pending. The baseline must exclude NNN's group from `MIGRATION_FEATURES`, clearing or refusing an inherited selection before baselining; a selected group could otherwise still be recorded without executing NNN. When the source lacks NNN, verify it is absent from the target ledger, then apply it with the authorized explicit pending-feature selection. A real clone/baseline/runner test must prove NNN executes and the postchecks pass; a ledger row without matching ACLs blocks use of the clone until reconciled through the supported runner workflow.
-- **FR-008:** Migration NNN is independent of and consistent with 341 (#2050) and 356 (#2045/#2054): it does not require either forward migration, and is a no-op on tables where they already revoked the targeted rights. Their postconditions still hold. The down of 356 is owned and corrected by CALAPPEND-0041 T001 (SA F5); this spec does not edit it, but FR-006 scans it and its older number is not an exemption. Before NNN is released, that down must never re-grant TRIGGER, REFERENCES, TRUNCATE or MAINTAIN on `class_action_log`, and must satisfy CALAPPEND-0041 FR-003/FR-004 and the down rules of 0041 T001: no policy DDL or `COMMENT ON POLICY`, no restoration of the anon/authenticated privileges revoked by 344 (RLSCLEANUP-0039), no UPDATE/DELETE grant and no `GRANT ALL`. No rollback restoring these rights or schema CREATE may run after NNN. A regression applies 344, 356 and NNN, runs the down of 356, then repeats FR-001/FR-009 postchecks and the Scenario 10 `class_action_log` checks. NNN changes no function, trigger, policy or table other than the dropped FR-003 probe table. The only function change in this spec is FR-010 (migration 358): it sets the `search_path` entry in `proconfig` of `public` functions that have none and changes no function body, owner, ACL or trigger.
+- **FR-008:** Migration NNN is independent of and consistent with 341 (#2050) and 356 (#2045/#2054): it does not require either forward migration, and is a no-op on tables where they already revoked the targeted rights. Their postconditions still hold. The down of 356 is owned and corrected by CALAPPEND-0041 T001 (SA F5); this spec does not edit it, but FR-006 scans it and its older number is not an exemption. Before NNN is released, that down must never re-grant TRIGGER, REFERENCES, TRUNCATE or MAINTAIN on `class_action_log`, and must satisfy CALAPPEND-0041 FR-003/FR-004 and the down rules of 0041 T001: no policy DDL or `COMMENT ON POLICY`, no restoration of the anon/authenticated privileges revoked by 344 (RLSCLEANUP-0039), no UPDATE/DELETE grant and no `GRANT ALL`. No rollback restoring these rights or schema CREATE may run after NNN. A regression applies 344, 356 and NNN, runs the down of 356, then repeats FR-001/FR-009 postchecks and the Scenario 10 `class_action_log` checks. NNN changes no function, trigger, policy or table other than the dropped FR-003 probe table. The only function change in this spec is FR-010 (migration 358): it sets the `search_path` entry in `proconfig` of the `public` and `app_private` routines that FR-010 names and changes no routine body, owner, ACL, volatility or trigger.
 
-- **FR-009:** Migration NNN executes `REVOKE CREATE ON SCHEMA public FROM service_role, anon, authenticated, PUBLIC`. Its fail-closed postcondition requires `has_schema_privilege(<role>, 'public', 'CREATE') = false` for each named role and no CREATE entry for grantee 0 in `aclexplode(COALESCE(nspacl, acldefault('n', nspowner)))`; schema USAGE and owner privileges remain unchanged. Schema ownership or inherited CREATE that prevents this result aborts the transaction (FR-004). Real PG 16/17 tests use the P3-SA-8 pattern of FR-005 (fixture checks `rolsuper = false` for anon, authenticated and service_role; `SET LOCAL ROLE <role>` and `ASSERT current_user = '<role>'` in the same transaction) and try to create both `public.lower(varchar)` and `public.jsonb_build_object(text,uuid,text,text)` and get `42501`. A synthetic owner-owned definer RPC with `search_path = public, pg_temp` still returns the original result and leaves a private audit marker empty. The negative control revokes table privileges but retains schema CREATE: both overloads can be planted and each records `current_user = postgres` when that RPC is called. Fixtures clean up between controls. An injected schema re-grant or inherited CREATE makes NNN abort. FR-006 guards against restoring CREATE, and FR-007 preserves it across clones.
+- **FR-009:** Migration 357 executes `REVOKE CREATE ON SCHEMA public FROM service_role, anon, authenticated, PUBLIC`. Its fail-closed postcondition requires `has_schema_privilege(<role>, 'public', 'CREATE') = false` for each named role and no CREATE entry for grantee 0 in `aclexplode(COALESCE(nspacl, acldefault('n', nspowner)))`; schema USAGE and owner privileges remain unchanged. Schema ownership or inherited CREATE that prevents this result aborts the transaction (FR-004). Real PG 16/17 tests use the P3-SA-8 pattern of FR-005 (fixture checks `rolsuper = false` for anon, authenticated and service_role; `SET LOCAL ROLE <role>` and `ASSERT current_user = '<role>'` in the same transaction) and try to create both `public.lower(varchar)` and `public.jsonb_build_object(text,uuid,text,text)` and get `42501`. A synthetic owner-owned definer RPC with `search_path = public, pg_temp` still returns the original result and leaves a private audit marker empty. The negative control revokes table privileges but retains schema CREATE: both overloads can be planted and each records `current_user = postgres` when that RPC is called. Fixtures clean up between controls. An injected schema re-grant or inherited CREATE makes 357 abort. FR-006 guards against restoring CREATE, and FR-007 preserves it across clones.
 
-- **FR-010:** Migration 358 runs `ALTER FUNCTION … SET search_path = public, pg_temp` for every function in schema `public` whose `proconfig` has no `search_path` entry, including non-`SECURITY DEFINER` trigger functions that run as the table owner through FK cascades (staging: the 4 trigger functions of migration 283: `prevent_grammar_release_content_mutation`, `prevent_validated_grammar_release_rewrite`, `prevent_grammar_evidence_mutation`, `prevent_completed_grammar_session_mutation`). `pg_temp` is always last; an empty `search_path` is not allowed while the function body references unqualified names. Its fail-closed postcondition requires zero functions in `public` without `search_path` in `proconfig`, otherwise it raises and rolls back. The FR-006 guard also fails any new `CREATE [OR REPLACE] FUNCTION` in `backend/migrations/**` without `SET search_path`. Verified on real PostgreSQL 16 and 17 by a temp-view-shadow-through-FK-cascade test with a negative control, using the P3-SA-8 pattern (FR-005).
+- **FR-010:** Migration 358 pins `search_path` on every function/procedure (routine, `pg_proc.prokind IN ('f','p')`) defined by project migrations in schemas `public` and `app_private`, using `ALTER ROUTINE … SET search_path = …`, so that `pg_temp` is always present and always the last entry:
+  1. routines with no `search_path` in `proconfig` (staging: the 4 trigger functions of migration 283, if 345 Part B has not already pinned them) get `public, pg_temp`;
+  2. routines whose `search_path` omits `pg_temp` get the same list with `pg_temp` appended: `pg_catalog, public` becomes `pg_catalog, public, pg_temp` (staging: the `fn_admin_*` SECURITY DEFINER routines of migrations 297–302, 334, 335), `public` becomes `public, pg_temp` (263/264);
+  3. routines with `search_path = ''` (staging: `fn_activate_attempt_check`, `app_private.is_current_user_active`) get `pg_catalog, pg_temp`; their bodies are already fully qualified, which the migration checks by test, not by assumption.
+  Migration 358 changes no routine body, owner, ACL, volatility or trigger. Precondition: it raises `unpinned_function_not_owned_by_runner` and rolls back if any target routine is not owned by the role running the migration (no partial pin). Fail-closed postcondition: zero routines in those schemas whose `proconfig` lacks `search_path`, has `search_path = ''`, or does not end with `pg_temp`; otherwise it raises and rolls back. The FR-006 CI guard fails any new `CREATE [OR REPLACE] FUNCTION|PROCEDURE` in `backend/migrations/**` without `SET search_path`, with `search_path = ''`, or where `pg_temp` is not the last entry. Verified on real PostgreSQL 16 and 17 by (a) the temp-view-shadow-through-FK-cascade test (Scenario 12) and (b) a new temp-view/temp-domain shadow test against one `fn_admin_*` definer and one former `''` routine, each with a negative control run before 358 (P3-SA-8 pattern, FR-005).
 
 ## Acceptance scenarios
 
@@ -273,7 +311,7 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
 
 - **Given** a synthetic owner-owned definer with `search_path = public,
   pg_temp`, unqualified `lower(varchar)` / `jsonb_build_object` calls and a
-  private audit marker, with NNN applied
+  private audit marker, with 357 and NNN applied
 - **When** a genuine `service_role` session (P3-SA-8 as in FR-005: `rolsuper = false` fixture check, `SET LOCAL ROLE service_role` and `ASSERT current_user = 'service_role'` in the same transaction) attempts to create either public overload from
   SA's probe, then calls the legitimate RPC
 - **Then** both CREATE FUNCTION statements fail with `42501`, the RPC result
@@ -281,7 +319,8 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
   control with table privileges revoked but schema CREATE retained, using
   the same P3-SA-8 session checks, each overload records execution as
   `postgres`. A re-grant seam and inherited
-  CREATE fixture both cause the migration postcondition to abort.
+  CREATE fixture both cause 357's postcondition to abort; NNN's FR-004
+  postcondition also aborts if its re-check of FR-009 detects that drift.
 
 ### Scenario 9 — direct writes cascade as owner (FR-001, FR-005)
 
@@ -295,7 +334,7 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
 
 ### Scenario 10 — older rollback cannot reopen privileges (FR-006, FR-008)
 
-- **Given** 344, 356 and NNN are applied
+- **Given** 344, 356, 357 and NNN are applied
 - **When** the down of 356 (owned by CALAPPEND-0041 T001) runs
 - **Then** the FR-001/FR-009 postchecks still pass, and a genuine `service_role` session (P3-SA-8 as in FR-005: `rolsuper = false` fixture check, `SET LOCAL ROLE service_role` and `ASSERT current_user = 'service_role'` in the same transaction) still gets
   `42501` for `CREATE TRIGGER` on `class_action_log` and for creating a
@@ -314,9 +353,10 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
   NNN with its mandatory `pending_feature` policy entry
 - **When** the clone baseline runs, followed by the authorized explicit
   pending-feature apply
-- **Then** the baseline leaves NNN unapplied, the apply actually executes
-  NNN, and all table/default/schema privilege postchecks pass. This scenario
-  must not copy production data into staging.
+- **Then** the baseline leaves NNN unapplied, the apply executes 357 first
+  when missing, then actually executes NNN, and all table/default/schema
+  privilege postchecks pass (NNN re-checks the schema state set by 357).
+  This scenario must not copy production data into staging.
 
 ### Scenario 12 — temp-view shadow through an FK cascade is refused (FR-008, FR-010)
 
@@ -325,7 +365,8 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
   on schema `public` (both checked first: `CREATE TRIGGER` and
   `CREATE FUNCTION public.lower(varchar)` give `42501`), keeps the default
   TEMP privilege, and migration 283's four trigger functions exist without
-  `SET search_path`, with a draft `grammar_content_releases` row referenced by
+  `SET search_path` (the harness state before 345 Part B or 358 pins them),
+  with a draft `grammar_content_releases` row referenced by
   `grammar_*` child rows through `release_id … ON DELETE CASCADE`
 - **When** a genuine `service_role` session (P3-SA-8 as in FR-005: `rolsuper = false` fixture check, `SET LOCAL ROLE service_role` and `ASSERT current_user = 'service_role'` in the same transaction) creates `TEMP VIEW grammar_content_releases` that
   calls a `pg_temp` function writing an attacker marker and running
@@ -334,12 +375,19 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
 - **Then** before migration 358 the planted function runs as `postgres` and
   `has_table_privilege('service_role','public.users','TRIGGER')` becomes
   true (red control); after 358 it stays false, no attacker marker exists,
-  and no `public` function lacks `search_path` in `proconfig`
+  and no routine in `public` or `app_private` has a `proconfig` that lacks
+  `search_path`, has `search_path = ''`, or does not end with `pg_temp`
+- **And** (FR-010 (b)) a temp-view/temp-domain shadow against one
+  `fn_admin_*` definer (`pg_catalog, public` before 358) and one former `''`
+  routine runs the planted object as the owner before 358 (negative
+  control) and is refused after 358, with the same P3-SA-8 session checks
 - **Negative control:** after 358, owner-run paths still fire the four
   triggers correctly (the cascade delete of a draft and the guarded
   rewrites behave exactly as before), and the two functions that read
   same-named `public` tables return the same trigger results as before 358.
-  Function bodies, owners, ACLs and triggers are unchanged.
+  The `fn_admin_*` definers and the former `''` routines return the same
+  results as before 358. Routine bodies, owners, ACLs, volatility and
+  triggers are unchanged.
 
 ## Edge cases
 
@@ -397,14 +445,22 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
 - FR-001–FR-006 have passing real-PostgreSQL or static tests on PG 16
   (required CI) and PG 17; FR-007–FR-009 have passing clone, rollback and
   overload-shadow evidence; FR-010 has the Scenario 12 red/green evidence on
-  PG 16 and 17, and after 358 on staging zero `public` functions lack
-  `search_path` in `proconfig`. Q-J357-3 is resolved with environment-specific
+  PG 16 and 17 plus the FR-010 (b) shadow test, and after 358 on staging
+  zero routines in `public` or `app_private` lack `search_path`, have
+  `search_path = ''`, or have a `search_path` that does not end with
+  `pg_temp`. Q-J357-3 is resolved with environment-specific
   evidence before promoting production or closing P2-SA-1.
 
 ## Open questions
 
-These are the approval questions. Leader forwards them to anh Vinh; T001 is
-opened only after Q1 is answered.
+These were the approval questions. Status after t1246u (2026-11-02 06:37
+UTC+7): Q-J357-1 is answered (spec approved, FR-001…FR-010, see
+[approval-decision.md](approval-decision.md)). Q-J357-2 is settled by the
+approved FR-001, which makes every `public` relation mandatory. Q-J357-3
+stays a blocking gate for production promotion and closing P2-SA-1.
+Q-J357-4 was not part of the t1246u batch; Vinh answered it on 2026-11-02:
+341 and 341b wait for 357 on production (gate in `rollout.md`, Production
+step 5).
 
 - **Q-J357-1 (duyệt FR):** Anh duyệt SVCPRIV-0042 FR-001…FR-009 không?
   (FR-010 đã được anh Vinh duyệt riêng ngày 2026-10-30 22:13 UTC+7, "FR010
@@ -446,7 +502,7 @@ opened only after Q1 is answered.
   - default EXECUTE (`f`) của postgres trong `public` cho hàm mới (SA
     P3-R2-3): phiếu riêng **PC-J364** (job 1gz); default ACL mà runner không
     sửa được: follow-up Supabase support trong `rollout.md`;
-  - Functions whose search_path omits pg_temp or does not list it last (finding 001iv, `FINDING-pgtemp-first-pinned-paths.md`) — scope decision pending Q-0600-PGTEMP (Vinh); not covered by FR-010 as approved.
+  - Functions whose search_path omits pg_temp or does not list it last (finding 001iv, `FINDING-pgtemp-first-pinned-paths.md`): covered by FR-010 since Vinh chose PGTEMP option a (t1246u, 2026-11-02 06:37 UTC+7); closed only after 358 is applied and SA's 358 retest passes.
 
   Việc chỉ mở phiếu tiếp theo không tự gỡ chặn. Còn đường chạy code dưới
   quyền owner chưa xử lý thì không đóng P2-SA-1 hoặc promote production.

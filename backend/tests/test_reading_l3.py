@@ -424,15 +424,15 @@ def test_l3_submit_rejects_when_elapsed_exceeds_limit_plus_grace():
     client = _TC(_app, raise_server_exceptions=False)
 
     mock_db = _legacy_practice_db()
-    # Use side_effect so the two select chains return DIFFERENT data:
-    # call 1 = _fetch_attempt_or_404 (attempt row), call 2 = test_row fetch.
+    # Ownership preflight and the fresh locked read both fetch the attempt;
+    # the third lookup fetches the test row.
     attempt_row = {
         "id": "a-uuid", "user_id": _USER["id"], "test_id": "t-uuid",
         "status": "in_progress", "started_at": started_long_ago,
         "resume_expires_at": "2099-01-01T00:00:00+00:00", "answers": [],
     }
     test_row = {"id": "t-uuid", "test_id": "T1", "time_limit_minutes": 60, "module": "academic"}
-    execute_returns = [MagicMock(data=[attempt_row]), MagicMock(data=[test_row])]
+    execute_returns = [MagicMock(data=[attempt_row]), MagicMock(data=[attempt_row]), MagicMock(data=[test_row])]
     mock_db.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.side_effect = execute_returns
 
     with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \

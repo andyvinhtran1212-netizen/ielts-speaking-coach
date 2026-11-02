@@ -100,7 +100,8 @@ class Settings(BaseSettings):
     # services/cors_policy.py. Development allows localhost without it.
     CORS_ALLOW_LOCALHOST: str = ""
     # PC-J202/J183, SA decision 2026-10-29: only these explicitly trusted
-    # proxy CIDRs may be skipped in XFF. No inferred private/Cloudflare trust.
+    # proxy CIDRs may be skipped (as X-Real-IP or an XFF hop). No inferred
+    # private/Cloudflare/CDN77 trust (PC-J520).
     # Comma-separated CIDRs; default empty. See docs/CLIENT_IP_TRUST.md.
     TRUSTED_PROXY_CIDRS: str = ""
 
@@ -108,7 +109,7 @@ class Settings(BaseSettings):
     @classmethod
     def validate_trusted_proxy_cidrs(cls, value: str) -> str:
         # PC-J227 (SA-J202-1): a too-short prefix trusts caller-controlled
-        # hops, so the key falls back to a spoofable X-Real-IP. Fail startup.
+        # hops, so the key becomes caller-chosen. Fail startup.
         value = value.strip()
         validate_trusted_proxy_cidr_list(value)
         return value

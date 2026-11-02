@@ -115,6 +115,7 @@ describe('"Lịch sử quyền" rows', () => {
     assert.equal(eventLabel('future_event'), 'future_event');
     assert.equal(sourceLabel('out_of_band'), 'Ngoài ứng dụng');
     assert.deepEqual(alertBadge('failed'), { text: '⚠ gửi lỗi', tone: 'failed' });
+    assert.deepEqual(alertBadge('not_recorded'), { text: 'cảnh báo chưa ghi được', tone: 'failed' });
     assert.equal(alertBadge('sent').text, 'đã gửi');
     assert.equal(alertBadge('pending').text, 'đang chờ');
     assert.equal(alertBadge(null), null);

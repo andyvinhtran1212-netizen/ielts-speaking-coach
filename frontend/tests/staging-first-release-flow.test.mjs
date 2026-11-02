@@ -49,6 +49,27 @@ describe('staging-first production release contract', () => {
     assert.match(PROMOTION, /STAGING_SHA.*!= "\$HEAD_SHA"/s);
   });
 
+  test('only proven supersession skips old smoke; current SHA keeps the full checks and timeout', () => {
+    const step = (name) => RELEASE_SMOKE.split(/\n      - name: /)
+      .find((body) => body.startsWith(`${name}\n`));
+    const wait = step('Wait for exact frontend and backend staging release');
+    assert.match(wait, /id: wait_for_release/);
+    assert.match(wait, /timeout-minutes: 12/);
+    assert.match(wait, /seq 1 60/);
+    assert.match(wait, /sleep 10/);
+    for (const name of ['Grammar checker runs on the staging backend', 'Run live staging release smoke']) {
+      assert.match(step(name), /if: steps\.wait_for_release\.outputs\.superseded != 'true'/);
+    }
+    const verify = step('Verify exact frontend and backend staging release');
+    assert.match(verify, /if: always\(\) && steps\.wait_for_release\.outputs\.superseded != 'true'/);
+    for (const body of [wait, verify]) {
+      assert.match(body, /STAGING_RELEASE_ALLOW_SUPERSEDED: 'true'/);
+      assert.match(body, /RELEASE_PROVENANCE_REQUIRED: 'true'/);
+    }
+    // A failed browser suite must stay red even if the final verification is superseded.
+    assert.doesNotMatch(RELEASE_SMOKE, /continue-on-error/);
+  });
+
   test('promotion requires all integrated checks and the permanent smoke on the same SHA', () => {
     for (const workflow of [
       'backend-tests.yml',

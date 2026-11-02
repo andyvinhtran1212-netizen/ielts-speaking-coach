@@ -70,8 +70,9 @@ class SecurityAuditRowOut(_StrictOut):
     before: dict[str, Any] | None = None
     after: dict[str, Any] | None = None
     reason: str | None = None
-    # pending | sent | failed; null when the event sends no owner alert.
-    alert_status: Literal["pending", "sent", "failed"] | None = None
+    # not_recorded: admin_api revocation failure without an outbox row.
+    # null when the event sends no owner alert.
+    alert_status: Literal["pending", "sent", "failed", "not_recorded"] | None = None
 
 
 class SecurityAuditOut(_StrictOut):

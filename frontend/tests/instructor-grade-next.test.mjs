@@ -97,6 +97,7 @@ describe('/instructor/grade native route contracts', () => {
     assert.match(LAYOUT, /writing-highlight\.css/);
     assert.match(LAYOUT, /instructor-grade-next\.css/);
     assert.match(VIEW, /window\.WritingRenderers/);
+    assert.match(VIEW, /renderer\(value, \{ isStaffViewer: true \}\)/);
     assert.match(VIEW, /window\.WritingHighlight/);
     assert.doesNotMatch(VIEW, /\bconfirm\s*\(/);
     assert.match(DASHBOARD_MODEL, /return `\/instructor\/grade\?\$\{params\.toString\(\)\}`/);

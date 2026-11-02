@@ -127,10 +127,10 @@ async def _is_admin(authorization: str | None) -> bool:
 # and only then compare-and-sets the attempt, so an autosave landing in between
 # would be acknowledged yet never graded. One learner's exam writes therefore
 # stay serialised in this process; different learners run in parallel.
-# submit/autosave also lock the attempt itself: a share-link attempt is owned
-# by its anon capability whether or not a Bearer token rides along, so the
-# request's credentials alone do not name one lock per attempt. Locks are
-# always taken learner first, then attempt (start takes only the learner).
+# submit/autosave verify ownership before deriving locks from the stored row.
+# Authenticated attempts take learner then attempt (start takes only learner).
+# Share attempts take only the attempt lock: an optional Bearer or a reused
+# anon capability must not serialise independent share attempts.
 _learner_write_locks: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
 
 
@@ -145,8 +145,15 @@ def _learner_key(user: Optional[dict], anon_id: str | None) -> str:
     return f"user:{user['id']}" if user else f"anon:{anon_id}"
 
 
-def _attempt_write_keys(attempt_id: str, user: Optional[dict], anon_id: str | None) -> tuple[str, ...]:
-    return (_learner_key(user, anon_id), f"attempt:{attempt_id}")
+async def _attempt_write_keys(attempt_id: str, user: Optional[dict], anon_id: str | None) -> tuple[str, ...]:
+    if user is None and not anon_id:
+        raise HTTPException(401, "Authentication required")
+    attempt = await asyncio.to_thread(_fetch_attempt_owned, attempt_id, user, anon_id)
+    # Use the canonical ID only after ownership succeeds. The sync write body
+    # re-fetches the attempt under these locks to see the latest mutable state.
+    attempt_key = f"attempt:{attempt['id']}"
+    owner = attempt.get("user_id")
+    return (f"user:{owner}", attempt_key) if owner else (attempt_key,)
 
 
 async def _learner_write(keys: tuple[str, ...], fn, *args):
@@ -176,9 +183,9 @@ def _gen_anon_id() -> str:
 
 
 def _client_ip(request: Request | None) -> str | None:
-    # Rightmost untrusted XFF hop → X-Real-IP → peer (request_safety.py).
+    # X-Real-IP → rightmost untrusted XFF hop → peer (request_safety.py).
     # Only configured proxy CIDRs may be skipped; an invalid hop stops the
-    # scan. The same rule keys the ingress/TTS budgets (PC-J202/J183).
+    # scan. The same rule keys the ingress/TTS budgets (PC-J202/J183, PC-J520).
     return request_client_ip(request)
 
 
@@ -1502,7 +1509,7 @@ async def submit_reading_test_attempt(
     hitting zero and the POST arriving."""
     user = await _optional_auth(authorization)
     return await _learner_write(
-        _attempt_write_keys(attempt_id, user, x_reading_anon), _submit_reading_test_attempt_sync,
+        await _attempt_write_keys(attempt_id, user, x_reading_anon), _submit_reading_test_attempt_sync,
         attempt_id, body, user, x_reading_anon,
     )
 
@@ -1980,7 +1987,7 @@ async def patch_reading_test_attempt_answer(
     can't accidentally write to a submitted/abandoned attempt."""
     user = await _optional_auth(authorization)
     return await _learner_write(
-        _attempt_write_keys(attempt_id, user, x_reading_anon), _patch_reading_test_attempt_answer_sync,
+        await _attempt_write_keys(attempt_id, user, x_reading_anon), _patch_reading_test_attempt_answer_sync,
         attempt_id, body, user, x_reading_anon,
     )
 
