@@ -225,13 +225,15 @@ async def close_supabase_async() -> None:
 
 
 # ── Per-thread service-role clients (PC-J05 D1b) ─────────────────────────────
-# The shared sync singleton must never be used from two threads at once (see
-# services/db_async.py). Aggregators that fan independent sections out with
-# ``asyncio.to_thread`` call ``thread_supabase_admin()`` INSIDE the worker
-# thread instead: each executor thread lazily builds its own service-role
-# client and keeps it, so sections never share a client and a thread reuses its
-# keep-alive connection on the next request rather than paying a new TLS
-# handshake per section.
+# Independent query builders may share the sync singleton from several threads
+# (ASYNCAUTH-0036 FR-009: tests/test_supabase_singleton_threadsafe.py at the
+# versions pinned in requirements.txt); changing its auth/schema/headers or
+# closing it while requests run is not covered. Aggregators that fan
+# independent sections out with ``asyncio.to_thread`` still call
+# ``thread_supabase_admin()`` INSIDE the worker thread: each executor thread
+# lazily builds its own service-role client and keeps it, so sections never
+# share a client and a thread reuses its keep-alive connection on the next
+# request rather than paying a new TLS handshake per section.
 _thread_clients = threading.local()
 
 
