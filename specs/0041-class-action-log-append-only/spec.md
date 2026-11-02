@@ -15,6 +15,11 @@ Amendment (PC-J347): Leader báo anh Vinh duyệt 14:07 (t803u).
 Verbatim "CALUD ok", approving Q-1403-CAL-REVOKE-UD on 2026-10-30: revoke
 UPDATE/DELETE from `service_role` in migration 356 (FR-004; SA F1/F2 in
 `reviews/PR-2045.md`).
+Amendment changelog — 2026-11-02, **PC-J519 / SA P3 #2054**: clarify
+acceptance, postconditions and forward-only repair in `spec.md`, `plan.md`
+and `rollout.md` (1gs items 1, 2, 5–8). FR-001..FR-004, approved status,
+risk and product behavior are unchanged. Item 4 remains cancelled under
+PC-J401; this amendment changes no migration or code.
 Spec number 0041 and migration number **356**: assigned by the Leader
 (migration 356 on 2026-10-30 08:27 UTC+7).
 Origin: Security Auditor notes P3-SA-1, P3-SA-2 and P3-SA-3 on #2022
@@ -140,6 +145,7 @@ service_role requirements on its merge base because it is a high-risk path.
 - **Then** service_role has only SELECT and INSERT and both operations succeed; service_role, PUBLIC, anon and authenticated have no UPDATE/DELETE, service_role and PUBLIC have no TRIGGER, REFERENCES or TRUNCATE, and on PostgreSQL 17 or later no MAINTAIN; on PostgreSQL 16 the migration runs without naming MAINTAIN
 - **And** anon/authenticated have no table or column privileges, including SELECT, after 344 then 356; RLS remains enabled
 - **And** as service_role, `LOCK TABLE public.class_action_log IN ACCESS EXCLUSIVE MODE` and `SELECT … FROM public.class_action_log FOR UPDATE` each fail with `42501`. SA probe2 confirms the LOCK denial with SELECT+INSERT only; its successful SELECT FOR UPDATE probe retained UPDATE/DELETE. The SELECT FOR UPDATE denial is required acceptance evidence for T001, not a result established by that probe
+- **And** T001 also asserts `42501` for row locks `FOR NO KEY UPDATE`, `FOR SHARE` and `FOR KEY SHARE`, and table locks `SHARE UPDATE EXCLUSIVE`, `SHARE`, `SHARE ROW EXCLUSIVE` and `EXCLUSIVE`. `ACCESS SHARE`, `ROW SHARE` and `ROW EXCLUSIVE` remain allowed and do not directly conflict with INSERT's `ROW EXCLUSIVE` lock. A queued owner DDL can still delay INSERT indirectly; see the bounded lock wait in Decisions 4
 
 ### Scenario 4 — 344 compatibility with both fixture states (FR-003)
 
@@ -161,9 +167,11 @@ service_role requirements on its merge base because it is a high-risk path.
 ### Scenario 6 — ACL refuses mutations before the trigger; down keeps the revokes (FR-004)
 
 - **Given** the same real PostgreSQL database, a seeded log row, and a non-owner, non-superuser service_role with only SELECT and INSERT
+- **And** the fixture asserts `pg_roles.rolsuper = false` for anon, authenticated and service_role, and `rolbypassrls = false, false, true` respectively; service_role is neither the table owner nor a member of the owner role
 - **When** separate transactions use `SET LOCAL ROLE service_role` (asserting `current_user`) to UPDATE and DELETE the row
 - **Then** both fail with `42501` before any row trigger executes; in an isolated negative control with the row trigger disabled by the owner, the same statements still fail with `42501` and the row stays unchanged
-- **When** service_role attempts ACCESS EXCLUSIVE LOCK and SELECT FOR UPDATE, each fails with `42501`; ordinary INSERT and SELECT still succeed
+- **And** disabling the row trigger requires an `ACCESS EXCLUSIVE` table lock: this control runs only in an isolated test database, never on staging or production
+- **When** service_role attempts the denied table and row lock modes in Scenario 3, each fails with `42501`; the three allowed table lock modes and ordinary INSERT and SELECT still succeed
 - **When** the 356 down script (owned by this spec's T001, which also owns this assertion) runs, UPDATE/DELETE remain absent for service_role, PUBLIC, anon and authenticated; repeating service_role UPDATE/DELETE still yields `42501`. The down script has no direct UPDATE/DELETE grant and no broad grant that restores them
 
 ## Edge cases
@@ -187,7 +195,8 @@ service_role requirements on its merge base because it is a high-risk path.
 ## Success criteria
 
 - On staging after apply, `pg_trigger` shows the new `BEFORE TRUNCATE` trigger
-  enabled on `public.class_action_log`, and
+  enabled on `public.class_action_log` and the existing 198 row trigger still
+  present and enabled, accepting `tgenabled IN ('O','A')` for both; and
   `has_table_privilege('service_role','public.class_action_log','TRIGGER')`,
   `… 'REFERENCES'`, `… 'TRUNCATE'`, `… 'UPDATE'`, `… 'DELETE'` and
   `… 'MAINTAIN'` (PG 17+) are false while `… 'SELECT'` and
@@ -196,6 +205,10 @@ service_role requirements on its merge base because it is a high-risk path.
   privileges; the primary fixture and staging postcheck assert that state.
 - Teachers' due-date changes and returns still write log rows on staging, and
   the admin log view still reads them.
+- The migration postconditions fail closed unless `pg_class.relowner` is the
+  `postgres` role, service_role is neither superuser nor a member of that owner,
+  and `has_parameter_privilege('service_role', 'session_replication_role', 'SET')`
+  is false. Both triggers retain their expected events and row/statement level.
 - Every scenario has a passing real-PostgreSQL test on PG 16 (required CI) and
   PG 17.
 
@@ -212,8 +225,11 @@ service_role requirements on its merge base because it is a high-risk path.
    only instead gives `42501`. Revoking UPDATE/DELETE also removes service_role's
    SELECT FOR UPDATE capability. The supplied probe demonstrates that
    capability with UPDATE/DELETE retained, but does not probe its denial with
-   SELECT+INSERT only; T001 must verify that denial. No broader claim about
-   other lock modes or deployed role inheritance is made here.
+   SELECT+INSERT only; T001 must verify that denial. SA's later synthetic
+   PG 17.11 probe for #2054 (`/workspace/qa/pr2054/README.md` and
+   `sa-probe.out`) covers all the lock modes in Scenario 3. These probes are
+   local evidence; T001 must exercise them with the role assertions in
+   Scenario 6, and they do not establish deployed role inheritance.
 2. The TRUNCATE trigger may reuse `fn_class_action_log_append_only()` (a
    plpgsql trigger function works at statement level) or use a new function
    following 332:208-218 (`SET search_path = public, pg_temp`, ERRCODE
@@ -224,6 +240,31 @@ service_role requirements on its merge base because it is a high-risk path.
    baseline: 356 deliberately reduces those ACLs later. This is an integration
    note for the 344 implementer; this spec alignment does not change 344 or
    introduce a new migration number.
+4. Migration 356 uses `SET LOCAL lock_timeout = '5s'` in its transaction,
+   before trigger DDL. An allowed long-lived reader can leave CREATE TRIGGER
+   queued and INSERT waiting behind it (`/workspace/qa/pr2054/sa-probe-convoy.out`);
+   the timeout bounds each lock wait and aborts the transaction on timeout.
+   This is an implementation-plan clarification, not a migration edit here.
+5. Down 356 retains FR-004's revokes. A legitimate UPDATE/DELETE consumer
+   discovered after apply requires a spec revision and a newly approved
+   forward migration; down 356 cannot restore those privileges. See
+   `rollout.md` for repair and test-only mutation controls.
+
+## Open/Deferred — SA P3 #2054
+
+- **F3:** `ENABLE ALWAYS` is deferred to an explicit hardening decision;
+  this amendment does not switch trigger mode. Accept `tgenabled IN ('O','A')`
+  in catalog checks so a later approved change to ALWAYS is not rejected.
+  Owner/superuser trigger-disable and replica-mode bypass remain accepted limits.
+- **F6:** Reusing the 198 function for TRUNCATE can produce a message naming
+  the row trigger instead of the TRUNCATE trigger. A dedicated function/message
+  is an implementation choice under Decisions 2, not a new requirement here;
+  #2173 at `72417ee62d` already proposes one. Final implementation evidence
+  remains with T001.
+- **F7:** The privilege matrix lists API roles and PUBLIC; adding explicit
+  owner/superuser rows is deferred. Owner implicit privileges and superuser
+  powers are not removed by the revokes, while enabled triggers refuse normal
+  owner mutations as stated in FR-001 and the edge cases above.
 
 ## Open questions
 
