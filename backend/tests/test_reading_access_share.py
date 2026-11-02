@@ -252,9 +252,9 @@ def _anon_src_for(headers):
 
 
 def test_share_start_anon_src_ignores_caller_supplied_forwarded_hops():
-    # PC-J39/PC-J202: hops left of the rightmost untrusted XFF hop and a
-    # caller-influenced X-Real-IP must not change anon_src. The shared order
-    # is rightmost untrusted XFF hop → X-Real-IP → socket peer.
+    # PC-J39/PC-J520: the shared order is X-Real-IP (Railway's edge sets it
+    # to the source) → rightmost untrusted XFF hop → socket peer. Neither the
+    # edge PoP hop nor caller hops to its left change anon_src.
     from routers.reading_student import _hash_anon_src
     with patch.object(settings, "READING_ANON_SALT", "salt-x"):
         last_hop = _hash_anon_src("52.95.110.30")
@@ -262,8 +262,11 @@ def test_share_start_anon_src_ignores_caller_supplied_forwarded_hops():
         peer = _hash_anon_src("testclient")       # TestClient's socket peer
     assert _anon_src_for({"X-Forwarded-For": "1.1.1.1, 52.95.110.30"}) == last_hop
     assert _anon_src_for({"X-Forwarded-For": "2.2.2.2, 52.95.110.30"}) == last_hop
-    assert _anon_src_for({"X-Real-IP": "1.1.1.1",
-                          "X-Forwarded-For": "1.1.1.1, 52.95.110.30"}) == last_hop
+    for pop in ("152.233.68.98", "152.233.15.121"):
+        assert _anon_src_for({"X-Real-IP": "198.51.100.30",
+                              "X-Forwarded-For": f"198.51.100.30, {pop}"}) == real_ip
+    assert _anon_src_for({"X-Real-IP": "198.51.100.31",
+                          "X-Forwarded-For": "198.51.100.31, 152.233.68.98"}) != real_ip
     assert _anon_src_for({"X-Real-IP": "198.51.100.30"}) == real_ip
     assert _anon_src_for({}) == peer
 
