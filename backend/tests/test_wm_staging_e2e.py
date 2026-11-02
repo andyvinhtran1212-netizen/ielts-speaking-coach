@@ -2,6 +2,7 @@
 
 from importlib.util import module_from_spec, spec_from_file_location
 import io
+import json
 from pathlib import Path
 import sys
 from urllib.error import HTTPError
@@ -21,6 +22,19 @@ TASK = "20000000-0000-0000-0000-000000000001"
 STUDENT = "30000000-0000-0000-0000-000000000001"
 GROUP = "50000000-0000-0000-0000-000000000001"
 TOKEN = "test-header.test-payload.test-signature"
+
+
+def fixture_api(config, handler):
+    """Keep the real route guard/serialization; replace only HTTP transport."""
+    api = wm.API(config)
+    api.opener = MagicMock()
+
+    def call(role, method, path, body):
+        result = handler(role, method, path, body)
+        api.opener.open.return_value.__enter__.return_value.read.return_value = json.dumps(result).encode()
+        return api.call(role, method, path, body)
+
+    return Mock(call=Mock(side_effect=call))
 
 
 @pytest.mark.parametrize("url", [
@@ -81,15 +95,44 @@ def test_dry_run_with_all_credentials_cannot_construct_transport(monkeypatch, ca
 
 def test_missing_tokens_skip_before_network(monkeypatch, capsys):
     monkeypatch.setattr(wm.API, "call", Mock(side_effect=AssertionError("network forbidden")))
-    assert wm.main(["--run-id", "unit"], {}) == 2
+    assert wm.main(["--run-id", "unit"], {}) == 3
     out = capsys.readouterr().out
     for role in ("ADMIN", "INSTRUCTOR", "STUDENT"):
         assert f"E2E_{role}_TOKEN" in out
 
 
 def test_cleanup_requires_original_run_id_before_network(capsys):
-    assert wm.main(["--cleanup"], {}) == 3
+    assert wm.main(["--cleanup"], {}) == 1
     assert "requires the original --run-id" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("argv,env,exit_code", [
+    (["--dry-run"], {}, 0),
+    (["--run-id", "unit"], {"E2E_BASE_URL": "https://example.test"}, 1),
+    (["--invalid", TOKEN], {}, 1),
+    (["--run-id", "unit"], {}, 3),
+    (["--cleanup", "--run-id", "unit"], {}, 3),
+])
+def test_cli_exit_codes_without_network(argv, env, exit_code, monkeypatch, capsys):
+    monkeypatch.setattr(wm.API, "call", Mock(side_effect=AssertionError("network forbidden")))
+    assert wm.main(argv, env) == exit_code
+    output = capsys.readouterr()
+    assert TOKEN not in output.out + output.err
+    if exit_code == 1:
+        assert output.err.startswith("FAIL ")
+    if exit_code == 3:
+        assert "SKIP " in output.out
+
+
+@pytest.mark.parametrize("key", ["id", "group_id", "attempt_id", "user_id", "student_id"])
+@pytest.mark.parametrize("row", [{}, None, [], {"value": "sensitive-not-a-uuid"},
+                                 {"value": None}, {"value": 123}, {"value": []}])
+def test_response_uuid_checks_report_field_without_echoing_value(key, row):
+    if isinstance(row, dict) and "value" in row:
+        row = {key: row["value"]}
+    with pytest.raises(wm.Stop, match=f"API returned an invalid {key} UUID") as exc:
+        wm.row_id(row, key)
+    assert "sensitive" not in str(exc.value)
 
 
 def test_redirect_never_forwards_authorization_to_another_host():
@@ -104,16 +147,43 @@ def test_redirect_never_forwards_authorization_to_another_host():
 def test_paid_routes_are_blocked_before_transport(path):
     api = wm.API(wm.Config(wm.STAGING_URL, {"STUDENT": TOKEN}))
     api.opener = Mock()
-    with pytest.raises(wm.Stop, match="Paid or unverified"):
+    with pytest.raises(wm.Stop, match="outside the fixture route allow-list"):
         api.call("STUDENT", "POST", path, {})
     api.opener.open.assert_not_called()
+
+
+@pytest.mark.parametrize("method,path", [
+    ("GET", "/unlisted"),
+    ("POST", "/api/unknown-paid-service"),
+    ("POST", "/auth/profile"),
+    ("DELETE", "/instructor/cohorts"),
+    ("POST", f"/api/grammar/diagnostics/sessions/{TASK}/submit"),
+    ("POST", f"/api/grammar/diagnostics/sessions/{TASK}/responses?fixture=1"),
+    ("GET", "/auth/profile?redirect=elsewhere"),
+    ("GET", "/auth/../profile"),
+    ("GET", "/auth/%70rofile"),
+    ("GET", "/auth/profile\n"),
+    ("GET", "/instructor/prompts/not-a-uuid"),
+    ("POST", f"/api/listening/tests/{TASK}/attempts?class_item={CID}&fixture=1"),
+])
+def test_unlisted_methods_paths_and_queries_are_blocked_before_transport(method, path):
+    api = wm.API(wm.Config(wm.STAGING_URL, {"STUDENT": TOKEN}))
+    api.opener = Mock()
+    with pytest.raises(wm.Stop, match="outside the fixture route allow-list"):
+        api.call("STUDENT", method, path, {})
+    api.opener.open.assert_not_called()
+
+
+def test_transport_disables_environment_proxies():
+    api = wm.API(wm.Config(wm.STAGING_URL, {"STUDENT": TOKEN}))
+    assert not any(isinstance(handler, wm.ProxyHandler) for handler in api.opener.handlers)
 
 
 def test_grammar_rule_response_is_not_confused_with_speaking_paid_route():
     api = wm.API(wm.Config(wm.STAGING_URL, {"STUDENT": TOKEN}))
     api.opener = MagicMock()
     api.opener.open.return_value.__enter__.return_value.read.return_value = b'{"accepted":true}'
-    assert api.call("STUDENT", "POST", "/api/grammar/diagnostics/sessions/example/responses", {}) == {"accepted": True}
+    assert api.call("STUDENT", "POST", f"/api/grammar/diagnostics/sessions/{TASK}/responses", {}) == {"accepted": True}
 
 
 def test_http_errors_with_sensitive_body_headers_or_url_are_redacted():
@@ -173,9 +243,9 @@ def test_grammar_fixture_submits_and_reads_actual_report_contract():
         {"id": TASK}, {"complete": False, "item": {"item_id": "question-1"}},
         {"accepted": True}, {"complete": True}, {"profile_kind": "diagnostic"}, {"session_id": TASK},
     ])
-    api = Mock()
-    api.call.side_effect = lambda *args: next(responses)
-    journey = wm.Journey(wm.Config(wm.STAGING_URL, {}), "E2E-unit", api=api)
+    config = wm.Config(wm.STAGING_URL, {"STUDENT": TOKEN})
+    api = fixture_api(config, lambda *args: next(responses))
+    journey = wm.Journey(config, "E2E-unit", api=api)
     journey.grammar({"item_id": CID})
     calls = api.call.call_args_list
     assert calls[0].args[3]["class_assignment_item_id"] == CID
@@ -195,9 +265,9 @@ def test_listening_refuses_start_that_would_abandon_open_mock():
 
 def test_listening_fixture_uses_linked_attempt_and_refetches_submission():
     responses = iter([{"total": 0, "items": []}, {"attempt_id": TASK}, {}, {}, {"status": "submitted"}])
-    api = Mock()
-    api.call.side_effect = lambda *args: next(responses)
-    journey = wm.Journey(wm.Config(wm.STAGING_URL, {}, listening_test=TASK), "E2E-unit", api=api)
+    config = wm.Config(wm.STAGING_URL, {"ADMIN": TOKEN, "STUDENT": TOKEN}, listening_test=TASK)
+    api = fixture_api(config, lambda *args: next(responses))
+    journey = wm.Journey(config, "E2E-unit", api=api)
     journey.learner_id = STUDENT
     journey.listening({"item_id": CID})
     calls = api.call.call_args_list
@@ -206,7 +276,26 @@ def test_listening_fixture_uses_linked_attempt_and_refetches_submission():
     assert calls[-1].args[1:3] == ("GET", "/api/listening/tests/attempts/" + TASK)
 
 
-def test_journey_orders_late_join_after_give_and_distinguishes_backfill(monkeypatch, capsys):
+@pytest.mark.parametrize("result", [{}, {"attempt_id": "sensitive-not-a-uuid"},
+                                   {"attempt_id": None}, {"attempt_id": 123}])
+def test_invalid_listening_attempt_id_is_cli_failure_before_answer_writes(result, monkeypatch, capsys):
+    responses = iter([{"total": 0, "items": []}, result])
+    config = wm.Config(wm.STAGING_URL, {"ADMIN": TOKEN, "STUDENT": TOKEN}, listening_test=TASK)
+    api = fixture_api(config, lambda *args: next(responses))
+    journey = wm.Journey(config, "E2E-unit", api=api)
+    journey.learner_id = STUDENT
+    monkeypatch.setattr(journey, "run", lambda: journey.listening({"item_id": CID}))
+    monkeypatch.setattr(wm, "Journey", Mock(return_value=journey))
+    assert wm.main(["--run-id", "unit"], {}) == 1
+    output = capsys.readouterr()
+    assert "FAIL API returned an invalid attempt_id UUID" in output.err
+    assert "sensitive" not in output.err and "Traceback" not in output.err
+    assert api.call.call_count == 2
+
+
+@pytest.mark.parametrize("give_fields", [{"group_id": GROUP}, {}, {"group_id": "sensitive-not-a-uuid"},
+                                         {"group_id": None}, {"group_id": 123}])
+def test_journey_orders_late_join_after_give_and_distinguishes_backfill(give_fields, monkeypatch, capsys):
     """Exercise orchestration with published response shapes, never live APIs."""
     marker = "E2E-unit"
     late_id = "30000000-0000-0000-0000-000000000002"
@@ -250,7 +339,7 @@ def test_journey_orders_late_join_after_give_and_distinguishes_backfill(monkeypa
             return {"id": TASK, **body}
         if path == "/instructor/assignments/fan-out":
             writing.append({"id": TASK, "assignment_group_id": GROUP, "name": body["name"]})
-            return {"created_count": 1, "group_id": GROUP, "assignment_ids": [TASK]}
+            return {"created_count": 1, "assignment_ids": [TASK], **give_fields}
         if path == "/api/writing/my-assignments":
             # The real learner list projection omits cohort_id; a late join
             # receives a different assignment ID in the original give group.
@@ -271,18 +360,28 @@ def test_journey_orders_late_join_after_give_and_distinguishes_backfill(monkeypa
             return {"counts": {"submitted": 1}}
         raise AssertionError((method, path))
 
-    journey = wm.Journey(config, marker, api=Mock(call=Mock(side_effect=call)))
+    journey = wm.Journey(config, marker, api=fixture_api(config, call))
     def submit_grammar(item):
-        item["submitted_at"] = "2026-11-02T00:00:00Z"
+        stored = next(row for row in class_items if row["item_id"] == item["item_id"])
+        stored["submitted_at"] = "2026-11-02T00:00:00Z"
     monkeypatch.setattr(journey, "grammar", submit_grammar)
-    assert journey.run() == 2  # Missing provider fixtures can never be green.
-    output = capsys.readouterr().out
-    assert "late Writing auto-backfill" in output
-    assert "sensitive-code" not in output and TOKEN not in output
+    monkeypatch.setattr(wm, "Journey", Mock(return_value=journey))
+    env = {f"E2E_{role}_TOKEN": TOKEN for role in wm.ROLES}
+    valid = give_fields.get("group_id") == GROUP
+    assert wm.main(["--run-id", "unit"], env) == (2 if valid else 1)
+    output = capsys.readouterr()
+    if valid:
+        assert "late Writing auto-backfill" in output.out
+        assert "PARTIAL:" in output.out and not output.err
+    else:
+        assert "FAIL API returned an invalid group_id UUID" in output.err
+        assert events[-1][2] == "/instructor/assignments/fan-out"
+    assert "sensitive" not in output.out + output.err and TOKEN not in output.out + output.err
+    assert "Traceback" not in output.err
     assert not any(path.endswith("/submit") or path.startswith("/sessions/") for _, _, path in events)
 
 
-def test_cleanup_is_repeatable_and_preserves_redemption_truth(capsys):
+def test_cleanup_is_repeatable_and_preserves_redemption_truth(monkeypatch, capsys):
     marker = "E2E-unit"
     cohort = {"id": CID, "name": marker, "is_active": True}
     task = {"id": TASK, "title": marker + " · grammar", "status": "published"}
@@ -343,10 +442,12 @@ def test_cleanup_is_repeatable_and_preserves_redemption_truth(capsys):
             return dict(prompt)
         raise AssertionError((method, path))
 
-    journey = wm.Journey(wm.Config(wm.STAGING_URL, {"ADMIN": TOKEN, "INSTRUCTOR": TOKEN}), marker,
-                         api=Mock(call=Mock(side_effect=call)))
-    assert journey.cleanup() == 0
-    assert journey.cleanup() == 0
+    config = wm.Config(wm.STAGING_URL, {"ADMIN": TOKEN, "INSTRUCTOR": TOKEN})
+    journey = wm.Journey(config, marker, api=fixture_api(config, call))
+    monkeypatch.setattr(wm, "Journey", Mock(return_value=journey))
+    env = {f"E2E_{role}_TOKEN": TOKEN for role in config.tokens}
+    assert wm.main(["--cleanup", "--run-id", "unit"], env) == 0
+    assert wm.main(["--cleanup", "--run-id", "unit"], env) == 0
     assert {k: code[k] for k in redemption} == redemption
     assert cohort["is_active"] is False and task["status"] == "archived"
     assert not writing and not members and prompt["is_active"] is False

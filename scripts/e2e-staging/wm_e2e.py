@@ -20,10 +20,53 @@ from uuid import UUID, uuid4
 STAGING_HOST = "ielts-speaking-coach-staging.up.railway.app"
 STAGING_URL = f"https://{STAGING_HOST}"
 ROLES = ("INSTRUCTOR", "ADMIN", "STUDENT", "LATE_STUDENT")
+EXIT_PASS, EXIT_FAIL, EXIT_PARTIAL, EXIT_SKIP = 0, 1, 2, 3
+
+# Match the complete method/path/query, including UUID-only path parameters.
+# Any new journey route must be reviewed here before it can reach transport.
+UUID_PATH = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+ALLOWED_ROUTES = tuple((methods.split(), re.compile(path)) for methods, path in (
+    ("GET", r"/auth/profile"),
+    ("POST", r"/auth/activate"),
+    ("GET POST", r"/instructor/cohorts"),
+    ("GET", rf"/instructor/cohorts/{UUID_PATH}"),
+    ("GET", r"/instructor/students"),
+    ("GET POST", r"/instructor/codes"),
+    ("GET POST", r"/instructor/prompts"),
+    ("GET PATCH", rf"/instructor/prompts/{UUID_PATH}"),
+    ("GET", r"/instructor/assignments"),
+    ("DELETE", rf"/instructor/assignments/{UUID_PATH}"),
+    ("POST", r"/instructor/assignments/fan-out"),
+    ("GET", r"/admin/cohorts"),
+    ("PATCH", rf"/admin/cohorts/{UUID_PATH}"),
+    ("GET", rf"/admin/cohorts/{UUID_PATH}/members"),
+    ("DELETE", rf"/admin/cohorts/{UUID_PATH}/students/{UUID_PATH}"),
+    ("GET POST", rf"/admin/cohorts/{UUID_PATH}/assignments"),
+    ("PATCH", rf"/admin/cohorts/{UUID_PATH}/assignments/{UUID_PATH}"),
+    ("POST", rf"/admin/cohorts/{UUID_PATH}/assignments/{UUID_PATH}/backfill"),
+    ("GET", rf"/admin/cohorts/{UUID_PATH}/assignments/{UUID_PATH}/tally"),
+    ("GET DELETE", rf"/admin/access-codes/{UUID_PATH}"),
+    ("DELETE", rf"/admin/access-codes/{UUID_PATH}/users/{UUID_PATH}"),
+    ("GET", r"/api/class/my-assignments"),
+    ("GET", r"/api/writing/my-assignments"),
+    ("POST", r"/api/grammar/diagnostics/sessions"),
+    ("POST", rf"/api/grammar/diagnostics/sessions/{UUID_PATH}/(next|responses|complete)"),
+    ("GET", rf"/api/grammar/diagnostics/sessions/{UUID_PATH}/report"),
+    ("GET", r"/admin/listening/attempts\?status=in_progress&user_query=QA%20TEST&limit=200"),
+    ("POST", rf"/api/listening/tests/{UUID_PATH}/attempts\?class_item={UUID_PATH}"),
+    ("PATCH", rf"/api/listening/tests/attempts/{UUID_PATH}/answers"),
+    ("POST", rf"/api/listening/tests/attempts/{UUID_PATH}/submit"),
+    ("GET", rf"/api/listening/tests/attempts/{UUID_PATH}"),
+))
 
 
 class Stop(RuntimeError):
     """Only fixed, credential-free messages may cross the CLI boundary."""
+
+
+class CLIParser(argparse.ArgumentParser):
+    def error(self, message):
+        raise Stop("Invalid command-line arguments; use --help")
 
 
 class APIError(Stop):
@@ -97,12 +140,8 @@ class API:
         staging_url(self.config.base_url)
         if not path.startswith("/") or path.startswith("//") or "#" in path:
             raise Stop("Invalid internal API path")
-        # Defense in depth: never expose an accidental paid grading path here.
-        route = urlsplit(path).path
-        if (re.fullmatch(r"/sessions/[^/]+/responses", route)
-                or "/api/writing/" in route and route.endswith("/submit")
-                or any(x in path for x in ("/regrade", "/generate", "/compose"))):
-            raise Stop("Paid or unverified fixture route is disabled")
+        if not any(method in methods and route.fullmatch(path) for methods, route in ALLOWED_ROUTES):
+            raise Stop("API method/path is outside the fixture route allow-list")
         token = self.config.tokens[role]
         request = Request(self.config.base_url + path, method=method,
                           data=None if body is None else json.dumps(body).encode(),
@@ -126,11 +165,11 @@ def check(condition, message: str):
         raise Stop(message)
 
 
-def row_id(row: dict) -> str:
+def row_id(row: dict, key: str = "id") -> str:
     try:
-        return str(UUID(row["id"]))
-    except (KeyError, TypeError, ValueError):
-        raise Stop("API returned an invalid record ID") from None
+        return str(UUID(row[key]))
+    except (AttributeError, KeyError, TypeError, ValueError):
+        check(False, f"API returned an invalid {key} UUID")
 
 
 class Journey:
@@ -227,7 +266,7 @@ class Journey:
               "QA learner already has an open Listening attempt; refusing start-over")
         result = self.call("STUDENT", "POST",
                            f"/api/listening/tests/{test}/attempts?class_item={item['item_id']}", {})
-        attempt = str(UUID(result["attempt_id"]))
+        attempt = row_id(result, "attempt_id")
         path = "/api/listening/tests/attempts/" + attempt
         # A deliberately wrong, identifiable fixture answer; no answer keys needed.
         self.call("STUDENT", "PATCH", path + "/answers", {"q_num": 1, "user_answer": self.marker})
@@ -241,7 +280,7 @@ class Journey:
             if role not in self.config.tokens:
                 self.skip(f"give/join/submit/cleanup require E2E_{role}_TOKEN")
         if self.incomplete:
-            return 2
+            return EXIT_SKIP
         profiles = {role: self.identity(role) for role in ROLES if role in self.config.tokens}
         self.learner_id = profiles["STUDENT"]["id"]
         check(len({r["id"] for r in profiles.values()}) == len(profiles), "QA identities must be distinct")
@@ -267,9 +306,9 @@ class Journey:
                          {"request_id": str(uuid4()), "prompt_ids": [row_id(prompt)],
                           "cohort_id": cid, "name": self.marker + " · Writing", "instructions": self.marker})
         check(give.get("created_count") == 1, "Writing give did not create exactly one assignment")
+        group_id = row_id(give, "group_id")
         early_writing = self.call("STUDENT", "GET", "/api/writing/my-assignments")["assignments"]
         # Learner Writing lists expose group/name/assignment IDs, not cohort_id.
-        group_id = str(UUID(give["group_id"]))
         check(sum(r["id"] in give["assignment_ids"] and r.get("assignment_group_id") == group_id
                   and self.owned(r, "name") for r in early_writing) == 1,
               "Writing give is absent or duplicated in the learner's canonical list")
@@ -321,12 +360,12 @@ class Journey:
             check(not tally.get("homework_stale") and tally["counts"]["submitted"] == 1,
                   "Admin tally disagrees with persisted learner submission")
         print("PARTIAL: fixture grading coverage is incomplete; run --cleanup with this run-id")
-        return 2
+        return EXIT_PARTIAL
 
     def cleanup(self):
         if "ADMIN" not in self.config.tokens or "INSTRUCTOR" not in self.config.tokens:
             self.skip("cleanup requires E2E_ADMIN_TOKEN and E2E_INSTRUCTOR_TOKEN")
-            return 2
+            return EXIT_SKIP
         self.identity("ADMIN")
         self.identity("INSTRUCTOR")
         instructor_cohorts = self.call("INSTRUCTOR", "GET", "/instructor/cohorts")
@@ -358,7 +397,7 @@ class Journey:
                     if assignment.get("is_active"):
                         check((assignment.get("display_name") or "").startswith("QA TEST"),
                               "Cleanup refused a code assigned to a non-QA identity")
-                        uid = str(UUID(assignment["user_id"]))
+                        uid = row_id(assignment, "user_id")
                         self.call("ADMIN", "DELETE", code_path + "/users/" + uid)
                 self.call("ADMIN", "DELETE", code_path)
                 after = self.call("ADMIN", "GET", code_path)
@@ -370,7 +409,7 @@ class Journey:
             members = self.call("ADMIN", "GET", f"/admin/cohorts/{cid}/members")["members"]
             for member in members:
                 check((member.get("name") or "").startswith("QA TEST"), "Cleanup refused a non-QA class member")
-                sid = str(UUID(member["student_id"]))
+                sid = row_id(member, "student_id")
                 self.call("ADMIN", "DELETE", f"/admin/cohorts/{cid}/students/{sid}")
             after = self.call("ADMIN", "PATCH", f"/admin/cohorts/{cid}", {"is_active": False})
             check(after.get("is_active") is False, "Cleanup did not archive the class")
@@ -389,7 +428,7 @@ class Journey:
                 after = self.call("INSTRUCTOR", "GET", "/instructor/prompts/" + row_id(prompt))
                 check(after.get("is_active") is False, "Cleanup did not archive the Writing prompt")
         print(f"PASS cleanup: matched classes={len(cohorts)}; tasks/class/prompts archived, unstarted Writing removed, codes revoked; evidence retained")
-        return 0
+        return EXIT_PASS
 
 
 def dry_run(config, marker, cleanup=False):
@@ -413,27 +452,27 @@ def dry_run(config, marker, cleanup=False):
 
 
 def main(argv=None, env=None):
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = CLIParser(description=__doc__)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--cleanup", action="store_true")
     parser.add_argument("--run-id", help="Required for cleanup; fresh ID for each live run")
-    args = parser.parse_args(argv)
     try:
+        args = parser.parse_args(argv)
         check(not args.cleanup or bool(args.run_id), "--cleanup requires the original --run-id")
         marker = run_marker(args.run_id or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ-") + secrets.token_hex(4))
         config = Config.from_env(os.environ if env is None else env)
         if args.dry_run:
             dry_run(config, marker, args.cleanup)
-            return 0
+            return EXIT_PASS
         print("RUN " + marker)
         journey = Journey(config, marker)
         return journey.cleanup() if args.cleanup else journey.run()
     except Stop as exc:
-        print("STOP " + str(exc), file=sys.stderr)
-        return 3
+        print("FAIL " + str(exc), file=sys.stderr)
+        return EXIT_FAIL
     except (KeyError, TypeError, ValueError, AttributeError, IndexError, StopIteration):
-        print("STOP API contract mismatch; no retry; inspect run-owned state before cleanup", file=sys.stderr)
-        return 3
+        print("FAIL API contract mismatch; no retry; inspect run-owned state before cleanup", file=sys.stderr)
+        return EXIT_FAIL
 
 
 if __name__ == "__main__":

@@ -10,9 +10,19 @@ python3 scripts/e2e-staging/wm_e2e.py --cleanup --run-id <same-id>
 
 `--dry-run` makes **zero network requests**, including when credentials are set.
 Live execution is for WM after Leader/Vinh supplies dedicated accounts. This
-job does not execute it. Exit codes: `0` dry-run or successful cleanup; `2`
-SKIP/partial coverage; `3` STOP (guard, API failure or assertion). There is no
-full live-success exit while Writing/Speaking fixture coverage is blocked.
+job does not execute it.
+
+| Exit code | Result | Meaning |
+| --- | --- | --- |
+| `0` | PASS | Dry-run completed (no live acceptance), or cleanup succeeded. |
+| `1` | FAIL | Invalid arguments/configuration, safety guard, API failure, malformed response UUID or failed assertion. |
+| `2` | PARTIAL | Journey ran, but coverage is incomplete (including the unavailable Writing/Speaking fixtures). |
+| `3` | SKIP | Journey or cleanup could not start because required QA account tokens are missing; no API calls. |
+
+There is no full live-success exit while Writing/Speaking fixture coverage is
+blocked. Optional missing tokens/source IDs and unavailable fixture slices print
+individual SKIP messages during a journey; the overall result remains PARTIAL/2
+when other steps ran. Dry-run remains PASS/0 even when it lists missing inputs.
 
 All inputs come from `E2E_*` environment variables. The script never loads
 credential files, signs in, refreshes tokens or creates accounts. Inject tokens
@@ -35,7 +45,14 @@ instructor's QA rows visible when staging enables `HIDE_TEST_DATA`. Accounts,
 their student records, role grants and the active Grammar Diagnostic content/
 runtime flag must be provisioned beforehand. Nothing is provisioned by this
 script. Missing required tokens produce SKIP before any API call; invalid
-configuration or a non-QA identity produces STOP without printing values.
+configuration or a non-QA identity produces FAIL without printing values.
+
+`wm_e2e.py::ALLOWED_ROUTES` lists every permitted HTTP method and complete
+path/query for the journey and cleanup. UUID path parameters and the two known
+Listening query forms are matched strictly. Any other method, route or query is
+blocked before transport, including new paid routes. The staging host guard,
+disabled environment proxies, redirect refusal and hidden token representation
+remain enforced.
 
 The journey creates a new `E2E-<runid>` class, joins the first learner using a
 new instructor-minted code, then gives Writing through `/instructor` and
@@ -97,5 +114,6 @@ python -m pytest tests/test_wm_staging_e2e.py -q
 ```
 
 WM should retain CLI output and exact backend release SHA for a future live
-run, list PASS/SKIP/STOP separately, and run cleanup with the same run ID. A
-dry-run or partial journey does not satisfy full live E2E acceptance.
+run, record the exit code and PASS/FAIL/PARTIAL/SKIP output, and run cleanup with
+the same run ID. A dry-run or partial journey does not satisfy full live E2E
+acceptance.
