@@ -16,10 +16,12 @@
 | FR-010 | kind=test; ref=frontend/tests/quiz-engine.test.mjs (credit only after verdict, no local grading, retry same client_id, identical loop given same verdicts; policy validator on a keyed step-A payload with derived fields and an explicit `text_match_by_qid` policy accepts the bank; payload without `text_match_eligible` → load error) plus rollout C.6a intermediate-deployment journey plus frontend/tests/react quiz-player states, API marker on initial/reset/reopen bank GET, full page reload on refresh-required, plus browser verifier | PENDING |
 | FR-011 | kind=test; ref=backend/tests/test_single_attempt_key_release.py (A handed in, B not: sealed before due_at on report, mistakes, resume; open after; null due_at → all_submitted; read error sealed; due_at moved later re-seals; teacher path unchanged) | PENDING |
 | FR-012 | kind=test; ref=backend/tests/test_single_attempt_key_release.py (sealed body fields) plus course review page test for both notices | PENDING |
-| FR-013 | kind=test; ref=backend/tests/test_course_verdict_session_collection.py (abandoned wrong session then 100 % session: verdict reflects abandoned answers, red on staging before the fix; dropped session 422 with ids; recorded-verdict replay; >40 sessions; on-time not turned into timeout; reaper mastery vs single_attempt; full-retry boundary; retake union; seal: after a recorded failing verdict, `/progress` to a collected open session with a new and a replayed `client_id` → 409 `course_session_consumed`, no `feedback`/`answer`/`accept`/`explain`/`why_wrong` in the body, row count unchanged, red against collection without the seal (200 with feedback); 422 incomplete seals nothing; seal failure/still-open re-read → 500, nothing recorded; race seam sealed between admission and store → 409 without feedback; new retake session still writable; empty session opened before a failing `retry_full`/`retake` verdict → 409, no key, nothing stored, sealed and `superseded`, red against the collected-only seal (Codex r4441040944); same against a pre-change ledger entry by `at`; wrong-`kind` session → 409; post-seal re-collection 422; session opened after the seal collected next time; parametrised walk of the `plan.md` case table, no key field in any body) plus frontend/tests/course-runner*.test.mjs (re-post at most twice; `course_session_consumed` drops the batch and reloads) | PENDING |
+| FR-013 | kind=test; ref=backend/tests/test_course_verdict_session_collection.py (abandoned wrong session then 100 % session: verdict reflects abandoned answers, red on staging before the fix; dropped session 422 with ids; recorded-verdict replay; >40 sessions; on-time not turned into timeout; reaper mastery vs single_attempt; full-retry boundary; retake union; seal: after a recorded failing verdict, `/progress` to a collected open session with a new and a replayed `client_id` → 409 `course_session_consumed`, no `feedback`/`answer`/`accept`/`explain`/`why_wrong` in the body, row count unchanged, red against collection without the seal (200 with feedback); 422 incomplete seals nothing; seal failure/still-open re-read → 500, nothing recorded; late insert racing the seal (held `/progress` insert into an empty or collected session, verdict seals it, insert resumes → 409 `course_session_consumed`, no key, nothing stored; then `/mistakes` has no entry for the qid from that session, no `correct_answer`/`explain`, report and resume show no row; red under the R8 post-store re-read, where the row is stored and `/mistakes` returns its `correct_answer`); reverse order (insert first) → seal waits, verdict reads the row; sealed empty retake never offered by `/course-resume`; new retake session still writable; empty session opened before a failing `retry_full`/`retake` verdict → 409, no key, nothing stored, sealed and `superseded`, red against the collected-only seal (Codex r4441040944); same against a pre-change ledger entry by `at`; wrong-`kind` session → 409; post-seal re-collection 422; session opened after the seal collected next time; parametrised walk of the `plan.md` case table: no key field and nothing stored in refused/sealed rows, expected feedback only in rows 9/15a/17, read-path output per row) plus frontend/tests/course-runner*.test.mjs (re-post at most twice; `course_session_consumed` drops the batch and reloads) | PENDING |
 | FR-014 | kind=test; ref=backend/tests/test_course_verdict_session_collection.py (policy is the only scorer; first attempt by server time, tie by id) | PENDING |
 | FR-015 | kind=test; ref=backend/tests/test_course_verdict_session_collection.py (ledger counts) plus admin homework view test ("—" for old entries) | PENDING |
 | FR-016 | kind=test; ref=backend/tests/test_quiz_check_endpoint.py (review: answered qid → verdict + key, nothing stored; unanswered → 409 no key; managed review session forced to review) plus quiz-player review-state test | PENDING |
+| FR-017 | kind=test; ref=backend/tests/test_migration_<next>_course_answer_after_seal_guard.py (PG: `authenticated` JWT `SELECT` on `quiz_attempts` returns rows on the current schema, none after the migration; backend service-role reads unchanged) plus read-only staging/production inventory that no client-callable code reads `quiz_attempts` with caller privileges plus post-apply privilege query (`has_table_privilege('authenticated','public.quiz_attempts','SELECT')` false, no `quiz_attempts_select` policy) | PENDING |
+| FR-018 | kind=test; ref=backend/tests/test_migration_<next>_course_answer_after_seal_guard.py (PG, real trigger: insert into an ended Course session raises `course_session_closed`, nothing stored, red on the current schema for mastery; held insert blocks the seal update until commit and a later read sees the row; self-study/non-Course/managed Grammar unaffected; timed progress and finalize RPCs still store; no deadlock between two inserts of one item and a seal) plus backend/tests/test_course_verdict_session_collection.py (late insert → 409 and `/mistakes` shows nothing) | PENDING |
 
 Note on the ticket's "FE node test for course-runner.js through /check":
 Course banks do not use `/check` (FR-002); the course runner gets its
@@ -68,7 +70,16 @@ runtime behavior in this draft-only PR.
 
 ## Data evidence
 
-- Migration/schema query: none (no migration). Read-only staging query
+- Migration: `<next>_course_answer_after_seal_guard.sql` (FR-017, FR-018).
+  Before apply (read-only, done 02/11 on staging for this draft):
+  `authenticated` has `SELECT` on `quiz_attempts` (all columns,
+  `is_correct` included) through policy `quiz_attempts_select`
+  (`auth.uid() = user_id`), no `INSERT`/`UPDATE`; `quiz_questions` has
+  RLS on and no policy. Production not checked (staging-only job); the
+  build repeats both reads on production. After apply on each
+  environment: ledger row, `has_table_privilege` false, no policy, and
+  `pg_get_functiondef` of the guard contains `course_session_closed`.
+- Read-only staging query
   before build: count of self-study `quiz_attempts` whose stored
   `is_correct` disagrees with the server grader for MCQ rows (historical
   client flags, repair baseline).
@@ -97,6 +108,10 @@ runtime behavior in this draft-only PR.
   (409 `course_session_consumed`, no key in the body, no row stored).
 - An empty session opened before a failing mastery verdict refuses
   `/progress` the same way (sealed, listed in `superseded`).
+- An answer racing the seal (held after admission, released after the
+  verdict) is not stored; `/mistakes`, the report and resume show
+  nothing from it.
+- A learner JWT cannot read `quiz_attempts` through Supabase REST.
 - On the intermediate deployment (rollout step A, keys still present), a
   bank with an explicit `text_match_by_qid` policy loads and grades in the
   FR-010 player.

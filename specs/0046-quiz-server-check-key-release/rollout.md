@@ -4,12 +4,21 @@
 
 - This spec approved on `staging` by Vinh (Q-1..Q-5 answered by approval).
 - #2091 (J411R2) on `staging` (done, `c7ed31b32`).
-- No migration, no environment variable, no flag. Key removal (FR-009) is
+- One migration, `<next>_course_answer_after_seal_guard.sql` (FR-017,
+  FR-018; Q-8), applied to each environment before the build code that
+  depends on it. No environment variable, no flag. Key removal (FR-009) is
   ordered by deploy steps and enforced by the server's client-contract
   gate, not by a flag. Deployment order does not upgrade already-open tabs.
 
 ## Staging
 
+A0. Apply the migration to staging through the locked runner (advisory
+   lock, ledger row), after the read-only inventory of T011 and before
+   the build PR (T008) merges. Verify read-only: ledger row present,
+   `has_table_privilege('authenticated','public.quiz_attempts','SELECT')`
+   false, no `quiz_attempts_select` policy, guard body contains
+   `course_session_closed`. Smoke on staging: one Grammar self-study
+   answer, one untimed mastery and one timed Course answer still store.
 A. Merge the build PR (backend `/check`, server grading, derived
    `answer_word_count`/`text_match_eligible` on every bank, frontend player
    on `/check`, key release, verdict collection with the session seal). The
@@ -56,6 +65,12 @@ C. Journeys with QA accounts only (no real learners, no email):
       session shows `ended_by='abandoned'` and its id is in the ledger
       entry's `superseded` (read-only select of
       `class_assignment_items.mastery`).
+      The answer-racing-the-seal case is proven by the T008/T011 PG
+      tests (a held insert cannot be staged by hand); on staging, check
+      read-only that no session listed in any QA ledger `superseded` has
+      a `quiz_attempts` row.
+   5a. With the QA learner's own JWT, `GET /rest/v1/quiz_attempts?select=qid,is_correct&limit=1`
+      returns no row (FR-017). Do not record the JWT.
    6. `/check` latency: 30 samples, p95 recorded.
    6a. Intermediate deployment (after A, before B): a Grammar QA bank with a
       nonempty explicit `text_match_by_qid` policy loads in the FR-010
@@ -77,7 +92,10 @@ D. SA retest (`verification.md`).
 
 ## Production
 
-Through the normal staging → main promotion. Railway (backend) and Vercel
+Apply the migration to production under the advisory lock (locked
+runner) before the promotion that carries T008, after repeating the
+T011 read-only inventory and grant check on production; verify it as in
+A0. Then the normal staging → main promotion. Railway (backend) and Vercel
 (frontend) deploy from the same promotion. FR-009 (T006) is promoted in a
 later promotion than FR-010. Existing production tabs can retain pre-FR-010
 JavaScript across both promotions: the server gate blocks their unmarked
@@ -90,9 +108,13 @@ session on a QA account, 24 h of Railway logs for `/check` 5xx.
 
 ## Rollback and repair
 
-- Code rollback: redeploy the previous Railway/Vercel release. No schema to
-  revert. Rows written by `/check` are ordinary `quiz_attempts` rows and stay
-  valid for the old code.
+- Code rollback: redeploy the previous Railway/Vercel release; the
+  migration can stay (old code is compatible, `plan.md` Compatibility).
+  Migration rollback (rollback file: migration 284 guard body, policy
+  and grant) only if the guard breaks a legitimate insert; it reopens the
+  late-row race and the direct REST read, so roll back the T008 code
+  with it. Rows written by `/check` are ordinary `quiz_attempts` rows and
+  stay valid for the old code.
 - Rolling back only the backend while the new frontend stays live: the
   player shows "Chưa chấm được" (no `/check`). Roll back both together.
 - Repair: no DML. Historical self-study rows stored with a client flag stay

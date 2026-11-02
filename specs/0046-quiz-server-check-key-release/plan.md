@@ -35,8 +35,17 @@ the function names are the anchors.
   - `_assert_quiz_progress_writable` / `log_progress` (Course branch):
     409 `course_session_consumed` for a session that is ended, consumed,
     superseded, older than a pre-change entry or of a `kind` the latest
-    entry does not allow, before any read-back, and a post-store session
-    re-read before mastery feedback.
+    entry does not allow, before any read-back; the FR-018 guard error
+    (`course_session_closed`) from the upsert mapped to the same 409
+    (mastery), the existing closed message (single_attempt) or the timed
+    phase conflict;
+  - `get_course_resume`: the pending-retake candidates also exclude ids
+    listed in any ledger entry's `superseded`.
+- `backend/migrations/<next>_course_answer_after_seal_guard.sql` (number
+  allocated at build time through `/db-migrate`) plus its rollback file:
+  FR-018 replacement of `guard_single_attempt_course_answer()` and FR-017
+  revoke of the learner's direct `quiz_attempts` read. The only migration;
+  see Persistence and migration.
 - `backend/models/grammar_quiz_revisions.py`: `QuizCheckBody`,
   `QuizCheckResponse` (`extra='forbid'`); `StudentQuizQuestion` gains the two
   derived fields in step A (T001, with the keys still optional) and drops
@@ -226,6 +235,10 @@ rule `/my-class` uses), and only when `due_at` is null or in the future. `/cours
   every stage count and verdict filter keys on `'completed'`). It closes
   every open session of the item, not only the collected ones: empty
   sessions, the other phase, and sessions opened before an earlier verdict.
+  The update takes each session row lock, so it waits for every insert
+  holding the FR-018 `FOR SHARE` lock on that row and lands after that
+  insert commits; any insert whose guard runs after the update is refused.
+  The rows of a sealed session are final once the update returns.
   Then one re-read of the item's sessions (with attempt existence):
   a first-collection session still open → 500, nothing recorded; the
   re-collected set (closed current-generation sessions with attempts) not
@@ -235,7 +248,8 @@ rule `/my-class` uses), and only when `due_at` is null or in the future. `/cours
   created after the seal → next generation, untouched. Totals of a sealed
   session are then written from the attempts just read (the FR-008 counting
   rule; a failure there is logged and does not fail the verdict, the
-  attempts table stays canonical). No new column, value check or RPC:
+  attempts table stays canonical). No new column, value check or RPC (the
+  only schema change is the FR-018 trigger function and the FR-017 revoke):
   `ended_by` is free text (migration 119) and the managed Grammar session
   trigger (migration 309) never sees Course sessions. Timed Course
   `/progress` goes through the session-locking RPC (migrations 276/279),
@@ -247,14 +261,19 @@ rule `/my-class` uses), and only when `due_at` is null or in the future. `/cours
   'course_session_consumed', message: 'Lượt làm này đã được xét kết quả.
   Đang tải lại tiến độ mới nhất.'}`. It runs before the replay read-back
   of `_course_attempt_feedback`, so a replayed `client_id` gets no key
-  either, and before the timed RPC call. In `log_progress`, after the rows
-  are stored and before `_course_attempt_feedback`, one read of
-  `quiz_sessions.ended_at, ended_by` for this session; ended → the same 409
-  without feedback. Why this closes the race: the verdict seals before it
-  re-collects and reads attempts, so a batch whose re-read saw the session
-  open was stored before the seal (re-collected: scored, or 422) or lives
-  in a session created after the seal (next generation, collected next
-  time); a batch stored after the seal never receives feedback.
+  either, and before the timed RPC call. Admission and insert are not one
+  transaction, so admission alone leaves a window. The FR-018 guard closes
+  it in the database, so `log_progress` needs no post-store re-read:
+  - insert's guard runs before the seal's update: the seal waits for the
+    commit; the verdict's re-collection and attempts read (both after the
+    seal) see the row, so it is scored (or the verdict answers 422 and the
+    re-post scores it). Feedback from that committed row is safe;
+  - guard runs after the seal: `course_session_closed`, the whole upsert
+    fails, nothing is stored, `log_progress` returns 409
+    `course_session_consumed` before `_course_attempt_feedback` runs.
+    There is no late row, so `/mistakes`, `/course/report`,
+    `/course-resume` and the replay read-backs have nothing to show,
+    and a `superseded` session stays empty forever.
 - The Codex r4441040944 case (empty session E opened before a failing
   `retry_full` verdict): E is open at the seal → sealed and listed in
   `superseded` → `/progress` 409 before any read-back. For a verdict
@@ -267,10 +286,19 @@ rule `/my-class` uses), and only when `due_at` is null or in the future. `/cours
 
 Every session state against every learner endpoint that can return a key or
 per-question correctness. "Key" = `answer`, `accept`, `explain`,
-`why_wrong` or `feedback`. Read paths = `/course/report` level 2,
-`/mistakes` rows, `/course-resume` `is_correct`/`last_stage`. Course
-`GET /banks/{id}` carries no key in any state (#2091) and self-study GET
-carries none after FR-009; neither is repeated per row.
+`why_wrong` or `feedback`. Read paths = `/mistakes` rows
+(`correct_answer`, `explain`; a row's presence also says "wrong"),
+`/course/report` level 1 (`is_correct` per question, in bank order) and
+level 2 (key), `/course-resume` (`answered[].is_correct`,
+`retake.answered[].is_correct`, `last_stage`). Walked once and not
+repeated per row, because they return no key or correctness in any state:
+Course `GET /banks/{id}` (#2091); self-study GET after FR-009;
+`/api/quiz/progress` (session totals); `/banks/{id}/resume`
+(client-owned `quiz_word_stats`); direct REST `quiz_attempts` (no row
+after FR-017); direct REST `quiz_questions` (RLS on, no policy: no row;
+staging 02/11); direct REST `quiz_sessions` (totals only). Late rows: after
+FR-018 no row can be stored in an ended Course session, so the read paths
+of every sealed or superseded state show only rows a verdict reads.
 
 | # | Session state | `/check` | `/progress` (new `client_id`) | Replayed `client_id` | Read paths | Test (task) |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -285,10 +313,11 @@ carries none after FR-009; neither is repeated per row.
 | 9 | Mastery, current generation, open (no entry; or created after the latest entry with the allowed `kind`) | 409 (8) | Stored, graded, `feedback` for the stored rows | Feedback of the row stored in this session | Mastery unchanged (answered rows) | T008 |
 | 10 | Mastery, collected by a verdict, was open → sealed (`abandoned`) | 409 | 409 `course_session_consumed`, nothing stored | 409 before read-back | Answered rows only | T008 (red: collection without seal) |
 | 11 | Mastery, collected, already ended | 409 | 409 (ended or consumed) | 409 | Answered rows only | T008 |
-| 12 | **Mastery, empty, opened before a failing verdict (`retry_full` or `retake`), new ledger entry** | 409 | 409: sealed + `superseded` | 409 | No rows | T008 (red: Codex r4441040944) |
+| 12 | **Mastery, empty, opened before a failing verdict (`retry_full` or `retake`), new ledger entry** | 409 | 409: sealed + `superseded` | 409 | No rows, ever (FR-018); `/course-resume` never offers it as the pending retake | T008 (red: Codex r4441040944) |
 | 13 | **Same as 12, verdict recorded before this change** (no seal, no `superseded`) | 409 | 409: `created_at` ≤ entry `at` | 409 | No rows | T008 |
 | 14 | Mastery, `kind` not allowed now (`run` while a retake is due; `retake` after `retry_full`; anything after `passed`) | 409 | 409 `course_session_consumed` | 409 | n/a | T008 |
-| 15 | Mastery, batch admitted before the seal, stored after it | 409 | Rows stay, 409 without feedback (post-store re-read) | Next replay → 409 at admission | Rows without feedback | T008 race seam |
+| 15 | **Mastery, batch admitted before the seal, its insert reaches the guard after the seal** (session empty → `superseded`, or collected → `sessions`) | 409 | FR-018 refuses the whole upsert: nothing stored, 409 `course_session_consumed`, no feedback | 409 at admission | No row from this batch: `/mistakes` has no entry for it (no `correct_answer`/`explain`), report and resume show no row, REST read none | T008 late insert (red: under the R8 post-store re-read the row is stored and `/mistakes` returns its `correct_answer`) |
+| 15a | Mastery, insert's guard ran before the seal, commit after it | 409 | Seal waits for the commit; feedback from the committed row; the verdict reads it (scores it, or 422 if the session was not listed) | After the seal: 409 at admission | Answered rows (all read by the verdict) | T008 lock order (PG: held insert blocks the seal) |
 | 16 | Mastery, batch stored before the seal in a session the client did not list | 409 | Feedback (session was open) | — | — | T008: post-seal re-collection → 422, re-post scores it |
 | 17 | Mastery, session opened after the seal while the verdict is in flight | 409 | Feedback if admitted; rows collected by the next verdict whatever `kind`; refused after the ledger write if `kind` not allowed | As `/progress` | Answered rows | T008 |
 | 18 | Mastery, first completeness 422 (no seal) | 409 | Unchanged (still current generation) | — | — | T008 |
@@ -304,16 +333,55 @@ carries none after FR-009; neither is repeated per row.
 
 ### Persistence and migration
 
-No migration. All writes go to existing columns (`quiz_attempts`,
-`quiz_sessions` totals and, for the FR-013 seal, `ended_at`/`ended_by`,
-`class_assignment_items.mastery` jsonb, including the new `superseded`
-list). The unique
-`client_id` index (migration 119) already exists. If the build finds that
-any FR needs a new column, table, index or RPC change, it STOPs and reports
-to PC/Leader (ticket rule).
+One migration (Q-8), no new column, table or index. Data writes go to
+existing columns (`quiz_attempts`, `quiz_sessions` totals and, for the
+FR-013 seal, `ended_at`/`ended_by`, `class_assignment_items.mastery`
+jsonb, including the new `superseded` list). The unique `client_id` index
+(migration 119) already exists.
+
+Migration `<next>_course_answer_after_seal_guard.sql` (forward only,
+`BEGIN; … COMMIT;`, applied through the locked runner):
+
+- FR-018: `CREATE OR REPLACE FUNCTION public.guard_single_attempt_course_answer()`,
+  same name, trigger and `SECURITY DEFINER`/`search_path` as migration 284.
+  Body: (1) find the session's Course item without locks
+  (`quiz_sessions` → `class_assignment_items` → `class_assignments`,
+  `skill='course'`); not Course → `RETURN NEW` (self-study unchanged);
+  (2) `SELECT ended_at, ended_by FROM quiz_sessions WHERE id =
+  NEW.session_id FOR SHARE`; (3) today's `cai`/`ca` `FOR UPDATE` read and
+  single_attempt rules; (4) `ended_at` or `ended_by` set → `RAISE
+  EXCEPTION 'course_session_closed' USING ERRCODE = '55000'`. Lock order
+  `qs` → `cai` → `ca`, as `quiz_insert_timed_course_attempts` (migration
+  279, `FOR UPDATE OF qs, cai, ca, scm`). Existing writers stay valid: the
+  timed progress RPC (279) and `quiz_finalize_timed_course_session` (275)
+  insert while the session is still open and end it later in the same
+  transaction; untimed `/progress` already refuses ended sessions at
+  admission. Re-issue the migration 285 `REVOKE ALL … FROM PUBLIC, anon,
+  authenticated` on the function.
+- FR-017: `DROP POLICY IF EXISTS quiz_attempts_select ON
+  public.quiz_attempts; REVOKE SELECT ON public.quiz_attempts FROM anon,
+  authenticated;`. Precedent: `347_listening_tests_client_revoke.sql`.
+- Rollback file: restores the migration 284 function body, the policy and
+  the grant. Rolling back FR-018 reopens the late-row race; rollback is for
+  a broken insert path only.
+- PG tests (local cluster, real trigger): a held insert blocks the seal
+  update until commit, then the verdict reads the row; an insert after the
+  seal raises `course_session_closed` and stores nothing; self-study and
+  managed Grammar inserts never take the session lock; the timed progress
+  and finalize RPCs still store their rows; `authenticated` has no
+  `SELECT` on `quiz_attempts`.
+
+If the build finds that any FR needs another column, table, index or RPC
+change, it STOPs and reports to PC/Leader (ticket rule).
 
 ### Compatibility
 
+- Migration first: it is applied to an environment before the code that
+  maps `course_session_closed` and before the FR-013 seal ships there.
+  Old code with the migration: a refused insert surfaces as today's
+  upsert failure (500, nothing stored, no key) only in the race window
+  after a session already ended, which old admission already refuses; no
+  old code path reads `quiz_attempts` with a learner JWT.
 - New backend + old frontend: GET still carries keys until the separate
   FR-009 PR lands (step B in `rollout.md`); `/progress` ignores the client flag, so
   stored truth is correct; the old player still grades locally for display.
@@ -358,9 +426,11 @@ See `rollout.md`.
 Pytest through TestClient + response models for every FR; PG tests where an
 RPC is involved (managed Grammar `progress`, timed finalize); node tests for
 engine and parity; a browser verifier for the player states; staging SA
-retest. Red-before-green evidence for FR-001/003/006/007/009/011/013,
-including the FR-009 missing/unknown marker refusal and the pre-upgrade
-tab reset/reopen journey across both promotions.
+retest. Red-before-green evidence for FR-001/003/006/007/009/011/013/017/018,
+including the FR-009 missing/unknown marker refusal, the pre-upgrade
+tab reset/reopen journey across both promotions, and the late insert
+racing the seal followed by `/mistakes` (row stored and key shown before
+FR-018; refused and nothing shown after).
 
 ## Future direction (not built)
 

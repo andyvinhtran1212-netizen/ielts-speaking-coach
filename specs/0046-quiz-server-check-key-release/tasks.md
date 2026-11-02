@@ -84,6 +84,26 @@ on `staging` (merged `c7ed31b32`).
   step B). `owns: backend/routers/quiz.py, backend/services/quiz_service.py
   (get_bank_for_play), backend/tests/test_quiz_bank_student_payload.py`
   `depends: T005`
+- [ ] T011 Migration (FR-017, FR-018), through `/db-migrate`, before T007
+  and T008.
+  First the read-only inventory on staging and production: no client code,
+  RPC or view callable by `anon`/`authenticated` reads `quiz_attempts` with
+  the caller's privileges (else STOP). PG tests first (red on the current
+  schema): a learner JWT `SELECT` on `quiz_attempts` returns rows today and
+  none after; an insert into an ended Course session (mastery untimed,
+  timed, single_attempt) is stored today and raises `course_session_closed`
+  after, nothing stored; a held insert in an open Course session blocks a
+  concurrent `UPDATE quiz_sessions SET ended_at …` until it commits, and a
+  read after that update sees the row; self-study, non-Course homework and
+  managed Grammar inserts are unaffected and take no session lock; the
+  timed progress and finalize RPCs still store their rows; two concurrent
+  inserts in sessions of one item and a seal do not deadlock. Rollback
+  file restores the migration 284 body, policy and grant. Staging apply
+  through the locked runner before T008 merges.
+  `owns: backend/migrations/<next>_course_answer_after_seal_guard.sql,
+  backend/migrations/rollback/<next>_course_answer_after_seal_guard.sql,
+  backend/tests/test_migration_<next>_course_answer_after_seal_guard.py`
+  `depends: T001`
 - [ ] T007 One-sitting key release (FR-011, FR-012) and course review copy.
   Tests: A handed in, B not → A sealed before `due_at`, open after; null
   `due_at` opens only when all items handed in; read error → sealed;
@@ -91,7 +111,7 @@ on `staging` (merged `c7ed31b32`).
   `/course-resume` all follow; teacher path unchanged.
   `owns: backend/services/quiz_service.py (release helper, review gate,
   mistakes filter, resume), course review page,
-  backend/tests/test_single_attempt_key_release.py` `depends: T001`
+  backend/tests/test_single_attempt_key_release.py` `depends: T001, T011`
 - [ ] T008 Verdict collection and policy (FR-013..FR-015): server collection,
   422 with missing ids, `mastery_score_policy()`, ledger counts, teacher
   views, runner re-post (at most twice), reaper on the collected set
@@ -110,9 +130,22 @@ on `staging` (merged `c7ed31b32`).
   without the seal it returns 200 with feedback); a 422 incomplete verdict seals
   nothing; seal update failure or a still-open re-read → 500, nothing
   recorded, retry collects the same sessions; concurrent normal end keeps
-  `completed`; race seam (session sealed between admission and store) →
-  409 without feedback; a new retake/full-retry session still accepts
-  answers; runner drops the batch and reloads on `course_session_consumed`.
+  `completed`; a new retake/full-retry session still accepts answers;
+  runner drops the batch and reloads on `course_session_consumed`.
+  Late insert (CR R9 P2-1, red first: under the R8 post-store re-read the
+  row is stored and `/mistakes` returns its `correct_answer`; PG, real
+  FR-018 trigger): a `/progress` batch with a wrong answer for qid X passes
+  admission to an empty session E and is held before its insert; a failing
+  verdict seals E and lists it in `superseded`; the held insert resumes →
+  409 `course_session_consumed`, no `feedback`/key field, row count of E
+  stays 0; then `/mistakes` has no entry for X from E (no
+  `correct_answer`, no `explain`), `/course/report` and `/course-resume`
+  show no row from E, and a learner-JWT REST read of `quiz_attempts`
+  returns nothing. Same with E a collected session (listed in `sessions`):
+  its row count equals the count the verdict read. Reverse order: the
+  insert's guard runs first and is held open; the seal waits for its
+  commit and the verdict reads the row (scored, or 422 if E was not
+  listed).
   Pre-verdict empty session (Codex r4441040944, red first: with the
   collected-only seal it returns 200 with feedback): untimed mastery item,
   empty run session E opened, failing `retry_full` verdict recorded from
@@ -127,14 +160,20 @@ on `staging` (merged `c7ed31b32`).
   between the first collection and the seal → 422 with its id, sealed,
   nothing recorded, re-post scores it. A session opened after the seal
   stays open, is not superseded, and its attempts are collected by the
-  next verdict. One parametrised test walks every Course row of the
-  `plan.md` case table and asserts no key field in any response body.
+  next verdict. A sealed empty retake session is never returned as
+  `/course-resume` `retake`. One parametrised test walks every Course row
+  of the `plan.md` case table: for refused and sealed rows it asserts no
+  key field in the body and nothing stored; for rows where the table
+  allows feedback (9, 15a, 17) it asserts the expected `feedback` for the
+  stored rows only; for each row it also checks the `/mistakes`, report
+  and resume output the table names.
   `owns: backend/services/quiz_service.py
-  (course_verdict, Course write admission, log_progress feedback re-read),
+  (course_verdict, Course write admission, `course_session_closed`
+  mapping in log_progress, course-resume retake filter),
   backend/routers/admin_class_assignments.py,
   frontend/public/js/course-runner.js, admin homework view,
   backend/tests/test_course_verdict_session_collection.py,
-  frontend/tests/course-runner*.test.mjs` `depends: T001`
+  frontend/tests/course-runner*.test.mjs` `depends: T001, T011`
 - [ ] T009 Verification evidence: fill `verification.md`, staging journeys,
   SA retest request, `/check` latency sample.
 - [ ] T010 Independent review (CR, `@codex review`) and convergence audit.

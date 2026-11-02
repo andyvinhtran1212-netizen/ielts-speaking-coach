@@ -45,9 +45,16 @@ Người dùng sẽ thấy gì sau thay đổi này:
   lời câu nào (ví dụ một tab mở sẵn từ trước để chờ làm lại toàn bài): tab
   còn mở trên phiên ấy không gửi thêm câu trả lời được và không nhận đáp án
   nữa (hiện "Lượt làm này đã được xét kết quả. Đang tải lại tiến độ mới
-  nhất."); làm lại thì vào phiên mới. Giáo viên thấy thêm số phiên và số lần trả lời của
-  từng em.
-- Không có migration, không đổi biến môi trường.
+  nhất."); làm lại thì vào phiên mới. Câu trả lời gửi tới máy chủ đúng lúc
+  phiên vừa bị khoá cũng **không được lưu** (không còn dòng "đến muộn" nào
+  để màn "Câu sai của tôi", màn xem lại hay tiến độ làm lộ đáp án). Giáo
+  viên thấy thêm số phiên và số lần trả lời của từng em.
+- Học viên không còn đọc thẳng bảng lượt trả lời (`quiz_attempts`) bằng
+  khoá đăng nhập của mình qua REST; mọi màn của học viên đọc qua máy chủ
+  như hiện nay, nên không thấy khác gì.
+- **Một migration nhỏ** (khoá ghi muộn vào phiên Course đã đóng và thu
+  quyền đọc thẳng bảng trên), không đổi biến môi trường. Bản nháp trước ghi
+  "không có migration"; đổi điều này cần anh Vinh duyệt (Q-8).
 
 ## Problem
 
@@ -90,6 +97,20 @@ Người dùng sẽ thấy gì sau thay đổi này:
    progress RPC refuses review writes (`grammar_review_read_only`). Without
    keys in the payload they cannot grade, and a check that reveals without
    storing would be a free key source.
+8. **Late rows and direct table reads (CR R9 P2-1).** Untimed Course
+   `/progress` stores with a plain PostgREST upsert, and the only insert
+   guard on `quiz_attempts` (migration 284) acts on single_attempt items
+   only. A batch that passed write admission can therefore be stored after
+   a verdict sealed its session; such a row is never scored (a superseded
+   session is never collected again) but `/mistakes` returns its
+   `correct_answer`/`explain`, `/course/report` level 1 its `is_correct`,
+   and `/course-resume` too for a retake session its time filter misses. Separately, migration 119 lets a
+   learner read their own `quiz_attempts` rows directly through Supabase
+   REST (`quiz_attempts_select`, `auth.uid() = user_id`); staging check
+   02/11 (read-only): `authenticated` has `SELECT` on every column,
+   `is_correct` included, and no `INSERT`/`UPDATE` grant. That direct read
+   shows per-question correctness of a sealed single_attempt hand-in and of
+   any late row, bypassing every backend gate.
 
 ## Scope
 
@@ -112,6 +133,10 @@ Người dùng sẽ thấy gì sau thay đổi này:
   item itself, write-locks every open session of the item (empty ones
   included) and accepts answers only in current-generation sessions; one scoring policy
   function; teacher sees session and attempt counts.
+- One migration: the existing `quiz_attempts` insert guard refuses a row
+  for an ended Course session under the session row lock, so no answer can
+  be stored after a seal (FR-018); learners lose direct REST `SELECT` on
+  `quiz_attempts` (FR-017).
 
 ## Non-goals
 
@@ -131,8 +156,12 @@ Người dùng sẽ thấy gì sau thay đổi này:
   server.
 - Rewriting historical `quiz_attempts.is_correct` rows: no data repair DML
   (see `rollout.md` Repair).
-- Auth path changes: none (Q5 b does not apply; this change does not touch
-  the auth/permission layer).
+- Auth path changes: none in the application (Q5 b does not apply; no
+  login, JWT or route guard changes). The only privilege change is the
+  FR-017 database revoke of the learner's direct `quiz_attempts` read.
+- Other direct-REST learner grants (`quiz_attempts_insert` policy without
+  an `INSERT` grant, `quiz_sessions` totals): unchanged; they reveal no
+  per-question correctness (staging check 02/11).
 - A teacher-controlled "release answers now" button (needs a stored flag or
   admin UI; out of scope, Q-3).
 - Changing how a self-study bank given as non-Course homework is scored
@@ -284,7 +313,8 @@ Người dùng sẽ thấy gì sau thay đổi này:
 - **FR-011:** (one-sitting key release) for a single_attempt Course item,
   every learner read path that reveals per-question correctness or the key
   (`/course/report` level 2, `/mistakes` rows, `/course-resume` `is_correct`
-  and `last_stage`) stays sealed until **both** the learner has handed in
+  and `last_stage`; the direct REST read of `quiz_attempts` is removed by
+  FR-017) stays sealed until **both** the learner has handed in
   **and** either the assignment `due_at` has passed or every item of a
   learner still active in the class is handed in (items of archived or
   removed learners do not hold the key). Release is computed on each read (no
@@ -332,7 +362,11 @@ Người dùng sẽ thấy gì sau thay đổi này:
   phase and sessions opened before an earlier verdict included) with
   `ended_by='abandoned'`, `ended_at=now()`, in one conditional update
   (`… and ended_at is null and ended_by is null`, so a concurrent normal end
-  keeps its own `completed`/`time_cap`). It then re-reads the item's
+  keeps its own `completed`/`time_cap`). The update needs each session's
+  row lock, so it waits for every insert still holding the FR-018 share
+  lock on that session and lands after it commits; from then on FR-018
+  refuses any row for the sealed session. The set of rows in a sealed
+  session is therefore final before the verdict reads it. It then re-reads the item's
   sessions and collects again: a session of the first collection still
   open → 500, nothing recorded; a closed current-generation session that
   gained its first attempt between the first collection and the seal and
@@ -355,16 +389,21 @@ Người dùng sẽ thấy gì sau thay đổi này:
   `passed`/`timed_out`). This closes a session opened before a verdict but
   left empty (it is sealed and superseded, or, for a verdict recorded
   before this change, older than its `at`), so it cannot be used to read
-  keys before a full retry or retake. A `/progress` batch that passed
-  admission before the
-  seal re-reads its session after storing and before building mastery
-  feedback; if the session has ended meanwhile it returns the same 409
-  without feedback (the stored rows stay; they never revealed a key). A
-  batch whose re-read still saw the session open was stored either before
-  the seal (the post-seal collection sees it, so the verdict scores it or
-  answers 422) or in a session created after the seal (next generation,
-  collected by the next verdict whatever its `kind`), so every answer that
-  received feedback is scored by a verdict. A verdict that fails after the
+  keys before a full retry or retake. **Late batch:** a `/progress` batch
+  that passed admission before the seal but reaches the insert after it is
+  refused by the FR-018 guard as a whole: nothing is stored, and the
+  response is the same 409 `course_session_consumed` with no feedback and
+  no key. No row exists for it, so no learner read path (`/mistakes`,
+  `/course/report`, `/course-resume`, the `/progress` and `/check`
+  read-backs) can show it. A batch whose insert committed before the seal
+  is in the attempts the verdict reads after the seal (scored, or 422 if
+  the client did not list the session), and a batch stored in a session
+  created after the seal belongs to the next generation (collected by the
+  next verdict whatever its `kind`). So every stored mastery answer is in
+  the attempts a verdict reads (unless the item has already passed, when
+  nothing is left to score), and feedback built from a committed row is
+  safe. A
+  superseded session never gains a row, so it stays empty. A verdict that fails after the
   seal records nothing; the sealed sessions stay unconsumed and the retry
   collects them again. The runner treats `course_session_consumed` as a
   superseded session: drops the queued batch and reloads canonical progress.
@@ -386,7 +425,38 @@ Người dùng sẽ thấy gì sau thay đổi này:
   a learner brute-force a choice question). The player shows "Câu này chưa
   có lượt làm chính nên chưa chấm trong ôn tập." and moves on. A client that
   sends `review: false` in a legacy session simply stores an attempt (the
-  normal cost).
+  normal cost). The review read only ever serves self-study banks: a bank
+  with `skill_area='course'` is refused by FR-002 before any read, and a
+  Course assignment only takes `skill_area='course'` banks
+  (`admin_class_assignments.py`), so no Course attempt can unlock a review
+  key.
+- **FR-017:** (no direct learner read of attempts) the migration drops the
+  `quiz_attempts_select` policy and revokes `SELECT` on
+  `public.quiz_attempts` from `anon` and `authenticated`. Learner surfaces
+  read attempts only through the backend (service role), where FR-011 and
+  FR-013 apply. A learner JWT `GET /rest/v1/quiz_attempts` returns no row
+  (permission error or empty), for every session state. Before the build
+  writes the migration it confirms read-only, on staging and production,
+  that no client code, RPC or view callable by `anon`/`authenticated`
+  reads `quiz_attempts` with the caller's privileges; any hit is a STOP.
+- **FR-018:** (no answer stored after a seal) the existing `BEFORE INSERT`
+  trigger function on `quiz_attempts`
+  (`guard_single_attempt_course_answer`, migration 284) is replaced so
+  that, for a session whose item belongs to an assignment with
+  `skill='course'` (any `completion_mode`, timed or not), it first takes
+  `FOR SHARE` on that `quiz_sessions` row in its own statement (the same
+  `qs` → `cai` → `ca` lock order as the timed insert RPC, migration 279),
+  then keeps today's `cai`/`ca` lock and single_attempt rules, and raises
+  `course_session_closed` (ERRCODE `55000`) when the session row has
+  `ended_at` or `ended_by` set. Self-study and non-Course homework sessions
+  are unaffected. Because the seal, a normal end and the dead-session sweep
+  all `UPDATE` that row, each one waits for in-flight inserts to commit,
+  and every insert after it is refused. `/progress` maps the error for an
+  untimed mastery session to 409 `course_session_consumed` (no feedback,
+  nothing stored: the upsert is one statement), for single_attempt to its
+  existing closed message, and for the timed RPC to its existing phase
+  conflict. Function privileges stay revoked from `PUBLIC`, `anon` and
+  `authenticated` (migration 285).
 
 ## Acceptance scenarios
 
@@ -470,6 +540,31 @@ Người dùng sẽ thấy gì sau thay đổi này:
   failing verdict was recorded before this change (no seal, no
   `superseded`) is refused because E is older than the entry's `at`
 
+### Scenario 6c — an answer racing the seal leaves no row to read
+
+- **Given** an untimed mastery Course item, a `/progress` batch with a
+  wrong answer for qid X in session E (empty or collected) that has passed
+  write admission and is held before its insert, and a failing verdict
+  that seals E (and lists it in `superseded` or `sessions`)
+- **When** the held batch's insert runs, and the learner then opens
+  `/mistakes`, `/course/report` and `/course-resume`, and reads
+  `quiz_attempts` with their own JWT through Supabase REST
+- **Then** the insert is refused (FR-018): 409 `course_session_consumed`,
+  no `feedback` or key field, E's row count unchanged; `/mistakes` has no
+  entry for X from E (no `correct_answer`, no `explain`), the report and
+  resume show no row from E, and the REST read returns no row (FR-017).
+  If instead the insert reached the guard before the seal, the seal waits
+  for it and the verdict reads the row (scores it, or 422 when E is not
+  listed)
+
+### Scenario 6d — no direct read of correctness
+
+- **Given** learner A handed in a single_attempt item before release
+- **When** A calls `GET /rest/v1/quiz_attempts?select=qid,is_correct`
+  with their own JWT
+- **Then** no row is returned (FR-017); today the staging grant and policy
+  allow this read (privilege check 02/11, no REST call made)
+
 ## Edge cases
 
 - **Network failure after the row is stored:** the retry with the same
@@ -506,10 +601,15 @@ Người dùng sẽ thấy gì sau thay đổi này:
   learner keeping a throwaway tab open to read feedback): the verdict sealed
   it, so `/progress` returns 409 `course_session_consumed` with no key; the
   retake/full retry runs in a new session (FR-013 seal).
-- **Answer in flight while the verdict seals:** the post-store session
-  re-read refuses feedback (409, no key) unless the row was stored before
-  the seal, in which case the post-seal collection sees it: the verdict
-  scores it, or answers 422 if the client did not list the session (FR-013).
+- **Answer in flight while the verdict seals:** an insert that reaches the
+  FR-018 guard after the seal is refused, nothing is stored, 409 with no
+  key; no row is left for `/mistakes`, the report or resume to show. An
+  insert that reached the guard first holds the session row, the seal waits
+  for its commit, and the verdict reads the row: scores it, or answers 422
+  if the client did not list the session (FR-013, FR-018).
+- **Retake session sealed empty:** it is listed in `superseded` and
+  `/course-resume` never offers it as the pending retake (it filters
+  `sessions` and `superseded` ids, not only by time).
 - **Empty session opened before a failing verdict** (Codex r4441040944):
   sealed by the verdict and listed as `superseded`, so `/progress` returns
   409 with no key; for a verdict recorded before this change, refused
@@ -531,7 +631,9 @@ Người dùng sẽ thấy gì sau thay đổi này:
   before a stored attempt and none for sealed items; forged `is_correct`
   ignored; time-cap regraded; handed-in learner sees no key before `due_at`;
   mastery peek via abandoned session closed, including writes to a session
-  a verdict consumed and to an empty session opened before the verdict.
+  a verdict consumed and to an empty session opened before the verdict,
+  and an answer racing the seal (no row stored, nothing on `/mistakes`);
+  a learner JWT cannot read `quiz_attempts` through REST.
 - Learner-perceived feedback latency on staging: p95 of `/check` ≤ 1.5 s
   under normal load (measured in `verification.md`).
 - No increase in self-study 5xx rate after release (Railway logs, 24 h).
@@ -565,3 +667,10 @@ Decisions the job recommends; Vinh confirms by approving this spec.
   work sets the score" and record the junk-check limitation, or score the
   first stored attempt per qid across sessions (a scoring change, separate
   spec). Recommendation: keep, low stakes.
+- **Q-8 (migration, CR R9):** earlier drafts said "no migration". Closing
+  the late-row race and the direct REST read needs one: the FR-018 trigger
+  function replacement and the FR-017 revoke. Alternative considered: keep
+  late rows and filter them on every read path by recording the scored
+  attempt ids in each ledger entry. Rejected: it needs the same filter in
+  four read paths, cannot cover the direct REST read, and depends on
+  per-row bookkeeping instead of one lock. Recommendation: the migration.
