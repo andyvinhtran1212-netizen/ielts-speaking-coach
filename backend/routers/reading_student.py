@@ -1545,6 +1545,10 @@ def _submit_reading_test_attempt_sync(attempt_id: str, body: _SubmitRequest,
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt status không hợp lệ.")
     require_resume_active(attempt)
+    # CLASSARCHIVE-0030 FR-004: an archived class takes no hand-in, also from
+    # an attempt started before the archive. The submitted replay above stays.
+    from services.class_archive_service import require_class_attempt_accepts_work
+    require_class_attempt_accepts_work(supabase_admin, attempt, surface="reading")
 
     # Resolve the test for the time-limit guard + Academic/GT routing.
     test_uuid = attempt["test_id"]

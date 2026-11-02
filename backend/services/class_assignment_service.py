@@ -52,7 +52,11 @@ from services.class_membership_service import (
     active_students_for_cohort,
     student_is_active_in_cohort,
 )
-from services.class_archive_service import require_cohort_accepts_work
+from services.class_archive_service import (
+    archived_cohort_rows,
+    cohort_archived_by,
+    require_cohort_accepts_work,
+)
 from services.errors import clip_user_value
 
 logger = logging.getLogger(__name__)
@@ -1253,6 +1257,31 @@ def assignment_timer_state(
     }
 
 
+def _archived_class_by_item(db, assignments: List[Dict[str, Any]],
+                            items: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """``{item_id: class row}`` for the pending items whose class is archived.
+
+    The class comes from the assignment rows the caller already holds; an
+    assignment row without ``cohort_id`` is read. A DB error propagates: the
+    reconcilers' callers log it and the repair waits for the next read, so a
+    failed read never credits a hand-in to an archived class.
+    """
+    cohort_of: Dict[str, Optional[str]] = {
+        a["id"]: a.get("cohort_id") for a in assignments if a.get("id")
+    }
+    unknown = [aid for aid in dict.fromkeys(i.get("assignment_id") for i in items)
+               if aid and not cohort_of.get(aid)]
+    for chunk in (unknown[i:i + _ID_CHUNK] for i in range(0, len(unknown), _ID_CHUNK)):
+        for a in _paged(db, "class_assignments", "id, cohort_id",
+                        lambda q, c=chunk: q.in_("id", c)):
+            cohort_of[a["id"]] = a.get("cohort_id")
+    archived = archived_cohort_rows(db, (cohort_of.get(i.get("assignment_id")) for i in items))
+    if not archived:
+        return {}
+    return {i["id"]: archived[str(cohort_of[i["assignment_id"]])] for i in items
+            if str(cohort_of.get(i.get("assignment_id"))) in archived}
+
+
 def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
     """Repair Reading/Listening hand-ins whose ledger write failed.
 
@@ -1297,6 +1326,7 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
     ids = list(pending)
     due_of_assignment = {a["id"]: _at(a.get("due_at")) for a in assignments}
     due_by_item = {i["id"]: due_of_assignment.get(i["assignment_id"]) for i in items}
+    archived_by_item = _archived_class_by_item(db, assignments, items)
     fixed = 0
 
     for skill, (table, artifact_kind) in _TEST_ARTIFACTS.items():
@@ -1331,6 +1361,13 @@ def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:
             submitted = _at(at.get("submitted_at"))
             if due and submitted and submitted > due:
                 logger.info("[class] repair skipped, past deadline item=%s", item_id)
+                continue
+            # CLASSARCHIVE-0030 FR-004: no credit for a hand-in at or after the
+            # archive. The submit route refuses it up front; this covers a
+            # submit racing the archive (337 guards only INSERT, and this is
+            # an UPDATE of the item).
+            if cohort_archived_by(archived_by_item.get(item_id), at.get("submitted_at")):
+                logger.info("[class] repair skipped, class archived item=%s", item_id)
                 continue
             try:
                 when = datetime.fromisoformat(at["submitted_at"])
@@ -1388,19 +1425,23 @@ def reconcile_ledger_from_sessions(db, assignment_ids: List[str]) -> int:
     # hoàn thành sau hạn; nếu đường vá sổ này ghi giúp thì lời từ chối kia vô
     # nghĩa và bảng tổng kết lại đổi sau khi đã chốt.
     due_of_assignment: Dict[str, Optional[datetime]] = {}
+    assignment_rows: List[Dict[str, Any]] = []
     for a_chunk in (assignment_ids[i:i + _ID_CHUNK]
                     for i in range(0, len(assignment_ids), _ID_CHUNK)):
-        for a in _paged(db, "class_assignments", "id, due_at",
+        for a in _paged(db, "class_assignments", "id, due_at, cohort_id",
                         lambda q, c=a_chunk: q.in_("id", c)):
             due_of_assignment[a["id"]] = _at(a.get("due_at"))
+            assignment_rows.append(a)
     due_by_item = {i["id"]: due_of_assignment.get(i.get("assignment_id"))
                    for i in items}
+    archived_by_item = _archived_class_by_item(db, assignment_rows, items)
 
     pending = [i["id"] for i in items]
     sessions: List[Dict[str, Any]] = []
     for chunk in (pending[i:i + _ID_CHUNK] for i in range(0, len(pending), _ID_CHUNK)):
         sessions.extend(_paged(
-            db, "sessions", "id, class_assignment_item_id, overall_band, status, completed_at",
+            db, "sessions",
+            "id, class_assignment_item_id, overall_band, status, completed_at, mode",
             lambda q, c=chunk: q.in_("class_assignment_item_id", c).eq("status", "completed"),
         ))
 
@@ -1448,6 +1489,16 @@ def reconcile_ledger_from_sessions(db, assignment_ids: List[str]) -> int:
         due = due_by_item.get(s.get("class_assignment_item_id"))
         if due and submitted_at and submitted_at > due:
             logger.info("[class] repair skipped, past deadline item=%s", item_id)
+            continue
+        # CLASSARCHIVE-0030 FR-004, the rule of `_record_class_submission`: no
+        # credit for a session completed at or after the archive. A Full Test
+        # is exempt like its finaliser (`archive_gated`): finalize-full-test
+        # refused it up front, and its completed_at is the later aggregation.
+        if s.get("mode") != "test_full" and cohort_archived_by(
+            archived_by_item.get(s.get("class_assignment_item_id")), completed_at,
+        ):
+            logger.info("[class] repair skipped, class archived item=%s",
+                        s.get("class_assignment_item_id"))
             continue
         if mark_item_submitted(
             db,

@@ -62,6 +62,7 @@ from services.class_assignment_service import (
     TaskMismatchError,
     validate_class_item_for_test,
 )
+from services.class_archive_service import require_class_attempt_accepts_work
 from routers.admin import require_admin
 from routers.auth import get_supabase_user
 from services.listening_gist_grader import grade_gist_response
@@ -8522,6 +8523,10 @@ async def submit_listening_test_attempt(
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt status không hợp lệ.")
     require_resume_active(attempt)
+    # CLASSARCHIVE-0030 FR-004: an archived class takes no hand-in, also from
+    # an attempt started before the archive. The submitted replay above stays.
+    await asyncio.to_thread(
+        require_class_attempt_accepts_work, supabase_admin, attempt, surface="listening")
 
     # Pull the test's exercises + extract the answer key.
     test_id = attempt["test_id"]

@@ -18,11 +18,14 @@ Every helper here is synchronous; async routes call them through
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import datetime, timezone
 from typing import Any, Mapping, Optional
 
 from fastapi import HTTPException
+
+logger = logging.getLogger(__name__)
 
 ARCHIVE_REASON_MAX = 500
 _ID_CHUNK = 100
@@ -95,6 +98,24 @@ def archived_cohort_ids(db, cohort_ids) -> set:
     return archived
 
 
+def archived_cohort_rows(db, cohort_ids) -> dict:
+    """``{id: row}`` for the archived classes among ``cohort_ids`` (``select("*")``).
+
+    Like ``archived_cohort_ids`` but keeps ``archived_at`` for a clock
+    comparison (``cohort_archived_by``). A DB error propagates.
+    """
+    ids = list(dict.fromkeys(str(value) for value in cohort_ids if value))
+    archived: dict = {}
+    for offset in range(0, len(ids), _ID_CHUNK):
+        rows = (
+            db.table("cohorts").select("*").in_("id", ids[offset:offset + _ID_CHUNK])
+            .execute()
+        ).data or []
+        archived.update((str(row["id"]), row) for row in rows
+                        if isinstance(row, dict) and row.get("id") and is_cohort_archived(row))
+    return archived
+
+
 def cohort_archive_row(db, cohort_id: Optional[str]) -> Optional[dict]:
     """The class row (``select("*")``) or ``None``; a DB error propagates."""
     if not cohort_id:
@@ -135,6 +156,29 @@ def require_class_item_accepts_work(db, item_id: Optional[str], *,
                                     learner: bool = False) -> None:
     """``require_cohort_accepts_work`` for the class of a class assignment item."""
     require_cohort_accepts_work(db, class_item_cohort_id(db, item_id), learner=learner)
+
+
+def require_class_attempt_accepts_work(db, attempt: Mapping[str, Any], *,
+                                       surface: str) -> None:
+    """FR-004 (Variant A) for a class-linked test attempt being handed in.
+
+    An attempt with a ``class_assignment_item_id`` whose class is archived gets
+    the learner 409 ``cohort_archived``, also when it was started before the
+    archive (research.md §5 "Class item start/submit"). A legacy inactive
+    class and an attempt without a class item pass. A failed read refuses
+    with a generic 500 (no DB text): a gate must not open on a failed read.
+    """
+    item_id = attempt.get("class_assignment_item_id")
+    if not item_id:
+        return
+    try:
+        require_class_item_accepts_work(db, item_id, learner=True)
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.error("[%s] class archive check failed attempt=%s: %s",
+                     surface, attempt.get("id"), exc, exc_info=True)
+        raise HTTPException(500, "Lỗi kiểm tra trạng thái lớp. Vui lòng thử lại.") from None
 
 
 def cohort_archived_by(cohort_row: Optional[Mapping[str, Any]], at: Any) -> bool:
