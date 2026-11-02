@@ -5,8 +5,9 @@ export const TOKENS = '/css/aver-design/tokens.css';
 
 // One `{ ok, label }` per criterion, in the order the verifier prints them.
 export function notFoundHtmlChecks(route, status, html) {
-  const stylesheets = html.match(/<link rel="stylesheet"[^>]*>/g) || [];
-  const tokenSheets = stylesheets.filter((tag) => tag.includes(`href="${TOKENS}"`));
+  const stylesheets = (html.match(/<link\b[^>]*>/gi) || [])
+    .filter((tag) => /\srel\s*=\s*(["'])stylesheet\1/i.test(tag));
+  const tokenSheets = stylesheets.filter((tag) => tag.match(/\shref\s*=\s*(["'])(.*?)\1/i)?.[2] === TOKENS);
   return [
     { ok: status === 404, label: `${route}: HTTP 404 (got ${status})` },
     { ok: !html.includes('__next_error__'), label: `${route}: served HTML is not the __next_error__ shell` },
