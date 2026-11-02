@@ -39,6 +39,14 @@ orphaned (PC-J66 F03): it re-takes the expired lease with a compare-and-set on
 Resend answers from its record of the first request if that one got through
 (keys are kept for 24 hours; the last lease is 2 hours). ``attempts`` stays at
 ``MAX_ATTEMPTS`` and the row ends ``sent``, or ``failed`` for ``--requeue``.
+
+Besides the cron, a staff-security route that committed an audit row sends that
+row's alert right after its response (``dispatch_committed``, PC-J102; plan.md
+"Dispatch runs inline right after a committed API change"). It runs the same
+claim and send as ``dispatch_due``, limited to those audit ids, so a cron run at
+the same moment sends nothing twice, and a refused send leaves the row to the
+cron under the usual backoff. Without a transport or a direct connection it
+does nothing and says so once per process.
 """
 
 from __future__ import annotations
@@ -48,9 +56,10 @@ import logging
 import os
 import re
 import uuid
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, Awaitable, Callable, Protocol
+from typing import Any, AsyncIterator, Awaitable, Callable, Iterable, Protocol
 
 logger = logging.getLogger("owner_alerts")
 
@@ -300,6 +309,8 @@ async def send_via_resend(email: Email, *, config: TransportConfig, idempotency_
 
 class OutboxStore(Protocol):
     async def due(self, *, max_attempts: int, limit: int) -> list[dict[str, Any]]: ...
+    async def due_for_audits(self, audit_ids: list[str], *,
+                             max_attempts: int) -> list[dict[str, Any]]: ...
     async def claim(self, row_id: str, attempts: int, lease_seconds: int) -> bool: ...
     async def reclaim_final(self, row_id: str, attempts: int, lease_seconds: int) -> bool: ...
     async def mark_sent(self, row_id: str, attempts: int) -> None: ...
@@ -340,6 +351,13 @@ async def dispatch_due(store: OutboxStore, *, config: TransportConfig | None = N
         logger.warning("owner_alert_transport_unconfigured missing=%s due=%d",
                        summary.missing, len(rows))
         return summary
+    await _send_rows(store, rows, config=config, send=send, summary=summary)
+    return summary
+
+
+async def _send_rows(store: OutboxStore, rows: list[dict[str, Any]], *, config: TransportConfig,
+                     send: Sender, summary: DispatchSummary) -> None:
+    """Claim and send each row once; the one send path of the cron and inline dispatch."""
     for row in rows:
         row_id, seen = str(row["id"]), int(row["attempts"])
         # A due row at MAX_ATTEMPTS is a last attempt that was claimed but never
@@ -371,7 +389,73 @@ async def dispatch_due(store: OutboxStore, *, config: TransportConfig | None = N
             summary.failed += 1
             logger.warning("owner_alert_retry audit_id=%s attempts=%d error=%s",
                            row.get("audit_id"), attempt, error)
+
+
+async def dispatch_audits(store: OutboxStore, audit_ids: Iterable[str | None], *,
+                          config: TransportConfig, send: Sender = send_via_resend) -> DispatchSummary:
+    """Send the due alerts of these audit rows once, by ``dispatch_due``'s rules.
+
+    An id without an outbox row (an event that does not alert) is skipped. A
+    row another dispatcher holds, or already sent, is not sent again."""
+    ids = sorted({str(a) for a in audit_ids if a})
+    summary = DispatchSummary()
+    if not ids:
+        return summary
+    rows = await store.due_for_audits(ids, max_attempts=MAX_ATTEMPTS)
+    summary.due = len(rows)
+    if rows:
+        await _send_rows(store, rows, config=config, send=send, summary=summary)
     return summary
+
+
+# One warning per process for each reason inline dispatch cannot run; the cron
+# reports the same state on every run.
+_inline_skip_logged: set[str] = set()
+
+
+def _log_inline_skip_once(reason: str) -> None:
+    if reason not in _inline_skip_logged:
+        _inline_skip_logged.add(reason)
+        logger.warning("owner_alert_inline_dispatch_skipped %s: the cron sends these alerts", reason)
+
+
+@asynccontextmanager
+async def engine_store(engine: Any, schema: str = "public") -> AsyncIterator["PgOutboxStore"]:
+    """A ``PgOutboxStore`` on one asyncpg connection of the backend's
+    SQLAlchemy engine. The driver connection is used outside any SQLAlchemy
+    transaction, so each statement commits on its own, as on the cron's
+    connection: a claim is visible to the cron before the e-mail is sent."""
+    async with engine.connect() as conn:
+        raw = await conn.get_raw_connection()
+        yield PgOutboxStore(raw.driver_connection, schema)
+
+
+async def dispatch_committed(engine: Any, audit_ids: Iterable[str | None], *,
+                             config: TransportConfig | None = None, send: Sender | None = None,
+                             schema: str = "public") -> DispatchSummary | None:
+    """Background task after a committed staff-security change: send the
+    alerts of ``audit_ids`` now instead of on the next cron run.
+
+    Never raises. Without a transport (no key or recipient) or without the
+    direct connection it touches nothing and logs once per process; any
+    other failure is logged and the rows stay due for the cron."""
+    ids = [str(a) for a in audit_ids if a]
+    if not ids:
+        return None
+    config = config or transport_config()
+    if not config.ready:
+        _log_inline_skip_once("missing=" + ",".join(config.missing))
+        return None
+    if engine is None:
+        _log_inline_skip_once("no_direct_connection")
+        return None
+    try:
+        async with engine_store(engine, schema) as store:
+            return await dispatch_audits(store, ids, config=config, send=send or send_via_resend)
+    except Exception as exc:
+        logger.error("owner_alert_inline_dispatch_failed audit_ids=%s: %s",
+                     ",".join(ids), type(exc).__name__)
+        return None
 
 
 async def send_test_alert(*, config: TransportConfig | None = None,
@@ -408,6 +492,20 @@ class PgOutboxStore:
                  ORDER BY next_attempt_at, created_at
                  LIMIT $2""",
             max_attempts, limit)
+        return [{**dict(r), "id": str(r["id"]), "audit_id": str(r["audit_id"]),
+                 "payload": json.loads(r["payload"])} for r in rows]
+
+    async def due_for_audits(self, audit_ids: list[str], *,
+                             max_attempts: int) -> list[dict[str, Any]]:
+        """``due`` limited to the outbox rows of these audit rows."""
+        rows = await self._conn.fetch(
+            f"""SELECT id, audit_id, event, payload::text AS payload, attempts
+                  FROM {self._table}
+                 WHERE audit_id = ANY($2::uuid[])
+                   AND status <> 'sent' AND next_attempt_at <= now()
+                   AND (attempts < $1 OR status = 'pending')
+                 ORDER BY next_attempt_at, created_at""",
+            max_attempts, list(audit_ids))
         return [{**dict(r), "id": str(r["id"]), "audit_id": str(r["audit_id"]),
                  "payload": json.loads(r["payload"])} for r in rows]
 

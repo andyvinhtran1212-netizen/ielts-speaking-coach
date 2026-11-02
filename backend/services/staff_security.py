@@ -29,6 +29,11 @@ false``, and a revocation failure also writes a ``sessions_revoke_failed``
 audit row and an owner-alert outbox row (FR-008, FR-011). Both rows are
 written in one transaction on the direct connection (PC-J66 F02), so an audit
 row cannot outlive a failed enqueue there.
+
+Once a route has committed, ``schedule_owner_alerts`` hands the audit ids it
+wrote to ``services.owner_alerts.dispatch_committed`` as a background task, so
+the owner's e-mail goes out right after the response rather than on the next
+cron run (FR-011, PC-J102). The response does not wait for it or depend on it.
 """
 
 from __future__ import annotations
@@ -41,8 +46,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Callable, Optional
 
-from fastapi import HTTPException
+from fastapi import BackgroundTasks, HTTPException
 from sqlalchemy import text
+
+from services import owner_alerts
 
 logger = logging.getLogger(__name__)
 
@@ -513,6 +520,20 @@ async def revoke_and_record(
             trigger=trigger, engine=engine, reason=reason, request_id=request_id,
         )
     return outcome, audit_id
+
+
+# ── Owner alerts after the commit (FR-011) ───────────────────────────────────
+
+def schedule_owner_alerts(background_tasks: Optional[BackgroundTasks], engine: Any,
+                          *audit_ids: Optional[str]) -> None:
+    """Send the owner alerts of these committed audit rows after the response.
+    Call it only once the change and its audit rows have committed; an id
+    whose event does not alert has no outbox row and is skipped by the
+    dispatcher. The cron still sends whatever this misses."""
+    ids = [a for a in audit_ids if a]
+    if background_tasks is None or not ids:
+        return
+    background_tasks.add_task(owner_alerts.dispatch_committed, engine, ids)
 
 
 # ── Reads ────────────────────────────────────────────────────────────────────
