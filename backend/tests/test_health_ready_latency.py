@@ -263,12 +263,18 @@ def test_queue_budget_bounds_probes_behind_partially_stalled_pool(monkeypatch, r
     # bounded by queue budget + T instead of draining serially. Each served
     # read stays parked until the test has advanced its 40 ms of virtual time.
     stalled = ("users", *health._CRITICAL_TABLES[:2])
-    stall = LoopGate()
+    # The stalled reads must outlast every step, which under heavy load can
+    # exceed LoopGate's WAIT cap. They park without a cap only off the loop
+    # thread; a read run on the loop returns at once and fails the test.
+    stall, stall_threads, loop_thread = threading.Event(), [], []
     served, lock, closing = [], threading.Lock(), threading.Event()
 
     def pause(table):
         if table in stalled:
-            return stall.park()
+            stall_threads.append(threading.get_ident())
+            if threading.get_ident() not in loop_thread:
+                stall.wait()
+            return None
         with lock:
             if closing.is_set():
                 return None
@@ -287,12 +293,13 @@ def test_queue_budget_bounds_probes_behind_partially_stalled_pool(monkeypatch, r
     assert reads == 7
 
     async def exercise():
+        loop_thread.append(threading.get_ident())
         async with ready_client as client:
             readiness = asyncio.create_task(client.get(
                 "/health/ready", headers={"Authorization": "Bearer test-admin"},
             ))
             try:
-                assert await until(lambda: stall.inside == len(stalled), stop=readiness)
+                assert await until(lambda: len(stall_threads) == len(stalled), stop=readiness)
                 for read in range(reads):
                     assert await until(lambda: len(served) == read + 1, stop=readiness)
                     assert not readiness.done()
@@ -304,11 +311,12 @@ def test_queue_budget_bounds_probes_behind_partially_stalled_pool(monkeypatch, r
                 # No more virtual time passes: the response is due by budget + T.
                 response = await asyncio.wait_for(readiness, WAIT)
                 assert probe_clock.now <= budget + timeout
-                assert not stall.released
+                assert not stall.is_set()
             finally:
+                stall.set()
                 with lock:
                     closing.set()
-                    gates = [stall, *served]
+                    gates = list(served)
                 for gate in gates:
                     gate.release()
                 if not readiness.done():
@@ -316,6 +324,7 @@ def test_queue_budget_bounds_probes_behind_partially_stalled_pool(monkeypatch, r
                 await until(lambda: not health._ready_probe_tasks)
             assert not health._ready_probe_tasks
             assert not any(gate.timed_out for gate in gates)
+            assert len(stall_threads) == len(stalled) and loop_thread[0] not in stall_threads
             body = response.json()
             assert body["status"] == "degraded"
             assert body["checks"]["database"] == {"status": "fail", "error": "probe timed out"}
@@ -451,7 +460,8 @@ def test_curated_lookup_is_threaded_and_bounded(monkeypatch, ready_client, probe
     asyncio.run(exercise())
 
 
-def test_anonymous_burst_reuses_status_until_ttl_expires(monkeypatch, ready_client):
+def test_anonymous_burst_reuses_status_until_ttl_expires(monkeypatch, ready_client, probe_clock):
+    # Virtual time stands still, so no probe can hit its timeout under load.
     database = SlowDatabase(delay=0.01)
     monkeypatch.setattr(health, "supabase_admin", database)
 
@@ -601,7 +611,9 @@ def test_ten_monitor_requests_in_one_second_share_one_refresh(monkeypatch, ready
 
 @pytest.mark.parametrize("first_admin", [False, True])
 @pytest.mark.parametrize("error_table", [None, "users", "sessions"])
-def test_cached_status_preserves_admin_anonymous_contract(monkeypatch, ready_client, first_admin, error_table):
+def test_cached_status_preserves_admin_anonymous_contract(
+    monkeypatch, ready_client, probe_clock, first_admin, error_table,
+):
     database = SlowDatabase(error_table=error_table)
     monkeypatch.setattr(health, "supabase_admin", database)
 
