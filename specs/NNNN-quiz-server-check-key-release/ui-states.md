@@ -1,0 +1,19 @@
+# UI state matrix
+
+Copy in Vietnamese is a proposal; CM reviews wording before build.
+
+| Surface | Loading | Empty | Success | Error/retry | Permission | Responsive/theme/a11y |
+| --- | --- | --- | --- | --- | --- | --- |
+| Self-study player, one answer (`quiz-player.tsx`) | After a choice/Kiểm tra: options and input disabled, button shows "Đang chấm…", `aria-busy="true"` on the card, a polite live region says "Đang chấm". No right/wrong colour yet. | N/A (a question is always present while answering) | Verdict arrives: same feedback block as today (✓/✗, "Đáp án đúng: …", "Đáp án chuẩn: …" for a typo match, explanation, 📖 link); colours from `res.answer`/`res.accept`; focus moves to the feedback heading as today; progress bar updates only now. | Network error, 5xx, or no reply after 15 s: "Chưa chấm được câu này. Kiểm tra mạng rồi bấm Thử lại." + button "Thử lại" (re-sends the same `client_id`); answer stays selected, not graded, cannot move on. 409 session ended: "Phiên này đã kết thúc ở tab khác." + "Tải lại" (refetch canonical progress). 422 unknown question: "Câu hỏi đã thay đổi. Tải lại bài." + "Tải lại". | 404/401: existing sign-in/ownership handling (redirect to /login or "Không tìm thấy bài"). | Buttons ≥ 44 px; live region announces verdict; state readable in light/dark (no colour-only signal: ✓/✗ glyphs kept); Enter on text input does nothing while pending. |
+| Self-study "Ôn tập lại" (review, FR-016) | Same pending state as above. | — | Answered-before question: same feedback block. | 409 `review_needs_attempt`: "Câu này chưa có lượt làm chính nên chưa chấm trong ôn tập." + "Câu tiếp"; no colours, no key. Network error: as above. | as above | as above |
+| Self-study end-of-session review | Built from received verdicts; no extra request. | "🎉 Không sai câu nào trong phiên này." (unchanged) | Rows as today, correct text from verdicts. | A question whose verdict never arrived is listed as "Chưa chấm" without a correct answer. | — | Unchanged |
+| Course single_attempt review after hand-in, before release | Existing review loading skeleton. | — | Score card as today + notice: "Bạn đã nộp bài. Đáp án từng câu sẽ mở sau 21:00, 15/11/2026 (hạn nộp của lớp)." or, without a deadline, "Đáp án từng câu sẽ mở khi cả lớp đã nộp bài." No per-question rows. | Report read error: existing "Không tải được bài làm" + "Thử lại". | Not handed in: existing sealed state (unchanged). | Notice is text, not colour; date in dd/mm/yyyy HH:mm (UTC+7). |
+| Course single_attempt review after release | as today | as today | Full per-question review (unchanged). | as today | as today | unchanged |
+| Course mastery verdict (`course-runner.js`) | Existing "Đang xét kết quả…" | — | Unchanged | On `verdict_sessions_incomplete`: runner re-posts once with the returned ids, silently. A second 422: "Chưa xét được kết quả. Tải lại trang để đồng bộ bài làm." + "Tải lại". | — | Unchanged |
+| Admin/teacher class homework, Course item row | as today | as today | Adds "Số phiên: N · Số lần trả lời: M" next to the verdict. | Missing ledger counts (older verdicts): shows "—", never 0. | Teacher/admin only (unchanged guards). | Text, fits the existing row on mobile. |
+
+Canonical data: the stored attempt is the truth; the player never shows a
+verdict it did not receive. A reload mid-session restores progress from
+`/resume` (word_stats) as today; an answer whose verdict never arrived is
+not counted. Pending state survives no reload (the question is re-asked or
+re-sent from the outbox with the same `client_id`).
