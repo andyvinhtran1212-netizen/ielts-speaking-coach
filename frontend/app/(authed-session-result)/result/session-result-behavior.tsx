@@ -6,12 +6,14 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { getAuthMeProfile, subscribeAuthMeProfile } from '@/lib/auth/auth-me-single-flight.mjs';
 import { getSessionAudioUrls, getSessionDetail } from '@/lib/session-api';
 import { admitCorePlayer } from '@/lib/core-player-affinity.mjs';
 import {
@@ -950,7 +952,7 @@ function QuestionAccordion({
   });
 }
 
-function ResultContent({ view, requestKey }: { view: any; requestKey: string }) {
+function ResultContent({ view, requestKey, vocabBankEnabled }: { view: any; requestKey: string; vocabBankEnabled: boolean }) {
   const [toast, setToast] = useState<ToastState>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [retryBusy, setRetryBusy] = useState(false);
@@ -1155,9 +1157,11 @@ function ResultContent({ view, requestKey }: { view: any; requestKey: string }) 
           <div className="ds-section-head" style={{ marginBottom: 8 }}>Band tổng quan</div>
           <BandValue className="ds-band-value" value={view.overall} />
           <div className="ds-band-label">Overall Band Score</div>
-          <p className="text-xs mt-2" style={{ color: 'var(--av-text-secondary)' }}>
-            Band ước tính: do AI chấm, không phải điểm thi IELTS chính thức.
-          </p>
+          {formatBand(view.overall) !== '—' ? (
+            <p className="text-xs mt-2" style={{ color: 'var(--av-text-secondary)' }}>
+              Band ước tính: do AI chấm, không phải điểm thi IELTS chính thức.
+            </p>
+          ) : null}
         </div>
         {view.reliabilityNote ? (
           <div className="ds-warning-banner mb-4" role="status">
@@ -1217,7 +1221,7 @@ function ResultContent({ view, requestKey }: { view: any; requestKey: string }) 
         </div>
       </section>
 
-      <PendingVocabPanel onToast={showToast} requestKey={requestKey} />
+      {vocabBankEnabled ? <PendingVocabPanel onToast={showToast} requestKey={requestKey} /> : null}
 
       <div className="flex flex-wrap gap-3 justify-center pb-8">
         <button className="btn-primary result-icon-btn" disabled={pdfBusy} onClick={downloadPdf} type="button">
@@ -1256,6 +1260,11 @@ function ResultContent({ view, requestKey }: { view: any; requestKey: string }) 
 
 export function SessionResultBehavior() {
   const { status, user } = useAuth();
+  const vocabBankEnabled = useSyncExternalStore(
+    subscribeAuthMeProfile,
+    () => status === 'signed-in' && getAuthMeProfile(user?.id || null)?.vocab_bank_enabled === true,
+    () => false,
+  );
   const searchParams = useSearchParams();
   const sessionId = searchParams?.get('id')?.trim()
     || searchParams?.get('session_id')?.trim()
@@ -1372,7 +1381,7 @@ export function SessionResultBehavior() {
       />
       {loading ? <LoadingFrame>Đang tải kết quả…</LoadingFrame> : null}
       {error ? <ErrorState message={error} /> : null}
-      {result ? <ResultContent key={requestKey || ''} requestKey={requestKey || ''} view={result} /> : null}
+      {result ? <ResultContent key={requestKey || ''} requestKey={requestKey || ''} view={result} vocabBankEnabled={vocabBankEnabled} /> : null}
     </>
   );
 }
