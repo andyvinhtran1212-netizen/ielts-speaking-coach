@@ -160,6 +160,14 @@ as its own step:
    written resolution of existing planted objects, TEMP/other-schema risks
    and un-actable defaults. No owner-execution path may remain unaddressed.
 
+5. Migration 341 and its follow-up 341b (group `admin_aal2`) stay off
+   production until 357 is applied on production and its read-only
+   postcheck shows no API role with CREATE on schema `public` (Vinh,
+   2026-11-02, answering Q-J357-4). While service_role can create objects
+   in `public`, it can plant a `public.jsonb_build_object` overload that
+   341's SECURITY DEFINER functions resolve to. A DRY_RUN that lists 341 or
+   341b for production before that postcheck passes stops the promotion.
+
 No production write probes. If production has `supabase_admin` default ACLs
 the runner cannot change (expected, as for 320), file the Supabase-support
 request with the exact ALTER DEFAULT PRIVILEGES text from the migration's

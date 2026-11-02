@@ -56,3 +56,9 @@ prod via normal promote. Migration 357 (PC-J365, job 1h1) is
 PUBLIC`, keeping USAGE, applied before 358. The table-privilege migration of
 FR-001…FR-008 (T001) keeps the placeholder `NNN` until the Leader numbers
 it.
+
+Q-J357-4, answered by Vinh on 2026-11-02 in the Claude Code session that
+reviewed this PR: 341 (already applied on staging) and 341b reach production
+only after 357 is applied on production and its postcheck passes. The gate
+is step 5 of the Production section in [rollout.md](rollout.md). Vinh also
+confirmed in that session that he gave the t1246u approval recorded above.

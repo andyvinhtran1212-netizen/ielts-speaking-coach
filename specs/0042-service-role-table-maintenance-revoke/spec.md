@@ -438,7 +438,9 @@ UTC+7): Q-J357-1 is answered (spec approved, FR-001…FR-010, see
 [approval-decision.md](approval-decision.md)). Q-J357-2 is settled by the
 approved FR-001, which makes every `public` relation mandatory. Q-J357-3
 stays a blocking gate for production promotion and closing P2-SA-1.
-Q-J357-4 was not part of the t1246u batch.
+Q-J357-4 was not part of the t1246u batch; Vinh answered it on 2026-11-02:
+341 and 341b wait for 357 on production (gate in `rollout.md`, Production
+step 5).
 
 - **Q-J357-1 (duyệt FR):** Anh duyệt SVCPRIV-0042 FR-001…FR-009 không?
   (FR-010 đã được anh Vinh duyệt riêng ngày 2026-10-30 22:13 UTC+7, "FR010
