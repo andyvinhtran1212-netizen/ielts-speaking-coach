@@ -349,7 +349,7 @@ export function CourseBehavior() {
       // nạp này xong (khôi phục từ localStorage, hoặc mạng chậm) — lúc ấy một
       // cờ `false` làm nút "Làm phần tự luận" biến mất vĩnh viễn cho tới khi
       // học viên tự tải lại trang và thắng cuộc đua (codex #935).
-      const writingLoaded = writing.load(bankId, runner.reviewOnly ? requestedItem : null)
+      const writingLoaded = writing.load(bankId, sectionAssignmentItem)
         .then(() => { writingReady = true; })
         .catch(() => { writingReady = false; });
 
