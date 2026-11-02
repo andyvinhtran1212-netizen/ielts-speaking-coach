@@ -42,6 +42,70 @@ async function geometry(page) {
     return [selector, { top: r.top, height: r.height }];
   })));
 }
+async function dialogTabScroll(page, report, problems) {
+  const strip = page.locator('.wd-tabs');
+  const size = await strip.evaluate(el => ({ width: el.clientWidth, scrollWidth: el.scrollWidth }));
+  assert.ok(size.scrollWidth > size.width, `PC-J438 requires overflowing tabs: ${JSON.stringify(size)}`);
+  report.dialogScroll = [];
+  await page.evaluate(() => {
+    window.__layoutBackCalls = 0;
+    const back = history.back.bind(history);
+    history.back = () => { window.__layoutBackCalls++; back(); };
+  });
+  for (const [tab, cardSelector] of [['tips', '#tips-list [data-tip-id]'], ['prompt-bank', '[data-pb-id]']]) {
+    await page.locator('#tab-' + tab).evaluate(el => el.click());
+    await page.locator(cardSelector).first().waitFor();
+    await frames(page);
+    // Native scroll snapping puts Tips at zero and the clipped Prompt bank at
+    // the next positive snap point. Keep production snapping enabled.
+    const left = tab === 'tips' ? 0 : 100;
+    for (const entry of ['owned', 'missing-content', 'missing-library']) {
+      for (const control of ['X', 'Escape']) {
+        await page.evaluate(left => { window.scrollTo(0, 400); document.querySelector('.wd-tabs').scrollLeft = left; }, left);
+        await frames(page);
+        const top = await page.evaluate(() => scrollY);
+        if (tab === 'tips') assert.ok(top > 100, 'PC-J438 exercises a vertically scrolled library');
+        // DOM click leaves both scroll positions under application control.
+        await page.locator(cardSelector).first().evaluate(el => el.click());
+        await page.waitForFunction(() => document.getElementById('tip-modal').dataset.contentState === 'ready');
+        await frames(page);
+        assert.equal(await page.evaluate(() => scrollY), top, 'opening content keeps vertical scroll (PC-J431)');
+        if (entry !== 'owned') {
+          await page.evaluate(({ entry, left }) => {
+            const state = { ...history.state };
+            delete state[entry === 'missing-content' ? 'averWritingContentV1' : 'averWritingLibraryV1'];
+            history.replaceState(state, '', location.href);
+            // Opening also reveals the tab. Reset the strip to isolate the close
+            // branch with an active tab outside the learner's chosen position.
+            document.querySelector('.wd-tabs').scrollLeft = left;
+          }, { entry, left });
+          await frames(page);
+          assert.ok(await page.evaluate(tab => {
+            const item = document.querySelector('#tab-' + tab).getBoundingClientRect();
+            const strip = document.querySelector('.wd-tabs').getBoundingClientRect();
+            return item.left < strip.left - 1 || item.right > strip.right + 1;
+          }, tab), 'fallback starts with the active tab clipped, so reconcile would move the strip');
+        }
+        const before = await strip.evaluate(el => ({ left: el.scrollLeft, top: scrollY, back: window.__layoutBackCalls }));
+        if (tab === 'prompt-bank') assert.ok(before.left > 0, 'prompt-bank exercises a positive scrollLeft');
+        if (control === 'X') await page.locator('#tip-modal-close').evaluate(el => el.click());
+        else await page.keyboard.press('Escape');
+        await page.waitForFunction(tab => location.search === '?tab=' + tab && document.getElementById('tip-modal').classList.contains('hidden'), tab);
+        await frames(page);
+        const after = await strip.evaluate(el => ({ left: el.scrollLeft, top: scrollY, back: window.__layoutBackCalls }));
+        const sample = { tab, entry, control, size, before, after };
+        report.dialogScroll.push(sample);
+        console.log(`PC-J438 ${report.name} ${JSON.stringify(sample)}`);
+        assert.equal(after.back - before.back, entry === 'owned' ? 1 : 0, 'close uses the expected history branch');
+        if (Math.abs(after.left - before.left) > 1) problems.push(`${tab}/${entry}/${control}: scrollLeft ${before.left} -> ${after.left}`);
+        if (Math.abs(after.top - before.top) > 1) problems.push(`${tab}/${entry}/${control}: scrollY ${before.top} -> ${after.top}`);
+      }
+    }
+  }
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.locator('#tab-assignments').evaluate(el => el.click());
+  await frames(page);
+}
 try {
   for (const width of [375, 390, 1280].filter(w => !widthFilter || w === widthFilter)) {
     for (const theme of ['light', 'dark']) {
@@ -114,7 +178,10 @@ try {
                 return route.fulfill(json({ enabled: true, prompts: [{ id: 'prompt-1', title: 'Fixture prompt',
                   prompt_text: 'Discuss learning English.', task_type: 'task2' }] }));
               }
-              if (url.pathname === '/api/writing/tips') return route.fulfill(json({ tips: [] }));
+              if (url.pathname === '/api/writing/tips') return route.fulfill(json({ tips: Array.from({ length: 30 }, (_, i) => ({
+                id: `layout-tip-${i}`, title: `Fixture tip ${i}`, body_markdown: 'Synthetic tip body.',
+                task_type: 'task_2', content_type: 'tip', type_data: {},
+              })) }));
             }
           }
           // Instrumentation is intercepted too: it never reaches a backend.
@@ -230,6 +297,7 @@ try {
           if (tabs.overflow && (!['end', 'both'].includes(tabs.hint) || !tabs.endGradient.includes('gradient') || tabs.endOpacity !== '1')) {
             problems.push('overflowing tabs have no visible end affordance');
           }
+          if (width === 375 && permitted && kind === 'assigned') await dialogTabScroll(page, report, problems);
           // DOM click avoids Playwright's automatic scroll masking a missing
           // application scrollIntoView when selecting the clipped tab.
           const scrollY = await page.evaluate(() => window.scrollY);
