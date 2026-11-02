@@ -189,6 +189,24 @@ run the catalog query in the SQL header (client false/false, service true, no
 PUBLIC `=X`), then view admin overview/trends and check backend logs for RPC
 42501/fallback. No staging or production application is part of this code job.
 
+Migration `357` (mig 357, PC-J365/1h1, SVCPRIV-0042 FR-009; not the PC-J357
+spec ticket #2060) runs `REVOKE CREATE ON SCHEMA public FROM service_role,
+anon, authenticated, PUBLIC`. API roles keep USAGE, and the schema owner can
+still create. API roles get explicit CRUD/USAGE grants and never schema CREATE:
+with CREATE, a role could plant a `pg_catalog`-shadowing overload, such as
+`public.lower(varchar)` or `public.has_table_privilege(text,text,text)`, that
+owner-run definers and migration DO blocks then execute as the owner. The
+postconditions raise on any CREATE entry left for these grantees (naming the
+grantor), on effective CREATE (including inherited or SET ROLE membership),
+and on any `public` function or operator named like a `pg_catalog` one outside
+the empty allowlist. They report the remaining CREATE grants and the API-owned
+`public` routines. It is a no-op on production (no CREATE there, Leader read
+2026-10-30). The down in `rollback/357_public_schema_create_revoke.sql` is a
+documented no-op: restoring CREATE needs a new spec. Group
+`public_schema_create_revoke` is `pending_feature` (merge KHÔNG áp): staging
+first under the advisory lock, before 358; production only at a Vinh-approved
+promotion, before 341/341b.
+
 Migration `352` (PC-J201, ADMINAAL2-0032 FR-010/FR-011, SA #1936 P3 c–f)
 adds the private `staff_mfa_status_throttle` table for shared admission to the
 caller-only MFA status sweep: successful-state cooldown, six rolling-minute
