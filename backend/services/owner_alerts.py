@@ -401,6 +401,11 @@ async def dispatch_audits(store: OutboxStore, audit_ids: Iterable[str | None], *
     summary = DispatchSummary()
     if not ids:
         return summary
+    if not config.ready:
+        # As in dispatch_due: nothing is read or claimed, no attempt is spent.
+        summary.unconfigured = True
+        summary.missing = ",".join(config.missing)
+        return summary
     rows = await store.due_for_audits(ids, max_attempts=MAX_ATTEMPTS)
     summary.due = len(rows)
     if rows:

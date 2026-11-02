@@ -282,6 +282,16 @@ class TestFailuresStayWithTheCron:
                            "the cron sends these alerts"]
         assert toa.KEY not in caplog.text
 
+    def test_dispatch_audits_without_a_transport_reads_and_spends_nothing(self, db, transport):
+        table = TableStore(db)
+        _pending_alert(db, table)
+        config = oa.transport_config({"OWNER_ALERT_EMAILS": OWNER, "RESEND_API_KEY": ""})
+        summary = asyncio.run(oa.dispatch_audits(table, ["audit-1"], config=config))
+        assert (summary.unconfigured, summary.missing, summary.due) == (True, "RESEND_API_KEY", 0)
+        [row] = _outbox(db)
+        assert (row["status"], row.get("attempts", 0)) == ("pending", 0)
+        assert transport.calls == []
+
     def test_without_the_direct_connection_nothing_is_sent_and_it_is_logged_once(
             self, transport, caplog):
         with caplog.at_level(logging.WARNING, logger="owner_alerts"):
