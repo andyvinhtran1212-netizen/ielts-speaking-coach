@@ -83,7 +83,7 @@ Lặp *"I think..."* hoặc *"The government..."* có thể gây đơn điệu k
 
 ## Tại sao quan trọng
 
-Writing xét **Coherence and Cohesion**; Speaking xét **Fluency and Coherence**. Cả hai xét **Grammatical Range and Accuracy**. Thay đổi phần mở câu có thể giúp tổ chức ý, nhưng riêng cách mở câu không chứng minh phạm vi hay độ chính xác ngữ pháp. Đánh giá sự phù hợp, mạch lạc và cấu trúc trên toàn bài, không suy trần band từ một kiểu mở câu.
+Writing xét **Coherence and Cohesion**; Speaking xét **Fluency and Coherence**. Cả hai xét **Grammatical Range and Accuracy**. Thay đổi phần mở câu có thể giúp tổ chức ý, nhưng riêng cách mở câu không chứng minh phạm vi hay độ chính xác ngữ pháp. Đánh giá sự phù hợp, mạch lạc và cấu trúc trên toàn bài, không suy ra band chỉ từ một kiểu mở câu.
 
 ---
 
@@ -133,7 +133,7 @@ Câu chẻ vừa đa dạng cấu trúc vừa nhấn mạnh ý.
 - I love the freedom. → **What I love most is** the freedom.
 - Practice improved my speaking. → **It was** consistent practice **that** improved my speaking.
 
-> Xem thêm bài **Cleft Sentences** để dùng "What... is..." và "It is... that..." cho đúng.
+> Xem thêm bài [Cleft Sentences](/grammar/sentence-structures/cleft-sentences) để dùng "What... is..." và "It is... that..." cho đúng.
 
 ---
 
@@ -169,6 +169,7 @@ Thay vì mở mọi câu Part 3 bằng "I think", luân phiên:
 | I think... (again) | Personally, ... / Honestly, ... |
 
 **Part 3 example (đa dạng mở câu):**
+
 - "**Personally,** I think social media has real benefits. **For my generation,** it's the main way we stay in touch. **That said,** it's not all positive — **what worries me most is** how much time people spend scrolling. **Honestly,** I think balance is the key."
 
 ---
@@ -179,7 +180,7 @@ Thay vì mở mọi câu Part 3 bằng "I think", luân phiên:
 *"The government should invest in education. The government also needs to fund healthcare. The government must reduce taxes."*
 
 **Sau (đa dạng):**
-*“**Investing in education** is something the government should do. **It also needs to** fund healthcare. **Reducing taxes** is something it must do.”*
+*"Investing in education is something the government should do. **In addition,** the state needs to fund healthcare, and **reducing taxes** is something it must also do."*
 
 Giữ tác nhân, chính sách và mức should/needs to/must; phát triển thêm lập luận là bước khác.
 
@@ -193,7 +194,7 @@ Giữ tác nhân, chính sách và mức should/needs to/must; phát triển th�
 - ❌ "I think... I think... I think..." / "The X... The X... The X..."
 - Khi lặp gây đơn điệu, thử giữ, gộp hoặc đổi một chỗ theo ý nghĩa; không có số kiểu mở câu tối thiểu bắt buộc.
 
-### Lựa chọn dấu phẩy sau trạng ngữ đầu câu
+### Lỗi 2: Dấu phẩy sau trạng ngữ đầu câu (tuỳ chọn)
 
 - **In recent years online learning has grown** có thể không dùng dấu phẩy sau trạng ngữ ngắn khi câu vẫn rõ.
 - **In recent years, online learning has grown** cũng đúng. Dấu phẩy giúp thể hiện ranh giới; cân nhắc độ dài, độ rõ nghĩa và quy ước văn phong, không bắt buộc với mọi trạng ngữ.
@@ -241,7 +242,8 @@ Giữ tác nhân, chính sách và mức should/needs to/must; phát triển th�
 | Đổi chủ ngữ | Something I... / Exercise, for me, ... |
 
 **Quy tắc vàng:**
-- Không lặp cùng một kiểu mở câu quá 2 lần liên tiếp
+
+- Khi một kiểu mở câu lặp đến mức đơn điệu, đổi một vài câu theo ý nghĩa.
 - Speaking: luân phiên "I think / In my view / Honestly / What strikes me is..."
 - Writing: tránh chuỗi "The X... The X..."; đưa trạng ngữ hoặc V-ing lên đầu
 - Đa dạng tự nhiên, đừng gượng ép cấu trúc phức vào mọi câu

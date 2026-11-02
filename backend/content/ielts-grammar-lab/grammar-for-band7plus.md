@@ -73,7 +73,7 @@ anchors:
     location: "## Phần 6: Hedging Language — Diễn đạt thận trọng"
     type: section
   - id: grammar-for-band7plus.high-leverage.varying-sentence-openings
-    location: "## PHẦN 4: ĐẶT TRẠNG NGỮ LÊN ĐẦU CÂU (Fronting)"
+    location: "## PHẦN 12: ĐẶT TRẠNG NGỮ LÊN ĐẦU CÂU (Fronting)"
     type: section
   - id: grammar-for-band7plus.cross-reference.core-topics
     location: "## Tóm tắt nhanh — Cấu trúc nâng cao"
@@ -94,7 +94,7 @@ Thí sinh Band 6-6.5 thường biết ngữ pháp cơ bản nhưng thiếu **gra
 <!-- anchor: grammar-for-band7plus.range.complex-structures -->
 ## Phần 1: Inversion — Đảo ngữ để nhấn mạnh
 
-Đảo ngữ là đưa phần phụ (thường là trạng từ phủ định hoặc hạn chế) lên đầu câu, kéo trợ động từ lên trước chủ ngữ. Cấu trúc này rất phổ biến trong văn học thuật tiếng Anh.
+Đảo ngữ là đưa phần phụ (thường là trạng từ phủ định hoặc hạn chế) lên đầu câu, kéo trợ động từ lên trước chủ ngữ. Cấu trúc này trang trọng và nên dùng có chọn lọc.
 
 ### Inversion với trạng từ phủ định
 
@@ -344,8 +344,8 @@ V3 + ..., S + V
 Noun + V-ing/V3, S + V
 ```
 
-- **The population ageing rapidly**, governments must rethink pension systems.
-- **All things considered**, the benefits of globalisation outweigh the drawbacks.
+- **With the population ageing rapidly**, governments must rethink pension systems.
+- **All things considered**, the benefits of globalisation outweigh the drawbacks. *(All things considered là cụm cố định.)*
 - **The data having been collected**, researchers could begin their analysis.
 
 ---
@@ -355,12 +355,15 @@ Noun + V-ing/V3, S + V
 ### Introduction — đa dạng cách mở bài
 
 **Cleft sentence:**
+
 - **It is the question of** how to balance economic growth with environmental sustainability **that** lies at the heart of this debate.
 
 **Inversion:**
+
 - **Rarely has** a generation faced the combination of challenges — technological disruption, climate change, and economic inequality — **that** confronts young people today.
 
 **Gerund phrase làm chủ ngữ:**
+
 - **Determining the most effective approach** to reducing poverty **requires** an understanding of both structural and individual factors.
 
 ### Body paragraph — đa dạng cấu trúc
@@ -372,9 +375,11 @@ Các cấu trúc trong đoạn này: Not only...but also (inversion), what-cleft
 ### Conclusion — cấu trúc đa dạng
 
 **Mixed conditional:**
+
 - **Had more attention been paid** to these warning signs decades ago, the current situation **would arguably be** far less severe.
 
 **Gerund + noun phrase:**
+
 - **Addressing these interconnected challenges** demands **not only political will** but **also a fundamental shift** in how societies value long-term sustainability over short-term gain.
 
 ---
@@ -385,6 +390,7 @@ Các cấu trúc trong đoạn này: Not only...but also (inversion), what-cleft
 ### Lỗi 1: Inversion không đúng ngữ cảnh
 
 Inversion cần trợ động từ — không phải đảo vị trí động từ chính:
+
 - ❌ Never the government acts quickly enough.
 - ✅ **Never does the government act** quickly enough.
 
@@ -396,6 +402,7 @@ Inversion cần trợ động từ — không phải đảo vị trí động t�
 ### Lỗi 3: Participle clause sai chủ ngữ
 
 Chủ ngữ của participle clause phải giống chủ ngữ của mệnh đề chính:
+
 - ❌ Walking down the street, the buildings were very tall.
   *(ai đang đi? Không phải "the buildings")*
 - ✅ Walking down the street, **I noticed** that the buildings were very tall.
@@ -445,6 +452,7 @@ Cấu trúc nâng cao phải phục vụ ý nghĩa — không phải thể hiệ
 | **Hedging** | appears to, tends to, arguably | Thận trọng học thuật |
 
 **Nguyên tắc thực hành:**
+
 - **Không cần** nhồi nhét mọi cấu trúc vào — 2-3 cấu trúc phức tạp dùng đúng tốt hơn 10 cấu trúc dùng sai
 - Cấu trúc phục vụ **ý nghĩa**, không phải ngược lại
 - Inversion và cleft sentences đặc biệt hiệu quả ở **câu mở bài** và **câu chủ đề đoạn**
@@ -456,7 +464,7 @@ Cấu trúc nâng cao phải phục vụ ý nghĩa — không phải thể hiệ
 Các cấu trúc dưới đây giúp luyện phạm vi diễn đạt trong IELTS Speaking. Chỉ dùng khi chúng phục vụ ý nghĩa và bạn kiểm soát được độ chính xác; không có cấu trúc nào tự bảo đảm tăng band.
 
 
-## PHẦN 1: THAY THẾ "I THINK"
+## PHẦN 9: THAY THẾ "I THINK"
 
 Dùng "I think" không phải lỗi và không có ngưỡng năm lần tự động mất điểm. Nếu lặp thừa làm câu trả lời khó theo dõi, thử giữ, lược bỏ hoặc đổi cách diễn đạt theo chức năng; không cần thay mọi lần dùng. Một số lựa chọn:
 
@@ -483,7 +491,7 @@ Dùng "I think" không phải lỗi và không có ngưỡng năm lần tự đ�
 
 ---
 
-## PHẦN 2: THAY THẾ "I ALSO..."
+## PHẦN 10: THAY THẾ "I ALSO..."
 
 "I also" là cách bổ sung ý phổ biến nhưng rất lặp. Thay bằng:
 
@@ -507,13 +515,13 @@ Dùng "I think" không phải lỗi và không có ngưỡng năm lần tự đ�
 
 ---
 
-## PHẦN 3: THAY THẾ "IT IS..." / "THERE IS..."
+## PHẦN 11: THAY THẾ "IT IS..." / "THERE IS..."
 
 ### Thay "It is + adj":
 
 | ❌ Lặp | ✅ Thay thế |
 |-------|-----------|
-| It is important | This is a crucial point / **Importance** is rarely disputed / What matters here is... |
+| It is important | This is a crucial point / **What matters here is…** / **X plays a vital role in…** |
 | It is interesting | **What's interesting** is that... / **Interestingly,** |
 | It is obvious | **Clearly,** / **Obviously,** / **This is evident from...** |
 | It is difficult | **The challenge here is** / **Difficulty arises when...** |
@@ -530,7 +538,7 @@ Dùng "I think" không phải lỗi và không có ngưỡng năm lần tự đ�
 ---
 
 <!-- anchor: grammar-for-band7plus.high-leverage.varying-sentence-openings -->
-## PHẦN 4: ĐẶT TRẠNG NGỮ LÊN ĐẦU CÂU (Fronting)
+## PHẦN 12: ĐẶT TRẠNG NGỮ LÊN ĐẦU CÂU (Fronting)
 
 Đây là kỹ thuật đơn giản nhất để đa dạng hóa: thay vì luôn bắt đầu bằng chủ ngữ, đặt trạng ngữ thời gian, địa điểm, hoặc hoàn cảnh lên đầu:
 
@@ -560,7 +568,7 @@ Dùng "I think" không phải lỗi và không có ngưỡng năm lần tự đ�
 
 ---
 
-## PHẦN 5: CÁC MỞ ĐẦU CÂU ĐA DẠNG THEO CHỨC NĂNG
+## PHẦN 13: CÁC MỞ ĐẦU CÂU ĐA DẠNG THEO CHỨC NĂNG
 
 ### Để nhấn mạnh:
 
@@ -591,7 +599,7 @@ Dùng "I think" không phải lỗi và không có ngưỡng năm lần tự đ�
 
 ---
 
-## PHẦN 6: ÁP DỤNG VÀO SPEAKING PART 2
+## PHẦN 14: ÁP DỤNG VÀO SPEAKING PART 2
 
 ### ❌ Bài trả lời monotonous:
 
@@ -599,19 +607,20 @@ Dùng "I think" không phải lỗi và không có ngưỡng năm lần tự đ�
 
 ### ✅ Bài trả lời đa dạng cách mở đầu:
 
-> "I'd like to talk about a trip to Đà Lạt that I took with my family a few years ago. **Nestled in the Central Highlands,** the city has a cool, misty atmosphere that feels completely different from the heat of Ho Chi Minh City. **What really struck me** was the scenery — rolling hills covered in pine trees and flower fields stretching as far as the eye could see. **On top of that,** the food was incredible; I had a bowl of Bánh Canh that I still think about sometimes. **All in all,** it was one of those trips that reminds you why travelling is so worthwhile."
+> "I'd like to talk about a trip to Đà Lạt that I took with my family a few years ago. **Nestled in the Central Highlands,** the city has a cool, misty atmosphere that feels completely different from the heat of Ho Chi Minh City. **What really struck me** was the scenery — rolling hills covered in pine trees and flower fields stretching as far as the eye could see. **On top of that,** the food was incredible; I had a bowl of bánh canh that I still think about sometimes. **All in all,** it was one of those trips that reminds you why travelling is so worthwhile."
 
 ---
 
-## Lỗi thường gặp
+## Lỗi thường gặp (Speaking)
 
 ### Lỗi 1: Bắt đầu 4-5 câu liên tiếp bằng "I"
 
 - ❌ "I like cooking. I think it's relaxing. I usually cook on weekends. I make Vietnamese food."
 - ✅ "I really enjoy cooking — **personally**, I find it one of the most relaxing things I can do. **Most weekends**, I try to set aside time to prepare Vietnamese dishes, which I grew up eating."
 
-### Lỗi 2: Bắt đầu bằng "Also" ở đầu câu (informal, awkward)
+### Lỗi 2: Lạm dụng *Also* ở đầu câu trong Writing
 
+- ❌ *Also, education is important. Also, …*
 - ✅ “**Also**, I think education is important.” *(thêm vào quan điểm vừa nêu; lựa chọn đúng khi có ngữ cảnh)*
 - ✅ "**In addition,** education plays a fundamental role..." / "**Education is also** a critical factor..."
 
@@ -622,7 +631,7 @@ Dùng "I think" không phải lỗi và không có ngưỡng năm lần tự đ�
 
 ### Lỗi 4: Bắt đầu câu bằng "Because" mà không có mệnh đề chính
 
-- ❌ "**Because** technology is changing fast." *(câu thiếu — xem bài sentence-fragments)*
+- ❌ "**Because** technology is changing fast." *(câu thiếu — xem bài [Sentence Fragments](/grammar/error-clinic/sentence-fragments))*
 - ✅ "**Because** technology is changing so fast, many traditional skills are becoming obsolete."
 
 ---
