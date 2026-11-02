@@ -18,11 +18,14 @@ Every helper here is synchronous; async routes call them through
 
 from __future__ import annotations
 
+import re
+from datetime import datetime, timezone
 from typing import Any, Mapping, Optional
 
 from fastapi import HTTPException
 
 ARCHIVE_REASON_MAX = 500
+_ID_CHUNK = 100
 
 COHORT_ARCHIVED_CODE = "cohort_archived"
 # research.md §4.1 — one message per audience.
@@ -74,6 +77,69 @@ def cohort_accepts_work(db, cohort_id: Optional[str]) -> bool:
     return not (rows and is_cohort_archived(rows[0]))
 
 
+def archived_cohort_ids(db, cohort_ids) -> set:
+    """The subset of ``cohort_ids`` that are archived classes (legacy ones are not).
+
+    ``select("*")`` for the same pre-337 tolerance as ``cohort_accepts_work``.
+    A DB error propagates.
+    """
+    ids = list(dict.fromkeys(str(value) for value in cohort_ids if value))
+    archived: set = set()
+    for offset in range(0, len(ids), _ID_CHUNK):
+        rows = (
+            db.table("cohorts").select("*").in_("id", ids[offset:offset + _ID_CHUNK])
+            .execute()
+        ).data or []
+        archived.update(str(row["id"]) for row in rows
+                        if isinstance(row, dict) and row.get("id") and is_cohort_archived(row))
+    return archived
+
+
+def cohort_archive_row(db, cohort_id: Optional[str]) -> Optional[dict]:
+    """The class row (``select("*")``) or ``None``; a DB error propagates."""
+    if not cohort_id:
+        return None
+    rows = (
+        db.table("cohorts").select("*").eq("id", str(cohort_id)).limit(1).execute()
+    ).data or []
+    return rows[0] if rows and isinstance(rows[0], dict) else None
+
+
+def require_cohort_accepts_work(db, cohort_id: Optional[str], *, learner: bool = False) -> None:
+    """Raise the 409 ``cohort_archived`` when ``cohort_id`` names an archived class."""
+    if not cohort_accepts_work(db, cohort_id):
+        raise cohort_archived_error(learner=learner)
+
+
+def archive_finish_allowed(assignment: Mapping[str, Any],
+                           cohort_row: Optional[Mapping[str, Any]]) -> bool:
+    """D3: a timed Writing give started before the archive may still be finished.
+
+    True only for an archived class, a timed give, not yet submitted, whose
+    ``started_at`` is strictly before ``cohorts.archived_at``.
+    """
+    if not is_cohort_archived(cohort_row) or assignment.get("submitted_at"):
+        return False
+    if not assignment.get("is_timed"):
+        return False
+    started = _parse_ts(assignment.get("started_at"))
+    archived = _parse_ts(cohort_row.get("archived_at"))
+    return bool(started and archived and started < archived)
+
+
+def _parse_ts(value: Any) -> Optional[datetime]:
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, str) and value.strip():
+        try:
+            parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    else:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
 # ── 409 mapping ──────────────────────────────────────────────────────────
 
 def cohort_archived_error(*, learner: bool = False) -> HTTPException:
@@ -84,11 +150,25 @@ def cohort_archived_error(*, learner: bool = False) -> HTTPException:
     })
 
 
+# The guards ``RAISE EXCEPTION 'cohort_archived'`` (P0001, DETAIL = class id).
+# Match that message, not the token anywhere in the text (#2203 review P3-4):
+# PostgREST's error dict, or a psql/psycopg "ERROR:  cohort_archived" line.
+_GUARD_TEXT = re.compile(
+    r"""['"]message['"]\s*:\s*['"]cohort_archived['"]"""
+    r"""|(?m:^(?:.*\bERROR:\s+)?cohort_archived\s*$)"""
+)
+
+
 def is_cohort_archived_error(exc: BaseException) -> bool:
     """True for the ``cohort_archived`` raise of the 337/346 guards."""
     if isinstance(exc, HTTPException):
         return False
-    return COHORT_ARCHIVED_CODE in str(exc)
+    message = getattr(exc, "message", None)
+    if isinstance(message, str):
+        # postgrest APIError: the structured fields are authoritative.
+        return (message.strip() == COHORT_ARCHIVED_CODE
+                and getattr(exc, "code", None) in (None, "P0001"))
+    return bool(_GUARD_TEXT.search(str(exc)))
 
 
 def raise_if_cohort_archived(exc: BaseException, *, learner: bool = False) -> None:

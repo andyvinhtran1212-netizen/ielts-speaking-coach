@@ -20,6 +20,7 @@ time disagrees with reality the moment an admin moves a deadline.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 from urllib.parse import quote
@@ -50,6 +51,7 @@ from services.writing_give_status import (
     writing_result_path,
     writing_review_state,
 )
+from services.class_archive_service import cohort_accepts_work, cohort_archived_error
 from services.class_membership_service import (
     active_cohort_ids_for_student,
     student_is_active_in_cohort,
@@ -664,7 +666,13 @@ async def my_assignments(authorization: str | None = Header(default=None)):
     if not student:
         return {"has_class": False, "assignments": []}
 
-    cohort_ids = active_cohort_ids_for_student(supabase_admin, student)
+    # Archived classes are omitted (CLASSARCHIVE-0030 FR-001). A failed archive
+    # lookup is an error, not "no class": both answers it could give are untrue.
+    try:
+        cohort_ids = active_cohort_ids_for_student(supabase_admin, student)
+    except Exception as exc:
+        logger.error("[class] my assignments class read failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tải bài tập. Vui lòng thử lại.") from None
     if not cohort_ids:
         return {"has_class": False, "assignments": []}
 
@@ -742,6 +750,20 @@ async def start_assignment(
     ):
         raise HTTPException(404, "Bạn không còn thuộc lớp đã giao bài này")
 
+    # Lớp đã lưu trữ (CLASSARCHIVE-0030 FR-004, Variant A): mọi lối XEM LẠI bài
+    # đã xong vẫn mở, còn mọi lối LÀM TIẾP hay BẮT ĐẦU đều nhận 409. Chỉ hỏi
+    # trạng thái lớp ở những lối cần, để một lượt đọc lớp hỏng không chặn việc
+    # xem lại kết quả. Lớp lưu trữ cũ (chưa áp dụng) vẫn nhận bài như trước.
+    async def refuse_if_class_archived() -> None:
+        try:
+            accepts = await asyncio.to_thread(
+                cohort_accepts_work, supabase_admin, assignment.get("cohort_id"))
+        except Exception as exc:
+            logger.error("[class] class archive state read failed item=%s: %s", item_id, exc)
+            raise HTTPException(500, "Không mở được bài tập. Vui lòng thử lại.") from None
+        if not accepts:
+            raise cohort_archived_error(learner=True)
+
     # Bài Speaking ĐÃ CÓ phiên thì mở lại CHÍNH phiên ấy — kể cả khi đã quá hạn.
     #
     # Trước đây mỗi lần bấm "Làm bài" là dựng một phiên MỚI, nên bài vừa nói
@@ -752,6 +774,9 @@ async def start_assignment(
     # phiếu làm bài (đọc `class_task.accepting` từ chính hàm này).
     existing = _existing_speaking_session(item_id, auth_user["id"]) \
         if skill == "speaking" else None
+    if existing and existing["status"] != "completed":
+        # Mở lại phiên đang dở là làm tiếp bài, không phải xem lại.
+        await refuse_if_class_archived()
     if existing:
         response = {
             "item_id":       item_id,
@@ -856,6 +881,10 @@ async def start_assignment(
             "skill": "grammar",
             "grammar_lesson_path": f"/grammar-lessons/assigned?assignment_item={quote(item_id)}",
         }
+
+    # Every lane above only reads finished work; from here on the learner starts
+    # or continues work, which an archived class no longer accepts.
+    await refuse_if_class_archived()
 
     # 409, not 404: the task exists and is theirs — it simply lapsed. Saying "not
     # found" would read as a bug to a student looking straight at it on the list.
@@ -1036,12 +1065,22 @@ async def my_class(
     if not student:
         return {"has_class": False}
 
-    cohort_ids = active_cohort_ids_for_student(supabase_admin, student)
-    if not cohort_ids:
-        return {"has_class": False}
-
     now = datetime.now(timezone.utc)
     degraded: list[str] = []
+
+    # Archived classes are omitted (CLASSARCHIVE-0030 FR-001). When the class
+    # read behind that filter fails, the page keeps its "a broken class query
+    # still lists work" contract: it falls back to every active membership and
+    # says so through `degraded: ["class"]` instead of claiming "chưa có lớp".
+    try:
+        cohort_ids = active_cohort_ids_for_student(supabase_admin, student)
+    except Exception as exc:
+        logger.warning("[class] archived-class filter read failed: %s", exc)
+        cohort_ids = await asyncio.to_thread(
+            active_cohort_ids_for_student, supabase_admin, student, include_archived=True)
+        degraded.append("class")
+    if not cohort_ids:
+        return {"has_class": False}
 
     cohorts: list[Dict[str, Any]] = []
     try:
@@ -1064,7 +1103,8 @@ async def my_class(
             str(row.get("id")) != primary, (row.get("name") or "").casefold()))
     except Exception as exc:
         logger.warning("[class] cohort read failed: %s", exc)
-        degraded.append("class")
+        if "class" not in degraded:
+            degraded.append("class")
         cohorts = [{"id": cohort_id, "name": None, "description": None,
                     "course_id": None, "course": None}
                    for cohort_id in cohort_ids]
