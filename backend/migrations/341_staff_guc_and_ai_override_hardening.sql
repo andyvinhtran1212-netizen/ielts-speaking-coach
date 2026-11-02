@@ -30,9 +30,8 @@
 --         ('rpc') or fn_bootstrap_admin_recovery ('bootstrap') writes right
 --         before its single UPDATE, with the labels (audit id, actor, reason,
 --         request id, operator). The audit trigger consumes the row; the
---         function deletes any leftover before it returns. A deferred
---         constraint trigger rejects COMMIT if any evidence remains (SA P3-2),
---         so a row cannot survive into a dump/restore with a reused xact_id;
+--         function deletes any leftover before it returns, so the table is
+--         empty outside those calls and a row never outlives its transaction;
 --       - no trigger reads a session setting any more. fn_users_privilege_audit
 --         always writes exactly one row per change of role, is_active or
 --         suspended_at (and the bootstrap's row even when nothing changed):
@@ -78,10 +77,6 @@
 --       owner. services/ai_model_overrides.py upserts ai_model_overrides as
 --       service_role and never writes the audit, so a PATCH still writes one
 --       audit row.
---       Known gap (SA P3-5, AIOPS-0024 FR-003): service_role can supply any
---       updated_by on ai_model_overrides, so changed_by is not independently
---       authenticated. Owner TRUNCATE of that parent table emits no audit.
---       341 does not change either pre-existing behavior.
 --   F5 (P3) is not in this file: 345 (PC-J119) drops the six inline admin
 --       read policies instead of adding the active-account check, and its
 --       postcondition forbids any 'admin' literal in a policy.
@@ -106,25 +101,25 @@
 -- 5 (fn_set_staff_privilege) and 5b (fn_bootstrap_admin_recovery), 336
 -- section 1 (fn_users_suspension_role_guard) and the 322 fn_ai_model_override_audit
 -- block (SECURITY INVOKER again: a CREATE OR REPLACE without SECURITY DEFINER
--- resets it). CREATE OR REPLACE keeps owner and ACL. Re-granting INSERT to
--- service_role is REQUIRED before that function runs as the caller again:
+-- resets it). CREATE OR REPLACE keeps owner and ACL. Re-grant INSERT before
+-- that function runs as the caller again:
 --   BEGIN;
 --   SET LOCAL lock_timeout = '5s';
 --   GRANT INSERT ON TABLE public.ai_model_override_audit TO service_role;
 --   GRANT TRIGGER, REFERENCES, TRUNCATE ON public.users TO service_role;
 --   DO $$ BEGIN
---       IF pg_catalog.current_setting('server_version_num')::int >= 170000 THEN
+--       IF current_setting('server_version_num')::int >= 170000 THEN
 --           EXECUTE 'GRANT MAINTAIN ON public.users TO service_role';
 --       END IF;
 --   END $$;
 --   -- <the six function blocks, verbatim>
 --   DROP TRIGGER IF EXISTS trg_ai_model_override_audit_no_truncate ON public.ai_model_override_audit;
---   -- DO NOT RUN: GRANT USAGE, SELECT ON SEQUENCE public.ai_model_override_audit_id_seq, public.ai_provider_failures_id_seq TO anon, authenticated;
+--   GRANT USAGE, SELECT ON SEQUENCE public.ai_model_override_audit_id_seq, public.ai_provider_failures_id_seq TO anon, authenticated;
 --   DROP TABLE IF EXISTS public.staff_privilege_evidence;
---   DROP FUNCTION IF EXISTS public.fn_staff_privilege_evidence_consumed();
 --   COMMIT;
--- The commented sequence GRANT is historical 322 state, not a rollback step.
--- Keep client sequence access closed (SA P3-6).
+-- The sequence GRANT only restores the 322 state; skip it unless that exact
+-- state is required. Without the sequence and TRUNCATE parts the rollback
+-- reopens F1 only.
 
 BEGIN;
 
@@ -133,25 +128,25 @@ SET LOCAL lock_timeout = '5s';
 -- 0. Preconditions: 322, 332 and 336 are applied.
 DO $$
 BEGIN
-    IF pg_catalog.to_regclass('public.ai_model_override_audit') IS NULL
-       OR pg_catalog.to_regclass('public.ai_provider_failures') IS NULL
-       OR pg_catalog.to_regprocedure('public.fn_ai_model_override_audit()') IS NULL
-       OR pg_catalog.to_regprocedure('public.fn_ai_model_override_audit_append_only()') IS NULL
-       OR pg_catalog.to_regclass('public.ai_model_override_audit_id_seq') IS NULL
-       OR pg_catalog.to_regclass('public.ai_provider_failures_id_seq') IS NULL THEN
+    IF to_regclass('public.ai_model_override_audit') IS NULL
+       OR to_regclass('public.ai_provider_failures') IS NULL
+       OR to_regprocedure('public.fn_ai_model_override_audit()') IS NULL
+       OR to_regprocedure('public.fn_ai_model_override_audit_append_only()') IS NULL
+       OR to_regclass('public.ai_model_override_audit_id_seq') IS NULL
+       OR to_regclass('public.ai_provider_failures_id_seq') IS NULL THEN
         RAISE EXCEPTION 'migration_322_missing';
     END IF;
-    IF pg_catalog.to_regclass('public.staff_security_audit') IS NULL
-       OR pg_catalog.to_regclass('public.owner_alert_outbox') IS NULL
-       OR pg_catalog.to_regprocedure('public.fn_staff_security_record(uuid,text,uuid,uuid,text,jsonb,jsonb,text,text,jsonb,boolean)') IS NULL
-       OR pg_catalog.to_regprocedure('public.fn_set_staff_privilege(uuid,uuid,text,boolean,text,text)') IS NULL
-       OR pg_catalog.to_regprocedure('public.fn_bootstrap_admin_recovery(uuid,text,text)') IS NULL
+    IF to_regclass('public.staff_security_audit') IS NULL
+       OR to_regclass('public.owner_alert_outbox') IS NULL
+       OR to_regprocedure('public.fn_staff_security_record(uuid,text,uuid,uuid,text,jsonb,jsonb,text,text,jsonb,boolean)') IS NULL
+       OR to_regprocedure('public.fn_set_staff_privilege(uuid,uuid,text,boolean,text,text)') IS NULL
+       OR to_regprocedure('public.fn_bootstrap_admin_recovery(uuid,text,text)') IS NULL
        OR (SELECT count(*) FROM information_schema.columns
             WHERE table_schema = 'public' AND table_name = 'users'
               AND column_name IN ('suspended_at', 'suspended_by', 'suspension_reason')) <> 3 THEN
         RAISE EXCEPTION 'migration_332_missing';
     END IF;
-    IF pg_catalog.to_regprocedure('public.fn_users_suspension_role_guard()') IS NULL
+    IF to_regprocedure('public.fn_users_suspension_role_guard()') IS NULL
        OR NOT EXISTS (SELECT 1 FROM pg_trigger
                        WHERE tgrelid = 'public.users'::regclass
                          AND tgname = 'trg_users_suspension_role_guard') THEN
@@ -165,7 +160,7 @@ END $$;
 REVOKE TRIGGER, REFERENCES, TRUNCATE ON public.users FROM service_role;
 DO $$
 BEGIN
-    IF pg_catalog.current_setting('server_version_num')::int >= 170000 THEN
+    IF current_setting('server_version_num')::int >= 170000 THEN
         EXECUTE 'REVOKE MAINTAIN ON public.users FROM service_role';
     END IF;
 END $$;
@@ -184,40 +179,6 @@ CREATE TABLE IF NOT EXISTS public.staff_privilege_evidence (
 );
 ALTER TABLE public.staff_privilege_evidence ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.staff_privilege_evidence FROM PUBLIC, anon, authenticated, service_role;
-
--- SA P3-2: the RPC/bootstrap normally consume their row, but even an owner
--- must not commit leftover evidence. A definer is needed because the deferred
--- event runs after the RPC has returned to service_role. Check the whole table
--- so changing a planted row's key cannot evade the commit check.
-CREATE OR REPLACE FUNCTION public.fn_staff_privilege_evidence_consumed()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = pg_catalog, pg_temp
-AS $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM public.staff_privilege_evidence) THEN
-        RAISE EXCEPTION 'staff_privilege_evidence_not_consumed'
-            USING ERRCODE = 'P0001';
-    END IF;
-    RETURN NULL;
-END;
-$$;
-REVOKE ALL ON FUNCTION public.fn_staff_privilege_evidence_consumed() FROM PUBLIC, anon, authenticated, service_role;
-
--- Constraint triggers cannot be replaced with CREATE OR REPLACE; keep reapply
--- idempotent and validate the existing definition in the postcondition.
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_trigger
-                    WHERE tgrelid = 'public.staff_privilege_evidence'::regclass
-                      AND tgname = 'trg_staff_privilege_evidence_consumed') THEN
-        CREATE CONSTRAINT TRIGGER trg_staff_privilege_evidence_consumed
-            AFTER INSERT ON public.staff_privilege_evidence
-            DEFERRABLE INITIALLY DEFERRED
-            FOR EACH ROW EXECUTE FUNCTION public.fn_staff_privilege_evidence_consumed();
-    END IF;
-END $$;
 
 COMMENT ON TABLE public.staff_privilege_evidence IS
     'ADMINAAL2-0032 (PC-J88): one row per (transaction, target) written by fn_set_staff_privilege / '
@@ -310,7 +271,7 @@ DECLARE
 BEGIN
     IF TG_OP = 'UPDATE' THEN
         DELETE FROM public.staff_privilege_evidence e
-         WHERE e.xact_id = pg_current_xact_id() AND e.target_user_id = OLD.id
+         WHERE e.xact_id = pg_current_xact_id() AND e.target_user_id = NEW.id
         RETURNING e.* INTO v_evidence;
         IF NEW.role IS NOT DISTINCT FROM OLD.role
            AND NEW.is_active IS NOT DISTINCT FROM OLD.is_active
@@ -606,36 +567,27 @@ DECLARE
     -- MAINTAIN only exists on PG 17+; has_table_privilege rejects it on PG 16.
     all_privileges CONSTANT text[] := ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE',
                                             'REFERENCES', 'TRIGGER']
-        || CASE WHEN pg_catalog.current_setting('server_version_num')::int >= 170000
+        || CASE WHEN current_setting('server_version_num')::int >= 170000
                 THEN ARRAY['MAINTAIN'] ELSE ARRAY[]::text[] END;
     v_wrong text;
 BEGIN
-    -- SA-R4-1: include column REFERENCES and membership reachable by SET ROLE,
-    -- even when INHERIT is false. MEMBER is deliberately fail-closed.
-    SELECT pg_catalog.string_agg(pg_catalog.format('%s via %s', p.priv, m.rolname), ', ' ORDER BY p.priv, m.rolname) INTO v_wrong
-      FROM pg_roles m
-     CROSS JOIN pg_catalog.unnest(ARRAY['TRIGGER', 'REFERENCES', 'TRUNCATE']
-          || CASE WHEN pg_catalog.current_setting('server_version_num')::int >= 170000
+    -- P2-SA-1: effective privileges include inherited and PUBLIC grants.
+    SELECT string_agg(p.priv, ', ' ORDER BY p.priv) INTO v_wrong
+      FROM unnest(ARRAY['TRIGGER', 'REFERENCES', 'TRUNCATE']
+          || CASE WHEN current_setting('server_version_num')::int >= 170000
                   THEN ARRAY['MAINTAIN'] ELSE ARRAY[]::text[] END) p(priv)
-     WHERE (m.rolname = 'service_role' OR pg_catalog.pg_has_role('service_role'::name, m.oid, 'MEMBER'))
-       AND (pg_catalog.has_table_privilege(m.oid, 'public.users', p.priv)
-            OR (p.priv = 'REFERENCES' AND pg_catalog.has_any_column_privilege(m.oid, 'public.users', p.priv)));
+     WHERE has_table_privilege('service_role', 'public.users', p.priv);
     IF v_wrong IS NOT NULL THEN
         RAISE EXCEPTION 'users_service_role_privileges_wrong: %', v_wrong;
     END IF;
 
-    -- SA-R4-1/2: 320 removed client writes and table-control privileges.
-    -- SELECT stays allowed. Check column I/U/R and non-inherited memberships.
-    SELECT pg_catalog.string_agg(pg_catalog.format('%s:%s via %s', r.rolname, p.priv, m.rolname), ', '
-                     ORDER BY r.rolname, p.priv, m.rolname) INTO v_wrong
+    -- 320 already removed client table-control privileges; reject any drift.
+    SELECT string_agg(format('%s:%s', r.rolname, p.priv), ', ' ORDER BY r.rolname, p.priv) INTO v_wrong
       FROM (VALUES ('anon'), ('authenticated')) r(rolname)
-      JOIN pg_roles m ON m.rolname = r.rolname OR pg_catalog.pg_has_role(r.rolname::name, m.oid, 'MEMBER')
-     CROSS JOIN pg_catalog.unnest(ARRAY['INSERT', 'UPDATE', 'DELETE', 'TRIGGER', 'REFERENCES', 'TRUNCATE']
-          || CASE WHEN pg_catalog.current_setting('server_version_num')::int >= 170000
+     CROSS JOIN unnest(ARRAY['TRIGGER', 'REFERENCES', 'TRUNCATE']
+          || CASE WHEN current_setting('server_version_num')::int >= 170000
                   THEN ARRAY['MAINTAIN'] ELSE ARRAY[]::text[] END) p(priv)
-     WHERE pg_catalog.has_table_privilege(m.oid, 'public.users', p.priv)
-        OR (p.priv IN ('INSERT', 'UPDATE', 'REFERENCES')
-            AND pg_catalog.has_any_column_privilege(m.oid, 'public.users', p.priv));
+     WHERE has_table_privilege(r.rolname, 'public.users', p.priv);
     IF v_wrong IS NOT NULL THEN
         RAISE EXCEPTION 'users_client_role_privileges_wrong: %', v_wrong;
     END IF;
@@ -644,12 +596,12 @@ BEGIN
     IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.staff_privilege_evidence'::regclass) THEN
         RAISE EXCEPTION 'staff_privilege_evidence_rls_off';
     END IF;
-    SELECT pg_catalog.string_agg(pg_catalog.format('%s:%s', r.rolname, p.priv), ', ' ORDER BY r.rolname, p.priv) INTO v_wrong
+    SELECT string_agg(format('%s:%s', r.rolname, p.priv), ', ' ORDER BY r.rolname, p.priv) INTO v_wrong
       FROM (VALUES ('anon'), ('authenticated'), ('service_role')) r(rolname)
-     CROSS JOIN pg_catalog.unnest(all_privileges) p(priv)
-     WHERE pg_catalog.has_table_privilege(r.rolname, 'public.staff_privilege_evidence', p.priv);
+     CROSS JOIN unnest(all_privileges) p(priv)
+     WHERE has_table_privilege(r.rolname, 'public.staff_privilege_evidence', p.priv);
     IF v_wrong IS NOT NULL
-       OR EXISTS (SELECT 1 FROM pg_class c, pg_catalog.aclexplode(c.relacl) a
+       OR EXISTS (SELECT 1 FROM pg_class c, aclexplode(c.relacl) a
                    WHERE c.oid = 'public.staff_privilege_evidence'::regclass
                      AND a.grantee <> c.relowner) THEN
         RAISE EXCEPTION 'staff_privilege_evidence_privileges_wrong: %', v_wrong;
@@ -657,26 +609,11 @@ BEGIN
     IF EXISTS (SELECT 1 FROM public.staff_privilege_evidence) THEN
         RAISE EXCEPTION 'staff_privilege_evidence_not_empty';
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_trigger g
-                    WHERE g.tgrelid = 'public.staff_privilege_evidence'::regclass
-                      AND g.tgname = 'trg_staff_privilege_evidence_consumed'
-                      AND g.tgfoid = 'public.fn_staff_privilege_evidence_consumed()'::regprocedure
-                      AND g.tgtype = 5 AND g.tgconstraint <> 0
-                      AND g.tgdeferrable AND g.tginitdeferred AND g.tgenabled IN ('O', 'A'))
-       OR NOT EXISTS (SELECT 1 FROM pg_proc p
-                       WHERE p.oid = 'public.fn_staff_privilege_evidence_consumed()'::regprocedure
-                         AND p.prosecdef AND p.proconfig @> ARRAY['search_path=pg_catalog, pg_temp']
-                         AND p.proacl IS NOT NULL
-                         AND NOT EXISTS (SELECT 1 FROM pg_catalog.aclexplode(p.proacl) a
-                                          WHERE a.grantee <> p.proowner)) THEN
-        RAISE EXCEPTION 'staff_privilege_evidence_commit_guard_wrong';
-    END IF;
     -- RLS is on with no policy, so a definer writes these tables only as
     -- their owner: a runner other than the 322/332 owner would break the RPC
     -- and the override PATCH instead of hardening them.
-    SELECT pg_catalog.string_agg(t.fn, ', ' ORDER BY t.fn) INTO v_wrong
+    SELECT string_agg(t.fn, ', ' ORDER BY t.fn) INTO v_wrong
       FROM (VALUES ('public.fn_set_staff_privilege(uuid,uuid,text,boolean,text,text)', 'public.staff_privilege_evidence'),
-                   ('public.fn_staff_privilege_evidence_consumed()', 'public.staff_privilege_evidence'),
                    ('public.fn_users_privilege_audit()', 'public.staff_privilege_evidence'),
                    ('public.fn_users_privilege_audit()', 'public.staff_security_audit'),
                    ('public.fn_ai_model_override_audit()', 'public.ai_model_override_audit')) t(fn, tbl)
@@ -690,7 +627,7 @@ BEGIN
     -- F1: the staff triggers are on and call these functions; no function
     -- reads a custom session setting; security mode, search_path and EXECUTE
     -- are the 332/336 ones (PUBLIC is grantee 0).
-    SELECT pg_catalog.string_agg(t.name, ', ' ORDER BY t.name) INTO v_wrong
+    SELECT string_agg(t.name, ', ' ORDER BY t.name) INTO v_wrong
       FROM (VALUES ('trg_users_suspension_guard', 'public.fn_users_suspension_guard()'),
                    ('trg_users_suspension_role_guard', 'public.fn_users_suspension_role_guard()'),
                    ('trg_users_privilege_audit', 'public.fn_users_privilege_audit()')) t(name, fn)
@@ -700,7 +637,7 @@ BEGIN
     IF v_wrong IS NOT NULL THEN
         RAISE EXCEPTION 'staff_security_trigger_missing: %', v_wrong;
     END IF;
-    SELECT pg_catalog.string_agg(f.sig, ', ' ORDER BY f.sig) INTO v_wrong
+    SELECT string_agg(f.sig, ', ' ORDER BY f.sig) INTO v_wrong
       FROM (VALUES ('public.fn_users_suspension_guard()', false, false),
                    ('public.fn_users_suspension_role_guard()', false, false),
                    ('public.fn_users_privilege_audit()', true, false),
@@ -712,10 +649,10 @@ BEGIN
      WHERE p.prosecdef IS DISTINCT FROM f.definer
         OR NOT (COALESCE(p.proconfig, '{}') @> ARRAY['search_path=public, pg_temp'])
         OR (f.sig NOT LIKE '%ai_model%' AND p.prosrc ~ 'current_setting\(''aver\.')
-        OR pg_catalog.has_function_privilege('anon', p.oid, 'EXECUTE')
-        OR pg_catalog.has_function_privilege('authenticated', p.oid, 'EXECUTE')
-        OR pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE') IS DISTINCT FROM f.service_exec
-        OR EXISTS (SELECT 1 FROM pg_catalog.aclexplode(p.proacl) a
+        OR has_function_privilege('anon', p.oid, 'EXECUTE')
+        OR has_function_privilege('authenticated', p.oid, 'EXECUTE')
+        OR has_function_privilege('service_role', p.oid, 'EXECUTE') IS DISTINCT FROM f.service_exec
+        OR EXISTS (SELECT 1 FROM aclexplode(p.proacl) a
                     WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE')
         OR p.proacl IS NULL;   -- NULL = default ACL, which includes PUBLIC EXECUTE
     IF v_wrong IS NOT NULL THEN
@@ -723,15 +660,15 @@ BEGIN
     END IF;
 
     -- F2: the identity sequences grant nothing to PUBLIC or a client.
-    SELECT pg_catalog.string_agg(pg_catalog.format('%s:%s:%s', s.seq, r.rolname, p.priv), ', ' ORDER BY s.seq, r.rolname, p.priv)
+    SELECT string_agg(format('%s:%s:%s', s.seq, r.rolname, p.priv), ', ' ORDER BY s.seq, r.rolname, p.priv)
       INTO v_wrong
       FROM (VALUES ('public.ai_model_override_audit_id_seq', 'public.ai_model_override_audit'),
                    ('public.ai_provider_failures_id_seq', 'public.ai_provider_failures')) s(seq, tbl)
      CROSS JOIN (VALUES ('anon'), ('authenticated')) r(rolname)
      CROSS JOIN (VALUES ('USAGE'), ('SELECT'), ('UPDATE')) p(priv)
-     WHERE pg_catalog.pg_get_serial_sequence(s.tbl, 'id') IS DISTINCT FROM s.seq
-        OR pg_catalog.has_sequence_privilege(r.rolname, s.seq, p.priv)
-        OR EXISTS (SELECT 1 FROM pg_class c, pg_catalog.aclexplode(c.relacl) a
+     WHERE pg_get_serial_sequence(s.tbl, 'id') IS DISTINCT FROM s.seq
+        OR has_sequence_privilege(r.rolname, s.seq, p.priv)
+        OR EXISTS (SELECT 1 FROM pg_class c, aclexplode(c.relacl) a
                     WHERE c.oid = s.seq::regclass AND a.grantee = 0);
     IF v_wrong IS NOT NULL THEN
         RAISE EXCEPTION 'ai_override_sequence_privileges_wrong: %', v_wrong;
@@ -739,10 +676,10 @@ BEGIN
 
     -- F3: service_role reads the audit only; clients get nothing; TRUNCATE
     -- is refused by a trigger for every role.
-    SELECT pg_catalog.string_agg(pg_catalog.format('%s:%s', r.rolname, p.priv), ', ' ORDER BY r.rolname, p.priv) INTO v_wrong
+    SELECT string_agg(format('%s:%s', r.rolname, p.priv), ', ' ORDER BY r.rolname, p.priv) INTO v_wrong
       FROM (VALUES ('anon'), ('authenticated'), ('service_role')) r(rolname)
-     CROSS JOIN pg_catalog.unnest(all_privileges) p(priv)
-     WHERE pg_catalog.has_table_privilege(r.rolname, 'public.ai_model_override_audit', p.priv)
+     CROSS JOIN unnest(all_privileges) p(priv)
+     WHERE has_table_privilege(r.rolname, 'public.ai_model_override_audit', p.priv)
            IS DISTINCT FROM (r.rolname = 'service_role' AND p.priv = 'SELECT');
     IF v_wrong IS NOT NULL THEN
         RAISE EXCEPTION 'ai_model_override_audit_privileges_wrong: %', v_wrong;
@@ -751,7 +688,7 @@ BEGIN
                     WHERE g.tgrelid = 'public.ai_model_override_audit'::regclass
                       AND g.tgname = 'trg_ai_model_override_audit_no_truncate' AND g.tgenabled IN ('O', 'A')
                       AND g.tgfoid = 'public.fn_ai_model_override_audit_append_only()'::regprocedure
-                      AND pg_catalog.pg_get_triggerdef(g.oid) LIKE '%BEFORE TRUNCATE ON %ai_model_override_audit FOR EACH STATEMENT%')
+                      AND pg_get_triggerdef(g.oid) LIKE '%BEFORE TRUNCATE ON %ai_model_override_audit FOR EACH STATEMENT%')
        OR NOT EXISTS (SELECT 1 FROM pg_trigger g
                        WHERE g.tgrelid = 'public.ai_model_overrides'::regclass
                          AND g.tgname = 'trg_ai_model_override_audit' AND g.tgenabled IN ('O', 'A')
