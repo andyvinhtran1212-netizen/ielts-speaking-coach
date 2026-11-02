@@ -16,6 +16,7 @@ from routers import admin_writing_assignments as assignments
 from routers import admin_writing_cohorts as cohorts
 from routers import admin_writing_prompts as prompts
 from routers import admin_writing_regrade as regrade
+from tests.loop_gate import WAIT, LoopGate, until
 
 
 _ADMIN = {"id": "00000000-0000-0000-0000-000000000001", "email": "admin@example.test"}
@@ -27,16 +28,16 @@ _ASSIGNMENT = "00000000-0000-4000-8000-000000000006"
 
 
 class _Call:
-    def __init__(self, name, result, calls, *, delay=0):
-        self.name, self.result, self.calls, self.delay = name, result, calls, delay
-        self.started = threading.Event()
-        self.finished = threading.Event()
+    """Records each call; with ``park=True`` it waits in a LoopGate until released."""
+
+    def __init__(self, name, result, calls, *, park=False):
+        self.name, self.result, self.calls = name, result, calls
+        self.gate = LoopGate() if park else None
 
     def __call__(self, *args, **kwargs):
         self.calls.append((self.name, threading.get_ident()))
-        self.started.set()
-        time.sleep(self.delay)
-        self.finished.set()
+        if self.gate is not None:
+            self.gate.park()
         return self.result
 
 
@@ -52,25 +53,29 @@ def _app(module):
 
 
 def _with_ping(module, call, method, path, **kwargs):
+    gate = call.gate
+
     async def run():
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=_app(module)), base_url="http://test",
         ) as client:
             loop_thread = threading.get_ident()
-            start = time.perf_counter()
             slow = asyncio.create_task(client.request(method, path, **kwargs))
-            while not call.started.is_set() and not slow.done():
-                await asyncio.sleep(0.001)
-            ping = await client.get("/ping")
-            elapsed = time.perf_counter() - start
-            still_running = not call.finished.is_set()
-            response = await slow
-        return loop_thread, ping, elapsed, still_running, response
+            try:
+                entered = await until(lambda: gate.inside >= 1, stop=slow)
+                # The slow call is parked: I/O on the loop thread would hold
+                # /ping until the gate's WAIT.
+                ping = await asyncio.wait_for(client.get("/ping"), WAIT)
+                still_running = entered and not slow.done() and not gate.released
+            finally:
+                gate.release()
+            response = await asyncio.wait_for(slow, WAIT)
+        return loop_thread, ping, entered, still_running, response
 
-    loop_thread, ping, elapsed, still_running, response = asyncio.run(run())
+    loop_thread, ping, entered, still_running, response = asyncio.run(run())
     assert ping.status_code == 200
-    assert call.started.is_set(), response.text
-    assert elapsed < 0.2, f"light request waited {elapsed:.3f}s behind admin Writing I/O"
+    assert entered, response.text
+    assert not gate.timed_out, "the admin Writing I/O ran on the event loop"
     assert still_running, "light request must finish during the slow I/O"
     assert all(thread != loop_thread for _, thread in call.calls)
     return response
@@ -80,7 +85,7 @@ def test_upload_image_does_not_block_loop(monkeypatch):
     calls = []
     result = {"url": "https://example.test/chart.png", "public_id": "prompts/chart.png",
               "width": None, "height": None}
-    upload = _Call("upload", result, calls, delay=0.5)
+    upload = _Call("upload", result, calls, park=True)
     monkeypatch.setattr(prompts, "require_admin", AsyncMock(return_value=_ADMIN))
     monkeypatch.setattr(prompts, "upload_prompt_image", upload)
     response = _with_ping(
@@ -93,7 +98,7 @@ def test_upload_image_does_not_block_loop(monkeypatch):
 
 def test_fan_out_to_cohort_does_not_block_loop_and_keeps_receipt_roster_rpc_order(monkeypatch):
     calls = []
-    receipt = _Call("receipt", None, calls, delay=0.5)
+    receipt = _Call("receipt", None, calls, park=True)
     roster = _Call("roster", [_STUDENT], calls)
     result = {"created_count": 1, "group_id": _REQUEST, "replayed": False}
     execute = _Call("rpc", SimpleNamespace(data=result), calls)
@@ -115,7 +120,7 @@ def test_fan_out_to_cohort_does_not_block_loop_and_keeps_receipt_roster_rpc_orde
 
 
 def test_list_cohorts_does_not_block_loop(monkeypatch):
-    query = _Call("cohorts", SimpleNamespace(data=[]), [], delay=0.5)
+    query = _Call("cohorts", SimpleNamespace(data=[]), [], park=True)
 
     class Query:
         def select(self, *a, **kw): return self
@@ -133,7 +138,7 @@ def test_list_cohorts_does_not_block_loop(monkeypatch):
 
 def test_list_regrade_requests_does_not_block_loop(monkeypatch):
     result = {"requests": [], "capped": False}
-    execute = _Call("regrade", SimpleNamespace(data=result), [], delay=0.5)
+    execute = _Call("regrade", SimpleNamespace(data=result), [], park=True)
     monkeypatch.setattr(regrade, "require_admin", AsyncMock(return_value=_ADMIN))
     monkeypatch.setattr(regrade, "supabase_admin", SimpleNamespace(
         rpc=lambda *a, **kw: SimpleNamespace(execute=execute),
@@ -145,7 +150,7 @@ def test_list_regrade_requests_does_not_block_loop(monkeypatch):
 
 def test_create_assignments_keeps_receipt_archived_check_and_insert_in_one_worker(monkeypatch):
     calls = []
-    receipt = _Call("receipt", None, calls, delay=0.5)
+    receipt = _Call("receipt", None, calls, park=True)
     archived = _Call("archived", None, calls)
     result = {"created": [], "created_count": 0, "group_id": _REQUEST,
               "duplicates_warning": [], "replayed": False}
