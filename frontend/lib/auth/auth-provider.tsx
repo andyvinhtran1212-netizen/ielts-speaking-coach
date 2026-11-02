@@ -29,6 +29,7 @@ import { clearCoreOperationIntents } from '@/lib/core-operation-intent.mjs';
 import { clearLearnerTabDraftAccount, invalidateLearnerTabDraftOwner } from '@/lib/learner-tab-drafts.mjs';
 import { clearPersistedAuthSession } from '@/lib/auth/sign-out-state.mjs';
 import { getCurrentActiveStatus } from '@/lib/auth-api';
+import { setAuthMeAccount } from '@/lib/auth/auth-me-single-flight.mjs';
 import {
   activationDecision,
   isRememberedActive,
@@ -122,6 +123,7 @@ export function AuthProvider({
   const applySession = useCallback((session: any | null) => {
     ++sessionReadRef.current; // A newer auth signal supersedes pending reads.
     const nextAccount = typeof session?.user?.id === 'string' ? session.user.id : null;
+    setAuthMeAccount(nextAccount);
     const previousAccount = confirmedAccountRef.current;
     if (previousAccount && previousAccount !== nextAccount) clearLearnerTabDraftAccount(previousAccount);
     else if (!nextAccount) invalidateLearnerTabDraftOwner();

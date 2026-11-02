@@ -55,7 +55,7 @@ anchors:
     location: '## PHẦN 1: ĐỒNG Ý HOÀN TOÀN'
     type: section
   - id: agreeing-and-disagreeing-naturally.phan-2-dong-y-mot-phan-ky-thuat-quan-trong-nhat
-    location: '## PHẦN 2: ĐỒNG Ý MỘT PHẦN — Kỹ thuật quan trọng nhất'
+    location: '## PHẦN 2: ĐỒNG Ý MỘT PHẦN — lập trường có điều kiện'
     type: section
   - id: agreeing-and-disagreeing-naturally.phan-3-phan-doi-lich-su
     location: '## PHẦN 3: PHẢN ĐỐI LỊCH SỰ'
@@ -85,7 +85,7 @@ anchors:
 
 Trong IELTS Speaking Part 3, examiner thường đưa ra một quan điểm và hỏi "Do you agree?" hoặc "What do you think about...?" Người học có xu hướng trả lời một chiều ("Yes, I agree" hoặc "No, I don't agree") mà không phát triển thêm. Điều này giới hạn điểm **Fluency & Coherence** và **Lexical Resource**.
 
-Biết cách đồng ý *một phần*, phản đối *lịch sự*, hoặc *nhìn từ hai phía* là kỹ năng giúp câu trả lời nghe tự nhiên, có chiều sâu và đạt Band 7+.
+Biết cách đồng ý *một phần*, phản đối *lịch sự*, hoặc *nhìn từ hai phía* là kỹ năng giúp câu trả lời nghe tự nhiên và có chiều sâu hơn.
 
 ---
 
@@ -117,7 +117,7 @@ I think [position] is absolutely right.
 ---
 
 <!-- anchor: agreeing-and-disagreeing-naturally.phan-2-dong-y-mot-phan-ky-thuat-quan-trong-nhat -->
-## PHẦN 2: ĐỒNG Ý MỘT PHẦN — Kỹ thuật quan trọng nhất
+## PHẦN 2: ĐỒNG Ý MỘT PHẦN — lập trường có điều kiện
 
 Đây là một lựa chọn lập trường; hoàn toàn đồng ý/phản đối hoặc đồng ý có điều kiện đều được đánh giá theo chất lượng lập luận và ngôn ngữ.
 
@@ -132,18 +132,23 @@ That's true to some extent, although [nuance].
 ### Cấu trúc hay dùng:
 
 **"I agree to some extent..."**
+
 - **I agree to some extent** that social media has a negative impact, **but** I also think it has significant benefits for communication.
 
 **"While I agree that..., I'm not sure that..."**
+
 - **While I agree that** working from home increases flexibility, **I'm not sure that** it's suitable for all professions.
 
 **"That's partly true, but..."**
+
 - **That's partly true**, **but** we also need to consider that not everyone has equal access to education.
 
 **"There is certainly some truth in that, although..."**
+
 - **There is certainly some truth in that**, **although** I think the situation is more complex than it first appears.
 
 **"I think that's right up to a point, but..."**
+
 - **I think that's right up to a point**, **but** the evidence doesn't fully support a blanket ban.
 
 ---
@@ -228,12 +233,15 @@ Personally, I tend to think [your stance].
 | Kết luận quan điểm | Overall, / On balance, / All things considered, |
 
 **Ví dụ dùng "Admittedly":**
+
 - **Admittedly**, there are some advantages to this approach. **However**, I still think the disadvantages outweigh them.
 
 **Ví dụ dùng "That said":**
+
 - Social media has undoubtedly changed communication for the worse in many ways. **That said**, it has also connected communities that would otherwise have no means of contact.
 
 **Ví dụ dùng "On balance":**
+
 - **On balance**, I think the positives outweigh the negatives, provided that adequate safeguards are in place.
 
 ---
@@ -242,10 +250,10 @@ Personally, I tend to think [your stance].
 
 **Câu hỏi:** "Do you think governments should ban fast food advertising aimed at children?"
 
-**Band 5 answer:**
+**Câu trả lời chưa phát triển:**
 > "Yes, I agree. It is bad for children."
 
-**Band 7+ answer:**
+**Câu trả lời phát triển đầy đủ:**
 > "**I agree to some extent.** There's little doubt that excessive fast food advertising contributes to childhood obesity, which is a serious public health issue. **That said**, a complete ban might be considered an overreach of government authority. **I'd argue that** a more balanced approach — such as requiring companies to display nutritional information clearly and restricting advertising during children's programmes — **would be more effective** than an outright ban. **On balance**, I think regulation is necessary, **but** it should be targeted rather than absolute."
 
 ---
@@ -270,13 +278,13 @@ Personally, I tend to think [your stance].
 
 ### Lỗi 4: Không phát triển sau "I agree/disagree"
 
-Sau khi đồng ý hoặc phản đối, phải giải thích lý do + ví dụ hoặc hệ quả. Câu trả lời Part 3 cần ít nhất 3-4 câu.
+Sau khi đồng ý hoặc phản đối, phải giải thích lý do + ví dụ hoặc hệ quả. Câu trả lời Part 3 thường cần vài câu: lý do, ví dụ hoặc hệ quả.
 
 ---
 
 ## Bài tập luyện
 
-### Phát triển lập trường có điều kiện (có thể đổi nội dung, không phải paraphrase giữ nguyên nghĩa)
+### Phát triển câu trả lời thành lập trường có điều kiện (được đổi nội dung)
 
 1. "Yes, I agree technology is important."
 2. "No, I don't think young people are irresponsible."
@@ -299,7 +307,7 @@ Sau khi đồng ý hoặc phản đối, phải giải thích lý do + ví dụ 
   Absolutely. / I couldn't agree more.
   I completely agree that...
 
-ĐỒNG Ý MỘT PHẦN (tốt nhất cho IELTS):
+ĐỒNG Ý MỘT PHẦN:
   I agree to some extent, but...
   While I agree that..., I'm not sure...
   That's true up to a point, but...
