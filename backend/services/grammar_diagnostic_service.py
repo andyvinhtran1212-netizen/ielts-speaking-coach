@@ -200,7 +200,11 @@ def _require_session_accepting(user_id: str, session: dict[str, Any]) -> None:
         raise HTTPException(409, "Đã quá hạn nộp — bài tập này không còn nhận bài.")
     # Same treatment as a passed cutoff: an archived class's session takes no
     # answer or finalisation; ``learner_report`` keeps the report readable.
-    require_cohort_accepts_work(supabase_admin, assignment.get("cohort_id"), learner=True)
+    # A completed session takes neither on any path, so its summary and
+    # history row (session reads run this gate too) stay readable after the
+    # archive, as research.md §5 keeps completed results open.
+    if session.get("status") != "completed":
+        require_cohort_accepts_work(supabase_admin, assignment.get("cohort_id"), learner=True)
 
 
 def _translate_assignment_write_error(exc: Exception) -> None:

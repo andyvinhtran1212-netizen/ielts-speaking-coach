@@ -2006,6 +2006,10 @@ def _patch_reading_test_attempt_answer_sync(attempt_id: str, body: _AnswerPatchI
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
     require_resume_active(attempt)
+    # CLASSARCHIVE-0030 FR-004: an archived class takes no new answer either,
+    # also on an attempt started before the archive (same gate as submit).
+    from services.class_archive_service import require_class_attempt_accepts_work
+    require_class_attempt_accepts_work(supabase_admin, attempt, surface="reading")
 
     # PK upsert — supabase-py routes this to PostgREST's `Prefer:
     # resolution=merge-duplicates` semantics. PostgreSQL handles the conflict

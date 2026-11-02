@@ -8020,6 +8020,10 @@ async def patch_listening_test_attempt_answer(
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
     require_resume_active(attempt)
+    # CLASSARCHIVE-0030 FR-004: an archived class takes no new answer either,
+    # also on an attempt started before the archive (same gate as submit).
+    await asyncio.to_thread(
+        require_class_attempt_accepts_work, supabase_admin, attempt, surface="listening")
     if not (1 <= body.q_num <= 40):
         raise HTTPException(422, "q_num must be in 1..40")
     # A practice attempt is scored on the FIRST answer to each question, which

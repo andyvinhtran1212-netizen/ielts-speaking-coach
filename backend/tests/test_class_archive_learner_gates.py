@@ -10,6 +10,7 @@ finish, and a legacy inactive class (``archived_at IS NULL``) behaves as before.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -164,6 +165,71 @@ def test_the_reaper_still_finalises_an_archived_item():
         item = qs._assignment_item_for("b1", "u1", assignment_item_id="i1",
                                        allow_reaper_finalize=True)
     assert item["id"] == "i1"
+
+
+# ── /api/quiz/course/pronunciation (Codex thread 4446640393) ─────────────
+
+PRON_BANK = "00000000-0000-4000-8000-0000000000b1"
+PRON_ITEM = "00000000-0000-4000-8000-000000000001"
+
+
+def _pronunciation_db(cohort):
+    db = _quiz_db(cohort, item={"id": PRON_ITEM})
+    db.tables["class_assignments"][0]["content_id"] = PRON_BANK
+    db.tables["course_pronunciation_sets"] = [{
+        "id": "set-1", "bank_id": PRON_BANK, "is_active": True, "title": "Shadowing",
+        "sentences": [{"id": "s-1", "order": 1, "text": "Hello there."}],
+        "playback_rates": [1.0],
+    }]
+    db.tables["course_pronunciation_submissions"] = [{
+        "id": "pron-1", "user_id": "u1", "bank_id": PRON_BANK,
+        "class_assignment_item_id": PRON_ITEM, "attempt_no": 1, "status": "completed",
+        "pronunciation_score": 81.0, "results": {"sentences": []},
+        "created_at": ARCHIVED_AT,
+    }]
+    return db
+
+
+@pytest.fixture
+def pronunciation(monkeypatch):
+    """The GET route and the submit service against one fake DB."""
+    import asyncio
+    from unittest.mock import AsyncMock
+    from uuid import UUID
+
+    from routers import course_pronunciation as route
+    from services import course_pronunciation as cp
+
+    def bind(db):
+        monkeypatch.setattr(qs, "supabase_admin", db)
+        monkeypatch.setattr(cp, "supabase_admin", db)
+        monkeypatch.setattr(route, "get_supabase_user", AsyncMock(return_value={"id": "u1"}))
+
+    def read(class_item):
+        return asyncio.run(route.pronunciation_state(
+            UUID(PRON_BANK), UUID(class_item) if class_item else None, "Bearer x"))
+
+    def submit():
+        return asyncio.run(cp.submit(
+            user_id="u1", bank_id=PRON_BANK, client_id="22222222-2222-4222-8222-222222222222",
+            recordings=[cp.Recording(sentence_id="s-1", data=b"x", content_type="audio/wav")],
+        ))
+    return SimpleNamespace(bind=bind, read=read, submit=submit)
+
+
+@pytest.mark.parametrize("class_item", [PRON_ITEM, None], ids=["item-link", "bank-only"])
+def test_a_saved_pronunciation_result_stays_readable_after_the_archive(pronunciation, class_item):
+    pronunciation.bind(_pronunciation_db(ARCHIVED))
+    state = pronunciation.read(class_item)
+    assert state["latest_attempt"]["id"] == "pron-1"
+    assert state["latest_attempt"]["pronunciation_score"] == 81.0
+
+
+def test_a_new_pronunciation_submission_is_still_the_learner_409(pronunciation):
+    pronunciation.bind(_pronunciation_db(ARCHIVED))
+    with pytest.raises(HTTPException) as exc_info:
+        pronunciation.submit()
+    _assert_learner_409(exc_info)
 
 
 def test_a_failed_class_read_does_not_open_the_course_gate():
@@ -354,6 +420,52 @@ def test_a_grammar_diagnostic_in_an_archived_class_is_409(monkeypatch):
     with pytest.raises(HTTPException) as exc_info:
         gd._require_session_accepting("u1", {"class_assignment_item_id": "i1"})
     _assert_learner_409(exc_info)
+
+
+def _diagnostic_session(status):
+    return {"id": "gs-1", "user_id": "u1", "class_assignment_item_id": "i1",
+            "status": status, "current_phase": "core", "mode": "REVIEW",
+            "module": "GENERAL", "test_length": "QUICK", "objective_limit": 12,
+            "release_id": "r1", "started_at": ARCHIVED_AT}
+
+
+def _diagnostic_routes(monkeypatch, cohort, session):
+    import asyncio
+    from unittest.mock import AsyncMock
+
+    from routers import grammar_diagnostic as route
+
+    _diagnostic(monkeypatch, cohort)
+    gd.supabase_admin.tables["grammar_diagnostic_sessions"] = [session]
+    gd.supabase_admin.tables["grammar_diagnostic_responses"] = []
+    monkeypatch.setattr(route, "get_supabase_user", AsyncMock(return_value={"id": "u1"}))
+    return SimpleNamespace(
+        get=lambda: asyncio.run(route.get_session("gs-1", "Bearer x")),
+        history=lambda: asyncio.run(route.list_sessions("Bearer x"))["sessions"],
+        answer=lambda: asyncio.run(route.submit_response(
+            "gs-1", route.ResponseCreate(item_id="q1", selected_option=0,
+                                         response_time_ms=None, assistance_used=False),
+            "Bearer x")),
+    )
+
+
+def test_a_completed_grammar_diagnostic_stays_readable_after_the_archive(monkeypatch):
+    """Codex thread 4446936254: the session URL and the history still reach
+    the saved report of a completed Check-up in an archived class."""
+    routes = _diagnostic_routes(monkeypatch, ARCHIVED, _diagnostic_session("completed"))
+    assert routes.get()["status"] == "completed"
+    assert [row["id"] for row in routes.history()] == ["gs-1"]
+
+
+def test_an_unfinished_grammar_diagnostic_still_takes_no_answer_after_the_archive(monkeypatch):
+    routes = _diagnostic_routes(monkeypatch, ARCHIVED, _diagnostic_session("in_progress"))
+    with pytest.raises(HTTPException) as exc_info:
+        routes.answer()
+    _assert_learner_409(exc_info)
+    with pytest.raises(HTTPException) as exc_info:
+        routes.get()
+    _assert_learner_409(exc_info)
+    assert routes.history() == []
 
 
 @pytest.mark.parametrize("cohort", [ACTIVE, LEGACY])

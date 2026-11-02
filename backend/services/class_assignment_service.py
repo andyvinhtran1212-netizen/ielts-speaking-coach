@@ -1440,8 +1440,7 @@ def reconcile_ledger_from_sessions(db, assignment_ids: List[str]) -> int:
     sessions: List[Dict[str, Any]] = []
     for chunk in (pending[i:i + _ID_CHUNK] for i in range(0, len(pending), _ID_CHUNK)):
         sessions.extend(_paged(
-            db, "sessions",
-            "id, class_assignment_item_id, overall_band, status, completed_at, mode",
+            db, "sessions", "id, class_assignment_item_id, overall_band, status, completed_at",
             lambda q, c=chunk: q.in_("class_assignment_item_id", c).eq("status", "completed"),
         ))
 
@@ -1492,9 +1491,12 @@ def reconcile_ledger_from_sessions(db, assignment_ids: List[str]) -> int:
             continue
         # CLASSARCHIVE-0030 FR-004, the rule of `_record_class_submission`: no
         # credit for a session completed at or after the archive. A Full Test
-        # is exempt like its finaliser (`archive_gated`): finalize-full-test
-        # refused it up front, and its completed_at is the later aggregation.
-        if s.get("mode") != "test_full" and cohort_archived_by(
+        # gets the same rule: PATCH /complete also completes test_full rows
+        # without finalize-full-test, and no row records that the finaliser
+        # accepted it before the archive. The finaliser credits its own
+        # Full Test at aggregation (`archive_gated`); only a failed write of
+        # that credit is left without repair here.
+        if cohort_archived_by(
             archived_by_item.get(s.get("class_assignment_item_id")), completed_at,
         ):
             logger.info("[class] repair skipped, class archived item=%s",

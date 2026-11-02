@@ -54,6 +54,9 @@ class _Query:
         self.rows = [r for r in self.rows if str(r.get(field)) == str(value)]
         return self
 
+    def upsert(self, *_a, **_k):
+        raise _Stop   # the Reading answer write: the gate let it through
+
     def execute(self):
         self.db.reads.append(self.name)
         if self.name in self.db.fail:
@@ -75,6 +78,9 @@ class _ClassDB:
 
     def table(self, name):
         return _Query(self, name)
+
+    def rpc(self, *_a, **_k):
+        raise _Stop   # fn_upsert_listening_answer: the gate let it through
 
 
 def _attempt(**over):
@@ -180,6 +186,70 @@ def test_a_failed_class_read_refuses_the_hand_in_with_a_generic_500(monkeypatch,
     assert DB_TEXT not in str(caught.value.detail)
 
 
+# ── answer autosave PATCH routes (R4 P3) ─────────────────────────────────
+
+def _save_reading(monkeypatch, db, attempt):
+    monkeypatch.setattr(reading_student, "supabase_admin", db)
+    monkeypatch.setattr(reading_student, "_optional_auth", AsyncMock(return_value={"id": "u1"}))
+    monkeypatch.setattr(reading_student, "_fetch_attempt_owned", lambda *_a: dict(attempt))
+    monkeypatch.setattr(reading_student, "bind_owned_attempt", lambda _a: None)
+    monkeypatch.setattr(reading_student, "require_resume_active", lambda _a: None)
+    return asyncio.run(reading_student.patch_reading_test_attempt_answer(
+        "att-1", reading_student._AnswerPatchItem(q_num=1, user_answer="A"),
+        authorization="Bearer x",
+    ))
+
+
+def _save_listening(monkeypatch, db, attempt):
+    monkeypatch.setattr(listening, "supabase_admin", db)
+    monkeypatch.setattr(listening, "_require_auth", AsyncMock(return_value={"id": "u1"}))
+    monkeypatch.setattr(listening, "_fetch_attempt_or_404", lambda *_a: dict(attempt))
+    monkeypatch.setattr(listening, "bind_owned_attempt", lambda _a: None)
+    monkeypatch.setattr(listening, "require_resume_active", lambda _a: None)
+    monkeypatch.setattr(listening, "_attempt_test_type", lambda _a: "full")
+    return asyncio.run(listening.patch_listening_test_attempt_answer(
+        "att-1", listening.TestAttemptAnswerPatchRequest(q_num=1, user_answer="A"),
+        authorization="Bearer x",
+    ))
+
+
+SAVES = {"reading": _save_reading, "listening": _save_listening}
+
+
+@pytest.mark.parametrize("skill", sorted(SAVES))
+def test_an_answer_to_an_attempt_started_before_the_archive_is_not_saved(monkeypatch, skill):
+    with pytest.raises(HTTPException) as caught:
+        SAVES[skill](monkeypatch, _ClassDB(ARCHIVED), _attempt(started_at=BEFORE))
+    assert caught.value.status_code == 409, "the answer write was reached"
+    assert caught.value.detail == LEARNER_409
+
+
+@pytest.mark.parametrize("skill", sorted(SAVES))
+@pytest.mark.parametrize("cohort", [ACTIVE, LEGACY], ids=["active", "legacy"])
+def test_answers_in_active_and_legacy_classes_are_saved_as_before(monkeypatch, skill, cohort):
+    with pytest.raises(_Stop):
+        SAVES[skill](monkeypatch, _ClassDB(cohort), _attempt())
+
+
+@pytest.mark.parametrize("skill", sorted(SAVES))
+def test_an_answer_without_a_class_item_never_reads_the_class(monkeypatch, skill):
+    db = _ClassDB(ARCHIVED)
+    db.fail.update({"cohorts", "class_assignment_items", "class_assignments"})
+    with pytest.raises(_Stop):
+        SAVES[skill](monkeypatch, db, _attempt(class_assignment_item_id=None))
+    assert db.reads == []
+
+
+@pytest.mark.parametrize("skill", sorted(SAVES))
+def test_a_failed_class_read_refuses_the_answer_with_a_generic_500(monkeypatch, skill):
+    db = _ClassDB(ACTIVE)
+    db.fail.add("cohorts")
+    with pytest.raises(HTTPException) as caught:
+        SAVES[skill](monkeypatch, db, _attempt())
+    assert caught.value.status_code == 500
+    assert DB_TEXT not in str(caught.value.detail)
+
+
 # ── reconcile_test_attempts (Reading/Listening) ──────────────────────────
 
 def _rl_db(cohort, *, when, table="reading_test_attempts", assignment_cohort=True):
@@ -250,29 +320,25 @@ def _speaking_db(cohort, *, completed_at, mode="practice"):
     })
 
 
+@pytest.mark.parametrize("mode", ["practice", "test_full"])
 @pytest.mark.parametrize("completed_at", [ARCHIVED_AT, AFTER, None], ids=["at", "after", "none"])
-def test_a_session_completed_at_or_after_the_archive_is_not_credited(completed_at):
-    db = _speaking_db(ARCHIVED, completed_at=completed_at)
+def test_a_session_completed_at_or_after_the_archive_is_not_credited(completed_at, mode):
+    """A Full Test is no exception: PATCH /complete completes a test_full row
+    without finalize-full-test, and the row keeps no mark of the finaliser."""
+    db = _speaking_db(ARCHIVED, completed_at=completed_at, mode=mode)
     assert reconcile_ledger_from_sessions(db, ["asg-1"]) == 0
     assert db.tables["class_assignment_items"][0]["submitted_at"] is None
 
 
+@pytest.mark.parametrize("mode", ["practice", "test_full"])
 @pytest.mark.parametrize("cohort,completed_at", [(ARCHIVED, BEFORE), (ACTIVE, AFTER),
                                                  (LEGACY, AFTER)],
                          ids=["archived-before", "active", "legacy"])
 def test_a_session_completed_before_the_archive_or_in_an_open_class_is_credited(
-        cohort, completed_at):
-    db = _speaking_db(cohort, completed_at=completed_at)
+        cohort, completed_at, mode):
+    db = _speaking_db(cohort, completed_at=completed_at, mode=mode)
     assert reconcile_ledger_from_sessions(db, ["asg-1"]) == 1
     assert db.tables["class_assignment_items"][0]["artifact_id"] == "sess-1"
-
-
-def test_a_full_test_accepted_before_the_archive_keeps_its_credit_on_repair():
-    """Same exemption as the finaliser's ``archive_gated``: finalize-full-test
-    refused an archived class up front, and completed_at is the later
-    aggregation time, so it can fall after the archive."""
-    db = _speaking_db(ARCHIVED, completed_at=AFTER, mode="test_full")
-    assert reconcile_ledger_from_sessions(db, ["asg-1"]) == 1
 
 
 # ── completion racing the archive, then the admin assignment read ────────
@@ -322,3 +388,65 @@ def test_a_hand_in_racing_the_archive_stays_uncredited_on_the_admin_read(monkeyp
     progress = {a["id"]: a["progress"] for a in out["assignments"]}
     assert progress["asg-s"]["submitted"] == 0
     assert progress["asg-r"]["submitted"] == 0
+
+
+def test_a_full_test_completed_by_patch_racing_the_archive_stays_uncredited(monkeypatch):
+    """PATCH /complete on a test_full session: the class is active at the
+    up-front gate and archived before the completion is written, so
+    ``completed_at`` falls after ``archived_at``. The immediate hand-in is
+    refused, and the admin assignment read that follows runs the repair pass,
+    which must not credit it either (FIX-FULLTEST-RECONCILE-2212-R4)."""
+    from datetime import datetime, timezone
+
+    from routers import admin_class_assignments as adm
+    from routers import sessions as sessions_module
+
+    class _RaceDB(_LedgerDB):
+        def table(self, name):
+            query = super().table(name)
+            query.gt = lambda *_a: query   # resume_expires_at bound on the UPDATE
+            return query
+
+    cohort = dict(ACTIVE)
+    db = _RaceDB({
+        "cohorts": [cohort],
+        "class_assignments": [
+            {"id": "asg-s", "cohort_id": "c1", "skill": "speaking", "due_at": None,
+             "status": "published", "class_assignment_items.id": "item-s",
+             "created_at": "2026-11-01T00:00:00+00:00"},
+        ],
+        "class_assignment_items": [
+            {"id": "item-s", "assignment_id": "asg-s", "student_id": "stu-1",
+             "submitted_at": None, "state": "assigned"},
+        ],
+        "sessions": [{"id": "sess-ft", "user_id": "u1", "class_assignment_item_id": "item-s",
+                      "status": "in_progress", "overall_band": None, "completed_at": None,
+                      "mode": "test_full", "part": 1, "sitting_id": None,
+                      "resume_expires_at": "2999-01-01T00:00:00+00:00"}],
+    })
+
+    def bands_while_the_class_is_archived(_sid):
+        # Between the gate and the UPDATE: the archive commits.
+        cohort.update(is_active=False, archived_at=datetime.now(timezone.utc).isoformat())
+        return {"overall_band": 6.5, "band_fc": 6.5}
+
+    monkeypatch.setattr(sessions_module, "supabase_admin", db)
+    monkeypatch.setattr(sessions_module, "get_supabase_user", AsyncMock(return_value={"id": "u1"}))
+    monkeypatch.setattr(sessions_module, "bind_owned_attempt", lambda _s: None)
+    monkeypatch.setattr(sessions_module, "require_resume_active", lambda _s: None)
+    monkeypatch.setattr(sessions_module, "_compute_session_bands",
+                        bands_while_the_class_is_archived)
+    out = asyncio.run(sessions_module.complete_session("sess-ft", "Bearer x"))
+    assert out["status"] == "completed" and out["mode"] == "test_full"
+    assert out["completed_at"] >= cohort["archived_at"]
+    assert db.tables["class_assignment_items"][0]["submitted_at"] is None
+
+    monkeypatch.setattr(adm, "supabase_admin", db)
+    monkeypatch.setattr(adm, "require_admin", AsyncMock(return_value={"id": "admin"}))
+    monkeypatch.setattr(adm, "_require_cohort", lambda _cid: None)
+    monkeypatch.setattr(adm, "reconcile_course_items", lambda *_a: 0)
+    listed = asyncio.run(adm.list_assignments("c1", authorization="Bearer x"))
+
+    assert "reconcile_failed" not in listed
+    assert db.tables["class_assignment_items"][0]["submitted_at"] is None
+    assert {a["id"]: a["progress"]["submitted"] for a in listed["assignments"]} == {"asg-s": 0}
