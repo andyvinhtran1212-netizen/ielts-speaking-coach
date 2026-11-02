@@ -80,8 +80,15 @@ C. Journeys with QA accounts only (no real learners, no email):
       answer, pause the session, then read the PATCH response,
       `/api/quiz/progress`, `/course-resume` and "Bài của tôi" in
       DevTools: no `total_correct`/`total_wrong`/`accuracy` value, no
-      `last_stage`, no score; repeat after hand-in, before release
-      (FR-019). The racing end is proven by the T004/T011 PG tests.
+      `last_stage`, no score (FR-019). Repeat after hand-in, before
+      release: the per-session totals and `last_stage` are still `null`,
+      no key and no per-question correctness shows
+      (`answered[].is_correct` `null`, `answers_sealed` `true`), but the
+      whole-item hand-in score is expected and is not a FAIL:
+      `/course/verdict` `correct`/`total`/`pct`, the bank payload's
+      `mastery.attempts` entry and the "Bài của tôi" item `score` (Q-9
+      answered: giữ, `spec.md:870`; T007 exemption, `tasks.md:146`).
+      The racing end is proven by the T004/T011 PG tests.
    6. `/check` latency: 30 samples, p95 recorded.
    6a. Intermediate deployment (after A, before B): a Grammar QA bank with a
       nonempty explicit `text_match_by_qid` policy loads in the FR-010
