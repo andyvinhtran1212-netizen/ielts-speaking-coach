@@ -3419,7 +3419,8 @@ async def render_topic_question_audio(
                          .eq("id", question_id).eq("topic_id", topic_id)
                          .limit(1).execute().data or [])
     except Exception as exc:
-        raise HTTPException(500, f"Không đọc được câu hỏi: {exc}") from exc
+        logger.error("[admin] render question audio lookup failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Không đọc được câu hỏi. Vui lòng thử lại.") from None
     if not topic_rows or not question_rows:
         raise HTTPException(404, "Topic hoặc câu hỏi không tồn tại")
     question = dict(question_rows[0])
@@ -3434,7 +3435,8 @@ async def render_topic_question_audio(
         current_topic_rows = (supabase_admin.table("topics").select("id, title")
                               .eq("id", topic_id).limit(1).execute().data or [])
     except Exception as exc:
-        raise HTTPException(502, f"Không tạo được audio: {exc}") from exc
+        logger.error("[admin] render question audio failed: %s", exc, exc_info=True)
+        raise HTTPException(502, "Không tạo được audio. Vui lòng thử lại.") from None
     if not current_topic_rows or current_topic_rows[0]["title"] != topic_title:
         raise HTTPException(409, "Tên topic đã đổi trong lúc tạo audio; tải lại rồi thử lại")
     try:
@@ -3445,7 +3447,8 @@ async def render_topic_question_audio(
                    .eq("question_text", question["question_text"])
                    .eq("is_active", True).execute().data or [])
     except Exception as exc:
-        raise HTTPException(502, f"Không tạo được audio: {exc}") from exc
+        logger.error("[admin] render question audio save failed: %s", exc, exc_info=True)
+        raise HTTPException(502, "Không tạo được audio. Vui lòng thử lại.") from None
     if not updated:
         raise HTTPException(409, "Câu hỏi đã đổi trong lúc tạo audio; tải lại rồi thử lại")
     return {"id": question_id, "topic_id": topic_id,
@@ -3470,7 +3473,8 @@ async def delete_topic_question(
             .execute()
         )
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi xóa question: {exc}")
+        logger.error("[admin] delete topic question failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi xóa question. Vui lòng thử lại.") from None
     if remaining.data:
         raise HTTPException(500, "Question chưa được xóa hoàn tất")
     _touch_topic(topic_id)
@@ -3658,12 +3662,15 @@ async def get_ai_usage(
         res = query.execute()
     except Exception as exc:
         if not ai_usage_logger.is_legacy_schema_error(exc):
-            raise HTTPException(500, f"Lỗi khi tải AI usage: {exc}")
+            logger.error("[admin] AI usage load failed: %s", exc, exc_info=True)
+            raise HTTPException(500, "Lỗi khi tải AI usage. Vui lòng thử lại.") from None
         try:
             res = _usage_query(legacy_usage_columns).execute()
             ledger_schema_legacy = True
         except Exception as fallback_exc:
-            raise HTTPException(500, f"Lỗi khi tải AI usage: {fallback_exc}")
+            logger.error("[admin] AI usage load failed: %s", exc, exc_info=exc)
+            logger.error("[admin] AI usage legacy fallback failed: %s", fallback_exc, exc_info=True)
+            raise HTTPException(500, "Lỗi khi tải AI usage. Vui lòng thử lại.") from None
 
     logs = res.data or []
     total_matching = res.count if isinstance(res.count, int) else None
@@ -3968,7 +3975,8 @@ async def admin_list_sessions(
                 .execute()
             ).data or []
         except Exception as exc:
-            raise HTTPException(500, f"Lỗi khi tra email học viên: {exc}")
+            logger.error("[admin] session email lookup failed: %s", exc, exc_info=True)
+            raise HTTPException(500, "Lỗi khi tra email học viên. Vui lòng thử lại.") from None
         if len(matches) > 1:
             raise HTTPException(409, "Có nhiều tài khoản dùng email này; hãy lọc bằng User ID.")
         if not matches:
@@ -4009,7 +4017,8 @@ async def admin_list_sessions(
     try:
         res = q.execute()
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi tải sessions: {exc}")
+        logger.error("[admin] list sessions failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tải sessions. Vui lòng thử lại.") from None
 
     sessions = res.data or []
 
@@ -4062,7 +4071,8 @@ async def admin_get_session(
             .execute()
         )
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi tải session: {exc}")
+        logger.error("[admin] get session failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tải session. Vui lòng thử lại.") from None
 
     if not s_res.data:
         raise HTTPException(404, "Session không tồn tại")
@@ -4203,7 +4213,8 @@ async def admin_get_alerts(
         )
         session_errors = se_res.data or []
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi tải session errors: {exc}")
+        logger.error("[admin] alerts session errors load failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tải session errors. Vui lòng thử lại.") from None
 
     for session_error in session_errors:
         if not session_error.get("error_code") and session_error.get("status") == "grading_failed":
@@ -4222,7 +4233,8 @@ async def admin_get_alerts(
         )
         grading_failures = re_res.data or []
     except Exception as exc:
-        raise HTTPException(500, f"Lỗi khi tải grading failures: {exc}")
+        logger.error("[admin] alerts grading failures load failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Lỗi khi tải grading failures. Vui lòng thử lại.") from None
 
     # Enrich both lists with user email (collect all user_ids at once)
     session_error_ids = {s.get("user_id") for s in session_errors if s.get("user_id")}
@@ -4474,7 +4486,9 @@ async def _run_regrade_response(
                 audio_path,
             )
         except Exception as e:
-            raise HTTPException(502, f"Response {response_id}: không thể tải audio — {e}")
+            logger.error("[admin] regrade audio download failed response=%s: %s",
+                         response_id, e, exc_info=True)
+            raise HTTPException(502, f"Response {response_id}: không thể tải audio. Vui lòng thử lại.") from None
 
         ext = ("." + audio_path.rsplit(".", 1)[-1]) if "." in audio_path else ".webm"
         stt = await transcribe_from_bytes(audio_bytes, filename=f"audio{ext}")
@@ -5685,7 +5699,8 @@ async def admin_patch_d1_question(
             .execute()
         )
     except Exception as exc:
-        raise HTTPException(500, f"Update failed: {exc}")
+        logger.error("[admin] D1 question update failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Không cập nhật được câu hỏi D1. Vui lòng thử lại.") from None
 
     if not res.data:
         raise HTTPException(404, "D1 question not found.")
@@ -5712,7 +5727,8 @@ async def admin_delete_d1_question(
             .execute()
         )
     except Exception as exc:
-        raise HTTPException(500, f"Soft delete failed: {exc}")
+        logger.error("[admin] D1 question soft delete failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Không xoá được câu hỏi D1. Vui lòng thử lại.") from None
     if not res.data:
         raise HTTPException(404, "D1 question not found.")
     return None
@@ -5792,7 +5808,8 @@ async def admin_create_lemma_override(
         msg = str(exc)
         if "duplicate" in msg.lower() or "unique" in msg.lower():
             raise HTTPException(409, f"Override for '{clip_user_value(insert['original_word'])}' already exists.")
-        raise HTTPException(500, f"Create failed: {exc}")
+        logger.error("[admin] lemma override create failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Không tạo được lemma override. Vui lòng thử lại.") from None
 
     try:
         from services.lemmatizer import reload_overrides
@@ -5822,7 +5839,8 @@ async def admin_delete_lemma_override(
             .execute()
         )
     except Exception as exc:
-        raise HTTPException(500, f"Delete failed: {exc}")
+        logger.error("[admin] lemma override delete failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Không xoá được lemma override. Vui lòng thử lại.") from None
 
     if not res.data:
         raise HTTPException(404, "Override not found.")
@@ -5917,7 +5935,8 @@ async def admin_list_grammar_articles(
     try:
         from services.grammar_content import grammar_service
     except Exception as exc:
-        raise HTTPException(500, f"grammar service unavailable: {exc}")
+        logger.error("[admin] grammar service import failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Dịch vụ ngữ pháp tạm thời không khả dụng. Vui lòng thử lại.") from None
 
     all_articles = list((grammar_service.articles_by_slug or {}).values())
     categories = sorted({a.get("category") for a in all_articles if a.get("category")})
@@ -6001,7 +6020,8 @@ async def admin_preview_grammar_article(
     try:
         from services.grammar_content import grammar_service
     except Exception as exc:
-        raise HTTPException(500, f"grammar service unavailable: {exc}")
+        logger.error("[admin] grammar service import failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Dịch vụ ngữ pháp tạm thời không khả dụng. Vui lòng thử lại.") from None
 
     summary = grammar_service.get_article_by_slug(slug)
     if not summary:
@@ -6034,7 +6054,8 @@ async def admin_grammar_analytics(
     try:
         from services.grammar_content import grammar_service
     except Exception as exc:
-        raise HTTPException(500, f"grammar service unavailable: {exc}")
+        logger.error("[admin] grammar service import failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Dịch vụ ngữ pháp tạm thời không khả dụng. Vui lòng thử lại.") from None
 
     all_slugs = set((grammar_service.articles_by_slug or {}).keys())
     title_by_slug = {
@@ -6154,7 +6175,8 @@ async def admin_grammar_recommend_test(
     try:
         from services.grammar_content import grammar_service
     except Exception as exc:
-        raise HTTPException(500, f"grammar service unavailable: {exc}")
+        logger.error("[admin] grammar service import failed: %s", exc, exc_info=True)
+        raise HTTPException(500, "Dịch vụ ngữ pháp tạm thời không khả dụng. Vui lòng thử lại.") from None
 
     issue = payload.issue.strip()
     if not issue:
