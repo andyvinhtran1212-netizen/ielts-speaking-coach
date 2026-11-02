@@ -80,6 +80,7 @@ describe('/admin/writing/grade — state + persistence contract', () => {
   test('preserves all 13 editable feedback sections and shared renderers', () => {
     assert.equal(ADMIN_GRADE_SECTIONS.length, 13);
     assert.match(BEHAVIOR, /WritingRenderers\?\.SECTION_RENDERERS/);
+    assert.match(BEHAVIOR, /renderer\(value, \{ isStaffViewer: true \}\)/);
     assert.match(BEHAVIOR, /parseAdminGradeDraft/);
     assert.match(BEHAVIOR, /dirty: true/);
     assert.match(BEHAVIOR, /registerNavigationGuard/);
