@@ -242,9 +242,17 @@ class _Q:
     def order(self, *_a, **_kw): return self
     def range(self, s, e): self._range = (s, e); return self
 
+    @staticmethod
+    def _eq_holds(have, want):
+        # PostgREST `eq` on a jsonb column (the submit's answers CAS)
+        # compares the parsed JSON text, not the Python string.
+        if isinstance(have, (list, dict)) and isinstance(want, str):
+            want = json.loads(want)
+        return have == want
+
     def _match(self, r):
         for c, v in self._eq:
-            if r.get(c) != v:
+            if not self._eq_holds(r.get(c), v):
                 return False
         for c, vs in self._in:
             if r.get(c) not in vs:
@@ -279,7 +287,7 @@ class _Q:
                     and self.fake.expire_on_guarded_finalize):
                 self.fake.expire_on_guarded_finalize = False
                 for row in rows:
-                    if all(row.get(c) == v for c, v in self._eq):
+                    if all(self._eq_holds(row.get(c), v) for c, v in self._eq):
                         row["resume_expires_at"] = "2000-01-01T00:00:00+00:00"
             matched = [r for r in rows if self._match(r)]
             for r in matched:

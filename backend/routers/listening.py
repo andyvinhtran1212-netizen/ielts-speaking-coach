@@ -8531,6 +8531,16 @@ async def submit_listening_test_attempt(
     # an attempt started before the archive. The submitted replay above stays.
     await asyncio.to_thread(
         require_class_attempt_accepts_work, supabase_admin, attempt, surface="listening")
+    # An answer PATCH (fn_upsert_listening_answer) can commit while the gate
+    # above awaits. Grade the answers of this re-read (the last await before
+    # grading), and bind both finalize UPDATEs to exactly that array: a save
+    # landing after it misses the CAS and the submit 409s, never a grade that
+    # drops the answer.
+    attempt = await asyncio.to_thread(_fetch_attempt_or_404, attempt_id, user["id"])
+    if attempt.get("status") != "in_progress":
+        raise HTTPException(409, "Attempt đã thay đổi; hãy tải lại trạng thái.")
+    require_resume_active(attempt)
+    graded_answers = attempt.get("answers") or []
 
     # Pull the test's exercises + extract the answer key.
     test_id = attempt["test_id"]
@@ -8559,7 +8569,7 @@ async def submit_listening_test_attempt(
         )
     if (attempt.get("scoring_policy") or "diagnostic") == "report_only":
         report = grader.grade_report_only_attempt(
-            attempt.get("answers") or [], ex_res.data or [], source_required=_source_required_for_test(test_id),
+            graded_answers, ex_res.data or [], source_required=_source_required_for_test(test_id),
         )
         summary = {
             key: report[key] for key in (
@@ -8582,6 +8592,7 @@ async def submit_listening_test_attempt(
             })
             .eq("id", attempt_id)
             .eq("status", "in_progress")
+            .eq("answers", json.dumps(graded_answers))
             .gt("resume_expires_at", now_iso)
             .execute()
         )
@@ -8606,7 +8617,7 @@ async def submit_listening_test_attempt(
             "listening", test_id, answer_key
         )
 
-    result = grader.grade_attempt(attempt.get("answers") or [], answer_key)
+    result = grader.grade_attempt(graded_answers, answer_key)
     now_iso = datetime.now(timezone.utc).isoformat()
 
     finalized = (
@@ -8621,6 +8632,7 @@ async def submit_listening_test_attempt(
         })
         .eq("id", attempt_id)
         .eq("status", "in_progress")
+        .eq("answers", json.dumps(graded_answers))
         .gt("resume_expires_at", now_iso)
         .execute()
     )
