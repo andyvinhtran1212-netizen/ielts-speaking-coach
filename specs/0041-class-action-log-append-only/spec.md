@@ -20,6 +20,7 @@ acceptance, postconditions and forward-only repair in `spec.md`, `plan.md`
 and `rollout.md` (1gs items 1, 2, 5–8). FR-001..FR-004, approved status,
 risk and product behavior are unchanged. Item 4 remains cancelled under
 PC-J401; this amendment changes no migration or code.
+Amendment changelog — PC-J557: làm rõ câu hậu điều kiện `session_replication_role` theo 356 R3; FR không đổi.
 Spec number 0041 and migration number **356**: assigned by the Leader
 (migration 356 on 2026-10-30 08:27 UTC+7).
 Origin: Security Auditor notes P3-SA-1, P3-SA-2 and P3-SA-3 on #2022
@@ -207,8 +208,12 @@ service_role requirements on its merge base because it is a high-risk path.
   the admin log view still reads them.
 - The migration postconditions fail closed unless `pg_class.relowner` is the
   `postgres` role, service_role is neither superuser nor a member of that owner,
-  and `has_parameter_privilege('service_role', 'session_replication_role', 'SET')`
-  is false. Both triggers retain their expected events and row/statement level.
+  and no role `m` in `pg_roles` satisfying
+  `pg_has_role('service_role'::name, m.oid, 'MEMBER')` has
+  `has_parameter_privilege(m.oid, 'session_replication_role', 'SET')` true.
+  This membership-aware check includes service_role itself and NOINHERIT
+  memberships, covering privileges reachable through SET ROLE (356 R3, #2173).
+  Both triggers retain their expected events and row/statement level.
 - Every scenario has a passing real-PostgreSQL test on PG 16 (required CI) and
   PG 17.
 
