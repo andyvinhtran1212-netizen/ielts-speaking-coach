@@ -8350,6 +8350,17 @@ async def check_listening_practice_answer(
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể chấm thêm.")
     require_resume_active(attempt)
+    if not body.reveal:
+        # CLASSARCHIVE-0030 FR-004: a check records the first answer, so it
+        # takes the answer PATCH/submit gate; a reveal stays a read. Re-read
+        # after the await so the stored answers graded below are not older
+        # than the gate.
+        await asyncio.to_thread(
+            require_class_attempt_accepts_work, supabase_admin, attempt, surface="listening")
+        attempt = await asyncio.to_thread(_fetch_attempt_or_404, attempt_id, user["id"])
+        if attempt.get("status") != "in_progress":
+            raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể chấm thêm.")
+        require_resume_active(attempt)
 
     from services.mock_paper_policy import guard_owned_attempt, load_marking_snapshot, frozen_answer_key
     guard_owned_attempt(supabase_admin, "listening", attempt, purpose="practice_feedback")

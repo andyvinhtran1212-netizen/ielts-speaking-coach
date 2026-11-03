@@ -213,7 +213,22 @@ def _save_listening(monkeypatch, db, attempt):
     ))
 
 
-SAVES = {"reading": _save_reading, "listening": _save_listening}
+def _check_listening(monkeypatch, db, attempt, *, reveal=False):
+    """POST /tests/attempts/{id}/check: a Luyện nhanh check records the first answer."""
+    monkeypatch.setattr(listening, "supabase_admin", db)
+    monkeypatch.setattr(listening, "_require_auth", AsyncMock(return_value={"id": "u1"}))
+    monkeypatch.setattr(listening, "_fetch_attempt_or_404", lambda *_a: dict(attempt))
+    monkeypatch.setattr(listening, "bind_owned_attempt", lambda _a: None)
+    monkeypatch.setattr(listening, "require_resume_active", lambda _a: None)
+    _stop_after_gate(monkeypatch)   # the paper guard is the check's next step
+    return asyncio.run(listening.check_listening_practice_answer(
+        "att-1", listening.PracticeCheckRequest(q_num=1, user_answer="A", reveal=reveal),
+        authorization="Bearer x",
+    ))
+
+
+SAVES = {"reading": _save_reading, "listening": _save_listening,
+         "listening_check": _check_listening}
 
 
 @pytest.mark.parametrize("skill", sorted(SAVES))
@@ -237,6 +252,15 @@ def test_an_answer_without_a_class_item_never_reads_the_class(monkeypatch, skill
     db.fail.update({"cohorts", "class_assignment_items", "class_assignments"})
     with pytest.raises(_Stop):
         SAVES[skill](monkeypatch, db, _attempt(class_assignment_item_id=None))
+    assert db.reads == []
+
+
+def test_a_practice_reveal_stays_a_read_in_an_archived_class(monkeypatch):
+    """A reveal records nothing, so it never asks about the class (R6 Codex P2)."""
+    db = _ClassDB(ARCHIVED)
+    db.fail.update({"cohorts", "class_assignment_items", "class_assignments"})
+    with pytest.raises(_Stop):
+        _check_listening(monkeypatch, db, _attempt(started_at=BEFORE), reveal=True)
     assert db.reads == []
 
 
