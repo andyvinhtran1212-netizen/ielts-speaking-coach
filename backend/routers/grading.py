@@ -23,6 +23,7 @@ import logging
 import os
 import time
 import uuid
+import weakref
 from functools import lru_cache
 from datetime import datetime, timezone
 
@@ -1677,6 +1678,22 @@ def _increment_tokens(
             logger.warning("[grading] tokens_used update FAILED session=%s (non-fatal): %s", session_id, e)
 
 
+# ASYNCAUTH-0036 Revision 3 G4: with USE_ASYNC_DB off, aexecute now runs in a
+# worker thread, so two of one user's extractions could both read the existing
+# lemmas before either inserts. idx_user_vocab_unique only covers the headword,
+# so ran/running would both land as lemma "run". One user's read → guard →
+# insert stays serialized in this process, as it was on the event loop.
+_vocab_write_locks: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
+
+
+def _vocab_write_lock(user_id) -> asyncio.Lock:
+    key = str(user_id)
+    lock = _vocab_write_locks.get(key)
+    if lock is None:
+        lock = _vocab_write_locks[key] = asyncio.Lock()
+    return lock
+
+
 async def _run_vocab_extraction(
     transcript: str,
     response_id: str,
@@ -1687,6 +1704,7 @@ async def _run_vocab_extraction(
     Background task: extract vocab from transcript and persist to user_vocabulary.
     Entirely failure-isolated — any exception is logged and swallowed.
     """
+    held_lock = None
     try:
         from services.vocab_extractor import extract_vocab
         from services.vocab_guards import run_all_guards
@@ -1730,7 +1748,11 @@ async def _run_vocab_extraction(
         # runs, but pre-backfill rows still have lemma IS NULL so we
         # tolerate that gracefully — Guard 6 falls back to the legacy
         # heuristic checks when `existing_lemmas` doesn't contain a
-        # matching entry.
+        # matching entry. Held until the inserts end (G4, see _vocab_write_lock);
+        # flag-off aexecute only returns after its thread ended, even on cancel.
+        vocab_lock = _vocab_write_lock(user_id)
+        await vocab_lock.acquire()
+        held_lock = vocab_lock
         existing_rows = await aexecute(
             lambda db: db.table("user_vocabulary")
             .select("headword, lemma")
@@ -1904,3 +1926,6 @@ async def _run_vocab_extraction(
 
     except Exception as e:
         logger.error("[vocab_bg] extraction failed (non-fatal): %s", e)
+    finally:
+        if held_lock is not None:
+            held_lock.release()

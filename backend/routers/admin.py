@@ -39,7 +39,7 @@ from models.grammar_content import GrammarArticleDocument
 from database import supabase_admin
 from services.async_pg_engine import create_asyncpg_engine
 from services.class_assignment_service import sync_class_item_score
-from services.errors import clip_user_value, clip_user_values
+from services.errors import clip_user_value, clip_user_values, new_ref
 from services.core_attempt_observation import bind_owned_attempt, note_operation_failure, observe_operation
 from services.class_membership_service import active_memberships_for_students, add_student
 from services import admin_dashboard, ai_usage_logger, test_data_visibility
@@ -1179,13 +1179,20 @@ async def get_stats(authorization: str | None = Header(default=None)):
 
 # ── POST /admin/access-codes/generate ─────────────────────────────────────────
 
-@router.post("/access-codes/generate")
+@router.post("/access-codes/generate", responses=staff_guard.STEP_UP_RESPONSES)
 async def generate_access_codes(
     body: GenerateCodesRequest,
     authorization: str | None = Header(default=None),
 ):
-    """Generate N new unused access codes and persist them."""
+    """Generate N new unused access codes and persist them.
+
+    ADMINAAL2-0032 Amendment 2 (FR-020, option c): a code that grants a role
+    (normalized ``grants_role`` non-null) needs step-up before any DB call;
+    an ordinary code keeps the FR-001 guard only."""
     admin = await require_admin(authorization)
+    grants_role = (body.grants_role or "").strip().lower() or None
+    if grants_role is not None:
+        staff_guard.require_recent_mfa(admin, authorization)  # FR-020, before any DB call
 
     # Sprint 5.2 — fail loudly on typo'd permission strings instead of
     # silently inserting a code that grants nothing-and-no-one. Allowed
@@ -1200,7 +1207,6 @@ async def generate_access_codes(
 
     # W-2 (Option B) — instructor-promote codes MUST be email-bound (fail-closed
     # at mint time so an unbound instructor code can never auto-promote anyone).
-    grants_role = (body.grants_role or "").strip().lower() or None
     if grants_role is not None and grants_role != "instructor":
         raise HTTPException(400, "grants_role chỉ nhận null hoặc 'instructor'.")
     intended_email = (body.intended_email or "").strip() or None
@@ -3167,13 +3173,16 @@ async def bulk_delete_topics(
                 }
                 for topic_id in undeleted_ids
             ])
-        except Exception as exc:
+        except Exception:
+            ref = new_ref()
+            logger.error("[admin] bulk delete topics failed ref=%s", ref, exc_info=True)
             failed_ids.extend(existing_ids)
             errors.append({
                 "topic_id": None,
                 "topic_title": None,
-                "message": f"Lỗi khi xóa topics: {exc}",
+                "message": "Không xóa được topics, vui lòng thử lại.",
                 "code": "delete_failed",
+                "ref": ref,
             })
 
     return {
@@ -4777,9 +4786,12 @@ async def admin_regrade_session(
         except HTTPException as exc:
             failed_ids.append(resp["id"])
             failed_errors.append(f"{resp['id']}: {exc.detail}")
-        except Exception as exc:
+        except Exception:
+            ref = new_ref()
+            logger.error("[admin/regrade-session] response=%s failed ref=%s",
+                         resp["id"], ref, exc_info=True)
             failed_ids.append(resp["id"])
-            failed_errors.append(f"{resp['id']}: {exc}")
+            failed_errors.append(f"{resp['id']}: Chấm lại thất bại, vui lòng thử lại. (ref={ref})")
 
     # Read persisted truth back after the loop. A grader call can return without
     # producing a usable row, and a response outside the immediate exception

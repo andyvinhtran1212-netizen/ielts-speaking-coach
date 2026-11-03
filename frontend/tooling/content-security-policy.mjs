@@ -157,6 +157,51 @@ export function nonceRouteAllowed(pathname) {
     || /^\/vocabulary\/.+/.test(pathname);
 }
 
+// PC-J566 / SA-1029-CSP1 F1 (b): the build's own route table for the nonce
+// prefixes, inlined by next.config.ts (tooling/nonce-route-table.mjs walks
+// app/). A URL no entry matches is answered by the static root
+// `/_not-found` (HTTP 404), whose scripts can never carry a request nonce, so
+// the proxy leaves it on the public baseline. A missing or malformed table
+// keeps the nonce policy on every prefixed URL (the pre-PC-J566 behavior).
+export const NONCE_ROUTE_TABLE_ENV = 'AVER_CSP_NONCE_ROUTES';
+
+/** Route patterns from the inlined table, or null when it is unusable. */
+export function parseNonceRouteTable(value) {
+  try {
+    const table = JSON.parse(value || '');
+    return Array.isArray(table) && table.length > 0
+      && table.every((route) => typeof route === 'string' && route.startsWith('/')) ? table : null;
+  } catch {
+    return null;
+  }
+}
+
+function segmentMatches(pattern, segment) {
+  return /^\[[^\].]+\]$/.test(pattern) ? segment !== '' : pattern === segment;
+}
+
+/**
+ * Whether Next answers `pathname` from a route in `table` rather than the root
+ * not-found page. Segments are compared as sent (still percent-encoded), as
+ * Next routes them: `/admin/cl%61sses` is a 404 there, not `/admin/classes`.
+ * Only a dynamic segment accepts any non-empty value. An unusable table counts
+ * every URL as a route (keeps the nonce).
+ */
+export function nonceRouteExists(pathname, table) {
+  if (!table) return true;
+  const segments = pathname.split('/').slice(1);
+  return table.some((route) => {
+    const parts = route === '/' ? [] : route.split('/').slice(1);
+    const last = parts.at(-1) ?? '';
+    const optional = /^\[\[\.\.\.[^\]]+\]\]$/.test(last);
+    const catchAll = optional || /^\[\.\.\.[^\]]+\]$/.test(last);
+    const fixed = catchAll ? parts.slice(0, -1) : parts;
+    if (catchAll ? segments.length < fixed.length + (optional ? 0 : 1) : segments.length !== fixed.length) return false;
+    if (catchAll && segments.slice(fixed.length).some((segment) => segment === '')) return false;
+    return fixed.every((pattern, i) => segmentMatches(pattern, segments[i]));
+  });
+}
+
 // These are the nonce routes from next.config.ts's framing allowlist. Exact
 // matches preserve its existing policy (children keep frame-ancestors none).
 export const NONCE_SAME_ORIGIN_FRAME_ROUTES = Object.freeze([

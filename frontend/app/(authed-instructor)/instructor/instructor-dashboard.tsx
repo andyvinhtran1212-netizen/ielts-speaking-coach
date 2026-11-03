@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 
 import { Dialog } from '@/components/admin-directory-ui';
+import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import { getAuthorizationIdentity } from '@/lib/auth-api';
 import { postBrowserJsonAt } from '@/lib/browser-api';
 import { useAuth } from '@/lib/auth/auth-provider';
@@ -485,6 +486,7 @@ export function InstructorDashboard() {
           <a href="/home">← Về trang học</a>
           <button type="button" onClick={() => void refresh()} disabled={!!pending}>{pending === 'refresh' ? 'Đang tải…' : 'Làm mới'}</button>
           <button type="button" onClick={() => void signOut()}>Đăng xuất</button>
+          <ThemeToggleButton />
         </div>
       </header>
 

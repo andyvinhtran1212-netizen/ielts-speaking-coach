@@ -1616,6 +1616,58 @@ class TestStepUp:
         assert '"reason": "totp_stale"' in lines[0] and '"max_age_seconds": 900' in lines[0]
         assert '"user_id": "%s"' % ADMIN in lines[0]
 
+    @staticmethod
+    def _with_recent_factor():
+        # FR-020a: an old factor plus one verified an hour ago (Amendment 2).
+        import time
+
+        from tests.test_staff_guard import VERIFIED, iso
+
+        at = iso(time.time() - 3600)
+        admin = {"id": ADMIN, "email": "admin@example.test", "factors": VERIFIED + [
+            {"id": "f-new", "factor_type": "totp", "status": "verified", "created_at": at, "updated_at": at}]}
+        sec_module.require_admin.return_value = admin  # the fixture's shared AsyncMock
+        assert admin_module.require_admin is sec_module.require_admin
+
+    @pytest.mark.parametrize("call", list(STEP_UP_CALLS))
+    def test_recent_factor_with_a_fresh_totp_is_403_cooloff_before_any_db_call(
+            self, step_up_client, db, engine, call):
+        from config import settings
+        from services import staff_guard
+
+        client, monkeypatch = step_up_client
+        monkeypatch.setattr(settings, "ADMIN_STEP_UP_ENFORCE", True)
+        self._with_recent_factor()
+        before = _state(db, engine)
+        r = STEP_UP_CALLS[call](client, _step_up_bearer(5))
+        assert r.status_code == 403, r.text
+        assert r.json()["detail"] == {
+            "code": "step_up_required", "next_step": "challenge", "max_age_seconds": 900,
+            "reason": "new_factor_cooloff", "message": staff_guard.STEP_UP_COOLOFF_MESSAGE,
+        }
+        assert _state(db, engine) == before
+        assert db.ops == [] and db.rpc_calls == [] and db.auth.admin.calls == []
+        assert engine.statements == [] and engine.lock_statements == []
+        assert db.audits() == [] and db.tables["owner_alert_outbox"] == []
+
+    @pytest.mark.parametrize("call", list(STEP_UP_CALLS))
+    def test_report_only_recent_factor_logs_one_cooloff_line_and_succeeds(
+            self, step_up_client, db, engine, call, caplog):
+        import logging
+
+        from services import staff_guard
+
+        client, _ = step_up_client
+        self._with_recent_factor()
+        with caplog.at_level(logging.WARNING, logger=staff_guard.logger.name):
+            r = STEP_UP_CALLS[call](client, _step_up_bearer(16 * 60))
+        assert r.status_code == 200, r.text
+        lines = [rec.getMessage() for rec in caplog.records
+                 if rec.getMessage().startswith(staff_guard.STEP_UP_WOULD_BLOCK_EVENT)]
+        assert len(lines) == 1, lines
+        assert '"reason": "new_factor_cooloff"' in lines[0]
+        assert "admin@example.test" not in lines[0]
+
     def test_enforcement_covers_an_aal1_session(self, step_up_client, db, engine):
         # ADMIN_AAL2_ENFORCE off lets an AAL1 admin past FR-001; step-up still
         # asks for a code (a value never disables the check).

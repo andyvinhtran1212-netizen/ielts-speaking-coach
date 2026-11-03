@@ -17,10 +17,11 @@ a migrated call-site is byte-identical in BOTH flag states.
 
 Why ``build(client)`` and not a prebuilt query: the query builder is bound to a
 specific client at ``.table()`` time, so the facade must hand the call-site the
-right client. The OFF branch calls the sync singleton DIRECTLY (current
-behavior, blocking) — it deliberately does NOT wrap supabase_admin in
-to_thread/threadpool, because httpx.Client + the builder are not thread-safe
-and concurrent threads sharing the singleton would race.
+right client. The OFF branch runs the same sync query on the same client in a
+worker thread (ASYNCAUTH-0036 Revision 3, Q5: b), so it no longer blocks the
+event loop. Each call builds its own query builder; sharing the sync singleton
+between threads that way rests on ``tests/test_supabase_singleton_threadsafe.py``
+at the versions pinned in ``requirements.txt`` (FR-009).
 
 ``sync_client`` (PC-J05): a call-site whose module imported ``supabase_admin``
 passes that module global, so the OFF branch runs on exactly the client it
@@ -29,11 +30,14 @@ used before migration (and test doubles patched onto that module still apply).
 PC-J55: with the flag on, each call is timed (slow or failed calls are logged
 with the request id, table and pool-wait/connect/upstream split; never the
 query string) and an idempotent GET/HEAD whose socket died is sent once more.
-Writes and RPCs are never re-sent. The flag-off branch is unchanged.
+Writes and RPCs are never re-sent. The flag-off branch is not timed and never
+retried.
 """
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import logging
 import time
 from collections import deque
@@ -179,7 +183,19 @@ async def aexecute(build: Callable[[Any], Any], *, sync_client: Any = None) -> A
                 "table": table, "error": type(exc).__name__,
             })
             return await _execute_timed(build(client), method, table, 2)
-    # USE_ASYNC_DB off — today's exact behavior: direct sync execute on the
-    # event-loop thread (blocking, but functionally identical). NOT threaded.
+    # USE_ASYNC_DB off — the same sync query on the same client, in a worker
+    # thread instead of on the event loop (ASYNCAUTH-0036 Revision 3).
     client = database.supabase_admin if sync_client is None else sync_client
-    return build(client).execute()
+    work = asyncio.ensure_future(asyncio.to_thread(lambda: build(client).execute()))
+    try:
+        return await asyncio.shield(work)
+    except asyncio.CancelledError:
+        # A thread cannot be interrupted. On the loop the query always ran to
+        # completion before a cancel was seen; keep that, so a caller holding a
+        # lock (grading's per-user vocab lock) keeps it until the write ended.
+        while not work.done():
+            with contextlib.suppress(asyncio.CancelledError):
+                await asyncio.wait({work})
+        if not work.cancelled():
+            work.exception()  # retrieve it: no "exception never retrieved"
+        raise

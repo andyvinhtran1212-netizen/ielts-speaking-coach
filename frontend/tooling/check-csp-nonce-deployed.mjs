@@ -18,8 +18,21 @@ import { pathToFileURL } from 'node:url';
 
 const REPORT_ONLY = /^script-src 'self' 'nonce-([A-Za-z0-9+/]{16,}={0,2})' 'strict-dynamic' 'unsafe-inline'( 'unsafe-eval')?$/;
 const ENFORCED_SCRIPT = /^script-src 'self' 'nonce-([A-Za-z0-9+/]{16,}={0,2})' 'strict-dynamic' 'unsafe-inline'( 'unsafe-eval')?( https:\/\/vercel\.live)?$/;
-export const SIGNED_IN_PATHS = ['/home', '/admin', '/profile', '/vocabulary/hub'];
+export const SIGNED_IN_PATHS = ['/home', '/admin', '/profile', '/vocabulary/hub', '/instructor'];
 export const PUBLIC_PATHS = ['/', '/login', '/grammar', '/vocabulary'];
+// PC-J566 / SA-1029-CSP1 F1 (b), `--enforced` only. Next answers these with
+// the prerendered root 404, so the proxy leaves them the public baseline: HTTP
+// 404, the original nonce-free blocking policy, no Report-Only. A nonce header
+// here means its scripts are blocked. `/admin/404` is the path-confusion case
+// (no route, so a 404 like the others; `/admin` itself keeps the nonce).
+// `/nope-top-level` and `/login/nope-xyz` (outside the matcher) are controls.
+export const NOT_FOUND_PATHS = Object.freeze([
+  '/practice', '/home/does-not-exist', '/admin/nope-xyz', '/instructor/nope-xyz',
+  '/vocabulary/nope/xyz/abc', '/login/nope-xyz', '/admin/404', '/nope-top-level',
+]);
+// A real route whose page calls notFound() under <Suspense>: a soft 404 (HTTP
+// 200 + noindex, U-03 / PC-J526) that keeps the nonce on every script.
+export const SOFT_NOT_FOUND_PATHS = Object.freeze(['/listening/ielts/80-days/999']);
 
 /** Only the staging alias and Vercel previews may receive the bypass secret. */
 export function bypassAllowed(origin) {
@@ -55,7 +68,9 @@ export function auditNonceResponse({ reportOnly, contentSecurityPolicy, html }, 
 export function auditNonceRoute(path, first, second, options = {}) {
   const failures = [];
   [first, second].forEach(({ status }, i) => {
-    if (!(status >= 200 && status < 300)) failures.push(`${path} #${i + 1}: HTTP ${status}; expected a successful document response (2xx)`);
+    if (options.status !== undefined) {
+      if (status !== options.status) failures.push(`${path} #${i + 1}: HTTP ${status}; expected HTTP ${options.status}`);
+    } else if (!(status >= 200 && status < 300)) failures.push(`${path} #${i + 1}: HTTP ${status}; expected a successful document response (2xx)`);
   });
   if (failures.length) return failures;
   const audits = [first, second].map((response) => auditNonceResponse(response, options));
@@ -106,6 +121,26 @@ async function main(base, options) {
     // document is rendered per request by the resume. The nonce comparison
     // above is what proves no nonce is shared.
     console.log(`${found.length ? '✗' : '✓'} ${path} HTTP ${second.status}: ${a.scripts - a.unnonced.length}/${a.scripts} scripts carry the nonce; x-vercel-cache=${second.vercelCache ?? '-'}; cache-control=${second.cacheControl ?? '-'}`);
+  }
+  if (options.enforced) {
+    for (const path of SOFT_NOT_FOUND_PATHS) {
+      const first = await get(base, path);
+      const second = await get(base, path);
+      const found = auditNonceRoute(path, first, second, { ...options, status: 200 });
+      failures.push(...found);
+      const a = auditNonceResponse(second, options);
+      console.log(`${found.length ? '✗' : '✓'} ${path} HTTP ${second.status} (soft 404): ${a.scripts - a.unnonced.length}/${a.scripts} scripts carry the nonce`);
+    }
+    for (const path of NOT_FOUND_PATHS) {
+      const res = await get(base, path);
+      const found = [];
+      if (res.status !== 404) found.push(`${path}: HTTP ${res.status}; expected HTTP 404`);
+      if (res.reportOnly !== null) found.push(`${path}: 404 sent a Report-Only header`);
+      if (/'nonce-/.test(res.contentSecurityPolicy || '')) found.push(`${path}: 404 got a nonce policy; its prerendered scripts cannot carry the nonce`);
+      else if (!publicPolicy || res.contentSecurityPolicy !== publicPolicy) found.push(`${path}: 404 blocking policy differs from the original nonce-free baseline`);
+      failures.push(...found);
+      console.log(`${found.length ? '✗' : '✓'} ${path} HTTP ${res.status}: 404 with the original nonce-free blocking policy; x-vercel-cache=${res.vercelCache ?? '-'}`);
+    }
   }
   for (const path of PUBLIC_PATHS) {
     const res = await get(base, path);

@@ -564,6 +564,10 @@ export interface paths {
         /**
          * Generate Access Codes
          * @description Generate N new unused access codes and persist them.
+         *
+         *     ADMINAAL2-0032 Amendment 2 (FR-020, option c): a code that grants a role
+         *     (normalized ``grants_role`` non-null) needs step-up before any DB call;
+         *     an ordinary code keeps the FR-001 guard only.
          */
         post: operations["generate_access_codes_admin_access_codes_generate_post"];
         delete?: never;
@@ -22183,6 +22187,8 @@ export interface components {
             max_age_seconds: number;
             /** Message */
             message: string;
+            /** Reason */
+            reason?: "new_factor_cooloff" | null;
         };
         /** StrengthResponse */
         StrengthResponse: {
@@ -24175,7 +24181,7 @@ export interface operations {
                     "application/json": components["schemas"]["UserRoleChangeOut"];
                 };
             };
-            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020) */
+            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020; `reason: new_factor_cooloff` for a factor under 24 hours old) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -24310,6 +24316,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020; `reason: new_factor_cooloff` for a factor under 24 hours old) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffForbiddenResponse"];
                 };
             };
             /** @description Validation Error */
@@ -26304,7 +26319,7 @@ export interface operations {
                     "application/json": components["schemas"]["StaffActiveOut"];
                 };
             };
-            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020) */
+            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020; `reason: new_factor_cooloff` for a factor under 24 hours old) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -26350,7 +26365,7 @@ export interface operations {
                     "application/json": components["schemas"]["RevokeSessionsOut"];
                 };
             };
-            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020) */
+            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020; `reason: new_factor_cooloff` for a factor under 24 hours old) */
             403: {
                 headers: {
                     [name: string]: unknown;
