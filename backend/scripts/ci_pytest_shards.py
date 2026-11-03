@@ -26,6 +26,11 @@ CI only uploads a candidate and never updates the committed snapshot.
 Whole files stay together, so module/session fixtures and in-file ordering
 behave as in the serial run. No test is selected or deselected: each shard
 passes its file paths to pytest, and those files run as they would serially.
+
+PC-J582: the PostgreSQL 17 advisory job shards its own subset the same way.
+`--files` limits `collect`/`run` to the given test files (the shell expands the
+workflow's globs) and `--weights` points `run` at that job's measured snapshot
+`ci_pytest_pg17_shard_weights.json`, so `verify` proves the PG17 split too.
 """
 from __future__ import annotations
 
@@ -49,6 +54,20 @@ def test_files(root: Path = Path(".")) -> list[str]:
             if "__pycache__" not in path.parts:
                 found.add(path.relative_to(root).as_posix())
     return sorted(found)
+
+
+def selected_files(paths: list[str] | None) -> list[str]:
+    """The whole suite, or exactly the named test files, which must all exist.
+
+    A glob that matched nothing reaches here verbatim; refusing it keeps a typo
+    from shrinking the selected suite without notice.
+    """
+    if not paths:
+        return test_files()
+    missing = sorted(p for p in paths if not Path(p).is_file())
+    if missing:
+        raise SystemExit(f"--files: no such test file: {', '.join(missing)}")
+    return sorted(set(paths))
 
 
 def file_durations(files: list[str], weights: dict[str, float]) -> dict[str, float]:
@@ -107,12 +126,13 @@ def _pytest(args: list[str], out: Path) -> int:
 
 
 def cmd_collect(ns) -> int:
-    return _pytest(["--collect-only", "-qq", TESTS_DIR], Path(ns.out))
+    targets = selected_files(ns.files) if ns.files else [TESTS_DIR]
+    return _pytest(["--collect-only", "-qq", *targets], Path(ns.out))
 
 
 def cmd_run(ns) -> int:
-    weights = json.loads(WEIGHTS_FILE.read_text(encoding="utf-8"))
-    all_files = test_files()
+    weights = json.loads(Path(ns.weights).read_text(encoding="utf-8"))
+    all_files = selected_files(ns.files)
     durations = file_durations(all_files, weights)
     files = partition(all_files, weights, ns.total)[ns.index - 1]
     seconds = sum(durations[name] for name in files)
@@ -203,11 +223,14 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("collect")
     p.add_argument("--out", required=True)
+    p.add_argument("--files", nargs="+", help="collect only these test files")
     p.set_defaults(func=cmd_collect)
     p = sub.add_parser("run")
     p.add_argument("--total", type=int, required=True)
     p.add_argument("--index", type=int, required=True, help="1-based")
     p.add_argument("--out", required=True)
+    p.add_argument("--files", nargs="+", help="shard only these test files")
+    p.add_argument("--weights", default=str(WEIGHTS_FILE), help="per-file seconds snapshot")
     p.add_argument("pytest_args", nargs="*")
     p.set_defaults(func=cmd_run)
     p = sub.add_parser("verify")

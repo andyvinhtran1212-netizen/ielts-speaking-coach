@@ -35,7 +35,7 @@ new files such as `test_async_auth_fail_closed_http.py` (49.01s),
 (zero seconds). They accumulated on shard 3. The refreshed weights predict
 about 411 seconds of test phases per shard on the PC-J515 base suite; the PR
 records the measured result. The separate PG17 advisory job took 13.30 minutes
-and remains a separate follow-up.
+then; see the PC-J582 section below.
 
 ## Manual refresh
 
@@ -64,3 +64,28 @@ Review the snapshot diff, update provenance, run `tests/test_ci_pytest_shards.py
 then check all four shard wall times and parity on the PR's exact head. Keep
 the four required check names and 25-minute shard timeout unchanged. Do not
 skip tests or alter the PG17 advisory suite to improve the reported balance.
+
+## PostgreSQL 17 advisory shards (PC-J582)
+
+The PG17 advisory suite (workflow env `PG17_TEST_FILES`) ran serially and grew
+to about 18.5 minutes of test phases plus about one minute of setup. Its job
+hit the 20-minute `timeout-minutes`; a timed-out job is `cancelled`, which
+`continue-on-error` does not absorb, so the staging Tests runs for `f68136d03`
+and `9891da738` were cancelled and failed the promotion gate. The job now runs
+as three shards (`backend-pg17`, matrix 1–3) with
+`ci_pytest_shards.py run --files ... --weights scripts/ci_pytest_pg17_shard_weights.json`.
+`backend-pg17-verify` collects the same files and runs `verify --total 3`.
+Both jobs stay advisory: `continue-on-error`, not in `backend.needs`, branch
+protection or `staging-promotion-gate.yml`, 20-minute timeout per shard.
+
+Snapshot source: [Tests run 41603286450](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/actions/runs/41603286450),
+attempt 2, head `9891da738`, 1,999 tests in 99 files, all passed. That serial
+run uploaded no shard report, so each file's seconds are the gaps between
+consecutive `PASSED` log timestamps (1,109 seconds in total), which include
+setup and teardown. The snapshot predicts 370 seconds per shard.
+
+Refresh it like the main snapshot, from a complete successful run, using the
+`backend-pg17-shard-*` artifacts, `backend-pg17-verify`'s collection (or
+`collect --files` on the same head) and `verify --total 3 --weights-out`; CI
+uploads the candidate as `backend-pg17-weights`. Copy the result to
+`backend/scripts/ci_pytest_pg17_shard_weights.json` and update this provenance.
