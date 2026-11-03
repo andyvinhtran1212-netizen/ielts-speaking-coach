@@ -264,8 +264,9 @@ Over the course of [period], [subject] has [change].
 
 ### Lỗi 3: "No longer" đặt sai vị trí
 
-- ❌ "People are relying no longer on..." / "People no longer are relying on..."
+- ❌ "People are relying no longer on..."
 - ✅ "People **are no longer relying** on..." / "People **no longer rely** on..."
+- *Lưu ý: "People no longer **ARE** relying on..." chỉ dùng khi nhấn mạnh tương phản (nhấn giọng vào ARE); khi nói/viết bình thường, dùng vị trí trung tính "are no longer relying".*
 
 ### Lỗi 4: Chỉ mô tả thay đổi mà không giải thích tại sao
 
