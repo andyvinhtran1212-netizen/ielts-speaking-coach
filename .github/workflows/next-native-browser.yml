@@ -193,6 +193,7 @@ on:
       - 'frontend/public/pages/listening-practice-run.html'
       - 'frontend/public/pages/listening-practice.html'
       - 'frontend/tooling/supabase-session.mjs'
+      - 'frontend/tooling/theme-toggle-check.mjs'
       - 'frontend/lib/backend.ts'
       - 'frontend/lib/grammar-api.ts'
       - 'frontend/app/(authed-listening-review)/**'
