@@ -297,10 +297,14 @@
       if (response.status === 403 && !(opts && opts.noRedirect)) {
         if (isObj && detail.code === 'mfa_required') _toAdminMfa();
         else if (detail === 'Tài khoản chưa được kích hoạt') _announceInactive();
-        else if (isObj && detail.code === 'step_up_required' && !(opts && (opts.keepalive || opts._stepUpResent))) {
+        else if (isObj && detail.code === 'step_up_required' && detail.reason !== 'new_factor_cooloff'
+                 && !(opts && (opts.keepalive || opts._stepUpResent))) {
           // FR-020: the server refused before any change, so after a fresh
           // TOTP the SAME request is sent once more with the new token — and
           // never a second time: a repeated refusal is thrown to the caller.
+          // Amendment 2 (FR-020a): a cool-off refusal (a factor added or
+          // changed under 24 h ago) is not cured by a fresh code, so it gets
+          // no prompt and no resend; the caller shows detail.message (the wait).
           if (await _requestStepUp(detail)) {
             var resendOpts = {};
             if (opts) { for (var optKey in opts) resendOpts[optKey] = opts[optKey]; }

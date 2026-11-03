@@ -12,6 +12,7 @@ from fastapi import HTTPException
 
 from routers import grammar_diagnostic as diagnostic
 from routers import grammar_lesson as lesson
+from tests.loop_gate import WAIT, LoopGate, until
 
 
 @pytest.fixture(autouse=True)
@@ -60,23 +61,25 @@ async def test_learner_service_yields_loop_and_preserves_arguments(monkeypatch, 
     monkeypatch.setattr(module, "get_supabase_user", _authenticated)
     called = []
     loop_thread = threading.get_ident()
+    gate = LoopGate()
 
     def slow(*a, **kw):
         called.append((a, kw, threading.get_ident()))
-        time.sleep(0.5)
+        gate.park()
         return True if route == "availability" else {"saved": True}
 
     monkeypatch.setattr(_target(module, service), service, slow)
-    started = time.perf_counter()
-
-    async def light_request():
-        await asyncio.sleep(0)
-        return time.perf_counter() - started
-
-    result, delay = await asyncio.gather(
-        getattr(module, route)(*args, authorization="Bearer test", **kwargs), light_request(),
-    )
-    assert delay < 0.2
+    request = asyncio.create_task(getattr(module, route)(*args, authorization="Bearer test", **kwargs))
+    try:
+        # This coroutine keeps running on the loop while the service call is
+        # parked; a call made on the loop thread would hold it until WAIT.
+        entered = await until(lambda: gate.inside >= 1, stop=request)
+        parked = entered and not request.done() and not gate.released
+    finally:
+        gate.release()
+    result = await asyncio.wait_for(request, WAIT)
+    assert not gate.timed_out, f"{route}: the service call ran on the event loop"
+    assert parked, f"{route}: the loop did not run while the service call was in flight"
     assert called[0][:2] == (expected_args, expected_kwargs)
     assert called[0][2] != loop_thread
     if route == "availability":

@@ -1,0 +1,41 @@
+/* Mirrors the .av-theme-toggle rules in aver-chrome / aver-admin-chrome
+   (their copies live in shadow roots, so a light-DOM button needs its own).
+   The doubled class outranks page rules such as `.ins-top__actions button`
+   (0,1,1) and their :hover (0,2,1), which load later in the document. */
+.toggle.toggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-pill);
+  color: var(--av-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+}
+.toggle.toggle:hover {
+  background: var(--av-primary-soft);
+  color: var(--av-primary);
+  border-color: var(--av-primary-border);
+}
+.toggle.toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--av-shadow-focus);
+}
+.toggle svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.sun { display: none; }
+.moon { display: block; }
+:global([data-theme="dark"]) .sun { display: block; }
+:global([data-theme="dark"]) .moon { display: none; }

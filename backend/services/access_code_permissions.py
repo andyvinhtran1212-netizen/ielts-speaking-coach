@@ -27,6 +27,7 @@ Why query the live source on every gated request?
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextvars import ContextVar
 from datetime import datetime, timezone
@@ -77,10 +78,11 @@ def get_user_access_code_permissions_cached(user_id: UUID | str) -> list[str]:
 async def aget_user_access_code_permissions_cached(user_id: UUID | str) -> list[str]:
     """Async :func:`get_user_access_code_permissions_cached` (same request memo).
 
-    PC-J05 D1a: with ``USE_ASYNC_DB`` off this IS the sync function; with it on
-    the live lookup awaits the async client instead of blocking the loop."""
+    PC-J05 D1a: with ``USE_ASYNC_DB`` off the sync function runs in a worker
+    thread (ASYNCAUTH-0036 Revision 3; the thread shares this request's memo
+    dict); with it on the live lookup awaits the async client."""
     if not settings.USE_ASYNC_DB:
-        return get_user_access_code_permissions_cached(user_id)
+        return await asyncio.to_thread(get_user_access_code_permissions_cached, user_id)
     memo = _perm_memo.get()
     if memo is None:
         return await aget_user_access_code_permissions(user_id)
@@ -224,9 +226,9 @@ async def aget_account_permissions_summary(
     user_id: UUID | str, display_name: Optional[str] = None,
 ) -> dict:
     """Async :func:`get_account_permissions_summary` — same flags; with
-    ``USE_ASYNC_DB`` off it is the sync function itself."""
+    ``USE_ASYNC_DB`` off the sync function runs in a worker thread."""
     if not settings.USE_ASYNC_DB:
-        return get_account_permissions_summary(user_id, display_name)
+        return await asyncio.to_thread(get_account_permissions_summary, user_id, display_name)
     from services import activation_gate  # local — keeps this module import-light
     if not await activation_gate.aaccount_is_active(str(user_id)):
         return get_user_permissions_summary([])
@@ -645,9 +647,9 @@ def get_user_access_code_permissions(user_id: UUID | str) -> list[str]:
 
 async def aget_user_access_code_permissions(user_id: UUID | str) -> list[str]:
     """Async :func:`get_user_access_code_permissions`; with ``USE_ASYNC_DB``
-    off it is the sync function itself."""
+    off the sync function runs in a worker thread."""
     if not settings.USE_ASYNC_DB:
-        return get_user_access_code_permissions(user_id)
+        return await asyncio.to_thread(get_user_access_code_permissions, user_id)
     return _permission_union(await _aactive_code_rows(user_id))
 
 
@@ -694,9 +696,10 @@ def student_has_writing_assignment(student_id: Optional[UUID | str]) -> bool:
 
 
 async def astudent_has_writing_assignment(student_id: Optional[UUID | str]) -> bool:
-    """Async :func:`student_has_writing_assignment` (same fail-closed False)."""
+    """Async :func:`student_has_writing_assignment` (same fail-closed False;
+    with ``USE_ASYNC_DB`` off the sync function runs in a worker thread)."""
     if not settings.USE_ASYNC_DB:
-        return student_has_writing_assignment(student_id)
+        return await asyncio.to_thread(student_has_writing_assignment, student_id)
     if not student_id:
         return False
     try:
@@ -741,9 +744,10 @@ async def astudent_id_for_user(
     user_id: Optional[UUID | str],
     account_name: str = "",
 ) -> Optional[str]:
-    """Async :func:`student_id_for_user` (same None on miss or failure)."""
+    """Async :func:`student_id_for_user` (same None on miss or failure; with
+    ``USE_ASYNC_DB`` off the sync function runs in a worker thread)."""
     if not settings.USE_ASYNC_DB:
-        return student_id_for_user(user_id, account_name)
+        return await asyncio.to_thread(student_id_for_user, user_id, account_name)
     if not user_id:
         return None
     try:

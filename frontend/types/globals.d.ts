@@ -46,7 +46,7 @@ interface Window {
   getSupabase(): unknown;
   showToast(message: string, kind?: string, opts?: unknown): void;
   WritingRenderers?: {
-    SECTION_RENDERERS: Record<string, (value: unknown) => string>;
+    SECTION_RENDERERS: Record<string, (value: unknown, options?: { isStaffViewer?: boolean }) => string>;
     SECTION_KEYS: Record<string, string>;
     renderInstructorNote(value: string): string;
     emptyShape(message?: string): string;

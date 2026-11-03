@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import { getAuthorizationIdentity } from '@/lib/auth-api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { normalizeInstructorVersions } from '@/lib/instructor-compare-model.mjs';
@@ -82,7 +83,7 @@ function FeedbackPreview({ feedback }: { feedback: any }) {
       const renderer = renderers.SECTION_RENDERERS[sectionKey];
       if (!renderer) return [];
       try {
-        return [{ key: sectionKey, title: SECTION_LABELS[sectionKey] || sectionKey, html: renderer(value) }];
+        return [{ key: sectionKey, title: SECTION_LABELS[sectionKey] || sectionKey, html: renderer(value, { isStaffViewer: true }) }];
       } catch {
         return [];
       }
@@ -488,7 +489,10 @@ export function InstructorGrade() {
       <header className="ig-topbar">
         <a href="/instructor" className="ig-back"><ChevronLeft />Hàng chờ chấm</a>
         <div className="ig-top-student" id="ig-student">{essay?.student?.fullName || 'Chấm bài Writing'}</div>
-        <div className="ig-band" id="ig-band">{feedback ? `Band ${feedback.overallBandScore}` : 'Band —'}</div>
+        <div className="ig-top-actions">
+          <div className="ig-band" id="ig-band">{feedback ? `Band ${feedback.overallBandScore}` : 'Band —'}</div>
+          <ThemeToggleButton />
+        </div>
       </header>
 
       <main className="ig-main">

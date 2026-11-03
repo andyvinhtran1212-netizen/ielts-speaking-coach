@@ -7,6 +7,7 @@ import {
   buildContentSecurityPolicy,
   NONCE_ENFORCE_FLAG,
   NONCE_REPORT_ONLY_FLAG,
+  NONCE_ROUTE_TABLE_ENV,
   nonceEnforceEnabled,
   nonceReportOnlyEnabled,
   sameOriginFramePolicy,
@@ -15,6 +16,7 @@ import {
   buildLegacyRetirementRedirects,
   LEGACY_RETIREMENT_PATHS,
 } from './tooling/legacy-url-redirects.mjs';
+import { collectNonceRoutes } from './tooling/nonce-route-table.mjs';
 
 const LEGACY_RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(
   LEGACY_RETIREMENT_PATHS,
@@ -57,6 +59,13 @@ const nextConfig: NextConfig = {
   env: {
     [NONCE_REPORT_ONLY_FLAG]: nonceReportOnlyEnabled(process.env) ? '1' : '0',
     [NONCE_ENFORCE_FLAG]: nonceEnforceEnabled(process.env) ? '1' : '0',
+    // PC-J566: the routes the proxy may give a nonce policy; every other
+    // prefixed URL is the static root 404 and keeps the public baseline.
+    // A getter, so app/ is read only when Next reads `env` for the build;
+    // evaluating redirects() or headers() stays free of filesystem reads.
+    get [NONCE_ROUTE_TABLE_ENV]() {
+      return nonceReportOnlyEnabled(process.env) ? JSON.stringify(collectNonceRoutes(__dirname)) : '';
+    },
   },
 
   async rewrites() {
