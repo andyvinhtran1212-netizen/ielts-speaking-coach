@@ -1071,6 +1071,16 @@ def test_any_recent_verified_factor_refuses_step_up_with_a_fresh_totp(frozen, fa
     assert _refusal(factors) == COOLOFF_DETAIL
 
 
+def test_cooloff_restarts_after_factor_rename(frozen):
+    # GoTrue UpdateFriendlyName bumps updated_at only (spec.md FR-020a / AC13):
+    # a 30-day-old factor renamed a minute ago is a changed factor again.
+    renamed = _factor("f-renamed", created=T - 30 * DAY, updated=T - 60)
+    assert _refusal([renamed], totp_at=T - 60) == COOLOFF_DETAIL
+    assert _refusal([OLD, renamed], totp_at=T - 60) == COOLOFF_DETAIL
+    # The same factor left untouched for a full day after the rename passes.
+    assert _recent_mfa([{**renamed, "updated_at": iso(T - DAY)}]) is None
+
+
 def test_cooloff_message_explains_the_24_hour_wait():
     assert "24 giờ" in staff_guard.STEP_UP_COOLOFF_MESSAGE
     assert staff_guard.STEP_UP_COOLOFF_MESSAGE != staff_guard.STEP_UP_REQUIRED_MESSAGE

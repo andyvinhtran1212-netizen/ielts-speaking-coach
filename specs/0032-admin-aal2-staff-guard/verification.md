@@ -151,8 +151,12 @@ of `supabase/auth` **v2.197.0**:
   and [`:939`](https://github.com/supabase/auth/blob/v2.197.0/internal/api/mfa.go#L939)
   guard the status update with `!factor.IsVerified()`. Re-challenging and
   verifying an already verified TOTP factor therefore does not restart the
-  cool-off. Renaming a factor does restart it through `updated_at`; the
-  separate P3-2 spec clarification remains outside PC-J567.
+  cool-off. Renaming a factor does restart it through `updated_at`;
+  spec.md FR-020a and AC13 state this (SA-2213 P3-2, PC-J584), pinned by
+  `test_cooloff_restarts_after_factor_rename` in
+  `backend/tests/test_staff_guard.py` (factor created 30 days ago, renamed
+  60 s ago → 403 `new_factor_cooloff`, alone or beside an old factor; the
+  same factor passes once `updated_at` is 24 h old).
 
 SA P3-1 regression pair in `backend/tests/test_staff_guard.py` uses a factor
 created 30 days ago and updated 60 seconds ago: password-only AAL1 receives
