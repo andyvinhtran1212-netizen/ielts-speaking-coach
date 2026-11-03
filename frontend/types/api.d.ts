@@ -1801,40 +1801,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /**
-         * Update Cohort
-         * @description Edit a class; archive or restore it when `is_active` is sent.
-         *
-         *     An `is_active` change runs `fn_archive_cohort` / `fn_restore_cohort` FIRST
-         *     (research.md §4.2 W14): the flag, `archived_at/by/reason` and one
-         *     `class_lifecycle_audit` row commit together, and a repeat writes no audit
-         *     row. If the RPC fails nothing else is written. Name, prefix, description
-         *     and course are then saved by a plain UPDATE. The response is the cohort row;
-         *     with `is_active` it also carries `archive_receipt` (the RPC result).
-         */
+        /** Update Cohort */
         patch: operations["update_cohort_admin_cohorts__cohort_id__patch"];
-        trace?: never;
-    };
-    "/admin/cohorts/{cohort_id}/archive-preview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Cohort Archive Preview
-         * @description Counts for the archive confirm dialog (`fn_cohort_archive_counts`):
-         *     active members, open Writing gives, open class items, unused class codes.
-         *     Plain reads; nothing is locked or written.
-         */
-        get: operations["cohort_archive_preview_admin_cohorts__cohort_id__archive_preview_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/admin/cohorts/{cohort_id}/members": {
@@ -15353,26 +15321,6 @@ export interface components {
             /** Grants Role */
             grants_role?: string | null;
         };
-        /**
-         * CohortArchiveCountsOut
-         * @description `fn_cohort_archive_counts` (migration 337).
-         */
-        CohortArchiveCountsOut: {
-            /** Active Members */
-            active_members: number;
-            /** Open Writing Gives */
-            open_writing_gives: number;
-            /** Open Class Items */
-            open_class_items: number;
-            /** Unused Class Codes */
-            unused_class_codes: number;
-        };
-        /** CohortArchivePreviewOut */
-        CohortArchivePreviewOut: {
-            /** Cohort Id */
-            cohort_id: string;
-            counts: components["schemas"]["CohortArchiveCountsOut"];
-        };
         /** CohortCourseOut */
         CohortCourseOut: {
             /** Id */
@@ -15407,8 +15355,6 @@ export interface components {
             description?: string | null;
             /** Is Active */
             is_active?: boolean | null;
-            /** Archive Reason */
-            archive_reason?: string | null;
             /** Course Id */
             course_id?: string | null;
         };
@@ -26553,39 +26499,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    cohort_archive_preview_admin_cohorts__cohort_id__archive_preview_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                cohort_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CohortArchivePreviewOut"];
                 };
             };
             /** @description Validation Error */
