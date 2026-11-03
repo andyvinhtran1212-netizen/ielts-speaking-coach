@@ -15,7 +15,9 @@
 //    Step 2 may enforce it on staging/previews only. Setting the blocking
 //    response header also supplies the nonce to Vercel's PPR resume render;
 //    Report-Only alone cannot do that (SA-1029-CSP1). Public and production
-//    routes retain the baseline from next.config.ts. See the CSP runbook.
+//    routes retain the baseline from next.config.ts. So do URLs under those
+//    prefixes that no route answers (PC-J566): Next serves them the static
+//    root 404, whose scripts cannot carry a request nonce. See the CSP runbook.
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { API_BASE } from '@/lib/backend';
@@ -25,7 +27,9 @@ import {
   buildNonceReportOnlyPolicy,
   nonceHostAllowed,
   nonceRouteAllowed,
+  nonceRouteExists,
   NONCE_SAME_ORIGIN_FRAME_ROUTES,
+  parseNonceRouteTable,
   sameOriginFramePolicy,
 } from '@/tooling/content-security-policy.mjs';
 
@@ -101,6 +105,10 @@ async function grammarArticle(request: NextRequest) {
     : NextResponse.next();
 }
 
+// Inlined at build by next.config.ts `env` (tooling/nonce-route-table.mjs).
+// Unusable → null, which keeps the nonce policy on every prefixed URL.
+const nonceRoutes = parseNonceRouteTable(process.env.AVER_CSP_NONCE_ROUTES);
+
 function createNonce() {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   return btoa(String.fromCharCode(...bytes));
@@ -126,6 +134,11 @@ function noncePolicy(request: NextRequest) {
   // Matcher exclusions are checked again here so direct calls and future
   // matcher edits cannot enable a blocking nonce policy on public/prod URLs.
   if (!nonceRouteAllowed(request.nextUrl.pathname)) return NextResponse.next();
+  // PC-J566 / SA-1029-CSP1 F1 (b): no route answers this URL, so Next serves
+  // the prerendered root 404. Leave it the public baseline (no nonce, no
+  // Report-Only), the same as `/nope-top-level`. Decided from the build's own
+  // route table only, never from request headers or a "404" in the URL.
+  if (!nonceRouteExists(request.nextUrl.pathname, nonceRoutes)) return NextResponse.next();
   if (process.env.AVER_CSP_NONCE_ENFORCE !== '1') return nonceReportOnly(request);
   if (process.env.VERCEL_ENV === 'production' || !nonceHostAllowed(request.nextUrl.hostname)) {
     return NextResponse.next();
