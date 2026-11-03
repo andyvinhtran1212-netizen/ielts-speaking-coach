@@ -31,6 +31,11 @@ _url = settings.SUPABASE_URL
 _key = settings.SUPABASE_SERVICE_KEY
 
 
+SUPABASE_POSTGREST_LIMITS = httpx.Limits(
+    max_connections=100, max_keepalive_connections=100,
+)
+
+
 def _build_supabase_http_client() -> httpx.Client:
     """Build the shared sync transport used by service-role PostgREST calls.
 
@@ -43,12 +48,19 @@ def _build_supabase_http_client() -> httpx.Client:
 
     Keep this as an explicit factory so the transport contract is testable
     without making a network request.
+
+    PC-J558: httpcore 1.0.9 compares *all* pooled connections, not only the
+    idle ones, against ``max_keepalive_connections`` (httpx default 20). With
+    more than 20 concurrent sync PostgREST calls (the anyio threadpool runs
+    40), every connection was closed on release, so each call paid a new
+    TCP+TLS handshake. Keep-alive must be >= the connection cap.
     """
     return httpx.Client(
         http1=True,
         http2=False,
         follow_redirects=True,
         timeout=httpx.Timeout(120.0),
+        limits=SUPABASE_POSTGREST_LIMITS,
     )
 
 
