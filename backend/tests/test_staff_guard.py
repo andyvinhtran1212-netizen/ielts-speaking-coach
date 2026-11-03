@@ -20,6 +20,8 @@ import base64
 import json
 import logging
 import time
+from datetime import datetime, timezone
+from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
@@ -53,7 +55,18 @@ USERS = {
     "target-instructor":   {"role": "instructor", "is_active": True},
 }
 
-VERIFIED = [{"id": "f-1", "factor_type": "totp", "status": "verified"}]
+
+
+def iso(ts: float) -> str:
+    """A GoTrue factor timestamp (RFC 3339, UTC, ``Z``)."""
+    return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+# Amendment 2 (FR-020a): the shared verified factor is 30 days old, so the
+# step-up tests isolate the 15-minute rule from the 24-hour cool-off (AC12).
+OLD_FACTOR_AT = iso(NOW - 30 * 24 * HOUR)
+VERIFIED = [{"id": "f-1", "factor_type": "totp", "status": "verified",
+             "created_at": OLD_FACTOR_AT, "updated_at": OLD_FACTOR_AT}]
 UNVERIFIED = [{"id": "f-2", "factor_type": "totp", "status": "unverified"}]
 
 
@@ -865,3 +878,335 @@ def test_step_up_assurance_failure_never_grants(step_up, monkeypatch):
     with pytest.raises(HTTPException) as ei:
         _step_up("admin-active", 60)
     assert ei.value.status_code == 503
+
+
+# ── Amendment 2: FR-012 non-finite TOTP timestamps (spec.md AC15) ────────────
+
+NAN, INF = float("nan"), float("inf")
+
+
+def _amr_claims(*stamps) -> dict:
+    # json.dumps writes NaN / Infinity / -Infinity and json.loads reads them
+    # back, so these reach the guard exactly as a crafted payload would.
+    return {"sub": "admin-active", "aal": "aal2",
+            "amr": [{"method": "totp", "timestamp": s} for s in stamps]}
+
+
+def _assure(*stamps, now: float = NOW):
+    user = {"id": "admin-active", "factors": VERIFIED}
+    return staff_guard.evaluate_admin_assurance(user, f"Bearer {jwt(_amr_claims(*stamps))}", now=now)
+
+
+@pytest.mark.parametrize("stamps", [(NAN,), (INF,), (-INF,), (NAN, INF, -INF), (10**400,)],
+                         ids=["nan", "+inf", "-inf", "all-three", "int-beyond-float"])
+def test_non_finite_totp_timestamp_counts_as_no_totp(stamps):
+    a = _assure(*stamps)
+    assert not a.satisfied and a.reason == "totp_expired" and a.next_step == "challenge"
+    assert a.totp_verified_at is None
+
+
+def test_nan_alone_used_to_pass_and_now_does_not():
+    # Negative control for the old filter: NaN compares false with every age
+    # bound, so without isfinite it fell through to "ok" (SA P3-1).
+    assert not (NAN > NOW + 300) and not (NOW - NAN > 12 * HOUR)
+    assert _assure(NAN).reason == "totp_expired"
+
+
+@pytest.mark.parametrize("bad", [NAN, INF, -INF], ids=["nan", "+inf", "-inf"])
+@pytest.mark.parametrize("order", ["bad-first", "bad-last"])
+def test_only_the_finite_timestamp_counts_in_mixed_claims(bad, order):
+    fresh, expired = int(NOW - 60), int(NOW - 13 * HOUR)
+    pair = (bad, fresh) if order == "bad-first" else (fresh, bad)
+    a = _assure(*pair)
+    assert a.satisfied and a.totp_verified_at == fresh
+    pair = (bad, expired) if order == "bad-first" else (expired, bad)
+    a = _assure(*pair)
+    assert a.reason == "totp_expired" and a.totp_verified_at == expired
+
+
+@pytest.mark.parametrize("stamps,reason", [
+    ((True,), "totp_expired"), ((NAN, "yesterday"), "totp_expired"),
+    ((NAN, int(NOW + 301)), "totp_invalid"), ((INF, int(NOW + 300)), "ok"),
+], ids=["bool", "nan+non-numeric", "nan+future-beyond-skew", "inf+future-within-skew"])
+def test_existing_bool_and_skew_rules_still_apply_next_to_non_finite(stamps, reason):
+    assert _assure(*stamps, now=int(NOW)).reason == reason
+
+
+@pytest.mark.parametrize("bad", [NAN, INF, -INF], ids=["nan", "+inf", "-inf"])
+def test_non_finite_only_is_mfa_required_under_aal2_enforcement(harness, bad):
+    harness.enforce()
+    exc = denied(admin_module.require_admin, accept("admin-active", _amr_claims(bad), factors=VERIFIED))
+    assert exc.status_code == 403 and is_mfa_required(exc, "challenge")
+    assert harness.users.touched == []
+
+
+@pytest.mark.parametrize("bad", [NAN, INF, -INF], ids=["nan", "+inf", "-inf"])
+def test_non_finite_only_report_only_logs_one_totp_expired_line(harness, caplog, bad):
+    token = accept("admin-active", _amr_claims(bad), factors=VERIFIED)
+    with caplog.at_level(logging.WARNING, logger=staff_guard.logger.name):
+        resp = harness.get("/admin/users", token)
+    assert resp.status_code != 403 and harness.users.touched == ["users.order"]
+    records = would_block_records(caplog)
+    assert len(records) == 1 and would_block_fields(records[0])["reason"] == "totp_expired"
+    # No conversion error from the guard (the handler's own 418 log is the fake).
+    assert [r for r in caplog.records if r.name == staff_guard.logger.name and r.levelno >= logging.ERROR] == []
+
+
+@pytest.mark.parametrize("bad", [NAN, INF, -INF], ids=["nan", "+inf", "-inf"])
+def test_non_finite_only_step_up_enforced_and_report_only(monkeypatch, caplog, bad):
+    monkeypatch.setattr(settings, "ADMIN_AAL2_ENFORCE", False)
+    monkeypatch.setattr(settings, "ADMIN_STEP_UP_MINUTES", 15)
+    user = {"id": "admin-active", "factors": VERIFIED}
+    bearer = f"Bearer {jwt(_amr_claims(bad))}"
+    monkeypatch.setattr(settings, "ADMIN_STEP_UP_ENFORCE", True)
+    with pytest.raises(HTTPException) as ei:
+        staff_guard.require_recent_mfa(user, bearer)
+    assert ei.value.status_code == 403 and ei.value.detail["code"] == "step_up_required"
+    assert "reason" not in ei.value.detail  # old factors: not the cool-off
+    monkeypatch.setattr(settings, "ADMIN_STEP_UP_ENFORCE", False)
+    with caplog.at_level(logging.WARNING, logger=staff_guard.logger.name):
+        assert staff_guard.require_recent_mfa(user, bearer) is None
+    records = step_up_records(caplog)
+    assert len(records) == 1
+    fields = json.loads(records[0].getMessage().split(" ", 1)[1])
+    assert fields["reason"] == "totp_expired" and fields["totp_age_seconds"] is None
+    assert [r for r in caplog.records if r.levelno >= logging.ERROR] == []
+
+
+# ── Amendment 2: FR-020a 24-hour new-factor cool-off (spec.md AC13) ──────────
+
+T = 1_800_000_000.0   # fixed UTC clock for the boundary cases
+DAY = 24 * HOUR
+
+
+def _factor(fid: str, *, created: float, updated: float | None = None,
+            status: str = "verified", factor_type: str = "totp") -> dict:
+    return {"id": fid, "factor_type": factor_type, "status": status,
+            "created_at": iso(created), "updated_at": iso(created if updated is None else updated)}
+
+
+OLD = _factor("f-old", created=T - 30 * DAY)
+
+
+@pytest.fixture
+def frozen(monkeypatch):
+    """ADMIN_STEP_UP_ENFORCE on, time.time() == T inside staff_guard."""
+    monkeypatch.setattr(staff_guard, "time", SimpleNamespace(time=lambda: T))
+    monkeypatch.setattr(settings, "ADMIN_STEP_UP_ENFORCE", True)
+    monkeypatch.setattr(settings, "ADMIN_STEP_UP_MINUTES", 15)
+
+    def enforce(on: bool = True):
+        monkeypatch.setattr(settings, "ADMIN_STEP_UP_ENFORCE", on)
+
+    return enforce
+
+
+def _bearer_at(totp_at: float, *, uid: str = "admin-active", extra: dict | None = None) -> str:
+    claims = {"sub": uid, "aal": "aal2", "session_id": "s-1",
+              "amr": [{"method": "totp", "timestamp": int(totp_at)},
+                      {"method": "password", "timestamp": int(totp_at) - 30}]}
+    claims.update(extra or {})
+    return f"Bearer {jwt(claims)}"
+
+
+def _recent_mfa(factors, *, totp_at: float = T - 60, bearer: str | None = None):
+    user = {"id": "admin-active", "email": "admin-active@example.test", "factors": factors}
+    return staff_guard.require_recent_mfa(user, bearer or _bearer_at(totp_at))
+
+
+def _refusal(factors, **kwargs) -> dict:
+    with pytest.raises(HTTPException) as ei:
+        _recent_mfa(factors, **kwargs)
+    assert ei.value.status_code == 403
+    return ei.value.detail
+
+
+COOLOFF_DETAIL = {
+    "code": "step_up_required", "next_step": "challenge", "max_age_seconds": 900,
+    "reason": "new_factor_cooloff", "message": staff_guard.STEP_UP_COOLOFF_MESSAGE,
+}
+ALMOST = T - (DAY - 1)   # 23 h 59 m 59 s old
+
+
+def test_aal1_recent_factor_step_up_does_not_disclose_cooloff(frozen, monkeypatch):
+    # AAL1 can reach step-up while the ordinary admin guard is report-only.
+    monkeypatch.setattr(settings, "ADMIN_AAL2_ENFORCE", False)
+    claims = {"sub": "admin-active", "aal": "aal1",
+              "amr": [{"method": "password", "timestamp": int(T - 60)}]}
+    bearer = f"Bearer {jwt(claims)}"
+    factors = [_factor("f-1", created=T - 30 * DAY, updated=T - 60)]
+    detail = _refusal(factors, bearer=bearer)
+    assert detail == {
+        "code": "step_up_required", "next_step": "challenge", "max_age_seconds": 900,
+        "message": staff_guard.STEP_UP_REQUIRED_MESSAGE,
+    }
+    assert "reason" not in detail
+    assert staff_guard.STEP_UP_COOLOFF_REASON not in json.dumps(detail)
+    assert detail["message"] != staff_guard.STEP_UP_COOLOFF_MESSAGE
+
+    # Assurance failure must not short-circuit validation of any factor.
+    factors.append({**OLD, "updated_at": "malformed"})
+    with pytest.raises(HTTPException) as ei:
+        _recent_mfa(factors, bearer=bearer)
+    assert ei.value.status_code == 503 and ei.value.detail == staff_guard.LOOKUP_FAILED_DETAIL
+
+
+def test_aal2_fresh_totp_recent_factor_step_up_keeps_cooloff(frozen):
+    factors = [_factor("f-1", created=T - 30 * DAY, updated=T - 60)]
+    assert _refusal(factors, totp_at=T - 60) == COOLOFF_DETAIL
+
+
+@pytest.mark.parametrize("factors", [
+    [_factor("f-new", created=ALMOST)],
+    [_factor("f-1", created=T - 30 * DAY, updated=ALMOST)],
+    [_factor("f-1", created=ALMOST, updated=T - 30 * DAY)],
+    [OLD, _factor("f-backup", created=ALMOST)],
+    [_factor("f-backup", created=ALMOST), OLD],
+    [OLD, _factor("f-2", created=T - 30 * DAY, updated=ALMOST)],
+    [_factor("f-future", created=T + HOUR)],
+    [OLD, _factor("f-future", created=T - 30 * DAY, updated=T + 60)],
+], ids=["single-new", "updated-recent", "created-recent", "old-then-new-backup",
+        "new-backup-then-old", "old-then-updated", "future-created", "future-updated"])
+def test_any_recent_verified_factor_refuses_step_up_with_a_fresh_totp(frozen, factors):
+    assert _refusal(factors) == COOLOFF_DETAIL
+
+
+def test_cooloff_message_explains_the_24_hour_wait():
+    assert "24 giờ" in staff_guard.STEP_UP_COOLOFF_MESSAGE
+    assert staff_guard.STEP_UP_COOLOFF_MESSAGE != staff_guard.STEP_UP_REQUIRED_MESSAGE
+
+
+@pytest.mark.parametrize("factors", [
+    [_factor("f-1", created=T - DAY)],
+    [_factor("f-1", created=T - 30 * DAY, updated=T - DAY)],
+    [OLD, _factor("f-2", created=T - DAY - 1)],
+    [OLD],
+], ids=["exactly-24h", "updated-exactly-24h", "two-old", "30-days"])
+def test_factors_24_hours_old_or_older_pass_with_a_fresh_totp(frozen, factors, caplog):
+    with caplog.at_level(logging.WARNING, logger=staff_guard.logger.name):
+        assert _recent_mfa(factors) is None
+    assert step_up_records(caplog) == []
+
+
+def test_exactly_24_hours_does_not_waive_the_15_minute_rule(frozen):
+    detail = _refusal([_factor("f-1", created=T - DAY)], totp_at=T - 16 * 60)
+    assert detail["code"] == "step_up_required" and "reason" not in detail
+    assert detail["message"] == staff_guard.STEP_UP_REQUIRED_MESSAGE
+
+
+def test_one_second_short_of_24_hours_is_still_refused(frozen):
+    # Paired negative control for the exact boundary above.
+    assert _refusal([_factor("f-1", created=T - DAY + 1)])["reason"] == "new_factor_cooloff"
+
+
+@pytest.mark.parametrize("factors", [
+    [OLD, _factor("f-pending", created=T - 60, status="unverified")],
+    [OLD, _factor("f-phone", created=T - 60, factor_type="phone")],
+    [OLD, {"id": "f-pending", "factor_type": "totp", "status": "unverified"}],
+], ids=["unverified-totp", "verified-phone", "unverified-without-timestamps"])
+def test_unverified_and_non_totp_factors_do_not_start_the_cooloff(frozen, factors):
+    assert _recent_mfa(factors) is None
+
+
+def test_cooloff_beats_a_stale_totp(frozen):
+    assert _refusal([OLD, _factor("f-new", created=T - HOUR)], totp_at=T - 16 * 60) == COOLOFF_DETAIL
+
+
+@pytest.mark.parametrize("bearer", [
+    _bearer_at(T - 5, extra={"iat": int(T)}),                                   # refreshed token
+    f"Bearer {jwt({'sub': 'admin-active', 'aal': 'aal2', 'amr': [{'method': 'totp', 'timestamp': int(T - 3600)}, {'method': 'totp', 'timestamp': int(T - 1)}]})}",  # another challenge
+], ids=["refresh", "second-challenge"])
+def test_a_new_challenge_or_refresh_cannot_clear_a_recent_factor(frozen, bearer):
+    # A challenge on the OLD factor also only adds a fresh amr totp entry; the
+    # recent factor is still in the accepted Auth factor list.
+    assert _refusal([OLD, _factor("f-new", created=T - HOUR)], bearer=bearer) == COOLOFF_DETAIL
+
+
+def _bad(**overrides) -> dict:
+    f = _factor("f-bad", created=T - 30 * DAY)
+    for key, value in overrides.items():
+        if value is ...:
+            f.pop(key)
+        else:
+            f[key] = value
+    return f
+
+
+BAD_METADATA = {
+    "created-missing": _bad(created_at=...),
+    "updated-missing": _bad(updated_at=...),
+    "created-null": _bad(created_at=None),
+    "updated-empty": _bad(updated_at=" "),
+    "malformed": _bad(created_at="yesterday"),
+    "naive-no-offset": _bad(updated_at="2026-10-01T00:00:00"),
+    "date-only": _bad(created_at="2026-10-01"),
+    "number": _bad(created_at=T - 30 * DAY),
+}
+
+
+@pytest.mark.parametrize("bad", list(BAD_METADATA))
+@pytest.mark.parametrize("order", ["bad-only", "old-first", "new-first"])
+def test_unusable_verified_factor_metadata_fails_closed(frozen, caplog, bad, order):
+    factors = {"bad-only": [BAD_METADATA[bad]],
+               "old-first": [OLD, BAD_METADATA[bad]],
+               "new-first": [_factor("f-new", created=T - 60), BAD_METADATA[bad]]}[order]
+    with pytest.raises(HTTPException) as ei:
+        _recent_mfa(factors)
+    assert ei.value.status_code == 503 and ei.value.detail == staff_guard.LOOKUP_FAILED_DETAIL
+    # Report-only keeps the existing error behaviour: logged, not granted a
+    # would-block reason, request unchanged.
+    frozen(False)
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger=staff_guard.logger.name):
+        assert _recent_mfa(factors) is None
+    assert step_up_records(caplog) == []
+    assert [r for r in caplog.records if "step-up check failed" in r.getMessage()]
+
+
+def test_usable_metadata_control_for_the_fail_closed_cases(frozen):
+    # Same factor with both timestamps usable → passes (negative control).
+    assert _recent_mfa([_bad()]) is None
+
+
+@pytest.mark.parametrize("totp_at", [T - 60, T - 16 * 60], ids=["fresh-totp", "stale-totp"])
+def test_cooloff_report_only_logs_one_reasoned_line_and_passes(frozen, caplog, totp_at):
+    frozen(False)
+    ctx = staff_guard.begin_request({"method": "PATCH", "path": "/admin/users/{user_id}/role"})
+    try:
+        with caplog.at_level(logging.WARNING, logger=staff_guard.logger.name):
+            factors = [OLD, _factor("f-new", created=T - HOUR)]
+            assert _recent_mfa(factors, totp_at=totp_at) is None
+            assert _recent_mfa(factors, totp_at=totp_at) is None
+    finally:
+        staff_guard.reset_request(ctx)
+    records = step_up_records(caplog)
+    assert len(records) == 1
+    message = records[0].getMessage()
+    fields = json.loads(message.split(" ", 1)[1])
+    assert fields["reason"] == "new_factor_cooloff"
+    assert set(fields) == {"event", "user_id", "method", "route", "aal", "reason",
+                           "totp_age_seconds", "max_age_seconds"}
+    assert "example.test" not in message and "Bearer" not in message and "eyJ" not in message
+
+
+def test_cooloff_applies_only_to_step_up_not_to_the_fr001_guard(harness, monkeypatch):
+    # An admin who just enrolled is a valid AAL2 admin for ordinary routes.
+    harness.enforce()
+    recent = [_factor("f-new", created=time.time() - 60)]
+    token = accept("admin-active", aal2_claims("admin-active"), factors=recent)
+    assert run_guard(admin_module.require_admin, token)["id"] == "admin-active"
+    monkeypatch.setattr(settings, "ADMIN_STEP_UP_ENFORCE", True)
+    with pytest.raises(HTTPException) as ei:
+        staff_guard.require_recent_mfa(TOKENS[token], f"Bearer {token}")
+    assert ei.value.detail["reason"] == "new_factor_cooloff"
+
+
+def test_cooloff_reads_only_the_accepted_auth_user(frozen, monkeypatch):
+    # No DB or GoTrue lookup: the only factor source is auth_user["factors"].
+    def no_io(*_a, **_k):
+        raise AssertionError("step-up must not do I/O")
+
+    monkeypatch.setattr(admin_module, "supabase_admin", SimpleNamespace(table=no_io, rpc=no_io))
+    monkeypatch.setattr(auth_module, "_get_auth_http_client", no_io)
+    assert _refusal([_factor("f-new", created=T - HOUR)])["reason"] == "new_factor_cooloff"
+    assert _recent_mfa([OLD]) is None

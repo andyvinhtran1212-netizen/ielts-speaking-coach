@@ -35,9 +35,12 @@
     (`tgenabled IN ('O','A')`); `pg_class.relowner` is `postgres`;
     `service_role` has `rolsuper = false` and is neither the owner nor a
     member of the owner (`pg_has_role('service_role', relowner, 'MEMBER')`
-    is false); and
-    `has_parameter_privilege('service_role', 'session_replication_role', 'SET')`
-    is false (SA F4 / P3-4). Also require that `service_role` has SELECT and
+    is false); and no role `m` in `pg_roles` satisfying
+    `pg_has_role('service_role'::name, m.oid, 'MEMBER')` has
+    `has_parameter_privilege(m.oid, 'session_replication_role', 'SET')` true
+    (SA F4 / P3-4). As in 356 R3 (#2173), check service_role itself and
+    NOINHERIT memberships to cover privileges reachable through SET ROLE.
+    Also require that `service_role` has SELECT and
     INSERT, and `service_role`/PUBLIC
     have no TRIGGER, REFERENCES, TRUNCATE (or MAINTAIN on PG 17+), and
     service_role/PUBLIC/anon/authenticated have no UPDATE or DELETE, including
@@ -158,7 +161,8 @@
     statically reject direct UPDATE/DELETE grants and `GRANT ALL` in down.
   - Exercise the F4 postconditions: both enabled triggers retain their events,
     level and function; owner is postgres; service_role is non-superuser,
-    not an owner member, and has no SET privilege on session_replication_role.
+    not an owner member, and neither it nor any role reached by the MEMBER
+    check above has SET privilege on session_replication_role.
     An unsafe state aborts the transaction without catalog changes.
   - Second apply of 356 stays green.
   - Negative control (recorded in the PR): without the new trigger the owner

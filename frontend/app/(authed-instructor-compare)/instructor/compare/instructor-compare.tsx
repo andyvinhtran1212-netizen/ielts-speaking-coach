@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+import { ThemeToggleButton } from '@/components/theme-toggle-button';
 import { getAuthorizationIdentity } from '@/lib/auth-api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
@@ -283,7 +284,10 @@ export function InstructorCompare() {
       <header className="ic-topbar">
         <a href={backHref} className="ic-back"><ChevronLeft />Quay lại bài chấm</a>
         <div className="ic-top-title">So sánh và ghép phiên bản</div>
-        <div className="ic-overall" aria-label="Điểm tổng hợp xem trước">{overall == null ? 'Band —' : `Band ${overall}`}</div>
+        <div className="ic-top-actions">
+          <div className="ic-overall" aria-label="Điểm tổng hợp xem trước">{overall == null ? 'Band —' : `Band ${overall}`}</div>
+          <ThemeToggleButton />
+        </div>
       </header>
 
       <main className="ic-main">
