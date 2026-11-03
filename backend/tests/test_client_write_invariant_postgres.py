@@ -315,6 +315,12 @@ def _pre_320() -> str:
             FOR EACH ROW EXECUTE FUNCTION fn_stub_paper_trigger();
         CREATE TRIGGER trg_listening_exercises_updated_at BEFORE UPDATE ON listening_exercises
             FOR EACH ROW EXECUTE FUNCTION fn_stub_paper_trigger();
+        -- 353 replaces 295's package guard and 306's source guard: plain stubs
+        -- (353 re-creates the source guard as SECURITY DEFINER and revokes it).
+        CREATE FUNCTION fn_protect_listening_package_child() RETURNS trigger LANGUAGE plpgsql
+            SET search_path = public, pg_temp AS $$ BEGIN RETURN NEW; END $$;
+        CREATE FUNCTION fn_guard_mock_paper_source() RETURNS trigger LANGUAGE plpgsql
+            SET search_path = public, pg_temp AS $$ BEGIN RETURN NEW; END $$;
         -- 339 minimal shape: empty quiz/receipt tables and plain stubs of the 309/314
         -- functions 339 replaces or grants. 339 re-creates the replaced bodies as
         -- SECURITY DEFINER and must re-run 314's REVOKE, or (c) fires on these defaults.
