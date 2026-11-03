@@ -69,11 +69,13 @@ def _build_supabase_http_client() -> httpx.Client:
 # 120 s — longer than any caller waits, which hides the failure from the
 # server log. A PostgREST auth read takes ~0.1–0.3 s cross-region; 15 s read
 # leaves a wide margin. connect/pool fail fast so a dead upstream or a full
-# pool surfaces as an error, not a silent queue. Limits are httpx's defaults,
-# made explicit so /health/async-db can report capacity against them.
+# pool surfaces as an error, not a silent queue. Limits are explicit so
+# /health/async-db can report capacity against them. PC-J575: keep-alive
+# matches the connection cap for the same httpcore counting bug as PC-J558;
+# at 20, each burst of N > 20 concurrent calls reopened N - 20 connections.
 ASYNC_POSTGREST_TIMEOUT = httpx.Timeout(15.0, connect=5.0, pool=5.0)
 ASYNC_POSTGREST_LIMITS = httpx.Limits(
-    max_connections=100, max_keepalive_connections=20, keepalive_expiry=5.0,
+    max_connections=100, max_keepalive_connections=100, keepalive_expiry=5.0,
 )
 
 # Per-call timing for services.db_async.aexecute: the facade sets a dict here

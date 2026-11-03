@@ -403,6 +403,48 @@ def test_flag_off_path_is_untouched_by_the_guard(monkeypatch):
     assert db_async.snapshot() == before
 
 
+_BURST = 40  # > httpx's default keep-alive cap of 20, < max_connections
+
+
+def _burst_connections(monkeypatch, limits=None, rounds=3):
+    """Run ``rounds`` bursts of ``_BURST`` concurrent reads (each held 0.2 s
+    server-side so they overlap) and return how many TCP connections the fake
+    PostgREST accepted, plus the /health/async-db snapshot afterwards."""
+    if limits is not None:
+        monkeypatch.setattr(database, "ASYNC_POSTGREST_LIMITS", limits)
+
+    async def run():
+        async with _FakePostgrest(["delay:0.2"] * (_BURST * rounds)) as srv:
+            http_client = database._build_supabase_async_http_client()
+            monkeypatch.setattr(database, "_supabase_async_postgrest_http_client", http_client)
+            pg = AsyncPostgrestClient(srv.url, http_client=http_client)
+            try:
+                for _ in range(rounds):
+                    res = await asyncio.gather(*(_read(pg).execute() for _ in range(_BURST)))
+                    assert all(r.data == [] for r in res)
+                return srv.connections, database.async_pool_snapshot()
+            finally:
+                await http_client.aclose()
+
+    return asyncio.run(run())
+
+
+def test_pre_fix_keepalive_cap_reconnects_on_every_burst_over_20(monkeypatch):
+    """Reproduction: httpcore 1.0.9 counts busy connections against the
+    keep-alive cap, so at 20 each burst of 40 reopens 20 connections."""
+    opened, _snap = _burst_connections(monkeypatch, httpx.Limits(
+        max_connections=100, max_keepalive_connections=20, keepalive_expiry=5.0))
+    assert opened > _BURST
+
+
+def test_concurrent_bursts_over_20_reuse_their_connections(monkeypatch):
+    """PC-J575: after the first burst, later bursts open no new connection."""
+    opened, snap = _burst_connections(monkeypatch)
+    assert opened == _BURST
+    assert snap == {"connections": _BURST, "idle": _BURST, "active": 0,
+                    "waiting_for_connection": 0, "max_connections": 100}
+
+
 def test_async_pool_snapshot_reports_the_live_pool(monkeypatch):
     async def run():
         async with _FakePostgrest(["ok"]) as srv:
