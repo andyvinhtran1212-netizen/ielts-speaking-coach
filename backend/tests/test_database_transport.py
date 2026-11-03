@@ -31,6 +31,19 @@ def test_sync_supabase_transport_keeps_every_pooled_connection_alive(monkeypatch
     assert limits.max_keepalive_connections == 100
 
 
+def test_async_supabase_transport_keeps_every_pooled_connection_alive(monkeypatch):
+    """PC-J575: same httpcore keep-alive counting as PC-J558, on the
+    USE_ASYNC_DB pool; the cap must not be below max_connections."""
+    factory = Mock(return_value=Mock(name="httpx-async-client"))
+    monkeypatch.setattr(database.httpx, "AsyncClient", factory)
+
+    database._build_supabase_async_http_client()
+    limits = factory.call_args.kwargs["limits"]
+    assert limits.max_connections == 100
+    assert limits.max_keepalive_connections == 100
+    assert limits.keepalive_expiry == 5.0
+
+
 def test_sync_supabase_transport_applies_the_limits_to_its_pool():
     client = database._build_supabase_http_client()
     try:
