@@ -33,6 +33,15 @@ export const NOT_FOUND_PATHS = Object.freeze([
 // A real route whose page calls notFound() under <Suspense>: a soft 404 (HTTP
 // 200 + noindex, U-03 / PC-J526) that keeps the nonce on every script.
 export const SOFT_NOT_FOUND_PATHS = Object.freeze(['/listening/ielts/80-days/999']);
+// PC-J576 (#2216 R3 P3-1), `--enforced` only: real static routes sent with a
+// percent-encoded byte. The proxy matches segments as sent, so it leaves these
+// the baseline; `next start` answers them with the root 404. An edge that
+// decodes the path before routing would serve the real page instead, which
+// must then carry the nonce. 404 + baseline or 200 + nonce pass; 200 + the
+// nonce-free baseline is a real page that lost its nonce policy.
+export const ENCODED_STATIC_PATHS = Object.freeze([
+  '/admin/cl%61sses', '/instructor/gr%61de', '/h%6Fme', '/admin%2Fclasses',
+]);
 
 /** Only the staging alias and Vercel previews may receive the bypass secret. */
 export function bypassAllowed(origin) {
@@ -89,6 +98,29 @@ export function auditNonceRoute(path, first, second, options = {}) {
   return failures;
 }
 
+/** One response for a path Next answers with the root 404 → failure strings. */
+export function auditNotFoundResponse(path, res, publicPolicy) {
+  const found = [];
+  if (res.status !== 404) found.push(`${path}: HTTP ${res.status}; expected HTTP 404`);
+  if (res.reportOnly !== null) found.push(`${path}: 404 sent a Report-Only header`);
+  if (/'nonce-/.test(res.contentSecurityPolicy || '')) found.push(`${path}: 404 got a nonce policy; its prerendered scripts cannot carry the nonce`);
+  else if (!publicPolicy || res.contentSecurityPolicy !== publicPolicy) found.push(`${path}: 404 blocking policy differs from the original nonce-free baseline`);
+  return found;
+}
+
+/**
+ * A percent-encoded static path (ENCODED_STATIC_PATHS) → failure strings.
+ * `second` is only fetched (and required) for a 200.
+ */
+export function auditEncodedPath(path, first, second, publicPolicy, options = { enforced: true }) {
+  if (first.status === 404) return auditNotFoundResponse(path, first, publicPolicy);
+  if (first.status !== 200) return [`${path}: HTTP ${first.status}; expected HTTP 404 with the baseline or HTTP 200 with the nonce`];
+  if (!/'nonce-/.test(first.contentSecurityPolicy || '')) {
+    return [`${path}: HTTP 200 with the nonce-free baseline; the edge served the real page without its nonce policy`];
+  }
+  return auditNonceRoute(path, first, second, { ...options, status: 200 });
+}
+
 async function get(base, path) {
   const headers = {};
   if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET && bypassAllowed(base)) {
@@ -133,13 +165,18 @@ async function main(base, options) {
     }
     for (const path of NOT_FOUND_PATHS) {
       const res = await get(base, path);
-      const found = [];
-      if (res.status !== 404) found.push(`${path}: HTTP ${res.status}; expected HTTP 404`);
-      if (res.reportOnly !== null) found.push(`${path}: 404 sent a Report-Only header`);
-      if (/'nonce-/.test(res.contentSecurityPolicy || '')) found.push(`${path}: 404 got a nonce policy; its prerendered scripts cannot carry the nonce`);
-      else if (!publicPolicy || res.contentSecurityPolicy !== publicPolicy) found.push(`${path}: 404 blocking policy differs from the original nonce-free baseline`);
+      const found = auditNotFoundResponse(path, res, publicPolicy);
       failures.push(...found);
       console.log(`${found.length ? '✗' : '✓'} ${path} HTTP ${res.status}: 404 with the original nonce-free blocking policy; x-vercel-cache=${res.vercelCache ?? '-'}`);
+    }
+    for (const path of ENCODED_STATIC_PATHS) {
+      const first = await get(base, path);
+      const second = first.status === 200 && /'nonce-/.test(first.contentSecurityPolicy || '') ? await get(base, path) : null;
+      const found = auditEncodedPath(path, first, second, publicPolicy, options);
+      failures.push(...found);
+      const shape = first.status === 404 ? '404 with the original nonce-free blocking policy'
+        : second ? 'real page with the request nonce' : 'real page with the nonce-free baseline';
+      console.log(`${found.length ? '✗' : '✓'} ${path} HTTP ${first.status} (encoded): ${shape}; x-vercel-cache=${first.vercelCache ?? '-'}`);
     }
   }
   for (const path of PUBLIC_PATHS) {
