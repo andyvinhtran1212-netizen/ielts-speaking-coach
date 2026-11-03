@@ -59,16 +59,3 @@ class AdminCohortListOut(_StrictOut):
     cohorts: list[AdminCohortOut]
     rollup_failed: bool | None = None
     course_lookup_failed: bool | None = None
-
-
-class CohortArchiveCountsOut(_StrictOut):
-    """`fn_cohort_archive_counts` (migration 337)."""
-    active_members: int = Field(ge=0)
-    open_writing_gives: int = Field(ge=0)
-    open_class_items: int = Field(ge=0)
-    unused_class_codes: int = Field(ge=0)
-
-
-class CohortArchivePreviewOut(_StrictOut):
-    cohort_id: str
-    counts: CohortArchiveCountsOut
