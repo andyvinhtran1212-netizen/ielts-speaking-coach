@@ -10,6 +10,7 @@
  * Usage:
  *   const renderer = WritingRenderers.SECTION_RENDERERS[sectionKey];
  *   contentEl.innerHTML = renderer(feedback_json[dataKey]);
+ *   // Staff previews pass { isStaffViewer: true }; omitted means learner.
  *
  * Depends on window.WC.escapeHtml (defined in frontend/js/api.js).
  */
@@ -179,7 +180,7 @@
   }
 
   // ── Section 4 — Recurring patterns ────────────────────────────────
-  function renderRecurringPatterns(v) {
+  function renderRecurringPatterns(v, options) {
     if (isEmpty(v) || typeof v !== 'object' || Array.isArray(v)) return emptyShape();
     var html = '';
 
@@ -188,7 +189,9 @@
     if (v.summary && String(v.summary).trim()) {
       html += '<div class="callout-info">' +
         '<strong class="recurring-summary-label">' +
-          escapeHtml('Nhận xét chung qua các bài gần đây của bạn (không riêng bài này):') +
+          escapeHtml(options && options.isStaffViewer
+            ? 'Nhận xét chung qua các bài gần đây của học viên (không riêng bài này):'
+            : 'Nhận xét chung qua các bài gần đây của bạn (không riêng bài này):') +
         '</strong>' +
         renderString(String(v.summary)) +
       '</div>';
@@ -286,8 +289,12 @@
     }
 
     var html = '';
-    if (v.summary) {
-      html += '<div class="prose-block">' + renderString(String(v.summary)) + '</div>';
+    if (v.summary && String(v.summary).trim()) {
+      html += '<div class="prose-block">' +
+        '<strong class="recurring-summary-label">' +
+          escapeHtml('Nhận xét chung về cấu trúc câu qua các bài gần đây (không riêng bài này):') +
+        '</strong>' +
+        renderString(String(v.summary)) + '</div>';
     }
 
     if (v.focus_theme && typeof v.focus_theme === 'object') {

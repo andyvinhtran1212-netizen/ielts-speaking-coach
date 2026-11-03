@@ -80,6 +80,8 @@ try {
   check('Load more extends all earlier batches and writes the extent to the URL', await page.locator('.rv-card').count() === 52 && new URL(page.url()).searchParams.get('batches') === '3');
   await page.locator('#clear-filters').click();
   await page.waitForURL(`${BASE}/reading/vocab`);
+  // The history URL changes before useSearchParams commits the controlled selects.
+  await page.waitForFunction(() => ['#filter-difficulty', '#filter-tag'].every((selector) => document.querySelector(selector)?.value === ''));
   check('Clear filters resets the accumulated extent explicitly', await page.locator('#filter-difficulty').inputValue() === '' && await page.locator('#filter-tag').inputValue() === '');
 
   // Two change events in the same turn must merge against the committed URL,

@@ -648,19 +648,24 @@ def test_postcondition_block_aborts_on_drift(db, tamper, revert, marker):
     _owner(_postcondition_sql(s))
 
 
+def _require_pg17() -> None:
+    if psql("SELECT current_setting('server_version_num')::int >= 170000") != "t":
+        pytest.skip("MAINTAIN is a PostgreSQL 17 privilege")
+
+
 def test_postcondition_refuses_maintain_on_pg17(db):
-    if psql("SELECT current_setting('server_version_num')::int >= 170000") == "t":
-        test_postcondition_block_aborts_on_drift(
-            db, "GRANT MAINTAIN ON {s}.users TO service_role",
-            "REVOKE MAINTAIN ON {s}.users FROM service_role", "users_service_role_privileges_wrong")
+    _require_pg17()
+    test_postcondition_block_aborts_on_drift(
+        db, "GRANT MAINTAIN ON {s}.users TO service_role",
+        "REVOKE MAINTAIN ON {s}.users FROM service_role", "users_service_role_privileges_wrong")
 
 
 @pytest.mark.parametrize("role", ["anon", "authenticated"])
 def test_postcondition_refuses_client_maintain_on_pg17(db, role):
-    if psql("SELECT current_setting('server_version_num')::int >= 170000") == "t":
-        test_postcondition_block_aborts_on_drift(
-            db, f"GRANT MAINTAIN ON {{s}}.users TO {role}",
-            f"REVOKE MAINTAIN ON {{s}}.users FROM {role}", f"users_client_role_privileges_wrong: {role}:MAINTAIN")
+    _require_pg17()
+    test_postcondition_block_aborts_on_drift(
+        db, f"GRANT MAINTAIN ON {{s}}.users TO {role}",
+        f"REVOKE MAINTAIN ON {{s}}.users FROM {role}", f"users_client_role_privileges_wrong: {role}:MAINTAIN")
 
 
 def test_postcondition_refuses_evidence_grants_to_any_non_owner(db):

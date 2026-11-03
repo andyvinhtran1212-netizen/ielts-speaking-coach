@@ -44,7 +44,7 @@ from services.reading_grammar_focus import (
     ReadingGrammarFocusError, edit_focus, read_focus,
 )
 from services.class_assignment_service import active_exam_assignment_references
-from services.errors import clip_user_value
+from services.errors import clip_user_value, new_ref
 from services.content_import_service import (
     FrontmatterError,
     _split_frontmatter,
@@ -514,11 +514,16 @@ async def import_reading_test_bundle(
         parsed = build_parsed_reading_test_from_prose(
             test_text, sol_text, published=published,
         )
-    except Exception as exc:                                     # noqa: BLE001
-        logger.error("prose-bundle parse failed: %s", exc)
+    except Exception:                                            # noqa: BLE001
+        ref = new_ref()
+        logger.error("prose-bundle parse failed ref=%s", ref, exc_info=True)
         return {
             "parsed_data":       None,
-            "validation_errors": [{"field": "bundle", "message": f"Parse lỗi: {exc}"}],
+            "validation_errors": [{
+                "field":   "bundle",
+                "message": "Không đọc được bộ đề, kiểm tra định dạng file test và solution rồi thử lại.",
+                "ref":     ref,
+            }],
             "dry_run":           dry_run,
             "committed_id":      None,
             "action":            None,

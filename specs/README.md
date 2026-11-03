@@ -138,7 +138,7 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 
 | CALAPPEND-0041 | The class action log is append-only for every role, and no role can wipe it with TRUNCATE | approved | high | [spec](0041-class-action-log-append-only/spec.md) |
 
-| SVCPRIV-0042 | service_role loses public table maintenance privileges and schema CREATE, and unpinned public functions get a fixed search_path, to block owner-run planted triggers, function overloads and temp-object shadowing | draft | critical | [spec](0042-service-role-table-maintenance-revoke/spec.md) |
+| SVCPRIV-0042 | service_role loses public table maintenance privileges and schema CREATE, and unpinned public functions get a fixed search_path, to block owner-run planted triggers, function overloads and temp-object shadowing | approved | critical | [spec](0042-service-role-table-maintenance-revoke/spec.md) |
 
 | LESSONREPORT-0043 | Teachers see a course assessment's results per lesson for each learner and the whole class, with the weakest lessons highlighted | approved | high | [spec](0043-course-assessment-lesson-report/spec.md) |
 

@@ -113,9 +113,10 @@ ALLOWED: dict[tuple[str, str, str], tuple[int, str]] = {
     ("routers/sessions.py", "_resolve_full_test_attempt_id", "body.part; body.part - 1"): (1, TYPED_INT),
     ("routers/sessions.py", "create_session", "str(e)"): (2, "class-item gate errors are constants or name server-side task fields"),
     ("routers/vocab_units.py", "admin_set_vocab_pilot_cohort", "str(exc)"): (1, "constant message"),
-    # Both sites now sit in the threaded load_for_learner closures of
-    # open_my_vocab_recommendation and resolve_my_vocab_context_links.
-    ("routers/vocab_units.py", "load_for_learner", "str(exc)"): (2, "constant messages (one names a limit constant)"),
+    # Threaded closures of resolve_my_vocab_context_links and
+    # open_my_vocab_recommendation; distinct names so one key = one site (PC-J508).
+    ("routers/vocab_units.py", "_load_context_links", "str(exc)"): (1, "constant message (limit constant)"),
+    ("routers/vocab_units.py", "_load_recommendation", "str(exc)"): (1, "constant message"),
     ("routers/writing_student.py", "extract_essay_text", "str(exc)"): (1, "FileExtractError messages are constants (docx failure names only the exception class)"),
 }
 
@@ -420,10 +421,10 @@ def test_allowlist_has_no_stale_entries():
         assert all(reason.strip() for _, reason in allowed.values())
 
 
-def _scan_probe(tmp_path, source: str) -> tuple[Counter, Counter]:
+def _scan_probe(tmp_path, source: str, name: str = "probe.py") -> tuple[Counter, Counter]:
     routers = tmp_path / "routers"
     routers.mkdir(exist_ok=True)
-    (routers / "probe.py").write_text(source, encoding="utf-8")
+    (routers / name).write_text(source, encoding="utf-8")
     globals()["BACKEND"] = tmp_path
     try:
         return scan(), scan_b()
@@ -526,3 +527,52 @@ def test_group_b_guard_fails_raw_passes_clipped_and_allowlisted(tmp_path):
     allowed = {("routers/probe.py", "get_article", "slug"): (1, "probe"),
                ("routers/probe.py", "finalize", "ids"): (1, "probe")}
     assert _unexpected(raw, allowed) == {}
+
+
+def _mutate_vocab_units(*, add_raw_to_today: bool, constant_context_links: bool) -> str:
+    """In-memory copy of routers/vocab_units.py (the real file is not touched)."""
+    tree = ast.parse((BACKEND / "routers" / "vocab_units.py").read_text(encoding="utf-8"))
+    handlers = {}
+    for outer in tree.body:
+        if isinstance(outer, ast.AsyncFunctionDef):
+            for inner in outer.body:
+                if isinstance(inner, ast.FunctionDef):
+                    handlers[(outer.name, inner.name)] = [
+                        n for n in ast.walk(inner) if isinstance(n, ast.ExceptHandler)]
+    if add_raw_to_today:
+        (catch_all,) = [h for h in handlers[("get_my_vocab_today", "load_for_learner")]
+                        if ast.unparse(h.type) == "Exception"]
+        catch_all.body.insert(0, ast.parse(
+            "raise HTTPException(status_code=404, detail=str(exc)) from exc").body[0])
+    if constant_context_links:
+        (lookup,) = [h for h in handlers[("resolve_my_vocab_context_links", "_load_context_links")]
+                     if "VocabContextLookupError" in ast.unparse(h.type)]
+        lookup.body[0] = ast.parse(
+            "raise HTTPException(status_code=422, detail='constant') from exc").body[0]
+    return ast.unparse(ast.fix_missing_locations(tree))
+
+
+def test_vocab_units_keys_catch_a_raw_echo_moved_between_closures(tmp_path):
+    # PC-J508 (CR P2-1, #2096): vocab_units.py has several closures named
+    # load_for_learner, so each allowlisted site lives in a closure with its
+    # own name. Mutation A adds a raw str(exc) to get_my_vocab_today's
+    # closure; mutation B also replaces the context-links str(exc) with a
+    # constant, keeping the file's str(exc) count unchanged. Both must fail.
+    vocab_allowed = {key: value for key, value in ALLOWED.items()
+                     if key[0] == "routers/vocab_units.py"}
+    today = ("routers/vocab_units.py", "load_for_learner", "str(exc)")
+    context_links = ("routers/vocab_units.py", "_load_context_links", "str(exc)")
+
+    found, _ = _scan_probe(tmp_path, _mutate_vocab_units(
+        add_raw_to_today=False, constant_context_links=False), "vocab_units.py")
+    assert found == Counter({key: count for key, (count, _) in vocab_allowed.items()})
+
+    found, _ = _scan_probe(tmp_path, _mutate_vocab_units(
+        add_raw_to_today=True, constant_context_links=False), "vocab_units.py")
+    assert _unexpected(found, vocab_allowed) == {today: 1}
+
+    found, _ = _scan_probe(tmp_path, _mutate_vocab_units(
+        add_raw_to_today=True, constant_context_links=True), "vocab_units.py")
+    assert sum(found.values()) == sum(count for count, _ in vocab_allowed.values())
+    assert _unexpected(found, vocab_allowed) == {today: 1}
+    assert found[context_links] == 0  # also stale → test_allowlist_has_no_stale_entries

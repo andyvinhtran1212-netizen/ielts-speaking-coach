@@ -289,6 +289,7 @@ Khi nói về tương lai, cũng dễ thêm *will* vào cả hai vế điều ki
 ### Đáp án (gợi ý)
 
 1. **Because** pollution is a problem, governments must act. *Because* biến nguyên nhân thành mệnh đề phụ, nối với hành động ở mệnh đề chính mà không thêm *so*.
+   Nâng cấp: *Because pollution **poses a serious threat to public health**, governments **must act decisively**.*
 2. If the government **reduces** taxes, businesses will grow. Điều kiện loại 1 dùng hiện tại đơn trong vế *if* để nói tương lai; bỏ **will** ở vế này.
 3. Social media **can weaken** relationships **in certain cases**. / It **could be argued that** social media **tends to** harm deep relationships. *Can / tends to / in certain cases* giảm mức khẳng định tuyệt đối của *destroys*; đây là cách giới hạn nhận định, không phải tự thêm bằng chứng.
 4. Children **spend a great deal of** time on their phones, **which can have** negative effects. *Children* trung tính hơn *kids*, *time* không đếm được nên đi với *a great deal of*. Mệnh đề *which* nhắc lại việc dùng điện thoại nhiều; câu không còn dạng rút gọn *it's*.

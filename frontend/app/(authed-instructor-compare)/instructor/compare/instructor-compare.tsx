@@ -77,7 +77,7 @@ function Preview({ feedback }: { feedback: any }) {
         return [{
           key: sectionKey,
           title: SECTION_LABELS[sectionKey] || sectionKey,
-          html: renderer(value),
+          html: renderer(value, { isStaffViewer: true }),
         }];
       } catch (caught) {
         console.error('[instructor-compare] preview renderer failed', sectionKey, caught);

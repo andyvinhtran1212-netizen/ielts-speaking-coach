@@ -287,13 +287,15 @@ def test_d6_submit_returns_grade_with_skill_breakdown():
     started_at = (datetime.now(timezone.utc) - timedelta(minutes=15)).isoformat()
 
     mock_db = _legacy_practice_db()
-    # 1) _fetch_attempt_or_404 + test row
+    # 1) ownership preflight, fresh locked attempt read, then test row
+    attempt_row = {
+        "id": "attempt-uuid", "user_id": _USER["id"], "test_id": "test-uuid",
+        "status": "in_progress", "started_at": started_at,
+        "resume_expires_at": "2099-01-01T00:00:00+00:00", "answers": [],
+    }
     mock_db.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.side_effect = [
-        MagicMock(data=[{
-            "id": "attempt-uuid", "user_id": _USER["id"], "test_id": "test-uuid",
-            "status": "in_progress", "started_at": started_at,
-            "resume_expires_at": "2099-01-01T00:00:00+00:00", "answers": [],
-        }]),
+        MagicMock(data=[attempt_row]),
+        MagicMock(data=[attempt_row]),
         MagicMock(data=[{
             "id": "test-uuid", "test_id": "INT-LIVE-001",
             "time_limit_minutes": 60, "module": "academic",

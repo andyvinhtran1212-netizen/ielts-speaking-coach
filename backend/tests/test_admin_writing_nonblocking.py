@@ -16,6 +16,7 @@ from routers import admin_writing_assignments as assignments
 from routers import admin_writing_cohorts as cohorts
 from routers import admin_writing_prompts as prompts
 from routers import admin_writing_regrade as regrade
+from tests.loop_gate import WAIT, LoopGate, until
 
 
 _ADMIN = {"id": "00000000-0000-0000-0000-000000000001", "email": "admin@example.test"}
@@ -27,16 +28,16 @@ _ASSIGNMENT = "00000000-0000-4000-8000-000000000006"
 
 
 class _Call:
-    def __init__(self, name, result, calls, *, delay=0):
-        self.name, self.result, self.calls, self.delay = name, result, calls, delay
-        self.started = threading.Event()
-        self.finished = threading.Event()
+    """Records each call; with ``park=True`` it waits in a LoopGate until released."""
+
+    def __init__(self, name, result, calls, *, park=False):
+        self.name, self.result, self.calls = name, result, calls
+        self.gate = LoopGate() if park else None
 
     def __call__(self, *args, **kwargs):
         self.calls.append((self.name, threading.get_ident()))
-        self.started.set()
-        time.sleep(self.delay)
-        self.finished.set()
+        if self.gate is not None:
+            self.gate.park()
         return self.result
 
 
@@ -52,25 +53,29 @@ def _app(module):
 
 
 def _with_ping(module, call, method, path, **kwargs):
+    gate = call.gate
+
     async def run():
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=_app(module)), base_url="http://test",
         ) as client:
             loop_thread = threading.get_ident()
-            start = time.perf_counter()
             slow = asyncio.create_task(client.request(method, path, **kwargs))
-            while not call.started.is_set() and not slow.done():
-                await asyncio.sleep(0.001)
-            ping = await client.get("/ping")
-            elapsed = time.perf_counter() - start
-            still_running = not call.finished.is_set()
-            response = await slow
-        return loop_thread, ping, elapsed, still_running, response
+            try:
+                entered = await until(lambda: gate.inside >= 1, stop=slow)
+                # The slow call is parked: I/O on the loop thread would hold
+                # /ping until the gate's WAIT.
+                ping = await asyncio.wait_for(client.get("/ping"), WAIT)
+                still_running = entered and not slow.done() and not gate.released
+            finally:
+                gate.release()
+            response = await asyncio.wait_for(slow, WAIT)
+        return loop_thread, ping, entered, still_running, response
 
-    loop_thread, ping, elapsed, still_running, response = asyncio.run(run())
+    loop_thread, ping, entered, still_running, response = asyncio.run(run())
     assert ping.status_code == 200
-    assert call.started.is_set(), response.text
-    assert elapsed < 0.2, f"light request waited {elapsed:.3f}s behind admin Writing I/O"
+    assert entered, response.text
+    assert not gate.timed_out, "the admin Writing I/O ran on the event loop"
     assert still_running, "light request must finish during the slow I/O"
     assert all(thread != loop_thread for _, thread in call.calls)
     return response
@@ -80,7 +85,7 @@ def test_upload_image_does_not_block_loop(monkeypatch):
     calls = []
     result = {"url": "https://example.test/chart.png", "public_id": "prompts/chart.png",
               "width": None, "height": None}
-    upload = _Call("upload", result, calls, delay=0.5)
+    upload = _Call("upload", result, calls, park=True)
     monkeypatch.setattr(prompts, "require_admin", AsyncMock(return_value=_ADMIN))
     monkeypatch.setattr(prompts, "upload_prompt_image", upload)
     response = _with_ping(
@@ -93,7 +98,7 @@ def test_upload_image_does_not_block_loop(monkeypatch):
 
 def test_fan_out_to_cohort_does_not_block_loop_and_keeps_receipt_roster_rpc_order(monkeypatch):
     calls = []
-    receipt = _Call("receipt", None, calls, delay=0.5)
+    receipt = _Call("receipt", None, calls, park=True)
     roster = _Call("roster", [_STUDENT], calls)
     result = {"created_count": 1, "group_id": _REQUEST, "replayed": False}
     execute = _Call("rpc", SimpleNamespace(data=result), calls)
@@ -115,7 +120,7 @@ def test_fan_out_to_cohort_does_not_block_loop_and_keeps_receipt_roster_rpc_orde
 
 
 def test_list_cohorts_does_not_block_loop(monkeypatch):
-    query = _Call("cohorts", SimpleNamespace(data=[]), [], delay=0.5)
+    query = _Call("cohorts", SimpleNamespace(data=[]), [], park=True)
 
     class Query:
         def select(self, *a, **kw): return self
@@ -133,7 +138,7 @@ def test_list_cohorts_does_not_block_loop(monkeypatch):
 
 def test_list_regrade_requests_does_not_block_loop(monkeypatch):
     result = {"requests": [], "capped": False}
-    execute = _Call("regrade", SimpleNamespace(data=result), [], delay=0.5)
+    execute = _Call("regrade", SimpleNamespace(data=result), [], park=True)
     monkeypatch.setattr(regrade, "require_admin", AsyncMock(return_value=_ADMIN))
     monkeypatch.setattr(regrade, "supabase_admin", SimpleNamespace(
         rpc=lambda *a, **kw: SimpleNamespace(execute=execute),
@@ -145,7 +150,7 @@ def test_list_regrade_requests_does_not_block_loop(monkeypatch):
 
 def test_create_assignments_keeps_receipt_archived_check_and_insert_in_one_worker(monkeypatch):
     calls = []
-    receipt = _Call("receipt", None, calls, delay=0.5)
+    receipt = _Call("receipt", None, calls, park=True)
     archived = _Call("archived", None, calls)
     result = {"created": [], "created_count": 0, "group_id": _REQUEST,
               "duplicates_warning": [], "replayed": False}
@@ -416,7 +421,7 @@ class _PromptStore:
 
 
 def _analysis_scenario(monkeypatch, route, *, cancels, current, token="pending-token",
-                       written=_T1_ROW, block="mark", expected=1):
+                       written=_T1_ROW, block="mark", expected=1, sign=lambda rows: True):
     """Drive ``route(background_tasks)`` with a worker thread that blocks until
     released, either right after mark_analysis_pending wrote 'pending'
     (``block="mark"``) or inside the prompt write (``block="write"``), and
@@ -446,7 +451,7 @@ def _analysis_scenario(monkeypatch, route, *, cancels, current, token="pending-t
     db = _PromptStore(current, written, hold if block == "write" else lambda: None)
     monkeypatch.setattr(prompts, "require_admin", AsyncMock(return_value=_ADMIN))
     monkeypatch.setattr(prompts, "supabase_admin", db)
-    monkeypatch.setattr(prompts, "attach_signed_image_urls", lambda rows: True)
+    monkeypatch.setattr(prompts, "attach_signed_image_urls", sign)
     monkeypatch.setattr(prompts.writing_prompt_analysis, "mark_analysis_pending", mark)
     monkeypatch.setattr(prompts.writing_prompt_analysis, "run_and_store_analysis", run)
 
@@ -466,7 +471,7 @@ def _analysis_scenario(monkeypatch, route, *, cancels, current, token="pending-t
             release.set()
         try:
             outcome = await handler
-        except (asyncio.CancelledError, HTTPException) as e:
+        except (asyncio.CancelledError, HTTPException, _SignError) as e:
             outcome = e
         # Starlette runs BackgroundTasks after a sent response only.
         if not isinstance(outcome, BaseException):
@@ -478,6 +483,14 @@ def _analysis_scenario(monkeypatch, route, *, cancels, current, token="pending-t
         return outcome, marked, dispatched, tasks
 
     return asyncio.run(scenario())
+
+
+class _SignError(RuntimeError):
+    pass
+
+
+def _sign_raises(rows):
+    raise _SignError("signing backend down")
 
 
 def _create(body):
@@ -592,3 +605,119 @@ def test_prompt_write_that_raises_dispatches_nothing(monkeypatch, route, current
     assert marked == []
     assert dispatched == []
     assert not tasks.tasks
+
+
+# PC-J533: an error response never runs BackgroundTasks, so a worker that raised
+# after mark_analysis_pending left the prompt 'pending' with no run behind it.
+_RAISE_AFTER_PENDING_CASES = [
+    pytest.param(_create(_T1_CREATE), "create", None, id="C1-create"),
+    pytest.param(_update(_NEW_IMAGE), "update", _T1_OLD, id="U1-update"),
+]
+
+
+@pytest.mark.parametrize("cancels", [0, 1])
+@pytest.mark.parametrize("route,trigger,current", _RAISE_AFTER_PENDING_CASES)
+def test_prompt_write_that_raises_after_pending_still_dispatches_analysis_once(
+    monkeypatch, route, trigger, current, cancels,
+):
+    outcome, marked, dispatched, tasks = _analysis_scenario(
+        monkeypatch, route, cancels=cancels, token=f"token-{trigger}", current=current,
+        sign=_sign_raises,
+    )
+
+    # The client still gets the same failure; only the extraction is no longer lost.
+    assert isinstance(outcome, asyncio.CancelledError if cancels else _SignError), outcome
+    assert marked == [(_PROMPT, "prompts/new.png")]
+    assert dispatched == [(_PROMPT, f"token-{trigger}", _ADMIN["id"], trigger)]
+    assert not tasks.tasks
+
+
+class _AnalysisRowStore:
+    """writing_prompts double for run_and_store_analysis: one row, and every
+    update applied only when all its ``eq`` filters match that row."""
+
+    def __init__(self, row):
+        self.row, self.updates = row, []
+
+    def table(self, name):
+        assert name == "writing_prompts"
+        store = self
+
+        class Query:
+            def __init__(self):
+                self.patch, self.filters = None, {}
+            def select(self, *a): return self
+            def limit(self, *a): return self
+            def is_(self, *a): return self
+            def insert(self, payload):
+                self.patch = dict(payload)
+                return self
+
+            def update(self, patch):
+                self.patch = dict(patch)
+                return self
+
+            def eq(self, column, value):
+                self.filters[column] = value
+                return self
+
+            def execute(self):
+                if self.patch is None:
+                    return SimpleNamespace(data=[dict(store.row)])
+                if any(store.row.get(c) != v for c, v in self.filters.items()):
+                    return SimpleNamespace(data=[])
+                store.updates.append(self.patch)
+                store.row.update(self.patch)
+                return SimpleNamespace(data=[dict(store.row)])
+
+        return Query()
+
+
+@pytest.mark.parametrize("newer_request", [False, True], ids=["own-token", "token-changed"])
+def test_dispatch_after_raise_is_bound_to_its_pending_token(monkeypatch, newer_request):
+    """The run started after a failed write finishes only its own 'pending'.
+    When a newer request has re-marked the prompt, that run is skipped and the
+    newer 'pending' is left for the newer run."""
+    import database
+    from fastapi import BackgroundTasks
+    from models.writing_feedback import PromptImageAnalysis
+
+    # The PATCH replaces the old chart on this row, then marks it 'pending'.
+    row = {**_T1_OLD, "prompt_text": _T1_CREATE["prompt_text"],
+           "prompt_image_analysis_status": "ready", "prompt_image_analysis_at": None}
+    db = _AnalysisRowStore(row)
+    analysis = PromptImageAnalysis(chart_type="bar", overview="Coal fell.")
+    extract = AsyncMock(return_value=(analysis, "test-model"))
+
+    def mark(prompt_id, public_id):
+        db.row.update({"prompt_image_analysis_status": "pending",
+                       "prompt_image_analysis_at": "token-own"})
+        if newer_request:   # a later reanalyze lands before this run reads the row
+            db.row["prompt_image_analysis_at"] = "token-newer"
+        return "token-own"
+
+    monkeypatch.setattr(prompts, "require_admin", AsyncMock(return_value=_ADMIN))
+    monkeypatch.setattr(prompts, "supabase_admin", db)
+    monkeypatch.setattr(database, "supabase_admin", db)
+    monkeypatch.setattr(prompts, "attach_signed_image_urls", _sign_raises)
+    monkeypatch.setattr(prompts.writing_prompt_analysis, "mark_analysis_pending", mark)
+    monkeypatch.setattr(prompts.writing_prompt_analysis, "analyze_prompt_image", extract)
+
+    async def scenario():
+        with pytest.raises(_SignError):
+            await _update(_NEW_IMAGE)(BackgroundTasks())
+        deadline = time.monotonic() + 2
+        while prompts._owned_analysis_runs and time.monotonic() < deadline:
+            await asyncio.sleep(0.01)
+        assert not prompts._owned_analysis_runs
+
+    asyncio.run(scenario())
+
+    if newer_request:
+        extract.assert_not_awaited()
+        assert db.row["prompt_image_analysis_status"] == "pending"
+        assert db.row["prompt_image_analysis_at"] == "token-newer"
+    else:
+        extract.assert_awaited_once()
+        assert db.row["prompt_image_analysis_status"] == "ready"
+        assert db.row["prompt_image_analysis_public_id"] == "prompts/new.png"
