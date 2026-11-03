@@ -69,7 +69,7 @@ anchors:
 
 Nhầm adjective và adverb là lỗi rất dễ lộ:
 - "She drives **careful**." → người chấm nhận ra ngay — thiếu -ly
-- “He is **a** incredibly talented musician” cần **an** vì incredibly bắt đầu bằng nguyên âm; incredibly đã là adverb đúng để bổ nghĩa talented. Không đổi thành incredible ở vị trí này.
+- "He is an **incredible** talented musician." → cần **incredibly** (adverb bổ nghĩa cho talented).
 
 Trong IELTS:
 Độ chính xác của dạng từ được xét trên toàn bài; một mẫu lỗi không tự xác định band.
@@ -307,7 +307,7 @@ adverb + adjective + noun
 
 ## So sánh với
 
-Bài này tổng hợp từ:
+Xem thêm:
 - [Adjectives](/grammar/modifiers/adjectives) — học về tính từ
 - [Adverbs](/grammar/modifiers/adverbs) — học về trạng từ
 
@@ -346,9 +346,9 @@ Từ này đứng trước tính từ/adverb khác → ADVERB (+ -ly)
 ### IELTS Speaking — Cách dùng phổ biến
 
 **Mô tả người / vật (adjective):**
-- "She is an **incredibly** talented and **genuinely** humble person."
-- "It was a **surprisingly** difficult situation to navigate."
-- "The city is **extremely** vibrant and **surprisingly** affordable."
+- "She is an **incredibly talented** and **genuinely humble** person."
+- "It was a **surprisingly difficult** situation to navigate."
+- "The city is **extremely vibrant** and **surprisingly affordable**."
 
 **Mô tả hành động (adverb):**
 - "She handled the situation **extremely** well."
