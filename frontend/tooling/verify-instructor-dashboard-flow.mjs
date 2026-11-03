@@ -5,6 +5,7 @@
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
+import { checkThemeToggle } from './theme-toggle-check.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const FIXTURE_API_PREFIX = '/__fixture_api';
@@ -311,6 +312,7 @@ check('hàng chờ chấm render đúng review canonical', JSON.stringify(queueC
 // The page runs in America/New_York; the identity line is still Vietnam time.
 const queueIdentities = await page.locator('section[aria-labelledby="grade-title"] .ins-cell-meta').allTextContents();
 check('PC-J36: 2 bài cùng học viên hiện mã bài + giờ nộp khác nhau', JSON.stringify(queueIdentities) === JSON.stringify(['e1 · 28/10/2026 14:05', 'ad8db313 · 28/10/2026 16:30']), JSON.stringify(queueIdentities));
+await checkThemeToggle(page, check, '/instructor');
 check('mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
 await page.setViewportSize({ width: 1440, height: 900 });
 check('desktop không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));

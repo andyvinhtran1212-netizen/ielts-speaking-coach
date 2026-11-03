@@ -41,6 +41,13 @@ body.av-page {
 .ic-back:hover { color: var(--av-primary); }
 .ic-top-title { color: var(--av-text-secondary); font-size: .84rem; font-weight: var(--av-fw-semibold); }
 
+.ic-top-actions {
+  display: flex;
+  align-items: center;
+  justify-self: end;
+  gap: var(--av-space-2);
+}
+
 .ic-overall,
 .ic-preview-band {
   justify-self: end;
