@@ -174,7 +174,7 @@ The way [people do X] has changed enormously.
 
 - "The job market **has changed dramatically** over the past twenty years — new industries have emerged and old ones have disappeared."
 - "**The way people communicate** has changed enormously, moving from letters and landlines to instant messaging."
-- "Attitudes towards gender roles in the workplace **have undergone significant change** in my parents' generation."
+- "Attitudes towards gender roles in the workplace **have changed significantly since** my parents' generation."
 
 **Writing:**
 
@@ -239,7 +239,7 @@ Over the course of [period], [subject] has [change].
 
 ---
 
-## PHẦN 7: MẪU ĐẦY ĐỦ — WRITING TASK 2
+## PHẦN 7: ĐOẠN MẪU — WRITING TASK 2 (mở bài/thân bài)
 
 **Đề:** *"Some people believe that traditional family structures are disappearing. To what extent do you agree?"*
 
@@ -264,7 +264,7 @@ Over the course of [period], [subject] has [change].
 
 ### Lỗi 3: "No longer" đặt sai vị trí
 
-- ✅ “People no longer are relying on...” *(có thể nhấn tương phản; vị trí mặc định trung tính là are no longer relying)*
+- ❌ "People are relying no longer on..." / "People no longer are relying on..."
 - ✅ "People **are no longer relying** on..." / "People **no longer rely** on..."
 
 ### Lỗi 4: Chỉ mô tả thay đổi mà không giải thích tại sao
@@ -280,7 +280,7 @@ Trong Speaking Part 3 và Writing Task 2, mô tả thay đổi cần kèm lý do
 
 1. "People ___ write letters. Now everyone sends emails or messages." → **used to**
 2. "Urban areas ___ increasingly overcrowded over the past decade." → **have become**
-3. "Traditional newspapers ___ the primary source of news for most people." → **no longer**
+3. "Traditional newspapers ___ the primary source of news for most people." → **are no longer**
 4. "___ the last twenty years, global temperatures ___ risen consistently." → **Over / have**
 
 ### Trả lời câu hỏi Speaking Part 3:
@@ -303,7 +303,7 @@ Trong Speaking Part 3 và Writing Task 2, mô tả thay đổi cần kèm lý do
 ```
 MÔ TẢ THAY ĐỔI THEO THỜI GIAN:
 
-QUÁN KHỨ → HIỆN TẠI:
+QUÁ KHỨ → HIỆN TẠI:
   used to [verb] → now [present]
   "used to be X... now Y"
   "Where people once..., they now..."

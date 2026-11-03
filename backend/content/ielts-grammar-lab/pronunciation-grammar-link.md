@@ -91,13 +91,13 @@ Trong IELTS Speaking, **Pronunciation và Grammar liên kết chặt chẽ**. B�
 
 ## Tại sao quan trọng
 
-Tiếng Việt cấu trúc âm tiết: **C-V-(C)** — chỉ vài phụ âm cuối cho phép, không cluster. Tiếng Anh cho phép cluster phụ âm cuối phức tạp: */ksts/* trong *texts*, */kts/* trong *acts*, */mpts/* trong *attempts*. Khi VN speakers áp dụng âm vị học VN sang EN, họ tự động drop final consonants → biến **grammatical morphemes** (-s plural, -ed past) thành im lặng → có thể làm mờ thông tin ngữ pháp.
+Tiếng Việt có cấu trúc âm tiết: **C-V-(C)** — chỉ vài phụ âm cuối cho phép, không cluster. Tiếng Anh cho phép cluster phụ âm cuối phức tạp: */ksts/* trong *texts*, */kts/* trong *acts*, */mpts/* trong *attempts*. Khi VN speakers áp dụng âm vị học VN sang EN, họ tự động drop final consonants → biến **grammatical morphemes** (-s plural, -ed past) thành im lặng → có thể làm mờ thông tin ngữ pháp.
 
 Ví dụ thực tế:
 
 - Candidate viết: "Yesterday I **worked** until 10pm and **finished** the project."
 - Candidate nói (ghi âm): "Yesterday I /wɜːk/ until 10pm and /ˈfɪnɪʃ/ the project."
-- Examiner nghe: ungrammatical past tense → flag as GRA error.
+- Examiner có thể khó nhận ra đây là thì quá khứ.
 
 Ảnh hưởng được xét trong tiêu chí phù hợp trên toàn bài; không tự tính một lỗi hai lần hoặc suy mức band chỉ từ âm cuối.
 
@@ -120,11 +120,11 @@ Trong English, -s ở cuối có 3 phát âm khác nhau theo phụ âm trước:
 - ❌ "she work" thay vì "she works" /ʃiː wɜːks/
 - ❌ "many student" thay vì "many students" /ˈmeniː ˈstjuːdənts/
 
-**Tại sao:** Cluster /ks/, /ks/, /nts/ ở cuối từ — không tồn tại trong VN.
+**Tại sao:** Cluster /ks/ (books, works) và /nts/ (students) ở cuối từ — không tồn tại trong VN.
 
 **Cách fix:**
 1. Practice cluster đơn giản trước: book**s**, cat**s**, work**s**. Phát âm /s/ rõ ràng và hơi kéo dài hơn bình thường ở giai đoạn đầu (over-correct).
-2. Trên 3rd-person -s, đặc biệt chú ý trong present simple — đây là lỗi #1 trong dataset audio VN.
+2. Trên 3rd-person -s, đặc biệt chú ý ở present simple — đây là lỗi người Việt rất hay mắc.
 3. Practice list 50 verb + -s mỗi sáng: "She likes, he works, it runs, she finishes, he watches..."
 
 <!-- anchor: pronunciation-grammar-link.ed-endings.past-and-participial -->
@@ -143,7 +143,7 @@ Tương tự -s, -ed có 3 phát âm:
 **Cách fix:**
 1. Học rule 3 dạng -ed kỹ — đây là rule cơ bản mà nhiều người không nắm.
 2. Practice past simple narrative với rhythmic awareness: "Yesterday I walked to the market /wɔːkt/, bought some food /bɔːt/, cooked dinner /kʊkt/, and watched TV /wɒtʃt/."
-3. Khi nghi ngờ, dùng /t/ hoặc /d/ thay vì /əd/ — sai nhỏ tốt hơn drop hoàn toàn.
+3. Chỉ thêm âm tiết /ɪd/ khi động từ tận cùng bằng /t/ hoặc /d/; các trường hợp khác dùng /t/ hoặc /d/, không thêm âm tiết.
 
 <!-- anchor: pronunciation-grammar-link.weak-forms.function-words -->
 ### 3. Weak forms của function words
@@ -187,11 +187,11 @@ English natural speech uses contractions extensively. Avoid full forms:
 | Want to (informal) | wanna | /ˈwɒnə/ |
 | Have to (informal) | hafta | /ˈhæftə/ |
 
-Người Việt thường nói "I am going to..." full form → mất 0.3 second per word → không enough thời gian trả lời câu hỏi đầy đủ trong 2 phút Part 2.
+Nói dạng đầy đủ ở mọi chỗ làm nhịp nói nặng và chậm hơn; dùng dạng rút gọn ở chỗ phù hợp giúp nói trôi chảy hơn.
 
 **Cách fix:**
-1. Luyện contractions ở vị trí cấu trúc cho phép; giữ dạng đầy đủ khi nhấn mạnh hoặc cuối câu trả lời ngắn: “Yes, I am”. Không có chỉ tiêu 80%.
-2. Practice "gonna/wanna" trong informal Speaking (Part 1, Part 3) — chấp nhận trong IELTS Speaking, examiner không penalize.
+1. Luyện contractions ở vị trí cấu trúc cho phép; giữ dạng đầy đủ khi nhấn mạnh hoặc cuối câu trả lời ngắn: “Yes, I am”.
+2. gonna/wanna là dạng nói thân mật; có thể xuất hiện tự nhiên khi nói, nhưng không cần cố dùng.
 3. Lưu ý: "I'd" có 2 nghĩa (I would / I had) — context phân biệt. Đừng tránh "I'd" vì sợ nhầm.
 
 ## Lỗi thường gặp (audio-specific)
@@ -227,8 +227,9 @@ VN phonotactics drop final consonant clusters:
 <!-- anchor: pronunciation-grammar-link.common-mistake.stress-content-vs-function -->
 ### Lỗi 4: Stress sai trên content vs function words
 
+- ❌ "I WANT TO GO TO THE BANK." (nhấn đều mọi từ, kể cả từ chức năng)
 - "I WANT to GO to the BANK." (đúng — content stressed)
-- “I want TO go TO the bank.” *(có thể đúng khi đối lập hướng đến với từ nơi đó về; không tự sai)*
+- “I want TO go TO the bank.” *(Nhấn TO chỉ đúng khi muốn đối lập, ví dụ TO the bank chứ không phải FROM the bank.)*
 
 **Cách fix:** Mark scripts. Practice với metronome (1 stress / beat).
 
@@ -259,5 +260,5 @@ Checklist này dùng luyện tập, không phải phép tính band. Đánh giá 
 
 - Pronunciation và Grammar liên kết chặt — drop -s/-ed = grammar lỗi
 - 4 điểm phải drill: plural/3rd-person -s (3 dạng /s,z,ɪz/), past -ed (3 dạng /t,d,ɪd/), weak forms function words, contractions
-- VN speakers drop clusters → drop -s/-ed → grammar score giảm
+- VN speakers drop clusters → drop -s/-ed → thông tin ngữ pháp khó nghe ra
 - Practice: ghi âm, nghe lại, force corrections cho 4 điểm trên
