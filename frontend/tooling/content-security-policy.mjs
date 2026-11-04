@@ -182,8 +182,8 @@ function segmentMatches(pattern, segment) {
 
 /**
  * Whether Next answers `pathname` from a route in `table` rather than the root
- * not-found page. Segments are compared as sent (still percent-encoded), as
- * Next routes them: `/admin/cl%61sses` is a 404 there, not `/admin/classes`.
+ * not-found page. Segments are compared literally. The proxy checks both the
+ * raw path (next start) and its safely decoded form (Vercel routing).
  * Only a dynamic segment accepts any non-empty value. An unusable table counts
  * every URL as a route (keeps the nonce).
  */

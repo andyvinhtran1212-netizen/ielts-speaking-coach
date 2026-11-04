@@ -325,7 +325,7 @@ describe('404s under signed-in prefixes (PC-J566, option b)', () => {
 
   test('path confusion: only the route table decides, never a "404" in the URL or request headers', async () => {
     const proxy = proxyFor(ROUTED);
-    for (const pathname of ['/admin/404', '/home/404', '/admin/_not-found', '/admin/not-found', '/admin/cl%61sses', '/admin/%zz', '/admin/classes/a/b']) {
+    for (const pathname of ['/admin/404', '/home/404', '/admin/_not-found', '/admin/not-found', '/admin/%zz', '/admin/classes/a/b']) {
       baseline(await proxy(request(pathname)), pathname);
     }
     for (const pathname of ['/admin?x=/404', '/admin?_not-found=1', '/home#/404', '/admin/classes/404', '/admin/classes/%2e%2e%2f404', '/admin/%2E%2E/admin', '/admin/../home']) {
@@ -337,6 +337,44 @@ describe('404s under signed-in prefixes (PC-J566, option b)', () => {
       { 'x-nonce': 'client-chosen', 'content-security-policy': "script-src 'nonce-client-chosen'" },
     ]) {
       for (const pathname of ['/admin', '/home']) enforcedHeader(await proxy(request(pathname, 'staging.averlearning.com', headers)));
+    }
+  });
+
+  test('Vercel-style encoded routing keeps a fresh nonce for raw OR once-decoded routes (PC-J604)', async () => {
+    const proxy = proxyFor(ROUTED);
+    for (const pathname of [...ENCODED_STATIC_PATHS, '/%61dmin/classes', '/admin%2fclasses',
+      '/admin/classes/a%2Fb', '/reading/vocab/x%2Fy', '/admin/classes/%zz', '/admin/classes/%E0%A4%A']) {
+      const first = await proxy(request(pathname));
+      const { nonce } = enforcedHeader(first);
+      assert.equal(first.headers.get('x-middleware-request-x-nonce'), nonce, pathname);
+      assert.equal(first.headers.get('x-middleware-request-content-security-policy'), first.headers.get('content-security-policy'), pathname);
+      assert.notEqual(enforcedHeader(await proxy(request(pathname))).nonce, nonce, pathname);
+      const reportOnly = await proxyFor({ ...ROUTED, AVER_CSP_NONCE_ENFORCE: '0' })(request(pathname));
+      assert.ok(reportOnly.headers.get('content-security-policy-report-only'), pathname);
+    }
+    for (const pathname of ['/admin/CL%41SSES', '/admin/cl%2561sses', '/h%256Fme', '/admin%252Fclasses',
+      '/admin/cl%61sses/a/b', '/admin/%E0%A4%A', '/h%6Fme%zz', '/%6Cogin', '/%67rammar', '/%76ocabulary']) {
+      baseline(await proxy(request(pathname)), pathname);
+    }
+    for (const env of [ROUTED, { ...ROUTED, VERCEL_ENV: 'production' }]) {
+      for (const pathname of ENCODED_STATIC_PATHS) {
+        for (const host of ['averlearning.com', 'www.averlearning.com', 'unlisted.example.test']) {
+          baseline(await proxyFor(env)(request(pathname, host)), `${host}${pathname}`);
+        }
+      }
+    }
+    for (const pathname of ENCODED_STATIC_PATHS) {
+      baseline(await proxyFor({ ...ROUTED, VERCEL_ENV: 'production' })(request(pathname)), pathname);
+    }
+  });
+
+  test('encoded framing exceptions remain exact matches to the existing allowlist', async () => {
+    const proxy = proxyFor(ROUTED);
+    for (const route of csp.NONCE_SAME_ORIGIN_FRAME_ROUTES) {
+      const encoded = route.replace(/.$/, (last) => `%${last.charCodeAt(0).toString(16)}`);
+      const { policy } = enforcedHeader(await proxy(request(encoded)));
+      assert.match(policy, /frame-ancestors 'self'/, encoded);
+      baseline(await proxy(request(`${encoded}/nope/xyz`)), encoded);
     }
   });
 
@@ -420,12 +458,13 @@ describe('404s under signed-in prefixes (PC-J566, option b)', () => {
       const n = counts.get(req.url) ?? 0;
       counts.set(req.url, n + 1);
       const nonce = n % 2 ? OTHER : NONCE;
-      // `next start` answers the encoded probes with the root 404; an edge
-      // that decodes them serves the real page, with or without the nonce.
+      // Model baseline 404s, Vercel's decoded page, and PC-J604's accepted
+      // next-start static 404 + nonce even for an encoded prefix.
       const encoded = ENCODED_STATIC_PATHS.includes(req.url);
-      const notFound = NOT_FOUND_PATHS.includes(req.url) || (encoded && encodedShape === '404');
+      const notFound = NOT_FOUND_PATHS.includes(req.url) || (encoded && ['404', 'next-start'].includes(encodedShape));
       const nonced = SIGNED_IN_PATHS.includes(req.url) || SOFT_NOT_FOUND_PATHS.includes(req.url)
         || (encoded && encodedShape === 'nonce')
+        || (encoded && encodedShape === 'next-start')
         || (notFound && notFoundNonce && csp.nonceRouteAllowed(req.url));
       res.writeHead(notFound ? (encoded ? 404 : notFoundStatus) : 200, {
         'content-type': 'text/html',
@@ -471,6 +510,15 @@ describe('404s under signed-in prefixes (PC-J566, option b)', () => {
       assert.ok(weakened.stderr.includes(`${p}: HTTP 200 with the nonce-free baseline`), weakened.stderr);
     }
     assert.match(weakened.stdout, /FAIL \(4\)/);
+  });
+
+  test('the deployed checker still rejects next-start encoded 404 + nonce (accepted local limitation)', async () => {
+    const result = await runEnforcedChecker({ encodedShape: 'next-start' });
+    assert.equal(result.code, 1);
+    for (const pathname of ENCODED_STATIC_PATHS) {
+      assert.ok(result.stderr.includes(`${pathname}: 404 got a nonce policy`), result.stderr);
+    }
+    assert.match(result.stdout, /FAIL \(4\)/);
   });
 
   test('the enforced CLI fails a nonce policy on a 404 (the staging shape) and a soft-200 404', async () => {

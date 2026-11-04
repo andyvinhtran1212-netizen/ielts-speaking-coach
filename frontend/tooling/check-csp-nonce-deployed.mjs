@@ -34,10 +34,11 @@ export const NOT_FOUND_PATHS = Object.freeze([
 // 200 + noindex, U-03 / PC-J526) that keeps the nonce on every script.
 export const SOFT_NOT_FOUND_PATHS = Object.freeze(['/listening/ielts/80-days/999']);
 // PC-J576 (#2216 R3 P3-1), `--enforced` only: real static routes sent with a
-// percent-encoded byte. The proxy matches segments as sent, so it leaves these
-// the baseline; `next start` answers them with the root 404. An edge that
-// decodes the path before routing would serve the real page instead, which
-// must then carry the nonce. 404 + baseline or 200 + nonce pass; 200 + the
+// percent-encoded byte. Vercel decodes before routing and must serve the real
+// page with the nonce. PC-J604 checks raw OR decoded routes in the proxy;
+// `next start` can still return a static 404 with a nonce for decoded-only
+// matches. This deployed checker deliberately rejects that local limitation.
+// 404 + baseline or 200 + nonce pass; 200 + the
 // nonce-free baseline is a real page that lost its nonce policy.
 export const ENCODED_STATIC_PATHS = Object.freeze([
   '/admin/cl%61sses', '/instructor/gr%61de', '/h%6Fme', '/admin%2Fclasses',
