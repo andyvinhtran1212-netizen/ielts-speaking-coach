@@ -156,11 +156,11 @@ never states plainly that saving removes the source from the public library.
 - **When** the import runs (`import_listening_source_collection.py` / the 295 RPC `import_listening_content_package_atomic`)
 - **Then** there is no SQLSTATE 55000, `mock_content_revision` of that package's tests does not change during the import, and a later publish/archive still behaves as FR-006/FR-007 (#2204) say
 
-### Scenario 5 — changes outside the import still bump (FR-008)
+### Scenario 5 — changes outside the import keep the existing guards (FR-008)
 
-- **Given** migrations 306, 353 and NNN applied, a Listening paper without a package, and a package that is published, was ever published, or has a `listening_test_attempts` row
+- **Given** migrations 306, 353 and NNN applied with all guards enabled, a Listening paper without a package, and a package that is published, was ever published, or has a `listening_test_attempts` row
 - **When** a service-role session inserts a `listening_content` row into the package-less paper, or inserts a `listening_exercises` row into that package's paper after setting `app.listening_package_import` to that package's id
-- **Then** `mock_content_revision` of each paper rises exactly as before NNN, and a status-only package publish or archive still keeps it (FR-007)
+- **Then** the package-less insert succeeds and its paper's `mock_content_revision` rises exactly as before NNN. The protected-package insert takes the existing revision-bump path, whose parent UPDATE is refused by `fn_protect_listening_package_child` with SQLSTATE 55000; the entire insert rolls back, leaving the child rows and persisted revision unchanged. A status-only package publish or archive still keeps the revision (FR-007).
 
 ### Scenario 6 — client roles cannot reach the skip (FR-008)
 
@@ -195,7 +195,9 @@ never states plainly that saving removes the source from the public library.
 - The 295 guard already trusts `app.listening_package_import` alone for package
   child INSERTs (295:669-675); FR-008 relies on the same setting and adds the
   never-published and no-attempt checks, so a service-role session that names
-  an already published or attempted package still bumps the revision.
+  an already published or attempted package still takes the existing bump
+  path. With the 295 guards enabled, that parent revision UPDATE is refused
+  with SQLSTATE 55000 and the child write and revision bump roll back.
 - A status-only change is not content: it does not invalidate attempts, overlap grants or mock content revision. A status change combined with any content column in the same UPDATE bumps the revision once.
 - A superuser can still disable triggers; that bypass is out of scope.
 
