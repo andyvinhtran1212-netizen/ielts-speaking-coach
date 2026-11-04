@@ -22,20 +22,22 @@ def test_writing_batch_drains_actual_nested_assignment_tasks(monkeypatch, cancel
     monkeypatch.setattr(outcomes.settings, "CORE_ATTEMPT_EVIDENCE_ENABLED", True)
     ids = [{"id": str(uuid4())} for _ in range(row_count)]
     monkeypatch.setattr(outcomes, "get_supabase_async", AsyncMock(side_effect=lambda: Query(ids)))
-    monkeypatch.setattr(outcomes, "WRITING_BATCH_BUDGET_SECONDS", 0.03 if cancellation == "deadline" else 2)
-    if cancellation == "inner_deadline":
-        monkeypatch.setattr(outcomes, "OUTCOME_BUDGET_SECONDS", 0.01)
+    monkeypatch.setattr(outcomes, "WRITING_BATCH_BUDGET_SECONDS", 2)
     async def run():
         active = 0
         entered = 0
         ready = asyncio.Event()
         draining = asyncio.Event()
+        fanout_delay = outcomes.OUTCOME_BUDGET_SECONDS * (1 + math.ceil(row_count / 4))
+        deadline_delay = outcomes.WRITING_BATCH_BUDGET_SECONDS if cancellation == "deadline" else fanout_delay
         timeouts = []
-        if cancellation == "deadline_during_drain":
+        if cancellation in {"deadline", "inner_deadline", "deadline_during_drain"}:
             original_timeout = asyncio.timeout
             def deferred_timeout(delay):
-                # Arm the real fanout deadline only once sibling cleanup starts.
-                # Setup must not race a 10ms wall-clock budget on a slow runner.
+                if delay != deadline_delay:
+                    return original_timeout(delay)
+                # Arm the selected real deadline only after observers are ready
+                # (or draining). Setup must not race a short wall-clock budget.
                 timeout = original_timeout(None)
                 timeouts.append((delay, timeout))
                 return timeout
@@ -73,15 +75,14 @@ def test_writing_batch_drains_actual_nested_assignment_tasks(monkeypatch, cancel
         await asyncio.wait_for(ready.wait(), 1)
         if cancellation == "deadline_during_drain":
             await asyncio.wait_for(draining.wait(), 1)
+        if cancellation in {"deadline", "inner_deadline", "deadline_during_drain"}:
             assert not task.done()
-            fanout_delay = outcomes.OUTCOME_BUDGET_SECONDS * (1 + math.ceil(row_count / 4))
-            fanout_timeouts = [timeout for delay, timeout in timeouts if delay == fanout_delay]
-            assert len(fanout_timeouts) == 1, (
-                f"Expected exactly one fanout timeout with delay={fanout_delay}, "
-                f"found {len(fanout_timeouts)}; recorded delays={[delay for delay, _ in timeouts]}"
+            assert len(timeouts) == 1, (
+                f"Expected exactly one timeout with delay={deadline_delay}, "
+                f"found {len(timeouts)}; recorded delays={[delay for delay, _ in timeouts]}"
             )
-            drain_timeout = fanout_timeouts[0]
-            drain_timeout.reschedule(asyncio.get_running_loop().time())
+            deadline_timeout = timeouts[0][1]
+            deadline_timeout.reschedule(asyncio.get_running_loop().time())
         if cancellation == "external":
             task.cancel()
         if cancellation in {"deadline", "inner_deadline", "deadline_during_drain"}:
@@ -92,8 +93,8 @@ def test_writing_batch_drains_actual_nested_assignment_tasks(monkeypatch, cancel
         # Assert BEFORE asyncio.run shutdown can clean up orphaned descendants.
         assert active == 0
         assert all(task.done() for task in tasks)  # includes semaphore-queued children
-        if cancellation == "deadline_during_drain":
-            assert drain_timeout.expired()
+        if cancellation in {"deadline", "inner_deadline", "deadline_during_drain"}:
+            assert deadline_timeout.expired()
     asyncio.run(run())
 
 

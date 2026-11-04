@@ -41,7 +41,7 @@ anchors:
   location: '## Tóm tắt'
   type: overview
 - id: order-of-adjectives.sequence
-  location: '### Trật tự chuẩn (OSASCOMP)'
+  location: '### Trật tự mặc định (mẹo OSASCOMP)'
   type: structure
 - id: order-of-adjectives.pitfall
   location: '## Lỗi thường gặp'
@@ -57,7 +57,7 @@ Nhiều tính từ bổ nghĩa tích lũy đứng trước danh từ theo **tr�
 - ❌ *a round old small beautiful table*
 
 <!-- anchor: order-of-adjectives.sequence -->
-### Trật tự chuẩn (OSASCOMP)
+### Trật tự mặc định (mẹo OSASCOMP)
 
 | Thứ tự | Loại | Ví dụ |
 |---|---|---|
@@ -91,6 +91,10 @@ Ví dụ đầy đủ: *a **lovely little old Italian silk** scarf*.
 ## Ứng dụng trong bài thi
 
 **THPT:** câu sắp xếp tính từ hỏi trực tiếp trật tự này. Nhớ **OSASCOMP**.
+
+**Speaking Part 2:**
+- *It was a **small old wooden** house near the river.*
+- *She gave me a **beautiful red silk** scarf.*
 
 ## Tóm tắt nhanh
 

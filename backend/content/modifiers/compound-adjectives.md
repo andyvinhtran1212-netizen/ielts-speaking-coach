@@ -77,6 +77,9 @@ Khi con số + danh từ đứng **trước** danh từ chính, danh từ trong 
 
 Nhưng khi đứng **sau** động từ, dùng bình thường: *The boy is **five years old**.*
 
+**Lưu ý: cách viết khi làm vị ngữ**
+- *The writer is well known.* thường không có gạch nối ở vị trí này. Đây không phải quy tắc bỏ mọi gạch nối sau be: **The plan is long-term** có thể giữ dạng từ ghép theo từ điển/văn phong.
+
 <!-- anchor: compound-adjectives.pitfall -->
 ## Lỗi thường gặp
 
@@ -87,15 +90,18 @@ Nhưng khi đứng **sau** động từ, dùng bình thường: *The boy is **fi
 ### Lỗi 2: Quên dấu gạch nối
 - ❌ *a well known writer* → ✅ *a **well-known** writer* *(khi đứng trước danh từ)*
 
-### Cách viết khi làm vị ngữ
-- *The writer is well known.* thường không có gạch nối ở vị trí này. Đây không phải quy tắc bỏ mọi gạch nối sau be: **The plan is long-term** có thể giữ dạng từ ghép theo từ điển/văn phong.
-
 ## Ứng dụng trong bài thi
 
-**THPT/TOEIC:** câu "a (five year / five-year / five-years) old boy" → chọn **five-year-old** (số ít + gạch nối).
+**THPT/TOEIC:** câu "a (five year old / five-year-old / five-years-old) boy" → chọn **five-year-old** (số ít + gạch nối).
+
+### Ví dụ IELTS
+
+- **Task 1:** *over a **ten-year** period*, ***15-year-old** students*
+- **Task 2:** *a **well-paid** job*, ***long-term** solutions*
+- **Speaking:** *a **two-hour** journey to work*
 
 ## Tóm tắt nhanh
 
 - Nhiều tính từ ghép có gạch nối trước danh từ; trạng từ -ly thường không nối
 - Số + danh từ trong cụm ghép → **số ít** (five-year, không five-years)
-- Khi làm vị ngữ, nhiều cụm mở ra; dạng đã cố định cần theo từ điển
+- Khi làm vị ngữ, nhiều cụm viết tách không gạch nối (*The writer is well known*); dạng đã cố định thì theo từ điển.

@@ -199,7 +199,7 @@ def test_release_metadata_holds_363_behind_the_admin_aal2_group():
     assert len(rows[NAME]) == 4 and rows[NAME][1:3] == ["pending_feature", "admin_aal2"]
     assert rows[NAME_361][1:3] == ["pending_feature", "admin_aal2"]
     readme = (MIGRATIONS / "README.md").read_text(encoding="utf-8")
-    paragraph = readme[readme.index("Migration `363`"):readme.index("Migration `365`")]
+    paragraph = readme[readme.index("Migration `363`"):readme.index("Migration `356`")]
     for needle in ("SA-2180-R3-2", "MIGRATION_FEATURES=admin_aal2", "after SA review", "361 → 363",
                    "migration_361_missing", "catalog_name_shadowed_in_public", "re-run 363",
                    "fn_set_staff_privilege", "grants nothing"):

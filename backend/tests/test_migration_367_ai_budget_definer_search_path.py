@@ -285,7 +285,7 @@ def test_release_metadata_holds_367_behind_the_ai_budget_group_with_333_and_340(
         assert rows[name][1:3] == ["pending_feature", "ai_budget"], name
     assert "needs 333 and 340" in rows[NAME][3] and "after SA review" in rows[NAME][3]
     readme = (MIGRATIONS / "README.md").read_text(encoding="utf-8")
-    paragraph = readme[readme.index("Migration `367`"):readme.index("Migration `356`")]
+    paragraph = readme[readme.index("Migration `367`"):readme.index("Migration `366`")]
     for needle in ("SA-2209", "MIGRATION_FEATURES=ai_budget", "after SA review", "333 → 340 →\n367",
                    "migration_367_prerequisite_missing", "catalog_name_shadowed_in_public",
                    "trigger_function_without_search_path", "re-run 340 and then 367", *RECREATED, *ALTERED,

@@ -196,6 +196,10 @@ def test_postconditions_cover_path_body_mode_owner_acl_and_triggers():
     for role in ("anon", "authenticated"):
         assert f"has_function_privilege('{role}', p.oid, 'EXECUTE')" in post
     assert "(f.service_exec AND NOT pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'))" in post
+    # One-way (SA-2241 P3-1): service_role EXECUTE on a trigger function is
+    # not a failure, because a trigger function cannot be called directly.
+    assert "OPERATOR(pg_catalog.<>) f.service_exec" not in post
+    assert "SA-2241 P3-1" in SQL
 
 
 def test_header_documents_scope_order_and_rollback():
@@ -229,7 +233,7 @@ def test_release_metadata_holds_366_behind_the_admin_aal2_group_with_365():
     assert rows[NAME_365][1:3] == ["pending_feature", "admin_aal2"]
     assert not any(name.startswith("364_") for name in rows)
     readme = (MIGRATIONS / "README.md").read_text(encoding="utf-8")
-    paragraph = readme[readme.index("Migration `366`"):readme.index("Migration `367`")]
+    paragraph = readme[readme.index("Migration `366`"):readme.index("Migration `365`")]
     for needle in ("SA-2209", "MIGRATION_FEATURES=admin_aal2", "after SA review", "363 → 365 → 366",
                    "migration_366_prerequisite_missing", "catalog_name_shadowed_in_public", "re-run 366",
                    *RECREATED, GUARD, "grants nothing", "pg_temp"):
@@ -645,6 +649,47 @@ _DRIFT = [
        "student_archive_trigger_missing")
       for table, trigger in TRIGGERS for mode in ("DISABLE", "ENABLE REPLICA")],
 ]
+
+
+TRIGGER_SIGS = [sig for sig in SIGS if sig not in RPC_SIGS]
+
+
+def _grant_trigger_execute(s: str) -> None:
+    """Staging before 366: Supabase's default privileges left service_role
+    EXECUTE on both trigger functions (read-only check, SA-2241 R2)."""
+    for sig in TRIGGER_SIGS:
+        _owner(f"GRANT EXECUTE ON FUNCTION {s}.{sig} TO service_role")
+        assert psql(f"SELECT has_function_privilege('service_role', '{s}.{sig}', 'EXECUTE')") == "t", sig
+
+
+def test_apply_accepts_service_role_execute_on_the_trigger_functions(only_331):
+    """The postcondition checks service_role one way: 366 applies on the
+    staging ACL, passes its postcondition and leaves the trigger grants as they
+    were, since it grants and revokes nothing."""
+    s = only_331
+    _grant_trigger_execute(s)
+    _apply(s)
+    _owner(_postcondition_sql(s))
+    for sig in SIGS:
+        assert _proconfig(s, sig) == "search_path=pg_catalog, pg_temp", sig
+        assert psql(f"SELECT has_function_privilege('service_role', '{s}.{sig}', 'EXECUTE')") == "t", sig
+
+
+@pytest.mark.parametrize("sig", RPC_SIGS)
+def test_apply_with_trigger_grants_still_refuses_an_rpc_without_service_role_execute(only_331, sig):
+    s = only_331
+    _grant_trigger_execute(s)
+    _owner(f"REVOKE EXECUTE ON FUNCTION {s}.{sig} FROM service_role")
+    before = _catalog(s, oids=True)
+    error = _fails(_owner, _migrated(s))
+    assert "student_archive_search_path_wrong" in error and sig.split("(")[0] in error, error
+    for other in TRIGGER_SIGS:
+        assert other.split("(")[0] not in error, error
+    assert _catalog(s, oids=True) == before   # the whole migration transaction rolled back
+    _unpinned(s)
+    _owner(f"GRANT EXECUTE ON FUNCTION {s}.{sig} TO service_role")
+    _apply(s)
+    _owner(_postcondition_sql(s))
 
 
 @pytest.mark.parametrize("tamper,revert,marker", _DRIFT)
