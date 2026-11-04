@@ -130,6 +130,34 @@ test('Postgres row dumps and key values are redacted (SA probe strings)', () => 
   assert.equal(event.exception.values[0].value, 'Failing row contains [redacted]');
 });
 
+// PC-J625: the SA probe of PR #2234 R4 (/workspace/qa/pr2234/probes.txt), lines that passed
+// through unredacted at d350ddb47; same expectations as backend/tests/test_sentry_setup.py.
+test('dump tokens in any case and spacing, and bare VN phone numbers, are redacted', () => {
+  for (const [input, expected] of [
+    ['key (phone)=(0901234567) already exists.', 'key (phone)=[redacted]'],
+    ['Key  (phone)=(0901234567) already exists.', 'Key  (phone)=[redacted]'],
+    ['Failing row contains(Nguyen Van A, 0901234567)', 'Failing row contains[redacted]'],
+    ['Failing  row contains (Nguyen Van A, 0901234567)', 'Failing  row contains [redacted]'],
+    ['Key (phone) = (0901234567)', 'Key (phone) = [redacted]'],
+    ['Learner Nguyễn Văn A phone +84901234567 said: my transcript here',
+      'Learner Nguyễn Văn A phone [redacted] said: my transcript here'],
+    ['FAILING ROW CONTAINS (Nguyen Van A)', 'FAILING ROW CONTAINS [redacted]'],
+    ['DETAIL:\tKEY\n(phone)\n=\n(0901234567)', 'DETAIL:\tKEY\n(phone)\n=\n[redacted]'],
+    ['call 0901234567 now', 'call [redacted] now'],
+    ['sdt:0912345678, 84901234567; (+840901234567)', 'sdt:[redacted], [redacted]; ([redacted])'],
+    ['0901234567\n0912345678', '[redacted]\n[redacted]'],
+    // Not phone numbers: a longer digit run, digits inside an id, a 9-digit number, a UUID.
+    ['ts 1730701234567 n 090123456789012', 'ts 1730701234567 n 090123456789012'],
+    ['req-0901234567 job_0901234567 v0901234567x', 'req-0901234567 job_0901234567 v0901234567x'],
+    ['count 090123456', 'count 090123456'],
+    ['id 11111111-2222-4333-8444-090123456789', 'id [uuid]'],
+  ]) {
+    assert.equal(scrubText(input), expected, input);
+  }
+  const event = scrubSentryEvent({ exception: { values: [{ type: 'Error', value: 'Learner Nguyễn Văn A phone +84901234567' }] } });
+  assert.equal(event.exception.values[0].value, 'Learner Nguyễn Văn A phone [redacted]');
+});
+
 // PC-J601 C2: console.* text is free-form (API error bodies, learner input).
 test('console breadcrumbs are dropped; other breadcrumbs are kept', () => {
   assert.equal(filterSentryBreadcrumb({ category: 'console', level: 'error', message: 'Nguyen Van A 0901234567' }), null);
