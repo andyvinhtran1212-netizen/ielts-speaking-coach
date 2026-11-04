@@ -2,7 +2,7 @@
 title: Conjunctions — Liên từ
 slug: conjunctions
 category: parts-of-speech
-summary: 'Liên từ nối các từ, cụm từ, hoặc mệnh đề lại với nhau. Có ba loại chính: liên từ kết hợp (and, but, or, so...), liên từ phụ (because, although, when, if...), và cặp liên từ tương quan (both...and, either...or...). Dùng đúng liên từ giúp câu phức tạp và mạch lạc hơn — điều này quan trọng để đạt điểm cao Grammatical Range trong IELTS.
+summary: 'Liên từ nối các từ, cụm từ, hoặc mệnh đề lại với nhau. Có ba loại chính: liên từ kết hợp (and, but, or, so...), liên từ phụ (because, although, when, if...), và cặp liên từ tương quan (both...and, either...or...). Dùng đúng liên từ giúp câu phức tạp và mạch lạc hơn — điều này quan trọng để đạt điểm cao Grammatical Range and Accuracy trong IELTS.
 
   '
 level: beginner
@@ -183,13 +183,15 @@ Hai liên từ đi cặp với nhau:
 - ❌ **Although** he was tired, **but** he kept working.
 - ✅ **Although** he was tired, he kept working.
 - ✅ He was tired, **but** he kept working.
-- **Tại sao:** Không dùng although và but để nối **cùng một cặp mệnh đề** theo mẫu trên. Một câu có thể có nhiều quan hệ tương phản ở các tầng khác nhau; không có lệnh cấm chỉ dùng một từ tương phản trong toàn câu.
+- **Tại sao:** Although và but không cùng nối một cặp mệnh đề. Một câu dài vẫn có thể có hai ý tương phản ở hai chỗ khác nhau.
 
 ### Lỗi 2: Dùng "because" và "so" cùng lúc
 
 - ❌ **Because** it was raining, **so** we stayed inside.
 - ✅ **Because** it was raining, we stayed inside.
 - ✅ It was raining, **so** we stayed inside.
+
+Do tiếng Việt nói "Tuy… nhưng…", "Vì… nên…", người Việt hay dịch cả hai từ sang tiếng Anh.
 
 ### Lỗi 3: Câu mảnh (Fragment) — mệnh đề phụ đứng một mình
 
@@ -207,7 +209,8 @@ Hai liên từ đi cặp với nhau:
 
 ### Lỗi 5: Nhầm "so" (vì vậy) và "so that" (để)
 
-- ✅ She studied hard **so** she could pass. (so có thể mở mục đích, nhất là trong lời nói)
+- ❌ She studied hard **so that** she passed. (kết quả, không phải mục đích) → ✅ She studied hard, **so** she passed.
+- ✅ She studied hard **so** she could pass. (so có thể diễn đạt mục đích, nhất là trong lời nói)
 - ✅ She studied hard **so that** she could pass. (that làm quan hệ mục đích rõ hơn)
 - ✅ She studied hard, **so** she passed. (kết quả → so)
 
@@ -225,6 +228,8 @@ Hai liên từ đi cặp với nhau:
 
 **Nguyên nhân:**
 - Many young people move to cities **because** they are looking for better job opportunities.
+
+**Thời gian:**
 - **Since** the internet became widely available, people's lives have changed dramatically.
 
 **Điều kiện:**
@@ -285,4 +290,4 @@ Hai liên từ đi cặp với nhau:
 - Không dùng "because" + "so" cùng lúc
 - Trong bài luận, mệnh đề phụ thường cần mệnh đề chính; trong hội thoại có thể là câu đáp ngắn
 - despite + noun/-ing (không + mệnh đề)
-- Sau when/if (chỉ thời gian tương lai) → dùng present simple
+- Sau when/if/as soon as, khi nói về tương lai → dùng present simple

@@ -81,7 +81,7 @@ Nhiều dạng gắn với động từ và có nghĩa "có thể (bị) …", n
 | rely | reli**able** (đáng tin) |
 | accept | accept**able** |
 | access | access**ible** |
-| respond | respons**ible** |
+| sense | sens**ible** |
 | flex | flex**ible** |
 
 Đa số là **-able**; một nhóm gốc Latinh dùng **-ible** (possible, visible, sensible) — học thuộc nhóm -ible vì ít hơn.
@@ -117,6 +117,7 @@ Responsible = có trách nhiệm, sensible = hợp lý, possible = có thể; h�
 
 ### Lỗi 3: Nhầm cặp -ed / -ing (participial adjectives)
 
+- ❌ The lesson was very **bored**. → ✅ The lesson was very **boring**.
 - The movie was **boring**. *(bản chất gây chán)* — I was **bored**. *(cảm giác)*
 
 ### Lỗi 4: Chọn sai -able / -ible
@@ -127,10 +128,18 @@ Responsible = có trách nhiệm, sensible = hợp lý, possible = có thể; h�
 
 **TOEIC Part 5 / THPT:** trước danh từ hoặc sau *be/seem/become/look* → chọn dạng có hậu tố tính từ. Cẩn thận cặp *interested/interesting*.
 
+**Ví dụ IELTS:**
+- *Public transport should be **affordable** and **reliable**.*
+- *Social media can be **harmful** to teenagers' mental health.*
+
 ## Bài tập luyện
 
 Chuyển sang tính từ:
-1. danger → ? 2. rely → ? 3. nature → ? 4. effect → ? 5. care → ? (2 dạng trái nghĩa)
+1. danger → ?
+2. rely → ?
+3. nature → ?
+4. effect → ?
+5. care → ? (2 dạng: có / thiếu)
 
 ### Đáp án
 1. dangerous 2. reliable 3. natural 4. effective 5. careful / careless
