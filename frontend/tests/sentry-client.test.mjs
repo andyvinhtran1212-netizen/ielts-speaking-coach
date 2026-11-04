@@ -102,26 +102,32 @@ test('scrubbing removes user, cookies, body, query strings and all but the User-
 // PC-J601 C1: the exact strings from the SA probe (/workspace/qa/pr2232/scrub_probe.txt).
 test('Postgres row dumps and key values are redacted (SA probe strings)', () => {
   assert.equal(scrubText(`Failing row contains (${USER_ID}, Nguyen Van A, 0901234567, a@b.com).`),
-    'Failing row contains [redacted].');
+    'Failing row contains [redacted]');
   assert.equal(scrubText('Failing row contains (uuid:666ff6ccaa5b, Nguyen Van A, 0901234567, [email]).'),
-    'Failing row contains [redacted].');
+    'Failing row contains [redacted]');
   assert.equal(scrubText('DETAIL: Key (phone)=(0901234567) already exists.'),
-    'DETAIL: Key (phone)=[redacted] already exists.');
+    'DETAIL: Key (phone)=[redacted]');
   assert.equal(scrubText('GET https://x.supabase.co/rest/v1/t failed'), 'GET https://x.supabase.co/rest/v1/t failed');
   // Values containing ")" / "." / newlines, truncated messages, other DETAIL forms.
+  // Redaction runs to the end of the string: an embedded ")." or ") already exists"
+  // cannot be told apart from the real end of the dump.
   for (const [input, expected] of [
     [`{"details":"Failing row contains (1, Tran (B). x, 0901234567).","code":"23514"}`,
-      '{"details":"Failing row contains [redacted].","code":"23514"}'],
+      '{"details":"Failing row contains [redacted]'],
     ['Failing row contains (x, Nguyen (A), line1\nline2 0901234567', 'Failing row contains [redacted]'],
-    ['Key (lower(email::text))=(a@b.com) already exists.', 'Key (lower(email::text))=[redacted] already exists.'],
-    ['Key (user_id)=(Nguyen) is not present in table "users".', 'Key (user_id)=[redacted] is not present in table "users".'],
-    ['Key (a)=(1) conflicts with existing key (a)=(0901234567).', 'Key (a)=[redacted].'],
+    ['Key (lower(email::text))=(a@b.com) already exists.', 'Key (lower(email::text))=[redacted]'],
+    ['Key (user_id)=(Nguyen) is not present in table "users".', 'Key (user_id)=[redacted]'],
+    ['Key (a)=(1) conflicts with existing key (a)=(0901234567).', 'Key (a)=[redacted]'],
     ['Key (phone)=(090 (x) 1234', 'Key (phone)=[redacted]'],
+    // PR #2234 R1 (CR P2-1 / Codex): truncated dumps with an embedded terminator
+    ['Failing row contains (1, Tran (B). x, 0901234567', 'Failing row contains [redacted]'],
+    ['Key (name)=(Tran (B) already exists, 0901234567', 'Key (name)=[redacted]'],
+    ['Key (note)=(see (a). Nguyen 0901234567', 'Key (note)=[redacted]'],
   ]) {
     assert.equal(scrubText(input), expected, input);
   }
   const event = scrubSentryEvent({ exception: { values: [{ type: 'Error', value: 'Failing row contains (Nguyen Van A, 0901234567).' }] } });
-  assert.equal(event.exception.values[0].value, 'Failing row contains [redacted].');
+  assert.equal(event.exception.values[0].value, 'Failing row contains [redacted]');
 });
 
 // PC-J601 C2: console.* text is free-form (API error bodies, learner input).

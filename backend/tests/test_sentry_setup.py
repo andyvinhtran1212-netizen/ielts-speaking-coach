@@ -207,34 +207,40 @@ def test_bearer_and_serialized_validation_errors_are_removed():
 # plus the raw form of its first line.
 @pytest.mark.parametrize("text, expected", [
     (f"Failing row contains ({USER_ID}, Nguyen Van A, 0901234567, a@b.com).",
-     "Failing row contains [redacted]."),
+     "Failing row contains [redacted]"),
     ("Failing row contains (uuid:666ff6ccaa5b, Nguyen Van A, 0901234567, [email]).",
-     "Failing row contains [redacted]."),
+     "Failing row contains [redacted]"),
     ("DETAIL: Key (phone)=(0901234567) already exists.",
-     "DETAIL: Key (phone)=[redacted] already exists."),
+     "DETAIL: Key (phone)=[redacted]"),
     ("GET https://x.supabase.co/rest/v1/t failed", "GET https://x.supabase.co/rest/v1/t failed"),
 ])
 def test_scrub_probe_strings(text, expected):
     assert scrub_text(text) == expected
 
 
+# Redaction runs from the dump to the end of the string: a ")." or
+# ") already exists" inside a value cannot be told apart from the real end.
 @pytest.mark.parametrize("text, expected", [
     # str(postgrest APIError): a dict repr; the value contains ")" and "."
     ("{'message': 'new row violates check constraint \"c\"', 'code': '23514', "
      "'details': 'Failing row contains (1, Tran (B). x, 0901234567).'}",
      "{'message': 'new row violates check constraint \"c\"', 'code': '23514', "
-     "'details': 'Failing row contains [redacted].'}"),
+     "'details': 'Failing row contains [redacted]"),
     ("{'code': '23505', 'details': 'Key (phone)=(0901234567) already exists.', 'hint': None}",
-     "{'code': '23505', 'details': 'Key (phone)=[redacted] already exists.', 'hint': None}"),
+     "{'code': '23505', 'details': 'Key (phone)=[redacted]"),
     # a newline inside a value, and a message truncated before the closing ")."
     ("DETAIL:  Failing row contains (x, Nguyen (A), line1\nline2 0901234567",
      "DETAIL:  Failing row contains [redacted]"),
     ("Key (lower(email::text))=(a@b.com) already exists.",
-     "Key (lower(email::text))=[redacted] already exists."),
+     "Key (lower(email::text))=[redacted]"),
     ('Key (user_id)=(Nguyen) is not present in table "users".',
-     'Key (user_id)=[redacted] is not present in table "users".'),
-    ("Key (a)=(1) conflicts with existing key (a)=(0901234567).", "Key (a)=[redacted]."),
+     "Key (user_id)=[redacted]"),
+    ("Key (a)=(1) conflicts with existing key (a)=(0901234567).", "Key (a)=[redacted]"),
     ("Key (phone)=(090 (x) 1234", "Key (phone)=[redacted]"),
+    # PR #2234 R1 (CR P2-1 / Codex): truncated dumps with an embedded terminator
+    ("Failing row contains (1, Tran (B). x, 0901234567", "Failing row contains [redacted]"),
+    ("Key (name)=(Tran (B) already exists, 0901234567", "Key (name)=[redacted]"),
+    ("Key (note)=(see (a). Nguyen 0901234567", "Key (note)=[redacted]"),
 ])
 def test_row_dump_values_never_partially_leak(text, expected):
     assert scrub_text(text) == expected
@@ -413,7 +419,7 @@ def test_fastapi_error_reaches_sentry_scrubbed(tmp_path):
         "RuntimeError", "ValidationError", "RuntimeError"]
     crumbs = [c.get("message") for c in events[0]["breadcrumbs"]["values"] if c.get("type") == "log"]
     assert crumbs == ["[main] audited breadcrumb"]
-    assert "Key (phone)=[redacted] already exists." in events[2]["exception"]["values"][-1]["value"]
+    assert events[2]["exception"]["values"][-1]["value"] == "{'code': '23505', 'details': 'Key (phone)=[redacted]"
     for event in events:
         assert event["environment"] == "staging"
         assert "data" not in event["request"] and "query_string" not in event["request"]

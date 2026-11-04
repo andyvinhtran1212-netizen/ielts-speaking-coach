@@ -68,14 +68,12 @@ _URL_QUERY = re.compile(r"(\b[a-zA-Z][a-zA-Z0-9+.-]*://[^\s?#'\"<>]*)[?#][^\s'\"
 # Postgres DETAIL lines quote whole rows / key values (learner names, phones):
 # "Failing row contains (...)." and "Key (cols)=(...) already exists." (also
 # "is not present in table ...", "is still referenced from ...", "conflicts
-# with existing key (...)=(...)."). A value may itself contain ")", "." or a
-# newline, so redact through the LAST closing ")" that such a line ends with,
-# or to the end of the string when there is none (a truncated message):
-# over-redaction, never a partial leak.
-_FAILING_ROW = re.compile(r"(Failing row contains )\((?:.*\)(?=\.)|.*)", re.DOTALL)
-_KEY_VALUE = re.compile(
-    r"(Key \(.*?\)=)\((?:.*\)(?= already exists| is not present| is still referenced|\.)|.*)",
-    re.DOTALL)
+# with existing key (...)=(...)."). A value may itself contain ")", ").",
+# ") already exists" or a newline, and the message may be truncated, so no
+# closing boundary can be trusted: redact from the dump to the END of the
+# string. Over-redaction, never a partial leak (PR #2234 R1).
+_FAILING_ROW = re.compile(r"(Failing row contains )\(.*", re.DOTALL)
+_KEY_VALUE = re.compile(r"(Key \(.*?\)=)\(.*", re.DOTALL)
 
 # Loggers whose WARNING+ records may become breadcrumbs/events. Each call site
 # was checked to log only fixed text, ids, paths and exception text (which the
