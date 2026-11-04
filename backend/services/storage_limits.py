@@ -1,4 +1,4 @@
-"""Storage upload contract (STORAGELIMITS-0038, migration 343).
+"""Storage upload contract (STORAGELIMITS-0038, migrations 343 and 362).
 
 Policies describe the bytes written to Storage, after any format sniffing or
 Speaking MIME normalisation. Do not use the client header to replace a sniff.
@@ -16,7 +16,7 @@ BUCKET_LIMITS: dict[str, tuple[int, tuple[str, ...]]] = {
     "audio-responses": (50 * 1024 * 1024, (
         "audio/*", "video/webm", "video/mp4", "application/octet-stream",
     )),
-    "listening-audio": (128 * 1024 * 1024, (
+    "listening-audio": (50 * 1024 * 1024, (
         "audio/*", "image/png", "image/jpeg", "image/webp", "image/svg+xml", "application/json",
     )),
     "listening-images": (10 * 1024 * 1024, ("image/png", "image/jpeg", "image/webp")),

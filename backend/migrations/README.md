@@ -23,7 +23,7 @@ Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
 sequence is dense. As of 2026-11-04 the highest is `365` (PC-J603; `363` is
 PC-J538, `361` is PC-J358, #2180; `360` is PC-J192, INSTRUCTORGIVE-0044),
 so by that rule the next new migration is `366`. Ask the Leader before taking it; 348–351 are reserved for other
-work, `364` is held by PC-J544 (SVCPRIV-0042 T001), and 353–359 and 362 without a file here may be held by open PRs: none may be
+work, `364` is held by PC-J544 (SVCPRIV-0042 T001), and 353–359 without a file here may be held by open PRs: none may be
 reused.
 The runner applies any unapplied file regardless of order.
 Numbers 321–326 belong to 321 WRITINGRATE-0025, 322 AIOPS-0024 (#1837), 323
@@ -105,6 +105,17 @@ staging→main promotion after 341. One transaction, no data change,
 re-runnable; re-running 341 restores the `NEW.id` audit body, so re-run 361
 after it. Its header rollback drops only the 361 trigger and function and
 restores the 341 audit body; it grants nothing.
+
+Migration `362` (PC-J522, STORAGELIMITS-0038; BUCKET50 a, Vinh t1246u
+02/11 06:37) follows immutable 343, confirmed in the staging ledger at
+2026-11-02 01:51:21Z. It sets only `listening-audio.file_size_limit` to
+`52428800` (50 MiB); all MIME types, visibility, other buckets and objects
+are unchanged. One transaction, 5 s lock timeout, idempotent; a missing bucket
+or failed postcondition aborts. The header down script restores the historical
+343 limit only. Same `pending_feature storage_bucket_limits` group: no apply
+on merge; Leader applies staging under the advisory lock, then checks the
+bucket value and uploads up to 50 MiB. Production remains uninspected and
+requires separate owner authorization at promotion.
 
 Migration `365` (PC-J603; SA-2209 residual P2 after 363) pins the rest of
 the staff-security chain, which 332, 336, 341, 361 and 363 left on
@@ -1215,3 +1226,15 @@ remain compatible. Apply308 only through the locked runner after setting
 session;308 records the SHA on the service-only activation function. Do not
 include308 in the migration-before-code batch. It activates typed admission
 and frozen snapshots for new work, with no backfill or regrade of old work.
+
+Migration 359 (`activation_serialize`, pending feature) adds the service-role-only
+`fn_activation_serialize` RPC. Its per-user transaction advisory lock covers fresh
+account/code/profile checks, activation, enrollment and the code claim. Native
+rollback includes membership trigger writes; the router performs no compensation
+UPDATE or DELETE. It neither installs nor depends on migration 337/346 objects.
+Leader alone applies 359 to staging in the freeze window **after
+SA-DESIGN-359 APPROVE**, using the advisory-locked runner. Production follows only
+at an authorised staging→main promotion. Deploy the previous backend before
+running `rollback/359_activation_serialize.sql`; rollback preserves account,
+enrollment and claim data. This PR supplies migration files only; hosted
+application remains blocked pending that design approval.

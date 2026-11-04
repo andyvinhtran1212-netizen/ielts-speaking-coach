@@ -4,8 +4,8 @@
 
 | Requirement | Evidence | Result |
 | --- | --- | --- |
-| FR-001 | kind=test; ref=backend/tests/test_migration_343_storage_bucket_limits.py — PG17 apply twice, exact table, missing-bucket atomic abort and forced postcondition failure; staging postcheck remains T003 | PENDING |
-| FR-002 | kind=test; ref=backend/tests/test_migration_343_storage_bucket_limits.py — header down restores T001 NULL/NULL and reapply succeeds; production pre-apply read remains T004 | PENDING |
+| FR-001 | kind=test; ref=backend/tests/test_migration_343_storage_bucket_limits.py; ref=backend/tests/test_migration_362_listening_audio_bucket_50_mib.py — historical 343 and 343 → 362 current table, repeat, missing-bucket and postcondition abort; staging BUCKET50 postcheck remains T007 | PENDING |
+| FR-002 | kind=test; ref=backend/tests/test_migration_343_storage_bucket_limits.py; ref=backend/tests/test_migration_362_listening_audio_bucket_50_mib.py — 343 down restores T001 NULL/NULL; 362 down restores historical Listening size and reapply succeeds; production pre-apply read remains T004 | PENDING |
 | FR-003 | kind=test; ref=backend/tests/test_storage_limits.py | PASS |
 | FR-004 | kind=test; ref=backend/tests/test_storage_limits.py — SDK, legacy SDK and HTTP refusals; image/audio/Speaking/source-import paths, CLI wrapper and background-render failure; staging AC 5 remains T003 | PENDING |
 | FR-005 | kind=test; ref=backend/tests/test_storage_limits.py — Speaking 50 MiB boundary, parameters, unknown types, 413 before STT, refused upload stops grading and thread offload retained; browser submit remains T003 | PENDING |
@@ -81,7 +81,12 @@
 - T001 census (staging, read-only, 2026-10-29 11:24:57Z): six buckets, all
   `file_size_limit = NULL`, `allowed_mime_types = NULL`; largest objects and
   mimetypes in [`research.md`](research.md). Project-wide limit 50 MiB.
-- Postcheck after 343 on staging: pending T003.
+- PC-J522 read-only Management API result: 343 applied on staging at
+  `2026-11-02T01:51:21.569448+00:00`; historical Listening bucket size still
+  `134217728`, MIME types unchanged and `public = false`. Request explicitly
+  used `read_only: true` and reported `transaction_read_only = on`.
+  Raw evidence: job log directory `staging-ledger-readonly.json{,.result}`.
+- Postcheck after 362 on staging: pending T007 (Leader apply, then WM retest).
 
 ## UI evidence
 
@@ -90,5 +95,32 @@
 
 ## Release evidence
 
-- Staging SHA, ledger row and postcheck: pending T003.
+- Initial 343 ledger row confirmed above; complete T003 acceptance is pending.
+- BUCKET50 staging SHA, 362 ledger row and 50 MiB upload: pending T007.
 - Production: pending T004 (owner authorization at promotion).
+
+## BUCKET50 a, Vinh t1246u 02/11 06:37 (PC-J522)
+
+- Immutable 343 SHA-256:
+  `2a69754254b66627e12aa4a1f37f05267b0e53141b81c4d14db24f344aa9cc5b`.
+- Migration 362 changes only the Listening bucket size to 52 428 800
+  (50 MiB); the shared helper and renderer/audio boundaries use the same
+  policy. Existing full-test/pack route-guard tests retain their stricter
+  route checks and add effective-cap oversize coverage.
+- Known limitations: historical source importer 128 MiB
+  (`listening_source_package_import.py:344`), full test 100 MiB and pack
+  60 MiB remain unchanged. Job 1mg (PC-J484) owns that alignment after T007.
+- Local PostgreSQL 17: 176 passed in the affected storage, migration,
+  invariant, renderer and audio suites; one README numbering wording check
+  initially failed. After fixing README, forward-policy + migration 362
+  recheck: **17 passed, 0 skipped**. No test assertion was weakened. The
+  cluster used SCRAM host auth on loopback and was stopped/deleted afterwards.
+- Full backend `python -m pytest tests/ -q`: **15,823 passed, 1,837 skipped**,
+  33 warnings, 923.96 s, exit 0. The full run had no PostgreSQL/live-provider
+  opt-ins; the affected PostgreSQL cases were covered without skips above.
+  Existing background-task shutdown logging errors followed the passing
+  summary. Logs: `storage-tests.log`, `storage-recheck.log`, `full-backend.log`
+  in the PC-J522 job log directory.
+- `validate_specs.py`: 49 specs passed; `git diff --check` passed. Exact-head
+  PR CI evidence belongs on the PR. No hosted migration, upload, production
+  read or merge in this job; T007 remains pending.

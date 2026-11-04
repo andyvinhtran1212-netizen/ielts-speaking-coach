@@ -341,14 +341,10 @@ routers/admin_writing_tips.py::get_tip::db.execute	1	G6	Existing inline sync DB 
 routers/admin_writing_tips.py::import_content::db.execute	3	G6	Existing inline sync DB execution; offload in G6.
 routers/admin_writing_tips.py::list_tips::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
 routers/admin_writing_tips.py::update_tip::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
-routers/auth.py::activate_account::db.execute	19	G0	Existing inline sync DB execution; offload in G0.
+routers/auth.py::activate_account::db.execute	7	G0	Existing inline sync DB execution; offload in G0.
 routers/auth.py::activate_account::routers.auth._audit_enroll_reject	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
-routers/auth.py::activate_account::routers.auth._audit_promote_attempt	2	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
+routers/auth.py::activate_account::routers.auth._audit_promote_attempt	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
 routers/auth.py::activate_account::routers.auth._rate_limit_activate	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
-routers/auth.py::activate_account::routers.auth._restore_archived_account_state	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
-routers/auth.py::activate_account::services.class_membership_service.remove_student	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
-routers/auth.py::activate_account::services.class_membership_service.student_is_active_in_cohort	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
-routers/auth.py::activate_account::services.cohort_assignment_service.backfill_cohort_writing_assignments	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.
 routers/auth.py::get_profile::db.execute	2	G0	Existing inline sync DB execution; offload in G0.
 routers/auth.py::update_profile::db.execute	1	G0	Existing inline sync DB execution; offload in G0.
 routers/class_student.py::my_assignments::routers.class_student._student_for_user	1	G0	Existing sync helper reaches blocking I/O; offload caller in G0.

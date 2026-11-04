@@ -90,6 +90,11 @@ class _Builder:
         self._filters.append((col, val))
         return self
 
+    def is_(self, col, val):
+        assert val == "null"
+        self._filters.append((col, None))
+        return self
+
     def limit(self, *_a, **_kw):
         return self
 
@@ -106,6 +111,10 @@ class _Builder:
 
 
 class _DispatchClient:
+    def rpc(self, name, params):
+        from activation_rpc_fake import activation_rpc
+        return activation_rpc(self, name, params)
+
     """Routes per-table behaviour. Each test passes a `students_lookup`
     fixture (the rows the students-by-student_code query should return)
     and optional `students_update_raises` to simulate DB failures."""
@@ -153,6 +162,8 @@ class _DispatchClient:
             r.data = [self._access_code_row]
         elif table == "users" and action == "select":
             r.data = self._existing_user
+        elif table == "users" and action == "update":
+            r.data = [{"id": _USER_ID, **rec["payload"]}]
         elif table == "students" and action == "select":
             if self._students_lookup_raises:
                 raise self._students_lookup_raises
@@ -161,7 +172,7 @@ class _DispatchClient:
             if self._students_update_raises:
                 raise self._students_update_raises
             r.data = []
-        # All other writes (users update, access_codes update,
+        # All other writes (access_codes update,
         # user_code_assignments upsert) succeed silently.
         return r
 

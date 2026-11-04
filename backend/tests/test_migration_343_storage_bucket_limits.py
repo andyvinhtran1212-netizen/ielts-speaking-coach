@@ -14,7 +14,11 @@ from uuid import uuid4
 
 import pytest
 
-from test_storage_limits import EXPECTED
+from test_storage_limits import EXPECTED as CURRENT_EXPECTED
+
+# Historical 343 is already applied. Migration 362 supplies the approved 50 MiB
+# limit; these tests continue to verify the immutable original migration.
+EXPECTED = {**CURRENT_EXPECTED, "listening-audio": (134217728, CURRENT_EXPECTED["listening-audio"][1])}
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 NAME = "343_storage_bucket_limits.sql"
