@@ -175,6 +175,26 @@ test('VN phones with separators are redacted; dates and ids are preserved', () =
   }
 });
 
+test('VN phones with parenthesized prefixes are redacted; dates and ids are preserved', () => {
+  for (const phone of [
+    '(+84) 90 123 4567', '(+84)901234567', '(84) 90-123-4567',
+    '(0)90 123 4567', '(084) 90 123 4567', '(0) 90 123 4567',
+  ]) {
+    assert.equal(scrubText(phone), '[redacted]', phone);
+    const text = `call ${phone} now`;
+    assert.equal(scrubText(text), 'call [redacted] now', phone);
+    const event = scrubSentryEvent({ exception: { values: [{ type: 'Error', value: text }] } });
+    assert.equal(event.exception.values[0].value, 'call [redacted] now', phone);
+  }
+  for (const text of [
+    'user_0901234567', '2026-11-04', 'user_(+84)901234567', '(+84)901234567x',
+  ]) {
+    assert.equal(scrubText(text), text);
+    const event = scrubSentryEvent({ exception: { values: [{ type: 'Error', value: text }] } });
+    assert.equal(event.exception.values[0].value, text);
+  }
+});
+
 test('VN phone separators preserve complete UUID scrubbing', () => {
   for (const uuid of [
     '84123456-7890-4abc-8def-0123456789ab', // CR R1 P2-1
