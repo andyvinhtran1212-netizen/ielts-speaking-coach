@@ -78,11 +78,12 @@ _FAILING_ROW = re.compile(r"(?i)(Failing\s*row\s*contains\s*)\(.*", re.DOTALL)
 _KEY_VALUE = re.compile(r"(?i)(Key\s*\(.*?\)\s*=\s*)\(.*", re.DOTALL)
 # A bare Vietnamese phone number (+84/84/0 and 9-10 digits, with optional
 # whitespace, dots or hyphens between digits) in free text (PC-J625, PC-J644).
+# The prefix may be parenthesized: (+84), (84), (084) or (0) (PC-J664).
 # Not inside a longer run of letters, digits,
 # "_" or "-", so ids, UUID segments and pseudonyms keep their digits. Names in
 # free text are not recognised: keep learner text out of exception messages.
 # The prefix is captured, not a lookbehind, to match frontend/lib/sentry-client.mjs.
-_VN_PHONE = re.compile(r"(^|[^0-9A-Za-z_-])(?:\+?84|0)(?:[\s.-]?\d){9,10}(?![0-9A-Za-z_]|-[0-9A-Za-z])")
+_VN_PHONE = re.compile(r"(^|[^0-9A-Za-z_-])(?:\((?:\+?84|084|0)\)|\+?84|0)(?:[\s.-]?\d){9,10}(?![0-9A-Za-z_]|-[0-9A-Za-z])")
 
 # Loggers whose WARNING+ records may become breadcrumbs/events. Each call site
 # was checked to log only fixed text, ids, paths and exception text (which the
