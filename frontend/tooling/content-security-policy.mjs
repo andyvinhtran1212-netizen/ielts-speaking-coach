@@ -35,6 +35,27 @@ function browserOrigin(value, { allowLocalHttp }) {
   throw new Error(`content-security-policy: refusing non-https browser origin ${url.origin}`);
 }
 
+// PC-J597: the browser SDK posts envelopes to its DSN host only. Listed when a
+// DSN is built in, as that exact https origin (no region wildcard); a malformed
+// DSN fails the build like any other unusable origin.
+export const SENTRY_DSN_ENV = 'NEXT_PUBLIC_SENTRY_DSN';
+
+export function sentryConnectSource(env = process.env) {
+  const dsn = (env[SENTRY_DSN_ENV] || '').trim();
+  if (!dsn) return null;
+  let url;
+  try {
+    url = new URL(dsn);
+  } catch {
+    // Not echoed: the DSN is public once built, but not a value for build logs.
+    throw new Error(`content-security-policy: ${SENTRY_DSN_ENV} is not a valid URL`);
+  }
+  if (url.protocol !== 'https:') {
+    throw new Error(`content-security-policy: ${SENTRY_DSN_ENV} must be an https:// DSN`);
+  }
+  return url.origin;
+}
+
 function connectSources(env) {
   const vercelEnv = env.VERCEL_ENV || '';
   const origins = resolveRuntimeOrigins(env);
@@ -64,6 +85,8 @@ function connectSources(env) {
   const supabaseUrl = origins.supabaseUrl || PROD.supabaseUrl;
   const sources = ["'self'", ...apiBases, supabaseUrl].map((value) =>
     value === "'self'" ? value : browserOrigin(value, { allowLocalHttp }));
+  const sentry = sentryConnectSource(env);
+  if (sentry) sources.push(sentry);
   if (vercelEnv && vercelEnv !== 'production') sources.push(...VERCEL_TOOLBAR_SOURCES.connect);
   return [...new Set(sources)];
 }

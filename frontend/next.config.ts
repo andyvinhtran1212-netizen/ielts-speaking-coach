@@ -17,6 +17,7 @@ import {
   LEGACY_RETIREMENT_PATHS,
 } from './tooling/legacy-url-redirects.mjs';
 import { collectNonceRoutes } from './tooling/nonce-route-table.mjs';
+import { resolveRuntimeOrigins } from './tooling/runtime-origins.mjs';
 
 const LEGACY_RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(
   LEGACY_RETIREMENT_PATHS,
@@ -66,6 +67,9 @@ const nextConfig: NextConfig = {
     get [NONCE_ROUTE_TABLE_ENV]() {
       return nonceReportOnlyEnabled(process.env) ? JSON.stringify(collectNonceRoutes(__dirname)) : '';
     },
+    // PC-J597: Sentry tags, from the same resolution as runtime-config.js.
+    AVER_SENTRY_ENVIRONMENT: resolveRuntimeOrigins(process.env).environment || 'development',
+    AVER_SENTRY_RELEASE: process.env.VERCEL_GIT_COMMIT_SHA || '',
   },
 
   async rewrites() {
