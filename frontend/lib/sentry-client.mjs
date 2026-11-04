@@ -32,7 +32,7 @@ const KEY_VALUE = /(Key\s*\([\s\S]*?\)\s*=\s*)\([\s\S]*/gi;
 // between digits, not inside a longer id (same rule as the backend, PC-J644).
 // The prefix is captured: no lookbehind for older Safari. Names in
 // free text are not recognised.
-const VN_PHONE = /(^|[^0-9A-Za-z_-])(?:\+?84|0)(?:[\s.-]?\d){9,10}(?![0-9A-Za-z_])/g;
+const VN_PHONE = /(^|[^0-9A-Za-z_-])(?:\+?84|0)(?:[\s.-]?\d){9,10}(?![0-9A-Za-z_]|-[0-9A-Za-z])/g;
 
 export function scrubText(text) {
   return text

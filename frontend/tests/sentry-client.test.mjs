@@ -175,6 +175,18 @@ test('VN phones with separators are redacted; dates and ids are preserved', () =
   }
 });
 
+test('VN phone separators preserve complete UUID scrubbing', () => {
+  for (const uuid of [
+    '84123456-7890-4abc-8def-0123456789ab', // CR R1 P2-1
+    '84111111-2222-4333-8444-090123456789', // Codex review
+  ]) {
+    const text = `user ${uuid} failed`;
+    assert.equal(scrubText(text), 'user [uuid] failed');
+    const event = scrubSentryEvent({ exception: { values: [{ type: 'Error', value: text }] } });
+    assert.equal(event.exception.values[0].value, 'user [uuid] failed');
+  }
+});
+
 // PC-J601 C2: console.* text is free-form (API error bodies, learner input).
 test('console breadcrumbs are dropped; other breadcrumbs are kept', () => {
   assert.equal(filterSentryBreadcrumb({ category: 'console', level: 'error', message: 'Nguyen Van A 0901234567' }), null);

@@ -6,6 +6,7 @@ Starlette for the whole interpreter, which must not leak into other tests.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import logging
 import os
@@ -331,6 +332,21 @@ def test_vn_phone_separators_are_redacted_outside_dumps(phone):
 @pytest.mark.parametrize("text", ["order 2026-11-04", "user_0901234567"])
 def test_vn_phone_separators_preserve_dates_and_ids(text):
     assert scrub_text(text) == text
+
+
+@pytest.mark.parametrize("uuid", [
+    "84123456-7890-4abc-8def-0123456789ab",  # CR R1 P2-1
+    "84111111-2222-4333-8444-090123456789",  # Codex review
+])
+@pytest.mark.parametrize("key", [None, b"test-key"])
+def test_vn_phone_separators_preserve_uuid_scrubbing(uuid, key, monkeypatch):
+    monkeypatch.setattr(sentry_setup, "_pseudonym_key", key)
+    expected = "[uuid]" if key is None else "uuid:" + hmac.new(
+        key, uuid.encode(), hashlib.sha256).hexdigest()[:12]
+    text = f"user {uuid} failed"
+    assert scrub_text(text) == f"user {expected} failed"
+    event = before_send({"exception": {"values": [{"type": "Error", "value": text}]}}, {})
+    assert event["exception"]["values"][0]["value"] == f"user {expected} failed"
 
 
 def test_vn_phone_pattern_leaves_uuids_and_pseudonyms_whole(monkeypatch):
