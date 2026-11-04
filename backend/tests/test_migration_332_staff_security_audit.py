@@ -185,12 +185,12 @@ def test_forward_policy_no_longer_holds_332_after_its_production_release():
 
 def test_no_other_migration_drops_or_bypasses_the_332_guards():
     # 341 is the reviewed PC-J88 hardening of these functions (evidence instead
-    # of session settings), 361 its PC-J358 forward hardening and 363 the
-    # PC-J538 search_path pin, each pinned by its own suite
-    # (test_migration_341_* / _361_* / _363_*). They may replace them but
-    # never drop or disable them, or set the old bypass.
+    # of session settings), 361 its PC-J358 forward hardening, 363 the
+    # PC-J538 and 365 the PC-J603 search_path pins, each pinned by its own
+    # suite (test_migration_341_* / _361_* / _363_* / _365_*). They may replace
+    # them but never drop or disable them, or set the old bypass.
     hardening = {"341_staff_guc_and_ai_override_hardening.sql", "361_staff_privilege_evidence_commit_guard.sql",
-                 "363_users_privilege_audit_search_path.sql"}
+                 "363_users_privilege_audit_search_path.sql", "365_staff_security_chain_search_path.sql"}
     for path in sorted(MIGRATIONS.glob("*.sql")):
         if path.name == NAME:
             continue
