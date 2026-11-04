@@ -15,7 +15,8 @@
 //      404 card in the server HTML, then Chromium: React hydrated and 0
 //      `securitypolicyviolation` events / console CSP messages;
 //   4. path confusion and forged routing headers: a 200 always has the nonce
-//      policy, a 404 always the baseline, sent with the raw path;
+//      policy, a 404 the baseline except the explicit PC-J604 local encoded
+//      static-path limitation below, sent with the raw path;
 //   5. notFound() from a request-time page, inside <Suspense> (80-days) and
 //      outside it (test fixture tests/fixtures/csp-not-found-probe, which CI
 //      copies into app/ before this build): never a nonce header over
@@ -30,7 +31,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
-import { auditNonceResponse, auditNonceRoute } from './check-csp-nonce-deployed.mjs';
+import { auditNonceResponse, auditNonceRoute, ENCODED_STATIC_PATHS } from './check-csp-nonce-deployed.mjs';
 import { nonceRouteAllowed } from './content-security-policy.mjs';
 import { collectNonceRoutes } from './nonce-route-table.mjs';
 
@@ -38,6 +39,7 @@ const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const args = process.argv.slice(2);
 const enforced = args.includes('--enforced');
 const BASE = args.find((arg) => arg !== '--enforced') || 'http://localhost:3000';
+const localNextStart = ['localhost', '127.0.0.1'].includes(new URL(BASE).hostname);
 const api = new URL(process.env.AVER_API_BASE || 'http://127.0.0.1:3999');
 if (api.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(api.hostname)) {
   throw new Error('AVER_API_BASE must be an explicit local fixture origin');
@@ -57,9 +59,16 @@ const NOT_FOUND = [
 // Raw request paths (node:http does not normalize them the way fetch does).
 const CONFUSION = [
   '/admin/404', '/home/404', '/404/x', '/admin/_not-found', '/admin?x=/404', '/admin/%2e%2e/404',
-  '/admin/%2E%2E/admin', '/admin/../home', '/admin/cl%61sses', '/admin/%zz', '/h%6fme', '/HOME',
+  '/admin/%2E%2E/admin', '/admin/../home', ...ENCODED_STATIC_PATHS, '/admin/%zz', '/h%6fme', '/HOME',
   '/admin/classes/abc', '/admin/classes/a%2Fb', '/reading/vocab/x%2Fy', '/listening/ielts/80-d%61ys/5',
 ];
+// PC-J604: next start keeps static segments encoded. Its matcher still runs
+// the proxy for these paths, which now sees their decoded real route and
+// adds a nonce. The static 404 cannot stamp its scripts. Pin that limitation
+// here; the deployed checker continues to reject ALL nonce-bearing 404s.
+const ENCODED_NEXT_START_404 = new Set([
+  ...ENCODED_STATIC_PATHS, '/h%6fme', '/listening/ielts/80-d%61ys/5',
+]);
 const FORGED = [
   { 'x-matched-path': '/404' }, { 'x-invoke-status': '404' }, { 'x-invoke-path': '/_not-found' },
   { 'x-nextjs-data': '1' }, { 'x-now-route-matches': '1' },
@@ -229,6 +238,20 @@ try {
       check(`${route}: HTTP 200 with the nonce policy on every <script>`,
         res.policies === 1 && audit.nonce !== null && audit.scripts > 0 && audit.unnonced.length === 0,
         `${audit.unnonced.length}/${audit.scripts} unstamped`);
+    } else if (res.status === 404 && localNextStart && ENCODED_NEXT_START_404.has(route)) {
+      const second = await get(route);
+      const nextAudit = auditNonceResponse(second, { enforced });
+      const policy = enforced ? res.contentSecurityPolicy : res.reportOnly;
+      const expectedPolicy = enforced
+        ? baseline.replace(/script-src [^;]+/, `script-src 'self' 'nonce-${audit.nonce}' 'strict-dynamic' 'unsafe-inline'`)
+        : baseline;
+      check(`${route}: accepted next-start limitation: static HTTP 404 + nonce (Vercel serves the real route)`,
+        res.policies === 1 && audit.nonce !== null && nextAudit.nonce !== null && audit.nonce !== nextAudit.nonce
+        && second.status === 404 && res.contentSecurityPolicy === expectedPolicy
+        && (enforced ? res.reportOnly === null : Boolean(policy))
+        && audit.scripts > 0 && audit.unnonced.length === audit.scripts && stampedScripts(res.html) === 0
+        && res.html.includes(CARD),
+        `${audit.unnonced.length}/${audit.scripts} static scripts cannot carry the nonce; hydration is blocked in enforce mode`);
     } else if (res.status === 404) {
       check(`${route}: HTTP 404 with the public baseline`, isBaseline(res) && stampedScripts(res.html) === 0,
         String(res.contentSecurityPolicy).slice(0, 80));

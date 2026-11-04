@@ -19,13 +19,11 @@ ready note H-1029-FD5. The "writing-images is public" part of A-ST was fixed in
 
 ## Tóm tắt (tiếng Việt)
 
-Hiện chưa bucket Storage nào có giới hạn kích thước hay loại file; giới hạn chỉ
-nằm trong code từng route. Nếu một route quên kiểm tra, hoặc khoá service bị
-lộ, Storage nhận mọi file. Migration 343 đặt `file_size_limit` và
-`allowed_mime_types` cho 6 bucket theo bảng bên dưới. Giới hạn không bao giờ
-chặt hơn code hiện nay (bảng lấy từ khảo sát staging T001 trong
-[`research.md`](research.md)), để không bài ghi âm Speaking nào bị mất. Không
-đổi bucket nào giữa công khai/riêng tư.
+Migration 343 đã đặt `file_size_limit` và `allowed_mime_types` cho 6 bucket
+trên staging. BUCKET50 a (Vinh t1246u 02/11 06:37) sửa giới hạn
+`listening-audio` về 50 MiB, đúng trần project staging, bằng migration 362;
+giữ nguyên 343 đã áp. Bảng bên dưới là trạng thái sau 343 → 362 và giới hạn
+helper dùng chung. Không đổi giới hạn Speaking hoặc trạng thái công khai/riêng tư.
 
 Khi file quá lớn hoặc sai loại, backend trả 413 `file_too_large` hoặc 415
 `unsupported_media_type` kèm câu tiếng Việt, kiểm tra trước khi tải lên. Nếu
@@ -51,8 +49,9 @@ a stable size/type error.
 ## Scope
 
 - Migration 343: set `file_size_limit` and `allowed_mime_types` on the six
-  buckets to the final limit table below; README and `forward-policy.tsv`
-  entries; a down script that restores the T001 values.
+  buckets to the original T001 limits; migration 362 then sets only
+  `listening-audio.file_size_limit` to 52 428 800 (50 MiB), producing the final
+  table below. README, `forward-policy.tsv` and symmetric down scripts.
 - New shared helper `backend/services/storage_limits.py`: the limit table in
   code, pre-upload checks, and mapping of a Storage size/type refusal to
   413/415.
@@ -65,12 +64,12 @@ a stable size/type error.
 - Tests: `backend/tests/test_storage_limits.py`,
   `backend/tests/test_migration_343_storage_bucket_limits.py`.
 
-### Final limit table (from T001, [`research.md`](research.md))
+### Final limit table (T001 + BUCKET50 a, [`research.md`](research.md))
 
 | Bucket | `file_size_limit` (bytes) | `allowed_mime_types` | `public` (unchanged) |
 | --- | ---: | --- | --- |
 | `audio-responses` | 52 428 800 (50 MiB) | `audio/*`, `video/webm`, `video/mp4`, `application/octet-stream` | false |
-| `listening-audio` | 134 217 728 (128 MiB) | `audio/*`, `image/png`, `image/jpeg`, `image/webp`, `image/svg+xml`, `application/json` | false on staging |
+| `listening-audio` | 52 428 800 (50 MiB) | `audio/*`, `image/png`, `image/jpeg`, `image/webp`, `image/svg+xml`, `application/json` | false on staging |
 | `listening-images` | 10 485 760 (10 MiB) | `image/png`, `image/jpeg`, `image/webp` | false on staging |
 | `reading-images` | 5 242 880 (5 MiB) | `image/png`, `image/jpeg`, `image/webp` | false on staging |
 | `writing-images` | 5 242 880 (5 MiB) | `image/png`, `image/jpeg`, `image/webp` | false (#1760) |
@@ -106,6 +105,13 @@ exists on staging.
   limit, never a silent partial upload.
 
 ## Requirements
+
+BUCKET50 a amendment: the original requirement identifiers below remain the
+0038 baseline. For FR-001, the final limit table is now reached by the forward
+sequence 343 → 362, because 343 was already applied. FR-002 retains 343's
+original down script; 362 has its own down script restoring the historical
+343 Listening limit. FR-003/004 use the amended 50 MiB helper policy. FR-007
+continues to bound route limits by the project-wide cap. See the changelog.
 
 - **FR-001:** Migration 343 sets, for exactly the six buckets `audio-responses`, `listening-audio`, `listening-images`, `reading-images`, `writing-images` and `vocab-audio`, `file_size_limit` and `allowed_mime_types` to the values in the final limit table; it changes no other column (in particular not `public`), no other bucket and no object; it is idempotent and re-runnable; it aborts if any of the six buckets is missing; and its postcondition fails unless each of the six rows has a non-null `file_size_limit` and `allowed_mime_types` equal to the table.
 - **FR-002:** Migration 343 ships a down script, kept in the file header, that restores the values recorded before apply (on staging `NULL`, `NULL` for all six, from T001) without touching `public`; the production pre-apply values are read by T004, and if any is not `NULL` the down script is amended before the production apply.
@@ -143,9 +149,24 @@ exists on staging.
 
 ### Scenario 5 — postcondition and privacy
 
-- **Given** 343 is applied on staging
+- **Given** 343 and the BUCKET50 migration 362 are applied on staging
 - **When** the read-only postcheck in the 343 header runs
 - **Then** all six buckets show the table values, `writing-images` is still `public = false`, and a signed URL for a Writing chart still loads
+
+## Known limitations
+
+Historical route/importer ceilings remain unchanged in PC-J522: source audio
+128 MiB (`listening_source_package_import.py:344`), full-test audio 100 MiB,
+and full-test pack 60 MiB. The shared Storage helper now rejects a
+`listening-audio` object over 50 MiB before upload. Aligning those separate
+ceilings and their messages belongs to job 1mg (PC-J484); do not release that
+job until Leader applies 362 and WM verifies the staging bucket and upload.
+
+## Changelog
+
+- 2026-11-02 — BUCKET50 a, Vinh t1246u 02/11 06:37 (PC-J522): Listening
+  bucket and shared helper 50 MiB / 52 428 800; forward-only correction after
+  applied 343. Separate importer/full-test/pack ceiling cleanup is PC-J484.
 
 ## Edge cases
 
@@ -164,7 +185,7 @@ exists on staging.
 
 ## Success criteria
 
-- On staging after apply, the 343 postcheck shows the six table rows and
+- On staging after 343 → 362, the 343 postcheck shows the six table rows and
   unchanged `public` values.
 - Every covered upload path has a test for oversize, wrong type and Storage
   refusal returning 413/415 with no object created.
@@ -172,8 +193,8 @@ exists on staging.
 
 ## Decisions
 
-1. Limit = max(code limit, census max); MIME = code types ∪ census types
-   (approved rule).
+1. Original rule: limit = max(code limit, census max); MIME = code types ∪
+   census types. BUCKET50 a amends Listening to the 50 MiB project cap.
 2. `audio/*` for `audio-responses` and `listening-audio` instead of exact
    lists, because client and `guess_type` names vary.
 3. Keep `video/webm`, `video/mp4`, `application/octet-stream` in

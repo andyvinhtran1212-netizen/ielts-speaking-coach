@@ -24,7 +24,7 @@ sequence is dense. As of 2026-11-04 the highest is `364`, allocated to PC-J544
 (SVCPRIV-0042 T001, APPROVED-20261102; `363` is PC-J538, `361` is PC-J358, #2180;
 `360` is PC-J192, INSTRUCTORGIVE-0044), so by that rule the next new
 migration is `365`. Ask the Leader before taking it; 348–351 are reserved for other work, and
-353–359 and 362 without a file here may be held by open PRs: none may be
+353–359 without a file here may be held by open PRs: none may be
 reused.
 The runner applies any unapplied file regardless of order.
 Numbers 321–326 belong to 321 WRITINGRATE-0025, 322 AIOPS-0024 (#1837), 323
@@ -107,6 +107,17 @@ re-runnable; re-running 341 restores the `NEW.id` audit body, so re-run 361
 after it. Its header rollback drops only the 361 trigger and function and
 restores the 341 audit body; it grants nothing.
 
+Migration `362` (PC-J522, STORAGELIMITS-0038; BUCKET50 a, Vinh t1246u
+02/11 06:37) follows immutable 343, confirmed in the staging ledger at
+2026-11-02 01:51:21Z. It sets only `listening-audio.file_size_limit` to
+`52428800` (50 MiB); all MIME types, visibility, other buckets and objects
+are unchanged. One transaction, 5 s lock timeout, idempotent; a missing bucket
+or failed postcondition aborts. The header down script restores the historical
+343 limit only. Same `pending_feature storage_bucket_limits` group: no apply
+on merge; Leader applies staging under the advisory lock, then checks the
+bucket value and uploads up to 50 MiB. Production remains uninspected and
+requires separate owner authorization at promotion.
+
 Migration `363` (PC-J538; SA-2180-R3-2 on #2180) pins the users audit trigger
 chain after 361, which it never edits. `fn_users_privilege_audit` (SECURITY
 DEFINER) and the writer it calls, `fn_staff_security_record` (SECURITY
@@ -133,6 +144,30 @@ path, so re-run 363 after it. `rollback/363_users_privilege_audit_search_path.sq
 restores the 361/332 bodies, reopens SA-2180-R3-2 and grants nothing. Other
 definers with `search_path = public, pg_temp` (`fn_set_staff_privilege`,
 `fn_ai_model_override_audit`) are not covered by 363.
+
+Migration `364` (PC-J544, SVCPRIV-0042 T001, FR-001…FR-008; the spec's `NNN`)
+revokes TRIGGER, REFERENCES, TRUNCATE and, on PostgreSQL 17, MAINTAIN on every
+`public` relation (tables, partitions, views, materialized views, foreign
+tables) from `service_role`, anon, authenticated and PUBLIC, and removes the
+same four from every table default ACL, global and `IN SCHEMA public`, whose
+owner the runner can act for. Default ACLs of other owners (hosted
+`supabase_admin`) produce a WARNING with the exact statement for Supabase
+support. It closes SA P2-SA-1: with TRIGGER, `service_role` could attach a
+`pg_temp` trigger that owner-run definers and FK actions then execute as the
+owner. SELECT, INSERT, UPDATE and DELETE (table and column level), schema
+USAGE, owners, policies and functions are unchanged; the postcondition compares
+a normalised before/after snapshot of them. API roles get explicit CRUD grants
+only: no `GRANT ALL`, TRIGGER, REFERENCES, TRUNCATE or MAINTAIN on a table or in
+a default ACL, no `pg_maintain`/`pg_write_all_data`/`postgres` membership and no
+ownership; `test_service_role_table_privilege_guard.py` (FR-006) enforces this
+for later migrations, every rollback file and the scripts. 364 needs 357 on the
+target first: it re-checks schema CREATE and aborts with
+`svcpriv_schema_create_remains` when 357 is missing. The down is a documented
+no-op. Group `service_role_table_maintenance_revoke` is `pending_feature`
+(merge KHÔNG áp): staging first under the advisory lock after 357; production
+only at a Vinh-approved promotion. `apply_migrations.sh --baseline` refuses a
+non-empty `MIGRATION_FEATURES`, so a clone baseline cannot record 364 without
+running it (FR-007).
 
 Migration `356` (PC-J286, CALAPPEND-0041 FR-001..004) adds the statement trigger
 `trg_class_action_log_no_truncate` and its pinned, `P0001`-raising function.
@@ -309,30 +344,6 @@ documented no-op: restoring CREATE needs a new spec. Group
 `public_schema_create_revoke` is `pending_feature` (merge KHÔNG áp): staging
 first under the advisory lock, before 358; production only at a Vinh-approved
 promotion, before 341/341b.
-
-Migration `364` (PC-J544, SVCPRIV-0042 T001, FR-001…FR-008; the spec's `NNN`)
-revokes TRIGGER, REFERENCES, TRUNCATE and, on PostgreSQL 17, MAINTAIN on every
-`public` relation (tables, partitions, views, materialized views, foreign
-tables) from `service_role`, anon, authenticated and PUBLIC, and removes the
-same four from every table default ACL, global and `IN SCHEMA public`, whose
-owner the runner can act for. Default ACLs of other owners (hosted
-`supabase_admin`) produce a WARNING with the exact statement for Supabase
-support. It closes SA P2-SA-1: with TRIGGER, `service_role` could attach a
-`pg_temp` trigger that owner-run definers and FK actions then execute as the
-owner. SELECT, INSERT, UPDATE and DELETE (table and column level), schema
-USAGE, owners, policies and functions are unchanged; the postcondition compares
-a normalised before/after snapshot of them. API roles get explicit CRUD grants
-only: no `GRANT ALL`, TRIGGER, REFERENCES, TRUNCATE or MAINTAIN on a table or in
-a default ACL, no `pg_maintain`/`pg_write_all_data`/`postgres` membership and no
-ownership; `test_service_role_table_privilege_guard.py` (FR-006) enforces this
-for later migrations, every rollback file and the scripts. 364 needs 357 on the
-target first: it re-checks schema CREATE and aborts with
-`svcpriv_schema_create_remains` when 357 is missing. The down is a documented
-no-op. Group `service_role_table_maintenance_revoke` is `pending_feature`
-(merge KHÔNG áp): staging first under the advisory lock after 357; production
-only at a Vinh-approved promotion. `apply_migrations.sh --baseline` refuses a
-non-empty `MIGRATION_FEATURES`, so a clone baseline cannot record 364 without
-running it (FR-007).
 
 Migration `358` (PC-J406, widened by PC-J510; SVCPRIV-0042 FR-010,
 PGTEMP option a, Vinh t1246u; SA P2-R2-1) makes `pg_temp` the last `search_path`
@@ -1209,3 +1220,15 @@ remain compatible. Apply308 only through the locked runner after setting
 session;308 records the SHA on the service-only activation function. Do not
 include308 in the migration-before-code batch. It activates typed admission
 and frozen snapshots for new work, with no backfill or regrade of old work.
+
+Migration 359 (`activation_serialize`, pending feature) adds the service-role-only
+`fn_activation_serialize` RPC. Its per-user transaction advisory lock covers fresh
+account/code/profile checks, activation, enrollment and the code claim. Native
+rollback includes membership trigger writes; the router performs no compensation
+UPDATE or DELETE. It neither installs nor depends on migration 337/346 objects.
+Leader alone applies 359 to staging in the freeze window **after
+SA-DESIGN-359 APPROVE**, using the advisory-locked runner. Production follows only
+at an authorised staging→main promotion. Deploy the previous backend before
+running `rollback/359_activation_serialize.sql`; rollback preserves account,
+enrollment and claim data. This PR supplies migration files only; hosted
+application remains blocked pending that design approval.
