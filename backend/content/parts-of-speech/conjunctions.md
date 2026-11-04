@@ -209,10 +209,12 @@ Do tiếng Việt nói "Tuy… nhưng…", "Vì… nên…", người Việt hay
 
 ### Lỗi 5: Nhầm "so" (vì vậy) và "so that" (để)
 
-- ❌ She studied hard **so that** she passed. (kết quả, không phải mục đích) → ✅ She studied hard, **so** she passed.
+- ❌ She studied hard so that she passed. (*so that* không dấu phẩy = mục đích; muốn nói kết quả: ✅ She studied hard, so she passed.)
 - ✅ She studied hard **so** she could pass. (so có thể diễn đạt mục đích, nhất là trong lời nói)
 - ✅ She studied hard **so that** she could pass. (that làm quan hệ mục đích rõ hơn)
 - ✅ She studied hard, **so** she passed. (kết quả → so)
+
+*Lưu ý: trong văn trang trọng, ", so that" (có dấu phẩy) có thể chỉ kết quả: The roads flooded, so that no buses could run.*
 
 ## Ứng dụng trong IELTS
 

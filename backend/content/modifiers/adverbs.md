@@ -284,7 +284,7 @@ Sentence adverb, + subject + verb...
 - ❌ SAI: She is late never.
 - ✅ ĐÚNG: She is **never** late.
 - "I **often** go to the gym" là vị trí giữa câu thông dụng. "**Often** I go to the gym" và "I go to the gym **often**" cũng có thể dùng theo trọng tâm.
-- **TẠI SAO:** Vị trí giữa câu (trước động từ thường, sau be/trợ động từ) là lựa chọn an toàn. Often/sometimes còn có thể đứng đầu hoặc cuối câu; always/never thì không. Không đặt trạng từ tần suất giữa động từ và tân ngữ.
+- **TẠI SAO:** Vị trí giữa câu (trước động từ thường, sau be/trợ động từ) là lựa chọn an toàn. Often/sometimes/usually có thể đứng đầu hoặc cuối câu. Always/never thường không đứng cuối câu; ở đầu câu, *never* chỉ gặp trong đảo ngữ trang trọng (*Never have I seen such dedication.*), còn *always* chủ yếu trong câu mệnh lệnh (*Always check your answers.*). Không đặt trạng từ tần suất giữa động từ và tân ngữ.
 
 ### Lỗi 2: Dùng "good" thay vì "well"
 
