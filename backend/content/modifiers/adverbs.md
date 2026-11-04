@@ -2,7 +2,7 @@
 title: Adverbs (Trạng từ)
 slug: adverbs
 category: modifiers
-summary: 'Adverb là từ bổ nghĩa cho động từ, tính từ, trạng từ khác, hoặc cả câu. Không như danh từ và động từ, adverb có thể đứng ở nhiều vị trí khác nhau trong câu. Người học Việt Nam thường đặt adverb sai chỗ — đặc biệt là frequency adverbs và manner adverbs — ảnh hưởng đến điểm Grammar trong IELTS.
+summary: 'Adverb là từ bổ nghĩa cho động từ, tính từ, trạng từ khác, hoặc cả câu. Không như danh từ và động từ, adverb có thể đứng ở nhiều vị trí khác nhau trong câu. Người học Việt Nam thường đặt adverb sai chỗ — đặc biệt là frequency adverbs và manner adverbs — ảnh hưởng đến điểm Grammatical Range and Accuracy trong IELTS.
 
   '
 level: beginner-intermediate
@@ -133,7 +133,7 @@ Subject + verb + (object) + manner adverb
 
 ### 2. Frequency Adverbs (Trạng từ chỉ tần suất)
 
-Trả lời câu hỏi **How often?** (Bao thường xuyên?)
+Trả lời câu hỏi **How often?** (Thường xuyên đến mức nào?)
 
 **Thang tần suất:**
 
@@ -201,7 +201,7 @@ Trả lời **When?** (Khi nào?)
 | yesterday, today, tomorrow | I'll call **tomorrow**. |
 | soon, recently, lately | **Recently**, I've been exercising more. |
 | already, yet, still, just | I've **already** finished. / Have you eaten **yet**? |
-| now, then, before, after | **Now** is the right time to act. |
+| now, then, before, after | I'm **now** working from home. |
 | eventually, finally | **Eventually**, she agreed. |
 
 **Vị trí:** Thường đứng cuối câu hoặc đầu câu (khi muốn nhấn mạnh).
@@ -228,7 +228,7 @@ Trả lời **Where?** (Ở đâu?)
 Sentence adverb, + subject + verb...
 ```
 
-| Loại | Adverb | Ví dụ |
+| Loại | Adverb / cụm trạng ngữ | Ví dụ |
 |------|--------|-------|
 | **Kết quả** | Therefore, Consequently, As a result, Thus | **Therefore**, stricter laws are needed. |
 | **Tương phản** | However, Nevertheless, Nonetheless, On the other hand | **However**, this approach has limitations. |
@@ -284,7 +284,7 @@ Sentence adverb, + subject + verb...
 - ❌ SAI: She is late never.
 - ✅ ĐÚNG: She is **never** late.
 - "I **often** go to the gym" là vị trí giữa câu thông dụng. "**Often** I go to the gym" và "I go to the gym **often**" cũng có thể dùng theo trọng tâm.
-- **TẠI SAO:** Vị trí giữa câu là mặc định hữu ích, nhưng often/sometimes không có mọi hạn chế giống always/never. Không đặt always giữa động từ và tân ngữ trong mẫu trung tính "I drink always coffee".
+- **TẠI SAO:** Vị trí giữa câu (trước động từ thường, sau be/trợ động từ) là lựa chọn an toàn. Often/sometimes còn có thể đứng đầu hoặc cuối câu; always/never thì không. Không đặt trạng từ tần suất giữa động từ và tân ngữ.
 
 ### Lỗi 2: Dùng "good" thay vì "well"
 
@@ -310,13 +310,13 @@ Sentence adverb, + subject + verb...
 - ✅ ĐÚNG: She runs **much faster** than him.
 - **TẠI SAO:** "very" không đi với comparative forms (-er). Dùng "much, far, considerably, significantly" thay thế.
 
-### Lỗi 5: Đặt manner adverb GIỮA động từ và tân ngữ
+### Lỗi 5: Đặt trạng từ GIỮA động từ và tân ngữ
 
 - ❌ SAI: She speaks **fluently** English.
 - ✅ ĐÚNG: She speaks English **fluently**.
 - ❌ SAI: I like **very much** this book.
 - ✅ ĐÚNG: I like this book **very much**.
-- **TẠI SAO:** Manner adverb đứng sau tân ngữ, không đứng giữa động từ và tân ngữ.
+- **TẠI SAO:** Trạng từ cách thức và cụm *very much* đứng sau tân ngữ, không chen giữa động từ và tân ngữ.
 
 ### Lỗi 6: Dùng linking adverb với chỉ dấu phẩy (comma splice)
 
@@ -364,7 +364,7 @@ Trong tiếng Anh, cần phân biệt rõ:
 - "**Furthermore**, evidence **consistently** shows that..."
 - "**Consequently**, the government **urgently** needs to act."
 
-**Boosting + Hedging (degree adverbs):**
+**Boosting + Hedging (stance adverbs — trạng từ thể hiện mức chắc chắn):**
 - "This is **arguably** one of the most important issues of our time."
 - "The data **strongly** suggests a correlation between the two factors."
 - "While **generally** effective, this policy has **occasionally** produced unintended consequences."
@@ -383,10 +383,10 @@ Trong tiếng Anh, cần phân biệt rõ:
 
 ### Đặt frequency adverb vào đúng chỗ
 
-1. I (rarely) eat breakfast before 8am.
+1. I eat breakfast before 8am. (rarely)
 2. She (always) is on time for meetings.
 3. They (often) have discussed this topic.
-4. He (never) arrives late.
+4. He arrives late. (never)
 
 ### Sửa lỗi
 
