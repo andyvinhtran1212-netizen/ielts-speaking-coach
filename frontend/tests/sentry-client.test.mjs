@@ -230,7 +230,7 @@ test('instrumentation-client loads the SDK lazily from the built-in DSN, after t
   assert.ok(source.indexOf("import './lib/polyfills/legacy-safari.js'") < source.indexOf('initSentryClient'));
   // Named re-exports only, so the lazy chunk carries no replay/feedback code.
   const sdk = readFileSync(path.join(ROOT, 'lib/sentry-sdk.mjs'), 'utf8');
-  assert.match(sdk, /^export \{ browserTracingIntegration, init \} from '@sentry\/browser';$/m);
+  assert.match(sdk, /^export \{ browserTracingIntegration, captureException, init \} from '@sentry\/browser';$/m);
   const code = sdk.split('\n').filter((line) => !line.startsWith('//')).join('\n');
   assert.doesNotMatch(code, /export \*|import\(|^import /m);
   // No build plugin: withSentryConfig would add source map upload and tunnel routes.
