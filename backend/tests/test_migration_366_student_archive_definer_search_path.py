@@ -231,7 +231,10 @@ def test_release_metadata_holds_366_behind_the_admin_aal2_group_with_365():
             if line and not line.startswith("#")}
     assert len(rows[NAME]) == 4 and rows[NAME][1:3] == ["pending_feature", "admin_aal2"]
     assert rows[NAME_365][1:3] == ["pending_feature", "admin_aal2"]
-    assert not any(name.startswith("364_") for name in rows)
+    assert [row[:3] for name, row in rows.items() if name.startswith("364_")] == [[
+        "364_service_role_table_maintenance_revoke.sql", "pending_feature",
+        "service_role_table_maintenance_revoke",
+    ]]
     readme = (MIGRATIONS / "README.md").read_text(encoding="utf-8")
     paragraph = readme[readme.index("Migration `366`"):readme.index("Migration `365`")]
     for needle in ("SA-2209", "MIGRATION_FEATURES=admin_aal2", "after SA review", "363 → 365 → 366",
