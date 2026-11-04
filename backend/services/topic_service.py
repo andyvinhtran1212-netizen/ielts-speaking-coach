@@ -23,6 +23,7 @@ from fastapi import HTTPException
 
 from database import supabase_admin
 from services.content_import_service import slugify
+from services.errors import clip_user_value
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +103,7 @@ def create_topic(
     if not title:
         raise HTTPException(422, "Thiếu tiêu đề topic")
     if skill_area not in VALID_SKILL_AREAS:
-        raise HTTPException(422, f"skill_area không hợp lệ: {skill_area!r}")
+        raise HTTPException(422, f"skill_area không hợp lệ: {clip_user_value(skill_area)!r}")
 
     slug = (slug or "").strip() or slugify(title)
     if not slug:
@@ -122,7 +123,7 @@ def create_topic(
     except Exception as exc:  # noqa: BLE001
         msg = str(exc).lower()
         if "duplicate" in msg or "unique" in msg or "23505" in msg:
-            raise HTTPException(409, f"Topic đã tồn tại: {skill_area}/{slug}")
+            raise HTTPException(409, f"Topic đã tồn tại: {skill_area}/{clip_user_value(slug)}")
         logger.error("[topics] insert failed: %s", exc)
         raise HTTPException(500, "Không tạo được topic. Vui lòng thử lại.") from None
     if not res.data:

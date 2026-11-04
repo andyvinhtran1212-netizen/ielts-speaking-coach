@@ -12,6 +12,14 @@
   no anon/authenticated table or column privileges, RLS enabled. Stop the
   deployment if that state is not established; the pre-344 fixture is only
   an isolated compatibility control.
+- **RLSCLEANUP-0039 T003 PASS** (the Leader has applied 344 on staging and
+  diffed the `service_role` ACL against the T001 baseline) before 356 is
+  applied on staging; in production, 0039 T005 is done before 0041 T003.
+- Migration 356 also checks this itself before changing anything (FR-003):
+  if the ledger `public._schema_migrations` has no `344_*` row, or
+  `cal_admin_append` / `cal_admin_read` still exists, it raises an exception
+  and changes nothing (fail closed). Staging and production always have the
+  ledger table; only the isolated legacy test fixture runs without it.
 
 ## Staging
 
@@ -19,8 +27,11 @@
    `ielts-coach-staging`.
 2. Read-only postcheck:
    - `pg_trigger` has `trg_class_action_log_no_truncate` on
-     `public.class_action_log`, `tgenabled = 'O'`, BEFORE TRUNCATE, FOR EACH
-     STATEMENT; `trg_class_action_log_append_only` is unchanged.
+     `public.class_action_log`, `tgenabled IN ('O','A')`, BEFORE TRUNCATE, FOR
+     EACH STATEMENT; `trg_class_action_log_append_only` retains its 198
+     UPDATE/DELETE events, FOR EACH ROW level and function, and also has
+     `tgenabled IN ('O','A')`. This accepts future ALWAYS hardening without
+     enabling it in this amendment (deferred SA F3).
    - `has_table_privilege('service_role','public.class_action_log', p)` is
      false for UPDATE, DELETE, TRIGGER, REFERENCES, TRUNCATE, MAINTAIN (PG 17+)
      and true for SELECT, INSERT: service_role has only those two privileges.
@@ -32,8 +43,11 @@
      enabled. The 356 fixture/postcheck must cover this already-applied-344
      state rather than assume the policies exist.
 3. No write probes on staging: TRUNCATE/UPDATE/DELETE behaviour is covered by
-   the PostgreSQL tests in T001. A teacher due-date change on QA data and the
-   admin log view may be checked as a smoke test.
+   the PostgreSQL tests in T001. Scenario 6's owner-disabled-row-trigger
+   control takes a SHARE ROW EXCLUSIVE lock, which conflicts with INSERT's
+   ROW EXCLUSIVE, and runs only in an isolated test database, never on staging
+   or production (spec Scenario 6). A teacher due-date change on QA data and
+   the admin log view may be checked as a smoke test.
 
 ## Production
 
@@ -43,25 +57,33 @@ lock and run the same read-only postcheck. No production write probes.
 
 ## Rollback and repair
 
-- The 356 down script is owned by spec 0042 T001 (#2060,
-  FR-008/Scenario 10). It must not grant UPDATE/DELETE or `GRANT ALL`, and must
-  not re-grant TRIGGER, REFERENCES or MAINTAIN (SA F5).
+- The 356 down script is owned by this spec's T001 (SA F5, PC-J499); spec
+  0042 T001 only scans it and runs its post-NNN regression (0042
+  FR-008/Scenario 10). It must not grant UPDATE/DELETE or `GRANT ALL`, and
+  must not re-grant TRIGGER, REFERENCES, TRUNCATE or MAINTAIN (SA F5).
 - It must not recreate or comment on either policy, or restore any
   anon/authenticated privilege removed by 344. A 356 rollback leaves 344's
   policy removal and client lockdown intact; verify the same read-only
   policy/ACL/RLS postcheck after down. T001 also tests that down preserves the
   separate pre-344 fixture's policy/client-ACL state.
-- No data to repair: 356 changes no rows. If a legitimate operation is refused
-  after apply (none is known: the backend only INSERTs and SELECTs), roll back
-  356 first, then fix in a spec revision.
+- If both must be rolled back, run **down 356 first, then down 344**.
+  Running down 344 while 356 is still applied is outside this spec and must
+  follow 0039's rollout.
+- No row data to repair: 356 changes no rows. If a legitimate operation is
+  refused after apply (none is known: the backend only INSERTs and SELECTs),
+  stop and identify the failing privilege before choosing a repair.
+  Down 356 deliberately retains FR-004's UPDATE/DELETE revokes, so it cannot
+  repair a legitimate UPDATE/DELETE consumer receiving `42501`. That case
+  requires a spec revision and a newly approved forward migration; do not
+  use down or an ad hoc grant to restore those privileges.
 
 ## Observability
 
 - A refused service_role TRUNCATE/UPDATE/DELETE surfaces as ACL `42501` in the
   caller's logs; a caller with the privilege (such as the owner) instead gets
   trigger `P0001`. There is no product path that issues them, so any occurrence
-  is investigated. ACCESS EXCLUSIVE LOCK and SELECT FOR UPDATE denial for
-  service_role must be covered by T001, without write probes on staging.
+  is investigated. T001 covers the denied and allowed lock modes listed in
+  spec Scenario 3, without write probes or trigger-disable controls on staging.
 - Watch after apply: `class_action_log` row inserts from due-date changes and
   returns keep arriving; an INSERT failure would show as an error in
   `class_assignment_service` logs and means roll back.

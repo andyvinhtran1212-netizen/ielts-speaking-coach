@@ -23,6 +23,7 @@ import logging
 import os
 import time
 import uuid
+import weakref
 from functools import lru_cache
 from datetime import datetime, timezone
 
@@ -552,11 +553,15 @@ async def grade_response_endpoint(
 
         if file_size == 0:
             raise HTTPException(422, "File âm thanh trống")
+        from services.storage_limits import (
+            check_upload, normalise_audio_content_type, raise_storage_error, upload_error,
+        )
         if file_size > _MAX_BYTES:
-            raise HTTPException(
-                413,
-                f"File quá lớn ({file_size / (1024*1024):.1f} MB). Giới hạn là 50 MB."
-            )
+            raise upload_error(_AUDIO_BUCKET, 413, size=file_size, max_bytes=_MAX_BYTES)
+        storage_content_type = normalise_audio_content_type(
+            audio_file.content_type, _guess_ext(audio_file.filename, audio_file.content_type),
+        )
+        check_upload(_AUDIO_BUCKET, file_size, storage_content_type)
 
         # A stable recording UUID + audio hash makes lost acknowledgements replayable.
         # The read revision prevents a late, older take from replacing a newer one.
@@ -611,45 +616,8 @@ async def grade_response_endpoint(
             # user — the full error is already logged + recorded above.
             raise HTTPException(502, "Lỗi nhận dạng giọng nói. Vui lòng thử lại.")
 
-        # ── STEP 4: Upload to Supabase Storage (archival — non-blocking) ─────
-        step = "storage_upload"
-        audio_uploaded = False
-
-        try:
-            # BE-1: the synchronous Storage upload (HTTP PUT of up to ~50MB of
-            # audio) was the single largest event-loop blocker left on this hot
-            # grading route. Offload it to a worker thread so concurrent grading
-            # requests aren't serialized behind it. Object storage is its own
-            # httpx client per .from_() call — NOT the shared PostgREST singleton
-            # — so to_thread here carries no thread-safety risk (unlike the
-            # PostgREST .execute() sites, which stay on the parked async facade).
-            # Same call, same kwargs, same (ignored) return value.
-            await asyncio.to_thread(
-                supabase_admin.storage.from_(_AUDIO_BUCKET).upload,
-                path=storage_path,
-                file=audio_bytes,
-                file_options={
-                    "content-type": audio_file.content_type or "audio/webm",
-                    "upsert": "true",
-                },
-            )
-            audio_uploaded = True
-            logger.info("[grading] storage upload OK → %s", storage_path)
-        except Exception as e:
-            err_str = str(e)
-            logger.warning("[grading] storage upload FAILED (non-fatal — transcript already done): %s", e)
-            if "Bucket not found" in err_str:
-                logger.error(
-                    "[grading] Supabase Storage bucket '%s' not found. "
-                    "Create it in the Supabase dashboard (Storage → New bucket) as a private bucket.",
-                    _AUDIO_BUCKET,
-                )
-
-        if retry_safe and not audio_uploaded:
-            # Never advertise replay safety without a durable recording identity.
-            # The browser retains the audio and can retry when Storage recovers.
-            raise HTTPException(503, {"code": "recording_storage_unavailable"})
-
+        # Whisper is paid once it returns: record usage before the Storage step,
+        # whose 413/415 refusal (FR-005) or 503 would otherwise skip it.
         transcript: str       = stt.get("transcript", "").strip()
         duration_sec: float   = stt.get("duration_seconds", 0.0)
         confidence: float     = stt.get("confidence", 0.0)
@@ -679,6 +647,46 @@ async def grade_response_endpoint(
             resource_type="question",
             resource_id=question_id,
         ))
+
+        # ── STEP 4: Upload to Supabase Storage (archival — non-blocking) ─────
+        step = "storage_upload"
+        audio_uploaded = False
+
+        try:
+            # BE-1: the synchronous Storage upload (HTTP PUT of up to ~50MB of
+            # audio) was the single largest event-loop blocker left on this hot
+            # grading route. Offload it to a worker thread so concurrent grading
+            # requests aren't serialized behind it. Object storage is its own
+            # httpx client per .from_() call — NOT the shared PostgREST singleton
+            # — so to_thread here carries no thread-safety risk (unlike the
+            # PostgREST .execute() sites, which stay on the parked async facade).
+            # Same call, same kwargs, same (ignored) return value.
+            await asyncio.to_thread(
+                supabase_admin.storage.from_(_AUDIO_BUCKET).upload,
+                path=storage_path,
+                file=audio_bytes,
+                file_options={
+                    "content-type": storage_content_type,
+                    "upsert": "true",
+                },
+            )
+            audio_uploaded = True
+            logger.info("[grading] storage upload OK → %s", storage_path)
+        except Exception as e:
+            raise_storage_error(_AUDIO_BUCKET, e)
+            err_str = str(e)
+            logger.warning("[grading] storage upload FAILED (non-fatal — transcript already done): %s", e)
+            if "Bucket not found" in err_str:
+                logger.error(
+                    "[grading] Supabase Storage bucket '%s' not found. "
+                    "Create it in the Supabase dashboard (Storage → New bucket) as a private bucket.",
+                    _AUDIO_BUCKET,
+                )
+
+        if retry_safe and not audio_uploaded:
+            # Never advertise replay safety without a durable recording identity.
+            # The browser retains the audio and can retry when Storage recovers.
+            raise HTTPException(503, {"code": "recording_storage_unavailable"})
 
         # ── Reliability classification ─────────────────────────────────────────
         reliability = classify_reliability(transcript, stt_segments, duration_sec)
@@ -1670,6 +1678,22 @@ def _increment_tokens(
             logger.warning("[grading] tokens_used update FAILED session=%s (non-fatal): %s", session_id, e)
 
 
+# ASYNCAUTH-0036 Revision 3 G4: with USE_ASYNC_DB off, aexecute now runs in a
+# worker thread, so two of one user's extractions could both read the existing
+# lemmas before either inserts. idx_user_vocab_unique only covers the headword,
+# so ran/running would both land as lemma "run". One user's read → guard →
+# insert stays serialized in this process, as it was on the event loop.
+_vocab_write_locks: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
+
+
+def _vocab_write_lock(user_id) -> asyncio.Lock:
+    key = str(user_id)
+    lock = _vocab_write_locks.get(key)
+    if lock is None:
+        lock = _vocab_write_locks[key] = asyncio.Lock()
+    return lock
+
+
 async def _run_vocab_extraction(
     transcript: str,
     response_id: str,
@@ -1680,6 +1704,7 @@ async def _run_vocab_extraction(
     Background task: extract vocab from transcript and persist to user_vocabulary.
     Entirely failure-isolated — any exception is logged and swallowed.
     """
+    held_lock = None
     try:
         from services.vocab_extractor import extract_vocab
         from services.vocab_guards import run_all_guards
@@ -1723,7 +1748,11 @@ async def _run_vocab_extraction(
         # runs, but pre-backfill rows still have lemma IS NULL so we
         # tolerate that gracefully — Guard 6 falls back to the legacy
         # heuristic checks when `existing_lemmas` doesn't contain a
-        # matching entry.
+        # matching entry. Held until the inserts end (G4, see _vocab_write_lock);
+        # flag-off aexecute only returns after its thread ended, even on cancel.
+        vocab_lock = _vocab_write_lock(user_id)
+        await vocab_lock.acquire()
+        held_lock = vocab_lock
         existing_rows = await aexecute(
             lambda db: db.table("user_vocabulary")
             .select("headword, lemma")
@@ -1897,3 +1926,6 @@ async def _run_vocab_extraction(
 
     except Exception as e:
         logger.error("[vocab_bg] extraction failed (non-fatal): %s", e)
+    finally:
+        if held_lock is not None:
+            held_lock.release()

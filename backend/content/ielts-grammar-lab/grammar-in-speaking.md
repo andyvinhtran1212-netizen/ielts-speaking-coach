@@ -121,7 +121,7 @@ Part 2 yêu cầu nói về một chủ đề trong 1-2 phút, dùng thẻ gợi
 
 *"I'd like to talk about a trip I took to Hội An about two years ago. **To begin with**, I **had never visited** Central Vietnam before, so I **was really looking forward to** it. When we **arrived**, the old town **was lit up** with lanterns, **which was absolutely breathtaking**. **What struck me most** was how well the historic architecture **had been preserved**. **By the time** we left, I **had completely fallen** in love with the place. **If I could**, I **would go back** there every year."*
 
-Cấu trúc được dùng: Past Perfect (had never visited), Past Continuous (was really looking forward); was lit up là bị động/trạng thái kết quả, relative clause (which was), mệnh đề what làm chủ ngữ (What struck me most), conditional Type 2 (if I could, would go).
+Cấu trúc được dùng: Past Perfect (had never visited), Past Continuous (was really looking forward), bị động chỉ trạng thái (was lit up), relative clause (which was…), mệnh đề what làm chủ ngữ (What struck me most), câu điều kiện loại 2 (If I could…, I would go back).
 
 <!-- anchor: grammar-in-speaking.part3.complex-structures-and-hedging -->
 ### Speaking Part 3 — Thảo luận trừu tượng
@@ -217,7 +217,7 @@ Không nên im lặng dài. Dùng fillers để mua thời gian:
 
 ## Phần 4: Sửa lỗi trong khi nói
 
-Trong Speaking, tự sửa lỗi là hoàn toàn bình thường và thậm chí được đánh giá tích cực nếu làm tự nhiên.
+Trong Speaking, tự sửa ngắn gọn là bình thường và giúp câu rõ nghĩa; không nên sửa quá nhiều lần.
 
 ### Cách sửa tự nhiên
 
@@ -249,7 +249,7 @@ Nhiều thí sinh trả lời mọi câu hỏi bằng Present Simple dù tình h
 - ❌ "Yes I like music. I listen to music every day. It is relaxing."
 - ✅ "Yes, I'm really into music — **I find it incredibly relaxing**, especially after a long day. I **tend to** listen to jazz **when I'm working**, **which** helps me concentrate."
 
-### Lỗi 3: Dùng "because" kép
+### Lỗi 3: Dùng cả *although* và *but* trong một câu
 
 - ❌ Although it is expensive, but people still buy it. (although + but = sai)
 - ✅ **Although** it is expensive, people still buy it. (bỏ "but")
@@ -291,7 +291,7 @@ Nhiều thí sinh trả lời mọi câu hỏi bằng Present Simple dù tình h
 <!-- anchor: grammar-in-speaking.gra.band-7-criteria -->
 ## Luyện phát triển câu trả lời
 
-Câu trả lời có thể được phát triển bằng thông tin và cấu trúc phù hợp.  Các thao tác sau giúp phát triển câu khi phù hợp ý; không bảo đảm band từ một câu hay bốn đặc điểm:
+Câu trả lời có thể được phát triển bằng thông tin và cấu trúc phù hợp. Các thao tác sau giúp phát triển câu khi phù hợp ý; không bảo đảm band từ một câu hay bốn đặc điểm:
 
 1. **Thêm relative clause** — bổ sung thông tin sau noun
 2. **Thêm modal hoặc hedging** — tránh tuyệt đối hóa
@@ -312,7 +312,7 @@ Câu trả lời có thể được phát triển bằng thông tin và cấu tr
 2. "Education is important for everyone."
 3. "Cities are becoming more crowded."
 
-*(Gợi ý: thêm ít nhất 1 relative clause, 1 modal/hedge, 1 discourse marker)*
+*(Gợi ý: chọn 1–2 cách phù hợp: relative clause, modal/hedge hoặc discourse marker)*
 
 ---
 
@@ -347,7 +347,7 @@ Mở rộng câu trả lời bằng cấu trúc phù hợp mục đích (relativ
 | Part 3 | Mixed — Past + Present + Future + Conditional | Conditionals, hedging, complex sentences |
 
 **Công thức tăng điểm GRA trong Speaking:**
-- Sau mỗi câu ngắn → **mở rộng** bằng relative clause, reason, or example
+- Sau mỗi câu ngắn → **mở rộng** bằng relative clause, lý do hoặc ví dụ
 - Dùng **ít nhất 1 conditional** trong Part 3
 - Thay "very" bằng adverbs mạnh hơn: **remarkably, incredibly, considerably**
 - Xen kẽ **active và passive** để tạo tông giọng đa dạng

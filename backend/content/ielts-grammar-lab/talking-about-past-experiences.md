@@ -137,13 +137,13 @@ Subject + was/were + V-ing
 was/were + V-ing + when + Past Simple
 ```
 
-- "I **was walking** home **when** I suddenly **met** an old friend."
+- "I **was walking** home **when** I **ran into** an old friend."
 - “We **were leaving** when the guide **called** us back.” *(Past Continuous)*
 - “We **were just about to leave**...” chỉ hành động sắp bắt đầu; không phải was/were + V-ing.
 - "She **was explaining** the project **when** the power **went** out."
 
 **Mẫu câu tả bối cảnh opening:**
-- "It was a warm evening in July. The streets **were filled** with people, music **was playing** in the background, and I **was standing** there wondering what to expect..."
+- "It was a warm evening in July. The streets **were buzzing** with people, music **was playing** in the background, and I **was standing** there wondering what to expect..."
 
 ---
 
@@ -164,7 +164,7 @@ Subject + had + past participle
 **Ví dụ:**
 - "I **had never** visited a foreign country before that trip, so everything felt incredibly new and exciting."
 - "By the time I graduated, I **had spent** four years studying something I truly loved."
-- “I **had been thinking** about changing careers...” là Past Perfect Continuous (had been + V-ing); “had spent” là Past Perfect.
+- "I **had been thinking** about changing careers for months before I finally quit." *(Past Perfect Continuous)*
 - "When I walked into the room, I realised I **had met** her somewhere before."
 
 ---
@@ -236,7 +236,7 @@ Subject + has/have + past participle
 
 ## Lỗi thường gặp
 
-### Lỗi 1: Kể chuyện chỉ dùng Present tense
+### Lưu ý 1: Giữ thì quá khứ nhất quán khi kể chuyện
 
 - “I go to the beach and I see many fish” có thể là hiện tại kể chuyện. Nếu đang luyện mạch quá khứ nhất quán thì dùng went/saw.
 - ✅ "I **went** to the beach and **saw** many fascinating fish."

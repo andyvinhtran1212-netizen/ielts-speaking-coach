@@ -67,8 +67,10 @@ test('root not-found loads the design tokens its module CSS reads', () => {
   // The premise: the root layout does not provide tokens, the module needs them.
   assert.doesNotMatch(layout, /aver-design\/tokens\.css/);
   assert.match(css, /var\(--av-surface-page\)/);
-  assert.match(notFound, /<link rel="stylesheet" href="\/css\/aver-design\/tokens\.css" \/>/);
-  assert.match(notFound, /className=\{styles\.page\}/);
+  assert.match(notFound, /<link rel="stylesheet" href="\/css\/aver-design\/tokens\.css" \/><NotFoundCard \/>/);
+  // PC-J239: the card markup lives in a shared component the Grammar 404 reuses.
+  assert.match(notFound, /import NotFoundCard from '\.\/not-found-card';/);
+  assert.match(read('app', 'not-found-card.tsx'), /className=\{styles\.page\}/);
   // No reset in the root layout: the UA body margin is dropped, scoped to error screens.
   assert.match(css, /:global\(body\):has\(\.page\) \{\n  margin: 0;/);
   // Nor a box-sizing reset: the padded/bordered card and the padded 100vh page

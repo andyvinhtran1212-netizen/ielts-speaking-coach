@@ -87,7 +87,8 @@ anchors:
 
 ## Tại sao quan trọng
 
-Người học ở Band 5-6 thường chỉ dùng zero hoặc first conditional. Band 7+ đặc trưng bởi:
+Nhiều người học chỉ dùng zero hoặc first conditional. Dùng linh hoạt thêm các loại sau giúp mở rộng phạm vi ngữ pháp:
+
 - Second conditional để **speculate** (suy đoán giả định)
 - Third conditional để **reflect on past situations** (nhìn lại điều đã không xảy ra)
 - Mixed conditionals để **link past and present**
@@ -215,7 +216,7 @@ Ngoài câu điều kiện truyền thống, "if" còn dùng để hedge và ph�
 ### If anything — để điều chỉnh ý kiến:
 
 - The situation has, **if anything**, become worse over the past decade.
-- This policy **if anything** highlights the need for more comprehensive reform.
+- This policy, **if anything**, highlights the need for more comprehensive reform.
 
 ### If you ask me — ý kiến cá nhân:
 
@@ -227,7 +228,7 @@ Ngoài câu điều kiện truyền thống, "if" còn dùng để hedge và ph�
 - **Even if** this policy were implemented, I'm not sure it would be effective without public support.
 - I'd still support renewable energy **even if** it were slightly more expensive.
 
-### As long as / Provided that — điều kiện có điều kiện:
+### As long as / Provided that — chỉ khi (điều kiện bắt buộc)
 
 - This approach **could work**, **provided that** sufficient funding is available.
 - Remote learning **can be effective**, **as long as** students have reliable internet access.
@@ -271,7 +272,7 @@ Ngoài câu điều kiện truyền thống, "if" còn dùng để hedge và ph�
 ### Lỗi 4: Không hoàn thành câu conditional sau khi bắt đầu
 
 - ❌ "If the government invested more in education... it's very important."
-- ✅ "If the government invested more in education, young people **would have** better opportunities."
+- ✅ "If the government invested more in education, young people **would get** better opportunities."
 
 ### Lỗi 5: "Could of / Would of" — lỗi viết sai khi phát âm
 
@@ -294,7 +295,7 @@ Ngoài câu điều kiện truyền thống, "if" còn dùng để hedge và ph�
 
 1. **were / would invest** (second — giả định hiện tại)
 2. **had studied / would be** (mixed — quá khứ → trạng thái hiện tại)
-3. **recycled / would be** (second — giả định chung)
+3. **recycled / would be** (giả định) hoặc **recycle / will be** (khả năng thực tế)
 4. **would not have failed / had made** (third — giả định quá khứ)
 5. **had known / would have come** (third — quá khứ)
 

@@ -9,6 +9,7 @@ from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
 
 from routers.auth import get_supabase_user
 from services import course_pronunciation
+from services.errors import clip_user_value
 
 router = APIRouter(prefix="/api/quiz/course/pronunciation", tags=["course-pronunciation"])
 
@@ -58,9 +59,9 @@ async def submit_pronunciation(
     for sentence_id, upload in zip(parsed, recordings):
         data = await upload.read(course_pronunciation.MAX_FILE_BYTES + 1)
         if len(data) > course_pronunciation.MAX_FILE_BYTES:
-            raise HTTPException(413, f"Bản ghi {sentence_id} vượt quá 4 MB")
+            raise HTTPException(413, f"Bản ghi {clip_user_value(sentence_id)} vượt quá 4 MB")
         if not data:
-            raise HTTPException(422, f"Bản ghi {sentence_id} đang trống")
+            raise HTTPException(422, f"Bản ghi {clip_user_value(sentence_id)} đang trống")
         total += len(data)
         if total > course_pronunciation.MAX_TOTAL_BYTES:
             raise HTTPException(413, "Tổng dung lượng ghi âm vượt quá 32 MB")

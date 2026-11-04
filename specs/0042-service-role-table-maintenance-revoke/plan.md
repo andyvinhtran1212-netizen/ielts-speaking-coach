@@ -22,8 +22,6 @@ is approved.
      - A `pg_class` loop for any relkind that `ALL TABLES` does not cover.
      - `REVOKE MAINTAIN …` through dynamic `EXECUTE` only when
        `server_version_num >= 170000` (320:238 pattern).
-     - `REVOKE CREATE ON SCHEMA public FROM service_role, anon,
-       authenticated, PUBLIC` (FR-009).
   5. Default ACLs (FR-003): the 320:236-266 owner loop, extended to
      - grantee `service_role`;
      - both scopes: `IN SCHEMA public` for `defaclnamespace = public` and the
@@ -32,7 +30,7 @@ is approved.
 
      Then create `public._svcpriv_default_probe(id int)`, assert FR-001 on
      it, and drop it.
-  6. Postcondition `DO` block (FR-001–FR-004, FR-009):
+  6. Postcondition `DO` block (FR-001–FR-004; re-check FR-009, set by 357):
      - `has_table_privilege` for `service_role`, anon and authenticated
        over all relations, plus the priority-1 names from
        `research.md` §2;
@@ -41,6 +39,7 @@ is approved.
      - the normalized CRUD snapshot diff and unchanged schema USAGE;
      - `has_schema_privilege` for all three roles and public schema CREATE
        entries for PUBLIC via `aclexplode`, failing also on inherited CREATE.
+       This is a re-check only: NNN does not revoke schema CREATE.
 
      It raises on any failure. It emits `RAISE WARNING` for default ACLs
      the runner cannot change, and `RAISE NOTICE` for other non-owner
@@ -49,9 +48,11 @@ is approved.
 - Every public relation is covered. Priority groups only order named checks
   and fixtures, including access_codes and user_code_assignments. They are
   never an optional reduced apply scope.
-- FR-006 scans **all** rollback files without a numeric exemption. Correct
-  the down of 356 under F5 before release; any other violating rollback must
-  be made safe before the guard passes. Include table/default grants, role
+- FR-006 scans **all** rollback files without a numeric exemption, including
+  the down of 356. That down is owned and corrected by CALAPPEND-0041 T001
+  (F5, 0041 FR-003/FR-004: no policy DDL/comment, no restoration of 344's
+  client privileges); this spec only scans and regresses it. Any other
+  violating rollback must be made safe before the guard passes. Include table/default grants, role
   memberships, ownership changes, schema CREATE/ALL and dynamic SQL strings
   such as `EXECUTE format('GRANT …')` in the mutation fixtures.
 - The NNN `pending_feature` forward-policy entry is mandatory, not optional.
@@ -61,13 +62,23 @@ is approved.
 - NNN does not touch functions, triggers, policies, RLS flags, ownership, data,
   sequences, function EXECUTE or other schemas. No GRANT statement in NNN
   (FR-002, FR-008).
-- Migration 358 (FR-010, T004, PC-J406) is separate from NNN and applied
-  after 357. It sets `search_path = public, pg_temp` on every `public`
-  function whose `proconfig` has no `search_path`, with a fail-closed
-  zero-unpinned postcondition and a `pending_feature` entry. It changes only
-  `proconfig`: no body, owner, ACL or trigger (FR-008). Its static guard
-  rejects new unpinned `CREATE [OR REPLACE] FUNCTION` in
-  `backend/migrations/**`.
+- Migration 357 (FR-009, T005, PC-J365) is separate from NNN: it revokes
+  CREATE on schema `public` from `service_role`, anon, authenticated and
+  PUBLIC, keeps USAGE, and is applied before NNN and before 358.
+- Migration 358 (FR-010, T004, PC-J406, PGTEMP option a) is separate from
+  NNN and applied after 357. It runs `ALTER ROUTINE … SET search_path = …`
+  on every function/procedure defined by project migrations in `public` and
+  `app_private` so that `pg_temp` is always present and last (none →
+  `public, pg_temp`; `pg_catalog, public` → `pg_catalog, public, pg_temp`;
+  `public` → `public, pg_temp`; `''` → `pg_catalog, pg_temp`). It raises
+  `unpinned_function_not_owned_by_runner` if a target routine is not owned
+  by the runner, has a fail-closed postcondition (no routine in those
+  schemas whose `search_path` is missing, `''` or not ending with
+  `pg_temp`) and a `pending_feature` entry. It changes only `proconfig`: no
+  body, owner, ACL, volatility or trigger (FR-008). Its static guard
+  rejects any new `CREATE [OR REPLACE] FUNCTION|PROCEDURE` in
+  `backend/migrations/**` without `SET search_path`, with
+  `search_path = ''`, or with `pg_temp` not last.
 - FastAPI, frontend, OpenAPI: unchanged.
 - Tests (T001):
   - `backend/tests/test_migration_NNN_service_role_table_maintenance_revoke.py`:
@@ -75,6 +86,10 @@ is approved.
     ACL, built like the 326/332 harnesses with the P3-SA-8 assertions;
   - a static guard test, `backend/tests/test_service_role_table_privilege_guard.py`
     (FR-006).
+  - FR-009 re-check only: NNN aborts if 357 is missing or schema CREATE is
+    re-granted, including through inheritance. Primary FR-009 overload,
+    revoke and USAGE tests belong to `backend/tests/test_migration_357_*.py`
+    (T005).
 
 ## Data and contracts
 
@@ -89,8 +104,9 @@ Privilege target for every `public` relation not owned by `service_role`:
 
 - Default ACLs (actable owners, `public` + global, objtype `r`): the same
   four privileges are absent for the same grantees.
-- Schema `public`: CREATE absent for all API roles and PUBLIC; USAGE
-  unchanged. Revoking CREATE also blocks public overload planting.
+- Schema `public`: 357 makes CREATE absent for all API roles and PUBLIC,
+  keeping USAGE unchanged, and blocks public overload planting. NNN only
+  re-checks this state.
 - Errors: a refused statement raises `42501` (insufficient privilege). No
   backend path issues one; API shapes are unchanged.
 - Interaction:
@@ -102,7 +118,8 @@ Privilege target for every `public` relation not owned by `service_role`:
 
 ## Rollout and rollback
 
-- Staging first: the Leader applies `NNN` on `ielts-coach-staging` and runs
+- Staging first: after 357 is applied and FR-009 passes on the target,
+  the Leader applies `NNN` on `ielts-coach-staging` and runs
   the read-only postcheck in `rollout.md`; SA retests. Production only at a
   `staging` → `main` promotion with Vinh's authorization.
 - Rollback is targeted, not blanket. No backend path needs these privileges,
@@ -111,10 +128,15 @@ Privilege target for every `public` relation not owned by `service_role`:
   migration under a spec revision. A full re-grant would reopen P2-SA-1 on
   every table, and the header says so. Code rollback: none (database only).
 - Ordering:
+  - **357 is applied before NNN; NNN's FR-004 postcondition re-checks
+    FR-009 and aborts if 357 is missing.** T005 owns 357; T001 does not
+    repeat its REVOKE CREATE. Verify 357 on each target before NNN,
+    including after a synthetic clone whose source lacks 357.
   - After #2055 and the J350 follow-up removing the API-role schema CREATE
     grant; #2055 alone does not satisfy FR-007/FR-009.
-  - Independent of 341/356 forward applies; the unsafe down of 356 must
-    nevertheless be corrected before release (FR-008).
+  - Independent of 341/356 forward applies; the down of 356 must
+    nevertheless be corrected under CALAPPEND-0041 T001 before release
+    (FR-008); this spec only scans and regresses it.
   - Q-J357-3 blocks production promotion and closure of P2-SA-1 until SA's
     environment-specific decision is recorded. Staging ACLs do not prove
     production ACLs.
@@ -129,13 +151,22 @@ Privilege target for every `public` relation not owned by `service_role`:
   - the P2-SA-1 repro;
   - direct service_role DELETE/UPDATE → FK CASCADE/SET NULL → child-trigger
     probes, with both negative controls and refused planting after NNN;
-  - overload-shadow probes with only table rights revoked as the negative
-    control, then schema CREATE revoked, plus an inherited-CREATE abort;
-  - corrected down-356 regression (genuine service_role UPDATE/DELETE on
-    `class_action_log` → 42501 after the down) and synthetic pre-NNN
-    clone/baseline/apply;
+  - T005/357 overload-shadow probes with only table rights revoked as the
+    negative control, then schema CREATE revoked, plus an inherited-CREATE
+    abort; T001/NNN only re-checks FR-009, including missing 357 and
+    re-grant/inherited-CREATE aborts;
+  - down-356 regression with 344, 356, 357 and NNN applied (genuine
+    service_role UPDATE/DELETE on `class_action_log` → 42501 after the
+    down; both policies absent, no anon/authenticated table or column
+    privileges) and synthetic pre-NNN clone/baseline/apply, applying 357
+    first when missing;
   - Scenario 12 for 358: temp-view shadow through an FK cascade, red before
-    and green after 358, with an owner-path negative control.
+    and green after 358, with an owner-path negative control;
+  - FR-010 (b) for 358: temp-view/temp-domain shadow against one
+    `fn_admin_*` definer and one former `''` routine, red before and green
+    after 358;
+  - search_path guard fixtures: missing `SET search_path`, `''`, and
+    `pg_temp` not last each fail; `…, pg_temp` passes.
 - Static guard plus `.sql`, `.sh`, `.py` mutation fixtures for scenario 6,
   including rollback files below NNN and every forbidden grant family.
 - Full backend suite on the worktree; `bash -n` not needed (no shell change).

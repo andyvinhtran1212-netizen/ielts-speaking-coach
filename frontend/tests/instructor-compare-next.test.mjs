@@ -127,6 +127,7 @@ describe('/instructor/compare native route contracts', () => {
     assert.match(LAYOUT, /writing-renderers\.js/);
     assert.match(LAYOUT, /instructor-compare-next\.css/);
     assert.match(VIEW, /window\.WritingRenderers/);
+    assert.match(VIEW, /renderer\(value, \{ isStaffViewer: true \}\)/);
     assert.doesNotMatch(VIEW, /window\.location\.href\s*=\s*['"]\/pages\/instructor\/compare\.html/);
   });
 

@@ -345,7 +345,7 @@ def _validate_true_false_payload(payload: dict) -> dict:
         if ans not in _TF_VALID:
             raise HTTPException(
                 422,
-                f"Statement {i} answer must be T / F / NG (got '{raw_stmt.get('answer')}').",
+                f"Statement {i} answer must be T / F / NG (got '{clip_user_value(raw_stmt.get('answer'))}').",
             )
         out.append({"idx": idx_v, "text": text, "answer": ans})
     return {"statements": out}
@@ -2630,7 +2630,7 @@ async def admin_patch_listening_test(
                 .execute()
             )
             if dup.data:
-                raise HTTPException(422, f"Test ID '{new_id}' đã tồn tại.")
+                raise HTTPException(422, f"Test ID '{clip_user_value(new_id)}' đã tồn tại.")
         update["test_id"] = new_id
 
     if body.title is not None:
@@ -3056,10 +3056,13 @@ async def admin_import_fulltest_commit(
 
     audio_name = (audio.filename or "").lower()
     if not audio_name.endswith(".mp3"):
-        raise HTTPException(422, f"Audio phải là .mp3 (nhận: {clip_user_value(audio.filename)!r})")
+        from services.storage_limits import upload_error
+        raise upload_error("listening-audio", 415, message=f"Audio phải là .mp3 (nhận: {clip_user_value(audio.filename)!r})")
     audio_bytes = audio.file.read()
     if len(audio_bytes) > _FULLTEST_MAX_AUDIO_BYTES:
-        raise HTTPException(422, f"Audio quá lớn ({len(audio_bytes)//(1024*1024)} MB > 60 MB).")
+        from services.storage_limits import upload_error
+        raise upload_error("listening-audio", 413, max_bytes=_FULLTEST_MAX_AUDIO_BYTES,
+                           message=f"Audio quá lớn ({len(audio_bytes)//(1024*1024)} MB > 60 MB).")
 
     # Parse + FAIL-LOUD validation (the accuracy gate).
     try:
@@ -3095,7 +3098,7 @@ async def admin_import_fulltest_commit(
     )
     if dup.data:
         raise HTTPException(
-            422, f"Test ID '{test_id_external}' đang ACTIVE (status={dup.data[0].get('status')}) "
+            422, f"Test ID '{clip_user_value(test_id_external)}' đang ACTIVE (status={dup.data[0].get('status')}) "
                  f"— archive bản cũ rồi import lại, hoặc đổi test_id.")
 
     test_uuid = str(uuid.uuid4())
@@ -3270,7 +3273,7 @@ async def _publish_drill(
                 (detail.get(key) or "").strip()
                 for key in ("why_correct", "script", "translation_vi")
             ):
-                raise HTTPException(422, f"Câu {q or '?'} thiếu lời giải/script/audio window.")
+                raise HTTPException(422, f"Câu {clip_user_value(q or '?')} thiếu lời giải/script/audio window.")
             answer_count += 1
 
     # Publish descendants first. A retry converges after any interrupted write.
@@ -3348,10 +3351,13 @@ async def admin_sync_drill(
     timing_hash = hashlib.sha256(timings.file.read()).hexdigest()
     solution_bytes = _read_text_upload(solution, "Solution.md", exts=(".md", ".markdown"))
     if not (audio.filename or "").lower().endswith(".mp3"):
-        raise HTTPException(422, "Audio phải là .mp3.")
+        from services.storage_limits import upload_error
+        raise upload_error("listening-audio", 415, message="Audio phải là .mp3.")
     audio_bytes = audio.file.read()
     if len(audio_bytes) > _DRILL_MAX_AUDIO_BYTES:
-        raise HTTPException(422, "Audio vượt giới hạn 30 MB.")
+        from services.storage_limits import upload_error
+        raise upload_error("listening-audio", 413, max_bytes=_DRILL_MAX_AUDIO_BYTES,
+                               message="Audio vượt giới hạn 30 MB.")
     av = listening_audio.validate_section_audio(audio_bytes, test_type="drill")
     if av["errors"]:
         raise HTTPException(422, "; ".join(av["errors"]))
@@ -3563,7 +3569,8 @@ async def admin_import_drill_commit(
     if audio is not None:
         audio_name = (audio.filename or "").lower()
         if not audio_name.endswith(".mp3"):
-            raise HTTPException(422, f"Audio phải là .mp3 (nhận: {clip_user_value(audio.filename)!r})")
+            from services.storage_limits import upload_error
+            raise upload_error("listening-audio", 415, message=f"Audio phải là .mp3 (nhận: {clip_user_value(audio.filename)!r})")
         # Audio without timings would publish an "audio-ready" drill whose
         # exercises have NO audio_windows — the review's per-question 🔊 replay
         # (driven solely by item.audio_window) would silently vanish. Require
@@ -3576,7 +3583,9 @@ async def admin_import_drill_commit(
                      "không audio (drill sẽ ở trạng thái 'Sắp có').")
         audio_bytes = audio.file.read()
         if len(audio_bytes) > _DRILL_MAX_AUDIO_BYTES:
-            raise HTTPException(422, f"Audio quá lớn ({len(audio_bytes)//(1024*1024)} MB > 30 MB).")
+            from services.storage_limits import upload_error
+            raise upload_error("listening-audio", 413, max_bytes=_DRILL_MAX_AUDIO_BYTES,
+                               message=f"Audio quá lớn ({len(audio_bytes)//(1024*1024)} MB > 30 MB).")
         av = listening_audio.validate_section_audio(audio_bytes, test_type="drill")
         if av["errors"]:
             raise HTTPException(422, "; ".join(av["errors"]))
@@ -3601,7 +3610,7 @@ async def admin_import_drill_commit(
     )
     if dup.data:
         raise HTTPException(
-            422, f"Test ID '{test_id_external}' đang ACTIVE (status={dup.data[0].get('status')}) "
+            422, f"Test ID '{clip_user_value(test_id_external)}' đang ACTIVE (status={dup.data[0].get('status')}) "
                  f"— archive bản cũ rồi import lại.")
 
     test_uuid = str(uuid.uuid4())
@@ -4310,6 +4319,8 @@ def _upload_audio_to_bucket(storage_path: str, mp3_bytes: bytes) -> None:
     """Wrapper around the Supabase Storage upload that surfaces a clean
     503 when the bucket is missing (mirrors Sprint 13.2 + 13.3 helpers).
     """
+    from services.storage_limits import check_upload, raise_storage_error
+    check_upload("listening-audio", len(mp3_bytes), "audio/mpeg")
     try:
         supabase_admin.storage.from_(settings.LISTENING_AUDIO_BUCKET).upload(
             storage_path,
@@ -4317,6 +4328,7 @@ def _upload_audio_to_bucket(storage_path: str, mp3_bytes: bytes) -> None:
             {"content-type": "audio/mpeg", "x-upsert": "true"},
         )
     except Exception as exc:
+        raise_storage_error("listening-audio", exc)
         msg = str(exc).lower()
         if "not found" in msg or "bucket" in msg:
             logger.error(
@@ -4347,8 +4359,13 @@ async def admin_upload_test_full_audio(
 
     name = (audio.filename or "").lower()
     if not name.endswith(".mp3"):
-        raise HTTPException(422, f"Audio phải là .mp3 (nhận: {clip_user_value(audio.filename)!r})")
+        from services.storage_limits import upload_error
+        raise upload_error("listening-audio", 415, message=f"Audio phải là .mp3 (nhận: {clip_user_value(audio.filename)!r})")
     data = audio.file.read()
+
+    if len(data) > listening_audio.FULL_AUDIO_MAX_BYTES:
+        from services.storage_limits import upload_error
+        raise upload_error("listening-audio", 413, max_bytes=listening_audio.FULL_AUDIO_MAX_BYTES)
 
     result = listening_audio.validate_full_audio(data)
     if result["errors"]:
@@ -4414,8 +4431,13 @@ async def admin_upload_test_section_audio(
 
     name = (audio.filename or "").lower()
     if not name.endswith(".mp3"):
-        raise HTTPException(422, f"Audio phải là .mp3 (nhận: {clip_user_value(audio.filename)!r})")
+        from services.storage_limits import upload_error
+        raise upload_error("listening-audio", 415, message=f"Audio phải là .mp3 (nhận: {clip_user_value(audio.filename)!r})")
     data = audio.file.read()
+
+    if len(data) > listening_audio.SECTION_AUDIO_MAX_BYTES:
+        from services.storage_limits import upload_error
+        raise upload_error("listening-audio", 413, max_bytes=listening_audio.SECTION_AUDIO_MAX_BYTES)
 
     result = listening_audio.validate_section_audio(data)
     if result["errors"]:
@@ -4835,18 +4857,13 @@ async def admin_upload_map_image(
             "empty or corrupted.",
         )
     if len(contents) > _MANUAL_UPLOAD_MAX_BYTES:
-        raise HTTPException(
-            413,
-            f"Image file too large ({len(contents) / 1024 / 1024:.2f} MB) — "
-            "the manual upload limit is 5 MB.",
-        )
+        from services.storage_limits import upload_error
+        raise upload_error("listening-images", 413, max_bytes=_MANUAL_UPLOAD_MAX_BYTES)
 
     fmt = _detect_image_format(contents)
     if fmt is None:
-        raise HTTPException(
-            415,
-            "Unsupported image format. Accepted: PNG, JPG, WebP.",
-        )
+        from services.storage_limits import upload_error
+        raise upload_error("listening-images", 415)
 
     # Resolve parent test_id for storage pathing (mirrors the API
     # path's resolution so both sources share one bucket prefix).
@@ -4872,6 +4889,8 @@ async def admin_upload_map_image(
     resolved_bucket = settings.LISTENING_IMAGES_BUCKET
 
     content_type = "image/jpeg" if fmt == "jpg" else f"image/{fmt}"
+    from services.storage_limits import check_upload, raise_storage_error
+    check_upload("listening-images", len(contents), content_type)
     try:
         supabase_admin.storage.from_(resolved_bucket).upload(
             storage_path,
@@ -4879,6 +4898,7 @@ async def admin_upload_map_image(
             {"content-type": content_type, "upsert": "true"},
         )
     except Exception as exc:                                              # pragma: no cover
+        raise_storage_error("listening-images", exc)
         logger.error("[map_image] manual upload to storage failed: %s", exc, exc_info=True)
         raise HTTPException(500, "Không tải được file lên kho lưu trữ. Vui lòng thử lại.") from None
 

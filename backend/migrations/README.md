@@ -20,9 +20,9 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-10-31 the highest is `360`, allocated by the
-Leader to PC-J192 (INSTRUCTORGIVE-0044), so by that rule the next new
-migration is `361`. Ask the Leader before taking it; 348–351 are reserved for other
+sequence is dense. As of 2026-11-02 the highest is `361`, allocated by the
+Leader to PC-J358 (#2180; `360` is PC-J192, INSTRUCTORGIVE-0044), so by that
+rule the next new migration is `362`. Ask the Leader before taking it; 348–351 are reserved for other
 work, and 353–359 without a file here may be held by open PRs: none may be
 reused.
 The runner applies any unapplied file regardless of order.
@@ -37,10 +37,99 @@ PAPERUPDATEDAT-0037 and 339 is GRAMMARAUDIT-0019 Revision 2 (reserved by the
 Leader on 2026-10-29). Every number from 331 to 339 now has a file. 340
 is the AIBUDGET-0033 hardening. 345 is
 PC-J119 (RLS-ADMIN-INLINE-AAL2 + GRAMMAR-FN-SEARCHPATH, spec ADMINAAL2-0032),
-reserved by the Leader on 2026-10-29; 341–344 are reserved for other open
-work and must not be reused. 346 is PC-J153 (CLASSARCHIVE-0030 FR-003),
+reserved by the Leader on 2026-10-29; 341 is PC-J88 (STAFF-GUC-BYPASS +
+MIG322-HARDEN, #2050), assigned by the Leader on 2026-10-29; 342 is reserved
+for other open work and must not be reused (343 is PC-J133R, STORAGELIMITS-0038). 344 is PC-J131R (RLSCLEANUP-0039, RLS-ADMIN +
+BL-11), reserved by the Leader on 2026-10-29. 346 is PC-J153 (CLASSARCHIVE-0030 FR-003),
 assigned by the Leader on 2026-10-29. 347 is PC-J163 (listening_tests client revoke,
 spec LISTENING-0005), given by the Leader on 2026-10-29.
+
+Migration `341` (PC-J88; Security Auditor PC-J74 F1/F2/F3, ADMINAAL2-0032
+and AIOPS-0024) stops the 332/336 staff triggers trusting session settings. A
+direct SQL session could `SET LOCAL aver.bootstrap`/`aver.staff_privilege`/
+`aver.actor_id` and turn a suspended account into an active admin with no audit
+row or owner alert. Now `fn_set_staff_privilege` and
+`fn_bootstrap_admin_recovery` write one row in the owner-only
+`staff_privilege_evidence` table (RLS on, no grant to any API role), keyed by
+transaction id and target, right before their single UPDATE. The row is gone
+before they return. The suspension guard opens only on that evidence. The role
+freeze opens only on the bootstrap's evidence (FR-019). The audit trigger always
+writes exactly one row: `admin_api` with the RPC's labels, `bootstrap_recovery`
+for the bootstrap, and otherwise `service` (a real `service_role` session with
+a service JWT) or `out_of_band` with no actor, reason or request id. Admin
+changes still queue one outbox row. If the audit trigger is missing (332 header
+rollback), both functions write that one row themselves. Function names,
+arguments, results, security mode, `search_path` and ACLs are unchanged.
+Migration 341 also revokes client privileges on the 322 identity sequences
+(F2), and makes `fn_ai_model_override_audit` SECURITY DEFINER (F3). For F3,
+`service_role` loses INSERT on `ai_model_override_audit` and a BEFORE TRUNCATE
+trigger refuses TRUNCATE for every role. PC-J74 F5 is covered by `345`.
+P2-SA-1 (PC-J356) removes service_role's TRIGGER, REFERENCES and TRUNCATE on
+`public.users`, plus MAINTAIN on PG17+, to block a planted trigger executing as
+the owner inside the staff RPC. Postconditions require those privileges to be
+absent and the evidence ACL to grant nothing to any non-owner. Trigger checks
+accept enabled (`O`) and always enabled (`A`) guards.
+341 is held by `forward-policy.tsv` as `pending_feature admin_aal2`: apply only
+with `MIGRATION_FEATURES=admin_aal2` through the advisory-locked runner, staging
+first after SA review, production only at an explicitly authorised
+staging→main promotion. It needs no backend change.
+One transaction, no data change, re-runnable. Re-running 322/332/336 restores
+the weak bodies, so re-run 341 after them. The rollback in the header reopens
+F1.
+
+Migration `361` (PC-J358; SA P3-2, P3-7, SA-R4-1/2/3, SA-2180-1 on #2180)
+is the forward hardening of 341, which is applied on staging and never
+edited. It needs 341 in `_schema_migrations` and runs after it: on staging on
+top of the applied 341, on production back to back with 341 at one promotion
+(the runner records 341 before opening 361). An owner-only deferred constraint
+trigger rejects COMMIT with `staff_privilege_evidence_not_consumed` while any
+evidence row remains, including a row whose key an owner changed; the RPC and
+the bootstrap still consume theirs and commit. The audit trigger consumes the
+evidence by `OLD.id`, like both guards. The postconditions repeat 341's and
+also refuse client INSERT/UPDATE/DELETE, column-level I/U/R and privileges
+reachable through a membership even with INHERIT FALSE (`MEMBER`,
+fail-closed). The whole file runs under `SET LOCAL search_path = pg_catalog,
+pg_temp`; catalog functions are called as `pg_catalog.<fn>` and the anyarray
+operators as `OPERATOR(pg_catalog.||)` / `OPERATOR(pg_catalog.@>)`, because an
+exact `text[]` copy in `public` would win over them even with `pg_catalog`
+first. The precondition aborts with `catalog_name_shadowed_in_public` if
+`public` holds a function or operator named like one the file uses. For manual
+dumps use `pg_dump --exclude-table-data=public.staff_privilege_evidence`: the
+table holds transient evidence, never audit data. The 341 header's client
+sequence GRANT is **DO NOT RUN** (SA P3-6); the `updated_by` attribution and
+parent-table owner TRUNCATE gaps (SA P3-5) stay open. 361 is held by
+`forward-policy.tsv` as `pending_feature admin_aal2`: apply only with
+`MIGRATION_FEATURES=admin_aal2` through the advisory-locked runner, staging
+first after SA review, production only at an explicitly authorised
+staging→main promotion after 341. One transaction, no data change,
+re-runnable; re-running 341 restores the `NEW.id` audit body, so re-run 361
+after it. Its header rollback drops only the 361 trigger and function and
+restores the 341 audit body; it grants nothing.
+
+Migration `356` (PC-J286, CALAPPEND-0041 FR-001..004) adds the statement trigger
+`trg_class_action_log_no_truncate` and its pinned, `P0001`-raising function.
+It keeps 198's row trigger unchanged and revokes UPDATE, DELETE, TRUNCATE,
+TRIGGER, REFERENCES and PG17 MAINTAIN from `service_role` / PUBLIC; backend
+SELECT and INSERT remain. Managed databases must have the 344 ledger row and
+neither old `cal_admin_*` policy before any change; a ledger-free legacy test
+control preserves its policies and client SELECT ACL. Postconditions reject
+residual effective table/column privileges (including those a role reaches by
+`SET ROLE` through a membership), a disabled row trigger, unsafe service-role
+ownership/membership, client EXECUTE on the trigger function (SA-R4-1, P3) or
+replication-parameter grants. No policy
+DDL, grants or data changes; one transaction, 5 s lock timeout, re-runnable.
+The `class_action_log_append_only` forward-policy group holds it out of normal
+applies. This job opens a PR only: the Leader must separately authorize the
+staging apply with SA and establish STAGING_FREEZE; production requires its
+own authorized promotion. Deployment order is **344 then 356**. Rollback is
+assigned to the separate 0042 task by the PC-J401 job addendum: it must keep
+privileges revoked and policies absent, and run before any down 344. There is no
+356 down script in this patch. Trigger mode remains `O` as approved: an owner
+with permission to set `session_replication_role=replica` can deliberately
+bypass it; service_role must have no such parameter permission.
+After an authorized apply, check the trigger catalog, effective privilege
+matrix and policy absence per `specs/0041-class-action-log-append-only/rollout.md`.
+Watch for the warning `[class] KHÔNG ghi được nhật ký` on failed backend inserts.
 
 Migration `355` (PC-J267, VOCABGUARD-0040 FR-001) replaces only the published
 curated vocabulary review/task guards from 234/235. UPDATE checks both OLD and
@@ -56,8 +145,67 @@ then explicitly opts in with `MIGRATION_FEATURES=vocab_curated_guard_reparent`
 under the advisory-locked runner and STAGING_FREEZE, staging first. Production
 requires separate owner approval at promotion; merging does not apply 355.
 
+Migration `353` (PC-J252 / PC-J512, PAPERUPDATEDAT-0037 FR-006 + FR-007)
+fixes the Listening package publish/archive RPC
+(`set_listening_content_package_status`), which raised 55000
+`listening_package_child_immutable` once 306/308 were active. It replaces only
+two function bodies, both pinned to `search_path = pg_catalog, public, pg_temp`:
+295's `fn_protect_listening_package_child` also accepts the `policy_revision`
++1 that 306's policy guard derives from a status/`is_public` change (contract
+active, transition GUC still required), and 306's `fn_guard_mock_paper_source`
+no longer bumps `listening_tests.mock_content_revision` for an UPDATE of
+`listening_content`/`listening_exercises` that changes only `status` (and
+`updated_at`). Other column changes, INSERT and DELETE are unchanged, so
+importing a new package with 306 active still raises 55000 (Q-J252-IMPORT,
+open). No data, trigger, owner or RLS change; the 306 ACL of the source guard is
+re-asserted; one transaction with a 5 s lock timeout, re-runnable. The manual
+down script `rollback/353_listening_package_status_revision.sql` restores the
+exact 295/306 bodies. `forward-policy.tsv` holds 353 in the
+`listening_package_status_revision` group: the Leader applies it with
+`MIGRATION_FEATURES=listening_package_status_revision` under the
+advisory-locked runner and STAGING_FREEZE, staging first; merging does not
+apply 353.
+
 348–350 remain allocated to other jobs; do not reuse them. 351 is PC-J220,
 allocated by the Leader on 2026-10-29 (350 belongs to PC-J170).
+
+Migration `344` (PC-J131R, RLSCLEANUP-0039) drops the 29 policies calling
+`is_current_user_admin()` / `is_current_user_instructor()` and the three dead
+BL-11 write policies on `error_logs`, `essay_regrade_requests` and
+`writing_drafts`. It revokes SELECT through TRIGGER, plus MAINTAIN on PG17,
+from `anon` and `authenticated` on the 21 tables in the spec's T001 catalog.
+Migration 320 must already be in the ledger; all 21 tables must exist with
+RLS enabled. No data changes or grants. The postconditions check effective
+client table/column privileges (including PUBLIC and inherited grants), RLS,
+unchanged `service_role` ACL entries, unchanged helper ACLs, and unchanged
+non-target policies. Surviving PUBLIC/column grants or helper policies in
+any schema abort the transaction instead of expanding the drop/revoke scope.
+The learner own-read policies stay. Migration 345 already revokes client
+access to `access_codes`; 344 repeats that revoke safely and never recreates
+`"Admin only"`. It does not touch the six other 345 tables, the 332 audit
+tables or `public.regrade_requests` (342). One transaction, `lock_timeout`
+5 seconds, re-runnable. Group `rls_admin_cleanup` in `forward-policy.tsv`:
+merging does not apply it. The Leader applies staging first, after
+STAGING_FREEZE is lifted, with the advisory-locked runner; production only
+at a separately authorized staging-to-main promotion approved by Vinh.
+The guarded manual down script is
+`rollback/344_rls_admin_policy_cleanup.sql`: set
+`aver.allow_rls_admin_policy_rollback = 'on'` in that session first. It
+recreates the original 32 policies only when all client table/column
+privileges and both helpers' client EXECUTE are still closed. It never
+restores a table privilege or helper EXECUTE and is safe to repeat.
+
+Migration `343` (PC-J133R, STORAGELIMITS-0038) sets the T001 size/MIME limits
+on the six Storage buckets. It updates only `file_size_limit` and
+`allowed_mime_types`; visibility and existing objects stay unchanged, including
+private `writing-images`. One transaction, `lock_timeout` 5s, re-runnable;
+missing buckets or incorrect postconditions abort. The header contains the
+read-only postcheck and a down script restoring the staging T001 `NULL`/`NULL`
+values. Deploy the upload checks and Speaking MIME normalisation first.
+Group `storage_bucket_limits` in `forward-policy.tsv`: no apply on merge;
+Leader applies staging under the advisory lock. Production census and apply
+require Vinh's separate approval at promotion; verify rollback values first.
+The project-wide cap still applies (staging 50 MiB).
 
 Migration `347` (PC-J163) revokes ALL on `listening_tests` from `PUBLIC`,
 `anon` and `authenticated` (MAINTAIN included on PG 17). 295 closed the other
@@ -115,6 +263,24 @@ Vinh-approved promotion. It can follow 349 but does not require it. After apply,
 run the catalog query in the SQL header (client false/false, service true, no
 PUBLIC `=X`), then view admin overview/trends and check backend logs for RPC
 42501/fallback. No staging or production application is part of this code job.
+
+Migration `357` (mig 357, PC-J365/1h1, SVCPRIV-0042 FR-009; not the PC-J357
+spec ticket #2060) runs `REVOKE CREATE ON SCHEMA public FROM service_role,
+anon, authenticated, PUBLIC`. API roles keep USAGE, and the schema owner can
+still create. API roles get explicit CRUD/USAGE grants and never schema CREATE:
+with CREATE, a role could plant a `pg_catalog`-shadowing overload, such as
+`public.lower(varchar)` or `public.has_table_privilege(text,text,text)`, that
+owner-run definers and migration DO blocks then execute as the owner. The
+postconditions raise on any CREATE entry left for these grantees (naming the
+grantor), on effective CREATE (including inherited or SET ROLE membership),
+and on any `public` function or operator named like a `pg_catalog` one outside
+the empty allowlist. They report the remaining CREATE grants and the API-owned
+`public` routines. It is a no-op on production (no CREATE there, Leader read
+2026-10-30). The down in `rollback/357_public_schema_create_revoke.sql` is a
+documented no-op: restoring CREATE needs a new spec. Group
+`public_schema_create_revoke` is `pending_feature` (merge KHÔNG áp): staging
+first under the advisory lock, before 358; production only at a Vinh-approved
+promotion, before 341/341b.
 
 Migration `352` (PC-J201, ADMINAAL2-0032 FR-010/FR-011, SA #1936 P3 c–f)
 adds the private `staff_mfa_status_throttle` table for shared admission to the

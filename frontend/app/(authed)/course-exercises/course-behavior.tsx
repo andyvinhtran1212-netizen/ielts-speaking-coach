@@ -349,7 +349,10 @@ export function CourseBehavior() {
       // nạp này xong (khôi phục từ localStorage, hoặc mạng chậm) — lúc ấy một
       // cờ `false` làm nút "Làm phần tự luận" biến mất vĩnh viễn cho tới khi
       // học viên tự tải lại trang và thắng cuộc đua (codex #935).
-      const writingLoaded = writing.load(bankId, runner.reviewOnly ? requestedItem : null)
+      // Phần tự luận bám đúng item như ba phần kia. Nạp không kèm item thì
+      // server tự chọn bài mới nhất chưa xong, và khi cùng bank được giao hai
+      // lần, bài làm sẽ đổ sang lần giao khác với lần học viên đã mở.
+      const writingLoaded = writing.load(bankId, runner.reviewOnly ? requestedItem : sectionAssignmentItem)
         .then(() => { writingReady = true; })
         .catch(() => { writingReady = false; });
 
@@ -1627,17 +1630,27 @@ export function CourseBehavior() {
       clearErrorActions();
       pronunciationVisible = false;
       pauseSectionTimers();
-      if (writing && currentAccount.current !== user.id) writing.dispose();
+      // Đổi/mất tài khoản: token hiện hành (kể cả `_lastToken` mà keepalive
+      // của api.js dùng) không còn là của A, nên KHÔNG flush gì của A. Câu trắc
+      // nghiệm và nháp chưa gửi vẫn nằm trong khoá lưu của A (PC-J353/PC-J362).
+      const accountChanged = currentAccount.current !== user.id;
+      if (accountChanged) {
+        if (runner) runner.dispose();
+        if (writing) writing.dispose();
+      }
       // A Next soft navigation unmounts this client island without firing
       // pagehide. Flush through the same path so queued quiz answers and the
       // writing draft are not stranded until a later browser lifecycle event.
       try {
-        if (onLeave) onLeave();
+        if (accountChanged) { /* nothing of A may leave with B's token */ }
+        else if (onLeave) onLeave();
         else if (runner?.leave) runner.leave();
       } catch { /* lifecycle teardown must continue removing listeners */ }
       if (pronunciation) pronunciation.destroy();
-      // Sau lượt flush ở trên: một lượt nạp tự luận trả về muộn không được gửi
-      // nháp của tài khoản trước bằng token của tài khoản sau (PC-J352).
+      // Sau lượt flush ở trên: một lượt nạp tự luận trả về muộn, một flush xếp
+      // sau batch đang treo hay một hẹn giờ retry không được gửi dữ liệu của
+      // tài khoản trước bằng token của tài khoản sau (PC-J352/PC-J362).
+      if (runner) runner.dispose();
       if (writing) writing.dispose();
       if (onClick) document.removeEventListener('click', onClick);
       if (onInput) document.removeEventListener('input', onInput);

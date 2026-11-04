@@ -7,7 +7,9 @@ so on the single uvicorn process one student restoring or submitting a section
 held every other request (incl. OPTIONS and /health) for the whole round-trip.
 That is the class of the 2026-10-30 prod incident, which hit during a live
 mock exam. The sync work now runs in a worker thread; these tests pin that a
-slow service no longer serialises the loop.
+slow service no longer serialises the loop. Stubbed service calls park in a
+``LoopGate`` (tests/loop_gate.py) instead of sleeping, so no assertion depends
+on wall-clock time (PC-J514).
 """
 
 import asyncio
@@ -24,11 +26,11 @@ from fastapi import FastAPI
 from routers import exams as exams_router
 from routers import mock_attempt_flags as flags_router
 from routers import mock_exams as mock_router
+from tests.loop_gate import WAIT, LoopGate, until
 from tests.test_mock_exam_workflow import (  # noqa: F401 — fixtures
     _seed_exam, _seed_retake, fake_db, svc,
 )
 
-_DELAY = 0.5
 _USER = {"id": "00000000-0000-0000-0000-0000000000aa"}
 _AUTH = {"Authorization": "Bearer faketoken"}
 _SITTING_ID = "00000000-0000-0000-0000-0000000000bb"
@@ -36,18 +38,19 @@ _ATTEMPT_ID = "00000000-0000-0000-0000-0000000000cc"
 
 
 class _Slow:
-    """Sync service double that blocks like a slow Supabase round-trip and
-    records which thread ran it."""
+    """Sync service double that stays in its slow Supabase round-trip until the
+    test releases ``gate``, and records which thread ran it."""
 
     def __init__(self, result):
         self.result = result
+        self.gate = LoopGate()
         self.threads = []
         self.calls = []
 
     def __call__(self, *args, **kwargs):
         self.threads.append(threading.get_ident())
         self.calls.append((args, kwargs))
-        time.sleep(_DELAY)
+        self.gate.park()
         return self.result
 
 
@@ -64,32 +67,40 @@ def _app():
     return app
 
 
-def _run(make_requests):
-    """Start the slow request(s), then ping; return (responses, ping, ping_s, total_s)."""
+def _run(make_requests, gate, *, together):
+    """Start the slow request(s); once ``together`` of their service calls are
+    parked in workers at once, serve /ping, then release them.
+
+    Returns (responses, ping, parked): ``parked`` is how many calls were inside
+    the gate while /ping was served, or None if /ping did not finish while they
+    were all still parked."""
 
     async def scenario():
         transport = httpx.ASGITransport(app=_app())
         async with httpx.AsyncClient(transport=transport, base_url="http://t") as client:
-            start = time.perf_counter()
-            slow = [asyncio.create_task(r(client)) for r in make_requests]
-            await asyncio.sleep(0.05)  # let the slow request(s) reach the service
-            ping = await client.get("/ping")
-            ping_s = time.perf_counter() - start
-            responses = await asyncio.gather(*slow)
-            return responses, ping, ping_s, time.perf_counter() - start
+            slow = asyncio.gather(*[r(client) for r in make_requests])
+            try:
+                reached = await until(lambda: gate.inside >= together, stop=slow)
+                ping = await asyncio.wait_for(client.get("/ping"), WAIT)
+                parked = gate.inside if reached and not slow.done() and not gate.released else None
+            finally:
+                gate.release()
+            return await asyncio.wait_for(slow, WAIT), ping, parked
 
     return asyncio.run(scenario())
 
 
-def _assert_not_blocking(responses, ping, ping_s, total_s, *, n):
+def _assert_not_blocking(responses, ping, parked, gate, *, together):
     assert ping.status_code == 200
-    # A service call on the loop thread would hold /ping for the full 0.5 s.
-    assert ping_s < 0.2, f"/ping waited {ping_s:.3f}s behind the mock-exam route"
-    if n > 1:
-        # n requests that each spend 0.5 s in the service overlap (~0.5 s)
-        # instead of queueing on the loop (n × 0.5 s).
-        assert total_s < _DELAY * n - 0.15, (
-            f"{n} requests took {total_s:.3f}s; they ran one after another")
+    # A parked call gives up after WAIT seconds when the test never got to
+    # release it: the call held the loop, or the expected overlap never came.
+    assert not gate.timed_out, (
+        "a parked service call timed out: the mock-exam route ran its sync call on the "
+        f"event loop, or the requests were serialised ({gate.inside} call(s) entered)")
+    # together > 1: the requests overlap in workers instead of queueing on the
+    # loop. together == 1 with more requests: they stay serialised on purpose.
+    assert parked == together, (
+        f"/ping must finish while exactly {together} service call(s) are parked; saw {parked}")
     for r in responses:
         assert r.status_code == 200, r.text
 
@@ -106,10 +117,11 @@ def test_get_sitting_state_does_not_block_the_loop():
          patch("routers.mock_exams.svc.get_exam_content_for_sitting", return_value={}), \
          patch("routers.mock_exams.attach_signed_image_urls"):
         url = f"/api/mock-exams/sittings/{_SITTING_ID}"
-        responses, ping, ping_s, total_s = _run(
-            [lambda c: c.get(url, headers=_AUTH), lambda c: c.get(url, headers=_AUTH)])
+        responses, ping, parked = _run(
+            [lambda c: c.get(url, headers=_AUTH), lambda c: c.get(url, headers=_AUTH)],
+            get_sitting.gate, together=2)
 
-    _assert_not_blocking(responses, ping, ping_s, total_s, n=2)
+    _assert_not_blocking(responses, ping, parked, get_sitting.gate, together=2)
     body = responses[0].json()
     assert body["active_section"] == "listening"
     assert body["section_time_left_seconds"] == 600
@@ -133,11 +145,12 @@ def test_submit_section_does_not_block_the_loop():
     with patch("routers.mock_exams.get_supabase_user", new=_two_students()), \
          patch("routers.mock_exams.svc.submit_section", new=submit):
         url = f"/api/mock-exams/sittings/{_SITTING_ID}/sections/reading/submit"
-        responses, ping, ping_s, total_s = _run(
+        responses, ping, parked = _run(
             [lambda c: c.post(url, json={}, headers=_AUTH),
-             lambda c: c.post(url, json={}, headers=_AUTH)])
+             lambda c: c.post(url, json={}, headers=_AUTH)],
+            submit.gate, together=2)
 
-    _assert_not_blocking(responses, ping, ping_s, total_s, n=2)
+    _assert_not_blocking(responses, ping, parked, submit.gate, together=2)
     assert responses[0].json() == {"ok": True, "section": "reading"}
     assert threading.main_thread().ident not in submit.threads
 
@@ -151,10 +164,11 @@ def test_submit_section_writing_claim_does_not_block_the_loop():
          patch("routers.mock_exams.svc.get_sitting", return_value=sitting), \
          patch("routers.mock_exams.svc.claim_mock_writing_grading", new=claim):
         url = f"/api/mock-exams/sittings/{_SITTING_ID}/sections/writing/submit"
-        responses, ping, ping_s, total_s = _run(
-            [lambda c: c.post(url, json={"task1_text": "a", "task2_text": "b"}, headers=_AUTH)])
+        responses, ping, parked = _run(
+            [lambda c: c.post(url, json={"task1_text": "a", "task2_text": "b"}, headers=_AUTH)],
+            claim.gate, together=1)
 
-    _assert_not_blocking(responses, ping, ping_s, total_s, n=1)
+    _assert_not_blocking(responses, ping, parked, claim.gate, together=1)
     assert responses[0].json() == {"ok": True}
     assert threading.main_thread().ident not in claim.threads
 
@@ -174,13 +188,14 @@ def test_exam_submit_attempt_does_not_block_the_loop():
          patch("routers.exams.exam_service.submit_attempt", new=submit):
         url = "/api/exams/toeic-1/attempts"
         body = {"answers": [{"q_num": 1, "user_answer": "A"}]}
-        responses, ping, ping_s, total_s = _run(
+        responses, ping, parked = _run(
             [lambda c: c.post(url, json=body, headers=_AUTH),
-             lambda c: c.post(url, json=body, headers=_AUTH)])
+             lambda c: c.post(url, json=body, headers=_AUTH)],
+            submit.gate, together=1)
 
     # Exam play/submit serialise on the import lock (as they did on the loop
     # before the offload); the loop itself stays free for /ping.
-    _assert_not_blocking(responses, ping, ping_s, total_s, n=1)
+    _assert_not_blocking(responses, ping, parked, submit.gate, together=1)
     assert held == [True, True]
     assert responses[0].json() == {"attempt_id": "a1", "score": 3}
     # Same positional arguments the handler passed before the offload.
@@ -197,10 +212,11 @@ def test_listening_review_flags_do_not_block_the_loop():
          patch.object(flags_router, "_guard"), \
          patch.object(flags_router, "flag_state_response", return_value=state):
         url = f"/api/listening/tests/attempts/{_ATTEMPT_ID}/review-flags"
-        responses, ping, ping_s, total_s = _run(
-            [lambda c: c.get(url, headers=_AUTH), lambda c: c.get(url, headers=_AUTH)])
+        responses, ping, parked = _run(
+            [lambda c: c.get(url, headers=_AUTH), lambda c: c.get(url, headers=_AUTH)],
+            fetch.gate, together=2)
 
-    _assert_not_blocking(responses, ping, ping_s, total_s, n=2)
+    _assert_not_blocking(responses, ping, parked, fetch.gate, together=2)
     assert responses[0].json()["attempt_id"] == _ATTEMPT_ID
     assert responses[0].json()["review_flags"] == []
     assert threading.main_thread().ident not in fetch.threads
@@ -214,9 +230,11 @@ class _RacyRetakeClocks:
 
     def __init__(self):
         self.started = {}
+        self.gate = LoopGate()
 
     def __call__(self, sitting_id, user_id, section):
         snapshot = dict(self.started.get(user_id, {}))
+        self.gate.park()  # the test serves /ping while the first start is here
         time.sleep(0.2)  # the PostgREST read/write round-trips
         if any(s != section for s in snapshot):
             raise mock_router.svc.SittingConflictError(
@@ -230,12 +248,16 @@ def test_concurrent_section_starts_of_one_student_stay_serialised():
     with patch("routers.mock_exams.get_supabase_user", new=AsyncMock(return_value=_USER)), \
          patch("routers.mock_exams.svc.start_section", new=clocks):
         base = f"/api/mock-exams/sittings/{_SITTING_ID}/sections"
-        responses, ping, ping_s, _ = _run(
+        responses, ping, parked = _run(
             [lambda c: c.post(f"{base}/reading/start", headers=_AUTH),
-             lambda c: c.post(f"{base}/writing/start", headers=_AUTH)])
+             lambda c: c.post(f"{base}/writing/start", headers=_AUTH)],
+            clocks.gate, together=1)
 
-    # The loop stays free while the starts queue behind each other.
-    assert ping.status_code == 200 and ping_s < 0.2, ping_s
+    # The loop stays free while the starts queue behind each other: /ping is
+    # served while the first start is parked and the second has not entered.
+    assert ping.status_code == 200
+    assert not clocks.gate.timed_out, "start_section ran its sync call on the event loop"
+    assert parked == 1, f"/ping must finish while one start is parked; saw {parked}"
     assert sorted(r.status_code for r in responses) == [200, 409], [r.text for r in responses]
     assert len(clocks.started[_USER["id"]]) == 1
 
@@ -245,10 +267,11 @@ def test_different_students_are_not_serialised():
     with patch("routers.mock_exams.get_supabase_user", new=_two_students()), \
          patch("routers.mock_exams.svc.start_section", new=start):
         url = f"/api/mock-exams/sittings/{_SITTING_ID}/sections/reading/start"
-        responses, ping, ping_s, total_s = _run(
-            [lambda c: c.post(url, headers=_AUTH), lambda c: c.post(url, headers=_AUTH)])
+        responses, ping, parked = _run(
+            [lambda c: c.post(url, headers=_AUTH), lambda c: c.post(url, headers=_AUTH)],
+            start.gate, together=2)
 
-    _assert_not_blocking(responses, ping, ping_s, total_s, n=2)
+    _assert_not_blocking(responses, ping, parked, start.gate, together=2)
 
 
 def test_student_write_keeps_lock_through_repeated_cancel():

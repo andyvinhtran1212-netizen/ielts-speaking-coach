@@ -22,6 +22,54 @@ _IPV4_MAPPED = ipaddress.ip_network("::ffff:0:0/96")
 logger = logging.getLogger(__name__)
 
 
+class TrustedProxyCidrError(ValueError):
+    """A TRUSTED_PROXY_CIDRS entry that breaks a trust rule. ``reason`` is a
+    code safe to log (no CIDR value); the message is the startup error."""
+
+    def __init__(self, reason: str, message: str):
+        super().__init__(message)
+        self.reason = reason
+
+
+def validate_trusted_proxy_cidr_list(value: str) -> tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]:
+    """TRUSTED_PROXY_CIDRS rules, shared by the Settings validator (startup,
+    assignment) and services.request_safety (each use; PC-J377 / SA-4).
+    Raises TrustedProxyCidrError, or ipaddress's ValueError if unparseable."""
+    value = value.strip()
+    if not value:
+        return ()
+    networks = []
+    for cidr in value.split(","):
+        cidr = cidr.strip()
+        network = ipaddress.ip_network(cidr)
+        if network.version == 6 and network.subnet_of(_IPV4_MAPPED):
+            raise TrustedProxyCidrError(
+                "ipv4_mapped",
+                f"TRUSTED_PROXY_CIDRS: {cidr[:64]} là CIDR IPv4-mapped "
+                "(::ffff:0:0/96), không bao giờ khớp vì hop đã unwrap về IPv4; "
+                "ghi dải IPv4 tương ứng, xem docs/CLIENT_IP_TRUST.md",
+            )
+        if network.prefixlen < _MIN_TRUSTED_PREFIX[network.version]:
+            raise TrustedProxyCidrError(
+                "too_broad",
+                f"TRUSTED_PROXY_CIDRS: {cidr[:64]} quá rộng (IPv4 tối thiểu /8, "
+                "IPv6 tối thiểu /32); chỉ ghi dải proxy nội bộ đã đo, "
+                "xem docs/CLIENT_IP_TRUST.md",
+            )
+        if not any(network.version == internal.version
+                   and network.subnet_of(internal)
+                   for internal in _INTERNAL_PROXY_RANGES):
+            raise TrustedProxyCidrError(
+                "not_internal",
+                f"TRUSTED_PROXY_CIDRS: {cidr[:64]} không nằm trong dải nội bộ "
+                "(10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, "
+                "127.0.0.0/8, 169.254.0.0/16, fc00::/7, fe80::/10, ::1); "
+                "dải công khai không được tin, xem docs/CLIENT_IP_TRUST.md",
+            )
+        networks.append(network)
+    return tuple(networks)
+
+
 def _bounded_int_or_default(name: str, value, low: int, high: int, default: int) -> int:
     """ADMINAAL2-0032 Amendment 1: a whole number in [low, high]; anything
     else (text, a fraction, a bool, out of range) is the safe default plus
@@ -52,7 +100,8 @@ class Settings(BaseSettings):
     # services/cors_policy.py. Development allows localhost without it.
     CORS_ALLOW_LOCALHOST: str = ""
     # PC-J202/J183, SA decision 2026-10-29: only these explicitly trusted
-    # proxy CIDRs may be skipped in XFF. No inferred private/Cloudflare trust.
+    # proxy CIDRs may be skipped (as X-Real-IP or an XFF hop). No inferred
+    # private/Cloudflare/CDN77 trust (PC-J520).
     # Comma-separated CIDRs; default empty. See docs/CLIENT_IP_TRUST.md.
     TRUSTED_PROXY_CIDRS: str = ""
 
@@ -60,33 +109,9 @@ class Settings(BaseSettings):
     @classmethod
     def validate_trusted_proxy_cidrs(cls, value: str) -> str:
         # PC-J227 (SA-J202-1): a too-short prefix trusts caller-controlled
-        # hops, so the key falls back to a spoofable X-Real-IP. Fail startup.
+        # hops, so the key becomes caller-chosen. Fail startup.
         value = value.strip()
-        if value:
-            for cidr in value.split(","):
-                cidr = cidr.strip()
-                network = ipaddress.ip_network(cidr)
-                if network.version == 6 and network.subnet_of(_IPV4_MAPPED):
-                    raise ValueError(
-                        f"TRUSTED_PROXY_CIDRS: {cidr[:64]} là CIDR IPv4-mapped "
-                        "(::ffff:0:0/96), không bao giờ khớp vì hop đã unwrap về IPv4; "
-                        "ghi dải IPv4 tương ứng, xem docs/CLIENT_IP_TRUST.md"
-                    )
-                if network.prefixlen < _MIN_TRUSTED_PREFIX[network.version]:
-                    raise ValueError(
-                        f"TRUSTED_PROXY_CIDRS: {cidr[:64]} quá rộng (IPv4 tối thiểu /8, "
-                        "IPv6 tối thiểu /32); chỉ ghi dải proxy nội bộ đã đo, "
-                        "xem docs/CLIENT_IP_TRUST.md"
-                    )
-                if not any(network.version == internal.version
-                           and network.subnet_of(internal)
-                           for internal in _INTERNAL_PROXY_RANGES):
-                    raise ValueError(
-                        f"TRUSTED_PROXY_CIDRS: {cidr[:64]} không nằm trong dải nội bộ "
-                        "(10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, "
-                        "127.0.0.0/8, 169.254.0.0/16, fc00::/7, fe80::/10, ::1); "
-                        "dải công khai không được tin, xem docs/CLIENT_IP_TRUST.md"
-                    )
+        validate_trusted_proxy_cidr_list(value)
         return value
 
     def __setattr__(self, name, value):

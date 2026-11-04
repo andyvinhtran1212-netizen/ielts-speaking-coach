@@ -127,7 +127,7 @@ Kỹ thuật quan trọng nhất: **thừa nhận có giá trị trong quan đi�
 <!-- anchor: softening-disagreement-politely.phan-2-partial-agreement-dong-y-mot-phan -->
 ## PHẦN 2: PARTIAL AGREEMENT — Đồng ý một phần
 
-Khi bạn không hoàn toàn đồng ý và không hoàn toàn phản đối — một lựa chọn hợp lệ; phản đối hoàn toàn có lý do và ngữ điệu phù hợp cũng lịch sự.
+Dùng khi bạn không hoàn toàn đồng ý cũng không hoàn toàn phản đối. Phản đối hẳn cũng vẫn lịch sự nếu có lý do và giọng điệu phù hợp.
 
 ### Cấu trúc:
 
@@ -160,7 +160,7 @@ Sử dụng modal verbs để "hạ nhiệt" sự phản đối:
 
 ```
 I’m not sure (that) I would/could agree with...
-I agree with...
+I wouldn't (entirely) agree that...
 I wouldn't say (that)...
 I'm not entirely convinced that...
 ```
@@ -254,7 +254,7 @@ Sau khi đưa ra phản đối, luôn phát triển ý hoặc đưa bằng chứ
 ### Lỗi 4: Mở đầu bằng "Actually" (nghe thách thức)
 
 - ❌ "**Actually**, that's not really true."
-- ✅ "**I think there's a different way of looking at that** — actually, some research suggests..."
+- ✅ "**I think there's a different way of looking at that** — **from what I've seen**, ..."
   
   *(Actually có thể ở đầu hoặc giữa câu; độ lịch sự tùy ngữ điệu và ngữ cảnh.)*
 
@@ -268,7 +268,7 @@ NGUYÊN TẮC: Acknowledge → Soft disagreement → Reason → Alternative
 
 ACKNOWLEDGE (trước):
   That's a fair point, but...
-  I can see where that's coming from, however...
+  I can see where that's coming from, but...
   There's some truth in that, though...
   I understand why people might think that, but...
 

@@ -4,6 +4,10 @@
 
 - Database only, one table: migration 356 on `public.class_action_log`, after
   migration 344 (RLSCLEANUP-0039). Deployment order is **344 then 356**.
+  - Set `SET LOCAL lock_timeout = '5s'` inside 356's transaction before
+    trigger DDL. A queued CREATE TRIGGER must time out and abort rather than
+    leave log INSERTs behind an unbounded DDL lock wait (SA P3-4; spec
+    Decisions 4). This amendment documents the plan only; it does not edit 356.
   - `CREATE OR REPLACE TRIGGER trg_class_action_log_no_truncate BEFORE
     TRUNCATE ON public.class_action_log FOR EACH STATEMENT`, executing
     `fn_class_action_log_append_only()` (198) or a new function in the 332
@@ -20,8 +24,24 @@
   - No policy DDL or `COMMENT ON POLICY` (FR-003). Migration 344 owns dropping
     `cal_admin_append` / `cal_admin_read` and revoking every anon/authenticated
     privilege; 356 must work when the policies are already absent.
-  - A postcondition `DO` block that aborts unless the trigger exists and is
-    enabled, `service_role` has SELECT and INSERT, and `service_role`/PUBLIC
+  - A fail-closed self-check `DO` block runs first, before any change
+    (FR-003): if `public._schema_migrations` exists and has no `344_*` row,
+    or exists and either `cal_admin_append` or `cal_admin_read` is still on
+    the table, it raises an exception, so 356 changes nothing. Without the
+    ledger table (the isolated legacy fixture only) the check is skipped.
+  - A postcondition `DO` block that aborts unless both the new TRUNCATE
+    statement trigger and the existing 198 UPDATE/DELETE row trigger exist
+    with their expected events, level and function, and are enabled
+    (`tgenabled IN ('O','A')`); `pg_class.relowner` is `postgres`;
+    `service_role` has `rolsuper = false` and is neither the owner nor a
+    member of the owner (`pg_has_role('service_role', relowner, 'MEMBER')`
+    is false); and no role `m` in `pg_roles` satisfying
+    `pg_has_role('service_role'::name, m.oid, 'MEMBER')` has
+    `has_parameter_privilege(m.oid, 'session_replication_role', 'SET')` true
+    (SA F4 / P3-4). As in 356 R3 (#2173), check service_role itself and
+    NOINHERIT memberships to cover privileges reachable through SET ROLE.
+    Also require that `service_role` has SELECT and
+    INSERT, and `service_role`/PUBLIC
     have no TRIGGER, REFERENCES, TRUNCATE (or MAINTAIN on PG 17+), and
     service_role/PUBLIC/anon/authenticated have no UPDATE or DELETE, including
     column UPDATE grants. Fail on residual effective privileges rather than
@@ -54,9 +74,13 @@
   the owner, or service_role after an isolated test re-grant, still gets the
   198 `P0001` message. TRUNCATE is ACL `42501` for service_role or trigger
   `P0001` when the caller has that privilege. No API shape changes.
-- ACCESS EXCLUSIVE LOCK and SELECT FOR UPDATE as service_role must fail with
-  `42501`; ordinary INSERT/SELECT succeed. See spec Decisions 1 for the exact
-  SA probe coverage and the SELECT FOR UPDATE denial still to verify.
+- Row locks FOR UPDATE, FOR NO KEY UPDATE, FOR SHARE and FOR KEY SHARE, and
+  table locks SHARE UPDATE EXCLUSIVE, SHARE, SHARE ROW EXCLUSIVE, EXCLUSIVE
+  and ACCESS EXCLUSIVE as service_role must fail with `42501`. ACCESS SHARE,
+  ROW SHARE and ROW EXCLUSIVE remain allowed and do not directly conflict
+  with INSERT's ROW EXCLUSIVE lock; ordinary INSERT/SELECT succeed. A queued
+  owner DDL can still cause indirect blocking, bounded by the lock timeout
+  above. See spec Decisions 1 for SA's local evidence and T001 acceptance.
 
 ## Compatibility risk and stop condition
 
@@ -74,12 +98,16 @@
 
 - Staging first, under the advisory lock, after STAGING_FREEZE is lifted
   (`rollout.md`); production only at an authorized promotion.
-- The 356 down script is owned by spec 0042 T001 (#2060,
-  FR-008/Scenario 10). It must not grant UPDATE/DELETE or `GRANT ALL`, and must
-  not re-grant TRIGGER, REFERENCES or MAINTAIN (SA F5).
+- The 356 down script is owned by this spec's T001 (SA F5, PC-J499); spec
+  0042 T001 only scans it (0042 FR-006) and runs its post-NNN regression
+  (0042 FR-008/Scenario 10). It must not grant UPDATE/DELETE or `GRANT ALL`,
+  and must not re-grant TRIGGER, REFERENCES, TRUNCATE or MAINTAIN (SA F5).
 - Down must not restore either policy, issue a policy comment, or restore
   any anon/authenticated privilege removed by 344. Verify down against both
   fixture states below; it preserves their respective policy/client ACLs.
+- Down retains FR-004's UPDATE/DELETE revokes. If a legitimate consumer needs
+  those privileges after apply, stop and seek a spec revision plus a newly
+  approved forward migration; down is not a repair for an ACL `42501`.
 
 ## Verification strategy
 
@@ -87,13 +115,24 @@
   `test_class_action_log_postgres.py`, Supabase-style default ACL, PG 16
   required, PG 17 advisory). Write both fixtures first and show red on the
   old implementation where applicable:
+  - In both fixtures assert `pg_roles.rolsuper = false` for anon,
+    authenticated and service_role, with `rolbypassrls = false, false, true`
+    respectively. Assert the table owner is postgres and service_role is
+    neither that owner nor its member. Use `SET LOCAL ROLE service_role`
+    and assert `current_user` before each role-specific probe.
   - Primary: replay 198, 204, 320, 344 and 356 from files, including 344's
     prerequisites; snapshot immediately after 344 to prove both policies
-    absent and all anon/authenticated privileges revoked before 356.
-  - Legacy control: replay 198, 204, 320 and 356 without 344; snapshot the
-    two policy definitions/comments and SELECT-only client ACL before 356.
-    356 must succeed without changing that state. This control does not
-    satisfy the deployed 0039 contract or change the 344-then-356 order.
+    absent and all anon/authenticated privileges revoked before 356. The 344
+    step uses the real merged `344_*.sql` file (T001 depends on 0039 T002);
+    the fixture must not simulate 344 in place of that file. The fixture
+    creates `public._schema_migrations` with 344's `344_*` row, as the runner
+    records it, so the FR-003 self-check runs and passes.
+  - Legacy control: replay 198, 204, 320 and 356 without 344 and without the
+    ledger table; snapshot the two policy definitions/comments and
+    SELECT-only client ACL before 356. With no ledger the FR-003 self-check
+    is skipped; 356 must succeed without changing that state. This control
+    is for compatibility only: it does not satisfy the deployed 0039 contract
+    or change the 344-then-356 order.
   - FR-001: owner TRUNCATE → `P0001`; `SET ROLE service_role` TRUNCATE →
     `42501`, and `P0001` after the test re-grants TRUNCATE; UPDATE/DELETE as
     owner → `P0001` with the 198 message; service_role → `42501`, then
@@ -105,14 +144,26 @@
     effective table/column privileges; without 344, policy definitions,
     comments and client ACLs match the pre-356 snapshot. Assert both states
     after first apply, second apply and down; no missing-policy error and
-    no policy DDL/comment in 356 up or down.
+    no policy DDL/comment in 356 up or down. Self-check refusals: with the
+    ledger present but no `344_*` row, and with that row but either policy
+    recreated, 356 raises before any change and the catalog snapshot is
+    unchanged.
   - FR-004: non-owner, non-superuser service_role via `SET LOCAL ROLE` with
     `current_user` asserted; UPDATE and DELETE each → `42501` on a seeded row,
     including an isolated owner-disabled-row-trigger control to prove ACL
-    refusal precedes the trigger. ACCESS EXCLUSIVE LOCK and SELECT FOR UPDATE
-    each → `42501`; INSERT/SELECT succeed. After the down script, effective
+    refusal precedes the trigger. Disabling that row trigger takes SHARE ROW
+    EXCLUSIVE, which conflicts with INSERT's ROW EXCLUSIVE; this control is
+    isolated-test-only, never staging or production (spec Scenario 6).
+    All denied row/table lock modes in Data and contracts → `42501`;
+    the three allowed table lock modes and INSERT/SELECT succeed. After the
+    down script (both the down and this assertion belong to T001), effective
     UPDATE/DELETE privileges remain false and both statements still → `42501`;
     statically reject direct UPDATE/DELETE grants and `GRANT ALL` in down.
+  - Exercise the F4 postconditions: both enabled triggers retain their events,
+    level and function; owner is postgres; service_role is non-superuser,
+    not an owner member, and neither it nor any role reached by the MEMBER
+    check above has SET privilege on session_replication_role.
+    An unsafe state aborts the transaction without catalog changes.
   - Second apply of 356 stays green.
   - Negative control (recorded in the PR): without the new trigger the owner
     TRUNCATE test fails.

@@ -12,7 +12,8 @@ beforeEach(() => {
 afterEach(() => { dispose?.(); dispose = undefined; cleanup(); document.body.style.overflow = ''; vi.unstubAllGlobals(); });
 function setup(read = vi.fn(async () => ({ enabled: true, items: [{ id: 't1', title: 'Canonical tip' }] })),
   prepare?: (kind: 'tip' | 'prompt', item: any) => Promise<unknown>) {
-  render(<><main><button id="tab-assignments">Assignments</button><button id="tab-tips">Tips</button>
+  render(<><main><div className="wd-tabs"><button id="tab-assignments">Assignments</button><button id="tab-tips">Tips</button>
+    <button id="tab-prompt-bank">Prompt bank</button></div>
     <button data-tip-id="t1">Read tip</button></main><div id="submit-modal" className="hidden"><button id="modal-close">Submit close</button></div>
     <div id="tip-modal" className="hidden" role="dialog" aria-modal="true" aria-labelledby="tip-modal-title">
       <h2 id="tip-modal-title" /><p id="tip-modal-meta" /><button id="tip-modal-close">Close</button><div id="tip-modal-body" />
@@ -60,6 +61,47 @@ it('FR003/005: direct-link Escape replaces and returns stable tab focus', async 
   expect(window.location.search).toBe('?tab=tips');
   expect(document.activeElement).toBe(document.getElementById('tab-tips'));
   expect(document.querySelector('main')!.hasAttribute('aria-hidden')).toBe(false);
+});
+it.each([
+  ['tip', 'tips', 'damaged-marker'], ['prompt', 'prompt-bank', 'damaged-marker'],
+  ['tip', 'tips', 'direct-link'], ['prompt', 'prompt-bank', 'direct-link'],
+] as const)('PC-J438: %s %s fallback close keeps horizontal scroll (%s)', async (kind, tab, entry) => {
+  const { controller, card, selectTab } = setup();
+  const tabs = document.querySelector<HTMLElement>('.wd-tabs')!;
+  // jsdom has no layout: model the synchronous active-tab reveal in selectTab.
+  selectTab.mockImplementation(() => { tabs.scrollLeft = 0; });
+  if (entry === 'direct-link') {
+    window.history.replaceState({ nextOwned: 'preserve' }, '', `/writing/dashboard?tab=${tab}&${kind}=t1`);
+    await controller.reconcile();
+  } else {
+    controller.activate(kind, 't1', card);
+    await waitFor(() => expect(screen.getByRole('dialog').getAttribute('data-content-state')).toBe('ready'));
+    const state = { ...window.history.state }; delete state[WRITING_CONTENT_MARKER];
+    window.history.replaceState(state, '', location.href);
+  }
+  const back = vi.spyOn(window.history, 'back');
+  tabs.scrollLeft = 67;
+  selectTab.mockClear();
+  controller.close();
+  await waitFor(() => expect(tabs.scrollLeft).toBe(67));
+  expect(selectTab).toHaveBeenCalledExactlyOnceWith(tab);
+  expect(back).not.toHaveBeenCalled();
+  expect(location.search).toBe(`?tab=${tab}`);
+  expect(window.history.state.nextOwned).toBe('preserve');
+  expect(document.getElementById('tip-modal')!.classList.contains('hidden')).toBe(true);
+});
+it('PC-J438: owned close retains Back without reconciling the tab in close()', async () => {
+  const { controller, card, selectTab } = setup();
+  controller.activate('tip', 't1', card);
+  await waitFor(() => expect(screen.getByRole('dialog').getAttribute('data-content-state')).toBe('ready'));
+  const tabs = document.querySelector<HTMLElement>('.wd-tabs')!;
+  tabs.scrollLeft = 67;
+  selectTab.mockClear();
+  const back = vi.spyOn(window.history, 'back').mockImplementation(() => {});
+  controller.close();
+  expect(back).toHaveBeenCalledTimes(1);
+  expect(selectTab).not.toHaveBeenCalled();
+  expect(tabs.scrollLeft).toBe(67);
 });
 it('FR003: surviving reload ownership uses Back; damaged marker replaces', async () => {
   const query = readWritingContentQuery('tab=tips&tip=t1');

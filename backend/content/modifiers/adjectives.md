@@ -88,7 +88,7 @@ Adjective + Noun
 - a **beautiful** garden
 - an **interesting** conversation
 - **young** people
-- **three** **small** cups of coffee
+- a **small** cup of coffee
 
 **Thứ tự adjective khi có nhiều tính từ** (quan trọng để nghe tự nhiên):
 
@@ -180,6 +180,9 @@ Subject + Linking Verb + Adjective
 - *bored, inspired, motivated, exhausted, content, proud*
 - *unforgettable, rewarding, challenging, disappointing, eye-opening*
 
+*-ed* tả cảm xúc của người (bored, excited);
+*-ing* tả tính chất gây ra cảm xúc (boring, exciting).
+
 **Ví dụ:**
 - "I felt **incredibly nervous** but also **excited** before my first IELTS exam."
 - "It was an **eye-opening** experience that made me much more **appreciative** of what I have."
@@ -204,7 +207,7 @@ Khi nào bạn đang dùng adjective (không phải adverb)?
 ### Ví dụ giao tiếp
 
 - A: What's your city like?
-- B: It's a **busy, modern** city — quite **loud** and **fast-paced**, but also very **exciting**. There are **plenty of** things to do.
+- B: It's a **busy, modern** city — quite **loud** and **fast-paced**, but also very **exciting**. There are plenty of things to do.
 
 - A: How did you feel before your presentation?
 - B: I was **absolutely terrified**, honestly. But once I got started, I felt much more **confident**.
@@ -250,7 +253,7 @@ Khi nào bạn đang dùng adjective (không phải adverb)?
 - ✅ ĐÚNG: a **modern** city
 - **TẠI SAO:** Tiếng Việt đặt tính từ sau danh từ (*nhà đẹp, thành phố hiện đại*). Tiếng Anh đặt adjective **trước** noun. Ngoại lệ: các cụm cố định như *something strange, nothing new, anyone responsible*.
 
-### Lỗi 4: Thêm -s cho adjective (ảnh hưởng từ tiếng Việt)
+### Lỗi 4: Thêm -s cho adjective (áp dụng nhầm quy tắc số nhiều)
 
 - ❌ SAI: two **bigs** houses
 - ✅ ĐÚNG: two **big** houses
@@ -391,9 +394,14 @@ Dùng 3 adjectives để mô tả:
 **Sửa lỗi:**
 1. My city is a **beautiful** city in the north. *(adjective trước noun)*
 2. She felt **nervous** before the exam. *(sau felt → adjective)*
-3. He speaks very **quickly**. *(mô tả speaks → adverb)*
+3. He speaks very **quickly** and it's hard to follow. *(mô tả speaks → adverb)*
 4. They are two **big** dogs. *(adjective không thêm -s)*
 5. I have a **beautiful old Vietnamese** vase. *(opinion → age → origin)*
+
+**Mô tả bằng 3 adjectives (gợi ý):**
+1. My bedroom is **small**, **cosy** and **bright**.
+2. My best friend is **loyal**, **funny** and **hardworking**.
+3. My ideal holiday would be **relaxing**, **sunny** and **peaceful**.
 
 ## Tóm tắt nhanh
 1. Adjective = từ **mô tả danh từ** — trả lời *What kind? Which?*

@@ -7,14 +7,17 @@
 //    generateMetadata in app/(public-content)/grammar/[category]/[slug]/page.tsx).
 //    A key missing from a fresh backend article list is rewritten to a path
 //    no route matches, so Next serves the root 404 (app/not-found.tsx) with
-//    its full server HTML; everything else (known article, list unavailable)
-//    passes through unchanged.
+//    its full server HTML. If the list is unavailable, confirm a miss from
+//    the article endpoint itself (its JSON article-not-found, not a gateway
+//    404); articles and backend errors pass through.
 //
 // 2. SEC-CSP-NONCE: a per-request nonce for the AuthedShell route groups.
 //    Step 2 may enforce it on staging/previews only. Setting the blocking
 //    response header also supplies the nonce to Vercel's PPR resume render;
 //    Report-Only alone cannot do that (SA-1029-CSP1). Public and production
-//    routes retain the baseline from next.config.ts. See the CSP runbook.
+//    routes retain the baseline from next.config.ts. So do URLs under those
+//    prefixes that no route answers (PC-J566): Next serves them the static
+//    root 404, whose scripts cannot carry a request nonce. See the CSP runbook.
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { API_BASE } from '@/lib/backend';
@@ -24,7 +27,9 @@ import {
   buildNonceReportOnlyPolicy,
   nonceHostAllowed,
   nonceRouteAllowed,
+  nonceRouteExists,
   NONCE_SAME_ORIGIN_FRAME_ROUTES,
+  parseNonceRouteTable,
   sameOriginFramePolicy,
 } from '@/tooling/content-security-policy.mjs';
 
@@ -56,18 +61,53 @@ function segment(raw: string) {
   }
 }
 
+// The backend's article miss (routers/grammar.py get_article) is a JSON body
+// `{"detail": "Article '<category>/<slug>' not found"}`. Any other 404 (a
+// gateway, host or framework miss) is not evidence that the article is gone.
+const BACKEND_ARTICLE_MISS = /^Article '.*' not found$/;
+
+async function isBackendArticleMiss(res: Response) {
+  if (res.status !== 404 || !/^application\/json\b/i.test(res.headers.get('content-type') ?? '')) {
+    await res.body?.cancel();
+    return false;
+  }
+  const body = (await res.json().catch(() => null)) as { detail?: unknown } | null;
+  return typeof body?.detail === 'string' && BACKEND_ARTICLE_MISS.test(body.detail);
+}
+
 async function grammarArticle(request: NextRequest) {
   const [, , rawCategory = '', rawSlug = ''] = request.nextUrl.pathname.split('/');
   const category = segment(rawCategory);
   const slug = segment(rawSlug);
   // A segment that is not valid percent-encoding cannot name an article (the
   // route itself would answer 500 while decoding params).
-  const missing = category === null || slug === null
-    || (await articleIndex.has(category, slug)) === false;
+  const indexed = category === null || slug === null
+    ? false : await articleIndex.has(category, slug);
+  let missing = indexed === false;
+  if (indexed === null) {
+    // PC-J526: page-level notFound() is too late once the loading shell has
+    // streamed. Only the backend's own article 404 can establish a miss here;
+    // gateway 404s, timeouts and other statuses retain the route's fail-closed
+    // handling.
+    try {
+      const res = await fetch(`${API_BASE}/api/grammar/article/${encodeURIComponent(category!)}/${encodeURIComponent(slug!)}`, {
+        signal: AbortSignal.timeout(INDEX_TIMEOUT_MS),
+        cache: 'no-store',
+        redirect: 'manual',
+      });
+      missing = await isBackendArticleMiss(res);
+    } catch {
+      // Let the article loader handle backend/network errors (B17/B12).
+    }
+  }
   return missing
     ? NextResponse.rewrite(new URL(GRAMMAR_ARTICLE_NOT_FOUND_PATH, request.url))
     : NextResponse.next();
 }
+
+// Inlined at build by next.config.ts `env` (tooling/nonce-route-table.mjs).
+// Unusable → null, which keeps the nonce policy on every prefixed URL.
+const nonceRoutes = parseNonceRouteTable(process.env.AVER_CSP_NONCE_ROUTES);
 
 function createNonce() {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
@@ -94,6 +134,11 @@ function noncePolicy(request: NextRequest) {
   // Matcher exclusions are checked again here so direct calls and future
   // matcher edits cannot enable a blocking nonce policy on public/prod URLs.
   if (!nonceRouteAllowed(request.nextUrl.pathname)) return NextResponse.next();
+  // PC-J566 / SA-1029-CSP1 F1 (b): no route answers this URL, so Next serves
+  // the prerendered root 404. Leave it the public baseline (no nonce, no
+  // Report-Only), the same as `/nope-top-level`. Decided from the build's own
+  // route table only, never from request headers or a "404" in the URL.
+  if (!nonceRouteExists(request.nextUrl.pathname, nonceRoutes)) return NextResponse.next();
   if (process.env.AVER_CSP_NONCE_ENFORCE !== '1') return nonceReportOnly(request);
   if (process.env.VERCEL_ENV === 'production' || !nonceHostAllowed(request.nextUrl.hostname)) {
     return NextResponse.next();

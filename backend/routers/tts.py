@@ -69,9 +69,9 @@ _FEATURE = "question_tts"
 
 
 def _client_ip(request: Request | None) -> str | None:
-    # Same key as RequestSafetyMiddleware: rightmost untrusted XFF hop →
-    # X-Real-IP → peer. Only configured proxy CIDRs may be skipped; an invalid
-    # hop stops the scan (PC-J202/J183).
+    # Same key as RequestSafetyMiddleware: X-Real-IP → rightmost untrusted
+    # XFF hop → peer. Only configured proxy CIDRs may be skipped; an invalid
+    # hop stops the scan (PC-J202/J183, PC-J520).
     return request_client_ip(request)
 
 
@@ -170,7 +170,8 @@ def _load_owned_session(user_id: str, session_id: UUID | None) -> dict | None:
             .execute()
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi khi tải session: {e}")
+        logger.error("[tts] session lookup failed session=%s: %s", session_id, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Lỗi khi tải phiên luyện. Vui lòng thử lại.") from None
     if not result.data:
         raise HTTPException(status_code=404, detail="Session không tồn tại")
     return result.data[0]
@@ -228,5 +229,5 @@ async def text_to_speech(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("[tts] OpenAI TTS failed: %s", e)
-        raise HTTPException(502, f"TTS service error: {e}")
+        logger.error("[tts] OpenAI TTS failed: %s", e, exc_info=True)
+        raise HTTPException(502, "Dịch vụ đọc mẫu đang lỗi. Vui lòng thử lại.") from None

@@ -33,13 +33,15 @@ the ``is_active`` result is remembered for the request so the folded checks in
 add no query. Nothing is cached ACROSS requests.
 
 PC-J05 (D1a): the gate itself runs the ``a*`` variants below. With
-``USE_ASYNC_DB`` off they ARE the sync functions (same query, same client,
-same test seams); with it on the ``is_active`` read awaits the async client
-instead of blocking the event loop for one Supabase round-trip per request.
+``USE_ASYNC_DB`` off they run the sync functions (same query, same client,
+same test seams) in a worker thread (ASYNCAUTH-0036 Revision 3); with it on
+the ``is_active`` read awaits the async client. Either way the event loop is
+not blocked for one Supabase round-trip per request.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextvars import ContextVar
 from typing import Optional
@@ -71,7 +73,7 @@ ACTIVATION_EXEMPT_ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/health"): "uptime probe, no auth",
     ("GET", "/health/ready"): "readiness probe, no auth (admin-only detail is role-gated inside)",
     ("GET", "/health/runtime"): "runtime probe, no auth (admin-only detail is role-gated inside)",
-    ("GET", "/health/async-db"): "async-DB probe, no auth",
+    ("GET", "/health/async-db"): "async-DB probe, no auth (admin-only saturation detail is role-gated inside)",
     ("GET", "/health/grammar-check"): "grammar-checker probe, no auth",
     ("GET", "/health/quiz-write"): "quiz-write probe, no auth",
     ("GET", "/sitemap-grammar.xml"): "public SEO sitemap",
@@ -181,9 +183,10 @@ def lookup_is_active(user_id: str) -> bool:
 
 async def alookup_is_active(user_id: str) -> bool:
     """:func:`lookup_is_active` for async callers: identical result and 503
-    fail-closed contract; awaits the async client when ``USE_ASYNC_DB`` is on."""
+    fail-closed contract; awaits the async client when ``USE_ASYNC_DB`` is on,
+    else runs the sync read in a worker thread (Revision 3)."""
     if not settings.USE_ASYNC_DB:
-        return lookup_is_active(user_id)
+        return await asyncio.to_thread(lookup_is_active, user_id)
     try:
         rows = (await aexecute(_is_active_query(user_id))).data or []
     except Exception as exc:

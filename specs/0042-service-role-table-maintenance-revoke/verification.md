@@ -7,13 +7,24 @@
 | FR-001 | kind=test; ref=backend/tests/test_migration_NNN_service_role_table_maintenance_revoke.py (mandatory all-relations coverage; named checks incl. access_codes/user_code_assignments; missing names reported; PG16/17) plus table/PUBLIC drift checks (T002); not written yet | PENDING |
 | FR-002 | kind=test; ref=backend/tests/test_migration_NNN_service_role_table_maintenance_revoke.py (normalized CRUD snapshot incl. NULL relacl, column grant and grant options; schema USAGE unchanged; no GRANT in NNN) plus before/after record (T002); not written yet | PENDING |
 | FR-003 | kind=test; ref=backend/tests/test_migration_NNN_service_role_table_maintenance_revoke.py (schema-scoped and global default ACL, table created after NNN, probe dropped, un-actable owner warns) plus staging `pg_default_acl` postcheck (T002); not written yet | PENDING |
-| FR-004 | kind=test; ref=backend/tests/test_migration_NNN_service_role_table_maintenance_revoke.py (second apply; abort on targeted-role ownership, table/schema re-grant and inherited CREATE; NOTICE for triggers/other grantees) plus pre-apply overload triage; not written yet | PENDING |
+| FR-004 | kind=test; ref=backend/tests/test_migration_NNN_service_role_table_maintenance_revoke.py (second apply; abort on targeted-role ownership, table re-grant, and FR-009 re-check failures: missing 357, schema re-grant or inherited CREATE; NOTICE for triggers/other grantees) plus pre-apply overload triage; not written yet | PENDING |
 | FR-005 | kind=test; ref=backend/tests/test_migration_NNN_service_role_table_maintenance_revoke.py (genuine service_role 42501 on CREATE TRIGGER/TRUNCATE/FK/LOCK; direct DELETE/UPDATE FK CASCADE/SET NULL negative controls; P2-SA-1 repro; RPCs unchanged) plus SA retest (T002); not written yet | PENDING |
 | FR-006 | kind=test; ref=backend/tests/test_service_role_table_privilege_guard.py (forward > NNN; ALL rollback files incl. down 356/below NNN; backend/scripts; every forbidden family: table/default grants, pg_maintain/pg_write_all_data/postgres membership, OWNER TO service_role, schema CREATE/ALL, EXECUTE format; .sql/.sh/.py mutations, safe/comment controls); not written yet | PENDING |
-| FR-007 | kind=test; ref=backend/tests/test_service_role_table_privilege_guard.py (clone after #2055 AND schema-USAGE-only follow-up) plus synthetic clone/baseline/explicit-feature-apply scenario 11 proving pending_feature excludes NNN from baseline and NNN really executes, with table/default/schema postchecks; not written yet | PENDING |
-| FR-008 | kind=test; ref=backend/tests/test_migration_NNN_service_role_table_maintenance_revoke.py (with/without 341/356; corrected down 356 after NNN does not restore rights; after down 356 genuine service_role UPDATE/DELETE on class_action_log gets 42501, with a re-grant mutation as negative control; below-NNN rollback mutation rejected; no object change besides dropped probe) plus backend/tests/test_migration_358_function_search_path_pin.py (358 changes only proconfig: bodies, owners, ACLs, triggers unchanged); not written yet | PENDING |
-| FR-009 | kind=test; ref=backend/tests/test_migration_NNN_service_role_table_maintenance_revoke.py (PG16/17 genuine roles cannot plant lower(varchar) or jsonb_build_object(text,uuid,text,text); negative control with table rights revoked but CREATE retained records postgres; postcondition aborts on re-grant/inheritance; USAGE unchanged) plus schema ACL read-only checks separately on staging/production and Q-J357-3 resolution; not written yet | PENDING |
-| FR-010 | kind=test; ref=backend/tests/test_migration_358_function_search_path_pin.py (Scenario 12: PG16/17 temp-view shadow through grammar_content_releases FK CASCADE, red before 358 with has_table_privilege('service_role','public.users','TRIGGER') true, green after 358; P3-SA-8 session checks; owner-path negative control; zero unpinned public functions postcondition) plus backend/tests/test_migration_function_search_path_guard.py (new unpinned CREATE [OR REPLACE] FUNCTION fails) and SA staging retest after 358 (T002); implementation on branch q/001iv-mig358-pin-search-path @ 02ccd1392, not merged | PENDING |
+| FR-007 | kind=test; ref=backend/tests/test_service_role_table_privilege_guard.py (clone after #2055 AND schema-USAGE-only follow-up) plus synthetic clone/baseline/explicit-feature-apply scenario 11 proving pending_feature excludes NNN from baseline and the authorized apply executes 357 first when missing, then NNN, with table/default postchecks and an FR-009 re-check; not written yet | PENDING |
+| FR-008 | kind=test; ref=backend/tests/test_migration_NNN_service_role_table_maintenance_revoke.py (with/without 341/356; with 344, 356, 357 and NNN applied, the down 356 owned by CALAPPEND-0041 T001 does not restore rights; after down 356 genuine service_role UPDATE/DELETE on class_action_log gets 42501, both policies stay absent and anon/authenticated have no table/column privileges, with a re-grant mutation as negative control; below-NNN rollback mutation rejected; no object change besides dropped probe) plus backend/tests/test_migration_358_function_search_path_pin.py (358 changes only proconfig: bodies, owners, ACLs, triggers unchanged); not written yet | PENDING |
+| FR-009 | kind=test; ref=backend/tests/test_migration_357_*.py (primary FR-009 tests, T005 / migration 357, PC-J365/job 1h1: PG16/17 genuine roles cannot plant lower(varchar) or jsonb_build_object(text,uuid,text,text); negative control with table rights revoked but CREATE retained records postgres; postcondition aborts on re-grant/inheritance; USAGE unchanged) and backend/tests/test_migration_NNN_service_role_table_maintenance_revoke.py (NNN re-check only under FR-004: abort on missing 357, schema re-grant or inherited CREATE) plus schema ACL read-only checks separately on staging/production and Q-J357-3 resolution; not written yet | PENDING |
+| FR-010 | kind=test; ref=backend/tests/test_migration_358_function_search_path_pin.py ((a) Scenario 12: PG16/17 temp-view shadow through grammar_content_releases FK CASCADE, red before 358 with has_table_privilege('service_role','public.users','TRIGGER') true, green after 358; (b) temp-view/temp-domain shadow against one fn_admin_* definer and one former '' routine, negative control before 358; P3-SA-8 session checks; owner-path negative control; precondition unpinned_function_not_owned_by_runner; postcondition: zero public/app_private routines whose proconfig lacks search_path, has search_path = '' or does not end with pg_temp; bodies/owners/ACLs/volatility/triggers unchanged) plus backend/tests/test_migration_function_search_path_guard.py (new CREATE [OR REPLACE] FUNCTION|PROCEDURE fails without SET search_path, with '' or with pg_temp not last) and SA staging retest after 358 (T002); implementation for the four 283 functions on branch q/001iv-mig358-pin-search-path @ 02ccd1392, not merged, to be widened under PGTEMP option a (T004) | PENDING |
+
+## Amendment acceptance — PC-J530
+
+- Ordering: 357 → NNN is explicit in `spec.md`, `plan.md` (Ordering),
+  `tasks.md` (T001 depends on T005 applied on the target) and `rollout.md`.
+- NNN re-checks FR-009; the schema revoke and primary tests belong to 357.
+- The FR-010 staging-example correction is recorded outside the unchanged
+  requirement text in `spec.md` (Amendment): five `fn_admin_*` routines from
+  297–302; 334/335 are the item-3 routines with an empty `search_path`.
+- SA and FD confirmation of this amendment: **PENDING** on the follow-up PR.
+  This documentation change does not supply migration/runtime evidence.
 
 ## Contract evidence
 
@@ -42,8 +53,37 @@
   `probe_temp_shadow.out` record the 4 unpinned 283 trigger functions and
   the post-NNN temp-view shadow that grants `TRIGGER ON public.users` back;
   pinning `search_path` or revoking TEMP stops it (FR-010, P2-R2-1).
-- Post-NNN staging postcheck: pending T002. Post-358 zero-unpinned check and
-  SA temp-shadow retest: pending T002 after T004.
+- Staging routine catalog for FR-010, read-only, 2026-11-02 (PC-J509,
+  Management API `read_only: true`; query and result in
+  `/workspace/cc-jobs/job-q-1om-pc-j509-spec0042-approve-amend.log.d/ro-ledger-catalog.{sql,result}`).
+  Ledger: 283, 297–302, 334 and 335 are applied; **345, 357 and 358 are
+  not** (no `_schema_migrations` row), so 345 Part B has not pinned the 283
+  trigger functions on staging. Routines in `public`/`app_private` (not
+  extension members, `prokind IN ('f','p')`) whose `search_path` is
+  missing, `''` or does not end with `pg_temp`: 11, matching SA's count
+  (PC-J455). All are owned by `postgres`.
+
+  | Routine | Defined by | `search_path` now | After 358 |
+  | --- | --- | --- | --- |
+  | `prevent_grammar_release_content_mutation()` | 283 | none | `public, pg_temp` |
+  | `prevent_validated_grammar_release_rewrite()` | 283 | none | `public, pg_temp` |
+  | `prevent_grammar_evidence_mutation()` | 283 | none | `public, pg_temp` |
+  | `prevent_completed_grammar_session_mutation()` | 283 | none | `public, pg_temp` |
+  | `fn_admin_writing_queue_page(…)` | 297, 300 | `pg_catalog, public` | `pg_catalog, public, pg_temp` |
+  | `fn_admin_mock_actionable_review_exam_ids(uuid[])` | 298 | `pg_catalog, public` | `pg_catalog, public, pg_temp` |
+  | `fn_admin_exam_content_page_ids(…)` | 299, 301 | `pg_catalog, public` | `pg_catalog, public, pg_temp` |
+  | `fn_admin_exam_content_levels(text)` | 299 | `pg_catalog, public` | `pg_catalog, public, pg_temp` |
+  | `fn_admin_mock_exams_with_review_eligibility()` | 302 | `pg_catalog, public` | `pg_catalog, public, pg_temp` |
+  | `fn_activate_attempt_check(uuid)` | 334 | `''` | `pg_catalog, pg_temp` |
+  | `app_private.is_current_user_active()` | 335 | `''` | `pg_catalog, pg_temp` |
+
+  `quiz_start_timed_course_session` (263/264, `public`) is not in the set:
+  migrations 265/266/270 redefined it and staging already ends its
+  `search_path` with `pg_temp`. FR-010's scope is every routine in those
+  schemas, not this list; the 358 job re-reads the catalog at build time.
+- Post-NNN staging postcheck: pending T002. Post-358 check (zero routines
+  whose `search_path` is missing, `''` or not ending with `pg_temp`) and SA
+  temp-shadow retest: pending T002 after T004.
 
 ## UI evidence
 

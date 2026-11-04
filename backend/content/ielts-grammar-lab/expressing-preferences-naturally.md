@@ -71,7 +71,7 @@ anchors:
 | **I'm more of a [noun] person** | I'm more of a morning person. | Casual/Vivid |
 | **What I enjoy most is...** | What I enjoy most is being outdoors. | Emphatic |
 | **I have a soft spot for...** | I have a soft spot for old movies. | Warm/Informal |
-| **[A] appeals to me more than [B]** | City life appeals to me more than rural life. | Formal |
+| **[A] appeals to me more than [B]** | City life appeals to me more than rural life. | Neutral |
 
 ---
 
@@ -84,7 +84,7 @@ Trong IELTS Speaking Part 1 và Part 2, câu hỏi về sở thích rất phổ 
 <!-- anchor: expressing-preferences-naturally.prefer-structure -->
 ## PHẦN 1: I PREFER — Cấu trúc nền tảng
 
-### prefer + V-ing (không so sánh):
+### prefer + V-ing (có thể kèm to + V-ing):
 
 ```
 I prefer + V-ing (+ to/over + V-ing)
@@ -140,7 +140,7 @@ I tend to + verb / I tend to be + adj
 
 - I **tend to prefer** mornings for studying — my mind is fresher.
 - I **tend to gravitate towards** quieter, less touristy places when I travel.
-- I **tend to lean** more towards practical solutions rather than creative ones.
+- I **tend to lean towards** practical solutions rather than creative ones.
 - I **tend to be** more of an introvert, so I prefer smaller gatherings.
 
 ---
@@ -211,7 +211,7 @@ Sở thích mà không có lý do nghe rất flat. Luôn thêm lý do bằng:
 
 ### Part 2 — Kể về sở thích trong bài mô tả:
 
-> "One thing that stands out about this hobby is that **I've always had a soft spot for** photography, even before I owned a decent camera. **What appeals to me most** is the way a single photo can capture something that words can't quite describe. I **tend to prefer** candid shots over posed ones — **I'd rather** catch a genuine moment than stage something perfect."
+> "**I've always had a soft spot for** photography, even before I owned a decent camera. **What appeals to me most** is the way a single photo can capture something that words can't quite describe. I **tend to prefer** candid shots over posed ones — **I'd rather** catch a genuine moment than stage something perfect."
 
 ---
 
@@ -268,5 +268,5 @@ LUÔN THÊM LÝ DO:
 
 IELTS TIP:
   Part 1 → sở thích + lý do ngắn (2-3 câu)
-  Part 2 → sở thích + lý do + ví dụ cụ thể (5-6 câu)
+  Part 2 → nói đủ 1–2 phút: sở thích + lý do + ví dụ cụ thể
 ```

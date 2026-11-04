@@ -557,7 +557,9 @@ class TestReactivate:
         assert r.status_code == 200, r.text
         body = r.json()
         assert body["is_active"] is True and body["suspended_at"] is None and body["changed"] is True
-        assert body["sign_in_restored"] is True and body["sessions_revoked"] is None
+        # The revocation before the unban is confirmed, so it is reported (PC-J159).
+        assert body["sign_in_restored"] is True and body["sessions_revoked"] is True
+        assert body["revoke_error"] is None
         assert db.user(INSTRUCTOR)["suspended_at"] is None and db.user(INSTRUCTOR)["is_active"] is True
         assert db.auth.admin.calls[-1] == (INSTRUCTOR, "none")
         assert INSTRUCTOR not in db.auth.admin.banned
@@ -582,11 +584,13 @@ class TestReactivate:
         db.auth.admin.fail_unban = False
         retry = _active(client, INSTRUCTOR, True)
         assert retry.json()["ok"] is True and retry.json()["changed"] is True
-        assert retry.json()["sign_in_restored"] is True
+        assert retry.json()["sign_in_restored"] is True and retry.json()["sessions_revoked"] is True
         assert INSTRUCTOR not in db.auth.admin.banned and db.user(INSTRUCTOR)["suspended_at"] is None
         assert len(db.audits()) == 2   # suspend + reactivate, none for the failed attempt
         again = _active(client, INSTRUCTOR, True)
         assert again.json()["changed"] is False and again.json()["sign_in_restored"] is None
+        # Already active: nothing is revoked, so not applicable (null).
+        assert again.json()["sessions_revoked"] is None
 
     def test_unban_happens_before_the_marker_is_cleared(self, client, db):
         _active(client, INSTRUCTOR, False)
@@ -672,7 +676,9 @@ class TestReactivate:
         _active(client, INSTRUCTOR, False)
         r = _active(client, INSTRUCTOR, True, reason="đã đổi mật khẩu")
         assert r.json()["ok"] is True and r.json()["sign_in_restored"] is True
-        assert r.json()["sessions_revoked"] is None and r.json()["revoke_error"] is None
+        # PC-J159: the confirmed pre-unban revocation is reported as true
+        # (was null). It still writes no audit row of its own (part B pending).
+        assert r.json()["sessions_revoked"] is True and r.json()["revoke_error"] is None
         assert [a["event"] for a in db.audits()] == ["active_changed", "active_changed"]
 
 
@@ -732,6 +738,7 @@ class TestReactivateAfterFailedRevocation:
         assert r.status_code == 200, r.text
         body = r.json()
         assert body["ok"] is True and body["changed"] is True and body["sign_in_restored"] is True
+        assert body["sessions_revoked"] is True and body["revoke_error"] is None
         assert body["is_active"] is True and body["suspended_at"] is None
         assert seen == [0], "the ban was lifted while old sessions still existed"
         assert engine.sessions.get(target, 0) == 0
@@ -829,6 +836,13 @@ class TestRevocationFailure:
         failed = db.audits("sessions_revoke_failed")
         assert len(failed) == 1 and db.tables["owner_alert_outbox"] == []
         assert any("has no owner alert until the next revocation" in m for m in caplog.messages)
+        # Reads recover before the direct connection: expose the orphan until
+        # a retry actually persists its missing outbox row.
+        db.fail_tables.discard("owner_alert_outbox")
+        history = client.get(f"/admin/users/{INSTRUCTOR}/security-audit", headers=AUTH)
+        assert history.status_code == 200, history.text
+        orphan = next(row for row in history.json()["rows"] if row["id"] == failed[0]["id"])
+        assert orphan["alert_status"] == "not_recorded"
         # Both paths back: the retry revokes and enqueues the missing alert in
         # its own audit transaction.
         engine.fail = False
@@ -1377,6 +1391,33 @@ class TestSecurityAudit:
     def _history(self, client, uid, **params):
         return client.get(f"/admin/users/{uid}/security-audit", params=params, headers=AUTH)
 
+    @pytest.mark.parametrize("status", [None, "pending", "sent", "failed"])
+    def test_revocation_failure_uses_outbox_status_or_not_recorded(self, client, db, status):
+        audit_id = str(uuid.uuid4())
+        db.table("staff_security_audit").insert({
+            "id": audit_id, "event": "sessions_revoke_failed", "source": "admin_api",
+            "target_user_id": INSTRUCTOR, "actor_user_id": ADMIN,
+        }).execute()
+        if status is not None:
+            db.table("owner_alert_outbox").insert({"audit_id": audit_id, "status": status}).execute()
+        response = self._history(client, INSTRUCTOR)
+        assert response.status_code == 200, response.text
+        assert response.json()["rows"][0]["alert_status"] == (status or "not_recorded")
+
+    @pytest.mark.parametrize("event,source", [
+        ("sessions_revoked", "admin_api"),
+        ("sessions_revoke_failed", "out_of_band"),
+        ("role_changed", "admin_api"),
+    ])
+    def test_other_orphan_rows_do_not_get_not_recorded(self, client, db, event, source):
+        db.table("staff_security_audit").insert({
+            "event": event, "source": source, "target_user_id": INSTRUCTOR,
+            "actor_user_id": ADMIN, "before": {"role": "instructor"}, "after": {"role": "student"},
+        }).execute()
+        response = self._history(client, INSTRUCTOR)
+        assert response.status_code == 200, response.text
+        assert response.json()["rows"][0]["alert_status"] is None
+
     def test_rows_newest_first_with_actor_email_and_alert_status(self, client, db, engine):
         _active(client, ADMIN2, False)                     # admin event → alert
         engine.fail = True
@@ -1593,6 +1634,58 @@ class TestStepUp:
         assert len(lines) == 1, lines
         assert '"reason": "totp_stale"' in lines[0] and '"max_age_seconds": 900' in lines[0]
         assert '"user_id": "%s"' % ADMIN in lines[0]
+
+    @staticmethod
+    def _with_recent_factor():
+        # FR-020a: an old factor plus one verified an hour ago (Amendment 2).
+        import time
+
+        from tests.test_staff_guard import VERIFIED, iso
+
+        at = iso(time.time() - 3600)
+        admin = {"id": ADMIN, "email": "admin@example.test", "factors": VERIFIED + [
+            {"id": "f-new", "factor_type": "totp", "status": "verified", "created_at": at, "updated_at": at}]}
+        sec_module.require_admin.return_value = admin  # the fixture's shared AsyncMock
+        assert admin_module.require_admin is sec_module.require_admin
+
+    @pytest.mark.parametrize("call", list(STEP_UP_CALLS))
+    def test_recent_factor_with_a_fresh_totp_is_403_cooloff_before_any_db_call(
+            self, step_up_client, db, engine, call):
+        from config import settings
+        from services import staff_guard
+
+        client, monkeypatch = step_up_client
+        monkeypatch.setattr(settings, "ADMIN_STEP_UP_ENFORCE", True)
+        self._with_recent_factor()
+        before = _state(db, engine)
+        r = STEP_UP_CALLS[call](client, _step_up_bearer(5))
+        assert r.status_code == 403, r.text
+        assert r.json()["detail"] == {
+            "code": "step_up_required", "next_step": "challenge", "max_age_seconds": 900,
+            "reason": "new_factor_cooloff", "message": staff_guard.STEP_UP_COOLOFF_MESSAGE,
+        }
+        assert _state(db, engine) == before
+        assert db.ops == [] and db.rpc_calls == [] and db.auth.admin.calls == []
+        assert engine.statements == [] and engine.lock_statements == []
+        assert db.audits() == [] and db.tables["owner_alert_outbox"] == []
+
+    @pytest.mark.parametrize("call", list(STEP_UP_CALLS))
+    def test_report_only_recent_factor_logs_one_cooloff_line_and_succeeds(
+            self, step_up_client, db, engine, call, caplog):
+        import logging
+
+        from services import staff_guard
+
+        client, _ = step_up_client
+        self._with_recent_factor()
+        with caplog.at_level(logging.WARNING, logger=staff_guard.logger.name):
+            r = STEP_UP_CALLS[call](client, _step_up_bearer(16 * 60))
+        assert r.status_code == 200, r.text
+        lines = [rec.getMessage() for rec in caplog.records
+                 if rec.getMessage().startswith(staff_guard.STEP_UP_WOULD_BLOCK_EVENT)]
+        assert len(lines) == 1, lines
+        assert '"reason": "new_factor_cooloff"' in lines[0]
+        assert "admin@example.test" not in lines[0]
 
     def test_enforcement_covers_an_aal1_session(self, step_up_client, db, engine):
         # ADMIN_AAL2_ENFORCE off lets an AAL1 admin past FR-001; step-up still

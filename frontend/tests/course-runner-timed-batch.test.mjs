@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 
 import { createRunner } from '../public/js/course-runner.js';
 
-const FLUSH_MS = 15000;
+const FLUSH_MS = 45000;
 const NEAR_END_MS = 60000;
 const MINUTE = 60 * 1000;
 
@@ -356,12 +356,14 @@ test('(c) property: no pacing ever holds an answer past FLUSH_MS or into the las
 });
 
 test('(c) a failed held batch is retried before cutoff, not left for the time-cap close', async () => {
-  const h = harness({ remainingMs: 90 * 1000 });
+  // The full FLUSH_MS hold fails 15 s before the last minute starts.
+  const h = harness({ remainingMs: NEAR_END_MS + FLUSH_MS + 15000 });
   const r = await load(h);
   await answer(h, r);
   await answer(h, r);
   h.failNext(2);
   await advance(h, FLUSH_MS);
+  assert.equal(h.calls.progress.length, 1, 'the held batch was sent at FLUSH_MS and failed');
   assert.equal(r.pendingCount, 2, 'the failed batch is back in the queue');
   await advance(h, h.remaining());
   const result = await r.finishStage({ endedBy: 'time_cap' });

@@ -15,7 +15,7 @@
 | FR-009 | kind=test; ref=backend/tests/test_migration_332_staff_security_audit.py (one row per change, source classification, append-only for owner, grants, N-1 activation); kind=query; ref=rollout.md S5 audit coverage query on staging | PENDING |
 | FR-010 | kind=test; ref=backend/tests/test_staff_security_sweep.py (factor verified and deleted between two runs yields two rows, idempotent re-run, cursor durability, snapshot backstop, no secret stored); kind=journey; ref=spec.md AC6 factor enroll and removal on staging within 5 minutes, including add-then-remove inside one sweep interval | PENDING |
 | FR-011 | kind=test; ref=backend/tests/test_owner_alerts.py (event set, recipients from env only, payload has no token or secret, retry to 5 then failed); kind=journey; ref=spec.md AC6 email received on staging | PENDING |
-| FR-012 | kind=test; ref=frontend/tests/admin-mfa-next-behavior.test.mjs and the /admin/mfa Next-native browser verifier (enroll, challenge, wrong code, rate limit, remove with fresh code, next sanitising); Amendment 1: kind=test; ref=backend/tests/test_staff_guard.py (spec.md AC11: 12 h + 1 s refused, 11 h 59 m allowed, missing amr expired, ADMIN_AAL2_MAX_AGE_HOURS abc/0/48 → 12 with a startup log, report-only one would_block line) and the /admin/mfa node test that a factor is deleted only after a fresh verify (AC12); kind=journey; ref=spec.md AC11 report-only log for an old TOTP on staging | PENDING |
+| FR-012 | kind=test; ref=frontend/tests/admin-mfa-next-behavior.test.mjs and the /admin/mfa Next-native browser verifier (enroll, challenge, wrong code, rate limit, remove with fresh code, next sanitising); Amendment 1: kind=test; ref=backend/tests/test_staff_guard.py (spec.md AC11: 12 h + 1 s refused, 11 h 59 m allowed, missing amr expired, ADMIN_AAL2_MAX_AGE_HOURS abc/0/48 → 12 with a startup log, report-only one would_block line) and the /admin/mfa node test that a factor is deleted only after a fresh verify (AC12); kind=journey; ref=spec.md AC11 report-only log for an old TOTP on staging; Amendment 2 planned: kind=test; ref=backend/tests/test_staff_guard.py (AC15: NaN/±inf ignored before latest finite timestamp selection, no finite candidate = totp_expired, mixed entry order, both enforcement flags and safe logging) | PENDING |
 | FR-013 | kind=test; ref=frontend/tests/admin-mfa-gate.test.mjs (gate redirect, report-only banner, api.js mfa_required navigation) and frontend/tooling/verify-admin-mfa-flow.mjs, with the existing verify-admin-*.mjs verifiers green using the shared AAL2 stub | PENDING |
 | FR-014 | kind=test; ref=frontend/tests/instructor-inactive-state.test.mjs (three instructor clients map a mid-session inactive 403 to the denied state) plus the PR #1771 activation-gate tests for load and reload; kind=journey; ref=spec.md AC5 on staging | PENDING |
 | FR-015 | kind=test; ref=backend/tests/test_admin_staff_security_routes.py (security-audit order, alert_status, 503) and frontend/tests/admin-users-staff-security.test.mjs (⚠ on lookup failure) | PENDING |
@@ -23,13 +23,51 @@
 | FR-018 | kind=test; ref=backend/tests/test_migration_332_staff_security_audit.py (suspension guard on every reactivation path, concurrent activation blocked on the lock) and backend/tests/test_activation_suspended_account.py (403 account_suspended before claim, code unused, admin issuance 409 with compensation); kind=test; ref=frontend/tests/login-suspended-account.test.mjs; kind=journey; ref=spec.md AC9 on staging with forced revocation failure | PENDING |
 | FR-017 | kind=query; ref=rollout.md P4 readiness query on staging and production; kind=test; ref=backend/tests/test_migration_332_staff_security_audit.py (bootstrap grants, admins_exist refusal, zero-admin restore); kind=journey; ref=spec.md AC8 recovery drill timings on staging, including path (e) from zero eligible admins | PENDING |
 | FR-019 | kind=test; ref=backend/tests/test_migration_336_suspended_account_role_guard.py (role change of a suspended account refused through the RPC, service REST, owner and superuser SQL; allowed after reactivation; bootstrap exempt; preconditions, postconditions, rollback); kind=test; ref=backend/tests/test_admin_user_role.py (409 account_suspended_role_change with the Vietnamese message); kind=journey; ref=spec.md AC10 on staging after 336 is applied | PENDING |
-| FR-020 | kind=test; ref=backend/tests/test_staff_guard.py and backend/tests/test_admin_staff_security_routes.py and backend/tests/test_admin_user_role.py (spec.md AC12: TOTP 16 min + ADMIN_STEP_UP_ENFORCE=true on PATCH role, PATCH active, POST revoke-sessions → 403 step_up_required with no row change, no staff_security_audit row, no outbox row; 14 min succeeds; report-only one admin_step_up_would_block line; invalid config → 15 / false); kind=test; ref=backend/tests/test_staff_guard_inventory.py (every route that uses require_recent_mfa); kind=test; ref=frontend node test that the UI resends exactly once after a successful challenge; kind=journey; ref=spec.md AC12 on staging: report-only logs, helpers.js fresh AAL2 before sensitive steps, live Staging E2E green; enforcement on staging only in lot 11 or later | PENDING |
+| FR-020 | kind=test; ref=backend/tests/test_staff_guard.py and backend/tests/test_admin_staff_security_routes.py and backend/tests/test_admin_user_role.py (spec.md AC12: TOTP 16 min + ADMIN_STEP_UP_ENFORCE=true on PATCH role, PATCH active, POST revoke-sessions → 403 step_up_required with no row change, no staff_security_audit row, no outbox row; 14 min succeeds; report-only one admin_step_up_would_block line; invalid config → 15 / false); kind=test; ref=backend/tests/test_staff_guard_inventory.py (every route that uses require_recent_mfa); kind=test; ref=frontend node test that the UI resends exactly once after a successful challenge; kind=journey; ref=spec.md AC12 on staging: report-only logs, helpers.js fresh AAL2 before sensitive steps, live Staging E2E green; enforcement on staging only in lot 11 or later; Amendment 2 planned: kind=test; ref=backend/tests/test_staff_guard.py (FR-020a/AC13: any verified factor, both timestamps, 24 h boundary, no bypass, report-only reason); kind=test; ref=backend/tests/test_access_code_generation.py and backend/tests/test_staff_guard_inventory.py (AC14: conditional grants_role guard, both branches, zero side effects); kind=test; ref=frontend/tests/admin-mfa-transport.test.mjs and frontend/tests/admin-access-codes.test.mjs (cool-off wait without prompt/retry, stale-TOTP retry once, immediate/reload truth); kind=check; ref=specs/0032-admin-aal2-staff-guard/spec.md AC13–AC15 and Amendment 2 delivery gate (SA review, no flag enablement) | PENDING |
+
+## PC-J150 — missing revocation alert status (FR-011, FR-015)
+
+- Prerequisite #1928 merged at `2026-10-30T08:57:15Z`: merge commit
+  `d94c303e7e1e886228b64ada802a2ef58456a991`, PR head
+  `721ce781c8eee96a2e84e614db9f6d3d4c115406`. At the starting staging SHA
+  `bf22c10ee5e83dcd96beda1ee338eef63059480c`, the affected backend service
+  and response model were unchanged from #1928 and had no `not_recorded`.
+- Red/green: before the implementation change, the new missing-outbox case
+  and the extended retry test failed (`2 failed, 6 passed`): history returned
+  `null`. After the change, all 116 tests in
+  `backend/tests/test_admin_staff_security_routes.py` passed with
+  `REQUIRE_PG=1` against a disposable local PostgreSQL 17 cluster.
+- `TestSecurityAudit::test_revocation_failure_uses_outbox_status_or_not_recorded`
+  covers an `admin_api` revocation failure without an outbox row and with
+  `pending`, `sent`, and `failed` rows. The shared event/source predicate also
+  generates the retry enqueue SQL. `test_other_orphan_rows_do_not_get_not_recorded`
+  excludes successful retries, `out_of_band` failures, and instructor role changes.
+- `TestRevocationFailure::test_failure_audit_write_failing_still_answers_the_committed_change`
+  now reads the orphan as `not_recorded` before retry and as `pending` after
+  retry, retaining every existing assertion. The unchanged reload/outbox and
+  newest-first tests also pass.
+- `frontend/tests/admin-users-staff-security.test.mjs` asserts the exact label
+  and failed tone. `frontend/tests/react/admin-users-staff-security.test.tsx`
+  checks the owner-alert cell, the `null` dash, and reopening with `pending`.
+  Full Node tests: 13,711 passed, 1 existing skip; React: 986 passed.
+  Strict and legacy TypeScript checks, Next build, and regeneration of
+  `frontend/types/api.d.ts` with the CI OpenAPI command passed.
+- Local Next browser fixture: both themes show the label and `null` dash;
+  a full page reload with the updated API response shows `pending` without
+  the old label (four history reads, no browser exceptions). Screenshots:
+  [light](evidence/pc-j150-not-recorded-light.png),
+  [dark](evidence/pc-j150-not-recorded-dark.png). Every remote request was
+  intercepted; only synthetic fixture data was used.
+- No migration, staging database write, production access, real email, or
+  Railway change. Staging merge remains Leader-owned after CI is green (00e).
 
 ## Amendment 1 evidence (AC11, AC12) — offline done, staging PENDING
 
 Approved 2026-10-29 14:44 (UTC+7); implementation is T016 (PC-J135), after
 #1898 (T010). The offline tests below ran on the PC-J135 branch; the FR-012
-and FR-020 rows stay `PENDING` until the staging journeys run.
+and FR-020 rows stay `PENDING` until the staging journeys and Amendment 2
+evidence below are complete. These are historical Amendment 1 results,
+not proof that the Amendment 2 controls pass.
 
 - **AC11 (FR-012), offline:** `backend/tests/test_staff_guard.py`
   (`test_totp_12h_plus_1s_is_refused_under_enforcement`,
@@ -68,17 +106,180 @@ and FR-020 rows stay `PENDING` until the staging journeys run.
   must show `require_recent_mfa` in the same inventory test when they land
   (PC-J138).
 
-### Rủi ro còn lại (residual risk, accepted by Leader 2026-10-29 14:53)
+## Amendment 2 verification plan (AC13–AC15) — offline done (PC-J300), SA review PENDING
 
-Factor deletion is **not** enforced on the server. `/admin/mfa` calls GoTrue
-`mfa.unenroll` directly from the browser, so `require_recent_mfa()` never runs
-on it, and GoTrue only requires AAL2. A stolen AAL2 session (≤ 12 h old) can
-delete a factor without a new code by calling GoTrue directly. Controls: the
-fresh verify in the `/admin/mfa` UI (AC12 node test), the T007 factor-deleted
-owner alert within one sweep run (≤ 5 minutes), and the 12 h expiry (FR-012).
-The deletion itself is not mitigated; recovery is to re-enroll and review the
-alert. Details: `research.md` §10.2. This is expected to remain open at T016
-and is not a failed check.
+Approval source: **Leader báo anh Vinh duyệt FR020 a c 30/10 13:38
+(t744s2552)**, 2026 (UTC+7), Q-0935-FR020-AMEND2 / PC-J346. Prerequisite
+#2023 merged to staging on 2026-10-31 at
+`55258077f712cde9cdbb9dec482ae164e7d98e9a`. PC-J298 changes specs only;
+T018 (PC-J300, phương án a + c) starts after this spec PR merges.
+`ADMIN_STEP_UP_ENFORCE` stays **OFF everywhere**. No DB, environment,
+real-GoTrue attack reproduction or real-recipient email is part of this job.
+
+FR-020a is a subclause of FR-020; its evidence belongs to the FR-020 row
+above. PC-J300 implemented the rows below; its offline results are in
+"PC-J300 offline evidence" after the table. Each row stays `PENDING` until
+CI is green on the merged staging SHA and SA has reviewed the exact
+PC-J300 head; enforcement remains a separate, unauthorized switch.
+
+| Scope | Required evidence in PC-J300 | Result |
+| --- | --- | --- |
+| FR-020a / AC13 guard | Extend `backend/tests/test_staff_guard.py`: fresh AAL2/TOTP plus a recent verified TOTP factor → 403 `step_up_required`, `reason=new_factor_cooloff`; inspect every factor in both list orders, either timestamp recent, backup factors, exact 86400 s and older allowed only with fresh TOTP, future times blocked, missing/malformed metadata fail closed, unverified/non-TOTP ignored, refresh/re-challenge no bypass, one reasoned report-only log even if also stale. Use fixed UTC clock/claims/fixtures, no live GoTrue. | PENDING |
+| FR-020a / AC13 route effects | Extend `backend/tests/test_staff_guard_inventory.py` and existing staff route tests: every implemented FR-020 route rejects a recent factor before handler DB/engine/lock calls, code creation, audit/outbox or GoTrue mutation; preserve FR-001 authorization reads. Assert both flags and no new DB lookup for factor metadata. Budget routes join when implemented by PC-J138. | PENDING |
+| FR-020 / AC14 access codes | Extend `backend/tests/test_access_code_generation.py` and the inventory: non-null normalized `grants_role` with 16 min TOTP refused, 14 min with old factors allowed, fresh TOTP plus recent factor refused; no code/audit on refusal. Omitted/null/empty/whitespace role takes ordinary-code path under FR-001 only; normalized instructor still guarded; existing role/email validation and `{created, codes}` shape retained. Report-only logs once and preserves generation. | PENDING |
+| FR-012 / AC15 non-finite claims | Extend `backend/tests/test_staff_guard.py`: NaN/±inf alone and mixed, fresh/expired finite companion in either order, bool/non-numeric rejection, future-skew rule; AAL2 enforced → `mfa_required`, report-only → `totp_expired` log without conversion error; step-up enforced/report-only follow their existing contract with no finite TOTP. | PENDING |
+| Wire contract and UI | Regenerate OpenAPI and `frontend/types/api.d.ts` with additive cool-off `reason` and generation-route 403. Extend `frontend/tests/admin-mfa-transport.test.mjs` and the admin code fixture journey: cool-off surfaces the wait with no challenge/resend, stale-TOTP still retries once; verify immediate post-action and full-reload code-list truth. Older consumers can resend only once and remain refused. | PENDING |
+| Review and handoff | SA reviews the spec PR and the exact PC-J300 head; Feature Developer reads the spec PR for alignment. Record local suite commands/counts, exact SHA, OpenAPI drift and fixture evidence here. J300 is released only after the spec PR merges, with the existing job plus “phương án a + c”; no flag switch is authorized by either job. | PENDING |
+
+### AC13 Auth version and assurance regression evidence (PC-J567)
+
+Read-only staging observation on **2026-11-03 03:59 UTC+7**:
+`GET https://zjphffoujxkpltixsbzj.supabase.co/auth/v1/health` returned
+HTTP 200, `name="GoTrue"`, **`version="v2.197.0"`** for
+`ielts-coach-staging`. Only the health endpoint was read; no Auth mutation,
+DB write or flag change. Re-check this version before enabling enforcement.
+
+The AC13 fixed-clock factor fixtures above correspond to SA's source audit
+of `supabase/auth` **v2.197.0**:
+
+- [`factor.go:401`](https://github.com/supabase/auth/blob/v2.197.0/internal/models/factor.go#L401)
+  writes only `last_challenged_at` for a challenge.
+  [`factor.go:416–429`](https://github.com/supabase/auth/blob/v2.197.0/internal/models/factor.go#L416-L429)
+  updates `updated_at` for friendly-name, phone and status changes.
+- [`mfa.go:673`](https://github.com/supabase/auth/blob/v2.197.0/internal/api/mfa.go#L673),
+  [`:825`](https://github.com/supabase/auth/blob/v2.197.0/internal/api/mfa.go#L825)
+  and [`:939`](https://github.com/supabase/auth/blob/v2.197.0/internal/api/mfa.go#L939)
+  guard the status update with `!factor.IsVerified()`. Re-challenging and
+  verifying an already verified TOTP factor therefore does not restart the
+  cool-off. Renaming a factor does restart it through `updated_at`;
+  spec.md FR-020a and AC13 state this (SA-2213 P3-2, PC-J584), pinned by
+  `test_cooloff_restarts_after_factor_rename` in
+  `backend/tests/test_staff_guard.py` (factor created 30 days ago, renamed
+  60 s ago → 403 `new_factor_cooloff`, alone or beside an old factor; the
+  same factor passes once `updated_at` is 24 h old).
+
+SA P3-1 regression pair in `backend/tests/test_staff_guard.py` uses a factor
+created 30 days ago and updated 60 seconds ago: password-only AAL1 receives
+403 with the ordinary step-up message and no cool-off reason; fresh AAL2
+receives `new_factor_cooloff`. The AAL1 test also appends malformed factor
+metadata and requires 503, proving assurance failure does not skip parsing.
+Local verification: `pytest tests/test_staff_guard.py
+tests/test_staff_guard_inventory.py -q` from `backend/` → **289 passed**;
+the affected access-code, staff-security, role and sync-I/O suites →
+**514 passed, 3 skipped** (local PostgreSQL unavailable). SA's unchanged
+`probe2.py` run against this checkout returns the ordinary step-up 403 with
+no `reason`. All 78 pre-existing guard test functions and their assertions
+are unchanged; the regression pair adds exactly two test functions.
+`STEP_UP_COOLOFF_MESSAGE` remains the CM-approved text. SA-2213-R3 retest and
+exact merged-staging CI remain pending; this evidence does not enable flags.
+
+### PC-J300 offline evidence (2026-11-02, base `b636255a6`)
+
+Exact PR head SHA and CI links are in the PC-J300 PR body. Claims and
+fixtures only: no live GoTrue, DB write, environment change or real mail.
+`ADMIN_STEP_UP_ENFORCE` is not switched on anywhere.
+
+- **Code:** `backend/services/staff_guard.py` — `_finite_timestamp` drops
+  `NaN`/`±inf` (and an int beyond float range) before the latest `amr`
+  TOTP timestamp is taken; `_recent_factor_change` reads every verified
+  TOTP factor of the accepted `auth_user["factors"]`, parses both
+  `created_at` and `updated_at` as offset-bearing RFC 3339 instants (missing,
+  naive or malformed → the existing 503 under enforcement, error log and no
+  would-block line under report-only) and refuses when either is less than
+  86400 s old or in the future. `require_recent_mfa` gives the cool-off
+  precedence over stale step-up TOTP only when assurance is satisfied, adds
+  `reason: "new_factor_cooloff"` and the 24-hour message
+  while keeping `next_step` and `max_age_seconds`; one would-block line
+  per request carries the same reason. `backend/routers/admin.py`
+  `POST /admin/access-codes/generate` normalizes `grants_role` right after
+  `require_admin` and calls `require_recent_mfa` only when it is non-null,
+  before validation or any DB call. `frontend/public/js/api.js` skips the
+  prompt and resend for the cool-off reason; stale-TOTP retry-once is kept.
+- **AC13:** `backend/tests/test_staff_guard.py` (fixed clock: single,
+  updated-only, created-only, both factor orders, backup, future; exactly
+  24 h and older pass, 24 h − 1 s refused, 24 h with a stale TOTP still the
+  15-minute refusal; unverified/phone ignored; refresh and second challenge
+  no bypass; 8 unusable-metadata shapes × 3 factor orders fail closed under
+  both flags; report-only one reasoned line, no email/token; FR-001 guard
+  unaffected; no DB or GoTrue I/O), `backend/tests/test_staff_guard_inventory.py`
+  (every step-up route, conditional route included, refuses a recent factor
+  with a 5 s TOTP before any DB/engine call),
+  `backend/tests/test_admin_staff_security_routes.py` and
+  `backend/tests/test_admin_user_role.py` (PATCH role, PATCH active, POST
+  revoke-sessions: cool-off 403 with no row, RPC, GoTrue, lock, audit or
+  outbox change; report-only 200 with one `new_factor_cooloff` line).
+- **AC14:** `backend/tests/test_access_code_generation.py` (16 min refused
+  with no table call or audit, also `" INSTRUCTOR "`; 14 min with old
+  factors → `{created, codes}` with role and email; fresh TOTP + recent
+  factor → cool-off; report-only stale/cool-off create and log once;
+  omitted/null/empty/whitespace never call the step-up; unsupported role
+  guarded first then the existing 400; missing email keeps its 400; a failed
+  FR-001 guard never reaches the step-up; OpenAPI 403 and optional reason)
+  and the inventory (AST pin of guard → pure normalization → `if
+  grants_role is not None: require_recent_mfa(...)`, plus an ordinary-body
+  control that reaches the handler DB without the step-up).
+- **AC15:** `backend/tests/test_staff_guard.py` (NaN, +inf, −inf, all three,
+  an int beyond float range → no TOTP; mixed with fresh/expired finite in
+  both orders; bool, non-numeric and skew rules; AAL2 enforced → `mfa_required`,
+  report-only → one `totp_expired` line with no guard error; step-up
+  enforced → 403 without cool-off reason, report-only → one line with
+  `totp_age_seconds: null`).
+- **Wire/UI:** `frontend/types/api.d.ts` regenerated with openapi-typescript
+  7.13.0 from the in-process `app.openapi()` (additive optional `reason`,
+  generate-route 403). `frontend/tests/admin-mfa-transport.test.mjs`
+  (cool-off on all four routes: wait message, no prompt, one request;
+  negative control; stale then cool-off = one resend then thrown) and
+  `frontend/tests/admin-access-codes.test.mjs` (role-code fixture backend:
+  stale → one prompt, one resend, code in the immediate and reloaded list;
+  closed prompt and cool-off → one request, no code before or after reload;
+  ordinary code → no prompt). No Next admin form sends `grants_role` today,
+  so role-code UI evidence is the shared transport fixture.
+- **Runs:** backend affected set (20 files: staff guard, inventory, role,
+  staff security, access codes ×11, cohorts, instructor promote, writing
+  permission gating, sweep, owner alerts, API docs) **712 passed, 36
+  skipped** (local PostgreSQL-only cases); frontend files that load
+  `api.js` or `api.d.ts` on Node 24.22.2: 883 passed, 7 failed in 6 files
+  that also fail on base (ENOENT on gitignored legacy
+  `frontend/public/pages/*.html`); `tsc --noEmit` and
+  `tsc --noEmit -p tsconfig.legacy.json` exit 0.
+- **Negative controls:** with `staff_guard.py` and `admin.py` restored to
+  base, 79 of the new backend cases fail (every AC13/AC14/AC15 group);
+  with base `api.js`, the 5 cool-off transport/journey cases fail.
+
+### PC-J298 spec-only validation (2026-11-02)
+
+- `python backend/scripts/validate_specs.py`: 49 feature specs validated.
+- `python -m pytest tests/test_validate_specs.py -q` from `backend/`:
+  **88 passed**, 9 existing deprecation warnings (11.01 s), using the
+  backend venv and the task-owned pytest basetemp; summary saved outside
+  the repository and temp directory removed.
+- Changed-document Markdown links and literal code/test references resolve;
+  only the three authorized spec files changed; `git diff --check` is clean.
+- The local `check-pr-metadata.sh` replica reports
+  `CHECK-PR-METADATA PASS`; rerun on the committed PR head before opening.
+  PR checks and SA review are separate gates. These checks do not establish
+  AC13–AC15 runtime behavior or authorize releasing J300 before spec merge.
+
+### Rủi ro còn lại — evidence boundary
+
+The Leader's 2026-10-29 14:53 acceptance covers UI-only factor deletion.
+Vinh's 2026-10-30 13:38 **a + c** decision adds the cool-off, not option b.
+A stolen AAL2 session can bypass the `/admin/mfa` UI and unenroll/re-enroll
+through GoTrue; verifying an attacker's factor can create a fresh `amr.totp`
+and renew both freshness windows. Planned FR-020a blocks FR-020 actions
+while any recent verified factor remains in the current accepted user list,
+**only once implemented and enforced**. It does not prevent deletion itself,
+retain deleted-factor history, or stop waiting out the cool-off. Removing
+the new factor while retaining an old verified factor can remove the
+cool-off signal. Do not claim these sequences are prevented by AC13.
+
+Retain the existing UI fresh verify and FR-010/FR-011 sweep alerts for both
+`mfa_factor_verified` and `mfa_factor_deleted` within ≤ 5 minutes, including
+verify/delete between sweeps. The T007 evidence below covers the existing
+detective mechanism, not an executed attack or an implemented cool-off.
+Recovery uses suspension/session revocation and the existing factor runbook;
+a legitimately re-enrolled admin also waits 24 hours with no owner bypass.
+See `spec.md` “Rủi ro còn lại” and `research.md` §10.2.
 
 ## T007 test evidence (PC-J40, 2026-10-28)
 
@@ -204,3 +405,66 @@ on Supabase project `zjphffoujxkpltixsbzj`:
 
 This follow-up does not enable enforcement. T012 still requires its separate
 rollout and recovery acceptance; the live CI evidence above is a prerequisite.
+
+
+## PC-J358: migration 361, forward hardening of 341 (2026-11-02)
+
+FR-009/FR-011/FR-019, with AIOPS-0024 FR-003: scoped follow-up to #2050
+(merge `d5b1048cb7cb29aecc90626cdf5ed2a4a211624c`), delivered by PR #2180 as
+the new forward migration
+`backend/migrations/361_staff_privilege_evidence_commit_guard.sql` (number
+allocated by the Leader on 2026-11-02). CR round R2 rejected the first head
+(`2c38b26a6`), which edited 341 in place: 341 was already in the staging
+ledger (applied 2026-11-02 06:40:15Z), so the runner would skip it on staging
+and production would get different 341 content. 341 is restored byte-identical
+to the applied staging blob `91c3ed7a4aedfaa4830d27981b71354f519b918c`
+(sha256 `bc7027fb…9551f`), pinned by
+`test_341_is_byte_identical_to_the_blob_applied_on_staging`. No remote
+database request, migration application, flag change, production access or
+real email was part of this work.
+
+- SA P3-2: a deferred constraint trigger with an owner-only SECURITY DEFINER
+  function (search_path `pg_catalog, pg_temp`, no EXECUTE for any API role)
+  rejects COMMIT with `staff_privilege_evidence_not_consumed` while any
+  evidence remains, including a row whose key an owner changed; the RPC and
+  the bootstrap still commit.
+- SA P3-7: `fn_users_privilege_audit` is 341's body with evidence consumed by
+  `OLD.id`, matching both guards; the postcondition refuses a NEW.id body
+  (`staff_privilege_audit_evidence_key_wrong`, e.g. after a 341 re-run).
+- SA-R4-1/2: postconditions refuse column I/U/R, client I/U/D and users
+  privileges reachable through a membership even with INHERIT FALSE.
+- SA-R4-3 / SA-2180-1: `SET LOCAL search_path = pg_catalog, pg_temp` right
+  after `BEGIN`, catalog functions called as `pg_catalog.<fn>`, `||`/`@>`
+  written as `OPERATOR(pg_catalog.…)`, and a precondition
+  (`catalog_name_shadowed_in_public`) that aborts if `public` holds a function
+  or operator named like one the file uses. A test plants exact `text[]`
+  `||`/`@>` operators as service_role: on the 341 postcondition they run as the
+  owner and hide a TRIGGER grant (negative control); on 361 the drift is
+  reported and no attacker code runs, with the runner path `<schema>` and
+  `<schema>, pg_catalog`.
+- Preconditions: 341 in `_schema_migrations` and its objects present
+  (`migration_341_missing`), empty evidence table. Both release paths are
+  tested: on top of an applied 341 with audit history (staging) and 341 then
+  361 back to back (production, also through the real locked applier in
+  `test_client_write_invariant_postgres.py`); a second 361 run leaves the
+  catalog unchanged. The header rollback drops only the 361 trigger/function,
+  restores the 341 audit body and grants nothing.
+- SA P3-4: the 326/332 harness asserts NOSUPERUSER API roles and switches role
+  inside the operation transaction with `ASSERT current_user`.
+- SA P3-5 stays a known gap (service-role `updated_by` attribution, unaudited
+  parent-table owner TRUNCATE); SA P3-6: the 341 header's client sequence
+  GRANT is marked DO NOT RUN in the 361 header and README.
+
+361 is `pending_feature admin_aal2` in `forward-policy.tsv`: merge applies
+nothing. Staging apply only with Leader authorization through the
+advisory-locked runner, production only at an authorised promotion after 341.
+Local PostgreSQL 17.11 (disposable loopback SCRAM cluster, deleted after):
+test-first, a stub 361 failed 76 of the new cases (`red-stub.result`) and a
+361 without the pinned path, operator qualification and shadow precondition
+failed all 8 SA-2180-1 cases with the attacker operators running as the
+owner (`red-sa2180.result`); the final 361 suite passed 191. The CI PG17 job
+file set (every `test_migration_*.py` plus the listed PostgreSQL suites,
+including the real locked applier running 341 then 361) passed **1863, zero
+skips, zero failures** (`pg17job.result`). Logs are under
+`/workspace/cc-jobs/job-q-1pd-fix-2180-r2-mig361.log.d/`. Independent SA
+retest (SA-RETEST-361-2180-R2) remains pending.

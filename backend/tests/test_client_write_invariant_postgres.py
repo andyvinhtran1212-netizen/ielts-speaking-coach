@@ -104,7 +104,8 @@ def _apply(database: str, migration: Path) -> str:
     if result.returncode or "__apply_migration_status__=processed" not in result.stdout:
         raise RuntimeError(
             f"{migration.name} did not apply on the invariant harness. If it needs pre-320 objects "
-            f"this shape lacks, extend _pre_320() in {Path(__file__).name}.\n{result.stderr}")
+            f"this shape lacks, extend _pre_320() (a Supabase platform schema such as auth or "
+            f"storage: _create_database()) in {Path(__file__).name}.\n{result.stderr}")
     return result.stderr
 
 
@@ -112,6 +113,36 @@ def _apply(database: str, migration: Path) -> str:
 
 def _pre_320() -> str:
     own = "USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid())"
+    # 344's pre-existing admin tables, verbatim CREATE definitions, in FK order.
+    # mock_exams is the parent required by 154's mock_exam_assignments.
+    admin_tables = (
+        ("035_writing_prompts_library.sql", "writing_prompts"),
+        ("061_error_logs.sql", "error_logs"),
+        ("082_writing_tips.sql", "writing_tips"),
+        ("084_essay_regrade_requests.sql", "essay_regrade_requests"),
+        ("145_mock_exam_definition.sql", "mock_exams"),
+        ("154_mock_exam_retake_mode.sql", "mock_exam_assignments"),
+        ("175_courses.sql", "courses"),
+        ("176_class_lessons.sql", "class_lessons"),
+        ("183_speaking_lesson_sets.sql", "speaking_lesson_sets"),
+        ("183_speaking_lesson_sets.sql", "speaking_lesson_set_questions"),
+        ("185_speaking_progress_marks.sql", "speaking_progress_marks"),
+        ("198_class_action_log.sql", "class_action_log"),
+    )
+    admin_schema = "\n".join(re.search(
+        rf"CREATE TABLE IF NOT EXISTS {table} \(.*?^\);",
+        (MIGRATIONS / filename).read_text(encoding="utf-8"), re.S | re.M)[0]
+        for filename, table in admin_tables)
+    admin_helpers = "\n".join(re.search(
+        rf"CREATE OR REPLACE FUNCTION public.{helper}\(\).*?"
+        r"\$\$ LANGUAGE plpgsql SECURITY DEFINER STABLE;",
+        (MIGRATIONS / filename).read_text(encoding="utf-8"), re.S)[0]
+        for filename, helper in (
+            ("033_writing_coach_tables.sql", "is_current_user_admin"),
+            ("106_instructor_role_foundation.sql", "is_current_user_instructor")))
+    helper_revokes = "\n".join(re.findall(
+        r"^REVOKE EXECUTE ON FUNCTION public.is_current_user_(?:admin|instructor)\(\)[^;]*;",
+        (MIGRATIONS / "108_security_hardening.sql").read_text(encoding="utf-8"), re.M))
     return f"""
         SET search_path = public, pg_temp;
         CREATE TABLE _schema_migrations (filename text PRIMARY KEY,
@@ -284,6 +315,12 @@ def _pre_320() -> str:
             FOR EACH ROW EXECUTE FUNCTION fn_stub_paper_trigger();
         CREATE TRIGGER trg_listening_exercises_updated_at BEFORE UPDATE ON listening_exercises
             FOR EACH ROW EXECUTE FUNCTION fn_stub_paper_trigger();
+        -- 353 replaces 295's package guard and 306's source guard: plain stubs
+        -- (353 re-creates the source guard as SECURITY DEFINER and revokes it).
+        CREATE FUNCTION fn_protect_listening_package_child() RETURNS trigger LANGUAGE plpgsql
+            SET search_path = public, pg_temp AS $$ BEGIN RETURN NEW; END $$;
+        CREATE FUNCTION fn_guard_mock_paper_source() RETURNS trigger LANGUAGE plpgsql
+            SET search_path = public, pg_temp AS $$ BEGIN RETURN NEW; END $$;
         -- 339 minimal shape: empty quiz/receipt tables and plain stubs of the 309/314
         -- functions 339 replaces or grants. 339 re-creates the replaced bodies as
         -- SECURITY DEFINER and must re-run 314's REVOKE, or (c) fires on these defaults.
@@ -324,6 +361,14 @@ def _pre_320() -> str:
             timestamptz, timestamptz, jsonb) RETURNS jsonb LANGUAGE sql AS $$ SELECT '{{}}'::jsonb $$;
         GRANT EXECUTE ON FUNCTION fn_finalize_d1_attempt(uuid, uuid, integer, real, integer,
             timestamptz, timestamptz, jsonb) TO authenticated;
+        {admin_schema}
+        {admin_helpers}
+        {helper_revokes}
+        {"".join(f'ALTER TABLE {table} ENABLE ROW LEVEL SECURITY;'
+                 for table in ("access_codes", "cohorts", "students", "writing_assignments",
+                               "writing_drafts", "writing_essays", "writing_feedback",
+                               "class_assignments", "class_assignment_items",
+                               *(table for _, table in admin_tables)))}
     """
 
 
@@ -333,23 +378,24 @@ def _pre_320_history() -> str:
         r"(?:REVOKE|GRANT) ALL ON TABLE student_cohort_memberships[^;]*", m326.SQL_227))
     assert table_grants.count(";") == 2, "227 table grants changed; re-check the roster privileges"
     return "\n".join((m326._227_writers("public"), table_grants, _writing_tables_without_revoke(),
+                      "ALTER TABLE writing_assignment_requests ENABLE ROW LEVEL SECURITY;",
                       _instructor_give_shape(),
                       m331._schema_sql(m331.SQL_228, "public"),
                       "SET search_path = public, pg_temp;",
+                      (MIGRATIONS / "198_class_action_log.sql").read_text(encoding="utf-8"),
                       (MIGRATIONS / "116_writing_grade_ratings.sql").read_text(encoding="utf-8")))
 
 
 def _instructor_give_shape() -> str:
     """What migration 360 (INSTRUCTORGIVE-0044) reads: the grading_tier enum
-    column (044/115), prompt ownership (035) and class ownership (060)."""
+    column (044/115) and class ownership (060). Prompt ownership comes from the
+    verbatim 035 writing_prompts that _pre_320 creates for 344."""
     return """
         SET search_path = public, pg_temp;
         CREATE TYPE grading_tier_enum AS ENUM ('quick', 'standard', 'deep', 'instructor');
         ALTER TABLE writing_assignments
             ADD COLUMN grading_tier grading_tier_enum NOT NULL DEFAULT 'standard';
         ALTER TABLE cohorts ADD COLUMN created_by uuid REFERENCES users(id) ON DELETE SET NULL;
-        CREATE TABLE writing_prompts (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            created_by uuid REFERENCES users(id) ON DELETE SET NULL);
     """
 
 
@@ -399,6 +445,17 @@ def _create_database() -> tuple[str, bool]:
         $$;
         GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role, {OWNER};
         GRANT EXECUTE ON FUNCTION auth.uid() TO anon, authenticated, service_role;
+        -- 343: Supabase's storage schema (platform-owned, not the runner's), the six
+        -- buckets with the staging T001 NULL limits; the runner may read and update rows.
+        CREATE SCHEMA storage;
+        CREATE TABLE storage.buckets (id text PRIMARY KEY, name text NOT NULL,
+            public boolean DEFAULT false, file_size_limit bigint, allowed_mime_types text[]);
+        INSERT INTO storage.buckets (id, name, public)
+            SELECT bucket, bucket, bucket = 'vocab-audio' FROM unnest(ARRAY['audio-responses',
+                'listening-audio', 'listening-images', 'reading-images', 'writing-images',
+                'vocab-audio']) AS bucket;
+        GRANT USAGE ON SCHEMA storage TO {OWNER};
+        GRANT SELECT, UPDATE ON storage.buckets TO {OWNER};
         CREATE FOREIGN DATA WRAPPER client_invariant_fdw;
         CREATE SERVER client_invariant_server FOREIGN DATA WRAPPER client_invariant_fdw;
         GRANT USAGE ON FOREIGN SERVER client_invariant_server TO {OWNER};""")

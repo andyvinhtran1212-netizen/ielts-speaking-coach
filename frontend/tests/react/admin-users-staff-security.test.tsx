@@ -172,12 +172,14 @@ it('offers the revoke retry after a demotion whose revocation failed', async () 
 });
 
 it('renders "Lịch sử quyền" from the security-audit API, newest first, in Vietnam time', async () => {
+  let orphanStatus = 'not_recorded';
   getWith.mockImplementation(async (path: string) => {
     if (path === '/admin/users') return Object.values(rows);
     if (path === `/admin/users/${INSTRUCTOR}/security-audit?limit=50`) {
       return { lookup_failed: false, rows: [
         { id: 'h1', occurred_at: '2026-10-28T17:00:00Z', event: 'role_changed', source: 'out_of_band', actor_user_id: null, actor_email: null, before: { role: 'student', is_active: true }, after: { role: 'instructor', is_active: true }, reason: null, alert_status: null },
         { id: 'h2', occurred_at: '2026-10-29T01:30:00Z', event: 'active_changed', source: 'admin_api', actor_user_id: ADMIN, actor_email: 'owner@example.com', before: { role: 'instructor', is_active: true, suspended_at: null }, after: { role: 'instructor', is_active: false, suspended_at: '2026-10-29T01:30:00Z' }, reason: 'Lộ mật khẩu', alert_status: 'failed' },
+        { id: 'h3', occurred_at: '2026-10-28T18:00:00Z', event: 'sessions_revoke_failed', source: 'admin_api', actor_user_id: ADMIN, actor_email: 'owner@example.com', before: null, after: null, reason: null, alert_status: orphanStatus },
       ] };
     }
     throw new Error(`unexpected GET ${path}`);
@@ -187,16 +189,25 @@ it('renders "Lịch sử quyền" from the security-audit API, newest first, in 
   const dialog = await screen.findByRole('dialog', { name: 'Lịch sử quyền' });
   await within(dialog).findByText('Lộ mật khẩu');
   const bodyRows = within(dialog).getAllByRole('row').slice(1);
-  expect(bodyRows).toHaveLength(2);
+  expect(bodyRows).toHaveLength(3);
   expect(bodyRows[0].textContent).toContain('29/10/2026');
   expect(bodyRows[0].textContent).toContain('08:30');
   expect(bodyRows[0].textContent).toContain('instructor · Active → instructor · Bị tạm khóa');
   expect(bodyRows[0].textContent).toContain('owner@example.com');
   expect(bodyRows[0].textContent).toContain('⚠ gửi lỗi');
-  expect(bodyRows[1].textContent).toContain('không rõ (ngoài ứng dụng)');
-  expect(bodyRows[1].textContent).toContain('Ngoài ứng dụng');
-  expect(bodyRows[1].textContent).toContain('29/10/2026');
-  expect(bodyRows[1].textContent).toContain('00:00');
+  expect(within(bodyRows[1]).getAllByRole('cell')[6].textContent).toBe('cảnh báo chưa ghi được');
+  expect(bodyRows[2].textContent).toContain('không rõ (ngoài ứng dụng)');
+  expect(bodyRows[2].textContent).toContain('Ngoài ứng dụng');
+  expect(bodyRows[2].textContent).toContain('29/10/2026');
+  expect(bodyRows[2].textContent).toContain('00:00');
+  expect(within(bodyRows[2]).getAllByRole('cell')[6].textContent).toBe('—');
+  fireEvent.keyDown(dialog, { key: 'Escape' });
+  expect(screen.queryByRole('dialog')).toBeNull();
+  orphanStatus = 'pending'; // Retry enqueued the missing outbox row.
+  fireEvent.click(within(rowOf('teacher@example.com')).getByRole('button', { name: 'Lịch sử quyền' }));
+  const reloaded = await screen.findByRole('dialog', { name: 'Lịch sử quyền' });
+  expect(await within(reloaded).findByText('đang chờ')).toBeTruthy();
+  expect(within(reloaded).queryByText('cảnh báo chưa ghi được')).toBeNull();
 });
 
 it('shows a lookup failure with Thử lại instead of an empty history, and an empty history when there is none', async () => {

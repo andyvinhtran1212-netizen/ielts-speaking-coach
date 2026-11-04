@@ -17,14 +17,20 @@ built from uuid4()/now(), which changes between any two pytest processes; it
 must still be the same test function, collected the same number of times.
 
 Files are assigned by longest-processing-time first over the per-file seconds
-in `ci_pytest_shard_weights.json` (measured from a serial CI run); a file with
+in `ci_pytest_shard_weights.json` (measured from CI shard reports); a file with
 no weight gets the median, so a new test file is still assigned to a shard.
 The weights only affect balance. `verify` prints refreshed weights when they
-need updating.
+need updating. See `docs/CI_PYTEST_SHARDS.md` for the manual refresh procedure;
+CI only uploads a candidate and never updates the committed snapshot.
 
 Whole files stay together, so module/session fixtures and in-file ordering
 behave as in the serial run. No test is selected or deselected: each shard
 passes its file paths to pytest, and those files run as they would serially.
+
+PC-J582: the PostgreSQL 17 advisory job shards its own subset the same way.
+`--files` limits `collect`/`run` to the given test files (the shell expands the
+workflow's globs) and `--weights` points `run` at that job's measured snapshot
+`ci_pytest_pg17_shard_weights.json`, so `verify` proves the PG17 split too.
 """
 from __future__ import annotations
 
@@ -50,15 +56,35 @@ def test_files(root: Path = Path(".")) -> list[str]:
     return sorted(found)
 
 
-def partition(files: list[str], weights: dict[str, float], total: int) -> list[list[str]]:
+def selected_files(paths: list[str] | None) -> list[str]:
+    """The whole suite, or exactly the named test files, which must all exist.
+
+    A glob that matched nothing reaches here verbatim; refusing it keeps a typo
+    from shrinking the selected suite without notice.
+    """
+    if not paths:
+        return test_files()
+    missing = sorted(p for p in paths if not Path(p).is_file())
+    if missing:
+        raise SystemExit(f"--files: no such test file: {', '.join(missing)}")
+    return sorted(set(paths))
+
+
+def file_durations(files: list[str], weights: dict[str, float]) -> dict[str, float]:
+    """Use the measured median for new files, or one second without measurements."""
     known = [weights[f] for f in files if f in weights]
     default = statistics.median(known) if known else 1.0
+    return {name: weights.get(name, default) for name in files}
+
+
+def partition(files: list[str], weights: dict[str, float], total: int) -> list[list[str]]:
+    durations = file_durations(files, weights)
     load = [0.0] * total
     shards: list[list[str]] = [[] for _ in range(total)]
-    for name in sorted(files, key=lambda f: (-weights.get(f, default), f)):
+    for name in sorted(files, key=lambda f: (-durations[f], f)):
         target = min(range(total), key=lambda i: (load[i], i))
         shards[target].append(name)
-        load[target] += weights.get(name, default)
+        load[target] += durations[name]
     return [sorted(s) for s in shards]
 
 
@@ -100,13 +126,19 @@ def _pytest(args: list[str], out: Path) -> int:
 
 
 def cmd_collect(ns) -> int:
-    return _pytest(["--collect-only", "-qq", TESTS_DIR], Path(ns.out))
+    targets = selected_files(ns.files) if ns.files else [TESTS_DIR]
+    return _pytest(["--collect-only", "-qq", *targets], Path(ns.out))
 
 
 def cmd_run(ns) -> int:
-    weights = json.loads(WEIGHTS_FILE.read_text(encoding="utf-8"))
-    files = partition(test_files(), weights, ns.total)[ns.index - 1]
-    print(f"shard {ns.index}/{ns.total}: {len(files)} test files")
+    weights = json.loads(Path(ns.weights).read_text(encoding="utf-8"))
+    all_files = selected_files(ns.files)
+    durations = file_durations(all_files, weights)
+    files = partition(all_files, weights, ns.total)[ns.index - 1]
+    seconds = sum(durations[name] for name in files)
+    unknown = sum(name not in weights for name in files)
+    print(f"shard {ns.index}/{ns.total}: {len(files)} test files; "
+          f"estimated {seconds:.1f}s in tests; {unknown} files use the default duration")
     for name in files:
         print(f"  {name}")
     sys.stdout.flush()
@@ -160,16 +192,23 @@ def cmd_verify(ns) -> int:
         + (", ".join(f"{k} x{v}" for k, v in sorted(unstable.items())) or "none"),
         "outcomes: " + ", ".join(f"{k}={v}" for k, v in sorted(outcomes.items())),
     ]
+    shard_seconds = []
     for path in shard_paths:
         data = json.loads(path.read_text(encoding="utf-8"))
         seconds = sum(e["duration"] for e in data["results"].values())
+        shard_seconds.append(seconds)
         lines.append(f"{path.stem}: {len(data['collected'])} ids, {seconds:.0f}s in tests")
+    if shard_seconds and sum(shard_seconds) > 0:
+        mean = statistics.mean(shard_seconds)
+        lines.append(f"longest/mean test duration: {max(shard_seconds) / mean:.3f} "
+                     f"(target <= 1.300; mean {mean:.0f}s)")
     print("\n".join(lines))
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a", encoding="utf-8") as fh:
             fh.write("### Backend pytest shard parity\n\n" + "\n".join(f"- {l}" for l in lines) + "\n")
-    if ns.weights_out:
+    # A failed parity check must never produce a partial refresh candidate.
+    if ns.weights_out and not problems:
         Path(ns.weights_out).write_text(
             json.dumps({k: round(v, 2) for k, v in sorted(per_file.items())}, indent=0) + "\n",
             encoding="utf-8",
@@ -184,11 +223,14 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("collect")
     p.add_argument("--out", required=True)
+    p.add_argument("--files", nargs="+", help="collect only these test files")
     p.set_defaults(func=cmd_collect)
     p = sub.add_parser("run")
     p.add_argument("--total", type=int, required=True)
     p.add_argument("--index", type=int, required=True, help="1-based")
     p.add_argument("--out", required=True)
+    p.add_argument("--files", nargs="+", help="shard only these test files")
+    p.add_argument("--weights", default=str(WEIGHTS_FILE), help="per-file seconds snapshot")
     p.add_argument("pytest_args", nargs="*")
     p.set_defaults(func=cmd_run)
     p = sub.add_parser("verify")

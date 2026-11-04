@@ -86,11 +86,12 @@ Trong IELTS Speaking, "so sánh" có ba dạng chính:
 ## Tại sao quan trọng
 
 Trong Part 2 (cue card) và Part 3 (discussion), examiner thường hỏi bạn so sánh:
+
 - "Compare your country now with 20 years ago."
 - "Is it better to work from home or in an office?"
 - "How are young people today different from previous generations?"
 
-Câu trả lời có cấu trúc so sánh rõ ràng nghe **thông minh, có chiều sâu** và đạt điểm cao về Coherence & Cohesion. Câu trả lời chỉ liệt kê hai điểm rời rạc nghe yếu và thiếu tổ chức.
+Cấu trúc so sánh rõ ràng giúp câu trả lời mạch lạc hơn (Fluency and Coherence). Câu trả lời chỉ liệt kê hai điểm rời rạc nghe yếu và thiếu tổ chức.
 
 ---
 
@@ -103,10 +104,9 @@ Câu trả lời có cấu trúc so sánh rõ ràng nghe **thông minh, có chi�
 adjective-er + than
 ```
 
-- City life is **more expensive** / **busier** **than** village life.
+- City life is **busier** **than** village life.
 - Young people today are **better educated** **than** those of previous generations.
 - The second option is **cheaper** and **easier** to implement.
-- Remote work is **more flexible** **than** working in an office.
 
 ### Tính từ / Trạng từ dài
 
@@ -118,6 +118,8 @@ less + adjective/adverb + than
 - Social media is **more influential** **than** traditional media in shaping opinions.
 - People are **less likely** to read physical books **than** they were 20 years ago.
 - Working from home can be **more productive**, but it's also **more isolating**.
+- City life is **more expensive** **than** village life.
+- Remote work is **more flexible** **than** working in an office.
 
 ### Danh từ và số lượng
 
@@ -253,7 +255,7 @@ There has been a considerable shift in...
 
 ### Lỗi 1: So sánh không đầy đủ (incomplete comparison)
 
-- ✅ “City life is more convenient.” *(chuẩn nếu điểm so sánh đã rõ từ câu hỏi/ngữ cảnh)*
+- ❌ “City life is more convenient.” *(khi người nghe chưa biết so với cái gì)*
 - ✅ "City life is **more convenient than** rural life." (hơn cái gì?)
 
 ### Lỗi 2: Dùng "more" với tính từ ngắn
@@ -266,11 +268,13 @@ There has been a considerable shift in...
 - ❌ "Cities have jobs. Rural areas have nature. Cities are busy. Rural areas are quiet."
 - ✅ "**While** cities offer more employment opportunities, rural areas provide a calmer environment and a closer connection to nature."
 
-### Lỗi 4: "Different than" (không chuẩn)
+### Lỗi 4: different from / than / to
 
 - ✅ “It’s **different than** before.” *(phổ biến trong American English)*
 - ✅ "It's **different from** before." (British English)
 - ✅ "It's **different to** before." (informal British)
+
+Cả ba đều gặp; trong bài thi, *different from* an toàn nhất.
 
 ### Lỗi 5: Lạm dụng "but" thay vì các connector đa dạng hơn
 
@@ -295,7 +299,7 @@ There has been a considerable shift in...
 ### Gợi ý đáp án
 
 1. "**While** online shopping is convenient, you can't try on clothes before buying." / "Online shopping is convenient, **although** you can't try on clothes before buying."
-2. “My hometown **used to be** very rural, **but now it is** a modern city.” *(không tự thêm 20 năm, entirely hay thriving)*
+2. “My hometown **used to be** very rural, **but now it is** a modern city.”
 3. "Working from home saves commuting time. **However**, it can make people feel isolated." / "**While** working from home saves commuting time, it can also lead to feelings of isolation."
 
 ---

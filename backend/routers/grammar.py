@@ -32,6 +32,7 @@ from models.grammar_content import (
     GrammarSearchResult,
 )
 from routers.auth import get_supabase_user
+from services.errors import clip_user_value
 from services.grammar_content import CONTENT_DIR, GROUPS_FILE, MAPPING_FILE, grammar_service
 from services.public_cache import cacheable_json, content_last_modified
 
@@ -71,7 +72,7 @@ async def get_category(slug: str, request: Request) -> Response:
     """Return all article summaries for a specific category."""
     data = grammar_service.get_category(slug)
     if data is None:
-        raise HTTPException(status_code=404, detail=f"Category '{slug}' not found")
+        raise HTTPException(status_code=404, detail=f"Category '{clip_user_value(slug)}' not found")
     return cacheable_json(data, request, last_modified=_PUBLIC_LAST_MODIFIED)
 
 
@@ -85,7 +86,7 @@ async def get_article(category: str, slug: str, request: Request) -> Response:
     if data is None:
         raise HTTPException(
             status_code=404,
-            detail=f"Article '{category}/{slug}' not found",
+            detail=f"Article '{clip_user_value(category)}/{clip_user_value(slug)}' not found",
         )
     return cacheable_json(data, request, last_modified=_PUBLIC_LAST_MODIFIED)
 
@@ -98,7 +99,7 @@ async def get_roadmap(slug: str, request: Request) -> Response:
     """
     data = grammar_service.get_roadmap(slug)
     if data is None:
-        raise HTTPException(status_code=404, detail=f"Roadmap '{slug}' not found")
+        raise HTTPException(status_code=404, detail=f"Roadmap '{clip_user_value(slug)}' not found")
     return cacheable_json(data, request, last_modified=_PUBLIC_LAST_MODIFIED)
 
 
@@ -111,7 +112,7 @@ async def get_compare(slug: str, request: Request) -> Response:
     """
     data = grammar_service.get_compare(slug)
     if data is None:
-        raise HTTPException(status_code=404, detail=f"Compare page '{slug}' not found")
+        raise HTTPException(status_code=404, detail=f"Compare page '{clip_user_value(slug)}' not found")
     return cacheable_json(data, request, last_modified=_PUBLIC_LAST_MODIFIED)
 
 
@@ -190,7 +191,7 @@ async def track_article_view(
     # Validate slug exists in the content index
     article = grammar_service.get_article_by_slug(slug)
     if not article:
-        raise HTTPException(status_code=404, detail=f"Article '{slug}' not found")
+        raise HTTPException(status_code=404, detail=f"Article '{clip_user_value(slug)}' not found")
     title    = article.get("title")
     category = article.get("category")
 
@@ -240,7 +241,7 @@ async def save_article(
 
     article = grammar_service.get_article_by_slug(slug)
     if not article:
-        raise HTTPException(status_code=404, detail=f"Article '{slug}' not found")
+        raise HTTPException(status_code=404, detail=f"Article '{clip_user_value(slug)}' not found")
     title = article.get("title")
 
     try:

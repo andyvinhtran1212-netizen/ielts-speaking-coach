@@ -65,7 +65,7 @@ draft -> approved -> implementing -> verified -> shipped
 | GRAMMAR-0001 | Timed grammar midterm assessment banks | implementing | high | [spec](0001-timed-grammar-midterm-assessments/spec.md) |
 | AVOC-0002 | Advanced Vocabulary self-paced core 30 | implementing | high | [spec](0002-advanced-vocabulary-self-paced/spec.md) |
 | MASTER30-0003 | MASTER30 Grammar Diagnostic and Adaptive Review | implementing | high | [spec](0003-master30-grammar-diagnostic/spec.md) |
-| GRAMMARLESSON-0017 | Assign individual MASTER30 Grammar lessons to Course 5 learners | approved | high | [spec](0017-grammar-lesson-assignments/spec.md) |
+| GRAMMARLESSON-0017 | Assign individual MASTER30 Grammar lessons to Course 5 learners | shipped | high | [spec](0017-grammar-lesson-assignments/spec.md) |
 | MASTER30FULL-0018 | Assign the complete original MASTER30 Grammar banks | shipped | high | [spec](0018-master30-full-bank-assignments/spec.md) |
 | AI-0004 | AI model usage observability and controlled model rollout | implementing | high | [spec](0004-ai-model-usage-observability/spec.md) |
 | AIBUDGET-0033 | Paid AI stops at hard budgets, Claude alerts on a soft budget, and learner work waits safely for grading | approved | critical | [spec](0033-ai-budget-hard-cap/spec.md) |
@@ -138,10 +138,12 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 
 | CALAPPEND-0041 | The class action log is append-only for every role, and no role can wipe it with TRUNCATE | approved | high | [spec](0041-class-action-log-append-only/spec.md) |
 
-| SVCPRIV-0042 | service_role loses public table maintenance privileges and schema CREATE, and unpinned public functions get a fixed search_path, to block owner-run planted triggers, function overloads and temp-object shadowing | draft | critical | [spec](0042-service-role-table-maintenance-revoke/spec.md) |
+| SVCPRIV-0042 | service_role loses public table maintenance privileges and schema CREATE, and unpinned public functions get a fixed search_path, to block owner-run planted triggers, function overloads and temp-object shadowing | approved | critical | [spec](0042-service-role-table-maintenance-revoke/spec.md) |
 
 | LESSONREPORT-0043 | Teachers see a course assessment's results per lesson for each learner and the whole class, with the weakest lessons highlighted | approved | high | [spec](0043-course-assessment-lesson-report/spec.md) |
 
 | INSTRUCTORGIVE-0044 | A teacher's repeated or retried Writing give from /instructor creates the homework once | approved | high | [spec](0044-instructor-give-idempotency/spec.md) |
 
 | FNEXEC-0045 | A new database function cannot be called by anonymous or signed-in clients unless a migration grants it explicitly, and only the two functions clients really use stay callable | draft | high | [spec](0045-function-default-execute-lockdown/spec.md) |
+
+| SERVERCHECK-0046 | Self-study quiz answers are graded on the server one question at a time, no learner can forge a correct answer, and a one-sitting assessment key stays closed until the class deadline | draft | high | [spec](0046-quiz-server-check-key-release/spec.md) |
