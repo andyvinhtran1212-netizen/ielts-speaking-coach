@@ -23,7 +23,7 @@ Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
 sequence is dense. As of 2026-11-02 the highest is `363`, allocated by the
 Leader to PC-J538 (`361` is PC-J358, #2180; `360` is PC-J192, INSTRUCTORGIVE-0044),
 so by that rule the next new migration is `364`. Ask the Leader before taking it; 348–351 are reserved for other
-work, and 353–359 and 362 without a file here may be held by open PRs: none may be
+work, and 353–359 without a file here may be held by open PRs: none may be
 reused.
 The runner applies any unapplied file regardless of order.
 Numbers 321–326 belong to 321 WRITINGRATE-0025, 322 AIOPS-0024 (#1837), 323
@@ -105,6 +105,17 @@ staging→main promotion after 341. One transaction, no data change,
 re-runnable; re-running 341 restores the `NEW.id` audit body, so re-run 361
 after it. Its header rollback drops only the 361 trigger and function and
 restores the 341 audit body; it grants nothing.
+
+Migration `362` (PC-J522, STORAGELIMITS-0038; BUCKET50 a, Vinh t1246u
+02/11 06:37) follows immutable 343, confirmed in the staging ledger at
+2026-11-02 01:51:21Z. It sets only `listening-audio.file_size_limit` to
+`52428800` (50 MiB); all MIME types, visibility, other buckets and objects
+are unchanged. One transaction, 5 s lock timeout, idempotent; a missing bucket
+or failed postcondition aborts. The header down script restores the historical
+343 limit only. Same `pending_feature storage_bucket_limits` group: no apply
+on merge; Leader applies staging under the advisory lock, then checks the
+bucket value and uploads up to 50 MiB. Production remains uninspected and
+requires separate owner authorization at promotion.
 
 Migration `363` (PC-J538; SA-2180-R3-2 on #2180) pins the users audit trigger
 chain after 361, which it never edits. `fn_users_privilege_audit` (SECURITY
