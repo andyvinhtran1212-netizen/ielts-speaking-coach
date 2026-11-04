@@ -16,8 +16,10 @@ line. When on, events are scrubbed before they leave the process:
 * in every string: the values of Postgres/PostgREST row dumps ("Failing row
   contains (...)", "Key (col)=(...)") are redacted, e-mail addresses and
   JWT/Bearer credentials are removed,
-  UUIDs (user, session, attempt ids) become a stable ``uuid:<sha256 prefix>``
-  pseudonym, and serialized pydantic validation errors (which quote the
+  UUIDs (user, session, attempt ids) become a stable ``uuid:<HMAC-SHA256
+  prefix>`` pseudonym keyed by ``SENTRY_PSEUDONYM_KEY`` (plain ``[uuid]``
+  without a key: an unkeyed hash is reversible by anyone holding the id
+  list), and serialized pydantic validation errors (which quote the
   rejected input) are omitted, as in ``services/errors.py``;
 * no local variables in stack frames;
 * log records become events/breadcrumbs only from the audited loggers in
@@ -36,6 +38,7 @@ background thread, so capture never blocks the event loop.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import logging
 import os
 import re
@@ -79,10 +82,14 @@ _KEY_VALUE = re.compile(
 # patterns above scrub). Add a logger only after the same audit (PC-J601 C2).
 LOG_CAPTURE_LOGGERS = frozenset({"main"})
 _HANDLED_ATTR = "_aver_sentry_handled"
+# Set by init_sentry from SENTRY_PSEUDONYM_KEY; None → UUIDs become "[uuid]".
+_pseudonym_key: bytes | None = None
 
 
 def _pseudonym(match: re.Match) -> str:
-    digest = hashlib.sha256(match.group(0).lower().encode()).hexdigest()
+    if not _pseudonym_key:
+        return "[uuid]"
+    digest = hmac.new(_pseudonym_key, match.group(0).lower().encode(), hashlib.sha256).hexdigest()
     return f"uuid:{digest[:12]}"
 
 
@@ -198,12 +205,19 @@ def resolve_environment(env: Mapping[str, str] | None = None) -> str:
     return resolve_tier(env.get("ENVIRONMENT"), env.get("RAILWAY_ENVIRONMENT_NAME"))
 
 
-def init_sentry(dsn: str | None, env: Mapping[str, str] | None = None) -> bool:
-    """Initialise the SDK when ``dsn`` is non-empty. Returns whether it did."""
+def init_sentry(dsn: str | None, env: Mapping[str, str] | None = None,
+                pseudonym_key: str | None = None) -> bool:
+    """Initialise the SDK when ``dsn`` is non-empty. Returns whether it did.
+
+    ``pseudonym_key`` (``SENTRY_PSEUDONYM_KEY``) keys the UUID pseudonyms;
+    without it no UUID, pseudonymised or not, is sent.
+    """
+    global _pseudonym_key
     dsn = (dsn or "").strip()
     if not dsn:
         return False
     env = os.environ if env is None else env
+    _pseudonym_key = (pseudonym_key or "").strip().encode() or None
     try:
         import sentry_sdk
         from sentry_sdk.integrations.fastapi import FastApiIntegration
@@ -232,5 +246,6 @@ def init_sentry(dsn: str | None, env: Mapping[str, str] | None = None) -> bool:
     except Exception as exc:  # noqa: BLE001 — reporting must never stop startup
         logger.warning("[sentry] not initialised: %s", type(exc).__name__)
         return False
-    logger.info("[sentry] enabled (environment=%s)", environment)
+    logger.info("[sentry] enabled (environment=%s, uuid_pseudonyms=%s)",
+                environment, "on" if _pseudonym_key else "off")
     return True

@@ -5,6 +5,7 @@ Starlette for the whole interpreter, which must not leak into other tests.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -24,6 +25,12 @@ from services.sentry_setup import (
 BACKEND = Path(__file__).resolve().parents[1]
 USER_ID = "11111111-2222-4333-8444-555555555555"
 DSN = "https://publickey@o1.ingest.us.sentry.io/1"
+
+
+@pytest.fixture(autouse=True)
+def _restore_pseudonym_key(monkeypatch):
+    # init_sentry sets this module global; keep each test's value to itself.
+    monkeypatch.setattr(sentry_setup, "_pseudonym_key", None)
 
 
 # ── off without a DSN ─────────────────────────────────────────────────────────
@@ -157,11 +164,35 @@ def test_before_send_scrubs_strings_everywhere():
         "url": "https://x.supabase.co/storage/v1/object/sign/a.webm"}
 
 
-def test_uuid_pseudonym_is_stable_and_not_raw():
+# PC-J601 P3-4: HMAC-SHA256 keyed by SENTRY_PSEUDONYM_KEY, not a bare sha256.
+def test_uuid_pseudonym_is_keyed_stable_and_not_raw(monkeypatch):
+    monkeypatch.setattr(sentry_setup, "_pseudonym_key", b"key-one")
     first = scrub_text(f"session {USER_ID}")
     assert USER_ID not in first and first.startswith("session uuid:")
     assert scrub_text(f"other {USER_ID.upper()}").split()[1] == first.split()[1]
     assert scrub_text("other 99999999-2222-4333-8444-555555555555") != f"other {first.split()[1]}"
+    # Not the unkeyed sha256 an id list could reverse, and it changes with the key.
+    assert first.split()[1] != "uuid:" + hashlib.sha256(USER_ID.encode()).hexdigest()[:12]
+    monkeypatch.setattr(sentry_setup, "_pseudonym_key", b"key-two")
+    assert scrub_text(f"session {USER_ID}") != first
+
+
+def test_without_a_pseudonym_key_no_uuid_is_sent(monkeypatch):
+    monkeypatch.setattr(sentry_setup, "_pseudonym_key", None)
+    assert scrub_text(f"session {USER_ID} attempt {USER_ID.upper()}") == "session [uuid] attempt [uuid]"
+    event = before_send(_event(), {})
+    assert "uuid:" not in json.dumps(event)
+
+
+@pytest.mark.parametrize("key, expected", [(None, None), ("", None), ("  ", None), (" k1 ", b"k1")])
+def test_init_reads_the_pseudonym_key_without_logging_it(key, expected, monkeypatch, caplog):
+    monkeypatch.setattr(sentry_setup, "_pseudonym_key", b"stale")
+    monkeypatch.setattr(sentry_sdk, "init", lambda **kw: None)
+    with caplog.at_level(logging.DEBUG, logger="services.sentry_setup"):
+        assert init_sentry(DSN, {}, pseudonym_key=key) is True
+    assert sentry_setup._pseudonym_key == expected
+    assert "k1" not in caplog.text
+    assert ("uuid_pseudonyms=on" if expected else "uuid_pseudonyms=off") in caplog.text
 
 
 def test_bearer_and_serialized_validation_errors_are_removed():
