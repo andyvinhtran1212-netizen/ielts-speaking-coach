@@ -147,10 +147,12 @@ Nguồn:
   bỏ dòng tiêu đề, cắt khoảng trắng hai đầu, chuẩn hoá Unicode NFC, bỏ BOM.
   Nhiều hơn 4 cột → lỗi dòng "thừa cột" (không đoán).
 - **FR-004:** (giới hạn) `text` ≤ 100 KB (UTF-8) → vượt trả 413; ≤ 200 dòng
-  thẻ và (số thẻ trong bản nháp + thẻ mới) ≤ 200 (giới hạn bộ của 0020) → vượt
-  trả 422 `too_many_cards` với số còn lại; từ ≤ 120 ký tự, nghĩa ≤ 300, ví dụ
-  ≤ 500, CEFR ∈ {A1..C2} hoặc trống. Ký tự điều khiển (trừ Tab trong phân
-  tách) → lỗi dòng.
+  thẻ và tổng số id thẻ trong bản nháp sau import, đã khử trùng, ≤ 200
+  (giới hạn bộ của 0020): gồm thẻ đã trong bộ, thẻ tạo mới và thẻ có sẵn được
+  thêm vào bộ; id đã trong bộ chỉ đếm một lần. Vượt trả 422 `too_many_cards`
+  với số còn lại ở cả dry-run và commit, không ghi gì; từ ≤ 120 ký tự,
+  nghĩa ≤ 300, ví dụ ≤ 500, CEFR ∈ {A1..C2} hoặc trống. Ký tự điều khiển
+  (trừ Tab trong phân tách) → lỗi dòng.
 - **FR-005:** (dry-run) `dry_run=true` không ghi DB; trả từng dòng `{line,
   status: new|existing|duplicate_in_paste|error, headword, gloss_vi, example,
   level, card_id?, error?}` và tổng `{new, existing, duplicate, error}`.
@@ -239,6 +241,9 @@ Given cờ tắt; then import 404, không có nút dán, trình học 4 nút nh�
 - Bộ đang `archived`: import 409 (không sửa bộ đã lưu trữ).
 - Bộ đã xuất bản: import chỉ đổi bản nháp; thông báo "Cần xuất bản lại".
 - Thẻ có sẵn đang `public_wiki=false` được dùng lại: giữ ẩn.
+- Bản nháp có 190 thẻ, dán 20 thẻ có sẵn chưa thuộc bộ: tổng 210 → cả xem
+  trước và commit trả 422 `too_many_cards`, còn chỗ cho 10 thẻ, không ghi.
+  Nếu cả 20 id đã thuộc bộ thì tổng vẫn là 190; không đếm lại các id đó.
 - Mất phản hồi commit, admin bấm lại: version đã tăng → 409 → "Tải lại bản
   đã lưu" thấy thẻ đã vào (không nhân đôi nhờ bỏ id đã có).
 
@@ -247,7 +252,8 @@ Given cờ tắt; then import 404, không có nút dán, trình học 4 nút nh�
 | Rủi ro | Biện pháp | FR |
 | --- | --- | --- |
 | Người không phải admin ghi thẻ/bộ | `require_admin` trước khi đọc body; service-role chỉ trên backend | FR-002 |
-| Lộ nội dung lớp ra wiki công khai/SEO | `public_wiki=false` cho thẻ mới import; mọi đường đọc công khai lọc | FR-008 |
+| Lộ nội dung lớp ra wiki công khai/SEO | `public_wiki=false` cho thẻ mới import; mọi route wiki công khai lọc | FR-008 |
+| Đọc thẻ ẩn wiki qua Supabase REST trực tiếp | Policy SELECT `USING (true)` của migration 110 vẫn cho `anon` đọc `public_wiki=false`; cờ này chỉ ẩn trên wiki, không bảo mật nội dung lớp. Chặn REST cần FD duyệt phạm vi riêng (xem plan) | FR-008, FR-010 |
 | Rò rỉ giữa lớp | Không đổi phạm vi; `fn_vocabulary_set_visible` vẫn là cổng; `card_ids` con kiểm theo revision | FR-010, FR-012 |
 | XSS qua nội dung thẻ | Văn bản thuần, render text node; test payload | FR-009 |
 | CSV/formula injection khi xuất sau này | Ghi rõ quy tắc thoát `'`; MVP không có xuất | FR-009 |

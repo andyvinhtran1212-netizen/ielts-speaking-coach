@@ -11,9 +11,13 @@ tuần đang chặt (reset 08/11): ưu tiên F1, F2, F3, F4, F5a; F5b/F6 sau.
   frontend/tests/aver-admin-chrome.test.mjs`
 - [ ] T002 (F2, M, Claude, high-risk) Migration `372` cột
   `vocab_cards.public_wiki` + lọc mọi đường đọc wiki công khai + PG test
-  quyền không đổi (FR-008, FR-010). `depends: số migration do Leader cấp; Q-2,
+  quyền không đổi (FR-008, FR-010). SQL RPC thống nhất với T003 trước khi
+  merge/áp migration (xem plan); nguồn dùng chung của KP giữ đầy đủ.
+  `depends: số migration 372 đã được Leader giữ; Q-2,
   Q-7`. `owns: backend/migrations/372_vocab_cards_public_wiki.sql,
-  backend/services/vocab_* (đường đọc công khai), backend/tests/test_migration_372_*.py`
+  backend/migrations/forward-policy.tsv, backend/services/vocab_content.py
+  (đường đọc wiki công khai), backend/tests/test_migration_372_*.py,
+  backend/tests/test_vocab_public_wiki_filter.py`
 - [ ] T003 (F3, M, Claude) Cờ `FLASHCARD_MVP_ENABLED`, parser
   `vocabulary_set_import.py` + route import dry-run/commit nguyên khối,
   `features.flashcard_mvp`, regenerate `frontend/types/api.d.ts` (FR-001..FR-007,
