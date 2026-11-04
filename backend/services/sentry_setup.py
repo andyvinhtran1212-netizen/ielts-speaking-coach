@@ -13,11 +13,19 @@ line. When on, events are scrubbed before they leave the process:
 * every URL loses its query string and fragment, and Reading share-link paths
   lose their token (the same capability ``services/log_redaction.py`` hides
   from the access log);
-* in every string: e-mail addresses and JWT/Bearer credentials are removed,
+* in every string: the values of Postgres/PostgREST row dumps ("Failing row
+  contains (...)", "Key (col)=(...)") are redacted, e-mail addresses and
+  JWT/Bearer credentials are removed,
   UUIDs (user, session, attempt ids) become a stable ``uuid:<sha256 prefix>``
   pseudonym, and serialized pydantic validation errors (which quote the
   rejected input) are omitted, as in ``services/errors.py``;
-* no local variables in stack frames.
+* no local variables in stack frames;
+* log records become events/breadcrumbs only from the audited loggers in
+  ``LOG_CAPTURE_LOGGERS`` (PC-J601 C2): the ~1100 warning/error call sites
+  elsewhere interpolate free text (exceptions, AI output, names) that the
+  patterns above cannot recognise;
+* exceptions the app already answers with a mapped status (``mark_handled``)
+  are not reported.
 
 Only the Starlette/FastAPI and logging integrations run (plus the SDK's
 default stdlib ones): the auto-enabling integrations would patch the AI, HTTP
@@ -54,6 +62,23 @@ _JWT = re.compile(r"\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]*")
 _BEARER = re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]+")
 _UUID = re.compile(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b")
 _URL_QUERY = re.compile(r"(\b[a-zA-Z][a-zA-Z0-9+.-]*://[^\s?#'\"<>]*)[?#][^\s'\"<>]*")
+# Postgres DETAIL lines quote whole rows / key values (learner names, phones):
+# "Failing row contains (...)." and "Key (cols)=(...) already exists." (also
+# "is not present in table ...", "is still referenced from ...", "conflicts
+# with existing key (...)=(...)."). A value may itself contain ")", "." or a
+# newline, so redact through the LAST closing ")" that such a line ends with,
+# or to the end of the string when there is none (a truncated message):
+# over-redaction, never a partial leak.
+_FAILING_ROW = re.compile(r"(Failing row contains )\((?:.*\)(?=\.)|.*)", re.DOTALL)
+_KEY_VALUE = re.compile(
+    r"(Key \(.*?\)=)\((?:.*\)(?= already exists| is not present| is still referenced|\.)|.*)",
+    re.DOTALL)
+
+# Loggers whose WARNING+ records may become breadcrumbs/events. Each call site
+# was checked to log only fixed text, ids, paths and exception text (which the
+# patterns above scrub). Add a logger only after the same audit (PC-J601 C2).
+LOG_CAPTURE_LOGGERS = frozenset({"main"})
+_HANDLED_ATTR = "_aver_sentry_handled"
 
 
 def _pseudonym(match: re.Match) -> str:
@@ -62,6 +87,8 @@ def _pseudonym(match: re.Match) -> str:
 
 
 def scrub_text(text: str) -> str:
+    text = _FAILING_ROW.sub(r"\1[redacted]", text)
+    text = _KEY_VALUE.sub(r"\1[redacted]", text)
     text = redact_validation_text(text)
     text = _URL_QUERY.sub(r"\1", text)
     text = _SHARE_PATH.sub(r"\1[redacted]", text)
@@ -109,13 +136,48 @@ def _scrub_event(event: dict) -> dict:
     return _scrub(event)
 
 
+def mark_handled(exc: BaseException) -> None:
+    """Keep ``exc`` out of Sentry: the app answered it with a mapped status.
+
+    Starlette's ServerErrorMiddleware re-raises after the ``Exception`` handler
+    has responded, so the SDK would report it as unhandled (PC-J601 P3-2).
+    """
+    try:
+        setattr(exc, _HANDLED_ATTR, True)
+    except Exception:  # noqa: BLE001 — an exception type without __dict__
+        pass
+
+
+def _log_record_allowed(record: Any) -> bool:
+    return (getattr(record, "name", None) in LOG_CAPTURE_LOGGERS
+            and not getattr(record, "sentry_skip", False))
+
+
+def before_breadcrumb(crumb: dict, hint: dict | None = None) -> dict | None:
+    """Drop log breadcrumbs from loggers outside ``LOG_CAPTURE_LOGGERS`` (and
+    ``sentry_skip`` records, whose text the reported exception already has)."""
+    hint = hint or {}
+    if "log_record" in hint:
+        return crumb if _log_record_allowed(hint["log_record"]) else None
+    if crumb.get("type") == "log":
+        return crumb if crumb.get("category") in LOG_CAPTURE_LOGGERS else None
+    return crumb
+
+
 def before_send(event: dict, hint: dict | None = None) -> dict | None:
     """Scrub an error/transaction event; drop it if scrubbing itself fails.
 
-    A log record marked ``extra={"sentry_skip": True}`` is dropped: main.py's
-    unhandled-exception handler logs an exception the SDK already reports.
+    Also dropped: a log record from a logger outside ``LOG_CAPTURE_LOGGERS``;
+    one marked ``extra={"sentry_skip": True}`` (main.py's unhandled-exception
+    handler logs an exception the SDK already reports); and an exception
+    passed to ``mark_handled``.
     """
-    if getattr((hint or {}).get("log_record"), "sentry_skip", False):
+    hint = hint or {}
+    record = hint.get("log_record")
+    if record is not None and not _log_record_allowed(record):
+        return None
+    exc_info = hint.get("exc_info")
+    if exc_info and getattr(exc_info[1], _HANDLED_ATTR, False):
         return None
     try:
         return _scrub_event(event)
@@ -159,6 +221,7 @@ def init_sentry(dsn: str | None, env: Mapping[str, str] | None = None) -> bool:
             traces_sample_rate=TRACES_SAMPLE_RATE,
             before_send=before_send,
             before_send_transaction=before_send,
+            before_breadcrumb=before_breadcrumb,
             auto_enabling_integrations=False,
             integrations=[
                 StarletteIntegration(),

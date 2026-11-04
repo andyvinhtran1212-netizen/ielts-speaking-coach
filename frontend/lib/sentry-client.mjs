@@ -5,7 +5,10 @@
 // trace sampling, no trace headers on any request (the API's CORS allowlist has
 // no sentry-trace/baggage), and every event is scrubbed before it is sent — no
 // user, cookies, request body or query string, only the User-Agent header, and
-// URLs, e-mail addresses, UUIDs and credentials removed from every string.
+// URLs, e-mail addresses, UUIDs, credentials and Postgres row/key values removed
+// from every string. Console breadcrumbs are dropped: console.* lines carry free
+// text (API error bodies, learner input) the patterns cannot recognise
+// (PC-J601 C2).
 // connect-src lists the DSN origin (tooling/content-security-policy.mjs).
 
 export const TRACES_SAMPLE_RATE = 0.05;
@@ -19,9 +22,15 @@ const JWT = /\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]*/g;
 const BEARER = /\bbearer\s+[A-Za-z0-9._~+/=-]+/gi;
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 const UUID = /\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b/g;
+// Same rule as backend services/sentry_setup.py: redact through the last ")"
+// such a Postgres DETAIL line ends with, or to the end when it is truncated.
+const FAILING_ROW = /(Failing row contains )\((?:[\s\S]*\)(?=\.)|[\s\S]*)/g;
+const KEY_VALUE = /(Key \([\s\S]*?\)=)\((?:[\s\S]*\)(?= already exists| is not present| is still referenced|\.)|[\s\S]*)/g;
 
 export function scrubText(text) {
   return text
+    .replace(FAILING_ROW, '$1[redacted]')
+    .replace(KEY_VALUE, '$1[redacted]')
     .replace(URL_QUERY, '$1')
     .replace(PATH_QUERY, '$1$2')
     .replace(SHARE_PATH, '$1[redacted]')
@@ -59,6 +68,11 @@ export function scrubSentryEvent(event) {
   }
 }
 
+/** beforeBreadcrumb: drop console breadcrumbs, keep the rest (scrubbed with the event). */
+export function filterSentryBreadcrumb(breadcrumb) {
+  return breadcrumb && breadcrumb.category === 'console' ? null : breadcrumb;
+}
+
 /** Sentry.init options for this build, or null when no DSN is built in. */
 export function sentryClientOptions({ dsn, environment, release } = {}) {
   const value = typeof dsn === 'string' ? dsn.trim() : '';
@@ -74,6 +88,7 @@ export function sentryClientOptions({ dsn, environment, release } = {}) {
     replaysOnErrorSampleRate: 0,
     beforeSend: scrubSentryEvent,
     beforeSendTransaction: scrubSentryEvent,
+    beforeBreadcrumb: filterSentryBreadcrumb,
   };
 }
 
