@@ -147,3 +147,4 @@ Progress and remaining acceptance are reconciled in [the implementation status l
 | FNEXEC-0045 | A new database function cannot be called by anonymous or signed-in clients unless a migration grants it explicitly, and only the two functions clients really use stay callable | draft | high | [spec](0045-function-default-execute-lockdown/spec.md) |
 
 | SERVERCHECK-0046 | Self-study quiz answers are graded on the server one question at a time, no learner can forge a correct answer, and a one-sitting assessment key stays closed until the class deadline | draft | high | [spec](0046-quiz-server-check-key-release/spec.md) |
+| ADMINSIMPLE-0049 | Đơn giản hoá trang admin — ẩn hoặc chuyển hướng subpage không dùng sau cờ, gom luồng giao bài về workspace lớp; xoá code ở giai đoạn sau | draft | medium | [spec](0049-admin-simplify/spec.md) |
