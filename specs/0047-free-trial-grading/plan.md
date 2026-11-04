@@ -15,11 +15,9 @@
   `trial_total`, `trial_anthropic`, `trial_openai` (hard, có trần ngày và
   trần tổng không theo tháng). Dòng reservation dùng thử chỉ mang scope dùng
   thử, không mang `total`/`anthropic`/`openai` nền tảng.
-- Eligibility (FR-001): "học viên lớp thật" = có bất kỳ quyền Speaking/Writing
-  từ mã truy cập (`services/access_code_permissions.py`) **hoặc** thuộc cohort/
-  lớp đang hoạt động (bảng `cohorts`/thành viên — T001 xác nhận cột chính xác)
-  **hoặc** vai trò khác student. Hàm `is_trial_eligible(user_id)` là nguồn duy
-  nhất; route lớp không gọi nó.
+- Eligibility: hàm `is_trial_eligible(user_id)` thực hiện đầy đủ FR-001, gồm
+  vai trò `user`/`student`, chưa từng kích hoạt, không bị khoá và không có dấu
+  vết mã/lớp. FR-001 là nguồn định nghĩa; route lớp không gọi hàm này.
 - Frontend: `frontend/app/(authed-trial)/trial/...` (Speaking + Writing dùng
   thử), component `TrialStatusCard` trên trang chủ; revamp Speaking/Writing ở
   các file `page-shell.tsx`/`*-behavior.tsx` hiện có sau cờ UI.
@@ -265,14 +263,26 @@ Tính mỗi lượt dùng thử (dùng số log, an toàn hơn):
   `fn_trial_settle(request_key, outcome)`. `SECURITY DEFINER`, `search_path`
   cố định, `REVOKE ALL FROM PUBLIC, anon, authenticated`, chỉ `service_role`
   (theo FNEXEC-0045).
-- RLS bật trên cả 4 bảng, không policy cho `anon`/`authenticated` (backend đọc
-  bằng service role). Không lưu IP/email thô: HMAC-SHA256 với muối env
+- RLS bật trên cả 6 bảng `trial_accounts`, `trial_usage`, `trial_rate_events`,
+  `trial_captcha_tokens`, `trial_email_tombstones`, `trial_writing_submissions`,
+  không policy cho `anon`/`authenticated` (backend đọc bằng service role).
+  Không lưu IP/email thô: HMAC-SHA256 với muối env
   `TRIAL_HASH_SALT`.
+- T001 tạo bucket audio dùng thử riêng, **private** (FR-033); T007 dùng bucket
+  này và chỉ ký URL sau khi xác thực chủ sở hữu, TTL ≤ 10 phút.
 - Mở rộng scope trong cấu hình ngân sách (`ai_budget_reservations` đã có từ
   migration 333): thêm giá trị scope dùng thử và kiểu kỳ `total` (không theo
   tháng) nếu RPC hiện tại chưa hỗ trợ — T001 khảo sát, có thể cần sửa
   `fn_ai_budget_reserve` trong cùng migration `371`.
-- Rollback: migration down xoá bảng/RPC dùng thử; không đụng bảng lớp.
+- Rollback code không cần migration down. Nếu cần down migration `371`, dừng
+  route/job dùng thử và chốt reservation trước; chỉ gỡ bảng/RPC/view/schema và
+  bucket riêng của dùng thử sau khi xử lý dữ liệu theo FR-033. Giữ
+  `users.first_activated_at`, hàm `trg_users_first_activated_at()` và trigger
+  `trg_users_zz_first_activated_at`: không xoá mốc đã backfill hoặc mất lịch sử
+  kích hoạt đơn điệu của FR-001. Nếu `371` sửa `fn_ai_budget_reserve`, script
+  down khôi phục đúng định nghĩa, chữ ký và quyền trước `371` (T001 lưu bản
+  trước khi sửa); không xoá reservation/chi tiêu hay đổi scope nền tảng. Xem
+  kiểm chứng rollback ở `verification.md`.
 
 ### API
 
@@ -307,7 +317,22 @@ lớp thật không đổi. Sẽ chỉnh theo audit UIA.
 
 ## Work decomposition
 
-Xem `tasks.md` (T001..T010, nhỏ, xếp độc lập được).
+Xem `tasks.md` (T001..T013, xếp theo phụ thuộc; các task cùng sửa `trial.py`
+được tích hợp tuần tự).
+
+### Điểm review chờ FD quyết định (PC-J658, PR #2252)
+
+Các điểm dưới cần thay đổi hoặc chọn lại contract FR đã duyệt, nên PC-J658
+giữ nguyên FR và các kiểm chứng tương ứng. FD cần PR spec-only riêng; không
+coi đây là các điểm đã sửa hay receipt CODEX-CLEAN.
+
+| Nhận xét | Mâu thuẫn/thiếu sót còn mở | Quyết định cần FD |
+| --- | --- | --- |
+| Codex [thread 4469775139](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/2252#discussion_r4469775139) | FR-025 yêu cầu eligibility cho cả đọc kết quả; FR-020 đóng mọi route; Edge cases/UI vẫn cho xem bài cũ sau vào lớp/đóng chương trình | Tách quyền đọc lịch sử (JWT + ownership) khỏi eligibility và trạng thái mở; sửa FR-020/FR-025 và kiểm chứng cùng nhau |
+| Codex [thread 4469775155](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/2252#discussion_r4469775155) | FR-011 chặn `insertReplacementText`, FR-012 cho autocorrect/đọc chính tả ≤ 200 ký tự; kiểm chứng FR-011/FR-012 cũng mâu thuẫn | Chốt một chính sách client/server và sửa FR-011/FR-012 cùng fixture mobile |
+| CR P3-1 | FR-022 nói lưu ở `trial_usage` nhưng schema chưa có payload kết quả Speaking; FR-031/UI yêu cầu lịch sử/reload mà API chỉ có GET kết quả Writing | Chốt nơi lưu và đường đọc Speaking, quyền sở hữu/retention; đối chiếu allowlist đúng 8 route của FR-025 trước khi thêm route |
+| CR P3-4: readiness | FR-036 có cả `separate_keys_configured` và `trial_keys_separate` nhưng chưa phân biệt ý nghĩa | Chốt schema boolean; bỏ/đổi tên trường sẽ đổi contract FR-036 |
+| CR P3-4: khi tắt cờ | FR-020 ghi 404, FR-035 yêu cầu 503 `trial_closed` cho route ghi | Chốt mã lỗi/phạm vi từng route (cùng ngoại lệ đọc lịch sử), sửa FR-020/FR-035 và kiểm chứng |
 
 ## Rollout and rollback
 

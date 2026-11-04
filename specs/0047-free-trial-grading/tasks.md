@@ -5,6 +5,11 @@ Tasks are dependency ordered. Không task nào được xếp hàng trước khi
 Cỡ: S ≈ ≤ 0,5 ngày job, M ≈ 1 ngày, L ≈ 2 ngày. Gợi ý: Claude cho phần cần
 thiết kế/UX/viết tiếng Việt, Codex cho phần cơ học có test rõ.
 
+`backend/routers/trial.py` là file dùng chung: tích hợp tuần tự **T002 → T003 →
+T007 → T006 → T013**, không cho hai ticket ghi file cùng lúc. Phần `(status)`/
+`(activate)`/`(speaking)`/`(writing)`/`(config)` trong `owns` chỉ phạm vi handler,
+không phải quyền sửa file song song; các file khác theo phụ thuộc bên dưới.
+
 - [ ] T001 Bảng + RPC dùng thử, migration `371` (Leader cấp 04/11):
   `trial_accounts`, `trial_usage`, `trial_rate_events`,
   `trial_writing_submissions`, `trial_captcha_tokens`, `users.first_activated_at`
@@ -16,7 +21,11 @@ thiết kế/UX/viết tiếng Việt, Codex cho phần cơ học có test rõ.
   INVOKER, search_path, REVOKE) + trong một giao dịch: LOCK SHARE ROW EXCLUSIVE →
   trigger → backfill bảo thủ (theo danh sách cho phép ở plan.md) → hậu điều kiện RAISE (SA N1, N9, N10, N13),
   `trial_email_tombstones` (SA N16), `UNIQUE(user_id, request_key)`
-  (SA N5a), `fn_trial_reserve`, `fn_trial_settle`, RLS, REVOKE; mở rộng scope ngân sách dùng thử. Test PG: 10 reserve đồng thời / 1
+  (SA N5a), `fn_trial_reserve`, `fn_trial_settle`, RLS, REVOKE; mở rộng scope ngân sách dùng thử;
+  tạo bucket audio dùng thử riêng **private** (FR-033). Ghi rõ rollback theo
+  `plan.md`: giữ cột/mốc `users.first_activated_at` và trigger/hàm đơn điệu;
+  nếu sửa `fn_ai_budget_reserve` thì lưu và khôi phục đúng định nghĩa/quyền cũ.
+  Test PG: 10 reserve đồng thời / 1
   lượt → 1 granted; trigger false→true đặt mốc, true→false giữ, đặt NULL bị bỏ
   qua; INSERT is_active=true → có mốc; service_role UPDATE đặt NULL → giữ;
   authenticated UPDATE → 42501; backfill: admin kích hoạt `code=null` rồi tắt →
@@ -33,7 +42,9 @@ thiết kế/UX/viết tiếng Việt, Codex cho phần cơ học có test rõ.
   SELECT = true (SA N26); `trial_evidence.py` + 3 test snapshot (SA N27); snapshot danh sách cho
   phép ↔ `ACTIVATION_EXEMPT_ROUTES` (SA N21); `role='user'` không dấu vết → NULL (không bị đóng dấu); instructor/admin
   → có mốc; hậu điều kiện làm migration huỷ khi còn active chưa có mốc; key của user khác
-  không trả hàng; anon/authenticated không đọc/gọi được. **M, Codex.**
+  không trả hàng; anon/authenticated không đọc/gọi được; rollback giữ mốc/trigger
+  và khôi phục RPC ngân sách nếu có sửa; bucket private, client không truy cập
+  trực tiếp audio. **M, Codex.**
   `owns: backend/migrations/371_free_trial.sql, backend/migrations/rollback/371_*.sql, backend/tests/test_migration_371_free_trial.py`
 - [ ] T002 `trial_service`: eligibility (FR-001: `role IN ('user','student')`, NULL
   → từ chối, `first_activated_at IS NULL` + `suspended_at IS NULL`, kiểm chặt
@@ -77,7 +88,7 @@ thiết kế/UX/viết tiếng Việt, Codex cho phần cơ học có test rõ.
   `trial_writing_filter`; không ghi `writing_*`/`students`/`grading_attempts`;
   test E2E Writing (provider giả) → evidence view không có hàng, bất biến = 0.
   **M, Claude.**
-  `depends: T002, T005`
+  `depends: T002, T005, T007`
   `owns: backend/services/trial_prefilter.py, backend/routers/trial.py (writing), backend/services/gemini_writing_grader.py (feature param), backend/tests/test_trial_writing_submit.py, backend/tests/test_trial_data.py (IDOR/UUID)`
 - [ ] T007 Route Speaking dùng thử (FR-016, FR-033: ≤ 3 MB, ffprobe, bucket
   private + signed URL): bộ đề cố định, kiểm thời lượng,
@@ -87,7 +98,7 @@ thiết kế/UX/viết tiếng Việt, Codex cho phần cơ học có test rõ.
   `enforce_grading_rate_limit`, không ghi `sessions`/`responses`; test E2E 1
   Speaking + 1 Writing (provider giả) → `trial_private.v_user_activation_evidence`
   không có hàng, bất biến = 0, mọi `ai_usage_logs` `trial_*`. **M, Codex.**
-  `depends: T002` `owns: backend/routers/trial.py (speaking), backend/services/claude_grader.py (feature kwarg), backend/services/off_topic_judge.py (factory), backend/routers/grading.py (tách STT, không đổi hành vi lớp), backend/tests/test_trial_evidence_e2e.py, backend/data/trial_speaking_questions.json, backend/tests/test_trial_speaking.py, backend/tests/test_trial_data.py (bucket private/signed URL)`
+  `depends: T002, T003` `owns: backend/routers/trial.py (speaking), backend/services/claude_grader.py (feature kwarg), backend/services/off_topic_judge.py (factory), backend/routers/grading.py (tách STT, không đổi hành vi lớp), backend/tests/test_trial_evidence_e2e.py, backend/data/trial_speaking_questions.json, backend/tests/test_trial_speaking.py, backend/tests/test_trial_data.py (bucket private/signed URL)`
 - [ ] T008 UI dùng thử + trạng thái đóng (FR-017, FR-027, FR-030, FR-031,
   FR-032 cho màn dùng thử; UIA M5, M6, M9, M10, M11): `TrialStatusCard`, trang
   `/trial/speaking`, `/trial/writing`, lời nhắn Q-8, mọi state ở
@@ -130,9 +141,9 @@ thiết kế/UX/viết tiếng Việt, Codex cho phần cơ học có test rõ.
   (FR-025, SA F2); tài khoản bị khoá/đã từng kích hoạt (theo
   `first_activated_at`, đọc phía máy chủ) thấy trạng thái `not_eligible`, không thấy CTA bắt đầu (FR-001); route công khai
   `/api/trial/config` schema cố định + cache + rate limit chung (FR-034);
-  `safeNext` so tiền tố theo ranh giới đoạn (SA N6). **S, Codex** (SA review). `depends: T002`
+  `safeNext` so tiền tố theo ranh giới đoạn (SA N6). **S, Codex** (SA review). `depends: T002, T006`
   `owns: frontend/lib/login-model.mjs, frontend/app/(public-auth)/login/**, frontend/app/(marketing)/page.tsx (CTA), backend/services/activation_gate.py, backend/routers/trial.py (config), frontend/tests/login-next.test.mjs, backend/tests/test_activation_gate_trial_exempt.py, backend/tests/test_trial_config.py`
 
-Lịch gợi ý theo quota tuần (reset 08/11): T001 → T002 → (T004, T005, T007,
-T013 song song) → T006 → T003 → T008 → T011 → T012; T009/T010 xếp bất cứ lúc
-nào còn quota (T010 sau T004).
+Lịch gợi ý theo quota tuần (reset 08/11): T001 → T002 → T003 → T007 → T006 →
+T013 → T008 → T011 → T012; T004/T005 song song sau T001, nhưng phải xong trước
+task phụ thuộc chúng. T009/T010 xếp bất cứ lúc nào còn quota (T010 sau T004).

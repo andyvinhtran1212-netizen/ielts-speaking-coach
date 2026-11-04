@@ -11,7 +11,10 @@
 
 ## Staging
 
-1. Áp migration `371` trên staging; query xác nhận RLS bật, REVOKE đúng.
+1. Áp migration `371` trên staging; query xác nhận RLS bật trên đủ 6 bảng dùng
+   thử (danh sách trong `plan.md`), REVOKE đúng; bucket audio dùng thử riêng đã
+   tạo và `public=false`, phát lại chỉ qua signed URL TTL ≤ 10 phút sau kiểm
+   chủ sở hữu (FR-033).
    SA N26: xác nhận trong Supabase API settings (`db_schemas`/exposed schemas)
    **không** có `trial_private`; `GET /rest/v1/v_user_activation_evidence` với
    `Accept-Profile: trial_private` → 406/lỗi quyền; service_role đọc được view
@@ -42,7 +45,13 @@
   request). Code rollback an toàn: route lớp không phụ thuộc bảng dùng thử.
 - Reservation treo: sweeper AIBUDGET-0033 hết hạn theo ước tính; lượt
   `reserved` > 15 phút được `fn_trial_settle(..., 'released')`.
-- Migration down chỉ xoá đối tượng dùng thử.
+- Rollback code giữ migration `371`. Chỉ chạy migration down sau khi dừng
+  route/job dùng thử và chốt reservation; xử lý dữ liệu theo FR-033 trước khi
+  gỡ đối tượng riêng của dùng thử (kể cả bucket/view/schema). Giữ nguyên
+  `users.first_activated_at` cùng hàm/trigger đơn điệu, không xoá mốc backfill.
+  Nếu `371` có sửa `fn_ai_budget_reserve`, down khôi phục định nghĩa/chữ ký/quyền
+  trước `371` theo bản T001 lưu; không xoá reservation/chi tiêu nền tảng.
+  Đối chiếu `plan.md` và kiểm chứng rollback trong `verification.md`.
 
 ## Observability
 

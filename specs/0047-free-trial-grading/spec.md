@@ -1,12 +1,12 @@
 ---
 id: FREETRIAL-0047
-title: Người dùng có tài khoản nhưng chưa vào lớp được dùng thử chấm Speaking và Writing miễn phí trong hạn mức, mà không ảnh hưởng học viên lớp thật
+title: Accounts outside classes can try free Speaking and Writing grading within quotas without affecting class learners
 status: draft
 risk: high
 owner: product
 ---
 
-# Người dùng có tài khoản nhưng chưa vào lớp được dùng thử chấm Speaking và Writing miễn phí trong hạn mức, mà không ảnh hưởng học viên lớp thật
+# Accounts outside classes can try free Speaking and Writing grading within quotas without affecting class learners
 
 Status: **draft, chưa duyệt**. FD viết 04/11 theo yêu cầu anh Vinh (t1392u,
 04/11 14:38, Leader chuyển). Số spec **0047** đã giữ trong
@@ -85,8 +85,9 @@ chưa đăng ký lớp, để họ trải nghiệm chất lượng chấm. Hiệ
 
 ## Users and journeys
 
-- **Người dùng thử (trial user):** tài khoản đã xác minh email, không có quyền
-  Speaking/Writing qua mã truy cập, không thuộc cohort/lớp nào, vai trò student.
+- **Người dùng thử (trial user):** tài khoản đáp ứng đầy đủ FR-001, gồm email
+  đã xác minh, vai trò `user`/`student`, chưa từng kích hoạt, không có quyền
+  Speaking/Writing qua mã truy cập và không thuộc cohort/lớp nào.
   1. Đăng nhập → trang chủ thấy thẻ "Dùng thử miễn phí: còn X lượt Speaking,
      Y lượt Writing hôm nay".
   2. Speaking: chọn 1 câu hỏi Part 1/2/3 trong bộ đề dùng thử → ghi âm (≤ 60 s
@@ -95,8 +96,8 @@ chưa đăng ký lớp, để họ trải nghiệm chất lượng chấm. Hiệ
      được) → đếm chữ trực tiếp → Nộp. Nếu thiếu chữ/vô nghĩa/lạc đề/lặp: thông
      báo lý do, **không** trừ lượt, trừ 1 lần "lọc" trong ngày. Hợp lệ: chấm,
      trừ 1 lượt, xem kết quả.
-  4. Hết lượt ngày: "Hôm nay bạn đã dùng hết lượt thử. Quay lại sau 07:00 sáng
-     mai (giờ Việt Nam)" + gợi ý đăng ký lớp.
+  4. Hết lượt ngày: "Hôm nay bạn đã dùng hết lượt thử. Quay lại sau 00:00 ngày
+     mai (giờ Việt Nam)" + gợi ý đăng ký lớp (FR-003).
   5. Chương trình hết ngân sách/tạm dừng: "Chương trình dùng thử đã tạm đóng vì
      quá nhiều người tham gia. Cảm ơn bạn! ..." + liên hệ/đăng ký lớp.
 - **Học viên lớp thật:** không thấy thẻ dùng thử; mọi đường chấm cũ giữ nguyên,

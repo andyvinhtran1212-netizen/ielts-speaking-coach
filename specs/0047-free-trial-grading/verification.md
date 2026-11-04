@@ -50,8 +50,17 @@
 ## Data evidence
 
 - Query staging sau migration `371`: RLS bật, không policy cho `anon`/
-  `authenticated` trên 4 bảng `trial_*`; `has_table_privilege(anon|authenticated, 'trial_private.v_user_activation_evidence', 'SELECT')` = false và `has_schema_privilege(anon|authenticated, 'trial_private', 'USAGE')` = false (SA N23, kể cả sau khi tạo lại view); `has_function_privilege` false cho
+  `authenticated` trên đủ 6 bảng `trial_*` liệt kê trong `plan.md`; `has_table_privilege(anon|authenticated, 'trial_private.v_user_activation_evidence', 'SELECT')` = false và `has_schema_privilege(anon|authenticated, 'trial_private', 'USAGE')` = false (SA N23, kể cả sau khi tạo lại view); `has_function_privilege` false cho
   `fn_trial_reserve`/`fn_trial_settle` với `anon`/`authenticated`.
+- T001/T007: bucket audio dùng thử riêng tồn tại, `public=false`; client không
+  đọc trực tiếp, chủ sở hữu nhận signed URL TTL ≤ 10 phút, user khác không
+  nhận URL (FR-033).
+- T001 (PG test rollback, PENDING): sau up → backfill/kích hoạt → down, giữ
+  nguyên `users.first_activated_at` và hàm/trigger đơn điệu; thử xoá/đổi mốc vẫn
+  giữ giá trị. Nếu up sửa `fn_ai_budget_reserve`, so định nghĩa/chữ ký/quyền sau
+  down với bản trước up và chạy ca reserve nền tảng; reservation/chi tiêu nền
+  tảng không đổi. Dừng route/job dùng thử và chốt reservation trước down theo
+  `rollout.md`.
 - So chi phí thật 48 h staging với ước tính `plan.md` (lệch ≤ 30 %).
 
 ## UI evidence
