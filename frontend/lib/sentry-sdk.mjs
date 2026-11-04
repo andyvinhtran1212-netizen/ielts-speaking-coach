@@ -4,4 +4,4 @@
 // @sentry/browser, not @sentry/nextjs: the nextjs client init always bundles
 // Next's Pages Router (next/router → structuredClone, Safari 15.4), which the
 // iOS 15 floor in tooling/legacy-browser-scan.mjs rejects.
-export { browserTracingIntegration, init } from '@sentry/browser';
+export { browserTracingIntegration, captureException, init } from '@sentry/browser';
