@@ -50,6 +50,7 @@ BACKEND = Path(__file__).resolve().parents[1]
 REPO = BACKEND.parent
 MIGRATIONS = BACKEND / "migrations"
 NAME = "333_ai_budget_hard_cap.sql"
+PINNED_BY = "367_ai_budget_definer_search_path.sql"
 SQL = (MIGRATIONS / NAME).read_text(encoding="utf-8")
 CODE = m326._strip_comments(SQL)
 GUARD_225 = (MIGRATIONS / "225_allow_admitted_speaking_grade_after_submit.sql").read_text(encoding="utf-8")
@@ -219,6 +220,24 @@ def test_no_other_migration_touches_the_333_objects():
         if path.name in (NAME, "340_ai_budget_hardening.sql"):
             continue
         code = m326._strip_comments(path.read_text(encoding="utf-8"))
+        if path.name == PINNED_BY:
+            # 367 (PC-J612, SA-2209) only re-creates 333 function bodies with
+            # a pinned search_path, ALTERs the path of four others and reads
+            # the generation trigger in its checks; its own suite
+            # (test_migration_367_*) proves the bodies equal 333's and runs
+            # this suite's behaviour tests on the pinned schema. It may not
+            # touch a table, trigger, grant or owner; anything else that
+            # names these objects still fails.
+            assert not re.search(r"\bDROP\b|\bTRUNCATE\b|DELETE\s+FROM|ALTER\s+TABLE|\bGRANT\b|\bREVOKE\b"
+                                 r"|OWNER\s+TO|CREATE\s+(OR\s+REPLACE\s+)?TRIGGER|DISABLE\s+TRIGGER"
+                                 r"|CREATE\s+(UNIQUE\s+)?INDEX|CREATE\s+TABLE|\bPOLICY\b",
+                                 _without_bodies(code), re.I), path.name
+            altered = re.findall(r"^ALTER FUNCTION public\.(\w+)\([^)]*\) SET search_path = pg_catalog, pg_temp;$",
+                                 code, re.M)
+            assert sorted(altered) == ["fn_ai_budget_alert_crossings", "fn_ai_budget_ensure_refresh",
+                                       "fn_ai_budget_lock_counter", "fn_ai_budget_thresholds"], altered
+            assert len(re.findall(r"\bALTER\b", _without_bodies(code))) == 4, path.name
+            continue
         for name in ("ai_budget_", "ai_deferred_", "trg_ai_session_generation", "budget_deferred_at",
                      "fn_ai_session_bands_write", "fn_ai_class_sync"):
             assert name not in code, (path.name, name)
