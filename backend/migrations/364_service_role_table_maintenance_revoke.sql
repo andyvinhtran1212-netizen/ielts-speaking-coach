@@ -207,6 +207,7 @@ END $defaults$;
 
 -- A table the runner creates now must come out without the four privileges.
 CREATE TABLE public._svcpriv_default_probe (id int);
+ALTER TABLE public._svcpriv_default_probe ENABLE ROW LEVEL SECURITY;
 
 DO $probe$
 DECLARE

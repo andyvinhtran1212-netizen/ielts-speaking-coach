@@ -126,7 +126,9 @@ def test_revokes_only_and_no_grant_or_other_object_change():
     assert re.findall(r"\bDROP\b\s+\w+[^;]*;", bare) == [
         "DROP AS\nSELECT * FROM pg_temp.mig364_kept_privileges;",   # ON COMMIT DROP
         "DROP TABLE public._svcpriv_default_probe;", "DROP VIEW pg_temp.mig364_kept_privileges;"]
-    assert not re.search(r"\bALTER\b", bare, re.I)   # ALTER DEFAULT PRIVILEGES only inside format()
+    # ALTER DEFAULT PRIVILEGES only inside format(); RLS on the probe (test_migrations_rls rule).
+    assert re.findall(r"\bALTER\b[^;]*;", bare) == [
+        "ALTER TABLE public._svcpriv_default_probe ENABLE ROW LEVEL SECURITY;"]
     for forbidden in (r"INSERT\s+INTO", r"DELETE\s+FROM", r"^\s*UPDATE\s", r"^\s*TRUNCATE\b",
                       r"\bPOLICY\b", r"\bFUNCTION\b", r"\bTRIGGER\s+\w+\s+(?:BEFORE|AFTER)",
                       r"\bOWNER\s+TO\b", r"\bCASCADE\b"):
