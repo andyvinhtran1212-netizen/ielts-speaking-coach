@@ -20,10 +20,10 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-11-02 the highest is `363`, allocated by the
-Leader to PC-J538 (`361` is PC-J358, #2180; `360` is PC-J192, INSTRUCTORGIVE-0044),
-so by that rule the next new migration is `364`. Ask the Leader before taking it; 348–351 are reserved for other
-work, and 353–359 and 362 without a file here may be held by open PRs: none may be
+sequence is dense. As of 2026-11-04 the highest is `365` (PC-J603; `363` is
+PC-J538, `361` is PC-J358, #2180; `360` is PC-J192, INSTRUCTORGIVE-0044),
+so by that rule the next new migration is `366`. Ask the Leader before taking it; 348–351 are reserved for other
+work, `364` is held by PC-J544 (SVCPRIV-0042 T001), and 353–359 without a file here may be held by open PRs: none may be
 reused.
 The runner applies any unapplied file regardless of order.
 Numbers 321–326 belong to 321 WRITINGRATE-0025, 322 AIOPS-0024 (#1837), 323
@@ -105,6 +105,48 @@ staging→main promotion after 341. One transaction, no data change,
 re-runnable; re-running 341 restores the `NEW.id` audit body, so re-run 361
 after it. Its header rollback drops only the 361 trigger and function and
 restores the 341 audit body; it grants nothing.
+
+Migration `362` (PC-J522, STORAGELIMITS-0038; BUCKET50 a, Vinh t1246u
+02/11 06:37) follows immutable 343, confirmed in the staging ledger at
+2026-11-02 01:51:21Z. It sets only `listening-audio.file_size_limit` to
+`52428800` (50 MiB); all MIME types, visibility, other buckets and objects
+are unchanged. One transaction, 5 s lock timeout, idempotent; a missing bucket
+or failed postcondition aborts. The header down script restores the historical
+343 limit only. Same `pending_feature storage_bucket_limits` group: no apply
+on merge; Leader applies staging under the advisory lock, then checks the
+bucket value and uploads up to 50 MiB. Production remains uninspected and
+requires separate owner authorization at promotion.
+
+Migration `365` (PC-J603; SA-2209 residual P2 after 363) pins the rest of
+the staff-security chain, which 332, 336, 341, 361 and 363 left on
+`search_path = public, pg_temp` with unqualified catalog calls:
+`fn_set_staff_privilege` (SECURITY DEFINER, EXECUTE for service_role, so the
+role that can plant a typed `jsonb_build_object` overload in `public` can also
+call the RPC that runs it as the owner), `fn_ai_model_override_audit`
+(definer trigger), the 332/336 guards `fn_users_suspension_guard` and
+`fn_users_suspension_role_guard` (invoker triggers the RPC runs as the owner),
+`fn_bootstrap_admin_recovery` and `fn_staff_security_audit_append_only`. It
+recreates the five functions that call catalog functions with their 341/332
+bodies, `SET search_path = pg_catalog, pg_temp` and `pg_catalog.<fn>` calls,
+and only `ALTER FUNCTION … SET search_path` on `fn_ai_model_override_audit`,
+which calls none. Owner, security mode and ACLs are unchanged (service_role
+keeps EXECUTE on the RPC only). It needs 361 and 363 in `_schema_migrations`
+with the 363 pin in place (`migration_363_missing`) and refuses with
+`catalog_name_shadowed_in_public` while a shadow is already planted (remove it
+first: it is an incident). The postcondition checks the exact `proconfig`, no
+unqualified catalog call, security mode, owner, EXECUTE and the five triggers.
+Order is 361 → 363 → 365: on staging on top of the applied 363, on production
+back to back after 341, 361 and 363 at one promotion. 365 is held by
+`forward-policy.tsv` as `pending_feature admin_aal2`: apply only with
+`MIGRATION_FEATURES=admin_aal2` through the advisory-locked runner, staging
+first after SA review, production only at an explicitly authorised
+staging→main promotion after 363. One transaction, no data change,
+re-runnable; re-running 332, 336 or 341 restores the `public` path, so re-run
+361, 363 and 365 after it; re-running 361 alone after 365 aborts at its
+postcondition and changes nothing. `rollback/365_staff_security_chain_search_path.sql`
+restores the 341/332 bodies and path, reopens SA-2209 for these six functions
+and grants nothing. The other definers SA-2209 lists (326, 331, 333, 337, 339,
+340 groups and older files) are not covered by 365.
 
 Migration `363` (PC-J538; SA-2180-R3-2 on #2180) pins the users audit trigger
 chain after 361, which it never edits. `fn_users_privilege_audit` (SECURITY
@@ -1184,3 +1226,15 @@ remain compatible. Apply308 only through the locked runner after setting
 session;308 records the SHA on the service-only activation function. Do not
 include308 in the migration-before-code batch. It activates typed admission
 and frozen snapshots for new work, with no backfill or regrade of old work.
+
+Migration 359 (`activation_serialize`, pending feature) adds the service-role-only
+`fn_activation_serialize` RPC. Its per-user transaction advisory lock covers fresh
+account/code/profile checks, activation, enrollment and the code claim. Native
+rollback includes membership trigger writes; the router performs no compensation
+UPDATE or DELETE. It neither installs nor depends on migration 337/346 objects.
+Leader alone applies 359 to staging in the freeze window **after
+SA-DESIGN-359 APPROVE**, using the advisory-locked runner. Production follows only
+at an authorised staging→main promotion. Deploy the previous backend before
+running `rollback/359_activation_serialize.sql`; rollback preserves account,
+enrollment and claim data. This PR supplies migration files only; hosted
+application remains blocked pending that design approval.

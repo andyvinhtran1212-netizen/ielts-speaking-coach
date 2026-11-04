@@ -11,17 +11,27 @@
 | FR-005 | kind=test; ref=frontend/tests/react/mock-private-draft-create.test.tsx (payload unchanged) and backend/tests/test_migration_338_paper_updated_at_triggers.py (copy still hides the source); ci=Tests run 40784593322 on staging `56a8c344f`: mock-private-draft-create.test.tsx 2 passed, test_migration_338_paper_updated_at_triggers.py 29 passed | PASS |
 | FR-006 | kind=test; ref=backend/migrations/353_listening_package_status_revision.sql; backend/tests/test_migration_338_paper_updated_at_triggers.py (`test_package_status_transition_with_real_306_advances_timestamp_and_policy[status-update]`, `[package-publish-rpc]`, PC-J242 asserts unchanged; fixture applies 353 twice and checks no row changed) and backend/tests/test_migration_353_listening_package_status_revision.py (publish then archive through the real RPC: policy_revision +1 and one release event per transition; other package-row changes and raw edits still refused; rollback negative control); local PG 16.2 and 17.11 (PC-J512, 2026-11-02): test_migration_353 13 passed and test_migration_338 72 passed on each; staging CI and the staging apply are pending | PENDING |
 | FR-007 | kind=test; ref=backend/migrations/353_listening_package_status_revision.sql; backend/tests/test_migration_353_listening_package_status_revision.py (publish/archive keep mock_content_revision and the overlap grant; status-only UPDATE on both Listening child tables keeps the revision, attempts and dependencies; status plus a content column bumps once; other columns, INSERT and DELETE still bump; source guard pinned and service-role only; re-run and no-row-change via the 338 fixture); local PG 16.2 and 17.11 (PC-J512, 2026-11-02): test_migration_353 13 passed and test_migration_338 72 passed on each; staging CI and the staging apply are pending | PENDING |
+| FR-008 | kind=test; ref=migration NNN and its PostgreSQL test (T010): local PG17 (and 16) import of a new package through the real 295 RPC with 306 active returns `created`, no 55000, `mock_content_revision` unchanged during the import, re-run `reused`; with all guards enabled, package-less inserts persist the usual revision bump, while published, once-published, attempted and other-package inserts fail with SQLSTATE 55000 and leave child rows and persisted revisions unchanged; client roles cannot reach the skip; rollback negative control; plus the staging read-only SELECT by WM after apply (T011); not implemented yet | PENDING |
 
-## Known gap — Q-J252-IMPORT (OPEN)
+## Import path — required check (FR-008)
 
-Importing a new package with migration 306 active can still raise SQLSTATE
+Before FR-008, importing a new package with migration 306 active raised SQLSTATE
 55000: INSERT into `listening_content` fires the source trigger, whose UPDATE
-of `listening_tests` requires the package transition GUC. Source: job 1dh,
+of `listening_tests` requires the package transition GUC (job 1dh,
 `audit/import-base.result`; FD question
-`handoff/leader/20261102-0950-fd-questions-vinh.md`, Q-J252-IMPORT.
-The question remains OPEN with Vinh. J252 option 1 does not decide it;
-migration 353 covers FR-006 and FR-007 only. Import remediation is outside
-PC-J536 and remains pending a separate decision.
+`handoff/leader/done/20261102-0950-fd-questions-vinh.md`, Q-J252-IMPORT).
+Vinh chose "IMPORT a" (t1312u, 2026-11-03 02:16 UTC+7, Leader báo). Required
+to pass:
+
+- Local PostgreSQL 17: import a new Listening package through the real 295 RPC
+  with 306 active (353 and NNN applied); no 55000, `mock_content_revision`
+  unchanged during the import, re-run `reused` (T010).
+- Staging, after the Leader applies NNN: WM imports one new QA package and runs
+  a read-only SELECT of that package's `mock_content_revision` and of the
+  trigger function catalog (T011).
+
+Until both pass the import stays failing on staging; migration 353 covers
+FR-006 and FR-007 only.
 
 ## Contract evidence
 
