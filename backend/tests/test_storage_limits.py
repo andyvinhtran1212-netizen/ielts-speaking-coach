@@ -26,7 +26,7 @@ EXPECTED = {
 }
 
 
-def assert_refusal(exc, status, bucket, maximum=None):
+def assert_refusal(exc, status, bucket, maximum=None, allowed=None):
     assert exc.status_code == status
     detail = exc.detail
     assert detail["error_code"] == ("file_too_large" if status == 413 else "unsupported_media_type")
@@ -34,7 +34,7 @@ def assert_refusal(exc, status, bucket, maximum=None):
     if status == 413:
         assert detail["max_bytes"] == (maximum or EXPECTED[bucket][0])
     else:
-        assert detail["allowed"] == list(EXPECTED[bucket][1])
+        assert detail["allowed"] == (allowed or list(EXPECTED[bucket][1]))
 
 
 def refusal(status):
@@ -312,7 +312,9 @@ def test_listening_audio_routes(monkeypatch, kind, maximum, case):
             asyncio.run(run())
         status = 415 if case in ("wrong_type", "storage_mime") else 413
         refusal_limit = maximum if case == "oversize" else effective_limit if case == "effective_oversize" else None
-        assert_refusal(exc.value, status, "listening-audio", refusal_limit)
+        # A route that only takes .mp3 names its own type; a Storage refusal names the bucket policy.
+        assert_refusal(exc.value, status, "listening-audio", refusal_limit,
+                       ["audio/mpeg"] if case == "wrong_type" else None)
         assert upload.call_count == (0 if case in ("oversize", "effective_oversize", "wrong_type") else 1)
         db.table.return_value.update.assert_not_called()
 
@@ -371,6 +373,182 @@ def test_listening_import_upload_guards(monkeypatch, route, maximum, case):
         return await listening.admin_sync_drill("drill", text, text, text, audio)
     with pytest.raises(HTTPException) as exc:
         asyncio.run(run())
-    assert_refusal(exc.value, 413 if case == "oversize" else 415, "listening-audio", maximum)
+    assert_refusal(exc.value, 413 if case == "oversize" else 415, "listening-audio", maximum, ["audio/mpeg"])
     db.storage.from_.return_value.upload.assert_not_called()
     db.table.return_value.insert.assert_not_called()
+
+
+# PC-J484 (review #2107 P3-1..P3-4) ------------------------------------------------------------
+
+MP3_ROUTES = ("fulltest", "drill", "sync", "full", "section")
+ROUTE_CAPS = {"fulltest": 60 * 1024 * 1024, "drill": 30 * 1024 * 1024, "sync": 30 * 1024 * 1024,
+              "full": 100 * 1024 * 1024, "section": 30 * 1024 * 1024}
+
+
+class CountingBytesIO(BytesIO):
+    """Upload body that records how many bytes the route asked for."""
+
+    def __init__(self, data):
+        super().__init__(data)
+        self.bytes_read = 0
+
+    def read(self, size=-1):
+        chunk = super().read(size)
+        self.bytes_read += len(chunk)
+        return chunk
+
+
+def counting_upload(data, filename, content_type="audio/mpeg", size=None):
+    body = CountingBytesIO(data)
+    return UploadFile(body, size=size, filename=filename, headers=Headers({"content-type": content_type})), body
+
+
+@pytest.fixture
+def mp3_routes(monkeypatch):
+    from routers import listening
+    monkeypatch.setattr(listening, "require_admin", AsyncMock(return_value={"id": "admin"}))
+    monkeypatch.setattr(listening, "_read_text_upload", lambda *a, **kw: b"synthetic")
+    monkeypatch.setattr(listening, "_read_json_upload", lambda *a, **kw: {})
+    monkeypatch.setattr(listening, "_fetch_test_or_404", lambda _: {"audio_assembly_mode": "full_premixed"})
+    db = MagicMock()
+    monkeypatch.setattr(listening, "supabase_admin", db)
+    text = upload_file(b"synthetic")
+
+    def run(route, audio):
+        calls = {
+            "fulltest": lambda: listening.admin_import_fulltest_commit(text, text, text, audio, mini=False),
+            "drill": lambda: listening.admin_import_drill_commit(text, text, text, audio),
+            "sync": lambda: listening.admin_sync_drill("drill", text, text, text, audio),
+            "full": lambda: listening.admin_upload_test_full_audio("test", audio),
+            "section": lambda: listening.admin_upload_test_section_audio("test", 1, audio),
+        }
+        return asyncio.run(calls[route]())
+    return SimpleNamespace(run=run, db=db, listening=listening)
+
+
+@pytest.mark.parametrize("route", MP3_ROUTES)
+def test_mp3_only_routes_name_mp3_as_the_only_allowed_type(mp3_routes, route):
+    audio = upload_file(b"RIFF....WAVE", "take.wav", "audio/wav")
+    with pytest.raises(HTTPException) as exc:
+        mp3_routes.run(route, audio)
+    assert_refusal(exc.value, 415, "listening-audio", allowed=["audio/mpeg"])
+    clipped = mp3_routes.listening.clip_user_value("take.wav")
+    expected = "Audio phải là .mp3." if route == "sync" else f"Audio phải là .mp3 (nhận: {clipped!r})"
+    assert exc.value.detail["message"] == expected
+    mp3_routes.db.storage.from_.return_value.upload.assert_not_called()
+
+
+def test_upload_error_keeps_bucket_allowed_list_by_default():
+    assert limits.upload_error("listening-audio", 415).detail["allowed"] == list(EXPECTED["listening-audio"][1])
+    assert limits.upload_error("listening-audio", 415, allowed=["audio/mpeg"]).detail["allowed"] == ["audio/mpeg"]
+
+
+@pytest.mark.parametrize("error", [refusal(413), refusal(415), RuntimeError("bucket not found")])
+def test_unknown_bucket_lets_the_storage_error_surface(error):
+    upload = MagicMock(side_effect=error)
+    with pytest.raises(type(error)) as exc:
+        limits.upload_with_error_mapping("ten-bucket-env-khac", upload, "x", PNG, {})
+    assert exc.value is error
+    assert limits.map_storage_error("ten-bucket-env-khac", error) is None
+
+
+@pytest.mark.parametrize("setting,bucket", [
+    ("WRITING_IMAGES_BUCKET", "writing-images"), ("LISTENING_AUDIO_BUCKET", "listening-audio"),
+    ("LISTENING_IMAGES_BUCKET", "listening-images"), ("READING_IMAGES_BUCKET", "reading-images"),
+])
+def test_configured_bucket_name_uses_the_canonical_policy(monkeypatch, setting, bucket):
+    from config import settings
+    configured = f"{bucket}-qa-env"
+    monkeypatch.setattr(settings, setting, configured)
+    maximum, types = EXPECTED[bucket]
+    limits.check_upload(configured, maximum, types[0].replace("*", "mpeg"))
+    with pytest.raises(HTTPException) as exc:
+        limits.check_upload(configured, maximum + 1, types[0].replace("*", "mpeg"))
+    assert_refusal(exc.value, 413, bucket)
+    for status in (413, 415):
+        mapped = limits.map_storage_error(configured, refusal(status))
+        assert_refusal(mapped, status, bucket)
+        assert mapped.bucket == configured
+
+
+def test_vocab_audio_module_bucket_uses_the_canonical_policy(monkeypatch):
+    from services import tts_audio
+    monkeypatch.setattr(tts_audio, "VOCAB_AUDIO_BUCKET", "vocab-audio-qa-env")
+    assert_refusal(limits.map_storage_error("vocab-audio-qa-env", refusal(413)), 413, "vocab-audio")
+
+
+@pytest.mark.parametrize("content_type,extension,expected", [
+    ("audio/*", ".webm", "audio/webm"), ("audio/*;codecs=opus", ".webm", "audio/webm"),
+    ("audio/*", ".m4a", "audio/mp4"), ("audio/webm;codecs=opus", ".webm", "audio/webm"),
+])
+def test_client_wildcard_audio_type_is_not_sent_to_storage(content_type, extension, expected):
+    assert limits.normalise_audio_content_type(content_type, extension) == expected
+
+
+@pytest.mark.parametrize("bucket", EXPECTED)
+@pytest.mark.parametrize("wildcard", ["image/*", "audio/*", "*/*", "video/*"])
+def test_check_upload_refuses_a_client_wildcard_type(bucket, wildcard):
+    with pytest.raises(HTTPException) as exc:
+        limits.check_upload(bucket, 300, wildcard)
+    assert_refusal(exc.value, 415, bucket)
+
+
+def test_speaking_oversize_reads_at_most_one_byte_past_the_cap(speaking):
+    from routers import grading
+    audio, body = counting_upload(b"x" * (grading._MAX_BYTES + 4 * 1024 * 1024), "take.webm", "audio/webm")
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(grading.grade_response_endpoint("session", "question", audio,
+                                                    submission_id=None, expected_revision=None))
+    assert_refusal(exc.value, 413, "audio-responses")
+    assert body.bytes_read <= grading._MAX_BYTES + 1
+    speaking.stt.assert_not_called()
+
+
+def test_speaking_known_size_is_refused_before_reading(speaking):
+    from routers import grading
+    size = grading._MAX_BYTES + 3 * 1024 * 1024
+    audio, body = counting_upload(b"x" * size, "take.webm", "audio/webm", size=size)
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(grading.grade_response_endpoint("session", "question", audio,
+                                                    submission_id=None, expected_revision=None))
+    assert exc.value.detail["message"] == "File quá lớn (53.0 MB). Giới hạn là 50 MB."
+    assert body.bytes_read == 0
+
+
+@pytest.mark.parametrize("route", MP3_ROUTES)
+def test_mp3_routes_oversize_reads_at_most_one_byte_past_the_cap(mp3_routes, route):
+    cap = ROUTE_CAPS[route]
+    audio, body = counting_upload(b"x" * (cap + 2 * 1024 * 1024), "audio.mp3")
+    with pytest.raises(HTTPException) as exc:
+        mp3_routes.run(route, audio)
+    assert_refusal(exc.value, 413, "listening-audio", cap)
+    assert body.bytes_read <= cap + 1
+    mp3_routes.db.storage.from_.return_value.upload.assert_not_called()
+
+
+@pytest.mark.parametrize("known_size", [False, True])
+def test_capped_read_accepts_a_file_exactly_at_the_cap(known_size):
+    cap = 1024
+    audio, body = counting_upload(b"x" * cap, "audio.mp3", size=cap if known_size else None)
+    too_large = MagicMock(side_effect=AssertionError("refused a file at the cap"))
+    assert limits.read_upload_capped(audio, cap, too_large) == b"x" * cap
+    audio, _ = counting_upload(b"x" * cap, "audio.mp3", size=cap if known_size else None)
+    assert asyncio.run(limits.aread_upload_capped(audio, cap, too_large)) == b"x" * cap
+    too_large.assert_not_called()
+
+
+@pytest.mark.parametrize("known_size", [False, True])
+def test_capped_read_reports_the_size_it_refused(known_size):
+    cap = 1024
+    audio, body = counting_upload(b"x" * (cap * 3), "audio.mp3", size=cap * 3 if known_size else None)
+    with pytest.raises(HTTPException):
+        limits.read_upload_capped(audio, cap, lambda size: limits.upload_error("listening-audio", 413, size=size, max_bytes=cap))
+    assert body.bytes_read == (0 if known_size else cap + 1)
+    seen = []
+    def too_large(size):
+        seen.append(size)
+        return limits.upload_error("listening-audio", 413, max_bytes=cap)
+    audio, _ = counting_upload(b"x" * (cap * 3), "audio.mp3", size=cap * 3 if known_size else None)
+    with pytest.raises(HTTPException):
+        asyncio.run(limits.aread_upload_capped(audio, cap, too_large))
+    assert seen == [cap * 3 if known_size else cap + 1]

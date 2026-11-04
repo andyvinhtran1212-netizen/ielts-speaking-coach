@@ -2,7 +2,7 @@
 title: Pronouns — Đại từ
 slug: pronouns
 category: parts-of-speech
-summary: 'Đại từ thay thế cho danh từ để tránh lặp lại. Tiếng Anh có nhiều loại đại từ khác nhau: nhân xưng, sở hữu, phản thân, chỉ định, bất định... Dùng sai đại từ — nhất là nhầm "he/she", sai dạng sở hữu, hoặc dùng "they" chỉ người không rõ giới tính — là lỗi thường gặp trong IELTS.
+summary: 'Đại từ thay thế cho danh từ để tránh lặp lại. Tiếng Anh có nhiều loại đại từ khác nhau: nhân xưng, sở hữu, phản thân, chỉ định, bất định... Dùng sai đại từ — nhất là nhầm he/she, sai dạng sở hữu (its/it''s) hoặc tham chiếu không rõ — là lỗi thường gặp trong IELTS.
 
   '
 level: beginner
@@ -63,7 +63,7 @@ anchors:
 <!-- anchor: pronouns.tai-sao-quan-trong -->
 ## Tại sao quan trọng
 
-Dùng đại từ đúng giúp câu văn mạch lạc và tự nhiên hơn. Dùng sai có thể gây hiểu lầm (nhầm "he/she") hoặc bị trừ điểm Grammar trong IELTS.
+Dùng đại từ đúng giúp câu văn mạch lạc và tự nhiên hơn. Dùng sai có thể gây hiểu lầm (nhầm "he/she") hoặc bị trừ điểm Grammatical Range and Accuracy trong IELTS.
 
 ## Các loại đại từ
 
@@ -169,6 +169,8 @@ Nối mệnh đề quan hệ với danh từ đứng trước:
 | Tân ngữ | who / whom / that | which / that |
 | Sở hữu | whose | whose |
 
+Who làm tân ngữ thông dụng trong văn nói; whom trang trọng hơn, nhất là sau giới từ (*to whom*).
+
 - The student **who** won the prize is from my class.
 - The book **that/which** I borrowed was very interesting.
 - The man **whose** car was stolen reported it to the police.
@@ -201,7 +203,9 @@ Nối mệnh đề quan hệ với danh từ đứng trước:
 
 ### Lỗi 4: Dùng "he" thay vì "she" hoặc ngược lại
 
-Tiếng Việt dùng "họ" cho cả hai giới, nên người Việt thường nhầm he/she. Chú ý xác định giới tính nhân vật trước.
+Trong khẩu ngữ, người Việt hay dùng từ trung tính như "bạn ấy", "người đó", "nó" cho cả nam và nữ, nên khi nói nhanh dễ nhầm he/she. Chú ý xác định giới tính nhân vật trước.
+
+- ❌ My mother is a nurse. **He** works at a hospital. → ✅ **She** works…
 
 ### Lỗi 5: "Everyone" chia động từ số nhiều
 
@@ -215,7 +219,7 @@ Trong tiếng Anh hiện đại, "they/them/their" ngày càng được dùng đ
 - If a student wants to improve, **they** should practice every day.
 - Someone left **their** phone on the table.
 
-Cách này đang được chấp nhận rộng rãi và xuất hiện trong đề IELTS.
+Cách này được chấp nhận rộng rãi, kể cả trong IELTS Writing và Speaking.
 
 ## Ứng dụng trong IELTS
 
@@ -233,11 +237,11 @@ Dùng đại từ để tránh lặp từ, tạo mạch văn tự nhiên:
 
 ## Đại từ và Cohesion trong IELTS Writing
 
-Dùng đại từ đúng cách tạo ra **cohesion** — mạch văn liền mạch giữa các câu. Đây là tiêu chí chấm điểm riêng trong cả Task 1 và Task 2.
+Dùng đại từ đúng cách tạo ra **cohesion** — mạch văn liền mạch giữa các câu. Đây là một phần của tiêu chí Coherence and Cohesion trong cả Task 1 và Task 2.
 
 ### Nguyên tắc 1: Antecedent phải rõ ràng
 
-Tham chiếu phải đủ rõ để người đọc hiểu người/vật hoặc nội dung đang nói đến. Không bắt buộc thay đúng một danh từ đã nhắc: I/you có thể được hiểu từ tình huống, it có thể là chủ ngữ giả, they có thể gom hai nhóm, this có thể chỉ cả mệnh đề. Who làm tân ngữ thông dụng; whom trang trọng hơn, đặc biệt sau giới từ đưa lên trước.
+Tham chiếu phải đủ rõ để người đọc hiểu người/vật hoặc nội dung đang nói đến. Không bắt buộc thay đúng một danh từ đã nhắc: I/you có thể được hiểu từ tình huống, it có thể là chủ ngữ giả, they có thể gom hai nhóm, this có thể chỉ cả mệnh đề.
 
 - ❌ "The government and the public disagree. **They** think it is unfair." *(They = ai?)*
 - ✅ "The government and the public disagree. **The public** think it is unfair."
@@ -264,7 +268,7 @@ Sau khi nhắc một danh từ lần đầu, dùng *it* (số ít) hoặc *they/
 
 > "Social media has transformed the way people communicate. **It** has made instant contact possible across vast distances, and **this connectivity** has had profound effects on both personal relationships and global commerce. However, **its** impact is not uniformly positive: many argue that **it** fosters superficial interaction at the expense of deeper connection."
 
-- **It** (×3) → thay thế "social media" sau lần nhắc đầu
+- **It** (×2) → thay thế "social media" sau lần nhắc đầu
 - **this connectivity** → summary reference, tóm tắt và nối ý vừa nói
 - **its** → possessive, kéo chủ thể về trong câu kết
 
@@ -276,7 +280,7 @@ Sau khi nhắc một danh từ lần đầu, dùng *it* (số ít) hoặc *they/
 2. I spoke to (she/her) yesterday.
 3. This is (my/mine) bag — that one is (your/yours).
 4. The cat hurt (its/it's) leg.
-5. (Everybody/Everybody) in the class (has/have) a textbook.
+5. Everybody in the class (has/have) a textbook.
 
 ### Sửa lỗi
 1. Between you and I, I don't like the new manager.
@@ -286,7 +290,7 @@ Sau khi nhắc một danh từ lần đầu, dùng *it* (số ít) hoặc *they/
 
 ### Đáp án
 **Chọn đại từ:**
-1. He | 2. her | 3. my / yours | 4. its | 5. Everybody / has
+1. He | 2. her | 3. my / yours | 4. its | 5. has
 
 **Sửa lỗi:**
 1. Between you and **me**
