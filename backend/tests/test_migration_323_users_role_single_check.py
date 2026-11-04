@@ -95,7 +95,8 @@ def test_application_writes_only_values_the_constraint_allows():
 
     assert _VALID_ROLES <= CANONICAL and {"instructor", "student"} <= _VALID_ROLES
     auth = (BACKEND / "routers/auth.py").read_text(encoding="utf-8")
-    assert 'update_fields["role"] = "instructor"' in auth
+    # SA-REVIEW-152: the promote is its own post-claim write, still the literal 'instructor'.
+    assert 'update({"role": "instructor"})' in auth
 
 
 # ── PostgreSQL execution ────────────────────────────────────────────────────
