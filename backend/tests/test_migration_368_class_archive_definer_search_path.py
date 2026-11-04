@@ -66,9 +66,14 @@ def _post(s):
 
 
 def _catalog(s):
+    # PG16 stores each default's :location, the character offset in whichever
+    # file last ran CREATE OR REPLACE (337, 368 or its rollback); PG17 stores
+    # -1. Mask only that offset so every other default-node field stays exact.
     rows = json.loads(psql(f"""SELECT json_agg(row_to_json(x) ORDER BY sig) FROM (
         SELECT p.oid, p.oid::regprocedure::text AS sig, p.proowner, p.proacl,
-               p.prosecdef, p.prosrc, p.proconfig, p.provolatile, p.proargdefaults::text
+               p.prosecdef, p.prosrc, p.proconfig, p.provolatile,
+               regexp_replace(p.proargdefaults::text, ':location -?[0-9]+', ':location _', 'g')
+                   AS proargdefaults
           FROM pg_proc p WHERE p.pronamespace = '{s}'::regnamespace) x"""))
     return {r["sig"].split(".", 1)[1]: r for r in rows}
 
