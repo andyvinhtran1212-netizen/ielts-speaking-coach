@@ -22,8 +22,8 @@ and must not be "filled in" by tooling:
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
 sequence is dense. As of 2026-11-04 the highest is `364`, allocated to PC-J544
 (SVCPRIV-0042 T001, APPROVED-20261102; `363` is PC-J538, `361` is PC-J358, #2180;
-`360` is PC-J192, INSTRUCTORGIVE-0044), so by that rule the next new migration is
-`365`. Ask the Leader before taking it; 348–351 are reserved for other work, and
+`360` is PC-J192, INSTRUCTORGIVE-0044), so by that rule the next new
+migration is `365`. Ask the Leader before taking it; 348–351 are reserved for other work, and
 353–359 and 362 without a file here may be held by open PRs: none may be
 reused.
 The runner applies any unapplied file regardless of order.
