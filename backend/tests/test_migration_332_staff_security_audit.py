@@ -185,10 +185,12 @@ def test_forward_policy_no_longer_holds_332_after_its_production_release():
 
 def test_no_other_migration_drops_or_bypasses_the_332_guards():
     # 341 is the reviewed PC-J88 hardening of these functions (evidence instead
-    # of session settings) and 361 its PC-J358 forward hardening, each pinned
-    # by its own suite (test_migration_341_* / test_migration_361_*). They may
-    # replace them but never drop or disable them, or set the old bypass.
-    hardening = {"341_staff_guc_and_ai_override_hardening.sql", "361_staff_privilege_evidence_commit_guard.sql"}
+    # of session settings), 361 its PC-J358 forward hardening and 363 the
+    # PC-J538 search_path pin, each pinned by its own suite
+    # (test_migration_341_* / _361_* / _363_*). They may replace them but
+    # never drop or disable them, or set the old bypass.
+    hardening = {"341_staff_guc_and_ai_override_hardening.sql", "361_staff_privilege_evidence_commit_guard.sql",
+                 "363_users_privilege_audit_search_path.sql"}
     # 364 (SVCPRIV-0042 FR-001) names staff_security_audit only in the read-only
     # priority list of its privilege postcondition; the rest of the file is
     # still checked like any other migration.
