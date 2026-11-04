@@ -195,7 +195,7 @@ def test_postconditions_cover_path_body_mode_owner_acl_and_triggers():
     assert "NOT p.prosecdef" in post and "p.proowner OPERATOR(pg_catalog.<>) c.relowner" in post
     for role in ("anon", "authenticated"):
         assert f"has_function_privilege('{role}', p.oid, 'EXECUTE')" in post
-    assert "(f.service_exec AND NOT pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'))" in post
+    assert "pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE') OPERATOR(pg_catalog.<>) f.service_exec" in post
 
 
 def test_header_documents_scope_order_and_rollback():
@@ -284,15 +284,24 @@ def _record(schema: str, *names: str) -> None:
 
 
 def _schema(prefix: str, *, with_366: bool = True, guard: bool = True,
-            ledger: tuple[str, ...] = (NAME_326, NAME_331, NAME_365)) -> str:
+            ledger: tuple[str, ...] = (NAME_326, NAME_331, NAME_365),
+            keep_trigger_grants: bool = False) -> str:
     """326 and 331 applied (331 optional), owned by the NOSUPERUSER owner,
-    ``ledger`` recorded: staging after 365."""
+    ``ledger`` recorded, with the operator's required trigger ACL preflight.
+
+    Earlier migrations retain Supabase's service_role default EXECUTE on the
+    triggers. 366 intentionally refuses that state and never revokes it itself.
+    """
     m332._require_pg()
     m331._require_pg()
     schema = prefix + uuid4().hex
     try:
         m331._build(schema, guard=guard)
         _hand_to_owner(schema)
+        if not keep_trigger_grants:
+            for sig in SIGS:
+                if sig not in RPC_SIGS and (guard or sig != GUARD_SIG):
+                    _owner(f"REVOKE EXECUTE ON FUNCTION {schema}.{sig} FROM service_role")
         if ledger:
             _record(schema, *ledger)
         if with_366:
@@ -326,7 +335,7 @@ def fresh():
 
 @pytest.fixture
 def only_331():
-    """326, 331 and 365 recorded, 366 not yet: the staging state before 366."""
+    """326, 331 and 365 recorded; operator trigger ACL preflight done, 366 not yet."""
     schema = None
     try:
         schema = _schema("pa366_pre_", with_366=False)
@@ -633,18 +642,51 @@ _DRIFT = [
     *[(f"ALTER FUNCTION {{s}}.{sig} SECURITY INVOKER",
        f"ALTER FUNCTION {{s}}.{sig} SECURITY DEFINER" if sig == GUARD_SIG else None,
        "student_archive_search_path_wrong") for sig in SIGS],
-    # 366 grants and revokes nothing: a client grant or a lost service_role
-    # grant fails the release until an operator fixes it.
+    # 366 grants and revokes nothing: a client grant, a lost RPC grant or an
+    # extra service_role trigger grant fails the release until an operator fixes it.
     *[(f"GRANT EXECUTE ON FUNCTION {{s}}.{sig} TO {role}", f"REVOKE EXECUTE ON FUNCTION {{s}}.{sig} FROM {role}",
        "student_archive_search_path_wrong")
       for sig in SIGS for role in ("PUBLIC", "anon", "authenticated")],
     *[(f"REVOKE EXECUTE ON FUNCTION {{s}}.{sig} FROM service_role",
        f"GRANT EXECUTE ON FUNCTION {{s}}.{sig} TO service_role", "student_archive_search_path_wrong")
       for sig in RPC_SIGS],
+    *[(f"GRANT EXECUTE ON FUNCTION {{s}}.{sig} TO service_role",
+       f"REVOKE EXECUTE ON FUNCTION {{s}}.{sig} FROM service_role", "student_archive_search_path_wrong")
+      for sig in SIGS if sig not in RPC_SIGS],
     *[(f"ALTER TABLE {{s}}.{table} {mode} TRIGGER {trigger}", f"ALTER TABLE {{s}}.{table} ENABLE TRIGGER {trigger}",
        "student_archive_trigger_missing")
       for table, trigger in TRIGGERS for mode in ("DISABLE", "ENABLE REPLICA")],
 ]
+
+
+@pytest.mark.parametrize("sig", [sig for sig in SIGS if sig not in RPC_SIGS])
+def test_apply_refuses_service_role_execute_on_a_trigger(only_331, sig):
+    s = only_331
+    _owner(f"GRANT EXECUTE ON FUNCTION {s}.{sig} TO service_role")
+    before = _catalog(s, oids=True)
+    error = _fails(_owner, _migrated(s))
+    assert "student_archive_search_path_wrong" in error and sig.split("(")[0] in error, error
+    assert _catalog(s, oids=True) == before   # the whole migration transaction rolled back
+    _unpinned(s)
+    _owner(f"REVOKE EXECUTE ON FUNCTION {s}.{sig} FROM service_role")
+    _apply(s)
+    _owner(_postcondition_sql(s))
+
+
+def test_apply_refuses_supabase_default_trigger_grants():
+    s = None
+    try:
+        s = _schema("pa366_default_acl_", with_366=False, keep_trigger_grants=True)
+        before = _catalog(s, oids=True)
+        error = _fails(_owner, _migrated(s))
+        assert "student_archive_search_path_wrong" in error, error
+        for sig in SIGS:
+            if sig not in RPC_SIGS:
+                assert sig.split("(")[0] in error, error
+        assert _catalog(s, oids=True) == before
+        _unpinned(s)
+    finally:
+        _drop(s)
 
 
 @pytest.mark.parametrize("tamper,revert,marker", _DRIFT)

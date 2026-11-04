@@ -344,7 +344,7 @@ BEGIN
                     WHERE a.grantee OPERATOR(pg_catalog.=) 0::oid)
         OR pg_catalog.has_function_privilege('anon', p.oid, 'EXECUTE')
         OR pg_catalog.has_function_privilege('authenticated', p.oid, 'EXECUTE')
-        OR (f.service_exec AND NOT pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'));
+        OR pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE') OPERATOR(pg_catalog.<>) f.service_exec;
     IF v_wrong IS NOT NULL THEN
         RAISE EXCEPTION 'student_archive_search_path_wrong: %', v_wrong;
     END IF;
