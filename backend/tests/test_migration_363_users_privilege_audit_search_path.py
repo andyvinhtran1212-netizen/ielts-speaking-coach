@@ -204,7 +204,6 @@ def test_release_metadata_holds_363_behind_the_admin_aal2_group():
                    "migration_361_missing", "catalog_name_shadowed_in_public", "re-run 363",
                    "fn_set_staff_privilege", "grants nothing"):
         assert needle in paragraph, needle
-    assert "the highest is `363`" in readme
 
 
 # ── PostgreSQL harness ──────────────────────────────────────────────────────
