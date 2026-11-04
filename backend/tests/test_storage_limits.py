@@ -18,7 +18,7 @@ PNG = b"\x89PNG\r\n\x1a\n" + b"\0" * 300
 GIF = b"GIF89a" + b"\0" * 300
 EXPECTED = {
     "audio-responses": (52428800, ("audio/*", "video/webm", "video/mp4", "application/octet-stream")),
-    "listening-audio": (134217728, ("audio/*", "image/png", "image/jpeg", "image/webp", "image/svg+xml", "application/json")),
+    "listening-audio": (52428800, ("audio/*", "image/png", "image/jpeg", "image/webp", "image/svg+xml", "application/json")),
     "listening-images": (10485760, ("image/png", "image/jpeg", "image/webp")),
     "reading-images": (5242880, ("image/png", "image/jpeg", "image/webp")),
     "writing-images": (5242880, ("image/png", "image/jpeg", "image/webp")),
@@ -282,7 +282,7 @@ def test_speaking_normalises_without_losing_accepted_recordings(speaking, mime, 
 
 
 @pytest.mark.parametrize("kind,maximum", [("full", 100 * 1024 * 1024), ("section", 30 * 1024 * 1024)])
-@pytest.mark.parametrize("case", ["oversize", "wrong_type", "storage_size", "storage_mime", "boundary"])
+@pytest.mark.parametrize("case", ["oversize", "effective_oversize", "wrong_type", "storage_size", "storage_mime", "boundary"])
 def test_listening_audio_routes(monkeypatch, kind, maximum, case):
     from routers import listening
     from services import listening_audio
@@ -296,7 +296,9 @@ def test_listening_audio_routes(monkeypatch, kind, maximum, case):
     upload = db.storage.from_.return_value.upload
     if case.startswith("storage_"):
         upload.side_effect = refusal(413 if case == "storage_size" else 415)
-    data = b"x" * (maximum + 1) if case == "oversize" else b"x" * maximum if case == "boundary" else b"audio"
+    effective_limit = min(maximum, EXPECTED["listening-audio"][0])
+    size = maximum + 1 if case == "oversize" else effective_limit + 1 if case == "effective_oversize" else effective_limit if case == "boundary" else 5
+    data = b"x" * size
     audio = upload_file(data, "bad.txt" if case == "wrong_type" else "audio.mp3", "text/plain" if case == "wrong_type" else "audio/mpeg")
     async def run():
         if kind == "full":
@@ -309,8 +311,9 @@ def test_listening_audio_routes(monkeypatch, kind, maximum, case):
         with pytest.raises(HTTPException) as exc:
             asyncio.run(run())
         status = 415 if case in ("wrong_type", "storage_mime") else 413
-        assert_refusal(exc.value, status, "listening-audio", maximum if case == "oversize" else None)
-        assert upload.call_count == (0 if case in ("oversize", "wrong_type") else 1)
+        refusal_limit = maximum if case == "oversize" else effective_limit if case == "effective_oversize" else None
+        assert_refusal(exc.value, status, "listening-audio", refusal_limit)
+        assert upload.call_count == (0 if case in ("oversize", "effective_oversize", "wrong_type") else 1)
         db.table.return_value.update.assert_not_called()
 
 
@@ -324,7 +327,7 @@ def test_legacy_sdk_payload_and_http_exception_are_structured(status):
 @pytest.mark.parametrize("case", ["oversize", "storage_size", "storage_mime", "boundary"])
 def test_background_renderer_records_refusal_without_success(monkeypatch, case):
     from services import listening_renderer as renderer
-    size = 134217728 + (case == "oversize") if case in ("oversize", "boundary") else 300
+    size = 52428800 + (case == "oversize") if case in ("oversize", "boundary") else 300
     data = b"x" * size
     monkeypatch.setattr(renderer, "_call_with_retry", lambda *args, **kwargs: (data, None))
     db = MagicMock()
