@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -709,7 +710,13 @@ def test_home_summary_sections_overlap(monkeypatch):
     for name in ("_build_speaking", "_build_writing", "_build_grammar", "_build_vocabulary",
                  "_build_reading", "_build_listening", "_build_streak"):
         monkeypatch.setattr(agg, name, slow)
-    payload = asyncio.run(agg.get_home_summary_concurrent(lambda: None, "u", name="N", email="e"))
+
+    async def run():
+        # A two-CPU runner's default pool has only six workers.
+        asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(max_workers=7))
+        return await agg.get_home_summary_concurrent(lambda: None, "u", name="N", email="e")
+
+    payload = asyncio.run(run())
     assert not barrier.broken, "all seven sections must reach the barrier"
     assert max_concurrent == 7, "all seven sections must overlap"
     assert list(payload["_errors"]) == [
