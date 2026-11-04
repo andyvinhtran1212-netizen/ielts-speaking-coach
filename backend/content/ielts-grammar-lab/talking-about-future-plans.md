@@ -97,14 +97,14 @@ Dùng "will" cho mọi tình huống là lỗi phổ biến. Biết phân biệt
 "Will" dùng khi bạn quyết định ngay tại thời điểm nói — không phải kế hoạch có sẵn từ trước.
 
 - "That question is interesting — **I'll think** about it more carefully."
-- "**I'll say** that travel is probably the most transformative experience you can have."
+- "Hmm, **I'll go with** travel — it's probably the most transformative experience."
 - "**I'll try** to answer that from a personal perspective."
 
 > **Lưu ý:** Trong IELTS Speaking, bạn không cần chuẩn bị trước câu trả lời — vì vậy "will" xuất hiện tự nhiên khi bạn đang suy nghĩ và quyết định ngay.
 
 ### 1b. Dự đoán (prediction)
 
-"Will" diễn đạt dự đoán về tương lai — thường kèm with adverbs như probably, certainly, likely.
+"Will" diễn đạt dự đoán về tương lai — thường đi kèm trạng từ như probably, certainly, definitely.
 
 ```
 will + probably / certainly / definitely + V
@@ -197,7 +197,7 @@ am/is/are + V-ing
 - "**I'd love to** live abroad for a year or two — just to experience a different culture."
 - "**I would like to** eventually work in a role where I can make a real social impact."
 
-### expect to + V (dự kiến, có cơ sở để tin)
+### expect (+ object) to + V (dự kiến, có cơ sở để tin)
 
 - "**I expect** the situation **to** improve once new policies are implemented."
 - "Economists **expect** inflation **to** fall next year."
@@ -237,29 +237,30 @@ That's a tough question — I suppose I'll...
 
 ## Lỗi thường gặp
 
-### Lỗi 1: Dùng "will" cho kế hoạch đã có sẵn
+### Lưu ý 1: will hay going to cho kế hoạch
 
 - ✅ “I **will apply** for university next year.” *(có thể là thông báo/cam kết; không tự chứng minh quyết định ngay lúc nói)*
 - ✅ "**I'm going to apply** for university next year." (kế hoạch đã có)
 
-### Lựa chọn will và going to khi dự đoán
+### Lưu ý 2: Lựa chọn will và going to khi dự đoán
 
 - "Technology **is going to change** how we communicate" có thể diễn đạt dự đoán, thường gắn với cơ sở hiện tại hoặc góc nhìn của người nói.
 - "Technology **will change** how we communicate" có thể nêu dự đoán/nhận định chung.
 - Cả hai đúng ngữ pháp; không tự kết luận going to sai chỉ vì câu không viết ra bằng chứng.
 
-### Lỗi 3: Thiếu be giữa will và V-ing
+### Lỗi 1: Trộn will với be going to
 
 - ❌ "I will going to study."
 - ✅ "I **am going to** study." / "I **will** study."
+- ❌ "I will studying tomorrow evening." → ✅ "I **will be studying**..."
 - ✅ "I **will be studying** tomorrow evening." *(will + be + V-ing là Future Continuous hợp lệ)*
 
-### Lỗi 4: Quên chia "be" trong "be going to"
+### Lỗi 2: Quên chia "be" trong "be going to"
 
 - ❌ "I going to travel next year."
 - ✅ "**I'm** going to travel next year."
 
-### Lỗi 5: Thừa to sau will hoặc thiếu be trước V-ing
+### Lỗi 3: Thừa to sau will hoặc thiếu be trước V-ing
 
 - ❌ "I hope I will to pass." / "I hope I'll to pass."
 - ✅ "I hope **to** pass." / "I hope **I'll** pass."
@@ -273,7 +274,7 @@ That's a tough question — I suppose I'll...
 
 1. (Spontaneous decision) "This question is very interesting — ___ give you a personal example."
 2. (Prior plan, not yet confirmed) "After I graduate, ___ look for a job overseas."
-3. (Arranged, confirmed) “I can’t meet tomorrow — I ___ my supervisor at 2pm.” *(điền am seeing)*
+3. (Arranged, confirmed) “I can’t meet tomorrow — I ___ my supervisor at 2pm.”
 4. (Hope/wish, not certain) "I ___ travel the world someday."
 5. (Prediction, general) "I think AI ___ change most industries within the next decade."
 
@@ -291,7 +292,7 @@ That's a tough question — I suppose I'll...
 
 ```
 WILL + V:
-  → Quyết định ngay lúc nói: "I'll say that..."
+  → Quyết định ngay lúc nói: "I'll go with..."
   → Dự đoán chung: "Cities will grow..."
   → Probably/certainly/definitely: "I'll probably..."
 

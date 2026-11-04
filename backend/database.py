@@ -31,6 +31,11 @@ _url = settings.SUPABASE_URL
 _key = settings.SUPABASE_SERVICE_KEY
 
 
+SUPABASE_POSTGREST_LIMITS = httpx.Limits(
+    max_connections=100, max_keepalive_connections=100,
+)
+
+
 def _build_supabase_http_client() -> httpx.Client:
     """Build the shared sync transport used by service-role PostgREST calls.
 
@@ -43,12 +48,19 @@ def _build_supabase_http_client() -> httpx.Client:
 
     Keep this as an explicit factory so the transport contract is testable
     without making a network request.
+
+    PC-J558: httpcore 1.0.9 compares *all* pooled connections, not only the
+    idle ones, against ``max_keepalive_connections`` (httpx default 20). With
+    more than 20 concurrent sync PostgREST calls (the anyio threadpool runs
+    40), every connection was closed on release, so each call paid a new
+    TCP+TLS handshake. Keep-alive must be >= the connection cap.
     """
     return httpx.Client(
         http1=True,
         http2=False,
         follow_redirects=True,
         timeout=httpx.Timeout(120.0),
+        limits=SUPABASE_POSTGREST_LIMITS,
     )
 
 
@@ -57,11 +69,13 @@ def _build_supabase_http_client() -> httpx.Client:
 # 120 s — longer than any caller waits, which hides the failure from the
 # server log. A PostgREST auth read takes ~0.1–0.3 s cross-region; 15 s read
 # leaves a wide margin. connect/pool fail fast so a dead upstream or a full
-# pool surfaces as an error, not a silent queue. Limits are httpx's defaults,
-# made explicit so /health/async-db can report capacity against them.
+# pool surfaces as an error, not a silent queue. Limits are explicit so
+# /health/async-db can report capacity against them. PC-J575: keep-alive
+# matches the connection cap for the same httpcore counting bug as PC-J558;
+# at 20, each burst of N > 20 concurrent calls reopened N - 20 connections.
 ASYNC_POSTGREST_TIMEOUT = httpx.Timeout(15.0, connect=5.0, pool=5.0)
 ASYNC_POSTGREST_LIMITS = httpx.Limits(
-    max_connections=100, max_keepalive_connections=20, keepalive_expiry=5.0,
+    max_connections=100, max_keepalive_connections=100, keepalive_expiry=5.0,
 )
 
 # Per-call timing for services.db_async.aexecute: the facade sets a dict here
@@ -147,10 +161,12 @@ def close_supabase_http_client() -> None:
 # ── P0-1 async client (lazy, opt-in) ─────────────────────────────────────────
 # create_async_client is a COROUTINE, so the client is built from the startup
 # hook (or lazily on first facade use) — never at import time. One shared
-# AsyncClient is safe for concurrent use on the single event loop (unlike the
-# sync httpx.Client singleton across threads, which is why we never to_thread
-# supabase_admin). Only created when USE_ASYNC_DB is on; stays None otherwise,
-# so the scaffold adds nothing to the default sync path.
+# AsyncClient is safe for concurrent use on the single event loop. Independent
+# query builders may also share the sync supabase_admin singleton across worker
+# threads via asyncio.to_thread, as the db_async facade does (ASYNCAUTH-0036
+# FR-009). Changing its auth/schema/headers or closing it while requests run is
+# not covered. The async client is only created when USE_ASYNC_DB is on; stays
+# None otherwise, so the scaffold adds nothing to the default sync path.
 _supabase_async = None  # type: ignore[var-annotated]
 _supabase_async_postgrest_http_client: httpx.AsyncClient | None = None
 
@@ -225,13 +241,15 @@ async def close_supabase_async() -> None:
 
 
 # ── Per-thread service-role clients (PC-J05 D1b) ─────────────────────────────
-# The shared sync singleton must never be used from two threads at once (see
-# services/db_async.py). Aggregators that fan independent sections out with
-# ``asyncio.to_thread`` call ``thread_supabase_admin()`` INSIDE the worker
-# thread instead: each executor thread lazily builds its own service-role
-# client and keeps it, so sections never share a client and a thread reuses its
-# keep-alive connection on the next request rather than paying a new TLS
-# handshake per section.
+# Independent query builders may share the sync singleton from several threads
+# (ASYNCAUTH-0036 FR-009: tests/test_supabase_singleton_threadsafe.py at the
+# versions pinned in requirements.txt); changing its auth/schema/headers or
+# closing it while requests run is not covered. Aggregators that fan
+# independent sections out with ``asyncio.to_thread`` still call
+# ``thread_supabase_admin()`` INSIDE the worker thread: each executor thread
+# lazily builds its own service-role client and keeps it, so sections never
+# share a client and a thread reuses its keep-alive connection on the next
+# request rather than paying a new TLS handshake per section.
 _thread_clients = threading.local()
 
 

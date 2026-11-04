@@ -275,6 +275,17 @@ preview before merging.
 | Preview, public route | Original blocking CSP; no Report-Only | Identical |
 | Enforcement build, unlisted host | N/A | No nonce policy added by proxy; static blocking CSP remains |
 
+**404s under the signed-in prefixes (PC-J566, SA-1029-CSP1 F1 option b).** A
+URL under those prefixes that no route answers (`/practice`, `/home/x`,
+`/admin/x`, `/instructor/x`, `/vocabulary/x/y`) gets the public baseline, no
+nonce: Next serves it the prerendered root `/_not-found` (HTTP 404, card in the
+server HTML), whose scripts can never carry a request nonce. The proxy decides
+from the build's own route table (`tooling/nonce-route-table.mjs`, inlined by
+`next.config.ts`), never from request headers or a "404" in the URL, so every
+real signed-in route keeps the enforced nonce policy and `/_not-found` stays
+static. Option (a), rendering the root 404 per request, was dropped because it
+also made every public 404 request-time (CR #2216 R1).
+
 ### Enable and verify
 
 Only Leader sets `AVER_CSP_NONCE_ENFORCE=1` in the frontend Vercel project's
@@ -290,6 +301,12 @@ node frontend/tooling/check-csp-nonce-deployed.mjs --enforced <preview-origin>
 
 It makes two GETs each to `/home`, `/admin`, `/profile`, `/vocabulary/hub`:
 every script must carry the blocking-header nonce and the nonce must change.
+It also probes `/instructor`. With `--enforced` it requires `/practice`,
+`/home/does-not-exist`, `/admin/nope-xyz`, `/instructor/nope-xyz`,
+`/vocabulary/nope/xyz/abc`, `/login/nope-xyz`, `/admin/404` and
+`/nope-top-level` to be HTTP 404 with the original nonce-free policy (a nonce
+header on a 404 fails), and `/listening/ielts/80-days/999` (soft 404, HTTP 200)
+to keep the nonce on every script.
 It also checks that the four public routes retain the original full blocking
 policy and have no Report-Only header. Deployment Protection uses the
 `VERCEL_AUTOMATION_BYPASS_SECRET` environment variable without printing it.
@@ -320,6 +337,12 @@ Do not modify Production variables or promote this preview to Production.
 - Unit: `node --test frontend/tests/post-migration-security-headers.test.mjs
   frontend/tests/csp-nonce-report-only.test.mjs
   frontend/tests/csp-nonce-enforce.test.mjs`.
+- 404s: `node frontend/tooling/verify-csp-nonce-404-flow.mjs [--enforced]
+  <origin>` against `next start` (CI: the enforced build). It compares the
+  proxy's route table with `.next/routes-manifest.json`, then requires HTTP 404,
+  the card and the public baseline on signed-in 404s with 0 CSP violations,
+  the nonce on real routes, and a 200 ⇒ nonce / 404 ⇒ baseline outcome for
+  path-confusion URLs and forged routing headers.
 - Build output: after `next build`, `.next/routes-manifest.json` → `headers[]`
   holds the compiled policy for the build environment.
 - Browser smoke: on staging, open `/login`, `/`, `/grammar`, `/home` and

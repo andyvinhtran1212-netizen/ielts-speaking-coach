@@ -112,13 +112,14 @@ async def get_dashboard_payload_concurrent(
     ap-southeast-1 Singapore, staging ap-northeast-1 Tokyo). Measured ~731ms
     sequential → ~max(section) concurrently.
 
-    Thread-safety: each section runs in its OWN thread with its OWN client built
-    by ``make_sb()``. The sync supabase/httpx client + query builder are NOT
-    thread-safe to share across threads, so two concurrent sections must never
-    touch the same client (mirrors the db_async.py note on why the shared sync
-    singleton is never handed to ``to_thread``). Error isolation matches the
-    sequential builder: a section that raises lands its key in ``_errors`` and
-    the rest of the dashboard still renders.
+    Client ownership: each section calls ``make_sb()`` in its worker thread for
+    its own JWT-scoped client. This dashboard keeps per-section isolation;
+    elsewhere, ``db_async.aexecute`` shares the sync ``supabase_admin`` singleton
+    across worker threads via ``asyncio.to_thread`` with independent query
+    builders (ASYNCAUTH-0036 FR-009). The FR-009 evidence does not cover changing
+    the shared client's auth/schema/headers or closing it while requests run.
+    Error isolation matches the sequential builder: a section that raises lands
+    its key in ``_errors`` and the rest of the dashboard still renders.
     """
     def _stats():
         return _build_sessions_stats(make_sb(), user_id, chart_limit=chart_limit)

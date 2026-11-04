@@ -46,6 +46,20 @@ on:
     # checks, which blocks spec/docs-only PRs. The `changes` job below skips
     # the heavy jobs only when every changed file is a spec no test reads.
 
+env:
+  # The PostgreSQL 17 advisory suite (jobs `backend-pg17` and
+  # `backend-pg17-verify`), relative to backend/. The shell expands the globs;
+  # `ci_pytest_shards.py --files` rejects any path that is not a test file.
+  PG17_TEST_FILES: >-
+    tests/test_migration_*.py
+    tests/test_rls_no_inline_admin_role_policy.py
+    tests/test_class_action_log_postgres.py
+    tests/test_client_write_invariant_postgres.py
+    tests/test_mock_paper_policy_postgres.py
+    tests/test_mock_private_draft_postgres.py
+    tests/test_activate_rate_limit.py
+    tests/test_staging_clone_preflight_postgres.py
+
 jobs:
   # Cổng rẻ, dạng ALLOWLIST: job nặng chỉ được SKIP khi MỌI tệp PR đổi đều nằm
   # trong `specs/**` VÀ không phải tệp spec mà test đọc. Mọi đường dẫn khác
@@ -224,16 +238,29 @@ jobs:
   # `GRANT ALL`); migration 320 aborted on staging for exactly that reason.
   # Re-run the migration/privilege suites against postgres:17 on its own service.
   # ADVISORY (Leader decision): not in `backend.needs`, branch protection or
-  # staging-promotion-gate.yml. Job-level `continue-on-error` keeps a red PG 17
-  # result from failing the workflow run, whose conclusion the promotion gate
-  # requires to be `success`; the job itself still shows red on the PR.
+  # staging-promotion-gate.yml. Job-level `continue-on-error` keeps a FAILED
+  # PG 17 job from failing the workflow run, whose conclusion the promotion gate
+  # requires to be `success`; the job itself still shows red on the PR. It does
+  # NOT cover a timeout: a job that hits `timeout-minutes` is `cancelled`, and
+  # that makes the whole run `cancelled`, which blocks the gate.
+  # PC-J582: the serial suite (1,999 tests, ~18.5 min of test phases plus
+  # ~1 min setup) reached the 20-minute limit and cancelled the staging runs
+  # for 9891da738 and f68136d03. It now runs as three file shards balanced by
+  # the measured `scripts/ci_pytest_pg17_shard_weights.json` (~6 min of tests
+  # each), every shard with its own postgres:17 service; `backend-pg17-verify`
+  # proves the shards ran each collected test exactly once.
   backend-pg17:
-    name: Backend PG17 migration/privilege tests (advisory)
+    name: Backend PG17 migration/privilege tests (advisory) ${{ matrix.shard }}/3
     runs-on: ubuntu-latest
     timeout-minutes: 20
     continue-on-error: true
     needs: changes
     if: ${{ !cancelled() && (github.event_name == 'push' || needs.changes.outputs.run_tests != 'false') }}
+    strategy:
+      # Every shard must report, so one red shard never hides another.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
 
     services:
       postgres:
@@ -290,15 +317,75 @@ jobs:
       - name: Run migration/privilege tests on PostgreSQL 17
         working-directory: backend
         run: |
-          python -m pytest -v --tb=short \
-            tests/test_migration_*.py \
-            tests/test_rls_no_inline_admin_role_policy.py \
-            tests/test_class_action_log_postgres.py \
-            tests/test_client_write_invariant_postgres.py \
-            tests/test_mock_paper_policy_postgres.py \
-            tests/test_mock_private_draft_postgres.py \
-            tests/test_activate_rate_limit.py \
-            tests/test_staging_clone_preflight_postgres.py
+          # Unquoted on purpose: the shell expands the globs into file paths.
+          python scripts/ci_pytest_shards.py run --total 3 --index ${{ matrix.shard }} \
+            --weights scripts/ci_pytest_pg17_shard_weights.json --files $PG17_TEST_FILES \
+            --out ci-pytest-pg17 -- -v --tb=short --durations=20
+
+      - name: Upload PG17 shard node ids
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          # Not `backend-pytest-*`: the `backend` job downloads that pattern.
+          name: backend-pg17-shard-${{ matrix.shard }}
+          path: backend/ci-pytest-pg17/shard-${{ matrix.shard }}.json
+          if-no-files-found: error
+          retention-days: 14
+          # "Re-run failed jobs" uploads the same name again.
+          overwrite: true
+
+  # Advisory like the shards: the PG 17 split must run every test of the PG 17
+  # suite exactly once (the serial job ran 1,999 at PC-J582).
+  backend-pg17-verify:
+    name: Backend PG17 shard parity (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    needs: [changes, backend-pg17]
+    if: ${{ !cancelled() && (github.event_name == 'push' || needs.changes.outputs.run_tests != 'false') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download PG17 shard node ids
+        uses: actions/download-artifact@v7
+        with:
+          pattern: backend-pg17-shard-*
+          path: backend/ci-pytest-pg17
+          merge-multiple: true
+
+      # Collection does not touch Postgres, so no service is needed here.
+      - name: Every collected PG17 test ran exactly once
+        working-directory: backend
+        run: |
+          python scripts/ci_pytest_shards.py collect --files $PG17_TEST_FILES \
+            --out ci-pytest-pg17/collected.json
+          python scripts/ci_pytest_shards.py verify --dir ci-pytest-pg17 --total 3 \
+            --weights-out ci-pytest-pg17/weights.json
+
+      # Candidate artifact only; CI never rewrites the committed weights.
+      - name: Upload measured PG17 shard weights for manual refresh
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: backend-pg17-weights
+          path: backend/ci-pytest-pg17/weights.json
+          if-no-files-found: ignore
+          retention-days: 14
+          overwrite: true
 
   backend-collect:
     name: Backend pytest collection + anchor drift
