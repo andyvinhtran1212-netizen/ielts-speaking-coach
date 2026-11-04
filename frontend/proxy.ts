@@ -133,12 +133,20 @@ function nonceReportOnly(request: NextRequest) {
 function noncePolicy(request: NextRequest) {
   // Matcher exclusions are checked again here so direct calls and future
   // matcher edits cannot enable a blocking nonce policy on public/prod URLs.
-  if (!nonceRouteAllowed(request.nextUrl.pathname)) return NextResponse.next();
+  const rawPath = request.nextUrl.pathname;
+  // PC-J604: Vercel routes decoded paths while nextUrl may retain escapes,
+  // including %2F. Decode once; malformed escapes keep the raw-path behavior.
+  const decodedPath = segment(rawPath) ?? rawPath;
   // PC-J566 / SA-1029-CSP1 F1 (b): no route answers this URL, so Next serves
   // the prerendered root 404. Leave it the public baseline (no nonce, no
   // Report-Only), the same as `/nope-top-level`. Decided from the build's own
   // route table only, never from request headers or a "404" in the URL.
-  if (!nonceRouteExists(request.nextUrl.pathname, nonceRoutes)) return NextResponse.next();
+  // Keep raw dynamic matches too: decoding %2F can add a segment. On next
+  // start a decoded-only static match can still render the static 404 with
+  // a nonce policy; Vercel serves the real page. See the CSP runbook.
+  const noncePath = [rawPath, decodedPath].find((pathname) =>
+    nonceRouteAllowed(pathname) && nonceRouteExists(pathname, nonceRoutes));
+  if (!noncePath) return NextResponse.next();
   if (process.env.AVER_CSP_NONCE_ENFORCE !== '1') return nonceReportOnly(request);
   if (process.env.VERCEL_ENV === 'production' || !nonceHostAllowed(request.nextUrl.hostname)) {
     return NextResponse.next();
@@ -146,7 +154,7 @@ function noncePolicy(request: NextRequest) {
 
   const nonce = createNonce();
   const baseline = buildNonceEnforcedPolicy(nonce, process.env);
-  const policy = NONCE_SAME_ORIGIN_FRAME_ROUTES.includes(request.nextUrl.pathname)
+  const policy = NONCE_SAME_ORIGIN_FRAME_ROUTES.includes(noncePath)
     ? sameOriginFramePolicy(baseline) : baseline;
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('content-security-policy', policy);
