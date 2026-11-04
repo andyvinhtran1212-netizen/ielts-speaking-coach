@@ -53,6 +53,13 @@ body.av-page {
   white-space: nowrap;
 }
 
+.ig-top-actions {
+  display: flex;
+  align-items: center;
+  justify-self: end;
+  gap: var(--av-space-2);
+}
+
 .ig-band {
   justify-self: end;
   min-width: 92px;

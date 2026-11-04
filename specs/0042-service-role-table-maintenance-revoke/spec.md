@@ -19,7 +19,9 @@ FR-009 (schema CREATE) is migration **357** (PC-J365, job 1h1). FR-010 is
 migration **358** (PC-J406), applied after 357. The table-privilege
 migration of FR-001…FR-008 (T001) has no number yet. The Leader assigns it
 when T001 is opened, and it is written `NNN` below. Neither 357 nor 358 is
-part of `NNN`.
+part of `NNN`. **357 is applied before NNN; NNN's FR-004 postcondition
+re-checks FR-009 and aborts if 357 is missing.** This order applies on each
+target environment, including a synthetic clone whose source lacks 357.
 Origin: Security Auditor P2-SA-1 and its "separate, wider ticket" note in
 `reviews/PR-2050.md` (SA review of migration 341, 2026-10-30 15:10–15:40
 UTC+7). The later PR #2060 SA catalog snapshot (2026-10-30) counted 150 of
@@ -27,6 +29,22 @@ UTC+7). The later PR #2060 SA catalog snapshot (2026-10-30) counted 150 of
 that grants it again to new tables and CREATE on schema `public`.
 Merged with PC-J350 (F10 of #2045, clone script `GRANT ALL`), which already
 has PR #2055; its remaining schema grant also needs correction (FR-007).
+
+## Amendment — 2026-11-02 (PC-J530, follow-up to #2170)
+
+This clarification implements FD section 3 and CR's ordering finding in
+`reviews/PR-2170.md`; it leaves the approved FR-001…FR-010 text verbatim.
+357 owns the schema CREATE revoke and its primary tests (T005). NNN owns
+the table/default-ACL revokes (T001) and only re-checks FR-009. The plan,
+tasks and acceptance scenarios below now state the prerequisite 357 → NNN.
+
+Correction to the illustrative staging parenthetical in FR-010 item 2:
+read it as **the five `fn_admin_*` SECURITY DEFINER routines of migrations
+297–302**. Migrations 334 and 335 define `fn_activate_attempt_check` and
+`app_private.is_current_user_active`, respectively; their `search_path = ''`
+belongs to item 3. This amendment corrects the example only; the requirement
+still covers every routine. See the catalog table in
+[verification.md](verification.md).
 
 ## Tóm tắt (tiếng Việt)
 
@@ -293,7 +311,7 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
 
 - **Given** a synthetic owner-owned definer with `search_path = public,
   pg_temp`, unqualified `lower(varchar)` / `jsonb_build_object` calls and a
-  private audit marker, with NNN applied
+  private audit marker, with 357 and NNN applied
 - **When** a genuine `service_role` session (P3-SA-8 as in FR-005: `rolsuper = false` fixture check, `SET LOCAL ROLE service_role` and `ASSERT current_user = 'service_role'` in the same transaction) attempts to create either public overload from
   SA's probe, then calls the legitimate RPC
 - **Then** both CREATE FUNCTION statements fail with `42501`, the RPC result
@@ -301,7 +319,8 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
   control with table privileges revoked but schema CREATE retained, using
   the same P3-SA-8 session checks, each overload records execution as
   `postgres`. A re-grant seam and inherited
-  CREATE fixture both cause the migration postcondition to abort.
+  CREATE fixture both cause 357's postcondition to abort; NNN's FR-004
+  postcondition also aborts if its re-check of FR-009 detects that drift.
 
 ### Scenario 9 — direct writes cascade as owner (FR-001, FR-005)
 
@@ -315,7 +334,7 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
 
 ### Scenario 10 — older rollback cannot reopen privileges (FR-006, FR-008)
 
-- **Given** 344, 356 and NNN are applied
+- **Given** 344, 356, 357 and NNN are applied
 - **When** the down of 356 (owned by CALAPPEND-0041 T001) runs
 - **Then** the FR-001/FR-009 postchecks still pass, and a genuine `service_role` session (P3-SA-8 as in FR-005: `rolsuper = false` fixture check, `SET LOCAL ROLE service_role` and `ASSERT current_user = 'service_role'` in the same transaction) still gets
   `42501` for `CREATE TRIGGER` on `class_action_log` and for creating a
@@ -334,9 +353,10 @@ này không cấp lại các quyền đó. Script clone staging (J350, PR #2055)
   NNN with its mandatory `pending_feature` policy entry
 - **When** the clone baseline runs, followed by the authorized explicit
   pending-feature apply
-- **Then** the baseline leaves NNN unapplied, the apply actually executes
-  NNN, and all table/default/schema privilege postchecks pass. This scenario
-  must not copy production data into staging.
+- **Then** the baseline leaves NNN unapplied, the apply executes 357 first
+  when missing, then actually executes NNN, and all table/default/schema
+  privilege postchecks pass (NNN re-checks the schema state set by 357).
+  This scenario must not copy production data into staging.
 
 ### Scenario 12 — temp-view shadow through an FK cascade is refused (FR-008, FR-010)
 

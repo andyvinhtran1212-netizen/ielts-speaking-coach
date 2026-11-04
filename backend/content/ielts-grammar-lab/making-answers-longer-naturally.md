@@ -87,7 +87,7 @@ Năm patterns để kéo dài câu trả lời một cách tự nhiên:
 
 ## Tại sao quan trọng
 
-Trong IELTS Speaking, bốn tiêu chí chấm điểm gồm: Fluency & Coherence, Lexical Resource, Grammatical Range, Pronunciation. **Fluency & Coherence** yêu cầu bạn nói liên tục, có cấu trúc, và phát triển ý. Câu trả lời kiểu:
+Trong IELTS Speaking, bốn tiêu chí chấm điểm gồm: Fluency & Coherence, Lexical Resource, Grammatical Range and Accuracy, Pronunciation. **Fluency & Coherence** yêu cầu bạn nói liên tục, có cấu trúc, và phát triển ý. Câu trả lời kiểu:
 
 - "I like coffee." ❌ (quá ngắn, không có gì để chấm)
 - "I like coffee because it helps me focus, especially in the morning when I have a lot of work to do." ✅
@@ -111,7 +111,7 @@ Thêm **tại sao** vào sau câu trả lời. Đây là cách mở rộng cơ b
 
 ❌ Short: "Morning."
 
-✅ Extended: "I prefer studying in the morning **because** my mind is much sharper then and I find it easier to concentrate. **Since** I sleep by 11pm, I wake up feeling refreshed and ready to take on difficult tasks."
+✅ Extended: "I prefer studying in the morning **because** my mind is much sharper then and I find it easier to concentrate. **Since** I usually go to bed by 11pm, I wake up feeling refreshed and ready to take on difficult tasks."
 
 **Q: Is exercise important?**
 
@@ -171,7 +171,7 @@ Thêm **một góc nhìn khác** hoặc **trường hợp ngoại lệ** để c
 
 ✅ "Yes, in many ways technology has transformed daily life for the better — communication, healthcare, and education have all benefited enormously. **However**, I think there are also real downsides. **For example**, the rise of smartphones has made many people less present in face-to-face interactions, which I find quite concerning."
 
-**Mẹo:** Câu trả lời có contrast nghe thông minh và mature — examiner rất thích.
+**Mẹo:** Câu trả lời có contrast cho thấy bạn nhìn vấn đề nhiều chiều.
 
 ---
 
@@ -230,7 +230,7 @@ Câu trả lời mạnh nhất kết hợp 2-3 patterns liên tiếp. Đây là 
 
 **Q: Do you think the government should do more to encourage healthy eating?**
 
-✅ "Yes, I definitely think governments have an important role to play here. **[Reason]** Because eating habits are shaped heavily by what's affordable and accessible, and in many countries, unhealthy processed food is simply cheaper than fresh produce. **[Example]** For instance, in many low-income neighbourhoods, there are far more fast food outlets than supermarkets selling fresh vegetables — an observation that alone does not establish limited access to affordable, nutritious food (a food desert). **[Contrast]** That said, I don't think government intervention alone is enough — **[Personal]** and from my own experience, the most lasting changes tend to come from education and awareness rather than regulation alone."
+✅ "Yes, I definitely think governments have an important role to play here, **because** eating habits are shaped heavily by what's affordable and accessible, and in many countries, unhealthy processed food is simply cheaper than fresh produce. **For instance**, in many low-income neighbourhoods, fast food outlets are often easier to find than shops selling fresh vegetables. **[Contrast]** That said, I don't think government intervention alone is enough — **[Personal]** and from my own experience, the most lasting changes tend to come from education and awareness rather than regulation alone."
 
 ---
 
@@ -254,7 +254,7 @@ Câu trả lời mạnh nhất kết hợp 2-3 patterns liên tiếp. Đây là 
 ### Lỗi 1: Thêm từ không liên quan để kéo dài (filler strategy)
 
 - ❌ "I like music. Music is good. Music makes me happy. I really like music."
-- ✅ Lặp lại từ khác nhau là OK, nhưng thông tin phải tiến về phía trước.
+- ✅ "I love music because it helps me relax after work — I usually put on some jazz while I'm cooking."
 
 ### Lỗi 2: Nói quá nhiều ở Part 1
 
@@ -262,7 +262,7 @@ Câu trả lời mạnh nhất kết hợp 2-3 patterns liên tiếp. Đây là 
 
 ### Lỗi 3: Không dùng connectors — câu văn rời rạc
 
-- “I like reading. I read every day. It is interesting.” có liên kết từ vựng và quy chiếu it; có thể làm cụ thể hơn: “I enjoy reading and make time for a few pages every day. Fiction helps me relax.”
+- ❌ "I like reading. I read every day. It is interesting." (ba câu rời, không nối ý)
 - ✅ "I enjoy reading every day, **particularly** fiction, **because** it helps me unwind **and** I find myself becoming more empathetic the more I read."
 
 ### Lỗi 4: Dừng sau khi đưa reason mà không develop thêm

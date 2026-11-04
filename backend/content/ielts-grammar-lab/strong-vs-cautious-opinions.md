@@ -126,7 +126,7 @@ I have no doubt that...
 - **I strongly believe that** education is the most powerful tool for reducing inequality.
 - **I am convinced that** stricter environmental regulations are absolutely necessary.
 - **I firmly hold the view that** children benefit significantly from learning a second language.
-- **In my view**, the government has a clear responsibility to provide affordable housing.
+- **I have no doubt that** the government has a clear responsibility to provide affordable housing.
 
 ### Nhóm 3: Nhấn mạnh tầm quan trọng
 
@@ -213,15 +213,15 @@ The reality is more nuanced than...
 
 | Chức năng | Cấu trúc | Ngữ cảnh dùng |
 |---------|---------|--------------|
-| Theo chức năng/ngữ cảnh | It is undeniable that... | Sự thật khó bác bỏ |
-| Theo chức năng/ngữ cảnh | There is no doubt that... | Tự tin hoàn toàn |
-| Theo chức năng/ngữ cảnh | I strongly believe that... | Quan điểm cá nhân mạnh |
-| Theo chức năng/ngữ cảnh | It is clear that... | Dựa trên bằng chứng rõ |
-| Theo chức năng/ngữ cảnh | I believe / think that... | Quan điểm cá nhân trung bình |
-| Theo chức năng/ngữ cảnh | It is often argued that... | Ý kiến phổ biến |
-| Theo chức năng/ngữ cảnh | It could be argued that... | Quan điểm còn tranh luận |
-| Theo chức năng/ngữ cảnh | To some extent... | Chỉ đúng một phần |
-| Theo chức năng/ngữ cảnh | It might be suggested that... | Giả thuyết, không chắc chắn |
+| Mạnh | It is undeniable that... | Sự thật khó bác bỏ |
+| Mạnh | There is no doubt that... | Tự tin hoàn toàn |
+| Mạnh | I strongly believe that... | Quan điểm cá nhân mạnh |
+| Mạnh | It is clear that... | Dựa trên bằng chứng rõ |
+| Trung bình | I believe / think that... | Quan điểm cá nhân trung bình |
+| Thận trọng | It is often argued that... | Ý kiến phổ biến |
+| Thận trọng | It could be argued that... | Quan điểm còn tranh luận |
+| Thận trọng | To some extent... | Chỉ đúng một phần |
+| Thận trọng | It might be suggested that... | Giả thuyết, không chắc chắn |
 
 ---
 
@@ -232,13 +232,13 @@ The reality is more nuanced than...
 
 **Q: Should governments ban fast food advertising aimed at children?**
 
-> "**I strongly believe that** governments should ban fast-food advertising directed at children. **It is undeniable that** children are highly susceptible to advertising, but trends in childhood obesity alone do not prove that current advertising measures caused the problem. **However**, **it could be argued that** parents ultimately bear the primary responsibility for their children's diet, and that blanket bans may infringe on commercial freedom. **That said**, **I am convinced that** the health of future generations must take precedence over commercial interests."
+> "**I strongly believe that** governments should ban fast-food advertising directed at children. **It is undeniable that** children are highly susceptible to advertising, and **there is clear evidence that** food marketing shapes what they want to eat. **However**, **it could be argued that** parents ultimately bear the primary responsibility for their children's diet, and that blanket bans may infringe on commercial freedom. **That said**, **I am convinced that** the health of future generations must take precedence over commercial interests."
 
 **Phân tích cấu trúc:**
 - Câu 1: Strong stance (I strongly believe)
-- Câu 2-3: Strong evidence (it is undeniable, clear evidence)
-- Câu 4: Cautious acknowledgement (it could be argued)
-- Câu 5: Return to strong (I am convinced)
+- Câu 2: Strong evidence (it is undeniable, there is clear evidence)
+- Câu 3: Cautious acknowledgement (it could be argued)
+- Câu 4: Return to strong (I am convinced)
 
 ---
 
@@ -258,7 +258,7 @@ The reality is more nuanced than...
 ### Lỗi 3: Strong opinion không có bằng chứng
 
 - ❌ "**I am completely sure** that social media is bad." (không chứng minh được)
-- ✅ "**I strongly believe that** heavy social-media use is associated with poorer mental-health outcomes in some groups. *(Khi có nghiên cứu phù hợp; liên hệ không tự chứng minh nhân quả.)*"
+- ✅ "**I strongly believe that** heavy social-media use can harm some teenagers' mental health, as several studies have suggested."
 
 ### Lỗi 4: Cautious cả bài — nghe thiếu lập trường
 
@@ -302,6 +302,14 @@ The reality is more nuanced than...
 1. "Maybe education is possibly important."
 2. "I think perhaps pollution might be a bit bad."
 3. "It could be that exercise is sort of good."
+
+### Gợi ý đáp án (Xác định):
+
+1. Strong
+2. Cautious
+3. Strong (quá tuyệt đối với "the only path")
+4. Cautious
+5. Strong
 
 ### Gợi ý đáp án (Viết lại):
 

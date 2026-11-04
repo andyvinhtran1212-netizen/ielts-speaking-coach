@@ -333,6 +333,27 @@ class TestRoleStepUp:
         assert r.status_code == 200, r.text
         assert fake_db.tables["users"][0]["role"] == "student" and len(fake_db.rpc_calls) == 1
 
+    def test_recent_factor_with_a_fresh_totp_is_403_cooloff_and_changes_nothing(self, fake_db, revoked, monkeypatch):
+        # Amendment 2 FR-020a (spec.md AC13): a factor verified an hour ago.
+        import time
+
+        from config import settings
+        from main import app
+        from tests.test_staff_guard import VERIFIED, iso
+
+        monkeypatch.setattr(settings, "ADMIN_STEP_UP_ENFORCE", True)
+        at = iso(time.time() - 3600)
+        admin = {"id": _ADMIN_ID, "email": "admin@x", "factors": VERIFIED + [
+            {"id": "f-new", "factor_type": "totp", "status": "verified", "created_at": at, "updated_at": at}]}
+        u = _seed_user(fake_db, role="instructor")
+        with patch("routers.admin.require_admin", new=AsyncMock(return_value=admin)):
+            with TestClient(app) as c:
+                r = c.patch(f"/admin/users/{u['id']}/role", json={"role": "student"}, headers=self._bearer(5))
+        assert r.status_code == 403, r.text
+        assert r.json()["detail"]["reason"] == "new_factor_cooloff"
+        assert fake_db.rpc_calls == [] and revoked == []
+        assert fake_db.tables["users"][0]["role"] == "instructor"
+
 
 class TestUnassignedCodesPool:
     """GET /admin/access-codes/pool — the 'ready to assign' pool. Declared
