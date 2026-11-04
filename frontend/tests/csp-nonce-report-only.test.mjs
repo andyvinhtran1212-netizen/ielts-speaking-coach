@@ -202,7 +202,8 @@ describe('Report-Only policy builder', () => {
     // the step-1 entry unchanged plus only the build-time enforce flag (forced
     // to '0' for production builds; covered by csp-nonce-enforce.test.mjs).
     // PC-J566: plus the route table, inlined only when the render flag is on.
-    assert.match(read('next.config.ts'), /env: \{\s*\[NONCE_REPORT_ONLY_FLAG\]: nonceReportOnlyEnabled\(process\.env\) \? '1' : '0',\s*\[NONCE_ENFORCE_FLAG\]: nonceEnforceEnabled\(process\.env\) \? '1' : '0',(?:\s*\/\/[^\n]*)*\s*get \[NONCE_ROUTE_TABLE_ENV\]\(\) \{\s*return nonceReportOnlyEnabled\(process\.env\) \? JSON\.stringify\(collectNonceRoutes\(__dirname\)\) : '';\s*\},\s*\}/);
+    // PC-J597: plus the two Sentry tags (environment, release); neither is a CSP input.
+    assert.match(read('next.config.ts'), /env: \{\s*\[NONCE_REPORT_ONLY_FLAG\]: nonceReportOnlyEnabled\(process\.env\) \? '1' : '0',\s*\[NONCE_ENFORCE_FLAG\]: nonceEnforceEnabled\(process\.env\) \? '1' : '0',(?:\s*\/\/[^\n]*)*\s*get \[NONCE_ROUTE_TABLE_ENV\]\(\) \{\s*return nonceReportOnlyEnabled\(process\.env\) \? JSON\.stringify\(collectNonceRoutes\(__dirname\)\) : '';\s*\},(?:\s*\/\/[^\n]*)*\s*AVER_SENTRY_ENVIRONMENT: resolveRuntimeOrigins\(process\.env\)\.environment \|\| 'development',\s*AVER_SENTRY_RELEASE: process\.env\.VERCEL_GIT_COMMIT_SHA \|\| '',\s*\}/);
     assert.doesNotMatch(PROXY + SHELL, /nonceReportOnlyEnabled/, 'a runtime re-read could disagree with the build');
   });
 
@@ -239,7 +240,7 @@ describe('proxy.ts', () => {
     assert.match(reportOnlyBranch, /response\.headers\.set\('Content-Security-Policy-Report-Only', policy\)/);
     assert.doesNotMatch(reportOnlyBranch, /Content-Security-Policy',/, 'the enforced header is owned by next.config.ts');
     assert.equal((PROXY.match(/Content-Security-Policy',/g) || []).length, 1, 'one blocking header write');
-    assert.match(PROXY, /if \(!nonceRouteAllowed\(request\.nextUrl\.pathname\)\) return NextResponse\.next\(\);(?:\s*\/\/[^\n]*)*\s*if \(!nonceRouteExists\(request\.nextUrl\.pathname, nonceRoutes\)\) return NextResponse\.next\(\);\s*if \(process\.env\.AVER_CSP_NONCE_ENFORCE !== '1'\) return nonceReportOnly\(request\);\s*if \(process\.env\.VERCEL_ENV === 'production' \|\| !nonceHostAllowed\(request\.nextUrl\.hostname\)\) \{\s*return NextResponse\.next\(\);\s*\}[^]*?response\.headers\.set\('Content-Security-Policy', policy\);/, 'outside the guarded enforce branch the enforced header is owned by next.config.ts');
+    assert.match(PROXY, /const noncePath = \[rawPath, decodedPath\]\.find\(\(pathname\) =>\s*nonceRouteAllowed\(pathname\) && nonceRouteExists\(pathname, nonceRoutes\)\);\s*if \(!noncePath\) return NextResponse\.next\(\);\s*if \(process\.env\.AVER_CSP_NONCE_ENFORCE !== '1'\) return nonceReportOnly\(request\);\s*if \(process\.env\.VERCEL_ENV === 'production' \|\| !nonceHostAllowed\(request\.nextUrl\.hostname\)\) \{\s*return NextResponse\.next\(\);\s*\}[^]*?response\.headers\.set\('Content-Security-Policy', policy\);/, 'outside the guarded enforce branch the enforced header is owned by next.config.ts');
   });
 
   test('matches exactly the AuthedShell routes on non-production hosts', () => {
