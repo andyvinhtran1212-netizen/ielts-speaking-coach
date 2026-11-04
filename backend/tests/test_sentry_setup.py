@@ -255,6 +255,76 @@ def test_before_send_redacts_row_dumps_in_exception_values():
     assert "Nguyen" not in blob and "0901234567" not in blob
 
 
+# ── PC-J625: any case/spacing of the dump tokens; bare VN phone numbers ──────
+
+# The SA probe of PR #2234 R4 (/workspace/qa/pr2234/probes.txt), lines that
+# passed through unredacted at d350ddb47.
+@pytest.mark.parametrize("text, expected", [
+    ("key (phone)=(0901234567) already exists.", "key (phone)=[redacted]"),
+    ("Key  (phone)=(0901234567) already exists.", "Key  (phone)=[redacted]"),
+    ("Failing row contains(Nguyen Van A, 0901234567)", "Failing row contains[redacted]"),
+    ("Failing  row contains (Nguyen Van A, 0901234567)", "Failing  row contains [redacted]"),
+    ("Key (phone) = (0901234567)", "Key (phone) = [redacted]"),
+    ("Learner Nguyễn Văn A phone +84901234567 said: my transcript here",
+     "Learner Nguyễn Văn A phone [redacted] said: my transcript here"),
+    ("FAILING ROW CONTAINS (Nguyen Van A)", "FAILING ROW CONTAINS [redacted]"),
+    ("DETAIL:\tKEY\n(phone)\n=\n(0901234567)", "DETAIL:\tKEY\n(phone)\n=\n[redacted]"),
+])
+def test_dump_tokens_any_case_and_spacing_and_bare_phones(text, expected):
+    assert scrub_text(text) == expected
+
+
+def test_every_sa_probe_line_loses_its_phone_and_row_values():
+    probes = [
+        f"Failing row contains ({USER_ID}, Nguyen Van A, 0901234567, a@b.com)",
+        "DETAIL: Key (phone)=(0901234567) already exists.",
+        "DETAIL:  Key (phone)=(0901234567) already exists.",
+        "Failing row contains (1, Tran (B). x, 0901234567",
+        "Failing row contains (1, ((nested)), Nguyễn Thị Bích Ngọc, +84901234567).",
+        "new row violates check constraint\nDETAIL:  Failing row contains (1,\nNguyễn Văn A,\n+84 90 123 4567).",
+        "Key (lower(email::text))=(a@b.com) already exists.",
+        'Key (user_id, phone)=(1, +84901234567) is not present in table "users".',
+        '{"code":"23505","details":"Key (phone)=(0901234567) already exists.","message":"duplicate key"}',
+        "{'code': '23514', 'details': 'Failing row contains (Lê Văn Tám, 0912345678).', 'message': 'x'}",
+        "key (phone)=(0901234567) already exists.",
+        "Key  (phone)=(0901234567) already exists.",
+        "Failing row contains(Nguyen Van A, 0901234567)",
+        "Failing  row contains (Nguyen Van A, 0901234567)",
+        "Key (phone) = (0901234567)",
+        "Learner Nguyễn Văn A phone +84901234567 said: my transcript here",
+    ]
+    for text in probes:
+        out = scrub_text(text)
+        for secret in ("0901234567", "84901234567", "0912345678", "90 123 4567", "a@b.com", USER_ID):
+            assert secret not in out, (text, out)
+        # A name in free text is not recognised (known limit); in a dump it is.
+        if not text.startswith("Learner "):
+            for name in ("Nguyen", "Nguyễn", "Tran", "Bích", "Tám"):
+                assert name not in out, (text, out)
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("call 0901234567 now", "call [redacted] now"),
+    ("sdt:0912345678, 84901234567; (+840901234567)", "sdt:[redacted], [redacted]; ([redacted])"),
+    ("0901234567\n0912345678", "[redacted]\n[redacted]"),
+    # Not phone numbers: a longer digit run, digits inside an id, a 9-digit number.
+    ("ts 1730701234567 n 090123456789012", "ts 1730701234567 n 090123456789012"),
+    ("req-0901234567 job_0901234567 v0901234567x", "req-0901234567 job_0901234567 v0901234567x"),
+    ("count 090123456", "count 090123456"),
+])
+def test_vn_phone_pattern(text, expected):
+    assert scrub_text(text) == expected
+
+
+def test_vn_phone_pattern_leaves_uuids_and_pseudonyms_whole(monkeypatch):
+    digits_uuid = "11111111-2222-4333-8444-090123456789"
+    assert scrub_text(f"id {digits_uuid}") == "id [uuid]"
+    monkeypatch.setattr(sentry_setup, "_pseudonym_key", b"k")
+    pseudonym = scrub_text(f"id {digits_uuid}")
+    assert pseudonym.startswith("id uuid:") and len(pseudonym.split(":")[1]) == 12
+    assert scrub_text(pseudonym) == pseudonym
+
+
 # ── PC-J601 P3-2: handled exceptions ─────────────────────────────────────────
 
 def test_before_send_drops_exceptions_marked_handled():
