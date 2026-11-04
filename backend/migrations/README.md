@@ -20,10 +20,11 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-11-02 the highest is `361`, allocated by the
-Leader to PC-J358 (#2180; `360` is PC-J192, INSTRUCTORGIVE-0044), so by that
-rule the next new migration is `362`. Ask the Leader before taking it; 348–351 are reserved for other
-work, and 353–359 without a file here may be held by open PRs: none may be
+sequence is dense. As of 2026-11-04 the highest is `364`, allocated to PC-J544
+(SVCPRIV-0042 T001, APPROVED-20261102; `361` is PC-J358, #2180; `360` is
+PC-J192, INSTRUCTORGIVE-0044), so by that rule the next new migration is `365`.
+Ask the Leader before taking it; 348–351 are reserved for other work, and
+353–359, 362 and 363 without a file here may be held by open PRs: none may be
 reused.
 The runner applies any unapplied file regardless of order.
 Numbers 321–326 belong to 321 WRITINGRATE-0025, 322 AIOPS-0024 (#1837), 323
@@ -281,6 +282,30 @@ documented no-op: restoring CREATE needs a new spec. Group
 `public_schema_create_revoke` is `pending_feature` (merge KHÔNG áp): staging
 first under the advisory lock, before 358; production only at a Vinh-approved
 promotion, before 341/341b.
+
+Migration `364` (PC-J544, SVCPRIV-0042 T001, FR-001…FR-008; the spec's `NNN`)
+revokes TRIGGER, REFERENCES, TRUNCATE and, on PostgreSQL 17, MAINTAIN on every
+`public` relation (tables, partitions, views, materialized views, foreign
+tables) from `service_role`, anon, authenticated and PUBLIC, and removes the
+same four from every table default ACL, global and `IN SCHEMA public`, whose
+owner the runner can act for. Default ACLs of other owners (hosted
+`supabase_admin`) produce a WARNING with the exact statement for Supabase
+support. It closes SA P2-SA-1: with TRIGGER, `service_role` could attach a
+`pg_temp` trigger that owner-run definers and FK actions then execute as the
+owner. SELECT, INSERT, UPDATE and DELETE (table and column level), schema
+USAGE, owners, policies and functions are unchanged; the postcondition compares
+a normalised before/after snapshot of them. API roles get explicit CRUD grants
+only: no `GRANT ALL`, TRIGGER, REFERENCES, TRUNCATE or MAINTAIN on a table or in
+a default ACL, no `pg_maintain`/`pg_write_all_data`/`postgres` membership and no
+ownership; `test_service_role_table_privilege_guard.py` (FR-006) enforces this
+for later migrations, every rollback file and the scripts. 364 needs 357 on the
+target first: it re-checks schema CREATE and aborts with
+`svcpriv_schema_create_remains` when 357 is missing. The down is a documented
+no-op. Group `service_role_table_maintenance_revoke` is `pending_feature`
+(merge KHÔNG áp): staging first under the advisory lock after 357; production
+only at a Vinh-approved promotion. `apply_migrations.sh --baseline` refuses a
+non-empty `MIGRATION_FEATURES`, so a clone baseline cannot record 364 without
+running it (FR-007).
 
 Migration `352` (PC-J201, ADMINAAL2-0032 FR-010/FR-011, SA #1936 P3 c–f)
 adds the private `staff_mfa_status_throttle` table for shared admission to the
