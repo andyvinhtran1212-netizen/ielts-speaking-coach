@@ -147,7 +147,9 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-logger = logging.getLogger(__name__)
+# Fixed name, not __name__: LOG_CAPTURE_LOGGERS (services/sentry_setup.py)
+# matches "main", which __name__ only gives when started as "main:app" (PC-J610).
+logger = logging.getLogger("main")
 install_supabase_timing()
 
 # PC-J597: no-op unless SENTRY_DSN is set; scrubbing in services/sentry_setup.py.

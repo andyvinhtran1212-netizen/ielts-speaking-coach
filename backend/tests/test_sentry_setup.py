@@ -293,6 +293,25 @@ def test_log_capture_allowlist_is_the_audited_set():
     assert sentry_setup.LOG_CAPTURE_LOGGERS == frozenset({"main"})
 
 
+def test_main_logger_name_is_fixed_not_the_import_name():
+    # PC-J610: Railway staging starts "uvicorn main:app" (root /backend), so
+    # __name__ is "main" there, but "backend.main:app" or "python main.py"
+    # would rename it and silently drop every audited record. The name is a
+    # literal so the allowlist holds whatever the start command.
+    import ast
+    import main
+
+    assert main.logger.name in sentry_setup.LOG_CAPTURE_LOGGERS
+    tree = ast.parse((BACKEND / "main.py").read_text(encoding="utf-8"))
+    names = [node.value.args[0] for node in tree.body
+             if isinstance(node, ast.Assign)
+             and [t.id for t in node.targets if isinstance(t, ast.Name)] == ["logger"]
+             and isinstance(node.value, ast.Call)
+             and ast.unparse(node.value.func) == "logging.getLogger"]
+    assert len(names) == 1
+    assert isinstance(names[0], ast.Constant) and names[0].value == "main"
+
+
 def test_before_send_drops_log_events_from_other_loggers():
     for name in ("routers.grading", "services.claude_grader", "uvicorn.error", "root", "mainx"):
         assert before_send(_event(), {"log_record": _record(name)}) is None, name
