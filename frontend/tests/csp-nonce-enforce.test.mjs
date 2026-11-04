@@ -15,6 +15,7 @@ import * as csp from '../tooling/content-security-policy.mjs';
 import * as articleIndex from '../lib/grammar-article-index.mjs';
 import * as legacyRedirects from '../tooling/legacy-url-redirects.mjs';
 import * as routeTable from '../tooling/nonce-route-table.mjs';
+import * as runtimeOrigins from '../tooling/runtime-origins.mjs';
 import { appPageRoute } from '../tooling/app-route-inventory.mjs';
 import {
   auditNonceResponse,
@@ -48,6 +49,7 @@ function loadModule(filename, env) {
     './tooling/content-security-policy.mjs': csp,
     './tooling/legacy-url-redirects.mjs': legacyRedirects,
     './tooling/nonce-route-table.mjs': routeTable,
+    './tooling/runtime-origins.mjs': runtimeOrigins,
   };
   const exports = {};
   new Function('require', 'exports', 'process', '__dirname', compiled)(
@@ -97,6 +99,18 @@ describe('enforcement build flag and full policy', () => {
       assert.ok(script.includes('https://vercel.live'));
       assert.equal(script.includes("'unsafe-eval'"), env.NODE_ENV === 'development');
     }
+  });
+
+  test('PC-J597: a built-in Sentry DSN adds only its origin to connect-src; script-src is untouched', () => {
+    const SENTRY = { ...PREVIEW, NEXT_PUBLIC_SENTRY_DSN: 'https://publickey@o42.ingest.us.sentry.io/7' };
+    const without = csp.buildNonceEnforcedPolicy(NONCE, PREVIEW).split('; ');
+    const withDsn = csp.buildNonceEnforcedPolicy(NONCE, SENTRY).split('; ');
+    const connect = (policy) => policy.find((d) => d.startsWith('connect-src ')).split(' ').slice(1);
+    assert.deepEqual(connect(withDsn), [...connect(without).slice(0, 3), 'https://o42.ingest.us.sentry.io', ...connect(without).slice(3)]);
+    assert.deepEqual(withDsn.filter((d) => !d.startsWith('connect-src ')), without.filter((d) => !d.startsWith('connect-src ')));
+    assert.ok(!withDsn.join('; ').includes('publickey'));
+    // Report-Only evaluates script-src only; the DSN changes nothing there.
+    assert.equal(csp.buildNonceReportOnlyPolicy(NONCE, SENTRY), csp.buildNonceReportOnlyPolicy(NONCE, PREVIEW));
   });
 
   test('rejects missing, malformed and injected nonces', () => {

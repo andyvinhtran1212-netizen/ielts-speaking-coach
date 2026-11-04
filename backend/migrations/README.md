@@ -19,11 +19,10 @@ and must not be "filled in" by tooling:
 
 ## Finding the next number
 
-Take the max numeric prefix across `*.sql` and open work and add 1 — do **not**
-assume the sequence is dense. As of 2026-11-02 the highest is `362`, the PC-J522
-BUCKET50 correction below; `361` is allocated by the Leader to PC-J358 (#2180;
-`360` is PC-J192, INSTRUCTORGIVE-0044), so by that rule the next new
-migration is `363` after checking open PRs and reservations. Ask the Leader before taking it; 348–351 are reserved for other
+Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
+sequence is dense. As of 2026-11-02 the highest is `363`, allocated by the
+Leader to PC-J538 (`361` is PC-J358, #2180; `360` is PC-J192, INSTRUCTORGIVE-0044),
+so by that rule the next new migration is `364`. Ask the Leader before taking it; 348–351 are reserved for other
 work, and 353–359 without a file here may be held by open PRs: none may be
 reused.
 The runner applies any unapplied file regardless of order.
@@ -106,6 +105,44 @@ staging→main promotion after 341. One transaction, no data change,
 re-runnable; re-running 341 restores the `NEW.id` audit body, so re-run 361
 after it. Its header rollback drops only the 361 trigger and function and
 restores the 341 audit body; it grants nothing.
+
+Migration `362` (PC-J522, STORAGELIMITS-0038; BUCKET50 a, Vinh t1246u
+02/11 06:37) follows immutable 343, confirmed in the staging ledger at
+2026-11-02 01:51:21Z. It sets only `listening-audio.file_size_limit` to
+`52428800` (50 MiB); all MIME types, visibility, other buckets and objects
+are unchanged. One transaction, 5 s lock timeout, idempotent; a missing bucket
+or failed postcondition aborts. The header down script restores the historical
+343 limit only. Same `pending_feature storage_bucket_limits` group: no apply
+on merge; Leader applies staging under the advisory lock, then checks the
+bucket value and uploads up to 50 MiB. Production remains uninspected and
+requires separate owner authorization at promotion.
+
+Migration `363` (PC-J538; SA-2180-R3-2 on #2180) pins the users audit trigger
+chain after 361, which it never edits. `fn_users_privilege_audit` (SECURITY
+DEFINER) and the writer it calls, `fn_staff_security_record` (SECURITY
+INVOKER, so it runs as the definer), kept `search_path = public, pg_temp`
+and called `jsonb_build_object`, `gen_random_uuid`, `current_setting`,
+`pg_current_xact_id` and `now` without a schema. A role with CREATE on
+`public` could add an exact typed overload (for example
+`jsonb_build_object(text,text,text,boolean,text,timestamptz)`) that beats the
+catalog's VARIADIC version and runs as the owner on the next users update. 363
+recreates both with their current bodies, `SET search_path = pg_catalog,
+pg_temp` and `pg_catalog.<fn>` calls; owner, security mode and the owner-only
+ACL are unchanged. It needs 361 in `_schema_migrations` (`migration_361_missing`)
+and refuses with `catalog_name_shadowed_in_public` while a shadow is already
+planted (remove it first: it is an incident). The postcondition checks the
+exact `proconfig`, no unqualified catalog call in either body, the OLD.id key,
+owner and EXECUTE, and the trigger. Order is 361 → 363: on staging on top of
+the applied 361, on production back to back after 341 and 361 at one
+promotion. 363 is held by `forward-policy.tsv` as `pending_feature
+admin_aal2`: apply only with `MIGRATION_FEATURES=admin_aal2` through the
+advisory-locked runner, staging first after SA review, production only at an
+explicitly authorised staging→main promotion after 361. One transaction, no
+data change, re-runnable; re-running 332, 341 or 361 restores the `public`
+path, so re-run 363 after it. `rollback/363_users_privilege_audit_search_path.sql`
+restores the 361/332 bodies, reopens SA-2180-R3-2 and grants nothing. Other
+definers with `search_path = public, pg_temp` (`fn_set_staff_privilege`,
+`fn_ai_model_override_audit`) are not covered by 363.
 
 Migration `356` (PC-J286, CALAPPEND-0041 FR-001..004) adds the statement trigger
 `trg_class_action_log_no_truncate` and its pinned, `P0001`-raising function.
@@ -208,17 +245,6 @@ Leader applies staging under the advisory lock. Production census and apply
 require Vinh's separate approval at promotion; verify rollback values first.
 The project-wide cap still applies (staging 50 MiB).
 
-Migration `362` (PC-J522, STORAGELIMITS-0038; BUCKET50 a, Vinh t1246u
-02/11 06:37) follows immutable 343, confirmed in the staging ledger at
-2026-11-02 01:51:21Z. It sets only `listening-audio.file_size_limit` to
-`52428800` (50 MiB); all MIME types, visibility, other buckets and objects
-are unchanged. One transaction, 5 s lock timeout, idempotent; a missing bucket
-or failed postcondition aborts. The header down script restores the historical
-343 limit only. Same `pending_feature storage_bucket_limits` group: no apply
-on merge; Leader applies staging under the advisory lock, then checks the
-bucket value and uploads up to 50 MiB. Production remains uninspected and
-requires separate owner authorization at promotion.
-
 Migration `347` (PC-J163) revokes ALL on `listening_tests` from `PUBLIC`,
 `anon` and `authenticated` (MAINTAIN included on PG 17). 295 closed the other
 Listening content tables but missed this one, which kept the 320-narrowed
@@ -293,6 +319,33 @@ documented no-op: restoring CREATE needs a new spec. Group
 `public_schema_create_revoke` is `pending_feature` (merge KHÔNG áp): staging
 first under the advisory lock, before 358; production only at a Vinh-approved
 promotion, before 341/341b.
+
+Migration `358` (PC-J406, widened by PC-J510; SVCPRIV-0042 FR-010,
+PGTEMP option a, Vinh t1246u; SA P2-R2-1) makes `pg_temp` the last `search_path`
+entry of every function and procedure in `public` and `app_private`. A path
+that does not name `pg_temp` searches it first for relations and types, so a
+`service_role` temp view or temp domain could shadow a name the routine
+resolves while it runs as the owner. Rules: no path → `public, pg_temp`;
+`''` → `pg_catalog, pg_temp`; any other list → the same list with `pg_temp`
+moved to the end (`pg_catalog, public` → `pg_catalog, public, pg_temp`). The
+224 trigger `fn_guard_active_player_terminal_mutation()` is narrowed to
+`pg_catalog, pg_temp` (Leader addendum, SA via PR-2116). On staging
+(2026-11-02) this is the four 283 grammar triggers, the five `fn_admin_*`
+definers of 297–302, 334 and 335; the migration re-reads the catalog rather
+than using that list. Bodies, owners, ACLs and volatility are unchanged; 345
+pins the four 283 triggers too and 358 does not depend on it. The
+precondition aborts if the runner cannot alter a target or cannot parse an
+entry; the postcondition fails if any routine in those schemas still lacks
+a `pg_temp`-last path. Group `function_search_path_pin` in
+`forward-policy.tsv`: merging does not apply it; staging first under the
+advisory lock after 357, production only at an authorised promotion after the
+SA retest passes. One transaction, no data change, re-runnable. There is no
+rollback: removing the pin reopens the hole, and the header rollback of 345
+(`RESET search_path`) must not run after 358.
+`tests/test_migration_function_search_path_guard.py` fails any new
+`CREATE FUNCTION`/`CREATE PROCEDURE` or `ALTER … SET search_path` in
+`backend/migrations/` without `SET search_path`, with `search_path = ''` or
+with `pg_temp` not last, and any new `RESET search_path`.
 
 Migration `352` (PC-J201, ADMINAAL2-0032 FR-010/FR-011, SA #1936 P3 c–f)
 adds the private `staff_mfa_status_throttle` table for shared admission to the

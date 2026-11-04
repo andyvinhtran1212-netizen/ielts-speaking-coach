@@ -54,6 +54,13 @@ Downloads that use `fetch(signedUrl)` go to the Supabase origin, which is
 already allowed. If a new browser-side integration needs a third-party origin,
 add it to the builder and add a test for it. Do not restore `https:`.
 
+Sentry (PC-J597): when the build has `NEXT_PUBLIC_SENTRY_DSN`, `connect-src`
+also lists that DSN's exact `https://` origin (for example
+`https://o123.ingest.us.sentry.io`), where the browser SDK posts its envelopes.
+No wildcard, nothing without a DSN, and `script-src` is unchanged: the SDK is a
+same-origin chunk. A DSN that is not a valid `https://` URL fails the build
+without echoing the value.
+
 Fail-closed rules:
 
 - A Vercel build throws if a configured API or Supabase value is not a valid
