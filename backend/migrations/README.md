@@ -25,7 +25,7 @@ for the 337 class-archive definer search paths, so the next new migration is `36
 `364` is held by PC-J544 (#2240), `365` by PC-J603 (#2238), `366` by PC-J611
 (#2241), and `367` by PC-J612; check staging, every open PR and the migration
 register before taking a number. 348–351 are reserved for other
-work, and 353–359 and 362 without a file here may be held by open PRs: none may be
+work, and 353–359 without a file here may be held by open PRs: none may be
 reused.
 The runner applies any unapplied file regardless of order.
 Numbers 321–326 belong to 321 WRITINGRATE-0025, 322 AIOPS-0024 (#1837), 323
@@ -108,54 +108,43 @@ re-runnable; re-running 341 restores the `NEW.id` audit body, so re-run 361
 after it. Its header rollback drops only the 361 trigger and function and
 restores the 341 audit body; it grants nothing.
 
-Migration `368` (PC-J619, SA-2209 residual P2, CLASSARCHIVE-0030) removes
-`public` from the search path of all nine 337 definers, including
-`fn_restore_student`. Five bodies change only by `pg_catalog.` call
-qualification; four cohort guards use only `ALTER FUNCTION`. The exact
-337/current bodies are checked before replacement; unexpected body drift or
-any planted public function/operator used by the migration aborts. Catalog
-identity is compared before/after: owner, ACL and SECURITY DEFINER are unchanged.
-Triggers, archive/restore locks and learner data are unchanged. The guarded
-rollback restores the exact 337 bodies/paths and reopens SA-2209; run it before
-rolling back 337. Re-running 337 requires re-running 368 afterwards.
+Migration `362` (PC-J522, STORAGELIMITS-0038; BUCKET50 a, Vinh t1246u
+02/11 06:37) follows immutable 343, confirmed in the staging ledger at
+2026-11-02 01:51:21Z. It sets only `listening-audio.file_size_limit` to
+`52428800` (50 MiB); all MIME types, visibility, other buckets and objects
+are unchanged. One transaction, 5 s lock timeout, idempotent; a missing bucket
+or failed postcondition aborts. The header down script restores the historical
+343 limit only. Same `pending_feature storage_bucket_limits` group: no apply
+on merge; Leader applies staging under the advisory lock, then checks the
+bucket value and uploads up to 50 MiB. Production remains uninspected and
+requires separate owner authorization at promotion.
 
-368 needs 337 (+365) in the ledger and the 337 objects. Merge after #2238,
-#2241 and PC-J612's PR 367; sync README/forward-policy after those predecessors.
-No apply on merge: `pending_feature class_archive`, staging first under the
-advisory lock after SA review, production only at an explicitly authorised
-staging → main promotion **after 337**. Use `MIGRATION_FEATURES=class_archive`
-(also `admin_aal2` if 365 is pending). No database apply is part of PC-J619.
-
-Migration `366` (PC-J611; SA-2209 residual P2, STUDENTARCHIVE-0029 /
-GIVEARCHIVE-0031) pins the SECURITY DEFINER functions of 326 and 331, which
-ran as their owner on `search_path = public, pg_temp`:
-`fn_archive_student`, `fn_add_student_cohort_membership` and
-`fn_add_students_cohort_membership` (EXECUTE for service_role, which before
-357 could also plant a typed overload such as `public.to_jsonb(uuid[])` or a
-table named like an unqualified one), the legacy `cohort_id` trigger
-`fn_sync_legacy_student_cohort_membership` and the 331 give guard
-`fn_guard_writing_assignment_student_archived`. It recreates the four 326
-functions with their bodies, `SET search_path = pg_catalog, pg_temp`,
-`pg_catalog.<fn>` calls and `public.<table>` names (with `public` off the
-path an unqualified table would resolve to `pg_temp`), and only
-`ALTER FUNCTION … SET search_path` on the 331 guard, which calls no function.
-Owner, SECURITY DEFINER and ACLs are unchanged; the file grants and revokes
-nothing. It needs 326, 331 and 365 in `_schema_migrations`
-(`migration_366_prerequisite_missing`) and refuses with
-`catalog_name_shadowed_in_public` while a shadow is already planted (remove it
-first: it is an incident). The postcondition checks the exact `proconfig`, no
-unqualified catalog call or table, definer mode, owner, EXECUTE (none for
-PUBLIC, anon or authenticated; service_role on the three RPCs) and the two
-triggers. Order is 363 → 365 → 366, held with them by `forward-policy.tsv` as
-`pending_feature admin_aal2`: apply only with `MIGRATION_FEATURES=admin_aal2`
-through the advisory-locked runner, staging first after SA review, production
-only at an explicitly authorised staging→main promotion after 365. One
-transaction, no data change, re-runnable; re-running 326 or 331 restores the
-`public` path, so re-run 366 after it.
-`rollback/366_student_archive_definer_search_path.sql` restores the 326 bodies
-and the 331 path, reopens SA-2209 for these five functions and grants nothing.
-The other definers SA-2209 lists (333, 337, 339, 340 groups and older files)
-are not covered by 366.
+Migration `363` (PC-J538; SA-2180-R3-2 on #2180) pins the users audit trigger
+chain after 361, which it never edits. `fn_users_privilege_audit` (SECURITY
+DEFINER) and the writer it calls, `fn_staff_security_record` (SECURITY
+INVOKER, so it runs as the definer), kept `search_path = public, pg_temp`
+and called `jsonb_build_object`, `gen_random_uuid`, `current_setting`,
+`pg_current_xact_id` and `now` without a schema. A role with CREATE on
+`public` could add an exact typed overload (for example
+`jsonb_build_object(text,text,text,boolean,text,timestamptz)`) that beats the
+catalog's VARIADIC version and runs as the owner on the next users update. 363
+recreates both with their current bodies, `SET search_path = pg_catalog,
+pg_temp` and `pg_catalog.<fn>` calls; owner, security mode and the owner-only
+ACL are unchanged. It needs 361 in `_schema_migrations` (`migration_361_missing`)
+and refuses with `catalog_name_shadowed_in_public` while a shadow is already
+planted (remove it first: it is an incident). The postcondition checks the
+exact `proconfig`, no unqualified catalog call in either body, the OLD.id key,
+owner and EXECUTE, and the trigger. Order is 361 → 363: on staging on top of
+the applied 361, on production back to back after 341 and 361 at one
+promotion. 363 is held by `forward-policy.tsv` as `pending_feature
+admin_aal2`: apply only with `MIGRATION_FEATURES=admin_aal2` through the
+advisory-locked runner, staging first after SA review, production only at an
+explicitly authorised staging→main promotion after 361. One transaction, no
+data change, re-runnable; re-running 332, 341 or 361 restores the `public`
+path, so re-run 363 after it. `rollback/363_users_privilege_audit_search_path.sql`
+restores the 361/332 bodies, reopens SA-2180-R3-2 and grants nothing. Other
+definers with `search_path = public, pg_temp` (`fn_set_staff_privilege`,
+`fn_ai_model_override_audit`) are not covered by 363.
 
 Migration `365` (PC-J603; SA-2209 residual P2 after 363) pins the rest of
 the staff-security chain, which 332, 336, 341, 361 and 363 left on
@@ -188,32 +177,54 @@ restores the 341/332 bodies and path, reopens SA-2209 for these six functions
 and grants nothing. The other definers SA-2209 lists (326, 331, 333, 337, 339,
 340 groups and older files) are not covered by 365.
 
-Migration `363` (PC-J538; SA-2180-R3-2 on #2180) pins the users audit trigger
-chain after 361, which it never edits. `fn_users_privilege_audit` (SECURITY
-DEFINER) and the writer it calls, `fn_staff_security_record` (SECURITY
-INVOKER, so it runs as the definer), kept `search_path = public, pg_temp`
-and called `jsonb_build_object`, `gen_random_uuid`, `current_setting`,
-`pg_current_xact_id` and `now` without a schema. A role with CREATE on
-`public` could add an exact typed overload (for example
-`jsonb_build_object(text,text,text,boolean,text,timestamptz)`) that beats the
-catalog's VARIADIC version and runs as the owner on the next users update. 363
-recreates both with their current bodies, `SET search_path = pg_catalog,
-pg_temp` and `pg_catalog.<fn>` calls; owner, security mode and the owner-only
-ACL are unchanged. It needs 361 in `_schema_migrations` (`migration_361_missing`)
-and refuses with `catalog_name_shadowed_in_public` while a shadow is already
-planted (remove it first: it is an incident). The postcondition checks the
-exact `proconfig`, no unqualified catalog call in either body, the OLD.id key,
-owner and EXECUTE, and the trigger. Order is 361 → 363: on staging on top of
-the applied 361, on production back to back after 341 and 361 at one
-promotion. 363 is held by `forward-policy.tsv` as `pending_feature
-admin_aal2`: apply only with `MIGRATION_FEATURES=admin_aal2` through the
-advisory-locked runner, staging first after SA review, production only at an
-explicitly authorised staging→main promotion after 361. One transaction, no
-data change, re-runnable; re-running 332, 341 or 361 restores the `public`
-path, so re-run 363 after it. `rollback/363_users_privilege_audit_search_path.sql`
-restores the 361/332 bodies, reopens SA-2180-R3-2 and grants nothing. Other
-definers with `search_path = public, pg_temp` (`fn_set_staff_privilege`,
-`fn_ai_model_override_audit`) are not covered by 363.
+Migration `366` (PC-J611; SA-2209 residual P2, STUDENTARCHIVE-0029 /
+GIVEARCHIVE-0031) pins the SECURITY DEFINER functions of 326 and 331, which
+ran as their owner on `search_path = public, pg_temp`:
+`fn_archive_student`, `fn_add_student_cohort_membership` and
+`fn_add_students_cohort_membership` (EXECUTE for service_role, which before
+357 could also plant a typed overload such as `public.to_jsonb(uuid[])` or a
+table named like an unqualified one), the legacy `cohort_id` trigger
+`fn_sync_legacy_student_cohort_membership` and the 331 give guard
+`fn_guard_writing_assignment_student_archived`. It recreates the four 326
+functions with their bodies, `SET search_path = pg_catalog, pg_temp`,
+`pg_catalog.<fn>` calls and `public.<table>` names (with `public` off the
+path an unqualified table would resolve to `pg_temp`), and only
+`ALTER FUNCTION … SET search_path` on the 331 guard, which calls no function.
+Owner, SECURITY DEFINER and ACLs are unchanged; the file grants and revokes
+nothing. It needs 326, 331 and 365 in `_schema_migrations`
+(`migration_366_prerequisite_missing`) and refuses with
+`catalog_name_shadowed_in_public` while a shadow is already planted (remove it
+first: it is an incident). The postcondition checks the exact `proconfig`, no
+unqualified catalog call or table, definer mode, owner, EXECUTE (none for
+PUBLIC, anon or authenticated; service_role on the three RPCs) and the two
+triggers. Order is 363 → 365 → 366, held with them by `forward-policy.tsv` as
+`pending_feature admin_aal2`: apply only with `MIGRATION_FEATURES=admin_aal2`
+through the advisory-locked runner, staging first after SA review, production
+only at an explicitly authorised staging→main promotion after 365. One
+transaction, no data change, re-runnable; re-running 326 or 331 restores the
+`public` path, so re-run 366 after it.
+`rollback/366_student_archive_definer_search_path.sql` restores the 326 bodies
+and the 331 path, reopens SA-2209 for these five functions and grants nothing.
+The other definers SA-2209 lists (333, 337, 339, 340 groups and older files)
+are not covered by 366.
+
+Migration `368` (PC-J619, SA-2209 residual P2, CLASSARCHIVE-0030) removes
+`public` from the search path of all nine 337 definers, including
+`fn_restore_student`. Five bodies change only by `pg_catalog.` call
+qualification; four cohort guards use only `ALTER FUNCTION`. The exact
+337/current bodies are checked before replacement; unexpected body drift or
+any planted public function/operator used by the migration aborts. Catalog
+identity is compared before/after: owner, ACL and SECURITY DEFINER are unchanged.
+Triggers, archive/restore locks and learner data are unchanged. The guarded
+rollback restores the exact 337 bodies/paths and reopens SA-2209; run it before
+rolling back 337. Re-running 337 requires re-running 368 afterwards.
+
+368 needs 337 (+365) in the ledger and the 337 objects. Merge after #2238,
+#2241 and PC-J612's PR 367; sync README/forward-policy after those predecessors.
+No apply on merge: `pending_feature class_archive`, staging first under the
+advisory lock after SA review, production only at an explicitly authorised
+staging → main promotion **after 337**. Use `MIGRATION_FEATURES=class_archive`
+(also `admin_aal2` if 365 is pending). No database apply is part of PC-J619.
 
 Migration `356` (PC-J286, CALAPPEND-0041 FR-001..004) adds the statement trigger
 `trg_class_action_log_no_truncate` and its pinned, `P0001`-raising function.

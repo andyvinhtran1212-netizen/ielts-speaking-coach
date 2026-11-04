@@ -147,13 +147,15 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-logger = logging.getLogger(__name__)
+# Fixed name, not __name__: LOG_CAPTURE_LOGGERS (services/sentry_setup.py)
+# matches "main", which __name__ only gives when started as "main:app" (PC-J610).
+logger = logging.getLogger("main")
 install_supabase_timing()
 
 # PC-J597: no-op unless SENTRY_DSN is set; scrubbing in services/sentry_setup.py.
-from services.sentry_setup import init_sentry
+from services.sentry_setup import init_sentry, mark_handled as mark_sentry_handled
 
-init_sentry(settings.SENTRY_DSN)
+init_sentry(settings.SENTRY_DSN, pseudonym_key=settings.SENTRY_PSEUDONYM_KEY)
 
 # /openapi.json, /docs, /docs/oauth2-redirect and /redoc are closed (404)
 # unless ENABLE_API_DOCS is truthy — local development only. app.openapi()
@@ -668,6 +670,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     from services.mock_paper_policy import safe_database_error
     policy_error = safe_database_error(exc, operator=request.url.path.startswith(("/api/admin/", "/admin/")))
     if policy_error is not None:
+        mark_sentry_handled(exc)  # PC-J601 P3-2: a mapped 4xx/503, not a crash
         status, detail = policy_error
         return JSONResponse(status_code=status, content={"detail": detail},
                             headers=_cors_headers_for_origin(request.headers.get("origin")))

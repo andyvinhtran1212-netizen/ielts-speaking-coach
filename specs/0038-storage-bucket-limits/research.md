@@ -58,7 +58,7 @@ Production values are unknown: T004 reads them at promotion before 343 is
 applied there. If any production value is not NULL, T004 stops and the down
 script is amended before the production apply.
 
-## Code limits and types (origin/staging `756016558`)
+## Historical code limits and types (origin/staging `756016558`)
 
 | Bucket | Writers | Largest size the code allows | Types the code sends |
 | --- | --- | --- | --- |
@@ -69,15 +69,18 @@ script is amended before the production apply.
 | `writing-images` | `services/writing_prompt_image.py:115` (via `admin_writing_prompts.py`, 5 MiB at `:53`, magic-byte sniff) | 5 MiB | `image/png`, `image/jpeg`, `image/webp` |
 | `vocab-audio` | `services/tts_audio.py:113` (TTS mp3); `scripts/migrate_legacy_audio_urls.py` (one-off; vocab paths are `.mp3`) | none | `audio/mpeg` |
 
-## Final limit table (J133 / migration 343 uses exactly this)
+## Final limit table (343 → 362, BUCKET50 a)
 
-Rule: limit = max(code limit, census max), at least the code limit; MIME =
-code types ∪ census types. `public` is never changed.
+Original rule: limit = max(code limit, census max), at least the code limit;
+MIME = code types ∪ census types. BUCKET50 a, Vinh t1246u 02/11 06:37,
+amends Listening to the existing project cap, 50 MiB / 52 428 800 bytes.
+`public` is never changed. Applied 343 stays immutable; 362 supplies this
+correction, and the shared helper uses the amended table.
 
 | Bucket | `file_size_limit` (bytes) | `allowed_mime_types` | Basis |
 | --- | ---: | --- | --- |
 | `audio-responses` | 52 428 800 (50 MiB) | `audio/*`, `video/webm`, `video/mp4`, `application/octet-stream` | Code 50 MiB > census 2.8 MiB. `audio/*` covers every audio type and any parameter (`;codecs=opus`). The census found no non-audio type, but the route accepts any client type today, so the three known recorder/upload fallbacks stay allowed (protects the window between applying 343 and deploying normalisation) and J133 normalises every other non-audio type before upload (FR-005). |
-| `listening-audio` | 134 217 728 (128 MiB) | `audio/*`, `image/png`, `image/jpeg`, `image/webp`, `image/svg+xml`, `application/json` | Code 128 MiB > census 29.7 MiB. `audio/*` instead of a list because `guess_type` returns host-dependent names (`audio/wav`/`audio/x-wav`, `audio/mp4`/`audio/x-m4a`). `application/octet-stream` (the source importer's `guess_type` fallback) is not allowed: every suffix the importer accepts has a built-in `guess_type` answer, so the fallback is unreachable today; J133 makes the importer fail clearly if it ever happens. |
+| `listening-audio` | 52 428 800 (50 MiB) | `audio/*`, `image/png`, `image/jpeg`, `image/webp`, `image/svg+xml`, `application/json` | BUCKET50 a aligns with the project cap; above census 29.7 MiB. `audio/*` covers host-dependent `guess_type` names. MIME types stay as applied by 343, including the explicit JSON and image types. |
 | `listening-images` | 10 485 760 (10 MiB) | `image/png`, `image/jpeg`, `image/webp` | Route 5 MiB, census 0.32 MiB; 10 MiB headroom for the uncapped repair script, as approved. |
 | `reading-images` | 5 242 880 (5 MiB) | `image/png`, `image/jpeg`, `image/webp` | Route 5 MiB > census 0.71 MiB. |
 | `writing-images` | 5 242 880 (5 MiB) | `image/png`, `image/jpeg`, `image/webp` | Route 5 MiB > census 96 KiB. Stays `public = false` (#1760). |
@@ -85,14 +88,25 @@ code types ∪ census types. `public` is never changed.
 
 ## Finding: global 50 MiB cap (report to Leader)
 
-Staging's project-wide limit is 50 MiB. The code already allows larger
-Listening objects (128 MiB source audio, 100 MiB full test, 60 MiB pack), and
-those uploads are already refused by Storage on staging today; 343 does not
-change that (the bucket limit is higher, the effective limit stays 50 MiB).
+Staging's project-wide limit is 50 MiB. Historical route/importer ceilings
+(128 MiB source audio, 100 MiB full test, 60 MiB pack) exceed it. BUCKET50 a
+sets the bucket and shared helper to 50 MiB; aligning those separate ceilings
+and messages remains job 1mg (PC-J484).
 The largest staging object is 29.7 MiB, so nothing current is near the cap.
 Raising the project-wide limit is out of scope for 0038 (plan-level setting,
 owner decision). Production's project-wide limit was not read (prod is out of
 scope for this job); T004 reads it at promotion.
+
+## PC-J522 read-only staging verification (2026-11-02)
+
+Management API query with `read_only: true` returned `transaction_read_only =
+on`, ledger `343_storage_bucket_limits.sql` applied at
+`2026-11-02T01:51:21.569448+00:00`, and `listening-audio.file_size_limit =
+134217728` (historical 343 value), `public = false`, with the six approved
+MIME types. Evidence: PC-J522 job log directory,
+`staging-ledger-readonly.json{,.result}`. No production read or remote write.
+Production status is inferred only from the pending feature policy and
+Leader's holds record; production census/apply remains unauthorized.
 
 ## Notes for J133
 
