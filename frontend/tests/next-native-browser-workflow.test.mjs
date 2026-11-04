@@ -138,9 +138,11 @@ describe('permanent Next-native browser regression workflow', () => {
   test('always stops its local server and preserves failure evidence', () => {
     // PC-J437: the evidence upload still runs on failure, but only after the
     // sanitize + secret-scan guard step passed.
-    assert.match(WORKFLOW, /name: Che \+ quét secret trong log trước khi nộp\n\s+id: native_log_artifact_guard\n\s+if: \$\{\{ failure\(\) \}\}/);
-    assert.match(WORKFLOW, /name: Nộp log server khi lỗi\n\s+if: \$\{\{ failure\(\) && steps\.native_log_artifact_guard\.outcome == 'success' \}\}/);
-    assert.match(WORKFLOW, /name: Dừng Next\n\s+if: \$\{\{ always\(\) \}\}/);
+    // PC-J598: each condition also requires RUN_BROWSER (no checkout on a PR
+    // outside the gate globs, so there is nothing to sanitize or stop).
+    assert.match(WORKFLOW, /name: Che \+ quét secret trong log trước khi nộp\n\s+id: native_log_artifact_guard\n\s+if: \$\{\{ failure\(\) && env\.RUN_BROWSER == 'true' \}\}/);
+    assert.match(WORKFLOW, /name: Nộp log server khi lỗi\n\s+if: \$\{\{ failure\(\) && steps\.native_log_artifact_guard\.outcome == 'success' && env\.RUN_BROWSER == 'true' \}\}/);
+    assert.match(WORKFLOW, /name: Dừng Next\n\s+if: \$\{\{ always\(\) && env\.RUN_BROWSER == 'true' \}\}/);
     assert.match(WORKFLOW, /next-native-fixture-api\.log/);
     assert.match(WORKFLOW, /kill "\$\(cat \/tmp\/next-native-fixture-api\.pid\)"/);
   });
