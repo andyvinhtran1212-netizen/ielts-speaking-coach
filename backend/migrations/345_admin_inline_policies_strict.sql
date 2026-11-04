@@ -119,6 +119,7 @@
 --   ALTER POLICY vocab_exercises_select ON public.vocabulary_exercises
 --       USING (status = 'published' OR EXISTS (SELECT 1 FROM public.users WHERE users.id = auth.uid() AND users.role = 'admin'));
 --   GRANT SELECT ON public.user_feedback, public.lemma_overrides TO anon, authenticated;
+-- After mig 358 (PR #2201): DO NOT run these RESET search_path lines; any rollback must re-pin search_path = pg_catalog, pg_temp in the same transaction.
 --   ALTER FUNCTION public.prevent_grammar_evidence_mutation() RESET search_path;
 --   ALTER FUNCTION public.prevent_completed_grammar_session_mutation() RESET search_path;
 --   ALTER FUNCTION public.prevent_grammar_release_content_mutation() RESET search_path;
