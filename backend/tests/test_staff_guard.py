@@ -1081,6 +1081,14 @@ def test_cooloff_restarts_after_factor_rename(frozen):
     assert _recent_mfa([{**renamed, "updated_at": iso(T - DAY)}]) is None
 
 
+def test_challenge_does_not_restart_cooloff(frozen):
+    # Challenge/re-verify only advances last_challenged_at for an already
+    # verified factor; its old created_at/updated_at still clear FR-020a.
+    factor = _factor("f-challenged", created=T - 30 * DAY, updated=T - 2 * DAY)
+    factor["last_challenged_at"] = iso(T - 60)
+    assert _recent_mfa([factor], totp_at=T - 60) is None
+
+
 def test_cooloff_message_explains_the_24_hour_wait():
     assert "24 giờ" in staff_guard.STEP_UP_COOLOFF_MESSAGE
     assert staff_guard.STEP_UP_COOLOFF_MESSAGE != staff_guard.STEP_UP_REQUIRED_MESSAGE
