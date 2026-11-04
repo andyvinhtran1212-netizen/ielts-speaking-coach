@@ -204,6 +204,9 @@ def test_release_metadata_holds_363_behind_the_admin_aal2_group():
                    "migration_361_missing", "catalog_name_shadowed_in_public", "re-run 363",
                    "fn_set_staff_privilege", "grants nothing"):
         assert needle in paragraph, needle
+    # The next-number sentence moves with each later migration (364+); it is
+    # pinned by test_migration_forward_policy. Here only 363's allocation stays.
+    assert "`363` is PC-J538" in _squash(readme)
 
 
 # ── PostgreSQL harness ──────────────────────────────────────────────────────

@@ -305,6 +305,30 @@ restores the 361/332 bodies, reopens SA-2180-R3-2 and grants nothing. Other
 definers with `search_path = public, pg_temp` (`fn_set_staff_privilege`,
 `fn_ai_model_override_audit`) are not covered by 363.
 
+Migration `364` (PC-J544, SVCPRIV-0042 T001, FR-001…FR-008; the spec's `NNN`)
+revokes TRIGGER, REFERENCES, TRUNCATE and, on PostgreSQL 17, MAINTAIN on every
+`public` relation (tables, partitions, views, materialized views, foreign
+tables) from `service_role`, anon, authenticated and PUBLIC, and removes the
+same four from every table default ACL, global and `IN SCHEMA public`, whose
+owner the runner can act for. Default ACLs of other owners (hosted
+`supabase_admin`) produce a WARNING with the exact statement for Supabase
+support. It closes SA P2-SA-1: with TRIGGER, `service_role` could attach a
+`pg_temp` trigger that owner-run definers and FK actions then execute as the
+owner. SELECT, INSERT, UPDATE and DELETE (table and column level), schema
+USAGE, owners, policies and functions are unchanged; the postcondition compares
+a normalised before/after snapshot of them. API roles get explicit CRUD grants
+only: no `GRANT ALL`, TRIGGER, REFERENCES, TRUNCATE or MAINTAIN on a table or in
+a default ACL, no `pg_maintain`/`pg_write_all_data`/`postgres` membership and no
+ownership; `test_service_role_table_privilege_guard.py` (FR-006) enforces this
+for later migrations, every rollback file and the scripts. 364 needs 357 on the
+target first: it re-checks schema CREATE and aborts with
+`svcpriv_schema_create_remains` when 357 is missing. The down is a documented
+no-op. Group `service_role_table_maintenance_revoke` is `pending_feature`
+(merge KHÔNG áp): staging first under the advisory lock after 357; production
+only at a Vinh-approved promotion. `apply_migrations.sh --baseline` refuses a
+non-empty `MIGRATION_FEATURES`, so a clone baseline cannot record 364 without
+running it (FR-007).
+
 Migration `356` (PC-J286, CALAPPEND-0041 FR-001..004) adds the statement trigger
 `trg_class_action_log_no_truncate` and its pinned, `P0001`-raising function.
 It keeps 198's row trigger unchanged and revokes UPDATE, DELETE, TRUNCATE,
