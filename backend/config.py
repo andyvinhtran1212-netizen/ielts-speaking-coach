@@ -99,6 +99,9 @@ class Settings(BaseSettings):
     # deployment (1/true/yes/on). Ignored in production, always — see
     # services/cors_policy.py. Development allows localhost without it.
     CORS_ALLOW_LOCALHOST: str = ""
+    # Sentry error reporting (PC-J597). Empty → the SDK is never initialised.
+    # Scrubbing and sample rates live in services/sentry_setup.py.
+    SENTRY_DSN: str = ""
     # PC-J202/J183, SA decision 2026-10-29: only these explicitly trusted
     # proxy CIDRs may be skipped (as X-Real-IP or an XFF hop). No inferred
     # private/Cloudflare/CDN77 trust (PC-J520).

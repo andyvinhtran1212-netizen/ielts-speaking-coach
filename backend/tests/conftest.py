@@ -24,6 +24,8 @@ os.environ.setdefault("SUPABASE_SERVICE_KEY", "test-service-key")
 # schema closed. Forced (not setdefault) so a developer's ENABLE_API_DOCS=1 in
 # backend/.env cannot change what tests/test_api_docs_closed.py asserts.
 os.environ["ENABLE_API_DOCS"] = "0"
+# PC-J597: a developer's SENTRY_DSN must not send test errors to Sentry.
+os.environ["SENTRY_DSN"] = ""
 
 
 @pytest.fixture(autouse=True)
