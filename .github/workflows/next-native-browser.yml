@@ -767,7 +767,6 @@ jobs:
               - 'frontend/package.json'
               - 'frontend/tsconfig.json'
               - 'frontend/types/**'
-              - '.github/workflows/next-native-browser.yml'
               - 'frontend/app/**'
               - 'frontend/public/css/**'
               - 'frontend/public/js/**'

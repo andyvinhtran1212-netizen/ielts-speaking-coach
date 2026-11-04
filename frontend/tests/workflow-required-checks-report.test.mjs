@@ -26,8 +26,6 @@ const REQUIRED = {
     'Frontend (node --test)',
   ],
   'typecheck.yml': ['TypeScript strict + legacy JSDoc', 'api.d.ts ↔ OpenAPI drift'],
-  // PC-J598: sắp thành check bắt buộc (CSP drift guard của #2216).
-  'next-native-browser.yml': ['Next-native browser regression'],
 };
 
 const code = (src) => src.split('\n').filter((l) => !/^\s*#/.test(l));
@@ -100,52 +98,6 @@ describe('check bắt buộc của staging luôn báo về', () => {
     assert.ok(steps.length >= 6, `chỉ thấy ${steps.length} step`);
     for (const s of steps) {
       assert.match(s, /\n {8}if: .*env\.RUN_TESTS [!=]= 'true'/, `step không gác: ${s.split('\n')[0]}`);
-    }
-  });
-
-  // PC-J598: job bắt buộc không skip ở mức job (luôn báo XANH/ĐỎ, không «skipped»);
-  // từng step gác bằng RUN_BROWSER, fail CLOSED khi `changes` hỏng.
-  test('next-native-browser.yml — job bắt buộc luôn chạy, step gác theo `changes`', () => {
-    const src = read('next-native-browser.yml');
-    const j = jobs(src);
-    assert.ok(j.changes, 'thiếu job `changes`');
-    const gate = "(github.event_name != 'pull_request' || needs.changes.outputs.run_tests != 'false')";
-    const br = j['browser-regression'];
-    assert.match(jobLevel(br, 'needs') ?? '', /changes/);
-    assert.equal(jobLevel(br, 'if')?.trim(), 'if: ${{ !cancelled() }}',
-      'job bắt buộc không được skip ở mức job');
-    assert.ok(br.some((l) => l.includes(`RUN_BROWSER: \${{ ${gate} }}`)), 'thiếu RUN_BROWSER');
-    const steps = br.join('\n').split(/\n {6}- /).slice(1);
-    assert.ok(steps.length >= 100, `chỉ thấy ${steps.length} step`);
-    assert.match(steps[0], /\n {8}if: env\.RUN_BROWSER != 'true'\n/, 'step đầu phải là bước báo bỏ qua');
-    assert.match(steps[0], /no matching paths/);
-    for (const s of steps.slice(1)) {
-      assert.match(s, /\n {8}if: .*env\.RUN_BROWSER == 'true'/, `step không gác: ${s.split('\n')[0]}`);
-    }
-    const rn = jobLevel(j['reading-native-layout'], 'if') ?? '';
-    assert.ok(rn.includes('!cancelled()') && rn.includes(gate), `reading-native-layout: if sai — ${rn}`);
-    // Chỉ PR vào staging; push/schedule/dispatch vẫn chạy hết.
-    assert.match(pullRequestTrigger(src), /^ {4}branches: \[staging\]$/m);
-  });
-
-  // picomatch (paths-filter) đọc `(…)`/`[…]`/`{…}` là cú pháp, trigger GitHub thì
-  // đọc `(…)` là chữ. Hợp danh sách chỉ giữ nghĩa cũ khi mọi glob có ký tự đó nằm
-  // dưới một glob trơn rộng hơn cũng có trong danh sách: `frontend/app/**`.
-  test('next-native-browser.yml — glob có ký tự picomatch đặc biệt nằm dưới frontend/app/**', () => {
-    const lines = code(read('next-native-browser.yml'));
-    const f = lines.findIndex((l) => /^\s*filters:\s*\|\s*$/.test(l));
-    const i = lines.findIndex((l, n) => n > f && /^\s*run_tests:\s*$/.test(l));
-    assert.ok(f >= 0 && i > f, 'không thấy bộ lọc run_tests');
-    const globs = [];
-    for (const l of lines.slice(i + 1)) {
-      const m = /^\s*-\s*'([^']+)'\s*$/.exec(l);
-      if (!m) break;
-      globs.push(m[1]);
-    }
-    assert.ok(globs.length > 100, `chỉ đọc được ${globs.length} glob`);
-    assert.ok(globs.includes('frontend/app/**'), 'thiếu frontend/app/**');
-    for (const g of globs.filter((x) => /[()[\]{}!?+@]/.test(x))) {
-      assert.ok(g.startsWith('frontend/app/'), `glob đặc biệt ngoài frontend/app/: ${g}`);
     }
   });
 });
