@@ -150,6 +150,11 @@ logging.getLogger("urllib3").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 install_supabase_timing()
 
+# PC-J597: no-op unless SENTRY_DSN is set; scrubbing in services/sentry_setup.py.
+from services.sentry_setup import init_sentry
+
+init_sentry(settings.SENTRY_DSN)
+
 # /openapi.json, /docs, /docs/oauth2-redirect and /redoc are closed (404)
 # unless ENABLE_API_DOCS is truthy — local development only. app.openapi()
 # still builds the full schema for CI drift checks. See services/api_docs.py.
@@ -688,8 +693,11 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     else:
         message = str(exc) or exc.__class__.__name__
         stack = _traceback.format_exc()
+    # The Sentry SDK reports this exception itself, with its stack trace;
+    # sentry_skip keeps this line from becoming a second, trace-less event.
     logger.error("[error] Unhandled exception on %s (req=%s): %s",
-                 safe_path, request_id, message if validation_error is not None else exc)
+                 safe_path, request_id, message if validation_error is not None else exc,
+                 extra={"sentry_skip": True})
 
     payload = {
         "level":      "error",
