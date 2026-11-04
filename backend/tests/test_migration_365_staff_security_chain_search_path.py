@@ -210,7 +210,7 @@ def test_release_metadata_holds_365_behind_the_admin_aal2_group():
     assert rows[NAME_363][1:3] == ["pending_feature", "admin_aal2"]
     assert not any(name.startswith("364_") for name in rows)
     readme = (MIGRATIONS / "README.md").read_text(encoding="utf-8")
-    paragraph = readme[readme.index("Migration `365`"):readme.index("Migration `363`")]
+    paragraph = readme.split("Migration `365`", 1)[1].split("\nMigration `", 1)[0]
     for needle in ("SA-2209", "MIGRATION_FEATURES=admin_aal2", "after SA review", "361 → 363 → 365",
                    "migration_363_missing", "catalog_name_shadowed_in_public", "re-run",
                    "fn_set_staff_privilege", AI_AUDIT, "grants nothing"):

@@ -120,8 +120,8 @@ Chỉ một nhóm gồm nhiều thành phần:
 - *team, family, government, audience, staff*
 
 Trong tiếng Anh Anh, collective nouns có thể hòa hợp số ít khi nhìn cả nhóm như một đơn vị, hoặc số nhiều khi nhìn các thành viên:
-- The team **are** playing well. (British English)
-- The team **is** playing well. (American English)
+- The team **are** playing well. (chủ yếu Anh Anh)
+- The team **is** playing well. (cả Anh Anh và Anh Mỹ)
 
 ### 7. Compound Nouns — Danh từ ghép
 
@@ -129,7 +129,7 @@ Hai từ hoặc hơn kết hợp thành một danh từ mới:
 
 - *toothbrush, football, bedroom, coffee shop, air conditioning*
 
-Một số viết liền, một số có dấu gạch ngang, một số viết tách — không có quy tắc cố định.
+Một số viết liền, một số có dấu gạch nối (*mother-in-law*), một số viết tách — không có quy tắc cố định.
 
 ## PHẦN QUYẾT ĐỊNH: Đếm được hay không đếm được?
 
@@ -163,7 +163,7 @@ Một số viết liền, một số có dấu gạch ngang, một số viết t
 | **experience** | She has a lot of **experience**. *(kinh nghiệm nói chung)* | It was an interesting **experience**. *(một trải nghiệm cụ thể)* |
 | **work** | I have a lot of **work** to do. *(công việc)* | The museum displays many famous **works**. *(tác phẩm)* |
 | **coffee** | Do you like **coffee**? *(thức uống)* | I'd like **a coffee**, please. *(một ly)* |
-| **time** | There isn't enough **time**. *(thời gian)* | I've visited there many **times**. *(lần)* |
+| **time** | There isn't enough **time**. *(thời gian)* | I've **been** there many **times**. *(lần)* |
 
 > **Gợi nhớ cho IELTS:** Some/a lot of dùng với danh từ đếm được **số nhiều** hoặc không đếm được. Vẫn phải xác định dạng danh từ: **some books**, **some information**, không phải some book trong nghĩa nhiều cuốn.
 
@@ -217,6 +217,7 @@ Thêm **'s** để thể hiện sở hữu:
 
 ### Lỗi 3: Dùng "a" trước danh từ không đếm được
 
+- ❌ She gave me **an advice**. → ✅ She gave me **a piece of advice** / **some advice**.
 - Khi gọi đồ: **I'd like a water, please** có thể gọi một suất/chai/cốc nước.
 - Cách nói lượng rõ hơn: **I'd like some water / a glass of water, please**.
 
@@ -227,7 +228,7 @@ Thêm **'s** để thể hiện sở hữu:
 | childs | children |
 | mouses | mice |
 | leafs | leaves |
-| persons | people |
+| persons *(văn nói thường dùng people)* | people |
 | tooths | teeth |
 | foots | feet |
 
@@ -254,7 +255,7 @@ Thêm **'s** để thể hiện sở hữu:
 
 ### Sửa lỗi
 1. She gave me a lot of useful advices.
-2. The government are planning new policy.
+2. There are a lot of furnitures in the room.
 3. I need an information about the course.
 4. They have three childrens.
 
@@ -263,7 +264,7 @@ Thêm **'s** để thể hiện sở hữu:
 
 **Sửa lỗi:**
 1. advice (bỏ -s)
-2. Nếu nói một chính sách cụ thể: **The government is planning a new policy**; trong Anh Anh có thể **are planning a new policy** khi nhìn các thành viên. **New policy** không có a còn có thể chỉ chính sách nói chung; đề gốc chưa chỉ rõ nghĩa này.
+2. There is a lot of **furniture** in the room.
 3. some information (bỏ "an", đây là uncountable)
 4. three children (children = dạng số nhiều bất quy tắc)
 

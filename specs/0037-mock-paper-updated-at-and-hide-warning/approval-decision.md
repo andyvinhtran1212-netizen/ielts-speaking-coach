@@ -30,3 +30,20 @@ Vinh approves the exact FR-006 text in `spec.md`; implementation (migration
 ## Amendment 2 — FR-007 (status-only Listening child changes)
 
 Amendment 2 — J252: 1, Vinh t1246u 2026-11-02 06:37 UTC+7 (Leader báo)
+
+## Amendment 3 — IMPORT a (Q-J252-IMPORT)
+
+**State: APPROVED.** Amendment 3 — IMPORT a (Q-J252-IMPORT), Vinh t1312u
+2026-11-03 02:16 UTC+7 (Leader báo), verbatim "OK 1–7 theo đề xuất" on the
+Leader's 2026-11-02 22:45 batch, item 1 = "IMPORT a". Option b/c rejected.
+Sources: `/workspace/cc-jobs/process/questions-for-vinh.md` (ANSWERED
+2026-11-03 02:16), `handoff/project-coordinator/20261103-0225-leader-Q-J252-IMPORT-a.md`,
+PC request `handoff/feature-developer/20261103-0230-pc-request-0037-amendment-import-a.md`,
+FD question `handoff/leader/done/20261102-0950-fd-questions-vinh.md`, job 1dh
+`audit/import-base.result`, CR #2204 P3-1.
+Approved intent: the 306 source trigger (`trg_mock_paper_source`) skips the
+`mock_content_revision` bump for child rows of the package being imported (a
+new package has no attempts to protect). Vinh approves the FR-008 text in
+`spec.md`. Migration NNN (Leader cấp số) starts only after #2204 (353) and this
+amendment are merged into `staging` (ticket PC-J562). Staging first; production
+only through a normal promote whose scope Vinh approves.

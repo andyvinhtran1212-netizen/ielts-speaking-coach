@@ -22,11 +22,12 @@ and must not be "filled in" by tooling:
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
 sequence is dense. As of 2026-11-04 the highest is `369`, used by PC-J620
 for the 339 grammar_quiz definer search paths, so the next new migration is `370`
-(reserved in the register for PC-J621). `368` is PC-J619 (#2242),
-`364` is held by PC-J544 (#2240), `365` by PC-J603 (#2238), `366` by PC-J611
-(#2241), and `367` by PC-J612 (#2243); check staging, every open PR and the migration
+(already reserved in the migration register; ask the Leader before taking it).
+`368` is PC-J619 (#2242); `367` is PC-J612 (#2243); `366` is PC-J611, #2241;
+`365` is PC-J603, #2238; `363` is PC-J538, `361` is PC-J358, #2180; `360` is
+PC-J192, INSTRUCTORGIVE-0044. Check staging, every open PR and the migration
 register before taking a number. 348–351 are reserved for other
-work, and 353–359 and 362 without a file here may be held by open PRs: none may be
+work, `364` is held by PC-J544 (#2240, SVCPRIV-0042 T001), and 353–359 without a file here may be held by open PRs: none may be
 reused.
 The runner applies any unapplied file regardless of order.
 Numbers 321–326 belong to 321 WRITINGRATE-0025, 322 AIOPS-0024 (#1837), 323
@@ -109,6 +110,17 @@ re-runnable; re-running 341 restores the `NEW.id` audit body, so re-run 361
 after it. Its header rollback drops only the 361 trigger and function and
 restores the 341 audit body; it grants nothing.
 
+Migration `362` (PC-J522, STORAGELIMITS-0038; BUCKET50 a, Vinh t1246u
+02/11 06:37) follows immutable 343, confirmed in the staging ledger at
+2026-11-02 01:51:21Z. It sets only `listening-audio.file_size_limit` to
+`52428800` (50 MiB); all MIME types, visibility, other buckets and objects
+are unchanged. One transaction, 5 s lock timeout, idempotent; a missing bucket
+or failed postcondition aborts. The header down script restores the historical
+343 limit only. Same `pending_feature storage_bucket_limits` group: no apply
+on merge; Leader applies staging under the advisory lock, then checks the
+bucket value and uploads up to 50 MiB. Production remains uninspected and
+requires separate owner authorization at promotion.
+
 Migration `369` (PC-J620, SA-2209 residual P2, GRAMMARAUDIT-0019) removes
 `public` from the search path of the four SECURITY DEFINER functions whose
 latest body is 339: `grammar_quiz_audit_chain`, `grammar_quiz_guard_bank`
@@ -157,6 +169,52 @@ No apply on merge: `pending_feature class_archive`, staging first under the
 advisory lock after SA review, production only at an explicitly authorised
 staging → main promotion **after 337**. Use `MIGRATION_FEATURES=class_archive`
 (also `admin_aal2` if 365 is pending). No database apply is part of PC-J619.
+
+Migration `367` (PC-J612; SA-2209 residual P2, AIBUDGET-0033) pins the 22
+SECURITY DEFINER functions 333 created and 340 left unchanged, which ran as
+their owner on `search_path = public, pg_temp`: the 11 service_role RPCs
+`fn_ai_budget_release`, `fn_ai_budget_expire`, `fn_ai_budget_close_scope`,
+`fn_ai_deferred_save`, `fn_ai_deferred_claim`, `fn_ai_deferred_claim_writing`,
+`fn_ai_deferred_aggregate_write`, `fn_ai_session_bands_write`,
+`fn_ai_class_sync`, `fn_ai_budget_raise_end` and
+`fn_ai_budget_raise_expire_sweep`, and the 11 internal functions
+`fn_ai_budget_thresholds`, `fn_ai_budget_lock_counter`,
+`fn_ai_budget_alert_crossings`, `fn_ai_budget_active_raise`,
+`fn_ai_response_revision`, `fn_ai_patch_row`, `fn_ai_insert_row`,
+`fn_ai_budget_ensure_refresh`, `fn_ai_budget_raise_record_end`,
+`fn_ai_budget_recompute` and the `responses` trigger
+`fn_ai_session_generation_bump`. A typed overload planted in public (before
+357 service_role could, e.g. `public.to_jsonb(public.ai_deferred_grading_jobs)`,
+`public.array_agg(uuid)` or `public.jsonb_populate_record(public.sessions,
+jsonb)` reached through the dynamic UPDATE of `fn_ai_patch_row`) ran as the
+owner. It recreates 18 of them with their 333 bodies,
+`SET search_path = pg_catalog, pg_temp` and `pg_catalog.<fn>` calls (333
+already names every table `public.<table>`), and only
+`ALTER FUNCTION … SET search_path` on the four that call no catalog
+function. Owner, SECURITY DEFINER, volatility and ACLs are unchanged; the file
+grants and revokes nothing. It needs 333 and 340 in `_schema_migrations`
+(`migration_367_prerequisite_missing`), refuses with
+`catalog_name_shadowed_in_public` while a shadow is already planted (remove it
+first: it is an incident) and with `trigger_function_without_search_path` if a
+trigger on a table these functions write has no path of its own (it would
+inherit the pinned one). The postcondition checks the exact `proconfig`, no
+unqualified catalog call or table, definer mode, owner, EXECUTE (none for
+PUBLIC, anon or authenticated; service_role on exactly the 11 RPCs) and the
+generation trigger. It is held with 333 and 340 by `forward-policy.tsv` as
+`pending_feature ai_budget`, not with 363/365/366: 340's postcondition still
+requires the `public` path on these functions, so the order is 333 → 340 →
+367. Apply only with `MIGRATION_FEATURES=ai_budget` through the
+advisory-locked runner, staging first after SA review (staging has 333 but not
+340 yet), production only at an explicitly authorised staging→main promotion
+after 340. One transaction, no data change, re-runnable; re-running 333
+restores the `public` path, so re-run 340 and then 367 after it; re-running
+340 alone after 367 aborts on its own postcondition and changes nothing.
+`rollback/367_ai_budget_definer_search_path.sql` restores the 333 bodies and
+paths, reopens SA-2209 for these 22 functions and grants nothing. The six 340
+definers (`fn_ai_budget_assert_finite`, `fn_ai_budget_reserve`,
+`fn_ai_budget_settle`, `fn_ai_deferred_commit`,
+`fn_ai_deferred_commit_writing`, `fn_ai_budget_raise_grant`) and the 337, 339
+and older groups are not covered by 367.
 
 Migration `366` (PC-J611; SA-2209 residual P2, STUDENTARCHIVE-0029 /
 GIVEARCHIVE-0031) pins the SECURITY DEFINER functions of 326 and 331, which
@@ -1298,3 +1356,15 @@ remain compatible. Apply308 only through the locked runner after setting
 session;308 records the SHA on the service-only activation function. Do not
 include308 in the migration-before-code batch. It activates typed admission
 and frozen snapshots for new work, with no backfill or regrade of old work.
+
+Migration 359 (`activation_serialize`, pending feature) adds the service-role-only
+`fn_activation_serialize` RPC. Its per-user transaction advisory lock covers fresh
+account/code/profile checks, activation, enrollment and the code claim. Native
+rollback includes membership trigger writes; the router performs no compensation
+UPDATE or DELETE. It neither installs nor depends on migration 337/346 objects.
+Leader alone applies 359 to staging in the freeze window **after
+SA-DESIGN-359 APPROVE**, using the advisory-locked runner. Production follows only
+at an authorised staging→main promotion. Deploy the previous backend before
+running `rollback/359_activation_serialize.sql`; rollback preserves account,
+enrollment and claim data. This PR supplies migration files only; hosted
+application remains blocked pending that design approval.

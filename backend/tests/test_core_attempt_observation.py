@@ -147,14 +147,48 @@ def test_successful_submit_with_unknown_result_keeps_both_facts(receipts):
     assert events[0]["operation_id"] == events[1]["operation_id"]
 
 
-def test_terminal_receipt_and_read_run_concurrently_within_one_budget(receipts):
-    finished = []
+def test_terminal_receipt_and_read_run_concurrently_within_one_budget(receipts, monkeypatch):
+    # Concurrency is proven by a rendezvous counted in event-loop turns, not by
+    # real sleeps racing the real 0.5 s deadline: on a loaded box that race
+    # expired the budget before either receipt finished (PC-J637). The spy keeps
+    # the requested delay and scope but no wall-clock deadline.
+    real_timeout = asyncio.timeout
+    budgets = []
+
+    class Budget:
+        def __init__(self, delay):
+            self.delay, self.active, self._inner = delay, False, real_timeout(None)
+        async def __aenter__(self):
+            await self._inner.__aenter__()
+            self.active = True
+            return self
+        async def __aexit__(self, *exc):
+            self.active = False
+            return await self._inner.__aexit__(*exc)
+        def expired(self):
+            return self._inner.expired()
+
+    def timeout(delay):
+        budgets.append(Budget(delay))
+        return budgets[-1]
+    monkeypatch.setattr(obs.asyncio, "timeout", timeout)
+
+    arrived, running, peak, finished = set(), set(), [0], []
+    async def receipt(name):
+        assert len(budgets) == 1 and budgets[0].active
+        arrived.add(name)
+        running.add(name)
+        peak[0] = max(peak[0], len(running))
+        for _ in range(100):  # bounded turns: a sequential emitter never meets its peer
+            if arrived == {"operation", "outcome"}:
+                finished.append(name)
+                break
+            await asyncio.sleep(0)
+        running.discard(name)
     async def operation(**kwargs):
-        await asyncio.sleep(0.3)
-        finished.append("operation")
+        await receipt("operation")
     async def outcome(*args, **kwargs):
-        await asyncio.sleep(0.3)
-        finished.append("outcome")
+        await receipt("outcome")
     receipts.side_effect = operation
     obs.observe_persisted_outcome.side_effect = outcome
     @obs.observe_operation("writing_assignment", "submit")
@@ -163,6 +197,9 @@ def test_terminal_receipt_and_read_run_concurrently_within_one_budget(receipts):
         return "accepted"
     assert asyncio.run(endpoint()) == "accepted"
     assert set(finished) == {"operation", "outcome"}
+    assert peak[0] == 2
+    assert [budget.delay for budget in budgets] == [0.5]
+    assert not budgets[0].active and not budgets[0].expired()
 
 
 def test_original_exception_survives_recorder_failure(receipts):
