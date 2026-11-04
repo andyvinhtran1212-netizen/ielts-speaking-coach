@@ -63,7 +63,7 @@ Giới từ (Preposition) là từ đứng trước danh từ hoặc đại từ
 
 ## Tại sao quan trọng
 
-Tiếng Anh không thể thiếu giới từ. Nhầm giới từ — ví dụ "arrive **to**" thay vì "arrive **at/in**", hoặc "interested **on**" thay vì "interested **in**" — là lỗi rất phổ biến và bị trừ điểm Grammar trong IELTS.
+Tiếng Anh không thể thiếu giới từ. Nhầm giới từ — ví dụ "arrive **to**" thay vì "arrive **at/in**", hoặc "interested **on**" thay vì "interested **in**" — là lỗi rất phổ biến và bị trừ điểm Grammatical Range and Accuracy trong IELTS.
 
 ## Các loại giới từ
 
@@ -71,7 +71,7 @@ Tiếng Anh không thể thiếu giới từ. Nhầm giới từ — ví dụ "a
 
 | Giới từ | Nghĩa / Cách dùng | Ví dụ |
 |---------|-------------------|-------|
-| **in** | Bên trong không gian kín | in the room, in Vietnam, in the box |
+| **in** | Bên trong một không gian/khu vực | in the room, in Vietnam, in the box |
 | **on** | Trên bề mặt | on the table, on the wall, on the floor |
 | **at** | Tại một điểm / địa điểm cụ thể | at school, at the door, at the station |
 | **under** | Bên dưới | under the bridge, under the table |
@@ -157,7 +157,7 @@ at  → điểm cụ thể: at home, at work, at the corner, at 10 Main Street
 
 - Travel **by** train. (phương tiện → by, không có "the")
 - Write **with** a pen. (công cụ cầm tay → with)
-- Pay **by** cash / **by** card. ✅
+- Pay **in** cash / **by** card. ✅
 
 ### 6. Giới từ hay đi kèm Tính từ (Adjective + Preposition)
 
@@ -244,7 +244,8 @@ Giới từ + danh từ tạo thành cụm giới từ, đóng vai trò là tr�
 
 ### Lỗi 4: Dùng "by" thay vì "with" (và ngược lại)
 
-- ❌ She painted the picture **with** a brush. → Đúng (công cụ cầm tay)
+- ❌ She painted the picture **by** a brush.
+- ✅ She painted the picture **with** a brush. (công cụ cầm tay → with)
 - ❌ I go to work **with** bus.
 - ✅ I go to work **by** bus. (phương tiện giao thông → by, không dùng "the")
 
@@ -273,7 +274,7 @@ Giới từ + danh từ tạo thành cụm giới từ, đóng vai trò là tr�
 **IELTS Writing Task 2 — kết hợp giới từ học thuật:**
 - **Despite** the challenges, many countries have succeeded **in** reducing pollution.
 - **Due to** advances **in** technology, the world has changed significantly **over** the past decade.
-- People **in** rural areas have less access **to** quality education compared **to** those **in** urban regions.
+- People **in** rural areas have less access **to** quality education **than** those in urban areas.
 
 ## Bài tập luyện
 
@@ -304,7 +305,7 @@ Giới từ + danh từ tạo thành cụm giới từ, đóng vai trò là tr�
 ### Đáp án
 
 **Điền in/on/at/since:**
-1. in | 2. on | 3. at | 4. at | 5. since (giới từ thời gian mở mốc bắt đầu của khoảng kéo dài đến hiện tại, khác in + năm để định vị sự kiện)
+1. in | 2. on | 3. at | 4. at | 5. since (since + mốc bắt đầu 2018, khoảng thời gian kéo dài đến nay; khác in 2018 chỉ thời điểm xảy ra sự việc)
 
 **Điền giới từ:**
 1. in | 2. at / of | 3. for | 4. of / about | 5. because of / due to
