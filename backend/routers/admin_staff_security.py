@@ -86,7 +86,10 @@ async def admin_set_staff_active(
     (``ok: false``, ``changed: false``, ``sign_in_restored: false``), the
     account stays suspended with its role frozen (FR-019), and repeating this
     request retries. A ban can therefore never outlive the marker, which is
-    the only state this route can retry from. A repeat of the same request
+    the only state this route can retry from. Before the unban it revokes the
+    sessions again; a reactivation that succeeds answers
+    ``sessions_revoked: true`` (null on a repeat for an account already
+    active, where nothing is revoked). A repeat of the same request
     writes no second audit row. Requests for the same account are serialized
     across workers; a lock that cannot be taken is a 503 ``target_busy``
     before any change.
@@ -142,7 +145,9 @@ async def admin_set_staff_active(
                         "audit_id": None, "sessions_revoked": None, "revoke_error": None,
                         "sign_in_restored": False,
                     }
-                unbanned = sign_in_restored = True
+                # The pre-unban revocation above is confirmed: report it
+                # (PC-J159) instead of the null of "not applicable".
+                unbanned = sign_in_restored = sessions_revoked = True
         try:
             change = staff_security.set_staff_privilege(
                 db, actor_id=actor, target_id=target, is_active=payload.is_active,
