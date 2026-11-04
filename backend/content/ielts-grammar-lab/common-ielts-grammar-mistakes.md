@@ -142,7 +142,7 @@ Tiếng Việt không biến đổi động từ theo thì, nên người Việt
 | always, usually, every day | Present Simple |
 | tomorrow, next week, in the future | Future (will / going to) |
 
-> Từ tín hiệu không tự quyết định thì: “I am working here every day this month” là lịch tạm thời; “I know the answer now” là trạng thái; for two years có thể thuộc khoảng quá khứ đã kết thúc. Has finished/is working khác can work/do work.
+> Từ tín hiệu không tự quyết định thì: “I am working here every day this month” là lịch tạm thời; “I know the answer now” là trạng thái; for two years có thể thuộc khoảng quá khứ đã kết thúc (*I lived there for two years*). Bảng trên chỉ giúp chọn **thì** của động từ (*has finished*, *is working*); động từ khuyết thiếu (*can work*) và *do* nhấn mạnh (*I do work hard*) không phải là thì, nên không chọn theo các từ tín hiệu này.
 
 ---
 
