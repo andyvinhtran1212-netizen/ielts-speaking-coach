@@ -23,6 +23,10 @@ google-generativeai==0.8.3
 openai==1.55.3
 google-cloud-texttospeech==2.21.1
 
+# PC-J597: error reporting, initialised only when SENTRY_DSN is set
+# (services/sentry_setup.py). Auto-enabling integrations are off; see that module.
+sentry-sdk==2.73.0
+
 pydub==0.25.1
 reportlab==4.4.10
 jinja2==3.1.6

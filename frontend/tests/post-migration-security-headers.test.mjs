@@ -88,6 +88,23 @@ test('connect-src follows runtime-config overrides and has no scheme-wide source
   }
 });
 
+test('PC-J597: connect-src lists the exact Sentry DSN origin only when a DSN is built in', () => {
+  const DSN = 'https://publickey@o42.ingest.us.sentry.io/7';
+  for (const env of [PRODUCTION_BUILD, STAGING_BUILD, {}]) {
+    const without = directives(buildContentSecurityPolicy(env))['connect-src'];
+    assert.ok(!without.some((source) => source.includes('sentry')), without.join(' '));
+    const withDsn = directives(buildContentSecurityPolicy({ ...env, NEXT_PUBLIC_SENTRY_DSN: ` ${DSN} ` }))['connect-src'];
+    assert.deepEqual(withDsn.filter((source) => !without.includes(source)), ['https://o42.ingest.us.sentry.io']);
+    assert.ok(!withDsn.some((source) => source.includes('*')), withDsn.join(' '));
+  }
+  assert.ok(!buildContentSecurityPolicy({ ...STAGING_BUILD, NEXT_PUBLIC_SENTRY_DSN: '  ' }).includes('sentry'));
+  // A malformed or plain-http DSN fails the build without echoing the value.
+  for (const dsn of ['not a dsn secretvalue', 'http://secretvalue@o1.ingest.us.sentry.io/1']) {
+    assert.throws(() => buildContentSecurityPolicy({ ...STAGING_BUILD, NEXT_PUBLIC_SENTRY_DSN: dsn }),
+      (error) => /NEXT_PUBLIC_SENTRY_DSN/.test(error.message) && !error.message.includes('secretvalue'));
+  }
+});
+
 test('a Vercel build fails closed instead of silently dropping an unusable origin', () => {
   assert.throws(() => buildContentSecurityPolicy({ VERCEL_ENV: 'preview', AVER_API_BASE: 'http://localhost:8000' }),
     /non-https browser origin/);
