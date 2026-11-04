@@ -158,6 +158,23 @@ test('dump tokens in any case and spacing, and bare VN phone numbers, are redact
   assert.equal(event.exception.values[0].value, 'Learner Nguyễn Văn A phone [redacted]');
 });
 
+// PC-J644: SA retest #2247 found separated phones outside row dumps.
+test('VN phones with separators are redacted; dates and ids are preserved', () => {
+  for (const phone of [
+    '+84 90 123 4567', '090-123-4567', '090.123.4567',
+    '84 90 123 4567', '090 123 4567', '+84-90.123 4567',
+  ]) {
+    assert.equal(scrubText(phone), '[redacted]', phone);
+    const text = `call ${phone} now`;
+    assert.equal(scrubText(text), 'call [redacted] now', phone);
+    const event = scrubSentryEvent({ exception: { values: [{ type: 'Error', value: text }] } });
+    assert.equal(event.exception.values[0].value, 'call [redacted] now', phone);
+  }
+  for (const text of ['order 2026-11-04', 'user_0901234567']) {
+    assert.equal(scrubText(text), text);
+  }
+});
+
 // PC-J601 C2: console.* text is free-form (API error bodies, learner input).
 test('console breadcrumbs are dropped; other breadcrumbs are kept', () => {
   assert.equal(filterSentryBreadcrumb({ category: 'console', level: 'error', message: 'Nguyen Van A 0901234567' }), null);

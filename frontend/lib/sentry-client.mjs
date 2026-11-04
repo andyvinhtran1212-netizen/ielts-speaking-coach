@@ -28,10 +28,11 @@ const UUID = /\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9
 // spacing (PC-J625).
 const FAILING_ROW = /(Failing\s*row\s*contains\s*)\([\s\S]*/gi;
 const KEY_VALUE = /(Key\s*\([\s\S]*?\)\s*=\s*)\([\s\S]*/gi;
-// A bare Vietnamese phone number, not inside a longer id (same rule as the
-// backend). The prefix is captured: no lookbehind for older Safari. Names in
+// A bare Vietnamese phone number, with optional whitespace, dots or hyphens
+// between digits, not inside a longer id (same rule as the backend, PC-J644).
+// The prefix is captured: no lookbehind for older Safari. Names in
 // free text are not recognised.
-const VN_PHONE = /(^|[^0-9A-Za-z_-])(?:\+?84|0)\d{9,10}(?![0-9A-Za-z_])/g;
+const VN_PHONE = /(^|[^0-9A-Za-z_-])(?:\+?84|0)(?:[\s.-]?\d){9,10}(?![0-9A-Za-z_])/g;
 
 export function scrubText(text) {
   return text

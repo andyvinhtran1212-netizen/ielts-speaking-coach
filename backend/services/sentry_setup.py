@@ -76,12 +76,13 @@ _URL_QUERY = re.compile(r"(\b[a-zA-Z][a-zA-Z0-9+.-]*://[^\s?#'\"<>]*)[?#][^\s'\"
 # spacing ("key (c) = (", "Failing row contains(") match too (PC-J625).
 _FAILING_ROW = re.compile(r"(?i)(Failing\s*row\s*contains\s*)\(.*", re.DOTALL)
 _KEY_VALUE = re.compile(r"(?i)(Key\s*\(.*?\)\s*=\s*)\(.*", re.DOTALL)
-# A bare Vietnamese phone number (+84/84/0 and 9-10 digits) in free text, e.g.
-# an exception message (PC-J625). Not inside a longer run of letters, digits,
+# A bare Vietnamese phone number (+84/84/0 and 9-10 digits, with optional
+# whitespace, dots or hyphens between digits) in free text (PC-J625, PC-J644).
+# Not inside a longer run of letters, digits,
 # "_" or "-", so ids, UUID segments and pseudonyms keep their digits. Names in
 # free text are not recognised: keep learner text out of exception messages.
 # The prefix is captured, not a lookbehind, to match frontend/lib/sentry-client.mjs.
-_VN_PHONE = re.compile(r"(^|[^0-9A-Za-z_-])(?:\+?84|0)\d{9,10}(?![0-9A-Za-z_])")
+_VN_PHONE = re.compile(r"(^|[^0-9A-Za-z_-])(?:\+?84|0)(?:[\s.-]?\d){9,10}(?![0-9A-Za-z_])")
 
 # Loggers whose WARNING+ records may become breadcrumbs/events. Each call site
 # was checked to log only fixed text, ids, paths and exception text (which the

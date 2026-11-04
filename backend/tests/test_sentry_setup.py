@@ -316,6 +316,23 @@ def test_vn_phone_pattern(text, expected):
     assert scrub_text(text) == expected
 
 
+@pytest.mark.parametrize("phone", [
+    "+84 90 123 4567", "090-123-4567", "090.123.4567",  # SA retest #2247
+    "84 90 123 4567", "090 123 4567", "+84-90.123 4567",
+])
+def test_vn_phone_separators_are_redacted_outside_dumps(phone):
+    assert scrub_text(phone) == "[redacted]"
+    text = f"call {phone} now"
+    assert scrub_text(text) == "call [redacted] now"
+    event = before_send({"exception": {"values": [{"type": "Error", "value": text}]}}, {})
+    assert event["exception"]["values"][0]["value"] == "call [redacted] now"
+
+
+@pytest.mark.parametrize("text", ["order 2026-11-04", "user_0901234567"])
+def test_vn_phone_separators_preserve_dates_and_ids(text):
+    assert scrub_text(text) == text
+
+
 def test_vn_phone_pattern_leaves_uuids_and_pseudonyms_whole(monkeypatch):
     digits_uuid = "11111111-2222-4333-8444-090123456789"
     assert scrub_text(f"id {digits_uuid}") == "id [uuid]"
