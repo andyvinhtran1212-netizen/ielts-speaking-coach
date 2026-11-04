@@ -99,9 +99,11 @@ describe('Grammar 404 verifier wiring', () => {
 
   test('the Next-native browser job runs the verifier after Next starts, and edits to the checks trigger it', () => {
     const workflow = read('.github/workflows/next-native-browser.yml');
-    assert.match(workflow, /\n {6}- name: Khởi động Next\n[\s\S]*?\n {6}- name: Kiểm 404 Grammar render phía server có CSS\n {8}run: node tooling\/verify-grammar-404-ssr-flow\.mjs\n/);
+    // PC-J598: every heavy step is gated on RUN_BROWSER (the `changes` filter).
+    assert.match(workflow, /\n {6}- name: Khởi động Next\n[\s\S]*?\n {6}- name: Kiểm 404 Grammar render phía server có CSS\n {8}if: env\.RUN_BROWSER == 'true'\n {8}run: node tooling\/verify-grammar-404-ssr-flow\.mjs\n/);
     const step = workflow.slice(workflow.indexOf('- name: Kiểm 404 Grammar render phía server có CSS'));
     assert.doesNotMatch(step.slice(0, step.indexOf('\n\n')), /continue-on-error/);
-    assert.match(workflow, /\n {6}- 'frontend\/tooling\/grammar-404-ssr-checks\.mjs'\n/);
+    // PC-J598: the glob list moved from the trigger into the `run_tests` filter.
+    assert.match(workflow, /\n {14}- 'frontend\/tooling\/grammar-404-ssr-checks\.mjs'\n/);
   });
 });

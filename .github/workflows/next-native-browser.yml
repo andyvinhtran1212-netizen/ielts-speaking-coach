@@ -1,717 +1,16 @@
 name: Next-native browser regression
 
 on:
+  # KHÔNG còn `paths:` ở trigger (PC-J598, 2026-11-04). Check «Next-native browser
+  # regression» sắp thành check BẮT BUỘC của staging; workflow bị bộ lọc đường dẫn
+  # bỏ qua thì check không bao giờ báo về và GitHub CHẶN merge mọi PR ngoài danh
+  # sách. Danh sách cũ giờ là bộ lọc `run_tests:` của job `changes` bên dưới: PR
+  # không chạm đường dẫn nào trong đó thì job nặng chạy nhanh rồi XANH, bỏ qua các
+  # bước nặng. Cùng mẫu với `backend-tests.yml`.
+  # No trigger `paths:`: the required check must report on every staging PR.
+  # The old list is the `run_tests` filter of the `changes` job below.
   pull_request:
-    paths:
-      - 'frontend/app/(public-content)/**'
-      - 'frontend/app/(marketing)/page.tsx'
-      - 'frontend/app/(authed-vocab-curated)/**'
-      - 'frontend/app/(marketing)/pricing/**'
-      - 'frontend/tooling/verify-pricing-redirect-flow.mjs'
-      - 'frontend/app/(public-auth)/**'
-      - 'frontend/lib/login-model.mjs'
-      - 'frontend/public/js/auth-sign-out-state.js'
-      - 'frontend/public/login.html'
-      - 'frontend/public/css/login-next.css'
-      - 'frontend/public/js/exam-player.js'
-      - 'frontend/public/js/practice.js'
-      - 'frontend/tests/login-next-behavior.test.mjs'
-      - 'frontend/tests/login-next-model.test.mjs'
-      - 'frontend/tooling/verify-login-flow.mjs'
-      - 'frontend/app/(authed-onboarding)/**'
-      - 'frontend/lib/onboarding-model.mjs'
-      - 'frontend/public/onboarding.html'
-      - 'frontend/public/css/onboarding.css'
-      - 'frontend/tests/onboarding-next-behavior.test.mjs'
-      - 'frontend/tests/onboarding-next-model.test.mjs'
-      - 'frontend/tooling/verify-onboarding-flow.mjs'
-      - 'frontend/public/pages/grammar-exercises.html'
-      - 'frontend/public/js/grammar-exercises.js'
-      - 'frontend/app/(authed-home)/**'
-      - 'frontend/app/(authed-speaking)/**'
-      - 'frontend/app/(authed-practice)/**'
-      - 'frontend/public/pages/speaking.html'
-      - 'frontend/public/css/speaking.css'
-      - 'frontend/public/js/cue-card-detector.js'
-      - 'frontend/public/js/format.js'
-      - 'frontend/public/js/retention-warning.js'
-      - 'frontend/public/js/speaking-full-test-controller.mjs'
-      - 'frontend/public/js/speaking-submission-controller.mjs'
-      - 'frontend/public/js/speaking-legacy-runtime.mjs'
-      - 'frontend/lib/**'
-      - 'frontend/components/**'
-      - 'frontend/public/pages/home.html'
-      - 'frontend/public/js/home.js'
-      - 'frontend/public/js/home-mock-tiles.js'
-      - 'frontend/public/css/home.css'
-      - 'frontend/public/css/mock-hub.css'
-      - 'frontend/app/(authed-writing)/**'
-      - 'frontend/tooling/verify-writing-admission-flow.mjs'
-      - 'frontend/tooling/verify-writing-dashboard-layout-flow.mjs'
-      - 'frontend/tooling/verify-writing-dashboard-tab-scroll-flow.mjs'
-      - 'frontend/tooling/verify-learning-context-flow.mjs'
-      - 'frontend/tooling/verify-grammar-navigation-flow.mjs'
-      - 'frontend/tooling/grammar-navigation-fixtures.mjs'
-      - 'frontend/tooling/process-group.mjs'
-      - 'frontend/public/pages/writing-dashboard.html'
-      - 'frontend/public/css/writing-dashboard.css'
-      - 'frontend/app/(authed-writing-result)/**'
-      - 'frontend/public/pages/writing-result.html'
-      - 'frontend/public/css/writing-result.css'
-      - 'frontend/public/css/writing-renderers.css'
-      - 'frontend/public/css/writing-highlight.css'
-      - 'frontend/public/css/image-lightbox.css'
-      - 'frontend/public/css/markdown.css'
-      - 'frontend/public/js/writing-renderers.js'
-      - 'frontend/public/js/writing-highlight.js'
-      - 'frontend/public/js/image-lightbox.js'
-      - 'frontend/public/js/markdown.js'
-      - 'frontend/app/(authed-admin-writing-grade)/**'
-      - 'frontend/public/pages/admin/writing/grade.html'
-      - 'frontend/public/css/admin-writing.css'
-      - 'frontend/public/css/admin-writing-grade.css'
-      - 'frontend/public/css/aver-design/admin-surface.css'
-      - 'frontend/public/js/writing-admin.js'
-      - 'frontend/public/js/toast.js'
-      - 'frontend/public/js/components/aver-admin-chrome.js'
-      - 'frontend/app/(authed-reading)/**'
-      - 'frontend/app/(authed-listening)/**'
-      - 'frontend/app/(authed-listening-practice-run)/**'
-      - 'frontend/public/pages/reading-vocab.html'
-      - 'frontend/public/pages/reading-vocab-passage.html'
-      - 'frontend/public/pages/reading-skill.html'
-      - 'frontend/public/pages/reading-skill-exercise.html'
-      - 'frontend/public/pages/reading-test.html'
-      - 'frontend/public/pages/reading-mini-test.html'
-      - 'frontend/public/pages/listening-tests.html'
-      - 'frontend/public/css/reading-vocab.css'
-      - 'frontend/public/js/reading-vocab-passage.js'
-      - 'frontend/public/js/reading-skill-exercise.js'
-      - 'frontend/public/js/components/reading-questions.js'
-      - 'frontend/public/js/components/reading-passage-panes.js'
-      - 'frontend/public/css/listening.css'
-      - 'frontend/public/css/listening-tests.css'
-      - 'frontend/public/css/listening-mini-test.css'
-      - 'frontend/public/css/listening-skills.css'
-      - 'frontend/public/css/listening-practice.css'
-      - 'frontend/public/css/listening-practice-run-next.css'
-      - 'frontend/public/css/listening-browse.css'
-      - 'frontend/public/css/listening-analytics.css'
-      - 'frontend/public/css/tailwind.build.css'
-      - 'frontend/public/css/aver-design/tokens.css'
-      - 'frontend/public/css/aver-design/components.css'
-      - 'frontend/app/(authed-exercises)/**'
-      - 'frontend/app/(authed-flashcards)/**'
-      - 'frontend/public/pages/exercises.html'
-      - 'frontend/public/pages/flashcards.html'
-      - 'frontend/public/css/exercises.css'
-      - 'frontend/public/css/flashcards.css'
-      - 'frontend/public/css/ds.css'
-      - 'frontend/public/js/vocab-modules/**'
-      - 'frontend/app/(authed-vocab-exam)/**'
-      - 'frontend/app/(authed)/grammar-checkup/**'
-      - 'frontend/app/(authed)/course-exercises/**'
-      - 'frontend/app/(authed)/grammar-lessons/**'
-      - 'frontend/app/next-probe/**'
-      - 'frontend/app/(spike)/**'
-      - 'frontend/lib/quiz-player-model.mjs'
-      - 'frontend/public/css/assigned-grammar-lesson.css'
-      - 'frontend/tooling/verify-error-states-flow.mjs'
-      - 'frontend/app/(authed-advanced-vocab)/**'
-      - 'frontend/tooling/verify-learner-route-auth-boot-flow.mjs'
-      - 'frontend/app/(authed-exam)/**'
-      - 'frontend/lib/exam-player-model.mjs'
-      - 'frontend/public/pages/exam.html'
-      - 'frontend/public/js/exam-player.js'
-      - 'frontend/public/js/kp-stepper.js'
-      - 'frontend/public/css/exam-player-next.css'
-      - 'frontend/tests/exam-player-next-behavior.test.mjs'
-      - 'frontend/tests/exam-player-next-model.test.mjs'
-      - 'frontend/tooling/verify-exam-flow.mjs'
-      - 'frontend/app/(authed-full-test)/**'
-      - 'frontend/app/(authed-mock-exam)/**'
-      - 'frontend/lib/mock-exam-model.mjs'
-      - 'frontend/public/pages/mock-exam.html'
-      - 'frontend/public/js/mock-exam-runner.js'
-      - 'frontend/public/css/mock-exam-next.css'
-      - 'frontend/tests/mock-exam-next-behavior.test.mjs'
-      - 'frontend/tests/mock-exam-next-model.test.mjs'
-      - 'frontend/tooling/verify-mock-exam-flow.mjs'
-      - 'frontend/app/(authed-vocab-practice)/**'
-      - 'frontend/app/(authed-quiz-player)/**'
-      - 'frontend/app/(authed-speaking-result)/**'
-      - 'frontend/app/(authed-quiz-progress)/**'
-      - 'frontend/app/(authed-mock-result)/**'
-      - 'frontend/app/(authed-vocabulary-hub)/**'
-      - 'frontend/public/pages/vocabulary.html'
-      - 'frontend/public/js/vocab-landing.js'
-      - 'frontend/public/css/vocabulary.css'
-      - 'frontend/public/pages/mock-result.html'
-      - 'frontend/public/js/mock-result.js'
-      - 'frontend/public/css/mock-result.css'
-      - 'frontend/public/pages/quiz-progress.html'
-      - 'frontend/public/js/quiz-progress.js'
-      - 'frontend/public/css/quiz-progress.css'
-      - 'frontend/public/pages/quiz.html'
-      - 'frontend/public/css/quiz-player.css'
-      - 'frontend/tests/quiz-player-next-behavior.test.mjs'
-      - 'frontend/tests/quiz-player-next-model.test.mjs'
-      - 'frontend/tooling/verify-quiz-flow.mjs'
-      - 'frontend/public/pages/speaking-result.html'
-      - 'frontend/public/js/speaking-result.js'
-      - 'frontend/public/css/speaking-result.css'
-      - 'frontend/public/pages/vocab-practice.html'
-      - 'frontend/public/js/vocab-practice.js'
-      - 'frontend/public/css/vocab-practice.css'
-      - 'frontend/public/pages/full-test.html'
-      - 'frontend/public/js/full-test.js'
-      - 'frontend/public/css/full-test.css'
-      - 'frontend/public/pages/vocab-exam.html'
-      - 'frontend/public/css/vocab-exam.css'
-      - 'frontend/public/js/vocab-exam.js'
-      - 'frontend/public/js/error-reporter.js'
-      - 'frontend/app/layout.tsx'
-      - 'frontend/tooling/generate-runtime-config.mjs'
-      - 'frontend/public/pages/listening.html'
-      - 'frontend/public/pages/listening-browse.html'
-      - 'frontend/public/pages/listening-analytics.html'
-      - 'frontend/public/js/listening-landing.js'
-      - 'frontend/public/js/listening-browse.js'
-      - 'frontend/public/js/listening-analytics.js'
-      - 'frontend/public/js/reading-vocab.js'
-      - 'frontend/public/js/reading-skill.js'
-      - 'frontend/public/js/reading-test.js'
-      - 'frontend/public/js/reading-mini-test.js'
-      - 'frontend/public/js/listening-tests-list.js'
-      - 'frontend/public/js/listening-list-paging.js'
-      - 'frontend/public/js/listening-mini-test.js'
-      - 'frontend/public/js/listening-skills.js'
-      - 'frontend/public/js/listening-practice.js'
-      - 'frontend/public/js/listening-practice-run.js'
-      - 'frontend/public/pages/listening-mini-test.html'
-      - 'frontend/public/pages/listening-skills.html'
-      - 'frontend/public/pages/listening-practice-run.html'
-      - 'frontend/public/pages/listening-practice.html'
-      - 'frontend/tooling/supabase-session.mjs'
-      - 'frontend/lib/backend.ts'
-      - 'frontend/lib/grammar-api.ts'
-      - 'frontend/app/(authed-listening-review)/**'
-      - 'frontend/lib/listening-review-model.mjs'
-      - 'frontend/public/pages/listening-review.html'
-      - 'frontend/public/js/listening-review.js'
-      - 'frontend/public/css/listening-review.css'
-      - 'frontend/public/css/listening-review-next.css'
-      - 'frontend/tests/listening-review-next-behavior.test.mjs'
-      - 'frontend/app/(authed-admin-overview)/**'
-      - 'frontend/public/css/admin-overview.css'
-      - 'frontend/public/js/admin-overview.js'
-      - 'backend/routers/admin_overview.py'
-      - 'backend/tests/test_admin_overview.py'
-      - 'frontend/app/(authed-admin-system)/**'
-      - 'frontend/public/css/admin-alerts-next.css'
-      - 'frontend/public/css/admin-ai-usage-next.css'
-      - 'frontend/app/(authed-admin-instructors)/**'
-      - 'frontend/lib/admin-instructors-model.mjs'
-      - 'frontend/public/css/admin-instructors-next.css'
-      - 'frontend/app/(authed-instructor)/**'
-      - 'frontend/lib/instructor-dashboard-model.mjs'
-      - 'frontend/public/css/instructor-next.css'
-      - 'frontend/tests/instructor-dashboard-next.test.mjs'
-      - 'frontend/app/(authed-instructor-compare)/**'
-      - 'frontend/lib/instructor-compare-model.mjs'
-      - 'frontend/public/css/instructor-compare-next.css'
-      - 'frontend/public/js/instructor-compose.js'
-      - 'frontend/public/js/instructor-compose-util.js'
-      - 'frontend/public/js/instructor-grade.js'
-      - 'frontend/tests/instructor-compare-next.test.mjs'
-      - 'frontend/tests/f2-compare-mix.test.mjs'
-      - 'backend/routers/instructor.py'
-      - 'backend/services/essay_service.py'
-      - 'backend/tests/test_f2_compose_versions.py'
-      - 'frontend/app/(authed-instructor-grade)/**'
-      - 'frontend/lib/instructor-grade-model.mjs'
-      - 'frontend/public/css/instructor-grade-next.css'
-      - 'frontend/tests/instructor-grade-next.test.mjs'
-      - 'frontend/tooling/verify-instructor-grade-flow.mjs'
-      - 'frontend/tooling/write-flows/instructor-deliver.mjs'
-      - 'backend/services/instructor_workflow.py'
-      - 'backend/tests/test_instructor_workflow.py'
-      - 'backend/tests/test_instructor_routes_isolation.py'
-      - 'frontend/app/(authed-admin-usage)/**'
-      - 'frontend/lib/admin-usage-model.mjs'
-      - 'frontend/public/css/admin-usage-next.css'
-      - 'frontend/app/(authed-admin-foot-traffic)/**'
-      - 'frontend/lib/admin-foot-traffic-model.mjs'
-      - 'frontend/public/css/admin-foot-traffic-next.css'
-      - 'frontend/app/(authed-admin-feedback)/**'
-      - 'frontend/lib/admin-feedback-model.mjs'
-      - 'frontend/public/css/admin-feedback-next.css'
-      - 'frontend/public/pages/admin/feedback/index.html'
-      - 'frontend/public/js/admin-feedback.js'
-      - 'frontend/app/(authed-admin-reading-attempts)/**'
-      - 'frontend/lib/admin-reading-attempts-model.mjs'
-      - 'frontend/public/css/admin-reading-attempts-next.css'
-      - 'frontend/public/pages/admin/dashboard/reading-attempts.html'
-      - 'frontend/public/js/admin-reading-attempts.js'
-      - 'frontend/app/(authed-admin-reading)/**'
-      - 'frontend/public/css/admin-reading-hub-next.css'
-      - 'frontend/app/(authed-admin-reading-content)/**'
-      - 'frontend/lib/admin-reading-content-model.mjs'
-      - 'frontend/public/css/admin-reading-content-next.css'
-      - 'frontend/app/(authed-admin-reading-preview)/**'
-      - 'frontend/lib/admin-reading-preview-model.mjs'
-      - 'frontend/public/css/admin-reading-preview-next.css'
-      - 'frontend/public/pages/admin/reading/content.html'
-      - 'frontend/public/pages/admin/reading/preview.html'
-      - 'frontend/tooling/verify-admin-reading-flow.mjs'
-      - 'frontend/tooling/verify-admin-reading-content-flow.mjs'
-      - 'frontend/tooling/verify-admin-reading-preview-flow.mjs'
-      - 'frontend/app/(authed-admin-listening)/**'
-      - 'frontend/lib/admin-listening-content-model.mjs'
-      - 'frontend/lib/admin-listening-content-editor-model.mjs'
-      - 'frontend/public/css/admin-listening-content-next.css'
-      - 'frontend/public/css/admin-listening-content-editor-next.css'
-      - 'frontend/public/pages/admin/listening/index.html'
-      - 'frontend/public/js/admin-listening-content-list.js'
-      - 'frontend/tooling/verify-admin-listening-content-flow.mjs'
-      - 'frontend/tooling/verify-admin-listening-content-detail-flow.mjs'
-      - 'frontend/tooling/verify-admin-listening-content-editor-flow.mjs'
-      - 'frontend/public/css/admin-listening-tests-next.css'
-      - 'frontend/tooling/verify-admin-listening-tests-flow.mjs'
-      - 'frontend/lib/admin-listening-test-detail-model.mjs'
-      - 'frontend/public/css/admin-listening-test-detail-next.css'
-      - 'frontend/tooling/verify-admin-listening-test-detail-flow.mjs'
-      - 'frontend/lib/admin-listening-attempts-model.mjs'
-      - 'frontend/public/css/admin-listening-attempts-next.css'
-      - 'frontend/public/pages/admin/listening/attempts.html'
-      - 'frontend/public/js/admin-listening-attempts.js'
-      - 'frontend/tooling/verify-admin-listening-attempts-flow.mjs'
-      - 'backend/routers/listening.py'
-      - 'backend/tests/test_admin_listening_attempts.py'
-      - 'frontend/lib/admin-listening-dictation-model.mjs'
-      - 'frontend/public/css/admin-listening-dictation-next.css'
-      - 'frontend/public/pages/admin/listening/dictation-reports.html'
-      - 'frontend/public/js/admin-listening-dictation-reports.js'
-      - 'frontend/tooling/verify-admin-listening-dictation-flow.mjs'
-      - 'backend/tests/test_listening_test_dictation.py'
-      - 'backend/migrations/210_dictation_session_idempotency.sql'
-      - 'backend/tests/test_migration_210_dictation_idempotency.py'
-      - 'frontend/app/(authed-listening-dictation)/**'
-      - 'frontend/lib/listening-dictation-controller.mjs'
-      - 'frontend/public/css/listening-dictation-next.css'
-      - 'frontend/tests/listening-dictation-next-behavior.test.mjs'
-      - 'frontend/tooling/verify-listening-dictation-session-flow.mjs'
-      - 'backend/tests/test_admin_listening_content_patch.py'
-      - 'frontend/lib/admin-listening-segments-model.mjs'
-      - 'frontend/app/(authed-admin-listening)/admin/listening/segments/**'
-      - 'frontend/public/css/admin-listening-segments-next.css'
-      - 'frontend/public/pages/admin/listening/segments.html'
-      - 'frontend/public/js/admin-listening-segments.js'
-      - 'frontend/public/js/components/audio-player.js'
-      - 'frontend/tooling/verify-admin-listening-segments-flow.mjs'
-      - 'frontend/tests/admin-listening-segments-next-behavior.test.mjs'
-      - 'backend/tests/test_listening_segments.py'
-      - 'backend/migrations/208_listening_exercise_block_identity.sql'
-      - 'backend/migrations/209_listening_single_published_standalone_block.sql'
-      - 'frontend/lib/admin-listening-gist-model.mjs'
-      - 'frontend/app/(authed-admin-listening)/admin/listening/gist/**'
-      - 'frontend/public/css/admin-listening-gist-next.css'
-      - 'frontend/public/pages/admin/listening/gist.html'
-      - 'frontend/public/js/admin-listening-gist.js'
-      - 'frontend/tooling/verify-admin-listening-gist-flow.mjs'
-      - 'frontend/tests/admin-listening-gist-next-behavior.test.mjs'
-      - 'backend/tests/test_listening_gist_tf.py'
-      - 'frontend/lib/admin-listening-true-false-model.mjs'
-      - 'frontend/app/(authed-admin-listening)/admin/listening/tf/**'
-      - 'frontend/public/css/admin-listening-true-false-next.css'
-      - 'frontend/public/pages/admin/listening/tf.html'
-      - 'frontend/public/js/admin-listening-tf.js'
-      - 'frontend/tooling/verify-admin-listening-true-false-flow.mjs'
-      - 'frontend/tests/admin-listening-true-false-next-behavior.test.mjs'
-      - 'frontend/lib/admin-listening-mcq-model.mjs'
-      - 'frontend/app/(authed-admin-listening)/admin/listening/mcq/**'
-      - 'frontend/public/css/admin-listening-mcq-next.css'
-      - 'frontend/public/pages/admin/listening/mcq.html'
-      - 'frontend/public/js/admin-listening-mcq.js'
-      - 'frontend/tooling/verify-admin-listening-mcq-flow.mjs'
-      - 'frontend/tests/admin-listening-mcq-next-behavior.test.mjs'
-      - 'frontend/lib/admin-listening-fulltest-import-model.mjs'
-      - 'frontend/app/(authed-admin-listening)/admin/listening/import-fulltest/**'
-      - 'frontend/public/css/admin-listening-fulltest-import-next.css'
-      - 'frontend/public/pages/admin/listening/import-fulltest.html'
-      - 'frontend/public/js/admin-listening-fulltest-import.js'
-      - 'frontend/tooling/verify-admin-listening-fulltest-import-flow.mjs'
-      - 'frontend/tests/admin-listening-fulltest-import-next-behavior.test.mjs'
-      - 'frontend/tests/admin-listening-fulltest-import.test.mjs'
-      - 'backend/tests/test_listening_fulltest_import.py'
-      - 'frontend/lib/admin-listening-drill-import-model.mjs'
-      - 'frontend/app/(authed-admin-listening)/admin/listening/import-drills/**'
-      - 'frontend/public/css/admin-listening-drill-import-next.css'
-      - 'frontend/public/pages/admin/listening/import-drills.html'
-      - 'frontend/public/js/admin-listening-drills-import.js'
-      - 'frontend/tooling/verify-admin-listening-drill-import-flow.mjs'
-      - 'frontend/tests/admin-listening-drill-import-next-behavior.test.mjs'
-      - 'frontend/tests/admin-listening-drills-import.test.mjs'
-      - 'backend/services/listening_drill_import.py'
-      - 'backend/tests/test_listening_drill_import.py'
-      - 'frontend/lib/admin-listening-audit-model.mjs'
-      - 'frontend/app/(authed-admin-listening)/admin/listening/audit/**'
-      - 'frontend/public/css/admin-listening-audit-next.css'
-      - 'frontend/public/pages/admin/listening/audit.html'
-      - 'frontend/public/js/admin-listening-audit.js'
-      - 'frontend/tooling/verify-admin-listening-audit-flow.mjs'
-      - 'frontend/tests/admin-listening-audit-next-behavior.test.mjs'
-      - 'frontend/tests/admin-listening-audit-paging.test.mjs'
-      - 'frontend/tests/admin-listening-audit.test.mjs'
-      - 'backend/services/listening_audit.py'
-      - 'backend/routers/listening.py'
-      - 'backend/tests/test_listening_audit.py'
-      - 'frontend/lib/admin-listening-audit-detail-model.mjs'
-      - 'frontend/app/(authed-admin-listening)/admin/listening/audit-detail/**'
-      - 'frontend/public/css/admin-listening-audit-detail-next.css'
-      - 'frontend/public/pages/admin/listening/audit-detail.html'
-      - 'frontend/public/js/admin-listening-audit-detail.js'
-      - 'frontend/tooling/verify-admin-listening-audit-detail-flow.mjs'
-      - 'frontend/tests/admin-listening-audit-detail-next-behavior.test.mjs'
-      - 'frontend/app/(authed-admin-vocab)/**'
-      - 'frontend/lib/admin-vocab-stats-model.mjs'
-      - 'frontend/lib/admin-vocab-curation-model.mjs'
-      - 'frontend/lib/admin-vocab-quiz-analytics-model.mjs'
-      - 'frontend/lib/admin-vocab-topics-quiz-model.mjs'
-      - 'frontend/public/css/admin-vocab-next.css'
-      - 'frontend/public/pages/admin/vocab/index.html'
-      - 'frontend/public/pages/admin/vocab/stats.html'
-      - 'frontend/public/pages/admin/vocab/d1-curation.html'
-      - 'frontend/public/pages/admin/vocab/lemmas.html'
-      - 'frontend/public/pages/admin/vocab/quiz-analytics.html'
-      - 'frontend/public/pages/admin/vocab/topics.html'
-      - 'frontend/public/pages/admin/vocab/quiz.html'
-      - 'frontend/public/js/admin-vocab-stats.js'
-      - 'frontend/public/js/admin-vocab-d1.js'
-      - 'frontend/public/js/admin-vocab-lemmas.js'
-      - 'frontend/tooling/verify-admin-vocab-flow.mjs'
-      - 'frontend/tests/admin-vocab-next-behavior.test.mjs'
-      - 'frontend/tests/admin-vocab-next-model.test.mjs'
-      - 'frontend/tests/admin-vocab-curation-next-behavior.test.mjs'
-      - 'frontend/tests/admin-vocab-curation-next-model.test.mjs'
-      - 'frontend/tests/admin-vocab-quiz-analytics-next-behavior.test.mjs'
-      - 'frontend/tests/admin-vocab-quiz-analytics-next-model.test.mjs'
-      - 'frontend/tests/admin-vocab-topics-quiz-next-behavior.test.mjs'
-      - 'frontend/tests/admin-vocab-topics-quiz-next-model.test.mjs'
-      - 'frontend/app/(authed-admin-grammar)/**'
-      - 'frontend/public/css/aver-design/admin-components.css'
-      - 'frontend/public/css/aver-design/admin-buttons.css'
-      - 'frontend/public/css/aver-design/admin-status.css'
-      - 'frontend/public/css/admin-grammar-hub-next.css'
-      - 'frontend/public/pages/admin/grammar/index.html'
-      - 'frontend/public/pages/admin/index.html'
-      - 'frontend/app/(authed-admin-speaking)/**'
-      - 'frontend/app/(authed-admin-speaking-sessions)/**'
-      - 'frontend/app/(authed-admin-speaking-topics)/**'
-      - 'frontend/lib/admin-speaking-sessions-model.mjs'
-      - 'frontend/lib/admin-speaking-topics-model.mjs'
-      - 'frontend/public/css/admin-speaking-hub-next.css'
-      - 'frontend/public/css/admin-speaking-sessions-next.css'
-      - 'frontend/public/css/admin-speaking-topics-next.css'
-      - 'frontend/public/pages/admin/speaking/index.html'
-      - 'frontend/public/pages/admin/speaking/sessions.html'
-      - 'frontend/public/pages/admin/speaking/topics.html'
-      - 'frontend/public/js/admin-speaking-sessions.js'
-      - 'frontend/public/js/admin-speaking-topics.js'
-      - 'frontend/tooling/verify-admin-speaking-flow.mjs'
-      - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
-      - 'frontend/tooling/verify-admin-speaking-sessions-layout-flow.mjs'
-      - 'frontend/tooling/verify-admin-speaking-topics-flow.mjs'
-      - 'frontend/app/(authed-admin-mock-tests)/**'
-      - 'frontend/lib/admin-mock-tests-model.mjs'
-      - 'frontend/public/css/admin-mock-tests-next.css'
-      - 'frontend/public/pages/admin/mock-tests/index.html'
-      - 'frontend/public/js/admin-mock-tests.js'
-      - 'frontend/tooling/verify-admin-mock-tests-flow.mjs'
-      - 'frontend/tests/admin-mock-tests-next-behavior.test.mjs'
-      - 'frontend/app/(authed-admin-mock-exams)/**'
-      - 'frontend/lib/admin-mock-exams-model.mjs'
-      - 'frontend/public/css/admin-mock-exams-next.css'
-      - 'frontend/public/pages/admin/mock-exams/index.html'
-      - 'frontend/public/js/admin-mock-exams.js'
-      - 'frontend/public/js/admin-exam-content.js'
-      - 'frontend/tooling/verify-admin-mock-exams-flow.mjs'
-      - 'frontend/tests/admin-mock-exams-next-model.test.mjs'
-      - 'frontend/app/(authed-admin-mock-live)/**'
-      - 'frontend/lib/admin-mock-live-model.mjs'
-      - 'frontend/public/css/admin-mock-live-next.css'
-      - 'frontend/public/pages/admin/mock-live/index.html'
-      - 'frontend/public/pages/admin/mock-pacing/index.html'
-      - 'frontend/public/js/admin-mock-live.js'
-      - 'frontend/public/js/admin-mock-pacing.js'
-      - 'frontend/tooling/verify-admin-mock-live-flow.mjs'
-      - 'frontend/tests/admin-mock-live-next-model.test.mjs'
-      - 'frontend/app/(authed-admin-mock-reviews)/**'
-      - 'frontend/lib/admin-mock-reviews-model.mjs'
-      - 'frontend/public/css/admin-mock-reviews-next.css'
-      - 'frontend/public/pages/admin/mock-reviews/index.html'
-      - 'frontend/public/pages/admin/mock-reviews/report.html'
-      - 'frontend/public/js/admin-mock-reviews.js'
-      - 'frontend/public/js/admin-mock-report.js'
-      - 'frontend/tooling/verify-admin-mock-reviews-flow.mjs'
-      - 'frontend/tests/admin-mock-reviews-next-model.test.mjs'
-      - 'frontend/tests/admin-mock-reviews-next-behavior.test.mjs'
-      - 'frontend/app/(authed-admin-writing)/**'
-      - 'frontend/app/(authed-admin-writing-queue)/**'
-      - 'frontend/app/(authed-admin-writing-status)/**'
-      - 'frontend/app/(authed-admin-writing-prompts)/**'
-      - 'frontend/app/(authed-admin-writing-regrade)/**'
-      - 'frontend/app/(authed-admin-writing-assignments)/**'
-      - 'frontend/app/(authed-admin-writing-cohorts)/**'
-      - 'frontend/app/(authed-admin-writing-instructor-queue)/**'
-      - 'frontend/app/(authed-admin-writing-new)/**'
-      - 'backend/routers/admin_writing.py'
-      - 'backend/routers/admin_writing_prompts.py'
-      - 'backend/services/student_service.py'
-      - 'backend/tests/test_admin_writing.py'
-      - 'backend/tests/test_admin_writing_extract.py'
-      - 'backend/tests/test_admin_writing_prompts.py'
-      - 'backend/routers/admin_instructor_queue.py'
-      - 'backend/models/instructor_review.py'
-      - 'backend/services/instructor_workflow.py'
-      - 'backend/routers/admin_writing_assignments.py'
-      - 'backend/routers/admin_writing_cohorts.py'
-      - 'backend/migrations/206_writing_assignment_idempotency.sql'
-      - 'backend/tests/test_admin_writing_assignments.py'
-      - 'frontend/lib/admin-writing-queue-model.mjs'
-      - 'frontend/lib/admin-writing-status-model.mjs'
-      - 'frontend/lib/admin-writing-prompts-model.mjs'
-      - 'frontend/lib/admin-writing-regrade-model.mjs'
-      - 'frontend/lib/admin-writing-assignments-model.mjs'
-      - 'frontend/lib/admin-writing-cohorts-model.mjs'
-      - 'frontend/lib/admin-writing-instructor-queue-model.mjs'
-      - 'frontend/lib/admin-writing-new-model.mjs'
-      - 'frontend/public/css/admin-writing-hub-next.css'
-      - 'frontend/public/css/admin-writing-queue-next.css'
-      - 'frontend/public/css/admin-writing-status-next.css'
-      - 'frontend/public/css/admin-writing-prompts-next.css'
-      - 'frontend/public/css/admin-writing-regrade-next.css'
-      - 'frontend/public/css/admin-writing-assignments-next.css'
-      - 'frontend/public/css/admin-writing-cohorts-next.css'
-      - 'frontend/public/css/admin-writing-instructor-queue-next.css'
-      - 'frontend/public/css/admin-writing-new-next.css'
-      - 'frontend/public/pages/admin/writing/index.html'
-      - 'frontend/public/pages/admin/writing/queue.html'
-      - 'frontend/public/pages/admin/writing/status.html'
-      - 'frontend/public/pages/admin/writing/prompts.html'
-      - 'frontend/public/pages/admin/writing/regrade-requests.html'
-      - 'frontend/public/pages/admin/writing/new.html'
-      - 'frontend/public/pages/admin/writing/cohorts.html'
-      - 'frontend/public/pages/admin/writing/instructor-queue.html'
-      - 'frontend/public/js/admin-writing-queue.js'
-      - 'frontend/tooling/verify-admin-writing-flow.mjs'
-      - 'frontend/tooling/verify-admin-writing-queue-flow.mjs'
-      - 'frontend/tooling/verify-admin-writing-status-flow.mjs'
-      - 'frontend/tooling/verify-admin-writing-prompts-flow.mjs'
-      - 'frontend/tooling/verify-admin-writing-regrade-flow.mjs'
-      - 'frontend/tooling/verify-admin-writing-assignments-flow.mjs'
-      - 'frontend/tooling/verify-admin-writing-cohorts-flow.mjs'
-      - 'frontend/tooling/verify-admin-writing-instructor-queue-flow.mjs'
-      - 'frontend/tooling/verify-admin-writing-new-flow.mjs'
-      - 'backend/routers/admin_writing_tips.py'
-      - 'backend/tests/test_admin_writing_tips.py'
-      - 'frontend/app/(authed-admin-writing-tips)/**'
-      - 'frontend/public/css/admin-writing-tips-next.css'
-      - 'frontend/public/pages/admin/writing/tips.html'
-      - 'frontend/tooling/verify-admin-writing-tips-flow.mjs'
-      - 'backend/routers/admin.py'
-      - 'backend/tests/test_admin_grammar.py'
-      - 'frontend/app/(authed-admin-grammar-articles)/**'
-      - 'frontend/lib/admin-grammar-articles-model.mjs'
-      - 'frontend/public/css/admin-grammar-articles-next.css'
-      - 'frontend/public/pages/admin/grammar/articles.html'
-      - 'frontend/public/js/admin-grammar-articles.js'
-      - 'frontend/app/(authed-admin-grammar-analytics)/**'
-      - 'frontend/lib/admin-grammar-analytics-model.mjs'
-      - 'frontend/public/css/admin-grammar-analytics-next.css'
-      - 'frontend/public/pages/admin/grammar/analytics.html'
-      - 'frontend/public/js/admin-grammar-analytics.js'
-      - 'frontend/tooling/verify-admin-grammar-analytics-flow.mjs'
-      - 'frontend/app/(authed-admin-grammar-recommend)/**'
-      - 'frontend/lib/admin-grammar-recommend-model.mjs'
-      - 'frontend/public/css/admin-grammar-recommend-next.css'
-      - 'frontend/public/pages/admin/grammar/recommend-test.html'
-      - 'frontend/public/js/admin-grammar-recommend.js'
-      - 'frontend/tooling/verify-admin-grammar-recommend-flow.mjs'
-      - 'frontend/app/(authed-admin-error-logs)/**'
-      - 'frontend/lib/admin-error-logs-model.mjs'
-      - 'frontend/public/css/admin-error-logs-next.css'
-      - 'frontend/app/(authed-admin-users)/**'
-      - 'frontend/lib/admin-users-model.mjs'
-      - 'frontend/public/css/admin-users-next.css'
-      - 'frontend/app/(authed-admin-classes)/**'
-      - 'frontend/app/(authed-admin-students)/**'
-      - 'frontend/lib/admin-class-detail-model.mjs'
-      - 'frontend/lib/admin-class-homework-model.mjs'
-      - 'frontend/lib/admin-class-submissions-model.mjs'
-      - 'frontend/lib/admin-class-student-work-model.mjs'
-      - 'frontend/lib/admin-classes-model.mjs'
-      - 'frontend/public/css/admin-class-detail-next.css'
-      - 'frontend/public/css/admin-class-homework-next.css'
-      - 'frontend/public/css/admin-class-submissions-next.css'
-      - 'frontend/public/css/admin-class-student-work-next.css'
-      - 'frontend/public/css/admin-classes-next.css'
-      - 'frontend/public/css/admin-students-next.css'
-      - 'frontend/tests/admin-class-detail-next-behavior.test.mjs'
-      - 'frontend/tests/admin-class-homework-next-behavior.test.mjs'
-      - 'frontend/tests/admin-class-submissions-next-behavior.test.mjs'
-      - 'frontend/tests/admin-class-student-work-next-behavior.test.mjs'
-      - 'frontend/public/grammar.html'
-      - 'frontend/public/js/grammar.js'
-      - 'frontend/public/pages/grammar-article.html'
-      - 'frontend/tooling/verify-grammar-roadmap-personal-flow.mjs'
-      - 'frontend/app/(public-content)/vocabulary/**'
-      - 'frontend/lib/vocabulary-api.ts'
-      - 'frontend/lib/vocabulary-model.mjs'
-      - 'frontend/public/vocabulary.html'
-      - 'frontend/public/pages/vocab-article.html'
-      - 'frontend/public/js/vocabulary.js'
-      - 'frontend/public/css/vocab-wiki.css'
-      - 'frontend/tooling/verify-vocabulary-wiki-flow.mjs'
-      - 'frontend/public/js/components/aver-chrome.js'
-      - 'frontend/public/js/auth-me-single-flight.js'
-      - 'frontend/lib/auth/auth-me-single-flight.mjs'
-      - 'frontend/tooling/verify-chrome-nav-width-flow.mjs'
-      - 'frontend/tooling/verify-chrome-early-render-flow.mjs'
-      - 'frontend/app/(authed)/profile/**'
-      - 'frontend/public/css/profile.css'
-      - 'frontend/public/css/grammar-wiki.css'
-      - 'frontend/tooling/verify-mobile-layout-flow.mjs'
-      - 'frontend/components/authed-shell.tsx'
-      - 'frontend/components/supabase-runtime-boundary.tsx'
-      - 'frontend/tooling/verify-chrome-staff-link-race-flow.mjs'
-      - 'frontend/public/js/theme-toggle.js'
-      - 'frontend/public/js/user-pill.js'
-      - 'frontend/public/js/components/perf-hints.js'
-      - 'frontend/tooling/verify-speaking-flow.mjs'
-      - 'frontend/tooling/verify-shared-runtime-client-navigation.mjs'
-      - 'frontend/tooling/verify-reading-vocab-flow.mjs'
-      - 'frontend/tooling/verify-reading-skill-flow.mjs'
-      - 'frontend/tooling/verify-reading-detail-flow.mjs'
-      - 'frontend/tooling/verify-reading-test-flow.mjs'
-      - 'frontend/tooling/verify-reading-mini-test-flow.mjs'
-      - 'frontend/tooling/verify-listening-tests-flow.mjs'
-      - 'frontend/tooling/verify-listening-mini-test-flow.mjs'
-      - 'frontend/tooling/verify-listening-skills-flow.mjs'
-      - 'frontend/tooling/verify-listening-practice-flow.mjs'
-      - 'frontend/tooling/verify-listening-practice-run-flow.mjs'
-      - 'frontend/tooling/verify-listening-landing-flow.mjs'
-      - 'frontend/tooling/verify-listening-browse-flow.mjs'
-      - 'frontend/tooling/verify-listening-standalone-flow.mjs'
-      - 'frontend/tooling/verify-listening-standalone-dictation-flow.mjs'
-      - 'frontend/tooling/verify-listening-analytics-flow.mjs'
-      - 'frontend/tooling/verify-listening-test-session-flow.mjs'
-      - 'frontend/tooling/verify-listening-player-overflow-flow.mjs'
-      - 'frontend/tooling/verify-listening-review-flow.mjs'
-      - 'frontend/tooling/verify-mock-exam-flow.mjs'
-      - 'frontend/tooling/verify-admin-overview-flow.mjs'
-      - 'frontend/tooling/verify-admin-error-logs-flow.mjs'
-      - 'frontend/tooling/verify-admin-alerts-flow.mjs'
-      - 'frontend/tooling/verify-admin-ai-usage-flow.mjs'
-      - 'frontend/tooling/verify-admin-instructors-flow.mjs'
-      - 'frontend/tooling/verify-instructor-dashboard-flow.mjs'
-      - 'frontend/tooling/verify-instructor-compare-flow.mjs'
-      - 'frontend/tooling/verify-admin-usage-flow.mjs'
-      - 'frontend/tooling/verify-admin-foot-traffic-flow.mjs'
-      - 'frontend/tooling/verify-admin-feedback-flow.mjs'
-      - 'frontend/tooling/verify-admin-reading-attempts-flow.mjs'
-      - 'frontend/tooling/verify-admin-reading-flow.mjs'
-      - 'frontend/tooling/verify-admin-reading-content-flow.mjs'
-      - 'frontend/tooling/verify-admin-reading-preview-flow.mjs'
-      - 'frontend/tooling/verify-admin-listening-content-flow.mjs'
-      - 'frontend/tooling/verify-admin-listening-content-detail-flow.mjs'
-      - 'frontend/tooling/verify-admin-listening-content-editor-flow.mjs'
-      - 'frontend/tooling/verify-admin-listening-tests-flow.mjs'
-      - 'frontend/tooling/verify-admin-listening-test-detail-flow.mjs'
-      - 'frontend/tooling/verify-admin-listening-attempts-flow.mjs'
-      - 'frontend/tooling/verify-admin-listening-segments-flow.mjs'
-      - 'frontend/tooling/verify-admin-listening-gist-flow.mjs'
-      - 'frontend/tooling/verify-admin-grammar-flow.mjs'
-      - 'frontend/tooling/verify-admin-speaking-flow.mjs'
-      - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
-      - 'frontend/tooling/verify-admin-speaking-sessions-layout-flow.mjs'
-      - 'frontend/tooling/verify-admin-speaking-topics-flow.mjs'
-      - 'frontend/tooling/verify-admin-writing-flow.mjs'
-      - 'frontend/tooling/verify-admin-grammar-articles-flow.mjs'
-      - 'frontend/tooling/verify-admin-users-flow.mjs'
-      - 'frontend/app/(authed-admin-mfa)/**'
-      - 'frontend/public/css/admin-mfa-next.css'
-      - 'frontend/public/css/admin-mfa-dialog.css'
-      - 'frontend/tooling/admin-mfa-stub.mjs'
-      - 'frontend/tooling/verify-admin-mfa-flow.mjs'
-      - 'frontend/tooling/verify-admin-classes-flow.mjs'
-      - 'frontend/tooling/verify-admin-class-detail-flow.mjs'
-      - 'frontend/tooling/verify-admin-class-homework-flow.mjs'
-      - 'frontend/tooling/verify-admin-class-submissions-flow.mjs'
-      - 'frontend/tooling/verify-admin-class-student-work-flow.mjs'
-      - 'frontend/tooling/verify-admin-students-flow.mjs'
-      - 'frontend/tooling/verify-write-flows.mjs'
-      - 'frontend/tooling/write-flow-core.mjs'
-      - 'frontend/tooling/write-flows/**'
-      - 'frontend/public/css/listening-standalone-next.css'
-      - 'frontend/public/pages/listening-mcq.html'
-      - 'frontend/public/js/listening-mcq.js'
-      - 'frontend/public/pages/listening-tf.html'
-      - 'frontend/public/js/listening-tf.js'
-      - 'frontend/public/pages/listening-gist.html'
-      - 'frontend/public/js/listening-gist.js'
-      - 'frontend/public/pages/listening-dictation.html'
-      - 'frontend/public/js/listening-dictation.js'
-      - 'frontend/public/js/components/audio-player.js'
-      - 'frontend/public/js/components/media-segment-stop.js'
-      - 'frontend/public/js/feedback-widgets.js'
-      - 'frontend/public/css/feedback.css'
-      - 'frontend/app/(authed-listening-player)/**'
-      - 'frontend/public/css/listening-test-next.css'
-      - 'frontend/public/pages/reading-exam.html'
-      - 'frontend/public/js/reading-exam.js'
-      - 'frontend/public/js/markdown.js'
-      - 'frontend/public/js/mock-exam-hook.js'
-      - 'frontend/public/js/runtime-config.js'
-      - 'frontend/public/css/reading-exam.css'
-      - 'frontend/public/css/reading-exam-mockup.css'
-      - 'frontend/public/pages/practice.html'
-      - 'frontend/public/js/practice.js'
-      - 'frontend/public/js/pronunciation-drilldown.js'
-      - 'frontend/public/css/practice.css'
-      - 'frontend/public/css/speaking-assignment.css'
-      - 'frontend/public/js/speaking-debt.js'
-      - 'frontend/public/pages/reading-review.html'
-      - 'frontend/public/js/reading-review.js'
-      - 'frontend/public/js/components/glossary-popover.js'
-      - 'frontend/public/css/reading-review.css'
-      - 'frontend/public/css/markdown.css'
-      - 'frontend/public/js/api.js'
-      - 'frontend/public/js/analytics-beacon.js'
-      - 'frontend/public/**/*.html'
-      - 'frontend/next.config.ts'
-      - 'frontend/proxy.ts'
-      - 'frontend/tooling/content-security-policy.mjs'
-      - 'frontend/tooling/check-csp-nonce-deployed.mjs'
-      - 'frontend/tooling/nonce-route-table.mjs'
-      - 'frontend/tooling/runtime-origins.mjs'
-      - 'frontend/playwright.reading-native.config.js'
-      - 'frontend/package-lock.json'
-      - 'frontend/package.json'
-      - 'frontend/tsconfig.json'
-      - 'frontend/types/**'
-      - '.github/workflows/next-native-browser.yml'
-      - 'frontend/app/**'
-      - 'frontend/public/css/**'
-      - 'frontend/public/js/**'
-      - 'frontend/tooling/verify-*.mjs'
-      - 'frontend/tooling/grammar-404-ssr-checks.mjs'
-      - 'frontend/tooling/next-native-fixture-api.mjs'
-      - 'frontend/tooling/redact-secrets.cjs'
-      - 'frontend/tooling/sanitize-artifacts.mjs'
-      - 'frontend/tooling/scan-artifact-secrets.mjs'
-      - 'frontend/tests/**'
-      - 'backend/**'
+    branches: [staging]
   push:
     branches: [main, staging]
   schedule:
@@ -737,32 +36,804 @@ env:
   SUPABASE_URL: https://example.supabase.co
 
 jobs:
+  # Cổng rẻ cho PR (PC-J598). `run_tests` = 'true' khi PR chạm ÍT NHẤT MỘT đường
+  # dẫn trong danh sách — đúng danh sách `on.pull_request.paths` trước đây, không
+  # thêm không bớt. Push/schedule/workflow_dispatch luôn chạy hết; job này hỏng
+  # hoặc output rỗng thì job nặng cũng chạy hết (fail CLOSED, xem `RUN_BROWSER`).
+  #
+  # picomatch (trong paths-filter) hiểu `(…)` là nhóm regex, nên riêng từng glob
+  # `frontend/app/(group)/**` không khớp tệp có ngoặc thật. Hợp của danh sách vẫn
+  # khớp đúng như trigger cũ vì mọi glob có ký tự đặc biệt đều nằm dưới
+  # `frontend/app/**`, cũng có trong danh sách; `workflow-required-checks-report`
+  # ghim điều kiện đó.
+  # Cheap PR gate: same globs as the old trigger `paths:`. Non-PR events and any
+  # failure here run every heavy step (fail closed).
+  changes:
+    name: Changed paths (Next-native gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      run_tests: ${{ github.event_name != 'pull_request' && 'true' || steps.filter.outputs.run_tests }}
+    steps:
+      # On pull_request the action lists the PR files through the API (renames
+      # count both old and new path), so no checkout is needed.
+      - name: Classify changed files
+        id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          # `some`: một tệp khớp khi nó khớp ÍT NHẤT MỘT mục (như trigger cũ).
+          predicate-quantifier: some
+          filters: |
+            run_tests:
+              - 'frontend/app/(public-content)/**'
+              - 'frontend/app/(marketing)/page.tsx'
+              - 'frontend/app/(authed-vocab-curated)/**'
+              - 'frontend/app/(marketing)/pricing/**'
+              - 'frontend/tooling/verify-pricing-redirect-flow.mjs'
+              - 'frontend/app/(public-auth)/**'
+              - 'frontend/lib/login-model.mjs'
+              - 'frontend/public/js/auth-sign-out-state.js'
+              - 'frontend/public/login.html'
+              - 'frontend/public/css/login-next.css'
+              - 'frontend/public/js/exam-player.js'
+              - 'frontend/public/js/practice.js'
+              - 'frontend/tests/login-next-behavior.test.mjs'
+              - 'frontend/tests/login-next-model.test.mjs'
+              - 'frontend/tooling/verify-login-flow.mjs'
+              - 'frontend/app/(authed-onboarding)/**'
+              - 'frontend/lib/onboarding-model.mjs'
+              - 'frontend/public/onboarding.html'
+              - 'frontend/public/css/onboarding.css'
+              - 'frontend/tests/onboarding-next-behavior.test.mjs'
+              - 'frontend/tests/onboarding-next-model.test.mjs'
+              - 'frontend/tooling/verify-onboarding-flow.mjs'
+              - 'frontend/public/pages/grammar-exercises.html'
+              - 'frontend/public/js/grammar-exercises.js'
+              - 'frontend/app/(authed-home)/**'
+              - 'frontend/app/(authed-speaking)/**'
+              - 'frontend/app/(authed-practice)/**'
+              - 'frontend/public/pages/speaking.html'
+              - 'frontend/public/css/speaking.css'
+              - 'frontend/public/js/cue-card-detector.js'
+              - 'frontend/public/js/format.js'
+              - 'frontend/public/js/retention-warning.js'
+              - 'frontend/public/js/speaking-full-test-controller.mjs'
+              - 'frontend/public/js/speaking-submission-controller.mjs'
+              - 'frontend/public/js/speaking-legacy-runtime.mjs'
+              - 'frontend/lib/**'
+              - 'frontend/components/**'
+              - 'frontend/public/pages/home.html'
+              - 'frontend/public/js/home.js'
+              - 'frontend/public/js/home-mock-tiles.js'
+              - 'frontend/public/css/home.css'
+              - 'frontend/public/css/mock-hub.css'
+              - 'frontend/app/(authed-writing)/**'
+              - 'frontend/tooling/verify-writing-admission-flow.mjs'
+              - 'frontend/tooling/verify-writing-dashboard-layout-flow.mjs'
+              - 'frontend/tooling/verify-writing-dashboard-tab-scroll-flow.mjs'
+              - 'frontend/tooling/verify-learning-context-flow.mjs'
+              - 'frontend/tooling/verify-grammar-navigation-flow.mjs'
+              - 'frontend/tooling/grammar-navigation-fixtures.mjs'
+              - 'frontend/tooling/process-group.mjs'
+              - 'frontend/public/pages/writing-dashboard.html'
+              - 'frontend/public/css/writing-dashboard.css'
+              - 'frontend/app/(authed-writing-result)/**'
+              - 'frontend/public/pages/writing-result.html'
+              - 'frontend/public/css/writing-result.css'
+              - 'frontend/public/css/writing-renderers.css'
+              - 'frontend/public/css/writing-highlight.css'
+              - 'frontend/public/css/image-lightbox.css'
+              - 'frontend/public/css/markdown.css'
+              - 'frontend/public/js/writing-renderers.js'
+              - 'frontend/public/js/writing-highlight.js'
+              - 'frontend/public/js/image-lightbox.js'
+              - 'frontend/public/js/markdown.js'
+              - 'frontend/app/(authed-admin-writing-grade)/**'
+              - 'frontend/public/pages/admin/writing/grade.html'
+              - 'frontend/public/css/admin-writing.css'
+              - 'frontend/public/css/admin-writing-grade.css'
+              - 'frontend/public/css/aver-design/admin-surface.css'
+              - 'frontend/public/js/writing-admin.js'
+              - 'frontend/public/js/toast.js'
+              - 'frontend/public/js/components/aver-admin-chrome.js'
+              - 'frontend/app/(authed-reading)/**'
+              - 'frontend/app/(authed-listening)/**'
+              - 'frontend/app/(authed-listening-practice-run)/**'
+              - 'frontend/public/pages/reading-vocab.html'
+              - 'frontend/public/pages/reading-vocab-passage.html'
+              - 'frontend/public/pages/reading-skill.html'
+              - 'frontend/public/pages/reading-skill-exercise.html'
+              - 'frontend/public/pages/reading-test.html'
+              - 'frontend/public/pages/reading-mini-test.html'
+              - 'frontend/public/pages/listening-tests.html'
+              - 'frontend/public/css/reading-vocab.css'
+              - 'frontend/public/js/reading-vocab-passage.js'
+              - 'frontend/public/js/reading-skill-exercise.js'
+              - 'frontend/public/js/components/reading-questions.js'
+              - 'frontend/public/js/components/reading-passage-panes.js'
+              - 'frontend/public/css/listening.css'
+              - 'frontend/public/css/listening-tests.css'
+              - 'frontend/public/css/listening-mini-test.css'
+              - 'frontend/public/css/listening-skills.css'
+              - 'frontend/public/css/listening-practice.css'
+              - 'frontend/public/css/listening-practice-run-next.css'
+              - 'frontend/public/css/listening-browse.css'
+              - 'frontend/public/css/listening-analytics.css'
+              - 'frontend/public/css/tailwind.build.css'
+              - 'frontend/public/css/aver-design/tokens.css'
+              - 'frontend/public/css/aver-design/components.css'
+              - 'frontend/app/(authed-exercises)/**'
+              - 'frontend/app/(authed-flashcards)/**'
+              - 'frontend/public/pages/exercises.html'
+              - 'frontend/public/pages/flashcards.html'
+              - 'frontend/public/css/exercises.css'
+              - 'frontend/public/css/flashcards.css'
+              - 'frontend/public/css/ds.css'
+              - 'frontend/public/js/vocab-modules/**'
+              - 'frontend/app/(authed-vocab-exam)/**'
+              - 'frontend/app/(authed)/grammar-checkup/**'
+              - 'frontend/app/(authed)/course-exercises/**'
+              - 'frontend/app/(authed)/grammar-lessons/**'
+              - 'frontend/app/next-probe/**'
+              - 'frontend/app/(spike)/**'
+              - 'frontend/lib/quiz-player-model.mjs'
+              - 'frontend/public/css/assigned-grammar-lesson.css'
+              - 'frontend/tooling/verify-error-states-flow.mjs'
+              - 'frontend/app/(authed-advanced-vocab)/**'
+              - 'frontend/tooling/verify-learner-route-auth-boot-flow.mjs'
+              - 'frontend/app/(authed-exam)/**'
+              - 'frontend/lib/exam-player-model.mjs'
+              - 'frontend/public/pages/exam.html'
+              - 'frontend/public/js/exam-player.js'
+              - 'frontend/public/js/kp-stepper.js'
+              - 'frontend/public/css/exam-player-next.css'
+              - 'frontend/tests/exam-player-next-behavior.test.mjs'
+              - 'frontend/tests/exam-player-next-model.test.mjs'
+              - 'frontend/tooling/verify-exam-flow.mjs'
+              - 'frontend/app/(authed-full-test)/**'
+              - 'frontend/app/(authed-mock-exam)/**'
+              - 'frontend/lib/mock-exam-model.mjs'
+              - 'frontend/public/pages/mock-exam.html'
+              - 'frontend/public/js/mock-exam-runner.js'
+              - 'frontend/public/css/mock-exam-next.css'
+              - 'frontend/tests/mock-exam-next-behavior.test.mjs'
+              - 'frontend/tests/mock-exam-next-model.test.mjs'
+              - 'frontend/tooling/verify-mock-exam-flow.mjs'
+              - 'frontend/app/(authed-vocab-practice)/**'
+              - 'frontend/app/(authed-quiz-player)/**'
+              - 'frontend/app/(authed-speaking-result)/**'
+              - 'frontend/app/(authed-quiz-progress)/**'
+              - 'frontend/app/(authed-mock-result)/**'
+              - 'frontend/app/(authed-vocabulary-hub)/**'
+              - 'frontend/public/pages/vocabulary.html'
+              - 'frontend/public/js/vocab-landing.js'
+              - 'frontend/public/css/vocabulary.css'
+              - 'frontend/public/pages/mock-result.html'
+              - 'frontend/public/js/mock-result.js'
+              - 'frontend/public/css/mock-result.css'
+              - 'frontend/public/pages/quiz-progress.html'
+              - 'frontend/public/js/quiz-progress.js'
+              - 'frontend/public/css/quiz-progress.css'
+              - 'frontend/public/pages/quiz.html'
+              - 'frontend/public/css/quiz-player.css'
+              - 'frontend/tests/quiz-player-next-behavior.test.mjs'
+              - 'frontend/tests/quiz-player-next-model.test.mjs'
+              - 'frontend/tooling/verify-quiz-flow.mjs'
+              - 'frontend/public/pages/speaking-result.html'
+              - 'frontend/public/js/speaking-result.js'
+              - 'frontend/public/css/speaking-result.css'
+              - 'frontend/public/pages/vocab-practice.html'
+              - 'frontend/public/js/vocab-practice.js'
+              - 'frontend/public/css/vocab-practice.css'
+              - 'frontend/public/pages/full-test.html'
+              - 'frontend/public/js/full-test.js'
+              - 'frontend/public/css/full-test.css'
+              - 'frontend/public/pages/vocab-exam.html'
+              - 'frontend/public/css/vocab-exam.css'
+              - 'frontend/public/js/vocab-exam.js'
+              - 'frontend/public/js/error-reporter.js'
+              - 'frontend/app/layout.tsx'
+              - 'frontend/tooling/generate-runtime-config.mjs'
+              - 'frontend/public/pages/listening.html'
+              - 'frontend/public/pages/listening-browse.html'
+              - 'frontend/public/pages/listening-analytics.html'
+              - 'frontend/public/js/listening-landing.js'
+              - 'frontend/public/js/listening-browse.js'
+              - 'frontend/public/js/listening-analytics.js'
+              - 'frontend/public/js/reading-vocab.js'
+              - 'frontend/public/js/reading-skill.js'
+              - 'frontend/public/js/reading-test.js'
+              - 'frontend/public/js/reading-mini-test.js'
+              - 'frontend/public/js/listening-tests-list.js'
+              - 'frontend/public/js/listening-list-paging.js'
+              - 'frontend/public/js/listening-mini-test.js'
+              - 'frontend/public/js/listening-skills.js'
+              - 'frontend/public/js/listening-practice.js'
+              - 'frontend/public/js/listening-practice-run.js'
+              - 'frontend/public/pages/listening-mini-test.html'
+              - 'frontend/public/pages/listening-skills.html'
+              - 'frontend/public/pages/listening-practice-run.html'
+              - 'frontend/public/pages/listening-practice.html'
+              - 'frontend/tooling/supabase-session.mjs'
+              - 'frontend/tooling/theme-toggle-check.mjs'
+              - 'frontend/lib/backend.ts'
+              - 'frontend/lib/grammar-api.ts'
+              - 'frontend/app/(authed-listening-review)/**'
+              - 'frontend/lib/listening-review-model.mjs'
+              - 'frontend/public/pages/listening-review.html'
+              - 'frontend/public/js/listening-review.js'
+              - 'frontend/public/css/listening-review.css'
+              - 'frontend/public/css/listening-review-next.css'
+              - 'frontend/tests/listening-review-next-behavior.test.mjs'
+              - 'frontend/app/(authed-admin-overview)/**'
+              - 'frontend/public/css/admin-overview.css'
+              - 'frontend/public/js/admin-overview.js'
+              - 'backend/routers/admin_overview.py'
+              - 'backend/tests/test_admin_overview.py'
+              - 'frontend/app/(authed-admin-system)/**'
+              - 'frontend/public/css/admin-alerts-next.css'
+              - 'frontend/public/css/admin-ai-usage-next.css'
+              - 'frontend/app/(authed-admin-instructors)/**'
+              - 'frontend/lib/admin-instructors-model.mjs'
+              - 'frontend/public/css/admin-instructors-next.css'
+              - 'frontend/app/(authed-instructor)/**'
+              - 'frontend/lib/instructor-dashboard-model.mjs'
+              - 'frontend/public/css/instructor-next.css'
+              - 'frontend/tests/instructor-dashboard-next.test.mjs'
+              - 'frontend/app/(authed-instructor-compare)/**'
+              - 'frontend/lib/instructor-compare-model.mjs'
+              - 'frontend/public/css/instructor-compare-next.css'
+              - 'frontend/public/js/instructor-compose.js'
+              - 'frontend/public/js/instructor-compose-util.js'
+              - 'frontend/public/js/instructor-grade.js'
+              - 'frontend/tests/instructor-compare-next.test.mjs'
+              - 'frontend/tests/f2-compare-mix.test.mjs'
+              - 'backend/routers/instructor.py'
+              - 'backend/services/essay_service.py'
+              - 'backend/tests/test_f2_compose_versions.py'
+              - 'frontend/app/(authed-instructor-grade)/**'
+              - 'frontend/lib/instructor-grade-model.mjs'
+              - 'frontend/public/css/instructor-grade-next.css'
+              - 'frontend/tests/instructor-grade-next.test.mjs'
+              - 'frontend/tooling/verify-instructor-grade-flow.mjs'
+              - 'frontend/tooling/write-flows/instructor-deliver.mjs'
+              - 'backend/services/instructor_workflow.py'
+              - 'backend/tests/test_instructor_workflow.py'
+              - 'backend/tests/test_instructor_routes_isolation.py'
+              - 'frontend/app/(authed-admin-usage)/**'
+              - 'frontend/lib/admin-usage-model.mjs'
+              - 'frontend/public/css/admin-usage-next.css'
+              - 'frontend/app/(authed-admin-foot-traffic)/**'
+              - 'frontend/lib/admin-foot-traffic-model.mjs'
+              - 'frontend/public/css/admin-foot-traffic-next.css'
+              - 'frontend/app/(authed-admin-feedback)/**'
+              - 'frontend/lib/admin-feedback-model.mjs'
+              - 'frontend/public/css/admin-feedback-next.css'
+              - 'frontend/public/pages/admin/feedback/index.html'
+              - 'frontend/public/js/admin-feedback.js'
+              - 'frontend/app/(authed-admin-reading-attempts)/**'
+              - 'frontend/lib/admin-reading-attempts-model.mjs'
+              - 'frontend/public/css/admin-reading-attempts-next.css'
+              - 'frontend/public/pages/admin/dashboard/reading-attempts.html'
+              - 'frontend/public/js/admin-reading-attempts.js'
+              - 'frontend/app/(authed-admin-reading)/**'
+              - 'frontend/public/css/admin-reading-hub-next.css'
+              - 'frontend/app/(authed-admin-reading-content)/**'
+              - 'frontend/lib/admin-reading-content-model.mjs'
+              - 'frontend/public/css/admin-reading-content-next.css'
+              - 'frontend/app/(authed-admin-reading-preview)/**'
+              - 'frontend/lib/admin-reading-preview-model.mjs'
+              - 'frontend/public/css/admin-reading-preview-next.css'
+              - 'frontend/public/pages/admin/reading/content.html'
+              - 'frontend/public/pages/admin/reading/preview.html'
+              - 'frontend/tooling/verify-admin-reading-flow.mjs'
+              - 'frontend/tooling/verify-admin-reading-content-flow.mjs'
+              - 'frontend/tooling/verify-admin-reading-preview-flow.mjs'
+              - 'frontend/app/(authed-admin-listening)/**'
+              - 'frontend/lib/admin-listening-content-model.mjs'
+              - 'frontend/lib/admin-listening-content-editor-model.mjs'
+              - 'frontend/public/css/admin-listening-content-next.css'
+              - 'frontend/public/css/admin-listening-content-editor-next.css'
+              - 'frontend/public/pages/admin/listening/index.html'
+              - 'frontend/public/js/admin-listening-content-list.js'
+              - 'frontend/tooling/verify-admin-listening-content-flow.mjs'
+              - 'frontend/tooling/verify-admin-listening-content-detail-flow.mjs'
+              - 'frontend/tooling/verify-admin-listening-content-editor-flow.mjs'
+              - 'frontend/public/css/admin-listening-tests-next.css'
+              - 'frontend/tooling/verify-admin-listening-tests-flow.mjs'
+              - 'frontend/lib/admin-listening-test-detail-model.mjs'
+              - 'frontend/public/css/admin-listening-test-detail-next.css'
+              - 'frontend/tooling/verify-admin-listening-test-detail-flow.mjs'
+              - 'frontend/lib/admin-listening-attempts-model.mjs'
+              - 'frontend/public/css/admin-listening-attempts-next.css'
+              - 'frontend/public/pages/admin/listening/attempts.html'
+              - 'frontend/public/js/admin-listening-attempts.js'
+              - 'frontend/tooling/verify-admin-listening-attempts-flow.mjs'
+              - 'backend/routers/listening.py'
+              - 'backend/tests/test_admin_listening_attempts.py'
+              - 'frontend/lib/admin-listening-dictation-model.mjs'
+              - 'frontend/public/css/admin-listening-dictation-next.css'
+              - 'frontend/public/pages/admin/listening/dictation-reports.html'
+              - 'frontend/public/js/admin-listening-dictation-reports.js'
+              - 'frontend/tooling/verify-admin-listening-dictation-flow.mjs'
+              - 'backend/tests/test_listening_test_dictation.py'
+              - 'backend/migrations/210_dictation_session_idempotency.sql'
+              - 'backend/tests/test_migration_210_dictation_idempotency.py'
+              - 'frontend/app/(authed-listening-dictation)/**'
+              - 'frontend/lib/listening-dictation-controller.mjs'
+              - 'frontend/public/css/listening-dictation-next.css'
+              - 'frontend/tests/listening-dictation-next-behavior.test.mjs'
+              - 'frontend/tooling/verify-listening-dictation-session-flow.mjs'
+              - 'backend/tests/test_admin_listening_content_patch.py'
+              - 'frontend/lib/admin-listening-segments-model.mjs'
+              - 'frontend/app/(authed-admin-listening)/admin/listening/segments/**'
+              - 'frontend/public/css/admin-listening-segments-next.css'
+              - 'frontend/public/pages/admin/listening/segments.html'
+              - 'frontend/public/js/admin-listening-segments.js'
+              - 'frontend/public/js/components/audio-player.js'
+              - 'frontend/tooling/verify-admin-listening-segments-flow.mjs'
+              - 'frontend/tests/admin-listening-segments-next-behavior.test.mjs'
+              - 'backend/tests/test_listening_segments.py'
+              - 'backend/migrations/208_listening_exercise_block_identity.sql'
+              - 'backend/migrations/209_listening_single_published_standalone_block.sql'
+              - 'frontend/lib/admin-listening-gist-model.mjs'
+              - 'frontend/app/(authed-admin-listening)/admin/listening/gist/**'
+              - 'frontend/public/css/admin-listening-gist-next.css'
+              - 'frontend/public/pages/admin/listening/gist.html'
+              - 'frontend/public/js/admin-listening-gist.js'
+              - 'frontend/tooling/verify-admin-listening-gist-flow.mjs'
+              - 'frontend/tests/admin-listening-gist-next-behavior.test.mjs'
+              - 'backend/tests/test_listening_gist_tf.py'
+              - 'frontend/lib/admin-listening-true-false-model.mjs'
+              - 'frontend/app/(authed-admin-listening)/admin/listening/tf/**'
+              - 'frontend/public/css/admin-listening-true-false-next.css'
+              - 'frontend/public/pages/admin/listening/tf.html'
+              - 'frontend/public/js/admin-listening-tf.js'
+              - 'frontend/tooling/verify-admin-listening-true-false-flow.mjs'
+              - 'frontend/tests/admin-listening-true-false-next-behavior.test.mjs'
+              - 'frontend/lib/admin-listening-mcq-model.mjs'
+              - 'frontend/app/(authed-admin-listening)/admin/listening/mcq/**'
+              - 'frontend/public/css/admin-listening-mcq-next.css'
+              - 'frontend/public/pages/admin/listening/mcq.html'
+              - 'frontend/public/js/admin-listening-mcq.js'
+              - 'frontend/tooling/verify-admin-listening-mcq-flow.mjs'
+              - 'frontend/tests/admin-listening-mcq-next-behavior.test.mjs'
+              - 'frontend/lib/admin-listening-fulltest-import-model.mjs'
+              - 'frontend/app/(authed-admin-listening)/admin/listening/import-fulltest/**'
+              - 'frontend/public/css/admin-listening-fulltest-import-next.css'
+              - 'frontend/public/pages/admin/listening/import-fulltest.html'
+              - 'frontend/public/js/admin-listening-fulltest-import.js'
+              - 'frontend/tooling/verify-admin-listening-fulltest-import-flow.mjs'
+              - 'frontend/tests/admin-listening-fulltest-import-next-behavior.test.mjs'
+              - 'frontend/tests/admin-listening-fulltest-import.test.mjs'
+              - 'backend/tests/test_listening_fulltest_import.py'
+              - 'frontend/lib/admin-listening-drill-import-model.mjs'
+              - 'frontend/app/(authed-admin-listening)/admin/listening/import-drills/**'
+              - 'frontend/public/css/admin-listening-drill-import-next.css'
+              - 'frontend/public/pages/admin/listening/import-drills.html'
+              - 'frontend/public/js/admin-listening-drills-import.js'
+              - 'frontend/tooling/verify-admin-listening-drill-import-flow.mjs'
+              - 'frontend/tests/admin-listening-drill-import-next-behavior.test.mjs'
+              - 'frontend/tests/admin-listening-drills-import.test.mjs'
+              - 'backend/services/listening_drill_import.py'
+              - 'backend/tests/test_listening_drill_import.py'
+              - 'frontend/lib/admin-listening-audit-model.mjs'
+              - 'frontend/app/(authed-admin-listening)/admin/listening/audit/**'
+              - 'frontend/public/css/admin-listening-audit-next.css'
+              - 'frontend/public/pages/admin/listening/audit.html'
+              - 'frontend/public/js/admin-listening-audit.js'
+              - 'frontend/tooling/verify-admin-listening-audit-flow.mjs'
+              - 'frontend/tests/admin-listening-audit-next-behavior.test.mjs'
+              - 'frontend/tests/admin-listening-audit-paging.test.mjs'
+              - 'frontend/tests/admin-listening-audit.test.mjs'
+              - 'backend/services/listening_audit.py'
+              - 'backend/routers/listening.py'
+              - 'backend/tests/test_listening_audit.py'
+              - 'frontend/lib/admin-listening-audit-detail-model.mjs'
+              - 'frontend/app/(authed-admin-listening)/admin/listening/audit-detail/**'
+              - 'frontend/public/css/admin-listening-audit-detail-next.css'
+              - 'frontend/public/pages/admin/listening/audit-detail.html'
+              - 'frontend/public/js/admin-listening-audit-detail.js'
+              - 'frontend/tooling/verify-admin-listening-audit-detail-flow.mjs'
+              - 'frontend/tests/admin-listening-audit-detail-next-behavior.test.mjs'
+              - 'frontend/app/(authed-admin-vocab)/**'
+              - 'frontend/lib/admin-vocab-stats-model.mjs'
+              - 'frontend/lib/admin-vocab-curation-model.mjs'
+              - 'frontend/lib/admin-vocab-quiz-analytics-model.mjs'
+              - 'frontend/lib/admin-vocab-topics-quiz-model.mjs'
+              - 'frontend/public/css/admin-vocab-next.css'
+              - 'frontend/public/pages/admin/vocab/index.html'
+              - 'frontend/public/pages/admin/vocab/stats.html'
+              - 'frontend/public/pages/admin/vocab/d1-curation.html'
+              - 'frontend/public/pages/admin/vocab/lemmas.html'
+              - 'frontend/public/pages/admin/vocab/quiz-analytics.html'
+              - 'frontend/public/pages/admin/vocab/topics.html'
+              - 'frontend/public/pages/admin/vocab/quiz.html'
+              - 'frontend/public/js/admin-vocab-stats.js'
+              - 'frontend/public/js/admin-vocab-d1.js'
+              - 'frontend/public/js/admin-vocab-lemmas.js'
+              - 'frontend/tooling/verify-admin-vocab-flow.mjs'
+              - 'frontend/tests/admin-vocab-next-behavior.test.mjs'
+              - 'frontend/tests/admin-vocab-next-model.test.mjs'
+              - 'frontend/tests/admin-vocab-curation-next-behavior.test.mjs'
+              - 'frontend/tests/admin-vocab-curation-next-model.test.mjs'
+              - 'frontend/tests/admin-vocab-quiz-analytics-next-behavior.test.mjs'
+              - 'frontend/tests/admin-vocab-quiz-analytics-next-model.test.mjs'
+              - 'frontend/tests/admin-vocab-topics-quiz-next-behavior.test.mjs'
+              - 'frontend/tests/admin-vocab-topics-quiz-next-model.test.mjs'
+              - 'frontend/app/(authed-admin-grammar)/**'
+              - 'frontend/public/css/aver-design/admin-components.css'
+              - 'frontend/public/css/aver-design/admin-buttons.css'
+              - 'frontend/public/css/aver-design/admin-status.css'
+              - 'frontend/public/css/admin-grammar-hub-next.css'
+              - 'frontend/public/pages/admin/grammar/index.html'
+              - 'frontend/public/pages/admin/index.html'
+              - 'frontend/app/(authed-admin-speaking)/**'
+              - 'frontend/app/(authed-admin-speaking-sessions)/**'
+              - 'frontend/app/(authed-admin-speaking-topics)/**'
+              - 'frontend/lib/admin-speaking-sessions-model.mjs'
+              - 'frontend/lib/admin-speaking-topics-model.mjs'
+              - 'frontend/public/css/admin-speaking-hub-next.css'
+              - 'frontend/public/css/admin-speaking-sessions-next.css'
+              - 'frontend/public/css/admin-speaking-topics-next.css'
+              - 'frontend/public/pages/admin/speaking/index.html'
+              - 'frontend/public/pages/admin/speaking/sessions.html'
+              - 'frontend/public/pages/admin/speaking/topics.html'
+              - 'frontend/public/js/admin-speaking-sessions.js'
+              - 'frontend/public/js/admin-speaking-topics.js'
+              - 'frontend/tooling/verify-admin-speaking-flow.mjs'
+              - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
+              - 'frontend/tooling/verify-admin-speaking-sessions-layout-flow.mjs'
+              - 'frontend/tooling/verify-admin-speaking-topics-flow.mjs'
+              - 'frontend/app/(authed-admin-mock-tests)/**'
+              - 'frontend/lib/admin-mock-tests-model.mjs'
+              - 'frontend/public/css/admin-mock-tests-next.css'
+              - 'frontend/public/pages/admin/mock-tests/index.html'
+              - 'frontend/public/js/admin-mock-tests.js'
+              - 'frontend/tooling/verify-admin-mock-tests-flow.mjs'
+              - 'frontend/tests/admin-mock-tests-next-behavior.test.mjs'
+              - 'frontend/app/(authed-admin-mock-exams)/**'
+              - 'frontend/lib/admin-mock-exams-model.mjs'
+              - 'frontend/public/css/admin-mock-exams-next.css'
+              - 'frontend/public/pages/admin/mock-exams/index.html'
+              - 'frontend/public/js/admin-mock-exams.js'
+              - 'frontend/public/js/admin-exam-content.js'
+              - 'frontend/tooling/verify-admin-mock-exams-flow.mjs'
+              - 'frontend/tests/admin-mock-exams-next-model.test.mjs'
+              - 'frontend/app/(authed-admin-mock-live)/**'
+              - 'frontend/lib/admin-mock-live-model.mjs'
+              - 'frontend/public/css/admin-mock-live-next.css'
+              - 'frontend/public/pages/admin/mock-live/index.html'
+              - 'frontend/public/pages/admin/mock-pacing/index.html'
+              - 'frontend/public/js/admin-mock-live.js'
+              - 'frontend/public/js/admin-mock-pacing.js'
+              - 'frontend/tooling/verify-admin-mock-live-flow.mjs'
+              - 'frontend/tests/admin-mock-live-next-model.test.mjs'
+              - 'frontend/app/(authed-admin-mock-reviews)/**'
+              - 'frontend/lib/admin-mock-reviews-model.mjs'
+              - 'frontend/public/css/admin-mock-reviews-next.css'
+              - 'frontend/public/pages/admin/mock-reviews/index.html'
+              - 'frontend/public/pages/admin/mock-reviews/report.html'
+              - 'frontend/public/js/admin-mock-reviews.js'
+              - 'frontend/public/js/admin-mock-report.js'
+              - 'frontend/tooling/verify-admin-mock-reviews-flow.mjs'
+              - 'frontend/tests/admin-mock-reviews-next-model.test.mjs'
+              - 'frontend/tests/admin-mock-reviews-next-behavior.test.mjs'
+              - 'frontend/app/(authed-admin-writing)/**'
+              - 'frontend/app/(authed-admin-writing-queue)/**'
+              - 'frontend/app/(authed-admin-writing-status)/**'
+              - 'frontend/app/(authed-admin-writing-prompts)/**'
+              - 'frontend/app/(authed-admin-writing-regrade)/**'
+              - 'frontend/app/(authed-admin-writing-assignments)/**'
+              - 'frontend/app/(authed-admin-writing-cohorts)/**'
+              - 'frontend/app/(authed-admin-writing-instructor-queue)/**'
+              - 'frontend/app/(authed-admin-writing-new)/**'
+              - 'backend/routers/admin_writing.py'
+              - 'backend/routers/admin_writing_prompts.py'
+              - 'backend/services/student_service.py'
+              - 'backend/tests/test_admin_writing.py'
+              - 'backend/tests/test_admin_writing_extract.py'
+              - 'backend/tests/test_admin_writing_prompts.py'
+              - 'backend/routers/admin_instructor_queue.py'
+              - 'backend/models/instructor_review.py'
+              - 'backend/services/instructor_workflow.py'
+              - 'backend/routers/admin_writing_assignments.py'
+              - 'backend/routers/admin_writing_cohorts.py'
+              - 'backend/migrations/206_writing_assignment_idempotency.sql'
+              - 'backend/tests/test_admin_writing_assignments.py'
+              - 'frontend/lib/admin-writing-queue-model.mjs'
+              - 'frontend/lib/admin-writing-status-model.mjs'
+              - 'frontend/lib/admin-writing-prompts-model.mjs'
+              - 'frontend/lib/admin-writing-regrade-model.mjs'
+              - 'frontend/lib/admin-writing-assignments-model.mjs'
+              - 'frontend/lib/admin-writing-cohorts-model.mjs'
+              - 'frontend/lib/admin-writing-instructor-queue-model.mjs'
+              - 'frontend/lib/admin-writing-new-model.mjs'
+              - 'frontend/public/css/admin-writing-hub-next.css'
+              - 'frontend/public/css/admin-writing-queue-next.css'
+              - 'frontend/public/css/admin-writing-status-next.css'
+              - 'frontend/public/css/admin-writing-prompts-next.css'
+              - 'frontend/public/css/admin-writing-regrade-next.css'
+              - 'frontend/public/css/admin-writing-assignments-next.css'
+              - 'frontend/public/css/admin-writing-cohorts-next.css'
+              - 'frontend/public/css/admin-writing-instructor-queue-next.css'
+              - 'frontend/public/css/admin-writing-new-next.css'
+              - 'frontend/public/pages/admin/writing/index.html'
+              - 'frontend/public/pages/admin/writing/queue.html'
+              - 'frontend/public/pages/admin/writing/status.html'
+              - 'frontend/public/pages/admin/writing/prompts.html'
+              - 'frontend/public/pages/admin/writing/regrade-requests.html'
+              - 'frontend/public/pages/admin/writing/new.html'
+              - 'frontend/public/pages/admin/writing/cohorts.html'
+              - 'frontend/public/pages/admin/writing/instructor-queue.html'
+              - 'frontend/public/js/admin-writing-queue.js'
+              - 'frontend/tooling/verify-admin-writing-flow.mjs'
+              - 'frontend/tooling/verify-admin-writing-queue-flow.mjs'
+              - 'frontend/tooling/verify-admin-writing-status-flow.mjs'
+              - 'frontend/tooling/verify-admin-writing-prompts-flow.mjs'
+              - 'frontend/tooling/verify-admin-writing-regrade-flow.mjs'
+              - 'frontend/tooling/verify-admin-writing-assignments-flow.mjs'
+              - 'frontend/tooling/verify-admin-writing-cohorts-flow.mjs'
+              - 'frontend/tooling/verify-admin-writing-instructor-queue-flow.mjs'
+              - 'frontend/tooling/verify-admin-writing-new-flow.mjs'
+              - 'backend/routers/admin_writing_tips.py'
+              - 'backend/tests/test_admin_writing_tips.py'
+              - 'frontend/app/(authed-admin-writing-tips)/**'
+              - 'frontend/public/css/admin-writing-tips-next.css'
+              - 'frontend/public/pages/admin/writing/tips.html'
+              - 'frontend/tooling/verify-admin-writing-tips-flow.mjs'
+              - 'backend/routers/admin.py'
+              - 'backend/tests/test_admin_grammar.py'
+              - 'frontend/app/(authed-admin-grammar-articles)/**'
+              - 'frontend/lib/admin-grammar-articles-model.mjs'
+              - 'frontend/public/css/admin-grammar-articles-next.css'
+              - 'frontend/public/pages/admin/grammar/articles.html'
+              - 'frontend/public/js/admin-grammar-articles.js'
+              - 'frontend/app/(authed-admin-grammar-analytics)/**'
+              - 'frontend/lib/admin-grammar-analytics-model.mjs'
+              - 'frontend/public/css/admin-grammar-analytics-next.css'
+              - 'frontend/public/pages/admin/grammar/analytics.html'
+              - 'frontend/public/js/admin-grammar-analytics.js'
+              - 'frontend/tooling/verify-admin-grammar-analytics-flow.mjs'
+              - 'frontend/app/(authed-admin-grammar-recommend)/**'
+              - 'frontend/lib/admin-grammar-recommend-model.mjs'
+              - 'frontend/public/css/admin-grammar-recommend-next.css'
+              - 'frontend/public/pages/admin/grammar/recommend-test.html'
+              - 'frontend/public/js/admin-grammar-recommend.js'
+              - 'frontend/tooling/verify-admin-grammar-recommend-flow.mjs'
+              - 'frontend/app/(authed-admin-error-logs)/**'
+              - 'frontend/lib/admin-error-logs-model.mjs'
+              - 'frontend/public/css/admin-error-logs-next.css'
+              - 'frontend/app/(authed-admin-users)/**'
+              - 'frontend/lib/admin-users-model.mjs'
+              - 'frontend/public/css/admin-users-next.css'
+              - 'frontend/app/(authed-admin-classes)/**'
+              - 'frontend/app/(authed-admin-students)/**'
+              - 'frontend/lib/admin-class-detail-model.mjs'
+              - 'frontend/lib/admin-class-homework-model.mjs'
+              - 'frontend/lib/admin-class-submissions-model.mjs'
+              - 'frontend/lib/admin-class-student-work-model.mjs'
+              - 'frontend/lib/admin-classes-model.mjs'
+              - 'frontend/public/css/admin-class-detail-next.css'
+              - 'frontend/public/css/admin-class-homework-next.css'
+              - 'frontend/public/css/admin-class-submissions-next.css'
+              - 'frontend/public/css/admin-class-student-work-next.css'
+              - 'frontend/public/css/admin-classes-next.css'
+              - 'frontend/public/css/admin-students-next.css'
+              - 'frontend/tests/admin-class-detail-next-behavior.test.mjs'
+              - 'frontend/tests/admin-class-homework-next-behavior.test.mjs'
+              - 'frontend/tests/admin-class-submissions-next-behavior.test.mjs'
+              - 'frontend/tests/admin-class-student-work-next-behavior.test.mjs'
+              - 'frontend/public/grammar.html'
+              - 'frontend/public/js/grammar.js'
+              - 'frontend/public/pages/grammar-article.html'
+              - 'frontend/tooling/verify-grammar-roadmap-personal-flow.mjs'
+              - 'frontend/app/(public-content)/vocabulary/**'
+              - 'frontend/lib/vocabulary-api.ts'
+              - 'frontend/lib/vocabulary-model.mjs'
+              - 'frontend/public/vocabulary.html'
+              - 'frontend/public/pages/vocab-article.html'
+              - 'frontend/public/js/vocabulary.js'
+              - 'frontend/public/css/vocab-wiki.css'
+              - 'frontend/tooling/verify-vocabulary-wiki-flow.mjs'
+              - 'frontend/public/js/components/aver-chrome.js'
+              - 'frontend/public/js/auth-me-single-flight.js'
+              - 'frontend/lib/auth/auth-me-single-flight.mjs'
+              - 'frontend/tooling/verify-chrome-nav-width-flow.mjs'
+              - 'frontend/tooling/verify-chrome-early-render-flow.mjs'
+              - 'frontend/app/(authed)/profile/**'
+              - 'frontend/public/css/profile.css'
+              - 'frontend/public/css/grammar-wiki.css'
+              - 'frontend/tooling/verify-mobile-layout-flow.mjs'
+              - 'frontend/components/authed-shell.tsx'
+              - 'frontend/components/supabase-runtime-boundary.tsx'
+              - 'frontend/tooling/verify-chrome-staff-link-race-flow.mjs'
+              - 'frontend/public/js/theme-toggle.js'
+              - 'frontend/public/js/user-pill.js'
+              - 'frontend/public/js/components/perf-hints.js'
+              - 'frontend/tooling/verify-speaking-flow.mjs'
+              - 'frontend/tooling/verify-shared-runtime-client-navigation.mjs'
+              - 'frontend/tooling/verify-reading-vocab-flow.mjs'
+              - 'frontend/tooling/verify-reading-skill-flow.mjs'
+              - 'frontend/tooling/verify-reading-detail-flow.mjs'
+              - 'frontend/tooling/verify-reading-test-flow.mjs'
+              - 'frontend/tooling/verify-reading-mini-test-flow.mjs'
+              - 'frontend/tooling/verify-listening-tests-flow.mjs'
+              - 'frontend/tooling/verify-listening-mini-test-flow.mjs'
+              - 'frontend/tooling/verify-listening-skills-flow.mjs'
+              - 'frontend/tooling/verify-listening-practice-flow.mjs'
+              - 'frontend/tooling/verify-listening-practice-run-flow.mjs'
+              - 'frontend/tooling/verify-listening-landing-flow.mjs'
+              - 'frontend/tooling/verify-listening-browse-flow.mjs'
+              - 'frontend/tooling/verify-listening-standalone-flow.mjs'
+              - 'frontend/tooling/verify-listening-standalone-dictation-flow.mjs'
+              - 'frontend/tooling/verify-listening-analytics-flow.mjs'
+              - 'frontend/tooling/verify-listening-test-session-flow.mjs'
+              - 'frontend/tooling/verify-listening-player-overflow-flow.mjs'
+              - 'frontend/tooling/verify-listening-review-flow.mjs'
+              - 'frontend/tooling/verify-mock-exam-flow.mjs'
+              - 'frontend/tooling/verify-admin-overview-flow.mjs'
+              - 'frontend/tooling/verify-admin-error-logs-flow.mjs'
+              - 'frontend/tooling/verify-admin-alerts-flow.mjs'
+              - 'frontend/tooling/verify-admin-ai-usage-flow.mjs'
+              - 'frontend/tooling/verify-admin-instructors-flow.mjs'
+              - 'frontend/tooling/verify-instructor-dashboard-flow.mjs'
+              - 'frontend/tooling/verify-instructor-compare-flow.mjs'
+              - 'frontend/tooling/verify-admin-usage-flow.mjs'
+              - 'frontend/tooling/verify-admin-foot-traffic-flow.mjs'
+              - 'frontend/tooling/verify-admin-feedback-flow.mjs'
+              - 'frontend/tooling/verify-admin-reading-attempts-flow.mjs'
+              - 'frontend/tooling/verify-admin-reading-flow.mjs'
+              - 'frontend/tooling/verify-admin-reading-content-flow.mjs'
+              - 'frontend/tooling/verify-admin-reading-preview-flow.mjs'
+              - 'frontend/tooling/verify-admin-listening-content-flow.mjs'
+              - 'frontend/tooling/verify-admin-listening-content-detail-flow.mjs'
+              - 'frontend/tooling/verify-admin-listening-content-editor-flow.mjs'
+              - 'frontend/tooling/verify-admin-listening-tests-flow.mjs'
+              - 'frontend/tooling/verify-admin-listening-test-detail-flow.mjs'
+              - 'frontend/tooling/verify-admin-listening-attempts-flow.mjs'
+              - 'frontend/tooling/verify-admin-listening-segments-flow.mjs'
+              - 'frontend/tooling/verify-admin-listening-gist-flow.mjs'
+              - 'frontend/tooling/verify-admin-grammar-flow.mjs'
+              - 'frontend/tooling/verify-admin-speaking-flow.mjs'
+              - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
+              - 'frontend/tooling/verify-admin-speaking-sessions-layout-flow.mjs'
+              - 'frontend/tooling/verify-admin-speaking-topics-flow.mjs'
+              - 'frontend/tooling/verify-admin-writing-flow.mjs'
+              - 'frontend/tooling/verify-admin-grammar-articles-flow.mjs'
+              - 'frontend/tooling/verify-admin-users-flow.mjs'
+              - 'frontend/app/(authed-admin-mfa)/**'
+              - 'frontend/public/css/admin-mfa-next.css'
+              - 'frontend/public/css/admin-mfa-dialog.css'
+              - 'frontend/tooling/admin-mfa-stub.mjs'
+              - 'frontend/tooling/verify-admin-mfa-flow.mjs'
+              - 'frontend/tooling/verify-admin-classes-flow.mjs'
+              - 'frontend/tooling/verify-admin-class-detail-flow.mjs'
+              - 'frontend/tooling/verify-admin-class-homework-flow.mjs'
+              - 'frontend/tooling/verify-admin-class-submissions-flow.mjs'
+              - 'frontend/tooling/verify-admin-class-student-work-flow.mjs'
+              - 'frontend/tooling/verify-admin-students-flow.mjs'
+              - 'frontend/tooling/verify-write-flows.mjs'
+              - 'frontend/tooling/write-flow-core.mjs'
+              - 'frontend/tooling/write-flows/**'
+              - 'frontend/public/css/listening-standalone-next.css'
+              - 'frontend/public/pages/listening-mcq.html'
+              - 'frontend/public/js/listening-mcq.js'
+              - 'frontend/public/pages/listening-tf.html'
+              - 'frontend/public/js/listening-tf.js'
+              - 'frontend/public/pages/listening-gist.html'
+              - 'frontend/public/js/listening-gist.js'
+              - 'frontend/public/pages/listening-dictation.html'
+              - 'frontend/public/js/listening-dictation.js'
+              - 'frontend/public/js/components/audio-player.js'
+              - 'frontend/public/js/components/media-segment-stop.js'
+              - 'frontend/public/js/feedback-widgets.js'
+              - 'frontend/public/css/feedback.css'
+              - 'frontend/app/(authed-listening-player)/**'
+              - 'frontend/public/css/listening-test-next.css'
+              - 'frontend/public/pages/reading-exam.html'
+              - 'frontend/public/js/reading-exam.js'
+              - 'frontend/public/js/markdown.js'
+              - 'frontend/public/js/mock-exam-hook.js'
+              - 'frontend/public/js/runtime-config.js'
+              - 'frontend/public/css/reading-exam.css'
+              - 'frontend/public/css/reading-exam-mockup.css'
+              - 'frontend/public/pages/practice.html'
+              - 'frontend/public/js/practice.js'
+              - 'frontend/public/js/pronunciation-drilldown.js'
+              - 'frontend/public/css/practice.css'
+              - 'frontend/public/css/speaking-assignment.css'
+              - 'frontend/public/js/speaking-debt.js'
+              - 'frontend/public/pages/reading-review.html'
+              - 'frontend/public/js/reading-review.js'
+              - 'frontend/public/js/components/glossary-popover.js'
+              - 'frontend/public/css/reading-review.css'
+              - 'frontend/public/css/markdown.css'
+              - 'frontend/public/js/api.js'
+              - 'frontend/public/js/analytics-beacon.js'
+              - 'frontend/public/**/*.html'
+              - 'frontend/next.config.ts'
+              - 'frontend/proxy.ts'
+              - 'frontend/tooling/content-security-policy.mjs'
+              - 'frontend/tooling/check-csp-nonce-deployed.mjs'
+              - 'frontend/tooling/nonce-route-table.mjs'
+              - 'frontend/tooling/runtime-origins.mjs'
+              - 'frontend/playwright.reading-native.config.js'
+              - 'frontend/package-lock.json'
+              - 'frontend/package.json'
+              - 'frontend/tsconfig.json'
+              - 'frontend/types/**'
+              - '.github/workflows/next-native-browser.yml'
+              - 'frontend/app/**'
+              - 'frontend/public/css/**'
+              - 'frontend/public/js/**'
+              - 'frontend/tooling/verify-*.mjs'
+              - 'frontend/tooling/grammar-404-ssr-checks.mjs'
+              - 'frontend/tooling/next-native-fixture-api.mjs'
+              - 'frontend/tooling/redact-secrets.cjs'
+              - 'frontend/tooling/sanitize-artifacts.mjs'
+              - 'frontend/tooling/scan-artifact-secrets.mjs'
+              - 'frontend/tests/**'
+              - 'backend/**'
+
+      - name: Report
+        env:
+          EVENT: ${{ github.event_name }}
+          RUN: ${{ github.event_name != 'pull_request' && 'true' || steps.filter.outputs.run_tests }}
+        run: |
+          echo "event=$EVENT run_tests=${RUN:-<empty, heavy steps run>}"
+
   browser-regression:
     name: Next-native browser regression
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Job LUÔN chạy và luôn báo check (check bắt buộc của staging): skip ở mức job
+    # thì GitHub báo «skipped»; ở đây PR ngoài danh sách chỉ chạy bước báo bỏ qua
+    # rồi XANH. `!cancelled()`: `changes` hỏng ⇒ output rỗng ⇒ RUN_BROWSER 'true'.
+    # Always run and report; steps skip when the PR touches no listed path.
+    needs: changes
+    if: ${{ !cancelled() }}
+    env:
+      # 'true' unless this is a PR that touches none of the `changes` globs.
+      RUN_BROWSER: ${{ (github.event_name != 'pull_request' || needs.changes.outputs.run_tests != 'false') }}
     defaults:
       run:
         working-directory: frontend
     steps:
+      - name: No matching paths — browser regression intentionally skipped
+        if: env.RUN_BROWSER != 'true'
+        working-directory: .
+        run: |
+          echo "no matching paths: this PR touches none of the Next-native gate globs; browser steps skipped."
+
       - uses: actions/checkout@v5
+        if: env.RUN_BROWSER == 'true'
 
       - uses: actions/setup-node@v5
+        if: env.RUN_BROWSER == 'true'
         with:
           node-version: '24'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - name: Cài phụ thuộc
+        if: env.RUN_BROWSER == 'true'
         run: npm ci
 
       - name: Build Next với endpoint test cô lập
+        if: env.RUN_BROWSER == 'true'
         run: npm run build
 
       - name: Cài Chromium cho Playwright
+        if: env.RUN_BROWSER == 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Khởi động fixture API cho Server Components
+        if: env.RUN_BROWSER == 'true'
         run: |
           node tooling/next-native-fixture-api.mjs > /tmp/next-native-fixture-api.log 2>&1 &
           echo $! > /tmp/next-native-fixture-api.pid
@@ -775,6 +846,7 @@ jobs:
           exit 1
 
       - name: Khởi động Next
+        if: env.RUN_BROWSER == 'true'
         run: |
           npx next start -p "$TEST_PORT" > /tmp/next-native-browser.log 2>&1 &
           echo $! > /tmp/next-native-browser.pid
@@ -789,9 +861,11 @@ jobs:
       # PC-J230 / J77 F1-F2: tự chạy next start và fixture riêng trên cổng trống,
       # không dùng server :3000 ở trên.
       - name: Kiểm 404 Grammar render phía server có CSS
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-grammar-404-ssr-flow.mjs
 
       - name: Kiểm boundary Pricing pre-launch
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-pricing-redirect-flow.mjs "http://localhost:$TEST_PORT"
 
       # Login needs interaction evidence beyond the signed-out parity frame:
@@ -799,71 +873,89 @@ jobs:
       # lost-ACK reconciliation path are all exercised with a fake backend,
       # plus a real supabase-js PKCE sign-in → logout journey (F06).
       - name: Kiểm luồng Login/Auth native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-login-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm luồng Onboarding native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-onboarding-flow.mjs "http://localhost:$TEST_PORT" --next-only
 
       # Player Quiz có state ghi thích ứng; cặp parity tĩnh chỉ phủ nhánh thiếu
       # bank. Fixture này chứng minh answer/advance locks, retry outbox,
       # non-destructive review, reset reconcile và summary ngay trong browser.
       - name: Kiểm luồng Quiz native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-quiz-flow.mjs "http://localhost:$TEST_PORT"
 
       # Source-bound full-bank payloads exercise managed admission, exact-form
       # grading and stale/reset ACKs with isolated auth and HTTP transports.
       - name: Kiểm Grammar revision và exact-form Quiz native
+        if: env.RUN_BROWSER == 'true'
         env:
           GRAMMAR_NATIVE_OUTPUT: /tmp/grammar-managed-quiz-browser.json
         run: node tooling/verify-grammar-managed-quiz-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm lịch sử Grammar giữ nguyên câu hỏi và đáp án
+        if: env.RUN_BROWSER == 'true'
         env:
           GRAMMAR_HISTORY_OUTPUT: /tmp/grammar-quiz-history-browser.json
         run: node tooling/verify-grammar-quiz-history-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm Admin Grammar preview và phục hồi receipt
+        if: env.RUN_BROWSER == 'true'
         env:
           ADMIN_GRAMMAR_BROWSER_EVIDENCE: /tmp/admin-grammar-revision-browser.json
         run: node tooling/verify-admin-grammar-revision-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm luồng Exam player native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-exam-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/mock-exam` điều phối clock chung, iframe L/R và Writing autosave.
       # Parity tĩnh chỉ thấy nhánh thiếu identity; fixture này khóa create
       # reconciliation, retake assignment, flush order và final-submit lost ACK.
       - name: Kiểm luồng Mock Exam runner native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-mock-exam-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm history và focus nội dung Writing
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-writing-content-history-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm luồng Writing learner native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-writing-admission-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm CLS và cuộn tab Writing dashboard
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-writing-dashboard-layout-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm chọn tab Writing giữ vị trí cuộn trang
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-writing-dashboard-tab-scroll-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm context Reading và Listening
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-learning-context-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm lifecycle Listening programme
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-listening-programme-context-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm context Grammar
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-grammar-navigation-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm luồng tạo phiên (Speaking)
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-speaking-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm bootstrap qua App Router client navigation
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-shared-runtime-client-navigation.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm layout Next ở desktop và điện thoại
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-next-responsive-flow.mjs "http://localhost:$TEST_PORT"
 
       # PC-J13 (U-16/BL-01/BL-08/BL-13): /quiz, /mock-exam, /grammar-lessons/assigned
@@ -871,12 +963,14 @@ jobs:
       # mang title chung; /grammar-checkup theo tài khoản đổi ở tab khác; modal
       # kích hoạt trên /login có Đăng xuất.
       - name: Kiểm trạng thái lỗi, đổi tài khoản và đăng xuất khi chưa kích hoạt
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-error-states-flow.mjs "http://localhost:$TEST_PORT"
 
       # U-20: từ 721px tới ~1180px menu đầy đủ từng gãy thành 2-3 hàng và hero
       # /home làm trang cuộn ngang. Runner này đo nav một hàng hoặc hamburger,
       # không cuộn ngang ở 720-1280px, và menu tablet vẫn mở/Escape đúng.
       - name: Kiểm nav chrome không gãy hàng ở bề rộng tablet
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-chrome-nav-width-flow.mjs "http://localhost:$TEST_PORT"
 
       # PC-J06 (U-21/U-15/U-06): header từng chờ runtime-config → client →
@@ -884,15 +978,18 @@ jobs:
       # ăn. Runner giữ api.js lại: header + hamburger phải có trong 1s, pill
       # điền sau khi api.js về, khách ở Grammar không thấy "·" / "…".
       - name: Kiểm header hiện ngay, không chờ runtime Supabase
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-chrome-early-render-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm link "Trang giảng viên" của staff khi trang gọi setUser trước chrome
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-chrome-staff-link-race-flow.mjs "http://localhost:$TEST_PORT"
 
       # PC-J13 (U-05/U-08/U-18): ở 360/390px breadcrumb sticky + thanh CTA khách
       # che ~1/5 bài grammar, nút CTA teal mất tương phản ở theme sáng, /profile
       # tràn ngang (chip band), email bị cắt và toast "Đã lưu" có sẵn trong DOM.
       - name: Kiểm bài grammar và /profile ở bề rộng điện thoại
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-mobile-layout-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/reading/vocab` đã chuyển request/filter/state sang React. Cổng parity
@@ -901,112 +998,135 @@ jobs:
       # phiên + backend giả và chặn toàn bộ request; không cần secret, không ghi
       # vào dữ liệu nào.
       - name: Kiểm luồng Reading Vocab native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-reading-vocab-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/grammar/roadmap?slug=` được G1 public parity phủ; mode không slug là
       # private/account-keyed nên cần fixture riêng để kiểm auth, lỗi-vs-rỗng,
       # authored-text escaping và responsive layout mà không ghi production.
       - name: Kiểm luồng Grammar Roadmap cá nhân native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-grammar-roadmap-personal-flow.mjs "http://localhost:$TEST_PORT"
 
       # Public parity khóa nội dung ban đầu; fixture browser này khóa các hành
       # vi sau hydrate: filter, compound deep-link, feedback và mobile sheet.
       - name: Kiểm luồng Vocabulary Wiki native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-vocabulary-wiki-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm luồng D1 Exercise native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-d1-exercise-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm bộ từ theo lớp và bốn chế độ học
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-vocabulary-class-sets-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm luồng Advanced Vocabulary self-paced
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-advanced-vocabulary-flow.mjs "http://localhost:$TEST_PORT"
 
       # G-01: guarded learner routes boot only once signed in (api.js is
       # delayed to force the direct-load race) and show nothing private before
       # the signed-out /login redirect.
       - name: Kiểm route học viên chờ đăng nhập trước khi khởi động
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-learner-route-auth-boot-flow.mjs "http://localhost:$TEST_PORT"
 
       # PC-J38: signed-in routes carry a nonce Report-Only CSP next to the
       # unchanged enforced one, load with 0 Report-Only violations, and an
       # injected <img onerror> is reported. CSP is not bypassed here.
       - name: Kiểm CSP nonce Report-Only trên route đã đăng nhập
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-csp-nonce-report-only-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/reading/skill` cũng sở hữu request/filter/state bằng React. Chạy độc
       # lập để bắt canonical total, nhóm kỹ năng, response filter cũ và reset.
       - name: Kiểm luồng Reading Skill native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-reading-skill-flow.mjs "http://localhost:$TEST_PORT"
 
       # Hai detail route dùng chung một workspace React. Runner này ghim
       # answer-key fail-close, bốn loại control L1/L2, retry/sync lock,
       # tabs/dialog keyboard, feedback flag và mobile containment.
       - name: Kiểm luồng Reading Detail native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-reading-detail-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/reading/test` sở hữu filter/card/state bằng React; kiểm canonical
       # total, test_type=full, reset và response cũ ngay trên production build.
       - name: Kiểm luồng Reading Full Test native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-reading-test-flow.mjs "http://localhost:$TEST_PORT"
 
       # Mini Test có default và thống kê duration riêng; runner này ngăn nó
       # trượt về default Full Test khi phần behavior được đổi.
       - name: Kiểm luồng Reading Mini Test native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-reading-mini-test-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/listening/tests` phân biệt activity attempt với submitted attempt.
       # Runner browser khóa lại filter, trạng thái card, CTA và escaping thật.
       - name: Kiểm luồng Listening Full Tests native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-listening-tests-flow.mjs "http://localhost:$TEST_PORT"
 
       # Mini Tests có score không cố định và completion dựa trên submitted.
       - name: Kiểm luồng Listening Mini Test native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-listening-mini-test-flow.mjs "http://localhost:$TEST_PORT"
 
       # Skill Drills có nav 11 dạng, ladder L/T và completion theo submitted.
       - name: Kiểm luồng Listening Skills native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-listening-skills-flow.mjs "http://localhost:$TEST_PORT"
 
       # Luyện nhanh có overview-driven tabs, cache theo tab và hash selection.
       - name: Kiểm luồng Listening Practice native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-listening-practice-flow.mjs "http://localhost:$TEST_PORT"
 
       # Runner Luyện nhanh ghim resume-before-start, first-answer scoring,
       # two-miss reveal, exact check retry và submit reconciliation.
       - name: Kiểm luồng Listening Practice runner native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-listening-practice-run-flow.mjs "http://localhost:$TEST_PORT"
 
       # Landing dùng overview để quyết định card nào có đích chạy thật.
       - name: Kiểm luồng Listening Landing native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-listening-landing-flow.mjs "http://localhost:$TEST_PORT"
 
       # Browse khóa filter contract và chỉ mở exercise modes backend xác nhận.
       - name: Kiểm luồng Listening Browse native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-listening-browse-flow.mjs "http://localhost:$TEST_PORT"
 
       # Ba exercise lẻ dùng chung contract đọc/ghi nhưng khác payload. Runner
       # fixture kiểm cả MCQ, T/F và Gist trên mã React thật, gồm answer-leak,
       # identity, submit, reset, lỗi thân thiện và mobile containment.
       - name: Kiểm luồng Listening exercises native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-listening-standalone-flow.mjs "http://localhost:$TEST_PORT"
 
       # Standalone Dictation uses content_id and per-segment writes; it is not
       # the test-linked core player below. The fixture pins transcript secrecy,
       # clipped iteration, retry truth, completion and soft-navigation reset.
       - name: Kiểm luồng Listening standalone Dictation native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-listening-standalone-dictation-flow.mjs "http://localhost:$TEST_PORT"
 
       # Analytics khóa range contract, weighted denominators và trạng thái
       # recent/empty/error trên browser thật.
       - name: Kiểm luồng Listening Analytics native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-listening-analytics-flow.mjs "http://localhost:$TEST_PORT"
 
       # Core player không thể so bằng snapshot tĩnh: canonical attempt chỉ lộ
       # khi bấm, reload và submit. Runner dùng phiên/backend giả, không ghi dữ
       # liệu thật và fail nếu partial save vẫn cho phép finalization.
       - name: Kiểm luồng Listening Test native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-listening-test-session-flow.mjs "http://localhost:$TEST_PORT"
 
       # Trang làm bài là overflow:hidden nên tràn ngang bị cắt im lặng, không
@@ -1014,23 +1134,27 @@ jobs:
       # admin preview và mock embed: palette cố định phải nằm trọn trong màn
       # hình, nội dung không vượt mép khung bài nếu không có khung cuộn riêng.
       - name: Kiểm Listening player không tràn ngang
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-listening-player-overflow-flow.mjs "http://localhost:$TEST_PORT"
 
       # Review has no deterministic production attempt for static parity.
       # This hermetic fixture pins submitted/auth gates, preview neutrality,
       # filters, transcript/audio sync, escaping and responsive containment.
       - name: Kiểm luồng Listening Review native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-listening-review-flow.mjs "http://localhost:$TEST_PORT"
 
       # Dictation player owns multi-section practice and a durable completion
       # receipt. The fixture commits then drops the POST acknowledgement and
       # requires exact request-id GET reconciliation before success is shown.
       - name: Kiểm luồng Listening Dictation native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-listening-dictation-session-flow.mjs "http://localhost:$TEST_PORT"
 
       # Frozen v1/v2 receipts, raw Unicode spans and owned report reloads use
       # intercepted contracts; this runner performs no live backend writes.
       - name: Kiểm chính sách Dictation v1 và v2 native
+        if: env.RUN_BROWSER == 'true'
         env:
           DICTATION_BROWSER_EVIDENCE: /tmp/dictation-versioned-browser.json
         run: node tooling/verify-dictation-versioned-flow.mjs "http://localhost:$TEST_PORT"
@@ -1039,105 +1163,126 @@ jobs:
       # chứng minh dashboard thật. Runner này fixture `/auth/me` + ba read API,
       # kiểm race/refresh/escaping/responsive và fail nếu có mutation nghiệp vụ.
       - name: Kiểm luồng Admin Overview native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-overview-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/error-logs` có cả read dashboard và mutations dismiss/undo/test.
       # Runner fixture backend, kiểm canonical reload + rollback metrics và cấm
       # mọi đường ghi ngoài contract, không chạm dữ liệu thật.
       - name: Kiểm luồng Admin Error Logs native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-error-logs-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/system/alerts` là read-only operational triage. Runner ghim
       # canonical dedupe/partial identity, scope URL, escaping và cấm mutation.
       - name: Kiểm luồng Admin Alerts native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-alerts-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/system/ai-usage` là read-only cost report. Runner ghim period,
       # service lạ, safety cap/truncation, escaping và cấm mutation.
       - name: Kiểm luồng Admin AI Usage native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-ai-usage-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/instructors` là read-only ownership/cost oversight. Runner ghim
       # metric regrade khác nhau, sanctioned impersonation URL và responsive UI.
       - name: Kiểm luồng Admin Instructors native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-instructors-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/instructor` dùng role-aware fixture thay cho G1 probe không có role.
       # Runner ghim owner scope, impersonation, canonical reload và responsive UI.
       - name: Kiểm luồng Instructor Dashboard native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-instructor-dashboard-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/instructor/compare` dùng role-aware fixture và mutation readback giả.
       # Runner ghim full-feedback preview, owner scope, impersonation và no-replay.
       - name: Kiểm luồng Instructor Compare native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-instructor-compare-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm luồng Instructor Grade native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-instructor-grade-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/usage` là read-only user/code rollup. Runner ghim metric bị lỗi
       # vẫn là unknown, code drill-down, URL filters, escaping và responsive UI.
       - name: Kiểm luồng Admin Usage native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-usage-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/foot-traffic` is read-only analytics. Fixture pins inclusive
       # date filters, exact route, partial/unavailable truth and responsive UI.
       - name: Kiểm luồng Admin Foot Traffic native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-foot-traffic-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/feedback` has a canonical status mutation. The fixture proves
       # URL filtering, hostile-content escaping, degraded states and GET
       # readback after each PATCH without touching production data.
       - name: Kiểm luồng Admin Feedback native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-feedback-flow.mjs "http://localhost:$TEST_PORT" --next-only
 
       - name: Kiểm luồng Admin Reading Attempts native + rollback
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-reading-attempts-flow.mjs "http://localhost:$TEST_PORT" --next-only
 
       # `/admin/reading` is the read-only routing hub. Fixture pins role gate,
       # truthful native/legacy destinations and responsive visual containment.
       - name: Kiểm luồng Admin Reading hub native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-reading-flow.mjs "http://localhost:$TEST_PORT"
 
       # Content manager mutates canonical Reading data. Fixture pins dry-run
       # structure, route ownership, responsive table and GET readback after write.
       - name: Kiểm luồng Admin Reading content native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-reading-content-flow.mjs "http://localhost:$TEST_PORT"
 
       # Paper QA exposes answer keys and mutates shared diagram images. Fixture
       # pins block ownership, sanitized Markdown and canonical readback after write.
       - name: Kiểm luồng Admin Reading preview native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-reading-preview-flow.mjs "http://localhost:$TEST_PORT"
 
       # Listening inventory is read-only. Fixture pins filter URL, canonical
       # paging, per-row exercise partial failures and responsive containment.
       - name: Kiểm luồng Admin Listening content native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-listening-content-flow.mjs "http://localhost:$TEST_PORT"
 
       # Content detail separates metadata/exercise reads, confirms publication
       # changes and reconciles every write through the canonical content GET.
       - name: Kiểm luồng Admin Listening content detail native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-listening-content-detail-flow.mjs "http://localhost:$TEST_PORT"
 
       # Metadata editor sends only deltas, uses an atomic version token and
       # concludes success only after exact canonical GET reconciliation.
       - name: Kiểm luồng Admin Listening content editor native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-listening-content-editor-flow.mjs "http://localhost:$TEST_PORT"
 
       # Test inventory mutates publication and exam-only visibility. Fixture
       # pins URL filters, stale-ACK rejection and exact GET + list readback.
       - name: Kiểm luồng Admin Listening tests native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-listening-tests-flow.mjs "http://localhost:$TEST_PORT"
 
       # Test detail owns audio/map/publication/delete mutations. Fixture pins
       # stale-ACK rejection, mode rollback, cascade archive and typed hard delete.
       - name: Kiểm luồng Admin Listening test detail native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-listening-test-detail-flow.mjs "http://localhost:$TEST_PORT"
 
       # Attempt inventory is read-only but association truth is operationally
       # sensitive. Fixture pins canonical filters, lookup-failure visibility,
       # exact detail identity, pagination and responsive containment.
       - name: Kiểm luồng Admin Listening attempts native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-listening-attempts-flow.mjs "http://localhost:$TEST_PORT"
 
       # Dictation reports are read-only but aggregate scope and learner
@@ -1145,188 +1290,224 @@ jobs:
       # stale-response rejection, full-scope aggregate, exact session detail,
       # independent failure states, pagination and responsive containment.
       - name: Kiểm luồng Admin Listening dictation native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-listening-dictation-flow.mjs "http://localhost:$TEST_PORT"
 
       # Segment authoring mutates exact Dictation blocks. The fixture pins
       # multi-block identity, version conflicts, durable receipts, canonical
       # GET reconciliation, the public audio-time API and responsive containment.
       - name: Kiểm luồng Admin Listening segments native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-listening-segments-flow.mjs "http://localhost:$TEST_PORT"
 
       # Gist authoring mutates exact rubric blocks. The fixture pins strict
       # keywords, version conflicts, durable receipts and canonical readback.
       - name: Kiểm luồng Admin Listening Gist native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-listening-gist-flow.mjs "http://localhost:$TEST_PORT"
 
       # True/False authoring mutates exact answer-key blocks. The fixture pins
       # T/F/NG ground truth, version conflicts, durable receipts and readback.
       - name: Kiểm luồng Admin Listening True False native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-listening-true-false-flow.mjs "http://localhost:$TEST_PORT"
 
       # MCQ authoring mutates exact answer-key blocks. The fixture pins four
       # option truth, version conflicts, receipts, focus stability and readback.
       - name: Kiểm luồng Admin Listening MCQ native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-listening-mcq-flow.mjs "http://localhost:$TEST_PORT"
 
       # Full-test import is a four-file write boundary. The fixture pins SHA-256
       # invalidation, duplicate fail-closed behavior, upload progress, durable
       # receipts, GET-only ambiguity reconciliation and publication readback.
       - name: Kiểm luồng Admin Listening full-test import native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-listening-fulltest-import-flow.mjs "http://localhost:$TEST_PORT"
 
       # Skill-drill import is a client-side batch write boundary. The fixture
       # pins deterministic grouping, duplicate locks, sequential receipts,
       # upload progress and GET-only ambiguity reconciliation.
       - name: Kiểm luồng Admin Listening skill-drill import native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-listening-drill-import-flow.mjs "http://localhost:$TEST_PORT"
 
       # Quality audit distinguishes live structural evidence, persisted full
       # audit and lookup failure across the complete paginated test inventory.
       - name: Kiểm luồng Admin Listening quality audit native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-listening-audit-flow.mjs "http://localhost:$TEST_PORT"
 
       # The detail workspace is a versioned repair boundary. The fixture pins
       # exact section audio, canonical readback, paid-run receipts and triage.
       - name: Kiểm luồng Admin Listening audit detail native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-listening-audit-detail-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/grammar` is a read-only content-operations hub. The fixture
       # proves backend role gating, canonical destinations and mobile/desktop UI.
       - name: Kiểm luồng Admin Grammar hub native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-grammar-flow.mjs "http://localhost:$TEST_PORT"
 
       # Vocabulary Stats, D1 and Lemma contain admin mutations. The fixture
       # asserts exact bodies, in-flight locks and canonical GET readbacks.
       - name: Kiểm luồng Admin Vocabulary native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-vocab-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm luồng Admin Speaking hub native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-speaking-flow.mjs "http://localhost:$TEST_PORT"
 
       # Sessions mutates grading and summary state. The fixture pins URL/deep
       # links, stale-request suppression, accessible confirmations, partial
       # failure truth and canonical GET readback after every write.
       - name: Kiểm luồng Admin Speaking Sessions native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-speaking-sessions-flow.mjs "http://localhost:$TEST_PORT"
 
       # UIA-1030-A1: with the admin sidebar open at 1280/1366 px the filter grid
       # pushed the page sideways. Pins no page overflow, wrapped filter actions
       # and the table scrolling inside its own frame (light/dark, 390 unchanged).
       - name: Kiểm bố cục Admin Speaking Sessions không tràn ngang
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-speaking-sessions-layout-flow.mjs "http://localhost:$TEST_PORT"
 
       # Topics mutates topic/question libraries and AI rotation. The fixture
       # pins safe missing-only semantics, exact payloads and canonical readback.
       - name: Kiểm luồng Admin Speaking Topics native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-speaking-topics-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm luồng Admin Writing hub native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-writing-flow.mjs "http://localhost:$TEST_PORT"
 
       # Queue mutates reviewed and Mock essay state. Fixture pins exact ACKs,
       # canonical readback, stale snapshots, hostile data and responsive cards.
       - name: Kiểm luồng Admin Writing Queue native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-writing-queue-flow.mjs "http://localhost:$TEST_PORT"
 
       # Status is a read-only per-essay job monitor. The fixture pins exact
       # identity, sequential polling, stale snapshot truth, terminal hops,
       # embedded Mock flags, hostile retry data and responsive layout.
       - name: Kiểm luồng Admin Writing Status native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-writing-status-flow.mjs "http://localhost:$TEST_PORT"
 
       # Prompts mutates content, storage images, archive and answer-key state.
       # The fixture pins exact ACKs, canonical readback and mobile layout.
       - name: Kiểm luồng Admin Writing Prompts native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-writing-prompts-flow.mjs "http://localhost:$TEST_PORT"
 
       # Regrade Requests mutates essay visibility and request lifecycle. The
       # fixture pins exact ACKs, atomic state, readback retry and mobile layout.
       - name: Kiểm luồng Admin Writing Regrade Requests native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-writing-regrade-flow.mjs "http://localhost:$TEST_PORT"
 
       # Assignments fan-out can duplicate hundreds of writes when a client
       # retries POST after a readback failure. This fixture pins immutable
       # receipts, GET-only reconciliation and source-specific picker errors.
       - name: Kiểm luồng Admin Writing Assignments native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-writing-assignments-flow.mjs "http://localhost:$TEST_PORT"
 
       # Cohorts is a read-only operational matrix. The fixture pins repeated
       # prompt gives, canonical essay links, stale truth and mobile containment.
       - name: Kiểm luồng Admin Writing Cohorts native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-writing-cohorts-flow.mjs "http://localhost:$TEST_PORT"
 
       # Instructor Queue mutates ownership. The fixture pins edited-lane
       # visibility, exact ACK + canonical readback, ambiguous response
       # reconciliation without POST replay, embed flags and mobile containment.
       - name: Kiểm luồng Admin Writing Instructor Queue native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-writing-instructor-queue-flow.mjs "http://localhost:$TEST_PORT"
 
       # Writing Tips combines CRUD with dry-run→commit Markdown import. The
       # fixture pins sanitized preview, exact ACK + canonical readback,
       # account-keyed receipts, no mutation replay and responsive containment.
       - name: Kiểm luồng Admin Writing Tips native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-writing-tips-flow.mjs "http://localhost:$TEST_PORT"
 
       # Independent grading has no idempotency key. The fixture pins exact
       # ACK redirect, definitive 4xx recovery, ambiguous-write receipt/no retry,
       # extraction/upload contracts and responsive containment.
       - name: Kiểm luồng Admin Writing New native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-writing-new-flow.mjs "http://localhost:$TEST_PORT"
 
       # Native Mock Test orchestration is read-only. This fixture pins the
       # backend-owned role gate, canonical selection, draft-live safety,
       # shareable tabs, exact child identity and mobile containment.
       - name: Kiểm luồng Admin Mock Tests native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-mock-tests-flow.mjs "http://localhost:$TEST_PORT"
 
       # Native definition workspace exercises canonical exam/progress reads,
       # guarded sequential writes, retake assignment and content-library truth.
       - name: Kiểm luồng Admin Mock Exams native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-mock-exams-flow.mjs "http://localhost:$TEST_PORT"
 
       # Native invigilator operations keep irreversible controls canonical;
       # pacing remains read-only and states its timestamp limits explicitly.
       - name: Kiểm luồng Admin Mock Live và Pacing native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-mock-live-flow.mjs "http://localhost:$TEST_PORT"
 
       # Native review console pins lookup failure truth, per-skill review,
       # canonical mutation readbacks, release confirmation and report bands.
       - name: Kiểm luồng Admin Mock Reviews và Report native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-mock-reviews-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/grammar/articles` is a read-only Markdown inventory. The fixture
       # pins URL filters, analytics availability, sandboxed previews and layout.
       - name: Kiểm luồng Admin Grammar Articles native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-grammar-articles-flow.mjs "http://localhost:$TEST_PORT"
 
       # PDF findings 18–22 span the shared learner/admin feedback renderer,
       # rating lifecycle, preview retry and truthful failed/stale read states.
       # The only write is an explicitly clicked rating Save intercepted locally.
       - name: Kiểm khắc phục feedback và trạng thái đọc admin
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-remediation-flow.mjs "http://localhost:$TEST_PORT"
 
       # Inline detail panels keep keyboard focus without a modal trap. Fixture
       # journeys also cover the PDF viewport and dynamic Mock iframe sizing.
       - name: Kiểm Escape, focus và bố cục admin
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-accessibility-remediation-flow.mjs "http://localhost:$TEST_PORT"
 
       # Frozen report-only policies preserve null scores and question states;
       # Published tabs select a view, and audio counts state their section scope.
       - name: Kiểm nhãn vận hành và phạm vi dữ liệu admin
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-clarity-remediation-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/grammar/analytics` is read-only canonical aggregation. The fixture
       # pins URL windows, stale snapshots, degraded sources and responsive tables.
       - name: Kiểm luồng Admin Grammar Analytics native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-grammar-analytics-flow.mjs "http://localhost:$TEST_PORT" --next-only
 
       - name: Kiểm luồng Admin Grammar Recommendation lab native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-grammar-recommend-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/users` gộp users + access-code lifecycle. Runner fixture backend
       # và buộc mọi mutation phải được reconcile bằng GET canonical trước khi
       # UI báo thành công; không chạm dữ liệu thật.
       - name: Kiểm luồng Admin Users native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-users-flow.mjs "http://localhost:$TEST_PORT"
 
       # ADMINAAL2-0032 T010: AdminAccessGate + /admin/mfa. Fixture stubs every
@@ -1334,38 +1515,45 @@ jobs:
       # banner, enroll/challenge/wrong code/429/remove with a fresh code, and
       # the api.js `mfa_required` navigation. No real factor or account.
       - name: Kiểm luồng Admin MFA (AAL2) native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-mfa-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/classes` là directory có mutation. Runner chứng minh mọi write
       # được canonical reload, rollup/course lookup lỗi không bị bịa thành 0/rỗng,
       # và edit lớp có course mồ côi không âm thầm tháo liên kết.
       - name: Kiểm luồng Admin Classes native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-classes-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/classes/[cohortId]` có ba nguồn độc lập và mutations roster/
       # lesson. Fixture ghim partial failure, nullable clears, chuyển lớp và
       # canonical reload; homework/marking được kiểm bằng hai runner kế tiếp.
       - name: Kiểm luồng Admin Class Detail native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-class-detail-flow.mjs "http://localhost:$TEST_PORT"
 
       # Assignment lifecycle là boundary ghi riêng: fixture ghim subset/class,
       # mastery config, backfill, compare-and-confirm hạn và canonical reload.
       - name: Kiểm luồng Admin Class Homework native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-class-homework-flow.mjs "http://localhost:$TEST_PORT"
 
       # Tally/effort/bài từng em là các mặt đọc khác nhau của cùng sổ bài giao;
       # runner còn ghim trả bài phải reload canonical tally và audit status.
       - name: Kiểm luồng Admin Class Submissions native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-class-submissions-flow.mjs "http://localhost:$TEST_PORT"
 
       # Từ một học viên, runner đọc lịch sử xuyên bài giao, chỉ mở artifact có
       # bằng chứng và quay lại đúng hồ sơ sau khi xem bài từng em.
       - name: Kiểm luồng Admin Class Student Work native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-class-student-work-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/students` có search, CSV và mutation roster. Fixture ghim
       # canonical reload, nullable clears, partial profile failure và cấm hard delete.
       - name: Kiểm luồng Admin Students native
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-admin-students-flow.mjs "http://localhost:$TEST_PORT"
 
       # CỔNG ĐƯỜNG-GHI. Bổ sung cho bước trên chứ không thay thế: bước kia
@@ -1376,6 +1564,7 @@ jobs:
       #
       # Không cần secret, không ghi vào đâu (mạng bị chặn, dữ liệu trả sẵn).
       - name: Cổng đường-ghi
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-write-flows.mjs "http://localhost:$TEST_PORT"
 
       # PC-J566 (hướng b, SA-1029-CSP1 F1): Next trả URL không khớp route nào
@@ -1392,6 +1581,7 @@ jobs:
       # next-server con mới giữ cổng, nên dừng cả process đang nghe cổng và
       # chờ cổng trống. Pid mới thay pid cũ cho bước "Dừng Next".
       - name: Build lại với CSP nonce enforce và khởi động lại Next
+        if: env.RUN_BROWSER == 'true'
         env:
           AVER_CSP_NONCE_ENFORCE: '1'
         run: |
@@ -1420,13 +1610,14 @@ jobs:
           exit 1
 
       - name: Kiểm CSP trên trang 404 đã đăng nhập (enforce, baseline không nonce)
+        if: env.RUN_BROWSER == 'true'
         run: node tooling/verify-csp-nonce-404-flow.mjs --enforced "http://localhost:$TEST_PORT"
 
       # PC-J437: artifact không qua bộ che log của Actions. Che tại chỗ rồi
       # quét; còn bearer/JWT thì bước này đỏ và KHÔNG nộp artifact.
       - name: Che + quét secret trong log trước khi nộp
         id: native_log_artifact_guard
-        if: ${{ failure() }}
+        if: ${{ failure() && env.RUN_BROWSER == 'true' }}
         run: |
           node tooling/sanitize-artifacts.mjs \
             /tmp/next-native-browser.log \
@@ -1444,7 +1635,7 @@ jobs:
             /tmp/admin-grammar-revision-browser.json
 
       - name: Nộp log server khi lỗi
-        if: ${{ failure() && steps.native_log_artifact_guard.outcome == 'success' }}
+        if: ${{ failure() && steps.native_log_artifact_guard.outcome == 'success' && env.RUN_BROWSER == 'true' }}
         uses: actions/upload-artifact@v6
         with:
           name: next-native-browser-log-${{ github.run_id }}
@@ -1457,7 +1648,7 @@ jobs:
             /tmp/admin-grammar-revision-browser.json
 
       - name: Dừng Next
-        if: ${{ always() }}
+        if: ${{ always() && env.RUN_BROWSER == 'true' }}
         run: |
           kill "$(cat /tmp/next-native-browser.pid)" 2>/dev/null || true
           kill "$(cat /tmp/next-native-fixture-api.pid)" 2>/dev/null || true
@@ -1475,6 +1666,9 @@ jobs:
     name: Reading-native layout (FR-018)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Không bắt buộc: skip ở mức job khi PR không chạm danh sách (`changes`).
+    needs: changes
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.outputs.run_tests != 'false') }}
     defaults:
       run:
         working-directory: frontend

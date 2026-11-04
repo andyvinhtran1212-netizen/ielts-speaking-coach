@@ -145,6 +145,27 @@ then explicitly opts in with `MIGRATION_FEATURES=vocab_curated_guard_reparent`
 under the advisory-locked runner and STAGING_FREEZE, staging first. Production
 requires separate owner approval at promotion; merging does not apply 355.
 
+Migration `353` (PC-J252 / PC-J512, PAPERUPDATEDAT-0037 FR-006 + FR-007)
+fixes the Listening package publish/archive RPC
+(`set_listening_content_package_status`), which raised 55000
+`listening_package_child_immutable` once 306/308 were active. It replaces only
+two function bodies, both pinned to `search_path = pg_catalog, public, pg_temp`:
+295's `fn_protect_listening_package_child` also accepts the `policy_revision`
++1 that 306's policy guard derives from a status/`is_public` change (contract
+active, transition GUC still required), and 306's `fn_guard_mock_paper_source`
+no longer bumps `listening_tests.mock_content_revision` for an UPDATE of
+`listening_content`/`listening_exercises` that changes only `status` (and
+`updated_at`). Other column changes, INSERT and DELETE are unchanged, so
+importing a new package with 306 active still raises 55000 (Q-J252-IMPORT,
+open). No data, trigger, owner or RLS change; the 306 ACL of the source guard is
+re-asserted; one transaction with a 5 s lock timeout, re-runnable. The manual
+down script `rollback/353_listening_package_status_revision.sql` restores the
+exact 295/306 bodies. `forward-policy.tsv` holds 353 in the
+`listening_package_status_revision` group: the Leader applies it with
+`MIGRATION_FEATURES=listening_package_status_revision` under the
+advisory-locked runner and STAGING_FREEZE, staging first; merging does not
+apply 353.
+
 348–350 remain allocated to other jobs; do not reuse them. 351 is PC-J220,
 allocated by the Leader on 2026-10-29 (350 belongs to PC-J170).
 
@@ -242,6 +263,24 @@ Vinh-approved promotion. It can follow 349 but does not require it. After apply,
 run the catalog query in the SQL header (client false/false, service true, no
 PUBLIC `=X`), then view admin overview/trends and check backend logs for RPC
 42501/fallback. No staging or production application is part of this code job.
+
+Migration `357` (mig 357, PC-J365/1h1, SVCPRIV-0042 FR-009; not the PC-J357
+spec ticket #2060) runs `REVOKE CREATE ON SCHEMA public FROM service_role,
+anon, authenticated, PUBLIC`. API roles keep USAGE, and the schema owner can
+still create. API roles get explicit CRUD/USAGE grants and never schema CREATE:
+with CREATE, a role could plant a `pg_catalog`-shadowing overload, such as
+`public.lower(varchar)` or `public.has_table_privilege(text,text,text)`, that
+owner-run definers and migration DO blocks then execute as the owner. The
+postconditions raise on any CREATE entry left for these grantees (naming the
+grantor), on effective CREATE (including inherited or SET ROLE membership),
+and on any `public` function or operator named like a `pg_catalog` one outside
+the empty allowlist. They report the remaining CREATE grants and the API-owned
+`public` routines. It is a no-op on production (no CREATE there, Leader read
+2026-10-30). The down in `rollback/357_public_schema_create_revoke.sql` is a
+documented no-op: restoring CREATE needs a new spec. Group
+`public_schema_create_revoke` is `pending_feature` (merge KHÔNG áp): staging
+first under the advisory lock, before 358; production only at a Vinh-approved
+promotion, before 341/341b.
 
 Migration `352` (PC-J201, ADMINAAL2-0032 FR-010/FR-011, SA #1936 P3 c–f)
 adds the private `staff_mfa_status_throttle` table for shared admission to the

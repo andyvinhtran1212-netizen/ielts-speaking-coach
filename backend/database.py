@@ -161,10 +161,12 @@ def close_supabase_http_client() -> None:
 # ── P0-1 async client (lazy, opt-in) ─────────────────────────────────────────
 # create_async_client is a COROUTINE, so the client is built from the startup
 # hook (or lazily on first facade use) — never at import time. One shared
-# AsyncClient is safe for concurrent use on the single event loop (unlike the
-# sync httpx.Client singleton across threads, which is why we never to_thread
-# supabase_admin). Only created when USE_ASYNC_DB is on; stays None otherwise,
-# so the scaffold adds nothing to the default sync path.
+# AsyncClient is safe for concurrent use on the single event loop. Independent
+# query builders may also share the sync supabase_admin singleton across worker
+# threads via asyncio.to_thread, as the db_async facade does (ASYNCAUTH-0036
+# FR-009). Changing its auth/schema/headers or closing it while requests run is
+# not covered. The async client is only created when USE_ASYNC_DB is on; stays
+# None otherwise, so the scaffold adds nothing to the default sync path.
 _supabase_async = None  # type: ignore[var-annotated]
 _supabase_async_postgrest_http_client: httpx.AsyncClient | None = None
 

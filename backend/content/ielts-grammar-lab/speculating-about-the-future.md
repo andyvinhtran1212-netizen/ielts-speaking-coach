@@ -80,7 +80,7 @@ anchors:
 | **will / will not** | Chắc chắn cao | Writing, Speaking cả hai |
 | **is likely / unlikely to** | Có khả năng cao/thấp | Writing, Speaking Part 3 |
 | **may / might** | Không chắc lắm | Cả hai, đặc biệt khi nêu ý thận trọng |
-| **could possibly / could well** | Possibly: khả năng; well: nhấn khả năng đáng kể theo ngữ cảnh | Speaking, Writing; chọn theo văn phong |
+| **could possibly / could well** | could possibly: có thể (yếu); could well: khá có khả năng | Speaking, Writing; chọn theo văn phong |
 | **there is a (strong/real) chance that** | Xác suất vừa phải | Cả hai |
 | **is expected / predicted / projected to** | Dự báo chuyên môn | Writing, formal speaking |
 
@@ -116,7 +116,7 @@ It is clear / almost certain that [subject] will [verb].
 
 **Writing:**
 
-- “Under this hypothetical scenario, temperatures **could rise** by 1.5°C by 2050.” *(ví dụ giả định; dự báo thật cần nguồn, ngày, đường cơ sở và kịch bản)*
+- "If current trends continue, demand for clean energy **will** keep rising."
 - "Without urgent intervention, antibiotic resistance **will become** one of the most serious public health crises of the 21st century."
 
 ---
@@ -204,9 +204,9 @@ Experts / analysts predict / forecast that [clause].
 
 **Writing:**
 
-- "The global population **is projected to** reach approximately 10 billion by 2050."
+- "The global population **is projected to** reach around 9.7 billion by 2050 (UN, 2024)."
 - "**It is predicted that** the demand for skilled workers in the technology sector **will outstrip** supply significantly in the coming decade."
-- "Renewable energy **is expected to** account for over 50% of global electricity generation by 2035."
+- "Renewable energy **is expected to** account for a growing share of global electricity generation."
 
 **Speaking:**
 
@@ -261,7 +261,7 @@ Một câu suy đoán đơn giản không đủ cho Band 7+. Kết hợp với l
 ### Lỗi 1: Dùng "will" cho mọi câu suy đoán
 
 - ❌ "Technology will change everything. People will use AI every day. Companies will be more productive."
-- ✅ Xen kẽ: will → is likely to → might → could → is expected to
+- ✅ "Technology **is likely to** change many jobs, and AI **might** become part of daily life."
 
 ### Lỗi 2: "Might could" hoặc "might will" (không tồn tại)
 
@@ -292,7 +292,7 @@ Một câu suy đoán đơn giản không đủ cho Band 7+. Kết hợp với l
 
 1. "**It's quite likely that** working hours **will decrease** in many industries, **particularly as** automation takes over repetitive tasks. **There's a good chance** that a four-day work week **will become** the norm in many countries within the next generation, though this **may not** apply equally across all sectors."
 
-2. "Cities **are expected to** grow considerably more dense and technologically advanced. Public spaces **will probably** be redesigned around sustainability — with more green areas, better cycling infrastructure, and reduced car use. **It's possible that** some cities **might** be designed from scratch as entirely carbon-neutral environments, though **it's equally likely that** upgrading existing cities **will remain** the more realistic challenge."
+2. "Cities **are expected to** grow considerably more dense and technologically advanced. Public spaces **will probably** be redesigned around sustainability — with more green areas, better cycling infrastructure, and reduced car use. **It's possible that** some cities **might** be designed from scratch as entirely carbon-neutral environments, though upgrading existing cities **is likely to remain** the more realistic option."
 
 ---
 
@@ -304,7 +304,7 @@ TỪ CHẮC ĐẾN KHÔNG CHẮC:
 
 DỰ ĐOÁN/KHẲNG ĐỊNH CỦA NGƯỜI NÓI (không phải xác suất cố định):
   will → "Technology will transform healthcare."
-  is expected/predicted/projected to → nguồn/kịch bản dự báo; không tự chắc hơn will. “According to the hypothetical model, the population is projected to reach 10 billion if its assumptions hold.”
+  is expected/predicted/projected to → dự báo có nguồn: "The population is projected to grow."
 
 CÓ KHẢ NĂNG CAO:
   is likely to → "This trend is likely to continue."

@@ -5,6 +5,7 @@
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
+import { checkThemeToggle } from './theme-toggle-check.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
@@ -156,6 +157,7 @@ check('readback lỗi không replay POST và không báo thành công giả', co
   && await page.getByText(/hệ thống không tự gửi lại mutation/).count() === 1);
 check('trạng thái bất định khóa POST và chỉ cho canonical read', await page.getByRole('button', { name: 'Đọc lại trạng thái' }).count() === 1
   && await page.getByRole('button', { name: 'Tạo bản ghép và đặt hiện hành' }).count() === 0);
+await checkThemeToggle(page, check, '/instructor/compare');
 check('mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
 await page.setViewportSize({ width: 1440, height: 900 });
 check('desktop không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));

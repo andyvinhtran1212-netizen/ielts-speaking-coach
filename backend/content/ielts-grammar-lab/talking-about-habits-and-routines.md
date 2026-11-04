@@ -78,7 +78,7 @@ anchors:
 |----------------|---------|-------|
 | **Thói quen hiện tại — thường xuyên** | usually / always / often + V | I usually wake up at 7. |
 | **Thói quen hiện tại — thỉnh thoảng** | sometimes / occasionally / now and then | I occasionally cook at home. |
-| **Thói quen thường xuyên (emphasis)** | tend to / make a point of | I tend to exercise in the morning. |
+| **Thói quen/xu hướng chung** | tend to | I tend to exercise in the morning. |
 | **Thói quen mới** | I've started + V-ing / I've been + V-ing | I've started cycling to work. |
 | **Thói quen trong quá khứ** | used to + V / would + V (past habit) | I used to watch a lot of TV. |
 | **Thói quen đang thay đổi** | I'm trying to / I'm cutting down on | I'm trying to read more. |
@@ -97,8 +97,8 @@ IELTS Speaking Part 1 thường hỏi về daily routines: "Do you usually cook 
 ### Trạng từ tần suất:
 
 ```
-always → usually → often → sometimes → occasionally → rarely → never
-(100%)                                                              (0%)
+always → usually → often → sometimes → occasionally → rarely → hardly ever → never
+(100%)                                                                            (0%)
 ```
 
 - I **always** have coffee in the morning — I can't function without it.
@@ -135,6 +135,7 @@ Tend to chỉ xu hướng; usually chỉ tần suất. Cả hai tự nhiên theo
 - "I **tend to** prefer mornings for anything that requires focus."
 - "I **tend to** eat out more during the week when I'm busy."
 - "I **tend to** be quite active — I don't like sitting still for too long."
+- "I **make a point of** calling my parents every Sunday."
 
 ### Kết hợp với "quite" / "fairly" để mềm hóa:
 
@@ -245,7 +246,7 @@ Câu trả lời Part 1 lý tưởng: **2-4 câu** — không quá ngắn, khôn
 - ❌ "I always wake up at 6. I always have coffee. I never skip exercise."
 - ✅ "I **tend to** wake up around 6, and I **usually** have coffee first thing. I **try** not to skip exercise, though it does happen occasionally."
 
-### Lỗi 2: Quên dùng "used to" cho thói quen quá khứ
+### Lưu ý 2: Dùng *used to* khi muốn nhấn mạnh thói quen nay không còn
 
 - ✅ “When I was a child, I watched TV a lot.” *(thói quen quá khứ; chưa nói hiện nay khác ra sao)*
 - ✅ "I **used to** watch a lot of TV as a child, but I **barely** watch it now."
@@ -283,7 +284,7 @@ THÓI QUEN QUÁ KHỨ:
 THÓI QUEN ĐANG THAY ĐỔI:
   I've started + V-ing
   I've been trying to + V
-  I'm gradually + V-ing
+  I've gradually + V3
   I'm cutting down on + noun/V-ing
 
 MỞ RỘNG CÂU TRẢ LỜI:
