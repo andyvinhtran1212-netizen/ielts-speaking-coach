@@ -319,6 +319,7 @@ BEGIN
     -- body, SECURITY DEFINER, the owner of the table each writes or guards, no
     -- EXECUTE for PUBLIC (grantee 0) or a client role, and service_role
     -- EXECUTE on the three RPCs the backend calls.
+    -- SA-2241 P3-1 chấp nhận: hàm trigger không gọi trực tiếp được
     SELECT pg_catalog.string_agg(f.sig, ', ' ORDER BY f.sig) INTO v_wrong
       FROM (VALUES ('public.fn_archive_student(uuid,uuid,text,boolean)', true, 'public.students'),
                    ('public.fn_add_student_cohort_membership(uuid,uuid,uuid)', true,
@@ -344,7 +345,7 @@ BEGIN
                     WHERE a.grantee OPERATOR(pg_catalog.=) 0::oid)
         OR pg_catalog.has_function_privilege('anon', p.oid, 'EXECUTE')
         OR pg_catalog.has_function_privilege('authenticated', p.oid, 'EXECUTE')
-        OR pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE') OPERATOR(pg_catalog.<>) f.service_exec;
+        OR (f.service_exec AND NOT pg_catalog.has_function_privilege('service_role', p.oid, 'EXECUTE'));
     IF v_wrong IS NOT NULL THEN
         RAISE EXCEPTION 'student_archive_search_path_wrong: %', v_wrong;
     END IF;

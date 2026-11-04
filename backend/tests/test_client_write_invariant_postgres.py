@@ -14,9 +14,6 @@ real `scripts/apply_migration_locked.sql` (the per-file step of
 `apply_migrations.sh`). Migrations are discovered from the directory, so a new
 migration is checked here automatically; one that needs pre-320 objects this
 shape lacks fails with its name, and the fix is to extend `_pre_320()`.
-Before 366, model its required operator ACL preflight: revoke service_role's
-default EXECUTE on the two student-archive triggers. 366 refuses those grants
-without changing them; its own suite covers rejection and transaction rollback.
 
 After the chain:
   (a) every public relation of relkind r/p/v/m/f where anon/authenticated
@@ -603,11 +600,6 @@ def chain():
 
         applied, warnings = [], {}
         for migration in _forward_migrations():
-            if migration.name == "366_student_archive_definer_search_path.sql":
-                _script(database, """
-                    REVOKE EXECUTE ON FUNCTION public.fn_sync_legacy_student_cohort_membership(),
-                        public.fn_guard_writing_assignment_student_archived() FROM service_role;
-                """)
             warnings[migration.name] = _apply(database, migration)
             applied.append(migration.name)
         yield {"database": database, "applied": applied, "warnings": warnings, "before": before}
