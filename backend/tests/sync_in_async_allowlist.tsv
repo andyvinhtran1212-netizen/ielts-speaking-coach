@@ -301,11 +301,15 @@ routers/admin_topics.py::get_topic_bundle::services.topic_service.get_topic_bund
 routers/admin_topics.py::list_topics::services.topic_service.list_topics	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/admin_topics.py::update_topic::services.topic_service.update_topic	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/admin_vocab.py::bulk_delete_vocab::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_vocab.py::bulk_delete_vocab::routers.admin_vocab._reload_and_invalidate	1	G6	PC-J672 guard now sees vocab_service.reload() (DB read) via service-object dispatch; fix ticket PC-J665 (#2255) offloads it — remove this entry when #2255 merges.
 routers/admin_vocab.py::delete_vocab::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_vocab.py::delete_vocab::routers.admin_vocab._reload_and_invalidate	1	G6	PC-J672 guard now sees vocab_service.reload() (DB read) via service-object dispatch; fix ticket PC-J665 (#2255) offloads it — remove this entry when #2255 merges.
 routers/admin_vocab.py::get_vocab::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_vocab.py::import_vocab_word::routers.admin_vocab._reload_and_invalidate	1	G6	PC-J672 guard now sees vocab_service.reload() (DB read) via service-object dispatch; fix ticket PC-J665 (#2255) offloads it — remove this entry when #2255 merges.
 routers/admin_vocab.py::import_vocab_word::services.vocab_import.import_vocab_file	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/admin_vocab.py::list_vocab::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
 routers/admin_vocab.py::update_vocab::db.execute	1	G6	Existing inline sync DB execution; offload in G6.
+routers/admin_vocab.py::update_vocab::routers.admin_vocab._reload_and_invalidate	1	G6	PC-J672 guard now sees vocab_service.reload() (DB read) via service-object dispatch; fix ticket PC-J665 (#2255) offloads it — remove this entry when #2255 merges.
 routers/admin_vocab.py::update_vocab::services.topic_service.resolve_topic_id_for_category	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/admin_writing.py::bulk_mark_delivered::routers.admin_writing._deliver_essay	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
 routers/admin_writing.py::create_essay::services.access_code_permissions.get_student_access_code_permissions	1	G6	Existing sync helper reaches blocking I/O; offload caller in G6.
@@ -895,6 +899,7 @@ routers/vocabulary_bank.py::update_vocab_status::db.execute	2	G3	Existing inline
 routers/vocabulary_bank.py::update_vocab_status::routers.vocabulary_bank._fetch_srs_lookup	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
 routers/vocabulary_bank.py::update_vocab_status::routers.vocabulary_bank._fire_event	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
 routers/vocabulary_bank.py::update_vocab_status::routers.vocabulary_bank._vocab_bank_enabled	1	G3	Existing sync helper reaches blocking I/O; offload caller in G3.
+routers/vocabulary_sets.py::create_card::routers.admin_vocab._reload_and_invalidate	1	G6	PC-J672 guard now sees vocab_service.reload() (DB read) via service-object dispatch; fix ticket PC-J665 (#2255) offloads it — remove this entry when #2255 merges.
 routers/writing_student.py::_prompt_bank_image_viewer::services.activation_gate.account_is_active	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.
 routers/writing_student.py::claim_writing_assignment_renderer_affinity::db.execute	1	G2	Existing inline sync DB execution; offload in G2.
 routers/writing_student.py::claim_writing_assignment_renderer_affinity::routers.writing_student._resolve_active_assignment	1	G2	Existing sync helper reaches blocking I/O; offload caller in G2.

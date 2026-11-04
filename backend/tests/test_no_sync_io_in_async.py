@@ -1114,3 +1114,98 @@ def test_deferred_aliases_conservatively_check_even_potentially_exhausted_iterat
     """)
     # The lexical guard deliberately does not prove exhaustion/control flow.
     assert [(f.callee, f.line) for f in findings] == [("requests.get", 5)]
+
+
+# PC-J672: calls dispatched through a module-level service object.
+SERVICE_MODULE = dedent("""
+    class Service:
+        def reload(self):
+            fresh = object.__new__(type(self))
+            fresh._load()
+        def _load(self):
+            from database import supabase_admin
+            supabase_admin.table('x').select('*').execute()
+        def label(self):
+            return 'pure'
+        async def areload(self):
+            await asyncio.to_thread(self.reload)
+    service = Service()
+""")
+
+
+@pytest.mark.parametrize("statement", [
+    "from services.svc import service\n    service.reload()",
+    "from services.svc import service as s\n    s.reload()",
+    "from services import svc\n    svc.service.reload()",
+    "import services.svc as m\n    m.service.reload()",
+    "from services import service\n    service.reload()",  # package re-export
+    "from services.svc import alias\n    alias.reload()",  # module-level alias
+    "from services.svc import Service\n    Service().reload()",
+    "from services.svc import service\n    await asyncio.to_thread(service.reload())",  # eager argument
+])
+def test_service_object_methods_reaching_sync_io_fail(statement):
+    findings = scan("async def f():\n    " + statement, **{
+        "services/svc.py": SERVICE_MODULE + "alias = service\n",
+        "services/__init__.py": "from .svc import service\n",
+    })
+    assert [(f.function, f.callee) for f in findings] == [("f", "services.svc.Service.reload")]
+
+
+@pytest.mark.parametrize("statement", [
+    "await asyncio.to_thread(service.reload)",
+    "await asyncio.get_running_loop().run_in_executor(None, service.reload)",
+    "await run_in_threadpool(service.reload)",
+    "service.label()",
+    "await service.areload()",
+])
+def test_offloaded_or_non_blocking_service_methods_pass(statement):
+    assert not scan("from services.svc import service\nasync def f():\n    " + statement,
+                    **{"services/svc.py": SERVICE_MODULE})
+
+
+def test_service_object_reached_through_sync_helper_names_the_helper():
+    findings = scan("""
+        from services.svc import service
+        def reload_safe():
+            try:
+                service.reload()
+            except Exception:
+                pass
+        async def f():
+            reload_safe()
+        async def g():
+            await asyncio.to_thread(reload_safe)
+    """, **{"services/svc.py": SERVICE_MODULE})
+    assert [(f.function, f.callee) for f in findings] == [("f", "routers.example.reload_safe")]
+
+
+def test_inherited_service_methods_resolve_through_scanned_bases():
+    findings = scan("""
+        from services.svc import child
+        async def f():
+            child.reload()
+            child.label()
+    """, **{
+        "services/base.py": SERVICE_MODULE,
+        "services/svc.py": "from services.base import Service\nclass Child(Service):\n"
+                           "    def label(self):\n        self._load()\nchild = Child()\n",
+    })
+    assert [f.callee for f in findings] == ["services.base.Service.reload", "services.svc.Child.label"]
+
+
+def test_unscanned_or_rebound_module_objects_keep_existing_resolution():
+    findings = scan("""
+        from services.svc import client, service
+        async def f():
+            client.get('url')
+            service.reload()
+            await supabase_admin.table('x').select('*').execute()
+    """, **{"services/svc.py": SERVICE_MODULE + dedent("""
+        import httpx
+        from database import supabase_admin
+        client = httpx.Client()
+        service = None
+    """)})
+    # Only scanned functions are rewritten: third-party clients and the
+    # supabase_admin primitive keep their names; a rebinding wins.
+    assert [f.callee for f in findings] == ["db.execute"]

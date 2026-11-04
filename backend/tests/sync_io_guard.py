@@ -1,10 +1,13 @@
 """Static PC-J408 guard; parses source without importing application modules.
 
 Based on the coordinator's PC-J408-sync-in-async-scan.py. This is a bounded
-heuristic, not a Python type checker: dynamic dispatch and arbitrary third-party
-SDKs still need review. Recognized calls include PostgREST execute, requests,
-sync httpx clients, urlopen, sleep, Supabase Storage and explicit sync AI clients.
-Local/imported sync helpers are followed to a fixed point, including recursion.
+heuristic, not a Python type checker: arbitrary third-party SDKs and dynamic
+dispatch beyond module-level objects and scanned base classes (instance
+attributes, objects passed as arguments) still need review. Recognized calls
+include PostgREST execute, requests, sync httpx clients, urlopen, sleep,
+Supabase Storage and explicit sync AI clients. Local/imported sync helpers and
+methods reached through imported module-level service objects (PC-J672) are
+followed to a fixed point, including recursion.
 
 Deferred function/lambda bodies do not count as eager wrapper arguments;
 named helpers are analyzed separately. Eager arguments ARE checked:
@@ -164,7 +167,12 @@ def _name(node: ast.AST, symbols: dict[str, str]) -> str:
     if isinstance(node, ast.Attribute):
         return f"{_name(node.value, symbols)}.{node.attr}"
     if isinstance(node, ast.Call):
-        return _name(node.func, symbols)
+        name = _name(node.func, symbols)
+        # object.__new__(cls) and type(obj) name the class itself (PC-J672).
+        if node.args and (name.endswith(".__new__")
+                          or (name in {"type", "builtins.type"} and len(node.args) == 1)):
+            return _name(node.args[0], symbols)
+        return name
     return "?"
 
 
@@ -221,7 +229,9 @@ def _symbols(body: list[ast.stmt], inherited: dict[str, str], module: str,
     return symbols
 
 
-def _functions(sources: dict[str, str]) -> dict[str, Function]:
+def _functions(sources: dict[str, str], bindings: dict[str, str] | None = None,
+               bases: dict[str, list[str]] | None = None) -> dict[str, Function]:
+    """Index functions; optionally record module-level bindings and class bases."""
     functions = {}
     for path, source in sorted(sources.items()):
         tree = ast.parse(source, filename=path)  # Syntax errors must fail the gate.
@@ -233,6 +243,8 @@ def _functions(sources: dict[str, str]) -> dict[str, Function]:
 
         def collect(body, inherited, prefix=""):
             symbols = _symbols(body, inherited, module, prefix, package)
+            if not prefix and bindings is not None:
+                bindings.update({f"{module}.{name}": value for name, value in symbols.items()})
             for node in _nodes(body):
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     qualified = prefix + node.name
@@ -252,6 +264,8 @@ def _functions(sources: dict[str, str]) -> dict[str, Function]:
                     functions[f"{module}.{qualified}"] = Function(path, qualified, node, local, initial, timeline)
                     collect(node.body, local, qualified + ".")
                 elif isinstance(node, ast.ClassDef):
+                    if bases is not None:
+                        bases[f"{module}.{prefix}{node.name}"] = [_name(base, symbols) for base in node.bases]
                     collect(node.body, symbols, prefix + node.name + ".")
 
         collect(tree.body, {})
@@ -542,8 +556,57 @@ def _execution_nodes(fn: Function, consumed: set[int], generators: set[str],
     return body
 
 
+def _dispatch_resolver(functions: dict[str, Function], bindings: dict[str, str],
+                       bases: dict[str, list[str]]) -> Callable[[str], str]:
+    """Resolve calls through module-level objects and inherited methods (PC-J672).
+
+    An imported module-level object, e.g. ``vocab_service = VocabService()``
+    used elsewhere as ``vocab_service.reload()``, otherwise names
+    ``services.x.vocab_service.reload`` instead of the indexed
+    ``services.x.VocabService.reload``. Each step rewrites the longest dotted
+    prefix bound at module top level (imports, re-exports, aliases and
+    constructor calls, using the module's final binding) or looks a missing
+    method up on a scanned base class. A rewrite is kept only when it reaches
+    a scanned function, so this can add call-graph edges but never drops one.
+    Instance attributes (``self.client = ...``), objects passed as arguments
+    and methods on third-party classes remain outside this static resolution.
+    """
+    cache: dict[str, str] = {}
+
+    def resolve(target: str) -> str:
+        if target in functions:
+            return target
+        if target not in cache:
+            cache[target] = target
+            queue, seen = [target], set()
+            while queue:
+                name = queue.pop(0)
+                if name in functions:
+                    cache[target] = name
+                    break
+                if name in seen:
+                    continue
+                seen.add(name)
+                parts = name.split(".")
+                for index in range(len(parts), 0, -1):
+                    prefix = ".".join(parts[:index])
+                    rest = name[len(prefix):]
+                    if bindings.get(prefix, prefix) != prefix:
+                        queue.append(bindings[prefix] + rest)
+                        break
+                    if prefix in bases:
+                        queue.extend(base + rest for base in bases[prefix] if rest)
+                        break
+        return cache[target]
+
+    return resolve
+
+
 def scan_sources(sources: dict[str, str]) -> list[Finding]:
-    functions = _functions(sources)
+    bindings: dict[str, str] = {}
+    bases: dict[str, list[str]] = {}
+    functions = _functions(sources, bindings, bases)
+    resolve = _dispatch_resolver(functions, bindings, bases)
     generators = {
         name for name, fn in functions.items()
         if isinstance(fn.node, ast.FunctionDef)
@@ -566,7 +629,7 @@ def scan_sources(sources: dict[str, str]) -> list[Finding]:
     def target_at_execution(name: str, node: ast.AST) -> str | None:
         fn = functions[name]
         if isinstance(node, ast.Call):
-            target = _name(node.func, fn.at(node))
+            target = resolve(_name(node.func, fn.at(node)))
             # Calling a generator function constructs an iterator. Its body
             # only runs when an eager consumer advances it in this scope.
             if target not in generators or id(node) in consumed[name]:
