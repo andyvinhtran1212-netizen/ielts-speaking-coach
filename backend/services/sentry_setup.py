@@ -14,8 +14,9 @@ line. When on, events are scrubbed before they leave the process:
   lose their token (the same capability ``services/log_redaction.py`` hides
   from the access log);
 * in every string: the values of Postgres/PostgREST row dumps ("Failing row
-  contains (...)", "Key (col)=(...)") are redacted, e-mail addresses and
-  JWT/Bearer credentials are removed,
+  contains (...)", "Key (col)=(...)", any case and spacing) are redacted,
+  e-mail addresses, Vietnamese phone numbers and JWT/Bearer credentials are
+  removed,
   UUIDs (user, session, attempt ids) become a stable ``uuid:<HMAC-SHA256
   prefix>`` pseudonym keyed by ``SENTRY_PSEUDONYM_KEY`` (plain ``[uuid]``
   without a key: an unkeyed hash is reversible by anyone holding the id
@@ -71,9 +72,16 @@ _URL_QUERY = re.compile(r"(\b[a-zA-Z][a-zA-Z0-9+.-]*://[^\s?#'\"<>]*)[?#][^\s'\"
 # with existing key (...)=(...)."). A value may itself contain ")", ").",
 # ") already exists" or a newline, and the message may be truncated, so no
 # closing boundary can be trusted: redact from the dump to the END of the
-# string. Over-redaction, never a partial leak (PR #2234 R1).
-_FAILING_ROW = re.compile(r"(Failing row contains )\(.*", re.DOTALL)
-_KEY_VALUE = re.compile(r"(Key \(.*?\)=)\(.*", re.DOTALL)
+# string. Over-redaction, never a partial leak (PR #2234 R1). Any case and
+# spacing ("key (c) = (", "Failing row contains(") match too (PC-J625).
+_FAILING_ROW = re.compile(r"(?i)(Failing\s*row\s*contains\s*)\(.*", re.DOTALL)
+_KEY_VALUE = re.compile(r"(?i)(Key\s*\(.*?\)\s*=\s*)\(.*", re.DOTALL)
+# A bare Vietnamese phone number (+84/84/0 and 9-10 digits) in free text, e.g.
+# an exception message (PC-J625). Not inside a longer run of letters, digits,
+# "_" or "-", so ids, UUID segments and pseudonyms keep their digits. Names in
+# free text are not recognised: keep learner text out of exception messages.
+# The prefix is captured, not a lookbehind, to match frontend/lib/sentry-client.mjs.
+_VN_PHONE = re.compile(r"(^|[^0-9A-Za-z_-])(?:\+?84|0)\d{9,10}(?![0-9A-Za-z_])")
 
 # Loggers whose WARNING+ records may become breadcrumbs/events. Each call site
 # was checked to log only fixed text, ids, paths and exception text (which the
@@ -100,6 +108,7 @@ def scrub_text(text: str) -> str:
     text = _JWT.sub("[jwt]", text)
     text = _BEARER.sub("Bearer [redacted]", text)
     text = _EMAIL.sub("[email]", text)
+    text = _VN_PHONE.sub(r"\1[redacted]", text)
     return _UUID.sub(_pseudonym, text)
 
 
