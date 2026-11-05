@@ -52,15 +52,31 @@ Tính mỗi lượt dùng thử (dùng số log, an toàn hơn):
   → Ước tính giữ chỗ: Anthropic 0,03, OpenAI 0,012.
 - **Writing 1 bài:** tỉ lệ `invalid_response` staging 9/23 = 39 %. Với tối đa 1
   lần thử lại Sonnet (FR-005): TB ≈ 0,088 × (1 + 0,39) + 0,0003 = **0,123 USD**;
-  xấu nhất 2 × 0,133 + 0,0005 = **0,27 USD**. → Ước tính giữ chỗ 0,27.
+  xấu nhất theo mẫu 2 × 0,133 + 0,0005 = 0,27 USD — **không dùng làm giữ chỗ**.
+- **Giữ chỗ (FD 05/11, Codex #2252 r4471860800):** reservation = tổng
+  `ai_budget.estimate(provider, model, input_tokens=<đếm thật>, max_tokens=<giới
+  hạn của lần gọi>)` cho **mọi** lần gọi được phép của một lượt (lần đầu + 1 lần
+  thử lại + bộ lọc). Writing dùng thử chỉ gọi đường Anthropic một lượt của
+  `gemini_writing_grader` (các pass phụ tắt ở dùng thử, test), giữ
+  `CLAUDE_MAX_TOKENS = 16000` (gemini_writing_grader.py:121; hạ xuống sẽ tăng
+  `invalid_response`). Input ≤ 4 000 token (đề + bài ≤ giới hạn ký tự FR-013):
+  2 × (4 000 × 2/1M + 16 000 × 10/1M) = 2 × 0,168 = 0,336, + Haiku lọc 0,0005 →
+  **giữ chỗ ≈ 0,34 USD**. Speaking: grader `max_tokens=2048`
+  (claude_grader.py:1025) + câu mẫu 300 (claude_grader.py:1503), input ≤ 1 500:
+  (1 500 × 2/1M + 2 348 × 10/1M) ≈ 0,026 × 2 lần = **≈ 0,05 USD**; Whisper giữ
+  0,012. Số chính xác do `estimate` tính lúc chạy; nếu `estimate` trả lỗi →
+  `config_invalid`, không gọi provider. Hệ quả xấu nhất mỗi tài khoản/ngày:
+  Anthropic 5 × 0,05 + 0,34 = 0,59 USD; tổng chương trình 20 × 0,05 + 5 × 0,34 =
+  2,70 USD (TB không đổi ≈ 1,02). Trần ngày 5 USD ⇒ tối đa ~14 reservation
+  Writing đồng thời — chạm trần thì từ chối trước khi gọi (fail-closed).
 - **Bài bị lọc:** 0 (lọc cục bộ) hoặc 0,0003 (lọc Haiku).
 
 ### Hạn mức và trần đề xuất (Q-1, Q-2)
 
 - Mỗi tài khoản/ngày: Speaking 5 câu, Writing 1 bài → xấu nhất
-  Anthropic 5 × 0,025 + 0,27 = 0,395 USD, OpenAI 5 × 0,012 = 0,06 USD.
+  Anthropic 5 × 0,05 + 0,34 = 0,59 USD (giữ chỗ theo giới hạn token), OpenAI 5 × 0,012 = 0,06 USD.
 - Mỗi tài khoản tổng: 20 câu Speaking + 5 bài Writing → xấu nhất Anthropic
-  20 × 0,025 + 5 × 0,27 = 1,85 USD; TB 20 × 0,020 + 5 × 0,123 ≈ 1,02 USD.
+  20 × 0,05 + 5 × 0,34 = 2,70 USD; TB 20 × 0,020 + 5 × 0,123 ≈ 1,02 USD.
 - `trial_anthropic`: **5 USD/ngày**, **150 USD tổng** (chừa 50 USD = 25 % cho
   sai số ước tính, `invalid_response`, reservation treo, giá đổi). 5 USD/ngày ≈
   40 bài Writing TB **hoặc** ≈ 250 câu Speaking TB; ≈ 12–13 người dùng hết lượt
@@ -81,8 +97,13 @@ Tính mỗi lượt dùng thử (dùng số log, an toàn hơn):
   không unique toàn cục); tra cứu idempotent **luôn** lọc `user_id = người gọi`
   — key của người khác không bao giờ trả kết quả; index `(user_id, kind, vn_day)`.
 - `trial_rate_events(key_hash, kind in ('activation_ip','grading_ip',
-  'activation_global','config_ip'), vn_day, count)` cho giới hạn IP/thiết bị/toàn
-  site (bộ đếm DB dùng chung).
+  'activation_global','config_ip','read_user'), vn_day, count)` cho giới hạn IP/thiết bị/toàn
+  site (bộ đếm DB dùng chung). (SA N36) Thêm cột `window_start timestamptz`
+  (mặc định = đầu ngày VN cho các kind theo ngày); `read_user` dùng cửa sổ
+  **1 phút** (`date_trunc('minute', now())`), khoá `key_hash = HMAC(TRIAL_HASH_SALT,
+  user_id)`, `UNIQUE(key_hash, kind, window_start)`, tăng bằng `INSERT ... ON
+  CONFLICT DO UPDATE SET count = count + 1 RETURNING count` (nguyên tử); job dọn
+  xoá hàng `read_user` có `window_start < now() - interval '1 day'`.
 - `trial_captcha_tokens(token_hash pk, used_at, expires_at)` chống dùng lại token
   Turnstile (SA N5c), dọn bản ghi hết hạn.
 - (SA N1, N10, N13, N17) `users.first_activated_at timestamptz null` + hàm trigger
@@ -204,10 +225,10 @@ Tính mỗi lượt dùng thử (dùng số log, an toàn hơn):
   - `EVIDENCE_ALLOWLIST_TABLES` (đúng bảng trên) và `EVIDENCE_EXCLUDED_TABLES =
     {analytics_events, error_logs, user_feedback, activation_attempts,
     reading_test_attempts(share), trial_accounts, trial_usage, trial_rate_events,
-    trial_writing_submissions, trial_captcha_tokens, trial_email_tombstones,
+    trial_writing_submissions, trial_speaking_results (SA N28), trial_captcha_tokens, trial_email_tombstones,
     ai_usage_logs, ai_budget_reservations, grading_attempts, users(auth/me)}`.
   - `REVIEWED_EXEMPT_ROUTES` = bản sao các khoá `ACTIVATION_EXEMPT_ROUTES` tại
-    5a08978b0 + 8 cặp dùng thử (T013), kèm `EXEMPT_ROUTE_WRITES` đã rà:
+    5a08978b0 + 10 cặp dùng thử (T013; FD 05/11 thêm 2 cặp đọc FR-038), kèm `EXEMPT_ROUTE_WRITES` đã rà:
 
   | Route miễn trừ | Bảng ghi (đã rà) |
   | --- | --- |
@@ -223,10 +244,11 @@ Tính mỗi lượt dùng thử (dùng số log, an toàn hơn):
   | POST share attempts | `reading_test_attempts` (`user_id=NULL`, `share_token`) |
   | POST renderer-affinity, PATCH answers, POST submit, PATCH review-flags (attempt) | `reading_test_attempts`/`reading_attempt_answers`/`mock_attempt_review_flags` của attempt share-link (`user_id` NULL) hoặc attempt có chủ đã tạo khi còn kích hoạt |
   | GET review, GET review-flags | — |
-  | 8 cặp `/api/trial/*` (T013) | chỉ bảng `trial_*`, `ai_usage_logs`/`ai_budget_reservations` feature `trial_*` |
+  | 8 cặp `/api/trial/*` ghi/đọc đề (T013) | chỉ bảng `trial_*`, `ai_usage_logs`/`ai_budget_reservations` feature `trial_*` |
+  | GET /api/trial/speaking/results/{id}, GET /api/trial/history (FR-038, SA N31) | — (chỉ đọc; bộ đếm rate limit đọc N29 ghi `trial_rate_events`, đã loại trừ) |
 
   Test: (1) `set(ACTIVATION_EXEMPT_ROUTES) == REVIEWED_EXEMPT_ROUTES` — đỏ khi
-  thêm/bớt route chưa rà (T013 sẽ chạm đúng chỗ này khi thêm 8 cặp); (2) mọi bảng
+  thêm/bớt route chưa rà (T013 sẽ chạm đúng chỗ này khi thêm 10 cặp); (2) mọi bảng
   trong `EXEMPT_ROUTE_WRITES` ∈ `EVIDENCE_EXCLUDED_TABLES` và ∉ allowlist; (3)
   parse migration 371 lấy danh sách bảng trong view == `EVIDENCE_ALLOWLIST_TABLES`.
 
@@ -255,15 +277,39 @@ Tính mỗi lượt dùng thử (dùng số log, an toàn hơn):
   `invariant_ok=false`. Cờ thiếu/không đọc được cũng là `paused` (SA N20).
 - (SA N16) `trial_email_tombstones(email_norm_hash pk, ever_activated boolean,
   ever_trial boolean, created_at)`; RLS không policy.
+- `trial_speaking_results(id uuid, user_id, request_key, question_id, transcript,
+  grading jsonb, audio_path, created_at)`, `UNIQUE(user_id, request_key)`, RLS bật,
+  không policy; lưu giữ như FR-033 (FD 05/11, FR-038). (SA N32) `user_id
+  REFERENCES public.users ON DELETE CASCADE`; `audio_path` chỉ là object key
+  trong bucket dùng thử private (không URL, không bucket public; CHECK không
+  chứa `://`); job lưu giữ xoá hàng **và** object cùng lượt (xoá object trước,
+  lỗi → giữ hàng để thử lại); `transcript`/`grading` không bao giờ ghi vào log,
+  `error_logs` hay Sentry (lọc ở handler). Test: CHECK chặn URL; job xoá cả hai;
+  xoá user cascade; log/handler lỗi không chứa transcript (fixture chuỗi đánh dấu).
 - `trial_writing_submissions(id, user_id, prompt_id, task in (1,2), essay_text,
   word_count, input_log jsonb, forensic_score, filter_result, grading jsonb,
   created_at)` (bài dùng thử tách khỏi `writing_essays` để không lẫn số liệu lớp).
 - RPC `fn_trial_reserve(user_id, kind, request_key, limits jsonb)` (khoá hàng
   `trial_accounts`, đếm, chèn `reserved`; trả `granted`/`reason`),
-  `fn_trial_settle(request_key, outcome)`. `SECURITY DEFINER`, `search_path`
-  cố định, `REVOKE ALL FROM PUBLIC, anon, authenticated`, chỉ `service_role`
-  (theo FNEXEC-0045).
-- RLS bật trên cả 6 bảng `trial_accounts`, `trial_usage`, `trial_rate_events`,
+  `fn_trial_settle(user_id, reservation_id, outcome)` (FD 05/11, Codex #2252
+  r4471860790): `fn_trial_reserve` trả `reservation_id` (= `trial_usage.id`);
+  settle khoá đúng hàng `WHERE id = reservation_id AND user_id = $1 AND status =
+  'reserved'`, 0 hàng → lỗi `reservation_not_found` (không đụng hàng khác), không
+  bao giờ settle theo `request_key` đơn thuần. `SECURITY DEFINER`, `REVOKE ALL
+  FROM PUBLIC, anon, authenticated`, chỉ `service_role` (theo FNEXEC-0045).
+  (SA N30) (a) `SET search_path = pg_catalog, pg_temp`; mọi bảng/hàm viết đủ
+  schema (`public.trial_usage`, `public.ai_budget_reservations`, ...) — áp cho cả
+  `fn_trial_reserve`. (b) `outcome` thuộc enum đóng `settled | released |
+  timeout_settled` (kiểu enum hoặc `CHECK`); giá trị khác → `RAISE`, không cập
+  nhật. (c) Một câu `UPDATE public.trial_usage SET status = ..., settled_at =
+  now() WHERE id = $2 AND user_id = $1 AND status = 'reserved' RETURNING ...`
+  cùng giao dịch với settle `ai_budget`; 0 hàng → `reservation_not_found`, không
+  trừ tiền/không hoàn lần hai. Backend coi `reservation_not_found` khi thử lại là
+  idempotent: đọc trạng thái hiện có và trả kết quả đó. (d) Chi phí ghi vào ngân
+  sách = `least(actual, reserved)`; phần vượt (`actual > reserved`) ghi
+  `ai_usage_logs` đủ số thật để đối soát và bắn cảnh báo `trial_settle_overrun`
+  (email admin + log), không bao giờ âm thầm vượt trần ngày qua reservation.
+- RLS bật trên cả 7 bảng (thêm `trial_speaking_results`) `trial_accounts`, `trial_usage`, `trial_rate_events`,
   `trial_captcha_tokens`, `trial_email_tombstones`, `trial_writing_submissions`,
   không policy cho `anon`/`authenticated` (backend đọc bằng service role).
   Không lưu IP/email thô: HMAC-SHA256 với muối env
@@ -295,7 +341,9 @@ Tính mỗi lượt dùng thử (dùng số log, an toàn hơn):
 | `POST /api/trial/speaking/answers` | multipart audio + `question_id` + `request_key` → kết quả chấm | 403, 413 `audio_too_long`, 422 `audio_too_short`, 429 `trial_quota`, 503 `trial_closed`/`trial_unavailable` |
 | `GET /api/trial/writing/prompts` | đề Task 1/2 từ prompt bank (cờ dùng thử) | 403 |
 | `POST /api/trial/writing/submissions` | `{prompt_id, essay_text, input_log, request_key}` | 422 `too_short`/`too_long`/`paste_suspected`/`low_quality`/`off_topic`, 429 `trial_quota`/`trial_filter_limit`, 503 |
-| `GET /api/trial/writing/submissions/{id}` | kết quả của chính mình | 404 |
+| `GET /api/trial/writing/submissions/{id}` | kết quả của chính mình (FR-038: không cần eligibility/mở) | 401, 403 khoá, 404, 422, 503 kill switch |
+| `GET /api/trial/speaking/results/{id}` | kết quả Speaking của chính mình (FR-038) | 401, 403 khoá, 404, 422, 503 kill switch |
+| `GET /api/trial/history` | danh sách 30 ngày `{id, kind, created_at, band}` ≤ 50 (FR-038) | 401, 403 khoá, 503 kill switch |
 | `GET /api/admin/trial/readiness` | chỉ boolean (FR-036) | 403 (admin + AAL2) |
 | `GET/POST /api/admin/trial/*` | tổng hợp, chặn tài khoản/thiết bị | 403 (admin + AAL2) |
 
@@ -320,7 +368,13 @@ lớp thật không đổi. Sẽ chỉnh theo audit UIA.
 Xem `tasks.md` (T001..T013, xếp theo phụ thuộc; các task cùng sửa `trial.py`
 được tích hợp tuần tự).
 
-### Điểm review chờ FD quyết định (PC-J658, PR #2252)
+### Điểm review chờ FD quyết định (PC-J658, PR #2252) — FD đã quyết 05/11
+
+Quyết định: FR-011 (thread r4469775155), FR-020 + FR-038 (r4469775139, 404/503),
+plan "Giữ chỗ" (r4471860800), `fn_trial_settle` (r4471860790), FR-038 +
+`trial_speaking_results` (CR P3-1), FR-036 (CR P3-4 readiness). Chi tiết:
+`/workspace/cc-jobs/handoff/project-coordinator/2026-11-04-J658-result.md` mục
+"FD quyết định (05/11)". SA cần kiểm lại FR-020/FR-025/FR-038 và settle.
 
 Các điểm dưới cần thay đổi hoặc chọn lại contract FR đã duyệt, nên PC-J658
 giữ nguyên FR và các kiểm chứng tương ứng. FD cần PR spec-only riêng; không
@@ -455,3 +509,30 @@ mặc định TẮT; kill switch `TRIAL_KILL_SWITCH`.
 | N25 pipeline dùng lại ghi bảng dấu vết | P2 | FR-022(a)(b)(c) + FR-002; bỏ `grading_attempts`/`ai_usage_logs` khỏi allowlist; bảng "Truyền feature" (file → ticket); contextvar `trial_request` + `trial_unlabeled`; E2E evidence = 0; T002/T006/T007 |
 | N26 quyền schema `trial_private` | P3 | GRANT USAGE/SELECT cho service_role, ALTER DEFAULT PRIVILEGES; bước rollout xác nhận schema không expose + `Accept-Profile` bị từ chối |
 | N27 snapshot mơ hồ | P3 | `REVIEWED_EXEMPT_ROUTES` + `EXEMPT_ROUTE_WRITES` + `EVIDENCE_EXCLUDED_TABLES` trong `trial_evidence.py`, 3 test |
+
+## Xử lý SA retest 7, 05/11 (N28–N34)
+
+| SA | Mức | Xử lý |
+| --- | --- | --- |
+| N28 | P2 | `trial_speaking_results` vào `EVIDENCE_EXCLUDED_TABLES`; verification 7 bảng + privilege anon/authenticated = false |
+| N29 | P2 | FR-038: `no-store, private` + `Vary: Authorization`; 60 đọc/phút/user, bộ đếm lỗi → 429 |
+| N30 | P2 | settle: search_path pg_catalog, pg_temp + schema đủ; enum đóng; một UPDATE…RETURNING; least(actual, reserved) + `trial_settle_overrun` |
+| N31 | P3 | test FR-025 trừ 3 route đọc; `EXEMPT_ROUTE_WRITES` thêm 2 cặp đọc |
+| N32 | P3 | cascade, object key private + CHECK, job xoá hàng + object, không log transcript |
+| N33 | P3 | thứ tự kiểm: kill switch → JWT → khoá → cờ → trial_open → eligibility → rate limit → body |
+| N34 | P3 | tín hiệu mạnh mới (>30 % ký tự không gõ phím, ≥ 3 lần chèn > 100); cờ chỉ máy chủ tính |
+
+## Xử lý SA retest 8, 05/11 (N35–N37)
+
+| SA | Mức | Xử lý |
+| --- | --- | --- |
+| N35 | P2 | ngưỡng 30 % chỉ tính lần chèn > 30 ký tự hoặc > 1 từ; commit từng từ → assisted_input; fixture Gboard/Telex/6×180 |
+| N36 | P3 | `read_user` cửa sổ 1 phút, khoá HMAC(user_id), upsert nguyên tử, dọn sau 1 ngày |
+| N37 | P3 | verification FR-025: 10 cặp, trừ config và 3 route đọc FR-038 |
+
+## Xử lý SA retest 9, 05/11 (N37–N38)
+
+| SA | Mức | Xử lý |
+| --- | --- | --- |
+| N37 | P3 | verification FR-025: thêm ngoại lệ 3 route đọc FR-038 vào câu JWT+eligibility (T013) |
+| N38 | P3 | tín hiệu mạnh: word_commits > 80 % số từ + (fast_typing hoặc short_duration) → paste_suspected; fixture script 50 ms/từ và Gboard 40 wpm (T006) |

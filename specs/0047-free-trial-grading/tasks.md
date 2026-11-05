@@ -20,7 +20,7 @@ không phải quyền sửa file song song; các file khác theo phụ thuộc b
   `statement_timeout` (SA N19) (tên `trg_users_zz_first_activated_at`, SECURITY
   INVOKER, search_path, REVOKE) + trong một giao dịch: LOCK SHARE ROW EXCLUSIVE →
   trigger → backfill bảo thủ (theo danh sách cho phép ở plan.md) → hậu điều kiện RAISE (SA N1, N9, N10, N13),
-  `trial_email_tombstones` (SA N16), `UNIQUE(user_id, request_key)`
+  `trial_email_tombstones` (SA N16), `trial_speaking_results` (FR-038), `fn_trial_settle(user_id, reservation_id, outcome)` (Codex r4471860790), `UNIQUE(user_id, request_key)`
   (SA N5a), `fn_trial_reserve`, `fn_trial_settle`, RLS, REVOKE; mở rộng scope ngân sách dùng thử;
   tạo bucket audio dùng thử riêng **private** (FR-033). Ghi rõ rollback theo
   `plan.md`: giữ cột/mốc `users.first_activated_at` và trigger/hàm đơn điệu;
@@ -80,7 +80,7 @@ không phải quyền sửa file song song; các file khác theo phụ thuộc b
 - [ ] T005 Phát hiện dán phía máy chủ (FR-012): `trial_input_forensics`, fixture
   gõ thật/dán/tốc độ/lệch/thiếu log, ngưỡng cấu hình. **S, Codex.**
   `depends: T001` `owns: backend/services/trial_input_forensics.py, backend/tests/fixtures/trial_input_logs/, backend/tests/test_trial_input_forensics.py`
-- [ ] T006 Cổng lọc trước chấm + route nộp Writing (FR-013, FR-014, FR-015,
+- [ ] T006 (SA N38: tín hiệu chèn từng từ bằng script + fixture) Cổng lọc trước chấm + route nộp Writing (FR-038 đọc bài cũ không cần eligibility, FR-013, FR-014, FR-015,
   FR-033 IDOR/UUID; schema `input_log` trước phân tích):
   số chữ, kiểm cục bộ, Haiku phân loại, hạn mức lọc, gọi grader Writing với
   scope dùng thử, lưu `trial_writing_submissions`. SA N25: `gemini_writing_grader`
@@ -90,7 +90,7 @@ không phải quyền sửa file song song; các file khác theo phụ thuộc b
   **M, Claude.**
   `depends: T002, T005, T007`
   `owns: backend/services/trial_prefilter.py, backend/routers/trial.py (writing), backend/services/gemini_writing_grader.py (feature param), backend/tests/test_trial_writing_submit.py, backend/tests/test_trial_data.py (IDOR/UUID)`
-- [ ] T007 Route Speaking dùng thử (FR-016, FR-033: ≤ 3 MB, ffprobe, bucket
+- [ ] T007 Route Speaking dùng thử (FR-016, FR-038 kết quả/lịch sử + `trial_speaking_results`, FR-033: ≤ 3 MB, ffprobe, bucket
   private + signed URL): bộ đề cố định, kiểm thời lượng,
   Whisper + grader với scope dùng thử, không Azure/Gemini. SA N25: kwarg
   `feature` ở `claude_grader` (1058/1514), STT (`grading.py:641`), judge riêng
@@ -131,10 +131,10 @@ không phải quyền sửa file song song; các file khác theo phụ thuộc b
   **S, Claude (QA).** `depends: T003, T006, T007, T008, T009, T010, T011, T013`
 
 
-- [ ] T013 Đường vào không mã + giữ `next` (FR-023, FR-024, FR-025; UIA M1, M2,
+- [ ] T013 (SA N37: test FR-025 trừ 3 route đọc FR-038) Đường vào không mã + giữ `next` (FR-023, FR-024, FR-025; UIA M1, M2,
   M3): CTA landing → `/trial/*` sau cờ, `/login` không bắt buộc mã (mã tuỳ chọn),
   `safeNext()` theo FR-024 (giải mã một lần, allowlist tiền tố, kiểm lại khi đọc
-  sessionStorage), bỏ onboarding cho người từ `/trial/*`, thêm **đúng 8 cặp**
+  sessionStorage), bỏ onboarding cho người từ `/trial/*`, thêm **đúng 10 cặp** (FD 05/11: +2 cặp đọc FR-038)
   (method, template) vào `ACTIVATION_EXEMPT_ROUTES`, miễn trừ chỉ khi route đã
   khớp (bỏ dự phòng `request.url.path`), snapshot test + test mọi route
   `/api/trial` (trừ config) có JWT + `is_trial_eligible` + test đường dẫn lạ

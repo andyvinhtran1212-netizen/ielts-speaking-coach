@@ -25,4 +25,4 @@ Mọi giờ hiển thị theo giờ Việt Nam. Không hiển thị số USD cho
 
 Dữ liệu chuẩn: số lượt luôn lấy từ `GET /api/trial/status` (máy chủ); sau nộp
 gọi lại status. Reload giữa chấm: hiện "Đang chấm" và hỏi lại kết quả theo
-`request_key`; không nộp lại lần hai.
+`request_key`; không nộp lại lần hai. (FD 05/11) Lịch sử "Bài dùng thử của bạn" đọc từ `GET /api/trial/history`, mở kết quả qua `GET /api/trial/{writing/submissions|speaking/results}/{id}` (FR-038) — vẫn hiện khi chương trình đóng hoặc đã vào lớp.

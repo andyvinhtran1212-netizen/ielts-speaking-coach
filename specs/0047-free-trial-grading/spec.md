@@ -206,8 +206,10 @@ chưa đăng ký lớp, để họ trải nghiệm chất lượng chấm. Hiệ
   503 `trial_unavailable`, không gọi provider. Kiểm: test đồng thời 10 request
   với lượt còn 1 → đúng 1 được chấm; DB lỗi → 503, provider giả không được gọi.
   (SA F7) Thứ tự trong **một** RPC/giao dịch: kiểm lượt tài khoản + lượt chấm
-  theo IP + hạn mức lọc → giữ chỗ ngân sách (ước tính phủ **2 lần gọi Sonnet**,
-  0,27 USD cho Writing) → gọi provider; lần thử lại dùng chính reservation đó,
+  theo IP + hạn mức lọc → giữ chỗ ngân sách (ước tính phủ **mọi lần gọi được phép**, tính
+  bằng `ai_budget.estimate` theo `max_tokens` thật, không theo mẫu staging — FD
+  05/11, Codex #2252 r4471860800: ≈ 0,34 USD Writing, ≈ 0,05 USD Speaking, xem
+  plan.md "Giữ chỗ") → gọi provider; lần thử lại dùng chính reservation đó,
   không giữ chỗ lần hai. `request_key` là UUIDv4 do client tạo và máy chủ kiểm
   định dạng, duy nhất theo `(user_id, request_key)`; trùng → trả kết quả cũ,
   không tính phí lần hai. Timeout sau khi đã gửi → chốt theo usage thật/ước
@@ -282,11 +284,24 @@ chưa đăng ký lớp, để họ trải nghiệm chất lượng chấm. Hiệ
   danh sách tài khoản dùng thử nghi vấn (nhiều tài khoản cùng thiết bị/IP, tỉ
   lệ cảnh báo dán cao). Log không chứa email/IP thô, nội dung bài, khoá. Kiểm:
   test route admin yêu cầu admin + AAL2 theo chính sách hiện có.
-- **FR-011:** Ô soạn Writing dùng thử chặn `paste`, `drop`, `beforeinput` loại
-  `insertFromPaste`/`insertFromDrop`/`insertReplacementText` từ autofill,
-  `autocomplete="off"`, tắt kéo thả, tắt menu dán trên mobile ở mức có thể;
-  thử dán hiện nhắc "Bài dùng thử cần gõ trực tiếp". Kiểm: test component với
-  sự kiện paste/drop/beforeinput → nội dung không đổi, có log sự kiện.
+- **FR-011:** (FD 05/11, Codex #2252 r4469775155 — một chính sách với FR-012)
+  Ô soạn Writing dùng thử **chặn** `paste`, `drop`, `beforeinput` loại
+  `insertFromPaste`/`insertFromPasteAsQuotation`/`insertFromDrop`/
+  `insertFromYank`, và **mọi** lần chèn (kể cả `insertReplacementText`,
+  `insertText`, kết thúc composition) mà phần chèn > 200 ký tự (cùng ngưỡng
+  tín hiệu mạnh FR-012). **Cho phép** `insertText`, composition (IME tiếng
+  Việt) và `insertReplacementText` ≤ 200 ký tự (autocorrect, gợi ý Gboard, đọc
+  chính tả của hệ điều hành) — các sự kiện này được đếm vào `input_log` và máy
+  chủ gắn `assisted_input` theo FR-012. Chống autofill bằng
+  `autocomplete="off"`, `autocorrect`/`spellcheck` giữ mặc định, không có
+  `name`/`id` gợi ý trình duyệt điền; tắt kéo thả, tắt menu dán trên mobile ở
+  mức có thể; thử dán hiện nhắc "Bài dùng thử cần gõ trực tiếp". Máy chủ không
+  tin client: tín hiệu mạnh FR-012 vẫn chặn khi client bị vượt. Kiểm: test
+  component với fixture: paste/drop/insertFromPaste/insertFromDrop → nội dung
+  không đổi + log; `insertReplacementText` 12 ký tự (autocorrect) và 150 ký tự
+  (đọc chính tả) → nội dung đổi, `input_log` đếm; `insertReplacementText`/
+  `insertText` 201 ký tự → chặn, nội dung không đổi; composition tiếng Việt
+  ("Việt" qua Telex) → nội dung đổi.
 - **FR-012:** (SA F6, N2) Client gửi kèm bài nộp một *nhật ký nhập liệu* tóm tắt
   (không phải keylogger: chỉ số đếm theo cửa sổ 5 s — ký tự thêm, ký tự xoá, số
   sự kiện `insertText`/composition/`insertReplacementText`, độ dài lớn nhất của
@@ -301,11 +316,17 @@ chưa đăng ký lớp, để họ trải nghiệm chất lượng chấm. Hiệ
   | --- | --- | --- |
   | thiếu `input_log` (gọi API thẳng) | mạnh | `paste_suspected`, không chấm, không trừ lượt, trừ 1 lần lọc (FR-014) |
   | một lần chèn > 200 ký tự | mạnh | như trên |
+  | (SA N34, N35) tổng ký tự từ các lần chèn **không phải** `insertText` gõ phím **mà mỗi lần > 30 ký tự hoặc chứa > 1 từ** (khoảng trắng bên trong) > 30 % `final_len`, hoặc ≥ 3 lần chèn > 100 ký tự. Commit composition/`insertReplacementText` từng từ (Gboard, SwiftKey, Telex, VNI; ≤ 30 ký tự, 1 từ) **không** tính vào ngưỡng | mạnh | như trên |
+  | (SA N35) commit composition/thay thế từng từ (≤ 30 ký tự, 1 từ) | mềm | chấm, gắn `input_flag=assisted_input` |
+  | (SA N38) `word_commits` > 80 % số từ của bài **và** cùng bài có `fast_typing` hoặc `short_duration` (script chèn từng từ) | mạnh | `paste_suspected`, như trên |
   | `final_len` lớn hơn tổng ký tự đã ghi nhận thêm (trừ xoá) > 30 % | mạnh | như trên |
   | tốc độ cao (> 600 ký tự/phút trong một cửa sổ) | mềm | chấm, gắn `input_flag=fast_typing` |
   | IME tiếng Việt, autocorrect, Gboard/đọc chính tả của hệ điều hành (`insertReplacementText`, composition, chèn ≤ 200 ký tự) | mềm | chấm, gắn `input_flag=assisted_input` |
   | thời gian gõ ngắn bất thường so với số chữ | mềm | chấm, gắn `input_flag=short_duration` |
 
+  `input_flag`/`paste_suspected` **chỉ** do máy chủ tính từ `input_log`; trường
+  tương tự client gửi lên bị `extra='forbid'` từ chối (422) — test (SA N34).
+  `input_log` thêm bộ đếm `long_nonkey_chars` (chỉ lần chèn > 30 ký tự hoặc > 1 từ), `word_commits`, `inserts_over_100` mỗi cửa sổ (SA N35).
   Quy tắc này **chỉ** áp dụng cho dùng thử; hợp đồng anti-paste của lớp thật
   (<50 / 50–200 / >200 ký tự, `writing-behavior.tsx`) không đổi (Q-9). Kiểm:
   fixture gõ thật → chấm, không cờ; mỗi tín hiệu mạnh → `paste_suspected` trước
@@ -366,8 +387,24 @@ chưa đăng ký lớp, để họ trải nghiệm chất lượng chấm. Hiệ
   anti-paste của học viên lớp (<50/50–200/>200) **không đổi** trừ khi anh Vinh
   quyết khác (Q-9). Kiểm: như FR-018 và test hợp đồng anti-paste hiện có pass.
 - **FR-020:** Cờ `free_trial_enabled` (bảng `runtime_flags`) mặc định TẮT; đọc
-  lỗi → coi như TẮT. Khi TẮT: route `/api/trial/*` trả 404/`trial_closed paused`,
-  UI không hiện thẻ dùng thử. Kiểm: test cờ thiếu/lỗi đọc → đóng.
+  lỗi → coi như TẮT. (FD 05/11, CR P3-4 + Codex r4469775139) Mã trả theo
+  route — một bảng duy nhất, FR-035 theo bảng này:
+
+  | Trạng thái | `config` | `status` | route ghi + `questions`/`prompts` | đọc lịch sử của mình (FR-038) |
+  | --- | --- | --- | --- | --- |
+  | cờ TẮT / thiếu / đọc lỗi | 200 `enabled:false, open:false` | 200 `open:false, reason:"disabled"` | **404** `trial_disabled` | 200 (chủ sở hữu) |
+  | cờ BẬT, `trial_open()` = false (paused, trần, thiếu cấu hình) | 200 `open:false` | 200 `open:false, reason` | **503** `trial_closed` + `reason` | 200 (chủ sở hữu) |
+  | `TRIAL_KILL_SWITCH` bật | 200 `open:false` | 200 `open:false, reason:"paused"` | 503 `trial_closed` | **503** `trial_closed` (khẩn cấp: đóng cả đọc) |
+
+  (SA N33) Thứ tự kiểm cho mọi route `/api/trial/*` trừ `config`: kill switch
+  (env, **trước** JWT) → 503 → JWT thiếu/sai → 401 → `suspended_at` → 403 → cờ
+  TẮT → 404 (không áp cho đọc FR-038) → `trial_open()` false → 503 (không áp
+  cho đọc FR-038) → eligibility → 403 (không áp cho đọc FR-038) → rate limit →
+  body. `config` không qua bước nào ngoài rate limit IP. Kiểm: kill switch bật +
+  không JWT → 503; cờ TẮT + không JWT → 401; test bảng thứ tự cho từng route.
+  UI không hiện thẻ dùng thử khi `enabled:false` nhưng vẫn hiện "Bài dùng thử
+  của bạn" nếu có lịch sử. Kiểm: test cờ thiếu/lỗi đọc → 404 cho route ghi,
+  200 cho config/status/đọc lịch sử; paused → 503; kill switch → 503 cả đọc.
 - **FR-021:** (SA N3) Kill switch env `TRIAL_KILL_SWITCH` trên Railway: không
   đặt hoặc `off` (không phân biệt hoa thường, bỏ khoảng trắng) → tắt; mọi giá trị
   khác (`on`, `1`, `true`, chuỗi lạ) → BẬT. Đọc env mỗi request, độc lập DB, chặn mọi
@@ -448,15 +485,18 @@ chưa đăng ký lớp, để họ trải nghiệm chất lượng chấm. Hiệ
   (SA F2) Cơ chế miễn trừ bị khoá chặt: miễn trừ chỉ khi Starlette đã khớp
   route (`request.scope["route"]` khác `None`), so cặp `(method, template)`
   chính xác; T013 bỏ nhánh dự phòng `request.url.path` cho miễn trừ. Danh sách
-  miễn trừ = đúng 8 cặp: `GET /api/trial/config`, `GET /api/trial/status`,
+  miễn trừ (bản 04/11) = 8 cặp: `GET /api/trial/config`, `GET /api/trial/status`,
   `POST /api/trial/activate`, `GET /api/trial/speaking/questions`, `POST
   /api/trial/speaking/answers`, `GET /api/trial/writing/prompts`, `POST
   /api/trial/writing/submissions`, `GET /api/trial/writing/submissions/{id}`.
-  Miễn trừ ≠ cấp quyền: mọi route trừ `config` tự yêu cầu JWT +
-  `is_trial_eligible` (gate trả sớm khi không có `Authorization`, nên không dựa
+  (FD 05/11) Thêm 2 cặp đọc (FR-038) → **đúng 10 cặp**: `GET
+  /api/trial/speaking/results/{id}`, `GET /api/trial/history`.
+  Miễn trừ ≠ cấp quyền: mọi route trừ `config` và 3 route đọc lịch sử (FR-038)
+  tự yêu cầu JWT + `is_trial_eligible` (gate trả sớm khi không có `Authorization`, nên không dựa
   vào gate). Router dùng thử không có catch-all `{path:path}` hay `api_route`
   nhiều method. Kiểm: snapshot tập miễn trừ; test mọi route dưới `/api/trial`
-  (trừ config) có dependency JWT+eligibility; token chưa kích hoạt gọi
+  (trừ config và 3 route đọc FR-038 — các route này có dependency JWT + không
+  khoá + chủ sở hữu, SA N31) có dependency JWT+eligibility; token chưa kích hoạt gọi
   `/api/trial/../sessions`, `/api/TRIAL/status`, `/api/trial/status/x`,
   `/api/trial%2Fstatus` → 404/403, không bao giờ 200. Route admin dùng thử nằm
   dưới `/api/admin/` (STAFF_PATH_PREFIXES) → admin + AAL2.
@@ -561,10 +601,10 @@ chưa đăng ký lớp, để họ trải nghiệm chất lượng chấm. Hiệ
   paused.
 - **FR-036:** (SA N4) `GET /api/admin/trial/readiness` (admin + AAL2, dưới
   `/api/admin/`) trả **chỉ boolean**: `flag_enabled`, `kill_switch_off`,
-  `turnstile_configured`, `salt_configured`, `caps_valid`, `separate_keys_configured`,
-  `migration_371_applied`, `invariant_ok`, `trial_keys_separate`, `would_be_open` (= `trial_open()` nếu bỏ qua cờ). Không
+  `turnstile_configured`, `salt_configured`, `caps_valid`, `separate_keys_configured` (= có đủ khoá dùng thử riêng cho Anthropic và OpenAI),
+  `migration_371_applied`, `invariant_ok`, `trial_keys_separate` (= mỗi khoá dùng thử khác khoá nền tảng cùng provider; so bằng hash trong bộ nhớ, không log; `false` khi thiếu khoá), `would_be_open` (= `trial_open()` nếu bỏ qua cờ). Không
   bao giờ trả giá trị khoá/muối/số tiền. Dùng để kiểm điều kiện mở trên prod khi
-  cờ còn TẮT. Kiểm: không phải admin → 403; response chỉ có boolean (test schema).
+  cờ còn TẮT. Kiểm: không phải admin → 403; response chỉ có boolean (test schema); (FD 05/11, CR P3-4) thiếu khoá → cả hai false; có khoá nhưng trùng khoá nền tảng → `separate_keys_configured=true`, `trial_keys_separate=false`, `would_be_open=false`.
 - **FR-037:** (SA N8, N14) Giám sát ngắt kết nối: chỉ đếm reservation dùng thử
   `released` do **client ngắt kết nối** (`http.disconnect` trước khi trả response)
   theo tài khoản/ngày; timeout/5xx phía provider **không** tính (vào metric lỗi
@@ -572,6 +612,32 @@ chưa đăng ký lớp, để họ trải nghiệm chất lượng chấm. Hiệ
   → gắn cờ nghi lạm dụng trong danh sách admin (FR-010), vượt 6 → tự chặn dùng
   thử tài khoản đó đến hết ngày (lượt trả lại không còn được trả). Kiểm: 7 lần
   ngắt kết nối giả → cờ ở lần 4, chặn ở lần 7; 7 lần provider timeout → không cờ.
+
+- **FR-038:** (FD 05/11, Codex #2252 r4469775139 + CR P3-1) **Đọc kết quả dùng
+  thử của chính mình** tách khỏi eligibility và trạng thái mở. Ba route `GET
+  /api/trial/writing/submissions/{id}`, `GET /api/trial/speaking/results/{id}`,
+  `GET /api/trial/history` (30 ngày gần nhất, ≤ 50 mục, chỉ `{id, kind,
+  created_at, band}`): yêu cầu JWT hợp lệ + hàng `users` tồn tại +
+  `suspended_at IS NULL` (khoá thì 403) + `id` UUID (sai → 422) + lọc `user_id =
+  người gọi` (khác → **404**); **không** yêu cầu `is_trial_eligible`, không
+  qua `trial_open()`/cờ (trừ kill switch, FR-020), không đọc hay ghi bảng dấu vết
+  (FR-022). Vì vậy người đã vào lớp (`first_activated_at` có giá trị) hoặc khi
+  chương trình đóng vẫn xem được bài cũ cho đến hạn lưu giữ FR-033
+  (`TRIAL_RETENTION_DAYS`; quá hạn → 404). Không gọi provider, không trả audio
+  trực tiếp (signed URL TTL ≤ 10 phút như FR-033). Kết quả Speaking lưu ở bảng
+  mới `trial_speaking_results` (migration 371, plan.md Persistence); POST
+  `speaking/answers` trùng `(user_id, request_key)` trả lại kết quả đã lưu
+  (reload không nộp lại, `ui-states.md`). Kiểm: chủ sở hữu đọc được sau khi được
+  kích hoạt vào lớp và sau khi cờ TẮT/paused; user khác → 404; không JWT → 401;
+  tài khoản khoá → 403; kill switch → 503; quá 30 ngày → 404; view dấu vết
+  không có hàng sau khi đọc.
+  (SA N29) 3 route đọc và response kết quả của `POST speaking/answers`/`POST
+  writing/submissions` trả `Cache-Control: no-store, private` + `Vary:
+  Authorization`. Giới hạn đọc mỗi user `TRIAL_READ_PER_MIN=60` qua bộ đếm DB
+  dùng chung (`trial_rate_events`, kind `read_user`); vượt → 429
+  `trial_read_limit`; bộ đếm lỗi → **429** (fail-closed), không trả dữ liệu.
+  Kiểm: header có trên cả 5 response (kể cả 404/429); lần đọc thứ 61 trong
+  1 phút → 429; DB đếm lỗi → 429 và không truy vấn bảng kết quả.
 
 ## Acceptance scenarios
 
