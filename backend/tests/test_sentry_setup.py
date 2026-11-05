@@ -334,6 +334,27 @@ def test_vn_phone_separators_preserve_dates_and_ids(text):
     assert scrub_text(text) == text
 
 
+@pytest.mark.parametrize("phone", [
+    "(+84) 90 123 4567", "(+84)901234567", "(84) 90-123-4567",
+    "(0)90 123 4567", "(084) 90 123 4567", "(0) 90 123 4567",
+])
+def test_vn_phone_parenthesized_prefix_is_redacted(phone):
+    assert scrub_text(phone) == "[redacted]"
+    text = f"call {phone} now"
+    assert scrub_text(text) == "call [redacted] now"
+    event = before_send({"exception": {"values": [{"type": "Error", "value": text}]}}, {})
+    assert event["exception"]["values"][0]["value"] == "call [redacted] now"
+
+
+@pytest.mark.parametrize("text", [
+    "user_0901234567", "2026-11-04", "user_(+84)901234567", "(+84)901234567x",
+])
+def test_vn_phone_parenthesized_prefix_preserves_dates_and_ids(text):
+    assert scrub_text(text) == text
+    event = before_send({"exception": {"values": [{"type": "Error", "value": text}]}}, {})
+    assert event["exception"]["values"][0]["value"] == text
+
+
 @pytest.mark.parametrize("uuid", [
     "84123456-7890-4abc-8def-0123456789ab",  # CR R1 P2-1
     "84111111-2222-4333-8444-090123456789",  # Codex review

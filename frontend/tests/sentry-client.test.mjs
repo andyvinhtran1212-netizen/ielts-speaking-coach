@@ -175,6 +175,26 @@ test('VN phones with separators are redacted; dates and ids are preserved', () =
   }
 });
 
+test('VN phones with parenthesized prefixes are redacted; dates and ids are preserved', () => {
+  for (const phone of [
+    '(+84) 90 123 4567', '(+84)901234567', '(84) 90-123-4567',
+    '(0)90 123 4567', '(084) 90 123 4567', '(0) 90 123 4567',
+  ]) {
+    assert.equal(scrubText(phone), '[redacted]', phone);
+    const text = `call ${phone} now`;
+    assert.equal(scrubText(text), 'call [redacted] now', phone);
+    const event = scrubSentryEvent({ exception: { values: [{ type: 'Error', value: text }] } });
+    assert.equal(event.exception.values[0].value, 'call [redacted] now', phone);
+  }
+  for (const text of [
+    'user_0901234567', '2026-11-04', 'user_(+84)901234567', '(+84)901234567x',
+  ]) {
+    assert.equal(scrubText(text), text);
+    const event = scrubSentryEvent({ exception: { values: [{ type: 'Error', value: text }] } });
+    assert.equal(event.exception.values[0].value, text);
+  }
+});
+
 test('VN phone separators preserve complete UUID scrubbing', () => {
   for (const uuid of [
     '84123456-7890-4abc-8def-0123456789ab', // CR R1 P2-1
@@ -210,7 +230,7 @@ test('instrumentation-client loads the SDK lazily from the built-in DSN, after t
   assert.ok(source.indexOf("import './lib/polyfills/legacy-safari.js'") < source.indexOf('initSentryClient'));
   // Named re-exports only, so the lazy chunk carries no replay/feedback code.
   const sdk = readFileSync(path.join(ROOT, 'lib/sentry-sdk.mjs'), 'utf8');
-  assert.match(sdk, /^export \{ browserTracingIntegration, init \} from '@sentry\/browser';$/m);
+  assert.match(sdk, /^export \{ browserTracingIntegration, captureException, init \} from '@sentry\/browser';$/m);
   const code = sdk.split('\n').filter((line) => !line.startsWith('//')).join('\n');
   assert.doesNotMatch(code, /export \*|import\(|^import /m);
   // No build plugin: withSentryConfig would add source map upload and tunnel routes.
