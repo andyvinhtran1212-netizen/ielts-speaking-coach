@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -75,6 +76,7 @@ test('node and edge configs share privacy hooks, existing tags and error-only op
     assert.equal(options.tracesSampleRate, 0);
     assert.deepEqual(options.tracePropagationTargets, []);
     assert.equal(options.enableLogs, false);
+    assert.deepEqual(options.dataCollection, { urlQueryParams: false });
     assert.equal(options.beforeSend, server.scrubSentryServerEvent);
     assert.equal(options.beforeBreadcrumb, server.filterSentryServerBreadcrumb);
     if (file === 'sentry.server.config.ts') {
@@ -106,6 +108,94 @@ test('server preserves shared scrubbing and the audited main logger allowlist', 
   const broken = { get message() { throw new Error('scrub failure'); } };
   assert.equal(server.scrubSentryServerEvent(broken), null);
 });
+
+test('server breadcrumbs lose query/fragment fields and url suffixes; encoded e-mails are redacted', () => {
+  const crumb = {
+    type: 'http', category: 'http',
+    data: {
+      url: 'https://api.example.test/grammar/search?q=learner%40example.com#PRIVATE_FRAGMENT',
+      'http.method': 'GET', status_code: 500,
+      'http.query': 'q=learner%40example.com', 'http.fragment': 'PRIVATE_FRAGMENT',
+      'url.query': '?q=PRIVATE_TEXT', 'url.fragment': '#PRIVATE_FRAGMENT',
+    },
+  };
+  const expected = { type: 'http', category: 'http', data: { url: 'https://api.example.test/grammar/search', 'http.method': 'GET', status_code: 500 } };
+  assert.deepEqual(server.filterSentryServerBreadcrumb(crumb), expected);
+  assert.equal(crumb.data['http.query'], 'q=learner%40example.com', 'input breadcrumb is not mutated');
+  assert.deepEqual(server.filterSentryServerBreadcrumb({ category: 'fetch', data: { url: 'grammar/search?q=x' } }).data, { url: 'grammar/search' });
+  const event = server.scrubSentryServerEvent({
+    message: 'lookup learner%40example.com and LEARNER%2540Example.COM failed',
+    breadcrumbs: [crumb, { category: 'http', message: 'q=learner%40example.com' }],
+  });
+  assert.equal(event.message, 'lookup [email] and [email] failed');
+  assert.deepEqual(event.breadcrumbs, [expected, { category: 'http', message: 'q=[email]' }]);
+});
+
+// Server-side grammar search sends learner text in q= (lib/grammar-api.ts).
+// Run a real Node fetch through the SDK's NodeFetch instrumentation, then
+// capture an error: the transport must carry the breadcrumb without any query.
+// The second run drops dataCollection to prove the breadcrumb filter alone holds.
+for (const [label, override] of [['configured', {}], ['without dataCollection', { dataCollection: undefined }]]) {
+  test(`real server fetch breadcrumb (${label}) sends no query, fragment, e-mail or learner text`, async () => {
+    const Sentry = require('@sentry/nextjs');
+    const envelopes = [];
+    const raw = [];
+    let client;
+    Sentry.getIsolationScope().clearBreadcrumbs();
+    Sentry.getCurrentScope().clearBreadcrumbs();
+    const httpServer = createServer((request, response) => {
+      response.writeHead(500, { 'content-type': 'application/json' });
+      response.end('{}');
+    });
+    await new Promise((resolve) => httpServer.listen(0, '127.0.0.1', resolve));
+    const origin = `http://127.0.0.1:${httpServer.address().port}`;
+    loadTs('sentry.server.config.ts', enabled, {
+      '@sentry/nextjs': { init: (options) => {
+        client = Sentry.init({
+          ...options,
+          ...override,
+          // Spy on what the SDK recorded before our filter ran.
+          beforeBreadcrumb: (crumb, hint) => { raw.push(structuredClone(crumb)); return options.beforeBreadcrumb(crumb, hint); },
+          transport: () => ({ send: async (envelope) => { envelopes.push(envelope); return { statusCode: 200 }; }, flush: async () => true }),
+        });
+      } },
+      './lib/sentry-server.mjs': server,
+    });
+    const hooks = loadTs('instrumentation.ts', { ...enabled, NEXT_RUNTIME: 'nodejs' }, { '@sentry/nextjs': Sentry });
+    try {
+      assert.ok(client.getIntegrationByName('NodeFetch'), 'NodeFetch integration stays enabled');
+      const q = encodeURIComponent('learner@example.com PRIVATE_ESSAY_TEXT');
+      const response = await fetch(`${origin}/api/grammar/search?q=${q}&limit=5#PRIVATE_FRAGMENT`);
+      assert.equal(response.status, 500);
+      await response.text();
+      await hooks.onRequestError(new Error('grammar search failed'),
+        { path: '/grammar/search', method: 'GET', headers: {} },
+        { routerKind: 'App Router', routePath: '/grammar/search', routeType: 'render', renderSource: 'react-server-components' });
+      assert.equal(await Sentry.flush(2000), true);
+      const events = envelopes.flatMap(([, items]) => items.filter(([header]) => header.type === 'event').map(([, event]) => event));
+      assert.equal(events.length, 1);
+      const fetchCrumbs = (events[0].breadcrumbs || []).filter((crumb) => crumb.category === 'http');
+      assert.equal(fetchCrumbs.length, 1, 'the real fetch produced a breadcrumb');
+      const rawData = raw.find((crumb) => crumb.category === 'http')?.data ?? {};
+      const rawQuery = Object.entries(rawData).find(([key]) => /query/i.test(key))?.[1];
+      // dataCollection stops the SDK recording the query; without it the SDK
+      // records it (proving the filter, not the SDK, removed it below).
+      if (label === 'configured') assert.equal(rawQuery, undefined);
+      else assert.match(rawQuery, /learner%40example\.com/);
+      assert.equal(fetchCrumbs[0].data.url, `${origin}/api/grammar/search`);
+      assert.equal(fetchCrumbs[0].data.status_code, 500);
+      assert.deepEqual(Object.keys(fetchCrumbs[0].data).filter((key) => /query|fragment/i.test(key)), []);
+      const payload = JSON.stringify(envelopes);
+      for (const privateValue of ['learner', '%40', 'example.com', 'PRIVATE_ESSAY_TEXT', 'limit=5', 'PRIVATE_FRAGMENT', q]) {
+        assert.ok(!payload.includes(privateValue), `transport leaked ${privateValue}`);
+      }
+    } finally {
+      await client.close(2000);
+      Sentry.setCurrentClient(undefined);
+      await new Promise((resolve) => httpServer.close(resolve));
+    }
+  });
+}
 
 test('route handler and RSC errors invoke captureRequestError once and transport only scrubbed events', async () => {
   const Sentry = require('@sentry/nextjs');
