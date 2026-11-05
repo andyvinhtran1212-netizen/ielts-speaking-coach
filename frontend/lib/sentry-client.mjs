@@ -30,9 +30,18 @@ const FAILING_ROW = /(Failing\s*row\s*contains\s*)\([\s\S]*/gi;
 const KEY_VALUE = /(Key\s*\([\s\S]*?\)\s*=\s*)\([\s\S]*/gi;
 // A bare Vietnamese phone number, with optional whitespace, dots or hyphens
 // between digits, not inside a longer id (same rule as the backend, PC-J644).
+// The prefix may be parenthesized: (+84), (84), (084) or (0) (PC-J664).
 // The prefix is captured: no lookbehind for older Safari. Names in
 // free text are not recognised.
-const VN_PHONE = /(^|[^0-9A-Za-z_-])(?:\+?84|0)(?:[\s.-]?\d){9,10}(?![0-9A-Za-z_]|-[0-9A-Za-z])/g;
+const VN_PHONE = /(^|[^0-9A-Za-z_-])(?:\((?:\+?84|084|0)\)|\+?84|0)(?:[\s.-]?\d){9,10}(?![0-9A-Za-z_]|-[0-9A-Za-z])/g;
+
+// Shared with boundary reporting so an early React failure waits for the lazy
+// SDK initialisation. No DSN (or a failed load) leaves reporting disabled.
+let clientReady = Promise.resolve(null);
+
+export function captureException(error, context) {
+  return clientReady.then((Sentry) => Sentry?.captureException(error, context));
+}
 
 export function scrubText(text) {
   return text
@@ -106,8 +115,11 @@ export function sentryClientOptions({ dsn, environment, release } = {}) {
  */
 export function initSentryClient(config, loadSdk) {
   const options = sentryClientOptions(config);
-  if (!options) return Promise.resolve(false);
-  return Promise.resolve()
+  if (!options) {
+    clientReady = Promise.resolve(null);
+    return Promise.resolve(false);
+  }
+  clientReady = Promise.resolve()
     .then(loadSdk)
     .then((Sentry) => {
       const extra = typeof Sentry.browserTracingIntegration === 'function' ? [Sentry.browserTracingIntegration()] : [];
@@ -118,10 +130,11 @@ export function initSentryClient(config, loadSdk) {
           ...extra,
         ],
       });
-      return true;
+      return Sentry;
     })
     .catch((error) => {
       console.warn('[sentry] not initialised:', error && error.name ? error.name : 'error');
-      return false;
+      return null;
     });
+  return clientReady.then((Sentry) => Sentry !== null);
 }

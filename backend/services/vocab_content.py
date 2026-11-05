@@ -19,6 +19,7 @@ public cache invalidates on new uploads (G2).
 
 import logging
 import re
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -36,6 +37,11 @@ _MD_EXTENSIONS  = ["tables", "fenced_code", "attr_list"]
 
 
 class VocabContentService:
+    # PC-J665: admin writes reload in worker threads, so reloads can overlap.
+    # Serialize build + publish so an older snapshot never publishes over a
+    # newer one and two publish loops never interleave.
+    _reload_lock = threading.Lock()
+
     def __init__(self):
         self._reset_state()
         self._load_categories()
@@ -78,13 +84,14 @@ class VocabContentService:
         each attribute; one that reads two attributes may briefly pair an old one
         with a new one. A loader failure raises before anything is published, so
         the old state stays intact."""
-        fresh = object.__new__(type(self))
-        fresh._reset_state()
-        fresh._load_categories()
-        fresh._load_lists()
-        fresh._load_all()
-        for name, value in vars(fresh).items():
-            setattr(self, name, value)
+        with self._reload_lock:
+            fresh = object.__new__(type(self))
+            fresh._reset_state()
+            fresh._load_categories()
+            fresh._load_lists()
+            fresh._load_all()
+            for name, value in vars(fresh).items():
+                setattr(self, name, value)
 
     # ── Category manifest ────────────────────────────────────────────────────
 
