@@ -64,7 +64,7 @@ test('node and edge configs share privacy hooks, existing tags and error-only op
   for (const file of ['sentry.server.config.ts', 'sentry.edge.config.ts']) {
     const inits = [];
     loadTs(file, enabled, {
-      '@sentry/nextjs': { init: (options) => inits.push(options) },
+      '@sentry/nextjs': { init: (options) => inits.push(options), httpIntegration: (options) => ({ name: 'Http', options }) },
       './lib/sentry-server.mjs': server,
     });
     assert.equal(inits.length, 1);
@@ -82,7 +82,11 @@ test('node and edge configs share privacy hooks, existing tags and error-only op
     if (file === 'sentry.server.config.ts') {
       assert.equal(options.enableOpenTelemetrySetup, false);
       assert.equal(options.includeLocalVariables, false);
-      assert.deepEqual(options.integrations(['ProcessSession', 'Http', 'ContextLines', 'LocalVariables', 'RequestData'].map((name) => ({ name }))), [{ name: 'RequestData' }]);
+      // The default Http (sessions on) is replaced by an isolation-only one.
+      assert.deepEqual(options.integrations(['ProcessSession', 'Http', 'ContextLines', 'LocalVariables', 'RequestData'].map((name) => ({ name }))), [
+        { name: 'RequestData' },
+        { name: 'Http', options: { sessions: false, spans: false, disableIncomingRequestSpans: true, maxRequestBodySize: 'none' } },
+      ]);
     }
   }
 });
@@ -150,7 +154,7 @@ for (const [label, override] of [['configured', {}], ['without dataCollection', 
     await new Promise((resolve) => httpServer.listen(0, '127.0.0.1', resolve));
     const origin = `http://127.0.0.1:${httpServer.address().port}`;
     loadTs('sentry.server.config.ts', enabled, {
-      '@sentry/nextjs': { init: (options) => {
+      '@sentry/nextjs': { httpIntegration: Sentry.httpIntegration, init: (options) => {
         client = Sentry.init({
           ...options,
           ...override,
@@ -197,13 +201,94 @@ for (const [label, override] of [['configured', {}], ['without dataCollection', 
   });
 }
 
+// A warm Node worker serves many requests from one SDK client. Each incoming
+// request must get its own isolation scope, or request A's fetch breadcrumbs
+// ride along on request B's error (PC-J677 R2 P2-1). A and B overlap; C runs
+// after both on the same worker and fetches nothing.
+test('two requests on one warm worker: each error carries only its own fetch breadcrumbs, no sessions', async () => {
+  const Sentry = require('@sentry/nextjs');
+  const envelopes = [];
+  let client;
+  Sentry.getIsolationScope().clearBreadcrumbs();
+  Sentry.getCurrentScope().clearBreadcrumbs();
+  const backend = createServer((request, response) => { response.writeHead(200); response.end('{}'); });
+  await new Promise((resolve) => backend.listen(0, '127.0.0.1', resolve));
+  const backendOrigin = `http://127.0.0.1:${backend.address().port}`;
+  loadTs('sentry.server.config.ts', enabled, {
+    '@sentry/nextjs': {
+      httpIntegration: Sentry.httpIntegration,
+      init: (options) => {
+        client = Sentry.init({
+          ...options,
+          transport: () => ({ send: async (envelope) => { envelopes.push(envelope); return { statusCode: 200 }; }, flush: async () => true }),
+        });
+      },
+    },
+    './lib/sentry-server.mjs': server,
+  });
+  const hooks = loadTs('instrumentation.ts', { ...enabled, NEXT_RUNTIME: 'nodejs' }, { '@sentry/nextjs': Sentry });
+  let releaseA;
+  const bFetched = new Promise((resolve) => { releaseA = resolve; });
+  const app = createServer(async (request, response) => {
+    const name = new URL(request.url, 'http://app.test').pathname.slice(1);
+    if (name !== 'C') {
+      const marker = `REQUEST_${name}_MARKER`;
+      await (await fetch(`${backendOrigin}/api/${marker}/search?q=${marker}_QUERY`)).text();
+      if (name === 'A') await bFetched;
+      else releaseA();
+    }
+    await hooks.onRequestError(new Error(`request ${name} failed`),
+      { path: `/${name}`, method: 'POST', headers: {} },
+      { routerKind: 'App Router', routePath: `/${name}`, routeType: 'route' });
+    response.end('done');
+  });
+  await new Promise((resolve) => app.listen(0, '127.0.0.1', resolve));
+  const appOrigin = `http://127.0.0.1:${app.address().port}`;
+  const send = (name) => fetch(`${appOrigin}/${name}?page=PRIVATE_PAGE_QUERY`, {
+    method: 'POST', headers: { cookie: 'PRIVATE_COOKIE' }, body: 'PRIVATE_REQUEST_BODY',
+  }).then((response) => response.text());
+  try {
+    assert.ok(client.getIntegrationByName('NodeFetch'), 'NodeFetch integration stays enabled');
+    assert.ok(client.getIntegrationByName('Http'), 'Http integration isolates incoming requests');
+    assert.equal(client.getIntegrationByName('ProcessSession'), undefined);
+    await Promise.all([send('A'), send('B')]);
+    await send('C');
+    assert.equal(await Sentry.flush(2000), true);
+    const events = envelopes.flatMap(([, items]) => items.filter(([header]) => header.type === 'event').map(([, event]) => event));
+    const byRequest = Object.fromEntries(events.map((event) => [event.exception.values[0].value.match(/request (\w) failed/)[1], event]));
+    assert.deepEqual(Object.keys(byRequest).sort(), ['A', 'B', 'C']);
+    const backendCrumbs = (event) => (event.breadcrumbs || [])
+      .filter((crumb) => String(crumb.data?.url).startsWith(backendOrigin)).map((crumb) => crumb.data.url);
+    assert.deepEqual(backendCrumbs(byRequest.A), [`${backendOrigin}/api/REQUEST_A_MARKER/search`]);
+    assert.deepEqual(backendCrumbs(byRequest.B), [`${backendOrigin}/api/REQUEST_B_MARKER/search`]);
+    assert.deepEqual(backendCrumbs(byRequest.C), []);
+    assert.doesNotMatch(JSON.stringify(byRequest.A), /REQUEST_B_MARKER/);
+    assert.doesNotMatch(JSON.stringify(byRequest.B), /REQUEST_A_MARKER/);
+    assert.doesNotMatch(JSON.stringify(byRequest.C), /REQUEST_[AB]_MARKER/);
+    // Besides events, only the SDK's counts-only client_report (spans dropped by
+    // tracesSampleRate 0, also sent before this fix) may leave: no sessions.
+    const items = envelopes.flatMap(([, envelopeItems]) => envelopeItems);
+    assert.deepEqual(items.filter(([header]) => !['event', 'client_report'].includes(header.type)), [], 'no session envelopes');
+    for (const [header, report] of items.filter(([itemHeader]) => itemHeader.type === 'client_report')) {
+      assert.deepEqual(Object.keys(report).sort(), ['discarded_events', 'timestamp'], JSON.stringify(header));
+      for (const entry of report.discarded_events) assert.deepEqual(entry, { reason: 'sample_rate', category: 'span', quantity: entry.quantity });
+    }
+    assert.doesNotMatch(JSON.stringify(envelopes), /_QUERY|PRIVATE_COOKIE|PRIVATE_REQUEST_BODY/);
+  } finally {
+    await client.close(2000);
+    Sentry.setCurrentClient(undefined);
+    await new Promise((resolve) => app.close(resolve));
+    await new Promise((resolve) => backend.close(resolve));
+  }
+});
+
 test('route handler and RSC errors invoke captureRequestError once and transport only scrubbed events', async () => {
   const Sentry = require('@sentry/nextjs');
   const envelopes = [];
   let captureCalls = 0;
   let client;
   loadTs('sentry.server.config.ts', enabled, {
-    '@sentry/nextjs': { init: (options) => {
+    '@sentry/nextjs': { httpIntegration: Sentry.httpIntegration, init: (options) => {
       client = Sentry.init({
         ...options,
         transport: () => ({ send: async (envelope) => { envelopes.push(envelope); return { statusCode: 200 }; }, flush: async () => true }),
