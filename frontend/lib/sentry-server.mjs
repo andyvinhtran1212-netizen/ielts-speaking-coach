@@ -58,7 +58,11 @@ export function sentryServerOptions({ dsn, environment, release } = {}) {
     environment: environment || 'development',
     ...(release ? { release } : {}),
     sendDefaultPii: false,
-    tracesSampleRate: 0,
+    // Tracing off, not sampled at 0: a rate of 0 still enables spans, and a
+    // sampled incoming sentry-trace header then ships them without beforeSend
+    // (PC-J677 R3 P1-1). null also stops SENTRY_TRACES_SAMPLE_RATE re-enabling
+    // it (the SDK reads that env only when the option is undefined).
+    tracesSampleRate: null,
     tracePropagationTargets: [],
     enableLogs: false,
     // Fetch/http integrations then record no query string at all.

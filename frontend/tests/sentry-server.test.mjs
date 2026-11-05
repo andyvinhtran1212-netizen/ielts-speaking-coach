@@ -73,7 +73,7 @@ test('node and edge configs share privacy hooks, existing tags and error-only op
     assert.equal(options.environment, 'staging');
     assert.equal(options.release, 'j677');
     assert.equal(options.sendDefaultPii, false);
-    assert.equal(options.tracesSampleRate, 0);
+    assert.equal(options.tracesSampleRate, null);
     assert.deepEqual(options.tracePropagationTargets, []);
     assert.equal(options.enableLogs, false);
     assert.deepEqual(options.dataCollection, { urlQueryParams: false });
@@ -265,16 +265,73 @@ test('two requests on one warm worker: each error carries only its own fetch bre
     assert.doesNotMatch(JSON.stringify(byRequest.A), /REQUEST_B_MARKER/);
     assert.doesNotMatch(JSON.stringify(byRequest.B), /REQUEST_A_MARKER/);
     assert.doesNotMatch(JSON.stringify(byRequest.C), /REQUEST_[AB]_MARKER/);
-    // Besides events, only the SDK's counts-only client_report (spans dropped by
-    // tracesSampleRate 0, also sent before this fix) may leave: no sessions.
+    // Only events leave: no sessions, and with tracing off no spans to drop,
+    // so no span client_report either (R3 P1-1).
     const items = envelopes.flatMap(([, envelopeItems]) => envelopeItems);
-    assert.deepEqual(items.filter(([header]) => !['event', 'client_report'].includes(header.type)), [], 'no session envelopes');
-    for (const [header, report] of items.filter(([itemHeader]) => itemHeader.type === 'client_report')) {
-      assert.deepEqual(Object.keys(report).sort(), ['discarded_events', 'timestamp'], JSON.stringify(header));
-      for (const entry of report.discarded_events) assert.deepEqual(entry, { reason: 'sample_rate', category: 'span', quantity: entry.quantity });
-    }
+    assert.deepEqual(items.filter(([header]) => header.type !== 'event'), [], 'no session, span or client_report envelopes');
     assert.doesNotMatch(JSON.stringify(envelopes), /_QUERY|PRIVATE_COOKIE|PRIVATE_REQUEST_BODY/);
   } finally {
+    await client.close(2000);
+    Sentry.setCurrentClient(undefined);
+    await new Promise((resolve) => app.close(resolve));
+    await new Promise((resolve) => backend.close(resolve));
+  }
+});
+
+// A caller can send a sampled trace header (…-1). With tracing configured at
+// all (even rate 0) the SDK inherits that decision and ships the fetch span in
+// a span envelope, which never passes beforeSend (PC-J677 R3 P1-1).
+const SAMPLED_TRACE = { 'sentry-trace': '0123456789abcdef0123456789abcdef-0123456789abcdef-1', baggage: 'sentry-trace_id=0123456789abcdef0123456789abcdef,sentry-sampled=true,sentry-sample_rand=0.01,sentry-sample_rate=1' };
+
+test('sampled incoming sentry-trace with cookie and client IP: Node sends no span or transaction', async () => {
+  const Sentry = require('@sentry/nextjs');
+  const envelopes = [];
+  let client;
+  // The SDK falls back to this env var when the option is undefined.
+  const previousRate = process.env.SENTRY_TRACES_SAMPLE_RATE;
+  process.env.SENTRY_TRACES_SAMPLE_RATE = '1';
+  const backend = createServer((request, response) => { response.writeHead(200); response.end('{}'); });
+  await new Promise((resolve) => backend.listen(0, '127.0.0.1', resolve));
+  const backendOrigin = `http://127.0.0.1:${backend.address().port}`;
+  loadTs('sentry.server.config.ts', enabled, {
+    '@sentry/nextjs': {
+      httpIntegration: Sentry.httpIntegration,
+      init: (options) => {
+        client = Sentry.init({
+          ...options,
+          transport: () => ({ send: async (envelope) => { envelopes.push(envelope); return { statusCode: 200 }; }, flush: async () => true }),
+        });
+      },
+    },
+    './lib/sentry-server.mjs': server,
+  });
+  const hooks = loadTs('instrumentation.ts', { ...enabled, NEXT_RUNTIME: 'nodejs' }, { '@sentry/nextjs': Sentry });
+  const app = createServer(async (request, response) => {
+    await (await fetch(`${backendOrigin}/api/first`)).text();
+    // A span started inside the request (as Next's own instrumentation does)
+    // must not record either.
+    await Sentry.startSpan({ name: 'PRIVATE_SPAN_NAME' }, () => fetch(`${backendOrigin}/api/nested`).then((r) => r.text()));
+    await hooks.onRequestError(new Error('traced request failed'),
+      { path: '/traced', method: 'GET', headers: request.headers },
+      { routerKind: 'App Router', routePath: '/traced', routeType: 'route' });
+    response.end('done');
+  });
+  await new Promise((resolve) => app.listen(0, '127.0.0.1', resolve));
+  const appOrigin = `http://127.0.0.1:${app.address().port}`;
+  try {
+    assert.equal(client.getOptions().tracesSampleRate, null);
+    assert.equal(client.getOptions().tracesSampler, undefined);
+    assert.equal(require('@sentry/core').hasSpansEnabled(client.getOptions()), false, 'tracing is off, not sampled at 0');
+    await (await fetch(`${appOrigin}/traced`, {
+      headers: { ...SAMPLED_TRACE, cookie: 'session=PRIVATE_COOKIE', 'x-forwarded-for': '203.0.113.77', 'x-real-ip': '203.0.113.77' },
+    })).text();
+    assert.equal(await Sentry.flush(2000), true);
+    const items = envelopes.flatMap(([, envelopeItems]) => envelopeItems);
+    assert.deepEqual(items.map(([header]) => header.type), ['event'], 'only the error event leaves: no span, transaction or client_report');
+    assert.doesNotMatch(JSON.stringify(envelopes), /PRIVATE_COOKIE|203\.0\.113\.77|PRIVATE_SPAN_NAME/);
+  } finally {
+    if (previousRate === undefined) delete process.env.SENTRY_TRACES_SAMPLE_RATE;
+    else process.env.SENTRY_TRACES_SAMPLE_RATE = previousRate;
     await client.close(2000);
     Sentry.setCurrentClient(undefined);
     await new Promise((resolve) => app.close(resolve));
@@ -368,6 +425,51 @@ test('real edge SDK export sends one scrubbed error and no telemetry envelopes',
   `;
   const result = spawnSync(process.execPath, ['--conditions=edge', '--input-type=module', '--eval', script], {
     cwd: fileURLToPath(new URL('../', import.meta.url)), encoding: 'utf8', timeout: 10000,
+  });
+  assert.equal(result.status, 0, result.stderr || result.error?.message);
+});
+
+// Edge has no incoming-request integration; Next's edge wrappers continue the
+// caller's trace from its headers, as continueTrace does here (R3 P1-1).
+test('sampled incoming sentry-trace on the edge SDK: fetch inside a span sends no span or transaction', () => {
+  const script = `
+    import assert from 'node:assert/strict';
+    import { createServer } from 'node:http';
+    import * as Sentry from '@sentry/nextjs';
+    import { hasSpansEnabled } from '@sentry/core';
+    import { sentryServerOptions } from './lib/sentry-server.mjs';
+    const trace = ${JSON.stringify(SAMPLED_TRACE)};
+    const headers = { ...trace, cookie: 'session=PRIVATE_COOKIE', 'x-forwarded-for': '203.0.113.77', 'x-real-ip': '203.0.113.77' };
+    const backend = createServer((request, response) => { response.writeHead(200); response.end('{}'); });
+    await new Promise((resolve) => backend.listen(0, '127.0.0.1', resolve));
+    const origin = 'http://127.0.0.1:' + backend.address().port;
+    const envelopes = [];
+    Sentry.init({
+      ...sentryServerOptions({ dsn: ${JSON.stringify(DSN)} }),
+      transport: () => ({ send: async (event) => { envelopes.push(event); return { statusCode: 200 }; }, flush: async () => true }),
+    });
+    const client = Sentry.getClient();
+    try {
+      assert.equal(client.getOptions().tracesSampleRate, null);
+      assert.equal(hasSpansEnabled(client.getOptions()), false);
+      await Sentry.continueTrace({ sentryTrace: trace['sentry-trace'], baggage: trace.baggage }, () =>
+        Sentry.startSpan({ name: 'PRIVATE_SPAN_NAME', op: 'http.server' }, async () => {
+          await (await fetch(origin + '/api/edge')).text();
+          Sentry.captureRequestError(new Error('edge traced request failed'),
+            { path: '/edge', method: 'GET', headers },
+            { routerKind: 'App Router', routePath: '/edge', routeType: 'route' });
+        }));
+      assert.equal(await Sentry.flush(2000), true);
+      assert.deepEqual(envelopes.flatMap(([, items]) => items.map(([header]) => header.type)), ['event']);
+      assert.doesNotMatch(JSON.stringify(envelopes), /PRIVATE_COOKIE|203\\.0\\.113\\.77|PRIVATE_SPAN_NAME/);
+    } finally {
+      await Sentry.close(2000);
+      await new Promise((resolve) => backend.close(resolve));
+    }
+  `;
+  const result = spawnSync(process.execPath, ['--conditions=edge', '--input-type=module', '--eval', script], {
+    cwd: fileURLToPath(new URL('../', import.meta.url)), encoding: 'utf8', timeout: 10000,
+    env: { ...process.env, SENTRY_TRACES_SAMPLE_RATE: '1' },
   });
   assert.equal(result.status, 0, result.stderr || result.error?.message);
 });
