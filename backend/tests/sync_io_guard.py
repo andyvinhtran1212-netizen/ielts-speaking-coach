@@ -566,12 +566,42 @@ def _dispatch_resolver(functions: dict[str, Function], bindings: dict[str, str],
     ``services.x.VocabService.reload``. Each step rewrites the longest dotted
     prefix bound at module top level (imports, re-exports, aliases and
     constructor calls, using the module's final binding) or looks a missing
-    method up on a scanned base class. A rewrite is kept only when it reaches
-    a scanned function, so this can add call-graph edges but never drops one.
+    method up in the resolved class's C3 MRO. A rewrite is kept only when it
+    reaches a scanned function or class, preserving existing function edges.
     Instance attributes (``self.client = ...``), objects passed as arguments
     and methods on third-party classes remain outside this static resolution.
     """
     cache: dict[str, str] = {}
+    mro_cache: dict[str, tuple[str, ...]] = {}
+
+    def class_mro(name: str, active: frozenset[str] = frozenset()) -> tuple[str, ...] | None:
+        if name in mro_cache:
+            return mro_cache[name]
+        if name in active or len(active) >= 100:
+            return None
+        # Resolve imported/re-exported base aliases before merging. Unscanned
+        # bases remain opaque; their own methods are outside this heuristic.
+        parents = [resolve(base) for base in bases.get(name, [])]
+        sequences = []
+        for parent in parents:
+            parent_order = class_mro(parent, active | {name})
+            if parent_order is None:
+                return None
+            sequences.append(list(parent_order))
+        sequences.append(parents[:])
+        order = [name]
+        while any(sequences):
+            sequences = [sequence for sequence in sequences if sequence]
+            candidate = next((sequence[0] for sequence in sequences
+                              if all(sequence[0] not in other[1:] for other in sequences)), None)
+            if candidate is None:
+                return None  # Inconsistent hierarchy: do not invent a dispatch.
+            order.append(candidate)
+            for sequence in sequences:
+                if sequence[0] == candidate:
+                    sequence.pop(0)
+        mro_cache[name] = tuple(order)
+        return mro_cache[name]
 
     def resolve(target: str) -> str:
         if target in functions:
@@ -602,8 +632,13 @@ def _dispatch_resolver(functions: dict[str, Function], bindings: dict[str, str],
                         queue.append((bindings[prefix] + rest, expanded | {(prefix, len(rest))}))
                         break
                     if prefix in bases:
-                        queue.extend((base + rest, expanded | {(prefix, len(rest))})
-                                     for base in bases[prefix] if rest)
+                        if not rest:
+                            cache[target] = prefix
+                        else:
+                            for base in (class_mro(prefix) or ())[1:]:
+                                if base + rest in functions:
+                                    cache[target] = base + rest
+                                    break
                         break
         return cache[target]
 

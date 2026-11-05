@@ -1193,6 +1193,41 @@ def test_inherited_service_methods_resolve_through_scanned_bases():
     assert [f.callee for f in findings] == ["services.base.Service.reload", "services.svc.Child.label"]
 
 
+@pytest.mark.parametrize("shared_root", [False, True], ids=["separate-roots", "diamond"])
+@pytest.mark.parametrize("root_blocks", [False, True], ids=["pure-root", "blocking-root"])
+@pytest.mark.parametrize("base_module", ["services.base", "services"])
+def test_inherited_service_methods_follow_c3_mro(shared_root, root_blocks, base_module):
+    root_body = "time.sleep(1)" if root_blocks else "return 'pure'"
+    second_body = "return 'pure'" if root_blocks else "time.sleep(1)"
+    findings = scan("""
+        from services.svc import service
+        async def f():
+            service.reload()
+    """, **{
+        "services/base.py": dedent(f"""
+            import time
+            class Root:
+                def reload(self):
+                    {root_body}
+            class First(Root):
+                pass
+            class Second{'(Root)' if shared_root else ''}:
+                def reload(self):
+                    {second_body}
+        """),
+        "services/__init__.py": "from .base import First, Second\n",
+        "services/svc.py": f"from {base_module} import First as Left, Second as Right\n"
+                           "class Child(Left, Right):\n    pass\nservice = Child()\n",
+    })
+    # Separate roots: Child, First, Root, Second. Diamond: Child, First,
+    # Second, Root. Breadth-first fails the former; depth-first fails the latter.
+    selected = "Second" if shared_root else "Root"
+    blocking = not root_blocks if shared_root else root_blocks
+    assert [(f.function, f.callee) for f in findings] == (
+        [("f", f"services.base.{selected}.reload")] if blocking else []
+    )
+
+
 def test_unscanned_or_rebound_module_objects_keep_existing_resolution():
     findings = scan("""
         from services.svc import client, service
