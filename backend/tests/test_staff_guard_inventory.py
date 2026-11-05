@@ -13,7 +13,10 @@
 4. Step-up (Amendment 1, FR-020): the routes that call ``require_recent_mfa``
    are exactly ``STEP_UP_ROUTES``, each calls it as the statement right after
    its guard, and each refuses a 16-minute-old TOTP under
-   ``ADMIN_STEP_UP_ENFORCE=true`` with no database call.
+   ``ADMIN_STEP_UP_ENFORCE=true`` with no database call. Amendment 2 adds the
+   conditional ``CONDITIONAL_STEP_UP_ROUTES`` (role-granting access codes,
+   guarded only when the normalized ``grants_role`` is non-null) and the
+   24-hour new-factor cool-off on every one of them (FR-020a).
 """
 
 from __future__ import annotations
@@ -22,6 +25,7 @@ import ast
 import asyncio
 import inspect
 import textwrap
+import time
 from pathlib import Path
 
 import pytest
@@ -44,6 +48,7 @@ from tests.test_staff_guard import (  # shared fakes
     aal2_claims,
     accept,
     is_mfa_required,
+    iso,
 )
 
 ROUTERS_DIR = Path(__file__).resolve().parent.parent / "routers"
@@ -152,13 +157,16 @@ def _fake_request(method: str, path: str) -> Request:
     })
 
 
-def _call_endpoint(route: APIRoute, method: str, bearer: str):
+def _call_endpoint(route: APIRoute, method: str, bearer: str, overrides: dict | None = None):
     """Call the handler directly with the bearer and inert placeholders: the
-    guard is awaited first (section 2), so nothing else is ever used."""
+    guard is awaited first (section 2), so nothing else is ever used.
+    ``overrides`` supplies real arguments (a conditional step-up's body)."""
     kwargs = {}
     auth_name = _auth_param(route)
     for name, param in inspect.signature(route.endpoint).parameters.items():
-        if name == auth_name:
+        if overrides and name in overrides:
+            kwargs[name] = overrides[name]
+        elif name == auth_name:
             kwargs[name] = bearer
         elif param.annotation is Request or param.annotation == "Request":
             kwargs[name] = _fake_request(method, route.path)
@@ -333,6 +341,20 @@ STEP_UP_ROUTES = frozenset({
     ("POST", "/admin/users/{user_id}/revoke-sessions"),
 })
 
+# Amendment 2 (FR-020, option c): routes whose step-up depends on the request.
+# Each maps to (guarded handler args, unguarded handler args) and the exact
+# pure normalization that decides it.
+CONDITIONAL_STEP_UP_ROUTES = {
+    ("POST", "/admin/access-codes/generate"): {
+        "guarded": lambda: {"body": admin_module.GenerateCodesRequest(
+            count=1, grants_role=" INSTRUCTOR ", intended_email="new-teacher@example.test")},
+        "ordinary": lambda: {"body": admin_module.GenerateCodesRequest(count=1, grants_role="  ")},
+        "normalize": "grants_role = (body.grants_role or '').strip().lower() or None",
+        "condition": "grants_role is not None",
+    },
+}
+ALL_STEP_UP_ROUTES = STEP_UP_ROUTES | frozenset(CONDITIONAL_STEP_UP_ROUTES)
+
 
 def _route_fn(route: APIRoute, cache: dict) -> ast.AST:
     module = route.endpoint.__module__
@@ -342,8 +364,8 @@ def _route_fn(route: APIRoute, cache: dict) -> ast.AST:
 
 def test_routes_that_use_require_recent_mfa_are_exactly_the_step_up_routes():
     found = {(m, p) for m, p, r in ROUTES if "require_recent_mfa" in _called_names(r.endpoint)}
-    assert found == STEP_UP_ROUTES, (
-        f"new: {sorted(found - STEP_UP_ROUTES)}  missing: {sorted(STEP_UP_ROUTES - found)}"
+    assert found == ALL_STEP_UP_ROUTES, (
+        f"new: {sorted(found - ALL_STEP_UP_ROUTES)}  missing: {sorted(ALL_STEP_UP_ROUTES - found)}"
     )
     # Nothing outside the route handlers calls it (a helper would hide which
     # routes are covered).
@@ -354,8 +376,8 @@ def test_routes_that_use_require_recent_mfa_are_exactly_the_step_up_routes():
                 isinstance(n, ast.Call) and _call_name(n) == "require_recent_mfa" for n in ast.walk(fn)
             ):
                 callers.append((f"routers.{path.stem}", fn.name))
-    handlers = {(r.endpoint.__module__, r.endpoint.__name__) for m, p, r in ROUTES if (m, p) in STEP_UP_ROUTES}
-    assert set(callers) == handlers and len(callers) == len(STEP_UP_ROUTES)
+    handlers = {(r.endpoint.__module__, r.endpoint.__name__) for m, p, r in ROUTES if (m, p) in ALL_STEP_UP_ROUTES}
+    assert set(callers) == handlers and len(callers) == len(ALL_STEP_UP_ROUTES)
 
 
 def test_step_up_is_the_statement_right_after_the_guard():
@@ -384,6 +406,38 @@ def test_step_up_is_the_statement_right_after_the_guard():
         "\n  ".join(offenders)
 
 
+def test_conditional_step_up_follows_the_guard_and_its_pure_normalization():
+    # `x = await require_admin(authorization)`, then the pure normalization,
+    # then `if <condition>: require_recent_mfa(x, authorization)` and nothing
+    # else in that branch — before any other statement of the handler.
+    cache: dict = {}
+    seen = []
+    for method, path, route in ROUTES:
+        spec = CONDITIONAL_STEP_UP_ROUTES.get((method, path))
+        if spec is None:
+            continue
+        fn = _route_fn(route, cache)
+        body = list(fn.body)
+        if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
+            body = body[1:]
+        guard, normalize, branch = body[0], body[1], body[2]
+        call = _awaited_call(guard)
+        assert call is not None and _call_name(call) == "require_admin", (method, path)
+        assert isinstance(guard, ast.Assign) and isinstance(guard.targets[0], ast.Name)
+        assert ast.unparse(normalize) == spec["normalize"], (method, path, ast.unparse(normalize))
+        assert isinstance(branch, ast.If) and ast.unparse(branch.test) == spec["condition"]
+        assert branch.orelse == [] and len(branch.body) == 1, (method, path)
+        step_up = branch.body[0]
+        assert isinstance(step_up, ast.Expr) and isinstance(step_up.value, ast.Call)
+        assert _call_name(step_up.value) == "require_recent_mfa"
+        assert [ast.unparse(a) for a in step_up.value.args] == [guard.targets[0].id, "authorization"]
+        # The guard is the only call before the branch.
+        assert [n for n in ast.walk(normalize) if isinstance(n, ast.Call) and _call_name(n) != "strip"
+                and _call_name(n) != "lower"] == []
+        seen.append((method, path))
+    assert set(seen) == set(CONDITIONAL_STEP_UP_ROUTES)
+
+
 def test_every_step_up_route_refuses_a_stale_totp_before_any_db_call(live_activation_gate, monkeypatch):
     TOKENS.clear()
     db = _DB()
@@ -404,16 +458,85 @@ def test_every_step_up_route_refuses_a_stale_totp_before_any_db_call(live_activa
 
     monkeypatch.setattr(admin_module, "_db_engine", _NoEngine())
     try:
-        refused = []
-        for method, path, route in ROUTES:
-            if (method, path) not in STEP_UP_ROUTES:
-                continue
-            with pytest.raises(HTTPException) as ei:
-                _call_endpoint(route, method, f"Bearer {token}")
-            assert ei.value.status_code == 403, (method, path, ei.value.detail)
-            assert ei.value.detail["code"] == "step_up_required", (method, path)
-            refused.append((method, path))
-        assert set(refused) == STEP_UP_ROUTES
+        refused = _refuse_every_step_up_route(token)
+        assert set(refused) == ALL_STEP_UP_ROUTES
+        assert all("reason" not in detail for detail in refused.values())  # old factor: stale TOTP only
         assert db.touched == [] and db.inserts == [] and engine_calls == []
     finally:
         TOKENS.clear()
+
+
+def _refuse_every_step_up_route(token: str) -> dict:
+    refused = {}
+    for method, path, route in ROUTES:
+        if (method, path) not in ALL_STEP_UP_ROUTES:
+            continue
+        spec = CONDITIONAL_STEP_UP_ROUTES.get((method, path))
+        with pytest.raises(HTTPException) as ei:
+            _call_endpoint(route, method, f"Bearer {token}", spec["guarded"]() if spec else None)
+        assert ei.value.status_code == 403, (method, path, ei.value.detail)
+        assert ei.value.detail["code"] == "step_up_required", (method, path)
+        refused[(method, path)] = ei.value.detail
+    return refused
+
+
+@pytest.fixture
+def step_up_db(live_activation_gate, monkeypatch):
+    TOKENS.clear()
+    db = _DB()
+    for module in (admin_module, activation_gate):
+        monkeypatch.setattr(module, "supabase_admin", db)
+    monkeypatch.setattr(auth_module, "_get_auth_http_client", lambda: _AuthClient([]))
+    monkeypatch.setattr(settings, "ADMIN_AAL2_ENFORCE", True)
+    monkeypatch.setattr(settings, "ADMIN_STEP_UP_ENFORCE", True)
+    monkeypatch.setattr(settings, "ADMIN_STEP_UP_MINUTES", 15)
+    engine_calls: list = []
+
+    class _NoEngine:
+        def __getattr__(self, name):
+            engine_calls.append(name)
+            raise AssertionError(f"engine.{name} reached")
+
+    monkeypatch.setattr(admin_module, "_db_engine", _NoEngine())
+    yield db, engine_calls
+    TOKENS.clear()
+
+
+def test_every_step_up_route_refuses_a_recent_factor_with_a_fresh_totp_before_any_db_call(step_up_db):
+    # FR-020a: a factor verified an hour ago (next to an old backup) refuses
+    # step-up however fresh the TOTP; FR-001 itself still passes.
+    db, engine_calls = step_up_db
+    recent = time.time() - 3600
+    factors = VERIFIED + [{"id": "f-new", "factor_type": "totp", "status": "verified",
+                           "created_at": iso(recent), "updated_at": iso(recent)}]
+    token = accept("admin-active", aal2_claims("admin-active", totp_age=5), factors=factors)
+    refused = _refuse_every_step_up_route(token)
+    assert set(refused) == ALL_STEP_UP_ROUTES
+    assert all(d["reason"] == "new_factor_cooloff" for d in refused.values()), refused
+    assert db.touched == [] and db.inserts == [] and engine_calls == []
+
+
+def test_ordinary_branch_of_a_conditional_route_takes_no_step_up(step_up_db, monkeypatch):
+    # Negative control: same stale TOTP + recent factor, but a body the
+    # normalization maps to "no step-up" reaches the handler's own DB call.
+    db, _engine_calls = step_up_db
+    called = []
+    monkeypatch.setattr(staff_guard, "require_recent_mfa", lambda *a: called.append(a))
+    recent = time.time() - 3600
+    factors = [{"id": "f-new", "factor_type": "totp", "status": "verified",
+                "created_at": iso(recent), "updated_at": iso(recent)}]
+    token = accept("admin-active", aal2_claims("admin-active", totp_age=16 * 60), factors=factors)
+    for method, path, route in ROUTES:
+        spec = CONDITIONAL_STEP_UP_ROUTES.get((method, path))
+        if spec is None:
+            continue
+        db.touched.clear()
+        before = len(called)
+        with pytest.raises(HTTPException) as ei:  # the fake DB's 418, wrapped by the handler
+            _call_endpoint(route, method, f"Bearer {token}", spec["ordinary"]())
+        assert ei.value.status_code != 403, (method, path, ei.value.detail)
+        assert db.touched, (method, path)  # the handler's own DB call ran
+        assert len(called) == before, (method, path)
+        with pytest.raises(HTTPException):  # the spy lets the guarded body through too
+            _call_endpoint(route, method, f"Bearer {token}", spec["guarded"]())
+    assert len(called) == len(CONDITIONAL_STEP_UP_ROUTES)  # only the guarded body called it

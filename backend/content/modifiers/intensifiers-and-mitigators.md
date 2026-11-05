@@ -64,8 +64,8 @@ Trạng từ mức độ chỉnh cường độ của tính từ, từ mạnh (*
 |---|---|
 | Rất mạnh | extremely, incredibly, absolutely |
 | Mạnh | very, really, so |
-| Trung bình | quite, rather, pretty |
-| Nhẹ | fairly, somewhat, a little, a bit |
+| Trung bình (khá) | quite, fairly, rather, pretty |
+| Nhẹ | somewhat, a little, a bit |
 
 *rather* thường mang sắc thái **hơi tiêu cực/bất ngờ**: *The exam was rather difficult.*
 Với tính từ gradable, quite trong Anh Anh thường là "khá"; với **right, certain, impossible**, nó có thể mang nghĩa **hoàn toàn**. Fairly/quite/rather/pretty không có tỷ lệ cường độ cố định; giọng nói, từ đi kèm và văn phong cùng quyết định.
@@ -74,7 +74,7 @@ Với tính từ gradable, quite trong Anh Anh thường là "khá"; với **rig
 ### Tính từ thường vs tính từ tuyệt đối
 
 - **Tính từ thường (gradable)** — có mức độ: *hot, big, tired* → đi với *very, quite, a bit*.
-- **Tính từ cực độ** như freezing/exhausted đã có nghĩa rất lạnh/rất mệt; **tính từ tuyệt đối** như perfect/finished chỉ giới hạn trong nghĩa đích. Thường tránh very trong các nghĩa này; dùng tổ hợp phù hợp như **absolutely exhausted**, **completely finished**, **absolutely perfect**. Absolutely/completely/utterly không thay thế tự do trong mọi tổ hợp.
+- **Tính từ cực độ** như freezing/exhausted đã có nghĩa rất lạnh/rất mệt; **tính từ tuyệt đối** như perfect/finished đã mang nghĩa trọn vẹn, không có mức độ. Thường tránh very trong các nghĩa này; dùng tổ hợp phù hợp như **absolutely exhausted**, **completely finished**, **absolutely perfect**. Absolutely/completely/utterly không thay thế tự do trong mọi tổ hợp.
 
 - ✅ *very cold* / *absolutely freezing*
 - ❌ *very freezing* → ✅ *absolutely freezing*
@@ -87,13 +87,19 @@ Với tính từ gradable, quite trong Anh Anh thường là "khá"; với **rig
 
 ### Lỗi 2: Dùng "too" thay cho "very"
 - *too* = quá mức (tiêu cực): *too hot to sleep*; *very* chỉ mạnh, trung tính.
+- ❌ *The weather today is **too** nice.* (ý khen) → ✅ *The weather today is **very** nice.*
 
 ### Lỗi 3: Đặt trạng từ mức độ sai chỗ
+- ❌ *a **so** interesting film* → ✅ ***such** an interesting film* / *a **very** interesting film*
 - *quite an interesting film* là thứ tự thường gặp. *a quite interesting film* cũng có thể dùng, tuy ít thông dụng hơn; không coi cả hai là một câu đúng và một câu sai tuyệt đối.
 
 ## Ứng dụng trong bài thi
 
-**Speaking:** dùng đa dạng *fairly / quite / extremely* thay vì lặp *very* để nâng band Lexical.
+**Speaking:** dùng đa dạng *fairly / quite / extremely* thay vì lặp *very* để giúp điểm Lexical Resource.
+
+**Speaking Part 1:** *My hometown is **fairly** quiet, but it gets **extremely** crowded during Tết.*
+
+**Task 2:** *This policy is **rather** costly and only **slightly** effective.*
 
 ## Tóm tắt nhanh
 

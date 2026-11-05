@@ -34,3 +34,13 @@
  */
 
 import './lib/polyfills/legacy-safari.js';
+import { initSentryClient } from './lib/sentry-client.mjs';
+
+// PC-J597: Sentry, only when NEXT_PUBLIC_SENTRY_DSN is built in; options and
+// scrubbing in lib/sentry-client.mjs. The SDK is a separate chunk, so a build
+// without a DSN never downloads it.
+void initSentryClient({
+  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+  environment: process.env.AVER_SENTRY_ENVIRONMENT,
+  release: process.env.AVER_SENTRY_RELEASE,
+}, () => import('./lib/sentry-sdk.mjs'));

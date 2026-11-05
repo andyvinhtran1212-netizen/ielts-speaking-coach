@@ -5,6 +5,7 @@
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
+import { checkThemeToggle } from './theme-toggle-check.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
@@ -171,6 +172,7 @@ await page.getByRole('dialog').getByRole('button', { name: 'Chấm lại bằng 
 await page.getByText(/Chưa xác nhận được trạng thái canonical/).waitFor({ state: 'visible' });
 check('readback lỗi khóa mutation và không replay regrade', writes.filter((item) => item.path.endsWith('/regrade')).length === 1
   && await page.getByRole('button', { name: 'Đọc lại trạng thái' }).count() === 1);
+await checkThemeToggle(page, check, '/instructor/grade');
 check('mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
 await page.setViewportSize({ width: 1440, height: 900 });
 check('desktop không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));

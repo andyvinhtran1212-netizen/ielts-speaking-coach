@@ -5,6 +5,7 @@
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
+import { checkThemeToggle } from './theme-toggle-check.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
 const FIXTURE_API_PREFIX = '/__fixture_api';
@@ -311,6 +312,16 @@ check('hàng chờ chấm render đúng review canonical', JSON.stringify(queueC
 // The page runs in America/New_York; the identity line is still Vietnam time.
 const queueIdentities = await page.locator('section[aria-labelledby="grade-title"] .ins-cell-meta').allTextContents();
 check('PC-J36: 2 bài cùng học viên hiện mã bài + giờ nộp khác nhau', JSON.stringify(queueIdentities) === JSON.stringify(['e1 · 28/10/2026 14:05', 'ad8db313 · 28/10/2026 16:30']), JSON.stringify(queueIdentities));
+await checkThemeToggle(page, check, '/instructor');
+// PC-J580: at 360px the header labels used to wrap inside their buttons (67.6px tall).
+await page.setViewportSize({ width: 360, height: 800 });
+const headerActions = await page.locator('.ins-top__actions').evaluate((row) => ({
+  overflow: row.scrollWidth - row.clientWidth,
+  items: [...row.children].map((el) => { const b = el.getBoundingClientRect(); return { top: b.top, left: b.left, right: b.right, height: b.height }; }),
+}));
+check('360px: nút header /instructor nằm trên 1 hàng, trong khung nhìn', headerActions.items.length === 4 && headerActions.overflow <= 0
+  && headerActions.items.every((b) => Math.abs(b.top - headerActions.items[0].top) <= 2 && b.height <= 44 && b.left >= 0 && b.right <= 360), JSON.stringify(headerActions));
+await page.setViewportSize({ width: 390, height: 844 });
 check('mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
 await page.setViewportSize({ width: 1440, height: 900 });
 check('desktop không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));

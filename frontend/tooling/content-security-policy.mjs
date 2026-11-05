@@ -35,6 +35,27 @@ function browserOrigin(value, { allowLocalHttp }) {
   throw new Error(`content-security-policy: refusing non-https browser origin ${url.origin}`);
 }
 
+// PC-J597: the browser SDK posts envelopes to its DSN host only. Listed when a
+// DSN is built in, as that exact https origin (no region wildcard); a malformed
+// DSN fails the build like any other unusable origin.
+export const SENTRY_DSN_ENV = 'NEXT_PUBLIC_SENTRY_DSN';
+
+export function sentryConnectSource(env = process.env) {
+  const dsn = (env[SENTRY_DSN_ENV] || '').trim();
+  if (!dsn) return null;
+  let url;
+  try {
+    url = new URL(dsn);
+  } catch {
+    // Not echoed: the DSN is public once built, but not a value for build logs.
+    throw new Error(`content-security-policy: ${SENTRY_DSN_ENV} is not a valid URL`);
+  }
+  if (url.protocol !== 'https:') {
+    throw new Error(`content-security-policy: ${SENTRY_DSN_ENV} must be an https:// DSN`);
+  }
+  return url.origin;
+}
+
 function connectSources(env) {
   const vercelEnv = env.VERCEL_ENV || '';
   const origins = resolveRuntimeOrigins(env);
@@ -64,6 +85,8 @@ function connectSources(env) {
   const supabaseUrl = origins.supabaseUrl || PROD.supabaseUrl;
   const sources = ["'self'", ...apiBases, supabaseUrl].map((value) =>
     value === "'self'" ? value : browserOrigin(value, { allowLocalHttp }));
+  const sentry = sentryConnectSource(env);
+  if (sentry) sources.push(sentry);
   if (vercelEnv && vercelEnv !== 'production') sources.push(...VERCEL_TOOLBAR_SOURCES.connect);
   return [...new Set(sources)];
 }
@@ -155,6 +178,51 @@ export function nonceHostAllowed(hostname) {
 export function nonceRouteAllowed(pathname) {
   return /^\/(?:admin|advanced-vocabulary|course-exercises|d1-exercise|exam|exercises|flashcard-study|flashcards|full-test|full-test-result|grammar-checkup|grammar-lessons|home|instructor|listening|mock|mock-exam|my-class|onboarding|practice|profile|quiz|reading|result|speaking|writing)(?:\/|$)/.test(pathname)
     || /^\/vocabulary\/.+/.test(pathname);
+}
+
+// PC-J566 / SA-1029-CSP1 F1 (b): the build's own route table for the nonce
+// prefixes, inlined by next.config.ts (tooling/nonce-route-table.mjs walks
+// app/). A URL no entry matches is answered by the static root
+// `/_not-found` (HTTP 404), whose scripts can never carry a request nonce, so
+// the proxy leaves it on the public baseline. A missing or malformed table
+// keeps the nonce policy on every prefixed URL (the pre-PC-J566 behavior).
+export const NONCE_ROUTE_TABLE_ENV = 'AVER_CSP_NONCE_ROUTES';
+
+/** Route patterns from the inlined table, or null when it is unusable. */
+export function parseNonceRouteTable(value) {
+  try {
+    const table = JSON.parse(value || '');
+    return Array.isArray(table) && table.length > 0
+      && table.every((route) => typeof route === 'string' && route.startsWith('/')) ? table : null;
+  } catch {
+    return null;
+  }
+}
+
+function segmentMatches(pattern, segment) {
+  return /^\[[^\].]+\]$/.test(pattern) ? segment !== '' : pattern === segment;
+}
+
+/**
+ * Whether Next answers `pathname` from a route in `table` rather than the root
+ * not-found page. Segments are compared literally. The proxy checks both the
+ * raw path (next start) and its safely decoded form (Vercel routing).
+ * Only a dynamic segment accepts any non-empty value. An unusable table counts
+ * every URL as a route (keeps the nonce).
+ */
+export function nonceRouteExists(pathname, table) {
+  if (!table) return true;
+  const segments = pathname.split('/').slice(1);
+  return table.some((route) => {
+    const parts = route === '/' ? [] : route.split('/').slice(1);
+    const last = parts.at(-1) ?? '';
+    const optional = /^\[\[\.\.\.[^\]]+\]\]$/.test(last);
+    const catchAll = optional || /^\[\.\.\.[^\]]+\]$/.test(last);
+    const fixed = catchAll ? parts.slice(0, -1) : parts;
+    if (catchAll ? segments.length < fixed.length + (optional ? 0 : 1) : segments.length !== fixed.length) return false;
+    if (catchAll && segments.slice(fixed.length).some((segment) => segment === '')) return false;
+    return fixed.every((pattern, i) => segmentMatches(pattern, segments[i]));
+  });
 }
 
 // These are the nonce routes from next.config.ts's framing allowlist. Exact

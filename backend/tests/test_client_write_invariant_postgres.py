@@ -25,10 +25,15 @@ After the chain:
   (c) no SECURITY DEFINER function outside the platform schemas is EXECUTE-able
       by PUBLIC/anon, nor by authenticated except the 335 helper;
   (d) T1: writing_grade_ratings keeps RLS on and anon/authenticated cannot
-      write it (catalog and a real SET ROLE probe).
+      write it (catalog and a real SET ROLE probe);
+  (e) SVCPRIV-0042 FR-010 (358, PGTEMP option a): every function and
+      procedure in public and app_private has a search_path whose last entry
+      is pg_temp (not missing, not ''), so no trigger or RPC resolves names
+      through a caller's pg_temp while it runs as the owner.
 Negative controls (a writable view, matview, foreign table and partitioned
 table, an unnarrowed supabase_admin default ACL, a definer left on default
-EXECUTE, a dropped restrictive policy, RLS off) prove each check fires.
+EXECUTE, a dropped restrictive policy, RLS off, an unpinned function, a
+pg_temp-first or empty search_path) prove each check fires.
 
 Set TEST_PG_URL to a LOCAL disposable cluster and REQUIRE_PG=1 to forbid skips.
 """
@@ -57,7 +62,7 @@ MIGRATIONS = BACKEND / "migrations"
 LOCKED_APPLIER = BACKEND / "scripts" / "apply_migration_locked.sql"
 FIRST = 320
 # The brief's floor: the chain must never silently shrink below these.
-REQUIRED = {320, 321, 322, 326, 331, 332, 334, 335, 336, 338}
+REQUIRED = {320, 321, 322, 326, 331, 332, 334, 335, 336, 338, 358}
 OWNER = "client_invariant_runner"
 
 # 320's allowlist (learner-JWT writes) and 335's active-account coverage.
@@ -315,6 +320,12 @@ def _pre_320() -> str:
             FOR EACH ROW EXECUTE FUNCTION fn_stub_paper_trigger();
         CREATE TRIGGER trg_listening_exercises_updated_at BEFORE UPDATE ON listening_exercises
             FOR EACH ROW EXECUTE FUNCTION fn_stub_paper_trigger();
+        -- 353 replaces 295's package guard and 306's source guard: plain stubs
+        -- (353 re-creates the source guard as SECURITY DEFINER and revokes it).
+        CREATE FUNCTION fn_protect_listening_package_child() RETURNS trigger LANGUAGE plpgsql
+            SET search_path = public, pg_temp AS $$ BEGIN RETURN NEW; END $$;
+        CREATE FUNCTION fn_guard_mock_paper_source() RETURNS trigger LANGUAGE plpgsql
+            SET search_path = public, pg_temp AS $$ BEGIN RETURN NEW; END $$;
         -- 339 minimal shape: empty quiz/receipt tables and plain stubs of the 309/314
         -- functions 339 replaces or grants. 339 re-creates the replaced bodies as
         -- SECURITY DEFINER and must re-run 314's REVOKE, or (c) fires on these defaults.
@@ -550,6 +561,13 @@ SELECT 'c:security_definer_public_execute|' || p.oid::regprocedure || '|PUBLIC'
  WHERE p.prosecdef AND acl.grantee = 0 AND acl.privilege_type = 'EXECUTE'
    AND n.nspname <> ALL ({_array(PLATFORM_SCHEMAS)}) AND n.nspname NOT LIKE 'pg\\_temp%'
 UNION ALL
+SELECT 'e:routine_search_path_not_pg_temp_last|' || p.oid::regprocedure || '|'
+  FROM pg_proc p
+ WHERE p.pronamespace IN ('public'::regnamespace, COALESCE(to_regnamespace('app_private'), 0))
+   AND p.prokind IN ('f', 'p')
+   AND NOT EXISTS (SELECT 1 FROM unnest(COALESCE(p.proconfig, '{{}}'::text[])) c
+                    WHERE c ~ '^search_path=(.+, )?pg_temp$' AND c !~ '(=|, )pg_temp, ')
+UNION ALL
 SELECT 'd:writing_grade_ratings_rls_off|writing_grade_ratings|'
  WHERE NOT COALESCE((SELECT relrowsecurity FROM pg_class
                       WHERE oid = to_regclass('public.writing_grade_ratings')), false)
@@ -578,6 +596,7 @@ def chain():
         before = _violations(database)
         assert any(v.startswith("a:not_on_320_allowlist|r:users|anon:UPDATE") for v in before), before
         assert any(v.startswith("c:") for v in before), before
+        assert any(v.startswith("e:") for v in before), before
 
         applied, warnings = [], {}
         for migration in _forward_migrations():
@@ -624,7 +643,7 @@ def test_every_forward_migration_applied_through_the_locked_runner(chain):
            AND proowner <> '{OWNER}'::regrole""") == "0"
 
 
-@pytest.mark.parametrize("check", ["a:", "b:", "c:", "d:"])
+@pytest.mark.parametrize("check", ["a:", "b:", "c:", "d:", "e:"])
 def test_the_invariant_holds_after_every_migration(chain, check):
     assert [v for v in _violations(chain["database"]) if v.startswith(check)] == []
 
@@ -806,6 +825,24 @@ NEGATIVE = {
         OWNER,
         "ALTER TABLE public.writing_grade_ratings DISABLE ROW LEVEL SECURITY;",
         ["d:writing_grade_ratings_rls_off|writing_grade_ratings|"]),
+    # FR-010 (358, PGTEMP a): a later migration adds a routine without a
+    # search_path, with pg_temp missing or not last, or with ''.
+    "function_without_search_path": (
+        OWNER,
+        "CREATE FUNCTION public.inv94_unpinned() RETURNS trigger LANGUAGE plpgsql"
+        " AS $$ BEGIN RETURN NEW; END $$;"
+        " CREATE PROCEDURE public.inv94_unpinned_proc() LANGUAGE sql AS $$ SELECT 1 $$;"
+        " CREATE FUNCTION public.inv94_no_pg_temp() RETURNS int LANGUAGE sql"
+        " SET search_path = pg_catalog, public AS $$ SELECT 1 $$;"
+        " CREATE FUNCTION public.inv94_pg_temp_first() RETURNS int LANGUAGE sql"
+        " SET search_path = pg_temp, public, pg_temp AS $$ SELECT 1 $$;"
+        " CREATE FUNCTION app_private.inv94_empty() RETURNS int LANGUAGE sql"
+        " SET search_path = '' AS $$ SELECT 1 $$;",
+        ["e:routine_search_path_not_pg_temp_last|app_private.inv94_empty()|",
+         "e:routine_search_path_not_pg_temp_last|inv94_no_pg_temp()|",
+         "e:routine_search_path_not_pg_temp_last|inv94_pg_temp_first()|",
+         "e:routine_search_path_not_pg_temp_last|inv94_unpinned()|",
+         "e:routine_search_path_not_pg_temp_last|inv94_unpinned_proc()|"]),
     "t1_writing_grade_ratings_client_insert": (
         OWNER,
         "GRANT INSERT ON public.writing_grade_ratings TO authenticated;",

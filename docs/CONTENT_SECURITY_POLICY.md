@@ -54,6 +54,13 @@ Downloads that use `fetch(signedUrl)` go to the Supabase origin, which is
 already allowed. If a new browser-side integration needs a third-party origin,
 add it to the builder and add a test for it. Do not restore `https:`.
 
+Sentry (PC-J597): when the build has `NEXT_PUBLIC_SENTRY_DSN`, `connect-src`
+also lists that DSN's exact `https://` origin (for example
+`https://o123.ingest.us.sentry.io`), where the browser SDK posts its envelopes.
+No wildcard, nothing without a DSN, and `script-src` is unchanged: the SDK is a
+same-origin chunk. A DSN that is not a valid `https://` URL fails the build
+without echoing the value.
+
 Fail-closed rules:
 
 - A Vercel build throws if a configured API or Supabase value is not a valid
@@ -275,6 +282,37 @@ preview before merging.
 | Preview, public route | Original blocking CSP; no Report-Only | Identical |
 | Enforcement build, unlisted host | N/A | No nonce policy added by proxy; static blocking CSP remains |
 
+**404s under the signed-in prefixes (PC-J566, SA-1029-CSP1 F1 option b).** A
+URL under those prefixes that no route answers (`/practice`, `/home/x`,
+`/admin/x`, `/instructor/x`, `/vocabulary/x/y`) gets the public baseline, no
+nonce: Next serves it the prerendered root `/_not-found` (HTTP 404, card in the
+server HTML), whose scripts can never carry a request nonce. The proxy decides
+from the build's own route table (`tooling/nonce-route-table.mjs`, inlined by
+`next.config.ts`), never from request headers or a "404" in the URL, so every
+real signed-in route keeps the enforced nonce policy and `/_not-found` stays
+static. Option (a), rendering the root 404 per request, was dropped because it
+also made every public 404 request-time (CR #2216 R1).
+
+**Percent-encoded paths (PC-J604, follow-up to PC-J576 / #2216).** Vercel can
+route `/h%6Fme`, `/admin/cl%61sses`, `/instructor/gr%61de` and
+`/admin%2Fclasses` to real pages while the proxy still sees the encoded path.
+The proxy checks the raw path OR its once-decoded form against the same prefix
+guard and build route table. A decoding error keeps the raw path. Raw matches
+remain necessary for dynamic parameters containing `%2F`. The route inventory,
+matcher, baseline policy and production exclusions are unchanged; encoded exact
+matches retain the existing same-origin framing exceptions too.
+
+Trade-off: `next start` matches static route segments as sent, while still
+invoking the proxy for encoded prefixes. For a decoded-only route (all four
+probes above), it serves the static root 404, now with a nonce policy over
+unstamped scripts; enforcement blocks hydration there. We accept this
+local limitation to protect the real pages Vercel serves, without widening the
+baseline or making public 404s dynamic. Routing headers cannot reliably
+distinguish these environments and are never trusted to select the policy.
+The local 404 verifier pins these specific exceptions. The deployed checker
+remains strict: any 404 + nonce fails, as does any encoded real page without
+fully nonced scripts. SA must rerun it on the merged staging deployment SHA.
+
 ### Enable and verify
 
 Only Leader sets `AVER_CSP_NONCE_ENFORCE=1` in the frontend Vercel project's
@@ -290,6 +328,14 @@ node frontend/tooling/check-csp-nonce-deployed.mjs --enforced <preview-origin>
 
 It makes two GETs each to `/home`, `/admin`, `/profile`, `/vocabulary/hub`:
 every script must carry the blocking-header nonce and the nonce must change.
+It also probes `/instructor`. With `--enforced` it requires `/practice`,
+`/home/does-not-exist`, `/admin/nope-xyz`, `/instructor/nope-xyz`,
+`/vocabulary/nope/xyz/abc`, `/login/nope-xyz`, `/admin/404` and
+`/nope-top-level` to be HTTP 404 with the original nonce-free policy (a nonce
+header on a 404 fails), and `/listening/ielts/80-days/999` (soft 404, HTTP 200)
+to keep the nonce on every script. It also probes the four encoded static
+paths above: 200 + nonce on every script or 404 + the original baseline passes;
+200 + baseline and 404 + nonce both fail.
 It also checks that the four public routes retain the original full blocking
 policy and have no Report-Only header. Deployment Protection uses the
 `VERCEL_AUTOMATION_BYPASS_SECRET` environment variable without printing it.
@@ -320,6 +366,13 @@ Do not modify Production variables or promote this preview to Production.
 - Unit: `node --test frontend/tests/post-migration-security-headers.test.mjs
   frontend/tests/csp-nonce-report-only.test.mjs
   frontend/tests/csp-nonce-enforce.test.mjs`.
+- 404s: `node frontend/tooling/verify-csp-nonce-404-flow.mjs [--enforced]
+  <origin>` against `next start` (CI: the enforced build). It compares the
+  proxy's route table with `.next/routes-manifest.json`, then requires HTTP 404,
+  the card and the public baseline on signed-in 404s with 0 CSP violations,
+  the nonce on real routes, and a 200 ⇒ nonce / 404 ⇒ baseline outcome for
+  path-confusion URLs and forged routing headers, with the explicit PC-J604
+  `next start` encoded-static 404 exceptions described above.
 - Build output: after `next build`, `.next/routes-manifest.json` → `headers[]`
   holds the compiled policy for the build environment.
 - Browser smoke: on staging, open `/login`, `/`, `/grammar`, `/home` and

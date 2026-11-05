@@ -25,6 +25,19 @@ With the owner's explicit authorization at the `staging` → `main` promotion:
 apply 338 under the advisory lock, then run the catalog query read-only. No
 production write probes.
 
+## FR-008 (migration NNN, ticket PC-J562)
+
+1. Preconditions: #2204 (353) merged and applied on the target; this amendment
+   merged into `staging`.
+2. Staging: the Leader applies NNN under the advisory lock; WM imports one new
+   QA Listening package (`import_listening_source_collection.py`), then runs a
+   read-only SELECT: `mock_content_revision` of that package's tests is 0 and
+   the trigger function catalog matches; publish/archive a QA package as in
+   FR-006/FR-007.
+3. Production: only through a normal promote whose scope Vinh approves; apply
+   under the advisory lock and run the catalog check read-only. No production
+   import as a probe.
+
 ## Rollback and repair
 
 - Rollback: `DROP TRIGGER IF EXISTS update_<table>_updated_at ON public.<table>`
@@ -32,6 +45,8 @@ production write probes.
   advancing again. No data to repair; advanced `updated_at` values are correct
   timestamps.
 - Frontend: revert the form commit; no data involved.
+- NNN: run `rollback/NNN_*.sql` (restores the 353 `fn_guard_mock_paper_source`).
+  No data to repair; new-package import fails with 55000 again until re-applied.
 
 ## Observability
 

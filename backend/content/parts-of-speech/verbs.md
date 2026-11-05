@@ -32,7 +32,8 @@ difficulty: beginner
 band_relevance:
 - '5.0'
 - '6.0'
-common_error_tags: []
+common_error_tags:
+- wrong_tense
 speaking_relevance: medium
 writing_relevance: medium
 next_articles:
@@ -85,7 +86,7 @@ Diễn tả trạng thái tâm lý, cảm xúc, nhận thức, sở hữu — **
 
 | Nhóm | Động từ |
 |------|---------|
-| Cảm xúc | love, hate, like, dislike, prefer, want, need |
+| Cảm xúc / mong muốn | love, hate, like, dislike, prefer, want, need |
 | Nhận thức | know, understand, believe, think (= có ý kiến), remember, forget |
 | Tri giác | see, hear, smell, taste, feel (trạng thái) |
 | Sở hữu | have, own, belong, possess |
@@ -150,7 +151,7 @@ Câu hỏi thực tế nhất khi dùng verb trong câu: *"Tôi có dùng -ing �
 > Trước hết xác định nghĩa trong câu: đang nói trạng thái nói chung hay một hoạt động/trải nghiệm hiện tại? Stative verbs thường dùng thì đơn, nhưng phép thử với **am/is/are + verb-ing** không phải quy tắc tuyệt đối để kết luận câu sai.
 
 - "I **am running**." → đang chạy, có nghĩa → action ✅
-- "I **am knowing** the answer." → vô lý → stative, dùng "I **know**" ✅
+- "I **am knowing** the answer." → know chỉ trạng thái, không dùng tiếp diễn → "I **know**" ✅
 
 Không dùng cảm giác "nghe vô lý" như phép thử độc lập cho người mới. Phân biệt tiếp diễn hữu hạn với gerund/non-finite **Knowing the answer**, **having free time**; hạn chế tiếp diễn không cấm mọi dạng -ing.
 
@@ -182,7 +183,7 @@ Kiểm tra: nếu sau động từ là **tính từ** mô tả chủ ngữ → l
 | Base form | go | Nguyên thể, Present Simple (I/you/we/they) |
 | -s/-es | goes | Present Simple ngôi thứ 3 (he/she/it) |
 | -ing | going | Present/Past Continuous, Gerund |
-| Past Simple | went | Past Simple (thường = quá khứ bất quy tắc) |
+| Past Simple | went | Past Simple (động từ bất quy tắc có dạng riêng: went) |
 | Past Participle | gone | Perfect tenses, Passive voice |
 
 ### Regular vs. Irregular Verbs
@@ -230,7 +231,7 @@ Kiểm tra: nếu sau động từ là **tính từ** mô tả chủ ngữ → l
 ### Lỗi 3: Nhầm past simple và past participle
 
 - ❌ I have **went** there before.
-- ✅ I have **gone** there before.
+- ✅ I have **been** there before. *(gone = đã đi và chưa về)*
 - ❌ She has **ate** already.
 - ✅ She has **eaten** already.
 
@@ -251,12 +252,12 @@ Kiểm tra: nếu sau động từ là **tính từ** mô tả chủ ngữ → l
 ## Ứng dụng trong IELTS
 
 **IELTS Speaking:**
-- Dùng đa dạng thì để thể hiện Grammatical Range: past simple khi kể chuyện, present perfect khi nói về kinh nghiệm, future forms khi nói về kế hoạch.
+- Dùng đa dạng thì để thể hiện Grammatical Range and Accuracy: past simple khi kể chuyện, present perfect khi nói về kinh nghiệm, future forms khi nói về kế hoạch.
 - Stative verbs quan trọng cho Part 1 và 3: *I believe that..., I think..., I feel..., I prefer...*
 
 **IELTS Writing:**
-- Passive voice trong Task 1: *The graph shows that unemployment **was reduced** significantly.*
-- Avoid repeating the same verb — use synonyms: *show → indicate → demonstrate → reveal*
+- Passive voice trong Task 1 (process): *The tea leaves **are picked** by hand and then **dried** in the sun.*
+- Tránh lặp một động từ — thay bằng từ gần nghĩa phù hợp: show → indicate / reveal (chú ý sắc thái).
 
 <!-- anchor: verbs.bai-tap-luyen -->
 ## Bài tập luyện

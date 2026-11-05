@@ -22,3 +22,15 @@ Scope: staging only. The Leader applies 343 to staging under the advisory
 lock. This does not authorize applying 343 to production or running the
 production census; both need the owner's explicit authorization at the
 `staging` → `main` promotion.
+
+## BUCKET50 a amendment
+
+Vinh t1246u 02/11 06:37 approved option a, relayed by Leader in PC-J522
+(replacing PC-J511): `listening-audio` uses 50 MiB / 52 428 800 bytes,
+matching the existing staging project cap. This supersedes the original
+Listening size calculation and the single-migration assumption: 343 is
+already applied on staging, so retain it and add forward migration 362 with
+its own rollback and the same held feature group. Align the shared Storage
+helper and tests; leave the separate source-importer/full-test/pack ceilings
+to 1mg (PC-J484). Leader applies staging under the advisory lock; WM retests.
+No remote apply, production read/write or merge is authorized for PC-J522.

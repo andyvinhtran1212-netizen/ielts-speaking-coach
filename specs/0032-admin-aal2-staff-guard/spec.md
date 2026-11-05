@@ -299,6 +299,11 @@ Offline claims/fixtures only; never call live GoTrue to reproduce an attack:
 - A second, older factor does not exempt the user. Test both factor orders,
   an old `created_at` with a recent `updated_at`, and a recent `created_at`
   with an old `updated_at`. A backup factor is subject to the same rule.
+- Renaming an old verified TOTP factor (fixture: `created_at` 30 days old,
+  `updated_at` just now) restarts the 24-hour cool-off → 403
+  `reason=new_factor_cooloff`, the same as any other write that advances that
+  factor's `updated_at`. A later challenge or re-verification of that
+  factor does not restart it.
 - All verified TOTP factors' timestamps exactly 24 h old, or older, plus
   fresh TOTP → allowed. A stale TOTP remains refused by the 15-minute rule.
   Unverified TOTP and non-TOTP factors do not start this cool-off.
@@ -474,6 +479,13 @@ and AC13, not to a separate requirement row.
   be usable; missing or malformed metadata uses the existing fail-closed
   503 lookup-failure behavior under enforcement, never an assumption that
   the factor is old. Keep the existing report-only error behavior.
+- Any change that advances a verified TOTP factor's `updated_at` restarts
+  the 24-hour cool-off from that instant: at the audited Auth v2.197.0 that
+  is a friendly-name rename, a phone-field write or a status change
+  (`UpdateFriendlyName`, `UpdatePhone`, `UpdateStatus`; see
+  `verification.md`). Challenging or re-verifying an already verified
+  factor writes only `last_challenged_at` and does not restart it. Phone
+  and other non-TOTP factors stay outside this rule.
 - When factor metadata is usable and the cool-off and stale-TOTP rules
   both fail, the cool-off reason takes precedence. Under enforcement return
   403 `step_up_required` with `reason="new_factor_cooloff"`. Preserve the
