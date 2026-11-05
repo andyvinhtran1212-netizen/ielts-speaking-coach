@@ -578,8 +578,10 @@ chưa đăng ký lớp, để họ trải nghiệm chất lượng chấm. Hiệ
   `speaking/answers` chỉ `multipart/form-data`; `writing/submissions` và
   `activate` chỉ `application/json`;
   `multipart/form-data` thiếu `boundary` → 400 trước khi đọc body. (SA N24b)
-  `trial_open()` cũng là nguồn của `open` trong `/config`/`/status`. Đánh giá mỗi request; trả `paused` khi bất kỳ điều
-  sau: cờ `free_trial_enabled` tắt/đọc lỗi; `TRIAL_KILL_SWITCH` bật (FR-021) hoặc
+  `trial_open()` cũng là nguồn của `open` trong `/config`/`/status`. Đánh giá mỗi
+  request; cờ `free_trial_enabled` tắt/thiếu/đọc lỗi → `open=false`,
+  `reason=disabled` theo FR-020; trả `paused` khi bất kỳ điều sau:
+  `TRIAL_KILL_SWITCH` bật (FR-021) hoặc
   `AI_KILL_SWITCH` bật; khoá bí mật Turnstile hoặc site key thiếu/rỗng/chỉ khoảng
   trắng; `TRIAL_HASH_SALT` thiếu/rỗng/< 32 byte; bất kỳ `AI_BUDGET_TRIAL_*` thiếu,
   không parse được, ≤ 0 hoặc không hữu hạn; `trial_captcha_required` không bật; runtime flag `trial_invariant_ok` là false,
@@ -587,9 +589,11 @@ chưa đăng ký lớp, để họ trải nghiệm chất lượng chấm. Hiệ
   service_role được đặt cờ); (SA N12) khoá API Anthropic/OpenAI **riêng
   cho dùng thử** thiếu/rỗng/khoảng trắng hoặc **trùng** khoá nền tảng. Chuỗi
   provider dùng thử chỉ đọc khoá riêng, không bao giờ rơi về khoá nền tảng.
-  Route ghi bị `paused` → 503 `trial_closed` `reason=paused`, không đọc file, không
-  ghi DB, không gọi provider. Kiểm: tham số hoá từng cấu hình thiếu/sai × 3 route
-  ghi → 503 paused, provider giả và storage giả không được gọi; test kiến trúc:
+  Route ghi khi cờ tắt/thiếu/đọc lỗi → 404 `trial_disabled` theo FR-020;
+  bị `paused` → 503 `trial_closed` `reason=paused`. Cả hai trường hợp không đọc
+  file, không ghi DB, không gọi provider. Kiểm: tham số hoá cờ tắt/thiếu/đọc lỗi
+  × 3 route ghi → 404 `trial_disabled`; từng cấu hình thiếu/sai còn lại × 3 route
+  ghi → 503 paused; provider giả và storage giả không được gọi; test kiến trúc:
   mọi route POST dưới `/api/trial` không khai báo tham số body và gọi
   `trial_open()` trước khi đọc body; paused + body 3 MB → 503 và `receive` giả
   **không** được gọi (luồng body không bị đọc); body > giới hạn route → 413 ở

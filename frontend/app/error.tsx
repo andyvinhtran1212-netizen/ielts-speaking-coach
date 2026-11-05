@@ -3,10 +3,13 @@
 import Link from 'next/link';
 import { useEffect } from 'react';
 
+import { captureException } from '@/lib/sentry-client.mjs';
+
 import styles from './error-screen.module.css';
 
 export default function RouteError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
+    void captureException(error, { tags: { boundary: 'route' }, extra: { digest: error.digest } });
     const reporter = (window as any).aver?.reportError;
     if (typeof reporter === 'function') reporter(error, { surface: 'next-route-boundary' });
     else console.error('[aver] route boundary', error);
