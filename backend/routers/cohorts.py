@@ -11,20 +11,23 @@ ON DELETE SET NULL so even if a row is hard-deleted later, students
 survive.
 """
 
+import asyncio
 import logging
+import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from database import supabase_admin
-from models.cohorts import AdminCohortListOut
+from models.cohorts import AdminCohortListOut, CohortArchivePreviewOut
 from routers.admin import (
     require_admin, _aggregate_usage_for_users, _issue_code_and_assign, _activate_with_issued_code,
 )
-from services import student_service, test_data_visibility
+from services import class_archive_service, student_service, test_data_visibility
 from services.class_service import list_cohorts_basic, list_cohorts_with_rollup
 from services.cohort_progress_aggregator import cohort_progress
+from services.errors import GENERIC_MESSAGE, new_ref
 from services.class_membership_service import (
     active_students_for_cohort,
     add_student,
@@ -48,7 +51,12 @@ class CohortPatchRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     code_prefix: str | None = Field(default=None, max_length=20)
     description: str | None = None
+    # CLASSARCHIVE-0030: a change goes through fn_archive_cohort /
+    # fn_restore_cohort (migration 337), never a plain flag write.
     is_active: bool | None = None
+    # Optional (D5), trimmed, empty → NULL, at most 500 characters. Only
+    # meaningful together with `is_active`.
+    archive_reason: str | None = None
     # mig 175. Explicit null is meaningful here — it un-assigns the course — so
     # this field is read via `exclude_unset` below, not by an is-not-None check
     # like its neighbours.
@@ -138,7 +146,16 @@ async def update_cohort(
     body: CohortPatchRequest,
     authorization: str | None = Header(default=None),
 ):
-    await require_admin(authorization)
+    """Edit a class; archive or restore it when `is_active` is sent.
+
+    An `is_active` change runs `fn_archive_cohort` / `fn_restore_cohort` FIRST
+    (research.md §4.2 W14): the flag, `archived_at/by/reason` and one
+    `class_lifecycle_audit` row commit together, and a repeat writes no audit
+    row. If the RPC fails nothing else is written. Name, prefix, description
+    and course are then saved by a plain UPDATE. The response is the cohort row;
+    with `is_active` it also carries `archive_receipt` (the RPC result).
+    """
+    admin = await require_admin(authorization)
 
     updates: dict = {}
     # `name` cannot be cleared (a class must have one), so is-not-None is the
@@ -151,31 +168,132 @@ async def update_cohort(
     # class-edit form began sending all four fields on every save.)
     if body.name is not None:
         updates["name"] = body.name
-    if body.is_active is not None:
-        updates["is_active"] = body.is_active
     for field in ("code_prefix", "description", "course_id"):
         if field in body.model_fields_set:
             updates[field] = getattr(body, field)
 
-    if not updates:
+    if not updates and body.is_active is None:
         raise HTTPException(400, "Không có trường nào để cập nhật")
-
-    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
-
+    if body.is_active is None and body.archive_reason is not None:
+        raise HTTPException(400, "Lý do chỉ dùng khi lưu trữ hoặc khôi phục lớp")
     try:
-        r = (
-            supabase_admin.table("cohorts")
-            .update(updates)
-            .eq("id", cohort_id)
-            .execute()
-        )
-    except Exception as exc:
-        logger.error("[cohorts] update failed: %s", exc, exc_info=True)
-        raise HTTPException(500, "Lỗi khi cập nhật lớp. Vui lòng thử lại.") from None
+        reason = class_archive_service.normalize_reason(body.archive_reason)
+    except ValueError:
+        raise HTTPException(422, "Lý do lưu trữ tối đa 500 ký tự") from None
 
-    if not r.data:
+    actor_id = admin.get("id") if isinstance(admin, dict) else None
+    return await asyncio.to_thread(
+        _update_cohort_sync, cohort_id, updates, body.is_active, reason, actor_id)
+
+
+def _is_uuid(value: str) -> bool:
+    try:
+        uuid.UUID(str(value))
+    except ValueError:
+        return False
+    return True
+
+
+def _lifecycle_failed(cohort_id: str, *, context: str) -> HTTPException:
+    ref = new_ref()
+    logger.error("[cohorts] %s failed ref=%s cohort=%s", context, ref, cohort_id, exc_info=True)
+    return HTTPException(500, {
+        "error_code": "cohort_lifecycle_failed", "message": GENERIC_MESSAGE, "ref": ref,
+    })
+
+
+def _update_cohort_sync(
+    cohort_id: str,
+    updates: dict,
+    is_active: bool | None,
+    reason: str | None,
+    actor_id: str | None,
+):
+    receipt = None
+    if is_active is not None:
+        if not _is_uuid(cohort_id):
+            raise HTTPException(404, "Không tìm thấy lớp")
+        lifecycle = (class_archive_service.restore_class if is_active
+                     else class_archive_service.archive_class)
+        try:
+            receipt = lifecycle(
+                supabase_admin, cohort_id=cohort_id, actor_id=actor_id, reason=reason)
+        except Exception as exc:
+            if class_archive_service.is_reason_too_long_error(exc):
+                raise HTTPException(422, "Lý do lưu trữ tối đa 500 ký tự") from None
+            raise _lifecycle_failed(
+                cohort_id, context="restore" if is_active else "archive") from None
+        if receipt is None:
+            raise HTTPException(404, "Không tìm thấy lớp")
+
+    # The class state changed in this request; a later failure must say so.
+    changed = receipt is not None and receipt.get("status") in ("archived", "restored")
+
+    def _partial(context: str) -> HTTPException:
+        ref = new_ref()
+        logger.error("[cohorts] %s failed after %s ref=%s cohort=%s",
+                     context, receipt.get("status"), ref, cohort_id, exc_info=True)
+        done = "khôi phục" if is_active else "lưu trữ"
+        return HTTPException(500, {
+            "error_code": "cohort_update_partial",
+            "message": f"Đã {done} lớp nhưng chưa lưu được thay đổi khác. "
+                       "Vui lòng tải lại trang rồi thử lại.",
+            "ref": ref,
+        })
+
+    if updates:
+        updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+        try:
+            r = (
+                supabase_admin.table("cohorts")
+                .update(updates)
+                .eq("id", cohort_id)
+                .execute()
+            )
+        except Exception as exc:
+            if changed:
+                raise _partial("update") from None
+            logger.error("[cohorts] update failed: %s", exc, exc_info=True)
+            raise HTTPException(500, "Lỗi khi cập nhật lớp. Vui lòng thử lại.") from None
+        rows = r.data
+    else:
+        try:
+            rows = (
+                supabase_admin.table("cohorts").select("*").eq("id", cohort_id)
+                .limit(1).execute()
+            ).data
+        except Exception:
+            if changed:
+                raise _partial("reload") from None
+            raise _lifecycle_failed(cohort_id, context="reload") from None
+
+    if not rows:
         raise HTTPException(404, "Không tìm thấy lớp")
-    return r.data[0]
+    row = rows[0]
+    if receipt is None:
+        return row
+    return {**row, "archive_receipt": receipt}
+
+
+@router.get("/{cohort_id}/archive-preview", response_model=CohortArchivePreviewOut)
+async def cohort_archive_preview(cohort_id: str, authorization: str | None = Header(default=None)):
+    """Counts for the archive confirm dialog (`fn_cohort_archive_counts`):
+    active members, open Writing gives, open class items, unused class codes.
+    Plain reads; nothing is locked or written."""
+    await require_admin(authorization)
+    return await asyncio.to_thread(_archive_preview_sync, cohort_id)
+
+
+def _archive_preview_sync(cohort_id: str) -> dict:
+    if not _is_uuid(cohort_id):
+        raise HTTPException(404, "Không tìm thấy lớp")
+    try:
+        counts = class_archive_service.archive_preview(supabase_admin, cohort_id)
+    except Exception:
+        raise _lifecycle_failed(cohort_id, context="archive preview") from None
+    if counts is None:
+        raise HTTPException(404, "Không tìm thấy lớp")
+    return {"cohort_id": cohort_id, "counts": counts}
 
 
 _ZERO_USAGE = {"sessions": 0, "last_active": None, "ai_cost_usd": 0.0}
