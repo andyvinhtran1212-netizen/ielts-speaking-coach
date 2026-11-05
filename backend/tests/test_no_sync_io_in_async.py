@@ -1209,3 +1209,40 @@ def test_unscanned_or_rebound_module_objects_keep_existing_resolution():
     # Only scanned functions are rewritten: third-party clients and the
     # supabase_admin primitive keep their names; a rebinding wins.
     assert [f.callee for f in findings] == ["db.execute"]
+
+
+@pytest.mark.parametrize("package, calls", [
+    ("from . import svc\nsvc = svc.create_service()\n", "svc.reload()"),
+    ("from . import a, b\na = b.x()\nb = a.y()\n", "a.reload()\n    b.reload()"),
+])
+def test_cyclic_service_bindings_are_bounded_without_losing_findings(monkeypatch, package, calls):
+    import sync_io_guard
+
+    class BoundedBindings(dict):
+        lookups = 0
+
+        def get(self, key, default=None):
+            self.lookups += 1
+            assert self.lookups <= 200, "resolver exceeded its binding lookup budget"
+            return super().get(key, default)
+
+    dispatch_resolver = sync_io_guard._dispatch_resolver
+
+    def bounded_resolver(functions, bindings, bases):
+        return dispatch_resolver(functions, BoundedBindings(bindings), bases)
+
+    monkeypatch.setattr(sync_io_guard, "_dispatch_resolver", bounded_resolver)
+    findings = scan("from services import svc, a, b, nested\nfrom services.live import service\n"
+                    "async def f():\n    " + calls + "\n    service.reload()\n"
+                    "    nested.nested.service.reload()\n"
+                    "    supabase_admin.table('x').select('*').execute()\n", **{
+        "services/__init__.py": package + "import services as nested\nfrom .live import service\n",
+        "services/live.py": SERVICE_MODULE,
+    })
+    # Unsupported factory results stay unresolved; existing service edges and
+    # primitive findings survive. The lookup budget fails deterministically on
+    # the expanding cycle, without a wall-clock timeout or a hanging test.
+    assert [(f.function, f.callee) for f in findings] == [
+        ("f", "services.live.Service.reload"), ("f", "services.live.Service.reload"),
+        ("f", "db.execute"),
+    ]

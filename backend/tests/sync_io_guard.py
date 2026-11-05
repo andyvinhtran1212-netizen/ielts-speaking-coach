@@ -578,24 +578,32 @@ def _dispatch_resolver(functions: dict[str, Function], bindings: dict[str, str],
             return target
         if target not in cache:
             cache[target] = target
-            queue, seen = [target], set()
+            queue, seen = [(target, frozenset())], set()
             while queue:
-                name = queue.pop(0)
+                name, expanded = queue.pop(0)
                 if name in functions:
                     cache[target] = name
                     break
-                if name in seen:
+                state = (name, expanded)
+                if state in seen or len(expanded) >= 100:
                     continue
-                seen.add(name)
+                seen.add(state)
                 parts = name.split(".")
                 for index in range(len(parts), 0, -1):
                     prefix = ".".join(parts[:index])
                     rest = name[len(prefix):]
+                    # Reusing a binding with an equal/longer suffix can expand
+                    # forever. A shorter suffix still makes progress (e.g. a
+                    # package alias referring back to the package). Keep this
+                    # history per path so sibling bases remain independent.
+                    if any(prior == prefix and size <= len(rest) for prior, size in expanded):
+                        break
                     if bindings.get(prefix, prefix) != prefix:
-                        queue.append(bindings[prefix] + rest)
+                        queue.append((bindings[prefix] + rest, expanded | {(prefix, len(rest))}))
                         break
                     if prefix in bases:
-                        queue.extend(base + rest for base in bases[prefix] if rest)
+                        queue.extend((base + rest, expanded | {(prefix, len(rest))})
+                                     for base in bases[prefix] if rest)
                         break
         return cache[target]
 
