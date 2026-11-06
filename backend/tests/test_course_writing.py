@@ -66,8 +66,8 @@ async def _submit(answers, *, existing=(), graded=None, log=None):
                   "corrected": i["answer"], "issues": [], "ok": True}
                  for i in items]), "gemini-2.5-flash-lite"
     with patch.object(qs, "supabase_admin", db), \
-         patch.object(qs, "_bank_meta_or_404", lambda b, u=None: {"id": b, "skill_area": "course"}), \
-         patch.object(qs, "_assignment_item_for", lambda b, u: {"id": "it1"}), \
+         patch.object(qs, "_bank_meta_or_404", lambda b, u=None, **_kw: {"id": b, "skill_area": "course"}), \
+         patch.object(qs, "_assignment_item_for", lambda b, u, **_kw: {"id": "it1"}), \
          patch.object(qs.course_writing_grader, "grade", fake_grade):
         return await qs.submit_course_writing(user_id="u1", bank_id="b1", answers=answers), log
 
@@ -94,8 +94,8 @@ async def test_second_submission_is_refused_before_spending_a_model_call():
              course_writing_submissions=[{"id": "sub1", "bank_id": "b1", "user_id": "u1",
                                           "class_assignment_item_id": "it1"}])
     with patch.object(qs, "supabase_admin", db), \
-         patch.object(qs, "_bank_meta_or_404", lambda b, u=None: {"id": b, "skill_area": "course"}), \
-         patch.object(qs, "_assignment_item_for", lambda b, u: {"id": "it1"}), \
+         patch.object(qs, "_bank_meta_or_404", lambda b, u=None, **_kw: {"id": b, "skill_area": "course"}), \
+         patch.object(qs, "_assignment_item_for", lambda b, u, **_kw: {"id": "it1"}), \
          patch.object(qs.course_writing_grader, "grade", counting):
         with pytest.raises(HTTPException) as e:
             await qs.submit_course_writing(user_id="u1", bank_id="b1",
@@ -118,8 +118,8 @@ async def test_a_race_that_hits_the_unique_index_reads_as_already_submitted():
     db.table = lambda n: _Boom(n, tables.get(n, []), log)
     async def g(items, **_context): return [], "m"
     with patch.object(qs, "supabase_admin", db), \
-         patch.object(qs, "_bank_meta_or_404", lambda b, u=None: {"id": b, "skill_area": "course"}), \
-         patch.object(qs, "_assignment_item_for", lambda b, u: {"id": "it1"}), \
+         patch.object(qs, "_bank_meta_or_404", lambda b, u=None, **_kw: {"id": b, "skill_area": "course"}), \
+         patch.object(qs, "_assignment_item_for", lambda b, u, **_kw: {"id": "it1"}), \
          patch.object(qs.course_writing_grader, "grade", g):
         with pytest.raises(HTTPException) as e:
             await qs.submit_course_writing(user_id="u1", bank_id="b1",
@@ -162,7 +162,7 @@ async def test_the_losing_retry_cas_keeps_its_actionable_409():
     with patch.object(qs, "supabase_admin", db), \
          patch.object(qs, "_bank_meta_or_404",
                       lambda b, u=None: {"id": b, "skill_area": "course"}), \
-         patch.object(qs, "_assignment_item_for", lambda b, u: {"id": "it1"}), \
+         patch.object(qs, "_assignment_item_for", lambda b, u, **_kw: {"id": "it1"}), \
          patch.object(qs.course_writing_grader, "grade", g):
         with pytest.raises(HTTPException) as e:
             await qs.submit_course_writing(
@@ -203,8 +203,8 @@ async def test_an_incomplete_attempt_does_not_burn_the_single_grading_run():
 def _state(existing=(), item={"id": "it1", "assignment_id": "a1"}):
     db = _db([], quiz_questions=_QS, course_writing_submissions=list(existing))
     with patch.object(qs, "supabase_admin", db), \
-         patch.object(qs, "_assignment_item_for", lambda b, u: item), \
-         patch.object(qs, "_bank_meta_or_404", lambda b, u=None: {"id": b, "skill_area": "course"}):
+         patch.object(qs, "_assignment_item_for", lambda b, u, **_kw: item), \
+         patch.object(qs, "_bank_meta_or_404", lambda b, u=None, **_kw: {"id": b, "skill_area": "course"}):
         return qs.course_writing_state(user_id="u1", bank_id="b1")
 
 
@@ -390,7 +390,7 @@ def test_the_play_endpoint_never_ships_writing_answers():
     db = _db([], quiz_banks=[{"id": "b1", "code": "C1-B01", "skill_area": "course"}],
              quiz_questions=rows)
     with patch.object(qs, "supabase_admin", db), \
-         patch.object(qs, "_assignment_item_for", lambda b, u: {"id": "it1", "assignment_id": "a1"}), \
+         patch.object(qs, "_assignment_item_for", lambda b, u, **_kw: {"id": "it1", "assignment_id": "a1"}), \
          patch.object(qs, "_word_cards_for", lambda b: {}), \
          patch.object(qs, "_attach_article_urls", lambda q: None), \
          patch.object(qs, "_resolve_question_audio", lambda q, w: None), \
@@ -462,8 +462,8 @@ async def test_submitting_without_an_assignment_item_is_refused():
     db = _db([], quiz_questions=_QS, course_writing_submissions=[])
     async def g(items, **_context): return [], "m"
     with patch.object(qs, "supabase_admin", db), \
-         patch.object(qs, "_bank_meta_or_404", lambda b, u=None: {"id": b, "skill_area": "course"}), \
-         patch.object(qs, "_assignment_item_for", lambda b, u: None), \
+         patch.object(qs, "_bank_meta_or_404", lambda b, u=None, **_kw: {"id": b, "skill_area": "course"}), \
+         patch.object(qs, "_assignment_item_for", lambda b, u, **_kw: None), \
          patch.object(qs.course_writing_grader, "grade", g):
         with pytest.raises(HTTPException) as e:
             await qs.submit_course_writing(user_id="u1", bank_id="b1",
@@ -483,8 +483,8 @@ async def test_an_over_long_answer_is_refused_before_any_model_call():
         return [], None
     db = _db([], quiz_questions=_QS, course_writing_submissions=[])
     with patch.object(qs, "supabase_admin", db), \
-         patch.object(qs, "_bank_meta_or_404", lambda b, u=None: {"id": b, "skill_area": "course"}), \
-         patch.object(qs, "_assignment_item_for", lambda b, u: {"id": "it1"}), \
+         patch.object(qs, "_bank_meta_or_404", lambda b, u=None, **_kw: {"id": b, "skill_area": "course"}), \
+         patch.object(qs, "_assignment_item_for", lambda b, u, **_kw: {"id": "it1"}), \
          patch.object(qs.course_writing_grader, "grade", counting):
         with pytest.raises(HTTPException) as e:
             await qs.submit_course_writing(

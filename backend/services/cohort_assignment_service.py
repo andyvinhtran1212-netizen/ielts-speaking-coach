@@ -27,6 +27,11 @@ from uuid import UUID, uuid4
 
 from pydantic import BeforeValidator
 from services.class_assignment_service import CLASS_TZ, DEFAULT_DUE_TIME
+from services.class_archive_service import (
+    cohort_accepts_work,
+    is_cohort_archived_error,
+    raise_if_cohort_archived,
+)
 from services.class_membership_service import active_students_for_cohort
 from services.student_service import raise_if_student_archived
 
@@ -214,6 +219,8 @@ def fan_out_assignment(
         r = db.table("writing_assignments").insert(payload).execute()
     except Exception as exc:
         raise_if_student_archived(db, exc, student_ids)
+        # CLASSARCHIVE-0030 W9: the 337 give guard refuses an archived class.
+        raise_if_cohort_archived(exc)
         raise
     created = r.data or []
 
@@ -355,6 +362,10 @@ def _deadline_is_open(deadline, now: datetime, *, row_ref=None) -> bool:
     return due >= parse_deadline(now)
 
 
+def _archived_skip() -> dict:
+    return {"created_count": 0, "assignment_ids": [], "skipped": "cohort_archived"}
+
+
 def backfill_cohort_writing_assignments(
     db, *, student_id: str, cohort_id: str, now: Optional[datetime] = None,
 ) -> dict:
@@ -369,10 +380,17 @@ def backfill_cohort_writing_assignments(
     status to 'pending'. Idempotent — a (group, prompt) the student already has
     is skipped, so re-running (or a double redemption) creates nothing new.
 
-    Returns {"created_count": int, "assignment_ids": [...]}.
+    Returns {"created_count": int, "assignment_ids": [...]}. An archived class
+    (CLASSARCHIVE-0030 W2) gets nothing: {"created_count": 0, "assignment_ids":
+    [], "skipped": "cohort_archived"}, also when the archive commits between the
+    check and the insert (337 give guard). A legacy inactive class is backfilled
+    as before.
     """
     sid = str(student_id)
     cohort_str = str(cohort_id)
+    if not cohort_accepts_work(db, cohort_str):
+        logger.info("[cohort-backfill] skipped archived cohort=%s student=%s", cohort_str, sid)
+        return _archived_skip()
     now_dt = parse_deadline(now) or datetime.now(timezone.utc)
     now_iso = now_dt.isoformat()
 
@@ -421,6 +439,10 @@ def backfill_cohort_writing_assignments(
     except Exception as exc:
         # 331: the student was archived meanwhile → 409, nothing created.
         raise_if_student_archived(db, exc, [sid])
+        if is_cohort_archived_error(exc):
+            logger.info("[cohort-backfill] cohort=%s archived during backfill student=%s",
+                        cohort_str, sid)
+            return _archived_skip()
         raise
 
     logger.info(

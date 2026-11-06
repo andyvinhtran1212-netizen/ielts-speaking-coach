@@ -104,6 +104,10 @@ def test_fan_out_to_cohort_does_not_block_loop_and_keeps_receipt_roster_rpc_orde
     execute = _Call("rpc", SimpleNamespace(data=result), calls)
     monkeypatch.setattr(assignments, "require_admin", AsyncMock(return_value=_ADMIN))
     monkeypatch.setattr(assignments, "_read_assignment_request_receipt", receipt)
+    # CLASSARCHIVE-0030 W9: this harness has no cohorts table; the archived-class
+    # gate is covered by test_class_archive_instructor_gives.py.
+    monkeypatch.setattr(assignments.class_archive_service,
+                        "require_cohort_accepts_work", lambda *_a, **_k: None)
     monkeypatch.setattr(assignments, "active_student_ids_for_cohort", roster)
     monkeypatch.setattr(assignments, "supabase_admin", SimpleNamespace(
         rpc=lambda *a, **kw: SimpleNamespace(execute=execute),

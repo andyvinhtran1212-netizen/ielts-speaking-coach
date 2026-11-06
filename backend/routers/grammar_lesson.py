@@ -53,6 +53,7 @@ class LessonState(BaseModel):
     due_at: str | None = None
     status: Literal["not_started", "scheduled", "expired", "paused", "in_progress", "completed"]
     can_submit: bool
+    class_archived: bool = False
     answered_count: int
     correct_count: int
     question_count: int

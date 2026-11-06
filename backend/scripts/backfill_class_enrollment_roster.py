@@ -31,6 +31,13 @@ Idempotent:
     creates nothing new.
   • E1 logs "E1 skipped archived" and continues when migration 331 refuses a
     learner archived after the roster read (GIVEARCHIVE-0031).
+  • E1 skips an archived class (CLASSARCHIVE-0030 FR-003): it logs "E1 skipped
+    archived cohort" and gives nothing to its members, also when the archive
+    commits during the run. A legacy inactive class (archived_at NULL) is
+    backfilled as before.
+  • E6 reads every active class, archived ones included (include_archived=True):
+    stamping the owner is roster repair, not enrollment or new work, so an
+    archived class's members keep showing on their instructor's roster as today.
 
 Output: a per-phase summary. Exit code 0 unless the initial fetch fails.
 """
@@ -65,6 +72,7 @@ def main() -> int:
     from fastapi import HTTPException
 
     from database import supabase_admin
+    from services.class_archive_service import archived_cohort_ids
     from services.class_membership_service import (
         active_cohort_ids_for_student,
         active_student_ids_for_cohort,
@@ -102,7 +110,8 @@ def main() -> int:
     e6_orphan_no_owner = 0
     for student in students:
         sid = student["id"]
-        cohort_ids = active_cohort_ids_for_student(supabase_admin, student)
+        cohort_ids = active_cohort_ids_for_student(
+            supabase_admin, student, include_archived=True)
         owner = next((o for cid in cohort_ids if (o := _owner_of(str(cid)))), None)
         if not owner:
             if cohort_ids:
@@ -127,10 +136,19 @@ def main() -> int:
     ).data or []
     cohort_set = {str(r["cohort_id"]) for r in give_cohorts if r.get("cohort_id")}
 
+    # CLASSARCHIVE-0030: an archived class receives no new work. A failed
+    # lookup aborts the run rather than backfilling an archived class.
+    archived = archived_cohort_ids(supabase_admin, cohort_set)
+
     e1_students = 0
     e1_created = 0
     e1_skipped_archived = 0
+    e1_skipped_archived_cohorts = 0
     for cohort_id in sorted(cohort_set):
+        if cohort_id in archived:
+            e1_skipped_archived_cohorts += 1
+            logger.warning("E1 skipped archived cohort=%s", cohort_id)
+            continue
         for sid in active_student_ids_for_cohort(supabase_admin, cohort_id):
             if dry:
                 # Dry-run still computes via the service, then the apply path
@@ -150,6 +168,13 @@ def main() -> int:
                 e1_skipped_archived += 1
                 logger.warning("E1 skipped archived student=%s cohort=%s", sid, cohort_id)
                 continue
+            if res.get("skipped") == "cohort_archived":
+                # Archived while the run was going: nothing was created; the
+                # remaining members of this class are skipped the same way.
+                e1_skipped_archived_cohorts += 1
+                logger.warning("E1 skipped archived cohort=%s (archived during the run)",
+                               cohort_id)
+                break
             if res["created_count"]:
                 e1_students += 1
                 e1_created += res["created_count"]
@@ -157,9 +182,11 @@ def main() -> int:
                             sid, cohort_id, res["created_count"])
 
     logger.info(
-        "DONE (%s): E6 stamped=%d orphan_no_owner=%d | E1 students=%d rows=%d skipped_archived=%d",
+        "DONE (%s): E6 stamped=%d orphan_no_owner=%d | E1 students=%d rows=%d "
+        "skipped_archived=%d skipped_archived_cohorts=%d",
         "DRY-RUN" if dry else "APPLIED",
         e6_stamped, e6_orphan_no_owner, e1_students, e1_created, e1_skipped_archived,
+        e1_skipped_archived_cohorts,
     )
     if dry:
         logger.info("Dry-run only — re-run with --apply to write.")

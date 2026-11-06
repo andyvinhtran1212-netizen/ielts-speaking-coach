@@ -122,7 +122,11 @@ async def test_update_is_scoped_to_the_cohort_in_the_path():
     with patch.object(mod, "require_admin", AsyncMock(return_value={"id": "admin"})), \
          patch.object(mod, "supabase_admin") as db:
         db.table.side_effect = lambda _n: _Recorder(store)
-        await mod.update_lesson(COHORT, LESSON, mod.LessonPatch(title="Đổi tên"), None)
+        # CLASSARCHIVE-0030 W10 reads the class first; this recorder only knows
+        # the lesson row, so the class read is stubbed (archived cases live in
+        # test_class_archive_staff_writes.py).
+        with patch.object(mod, "_require_cohort", return_value={"id": COHORT, "is_active": True}):
+            await mod.update_lesson(COHORT, LESSON, mod.LessonPatch(title="Đổi tên"), None)
 
     assert ("cohort_id", COHORT) in store["eqs"], (
         "update must filter on cohort_id as well as the lesson id, or a stale "

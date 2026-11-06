@@ -20,6 +20,7 @@ because `class_assignments.lesson_id` is ON DELETE SET NULL (mig 177/178).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Any
@@ -29,6 +30,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from database import supabase_admin
 from routers.admin import require_admin
+from services import class_archive_service
 
 logger = logging.getLogger(__name__)
 
@@ -98,13 +100,22 @@ def _sort_key(row: dict) -> tuple:
     )
 
 
-def _require_cohort(cohort_id: str) -> None:
+def _require_cohort(cohort_id: str) -> dict:
+    """The class row; 404 when the class is unknown."""
     rows = (
-        supabase_admin.table("cohorts").select("id")
+        supabase_admin.table("cohorts").select("*")
         .eq("id", cohort_id).limit(1).execute().data
     ) or []
     if not rows:
         raise HTTPException(404, "Không tìm thấy lớp")
+    return rows[0]
+
+
+def _refuse_if_archived(cohort) -> None:
+    """CLASSARCHIVE-0030 W10: an archived class takes no lesson create or edit
+    (staff 409). GET and DELETE stay allowed; a legacy inactive class edits."""
+    if class_archive_service.is_cohort_archived(cohort):
+        raise class_archive_service.cohort_archived_error()
 
 
 @router.get("/{cohort_id}/lessons")
@@ -131,7 +142,7 @@ async def create_lesson(
     authorization: str | None = Header(default=None),
 ):
     admin = await require_admin(authorization)
-    _require_cohort(cohort_id)
+    _refuse_if_archived(_require_cohort(cohort_id))
 
     payload: dict[str, Any] = {
         "cohort_id":    cohort_id,
@@ -165,6 +176,8 @@ async def update_lesson(
     await require_admin(authorization)
 
     updates = body.model_dump(exclude_unset=True)
+    if updates:
+        _refuse_if_archived(await asyncio.to_thread(_require_cohort, cohort_id))
     if "attachments" in updates and updates["attachments"] is not None:
         updates["attachments"] = [dict(a) for a in updates["attachments"]]
     if not updates:

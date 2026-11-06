@@ -56,7 +56,7 @@ function harness(enabled) {
     exports.saveDraft = saveDraft;
     showTimerToast = () => {};
     submitFromModal = async () => fixture.submittedText.push(fixture.nodes['modal-essay-textarea']?.value);
-    renderModal = (data, ms, timer) => fixture.renders.push({ data, timer });
+    renderModal = (data, ms, timer, readOnly) => fixture.renders.push({ data, timer, readOnly: readOnly === true });
     updateModalWordCount = () => {};
     showSubmissionNotice = (kind, message) => fixture.notices.push({ kind, message });
     loadAssignments = async () => { fixture.refreshes++; };
@@ -217,4 +217,24 @@ test('late previous-workspace save failure cannot auto-submit the newly opened a
   await saving;
   assert.deepEqual(h.submittedText, []);
   assert.equal(h.calls.length, 1);
+});
+
+test('actual archived card reads its give read-only: no claim, start, admission or write', async () => {
+  // CLASSARCHIVE-0030 FR-004 / ui-states.md: the stored draft stays visible.
+  const h = harness(true);
+  const card = { getAttribute: name => ({ 'data-assignment-id': h.assignment, 'data-class-archived': 'true' })[name] ?? null };
+  const button = { closest: () => card, addEventListener: () => {} };
+  h.list = { innerHTML: '', removeAttribute() {}, querySelectorAll: () => [button] };
+  h.respond = async (method, path) => (method === 'GET' && path.endsWith(h.assignment))
+    ? { assignment: { id: h.assignment, is_timed: false, class_archived: true, archive_finish_allowed: false }, draft: { draft_text: 'kept draft' } }
+    : { error: 'must not be reached' };
+  await h.open(true);
+  assert.equal(h.calls.length, 1);
+  assert.equal(h.calls[0].method, 'GET');
+  assert.ok(h.calls[0].path.endsWith(h.assignment));
+  assert.equal(h.renders.length, 1);
+  assert.equal(h.renders[0].readOnly, true);
+  assert.equal(h.rows.size, 0);
+  assert.equal(h.notices.length, 0);
+  assert.deepEqual(h.removed, []);
 });
