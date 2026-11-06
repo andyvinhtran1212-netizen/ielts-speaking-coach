@@ -63,7 +63,7 @@ from database import supabase_admin
 from models.writing_give_preview import DuplicatesPreviewOut
 from services.cohort_assignment_service import Deadline, normalize_deadline
 from routers.admin import require_instructor
-from services import essay_service, instructor_give_service, instructor_workflow, student_service, test_data_visibility
+from services import class_archive_service, essay_service, instructor_give_service, instructor_workflow, student_service, test_data_visibility
 from services.access_code_gen import insert_with_unique_codes
 from services.core_attempt_outcomes import observe_writing_batch
 from services.writing_image_access import attach_signed_image_urls
@@ -332,21 +332,33 @@ async def fan_out(request: Request, body: FanOutBody, authorization: str | None 
     # instructor_fan_out_roster enforces prompt/cohort/student ownership → PermissionError → 403.
     student_ids = instructor_fan_out_roster(
         me, supabase_admin, prompt_ids=body.prompt_ids, cohort_id=body.cohort_id)
+    # CLASSARCHIVE-0030 W9: an archived class takes no new give (409). After the
+    # replay (a completed request keeps its receipt) and the ownership gate (a
+    # class that is not mine stays a 403); a legacy inactive class still takes it.
+    await asyncio.to_thread(
+        class_archive_service.require_cohort_accepts_work,
+        instructor_db(me), str(body.cohort_id))
     if not student_ids:
         raise HTTPException(400, instructor_give_service.EMPTY_ROSTER_MESSAGE)
-    return instructor_give_service.create_give(
-        supabase_admin, body.request_id, owner=me, give_kind="fan_out",
-        request_payload=request_payload,
-        prompt_ids=[str(p) for p in body.prompt_ids],
-        candidate_student_ids=student_ids,
-        cohort_id=str(body.cohort_id),
-        name=body.name,
-        allow_soft_check=body.allow_soft_check,
-        deadline=body.deadline.isoformat() if body.deadline else None,
-        instructions=body.instructions,
-        analysis_level=body.analysis_level,
-        grading_tier=body.grading_tier,
-    )
+    try:
+        return instructor_give_service.create_give(
+            supabase_admin, body.request_id, owner=me, give_kind="fan_out",
+            request_payload=request_payload,
+            prompt_ids=[str(p) for p in body.prompt_ids],
+            candidate_student_ids=student_ids,
+            cohort_id=str(body.cohort_id),
+            name=body.name,
+            allow_soft_check=body.allow_soft_check,
+            deadline=body.deadline.isoformat() if body.deadline else None,
+            instructions=body.instructions,
+            analysis_level=body.analysis_level,
+            grading_tier=body.grading_tier,
+        )
+    except Exception as exc:
+        # create_give maps `student_archived` first; an archive that commits
+        # after the pre-check is refused by the 337 give guard → the same 409.
+        class_archive_service.raise_if_cohort_archived(exc)
+        raise
 
 
 class FanOutPreviewBody(BaseModel):
@@ -780,10 +792,15 @@ async def mint_codes(request: Request, body: CodeMintBody, authorization: str | 
         )
     # cohort_id (optional) must be MY cohort — cross-tenant attach guard.
     if body.cohort_id is not None:
-        owned = (instructor_db(me).table("cohorts").select("id")
+        # select("*"): the 337 archive columns, tolerating a schema without them.
+        owned = (instructor_db(me).table("cohorts").select("*")
                  .eq("id", str(body.cohort_id)).limit(1).execute())
         if not owned.data:
             raise HTTPException(403, "Lớp không thuộc bạn.")
+        # CLASSARCHIVE-0030 W7: no new class code for an archived class. There is
+        # no DB guard on access_codes; this check is the gate.
+        if class_archive_service.is_cohort_archived(owned.data[0]):
+            raise class_archive_service.cohort_archived_error()
 
     rows = [{
         "is_used":     False,

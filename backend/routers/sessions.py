@@ -40,6 +40,11 @@ from services.class_assignment_service import (
     sync_class_item_score,
     validate_class_item_for_session,
 )
+from services.class_archive_service import (
+    cohort_archive_row,
+    cohort_archived_by,
+    require_class_item_accepts_work,
+)
 from services.access_code_permissions import (
     SPEAKING_PERMISSIONS,
     get_user_access_code_permissions_cached,
@@ -371,6 +376,29 @@ def require_speaking_entitlement(user_id: str, session: dict | None) -> None:
     if session.get("class_assignment_item_id"):
         return
     _require_permission(user_id, session.get("mode") or "practice")
+
+
+async def refuse_if_class_session_archived(session: dict) -> None:
+    """CLASSARCHIVE-0030 FR-004 (Variant A) for a Speaking session in progress.
+
+    An archived class takes no new answer or hand-in for its items, also on a
+    session started before the archive (research.md §5 has no Speaking
+    exception). Learner 409 ``cohort_archived``; a legacy inactive class and a
+    session without a class item pass. A failed read refuses with a generic
+    500: a gate must not open on a failed read.
+    """
+    item_id = session.get("class_assignment_item_id")
+    if not item_id:
+        return
+    try:
+        await asyncio.to_thread(
+            require_class_item_accepts_work, supabase_admin, item_id, learner=True)
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.error("[sessions] class archive check failed session=%s: %s",
+                     session.get("id"), exc, exc_info=True)
+        raise HTTPException(500, "Lỗi kiểm tra trạng thái lớp. Vui lòng thử lại.") from None
 
 
 def _resolve_full_test_attempt_id(user_id: str, body: CreateSessionBody) -> str | None:
@@ -1673,7 +1701,10 @@ def _complete_session_internal(session_id: str) -> None:
     # test_full), and this path completes sessions without going through
     # PATCH /complete. Without this the hand-in would never be recorded and the
     # teacher would see the homework as missing however well the student did.
-    _record_class_submission({**session, **update_payload, "id": session_id})
+    # finalize_full_test already refused the hand-in of an archived class, and
+    # completed_at here is the later aggregation time, not the hand-in time.
+    _record_class_submission({**session, **update_payload, "id": session_id},
+                             archive_gated=True)
 
 
 def _check_all_responses_graded(session_ids: list) -> bool:
@@ -1897,7 +1928,7 @@ async def finalize_full_test(
             supabase_admin.table("sessions")
             .select(
                 "id, mode, part, status, sitting_id, full_test_attempt_id, "
-                "resume_expires_at"
+                "resume_expires_at, class_assignment_item_id"
             )
             .in_("id", all_ids)
             .eq("user_id", user_id)
@@ -1924,6 +1955,8 @@ async def finalize_full_test(
         status = session.get("status")
         if status == "in_progress":
             require_resume_active(session)
+            # A Full Test given as class work is handed in here.
+            await refuse_if_class_session_archived(session)
         elif status != "submitted":
             raise HTTPException(
                 409,
@@ -1980,7 +2013,7 @@ async def finalize_full_test(
 
 # ── PATCH /sessions/{session_id}/complete ──────────────────────────────────────
 
-def _record_class_submission(session: dict) -> bool:
+def _record_class_submission(session: dict, *, archive_gated: bool = False) -> bool:
     """GĐ 2 — record a completed speaking session against its class assignment.
 
     Best-effort on purpose: a graded session must still complete when the ledger
@@ -1992,6 +2025,9 @@ def _record_class_submission(session: dict) -> bool:
     turn an on-time hand-in into a late one; it also means calling this from the
     already-completed path repairs a previously failed write instead of
     duplicating a good one.
+
+    ``archive_gated``: the hand-in already passed the archive gate when it was
+    accepted (the Full Test finaliser), so the archive is not compared again.
     """
     item_id = session.get("class_assignment_item_id")
     if not item_id:
@@ -2032,6 +2068,17 @@ def _record_class_submission(session: dict) -> bool:
         # chối, vì mốc so là giờ của chính phiên đó.
         if a_rows and not is_accepting_submissions(a_rows[0], now=completed_at):
             logger.info("[class] hand-in refused, deadline passed item=%s", item_id)
+            return False
+        # CLASSARCHIVE-0030 FR-004: an archived class takes no hand-in. Same
+        # clock as the deadline: a session completed before the archive is
+        # still credited on the retry path. complete_session refuses an
+        # in-progress session up front; this covers the replay and an archive
+        # racing the completion.
+        if a_rows and not archive_gated and cohort_archived_by(
+            cohort_archive_row(supabase_admin, a_rows[0].get("cohort_id")),
+            completed_at,
+        ):
+            logger.info("[class] hand-in refused, class archived item=%s", item_id)
             return False
     except Exception as exc:
         # Fail OPEN on a lookup error: refusing every hand-in because one query
@@ -2095,6 +2142,9 @@ async def complete_session(
     # open player mutation is bounded by the hard resume TTL.
     if session.get("status") == "in_progress":
         require_resume_active(session)
+    if session.get("status") != "completed":
+        # Finishing the work is a hand-in; a completed row stays replayable.
+        await refuse_if_class_session_archived(session)
 
     if session["status"] == "completed" and session.get("overall_band") is not None:
         # Idempotent: already done with a valid band — return current state.

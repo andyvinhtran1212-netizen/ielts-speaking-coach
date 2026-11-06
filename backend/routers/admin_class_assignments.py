@@ -30,7 +30,7 @@ from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel, Field, model_validator
 
 from database import supabase_admin
-from services import speaking_flags
+from services import class_archive_service, speaking_flags
 from services.errors import clip_user_value
 from services import speaking_question_audio as sqa
 from routers.admin import require_admin
@@ -297,13 +297,26 @@ class CourseBankPreviewResponse(BaseModel):
     questions: list[CourseBankPreviewQuestion]
 
 
-def _require_cohort(cohort_id: str) -> None:
+def _require_cohort(cohort_id: str) -> dict:
+    """The class row (404 when unknown). ``select("*")`` so the CLASSARCHIVE-0030
+    write routes can apply ``_require_active_cohort`` without a second read."""
     rows = (
-        supabase_admin.table("cohorts").select("id")
+        supabase_admin.table("cohorts").select("*")
         .eq("id", cohort_id).limit(1).execute().data
     ) or []
     if not rows:
         raise HTTPException(404, "Không tìm thấy lớp")
+    return rows[0]
+
+
+def _require_active_cohort(cohort: dict) -> None:
+    """CLASSARCHIVE-0030 W8: no new work in an archived class (staff 409).
+
+    A legacy inactive class still takes work (FR-009). The 337/346 guards are
+    the backstop when the class is archived after this check.
+    """
+    if class_archive_service.is_cohort_archived(cohort):
+        raise class_archive_service.cohort_archived_error()
 
 
 @router.get("/{cohort_id}/assignments")
@@ -2619,7 +2632,7 @@ async def create_assignment(
     and they will read as simply not having done the work.
     """
     admin = await require_admin(authorization)
-    _require_cohort(cohort_id)
+    cohort = _require_cohort(cohort_id)
 
     give_id = str(body.give_request_id) if body.grammar_lesson_id else None
     fingerprint = _grammar_give_fingerprint(body) if give_id else None
@@ -2627,7 +2640,9 @@ async def create_assignment(
         _require_course_five(cohort_id)
         replay = _existing_grammar_give(cohort_id, give_id, fingerprint)
         if replay:
+            # A give that completed before the archive replays its receipt (FR-003).
             return replay
+    _require_active_cohort(cohort)
 
     content_id = None
     due_date = body.due_date
@@ -2774,6 +2789,8 @@ async def create_assignment(
             replay = _existing_grammar_give(cohort_id, give_id, fingerprint)
             if replay:
                 return replay
+        # Migration 337 guard: the class was archived after the check above.
+        class_archive_service.raise_if_cohort_archived(exc)
         logger.error("[class] create assignment failed: %s", exc, exc_info=True)
         raise HTTPException(500, "Lỗi khi giao bài. Vui lòng thử lại.") from None
 
@@ -2800,7 +2817,7 @@ async def backfill_assignment(
     xảy ra. Gọi lại bao nhiêu lần cũng vô hại.
     """
     await require_admin(authorization)
-    _require_cohort(cohort_id)
+    _require_active_cohort(_require_cohort(cohort_id))
     # Bài giao phải THUỘC lớp trên đường dẫn: thiếu chốt này thì một admin của
     # lớp A bù được người nhận cho bài của lớp B chỉ bằng cách đoán id.
     owner = (
@@ -2820,6 +2837,7 @@ async def backfill_assignment(
     except SubsetNeedsStudentsError as exc:
         raise HTTPException(400, str(exc))
     except Exception as exc:
+        class_archive_service.raise_if_cohort_archived(exc)
         logger.error("[class] backfill assignment failed: %s", exc, exc_info=True)
         raise HTTPException(500, "Lỗi khi bù người nhận. Vui lòng thử lại.") from None
 

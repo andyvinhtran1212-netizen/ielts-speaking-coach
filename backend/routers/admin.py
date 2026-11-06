@@ -39,10 +39,10 @@ from models.grammar_content import GrammarArticleDocument
 from database import supabase_admin
 from services.async_pg_engine import create_asyncpg_engine
 from services.class_assignment_service import sync_class_item_score
-from services.errors import clip_user_value, clip_user_values, new_ref
+from services.errors import clip_user_value, clip_user_values, new_ref, safe_error
 from services.core_attempt_observation import bind_owned_attempt, note_operation_failure, observe_operation
 from services.class_membership_service import active_memberships_for_students, add_student
-from services import admin_dashboard, ai_usage_logger, test_data_visibility
+from services import admin_dashboard, ai_usage_logger, class_archive_service, test_data_visibility
 from services.student_service import student_archived_error
 from services.access_code_gen import (
     generate_access_code, insert_one_with_unique_code, insert_with_unique_codes,
@@ -1177,6 +1177,25 @@ async def get_stats(authorization: str | None = Header(default=None)):
     }
 
 
+async def _refuse_archived_cohort(cohort_id: str | None, *, context: str) -> None:
+    """CLASSARCHIVE-0030 FR-002 (W5/W6): no code into an archived class.
+
+    Raises the staff 409 ``cohort_archived`` before anything is written. A legacy
+    inactive class (``archived_at IS NULL``) and an unknown id pass; the caller's
+    own lookup or FK decides those. A failed class read refuses with a generic
+    5xx (never DB text): a gate must not open on a failed read.
+    """
+    if not cohort_id:
+        return
+    try:
+        accepts = await asyncio.to_thread(
+            class_archive_service.cohort_accepts_work, supabase_admin, cohort_id)
+    except Exception as exc:
+        raise safe_error(exc, error_code="cohort_lookup_failed", context=context) from None
+    if not accepts:
+        raise class_archive_service.cohort_archived_error()
+
+
 # ── POST /admin/access-codes/generate ─────────────────────────────────────────
 
 @router.post("/access-codes/generate", responses=staff_guard.STEP_UP_RESPONSES)
@@ -1204,6 +1223,7 @@ async def generate_access_codes(
 
     # Sprint 12.2 — validate code_type ↔ cohort_id combo before insert.
     _validate_code_type_combo(body.code_type, body.cohort_id)
+    await _refuse_archived_cohort(body.cohort_id, context="generate access codes")
 
     # W-2 (Option B) — instructor-promote codes MUST be email-bound (fail-closed
     # at mint time so an unbound instructor code can never auto-promote anyone).
@@ -2349,6 +2369,11 @@ async def patch_access_code(
         eff_type   = update.get("code_type", existing.data[0].get("code_type") or "mass")
         eff_cohort = update.get("cohort_id", existing.data[0].get("cohort_id"))
         _validate_code_type_combo(eff_type, eff_cohort)
+        # CLASSARCHIVE-0030 W6: moving a code INTO an archived class is refused.
+        # Re-sending the code's current class (a notes-only edit from the full
+        # form) is not a change and stays allowed.
+        if eff_cohort and str(eff_cohort) != str(existing.data[0].get("cohort_id") or ""):
+            await _refuse_archived_cohort(eff_cohort, context="patch access code")
 
     if not update:
         raise HTTPException(400, "Không có trường nào để cập nhật")
@@ -2779,6 +2804,8 @@ async def refill_code(code_id: str, body: RefillRequest,
     target = body.to_user_id or src.get("used_by")
     if not target:
         raise HTTPException(400, "Không xác định được người dùng để cấp mã mới.")
+    # CLASSARCHIVE-0030 W6: a refill mints a new code into the source's class.
+    await _refuse_archived_cohort(src.get("cohort_id"), context="refill code")
 
     new_code = _issue_code_and_assign(
         user_id=target, admin_id=admin_id, reason=body.reason,
@@ -2853,6 +2880,8 @@ async def generate_and_assign_code(
         if linked and not active:
             raise student_archived_error([row["id"] for row in linked if row.get("id")])
         bridge_student_id = active[0]["id"] if active else None
+        # CLASSARCHIVE-0030 W6, after the 0029 check (student_archived first).
+        await _refuse_archived_cohort(body.cohort_id, context="generate-and-assign")
 
     new_code = _issue_code_and_assign(
         user_id=body.user_id, admin_id=actor, reason="admin tạo + gán trực tiếp",

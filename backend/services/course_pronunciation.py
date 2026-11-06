@@ -98,12 +98,19 @@ def _set_for_bank(bank_id: str) -> dict:
 
 def _assignment_item(
     bank_id: str, user_id: str, assignment_item_id: str | None = None,
+    *, review: bool = False,
 ) -> dict:
     # Reuse the canonical live-assignment gate.  A saved URL must not keep
     # exposing course content after archive, deadline, or cohort transfer.
-    item = (quiz_service._assignment_item_for(
-        bank_id, user_id, assignment_item_id=assignment_item_id,
-    ) if assignment_item_id else quiz_service._assignment_item_for(bank_id, user_id))
+    # ``review``: a read of the saved result takes the read-only lane of the
+    # other Course result readers, which stays open after the class is
+    # archived (CLASSARCHIVE-0030); a submission keeps the write gate.
+    if review:
+        item = quiz_service._assignment_item_for_review(bank_id, user_id, assignment_item_id)
+    else:
+        item = (quiz_service._assignment_item_for(
+            bank_id, user_id, assignment_item_id=assignment_item_id,
+        ) if assignment_item_id else quiz_service._assignment_item_for(bank_id, user_id))
     if not item:
         raise CoursePronunciationError(404, "Không tìm thấy bài tập")
     return item
@@ -162,7 +169,7 @@ def _public_attempt(row: dict | None) -> dict | None:
 def get_state(
     *, user_id: str, bank_id: str, assignment_item_id: str | None = None,
 ) -> dict:
-    item = _assignment_item(bank_id, user_id, assignment_item_id)
+    item = _assignment_item(bank_id, user_id, assignment_item_id, review=True)
     attempt_no = quiz_service.course_section_attempt_no(item)
     exercise = _set_for_bank(bank_id)
     try:

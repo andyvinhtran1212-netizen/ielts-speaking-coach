@@ -62,6 +62,7 @@ from services.class_assignment_service import (
     TaskMismatchError,
     validate_class_item_for_test,
 )
+from services.class_archive_service import require_class_attempt_accepts_work
 from routers.admin import require_admin
 from routers.auth import get_supabase_user
 from services.listening_gist_grader import grade_gist_response
@@ -8019,6 +8020,10 @@ async def patch_listening_test_attempt_answer(
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
     require_resume_active(attempt)
+    # CLASSARCHIVE-0030 FR-004: an archived class takes no new answer either,
+    # also on an attempt started before the archive (same gate as submit).
+    await asyncio.to_thread(
+        require_class_attempt_accepts_work, supabase_admin, attempt, surface="listening")
     if not (1 <= body.q_num <= 40):
         raise HTTPException(422, "q_num must be in 1..40")
     # A practice attempt is scored on the FIRST answer to each question, which
@@ -8345,6 +8350,17 @@ async def check_listening_practice_answer(
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể chấm thêm.")
     require_resume_active(attempt)
+    if not body.reveal:
+        # CLASSARCHIVE-0030 FR-004: a check records the first answer, so it
+        # takes the answer PATCH/submit gate; a reveal stays a read. Re-read
+        # after the await so the stored answers graded below are not older
+        # than the gate.
+        await asyncio.to_thread(
+            require_class_attempt_accepts_work, supabase_admin, attempt, surface="listening")
+        attempt = await asyncio.to_thread(_fetch_attempt_or_404, attempt_id, user["id"])
+        if attempt.get("status") != "in_progress":
+            raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể chấm thêm.")
+        require_resume_active(attempt)
 
     from services.mock_paper_policy import guard_owned_attempt, load_marking_snapshot, frozen_answer_key
     guard_owned_attempt(supabase_admin, "listening", attempt, purpose="practice_feedback")
@@ -8522,6 +8538,20 @@ async def submit_listening_test_attempt(
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt status không hợp lệ.")
     require_resume_active(attempt)
+    # CLASSARCHIVE-0030 FR-004: an archived class takes no hand-in, also from
+    # an attempt started before the archive. The submitted replay above stays.
+    await asyncio.to_thread(
+        require_class_attempt_accepts_work, supabase_admin, attempt, surface="listening")
+    # An answer PATCH (fn_upsert_listening_answer) can commit while the gate
+    # above awaits. Grade the answers of this re-read (the last await before
+    # grading), and bind both finalize UPDATEs to exactly that array: a save
+    # landing after it misses the CAS and the submit 409s, never a grade that
+    # drops the answer.
+    attempt = await asyncio.to_thread(_fetch_attempt_or_404, attempt_id, user["id"])
+    if attempt.get("status") != "in_progress":
+        raise HTTPException(409, "Attempt đã thay đổi; hãy tải lại trạng thái.")
+    require_resume_active(attempt)
+    graded_answers = attempt.get("answers") or []
 
     # Pull the test's exercises + extract the answer key.
     test_id = attempt["test_id"]
@@ -8550,7 +8580,7 @@ async def submit_listening_test_attempt(
         )
     if (attempt.get("scoring_policy") or "diagnostic") == "report_only":
         report = grader.grade_report_only_attempt(
-            attempt.get("answers") or [], ex_res.data or [], source_required=_source_required_for_test(test_id),
+            graded_answers, ex_res.data or [], source_required=_source_required_for_test(test_id),
         )
         summary = {
             key: report[key] for key in (
@@ -8573,6 +8603,7 @@ async def submit_listening_test_attempt(
             })
             .eq("id", attempt_id)
             .eq("status", "in_progress")
+            .eq("answers", json.dumps(graded_answers))
             .gt("resume_expires_at", now_iso)
             .execute()
         )
@@ -8597,7 +8628,7 @@ async def submit_listening_test_attempt(
             "listening", test_id, answer_key
         )
 
-    result = grader.grade_attempt(attempt.get("answers") or [], answer_key)
+    result = grader.grade_attempt(graded_answers, answer_key)
     now_iso = datetime.now(timezone.utc).isoformat()
 
     finalized = (
@@ -8612,6 +8643,7 @@ async def submit_listening_test_attempt(
         })
         .eq("id", attempt_id)
         .eq("status", "in_progress")
+        .eq("answers", json.dumps(graded_answers))
         .gt("resume_expires_at", now_iso)
         .execute()
     )

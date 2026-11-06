@@ -29,12 +29,23 @@ def active_memberships_for_student(db, student_id: str) -> List[Dict[str, Any]]:
                   .eq("student_id", student_id).eq("is_active", True))
 
 
-def active_cohort_ids_for_student(db, student: Dict[str, Any]) -> List[str]:
+def active_cohort_ids_for_student(db, student: Dict[str, Any], *,
+                                  include_archived: bool = False) -> List[str]:
+    """The learner's active classes, without archived ones (CLASSARCHIVE-0030 FR-001).
+
+    An archived class (``is_active = false AND archived_at IS NOT NULL``) is
+    dropped from both the membership source and the legacy-pointer fallback; a
+    legacy inactive class (``archived_at IS NULL``) is kept, as before 337.
+    History and admin callers pass ``include_archived=True``. A failed archive
+    lookup propagates: hiding every class or showing an archived one would both
+    be untrue.
+    """
     try:
         rows = active_memberships_for_student(db, str(student["id"]))
     except Exception:
         if student.get("cohort_id"):
-            return [str(student["cohort_id"])]
+            ids = [str(student["cohort_id"])]
+            return ids if include_archived else _without_archived(db, ids)
         raise
     ids = list(dict.fromkeys(str(row["cohort_id"]) for row in rows if row.get("cohort_id")))
     # Compatibility with test/dev databases (and a rolling deploy before the
@@ -42,7 +53,15 @@ def active_cohort_ids_for_student(db, student: Dict[str, Any]) -> List[str]:
     # Once any active membership exists, the legacy pointer cannot broaden it.
     if not ids and student.get("cohort_id"):
         ids.append(str(student["cohort_id"]))
-    return ids
+    return ids if include_archived else _without_archived(db, ids)
+
+
+def _without_archived(db, ids: List[str]) -> List[str]:
+    if not ids:
+        return ids
+    from services.class_archive_service import archived_cohort_ids
+    archived = archived_cohort_ids(db, ids)
+    return [cohort_id for cohort_id in ids if cohort_id not in archived]
 
 
 def active_memberships_for_students(db, student_ids: Iterable[str]) -> List[Dict[str, Any]]:

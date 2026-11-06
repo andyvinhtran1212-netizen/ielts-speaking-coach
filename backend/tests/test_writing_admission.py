@@ -35,6 +35,10 @@ def client(monkeypatch, identity):
     app.dependency_overrides[writing.get_current_student] = lambda: {
         "id": str(identity["student"]), "user_id": str(identity["user"])}
     monkeypatch.setattr(admission.settings, "CORE_ADMISSION_LEDGER_ENABLED", True)
+    # This harness mocks the admission RPCs and has no database; the A-10
+    # class-archive gate in front of them is covered by
+    # test_class_archive_writing_student.py.
+    monkeypatch.setattr(writing, "_require_class_accepts_admission", lambda *_a: None)
     with TestClient(app) as test_client:
         yield test_client
 

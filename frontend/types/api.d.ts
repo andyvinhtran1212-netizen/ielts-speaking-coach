@@ -18347,6 +18347,11 @@ export interface components {
             status: "not_started" | "scheduled" | "expired" | "paused" | "in_progress" | "completed";
             /** Can Submit */
             can_submit: boolean;
+            /**
+             * Class Archived
+             * @default false
+             */
+            class_archived: boolean;
             /** Answered Count */
             answered_count: number;
             /** Correct Count */

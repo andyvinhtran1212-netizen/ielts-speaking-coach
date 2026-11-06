@@ -514,7 +514,13 @@ def retire_abandoned_sittings() -> dict:
     return {"retired": retired}
 
 
+# CLASSARCHIVE-0030 research.md §3: a sitting refused because the exam's class
+# is archived says so truthfully, not "not in class".
+MOCK_CLASS_ENDED_MESSAGE = "Lớp của bạn đã kết thúc — kỳ thi này không còn mở."
+
+
 def _user_in_cohort(user_id: str, cohort_id: str) -> bool:
+    """Active member of an active (or legacy inactive) class; archived ones are not."""
     from services.class_membership_service import active_cohort_ids_for_student
 
     students = (supabase_admin.table("students").select("id, cohort_id")
@@ -523,6 +529,25 @@ def _user_in_cohort(user_id: str, cohort_id: str) -> bool:
         return False
     return str(cohort_id) in active_cohort_ids_for_student(
         supabase_admin, students[0])
+
+
+def _user_in_archived_cohort(user_id: str, cohort_id: str) -> bool:
+    """Still an active member, but the class is archived (CLASSARCHIVE-0030 §3).
+
+    Only asked after ``_user_in_cohort`` said no, so the refusal can say the
+    class has ended instead of "not in class".
+    """
+    from services.class_archive_service import archived_cohort_ids
+    from services.class_membership_service import active_cohort_ids_for_student
+
+    students = (supabase_admin.table("students").select("id, cohort_id")
+                .eq("user_id", str(user_id)).limit(1).execute().data) or []
+    if not students:
+        return False
+    if str(cohort_id) not in active_cohort_ids_for_student(
+            supabase_admin, students[0], include_archived=True):
+        return False
+    return str(cohort_id) in archived_cohort_ids(supabase_admin, [cohort_id])
 
 
 def _assert_window_open(exam: dict) -> None:
@@ -784,6 +809,8 @@ def create_sitting(user_id: str, code: str) -> dict:
             )
         _assert_window_open(exam)
         if exam.get("cohort_id") and not _user_in_cohort(user_id, exam["cohort_id"]):
+            if _user_in_archived_cohort(user_id, exam["cohort_id"]):
+                raise NotEligibleError(MOCK_CLASS_ENDED_MESSAGE)
             raise NotEligibleError("Bạn không thuộc lớp được mở kỳ thi này.")
         # ARRIVING DURING THE PAUSE. Papers for the active section are already
         # in; the invigilator has not opened the next one. Being born with that
