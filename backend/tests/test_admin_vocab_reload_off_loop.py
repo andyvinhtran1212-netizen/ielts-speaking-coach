@@ -8,7 +8,9 @@ reload in a LoopGate (no wall-clock bounds) and pin that:
   • the response is only produced after the reload finished, and the Next
     invalidation is queued only after it;
   • a failed reload still answers 200 for the committed write, logs the error
-    and queues no invalidation.
+    and queues no invalidation;
+  • cancellation propagates while a successful reload still invalidates Next
+    exactly once, without relying on the cancelled response's BackgroundTasks.
 
 Run: pytest backend/tests/test_admin_vocab_reload_off_loop.py -v
 """
@@ -120,6 +122,91 @@ def test_write_reloads_off_the_loop_and_responds_after_the_reload(committed_writ
     assert threads["reload"] != threads["loop"]
     assert events == ["reload-done", "invalidate-queued"]
     assert [task.func for task in tasks.tasks] == [committed_write]
+    committed_write.assert_not_called()
+    asyncio.run(tasks())
+    committed_write.assert_called_once_with()
+
+
+@pytest.mark.parametrize("route", sorted(WRITES))
+@pytest.mark.parametrize("reload_fails", [False, True])
+def test_cancelled_write_finishes_reload_and_invalidates_only_on_success(
+    committed_write, monkeypatch, route, reload_fails, caplog,
+):
+    gate, events, threads = LoopGate(), [], {}
+
+    async def scenario():
+        loop = asyncio.get_running_loop()
+        entered, finished = asyncio.Event(), asyncio.Event()
+        threads["loop"] = threading.get_ident()
+
+        def reload():
+            loop.call_soon_threadsafe(entered.set)
+            try:
+                gate.park()
+                events.append("reload-done")
+                if reload_fails:
+                    raise RuntimeError("vocab loader exploded")
+            finally:
+                loop.call_soon_threadsafe(finished.set)
+
+        def invalidate():
+            threads["invalidate"] = threading.get_ident()
+            events.append("invalidate-ran")
+
+        monkeypatch.setattr(admin_vocab.vocab_service, "reload", reload)
+        committed_write.side_effect = invalidate
+        tasks = _RecordingTasks(events)
+        request = asyncio.create_task(WRITES[route](tasks))
+        try:
+            await asyncio.wait_for(entered.wait(), WAIT)
+            request.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await request
+            assert not gate.released, "cancellation must propagate before reload finishes"
+            committed_write.assert_not_called()
+            assert tasks.tasks == [], "a cancelled response cannot run BackgroundTasks"
+        finally:
+            pending = tuple(getattr(admin_vocab, "_cancelled_refresh_tasks", ()))
+            gate.release()
+            await asyncio.wait_for(finished.wait(), WAIT)
+            await asyncio.wait_for(asyncio.gather(*pending), WAIT)
+        # Even if a response runner were invoked, it must not invalidate twice.
+        await tasks()
+
+    with caplog.at_level(logging.ERROR, logger="routers.admin_vocab"):
+        asyncio.run(scenario())
+    assert not gate.timed_out
+    assert not getattr(admin_vocab, "_cancelled_refresh_tasks", ())
+    if reload_fails:
+        assert events == ["reload-done"]
+        committed_write.assert_not_called()
+        assert "reload after write failed: vocab loader exploded" in caplog.text
+    else:
+        assert events == ["reload-done", "invalidate-ran"]
+        committed_write.assert_called_once_with()
+        assert threads["invalidate"] != threads["loop"]
+
+
+def test_cancellation_as_reload_finishes_still_invalidates_once(committed_write, monkeypatch):
+    async def scenario():
+        async def reload():
+            # Cancel before the shielded result can resume the request.
+            request.cancel()
+            return True
+
+        monkeypatch.setattr(admin_vocab, "_reload_safe", reload)
+        tasks = BackgroundTasks()
+        request = asyncio.create_task(admin_vocab._reload_and_invalidate(tasks))
+        with pytest.raises(asyncio.CancelledError):
+            await request
+        pending = tuple(getattr(admin_vocab, "_cancelled_refresh_tasks", ()))
+        await asyncio.wait_for(asyncio.gather(*pending), WAIT)
+        assert tasks.tasks == []
+        await tasks()
+
+    asyncio.run(scenario())
+    committed_write.assert_called_once_with()
+    assert not getattr(admin_vocab, "_cancelled_refresh_tasks", ())
 
 
 @pytest.mark.parametrize("route", sorted(HTTP_WRITES))

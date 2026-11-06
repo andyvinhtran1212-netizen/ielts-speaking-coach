@@ -41,6 +41,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin/vocabulary", tags=["admin-vocabulary-content"])
 
+# Cancelled requests have no response runner; retain their cache work until done.
+_cancelled_refresh_tasks: set[asyncio.Task[None]] = set()
+
 
 async def _reload_safe() -> bool:
     """G1 — rebuild the in-memory grid after a write so the public /vocabulary
@@ -59,8 +62,26 @@ async def _reload_safe() -> bool:
 
 async def _reload_and_invalidate(background_tasks: BackgroundTasks) -> None:
     """Expose canonical DB writes locally first, then expire Next in background."""
-    if await _reload_safe():
-        background_tasks.add_task(invalidate_vocabulary_cache)
+    reload_task = asyncio.create_task(_reload_safe())
+    try:
+        if await asyncio.shield(reload_task):
+            background_tasks.add_task(invalidate_vocabulary_cache)
+    except asyncio.CancelledError:
+        # The DB write already committed and the reload thread cannot stop.
+        # Finish independently of the cancelled response, including when reload
+        # completed just before cancellation reached this await.
+        async def finish_cancelled_write() -> None:
+            try:
+                if await reload_task:
+                    await asyncio.to_thread(invalidate_vocabulary_cache)
+            except Exception as exc:  # noqa: BLE001 — best-effort cache work
+                logger.warning("[vocab] invalidation after cancelled write failed type=%s",
+                               type(exc).__name__)
+
+        task = asyncio.create_task(finish_cancelled_write())
+        _cancelled_refresh_tasks.add(task)
+        task.add_done_callback(_cancelled_refresh_tasks.discard)
+        raise
 
 
 class VocabUpdate(BaseModel):
