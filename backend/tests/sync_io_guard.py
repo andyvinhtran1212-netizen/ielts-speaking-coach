@@ -59,6 +59,9 @@ class Function:
     initial_symbols: dict[str, str]
     timeline: list[tuple[tuple[int, int], dict[str, str]]]
     scoped_symbols: dict[int, dict[str, str]] = field(default_factory=dict)
+    # Methods only: rebuilds this function with ``self`` bound to a receiver
+    # class, so ``self.x()`` dispatches through that class's MRO (PC-J672).
+    factory: Callable[[str], "Function"] | None = None
 
     def at(self, node: ast.AST) -> dict[str, str]:
         if id(node) in self.scoped_symbols:
@@ -229,6 +232,33 @@ def _symbols(body: list[ast.stmt], inherited: dict[str, str], module: str,
     return symbols
 
 
+def _build_function(path: str, module: str, package: str, qualified: str,
+                    node: ast.FunctionDef | ast.AsyncFunctionDef, outer: dict[str, str],
+                    self_binding: str | None) -> tuple[Function, dict[str, str]]:
+    local = dict(outer)
+    for arg in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]:
+        local.pop(arg.arg, None)  # Parameters shadow module aliases.
+        if arg.annotation is not None:
+            annotation = arg.annotation
+            if isinstance(annotation, ast.Constant) and isinstance(annotation.value, str):
+                annotation = ast.parse(annotation.value, mode="eval").body
+            local[arg.arg] = _name(annotation, outer)
+    if self_binding is not None:
+        local["self"] = self_binding
+    initial = dict(local)
+    timeline = []
+    local = _symbols(node.body, local, module, qualified + ".", package, timeline=timeline)
+    return Function(path, qualified, node, local, initial, timeline), local
+
+
+def _method_factory(path: str, module: str, package: str, qualified: str,
+                    node: ast.FunctionDef | ast.AsyncFunctionDef,
+                    outer: dict[str, str]) -> Callable[[str], Function]:
+    def specialize(receiver: str) -> Function:
+        return _build_function(path, module, package, qualified, node, outer, receiver)[0]
+    return specialize
+
+
 def _functions(sources: dict[str, str], bindings: dict[str, str] | None = None,
                bases: dict[str, list[str]] | None = None) -> dict[str, Function]:
     """Index functions; optionally record module-level bindings and class bases."""
@@ -248,20 +278,12 @@ def _functions(sources: dict[str, str], bindings: dict[str, str] | None = None,
             for node in _nodes(body):
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     qualified = prefix + node.name
-                    local = dict(symbols)
-                    for arg in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]:
-                        local.pop(arg.arg, None)  # Parameters shadow module aliases.
-                        if arg.annotation is not None:
-                            annotation = arg.annotation
-                            if isinstance(annotation, ast.Constant) and isinstance(annotation.value, str):
-                                annotation = ast.parse(annotation.value, mode="eval").body
-                            local[arg.arg] = _name(annotation, symbols)
-                    if prefix and node.args.args and node.args.args[0].arg == "self":
-                        local["self"] = f"{module}.{prefix.rstrip('.')}"
-                    initial = dict(local)
-                    timeline = []
-                    local = _symbols(node.body, local, module, qualified + ".", package, timeline=timeline)
-                    functions[f"{module}.{qualified}"] = Function(path, qualified, node, local, initial, timeline)
+                    is_method = bool(prefix) and bool(node.args.args) and node.args.args[0].arg == "self"
+                    self_binding = f"{module}.{prefix.rstrip('.')}" if is_method else None
+                    fn, local = _build_function(path, module, package, qualified, node, symbols, self_binding)
+                    if is_method:
+                        fn.factory = _method_factory(path, module, package, qualified, node, dict(symbols))
+                    functions[f"{module}.{qualified}"] = fn
                     collect(node.body, local, qualified + ".")
                 elif isinstance(node, ast.ClassDef):
                     if bases is not None:
@@ -557,7 +579,7 @@ def _execution_nodes(fn: Function, consumed: set[int], generators: set[str],
 
 
 def _dispatch_resolver(functions: dict[str, Function], bindings: dict[str, str],
-                       bases: dict[str, list[str]]) -> Callable[[str], str]:
+                       bases: dict[str, list[str]]) -> Callable[[str], tuple[str, str | None]]:
     """Resolve calls through module-level objects and inherited methods (PC-J672).
 
     An imported module-level object, e.g. ``vocab_service = VocabService()``
@@ -570,8 +592,11 @@ def _dispatch_resolver(functions: dict[str, Function], bindings: dict[str, str],
     reaches a scanned function or class, preserving existing function edges.
     Instance attributes (``self.client = ...``), objects passed as arguments
     and methods on third-party classes remain outside this static resolution.
+    Returns ``(name, receiver)``: when an inherited method is reached through a
+    receiver class, ``receiver`` is that class so the caller can bind ``self``
+    to it; otherwise it is ``None``.
     """
-    cache: dict[str, str] = {}
+    cache: dict[str, tuple[str, str | None]] = {}
     mro_cache: dict[str, tuple[str, ...]] = {}
 
     def class_mro(name: str, active: frozenset[str] = frozenset()) -> tuple[str, ...] | None:
@@ -603,16 +628,16 @@ def _dispatch_resolver(functions: dict[str, Function], bindings: dict[str, str],
         mro_cache[name] = tuple(order)
         return mro_cache[name]
 
-    def resolve(target: str) -> str:
+    def resolve_call(target: str) -> tuple[str, str | None]:
         if target in functions:
-            return target
+            return target, None
         if target not in cache:
-            cache[target] = target
+            cache[target] = (target, None)
             queue, seen = [(target, frozenset())], set()
             while queue:
                 name, expanded = queue.pop(0)
                 if name in functions:
-                    cache[target] = name
+                    cache[target] = (name, None)
                     break
                 state = (name, expanded)
                 if state in seen or len(expanded) >= 100:
@@ -633,62 +658,85 @@ def _dispatch_resolver(functions: dict[str, Function], bindings: dict[str, str],
                         break
                     if prefix in bases:
                         if not rest:
-                            cache[target] = prefix
+                            cache[target] = (prefix, None)
                         else:
                             for base in (class_mro(prefix) or ())[1:]:
                                 if base + rest in functions:
-                                    cache[target] = base + rest
+                                    # The receiver is the class the object was bound to.
+                                    cache[target] = (base + rest, prefix)
                                     break
                         break
         return cache[target]
 
-    return resolve
+    def resolve(target: str) -> str:
+        return resolve_call(target)[0]
+
+    return resolve_call
 
 
 def scan_sources(sources: dict[str, str]) -> list[Finding]:
     bindings: dict[str, str] = {}
     bases: dict[str, list[str]] = {}
     functions = _functions(sources, bindings, bases)
-    resolve = _dispatch_resolver(functions, bindings, bases)
+    resolve_call = _dispatch_resolver(functions, bindings, bases)
     generators = {
         name for name, fn in functions.items()
         if isinstance(fn.node, ast.FunctionDef)
         and any(isinstance(node, (ast.Yield, ast.YieldFrom)) for node in _nodes(fn.node.body))
     }
-    consumed = {name: set() for name in functions}
-    nodes = {
-        name: _execution_nodes(fn, consumed[name], generators)
-        for name, fn in functions.items()
-    }
-    calls = {
-        name: [node for node in body if isinstance(node, ast.Call)]
-        for name, body in nodes.items()
-    }
-    awaited = {
-        name: {id(node.value) for node in body if isinstance(node, ast.Await)}
-        for name, body in nodes.items()
-    }
+    # A context is a function analysed for one receiver class: ``name`` keeps
+    # the defining class binding, ``name@Receiver`` binds ``self`` to Receiver
+    # so inherited methods dispatch through the receiver's MRO (PC-J672).
+    contexts: dict[str, Function] = dict(functions)
+    consumed: dict[str, set[int]] = {}
+    nodes: dict[str, list[ast.AST]] = {}
+    calls: dict[str, list[ast.Call]] = {}
+    awaited: dict[str, set[int]] = {}
+    pending = list(functions)
 
-    def target_at_execution(name: str, node: ast.AST) -> str | None:
-        fn = functions[name]
+    def base_name(context: str) -> str:
+        return context.partition("@")[0]
+
+    def target_at_execution(context: str, node: ast.AST) -> str | None:
+        fn = contexts[context]
         if isinstance(node, ast.Call):
-            target = resolve(_name(node.func, fn.at(node)))
+            target, receiver = resolve_call(_name(node.func, fn.at(node)))
+            key = target
+            method = functions.get(target)
+            if (receiver is not None and method is not None and method.factory is not None
+                    and not isinstance(method.node, ast.AsyncFunctionDef)):
+                key = f"{target}@{receiver}"
+                if key not in contexts:
+                    contexts[key] = method.factory(receiver)
+                    pending.append(key)
             # Calling a generator function constructs an iterator. Its body
             # only runs when an eager consumer advances it in this scope.
-            if target not in generators or id(node) in consumed[name]:
-                return target
+            if base_name(key) not in generators or id(node) in consumed[context]:
+                return key
         return None
 
-    blocking = set()
-    edges = {}
-    for name, fn in functions.items():
-        if isinstance(fn.node, ast.AsyncFunctionDef):
+    edges: dict[str, set[str | None]] = {}
+    while pending:
+        context = pending.pop()
+        if context in edges:
             continue
-        edges[name] = {target_at_execution(name, node) for node in nodes[name]}
-        if any(_primitive(call, fn.at(call), id(call) in awaited[name]) for call in calls[name]):
-            blocking.add(name)
+        fn = contexts[context]
+        consumed[context] = set()
+        nodes[context] = _execution_nodes(fn, consumed[context], generators)
+        calls[context] = [node for node in nodes[context] if isinstance(node, ast.Call)]
+        awaited[context] = {id(node.value) for node in nodes[context] if isinstance(node, ast.Await)}
+        # Receiver contexts discovered here are queued by target_at_execution.
+        edges[context] = {target_at_execution(context, node) for node in nodes[context]}
+
+    sync = {context for context, fn in contexts.items()
+            if not isinstance(fn.node, ast.AsyncFunctionDef)}
+    blocking = set()
+    for context in sync:
+        fn = contexts[context]
+        if any(_primitive(call, fn.at(call), id(call) in awaited[context]) for call in calls[context]):
+            blocking.add(context)
     while True:
-        expanded = blocking | {name for name, targets in edges.items() if targets & blocking}
+        expanded = blocking | {context for context in sync if edges[context] & blocking}
         if expanded == blocking:
             break
         blocking = expanded
@@ -703,10 +751,12 @@ def scan_sources(sources: dict[str, str]) -> list[Finding]:
                       if isinstance(node, ast.Call) else None)
             target = target_at_execution(name, node)
             if callee or target in blocking:
-                key = (name, getattr(node, "_guard_source", id(node)), callee or target)
+                # Findings name the resolved function, never the receiver context.
+                callee_name = callee or base_name(target)
+                key = (name, getattr(node, "_guard_source", id(node)), callee_name)
                 if key not in reported:
                     reported.add(key)
-                    findings.append(Finding(fn.path, fn.name, callee or target, node.lineno))
+                    findings.append(Finding(fn.path, fn.name, callee_name, node.lineno))
     return sorted(findings, key=lambda f: (f.path, f.function, f.line, f.callee))
 
 

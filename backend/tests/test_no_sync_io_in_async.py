@@ -1228,6 +1228,84 @@ def test_inherited_service_methods_follow_c3_mro(shared_root, root_blocks, base_
     )
 
 
+def receiver_module(child_blocks):
+    child_body = "time.sleep(1)" if child_blocks else "return 'pure'"
+    base_body = "return 'pure'" if child_blocks else "time.sleep(1)"
+    return dedent(f"""
+        import time
+        class Base:
+            def reload(self):
+                self.load()
+            def load(self):
+                {base_body}
+        class Child(Base):
+            def load(self):
+                {child_body}
+        service = Child()
+    """)
+
+
+@pytest.mark.parametrize("statement", [
+    "from services.base import service\n    service.reload()",
+    "from services.base import Child\n    Child().reload()",  # direct constructor receiver
+], ids=["module-object", "constructor"])
+@pytest.mark.parametrize("child_blocks", [False, True], ids=["base-blocks", "override-blocks"])
+def test_inherited_method_self_dispatches_through_receiver(statement, child_blocks):
+    # Base.reload calls self.load(): the receiver's override decides, not Base.load.
+    findings = scan("async def f():\n    " + statement, **{"services/base.py": receiver_module(child_blocks)})
+    assert [(f.function, f.callee) for f in findings] == (
+        [("f", "services.base.Base.reload")] if child_blocks else []
+    )
+
+
+def test_inherited_method_receivers_are_analysed_independently():
+    findings = scan("""
+        from services.base import Child, Other
+        async def f():
+            Child().reload()
+        async def g():
+            Other().reload()
+    """, **{"services/base.py": dedent("""
+        import time
+        class Base:
+            def reload(self):
+                self.load()
+            def load(self):
+                return 'pure'
+        class Child(Base):
+            def load(self):
+                return 'pure'
+        class Other(Base):
+            def load(self):
+                time.sleep(1)
+    """)})
+    # One inherited method, two receivers: the pure receiver must not hide the
+    # blocking one, and the blocking receiver must not taint the pure one.
+    assert [(f.function, f.callee) for f in findings] == [("g", "services.base.Base.reload")]
+
+
+def test_receiver_dispatch_cycle_through_inherited_method_is_bounded():
+    findings = scan("""
+        from services.base import Child
+        async def f():
+            Child().reload()
+    """, **{"services/base.py": dedent("""
+        import time
+        class Base:
+            def reload(self):
+                self.load()
+            def load(self):
+                return 'pure'
+        class Child(Base):
+            def load(self):
+                self.reload()
+                time.sleep(1)
+    """)})
+    # Child.load -> self.reload -> Base.reload@Child -> self.load recurses on the
+    # same receiver context; the fixpoint must settle with the blocking verdict.
+    assert [(f.function, f.callee) for f in findings] == [("f", "services.base.Base.reload")]
+
+
 def test_unscanned_or_rebound_module_objects_keep_existing_resolution():
     findings = scan("""
         from services.svc import client, service
