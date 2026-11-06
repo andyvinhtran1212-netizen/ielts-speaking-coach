@@ -551,18 +551,20 @@ async def grade_response_endpoint(
 
         # ── STEP 2: File size guard ───────────────────────────────────────────
         step = "read_file"
-        audio_bytes = await audio_file.read()
+        from services.storage_limits import (
+            aread_upload_capped, check_upload, normalise_audio_content_type, raise_storage_error,
+            upload_error,
+        )
+        audio_bytes = await aread_upload_capped(
+            audio_file, _MAX_BYTES,
+            lambda size: upload_error(_AUDIO_BUCKET, 413, size=size, max_bytes=_MAX_BYTES),
+        )
         file_size   = len(audio_bytes)
 
         logger.info("[grading] file size: %.2f MB", file_size / (1024 * 1024))
 
         if file_size == 0:
             raise HTTPException(422, "File âm thanh trống")
-        from services.storage_limits import (
-            check_upload, normalise_audio_content_type, raise_storage_error, upload_error,
-        )
-        if file_size > _MAX_BYTES:
-            raise upload_error(_AUDIO_BUCKET, 413, size=file_size, max_bytes=_MAX_BYTES)
         storage_content_type = normalise_audio_content_type(
             audio_file.content_type, _guess_ext(audio_file.filename, audio_file.content_type),
         )

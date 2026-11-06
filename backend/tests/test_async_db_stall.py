@@ -16,6 +16,7 @@ import time
 
 import httpx
 import pytest
+from httpcore._async.connection_pool import AsyncPoolRequest
 from postgrest import AsyncPostgrestClient
 
 import database
@@ -31,8 +32,10 @@ _USER = "8d0c1f5e-0000-4000-8000-00000000c0de"
 class _FakePostgrest:
     """Scripted HTTP/1.1 keep-alive server: one action per request, in order."""
 
-    def __init__(self, plan):
+    def __init__(self, plan, *, delay_gate=None):
         self.plan = list(plan)
+        self.delay_gate = delay_gate
+        self.request_received = asyncio.Event()
         self.connections = 0
         self.requests: list[tuple[int, str, str, str]] = []
         self._tasks: set[asyncio.Task] = set()
@@ -71,10 +74,14 @@ class _FakePostgrest:
                     await reader.readexactly(length)
                 action = self.plan.pop(0) if self.plan else "ok"
                 self.requests.append((conn, method, target.split("?", 1)[0], action))
+                self.request_received.set()
                 if action == "swallow":
                     await asyncio.sleep(3600)
                 if action.startswith("delay:"):
-                    await asyncio.sleep(float(action.split(":", 1)[1]))
+                    if self.delay_gate is None:
+                        await asyncio.sleep(float(action.split(":", 1)[1]))
+                    else:
+                        await self.delay_gate.wait()
                 writer.write(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
                              b"Content-Length: 2\r\n\r\n[]")
                 await writer.drain()
@@ -291,25 +298,35 @@ def test_pool_timeout_is_not_retried_and_logs_the_wait_as_pool_wait(
     monkeypatch.setattr(database, "ASYNC_POSTGREST_TIMEOUT", httpx.Timeout(5.0, pool=0.3))
     monkeypatch.setattr(database, "ASYNC_POSTGREST_LIMITS", httpx.Limits(max_connections=1))
     before = db_async.snapshot()
+    pool_waits = []
+    wait_for_connection = AsyncPoolRequest.wait_for_connection
+
+    async def wait_spy(pool_request, timeout=None):
+        pool_waits.append(timeout)
+        return await wait_for_connection(pool_request, timeout=timeout)
 
     async def run():
-        async with _FakePostgrest(["delay:1.5", "ok"]) as srv:
+        release_holder = asyncio.Event()
+        async with _FakePostgrest(["delay:1.5", "ok"], delay_gate=release_holder) as srv:
             http_client = database._build_supabase_async_http_client()
             _use_client(monkeypatch, http_client, srv.url)
+            holder = asyncio.create_task(aexecute(_read))
             try:
-                holder = asyncio.create_task(aexecute(_read))
-                await asyncio.sleep(0.1)  # the holder owns the only connection
-                start = time.perf_counter()
+                await asyncio.wait_for(srv.request_received.wait(), timeout=5.0)
+                # The holder owns the connection; count only the competing call.
+                monkeypatch.setattr(AsyncPoolRequest, "wait_for_connection", wait_spy)
                 with pytest.raises(httpx.PoolTimeout):
                     await aexecute(_read)
-                elapsed = time.perf_counter() - start
-                await holder
             finally:
-                await http_client.aclose()
-            return srv, elapsed
+                release_holder.set()
+                try:
+                    await holder
+                finally:
+                    await http_client.aclose()
+            return srv
 
-    srv, elapsed = asyncio.run(run())
-    assert elapsed < 0.55, f"one pool wait, not two: {elapsed:.2f}s"
+    srv = asyncio.run(run())
+    assert pool_waits == [0.3], "one pool wait, not two"
     assert [a for _c, _m, _p, a in srv.requests] == ["delay:1.5"]
     after = db_async.snapshot()
     assert after["retries"] == before["retries"]
@@ -401,6 +418,48 @@ def test_flag_off_path_is_untouched_by_the_guard(monkeypatch):
         asyncio.run(aexecute(lambda _c: _Builder(), sync_client=object()))
     assert calls == [1]
     assert db_async.snapshot() == before
+
+
+_BURST = 40  # > httpx's default keep-alive cap of 20, < max_connections
+
+
+def _burst_connections(monkeypatch, limits=None, rounds=3):
+    """Run ``rounds`` bursts of ``_BURST`` concurrent reads (each held 0.2 s
+    server-side so they overlap) and return how many TCP connections the fake
+    PostgREST accepted, plus the /health/async-db snapshot afterwards."""
+    if limits is not None:
+        monkeypatch.setattr(database, "ASYNC_POSTGREST_LIMITS", limits)
+
+    async def run():
+        async with _FakePostgrest(["delay:0.2"] * (_BURST * rounds)) as srv:
+            http_client = database._build_supabase_async_http_client()
+            monkeypatch.setattr(database, "_supabase_async_postgrest_http_client", http_client)
+            pg = AsyncPostgrestClient(srv.url, http_client=http_client)
+            try:
+                for _ in range(rounds):
+                    res = await asyncio.gather(*(_read(pg).execute() for _ in range(_BURST)))
+                    assert all(r.data == [] for r in res)
+                return srv.connections, database.async_pool_snapshot()
+            finally:
+                await http_client.aclose()
+
+    return asyncio.run(run())
+
+
+def test_pre_fix_keepalive_cap_reconnects_on_every_burst_over_20(monkeypatch):
+    """Reproduction: httpcore 1.0.9 counts busy connections against the
+    keep-alive cap, so at 20 each burst of 40 reopens 20 connections."""
+    opened, _snap = _burst_connections(monkeypatch, httpx.Limits(
+        max_connections=100, max_keepalive_connections=20, keepalive_expiry=5.0))
+    assert opened > _BURST
+
+
+def test_concurrent_bursts_over_20_reuse_their_connections(monkeypatch):
+    """PC-J575: after the first burst, later bursts open no new connection."""
+    opened, snap = _burst_connections(monkeypatch)
+    assert opened == _BURST
+    assert snap == {"connections": _BURST, "idle": _BURST, "active": 0,
+                    "waiting_for_connection": 0, "max_connections": 100}
 
 
 def test_async_pool_snapshot_reports_the_live_pool(monkeypatch):

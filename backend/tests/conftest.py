@@ -24,6 +24,8 @@ os.environ.setdefault("SUPABASE_SERVICE_KEY", "test-service-key")
 # schema closed. Forced (not setdefault) so a developer's ENABLE_API_DOCS=1 in
 # backend/.env cannot change what tests/test_api_docs_closed.py asserts.
 os.environ["ENABLE_API_DOCS"] = "0"
+# PC-J597: a developer's SENTRY_DSN must not send test errors to Sentry.
+os.environ["SENTRY_DSN"] = ""
 
 
 @pytest.fixture(autouse=True)
@@ -112,6 +114,20 @@ def _activation_gate_defaults_active(monkeypatch):
     monkeypatch.setattr(activation_gate, "_enforce", _gate_passes)
     monkeypatch.setattr(activation_gate, "lookup_is_active", lambda _user_id: True)
     monkeypatch.setattr(activation_gate, "alookup_is_active", _active)
+
+
+# Codex r4427781861 — /auth/activate runs Steps 5–6 in its worker thread on
+# that thread's own client (database.thread_supabase_admin). Tests replace
+# routers.auth.supabase_admin with a fake; let the per-thread client follow it,
+# so those steps write to the fake instead of opening a live Supabase client.
+# Tests that need a distinct per-thread client patch thread_supabase_admin.
+@pytest.fixture(autouse=True)
+def _auth_thread_client_follows_patched_admin(monkeypatch):
+    try:
+        from routers import auth
+    except Exception:
+        return
+    monkeypatch.setattr(auth, "thread_supabase_admin", lambda: auth.supabase_admin, raising=False)
 
 
 @pytest.fixture

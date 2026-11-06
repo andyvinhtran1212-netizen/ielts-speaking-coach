@@ -23,6 +23,7 @@ stored recordings; the retired generation route refuses hosted/provider jobs.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Optional
 from uuid import UUID
@@ -40,22 +41,47 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin/vocabulary", tags=["admin-vocabulary-content"])
 
+# Cancelled requests have no response runner; retain their cache work until done.
+_cancelled_refresh_tasks: set[asyncio.Task[None]] = set()
 
-def _reload_safe() -> bool:
+
+async def _reload_safe() -> bool:
     """G1 — rebuild the in-memory grid after a write so the public /vocabulary
-    grid + article reflect it without a restart. Never fail the write on a hiccup."""
+    grid + article reflect it without a restart. Never fail the write on a hiccup.
+
+    PC-J665: reload() reads vocab_cards synchronously, so it runs in a worker
+    thread; the route still waits for it before responding. reload() publishes
+    copy-on-write (PC-J449) and serializes concurrent rebuilds itself."""
     try:
-        vocab_service.reload()
+        await asyncio.to_thread(vocab_service.reload)
         return True
     except Exception as exc:  # noqa: BLE001
         logger.error("[vocab] reload after write failed: %s", exc)
         return False
 
 
-def _reload_and_invalidate(background_tasks: BackgroundTasks) -> None:
+async def _reload_and_invalidate(background_tasks: BackgroundTasks) -> None:
     """Expose canonical DB writes locally first, then expire Next in background."""
-    if _reload_safe():
-        background_tasks.add_task(invalidate_vocabulary_cache)
+    reload_task = asyncio.create_task(_reload_safe())
+    try:
+        if await asyncio.shield(reload_task):
+            background_tasks.add_task(invalidate_vocabulary_cache)
+    except asyncio.CancelledError:
+        # The DB write already committed and the reload thread cannot stop.
+        # Finish independently of the cancelled response, including when reload
+        # completed just before cancellation reached this await.
+        async def finish_cancelled_write() -> None:
+            try:
+                if await reload_task:
+                    await asyncio.to_thread(invalidate_vocabulary_cache)
+            except Exception as exc:  # noqa: BLE001 — best-effort cache work
+                logger.warning("[vocab] invalidation after cancelled write failed type=%s",
+                               type(exc).__name__)
+
+        task = asyncio.create_task(finish_cancelled_write())
+        _cancelled_refresh_tasks.add(task)
+        task.add_done_callback(_cancelled_refresh_tasks.discard)
+        raise
 
 
 class VocabUpdate(BaseModel):
@@ -130,7 +156,7 @@ async def import_vocab_word(
     # G1 — after a real commit, rebuild the in-memory index so the words are live
     # immediately (no restart). reload() re-reads vocab_cards (the source of truth).
     if result["committed_ids"] and not result["dry_run"]:
-        _reload_and_invalidate(background_tasks)
+        await _reload_and_invalidate(background_tasks)
 
     return result
 
@@ -209,7 +235,7 @@ async def update_vocab(
         raise HTTPException(500, "Không cập nhật được từ vựng.")
     if not res.data:
         raise HTTPException(404, "Không tìm thấy từ vựng.")
-    _reload_and_invalidate(background_tasks)
+    await _reload_and_invalidate(background_tasks)
     return res.data[0]
 
 
@@ -225,7 +251,7 @@ async def delete_vocab(
     res = supabase_admin.table("vocab_cards").delete().eq("id", str(vocab_id)).execute()
     if not res.data:
         raise HTTPException(404, "Không tìm thấy từ vựng.")
-    _reload_and_invalidate(background_tasks)
+    await _reload_and_invalidate(background_tasks)
     return {"message": "Đã xóa từ vựng", "id": str(vocab_id)}
 
 
@@ -248,7 +274,7 @@ async def bulk_delete_vocab(
     deleted_ids = {str(r.get("id")) for r in deleted}
     not_found = [i for i in ids if i not in deleted_ids]
     if deleted_ids:
-        _reload_and_invalidate(background_tasks)
+        await _reload_and_invalidate(background_tasks)
     return {"deleted_count": len(deleted_ids), "not_found": not_found}
 
 

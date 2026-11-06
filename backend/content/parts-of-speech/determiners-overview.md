@@ -128,6 +128,11 @@ Quy tắc lõi:
 
 **TOEIC / THPT:** khi thấy chỗ trống trước danh từ, hỏi ngay: *danh từ đếm được hay không? số ít hay nhiều?* rồi chọn determiner khớp. Cặp *much/many* và *few/little* bị hỏi nhiều nhất.
 
+**Ví dụ IELTS Writing:**
+- "**Many** people believe…"
+- "**Little** attention has been paid to…"
+- "**Every** citizen should have access to clean water."
+
 ## Bài tập luyện
 
 Chọn determiner đúng:
@@ -135,13 +140,15 @@ Chọn determiner đúng:
 2. There are (few / little) chairs left.
 3. (Every / All) student must register.
 4. I'd like (some / any) water.
+5. There isn't (much / many) traffic today.
+6. She has (a few / a little) close friends.
 
 ### Đáp án
-1. much 2. few 3. Every 4. some
+1. much 2. few 3. Every 4. some 5. much 6. a few
 
 ## Tóm tắt nhanh
 
 - Determiner đứng trước danh từ; mỗi cụm chỉ một determiner chính
 - **many/(a) few** + đếm được số nhiều; **much/(a) little** + không đếm được
-- **few/little** (ít, tiêu cực) ≠ **a few/a little** (một chút, đủ)
+- **few/little** (ít, tiêu cực) ≠ **a few/a little** (một vài/một chút — nhấn mạnh là có, chưa chắc đủ)
 - **every** + danh từ số ít; **this/that** số ít, **these/those** số nhiều

@@ -66,6 +66,13 @@ if ! awk -F '\t' '
 fi
 
 if [[ -n "${MIGRATION_FEATURES:-}" ]]; then
+  # A baseline records files WITHOUT running them. A selected (or inherited)
+  # pending feature group would be recorded as applied although its SQL never
+  # ran, e.g. 364's privilege revokes after a clone (SVCPRIV-0042 FR-007).
+  if [[ "$BASELINE" == "1" ]]; then
+    echo "REFUSED: --baseline with MIGRATION_FEATURES=$MIGRATION_FEATURES; unset it, baseline, then apply the feature groups" >&2
+    exit 1
+  fi
   if [[ ! "$MIGRATION_FEATURES" =~ ^[a-z0-9_]+(,[a-z0-9_]+)*$ ]]; then
     echo "REFUSED: MIGRATION_FEATURES contains an empty or malformed group: $MIGRATION_FEATURES" >&2
     exit 1

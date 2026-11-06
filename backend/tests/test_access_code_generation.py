@@ -68,6 +68,10 @@ class _Query:
     def eq(self, col, val):
         self.filters.append((col, lambda v, val=val: v == val)); return self
 
+    def is_(self, col, val):
+        assert val == "null"
+        self.filters.append((col, lambda v: v is None)); return self
+
     def in_(self, col, vals):
         self.fake.prechecks.append((self.table, list(vals)))
         self.filters.append((col, lambda v, vals=set(vals): v in vals)); return self
@@ -98,6 +102,10 @@ class _Query:
 
 
 class _FakeSB:
+    def rpc(self, name, params):
+        from activation_rpc_fake import activation_rpc
+        return activation_rpc(self, name, params)
+
     def __init__(self, tables=None, insert_failures=None):
         self.tables = tables or {}
         self.insert_failures = insert_failures or {}
@@ -360,3 +368,193 @@ def test_codes_activate(stored, typed):
 def test_unknown_code_still_rejected():
     resp, _ = _activate("AB12-CD34", "AB12-CD35")
     assert resp.status_code == 400
+
+
+# ── ADMINAAL2-0032 Amendment 2 (FR-020, spec.md AC14): role-granting codes ───
+# A code with a normalized non-null grants_role needs step-up before any DB
+# call; an ordinary code keeps the FR-001 guard only. Claims/fixtures only.
+
+import json  # noqa: E402
+import logging  # noqa: E402
+import time  # noqa: E402
+
+from fastapi import HTTPException  # noqa: E402
+
+from config import settings  # noqa: E402
+from services import staff_guard  # noqa: E402
+from tests.test_staff_guard import VERIFIED, aal2_claims, iso, jwt  # noqa: E402
+
+_EMAIL = "new-teacher@example.test"
+
+
+def _recent_factor():
+    at = iso(time.time() - 3600)
+    return {"id": "f-new", "factor_type": "totp", "status": "verified", "created_at": at, "updated_at": at}
+
+
+class _Recorder(_FakeSB):
+    """Records every table() call, so 'no DB call' covers reads too."""
+
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        self.tables_called: list = []
+
+    def table(self, name):
+        self.tables_called.append(name)
+        return super().table(name)
+
+
+@pytest.fixture
+def granting(monkeypatch):
+    fake = _Recorder()
+    audits: list = []
+    state = {"factors": VERIFIED}
+
+    async def _admin(_authz):
+        return {"id": "admin-1", "email": "admin@example.test", "factors": state["factors"]}
+
+    monkeypatch.setattr(admin_module, "require_admin", _admin)
+    monkeypatch.setattr(admin_module, "supabase_admin", fake)
+    monkeypatch.setattr(admin_module, "_audit_entitlement", lambda *a, **k: audits.append((a, k)))
+    monkeypatch.setattr(settings, "ADMIN_STEP_UP_ENFORCE", True)
+    monkeypatch.setattr(settings, "ADMIN_STEP_UP_MINUTES", 15)
+
+    class G:
+        db = fake
+        audit = audits
+
+        @staticmethod
+        def factors(value):
+            state["factors"] = value
+
+        @staticmethod
+        def enforce(on: bool):
+            monkeypatch.setattr(settings, "ADMIN_STEP_UP_ENFORCE", on)
+
+        @staticmethod
+        def call(totp_age: float, **fields):
+            body = admin_module.GenerateCodesRequest(count=2, **fields)
+            bearer = f"Bearer {jwt(aal2_claims('admin-1', totp_age=totp_age))}"
+            return _run(admin_module.generate_access_codes(body, authorization=bearer))
+
+        @staticmethod
+        def refused(totp_age: float, **fields) -> dict:
+            with pytest.raises(HTTPException) as ei:
+                G.call(totp_age, **fields)
+            assert ei.value.status_code == 403, ei.value.detail
+            return ei.value.detail
+
+        @staticmethod
+        def untouched():
+            return fake.tables_called == [] and fake.inserts == [] and audits == []
+
+    return G
+
+
+INSTRUCTOR_CODE = {"grants_role": "instructor", "intended_email": _EMAIL}
+
+
+@pytest.mark.parametrize("role", ["instructor", " INSTRUCTOR ", "Instructor"])
+def test_role_code_with_a_16_minute_totp_is_refused_before_any_db_call(granting, role):
+    detail = granting.refused(16 * 60, grants_role=role, intended_email=_EMAIL)
+    assert detail["code"] == "step_up_required" and detail["max_age_seconds"] == 900
+    assert "reason" not in detail
+    assert granting.untouched()
+
+
+def test_role_code_with_a_14_minute_totp_and_old_factors_is_created(granting):
+    out = granting.call(14 * 60, **INSTRUCTOR_CODE)
+    assert set(out) == {"created", "codes"} and out["created"] == 2 and len(out["codes"]) == 2
+    stored = granting.db.tables["access_codes"]
+    assert [r["code"] for r in stored] == out["codes"]
+    assert {(r["grants_role"], r["intended_email"]) for r in stored} == {("instructor", _EMAIL)}
+    assert len(granting.audit) == 2
+
+
+def test_role_code_with_a_fresh_totp_and_a_recent_factor_is_the_cooloff_refusal(granting):
+    granting.factors(VERIFIED + [_recent_factor()])
+    detail = granting.refused(5, **INSTRUCTOR_CODE)
+    assert detail["reason"] == "new_factor_cooloff"
+    assert detail["message"] == staff_guard.STEP_UP_COOLOFF_MESSAGE
+    assert granting.untouched()
+
+
+@pytest.mark.parametrize("factors,totp_age,reason", [
+    (VERIFIED, 16 * 60, "totp_stale"),
+    (VERIFIED + [_recent_factor()], 5, "new_factor_cooloff"),
+], ids=["stale", "cooloff"])
+def test_report_only_role_code_is_created_with_one_would_block_line(granting, caplog, factors, totp_age, reason):
+    granting.enforce(False)
+    granting.factors(factors)
+    with caplog.at_level(logging.WARNING, logger=staff_guard.logger.name):
+        out = granting.call(totp_age, **INSTRUCTOR_CODE)
+    assert out["created"] == 2
+    lines = [r.getMessage() for r in caplog.records
+             if r.getMessage().startswith(staff_guard.STEP_UP_WOULD_BLOCK_EVENT)]
+    assert len(lines) == 1
+    assert json.loads(lines[0].split(" ", 1)[1])["reason"] == reason
+    assert _EMAIL not in lines[0]
+
+
+@pytest.mark.parametrize("fields", [
+    {}, {"grants_role": None}, {"grants_role": ""}, {"grants_role": "   "},
+], ids=["omitted", "null", "empty", "whitespace"])
+def test_ordinary_code_takes_no_step_up_or_cooloff(granting, monkeypatch, caplog, fields):
+    # Stale TOTP AND a recent factor under enforcement: an ordinary code is
+    # still created, and require_recent_mfa is never called.
+    calls: list = []
+    monkeypatch.setattr(staff_guard, "require_recent_mfa", lambda *a: calls.append(a))
+    granting.factors(VERIFIED + [_recent_factor()])
+    with caplog.at_level(logging.WARNING, logger=staff_guard.logger.name):
+        out = granting.call(16 * 60, **fields)
+    assert out["created"] == 2 and calls == []
+    assert all("grants_role" not in r for r in granting.db.tables["access_codes"])
+    assert not [r for r in caplog.records if r.getMessage().startswith(staff_guard.STEP_UP_WOULD_BLOCK_EVENT)]
+
+
+def test_ordinary_code_spy_control_role_code_calls_the_step_up(granting, monkeypatch):
+    # Negative control for the spy above: the same spy sees a role code.
+    calls: list = []
+    monkeypatch.setattr(staff_guard, "require_recent_mfa", lambda *a: calls.append(a))
+    granting.call(16 * 60, **INSTRUCTOR_CODE)
+    assert len(calls) == 1
+
+
+def test_unsupported_role_is_guarded_first_then_keeps_the_400(granting):
+    detail = granting.refused(16 * 60, grants_role="admin", intended_email=_EMAIL)
+    assert detail["code"] == "step_up_required" and granting.untouched()
+    with pytest.raises(HTTPException) as ei:
+        granting.call(5, grants_role="admin", intended_email=_EMAIL)
+    assert ei.value.status_code == 400 and "grants_role" in ei.value.detail
+    assert granting.untouched()
+
+
+def test_instructor_code_without_email_keeps_the_400_after_step_up(granting):
+    with pytest.raises(HTTPException) as ei:
+        granting.call(5, grants_role="instructor")
+    assert ei.value.status_code == 400 and "intended_email" in ei.value.detail
+    assert granting.untouched()
+
+
+def test_a_failed_fr001_guard_never_reaches_the_step_up(granting, monkeypatch):
+    calls: list = []
+
+    async def _deny(_authz):
+        raise HTTPException(403, "Bạn không có quyền truy cập trang này")
+
+    monkeypatch.setattr(admin_module, "require_admin", _deny)
+    monkeypatch.setattr(staff_guard, "require_recent_mfa", lambda *a: calls.append(a))
+    with pytest.raises(HTTPException) as ei:
+        granting.call(5, **INSTRUCTOR_CODE)
+    assert ei.value.status_code == 403 and calls == [] and granting.untouched()
+
+
+def test_generate_route_documents_the_step_up_403():
+    from main import app
+
+    op = app.openapi()["paths"]["/admin/access-codes/generate"]["post"]
+    assert "403" in op["responses"]
+    schemas = app.openapi()["components"]["schemas"]
+    reason = schemas["StepUpRequiredDetail"]["properties"]["reason"]
+    assert "new_factor_cooloff" in json.dumps(reason)
+    assert "reason" not in schemas["StepUpRequiredDetail"].get("required", [])

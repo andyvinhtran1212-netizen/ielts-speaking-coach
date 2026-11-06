@@ -19,6 +19,41 @@ def test_sync_supabase_transport_disables_http2(monkeypatch):
     assert kwargs["follow_redirects"] is True
 
 
+def test_sync_supabase_transport_keeps_every_pooled_connection_alive(monkeypatch):
+    """PC-J558: httpcore counts all pooled connections against the keep-alive
+    cap, so a cap below max_connections closes every connection on release."""
+    factory = Mock(return_value=Mock(name="httpx-client"))
+    monkeypatch.setattr(database.httpx, "Client", factory)
+
+    database._build_supabase_http_client()
+    limits = factory.call_args.kwargs["limits"]
+    assert limits.max_connections == 100
+    assert limits.max_keepalive_connections == 100
+
+
+def test_async_supabase_transport_keeps_every_pooled_connection_alive(monkeypatch):
+    """PC-J575: same httpcore keep-alive counting as PC-J558, on the
+    USE_ASYNC_DB pool; the cap must not be below max_connections."""
+    factory = Mock(return_value=Mock(name="httpx-async-client"))
+    monkeypatch.setattr(database.httpx, "AsyncClient", factory)
+
+    database._build_supabase_async_http_client()
+    limits = factory.call_args.kwargs["limits"]
+    assert limits.max_connections == 100
+    assert limits.max_keepalive_connections == 100
+    assert limits.keepalive_expiry == 5.0
+
+
+def test_sync_supabase_transport_applies_the_limits_to_its_pool():
+    client = database._build_supabase_http_client()
+    try:
+        pool = client._transport._pool
+        assert pool._max_connections == 100
+        assert pool._max_keepalive_connections == 100
+    finally:
+        client.close()
+
+
 def test_service_role_client_uses_the_explicit_transport():
     assert database.supabase_admin.postgrest.session is database._supabase_postgrest_http_client
     assert database.supabase_admin.options.httpx_client is None, (

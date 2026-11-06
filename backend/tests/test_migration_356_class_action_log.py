@@ -146,7 +146,8 @@ def test_service_role_row_locks_denied(applied, clause):
     assert_denied(db, f"PERFORM * FROM {TABLE} {clause}", "42501", role="service_role")
 
 
-@pytest.mark.parametrize("mode", ["SHARE", "SHARE ROW EXCLUSIVE", "EXCLUSIVE", "ACCESS EXCLUSIVE"])
+@pytest.mark.parametrize("mode", ["SHARE UPDATE EXCLUSIVE",
+                                 "SHARE", "SHARE ROW EXCLUSIVE", "EXCLUSIVE", "ACCESS EXCLUSIVE"])
 def test_service_role_blocking_table_locks_denied(applied, mode):
     db, _, _ = applied
     assert_denied(db, f"LOCK TABLE {TABLE} IN {mode} MODE", "42501", role="service_role")

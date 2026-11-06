@@ -9,7 +9,7 @@ import pytest
 from fastapi import BackgroundTasks, HTTPException
 
 from models.vocabulary_sets import CardCreate, SessionStart
-from routers import advanced_vocab, kp, vocab_units, vocabulary_sets
+from routers import admin_vocab, advanced_vocab, kp, vocab_units, vocabulary_sets
 from services import advanced_vocab_rewrite_grader, advanced_vocab_service as advanced
 from tests.loop_gate import WAIT, LoopGate, until
 
@@ -258,10 +258,9 @@ class InsertQuery:
 
 
 @pytest.mark.parametrize("duplicate", [False, True])
-def test_create_card_offloads_insert_but_reloads_index_on_the_loop(monkeypatch, duplicate):
-    # PC-J439: vocab_service.reload() clears and rebuilds the in-memory index that
-    # the async public /vocabulary routes read on the loop thread; a reload in a
-    # worker would let those readers see an empty index mid-rebuild.
+def test_create_card_offloads_insert_and_index_reload(monkeypatch, duplicate):
+    # PC-J665 (supersedes PC-J439): reload() publishes copy-on-write (PC-J449),
+    # so it no longer has to hold the loop; it runs in a worker thread too.
     slow, threads = SlowIO(), {}
 
     async def admin(_authorization):
@@ -274,13 +273,14 @@ def test_create_card_offloads_insert_but_reloads_index_on_the_loop(monkeypatch, 
             raise RuntimeError('duplicate key value violates unique constraint (23505)')
         return SimpleNamespace(data=[{"id": "card-1", "headword": "acquire", "category": "work"}])
 
-    def reload(_background_tasks):
+    def reload():
         threads["reload"] = threading.get_ident()
 
     monkeypatch.setattr(vocabulary_sets, "require_admin", admin)
     monkeypatch.setattr(vocabulary_sets, "resolve_topic_id_for_category", lambda _category: None)
     monkeypatch.setattr(vocabulary_sets, "db", SimpleNamespace(table=lambda _name: InsertQuery(execute)))
-    monkeypatch.setattr(vocabulary_sets, "_reload_and_invalidate", reload)
+    monkeypatch.setattr(admin_vocab.vocab_service, "reload", reload)
+    monkeypatch.setattr(admin_vocab, "invalidate_vocabulary_cache", lambda: None)
     body = CardCreate(headword="acquire", category="work", gloss_vi="tiếp thu")
 
     async def call():
@@ -297,4 +297,4 @@ def test_create_card_offloads_insert_but_reloads_index_on_the_loop(monkeypatch, 
         assert "reload" not in threads
     else:
         assert result["id"] == "card-1" and result["headword"] == "acquire"
-        assert threads["reload"] == threads["loop"]
+        assert threads["reload"] != threads["loop"]

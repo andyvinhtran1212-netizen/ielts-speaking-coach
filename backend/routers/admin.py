@@ -1198,13 +1198,20 @@ async def _refuse_archived_cohort(cohort_id: str | None, *, context: str) -> Non
 
 # ── POST /admin/access-codes/generate ─────────────────────────────────────────
 
-@router.post("/access-codes/generate")
+@router.post("/access-codes/generate", responses=staff_guard.STEP_UP_RESPONSES)
 async def generate_access_codes(
     body: GenerateCodesRequest,
     authorization: str | None = Header(default=None),
 ):
-    """Generate N new unused access codes and persist them."""
+    """Generate N new unused access codes and persist them.
+
+    ADMINAAL2-0032 Amendment 2 (FR-020, option c): a code that grants a role
+    (normalized ``grants_role`` non-null) needs step-up before any DB call;
+    an ordinary code keeps the FR-001 guard only."""
     admin = await require_admin(authorization)
+    grants_role = (body.grants_role or "").strip().lower() or None
+    if grants_role is not None:
+        staff_guard.require_recent_mfa(admin, authorization)  # FR-020, before any DB call
 
     # Sprint 5.2 — fail loudly on typo'd permission strings instead of
     # silently inserting a code that grants nothing-and-no-one. Allowed
@@ -1220,7 +1227,6 @@ async def generate_access_codes(
 
     # W-2 (Option B) — instructor-promote codes MUST be email-bound (fail-closed
     # at mint time so an unbound instructor code can never auto-promote anyone).
-    grants_role = (body.grants_role or "").strip().lower() or None
     if grants_role is not None and grants_role != "instructor":
         raise HTTPException(400, "grants_role chỉ nhận null hoặc 'instructor'.")
     intended_email = (body.intended_email or "").strip() or None

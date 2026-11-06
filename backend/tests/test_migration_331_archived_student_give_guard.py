@@ -46,6 +46,7 @@ SQL_228 = (MIGRATIONS / "228_writing_idempotency_optional_cohort.sql").read_text
 CODE = m326._strip_comments(SQL)
 TRIGGER = "archive_guard_writing_assignment_student"
 FUNCTION = "fn_guard_writing_assignment_student_archived"
+PINNED_BY = "366_student_archive_definer_search_path.sql"
 
 
 # ── Static contract ─────────────────────────────────────────────────────────
@@ -110,7 +111,18 @@ def test_no_other_migration_drops_replaces_or_bypasses_the_guard():
         if path.name == NAME:
             continue
         code = m326._strip_comments(path.read_text(encoding="utf-8"))
-        assert TRIGGER not in code and FUNCTION not in code, path.name
+        if path.name == PINNED_BY:
+            # 366 (PC-J611, SA-2209) only pins the guard's search_path and
+            # reads the trigger in its postcondition; its own suite
+            # (test_migration_366_*) runs this suite's behaviour tests on the
+            # pinned schema. Anything else that names them still fails.
+            outside_do = re.sub(r"DO \$\$.*?END \$\$;", "", code, flags=re.S)
+            assert [line.strip() for line in outside_do.splitlines() if FUNCTION in line or TRIGGER in line] == [
+                f"ALTER FUNCTION public.{FUNCTION}() SET search_path = pg_catalog, pg_temp;"], path.name
+            assert not re.search(r"\bDROP\b|DISABLE\s+TRIGGER|CREATE\s+(OR\s+REPLACE\s+)?TRIGGER",
+                                 code, re.I), path.name
+        else:
+            assert TRIGGER not in code and FUNCTION not in code, path.name
         # 356 reads this permission to fail closed on a trigger-bypass grant:
         # the direct literal (the allowed read used by the control below) and
         # the membership form that covers every role service_role can become

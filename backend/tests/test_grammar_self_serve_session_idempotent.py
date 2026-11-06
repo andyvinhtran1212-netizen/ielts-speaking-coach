@@ -3,7 +3,6 @@
 import asyncio
 import copy
 import threading
-import time
 import weakref
 from types import SimpleNamespace
 
@@ -21,6 +20,7 @@ class _Sessions:
         self.read_delay = read_delay
         self.inserts = []
         self.overlap = threading.Barrier(2)
+        self.overlap_passes = []
         self._ids = iter(range(1, 1000))
 
     def table(self, name):
@@ -64,7 +64,7 @@ class _Query:
         if db.read_delay:
             # Give a concurrent request every chance to read the same state.
             try:
-                db.overlap.wait(timeout=db.read_delay)
+                db.overlap_passes.append(db.overlap.wait(timeout=db.read_delay))
             except threading.BrokenBarrierError:
                 pass
         return SimpleNamespace(data=snapshot[: self.max_rows])
@@ -146,13 +146,13 @@ async def test_different_learners_create_self_serve_sessions_in_parallel(self_se
 
     monkeypatch.setattr(diagnostic, "get_supabase_user", authenticated)
     db = self_serve(_Sessions(read_delay=2.0))
-    started = time.perf_counter()
     results = await asyncio.gather(
         diagnostic.create_session(diagnostic.SessionCreate(), authorization="u-1"),
         diagnostic.create_session(diagnostic.SessionCreate(), authorization="u-2"),
     )
     # Both reads meet at the barrier instead of waiting out its timeout.
-    assert time.perf_counter() - started < 1.5
+    assert not db.overlap.broken, "neither learner may time out at the barrier"
+    assert sorted(db.overlap_passes) == [0, 1]
     assert len(db.inserts) == 2
     assert {result["user_id"] for result in db.rows} == {"u-1", "u-2"}
     assert len({result["id"] for result in results}) == 2

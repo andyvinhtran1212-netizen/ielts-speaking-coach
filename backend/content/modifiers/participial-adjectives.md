@@ -69,7 +69,7 @@ Mẹo: nếu chủ ngữ **cảm thấy** → -ed; nếu chủ ngữ **làm cho 
 
 Mẹo này chỉ áp dụng cho các **cặp chỉ cảm xúc** đang học. Người có thể interesting/boring, còn vật có thể broken/polluted; -ed không dành riêng cho người và không luôn chỉ cảm xúc.
 
-- The news was **shocking**. → News làm ta sốc.
+- The news was **shocking**. → Tin này khiến ta sốc.
 - We were **shocked** by the news. → Ta cảm thấy sốc.
 
 Các cặp hay gặp: excited/exciting, confused/confusing, amazed/amazing, frightened/frightening, satisfied/satisfying.
@@ -85,11 +85,14 @@ Các cặp hay gặp: excited/exciting, confused/confusing, amazed/amazing, frig
 - ❌ *The movie was very bored.* → ✅ *The movie was very **boring**.*
 
 ### Lỗi 3: Nhầm với người gây cảm giác
+- ❌ *He is an **interested** person.* (ý: thú vị) → ✅ *He is an **interesting** person.*
 - *He is an **interesting** person.* *(anh ấy thú vị — gây hứng thú cho người khác)*
 
 ## Ứng dụng trong bài thi
 
-**TOEIC/THPT:** nhìn chủ ngữ — người *cảm thấy* → -ed; vật/việc *gây ra* → -ing.
+**TOEIC/THPT:** nhìn chủ ngữ — chủ ngữ *cảm thấy* → -ed; chủ ngữ (người hoặc vật) *gây ra* cảm xúc → -ing.
+
+**Speaking Part 2:** *I was **fascinated** by the old streets, but the long walk was quite **exhausting**.*
 
 ## Tóm tắt nhanh
 

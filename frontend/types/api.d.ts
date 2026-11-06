@@ -564,6 +564,10 @@ export interface paths {
         /**
          * Generate Access Codes
          * @description Generate N new unused access codes and persist them.
+         *
+         *     ADMINAAL2-0032 Amendment 2 (FR-020, option c): a code that grants a role
+         *     (normalized ``grants_role`` non-null) needs step-up before any DB call;
+         *     an ordinary code keeps the FR-001 guard only.
          */
         post: operations["generate_access_codes_admin_access_codes_generate_post"];
         delete?: never;
@@ -1697,7 +1701,10 @@ export interface paths {
          *     (``ok: false``, ``changed: false``, ``sign_in_restored: false``), the
          *     account stays suspended with its role frozen (FR-019), and repeating this
          *     request retries. A ban can therefore never outlive the marker, which is
-         *     the only state this route can retry from. A repeat of the same request
+         *     the only state this route can retry from. Before the unban it revokes the
+         *     sessions again; a reactivation that succeeds answers
+         *     ``sessions_revoked: true`` (null on a repeat for an account already
+         *     active, where nothing is revoked). A repeat of the same request
          *     writes no second audit row. Requests for the same account are serialized
          *     across workers; a lock that cannot be taken is a 503 ``target_busy``
          *     before any change.
@@ -22242,6 +22249,8 @@ export interface components {
             max_age_seconds: number;
             /** Message */
             message: string;
+            /** Reason */
+            reason?: "new_factor_cooloff" | null;
         };
         /** StrengthResponse */
         StrengthResponse: {
@@ -24234,7 +24243,7 @@ export interface operations {
                     "application/json": components["schemas"]["UserRoleChangeOut"];
                 };
             };
-            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020) */
+            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020; `reason: new_factor_cooloff` for a factor under 24 hours old) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -24369,6 +24378,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020; `reason: new_factor_cooloff` for a factor under 24 hours old) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffForbiddenResponse"];
                 };
             };
             /** @description Validation Error */
@@ -26363,7 +26381,7 @@ export interface operations {
                     "application/json": components["schemas"]["StaffActiveOut"];
                 };
             };
-            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020) */
+            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020; `reason: new_factor_cooloff` for a factor under 24 hours old) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -26409,7 +26427,7 @@ export interface operations {
                     "application/json": components["schemas"]["RevokeSessionsOut"];
                 };
             };
-            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020) */
+            /** @description Not an active admin, `mfa_required` (FR-012), or `step_up_required` under ADMIN_STEP_UP_ENFORCE (FR-020; `reason: new_factor_cooloff` for a factor under 24 hours old) */
             403: {
                 headers: {
                     [name: string]: unknown;

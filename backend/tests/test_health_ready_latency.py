@@ -34,7 +34,9 @@ class ProbeClock:
     async def wait(self, futures, *, timeout):
         future, = futures
         expired = asyncio.Event()
-        self.waiters[future] = (self.now + timeout, expired)
+        # One key per wait: concurrent admins can wait on one shared probe.
+        key = object()
+        self.waiters[key] = (self.now + timeout, expired)
         timer = asyncio.create_task(expired.wait())
         try:
             done, _ = await asyncio.wait((future, timer), return_when=asyncio.FIRST_COMPLETED)
@@ -42,7 +44,7 @@ class ProbeClock:
         finally:
             timer.cancel()
             await asyncio.gather(timer, return_exceptions=True)
-            self.waiters.pop(future)
+            self.waiters.pop(key)
 
     def advance(self, seconds):
         self.now += seconds
@@ -63,12 +65,10 @@ def probe_clock(monkeypatch):
 
 
 class SlowDatabase:
-    def __init__(self, delay=0.0, blocked_table=None, error_table=None, pause=None):
+    def __init__(self, delay=0.0, error_table=None, pause=None):
         self.delay = delay
-        self.blocked_table = blocked_table
         self.error_table = error_table
         self.pause = pause
-        self.release = threading.Event()
         self.calls = Counter()
         self.projections = {}
         self.lock = threading.Lock()
@@ -96,10 +96,6 @@ class SlowDatabase:
                 try:
                     if database.pause is not None:
                         database.pause(table)
-                    blocked = database.blocked_table
-                    if blocked == "*" or table == blocked or (isinstance(blocked, set) and table in blocked):
-                        # Finite fallback makes a pre-fix regression fail, not hang.
-                        database.release.wait(1.0)
                     time.sleep(database.delay)
                     if table == database.error_table:
                         raise RuntimeError("private database host/schema detail")
@@ -251,55 +247,122 @@ def test_stalled_probes_do_not_occupy_default_executor(monkeypatch, ready_client
             finally:
                 gate.release()
                 default_gate.release()
-                await asyncio.wait_for(readiness, WAIT)
+                # A main-path wait_for timeout cancelled readiness; awaiting it
+                # again would replace that TimeoutError with CancelledError.
+                if not readiness.done():
+                    await asyncio.wait_for(readiness, WAIT)
                 if blocking is not None:
                     await asyncio.wait_for(blocking, WAIT)
 
     asyncio.run(exercise())
 
 
-def test_queue_budget_bounds_probes_behind_partially_stalled_pool(monkeypatch, ready_client):
+def test_queue_budget_bounds_probes_behind_partially_stalled_pool(monkeypatch, ready_client, probe_clock):
     # Three workers stall; one keeps serving 40 ms reads within the 50 ms
     # timeout. Probes still queued after (N-1)*T/W fail; the response stays
-    # bounded by queue budget + T instead of draining serially.
-    database = SlowDatabase(delay=0.04, blocked_table={"users", *health._CRITICAL_TABLES[:2]})
+    # bounded by queue budget + T instead of draining serially. Each served
+    # read stays parked until the test has advanced its 40 ms of virtual time.
+    stalled = ("users", *health._CRITICAL_TABLES[:2])
+    # The stalled reads must outlast every step, which under heavy load can
+    # exceed LoopGate's WAIT cap. They park without a cap only off the loop
+    # thread; a read run on the loop returns at once and fails the test.
+    stall, stall_threads, loop_thread = threading.Event(), [], []
+    served, lock, closing = [], threading.Lock(), threading.Event()
+
+    def pause(table):
+        if table in stalled:
+            stall_threads.append(threading.get_ident())
+            if threading.get_ident() not in loop_thread:
+                stall.wait()
+            return None
+        with lock:
+            if closing.is_set():
+                return None
+            read = LoopGate()
+            served.append(read)
+        return read.park()
+
+    database = SlowDatabase(pause=pause)
     monkeypatch.setattr(health, "supabase_admin", database)
     monkeypatch.setattr(health, "_READY_PROBE_TIMEOUT_SECONDS", 0.05, raising=False)
-    budget = 20 * 0.05 / 4
+    timeout, read_time = 0.05, 0.04
+    budget = 20 * timeout / 4
     assert health._ready_queue_budget() == pytest.approx(budget)
+    # Reads that can finish by budget + T; the 19 table reads need 0.76 s serially.
+    reads = int((budget + timeout) / read_time)
+    assert reads == 7
 
     async def exercise():
+        loop_thread.append(threading.get_ident())
         async with ready_client as client:
+            readiness = asyncio.create_task(client.get(
+                "/health/ready", headers={"Authorization": "Bearer test-admin"},
+            ))
             try:
-                start = time.perf_counter()
-                body = (await client.get("/health/ready")).json()
-                assert time.perf_counter() - start < budget + 0.05 + 0.15
-                assert body["status"] == "degraded"
+                assert await until(lambda: len(stall_threads) == len(stalled), stop=readiness)
+                for read in range(reads):
+                    assert await until(lambda: len(served) == read + 1, stop=readiness)
+                    assert not readiness.done()
+                    probe_clock.advance(read_time)
+                    assert await until(lambda: all(
+                        deadline > probe_clock.now for deadline, _ in probe_clock.waiters.values()
+                    ), stop=readiness)
+                    served[read].release()
+                # No more virtual time passes: the response is due by budget + T.
+                response = await asyncio.wait_for(readiness, WAIT)
+                assert probe_clock.now <= budget + timeout
+                assert not stall.is_set()
             finally:
-                database.release.set()
+                stall.set()
+                with lock:
+                    closing.set()
+                    gates = list(served)
+                for gate in gates:
+                    gate.release()
+                if not readiness.done():
+                    await asyncio.wait_for(readiness, WAIT)
+                await until(lambda: not health._ready_probe_tasks)
+            assert not health._ready_probe_tasks
+            assert not any(gate.timed_out for gate in gates)
+            assert len(stall_threads) == len(stalled) and loop_thread[0] not in stall_threads
+            body = response.json()
+            assert body["status"] == "degraded"
+            assert body["checks"]["database"] == {"status": "fail", "error": "probe timed out"}
+            assert body["checks"]["curated_schema"]["status"] == "fail"
+            missing = dict(item.split(": ", 1) for item in body["checks"]["migrations"]["missing"])
+            # The two stalled tables overran T; the seven served ones passed;
+            # the ten still queued at the budget were never started.
+            assert {table: missing[table] for table in stalled[1:]} == dict.fromkeys(stalled[1:], "probe timed out")
+            not_started = health._CRITICAL_TABLES[len(stalled) - 1 + reads:]
+            assert len(not_started) == 10
+            assert set(missing) == {*stalled[1:], *not_started}
+            assert all(missing[table].startswith("probe not started") for table in not_started)
 
     asyncio.run(exercise())
 
 
-def test_readiness_does_not_block_concurrent_liveness(monkeypatch, ready_client):
-    database = SlowDatabase(delay=0.1)
+def test_readiness_does_not_block_concurrent_liveness(monkeypatch, ready_client, probe_clock):
+    # Readiness reads stay parked until liveness has answered. A read run on
+    # the loop thread would block /health until the gate's WAIT fallback.
+    gate = LoopGate()
+    database = SlowDatabase(pause=lambda _table: gate.park())
     monkeypatch.setattr(health, "supabase_admin", database)
 
     async def exercise():
         async with ready_client as client:
-            start = time.perf_counter()
             readiness = asyncio.create_task(client.get("/health/ready"))
-            # Give readiness the loop first, as in a busy ASGI worker.
-            await asyncio.sleep(0)
-            liveness = await client.get("/health")
-            elapsed = time.perf_counter() - start
             try:
+                assert await until(lambda: gate.inside == health._READY_PROBE_WORKERS, stop=readiness)
+                liveness = await asyncio.wait_for(client.get("/health"), WAIT)
                 assert liveness.status_code == 200
                 assert liveness.json()["status"] == "ok"
-                assert elapsed < 0.05, f"liveness stalled for {elapsed:.3f}s"
+                assert not gate.released
                 assert not readiness.done()
             finally:
-                await readiness
+                gate.release()
+                response = await asyncio.wait_for(readiness, WAIT)
+            assert not gate.timed_out
+            assert response.json()["status"] == "ok"
 
     asyncio.run(exercise())
 
@@ -337,27 +400,32 @@ def test_hung_database_probe_has_bounded_response(
                 assert not gate.timed_out
             finally:
                 gate.release()
-                await asyncio.wait_for(readiness, WAIT)
+                # A main-path wait_for timeout cancelled readiness; awaiting it
+                # again would replace that TimeoutError with CancelledError.
+                if not readiness.done():
+                    await asyncio.wait_for(readiness, WAIT)
 
     asyncio.run(exercise())
     assert database.calls[blocked_table] == 1
 
 
 @pytest.mark.parametrize("blocked_step", ["flag", "schema"])
-def test_curated_lookup_is_threaded_and_bounded(monkeypatch, ready_client, blocked_step):
+def test_curated_lookup_is_threaded_and_bounded(monkeypatch, ready_client, probe_clock, blocked_step):
+    # The curated lookup stays parked in its worker until after the response:
+    # liveness answers meanwhile, and virtual time shows readiness waited T.
     database = SlowDatabase()
-    release = threading.Event()
+    gate = LoopGate()
     monkeypatch.setattr(health, "supabase_admin", database)
     monkeypatch.setattr(health, "_READY_PROBE_TIMEOUT_SECONDS", 0.15, raising=False)
 
     def flag(*_args, **_kwargs):
         if blocked_step == "flag":
-            release.wait(1.0)
+            gate.park()
         return True
 
     def schema():
         if blocked_step == "schema":
-            release.wait(1.0)
+            gate.park()
         return True
 
     monkeypatch.setattr(health.runtime_flags, "is_enabled", flag)
@@ -365,26 +433,35 @@ def test_curated_lookup_is_threaded_and_bounded(monkeypatch, ready_client, block
 
     async def exercise():
         async with ready_client as client:
-            start = time.perf_counter()
             readiness = asyncio.create_task(client.get("/health/ready"))
-            await asyncio.sleep(0)
-            liveness = await client.get("/health")
             try:
+                # Every table probe has returned; only the curated lookup waits.
+                assert await until(
+                    lambda: gate.inside == 1 and len(probe_clock.waiters) == 1,
+                    stop=readiness,
+                )
+                liveness = await asyncio.wait_for(client.get("/health"), WAIT)
                 assert liveness.status_code == 200
-                assert time.perf_counter() - start < 0.05
-                response = await readiness
+                assert not readiness.done()
+                probe_clock.advance(health._READY_PROBE_TIMEOUT_SECONDS)
+                response = await asyncio.wait_for(readiness, WAIT)
+                assert not gate.released
                 assert response.status_code == 200
                 assert response.json()["checks"]["curated_schema"]["status"] in {"fail", "timeout"}
                 assert response.json()["status"] == "degraded"
-                assert time.perf_counter() - start < 0.4
+                gate.release()
+                assert await until(lambda: not health._ready_probe_tasks)
+                assert not gate.timed_out
             finally:
-                release.set()
-                await readiness
+                gate.release()
+                if not readiness.done():
+                    await asyncio.wait_for(readiness, WAIT)
 
     asyncio.run(exercise())
 
 
-def test_anonymous_burst_reuses_status_until_ttl_expires(monkeypatch, ready_client):
+def test_anonymous_burst_reuses_status_until_ttl_expires(monkeypatch, ready_client, probe_clock):
+    # Virtual time stands still, so no probe can hit its timeout under load.
     database = SlowDatabase(delay=0.01)
     monkeypatch.setattr(health, "supabase_admin", database)
 
@@ -407,27 +484,39 @@ def test_anonymous_burst_reuses_status_until_ttl_expires(monkeypatch, ready_clie
     asyncio.run(exercise())
 
 
-def test_timeout_reuses_unfinished_probe_after_cache_expiry(monkeypatch, ready_client):
-    database = SlowDatabase(blocked_table="users")
+def test_timeout_reuses_unfinished_probe_after_cache_expiry(monkeypatch, ready_client, probe_clock):
+    # The users read stays parked through both requests, so the second one
+    # can only reuse it; every other table finished and is read again.
+    gate = LoopGate()
+    database = SlowDatabase(pause=lambda table: gate.park() if table == "users" else None)
     monkeypatch.setattr(health, "supabase_admin", database)
     monkeypatch.setattr(health, "_READY_PROBE_TIMEOUT_SECONDS", 0.1, raising=False)
 
     async def exercise():
         async with ready_client as client:
+            readiness = asyncio.create_task(client.get("/health/ready"))
             try:
-                first = await client.get("/health/ready")
+                assert await until(
+                    lambda: gate.inside == 1 and len(probe_clock.waiters) == 1,
+                    stop=readiness,
+                )
+                probe_clock.advance(health._READY_PROBE_TIMEOUT_SECONDS)
+                first = await asyncio.wait_for(readiness, WAIT)
                 assert first.json()["checks"]["database"]["status"] == "fail"
                 stamp, statuses = health._ready_probe_cache
                 monkeypatch.setattr(health, "_ready_probe_cache", (stamp - health._READY_PROBE_TTL_SECONDS - 1, statuses))
-                second = await client.get("/health/ready")
+                second = await asyncio.wait_for(client.get("/health/ready"), WAIT)
                 assert second.json()["checks"]["database"]["status"] == "fail"
+                assert not gate.released
                 assert database.calls["users"] == 1
                 assert database.calls["sessions"] == 2
             finally:
-                database.release.set()
+                gate.release()
+                if not readiness.done():
+                    await asyncio.wait_for(readiness, WAIT)
             # Once the stalled call finishes, a later probe can recover.
-            while health._ready_probe_tasks:
-                await asyncio.sleep(0)
+            assert await until(lambda: not health._ready_probe_tasks)
+            assert not gate.timed_out
             stamp, statuses = health._ready_probe_cache
             monkeypatch.setattr(health, "_ready_probe_cache", (stamp - health._READY_PROBE_TTL_SECONDS - 1, statuses))
             recovered = await client.get("/health/ready")
@@ -437,7 +526,10 @@ def test_timeout_reuses_unfinished_probe_after_cache_expiry(monkeypatch, ready_c
     asyncio.run(exercise())
 
 
-def test_cached_monitor_and_concurrent_admins_are_not_serialized(monkeypatch, ready_client):
+def test_cached_monitor_and_concurrent_admins_are_not_serialized(monkeypatch, ready_client, probe_clock):
+    # Five admins wait on one shared parked users read at the same time, a
+    # cached monitor answers meanwhile, and one timeout T ends every admin.
+    gate = LoopGate()
     database = SlowDatabase()
     monkeypatch.setattr(health, "supabase_admin", database)
     monkeypatch.setattr(health, "_READY_PROBE_TIMEOUT_SECONDS", 0.15, raising=False)
@@ -445,48 +537,71 @@ def test_cached_monitor_and_concurrent_admins_are_not_serialized(monkeypatch, re
     async def exercise():
         async with ready_client as client:
             assert (await client.get("/health/ready")).json()["status"] == "ok"
-            database.blocked_table = "users"
-            start = time.perf_counter()
+            database.pause = lambda table: gate.park() if table == "users" else None
             admins = [asyncio.create_task(client.get(
                 "/health/ready", headers={"Authorization": "Bearer test-admin"},
             )) for _ in range(5)]
-            await asyncio.sleep(0.02)
-            monitor_start = time.perf_counter()
             try:
-                monitor = await client.get("/health/ready")
-                assert time.perf_counter() - monitor_start < 0.05
+                assert await until(lambda: any(admin.done() for admin in admins) or (
+                    gate.inside == 1 and len(probe_clock.waiters) == len(admins)
+                ))
+                assert not any(admin.done() for admin in admins)
+                monitor = await asyncio.wait_for(client.get("/health/ready"), WAIT)
+                assert not any(admin.done() for admin in admins)
                 assert monitor.status_code == 200
                 assert monitor.json()["status"] == "ok"
                 assert all(set(check) == {"status"} for check in monitor.json()["checks"].values())
-                responses = await asyncio.gather(*admins)
-                assert time.perf_counter() - start < 0.4
+                probe_clock.advance(health._READY_PROBE_TIMEOUT_SECONDS)
+                responses = await asyncio.wait_for(asyncio.gather(*admins), WAIT)
+                assert not gate.released
                 assert all(response.status_code == 200 for response in responses)
                 assert all(response.json()["checks"]["database"]["status"] == "fail" for response in responses)
                 assert database.calls["users"] == 2  # warm-up + one shared stalled read
+                gate.release()
+                assert await until(lambda: not health._ready_probe_tasks)
+                assert not gate.timed_out
             finally:
-                database.release.set()
-                await asyncio.gather(*admins)
+                gate.release()
+                await asyncio.wait_for(asyncio.gather(*admins, return_exceptions=True), WAIT)
 
     asyncio.run(exercise())
 
 
-def test_ten_monitor_requests_in_one_second_share_one_refresh(monkeypatch, ready_client):
-    database = SlowDatabase(delay=0.15)
+def test_ten_monitor_requests_in_one_second_share_one_refresh(monkeypatch, ready_client, probe_clock):
+    # Ten monitors arrive 80 ms apart in virtual time. The first refresh stays
+    # parked while five arrive and liveness answers each of them; the other
+    # five arrive after it finished and are served from the cache.
+    gate = LoopGate()
+    database = SlowDatabase(pause=lambda _table: gate.park())
     monkeypatch.setattr(health, "supabase_admin", database)
 
     async def exercise():
         async with ready_client as client:
-            async def monitor(index):
-                await asyncio.sleep(index * 0.08)
-                readiness = asyncio.create_task(client.get("/health/ready"))
-                await asyncio.sleep(0)
-                start = time.perf_counter()
-                liveness = await client.get("/health")
-                assert liveness.status_code == 200
-                assert time.perf_counter() - start < 0.05
-                return await readiness
-
-            responses = await asyncio.gather(*(monitor(index) for index in range(10)))
+            monitors = []
+            try:
+                for index in range(10):
+                    if index:
+                        probe_clock.advance(0.08)
+                    if index == 5:
+                        gate.release()
+                        assert await until(lambda: all(monitor.done() for monitor in monitors))
+                    readiness = asyncio.create_task(client.get("/health/ready"))
+                    monitors.append(readiness)
+                    if index == 0:
+                        assert await until(
+                            lambda: gate.inside == health._READY_PROBE_WORKERS, stop=readiness,
+                        )
+                    liveness = await asyncio.wait_for(client.get("/health"), WAIT)
+                    assert liveness.status_code == 200
+                    if index < 5:
+                        assert not gate.released
+                        assert not readiness.done()
+                responses = await asyncio.wait_for(asyncio.gather(*monitors), WAIT)
+            finally:
+                gate.release()
+                await asyncio.wait_for(asyncio.gather(*monitors, return_exceptions=True), WAIT)
+            assert probe_clock.now < 1.0
+            assert not gate.timed_out
             assert all(response.status_code == 200 for response in responses)
             assert all(response.json()["status"] == "ok" for response in responses)
             assert database.calls == Counter({name: 1 for name in ("users", *health._CRITICAL_TABLES)})
@@ -496,7 +611,9 @@ def test_ten_monitor_requests_in_one_second_share_one_refresh(monkeypatch, ready
 
 @pytest.mark.parametrize("first_admin", [False, True])
 @pytest.mark.parametrize("error_table", [None, "users", "sessions"])
-def test_cached_status_preserves_admin_anonymous_contract(monkeypatch, ready_client, first_admin, error_table):
+def test_cached_status_preserves_admin_anonymous_contract(
+    monkeypatch, ready_client, probe_clock, first_admin, error_table,
+):
     database = SlowDatabase(error_table=error_table)
     monkeypatch.setattr(health, "supabase_admin", database)
 

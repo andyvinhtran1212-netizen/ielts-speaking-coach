@@ -3056,14 +3056,14 @@ async def admin_import_fulltest_commit(
     timings_dict = _read_json_upload(timings, "timings.json")
 
     audio_name = (audio.filename or "").lower()
+    from services.storage_limits import read_upload_capped, upload_error
     if not audio_name.endswith(".mp3"):
-        from services.storage_limits import upload_error
-        raise upload_error("listening-audio", 415, message=f"Audio phải là .mp3 (nhận: {clip_user_value(audio.filename)!r})")
-    audio_bytes = audio.file.read()
-    if len(audio_bytes) > _FULLTEST_MAX_AUDIO_BYTES:
-        from services.storage_limits import upload_error
-        raise upload_error("listening-audio", 413, max_bytes=_FULLTEST_MAX_AUDIO_BYTES,
-                           message=f"Audio quá lớn ({len(audio_bytes)//(1024*1024)} MB > 60 MB).")
+        raise upload_error("listening-audio", 415, message=f"Audio phải là .mp3 (nhận: {clip_user_value(audio.filename)!r})",
+                           allowed=["audio/mpeg"])
+    audio_bytes = read_upload_capped(
+        audio, _FULLTEST_MAX_AUDIO_BYTES,
+        lambda size: upload_error("listening-audio", 413, max_bytes=_FULLTEST_MAX_AUDIO_BYTES,
+                                  message=f"Audio quá lớn ({size//(1024*1024)} MB > 60 MB)."))
 
     # Parse + FAIL-LOUD validation (the accuracy gate).
     try:
@@ -3351,14 +3351,13 @@ async def admin_sync_drill(
     timings.file.seek(0)
     timing_hash = hashlib.sha256(timings.file.read()).hexdigest()
     solution_bytes = _read_text_upload(solution, "Solution.md", exts=(".md", ".markdown"))
+    from services.storage_limits import read_upload_capped, upload_error
     if not (audio.filename or "").lower().endswith(".mp3"):
-        from services.storage_limits import upload_error
-        raise upload_error("listening-audio", 415, message="Audio phải là .mp3.")
-    audio_bytes = audio.file.read()
-    if len(audio_bytes) > _DRILL_MAX_AUDIO_BYTES:
-        from services.storage_limits import upload_error
-        raise upload_error("listening-audio", 413, max_bytes=_DRILL_MAX_AUDIO_BYTES,
-                               message="Audio vượt giới hạn 30 MB.")
+        raise upload_error("listening-audio", 415, message="Audio phải là .mp3.", allowed=["audio/mpeg"])
+    audio_bytes = read_upload_capped(
+        audio, _DRILL_MAX_AUDIO_BYTES,
+        lambda _size: upload_error("listening-audio", 413, max_bytes=_DRILL_MAX_AUDIO_BYTES,
+                                   message="Audio vượt giới hạn 30 MB."))
     av = listening_audio.validate_section_audio(audio_bytes, test_type="drill")
     if av["errors"]:
         raise HTTPException(422, "; ".join(av["errors"]))
@@ -3571,7 +3570,8 @@ async def admin_import_drill_commit(
         audio_name = (audio.filename or "").lower()
         if not audio_name.endswith(".mp3"):
             from services.storage_limits import upload_error
-            raise upload_error("listening-audio", 415, message=f"Audio phải là .mp3 (nhận: {clip_user_value(audio.filename)!r})")
+            raise upload_error("listening-audio", 415, message=f"Audio phải là .mp3 (nhận: {clip_user_value(audio.filename)!r})",
+                               allowed=["audio/mpeg"])
         # Audio without timings would publish an "audio-ready" drill whose
         # exercises have NO audio_windows — the review's per-question 🔊 replay
         # (driven solely by item.audio_window) would silently vanish. Require
@@ -3582,11 +3582,11 @@ async def admin_import_drill_commit(
                 422, "Có audio thì phải kèm timings.json (để tạo cửa sổ nghe lại "
                      "theo từng câu). Thêm timings.json rồi import lại, hoặc import "
                      "không audio (drill sẽ ở trạng thái 'Sắp có').")
-        audio_bytes = audio.file.read()
-        if len(audio_bytes) > _DRILL_MAX_AUDIO_BYTES:
-            from services.storage_limits import upload_error
-            raise upload_error("listening-audio", 413, max_bytes=_DRILL_MAX_AUDIO_BYTES,
-                               message=f"Audio quá lớn ({len(audio_bytes)//(1024*1024)} MB > 30 MB).")
+        from services.storage_limits import read_upload_capped, upload_error
+        audio_bytes = read_upload_capped(
+            audio, _DRILL_MAX_AUDIO_BYTES,
+            lambda size: upload_error("listening-audio", 413, max_bytes=_DRILL_MAX_AUDIO_BYTES,
+                                      message=f"Audio quá lớn ({size//(1024*1024)} MB > 30 MB)."))
         av = listening_audio.validate_section_audio(audio_bytes, test_type="drill")
         if av["errors"]:
             raise HTTPException(422, "; ".join(av["errors"]))
@@ -4361,12 +4361,12 @@ async def admin_upload_test_full_audio(
     name = (audio.filename or "").lower()
     if not name.endswith(".mp3"):
         from services.storage_limits import upload_error
-        raise upload_error("listening-audio", 415, message=f"Audio phải là .mp3 (nhận: {clip_user_value(audio.filename)!r})")
-    data = audio.file.read()
-
-    if len(data) > listening_audio.FULL_AUDIO_MAX_BYTES:
-        from services.storage_limits import upload_error
-        raise upload_error("listening-audio", 413, max_bytes=listening_audio.FULL_AUDIO_MAX_BYTES)
+        raise upload_error("listening-audio", 415, message=f"Audio phải là .mp3 (nhận: {clip_user_value(audio.filename)!r})",
+                           allowed=["audio/mpeg"])
+    from services.storage_limits import read_upload_capped, upload_error
+    data = read_upload_capped(
+        audio, listening_audio.FULL_AUDIO_MAX_BYTES,
+        lambda _size: upload_error("listening-audio", 413, max_bytes=listening_audio.FULL_AUDIO_MAX_BYTES))
 
     result = listening_audio.validate_full_audio(data)
     if result["errors"]:
@@ -4433,12 +4433,12 @@ async def admin_upload_test_section_audio(
     name = (audio.filename or "").lower()
     if not name.endswith(".mp3"):
         from services.storage_limits import upload_error
-        raise upload_error("listening-audio", 415, message=f"Audio phải là .mp3 (nhận: {clip_user_value(audio.filename)!r})")
-    data = audio.file.read()
-
-    if len(data) > listening_audio.SECTION_AUDIO_MAX_BYTES:
-        from services.storage_limits import upload_error
-        raise upload_error("listening-audio", 413, max_bytes=listening_audio.SECTION_AUDIO_MAX_BYTES)
+        raise upload_error("listening-audio", 415, message=f"Audio phải là .mp3 (nhận: {clip_user_value(audio.filename)!r})",
+                           allowed=["audio/mpeg"])
+    from services.storage_limits import read_upload_capped, upload_error
+    data = read_upload_capped(
+        audio, listening_audio.SECTION_AUDIO_MAX_BYTES,
+        lambda _size: upload_error("listening-audio", 413, max_bytes=listening_audio.SECTION_AUDIO_MAX_BYTES))
 
     result = listening_audio.validate_section_audio(data)
     if result["errors"]:

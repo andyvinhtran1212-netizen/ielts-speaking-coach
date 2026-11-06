@@ -79,7 +79,14 @@ class _Query:
         return self
 
     def eq(self, col, val):
+        if col == "permissions" and isinstance(val, str):
+            val = json.loads(val)
         self.filters.append(lambda r, c=col, v=val: str(r.get(c)) == str(v) if v is not None else r.get(c) is None)
+        return self
+
+    def is_(self, col, val):
+        assert val == "null"
+        self.filters.append(lambda r, c=col: r.get(c) is None)
         return self
 
     def in_(self, col, vals):
@@ -224,6 +231,11 @@ class FakeDB:
             })
 
     def rpc(self, name, params):
+        if name == "fn_activation_serialize":
+            from activation_rpc_fake import activation_rpc
+            if self.on_execute:
+                self.on_execute("users", "update")
+            return activation_rpc(self, name, params)
         assert name == "fn_set_staff_privilege", name
         self.rpc_calls.append(dict(params))
         return _Rpc(lambda: self._set_staff_privilege(**params))
@@ -545,7 +557,9 @@ class TestReactivate:
         assert r.status_code == 200, r.text
         body = r.json()
         assert body["is_active"] is True and body["suspended_at"] is None and body["changed"] is True
-        assert body["sign_in_restored"] is True and body["sessions_revoked"] is None
+        # The revocation before the unban is confirmed, so it is reported (PC-J159).
+        assert body["sign_in_restored"] is True and body["sessions_revoked"] is True
+        assert body["revoke_error"] is None
         assert db.user(INSTRUCTOR)["suspended_at"] is None and db.user(INSTRUCTOR)["is_active"] is True
         assert db.auth.admin.calls[-1] == (INSTRUCTOR, "none")
         assert INSTRUCTOR not in db.auth.admin.banned
@@ -570,11 +584,13 @@ class TestReactivate:
         db.auth.admin.fail_unban = False
         retry = _active(client, INSTRUCTOR, True)
         assert retry.json()["ok"] is True and retry.json()["changed"] is True
-        assert retry.json()["sign_in_restored"] is True
+        assert retry.json()["sign_in_restored"] is True and retry.json()["sessions_revoked"] is True
         assert INSTRUCTOR not in db.auth.admin.banned and db.user(INSTRUCTOR)["suspended_at"] is None
         assert len(db.audits()) == 2   # suspend + reactivate, none for the failed attempt
         again = _active(client, INSTRUCTOR, True)
         assert again.json()["changed"] is False and again.json()["sign_in_restored"] is None
+        # Already active: nothing is revoked, so not applicable (null).
+        assert again.json()["sessions_revoked"] is None
 
     def test_unban_happens_before_the_marker_is_cleared(self, client, db):
         _active(client, INSTRUCTOR, False)
@@ -660,7 +676,9 @@ class TestReactivate:
         _active(client, INSTRUCTOR, False)
         r = _active(client, INSTRUCTOR, True, reason="đã đổi mật khẩu")
         assert r.json()["ok"] is True and r.json()["sign_in_restored"] is True
-        assert r.json()["sessions_revoked"] is None and r.json()["revoke_error"] is None
+        # PC-J159: the confirmed pre-unban revocation is reported as true
+        # (was null). It still writes no audit row of its own (part B pending).
+        assert r.json()["sessions_revoked"] is True and r.json()["revoke_error"] is None
         assert [a["event"] for a in db.audits()] == ["active_changed", "active_changed"]
 
 
@@ -720,6 +738,7 @@ class TestReactivateAfterFailedRevocation:
         assert r.status_code == 200, r.text
         body = r.json()
         assert body["ok"] is True and body["changed"] is True and body["sign_in_restored"] is True
+        assert body["sessions_revoked"] is True and body["revoke_error"] is None
         assert body["is_active"] is True and body["suspended_at"] is None
         assert seen == [0], "the ban was lifted while old sessions still existed"
         assert engine.sessions.get(target, 0) == 0
@@ -1615,6 +1634,58 @@ class TestStepUp:
         assert len(lines) == 1, lines
         assert '"reason": "totp_stale"' in lines[0] and '"max_age_seconds": 900' in lines[0]
         assert '"user_id": "%s"' % ADMIN in lines[0]
+
+    @staticmethod
+    def _with_recent_factor():
+        # FR-020a: an old factor plus one verified an hour ago (Amendment 2).
+        import time
+
+        from tests.test_staff_guard import VERIFIED, iso
+
+        at = iso(time.time() - 3600)
+        admin = {"id": ADMIN, "email": "admin@example.test", "factors": VERIFIED + [
+            {"id": "f-new", "factor_type": "totp", "status": "verified", "created_at": at, "updated_at": at}]}
+        sec_module.require_admin.return_value = admin  # the fixture's shared AsyncMock
+        assert admin_module.require_admin is sec_module.require_admin
+
+    @pytest.mark.parametrize("call", list(STEP_UP_CALLS))
+    def test_recent_factor_with_a_fresh_totp_is_403_cooloff_before_any_db_call(
+            self, step_up_client, db, engine, call):
+        from config import settings
+        from services import staff_guard
+
+        client, monkeypatch = step_up_client
+        monkeypatch.setattr(settings, "ADMIN_STEP_UP_ENFORCE", True)
+        self._with_recent_factor()
+        before = _state(db, engine)
+        r = STEP_UP_CALLS[call](client, _step_up_bearer(5))
+        assert r.status_code == 403, r.text
+        assert r.json()["detail"] == {
+            "code": "step_up_required", "next_step": "challenge", "max_age_seconds": 900,
+            "reason": "new_factor_cooloff", "message": staff_guard.STEP_UP_COOLOFF_MESSAGE,
+        }
+        assert _state(db, engine) == before
+        assert db.ops == [] and db.rpc_calls == [] and db.auth.admin.calls == []
+        assert engine.statements == [] and engine.lock_statements == []
+        assert db.audits() == [] and db.tables["owner_alert_outbox"] == []
+
+    @pytest.mark.parametrize("call", list(STEP_UP_CALLS))
+    def test_report_only_recent_factor_logs_one_cooloff_line_and_succeeds(
+            self, step_up_client, db, engine, call, caplog):
+        import logging
+
+        from services import staff_guard
+
+        client, _ = step_up_client
+        self._with_recent_factor()
+        with caplog.at_level(logging.WARNING, logger=staff_guard.logger.name):
+            r = STEP_UP_CALLS[call](client, _step_up_bearer(16 * 60))
+        assert r.status_code == 200, r.text
+        lines = [rec.getMessage() for rec in caplog.records
+                 if rec.getMessage().startswith(staff_guard.STEP_UP_WOULD_BLOCK_EVENT)]
+        assert len(lines) == 1, lines
+        assert '"reason": "new_factor_cooloff"' in lines[0]
+        assert "admin@example.test" not in lines[0]
 
     def test_enforcement_covers_an_aal1_session(self, step_up_client, db, engine):
         # ADMIN_AAL2_ENFORCE off lets an AAL1 admin past FR-001; step-up still
