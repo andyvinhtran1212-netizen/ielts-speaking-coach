@@ -514,6 +514,10 @@ async def update_feedback(
             ),
         )
 
+    # WRITINGBAND-0050: normalize BEFORE no-op detection so an unchanged
+    # resave repairs stale composed totals, but a canonical retry stays a no-op.
+    validated = essay_service.normalize_reviewed_feedback(validated)
+
     # BL-22 — "Lưu & duyệt" without edits re-sends the current feedback. That is
     # an approval, not an edit: no composed version, no "✏ Đã sửa" badge.
     current = (
