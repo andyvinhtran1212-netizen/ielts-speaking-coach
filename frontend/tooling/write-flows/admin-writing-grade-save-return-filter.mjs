@@ -6,6 +6,8 @@ const ESSAY = 'essay-admin-filter-return';
 const UPDATED = 'Bản sửa dùng để xác minh quay lại đúng phạm vi Failed.';
 const CONTEXT = 'mocklane=1&cohort_id=c1&overdue=1&embed=1&queue_status=failed&q=Lan+Anh&page=2&page_size=50';
 
+let saved = false;
+
 export default {
   name: 'admin Writing Grade — save-return không cần session queue, giữ phạm vi Mock Failed/lớp/quá hạn',
   bypassCSP: true,
@@ -15,9 +17,9 @@ export default {
     [/\/auth\/me$/, { id: '00000000-0000-0000-0000-000000000000', email: 'admin@local', role: 'admin' }],
     // ADMINAAL2-0032 T010: AdminAccessGate fails closed on the `{}` catch-all.
     [/\/admin\/mfa\/status$/, AAL2_STATUS],
-    [new RegExp(`/admin/writing/essays/${ESSAY}$`), {
+    [new RegExp(`/admin/writing/essays/${ESSAY}$`), () => ({
       id: ESSAY,
-      status: 'graded',
+      status: saved ? 'reviewed' : 'graded',
       task_type: 'task2',
       prompt_text: 'Discuss a public policy question.',
       essay_text: 'A fixture that verifies the Mock queue filter survives save-and-return.',
@@ -27,11 +29,11 @@ export default {
       hide_subbands: false,
       student: { student_code: 'S006', full_name: 'Filter Return Student' },
       feedback: {
-        overall_band_score: 6,
-        feedback_json: { overallBandScoreSummary: 'Original summary.' },
+        overall_band_score: saved ? 6.5 : 6,
+        feedback_json: { overallBandScoreSummary: saved ? UPDATED : 'Original summary.' },
       },
-    }],
-    [new RegExp(`/admin/writing/essays/${ESSAY}/feedback$`), { essay_id: ESSAY, status: 'reviewed' }],
+    })],
+    [new RegExp(`/admin/writing/essays/${ESSAY}/feedback$`), () => { saved = true; return { essay_id: ESSAY, status: 'reviewed' }; }],
   ],
 
   steps: [

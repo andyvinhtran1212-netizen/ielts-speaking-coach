@@ -78,6 +78,7 @@ it('W-GRADE-STALE-STATUS moves the pill graded → reviewed → delivered → re
   expect(pill()?.textContent).toBe('graded');
   expect(pill()?.getAttribute('data-status')).toBe('graded');
   expect(deliverButton().hasAttribute('disabled')).toBe(true);
+  get.mockResolvedValue({ ...ESSAY, status: 'reviewed', is_manually_edited: false });
   await act(async () => { save.release({ essay_id: 'essay-1', status: 'reviewed', is_manually_edited: false }); });
   await waitFor(() => expect(pill()?.textContent).toBe('reviewed'));
   expect(pill()?.getAttribute('data-status')).toBe('reviewed');
@@ -101,8 +102,8 @@ it('W-GRADE-STALE-STATUS moves the pill graded → reviewed → delivered → re
   expect(revokeButton()).toBeNull();
   expect(deliverButton().hasAttribute('disabled')).toBe(false);
 
-  // The transitions came from the write responses, not from a reload.
-  expect(get).toHaveBeenCalledTimes(1);
+  // Saving re-reads canonical detail; delivery/revocation retain their response contract.
+  expect(get).toHaveBeenCalledTimes(2);
 });
 
 it('W-GRADE-STALE-STATUS re-delivers a revoked essay and shows delivered again', async () => {
@@ -131,4 +132,80 @@ it('W-GRADE-STALE-STATUS keeps the backend status when a write fails', async () 
   expect((await screen.findByRole('alert')).textContent).toBe('Trả bài thất bại: Cannot mark delivered');
   expect(pill()?.textContent).toBe('reviewed');
   expect(revokeButton()).toBeNull();
+});
+
+it('WRITINGBAND-0050 waits for canonical feedback before showing save success or enabling delivery', async () => {
+  const refresh = held();
+  const get = vi.fn().mockResolvedValueOnce(ESSAY).mockImplementation(() => refresh.promise);
+  const patch = vi.fn().mockResolvedValue({ status: 'reviewed' });
+  Object.defineProperty(window, 'api', { configurable: true, value: { get, patch } });
+  render(<StrictMode><AdminWritingGradeBehavior /></StrictMode>);
+  const save = await screen.findByRole('button', { name: /Lưu & duyệt/ });
+  fireEvent.click(save);
+  await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+  expect(save.hasAttribute('disabled')).toBe(true);
+  expect(deliverButton().hasAttribute('disabled')).toBe(true);
+  expect(screen.queryByText('Đã lưu chỉnh sửa.')).toBeNull();
+  fireEvent.click(save);
+  expect(patch).toHaveBeenCalledTimes(1);
+  await act(async () => refresh.release({ ...ESSAY, status: 'reviewed', is_manually_edited: true,
+    feedback: { overall_band_score: 7, feedback_json: { overallBandScore: 7, overallBandScoreSummary: 'Canonical band 7 feedback.' } },
+  }));
+  expect(await screen.findByText('Đã lưu chỉnh sửa.')).toBeTruthy();
+  expect(document.querySelector('#band-score')?.textContent).toBe('Band 7');
+  expect(screen.getByText('Canonical band 7 feedback.')).toBeTruthy();
+  expect(deliverButton().hasAttribute('disabled')).toBe(false);
+  expect(screen.getByText('✏ Đã sửa')).toBeTruthy();
+});
+
+it('WRITINGBAND-0050 distinguishes a saved-but-unread result and recovers by reading, not rewriting', async () => {
+  const get = vi.fn().mockResolvedValueOnce({ ...ESSAY, status: 'reviewed' }).mockRejectedValueOnce(new Error('refresh offline'));
+  const patch = vi.fn().mockResolvedValue({ status: 'reviewed' });
+  const post = vi.fn();
+  Object.defineProperty(window, 'api', { configurable: true, value: { get, patch, post } });
+  render(<StrictMode><AdminWritingGradeBehavior /></StrictMode>);
+  fireEvent.click(await screen.findByRole('button', { name: /Lưu & duyệt/ }));
+  expect((await screen.findByRole('alert')).textContent).toContain('Đã lưu, nhưng chưa tải lại được kết quả');
+  expect(deliverButton().hasAttribute('disabled')).toBe(true);
+  fireEvent.click(deliverButton());
+  expect(post).not.toHaveBeenCalled();
+  expect(screen.getByRole('button', { name: /Lưu & duyệt/ }).hasAttribute('disabled')).toBe(true);
+  get.mockResolvedValue({ ...ESSAY, status: 'reviewed', feedback: { overall_band_score: 7, feedback_json: { overallBandScore: 7 } } });
+  fireEvent.click(screen.getByRole('button', { name: 'Tải lại kết quả' }));
+  await waitFor(() => expect(document.querySelector('#band-score')?.textContent).toBe('Band 7'));
+  expect(patch).toHaveBeenCalledTimes(1);
+  expect(deliverButton().hasAttribute('disabled')).toBe(false);
+});
+
+it('WRITINGBAND-0050 write failure preserves the local draft and permits retry', async () => {
+  const get = vi.fn().mockResolvedValue(ESSAY);
+  const patch = vi.fn().mockRejectedValue(new Error('write offline'));
+  Object.defineProperty(window, 'api', { configurable: true, value: { get, patch } });
+  render(<StrictMode><AdminWritingGradeBehavior /></StrictMode>);
+  await screen.findByRole('button', { name: /Lưu & duyệt/ });
+  fireEvent.click(document.querySelector('#section-overview .btn-edit')!);
+  fireEvent.change(document.querySelector('#edit-overview textarea')!, { target: { value: 'Unsaved owned draft.' } });
+  fireEvent.click(document.querySelector('#edit-overview .btn-primary')!);
+  fireEvent.click(screen.getByRole('button', { name: /Lưu & duyệt/ }));
+  expect((await screen.findByRole('alert')).textContent).toContain('Save failed: write offline');
+  expect(screen.getByText('Unsaved owned draft.')).toBeTruthy();
+  expect(screen.getByRole('button', { name: /Lưu & duyệt/ }).hasAttribute('disabled')).toBe(false);
+  expect(get).toHaveBeenCalledTimes(1);
+});
+
+it('WRITINGBAND-0050 does not apply a late save to another essay', async () => {
+  const save = held();
+  const get = vi.fn(async (path: string) => path.endsWith('essay-2')
+    ? { ...ESSAY, id: 'essay-2', student: { full_name: 'Second fixture student' } }
+    : ESSAY);
+  Object.defineProperty(window, 'api', { configurable: true, value: { get, patch: vi.fn(() => save.promise) } });
+  const rendered = render(<StrictMode><AdminWritingGradeBehavior /></StrictMode>);
+  fireEvent.click(await screen.findByRole('button', { name: /Lưu & duyệt/ }));
+  params.set('essay_id', 'essay-2');
+  rendered.rerender(<StrictMode><AdminWritingGradeBehavior /></StrictMode>);
+  await screen.findByText('Second fixture student');
+  await act(async () => save.release({ status: 'reviewed' }));
+  expect(pill()?.textContent).toBe('graded');
+  expect(screen.queryByText('Đã lưu chỉnh sửa.')).toBeNull();
+  params.set('essay_id', 'essay-1');
 });

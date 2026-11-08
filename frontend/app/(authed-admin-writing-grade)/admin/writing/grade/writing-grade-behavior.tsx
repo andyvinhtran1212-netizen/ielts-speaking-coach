@@ -34,6 +34,7 @@ type GradeWorkspace = {
   feedback: Record<string, unknown>;
   instructorNote: string;
   dirty: boolean;
+  saveState?: 'pending' | 'refresh-failed';
   instructor: InstructorState;
   instructorWarning: string | null;
 };
@@ -279,6 +280,13 @@ export function AdminWritingGradeBehavior() {
   const [regradeOpen, setRegradeOpen] = useState(false);
   const [promptImage, setPromptImage] = useState('');
   const mutationRef = useRef(new Set<string>());
+  const saveIdentity = `${requestKey}:${reloadToken}`;
+  const activeIdentity = useRef<string | null>(saveIdentity);
+  activeIdentity.current = saveIdentity;
+  useEffect(() => {
+    activeIdentity.current = saveIdentity;
+    return () => { activeIdentity.current = null; };
+  }, [saveIdentity]);
 
   const setMessage = useCallback((tone: 'success' | 'warn' | 'error', message: string) => {
     setNotice({ tone, message }); notify(tone, message);
@@ -291,7 +299,7 @@ export function AdminWritingGradeBehavior() {
     }
     let dead = false;
     setGradeState({ key: requestKey, value: { phase: 'loading' } });
-    setEditing(null); setNotice(null);
+    setEditing(null); setNotice(null); setLastSaved('');
     (async () => {
       const globalsReady = await whenGlobalReady(
         () => typeof window.api?.get === 'function' && Boolean(window.WritingRenderers),
@@ -375,21 +383,39 @@ export function AdminWritingGradeBehavior() {
   }, []);
 
   const saveAll = useCallback(async () => {
-    if (!workspace) return false;
+    if (!workspace || workspace.saveState || mutationRef.current.has('save')) return false;
     const reviewKind = workspace.instructor.kind;
     const instructorWritable = reviewKind === 'missing' || reviewKind === 'mine';
     if (!adminGradeActionState(workspace.detail.status).canSave || !instructorWritable) {
       setMessage('error', `Không thể lưu bài ở trạng thái ${workspace.detail.status}.`); return false;
     }
+    let written = false;
+    updateWorkspace((current) => ({ ...current, saveState: 'pending' }));
     try {
-      const result = await runMutation('save', () => window.api.patch<any>(`/admin/writing/essays/${encodeURIComponent(essayId)}/feedback`, workspace.feedback));
-      // The badge follows the essay row the backend just wrote: an approval
-      // without edits does not mark the essay as edited.
-      updateWorkspace((current) => ({ ...current, dirty: false, detail: { ...current.detail, status: 'reviewed', is_manually_edited: Boolean(result?.is_manually_edited) } }));
+      const detail = await runMutation('save', async () => {
+        await window.api.patch<any>(`/admin/writing/essays/${encodeURIComponent(essayId)}/feedback`, workspace.feedback);
+        written = true;
+        const canonical = await window.api.get<any>(`/admin/writing/essays/${encodeURIComponent(essayId)}`);
+        if (canonical?.id !== essayId || !canonical.feedback?.feedback_json) {
+          throw new Error('Phản hồi tải lại bài không hợp lệ.');
+        }
+        return canonical;
+      });
+      if (activeIdentity.current !== saveIdentity) return false;
+      // The save response is an acknowledgement, not the canonical feedback.
+      // Read back the derived overall, trajectory and status before proceeding.
+      updateWorkspace((current) => ({ ...current, detail, feedback: { ...detail.feedback.feedback_json }, dirty: false, saveState: undefined }));
       setLastSaved(`Lưu lúc ${new Date().toLocaleTimeString()}`);
       setMessage('success', 'Đã lưu chỉnh sửa.'); return true;
-    } catch (caught) { setMessage('error', `Save failed: ${messageOf(caught)}`); return false; }
-  }, [essayId, runMutation, setMessage, updateWorkspace, workspace]);
+    } catch (caught) {
+      if (activeIdentity.current !== saveIdentity) return false;
+      updateWorkspace((current) => ({ ...current, saveState: written ? 'refresh-failed' : undefined }));
+      setMessage('error', written
+        ? `Đã lưu, nhưng chưa tải lại được kết quả. Tải lại kết quả trước khi tiếp tục: ${messageOf(caught)}`
+        : `Save failed: ${messageOf(caught)}`);
+      return false;
+    }
+  }, [essayId, runMutation, saveIdentity, setMessage, updateWorkspace, workspace]);
 
   if (!requestKey || view.phase === 'loading') return <AdminWritingGradeLoading />;
   if (view.phase === 'error') return <ErrorState message={view.message} returnHref={returnHref} />;
@@ -397,7 +423,8 @@ export function AdminWritingGradeBehavior() {
   const { detail, feedback, dirty, instructor, instructorWarning } = view.workspace;
   const baseActions = adminGradeActionState(detail.status);
   const instructorWritable = instructor.kind === 'missing' || instructor.kind === 'mine';
-  const actions = { ...baseActions, canSave: baseActions.canSave && instructorWritable };
+  const saveBlocked = Boolean(view.workspace.saveState);
+  const actions = { ...baseActions, canSave: baseActions.canSave && instructorWritable && !saveBlocked, canDeliver: baseActions.canDeliver && !saveBlocked };
   const sectionKeyMap = window.WritingRenderers?.SECTION_KEYS || {};
   const queue = navigation.source === 'queue' ? readAdminGradeQueue(sessionStorage.getItem(QUEUE_KEY), essayId, {
     accountId: admin.id, contextKey: writingQueueSearch(navigation.queue),
@@ -425,6 +452,7 @@ export function AdminWritingGradeBehavior() {
     }
   };
   const ensureSaved = async (label: string) => {
+    if (saveBlocked) return false;
     if (!dirty) return true;
     if (!window.confirm(`Bạn có thay đổi chưa lưu. Lưu trước khi ${label}?`)) return false;
     return saveAll();
@@ -481,7 +509,7 @@ export function AdminWritingGradeBehavior() {
   };
   const instructorDeliver = async (note: string) => {
     const review = (instructor as any).review;
-    if (!review || dirty || !window.confirm('Deliver bài này cho học viên?')) return;
+    if (!review || dirty || saveBlocked || !window.confirm('Deliver bài này cho học viên?')) return;
     try {
       await runMutation('instructor-deliver', () => window.api.post(`/admin/instructor/reviews/${encodeURIComponent(review.id)}/deliver`, { instructor_note: note || null }));
       setMessage('success', 'Đã deliver. Học viên có thể xem bài.');
@@ -520,6 +548,9 @@ export function AdminWritingGradeBehavior() {
 
   return (
     <div id="state-ready">
+      {notice ? <div id="alert-area" className={`aw-alert aw-alert--${notice.tone}`} role={notice.tone === 'error' ? 'alert' : 'status'}>{notice.message}</div> : null}
+      {view.workspace.saveState === 'refresh-failed' ? <button className="btn" type="button" onClick={() => setReloadToken((value) => value + 1)}>Tải lại kết quả</button> : null}
+      <fieldset disabled={saveBlocked} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }} aria-busy={view.workspace.saveState === 'pending'}>
       <header className="grade-header">
         <div className="header-left"><a href="/admin/writing" className="back-link" target={navigation.embed ? '_top' : undefined}>← Writing Coach</a><div className="essay-meta min-w-0"><h1 id="header-student">{student.student_code ? `${student.student_code} — ` : ''}{student.full_name || ''}</h1><p className="meta-line"><span>{adminGradeTaskLabel(detail.task_type)} · {formatDate(detail.created_at)}</span><span className="separator">·</span><span id="status-pill" className="pill" data-status={detail.status}>{detail.status || '—'}</span><span className="separator">·</span><span id="band-score" className="band-score">{band != null ? `Band ${band}` : 'Band —'}</span>{detail.is_manually_edited ? <><span className="separator">·</span><span className="badge-manual">✏ Đã sửa</span></> : null}{detail.regrade_count ? <><span className="separator">·</span><span className="badge-regraded">🔄 Đã chấm lại{detail.regrade_count > 1 ? ` (×${detail.regrade_count})` : ''}</span></> : null}{tier !== 'standard' ? <><span className="separator">·</span><span className={`tier-badge tier-${tier}`}>{tier[0].toUpperCase() + tier.slice(1)}</span></> : null}{detail.analysis_level ? <><span className="separator">·</span><span className="tier-badge">L{detail.analysis_level}</span></> : null}</p></div></div>
         <div className="header-actions">
@@ -537,9 +568,9 @@ export function AdminWritingGradeBehavior() {
       </header>
 
       {instructorWarning ? <div id="instructor-context-warning" className="aw-alert aw-alert--warn" role="status">{instructorWarning}</div> : null}
-      {notice ? <div id="alert-area" className={`aw-alert aw-alert--${notice.tone}`} role={notice.tone === 'error' ? 'alert' : 'status'}>{notice.message}</div> : null}
+
       <RatingPanel key={`rating:${detail.id}`} detail={detail} onSave={async (rating, note) => { await runMutation('rating', () => window.api.post(`/admin/writing/essays/${encodeURIComponent(essayId)}/grade-rating`, { rating, note })); }} />
-      <InstructorPanel key={`instructor:${(instructor as any).review?.id || detail.id}`} state={instructor} dirty={dirty} onDeliver={instructorDeliver} onRelease={instructorRelease} />
+      <InstructorPanel key={`instructor:${(instructor as any).review?.id || detail.id}`} state={instructor} dirty={dirty || saveBlocked} onDeliver={instructorDeliver} onRelease={instructorRelease} />
 
       <div className="grade-body">
         <nav className="grade-tabs" role="tablist" aria-label="Section tabs">
@@ -555,6 +586,7 @@ export function AdminWritingGradeBehavior() {
         </main>
       </div>
       {regradeOpen ? <RegradeModal currentLevel={level} onCancel={() => setRegradeOpen(false)} onConfirm={regrade} /> : null}
+      </fieldset>
     </div>
   );
 }
