@@ -153,16 +153,20 @@ không có trong menu, giữ nguyên.
 
 ### Menu giai đoạn 1 (cờ bật)
 
+Snapshot theo cột GĐ1: Feedback ẩn tạm khỏi menu; Speaking Topics giữ tới khi
+có số prod theo điều kiện trong kiểm kê. Không chốt thêm phân biệt môi trường
+ở Q-8 trong snapshot này. Listening còn 6 mục; Audit chuyển sang nhóm QA.
+
 ```
 Tổng quan
-VIỆC CẦN XỬ LÝ: Chấm Writing (Hàng chờ · Hàng đợi Instructor · Yêu cầu chấm lại) · Speaking sessions · Mock Test · Feedback
+VIỆC CẦN XỬ LÝ: Chấm Writing (Hàng chờ · Hàng đợi Instructor · Yêu cầu chấm lại) · Speaking sessions · Mock Test
 LỚP & NGƯỜI DÙNG: Lớp (giao bài ở đây) · Học viên · Giảng viên · Tài khoản
 NỘI DUNG: Writing (Kho đề · Lịch sử giao Writing · Mẹo viết · Gửi bài chấm thay HV)
-          Speaking (Topics) · Reading (Thư viện · Lượt làm bài) · Listening (7 mục như cũ)
+          Speaking (Topics) · Reading (Thư viện · Lượt làm bài) · Listening (Quản lý nội dung · Cambridge tests · Import bài luyện · Import Cambridge · Lượt làm bài · Báo cáo chép chính tả)
           Vocab (Bộ từ theo lớp · Nội dung từ vựng · Chủ đề · Quick-Check · Quiz — Học viên · Thống kê)
           Grammar (Articles · Analytics · Bài tập)
 HỆ THỐNG: Báo lỗi · Sự cố chấm · Chi phí AI · Lưu lượng · Hoạt động
-▸ Thí điểm & công cụ QA (thu gọn): Curated · Pilot metrics · D1 Curation · D1 Exercises · Lemma · Recommendation tester · Correction performance
+▸ Thí điểm & công cụ QA (thu gọn): Curated · Pilot metrics · D1 Curation · D1 Exercises · Lemma · Recommendation tester · Correction performance · Listening Audit
 ```
 
 ## Users and journeys
