@@ -204,7 +204,7 @@ Kết hợp bằng compound sentence:
 ### 3. Punctuation (Dấu câu)
 
 **Với FANBOYS:**
-- Hai vế dài (5+ từ): dùng dấu phẩy trước conjunction
+- Hai mệnh đề độc lập (nhất là khi dài): dùng dấu phẩy trước conjunction
   - *She studied for months, and she finally passed the exam.*
 - Hai vế rất ngắn: có thể bỏ dấu phẩy
   - *She studied and she passed.* (chấp nhận được, nhưng ít phổ biến trong writing)

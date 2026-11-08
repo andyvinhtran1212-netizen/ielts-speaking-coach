@@ -286,7 +286,7 @@ Khi bạn **đã sắp xếp cụ thể** với người khác — có lịch, c
 
 ### Lỗi 3: Dùng "will" thay Present Continuous cho lịch trình cố định
 
-- ✅ "I **will fly** to Singapore next Monday morning." *(Thông báo/cam kết có thể dùng will; việc đã đặt vé không khiến câu sai)*
+- ⚠️ KÉM TỰ NHIÊN: "I will fly to Singapore next Monday morning." (không sai ngữ pháp)
 - ✅ ĐÚNG: "I**'m flying** to Singapore next Monday morning."
 - **TẠI SAO:** Khi đề cập đến lịch trình đã xác nhận cụ thể (vé đã mua, lịch đã đặt), Present Continuous tự nhiên hơn nhiều.
 
@@ -395,7 +395,7 @@ Tiếng Anh phân biệt rõ dựa trên **quá trình quyết định**:
 
 ### Sửa lỗi
 
-1. I will fly to Hanoi next Tuesday morning. *(Vé đã đặt)*
+1. Tomorrow I meet my dentist at 9. *(Đã hẹn)*
 2. When I will arrive, I'll call you.
 3. She's go to start a new job next month.
 4. I'm going study law at university.
@@ -419,11 +419,16 @@ Tiếng Anh phân biệt rõ dựa trên **quá trình quyết định**:
 7. **are you going to do** (hỏi kế hoạch đã có)
 
 **Sửa lỗi:**
-1. "I**'m flying** to Hanoi next Tuesday morning." (lịch trình đã xác nhận)
+1. "Tomorrow I**'m meeting** my dentist at 9." (lịch trình đã xác nhận)
 2. "When I **arrive**, I'll call you." (mệnh đề "when" → Present Simple)
 3. "She**'s going to** start a new job." (going to, không phải go to)
 4. "I**'m going to study** law." (thiếu "to")
 5. "I**'m going to go** to the gym tomorrow." (kế hoạch đã có → going to tự nhiên hơn)
+
+**Trả lời:**
+1. "I'm going to look for a job in marketing — I've already sent out a few applications."
+2. "Yes, look at that clear blue sky — it's going to be lovely."
+3. "Sure, I'll help you!"
 
 ## Tóm tắt nhanh
 1. **will** = quyết định bộc phát + dự đoán (không có bằng chứng) + lời hứa/đề nghị

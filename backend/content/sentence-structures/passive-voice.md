@@ -86,7 +86,7 @@ Câu bị động:
 2. Dùng khi người thực hiện **không biết**, **không quan trọng**, hoặc **hiển nhiên**
 3. Phổ biến trong văn học thuật, báo chí, IELTS Writing Task 1
 
-Thiếu câu bị động trong IELTS Writing giới hạn điểm Grammatical Range nghiêm trọng.
+Bị động là một trong các cấu trúc thể hiện độ đa dạng ở tiêu chí Grammatical Range and Accuracy, nhất là trong Task 1 dạng quy trình; dùng đúng chỗ quan trọng hơn dùng nhiều.
 
 <!-- anchor: passive-voice.structure.be-pp -->
 ## Cấu trúc cơ bản
@@ -304,7 +304,7 @@ Các động từ như arrive/happen/occur/exist không có tân ngữ trực ti
 **Sửa lỗi:**
 1. The accident **happened** on the highway. (happen = intransitive)
 2. The project **has been completed** by the team.
-3. ✅ Đúng rồi! (rice is grown — nhưng "is being grown" cũng có thể chấp nhận được trong ngữ cảnh đặc biệt)
+3. Rice **is grown** in many countries around the world. (sự thật chung → bị động hiện tại đơn, không dùng tiếp diễn)
 4. She was **born** in a small village. (born — không thêm -d/-ed)
 5. The results **will be announced** next week.
 
@@ -335,9 +335,8 @@ Các động từ như arrive/happen/occur/exist không có tân ngữ trực ti
 Người học VN thường over-use passive trong Speaking → bài nói nghe sách vở, không tự nhiên, hạ Fluency. Quy tắc:
 
 **Tránh passive khi:**
-1. Khi người thực hiện là chủ đề đang theo dõi, active có thể trực tiếp hơn: "The chef cooked the meal".
-2. Không đổi mọi câu cá nhân sang active: **I was born in Hanoi**, **I was offered a place** tự nhiên trong Speaking.
-3. Chọn voice theo mạch thông tin. Passive có thể giữ đối tượng làm chủ đề và đặt người thực hiện quan trọng ở cuối: "The meal was cooked by the chef" không yếu chỉ vì đã biết chef.
+1. Kể việc chính mình làm: *I cooked dinner* (không nói *Dinner was cooked by me*).
+2. Người làm là thông tin chính và đang là chủ đề: *My mum taught me to swim*. (Nhưng *I was born…*, *I was offered a place…* vẫn tự nhiên.)
 
 **Dùng passive khi:**
 1. Agent unknown hoặc irrelevant: "My phone was stolen yesterday." (không biết ai trộm)
