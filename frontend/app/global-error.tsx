@@ -2,10 +2,13 @@
 
 import { useEffect } from 'react';
 
+import { captureException } from '@/lib/sentry-client.mjs';
+
 import styles from './error-screen.module.css';
 
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
+    void captureException(error, { tags: { boundary: 'global' }, extra: { digest: error.digest } });
     console.error('[aver] root boundary', error);
   }, [error]);
 

@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import time
 from dataclasses import asdict, replace
 from unittest.mock import Mock
 from uuid import uuid4
@@ -157,14 +156,61 @@ def test_conflict_is_explicit_non_retryable_and_does_not_log_payload(monkeypatch
 
 
 def test_hanging_request_has_total_deadline_and_does_not_block_loop(monkeypatch):
+    # The deadline is proven by the scope the request runs in and by what its
+    # expiry does, not by a wall-clock bound: on a loaded box "< 0.5 s" failed
+    # without any regression (PC-J642, same class as PC-J637). The spy keeps the
+    # requested delay but expires only when the watcher says so.
+    real_timeout = asyncio.timeout
+    budgets = []
+
+    class Budget:
+        def __init__(self, delay):
+            self.delay, self.active, self._inner = delay, False, real_timeout(None)
+        async def __aenter__(self):
+            await self._inner.__aenter__()
+            self.active = True
+            return self
+        async def __aexit__(self, *exc):
+            self.active = False
+            return await self._inner.__aexit__(*exc)
+        def expire(self):
+            self._inner.reschedule(asyncio.get_running_loop().time())
+        def expired(self):
+            return self._inner.expired()
+
+    def timeout(delay):
+        budgets.append(Budget(delay))
+        return budgets[-1]
+    monkeypatch.setattr(evidence.asyncio, "timeout", timeout)
+
+    entered, cancelled, ticks = [], [], []
     async def handler(request):
-        await asyncio.sleep(5)
-        pytest.fail("deadline must cancel this request")
+        never = asyncio.Event()
+        entered.append(len(budgets) == 1 and budgets[0].active)
+        try:
+            await never.wait()
+        except asyncio.CancelledError:
+            cancelled.append(True)
+            raise
     wire(monkeypatch, handler)
-    monkeypatch.setattr(evidence, "RECEIPT_TIMEOUT_SECONDS", 0.03)
-    started_at = time.monotonic()
-    assert send(started()) is evidence.ReceiptStatus.UNAVAILABLE
-    assert time.monotonic() - started_at < 0.5
+
+    async def main():
+        record = asyncio.create_task(evidence.try_record_event(**asdict(started())))
+        for _ in range(100):  # bounded: never spin if the request never parks
+            if entered:
+                break
+            await asyncio.sleep(0)
+        ticks.append(not record.done())
+        assert len(budgets) == 1, "the hanging request must run inside one receipt deadline"
+        budgets[0].expire()
+        return await record
+
+    assert asyncio.run(main()) is evidence.ReceiptStatus.UNAVAILABLE
+    assert entered == [True]
+    assert ticks == [True]
+    assert cancelled == [True]
+    assert [budget.delay for budget in budgets] == [evidence.RECEIPT_TIMEOUT_SECONDS]
+    assert not budgets[0].active and budgets[0].expired()
 
 
 def test_cancellation_propagates_without_fabricating_receipt(monkeypatch):

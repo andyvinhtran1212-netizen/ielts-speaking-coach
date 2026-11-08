@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -690,15 +691,33 @@ def test_home_summary_builds_each_section_on_its_own_thread_client(monkeypatch):
 def test_home_summary_sections_overlap(monkeypatch):
     from services import student_home_aggregator as agg
 
+    barrier = threading.Barrier(7, timeout=5.0)
+    lock = threading.Lock()
+    concurrent = max_concurrent = 0
+
     def slow(*_a, **_k):
-        time.sleep(0.15)
-        raise RuntimeError("down")
+        nonlocal concurrent, max_concurrent
+        with lock:
+            concurrent += 1
+            max_concurrent = max(max_concurrent, concurrent)
+        try:
+            barrier.wait()  # No section can finish until all seven have started.
+            raise RuntimeError("down")
+        finally:
+            with lock:
+                concurrent -= 1
 
     for name in ("_build_speaking", "_build_writing", "_build_grammar", "_build_vocabulary",
                  "_build_reading", "_build_listening", "_build_streak"):
         monkeypatch.setattr(agg, name, slow)
-    start = time.perf_counter()
-    payload = asyncio.run(agg.get_home_summary_concurrent(lambda: None, "u", name="N", email="e"))
-    assert time.perf_counter() - start < 0.7, "seven 150 ms sections must not run serially"
+
+    async def run():
+        # A two-CPU runner's default pool has only six workers.
+        asyncio.get_running_loop().set_default_executor(ThreadPoolExecutor(max_workers=7))
+        return await agg.get_home_summary_concurrent(lambda: None, "u", name="N", email="e")
+
+    payload = asyncio.run(run())
+    assert not barrier.broken, "all seven sections must reach the barrier"
+    assert max_concurrent == 7, "all seven sections must overlap"
     assert list(payload["_errors"]) == [
         "speaking", "writing", "grammar", "vocabulary", "reading", "listening", "streak"]

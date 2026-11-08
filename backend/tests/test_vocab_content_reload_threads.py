@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from services import kp_registry
 from services.vocab_content import VocabContentService
+from tests.loop_gate import WAIT
 
 STAMP = datetime(2026, 10, 30, tzinfo=timezone.utc)
 
@@ -141,3 +142,72 @@ def test_failed_reload_keeps_the_complete_old_state_and_raises(svc, monkeypatch)
     assert sorted(svc.articles_by_slug) == sorted(SLUGS)
     assert len(svc.get_all_articles()) == len(CENSUS)
     assert kp_registry.label_for("vocab", "gridlock") == {"title": "Gridlock"}
+
+
+class _RecordingLock:
+    """Wraps the reload lock and signals every thread that reaches it."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._guard = threading.Lock()
+        self.arrivals = 0
+        self.second_arrival = threading.Event()
+
+    def __enter__(self):
+        with self._guard:
+            self.arrivals += 1
+            if self.arrivals == 2:
+                self.second_arrival.set()
+        self._lock.acquire()
+        return self
+
+    def __exit__(self, *_exc):
+        self._lock.release()
+
+
+def test_overlapping_reloads_publish_in_order(svc, monkeypatch):
+    # PC-J665: admin writes reload in worker threads, so two reloads can overlap.
+    # A reload that read the DB before a later write must not publish over the
+    # reload that read after it (and two publish loops must not interleave).
+    newer = CENSUS + [_article("Resilient", "resilient", "environment")]
+    first_inside, release_first = threading.Event(), threading.Event()
+    calls: list[str] = []
+    lock = _RecordingLock()
+
+    def ordered_load_all(self):
+        calls.append(threading.current_thread().name)
+        self._source, self.last_modified = "db", STAMP
+        if len(calls) == 1:
+            first_inside.set()
+            assert release_first.wait(WAIT), "first reload never released"
+            self._build_indexes(CENSUS)      # snapshot read before the second write
+        else:
+            self._build_indexes(newer)       # snapshot read after it
+
+    monkeypatch.setattr(VocabContentService, "_reload_lock", lock, raising=False)
+    monkeypatch.setattr(VocabContentService, "_load_all", ordered_load_all)
+    first = threading.Thread(target=svc.reload, name="first")
+    second = threading.Thread(target=svc.reload, name="second")
+    first.start()
+    try:
+        assert first_inside.wait(WAIT)
+        second.start()
+        # Wait until the second reload is parked on the lock (or, unserialized,
+        # has already run to completion past the parked first one).
+        deadline = time.monotonic() + WAIT
+        while (not lock.second_arrival.is_set() and second.is_alive()
+               and time.monotonic() < deadline):
+            time.sleep(0.001)
+        loaded_while_first_parked = list(calls)
+    finally:
+        release_first.set()
+        first.join(WAIT)
+        second.join(WAIT)
+    assert not first.is_alive() and not second.is_alive()
+    # The newest snapshot is what stays published.
+    assert sorted(svc.articles_by_slug) == sorted(SLUGS + ["resilient"])
+    assert len(svc.get_all_articles()) == len(newer)
+    # Because the second reload waited on the lock until the first had published.
+    assert lock.second_arrival.is_set(), "second reload did not go through the reload lock"
+    assert loaded_while_first_parked == ["first"]
+    assert calls == ["first", "second"]

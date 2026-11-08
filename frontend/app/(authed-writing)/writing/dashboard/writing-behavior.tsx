@@ -912,7 +912,8 @@ function buildAssignmentCardHtml(a: any): string {
 
   return (
     '<div class="assignment-card" data-assignment-id="' + escapeHtml(a.id) + '"' +
-        ' data-renderer-affinity="' + escapeHtml(a.renderer_affinity || '') + '">' +
+        ' data-renderer-affinity="' + escapeHtml(a.renderer_affinity || '') + '"' +
+        ' data-class-archived="' + (a.class_archived === true ? 'true' : 'false') + '">' +
       '<div class="flex items-start justify-between gap-3 mb-2">' +
         '<div class="min-w-0">' +
           '<h3 class="font-semibold text-gray-100 truncate">' + escapeHtml(prompt.title || '(Đề bài đã xóa)') + '</h3>' +
@@ -932,6 +933,19 @@ function buildAssignmentCardHtml(a: any): string {
       '</button>' +
     '</div>'
   );
+}
+
+// The list marks an archived class's card (`data-class-archived`); the modal
+// reads that card's give before any claim. Canonical state is the detail GET.
+function listedAsArchived(assignmentId: string): boolean {
+  const list = $('assignments-list');
+  if (!list) return false;
+  // Same lookup as the card click handler: button -> closest card.
+  return Array.from(list.querySelectorAll<HTMLElement>('.btn-start-assignment')).some((btn) => {
+    const card = btn.closest('.assignment-card');
+    return !!card && card.getAttribute('data-assignment-id') === assignmentId
+      && card.getAttribute('data-class-archived') === 'true';
+  });
 }
 
 function renderAssignments(assignments: any[], ms: ModalState) {
@@ -1409,7 +1423,7 @@ export function applyModalPromptImage(prompt: any, ms: Pick<ModalState, 'dead' |
   };
 }
 
-function renderModal(data: any, ms: ModalState, freshTimer: any) {
+function renderModal(data: any, ms: ModalState, freshTimer: any, readOnly: boolean = false) {
   const assignment = data.assignment || {};
   const prompt = assignment.writing_prompts || {};
   const draft = data.draft || {};
@@ -1442,13 +1456,29 @@ function renderModal(data: any, ms: ModalState, freshTimer: any) {
   // Populate this assignment BEFORE any expired-timer side effect can submit.
   // A pending submission receipt takes precedence over an older server draft.
   const textarea = $('modal-essay-textarea') as HTMLTextAreaElement | null;
-  const pending = (window as any).WritingSubmitReceipt?.read(ms.accountId, ms.assignmentId);
+  // A read-only open (archived class, FR-004) shows the stored draft only.
+  const pending = readOnly ? null : (window as any).WritingSubmitReceipt?.read(ms.accountId, ms.assignmentId);
   if (textarea) {
     textarea.value = pending ? pending.essayText : (draft.draft_text || '');
+    textarea.readOnly = readOnly;
     textarea.dataset.wordTarget = prompt.task_type === 'task2' ? '250' : '150';
   }
-  ms.workspaceReady = true;
+  // workspaceReady gates saveDraft and submitFromModal, so a read-only modal
+  // cannot save or submit even if a control is reached.
+  ms.workspaceReady = !readOnly;
   updateModalWordCount();
+
+  const archivedEl = $('modal-archived');
+  if (archivedEl) archivedEl.classList.toggle('hidden', !readOnly);
+  const saveBtnEl = $('modal-btn-save');
+  if (saveBtnEl) saveBtnEl.classList.toggle('hidden', readOnly);
+  const submitBtnEl = $('modal-btn-submit');
+  if (submitBtnEl) submitBtnEl.classList.toggle('hidden', readOnly);
+  if (readOnly) {
+    // No timer, countdown or auto-submit for a read-only give.
+    $('modal-timer')?.classList.add('hidden');
+    return;
+  }
 
   const bannerEl = $('modal-timer');
   const totalEl = $('modal-timer-total');
@@ -1553,6 +1583,23 @@ async function openSubmitModal(
         return;
       }
     }
+    // Archived class (CLASSARCHIVE-0030 FR-004, ui-states.md): a card the list
+    // marks archived is read first, with no claim or start, so its stored draft
+    // stays visible. The canonical detail decides. A card that is no longer
+    // archived falls through unchanged; an archive that lands after this read is
+    // refused by the 409 branch below.
+    if (listedAsArchived(assignmentId)) {
+      const preview = await api.get(
+        '/api/writing/my-assignments/' + encodeURIComponent(assignmentId)
+      );
+      if (!isCurrent()) return;
+      if (preview?.assignment?.class_archived === true && preview.assignment.archive_finish_allowed !== true) {
+        renderModal(preview, ms, null, true);
+        if (loadingEl) loadingEl.classList.add('hidden');
+        if (contentEl) contentEl.classList.remove('hidden');
+        return;
+      }
+    }
     const admission = shouldUseWritingAdmission({
       enabled: win.__AVER_RUNTIME_CONFIG__?.writingAdmissionEnabled === true,
       getStorage: () => window.sessionStorage, accountId, assignmentId,
@@ -1600,6 +1647,11 @@ async function openSubmitModal(
       // A baseline/admission conflict is NOT a submission acknowledgment and
       // must never discard a pending WritingSubmitReceipt or learner text.
       showSubmissionNotice('warning', err.message);
+    } else if (err?.detail?.code === 'cohort_archived') {
+      // Archived after the read: nothing was written. The receipt is not a
+      // submission, so it is kept and the learner is told why.
+      showSubmissionNotice('warning', err.detail.message || 'Lớp đã lưu trữ — bài này không nhận bài nộp mới. Bài và bản nháp của em vẫn được giữ.');
+      await Promise.all([loadAssignments(api, ms), loadEssays(api, ms)]);
     } else if (statusCode(err) === 409) {
       (window as any).WritingSubmitReceipt?.remove(accountId, assignmentId);
       showSubmissionNotice('warning', 'Bài đã được nộp ở một tab khác. Danh sách đã được đồng bộ lại.');

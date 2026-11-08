@@ -158,6 +158,55 @@ test('dump tokens in any case and spacing, and bare VN phone numbers, are redact
   assert.equal(event.exception.values[0].value, 'Learner Nguyễn Văn A phone [redacted]');
 });
 
+// PC-J644: SA retest #2247 found separated phones outside row dumps.
+test('VN phones with separators are redacted; dates and ids are preserved', () => {
+  for (const phone of [
+    '+84 90 123 4567', '090-123-4567', '090.123.4567',
+    '84 90 123 4567', '090 123 4567', '+84-90.123 4567',
+  ]) {
+    assert.equal(scrubText(phone), '[redacted]', phone);
+    const text = `call ${phone} now`;
+    assert.equal(scrubText(text), 'call [redacted] now', phone);
+    const event = scrubSentryEvent({ exception: { values: [{ type: 'Error', value: text }] } });
+    assert.equal(event.exception.values[0].value, 'call [redacted] now', phone);
+  }
+  for (const text of ['order 2026-11-04', 'user_0901234567']) {
+    assert.equal(scrubText(text), text);
+  }
+});
+
+test('VN phones with parenthesized prefixes are redacted; dates and ids are preserved', () => {
+  for (const phone of [
+    '(+84) 90 123 4567', '(+84)901234567', '(84) 90-123-4567',
+    '(0)90 123 4567', '(084) 90 123 4567', '(0) 90 123 4567',
+  ]) {
+    assert.equal(scrubText(phone), '[redacted]', phone);
+    const text = `call ${phone} now`;
+    assert.equal(scrubText(text), 'call [redacted] now', phone);
+    const event = scrubSentryEvent({ exception: { values: [{ type: 'Error', value: text }] } });
+    assert.equal(event.exception.values[0].value, 'call [redacted] now', phone);
+  }
+  for (const text of [
+    'user_0901234567', '2026-11-04', 'user_(+84)901234567', '(+84)901234567x',
+  ]) {
+    assert.equal(scrubText(text), text);
+    const event = scrubSentryEvent({ exception: { values: [{ type: 'Error', value: text }] } });
+    assert.equal(event.exception.values[0].value, text);
+  }
+});
+
+test('VN phone separators preserve complete UUID scrubbing', () => {
+  for (const uuid of [
+    '84123456-7890-4abc-8def-0123456789ab', // CR R1 P2-1
+    '84111111-2222-4333-8444-090123456789', // Codex review
+  ]) {
+    const text = `user ${uuid} failed`;
+    assert.equal(scrubText(text), 'user [uuid] failed');
+    const event = scrubSentryEvent({ exception: { values: [{ type: 'Error', value: text }] } });
+    assert.equal(event.exception.values[0].value, 'user [uuid] failed');
+  }
+});
+
 // PC-J601 C2: console.* text is free-form (API error bodies, learner input).
 test('console breadcrumbs are dropped; other breadcrumbs are kept', () => {
   assert.equal(filterSentryBreadcrumb({ category: 'console', level: 'error', message: 'Nguyen Van A 0901234567' }), null);
@@ -181,7 +230,7 @@ test('instrumentation-client loads the SDK lazily from the built-in DSN, after t
   assert.ok(source.indexOf("import './lib/polyfills/legacy-safari.js'") < source.indexOf('initSentryClient'));
   // Named re-exports only, so the lazy chunk carries no replay/feedback code.
   const sdk = readFileSync(path.join(ROOT, 'lib/sentry-sdk.mjs'), 'utf8');
-  assert.match(sdk, /^export \{ browserTracingIntegration, init \} from '@sentry\/browser';$/m);
+  assert.match(sdk, /^export \{ browserTracingIntegration, captureException, init \} from '@sentry\/browser';$/m);
   const code = sdk.split('\n').filter((line) => !line.startsWith('//')).join('\n');
   assert.doesNotMatch(code, /export \*|import\(|^import /m);
   // No build plugin: withSentryConfig would add source map upload and tunnel routes.

@@ -30,6 +30,7 @@ from services.class_assignment_service import (
     _at,
     mark_item_submitted,
 )
+from services.class_archive_service import cohort_archived_error, is_cohort_archived
 from services.class_membership_service import active_cohort_ids_for_student
 
 from database import supabase_admin
@@ -918,12 +919,101 @@ def list_published_banks(*, skill_area: str | None = None, topic_id: str | None 
         raise HTTPException(500, "Lỗi truy vấn bộ câu hỏi. Vui lòng thử lại.") from None
 
 
+def _archived_cohort_rows(cohort_ids) -> dict[str, dict]:
+    """Archived class rows (CLASSARCHIVE-0030 Definitions) among ``cohort_ids``.
+
+    ``select("*")`` keeps a pre-337 schema readable (no class is archived
+    there). A legacy inactive class is not archived. A DB error propagates.
+    """
+    ids = sorted({str(value) for value in cohort_ids if value})
+    if not ids:
+        return {}
+    rows = (supabase_admin.table("cohorts").select("*").in_("id", ids)
+            .execute().data) or []
+    return {str(row["id"]): row for row in rows
+            if isinstance(row, dict) and row.get("id") and is_cohort_archived(row)}
+
+
+def _course_archive_lane(item: dict, assignment: dict,
+                         cohort_row: dict | None) -> str | None:
+    """Variant A for a Course item of an archived class (research.md §5).
+
+    ``None``: the class is not archived (active or legacy inactive).
+    ``"finish"``: a TIMED item whose clock opened before ``archived_at`` and
+    that is not handed in. It may keep answering and be finalised (FR-004);
+    it may not open a retake or a full retry.
+    ``"closed"``: everything else; no new start, answer or submission.
+    """
+    if not is_cohort_archived(cohort_row):
+        return None
+    opened = _at((item or {}).get("opened_at"))
+    archived = _at(cohort_row.get("archived_at"))
+    timed = assignment_timer_state(item, assignment).get("is_timed")
+    if (timed and opened is not None and archived is not None and opened < archived
+            and not (item or {}).get("submitted_at")):
+        return "finish"
+    return "closed"
+
+
+def archive_lane_refuses(lane: str | None, kind: str) -> bool:
+    """Whether an archive lane refuses a session of ``kind`` (FR-004).
+
+    ``kind`` is the quiz session kind (``"run"`` / ``"retake"``) or
+    ``"retry_full"``. The "finish" lane may only keep its run going; a retake or
+    a full retry is a new start. This is the one rule for the session start
+    (``_ensure_timed_course_session``) and the /class start navigation
+    (``course_start_archive_refused``).
+    """
+    return lane == "closed" or (lane == "finish" and kind != "run")
+
+
+# The learner action a /class start resumes, as a session kind.
+_COURSE_ACTION_KIND = {"start": "run", "continue": "run",
+                       "retake": "retake", "retry_full": "retry_full"}
+
+
+def course_start_archive_refused(item: dict, assignment: dict,
+                                 cohort_row: dict | None,
+                                 course_action: str | None) -> bool:
+    """Whether /class start must answer a Course item with the learner 409.
+
+    ``cohort_row`` is the item's class row (``select("*")``). An active or
+    legacy inactive class never refuses. In an archived class only a timed item
+    in the "finish" lane may resume its run; every other action is refused.
+    """
+    lane = _course_archive_lane(item, assignment, cohort_row)
+    if lane is None:
+        return False
+    return archive_lane_refuses(lane, _COURSE_ACTION_KIND.get(course_action or "", ""))
+
+
+def _session_class_archive_gate(item: dict, assignment: dict) -> None:
+    """Refuse a write on a Course session whose class is archived ("closed")."""
+    rows = _archived_cohort_rows([assignment.get("cohort_id")])
+    if _course_archive_lane(
+        item, assignment, rows.get(str(assignment.get("cohort_id") or "")),
+    ) == "closed":
+        raise cohort_archived_error(learner=True)
+
+
+def _guarded_session_archive_gate(item: dict, assignment: dict, item_id) -> None:
+    """``_session_class_archive_gate`` with a failed read as a generic 500."""
+    try:
+        _session_class_archive_gate(item, assignment)
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.error("[quiz] class archive check failed item=%s: %s", item_id, exc, exc_info=True)
+        raise HTTPException(500, "Lỗi kiểm tra trạng thái lớp. Vui lòng thử lại.") from None
+
+
 def _assignment_item_for(
     bank_id: str, user_id: str, *, allow_submitted_review: bool = False,
     assignment_item_id: str | None = None,
     allow_expired_timed_finalize: bool = False,
     allow_expired_timed_review: bool = False,
     allow_reaper_finalize: bool = False,
+    allow_archived_class: bool = False,
 ) -> dict | None:
     """Mục bài giao CÒN HIỆU LỰC của học viên này cho bank ấy, hoặc None.
 
@@ -939,6 +1029,14 @@ def _assignment_item_for(
     mãi mãi. Sau hạn chỉ có ngoại lệ hẹp cho mục ĐÃ NỘP và caller read-only;
     lưu trữ hoặc chuyển lớp vẫn chặn tuyệt đối. Cổng ở đây phải nói cùng một câu
     với lệnh mở bài, nếu không thì lệnh kia chỉ là một gợi ý.
+
+    Lớp đã lưu trữ (CLASSARCHIVE-0030): membership still owns the item, so the
+    learner keeps reading results. Every returned item carries
+    ``class_archived`` and ``class_archive_lane`` (``_course_archive_lane``).
+    Without ``allow_archived_class``, a read-only review lane
+    (``allow_submitted_review`` / ``allow_expired_timed_review``) or the reaper
+    lane, a "closed" item is refused with the learner 409 ``cohort_archived``;
+    only the timed "finish" lane passes.
     """
     try:
         asg = (supabase_admin.table("class_assignments").select("*")
@@ -949,10 +1047,13 @@ def _assignment_item_for(
                    .eq("user_id", user_id).execute().data) or []
         if not student:
             return None
+        # include_archived: an archived class's member still owns its items
+        # (results stay readable); the archive lane is decided below.
         cohorts = {
             cohort_id
             for row in student
-            for cohort_id in active_cohort_ids_for_student(supabase_admin, row)
+            for cohort_id in active_cohort_ids_for_student(
+                supabase_admin, row, include_archived=True)
         }
         owned = [
             a for a in asg
@@ -1006,6 +1107,21 @@ def _assignment_item_for(
         eligible = [row for row in rows if eligible_for_access(row)]
         if not eligible:
             return None
+        archived_rows = _archived_cohort_rows(
+            owned_by_id[row["assignment_id"]].get("cohort_id") for row in eligible)
+        lanes = {
+            row["id"]: _course_archive_lane(
+                row, owned_by_id[row["assignment_id"]],
+                archived_rows.get(str(owned_by_id[row["assignment_id"]].get("cohort_id") or "")),
+            )
+            for row in eligible
+        }
+        if not (allow_archived_class or allow_reaper_finalize
+                or allow_submitted_review or allow_expired_timed_review):
+            open_rows = [row for row in eligible if lanes[row["id"]] != "closed"]
+            if not open_rows:
+                raise cohort_archived_error(learner=True)
+            eligible = open_rows
         if not assignment_item_id and len(eligible) > 1:
             # Bank-only bookmarks prefer unfinished work, then the newest
             # assignment. Stable sorting keeps item id ascending for ties.
@@ -1019,12 +1135,16 @@ def _assignment_item_for(
         # still checked again when the stage is finalized.
         item = dict(eligible[0])
         assignment = owned_by_id.get(item.get("assignment_id")) or {}
+        item["class_archive_lane"] = lanes.get(item["id"])
+        item["class_archived"] = item["class_archive_lane"] is not None
         item["due_at"] = assignment.get("due_at")
         item["accepting"] = bool(is_accepting_submissions(assignment))
         # Retry decisions must use the assignment snapshot, not a possibly
         # stale/missing threshold copied into the learner ledger.
         item["content_config"] = assignment.get("content_config") or {}
         return item
+    except HTTPException:
+        raise
     except Exception as exc:  # noqa: BLE001
         # Không đọc được thì TỪ CHỐI. Mở cửa khi chốt hỏng là biến một lỗi tạm
         # thời thành một lần lộ nội dung.
@@ -1033,7 +1153,7 @@ def _assignment_item_for(
 
 
 def _has_assignment_for(bank_id: str, user_id: str) -> bool:
-    return _assignment_item_for(bank_id, user_id) is not None
+    return _assignment_item_for(bank_id, user_id, allow_archived_class=True) is not None
 
 
 def _assignment_item_for_review(
@@ -1041,14 +1161,15 @@ def _assignment_item_for_review(
 ) -> dict | None:
     """Live item first; narrow read-only fallbacks after the deadline."""
     current = (_assignment_item_for(
-        bank_id, user_id, assignment_item_id=assignment_item_id,
-    ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
+        bank_id, user_id, assignment_item_id=assignment_item_id, allow_archived_class=True,
+    ) if assignment_item_id else _assignment_item_for(
+        bank_id, user_id, allow_archived_class=True))
     if current:
         return current
     if assignment_item_id:
         submitted = _assignment_item_for(
             bank_id, user_id, allow_submitted_review=True,
-            assignment_item_id=assignment_item_id,
+            assignment_item_id=assignment_item_id, allow_archived_class=True,
         )
         if submitted:
             return submitted
@@ -1059,9 +1180,10 @@ def _assignment_item_for_review(
         # pending state and cannot create a post-cutoff session.
         return _assignment_item_for(
             bank_id, user_id, allow_expired_timed_review=True,
-            assignment_item_id=assignment_item_id,
+            assignment_item_id=assignment_item_id, allow_archived_class=True,
         )
-    return _assignment_item_for(bank_id, user_id, allow_submitted_review=True)
+    return _assignment_item_for(bank_id, user_id, allow_submitted_review=True,
+                                allow_archived_class=True)
 
 
 def course_section_attempt_no(item: dict | None) -> int:
@@ -1710,7 +1832,7 @@ def course_listening_audio(
         if isinstance(snapshot, dict) and snapshot:
             return _course_listening_for_play(snapshot)
     else:
-        _bank_meta_or_404(bank_id, user_id)
+        _bank_meta_or_404(bank_id, user_id, allow_archived_class=True)
     try:
         rows = (supabase_admin.table("quiz_banks").select("meta")
                 .eq("id", bank_id).limit(1).execute().data) or []
@@ -1726,6 +1848,7 @@ def _bank_meta_or_404(
     bank_id: str, user_id: str | None = None, *, allow_submitted_review: bool = False,
     assignment_item_id: str | None = None,
     allow_expired_timed_review: bool = False,
+    allow_archived_class: bool = False,
 ) -> dict:
     """Lightweight published-bank guard: fetch only bank metadata — never
     questions or word cards. Runtime metadata also keeps dedicated players out
@@ -1754,6 +1877,7 @@ def _bank_meta_or_404(
             bank_id, user_id, allow_submitted_review=allow_submitted_review,
             assignment_item_id=assignment_item_id,
             allow_expired_timed_review=allow_expired_timed_review,
+            allow_archived_class=allow_archived_class,
         ) if user_id else None)
         if not item:
             raise HTTPException(404, "Không tìm thấy bank")
@@ -1779,17 +1903,19 @@ def _bank_meta_for_review_or_404(
         if assignment_item_id:
             return _bank_meta_or_404(
                 bank_id, user_id, assignment_item_id=assignment_item_id,
+                allow_archived_class=True,
             )
-        return _bank_meta_or_404(bank_id, user_id)
+        return _bank_meta_or_404(bank_id, user_id, allow_archived_class=True)
     except HTTPException as exc:
         if exc.status_code != 404:
             raise
     if assignment_item_id:
         return _bank_meta_or_404(
             bank_id, user_id, allow_submitted_review=True,
-            assignment_item_id=assignment_item_id,
+            assignment_item_id=assignment_item_id, allow_archived_class=True,
         )
-    return _bank_meta_or_404(bank_id, user_id, allow_submitted_review=True)
+    return _bank_meta_or_404(bank_id, user_id, allow_submitted_review=True,
+                             allow_archived_class=True)
 
 
 def _word_cards_for(bank: dict) -> dict:
@@ -1957,6 +2083,12 @@ def _ensure_timed_course_session(
         return item, None
     if timer.get("invalid"):
         raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.")
+    # CLASSARCHIVE-0030 FR-004: in an archived class the clock never starts
+    # (a new start) and no retake opens; only a window opened before the
+    # archive is resumed ("finish" lane). The 264/270 RPC reads memberships,
+    # not the class state, so this Python gate is the enforcement.
+    if archive_lane_refuses(item.get("class_archive_lane"), kind):
+        raise cohort_archived_error(learner=True)
     if item.get("opened_at") and timer.get("is_expired"):
         if not allow_expired_existing:
             raise HTTPException(409, "Đã hết thời gian làm bài.")
@@ -2501,16 +2633,22 @@ def get_course_timer(
     adopts a session.
     """
     timer_sampled_at = datetime.now(timezone.utc)
-    bank = _bank_meta_or_404(
+    # A read: the timer stays available in an archived class (CLASSARCHIVE-0030
+    # FR-004). The named-item lane is already a review lane, which
+    # ``_assignment_item_for`` keeps open; the bank-only lane opts in.
+    bank = (_bank_meta_or_404(
         bank_id, user_id, assignment_item_id=assignment_item_id,
-        allow_expired_timed_review=bool(assignment_item_id),
-    )
+        allow_expired_timed_review=True,
+    ) if assignment_item_id else _bank_meta_or_404(
+        bank_id, user_id, assignment_item_id=None,
+        allow_expired_timed_review=False, allow_archived_class=True))
     if bank.get("skill_area") != COURSE_AREA:
         return {"item_id": None, "timer": None}
 
     item = (_assignment_item_for_review(
         bank_id, user_id, assignment_item_id=assignment_item_id,
-    ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
+    ) if assignment_item_id else _assignment_item_for(
+        bank_id, user_id, allow_archived_class=True))
     return {
         "item_id": (item or {}).get("id"),
         "timer": assignment_timer_state(item, {
@@ -2555,13 +2693,17 @@ def get_course_resume(
     empty = {"session_id": None, "answered": [], "completed": [], "item_id": None,
              "last_stage": None, "stage": 0, "retake": None, "timer": None,
              "answers_sealed": False}
-    bank = _bank_meta_or_404(bank_id, user_id)
+    # A read: an archived class's learner still sees where they stopped; the
+    # writes behind it answer the learner 409 (CLASSARCHIVE-0030 FR-004).
+    bank = _bank_meta_or_404(bank_id, user_id, allow_archived_class=True)
     if bank.get("skill_area") != COURSE_AREA:
         return empty
 
     item = (_assignment_item_for(
         bank_id, user_id, assignment_item_id=assignment_item_id,
-    ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
+        allow_archived_class=True,
+    ) if assignment_item_id else _assignment_item_for(
+        bank_id, user_id, allow_archived_class=True))
     item_id = (item or {}).get("id")
     item_assignment = {"content_config": (item or {}).get("content_config") or {}}
     answers_sealed = bool(item and single_attempt_answers_sealed(
@@ -2875,7 +3017,7 @@ def _assert_quiz_progress_writable(session: dict) -> dict:
         if not items:
             raise HTTPException(404, "Không tìm thấy mục bài giao")
         assignments = (supabase_admin.table("class_assignments")
-                       .select("id, skill, status, publish_at, due_at, content_config")
+                       .select("id, cohort_id, skill, status, publish_at, due_at, content_config")
                        .eq("id", items[0]["assignment_id"])
                        .limit(1).execute().data) or []
         if not assignments:
@@ -2905,6 +3047,7 @@ def _assert_quiz_progress_writable(session: dict) -> dict:
         raise HTTPException(409, "Đã hết thời gian làm bài — đáp án này không được ghi.")
     if action == "review":
         raise HTTPException(409, "Bài đã được thu — không thể ghi thêm đáp án.")
+    _guarded_session_archive_gate(items[0], assignment, item_id)
     return {
         "timed": bool(timer.get("is_timed")),
         "completion_mode": course_completion_mode(assignment),
@@ -3163,7 +3306,7 @@ def _assert_course_session_accepting(session: dict, ended_by: str = "completed")
     try:
         items = (supabase_admin.table("class_assignment_items")
                  .select("id, assignment_id, opened_at, timed_limit_minutes, "
-                         "timed_expires_at").eq("id", item_id)
+                         "timed_expires_at, submitted_at").eq("id", item_id)
                  .limit(1).execute().data) or []
         if not items:
             raise HTTPException(404, "Không tìm thấy mục bài giao")
@@ -3197,6 +3340,10 @@ def _assert_course_session_accepting(session: dict, ended_by: str = "completed")
         raise HTTPException(409, "Đã quá hạn nộp — chặng này chưa được chốt.")
     if timer.get("is_expired"):
         raise HTTPException(409, "Đã hết thời gian làm bài — hãy nộp lượt hết giờ.")
+    # A time-cap seal (above) stays allowed: refusing it could leave a timed
+    # window open forever. Any other final submission in an archived class is
+    # refused unless its timed window opened before the archive.
+    _guarded_session_archive_gate(items[0], assignment, item_id)
 
 
 def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
@@ -4415,6 +4562,9 @@ def begin_course_full_retry(
         )
         if not item:
             raise HTTPException(404, "Không tìm thấy bài giao còn hiệu lực")
+        if item.get("class_archived"):
+            # A full retry is a new start, also in the timed "finish" lane.
+            raise cohort_archived_error(learner=True)
         if item.get("passed_at"):
             raise HTTPException(409, "Bài này đã đạt, không cần mở lượt làm lại.")
 

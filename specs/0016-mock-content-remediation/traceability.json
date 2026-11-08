@@ -766,7 +766,29 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "STAGING_APPLIED_PCJ670",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 293,
+        "description_located": true,
+        "proposal_class": "đề xuất cụ thể",
+        "confidence": "medium, print_pending",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C13R1-01",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "có"
+        },
+        "staging_applied": {
+          "job": "PC-J670",
+          "date": "2026-11-05",
+          "environment": "staging",
+          "web_content_version": "cambridge-web-explanations/2026-11-05-t008-pcj670-v1"
+        }
+      }
     },
     {
       "finding_id": "C13R1-02",
@@ -802,7 +824,29 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "STAGING_APPLIED_PCJ670",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 299,
+        "description_located": true,
+        "proposal_class": "đề xuất cụ thể",
+        "confidence": "cao (dấu chấm) / vừa (ranh giới đoạn)",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C13R1-03",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "có"
+        },
+        "staging_applied": {
+          "job": "PC-J670",
+          "date": "2026-11-05",
+          "environment": "staging",
+          "web_content_version": "cambridge-web-explanations/2026-11-05-t008-pcj670-v1"
+        }
+      }
     },
     {
       "finding_id": "C13R1-04",
@@ -903,7 +947,29 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "STAGING_APPLIED_PCJ670",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 320,
+        "description_located": true,
+        "proposal_class": "đề xuất cụ thể",
+        "confidence": "medium, print_pending",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C13R2-04",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "có"
+        },
+        "staging_applied": {
+          "job": "PC-J670",
+          "date": "2026-11-05",
+          "environment": "staging",
+          "web_content_version": "cambridge-web-explanations/2026-11-05-t008-pcj670-v1"
+        }
+      }
     },
     {
       "finding_id": "C13R2-05",
@@ -1147,7 +1213,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 374,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C14R1-02",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C14R1-03",
@@ -1227,7 +1309,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 392,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C14R2-03",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C14R2-04",
@@ -1410,7 +1508,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "DEFERRED",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 431,
+        "description_located": true,
+        "proposal_class": "hướng",
+        "confidence": "cao (chẩn đoán)",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C14R4-05",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đồng ý hướng; bản dịch là việc soạn mới (phiếu Codex riêng, CM duyệt); DEFERRED-1030"
+        }
+      }
     },
     {
       "finding_id": "C14R4-06",
@@ -1538,7 +1652,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "DEFERRED",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 458,
+        "description_located": true,
+        "proposal_class": "hướng",
+        "confidence": "cao (chẩn đoán)",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C15R1-06",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đồng ý hướng; bản dịch là việc soạn mới (phiếu Codex riêng, CM duyệt); DEFERRED-1030"
+        }
+      }
     },
     {
       "finding_id": "C15R2-01",
@@ -1570,7 +1700,29 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "STAGING_APPLIED_PCJ670",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 467,
+        "description_located": true,
+        "proposal_class": "đề xuất cụ thể",
+        "confidence": "medium, print_pending",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C15R2-02",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "có"
+        },
+        "staging_applied": {
+          "job": "PC-J670",
+          "date": "2026-11-05",
+          "environment": "staging",
+          "web_content_version": "cambridge-web-explanations/2026-11-05-t008-pcj670-v1"
+        }
+      }
     },
     {
       "finding_id": "C15R2-03",
@@ -1666,7 +1818,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 488,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C15R3-03",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C15R3-04",
@@ -1730,7 +1898,29 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "STAGING_APPLIED_PCJ670",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 503,
+        "description_located": true,
+        "proposal_class": "đề xuất cụ thể",
+        "confidence": "medium, print_pending",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C16R1-02",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "có"
+        },
+        "staging_applied": {
+          "job": "PC-J670",
+          "date": "2026-11-05",
+          "environment": "staging",
+          "web_content_version": "cambridge-web-explanations/2026-11-05-t008-pcj670-v1"
+        }
+      }
     },
     {
       "finding_id": "C16R1-03",
@@ -1858,7 +2048,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 533,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C16R3-01",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C16R3-02",
@@ -1890,7 +2096,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 539,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C16R3-03",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C16R3-04",
@@ -1910,7 +2132,29 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "STAGING_APPLIED_PCJ670",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 542,
+        "description_located": true,
+        "proposal_class": "đề xuất cụ thể",
+        "confidence": "vừa",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C16R3-04",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "có"
+        },
+        "staging_applied": {
+          "job": "PC-J670",
+          "date": "2026-11-05",
+          "environment": "staging",
+          "web_content_version": "cambridge-web-explanations/2026-11-05-t008-pcj670-v1"
+        }
+      }
     },
     {
       "finding_id": "C16R3-05",
@@ -1926,7 +2170,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "DEFERRED",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 545,
+        "description_located": true,
+        "proposal_class": "hướng",
+        "confidence": "cao (chẩn đoán)",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C16R3-05",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đồng ý hướng; bản dịch là việc soạn mới (phiếu Codex riêng, CM duyệt); DEFERRED-1030"
+        }
+      }
     },
     {
       "finding_id": "C16R3-06",
@@ -1990,7 +2250,29 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "STAGING_APPLIED_PCJ670",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 560,
+        "description_located": true,
+        "proposal_class": "đề xuất cụ thể",
+        "confidence": "medium, print_pending",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C16R4-03",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "có"
+        },
+        "staging_applied": {
+          "job": "PC-J670",
+          "date": "2026-11-05",
+          "environment": "staging",
+          "web_content_version": "cambridge-web-explanations/2026-11-05-t008-pcj670-v1"
+        }
+      }
     },
     {
       "finding_id": "C16R4-04",
@@ -2070,7 +2352,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 578,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "vừa",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C17R2-03",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C17R2-04",
@@ -2166,7 +2464,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 602,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C18R4-01",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C18R4-02",
@@ -2230,7 +2544,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 617,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C19R1-01",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C19R1-02",
@@ -2342,7 +2672,29 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "STAGING_APPLIED_PCJ670",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 644,
+        "description_located": true,
+        "proposal_class": "đề xuất cụ thể",
+        "confidence": "vừa",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C19R3-01",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "có"
+        },
+        "staging_applied": {
+          "job": "PC-J670",
+          "date": "2026-11-05",
+          "environment": "staging",
+          "web_content_version": "cambridge-web-explanations/2026-11-05-t008-pcj670-v1"
+        }
+      }
     },
     {
       "finding_id": "C19R3-02",
@@ -2406,7 +2758,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 659,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C19R4-02",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C19R4-03",
@@ -2422,7 +2790,29 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "STAGING_APPLIED_PCJ670",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 662,
+        "description_located": true,
+        "proposal_class": "đề xuất cụ thể",
+        "confidence": "vừa",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C19R4-03",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "có"
+        },
+        "staging_applied": {
+          "job": "PC-J670",
+          "date": "2026-11-05",
+          "environment": "staging",
+          "web_content_version": "cambridge-web-explanations/2026-11-05-t008-pcj670-v1"
+        }
+      }
     },
     {
       "finding_id": "C20R1-01",
@@ -2454,7 +2844,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_SIGNED_NOT_APPLIED",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 671,
+        "description_located": true,
+        "proposal_class": "hướng",
+        "confidence": "vừa",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C20R1-02",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "không áp đến khi có bản in C20 (REV02 chưa duyệt; docx không có nguyên văn)"
+        }
+      }
     },
     {
       "finding_id": "C20R1-03",
@@ -2470,7 +2876,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 674,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C20R1-03",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C20R1-04",
@@ -2518,7 +2940,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_SIGNED_NOT_APPLIED",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 686,
+        "description_located": true,
+        "proposal_class": "hướng",
+        "confidence": "vừa",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C20R2-01",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "không áp đến khi có bản in C20 (REV02 chưa duyệt; docx không có nguyên văn)"
+        }
+      }
     },
     {
       "finding_id": "C20R2-02",
@@ -2619,7 +3057,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 707,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C20R3-02",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C20R3-03",
@@ -2635,7 +3089,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "SOURCE_MISSING",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 710,
+        "description_located": true,
+        "proposal_class": "vẫn thiếu nguồn",
+        "confidence": "—",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C20R3-03",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "vẫn thiếu nguồn (bản in); ghi nhận, không áp"
+        }
+      }
     },
     {
       "finding_id": "C20R3-04",
@@ -2651,7 +3121,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 713,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C20R3-04",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C20R3-05",
@@ -2827,7 +3313,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "SOURCE_MISSING",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 755,
+        "description_located": true,
+        "proposal_class": "vẫn thiếu nguồn",
+        "confidence": "thấp",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C21R2-02",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "vẫn thiếu nguồn (bản in); ghi nhận, không áp"
+        }
+      }
     },
     {
       "finding_id": "C21R2-03",
@@ -2875,7 +3377,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 767,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C21R3-01",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C21R3-02",
@@ -2923,7 +3441,29 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "STAGING_APPLIED_PCJ670",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 779,
+        "description_located": true,
+        "proposal_class": "đề xuất cụ thể",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C21R4-P01",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "có"
+        },
+        "staging_applied": {
+          "job": "PC-J670",
+          "date": "2026-11-05",
+          "environment": "staging",
+          "web_content_version": "cambridge-web-explanations/2026-11-05-t008-pcj670-v1"
+        }
+      }
     },
     {
       "finding_id": "C21R4-P02",
@@ -2939,7 +3479,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "SOURCE_MISSING",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 782,
+        "description_located": true,
+        "proposal_class": "vẫn thiếu nguồn",
+        "confidence": "—",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C21R4-P02",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "vẫn thiếu nguồn (bản in); ghi nhận, không áp"
+        }
+      }
     },
     {
       "finding_id": "C21R4-P03",
@@ -3038,7 +3594,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "TRANSFERRED_ENGINEERING",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 803,
+        "description_located": true,
+        "proposal_class": "chuyển kỹ thuật",
+        "confidence": "vừa",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C13L1-04",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "chuyển kỹ thuật (PC)"
+        }
+      }
     },
     {
       "finding_id": "C13L1-05",
@@ -3054,7 +3626,29 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "STAGING_APPLIED_PCJ670",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 806,
+        "description_located": true,
+        "proposal_class": "đề xuất cụ thể",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C13L1-05",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "có"
+        },
+        "staging_applied": {
+          "job": "PC-J670",
+          "date": "2026-11-05",
+          "environment": "staging",
+          "web_content_version": "cambridge-web-explanations/2026-11-05-t008-pcj670-v1"
+        }
+      }
     },
     {
       "finding_id": "C13L1-06",
@@ -3397,7 +3991,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 884,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C14L3-01",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C14L3-02",
@@ -3429,7 +4039,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 890,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C14L3-03",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C14L3-04",
@@ -3493,7 +4119,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 905,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C14L4-03",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C14L4-04",
@@ -3529,7 +4171,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 914,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C15L1-01",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C15L1-02",
@@ -3612,7 +4270,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 932,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C15L2-01",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C15L2-02",
@@ -3820,7 +4494,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_SIGNED_NOT_APPLIED",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 980,
+        "description_located": true,
+        "proposal_class": "hướng",
+        "confidence": "vừa",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C16L2-04",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "không đổi dạng hiển thị khi chưa có key bản in"
+        }
+      }
     },
     {
       "finding_id": "C16L3-01",
@@ -3836,7 +4526,29 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "STAGING_APPLIED_PCJ670",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 986,
+        "description_located": true,
+        "proposal_class": "hướng",
+        "confidence": "vừa",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C16L3-01",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "có"
+        },
+        "staging_applied": {
+          "job": "PC-J670",
+          "date": "2026-11-05",
+          "environment": "staging",
+          "web_content_version": "cambridge-web-explanations/2026-11-05-t008-pcj670-v1"
+        }
+      }
     },
     {
       "finding_id": "C16L3-02",
@@ -3852,7 +4564,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 989,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C16L3-02",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C16L3-03",
@@ -3916,7 +4644,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1004,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C16L4-01",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C16L4-02",
@@ -3964,7 +4708,29 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "STAGING_APPLIED_PCJ670",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1013,
+        "description_located": true,
+        "proposal_class": "đề xuất cụ thể",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C16L4-04",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "có"
+        },
+        "staging_applied": {
+          "job": "PC-J670",
+          "date": "2026-11-05",
+          "environment": "staging",
+          "web_content_version": "cambridge-web-explanations/2026-11-05-t008-pcj670-v1"
+        }
+      }
     },
     {
       "finding_id": "C16L4-05",
@@ -4060,7 +4826,30 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "STAGING_APPLIED_PCJ670",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1034,
+        "description_located": true,
+        "proposal_class": "hướng",
+        "confidence": "vừa",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C17L2-03",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "sửa"
+        },
+        "staging_applied": {
+          "job": "PC-J670",
+          "date": "2026-11-05",
+          "environment": "staging",
+          "web_content_version": "cambridge-web-explanations/2026-11-05-t008-pcj670-v1",
+          "scope": "CM text applied (no \"**38** \"); S4 instruction applied"
+        }
+      }
     },
     {
       "finding_id": "C17L2-04",
@@ -4096,7 +4885,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1040,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C17L2-05",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C17L2-06",
@@ -4144,7 +4949,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1052,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C18L1-01",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C18L1-02",
@@ -4340,7 +5161,29 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "STAGING_APPLIED_PCJ670",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1094,
+        "description_located": true,
+        "proposal_class": "đề xuất cụ thể",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C18L4-04",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "có"
+        },
+        "staging_applied": {
+          "job": "PC-J670",
+          "date": "2026-11-05",
+          "environment": "staging",
+          "web_content_version": "cambridge-web-explanations/2026-11-05-t008-pcj670-v1"
+        }
+      }
     },
     {
       "finding_id": "C18L4-05",
@@ -4532,7 +5375,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1139,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C19L3-01",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C19L3-02",
@@ -4716,7 +5575,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_SIGNED_NOT_APPLIED",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1178,
+        "description_located": true,
+        "proposal_class": "hướng",
+        "confidence": "vừa",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C20L1-01",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "không áp đến khi có bản in C20 (REV02 chưa duyệt; docx không có nguyên văn)"
+        }
+      }
     },
     {
       "finding_id": "C20L1-02",
@@ -4732,7 +5607,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_SIGNED_NOT_APPLIED",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1181,
+        "description_located": true,
+        "proposal_class": "hướng",
+        "confidence": "vừa",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C20L1-02",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "không áp đến khi có bản in C20 (REV02 chưa duyệt; docx không có nguyên văn)"
+        }
+      }
     },
     {
       "finding_id": "C20L1-03",
@@ -4748,7 +5639,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1184,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C20L1-03",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C20L1-04",
@@ -4832,7 +5739,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1202,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C20L2-01",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C20L2-02",
@@ -4848,7 +5771,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1205,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C20L2-02",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C20L2-03",
@@ -4947,7 +5886,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "LISTENER_REQUIRED",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1226,
+        "description_located": true,
+        "proposal_class": "cần người nghe",
+        "confidence": "—",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C20L3-02",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "protected; cần người nghe; ghi nhận, không áp"
+        }
+      }
     },
     {
       "finding_id": "C20L3-03",
@@ -5438,7 +6393,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "PROD_ONLY_BLOCKED",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1334,
+        "description_located": true,
+        "proposal_class": "đề xuất cụ thể",
+        "confidence": "vừa",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#T06-03",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "prod-only: chữ đề xuất đã ký/hướng; áp prod cần anh Vinh duyệt trực tiếp"
+        }
+      }
     },
     {
       "finding_id": "T06-04",
@@ -5457,7 +6428,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "PROD_ONLY_BLOCKED",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1337,
+        "description_located": true,
+        "proposal_class": "đề xuất cụ thể",
+        "confidence": "vừa",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#T06-04",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "prod-only: chữ đề xuất đã ký/hướng; áp prod cần anh Vinh duyệt trực tiếp"
+        }
+      }
     },
     {
       "finding_id": "T06-05",
@@ -5476,7 +6463,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "PROD_ONLY_BLOCKED",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1340,
+        "description_located": true,
+        "proposal_class": "đề xuất cụ thể",
+        "confidence": "cao (chuyên ngành) / vừa (bỏ gán luận điểm)",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#T06-05",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "prod-only: chữ đề xuất đã ký/hướng; áp prod cần anh Vinh duyệt trực tiếp"
+        }
+      }
     },
     {
       "finding_id": "T06-06",
@@ -5641,7 +6644,30 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "STAGING_APPLIED_PCJ670",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1370,
+        "description_located": true,
+        "proposal_class": "hướng",
+        "confidence": "vừa (năm) / thấp (so sánh)",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#R001-08",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "có (năm) / chờ nguồn (so sánh)"
+        },
+        "staging_applied": {
+          "job": "PC-J670",
+          "date": "2026-11-05",
+          "environment": "staging",
+          "web_content_version": "cambridge-web-explanations/2026-11-05-t008-pcj670-v1",
+          "scope": "year wording applied; \"modern peak\" comparison awaits a dated source"
+        }
+      }
     },
     {
       "finding_id": "R002-01",
@@ -5662,7 +6688,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "PROD_ONLY_BLOCKED",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1376,
+        "description_located": true,
+        "proposal_class": "đề xuất cụ thể",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#R002-01",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "prod-only: chữ đề xuất đã ký/hướng; áp prod cần anh Vinh duyệt trực tiếp"
+        }
+      }
     },
     {
       "finding_id": "R002-02",
@@ -5697,7 +6739,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "PROD_ONLY_BLOCKED",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1382,
+        "description_located": true,
+        "proposal_class": "đề xuất cụ thể",
+        "confidence": "vừa",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#R002-03",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "prod-only: chữ đề xuất đã ký/hướng; áp prod cần anh Vinh duyệt trực tiếp"
+        }
+      }
     },
     {
       "finding_id": "R002-04",
@@ -6132,7 +7190,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "PROD_ONLY_BLOCKED",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1466,
+        "description_located": true,
+        "proposal_class": "đề xuất cụ thể",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#L038-02",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "prod-only: chữ đề xuất đã ký/hướng; áp prod cần anh Vinh duyệt trực tiếp"
+        }
+      }
     },
     {
       "finding_id": "L038-03",
@@ -6230,7 +7304,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "SOURCE_MISSING",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1488,
+        "description_located": true,
+        "proposal_class": "vẫn thiếu nguồn",
+        "confidence": "cao (chẩn đoán)",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C15R4-01",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "vẫn thiếu nguồn (bản in); ghi nhận, không áp"
+        }
+      }
     },
     {
       "finding_id": "C15R4-02",
@@ -6302,7 +7392,30 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "STAGING_APPLIED_PCJ670",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1506,
+        "description_located": true,
+        "proposal_class": "hướng",
+        "confidence": "cao (1) / thấp (2)",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C17R3-02",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "có (1) / chờ bản in (2)"
+        },
+        "staging_applied": {
+          "job": "PC-J670",
+          "date": "2026-11-05",
+          "environment": "staging",
+          "web_content_version": "cambridge-web-explanations/2026-11-05-t008-pcj670-v1",
+          "scope": "paragraph split applied; Aaron Burr clause awaits the printed edition"
+        }
+      }
     },
     {
       "finding_id": "C17R3-03",
@@ -6366,7 +7479,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_SIGNED_HELD",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1521,
+        "description_located": true,
+        "proposal_class": "đề xuất cụ thể",
+        "confidence": "cao (lỗi) / vừa (bố cục cột, cấp gạch đầu dòng)",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C17R4-P01",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "CM có; PC-J670 giữ lại: chữ ký có template.rows nhưng không có headers — player Next chỉ vẽ bảng khi có headers, trang review sẽ hiện trùng summary_text + bảng; cần CM chọn headers"
+        }
+      }
     },
     {
       "finding_id": "C17R4-P02",
@@ -6414,7 +7543,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "CM_CONFIRMED_STAGING_OK",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1536,
+        "description_located": true,
+        "proposal_class": "đã ổn",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C18R3-01",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "đã ổn — chỉ nói về dữ liệu staging; prod vẫn OPEN"
+        }
+      }
     },
     {
       "finding_id": "C18R3-02",
@@ -6542,7 +7687,30 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "STAGING_APPLIED_PCJ670",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1570,
+        "description_located": true,
+        "proposal_class": "hướng",
+        "confidence": "vừa",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C17L3-P02",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "sửa"
+        },
+        "staging_applied": {
+          "job": "PC-J670",
+          "date": "2026-11-05",
+          "environment": "staging",
+          "web_content_version": "cambridge-web-explanations/2026-11-05-t008-pcj670-v1",
+          "scope": "CM text applied (no printed \"38 \"); still awaiting a listener"
+        }
+      }
     },
     {
       "finding_id": "C17L3-P03",
@@ -6574,7 +7742,29 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "STAGING_APPLIED_PCJ670",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1576,
+        "description_located": true,
+        "proposal_class": "đề xuất cụ thể",
+        "confidence": "cao",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#C17L3-P04",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "có"
+        },
+        "staging_applied": {
+          "job": "PC-J670",
+          "date": "2026-11-05",
+          "environment": "staging",
+          "web_content_version": "cambridge-web-explanations/2026-11-05-t008-pcj670-v1"
+        }
+      }
     },
     {
       "finding_id": "C17L3-P05",
@@ -6718,7 +7908,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "PROD_ONLY_BLOCKED",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1612,
+        "description_located": true,
+        "proposal_class": "BLOCKED (prod-only)",
+        "confidence": "—",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#R001-P01",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "prod-only: chữ đề xuất đã ký/hướng; áp prod cần anh Vinh duyệt trực tiếp"
+        }
+      }
     },
     {
       "finding_id": "R001-P02",
@@ -6734,7 +7940,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "PROD_ONLY_BLOCKED",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1615,
+        "description_located": true,
+        "proposal_class": "BLOCKED (prod-only)",
+        "confidence": "vừa",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#R001-P02",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "prod-only: chữ đề xuất đã ký/hướng; áp prod cần anh Vinh duyệt trực tiếp"
+        }
+      }
     },
     {
       "finding_id": "L001-P01",
@@ -6766,7 +7988,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "PROD_ONLY_BLOCKED",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1624,
+        "description_located": true,
+        "proposal_class": "đề xuất cụ thể",
+        "confidence": "vừa",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#L001-P02",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "prod-only: chữ đề xuất đã ký/hướng; áp prod cần anh Vinh duyệt trực tiếp"
+        }
+      }
     },
     {
       "finding_id": "L001-P03",
@@ -6782,7 +8020,23 @@
       "validation": "UNREVIEWED",
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
-      "independent_acceptance": null
+      "independent_acceptance": null,
+      "docx_source_match": {
+        "job": "PC-J655",
+        "status": "PROD_ONLY_BLOCKED",
+        "source_txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+        "source_txt_line": 1627,
+        "description_located": true,
+        "proposal_class": "hướng",
+        "confidence": "vừa",
+        "proposal_ref": "handoff/content-manager/2026-11-04-J655-docx-match.tsv#L001-P03",
+        "cm_sign": {
+          "by": "Content Manager",
+          "at": "2026-11-05T07:45+07:00",
+          "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7",
+          "decision": "prod-only: chữ đề xuất đã ký/hướng; áp prod cần anh Vinh duyệt trực tiếp"
+        }
+      }
     },
     {
       "finding_id": "L001-P04",
@@ -6834,6 +8088,30 @@
       "remediation": "OPEN",
       "deployed_revision_evidence": [],
       "independent_acceptance": null
+    }
+  ],
+  "source_match_receipts": [
+    {
+      "job": "PC-J655",
+      "date": "2026-11-04",
+      "status": "CM_SIGNED",
+      "docx_sha256": "84f1e5bce3ef04e00de13d86c1d6c6f01624c2d50860a588fa4f914c16ed4f44",
+      "txt_sha256": "e03e0a245dae86bbb998e9cdd522ad2e4d14e2c9f984b76c2c17c14bc889000a",
+      "note": "txt differs from source_artifact_sha256 5bbd2477…; 368/368 finding ids and reported_category match; source_line offset -17 (Appendix A) / -73 (Appendix B). Not acceptance; validation/remediation unchanged.",
+      "findings_matched": 71,
+      "cm_sign": {
+        "by": "Content Manager",
+        "at": "2026-11-05T07:45+07:00",
+        "ref": "handoff/content-manager/2026-11-04-J655-docx-match.md#7"
+      }
+    },
+    {
+      "job": "PC-J670",
+      "date": "2026-11-05",
+      "status": "STAGING_APPLIED",
+      "web_content_version": "cambridge-web-explanations/2026-11-05-t008-pcj670-v1",
+      "findings_applied": 19,
+      "note": "Staging only. Not acceptance; validation/remediation unchanged (FR-016). Prod untouched."
     }
   ]
 }

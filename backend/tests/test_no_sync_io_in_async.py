@@ -1114,3 +1114,248 @@ def test_deferred_aliases_conservatively_check_even_potentially_exhausted_iterat
     """)
     # The lexical guard deliberately does not prove exhaustion/control flow.
     assert [(f.callee, f.line) for f in findings] == [("requests.get", 5)]
+
+
+# PC-J672: calls dispatched through a module-level service object.
+SERVICE_MODULE = dedent("""
+    class Service:
+        def reload(self):
+            fresh = object.__new__(type(self))
+            fresh._load()
+        def _load(self):
+            from database import supabase_admin
+            supabase_admin.table('x').select('*').execute()
+        def label(self):
+            return 'pure'
+        async def areload(self):
+            await asyncio.to_thread(self.reload)
+    service = Service()
+""")
+
+
+@pytest.mark.parametrize("statement", [
+    "from services.svc import service\n    service.reload()",
+    "from services.svc import service as s\n    s.reload()",
+    "from services import svc\n    svc.service.reload()",
+    "import services.svc as m\n    m.service.reload()",
+    "from services import service\n    service.reload()",  # package re-export
+    "from services.svc import alias\n    alias.reload()",  # module-level alias
+    "from services.svc import Service\n    Service().reload()",
+    "from services.svc import service\n    await asyncio.to_thread(service.reload())",  # eager argument
+])
+def test_service_object_methods_reaching_sync_io_fail(statement):
+    findings = scan("async def f():\n    " + statement, **{
+        "services/svc.py": SERVICE_MODULE + "alias = service\n",
+        "services/__init__.py": "from .svc import service\n",
+    })
+    assert [(f.function, f.callee) for f in findings] == [("f", "services.svc.Service.reload")]
+
+
+@pytest.mark.parametrize("statement", [
+    "await asyncio.to_thread(service.reload)",
+    "await asyncio.get_running_loop().run_in_executor(None, service.reload)",
+    "await run_in_threadpool(service.reload)",
+    "service.label()",
+    "await service.areload()",
+])
+def test_offloaded_or_non_blocking_service_methods_pass(statement):
+    assert not scan("from services.svc import service\nasync def f():\n    " + statement,
+                    **{"services/svc.py": SERVICE_MODULE})
+
+
+def test_service_object_reached_through_sync_helper_names_the_helper():
+    findings = scan("""
+        from services.svc import service
+        def reload_safe():
+            try:
+                service.reload()
+            except Exception:
+                pass
+        async def f():
+            reload_safe()
+        async def g():
+            await asyncio.to_thread(reload_safe)
+    """, **{"services/svc.py": SERVICE_MODULE})
+    assert [(f.function, f.callee) for f in findings] == [("f", "routers.example.reload_safe")]
+
+
+def test_inherited_service_methods_resolve_through_scanned_bases():
+    findings = scan("""
+        from services.svc import child
+        async def f():
+            child.reload()
+            child.label()
+    """, **{
+        "services/base.py": SERVICE_MODULE,
+        "services/svc.py": "from services.base import Service\nclass Child(Service):\n"
+                           "    def label(self):\n        self._load()\nchild = Child()\n",
+    })
+    assert [f.callee for f in findings] == ["services.base.Service.reload", "services.svc.Child.label"]
+
+
+@pytest.mark.parametrize("shared_root", [False, True], ids=["separate-roots", "diamond"])
+@pytest.mark.parametrize("root_blocks", [False, True], ids=["pure-root", "blocking-root"])
+@pytest.mark.parametrize("base_module", ["services.base", "services"])
+def test_inherited_service_methods_follow_c3_mro(shared_root, root_blocks, base_module):
+    root_body = "time.sleep(1)" if root_blocks else "return 'pure'"
+    second_body = "return 'pure'" if root_blocks else "time.sleep(1)"
+    findings = scan("""
+        from services.svc import service
+        async def f():
+            service.reload()
+    """, **{
+        "services/base.py": dedent(f"""
+            import time
+            class Root:
+                def reload(self):
+                    {root_body}
+            class First(Root):
+                pass
+            class Second{'(Root)' if shared_root else ''}:
+                def reload(self):
+                    {second_body}
+        """),
+        "services/__init__.py": "from .base import First, Second\n",
+        "services/svc.py": f"from {base_module} import First as Left, Second as Right\n"
+                           "class Child(Left, Right):\n    pass\nservice = Child()\n",
+    })
+    # Separate roots: Child, First, Root, Second. Diamond: Child, First,
+    # Second, Root. Breadth-first fails the former; depth-first fails the latter.
+    selected = "Second" if shared_root else "Root"
+    blocking = not root_blocks if shared_root else root_blocks
+    assert [(f.function, f.callee) for f in findings] == (
+        [("f", f"services.base.{selected}.reload")] if blocking else []
+    )
+
+
+def receiver_module(child_blocks):
+    child_body = "time.sleep(1)" if child_blocks else "return 'pure'"
+    base_body = "return 'pure'" if child_blocks else "time.sleep(1)"
+    return dedent(f"""
+        import time
+        class Base:
+            def reload(self):
+                self.load()
+            def load(self):
+                {base_body}
+        class Child(Base):
+            def load(self):
+                {child_body}
+        service = Child()
+    """)
+
+
+@pytest.mark.parametrize("statement", [
+    "from services.base import service\n    service.reload()",
+    "from services.base import Child\n    Child().reload()",  # direct constructor receiver
+], ids=["module-object", "constructor"])
+@pytest.mark.parametrize("child_blocks", [False, True], ids=["base-blocks", "override-blocks"])
+def test_inherited_method_self_dispatches_through_receiver(statement, child_blocks):
+    # Base.reload calls self.load(): the receiver's override decides, not Base.load.
+    findings = scan("async def f():\n    " + statement, **{"services/base.py": receiver_module(child_blocks)})
+    assert [(f.function, f.callee) for f in findings] == (
+        [("f", "services.base.Base.reload")] if child_blocks else []
+    )
+
+
+def test_inherited_method_receivers_are_analysed_independently():
+    findings = scan("""
+        from services.base import Child, Other
+        async def f():
+            Child().reload()
+        async def g():
+            Other().reload()
+    """, **{"services/base.py": dedent("""
+        import time
+        class Base:
+            def reload(self):
+                self.load()
+            def load(self):
+                return 'pure'
+        class Child(Base):
+            def load(self):
+                return 'pure'
+        class Other(Base):
+            def load(self):
+                time.sleep(1)
+    """)})
+    # One inherited method, two receivers: the pure receiver must not hide the
+    # blocking one, and the blocking receiver must not taint the pure one.
+    assert [(f.function, f.callee) for f in findings] == [("g", "services.base.Base.reload")]
+
+
+def test_receiver_dispatch_cycle_through_inherited_method_is_bounded():
+    findings = scan("""
+        from services.base import Child
+        async def f():
+            Child().reload()
+    """, **{"services/base.py": dedent("""
+        import time
+        class Base:
+            def reload(self):
+                self.load()
+            def load(self):
+                return 'pure'
+        class Child(Base):
+            def load(self):
+                self.reload()
+                time.sleep(1)
+    """)})
+    # Child.load -> self.reload -> Base.reload@Child -> self.load recurses on the
+    # same receiver context; the fixpoint must settle with the blocking verdict.
+    assert [(f.function, f.callee) for f in findings] == [("f", "services.base.Base.reload")]
+
+
+def test_unscanned_or_rebound_module_objects_keep_existing_resolution():
+    findings = scan("""
+        from services.svc import client, service
+        async def f():
+            client.get('url')
+            service.reload()
+            await supabase_admin.table('x').select('*').execute()
+    """, **{"services/svc.py": SERVICE_MODULE + dedent("""
+        import httpx
+        from database import supabase_admin
+        client = httpx.Client()
+        service = None
+    """)})
+    # Only scanned functions are rewritten: third-party clients and the
+    # supabase_admin primitive keep their names; a rebinding wins.
+    assert [f.callee for f in findings] == ["db.execute"]
+
+
+@pytest.mark.parametrize("package, calls", [
+    ("from . import svc\nsvc = svc.create_service()\n", "svc.reload()"),
+    ("from . import a, b\na = b.x()\nb = a.y()\n", "a.reload()\n    b.reload()"),
+])
+def test_cyclic_service_bindings_are_bounded_without_losing_findings(monkeypatch, package, calls):
+    import sync_io_guard
+
+    class BoundedBindings(dict):
+        lookups = 0
+
+        def get(self, key, default=None):
+            self.lookups += 1
+            assert self.lookups <= 200, "resolver exceeded its binding lookup budget"
+            return super().get(key, default)
+
+    dispatch_resolver = sync_io_guard._dispatch_resolver
+
+    def bounded_resolver(functions, bindings, bases):
+        return dispatch_resolver(functions, BoundedBindings(bindings), bases)
+
+    monkeypatch.setattr(sync_io_guard, "_dispatch_resolver", bounded_resolver)
+    findings = scan("from services import svc, a, b, nested\nfrom services.live import service\n"
+                    "async def f():\n    " + calls + "\n    service.reload()\n"
+                    "    nested.nested.service.reload()\n"
+                    "    supabase_admin.table('x').select('*').execute()\n", **{
+        "services/__init__.py": package + "import services as nested\nfrom .live import service\n",
+        "services/live.py": SERVICE_MODULE,
+    })
+    # Unsupported factory results stay unresolved; existing service edges and
+    # primitive findings survive. The lookup budget fails deterministically on
+    # the expanding cycle, without a wall-clock timeout or a hanging test.
+    assert [(f.function, f.callee) for f in findings] == [
+        ("f", "services.live.Service.reload"), ("f", "services.live.Service.reload"),
+        ("f", "db.execute"),
+    ]

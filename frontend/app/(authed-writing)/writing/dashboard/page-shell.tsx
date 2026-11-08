@@ -346,6 +346,12 @@ export function WritingShell() {
                   </div>
                 </div>
 
+                {/* Shown only for a read-only give of an archived class (FR-004). */}
+                <div id="modal-archived" className="wd-modal-instructions hidden" role="status">
+                  <strong>Lớp đã lưu trữ — đã đóng</strong>
+                  <span>Bài và bản nháp của em vẫn được giữ. Bài này không nhận bài nộp mới.</span>
+                </div>
+
                 {/* Essay textarea — Grammarly + autocorrect + spellcheck disabled */}
                 <textarea id="modal-essay-textarea"
                           className="wd-modal-textarea"
