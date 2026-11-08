@@ -81,7 +81,10 @@ it('closes the regrade dialog only after the backend accepts the regrade', async
 
 it('BL-22 shows "Đã sửa" only when the backend recorded an edit', async () => {
   const get = vi.fn().mockResolvedValue(essay());
-  const patch = vi.fn().mockResolvedValue({ essay_id: 'essay-1', status: 'reviewed', is_manually_edited: false });
+  const patch = vi.fn(async () => {
+    get.mockResolvedValue(essay({ status: 'reviewed', is_manually_edited: false }));
+    return { essay_id: 'essay-1', status: 'reviewed', is_manually_edited: false };
+  });
   Object.defineProperty(window, 'api', { configurable: true, value: { get, post: vi.fn(), patch } });
   render(<StrictMode><AdminWritingGradeBehavior /></StrictMode>);
 
@@ -94,7 +97,10 @@ it('BL-22 shows "Đã sửa" only when the backend recorded an edit', async () =
 
 it('BL-22 shows "Đã sửa" right after a save the backend recorded as an edit', async () => {
   const get = vi.fn().mockResolvedValue(essay());
-  const patch = vi.fn().mockResolvedValue({ essay_id: 'essay-1', status: 'reviewed', is_manually_edited: true });
+  const patch = vi.fn(async () => {
+    get.mockResolvedValue(essay({ status: 'reviewed', is_manually_edited: true }));
+    return { essay_id: 'essay-1', status: 'reviewed', is_manually_edited: true };
+  });
   Object.defineProperty(window, 'api', { configurable: true, value: { get, post: vi.fn(), patch } });
   render(<StrictMode><AdminWritingGradeBehavior /></StrictMode>);
 
