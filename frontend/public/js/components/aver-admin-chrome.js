@@ -490,6 +490,10 @@ const NAV_GROUPS = [
       },
       { section: 'vocab',     label: 'Vocab',     href: '/admin/vocab',     icon: 'book',
         subsections: [
+          // FLASHCARD-0048 FR-013 — first Vocab child, ungated. The sets
+          // pages mount active="vocab" without a subsection attribute, so
+          // pathnameMatchesVocabSets supplies the highlight.
+          { slug: 'sets',          label: 'Bộ từ theo lớp',   href: '/admin/vocab/sets' },
           { slug: 'curated',       label: 'Curated Editorial', href: '/admin/vocab/curated' },
           { slug: 'topics',        label: 'Chủ đề (Topics)',  href: '/admin/vocab/topics' },
           { slug: 'content',       label: 'Nội dung từ vựng', href: '/admin/vocab/content' },
@@ -581,6 +585,23 @@ const ICONS = {
   // clipboard-check — 4-skill mock lifecycle (create → run → review → release)
   clipboard:   '<path d="M9 2h6a1 1 0 0 1 1 1v1H8V3a1 1 0 0 1 1-1z"/><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/><path d="M9 14l2 2 4-4"/>',
 };
+
+
+// FR-013: active on the sets list and every nested sets route. Pathname
+// only — a query string or a longer sibling prefix must not match.
+function pathnameMatchesVocabSets(pathname) {
+  return typeof pathname === 'string'
+    && /^\/admin\/vocab\/sets(?:\/|$)/.test(pathname);
+}
+
+function currentPathname() {
+  try {
+    if (typeof location === 'undefined' || !location) return '';
+    return location.pathname || '';
+  } catch {
+    return '';
+  }
+}
 
 
 function renderNavItem(item, isActive, currentKind = null) {
@@ -750,7 +771,7 @@ export class AverAdminChrome extends HTMLElement {
     }
 
     const active = this._normalizeActive(this.getAttribute('active'));
-    const subsection = this._normalizeSubsection(this.getAttribute('subsection'), active);
+    const subsection = this._resolveSubsection(this.getAttribute('subsection'), active);
     shadow.innerHTML = `<style>${STYLE}</style>${buildTemplate(active, subsection)}`;
 
     this._bindInteractiveChrome();
@@ -774,7 +795,7 @@ export class AverAdminChrome extends HTMLElement {
     if (name !== 'active' && name !== 'subsection') return;
     if (!this.shadowRoot) return;
     const active = this._normalizeActive(this.getAttribute('active'));
-    const subsection = this._normalizeSubsection(this.getAttribute('subsection'), active);
+    const subsection = this._resolveSubsection(this.getAttribute('subsection'), active);
     const sidebar = this.shadowRoot.getElementById('sidebar');
     if (!sidebar) {
       this._applyActive(active);
@@ -820,6 +841,15 @@ export class AverAdminChrome extends HTMLElement {
     const group = NAV_GROUPS.flatMap((g) => g.items).find((i) => i.section === active);
     if (!group || !group.subsections) return null;
     return group.subsections.some((s) => s.slug === value) ? value : null;
+  }
+
+  // An explicit, valid subsection wins. Sets pages omit the attribute, so
+  // the live pathname highlights "Bộ từ theo lớp" for /admin/vocab/sets/*.
+  _resolveSubsection(value, active) {
+    const explicit = this._normalizeSubsection(value, active);
+    if (explicit) return explicit;
+    if (active === 'vocab' && pathnameMatchesVocabSets(currentPathname())) return 'sets';
+    return null;
   }
 
   _applyActive(active) {
