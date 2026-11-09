@@ -627,3 +627,83 @@ describe('GĐ 1 — merged class area highlights in the sidebar', () => {
     assert.match(CHROME_JS, /slug:\s*'students'[^}]*href:\s*'\/admin\/students'/);
   });
 });
+
+
+// FLASHCARD-0048 T001 / FR-013. The sets pages mount active="vocab" and do
+// not set subsection, so the highlight has to come from the pathname.
+describe('FLASHCARD-0048 FR-013 — Bộ từ theo lớp leads the Vocab group', () => {
+  function vocabSubsections() {
+    const block = CHROME_JS.match(
+      /section:\s*'vocab'[\s\S]*?subsections:\s*\[([\s\S]*?)\]\s*,/,
+    );
+    assert.ok(block, 'vocab subsections block missing');
+    const entries = [];
+    const re = /\{\s*slug:\s*'([^']+)'\s*,\s*label:\s*'([^']+)'\s*,\s*href:\s*'([^']+)'\s*\}/g;
+    for (const match of block[1].matchAll(re)) {
+      entries.push({ slug: match[1], label: match[2], href: match[3] });
+    }
+    return { source: block[1], entries };
+  }
+
+  function pathnameMatchesVocabSets() {
+    const match = CHROME_JS.match(
+      /function pathnameMatchesVocabSets\(pathname\) \{\n([\s\S]*?)\n\}/,
+    );
+    assert.ok(match, 'pathnameMatchesVocabSets is missing');
+    return new Function('pathname', match[1]);
+  }
+
+  it('places Bộ từ theo lớp first and links it to /admin/vocab/sets', () => {
+    const { source, entries } = vocabSubsections();
+    assert.ok(entries.length > 1, 'vocab subsections were not parsed');
+    assert.deepEqual(entries[0], {
+      slug: 'sets',
+      label: 'Bộ từ theo lớp',
+      href: '/admin/vocab/sets',
+    });
+    assert.equal(entries.filter((entry) => entry.slug === 'sets').length, 1);
+    assert.ok(entries.some((entry) => entry.slug === 'curated' && entry !== entries[0]));
+    assert.doesNotMatch(source, /FLASHCARD_MVP_ENABLED|flashcard_mvp|featureFlag|feature_flag/);
+    assert.doesNotMatch(source, /\/pages\/admin\/vocab\/sets/);
+  });
+
+  it('marks the sets item active on /admin/vocab/sets and nested paths only', () => {
+    const matches = pathnameMatchesVocabSets();
+    for (const pathname of [
+      '/admin/vocab/sets',
+      '/admin/vocab/sets/',
+      '/admin/vocab/sets/abc',
+      '/admin/vocab/sets/abc/def',
+    ]) {
+      assert.equal(matches(pathname), true, pathname);
+    }
+    for (const pathname of [
+      '/admin/vocab',
+      '/admin/vocab/',
+      '/admin/vocab/set',
+      '/admin/vocab/sets-extra',
+      '/admin/vocab/curated',
+      '/admin/vocab/topics',
+      '/admin/vocabulary/sets',
+      '/admin/vocab/sets?tab=1',
+      'https://example.com/admin/vocab/sets',
+      '',
+      null,
+      undefined,
+    ]) {
+      assert.equal(matches(pathname), false, String(pathname));
+    }
+
+    const calls = CHROME_JS.match(/this\._resolveSubsection\(this\.getAttribute\('subsection'\), active\)/g) || [];
+    assert.equal(calls.length, 2, 'connect and attribute changes must both resolve the subsection');
+    assert.match(
+      CHROME_JS,
+      /_resolveSubsection\(value, active\) \{\s*const explicit = this\._normalizeSubsection\(value, active\);\s*if \(explicit\) return explicit;\s*if \(active === 'vocab' && pathnameMatchesVocabSets\(currentPathname\(\)\)\) return 'sets';\s*return null;\s*\}/,
+    );
+    assert.match(CHROME_JS, /renderSubItem\(item\.section, sub, sub\.slug === subsection\)/);
+    assert.doesNotMatch(
+      CHROME_JS.slice(CHROME_JS.indexOf('_resolveSubsection(value, active)')),
+      /FLASHCARD_MVP_ENABLED|flashcard_mvp/,
+    );
+  });
+});
