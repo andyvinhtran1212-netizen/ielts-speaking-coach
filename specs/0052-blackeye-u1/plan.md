@@ -41,6 +41,7 @@ mới chỉ bắt đầu sau khi spec được merge vào `staging` ở trạng 
 | FR-013 | `_ListeningRoute` (422 làm sạch cho `blackeye_binding`, `no-store`), `BlackEyeRevisionBinding.opaque_answer_identity` (UUID) | `test_n2_t11_opaque_ids_independent_of_identical_answers_and_digest`, `test_n2_t02_…`, `test_n2_t07_…` |
 | FR-014 | Nhánh chung giữ nguyên; `run_in_threadpool` cho `_resolve_attempt_target`, `_programme_guided_context`; xóa 3 dòng `backend/tests/sync_in_async_allowlist.tsv` | `test_n2_t12_generic_http_receipts_remain_unchanged`, `test_f1_generic_dictation_still_grades_and_saves`, `test_r2_legacy_dispatch_has_no_catalog_io_or_missing_test_keyerror`, `test_r2_frozen_generic_dispatch_reads_identity_once_not_live_catalog`; `test_listening_router.py`, `test_class_archive_listening_submit_snapshot.py` (chỉnh 1–2 dòng) |
 | FR-015 | `docs/proposals/blackeye-u1/admission.sql`, `docs/proposals/blackeye-u1/README.md` | `backend/tests/test_blackeye_admission_proposal_static.py` |
+| FR-026, FR-027 (R2) | Chưa có trong head `3a7d494e2`; PR1 dựng lại (T001) phải thêm: lọc Black Eye ở route admin chung, nhánh 422/503 ở route kiểm kê, 404 khác chủ ở FR-005/FR-009, `search_path = pg_catalog, pg_temp` trong `admission.sql` | Ma trận quyền, ma trận IDOR, test kiểm kê route, test sentinel log/`error_logs`/Sentry, test tĩnh `admission.sql` |
 | (không FR) | `evidence/blackeye-u1-s0/record_tests.py`, `evidence/blackeye-u1-s0/test_s0_characterization.py`, `evidence/blackeye-u1-s0/tests.md`, `handoffs/LISTENING-BLACKEYE-V5-UNIT1-S0-FINDINGS-20261110.md` | Q-6: đề xuất bỏ khỏi PR |
 
 ## Data and contracts
@@ -57,7 +58,7 @@ Route Black Eye (PR1 trừ khi ghi khác). Mọi response Black Eye mang
 | PATCH `/api/listening/tests/attempts/{attempt_id}/answers` | `{q_num:int, user_answer:string}` → `BlackEyeSaveAck` | 422, 409, 503 |
 | POST `/api/listening/tests/attempts/{attempt_id}/submit` | — → `BlackEyeAttemptState` | 409, 422, 503 |
 | GET `/api/listening/tests/attempts/{attempt_id}` | — → `BlackEyeAttemptState` | 404, 422, 503 |
-| GET `/api/listening/tests/attempts/{attempt_id}/review` | — → `BlackEyeActivityReview` | 403, 409, 503 |
+| GET `/api/listening/tests/attempts/{attempt_id}/review` | — → `BlackEyeActivityReview` | 404 khác chủ, 409, 503 |
 | GET `/admin/cohorts/{cohort_id}/assignments/{assignment_id}/items/{item_id}/listening-review` | — → `BlackEyeActivityReview` | 403, 404, 409, 503 |
 | GET guided-state, POST reveal, POST check | — | 422 trước mọi đọc bảo vệ |
 | GET `/api/listening/tests/{test_id}`, POST `…/playback-started` | — | 503 tạm (PR2 thay bằng DTO dương, Q-11) |
@@ -72,9 +73,52 @@ Route Black Eye (PR1 trừ khi ghi khác). Mọi response Black Eye mang
   `mock_paper_attempt_snapshots.paper_row` (metadata `blackeye`,
   `blackeye_context`, `blackeye_db_revisions`) và `marking_rows` (dữ liệu bảo
   vệ). Ánh xạ revision chuỗi ↔ số DB phải tường minh (S0 §6).
-- RLS/quyền: không đổi so với migration 306; RPC đề xuất chỉ `service_role`.
+- RLS/quyền: không đổi so với migration 306; RPC đề xuất chỉ `service_role`,
+  `SET search_path = pg_catalog, pg_temp` (spec, mục bảo mật); bất biến
+  PostgREST/Realtime theo spec.
 - Migration: xem spec "Thay đổi dữ liệu, config, migration". Không cấp số.
 - OpenAPI: PR1 đăng ký response model thật; `frontend/types/api.d.ts` phải khớp.
+
+### Kiểm kê route (FR-011, FR-027)
+
+Allowlist route Black Eye: các route ở bảng trên. Route chung nhận
+`attempt_id`, `test_id`, `content_id`, `exercise_id`, `programme_id` hoặc
+`lesson_id` mà không thuộc allowlist phải trả 422/503 với dữ liệu Black Eye
+trước mọi đọc bảo vệ và mọi ghi; test kiểm kê duyệt `app.routes` và fail khi
+có route mới chưa xếp loại.
+
+| Route chung | PR1 | Từ PR2 |
+| --- | --- | --- |
+| GET/PATCH `/api/listening/tests/attempts/{attempt_id}/review-flags` | 422 | 422 |
+| POST `/api/mock-corrections/{skill}/attempts/{attempt_id}/post-test-capture` | 422 | 422 |
+| POST `/api/mock-corrections/{skill}/attempts/{attempt_id}/items/{q}/events` | 422 | 422 |
+| POST `/api/listening/tests/attempts/{attempt_id}/renderer-affinity` | 503 | 503 hoặc nhánh Black Eye được duyệt |
+| GET `/api/listening/tests/{test_id}/practice-windows` | 503 | 503 hoặc nhánh Black Eye được duyệt |
+| GET `/api/listening/programmes/{programme_id}/lessons`, `…/lessons/{lesson_id}` | loại Black Eye hoặc 503 | như PR1 |
+| backfill, update, update due, delete, return bài giao Black Eye | 503 trước mọi ghi | chỉ route Black Eye, quyền FR-027 |
+
+### Ma trận quyền FR-027 (vai × route × kết quả)
+
+Vai: **C** = người tạo bài giao (PR1) / người có quyền FR-027 của cohort đó
+(PR2); **G** = admin toàn cục không có quyền FR-027 với cohort; **O** = người
+có quyền FR-027 ở cohort khác; **S** = học viên (cả chủ attempt và học viên
+khác). "Không có dòng Black Eye" nghĩa là response không chứa attempt, test,
+email, tên hay trạng thái Black Eye nào.
+
+| Route | C | G | O | S |
+| --- | --- | --- | --- | --- |
+| GET `/admin/cohorts/{cohort_id}/assignments/{assignment_id}/items/{item_id}/listening-review` | 200 | 403 | 404 | 401/403 |
+| GET `/admin/listening/attempts` | không có dòng Black Eye (PR1); PR2 chỉ khi có quyền | không có dòng Black Eye | không có dòng Black Eye | 401/403 |
+| GET `/admin/listening/attempts/{attempt_id}` (attempt Black Eye) | 404 (PR1); PR2 chỉ khi có quyền | 404 | 404 | 401/403 |
+| Trang học viên admin (`student_service`) | không có dòng Black Eye (PR1) | không có dòng Black Eye | không có dòng Black Eye | 401/403 |
+| Tổng quan admin (`admin_overview`), `cohort_progress_aggregator` | không có dữ liệu Black Eye (PR1) | không có dữ liệu Black Eye | không có dữ liệu Black Eye | 401/403 |
+| `student_work`, `assignment_tally`, `class_action_log` | 503/không có Black Eye (PR1); PR2 200 | 403 hoặc không có Black Eye | 404 hoặc không có Black Eye | 401/403 |
+| Catalog, tạo, biên nhận bài giao Black Eye | 503 (PR1); PR2 200 | 403 | 404 | 401/403 |
+| Bảng tiến độ course 2 (PR2) | 200 | 403 | 404 | 401/403 |
+| Route học viên với attempt của người khác | 404 | 404 | 404 | 404 (khác chủ) |
+
+Mỗi ô là một test; ô "không có dòng Black Eye" kiểm bằng fixture có cả dữ liệu
+Black Eye và dữ liệu thường, và spy không đọc snapshot/`marking_rows`.
 
 ## UI and interaction
 

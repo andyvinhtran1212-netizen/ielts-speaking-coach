@@ -17,7 +17,8 @@
 
 - Promote `staging` → `main` cần quyết định riêng.
 - Giao bài cho học viên thật course 2 là bước release riêng (T014, FR-025): anh Vinh duyệt đúng SHA, migration, revision nội dung, danh sách audio. Merge PR1/PR2 không bật việc này.
-- Đọc lại sau release: chỉ học viên course 2 nhận bài; không lỗi quyền.
+- Security Auditor ký phiếu cho đúng bản release (T014).
+- Đọc lại sau release theo 5 hậu kiểm của T014: danh sách quyền course 2 đúng; admin toàn cục không được gán không thấy dữ liệu Black Eye; payload học viên không có `answer_set_revision`/đáp án trước nộp (tài khoản giả/canary, không đọc dữ liệu học viên thật); log/`error_logs`/Sentry không có câu trả lời hay PII; bước tắt đã thử trên staging.
 
 ## Rollback and repair
 
@@ -27,6 +28,6 @@
 
 ## Observability
 
-- Theo dõi 503 "Black Eye frozen contract unavailable" và 422/409 theo route, kèm request id, không log câu trả lời hay PII.
+- Theo dõi 503 "Black Eye frozen contract unavailable" và 422/409 theo route, kèm request id; không đưa câu trả lời, đáp án, transcript hay PII vào log, `error_logs`, Sentry hay URL (FR-026).
 - Ngưỡng: 503 Black Eye > 1% request trong 1 giờ khi đã bật cho học viên → Release Manager báo Leader.
 - Owner: Release Manager (sau release), web-qa (staging).

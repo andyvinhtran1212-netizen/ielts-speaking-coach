@@ -21,8 +21,8 @@ Vì sao có spec này: PR #2279 (`blackeye-u1-pr1`, head
 `3a7d494e21baa52da10092ac99f65f67a8869be1`) thêm route, kiểm quyền và lưu kết
 quả, nên là `high-risk`. Check "Spec and PR metadata"
 (`backend/scripts/validate_specs.py`) bắt buộc PR high-risk có spec đã duyệt
-trên base `staging`. Anh Vinh chốt (handoff t1594u §5.1): không hạ loại PR,
-không mượn spec khác, không sửa validator. Spec này mô tả đúng phạm vi PR1 đang
+trên base `staging`. Handoff anh Vinh gửi (t1594u/t1596u) §5.1 ghi: không hạ
+loại PR, không mượn spec khác, không sửa validator. Spec này mô tả đúng phạm vi PR1 đang
 có, và vẽ ranh giới cho PR2 và các PR sau.
 
 Theo `specs/README.md`, spec phải được merge vào `staging` ở trạng thái
@@ -221,20 +221,20 @@ PR #2279 (bảng ánh xạ ở plan.md).
 - **FR-002:** [PR1] `GET /api/listening/source-collections/blackeye-v5-upper/units/U1` yêu cầu đăng nhập và trả `BlackEyeUnitPublic` chỉ gồm activity có test và gói nội dung đều `published`, `is_public` và đúng programme; chỉ chứa trường trong allowlist công khai (không đáp án, giải thích, transcript, bằng chứng, verdict, đường dẫn riêng); trùng activity, dữ liệu hỏng hoặc rỗng trả 503; header `Cache-Control: private, no-store`.
 - **FR-003:** [PR1] A8, A14, A19 luôn có `readiness=locked`, `selectable=false` và lý do lần lượt `audio_incomplete_download`, `audio_not_found`, `original_options_unreviewed`; model từ chối dữ liệu trái điều này; start cho activity khóa hoặc chưa `ready` trả 422 trước khi tạo attempt; activity khóa không có attempt giả và không vào mẫu số hoàn thành.
 - **FR-004:** [PR1] `POST /api/listening/tests/{test_id}/attempts?standalone=true` cho test Black Eye (server nhận ra từ dữ liệu test, không từ trường client) bắt buộc `blackeye_binding: BlackEyeLearnerBinding`; thiếu, null, sai dạng hoặc sai định danh trả 422; revision nội dung/policy cũ trả 409; có khóa `answer_set_revision` trả 422 giống hệt nhau với mọi giá trị; `blackeye_binding` gửi tới test không phải Black Eye trả 422; caller cũ không gửi trường này giữ nguyên hành vi; admission chỉ qua RPC service-only `fn_acquire_blackeye_attempt` và trả `BlackEyeAttemptState`; `class_item`, sitting hoặc purpose khác `practice` trả 503/422 trong PR1.
-- **FR-005:** [PR1] `PATCH /api/listening/tests/attempts/{attempt_id}/answers` cho attempt Black Eye kiểm `q_num` theo bản đồ ô đã đóng băng, kiểm codec ô KEEP/CHANGE `{version:'blackeye_keep_change_v1', action, correction_text}` (không thêm khóa, không trùng khóa), lưu nguyên văn không sửa ký tự nào, trả `BlackEyeSaveAck` với `performance_event_recorded=false`; giá trị sai dạng trả 422, không rơi về đường text cũ; attempt hết hạn hoặc không còn `in_progress` trả 422; attempt được giao trả 503 trong PR1.
+- **FR-005:** [PR1] `PATCH /api/listening/tests/attempts/{attempt_id}/answers` cho attempt Black Eye chỉ cho chủ attempt (khác chủ, kể cả admin toàn cục, trả 404 trước mọi đọc snapshot và mọi ghi), kiểm `q_num` theo bản đồ ô đã đóng băng, kiểm codec ô KEEP/CHANGE `{version:'blackeye_keep_change_v1', action, correction_text}` (không thêm khóa, không trùng khóa), lưu nguyên văn không sửa ký tự nào, trả `BlackEyeSaveAck` với `performance_event_recorded=false`; giá trị sai dạng trả 422, không rơi về đường text cũ; attempt hết hạn hoặc không còn `in_progress` trả 422; attempt được giao trả 503 trong PR1.
 - **FR-006:** [PR1] Importer và đường lưu cho phép 1..48 ô trả lời chỉ khi programme đúng Black Eye và bản đồ ô hợp lệ khớp `source_item_id`; A13 phải đúng 48 ô trong một activity và một lần nộp; 49 ô, trùng, thiếu hoặc lệch số bị từ chối; form chung giữ `MAX_FORM_ITEMS=40` và nguyên thông báo lỗi cũ; gắn dữ liệu Black Eye vào form chung bị từ chối.
 - **FR-007:** [PR1] `POST /api/listening/tests/attempts/{attempt_id}/submit` cho attempt Black Eye chuyển `in_progress` → `submitted` bằng một lệnh cập nhật có điều kiện (đúng chủ, đúng trạng thái, đúng bộ đáp án, chưa hết hạn), lưu `result_summary` báo cáo `{submitted:true, item_count, blank_count, unscored_count=item_count, objective_denominator:0, score:null, band_estimate:null}`; đọc lại bản chuẩn sau khi ghi; nộp lại một attempt đã nộp trả đúng trạng thái đã lưu mà không chấm lại hay đọc catalog hiện tại; thua race trả 409.
 - **FR-008:** [PR1] `GET /api/listening/tests/attempts/{attempt_id}` và `GET /api/listening/tests/{test_id}/attempts/in-progress` cho Black Eye chỉ trả cho chủ attempt `BlackEyeAttemptState` / `BlackEyeInProgress` dựng từ snapshot đã đóng băng, không có đáp án hay tài liệu bảo vệ; tra cứu in-progress có `class_item`, sitting hoặc không standalone trả 503 trong PR1; `result_summary` lệch so với tính lại từ snapshot trả 503.
-- **FR-009:** [PR1] `GET /api/listening/tests/attempts/{attempt_id}/review` cho Black Eye: chỉ chủ attempt (khác chủ 403), chỉ khi đã nộp (409), kiểm test vẫn published và snapshot khớp revision trước khi đọc `marking_rows`; trả `BlackEyeActivityReview` gồm câu trả lời đã lưu, cờ trống, `source_status`, `scoring_mode='SELF-CHECK'`, `academic_verdict`, đáp án tham chiếu, nguồn gốc đáp án, giải thích tiếng Việt, ghi chú giới hạn (bắt buộc với UNRESOLVED/DISAGREEMENT) và transcript của đúng activity không có mốc thời gian; audio `url=null`, `granularity='whole_activity'`; lỗi tải chữa bài trả 503 và không đổi bài đã nộp.
-- **FR-010:** [PR1] `GET /admin/cohorts/{cohort_id}/assignments/{assignment_id}/items/{item_id}/listening-review` yêu cầu admin, đúng cohort, đúng người tạo bài giao (`assigned_by`), đúng item, item gắn đúng attempt Listening của đúng học viên và attempt đã nộp, rồi mới đọc dữ liệu bảo vệ; admin toàn cục không phải người tạo bị 403; sai cohort/item 404; trả `BlackEyeActivityReview`, `private, no-store`.
-- **FR-011:** [PR1] Với mọi attempt hoặc test Black Eye: guided-state, reveal và check trả 422 trước mọi lần đọc dữ liệu bảo vệ; chấm theo section qua `content_id`/`exercise_id` trả 422 trước khi đọc transcript, chấm hay ghi; player `GET /api/listening/tests/{test_id}`, `playback-started` và admin preview không bao giờ dùng bộ dựng payload chung và trả 503 tạm thời; các route chính tả trả 422 "requires separate release".
-- **FR-012:** [PR1] Đường giao bài Black Eye đóng trong PR1: `GET /admin/cohorts/{cohort_id}/listening-source-catalog`, `POST /admin/cohorts/{cohort_id}/listening-source-assignments`, `GET /admin/cohorts/{cohort_id}/listening-source-assignments/{assignment_id}` yêu cầu admin rồi trả 503; giao bài chung (`create_assignment` ở router và `create_class_assignment` ở service) với test Black Eye trả 503 trước mọi kiểm tra hay ghi khác.
-- **FR-013:** [PR1] `answer_set_revision` (UUID mờ, không suy ra từ nội dung đáp án, không phải hash duyệt) không bao giờ xuất hiện trên bề mặt học viên hay giáo viên, kể cả body lỗi, header và `paper_revision` có thể đổi theo answer set; lỗi validate của `blackeye_binding` trả 422 chung không lặp lại giá trị gửi lên; mọi response Black Eye mang `Cache-Control: private, no-store`.
+- **FR-009:** [PR1] `GET /api/listening/tests/attempts/{attempt_id}/review` cho Black Eye: chỉ chủ attempt (khác chủ, kể cả admin toàn cục, trả 404 giống FR-008, không xác nhận attempt tồn tại), chỉ khi đã nộp (409), kiểm test vẫn published và snapshot khớp revision trước khi đọc `marking_rows`; trả `BlackEyeActivityReview` gồm câu trả lời đã lưu, cờ trống, `source_status`, `scoring_mode='SELF-CHECK'`, `academic_verdict`, đáp án tham chiếu, nguồn gốc đáp án, giải thích tiếng Việt, ghi chú giới hạn (bắt buộc với UNRESOLVED/DISAGREEMENT) và transcript của đúng activity không có mốc thời gian; audio `url=null`, `granularity='whole_activity'`; lỗi tải chữa bài trả 503 và không đổi bài đã nộp.
+- **FR-010:** [PR1] `GET /admin/cohorts/{cohort_id}/assignments/{assignment_id}/items/{item_id}/listening-review` yêu cầu admin, đúng cohort, đúng người tạo bài giao (`assigned_by`), đúng item, item gắn đúng attempt Listening của đúng học viên và attempt đã nộp, rồi mới đọc dữ liệu bảo vệ; admin toàn cục không phải người tạo bị 403; sai cohort/item 404; trả `BlackEyeActivityReview`, `private, no-store`. Giáo viên và admin chỉ **đọc**: trong PR1/PR2 không có đường nào cho họ ghi điểm, sửa câu trả lời hay mở lại bài Black Eye của học viên. Từ PR2, người được phép đọc theo FR-027.
+- **FR-011:** [PR1] Với mọi attempt hoặc test Black Eye: guided-state, reveal và check trả 422 trước mọi lần đọc dữ liệu bảo vệ; chấm theo section qua `content_id`/`exercise_id` trả 422 trước khi đọc transcript, chấm hay ghi; player `GET /api/listening/tests/{test_id}`, `playback-started` và admin preview không bao giờ dùng bộ dựng payload chung và trả 503 tạm thời; các route chính tả trả 422 "requires separate release". **Deny-by-default:** mọi route nhận `attempt_id`, `test_id`, `content_id`, `exercise_id`, `programme_id` hoặc `lesson_id` mà gặp dữ liệu Black Eye phải nằm trong allowlist route Black Eye (plan.md "Kiểm kê route") hoặc trả 422/503 trước mọi đọc dữ liệu bảo vệ và mọi ghi; gồm cả `GET/PATCH /api/listening/tests/attempts/{attempt_id}/review-flags`, `POST /api/mock-corrections/{skill}/attempts/{attempt_id}/post-test-capture`, `POST /api/mock-corrections/{skill}/attempts/{attempt_id}/items/{q}/events`, `POST /api/listening/tests/attempts/{attempt_id}/renderer-affinity`, `GET /api/listening/tests/{test_id}/practice-windows`, `GET /api/listening/programmes/{programme_id}/lessons` và `GET /api/listening/programmes/{programme_id}/lessons/{lesson_id}`; một test kiểm kê duyệt `app.routes` và fail khi có route nhận các tham số trên mà chưa được xếp vào allowlist hoặc chưa có test 422/503 với fixture Black Eye.
+- **FR-012:** [PR1] Đường giao bài Black Eye đóng trong PR1: `GET /admin/cohorts/{cohort_id}/listening-source-catalog`, `POST /admin/cohorts/{cohort_id}/listening-source-assignments`, `GET /admin/cohorts/{cohort_id}/listening-source-assignments/{assignment_id}` yêu cầu admin rồi trả 503; giao bài chung (`create_assignment` ở router và `create_class_assignment` ở service) với test Black Eye trả 503 trước mọi kiểm tra hay ghi khác; với bài giao Black Eye, các route chung bù người nhận (`backfill_assignment`), đổi trạng thái (`update_assignment`), đổi hạn (`update_assignment_due`), xóa (`delete_assignment`) và trả bài (`return_student_work`) trả 503 trước mọi ghi; mọi đường giao bài khác, kể cả luồng giao bài của ADMINSIMPLE-0049 khi được làm, gặp test Black Eye phải trả 503 qua cùng `assignment_seam` cho tới PR2.
+- **FR-013:** [PR1] `answer_set_revision` (UUID mờ, không suy ra từ nội dung đáp án, không phải hash duyệt) chỉ xuất hiện ở ba bề mặt giao bài của người có quyền theo FR-027: catalog (FR-016), request tạo bài giao và biên nhận (FR-017); không xuất hiện ở bảng tiến độ, chữa bài giáo viên, mọi bề mặt học viên (kể cả body lỗi, header và `paper_revision` có thể đổi theo answer set) hay đọc trực tiếp PostgREST/Realtime bằng JWT client; lỗi validate của `blackeye_binding` trả 422 chung không lặp lại giá trị gửi lên; mọi response Black Eye mang `Cache-Control: private, no-store`.
 - **FR-014:** [PR1] Caller không phải Black Eye giữ nguyên request, response và mã lỗi: `attempt_receipt` chung, importer 40 câu, chính tả chung vẫn chấm và lưu, attempt chẩn đoán cũ không có revision không thêm lần đọc catalog; ba dòng allowlist sync-in-async đã lỗi thời được xóa vì lời gọi đã chạy qua threadpool, không thêm dòng mới.
 - **FR-015:** [PR1] SQL đề xuất `docs/proposals/blackeye-u1/admission.sql` nằm ngoài `backend/migrations/`, không có số migration, không được runner hay workflow nào phát hiện (test tĩnh `backend/tests/test_blackeye_admission_proposal_static.py` khóa điều này) và chưa chạy ở đâu; khi RPC `fn_acquire_blackeye_attempt` chưa có, start Black Eye trả 503, không tạo attempt.
-- **FR-016:** [PR2] Admin đúng cohort xem `BlackEyeSourceCatalog = {inventory: BlackEyeUnitAdmin, eligible_recipient_ids, lookup_errors}`; `BlackEyeUnitAdmin` mang binding đủ 8 trường (có `answer_set_revision` mờ) và không trường bảo vệ nào khác; học viên, admin cohort khác và admin toàn cục không được phép nhận 403/404; tra cứu học viên lỗi hiện lỗi, không hiện danh sách rỗng.
-- **FR-017:** [PR2] Admin giao Unit 1 cho course 2 bằng `BlackEyeAssignmentCreate` (request_id, activity sẵn sàng, học viên, hạn nộp, `deadline_timezone='Asia/Ho_Chi_Minh'`, replay_policy) và nhận `BlackEyeAssignmentReceipt` với giá trị server đóng băng; trong một giao dịch: đóng băng danh sách activity có thứ tự, revision, người nhận, hạn, mẫu số hoàn thành; cùng request trả cùng biên nhận, khác dấu vân tay trả 409, revision cũ trả 409; activity khóa không chọn được; mở start/save/submit/review cho attempt được giao gắn đúng snapshot bài giao.
-- **FR-018:** [PR2] Bảng tiến độ của giáo viên/admin course 2 hiện, cho mỗi học viên × activity, một trạng thái lấy từ dữ liệu đã lưu: chưa bắt đầu, đang làm, đã nộp, quá hạn, không khả dụng; giờ nộp và số ô trống; không hiện điểm hay độ chính xác; chính tả là cột riêng; tải lại trang hiện cùng trạng thái; lỗi tra cứu hiện lỗi, không hiện 0.
+- **FR-016:** [PR2] Người có quyền giao bài cho course 2 theo FR-027 xem `BlackEyeSourceCatalog = {inventory: BlackEyeUnitAdmin, eligible_recipient_ids, lookup_errors}`; `BlackEyeUnitAdmin` mang binding đủ 8 trường (có `answer_set_revision` mờ) và không trường bảo vệ nào khác (đây là một trong ba bề mặt duy nhất có trường này, xem FR-013); học viên, người được cấp quyền lớp khác và admin toàn cục không có quyền FR-027 nhận 403/404; tra cứu học viên lỗi hiện lỗi, không hiện danh sách rỗng.
+- **FR-017:** [PR2] Người có quyền theo FR-027 giao Unit 1 cho course 2 bằng `BlackEyeAssignmentCreate` (request_id, activity sẵn sàng, học viên, hạn nộp, `deadline_timezone='Asia/Ho_Chi_Minh'`, replay_policy) và nhận `BlackEyeAssignmentReceipt` với giá trị server đóng băng; trong một giao dịch: đóng băng danh sách activity có thứ tự, revision, người nhận, hạn, mẫu số hoàn thành; cùng request trả cùng biên nhận, khác dấu vân tay trả 409, revision cũ trả 409; activity khóa không chọn được; mở start/save/submit/review cho attempt được giao gắn đúng snapshot bài giao. Mọi thay đổi bài giao Black Eye (bù người nhận, trạng thái, hạn, xóa, trả bài) chỉ đi qua route Black Eye, chỉ người có quyền theo FR-027, và giữ snapshot người nhận: bù người nhận tạo bài giao và biên nhận mới, ghi vào nhật ký lớp hiện có (`class_action_log`).
+- **FR-018:** [PR2] Bảng tiến độ, chỉ cho người có quyền đọc theo FR-027, hiện, cho mỗi học viên × activity, một trạng thái lấy từ dữ liệu đã lưu: chưa bắt đầu, đang làm, đã nộp, quá hạn, không khả dụng; giờ nộp và số ô trống; không hiện điểm hay độ chính xác; chính tả là cột riêng; tải lại trang hiện cùng trạng thái; lỗi tra cứu hiện lỗi, không hiện 0.
 - **FR-019:** [PR2] Màn học viên: danh sách Unit 1 hiện mọi activity; activity thiếu audio (A8, A14) và A19 có nhãn trạng thái rõ và nút "Bắt đầu" bị khóa (không bấm được, có lý do đọc được bằng trình đọc màn hình); runner hỗ trợ ô text và ô KEEP/CHANGE, bảng giữ ngữ cảnh hàng/cột, lưu có trạng thái đang lưu/đã lưu/lỗi, nộp có xác nhận ô trống; sau nộp hiện "Không chấm điểm tự động" thay cho điểm.
 - **FR-020:** [PR2] Màn chữa bài phía học viên và giáo viên đọc `BlackEyeActivityReview`: hiện câu trả lời đã lưu, đáp án tham chiếu kèm nguồn gốc (`literal_key`, `derived`, `editorial`), giải thích tiếng Việt, ghi chú giới hạn cạnh từng câu UNRESOLVED/DISAGREEMENT và transcript của đúng activity; thiếu đáp án hoặc giải thích hiện "chưa có", không bao giờ hiện là sai; trước khi nộp không có dữ liệu này trong JSON, HTML, SSR/RSC, cache, preload hay nhãn accessibility.
 - **FR-021:** [PR3+] Đáp án tham chiếu và giải thích là tài liệu bảo vệ, gắn với revision bất biến: mỗi câu có `source_item_id`, `source_status`, `academic_verdict`, `reference`, `reference_provenance`, `explanation_vi`, `limitation_vi`, `evidence_pointer`, cộng người viết, người nghiệm thu CM, thời điểm, tham chiếu anh Vinh duyệt answer set; chỉ revision đã được CM nghiệm thu và anh Vinh duyệt mới publish được; sửa nội dung tạo revision mới, không chấm lại hay sửa bài đã nộp.
@@ -242,7 +242,8 @@ PR #2279 (bảng ánh xạ ở plan.md).
 - **FR-023:** [PR3+] Chính tả Black Eye là bài bổ trợ tự chọn, tiến độ và điểm tách khỏi Listening, chấm theo 0011 lexical v2 với đoạn, câu và hash tham chiếu đã duyệt; cho tới khi anh Vinh xác nhận Q-2 và release 0011 v2 được duyệt, card chính tả hiện "Bổ trợ tự chọn / Chưa mở", start trả 422 và không có đường dự phòng chính tả cũ.
 - **FR-024:** [PR1, PR2, PR3+] Mọi kiểm thử trên staging chỉ dùng lớp giả và tài khoản giả do team sở hữu; không dùng roster, tài khoản hay dữ liệu bài làm của học viên course 2 thật; không gửi thông báo thật; test local dùng DB tạm của task và dữ liệu giả.
 - **FR-025:** [Release] Giao bài Black Eye cho học viên thật course 2 trên prod chỉ xảy ra sau một bước release riêng được anh Vinh duyệt cho đúng bản release (SHA, migration, gói nội dung đã duyệt, danh sách audio đã duyệt); merge PR1/PR2 vào staging hay promote code không tự bật việc này.
-- **FR-026:** [PR1, PR2, PR3+] Dữ liệu bài làm, tiến độ và đáp án: học viên chỉ đọc được dữ liệu của chính mình; chỉ giáo viên/admin được phép của course 2 đọc được dữ liệu học viên course 2; không log câu trả lời, đáp án, giải thích, transcript, email hay tên học viên; Security Auditor review spec này và mọi PR Black Eye trước khi merge.
+- **FR-026:** [PR1, PR2, PR3+] Dữ liệu bài làm, tiến độ và đáp án: học viên chỉ đọc được dữ liệu của chính mình (test ma trận IDOR: học viên B dùng `attempt_id`/`test_id` của học viên A trên GET state, GET in-progress, PATCH answers, submit, review, playback-started, renderer-affinity, review-flags, mock-corrections nhận 404, không đọc `marking_rows`/snapshot, không ghi; admin toàn cục gọi route học viên với attempt người khác cũng 404); chỉ người có quyền theo FR-027 đọc được dữ liệu học viên course 2; không đưa câu trả lời, đáp án, giải thích, transcript, email, tên hay `user_id` thô của học viên vào bất kỳ nơi ghi nào (logging Python mọi mức, bảng `error_logs` qua handler lỗi backend và `POST /api/error-logs`, Sentry message/exception/breadcrumb/extra, access log/URL), có test sentinel cho `caplog`, insert `error_logs` và event Sentry qua `before_send`; Security Auditor review spec này và mọi PR Black Eye trước khi merge.
+- **FR-027:** [PR1, PR2] Nguồn quyền đọc và giao bài Black Eye cho nhân sự (theo Q-9 đã duyệt: giáo viên được gán course 2 và admin có quyền cohort rõ, không admin toàn cục): PR1 chỉ `class_assignments.assigned_by = actor`, actor là admin đang active đã qua AAL2 (ADMINAAL2-0032); từ PR2 là một danh sách cấp quyền tường minh theo lớp, mặc định rỗng là từ chối, mỗi lần cấp hoặc thu có người cấp, thời điểm và nhật ký; `users.role='admin'` một mình không bao giờ đủ. Mọi route admin/giáo viên chung đọc `listening_test_attempts`, `class_assignment_items` hoặc snapshot (`GET /admin/listening/attempts`, `GET /admin/listening/attempts/{attempt_id}`, trang học viên admin `student_service`, tổng quan admin `admin_overview`, `cohort_progress_aggregator`, `student_work`, `assignment_tally`, `class_action_log`) phải loại attempt và test Black Eye hoặc áp đúng kiểm quyền này **trước** khi đọc; có test ma trận vai × route × kết quả (plan.md "Ma trận quyền FR-027"): không ai ngoài người được phép đọc được dữ liệu Black Eye, kể cả email, tên hay trạng thái.
 
 ## Acceptance scenarios
 
@@ -282,11 +283,11 @@ PR #2279 (bảng ánh xạ ở plan.md).
 - **When** gọi guided-state, reveal, check, chấm section theo content hoặc exercise, player GET, playback-started, chính tả
 - **Then** mỗi route trả mã đã định (422 hoặc 503) trước mọi lần đọc `marking_rows`, transcript hay ký media, và không ghi bảng nào
 
-### Scenario 7: Giáo viên chỉ xem được đúng bài (FR-010, FR-026)
+### Scenario 7: Giáo viên chỉ xem được đúng bài (FR-010, FR-026, FR-027)
 
-- **Given** bài giao giả trong cohort A do admin X tạo, học viên đã nộp
-- **When** admin X, admin Y (toàn cục, không phải người tạo), admin cohort B và học viên gọi route chữa bài của giáo viên
-- **Then** chỉ X nhận `BlackEyeActivityReview` không có `answer_set_revision`; Y nhận 403, cohort B nhận 404, học viên bị từ chối; không ai ngoài X làm đọc dữ liệu bảo vệ
+- **Given** bài giao giả trong cohort A do admin X tạo, học viên đã nộp; admin Y là admin toàn cục không có quyền FR-027 với cohort A; admin Z có quyền FR-027 với cohort B (từ PR2)
+- **When** X, Y, Z và học viên gọi route chữa bài của giáo viên, và Y gọi `GET /admin/listening/attempts` cùng các route admin chung ở FR-027
+- **Then** chỉ X nhận `BlackEyeActivityReview` không có `answer_set_revision`; Y nhận 403 ở route chữa bài và không thấy dòng Black Eye nào ở route chung; Z nhận 404; học viên bị từ chối; không ai ngoài X làm đọc dữ liệu bảo vệ
 
 ### Scenario 8: Đường giao bài đóng trong PR1 (FR-012)
 
@@ -396,26 +397,51 @@ Em tự đối chiếu; mục này không được chấm điểm."
   `paper_revision` hay số DB nào trên bề mặt học viên đổi khi chỉ answer set
   đổi (MV1 §3). Test bắt buộc N2-T01…T12 (MV1 §5); MV1 chỉ đóng khi
   web-security chạy lại các test này trên đúng commit. **MV1 vẫn OPEN.**
-- **Quyền:** học viên chỉ đọc attempt, tiến độ và chữa bài của chính mình. Chỉ
-  giáo viên/admin được phép của course 2 đọc dữ liệu học viên course 2 (PR1:
-  chỉ người tạo bài giao; mở rộng chờ Q-9). Không có đường vượt quyền cho
-  admin toàn cục. Kiểm chủ/cohort/bài giao/item/nộp/revision **trước** khi đọc
+- **Quyền:** học viên chỉ đọc attempt, tiến độ và chữa bài của chính mình
+  (FR-026, ma trận IDOR). Nhân sự đọc hay giao bài theo đúng nguồn quyền
+  FR-027: PR1 chỉ người tạo bài giao; PR2 theo danh sách cấp quyền tường minh
+  của course 2 (Q-9 đã duyệt). Vai admin toàn cục một mình không đủ; route
+  admin chung phải loại Black Eye hoặc kiểm FR-027 trước khi đọc. Kiểm chủ/cohort/bài giao/item/nộp/revision **trước** khi đọc
   dữ liệu bảo vệ hoặc ký media (S0 N6).
 - **Dữ liệu bảo vệ:** chỉ server-side, qua service role; RLS và quyền trên
-  attempt/snapshot giữ như migration 306; RPC mới (đề xuất) chỉ cấp cho
-  `service_role`, `REVOKE` khỏi `PUBLIC`, `anon`, `authenticated`. Không ẩn
-  bằng CSS.
+  attempt/snapshot giữ như migration 306. Không ẩn bằng CSS.
+- **PostgREST/Realtime:** bề mặt học viên gồm cả đọc trực tiếp bằng JWT học
+  viên. Bất biến: không có policy cho `anon`/`authenticated` trên
+  `listening_tests`, `listening_content_packages`,
+  `mock_paper_attempt_snapshots` và view `listening_public_practice_catalog`;
+  `answer_set_revision` (nằm trong `listening_tests.metadata.blackeye.binding`)
+  không nằm ở cột nào client đọc được; `paper_revision`/`policy_revision` trên
+  `listening_test_attempts` không đổi khi chỉ answer set đổi. Test catalog chỉ
+  đọc (`pg_policies`, grant bảng/cột) khóa các bất biến này. Thu hồi GRANT
+  SELECT thừa của `anon`/`authenticated` trên `listening_tests` ảnh hưởng mọi bài
+  Listening, nên là migration riêng cần Security Auditor và anh Vinh duyệt.
+- **Hàm/trigger `SECURITY DEFINER` của Black Eye** (gồm RPC
+  `fn_acquire_blackeye_attempt` và trigger admission đề xuất): `SET search_path
+  = pg_catalog, pg_temp`, mọi bảng ghi `public.`, hàm catalog ghi
+  `pg_catalog.`; `REVOKE ALL … FROM PUBLIC, anon, authenticated`; chỉ `GRANT
+  EXECUTE … TO service_role`; test tĩnh
+  (`backend/tests/test_blackeye_admission_proposal_static.py`) khóa các điều này.
 - **Cache:** mọi response Black Eye `private, no-store`.
-- **Log/PII:** không log câu trả lời, đáp án, giải thích, transcript, email,
-  tên hay `user_id` thô của học viên trong log ứng dụng mới; lỗi trả chuỗi đã
-  làm sạch.
-- **Security Auditor (bắt buộc, t1600u):** review spec này trước khi duyệt, và
+- **Log/PII:** không đưa câu trả lời, đáp án, giải thích, transcript, email,
+  tên hay `user_id` thô của học viên vào **bất kỳ** nơi ghi nào: logging Python
+  mọi mức, bảng `error_logs` (handler lỗi backend và `POST /api/error-logs` từ
+  frontend), Sentry (message, exception, breadcrumb, extra), access log/URL
+  (câu trả lời chỉ đi trong body PATCH, không trong query). Exception trong code
+  Black Eye chỉ mang mã lỗi và id mờ, không mang giá trị. Cấu hình Sentry hiện
+  có (`send_default_pii=False`, `include_local_variables=False`,
+  `max_request_body_size="never"`, `before_send`) phải giữ. Test sentinel ở
+  FR-026.
+- **Security Auditor (bắt buộc; Leader yêu cầu khi chuyển t1600u, anh Vinh duyệt
+  cùng spec ở t1601s5314):** review spec này trước khi duyệt, và
   review mọi PR Black Eye (PR1, PR2, PR3+, PR migration) trước khi merge: RLS và
   quyền, dữ liệu tiến độ và bài làm, chỉ giáo viên/admin course 2 xem được,
   học viên chỉ thấy dữ liệu mình, log/PII. Đây là cổng review riêng, không thay
   web-reviewer hay Code Reviewer.
-- Lưu giữ dữ liệu và thông báo/đồng ý của học viên thật: chưa quyết (Q-13,
-  Q-14).
+- Thông báo và đồng ý của học viên thật: đã quyết theo Q-13 (t1601s5314):
+  không gửi thông báo tự động, giáo viên course 2 báo lớp theo cách hiện có,
+  không cần đồng ý riêng ngoài điều khoản hiện tại, dữ liệu chỉ dùng cho học
+  tập trong lớp. Lưu giữ dữ liệu: đã quyết theo Q-14: như các bài Listening
+  khác, không xóa tự động, xóa theo luật lưu trữ học viên hiện có (0029).
 
 ## Rủi ro
 
@@ -590,3 +616,12 @@ spec 0052 và Q-1..Q-16 theo đề xuất; FD mở PR spec".
 - 10/11/2026 17:50 (Asia/Saigon), t1601s5314: anh Vinh duyệt spec và Q-1..Q-16
   theo đề xuất; status draft → approved; thêm `approval-decision.md`. Không đổi
   phạm vi hay FR.
+- 10/11/2026, R2 theo SA-2280-R1 (Security Auditor, head
+  343ef6e60) và CR P3 (reviews/PR-2280.md): thêm FR-027 nguồn quyền nhân sự và
+  route admin chung (F01); log/PII mọi nơi ghi (F02); ma trận IDOR, FR-005 chỉ
+  chủ, FR-009 khác chủ 404 (F03); FR-011 deny-by-default và kiểm kê route
+  (F04); bất biến PostgREST (F05); `search_path = pg_catalog, pg_temp` (F06);
+  route chung bù người nhận/trạng thái/hạn/xóa/trả bài, giáo viên chỉ đọc
+  (F07); điều kiện T014 (F08); FR-013 và FR-016 thống nhất bề mặt (F09); ghi
+  Q-13/Q-14 đã quyết; sửa nguồn câu "không hạ loại PR" và cổng Security
+  Auditor (CR P3). Không đổi quyết định Q-1..Q-16.
