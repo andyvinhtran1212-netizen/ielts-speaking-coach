@@ -80,7 +80,7 @@ Câu word-form có thể hỏi bất kỳ dạng nào. Sau khi nhận diện dan
 
 | Hậu tố | Nghĩa | Ví dụ |
 |---|---|---|
-| **-ize / -ise** | làm cho trở thành | modern → modernize, real → realize, organ → organize |
+| **-ize / -ise** | làm cho trở thành | modern → modernize, real → realize, global → globalize |
 | **-en** | làm cho … hơn | wide → widen, strength → strengthen, short → shorten |
 | **-ify** | làm cho | simple → simplify, pure → purify, class → classify |
 
@@ -97,6 +97,7 @@ Lưu ý các trường hợp đặc biệt:
 - Tính từ tận cùng *-le*: gentle → gent**ly**; *-ic*: basic → basic**ally**
 - Một số từ **giống nhau** ở dạng tính từ và trạng từ: *fast, hard, early, late* (*a fast car / drive fast*)
 - **hardly** ≠ hard: *hardly* = hầu như không (nghĩa khác hẳn)
+- **lately** ≠ late: *lately* = gần đây (*I haven't slept well lately*)
 
 <!-- anchor: word-formation-verbs-and-adverbs.prefix -->
 ### Tiền tố đổi nghĩa: un- / dis- / re- / en-
@@ -116,7 +117,7 @@ Lưu ý các trường hợp đặc biệt:
 <!-- anchor: word-formation-verbs-and-adverbs.pitfall -->
 ## Lỗi thường gặp
 
-### Lỗi 1: Dùng tính từ ở vị trí cần trạng từ
+### Lỗi 1: Dùng tính từ thay trạng từ — và nhầm hard/hardly
 
 - ❌ He works *hardly*. *(hardly = hầu như không!)*
 - ✅ He works **hard**.
@@ -139,7 +140,11 @@ Lưu ý các trường hợp đặc biệt:
 
 ## Bài tập luyện
 
-1. modern (adj) → động từ? 2. careful (adj) → trạng từ? 3. agree → dạng phủ định? 4. strong → động từ? 5. simple → động từ?
+1. modern (adj) → động từ?
+2. careful (adj) → trạng từ?
+3. agree → dạng phủ định?
+4. strong → động từ?
+5. simple → động từ?
 
 ### Đáp án
 1. modernize 2. carefully 3. disagree 4. strengthen 5. simplify

@@ -120,8 +120,8 @@ Subject + be (chia theo thì) + past participle + (by + agent)
 
 | | Câu | Phân tích |
 |--|-----|-----------|
-| **Active** | Shakespeare **wrote** *Hamlet* in 1600. | Subject=Shakespeare, V=wrote, O=Hamlet |
-| **Passive** | *Hamlet* **was written** by Shakespeare in 1600. | O→Subject, wrote→was written |
+| **Active** | Shakespeare **wrote** *Hamlet* around 1600. | Subject=Shakespeare, V=wrote, O=Hamlet |
+| **Passive** | *Hamlet* **was written** by Shakespeare around 1600. | O→Subject, wrote→was written |
 
 | | Câu | Phân tích |
 |--|-----|-----------|
@@ -230,7 +230,7 @@ Subject + is/are + V3 + to-infinitive
 - ❌ The truth is being known by everyone.
 - ✅ The truth is known by everyone. (know chỉ trạng thái biết trong câu này, nên dùng bị động đơn; với động từ khác, cần xét nghĩa và ngữ cảnh trước khi chọn tiếp diễn.)
 
-### Lỗi 4: Nhầm active và passive với "born"
+### Lỗi 4: Viết sai dạng V3 "born" (❌ borned)
 
 - ❌ I was borned in 1999.
 - ✅ I was born in 1999. (born không thêm -ed — đây là past participle đặc biệt)
@@ -254,7 +254,7 @@ Các động từ như arrive/happen/occur/exist không có tân ngữ trực ti
 
 - A significant increase **was recorded** in 2020.
 - The highest figures **were observed** in urban areas.
-- A steady growth **can be seen** throughout the period.
+- Steady growth **can be seen** throughout the period.
 
 ### Writing Task 1 — mô tả quy trình
 
@@ -272,7 +272,7 @@ Các động từ như arrive/happen/occur/exist không có tân ngữ trực ti
 
 - My phone **was stolen** on the subway.
 - The concert **was cancelled** due to bad weather.
-- I **was told** to apply for this position by my manager.
+- I **was advised** by my manager to apply for this position.
 
 ## Bài tập luyện
 
@@ -332,22 +332,22 @@ Các động từ như arrive/happen/occur/exist không có tân ngữ trực ti
 
 <!-- anchor: passive-voice.when-not-to-use.speaking -->
 
-Người học VN thường over-use passive trong Speaking → bài nói nghe sách vở, không tự nhiên, hạ Fluency. Quy tắc:
+Người học VN hay lạm dụng bị động khi nói → nghe sách vở, kém tự nhiên. Quy tắc:
 
 **Tránh passive khi:**
 1. Kể việc chính mình làm: *I cooked dinner* (không nói *Dinner was cooked by me*).
 2. Người làm là thông tin chính và đang là chủ đề: *My mum taught me to swim*. (Nhưng *I was born…*, *I was offered a place…* vẫn tự nhiên.)
 
 **Dùng passive khi:**
-1. Agent unknown hoặc irrelevant: "My phone was stolen yesterday." (không biết ai trộm)
-2. Process description (academic register): "The data was collected over 6 months."
-3. Maintaining topic continuity: "The company was founded in 1990. It was acquired in 2010." (the company / it stays in subject position)
+1. Không biết hoặc không cần nêu người làm: "My phone was stolen yesterday." (không biết ai trộm)
+2. Mô tả quy trình (văn phong học thuật): "The data was collected over 6 months."
+3. Giữ chủ đề xuyên suốt: "The company was founded in 1990. It was acquired in 2010." (the company/it luôn ở vị trí chủ ngữ)
 
 ## Lưu ý — VN bị/được không phải lúc nào cũng map sang passive
 
 <!-- anchor: passive-voice.vietnamese-pitfall.bi-duoc-overuse -->
 
-Tiếng Việt có "bị" (negative outcome) và "được" (positive outcome) — cả hai có thể dịch là passive trong English, nhưng không bắt buộc.
+Tiếng Việt có "bị" (kết quả xấu) và "được" (kết quả tốt) — cả hai có thể dịch là passive trong English, nhưng không bắt buộc.
 
 "Tôi **bị** mất ví" — không cần passive: "I lost my wallet" (active, idiomatic) tốt hơn "My wallet was lost (by me)".
 

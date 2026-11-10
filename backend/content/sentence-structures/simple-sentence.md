@@ -135,7 +135,7 @@ Hiểu câu đơn cũng giúp bạn:
 
 ### Mở rộng câu đơn
 
-Câu đơn có thể mở rộng mà vẫn là câu đơn theo hệ thống phân loại hữu hạn của bài — miễn là không thêm **mệnh đề hữu hạn độc lập hoặc phụ thuộc**. Thêm một mệnh đề phụ hữu hạn sẽ tạo câu phức dù vẫn chỉ có một mệnh đề độc lập.
+Câu đơn có thể mở rộng bằng tân ngữ, trạng ngữ, cụm giới từ… mà vẫn là câu đơn, miễn là không thêm mệnh đề có động từ chia thì. Thêm một mệnh đề phụ hữu hạn sẽ tạo câu phức dù vẫn chỉ có một mệnh đề độc lập.
 
 **Thêm tân ngữ (Object):**
 - *She reads.* → *She reads **novels**.*
@@ -246,7 +246,7 @@ Không có dấu hiệu cố định cho câu đơn — nhận biết bằng c�
 "My grandmother taught me a very important lesson about patience and perseverance during a difficult period in my childhood."
 
 **(Writing Task 2 — câu mở đầu đoạn văn):**
-"Technology has transformed communication." Đây là câu đơn. "Technology has transformed the way people communicate" có mệnh đề hữu hạn **people communicate** trong cụm the way..., nên không phải ví dụ câu đơn theo hệ thống này.
+"Technology has transformed modern communication." (câu đơn: một chủ ngữ, một động từ)
 
 <!-- anchor: simple-sentence.common-mistakes -->
 ## Lỗi thường gặp
@@ -287,8 +287,7 @@ Không có dấu hiệu cố định cho câu đơn — nhận biết bằng c�
 ### Lưu ý văn phong: chuỗi phối hợp dài
 
 - *I went to the market and I bought vegetables and I cooked dinner and I ate with my family and then I washed the dishes.* đúng cấu trúc phối hợp nhưng nhịp có thể đơn điệu.
-- Có thể tách: *After going to the market, I bought vegetables and cooked dinner. I ate with my family, then washed the dishes.*
-- Đây là lựa chọn văn phong, không phải dangling modifier. Câu đáp ngắn/cảm thán trong hội thoại cũng không tự là lỗi vì thiếu một khuôn S–V đầy đủ; đưa chủ đề lên đầu rồi dùng đại từ nhắc lại cần đánh giá theo ngữ cảnh.
+- Có thể tách: *I went to the market to buy vegetables and then cooked dinner. After eating with my family, I washed the dishes.*
 
 <!-- anchor: simple-sentence.compare-with -->
 ## So sánh với
@@ -302,7 +301,7 @@ Không có dấu hiệu cố định cho câu đơn — nhận biết bằng c�
 | **Complex** | 1 independent + 1+ dependent clause | ***Although** she is busy, she studies English.* |
 | **Compound-Complex** | 2+ independent + 1+ dependent | *She studies hard **because** she wants to improve, **and** her scores are rising.* |
 
-**Trong IELTS Writing Task 2,** sử dụng đa dạng các loại câu sẽ tăng điểm **Grammatical Range**.
+**Trong IELTS Writing Task 2,** sử dụng đa dạng các loại câu sẽ tăng điểm **Grammatical Range and Accuracy**.
 
 ## Lưu ý cho người học Việt Nam
 
@@ -319,7 +318,7 @@ Tiếng Anh **bắt buộc có chủ ngữ** trong hầu hết mọi câu (trừ
 1. Tìm động từ chính → đó là trung tâm của câu
 2. Hỏi "Ai/Cái gì + [động từ]?" → đó là chủ ngữ
 3. Nếu không tìm được → câu bị cụt (fragment)
-4. Nếu tìm thấy hai động từ chính không có liên từ → câu dính (run-on)
+4. Nếu có hai cặp chủ ngữ–động từ mà không có liên từ/dấu câu phù hợp → câu dính (run-on)
 
 ## Ứng dụng trong IELTS
 
@@ -330,7 +329,7 @@ Tiếng Anh **bắt buộc có chủ ngữ** trong hầu hết mọi câu (trừ
 
 ### IELTS Writing
 - Mỗi đoạn văn nên bắt đầu bằng **topic sentence** — thường là câu đơn rõ ràng.
-- Tránh viết quá nhiều câu đơn liên tiếp (monotonous) — xen kẽ câu phức để tăng **Grammatical Range**.
+- Tránh viết quá nhiều câu đơn liên tiếp (monotonous) — xen kẽ câu phức để tăng **Grammatical Range and Accuracy**.
 
 ## Bài tập luyện
 
@@ -350,7 +349,7 @@ Mỗi câu là Simple (S), Compound (C) hay Complex (CX)?
 2. My sister she is a nurse. (chủ ngữ kép)
 3. I love reading I go to the library every week. (câu dính)
 4. Because I wanted to improve my English. (câu cụt)
-5. The team of students are ready. (Chọn cách hòa hợp khi xem team là một đơn vị.)
+5. The list of items are on the desk. (chủ ngữ bị che)
 
 ### Viết câu đơn mở rộng
 
@@ -373,7 +372,7 @@ Bắt đầu từ câu đơn giản, thêm thông tin:
 2. My sister is a nurse. (bỏ "she")
 3. I love reading. I go to the library every week. (tách câu)
 4. I studied hard because I wanted to improve my English. (thêm mệnh đề chính)
-5. The team of students **is** ready khi xem nhóm như một đơn vị. **Are** có thể đúng trong Anh Anh khi nhìn các thành viên; đề gốc không xác định phương ngữ thì không loại are vô điều kiện.
+5. The list of items **is** on the desk. (chủ ngữ là list, số ít)
 
 **Câu mở rộng (ví dụ):**
 1. She studies English grammar every evening at the library.
@@ -382,7 +381,7 @@ Bắt đầu từ câu đơn giản, thêm thông tin:
 
 ## Tóm tắt nhanh
 1. Câu đơn = **1 mệnh đề độc lập** = Subject + Verb (+ mở rộng tuỳ ý)
-2. **4 loại:** Trần thuật (.), Hỏi (?), Mệnh lệnh (!), Cảm thán (!)
+2. **4 loại:** Trần thuật (.), Hỏi (?), Mệnh lệnh (. hoặc !), Cảm thán (!)
 3. **5 mẫu cấu trúc:** SV, SVO, SVC, SVOO, SVOC
 4. Có thể mở rộng bằng: trạng ngữ, chủ ngữ ghép, vị ngữ ghép — vẫn là câu đơn
 5. Lỗi phổ biến: câu cụt (fragment — thiếu S hoặc V), câu dính (run-on — hai câu không có liên từ), chủ ngữ kép ("My brother he works")

@@ -2,7 +2,7 @@
 title: Complex Sentence (Câu phức)
 slug: complex-sentence
 category: sentence-structures
-summary: 'Complex sentence gồm một independent clause và ít nhất một dependent clause, nối bằng subordinating conjunction (because, although, when, if...) hoặc relative pronoun (who, which, that). Đây là cấu trúc cốt lõi để đạt Band 7+ trong IELTS Writing và thể hiện ngữ pháp nâng cao.
+summary: 'Complex sentence gồm một independent clause và ít nhất một dependent clause, nối bằng subordinating conjunction (because, although, when, if...) hoặc relative pronoun (who, which, that). Đây là cấu trúc cốt lõi để thể hiện quan hệ ý (nguyên nhân, nhượng bộ, điều kiện) trong IELTS Writing và Speaking.
 
   '
 level: intermediate
@@ -119,7 +119,7 @@ Bắt đầu bằng **subordinating conjunction**, mô tả điều kiện, th�
 | Loại | Subordinating Conjunctions | Ví dụ |
 |------|--------------------------|-------|
 | **Lý do (Reason)** | because, since, as | *She left **because she was tired**.* |
-| **Nhượng bộ (Concession)** | although, though, even though, while, whereas | ***Although it was raining**, they continued.* |
+| **Nhượng bộ (Concession)** | although, though, even though, while | ***Although it was raining**, they continued.* |
 | **Điều kiện (Condition)** | if, unless, provided that, as long as, on condition that | ***If governments invest**, outcomes improve.* |
 | **Thời gian (Time)** | when, while, after, before, until, as soon as, once, whenever | ***When she arrived**, the meeting had started.* |
 | **Mục đích (Purpose)** | so that, in order that | *She studied **so that she could improve**.* |
@@ -185,7 +185,7 @@ Mệnh đề đóng vai trò như một danh từ trong câu — làm chủ ng�
 - *The researchers **whose findings challenged the consensus** faced significant scrutiny.*
 
 **Non-restrictive — thêm chi tiết không thiết yếu:**
-- *Finland, **which is in Northern Europe**, has a population of several million.* (Ví dụ minh họa mệnh đề bổ sung; không khẳng định Phần Lan luôn đứng đầu mọi bảng xếp hạng.)
+- *Finland, **which is in Northern Europe**, has a population of several million.*
 
 ### 3. Noun clauses — Diễn đạt ý kiến, niềm tin
 
@@ -258,7 +258,7 @@ Phân tích câu 2:
 
 - ❌ SAI: *Although technology has many benefits.* (dependent clause đứng một mình)
 - ✅ ĐÚNG: *Although technology has many benefits, it also poses risks.*
-- **TẠI SAO:** Dependent clause BẮT BUỘC có mệnh đề chính đi kèm. Đây là lỗi nghiêm trọng nhất trong IELTS Writing.
+- **TẠI SAO:** Dependent clause BẮT BUỘC có mệnh đề chính đi kèm. Đây là lỗi rất hay gặp và dễ bị trừ điểm ở tiêu chí Grammatical Range and Accuracy.
 
 ### Lỗi 2: Dùng sai dấu phẩy với relative clause
 
@@ -468,7 +468,7 @@ Relative clauses cho phép bạn **thêm thông tin về một người hoặc v
 
 | Trước (câu ngắn rời) | ✅ Sau |
 |--------|------|
-| "I read a book. It changed my perspective." | "I read a book **that** changed my perspective." |
+| "I read a book. It changed my perspective." | "I read a book **which** changed my perspective." |
 | "The city has great public transport. It makes commuting easy." | "The city has great public transport, **which** makes commuting easy." |
 
 #### Before → After với "that":
@@ -606,6 +606,8 @@ Không sai, nhưng quá đơn giản. Hãy nâng cấp từng bước.
 [Simple sentence], which means (that) [result].
 ```
 
+> *so* tạo câu ghép, *Therefore/As a result* mở câu mới; muốn có câu phức, dùng *which means (that)…* hoặc *so … that…*.
+
 #### Transformation:
 
 | Câu đơn + lý do | + Kết quả |
@@ -681,7 +683,7 @@ If [condition], [main clause].
 |-----------------------|-----------|
 | "Technology improves productivity." | "Technology **can improve** productivity significantly, **provided that** employees receive adequate training and the right tools." |
 | "Remote work is beneficial." | "Remote work **can be** highly beneficial, **as long as** clear communication structures are maintained." |
-| "Stricter laws will reduce crime." | "Stricter laws **may** reduce certain forms of crime, **if** they are enforced consistently and fairly." |
+| "Stricter laws will reduce crime." | "Stricter laws **may** reduce certain forms of crime **if** they are enforced consistently and fairly." |
 
 ---
 
@@ -707,9 +709,9 @@ Bây giờ, kết hợp nhiều bước để tạo ra một câu phức thực 
 
 **Câu đơn gốc:** "Cities are noisy."
 
-**+Lý do:** "Cities are noisy **because** of the constant flow of traffic and large concentrations of people."
+**+Lý do:** "Cities are noisy **because** traffic never stops and millions of people live close together."
 
-**+Kết quả:** "...noise pollution, **which** can disrupt sleep and contribute to chronic stress."
+**+Kết quả:** "Cities suffer from constant noise pollution, **which** can disrupt sleep and contribute to chronic stress."
 
 **+Tương phản:** "**While** urban environments are often noisier than rural areas, **which** some residents find deeply disruptive, others argue that the energy and vibrancy of city life **more than compensate** for the drawback of noise."
 

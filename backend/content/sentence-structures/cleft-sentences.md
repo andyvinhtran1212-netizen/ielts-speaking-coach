@@ -82,9 +82,9 @@ Cleft sentences = **tách câu** để đặt trọng tâm thông tin vào một
 <!-- anchor: cleft-sentences.usage.emphasis -->
 ## Tại sao quan trọng
 
-- **Kiểm soát information focus:** đặt thông tin quan trọng vào đúng vị trí
+- **Kiểm soát trọng tâm thông tin:** đặt thông tin quan trọng vào đúng vị trí
 - **Tránh lặp lại cấu trúc câu đơn điệu:** thay thế cho câu subject-verb thông thường
-- **IELTS Writing Task 2:** biểu hiện Grammatical Range cao khi dùng đúng
+- **IELTS Writing Task 2:** biểu hiện Grammatical Range and Accuracy cao khi dùng đúng
 - **Phân tích:** làm rõ nguyên nhân, điều kiện, yếu tố cụ thể một cách nhấn mạnh
 
 <!-- anchor: cleft-sentences.it-cleft -->
@@ -99,7 +99,7 @@ It + is/was + [phần được nhấn mạnh] + that/who + [phần còn lại c�
 ### Quy tắc dùng "that" hay "who"
 
 - **Who** có thể nhấn mạnh người làm chủ ngữ hoặc tân ngữ trong mệnh đề còn lại: **It was Anna who I spoke to**.
-- **That** là lựa chọn thông dụng cho nhiều thành phần; **which** cũng có thể xuất hiện khi nhấn mạnh danh ngữ chỉ vật. Không suy khả năng ấy cho mọi cụm thời gian/nơi chốn.
+- **That** là lựa chọn thông dụng cho nhiều thành phần; **which** cũng có thể xuất hiện khi nhấn mạnh danh ngữ chỉ vật. Khi nhấn mạnh cụm thời gian/nơi chốn (*in 2010*, *at the community level*), chỉ dùng **that** (không dùng which/when/where).
 
 ### Ví dụ chi tiết
 
@@ -107,7 +107,7 @@ It + is/was + [phần được nhấn mạnh] + that/who + [phần còn lại c�
 
 | Nhấn mạnh vào | Cleft sentence |
 |--------------|---------------|
-| Chủ thể (người) | It was **the government** **who** introduced this policy in 2010. |
+| Chủ ngữ | It was **the government** **that** introduced this policy in 2010. |
 | Tân ngữ (vật) | It was **this policy** **that** the government introduced in 2010. |
 | Thời gian | It was **in 2010** **that** the government introduced this policy. |
 
@@ -151,7 +151,7 @@ What + Subject + verb + is/was + [phần được nhấn mạnh]
 ```
 
 - More investment in education **is what** we need.
-- Stricter regulations **are what** the situation demands. (Mẫu trung tính hòa hợp với cụm số nhiều ở đầu câu; một số cách đọc theo nghĩa có thể khác.)
+- Stricter regulations **are what** the situation demands. (be hoà hợp với cụm số nhiều đứng đầu câu → **are**)
 - Greater awareness **is what** is lacking.
 
 ### Các biến thể khác
@@ -160,7 +160,7 @@ What + Subject + verb + is/was + [phần được nhấn mạnh]
 
 - **Where** things often go wrong **is** in the implementation stage.
 - **Why** this matters **is** that thousands of lives are at stake.
-- **When** the problem became serious **was** after 2010.
+- **It was after 2010 that** the problem became serious.
 
 ## All-Cleft — Nhấn mạnh bằng "All"
 
@@ -265,7 +265,7 @@ It-cleft phù hợp nhất khi người đọc đã biết phần còn lại c�
 **Wh-cleft:**
 1. What we need is better infrastructure.
 2. What the government must address is inequality.
-3. What the research showed is that diet affects cognition.
+3. What the research showed **was** that diet affects cognition.
 
 ## Tóm tắt nhanh
 
@@ -295,8 +295,8 @@ Cleft đúng (what-cleft): "**What** I want to do is thank her."
 Active đơn giản: "I want to thank her." (cũng tốt; cleft thêm emphasis nhưng không bắt buộc)
 
 **Khi nào DÙNG cleft trong IELTS Speaking:**
-1. Khi muốn highlight key information (Part 2 climax): "**What** really stood out about that trip was the food."
-2. Khi correct misunderstanding: "**It was** my brother, not me, who said that."
-3. Part 3 emphasis: "**The thing that** worries me most about social media is..."
+1. Khi muốn làm nổi bật thông tin chính (cao trào bài Part 2): "**What** really stood out about that trip was the food."
+2. Khi sửa một hiểu lầm: "**It was** my brother, not me, who said that."
+3. Khi nhấn mạnh trong Part 3: "**The thing that** worries me most about social media is..."
 
-Quy tắc: 1–2 cleft mỗi 2-phút Part 2 monologue là enough. Dùng quá nhiều = unnatural.
+Quy tắc: 1–2 câu chẻ trong 2 phút nói Part 2 là đủ; dùng quá nhiều sẽ thiếu tự nhiên.
