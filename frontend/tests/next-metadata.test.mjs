@@ -26,13 +26,13 @@ test('sitemap model emits stable roots and only valid, published canonical artic
     ],
   });
   assert.deepEqual(entries.slice(0, 4).map(({ url }) => url), [
-    'https://averlearning.com/',
-    'https://averlearning.com/grammar',
-    'https://averlearning.com/grammar/exercises',
-    'https://averlearning.com/vocabulary',
+    'https://www.averlearning.com/',
+    'https://www.averlearning.com/grammar',
+    'https://www.averlearning.com/grammar/exercises',
+    'https://www.averlearning.com/vocabulary',
   ]);
   assert.equal(entries.length, 5);
-  assert.equal(entries[4].url, 'https://averlearning.com/grammar/tenses/present-simple');
+  assert.equal(entries[4].url, 'https://www.averlearning.com/grammar/tenses/present-simple');
   assert.equal(entries[4].lastModified.toISOString(), '2026-09-01T00:00:00.000Z');
   assert.equal(buildPublicSitemap(null).length, 4, 'backend outage keeps stable public roots');
 });
@@ -73,4 +73,20 @@ test('public query workspaces are noindex and canonical content routes identify 
     read('app', '(public-content)', 'grammar', '[category]', '[slug]', 'page.tsx'),
     /alternates:\s*\{\s*canonical:/,
   );
+});
+
+// Production redirects apex to www. Metadata must identify the final host,
+// rather than sending crawlers back through the redirect for every URL.
+test('canonical metadata and both sitemap producers match the production www host', () => {
+  const origin = 'https://www.averlearning.com';
+  const layout = read('app', 'layout.tsx');
+  const robots = read('app', 'robots.ts');
+  const backendSitemap = readFileSync(path.join(FRONTEND, '..', 'backend', 'routers', 'sitemap.py'), 'utf8');
+  assert.ok(layout.includes(`metadataBase: new URL('${origin}')`));
+  assert.ok(robots.includes(`sitemap: '${origin}/sitemap.xml'`));
+  assert.ok(robots.includes(`host: '${origin}'`));
+  assert.ok(backendSitemap.includes(`_BASE = "${origin}"`));
+  for (const entry of buildPublicSitemap({ categories: [{ slug: 'tenses', articles: [{ slug: 'present-simple' }] }] })) {
+    assert.equal(new URL(entry.url).origin, origin);
+  }
 });

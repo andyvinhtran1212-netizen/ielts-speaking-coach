@@ -42,7 +42,7 @@ export default function robots(): MetadataRoute.Robots {
       allow: ['/', '/grammar/', '/vocabulary'],
       disallow: PRIVATE_PREFIXES,
     },
-    sitemap: 'https://averlearning.com/sitemap.xml',
-    host: 'https://averlearning.com',
+    sitemap: 'https://www.averlearning.com/sitemap.xml',
+    host: 'https://www.averlearning.com',
   };
 }

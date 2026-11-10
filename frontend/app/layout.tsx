@@ -38,7 +38,7 @@ export const metadata: Metadata = {
   // Không có nó, Next build lỗi với đường dẫn tương đối, hoặc rơi về
   // localhost/VERCEL_URL — tức preview trên Facebook trỏ vào deployment
   // preview thay vì domain thật.
-  metadataBase: new URL('https://averlearning.com'),
+  metadataBase: new URL('https://www.averlearning.com'),
   applicationName: 'Aver Learning',
   icons: { icon: '/favicon.svg' },
   manifest: '/manifest.webmanifest',
