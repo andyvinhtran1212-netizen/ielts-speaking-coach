@@ -7,8 +7,9 @@
   đọc cờ từ `GET /admin/ui-config` (fetch có timeout 3 s, cache
   `sessionStorage` 60 s), fallback menu hiện tại.
 - Chuyển hướng: component nhỏ `AdminSimplifiedRedirect` (client) đặt trong
-  `page.tsx` của 6 hub + `writing/cohorts`; chỉ chạy khi cờ `simplified` và
-  không có `embed=1`. Không dùng `next.config` redirects (tĩnh, không theo cờ).
+  `page.tsx` của 6 hub; chỉ chạy khi cờ `simplified` và không có `embed=1`.
+  Không đặt redirect ở `writing/cohorts` (Q-4: GĐ1 chỉ ẩn menu, URL vẫn mở).
+  Không dùng `next.config` redirects (tĩnh, không theo cờ).
 - Backend: route `GET /admin/ui-config` trong router admin sẵn có
   (`require_admin`), cờ `ADMIN_NAV_SIMPLIFIED: bool = False` trong
   `backend/config.py`.
@@ -18,8 +19,10 @@
 
 ## Data and contracts
 
-- `GET /admin/ui-config` → 200 `{nav: "current"|"simplified"}`; 401/403 cho
-  không-admin. OpenAPI có schema cụ thể; regenerate `frontend/types/api.d.ts`.
+- `GET /admin/ui-config` → 200 `{nav: "current"|"simplified", prod_menu:
+  boolean}`; 401/403 cho không-admin. `prod_menu` theo
+  `resolve_tier(ENVIRONMENT, RAILWAY_ENVIRONMENT_NAME)` (FR-001). OpenAPI có
+  schema cụ thể; regenerate `frontend/types/api.d.ts`.
 - Sự kiện analytics `admin_nav_legacy_hit {path, referrer_kind: "direct" |
   "internal" | "external"}` qua `POST /api/analytics/events` sẵn có (kiểm tên
   sự kiện có trong allowlist của backend; nếu có allowlist thì thêm vào).
@@ -28,7 +31,7 @@
 
 ## Rollout and rollback
 
-Cờ tắt mặc định. Bật staging → kiểm Scenario 1–6 → chờ số WM production (Q-1)
+Cờ tắt mặc định. Bật staging → kiểm Scenario 1–7 → chờ số WM production (Q-1)
 → bật production với cho phép của anh Vinh. Rollback = tắt cờ (≤ 60 s theo
 cache). Giai đoạn 2 theo cổng FR-010.
 

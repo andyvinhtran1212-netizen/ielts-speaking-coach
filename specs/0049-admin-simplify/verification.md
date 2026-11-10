@@ -4,10 +4,10 @@
 
 | Requirement | Evidence | Result |
 | --- | --- | --- |
-| FR-001 | kind=test; ref=backend/tests/test_admin_ui_config.py (mặc định current, env true → simplified) plus frontend/tests/aver-admin-chrome.test.mjs (lỗi/timeout → menu hiện tại) | PENDING |
-| FR-002 | kind=test; ref=frontend/tests/aver-admin-chrome.test.mjs (snapshot NAV_GROUPS không đổi; NAV_GROUPS_SIMPLIFIED khớp bảng Menu giai đoạn 1 và mọi dòng GĐ1: (Q-8, 10/11) hai snapshot: prod_menu=true có Feedback (nhóm Hệ thống) và Speaking › Topics, prod_menu=false không có hai mục này; ENVIRONMENT không xác định → prod_menu=true; Listening đủ 6 mục không có Audit, Listening Audit ở nhóm QA thu gọn; các mục chuyển/ẩn/thêm còn lại đúng kiểm kê) | PENDING |
-| FR-003 | kind=test; ref=frontend/tests/aver-admin-chrome.test.mjs (mọi route trong bảng kiểm kê vẫn có page.tsx và AdminAccessGate; active hợp lệ) | PENDING |
-| FR-004 | kind=test; ref=frontend/tests/admin-simplified-redirect.test.mjs (6 hub chuyển, giữ query, embed=1 không chuyển, cờ tắt không chuyển) | PENDING |
+| FR-001 | kind=test; ref=backend/tests/test_admin_ui_config.py (mặc định current, env true → simplified; prod_menu qua resolve_tier(ENVIRONMENT, RAILWAY_ENVIRONMENT_NAME): ENVIRONMENT trống + RAILWAY_ENVIRONMENT_NAME=production → true; ENVIRONMENT=staging → false; RAILWAY_ENVIRONMENT_NAME=staging → false; tên Railway không nhận ra → true; tier development → false) plus frontend/tests/aver-admin-chrome.test.mjs (lỗi/timeout → menu hiện tại) | PENDING |
+| FR-002 | kind=test; ref=frontend/tests/aver-admin-chrome.test.mjs (snapshot NAV_GROUPS không đổi; NAV_GROUPS_SIMPLIFIED khớp bảng Menu giai đoạn 1 và mọi dòng GĐ1: (Q-8, 10/11) hai snapshot: prod_menu=true có Feedback (nhóm Hệ thống) và Speaking › Topics, prod_menu=false không có hai mục này; tier unknown / tên Railway không nhận ra → prod_menu=true; Listening đủ 6 mục không có Audit, Listening Audit ở nhóm QA thu gọn; các mục chuyển/ẩn/thêm còn lại đúng kiểm kê) | PENDING |
+| FR-003 | kind=test; ref=frontend/tests/aver-admin-chrome.test.mjs (mọi route trong bảng kiểm kê vẫn có page.tsx và AdminAccessGate; active hợp lệ) plus frontend/tests/admin-simplified-redirect.test.mjs (cờ bật: `/admin/writing/cohorts` vẫn mở trang cũ, không chuyển hướng, Q-4) | PENDING |
+| FR-004 | kind=test; ref=frontend/tests/admin-simplified-redirect.test.mjs (6 hub chuyển, giữ query, embed=1 không chuyển, cờ tắt không chuyển; `/admin/writing/cohorts` không thuộc danh sách chuyển GĐ1 và vẫn mở khi cờ bật, Q-4) | PENDING |
 | FR-005 | kind=test; ref=frontend/tests/aver-admin-chrome.test.mjs (nhóm thu gọn mặc định, tự mở khi active trong nhóm, nhớ localStorage) | PENDING |
 | FR-006 | kind=test; ref=frontend/tests/admin-simplified-redirect.test.mjs (1 sự kiện, chỉ path không query, không PII) | PENDING |
 | FR-007 | kind=test; ref=frontend/tests/admin-class-homework.test.mjs (lựa chọn Writing → assignmentHref với cohortId; nút rời ẩn khi cờ bật) | PENDING |

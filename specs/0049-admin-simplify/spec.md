@@ -86,8 +86,8 @@ Giai đoạn 1:
 - Một cấu hình menu duy nhất trong `aver-admin-chrome.js` có hai bản: hiện
   tại và "simplified"; cờ chọn bản.
 - Ẩn/chuyển/sắp xếp theo bảng "Kiểm kê" dưới đây (cột "GĐ1").
-- Chuyển hướng phía client cho 6 trang hub và `/admin/writing/cohorts` khi
-  cờ bật (giữ query).
+- Chuyển hướng phía client cho 6 trang hub khi cờ bật (giữ query).
+  `/admin/writing/cohorts` chỉ ẩn khỏi menu ở GĐ1; URL vẫn mở (Q-4).
 - Sự kiện `admin_nav_legacy_hit {path}` khi trang bị ẩn được mở trực tiếp.
 - Hộp "Giao bài mới" của lớp có lựa chọn Writing (điều hướng tới form
   Writing có `assign_cohort`), banner trên `/admin/writing/assignments`.
@@ -129,7 +129,7 @@ không có trong menu, giữ nguyên.
 | `/admin/writing/assignments` | Gán bài tập | 215 | Đổi nhãn "Lịch sử giao Writing" + banner | Gộp vào sổ cái lớp |
 | `/admin/writing/prompts` | Thư viện prompt | 807 | Giữ (nhãn "Kho đề") | — |
 | `/admin/writing/tips` | Mẹo viết | 6 | Giữ | — |
-| `/admin/writing/cohorts` | Writing › Lớp học | 7 | Ẩn; chuyển → `/admin/classes` (Q-4) | Xoá sau khi mang lọc "Có bài đang mở" |
+| `/admin/writing/cohorts` | Writing › Lớp học | 7 | Ẩn khỏi menu; URL vẫn mở (Q-4) | Chuyển → `/admin/classes` sau khi mang lọc "Có bài đang mở"; rồi xoá |
 | `/admin/writing/queue` | Hàng chờ chấm | 51 | Giữ | Thêm lane Instructor/Chấm lại (G6) |
 | `/admin/writing/regrade-requests` | Yêu cầu chấm lại | 0 | Giữ (chờ WM; Q-3) | Lane trong Hàng chờ |
 | `/admin/writing/instructor-queue` | Hàng đợi Instructor | 20 | Giữ | Lane trong Hàng chờ |
@@ -164,9 +164,10 @@ không có trong menu, giữ nguyên.
 Snapshot theo cột GĐ1 và Q-8 (anh Vinh duyệt 10/11, t1564s5141): mục gắn
 `[prod]` (Feedback, Speaking › Topics) **chỉ hiện trên production** và ẩn trên
 staging, vì prod còn dữ liệu và lượt mở (`user_feedback` 90 dòng, 1 tạo trong 30
-ngày; `topics` 314 dòng; nguồn ở đầu spec). Không xác định được môi trường →
-dùng menu prod (hiện nhiều hơn, không ẩn nhầm). Listening còn 6 mục; Audit
-chuyển sang nhóm QA.
+ngày; `topics` 314 dòng; nguồn ở đầu spec). Tier `unknown` (tên Railway không
+nhận ra) → dùng menu prod (hiện nhiều hơn, không ẩn nhầm). `prod_menu` theo
+FR-001, không lấy từ `ENVIRONMENT` đơn. Listening còn 6 mục; Audit chuyển sang
+nhóm QA.
 
 ```
 Tổng quan
@@ -187,8 +188,8 @@ HỆ THỐNG: Báo lỗi · Feedback `[prod]` · Sự cố chấm · Chi phí AI
   → Writing mở `/admin/writing/assignments?assign_cohort=<id>` với form điền
   sẵn lớp → giao → quay lại lớp qua nút "← Về lớp".
 - **Admin quen đường cũ:** mở bookmark `/admin/writing` → chuyển sang Hàng
-  chờ chấm; mở `/admin/writing/cohorts` → chuyển sang Lớp; mở
-  `/admin/vocab/curated` → trang vẫn mở, menu tô sáng nhóm Thí điểm.
+  chờ chấm; mở `/admin/writing/cohorts` → trang vẫn mở (chỉ mất mục menu,
+  Q-4); mở `/admin/vocab/curated` → trang vẫn mở, menu tô sáng nhóm Thí điểm.
 
 ## Requirements
 
@@ -196,9 +197,15 @@ HỆ THỐNG: Báo lỗi · Feedback `[prod]` · Sự cố chấm · Chi phí AI
   được trả trong `GET /admin/ui-config` (mới, chỉ admin, `{nav: "current" |
   "simplified", prod_menu: boolean}`, cache trình duyệt ≤ 60 s). Cờ tắt, gọi
   lỗi hoặc chậm > 3 s → menu hiện tại, byte-giống hôm nay. (Q-8, 10/11)
-  `prod_menu` = `true` khi `settings.ENVIRONMENT` (`backend/config.py:93`) là
-  production và cả khi không xác định được; chỉ staging/dev mới `false`. Không
-  đổi env nào; giá trị ENVIRONMENT thật trên từng môi trường kiểm ở T001.
+  `prod_menu` lấy tier bằng `services.cors_policy.resolve_tier(ENVIRONMENT,
+  RAILWAY_ENVIRONMENT_NAME)` (đã có sẵn, `backend/services/cors_policy.py`).
+  `prod_menu` = `false` chỉ khi tier là `staging` hoặc `development`;
+  `production` và `unknown` → `true`. Không lấy từ `settings.ENVIRONMENT`
+  đơn độc: production Railway không set `ENVIRONMENT` nên giá trị rơi về
+  mặc định `"development"` (`backend/config.py:93`, ghi chú
+  `cors_policy.py:19-24`); nếu chỉ đọc `ENVIRONMENT` thì nhánh "không xác
+  định → true" không bao giờ chạy, `prod_menu` thành `false` trên prod, trái
+  Q-8. Không đổi env nào.
 - **FR-002:** (một nguồn cấu hình) `aver-admin-chrome.js` định nghĩa
   `NAV_GROUPS` (hiện tại) và `NAV_GROUPS_SIMPLIFIED` từ cùng danh sách mục; test
   so menu simplified với bảng "Menu giai đoạn 1" (nhãn, href, thứ tự, nhóm)
@@ -206,12 +213,13 @@ HỆ THỐNG: Báo lỗi · Feedback `[prod]` · Sự cố chấm · Chi phí AI
   `prod_menu=false` (không có hai mục `[prod]`).
 - **FR-003:** (ẩn không phải chặn) Mọi trang bị bỏ khỏi menu vẫn mở được bằng
   URL với đúng `AdminAccessGate` như cũ, menu tô sáng nhóm cha; không trang
-  nào trả 404 vì 0049.
+  nào trả 404 vì 0049. Khi cờ bật, `/admin/writing/cohorts` vẫn mở trang cũ,
+  không chuyển hướng (Q-4).
 - **FR-004:** (chuyển hướng hub) Khi cờ bật, `/admin/speaking`,
   `/admin/writing`, `/admin/reading`, `/admin/vocab`, `/admin/grammar`,
-  `/admin/system` chuyển (replace, giữ query) sang công cụ chính theo bảng;
-  `/admin/writing/cohorts` chuyển sang `/admin/classes` (tuỳ Q-4). Cờ tắt:
-  không chuyển.
+  `/admin/system` chuyển (replace, giữ query) sang công cụ chính theo bảng.
+  `/admin/writing/cohorts` không thuộc danh sách chuyển hướng GĐ1 (Q-4, xem
+  FR-003). Cờ tắt: không chuyển.
 - **FR-005:** (nhóm thu gọn) Nhóm "Thí điểm & công cụ QA" thu gọn mặc định,
   trạng thái mở/đóng lưu `localStorage`; tự mở khi trang đang ở trong nhóm.
 - **FR-006:** (đo đường cũ) Khi cờ bật và trang thuộc danh sách "ẩn/chuyển"
@@ -260,6 +268,10 @@ chọn lớp L; giao xong bấm "← Về lớp" về đúng tab Bài tập củ
 Given JWT giảng viên; when gọi `/admin/ui-config` hoặc mở trang admin ẩn,
 then 403 như cũ.
 
+### Scenario 7 — Writing › Lớp học vẫn mở (Q-4)
+Given cờ bật; when mở `/admin/writing/cohorts`, then trang cũ vẫn mở,
+không chuyển sang `/admin/classes`; mục không còn trên menu.
+
 ## Edge cases
 
 - Cờ đổi giữa phiên: menu cập nhật ở lần tải trang sau (cache ≤ 60 s).
@@ -273,7 +285,7 @@ then 403 như cũ.
 | Rủi ro | Biện pháp | FR |
 | --- | --- | --- |
 | Hiểu nhầm "ẩn menu" là bảo mật | Ghi rõ; trang ẩn giữ AdminAccessGate + backend `require_admin` | FR-003, FR-009 |
-| Endpoint cấu hình lộ thông tin | Chỉ admin, chỉ trả `nav` | FR-001, FR-009 |
+| Endpoint cấu hình lộ thông tin | Chỉ admin, chỉ trả `nav` và `prod_menu` | FR-001, FR-009 |
 | Open redirect | Đích chuyển hướng là hằng số trong code, không lấy từ query | FR-004 |
 | PII trong sự kiện | Chỉ `path` (không query string), `referrer_kind` enum | FR-006 |
 
@@ -342,3 +354,9 @@ Speaking Topics trên prod. Theo đó:
   Q-8: hai mục này giữ trên prod, ẩn trên staging — menu GĐ1 gắn nhãn `[prod]`,
   FR-001 thêm `prod_menu`, FR-002 dùng hai snapshot. Không đổi phạm vi khác,
   không thêm migration hay quyền.
+- 10/11/2026 (FD, R5.1 #2254): sửa diễn đạt theo review CR trên head
+  `9097583fd`; không đổi quyết định đã duyệt. FR-001: `prod_menu` dùng
+  `resolve_tier(ENVIRONMENT, RAILWAY_ENVIRONMENT_NAME)`, không dùng
+  `ENVIRONMENT` đơn; thêm 4 ca kiểm. Q-4: bỏ `/admin/writing/cohorts` khỏi
+  chuyển hướng GĐ1 (scope, kiểm kê, hành trình, FR-004, plan.md); URL vẫn
+  mở khi cờ bật.
