@@ -1,7 +1,9 @@
 # Tasks
 
-Tasks are dependency ordered. Không task nào được xếp hàng trước khi spec
-được anh Vinh duyệt trên `staging`. Mỗi task là một PR nhỏ, có test đỏ trước.
+Spec **approved** 10/11/2026 (anh Vinh, t1581s5208; Q-0..Q-19 và Q-20/Q-21
+(a) đã chốt, xem spec.md "Quyết định của anh Vinh"). Tasks are dependency
+ordered. Mỗi task là một PR nhỏ, có test đỏ trước. Leader/PC xếp hàng sau
+quyết định này; không bật cờ, không chạy migration 371 trong quyết định duyệt.
 Cỡ: S ≈ ≤ 0,5 ngày job, M ≈ 1 ngày, L ≈ 2 ngày. Gợi ý: Claude cho phần cần
 thiết kế/UX/viết tiếng Việt, Codex cho phần cơ học có test rõ.
 

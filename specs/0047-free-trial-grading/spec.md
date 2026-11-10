@@ -1,18 +1,21 @@
 ---
 id: FREETRIAL-0047
 title: Accounts outside classes can try free Speaking and Writing grading within quotas without affecting class learners
-status: draft
+status: approved
 risk: high
 owner: product
 ---
 
 # Accounts outside classes can try free Speaking and Writing grading within quotas without affecting class learners
 
-Status: **draft, chưa duyệt**. FD viết 04/11 theo yêu cầu anh Vinh (t1392u,
-04/11 14:38, Leader chuyển). Số spec **0047** đã giữ trong
-`/workspace/cc-jobs/spec-number-register.md`. Số migration là `371`:
-Leader đã cấp 04/11 14:48 (migrations-register.md). Code ticket (T001..T013)
-**không** được xếp hàng trước khi anh Vinh duyệt spec này trên `staging`.
+Status: **approved** — anh Vinh duyệt 10/11/2026 14:18 UTC+7 (t1581s5208, chat
+Leader; xem `approval-decision.md` và mục "Quyết định của anh Vinh"). FD viết
+04/11 theo yêu cầu anh Vinh (t1392u, 04/11 14:38, Leader chuyển). Số spec
+**0047** đã giữ trong `/workspace/cc-jobs/spec-number-register.md`. Số
+migration là `371`: Leader đã cấp 04/11 14:48 (migrations-register.md). Code
+ticket (T001..T013) xếp hàng do Leader/PC sau quyết định này; quyết định
+không bật cờ `free_trial_enabled`, không tạo API key, không chạy migration
+371, không triển khai production.
 UI (FR-017..FR-019, FR-023..FR-032, `ui-states.md`) đã tích hợp audit của UI
 Auditor `UIA-SW-UX-20261104` (04/11, staging 6b8e18894,
 `/workspace/cc-jobs/handoff/leader/proposals/UIA-SW-UX-20261104.md`, ảnh
@@ -753,8 +756,67 @@ chưa đăng ký lớp, để họ trải nghiệm chất lượng chấm. Hiệ
 
 ## Open questions
 
-Xem mục "Câu hỏi cho anh Vinh" bên dưới; tất cả phải được trả lời trước khi
-spec chuyển `approved`.
+Không còn câu hỏi mở. Q-0..Q-19 đã duyệt 10/11/2026 (t1581s5208); Q-20 và
+Q-21 đã chọn (a) ngày 05/11 (t1446u). Chi tiết ở mục "Quyết định của anh Vinh".
+
+## Quyết định của anh Vinh (10/11/2026)
+
+Anh Vinh trả lời widget t1581s5208 trong chat Leader lúc 14:18 UTC+7 ngày
+10/11/2026, nguyên văn được ghi trong `questions-for-vinh.md` và
+`/workspace/cc-jobs/handoff/leader/20261110-approval-2252-0047.md`: "Duyệt
+Q-0..Q-19 theo đề xuất; merge #2252 vào staging khi CI staging xanh". Đề
+xuất là bộ câu hỏi t1581s5207 trên head `d6862abe5` (spec.md hiện tại trước
+commit ghi quyết định này). Q-20 và Q-21 giữ (a), đã chốt 05/11 (t1446u,
+"ok a cả hai"). Theo đó:
+
+- **Q-0 / Spec:** approved (draft → approved). Không đổi phạm vi, trần hay
+  quyền so với head được duyệt.
+- **Q-1:** giữ 5 câu Speaking/ngày, 1 bài Writing/ngày; tổng chương trình
+  20 câu + 5 bài.
+- **Q-2:** giữ trần Anthropic 5 USD/ngày, 150 USD tổng; OpenAI 2 USD/ngày,
+  60 USD tổng; chia trần ngày thành cửa sổ 4 giờ (≤ 1/6 trần ngày + phần dư).
+- **Q-3:** API key riêng, bắt buộc; workspace/project riêng ở Anthropic và
+  OpenAI, spend limit ở provider bằng đúng trần tổng.
+- **Q-4:** bài bị lọc không trừ lượt; tối đa 3 lần lọc/ngày.
+- **Q-5:** Turnstile bắt buộc từ ngày đầu ở bước kích hoạt; thiếu thì dùng
+  thử tự đóng; không cần số điện thoại.
+- **Q-6:** tối thiểu Task 1 150, Task 2 250 chữ; tối đa 600/900 chữ.
+- **Q-7:** trần ngày/cửa sổ → đóng tới cửa sổ sau hoặc 00:00 giờ VN; trần
+  tổng → đóng hẳn, admin mở lại; bài đang chấm vẫn xong.
+- **Q-8:** giữ bốn lời nhắn đã viết trong câu hỏi (hết lượt, đóng ngày,
+  đóng hẳn, nghi dán).
+- **Q-9:** lớp thật không chặn dán tuyệt đối; giữ quy tắc <50 / 50–200 /
+  >200 hiện tại.
+- **Q-10:** đã đọc tổng hợp `ai_usage_logs` prod (05/11); ghi nhận số trong
+  plan.md; giữ trần Q-2.
+- **Q-11:** dùng thử chỉ Anthropic + OpenAI, không Gemini.
+- **Q-12:** đăng nhập không cần mã; tài khoản vẫn chưa kích hoạt; chỉ mở 8
+  route `/api/trial/*`.
+- **Q-13:** không cho khách chưa có tài khoản; bắt buộc đăng nhập Google
+  trước khi ghi âm/viết.
+- **Q-14:** bỏ onboarding tới sau lần chấm đầu.
+- **Q-15:** học viên cũ (lớp lưu trữ, mã hết hạn, đã kích hoạt rồi bị tắt)
+  không được dùng thử; chỉ tài khoản chưa từng kích hoạt; tài khoản bị khoá
+  cũng không. Học viên đang active dùng đường chấm thường.
+- **Q-16:** tối đa 100 kích hoạt dùng thử mới/ngày toàn site (env); báo anh
+  khi chạm.
+- **Q-17:** lưu audio/bài viết/nhật ký gõ 30 ngày, băm IP/thiết bị 90 ngày,
+  xoá ngay khi xoá tài khoản.
+- **Q-18:** > 3 lượt bị trả lại do chính client ngắt kết nối trong ngày thì
+  gắn cờ admin; > 6 thì tự khoá dùng thử tới hết ngày (FR-037).
+- **Q-19:** `role` rỗng (NULL) không được dùng thử; từ chối + ghi log để
+  dọn dữ liệu.
+- **Q-20:** (a) — người dùng thử đã vào lớp, hoặc khi chương trình tắt, vẫn
+  xem được kết quả dùng thử cũ của chính mình (JWT + đúng chủ sở hữu), giữ
+  đến hết 30 ngày lưu; kill switch thì đóng (FR-038). Chốt t1446u 05/11.
+- **Q-21:** (a) — trên điện thoại cho phép autocorrect/Gboard/đọc chính tả
+  trong ô Writing dùng thử, mỗi lần chèn ≤ 200 ký tự (gắn cờ
+  `assisted_input`, vẫn chấm); chặn > 200 ký tự và mọi kiểu dán/kéo thả
+  (FR-011/FR-012). Chốt t1446u 05/11.
+
+Merge #2252 vào `staging` do Leader làm sau khi CI staging xanh. Quyết định
+này không bật `free_trial_enabled`, không tạo API key / spend limit ở
+provider, không chạy migration 371, không triển khai production.
 
 ## Câu hỏi cho anh Vinh
 
@@ -804,9 +866,17 @@ Danh sách gộp FD + SA (SA review 04/11 15:08); mã SA ghi trong ngoặc.
 - **Q-19 Tài khoản có `role` rỗng (NULL) có được dùng thử?** (= SA Q-19, từ N9)
   Em đề xuất **không**: từ chối + ghi log để dọn dữ liệu (staging hiện 0 tài
   khoản như vậy; tạo tài khoản luôn đặt `role='user'`).
+- **Q-20** và **Q-21** không còn trong danh sách chờ: đã chọn (a) ngày 05/11
+  (t1446u) và đã ghi vào FR-038 / FR-011 / FR-012 trên head được duyệt.
 
 ## Changelog
 
+- 10/11/2026 (FD): draft → **approved** theo quyết định anh Vinh (t1581s5208,
+  14:18 UTC+7, chat Leader; đề xuất t1581s5207 trên head `d6862abe5`;
+  `approval-decision.md`). Ghi Q-0..Q-19 đã duyệt theo đề xuất và Q-20/Q-21
+  = (a) (t1446u, 05/11). Không đổi phạm vi, trần hay quyền. Merge #2252 do
+  Leader làm khi CI staging xanh; không bật cờ, không tạo API key, không chạy
+  migration 371, không triển khai production.
 - 10/11/2026 (FD, R4 Codex #2252): FR-020 thứ tự kiểm riêng cho `status`
   (luôn 200 khi đóng, khớp bảng FR-020/FR-006); FR-012 `input_log` dạng cột
   thưa, đủ 3 bộ đếm SA N35, vừa giới hạn 64 KB (không nâng); FR-038 tra
