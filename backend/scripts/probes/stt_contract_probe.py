@@ -6,7 +6,7 @@ OpenAI's transcription endpoint and stores a *sanitized* view of the response
 (field names, types, small non-sensitive samples) under --out-dir.
 
 Hard limits (spec 0051 T001):
-  * at most MAX_CALLS requests in total, counted in <out-dir>/call_counter.json
+  * at most MAX_CALLS requests in total, counted in a fixed per-user T001 ledger
     BEFORE each send (a failed or timed-out call still counts); the 6th is
     refused. No automatic retry.
   * runs only when RAILWAY_ENVIRONMENT_NAME == "staging" and OPENAI_API_KEY is
@@ -21,7 +21,9 @@ Usage (key injected by Railway, never printed):
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
+import math
 import os
 import subprocess
 import sys
@@ -29,6 +31,13 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+BACKEND_ROOT = REPO_ROOT / "backend"
+# Direct script invocation must be able to import the canonical usage logger.
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+COUNTER_PATH = Path.home() / ".local/state/ielts-speaking-coach/audiodepr-0051-t001/call_counter.json"
+FIXTURE_ROOTS = (REPO_ROOT / "frontend/public/assets", BACKEND_ROOT / "tests/fixtures")
 MAX_CALLS = 5
 MAX_AUDIO_SECONDS = 120
 ENDPOINT = "https://api.openai.com/v1/audio/transcriptions"
@@ -109,21 +118,35 @@ def sanitize_error(body) -> dict:
 class CallCounter:
     """Persistent hard cap; the slot is taken before the request is sent."""
 
-    def __init__(self, path: Path, limit: int = MAX_CALLS):
+    def __init__(self, path: Path, limit: int = MAX_CALLS, initial_calls: int = 0):
         self.path = path
         self.limit = limit
+        self.initial_calls = initial_calls
 
     def used(self) -> int:
         if not self.path.exists():
-            return 0
-        return int(json.loads(self.path.read_text())["calls"])
+            return self.initial_calls
+        used = json.loads(self.path.read_text())["calls"]
+        if type(used) is not int or used < 0:
+            raise ValueError("invalid call counter")
+        return used
 
     def take(self) -> int:
-        used = self.used()
-        if used >= self.limit:
-            raise RuntimeError(f"call budget exhausted ({used}/{self.limit}); refusing call")
-        self.path.write_text(json.dumps({"calls": used + 1}))
-        return used + 1
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        # Lock a stable sidecar inode; atomically replace the data file so a
+        # crash cannot expose a partial JSON write or restore a spent slot.
+        with self.path.with_suffix(".lock").open("a") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            used = self.used()
+            if used >= self.limit:
+                raise RuntimeError(f"call budget exhausted ({used}/{self.limit}); refusing call")
+            pending = self.path.with_suffix(".pending")
+            with pending.open("w") as fh:
+                json.dump({"calls": used + 1}, fh)
+                fh.flush()
+                os.fsync(fh.fileno())
+            pending.replace(self.path)
+            return used + 1
 
 
 def audio_duration(path: Path) -> float | None:
@@ -149,17 +172,26 @@ def main(argv: list[str] | None = None) -> int:
         print(f"REFUSED: {reason}; no API call made", file=sys.stderr)
         return 2
 
+    args.audio = args.audio.resolve()
+    if not args.audio.is_file() or not any(
+        args.audio.is_relative_to(root.resolve()) for root in FIXTURE_ROOTS
+    ):
+        print("REFUSED: audio must be a repo fixture file", file=sys.stderr)
+        return 2
+
     duration = audio_duration(args.audio)
-    if duration is None or duration > MAX_AUDIO_SECONDS:
+    if duration is None or not math.isfinite(duration) or not 0 < duration <= MAX_AUDIO_SECONDS:
         print(f"REFUSED: audio duration {duration} not in (0, {MAX_AUDIO_SECONDS}] s", file=sys.stderr)
         return 2
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    counter = CallCounter(args.out_dir / "call_counter.json")
+    # T001 already spent all five calls on 2026-11-10. Missing state must
+    # never grant a fresh budget, including in another checkout/out-dir.
+    counter = CallCounter(COUNTER_PATH, initial_calls=MAX_CALLS)
     try:
         call_no = counter.take()
-    except RuntimeError as exc:
-        print(f"REFUSED: {exc}", file=sys.stderr)
+    except (RuntimeError, ValueError, OSError) as exc:
+        print(f"REFUSED: counter unavailable or exhausted ({type(exc).__name__})", file=sys.stderr)
         return 3
 
     import requests  # local import: unit tests need no network stack
@@ -200,6 +232,24 @@ def main(argv: list[str] | None = None) -> int:
         record["http_status"] = None
         record["exception"] = type(exc).__name__
     record["latency_s"] = round(time.monotonic() - t0, 2)
+    try:
+        from services.ai_usage_logger import log_whisper
+
+        log_whisper(
+            user_id=None, session_id=None, model=params["model"],
+            audio_seconds=duration, feature="stt_contract_probe",
+            operation="transcription", status=(
+                "success" if record.get("http_status") is not None
+                and 200 <= record["http_status"] < 300 else "error"
+            ),
+            latency_ms=round((time.monotonic() - t0) * 1000),
+            error_code=record.get("exception"),
+            metadata={"probe_run": "AUDIODEPR-0051-T001", "call_no": call_no,
+                      "step": args.step, "http_status": record.get("http_status")},
+        )
+    except Exception as exc:
+        # Never retry the provider or print an exception that may contain keys.
+        print(f"WARNING: usage logging failed ({type(exc).__name__})", file=sys.stderr)
 
     out = args.out_dir / f"call{call_no}_step{args.step}.json"
     out.write_text(json.dumps(record, indent=2, ensure_ascii=False))
