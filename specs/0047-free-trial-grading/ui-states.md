@@ -25,4 +25,11 @@ Mọi giờ hiển thị theo giờ Việt Nam. Không hiển thị số USD cho
 
 Dữ liệu chuẩn: số lượt luôn lấy từ `GET /api/trial/status` (máy chủ); sau nộp
 gọi lại status. Reload giữa chấm: hiện "Đang chấm" và hỏi lại kết quả theo
-`request_key`; không nộp lại lần hai. (FD 05/11) Lịch sử "Bài dùng thử của bạn" đọc từ `GET /api/trial/history`, mở kết quả qua `GET /api/trial/{writing/submissions|speaking/results}/{id}` (FR-038) — vẫn hiện khi chương trình đóng hoặc đã vào lớp.
+`request_key`; không nộp lại lần hai. (FD 10/11, Codex #2252
+PRRT_kwDOR6Uds86z4_sh) Client lưu `request_key` vào `sessionStorage` **trước**
+khi POST; sau reload gọi `GET /api/trial/history?request_key=<uuid>` mỗi 3 s,
+tối đa 120 s: `pending` → giữ "Đang chấm"; `completed` → mở kết quả qua route
+`{id}` và xoá khoá khỏi `sessionStorage`; `failed` → hiện lỗi tương ứng như
+cột lỗi ở trên; 404 → xoá khoá, quay về màn soạn (bài nháp còn trong tự lưu);
+hết 120 s vẫn `pending` → "Bài vẫn đang được chấm, kết quả sẽ có trong Bài
+dùng thử của bạn". (FD 05/11) Lịch sử "Bài dùng thử của bạn" đọc từ `GET /api/trial/history`, mở kết quả qua `GET /api/trial/{writing/submissions|speaking/results}/{id}` (FR-038) — vẫn hiện khi chương trình đóng hoặc đã vào lớp.

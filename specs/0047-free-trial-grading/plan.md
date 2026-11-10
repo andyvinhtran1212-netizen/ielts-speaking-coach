@@ -24,13 +24,36 @@
 
 ## Data and contracts
 
-### Ước tính chi phí mỗi lượt (dữ liệu **staging**, ước tính)
+### Ước tính chi phí mỗi lượt (số **prod** 30 ngày; staging để đối chiếu)
 
-Nguồn: `SELECT` chỉ đọc trên staging `zjphffoujxkpltixsbzj`, bảng
-`ai_usage_logs`, 60 ngày tới 04/11 (FD, 04/11 ~14:50 giờ VN), bỏ dòng
-`model='fixture'`. Giá: `services/ai_pricing.py` (Sonnet 5.5: 2 USD/1M input,
-10 USD/1M output; Haiku 5.5: 0,10/0,50; Haiku 4.5: 1/5; Whisper 0,006 USD/phút).
-**Mẫu nhỏ** — cần Q-10 (đọc tổng hợp prod) để chỉnh.
+Nguồn prod (FD 10/11): Q-10 đã chạy. Leader đọc tổng hợp chỉ đọc
+`ai_usage_logs` production 30 ngày tới 04/11 ~22:40 giờ VN, anh Vinh duyệt
+t1412u (`/workspace/cc-jobs/handoff/feature-developer/done/20261104-prod-ro-0047-ai-usage.md`
+dòng 10–13, 27–33; tóm tắt ở
+`/workspace/cc-jobs/handoff/project-coordinator/20261105-0945-feature-developer-prod-data-0047-0049.md`
+dòng 7–12). Số staging: `SELECT` chỉ đọc trên staging `zjphffoujxkpltixsbzj`,
+60 ngày tới 04/11, bỏ `model='fixture'`. Giá: `services/ai_pricing.py`
+(Sonnet 5.5: 2 USD/1M input, 10 USD/1M output; Haiku 5.5: 0,10/0,50; Haiku
+4.5: 1/5; Whisper 0,006 USD/phút).
+
+| Thành phần (prod, 30 ngày) | Số lần gọi | Chi phí TB | p95 | Max |
+| --- | --- | --- | --- | --- |
+| Speaking chấm, Sonnet 5.5 (`speaking_grading`) | 320 | 0,0197 USD | 0,0281 | 0,0307 |
+| Speaking STT, Whisper (`speaking_stt`, audio TB 67,1 s) | 976 | 0,0067 USD | 0,0122 | 0,0198 |
+| Off-topic judge, Haiku 4.5 (`off_topic_judge`) | 826 | 0,0012 USD | 0,0014 | 0,0019 |
+| Writing chấm, Sonnet 5.5 (`writing_grading`), 13/21 lần không `success` | 21 | 0,110 USD | 0,141 | 0,150 |
+
+Prod (mẫu Writing **nhỏ**, 21 lần): xấu nhất mỗi lần gọi ≈ 0,0307 + 0,0012 ≈
+**0,03 USD/câu Speaking** (giữ chỗ 0,05) và 2 × 0,150 = **0,30 USD/bài
+Writing** (giữ chỗ 0,34) → giữ chỗ theo trần token vẫn phủ max prod, **giữ
+nguyên**. Whisper xấu nhất prod 0,0198 (audio > 120 s của lớp thật); dùng thử
+giới hạn ≤ 120 s (FR-016) nên giữ chỗ 0,012 vẫn đúng. Tỉ lệ không thành công
+Writing prod 13/21 = 62 % (staging 9/23 = 39 %): nếu giữ tỉ lệ đó và mỗi lần
+lỗi thử lại 1 lần (FR-005), TB ≈ 0,110 × 1,62 ≈ **0,18 USD/bài** (thay 0,123).
+`azure_speech` không log chi phí; dùng thử không gọi Azure (FR-005) nên không
+ảnh hưởng.
+
+Bảng staging (đối chiếu, mẫu nhỏ):
 
 | Thành phần | Mẫu staging | Token TB (in/out) | Chi phí TB | Max |
 | --- | --- | --- | --- | --- |
@@ -47,12 +70,12 @@ Speaking 311 × 2/1M + 1 413 × 10/1M = **0,015 USD** (log 0,019).
 
 Tính mỗi lượt dùng thử (dùng số log, an toàn hơn):
 
-- **Speaking 1 câu:** Anthropic 0,0191 + 0,0011 = **0,020 USD** TB, xấu nhất
-  0,0241 + 0,0012 = 0,025; OpenAI Whisper TB 0,003, xấu nhất (120 s) **0,012**.
-  → Ước tính giữ chỗ: Anthropic 0,03, OpenAI 0,012.
-- **Writing 1 bài:** tỉ lệ `invalid_response` staging 9/23 = 39 %. Với tối đa 1
-  lần thử lại Sonnet (FR-005): TB ≈ 0,088 × (1 + 0,39) + 0,0003 = **0,123 USD**;
-  xấu nhất theo mẫu 2 × 0,133 + 0,0005 = 0,27 USD — **không dùng làm giữ chỗ**.
+- **Speaking 1 câu:** prod Anthropic 0,0197 + 0,0012 ≈ **0,021 USD** TB, xấu
+  nhất ≈ 0,032 (staging 0,020 / 0,025); OpenAI Whisper TB prod 0,0067, xấu
+  nhất dùng thử (120 s) **0,012**. Giữ chỗ theo trần token ≈ 0,05 (dưới).
+- **Writing 1 bài:** prod TB ≈ 0,110 × 1,62 ≈ **0,18 USD** (staging: tỉ lệ
+  `invalid_response` 9/23 = 39 %, TB ≈ 0,088 × 1,39 + 0,0003 = 0,123); xấu nhất
+  prod 2 × 0,150 = 0,30 (staging 0,27) — số mẫu **không dùng làm giữ chỗ**.
 - **Giữ chỗ (FD 05/11, Codex #2252 r4471860800):** reservation = tổng
   `ai_budget.estimate(provider, model, input_tokens=<đếm thật>, max_tokens=<giới
   hạn của lần gọi>)` cho **mọi** lần gọi được phép của một lượt (lần đầu + 1 lần
@@ -67,7 +90,7 @@ Tính mỗi lượt dùng thử (dùng số log, an toàn hơn):
   0,012. Số chính xác do `estimate` tính lúc chạy; nếu `estimate` trả lỗi →
   `config_invalid`, không gọi provider. Hệ quả xấu nhất mỗi tài khoản/ngày:
   Anthropic 5 × 0,05 + 0,34 = 0,59 USD; tổng chương trình 20 × 0,05 + 5 × 0,34 =
-  2,70 USD (TB không đổi ≈ 1,02). Trần ngày 5 USD ⇒ tối đa ~14 reservation
+  2,70 USD (TB theo prod ≈ 1,3, staging ≈ 1,02). Trần ngày 5 USD ⇒ tối đa ~14 reservation
   Writing đồng thời — chạm trần thì từ chối trước khi gọi (fail-closed).
 - **Bài bị lọc:** 0 (lọc cục bộ) hoặc 0,0003 (lọc Haiku).
 
@@ -76,14 +99,16 @@ Tính mỗi lượt dùng thử (dùng số log, an toàn hơn):
 - Mỗi tài khoản/ngày: Speaking 5 câu, Writing 1 bài → xấu nhất
   Anthropic 5 × 0,05 + 0,34 = 0,59 USD (giữ chỗ theo giới hạn token), OpenAI 5 × 0,012 = 0,06 USD.
 - Mỗi tài khoản tổng: 20 câu Speaking + 5 bài Writing → xấu nhất Anthropic
-  20 × 0,05 + 5 × 0,34 = 2,70 USD; TB 20 × 0,020 + 5 × 0,123 ≈ 1,02 USD.
+  20 × 0,05 + 5 × 0,34 = 2,70 USD; TB theo prod 20 × 0,021 + 5 × 0,18 ≈
+  **1,3 USD** (staging 20 × 0,020 + 5 × 0,123 ≈ 1,02).
 - `trial_anthropic`: **5 USD/ngày**, **150 USD tổng** (chừa 50 USD = 25 % cho
-  sai số ước tính, `invalid_response`, reservation treo, giá đổi). 5 USD/ngày ≈
-  40 bài Writing TB **hoặc** ≈ 250 câu Speaking TB; ≈ 12–13 người dùng hết lượt
-  ngày ở mức xấu nhất. 150 USD tổng ≈ 30 ngày, ≈ 150 người dùng hết lượt
-  tổng (TB), ≥ 80 người ở mức xấu nhất.
+  sai số ước tính, `invalid_response`, reservation treo, giá đổi). Trần **không
+  đổi** sau số prod (FD 10/11). 5 USD/ngày ≈ 27 bài Writing TB prod **hoặc** ≈
+  240 câu Speaking TB prod; ≈ 8 người dùng hết lượt ngày ở mức xấu nhất (0,59
+  USD). 150 USD tổng ≈ 30 ngày, ≈ **115** người dùng hết lượt tổng theo TB prod
+  (staging ≈ 150), ≥ 55 người ở mức xấu nhất (2,70 USD).
 - `trial_openai`: **2 USD/ngày**, **60 USD tổng** (chừa 40 USD). Whisper 2
-  USD/ngày ≈ 670 câu TB / 166 câu 120 s — không phải nút thắt.
+  USD/ngày ≈ 300 câu TB prod / 166 câu 120 s — không phải nút thắt.
 - `trial_total`: 7 USD/ngày, 210 USD tổng (= tổng 2 provider, để báo cáo).
 - Cảnh báo email ở 50 %/80 %/100 % trần tổng và khi chạm trần ngày lần đầu.
 
@@ -286,9 +311,10 @@ Tính mỗi lượt dùng thử (dùng số log, an toàn hơn):
   lỗi → giữ hàng để thử lại); `transcript`/`grading` không bao giờ ghi vào log,
   `error_logs` hay Sentry (lọc ở handler). Test: CHECK chặn URL; job xoá cả hai;
   xoá user cascade; log/handler lỗi không chứa transcript (fixture chuỗi đánh dấu).
-- `trial_writing_submissions(id, user_id, prompt_id, task in (1,2), essay_text,
+- `trial_writing_submissions(id, user_id, request_key, prompt_id, task in (1,2), essay_text,
   word_count, input_log jsonb, forensic_score, filter_result, grading jsonb,
-  created_at)` (bài dùng thử tách khỏi `writing_essays` để không lẫn số liệu lớp).
+  created_at)` (bài dùng thử tách khỏi `writing_essays` để không lẫn số liệu lớp);
+  `UNIQUE(user_id, request_key)` (FD 10/11, FR-038 khôi phục theo request_key).
 - RPC `fn_trial_reserve(user_id, kind, request_key, limits jsonb)` (khoá hàng
   `trial_accounts`, đếm, chèn `reserved`; trả `granted`/`reason`),
   `fn_trial_settle(user_id, reservation_id, outcome)` (FD 05/11, Codex #2252
@@ -335,7 +361,7 @@ Tính mỗi lượt dùng thử (dùng số log, an toàn hơn):
 | Method/Path | Mô tả | Lỗi |
 | --- | --- | --- |
 | `GET /api/trial/config` | công khai, không JWT: `{enabled, open, speaking_per_day, writing_per_day}` (không số USD); cache 60 s | — |
-| `GET /api/trial/status` | `{eligible, open, reason?, reopens_at?, speaking:{left_today,left_total}, writing:{left_today,left_total,filter_left_today}}` | 401 |
+| `GET /api/trial/status` | `{eligible, open, reason?, reopens_at?, speaking:{left_today,left_total}, writing:{left_today,left_total,filter_left_today}}`; luôn 200 khi đóng (cờ tắt/`trial_open()` false/kill switch → `open:false` + `reason`), thứ tự kiểm riêng FR-020 (FD 10/11) | 401, 403 khoá, 429 |
 | `POST /api/trial/activate` | body `{device_id, captcha_token}` (**bắt buộc**, FR-009; thiếu → 403 `captcha_failed`); tạo `trial_accounts` | 403 `trial_not_eligible`/`email_unverified`/`captcha_failed`, 429 `trial_limit` |
 | `GET /api/trial/speaking/questions` | bộ đề dùng thử cố định | 403, 503 `trial_closed` |
 | `POST /api/trial/speaking/answers` | multipart audio + `question_id` + `request_key` → kết quả chấm | 403, 413 `audio_too_long`, 422 `audio_too_short`, 429 `trial_quota`, 503 `trial_closed`/`trial_unavailable` |
@@ -343,16 +369,41 @@ Tính mỗi lượt dùng thử (dùng số log, an toàn hơn):
 | `POST /api/trial/writing/submissions` | `{prompt_id, essay_text, input_log, request_key}` | 422 `too_short`/`too_long`/`paste_suspected`/`low_quality`/`off_topic`, 429 `trial_quota`/`trial_filter_limit`, 503 |
 | `GET /api/trial/writing/submissions/{id}` | kết quả của chính mình (FR-038: không cần eligibility/mở) | 401, 403 khoá, 404, 422, 503 kill switch |
 | `GET /api/trial/speaking/results/{id}` | kết quả Speaking của chính mình (FR-038) | 401, 403 khoá, 404, 422, 503 kill switch |
-| `GET /api/trial/history` | danh sách 30 ngày `{id, kind, created_at, band}` ≤ 50 (FR-038) | 401, 403 khoá, 503 kill switch |
+| `GET /api/trial/history` | danh sách 30 ngày `{id, kind, created_at, band}` ≤ 50 (FR-038); `?request_key=<uuid>` → một mục `{request_key, kind, state: pending\|completed\|failed, id?, error?}` chỉ của người gọi (FD 10/11, khôi phục sau reload) | 401, 403 khoá, 404 (không có/khác chủ), 422, 429, 503 kill switch |
 | `GET /api/admin/trial/readiness` | chỉ boolean (FR-036) | 403 (admin + AAL2) |
 | `GET/POST /api/admin/trial/*` | tổng hợp, chặn tài khoản/thiết bị | 403 (admin + AAL2) |
 
 `503 trial_closed` có `reason ∈ {daily_cap,total_cap,paused}` và `reopens_at`
 cho `daily_cap`. Mã lỗi khác `ai_budget_exhausted` của nền tảng.
 
-`input_log` (FR-012): `{v:1, opened_ms, active_ms, windows:[{t, ins, del,
-ins_events, bulk_ins, blocked_paste}], composition_events, final_len}`, tối đa
-720 cửa sổ (1 giờ); lớn hơn → 422.
+`input_log` (FR-012; FD 10/11, Codex #2252 PRRT_kwDOR6Uds86z4kIl +
+PRRT_kwDOR6Uds86z4_sf), schema chuẩn duy nhất, `extra='forbid'` ở mọi cấp:
+
+```json
+{"v": 1, "opened_ms": 0, "active_ms": 0, "composition_events": 0, "final_len": 0,
+ "windows": {"t": [], "ins": [], "del": [], "ins_events": [], "bulk_ins": [],
+             "blocked_paste": [], "long_nonkey_chars": [], "word_commits": [],
+             "inserts_over_100": []}}
+```
+
+- `windows` là **cột**: 9 mảng số nguyên cùng độ dài n ≤ 720 (1 giờ, cửa sổ
+  5 s); lệch độ dài, thiếu/thừa khoá → 422 `input_log_invalid`.
+- `t` = chỉ số cửa sổ 0..719, tăng chặt (không trùng). Cửa sổ mà mọi bộ đếm = 0
+  được **bỏ** (thưa); máy chủ coi cửa sổ vắng là toàn 0.
+- Mọi bộ đếm cửa sổ là số nguyên 0..9 999; `opened_ms`, `active_ms` 0..86 400 000;
+  `composition_events`, `final_len` 0..99 999. Ngoài khoảng → 422.
+- `long_nonkey_chars`, `word_commits`, `inserts_over_100` là 3 bộ đếm FR-012/SA
+  N35 dùng cho các tín hiệu mạnh và SA N38; không còn trường nào khác.
+- Body JSON UTF-8 thô (`JSON.stringify`, không escape `\u` cho ký tự ngoài
+  ASCII). Kích thước xấu nhất đã tính (FD 10/11, `json.dumps(...,
+  separators=(",",":"), ensure_ascii=False)`): 720 cửa sổ, mọi bộ đếm 9 999 +
+  bài 7 000 ký tự ASCII ≈ 38,0 KB; 7 000 ký tự 3 byte (`ệ`) ≈ 51,7 KB; 7 000 ký
+  tự 4 byte ≈ 58,5 KB — đều ≤ 64 KB của FR-035 (giới hạn **không** đổi). Dạng
+  hàng cũ (mảng object) chỉ riêng 720 cửa sổ đã ≈ 94 KB nên bị bỏ.
+- Kiểm (T004/T005/T006): một payload mẫu do `frontend/lib/trial/input-log.mjs`
+  sinh (gõ thật + Gboard + một lần chèn > 100 ký tự) qua validator chặt phía
+  máy chủ → hợp lệ và mỗi bộ đếm trong 3 bộ đếm trên > 0; payload 720 cửa sổ
+  xấu nhất + bài 7 000 ký tự 4 byte → < 65 536 byte và không bị 413.
 
 ## UI and interaction
 
@@ -536,3 +587,18 @@ mặc định TẮT; kill switch `TRIAL_KILL_SWITCH`.
 | --- | --- | --- |
 | N37 | P3 | verification FR-025: thêm ngoại lệ 3 route đọc FR-038 vào câu JWT+eligibility (T013) |
 | N38 | P3 | tín hiệu mạnh: word_commits > 80 % số từ + (fast_typing hoặc short_duration) → paste_suspected; fixture script 50 ms/từ và Gboard 40 wpm (T006) |
+
+## Changelog
+
+- 10/11/2026 (FD, R4 — Codex #2252 PRRT_kwDOR6Uds86z4kId, PRRT_kwDOR6Uds86z4kIl,
+  PRRT_kwDOR6Uds86z4_sf, PRRT_kwDOR6Uds86z4_sh): (1) `status` có thứ tự kiểm
+  riêng và luôn 200 khi đóng, khớp bảng FR-020 và FR-006; (2) schema
+  `input_log` chuẩn có đủ `long_nonkey_chars`, `word_commits`,
+  `inserts_over_100`; (3) `windows` dạng cột thưa, giá trị 0..9 999, 720 cửa sổ
+  + bài 7 000 ký tự ≤ 64 KB — giới hạn body FR-035 giữ nguyên; (4) `GET
+  /api/trial/history?request_key=` cho khôi phục sau reload, chỉ của người gọi,
+  `trial_writing_submissions.request_key` + UNIQUE. (5) Mục chi phí dùng số prod
+  30 ngày (Q-10 đã chạy, t1412u): giữ chỗ 0,05/0,34 USD và trần 5/150 USD
+  Anthropic, 2/60 USD OpenAI **không đổi**; TB Writing ≈ 0,18 USD/bài, TB mỗi
+  tài khoản hết lượt ≈ 1,3 USD, 150 USD ≈ 115 người. Không đổi goal, quyền,
+  phạm vi dữ liệu hay trần chi phí; không nới bảo đảm SA retest 9.

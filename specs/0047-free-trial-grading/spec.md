@@ -307,7 +307,12 @@ chưa đăng ký lớp, để họ trải nghiệm chất lượng chấm. Hiệ
   sự kiện `insertText`/composition/`insertReplacementText`, độ dài lớn nhất của
   một lần chèn, số lần bị chặn dán, thời gian hoạt động, thời gian mở bài).
   `input_log` được kiểm schema chặt (pydantic, không trường lạ, ≤ 720 cửa sổ,
-  body ≤ 64 KB) **trước** khi phân tích; sai schema → 422 `input_log_invalid`
+  body ≤ 64 KB) **trước** khi phân tích. (FD 10/11, Codex #2252
+  PRRT_kwDOR6Uds86z4_sf) Cửa sổ gửi dạng **cột, thưa**: mỗi bộ đếm là một mảng
+  số nguyên cùng độ dài, cửa sổ mà mọi bộ đếm = 0 được bỏ, mỗi giá trị trong
+  0..9 999; schema chuẩn ở plan.md "`input_log` (FR-012)". Nhờ đó 720 cửa sổ
+  đầy đủ 9 bộ đếm + bài 7 000 ký tự vẫn ≤ 64 KB (giới hạn FR-035 **không**
+  nâng); sai schema → 422 `input_log_invalid`
   (không trừ lượt, không trừ lần lọc). FR-011/FR-012 là **tín hiệu chất lượng
   dữ liệu**, không phải kiểm soát chi phí (FR-003/FR-004 làm việc đó). Quy tắc
   **duy nhất** cho Writing dùng thử (thay mọi ngưỡng cũ 600 cpm/+10 %/thời gian):
@@ -396,12 +401,24 @@ chưa đăng ký lớp, để họ trải nghiệm chất lượng chấm. Hiệ
   | cờ BẬT, `trial_open()` = false (paused, trần, thiếu cấu hình) | 200 `open:false` | 200 `open:false, reason` | **503** `trial_closed` + `reason` | 200 (chủ sở hữu) |
   | `TRIAL_KILL_SWITCH` bật | 200 `open:false` | 200 `open:false, reason:"paused"` | 503 `trial_closed` | **503** `trial_closed` (khẩn cấp: đóng cả đọc) |
 
-  (SA N33) Thứ tự kiểm cho mọi route `/api/trial/*` trừ `config`: kill switch
-  (env, **trước** JWT) → 503 → JWT thiếu/sai → 401 → `suspended_at` → 403 → cờ
-  TẮT → 404 (không áp cho đọc FR-038) → `trial_open()` false → 503 (không áp
-  cho đọc FR-038) → eligibility → 403 (không áp cho đọc FR-038) → rate limit →
-  body. `config` không qua bước nào ngoài rate limit IP. Kiểm: kill switch bật +
-  không JWT → 503; cờ TẮT + không JWT → 401; test bảng thứ tự cho từng route.
+  (SA N33) Thứ tự kiểm cho mọi route `/api/trial/*` trừ `config` và `status`:
+  kill switch (env, **trước** JWT) → 503 → JWT thiếu/sai → 401 → `suspended_at`
+  → 403 → cờ TẮT → 404 (không áp cho đọc FR-038) → `trial_open()` false → 503
+  (không áp cho đọc FR-038) → eligibility → 403 (không áp cho đọc FR-038) → rate
+  limit → body. `config` không qua bước nào ngoài rate limit IP.
+  (FD 10/11, Codex #2252 PRRT_kwDOR6Uds86z4kId) `status` có thứ tự riêng, đúng
+  cột `status` của bảng trên và FR-006: kill switch (env, vẫn **trước** JWT) →
+  200 hằng `{open:false, reason:"paused"}` (không đọc JWT, không đọc/ghi DB,
+  không chứa dữ liệu người dùng; cùng mức lộ như `config`) → JWT thiếu/sai → 401
+  → `suspended_at` → 403 → rate limit đọc (FR-038, SA N29) → 200 với `open` và
+  `reason` lấy từ cờ/`trial_open()` (FR-035) và `eligible` là một trường (không
+  eligible → `eligible:false`, không phải 403). Cờ TẮT, `trial_open()` false
+  hay không eligible **không** làm `status` trả 404/503/403; `status` không gọi
+  provider, không giữ chỗ, không ghi bảng dấu vết. Kiểm: kill switch bật +
+  không JWT → 503; cờ TẮT + không JWT → 401; test bảng thứ tự cho từng route; `status`: kill switch (có
+  hoặc không JWT) → 200 `open:false, reason:"paused"` và không truy vấn DB; cờ
+  TẮT + JWT → 200 `reason:"disabled"`; trần ngày + JWT → 200 `reason:"daily_cap"`
+  + `reopens_at`; cờ TẮT + không JWT → 401.
   UI không hiện thẻ dùng thử khi `enabled:false` nhưng vẫn hiện "Bài dùng thử
   của bạn" nếu có lịch sử. Kiểm: test cờ thiếu/lỗi đọc → 404 cho route ghi,
   200 cho config/status/đọc lịch sử; paused → 503; kill switch → 503 cả đọc.
@@ -631,10 +648,26 @@ chưa đăng ký lớp, để họ trải nghiệm chất lượng chấm. Hiệ
   trực tiếp (signed URL TTL ≤ 10 phút như FR-033). Kết quả Speaking lưu ở bảng
   mới `trial_speaking_results` (migration 371, plan.md Persistence); POST
   `speaking/answers` trùng `(user_id, request_key)` trả lại kết quả đã lưu
-  (reload không nộp lại, `ui-states.md`). Kiểm: chủ sở hữu đọc được sau khi được
+  (reload không nộp lại, `ui-states.md`).
+  (FD 10/11, Codex #2252 PRRT_kwDOR6Uds86z4_sh) Khôi phục sau reload: `GET
+  /api/trial/history?request_key=<uuid>` (cùng route, cùng điều kiện đọc FR-038,
+  không thêm route hay quyền) tra **chỉ** trong hàng của người gọi theo
+  `(user_id, request_key)` ở `trial_usage` và trả một mục `{request_key, kind,
+  state, id?, error?}`: `state ∈ {pending, completed, failed}`. `pending` khi
+  reservation còn `reserved`; `completed` kèm `id` của kết quả (đọc tiếp bằng
+  route `{id}`); `failed` kèm mã lỗi đã trả cho POST (reservation `filtered`
+  hoặc `released`, ví dụ `paste_suspected`, `trial_closed`). Không có hàng hoặc
+  thuộc user khác → 404 (không phân biệt); `request_key` không phải UUIDv4 →
+  422. Response không có nội dung bài/transcript; vẫn `no-store, private` và
+  tính vào `TRIAL_READ_PER_MIN` (SA N29). `trial_writing_submissions` thêm cột
+  `request_key` + `UNIQUE(user_id, request_key)` (như `trial_speaking_results`)
+  để nối reservation với kết quả; POST `writing/submissions` trùng request_key
+  trả lại kết quả đã lưu như Speaking. Kiểm: chủ sở hữu đọc được sau khi được
   kích hoạt vào lớp và sau khi cờ TẮT/paused; user khác → 404; không JWT → 401;
   tài khoản khoá → 403; kill switch → 503; quá 30 ngày → 404; view dấu vết
-  không có hàng sau khi đọc.
+  không có hàng sau khi đọc; reload trước khi POST trả về: `history?request_key`
+  → `pending` rồi `completed` + `id`, chỉ 1 POST, provider giả gọi 1 lần;
+  request_key của user khác → 404; request_key sai định dạng → 422.
   (SA N29) 3 route đọc và response kết quả của `POST speaking/answers`/`POST
   writing/submissions` trả `Cache-Control: no-store, private` + `Vary:
   Authorization`. Giới hạn đọc mỗi user `TRIAL_READ_PER_MIN=60` qua bộ đếm DB
@@ -771,3 +804,12 @@ Danh sách gộp FD + SA (SA review 04/11 15:08); mã SA ghi trong ngoặc.
 - **Q-19 Tài khoản có `role` rỗng (NULL) có được dùng thử?** (= SA Q-19, từ N9)
   Em đề xuất **không**: từ chối + ghi log để dọn dữ liệu (staging hiện 0 tài
   khoản như vậy; tạo tài khoản luôn đặt `role='user'`).
+
+## Changelog
+
+- 10/11/2026 (FD, R4 Codex #2252): FR-020 thứ tự kiểm riêng cho `status`
+  (luôn 200 khi đóng, khớp bảng FR-020/FR-006); FR-012 `input_log` dạng cột
+  thưa, đủ 3 bộ đếm SA N35, vừa giới hạn 64 KB (không nâng); FR-038 tra
+  `history?request_key` cho khôi phục sau reload. Mục chi phí plan.md dùng số
+  prod (Q-10). Chi tiết: plan.md "Changelog". Không đổi goal, quyền, phạm vi
+  dữ liệu hay trần chi phí.

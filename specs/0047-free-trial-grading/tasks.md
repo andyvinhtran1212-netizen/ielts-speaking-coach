@@ -75,7 +75,10 @@ không phải quyền sửa file song song; các file khác theo phụ thuộc b
   `owns: backend/services/trial_abuse.py, backend/data/disposable_email_domains.txt, backend/routers/trial.py (activate), backend/routers/admin_trial.py, backend/tests/test_trial_abuse.py`
 - [ ] T004 [P] Writing chặn dán phía client + nhật ký nhập liệu (FR-011, FR-012
   phần client): component `TrialEssayEditor` (paste/drop/beforeinput/autofill,
-  IME), sinh `input_log`. **S, Codex.** `depends: T001`
+  IME), sinh `input_log` theo schema cột thưa ở plan.md (FD 10/11: 9 bộ đếm gồm
+  `long_nonkey_chars`, `word_commits`, `inserts_over_100`; payload mẫu cho test
+  validator), lưu `request_key` vào `sessionStorage` trước POST và khôi phục qua
+  `history?request_key` (ui-states). **S, Codex.** `depends: T001`
   `owns: frontend/components/trial/TrialEssayEditor.tsx, frontend/lib/trial/input-log.mjs, frontend/tests/trial-essay-editor.test.mjs`
 - [ ] T005 Phát hiện dán phía máy chủ (FR-012): `trial_input_forensics`, fixture
   gõ thật/dán/tốc độ/lệch/thiếu log, ngưỡng cấu hình. **S, Codex.**
