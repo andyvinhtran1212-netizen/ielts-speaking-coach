@@ -37,6 +37,13 @@ from fastapi import (
     UploadFile,
 )
 from pydantic import BaseModel, ConfigDict, Field
+from fastapi.routing import APIRoute
+from fastapi.exceptions import RequestValidationError
+from models.listening_blackeye import (
+    BlackEyeLearnerBinding, BlackEyeAttemptState, BlackEyeActivityReview,
+    BlackEyeUnitPublic, BlackEyeSaveAck, BlackEyeInProgress,
+)
+from services import listening_blackeye as blackeye
 from starlette.concurrency import run_in_threadpool
 
 from config import settings
@@ -118,7 +125,27 @@ from models.listening_programmes import (
 logger = logging.getLogger(__name__)
 
 
-user_router = APIRouter(prefix="/api/listening", tags=["listening"])
+class _ListeningRoute(APIRoute):
+    def get_route_handler(self):
+        original = super().get_route_handler()
+
+        async def handler(request):
+            try:
+                return await original(request)
+            except RequestValidationError as exc:
+                # Default Pydantic errors echo rejected values, creating an N2
+                # answer-set oracle. Never echo nested Black Eye inputs.
+                if any("blackeye_binding" in error.get("loc", ()) for error in exc.errors()):
+                    raise HTTPException(422, "Invalid Black Eye binding.", headers={"Cache-Control": "private, no-store"}) from None
+                raise
+            except HTTPException as exc:
+                if isinstance(exc.detail, str) and "Black Eye" in exc.detail:
+                    exc.headers = {**(exc.headers or {}), "Cache-Control": "private, no-store"}
+                raise
+        return handler
+
+
+user_router = APIRouter(prefix="/api/listening", tags=["listening"], route_class=_ListeningRoute)
 admin_router = APIRouter(prefix="/admin/listening", tags=["listening-admin"])
 
 
@@ -640,7 +667,7 @@ def _fetch_published_listening_content_with_signed_url(content_id: str) -> dict:
     res = (
         supabase_admin.table("listening_content")
         .select(",".join((*_STUDENT_LISTENING_CONTENT_FIELDS,
-                          "audio_storage_path,status")))
+                          "audio_storage_path,status,test_id")))
         .eq("id", content_id)
         .eq("status", "published")
         .limit(1)
@@ -650,6 +677,8 @@ def _fetch_published_listening_content_with_signed_url(content_id: str) -> dict:
         raise HTTPException(404, "Listening content not found or not published")
 
     row = res.data[0]
+    if row.get("test_id") and blackeye.is_blackeye(blackeye.test_identity(supabase_admin, row["test_id"])):
+        raise HTTPException(422, "Black Eye section access unavailable.")
     safe = {field: row.get(field) for field in _STUDENT_LISTENING_CONTENT_FIELDS}
 
     # Bundle sections may use only the parent test's audio. A missing section
@@ -709,6 +738,10 @@ def _fetch_published_exercises_for_student(
             422, f"exercise_type must be one of {sorted(_EXERCISE_TYPES)}",
         )
 
+    parent = (supabase_admin.table("listening_content").select("test_id")
+              .eq("id", content_id).limit(1).execute().data or [])
+    if parent and parent[0].get("test_id") and blackeye.is_blackeye(blackeye.test_identity(supabase_admin, parent[0]["test_id"])):
+        raise HTTPException(422, "Black Eye section access unavailable.")
     res = (
         supabase_admin.table("listening_exercises")
         .select("*")
@@ -5051,6 +5084,7 @@ class _ListeningAttemptStartRequest(BaseModel):
     renderer_affinity_protocol: Literal["claim-v1"] | None = None
     purpose: Literal["practice", "assigned_practice", "mock_delivery"] | None = None
     mock_sitting_id: uuid.UUID | None = None
+    blackeye_binding: BlackEyeLearnerBinding | None = None
 
 
 class _ListeningAttemptRendererAffinityRequest(BaseModel):
@@ -5968,6 +6002,8 @@ def _assert_listening_exam_content_allowed(
 
 def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True, snapshot=None) -> dict:
     """Build the student-safe player contract for public and admin preview."""
+    if blackeye.is_blackeye(test):
+        raise HTTPException(503, "Black Eye player contract unavailable.")
     from services import listening_test_grader as grader
 
     test_id = str(test["id"])
@@ -6178,6 +6214,9 @@ async def get_published_listening_test(
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
     test = res.data[0]
+    if blackeye.is_blackeye(test):
+        blackeye.require_published(supabase_admin, test)
+        raise HTTPException(503, "Black Eye player contract unavailable.")
     decision = _assert_listening_exam_content_allowed(test, _user.get("id"), class_item, sitting_id=sitting_id)
     from services.mock_paper_policy import owned_delivery_snapshot, attempt_receipt
     attempt, snapshot = owned_delivery_snapshot(supabase_admin, "listening", test_id, _user["id"], decision,
@@ -6278,6 +6317,8 @@ async def get_listening_test_dictation(
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
     test = res.data[0]
+    if blackeye.is_blackeye(test):
+        raise HTTPException(422, "Black Eye dictation requires separate release.")
     _assert_listening_exam_content_allowed(test, _user.get("id"), allow_public=False)
 
     audio_url, audio_path, audio_duration = _student_audio_url_for_test(test)
@@ -6408,11 +6449,13 @@ def _published_test_for_dictation(test_id: str, user_id=None) -> dict:
     """
     res = (
         supabase_admin.table("listening_tests")
-        .select("id,test_id,title,status,exam_only,is_public,public_practice_enabled")
+        .select("id,test_id,title,status,exam_only,is_public,public_practice_enabled,programme_id,metadata")
         .eq("id", test_id).eq("status", "published").limit(1).execute()
     )
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
+    if blackeye.is_blackeye(res.data[0]):
+        raise HTTPException(422, "Black Eye dictation requires separate release.")
     _assert_listening_exam_content_allowed(res.data[0], user_id, allow_public=False)
     return res.data[0]
 
@@ -7550,7 +7593,7 @@ async def admin_get_listening_attempt(
     return out
 
 
-@user_router.get("/tests/{test_id}/attempts/in-progress")
+@user_router.get("/tests/{test_id}/attempts/in-progress", response_model=BlackEyeInProgress | dict[str, Any])
 async def get_in_progress_listening_attempt(
     test_id: str,
     sitting_id: str | None = None,
@@ -7582,6 +7625,21 @@ async def get_in_progress_listening_attempt(
     user = await _require_auth(authorization)
     if standalone and (class_item or sitting_id):
         raise HTTPException(422, "standalone cannot be combined with class_item or sitting_id")
+    target = blackeye.test_identity(supabase_admin, test_id)
+    if blackeye.is_blackeye(target):
+        blackeye.require_published(supabase_admin, target)
+        if class_item or sitting_id or not standalone:
+            blackeye.assignment_seam()
+        rows = (supabase_admin.table("listening_test_attempts").select("*")
+                .eq("user_id", user["id"]).eq("test_id", test_id)
+                .eq("status", "in_progress").is_("class_assignment_item_id", "null")
+                .is_("sitting_id", "null").order("created_at", desc=True).limit(1).execute().data or [])
+        if not rows:
+            return {"attempt": None}
+        from fastapi.encoders import jsonable_encoder
+        from starlette.responses import JSONResponse
+        return JSONResponse({"attempt": jsonable_encoder(blackeye.state(supabase_admin, rows[0]))},
+                            headers={"Cache-Control": "private, no-store"})
     query = (
         supabase_admin.table("listening_test_attempts")
         .select(
@@ -7645,7 +7703,7 @@ async def get_in_progress_listening_attempt(
     }
 
 
-@user_router.post("/tests/{test_id}/attempts")
+@user_router.post("/tests/{test_id}/attempts", response_model=BlackEyeAttemptState | dict[str, Any])
 @observe_operation("listening_test", "start", correlate_by=("test_id", "body", "class_item"))
 async def start_listening_test_attempt(
     test_id: str,
@@ -7673,7 +7731,7 @@ async def start_listening_test_attempt(
     test_res = (
         supabase_admin.table("listening_tests")
         .select("id,status,exam_only,is_public,public_practice_enabled,full_audio_storage_path,"
-                "assembled_audio_storage_path,scoring_policy,content_package_id")
+                "assembled_audio_storage_path,scoring_policy,content_package_id,programme_id,metadata")
         .eq("id", test_id)
         .limit(1)
         .execute()
@@ -7681,6 +7739,18 @@ async def start_listening_test_attempt(
     if not test_res.data or test_res.data[0].get("status") != "published":
         raise HTTPException(404, "Test bundle not found or not published")
     test_row = test_res.data[0]
+    if blackeye.is_blackeye(test_row):
+        # Full server row only on this branch; no generic assembler/private key.
+        target = blackeye.test_identity(supabase_admin, test_id)
+        result = blackeye.start(supabase_admin, target, user["id"], body.blackeye_binding if body else None,
+            standalone=standalone, class_item=class_item, purpose=body.purpose if body else None,
+            sitting_id=body.mock_sitting_id if body else None,
+            protocol=body.renderer_affinity_protocol if body else None)
+        from fastapi.encoders import jsonable_encoder
+        from starlette.responses import JSONResponse
+        return JSONResponse(jsonable_encoder(result), headers={"Cache-Control": "private, no-store"})
+    if body and body.blackeye_binding is not None:
+        raise HTTPException(422, "Black Eye binding does not match target.")
     decision = _assert_listening_exam_content_allowed(test_row, user.get("id"), class_item,
         purpose=body.purpose if body and body.purpose else "delivery",
         sitting_id=body.mock_sitting_id if body else None, allow_admission=True)
@@ -7878,6 +7948,8 @@ async def acknowledge_listening_attempt_playback_started(
     """
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(str(attempt_id), user["id"])
+    if blackeye.attempt_is_blackeye(supabase_admin, attempt):
+        raise HTTPException(503, "Black Eye player contract unavailable.")
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt không còn hoạt động.")
     require_resume_active(attempt)
@@ -7996,7 +8068,7 @@ def _mock_sealed(attempt: dict) -> bool:
     return mock_exam_service.is_sealed(sitting_id)
 
 
-@user_router.patch("/tests/attempts/{attempt_id}/answers")
+@user_router.patch("/tests/attempts/{attempt_id}/answers", response_model=BlackEyeSaveAck | dict[str, Any])
 @observe_operation("listening_test", "save", correlate_by=("attempt_id", "body"))
 async def patch_listening_test_attempt_answer(
     attempt_id: str,
@@ -8016,6 +8088,10 @@ async def patch_listening_test_attempt_answer(
     """
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])   # ownership gate
+    if blackeye.attempt_is_blackeye(supabase_admin, attempt):
+        from starlette.responses import JSONResponse
+        ack = BlackEyeSaveAck.model_validate(blackeye.save(supabase_admin, attempt, body.q_num, body.user_answer))
+        return JSONResponse(ack.model_dump(), headers={"Cache-Control": "private, no-store"})
     bind_owned_attempt(attempt)
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
@@ -8113,6 +8189,8 @@ def _practice_exercise_payloads(test_id: str, *, published_only: bool = False) -
 
 def _programme_guided_context(attempt: dict) -> tuple[dict, list[dict]]:
     """Check the report-only programme boundary before reading protected keys."""
+    if blackeye.attempt_is_blackeye(supabase_admin, attempt):
+        raise HTTPException(422, "Black Eye guided feedback unavailable.")
     if attempt.get("status") != "in_progress":
         raise HTTPException(409, "Bài luyện đã kết thúc; hãy mở phần đối chiếu sau bài.")
     require_resume_active(attempt)
@@ -8341,6 +8419,8 @@ async def check_listening_practice_answer(
 
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])       # ownership gate
+    if blackeye.attempt_is_blackeye(supabase_admin, attempt):
+        raise HTTPException(422, "Black Eye practice feedback unavailable.")
     if attempt.get("sitting_id") or attempt.get("attempt_purpose") == "mock_delivery":
         raise HTTPException(404, "Practice feedback unavailable")
     if not body.reveal:
@@ -8485,7 +8565,7 @@ async def check_listening_practice_answer(
     return out
 
 
-@user_router.post("/tests/attempts/{attempt_id}/submit")
+@user_router.post("/tests/attempts/{attempt_id}/submit", response_model=BlackEyeAttemptState | dict[str, Any])
 @observe_operation("listening_test", "submit", correlate_by=("attempt_id",))
 async def submit_listening_test_attempt(
     attempt_id: str,
@@ -8502,6 +8582,11 @@ async def submit_listening_test_attempt(
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])
     bind_owned_attempt(attempt)
+    if blackeye.attempt_is_blackeye(supabase_admin, attempt):
+        from fastapi.encoders import jsonable_encoder
+        from starlette.responses import JSONResponse
+        return JSONResponse(jsonable_encoder(blackeye.submit(supabase_admin, attempt)),
+                            headers={"Cache-Control": "private, no-store"})
     if attempt.get("status") == "submitted":
         if (attempt.get("scoring_policy") or "diagnostic") == "report_only":
             exercise_rows = _practice_exercise_payloads(attempt["test_id"])
@@ -8696,7 +8781,7 @@ async def submit_listening_test_attempt(
     }
 
 
-@user_router.get("/tests/attempts/{attempt_id}")
+@user_router.get("/tests/attempts/{attempt_id}", response_model=BlackEyeAttemptState | dict[str, Any])
 async def get_listening_test_attempt(
     attempt_id: str,
     authorization: str | None = Header(default=None),
@@ -8707,6 +8792,11 @@ async def get_listening_test_attempt(
     """
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])
+    if blackeye.attempt_is_blackeye(supabase_admin, attempt):
+        from fastapi.encoders import jsonable_encoder
+        from starlette.responses import JSONResponse
+        return JSONResponse(jsonable_encoder(blackeye.state(supabase_admin, attempt)),
+                            headers={"Cache-Control": "private, no-store"})
     if _mock_sealed(attempt):
         raise HTTPException(403, "Kết quả đang chờ giám khảo duyệt.")
     return {
@@ -9001,7 +9091,7 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
 
 @user_router.get(
     "/tests/attempts/{attempt_id}/review",
-    response_model=ListeningAttemptReviewResponse,
+    response_model=BlackEyeActivityReview | ListeningAttemptReviewResponse,
 )
 async def get_listening_test_attempt_review(
     attempt_id: uuid.UUID,
@@ -9033,6 +9123,13 @@ async def get_listening_test_attempt_review(
         attempt = res.data[0]
     else:
         attempt = _fetch_attempt_or_404(attempt_id, user["id"])
+    if blackeye.attempt_is_blackeye(supabase_admin, attempt):
+        if attempt.get("user_id") != user["id"]:
+            raise HTTPException(403, "Black Eye review unavailable.")
+        from fastapi.encoders import jsonable_encoder
+        from starlette.responses import JSONResponse
+        return JSONResponse(jsonable_encoder(blackeye.review(supabase_admin, attempt)),
+                            headers={"Cache-Control": "private, no-store"})
     if attempt.get("status") != "submitted":
         raise HTTPException(409, "Chưa có chữa bài — attempt chưa submit.")
     if not is_admin and _mock_sealed(attempt):
@@ -9049,3 +9146,12 @@ async def get_listening_test_attempt_review(
             )
 
     return _assemble_listening_review(attempt, attempt_id)
+
+
+@user_router.get("/source-collections/blackeye-v5-upper/units/U1", response_model=BlackEyeUnitPublic)
+async def get_blackeye_unit(authorization: str | None = Header(default=None)):
+    await _require_auth(authorization)
+    from fastapi.encoders import jsonable_encoder
+    from starlette.responses import JSONResponse
+    unit = BlackEyeUnitPublic.model_validate(blackeye.public_inventory(supabase_admin))
+    return JSONResponse(jsonable_encoder(unit), headers={"Cache-Control": "private, no-store"})

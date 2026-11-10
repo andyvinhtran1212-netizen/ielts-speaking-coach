@@ -75,6 +75,8 @@ from services.class_assignment_service import (
     reconcile_test_attempts,
 )
 from services.class_membership_service import student_is_active_in_cohort
+from models.listening_blackeye import BlackEyeActivityReview
+from services import listening_blackeye as blackeye
 
 logger = logging.getLogger(__name__)
 
@@ -2694,13 +2696,15 @@ async def create_assignment(
             # audio was cleared (section audio replaced) still reads published,
             # but the student endpoint answers 422 "chưa có audio sẵn sàng".
             cols += (", full_audio_storage_path, assembled_audio_storage_path, "
-                     "content_package_id, scoring_policy")
+                     "content_package_id, scoring_policy, programme_id, metadata")
         rows = (
             supabase_admin.table(table).select(cols)
             .eq("id", body.content_id).limit(1).execute().data
         ) or []
         if not rows:
             raise HTTPException(404, "Không tìm thấy đề này.")
+        if body.skill == "listening" and blackeye.is_blackeye(rows[0]):
+            blackeye.assignment_seam()
         if (rows[0].get("status") or "") != "published":
             raise HTTPException(400, "Đề này chưa xuất bản — hãy xuất bản trước khi giao.")
         if (body.skill == "listening"
@@ -3072,3 +3076,28 @@ async def delete_assignment(
             409,
             "Đã có học viên nộp bài này — không xoá được. Hãy lưu trữ bài giao thay vì xoá.",
         )
+
+
+@router.get("/{cohort_id}/listening-source-catalog")
+@router.post("/{cohort_id}/listening-source-assignments")
+@router.get("/{cohort_id}/listening-source-assignments/{assignment_id}")
+async def blackeye_assignment_closed(
+    cohort_id: str, assignment_id: str | None = None,
+    authorization: str | None = Header(default=None),
+):
+    # One precise seam: no catalog, recipients, receipt, generic give or DML.
+    await require_admin(authorization)
+    blackeye.assignment_seam()
+
+
+@router.get("/{cohort_id}/assignments/{assignment_id}/items/{item_id}/listening-review",
+            response_model=BlackEyeActivityReview)
+async def blackeye_teacher_review(
+    cohort_id: str, assignment_id: str, item_id: str,
+    authorization: str | None = Header(default=None),
+):
+    actor = await require_admin(authorization)
+    from fastapi.encoders import jsonable_encoder
+    from starlette.responses import JSONResponse
+    result = blackeye.teacher_review(supabase_admin, actor["id"], cohort_id, assignment_id, item_id)
+    return JSONResponse(jsonable_encoder(result), headers={"Cache-Control": "private, no-store"})

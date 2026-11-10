@@ -310,7 +310,7 @@ def test_get_listening_content_published_without_section_audio(
         "accent_tag": "uk", "cefr_level": "B1", "ielts_section": 2,
         "topic_tags": ["travel"], "audio_duration_seconds": 0,
         "transcript": "answer material",
-    }]})
+    }], "listening_tests": [{"id": "parent-test", "programme_id": "ielts"}]})
     fake.storage = Mock(wraps=_StrictStorage(fake))
     _patch_admin_client(monkeypatch, fake)
     authz = _patch_user_auth(monkeypatch)
