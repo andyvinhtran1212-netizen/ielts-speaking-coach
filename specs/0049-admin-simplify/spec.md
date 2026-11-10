@@ -1,15 +1,16 @@
 ---
 id: ADMINSIMPLE-0049
 title: Đơn giản hoá trang admin — ẩn hoặc chuyển hướng subpage không dùng sau cờ, gom luồng giao bài về workspace lớp; xoá code ở giai đoạn sau
-status: draft
+status: approved
 risk: medium
 owner: product
 ---
 
 # Đơn giản hoá trang admin — ẩn hoặc chuyển hướng subpage không dùng sau cờ, gom luồng giao bài về workspace lớp; xoá code ở giai đoạn sau
 
-Status: **draft, chưa duyệt**. FD viết theo yêu cầu anh Vinh (t1392u, 04/11
-14:38 UTC+7, Leader chuyển). Số **0049** đã giữ trong
+Status: **approved** — anh Vinh duyệt 10/11/2026 12:27 UTC+7 (t1564s5141, chat
+Leader; xem `approval-decision.md` và mục "Quyết định của anh Vinh"). FD viết
+theo yêu cầu anh Vinh (t1392u, 04/11 14:38 UTC+7, Leader chuyển). Số **0049** đã giữ trong
 `/workspace/cc-jobs/spec-number-register.md`. Base đọc: `origin/staging` @
 `6b8e18894` (04/11 14:19 UTC+7).
 
@@ -21,7 +22,14 @@ Auditor `/workspace/cc-jobs/reports/ui-admin-consolidation-20261030.md`.
 WM chỉ có số **staging** (nhiều dữ liệu QA/script). Vì vậy mọi quyết định **ẨN
 là tạm thời**: GĐ1 chỉ bỏ khỏi menu/redirect, đảo ngược bằng tắt cờ; chốt
 danh sách ẩn trên production cần anh Vinh duyệt một lượt SELECT chỉ đọc trên
-prod (Q-1). Cột "Xem60" bên dưới = số staging.
+prod (Q-1). Cột "Xem60" bên dưới = số staging; Q-1 đã chạy (SELECT chỉ đọc
+prod 04/11 ~22:40 UTC+7, anh Vinh duyệt t1412u, nguồn
+`/workspace/cc-jobs/handoff/feature-developer/done/20261104-prod-ro-0049-admin-usage.md`,
+tóm tắt `/workspace/cc-jobs/handoff/project-coordinator/20261105-0945-feature-developer-prod-data-0047-0049.md`
+dòng 14–18). Số prod ghi kèm ở các dòng có quyết định phụ thuộc prod. Prod:
+`/admin%` 2 906 page_view trong 90 ngày (2 313 trong 60 ngày), 8 người dùng;
+chỉ 3 hub có ≥ 10 lượt/90 ngày (`/admin/writing` 57, `/admin/reading` 26,
+`/admin/speaking` 16) và cả 3 đã có chuyển hướng FR-004.
 
 ## Tóm tắt (tiếng Việt)
 
@@ -110,10 +118,10 @@ không có trong menu, giữ nguyên.
 | `/admin/system/ai-usage` | (mồ côi) | 1 | Thêm vào nhóm Hệ thống "Chi phí AI" | — |
 | `/admin/system/alerts` | (mồ côi) | 0 | Thêm vào nhóm Hệ thống "Sự cố chấm" | — |
 | `/admin/error-logs` | Báo lỗi | 0 | Chuyển vào nhóm Hệ thống | Ẩn nút "Tạo lỗi test" ngoài staging |
-| `/admin/feedback` | Feedback | 0 (user_feedback 0 dòng) | Ẩn khỏi menu tạm thời (WM), hiện huy hiệu ở Tổng quan khi có mục mới; URL giữ | Chờ số prod |
+| `/admin/feedback` | Feedback | staging 0 (user_feedback 0 dòng); **prod** 4 lượt/60 ngày (5/90), `user_feedback` 90 dòng (25 tạo trong 90 ngày, 1 trong 30 ngày, mới nhất 28/10) | **Q-8 (anh Vinh duyệt 10/11):** prod **giữ** trong menu (nhãn `[prod]`); staging ẩn khỏi menu, hiện huy hiệu ở Tổng quan khi có mục mới; URL giữ | Xem lại theo `admin_nav_legacy_hit` + số prod (FR-010) |
 | `/admin/speaking` | Speaking (hub) | 3 | Ẩn hub; mục Speaking → Sessions | Xoá |
 | `/admin/speaking/sessions` | Speaking › Sessions | 8 | Giữ | — |
-| `/admin/speaking/topics` | Speaking › Topics | 1 (topics 0 dòng) | Ẩn tạm thời — **chỉ sau khi có số prod** (WM) | — |
+| `/admin/speaking/topics` | Speaking › Topics | staging 1 (topics 0 dòng); **prod** 3 lượt/60 ngày, `topics` 314 dòng (210 tạo trong 90 ngày, 0 trong 30 ngày, mới nhất 29/09), `topic_questions` 1 467 | **Q-8 (anh Vinh duyệt 10/11):** prod **giữ** (nhãn `[prod]`); staging ẩn khỏi menu; URL giữ | — |
 | `/admin/writing` | Writing (hub) | 9 | Ẩn hub; mục Writing → Hàng chờ chấm | Xoá |
 | `/admin/writing/new` | Soạn bài viết | 0 | Đổi nhãn "Gửi bài chấm thay HV" | — |
 | `/admin/writing/queue?status=grading` | Trạng thái chấm | — | Bỏ mục menu (G1) | — |
@@ -153,19 +161,22 @@ không có trong menu, giữ nguyên.
 
 ### Menu giai đoạn 1 (cờ bật)
 
-Snapshot theo cột GĐ1: Feedback ẩn tạm khỏi menu; Speaking Topics giữ tới khi
-có số prod theo điều kiện trong kiểm kê. Không chốt thêm phân biệt môi trường
-ở Q-8 trong snapshot này. Listening còn 6 mục; Audit chuyển sang nhóm QA.
+Snapshot theo cột GĐ1 và Q-8 (anh Vinh duyệt 10/11, t1564s5141): mục gắn
+`[prod]` (Feedback, Speaking › Topics) **chỉ hiện trên production** và ẩn trên
+staging, vì prod còn dữ liệu và lượt mở (`user_feedback` 90 dòng, 1 tạo trong 30
+ngày; `topics` 314 dòng; nguồn ở đầu spec). Không xác định được môi trường →
+dùng menu prod (hiện nhiều hơn, không ẩn nhầm). Listening còn 6 mục; Audit
+chuyển sang nhóm QA.
 
 ```
 Tổng quan
 VIỆC CẦN XỬ LÝ: Chấm Writing (Hàng chờ · Hàng đợi Instructor · Yêu cầu chấm lại) · Speaking sessions · Mock Test
 LỚP & NGƯỜI DÙNG: Lớp (giao bài ở đây) · Học viên · Giảng viên · Tài khoản
 NỘI DUNG: Writing (Kho đề · Lịch sử giao Writing · Mẹo viết · Gửi bài chấm thay HV)
-          Speaking (Topics) · Reading (Thư viện · Lượt làm bài) · Listening (Quản lý nội dung · Cambridge tests · Import bài luyện · Import Cambridge · Lượt làm bài · Báo cáo chép chính tả)
+          Speaking (Topics `[prod]`) · Reading (Thư viện · Lượt làm bài) · Listening (Quản lý nội dung · Cambridge tests · Import bài luyện · Import Cambridge · Lượt làm bài · Báo cáo chép chính tả)
           Vocab (Bộ từ theo lớp · Nội dung từ vựng · Chủ đề · Quick-Check · Quiz — Học viên · Thống kê)
           Grammar (Articles · Analytics · Bài tập)
-HỆ THỐNG: Báo lỗi · Sự cố chấm · Chi phí AI · Lưu lượng · Hoạt động
+HỆ THỐNG: Báo lỗi · Feedback `[prod]` · Sự cố chấm · Chi phí AI · Lưu lượng · Hoạt động
 ▸ Thí điểm & công cụ QA (thu gọn): Curated · Pilot metrics · D1 Curation · D1 Exercises · Lemma · Recommendation tester · Correction performance · Listening Audit
 ```
 
@@ -183,11 +194,16 @@ HỆ THỐNG: Báo lỗi · Sự cố chấm · Chi phí AI · Lưu lượng · 
 
 - **FR-001:** (cờ) Cờ `ADMIN_NAV_SIMPLIFIED` (backend env, mặc định `false`)
   được trả trong `GET /admin/ui-config` (mới, chỉ admin, `{nav: "current" |
-  "simplified"}`, cache trình duyệt ≤ 60 s). Cờ tắt, gọi lỗi hoặc chậm > 3 s
-  → menu hiện tại, byte-giống hôm nay.
+  "simplified", prod_menu: boolean}`, cache trình duyệt ≤ 60 s). Cờ tắt, gọi
+  lỗi hoặc chậm > 3 s → menu hiện tại, byte-giống hôm nay. (Q-8, 10/11)
+  `prod_menu` = `true` khi `settings.ENVIRONMENT` (`backend/config.py:93`) là
+  production và cả khi không xác định được; chỉ staging/dev mới `false`. Không
+  đổi env nào; giá trị ENVIRONMENT thật trên từng môi trường kiểm ở T001.
 - **FR-002:** (một nguồn cấu hình) `aver-admin-chrome.js` định nghĩa
   `NAV_GROUPS` (hiện tại) và `NAV_GROUPS_SIMPLIFIED` từ cùng danh sách mục; test
-  so menu simplified với bảng "Menu giai đoạn 1" (nhãn, href, thứ tự, nhóm).
+  so menu simplified với bảng "Menu giai đoạn 1" (nhãn, href, thứ tự, nhóm)
+  bằng **hai** snapshot: `prod_menu=true` (có Feedback và Speaking › Topics) và
+  `prod_menu=false` (không có hai mục `[prod]`).
 - **FR-003:** (ẩn không phải chặn) Mọi trang bị bỏ khỏi menu vẫn mở được bằng
   URL với đúng `AdminAccessGate` như cũ, menu tô sáng nhóm cha; không trang
   nào trả 404 vì 0049.
@@ -268,6 +284,29 @@ then 403 như cũ.
 - Admin giao bài cho lớp (mọi kỹ năng) bắt đầu từ một chỗ.
 - 0 tăng lỗi 4xx/5xx admin sau bật cờ staging 24 h.
 
+## Quyết định của anh Vinh (10/11/2026)
+
+Anh Vinh trả lời trực tiếp trong chat Leader lúc 12:27 UTC+7 ngày 10/11/2026
+(câu hỏi t1564s5141, Leader chuyển cho FD): "Duyệt cả 7 mục theo đề xuất của
+em", trong đó mục 1 là duyệt spec 0049 (#2254) theo FD, Q-8 giữ Feedback cùng
+Speaking Topics trên prod. Theo đó:
+
+- **Spec:** approved.
+- **Q-1:** đã duyệt và đã chạy trước đó (t1412u, 04/11); số prod ở đầu spec.
+- **Q-2:** GĐ1 gom điểm bắt đầu giao bài về Lớp (FR-007/FR-008); hợp nhất sổ
+  cái để spec riêng.
+- **Q-3:** giữ "Yêu cầu chấm lại" ở GĐ1 (prod `essay_regrade_requests` 0 dòng),
+  gộp thành lane ở GĐ2.
+- **Q-4:** Writing › Lớp học chỉ ẩn khỏi menu ở GĐ1 (URL vẫn mở); chuyển hướng
+  ở GĐ2 khi lớp có lọc tương đương.
+- **Q-5:** bỏ 6 hub, mục menu mở thẳng công cụ chính.
+- **Q-6:** `/instructor` "Giao bài" giữ nguyên.
+- **Q-7:** cổng FR-010 (≥ 14 ngày, 0 lượt mở, WM xác nhận) trước mọi phiếu xoá,
+  kể cả 66 HTML legacy.
+- **Q-8:** Feedback và Speaking › Topics **giữ trên prod, ẩn trên staging**
+  (nhãn `[prod]`, FR-001 `prod_menu`, FR-002 hai snapshot).
+- **Q-9:** wizard giao bài của WM làm spec riêng sau 0049.
+
 ## Câu hỏi cho anh Vinh
 
 - **Q-1 (SELECT chỉ đọc trên prod):** anh duyệt một lượt truy vấn chỉ đọc
@@ -294,3 +333,12 @@ then 403 như cũ.
 - **Q-9 (wizard giao bài WM):** wizard 4 bước + một quy tắc hạn + tự bù học viên + Bàn chấm chung (WM §3) làm spec riêng sau 0049? **Em đề xuất:** có, spec riêng (đụng sổ cái, hạn, migration).
 - **Q-7 (xoá code GĐ2):** đồng ý cổng FR-010 (≥ 14 ngày, 0 lượt mở, WM xác
   nhận) trước mọi phiếu xoá, kể cả 66 HTML legacy? **Em đề xuất:** đồng ý.
+
+## Changelog
+
+- 10/11/2026 (FD): draft → **approved** theo quyết định anh Vinh (t1564s5141,
+  qua Leader; `approval-decision.md`). Ghi quyết định Q-1..Q-9. Đưa số prod
+  (Q-1, 04/11) vào đầu spec và hai dòng kiểm kê Feedback, Speaking › Topics.
+  Q-8: hai mục này giữ trên prod, ẩn trên staging — menu GĐ1 gắn nhãn `[prod]`,
+  FR-001 thêm `prod_menu`, FR-002 dùng hai snapshot. Không đổi phạm vi khác,
+  không thêm migration hay quyền.

@@ -1,10 +1,11 @@
 # Tasks
 
-Build **HOLD** tới khi anh Vinh trả lời Q-1..Q-7 và duyệt spec. Ưu tiên sau
+Spec **approved** 10/11/2026 (anh Vinh, t1564s5141; Q-1..Q-9 đã chốt, xem
+spec.md "Quyết định của anh Vinh"). Build theo thứ tự phụ thuộc dưới đây. Ưu tiên sau
 FLASHCARD-0048. Cỡ S ≈ ≤ 1 giờ job, M ≈ 1–3 giờ. Không có migration.
 
 - [ ] T001 (A1, S, Claude) Cờ `ADMIN_NAV_SIMPLIFIED` + `GET /admin/ui-config`
-  + test quyền + `api.d.ts` (FR-001, FR-009). Không phụ thuộc.
+  + `prod_menu` theo `ENVIRONMENT` (Q-8) + test quyền + `api.d.ts` (FR-001, FR-009). Không phụ thuộc.
   `owns: backend/config.py, backend/routers/admin_ui_config.py (hoặc router admin sẵn có),
   backend/main.py, backend/tests/test_admin_ui_config.py, frontend/types/api.d.ts`
 - [ ] T002 (A2, M, Codex) `NAV_GROUPS_SIMPLIFIED`, nhóm "Thí điểm & QA" thu
