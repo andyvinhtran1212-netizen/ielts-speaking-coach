@@ -29,8 +29,8 @@
 | FR-023 | kind=test; ref=test card chính tả khóa và start 422 cho tới release 0011 v2 | PENDING |
 | FR-024 | kind=report; ref=bằng chứng QA staging nêu id lớp giả và tài khoản giả | PENDING |
 | FR-025 | kind=report; ref=quyết định release của anh Vinh cho đúng SHA + đọc lại sau release | PENDING |
-| FR-026 | kind=test; ref=test ma trận IDOR (plan.md) + test sentinel `caplog`/`error_logs`/Sentry `before_send`; kind=report; ref=phiếu Security Auditor cho spec và từng PR Black Eye | PENDING |
-| FR-027 | kind=test; ref=test ma trận quyền FR-027 (plan.md, vai × route) + test kiểm kê route; kind=report; ref=phiếu Security Auditor | PENDING |
+| FR-026 | kind=test; ref=test ma trận IDOR (plan.md) + test sentinel `caplog`/`error_logs`/Sentry `before_send` (sentinel `user_id` không có trong `error_logs.message`/`error_logs.stack`, URL/query, log text, event Sentry; cột `error_logs.user_id` được phép, SA-2280-F11); kind=report; ref=phiếu Security Auditor cho spec và từng PR Black Eye | PENDING |
+| FR-027 | kind=test; ref=test ma trận quyền FR-027 (plan.md, vai × route) + test kiểm kê route + PR2 test danh sách cấp quyền (plan.md "Danh sách cấp quyền FR-027": admin toàn cục tự cấp → 403 và 0 dòng, ghi qua JWT `authenticated` bị từ chối, nhật ký cấp/thu đọc lại được) + test catalog chỉ đọc grant/policy của bảng; kind=report; ref=phiếu Security Auditor (C3 của SA-2280-R2 trên đúng head PR2) + quyết định CV-1 của anh Vinh | PENDING |
 
 ## Contract evidence
 
@@ -40,6 +40,8 @@
 ## Data evidence
 
 - Migration/schema query: chưa có; admission.sql chỉ là đề xuất, chưa chạy.
+  Migration danh sách cấp quyền FR-027 (PR2) chưa viết, chưa có số; khi có,
+  đọc lại catalog: không policy và không quyền ghi cho `anon`/`authenticated`.
 - Immediate state versus full reload: save → reload → submit → review giống từng byte (FR-005, FR-007).
 
 ## UI evidence

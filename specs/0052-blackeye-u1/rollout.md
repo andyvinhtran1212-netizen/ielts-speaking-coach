@@ -5,6 +5,7 @@
 - Spec BLACKEYE-0052 merge vào `staging` ở trạng thái `approved`.
 - PR1 dựng lại theo Q-5; CI xanh; web-reviewer, web-security (AC01) và Security Auditor đạt trên đúng head.
 - Migration admission có số do Release Manager cấp và được anh Vinh duyệt chạy (Q-12). Không có thì start Black Eye trả 503.
+- Trước PR2 (T005): anh Vinh trả lời CV-1 (ai cấp/thu quyền FR-027); migration danh sách cấp quyền có số do Release Manager cấp, Security Auditor review, anh Vinh duyệt chạy; Security Auditor xác nhận C3 (SA-2280-R2). Chưa có thì danh sách rỗng, mặc định từ chối, chỉ người tạo bài giao có quyền.
 - `DICTATION_LEXICAL_V2_ENABLED` giữ `False`. Không có dữ liệu Black Eye published trên staging hay prod.
 
 ## Staging

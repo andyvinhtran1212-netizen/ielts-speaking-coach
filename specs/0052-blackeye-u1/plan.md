@@ -77,6 +77,8 @@ Route Black Eye (PR1 trừ khi ghi khác). Mọi response Black Eye mang
   `SET search_path = pg_catalog, pg_temp` (spec, mục bảo mật); bất biến
   PostgREST/Realtime theo spec.
 - Migration: xem spec "Thay đổi dữ liệu, config, migration". Không cấp số.
+  PR2 cần thêm một migration riêng tạo danh sách cấp quyền FR-027 (xem mục
+  "Danh sách cấp quyền FR-027 (PR2)" dưới đây).
 - OpenAPI: PR1 đăng ký response model thật; `frontend/types/api.d.ts` phải khớp.
 
 ### Kiểm kê route (FR-011, FR-027)
@@ -119,6 +121,30 @@ email, tên hay trạng thái Black Eye nào.
 
 Mỗi ô là một test; ô "không có dòng Black Eye" kiểm bằng fixture có cả dữ liệu
 Black Eye và dữ liệu thường, và spy không đọc snapshot/`marking_rows`.
+
+### Danh sách cấp quyền FR-027 (PR2; SA-2280-F10, C3 (a)–(e))
+
+- Ai được cấp/thu: **CV-1, còn mở, chặn T005**. Đề xuất: chỉ anh Vinh hoặc vai
+  riêng do anh chỉ định. Cho tới khi anh quyết: không có đường cấp quyền,
+  danh sách rỗng, mặc định từ chối, PR2 chỉ người tạo bài giao (như PR1).
+- Lưu ở đâu: bảng riêng theo lớp trong DB, tạo bằng migration riêng (Release
+  Manager cấp số từ sổ migration, Security Auditor review SQL, anh Vinh duyệt
+  chạy). Tên bảng/cột chốt trong PR migration; spec không viết SQL.
+- Ai ghi: chỉ `service_role` ở backend. Không GRANT INSERT/UPDATE/DELETE cho
+  `anon`/`authenticated`; không RLS policy cho client.
+- Cấm tự cấp: server từ chối khi người cấp = người nhận. Admin toàn cục
+  (`users.role='admin'`) không có route ghi danh sách.
+- Nhật ký: mỗi lần cấp/thu một dòng (người cấp, người nhận, cohort, vai, thời
+  điểm, lý do); không sửa/xóa dòng cũ; đọc lại được để đối chiếu (T014 hậu kiểm 1).
+
+| Hành động | Người có thẩm quyền CV-1 | G (admin toàn cục) | O | S | JWT `authenticated` qua PostgREST |
+| --- | --- | --- | --- | --- | --- |
+| Cấp/thu quyền cho người khác ở cohort A | 200 + 1 dòng nhật ký (chỉ sau CV-1) | 403, 0 dòng | 403, 0 dòng | 401/403, 0 dòng | bị từ chối, 0 dòng |
+| Tự cấp cho chính mình | 403, 0 dòng | 403, 0 dòng | 403, 0 dòng | 401/403, 0 dòng | bị từ chối, 0 dòng |
+
+Test catalog chỉ đọc: `pg_policies` không có policy cho `anon`/`authenticated`
+trên bảng này; `information_schema.role_table_grants` không có quyền ghi cho
+hai vai đó.
 
 ## UI and interaction
 

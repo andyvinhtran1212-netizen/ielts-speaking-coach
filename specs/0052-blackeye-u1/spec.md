@@ -242,8 +242,8 @@ PR #2279 (bảng ánh xạ ở plan.md).
 - **FR-023:** [PR3+] Chính tả Black Eye là bài bổ trợ tự chọn, tiến độ và điểm tách khỏi Listening, chấm theo 0011 lexical v2 với đoạn, câu và hash tham chiếu đã duyệt; cho tới khi anh Vinh xác nhận Q-2 và release 0011 v2 được duyệt, card chính tả hiện "Bổ trợ tự chọn / Chưa mở", start trả 422 và không có đường dự phòng chính tả cũ.
 - **FR-024:** [PR1, PR2, PR3+] Mọi kiểm thử trên staging chỉ dùng lớp giả và tài khoản giả do team sở hữu; không dùng roster, tài khoản hay dữ liệu bài làm của học viên course 2 thật; không gửi thông báo thật; test local dùng DB tạm của task và dữ liệu giả.
 - **FR-025:** [Release] Giao bài Black Eye cho học viên thật course 2 trên prod chỉ xảy ra sau một bước release riêng được anh Vinh duyệt cho đúng bản release (SHA, migration, gói nội dung đã duyệt, danh sách audio đã duyệt); merge PR1/PR2 vào staging hay promote code không tự bật việc này.
-- **FR-026:** [PR1, PR2, PR3+] Dữ liệu bài làm, tiến độ và đáp án: học viên chỉ đọc được dữ liệu của chính mình (test ma trận IDOR: học viên B dùng `attempt_id`/`test_id` của học viên A trên GET state, GET in-progress, PATCH answers, submit, review, playback-started, renderer-affinity, review-flags, mock-corrections nhận 404, không đọc `marking_rows`/snapshot, không ghi; admin toàn cục gọi route học viên với attempt người khác cũng 404); chỉ người có quyền theo FR-027 đọc được dữ liệu học viên course 2; không đưa câu trả lời, đáp án, giải thích, transcript, email, tên hay `user_id` thô của học viên vào bất kỳ nơi ghi nào (logging Python mọi mức, bảng `error_logs` qua handler lỗi backend và `POST /api/error-logs`, Sentry message/exception/breadcrumb/extra, access log/URL), có test sentinel cho `caplog`, insert `error_logs` và event Sentry qua `before_send`; Security Auditor review spec này và mọi PR Black Eye trước khi merge.
-- **FR-027:** [PR1, PR2] Nguồn quyền đọc và giao bài Black Eye cho nhân sự (theo Q-9 đã duyệt: giáo viên được gán course 2 và admin có quyền cohort rõ, không admin toàn cục): PR1 chỉ `class_assignments.assigned_by = actor`, actor là admin đang active đã qua AAL2 (ADMINAAL2-0032); từ PR2 là một danh sách cấp quyền tường minh theo lớp, mặc định rỗng là từ chối, mỗi lần cấp hoặc thu có người cấp, thời điểm và nhật ký; `users.role='admin'` một mình không bao giờ đủ. Mọi route admin/giáo viên chung đọc `listening_test_attempts`, `class_assignment_items` hoặc snapshot (`GET /admin/listening/attempts`, `GET /admin/listening/attempts/{attempt_id}`, trang học viên admin `student_service`, tổng quan admin `admin_overview`, `cohort_progress_aggregator`, `student_work`, `assignment_tally`, `class_action_log`) phải loại attempt và test Black Eye hoặc áp đúng kiểm quyền này **trước** khi đọc; có test ma trận vai × route × kết quả (plan.md "Ma trận quyền FR-027"): không ai ngoài người được phép đọc được dữ liệu Black Eye, kể cả email, tên hay trạng thái.
+- **FR-026:** [PR1, PR2, PR3+] Dữ liệu bài làm, tiến độ và đáp án: học viên chỉ đọc được dữ liệu của chính mình (test ma trận IDOR: học viên B dùng `attempt_id`/`test_id` của học viên A trên GET state, GET in-progress, PATCH answers, submit, review, playback-started, renderer-affinity, review-flags, mock-corrections nhận 404, không đọc `marking_rows`/snapshot, không ghi; admin toàn cục gọi route học viên với attempt người khác cũng 404); chỉ người có quyền theo FR-027 đọc được dữ liệu học viên course 2; không đưa câu trả lời, đáp án, giải thích, transcript, email, tên hay `user_id` thô của học viên vào bất kỳ nơi ghi nào (logging Python mọi mức, bảng `error_logs` qua handler lỗi backend và `POST /api/error-logs`, Sentry message/exception/breadcrumb/extra, access log/URL); ngoại lệ duy nhất (SA-2280-F11): `user_id` được nằm ở cột có cấu trúc `error_logs.user_id` như handler hiện có điền theo thiết kế (chỉ admin đọc), và bị cấm trong `error_logs.message`, `error_logs.stack`, URL/query, log text và Sentry; có test sentinel cho `caplog`, insert `error_logs` (kiểm `message`/`stack`, không kiểm cột `user_id`) và event Sentry qua `before_send`; Security Auditor review spec này và mọi PR Black Eye trước khi merge.
+- **FR-027:** [PR1, PR2] Nguồn quyền đọc và giao bài Black Eye cho nhân sự (theo Q-9 đã duyệt: giáo viên được gán course 2 và admin có quyền cohort rõ, không admin toàn cục): PR1 chỉ `class_assignments.assigned_by = actor`, actor là admin đang active đã qua AAL2 (ADMINAAL2-0032); từ PR2 là một danh sách cấp quyền tường minh theo lớp, mặc định rỗng là từ chối; `users.role='admin'` một mình không bao giờ đủ. Danh sách cấp quyền (SA-2280-F10, điều kiện C3 (a)–(e)): (a) **ai được cấp/thu quyền chưa quyết, là câu hỏi mở CV-1 chặn PR2** (đề xuất: chỉ chủ dự án anh Vinh hoặc một vai riêng do anh chỉ định); cho tới khi anh quyết, không có đường cấp quyền nào, danh sách rỗng và mặc định từ chối, PR2 chỉ cho người tạo bài giao như PR1; không ai tự cấp quyền cho chính mình (người cấp ≠ người nhận, kiểm ở server); admin toàn cục (`users.role='admin'`) không có route nào ghi vào danh sách; (b) danh sách nằm trong DB, ở một bảng riêng theo lớp do một migration riêng tạo, chỉ ghi được qua `service_role`, không GRANT INSERT/UPDATE/DELETE cho `anon`/`authenticated`, không có RLS policy nào cho client ghi (hay đọc); (c) mỗi lần cấp hoặc thu ghi một dòng nhật ký có người cấp, người nhận, cohort, vai, thời điểm, lý do, không sửa hay xóa dòng cũ (thu quyền là dòng mới hoặc `revoked_at`), và đọc lại được để đối chiếu; (d) migration của bảng này có số do Release Manager cấp từ sổ migration, Security Auditor review SQL, anh Vinh duyệt chạy, và nằm trong `depends` của T005; (e) test: admin toàn cục tự cấp quyền cho mình (qua route cấp quyền và qua PostgREST bằng JWT `authenticated`) nhận 403/bị từ chối và không có dòng nào được ghi (đếm dòng trước/sau bằng 0), kèm test catalog chỉ đọc về grant/policy của bảng. Mọi route admin/giáo viên chung đọc `listening_test_attempts`, `class_assignment_items` hoặc snapshot (`GET /admin/listening/attempts`, `GET /admin/listening/attempts/{attempt_id}`, trang học viên admin `student_service`, tổng quan admin `admin_overview`, `cohort_progress_aggregator`, `student_work`, `assignment_tally`, `class_action_log`) phải loại attempt và test Black Eye hoặc áp đúng kiểm quyền này **trước** khi đọc; có test ma trận vai × route × kết quả (plan.md "Ma trận quyền FR-027"): không ai ngoài người được phép đọc được dữ liệu Black Eye, kể cả email, tên hay trạng thái.
 
 ## Acceptance scenarios
 
@@ -288,6 +288,12 @@ PR #2279 (bảng ánh xạ ở plan.md).
 - **Given** bài giao giả trong cohort A do admin X tạo, học viên đã nộp; admin Y là admin toàn cục không có quyền FR-027 với cohort A; admin Z có quyền FR-027 với cohort B (từ PR2)
 - **When** X, Y, Z và học viên gọi route chữa bài của giáo viên, và Y gọi `GET /admin/listening/attempts` cùng các route admin chung ở FR-027
 - **Then** chỉ X nhận `BlackEyeActivityReview` không có `answer_set_revision`; Y nhận 403 ở route chữa bài và không thấy dòng Black Eye nào ở route chung; Z nhận 404; học viên bị từ chối; không ai ngoài X làm đọc dữ liệu bảo vệ
+
+### Scenario 7b: Admin toàn cục không tự cấp quyền được (FR-027, SA-2280-F10) — PR2
+
+- **Given** danh sách cấp quyền FR-027 rỗng; admin Y là admin toàn cục, AAL2, không có quyền FR-027 với cohort giả A
+- **When** Y gọi route cấp quyền (nếu PR2 có) để tự cấp cho mình ở cohort A, và Y dùng JWT `authenticated` ghi thẳng vào bảng qua PostgREST
+- **Then** cả hai bị từ chối (403 ở route), số dòng trong danh sách và nhật ký trước/sau bằng nhau (0 dòng mới), Y vẫn không thấy dữ liệu Black Eye của cohort A
 
 ### Scenario 8: Đường giao bài đóng trong PR1 (FR-012)
 
@@ -350,6 +356,11 @@ PR #2279 (bảng ánh xạ ở plan.md).
   Release Manager (`/workspace/cc-jobs/migrations-register.md`) khi anh Vinh
   duyệt chạy (quyết định placement d9f3f92b ghi trong README đề xuất).
   Chạy migration, kể cả local, cần quyết định riêng (Handoff §5.4).
+- PR2: danh sách cấp quyền FR-027 cần một bảng mới theo lớp, do một migration
+  riêng tạo (số do Release Manager cấp, Security Auditor review, anh Vinh duyệt
+  chạy); chỉ `service_role` ghi, không GRANT ghi cho `anon`/`authenticated`,
+  không policy client. Spec này không cấp số và không viết SQL; tên bảng và
+  cột chốt trong PR migration đó. Ai được cấp/thu là CV-1 (còn mở).
 - Config: `DICTATION_LEXICAL_V2_ENABLED` giữ `False` trong PR1/PR2.
 
 ## API và contract
@@ -401,7 +412,12 @@ Em tự đối chiếu; mục này không được chấm điểm."
   (FR-026, ma trận IDOR). Nhân sự đọc hay giao bài theo đúng nguồn quyền
   FR-027: PR1 chỉ người tạo bài giao; PR2 theo danh sách cấp quyền tường minh
   của course 2 (Q-9 đã duyệt). Vai admin toàn cục một mình không đủ; route
-  admin chung phải loại Black Eye hoặc kiểm FR-027 trước khi đọc. Kiểm chủ/cohort/bài giao/item/nộp/revision **trước** khi đọc
+  admin chung phải loại Black Eye hoặc kiểm FR-027 trước khi đọc. Danh sách
+  cấp quyền PR2 chỉ ghi qua `service_role` (không GRANT ghi cho
+  `authenticated`, không policy client), cấm tự cấp, admin toàn cục không có
+  route ghi, mỗi lần cấp/thu có nhật ký đọc lại được; ai được cấp/thu là
+  CV-1, còn mở, chặn PR2, mặc định từ chối (FR-027 (a)–(e)).
+  Kiểm chủ/cohort/bài giao/item/nộp/revision **trước** khi đọc
   dữ liệu bảo vệ hoặc ký media (S0 N6).
 - **Dữ liệu bảo vệ:** chỉ server-side, qua service role; RLS và quyền trên
   attempt/snapshot giữ như migration 306. Không ẩn bằng CSS.
@@ -426,7 +442,11 @@ Em tự đối chiếu; mục này không được chấm điểm."
   tên hay `user_id` thô của học viên vào **bất kỳ** nơi ghi nào: logging Python
   mọi mức, bảng `error_logs` (handler lỗi backend và `POST /api/error-logs` từ
   frontend), Sentry (message, exception, breadcrumb, extra), access log/URL
-  (câu trả lời chỉ đi trong body PATCH, không trong query). Exception trong code
+  (câu trả lời chỉ đi trong body PATCH, không trong query). Riêng `user_id`
+  (SA-2280-F11): được phép ở cột có cấu trúc `error_logs.user_id` như hiện có
+  (handler lỗi backend, `POST /api/error-logs`; chỉ admin đọc); cấm trong
+  `error_logs.message`, `error_logs.stack`, URL/query, log text và Sentry.
+  Exception trong code
   Black Eye chỉ mang mã lỗi và id mờ, không mang giá trị. Cấu hình Sentry hiện
   có (`send_default_pii=False`, `include_local_variables=False`,
   `max_request_body_size="never"`, `before_send`) phải giữ. Test sentinel ở
@@ -461,6 +481,8 @@ Em tự đối chiếu; mục này không được chấm điểm."
 
 - Migration admission (đề xuất) được anh Vinh duyệt chạy, Release Manager cấp
   số, Security Auditor review SQL (Q-12).
+- Migration danh sách cấp quyền FR-027 (Release Manager cấp số, Security
+  Auditor review, anh Vinh duyệt chạy) và câu trả lời CV-1, trước PR2 (T005).
 - Player/playback DTO (đề xuất R1) được web-security reconcile trước PR2
   (Q-11).
 - Gói nội dung đã nghiệm thu (T011, T012) và danh sách audio đã duyệt (§4.11).
@@ -504,8 +526,16 @@ Em tự đối chiếu; mục này không được chấm điểm."
 
 ## Open questions
 
-- Không còn câu hỏi mở. Q-1 đến Q-16 đã được anh Vinh quyết ngày 10/11/2026
-  (mục "Quyết định của anh Vinh (10/11/2026)" bên dưới).
+- Q-1 đến Q-16 đã được anh Vinh quyết ngày 10/11/2026 (mục "Quyết định của
+  anh Vinh (10/11/2026)" bên dưới); không đổi.
+- **CV-1. Ai được cấp và thu quyền FR-027 cho course 2 (từ PR2)?** Còn mở,
+  **chặn PR2 (T005)**. **Đề xuất:** chỉ chủ dự án (anh Vinh) hoặc một vai riêng
+  do anh chỉ định; người nhận không tự cấp cho mình; admin toàn cục không có
+  route ghi. **Lý do:** nếu admin toàn cục nào cũng tự cấp được thì luật "không
+  bypass admin toàn cục" (Q-9) chỉ còn là thêm một cú bấm (SA-2280-F10). Câu
+  này không đổi Q-9 (Q-9 quyết *ai xem được*; CV-1 hỏi *ai cấp quyền xem*).
+  Cho tới khi anh trả lời: mặc định từ chối, danh sách rỗng, không có đường
+  cấp quyền, PR2 chỉ người tạo bài giao. Leader hỏi anh.
 
 ## Câu hỏi cho anh Vinh
 
@@ -625,3 +655,13 @@ spec 0052 và Q-1..Q-16 theo đề xuất; FD mở PR spec".
   (F07); điều kiện T014 (F08); FR-013 và FR-016 thống nhất bề mặt (F09); ghi
   Q-13/Q-14 đã quyết; sửa nguồn câu "không hạ loại PR" và cổng Security
   Auditor (CR P3). Không đổi quyết định Q-1..Q-16.
+- 10/11/2026, R3 theo SA-2280-R2 (Security Auditor, head 331c8c81e, F10, F11,
+  điều kiện C3 (a)–(e)) và quyết định CR sửa ngay trong spec (gates/verdicts/
+  2280.txt sha256 fa141e5293d4): FR-027 thêm luật danh sách cấp quyền PR2 (chỉ
+  `service_role` ghi, không GRANT ghi cho `authenticated`, không policy client,
+  cấm tự cấp, admin toàn cục không có route ghi, nhật ký cấp/thu đọc lại được,
+  test tự cấp → 403 và 0 dòng) và Scenario 7b; ghi CV-1 (ai cấp/thu quyền) là
+  câu hỏi mở chặn PR2, mặc định từ chối; T005 phụ thuộc migration danh sách
+  (RM cấp số, SA review, anh Vinh duyệt chạy), C3 và CV-1 (F10); `user_id` chỉ
+  ở cột `error_logs.user_id`, cấm trong message, stack, URL, log và Sentry
+  (F11). Không đổi quyết định Q-1..Q-16 hay D-1..D-5, không mở rộng phạm vi.
