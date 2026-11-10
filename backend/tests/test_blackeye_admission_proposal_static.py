@@ -1,11 +1,12 @@
-"""Source-only SQL370 safety checks; NOT PostgreSQL execution or syntax proof."""
+"""Source-only, unnumbered SQL proposal checks; never PostgreSQL execution."""
 from pathlib import Path
 import re
 
 import pytest
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
-SQL = (MIGRATIONS / "370_blackeye_u1_admission.sql").read_text()
+PROPOSAL = Path(__file__).resolve().parents[2] / "docs/proposals/blackeye-u1/admission.sql"
+SQL = PROPOSAL.read_text()
 LEGACY = (MIGRATIONS / "304_listening_80_days_source_collection.sql").read_text()
 TABLES = ("listening_content_packages", "listening_lessons", "listening_tests")
 
@@ -83,3 +84,29 @@ def test_definer_search_path_grants_and_atomic_admission_source_invariants():
     for clause in ("NEW.class_assignment_item_id IS NOT NULL", "NEW.sitting_id IS NOT NULL", "NEW.attempt_purpose IS DISTINCT FROM 'practice'", "n NOT BETWEEN 1 AND 48", "n<>48", "'U1-A08','U1-A14','U1-A19'", "blackeye_db_revisions", "blackeye_context"):
         assert clause in guard
     assert clean.strip().startswith("BEGIN;") and clean.strip().endswith("COMMIT;")
+
+
+def test_unnumbered_proposal_is_not_a_forward_migration_or_ci_script_input():
+    # Read the real discovery function; never invoke its DB/apply helpers.
+    from test_client_write_invariant_postgres import _forward_migrations
+    repo = MIGRATIONS.parent.parent
+    assert PROPOSAL not in _forward_migrations()
+    assert PROPOSAL.parent != MIGRATIONS and not re.match(r"\d+_", PROPOSAL.name)
+    assert not list(MIGRATIONS.glob("*blackeye*.sql"))
+    # No workflow or runnable script references the proposal. Its only reader is
+    # this source-only test; selecting it in regular CI cannot execute the SQL.
+    for root in (repo / ".github/workflows", repo / "scripts", MIGRATIONS.parent / "scripts"):
+        for path in root.rglob("*"):
+            if path.is_file() and path.suffix in {".py", ".sh", ".sql", ".yml", ".yaml"}:
+                text = path.read_text()
+                assert "docs/proposals/blackeye-u1" not in text, path
+                assert "fn_acquire_blackeye_attempt" not in text, path
+
+
+def test_server_revision_context_errors_are_separate_from_learner_binding():
+    guard = SQL[SQL.index("CREATE OR REPLACE FUNCTION public.fn_guard_blackeye_admission"):SQL.index("CREATE TRIGGER")]
+    for name, error in (("blackeye_db_revisions", "blackeye_unavailable_revision"),
+                        ("blackeye_context", "blackeye_unavailable_context")):
+        block = guard[guard.index(f"IF paper#>'{{metadata,{name}}}'"):]
+        block = block[:block.index("END IF;")]
+        assert error in block and "blackeye_invalid_binding" not in block

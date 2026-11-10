@@ -28,6 +28,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel, Field, model_validator
+from starlette.concurrency import run_in_threadpool
 
 from database import supabase_admin
 from services import class_archive_service, speaking_flags
@@ -3099,5 +3100,5 @@ async def blackeye_teacher_review(
     actor = await require_admin(authorization)
     from fastapi.encoders import jsonable_encoder
     from starlette.responses import JSONResponse
-    result = blackeye.teacher_review(supabase_admin, actor["id"], cohort_id, assignment_id, item_id)
+    result = await run_in_threadpool(blackeye.teacher_review, supabase_admin, actor["id"], cohort_id, assignment_id, item_id)
     return JSONResponse(jsonable_encoder(result), headers={"Cache-Control": "private, no-store"})

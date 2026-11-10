@@ -1,4 +1,5 @@
--- PROPOSED 370; NOT EXECUTED ANYWHERE. No history DML, new table or flag change.
+-- UNNUMBERED PROPOSAL; NOT EXECUTED ANYWHERE. No history DML, new table or flag change.
+-- Placement authority: d9f3f92b; number/install only after Andy approves execution.
 -- Authority: c7740960 (admission), b71cfd5c (exactly three CHECK replacements),
 -- d461e884 (assignment seam closed; mapping/catalog/create/receipt in PR2).
 -- Reuses 306's immutable service-only snapshot and 311's guard unchanged.
@@ -55,12 +56,18 @@ BEGIN
        OR activity->>'selectable' IS DISTINCT FROM 'true'
        OR COALESCE(b->>'content_revision','') IN ('','latest')
        OR COALESCE(b->>'policy_revision','') IN ('','latest')
-       OR COALESCE(b->>'answer_set_revision','') !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
-       OR paper#>'{metadata,blackeye_db_revisions}' IS DISTINCT FROM jsonb_build_object(
-           'paper_revision',NEW.paper_revision,'policy_revision',NEW.policy_revision)
-       OR paper#>'{metadata,blackeye_context}' IS DISTINCT FROM jsonb_build_object(
-           'kind','standalone','class_assignment_item_id',NULL,'assignment_id',NULL,'cohort_id',NULL) THEN
+       OR COALESCE(b->>'answer_set_revision','') !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN
         RAISE EXCEPTION 'blackeye_invalid_binding';
+    END IF;
+    -- Server-authored revision/context mismatches are unavailable, not a
+    -- learner binding error. This proposal is not installed or executable by CI.
+    IF paper#>'{metadata,blackeye_db_revisions}' IS DISTINCT FROM jsonb_build_object(
+           'paper_revision',NEW.paper_revision,'policy_revision',NEW.policy_revision) THEN
+        RAISE EXCEPTION 'blackeye_unavailable_revision';
+    END IF;
+    IF paper#>'{metadata,blackeye_context}' IS DISTINCT FROM jsonb_build_object(
+           'kind','standalone','class_assignment_item_id',NULL,'assignment_id',NULL,'cohort_id',NULL) THEN
+        RAISE EXCEPTION 'blackeye_unavailable_context';
     END IF;
     IF jsonb_typeof(activity->'items') IS DISTINCT FROM 'array' THEN
         RAISE EXCEPTION 'blackeye_invalid_cells';

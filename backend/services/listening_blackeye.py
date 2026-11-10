@@ -45,34 +45,53 @@ def is_blackeye(test: dict) -> bool:
     return "blackeye" in metadata
 
 
-def test_identity(db, test_id: str, *, missing_status: int = 503) -> dict:
+def test_identity(supabase_admin, test_id: str, *, missing_status: int | None = 503) -> dict:
+    """Service-role only: routers pass their database.supabase_admin, never a JWT client.
+
+    Optional identity probes must not replace a generic route's legacy missing-row
+    semantics. Authoritative Black Eye reads retain the default fail-closed 503.
+    """
     try:
-        rows = db.table("listening_tests").select(
+        rows = supabase_admin.table("listening_tests").select(
             "id,programme_id,status,is_public,scoring_policy,content_package_id,metadata"
         ).eq("id", str(test_id)).limit(1).execute().data or []
     except Exception:
         unavailable()
+    if not rows and missing_status is None:
+        return {}
     if len(rows) != 1:
-        raise HTTPException(missing_status, UNAVAILABLE)
+        raise HTTPException(missing_status or 503, UNAVAILABLE)
     return rows[0]
 
 
-def attempt_is_blackeye(db, attempt: dict) -> bool:
-    # Frozen namespace survives catalog deletion/outage. Read no marking/source
-    # rows to dispatch, and never expose the snapshot to the caller.
-    if attempt.get("paper_revision") is not None:
-        try:
-            rows = db.table("mock_paper_attempt_snapshots").select(
-                "programme_id:paper_row->programme_id,blackeye_identity:paper_row->metadata->blackeye->binding->programme_id"
-            ).eq("skill", "listening").eq("attempt_id", str(attempt["id"])).limit(1).execute().data or []
-        except Exception:
-            unavailable()
-        if rows and (rows[0].get("programme_id") == PROGRAMME or rows[0].get("blackeye_identity") == PROGRAMME):
-            return True
-    # Revisionless generic attempts keep the pre-existing missing-test 500;
-    # a known frozen delivery with a missing snapshot is never generic fallback.
-    return is_blackeye(test_identity(db, attempt["test_id"],
-        missing_status=503 if attempt.get("paper_revision") is not None else 500))
+def attempt_is_blackeye(supabase_admin, attempt: dict) -> bool:
+    # Revisionless diagnostic attempts predate Black Eye admission. Do not add
+    # catalog IO (or override generic 404/409/422 guards) on this legacy path.
+    if attempt.get("paper_revision") is None:
+        if attempt.get("scoring_policy") != "report_only":
+            return False
+        test_id = attempt.get("test_id")
+        return bool(test_id) and is_blackeye(test_identity(
+            supabase_admin, test_id, missing_status=None))
+    # One identity-only snapshot read, no live catalog lookup on frozen generic
+    # autosave/submit. Frozen identity survives catalog deletion/outage. Only
+    # namespace scalars are projected, never the binding or protected material.
+    try:
+        rows = supabase_admin.table("mock_paper_attempt_snapshots").select(
+            "programme_id:paper_row->programme_id,blackeye_identity:paper_row->metadata->blackeye->binding->programme_id"
+        ).eq("skill", "listening").eq("attempt_id", str(attempt["id"])).limit(1).execute().data or []
+    except Exception:
+        unavailable()
+    if not rows:
+        # Generic guards own missing generic snapshots; check only identity, not
+        # content/marking. A missing Black Eye snapshot is rejected by its branch.
+        test_id = attempt.get("test_id")
+        return bool(test_id) and is_blackeye(test_identity(
+            supabase_admin, test_id, missing_status=None))
+    if len(rows) != 1:
+        unavailable()
+    return (rows[0].get("programme_id") == PROGRAMME
+            or rows[0].get("blackeye_identity") is not None)
 
 
 def activity_from_paper(paper: dict) -> tuple[BlackEyeActivityPublic, BlackEyeRevisionBinding]:
@@ -274,6 +293,10 @@ def start(db, test, user_id, binding, *, standalone, class_item, purpose, sittin
         message = str(exc)
         if "blackeye_stale" in message:
             raise HTTPException(409, "Black Eye revision changed.") from None
+        if "blackeye_invalid_inactive" in message:
+            raise HTTPException(422, "Black Eye attempt inactive.") from None
+        if "blackeye_invalid_context" in message or "blackeye_invalid_revision" in message:
+            unavailable()
         if "blackeye_invalid" in message:
             raise HTTPException(422, "Invalid Black Eye binding.") from None
         if "blackeye_forbidden" in message:

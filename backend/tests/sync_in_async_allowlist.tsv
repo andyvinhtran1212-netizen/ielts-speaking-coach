@@ -670,7 +670,6 @@ routers/listening.py::get_listening_exercises::db.execute	1	G1	Existing inline s
 routers/listening.py::get_listening_exercises::routers.listening._fetch_published_exercises_for_student	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening.py::get_listening_programme_guided_state::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
 routers/listening.py::get_listening_programme_guided_state::routers.listening._fetch_attempt_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
-routers/listening.py::get_listening_programme_guided_state::routers.listening._programme_guided_context	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening.py::get_listening_programme_lesson::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
 routers/listening.py::get_listening_programme_lesson::routers.listening._programme_attempt_state	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening.py::get_listening_test_attempt::routers.listening._fetch_attempt_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
@@ -709,10 +708,8 @@ routers/listening.py::post_listening_attempt::routers.listening._grade_and_save_
 routers/listening.py::post_listening_attempt::routers.listening._grade_and_save_gist	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening.py::post_listening_attempt::routers.listening._grade_and_save_mcq	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening.py::post_listening_attempt::routers.listening._grade_and_save_true_false	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
-routers/listening.py::post_listening_attempt::routers.listening._resolve_attempt_target	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening.py::reveal_listening_programme_question::db.execute	1	G1	Existing inline sync DB execution; offload in G1.
 routers/listening.py::reveal_listening_programme_question::routers.listening._fetch_attempt_or_404	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
-routers/listening.py::reveal_listening_programme_question::routers.listening._programme_guided_context	1	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening.py::start_dictation_attempt::db.execute	2	G1	Existing inline sync DB execution; offload in G1.
 routers/listening.py::start_dictation_attempt::routers.listening._dictation_attempt_response	3	G1	Existing sync helper reaches blocking I/O; offload caller in G1.
 routers/listening.py::start_dictation_attempt::routers.listening._dictation_section_units_snapshot	2	G1	Existing sync helper reaches blocking I/O; offload caller in G1.

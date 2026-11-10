@@ -921,7 +921,7 @@ async def post_listening_attempt(
         raise HTTPException(422, "Either content_id or exercise_id is required.")
 
     # ── Resolve exercise + parent content ─────────────────────────────────────
-    exercise_row, content_row = _resolve_attempt_target(body)
+    exercise_row, content_row = await run_in_threadpool(_resolve_attempt_target, body)
 
     # ── Dispatch by mode ──────────────────────────────────────────────────────
     if body.mode == "dictation":
@@ -960,6 +960,19 @@ def _resolve_attempt_target(
     fallback path; content_row is never None (404 if missing)."""
     exercise_row: dict | None = None
     content_id: str | None = body.content_id
+
+    # Resolve identities only, before transcript/payload reads or lazy writes.
+    if body.exercise_id:
+        identity = (supabase_admin.table("listening_exercises").select("content_id")
+                    .eq("id", body.exercise_id).eq("status", "published").limit(1).execute().data or [])
+        if not identity:
+            raise HTTPException(404, "Exercise not found or not published.")
+        content_id = identity[0]["content_id"]
+    parent = (supabase_admin.table("listening_content").select("test_id")
+              .eq("id", content_id).eq("status", "published").limit(1).execute().data or [])
+    if parent and parent[0].get("test_id") and blackeye.is_blackeye(
+            blackeye.test_identity(supabase_admin, parent[0]["test_id"])):
+        raise HTTPException(422, "Black Eye section access unavailable.")
 
     if body.exercise_id:
         res = (
@@ -6215,7 +6228,7 @@ async def get_published_listening_test(
         raise HTTPException(404, "Test bundle not found or not published")
     test = res.data[0]
     if blackeye.is_blackeye(test):
-        blackeye.require_published(supabase_admin, test)
+        await run_in_threadpool(blackeye.require_published, supabase_admin, test)
         raise HTTPException(503, "Black Eye player contract unavailable.")
     decision = _assert_listening_exam_content_allowed(test, _user.get("id"), class_item, sitting_id=sitting_id)
     from services.mock_paper_policy import owned_delivery_snapshot, attempt_receipt
@@ -7625,20 +7638,21 @@ async def get_in_progress_listening_attempt(
     user = await _require_auth(authorization)
     if standalone and (class_item or sitting_id):
         raise HTTPException(422, "standalone cannot be combined with class_item or sitting_id")
-    target = blackeye.test_identity(supabase_admin, test_id)
+    target = await run_in_threadpool(blackeye.test_identity, supabase_admin, test_id, missing_status=None)
     if blackeye.is_blackeye(target):
-        blackeye.require_published(supabase_admin, target)
+        await run_in_threadpool(blackeye.require_published, supabase_admin, target)
         if class_item or sitting_id or not standalone:
             blackeye.assignment_seam()
-        rows = (supabase_admin.table("listening_test_attempts").select("*")
+        rows = await run_in_threadpool(lambda: (supabase_admin.table("listening_test_attempts").select("*")
                 .eq("user_id", user["id"]).eq("test_id", test_id)
                 .eq("status", "in_progress").is_("class_assignment_item_id", "null")
-                .is_("sitting_id", "null").order("created_at", desc=True).limit(1).execute().data or [])
+                .is_("sitting_id", "null").order("created_at", desc=True).limit(1).execute().data or []))
         if not rows:
             return {"attempt": None}
         from fastapi.encoders import jsonable_encoder
         from starlette.responses import JSONResponse
-        return JSONResponse({"attempt": jsonable_encoder(blackeye.state(supabase_admin, rows[0]))},
+        state = await run_in_threadpool(blackeye.state, supabase_admin, rows[0])
+        return JSONResponse({"attempt": jsonable_encoder(state)},
                             headers={"Cache-Control": "private, no-store"})
     query = (
         supabase_admin.table("listening_test_attempts")
@@ -7740,9 +7754,8 @@ async def start_listening_test_attempt(
         raise HTTPException(404, "Test bundle not found or not published")
     test_row = test_res.data[0]
     if blackeye.is_blackeye(test_row):
-        # Full server row only on this branch; no generic assembler/private key.
-        target = blackeye.test_identity(supabase_admin, test_id)
-        result = blackeye.start(supabase_admin, target, user["id"], body.blackeye_binding if body else None,
+        # Reuse the trusted row; no second test read or generic assembler.
+        result = await run_in_threadpool(blackeye.start, supabase_admin, test_row, user["id"], body.blackeye_binding if body else None,
             standalone=standalone, class_item=class_item, purpose=body.purpose if body else None,
             sitting_id=body.mock_sitting_id if body else None,
             protocol=body.renderer_affinity_protocol if body else None)
@@ -7948,7 +7961,7 @@ async def acknowledge_listening_attempt_playback_started(
     """
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(str(attempt_id), user["id"])
-    if blackeye.attempt_is_blackeye(supabase_admin, attempt):
+    if await run_in_threadpool(blackeye.attempt_is_blackeye, supabase_admin, attempt):
         raise HTTPException(503, "Black Eye player contract unavailable.")
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt không còn hoạt động.")
@@ -8088,9 +8101,10 @@ async def patch_listening_test_attempt_answer(
     """
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])   # ownership gate
-    if blackeye.attempt_is_blackeye(supabase_admin, attempt):
+    if await run_in_threadpool(blackeye.attempt_is_blackeye, supabase_admin, attempt):
         from starlette.responses import JSONResponse
-        ack = BlackEyeSaveAck.model_validate(blackeye.save(supabase_admin, attempt, body.q_num, body.user_answer))
+        saved = await run_in_threadpool(blackeye.save, supabase_admin, attempt, body.q_num, body.user_answer)
+        ack = BlackEyeSaveAck.model_validate(saved)
         return JSONResponse(ack.model_dump(), headers={"Cache-Control": "private, no-store"})
     bind_owned_attempt(attempt)
     if attempt.get("status") != "in_progress":
@@ -8256,7 +8270,7 @@ async def get_listening_programme_guided_state(
     user = await _require_auth(authorization)
     attempt_id_str = str(attempt_id)
     attempt = _fetch_attempt_or_404(attempt_id_str, user["id"])
-    test, exercise_rows = _programme_guided_context(attempt)
+    test, exercise_rows = await run_in_threadpool(_programme_guided_context, attempt)
     result = (
         supabase_admin.table("listening_programme_feedback_reveals")
         .select("q_num,first_answer,revealed_at")
@@ -8287,7 +8301,7 @@ async def reveal_listening_programme_question(
     user = await _require_auth(authorization)
     attempt_id_str = str(attempt_id)
     attempt = _fetch_attempt_or_404(attempt_id_str, user["id"])
-    test, exercise_rows = _programme_guided_context(attempt)
+    test, exercise_rows = await run_in_threadpool(_programme_guided_context, attempt)
     if q_num <= 0:
         raise HTTPException(422, "Câu hỏi không hợp lệ.")
     # Reject broken/missing authored keys before recording any reveal. The RPC
@@ -8419,7 +8433,7 @@ async def check_listening_practice_answer(
 
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])       # ownership gate
-    if blackeye.attempt_is_blackeye(supabase_admin, attempt):
+    if await run_in_threadpool(blackeye.attempt_is_blackeye, supabase_admin, attempt):
         raise HTTPException(422, "Black Eye practice feedback unavailable.")
     if attempt.get("sitting_id") or attempt.get("attempt_purpose") == "mock_delivery":
         raise HTTPException(404, "Practice feedback unavailable")
@@ -8582,10 +8596,11 @@ async def submit_listening_test_attempt(
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])
     bind_owned_attempt(attempt)
-    if blackeye.attempt_is_blackeye(supabase_admin, attempt):
+    if await run_in_threadpool(blackeye.attempt_is_blackeye, supabase_admin, attempt):
         from fastapi.encoders import jsonable_encoder
         from starlette.responses import JSONResponse
-        return JSONResponse(jsonable_encoder(blackeye.submit(supabase_admin, attempt)),
+        result = await run_in_threadpool(blackeye.submit, supabase_admin, attempt)
+        return JSONResponse(jsonable_encoder(result),
                             headers={"Cache-Control": "private, no-store"})
     if attempt.get("status") == "submitted":
         if (attempt.get("scoring_policy") or "diagnostic") == "report_only":
@@ -8792,10 +8807,11 @@ async def get_listening_test_attempt(
     """
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])
-    if blackeye.attempt_is_blackeye(supabase_admin, attempt):
+    if await run_in_threadpool(blackeye.attempt_is_blackeye, supabase_admin, attempt):
         from fastapi.encoders import jsonable_encoder
         from starlette.responses import JSONResponse
-        return JSONResponse(jsonable_encoder(blackeye.state(supabase_admin, attempt)),
+        result = await run_in_threadpool(blackeye.state, supabase_admin, attempt)
+        return JSONResponse(jsonable_encoder(result),
                             headers={"Cache-Control": "private, no-store"})
     if _mock_sealed(attempt):
         raise HTTPException(403, "Kết quả đang chờ giám khảo duyệt.")
@@ -9123,12 +9139,13 @@ async def get_listening_test_attempt_review(
         attempt = res.data[0]
     else:
         attempt = _fetch_attempt_or_404(attempt_id, user["id"])
-    if blackeye.attempt_is_blackeye(supabase_admin, attempt):
+    if await run_in_threadpool(blackeye.attempt_is_blackeye, supabase_admin, attempt):
         if attempt.get("user_id") != user["id"]:
             raise HTTPException(403, "Black Eye review unavailable.")
         from fastapi.encoders import jsonable_encoder
         from starlette.responses import JSONResponse
-        return JSONResponse(jsonable_encoder(blackeye.review(supabase_admin, attempt)),
+        result = await run_in_threadpool(blackeye.review, supabase_admin, attempt)
+        return JSONResponse(jsonable_encoder(result),
                             headers={"Cache-Control": "private, no-store"})
     if attempt.get("status") != "submitted":
         raise HTTPException(409, "Chưa có chữa bài — attempt chưa submit.")
@@ -9153,5 +9170,6 @@ async def get_blackeye_unit(authorization: str | None = Header(default=None)):
     await _require_auth(authorization)
     from fastapi.encoders import jsonable_encoder
     from starlette.responses import JSONResponse
-    unit = BlackEyeUnitPublic.model_validate(blackeye.public_inventory(supabase_admin))
+    inventory = await run_in_threadpool(blackeye.public_inventory, supabase_admin)
+    unit = BlackEyeUnitPublic.model_validate(inventory)
     return JSONResponse(jsonable_encoder(unit), headers={"Cache-Control": "private, no-store"})

@@ -54,6 +54,10 @@ class Query:
     def limit(self, maximum): self.maximum = maximum; return self
     def order(self, *args, **kwargs): return self
     def update(self, patch): self.patch = patch; return self
+    def insert(self, row):
+        self.patch = deepcopy(row)
+        self.db.rows[self.table].append(deepcopy(row))
+        return self
     def execute(self):
         self.db.calls.append((self.table, self.cols, self.patch))
         if self.table not in self.db.rows: raise AssertionError(f"Unexpected/private table {self.table}")
@@ -73,7 +77,7 @@ class Query:
         if self.maximum is not None: selected = selected[:self.maximum]
         if self.cols == "*": result = deepcopy(selected)
         elif self.cols.startswith("programme_id:paper_row->programme_id"):
-            result = [dict(programme_id=r["paper_row"]["programme_id"], blackeye_identity=r["paper_row"]["metadata"].get("blackeye",{}).get("binding",{}).get("programme_id")) for r in selected]
+            result = [dict(programme_id=r["paper_row"]["programme_id"], blackeye_identity=r["paper_row"]["metadata"].get("blackeye", {}).get("binding", {}).get("programme_id")) for r in selected]
         else: result = [{k: deepcopy(r[k]) for k in map(str.strip,self.cols.split(",")) if k in r} for r in selected]
         return SimpleNamespace(data=result)
 
@@ -222,7 +226,9 @@ def test_r2_o5_guided_denies_before_marking_reads(env,assigned,path,method,body)
     if assigned: a["class_assignment_item_id"]="assigned-fixture"; a["attempt_purpose"]="assigned_practice"
     r=getattr(env.client,method)(f'{BASE}/tests/attempts/{a["id"]}/{path}', **({"json":body} if body else {}))
     assert r.status_code == 422,r.text; leak_free(env,r)
-    assert not any(t in {"listening_exercises","listening_content"} or "marking_rows" in cols for t,cols,_ in env.db.calls)
+    assert not any(t in {"listening_exercises","listening_content"}
+                   or (t == "mock_paper_attempt_snapshots" and (cols == "*" or "marking_rows" in cols))
+                   for t,cols,_ in env.db.calls)
     assert env.db.rpcs == []
 
 
@@ -468,3 +474,92 @@ def test_composite_incomplete_component_roundtrip(env,action,text,blank):
     assert r.json()["result_summary"]["blank_count"] == 1+int(blank)
     r=env.client.get(f'{BASE}/tests/attempts/{aid}/review'); assert r.status_code == 200
     assert r.json()["items"][0]["blank"] == blank and r.json()["items"][0]["saved_response"] == value
+
+
+@pytest.mark.parametrize("mode", ["dictation", "gist", "true_false", "mcq"])
+@pytest.mark.parametrize("by_exercise", [False, True])
+def test_f1_content_grading_rejects_before_private_reads_or_writes(env, mode, by_exercise):
+    section, exercise = str(uuid4()), str(uuid4())
+    env.db.rows["listening_content"] = [dict(id=section, test_id=env.p["id"], status="published",
+                                           transcript="PROTECTED_SYNTHETIC_TRANSCRIPT")]
+    env.db.rows["listening_exercises"] = [dict(id=exercise, content_id=section, status="published",
+                                             exercise_type=mode, payload={"reference": "PROTECTED"})]
+    env.db.rows["listening_attempts"] = []
+    before = deepcopy(env.db.rows)
+    body = {"mode": mode, "exercise_id" if by_exercise else "content_id": exercise if by_exercise else section,
+            "user_transcript": ""}
+    r = env.client.post(f"{BASE}/attempts", json=body)
+    assert r.status_code == 422, r.text
+    assert r.json() == {"detail": "Black Eye section access unavailable."}
+    leak_free(env, r)
+    assert b"PROTECTED" not in r.content and b'"diff"' not in r.content
+    assert env.db.rows == before and env.db.rpcs == []
+    assert not any(patch or table == "listening_attempts" for table, _, patch in env.db.calls)
+    assert all(cols == "test_id" for table, cols, _ in env.db.calls if table == "listening_content")
+    assert all(cols == "content_id" for table, cols, _ in env.db.calls if table == "listening_exercises")
+
+
+def test_f1_generic_dictation_still_grades_and_saves(env):
+    section, exercise = str(uuid4()), str(uuid4())
+    env.p["programme_id"] = "ielts-listening-practice"
+    env.p["metadata"] = {}
+    env.db.rows["listening_content"] = [dict(id=section, test_id=env.p["id"], status="published",
+                                           transcript="Synthetic generic transcript")]
+    env.db.rows["listening_exercises"] = [dict(id=exercise, content_id=section, status="published",
+                                             exercise_type="dictation", segments=[])]
+    env.db.rows["listening_attempts"] = []
+    r = env.client.post(f"{BASE}/attempts", json={"content_id": section, "mode": "dictation",
+                                              "user_transcript": "Synthetic generic transcript"})
+    assert r.status_code == 200, r.text
+    assert r.json()["diff"] and r.json()["mode"] == "dictation"
+    assert len(env.db.rows["listening_attempts"]) == 1
+
+
+def test_r6_http_generic_assignment_seam_preempts_validation_and_service(env, monkeypatch):
+    env.actor["admin"] = True
+    monkeypatch.setattr(ar, "_require_cohort", lambda _: {"id": "fixture-cohort", "is_active": True})
+    def no_service(*args, **kwargs):
+        pytest.fail("generic assignment service reached")
+    monkeypatch.setattr(ar, "create_class_assignment", no_service)
+    r = env.client.post("/admin/cohorts/fixture-cohort/assignments", json={
+        "skill": "listening", "title": "Synthetic task", "content_id": env.p["id"]})
+    assert r.status_code == 503, r.text
+    assert r.json() == {"detail": svc.ASSIGNMENT_UNAVAILABLE}
+    assert "chưa hỗ trợ giao qua lớp" not in r.text
+    leak_free(env, r)
+    assert env.db.rpcs == [] and not any(patch for _, _, patch in env.db.calls)
+
+
+@pytest.mark.parametrize("message,status,detail", [
+    ("blackeye_invalid_inactive", 422, "Black Eye attempt inactive."),
+    ("blackeye_unavailable_revision", 503, svc.UNAVAILABLE),
+    ("blackeye_unavailable_context", 503, svc.UNAVAILABLE),
+    ("blackeye_invalid_context", 503, svc.UNAVAILABLE),
+    ("blackeye_invalid_revision", 503, svc.UNAVAILABLE),
+])
+def test_r5_rpc_inactive_and_server_mismatch_sanitized(env, message, status, detail):
+    env.db.rpc_error = f"{message}: PRIVATE_EXTRA"
+    r = start(env)
+    assert r.status_code == status, r.text
+    assert r.json() == {"detail": detail}
+    leak_free(env, r)
+    assert not env.db.rows["listening_test_attempts"]
+
+
+def test_r2_legacy_dispatch_has_no_catalog_io_or_missing_test_keyerror():
+    class NoIO:
+        def table(self, _):
+            pytest.fail("legacy diagnostic dispatch must not add a read")
+    assert svc.attempt_is_blackeye(NoIO(), {"id": "legacy"}) is False
+    assert svc.attempt_is_blackeye(NoIO(), {"id": "legacy", "test_id": "deleted", "scoring_policy": "diagnostic"}) is False
+
+
+def test_r2_frozen_generic_dispatch_reads_identity_once_not_live_catalog(env):
+    env.p["programme_id"] = "ielts-listening-practice"
+    del env.p["metadata"]["blackeye"]
+    a = env.db.freeze(paper())
+    env.db.rows["mock_paper_attempt_snapshots"][0]["paper_row"] = deepcopy(env.p)
+    env.db.rows["listening_tests"] = []
+    assert svc.attempt_is_blackeye(env.db, a) is False
+    assert len(env.db.calls) == 1 and env.db.calls[0][0] == "mock_paper_attempt_snapshots"
+    assert env.db.calls[0][1] != "*" and "marking_rows" not in env.db.calls[0][1]

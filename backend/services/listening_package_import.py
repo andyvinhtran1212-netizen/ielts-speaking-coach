@@ -950,8 +950,12 @@ def build_import_plan(location: PackageLocation, *, imported_by: str | None = No
             if form.get("scoring_policy") != "report_only":
                 raise PackageValidationError(f"Form không phải report_only: {form_id}")
             item_ids = list(map(str, form.get("item_ids") or []))
-            validate_form_response_cells(location.programme_id, item_ids, form.get("item_count"),
-                                         blackeye_paper=form.get("blackeye_paper"))
+            if location.programme_id == "blackeye-v5-upper-listening":
+                validate_form_response_cells(location.programme_id, item_ids, form.get("item_count"),
+                                             blackeye_paper=form.get("blackeye_paper"))
+            elif not 1 <= len(item_ids) <= MAX_FORM_ITEMS or len(item_ids) != int(form.get("item_count") or -1):
+                # AC12: preserve the existing generic importer and error exactly.
+                raise PackageValidationError(f"Item count không hợp lệ: {form_id}")
             if any(item_id not in item_map for item_id in item_ids):
                 raise PackageValidationError(f"Form trỏ item ngoài lesson: {form_id}")
             protected_form = protected_forms.get(form_id) or {}
