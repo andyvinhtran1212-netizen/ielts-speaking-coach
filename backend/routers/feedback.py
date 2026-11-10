@@ -153,6 +153,12 @@ def _fetch_owned_attempt(skill: str, attempt_id: str, user: Optional[dict], anon
     if not res.data:
         raise HTTPException(404, "Attempt not found")
     row = res.data[0]
+    if skill == "listening":
+        from services import listening_blackeye
+        if user is None or row.get("user_id") != user.get("id"):
+            listening_blackeye.guard_generic_target(supabase_admin, test_id=row.get("test_id"))
+        if listening_blackeye.is_blackeye(listening_blackeye.test_identity(supabase_admin, row["test_id"], missing_status=None)):
+            raise HTTPException(422, "Black Eye feedback unavailable.")
     owner = row.get("user_id")
     if owner:
         if not user or user.get("id") != owner:

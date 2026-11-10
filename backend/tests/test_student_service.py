@@ -180,6 +180,11 @@ def test_create_student_returns_inserted_row():
 
 class _LisQ:
     def __init__(self, rows): self._rows = rows; self._range = None
+    def or_(self, expression):
+        from blackeye_query_double import matches_blackeye_filter
+        self._rows = [r for r in self._rows if matches_blackeye_filter(r, expression)]
+        return self
+
     def select(self, *_a, **_k): return self
     def eq(self, *_a): return self
     def order(self, *_a, **_k): return self

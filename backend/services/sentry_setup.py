@@ -196,6 +196,13 @@ def before_send(event: dict, hint: dict | None = None) -> dict | None:
     if exc_info and getattr(exc_info[1], _HANDLED_ATTR, False):
         return None
     try:
+        # Do not pattern-match arbitrary academic or learner text. These routes
+        # share the Black Eye transport; keep only a fixed diagnostic envelope.
+        from urllib.parse import unquote
+        url = str((event.get("request") or {}).get("url") or "")
+        if "/listening" in unquote(url).lower():
+            return {"event_id": event.get("event_id"), "level": event.get("level", "error"),
+                    "message": "Listening request error"}
         return _scrub_event(event)
     except Exception:  # noqa: BLE001 — never ship an unscrubbed event
         return None

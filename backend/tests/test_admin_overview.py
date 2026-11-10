@@ -120,6 +120,9 @@ class _TableQuery:
         return self
 
     def or_(self, expression):
+        if expression.startswith(("programme_id.eq.blackeye", "test_id.is.null,")):
+            self.blackeye_filters = getattr(self, "blackeye_filters", []) + [expression]
+            return self
         match = re.fullmatch(
             r"created_at\.gt\.(.*),and\(created_at\.eq\.(.*),id\.gt\.(.*)\)",
             expression,
@@ -144,6 +147,10 @@ class _TableQuery:
         self.limit_n = n
         return self
 
+    def range(self, start, end):
+        self.page_range = (start, end)
+        return self
+
     def order(self, field, **kwargs):
         self.order_fields.append((field, bool(kwargs.get("desc", False))))
         return self
@@ -159,6 +166,9 @@ class _TableQuery:
                 if column not in known:
                     raise _undefined_column(self.table_name, column)
         rows = self.fake.tables.get(self.table_name, [])
+        from blackeye_query_double import matches_blackeye_filter
+        for expression in getattr(self, "blackeye_filters", []):
+            rows = [r for r in rows if matches_blackeye_filter(r, expression)]
         matched = [r for r in rows if self._matches(r)]
         if self.cursor_after:
             matched = [
@@ -174,6 +184,9 @@ class _TableQuery:
         if self.fake.response_cap is not None:
             matched = matched[: self.fake.response_cap]
         self.fake.executions.append((self.table_name, self._head, len(matched)))
+        if hasattr(self, "page_range"):
+            start, end = self.page_range
+            matched = matched[start:end + 1]
         data = [] if self._head else matched
         return _Resp(data, count)
 
@@ -712,3 +725,21 @@ class TestPartialFailures:
     def test_all_reads_ok_reports_no_partial_failures(self, client):
         body = client.get("/admin/overview", headers=_ADMIN_AUTH).json()
         assert body["partial_failures"] == []
+
+
+def test_blackeye_admin_overview_excludes_activity_counts_and_identity(client, fake_db):
+    fake_db.tables["listening_tests"] = [
+        {"id": "be", "programme_id": "blackeye-v5-upper-listening", "metadata": {}},
+        {"id": "plain", "programme_id": "ielts", "metadata": {}},
+    ]
+    fake_db.tables["users"] = [{"id": "private-learner", "email": "private@example.invalid"}]
+    fake_db.tables["listening_test_attempts"] = [
+        {"id": "private-attempt", "user_id": "private-learner", "test_id": "be", "status": "submitted", "created_at": _iso(-1)},
+        {"id": "ordinary-attempt", "user_id": "ordinary-learner", "test_id": "plain", "status": "in_progress", "created_at": _iso(-2)},
+    ]
+    r = client.get("/admin/overview", headers=_ADMIN_AUTH)
+    assert r.status_code == 200, r.text
+    assert r.json()["skills"]["listening"]["attempts_total"] == 1
+    assert r.json()["skills"]["listening"]["attempts_7d"] == 1
+    for sentinel in ("private-attempt", "private-learner", "private@example.invalid"):
+        assert sentinel not in r.text

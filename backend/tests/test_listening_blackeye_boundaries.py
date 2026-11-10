@@ -1,0 +1,328 @@
+"""BLACKEYE-0052 C1/C2/F11: synthetic HTTP capability and privacy matrix."""
+import asyncio
+from copy import deepcopy
+import json
+import logging
+from types import SimpleNamespace
+from uuid import uuid4
+
+import pytest
+from fastapi import HTTPException
+from fastapi.testclient import TestClient
+
+from test_listening_blackeye import env, paper, start, visible, leak_free, BASE
+from routers import listening as lr, mock_attempt_flags as flags, mock_corrections as corrections
+from services import listening_blackeye as svc
+
+
+def add_side_routes(e, monkeypatch):
+    monkeypatch.setattr(flags, "supabase_admin", e.db)
+    monkeypatch.setattr(corrections, "get_supabase_user", lr._require_auth)
+    e.app.include_router(flags.router)
+    e.app.include_router(corrections.router)
+
+
+SIDES = [
+    ("get", "review-flags", None, 422),
+    ("patch", "review-flags", {"q_num": 1, "flagged": True, "expected_revision": 0, "operation_id": "00000000-0000-0000-0000-000000000003"}, 422),
+    ("post", "renderer-affinity", {"renderer_affinity": "next"}, 503),
+    ("post", "playback-started", {"playback_claim_id": "00000000-0000-0000-0000-000000000001"}, 503),
+    ("post", "post-test-capture", {"items": []}, 422),
+    ("post", "items/1/events", {"event_id": "00000000-0000-0000-0000-000000000002", "event_name": "correction_result_seen"}, 422),
+]
+
+
+@pytest.mark.parametrize("admin", [False, True])
+@pytest.mark.parametrize("method,suffix,body", [
+    ("get", "", None), ("get", "review", None),
+    ("patch", "answers", {"q_num": 1, "user_answer": "SYNTHETIC_ANSWER"}),
+    ("post", "submit", None),
+] + [(m, s, b) for m, s, b, _ in SIDES])
+def test_idor_matrix_owner_lookup_before_snapshot(env, monkeypatch, admin, method, suffix, body):
+    add_side_routes(env, monkeypatch)
+    a = env.db.freeze(env.p)
+    env.actor.update(id=str(uuid4()), admin=admin)
+    prefix = "/api/mock-corrections/listening/attempts" if suffix in {"post-test-capture", "items/1/events"} else BASE + "/tests/attempts"
+    url = f'{prefix}/{a["id"]}' + (f"/{suffix}" if suffix else "")
+    response = getattr(env.client, method)(url, **({"json": body} if body else {}))
+    assert response.status_code == 404, response.text
+    assert not any(t == "mock_paper_attempt_snapshots" or patch for t, _, patch in env.db.calls)
+    assert env.db.rpcs == []
+
+
+@pytest.mark.parametrize("method,suffix,body,status", SIDES)
+def test_generic_side_route_denials_precede_private_io(env, monkeypatch, method, suffix, body, status):
+    add_side_routes(env, monkeypatch)
+    a = env.db.freeze(env.p)
+    prefix = "/api/mock-corrections/listening/attempts" if suffix in {"post-test-capture", "items/1/events"} else BASE + "/tests/attempts"
+    r = getattr(env.client, method)(f'{prefix}/{a["id"]}/{suffix}', **({"json": body} if body else {}))
+    assert r.status_code == status, r.text
+    assert env.db.rpcs == []
+    assert not any(patch or "marking_rows" in cols or (t == "mock_paper_attempt_snapshots" and cols == "*") for t, cols, patch in env.db.calls)
+
+
+def test_windows_programme_and_in_progress_seams(env):
+    for path in [f'/tests/{env.p["id"]}/practice-windows', f'/programmes/{svc.PROGRAMME}/lessons', f'/tests/{env.p["id"]}/attempts/in-progress?class_item=synthetic']:
+        r = env.client.get(BASE + path)
+        assert r.status_code == 503, r.text
+    r = env.client.get(f'{BASE}/tests/{env.p["id"]}/attempts/in-progress?standalone=true')
+    assert r.status_code == 404
+    assert env.db.rpcs == []
+    assert not any(t == "mock_paper_attempt_snapshots" for t, _, _ in env.db.calls)
+
+
+@pytest.mark.parametrize("role", ["creator", "global", "other_cohort", "student"])
+def test_generic_admin_detail_never_reads_blackeye_work(env, monkeypatch, role):
+    monkeypatch.setattr(lr, "_staff_admin_guard", __import__("routers.admin_class_assignments", fromlist=["require_admin"]).require_admin)
+    env.app.include_router(lr.admin_router)
+    a = env.db.freeze(env.p)
+    env.actor.update(admin=role != "student", id=role)
+    r = env.client.get(f'/admin/listening/attempts/{a["id"]}')
+    assert r.status_code == (403 if role == "student" else 404), r.text
+    assert not any(cols == "*" or "marking_rows" in cols for _, cols, _ in env.db.calls)
+    assert env.db.rpcs == []
+
+
+def test_admin_list_and_aggregator_queries_exclude_before_joins(env):
+    from services import cohort_progress_aggregator as agg, class_assignment_service as assignments
+    generic = paper(activity="U1-A02")
+    generic.update(programme_id="ielts", metadata={})
+    env.db.rows["listening_tests"].append(generic)
+    blackeye = env.db.freeze(env.p)
+    normal = deepcopy(blackeye)
+    normal.update(id=str(uuid4()), test_id=generic["id"])
+    env.db.rows["listening_test_attempts"].append(normal)
+    for paged in (agg._paged, assignments._paged):
+        env.db.calls.clear()
+        rows = paged(env.db, "listening_test_attempts", "id,user_id,test_id,status", lambda q: q)
+        assert [r["id"] for r in rows] == [normal["id"]]
+        assert not any(t == "mock_paper_attempt_snapshots" for t, _, _ in env.db.calls)
+    q = svc.exclude_tests(env.db, env.db.table("listening_test_attempts").select("id,test_id"))
+    assert [r["id"] for r in q.execute().data] == [normal["id"]]
+    env.db.rows["class_assignments"] = [
+        dict(id="hidden", skill="listening", content_id=env.p["id"]),
+        dict(id="visible", skill="listening", content_id=generic["id"]),
+    ]
+    rows = assignments._paged(env.db, "class_assignments", "id", lambda q: q)
+    assert [r["id"] for r in rows] == ["visible"]
+    with pytest.raises(HTTPException) as error:
+        svc.guard_generic_assignment(env.db, "hidden")
+    assert error.value.status_code == 503
+    assert env.db.rpcs == []
+
+
+def test_no_answer_or_pii_in_logging_error_logs_or_sentry(env, monkeypatch, caplog):
+    from routers import error_logs
+    from services.sentry_setup import before_send
+    from services.log_redaction import AccessLogRedactionFilter
+    sentinel = "SYNTHETIC_PRIVATE_NAME answer transcript explanation learner@example.invalid " + env.db.user
+    env.db.rpc_error = sentinel
+    with caplog.at_level(logging.DEBUG):
+        response = start(env)
+    assert response.status_code == 503
+    for value in (sentinel, env.db.user, "learner@example.invalid"):
+        assert value not in caplog.text
+    env.db.rows["error_logs"] = []
+    monkeypatch.setattr(error_logs, "supabase_admin", env.db)
+    async def auth(_): return {"id": env.db.user}
+    monkeypatch.setattr(error_logs, "_get_user_optional", auth)
+    env.app.include_router(error_logs.router)
+    response = env.client.post("/api/error-logs", json=dict(message=sentinel, stack=sentinel,
+        url="/listening/programmes/form/synthetic?answer=" + sentinel, extra={"answer": sentinel}))
+    assert response.status_code == 200, response.text
+    row = env.db.rows["error_logs"][0]
+    assert row["user_id"] == env.db.user  # F11: the structured owner is allowed.
+    assert sentinel not in json.dumps({k:v for k,v in row.items() if k != "user_id"})
+    event = before_send(dict(message=sentinel, request={"url": "/api/listening/tests/synthetic"},
+        exception={"values": [{"value": sentinel}]}, breadcrumbs={"values": [{"message": sentinel}]}, extra={"answer": sentinel}))
+    assert sentinel not in json.dumps(event)
+    record = logging.LogRecord("uvicorn.access", logging.INFO, "", 0, '%s - "%s %s HTTP/%s" %d',
+        ("client", "GET", "/api/listening/tests/" + env.db.user + "?anything=" + sentinel, "1.1", 503), None)
+    AccessLogRedactionFilter().filter(record)
+    assert sentinel not in record.getMessage() and env.db.user not in record.getMessage()
+
+
+def test_pre_submit_projection_has_no_key_material(env):
+    response = start(env)
+    assert response.status_code == 200
+    leak_free(env, response)
+    assert response.json()["answers"] == []
+    for text in ("SYNTHETIC_REFERENCE", "SYNTHETIC_TRANSCRIPT", "reference", "explanation_vi"):
+        assert text not in response.text
+
+
+def test_route_inventory_new_identifier_routes_require_classification():
+    from main import app
+    expected = set(ROUTE_INVENTORY.splitlines())
+    actual = {f"{method} {route.path}" for route in app.routes for method in getattr(route, "methods", ())
+              if any("{" + key + "}" in route.path for key in
+                     ("attempt_id", "test_id", "content_id", "exercise_id", "programme_id", "lesson_id"))
+              and any(part in route.path for part in ("listening", "mock-corrections"))}
+    assert actual == expected
+    # Black Eye uses the positive routes in plan.md. Every other entry is a
+    # generic deny/exclude boundary, or a dictation-attempt table that admission
+    # cannot populate. Behavioral matrix above pins 422 and 503 before private IO.
+
+
+ROUTE_INVENTORY = """DELETE /admin/listening/exercises/{exercise_id}
+DELETE /admin/listening/exercises/{exercise_id}/map-image
+DELETE /admin/listening/tests/{test_id}
+DELETE /admin/listening/tests/{test_id}/hard
+GET /admin/listening/attempts/{attempt_id}
+GET /admin/listening/content/{content_id}
+GET /admin/listening/exercises/{exercise_id}/map-image/signed-url
+GET /admin/listening/tests/{test_id}
+GET /admin/listening/tests/{test_id}/audio/signed-urls
+GET /admin/listening/tests/{test_id}/audit
+GET /admin/listening/tests/{test_id}/player-preview
+GET /admin/listening/tests/{test_id}/preview
+GET /api/listening/content/{content_id}
+GET /api/listening/dictation/{content_id}/boot
+GET /api/listening/lessons/{lesson_id}
+GET /api/listening/programmes/{programme_id}/lessons
+GET /api/listening/tests/attempts/{attempt_id}
+GET /api/listening/tests/attempts/{attempt_id}/guided-state
+GET /api/listening/tests/attempts/{attempt_id}/review
+GET /api/listening/tests/attempts/{attempt_id}/review-flags
+GET /api/listening/tests/{test_id}
+GET /api/listening/tests/{test_id}/attempts/in-progress
+GET /api/listening/tests/{test_id}/dictation
+GET /api/listening/tests/{test_id}/dictation/attempts/in-progress
+GET /api/listening/tests/{test_id}/practice-windows
+PATCH /admin/listening/content/{content_id}
+PATCH /admin/listening/content/{content_id}/status
+PATCH /admin/listening/exercises/{exercise_id}/questions/{q_num}
+PATCH /admin/listening/tests/{test_id}
+PATCH /admin/listening/tests/{test_id}/audio/mode
+PATCH /admin/listening/tests/{test_id}/audit
+PATCH /admin/listening/tests/{test_id}/status
+PATCH /admin/mock-corrections/public-tests/{skill}/{test_id}
+PATCH /api/listening/tests/attempts/{attempt_id}/answers
+PATCH /api/listening/tests/attempts/{attempt_id}/review-flags
+POST /admin/listening/exercises/{exercise_id}/upload-map-image
+POST /admin/listening/tests/{test_id}/audio/assemble
+POST /admin/listening/tests/{test_id}/audio/full
+POST /admin/listening/tests/{test_id}/audio/section/{section_num}
+POST /admin/listening/tests/{test_id}/audit/run
+POST /api/listening/tests/attempts/{attempt_id}/check
+POST /api/listening/tests/attempts/{attempt_id}/playback-started
+POST /api/listening/tests/attempts/{attempt_id}/questions/{q_num}/reveal
+POST /api/listening/tests/attempts/{attempt_id}/renderer-affinity
+POST /api/listening/tests/attempts/{attempt_id}/submit
+POST /api/listening/tests/dictation/attempts/{attempt_id}/renderer-affinity
+POST /api/listening/tests/dictation/attempts/{attempt_id}/sentences/{sentence_idx}
+POST /api/listening/tests/{test_id}/attempts
+POST /api/listening/tests/{test_id}/dictation/attempts
+POST /api/mock-corrections/{skill}/attempts/{attempt_id}/items/{question_number}/events
+POST /api/mock-corrections/{skill}/attempts/{attempt_id}/post-test-capture"""
+
+
+@pytest.mark.asyncio
+async def test_backend_crash_capture_discards_private_exception(env, monkeypatch, caplog):
+    import main
+    from starlette.requests import Request
+    sentinel = "SYNTHETIC_PRIVATE_RESPONSE " + env.db.user
+    captured = []
+    monkeypatch.setattr(main, "_insert_error_log_safely", captured.append)
+    monkeypatch.setattr(main, "_unhandled_error_log_tasks", set())
+    request = Request({"type": "http", "method": "PATCH", "path": "/api/listening/tests/attempts/synthetic/answers",
+        "query_string": ("unknown=" + sentinel).encode(), "headers": [], "scheme": "http",
+        "server": ("testserver", 80), "route": SimpleNamespace(path="/api/listening/tests/attempts/{attempt_id}/answers")})
+    with caplog.at_level(logging.DEBUG):
+        response = await main.unhandled_exception_handler(request, RuntimeError(sentinel))
+        await asyncio.gather(*main._unhandled_error_log_tasks)
+    assert response.status_code == 500
+    assert captured and sentinel not in json.dumps(captured)
+    assert sentinel not in caplog.text
+
+
+@pytest.mark.parametrize("admin", [False, True])
+def test_in_progress_cannot_find_another_owners_attempt(env, admin):
+    env.db.freeze(env.p)
+    env.actor.update(id=str(uuid4()), admin=admin)
+    r = env.client.get(f'{BASE}/tests/{env.p["id"]}/attempts/in-progress?standalone=true')
+    assert r.status_code == 404
+    assert not any(t == "mock_paper_attempt_snapshots" for t, _, _ in env.db.calls)
+    assert env.db.rpcs == []
+
+
+def test_student_profile_summary_excludes_blackeye_counts(env, monkeypatch):
+    from services import student_service
+    from test_student_service import _LisFake
+    generic = paper(activity="U1-A02")
+    generic.update(programme_id="ielts", metadata={})
+    rows = [dict(id="hidden", test_id=env.p["id"], status="submitted", created_at="2026-11-10"),
+            dict(id="shown", test_id=generic["id"], status="in_progress", created_at="2026-11-09")]
+    db = _LisFake(dict(listening_tests=[env.p, generic], listening_test_attempts=rows))
+    monkeypatch.setattr(student_service, "supabase_admin", db)
+    result = student_service._listening_summary(env.db.user)
+    assert result["attempts_total"] == 1
+    assert result["attempts_submitted"] == 0
+    assert result["last_attempt_at"] == "2026-11-09"
+
+
+@pytest.mark.parametrize("method,suffix,payload", [
+    ("patch", "", {"status": "archived"}), ("delete", "", None),
+    ("post", "/backfill", {"student_ids": []}),
+    ("patch", "/due", {"due_date": "2026-11-12"}),
+    ("post", "/return/synthetic-student", {}),
+    ("get", "/tally", None),
+])
+@pytest.mark.parametrize("role", ["creator", "global", "other_cohort", "student"])
+def test_generic_assignment_routes_cannot_mutate_or_tally_blackeye(env, role, method, suffix, payload):
+    env.db.rows["class_assignments"] = [dict(id="synthetic-assignment", cohort_id="synthetic-cohort", skill="listening", content_id=env.p["id"])]
+    env.actor.update(admin=role != "student", id=role)
+    response = getattr(env.client, method)("/admin/cohorts/synthetic-cohort/assignments/synthetic-assignment" + suffix,
+        **({"json": payload} if payload is not None else {}))
+    assert response.status_code == (403 if role == "student" else 503), response.text
+    assert env.db.rpcs == []
+    assert not any(patch or t == "class_assignment_items" or t == "mock_paper_attempt_snapshots" for t, _, patch in env.db.calls)
+
+
+@pytest.mark.parametrize("role", ["creator", "global", "other_cohort", "student"])
+def test_generic_admin_list_never_joins_hidden_learner(env, monkeypatch, role):
+    from routers import admin_class_assignments
+    monkeypatch.setattr(lr, "_staff_admin_guard", admin_class_assignments.require_admin)
+    env.app.include_router(lr.admin_router)
+    env.db.freeze(env.p)
+    ordinary = paper(activity="U1-A02")
+    ordinary.update(programme_id="ielts", metadata={})
+    env.db.rows["listening_tests"].append(ordinary)
+    env.db.rows["listening_test_attempts"].append(dict(id="ordinary-attempt", user_id="ordinary-user",
+        test_id=ordinary["id"], status="in_progress", scoring_policy="diagnostic"))
+    joined = []
+    def lookup(table, ids, cols, **kwargs):
+        joined.extend(ids)
+        assert env.db.user not in ids and env.p["id"] not in ids
+        return {}
+    monkeypatch.setattr(lr, "_rows_by_id", lookup)
+    env.actor.update(id=role, admin=role != "student")
+    response = env.client.get("/admin/listening/attempts")
+    assert response.status_code == (403 if role == "student" else 200), response.text
+    if role != "student":
+        assert response.json()["total"] == 1
+        assert [r["id"] for r in response.json()["items"]] == ["ordinary-attempt"]
+        assert joined == ["ordinary-user", ordinary["id"]]
+    assert not any(t == "mock_paper_attempt_snapshots" for t, _, _ in env.db.calls)
+
+
+def test_action_log_excludes_hidden_assignment_before_name_joins(env):
+    from services.class_assignment_service import read_class_actions
+    env.db.rows["class_assignments"] = [dict(id="hidden", skill="listening", content_id=env.p["id"])]
+    env.db.rows["class_action_log"] = [dict(id="private-action", cohort_id="synthetic", assignment_id="hidden", student_name="PRIVATE_NAME")]
+    result = read_class_actions(env.db, cohort_id="synthetic")
+    assert result == {"actions": [], "has_more": False, "next_before": None}
+    assert not any(t == "students" or t == "mock_paper_attempt_snapshots" for t, _, _ in env.db.calls)
+
+
+@pytest.mark.parametrize("role", ["creator", "global", "other_cohort", "student"])
+def test_generic_admin_body_target_cannot_write_blackeye_exercise(env, monkeypatch, role):
+    from routers import admin_class_assignments
+    monkeypatch.setattr(lr, "_staff_admin_guard", admin_class_assignments.require_admin)
+    env.app.include_router(lr.admin_router)
+    env.actor.update(id=role, admin=role != "student")
+    env.db.rows["listening_content"] = [dict(id="synthetic-content", test_id=env.p["id"])]
+    response = env.client.post("/admin/listening/exercises", json=dict(content_id="synthetic-content", segments=[]))
+    assert response.status_code == (403 if role == "student" else 404), response.text
+    assert not any(patch or t == "listening_exercises" for t, _, patch in env.db.calls)
+    assert env.db.rpcs == []

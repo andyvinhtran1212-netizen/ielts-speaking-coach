@@ -192,6 +192,8 @@ def _listening_summary(user_id: str | None) -> dict | None:
     if not user_id:
         return None
 
+    from services import listening_blackeye as blackeye
+
     def _fetch_all(table: str, cols: str) -> list[dict]:
         """Phân trang đủ TOÀN BỘ lịch sử (lô 1000 = PostgREST cap) — hồ sơ ghi
         "tổng lượt"/"% đúng" nên không được cắt ở newest-N: cắt vừa sai tổng
@@ -201,8 +203,8 @@ def _listening_summary(user_id: str | None) -> dict | None:
         page = 1000
         for i in range(20):
             res = (
-                supabase_admin.table(table)
-                .select(cols)
+                (blackeye.exclude_tests(supabase_admin, supabase_admin.table(table).select(cols))
+                 if table == "listening_test_attempts" else supabase_admin.table(table).select(cols))
                 .eq("user_id", user_id)
                 .order("created_at", desc=True)
                 .range(i * page, (i + 1) * page - 1)

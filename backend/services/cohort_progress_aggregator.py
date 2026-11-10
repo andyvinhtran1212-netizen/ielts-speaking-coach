@@ -56,17 +56,28 @@ def _chunks(items: List[str], size: int = _ID_CHUNK) -> Iterable[List[str]]:
 
 def _paged(db, table: str, columns: str, apply_filters) -> List[Dict[str, Any]]:
     """Every matching row, a page at a time, ordered by id for a stable window."""
+    from services import listening_blackeye as blackeye
+
+    def scoped_query():
+        selected = columns
+        if table == "class_assignments" and columns != "*":
+            selected += ",skill,content_id,content_config"
+        q = db.table(table).select(selected)
+        if table == "listening_test_attempts":
+            return blackeye.exclude_tests(db, q)
+        return q
+
     rows: List[Dict[str, Any]] = []
     start = 0
     while True:
         page = (
-            apply_filters(db.table(table).select(columns))
+            apply_filters(scoped_query())
             .order("id")
             .range(start, start + _PAGE - 1)
             .execute()
             .data
         ) or []
-        rows.extend(page)
+        rows.extend(blackeye.generic_assignments(db, page) if table == "class_assignments" else page)
         if len(page) < _PAGE:
             return rows
         start += _PAGE

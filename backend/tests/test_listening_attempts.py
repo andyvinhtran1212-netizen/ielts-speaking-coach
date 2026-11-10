@@ -156,6 +156,10 @@ class _FakeTableQuery:
         self._range: tuple[int, int] | None = None
         self._order: tuple[str, bool] | None = None  # (col, desc)
 
+    def or_(self, expression):
+        self.blackeye_filters = getattr(self, "blackeye_filters", []) + [expression]
+        return self
+
     def select(self, *_a, count=None, **_k):
         self._count_mode = count
         return self
@@ -183,6 +187,9 @@ class _FakeTableQuery:
         if self._insert is not None:
             return _FakeRes([self._insert])
         rows = list(self._parent.canned.get(self._table, []))
+        from blackeye_query_double import matches_blackeye_filter
+        for expression in getattr(self, "blackeye_filters", []):
+            rows = [r for r in rows if matches_blackeye_filter(r, expression)]
         for col, val in self._filters:
             rows = [r for r in rows if r.get(col) == val]
         total = len(rows)

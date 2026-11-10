@@ -311,13 +311,11 @@ def test_detail_exposes_test_lookup_failure(fake):
     row = _seed(fake)
     fake.fail_tables.add("listening_tests")
 
-    out = _run(listening_router.admin_get_listening_attempt(
-        row["id"], authorization="Bearer x"))
-
-    assert out["association_lookup_failed"] is True
-    assert out["association_lookup_failures"] == ["listening_tests"]
-    assert out["test"]["id"] == row["test_id"]
-    assert out["test"]["title"] is None
+    # Classification is an authorization boundary (FR-027): no work can be
+    # returned when the source identity cannot be established.
+    with pytest.raises(HTTPException) as error:
+        _run(listening_router.admin_get_listening_attempt(row["id"], authorization="Bearer x"))
+    assert error.value.status_code == 503
 
 
 def test_detail_404_on_unknown_id(fake):

@@ -56,6 +56,33 @@ class PackageValidationError(ValueError):
     """The package is not safe or internally consistent enough to import."""
 
 
+def validate_form_response_cells(programme_id, item_ids, item_count, *, blackeye_paper=None):
+    """Narrow cap; a count or caller-supplied programme alone never grants 48.
+
+    The caller passes the package's validated source/public cell map. This does
+    not authorize a package import or add media/response types to generic forms.
+    """
+    if programme_id == "blackeye-v5-upper-listening":
+        from services.listening_blackeye import activity_from_paper
+        try:
+            if not blackeye_paper or blackeye_paper.get("programme_id") != programme_id:
+                raise ValueError("binding required")
+            activity, _ = activity_from_paper(blackeye_paper)
+            if item_ids != [item.source_item_id for item in activity.items]:
+                raise ValueError("cell identity")
+            cap = 48
+        except Exception as exc:
+            raise PackageValidationError("Black Eye source/cell binding invalid") from exc
+    else:
+        if blackeye_paper is not None:
+            raise PackageValidationError("Black Eye binding on generic form")
+        cap = MAX_FORM_ITEMS
+    if (type(item_count) is not int or not 1 <= len(item_ids) <= cap
+            or len(item_ids) != item_count or len(set(item_ids)) != len(item_ids)
+            or any(not isinstance(i, str) or not i for i in item_ids)):
+        raise PackageValidationError("Form response-cell count invalid")
+
+
 @dataclass(frozen=True)
 class PackageLocation:
     release_root: Path
@@ -923,7 +950,11 @@ def build_import_plan(location: PackageLocation, *, imported_by: str | None = No
             if form.get("scoring_policy") != "report_only":
                 raise PackageValidationError(f"Form không phải report_only: {form_id}")
             item_ids = list(map(str, form.get("item_ids") or []))
-            if not 1 <= len(item_ids) <= MAX_FORM_ITEMS or len(item_ids) != int(form.get("item_count") or -1):
+            if location.programme_id == "blackeye-v5-upper-listening":
+                validate_form_response_cells(location.programme_id, item_ids, form.get("item_count"),
+                                             blackeye_paper=form.get("blackeye_paper"))
+            elif not 1 <= len(item_ids) <= MAX_FORM_ITEMS or len(item_ids) != int(form.get("item_count") or -1):
+                # AC12: preserve the existing generic importer and error exactly.
                 raise PackageValidationError(f"Item count không hợp lệ: {form_id}")
             if any(item_id not in item_map for item_id in item_ids):
                 raise PackageValidationError(f"Form trỏ item ngoài lesson: {form_id}")
