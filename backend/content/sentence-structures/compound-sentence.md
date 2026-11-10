@@ -94,7 +94,7 @@ learning_blocks:
 Compound sentences là công cụ cơ bản để:
 - **Kết nối ý liên quan** mà không cần hai câu ngắn rời rạc
 - **Thể hiện mối quan hệ logic** giữa hai ý (tương phản, nguyên nhân-kết quả, bổ sung)
-- **Tăng điểm Coherence** trong IELTS Writing và tính lưu loát trong Speaking
+- **Tăng điểm Coherence and Cohesion** trong IELTS Writing và tính lưu loát trong Speaking
 
 Trong IELTS Writing:
 - Hai câu đơn đúng: "Air pollution is a serious problem. Governments should act immediately."
@@ -130,7 +130,7 @@ Dấu phẩy thường đặt **trước** conjunction nối hai mệnh đề đ
 | **A**nd | và (bổ sung) | *She studied hard, **and** she passed the exam.* |
 | **N**or | cũng không (phủ định cả hai) | *He didn't study, **nor** did he ask for help.* |
 | **B**ut | nhưng (tương phản) | *She worked hard, **but** she didn't succeed.* |
-| **O**r | hoặc (lựa chọn) | *You can study now, **or** you can regret later.* |
+| **O**r | hoặc (lựa chọn) | *You can study now, **or** you can regret it later.* |
 | **Y**et | tuy nhiên (tương phản, formal hơn but) | *The task was difficult, **yet** they completed it.* |
 | **S**o | vì vậy (kết quả) | *She prepared thoroughly, **so** she did well.* |
 
@@ -190,7 +190,7 @@ Chọn conjunction/adverb phù hợp với mối quan hệ thực sự giữa ha
 **Lựa chọn (Alternative):** *or, otherwise*
 - *We can invest in renewable energy, **or** we can face an energy crisis.*
 
-**Nhấn mạnh thêm (Emphasis):** *nor*
+**Phủ định bổ sung (Negative addition):** *nor*
 - *He didn't apologise, **nor** did he acknowledge the mistake.*
 
 ### 2. Tránh câu ngắn đơn điệu
@@ -255,9 +255,7 @@ Nhận ra compound sentence khi thấy:
 Phân tích: Câu 1 dùng *yet* (tương phản); Câu 2 dùng *so* (kết quả) + semicolon + *consequently* (kết quả tiếp theo) — 3 independent clauses được kết nối.
 
 **(Speaking Part 3):**
-> "I think technology has made our lives easier in many ways, **but** it has also created new problems we didn't have before. People can now work from anywhere, **so** the traditional office is becoming less important; **however**, many employers still prefer face-to-face interaction."
-
-Câu đầu có mệnh đề nội dung sau think và mệnh đề quan hệ we didn't have before; vì thế có cả quan hệ chính phụ và phối hợp, không chỉ là câu ghép theo định nghĩa của bài.
+> "Technology has made our lives easier in many ways, **but** it has also created new problems. People can now work from anywhere, **so** the traditional office is becoming less important; **however**, many employers still prefer face-to-face interaction."
 
 <!-- anchor: compound-sentence.common-mistakes -->
 ## Lỗi thường gặp
@@ -286,7 +284,7 @@ Câu đầu có mệnh đề nội dung sau think và mệnh đề quan hệ we 
 
 - ❌ SAI: *She studied hard, **for** she passed the exam.* (*for* diễn giải lý do, không phải kết quả)
 - ✅ ĐÚNG: *She studied hard, **so** she passed the exam.*
-- ❌ SAI: *Pollution is increasing, **and** the government should take action.* (ý muốn nói tương phản/kết quả)
+- ❌ (kém rõ ý) *Pollution is increasing, **and** the government should take action.* (ý muốn nói kết quả → nên dùng so)
 - ✅ ĐÚNG: *Pollution is increasing, **so** the government should take action.*
 - **TẠI SAO:** Mỗi conjunction có nghĩa cụ thể — phải chọn đúng mối quan hệ logic.
 
@@ -294,7 +292,7 @@ Câu đầu có mệnh đề nội dung sau think và mệnh đề quan hệ we 
 
 - ❌ SAI: *She is smart but, she is not experienced.*
 - ✅ ĐÚNG: *She is smart, but she is not experienced.* (dấu phẩy trước conjunction, không sau)
-- **TẠI SAO:** Dấu phẩy luôn đứng ngay trước coordinating conjunction.
+- **TẠI SAO:** Khi dùng dấu phẩy, nó đứng **trước** coordinating conjunction, không đứng sau.
 
 ### Lỗi 6: Nhầm "for" (conjunction) với "for" (preposition)
 
@@ -331,7 +329,7 @@ Tiếng Việt có nhiều cách nối câu tương tự: "và", "nhưng", "vì 
 
 **Quy tắc đơn giản để nhớ:**
 - *and, but, or, so, yet, for, nor* → dấu **phẩy** trước
-- *however, therefore, moreover* → dấu **chấm phẩy** trước
+- *however, therefore, moreover* → dấu **chấm phẩy** hoặc **dấu chấm** trước, dấu phẩy sau
 
 ## Ứng dụng trong IELTS
 
@@ -369,7 +367,7 @@ Dùng conjunction hoặc dấu câu phù hợp:
 1. "Technology is advancing rapidly, however many people are left behind."
 2. "She loves travelling she has visited 20 countries."
 3. "The plan failed, for it succeeded later."
-4. "He didn't sleep well, but he woke up energised, and he had a productive day, so he was happy."
+4. The policy is costly, moreover it is ineffective.
 
 ### Đáp án
 
@@ -384,7 +382,7 @@ Dùng conjunction hoặc dấu câu phù hợp:
 1. → *Technology is advancing rapidly**; however**, many people are left behind.* (semicolon trước *however*)
 2. → *She loves travelling, **and** she has visited 20 countries.* (run-on → thêm conjunction)
 3. → *The plan failed; **however**, it succeeded later.* (for = vì/bởi vì, không phải tương phản)
-4. → Câu đúng về ngữ pháp nhưng quá nhiều *and*. Viết lại: *He didn't sleep well, **but** he woke up energised **and** had a productive day; **consequently**, he was happy.* (tốt hơn cho IELTS)
+4. → The policy is costly; **moreover**, it is ineffective.
 
 ## Tóm tắt nhanh
 1. **Compound sentence** = 2+ independent clauses nối với nhau

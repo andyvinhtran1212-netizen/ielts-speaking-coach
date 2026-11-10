@@ -2,7 +2,7 @@
 title: Relative Clauses — Mệnh đề quan hệ
 slug: relative-clauses
 category: sentence-structures
-summary: 'Mệnh đề quan hệ (Relative Clause) dùng để mô tả hoặc xác định danh từ đứng trước, bắt đầu bằng who, which, that, whose, where, when. Có hai loại: xác định (defining) và không xác định (non-defining). Dùng đúng mệnh đề quan hệ là dấu hiệu của Grammatical Range cao trong IELTS.
+summary: 'Mệnh đề quan hệ (Relative Clause) dùng để mô tả hoặc xác định danh từ đứng trước, bắt đầu bằng who, which, that, whose, where, when. Có hai loại: xác định (defining) và không xác định (non-defining). Dùng đúng mệnh đề quan hệ là dấu hiệu của Grammatical Range and Accuracy cao trong IELTS.
 
   '
 level: intermediate
@@ -57,7 +57,7 @@ anchors:
     location: "## Relative Pronouns và Relative Adverbs"
     type: section
   - id: relative-clauses.defining-vs-non-defining
-    location: "## Tóm tắt"
+    location: "### Decision flowchart — Defining hay Non-defining?"
     type: concept
   - id: relative-clauses.defining.no-commas
     location: "## Loại 1: Defining Relative Clauses — Mệnh đề xác định"
@@ -94,10 +94,9 @@ learning_blocks:
 <!-- anchor: relative-clauses.overview -->
 ## Tóm tắt
 
-> **Decision flowchart — Defining hay Non-defining?**
->
-> <!-- anchor: relative-clauses.defining-vs-non-defining -->
->
+<!-- anchor: relative-clauses.defining-vs-non-defining -->
+### Decision flowchart — Defining hay Non-defining?
+
 > Hỏi: "Nếu bỏ relative clause, người nghe có XÁC ĐỊNH được noun này không?"
 >
 > - **CÓ** (vẫn xác định được — relative clause chỉ thêm thông tin) → **NON-DEFINING** → DÙNG dấu phẩy → DÙNG "which" hoặc "who" (KHÔNG "that")
@@ -116,7 +115,7 @@ Mệnh đề quan hệ (Relative Clause) là một mệnh đề phụ đứng ng
 
 ## Tại sao quan trọng
 
-Mệnh đề quan hệ cho phép kết hợp hai câu ngắn thành một câu phức, tạo ra văn phong học thuật và tự nhiên hơn. Trong IELTS Writing và Speaking, thiếu cấu trúc này sẽ giới hạn điểm Grammatical Range.
+Mệnh đề quan hệ cho phép kết hợp hai câu ngắn thành một câu phức, tạo ra văn phong học thuật và tự nhiên hơn. Trong IELTS Writing và Speaking, thiếu cấu trúc này sẽ giới hạn điểm Grammatical Range and Accuracy.
 
 <!-- anchor: relative-clauses.who-which-that -->
 ## Relative Pronouns và Relative Adverbs
@@ -220,10 +219,10 @@ Một số mệnh đề có relative pronoun làm chủ ngữ có thể chuyển
 - The letter **that was written** in French was hard to read.
 - → The letter **written** in French was hard to read.
 
-Ví dụ, **the people who were ill last week** không tự chuyển thành **the people ill** mà vẫn giữ đủ ý quá khứ. Các mẫu standing/written trên không chứng minh phép rút gọn áp dụng cho mọi câu.
-
 - The report **which was published** last year has been updated.
 - → The report **published** last year has been updated.
+
+Không phải câu nào cũng rút gọn được: *the people who were ill last week* không rút thành *the people ill last week*.
 
 ## Lỗi thường gặp
 
@@ -238,6 +237,7 @@ Ví dụ, **the people who were ill last week** không tự chuyển thành **th
 - ✅ The student **who** won the prize is from my class. (bỏ "he")
 - ❌ The book which I read **it** was amazing.
 - ✅ The book **which** I read was amazing. (bỏ "it")
+- **TẠI SAO:** Tiếng Việt hay nhắc lại "nó/anh ấy" sau mệnh đề ("Cuốn sách mà tôi đọc nó…"); trong tiếng Anh, who/which đã thay cho danh từ rồi.
 
 ### Lỗi 3: Dùng "which" thay vì "whose"
 
@@ -255,6 +255,7 @@ Có thể dùng "which" để bình luận về toàn bộ ý của mệnh đề
 
 - She passed all her exams, **which** made her parents very proud.
 - He refused to apologise, **which** surprised everyone.
+- ❌ She passed all her exams, **that** made her parents very proud. → ✅ …, **which** made her parents very proud.
 
 ✅ Cấu trúc này rất hữu ích cho IELTS Writing.
 
@@ -264,12 +265,12 @@ Có thể dùng "which" để bình luận về toàn bộ ý của mệnh đề
 
 - Young people **who grow up in cities** often have more opportunities than those **who live in rural areas**.
 - Technology, **which has transformed every aspect of modern life**, brings both benefits and challenges.
-- The country **whose economy grew fastest** last decade is now facing new challenges.
+- The country **whose economy grew fastest** in the last decade is now facing new challenges.
 
 ### Writing Task 1 — mô tả dữ liệu:
 
 - The year **when** sales reached their peak was 2019.
-- Countries **where** literacy rates are high tend to have stronger economies.
+- The countries **where** literacy rates were highest also recorded the highest GDP per capita.
 
 ### Speaking — mô tả người và nơi:
 
@@ -293,7 +294,7 @@ Có thể dùng "which" để bình luận về toàn bộ ý của mệnh đề
 2. The student who she won the prize is from Hanoi.
 3. This is the city which I grew up in it.
 4. He's someone which I really admire.
-5. The man, whose lives next door, is a doctor.
+5. The man whose lives next door is a doctor.
 
 ### Đáp án
 
@@ -309,7 +310,7 @@ Có thể dùng "which" để bình luận về toàn bộ ý của mệnh đề
 2. The student **who** won the prize is from Hanoi. (bỏ "she")
 3. This is the city **where I grew up** / **in which I grew up**. (bỏ "in it")
 4. He's someone **who/whom** I really admire. (người → who/whom, không phải which)
-5. The man, **who** lives next door, is a doctor. (Chỉ đổi whose thành who, giữ dấu phẩy nếu người đó đã rõ trong ngữ cảnh.) The man **who** lives next door is a doctor cũng đúng khi cần xác định người nào, nhưng đổi cách tham chiếu.
+5. The man **who** lives next door is a doctor. (whose chỉ sở hữu; người → who. Thêm dấu phẩy nếu người đó đã được xác định trong ngữ cảnh.)
 
 <!-- anchor: relative-clauses.compare-with.complex-sentence -->
 ## Tóm tắt nhanh
@@ -333,4 +334,4 @@ Có thể dùng "which" để bình luận về toàn bộ ý của mệnh đề
 | Bỏ được không | Bỏ được (nếu là object) | Không bỏ được |
 | Ý nghĩa | Thiết yếu | Bổ sung |
 
-**Rút gọn:** relative pronoun (subject) + be → bỏ hết; hoặc dùng V-ing / V3
+**Rút gọn:** khi relative pronoun là chủ ngữ → V-ing (chủ động) / V3 (bị động); kiểm tra nghĩa trước khi rút gọn.
