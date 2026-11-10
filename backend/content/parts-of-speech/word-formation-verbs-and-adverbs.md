@@ -125,7 +125,7 @@ Lưu ý các trường hợp đặc biệt:
 
 ### Lỗi 2: Quên đổi chính tả trước -ly / -en
 
-- easy → easi**ly**; strength → strength**en** (không phải ~~strengthten~~)
+- ❌ ~~truely~~ → ✅ tru**ly** (bỏ e); ❌ ~~wideen~~ → ✅ wid**en** (bỏ e); ❌ ~~easyly~~ → ✅ easi**ly** (y → i)
 
 ### Lỗi 3: Nhầm tiền tố phủ định
 
@@ -134,6 +134,8 @@ Lưu ý các trường hợp đặc biệt:
 ## Ứng dụng trong bài thi
 
 **TOEIC Part 5 / THPT:** xác định vị trí trống cần **động từ** (chỗ vị ngữ) hay **trạng từ** (sau/trước động từ, bổ nghĩa tính từ) rồi chọn dạng tương ứng. Cảnh giác *hard/hardly, late/lately*.
+
+**IELTS Writing/Speaking:** *Governments should **strengthen** environmental laws.* / *Technology has **simplified** many daily tasks.* / *Prices rose **dramatically** after 2010.* / *I **completely disagree** with that idea.*
 
 ## Bài tập luyện
 

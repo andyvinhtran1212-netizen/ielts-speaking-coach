@@ -204,7 +204,7 @@ Không có dấu hiệu cố định cho câu đơn — nhận biết bằng c�
 **Câu ĐƠN nếu:**
 - Chỉ có một động từ chính (hoặc vị ngữ ghép nhưng chung một chủ ngữ)
 - Không có liên từ phụ thuộc: *because, although, when, if, since, after, before, while...*
-- Không có mệnh đề quan hệ độc lập: *who, which, that...*
+- Không có mệnh đề quan hệ: *who, which, that…*
 
 **Câu KHÔNG phải câu đơn nếu có:**
 - *because* / *although* / *when* / *if* → câu phức (complex sentence)
@@ -274,8 +274,8 @@ Không có dấu hiệu cố định cho câu đơn — nhận biết bằng c�
 
 ### Lỗi 4: Chủ ngữ bị "che khuất" bởi cụm giới từ
 
-- ❌ SAI: *The results of the experiment **were** encouraging.* ← ĐÚNG
-- ❌ SAI: *The results of the experiment **was** encouraging.* ← SAI
+- ❌ SAI: *The results of the experiment **was** encouraging.*
+- ✅ ĐÚNG: *The results of the experiment **were** encouraging.*
 - **TẠI SAO:** Chủ ngữ là "results" (số nhiều), không phải "experiment" — cụm giới từ "of the experiment" không ảnh hưởng đến sự hoà hợp chủ-vị.
 
 ### Lỗi 5: Thêm chủ ngữ thừa (Pronoun Doubling)

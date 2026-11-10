@@ -262,9 +262,10 @@ Phân tích câu 2:
 
 ### Lỗi 2: Dùng sai dấu phẩy với relative clause
 
+- ❌ SAI: *Hanoi which is the capital of Vietnam is very crowded.* → ✅ *Hanoi**,** which is the capital of Vietnam**,** is very crowded.* (tên riêng đã xác định → bắt buộc có phẩy)
 - *The students, who study hard, tend to succeed.* bổ sung nhận xét rằng nhóm sinh viên đã biết đều học chăm.
 - *The students who study hard tend to succeed.* chọn ra tập con những em học chăm; không nói mọi sinh viên đều học chăm.
-- *My brother who lives in Hanoi is a teacher.* dùng mệnh đề để xác định người anh nào.
+- *My brother who lives in Hanoi is a teacher.* dùng mệnh đề để xác định người anh nào. (đúng khi có nhiều anh trai)
 - ✅ ĐÚNG: *My brother, who lives in Hanoi, is a teacher.* (non-restrictive — thêm thông tin về người đã biết)
 - **TẠI SAO:** Dấu phẩy thay đổi nghĩa của relative clause.
 
@@ -296,6 +297,42 @@ Phân tích câu 2:
 - ❌ SAI: *Although the economy grew inequality remained high.*
 - ✅ ĐÚNG: *Although the economy grew**,** inequality remained high.*
 - **TẠI SAO:** Mệnh đề trạng ngữ đưa lên đầu thường có dấu phẩy, nhất là khi dài. Không áp dụng cho mệnh đề danh từ làm chủ ngữ: **What matters most is effort**, không đặt phẩy trước is.
+
+### Lỗi 7: Câu quá dài và mất mạch
+
+Câu phức không phải là câu dài vô tội vạ. Nếu một câu có hơn 3-4 mệnh đề phụ, hãy tách ra.
+
+- ❌ "Technology is useful because it helps people communicate, which means they can work remotely, which reduces costs, which is why companies prefer it."
+- ✅ Chia thành 2 câu: "Technology enables remote communication, significantly reducing operational costs for businesses. **As a result**, it has become an increasingly attractive option for employers worldwide."
+
+### Lỗi 8: Thêm relative clause nhưng sai đại từ
+
+- ❌ "The policy which it was introduced last year..."
+- ✅ "The policy **which was introduced** last year..." / "The policy **that** was introduced last year..."
+
+### Lỗi 9: Quá nhiều "because" trong một đoạn
+
+- Đa dạng hóa: because → since → as → given that → due to the fact that
+
+### Lỗi 10: Dùng "which" khi nên dùng "who"
+
+- ❌ "She is a teacher **which** works at my school."
+- ✅ "She is a teacher **who** works at my school."
+
+### Lỗi 11: Nối quá nhiều ý với "and...and...and"
+
+- ❌ "I went to the market **and** bought vegetables **and** came home **and** cooked dinner **and** watched TV."
+- ✅ "I went to the market to buy vegetables, **then** came home to cook dinner **before** settling in for the evening."
+
+### Lỗi 12: V-ing phrase với sai chủ ngữ
+
+- ❌ "**Walking to school**, the weather suddenly changed."
+- ✅ "**Walking to school**, I noticed the weather suddenly change."
+
+### Lựa chọn nhịp câu: lặp hoặc dùng chung chủ ngữ
+
+- "She studied hard and **she** passed the exam." đúng; lặp she có thể giúp nhấn mạnh hoặc tạo nhịp.
+- ✅ "She studied hard and passed the exam."
 
 ## So sánh với
 
@@ -356,309 +393,53 @@ Ví dụ:
 <!-- anchor: complex-sentence.combining-short-sentences -->
 ## Combining short sentences (cách thực hành)
 
-<!-- anchor: complex-sentence.simple-to-complex-progression -->
-## From simple to complex (worked examples)
+> Lưu ý: and/but và cụm V-ing giúp gộp câu nhưng **không** tạo câu phức; câu phức cần mệnh đề phụ (because, which, when…).
 
-## PHẦN 1: BẮT ĐẦU — CÂU ĐƠN
-
-Câu đơn có một chủ ngữ và một động từ:
-
-```
-[Subject] + [Verb] + [Object/Complement].
-```
-
-- "Technology **is** useful."
-- "Cities **are** growing."
-- "Students **use** social media."
-- "Exercise **reduces** stress."
-
-Không sai, nhưng quá đơn giản. Hãy nâng cấp từng bước.
-
----
-
-## PHẦN 2: BƯỚC 1 — THÊM LÝ DO
-
-```
-[Simple sentence] because / since / as [reason].
-```
-
-### Transformation:
-
-| Câu đơn | + Lý do |
-|---------|---------|
-| "Technology is useful." | "Technology is useful **because** it allows people to access information instantly." |
-| "Cities are growing." | "Cities are growing **as** more people migrate from rural areas in search of better opportunities." |
-| "Exercise reduces stress." | "Exercise reduces stress **since** it triggers the release of endorphins in the brain." |
-
-> "**Because**" = lý do cụ thể, trực tiếp
-> "**Since**" / "**As**" = lý do được xem là đã biết (slightly softer, academic)
-
-**Lưu ý:** "Because" mạnh nhất trong ba từ — dùng khi lý do là trọng tâm của ý bạn muốn nói.
-
----
-
-## PHẦN 3: BƯỚC 2 — THÊM KẾT QUẢ
-
-```
-[Simple sentence], so [result].
-[Simple sentence]. Therefore, / As a result, / Consequently, [result].
-[Simple sentence], which means (that) [result].
-```
-
-### Transformation:
-
-| Câu đơn + lý do | + Kết quả |
-|----------------|---------|
-| "Technology allows instant access to information." | "...**so** people can now learn almost anything without leaving home." |
-| "More people are moving to cities." | "...**which means that** urban infrastructure is under increasing strain." |
-| "Exercise releases endorphins." | "**As a result**, regular physical activity can significantly improve mental wellbeing." |
-
-### Before/after (đầy đủ):
-
-- **Before:** "Exercise is good. It makes you feel better."
-- **After:** "Regular exercise **releases endorphins**, **which means that** it can significantly improve mood and reduce feelings of anxiety — **particularly** for individuals under chronic stress."
-
----
-
-## PHẦN 4: BƯỚC 3 — THÊM TƯƠNG PHẢN
-
-```
-[Main point], but [contrast].
-Although [contrast], [main point].
-While [side A], [side B].
-[Main point]. However, [contrast].
-```
-
-### Transformation:
-
-| Câu không có tương phản | + Tương phản |
-|------------------------|------------|
-| "Technology is useful." | "Technology is useful, **but** it can also be a source of distraction and dependency." |
-| "Cities offer opportunities." | "**While** cities offer greater career opportunities, they also come with higher living costs and significant social pressures." |
-| "Social media connects people." | "Social media **can connect** people across vast distances. **However**, it has also been linked to rising rates of loneliness and anxiety, particularly among teenagers." |
-
----
-
-## PHẦN 5: BƯỚC 4 — THÊM RELATIVE CLAUSE
-
-```
-[Noun] + which/that [adds information about noun].
-[Noun] + who [adds information about a person].
-[Place] + where [adds information about location].
-[Time] + when [adds information about a time].
-```
-
-Relative clause giúp **bổ sung thông tin** về danh từ ngay bên trong câu — không cần tách ra thành câu mới.
-
-### Transformation:
-
-| Câu không có relative clause | + Relative clause |
-|-----------------------------|-----------------|
-| "Social media is popular." | "Social media, **which has transformed how billions of people communicate**, is now a dominant force in public discourse." |
-| "Cities attract young people." | "Cities attract young people **who are looking for career opportunities and a more dynamic social environment**." |
-| "The pandemic changed work culture." | "The pandemic, **which forced millions to work from home**, fundamentally altered expectations around workplace flexibility." |
-
-### Thêm relative clause để thay thế câu thứ hai:
-
-- **Before:** "Many countries face housing shortages. This creates social inequality."
-- **After:** "Many countries face housing shortages, **which** contribute directly to **rising social inequality** and reduced social mobility."
-
----
-
-## PHẦN 6: BƯỚC 5 — THÊM ĐIỀU KIỆN
-
-```
-[Main clause] if / unless / as long as / provided that [condition].
-If [condition], [main clause].
-```
-
-Điều kiện thêm **sắc thái** và **tính chính xác** vào lập luận.
-
-### Transformation:
-
-| Câu không có điều kiện | + Điều kiện |
-|-----------------------|-----------|
-| "Technology improves productivity." | "Technology **can improve** productivity significantly, **provided that** employees receive adequate training and the right tools." |
-| "Remote work is beneficial." | "Remote work **can be** highly beneficial, **as long as** clear communication structures are maintained." |
-| "Stricter laws will reduce crime." | "Stricter laws **may** reduce certain forms of crime, **if** they are enforced consistently and fairly." |
-
----
-
-## PHẦN 7: KẾT HỢP — CÂU PHỨC HOÀN CHỈNH
-
-Bây giờ, kết hợp nhiều bước để tạo ra một câu phức thực sự có chiều sâu.
-
-### Transformation hoàn chỉnh — Example 1:
-
-**Câu đơn gốc:** "Technology changes work."
-
-**Bước 1 (+reason):** "Technology changes work **because** it automates many routine tasks."
-
-**Bước 2 (+result):** "Technology automates many routine tasks, **which means that** workers must continually update their skills."
-
-**Bước 3 (+contrast):** "**While** technology automates many routine tasks, **which reduces labour costs for companies**, it also demands that workers continually invest in upskilling."
-
-**Bước 4 (+condition):** "**While** technology undoubtedly automates many routine tasks, **reducing costs for businesses**, its overall impact on employment **is likely to be positive**, **provided that** governments invest adequately in retraining programmes."
-
----
-
-### Transformation hoàn chỉnh — Example 2:
-
-**Câu đơn gốc:** "Cities are noisy."
-
-**+Lý do:** "Cities are noisy **because** of the constant flow of traffic and large concentrations of people."
-
-**+Kết quả:** "...noise pollution, **which** can disrupt sleep and contribute to chronic stress."
-
-**+Tương phản:** "**While** urban environments are often noisier than rural areas, **which** some residents find deeply disruptive, others argue that the energy and vibrancy of city life **more than compensate** for the drawback of noise."
-
-**+Điều kiện:** "**While** urban noise levels **are unlikely to** decrease significantly in the near future, their health impacts **can be** mitigated **if** city planners prioritise green spaces, noise barriers, and pedestrianised zones in urban design."
-
----
-
-### Transformation hoàn chỉnh — Example 3 (Speaking answer):
-
-**Q: "Do you think social media is good for society?"**
-
-**Câu trả lời ngắn:** "I think social media is good. It helps people communicate. But it also has problems."
-
-**Câu trả lời mở rộng, có thêm thông tin:** "I think social media **has real benefits**, **particularly** in terms of enabling people to stay connected with friends and family across long distances. **However**, platforms **that** prioritise engagement over accuracy **have also contributed** to the spread of misinformation — **which is a problem that governments and tech companies are increasingly struggling to address**. On balance, I'd say the benefits outweigh the drawbacks, **as long as** users develop critical media literacy skills."
-
----
-
-## PHẦN 8: CHECKLIST — Câu của bạn đã đủ phức chưa?
-
-| Yếu tố | Câu có chưa? |
-|--------|------------|
-| Ít nhất 1 mệnh đề phụ | □ |
-| Lý do hoặc kết quả được giải thích | □ |
-| Tương phản hoặc sắc thái được nêu | □ |
-| Relative clause hoặc participle phrase | □ |
-| Điều kiện hoặc nhượng bộ (nếu phù hợp) | □ |
-
----
-
-## Lỗi thường gặp
-
-### Lỗi 1: Câu quá dài và mất mạch
-
-Câu phức không phải là câu dài vô tội vạ. Nếu một câu có hơn 3-4 mệnh đề phụ, hãy tách ra.
-
-- ❌ "Technology is useful because it helps people communicate, which means they can work remotely, which reduces costs, which is why companies prefer it."
-- ✅ Chia thành 2 câu: "Technology enables remote communication, significantly reducing operational costs for businesses. **As a result**, it has become an increasingly attractive option for employers worldwide."
-
-### Lỗi 2: Thêm relative clause nhưng sai đại từ
-
-- ❌ "The policy which it was introduced last year..."
-- ✅ "The policy **which was introduced** last year..." / "The policy **that** was introduced last year..."
-
-### Lỗi 3: Quá nhiều "because" trong một đoạn
-
-- Đa dạng hóa: because → since → as → given that → due to the fact that
-
-### Lỗi 4: "Although" + "but" trong cùng một câu
-
-- ❌ "**Although** technology is useful, **but** it has drawbacks."
-- ✅ "**Although** technology is useful, it has drawbacks." / "Technology is useful, **but** it has drawbacks."
-
----
-
-## Bài tập luyện
-
-### Nâng cấp các câu đơn sau qua từng bước:
-
-1. "Exercise is important." → Thêm lý do → Thêm kết quả
-2. "Young people use social media." → Thêm relative clause → Thêm tương phản
-3. "Governments should act." → Thêm điều kiện → Thêm nhượng bộ
-
-### Đáp án gợi ý:
-
-1. "Exercise is important **because** it improves both physical and mental health. **As a result**, incorporating regular activity into daily routines **has been shown to** reduce the risk of numerous chronic diseases."
-
-2. "Young people **who have grown up with social media** tend to use it as their primary source of news and social interaction. **However**, there are growing concerns about its impact on attention spans and the quality of real-world relationships."
-
-3. "Governments **should** act decisively to address climate change, **provided that** such action is coordinated internationally and does not unfairly burden developing economies. **While** the short-term economic costs may be significant, the long-term consequences of inaction **would be** far more severe."
-
----
-
-## Tóm tắt nhanh
-
-```
-TỪNG BƯỚC NÂNG CẤP CÂU:
-
-BƯỚC 1 — +LÝ DO:
-  "Technology is useful because it saves time."
-  "...since / as [reason]"
-
-BƯỚC 2 — +KẾT QUẢ:
-  "...so people learn faster."
-  "[Main clause], which means that [result]."
-  "[Main clause]. Therefore / As a result, [main clause]."
-
-BƯỚC 3 — +TƯƠNG PHẢN:
-  "[Main clause], but [main clause]."
-  "Although / While [clause], [main clause]."
-  "[Main clause]. However, [main clause]."
-
-BƯỚC 4 — +RELATIVE CLAUSE:
-  "Social media, which connects billions of people, ..."
-  "...a problem that governments must address."
-
-BƯỚC 5 — +ĐIỀU KIỆN:
-  "...provided that / if / as long as / unless ..."
-
-KẾT HỢP:
-  "While [A — contrast], [B — main point],
-  which [result], provided that [condition]."
-
-MỤC TIÊU: Câu CHÍNH XÁC và CÓ CHIỀU SÂU — không phải câu DÀI.
-```
-
-## PHẦN 1: AND / BUT — Nối thêm thông tin hoặc tương phản
+### Cách 1: AND / BUT — Nối thêm thông tin hoặc tương phản
 
 ```
 [Sentence A] + and/but + [Sentence B without repeated subject]
 ```
 
-### Before → After với "and":
+#### Before → After với "and":
 
-| ❌ Trước | ✅ Sau |
+| Trước (câu ngắn rời) | ✅ Sau |
 |--------|------|
 | "I study English. I also practice speaking." | "I study English **and** practice speaking regularly." |
 | "She is kind. She is hardworking." | "She is kind **and** hardworking." |
 | "He moved to the city. He found a job there." | "He moved to the city **and** found a job there." |
 
-### Before → After với "but":
+#### Before → After với "but":
 
-| ❌ Trước | ✅ Sau |
+| Trước (câu ngắn rời) | ✅ Sau |
 |--------|------|
 | "The city is exciting. It is expensive." | "The city is exciting **but** expensive." |
 | "I like coffee. I don't drink it at night." | "I like coffee **but** don't drink it at night." |
 | "The plan was good. It didn't work." | "The plan was good **but** didn't work out." |
 
-### Có thể dùng chung chủ ngữ khi phối hợp vị ngữ:
+#### Có thể dùng chung chủ ngữ khi phối hợp vị ngữ:
 
 - "She studied hard. She passed the exam." và "She studied hard and she passed the exam" đều đúng.
 - ✅ "She studied hard **and** passed the exam." *(bỏ "she" thứ hai vì cùng chủ ngữ)*
 
 ---
 
-## PHẦN 2: BECAUSE / SINCE / AS — Nối lý do
+### Cách 2: BECAUSE / SINCE / AS — Nối lý do
 
 ```
 [Main idea] because/since/as [reason].
 Because/Since/As [reason], [main idea].
 ```
 
-### Before → After với "because":
+#### Before → After với "because":
 
-| ❌ Trước | ✅ Sau |
+| Trước (câu ngắn rời) | ✅ Sau |
 |--------|------|
 | "I take the bus. My office is far away." | "I take the bus **because** my office is quite far from home." |
 | "She was nervous. It was her first interview." | "She was nervous **because** it was her first interview." |
 | "He started exercising. He wanted to feel healthier." | "He started exercising **because** he wanted to feel healthier." |
 
-### "Since" và "as" — thay thế "because" (trang trọng hơn một chút):
+#### "Since" và "as" — thay thế "because" (trang trọng hơn một chút):
 
 - "**Since** public transport is unreliable, most people prefer to drive."
 - "**As** the weather was so beautiful, we decided to walk instead."
@@ -668,7 +449,7 @@ Because/Since/As [reason], [main idea].
 
 ---
 
-## PHẦN 3: WHO / WHICH / THAT — Relative Clauses
+### Cách 3: WHO / WHICH / THAT — Relative Clauses
 
 ```
 [Noun] + who/which/that + [additional information about that noun]
@@ -676,21 +457,21 @@ Because/Since/As [reason], [main idea].
 
 Relative clauses cho phép bạn **thêm thông tin về một người hoặc vật** ngay trong câu, thay vì tách thành câu riêng.
 
-### Before → After với "who":
+#### Before → After với "who":
 
-| ❌ Trước | ✅ Sau |
+| Trước (câu ngắn rời) | ✅ Sau |
 |--------|------|
 | "I have a teacher. She inspires me a lot." | "I have a teacher **who** inspires me a lot." |
 | "My friend lives in London. He works in finance." | "My friend, **who** lives in London, works in finance." |
 
-### Before → After với "which":
+#### Before → After với "which":
 
-| ❌ Trước | ✅ Sau |
+| Trước (câu ngắn rời) | ✅ Sau |
 |--------|------|
 | "I read a book. It changed my perspective." | "I read a book **that** changed my perspective." |
 | "The city has great public transport. It makes commuting easy." | "The city has great public transport, **which** makes commuting easy." |
 
-### Before → After với "that":
+#### Before → After với "that":
 
 - "I found an app **that** helps me practice vocabulary every day."
 - "She chose a career **that** she is genuinely passionate about."
@@ -700,7 +481,7 @@ Relative clauses cho phép bạn **thêm thông tin về một người hoặc v
 
 ---
 
-## PHẦN 4: V-ING PHRASE — Nối hành động đồng thời hoặc nguyên nhân
+### Cách 4: V-ING PHRASE — Nối hành động đồng thời hoặc nguyên nhân
 
 ```
 [Main clause], + V-ing [additional action / reason].
@@ -709,9 +490,9 @@ V-ing [reason/context], [main clause].
 
 Đây là cấu trúc nâng cao hơn nhưng rất tự nhiên và hiệu quả:
 
-### Before → After:
+#### Before → After:
 
-| ❌ Trước | ✅ Sau |
+| Trước (câu ngắn rời) | ✅ Sau |
 |--------|------|
 | "I walk to work. I listen to podcasts at the same time." | "I walk to work, **listening to podcasts** along the way." |
 | "She sat by the window. She was reading a book." | "She sat by the window, **reading a book**." |
@@ -724,16 +505,16 @@ V-ing [reason/context], [main clause].
 
 ---
 
-## PHẦN 5: WHERE / WHEN — Thêm bối cảnh địa điểm hoặc thời gian
+### Cách 5: WHERE / WHEN — Thêm bối cảnh địa điểm hoặc thời gian
 
 ```
 [Noun] + where [location information]
 [Noun/Time] + when [time/circumstance information]
 ```
 
-### Before → After:
+#### Before → After:
 
-| ❌ Trước | ✅ Sau |
+| Trước (câu ngắn rời) | ✅ Sau |
 |--------|------|
 | "I grew up in Hanoi. There were few tall buildings then." | "I grew up in Hanoi, **where** there were few tall buildings at the time." |
 | "I remember a day. My father took me to the sea." | "I remember a day **when** my father took me to the sea for the first time." |
@@ -741,16 +522,16 @@ V-ing [reason/context], [main clause].
 
 ---
 
-## PHẦN 6: BEFORE / AFTER / WHILE / WHEN — Nối sự kiện theo thứ tự thời gian
+### Cách 6: BEFORE / AFTER / WHILE / WHEN — Nối sự kiện theo thứ tự thời gian
 
 ```
 Before/After/When + [Sentence], [Main sentence].
 [Main sentence] before/after/when + [Sentence].
 ```
 
-### Before → After:
+#### Before → After:
 
-| ❌ Trước | ✅ Sau |
+| Trước (câu ngắn rời) | ✅ Sau |
 |--------|------|
 | "I finished work. Then I went to the gym." | "**After** finishing work, I went to the gym." / "I went to the gym **after** finishing work." |
 | "I was a student. I lived in a dormitory." | "**When** I was a student, I lived in a dormitory." |
@@ -776,83 +557,185 @@ Before/After/When + [Sentence], [Main sentence].
 **✅ Câu kết hợp:**
 > "People use their phones so frequently **that** they often fail to engage with those around them, **which** is particularly noticeable in public spaces **where** people sit together without making any real conversation."
 
----
+<!-- anchor: complex-sentence.simple-to-complex-progression -->
+## From simple to complex (worked examples)
 
-## Lỗi thường gặp
+### BẮT ĐẦU — CÂU ĐƠN
 
-### Lỗi 1: Dùng "which" khi nên dùng "who"
-
-- ❌ "She is a teacher **which** works at my school."
-- ✅ "She is a teacher **who** works at my school."
-
-### Lỗi 2: Nối quá nhiều ý với "and...and...and"
-
-- ❌ "I went to the market **and** bought vegetables **and** came home **and** cooked dinner **and** watched TV."
-- ✅ "I went to the market to buy vegetables, **then** came home to cook dinner **before** settling in for the evening."
-
-### Lỗi 3: V-ing phrase với sai chủ ngữ
-
-- ❌ "**Walking to school**, the weather suddenly changed."
-- ✅ "**Walking to school**, I noticed the weather suddenly change."
-
-### Lựa chọn nhịp câu: lặp hoặc dùng chung chủ ngữ
-
-- "She studied hard and **she** passed the exam." đúng; lặp she có thể giúp nhấn mạnh hoặc tạo nhịp.
-- ✅ "She studied hard and passed the exam."
-
----
-
-## Bài tập luyện
-
-### Nối hai câu thành một câu tự nhiên hơn:
-
-1. "I have a sister. She lives in Australia." → ___
-2. "I enjoy cooking. It helps me relax." → ___
-3. "The film was long. It was very entertaining." → ___
-4. "He moved to the city. He found a better job." → ___
-5. "I remember a holiday. We went to the beach." → ___
-
-### Viết lại đoạn sau, kết hợp câu ngắn:
-
-6. "I wake up early. I exercise. I feel better. I can focus at work."
-
-### Đáp án gợi ý
-
-1. "I have a sister **who** lives in Australia."
-2. "I enjoy cooking **because** it helps me relax." / "I enjoy cooking, **which** I find really relaxing."
-3. "The film was long **but** very entertaining." / "**Although** it was long, the film was very entertaining."
-4. "He moved to the city **and** found a better job." / "He moved to the city, **where** he found a better job."
-5. "I remember a holiday **when** we went to the beach."
-6. "I wake up early to exercise, **which** helps me feel better and focus more effectively at work." / "**By waking up early and exercising**, I find I can concentrate much better throughout the working day."
-
----
-
-## Tóm tắt nhanh
+Câu đơn có một chủ ngữ và một động từ:
 
 ```
-AND / BUT → thêm thông tin hoặc tương phản (cùng chủ ngữ: có thể bỏ "she/he/it" thứ hai):
-  She studied and passed. | The city is exciting but expensive.
-
-BECAUSE / SINCE / AS → giải thích lý do:
-  I take the bus because my office is far away.
-
-WHO / WHICH / THAT → thêm thông tin về người/vật:
-  a teacher who inspires me | a book that changed my life
-  great transport, which makes commuting easy
-
-V-ING PHRASE → hành động đồng thời hoặc lý do:
-  Walking to work, I listen to podcasts.
-  Growing up in the countryside, she learned to love nature.
-  → Chủ ngữ V-ing PHẢI là chủ ngữ của mệnh đề chính
-
-WHERE / WHEN → bối cảnh địa điểm/thời gian:
-  a café where I go every morning
-  a day when everything changed
-
-BEFORE / AFTER / WHILE:
-  After finishing work, I went to the gym.
-  When I was a student, I lived in a dormitory.
+[Subject] + [Verb] + [Object/Complement].
 ```
+
+- "Technology **is** useful."
+- "Cities **are** growing."
+- "Students **use** social media."
+- "Exercise **reduces** stress."
+
+Không sai, nhưng quá đơn giản. Hãy nâng cấp từng bước.
+
+---
+
+### BƯỚC 1 — THÊM LÝ DO
+
+```
+[Simple sentence] because / since / as [reason].
+```
+
+#### Transformation:
+
+| Câu đơn | + Lý do |
+|---------|---------|
+| "Technology is useful." | "Technology is useful **because** it allows people to access information instantly." |
+| "Cities are growing." | "Cities are growing **as** more people migrate from rural areas in search of better opportunities." |
+| "Exercise reduces stress." | "Exercise reduces stress **since** it triggers the release of endorphins in the brain." |
+
+> "**Because**" = lý do cụ thể, trực tiếp
+> "**Since**" / "**As**" = lý do được xem là đã biết (slightly softer, academic)
+
+**Lưu ý:** "Because" mạnh nhất trong ba từ — dùng khi lý do là trọng tâm của ý bạn muốn nói.
+
+---
+
+### BƯỚC 2 — THÊM KẾT QUẢ
+
+```
+[Simple sentence], so [result].
+[Simple sentence]. Therefore, / As a result, / Consequently, [result].
+[Simple sentence], which means (that) [result].
+```
+
+#### Transformation:
+
+| Câu đơn + lý do | + Kết quả |
+|----------------|---------|
+| "Technology allows instant access to information." | "...**so** people can now learn almost anything without leaving home." |
+| "More people are moving to cities." | "...**which means that** urban infrastructure is under increasing strain." |
+| "Exercise releases endorphins." | "**As a result**, regular physical activity can significantly improve mental wellbeing." |
+
+#### Before/after (đầy đủ):
+
+- **Before:** "Exercise is good. It makes you feel better."
+- **After:** "Regular exercise **releases endorphins**, **which means that** it can significantly improve mood and reduce feelings of anxiety — **particularly** for individuals under chronic stress."
+
+---
+
+### BƯỚC 3 — THÊM TƯƠNG PHẢN
+
+```
+[Main point], but [contrast].
+Although [contrast], [main point].
+While [side A], [side B].
+[Main point]. However, [contrast].
+```
+
+#### Transformation:
+
+| Câu không có tương phản | + Tương phản |
+|------------------------|------------|
+| "Technology is useful." | "Technology is useful, **but** it can also be a source of distraction and dependency." |
+| "Cities offer opportunities." | "**While** cities offer greater career opportunities, they also come with higher living costs and significant social pressures." |
+| "Social media connects people." | "Social media **can connect** people across vast distances. **However**, it has also been linked to rising rates of loneliness and anxiety, particularly among teenagers." |
+
+---
+
+### BƯỚC 4 — THÊM RELATIVE CLAUSE
+
+```
+[Noun] + which/that [adds information about noun].
+[Noun] + who [adds information about a person].
+[Place] + where [adds information about location].
+[Time] + when [adds information about a time].
+```
+
+Relative clause giúp **bổ sung thông tin** về danh từ ngay bên trong câu — không cần tách ra thành câu mới.
+
+#### Transformation:
+
+| Câu không có relative clause | + Relative clause |
+|-----------------------------|-----------------|
+| "Social media is popular." | "Social media, **which has transformed how billions of people communicate**, is now a dominant force in public discourse." |
+| "Cities attract young people." | "Cities attract young people **who are looking for career opportunities and a more dynamic social environment**." |
+| "The pandemic changed work culture." | "The pandemic, **which forced millions to work from home**, fundamentally altered expectations around workplace flexibility." |
+
+#### Thêm relative clause để thay thế câu thứ hai:
+
+- **Before:** "Many countries face housing shortages. This creates social inequality."
+- **After:** "Many countries face housing shortages, **which** contribute directly to **rising social inequality** and reduced social mobility."
+
+---
+
+### BƯỚC 5 — THÊM ĐIỀU KIỆN
+
+```
+[Main clause] if / unless / as long as / provided that [condition].
+If [condition], [main clause].
+```
+
+Điều kiện thêm **sắc thái** và **tính chính xác** vào lập luận.
+
+#### Transformation:
+
+| Câu không có điều kiện | + Điều kiện |
+|-----------------------|-----------|
+| "Technology improves productivity." | "Technology **can improve** productivity significantly, **provided that** employees receive adequate training and the right tools." |
+| "Remote work is beneficial." | "Remote work **can be** highly beneficial, **as long as** clear communication structures are maintained." |
+| "Stricter laws will reduce crime." | "Stricter laws **may** reduce certain forms of crime, **if** they are enforced consistently and fairly." |
+
+---
+
+### KẾT HỢP — CÂU PHỨC HOÀN CHỈNH
+
+Bây giờ, kết hợp nhiều bước để tạo ra một câu phức thực sự có chiều sâu.
+
+#### Transformation hoàn chỉnh — Example 1:
+
+**Câu đơn gốc:** "Technology changes work."
+
+**Bước 1 (+reason):** "Technology changes work **because** it automates many routine tasks."
+
+**Bước 2 (+result):** "Technology automates many routine tasks, **which means that** workers must continually update their skills."
+
+**Bước 3 (+contrast):** "**While** technology automates many routine tasks, **which reduces labour costs for companies**, it also demands that workers continually invest in upskilling."
+
+**Bước 4 (+condition):** "**While** technology undoubtedly automates many routine tasks, **reducing costs for businesses**, its overall impact on employment **is likely to be positive**, **provided that** governments invest adequately in retraining programmes."
+
+---
+
+#### Transformation hoàn chỉnh — Example 2:
+
+**Câu đơn gốc:** "Cities are noisy."
+
+**+Lý do:** "Cities are noisy **because** of the constant flow of traffic and large concentrations of people."
+
+**+Kết quả:** "...noise pollution, **which** can disrupt sleep and contribute to chronic stress."
+
+**+Tương phản:** "**While** urban environments are often noisier than rural areas, **which** some residents find deeply disruptive, others argue that the energy and vibrancy of city life **more than compensate** for the drawback of noise."
+
+**+Điều kiện:** "**While** urban noise levels **are unlikely to** decrease significantly in the near future, their health impacts **can be** mitigated **if** city planners prioritise green spaces, noise barriers, and pedestrianised zones in urban design."
+
+---
+
+#### Transformation hoàn chỉnh — Example 3 (Speaking answer):
+
+**Q: "Do you think social media is good for society?"**
+
+**Câu trả lời ngắn:** "I think social media is good. It helps people communicate. But it also has problems."
+
+**Câu trả lời mở rộng, có thêm thông tin:** "I think social media **has real benefits**, **particularly** in terms of enabling people to stay connected with friends and family across long distances. **However**, platforms **that** prioritise engagement over accuracy **have also contributed** to the spread of misinformation — **which is a problem that governments and tech companies are increasingly struggling to address**. On balance, I'd say the benefits outweigh the drawbacks, **as long as** users develop critical media literacy skills."
+
+---
+
+### CHECKLIST — Câu của bạn đã đủ phức chưa?
+
+| Yếu tố | Câu có chưa? |
+|--------|------------|
+| Ít nhất 1 mệnh đề phụ | □ |
+| Lý do hoặc kết quả được giải thích | □ |
+| Tương phản hoặc sắc thái được nêu | □ |
+| Relative clause hoặc participle phrase | □ |
+| Điều kiện hoặc nhượng bộ (nếu phù hợp) | □ |
 
 ## Bài tập luyện
 
@@ -872,6 +755,24 @@ BEFORE / AFTER / WHILE:
 4. "Because of the economy is growing, more jobs are available."
 5. "When he arrived at the station. The train had already left."
 
+### Nâng cấp các câu đơn sau qua từng bước:
+
+1. "Exercise is important." → Thêm lý do → Thêm kết quả
+2. "Young people use social media." → Thêm relative clause → Thêm tương phản
+3. "Governments should act." → Thêm điều kiện → Thêm nhượng bộ
+
+### Nối hai câu thành một câu tự nhiên hơn:
+
+1. "I have a sister. She lives in Australia." → ___
+2. "I enjoy cooking. It helps me relax." → ___
+3. "The film was long. It was very entertaining." → ___
+4. "He moved to the city. He found a better job." → ___
+5. "I remember a holiday. We went to the beach." → ___
+
+### Viết lại đoạn sau, kết hợp câu ngắn:
+
+6. "I wake up early. I exercise. I feel better. I can focus at work."
+
 ### Đáp án
 
 **Nối câu:**
@@ -887,6 +788,21 @@ BEFORE / AFTER / WHILE:
 3. → *The researchers **who** discovered the vaccine received a Nobel Prize.* (non-restrictive: *The researchers, **who** discovered...*; restrictive: không dấu phẩy — *that* có thể dùng nếu restrictive)
 4. → *Because the economy is growing, more jobs are available.* (*because of* + noun; *because* + S + V)
 5. → *When he arrived at the station, the train had already left.* (dependent clause không đứng một mình)
+
+**Nâng cấp câu:**
+1. "Exercise is important **because** it improves both physical and mental health. **As a result**, incorporating regular activity into daily routines **has been shown to** reduce the risk of numerous chronic diseases."
+
+2. "Young people **who have grown up with social media** tend to use it as their primary source of news and social interaction. **However**, there are growing concerns about its impact on attention spans and the quality of real-world relationships."
+
+3. "Governments **should** act decisively to address climate change, **provided that** such action is coordinated internationally and does not unfairly burden developing economies. **While** the short-term economic costs may be significant, the long-term consequences of inaction **would be** far more severe."
+
+**Nối hai câu và viết lại đoạn:**
+1. "I have a sister **who** lives in Australia."
+2. "I enjoy cooking **because** it helps me relax." / "I enjoy cooking, **which** I find really relaxing."
+3. "The film was long **but** very entertaining." / "**Although** it was long, the film was very entertaining."
+4. "He moved to the city **and** found a better job." / "He moved to the city, **where** he found a better job."
+5. "I remember a holiday **when** we went to the beach."
+6. "I wake up early to exercise, **which** helps me feel better and focus more effectively at work." / "**By waking up early and exercising**, I find I can concentrate much better throughout the working day."
 
 ## Tóm tắt nhanh
 1. **Complex sentence** = 1 independent clause + 1+ dependent clause

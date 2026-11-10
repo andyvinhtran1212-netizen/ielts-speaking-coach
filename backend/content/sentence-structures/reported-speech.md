@@ -108,11 +108,9 @@ Reported Speech thuật lại lời nói mà **không trích dẫn trực tiếp
    - "The Earth **orbits** the sun." → He said the Earth **orbits** the sun. ✅
    - "Water **boils** at 100°C." → She explained that water **boils** at 100°C. ✅
 
-2. **Tường thuật ngay lập tức** (vừa mới nói):
-   - She says she **is** tired. (đang nói ngay lúc này)
+2. **Động từ tường thuật ở hiện tại** (says, has said, argue…): *She says she is tired.*
 
-3. **Dùng với "that" và thì hiện tại** (trong IELTS Writing, chấp nhận):
-   - Researchers argue that technology **has** both benefits and drawbacks.
+3. **Điều được thuật lại vẫn đúng lúc nói:** *He said he is moving to Da Nang next month.* (lùi thì cũng đúng)
 
 ## Thay đổi đại từ và trạng từ
 
@@ -230,10 +228,10 @@ Thay vì chỉ dùng "say" và "tell", dùng đa dạng reporting verbs:
 
 ### Lỗi 1: Quên backshift thì
 
-- ❌ He said he **is** tired.
-- ✅ He said he **was** tired.
+- ❌ Last Monday he said he **is** ill, but he's fine now. → ✅ … he **was** ill.
 - ❌ She told me she **will** come.
 - ✅ She told me she **would** come.
+- **TẠI SAO:** Tiếng Việt không chia thì ("Anh ấy nói anh ấy mệt"), nên người Việt hay giữ nguyên thì của lời nói trực tiếp.
 
 ### Lỗi 2: Đảo ngữ trong tường thuật câu hỏi
 

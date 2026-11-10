@@ -189,16 +189,13 @@ Nghĩa hàm ý: "Chỉ cần / duy nhất điều này":
 
 ## Lỗi thường gặp
 
-### Chọn từ nối trong it-cleft
+### Lỗi 1: Thiếu that/who
 
-- **It is education that holds the key** là mẫu thông dụng.
-- **It is education which holds the key** cũng có thể dùng; không cấm which khi thành phần nhấn mạnh là danh ngữ chỉ vật.
+- ❌ It was the cost deterred investors. → ✅ It was the cost **that** deterred investors.
 
-### Chọn thời điểm nhìn nhận trong wh-cleft
+### Lỗi 2: Chia động từ be theo phần nhấn mạnh
 
-- **What we needed is better communication** có thể xác định ở hiện tại một nhu cầu trong quá khứ.
-- **What we needed was better communication** đặt cả nhu cầu và việc xác định trong khung quá khứ; không buộc needed luôn đi với was.
-- ✅ What we need **is** better communication. (hiện tại → is)
+- ❌ It were the students who complained. → ✅ It **was** the students who complained. (it luôn đi với is/was)
 
 ### Lỗi 3: Nhầm cấu trúc it-cleft và relative clause
 
@@ -227,9 +224,7 @@ It-cleft phù hợp nhất khi người đọc đã biết phần còn lại c�
 - "**What** developing nations need most **is** not aid but fair trade agreements."
 - "**It is** at the community level **that** real social change begins."
 - "**What** has changed most dramatically in the past century **is** the pace of technological development."
-- "**All** the evidence suggests **that** early intervention yields the best outcomes."
-
-Câu All the evidence... trên là câu trần thuật với cụm danh từ làm chủ ngữ và mệnh đề nội dung, **không phải all-cleft**. Một all-cleft thực sự là **All we need is more evidence**.
+- "**All** that is needed **is** stronger political will."
 
 ### Writing Task 2 — Phản bác luận điểm:
 
