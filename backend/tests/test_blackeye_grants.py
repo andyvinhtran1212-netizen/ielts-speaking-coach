@@ -46,8 +46,8 @@ def test_377_not_added_to_clone_acl_coverage_or_postconditions():
 
 
 def test_376_bytes_are_the_reviewed_pr1_artifacts():
-    # A recorded, immutable reviewed commit; the split must never edit PR1 SQL.
-    expected = {'backend/migrations/376_blackeye_admission.sql': 'f50c67e66035a72698f2e4ced3867d194cdef128f7dd876218678c92b07a49a1', 'backend/migrations/rollback/376_blackeye_admission.sql': 'f8e5a39060f923fac262d6d5de91ccbb742755650cc5952d0d13f505bcb02ff1', 'docs/proposals/blackeye-u1/admission.sql': 'df1d078c51e5522f745d5d92051558301b7da9b4fae40733f5f91079c0c90bf0'}
+    # PR1 2f0aaf9a79f4, merged without changing its SQL; the split must never edit PR1 SQL.
+    expected = {'backend/migrations/376_blackeye_admission.sql': '4ed9dcfbea4b592f22e6eed5657984238ed8e68fac4d918975e90b65f4732fd2', 'backend/migrations/rollback/376_blackeye_admission.sql': 'f8e5a39060f923fac262d6d5de91ccbb742755650cc5952d0d13f505bcb02ff1', 'docs/proposals/blackeye-u1/admission.sql': 'c31172983cf3a9f63af7b68357d5a40327926f83982383d93f01754c2d368853'}
     for name, digest in expected.items():
         assert hashlib.sha256((ROOT.parent/name).read_bytes()).hexdigest()==digest
 

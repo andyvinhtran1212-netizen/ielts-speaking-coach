@@ -4,7 +4,7 @@
 has no staging or production executor. Run 376 → 377 → 378 only in a separately
 approved release, staging first through the advisory-locked runner; production
 requires direct specific owner approval at T014. 376 and its proposal mirror
-are byte-identical to PR1 `1d472f801e0a7c811a64ef845bbb1301e4dea157`.
+are byte-identical to PR1 `2f0aaf9a79f4b91031fb48805c5a66d1bdbe9529`.
 
 This job is pinned to D↔E v1.1 §8 (8c7365d95bea), which supplies the twelve
 RPC signatures. Leader's 15:35 handoff explicitly keeps this running job pinned;

@@ -1,7 +1,7 @@
 """Actual 295 import -> 353 publish -> 306 capture + 376 admission, local PG only."""
 import json
 from copy import deepcopy
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 import asyncpg
@@ -76,6 +76,31 @@ def test_import_readback_publish_and_admit_with_real_guards(package_policy_probe
     # transition GUC set. Validate all fields before reaching the import RPC.
     with pytest.raises(asyncpg.PostgresError, match="listening_package_child_immutable"):
         query(f"UPDATE {schema}.listening_tests SET metadata='{{}}' WHERE id=$1", paper["id"])
+
+
+def test_same_blackeye_package_reimport_reuses_identity_and_preserves_rows(package_policy_probe, tmp_path):
+    schema = package_policy_probe["schema"]
+    install_376(schema)
+    location, _, _ = blackeye_package(tmp_path)
+    plan = importer.build_import_plan(location)
+    paper = import_and_publish(schema, plan)
+    tables = ("listening_content_packages", "listening_lessons", "listening_package_stimuli",
+              "listening_form_stimuli", "listening_tests", "listening_content", "listening_exercises")
+    def readback():
+        return {table: query(f"SELECT to_jsonb(t) AS row FROM {schema}.{table} t ORDER BY to_jsonb(t)::text")
+                for table in tables}
+    before = readback()
+    [result] = query(f"SELECT * FROM {schema}.import_listening_content_package_atomic($1,$2,$3,$4)",
+                    *(json.dumps(v) for v in (plan.package, plan.lessons, plan.stimuli, plan.forms)))
+    assert result["action"] == "reused"
+    assert result["package_uuid"] == UUID(paper["content_package_id"])
+    assert result["lessons_written"] == len(plan.lessons)
+    assert result["forms_written"] == len(plan.forms)
+    assert result["items_written"] == sum(form["item_count"] for form in plan.forms)
+    assert result["stimuli_written"] == len(plan.stimuli)
+    assert readback() == before
+    # The repeated import keeps the published contract admissible under 376.
+    assert admit(schema, paper)["test_id"] == UUID(paper["id"])
 
 
 @pytest.mark.parametrize("missing", ["blackeye", "blackeye_db_revisions", "blackeye_context", "blackeye_review"])
