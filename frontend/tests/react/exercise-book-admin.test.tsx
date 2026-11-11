@@ -118,6 +118,38 @@ describe('admin catalog and assignment', () => {
     expect(screen.getAllByText('Black Eye · Unit 1 · A01')).toHaveLength(1);
   });
 
+  it('after a lost ACK the list is refetched, and a changed draft is warned about once before a new request_id (CR P3-6)', async () => {
+    const { api, base } = spyApi();
+    let lose = true;
+    api.createAssignment.mockImplementation(async (cohortId: string, body: never) => {
+      const receipt = await base.createAssignment(cohortId, body);
+      if (lose) { lose = false; throw new ExerciseBookError(0, 'network'); }
+      return receipt;
+    });
+    renderWith(api, <AdminExerciseBook cohortId={COHORT} />);
+    await openAssignForm();
+    pick([/^A01 ·/, 'Học viên Giả An']);
+    fireEvent.change(screen.getByLabelText(/Hạn nộp \(giờ Việt Nam\)/), { target: { value: '2026-11-20T21:30' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Xem lại và giao bài' }));
+    const listCalls = api.listAssignments.mock.calls.length;
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Giao bài' }));
+    expect(await screen.findByText(/gửi lại cùng mã yêu cầu/)).toBeTruthy();
+    // The landed assignment shows up in the refetched list.
+    await waitFor(() => expect(api.listAssignments.mock.calls.length).toBeGreaterThan(listCalls));
+    expect(await screen.findByText('Black Eye · Unit 1 · A01')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Quay lại' }));
+    pick(['Học viên Giả Bình']);
+    fireEvent.click(screen.getByRole('button', { name: 'Xem lại và giao bài' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Giao bài' }));
+    expect(await within(dialog).findByText(/có thể đã được tạo/)).toBeTruthy();
+    expect(api.createAssignment).toHaveBeenCalledTimes(1);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Giao bài' }));
+    expect(await screen.findByText('Đã giao bài. Biên nhận và tiến độ ở bên dưới.')).toBeTruthy();
+    const [first, second] = api.createAssignment.mock.calls.map(([, body]) => body.request_id);
+    expect(second).not.toBe(first);
+  });
+
   it('client checks block an empty, past or too-far deadline before any POST', () => {
     const now = NOW.getTime();
     expect(draftProblem({ activityIds: [], recipientIds: ['a'], dueLocal: '2026-11-20T21:30' }, now)).toMatch(/activity/);
@@ -188,6 +220,22 @@ describe('admin progress, review and archive', () => {
     expect(await screen.findByText('Câu 01 · table · r1 · c2 · Tự đối chiếu')).toBeTruthy();
     expect(api.getTeacherReview).toHaveBeenCalledWith(COHORT, MOCK_IDS.assignment, MOCK_IDS.learner_item, 'U1-A01');
     expect(screen.getByRole('heading', { name: 'Chữa bài · U1-A01' })).toBeTruthy();
+  });
+
+  it('a slow review answer for an earlier click never fills the panel of a later one (CR P3-3)', async () => {
+    const { api, base } = spyApi();
+    let releaseFirst: () => void = () => {};
+    api.getTeacherReview.mockImplementation(async (...args: [string, string, string, string]) => {
+      if (args[3] === 'U1-A01') await new Promise<void>((resolve) => { releaseFirst = resolve; });
+      return base.getTeacherReview(...args);
+    });
+    await openProgress(api);
+    fireEvent.click(screen.getByRole('button', { name: 'Xem chữa bài U1-A01 của Học viên Giả An' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Xem chữa bài U1-A03 của Học viên Giả An' }));
+    expect(await screen.findByText('Câu 01 · notes · r1 · Tự đối chiếu')).toBeTruthy();
+    await act(async () => { releaseFirst(); await Promise.resolve(); await Promise.resolve(); });
+    expect(screen.getByRole('heading', { name: 'Chữa bài · U1-A03' })).toBeTruthy();
+    expect(screen.queryByText('Câu 01 · table · r1 · c2 · Tự đối chiếu')).toBeNull();
   });
 
   it('archives only with a reason and refetches the receipt (QA G08)', async () => {
@@ -297,6 +345,40 @@ describe('course-2 grant page (UI gate only)', () => {
     expect(await within(dialog).findByText(/Cần xác thực lại bằng mã MFA/)).toBeTruthy();
   });
 
+  it('GET list 403 step_up_required keeps the page with an MFA prompt; retrying reads again (contract v1.2 §6)', async () => {
+    let refuse = true;
+    const { api } = spyApi({ fail: (method) => (method === 'getGrants' && refuse ? 'step_up_required' : undefined) });
+    renderWith(api, <AdminExerciseBookGrants cohortId={COHORT} />);
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('cần xác thực lại bằng mã MFA');
+    expect(alert.textContent).not.toContain('Chỉ tài khoản được ủy quyền');
+    refuse = false;
+    fireEvent.click(within(alert).getByRole('button', { name: 'Xác thực MFA và tải lại' }));
+    expect(await screen.findByText('Giáo viên Giả Dung')).toBeTruthy();
+    expect(api.getGrants).toHaveBeenCalledTimes(2);
+    expect(api.getGrants.mock.calls.every((call) => call[1] === undefined)).toBe(true);
+  });
+
+  it('GET log 403 step_up_required offers MFA in the log section, the list stays', async () => {
+    let refuse = true;
+    const { api } = spyApi({ fail: (method) => (method === 'getGrantLog' && refuse ? 'step_up_required' : undefined) });
+    renderWith(api, <AdminExerciseBookGrants cohortId={COHORT} />);
+    expect(await screen.findByText('Giáo viên Giả Dung')).toBeTruthy();
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('cần xác thực lại bằng mã MFA');
+    refuse = false;
+    fireEvent.click(within(alert).getByRole('button', { name: 'Xác thực MFA và tải lại' }));
+    expect(await screen.findByText(/#1 · Cấp quyền “Xem và chữa bài”/)).toBeTruthy();
+  });
+
+  it('a cool-off step_up_required shows the wait, with no MFA action', async () => {
+    const { api } = spyApi({ fail: (method) => (method === 'getGrants' ? 'step_up_cooloff' : undefined) });
+    renderWith(api, <AdminExerciseBookGrants cohortId={COHORT} />);
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('chờ đủ 24 giờ');
+    expect(within(alert).queryByRole('button')).toBeNull();
+  });
+
   it('any other account gets the gate message and no controls (403 not_owner)', async () => {
     auth.user.id = '00000000-0000-4000-8000-000000000071';
     const { api } = spyApi({ actorId: '00000000-0000-4000-8000-000000000071' });
@@ -331,11 +413,28 @@ describe('admin entry links', () => {
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     expect(container.textContent).toBe('');
   });
+
+  it('a 403 step_up_required on the grants probe keeps the grants link; not_owner hides it (contract v1.2 §6)', async () => {
+    for (const name of ['step_up_required', 'step_up_cooloff'] as const) {
+      const owner = spyApi({ fail: (method) => (method === 'getGrants' ? name : undefined) });
+      render(<ExerciseBookAdminEntry cohortId={COHORT} api={owner.api} />);
+      expect(await screen.findByRole('link', { name: 'Quyền sách bài tập' })).toBeTruthy();
+      cleanup();
+    }
+    for (const name of ['not_owner', 'not_granted', 'forbidden'] as const) {
+      const other = spyApi({ fail: (method) => (method === 'getGrants' ? name : undefined) });
+      render(<ExerciseBookAdminEntry cohortId={COHORT} api={other.api} />);
+      expect(await screen.findByRole('link', { name: 'Sách bài tập Listening' })).toBeTruthy();
+      expect(screen.queryByRole('link', { name: 'Quyền sách bài tập' })).toBeNull();
+      cleanup();
+    }
+  });
 });
 
 describe('HTTP adapter', () => {
   it('quiet probes skip api.js redirects and step-up; normal reads keep them', async () => {
-    const getWith = vi.fn(async () => { throw Object.assign(new Error('x'), { status: 403, detail: { code: 'step_up_required' } }); });
+    // What api.js throws for the v1.3.1 body {detail: str, code} (top-level code).
+    const getWith = vi.fn(async () => { throw Object.assign(new Error('Cần xác thực lại.'), { status: 403, detail: 'Cần xác thực lại.', code: 'step_up_required', reason: null }); });
     vi.stubGlobal('api', { getWith });
     Object.assign(window, { api: { getWith } });
     const api = createHttpExerciseBookApi();
@@ -343,5 +442,22 @@ describe('HTTP adapter', () => {
     expect(getWith).toHaveBeenLastCalledWith(`/admin/cohorts/${COHORT}/exercise-book-grants`, undefined, { noRedirect: true });
     await expect(api.getGrants(COHORT)).rejects.toMatchObject({ code: 'step_up_required' });
     expect(getWith).toHaveBeenLastCalledWith(`/admin/cohorts/${COHORT}/exercise-book-grants`);
+  });
+
+  it('maps the top-level code and the cool-off reason; a leave-time save uses keepalive', async () => {
+    const getWith = vi.fn(async () => {
+      throw Object.assign(new Error('x'), { status: 403, detail: 'Cần xác thực lại.', code: 'step_up_required', reason: 'new_factor_cooloff' });
+    });
+    const patchWith = vi.fn(async () => ({ attempt_id: 'a', answer_count: 1, performance_event_recorded: false, client_seq: 3 }));
+    Object.assign(window, { api: { getWith, patchWith } });
+    const api = createHttpExerciseBookApi();
+    await expect(api.getGrantLog(COHORT)).rejects.toMatchObject({ status: 403, code: 'step_up_required', reason: 'new_factor_cooloff' });
+    getWith.mockImplementationOnce(async () => { throw Object.assign(new Error('x'), { status: 403, detail: 'x', code: 'not_owner', reason: null }); });
+    await expect(api.getGrants(COHORT)).rejects.toMatchObject({ code: 'not_owner', reason: null });
+    const body = { q_num: 1, user_answer: 'a', client_seq: 3 };
+    await api.saveAnswer('a', body, { keepalive: true });
+    expect(patchWith).toHaveBeenLastCalledWith('/api/listening/tests/attempts/a/answers', body, undefined, { keepalive: true });
+    await api.saveAnswer('a', body);
+    expect(patchWith).toHaveBeenLastCalledWith('/api/listening/tests/attempts/a/answers', body);
   });
 });

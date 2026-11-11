@@ -10,6 +10,7 @@ import { ExerciseBookApiProvider } from '@/lib/exercise-book/api-context';
 import { createExerciseBookApi } from '@/lib/exercise-book/client';
 import { ExerciseBookError, type ActivityReview, type ExerciseBookApi } from '@/lib/exercise-book/contract';
 import { toExerciseBookError } from '@/lib/exercise-book/http-api';
+import { learnerBinding } from '@/lib/exercise-book/model';
 import { MOCK_ERROR_NAMES, MOCK_IDS, createMockExerciseBookApi, mockError, type MockOptions } from '@/lib/exercise-book/mock-api';
 import errorsFixture from '@/tests/fixtures/exercise-book/errors.json';
 import reviewTextFixture from '@/tests/fixtures/exercise-book/review-text.json';
@@ -43,17 +44,34 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe('contract errors', () => {
-  it('maps every fixed error body of §0 to its code without keeping the server text', () => {
+  it('maps every fixed error body of §0 (v1.3.1) to its code without keeping the server text', () => {
+    type Fixture = { status: number; body: { detail: unknown; code?: string; reason?: string }; client_code?: string };
+    const fixtures = errorsFixture as unknown as Record<string, Fixture>;
     for (const name of MOCK_ERROR_NAMES) {
-      const fixture = (errorsFixture as Record<string, { status: number; body: { detail: string; code?: string } }>)[name];
+      const fixture = fixtures[name];
       const error = mockError(name);
       expect(error).toBeInstanceOf(ExerciseBookError);
       expect(error.status).toBe(fixture.status);
-      expect(error.code).toBe(name);
-      expect(error.message).not.toContain(fixture.body.detail);
+      expect(error.code).toBe(fixture.client_code || name);
+      expect(error.reason).toBe(fixture.body.reason ?? null);
+      const detail = typeof fixture.body.detail === 'string' ? fixture.body.detail : JSON.stringify(fixture.body.detail);
+      expect(error.message).not.toContain(detail);
     }
-    // api.js nests an object detail; the code is read from there too.
+    // Every code of the §0 set appears at the TOP level of some body; detail is a string except uuid_parsing.
+    const codes = new Set(Object.values(fixtures).filter((entry) => typeof entry === 'object').map((entry) => entry.body.code).filter(Boolean));
+    for (const code of ['unauthorized', 'not_granted', 'not_owner', 'step_up_required', 'mfa_required', 'not_found', 'stale_revision',
+      'idempotency_conflict', 'attempt_changed', 'already_archived', 'grant_state_unchanged', 'activity_locked', 'validation', 'past_due', 'unavailable']) {
+      expect(codes.has(code)).toBe(true);
+    }
+    expect(fixtures.step_up_required.body).toMatchObject({ code: 'step_up_required', max_age_seconds: 600 });
+    expect(fixtures.step_up_cooloff.body).toMatchObject({ code: 'step_up_required', reason: 'new_factor_cooloff' });
+    expect(fixtures.uuid_parsing.body).not.toHaveProperty('code');
+    // api.js rejection shapes: top-level code (v1.3.1), an older object detail, and no code at all.
+    expect(toExerciseBookError({ status: 403, detail: 'Cần xác thực lại.', code: 'step_up_required', reason: null }).code).toBe('step_up_required');
     expect(toExerciseBookError({ status: 403, detail: { code: 'step_up_required', message: 'x' } }).code).toBe('step_up_required');
+    expect(toExerciseBookError({ status: 403, detail: 'x', code: null }).code).toBe('forbidden');
+    expect(toExerciseBookError({ status: 403, detail: 'x', code: 'not_a_contract_code' }).code).toBe('forbidden');
+    expect(toExerciseBookError({ status: 502, detail: 'x', code: null }).code).toBe('unavailable');
     expect(toExerciseBookError(new TypeError('Failed to fetch')).code).toBe('network');
   });
 
@@ -61,6 +79,59 @@ describe('contract errors', () => {
     const api = createExerciseBookApi();
     await expect(api.listMyAssignments()).rejects.toMatchObject({ status: 503, code: 'unavailable' });
     await expect(api.getGrants('x')).rejects.toMatchObject({ status: 503, code: 'unavailable' });
+  });
+});
+
+describe('development mock (contract rules E relies on)', () => {
+  const NOW = () => new Date('2026-11-12T09:00:00+07:00');
+  const keepChange = (action: 'KEEP' | 'CHANGE' | null, correction = '') =>
+    JSON.stringify({ version: 'blackeye_keep_change_v1', action, correction_text: correction });
+
+  async function start(api: ExerciseBookApi, testId: string) {
+    return api.startAttempt(testId, ITEM, learnerBinding((await api.getPlayer(testId, ITEM)).activity.binding));
+  }
+
+  it('unfinished KEEP/CHANGE cells are blank on submit and in review (Codex r4535896619)', async () => {
+    const api = createMockExerciseBookApi({ now: NOW });
+    const attempt = await start(api, KEEP_CHANGE_TEST);
+    // CHANGE without a correction, and an action chosen then cleared: both still blank.
+    await api.saveAnswer(attempt.attempt_id, { q_num: 1, user_answer: keepChange('CHANGE'), client_seq: 1 });
+    await api.saveAnswer(attempt.attempt_id, { q_num: 2, user_answer: keepChange(null), client_seq: 2 });
+    const expected_answers = [
+      { q_num: 1, source_item_id: 'A03-c1', user_answer: keepChange('CHANGE') },
+      { q_num: 2, source_item_id: 'A03-c2', user_answer: keepChange(null) },
+    ];
+    await expect(api.submitAttempt(attempt.attempt_id, { expected_answers, confirm_blank: false })).rejects.toMatchObject({ code: 'validation' });
+    const submitted = await api.submitAttempt(attempt.attempt_id, { expected_answers, confirm_blank: true });
+    expect(submitted.result_summary?.blank_count).toBe(2);
+    const review = await api.getReview(attempt.attempt_id);
+    expect(review.items.map((item) => item.blank)).toEqual([true, true]);
+  });
+
+  it('a save with an older client_seq is not applied and the ACK reports the stored seq (8.6)', async () => {
+    const api = createMockExerciseBookApi({ now: NOW });
+    const attemptId = '00000000-0000-4000-8000-000000000062';
+    await api.saveAnswer(attemptId, { q_num: 1, user_answer: 'newer', client_seq: 20 });
+    const stale = await api.saveAnswer(attemptId, { q_num: 1, user_answer: 'older', client_seq: 19 });
+    expect(stale.client_seq).toBe(20);
+    expect((await api.getAttempt(attemptId)).answers.find((answer) => answer.q_num === 1)?.user_answer).toBe('newer');
+  });
+
+  it('with storage, state survives a new document (start → save → submit → review → reload; Codex r4535785107)', async () => {
+    const store = new Map<string, string>();
+    const storage = { getItem: (key: string) => store.get(key) ?? null, setItem: (key: string, value: string) => { store.set(key, value); } };
+    const page1 = createMockExerciseBookApi({ now: NOW, storage });
+    const attempt = await start(page1, TEXT_TEST);
+    await page1.saveAnswer(attempt.attempt_id, { q_num: 1, user_answer: 'Monday', client_seq: 1 });
+    const reload = createMockExerciseBookApi({ now: NOW, storage });
+    expect((await reload.getInProgress(TEXT_TEST, ITEM)).attempt?.answers).toEqual([expect.objectContaining({ q_num: 1, user_answer: 'Monday' })]);
+    const player = await reload.getPlayer(TEXT_TEST, ITEM);
+    const expected_answers = player.activity.items.map((item) => ({ q_num: item.q_num, source_item_id: item.source_item_id, user_answer: item.q_num === 1 ? 'Monday' : '' }));
+    await reload.submitAttempt(attempt.attempt_id, { expected_answers, confirm_blank: true });
+    const reviewPage = createMockExerciseBookApi({ now: NOW, storage });
+    expect((await reviewPage.getReview(attempt.attempt_id)).attempt.status).toBe('submitted');
+    // Without storage every instance is isolated (tests).
+    await expect(createMockExerciseBookApi({ now: NOW }).getReview(attempt.attempt_id)).rejects.toMatchObject({ code: 'not_found' });
   });
 });
 
@@ -148,6 +219,84 @@ describe('runner', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Nộp với ô trống' }));
     expect(await screen.findByText(/Còn câu trả lời chưa lưu được nên chưa nộp/)).toBeTruthy();
     expect(api.submitAttempt).not.toHaveBeenCalled();
+  });
+
+  it('unmount inside the debounce still saves the latest answer, and reopening shows it (CR P2-1)', async () => {
+    const { api } = spyApi();
+    const view = renderWith(api, <ExerciseBookRunner testId={RESUME_TEST} classItem={ITEM} />);
+    fireEvent.change(await screen.findByDisplayValue('Monday'), { target: { value: 'Thursday' } });
+    expect(api.saveAnswer).not.toHaveBeenCalled();
+    view.unmount();
+    expect(api.saveAnswer).toHaveBeenCalledTimes(1);
+    const [, body, options] = api.saveAnswer.mock.calls[0];
+    expect(body).toMatchObject({ q_num: 1, user_answer: 'Thursday' });
+    expect(options).toEqual({ keepalive: true });
+    await act(async () => { await api.saveAnswer.mock.results[0].value; });
+    renderWith(api, <ExerciseBookRunner testId={RESUME_TEST} classItem={ITEM} />);
+    expect(await screen.findByDisplayValue('Thursday')).toBeTruthy();
+  });
+
+  it('pagehide sends pending and failed cells at once with keepalive and a newer client_seq (CR P2-1)', async () => {
+    let failing = true;
+    const { api, base } = spyApi();
+    api.saveAnswer.mockImplementation(async (attemptId: string, body: never, options: never) => {
+      if (failing) throw new ExerciseBookError(503, 'unavailable');
+      return base.saveAnswer(attemptId, body, options);
+    });
+    renderWith(api, <ExerciseBookRunner testId={RESUME_TEST} classItem={ITEM} />);
+    const [first, second] = await screen.findAllByRole('textbox');
+    fireEvent.change(first, { target: { value: 'Friday' } });
+    await screen.findByText(/^Chưa lưu\./, {}, { timeout: 2000 });
+    fireEvent.change(second, { target: { value: 'nine' } });
+    failing = false;
+    const before = api.saveAnswer.mock.calls.length;
+    act(() => { window.dispatchEvent(new Event('pagehide')); });
+    const sent = api.saveAnswer.mock.calls.slice(before);
+    // Synchronous: the keepalive requests exist before the handler returns.
+    expect(sent.map(([, body, options]) => [body.q_num, body.user_answer, options]).sort((left, right) => left[0] - right[0])).toEqual([
+      [1, 'Friday', { keepalive: true }],
+      [2, 'nine', { keepalive: true }],
+    ]);
+    const failedSeq = api.saveAnswer.mock.calls[0][1].client_seq;
+    expect(sent.find(([, body]) => body.q_num === 1)![1].client_seq).toBeGreaterThan(failedSeq);
+    expect(await screen.findByText('Đã lưu')).toBeTruthy();
+  });
+
+  it('a hidden tab drains the normal save queue without waiting for the debounce', async () => {
+    const { api } = spyApi();
+    renderWith(api, <ExerciseBookRunner testId={RESUME_TEST} classItem={ITEM} />);
+    fireEvent.change(await screen.findByDisplayValue('Monday'), { target: { value: 'Saturday' } });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    try {
+      act(() => { document.dispatchEvent(new Event('visibilitychange')); });
+      await waitFor(() => expect(api.saveAnswer).toHaveBeenCalledTimes(1));
+      expect(api.saveAnswer.mock.calls[0][2]).toBeUndefined();
+    } finally {
+      delete (document as { visibilityState?: unknown }).visibilityState;
+    }
+    expect(await screen.findByText('Đã lưu')).toBeTruthy();
+  });
+
+  it('warns before leaving while an answer is unsaved or failed, and not once saved (CR P2-1)', async () => {
+    const leave = () => {
+      const event = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    const { api } = spyApi({ fail: (method) => (method === 'saveAnswer' ? 'unavailable' : undefined) });
+    renderWith(api, <ExerciseBookRunner testId={RESUME_TEST} classItem={ITEM} />);
+    await screen.findByDisplayValue('Monday');
+    expect(leave()).toBe(false);
+    fireEvent.change(screen.getByDisplayValue('Monday'), { target: { value: 'Sunday' } });
+    expect(leave()).toBe(true);
+    await screen.findByText(/^Chưa lưu\./, {}, { timeout: 2000 });
+    expect(leave()).toBe(true);
+    cleanup();
+    const ok = spyApi();
+    renderWith(ok.api, <ExerciseBookRunner testId={RESUME_TEST} classItem={ITEM} />);
+    fireEvent.change(await screen.findByDisplayValue('Monday'), { target: { value: 'Sunday' } });
+    await screen.findByText('Đã lưu', {}, { timeout: 2000 });
+    expect(leave()).toBe(false);
   });
 
   it('confirms blanks, submits the latest answers and opens the review', async () => {

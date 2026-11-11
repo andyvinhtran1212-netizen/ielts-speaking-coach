@@ -6,7 +6,7 @@ import { Dialog, Field, StatusBanner } from '@/components/admin-directory-ui';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { useExerciseBookApi } from '@/lib/exercise-book/api-context';
 import type { ErrorCode, Grant, GrantAction, GrantEventCreate, GrantList, GrantLogEntry, GrantRole } from '@/lib/exercise-book/contract';
-import { codeText, errorCode, errorText, formatVnTime, isUuid } from '@/lib/exercise-book/model';
+import { COOLOFF_TEXT, codeText, errorCode, errorText, formatVnTime, isCooloff, isUuid } from '@/lib/exercise-book/model';
 
 const ROLE_LABEL: Record<GrantRole, string> = { assigner: 'Giao bài', teacher: 'Xem và chữa bài' };
 const ACTION_LABEL: Record<GrantAction, string> = { grant: 'Cấp quyền', revoke: 'Thu quyền' };
@@ -14,16 +14,40 @@ const MAX_REASON = 1000;
 
 type Draft = Omit<GrantEventCreate, 'request_id'>;
 type Banner = { kind: 'success' | 'error'; text: string } | null;
+/** A read refusal: its code, and whether it is the 24 h cool-off (a fresh MFA code cannot cure it). */
+type Refusal = { code: ErrorCode; cooloff: boolean };
+
+const STEP_UP_TEXT = 'Trang cấp quyền cần xác thực lại bằng mã MFA trong 10 phút gần nhất.';
+
+function refusalOf(caught: unknown): Refusal {
+  return { code: errorCode(caught), cooloff: isCooloff(caught) };
+}
 
 function gateText(code: ErrorCode) {
-  if (code === 'forbidden' || code === 'not_owner') return 'Chỉ tài khoản được ủy quyền cho course 2 mới dùng được trang này.';
+  if (code === 'forbidden' || code === 'not_granted' || code === 'not_owner') return 'Chỉ tài khoản được ủy quyền cho course 2 mới dùng được trang này.';
   if (code === 'not_found') return 'Trang cấp quyền chỉ dùng cho lớp thuộc course 2.';
   return codeText(code);
 }
 
+/**
+ * Contract v1.2 §6: every grant route (also GET list and GET log) needs a
+ * step-up ≤ 600 s. A 403 step_up_required keeps the owner on the page with a
+ * re-verify action: retrying the read through api.js opens the admin MFA
+ * prompt and resends once. During the cool-off only a wait message is shown.
+ */
+function StepUpPrompt({ refusal, onRetry }: { refusal: Refusal; onRetry: () => void }) {
+  if (refusal.cooloff) return <span>{COOLOFF_TEXT}</span>;
+  return (
+    <>
+      <span>{STEP_UP_TEXT}</span>
+      <button className="adm-btn-secondary" type="button" onClick={onRetry}>Xác thực MFA và tải lại</button>
+    </>
+  );
+}
+
 function mutationText(caught: unknown) {
   const code = errorCode(caught);
-  if (code === 'conflict') return 'Người này đã ở đúng trạng thái đó, hoặc yêu cầu bị trùng. Danh sách đã được tải lại.';
+  if (code === 'conflict' || code === 'grant_state_unchanged') return 'Người này đã ở đúng trạng thái đó, hoặc yêu cầu bị trùng. Danh sách đã được tải lại.';
   if (code === 'validation') return 'Không cấp được: lý do không được để trống và không tự cấp quyền cho chính mình.';
   if (code === 'network') return 'Chưa xác nhận được thao tác. Bấm xác nhận lần nữa sẽ gửi lại cùng mã yêu cầu, không ghi trùng.';
   return errorText(caught);
@@ -42,10 +66,10 @@ export function AdminExerciseBookGrants({ cohortId }: { cohortId: string }) {
 function GrantsSession({ cohortId, actorId }: { cohortId: string; actorId: string | null }) {
   const api = useExerciseBookApi();
   const [list, setList] = useState<GrantList | null>(null);
-  const [gate, setGate] = useState<ErrorCode | null>(null);
+  const [gate, setGate] = useState<Refusal | null>(null);
   const [log, setLog] = useState<GrantLogEntry[] | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);
-  const [logError, setLogError] = useState('');
+  const [logError, setLogError] = useState<Refusal | null>(null);
   const [banner, setBanner] = useState<Banner>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
 
@@ -55,18 +79,18 @@ function GrantsSession({ cohortId, actorId }: { cohortId: string; actorId: strin
       setGate(null);
     } catch (caught) {
       setList(null);
-      setGate(errorCode(caught));
+      setGate(refusalOf(caught));
     }
   }, [api, cohortId]);
 
   const loadLog = useCallback(async (next: string | null) => {
-    setLogError('');
+    setLogError(null);
     try {
       const page = await api.getGrantLog(cohortId, { cursor: next });
       setLog((current) => (next && current ? [...current, ...page.items] : page.items));
       setCursor(page.next_cursor);
     } catch (caught) {
-      setLogError(errorText(caught));
+      setLogError(refusalOf(caught));
     }
   }, [api, cohortId]);
 
@@ -79,7 +103,9 @@ function GrantsSession({ cohortId, actorId }: { cohortId: string; actorId: strin
     return (
       <section className="acd-state is-error" role="alert">
         <strong>Không mở được trang cấp quyền</strong>
-        <span>{gateText(gate)}</span>
+        {gate.code === 'step_up_required'
+          ? <StepUpPrompt refusal={gate} onRetry={() => void loadGrants()} />
+          : <span>{gateText(gate.code)}</span>}
       </section>
     );
   }
@@ -130,8 +156,14 @@ function GrantsSession({ cohortId, actorId }: { cohortId: string; actorId: strin
         <div className="acx-section-head"><h2 id="exercise-book-grant-log-title">Nhật ký cấp/thu quyền</h2></div>
         {logError && (
           <div className="acd-warning" role="alert">
-            <span>{logError}</span>
-            <button className="adm-btn-secondary" type="button" onClick={() => void loadLog(null)}>Thử lại</button>
+            {logError.code === 'step_up_required'
+              ? <StepUpPrompt refusal={logError} onRetry={() => void loadLog(null)} />
+              : (
+                <>
+                  <span>{codeText(logError.code)}</span>
+                  <button className="adm-btn-secondary" type="button" onClick={() => void loadLog(null)}>Thử lại</button>
+                </>
+              )}
           </div>
         )}
         {log && !log.length && <p>Nhật ký chưa có sự kiện nào.</p>}
@@ -213,7 +245,7 @@ function ConfirmGrant({ cohortId, draft, name, onClose, onDone }: {
       await onDone(`${ACTION_LABEL[draft.action]} “${ROLE_LABEL[draft.role]}” đã được ghi vào nhật ký.`, 'success');
     } catch (caught) {
       const code = errorCode(caught);
-      if (code === 'conflict' || code === 'idempotency_conflict') {
+      if (code === 'conflict' || code === 'grant_state_unchanged' || code === 'idempotency_conflict') {
         await onDone(mutationText(caught), 'error');
         return;
       }

@@ -13,12 +13,20 @@ import { ExerciseBookError, type ExerciseBookApi } from './contract';
  */
 export function createExerciseBookApi(): ExerciseBookApi {
   if (process.env.NODE_ENV === 'development') {
-    return deferred(import('./mock-api').then((module) => module.createMockExerciseBookApi()));
+    // One mock per document, persisted in sessionStorage, so every provider and
+    // every full-page step of the journey (start → submit → review → reload)
+    // sees the same synthetic state.
+    devMock ||= deferred(import('./mock-api').then((module) => module.createMockExerciseBookApi({
+      storage: typeof window === 'undefined' ? undefined : window.sessionStorage,
+    })));
+    return devMock;
   }
   return new Proxy({} as ExerciseBookApi, {
     get: () => async () => { throw new ExerciseBookError(503, 'unavailable'); },
   });
 }
+
+let devMock: ExerciseBookApi | null = null;
 
 function deferred(ready: Promise<ExerciseBookApi>): ExerciseBookApi {
   return new Proxy({} as ExerciseBookApi, {

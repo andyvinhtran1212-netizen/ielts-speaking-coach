@@ -279,12 +279,20 @@
       // we use the string verbatim.
       var detail   = err.detail;
       var isObj    = detail && typeof detail === 'object';
+      // Exercise-book contract v1.3.1 §0: `{detail: "<text>", code, ...}` puts
+      // the code (and the step-up fields) at the TOP level; older routes nest
+      // them in an object detail. Read both, so either shape reaches the same
+      // branches below and the caller gets `.code`.
+      var fields   = isObj ? detail : err;
+      var code     = fields.code;
       var message  = isObj
         ? (detail.message || 'HTTP ' + response.status)
         : (detail || 'HTTP ' + response.status);
       var thrown   = /** @type {any} */ (new Error(message));
       thrown.status = response.status;
       thrown.detail = detail || null;
+      thrown.code = (typeof code === 'string') ? code : null;
+      thrown.reason = (typeof fields.reason === 'string') ? fields.reason : null;
       // ADR-012 §2 — join keys for error reports: the correlation id of THIS
       // call + the server's sanitizer ref when the 5xx body carries one.
       thrown.request_id = requestId;
@@ -295,9 +303,9 @@
       // announced so an already-rendered admin page shows its denied state.
       // Both still throw, with .status/.detail, so no caller sees success.
       if (response.status === 403 && !(opts && opts.noRedirect)) {
-        if (isObj && detail.code === 'mfa_required') _toAdminMfa();
+        if (code === 'mfa_required') _toAdminMfa();
         else if (detail === 'Tài khoản chưa được kích hoạt') _announceInactive();
-        else if (isObj && detail.code === 'step_up_required' && detail.reason !== 'new_factor_cooloff'
+        else if (code === 'step_up_required' && fields.reason !== 'new_factor_cooloff'
                  && !(opts && (opts.keepalive || opts._stepUpResent))) {
           // FR-020: the server refused before any change, so after a fresh
           // TOTP the SAME request is sent once more with the new token — and
@@ -305,7 +313,7 @@
           // Amendment 2 (FR-020a): a cool-off refusal (a factor added or
           // changed under 24 h ago) is not cured by a fresh code, so it gets
           // no prompt and no resend; the caller shows detail.message (the wait).
-          if (await _requestStepUp(detail)) {
+          if (await _requestStepUp(fields)) {
             var resendOpts = {};
             if (opts) { for (var optKey in opts) resendOpts[optKey] = opts[optKey]; }
             resendOpts._stepUpResent = true;

@@ -341,16 +341,24 @@ export interface GrantLogEntry {
 
 // ------------------------------------------------------------------- errors
 
-/** Fixed error codes of §0. The body never echoes client values. */
+/**
+ * Fixed error codes of §0 (v1.3.1 full set), plus the status fallbacks used
+ * when a body carries no `code` (`forbidden`, `conflict`) and `network` for a
+ * request that got no HTTP answer. The body never echoes client values.
+ */
 export type ErrorCode =
-  | 'unauthenticated'
+  | 'unauthorized'
   | 'forbidden'
-  | 'step_up_required'
+  | 'not_granted'
   | 'not_owner'
+  | 'step_up_required'
+  | 'mfa_required'
   | 'not_found'
   | 'stale_revision'
   | 'idempotency_conflict'
   | 'attempt_changed'
+  | 'already_archived'
+  | 'grant_state_unchanged'
   | 'conflict'
   | 'activity_locked'
   | 'past_due'
@@ -358,17 +366,22 @@ export type ErrorCode =
   | 'unavailable'
   | 'network';
 
+/** §0: a 403 step_up_required during the 24 h new-factor cool-off; a fresh MFA code does not cure it. */
+export type ErrorReason = 'new_factor_cooloff';
+
 export class ExerciseBookError extends Error {
   readonly status: number;
   readonly code: ErrorCode;
+  readonly reason: ErrorReason | null;
 
-  constructor(status: number, code: ErrorCode) {
-    // Only status and code: never a server message or a client value, so the
-    // error is safe to show or report (FR-013, FR-026, SA F05).
-    super(`exercise-book ${status} ${code}`);
+  constructor(status: number, code: ErrorCode, reason: ErrorReason | null = null) {
+    // Only status, code and a fixed reason: never a server message or a client
+    // value, so the error is safe to show or report (FR-013, FR-026, SA F05).
+    super(`exercise-book ${status} ${code}${reason ? ` ${reason}` : ''}`);
     this.name = 'ExerciseBookError';
     this.status = status;
     this.code = code;
+    this.reason = reason;
   }
 }
 
@@ -384,6 +397,11 @@ export interface PageQuery {
  */
 export interface ReadOptions {
   quiet?: boolean;
+}
+
+/** `keepalive`: a save sent while the page is going away (pagehide/unmount) must outlive the document. */
+export interface SaveOptions {
+  keepalive?: boolean;
 }
 
 /**
@@ -404,7 +422,7 @@ export interface ExerciseBookApi {
   getPlayer(testId: Uuid, classItem: Uuid): Promise<Player>;
   getInProgress(testId: Uuid, classItem: Uuid): Promise<InProgress>;
   startAttempt(testId: Uuid, classItem: Uuid, binding: LearnerBinding): Promise<AttemptState>;
-  saveAnswer(attemptId: Uuid, body: SaveAnswer): Promise<SaveAck>;
+  saveAnswer(attemptId: Uuid, body: SaveAnswer, options?: SaveOptions): Promise<SaveAck>;
   submitAttempt(attemptId: Uuid, body: SubmitBody): Promise<AttemptState>;
   getAttempt(attemptId: Uuid): Promise<AttemptState>;
   playbackStarted(attemptId: Uuid): Promise<void>;

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { useExerciseBookApi } from '@/lib/exercise-book/api-context';
+import { registerNavigationGuard } from '@/lib/navigation-guard';
 import type { Answer, AttemptState, ErrorCode, ExerciseBookApi, Player, PublicItem } from '@/lib/exercise-book/contract';
 import {
   codeText,
@@ -177,18 +178,26 @@ function AttemptForm({ api, player: initialPlayer, attempt, testId, classItem, n
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
   const queue = useRef<Promise<void>>(Promise.resolve());
   const mounted = useRef(true);
+  const leave = useRef<() => void>(() => {});
   const playbackClaimed = useRef(false);
   const audioRefreshes = useRef(0);
   const dialog = useRef<HTMLDialogElement>(null);
   const submitButton = useRef<HTMLButtonElement>(null);
 
+  // CR P2-1: leaving (pagehide, reload, unmount) must not drop an edit still in
+  // its debounce or a failed save. A hidden tab is still alive, so it drains the
+  // normal queue; a real exit sends at once with keepalive.
   useEffect(() => {
     mounted.current = true;
-    const pending = timers.current;
+    const onPageHide = () => leave.current();
+    const onHidden = () => { if (document.visibilityState === 'hidden') void flushRef.current(); };
+    window.addEventListener('pagehide', onPageHide);
+    document.addEventListener('visibilitychange', onHidden);
     return () => {
+      window.removeEventListener('pagehide', onPageHide);
+      document.removeEventListener('visibilitychange', onHidden);
+      leave.current();
       mounted.current = false;
-      pending.forEach((timer) => clearTimeout(timer));
-      pending.clear();
     };
   }, []);
 
@@ -248,6 +257,40 @@ function AttemptForm({ api, player: initialPlayer, attempt, testId, classItem, n
     await Promise.all(sends);
     await queue.current;
   }, [send, syncSaveState]);
+
+  const flushRef = useRef(flush);
+  flushRef.current = flush;
+
+  /**
+   * Send every pending or failed cell now, OUTSIDE the save queue: the page may
+   * be gone before an in-flight save settles. Each gets a new client_seq, so it
+   * wins over any older save still on the wire (§4, 8.6: an older seq is not
+   * applied). A frozen attempt can no longer be saved, so nothing is sent.
+   */
+  leave.current = () => {
+    timers.current.forEach((timer) => clearTimeout(timer));
+    timers.current.clear();
+    if (frozen) return;
+    for (const q of new Set([...ledger.current.dirty, ...ledger.current.failed.keys()])) {
+      const latest = ledger.current.latest.get(q);
+      if (!latest) continue;
+      const entry = ledger.current.edit(q, latest.value);
+      void api.saveAnswer(attempt.attempt_id, { q_num: q, user_answer: entry.value, client_seq: entry.seq }, { keepalive: true })
+        .then(
+          (ack) => { if (ack.client_seq === entry.seq) ledger.current.ack(q, entry.seq); else ledger.current.fail(q, entry.seq, 'network'); },
+          (caught) => { ledger.current.fail(q, entry.seq, errorCode(caught)); },
+        )
+        .finally(syncSaveState);
+    }
+    syncSaveState();
+  };
+
+  // Warn before leaving while an answer is unsent, in flight or failed.
+  const unsaved = saveState !== 'saved' && !frozen;
+  useEffect(() => {
+    if (!unsaved) return undefined;
+    return registerNavigationGuard((event) => { event.preventDefault(); event.returnValue = ''; });
+  }, [unsaved]);
 
   const expectedAnswers = useCallback((): Answer[] => items.map((item) => ({
     q_num: item.q_num,

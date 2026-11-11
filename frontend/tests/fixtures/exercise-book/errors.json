@@ -1,22 +1,17 @@
 {
-  "_note": "Fixed bodies of contract §0. The body never echoes client values. 401, a plain 403, 404 and the duplicate-state 409 have no named code in v1, so these bodies carry none and the client derives the code from the status.",
-  "unauthenticated": {
+  "_note": "Fixed error bodies of contract §0 (v1.3.1), exactly as D2 returns them: `code` at the top level and `detail` always a string; only 403 step_up_required/mfa_required add the top-level step-up fields. Bodies never echo client values. `client_code` is the ErrorCode the client derives when it differs from the entry name: a body without `code` maps by status (forbidden, conflict, uuid_parsing), and the cool-off refusal keeps code step_up_required with reason new_factor_cooloff.",
+  "unauthorized": {
     "status": 401,
     "body": {
-      "detail": "Bạn cần đăng nhập."
+      "detail": "Bạn cần đăng nhập.",
+      "code": "unauthorized"
     }
   },
-  "forbidden": {
+  "not_granted": {
     "status": 403,
     "body": {
-      "detail": "Bạn chưa được cấp quyền."
-    }
-  },
-  "step_up_required": {
-    "status": 403,
-    "body": {
-      "detail": "Cần xác thực lại.",
-      "code": "step_up_required"
+      "detail": "Bạn chưa được cấp quyền.",
+      "code": "not_granted"
     }
   },
   "not_owner": {
@@ -26,10 +21,45 @@
       "code": "not_owner"
     }
   },
+  "step_up_required": {
+    "status": 403,
+    "body": {
+      "detail": "Cần xác thực lại.",
+      "code": "step_up_required",
+      "next_step": "challenge",
+      "max_age_seconds": 600
+    }
+  },
+  "step_up_cooloff": {
+    "status": 403,
+    "body": {
+      "detail": "Cần xác thực lại.",
+      "code": "step_up_required",
+      "next_step": "challenge",
+      "max_age_seconds": 600,
+      "reason": "new_factor_cooloff"
+    },
+    "client_code": "step_up_required"
+  },
+  "mfa_required": {
+    "status": 403,
+    "body": {
+      "detail": "Cần xác thực 2 bước.",
+      "code": "mfa_required",
+      "next_step": "challenge"
+    }
+  },
+  "forbidden": {
+    "status": 403,
+    "body": {
+      "detail": "Bạn chưa được cấp quyền."
+    }
+  },
   "not_found": {
     "status": 404,
     "body": {
-      "detail": "Không tìm thấy."
+      "detail": "Không tìm thấy.",
+      "code": "not_found"
     }
   },
   "stale_revision": {
@@ -51,6 +81,20 @@
     "body": {
       "detail": "Bài đã đổi.",
       "code": "attempt_changed"
+    }
+  },
+  "already_archived": {
+    "status": 409,
+    "body": {
+      "detail": "Trạng thái đã như vậy.",
+      "code": "already_archived"
+    }
+  },
+  "grant_state_unchanged": {
+    "status": 409,
+    "body": {
+      "detail": "Trạng thái đã như vậy.",
+      "code": "grant_state_unchanged"
     }
   },
   "conflict": {
@@ -79,6 +123,22 @@
       "detail": "Dữ liệu không hợp lệ.",
       "code": "validation"
     }
+  },
+  "uuid_parsing": {
+    "status": 422,
+    "body": {
+      "detail": [
+        {
+          "type": "uuid_parsing",
+          "loc": [
+            "path",
+            "attempt_id"
+          ],
+          "msg": "Định danh không hợp lệ."
+        }
+      ]
+    },
+    "client_code": "validation"
   },
   "unavailable": {
     "status": 503,

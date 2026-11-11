@@ -6,8 +6,13 @@
  * The mock keeps the server rules E depends on, so the UI is exercised against
  * them: create is idempotent per request_id + fingerprint, locked activities
  * are refused, save ACKs echo client_seq, submit compares expected_answers,
- * start returns the in-progress attempt, and grants refuse self-grant and a
- * repeat of the current state. Fixture data is fake (FR-024).
+ * start returns the in-progress attempt, a save with an older client_seq is
+ * not applied (8.6), blanks are judged per interaction, and grants refuse
+ * self-grant and a repeat of the current state. Fixture data is fake (FR-024).
+ *
+ * `next dev` passes `storage` (sessionStorage) so the synthetic state survives
+ * the full-page navigations of the journey (submit → review, reload); tests
+ * pass none and each instance stays isolated.
  */
 import catalogFixture from '@/tests/fixtures/exercise-book/catalog.json';
 import receiptFixture from '@/tests/fixtures/exercise-book/assignment-receipt.json';
@@ -44,6 +49,7 @@ import type {
   SourceCatalog,
 } from './contract';
 import { toExerciseBookError } from './http-api';
+import { isBlank } from './model';
 
 export const MOCK_IDS = idsFixture;
 
@@ -57,14 +63,21 @@ export interface MockOptions {
   /** The JWT subject the mock treats as the caller (grant page actor). */
   actorId?: string;
   now?: () => Date;
+  /** Dev only: persist the mutable mock state across document navigations. */
+  storage?: Pick<Storage, 'getItem' | 'setItem'>;
 }
+
+const STORAGE_KEY = 'aver.exercise-book.dev-mock.v1';
 
 const clone = <T>(value: T): T => (value === undefined ? value : JSON.parse(JSON.stringify(value)) as T);
 
-/** Throw exactly what the HTTP adapter would throw for this fixed body. */
+/**
+ * Throw exactly what the HTTP adapter would throw for this fixed body: api.js
+ * rejects with the body's `detail` plus its top-level `code` and `reason`.
+ */
 export function mockError(name: ErrorName) {
-  const fixture = errorsFixture[name] as { status: number; body: { detail: string; code?: string } };
-  return toExerciseBookError({ status: fixture.status, detail: fixture.body.detail, code: fixture.body.code });
+  const fixture = errorsFixture[name] as { status: number; body: { detail: unknown; code?: string; reason?: string } };
+  return toExerciseBookError({ status: fixture.status, detail: fixture.body.detail, code: fixture.body.code ?? null, reason: fixture.body.reason ?? null });
 }
 
 function paginate<T>(items: T[], page: PageQuery | undefined): Page<T> {
@@ -105,12 +118,46 @@ export function createMockExerciseBookApi(options: MockOptions = {}): ExerciseBo
   let grants = clone(options.grants === 'empty' ? grantsEmptyFixture.grants : grantsFixture.grants) as Grant[];
   const grantLog = clone(options.grants === 'empty' ? [] : grantLogFixture.items) as GrantLogEntry[];
   const grantRequests = new Map<string, { body: string; ack: { event_id: string; seq: number; occurred_at: string } }>();
+  const savedSeqs = new Map<string, number>();
+
+  restore();
+
+  function persist() {
+    if (!options.storage) return;
+    try {
+      options.storage.setItem(STORAGE_KEY, JSON.stringify({
+        receipts: [...receipts], summaries, fingerprints: [...fingerprints], learner, attempts: [...attempts],
+        submittedReviews: [...submittedReviews], seed, grants, grantLog, grantRequests: [...grantRequests], savedSeqs: [...savedSeqs],
+      }));
+    } catch { /* storage full or blocked: the dev mock just forgets */ }
+  }
+
+  function restore() {
+    let saved: Record<string, never> | null = null;
+    try { saved = JSON.parse(options.storage?.getItem(STORAGE_KEY) || 'null'); } catch { saved = null; }
+    if (!saved) return;
+    const refill = <K, V>(map: Map<K, V>, entries: [K, V][]) => { map.clear(); for (const [key, value] of entries) map.set(key, value); };
+    const replace = <T>(list: T[], entries: T[]) => { list.splice(0, list.length, ...entries); };
+    refill(receipts, saved.receipts);
+    replace(summaries, saved.summaries);
+    refill(fingerprints, saved.fingerprints);
+    replace(learner, saved.learner);
+    refill(attempts, saved.attempts);
+    refill(submittedReviews, saved.submittedReviews);
+    seed = saved.seed;
+    grants = saved.grants;
+    replace(grantLog, saved.grantLog);
+    refill(grantRequests, saved.grantRequests);
+    refill(savedSeqs, saved.savedSeqs);
+  }
 
   async function run<T>(method: MockMethod, args: unknown[], body: () => T): Promise<T> {
     await Promise.resolve();
     const forced = options.fail?.(method, args);
     if (forced) throw mockError(forced);
-    return clone(body());
+    const result = clone(body());
+    persist();
+    return result;
   }
 
   function requireCohort(cohortId: string) {
@@ -174,7 +221,7 @@ export function createMockExerciseBookApi(options: MockOptions = {}): ExerciseBo
     const items: ReviewItem[] = player.activity.items.map((item) => {
       const saved = attempt.answers.find((answer) => answer.q_num === item.q_num)?.user_answer || '';
       const base = template.items.find((entry) => entry.q_num === item.q_num) || template.items[template.items.length - 1];
-      return { ...base, source_item_id: item.source_item_id, q_num: item.q_num, saved_response: saved, blank: !saved.trim() };
+      return { ...base, source_item_id: item.source_item_id, q_num: item.q_num, saved_response: saved, blank: isBlank(item, saved) };
     });
     return { attempt, items, transcript: template.transcript, audio: template.audio };
   }
@@ -238,7 +285,7 @@ export function createMockExerciseBookApi(options: MockOptions = {}): ExerciseBo
       const receipt = requireReceipt(cohortId, assignmentId);
       const reason = body.reason.trim();
       if (body.status !== 'archived' || !reason || reason.length > 500) throw mockError('validation');
-      if (receipt.status === 'archived') throw mockError('conflict');
+      if (receipt.status === 'archived') throw mockError('already_archived');
       receipt.status = 'archived';
       const summary = summaries.find((entry) => entry.assignment_id === assignmentId);
       if (summary) summary.status = 'archived';
@@ -327,6 +374,13 @@ export function createMockExerciseBookApi(options: MockOptions = {}): ExerciseBo
       if (attempt.status !== 'in_progress') throw mockError('attempt_changed');
       const item = playerFor(attempt.test_id).activity.items.find((entry) => entry.q_num === body.q_num);
       if (!item || body.user_answer.length > 2000) throw mockError('validation');
+      // 8.6: a seq at or below the stored one is not applied; the ACK reports the stored seq.
+      const seqKey = `${attemptId}|${body.q_num}`;
+      const stored = savedSeqs.get(seqKey);
+      if (stored !== undefined && body.client_seq <= stored) {
+        return { attempt_id: attemptId, answer_count: attempt.answers.length, performance_event_recorded: false, client_seq: stored };
+      }
+      savedSeqs.set(seqKey, body.client_seq);
       const others = attempt.answers.filter((answer) => answer.q_num !== body.q_num);
       attempt.answers = [...others, { q_num: body.q_num, source_item_id: item.source_item_id, user_answer: body.user_answer }]
         .sort((left, right) => left.q_num - right.q_num);
@@ -340,7 +394,7 @@ export function createMockExerciseBookApi(options: MockOptions = {}): ExerciseBo
       const stored = (q: number) => attempt.answers.find((answer) => answer.q_num === q)?.user_answer || '';
       const expected = (q: number) => body.expected_answers.find((answer) => answer.q_num === q)?.user_answer || '';
       if (items.some((item) => stored(item.q_num) !== expected(item.q_num))) throw mockError('attempt_changed');
-      const blanks = items.filter((item) => !stored(item.q_num).trim()).length;
+      const blanks = items.filter((item) => isBlank(item, stored(item.q_num))).length;
       if (blanks && !body.confirm_blank) throw mockError('validation');
       attempt.status = 'submitted';
       attempt.submitted_at = now().toISOString();
@@ -382,7 +436,7 @@ export function createMockExerciseBookApi(options: MockOptions = {}): ExerciseBo
       if (!reason || reason.length > 1000 || body.grantee_id === actorId) throw mockError('validation');
       const current = grants.find((entry) => entry.grantee_id === body.grantee_id && entry.role === body.role);
       const nextState = body.action === 'grant' ? 'granted' : 'revoked';
-      if ((current?.state || 'revoked') === nextState) throw mockError('conflict');
+      if ((current?.state || 'revoked') === nextState) throw mockError('grant_state_unchanged');
       const seq = Math.max(0, ...grantLog.map((entry) => entry.seq)) + 1;
       const ack = { event_id: uuid(800 + seq), seq, occurred_at: now().toISOString() };
       grantLog.unshift({

@@ -114,7 +114,7 @@ function AdminExerciseBookSession({ cohortId }: { cohortId: string }) {
         setBanner({ kind: 'success', text: 'Đã giao bài. Biên nhận và tiến độ ở bên dưới.' });
         setSelected(receipt.assignment_id);
         void loadList(null);
-      }} />
+      }} onUncertain={() => void loadList(null)} />
       <section aria-labelledby="exercise-book-list-title">
         <div className="acx-section-head"><h2 id="exercise-book-list-title">Bài sách bài tập đã giao</h2></div>
         {listError && (
@@ -155,10 +155,12 @@ function AdminExerciseBookSession({ cohortId }: { cohortId: string }) {
   );
 }
 
-function AssignForm({ cohortId, catalog, onCreated }: {
+function AssignForm({ cohortId, catalog, onCreated, onUncertain }: {
   cohortId: string;
   catalog: SourceCatalog;
   onCreated: (receipt: AssignmentReceipt) => void;
+  /** A create got no answer: it may have landed, so the list is refetched. */
+  onUncertain: () => void;
 }) {
   const api = useExerciseBookApi();
   const [activityIds, setActivityIds] = useState<string[]>([]);
@@ -170,6 +172,9 @@ function AssignForm({ cohortId, catalog, onCreated }: {
   const [problem, setProblem] = useState('');
   // Same draft → same request_id, so a retry after a lost ACK replays instead of duplicating (contract §2).
   const request = useRef<{ fingerprint: string; id: string } | null>(null);
+  // CR P3-6: after a lost ACK, a CHANGED draft gets a new request_id and so could
+  // duplicate an assignment that did land. Warn once before sending it.
+  const unconfirmed = useRef<{ warned: boolean } | null>(null);
   const lookupFailed = catalog.lookup_errors.length > 0;
   const activities = catalog.inventory.activities;
   const recipients = catalog.eligible_recipients;
@@ -196,12 +201,18 @@ function AssignForm({ cohortId, catalog, onCreated }: {
       replay_policy: 'allowed',
     };
     const fingerprint = JSON.stringify(body);
+    if (unconfirmed.current && request.current && request.current.fingerprint !== fingerprint && !unconfirmed.current.warned) {
+      unconfirmed.current.warned = true;
+      setError('Lần giao trước chưa được xác nhận và có thể đã được tạo. Hãy kiểm tra danh sách bài giao bên dưới; nếu vẫn muốn giao bản đã sửa thành một bài mới, bấm “Giao bài” lần nữa.');
+      return;
+    }
     if (request.current?.fingerprint !== fingerprint) request.current = { fingerprint, id: crypto.randomUUID() };
     setBusy(true);
     setError('');
     try {
       const receipt = await api.createAssignment(cohortId, { ...body, request_id: request.current.id });
       request.current = null;
+      unconfirmed.current = null;
       setConfirming(false);
       setActivityIds([]);
       setRecipientIds([]);
@@ -210,6 +221,7 @@ function AssignForm({ cohortId, catalog, onCreated }: {
     } catch (caught) {
       const code = errorCode(caught);
       if (code !== 'network' && code !== 'unavailable') request.current = null;
+      if (code === 'network') { unconfirmed.current = { warned: false }; onUncertain(); }
       setError(code === 'network'
         ? 'Chưa xác nhận được việc giao bài. Bấm “Giao bài” lần nữa sẽ gửi lại cùng mã yêu cầu, không tạo bài trùng.'
         : errorText(caught));
@@ -290,6 +302,7 @@ function AssignmentPanel({ cohortId, assignmentId, catalog, onArchived }: {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [review, setReview] = useState<{ cell: ProgressCell; value: ActivityReview | null; error: string } | null>(null);
+  const reviewToken = useRef(0);
   const [archiving, setArchiving] = useState(false);
   const [reason, setReason] = useState('');
   const [archiveError, setArchiveError] = useState('');
@@ -311,12 +324,15 @@ function AssignmentPanel({ cohortId, assignmentId, catalog, onArchived }: {
   useEffect(() => { void load(); }, [load]);
 
   async function openReview(cell: ProgressCell) {
+    // CR P3-3: only the latest click may fill the panel, or a slow answer for
+    // student A would render under student B's heading.
+    const token = ++reviewToken.current;
     setReview({ cell, value: null, error: '' });
     try {
       const value = await api.getTeacherReview(cohortId, assignmentId, cell.item_id, cell.activity_id);
-      setReview({ cell, value, error: '' });
+      if (token === reviewToken.current) setReview({ cell, value, error: '' });
     } catch (caught) {
-      setReview({ cell, value: null, error: errorText(caught) });
+      if (token === reviewToken.current) setReview({ cell, value: null, error: errorText(caught) });
     }
   }
 
@@ -413,7 +429,7 @@ function AssignmentPanel({ cohortId, assignmentId, catalog, onArchived }: {
           {review.error && <p role="alert">{review.error}</p>}
           {!review.error && !review.value && <p role="status">Đang tải chữa bài…</p>}
           {review.value && <ExerciseBookReview review={review.value} labels={reviewLabels} heading="Chữa bài" />}
-          <button className="adm-btn-secondary" type="button" onClick={() => setReview(null)}>Đóng phần chữa bài</button>
+          <button className="adm-btn-secondary" type="button" onClick={() => { reviewToken.current += 1; setReview(null); }}>Đóng phần chữa bài</button>
         </section>
       )}
       <Dialog open={archiving} title="Đóng bài giao" busy={busy} onClose={() => setArchiving(false)}

@@ -96,14 +96,18 @@ export function isUuid(value: string) {
 }
 
 const ERROR_TEXT: Record<ErrorCode, string> = {
-  unauthenticated: 'Phiên đăng nhập đã hết. Hãy đăng nhập lại.',
+  unauthorized: 'Phiên đăng nhập đã hết. Hãy đăng nhập lại.',
   forbidden: 'Bạn chưa được cấp quyền cho mục này.',
+  not_granted: 'Bạn chưa được cấp quyền cho mục này.',
   not_owner: 'Chỉ tài khoản được ủy quyền mới dùng được trang này.',
   step_up_required: 'Cần xác thực lại bằng mã MFA trước khi thực hiện thao tác này.',
+  mfa_required: 'Cần xác thực 2 bước (MFA) để dùng quyền admin.',
   not_found: 'Không tìm thấy mục này, hoặc bạn không có quyền xem.',
   stale_revision: 'Nội dung bài đã được cập nhật. Hãy tải lại trang để lấy bản mới.',
   idempotency_conflict: 'Yêu cầu này trùng mã với một yêu cầu khác. Hãy tải lại trang rồi thử lại.',
   attempt_changed: 'Bài làm đã thay đổi ở nơi khác (đã nộp hoặc đã cập nhật). Hãy tải lại trang.',
+  already_archived: 'Bài giao này đã được đóng trước đó. Hãy tải lại trang.',
+  grant_state_unchanged: 'Người này đã ở đúng trạng thái đó.',
   conflict: 'Trạng thái đã thay đổi. Hãy tải lại trang.',
   activity_locked: 'Activity này chưa mở hoặc chưa sẵn sàng.',
   past_due: 'Bài đã quá hạn nộp nên không mở, lưu hay nộp được nữa.',
@@ -120,9 +124,16 @@ export function codeText(code: ErrorCode) {
   return ERROR_TEXT[code];
 }
 
+/** §0 cool-off: a new MFA code cannot help, so the copy asks to wait instead of re-verifying. */
+export const COOLOFF_TEXT = 'Phương thức xác thực 2 bước vừa được thêm hoặc thay đổi. Hãy chờ đủ 24 giờ kể từ lúc đó rồi thử lại.';
+
+export function isCooloff(caught: unknown) {
+  return caught instanceof ExerciseBookError && caught.reason === 'new_factor_cooloff';
+}
+
 /** Fixed Vietnamese copy per contract code (QA G12); never the server text. */
 export function errorText(caught: unknown) {
-  return ERROR_TEXT[errorCode(caught)];
+  return isCooloff(caught) ? COOLOFF_TEXT : ERROR_TEXT[errorCode(caught)];
 }
 
 export function parseKeepChange(value: string | undefined): KeepChange {
