@@ -1100,7 +1100,7 @@ def test_patch_answer_rejects_q_num_out_of_range(monkeypatch):
     assert excinfo.value.status_code == 422
 
 
-def test_patch_answer_403_when_not_owner(monkeypatch):
+def test_patch_answer_404_when_not_owner(monkeypatch):
     fake, authz = _patch(monkeypatch)
     test = _seed_test(fake)
     fake.tables["listening_test_attempts"].append({
@@ -1112,7 +1112,7 @@ def test_patch_answer_403_when_not_owner(monkeypatch):
         _run(listening_router.patch_listening_test_attempt_answer(
             attempt_id="att", body=body, authorization=authz,
         ))
-    assert excinfo.value.status_code == 403
+    assert excinfo.value.status_code == 404
 
 
 def test_patch_answer_blocked_after_submit(monkeypatch):
@@ -1229,7 +1229,7 @@ def test_get_attempt_owner_only(monkeypatch):
         _run(listening_router.get_listening_test_attempt(
             attempt_id="att", authorization=authz,
         ))
-    assert excinfo.value.status_code == 403
+    assert excinfo.value.status_code == 404
 
 
 def test_get_attempt_returns_grading(monkeypatch):
@@ -1559,7 +1559,7 @@ def test_check_rejects_someone_elses_attempt(monkeypatch):
     _t, aid = _seed_practice(fake, user_id="somebody-else")
     with pytest.raises(HTTPException) as ei:                 # _patch auth = user-1
         _check(aid, authz, q_num=1, user_answer="nineteen")
-    assert ei.value.status_code == 403                       # shared ownership gate
+    assert ei.value.status_code == 404                       # shared ownership gate
     assert fake.tables["listening_test_attempts"][0]["answers"] == [], \
         "refused call must not write into someone else's attempt"
 
@@ -1952,3 +1952,32 @@ def test_practice_windows_requires_a_published_test(monkeypatch):
     with pytest.raises(HTTPException) as ei:
         _run(listening_router.get_practice_audio_windows(t["id"], authorization=authz))
     assert ei.value.status_code == 404
+
+
+def test_public_drill_delivery_uses_public_attempt_when_homework_is_also_open(monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    from services import mock_paper_policy
+
+    fake, authz = _patch(monkeypatch)
+    drill = _seed_test(fake, test_type="drill")
+    base = {
+        "test_id": drill["id"], "user_id": "user-1", "status": "in_progress",
+        "resume_expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
+        "sitting_id": None, "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    public = {**base, "id": str(uuid4()), "class_assignment_item_id": None, "attempt_purpose": "practice"}
+    homework = {**base, "id": str(uuid4()), "class_assignment_item_id": str(uuid4()), "attempt_purpose": "assigned_practice"}
+    fake.tables["listening_test_attempts"].extend([homework, public])
+
+    def snapshot(_db, _skill, _test, _user, decision, *, attempt_id):
+        assert decision["attempt_purpose"] == "practice"
+        assert decision.get("attempt_id") == public["id"] or attempt_id == homework["id"]
+        return (homework if attempt_id else public), None
+
+    monkeypatch.setattr(mock_paper_policy, "owned_delivery_snapshot", snapshot)
+    out = _run(listening_router.get_published_listening_test(drill["id"], authorization=authz))
+    assert out["attempt_purpose"] == "practice"
+    with pytest.raises(HTTPException) as err:
+        _run(listening_router.get_published_listening_test(
+            drill["id"], attempt_id=homework["id"], authorization=authz))
+    assert err.value.status_code == 404
