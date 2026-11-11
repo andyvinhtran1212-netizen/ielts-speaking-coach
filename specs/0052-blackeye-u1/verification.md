@@ -9,7 +9,7 @@
 | FR-003 | kind=test; ref=backend/tests/test_listening_blackeye.py::test_locked_start_cannot_mint_attempt + PR2 frontend test nút khóa A8/A14/A19 | PENDING |
 | FR-004 | kind=test; ref=backend/tests/test_listening_blackeye.py::test_n1_missing_null_malformed_binding, test_n2_t02_answer_set_input_no_oracle_no_private_io, test_n2_t03_start_server_frozen_and_t06_key_only_change, test_n2_t05_wrong_stale_binding | PENDING |
 | FR-005 | kind=test; ref=backend/tests/test_listening_blackeye.py::test_n4_composite_save_reload_submit_retry_review_lossless, test_malformed_composite_never_falls_back, test_composite_incomplete_component_roundtrip | PENDING |
-| FR-006 | kind=test; ref=backend/tests/test_listening_blackeye.py::test_n4_cap_validation, test_n4_a13_48_save_submit_review_one_boundary | PENDING |
+| FR-006 | kind=test; ref=backend/tests/test_listening_blackeye.py::test_n4_cap_validation, test_n4_a13_48_save_submit_review_one_boundary + backend/tests/test_blackeye_package_import.py + backend/tests/test_blackeye_package_import_postgres.py (package metadata/review persistence, actual 295 import/353 publish/306 capture/376 admission) | PENDING |
 | FR-007 | kind=test; ref=backend/tests/test_listening_blackeye.py::test_cas_lost_race_is_conflict_not_optimistic_submit | PENDING |
 | FR-008 | kind=test; ref=backend/tests/test_listening_blackeye.py::test_n2_t07_in_progress_projection_and_pre_submit_review_gate, test_n4_wrong_frozen_mapping_and_missing_snapshot_fail_closed | PENDING |
 | FR-009 | kind=test; ref=backend/tests/test_listening_blackeye.py::test_review_failure_preserves_persisted_submit_and_answers, test_cross_owner_and_global_admin_do_not_read_marking | PENDING |
@@ -17,7 +17,7 @@
 | FR-011 | kind=test; ref=test kiểm kê route `app.routes` (plan.md) + backend/tests/test_listening_blackeye.py::test_r2_o5_guided_denies_before_marking_reads, test_o6_player_playback_interim_no_bundle_no_sign_no_mutation, test_no_section_or_dictation_side_door, test_f1_content_grading_rejects_before_private_reads_or_writes | PENDING |
 | FR-012 | kind=test; ref=backend/tests/test_listening_blackeye.py::test_assignment_seam_never_catalogs_creates_receipts, test_r6_http_generic_assignment_seam_preempts_validation_and_service + test backfill/update/due/delete/return trả 503 với bài giao Black Eye | PENDING |
 | FR-013 | kind=test; ref=backend/tests/test_listening_blackeye.py::test_n2_t11_opaque_ids_independent_of_identical_answers_and_digest + web-security chạy lại N2-T01…T12 | PENDING |
-| FR-014 | kind=test; ref=backend/tests/test_listening_blackeye.py::test_n2_t12_generic_http_receipts_remain_unchanged, test_f1_generic_dictation_still_grades_and_saves + backend sync-in-async allowlist gate | PENDING |
+| FR-014 | kind=test; ref=backend/tests/test_listening_blackeye.py::test_n2_t12_generic_http_receipts_remain_unchanged, test_f1_generic_dictation_still_grades_and_saves + backend/tests/test_blackeye_package_import.py::test_generic_plan_does_not_consult_or_store_blackeye_fields + backend sync-in-async allowlist gate | PENDING |
 | FR-015 | kind=test; ref=backend/tests/test_blackeye_admission_proposal_static.py (gồm `search_path = pg_catalog, pg_temp`, REVOKE/GRANT) + test catalog chỉ đọc `pg_policies`/grant | PENDING |
 | FR-016 | kind=test; ref=PR2 test catalog admin (N2-T09: học viên/cohort khác/admin toàn cục 403/404) | PENDING |
 | FR-017 | kind=test; ref=PR2 test giao bài idempotent, 409 dấu vân tay, N2-T04, N2-T10 | PENDING |
