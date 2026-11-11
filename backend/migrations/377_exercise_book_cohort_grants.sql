@@ -193,11 +193,12 @@ BEGIN
     IF auth.role() IS DISTINCT FROM 'service_role' THEN RAISE insufficient_privilege; END IF;
     PERFORM public.fn_eb_require_owner(p_actor_id);
     PERFORM public.fn_eb_require_cohort(p_cohort_id,p_programme_id);
-    RETURN QUERY SELECT g.grantee_id,u.display_name,g.role,
+    RETURN QUERY SELECT g.grantee_id,COALESCE(NULLIF(btrim(u.display_name),''),u.email,'Người dùng'),g.role,
       CASE g.action WHEN 'grant' THEN 'granted' ELSE 'revoked' END,g.seq,g.occurred_at
     FROM (SELECT DISTINCT ON (x.grantee_id,x.role) x.* FROM public.exercise_book_cohort_grants x
       WHERE x.cohort_id=p_cohort_id AND x.programme_id=p_programme_id ORDER BY x.grantee_id,x.role,x.seq DESC) g
-    JOIN public.users u ON u.id=g.grantee_id ORDER BY u.display_name,g.grantee_id,g.role;
+    JOIN public.users u ON u.id=g.grantee_id
+    ORDER BY COALESCE(NULLIF(btrim(u.display_name),''),u.email,'Người dùng'),g.grantee_id,g.role;
 END $$;
 CREATE FUNCTION public.fn_read_cohort_grant_log(p_actor_id uuid,p_cohort_id uuid,p_programme_id text,
  p_limit integer DEFAULT 50,p_before_seq bigint DEFAULT NULL)

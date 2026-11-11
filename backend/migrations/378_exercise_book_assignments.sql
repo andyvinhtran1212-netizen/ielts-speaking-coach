@@ -322,9 +322,12 @@ BEGIN
       ORDER BY a.due_at DESC,a.id DESC LIMIT p_limit)
     SELECT jsonb_build_object('items',COALESCE(jsonb_agg(jsonb_build_object('assignment_id',a.id,'cohort_id',a.cohort_id,
       'title',a.title,'due_at',a.due_at,'status',a.status,'activities',
-      (SELECT jsonb_agg(jsonb_build_object('activity_id',c.activity_key,'title',c.activity_key,'position',c.position,
+      (SELECT jsonb_agg(jsonb_build_object('activity_id',c.activity_key,
+        'title',COALESCE(t.metadata->r.metadata_key->>'title',t.title,c.activity_key),'position',c.position,
         'test_id',c.test_id,'item_id',a.item_id,'my_status',x.status,'latest_attempt_id',x.attempt_id) ORDER BY c.position)
-       FROM public.class_assignment_activities c JOIN public.fn_eb_cells(a.id) x ON x.activity_row_id=c.id
+       FROM public.class_assignment_activities c JOIN public.listening_tests t ON t.id=c.test_id
+       JOIN public.exercise_book_registry r ON r.programme_id=c.programme_id
+       JOIN public.fn_eb_cells(a.id) x ON x.activity_row_id=c.id
          AND x.item_id=a.item_id AND x.user_id=p_user_id WHERE c.assignment_id=a.id)) ORDER BY a.due_at DESC,a.id DESC),'[]'))
       INTO result FROM selected a;
     RETURN result;

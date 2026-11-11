@@ -224,7 +224,9 @@ def test_grant_step_up_replay_sequence_revoke_append_only(seed):
     last=rpc(s,'fn_record_cohort_grant',*bad)[0]
     assert last['seq']>first['seq']
     assert rpc(s,'fn_exercise_book_actor_access',d['teacher'],d['cohort'],PROGRAMME)[0]['roles']==[]
-    assert rpc(s,'fn_list_cohort_grants',d['owner'],d['cohort'],PROGRAMME)[0]['state']=='revoked'
+    query(f'UPDATE {s}.users SET display_name=NULL WHERE id=$1',d['teacher'])
+    grant=rpc(s,'fn_list_cohort_grants',d['owner'],d['cohort'],PROGRAMME)[0]
+    assert grant['state']=='revoked' and grant['display_name']=='synthetic@example.invalid'
     logs=rpc(s,'fn_read_cohort_grant_log',d['owner'],d['cohort'],PROGRAMME)
     assert [x['seq'] for x in logs]==[last['seq'],first['seq']]
     for t in ('exercise_book_cohort_grants','exercise_book_cohort_grant_log'):
@@ -250,6 +252,7 @@ def test_create_replay_conflict_atomic_fanout_progress_and_owner_log(seed):
     assert 'answer_set_revision' not in json.dumps(progress) and 'score' not in json.dumps(progress)
     own=rpc(s,'fn_list_learner_exercise_book_assignments',d['user'])
     assert len(own['items'])==1 and len(own['items'][0]['activities'])==2
+    assert own['items'][0]['activities'][0]['title']=='Synthetic activity'
     assert 'answer_set_revision' not in json.dumps(own)
     assert len(rpc(s,'fn_list_exercise_book_assignments',d['owner'],d['cohort'],PROGRAMME))==1
 
