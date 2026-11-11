@@ -94,6 +94,7 @@ Câu word-form có thể hỏi bất kỳ dạng nào. Sau khi nhận diện dan
 - quick → quick**ly**, careful → carefully, easy → easi**ly** (y → i)
 
 Lưu ý các trường hợp đặc biệt:
+
 - Tính từ tận cùng *-le*: gentle → gent**ly**; *-ic*: basic → basic**ally**
 - Một số từ **giống nhau** ở dạng tính từ và trạng từ: *fast, hard, early, late* (*a fast car / drive fast*)
 - **hardly** ≠ hard: *hardly* = hầu như không (nghĩa khác hẳn)

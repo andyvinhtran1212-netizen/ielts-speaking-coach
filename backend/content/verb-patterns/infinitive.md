@@ -75,11 +75,13 @@ To-infinitive là dạng **to + động từ nguyên mẫu**, không phải mộ
 ## Tại sao quan trọng
 
 To-infinitive có mặt trong hầu hết mọi câu tiếng Anh phức tạp:
+
 - Sau động từ phổ biến: *want **to** go, hope **to** find, decide **to** stay*
 - Diễn tả mục đích: *I study English **to get** a better job.*
 - Sau tính từ: *It's important **to practise** every day.*
 
 Trong IELTS Speaking và Writing, bạn cần to-infinitive để:
+
 - Nói về mong muốn, kế hoạch, quyết định (Part 1, 2, 3)
 - Giải thích lý do, mục đích trong bài luận (Writing Task 2)
 - Tránh lỗi nhầm với gerund — một trong những lỗi thường gặp nhất ở Band 5-6
@@ -175,6 +177,7 @@ Dùng to-infinitive thay cho "in order to" — ngắn gọn hơn, tự nhiên h�
 - Many people move to cities **to find** better opportunities.
 
 **Khi câu cần trang trọng hơn**, dùng "in order to":
+
 - Governments must invest in education **in order to** reduce inequality.
 
 > **Lưu ý:** Không dùng "for + to-infinitive" để diễn tả mục đích khi chủ ngữ không thay đổi.
@@ -189,18 +192,21 @@ Subject + be + adjective + to + base verb
 ```
 
 **Cấu trúc "It is + adj + to-inf":**
+
 - It's **important to practise** speaking every day.
 - It's **difficult to master** a new language.
 - It was **surprising to hear** the news.
 - It is **essential to consider** all perspectives.
 
 **Sau tính từ mô tả cảm xúc hoặc thái độ:**
+
 - I'm **happy to help** you.
 - She was **surprised to see** me there.
 - He was **reluctant to admit** his mistake.
 - I'm **ready to start**.
 
 **Sau tính từ mô tả thứ tự/mức độ (too/enough):**
+
 - She's **old enough to make** her own decisions.
 - The problem is **too complex to ignore**.
 - He spoke **too quickly for us to understand him**.
@@ -330,10 +336,12 @@ wh-word + to + base verb
 ## Lưu ý cho người học Việt Nam
 
 Tiếng Việt không có sự phân biệt này — "tôi muốn **đi**", "tôi thích **đi**" đều dùng động từ trực tiếp. Trong tiếng Anh:
+
 - "I **want to go**" (want → to-infinitive)
 - "I **enjoy going**" (enjoy → gerund)
 
 **Mẹo nhớ nhanh:**
+
 1. **want, hope, plan, decide, need, agree, refuse, manage, offer, promise** → to-infinitive
 2. **enjoy, avoid, mind, finish, keep, suggest, consider, miss, practise** → gerund
 3. **Sau giới từ** → gerund (luôn luôn)
@@ -345,16 +353,19 @@ Tiếng Việt không có sự phân biệt này — "tôi muốn **đi**", "tô
 ### IELTS Speaking — Mẫu câu hữu ích
 
 **Nói về mục tiêu / kế hoạch:**
+
 - "I'm planning **to apply** for a master's degree abroad."
 - "My goal is **to become** fluent in English within two years."
 - "I've always wanted **to travel** to South America."
 
 **Giải thích lý do / mục đích:**
+
 - "I started exercising **to improve** my health."
 - "I moved to the city **to find** better career opportunities."
 - "People use social media **to stay** connected with friends."
 
 **Nói về ý kiến:**
+
 - "It's important **to consider** both sides of the argument."
 - "It would be difficult **to solve** this problem without government support."
 - "I think it's essential **to maintain** a healthy work-life balance."
@@ -362,14 +373,17 @@ Tiếng Việt không có sự phân biệt này — "tôi muốn **đi**", "tô
 ### IELTS Writing — To-infinitive cho câu học thuật
 
 **Diễn tả mục đích:**
+
 - "Governments must act now **to prevent** further environmental damage."
 - "Stricter laws are needed **to discourage** dangerous behaviour."
 
 **Diễn tả sự cần thiết:**
+
 - "It is crucial **to address** the root causes of poverty."
 - "It remains important **to consider** the long-term consequences."
 
 **Diễn tả khả năng / xu hướng:**
+
 - "Young people tend **to prefer** digital communication."
 - "This approach appears **to be** more effective than previous methods."
 
@@ -397,6 +411,7 @@ Tiếng Việt không có sự phân biệt này — "tôi muốn **đi**", "tô
 ### Đáp án
 
 **Điền đúng dạng:**
+
 1. **to travel** (sau hope → to-infinitive)
 2. **cooking** (sau enjoys → gerund)
 3. **to study** (sau decided → to-infinitive)
@@ -407,6 +422,7 @@ Tiếng Việt không có sự phân biệt này — "tôi muốn **đi**", "tô
 8. **seeing** (look forward **to** → to = giới từ → gerund)
 
 **Sửa lỗi:**
+
 1. I want **to go** to the cinema.
 2. She's very good at **speaking** English.
 3. It's important **to practise** every day.

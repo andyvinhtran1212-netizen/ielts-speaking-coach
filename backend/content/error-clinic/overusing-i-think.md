@@ -380,6 +380,7 @@ Informal / Part 1:
 ```
 
 **Quy tắc vàng:**
+
 - Chọn hoặc lược bỏ cụm quan điểm theo chức năng; số lần I think không tự quyết định band
 - Bài luyện tùy chọn: thử một cách diễn đạt khác ở chỗ lặp thừa, rồi nghe lại độ trôi chảy
 - "In my opinion" và "I think" = cùng ý nghĩa — đừng dùng cả hai trong một câu

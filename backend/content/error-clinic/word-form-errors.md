@@ -94,6 +94,7 @@ Lỗi word form = dùng đúng từ nhưng sai dạng (sai từ loại cho vị 
 ## Tại sao quan trọng
 
 Trong IELTS:
+
 - **Lexical Resource (LR):** Dùng đúng word form = biết dùng từ chính xác và linh hoạt
 - **Grammatical Accuracy (GRA):** Sai word form thường kéo theo sai cấu trúc câu
 - **Band 7+:** Yêu cầu ít lỗi word form, và biết dùng đa dạng word families
@@ -146,6 +147,7 @@ Trước khi chọn dạng từ, hỏi: **"Vị trí này trong câu cần từ 
 ### Adverb suffixes:
 
 Hầu hết trạng từ = tính từ + **-ly**:
+
 - quick → **quickly** | economic → **economically** | significant → **significantly**
 - Ngoại lệ: fast, hard, well, late, early (không thêm -ly hoặc có dạng riêng)
 
@@ -283,6 +285,7 @@ Hầu hết trạng từ = tính từ + **-ly**:
 ### Lỗi 8: Quên biến đổi sau "make/keep/find + object"
 
 Trong các ví dụ miêu tả trạng thái O dưới đây cần adjective. Các động từ còn cho mẫu khác: “They made her captain” (NP), “Keep the key here” (chỉ vị trí); không suy chỉ từ động từ.
+
 - ❌ Exercise makes you **healthily**.
 - ✅ Exercise makes you **healthy**.
 - ❌ She finds the work **challenge**.
@@ -349,9 +352,11 @@ Trong các ví dụ miêu tả trạng thái O dưới đây cần adjective. C�
 ### Đáp án
 
 **Chọn dạng từ:**
+
 1. effective | 2. successful | 3. Economic | 4. affects | 5. fluently | 6. significantly | 7. economical | 8. investment
 
 **Sửa lỗi:**
+
 1. She works very hard and achieves many **successes** in her career. (hoặc: achieves **great success**)
 2. The **environmental** damage caused by factories is a serious concern.
 3. He is very **talented** and **creative** in his approach to problem-solving.
@@ -362,6 +367,7 @@ Trong các ví dụ miêu tả trạng thái O dưới đây cần adjective. C�
 ## Tóm tắt nhanh
 
 **Cách xác định word form cần dùng:**
+
 1. Vị trí **trước noun** → cần **adjective**
 2. Vị trí **chủ ngữ/tân ngữ** → cần **noun**
 3. Vị trí **sau verb** (bổ nghĩa verb) → cần **adverb**
@@ -370,6 +376,7 @@ Trong các ví dụ miêu tả trạng thái O dưới đây cần adjective. C�
 6. Sau **make/keep/find + object** → cần **adjective**
 
 **Cặp từ hay nhầm:**
+
 - affect (V) vs effect (N)
 - economic (thuộc kinh tế) vs economical (tiết kiệm)
 - effective (có tác dụng) vs efficient (hiệu quả về chi phí/thời gian)

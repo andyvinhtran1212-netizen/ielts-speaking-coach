@@ -90,10 +90,12 @@ Câu đơn (simple sentence) là câu có **một mệnh đề độc lập** �
 ## Tại sao quan trọng
 
 Trong IELTS Speaking, câu đơn là nền tảng cho mọi câu phức tạp hơn. Người học thường mắc hai loại lỗi cơ bản:
+
 - **Câu cụt (Fragment):** Câu thiếu chủ ngữ hoặc động từ — nghe không tự nhiên và bị trừ điểm
 - **Câu dính (Run-on):** Hai câu độc lập ghép lại mà không có dấu câu hoặc liên từ phù hợp
 
 Hiểu câu đơn cũng giúp bạn:
+
 - Biết khi nào thêm thông tin vào câu mà không phá vỡ cấu trúc
 - Đa dạng hoá độ dài câu trong IELTS Speaking Part 2 và Writing Task 2
 - Phân tích câu phức tạp bằng cách tìm mệnh đề cơ bản
@@ -123,12 +125,14 @@ Hiểu câu đơn cũng giúp bạn:
 ### Thành phần bắt buộc
 
 **Chủ ngữ (Subject)** — "Cái gì / Ai làm việc đó?"
+
 - Danh từ: *The dog barks.*
 - Đại từ: *She sings.*
 - Danh động từ (Gerund): *Swimming is fun.*
 - Cụm danh từ: *My older sister studies medicine.* (My + older + sister; không phải danh từ ghép)
 
 **Động từ chính (Main Verb)** — "Làm gì / Như thế nào / Là gì?"
+
 - Hành động: *runs, wrote, is studying*
 - Trạng thái: *seems, feels, appears*
 - Trợ động từ + động từ chính: *She **is working**.* / *He **has finished**.*
@@ -138,17 +142,21 @@ Hiểu câu đơn cũng giúp bạn:
 Câu đơn có thể mở rộng bằng tân ngữ, trạng ngữ, cụm giới từ… mà vẫn là câu đơn, miễn là không thêm mệnh đề có động từ chia thì. Thêm một mệnh đề phụ hữu hạn sẽ tạo câu phức dù vẫn chỉ có một mệnh đề độc lập.
 
 **Thêm tân ngữ (Object):**
+
 - *She reads.* → *She reads **novels**.*
 
 **Thêm trạng ngữ (Adverbial):**
+
 - *She reads novels.* → *She reads novels **every night**.*
 - *She reads novels **in her bedroom** **before bed**.*
 
 **Dùng chủ ngữ ghép (Compound Subject):**
+
 - *John and Mary work together.*
 - *My parents, my sister, and I went on a trip.*
 
 **Dùng vị ngữ ghép (Compound Predicate):**
+
 - *She woke up, got dressed, and left the house.*
 - *He studies hard but never panics before exams.*
 
@@ -174,6 +182,7 @@ Câu đơn có thể mở rộng bằng tân ngữ, trạng ngữ, cụm giới 
 - Has the meeting started yet?
 
 Câu hỏi đơn giản trong IELTS Speaking Part 1:
+
 - "Do you work or study?" → "I study at university."
 
 ### 3. Câu mệnh lệnh (Imperative Sentence)
@@ -186,6 +195,7 @@ Ra lệnh hoặc đề nghị. Chủ ngữ "you" được ngầm hiểu, thườ
 - Never give up on your goals.
 
 Trong IELTS Speaking, imperatives xuất hiện khi đưa ra lời khuyên:
+
 - "Try to practise speaking every day."
 
 ### 4. Câu cảm thán (Exclamatory Sentence)
@@ -202,11 +212,13 @@ Diễn tả cảm xúc mạnh. Kết thúc bằng dấu chấm than (!). Không 
 Không có dấu hiệu cố định cho câu đơn — nhận biết bằng cấu trúc:
 
 **Câu ĐƠN nếu:**
+
 - Chỉ có một động từ chính (hoặc vị ngữ ghép nhưng chung một chủ ngữ)
 - Không có liên từ phụ thuộc: *because, although, when, if, since, after, before, while...*
 - Không có mệnh đề quan hệ: *who, which, that…*
 
 **Câu KHÔNG phải câu đơn nếu có:**
+
 - *because* / *although* / *when* / *if* → câu phức (complex sentence)
 - *and* / *but* / *or* nối hai mệnh đề đầy đủ → câu ghép (compound sentence)
 
@@ -306,15 +318,18 @@ Không có dấu hiệu cố định cho câu đơn — nhận biết bằng c�
 ## Lưu ý cho người học Việt Nam
 
 **Câu tiếng Việt linh hoạt hơn tiếng Anh** — tiếng Việt thường bỏ chủ ngữ khi ngữ cảnh rõ ràng:
+
 - "Đi học về rồi." *(ngầm hiểu chủ ngữ là "Tôi/Em")*
 - "Ăn cơm chưa?" *(không có chủ ngữ)*
 
 Tiếng Anh **bắt buộc có chủ ngữ** trong hầu hết mọi câu (trừ câu mệnh lệnh). Cần đặc biệt chú ý:
+
 - Câu thời tiết: *It is raining.* (không phải "Raining.")
 - Câu trình bày: *There is a problem.* (không phải "Is a problem.")
 - Câu mô tả: *It is beautiful here.* (không phải "Is very beautiful.")
 
 **Mẹo kiểm tra câu của bạn:**
+
 1. Tìm động từ chính → đó là trung tâm của câu
 2. Hỏi "Ai/Cái gì + [động từ]?" → đó là chủ ngữ
 3. Nếu không tìm được → câu bị cụt (fragment)
@@ -354,6 +369,7 @@ Mỗi câu là Simple (S), Compound (C) hay Complex (CX)?
 ### Viết câu đơn mở rộng
 
 Bắt đầu từ câu đơn giản, thêm thông tin:
+
 1. *She studies.* → (thêm tân ngữ + trạng ngữ)
 2. *He works.* → (thêm adverbial về địa điểm + thời gian)
 3. *They play.* → (thêm compound predicate)
@@ -361,6 +377,7 @@ Bắt đầu từ câu đơn giản, thêm thông tin:
 ### Đáp án
 
 **Loại câu:**
+
 1. S (Simple) — một mệnh đề
 2. C (Compound) — "but" nối hai mệnh đề độc lập
 3. CX (Complex) — "although" tạo mệnh đề phụ
@@ -368,6 +385,7 @@ Bắt đầu từ câu đơn giản, thêm thông tin:
 5. C (Compound) — "and" nối hai mệnh đề độc lập
 
 **Sửa lỗi:**
+
 1. The children **played** in the park. (thêm động từ)
 2. My sister is a nurse. (bỏ "she")
 3. I love reading. I go to the library every week. (tách câu)
@@ -375,6 +393,7 @@ Bắt đầu từ câu đơn giản, thêm thông tin:
 5. The list of items **is** on the desk. (chủ ngữ là list, số ít)
 
 **Câu mở rộng (ví dụ):**
+
 1. She studies English grammar every evening at the library.
 2. He works at an international company in the city centre from 9 to 6.
 3. They played football, laughed, and relaxed in the park all afternoon.

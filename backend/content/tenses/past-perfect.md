@@ -91,6 +91,7 @@ Past Perfect nhìn lại **thời gian trước một mốc quá khứ**. Nó th
 ## Tại sao quan trọng
 
 Past Perfect là dấu hiệu văn phong tinh tế trong IELTS:
+
 - Sắp xếp hai hành động quá khứ theo trình tự thời gian chính xác
 - Dùng trong điều kiện loại 3 (If + had V3...)
 - Dùng trong câu tường thuật (Reported Speech)
@@ -268,9 +269,11 @@ Nếu trình tự thời gian đã rõ qua "before/after", Past Simple cũng ch�
 ### Đáp án
 
 **Chia động từ:**
+
 1. arrived / had already started | 2. hadn't eaten hoặc didn't eat / went | 3. called / had already left | 4. finished hoặc had finished / watched | 5. discovered / had broken into
 
 **Sửa lỗi:**
+
 1. She had **gone** to Paris before. (V3 bất quy tắc)
 2. When I arrived, he **had already left**. (trình tự: left → arrived)
 3. She had **passed** away. (pass away → passed away, không phải "past")
@@ -287,6 +290,7 @@ Nếu trình tự thời gian đã rõ qua "before/after", Past Simple cũng ch�
 | Reported Speech có lùi thì | said + PP | She said she had finished. |
 
 **Quy tắc vàng:**
+
 - Dùng Past Perfect khi cần làm rõ **hành động nào xảy ra trước** trong quá khứ
 - Trạng thái có thể kéo dài tới hoặc sau mốc quá khứ; không suy ra đã chấm dứt chỉ từ had + V3
 - Khi before/after đã làm rõ trình tự, Past Simple cũng có thể phù hợp; Past Perfect nhấn mạnh góc nhìn trước mốc quá khứ

@@ -163,6 +163,7 @@ Nếu bỏ mệnh đề này, câu mất nghĩa hoặc không rõ đề cập đ
 - The car **(that)** I bought broke down. ✅
 
 **Không thể bỏ** khi relative pronoun là **chủ ngữ**:
+
 - The book **that** is on the table is mine. ✅ (that = chủ ngữ, không bỏ được)
 
 <!-- anchor: relative-clauses.non-defining.comma-rule -->
@@ -175,6 +176,7 @@ Cung cấp thông tin **bổ sung** (có thể bỏ mà không ảnh hưởng đ
 - Last summer, **when I was in Paris**, I visited several museums.
 
 **Luật quan trọng:**
+
 - KHÔNG dùng "that" trong non-defining clause
 - KHÔNG bỏ relative pronoun trong non-defining clause
 - Luôn có dấu phẩy
@@ -299,6 +301,7 @@ Có thể dùng "which" để bình luận về toàn bộ ý của mệnh đề
 ### Đáp án
 
 **Nối câu:**
+
 1. The woman **who helped us find our gate** works at the airport.
 2. I live in a small town **that/which has a beautiful old castle**.
 3. I have a friend **whose father is a famous artist**.
@@ -306,6 +309,7 @@ Có thể dùng "which" để bình luận về toàn bộ ý của mệnh đề
 5. The report **(that/which) I read yesterday** was very useful.
 
 **Sửa lỗi:**
+
 1. My car, **which** I bought last year, has already broken down. (non-defining → which, không phải that)
 2. The student **who** won the prize is from Hanoi. (bỏ "she")
 3. This is the city **where I grew up** / **in which I grew up**. (bỏ "in it")
@@ -316,6 +320,7 @@ Có thể dùng "which" để bình luận về toàn bộ ý của mệnh đề
 ## Tóm tắt nhanh
 
 **Relative pronouns:**
+
 - **who** → người (chủ ngữ)
 - **whom** → người (tân ngữ, trang trọng)
 - **which** → vật
@@ -323,6 +328,7 @@ Có thể dùng "which" để bình luận về toàn bộ ý của mệnh đề
 - **whose** → sở hữu
 
 **Relative adverbs:**
+
 - **where** → nơi chốn | **when** → thời gian | **why** → lý do (sau "reason")
 
 **Hai loại:**

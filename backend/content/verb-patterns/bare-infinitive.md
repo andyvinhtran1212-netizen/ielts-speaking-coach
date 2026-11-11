@@ -73,6 +73,7 @@ anchors:
 ## Tại sao quan trọng
 
 Bare infinitive là nền tảng của hầu hết câu tiếng Anh hàng ngày:
+
 - Modal verbs đều đi với bare infinitive: *You **should go**. She **can speak** French.*
 - Bỏ "to" đúng chỗ là dấu hiệu của người dùng tiếng Anh tự nhiên
 - Thêm "to" sai sau modal verbs là lỗi rất lộ rõ trong Writing và Speaking
@@ -142,6 +143,7 @@ can / could / will / would / shall / should / may / might / must + bare infiniti
 - ✅ ĐÚNG: You should **study** more.
 
 **Cũng áp dụng với:**
+
 - had better: You **had better leave** now.
 - would rather: I **would rather stay** at home.
 - used to: I **used to play** football every weekend.
@@ -156,12 +158,14 @@ make + object + bare infinitive (= khiến ai làm gì — bắt buộc)
 ```
 
 **Let:**
+
 - My parents **let me stay** out until midnight.
 - She **let him borrow** her car.
 - **Let** me **know** if you need anything.
 - Don't **let** this **happen** again.
 
 **Make (nghĩa cưỡng bức / gây ra):**
+
 - The teacher **made us repeat** the exercise.
 - The film **made me cry**.
 - Long queues **make** people **feel** frustrated.
@@ -306,6 +310,7 @@ Trong tiếng Việt, "có thể đi", "nên học", "phải làm" đều dùng 
 - "Cô ấy **có thể nói**" → She **can speak** (không phải "can to speak")
 
 **Mẹo nhớ nhanh:**
+
 - Nhìn thấy can/could/will/would/shall/should/may/might/must? → Bare infinitive ngay sau đó
 - Nhìn thấy "let someone" hoặc "make someone"? → Bare infinitive
 - Nhìn thấy "had better" / "would rather"? → Bare infinitive
@@ -315,12 +320,14 @@ Trong tiếng Việt, "có thể đi", "nên học", "phải làm" đều dùng 
 ### IELTS Speaking — Mẫu câu hữu ích
 
 **Dùng modal verbs (rất cần thiết trong Speaking):**
+
 - "I **can** definitely **see** the advantages of that approach."
 - "Governments **should invest** more in education."
 - "This problem **might get** worse if we don't act."
 - "You **could say** that technology has both positive and negative effects."
 
 **Hedging / Softening opinions (Band 7+ technique):**
+
 - "It **may be** that social media has more drawbacks than benefits."
 - "There **could be** a number of reasons for this trend."
 - "This **might not be** the best solution."
@@ -328,10 +335,12 @@ Trong tiếng Việt, "có thể đi", "nên học", "phải làm" đều dùng 
 ### IELTS Writing — Bare Infinitive trong câu học thuật
 
 **Đề xuất / Khuyến nghị:**
+
 - "Authorities **should implement** stricter regulations."
 - "Citizens **must take** responsibility for their own choices."
 
 **Khả năng / Dự đoán:**
+
 - "This trend **may continue** in the coming decades."
 - "The situation **could worsen** without immediate action."
 
@@ -359,6 +368,7 @@ Trong tiếng Việt, "có thể đi", "nên học", "phải làm" đều dùng 
 ### Đáp án
 
 **Điền đúng:**
+
 1. **submit** (sau must → bare infinitive)
 2. **to study** (sau decided → to-infinitive)
 3. **explain** (sau let + obj → bare infinitive)
@@ -369,6 +379,7 @@ Trong tiếng Việt, "có thể đi", "nên học", "phải làm" đều dùng 
 8. **to get** (sau hopes → to-infinitive)
 
 **Sửa lỗi:**
+
 1. You should **practise** every day.
 2. Let me **explain** the situation.
 3. She can **speak** three languages.

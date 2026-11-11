@@ -82,6 +82,7 @@ Câu bị động (Passive Voice) là khi đối tượng chịu tác động c�
 ## Tại sao quan trọng
 
 Câu bị động:
+
 1. Nhấn mạnh vào **kết quả / đối tượng** thay vì người thực hiện
 2. Dùng khi người thực hiện **không biết**, **không quan trọng**, hoặc **hiển nhiên**
 3. Phổ biến trong văn học thuật, báo chí, IELTS Writing Task 1
@@ -243,6 +244,7 @@ Subject + is/are + V3 + to-infinitive
 ### Lỗi 6: Dùng bị động cho động từ nội động (intransitive verbs)
 
 Các động từ như arrive/happen/occur/exist không có tân ngữ trực tiếp trong nghĩa đang xét, nên không tạo bị động thông thường từ tân ngữ ấy. Phân biệt bị động có giới từ: **The bed has been slept in**, **The office was broken into** vẫn hợp lệ:
+
 - ❌ The accident was happened yesterday.
 - ✅ The accident **happened** yesterday.
 - ❌ The problem was occurred due to human error.
@@ -295,6 +297,7 @@ Các động từ như arrive/happen/occur/exist không có tân ngữ trực ti
 ### Đáp án
 
 **Chuyển sang bị động:**
+
 1. A new planet **was discovered** (by scientists) in 2023.
 2. Three new products **have been launched** (by the company) this year.
 3. New regulations **will be introduced** (by the government) next month.
@@ -302,6 +305,7 @@ Các động từ như arrive/happen/occur/exist không có tân ngữ trực ti
 5. It **is widely believed** that technology improves our lives.
 
 **Sửa lỗi:**
+
 1. The accident **happened** on the highway. (happen = intransitive)
 2. The project **has been completed** by the team.
 3. Rice **is grown** in many countries around the world. (sự thật chung → bị động hiện tại đơn, không dùng tiếp diễn)
@@ -325,6 +329,7 @@ Các động từ như arrive/happen/occur/exist không có tân ngữ trực ti
 **Khi nào KHÔNG dùng:** động từ nội động (happen, occur, arrive...) / bị động tiếp diễn khi động từ chỉ một trạng thái ổn định, như know trong ví dụ trên; không áp dụng thành lệnh cấm cho mọi nghĩa của mọi stative verb.
 
 **Reporting passive phổ biến trong IELTS:**
+
 - It is believed / reported / suggested / known that...
 - ...is expected / considered / said to...
 
@@ -335,10 +340,12 @@ Các động từ như arrive/happen/occur/exist không có tân ngữ trực ti
 Người học VN hay lạm dụng bị động khi nói → nghe sách vở, kém tự nhiên. Quy tắc:
 
 **Tránh passive khi:**
+
 1. Kể việc chính mình làm: *I cooked dinner* (không nói *Dinner was cooked by me*).
 2. Người làm là thông tin chính và đang là chủ đề: *My mum taught me to swim*. (Nhưng *I was born…*, *I was offered a place…* vẫn tự nhiên.)
 
 **Dùng passive khi:**
+
 1. Không biết hoặc không cần nêu người làm: "My phone was stolen yesterday." (không biết ai trộm)
 2. Mô tả quy trình (văn phong học thuật): "The data was collected over 6 months."
 3. Giữ chủ đề xuyên suốt: "The company was founded in 1990. It was acquired in 2010." (the company/it luôn ở vị trí chủ ngữ)

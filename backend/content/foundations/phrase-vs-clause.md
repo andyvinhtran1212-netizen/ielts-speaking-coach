@@ -63,15 +63,18 @@ anchors:
 ## Tại sao quan trọng
 
 Hiểu phrase và clause là chìa khoá để:
+
 - Tránh **sentence fragments** (câu cụt) — lỗi ngữ pháp nghiêm trọng trong Writing
 - Biết cách ghép câu bằng *compound* và *complex sentences* (IELTS Writing Band 7+)
 - Nhận ra khi nào một nhóm từ đứng được độc lập và khi nào cần thêm mệnh đề chính
 
 Trong IELTS Writing:
+
 - ❌ Fragment: "Because the population is growing rapidly." → Không thể đứng một mình
 - ✅ Clause: "Because the population is growing rapidly, **cities need more housing**."
 
 Trong IELTS Speaking:
+
 - Phrases giúp thêm chi tiết mô tả mà không cần câu riêng: "She arrived **in a hurry**, **looking exhausted**."
 
 ## Định nghĩa
@@ -85,6 +88,7 @@ Một nhóm từ liên quan nhau, có thể có nghĩa, nhưng **không có đ�
 
 ### Clause (Mệnh đề)
 Ở đây xét **finite clause** có chủ ngữ (S) và động từ hữu hạn, tức động từ biểu thị thì trong ngữ cảnh. Có hai loại:
+
 - **Independent clause (Mệnh đề độc lập):** Có thể đứng một mình thành câu hoàn chỉnh
 - **Dependent clause (Mệnh đề phụ):** Có S + V nhưng không đứng độc lập được — cần mệnh đề chính
 
@@ -119,18 +123,22 @@ Một nhóm từ liên quan nhau, có thể có nghĩa, nhưng **không có đ�
 Phrases không đứng một mình nhưng làm phong phú thêm câu:
 
 **Prepositional phrase — thêm thông tin về nơi, thời gian, cách thức:**
+
 - She arrived **at the airport** **in the early morning**.
 - He spoke **with great confidence**.
 
 **Participial phrase — diễn đạt hai ý cùng lúc:**
+
 - **Walking along the river**, they talked for hours.
 - **Shocked by the news**, she sat down in silence.
 
 **Infinitive phrase — mục đích hoặc chức năng danh từ:**
+
 - She went to London **to study medicine**.
 - **To succeed in IELTS** requires consistent practice.
 
 **Gerund phrase — làm chủ ngữ hoặc tân ngữ:**
+
 - **Learning a new language** takes time and effort.
 - He enjoys **travelling alone**.
 
@@ -145,14 +153,17 @@ Mỗi câu hoàn chỉnh phải có ít nhất một independent clause:
 ### 3. Dependent clauses — thêm ý nghĩa phong phú
 
 **Mệnh đề danh từ (Noun clause):**
+
 - I believe **that technology will change education**.
 - **What matters most** is consistent effort.
 
 **Mệnh đề tính từ (Adjective/Relative clause):**
+
 - The city **where I grew up** has changed dramatically.
 - People **who exercise regularly** tend to live longer.
 
 **Mệnh đề trạng từ (Adverb clause):**
+
 - **Because she prepared thoroughly**, she passed with a high score.
 - **Although it was raining**, they continued the match.
 - **If governments invest in education**, inequality will decrease.
@@ -194,12 +205,14 @@ Mỗi câu hoàn chỉnh phải có ít nhất một independent clause:
 **(Writing Task 2)** "**Despite the significant benefits of globalisation**, many communities **living in rural areas** have been left behind, **struggling to access the same opportunities** available in cities."
 
 Phân tích:
+
 - "**Despite the significant benefits of globalisation**" → Prepositional phrase
 - "**living in rural areas**" → Participial phrase (mô tả *communities*)
 - "**struggling to access the same opportunities**" → Participial phrase
 - "**available in cities**" → Adjective phrase
 
 **(Speaking Part 3)** "I think **what concerns people most** is not the technology itself, but **how it's being used**."
+
 - "**what concerns people most**" → nhóm mệnh đề danh từ làm chủ ngữ của is trong cấu trúc được trích; bên trong nhóm, what là chủ ngữ được viết rõ của concerns, people là tân ngữ.
 - "**how it's being used**" → mệnh đề nội dung làm bổ ngữ vị ngữ sau động từ nối is, đối chiếu với the technology itself trong cấu trúc not ... but ...; but nối hai phần đối chiếu, không nhận một tân ngữ riêng.
 
@@ -247,6 +260,7 @@ Phân tích:
 Tiếng Việt rất linh hoạt về cấu trúc câu — bạn có thể nói "Vì trời mưa." như một câu hoàn chỉnh trong giao tiếp. Tiếng Anh viết học thuật nghiêm ngặt hơn nhiều: "Because it rained." là lỗi ngữ pháp trong văn viết (sentence fragment).
 
 **Mẹo nhận ra clause vs. phrase:**
+
 1. Tìm **động từ chia** (conjugated verb) trong nhóm từ — has, is, studied, goes, v.v.
 2. Tìm **chủ ngữ** của động từ đó
 3. Có chủ ngữ và động từ hữu hạn → nhận diện **finite clause**. Với V-ing/to-V, xét chức năng và chủ ngữ ngầm hiểu; không dùng sự thiếu thì để phủ nhận mọi phân tích **non-finite clause**.
@@ -257,6 +271,7 @@ Tiếng Việt rất linh hoạt về cấu trúc câu — bạn có thể nói 
 ### IELTS Speaking — Phrases tạo câu tự nhiên và phong phú
 
 Thay vì nhiều câu ngắn rời rạc, dùng phrases để kết nối:
+
 - "I enjoy my work. **On top of that**, it pays well." *(prepositional phrase)*
 - "**Having lived abroad for three years**, I understand both perspectives." *(participial phrase)*
 - "She's the kind of person **who makes everyone feel welcome**." *(relative clause)*
@@ -295,6 +310,7 @@ Nếu sai, sửa cấu trúc hoặc dấu câu và giữ ý đã cho. Chỉ thê
 ### Đáp án
 
 **Xác định:**
+
 1. *In the early morning* → **Phrase** (prepositional)
 2. *She passed the exam* → **Independent Clause**
 3. *Because she studied hard* → **Dependent Clause**
@@ -305,6 +321,7 @@ Nếu sai, sửa cấu trúc hoặc dấu câu và giữ ý đã cho. Chỉ thê
 8. *The government announced new policies* → **Independent Clause**
 
 **Sửa lỗi:**
+
 1. Fragment → "**Although the economy has improved significantly, unemployment remains high.**"
 2. Run-on → "She loves cooking**; she** spends every weekend in the kitchen." hoặc "She loves cooking **, and she** spends every weekend in the kitchen."
 3. ✅ Đúng rồi
