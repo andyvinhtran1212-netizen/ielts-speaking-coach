@@ -231,7 +231,7 @@ PR #2279 (bảng ánh xạ ở plan.md).
 - **FR-012:** [PR1] Đường giao bài Black Eye đóng trong PR1: `GET /admin/cohorts/{cohort_id}/listening-source-catalog`, `POST /admin/cohorts/{cohort_id}/listening-source-assignments`, `GET /admin/cohorts/{cohort_id}/listening-source-assignments/{assignment_id}` yêu cầu admin rồi trả 503; giao bài chung (`create_assignment` ở router và `create_class_assignment` ở service) với test Black Eye trả 503 trước mọi kiểm tra hay ghi khác; với bài giao Black Eye, các route chung bù người nhận (`backfill_assignment`), đổi trạng thái (`update_assignment`), đổi hạn (`update_assignment_due`), xóa (`delete_assignment`) và trả bài (`return_student_work`) trả 503 trước mọi ghi; mọi đường giao bài khác, kể cả luồng giao bài của ADMINSIMPLE-0049 khi được làm, gặp test Black Eye phải trả 503 qua cùng `assignment_seam` cho tới PR2.
 - **FR-013:** [PR1] `answer_set_revision` (UUID mờ, không suy ra từ nội dung đáp án, không phải hash duyệt) chỉ xuất hiện ở ba bề mặt giao bài của người có quyền theo FR-027: catalog (FR-016), request tạo bài giao và biên nhận (FR-017); không xuất hiện ở bảng tiến độ, chữa bài giáo viên, mọi bề mặt học viên (kể cả body lỗi, header và `paper_revision` có thể đổi theo answer set) hay đọc trực tiếp PostgREST/Realtime bằng JWT client; lỗi validate của `blackeye_binding` trả 422 chung không lặp lại giá trị gửi lên; mọi response Black Eye mang `Cache-Control: private, no-store`.
 - **FR-014:** [PR1] Caller không phải Black Eye giữ nguyên request, response và mã lỗi: `attempt_receipt` chung, importer 40 câu, chính tả chung vẫn chấm và lưu, attempt chẩn đoán cũ không có revision không thêm lần đọc catalog; ba dòng allowlist sync-in-async đã lỗi thời được xóa vì lời gọi đã chạy qua threadpool, không thêm dòng mới.
-- **FR-015:** [PR1] SQL đề xuất `docs/proposals/blackeye-u1/admission.sql` nằm ngoài `backend/migrations/`, không có số migration, không được runner hay workflow nào phát hiện (test tĩnh `backend/tests/test_blackeye_admission_proposal_static.py` khóa điều này) và chưa chạy ở đâu; khi RPC `fn_acquire_blackeye_attempt` chưa có, start Black Eye trả 503, không tạo attempt.
+- **FR-015:** [PR1] SQL admission được đánh số `376_blackeye_admission.sql` trong `backend/migrations/`, đánh dấu `pending_feature` nhóm `blackeye_admission` trong `forward-policy.tsv` (No apply on merge); `docs/proposals/blackeye-u1/admission.sql` là bản mirror ngoài forward discovery, test tĩnh `backend/tests/test_blackeye_admission_proposal_static.py` khóa tính đồng nhất và gate; chỉ chạy trên PostgreSQL local dùng một lần để test, chưa chạy staging/prod; T004 cần Security Auditor review SQL + anh Vinh duyệt chạy, staging trước và production chỉ tại T014; khi RPC `fn_acquire_blackeye_attempt` chưa có, start Black Eye trả 503, không tạo attempt.
 - **FR-016:** [PR2] Người có quyền giao bài cho course 2 theo FR-027 xem `BlackEyeSourceCatalog = {inventory: BlackEyeUnitAdmin, eligible_recipient_ids, lookup_errors}`; `BlackEyeUnitAdmin` mang binding đủ 8 trường (có `answer_set_revision` mờ) và không trường bảo vệ nào khác (đây là một trong ba bề mặt duy nhất có trường này, xem FR-013); học viên, người được cấp quyền lớp khác và admin toàn cục không có quyền FR-027 nhận 403/404; tra cứu học viên lỗi hiện lỗi, không hiện danh sách rỗng.
 - **FR-017:** [PR2] Người có quyền theo FR-027 giao Unit 1 cho course 2 bằng `BlackEyeAssignmentCreate` (request_id, activity sẵn sàng, học viên, hạn nộp, `deadline_timezone='Asia/Ho_Chi_Minh'`, replay_policy) và nhận `BlackEyeAssignmentReceipt` với giá trị server đóng băng; trong một giao dịch: đóng băng danh sách activity có thứ tự, revision, người nhận, hạn, mẫu số hoàn thành; cùng request trả cùng biên nhận, khác dấu vân tay trả 409, revision cũ trả 409; activity khóa không chọn được; mở start/save/submit/review cho attempt được giao gắn đúng snapshot bài giao. Mọi thay đổi bài giao Black Eye (bù người nhận, trạng thái, hạn, xóa, trả bài) chỉ đi qua route Black Eye, chỉ người có quyền theo FR-027, và giữ snapshot người nhận: bù người nhận tạo bài giao và biên nhận mới, ghi vào nhật ký lớp hiện có (`class_action_log`).
 - **FR-018:** [PR2] Bảng tiến độ, chỉ cho người có quyền đọc theo FR-027, hiện, cho mỗi học viên × activity, một trạng thái lấy từ dữ liệu đã lưu: chưa bắt đầu, đang làm, đã nộp, quá hạn, không khả dụng; giờ nộp và số ô trống; không hiện điểm hay độ chính xác; chính tả là cột riêng; tải lại trang hiện cùng trạng thái; lỗi tra cứu hiện lỗi, không hiện 0.
@@ -349,13 +349,18 @@ PR #2279 (bảng ánh xạ ở plan.md).
   migration 306) và bảng `listening_test_attempts`, `listening_tests`,
   `listening_content_packages`, `class_assignments`, `class_assignment_items`.
   Không thêm bảng mới.
-- `docs/proposals/blackeye-u1/admission.sql` **chỉ là đề xuất**: đổi ba CHECK
-  `programme_id`, thêm trigger chặn admission và RPC `fn_acquire_blackeye_attempt`
-  (service-only). Chưa chạy ở đâu, kể cả local.
-- **Số migration không do spec này cấp.** Số lấy từ sổ migration của Leader /
-  Release Manager (`/workspace/cc-jobs/migrations-register.md`) khi anh Vinh
-  duyệt chạy (quyết định placement d9f3f92b ghi trong README đề xuất).
-  Chạy migration, kể cả local, cần quyết định riêng (Handoff §5.4).
+- Migration admission **376** đã được Leader / Release Manager giữ số trong
+  `/workspace/cc-jobs/migrations-register.md`; PR1 thêm file số này dưới dạng
+  `pending_feature`, nhóm `blackeye_admission`, **No apply on merge**.
+  `docs/proposals/blackeye-u1/admission.sql` là mirror ngoài forward discovery:
+  đổi ba CHECK `programme_id`, thêm trigger admission và hai RPC service-only
+  `fn_acquire_blackeye_attempt`, `fn_submit_blackeye_attempt`.
+- SQL chỉ chạy trên PostgreSQL local dùng một lần để test; chưa chạy trên
+  staging/prod. T004 vẫn cần Security Auditor review SQL và anh Vinh duyệt
+  chạy qua runner advisory lock, staging trước; production chỉ tại T014.
+- Rollback giữ CHECK đã nới và dữ liệu lịch sử; từ chối khi còn package,
+  lesson hoặc test Black Eye published hay test còn `is_public`, trước khi
+  bỏ trigger admission. Cần archive/ẩn hoặc xóa dữ liệu được phép trước đó.
 - PR2: danh sách cấp quyền FR-027 cần một bảng mới theo lớp, do một migration
   riêng tạo (số do Release Manager cấp, Security Auditor review, anh Vinh duyệt
   chạy); chỉ `service_role` ghi, không GRANT ghi cho `anon`/`authenticated`,
@@ -667,3 +672,5 @@ spec 0052 và Q-1..Q-16 theo đề xuất; FD mở PR spec".
   (F11). Không đổi quyết định Q-1..Q-16 hay D-1..D-5, không mở rộng phạm vi.
 
 - 2026-11-11 (Leader decision, CR #2281 R1 P2-4): FR-015/T004 amended: proposal SQL lands in PR1 as numbered migration 376 marked pending_feature in forward-policy.tsv, merged unexecuted (No apply on merge). T004 = SA SQL review + anh Vinh run approval; staging first, production only at T014.
+
+- 2026-11-11 (Leader decision, SA-2281-PRE-F6/F7): align FR-015, migration section and T004 with numbered 376 pending_feature and disposable-local test evidence; SA review + anh Vinh execution approval remain required.

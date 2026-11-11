@@ -339,7 +339,9 @@ def save(db, attempt, q_num, value):
     return {"attempt_id": str(attempt["id"]), "answer_count": count, "performance_event_recorded": False}
 
 
-def submit(db, attempt):
+def submit(db, attempt, user_id):
+    if str(attempt.get("user_id")) != str(user_id):
+        raise HTTPException(404, "Attempt not found")
     # Idempotent retry NEVER grades or reads live exercises/catalog.
     if attempt.get("status") == "submitted":
         return state(db, attempt)
@@ -357,12 +359,12 @@ def submit(db, attempt):
                "score": None, "band_estimate": None}
     try:
         db.rpc("fn_submit_blackeye_attempt", {
-            "p_attempt_id": str(attempt["id"]), "p_user_id": str(attempt["user_id"]),
+            "p_attempt_id": str(attempt["id"]), "p_user_id": str(user_id),
             "p_expected_answers": attempt.get("answers") or [], "p_result_summary": summary,
         }).execute()
         # Canonical readback also handles a concurrent identical submit/lost ACK.
         fresh = db.table("listening_test_attempts").select("*").eq("id", attempt["id"]).eq(
-            "user_id", attempt["user_id"]).limit(1).execute().data or []
+            "user_id", user_id).limit(1).execute().data or []
     except Exception as exc:
         if "blackeye_changed" in str(exc):
             raise HTTPException(409, "Black Eye attempt changed.") from None

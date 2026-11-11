@@ -111,6 +111,11 @@ def test_unnumbered_proposal_is_not_a_forward_migration_or_ci_script_input():
     assert len(policy) == 1 and policy[0][1:3] == ["pending_feature", "blackeye_admission"]
     assert uncomment(migration.read_text()).strip() == uncomment(SQL).strip()
     rollback = (MIGRATIONS / "rollback/376_blackeye_admission.sql").read_text()
+    assert rollback.index("RAISE EXCEPTION 'blackeye_rollback_published_content'") < rollback.index("DROP FUNCTION")
+    assert "IN SHARE MODE" in rollback
+    for table in TABLES:
+        assert f"SELECT 1 FROM public.{table}" in rollback
+    assert "status='published'" in rollback and "is_public IS TRUE" in rollback
     assert "DROP TRIGGER IF EXISTS trg_zz_blackeye_admission" in rollback
     assert not re.search(r"\b(?:DELETE|TRUNCATE|UPDATE)\b", uncomment(rollback), re.I)
     # No workflow or runnable script references the proposal. Its only reader is

@@ -1,5 +1,5 @@
--- UNNUMBERED PROPOSAL; NOT EXECUTED ANYWHERE. No history DML, new table or flag change.
--- Placement authority: d9f3f92b; number/install only after Andy approves execution.
+-- PROPOSAL MIRROR OF PENDING_FEATURE 376; LOCAL DISPOSABLE TESTS ONLY. No history DML, new table or flag change.
+-- Placement: numbered 376 pending_feature; install only after SA review + anh Vinh approves execution.
 -- Authority: c7740960 (admission), b71cfd5c (exactly three CHECK replacements),
 -- d461e884 (assignment seam closed; mapping/catalog/create/receipt in PR2).
 -- Reuses 306's immutable service-only snapshot and 311's guard unchanged.
