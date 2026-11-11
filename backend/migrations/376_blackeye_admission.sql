@@ -5,6 +5,7 @@
 -- Reuses 306's immutable service-only snapshot and 311's guard unchanged.
 -- RLS/grants on attempts/snapshots remain those of 306; no client key access.
 BEGIN;
+SET LOCAL lock_timeout = '5s';
 
 ALTER TABLE public.listening_content_packages DROP CONSTRAINT listening_content_packages_programme_id_check;
 ALTER TABLE public.listening_content_packages ADD CONSTRAINT listening_content_packages_programme_id_check

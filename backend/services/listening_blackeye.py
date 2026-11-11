@@ -564,7 +564,7 @@ def guard_generic_assignment(db, assignment_id, cohort_id=None):
         unavailable()
 
 
-def guard_generic_target(db, *, test_id=None, content_id=None, exercise_id=None, attempt_id=None, package_id=None, denied_status=404):
+def guard_generic_target(db, *, test_id=None, content_id=None, exercise_id=None, attempt_id=None, package_id=None, denied_status=404, external_test_code=False):
     try:
         if package_id:
             rows = db.table("listening_content_packages").select("id,programme_id").eq("package_id", package_id).limit(1).execute().data or []
@@ -580,6 +580,14 @@ def guard_generic_target(db, *, test_id=None, content_id=None, exercise_id=None,
         if content_id:
             rows = db.table("listening_content").select("id,test_id").eq("id", content_id).limit(1).execute().data or []
             test_id = rows[0].get("test_id") if rows else None
+        if test_id and external_test_code:
+            try:
+                UUID(str(test_id))
+            except ValueError:
+                # Dictation reports filter by the external listening_tests.test_id,
+                # while the identity guard requires the UUID primary key.
+                rows = db.table("listening_tests").select("id").eq("test_id", test_id).limit(1).execute().data or []
+                test_id = rows[0]["id"] if rows else None
         if test_id and is_blackeye(test_identity(db, test_id, missing_status=None)):
             raise HTTPException(denied_status, "Black Eye resource unavailable.")
     except HTTPException:

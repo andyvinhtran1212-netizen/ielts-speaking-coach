@@ -475,6 +475,66 @@ def test_package_slug_publish_archive(env, monkeypatch, action, hidden):
     assert calls == ([] if hidden else [(slug, 'published' if action == 'publish' else 'archived')])
 
 
+@pytest.mark.parametrize('suffix', ['', '/aggregate'])
+@pytest.mark.parametrize('target', ['uuid_generic', 'uuid_blackeye', 'uuid_unknown',
+    'external_generic', 'external_blackeye', 'external_metadata_blackeye', 'external_unknown'])
+def test_dictation_report_test_filter_resolves_external_identity(env, monkeypatch, suffix, target):
+    from uuid import UUID
+    from routers import admin_class_assignments
+    from test_listening_blackeye import Query
+    monkeypatch.setattr(lr, '_staff_admin_guard', admin_class_assignments.require_admin)
+    env.app.include_router(lr.admin_router)
+    env.actor['admin'] = True
+    hidden = 'blackeye' in target
+    unknown = 'unknown' in target
+    test = deepcopy(env.p)
+    test['test_id'] = 'C19-T1'
+    if not hidden or target == 'external_metadata_blackeye':
+        test['programme_id'] = 'ielts'
+    if not hidden:
+        test['metadata'] = {}
+    env.db.rows['listening_tests'] = [] if unknown else [test]
+    value = (str(uuid4()) if unknown else test['id']) if target.startswith('uuid_') else (
+        'UNKNOWN-CODE' if unknown else test['test_id'])
+    # Model PostgREST's UUID cast error, which the shared in-memory DB does not.
+    original_eq = Query.eq
+    def typed_eq(query, key, value):
+        if query.table == 'listening_tests' and key == 'id':
+            UUID(str(value))
+        return original_eq(query, key, value)
+    monkeypatch.setattr(Query, 'eq', typed_eq)
+    matching = dict(id='matching', test_id_external=value, accuracy=0.75, total_sentences=4)
+    env.db.rows['dictation_sessions'] = [dict(matching, id='other', test_id_external='OTHER')]
+    if not unknown:
+        env.db.rows['dictation_sessions'].append(matching)
+    response = env.client.get('/admin/listening/dictation-reports' + suffix, params={'test_id': value})
+    assert response.status_code == (404 if hidden else 200), response.text
+    if hidden:
+        assert not any(table == 'dictation_sessions' for table, _, _ in env.db.calls)
+    elif suffix:
+        assert response.json()['session_count'] == (0 if unknown else 1)
+        assert response.json()['mean_accuracy'] == (0 if unknown else 0.75)
+    else:
+        assert response.json()['total'] == (0 if unknown else 1)
+        assert [row['id'] for row in response.json()['items']] == ([] if unknown else ['matching'])
+    assert not any(patch or table == 'mock_paper_attempt_snapshots' for table, _, patch in env.db.calls)
+
+
+@pytest.mark.parametrize('suffix', ['', '/aggregate'])
+def test_dictation_external_lookup_requires_staff_and_fails_closed(env, monkeypatch, suffix):
+    from routers import admin_class_assignments
+    monkeypatch.setattr(lr, '_staff_admin_guard', admin_class_assignments.require_admin)
+    env.app.include_router(lr.admin_router)
+    path = '/admin/listening/dictation-reports' + suffix
+    assert env.client.get(path, params={'test_id': 'C19-T1'}).status_code == 403
+    assert env.db.calls == []
+    env.actor['admin'] = True
+    def unavailable_table(_name):
+        raise RuntimeError('synthetic identity lookup outage')
+    monkeypatch.setattr(env.db, 'table', unavailable_table)
+    assert env.client.get(path, params={'test_id': 'C19-T1'}).status_code == 503
+
+
 @pytest.mark.parametrize('count', [10, 500])
 def test_hidden_assignment_scan_constant_calls_and_cohort_scope(env, count):
     env.db.rows['class_assignments'] = [dict(id=f'a-{i}', skill='listening', cohort_id='target',
