@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+import { BlackEyeRunner } from '@/components/listening-blackeye';
 import { useAuth } from '@/lib/auth/auth-provider';
 import type { ApiGetJson } from '@/lib/openapi-contract';
 import type { AuthStatus } from '@/lib/auth/auth-provider';
@@ -39,6 +40,8 @@ function feedbackResponseFields(question: Question, item: FeedbackItem | undefin
 interface SupplementScope { supplements?: components['schemas']['SourceSupplementalQuestion'][]; sourceBlocks?: ListeningSourceBlockWire[]; manifest?: string }
 export function ProgrammeFormRunner({ testId, active = true, embedded = false, supplements, sourceBlocks, manifest }: { testId: string; active?: boolean; embedded?: boolean } & SupplementScope) {
   const { status, user } = useAuth();
+  const params = useSearchParams();
+  if (params?.get('blackeye') === '1') return <BlackEyeRunner key={JSON.stringify([status, user?.id ?? null, testId])} testId={testId} />;
   return <ProgrammeFormView key={JSON.stringify([status, user?.id ?? null, testId])} testId={testId} status={status} userId={user?.id ?? null} active={active} embedded={embedded} supplements={supplements} sourceBlocks={sourceBlocks} manifest={manifest} />;
 }
 

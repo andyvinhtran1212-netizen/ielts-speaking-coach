@@ -250,12 +250,17 @@ def test_r2_o5_guided_denies_before_marking_reads(env,assigned,path,method,body)
     assert env.db.rpcs == []
 
 
-def test_o6_player_playback_interim_no_bundle_no_sign_no_mutation(env):
+def test_o6_player_playback_positive_dto_no_generic_or_protected_io(env):
     a=env.db.freeze(env.p)
-    r=env.client.get(f'{BASE}/tests/{env.p["id"]}'); assert r.status_code == 503,r.text; leak_free(env,r)
+    r=env.client.get(f'{BASE}/tests/{env.p["id"]}'); assert r.status_code == 200,r.text; leak_free(env,r)
+    assert set(r.json()) == {'activity','attempt','replay_policy','audio'}
+    assert r.json()['attempt'] is None and r.json()['audio']['url'] is None
+    assert not any(patch for _,_,patch in env.db.calls)
     r=env.client.post(f'{BASE}/tests/attempts/{a["id"]}/playback-started', json={"playback_claim_id":str(uuid4())})
-    assert r.status_code == 503,r.text; leak_free(env,r)
-    assert env.db.rpcs == [] and not any(patch for _,_,patch in env.db.calls)
+    assert r.status_code == 200,r.text; leak_free(env,r)
+    assert r.json()['accepted'] is True and r.json()['replay_policy'] == 'allowed'
+    assert env.db.rpcs == []
+    assert not any('marking_rows' in cols for _,cols,_ in env.db.calls)
 
 
 def test_n4_composite_save_reload_submit_retry_review_lossless(env):
@@ -339,12 +344,13 @@ def test_cross_owner_and_global_admin_do_not_read_marking(env):
     assert not any("marking_rows" in cols for _,cols,_ in env.db.calls)
 
 
-@pytest.mark.parametrize("method,path", [("get","/listening-source-catalog?collection_id=blackeye-v5-upper&unit_id=U1"),("post","/listening-source-assignments"),("get","/listening-source-assignments/fixture-assignment")])
-def test_assignment_seam_never_catalogs_creates_receipts(env,method,path):
+@pytest.mark.parametrize("method,path,expected", [("get","/listening-source-catalog?collection_id=blackeye-v5-upper&unit_id=U1",403),("post","/listening-source-assignments",422),("get","/listening-source-assignments/fixture-assignment",404)])
+def test_assignment_surfaces_deny_without_creator_capability(env,method,path,expected):
     env.actor["admin"]=True
     r=getattr(env.client,method)("/admin/cohorts/fixture-cohort"+path)
-    assert r.status_code == 503,r.text; leak_free(env,r)
-    assert env.db.calls == [] and env.db.rpcs == []
+    assert r.status_code == expected,r.text; leak_free(env,r)
+    assert env.db.rpcs == []
+    assert not any(t == 'mock_paper_attempt_snapshots' or patch for t,_,patch in env.db.calls)
 
 
 def test_assigned_start_seam_and_generic_give_service_reject(env):

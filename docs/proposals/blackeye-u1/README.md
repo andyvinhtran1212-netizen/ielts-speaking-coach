@@ -30,3 +30,13 @@ Local HTTP contracts and all fixtures are synthetic. No book content, answers,
 audio uploads, staging/prod writes, live migration runs or environment changes are
 part of this PR. Catalog/grant runtime checks, independent SA review, and MV1
 closure remain release gates; static tests do not prove live database behavior.
+
+Migration **377**, `backend/migrations/377_blackeye_course2_grants.sql`, is the
+unexecuted grant-list-only file for FR-027 (`pending_feature`, `blackeye_grants`).
+No apply on merge; separate SA review and Vinh run approval, staging first under
+the advisory lock; production only at T014. It seeds no grants. CV-1 remains
+open: no grant/revoke route or UI exists. Creator-only authorization remains.
+The grant and audit tables store append-only grant/revoke events; old events
+cannot be updated, deleted or truncated. Self-grants fail. Manual rollback
+refuses to remove existing history. The next new migration remains **378**,
+after checking `/workspace/cc-jobs/migrations-register.md`.

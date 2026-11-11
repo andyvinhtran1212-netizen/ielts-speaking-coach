@@ -201,3 +201,87 @@ class BlackEyeSaveAck(BlackEyeModel):
     attempt_id: str
     answer_count: int
     performance_event_recorded: bool
+
+
+class BlackEyePlayer(BlackEyeModel):
+    activity: BlackEyeActivityPublic
+    attempt: BlackEyeAttemptState | None
+    replay_policy: Literal['allowed']
+    audio: BlackEyeReviewAudio
+
+
+class BlackEyePlaybackAck(BlackEyeModel):
+    attempt_id: str
+    accepted: Literal[True]
+    replay_policy: Literal['allowed']
+    playback_started_at: str
+
+
+class BlackEyeActivityAdmin(BlackEyeActivityPublic):
+    binding: BlackEyeRevisionBinding
+
+
+class BlackEyeUnitAdmin(BlackEyeModel):
+    collection_id: Literal['blackeye-v5-upper']
+    unit_id: Literal['U1']
+    activities: list[BlackEyeActivityAdmin]
+
+
+class BlackEyeSourceCatalog(BlackEyeModel):
+    inventory: BlackEyeUnitAdmin
+    eligible_recipient_ids: list[str]
+    lookup_errors: list[str]
+
+
+class BlackEyeAssignmentCreate(BlackEyeModel):
+    request_id: Annotated[str, Field(pattern=r'^[0-9a-fA-F-]{36}$')]
+    activities: Annotated[list[BlackEyeRevisionBinding], Field(min_length=1, max_length=17)]
+    recipient_ids: Annotated[list[str], Field(min_length=1, max_length=500)]
+    due_at: str
+    deadline_timezone: Literal['Asia/Ho_Chi_Minh']
+    replay_policy: Literal['allowed'] = 'allowed'
+
+    @model_validator(mode='after')
+    def frozen_selection(self):
+        from datetime import datetime
+        from uuid import UUID
+        UUID(self.request_id)
+        if len(set(self.recipient_ids)) != len(self.recipient_ids):
+            raise ValueError('duplicate recipient')
+        if len({a.activity_id for a in self.activities}) != len(self.activities):
+            raise ValueError('duplicate activity')
+        if any(a.activity_id in {'U1-A08', 'U1-A14', 'U1-A19'} for a in self.activities):
+            raise ValueError('activity locked')
+        deadline = datetime.fromisoformat(self.due_at.replace('Z', '+00:00'))
+        if deadline.tzinfo is None:
+            raise ValueError('deadline offset required')
+        return self
+
+
+class BlackEyeAssignmentReceipt(BlackEyeModel):
+    assignment_id: str
+    request_id: str
+    cohort_id: str
+    activities: list[BlackEyeRevisionBinding]
+    recipient_ids: list[str]
+    due_at: str
+    deadline_timezone: Literal['Asia/Ho_Chi_Minh']
+    replay_policy: Literal['allowed']
+    completion_denominator: int
+
+
+class BlackEyeProgressCell(BlackEyeModel):
+    student_id: str
+    activity_id: str
+    item_id: str
+    attempt_id: str | None
+    status: Literal['not_started', 'in_progress', 'submitted', 'expired', 'unavailable']
+    submitted_at: str | None
+    blank_count: int | None
+
+
+class BlackEyeAssignmentProgress(BlackEyeModel):
+    assignment_id: str
+    cohort_id: str
+    cells: list[BlackEyeProgressCell]
+    dictation: BlackEyeDictation

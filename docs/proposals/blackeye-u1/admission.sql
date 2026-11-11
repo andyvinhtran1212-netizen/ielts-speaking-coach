@@ -1,5 +1,5 @@
--- UNNUMBERED PROPOSAL; NOT EXECUTED ANYWHERE. No history DML, new table or flag change.
--- Placement authority: d9f3f92b; number/install only after Andy approves execution.
+-- BLACKEYE-0052: reserved migration 376; NOT EXECUTED. No history DML, new table or flag change.
+-- Number reserved by Leader in migrations-register.md; execution requires separate approval.
 -- Authority: c7740960 (admission), b71cfd5c (exactly three CHECK replacements),
 -- d461e884 (assignment seam closed; mapping/catalog/create/receipt in PR2).
 -- Reuses 306's immutable service-only snapshot and 311's guard unchanged.
@@ -116,7 +116,7 @@ CREATE TRIGGER trg_zz_blackeye_admission BEFORE INSERT ON public.listening_test_
 CREATE OR REPLACE FUNCTION public.fn_acquire_blackeye_attempt(
     p_test_id UUID,p_user_id UUID,p_binding JSONB,p_renderer_affinity_protocol TEXT DEFAULT 'legacy')
 RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$
-DECLARE paper JSONB; full_binding JSONB; visible JSONB; attempt JSONB; snapshot JSONB; acquired RECORD;
+DECLARE paper JSONB; full_binding JSONB; visible JSONB; attempt JSONB; snapshot JSONB;
 BEGIN
     IF auth.role() IS DISTINCT FROM 'service_role' OR p_test_id IS NULL OR p_user_id IS NULL THEN
         RAISE EXCEPTION 'blackeye_forbidden';
@@ -146,20 +146,23 @@ BEGIN
         RAISE EXCEPTION 'blackeye_invalid_binding';
     END IF;
     IF p_binding IS DISTINCT FROM visible THEN RAISE EXCEPTION 'blackeye_stale'; END IF;
-    -- Never let 295's duplicate repair/abandon path modify Black Eye history.
+    -- Q-16: reuse only a live attempt. Retain submitted and expired rows.
     IF (SELECT count(*) FROM public.listening_test_attempts a WHERE a.test_id=p_test_id
-        AND a.user_id=p_user_id AND a.class_assignment_item_id IS NULL AND a.sitting_id IS NULL)>1 THEN
+        AND a.user_id=p_user_id AND a.class_assignment_item_id IS NULL AND a.sitting_id IS NULL
+        AND a.status='in_progress' AND a.resume_expires_at>clock_timestamp())>1 THEN
         RAISE EXCEPTION 'blackeye_unavailable';
     END IF;
     SELECT to_jsonb(a) INTO attempt FROM public.listening_test_attempts a WHERE a.test_id=p_test_id
-        AND a.user_id=p_user_id AND a.class_assignment_item_id IS NULL AND a.sitting_id IS NULL FOR UPDATE;
+        AND a.user_id=p_user_id AND a.class_assignment_item_id IS NULL AND a.sitting_id IS NULL
+        AND a.status='in_progress' AND a.resume_expires_at>clock_timestamp() FOR UPDATE;
     IF attempt IS NULL THEN
-        SELECT * INTO acquired FROM public.fn_acquire_listening_programme_attempt_v2(
-            p_test_id,p_user_id,p_renderer_affinity_protocol);
-        SELECT to_jsonb(a) INTO attempt FROM public.listening_test_attempts a WHERE a.id=acquired.attempt_id;
-    ELSIF attempt->>'status' NOT IN ('in_progress','submitted') OR
-          (attempt->>'status'='in_progress' AND (attempt->>'resume_expires_at')::TIMESTAMPTZ<=clock_timestamp()) THEN
-        RAISE EXCEPTION 'blackeye_invalid_inactive';
+        INSERT INTO public.listening_test_attempts
+            (test_id,user_id,status,answers,scoring_policy,started_at,resume_expires_at,
+             renderer_affinity,attempt_purpose)
+        VALUES (p_test_id,p_user_id,'in_progress','[]'::jsonb,'report_only',clock_timestamp(),
+                clock_timestamp()+interval '24 hours',
+                CASE WHEN p_renderer_affinity_protocol='claim-v1' THEN NULL ELSE 'legacy' END,'practice')
+        RETURNING to_jsonb(listening_test_attempts.*) INTO attempt;
     END IF;
     SELECT to_jsonb(s) INTO snapshot FROM public.mock_paper_attempt_snapshots s
         WHERE s.skill='listening' AND s.attempt_id=(attempt->>'id')::UUID
@@ -170,7 +173,7 @@ BEGIN
     END IF;
     -- Existing attempts retain their original answer set even after a key-only
     -- publication. Public equality does not compare/echo the hidden identity.
-    IF (snapshot#>'{paper_row,metadata,blackeye,binding}'-'answer_set_revision') IS DISTINCT FROM p_binding THEN
+    IF ((snapshot#>'{paper_row,metadata,blackeye,binding}')-'answer_set_revision') IS DISTINCT FROM p_binding THEN
         RAISE EXCEPTION 'blackeye_stale';
     END IF;
     RETURN attempt;

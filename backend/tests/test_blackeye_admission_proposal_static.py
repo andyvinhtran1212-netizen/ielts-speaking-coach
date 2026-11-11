@@ -23,6 +23,18 @@ def assert_narrow_sql(sql):
         assert len(re.findall(exact, remaining, re.I)) == 1
         remaining = re.sub(exact, "", remaining, flags=re.I)
     assert not re.search(r"\bDROP\b", remaining, re.I), "non-whitelisted DROP"
+    approved_insert = """INSERT INTO public.listening_test_attempts
+            (test_id,user_id,status,answers,scoring_policy,started_at,resume_expires_at,
+             renderer_affinity,attempt_purpose)
+        VALUES (p_test_id,p_user_id,'in_progress','[]'::jsonb,'report_only',clock_timestamp(),
+                clock_timestamp()+interval '24 hours',
+                CASE WHEN p_renderer_affinity_protocol='claim-v1' THEN NULL ELSE 'legacy' END,'practice')
+        RETURNING to_jsonb(listening_test_attempts.*) INTO attempt;"""
+    assert remaining.count(approved_insert) == 1
+    acquire = remaining[remaining.index("CREATE OR REPLACE FUNCTION public.fn_acquire_blackeye_attempt("):]
+    assert approved_insert in acquire[:acquire.index("END $$;")]
+    remaining = remaining.replace(approved_insert, "", 1)
+
     # Permit exactly the authorized submit UPDATE, inside its sole function.
     # Keep the destructive-statement scan over every other function and SQL.
     approved_update = """UPDATE public.listening_test_attempts SET status='submitted',submitted_at=clock_timestamp(),
@@ -82,11 +94,11 @@ def test_definer_search_path_grants_and_atomic_admission_source_invariants():
     assert "REVOKE ALL ON FUNCTION public.fn_acquire_blackeye_attempt(UUID,UUID,JSONB,TEXT) FROM PUBLIC,anon,authenticated;" in clean
     assert "GRANT EXECUTE ON FUNCTION public.fn_acquire_blackeye_attempt(UUID,UUID,JSONB,TEXT) TO service_role;" in clean
     acquire = dict(functions)["fn_acquire_blackeye_attempt"]
-    assert acquire.index("fn_lock_mock_paper") < acquire.index("full_binding:=") < acquire.index("fn_acquire_listening_programme_attempt_v2")
+    assert acquire.index("fn_lock_mock_paper") < acquire.index("full_binding:=") < acquire.index("INSERT INTO public.listening_test_attempts")
     assert "pg_advisory_xact_lock" in acquire and "FOR UPDATE" in acquire
     assert "p_binding ? 'answer_set_revision'" in acquire
     assert "full_binding-'answer_set_revision'" in acquire
-    assert "snapshot#>'{paper_row,metadata,blackeye,binding}'-'answer_set_revision'" in acquire
+    assert "(snapshot#>'{paper_row,metadata,blackeye,binding}')-'answer_set_revision'" in acquire
     assert "mock_paper_attempt_snapshots" in acquire
     assert "fn_mock_admission_contract_active()" in acquire
     guard = dict(functions)["fn_guard_blackeye_admission"]
@@ -169,3 +181,11 @@ def test_strict_proposal_isolation_applies_to_every_script_path():
         for text in ("-- fn_acquire_blackeye_attempt", "SELECT public.fn_acquire_blackeye_attempt("):
             with pytest.raises(AssertionError):
                 assert_no_proposal_script_input(path, text)
+
+
+def test_q16_new_attempt_preserves_expired_and_submitted_work():
+    acquire = SQL[SQL.index('CREATE OR REPLACE FUNCTION public.fn_acquire_blackeye_attempt('):SQL.index('-- A service-only submit boundary;')]
+    assert "a.status='in_progress' AND a.resume_expires_at>clock_timestamp()" in acquire
+    assert "fn_acquire_listening_programme_attempt_v2" not in acquire
+    assert not re.search(r"\b(?:UPDATE|DELETE)\s+public\.", acquire, re.I)
+    assert "INSERT INTO public.listening_test_attempts" in acquire

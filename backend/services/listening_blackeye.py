@@ -1,7 +1,7 @@
 """Black Eye boundary; immutable existing snapshot storage, no live-key fallback.
 
-PR1 assignment seam is intentionally closed (uid d461e884). Player/audio stays
-503 pending playback integration; never invoke the permissive generic assembler.
+Assignment creation remains closed pending the multi-activity ledger decision.
+Player delivery uses a positive DTO; never invoke the generic assembler.
 """
 from __future__ import annotations
 
@@ -575,3 +575,202 @@ def exclude_assignments(db, query, *, key="id", cohort_id=None):
     for offset in range(0, len(ids), 100):
         query = query.or_(f"{key}.is.null,{key}.not.in.({','.join(ids[offset:offset + 100])})")
     return query
+
+
+def player(db, test, user_id, *, attempt_id=None, class_item=None, sitting_id=None):
+    """Positive Black Eye DTO. Authorize owner before snapshot access or signing."""
+    from models.listening_blackeye import BlackEyePlayer
+    require_published(db, test)
+    if sitting_id:
+        raise HTTPException(422, 'Invalid Black Eye context.')
+    attempt = None
+    if attempt_id:
+        try:
+            rows = db.table('listening_test_attempts').select('*').eq('id', str(attempt_id)).eq(
+                'user_id', user_id).eq('test_id', str(test['id'])).limit(1).execute().data or []
+        except Exception:
+            unavailable()
+        if len(rows) != 1:
+            raise HTTPException(404, 'Black Eye attempt unavailable.')
+        attempt = rows[0]
+        if attempt.get('class_assignment_item_id') != class_item:
+            raise HTTPException(404, 'Black Eye attempt unavailable.')
+        attempt_state = state(db, attempt)
+        activity, _, _ = frozen_public(db, attempt)
+        # Audio paths come from the same immutable snapshot as the cells.
+        try:
+            rows = db.table('mock_paper_attempt_snapshots').select('paper_row').eq(
+                'skill', 'listening').eq('attempt_id', str(attempt_id)).limit(1).execute().data or []
+            if len(rows) != 1:
+                unavailable()
+            paper = rows[0]['paper_row']
+        except Exception:
+            unavailable()
+    else:
+        if class_item:
+            assignment_seam()
+        activity, _ = activity_from_paper(test)
+        attempt_state, paper = None, test
+    # Before admission this is only a public preview; no audio capability.
+    url = None
+    if attempt is not None:
+        require_ready(activity)
+        path = paper.get('assembled_audio_storage_path') or paper.get('full_audio_storage_path')
+        if path:
+            from config import settings
+            try:
+                signed = db.storage.from_(settings.LISTENING_AUDIO_BUCKET).create_signed_url(path, 7200)
+                url = (signed or {}).get('signedURL') or (signed or {}).get('signed_url')
+                if not isinstance(url, str) or not url:
+                    unavailable()
+            except Exception:
+                unavailable()
+    return BlackEyePlayer(activity=activity, attempt=attempt_state, replay_policy='allowed',
+        audio={'url': url, 'granularity': 'whole_activity', 'expires_in': 7200 if url else None})
+
+
+def playback_started(db, attempt):
+    from datetime import datetime, timezone
+    from models.listening_blackeye import BlackEyePlaybackAck
+    state(db, attempt)
+    if attempt.get('status') != 'in_progress':
+        raise HTTPException(422, 'Black Eye attempt inactive.')
+    require_published(db, test_identity(db, attempt['test_id']))
+    timestamp = attempt.get('playback_started_at')
+    try:
+        if not timestamp:
+            timestamp = datetime.now(timezone.utc).isoformat()
+            db.table('listening_test_attempts').update({'playback_started_at': timestamp}).eq(
+                'id', attempt['id']).eq('user_id', attempt['user_id']).eq('status', 'in_progress').is_(
+                'playback_started_at', 'null').execute()
+        rows = db.table('listening_test_attempts').select('playback_started_at,status').eq(
+            'id', attempt['id']).eq('user_id', attempt['user_id']).limit(1).execute().data or []
+        if len(rows) != 1 or rows[0].get('status') != 'in_progress' or not rows[0].get('playback_started_at'):
+            raise HTTPException(409, 'Black Eye attempt changed.')
+        return BlackEyePlaybackAck(attempt_id=str(attempt['id']), accepted=True,
+            replay_policy='allowed', playback_started_at=rows[0]['playback_started_at'])
+    except HTTPException:
+        raise
+    except Exception:
+        unavailable()
+
+
+def authorized_assignment(db, actor_id, cohort_id, assignment_id):
+    """CV-1 fallback: capability belongs to this assignment's creator only."""
+    try:
+        rows = db.table('class_assignments').select('*').eq('id', assignment_id).eq(
+            'cohort_id', cohort_id).limit(1).execute().data or []
+        if len(rows) != 1 or not assignment_is_blackeye(db, rows[0]):
+            raise HTTPException(404, 'Black Eye assignment unavailable.')
+        if rows[0].get('assigned_by') != actor_id:
+            # Someone with a creator capability for another cohort receives
+            # the non-existence response required for role O.
+            other = db.table('class_assignments').select('id').eq('assigned_by', actor_id).limit(1).execute().data or []
+            raise HTTPException(404 if other else 403, 'Black Eye assignment unavailable.')
+        return rows[0]
+    except HTTPException:
+        raise
+    except Exception:
+        unavailable()
+
+
+def assignment_progress(db, actor_id, cohort_id, assignment_id):
+    from datetime import datetime, timezone
+    from models.listening_blackeye import BlackEyeAssignmentProgress
+    assignment = authorized_assignment(db, actor_id, cohort_id, assignment_id)
+    try:
+        items = db.table('class_assignment_items').select('id,student_id').eq(
+            'assignment_id', assignment_id).order('id').execute().data or []
+        frozen = assignment.get('content_config', {}).get('blackeye', {})
+        binding = BlackEyeRevisionBinding.model_validate(frozen['binding'])
+        now = datetime.now(timezone.utc)
+        due = assignment.get('due_at')
+        past_due = bool(due and datetime.fromisoformat(due.replace('Z', '+00:00')) <= now)
+        cells = []
+        for item in items:
+            attempts = db.table('listening_test_attempts').select(
+                'id,status,submitted_at,resume_expires_at,result_summary,created_at').eq(
+                'class_assignment_item_id', item['id']).eq('test_id', assignment['content_id']).order(
+                'created_at', desc=True).execute().data or []
+            submitted = next((a for a in attempts if a.get('status') == 'submitted'), None)
+            latest = submitted or next(iter(attempts), None)
+            status, blank, submitted_at = 'not_started', None, None
+            if assignment.get('status') != 'published':
+                status = 'unavailable'
+            elif submitted:
+                summary = submitted.get('result_summary') or {}
+                blank, submitted_at = summary.get('blank_count'), submitted.get('submitted_at')
+                if type(blank) is not int or blank < 0 or not submitted_at:
+                    unavailable()
+                status = 'submitted'
+            elif latest:
+                expiry = latest.get('resume_expires_at')
+                if not expiry:
+                    unavailable()
+                status = 'expired' if past_due or datetime.fromisoformat(expiry.replace('Z', '+00:00')) <= now else 'in_progress'
+            elif past_due:
+                status = 'expired'
+            cells.append(dict(student_id=item['student_id'], activity_id=binding.activity_id,
+                item_id=item['id'], attempt_id=latest['id'] if latest else None, status=status,
+                submitted_at=submitted_at, blank_count=blank))
+        return BlackEyeAssignmentProgress(assignment_id=assignment_id, cohort_id=cohort_id,
+            cells=cells, dictation={'available': False, 'reason': 'separate_release_required'})
+    except HTTPException:
+        raise
+    except Exception:
+        unavailable()
+
+
+def catalog_authority(db, actor_id, cohort_id):
+    """No bootstrap from global admin. Existing Black Eye creator capability only."""
+    try:
+        rows = db.table('class_assignments').select('id,cohort_id,assigned_by,skill,content_id,content_config').eq(
+            'assigned_by', actor_id).order('id').execute().data or []
+        owned = [r for r in rows if assignment_is_blackeye(db, r)]
+        if not any(r.get('cohort_id') == cohort_id for r in owned):
+            raise HTTPException(404 if owned else 403, 'Black Eye assignment unavailable.')
+    except HTTPException:
+        raise
+    except Exception:
+        unavailable()
+
+
+def admin_catalog(db, actor_id, cohort_id):
+    from models.listening_blackeye import BlackEyeActivityAdmin, BlackEyeSourceCatalog
+    catalog_authority(db, actor_id, cohort_id)
+    try:
+        rows = db.table('listening_tests').select(
+            'id,programme_id,status,is_public,scoring_policy,content_package_id,metadata').eq(
+            'programme_id', PROGRAMME).eq('status', 'published').eq('is_public', True).execute().data or []
+        activities = []
+        for row in rows:
+            require_published(db, row)
+            activity, full = activity_from_paper(row)
+            activities.append(BlackEyeActivityAdmin.model_validate({**activity.model_dump(), 'binding': full.model_dump()}))
+        if not activities or len({a.binding.activity_id for a in activities}) != len(activities):
+            unavailable()
+        errors, recipients = [], []
+        try:
+            from services.class_membership_service import active_students_for_cohort
+            students = active_students_for_cohort(db, cohort_id, 'id,user_id,is_active,archived_at')
+            recipients = [str(s['id']) for s in students if s.get('user_id') and s.get('is_active') is True and not s.get('archived_at')]
+        except Exception:
+            errors = ['recipient_lookup_failed']
+        return BlackEyeSourceCatalog(inventory={'collection_id': 'blackeye-v5-upper', 'unit_id': 'U1',
+            'activities': sorted(activities, key=lambda a: a.order)}, eligible_recipient_ids=recipients, lookup_errors=errors)
+    except HTTPException:
+        raise
+    except Exception:
+        unavailable()
+
+
+def assignment_receipt(db, actor_id, cohort_id, assignment_id):
+    from models.listening_blackeye import BlackEyeAssignmentReceipt
+    assignment = authorized_assignment(db, actor_id, cohort_id, assignment_id)
+    try:
+        receipt = BlackEyeAssignmentReceipt.model_validate(assignment['content_config']['blackeye']['receipt'])
+        if receipt.assignment_id != assignment_id or receipt.cohort_id != cohort_id:
+            unavailable()
+        return receipt
+    except Exception:
+        unavailable()

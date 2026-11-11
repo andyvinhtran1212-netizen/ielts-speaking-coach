@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+import { BlackEyeReview } from '@/components/listening-blackeye';
+import type { components } from '@/types/api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import type { AuthStatus } from '@/lib/auth/auth-provider';
 import { ListeningSourceExplanation } from '@/components/listening-source-explanation';
@@ -27,6 +29,8 @@ export function ProgrammeResult({ attemptId }: { attemptId: string }) {
 
 function ProgrammeResultView({ attemptId, status, userId }: { attemptId: string; status: AuthStatus; userId: string | null }) {
   const params = useSearchParams();
+  const [retry, setRetry] = useState(0);
+  const [blackeye, setBlackeye] = useState<components['schemas']['BlackEyeActivityReview'] | null>(null);
   const [state, setState] = useState<State>({ status: 'loading' }); const [audioError, setAudioError] = useState(''); const audio = useRef<HTMLAudioElement | null>(null);
   const audioSource = useRef(''); const mediaGeneration = useRef(0); const mounted = useRef(true);
   audioSource.current = state.status === 'ready' ? state.result.audioUrl : '';
@@ -54,13 +58,14 @@ function ProgrammeResultView({ attemptId, status, userId }: { attemptId: string;
     (async () => {
       const ready = await whenGlobalReady(() => !!window.api?.getWith, 'window.api (programme result)'); if (!ready || !active) throw new Error();
       const payload = row(await window.api.getWith<ListeningProgrammeReviewWire>(`/api/listening/tests/attempts/${encodeURIComponent(attemptId)}/review`, undefined, { signal: controller.signal }));
+      if (row(payload.attempt).binding && row(row(payload.attempt).binding).programme_id === 'blackeye-v5-upper-listening') { if (active) setBlackeye(payload as unknown as components['schemas']['BlackEyeActivityReview']); return; }
       if (payload.scoring_policy !== 'report_only') throw new Error();
       const review = (Array.isArray(payload.review) ? payload.review : []).map((value) => { const item = row(value); return { qNum: Number(item.q_num), state: String(item.state || (item.correct == null ? 'unscored' : 'checked')), correct: typeof item.correct === 'boolean' ? item.correct : null, userAnswer: String(item.user_answer || ''), firstAnswer: item.first_answer == null ? null : String(item.first_answer), expected: item.expected as string | string[], prompt: String(item.prompt || ''), responseType: String(item.question_type || ''), fields: Array.isArray(item.fields) ? item.fields as ListeningSourceResponseFieldWire[] : [], audioWindow: row(item.audio_window) as ReviewItem['audioWindow'], solution: row(item.solution), selfReview: row(item.self_review), sourceLabel: item.source_display_number ? String(item.source_display_number) : undefined, explanation: item.explanation ? item.explanation as ListeningSourceExplanationWire : undefined, reviewStatus: item.review_status ? String(item.review_status) : undefined, provenance: item.answer_provenance ? String(item.answer_provenance) : undefined, audioGranularity: item.audio_granularity ? String(item.audio_granularity) : undefined }; });
       const summaryRaw = row(payload.result_summary); const summary: Record<string, number> = {}; for (const [key, value] of Object.entries(summaryRaw)) summary[key] = Number(value || 0);
       if (active) setState({ status: 'ready', result: { title: String(payload.title || 'Kết quả luyện nghe'), programmeId: String(payload.programme_id || ''), lessonId: String(payload.listening_lesson_id || ''), audioUrl: String(payload.audio_url || ''), audioGranularity: String(payload.audio_granularity || ''), replayPolicy: String(payload.replay_policy || ''), assisted: payload.assisted === true, summary, review, transcripts: row(payload.controlled_transcripts) as Result['transcripts'] } });
     })().catch(() => { if (active) setState({ status: 'error' }); });
     return () => { active = false; controller.abort(); };
-  }, [attemptId, status, userId]);
+  }, [attemptId, status, userId, retry]);
   function replay(item: ReviewItem) {
     setAudioError('');
     const generation = mediaGeneration.current;
@@ -71,8 +76,9 @@ function ProgrammeResultView({ attemptId, status, userId }: { attemptId: string;
       if (mounted.current && generation === mediaGeneration.current && replayController.current === controller && !started) setAudioError('Không phát được đoạn nghe. Bạn có thể thử lại.');
     });
   }
+  if (blackeye) return <main><BlackEyeReview review={blackeye} /><a href={blackeye.attempt.context.cohort_id ? `/my-classes/${encodeURIComponent(blackeye.attempt.context.cohort_id)}` : '/listening/blackeye'}>Về lớp / Unit 1</a></main>;
   if (state.status === 'loading') return <main className="programme-result programme-result-state" role="status">Đang tải phần tự đối chiếu…</main>;
-  if (state.status === 'error') return <main className="programme-result programme-result-state is-error" role="alert"><p>Không tải được kết quả.</p><a href="/listening">Về trang Luyện nghe</a></main>;
+  if (state.status === 'error') return <main className="programme-result programme-result-state is-error" role="alert"><p>Không tải được kết quả hoặc bài chưa được nộp.</p><button onClick={() => { setState({ status: 'loading' }); setRetry(retry + 1); }}>Thử tải lại chữa bài</button><a href="/listening">Về trang Luyện nghe</a></main>;
   const { result } = state; const summary = result.summary;
   const wholeDayReplay = result.programmeId === 'ielts-80-days-listening' && result.replayPolicy === 'allowed' && result.audioGranularity === 'whole_day' && !!result.audioUrl;
   const libraryPath = result.programmeId === 'ielts-80-days-listening'

@@ -173,3 +173,60 @@ def test_submit_save_race_serializes_on_attempt_row(blackeye_schema, save_first)
     assert row['status'] == ('in_progress' if save_first else 'submitted')
     assert len(row['answers']) == (1 if save_first else 0)
     assert (row['result_summary'] is None) is save_first
+
+
+def test_q16_acquire_retains_submitted_and_expired_attempts(blackeye_schema):
+    """Execute the real acquire/guard; synthetic adapters stand in for 306 IO."""
+    from test_listening_blackeye import paper
+    schema = blackeye_schema
+    test = paper(activity='U1-A02')
+    package, content, user = uuid4(), uuid4(), uuid4()
+    test['content_package_id'] = str(package)
+    payload = test['metadata']['blackeye']
+    review = dict(binding=payload['binding'], items=[dict(q_num=i['q_num'],source_item_id=i['source_item_id'],scoring_mode='SELF-CHECK') for i in payload['items']],transcript=[])
+    def literal(value): return "'" + json.dumps(value).replace("'", "''") + "'::jsonb"
+    psql(f'''ALTER TABLE {schema}.listening_content_packages ADD COLUMN status text;
+      ALTER TABLE {schema}.listening_tests ADD COLUMN status text, ADD COLUMN is_public boolean,
+        ADD COLUMN scoring_policy text, ADD COLUMN content_package_id uuid,
+        ADD COLUMN mock_content_revision bigint, ADD COLUMN policy_revision bigint;
+      ALTER TABLE {schema}.listening_test_attempts ALTER COLUMN id SET DEFAULT gen_random_uuid();
+      ALTER TABLE {schema}.listening_test_attempts ADD COLUMN started_at timestamptz,
+        ADD COLUMN renderer_affinity text;
+      CREATE TABLE {schema}.listening_content(id uuid,test_id uuid,status text);
+      CREATE TABLE {schema}.listening_exercises(content_id uuid,status text,payload jsonb);
+      INSERT INTO {schema}.listening_content_packages(id,programme_id,status)
+        VALUES ('{package}','blackeye-v5-upper-listening','published');
+      INSERT INTO {schema}.listening_tests(id,programme_id,metadata,status,is_public,scoring_policy,
+        content_package_id,mock_content_revision,policy_revision)
+        VALUES ('{test['id']}','blackeye-v5-upper-listening',{literal(test['metadata'])},'published',true,
+        'report_only','{package}',973821,973822);
+      INSERT INTO {schema}.listening_content VALUES ('{content}','{test['id']}','published');
+      INSERT INTO {schema}.listening_exercises VALUES ('{content}','published',{literal({'blackeye_review':review})});
+      CREATE FUNCTION {schema}.synthetic_revision_adapter() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN NEW.paper_revision:=973821; NEW.policy_revision:=973822; RETURN NEW; END $$;
+      CREATE TRIGGER trg_mock_paper_attempt BEFORE INSERT ON {schema}.listening_test_attempts
+        FOR EACH ROW EXECUTE FUNCTION {schema}.synthetic_revision_adapter();
+      CREATE FUNCTION {schema}.synthetic_snapshot_adapter() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN INSERT INTO {schema}.mock_paper_attempt_snapshots
+          VALUES ('listening',NEW.id,NEW.test_id,NEW.paper_revision,NEW.policy_revision,
+            {schema}.fn_mock_paper_row('listening',NEW.test_id)); RETURN NEW; END $$;
+      CREATE TRIGGER trg_capture_mock_paper_snapshot AFTER INSERT ON {schema}.listening_test_attempts
+        FOR EACH ROW EXECUTE FUNCTION {schema}.synthetic_snapshot_adapter();
+      CREATE OR REPLACE FUNCTION {schema}.fn_mock_admission_contract_active() RETURNS boolean LANGUAGE sql AS 'SELECT true';''')
+    binding = {k:v for k,v in payload['binding'].items() if k != 'answer_set_revision'}
+    query = f"SET ROLE service_role; SET request.jwt.claim.role='service_role'; SELECT {schema}.fn_acquire_blackeye_attempt('{test['id']}','{user}',{literal(binding)})"
+    try:
+        first = json.loads(psql(query))
+        assert json.loads(psql(query))['id'] == first['id']
+        psql(f"UPDATE {schema}.listening_test_attempts SET status='submitted',submitted_at=now(),answers='[{{\"q_num\":1,\"user_answer\":\"synthetic kept work\"}}]' WHERE id='{first['id']}'")
+        second = json.loads(psql(query))
+        assert second['id'] != first['id']
+        psql(f"UPDATE {schema}.listening_test_attempts SET resume_expires_at=now()-interval '1 second' WHERE id='{second['id']}'")
+        third = json.loads(psql(query))
+        assert third['id'] not in (first['id'],second['id'])
+        assert psql(f"SELECT count(*) FROM {schema}.listening_test_attempts WHERE test_id='{test['id']}'") == '3'
+        preserved = json.loads(psql(f"SELECT to_jsonb(a) FROM {schema}.listening_test_attempts a WHERE id='{first['id']}'"))
+        assert preserved['status'] == 'submitted' and preserved['answers'][0]['user_answer'] == 'synthetic kept work'
+        assert psql(f"SELECT status FROM {schema}.listening_test_attempts WHERE id='{second['id']}'") == 'in_progress'
+    finally:
+        psql(f"CREATE OR REPLACE FUNCTION {schema}.fn_mock_admission_contract_active() RETURNS boolean LANGUAGE sql AS 'SELECT false'")

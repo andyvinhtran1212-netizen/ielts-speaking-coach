@@ -20,9 +20,11 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-11-10 the highest is `376`, reserved by Leader for
-BLACKEYE-0052 admission; the next new migration is `378`, after checking the shared
-register (377 is reserved for Black Eye PR2). Migration 376 is unexecuted in this PR and requires
+sequence is dense. As of 2026-11-11 the highest is `377`, reserved by Leader for
+BLACKEYE-0052 course 2 grants; the next new migration is `378`, after checking the shared
+register. `377_blackeye_course2_grants.sql` is the unexecuted, grant-list-only
+PR2 file (`pending_feature`, group `blackeye_grants`); its manual rollback is
+`rollback/377_blackeye_course2_grants.sql`. No apply on merge. Both 376 and 377 require
 separate SA review and owner approval to run. Its manual rollback is under
 `rollback/376_blackeye_admission.sql`. Reservations 370–375 remain held by their
 owners; do not reuse them.
