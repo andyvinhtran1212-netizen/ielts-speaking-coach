@@ -257,7 +257,7 @@ BEGIN
       ORDER BY a.created_at DESC,a.id DESC LIMIT p_limit;
 END $$;
 
-CREATE FUNCTION public.fn_eb_cells(p_assignment_id uuid) RETURNS TABLE(
+CREATE FUNCTION public.fn_eb_cells(p_assignment_id uuid,p_latest boolean DEFAULT false) RETURNS TABLE(
  student_id uuid,display_name text,user_id uuid,item_id uuid,activity_id text,activity_row_id uuid,
  test_id uuid,"position" integer,attempt_id uuid,status text,submitted_at timestamptz,blank_count integer)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$
@@ -274,7 +274,7 @@ LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$
    JOIN public.listening_test_attempts x ON x.id=l.attempt_id
    WHERE l.item_id=i.id AND l.activity_id=c.id AND x.user_id=s.user_id AND x.test_id=c.test_id
      AND x.class_assignment_item_id=i.id
-   ORDER BY (x.status='submitted') DESC,x.started_at DESC,x.id DESC LIMIT 1) a ON true
+   ORDER BY (NOT p_latest AND x.status='submitted') DESC,x.started_at DESC,x.id DESC LIMIT 1) a ON true
  WHERE ca.id=p_assignment_id
 $$;
 CREATE FUNCTION public.fn_read_exercise_book_progress(p_actor_id uuid,p_cohort_id uuid,p_assignment_id uuid)
@@ -327,7 +327,7 @@ BEGIN
         'test_id',c.test_id,'item_id',a.item_id,'my_status',x.status,'latest_attempt_id',x.attempt_id) ORDER BY c.position)
        FROM public.class_assignment_activities c JOIN public.listening_tests t ON t.id=c.test_id
        JOIN public.exercise_book_registry r ON r.programme_id=c.programme_id
-       JOIN public.fn_eb_cells(a.id) x ON x.activity_row_id=c.id
+       JOIN public.fn_eb_cells(a.id,true) x ON x.activity_row_id=c.id
          AND x.item_id=a.item_id AND x.user_id=p_user_id WHERE c.assignment_id=a.id)) ORDER BY a.due_at DESC,a.id DESC),'[]'))
       INTO result FROM selected a;
     RETURN result;
@@ -806,7 +806,7 @@ REVOKE ALL ON FUNCTION public.fn_close_exercise_book_assignment(uuid,uuid,uuid,t
 GRANT EXECUTE ON FUNCTION public.fn_close_exercise_book_assignment(uuid,uuid,uuid,text) TO service_role;
 REVOKE ALL ON FUNCTION public.fn_list_exercise_book_assignments(uuid,uuid,text,integer,timestamptz,uuid) FROM PUBLIC,anon,authenticated,service_role;
 GRANT EXECUTE ON FUNCTION public.fn_list_exercise_book_assignments(uuid,uuid,text,integer,timestamptz,uuid) TO service_role;
-REVOKE ALL ON FUNCTION public.fn_eb_cells(uuid) FROM PUBLIC,anon,authenticated,service_role;
+REVOKE ALL ON FUNCTION public.fn_eb_cells(uuid,boolean) FROM PUBLIC,anon,authenticated,service_role;
 REVOKE ALL ON FUNCTION public.fn_read_exercise_book_progress(uuid,uuid,uuid) FROM PUBLIC,anon,authenticated,service_role;
 GRANT EXECUTE ON FUNCTION public.fn_read_exercise_book_progress(uuid,uuid,uuid) TO service_role;
 REVOKE ALL ON FUNCTION public.fn_list_learner_exercise_book_assignments(uuid,integer,timestamptz,uuid) FROM PUBLIC,anon,authenticated,service_role;
@@ -907,7 +907,7 @@ BEGIN
       OR has_function_privilege('anon',function_oid,'EXECUTE') OR has_function_privilege('authenticated',function_oid,'EXECUTE')
       OR has_function_privilege('service_role',function_oid,'EXECUTE') IS DISTINCT FROM allowed THEN
         RAISE EXCEPTION 'exercise_book_function_postcondition' USING ERRCODE='55000'; END IF;
-    signature:='public.fn_eb_cells(uuid)'; allowed:=false;
+    signature:='public.fn_eb_cells(uuid,boolean)'; allowed:=false;
     function_oid:=to_regprocedure(signature);
     IF function_oid IS NULL OR (SELECT count(*) FROM pg_proc p WHERE p.pronamespace=(SELECT pronamespace FROM pg_proc WHERE oid=function_oid) AND p.proname=(SELECT proname FROM pg_proc WHERE oid=function_oid))<>1
       OR NOT EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid=function_oid AND p.prosecdef

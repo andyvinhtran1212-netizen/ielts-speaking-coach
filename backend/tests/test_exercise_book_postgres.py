@@ -275,6 +275,10 @@ def test_acquire_save_sequences_submit_computes_summary_retry_immutability(seed)
     with pytest.raises(asyncpg.PostgresError,match='attempt_changed'):rpc(s,'fn_submit_exercise_book_assigned_attempt',d['user'],aid,'[]','{}',True)
     retry=acquire(d)
     assert retry['id']!=aid
+    listed=rpc(s,'fn_list_learner_exercise_book_assignments',d['user'])['items'][0]['activities'][0]
+    assert listed['latest_attempt_id']==retry['id'] and listed['my_status']=='in_progress'
+    progress=rpc(s,'fn_read_exercise_book_progress',d['owner'],d['cohort'],d['request'])
+    assert progress['completion']['submitted_by_student'][str(d['student'])]==1
     for update in ("class_assignment_item_id=NULL","answers='[]'","user_id=gen_random_uuid()"):
         with pytest.raises(asyncpg.PostgresError,match='attempt_changed|immutable_admission'):query(f'UPDATE {s}.listening_test_attempts SET {update} WHERE id=$1',aid)
     with pytest.raises(asyncpg.PostgresError):query(f'DELETE FROM {s}.class_assignment_items WHERE id=$1',first['class_assignment_item_id'])

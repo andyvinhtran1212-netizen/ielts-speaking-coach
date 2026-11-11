@@ -22,7 +22,7 @@ DROP FUNCTION public.fn_acquire_exercise_book_assigned_attempt(uuid,uuid,uuid,js
 DROP FUNCTION public.fn_eb_owned_cell(uuid,uuid,uuid);
 DROP FUNCTION public.fn_list_learner_exercise_book_assignments(uuid,integer,timestamptz,uuid);
 DROP FUNCTION public.fn_read_exercise_book_progress(uuid,uuid,uuid);
-DROP FUNCTION public.fn_eb_cells(uuid);
+DROP FUNCTION public.fn_eb_cells(uuid,boolean);
 DROP FUNCTION public.fn_list_exercise_book_assignments(uuid,uuid,text,integer,timestamptz,uuid);
 DROP FUNCTION public.fn_close_exercise_book_assignment(uuid,uuid,uuid,text);
 DROP FUNCTION public.fn_create_exercise_book_assignment(uuid,uuid,uuid,text,jsonb,uuid[],timestamptz,text,text,text);
