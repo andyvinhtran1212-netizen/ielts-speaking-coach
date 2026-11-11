@@ -136,6 +136,13 @@ class _ListeningRoute(APIRoute):
             try:
                 return await original(request)
             except RequestValidationError as exc:
+                errors = exc.errors()
+                if errors and all(e["type"] == "uuid_parsing" and e.get("loc", (None,))[0] == "path" for e in errors):
+                    # Shared generic transports retain their UUID diagnostic
+                    # category before auth/DB IO; never echo the rejected ID.
+                    return _exercise_book_response({"detail": [
+                        {"type": "uuid_parsing", "loc": list(e["loc"]), "msg": "Định danh không hợp lệ."}
+                        for e in errors]}, 422)
                 # Default Pydantic errors echo rejected values, creating an N2
                 # answer-set oracle. Never echo nested Black Eye inputs.
                 if ("/tests/" in self.path or "exercise-book" in self.path

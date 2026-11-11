@@ -291,6 +291,7 @@ def start(db, test, user_id, binding, *, standalone, class_item, purpose, sittin
     activity, _ = activity_from_paper(test)
     require_ready(activity)
     if class_item:
+        class_item = books.checked_uuid(class_item)
         if standalone or sitting_id or purpose not in {None, "assigned_practice"}:
             books.fail(422, "validation")
         result = books.object_result(books.rpc(db, "fn_acquire_exercise_book_assigned_attempt", {

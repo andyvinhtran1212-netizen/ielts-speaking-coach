@@ -129,6 +129,7 @@ def assigned_context(db, user_id, item_id, test_id, *, full_binding=None):
 
     Context is derived at read time; the immutable 306 snapshot stays untouched.
     """
+    item_id = checked_uuid(item_id)
     items = _rows(db.table("class_assignment_items").select("id,assignment_id,student_id").eq("id", item_id).limit(1))
     if len(items) != 1:
         fail(404, "not_found")

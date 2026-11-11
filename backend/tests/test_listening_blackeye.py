@@ -359,7 +359,7 @@ def test_assignment_invalid_request_never_reads_or_writes(env,method,path):
 
 def test_assigned_start_calls_scoped_rpc_and_generic_give_stays_closed(env):
     from services.class_assignment_service import create_class_assignment
-    r=start(env,query="class_item=fixture-item"); assert r.status_code == 503,r.text
+    r=start(env,query="class_item=" + str(uuid4())); assert r.status_code == 503,r.text
     assert [name for name, _ in env.db.rpcs] == ["fn_acquire_exercise_book_assigned_attempt"]
     assert env.db.rpcs[0][1]["p_user_id"] == env.actor["id"]
     env.db.rpcs.clear()

@@ -59,6 +59,7 @@ class D1DB(FakeDB):
         self.seq = {}
         self.grants = []
         self.grant_events = []
+        self.grant_receipt = None
         self.list_rows = []
         self.learner_rows = []
         self.rows["class_assignment_activities"] = []
@@ -96,8 +97,10 @@ class D1DB(FakeDB):
             if name == "fn_record_cohort_grant":
                 if not self.is_owner:
                     raise DBError("EB403", "not_owner")
+                replayed = self.grant_receipt is not None
+                self.grant_receipt = self.grant_receipt or dict(event_id=CH, seq=1, occurred_at=now())
                 self.mutations.append(name)
-                return SimpleNamespace(data=[dict(event_id=CH, seq=1, occurred_at=now(), replayed=len(self.mutations) > 1)])
+                return SimpleNamespace(data=[dict(**self.grant_receipt, replayed=replayed)])
             if name == "fn_list_cohort_grants":
                 if not self.is_owner:
                     raise DBError("EB403", "not_owner")
@@ -300,8 +303,7 @@ def test_grants_read_write_replay_verified_session_and_empty_owner(book):
     first = book.client.post(ADMIN + "/exercise-book-grants", json=body)
     assert first.status_code == 201, first.text
     again = book.client.post(ADMIN + "/exercise-book-grants", json=body)
-    # Timestamp belongs to DB's original event on replay; double uses now().
-    assert again.status_code == 200 and again.json()["event_id"] == first.json()["event_id"]
+    assert again.status_code == 200 and again.json() == first.json()
     params = next(p for n, p in book.db.rpcs if n == "fn_record_cohort_grant")
     assert params["p_actor_id"] == book.actor["id"]
     assert params["p_auth_session_id"] == "SYNTHETIC_SESSION" and params["p_step_up_at"]
@@ -640,3 +642,30 @@ def test_new_routes_publish_error_and_success_dtos(book):
                 continue
             assert "ExerciseBookError" in json.dumps(operation["responses"]["422"])
             assert any("content" in value for status, value in operation["responses"].items() if status in {"200", "201"})
+
+
+@pytest.mark.parametrize("path", ["/tests/SENTINEL_INVALID_UUID", "/tests/attempts/SENTINEL_INVALID_UUID/review"])
+def test_shared_uuid_diagnostic_category_is_preserved_without_echo(book, path):
+    r = book.client.get(BASE + path)
+    assert r.status_code == 422 and r.json()["detail"][0]["type"] == "uuid_parsing"
+    assert "SENTINEL_INVALID_UUID" not in r.text
+    assert r.headers["cache-control"] == "private, no-store"
+    assert not book.db.calls and not book.db.rpcs
+
+
+@pytest.mark.parametrize("global_admin", [False, True])
+def test_playback_cross_owner_never_reads_snapshot_or_mutates(book, global_admin):
+    state = start_assigned(book)
+    book.actor.update(id=G, admin=global_admin)
+    book.db.rpcs.clear()
+    book.db.calls.clear()
+    r = book.client.post(f'{BASE}/tests/attempts/{state["attempt_id"]}/playback-started', json={"playback_claim_id": CH})
+    assert r.status_code == 404 and r.json()["code"] == "not_found"
+    assert not book.db.rpcs and not book.db.signed
+    assert not any(patch or table == "mock_paper_attempt_snapshots" for table, _, patch in book.db.calls)
+
+
+def test_malformed_assigned_item_is_validation_before_rpc(book):
+    r = book.client.post(f'{BASE}/tests/{book.p["id"]}/attempts?class_item=PRIVATE_INVALID', json={"blackeye_binding": visible(book.p)})
+    assert r.status_code == 422 and r.json()["code"] == "validation"
+    assert "PRIVATE_INVALID" not in r.text and not book.db.rpcs
