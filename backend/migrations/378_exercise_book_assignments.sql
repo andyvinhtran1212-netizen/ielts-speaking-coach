@@ -745,6 +745,7 @@ BEGIN
             JOIN public.student_cohort_memberships cm ON cm.student_id=st.id AND cm.cohort_id=a.cohort_id
             JOIN public.exercise_book_registry r ON r.programme_id=c.programme_id
             WHERE i.id=p_class_item_id AND st.user_id=p_user_id AND c.test_id=p_test_id
+              AND r.programme_id=v->>'programme_id'
               AND a.skill='listening' AND a.status='published' AND co.is_active AND cm.is_active
               AND st.is_active AND st.archived_at IS NULL AND u.is_active AND u.suspended_at IS NULL
               AND c.binding=v->'metadata'->r.metadata_key->'binding'

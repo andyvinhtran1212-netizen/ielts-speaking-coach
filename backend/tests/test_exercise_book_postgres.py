@@ -339,6 +339,9 @@ def test_resolver_all_courses_differential_and_book_fail_closed(seed):
     for setting in ("status='archived'","status='published',due_at=now()-interval '1 second'","due_at=now()+interval '1 day',publish_at=now()+interval '1 hour'"):
         query(f'UPDATE {s}.class_assignments SET {setting} WHERE id=$1',d['request'])
         assert not value(f"SELECT {s}.fn_resolve_mock_paper_access('listening',$1,$2,'delivery',$3)",d['tests'][0],d['user'],item)['allowed']
+    query(f"UPDATE {s}.class_assignments SET status='published',due_at=now()+interval '1 day',publish_at=NULL WHERE id=$1",d['request'])
+    query(f"UPDATE {s}.listening_tests SET programme_id='ielts' WHERE id=$1",d['tests'][0])
+    assert not value(f"SELECT {s}.fn_resolve_mock_paper_access('listening',$1,$2,'assigned_practice',$3)",d['tests'][0],d['user'],item)['allowed']
 
 
 def test_full_private_binding_freeze_and_close(seed):
