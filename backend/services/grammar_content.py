@@ -18,6 +18,7 @@ from typing import Optional
 import markdown
 import yaml
 from markdown.extensions import Extension
+from markdown.extensions.fenced_code import FencedBlockPreprocessor
 from markdown.inlinepatterns import SimpleTagInlineProcessor
 from pydantic import ValidationError
 
@@ -95,37 +96,58 @@ _ANCHOR_MARKER_RE = re.compile(r"<!--\s*anchor:\s*([\w.\-]+)\s*-->")
 # normalize it at render time without rewriting source content. Indented list
 # items and blockquotes are deliberately left alone to preserve their nesting.
 _TOP_LEVEL_LIST_ITEM_RE = re.compile(r"^(?:[-*]|\d+\.)[ \t]+")
-_ANY_LIST_ITEM_RE = re.compile(r"^[ \t]*(?:[-*]|\d+\.)[ \t]+")
-_BACKTICK_FENCE_RE = re.compile(r"^[ \t]{0,3}(`{3,})([^`]*)$")
+_ANY_LIST_ITEM_RE = re.compile(r"^[ \t]*(?:[-*+]|\d+\.)[ \t]+")
+_THEMATIC_BREAK_RE = re.compile(r"^(?:([-*_])[ \t]*){3,}$")
+_RAW_CODE_RE = re.compile(r"<(?P<tag>pre|code)\b[^>]*>.*?(?:</(?P=tag)\s*>|\Z)", re.I | re.S)
 
 
 def _insert_blank_lines_before_lists(body: str) -> str:
-    """Separate top-level lists from preceding prose outside code fences."""
+    """Separate lists only after an unambiguously plain prose paragraph.
+
+    A non-prose line taints the whole block through its next blank line:
+    lazy quotes and multiline/nested lists must not become loose lists.
+    Ambiguous blocks (including anything with a pipe) are left untouched.
+    """
+    lines = body.splitlines(keepends=True)
+    # Use the renderer's complete-block regex, including attributes, tilde
+    # fences and exact closing-fence equality. Normalize only this lookup copy
+    # (as Markdown does before fenced_code); retain every original code byte.
+    fence_source = "\n".join(line.rstrip("\r\n") for line in lines)
+    fence_source = fence_source.replace("\x02", "").replace("\x03", "").expandtabs(4)
+    code_lines: set[int] = set()
+    for pattern in (FencedBlockPreprocessor.FENCED_BLOCK_RE, _RAW_CODE_RE):
+        for match in pattern.finditer(fence_source):
+            start = fence_source.count("\n", 0, match.start())
+            end = fence_source.count("\n", 0, match.end())
+            code_lines.update(range(start, end + 1))
+
     rendered_lines: list[str] = []
-    fence_length: Optional[int] = None
-
-    for line in body.split("\n"):
-        fence_match = _BACKTICK_FENCE_RE.fullmatch(line)
-        if fence_length is not None:
-            rendered_lines.append(line)
-            if (fence_match and not fence_match.group(2).strip()
-                    and len(fence_match.group(1)) >= fence_length):
-                fence_length = None
+    plain_prose = True
+    has_prose = False
+    for index, original_line in enumerate(lines):
+        line = original_line.rstrip("\r\n")
+        if index in code_lines:
+            plain_prose = False
+            rendered_lines.append(original_line)
+            continue
+        if not line.strip():
+            plain_prose = True
+            has_prose = False
+            rendered_lines.append(original_line)
             continue
 
-        if fence_match:
-            fence_length = len(fence_match.group(1))
-            rendered_lines.append(line)
-            continue
+        if (_TOP_LEVEL_LIST_ITEM_RE.match(line) and plain_prose and has_prose
+                and "|" not in line and not _THEMATIC_BREAK_RE.fullmatch(line)):
+            rendered_lines.append("\r\n" if original_line.endswith("\r\n") else "\n")
 
-        if (_TOP_LEVEL_LIST_ITEM_RE.match(line)
-                and rendered_lines
-                and rendered_lines[-1].strip()
-                and not _ANY_LIST_ITEM_RE.match(rendered_lines[-1])):
-            rendered_lines.append("")
-        rendered_lines.append(line)
+        if (line[0].isspace() or line.startswith(("#", ">", "<", "[", "`", "~"))
+                or "|" in line or _ANY_LIST_ITEM_RE.match(line)
+                or _THEMATIC_BREAK_RE.fullmatch(line) or re.fullmatch(r"[=-]+", line)):
+            plain_prose = False
+        has_prose = True
+        rendered_lines.append(original_line)
 
-    return "\n".join(rendered_lines)
+    return "".join(rendered_lines)
 
 # Score floor for both `find_best_match` (slug routing) and
 # `find_best_anchor` (anchor selection within a slug). Sprint 6.6 logs
