@@ -20,10 +20,18 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-11-10 the highest is `376`, reserved by Leader for
-BLACKEYE-0052 admission; the next new migration is `378`, after checking the shared
-register (377 is reserved for Black Eye PR2). Migration 376 is unexecuted in this PR and requires
-separate SA review and owner approval to run. Its manual rollback is under
+sequence is dense. As of 2026-11-11 the highest is `378`; the next new
+migration is `379` (reserved separately for IMPORT-a; check the shared register).
+377 is reserved for Black Eye PR2, renamed `377_exercise_book_cohort_grants.sql`.
+`378_exercise_book_assignments.sql` supplies immutable activity children, service
+RPCs and the narrow resolver branch. No shared assignment UNIQUE or request table.
+Both are `pending_feature`: **No apply on merge**. Run order is 376 → 377 → 378,
+after SA review and Vinh's separate run approval, staging first under the advisory
+lock, production only at T014. See [exercise-book-d1.md](exercise-book-d1.md).
+378 rollback refuses assignment/attempt history and restores 376/316 exactly;
+377 rollback retains grant/owner/audit evidence and disables its product RPCs.
+Migration 376 is unchanged from reviewed PR1 and remains separately gated.
+Its manual rollback is under
 `rollback/376_blackeye_admission.sql`: it keeps the trigger as a deny-all Black Eye
 guard and removes the two RPCs, retaining data, widened CHECKs and the ledger row.
 It refuses published/public Black Eye content under SHARE locks with a 5-second
