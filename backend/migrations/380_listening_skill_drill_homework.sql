@@ -45,17 +45,17 @@ DROP FUNCTION IF EXISTS public.fn_record_listening_drill_playback(uuid,text,uuid
 CREATE OR REPLACE FUNCTION public.fn_record_listening_drill_playback_v2(
     p_item_id uuid, p_stage text, p_attempt_id uuid, p_page_id uuid,
     p_plays integer, p_played_ms integer
-) RETURNS void LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
+) RETURNS void LANGUAGE plpgsql SECURITY INVOKER SET search_path = pg_catalog, pg_temp AS $$
 DECLARE
-    began_at timestamptz;
-    elapsed_ms bigint;
-    total_plays bigint;
-    total_ms bigint;
-    attempt_plays bigint;
-    attempt_ms bigint;
-    page_plays integer;
-    page_ms integer;
-    page_count bigint;
+    began_at pg_catalog.timestamptz;
+    elapsed_ms pg_catalog.int8;
+    total_plays pg_catalog.int8;
+    total_ms pg_catalog.int8;
+    attempt_plays pg_catalog.int8;
+    attempt_ms pg_catalog.int8;
+    page_plays pg_catalog.int4;
+    page_ms pg_catalog.int4;
+    page_count pg_catalog.int8;
 BEGIN
     IF p_stage = 'listening' THEN
         SELECT started_at INTO began_at FROM public.listening_test_attempts
@@ -72,7 +72,7 @@ BEGIN
 
     -- The client generates a UUID per page. Its first accepted checkpoint
     -- binds that UUID to the verified attempt and therefore to its paper.
-    PERFORM pg_advisory_xact_lock(hashtextextended(p_page_id::text, 381));
+    PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_page_id::pg_catalog.text, 381));
     IF EXISTS (
         SELECT 1 FROM public.listening_drill_playback
          WHERE page_id = p_page_id
@@ -83,14 +83,14 @@ BEGIN
     END IF;
 
     -- Serialize all pages and retries for the same homework and stage.
-    PERFORM pg_advisory_xact_lock(hashtextextended(p_item_id::text || ':' || p_stage, 380));
-    elapsed_ms := GREATEST(0, floor(extract(epoch FROM (clock_timestamp() - began_at)) * 1000));
-    SELECT COALESCE(sum(plays), 0), COALESCE(sum(played_ms), 0),
-           COALESCE(sum(plays) FILTER (WHERE attempt_id = p_attempt_id), 0),
-           COALESCE(sum(played_ms) FILTER (WHERE attempt_id = p_attempt_id), 0),
-           max(plays) FILTER (WHERE attempt_id = p_attempt_id AND page_id = p_page_id),
-           max(played_ms) FILTER (WHERE attempt_id = p_attempt_id AND page_id = p_page_id),
-           count(*)
+    PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_item_id::pg_catalog.text || ':' || p_stage, 380));
+    elapsed_ms := GREATEST(0, pg_catalog.floor(extract(epoch FROM (pg_catalog.clock_timestamp() - began_at)) * 1000));
+    SELECT COALESCE(pg_catalog.sum(plays), 0), COALESCE(pg_catalog.sum(played_ms), 0),
+           COALESCE(pg_catalog.sum(plays) FILTER (WHERE attempt_id = p_attempt_id), 0),
+           COALESCE(pg_catalog.sum(played_ms) FILTER (WHERE attempt_id = p_attempt_id), 0),
+           pg_catalog.max(plays) FILTER (WHERE attempt_id = p_attempt_id AND page_id = p_page_id),
+           pg_catalog.max(played_ms) FILTER (WHERE attempt_id = p_attempt_id AND page_id = p_page_id),
+           pg_catalog.count(*)
       INTO total_plays, total_ms, attempt_plays, attempt_ms, page_plays, page_ms, page_count
       FROM public.listening_drill_playback
      WHERE class_assignment_item_id = p_item_id AND stage = p_stage;
@@ -118,7 +118,7 @@ GRANT EXECUTE ON FUNCTION public.fn_record_listening_drill_playback_v2(uuid,text
     TO service_role;
 
 CREATE OR REPLACE FUNCTION public.fn_listening_drill_homework_ready() RETURNS boolean
-    LANGUAGE sql STABLE SECURITY INVOKER SET search_path = '' AS 'SELECT true';
+    LANGUAGE sql STABLE SECURITY INVOKER SET search_path = pg_catalog, pg_temp AS 'SELECT true';
 REVOKE ALL ON FUNCTION public.fn_listening_drill_homework_ready() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.fn_listening_drill_homework_ready() TO service_role;
 
@@ -155,7 +155,7 @@ BEGIN
     ] LOOP
         IF NOT EXISTS (
             SELECT 1 FROM pg_catalog.pg_proc
-             WHERE oid = routine AND NOT prosecdef AND proconfig = ARRAY['search_path=""']
+             WHERE oid = routine AND NOT prosecdef AND proconfig = ARRAY['search_path=pg_catalog, pg_temp']
         ) OR has_function_privilege('anon', routine, 'EXECUTE')
           OR has_function_privilege('authenticated', routine, 'EXECUTE')
           OR NOT has_function_privilege('service_role', routine, 'EXECUTE') THEN

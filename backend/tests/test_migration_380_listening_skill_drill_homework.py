@@ -62,6 +62,14 @@ async def test_380_preserves_submissions_and_bounds_checkpoints_across_pages():
         assert tuple(await con.fetchrow("SELECT plays,played_ms FROM listening_drill_playback")) == (2, 3000)
         assert await con.fetchval("SELECT to_regprocedure($1) IS NULL",
                                   f"{schema}.fn_record_listening_drill_playback(uuid,text,uuid,uuid,integer,integer)")
+        for signature in ("fn_record_listening_drill_playback_v2(uuid,text,uuid,uuid,integer,integer)",
+                          "fn_listening_drill_homework_ready()"):
+            routine = await con.fetchrow(
+                "SELECT prosecdef, proconfig FROM pg_catalog.pg_proc WHERE oid = to_regprocedure($1)",
+                f"{schema}.{signature}")
+            assert routine["prosecdef"] is False
+            assert routine["proconfig"] == ["search_path=pg_catalog, pg_temp"]
+        assert await con.fetchval(f"SELECT {schema}.fn_listening_drill_homework_ready()") is True
         for role in ("anon", "authenticated"):
             for signature in ("fn_record_listening_drill_playback_v2(uuid,text,uuid,uuid,integer,integer)",
                               "fn_listening_drill_homework_ready()"):
