@@ -20,9 +20,9 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-11-04 the highest is `369`, used by PC-J620
-for the 339 grammar_quiz definer search paths, so the next new migration is `370`
-(already reserved in the migration register; ask the Leader before taking it).
+sequence is dense. On this branch the highest is `380` (Skill Drill homework), so the next new
+migration is `381`, subject to the shared migration register.
+`370` was already reserved before this branch.
 `368` is PC-J619 (#2242); `367` is PC-J612 (#2243); `366` is PC-J611, #2241;
 `365` is PC-J603, #2238; `363` is PC-J538, `361` is PC-J358, #2180; `360` is
 PC-J192, INSTRUCTORGIVE-0044. Check staging, every open PR and the migration

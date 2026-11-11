@@ -1360,3 +1360,51 @@ def test_a_failed_LEDGER_WRITE_propagates_out_of_the_repair():
     db.table = _table
     with pytest.raises(LedgerWriteError):
         reconcile_test_attempts(db, [_rl_assignment()])
+
+
+def test_skill_drill_same_content_in_two_courses_has_independent_completion():
+    from services.listening_drill_homework import report_by_item
+
+    required = {**_rl_assignment(skill="listening"), "course_id": "course-one",
+                "content_config": {"skill_drill": {"dictation_required": True, "sections": [1, 2]}}}
+    optional = {**_rl_assignment(skill="listening"), "id": "asg-2",
+                "course_id": "course-two", "cohort_id": "co-2",
+                "content_config": {"skill_drill": {"dictation_required": False, "sections": [1, 2]}}}
+    db = _rl_db(table="listening_test_attempts", attempts=[
+        {**_attempt(), "score": 1, "grading_details": [{"correct": True}]},
+        {**_attempt("att-2", item="item-2"), "score": 0, "grading_details": [{"correct": False}]},
+        _attempt("public", item=None),
+    ])
+    first, second = db.tables["class_assignment_items"][0], {
+        "id": "item-2", "assignment_id": "asg-2", "student_id": "stu-2",
+        "submitted_at": None, "state": "assigned",
+    }
+    db.tables["class_assignment_items"].append(second)
+    db.tables["students"].append({"id": "stu-2", "user_id": "user-2"})
+    db.tables["dictation_sessions"] = [
+        {"id": "unassigned-section", "class_assignment_item_id": None, "section_num": 2,
+         "completed_at": "2026-08-03T12:00:00+00:00"},
+        {"id": "section-one", "class_assignment_item_id": "item-1", "section_num": 1,
+         "completed_at": "2026-08-03T12:00:00+00:00"},
+    ]
+    db.tables["listening_drill_playback"] = [
+        {"id": "metric-1", "class_assignment_item_id": "item-1", "stage": "listening",
+         "attempt_id": "att-1", "page_id": "page-1", "plays": 2, "played_ms": 9000},
+        {"id": "metric-2", "class_assignment_item_id": "item-2", "stage": "listening",
+         "attempt_id": "att-2", "page_id": "page-2", "plays": 1, "played_ms": 3000},
+    ]
+    assert reconcile_test_attempts(db, [required, optional]) == 1
+    assert first["submitted_at"] is None
+    assert second["artifact_id"] == "att-2"
+    report = report_by_item(db, [first], required["content_config"]["skill_drill"])["item-1"]
+    assert report["correct"] == report["total"] == 1
+    assert report["dictation_done"] == 1
+    assert report["playback"]["listening"] == {"plays": 2, "played_ms": 9000}
+
+    db.tables["dictation_sessions"].append({
+        "id": "section-two", "class_assignment_item_id": "item-1", "section_num": 2,
+        "completed_at": "2026-08-03T13:00:00+00:00",
+    })
+    assert reconcile_test_attempts(db, [required, optional]) == 1
+    assert first["submitted_at"] == "2026-08-03T13:00:00+00:00"
+    assert reconcile_test_attempts(db, [required, optional]) == 0
