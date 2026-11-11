@@ -90,12 +90,21 @@ def test_nested_lists_tables_and_blockquotes_keep_their_structure():
     pytest.param('``` {.text #sample}\nDòng mã\n- x\n```', id="fence-attributes"),
     pytest.param('~~~text hl_lines="1"\nDòng mã\n- x\n~~~', id="fence-highlight-lines"),
     pytest.param("~~~text\r\nDòng mã\r\n- x\r\n~~~\t", id="fence-crlf-tabs"),
+    pytest.param("Example `some code\n- x` end.", id="multiline-code-span"),
+    pytest.param("Example ``some code\nline\n- x`` end.", id="multiline-double-backtick-span"),
 ])
 def test_existing_markdown_structures_render_identically(source):
     prepared = _insert_blank_lines_before_lists(source)
 
     assert prepared == source
     assert _render_source(source) == _render_source(prepared)
+
+
+def test_prose_with_closed_code_span_still_starts_a_list():
+    html = _render("Dùng `the` và ``a`b`` trước danh từ:\n- a\n- b")
+
+    assert "<code>the</code>" in html
+    assert "<ul>" in html
 
 
 def test_prose_after_a_fence_can_still_start_a_list():

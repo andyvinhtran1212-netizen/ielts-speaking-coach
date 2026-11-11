@@ -98,6 +98,27 @@ _ANCHOR_MARKER_RE = re.compile(r"<!--\s*anchor:\s*([\w.\-]+)\s*-->")
 _TOP_LEVEL_LIST_ITEM_RE = re.compile(r"^(?:[-*]|\d+\.)[ \t]+")
 _ANY_LIST_ITEM_RE = re.compile(r"^[ \t]*(?:[-*+]|\d+\.)[ \t]+")
 _THEMATIC_BREAK_RE = re.compile(r"^(?:([-*_])[ \t]*){3,}$")
+_BACKTICK_RUN_RE = re.compile(r"`+")
+
+
+def _has_open_code_span(text: str) -> bool:
+    """True when ``text`` ends inside an inline code span.
+
+    Mirrors Markdown's rule: a backtick run opens a span closed only by a
+    later run of exactly the same length; unmatched runs are literal.
+    """
+    runs = [(m.start(), len(m.group())) for m in _BACKTICK_RUN_RE.finditer(text)]
+    i = 0
+    while i < len(runs):
+        length = runs[i][1]
+        close = next((j for j in range(i + 1, len(runs)) if runs[j][1] == length), None)
+        if close is None:
+            # Unmatched so far: a later line could still close it.
+            return True
+        i = close + 1
+    return False
+
+
 _RAW_CODE_RE = re.compile(r"<(?P<tag>pre|code)\b[^>]*>.*?(?:</(?P=tag)\s*>|\Z)", re.I | re.S)
 
 
@@ -124,6 +145,7 @@ def _insert_blank_lines_before_lists(body: str) -> str:
     rendered_lines: list[str] = []
     plain_prose = True
     has_prose = False
+    paragraph = ""
     for index, original_line in enumerate(lines):
         line = original_line.rstrip("\r\n")
         if index in code_lines:
@@ -133,10 +155,12 @@ def _insert_blank_lines_before_lists(body: str) -> str:
         if not line.strip():
             plain_prose = True
             has_prose = False
+            paragraph = ""
             rendered_lines.append(original_line)
             continue
 
         if (_TOP_LEVEL_LIST_ITEM_RE.match(line) and plain_prose and has_prose
+                and not _has_open_code_span(paragraph)
                 and "|" not in line and not _THEMATIC_BREAK_RE.fullmatch(line)):
             rendered_lines.append("\r\n" if original_line.endswith("\r\n") else "\n")
 
@@ -145,6 +169,7 @@ def _insert_blank_lines_before_lists(body: str) -> str:
                 or _THEMATIC_BREAK_RE.fullmatch(line) or re.fullmatch(r"[=-]+", line)):
             plain_prose = False
         has_prose = True
+        paragraph += line + "\n"
         rendered_lines.append(original_line)
 
     return "".join(rendered_lines)
