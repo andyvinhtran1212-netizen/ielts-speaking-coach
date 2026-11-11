@@ -727,6 +727,49 @@ class TestPartialFailures:
         assert body["partial_failures"] == []
 
 
+def test_blackeye_lookup_failure_is_partial_and_never_reads_attempts(client, fake_db, caplog):
+    fake_db.failing["listening_tests"] = RuntimeError("connection reset")
+    fake_db.tables["listening_test_attempts"] = [
+        {"id": "private-attempt", "user_id": "private-learner", "test_id": "be",
+         "status": "submitted", "score": 1, "grading_details": [{"q_num": 1}],
+         "created_at": _iso(-1), "submitted_at": _iso(-1)},
+        {"id": "ordinary-attempt", "user_id": "ordinary-learner", "test_id": "plain",
+         "status": "submitted", "created_at": _iso(-2), "submitted_at": _iso(-2)},
+    ]
+    fake_db.tables["users"] = [
+        {"id": "private-learner", "email": "private@example.invalid"},
+    ]
+    fake_db.tables["sessions"] = [
+        {"id": "speaking-session", "user_id": "speaker", "overall_band": 7.0,
+         "status": "completed", "started_at": _iso(-1), "completed_at": _iso(-1)},
+    ]
+    fake_db.tables["writing_essays"] = [
+        {"id": "essay", "student_id": "writer", "status": "pending", "created_at": _iso(-1)},
+    ]
+
+    with caplog.at_level(logging.ERROR, logger="routers.admin_overview"):
+        response = client.get("/admin/overview", headers=_ADMIN_AUTH)
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["partial_failures"] == ["listening_recent", "listening_total"]
+    assert body["skills"]["speaking"]["sessions_total"] == 1
+    assert body["skills"]["speaking"]["avg_band_7d"] == 7.0
+    assert body["skills"]["writing"]["essays_total"] == 1
+    assert body["skills"]["listening"]["attempts_total"] == 0
+    assert body["skills"]["listening"]["attempts_7d"] == 0
+    assert body["skills"]["listening"]["avg_score_7d"] is None
+    assert body["students"]["active_7d"] == 1
+    assert body["students"]["active_30d"] == 1
+    assert not any(table == "listening_test_attempts" for table, _, _ in fake_db.executions)
+    for sentinel in ("private-attempt", "private-learner", "private@example.invalid",
+                     "ordinary-attempt", "ordinary-learner"):
+        assert sentinel not in response.text
+    for block in ("listening_recent", "listening_total"):
+        assert any(f"block={block}" in record.getMessage() for record in caplog.records
+                   if record.levelno == logging.ERROR)
+
+
 def test_blackeye_admin_overview_excludes_activity_counts_and_identity(client, fake_db):
     fake_db.tables["listening_tests"] = [
         {"id": "be", "programme_id": "blackeye-v5-upper-listening", "metadata": {}},
