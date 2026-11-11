@@ -1,7 +1,7 @@
 ---
 id: SKILLDRILLS-0054
 title: Assign published Listening Skill Drills across courses
-status: draft
+status: approved
 risk: high
 owner: product
 ---
@@ -70,4 +70,6 @@ A teacher can give and review both assignments from the class interface, confirm
 
 ## Approval record
 
-Draft pending Vinh's explicit approval of this exact specification. Record the approving message ID and the approved revision here before changing the status.
+Approved by Vinh in typed message **t1713u** on **2026-11-11 18:15 Asia/Saigon**: “Duyệt spec 0054 Skill Drills bản #2291 head 0534cb07, gồm giữ dữ liệu 180 ngày”. This approval covers the specification exactly as in PR #2291 head `0534cb07804f9e28236534fff325b3a9b5894c48`, including 180-day retention.
+
+Vinh authorized this status and approval-record update on **2026-11-11 22:52 Asia/Saigon** (reply to **t1733s5821**). Approval evidence: `handoff/leader/20261111-1815-approval-spec-0054.md` and `handoff/leader/20261111-2252-approval-spec0054-status-pr.md` in the job orchestration workspace. No requirement text is changed.
