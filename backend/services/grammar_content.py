@@ -18,6 +18,7 @@ from typing import Optional
 import markdown
 import yaml
 from markdown.extensions import Extension
+from markdown.extensions.fenced_code import FencedBlockPreprocessor
 from markdown.inlinepatterns import SimpleTagInlineProcessor
 from pydantic import ValidationError
 
@@ -89,6 +90,122 @@ _MD_EXT_CONFIGS  = {
 # id (kebab-dot ASCII per the convention pinned in test_anchor_drift.py).
 # Used in `_parse_file` to convert markers into clickable `<a id>` tags.
 _ANCHOR_MARKER_RE = re.compile(r"<!--\s*anchor:\s*([\w.\-]+)\s*-->")
+
+# Python-Markdown follows the original Markdown rule that a top-level list
+# needs a blank line after prose. Many curated lessons omit that separator, so
+# normalize it at render time without rewriting source content. Indented list
+# items and blockquotes are deliberately left alone to preserve their nesting.
+_TOP_LEVEL_LIST_ITEM_RE = re.compile(r"^(?:[-*]|\d+\.)[ \t]+")
+_ANY_LIST_ITEM_RE = re.compile(r"^[ \t]*(?:[-*+]|\d+\.)[ \t]+")
+_THEMATIC_BREAK_RE = re.compile(r"^(?:([-*_])[ \t]*){3,}$")
+_LIST_MARKER_PREFIX_RE = re.compile(r"^(?P<marker>[-*]|\d+\.)")
+
+
+def _escape_list_marker(line: str) -> str:
+    """Escape a leading list marker so the line renders as paragraph text."""
+    return _LIST_MARKER_PREFIX_RE.sub(
+        lambda m: "\\" + m.group("marker") if m.group("marker") in "-*"
+        else m.group("marker")[:-1] + "\\.",
+        line,
+        count=1,
+    )
+
+
+def _render_inline(text: str) -> str:
+    md_proc = markdown.Markdown(
+        extensions=_MD_EXTENSIONS, extension_configs=_MD_EXT_CONFIGS,
+    )
+    return md_proc.convert(text)
+
+
+def _inline_context_closed(before: list[str], after: list[str]) -> bool:
+    """True when no inline construct spans the prose/list boundary.
+
+    Instead of re-implementing Markdown's inline tokenizer (code spans,
+    escapes, emphasis, links, ...), ask the renderer itself: the paragraph
+    rendered whole must equal the two halves rendered separately. Any
+    construct crossing the boundary changes the output, so the separator
+    is only inserted where it cannot alter inline formatting.
+    """
+    tail = [_escape_list_marker(after[0]), *after[1:]]
+    whole = _render_inline("\n".join(before + tail))
+    head_html = _render_inline("\n".join(before))
+    tail_html = _render_inline("\n".join(tail))
+    if not (whole.startswith("<p>") and head_html.startswith("<p>")
+            and tail_html.startswith("<p>") and whole.endswith("</p>")):
+        return False
+    return whole == head_html[:-len("</p>")] + "\n" + tail_html[len("<p>"):]
+
+
+_RAW_CODE_RE = re.compile(r"<(?P<tag>pre|code)\b[^>]*>.*?(?:</(?P=tag)\s*>|\Z)", re.I | re.S)
+
+
+def _insert_blank_lines_before_lists(body: str) -> str:
+    """Separate lists only after an unambiguously plain prose paragraph.
+
+    A non-prose line taints the whole block through its next blank line:
+    lazy quotes and multiline/nested lists must not become loose lists.
+    Ambiguous blocks (including anything with a pipe) are left untouched.
+    """
+    lines = body.splitlines(keepends=True)
+    # Use the renderer's complete-block regex, including attributes, tilde
+    # fences and exact closing-fence equality. Normalize only this lookup copy
+    # (as Markdown does before fenced_code); retain every original code byte.
+    fence_source = "\n".join(line.rstrip("\r\n") for line in lines)
+    fence_source = fence_source.replace("\x02", "").replace("\x03", "").expandtabs(4)
+    code_lines: set[int] = set()
+    for pattern in (FencedBlockPreprocessor.FENCED_BLOCK_RE, _RAW_CODE_RE):
+        for match in pattern.finditer(fence_source):
+            start = fence_source.count("\n", 0, match.start())
+            end = fence_source.count("\n", 0, match.end())
+            code_lines.update(range(start, end + 1))
+
+    candidates: list[int] = []
+    plain_prose = True
+    has_prose = False
+    for index, original_line in enumerate(lines):
+        line = original_line.rstrip("\r\n")
+        if index in code_lines:
+            plain_prose = False
+            continue
+        if not line.strip():
+            plain_prose = True
+            has_prose = False
+            continue
+
+        if (_TOP_LEVEL_LIST_ITEM_RE.match(line) and plain_prose and has_prose
+                and "|" not in line and not _THEMATIC_BREAK_RE.fullmatch(line)):
+            candidates.append(index)
+
+        if (line[0].isspace() or line.startswith(("#", ">", "<", "[", "`", "~"))
+                or "|" in line or _ANY_LIST_ITEM_RE.match(line)
+                or _THEMATIC_BREAK_RE.fullmatch(line) or re.fullmatch(r"[=-]+", line)):
+            plain_prose = False
+        has_prose = True
+
+    def stripped(i: int) -> str:
+        return lines[i].rstrip("\r\n")
+
+    accepted: set[int] = set()
+    for index in candidates:
+        start = index
+        while start > 0 and stripped(start - 1).strip() and (start - 1) not in code_lines:
+            start -= 1
+        end = index
+        while end + 1 < len(lines) and stripped(end + 1).strip() and (end + 1) not in code_lines:
+            end += 1
+        before = [stripped(i) for i in range(start, index)]
+        after = [stripped(i) for i in range(index, end + 1)]
+        if _inline_context_closed(before, after):
+            accepted.add(index)
+
+    rendered_lines: list[str] = []
+    for index, original_line in enumerate(lines):
+        if index in accepted:
+            rendered_lines.append("\r\n" if original_line.endswith("\r\n") else "\n")
+        rendered_lines.append(original_line)
+
+    return "".join(rendered_lines)
 
 # Score floor for both `find_best_match` (slug routing) and
 # `find_best_anchor` (anchor selection within a slug). Sprint 6.6 logs
@@ -324,7 +441,7 @@ class GrammarContentService:
             extensions=_MD_EXTENSIONS,
             extension_configs=_MD_EXT_CONFIGS,
         )
-        html       = md_proc.convert(body)
+        html       = md_proc.convert(_insert_blank_lines_before_lists(body))
         # Convert anchor markers `<!-- anchor: ID -->` (preserved verbatim
         # by the markdown parser) into clickable HTML anchor tags so URL
         # hash deep-linking works (`/grammar/.../slug#ID` → browser scrolls).
