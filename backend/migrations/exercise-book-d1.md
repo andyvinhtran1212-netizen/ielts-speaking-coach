@@ -15,7 +15,9 @@ and grant reads without a step-up parameter; these are not the v1.3 signatures. 
 RPCs require service_role; actors/users come from D2's freshly verified token.
 The DB rechecks active/not-suspended staff and cohort grants under locks. The
 owner has implicit assigner/teacher rights; every other global admin needs an
-explicit latest-sequence grant. `service_role` has SELECT only on the six new
+explicit latest-sequence grant. Grant eligibility checks apply to new grants;
+revoking an existing grantee remains possible after suspension, deactivation or
+demotion, so reactivation cannot revive a grant the owner revoked. `service_role` has SELECT only on the six new
 tables, no direct writes, no internal-function EXECUTE and no sequence access.
 RLS is enabled without policies; none of these tables is published to Realtime.
 Postconditions and PG17 tests enforce these properties even under permissive

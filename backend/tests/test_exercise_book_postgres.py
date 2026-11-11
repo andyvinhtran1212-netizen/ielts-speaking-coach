@@ -234,6 +234,22 @@ def test_grant_step_up_replay_sequence_revoke_append_only(seed):
             with pytest.raises(asyncpg.PostgresError,match='append_only'):query(command)
 
 
+@pytest.mark.parametrize('state',["is_active=false","suspended_at=now()","role='user'"])
+def test_revoke_ineligible_grantee_survives_reactivation(seed,state):
+    from datetime import datetime,timezone
+    d=seed;s=d['s'];now=datetime.now(timezone.utc)
+    args=[d['owner'],now,d['cohort'],PROGRAMME,d['teacher'],'assigner']
+    rpc(s,'fn_record_cohort_grant',*args,'grant','synthetic lifecycle',uuid4())
+    query(f'UPDATE {s}.users SET {state} WHERE id=$1',d['teacher'])
+    with pytest.raises(asyncpg.PostgresError,match='validation'):
+        rpc(s,'fn_record_cohort_grant',*args,'grant','synthetic lifecycle',uuid4())
+    revoked=rpc(s,'fn_record_cohort_grant',*args,'revoke','synthetic lifecycle',uuid4())[0]
+    query(f"UPDATE {s}.users SET is_active=true,suspended_at=NULL,role='admin' WHERE id=$1",d['teacher'])
+    assert rpc(s,'fn_exercise_book_actor_access',d['teacher'],d['cohort'],PROGRAMME)[0]['roles']==[]
+    latest=rpc(s,'fn_list_cohort_grants',d['owner'],d['cohort'],PROGRAMME)[0]
+    assert latest['state']=='revoked' and latest['last_event_seq']==revoked['seq']
+
+
 def test_create_replay_conflict_atomic_fanout_progress_and_owner_log(seed):
     d=seed;s=d['s'];first=create(d);second=create(d)
     assert first|{'replayed':True}==second

@@ -154,8 +154,9 @@ BEGIN
     END IF;
     PERFORM public.fn_eb_require_cohort(p_cohort_id,p_programme_id);
     IF p_grantee_id=p_actor_id THEN RAISE EXCEPTION 'self_grant' USING ERRCODE='EB422'; END IF;
-    PERFORM 1 FROM public.users u WHERE u.id=p_grantee_id AND u.is_active
-      AND u.suspended_at IS NULL AND u.role IN ('admin','instructor') FOR SHARE;
+    PERFORM 1 FROM public.users u WHERE u.id=p_grantee_id
+      AND (p_action IS DISTINCT FROM 'grant' OR
+        (u.is_active AND u.suspended_at IS NULL AND u.role IN ('admin','instructor'))) FOR SHARE;
     IF NOT FOUND OR p_role IS NULL OR p_role NOT IN ('assigner','teacher')
       OR p_action IS NULL OR p_action NOT IN ('grant','revoke') OR p_request_id IS NULL
       OR p_reason IS NULL OR length(btrim(p_reason)) NOT BETWEEN 1 AND 1000 THEN
