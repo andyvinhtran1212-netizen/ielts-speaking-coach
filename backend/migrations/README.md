@@ -20,9 +20,12 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-11-04 the highest is `369`, used by PC-J620
-for the 339 grammar_quiz definer search paths, so the next new migration is `370`
-(already reserved in the migration register; ask the Leader before taking it).
+sequence is dense. As of 2026-11-11 the highest is `379`, used by PC-J562
+for the 0037 FR-008 Listening import source skip (assigned by the Leader), so the
+next new migration is `380` (ask the Leader before taking it). 370–378 without a
+file here are reserved in the migration register (376–378: BLACKEYE-0052,
+#2281/#2282): none may be reused. `369` is PC-J620, the 339
+grammar_quiz definer search paths.
 `368` is PC-J619 (#2242); `367` is PC-J612 (#2243); `366` is PC-J611, #2241;
 `365` is PC-J603, #2238; `363` is PC-J538, `361` is PC-J358, #2180; `360` is
 PC-J192, INSTRUCTORGIVE-0044. Check staging, every open PR and the migration
@@ -379,8 +382,8 @@ active, transition GUC still required), and 306's `fn_guard_mock_paper_source`
 no longer bumps `listening_tests.mock_content_revision` for an UPDATE of
 `listening_content`/`listening_exercises` that changes only `status` (and
 `updated_at`). Other column changes, INSERT and DELETE are unchanged, so
-importing a new package with 306 active still raises 55000 (Q-J252-IMPORT,
-open). No data, trigger, owner or RLS change; the 306 ACL of the source guard is
+importing a new package with 306 active still raises 55000 after 353 alone
+(Q-J252-IMPORT; migration `379` below fixes it). No data, trigger, owner or RLS change; the 306 ACL of the source guard is
 re-asserted; one transaction with a 5 s lock timeout, re-runnable. The manual
 down script `rollback/353_listening_package_status_revision.sql` restores the
 exact 295/306 bodies. `forward-policy.tsv` holds 353 in the
@@ -388,6 +391,29 @@ exact 295/306 bodies. `forward-policy.tsv` holds 353 in the
 `MIGRATION_FEATURES=listening_package_status_revision` under the
 advisory-locked runner and STAGING_FREEZE, staging first; merging does not
 apply 353.
+
+Migration `379` (PC-J562, PAPERUPDATEDAT-0037 FR-008, Q-J252-IMPORT "IMPORT
+a"; number assigned by the Leader on 2026-11-11) fixes the import of a NEW
+Listening package (`import_listening_content_package_atomic`, 295), which still
+raised 55000 `listening_package_child_immutable` after 353 while 306 was
+active. It replaces only the 353 body of `fn_guard_mock_paper_source`: an
+INSERT/UPDATE of `listening_content`/`listening_exercises` no longer bumps
+`listening_tests.mock_content_revision` when that paper's
+`content_package_id::text` equals
+`NULLIF(current_setting('app.listening_package_import', true), '')` (the
+transaction-local setting only the 295 import sets), the package is still
+`validated` with `published_at IS NULL`, and the paper has no
+`listening_test_attempts` row. Every other paper, DELETE and the 353 FR-007
+status-only rule are unchanged; the 295 guards are not loosened and no setting
+is added. `search_path = pg_catalog, public, pg_temp`, SECURITY DEFINER and the
+service-role-only ACL stay as in 353. No data, trigger, owner or RLS change;
+one transaction with a 5 s lock timeout, re-runnable; it aborts unless 353's
+FR-007 body is installed. The manual down script
+`rollback/379_listening_import_source_skip.sql` restores the exact 353 body.
+`forward-policy.tsv` holds 379 in the separate `listening_import_source_skip`
+group: the Leader applies it with
+`MIGRATION_FEATURES=listening_import_source_skip` under the advisory-locked
+runner, staging first after 353; merging does not apply 379.
 
 348–350 remain allocated to other jobs; do not reuse them. 351 is PC-J220,
 allocated by the Leader on 2026-10-29 (350 belongs to PC-J170).
