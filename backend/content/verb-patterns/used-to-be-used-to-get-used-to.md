@@ -310,9 +310,11 @@ Subject + get/gets/got + used to + V-ing / Noun
 ### Đáp án
 
 **Chia dạng:**
+
 1. used to | 2. got used to | 3. is used to | 4. getting used to | 5. used to | 6. used to | 7. get used to
 
 **Sửa lỗi:**
+
 1. She **used to be** very shy when she was a child.
 2. I am used to **waking** up at five o'clock.
 3. He **used to** play football every Sunday.
@@ -320,6 +322,7 @@ Subject + get/gets/got + used to + V-ing / Noun
 5. ❌ eat → **eating**: “I am used to eating rice” — to là giới từ.
 
 **Điền:**
+
 1. used to | 2. got used to | 3. is used to | 4. used to | 5. get used to
 
 ---
@@ -344,6 +347,7 @@ GET USED TO + V-ing / Noun
 ```
 
 **Quy tắc vàng:**
+
 - "Used to" một mình → **V-bare** (used to smoke)
 - "Be/get used to" → **V-ing hoặc Noun** (used to smoking, used to the noise)
 - Không bao giờ viết "I **use to**" ở hiện tại — không tồn tại trong tiếng Anh

@@ -80,6 +80,7 @@ learning_blocks:
 Complex sentences giúp thể hiện quan hệ chính phụ. Theo tiêu chí IELTS, Grammatical Range and Accuracy xét sự đa dạng và linh hoạt của cấu trúc, độ chính xác, mức độ lỗi và tác động tới giao tiếp trên toàn bài. Không có bảng quy đổi câu đơn = band 5, câu ghép = band 6, câu phức = band 7.
 
 Trong IELTS Writing Task 2:
+
 - Ví dụ các câu đơn: "There are many benefits of technology. Technology helps communication. It also helps education."
 - Ví dụ câu phức, có thêm thông tin: "**Although technology has transformed communication**, its impact on education **—especially in areas where access is limited—** is still debated by researchers **who emphasise the importance** of equal opportunity."
 
@@ -87,12 +88,14 @@ Trong IELTS Writing Task 2:
 
 ### Independent Clause (Main Clause)
 Mệnh đề có thể đứng độc lập thành câu hoàn chỉnh:
+
 - *The economy grew.*
 - *Students work hard.*
 - *Governments should invest in education.*
 
 ### Dependent Clause (Subordinate Clause)
 Mệnh đề có S + V nhưng **không đứng độc lập** được vì bắt đầu bằng từ nối phụ:
+
 - *because the economy grew* → cần câu chính
 - *although students work hard* → cần câu chính
 - *who invented the telephone* → mô tả noun, cần câu chính
@@ -111,6 +114,7 @@ hoặc
 Bắt đầu bằng **subordinating conjunction**, mô tả điều kiện, thời gian, lý do, mục đích, kết quả, nhượng bộ...
 
 **Vị trí:**
+
 - Cuối câu: không cần dấu phẩy
   - *She succeeded **because she worked hard**.*
 - Đầu câu: dùng dấu phẩy sau dependent clause
@@ -142,12 +146,15 @@ Bắt đầu bằng **relative pronoun** (*who, whom, which, that, whose, where,
 **Hai loại relative clause:**
 
 **Restrictive (Defining):** Cần thiết để xác định danh từ — **không có dấu phẩy**
+
 - *The students **who study regularly** tend to do well.* (không phải tất cả sinh viên — chỉ những em học đều)
 
 **Non-restrictive (Non-defining):** Thêm thông tin, không cần thiết — **có dấu phẩy**
+
 - *My sister, **who lives in London**, is a doctor.* (ta đã biết ai là chị gái — thêm thông tin phụ)
 
 Lưu ý: *that* **không dùng** trong non-restrictive clause — phải dùng *which* hoặc *who*.
+
 - ❌ *My car, **that** I bought last year, is already broken.*
 - ✅ *My car, **which** I bought last year, is already broken.*
 
@@ -166,30 +173,36 @@ Mệnh đề đóng vai trò như một danh từ trong câu — làm chủ ng�
 ### 1. Adverb clauses — Thể hiện lập luận logic
 
 **Diễn đạt nguyên nhân (Band 7+):**
+
 - *Since many young people lack financial literacy, banks should offer educational programs.* (since = because, formal hơn)
 - *As the population continues to age, healthcare systems face increasing pressure.*
 
 **Diễn đạt nhượng bộ — công nhận ý đối lập (Band 7 signature):**
+
 - *Although social media has numerous benefits, its negative effects on mental health cannot be ignored.*
 - *Even though technology creates jobs, it also displaces many workers.*
 - *While some argue that globalization benefits all nations, evidence suggests otherwise.*
 
 **Diễn đạt điều kiện — lập luận có điều kiện:**
+
 - *Unless governments take immediate action, climate change will become irreversible.*
 - *Provided that adequate funding is available, the project could be highly successful.*
 
 ### 2. Relative clauses — Mô tả và hạn định danh từ
 
 **Thêm thông tin về người/vật:**
+
 - *Countries **that invest heavily in education** tend to have stronger economies.*
 - *The researchers **whose findings challenged the consensus** faced significant scrutiny.*
 
 **Non-restrictive — thêm chi tiết không thiết yếu:**
+
 - *Finland, **which is in Northern Europe**, has a population of several million.*
 
 ### 3. Noun clauses — Diễn đạt ý kiến, niềm tin
 
 Đặc biệt hữu ích trong IELTS Writing khi nêu quan điểm:
+
 - *I believe **that stricter regulations are necessary** to address this issue.*
 - ***What concerns me most** is the long-term economic impact.*
 - *It is widely accepted **that education is the foundation of development**.*
@@ -198,6 +211,7 @@ Mệnh đề đóng vai trò như một danh từ trong câu — làm chủ ng�
 ### 4. Phối hợp trong một câu
 
 Complex sentences có thể chứa nhiều dependent clauses:
+
 - ***Although the government introduced reforms that aimed to reduce inequality**, many economists argue **that the measures were insufficient**.*
   - *Although... reforms* → Adverb clause (nhượng bộ)
   - *that aimed to reduce inequality* → Relative clause
@@ -244,11 +258,13 @@ Complex sentences có thể chứa nhiều dependent clauses:
 > "**Although social media has revolutionised the way people communicate**, enabling individuals **who live in different countries** to maintain close relationships, there is growing concern **that excessive use is damaging young people's mental health**. **Since the brain is still developing during adolescence**, exposure to carefully curated online images — **which often present an unrealistic ideal** — can lead to anxiety and low self-esteem."
 
 Phân tích câu 1:
+
 - *Although...communicate* → Adverb clause (nhượng bộ)
 - *who live in different countries* → Relative clause
 - *that excessive use is damaging...* → Noun clause
 
 Phân tích câu 2:
+
 - *Since the brain is still developing...* → Adverb clause (lý do)
 - *which often present an unrealistic ideal* → Relative clause (non-restrictive, non-essential info)
 
@@ -346,6 +362,7 @@ Câu phức không phải là câu dài vô tội vạ. Nếu một câu có hơ
 | **Vai trò** | Nêu một ý | Phối hợp các ý | Làm rõ quan hệ chính phụ |
 
 **Khi nào dùng compound vs. complex:**
+
 - **Compound** (*She studied hard, **so** she passed*): Hai ý ngang nhau, bình đẳng về tầm quan trọng
 - **Complex** (***Because** she studied hard, she passed*): Một ý chính (kết quả), một ý phụ (lý do); hoặc khi muốn nhấn mạnh mối quan hệ cụ thể (nhượng bộ, điều kiện, thời gian...)
 
@@ -354,11 +371,13 @@ Câu phức không phải là câu dài vô tội vạ. Nếu một câu có hơ
 Tiếng Việt có cấu trúc tương tự complex sentence — "Vì... nên...", "Mặc dù... nhưng...", "Khi... thì...". Tuy nhiên có hai điểm khác biệt quan trọng:
 
 **1. "Although... but..." trong tiếng Anh là SAI:**
+
 - Tiếng Việt: "Mặc dù cô ấy học chăm, **nhưng** cô ấy không đỗ." → Tự nhiên hoàn toàn
 - Tiếng Anh: "Although she studied hard, she didn't pass." → Không có *but*
 - Lỗi này rất phổ biến ở người học Việt.
 
 **2. Despite vs. Although:**
+
 - *despite / in spite of* + **noun / gerund**
 - *although / though / even though* + **S + V**
 
@@ -375,6 +394,7 @@ Tiếng Việt có cấu trúc tương tự complex sentence — "Vì... nên...
 ### IELTS Speaking — Complex sentences tạo độ phức tạp ngữ pháp
 
 Trong Speaking Part 3, các examiner tìm kiếm:
+
 - *"I think **that** access to quality education should be considered a basic human right, **which** means governments have a responsibility to fund it."*
 - *"**Although I understand why** some people prefer online learning, I personally believe **that** face-to-face interaction is irreplaceable."*
 - *"**Since technology is advancing so rapidly**, it's difficult to predict **what** jobs will exist in 20 years."*
@@ -382,6 +402,7 @@ Trong Speaking Part 3, các examiner tìm kiếm:
 ### IELTS Writing Task 2 — Xây dựng đoạn văn rõ quan hệ ý
 
 **Một cách triển khai luận điểm:**
+
 1. **Topic sentence** (có thể simple hoặc compound)
 2. **Explanation** (complex sentence với *because/since/as*)
 3. **Concession** (complex sentence với *although/while/even though*)
@@ -778,6 +799,7 @@ Bây giờ, kết hợp nhiều bước để tạo ra một câu phức thực 
 ### Đáp án
 
 **Nối câu:**
+
 1. *Although she studied very hard, she failed the exam.*
 2. *The city lacks clean water; therefore, the government must invest in infrastructure.*
 3. *He is the researcher whose work changed our understanding of climate change.*
@@ -785,6 +807,7 @@ Bây giờ, kết hợp nhiều bước để tạo ra một câu phức thực 
 5. *Unless we act now, the effects will be irreversible.*
 
 **Sửa lỗi:**
+
 1. → *Although she worked hard, she didn't succeed.* (bỏ *but* — không dùng although + but cùng lúc)
 2. → *Although she was tired, she continued working.* (*despite* + noun/gerund; *although* + clause)
 3. → *The researchers **who** discovered the vaccine received a Nobel Prize.* (non-restrictive: *The researchers, **who** discovered...*; restrictive: không dấu phẩy — *that* có thể dùng nếu restrictive)
@@ -799,6 +822,7 @@ Bây giờ, kết hợp nhiều bước để tạo ra một câu phức thực 
 3. "Governments **should** act decisively to address climate change, **provided that** such action is coordinated internationally and does not unfairly burden developing economies. **While** the short-term economic costs may be significant, the long-term consequences of inaction **would be** far more severe."
 
 **Nối hai câu và viết lại đoạn:**
+
 1. "I have a sister **who** lives in Australia."
 2. "I enjoy cooking **because** it helps me relax." / "I enjoy cooking, **which** I find really relaxing."
 3. "The film was long **but** very entertaining." / "**Although** it was long, the film was very entertaining."

@@ -144,12 +144,14 @@ Chỉ **người** thực hiện hành động hoặc nghề nghiệp:
 **TOEIC Part 5 / THPT:** câu "word form" — nhìn **vị trí trống** (sau mạo từ, tính từ, giới từ → thường là danh từ) rồi chọn dạng có hậu tố danh từ.
 
 **IELTS Writing:** dùng danh hoá để câu súc tích, học thuật hơn — nhưng đừng lạm dụng đến mức khó đọc.
+
 - Task 2: *Many people are not **aware** of the risks.* → *There is little public **awareness** of the risks.*
 - Task 1: *Sales improved significantly.* → *There was a significant **improvement** in sales.*
 
 ## Bài tập luyện
 
 Chuyển sang danh từ:
+
 1. decide → ?
 2. improve → ?
 3. aware → ?

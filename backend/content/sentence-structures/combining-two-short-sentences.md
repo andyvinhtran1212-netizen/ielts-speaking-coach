@@ -168,6 +168,7 @@ V-ing/V-ed phrase, [main clause]
 - The report was written quickly. It contained errors. → **Written quickly,** the report contained errors.
 
 ⚠ **Dangling modifier:** chủ ngữ của cụm phân từ phải khớp chủ ngữ mệnh đề chính.
+
 - ❌ **Walking to school,** the rain started. (mưa không "walk")
 - ✅ **Walking to school,** I got caught in the rain.
 
@@ -204,6 +205,7 @@ Một danh từ/cụm danh từ đặt cạnh để giải thích danh từ trư
 Trong Speaking, gộp câu giúp câu trả lời **trôi chảy** và dài tự nhiên (Fluency and Coherence). Công cụ dễ dùng khi nói: **and, but, so, because, which, who**.
 
 **Part 1 example:**
+
 - ❌ "I like coffee. It keeps me awake. I drink it every morning." (rời rạc)
 - ✅ "I really like coffee **because** it keeps me awake, **so** I usually have a cup every morning."
 
@@ -269,6 +271,7 @@ Trong Speaking, gộp câu giúp câu trả lời **trôi chảy** và dài tự
 | Giải thích danh từ | đồng vị ngữ (, ... ,) | X, the capital, ... |
 
 **Quy tắc vàng:**
+
 - KHÔNG nối hai mệnh đề chỉ bằng dấu phẩy (comma splice) — thêm liên từ hoặc tách câu
 - Đa dạng độ dài: xen câu phức với câu ngắn để tạo nhịp
 - Chủ ngữ của cụm phân từ phải khớp mệnh đề chính (tránh dangling)

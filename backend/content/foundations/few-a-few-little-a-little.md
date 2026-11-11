@@ -290,9 +290,11 @@ little + uncountable noun
 ### Đáp án
 
 **Chọn từ:**
+
 1. little là cách tự nhiên để nhấn thời gian ít; a little vẫn có thể dùng nếu chỉ nói còn một ít. 2. a little. 3. Few là lựa chọn theo ý ít người đạt cao; a few có thể nhấn có một nhóm đạt cao. 4. a few theo ý đã cho. 5. little theo ý đã cho. 6. A little theo ý đã cho. 7. a little theo ý đã cho. 8. a little. 9. Few theo ý đã cho. 10. few hoặc a few: đều có thể nói số lỗi nhỏ, với trọng tâm khác nhau.
 
 **Sửa lỗi:**
+
 1. She has **little** knowledge about nutrition. (knowledge = uncountable → little)
 2. I only need **a few** minutes to explain. (minutes = countable → a few)
 3. **Little** progress has been made... (progress = uncountable → little)
@@ -314,6 +316,7 @@ Không đếm được (uncountable):
 ```
 
 **Mẹo nhớ:**
+
 - Có a nhấn mạnh có một lượng nhỏ, không tự bảo đảm đủ hay tốt: a little water, but not enough for everyone.
 - Few/little nhấn mạnh lượng ít; giá trị tốt/xấu tùy đối tượng: few errors thường là điều tốt.
 - **Few/a few** = đếm được → luôn theo sau là danh từ số nhiều
