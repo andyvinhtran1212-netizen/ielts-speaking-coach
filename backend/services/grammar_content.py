@@ -98,25 +98,43 @@ _ANCHOR_MARKER_RE = re.compile(r"<!--\s*anchor:\s*([\w.\-]+)\s*-->")
 _TOP_LEVEL_LIST_ITEM_RE = re.compile(r"^(?:[-*]|\d+\.)[ \t]+")
 _ANY_LIST_ITEM_RE = re.compile(r"^[ \t]*(?:[-*+]|\d+\.)[ \t]+")
 _THEMATIC_BREAK_RE = re.compile(r"^(?:([-*_])[ \t]*){3,}$")
-_BACKTICK_RUN_RE = re.compile(r"`+")
+_LIST_MARKER_PREFIX_RE = re.compile(r"^(?P<marker>[-*]|\d+\.)")
 
 
-def _has_open_code_span(text: str) -> bool:
-    """True when ``text`` ends inside an inline code span.
+def _escape_list_marker(line: str) -> str:
+    """Escape a leading list marker so the line renders as paragraph text."""
+    return _LIST_MARKER_PREFIX_RE.sub(
+        lambda m: "\\" + m.group("marker") if m.group("marker") in "-*"
+        else m.group("marker")[:-1] + "\\.",
+        line,
+        count=1,
+    )
 
-    Mirrors Markdown's rule: a backtick run opens a span closed only by a
-    later run of exactly the same length; unmatched runs are literal.
+
+def _render_inline(text: str) -> str:
+    md_proc = markdown.Markdown(
+        extensions=_MD_EXTENSIONS, extension_configs=_MD_EXT_CONFIGS,
+    )
+    return md_proc.convert(text)
+
+
+def _inline_context_closed(before: list[str], after: list[str]) -> bool:
+    """True when no inline construct spans the prose/list boundary.
+
+    Instead of re-implementing Markdown's inline tokenizer (code spans,
+    escapes, emphasis, links, ...), ask the renderer itself: the paragraph
+    rendered whole must equal the two halves rendered separately. Any
+    construct crossing the boundary changes the output, so the separator
+    is only inserted where it cannot alter inline formatting.
     """
-    runs = [(m.start(), len(m.group())) for m in _BACKTICK_RUN_RE.finditer(text)]
-    i = 0
-    while i < len(runs):
-        length = runs[i][1]
-        close = next((j for j in range(i + 1, len(runs)) if runs[j][1] == length), None)
-        if close is None:
-            # Unmatched so far: a later line could still close it.
-            return True
-        i = close + 1
-    return False
+    tail = [_escape_list_marker(after[0]), *after[1:]]
+    whole = _render_inline("\n".join(before + tail))
+    head_html = _render_inline("\n".join(before))
+    tail_html = _render_inline("\n".join(tail))
+    if not (whole.startswith("<p>") and head_html.startswith("<p>")
+            and tail_html.startswith("<p>") and whole.endswith("</p>")):
+        return False
+    return whole == head_html[:-len("</p>")] + "\n" + tail_html[len("<p>"):]
 
 
 _RAW_CODE_RE = re.compile(r"<(?P<tag>pre|code)\b[^>]*>.*?(?:</(?P=tag)\s*>|\Z)", re.I | re.S)
@@ -142,34 +160,49 @@ def _insert_blank_lines_before_lists(body: str) -> str:
             end = fence_source.count("\n", 0, match.end())
             code_lines.update(range(start, end + 1))
 
-    rendered_lines: list[str] = []
+    candidates: list[int] = []
     plain_prose = True
     has_prose = False
-    paragraph = ""
     for index, original_line in enumerate(lines):
         line = original_line.rstrip("\r\n")
         if index in code_lines:
             plain_prose = False
-            rendered_lines.append(original_line)
             continue
         if not line.strip():
             plain_prose = True
             has_prose = False
-            paragraph = ""
-            rendered_lines.append(original_line)
             continue
 
         if (_TOP_LEVEL_LIST_ITEM_RE.match(line) and plain_prose and has_prose
-                and not _has_open_code_span(paragraph)
                 and "|" not in line and not _THEMATIC_BREAK_RE.fullmatch(line)):
-            rendered_lines.append("\r\n" if original_line.endswith("\r\n") else "\n")
+            candidates.append(index)
 
         if (line[0].isspace() or line.startswith(("#", ">", "<", "[", "`", "~"))
                 or "|" in line or _ANY_LIST_ITEM_RE.match(line)
                 or _THEMATIC_BREAK_RE.fullmatch(line) or re.fullmatch(r"[=-]+", line)):
             plain_prose = False
         has_prose = True
-        paragraph += line + "\n"
+
+    def stripped(i: int) -> str:
+        return lines[i].rstrip("\r\n")
+
+    accepted: set[int] = set()
+    for index in candidates:
+        start = index
+        while start > 0 and stripped(start - 1).strip() and (start - 1) not in code_lines:
+            start -= 1
+        end = index
+        while end + 1 < len(lines) and stripped(end + 1).strip() and (end + 1) not in code_lines:
+            end += 1
+        before = [stripped(i) for i in range(start, index)]
+        after = [stripped(i) for i in range(index, end + 1)]
+        if _inline_context_closed(before, after):
+            accepted.add(index)
+
+    rendered_lines: list[str] = []
+    for index, original_line in enumerate(lines):
+        if index in accepted:
+            rendered_lines.append("\r\n" if original_line.endswith("\r\n") else "\n")
         rendered_lines.append(original_line)
 
     return "".join(rendered_lines)

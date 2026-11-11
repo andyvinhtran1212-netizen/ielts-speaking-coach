@@ -92,6 +92,10 @@ def test_nested_lists_tables_and_blockquotes_keep_their_structure():
     pytest.param("~~~text\r\nDòng mã\r\n- x\r\n~~~\t", id="fence-crlf-tabs"),
     pytest.param("Example `some code\n- x` end.", id="multiline-code-span"),
     pytest.param("Example ``some code\nline\n- x`` end.", id="multiline-double-backtick-span"),
+    pytest.param("Example \\`literal and `some code\n- x` end.", id="escaped-backtick-then-span"),
+    pytest.param("Example **highlight\n- x** end.", id="multiline-strong"),
+    pytest.param("Example *highlight\n- x* end.", id="multiline-emphasis"),
+    pytest.param("Example [some link\n- x](https://example.com) end.", id="multiline-link"),
 ])
 def test_existing_markdown_structures_render_identically(source):
     prepared = _insert_blank_lines_before_lists(source)
@@ -105,6 +109,18 @@ def test_prose_with_closed_code_span_still_starts_a_list():
 
     assert "<code>the</code>" in html
     assert "<ul>" in html
+
+
+@pytest.mark.parametrize("source", [
+    pytest.param("Example \\`literal:\n- a\n- b", id="escaped-backtick"),
+    pytest.param("Chú ý **quan trọng**:\n* a\n* b", id="closed-strong"),
+    pytest.param("Xem [bài này](https://example.com):\n1. a\n2. b", id="closed-link"),
+    pytest.param("Dòng một\ndòng hai:\n- a\n- b", id="multiline-prose"),
+])
+def test_prose_with_closed_inline_markup_still_starts_a_list(source):
+    html = _render(source)
+
+    assert "<ul>" in html or "<ol>" in html
 
 
 def test_prose_after_a_fence_can_still_start_a_list():
