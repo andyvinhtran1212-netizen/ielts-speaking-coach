@@ -36,7 +36,11 @@ def test_readme_next_migration_number_matches_directory_maximum():
     readme = (migrations / "README.md").read_text(encoding="utf-8")
 
     assert f"the highest is `{highest}`" in readme
-    assert f"migration is `{highest + 1}`" in readme
+    # 377 is reserved for BLACKEYE PR2 in the shared register (Leader decision).
+    # Keep exact next-number enforcement while accounting for that reservation.
+    reserved = {377}
+    assert "377 is reserved for Black Eye PR2" in readme
+    assert f"migration is `{max(highest, *reserved) + 1}`" in readme
 
 
 def test_gate_f_only_schema_is_retired_from_the_forward_queue():

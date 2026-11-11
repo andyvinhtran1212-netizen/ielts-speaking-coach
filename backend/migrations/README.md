@@ -21,8 +21,8 @@ and must not be "filled in" by tooling:
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
 sequence is dense. As of 2026-11-10 the highest is `376`, reserved by Leader for
-BLACKEYE-0052 admission; the next new migration is `377` (confirm the shared
-register before taking it). Migration 376 is unexecuted in this PR and requires
+BLACKEYE-0052 admission; the next new migration is `378`, after checking the shared
+register (377 is reserved for Black Eye PR2). Migration 376 is unexecuted in this PR and requires
 separate SA review and owner approval to run. Its manual rollback is under
 `rollback/376_blackeye_admission.sql`. Reservations 370–375 remain held by their
 owners; do not reuse them.

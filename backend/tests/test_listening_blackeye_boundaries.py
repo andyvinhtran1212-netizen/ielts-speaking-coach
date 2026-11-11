@@ -153,11 +153,10 @@ def test_pre_submit_projection_has_no_key_material(env):
 
 def test_route_inventory_new_identifier_routes_require_classification():
     from main import app
-    expected = set(ROUTE_INVENTORY.splitlines())
+    expected = set(ROUTE_INVENTORY.splitlines()) | set(INDEPENDENT_DOMAIN_ROUTES.splitlines())
     actual = {f"{method} {route.path}" for route in app.routes for method in getattr(route, "methods", ())
               if any("{" + key + "}" in route.path for key in
-                     ("attempt_id", "test_id", "content_id", "exercise_id", "programme_id", "lesson_id"))
-              and any(part in route.path for part in ("listening", "mock-corrections"))}
+                     ("attempt_id", "test_id", "content_id", "exercise_id", "programme_id", "lesson_id", "canonical_attempt_id"))}
     assert actual == expected
     # Black Eye uses the positive routes in plan.md. Every other entry is a
     # generic deny/exclude boundary, or a dictation-attempt table that admission
@@ -168,6 +167,8 @@ ROUTE_INVENTORY = """DELETE /admin/listening/exercises/{exercise_id}
 DELETE /admin/listening/exercises/{exercise_id}/map-image
 DELETE /admin/listening/tests/{test_id}
 DELETE /admin/listening/tests/{test_id}/hard
+GET /admin/core-attempt-evidence/{surface}/{canonical_attempt_id}
+GET /admin/exam-content/{kind}/{content_id}/policy
 GET /admin/listening/attempts/{attempt_id}
 GET /admin/listening/content/{content_id}
 GET /admin/listening/exercises/{exercise_id}/map-image/signed-url
@@ -189,6 +190,10 @@ GET /api/listening/tests/{test_id}/attempts/in-progress
 GET /api/listening/tests/{test_id}/dictation
 GET /api/listening/tests/{test_id}/dictation/attempts/in-progress
 GET /api/listening/tests/{test_id}/practice-windows
+PATCH /admin/exam-content/{kind}/{content_id}/cohorts
+PATCH /admin/exam-content/{kind}/{content_id}/level
+PATCH /admin/exam-content/{kind}/{content_id}/status
+PATCH /admin/exam-content/{kind}/{content_id}/visibility
 PATCH /admin/listening/content/{content_id}
 PATCH /admin/listening/content/{content_id}/status
 PATCH /admin/listening/exercises/{exercise_id}/questions/{q_num}
@@ -199,6 +204,7 @@ PATCH /admin/listening/tests/{test_id}/status
 PATCH /admin/mock-corrections/public-tests/{skill}/{test_id}
 PATCH /api/listening/tests/attempts/{attempt_id}/answers
 PATCH /api/listening/tests/attempts/{attempt_id}/review-flags
+POST /admin/exam-content/{kind}/{content_id}/policy/restore
 POST /admin/listening/exercises/{exercise_id}/upload-map-image
 POST /admin/listening/tests/{test_id}/audio/assemble
 POST /admin/listening/tests/{test_id}/audio/full
@@ -308,7 +314,7 @@ def test_generic_admin_list_never_joins_hidden_learner(env, monkeypatch, role):
 
 def test_action_log_excludes_hidden_assignment_before_name_joins(env):
     from services.class_assignment_service import read_class_actions
-    env.db.rows["class_assignments"] = [dict(id="hidden", skill="listening", content_id=env.p["id"])]
+    env.db.rows["class_assignments"] = [dict(id="hidden", cohort_id="synthetic", skill="listening", content_id=env.p["id"])]
     env.db.rows["class_action_log"] = [dict(id="private-action", cohort_id="synthetic", assignment_id="hidden", student_name="PRIVATE_NAME")]
     result = read_class_actions(env.db, cohort_id="synthetic")
     assert result == {"actions": [], "has_more": False, "next_before": None}
@@ -326,3 +332,125 @@ def test_generic_admin_body_target_cannot_write_blackeye_exercise(env, monkeypat
     assert response.status_code == (403 if role == "student" else 404), response.text
     assert not any(patch or t == "listening_exercises" for t, _, patch in env.db.calls)
     assert env.db.rpcs == []
+
+
+@pytest.mark.parametrize('action', ['publish', 'archive'])
+@pytest.mark.parametrize('hidden', [False, True])
+def test_package_slug_publish_archive(env, monkeypatch, action, hidden):
+    from routers import admin_class_assignments
+    from services import listening_package_import
+    monkeypatch.setattr(lr, '_staff_admin_guard', admin_class_assignments.require_admin)
+    env.app.include_router(lr.admin_router)
+    env.actor['admin'] = True
+    slug = 'synthetic-package-not-a-uuid'
+    env.db.rows['listening_content_packages'] = [dict(id=str(uuid4()), package_id=slug,
+        programme_id=svc.PROGRAMME if hidden else 'general-listening-practice')]
+    calls = []
+    def set_status(db, *, package_id, manifest_sha256, action, actor, bucket_name):
+        status = 'published' if action == 'publish' else 'archived'
+        calls.append((package_id, status))
+        return {'package_uuid': 'synthetic-uuid', 'status': status, 'forms_changed': 1}
+    monkeypatch.setattr(listening_package_import, 'set_package_status', set_status)
+    response = env.client.post(f'/admin/listening/packages/{slug}/{action}', json={'manifest_sha256': 'a' * 64})
+    assert response.status_code == (503 if hidden else 200), response.text
+    assert calls == ([] if hidden else [(slug, 'published' if action == 'publish' else 'archived')])
+
+
+@pytest.mark.parametrize('count', [10, 500])
+def test_hidden_assignment_scan_constant_calls_and_cohort_scope(env, count):
+    env.db.rows['class_assignments'] = [dict(id=f'a-{i}', skill='listening', cohort_id='target',
+        content_id=env.p['id'] if i % 2 else 'generic') for i in range(count)] + [
+        dict(id='other', skill='listening', cohort_id='other', content_id=env.p['id'])]
+    ids = svc.hidden_assignment_ids(env.db, cohort_id='target')
+    assert set(ids) == {f'a-{i}' for i in range(count) if i % 2}
+    assert [t for t, _, _ in env.db.calls] == ['listening_tests', 'class_assignments']
+
+
+@pytest.mark.parametrize('method,suffix,body', [
+    ('patch','visibility', {'is_public': True}), ('patch','status', {'status': 'archived'}),
+    ('get','policy', None), ('post','policy/restore', {'snapshot_id': str(uuid4()), 'expected_revision': 1}),
+    ('patch','level', {'course_level': 'synthetic'}), ('patch','cohorts', {'cohort_ids': []}),
+])
+def test_exam_content_hidden_target_denied_before_service_io(env, monkeypatch, method, suffix, body):
+    from routers import admin_exam_content as router
+    monkeypatch.setattr(router, 'require_admin', __import__('routers.admin_class_assignments', fromlist=['require_admin']).require_admin)
+    monkeypatch.setattr(router.svc, 'supabase_admin', env.db)
+    env.app.include_router(router.router)
+    env.actor['admin'] = True
+    response = getattr(env.client, method)(f'/admin/exam-content/listening/{env.p["id"]}/{suffix}',
+        **({'json': body} if body is not None else {}))
+    assert response.status_code == 503, response.text
+    assert [t for t, _, _ in env.db.calls] == ['listening_tests']
+    assert env.db.rpcs == []
+
+
+def test_core_evidence_denied_before_history_or_status(env, monkeypatch):
+    from routers import admin_core_attempt_evidence as router
+    import database
+    monkeypatch.setattr(router, 'require_admin', __import__('routers.admin_class_assignments', fromlist=['require_admin']).require_admin)
+    monkeypatch.setattr(database, 'supabase_admin', env.db)
+    env.app.include_router(router.router)
+    env.actor['admin'] = True
+    attempt = env.db.freeze(env.p)
+    response = env.client.get(f'/admin/core-attempt-evidence/listening_test/{attempt["id"]}')
+    assert response.status_code == 503, response.text
+    assert [t for t, _, _ in env.db.calls] == ['listening_test_attempts', 'listening_tests']
+    assert all(cols != '*' for _, cols, _ in env.db.calls)
+    assert env.db.rpcs == []
+
+
+@pytest.mark.parametrize('limit', [None, 25])
+def test_exam_content_list_excludes_before_hydration(env, monkeypatch, limit):
+    from services import exam_content_service as exam
+    monkeypatch.setattr(exam, 'supabase_admin', env.db)
+    monkeypatch.setattr(exam, 'cohorts_for', lambda kind, ids: {})
+    monkeypatch.setattr(exam, '_mock_refs_for', lambda kind, ids: {})
+    monkeypatch.setattr(exam, 'explanation_readiness_for', lambda kind, ids: {})
+    result = exam.list_exam_content('listening', limit=limit)
+    assert result == {'items': [], 'total': 0, 'failed_kinds': []}
+    assert not any(t in {'exam_content_cohorts','mock_exams','mock_paper_attempt_snapshots'} for t,_,_ in env.db.calls)
+    assert env.db.rpcs == []
+
+
+@pytest.mark.parametrize('admin', [False, True])
+def test_frozen_owner_check_when_live_identity_changes(env, admin):
+    attempt = env.db.freeze(env.p)
+    env.p.update(programme_id='ielts', metadata={})
+    env.actor.update(id=str(uuid4()), admin=admin)
+    response = env.client.get(f'{BASE}/tests/attempts/{attempt["id"]}/review')
+    assert response.status_code == 404, response.text
+    assert not any('marking_rows' in cols for _,cols,_ in env.db.calls)
+
+
+# These identifiers resolve only in Reading, Grammar, D1 or class-lesson tables.
+# Black Eye admission cannot populate those namespaces. All polymorphic
+# Listening targets above require an explicit deny/exclude boundary.
+INDEPENDENT_DOMAIN_ROUTES = """DELETE /admin/cohorts/{cohort_id}/lessons/{lesson_id}
+DELETE /admin/reading/content/tests/{test_id}
+GET /admin/grammar-lessons/attempts/{attempt_id}
+GET /admin/reading/content/tests/{test_id}
+GET /api/exams/attempts/{attempt_id}/review
+GET /api/exams/{test_id}
+GET /api/exercises/d1/{exercise_id}
+GET /api/reading/test/attempts/{attempt_id}/review
+GET /api/reading/test/attempts/{attempt_id}/review-flags
+GET /api/reading/test/{test_id}
+GET /api/reading/test/{test_id}/attempts/in-progress
+GET /api/reading/test/{test_id}/boot
+PATCH /admin/cohorts/{cohort_id}/lessons/{lesson_id}
+PATCH /admin/exercises/{exercise_id}
+PATCH /admin/exercises/{exercise_id}/publish
+PATCH /admin/exercises/{exercise_id}/reject
+PATCH /admin/exercises/{exercise_id}/unpublish
+PATCH /admin/reading/content/tests/{test_id}/visibility
+PATCH /api/reading/test/attempts/{attempt_id}/answers
+PATCH /api/reading/test/attempts/{attempt_id}/review-flags
+POST /admin/reading/content/tests/{test_id}/exam-only
+POST /admin/reading/content/tests/{test_id}/lock
+POST /admin/reading/content/tests/{test_id}/share
+POST /api/exams/{test_id}/attempts
+POST /api/exercises/d1/{exercise_id}/attempt
+POST /api/reading/test/attempts/{attempt_id}/renderer-affinity
+POST /api/reading/test/attempts/{attempt_id}/submit
+POST /api/reading/test/{test_id}/attempts
+POST /api/reading/test/{test_id}/unlock"""

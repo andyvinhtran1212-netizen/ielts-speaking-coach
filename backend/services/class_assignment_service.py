@@ -526,7 +526,7 @@ def read_class_actions(db, *, cohort_id: str, limit: int = 50,
                  "student_name, actor_email, details, created_at")
          .eq("cohort_id", cohort_id))
     from services import listening_blackeye as blackeye
-    q = blackeye.exclude_assignments(db, q, key="assignment_id")
+    q = blackeye.exclude_assignments(db, q, key="assignment_id", cohort_id=cohort_id)
     if before:
         q = q.lt("created_at", before)
     rows = (q.order("created_at", desc=True).limit(n + 1).execute().data) or []

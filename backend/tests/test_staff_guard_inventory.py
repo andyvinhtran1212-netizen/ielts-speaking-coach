@@ -322,9 +322,17 @@ def test_soft_checks_go_through_the_staff_guard():
     # The soft helpers call require_admin (inherit the rule) and the quota
     # bypass calls holds_admin_privilege; none reads users.role itself.
     for module_name in ("routers.health", "routers.listening", "routers.reading_student"):
-        assert "require_admin" in {
-            _call_name(n) for n in ast.walk(_module_functions(module_name)["_is_admin"])
-            if isinstance(n, ast.Call)
+        fn = _module_functions(module_name)["_is_admin"]
+        guard_name = "require_admin"
+        if module_name == "routers.listening":
+            # P3-9 calls the imported canonical guard rather than the route
+            # wrapper. Verify both the import's origin and the invoked alias.
+            assert any(isinstance(n, ast.ImportFrom) and n.module == "routers.admin"
+                       and any(a.name == "require_admin" and a.asname == "_staff_admin_guard"
+                               for a in n.names) for n in ast.walk(fn))
+            guard_name = "_staff_admin_guard"
+        assert guard_name in {
+            _call_name(n) for n in ast.walk(fn) if isinstance(n, ast.Call)
         }, module_name
     create_session = next(r for m, p, r in ROUTES if (m, p) == ("POST", "/sessions")).endpoint
     src = inspect.getsource(create_session)

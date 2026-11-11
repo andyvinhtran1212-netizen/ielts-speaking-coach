@@ -352,7 +352,7 @@ async def list_assignments(
 
     try:
         rows = (
-            (await run_in_threadpool(blackeye.exclude_assignments, supabase_admin, supabase_admin.table("class_assignments").select("*")))
+            (await run_in_threadpool(blackeye.exclude_assignments, supabase_admin, supabase_admin.table("class_assignments").select("*"), cohort_id=cohort_id))
             .eq("cohort_id", cohort_id)
             .order("created_at", desc=True)
             .execute().data

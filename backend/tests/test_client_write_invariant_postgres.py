@@ -314,6 +314,18 @@ def _pre_320() -> str:
         {"".join(f'''
         CREATE TABLE {t} (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), updated_at timestamptz);'''
                  for t in (*m338.TABLES, "listening_exercises"))}
+        -- 295 programme tables/checks and 306 frozen-attempt shape needed by 376.
+        CREATE TABLE listening_content_packages (id uuid PRIMARY KEY, programme_id text,
+            CONSTRAINT listening_content_packages_programme_id_check CHECK (programme_id IN ('general-listening-practice','ielts-listening-practice','ielts-80-days-listening')));
+        CREATE TABLE listening_lessons (id uuid PRIMARY KEY, programme_id text,
+            CONSTRAINT listening_lessons_programme_id_check CHECK (programme_id IN ('general-listening-practice','ielts-listening-practice','ielts-80-days-listening')));
+        ALTER TABLE listening_tests ADD COLUMN programme_id text,
+            ADD CONSTRAINT listening_tests_programme_id_check CHECK (programme_id IN ('ielts','general-listening-practice','ielts-listening-practice','ielts-80-days-listening'));
+        CREATE TABLE listening_test_attempts (id uuid PRIMARY KEY, test_id uuid, user_id uuid,
+            status text, answers jsonb, resume_expires_at timestamptz, submitted_at timestamptz,
+            result_summary jsonb, score integer, band_estimate numeric, grading_details jsonb,
+            trap_analytics jsonb, paper_revision bigint, policy_revision bigint,
+            class_assignment_item_id uuid, sitting_id uuid, attempt_purpose text, scoring_policy text);
         CREATE TRIGGER trg_mock_paper_policy BEFORE UPDATE OR DELETE ON reading_tests
             FOR EACH ROW EXECUTE FUNCTION fn_stub_paper_trigger();
         CREATE TRIGGER trg_mock_paper_policy BEFORE UPDATE OR DELETE ON listening_tests
@@ -444,6 +456,9 @@ def _create_database() -> tuple[str, bool]:
         GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
         {defaults}
         CREATE SCHEMA auth;
+        CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$
+          SELECT current_setting('request.jwt.claim.role', true)
+        $$;
         CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
           SELECT COALESCE(NULLIF(current_setting('request.jwt.claim.sub', true), ''),
                           NULLIF(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid

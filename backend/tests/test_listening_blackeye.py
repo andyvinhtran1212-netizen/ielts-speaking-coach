@@ -127,6 +127,14 @@ class FakeDB:
                 rows = self.rows["listening_test_attempts"]
                 a = rows[0] if rows else self.freeze(self.rows["listening_tests"][0])
                 return SimpleNamespace(data=deepcopy(a))
+            if name == "fn_submit_blackeye_attempt":
+                a = self.rows["listening_test_attempts"][0]
+                assert a["id"] == params["p_attempt_id"] and a["user_id"] == params["p_user_id"]
+                if self.lose_cas or a["answers"] != params["p_expected_answers"]:
+                    raise RuntimeError("blackeye_changed")
+                a.update(status="submitted", submitted_at=datetime.now(timezone.utc).isoformat(),
+                         result_summary=deepcopy(params["p_result_summary"]))
+                return SimpleNamespace(data=deepcopy(a))
             if name == "fn_upsert_listening_answer":
                 a = self.rows["listening_test_attempts"][0]
                 answers = [i for i in a["answers"] if i["q_num"] != params["p_q_num"]]
@@ -573,3 +581,45 @@ def test_r2_frozen_generic_dispatch_reads_identity_once_not_live_catalog(env):
     assert svc.attempt_is_blackeye(env.db, a) is False
     assert len(env.db.calls) == 1 and env.db.calls[0][0] == "mock_paper_attempt_snapshots"
     assert env.db.calls[0][1] != "*" and "marking_rows" not in env.db.calls[0][1]
+
+
+def test_server_cell_errors_are_unavailable(env):
+    env.db.rpc_error = 'blackeye_invalid_cells'
+    assert start(env).status_code == 503
+
+
+@pytest.mark.parametrize('activity', ['U1-A02', 'U1-A03'])
+def test_save_cell_length_capped_before_rpc(env, activity):
+    p = paper(activity=activity)
+    env.db.rows['listening_tests'] = [p]
+    attempt = env.db.freeze(p)
+    response = env.client.patch(f'{BASE}/tests/attempts/{attempt["id"]}/answers',
+        json={'q_num': 1, 'user_answer': 'x' * 2001})
+    assert response.status_code == 422
+    assert env.db.rpcs == []
+
+
+def test_submit_transport_url_bounded_for_48_long_answers(env, monkeypatch):
+    import httpx
+    from postgrest import SyncPostgrestClient
+    p = paper(48, 'U1-A13')
+    env.db.rows['listening_tests'] = [p]
+    attempt = env.db.freeze(p)
+    attempt['answers'] = [dict(q_num=i, user_answer='x' * 2000) for i in range(1,49)]
+    urls = []
+    def transport(request):
+        urls.append(str(request.url))
+        payload = json.loads(request.content)
+        assert len(payload['p_expected_answers']) == 48
+        assert len(request.content) > 96000
+        attempt.update(status='submitted', submitted_at=datetime.now(timezone.utc).isoformat(),
+                       result_summary=payload['p_result_summary'])
+        return httpx.Response(200, json=attempt)
+    client = SyncPostgrestClient('https://synthetic.invalid/rest/v1')
+    client.session = httpx.Client(transport=httpx.MockTransport(transport))
+    monkeypatch.setattr(env.db, 'rpc', client.rpc)
+    response = env.client.post(f'{BASE}/tests/attempts/{attempt["id"]}/submit')
+    assert response.status_code == 200, response.text
+    assert len(urls) == 1 and len(urls[0]) < 150
+    assert urls[0].endswith('/rpc/fn_submit_blackeye_attempt')
+    client.session.close()

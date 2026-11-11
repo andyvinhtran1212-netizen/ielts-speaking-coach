@@ -1,4 +1,4 @@
-"""Source-only, unnumbered SQL proposal checks; never PostgreSQL execution."""
+"""Source-only gated SQL checks; PostgreSQL execution has a separate suite."""
 from pathlib import Path
 import re
 
@@ -23,12 +23,21 @@ def assert_narrow_sql(sql):
         assert len(re.findall(exact, remaining, re.I)) == 1
         remaining = re.sub(exact, "", remaining, flags=re.I)
     assert not re.search(r"\bDROP\b", remaining, re.I), "non-whitelisted DROP"
-    # No authoring of row DML/history/flag mutation. INSERT is only a trigger
-    # event declaration; the existing acquire/capture functions own admission.
+    # Permit exactly the authorized submit UPDATE, inside its sole function.
+    # Keep the destructive-statement scan over every other function and SQL.
+    approved_update = """UPDATE public.listening_test_attempts SET status='submitted',submitted_at=clock_timestamp(),
+        result_summary=p_result_summary,score=NULL,band_estimate=NULL,
+        grading_details='[]'::jsonb,trap_analytics='{}'::jsonb
+        WHERE id=attempt.id RETURNING * INTO attempt;"""
+    assert remaining.count(approved_update) == 1
+    submit = remaining[remaining.index("CREATE OR REPLACE FUNCTION public.fn_submit_blackeye_attempt("):]
+    assert approved_update in submit[:submit.index("END $$;")]
+    remaining = remaining.replace(approved_update, "", 1)
     without_row_locks = re.sub(r"\bFOR\s+UPDATE\b", "", remaining, flags=re.I)
     assert not re.search(r"\b(?:UPDATE|DELETE|TRUNCATE|MERGE|INSERT\s+INTO)\b", without_row_locks, re.I)
     assert not re.search(r"\bCREATE\s+(?:UNLOGGED\s+)?TABLE\b", remaining, re.I)
     assert not re.search(r"\bALTER\s+(?:ROLE|SYSTEM|DATABASE)\b|DISABLE\s+(?:TRIGGER|ROW)", remaining, re.I)
+    remaining = remaining.replace("GRANT EXECUTE ON FUNCTION public.fn_submit_blackeye_attempt(UUID,UUID,JSONB,JSONB) TO service_role;", "")
     without_grant = remaining.replace("GRANT EXECUTE ON FUNCTION public.fn_acquire_blackeye_attempt(UUID,UUID,JSONB,TEXT) TO service_role;", "")
     assert not re.search(r"\b(?:COPY|EXECUTE)\s+(?!FUNCTION\b)", without_grant, re.I)
     assert "set_config(" not in remaining.lower()
@@ -66,8 +75,8 @@ def test_sql_safety_assertion_rejects_mutated_unapproved_operation(bad):
 def test_definer_search_path_grants_and_atomic_admission_source_invariants():
     clean = uncomment(SQL)
     functions = re.findall(r"CREATE OR REPLACE FUNCTION\s+public\.(\w+)\(.*?\)\s*RETURNS\s+.*?\$\$(.*?)\$\$;", clean, re.S|re.I)
-    assert {name for name,_ in functions} == {"fn_guard_blackeye_admission", "fn_acquire_blackeye_attempt"}
-    assert len(re.findall(r"SECURITY DEFINER SET search_path = pg_catalog, pg_temp", clean)) == 2
+    assert {name for name,_ in functions} == {"fn_guard_blackeye_admission", "fn_acquire_blackeye_attempt", "fn_submit_blackeye_attempt"}
+    assert len(re.findall(r"SECURITY DEFINER SET search_path = pg_catalog, pg_temp", clean)) == 3
     assert "auth.role() IS DISTINCT FROM 'service_role'" in clean
     assert "REVOKE ALL ON FUNCTION public.fn_guard_blackeye_admission() FROM PUBLIC,anon,authenticated;" in clean
     assert "REVOKE ALL ON FUNCTION public.fn_acquire_blackeye_attempt(UUID,UUID,JSONB,TEXT) FROM PUBLIC,anon,authenticated;" in clean
@@ -88,15 +97,6 @@ def test_definer_search_path_grants_and_atomic_admission_source_invariants():
 
 def assert_no_proposal_script_input(path, text):
     assert "docs/proposals/blackeye-u1" not in text, path
-    if path == MIGRATIONS.parent / "scripts/sql/staging_clone_postconditions.sql":
-        # Permit this exact ACL VALUES registration once, never an invocation
-        # or an additional mention elsewhere in the postcondition script.
-        acl_registration = (
-            "    WITH invariant(kind, object, roles, privileges, migrations, exempt) AS (VALUES\n"
-            "        ('function', 'public.fn_guard_blackeye_admission()', 'public anon authenticated', 'EXECUTE', '376', NULL),\n"
-            "        ('function', 'public.fn_acquire_blackeye_attempt(uuid,uuid,jsonb,text)', 'public anon authenticated', 'EXECUTE', '376', NULL),\n"
-        )
-        text = text.replace(acl_registration, "", 1)
     assert "fn_acquire_blackeye_attempt" not in text, path
 
 
@@ -107,7 +107,8 @@ def test_unnumbered_proposal_is_not_a_forward_migration_or_ci_script_input():
     assert PROPOSAL not in _forward_migrations()
     assert PROPOSAL.parent != MIGRATIONS and not re.match(r"\d+_", PROPOSAL.name)
     migration = MIGRATIONS / "376_blackeye_admission.sql"
-    assert migration in _forward_migrations()
+    policy = [line.split("\t") for line in (MIGRATIONS / "forward-policy.tsv").read_text().splitlines() if line.startswith(migration.name + "\t")]
+    assert len(policy) == 1 and policy[0][1:3] == ["pending_feature", "blackeye_admission"]
     assert uncomment(migration.read_text()).strip() == uncomment(SQL).strip()
     rollback = (MIGRATIONS / "rollback/376_blackeye_admission.sql").read_text()
     assert "DROP TRIGGER IF EXISTS trg_zz_blackeye_admission" in rollback
@@ -132,15 +133,6 @@ def test_proposal_script_isolation_rejects_calls_and_extra_mentions(bad):
         assert_no_proposal_script_input(postconditions, postconditions.read_text() + "\n" + bad)
 
 
-def test_proposal_script_isolation_allowlist_is_file_specific_and_single_use():
-    postconditions = MIGRATIONS.parent / "scripts/sql/staging_clone_postconditions.sql"
-    text = postconditions.read_text()
-    with pytest.raises(AssertionError):
-        assert_no_proposal_script_input(postconditions.with_name("other.sql"), text)
-    with pytest.raises(AssertionError):
-        assert_no_proposal_script_input(postconditions, text + "\n" + text)
-
-
 def test_server_revision_context_errors_are_separate_from_learner_binding():
     guard = SQL[SQL.index("CREATE OR REPLACE FUNCTION public.fn_guard_blackeye_admission"):SQL.index("CREATE TRIGGER")]
     for name, error in (("blackeye_db_revisions", "blackeye_unavailable_revision"),
@@ -148,3 +140,32 @@ def test_server_revision_context_errors_are_separate_from_learner_binding():
         block = guard[guard.index(f"IF paper#>'{{metadata,{name}}}'"):]
         block = block[:block.index("END IF;")]
         assert error in block and "blackeye_invalid_binding" not in block
+
+
+def test_submit_lock_owner_status_expiry_and_service_acl_source_invariants():
+    body = SQL[SQL.index("CREATE OR REPLACE FUNCTION public.fn_submit_blackeye_attempt("):]
+    assert body.index("auth.role() IS DISTINCT FROM 'service_role'") < body.index("FOR UPDATE")
+    assert body.index("FOR UPDATE") < body.index("attempt.status='submitted'") < body.index("UPDATE public.listening_test_attempts")
+    for clause in ("a.id=p_attempt_id AND a.user_id=p_user_id", "attempt.resume_expires_at<=clock_timestamp()",
+                   "attempt.answers IS DISTINCT FROM p_expected_answers", "attempt.class_assignment_item_id IS NOT NULL",
+                   "attempt.sitting_id IS NOT NULL", "mock_paper_attempt_snapshots"):
+        assert clause in body
+    signature = "public.fn_submit_blackeye_attempt(UUID,UUID,JSONB,JSONB)"
+    assert f"REVOKE ALL ON FUNCTION {signature} FROM PUBLIC,anon,authenticated;" in body
+    assert f"GRANT EXECUTE ON FUNCTION {signature} TO service_role;" in body
+
+
+@pytest.mark.parametrize("mutation", ["DELETE FROM public.listening_test_attempts;",
+                                     "UPDATE public.listening_tests SET status='published';"])
+def test_submit_function_cannot_hide_unapproved_dml(mutation):
+    with pytest.raises(AssertionError):
+        assert_narrow_sql(SQL.replace("WHERE id=attempt.id RETURNING * INTO attempt;",
+                                     "WHERE id=attempt.id RETURNING * INTO attempt;\n" + mutation))
+
+
+def test_strict_proposal_isolation_applies_to_every_script_path():
+    for name in ("staging_clone_postconditions.sql", "other.sql"):
+        path = MIGRATIONS.parent / "scripts/sql" / name
+        for text in ("-- fn_acquire_blackeye_attempt", "SELECT public.fn_acquire_blackeye_attempt("):
+            with pytest.raises(AssertionError):
+                assert_no_proposal_script_input(path, text)

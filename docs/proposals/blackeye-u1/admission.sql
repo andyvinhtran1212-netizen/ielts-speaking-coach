@@ -60,7 +60,7 @@ BEGIN
         RAISE EXCEPTION 'blackeye_invalid_binding';
     END IF;
     -- Server-authored revision/context mismatches are unavailable, not a
-    -- learner binding error. This proposal is not installed or executable by CI.
+    -- learner binding error. Live installation is gated; CI may test disposable PostgreSQL only.
     IF paper#>'{metadata,blackeye_db_revisions}' IS DISTINCT FROM jsonb_build_object(
            'paper_revision',NEW.paper_revision,'policy_revision',NEW.policy_revision) THEN
         RAISE EXCEPTION 'blackeye_unavailable_revision';
@@ -179,4 +179,43 @@ EXCEPTION WHEN deadlock_detected OR lock_not_available THEN
 END $$;
 REVOKE ALL ON FUNCTION public.fn_acquire_blackeye_attempt(UUID,UUID,JSONB,TEXT) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.fn_acquire_blackeye_attempt(UUID,UUID,JSONB,TEXT) TO service_role;
+-- A service-only submit boundary; expected answers travel in the POST body,
+-- never in the request URL. The row lock serializes saves and submissions.
+CREATE OR REPLACE FUNCTION public.fn_submit_blackeye_attempt(
+    p_attempt_id UUID,p_user_id UUID,p_expected_answers JSONB,p_result_summary JSONB)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$
+DECLARE attempt public.listening_test_attempts%ROWTYPE; snapshot JSONB;
+BEGIN
+    IF auth.role() IS DISTINCT FROM 'service_role' OR p_user_id IS NULL THEN
+        RAISE EXCEPTION 'blackeye_forbidden';
+    END IF;
+    SELECT a.* INTO attempt FROM public.listening_test_attempts a
+        WHERE a.id=p_attempt_id AND a.user_id=p_user_id FOR UPDATE;
+    IF NOT FOUND THEN RAISE EXCEPTION 'blackeye_forbidden'; END IF;
+    SELECT s.paper_row INTO snapshot FROM public.mock_paper_attempt_snapshots s
+        WHERE s.skill='listening' AND s.attempt_id=attempt.id AND s.paper_id=attempt.test_id
+          AND s.paper_revision=attempt.paper_revision AND s.policy_revision=attempt.policy_revision;
+    IF snapshot->>'programme_id' IS DISTINCT FROM 'blackeye-v5-upper-listening'
+       OR attempt.scoring_policy IS DISTINCT FROM 'report_only'
+       OR attempt.class_assignment_item_id IS NOT NULL OR attempt.sitting_id IS NOT NULL
+       OR attempt.attempt_purpose IS DISTINCT FROM 'practice' THEN
+        RAISE EXCEPTION 'blackeye_unavailable';
+    END IF;
+    IF attempt.status='submitted' THEN RETURN to_jsonb(attempt); END IF;
+    IF attempt.status IS DISTINCT FROM 'in_progress' OR attempt.resume_expires_at IS NULL
+       OR attempt.resume_expires_at<=clock_timestamp()
+       OR attempt.answers IS DISTINCT FROM p_expected_answers THEN
+        RAISE EXCEPTION 'blackeye_changed';
+    END IF;
+    -- Backend derives the report from these exact frozen cells/answers. A save
+    -- that wins the row lock invalidates this precondition and cannot leave an
+    -- obsolete blank_count. A submit that wins closes subsequent save RPCs.
+    UPDATE public.listening_test_attempts SET status='submitted',submitted_at=clock_timestamp(),
+        result_summary=p_result_summary,score=NULL,band_estimate=NULL,
+        grading_details='[]'::jsonb,trap_analytics='{}'::jsonb
+        WHERE id=attempt.id RETURNING * INTO attempt;
+    RETURN to_jsonb(attempt);
+END $$;
+REVOKE ALL ON FUNCTION public.fn_submit_blackeye_attempt(UUID,UUID,JSONB,JSONB) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.fn_submit_blackeye_attempt(UUID,UUID,JSONB,JSONB) TO service_role;
 COMMIT;

@@ -7985,7 +7985,8 @@ def _fetch_attempt_or_404(attempt_id: str, user_id: str) -> dict:
         raise HTTPException(404, "Attempt not found", headers={"Cache-Control": "private, no-store"})
     row = res.data[0]
     if row.get("user_id") != user_id:
-        if row.get("test_id") and blackeye.is_blackeye(blackeye.test_identity(supabase_admin, row["test_id"], missing_status=None)):
+        if row.get("test_id") and (blackeye.is_blackeye(blackeye.test_identity(supabase_admin, row["test_id"], missing_status=None))
+                                   or blackeye.attempt_is_blackeye(supabase_admin, row)):
             raise HTTPException(404, "Attempt not found", headers={"Cache-Control": "private, no-store"})
         raise HTTPException(403, "Attempt belongs to another user")
     return row
@@ -8111,7 +8112,7 @@ async def _is_admin(authorization: str | None) -> bool:
         return False
     from routers.admin import require_admin as _staff_admin_guard
     try:
-        await require_admin(authorization)
+        await _staff_admin_guard(authorization)
         return True
     except Exception:
         return False
@@ -9197,6 +9198,8 @@ async def get_listening_test_attempt_review(
     if await run_in_threadpool(blackeye.attempt_is_blackeye, supabase_admin, attempt):
         from fastapi.encoders import jsonable_encoder
         from starlette.responses import JSONResponse
+        if attempt.get("user_id") != user["id"]:
+            raise HTTPException(404, "Attempt not found", headers={"Cache-Control": "private, no-store"})
         result = await run_in_threadpool(blackeye.review, supabase_admin, attempt)
         return JSONResponse(jsonable_encoder(result),
                             headers={"Cache-Control": "private, no-store"})

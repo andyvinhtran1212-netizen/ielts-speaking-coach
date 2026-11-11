@@ -17,6 +17,14 @@ from pydantic import BaseModel, Field
 
 from routers.admin import require_admin
 from services import exam_content_service as svc
+from services import listening_blackeye as blackeye
+from starlette.concurrency import run_in_threadpool
+
+
+async def _guard_listening(kind, content_id):
+    if kind == "listening":
+        await run_in_threadpool(blackeye.guard_generic_target, svc.supabase_admin,
+                                test_id=str(content_id), denied_status=503)
 
 router = APIRouter(prefix="/admin/exam-content", tags=["admin-exam-content"])
 
@@ -208,6 +216,7 @@ async def set_public_visibility(
     authorization: str | None = Header(default=None),
 ):
     actor = await require_admin(authorization)
+    await _guard_listening(kind, content_id)
     try:
         row = svc.set_public_visibility(kind, content_id, body.is_public,
             actor_id=actor["id"], expected_revision=body.expected_revision,
@@ -227,6 +236,7 @@ async def set_status(
 ):
     """Publish/archive from the one admin catalog used to assign papers."""
     actor = await require_admin(authorization)
+    await _guard_listening(kind, content_id)
     try:
         row = svc.set_status(kind, content_id, body.status,
                              actor_id=actor["id"], expected_revision=body.expected_revision)
@@ -251,6 +261,7 @@ async def set_status(
 async def get_paper_policy(kind: Literal["reading", "listening"], content_id: UUID,
                            authorization: str | None = Header(default=None)):
     await require_admin(authorization)
+    await _guard_listening(kind, content_id)
     from services.mock_paper_policy import inspect_policy
     return inspect_policy(svc.supabase_admin, kind, str(content_id))
 
@@ -260,6 +271,7 @@ async def restore_paper_policy(kind: Literal["reading", "listening"], content_id
                                body: RestorePolicyBody,
                                authorization: str | None = Header(default=None)):
     actor = await require_admin(authorization)
+    await _guard_listening(kind, content_id)
     from services.mock_paper_policy import mutate
     row = mutate(svc.supabase_admin,kind,str(content_id),{},actor["id"],
         expected_revision=body.expected_revision,snapshot_id=body.snapshot_id)
@@ -273,6 +285,7 @@ async def set_course_level(
     authorization: str | None = Header(default=None),
 ):
     await require_admin(authorization)
+    await _guard_listening(kind, content_id)
     try:
         row = svc.set_course_level(kind, content_id, body.course_level)
     except svc.UnknownKindError as e:
@@ -296,6 +309,7 @@ async def set_cohorts(
     2026-07-26. POST would be worse than either: it reads as "add one".
     """
     admin = await require_admin(authorization)
+    await _guard_listening(kind, content_id)
     try:
         return svc.set_cohorts(kind, content_id, body.cohort_ids,
                                created_by=admin.get("id"))

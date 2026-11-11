@@ -1,7 +1,7 @@
 """Migration 376 catalog and trigger contracts on an explicitly local test DB.
 
-Not run by the rebuild job (no SQL is authorized). CI/local database owners may
-run with TEST_PG_URL using the existing disposable PostgreSQL harness.
+Runs only with TEST_PG_URL pointing to disposable local PostgreSQL. It is not
+authorization or evidence for a staging/production migration run.
 """
 import json
 from pathlib import Path
@@ -25,6 +25,7 @@ def blackeye_schema(probe):
           IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='service_role') THEN CREATE ROLE service_role; END IF;
         END $$;
         CREATE SCHEMA {schema};
+        GRANT USAGE ON SCHEMA {schema} TO anon,authenticated,service_role;
         CREATE TABLE {schema}.listening_content_packages(id uuid PRIMARY KEY, programme_id text,
           CONSTRAINT listening_content_packages_programme_id_check CHECK(programme_id IN ('general-listening-practice','ielts-listening-practice','ielts-80-days-listening')));
         CREATE TABLE {schema}.listening_lessons(id uuid PRIMARY KEY, programme_id text,
@@ -33,7 +34,11 @@ def blackeye_schema(probe):
           CONSTRAINT listening_tests_programme_id_check CHECK(programme_id IN ('ielts','general-listening-practice','ielts-listening-practice','ielts-80-days-listening')));
         CREATE TABLE {schema}.listening_test_attempts(id uuid PRIMARY KEY,test_id uuid,user_id uuid,
           paper_revision bigint,policy_revision bigint,class_assignment_item_id uuid,sitting_id uuid,
-          attempt_purpose text,scoring_policy text);
+          attempt_purpose text,scoring_policy text,status text,answers jsonb DEFAULT '[]',
+          resume_expires_at timestamptz,submitted_at timestamptz,result_summary jsonb,
+          score integer,band_estimate numeric,grading_details jsonb,trap_analytics jsonb);
+        CREATE TABLE {schema}.mock_paper_attempt_snapshots(skill text,attempt_id uuid,paper_id uuid,
+          paper_revision bigint,policy_revision bigint,paper_row jsonb);
         CREATE FUNCTION {schema}.fn_lock_mock_paper(text,uuid) RETURNS void LANGUAGE plpgsql AS 'BEGIN RETURN; END;';
         CREATE FUNCTION {schema}.fn_mock_paper_row(text,uuid) RETURNS jsonb LANGUAGE sql
           AS 'SELECT to_jsonb(t) FROM {schema}.listening_tests t WHERE id=$2';
@@ -56,13 +61,13 @@ def test_376_definers_catalog_search_path_and_client_acl(blackeye_schema):
       'authenticated',has_function_privilege('authenticated',p.oid,'EXECUTE'),
       'service',has_function_privilege('service_role',p.oid,'EXECUTE')))
       FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-      WHERE n.nspname='{schema}' AND p.proname IN ('fn_guard_blackeye_admission','fn_acquire_blackeye_attempt')"""))
-    assert len(rows) == 2
+      WHERE n.nspname='{schema}' AND p.proname IN ('fn_guard_blackeye_admission','fn_acquire_blackeye_attempt','fn_submit_blackeye_attempt')"""))
+    assert len(rows) == 3
     for row in rows:
         assert row['definer'] is True
         assert row['config'] == ['search_path=pg_catalog, pg_temp']
         assert row['anon'] is False and row['authenticated'] is False
-        if row['name'] == 'fn_acquire_blackeye_attempt':
+        if row['name'] in {'fn_acquire_blackeye_attempt', 'fn_submit_blackeye_attempt'}:
             assert row['service'] is True
 
 
@@ -76,3 +81,95 @@ def test_376_trigger_refuses_inactive_blackeye_but_preserves_generic(blackeye_sc
     assert psql(f"SELECT count(*) FROM {schema}.listening_test_attempts WHERE test_id='{private}'") == '0'
     assert psql(f"SELECT count(*) FROM {schema}.listening_test_attempts WHERE test_id='{ordinary}'") == '1'
     assert psql(f"SELECT count(*) FROM pg_trigger WHERE tgname='trg_zz_blackeye_admission' AND tgrelid='{schema}.listening_test_attempts'::regclass AND tgenabled='O'") == '1'
+
+
+def seed_submit(schema):
+    attempt, paper, user = uuid4(), uuid4(), uuid4()
+    # Generic insert passes the admission trigger; the synthetic frozen identity
+    # then exercises submit independently of the pre-existing 306 capture chain.
+    psql(f"INSERT INTO {schema}.listening_tests(id,programme_id) VALUES ('{paper}','ielts')")
+    psql(f"""INSERT INTO {schema}.listening_test_attempts
+      (id,test_id,user_id,paper_revision,policy_revision,attempt_purpose,scoring_policy,status,resume_expires_at)
+      VALUES ('{attempt}','{paper}','{user}',1,1,'practice','report_only','in_progress',now()+interval '1 hour');
+      INSERT INTO {schema}.mock_paper_attempt_snapshots VALUES
+      ('listening','{attempt}','{paper}',1,1,'{{"programme_id":"blackeye-v5-upper-listening"}}');""")
+    return attempt, user
+
+
+def submit_sql(schema, attempt, user, answers='[]'):
+    report = json.dumps(dict(submitted=True, item_count=2, blank_count=2, unscored_count=2,
+                             objective_denominator=0, score=None, band_estimate=None))
+    return f"SELECT {schema}.fn_submit_blackeye_attempt('{attempt}','{user}','{answers}','{report}')"
+
+
+def test_submit_owner_role_expiry_answers_and_idempotency(blackeye_schema):
+    schema = blackeye_schema
+    attempt, user = seed_submit(schema)
+    query = submit_sql(schema, attempt, user)
+    for role in ('anon', 'authenticated'):
+        with pytest.raises(RuntimeError, match='permission denied'):
+            psql(f'SET ROLE {role}; {query}')
+    with pytest.raises(RuntimeError, match='blackeye_forbidden'):
+        psql(query)
+    prefix = "SET ROLE service_role; SET request.jwt.claim.role='service_role'; "
+    with pytest.raises(RuntimeError, match='blackeye_forbidden'):
+        psql(prefix + submit_sql(schema, attempt, uuid4()))
+    psql(f"UPDATE {schema}.listening_test_attempts SET resume_expires_at=now()-interval '1 second' WHERE id='{attempt}'")
+    with pytest.raises(RuntimeError, match='blackeye_changed'):
+        psql(prefix + query)
+    psql(f"UPDATE {schema}.listening_test_attempts SET resume_expires_at=now()+interval '1 hour' WHERE id='{attempt}'")
+    with pytest.raises(RuntimeError, match='blackeye_changed'):
+        psql(prefix + submit_sql(schema, attempt, user, '[{"q_num":1,"user_answer":"new"}]'))
+    first = json.loads(psql(prefix + query))
+    assert first['status'] == 'submitted' and first['result_summary']['score'] is None
+    assert json.loads(psql(prefix + query)) == first
+
+
+@pytest.mark.parametrize('save_first', [True, False])
+def test_submit_save_race_serializes_on_attempt_row(blackeye_schema, save_first):
+    import asyncio
+    import asyncpg
+    from test_migration_240_core_attempt_evidence import DB
+    schema = blackeye_schema
+    # Real existing save RPC, scoped to this disposable schema only.
+    source = (MIGRATION.parent / '161_fn_upsert_listening_answer.sql').read_text()
+    source = source.replace('public.', schema + '.').replace('search_path = public,', 'search_path = ' + schema + ',')
+    psql(f'SET search_path={schema},pg_temp; ' + source)
+    attempt, user = seed_submit(schema)
+    async def overlap():
+        first, second = await asyncpg.connect(DB), await asyncpg.connect(DB)
+        pending = None
+        try:
+            for conn in (first, second):
+                await conn.execute("SET request.jwt.claim.role='service_role'")
+            txn = first.transaction()
+            await txn.start()
+            save = f"SELECT {schema}.fn_upsert_listening_answer('{attempt}',1,'synthetic')"
+            submit = submit_sql(schema, attempt, user)
+            await first.fetchval(save if save_first else submit)
+            pending = asyncio.create_task(second.fetchval(submit if save_first else save))
+            blocked = False
+            for _ in range(100):
+                await first.execute('SELECT pg_stat_clear_snapshot()')
+                blocked = await first.fetchval("SELECT wait_event_type='Lock' FROM pg_stat_activity WHERE pid=$1", second.get_server_pid())
+                if blocked:
+                    break
+                await asyncio.sleep(0.01)
+            assert blocked, 'competing save/submit must overlap the held attempt lock'
+            await txn.commit()
+            if save_first:
+                with pytest.raises(asyncpg.PostgresError, match='blackeye_changed'):
+                    await pending
+            else:
+                assert await pending is None  # existing save rejects submitted work
+        finally:
+            if pending is not None and not pending.done():
+                pending.cancel()
+                await asyncio.gather(pending, return_exceptions=True)
+            await first.close()
+            await second.close()
+    asyncio.run(overlap())
+    row = json.loads(psql(f"SELECT to_jsonb(a) FROM {schema}.listening_test_attempts a WHERE id='{attempt}'"))
+    assert row['status'] == ('in_progress' if save_first else 'submitted')
+    assert len(row['answers']) == (1 if save_first else 0)
+    assert (row['result_summary'] is None) is save_first

@@ -665,3 +665,5 @@ spec 0052 và Q-1..Q-16 theo đề xuất; FD mở PR spec".
   (RM cấp số, SA review, anh Vinh duyệt chạy), C3 và CV-1 (F10); `user_id` chỉ
   ở cột `error_logs.user_id`, cấm trong message, stack, URL, log và Sentry
   (F11). Không đổi quyết định Q-1..Q-16 hay D-1..D-5, không mở rộng phạm vi.
+
+- 2026-11-11 (Leader decision, CR #2281 R1 P2-4): FR-015/T004 amended: proposal SQL lands in PR1 as numbered migration 376 marked pending_feature in forward-policy.tsv, merged unexecuted (No apply on merge). T004 = SA SQL review + anh Vinh run approval; staging first, production only at T014.

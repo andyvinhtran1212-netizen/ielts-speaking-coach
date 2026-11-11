@@ -295,7 +295,7 @@ def start(db, test, user_id, binding, *, standalone, class_item, purpose, sittin
             raise HTTPException(409, "Black Eye revision changed.") from None
         if "blackeye_invalid_inactive" in message:
             raise HTTPException(422, "Black Eye attempt inactive.") from None
-        if "blackeye_invalid_context" in message or "blackeye_invalid_revision" in message:
+        if any(code in message for code in ("blackeye_invalid_context", "blackeye_invalid_revision", "blackeye_invalid_cells")):
             unavailable()
         if "blackeye_invalid" in message:
             raise HTTPException(422, "Invalid Black Eye binding.") from None
@@ -323,6 +323,8 @@ def save(db, attempt, q_num, value):
     cell = next((i for i in activity.items if i.q_num == q_num), None)
     if cell is None or type(q_num) is not int:
         raise HTTPException(422, "Invalid Black Eye cell.")
+    if len(value) > 2000:
+        raise HTTPException(422, "Black Eye response too long.")
     decode_answer(cell, value)
     try:
         count = db.rpc("fn_upsert_listening_answer", {
@@ -353,19 +355,17 @@ def submit(db, attempt):
                "blank_count": sum(decode_answer(i, answers.get(i.q_num, "")) for i in activity.items),
                "unscored_count": len(activity.items), "objective_denominator": 0,
                "score": None, "band_estimate": None}
-    from datetime import datetime, timezone
-    now = datetime.now(timezone.utc).isoformat()
     try:
-        rows = db.table("listening_test_attempts").update({
-            "status": "submitted", "submitted_at": now, "result_summary": summary,
-            "score": None, "band_estimate": None, "grading_details": [], "trap_analytics": {},
-        }).eq("id", attempt["id"]).eq("user_id", attempt["user_id"]).eq(
-            "status", "in_progress").eq("answers", json.dumps(attempt.get("answers") or [])).gt(
-            "resume_expires_at", now).execute().data or []
+        db.rpc("fn_submit_blackeye_attempt", {
+            "p_attempt_id": str(attempt["id"]), "p_user_id": str(attempt["user_id"]),
+            "p_expected_answers": attempt.get("answers") or [], "p_result_summary": summary,
+        }).execute()
         # Canonical readback also handles a concurrent identical submit/lost ACK.
         fresh = db.table("listening_test_attempts").select("*").eq("id", attempt["id"]).eq(
             "user_id", attempt["user_id"]).limit(1).execute().data or []
-    except Exception:
+    except Exception as exc:
+        if "blackeye_changed" in str(exc):
+            raise HTTPException(409, "Black Eye attempt changed.") from None
         unavailable()
     if len(fresh) != 1:
         unavailable()
@@ -529,7 +529,7 @@ def guard_generic_assignment(db, assignment_id, cohort_id=None):
 def guard_generic_target(db, *, test_id=None, content_id=None, exercise_id=None, attempt_id=None, package_id=None, denied_status=404):
     try:
         if package_id:
-            rows = db.table("listening_content_packages").select("id,programme_id").eq("id", package_id).limit(1).execute().data or []
+            rows = db.table("listening_content_packages").select("id,programme_id").eq("package_id", package_id).limit(1).execute().data or []
             if rows and rows[0].get("programme_id") == PROGRAMME:
                 assignment_seam()
         if attempt_id:
@@ -550,13 +550,19 @@ def guard_generic_target(db, *, test_id=None, content_id=None, exercise_id=None,
         unavailable()
 
 
-def hidden_assignment_ids(db):
+def hidden_assignment_ids(db, *, cohort_id=None):
     ids, offset = [], 0
+    hidden = set(hidden_test_ids(db))
     try:
         while True:
-            rows = db.table("class_assignments").select("id,skill,content_id,content_config").eq(
-                "skill", "listening").order("id").range(offset, offset + 999).execute().data or []
-            ids.extend(str(r["id"]) for r in rows if assignment_is_blackeye(db, r))
+            query = db.table("class_assignments").select("id,skill,content_id,content_config").eq(
+                "skill", "listening")
+            if cohort_id is not None:
+                query = query.eq("cohort_id", cohort_id)
+            rows = query.order("id").range(offset, offset + 999).execute().data or []
+            ids.extend(str(r["id"]) for r in rows if str(r.get("content_id")) in hidden
+                       or (r.get("content_config") or {}).get("programme_id") == PROGRAMME
+                       or "blackeye" in (r.get("content_config") or {}))
             if len(rows) < 1000:
                 return ids
             offset += 1000
@@ -564,8 +570,8 @@ def hidden_assignment_ids(db):
         unavailable()
 
 
-def exclude_assignments(db, query, *, key="id"):
-    ids = hidden_assignment_ids(db)
+def exclude_assignments(db, query, *, key="id", cohort_id=None):
+    ids = hidden_assignment_ids(db, cohort_id=cohort_id)
     for offset in range(0, len(ids), 100):
         query = query.or_(f"{key}.is.null,{key}.not.in.({','.join(ids[offset:offset + 100])})")
     return query
