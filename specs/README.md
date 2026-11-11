@@ -77,7 +77,7 @@ draft -> approved -> implementing -> verified -> shipped
 | MOCKATTACH-0008 | Mock Reading and Listening attempt integrity | implementing | high | [spec](0008-mock-attempt-integrity/spec.md) |
 | LISTENING80-0009 | Source-faithful 80-day Listening practice collection | implementing | high | [spec](0009-listening-80-days/spec.md) |
 | BLACKEYE-0052 | Black Eye Listening Unit 1 exercises are assigned to a class, reviewed after submission and stay locked until each gate passes | approved | high | [spec](0052-blackeye-u1/spec.md) |
-| SKILLDRILLS-0054 | Assign published Listening Skill Drills across courses | draft | high | [spec](0054-listening-skill-drill-homework/spec.md) |
+| SKILLDRILLS-0054 | Assign published Listening Skill Drills across courses | approved | high | [spec](0054-listening-skill-drill-homework/spec.md) |
 
 | DICTATIONTOKEN-0011 | Version dictation word grading and distinguish punctuation in reports | implementing | high | [spec](0011-versioned-dictation-token-grading/spec.md) |
 
