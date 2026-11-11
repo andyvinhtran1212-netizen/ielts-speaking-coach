@@ -269,11 +269,16 @@ def _pre_320() -> str:
             status text NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'running', 'completed', 'failed')),
             error_log jsonb DEFAULT '[]'::jsonb, started_at timestamptz, completed_at timestamptz,
             created_at timestamptz NOT NULL DEFAULT now());
-        -- Class work (the columns the class-archive migration reads).
+        -- Class work: existing 177 columns read by class archive and 378.
         CREATE TABLE class_assignments (
             id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
             cohort_id uuid NOT NULL REFERENCES cohorts(id) ON DELETE CASCADE,
-            title text NOT NULL DEFAULT 'work', status text NOT NULL DEFAULT 'published');
+            title text NOT NULL DEFAULT 'work', status text NOT NULL DEFAULT 'published',
+            skill text, content_id uuid, content_config jsonb NOT NULL DEFAULT '{{}}',
+            due_at timestamptz, publish_at timestamptz,
+            assigned_by uuid REFERENCES users(id) ON DELETE SET NULL,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now());
         CREATE TABLE class_assignment_items (
             id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
             student_id uuid REFERENCES students(id) ON DELETE CASCADE,
@@ -323,6 +328,7 @@ def _pre_320() -> str:
             ADD CONSTRAINT listening_tests_programme_id_check CHECK (programme_id IN ('ielts','general-listening-practice','ielts-listening-practice','ielts-80-days-listening'));
         CREATE TABLE listening_test_attempts (id uuid PRIMARY KEY, test_id uuid, user_id uuid,
             status text, answers jsonb, resume_expires_at timestamptz, submitted_at timestamptz,
+            started_at timestamptz, renderer_affinity text,
             result_summary jsonb, score integer, band_estimate numeric, grading_details jsonb,
             trap_analytics jsonb, paper_revision bigint, policy_revision bigint,
             class_assignment_item_id uuid, sitting_id uuid, attempt_purpose text, scoring_policy text);
