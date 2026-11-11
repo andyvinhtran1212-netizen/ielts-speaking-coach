@@ -107,6 +107,8 @@ BEGIN
     RETURN NEW;
 END $$;
 REVOKE ALL ON FUNCTION public.fn_guard_blackeye_admission() FROM PUBLIC,anon,authenticated;
+-- Replace atomically without requiring CREATE OR REPLACE TRIGGER (PG14+).
+DROP TRIGGER IF EXISTS trg_zz_blackeye_admission ON public.listening_test_attempts;
 CREATE TRIGGER trg_zz_blackeye_admission BEFORE INSERT ON public.listening_test_attempts
  FOR EACH ROW EXECUTE FUNCTION public.fn_guard_blackeye_admission();
 
@@ -218,4 +220,34 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.fn_submit_blackeye_attempt(UUID,UUID,JSONB,JSONB) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.fn_submit_blackeye_attempt(UUID,UUID,JSONB,JSONB) TO service_role;
+
+-- Re-application must leave the enabled guard and all three definers intact.
+DO $$
+DECLARE signature TEXT; function_oid OID;
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_trigger t
+        WHERE t.tgrelid='public.listening_test_attempts'::pg_catalog.regclass
+          AND t.tgname='trg_zz_blackeye_admission' AND t.tgenabled='O'
+          AND NOT t.tgisinternal
+          AND t.tgfoid=pg_catalog.to_regprocedure('public.fn_guard_blackeye_admission()')) THEN
+        RAISE EXCEPTION 'blackeye_admission_trigger_postcondition_failed' USING ERRCODE='55000';
+    END IF;
+    FOREACH signature IN ARRAY ARRAY[
+        'public.fn_guard_blackeye_admission()',
+        'public.fn_acquire_blackeye_attempt(uuid,uuid,jsonb,text)',
+        'public.fn_submit_blackeye_attempt(uuid,uuid,jsonb,jsonb)']
+    LOOP
+        function_oid:=pg_catalog.to_regprocedure(signature);
+        IF function_oid IS NULL OR NOT EXISTS (
+            SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=function_oid AND p.prosecdef
+              AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'])
+           OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p,
+               LATERAL pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+               WHERE p.oid=function_oid AND a.grantee=0 AND a.privilege_type='EXECUTE')
+           OR pg_catalog.has_function_privilege('anon',function_oid,'EXECUTE')
+           OR pg_catalog.has_function_privilege('authenticated',function_oid,'EXECUTE') THEN
+            RAISE EXCEPTION 'blackeye_admission_function_postcondition_failed: %', signature USING ERRCODE='55000';
+        END IF;
+    END LOOP;
+END $$;
 COMMIT;

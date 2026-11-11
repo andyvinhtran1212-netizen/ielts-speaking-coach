@@ -22,6 +22,10 @@ def assert_narrow_sql(sql):
         exact = rf"ALTER\s+TABLE\s+public\.{table}\s+DROP\s+CONSTRAINT\s+{table}_programme_id_check\s*;"
         assert len(re.findall(exact, remaining, re.I)) == 1
         remaining = re.sub(exact, "", remaining, flags=re.I)
+    # 376 must replace its own trigger inside the same transaction on PG <14.
+    trigger_drop = "DROP TRIGGER IF EXISTS trg_zz_blackeye_admission ON public.listening_test_attempts;"
+    assert remaining.count(trigger_drop) == 1
+    remaining = remaining.replace(trigger_drop, "", 1)
     assert not re.search(r"\bDROP\b", remaining, re.I), "non-whitelisted DROP"
     # Permit exactly the authorized submit UPDATE, inside its sole function.
     # Keep the destructive-statement scan over every other function and SQL.
@@ -51,7 +55,7 @@ def check_values(sql, table):
     return re.findall(r"'([^']*)'", matches[0])
 
 
-def test_sql_only_three_approved_drops_and_no_destructive_statement():
+def test_sql_only_three_check_drops_and_one_trigger_replacement():
     assert_narrow_sql(SQL)
 
 
@@ -66,6 +70,7 @@ def test_each_legacy_value_preserved_byte_exact_only_blackeye_added(table):
 
 @pytest.mark.parametrize("bad", ["DROP TABLE public.listening_tests;", "ALTER TABLE public.listening_tests DROP COLUMN metadata;",
     "ALTER TABLE public.listening_tests DROP CONSTRAINT another_check;", "DELETE FROM public.listening_test_attempts;",
+    "DROP TRIGGER IF EXISTS trg_zz_blackeye_admission ON public.listening_test_attempts;",
     "UPDATE public.listening_tests SET status='published';", "CREATE TABLE public.unapproved(id int);",
     "TRUNCATE public.listening_test_attempts;", "GRANT EXECUTE ON FUNCTION public.fn_acquire_blackeye_attempt(UUID,UUID,JSONB,TEXT) TO authenticated;"])
 def test_sql_safety_assertion_rejects_mutated_unapproved_operation(bad):
@@ -116,7 +121,11 @@ def test_unnumbered_proposal_is_not_a_forward_migration_or_ci_script_input():
     for table in TABLES:
         assert f"SELECT 1 FROM public.{table}" in rollback
     assert "status='published'" in rollback and "is_public IS TRUE" in rollback
-    assert "DROP TRIGGER IF EXISTS trg_zz_blackeye_admission" in rollback
+    assert "SET LOCAL lock_timeout = '5s';" in rollback
+    assert "DROP TRIGGER" not in uncomment(rollback)
+    assert "DROP FUNCTION IF EXISTS public.fn_guard_blackeye_admission" not in rollback
+    assert "RAISE EXCEPTION 'blackeye_unavailable'" in rollback
+    assert "rollback_376_guard_not_enabled" in rollback
     assert not re.search(r"\b(?:DELETE|TRUNCATE|UPDATE)\b", uncomment(rollback), re.I)
     # No workflow or runnable script references the proposal. Its only reader is
     # this source-only test; selecting it in regular CI cannot execute the SQL.
@@ -124,6 +133,20 @@ def test_unnumbered_proposal_is_not_a_forward_migration_or_ci_script_input():
         for path in root.rglob("*"):
             if path.is_file() and path.suffix in {".py", ".sh", ".sql", ".yml", ".yaml"}:
                 assert_no_proposal_script_input(path, path.read_text())
+
+
+def test_reapply_and_postconditions_precede_commit_and_pg17_runs_runtime_suite():
+    clean = uncomment(SQL)
+    assert clean.index("DROP TRIGGER IF EXISTS trg_zz_blackeye_admission") < clean.index("CREATE TRIGGER trg_zz_blackeye_admission")
+    for clause in ("t.tgenabled='O'", "t.tgfoid=pg_catalog.to_regprocedure(",
+                   "p.prosecdef", "p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']",
+                   "a.grantee=0", "has_function_privilege('anon'", "has_function_privilege('authenticated'",
+                   "blackeye_admission_trigger_postcondition_failed", "blackeye_admission_function_postcondition_failed"):
+        assert clause in clean
+    assert clean.index("blackeye_admission_function_postcondition_failed") < clean.index("COMMIT;")
+    workflow = (MIGRATIONS.parent.parent / '.github/workflows/backend-tests.yml').read_text()
+    pg17_list = workflow.split('PG17_TEST_FILES: >-', 1)[1].split('\njobs:', 1)[0]
+    assert 'tests/test_blackeye_admission_postgres.py' in pg17_list
 
 
 @pytest.mark.parametrize("bad", [
