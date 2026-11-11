@@ -652,7 +652,8 @@ def _safe_error_request_context(request: Request) -> tuple[str, dict | None]:
     # fall back to the concrete path: it may itself be a bearer capability.
     route_template = getattr(route, "path", None) or "<unmatched-route>"
     query = None
-    if request.query_params and "/listening" not in str(route_template):
+    from services.private_learning import is_private_learning_url
+    if request.query_params and not is_private_learning_url(str(route_template)):
         query = {
             key: "[redacted]" if key.lower() in _SENSITIVE_QUERY_KEYS else value[:256]
             for key, value in request.query_params.items()
@@ -696,7 +697,8 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     else:
         message = str(exc) or exc.__class__.__name__
         stack = _traceback.format_exc()
-    private_listening = "/listening" in request.url.path
+    from services.private_learning import is_private_learning_url
+    private_listening = is_private_learning_url(request.url.path)
     if private_listening:
         # A failed DB/client call may quote complete learner/content rows.
         # Keep only a fixed diagnostic envelope; no free text or traceback.
@@ -828,7 +830,8 @@ async def request_validation_handler(request: Request, exc: RequestValidationErr
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     import uuid as _uuid
     request_id = getattr(request.state, "request_id", None) or str(_uuid.uuid4())
-    detail = safe_detail(exc.status_code, "Listening request failed" if "/listening" in request.url.path and exc.status_code >= 500 and not (isinstance(exc.detail, dict) and "error_code" in exc.detail) else exc.detail, ref=request_id)
+    from services.private_learning import is_private_learning_url
+    detail = safe_detail(exc.status_code, "Listening request failed" if is_private_learning_url(request.url.path) and exc.status_code >= 500 and not (isinstance(exc.detail, dict) and "error_code" in exc.detail) else exc.detail, ref=request_id)
     if exc.status_code >= 500:
         # PC-J92 — persist handled 5xx to error_logs like the unhandled handler
         # (fire-and-forget, never raises). Only the error_code, route template,

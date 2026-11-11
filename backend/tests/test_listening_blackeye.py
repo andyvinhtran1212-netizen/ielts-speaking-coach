@@ -47,13 +47,15 @@ class Query:
     def __init__(self, db, table):
         self.db, self.table, self.cols, self.filters, self.patch = db, table, "*", [], None
         self.maximum = None
+        self.offset = 0
     def or_(self, expression):
         from blackeye_query_double import matches_blackeye_filter
         self.filters.append((expression, None, "be_or"))
         return self
 
     def select(self, cols, **kwargs): self.cols = cols; return self
-    def range(self, start, end): self.maximum = end + 1; return self
+    def range(self, start, end): self.offset = start; self.maximum = end - start + 1; return self
+    def in_(self, key, values): self.filters.append((key, values, "in")); return self
     def eq(self, key, value): self.filters.append((key, value, "eq")); return self
     def is_(self, key, value): self.filters.append((key, None if value == "null" else value, "eq")); return self
     def gt(self, key, value): self.filters.append((key, value, "gt")); return self
@@ -77,6 +79,7 @@ class Query:
                     continue
                 actual = row.get(key)
                 if op == "eq" and str(actual) != str(value): return False
+                if op == "in" and actual not in value: return False
                 if op == "gt" and (actual is None or actual <= value): return False
             return True
         selected = [r for r in rows if match(r)]
@@ -84,6 +87,7 @@ class Query:
             if not self.db.lose_cas:
                 for row in selected: row.update(deepcopy(self.patch))
             else: selected = []
+        selected = selected[self.offset:]
         if self.maximum is not None: selected = selected[:self.maximum]
         if self.cols == "*": result = deepcopy(selected)
         elif self.cols.startswith("programme_id:paper_row->programme_id"):
@@ -250,12 +254,18 @@ def test_r2_o5_guided_denies_before_marking_reads(env,assigned,path,method,body)
     assert env.db.rpcs == []
 
 
-def test_o6_player_playback_interim_no_bundle_no_sign_no_mutation(env):
+def test_o6_player_preview_and_playback_use_positive_contract(env):
     a=env.db.freeze(env.p)
-    r=env.client.get(f'{BASE}/tests/{env.p["id"]}'); assert r.status_code == 503,r.text; leak_free(env,r)
+    r=env.client.get(f'{BASE}/tests/{env.p["id"]}')
+    assert r.status_code == 200, r.text
+    assert r.json()["attempt"] is None and r.json()["audio"]["url"] is None
+    leak_free(env,r)
     r=env.client.post(f'{BASE}/tests/attempts/{a["id"]}/playback-started', json={"playback_claim_id":str(uuid4())})
-    assert r.status_code == 503,r.text; leak_free(env,r)
-    assert env.db.rpcs == [] and not any(patch for _,_,patch in env.db.calls)
+    assert r.status_code == 200 and r.json()["accepted"] is True
+    leak_free(env,r)
+    assert env.db.rpcs == []
+    assert all(set(patch) == {"playback_started_at"} for _,_,patch in env.db.calls if patch)
+
 
 
 def test_n4_composite_save_reload_submit_retry_review_lossless(env):
@@ -340,39 +350,45 @@ def test_cross_owner_and_global_admin_do_not_read_marking(env):
 
 
 @pytest.mark.parametrize("method,path", [("get","/listening-source-catalog?collection_id=blackeye-v5-upper&unit_id=U1"),("post","/listening-source-assignments"),("get","/listening-source-assignments/fixture-assignment")])
-def test_assignment_seam_never_catalogs_creates_receipts(env,method,path):
+def test_assignment_invalid_request_never_reads_or_writes(env,method,path):
     env.actor["admin"]=True
     r=getattr(env.client,method)("/admin/cohorts/fixture-cohort"+path)
-    assert r.status_code == 503,r.text; leak_free(env,r)
+    assert r.status_code == 422,r.text; leak_free(env,r)
     assert env.db.calls == [] and env.db.rpcs == []
 
 
-def test_assigned_start_seam_and_generic_give_service_reject(env):
+def test_assigned_start_calls_scoped_rpc_and_generic_give_stays_closed(env):
     from services.class_assignment_service import create_class_assignment
     r=start(env,query="class_item=fixture-item"); assert r.status_code == 503,r.text
-    assert env.db.rpcs == []
+    assert [name for name, _ in env.db.rpcs] == ["fn_acquire_exercise_book_assigned_attempt"]
+    assert env.db.rpcs[0][1]["p_user_id"] == env.actor["id"]
+    env.db.rpcs.clear()
     with pytest.raises(HTTPException) as error:
         create_class_assignment(env.db,cohort_id="fixture-cohort",assigned_by="fixture-teacher",title="Synthetic",skill="listening",content_id=env.p["id"])
     assert error.value.status_code == 503
     assert env.db.rpcs == []
 
 
-def test_n2_t08_exact_teacher_scope_and_no_answer_identity(env):
+def test_n2_t08_exact_teacher_scope_and_no_answer_identity(env, monkeypatch):
+    cohort, assignment, item, student = [str(uuid4()) for _ in range(4)]
     a=env.db.freeze(env.p)
-    a.update(class_assignment_item_id="fixture-item",attempt_purpose="assigned_practice")
-    ctx=dict(kind="assigned",class_assignment_item_id="fixture-item",assignment_id="fixture-assignment",cohort_id="fixture-cohort")
-    env.db.rows["mock_paper_attempt_snapshots"][0]["paper_row"]["metadata"]["blackeye_context"]=ctx
-    env.db.rows["class_assignments"]=[dict(id="fixture-assignment",cohort_id="fixture-cohort",assigned_by="fixture-teacher",skill="listening",status="published",content_id=a["test_id"])]
-    env.db.rows["class_assignment_items"]=[dict(id="fixture-item",assignment_id="fixture-assignment",student_id="fixture-student",artifact_id=a["id"],artifact_kind="listening_attempt")]
-    env.db.rows["students"]=[dict(id="fixture-student",user_id=env.db.user)]
+    a.update(class_assignment_item_id=item,attempt_purpose="assigned_practice")
+    env.db.rows["class_assignments"]=[dict(id=assignment,cohort_id=cohort,skill="listening",status="published")]
+    env.db.rows["class_assignment_items"]=[dict(id=item,assignment_id=assignment,student_id=student)]
+    env.db.rows["class_assignment_activities"]=[dict(id=str(uuid4()),class_assignment_item_id=item,test_id=a["test_id"],position=1,binding=deepcopy(env.p["metadata"]["blackeye"]["binding"]))]
+    env.db.rows["students"]=[dict(id=student,user_id=env.db.user)]
+    def access_rpc(name, params):
+        assert name == "fn_exercise_book_actor_access"
+        return SimpleNamespace(execute=lambda: SimpleNamespace(data=[dict(is_owner=False,roles=["teacher"] if params["p_actor_id"]=="fixture-teacher" else [])]))
+    monkeypatch.setattr(env.db, "rpc", access_rpc)
     a.update(status="submitted",submitted_at=datetime.now(timezone.utc).isoformat(),result_summary=dict(submitted=True,item_count=2,blank_count=2,unscored_count=2,objective_denominator=0,score=None,band_estimate=None))
-    path="/admin/cohorts/fixture-cohort/assignments/fixture-assignment/items/fixture-item/listening-review"
+    path=f"/admin/cohorts/{cohort}/assignments/{assignment}/items/{item}/listening-review?activity_id=U1-A03"
     env.actor.update(id="global-admin",admin=True)
     r=env.client.get(path); assert r.status_code == 403,r.text
     assert not any("marking_rows" in cols for _,cols,_ in env.db.calls)
     env.actor["id"]="fixture-teacher"
-    r=env.client.get(path.replace("fixture-cohort","other-cohort")); assert r.status_code == 404
-    r=env.client.get(path.replace("fixture-item","wrong-item")); assert r.status_code == 404
+    r=env.client.get(path.replace(cohort,str(uuid4()))); assert r.status_code == 404
+    r=env.client.get(path.replace(item,str(uuid4()))); assert r.status_code == 404
     r=env.client.get(path); assert r.status_code == 200,r.text; leak_free(env,r)
 
 
@@ -508,7 +524,7 @@ def test_f1_content_grading_rejects_before_private_reads_or_writes(env, mode, by
             "user_transcript": ""}
     r = env.client.post(f"{BASE}/attempts", json=body)
     assert r.status_code == 422, r.text
-    assert r.json() == {"detail": "Black Eye section access unavailable."}
+    assert r.json() == {"detail": "Yêu cầu không hợp lệ.", "code": "validation"}
     leak_free(env, r)
     assert b"PROTECTED" not in r.content and b'"diff"' not in r.content
     assert env.db.rows == before and env.db.rpcs == []
@@ -559,7 +575,7 @@ def test_r5_rpc_inactive_and_server_mismatch_sanitized(env, message, status, det
     env.db.rpc_error = f"{message}: PRIVATE_EXTRA"
     r = start(env)
     assert r.status_code == status, r.text
-    assert r.json() == {"detail": detail}
+    assert r.json() == {"detail": "Yêu cầu không hợp lệ." if status == 422 else "Dịch vụ tạm thời chưa sẵn sàng.", "code": "validation" if status == 422 else "unavailable"}
     leak_free(env, r)
     assert not env.db.rows["listening_test_attempts"]
 

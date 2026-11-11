@@ -156,7 +156,8 @@ async def report_frontend_error(
     # Free-text Listening diagnostics can contain answers, names or transcripts.
     # Retain the structured owner column only (SA-2280-F11).
     from urllib.parse import unquote
-    if "/listening" in unquote(body.url or "").lower():
+    from services.private_learning import is_private_learning_url
+    if is_private_learning_url(body.url or ""):
         payload.update(message="Listening client error", stack=None,
                        url="/listening/[private]", extra=None, user_agent=None)
 

@@ -2,6 +2,7 @@
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic_core import PydanticCustomError
 
 PROGRAMME = "blackeye-v5-upper-listening"
 COLLECTION = "blackeye-v5-upper"
@@ -201,3 +202,237 @@ class BlackEyeSaveAck(BlackEyeModel):
     attempt_id: str
     answer_count: int
     performance_event_recorded: bool
+    client_seq: int | None = None
+
+
+class BlackEyePlayer(BlackEyeModel):
+    activity: BlackEyeActivityPublic
+    attempt: BlackEyeAttemptState | None
+    replay_policy: Literal['allowed']
+    audio: BlackEyeReviewAudio
+
+
+class BlackEyePlaybackAck(BlackEyeModel):
+    attempt_id: str
+    accepted: Literal[True]
+    replay_policy: Literal['allowed']
+    playback_started_at: str
+
+
+class BlackEyeActivityAdmin(BlackEyeActivityPublic):
+    binding: BlackEyeRevisionBinding
+
+
+class BlackEyeUnitAdmin(BlackEyeModel):
+    collection_id: Literal['blackeye-v5-upper']
+    unit_id: Literal['U1']
+    activities: list[BlackEyeActivityAdmin]
+
+
+class BlackEyeRecipient(BlackEyeModel):
+    student_id: str
+    display_name: str
+
+
+class BlackEyeSourceCatalog(BlackEyeModel):
+    inventory: BlackEyeUnitAdmin
+    eligible_recipients: list[BlackEyeRecipient]
+    lookup_errors: list[str]
+
+
+class BlackEyeAssignmentCreate(BlackEyeModel):
+    request_id: Annotated[str, Field(pattern=r'^[0-9a-fA-F-]{36}$')]
+    activities: Annotated[list[BlackEyeRevisionBinding], Field(min_length=1, max_length=17)]
+    recipient_ids: Annotated[list[str], Field(min_length=1, max_length=500)]
+    due_at: str
+    deadline_timezone: Literal['Asia/Ho_Chi_Minh']
+    replay_policy: Literal['allowed'] = 'allowed'
+
+    @model_validator(mode='after')
+    def frozen_selection(self):
+        from datetime import datetime, timedelta, timezone
+        from uuid import UUID
+        self.request_id = str(UUID(self.request_id))
+        self.recipient_ids = [str(UUID(recipient)) for recipient in self.recipient_ids]
+        if len(set(self.recipient_ids)) != len(self.recipient_ids):
+            raise ValueError('duplicate recipient')
+        if len({a.activity_id for a in self.activities}) != len(self.activities):
+            raise ValueError('duplicate activity')
+        if any(a.activity_id in {'U1-A08', 'U1-A14', 'U1-A19'} for a in self.activities):
+            raise PydanticCustomError("activity_locked", "activity locked")
+        deadline = datetime.fromisoformat(self.due_at.replace('Z', '+00:00'))
+        if deadline.tzinfo is None:
+            raise ValueError('deadline offset required')
+        now = datetime.now(timezone.utc)
+        if not now < deadline <= now + timedelta(days=180):
+            raise ValueError("deadline out of range")
+        if len(self.activities) * len(self.recipient_ids) > 8500:
+            raise ValueError("selection too large")
+        return self
+
+
+class BlackEyeAssignmentReceipt(BlackEyeModel):
+    assignment_id: str
+    request_id: str
+    cohort_id: str
+    activities: list[BlackEyeRevisionBinding]
+    recipient_ids: list[str]
+    due_at: str
+    deadline_timezone: Literal['Asia/Ho_Chi_Minh']
+    replay_policy: Literal['allowed']
+    completion_denominator: int
+    status: Literal["published", "archived"]
+    created_at: str
+
+
+class BlackEyeProgressCell(BlackEyeModel):
+    student_id: str
+    activity_id: str
+    item_id: str
+    attempt_id: str | None
+    status: Literal['not_started', 'in_progress', 'submitted', 'expired', 'unavailable']
+    submitted_at: str | None
+    blank_count: int | None
+
+
+class BlackEyeProgressActivity(BlackEyeModel):
+    activity_key: str
+    test_id: str | None
+    position: int
+
+
+class BlackEyeProgressStudent(BlackEyeRecipient):
+    item_id: str
+
+
+class BlackEyeCompletion(BlackEyeModel):
+    denominator: int
+    submitted_by_student: dict[str, int]
+
+
+class BlackEyeAssignmentProgress(BlackEyeModel):
+    assignment_id: str
+    cohort_id: str
+    activities: list[BlackEyeProgressActivity]
+    students: list[BlackEyeProgressStudent]
+    cells: list[BlackEyeProgressCell]
+    completion: BlackEyeCompletion
+    dictation: BlackEyeDictation
+
+
+class BlackEyeAssignmentClose(BlackEyeModel):
+    status: Literal["archived"]
+    reason: Annotated[str, Field(min_length=1, max_length=500)]
+
+    @field_validator("reason")
+    @classmethod
+    def nonempty_reason(cls, value):
+        if not value.strip():
+            raise ValueError("reason required")
+        return value.strip()
+
+
+class BlackEyeAssignmentListItem(BlackEyeModel):
+    assignment_id: str
+    title: str
+    status: Literal["published", "archived"]
+    due_at: str
+    activity_count: int
+    recipient_count: int
+    created_at: str
+
+
+class BlackEyeAssignmentList(BlackEyeModel):
+    items: list[BlackEyeAssignmentListItem]
+    next_cursor: str | None
+
+
+class BlackEyeLearnerActivity(BlackEyeModel):
+    activity_id: str
+    title: str
+    position: int
+    test_id: str | None
+    item_id: str
+    readiness: Literal["ready", "locked"]
+    readiness_reasons: list[str]
+    my_status: Literal["not_started", "in_progress", "submitted", "expired"]
+    latest_attempt_id: str | None
+
+
+class BlackEyeLearnerAssignment(BlackEyeModel):
+    assignment_id: str
+    cohort_id: str
+    title: str
+    due_at: str
+    status: Literal["published"]
+    activities: list[BlackEyeLearnerActivity]
+
+
+class BlackEyeLearnerAssignmentList(BlackEyeModel):
+    items: list[BlackEyeLearnerAssignment]
+    next_cursor: str | None
+
+
+class BlackEyeSubmitRequest(BlackEyeModel):
+    expected_answers: Annotated[list[BlackEyeAnswer], Field(max_length=48)]
+    confirm_blank: bool = False
+
+
+class ExerciseBookGrantCreate(BlackEyeModel):
+    grantee_id: str
+    role: Literal["assigner", "teacher"]
+    action: Literal["grant", "revoke"]
+    reason: Annotated[str, Field(min_length=1, max_length=1000)]
+    request_id: str
+
+    @field_validator("grantee_id", "request_id")
+    @classmethod
+    def uuid_value(cls, value):
+        from uuid import UUID
+        return str(UUID(value))
+
+    @field_validator("reason")
+    @classmethod
+    def purpose(cls, value):
+        if not value.strip():
+            raise ValueError("reason required")
+        return value.strip()
+
+
+class ExerciseBookGrant(BlackEyeModel):
+    grantee_id: str
+    display_name: str
+    role: Literal["assigner", "teacher"]
+    state: Literal["granted", "revoked"]
+    last_event_seq: int
+    last_event_at: str
+
+
+class ExerciseBookGrantList(BlackEyeModel):
+    cohort_id: str
+    grants: list[ExerciseBookGrant]
+
+
+class ExerciseBookGrantReceipt(BlackEyeModel):
+    event_id: str
+    seq: int
+    occurred_at: str
+
+
+class ExerciseBookGrantEvent(ExerciseBookGrantReceipt):
+    actor_id: str
+    grantee_id: str
+    role: Literal["assigner", "teacher"]
+    action: Literal["grant", "revoke"]
+    reason: str
+    request_id: str
+
+
+class ExerciseBookGrantLog(BlackEyeModel):
+    items: list[ExerciseBookGrantEvent]
+    next_cursor: str | None
+
+
+class ExerciseBookError(BlackEyeModel):
+    detail: str
+    code: str

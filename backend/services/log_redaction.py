@@ -3,6 +3,7 @@
 import logging
 import re
 from urllib.parse import unquote_plus
+from services.private_learning import is_private_learning_url
 
 
 _REDACTED = "<redacted>"
@@ -20,7 +21,7 @@ def _redact_target(target: str) -> str:
     path, separator, query = target.partition("?")
     # Listening request targets can carry learner text in arbitrary query keys.
     # Log a fixed surface, never a client-controlled path/query (FR-026).
-    if "/listening" in unquote_plus(path).lower():
+    if is_private_learning_url(path):
         return "/listening/[private]"
     path = _SHARE_PATH.sub(r"\1<redacted>", path)
     if not separator:

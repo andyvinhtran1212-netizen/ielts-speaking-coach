@@ -200,7 +200,8 @@ def before_send(event: dict, hint: dict | None = None) -> dict | None:
         # share the Black Eye transport; keep only a fixed diagnostic envelope.
         from urllib.parse import unquote
         url = str((event.get("request") or {}).get("url") or "")
-        if "/listening" in unquote(url).lower():
+        from services.private_learning import is_private_learning_url
+        if is_private_learning_url(url):
             return {"event_id": event.get("event_id"), "level": event.get("level", "error"),
                     "message": "Listening request error"}
         return _scrub_event(event)

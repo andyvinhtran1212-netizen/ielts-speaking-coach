@@ -26,7 +26,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Literal, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Header, HTTPException, status
+from fastapi import APIRouter, Header, HTTPException, Query, status
 from fastapi.routing import APIRoute
 from pydantic import BaseModel, Field, model_validator
 from starlette.concurrency import run_in_threadpool
@@ -35,7 +35,11 @@ from database import supabase_admin
 from services import class_archive_service, speaking_flags
 from services.errors import clip_user_value
 from services import speaking_question_audio as sqa
-from routers.admin import require_admin
+from routers.admin import require_admin as _staff_admin_guard
+from contextvars import ContextVar
+from services.staff_guard import require_recent_mfa
+from services import exercise_book_api as books
+from models import listening_blackeye as book_dto
 from services.course_pronunciation_manifest import pronunciation_content_hash
 from services.quiz_service import (
     _course_rows_for_attempt,
@@ -82,13 +86,45 @@ from services import listening_blackeye as blackeye
 
 logger = logging.getLogger(__name__)
 
+_book_actor = ContextVar("exercise_book_admin_actor", default=None)
+
+
+async def require_admin(authorization):
+    cached = _book_actor.get()
+    if cached is not None:
+        return cached
+    return await _staff_admin_guard(authorization)
+
+
 class _AssignmentRoute(APIRoute):
     def get_route_handler(self):
         original = super().get_route_handler()
 
         async def handler(request):
+            # Dispatch from the registered template, never client-controlled
+            # fragments in cohort/assignment IDs or query strings (SA F19).
+            template = self.path
+            private = ("/listening-source-" in template or "/exercise-book-grants" in template
+                       or template.endswith("/listening-review"))
+            if private:
+                from fastapi.exceptions import RequestValidationError
+                token = None
+                try:
+                    actor = await require_admin(request.headers.get("authorization"))
+                    token = _book_actor.set(actor)
+                    response = await original(request)
+                    response.headers.update(books.PRIVATE)
+                    return response
+                except RequestValidationError as exc:
+                    code = "activity_locked" if any(e["type"] == "activity_locked" for e in exc.errors()) else "validation"
+                    return _book_error(422, code)
+                except HTTPException as exc:
+                    return _book_exception(exc)
+                finally:
+                    if token is not None:
+                        _book_actor.reset(token)
             assignment_id = request.path_params.get("assignment_id")
-            if assignment_id and not request.url.path.endswith("/listening-review") and "/listening-source-assignments" not in request.url.path:
+            if assignment_id:
                 await require_admin(request.headers.get("authorization"))
                 await run_in_threadpool(blackeye.guard_generic_assignment, supabase_admin,
                                         assignment_id, request.path_params.get("cohort_id"))
@@ -97,6 +133,8 @@ class _AssignmentRoute(APIRoute):
 
 
 router = APIRouter(prefix="/admin/cohorts", tags=["admin", "class-assignments"], route_class=_AssignmentRoute)
+# Frozen v1 error DTO applies to the book routes below, not the generic cohort API.
+BOOK_ERRORS = {code: {"model": book_dto.ExerciseBookError} for code in (401, 403, 404, 409, 422, 503)}
 
 # The speaking modes a class assignment may use. A SUBSET of what POST /sessions
 # accepts, and deliberately so: `test_full` is excluded.
@@ -3094,26 +3132,98 @@ async def delete_assignment(
         )
 
 
-@router.get("/{cohort_id}/listening-source-catalog")
-@router.post("/{cohort_id}/listening-source-assignments")
-@router.get("/{cohort_id}/listening-source-assignments/{assignment_id}")
-async def blackeye_assignment_closed(
-    cohort_id: str, assignment_id: str | None = None,
-    authorization: str | None = Header(default=None),
-):
-    # One precise seam: no catalog, recipients, receipt, generic give or DML.
-    await require_admin(authorization)
-    blackeye.assignment_seam()
-
-
-@router.get("/{cohort_id}/assignments/{assignment_id}/items/{item_id}/listening-review",
-            response_model=BlackEyeActivityReview)
-async def blackeye_teacher_review(
-    cohort_id: str, assignment_id: str, item_id: str,
-    authorization: str | None = Header(default=None),
-):
-    actor = await require_admin(authorization)
+def _book_response(value, status_code=200):
     from fastapi.encoders import jsonable_encoder
     from starlette.responses import JSONResponse
-    result = await run_in_threadpool(blackeye.teacher_review, supabase_admin, actor["id"], cohort_id, assignment_id, item_id)
-    return JSONResponse(jsonable_encoder(result), headers={"Cache-Control": "private, no-store"})
+    return JSONResponse(jsonable_encoder(value), status_code=status_code, headers=books.PRIVATE)
+
+
+def _book_error(status_code, code):
+    return _book_response({"detail": books.MESSAGES.get(status_code, books.MESSAGES[503]), "code": code}, status_code)
+
+
+def _book_exception(exc):
+    status_code = exc.status_code if exc.status_code in books.MESSAGES else 503
+    code = {401: "unauthorized", 403: "not_granted", 404: "not_found", 409: "attempt_changed",
+            422: "validation", 503: "unavailable"}[status_code]
+    if isinstance(exc.detail, dict):
+        code = exc.detail.get("code", code)
+    return _book_error(status_code, code)
+
+
+@router.get("/{cohort_id}/listening-source-catalog", response_model=book_dto.BlackEyeSourceCatalog, responses=BOOK_ERRORS)
+async def blackeye_source_catalog(cohort_id: str, authorization: str | None = Header(default=None)):
+    actor = await require_admin(authorization)
+    return _book_response(await run_in_threadpool(blackeye.admin_catalog, supabase_admin, actor["id"], books.checked_uuid(cohort_id)))
+
+
+@router.post("/{cohort_id}/listening-source-assignments", response_model=book_dto.BlackEyeAssignmentReceipt, status_code=201,
+             responses={**BOOK_ERRORS, 200: {"model": book_dto.BlackEyeAssignmentReceipt}})
+async def blackeye_source_assign(cohort_id: str, body: book_dto.BlackEyeAssignmentCreate,
+    authorization: str | None = Header(default=None)):
+    actor = await require_admin(authorization)
+    value, status_code = await run_in_threadpool(books.create, supabase_admin, actor["id"], books.checked_uuid(cohort_id), body)
+    return _book_response(value, status_code)
+
+
+@router.get("/{cohort_id}/listening-source-assignments", response_model=book_dto.BlackEyeAssignmentList, responses=BOOK_ERRORS)
+async def blackeye_source_list(cohort_id: str, limit: int = Query(50, ge=1, le=200), cursor: str | None = None,
+    authorization: str | None = Header(default=None)):
+    actor = await require_admin(authorization)
+    return _book_response(await run_in_threadpool(books.list_assignments, supabase_admin, actor["id"], books.checked_uuid(cohort_id), limit, cursor))
+
+
+@router.get("/{cohort_id}/listening-source-assignments/{assignment_id}", response_model=book_dto.BlackEyeAssignmentReceipt, responses=BOOK_ERRORS)
+async def blackeye_source_receipt(cohort_id: str, assignment_id: str, authorization: str | None = Header(default=None)):
+    actor = await require_admin(authorization)
+    return _book_response(await run_in_threadpool(books.receipt, supabase_admin, actor["id"], books.checked_uuid(cohort_id), books.checked_uuid(assignment_id)))
+
+
+@router.patch("/{cohort_id}/listening-source-assignments/{assignment_id}", response_model=book_dto.BlackEyeAssignmentReceipt, responses=BOOK_ERRORS)
+async def blackeye_source_close(cohort_id: str, assignment_id: str, body: book_dto.BlackEyeAssignmentClose,
+    authorization: str | None = Header(default=None)):
+    actor = await require_admin(authorization)
+    return _book_response(await run_in_threadpool(books.close, supabase_admin, actor["id"], books.checked_uuid(cohort_id), books.checked_uuid(assignment_id), body))
+
+
+@router.get("/{cohort_id}/listening-source-assignments/{assignment_id}/progress", response_model=book_dto.BlackEyeAssignmentProgress, responses=BOOK_ERRORS)
+async def blackeye_assignment_progress(cohort_id: str, assignment_id: str, authorization: str | None = Header(default=None)):
+    actor = await require_admin(authorization)
+    return _book_response(await run_in_threadpool(books.progress, supabase_admin, actor["id"], books.checked_uuid(cohort_id), books.checked_uuid(assignment_id)))
+
+
+@router.get("/{cohort_id}/assignments/{assignment_id}/items/{item_id}/listening-review", response_model=book_dto.BlackEyeActivityReview, responses=BOOK_ERRORS)
+async def blackeye_teacher_review(cohort_id: str, assignment_id: str, item_id: str,
+    activity_id: str = Query(..., pattern=r"^U1-A(0[1-9]|1[0-9]|20)$"),
+    authorization: str | None = Header(default=None)):
+    actor = await require_admin(authorization)
+    return _book_response(await run_in_threadpool(blackeye.teacher_review, supabase_admin, actor["id"],
+        books.checked_uuid(cohort_id), books.checked_uuid(assignment_id), books.checked_uuid(item_id), activity_id))
+
+
+@router.get("/{cohort_id}/exercise-book-grants", response_model=book_dto.ExerciseBookGrantList, responses=BOOK_ERRORS)
+async def exercise_book_grants(cohort_id: str, authorization: str | None = Header(default=None)):
+    actor = await require_admin(authorization)
+    require_recent_mfa(actor, authorization, enforce=True, max_age_seconds=600)
+    at, _ = books.grant_context(actor, authorization)
+    return _book_response(await run_in_threadpool(books.grants, supabase_admin, actor["id"], books.checked_uuid(cohort_id), at))
+
+
+@router.post("/{cohort_id}/exercise-book-grants", response_model=book_dto.ExerciseBookGrantReceipt, status_code=201,
+             responses={**BOOK_ERRORS, 200: {"model": book_dto.ExerciseBookGrantReceipt}})
+async def exercise_book_record_grant(cohort_id: str, body: book_dto.ExerciseBookGrantCreate,
+    authorization: str | None = Header(default=None)):
+    actor = await require_admin(authorization)
+    require_recent_mfa(actor, authorization, enforce=True, max_age_seconds=600)
+    at, session_id = books.grant_context(actor, authorization)
+    value, status_code = await run_in_threadpool(books.record_grant, supabase_admin, actor["id"], books.checked_uuid(cohort_id), at, session_id, body)
+    return _book_response(value, status_code)
+
+
+@router.get("/{cohort_id}/exercise-book-grants/log", response_model=book_dto.ExerciseBookGrantLog, responses=BOOK_ERRORS)
+async def exercise_book_grant_log(cohort_id: str, limit: int = Query(50, ge=1, le=200), cursor: str | None = None,
+    authorization: str | None = Header(default=None)):
+    actor = await require_admin(authorization)
+    require_recent_mfa(actor, authorization, enforce=True, max_age_seconds=600)
+    at, _ = books.grant_context(actor, authorization)
+    return _book_response(await run_in_threadpool(books.grant_log, supabase_admin, actor["id"], books.checked_uuid(cohort_id), at, limit, cursor))

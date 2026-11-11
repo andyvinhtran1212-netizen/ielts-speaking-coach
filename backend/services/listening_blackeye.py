@@ -1,7 +1,7 @@
 """Black Eye boundary; immutable existing snapshot storage, no live-key fallback.
 
-PR1 assignment seam is intentionally closed (uid d461e884). Player/audio stays
-503 pending playback integration; never invoke the permissive generic assembler.
+Generic assignment paths remain closed. Assigned exercise-book paths use the
+frozen D1 RPC contract and derive context from child rows at read time.
 """
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ from models.listening_blackeye import (
     BlackEyeRevisionBinding, BlackEyeReviewItem, BlackEyePublicItem,
 )
 from services.active_player_lifecycle import require_resume_active
+from services import exercise_book_api as books
 
 UNAVAILABLE = "Black Eye frozen contract unavailable."
 ASSIGNMENT_UNAVAILABLE = "Black Eye assignment contract unavailable."
@@ -138,24 +139,35 @@ def require_published(db, test: dict):
         raise HTTPException(404, "Black Eye activity unavailable.")
 
 
-def public_inventory(db):
+def published_papers(db, *, ids=None, allow_missing=False):
+    """Two batched reads, never one package lookup per activity."""
     try:
-        rows = db.table("listening_tests").select(
-            "id,programme_id,status,is_public,scoring_policy,content_package_id,metadata"
-        ).eq("programme_id", PROGRAMME).eq("status", "published").eq("is_public", True).execute().data or []
-        activities = []
-        for row in rows:
-            require_published(db, row)
-            activity, _ = activity_from_paper(row)
-            activities.append(activity)
-        if not activities or len({a.binding.activity_id for a in activities}) != len(activities):
-            unavailable()
-        return {"collection_id": "blackeye-v5-upper", "unit_id": "U1",
-                "activities": sorted(activities, key=lambda a: a.order)}
+        q = db.table("listening_tests").select("*").eq("programme_id", PROGRAMME).eq(
+            "status", "published").eq("is_public", True)
+        if ids is not None:
+            if not ids:
+                return []
+            q = q.in_("id", sorted(ids))
+        rows = q.execute().data or []
+        package_ids = sorted({r["content_package_id"] for r in rows if r.get("content_package_id")})
+        packages = db.table("listening_content_packages").select("id,status,programme_id").in_(
+            "id", package_ids).execute().data or [] if package_ids else []
+        valid = {r["id"] for r in packages if r.get("status") == "published" and r.get("programme_id") == PROGRAMME}
+        if not allow_missing and any(r.get("content_package_id") not in valid for r in rows):
+            raise HTTPException(404, "Black Eye activity unavailable.")
+        return [r for r in rows if r.get("content_package_id") in valid]
     except HTTPException:
         raise
     except Exception:
         unavailable()
+
+
+def public_inventory(db):
+    activities = [activity_from_paper(row)[0] for row in published_papers(db)]
+    if not activities or len({a.binding.activity_id for a in activities}) != len(activities):
+        unavailable()
+    return {"collection_id": "blackeye-v5-upper", "unit_id": "U1",
+            "activities": sorted(activities, key=lambda a: a.order)}
 
 
 def frozen_public(db, attempt: dict):
@@ -185,6 +197,9 @@ def frozen_public(db, attempt: dict):
             raise ValueError("test")
         require_ready(activity)
         context = BlackEyeContext.model_validate(paper["metadata"]["blackeye_context"])
+        if attempt.get("class_assignment_item_id"):
+            context, _, _ = books.assigned_context(db, attempt["user_id"],
+                attempt["class_assignment_item_id"], attempt["test_id"], full_binding=full)
         if (attempt.get("sitting_id") or context.class_assignment_item_id != attempt.get("class_assignment_item_id")
                 or attempt.get("attempt_purpose") != ("practice" if context.kind == "standalone" else "assigned_practice")):
             raise ValueError("context")
@@ -275,7 +290,20 @@ def start(db, test, user_id, binding, *, standalone, class_item, purpose, sittin
     # Resolve client preconditions BEFORE the seam/private snapshot/admission.
     activity, _ = activity_from_paper(test)
     require_ready(activity)
-    if class_item or not standalone:
+    if class_item:
+        if standalone or sitting_id or purpose not in {None, "assigned_practice"}:
+            books.fail(422, "validation")
+        result = books.object_result(books.rpc(db, "fn_acquire_exercise_book_assigned_attempt", {
+            "p_user_id": user_id, "p_item_id": class_item, "p_test_id": str(test["id"]),
+            "p_binding": binding.model_dump(), "p_renderer_affinity_protocol": protocol or "legacy",
+        }))
+        if result.get("user_id") != user_id or result.get("test_id") != str(test["id"]) or result.get("class_assignment_item_id") != class_item:
+            books.fail()
+        frozen = state(db, result)
+        if frozen.binding != binding or frozen.context.kind != "assigned":
+            books.fail()
+        return frozen
+    if not standalone:
         assignment_seam()
     if sitting_id or purpose not in {None, "practice"}:
         raise HTTPException(422, "Invalid Black Eye context.")
@@ -312,10 +340,23 @@ def start(db, test, user_id, binding, *, standalone, class_item, purpose, sittin
     return frozen
 
 
-def save(db, attempt, q_num, value):
+def save(db, attempt, q_num, value, *, client_seq=None, user_id=None):
     activity, _, context = frozen_public(db, attempt)
     if context.kind == "assigned":
-        assignment_seam()
+        if user_id != attempt.get("user_id"):
+            books.fail(404, "not_found")
+        cell = next((i for i in activity.items if i.q_num == q_num), None)
+        if cell is None or type(q_num) is not int or not isinstance(value, str) or len(value) > 4000 or type(client_seq) is not int or not 1 <= client_seq <= 9223372036854775807:
+            books.fail(422, "validation")
+        decode_answer(cell, value)
+        result = books.object_result(books.rpc(db, "fn_save_exercise_book_answer", {
+            "p_user_id": user_id, "p_attempt_id": attempt["id"], "p_q_num": q_num,
+            "p_user_answer": value, "p_client_seq": client_seq,
+        }))
+        if result.get("attempt_id") != attempt["id"] or type(result.get("client_seq")) is not int or type(result.get("applied")) is not bool:
+            books.fail()
+        return {"attempt_id": result["attempt_id"], "answer_count": result.get("answer_count"),
+                "client_seq": result["client_seq"], "performance_event_recorded": False}
     require_published(db, test_identity(db, attempt["test_id"]))
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Black Eye attempt inactive.")
@@ -339,9 +380,27 @@ def save(db, attempt, q_num, value):
     return {"attempt_id": str(attempt["id"]), "answer_count": count, "performance_event_recorded": False}
 
 
-def submit(db, attempt, user_id):
+def submit(db, attempt, user_id, body=None):
     if str(attempt.get("user_id")) != str(user_id):
         raise HTTPException(404, "Attempt not found")
+    if attempt.get("class_assignment_item_id"):
+        if body is None:
+            books.fail(422, "validation")
+        activity, _, _ = frozen_public(db, attempt)
+        expected = [a.model_dump() for a in body.expected_answers]
+        try:
+            if any(len(a["user_answer"]) > 4000 for a in expected):
+                books.fail(422, "validation")
+            answer_map(activity, expected)
+        except HTTPException:
+            books.fail(422, "validation")
+        result = books.object_result(books.rpc(db, "fn_submit_exercise_book_assigned_attempt", {
+            "p_user_id": user_id, "p_attempt_id": attempt["id"],
+            "p_expected_answers": expected, "p_confirm_blank": body.confirm_blank,
+        }))
+        if result.get("user_id") != user_id or result.get("id") != attempt["id"] or result.get("status") != "submitted":
+            books.fail()
+        return state(db, result)
     # Idempotent retry NEVER grades or reads live exercises/catalog.
     if attempt.get("status") == "submitted":
         return state(db, attempt)
@@ -386,7 +445,7 @@ def review(db, attempt):
         validate_assigned_context(db, attempt, context)
     attempt_state = state(db, attempt)
     try:
-        rows = db.table("mock_paper_attempt_snapshots").select("marking_rows").eq(
+        rows = db.table("mock_paper_attempt_snapshots").select("marking_rows,paper_row").eq(
             "skill", "listening").eq("attempt_id", str(attempt["id"])).eq(
             "paper_id", str(attempt["test_id"])).eq("paper_revision", attempt["paper_revision"]).eq(
             "policy_revision", attempt["policy_revision"]).limit(1).execute().data or []
@@ -408,7 +467,7 @@ def review(db, attempt):
         # Whole-activity only. No asset signer or arbitrary raw source bundle.
         transcript = [{"text": t["text"], "start": None, "end": None} for t in material["transcript"]]
         return BlackEyeActivityReview(attempt=attempt_state, items=projected, transcript=transcript,
-            audio={"url": None, "granularity": "whole_activity", "expires_in": None})
+            audio=signed_audio(db, rows[0]["paper_row"]))
     except HTTPException:
         raise
     except Exception:
@@ -416,62 +475,39 @@ def review(db, attempt):
 
 
 def validate_assigned_context(db, attempt, context, *, actor_id=None):
-    """Exact joins, not the generic global-admin review bypass.
-
-    PR1 permits only the recorded assignment creator as the cohort capability;
-    broader teacher grants await approved PR2 mapping. No generic fallback.
-    """
-    try:
-        assignment = db.table("class_assignments").select("*").eq("id", context.assignment_id).eq(
-            "cohort_id", context.cohort_id).limit(1).execute().data or []
-        item = db.table("class_assignment_items").select("*").eq("id", context.class_assignment_item_id).eq(
-            "assignment_id", context.assignment_id).limit(1).execute().data or []
-        if (len(assignment) != 1 or len(item) != 1
-                or assignment[0].get("skill") != "listening"
-                or str(assignment[0].get("content_id")) != str(attempt["test_id"])
-                or assignment[0].get("status") != "published"
-                or item[0].get("artifact_id") != str(attempt["id"])
-                or item[0].get("artifact_kind") != "listening_attempt"):
-            raise HTTPException(404, "Black Eye review unavailable.")
-        students = db.table("students").select("id,user_id").eq("id", item[0]["student_id"]).eq(
-            "user_id", attempt["user_id"]).limit(1).execute().data or []
-        if len(students) != 1 or (actor_id is not None and assignment[0].get("assigned_by") != actor_id):
-            raise HTTPException(403, "Black Eye review unavailable.")
-    except HTTPException:
-        raise
-    except Exception:
-        unavailable()
+    actual, _, _ = books.assigned_context(db, attempt["user_id"],
+        context.class_assignment_item_id, attempt["test_id"])
+    if context != actual or attempt.get("class_assignment_item_id") != actual.class_assignment_item_id:
+        books.fail(404, "not_found")
+    if actor_id is not None:
+        books.access(db, actor_id, actual.cohort_id)
 
 
-def teacher_review(db, actor_id, cohort_id, assignment_id, item_id):
-    """Authenticate exact creator/cohort/owner joins before private marking IO."""
-    try:
-        rows = db.table("class_assignments").select("id,assigned_by,skill").eq(
-            "id", assignment_id).eq("cohort_id", cohort_id).limit(1).execute().data or []
-        if len(rows) != 1 or rows[0].get("skill") != "listening":
-            raise HTTPException(404, "Black Eye review unavailable.")
-        if rows[0].get("assigned_by") != actor_id:
-            raise HTTPException(403, "Black Eye review unavailable.")
-        items = db.table("class_assignment_items").select("*").eq(
-            "id", item_id).eq("assignment_id", assignment_id).limit(1).execute().data or []
-        if len(items) != 1 or items[0].get("artifact_kind") != "listening_attempt":
-            raise HTTPException(404, "Black Eye review unavailable.")
-        attempts = db.table("listening_test_attempts").select("*").eq(
-            "id", items[0].get("artifact_id")).eq("class_assignment_item_id", item_id).limit(1).execute().data or []
-        if len(attempts) != 1 or attempts[0].get("status") != "submitted":
-            raise HTTPException(409, "Black Eye review requires submission.")
-        attempt = attempts[0]
-        expected = BlackEyeContext(kind="assigned", cohort_id=cohort_id,
-            assignment_id=assignment_id, class_assignment_item_id=item_id)
-        validate_assigned_context(db, attempt, expected, actor_id=actor_id)
-        _, _, context = frozen_public(db, attempt)
-        if context != expected:
-            raise HTTPException(403, "Black Eye review unavailable.")
-        return review(db, attempt)
-    except HTTPException:
-        raise
-    except Exception:
-        unavailable()
+def teacher_review(db, actor_id, cohort_id, assignment_id, item_id, activity_id):
+    books.access(db, actor_id, cohort_id)
+    books.assignment(db, cohort_id, assignment_id)
+    items = books._rows(db.table("class_assignment_items").select("id,student_id").eq(
+        "id", item_id).eq("assignment_id", assignment_id).limit(1))
+    if len(items) != 1:
+        books.fail(404, "not_found")
+    children = books._rows(db.table("class_assignment_activities").select("*").eq(
+        "class_assignment_item_id", item_id))
+    children = [r for r in children if books.model(BlackEyeRevisionBinding, r.get("binding")).activity_id == activity_id]
+    if len(children) != 1:
+        books.fail(404, "not_found")
+    owners = books._rows(db.table("students").select("id,user_id").eq("id", items[0]["student_id"]).limit(1))
+    if len(owners) != 1 or not owners[0].get("user_id"):
+        books.fail(404, "not_found")
+    attempts = books._rows(db.table("listening_test_attempts").select("*").eq(
+        "class_assignment_item_id", item_id).eq("test_id", children[0]["test_id"]).eq(
+        "user_id", owners[0]["user_id"]).eq("status", "submitted").order("created_at", desc=True).limit(1))
+    if len(attempts) != 1:
+        books.fail(409, "attempt_changed")
+    attempt = attempts[0]
+    _, full, context = frozen_public(db, attempt)
+    if context.assignment_id != assignment_id or context.cohort_id != cohort_id or full != books.model(BlackEyeRevisionBinding, children[0]["binding"]):
+        books.fail(404, "not_found")
+    return review(db, attempt)
 
 
 # Identity-only exclusion runs before generic reads/counts/joins or mutations.
@@ -577,3 +613,109 @@ def exclude_assignments(db, query, *, key="id", cohort_id=None):
     for offset in range(0, len(ids), 100):
         query = query.or_(f"{key}.is.null,{key}.not.in.({','.join(ids[offset:offset + 100])})")
     return query
+
+
+def player(db, test, user_id, *, attempt_id=None, class_item=None, sitting_id=None):
+    """Positive Black Eye DTO. Authorize owner before snapshot access or signing."""
+    from models.listening_blackeye import BlackEyePlayer
+    require_published(db, test)
+    if sitting_id:
+        raise HTTPException(422, 'Invalid Black Eye context.')
+    attempt = None
+    if attempt_id:
+        try:
+            rows = db.table('listening_test_attempts').select('*').eq('id', str(attempt_id)).eq(
+                'user_id', user_id).eq('test_id', str(test['id'])).limit(1).execute().data or []
+        except Exception:
+            unavailable()
+        if len(rows) != 1:
+            raise HTTPException(404, 'Black Eye attempt unavailable.')
+        attempt = rows[0]
+        if attempt.get('class_assignment_item_id') != class_item:
+            raise HTTPException(404, 'Black Eye attempt unavailable.')
+        attempt_state = state(db, attempt)
+        activity, _, _ = frozen_public(db, attempt)
+        # Audio paths come from the same immutable snapshot as the cells.
+        try:
+            rows = db.table('mock_paper_attempt_snapshots').select('paper_row').eq(
+                'skill', 'listening').eq('attempt_id', str(attempt_id)).limit(1).execute().data or []
+            if len(rows) != 1:
+                unavailable()
+            paper = rows[0]['paper_row']
+        except Exception:
+            unavailable()
+    else:
+        if class_item:
+            _, parent, _ = books.assigned_context(db, user_id, class_item, str(test["id"]))
+            books.active_assignment(parent)
+        activity, _ = activity_from_paper(test)
+        attempt_state, paper = None, test
+    # Before admission this is only a public preview; no audio capability.
+    audio = signed_audio(db, paper) if attempt is not None else {"url": None, "granularity": "whole_activity", "expires_in": None}
+    return BlackEyePlayer(activity=activity, attempt=attempt_state, replay_policy="allowed", audio=audio)
+
+
+def signed_audio(db, paper):
+    """Only call after owner/cohort authorization and frozen-paper validation."""
+    path = paper.get("assembled_audio_storage_path") or paper.get("full_audio_storage_path")
+    url = None
+    if path:
+        from config import settings
+        try:
+            signed = db.storage.from_(settings.LISTENING_AUDIO_BUCKET).create_signed_url(path, 7200)
+            url = (signed or {}).get("signedURL") or (signed or {}).get("signed_url")
+            if not isinstance(url, str) or not url:
+                unavailable()
+        except Exception:
+            unavailable()
+    return {"url": url, "granularity": "whole_activity", "expires_in": 7200 if url else None}
+
+
+def playback_started(db, attempt):
+    from datetime import datetime, timezone
+    from models.listening_blackeye import BlackEyePlaybackAck
+    state(db, attempt)
+    if attempt.get("class_assignment_item_id"):
+        _, parent, _ = books.assigned_context(db, attempt["user_id"], attempt["class_assignment_item_id"], attempt["test_id"])
+        books.active_assignment(parent)
+    if attempt.get('status') != 'in_progress':
+        raise HTTPException(422, 'Black Eye attempt inactive.')
+    require_published(db, test_identity(db, attempt['test_id']))
+    timestamp = attempt.get('playback_started_at')
+    try:
+        if not timestamp:
+            timestamp = datetime.now(timezone.utc).isoformat()
+            db.table('listening_test_attempts').update({'playback_started_at': timestamp}).eq(
+                'id', attempt['id']).eq('user_id', attempt['user_id']).eq('status', 'in_progress').is_(
+                'playback_started_at', 'null').execute()
+        rows = db.table('listening_test_attempts').select('playback_started_at,status').eq(
+            'id', attempt['id']).eq('user_id', attempt['user_id']).limit(1).execute().data or []
+        if len(rows) != 1 or rows[0].get('status') != 'in_progress' or not rows[0].get('playback_started_at'):
+            raise HTTPException(409, 'Black Eye attempt changed.')
+        return BlackEyePlaybackAck(attempt_id=str(attempt['id']), accepted=True,
+            replay_policy='allowed', playback_started_at=rows[0]['playback_started_at'])
+    except HTTPException:
+        raise
+    except Exception:
+        unavailable()
+
+
+def admin_catalog(db, actor_id, cohort_id):
+    from models.listening_blackeye import BlackEyeActivityAdmin, BlackEyeSourceCatalog
+    books.access(db, actor_id, cohort_id, assigner=True)
+    activities = []
+    for row in published_papers(db):
+        activity, full = activity_from_paper(row)
+        activities.append(BlackEyeActivityAdmin.model_validate({**activity.model_dump(), "binding": full.model_dump()}))
+    if not activities or len({a.binding.activity_id for a in activities}) != len(activities):
+        unavailable()
+    errors, recipients = [], []
+    try:
+        from services.class_membership_service import active_students_for_cohort
+        students = active_students_for_cohort(db, cohort_id, "id,user_id,full_name,is_active,archived_at")
+        recipients = [{"student_id": str(s["id"]), "display_name": s.get("full_name") or "Học viên"}
+            for s in students if s.get("user_id") and s.get("is_active") is True and not s.get("archived_at")]
+    except Exception:
+        errors = ["recipient_lookup_failed"]
+    return BlackEyeSourceCatalog(inventory={"collection_id": "blackeye-v5-upper", "unit_id": "U1",
+        "activities": sorted(activities, key=lambda a: a.order)}, eligible_recipients=recipients, lookup_errors=errors)

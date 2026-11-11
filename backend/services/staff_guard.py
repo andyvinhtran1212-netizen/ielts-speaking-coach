@@ -409,7 +409,8 @@ def _log_step_up_would_block(user_id: str, assurance: Assurance, now: float, *, 
     logger.warning("%s %s", STEP_UP_WOULD_BLOCK_EVENT, json.dumps(fields, sort_keys=True))
 
 
-def require_recent_mfa(auth_user: dict, authorization: str | None) -> None:
+def require_recent_mfa(auth_user: dict, authorization: str | None, *,
+                       enforce: bool | None = None, max_age_seconds: int | None = None) -> None:
     """Step-up for privilege-changing routes (FR-020). Call it right after the
     route's ``require_admin`` (the FR-001 guard), before any database read or
     write, audit or outbox row. Passes only when the accepted token's
@@ -422,9 +423,14 @@ def require_recent_mfa(auth_user: dict, authorization: str | None) -> None:
     would-block warning per request. Unusable factor timestamps are a lookup
     failure (503 under enforcement), never an old factor.
 
+    Exercise-book grant routes pass enforce=True and max_age_seconds=600;
+    this does not change global rollout flags.
+
     The inventory test (tests/test_staff_guard_inventory.py) pins every route
     that calls this."""
-    enforce = step_up_enforcement_enabled()
+    enforce = step_up_enforcement_enabled() if enforce is None else enforce
+    max_age = step_up_max_age_seconds() if max_age_seconds is None else min(
+        step_up_max_age_seconds(), max_age_seconds)
     user_id = str(auth_user.get("id") or "") if isinstance(auth_user, dict) else ""
     now = time.time()
     try:
@@ -432,7 +438,7 @@ def require_recent_mfa(auth_user: dict, authorization: str | None) -> None:
         # Always validate factor metadata, including for unsatisfied assurance.
         recent_factor_change = _recent_factor_change(auth_user, now)
         cooloff = assurance.satisfied and recent_factor_change
-        fresh = assurance.satisfied and now - assurance.totp_verified_at <= step_up_max_age_seconds()
+        fresh = assurance.satisfied and now - assurance.totp_verified_at <= max_age
     except Exception as exc:  # malformed factor metadata or a bug: never grant
         logger.error("[staff_guard] step-up check failed user=%s: %r", user_id, exc)
         if enforce:

@@ -2554,15 +2554,15 @@ export interface paths {
         patch: operations["update_assignment_due_admin_cohorts__cohort_id__assignments__assignment_id__due_patch"];
         trace?: never;
     };
-    "/admin/cohorts/{cohort_id}/listening-source-assignments/{assignment_id}": {
+    "/admin/cohorts/{cohort_id}/listening-source-catalog": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Blackeye Assignment Closed */
-        get: operations["blackeye_assignment_closed_admin_cohorts__cohort_id__listening_source_assignments__assignment_id__get"];
+        /** Blackeye Source Catalog */
+        get: operations["blackeye_source_catalog_admin_cohorts__cohort_id__listening_source_catalog_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2578,25 +2578,44 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Blackeye Source List */
+        get: operations["blackeye_source_list_admin_cohorts__cohort_id__listening_source_assignments_get"];
         put?: never;
-        /** Blackeye Assignment Closed */
-        post: operations["blackeye_assignment_closed_admin_cohorts__cohort_id__listening_source_assignments_post"];
+        /** Blackeye Source Assign */
+        post: operations["blackeye_source_assign_admin_cohorts__cohort_id__listening_source_assignments_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/admin/cohorts/{cohort_id}/listening-source-catalog": {
+    "/admin/cohorts/{cohort_id}/listening-source-assignments/{assignment_id}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Blackeye Assignment Closed */
-        get: operations["blackeye_assignment_closed_admin_cohorts__cohort_id__listening_source_catalog_get"];
+        /** Blackeye Source Receipt */
+        get: operations["blackeye_source_receipt_admin_cohorts__cohort_id__listening_source_assignments__assignment_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Blackeye Source Close */
+        patch: operations["blackeye_source_close_admin_cohorts__cohort_id__listening_source_assignments__assignment_id__patch"];
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/listening-source-assignments/{assignment_id}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Blackeye Assignment Progress */
+        get: operations["blackeye_assignment_progress_admin_cohorts__cohort_id__listening_source_assignments__assignment_id__progress_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2614,6 +2633,41 @@ export interface paths {
         };
         /** Blackeye Teacher Review */
         get: operations["blackeye_teacher_review_admin_cohorts__cohort_id__assignments__assignment_id__items__item_id__listening_review_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/exercise-book-grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Exercise Book Grants */
+        get: operations["exercise_book_grants_admin_cohorts__cohort_id__exercise_book_grants_get"];
+        put?: never;
+        /** Exercise Book Record Grant */
+        post: operations["exercise_book_record_grant_admin_cohorts__cohort_id__exercise_book_grants_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/cohorts/{cohort_id}/exercise-book-grants/log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Exercise Book Grant Log */
+        get: operations["exercise_book_grant_log_admin_cohorts__cohort_id__exercise_book_grants_log_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8410,6 +8464,23 @@ export interface paths {
         };
         /** Get Blackeye Unit */
         get: operations["get_blackeye_unit_api_listening_source_collections_blackeye_v5_upper_units_U1_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/exercise-book-assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Learner Exercise Book Assignments */
+        get: operations["list_learner_exercise_book_assignments_api_listening_exercise_book_assignments_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -14964,6 +15035,42 @@ export interface components {
             /** Is Published */
             is_published?: boolean | null;
         };
+        /** BlackEyeActivityAdmin */
+        BlackEyeActivityAdmin: {
+            binding: components["schemas"]["BlackEyeRevisionBinding"];
+            /** Test Id */
+            test_id: string | null;
+            /** Title */
+            title: string;
+            /** Order */
+            order: number;
+            /**
+             * Readiness
+             * @enum {string}
+             */
+            readiness: "locked" | "candidate" | "ready";
+            /** Readiness Reasons */
+            readiness_reasons: string[];
+            /** Selectable */
+            selectable: boolean;
+            /** Response Cell Count */
+            response_cell_count: number;
+            /**
+             * Scoring Policy
+             * @constant
+             */
+            scoring_policy: "report_only";
+            /**
+             * Objective Denominator
+             * @constant
+             */
+            objective_denominator: 0;
+            dictation: components["schemas"]["BlackEyeDictation"];
+            /** Items */
+            items: components["schemas"]["BlackEyePublicItem"][];
+            /** Media Handle */
+            media_handle: string | null;
+        };
         /** BlackEyeActivityPublic */
         BlackEyeActivityPublic: {
             binding: components["schemas"]["BlackEyeLearnerBinding"];
@@ -15018,6 +15125,114 @@ export interface components {
             /** User Answer */
             user_answer: string;
         };
+        /** BlackEyeAssignmentClose */
+        BlackEyeAssignmentClose: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "archived";
+            /** Reason */
+            reason: string;
+        };
+        /** BlackEyeAssignmentCreate */
+        BlackEyeAssignmentCreate: {
+            /** Request Id */
+            request_id: string;
+            /** Activities */
+            activities: components["schemas"]["BlackEyeRevisionBinding"][];
+            /** Recipient Ids */
+            recipient_ids: string[];
+            /** Due At */
+            due_at: string;
+            /**
+             * Deadline Timezone
+             * @constant
+             */
+            deadline_timezone: "Asia/Ho_Chi_Minh";
+            /**
+             * Replay Policy
+             * @default allowed
+             * @constant
+             */
+            replay_policy: "allowed";
+        };
+        /** BlackEyeAssignmentList */
+        BlackEyeAssignmentList: {
+            /** Items */
+            items: components["schemas"]["BlackEyeAssignmentListItem"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** BlackEyeAssignmentListItem */
+        BlackEyeAssignmentListItem: {
+            /** Assignment Id */
+            assignment_id: string;
+            /** Title */
+            title: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "published" | "archived";
+            /** Due At */
+            due_at: string;
+            /** Activity Count */
+            activity_count: number;
+            /** Recipient Count */
+            recipient_count: number;
+            /** Created At */
+            created_at: string;
+        };
+        /** BlackEyeAssignmentProgress */
+        BlackEyeAssignmentProgress: {
+            /** Assignment Id */
+            assignment_id: string;
+            /** Cohort Id */
+            cohort_id: string;
+            /** Activities */
+            activities: components["schemas"]["BlackEyeProgressActivity"][];
+            /** Students */
+            students: components["schemas"]["BlackEyeProgressStudent"][];
+            /** Cells */
+            cells: components["schemas"]["BlackEyeProgressCell"][];
+            completion: components["schemas"]["BlackEyeCompletion"];
+            dictation: components["schemas"]["BlackEyeDictation"];
+        };
+        /** BlackEyeAssignmentReceipt */
+        BlackEyeAssignmentReceipt: {
+            /** Assignment Id */
+            assignment_id: string;
+            /** Request Id */
+            request_id: string;
+            /** Cohort Id */
+            cohort_id: string;
+            /** Activities */
+            activities: components["schemas"]["BlackEyeRevisionBinding"][];
+            /** Recipient Ids */
+            recipient_ids: string[];
+            /** Due At */
+            due_at: string;
+            /**
+             * Deadline Timezone
+             * @constant
+             */
+            deadline_timezone: "Asia/Ho_Chi_Minh";
+            /**
+             * Replay Policy
+             * @constant
+             */
+            replay_policy: "allowed";
+            /** Completion Denominator */
+            completion_denominator: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "published" | "archived";
+            /** Created At */
+            created_at: string;
+        };
         /** BlackEyeAttemptState */
         BlackEyeAttemptState: {
             /** Attempt Id */
@@ -15036,6 +15251,15 @@ export interface components {
             /** Submitted At */
             submitted_at: string | null;
             result_summary: components["schemas"]["BlackEyeResultSummary"] | null;
+        };
+        /** BlackEyeCompletion */
+        BlackEyeCompletion: {
+            /** Denominator */
+            denominator: number;
+            /** Submitted By Student */
+            submitted_by_student: {
+                [key: string]: number;
+            };
         };
         /** BlackEyeContext */
         BlackEyeContext: {
@@ -15083,6 +15307,58 @@ export interface components {
             /** Correction Text */
             correction_text: string;
         };
+        /** BlackEyeLearnerActivity */
+        BlackEyeLearnerActivity: {
+            /** Activity Id */
+            activity_id: string;
+            /** Title */
+            title: string;
+            /** Position */
+            position: number;
+            /** Test Id */
+            test_id: string | null;
+            /** Item Id */
+            item_id: string;
+            /**
+             * Readiness
+             * @enum {string}
+             */
+            readiness: "ready" | "locked";
+            /** Readiness Reasons */
+            readiness_reasons: string[];
+            /**
+             * My Status
+             * @enum {string}
+             */
+            my_status: "not_started" | "in_progress" | "submitted" | "expired";
+            /** Latest Attempt Id */
+            latest_attempt_id: string | null;
+        };
+        /** BlackEyeLearnerAssignment */
+        BlackEyeLearnerAssignment: {
+            /** Assignment Id */
+            assignment_id: string;
+            /** Cohort Id */
+            cohort_id: string;
+            /** Title */
+            title: string;
+            /** Due At */
+            due_at: string;
+            /**
+             * Status
+             * @constant
+             */
+            status: "published";
+            /** Activities */
+            activities: components["schemas"]["BlackEyeLearnerActivity"][];
+        };
+        /** BlackEyeLearnerAssignmentList */
+        BlackEyeLearnerAssignmentList: {
+            /** Items */
+            items: components["schemas"]["BlackEyeLearnerAssignment"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
         /** BlackEyeLearnerBinding */
         BlackEyeLearnerBinding: {
             /**
@@ -15112,6 +15388,72 @@ export interface components {
             /** Policy Revision */
             policy_revision: string;
         };
+        /** BlackEyePlaybackAck */
+        BlackEyePlaybackAck: {
+            /** Attempt Id */
+            attempt_id: string;
+            /**
+             * Accepted
+             * @constant
+             */
+            accepted: true;
+            /**
+             * Replay Policy
+             * @constant
+             */
+            replay_policy: "allowed";
+            /** Playback Started At */
+            playback_started_at: string;
+        };
+        /** BlackEyePlayer */
+        BlackEyePlayer: {
+            activity: components["schemas"]["BlackEyeActivityPublic"];
+            attempt: components["schemas"]["BlackEyeAttemptState"] | null;
+            /**
+             * Replay Policy
+             * @constant
+             */
+            replay_policy: "allowed";
+            audio: components["schemas"]["BlackEyeReviewAudio"];
+        };
+        /** BlackEyeProgressActivity */
+        BlackEyeProgressActivity: {
+            /** Activity Key */
+            activity_key: string;
+            /** Test Id */
+            test_id: string | null;
+            /** Position */
+            position: number;
+        };
+        /** BlackEyeProgressCell */
+        BlackEyeProgressCell: {
+            /** Student Id */
+            student_id: string;
+            /** Activity Id */
+            activity_id: string;
+            /** Item Id */
+            item_id: string;
+            /** Attempt Id */
+            attempt_id: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "not_started" | "in_progress" | "submitted" | "expired" | "unavailable";
+            /** Submitted At */
+            submitted_at: string | null;
+            /** Blank Count */
+            blank_count: number | null;
+        };
+        /** BlackEyeProgressStudent */
+        BlackEyeProgressStudent: {
+            /** Student Id */
+            student_id: string;
+            /** Display Name */
+            display_name: string;
+            /** Item Id */
+            item_id: string;
+        };
         /** BlackEyePublicItem */
         BlackEyePublicItem: {
             /** Source Item Id */
@@ -15137,6 +15479,13 @@ export interface components {
             row_id: string | null;
             /** Column Id */
             column_id: string | null;
+        };
+        /** BlackEyeRecipient */
+        BlackEyeRecipient: {
+            /** Student Id */
+            student_id: string;
+            /** Display Name */
+            display_name: string;
         };
         /** BlackEyeResultSummary */
         BlackEyeResultSummary: {
@@ -15212,6 +15561,37 @@ export interface components {
             /** Evidence Pointer */
             evidence_pointer: string | null;
         };
+        /** BlackEyeRevisionBinding */
+        BlackEyeRevisionBinding: {
+            /**
+             * Programme Id
+             * @constant
+             */
+            programme_id: "blackeye-v5-upper-listening";
+            /**
+             * Collection Id
+             * @constant
+             */
+            collection_id: "blackeye-v5-upper";
+            /**
+             * Source Contract
+             * @constant
+             */
+            source_contract: "blackeye_u1_v1";
+            /**
+             * Unit Id
+             * @constant
+             */
+            unit_id: "U1";
+            /** Activity Id */
+            activity_id: string;
+            /** Content Revision */
+            content_revision: string;
+            /** Policy Revision */
+            policy_revision: string;
+            /** Answer Set Revision */
+            answer_set_revision: string;
+        };
         /** BlackEyeSaveAck */
         BlackEyeSaveAck: {
             /** Attempt Id */
@@ -15220,6 +15600,26 @@ export interface components {
             answer_count: number;
             /** Performance Event Recorded */
             performance_event_recorded: boolean;
+            /** Client Seq */
+            client_seq?: number | null;
+        };
+        /** BlackEyeSourceCatalog */
+        BlackEyeSourceCatalog: {
+            inventory: components["schemas"]["BlackEyeUnitAdmin"];
+            /** Eligible Recipients */
+            eligible_recipients: components["schemas"]["BlackEyeRecipient"][];
+            /** Lookup Errors */
+            lookup_errors: string[];
+        };
+        /** BlackEyeSubmitRequest */
+        BlackEyeSubmitRequest: {
+            /** Expected Answers */
+            expected_answers: components["schemas"]["BlackEyeAnswer"][];
+            /**
+             * Confirm Blank
+             * @default false
+             */
+            confirm_blank: boolean;
         };
         /** BlackEyeTranscript */
         BlackEyeTranscript: {
@@ -15229,6 +15629,21 @@ export interface components {
             start: number | null;
             /** End */
             end: number | null;
+        };
+        /** BlackEyeUnitAdmin */
+        BlackEyeUnitAdmin: {
+            /**
+             * Collection Id
+             * @constant
+             */
+            collection_id: "blackeye-v5-upper";
+            /**
+             * Unit Id
+             * @constant
+             */
+            unit_id: "U1";
+            /** Activities */
+            activities: components["schemas"]["BlackEyeActivityAdmin"][];
         };
         /** BlackEyeUnitPublic */
         BlackEyeUnitPublic: {
@@ -17431,6 +17846,96 @@ export interface components {
             web_explanation_content_version?: string | null;
             /** Post Test Capture Required */
             post_test_capture_required?: boolean | null;
+        };
+        /** ExerciseBookGrant */
+        ExerciseBookGrant: {
+            /** Grantee Id */
+            grantee_id: string;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "assigner" | "teacher";
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "granted" | "revoked";
+            /** Last Event Seq */
+            last_event_seq: number;
+            /** Last Event At */
+            last_event_at: string;
+        };
+        /** ExerciseBookGrantCreate */
+        ExerciseBookGrantCreate: {
+            /** Grantee Id */
+            grantee_id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "assigner" | "teacher";
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "grant" | "revoke";
+            /** Reason */
+            reason: string;
+            /** Request Id */
+            request_id: string;
+        };
+        /** ExerciseBookGrantEvent */
+        ExerciseBookGrantEvent: {
+            /** Event Id */
+            event_id: string;
+            /** Seq */
+            seq: number;
+            /** Occurred At */
+            occurred_at: string;
+            /** Actor Id */
+            actor_id: string;
+            /** Grantee Id */
+            grantee_id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "assigner" | "teacher";
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "grant" | "revoke";
+            /** Reason */
+            reason: string;
+            /** Request Id */
+            request_id: string;
+        };
+        /** ExerciseBookGrantList */
+        ExerciseBookGrantList: {
+            /** Cohort Id */
+            cohort_id: string;
+            /** Grants */
+            grants: components["schemas"]["ExerciseBookGrant"][];
+        };
+        /** ExerciseBookGrantLog */
+        ExerciseBookGrantLog: {
+            /** Items */
+            items: components["schemas"]["ExerciseBookGrantEvent"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** ExerciseBookGrantReceipt */
+        ExerciseBookGrantReceipt: {
+            /** Event Id */
+            event_id: string;
+            /** Seq */
+            seq: number;
+            /** Occurred At */
+            occurred_at: string;
         };
         /** FanOutBody */
         FanOutBody: {
@@ -22773,6 +23278,8 @@ export interface components {
             q_num: number;
             /** User Answer */
             user_answer: string;
+            /** Client Seq */
+            client_seq?: number | null;
         };
         /** TestAudioAssembleRequest */
         TestAudioAssembleRequest: {
@@ -28138,7 +28645,7 @@ export interface operations {
             };
         };
     };
-    blackeye_assignment_closed_admin_cohorts__cohort_id__listening_source_assignments__assignment_id__get: {
+    blackeye_source_catalog_admin_cohorts__cohort_id__listening_source_catalog_get: {
         parameters: {
             query?: never;
             header?: {
@@ -28146,7 +28653,6 @@ export interface operations {
             };
             path: {
                 cohort_id: string;
-                assignment_id: string | null;
             };
             cookie?: never;
         };
@@ -28158,7 +28664,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BlackEyeSourceCatalog"];
                 };
             };
             /** @description Validation Error */
@@ -28172,10 +28678,11 @@ export interface operations {
             };
         };
     };
-    blackeye_assignment_closed_admin_cohorts__cohort_id__listening_source_assignments_post: {
+    blackeye_source_list_admin_cohorts__cohort_id__listening_source_assignments_get: {
         parameters: {
             query?: {
-                assignment_id?: string | null;
+                limit?: number;
+                cursor?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -28193,7 +28700,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BlackEyeAssignmentList"];
                 };
             };
             /** @description Validation Error */
@@ -28207,16 +28714,61 @@ export interface operations {
             };
         };
     };
-    blackeye_assignment_closed_admin_cohorts__cohort_id__listening_source_catalog_get: {
+    blackeye_source_assign_admin_cohorts__cohort_id__listening_source_assignments_post: {
         parameters: {
-            query?: {
-                assignment_id?: string | null;
-            };
+            query?: never;
             header?: {
                 authorization?: string | null;
             };
             path: {
                 cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlackEyeAssignmentCreate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlackEyeAssignmentReceipt"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlackEyeAssignmentReceipt"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    blackeye_source_receipt_admin_cohorts__cohort_id__listening_source_assignments__assignment_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+                assignment_id: string;
             };
             cookie?: never;
         };
@@ -28228,7 +28780,79 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BlackEyeAssignmentReceipt"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    blackeye_source_close_admin_cohorts__cohort_id__listening_source_assignments__assignment_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+                assignment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlackEyeAssignmentClose"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlackEyeAssignmentReceipt"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    blackeye_assignment_progress_admin_cohorts__cohort_id__listening_source_assignments__assignment_id__progress_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+                assignment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlackEyeAssignmentProgress"];
                 };
             };
             /** @description Validation Error */
@@ -28244,7 +28868,9 @@ export interface operations {
     };
     blackeye_teacher_review_admin_cohorts__cohort_id__assignments__assignment_id__items__item_id__listening_review_get: {
         parameters: {
-            query?: never;
+            query: {
+                activity_id: string;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -28264,6 +28890,121 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BlackEyeActivityReview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    exercise_book_grants_admin_cohorts__cohort_id__exercise_book_grants_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExerciseBookGrantList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    exercise_book_record_grant_admin_cohorts__cohort_id__exercise_book_grants_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExerciseBookGrantCreate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExerciseBookGrantReceipt"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExerciseBookGrantReceipt"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    exercise_book_grant_log_admin_cohorts__cohort_id__exercise_book_grants_log_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExerciseBookGrantLog"];
                 };
             };
             /** @description Validation Error */
@@ -37125,7 +37866,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ListeningPlayerResponse"];
+                    "application/json": components["schemas"]["BlackEyePlayer"] | components["schemas"]["ListeningPlayerResponse"];
                 };
             };
             /** @description Validation Error */
@@ -37735,7 +38476,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["BlackEyePlaybackAck"] | {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -37973,7 +38716,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["BlackEyeSubmitRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -38083,6 +38830,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BlackEyeUnitPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_learner_exercise_book_assignments_api_listening_exercise_book_assignments_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlackEyeLearnerAssignmentList"];
                 };
             };
             /** @description Validation Error */

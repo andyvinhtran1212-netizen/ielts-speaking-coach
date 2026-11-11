@@ -344,6 +344,9 @@ def test_soft_checks_go_through_the_staff_guard():
 # Every route that depends on require_recent_mfa. The AIBUDGET-0033 raise /
 # end-raise routes join this list when they land (PC-J138).
 STEP_UP_ROUTES = frozenset({
+    ("GET", "/admin/cohorts/{cohort_id}/exercise-book-grants"),
+    ("POST", "/admin/cohorts/{cohort_id}/exercise-book-grants"),
+    ("GET", "/admin/cohorts/{cohort_id}/exercise-book-grants/log"),
     ("PATCH", "/admin/users/{user_id}/role"),
     ("PATCH", "/admin/users/{user_id}/active"),
     ("POST", "/admin/users/{user_id}/revoke-sessions"),

@@ -28,7 +28,6 @@ SIDES = [
     ("get", "review-flags", None, 422),
     ("patch", "review-flags", {"q_num": 1, "flagged": True, "expected_revision": 0, "operation_id": "00000000-0000-0000-0000-000000000003"}, 422),
     ("post", "renderer-affinity", {"renderer_affinity": "next"}, 503),
-    ("post", "playback-started", {"playback_claim_id": "00000000-0000-0000-0000-000000000001"}, 503),
     ("post", "post-test-capture", {"items": []}, 422),
     ("post", "items/1/events", {"event_id": "00000000-0000-0000-0000-000000000002", "event_name": "correction_result_seen"}, 422),
 ]
@@ -64,7 +63,7 @@ def test_generic_side_route_denials_precede_private_io(env, monkeypatch, method,
 
 
 def test_windows_programme_and_in_progress_seams(env):
-    for path in [f'/tests/{env.p["id"]}/practice-windows', f'/programmes/{svc.PROGRAMME}/lessons', f'/tests/{env.p["id"]}/attempts/in-progress?class_item=synthetic']:
+    for path in [f'/tests/{env.p["id"]}/practice-windows', f'/programmes/{svc.PROGRAMME}/lessons', f'/tests/{env.p["id"]}/attempts/in-progress']:
         r = env.client.get(BASE + path)
         assert r.status_code == 503, r.text
     r = env.client.get(f'{BASE}/tests/{env.p["id"]}/attempts/in-progress?standalone=true')
@@ -113,7 +112,13 @@ def test_admin_list_and_aggregator_queries_exclude_before_joins(env):
     assert env.db.rpcs == []
 
 
-def test_no_answer_or_pii_in_logging_error_logs_or_sentry(env, monkeypatch, caplog):
+@pytest.mark.parametrize("private_path", [
+    "/listening/programmes/form/synthetic", "/api/listening/exercise-book-assignments",
+    "/admin/classes/synthetic", "/admin/cohorts/synthetic/exercise-book-grants",
+    "/admin/cohorts/synthetic/exercise-book-grants/log",
+    "/admin/cohorts/synthetic/listening-source-assignments",
+])
+def test_no_answer_or_pii_in_logging_error_logs_or_sentry(env, monkeypatch, caplog, private_path):
     from routers import error_logs
     from services.sentry_setup import before_send
     from services.log_redaction import AccessLogRedactionFilter
@@ -130,16 +135,16 @@ def test_no_answer_or_pii_in_logging_error_logs_or_sentry(env, monkeypatch, capl
     monkeypatch.setattr(error_logs, "_get_user_optional", auth)
     env.app.include_router(error_logs.router)
     response = env.client.post("/api/error-logs", json=dict(message=sentinel, stack=sentinel,
-        url="/listening/programmes/form/synthetic?answer=" + sentinel, extra={"answer": sentinel}))
+        url=private_path + "?answer=" + sentinel, extra={"answer": sentinel}))
     assert response.status_code == 200, response.text
     row = env.db.rows["error_logs"][0]
     assert row["user_id"] == env.db.user  # F11: the structured owner is allowed.
     assert sentinel not in json.dumps({k:v for k,v in row.items() if k != "user_id"})
-    event = before_send(dict(message=sentinel, request={"url": "/api/listening/tests/synthetic"},
+    event = before_send(dict(message=sentinel, request={"url": private_path},
         exception={"values": [{"value": sentinel}]}, breadcrumbs={"values": [{"message": sentinel}]}, extra={"answer": sentinel}))
     assert sentinel not in json.dumps(event)
     record = logging.LogRecord("uvicorn.access", logging.INFO, "", 0, '%s - "%s %s HTTP/%s" %d',
-        ("client", "GET", "/api/listening/tests/" + env.db.user + "?anything=" + sentinel, "1.1", 503), None)
+        ("client", "GET", private_path + "/" + env.db.user + "?anything=" + sentinel, "1.1", 503), None)
     AccessLogRedactionFilter().filter(record)
     assert sentinel not in record.getMessage() and env.db.user not in record.getMessage()
 
@@ -219,10 +224,12 @@ def test_pre_submit_projection_has_no_key_material(env):
 
 def inventory_path(path):
     """Classify resource paths regardless of the identifier parameter's name."""
+    if path == "/api/listening/exercise-book-assignments":
+        return True
     return "{" in path and bool(re.search(
         r"^/(?:admin|api)/(?:listening|mock-corrections|core-attempt-evidence|exam-content|"
         r"reading/(?:content/tests|test)|exams|exercises|grammar-lessons/attempts)(?:/|$)"
-        r"|^/admin/cohorts/[^/]+/lessons/", path))
+        r"|^/admin/cohorts/[^/]+/(?:lessons/|listening-source-|exercise-book-grants|assignments/[^/]+/items/[^/]+/listening-review$)", path))
 
 
 def test_route_inventory_new_identifier_routes_require_classification():
@@ -252,7 +259,18 @@ def test_drill_publish_denies_blackeye_before_private_io(env, monkeypatch):
     assert not any(patch or t not in {"listening_tests"} for t, _, patch in env.db.calls)
 
 
-ROUTE_INVENTORY = """GET /admin/listening/dictation-reports/{session_id}
+ROUTE_INVENTORY = """GET /api/listening/exercise-book-assignments
+GET /admin/cohorts/{cohort_id}/listening-source-catalog
+POST /admin/cohorts/{cohort_id}/listening-source-assignments
+GET /admin/cohorts/{cohort_id}/listening-source-assignments
+GET /admin/cohorts/{cohort_id}/listening-source-assignments/{assignment_id}
+PATCH /admin/cohorts/{cohort_id}/listening-source-assignments/{assignment_id}
+GET /admin/cohorts/{cohort_id}/listening-source-assignments/{assignment_id}/progress
+GET /admin/cohorts/{cohort_id}/assignments/{assignment_id}/items/{item_id}/listening-review
+GET /admin/cohorts/{cohort_id}/exercise-book-grants
+POST /admin/cohorts/{cohort_id}/exercise-book-grants
+GET /admin/cohorts/{cohort_id}/exercise-book-grants/log
+GET /admin/listening/dictation-reports/{session_id}
 GET /api/listening/source-collections/80-days/days/{day_number}
 GET /api/listening/source-collections/80-days/days/{day_number}/audio
 GET /api/listening/tests/dictation/session/by-request/{client_request_id}
@@ -323,16 +341,18 @@ POST /api/mock-corrections/{skill}/attempts/{attempt_id}/post-test-capture"""
 
 
 @pytest.mark.asyncio
-async def test_backend_crash_capture_discards_private_exception(env, monkeypatch, caplog):
+@pytest.mark.parametrize("private_path", ["/api/listening/tests/attempts/synthetic/answers",
+    "/admin/cohorts/synthetic/exercise-book-grants", "/admin/classes/synthetic"])
+async def test_backend_crash_capture_discards_private_exception(env, monkeypatch, caplog, private_path):
     import main
     from starlette.requests import Request
     sentinel = "SYNTHETIC_PRIVATE_RESPONSE " + env.db.user
     captured = []
     monkeypatch.setattr(main, "_insert_error_log_safely", captured.append)
     monkeypatch.setattr(main, "_unhandled_error_log_tasks", set())
-    request = Request({"type": "http", "method": "PATCH", "path": "/api/listening/tests/attempts/synthetic/answers",
+    request = Request({"type": "http", "method": "PATCH", "path": private_path,
         "query_string": ("unknown=" + sentinel).encode(), "headers": [], "scheme": "http",
-        "server": ("testserver", 80), "route": SimpleNamespace(path="/api/listening/tests/attempts/{attempt_id}/answers")})
+        "server": ("testserver", 80), "route": SimpleNamespace(path=private_path)})
     with caplog.at_level(logging.DEBUG):
         response = await main.unhandled_exception_handler(request, RuntimeError(sentinel))
         await asyncio.gather(*main._unhandled_error_log_tasks)
