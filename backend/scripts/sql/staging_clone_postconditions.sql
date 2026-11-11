@@ -226,6 +226,8 @@ DECLARE
 BEGIN
     -- One statement without DDL, so the block also runs in BEGIN READ ONLY.
     WITH invariant(kind, object, roles, privileges, migrations, exempt) AS (VALUES
+        ('function', 'public.fn_guard_blackeye_admission()', 'public anon authenticated', 'EXECUTE', '376', NULL),
+        ('function', 'public.fn_acquire_blackeye_attempt(uuid,uuid,jsonb,text)', 'public anon authenticated', 'EXECUTE', '376', NULL),
         ('function', 'public.append_paste_event(uuid,uuid,jsonb)', 'public anon authenticated', 'EXECUTE', '108', NULL),
         ('function', 'public.is_current_user_admin()', 'public anon authenticated', 'EXECUTE', '108', NULL),
         ('function', 'public.is_current_user_instructor()', 'public anon authenticated', 'EXECUTE', '108', NULL),

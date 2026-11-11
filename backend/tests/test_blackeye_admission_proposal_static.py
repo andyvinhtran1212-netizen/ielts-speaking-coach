@@ -86,6 +86,20 @@ def test_definer_search_path_grants_and_atomic_admission_source_invariants():
     assert clean.strip().startswith("BEGIN;") and clean.strip().endswith("COMMIT;")
 
 
+def assert_no_proposal_script_input(path, text):
+    assert "docs/proposals/blackeye-u1" not in text, path
+    if path == MIGRATIONS.parent / "scripts/sql/staging_clone_postconditions.sql":
+        # Permit this exact ACL VALUES registration once, never an invocation
+        # or an additional mention elsewhere in the postcondition script.
+        acl_registration = (
+            "    WITH invariant(kind, object, roles, privileges, migrations, exempt) AS (VALUES\n"
+            "        ('function', 'public.fn_guard_blackeye_admission()', 'public anon authenticated', 'EXECUTE', '376', NULL),\n"
+            "        ('function', 'public.fn_acquire_blackeye_attempt(uuid,uuid,jsonb,text)', 'public anon authenticated', 'EXECUTE', '376', NULL),\n"
+        )
+        text = text.replace(acl_registration, "", 1)
+    assert "fn_acquire_blackeye_attempt" not in text, path
+
+
 def test_unnumbered_proposal_is_not_a_forward_migration_or_ci_script_input():
     # Read the real discovery function; never invoke its DB/apply helpers.
     from test_client_write_invariant_postgres import _forward_migrations
@@ -103,9 +117,28 @@ def test_unnumbered_proposal_is_not_a_forward_migration_or_ci_script_input():
     for root in (repo / ".github/workflows", repo / "scripts", MIGRATIONS.parent / "scripts"):
         for path in root.rglob("*"):
             if path.is_file() and path.suffix in {".py", ".sh", ".sql", ".yml", ".yaml"}:
-                text = path.read_text()
-                assert "docs/proposals/blackeye-u1" not in text, path
-                assert "fn_acquire_blackeye_attempt" not in text, path
+                assert_no_proposal_script_input(path, path.read_text())
+
+
+@pytest.mark.parametrize("bad", [
+    "SELECT public.fn_acquire_blackeye_attempt(",
+    "PERFORM public.fn_acquire_blackeye_attempt(",
+    "-- fn_acquire_blackeye_attempt",
+    "-- docs/proposals/blackeye-u1",
+])
+def test_proposal_script_isolation_rejects_calls_and_extra_mentions(bad):
+    postconditions = MIGRATIONS.parent / "scripts/sql/staging_clone_postconditions.sql"
+    with pytest.raises(AssertionError):
+        assert_no_proposal_script_input(postconditions, postconditions.read_text() + "\n" + bad)
+
+
+def test_proposal_script_isolation_allowlist_is_file_specific_and_single_use():
+    postconditions = MIGRATIONS.parent / "scripts/sql/staging_clone_postconditions.sql"
+    text = postconditions.read_text()
+    with pytest.raises(AssertionError):
+        assert_no_proposal_script_input(postconditions.with_name("other.sql"), text)
+    with pytest.raises(AssertionError):
+        assert_no_proposal_script_input(postconditions, text + "\n" + text)
 
 
 def test_server_revision_context_errors_are_separate_from_learner_binding():

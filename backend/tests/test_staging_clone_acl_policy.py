@@ -279,6 +279,7 @@ def test_guard_allows_postgres_only_backup_seed_grants():
 # the migration ACL invariant table, whose rows carry the migration's number.
 INVARIANT = "migration_acl_invariant_violated"
 ACL_MIGRATION_COVERAGE = {
+    "376_blackeye_admission.sql": (INVARIANT,),
     "108_security_hardening.sql": (INVARIANT,),
     "161_fn_upsert_listening_answer.sql": (INVARIANT,),
     "163_fn_merge_sitting_integrity.sql": (INVARIANT,),
