@@ -197,3 +197,48 @@ Kokoro cache keys and synthesis use the spoken text with paired Markdown emphasi
 removed; stored examples keep their display formatting. Prepare and verify audio
 before publishing a set. Published sets retain snapshots, so publish a new
 revision when adding recordings to a previously published set.
+
+## Offline Listening exercise-book builder
+
+`backend/scripts/build_listening_exercise_book.py` builds a release directory for
+`import_listening_content_package.py` using local YAML, JSON and MP3 files. It
+requires backend Python dependencies and local `ffmpeg`; no DB configuration or
+network. Source paths are relative to the YAML directory. Copy the invented
+[two-activity example](backend/scripts/examples/exercise-book/manifest.yaml)
+outside the repository, generate silence, and replace both audio SHA placeholders:
+
+```bash
+ffmpeg -f lavfi -i anullsrc=r=24000:cl=mono -t 1 /path/to/example/silence.mp3
+sha256sum /path/to/example/silence.mp3
+python backend/scripts/build_listening_exercise_book.py \
+  --manifest /path/to/example/manifest.yaml --output /path/to/new-release
+```
+
+A book contains units (`unit`, `title`, positive `content_version`) and activities
+(`activity`, `title`, `audio: {path, sha256}`, `transcript_file`, `items`). Each item
+requires a globally unique `question_id`, `interaction`, `scoring_mode` (`AUTO` or
+`SELF_CHECK`) and `content_file`. Item JSON contains `prompt`, optional `options`
+(an ID/text object), `answers` and `alternatives` (string lists), and `rationale`.
+Answers or a rationale are required. Transcripts are UTF-8 text; generated timing
+covers the whole recording and does not claim word-level alignment.
+
+Mark each activity `answer_set_status: approved`. A successful first build persists
+a missing `answer_set_revision` as UUID v4 and binds `answer_set_sha256`; existing
+UUIDs remain unchanged. Changed answers require a new approved UUID and removal of
+the old hash. Unit revisions are `<book>-<unit>-content-v<N>-<sha12>` and item policy
+revisions are `auto-v1` or `selfcheck-v1`, persisted in YAML. Increase
+`content_version` for revised content. Package IDs derive from content revisions,
+so revised content gets a new package. Unchanged inputs with the same ffmpeg
+version produce identical package bytes. Keep the updated YAML with the approved
+package and back it up with source files; output must be a new directory.
+
+Interactions include existing `listening_convert` markers plus `text`,
+`keep_change`, `form`, `table`, `notes`, `sentence`, `mcq`, and `map`. Importer 295
+supports AUTO only for objective choice/label interactions (`mcq`, `mcq_3option`,
+`mcq_multi`, `matching`, `map`, `plan_label`, `keep_change`); AUTO free text fails
+explicitly. SELF_CHECK uses its existing self-review projection. Authored
+interaction, scoring and revision metadata remain in learner lesson files and the
+protected manifest; runtime exercise-book bindings are separate work. The builder
+runs the importer CLI's default dry-run before exposing output. Validation failure
+returns exit 2 and leaves YAML/output unchanged. Importing, publishing, archiving
+old packages and reassigning work remain separate operator actions.
