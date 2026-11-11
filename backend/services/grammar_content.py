@@ -90,6 +90,43 @@ _MD_EXT_CONFIGS  = {
 # Used in `_parse_file` to convert markers into clickable `<a id>` tags.
 _ANCHOR_MARKER_RE = re.compile(r"<!--\s*anchor:\s*([\w.\-]+)\s*-->")
 
+# Python-Markdown follows the original Markdown rule that a top-level list
+# needs a blank line after prose. Many curated lessons omit that separator, so
+# normalize it at render time without rewriting source content. Indented list
+# items and blockquotes are deliberately left alone to preserve their nesting.
+_TOP_LEVEL_LIST_ITEM_RE = re.compile(r"^(?:[-*]|\d+\.)[ \t]+")
+_ANY_LIST_ITEM_RE = re.compile(r"^[ \t]*(?:[-*]|\d+\.)[ \t]+")
+_BACKTICK_FENCE_RE = re.compile(r"^[ \t]{0,3}(`{3,})([^`]*)$")
+
+
+def _insert_blank_lines_before_lists(body: str) -> str:
+    """Separate top-level lists from preceding prose outside code fences."""
+    rendered_lines: list[str] = []
+    fence_length: Optional[int] = None
+
+    for line in body.split("\n"):
+        fence_match = _BACKTICK_FENCE_RE.fullmatch(line)
+        if fence_length is not None:
+            rendered_lines.append(line)
+            if (fence_match and not fence_match.group(2).strip()
+                    and len(fence_match.group(1)) >= fence_length):
+                fence_length = None
+            continue
+
+        if fence_match:
+            fence_length = len(fence_match.group(1))
+            rendered_lines.append(line)
+            continue
+
+        if (_TOP_LEVEL_LIST_ITEM_RE.match(line)
+                and rendered_lines
+                and rendered_lines[-1].strip()
+                and not _ANY_LIST_ITEM_RE.match(rendered_lines[-1])):
+            rendered_lines.append("")
+        rendered_lines.append(line)
+
+    return "\n".join(rendered_lines)
+
 # Score floor for both `find_best_match` (slug routing) and
 # `find_best_anchor` (anchor selection within a slug). Sprint 6.6 logs
 # revealed Vietnamese AI feedback strings score 0.18-0.30 against
@@ -324,7 +361,7 @@ class GrammarContentService:
             extensions=_MD_EXTENSIONS,
             extension_configs=_MD_EXT_CONFIGS,
         )
-        html       = md_proc.convert(body)
+        html       = md_proc.convert(_insert_blank_lines_before_lists(body))
         # Convert anchor markers `<!-- anchor: ID -->` (preserved verbatim
         # by the markdown parser) into clickable HTML anchor tags so URL
         # hash deep-linking works (`/grammar/.../slug#ID` → browser scrolls).
