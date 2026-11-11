@@ -12,6 +12,8 @@ import { LEARNER_LIST_HREF } from './exercise-book-runner';
  * Admin entry links for one class. Each link appears only when its read route
  * answered 200 for this account (CR F16, contract §6); a 403/404/503 renders
  * nothing, so classes without the book and staff without a grant see no change.
+ * The probes are quiet: opening the Homework tab never triggers a login
+ * redirect or an MFA step-up prompt.
  */
 export function ExerciseBookAdminEntry({ cohortId, api }: { cohortId: string; api?: ExerciseBookApi }) {
   return <ExerciseBookApiProvider api={api}><AdminEntry key={cohortId} cohortId={cohortId} /></ExerciseBookApiProvider>;
@@ -22,7 +24,7 @@ function AdminEntry({ cohortId }: { cohortId: string }) {
   const [links, setLinks] = useState<{ book: boolean; grants: boolean }>({ book: false, grants: false });
   useEffect(() => {
     let active = true;
-    void Promise.allSettled([api.getCatalog(cohortId), api.getGrants(cohortId)]).then(([book, grants]) => {
+    void Promise.allSettled([api.getCatalog(cohortId, { quiet: true }), api.getGrants(cohortId, { quiet: true })]).then(([book, grants]) => {
       if (active) setLinks({ book: book.status === 'fulfilled', grants: grants.status === 'fulfilled' });
     });
     return () => { active = false; };

@@ -180,7 +180,7 @@ export function createMockExerciseBookApi(options: MockOptions = {}): ExerciseBo
   }
 
   return {
-    getCatalog: (cohortId) => run('getCatalog', [cohortId], () => { requireCohort(cohortId); return catalog; }),
+    getCatalog: (cohortId, options) => run('getCatalog', [cohortId, options], () => { requireCohort(cohortId); return catalog; }),
 
     createAssignment: (cohortId, body) => run('createAssignment', [cohortId, body], () => {
       requireCohort(cohortId);
@@ -363,7 +363,7 @@ export function createMockExerciseBookApi(options: MockOptions = {}): ExerciseBo
       return submittedReviews.get(attemptId) || reviewFor(attempt);
     }),
 
-    getGrants: (cohortId) => run('getGrants', [cohortId], () => {
+    getGrants: (cohortId, options) => run('getGrants', [cohortId, options], () => {
       requireCohort(cohortId);
       if (actorId !== idsFixture.owner_actor) throw mockError('not_owner');
       return { cohort_id: cohortId, grants } satisfies GrantList;

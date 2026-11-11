@@ -6,6 +6,7 @@ import { AdminExerciseBookGrants } from '@/components/exercise-book/admin-exerci
 import { ExerciseBookAdminEntry } from '@/components/exercise-book/exercise-book-entry';
 import { ExerciseBookApiProvider } from '@/lib/exercise-book/api-context';
 import { ExerciseBookError, type ExerciseBookApi } from '@/lib/exercise-book/contract';
+import { createHttpExerciseBookApi } from '@/lib/exercise-book/http-api';
 import { MOCK_IDS, createMockExerciseBookApi, type MockOptions } from '@/lib/exercise-book/mock-api';
 
 const auth = vi.hoisted(() => ({ status: 'signed-in', user: { id: '00000000-0000-4000-8000-000000000070' } }));
@@ -324,9 +325,23 @@ describe('admin entry links', () => {
     expect(await screen.findByRole('link', { name: 'Sách bài tập Listening' })).toBeTruthy();
     expect(screen.queryByRole('link', { name: 'Quyền sách bài tập' })).toBeNull();
     cleanup();
+    expect(assigner.api.getGrants).toHaveBeenCalledWith(COHORT, { quiet: true });
     const none = spyApi({ fail: () => 'unavailable' });
     const { container } = render(<ExerciseBookAdminEntry cohortId={COHORT} api={none.api} />);
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     expect(container.textContent).toBe('');
+  });
+});
+
+describe('HTTP adapter', () => {
+  it('quiet probes skip api.js redirects and step-up; normal reads keep them', async () => {
+    const getWith = vi.fn(async () => { throw Object.assign(new Error('x'), { status: 403, detail: { code: 'step_up_required' } }); });
+    vi.stubGlobal('api', { getWith });
+    Object.assign(window, { api: { getWith } });
+    const api = createHttpExerciseBookApi();
+    await expect(api.getGrants(COHORT, { quiet: true })).rejects.toMatchObject({ status: 403, code: 'step_up_required' });
+    expect(getWith).toHaveBeenLastCalledWith(`/admin/cohorts/${COHORT}/exercise-book-grants`, undefined, { noRedirect: true });
+    await expect(api.getGrants(COHORT)).rejects.toMatchObject({ code: 'step_up_required' });
+    expect(getWith).toHaveBeenLastCalledWith(`/admin/cohorts/${COHORT}/exercise-book-grants`);
   });
 });

@@ -378,12 +378,21 @@ export interface PageQuery {
 }
 
 /**
+ * `quiet`: a capability probe (entry links). It must not redirect to login,
+ * open the MFA step-up prompt or announce an inactive account; a refusal just
+ * means "no link".
+ */
+export interface ReadOptions {
+  quiet?: boolean;
+}
+
+/**
  * Every route of contract v1 that PR E consumes. Components depend only on this
  * interface; `client.ts` decides which implementation backs it.
  */
 export interface ExerciseBookApi {
   // §1–3 admin
-  getCatalog(cohortId: Uuid): Promise<SourceCatalog>;
+  getCatalog(cohortId: Uuid, options?: ReadOptions): Promise<SourceCatalog>;
   createAssignment(cohortId: Uuid, body: AssignmentCreate): Promise<AssignmentReceipt>;
   listAssignments(cohortId: Uuid, page?: PageQuery): Promise<Page<AssignmentSummary>>;
   getAssignment(cohortId: Uuid, assignmentId: Uuid): Promise<AssignmentReceipt>;
@@ -401,7 +410,7 @@ export interface ExerciseBookApi {
   playbackStarted(attemptId: Uuid): Promise<void>;
   getReview(attemptId: Uuid): Promise<ActivityReview>;
   // §6 grants
-  getGrants(cohortId: Uuid): Promise<GrantList>;
+  getGrants(cohortId: Uuid, options?: ReadOptions): Promise<GrantList>;
   recordGrant(cohortId: Uuid, body: GrantEventCreate): Promise<GrantEventAck>;
   getGrantLog(cohortId: Uuid, page?: PageQuery): Promise<Page<GrantLogEntry>>;
 }

@@ -3,6 +3,7 @@ import {
   type ErrorCode,
   type ExerciseBookApi,
   type PageQuery,
+  type ReadOptions,
 } from './contract';
 
 const KNOWN_CODES = new Set<ErrorCode>([
@@ -55,14 +56,16 @@ async function call<T>(run: () => Promise<T>): Promise<T> {
 
 /** Real adapter over the shared authenticated transport (routes of contract v1). */
 export function createHttpExerciseBookApi(): ExerciseBookApi {
-  const get = <T>(path: string) => call(() => window.api.getWith<T>(path));
+  // api.js `noRedirect` skips its 401/403 side effects (login redirect, step-up prompt) for probes.
+  const get = <T>(path: string, options?: ReadOptions) =>
+    call(() => (options?.quiet ? window.api.getWith<T>(path, undefined, { noRedirect: true }) : window.api.getWith<T>(path)));
   const post = <T>(path: string, body: unknown) => call(() => window.api.postWith<T>(path, body));
   const patch = <T>(path: string, body: unknown) => call(() => window.api.patchWith<T>(path, body));
   const cohort = (id: string) => `/admin/cohorts/${e(id)}`;
   const assignments = (id: string) => `${cohort(id)}/listening-source-assignments`;
   const classItem = (id: string) => `class_item=${e(id)}`;
   return {
-    getCatalog: (cohortId) => get(`${cohort(cohortId)}/listening-source-catalog`),
+    getCatalog: (cohortId, options) => get(`${cohort(cohortId)}/listening-source-catalog`, options),
     createAssignment: (cohortId, body) => post(assignments(cohortId), body),
     listAssignments: (cohortId, page) => get(`${assignments(cohortId)}${pageSuffix(page)}`),
     getAssignment: (cohortId, id) => get(`${assignments(cohortId)}/${e(id)}`),
@@ -82,7 +85,7 @@ export function createHttpExerciseBookApi(): ExerciseBookApi {
       await post(`/api/listening/tests/attempts/${e(attemptId)}/playback-started`, { playback_claim_id: crypto.randomUUID() });
     },
     getReview: (attemptId) => get(`/api/listening/tests/attempts/${e(attemptId)}/review`),
-    getGrants: (cohortId) => get(`${cohort(cohortId)}/exercise-book-grants`),
+    getGrants: (cohortId, options) => get(`${cohort(cohortId)}/exercise-book-grants`, options),
     recordGrant: (cohortId, body) => post(`${cohort(cohortId)}/exercise-book-grants`, body),
     getGrantLog: (cohortId, page) => get(`${cohort(cohortId)}/exercise-book-grants/log${pageSuffix(page)}`),
   };
