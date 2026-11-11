@@ -157,7 +157,8 @@ async def require_admin(authorization):
     if context and not context["checked"]:
         if any(context["targets"].values()):
             await run_in_threadpool(blackeye.guard_generic_target, supabase_admin,
-                                    denied_status=context["denied_status"], **context["targets"])
+                                    denied_status=context["denied_status"],
+                                    external_test_code=context["external_test_code"], **context["targets"])
         context["checked"] = True
     return actor
 
@@ -172,6 +173,8 @@ class _ListeningAdminRoute(_ListeningRoute):
             targets = {key: request.path_params.get(key) or request.query_params.get(key)
                        for key in ("test_id", "content_id", "exercise_id", "attempt_id", "package_id")}
             token = _admin_targets.set({"targets": targets, "checked": False,
+                "external_test_code": request.url.path in {
+                    "/admin/listening/dictation-reports", "/admin/listening/dictation-reports/aggregate"},
                 "denied_status": 503 if request.url.path.endswith("/player-preview") else 404})
             try:
                 return await original(request)

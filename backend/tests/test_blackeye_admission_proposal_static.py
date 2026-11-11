@@ -79,6 +79,7 @@ def test_sql_safety_assertion_rejects_mutated_unapproved_operation(bad):
 
 def test_definer_search_path_grants_and_atomic_admission_source_invariants():
     clean = uncomment(SQL)
+    assert clean.index("SET LOCAL lock_timeout = '5s';") < clean.index("ALTER TABLE")
     functions = re.findall(r"CREATE OR REPLACE FUNCTION\s+public\.(\w+)\(.*?\)\s*RETURNS\s+.*?\$\$(.*?)\$\$;", clean, re.S|re.I)
     assert {name for name,_ in functions} == {"fn_guard_blackeye_admission", "fn_acquire_blackeye_attempt", "fn_submit_blackeye_attempt"}
     assert len(re.findall(r"SECURITY DEFINER SET search_path = pg_catalog, pg_temp", clean)) == 3
@@ -147,6 +148,7 @@ def test_reapply_and_postconditions_precede_commit_and_pg17_runs_runtime_suite()
     workflow = (MIGRATIONS.parent.parent / '.github/workflows/backend-tests.yml').read_text()
     pg17_list = workflow.split('PG17_TEST_FILES: >-', 1)[1].split('\njobs:', 1)[0]
     assert 'tests/test_blackeye_admission_postgres.py' in pg17_list
+    assert 'tests/test_blackeye_package_import_postgres.py' in pg17_list
 
 
 @pytest.mark.parametrize("bad", [
