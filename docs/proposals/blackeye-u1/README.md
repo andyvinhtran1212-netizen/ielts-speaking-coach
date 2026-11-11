@@ -20,7 +20,10 @@ Admission remains standalone-only; PR2 must open the class assignment seam.
 
 `backend/migrations/rollback/376_blackeye_admission.sql` is manual rollback SQL,
 not a forward-runner input. It removes only the new trigger/functions and keeps
-widened CHECK constraints, attempts, snapshots and published content. Roll back
+widened CHECK constraints, attempts and snapshots. It refuses to run while any
+Black Eye package/lesson/test is published or any Black Eye test is public;
+archive/hide or remove the content under separate authorization first. The check
+holds table locks through guard removal to prevent concurrent publication. Roll back
 application code with it; do not enable generic Black Eye delivery. No historical
 rows are rewritten. Reapplying after rollback requires a separately reviewed
 migration-ledger decision.

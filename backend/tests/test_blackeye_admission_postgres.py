@@ -12,6 +12,7 @@ import pytest
 from test_migration_240_core_attempt_evidence import psql, probe
 
 MIGRATION = Path(__file__).resolve().parents[1] / "migrations/376_blackeye_admission.sql"
+ROLLBACK = MIGRATION.parent / "rollback/376_blackeye_admission.sql"
 
 
 @pytest.fixture(scope="module")
@@ -26,11 +27,11 @@ def blackeye_schema(probe):
         END $$;
         CREATE SCHEMA {schema};
         GRANT USAGE ON SCHEMA {schema} TO anon,authenticated,service_role;
-        CREATE TABLE {schema}.listening_content_packages(id uuid PRIMARY KEY, programme_id text,
+        CREATE TABLE {schema}.listening_content_packages(id uuid PRIMARY KEY, programme_id text,status text DEFAULT 'draft',
           CONSTRAINT listening_content_packages_programme_id_check CHECK(programme_id IN ('general-listening-practice','ielts-listening-practice','ielts-80-days-listening')));
-        CREATE TABLE {schema}.listening_lessons(id uuid PRIMARY KEY, programme_id text,
+        CREATE TABLE {schema}.listening_lessons(id uuid PRIMARY KEY, programme_id text,status text DEFAULT 'draft',
           CONSTRAINT listening_lessons_programme_id_check CHECK(programme_id IN ('general-listening-practice','ielts-listening-practice','ielts-80-days-listening')));
-        CREATE TABLE {schema}.listening_tests(id uuid PRIMARY KEY,programme_id text,metadata jsonb DEFAULT '{{}}',
+        CREATE TABLE {schema}.listening_tests(id uuid PRIMARY KEY,programme_id text,metadata jsonb DEFAULT '{{}}',status text DEFAULT 'draft',is_public boolean DEFAULT false,
           CONSTRAINT listening_tests_programme_id_check CHECK(programme_id IN ('ielts','general-listening-practice','ielts-listening-practice','ielts-80-days-listening')));
         CREATE TABLE {schema}.listening_test_attempts(id uuid PRIMARY KEY,test_id uuid,user_id uuid,
           paper_revision bigint,policy_revision bigint,class_assignment_item_id uuid,sitting_id uuid,
@@ -102,6 +103,16 @@ def submit_sql(schema, attempt, user, answers='[]'):
     return f"SELECT {schema}.fn_submit_blackeye_attempt('{attempt}','{user}','{answers}','{report}')"
 
 
+def install_current_save(schema):
+    # 224 replaced 161 with the active-player TTL guard. Load that exact
+    # function, without applying unrelated 224 tables/triggers to this fixture.
+    source = (MIGRATION.parent / '224_active_player_resume_ttl.sql').read_text()
+    source = source[source.index('CREATE OR REPLACE FUNCTION public.fn_upsert_listening_answer('):]
+    source = source[:source.index('$$;') + 3]
+    source = source.replace('public.', schema + '.').replace('search_path = public,', 'search_path = ' + schema + ',')
+    psql(source)
+
+
 def test_submit_owner_role_expiry_answers_and_idempotency(blackeye_schema):
     schema = blackeye_schema
     attempt, user = seed_submit(schema)
@@ -132,9 +143,7 @@ def test_submit_save_race_serializes_on_attempt_row(blackeye_schema, save_first)
     from test_migration_240_core_attempt_evidence import DB
     schema = blackeye_schema
     # Real existing save RPC, scoped to this disposable schema only.
-    source = (MIGRATION.parent / '161_fn_upsert_listening_answer.sql').read_text()
-    source = source.replace('public.', schema + '.').replace('search_path = public,', 'search_path = ' + schema + ',')
-    psql(f'SET search_path={schema},pg_temp; ' + source)
+    install_current_save(schema)
     attempt, user = seed_submit(schema)
     async def overlap():
         first, second = await asyncpg.connect(DB), await asyncpg.connect(DB)
@@ -175,6 +184,45 @@ def test_submit_save_race_serializes_on_attempt_row(blackeye_schema, save_first)
     assert (row['result_summary'] is None) is save_first
 
 
+def test_current_save_and_submit_refuse_expired_resume(blackeye_schema):
+    schema = blackeye_schema
+    install_current_save(schema)
+    attempt, user = seed_submit(schema)
+    psql(f"UPDATE {schema}.listening_test_attempts SET resume_expires_at=now()-interval '1 second' WHERE id='{attempt}'")
+    assert psql(f"SELECT {schema}.fn_upsert_listening_answer('{attempt}',1,'synthetic') IS NULL") == 't'
+    with pytest.raises(RuntimeError, match='blackeye_changed'):
+        psql("SET ROLE service_role; SET request.jwt.claim.role='service_role'; " + submit_sql(schema, attempt, user))
+    assert psql(f"SELECT answers='[]'::jsonb AND status='in_progress' FROM {schema}.listening_test_attempts WHERE id='{attempt}'") == 't'
+
+
+@pytest.mark.parametrize('table,visibility,retire', [
+    ('listening_content_packages', "status='published'", 'archive'),
+    ('listening_lessons', "status='published'", 'remove'),
+    ('listening_tests', "status='published'", 'archive'),
+    ('listening_tests', "is_public=true", 'remove'),
+])
+def test_rollback_refuses_published_content_then_succeeds(blackeye_schema, table, visibility, retire):
+    schema, row_id = blackeye_schema, uuid4()
+    psql(f"INSERT INTO {schema}.{table}(id,programme_id) VALUES ('{row_id}','blackeye-v5-upper-listening'); UPDATE {schema}.{table} SET {visibility} WHERE id='{row_id}'")
+    rollback = ROLLBACK.read_text().replace('public.', schema + '.')
+    trigger = f"SELECT count(*) FROM pg_trigger WHERE tgname='trg_zz_blackeye_admission' AND tgrelid='{schema}.listening_test_attempts'::regclass AND tgenabled='O'"
+    with pytest.raises(RuntimeError, match='blackeye_rollback_published_content'):
+        psql(rollback)
+    assert psql(trigger) == '1'
+    assert psql(f"SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='{schema}' AND p.proname IN ('fn_submit_blackeye_attempt','fn_acquire_blackeye_attempt','fn_guard_blackeye_admission')") == '3'
+    if retire == 'archive':
+        psql(f"UPDATE {schema}.{table} SET status='archived' WHERE id='{row_id}'")
+    else:
+        psql(f"DELETE FROM {schema}.{table} WHERE id='{row_id}'")
+    try:
+        psql(rollback)
+        assert psql(trigger) == '0'
+    finally:
+        # Restore only this disposable schema for other module tests.
+        source = MIGRATION.read_text().replace('public.', schema + '.')
+        psql(source.replace('auth.role()', "current_setting('request.jwt.claim.role',true)"))
+
+
 def test_q16_acquire_retains_submitted_and_expired_attempts(blackeye_schema):
     """Execute the real acquire/guard; synthetic adapters stand in for 306 IO."""
     from test_listening_blackeye import paper
@@ -185,8 +233,8 @@ def test_q16_acquire_retains_submitted_and_expired_attempts(blackeye_schema):
     payload = test['metadata']['blackeye']
     review = dict(binding=payload['binding'], items=[dict(q_num=i['q_num'],source_item_id=i['source_item_id'],scoring_mode='SELF-CHECK') for i in payload['items']],transcript=[])
     def literal(value): return "'" + json.dumps(value).replace("'", "''") + "'::jsonb"
-    psql(f'''ALTER TABLE {schema}.listening_content_packages ADD COLUMN status text;
-      ALTER TABLE {schema}.listening_tests ADD COLUMN status text, ADD COLUMN is_public boolean,
+    psql(f'''ALTER TABLE {schema}.listening_content_packages ADD COLUMN IF NOT EXISTS status text;
+      ALTER TABLE {schema}.listening_tests ADD COLUMN IF NOT EXISTS status text, ADD COLUMN IF NOT EXISTS is_public boolean,
         ADD COLUMN scoring_policy text, ADD COLUMN content_package_id uuid,
         ADD COLUMN mock_content_revision bigint, ADD COLUMN policy_revision bigint;
       ALTER TABLE {schema}.listening_test_attempts ALTER COLUMN id SET DEFAULT gen_random_uuid();

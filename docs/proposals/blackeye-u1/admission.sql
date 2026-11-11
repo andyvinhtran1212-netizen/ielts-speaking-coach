@@ -1,5 +1,5 @@
--- BLACKEYE-0052: reserved migration 376; NOT EXECUTED. No history DML, new table or flag change.
--- Number reserved by Leader in migrations-register.md; execution requires separate approval.
+-- PROPOSAL MIRROR OF PENDING_FEATURE 376; LOCAL DISPOSABLE TESTS ONLY. No history DML, new table or flag change.
+-- Placement: numbered 376 pending_feature; install only after SA review + anh Vinh approves execution.
 -- Authority: c7740960 (admission), b71cfd5c (exactly three CHECK replacements),
 -- d461e884 (assignment seam closed; mapping/catalog/create/receipt in PR2).
 -- Reuses 306's immutable service-only snapshot and 311's guard unchanged.
@@ -107,6 +107,7 @@ BEGIN
     RETURN NEW;
 END $$;
 REVOKE ALL ON FUNCTION public.fn_guard_blackeye_admission() FROM PUBLIC,anon,authenticated;
+DROP TRIGGER IF EXISTS trg_zz_blackeye_admission ON public.listening_test_attempts;
 CREATE TRIGGER trg_zz_blackeye_admission BEFORE INSERT ON public.listening_test_attempts
  FOR EACH ROW EXECUTE FUNCTION public.fn_guard_blackeye_admission();
 

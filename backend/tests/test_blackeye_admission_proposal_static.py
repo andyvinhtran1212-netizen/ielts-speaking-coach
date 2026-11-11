@@ -22,6 +22,9 @@ def assert_narrow_sql(sql):
         exact = rf"ALTER\s+TABLE\s+public\.{table}\s+DROP\s+CONSTRAINT\s+{table}_programme_id_check\s*;"
         assert len(re.findall(exact, remaining, re.I)) == 1
         remaining = re.sub(exact, "", remaining, flags=re.I)
+    trigger_drop = 'DROP TRIGGER IF EXISTS trg_zz_blackeye_admission ON public.listening_test_attempts;'
+    assert remaining.count(trigger_drop) == 1
+    remaining = remaining.replace(trigger_drop, '', 1)
     assert not re.search(r"\bDROP\b", remaining, re.I), "non-whitelisted DROP"
     approved_insert = """INSERT INTO public.listening_test_attempts
             (test_id,user_id,status,answers,scoring_policy,started_at,resume_expires_at,
@@ -123,6 +126,11 @@ def test_unnumbered_proposal_is_not_a_forward_migration_or_ci_script_input():
     assert len(policy) == 1 and policy[0][1:3] == ["pending_feature", "blackeye_admission"]
     assert uncomment(migration.read_text()).strip() == uncomment(SQL).strip()
     rollback = (MIGRATIONS / "rollback/376_blackeye_admission.sql").read_text()
+    assert rollback.index("RAISE EXCEPTION 'blackeye_rollback_published_content'") < rollback.index("DROP FUNCTION")
+    assert "IN SHARE MODE" in rollback
+    for table in TABLES:
+        assert f"SELECT 1 FROM public.{table}" in rollback
+    assert "status='published'" in rollback and "is_public IS TRUE" in rollback
     assert "DROP TRIGGER IF EXISTS trg_zz_blackeye_admission" in rollback
     assert not re.search(r"\b(?:DELETE|TRUNCATE|UPDATE)\b", uncomment(rollback), re.I)
     # No workflow or runnable script references the proposal. Its only reader is

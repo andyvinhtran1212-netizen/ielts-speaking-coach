@@ -8139,7 +8139,9 @@ def _mock_sealed(attempt: dict) -> bool:
 
 
 @user_router.patch("/tests/attempts/{attempt_id}/answers", response_model=BlackEyeSaveAck | dict[str, Any])
-@observe_operation("listening_test", "save", correlate_by=("attempt_id", "body"))
+# This shared route accepts Black Eye answers: retry correlation must never
+# retain an answer-derived digest. The client operation ID scopes each intent.
+@observe_operation("listening_test", "save", correlate_by=("attempt_id",))
 async def patch_listening_test_attempt_answer(
     attempt_id: str,
     body: TestAttemptAnswerPatchRequest,
@@ -8158,12 +8160,12 @@ async def patch_listening_test_attempt_answer(
     """
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])   # ownership gate
+    bind_owned_attempt(attempt)
     if await run_in_threadpool(blackeye.attempt_is_blackeye, supabase_admin, attempt):
         from starlette.responses import JSONResponse
         saved = await run_in_threadpool(blackeye.save, supabase_admin, attempt, body.q_num, body.user_answer)
         ack = BlackEyeSaveAck.model_validate(saved)
         return JSONResponse(ack.model_dump(), headers={"Cache-Control": "private, no-store"})
-    bind_owned_attempt(attempt)
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
     require_resume_active(attempt)
@@ -8659,7 +8661,7 @@ async def submit_listening_test_attempt(
     if await run_in_threadpool(blackeye.attempt_is_blackeye, supabase_admin, attempt):
         from fastapi.encoders import jsonable_encoder
         from starlette.responses import JSONResponse
-        result = await run_in_threadpool(blackeye.submit, supabase_admin, attempt)
+        result = await run_in_threadpool(blackeye.submit, supabase_admin, attempt, user["id"])
         return JSONResponse(jsonable_encoder(result),
                             headers={"Cache-Control": "private, no-store"})
     if attempt.get("status") == "submitted":

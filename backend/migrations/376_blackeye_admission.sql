@@ -107,6 +107,7 @@ BEGIN
     RETURN NEW;
 END $$;
 REVOKE ALL ON FUNCTION public.fn_guard_blackeye_admission() FROM PUBLIC,anon,authenticated;
+DROP TRIGGER IF EXISTS trg_zz_blackeye_admission ON public.listening_test_attempts;
 CREATE TRIGGER trg_zz_blackeye_admission BEFORE INSERT ON public.listening_test_attempts
  FOR EACH ROW EXECUTE FUNCTION public.fn_guard_blackeye_admission();
 

@@ -3,7 +3,9 @@ import asyncio
 from copy import deepcopy
 import json
 import logging
+import re
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
@@ -147,6 +149,70 @@ def test_no_answer_or_pii_in_logging_error_logs_or_sentry(env, monkeypatch, capl
     assert sentinel not in record.getMessage() and env.db.user not in record.getMessage()
 
 
+def test_save_submit_correlation_excludes_answers_and_preserves_retry_hint(env, monkeypatch, caplog):
+    from main import request_id_middleware
+    from services import core_attempt_observation as obs, core_operation_correlation as corr
+    from services.core_attempt_evidence import ReceiptStatus
+    env.app.middleware("http")(request_id_middleware)
+    monkeypatch.setattr(obs.settings, "CORE_ATTEMPT_EVIDENCE_ENABLED", True)
+    monkeypatch.setattr(obs, "try_record_event", AsyncMock(return_value=ReceiptStatus.RECORDED))
+    stored = []
+    class CorrelationDB:
+        def rpc(self, name, payload):
+            assert name == "fn_record_core_operation_correlation"
+            stored.append(payload)
+            return SimpleNamespace(execute=AsyncMock(return_value=SimpleNamespace(data=payload["p_operation_id"])))
+    monkeypatch.setattr(corr, "get_supabase_async", AsyncMock(return_value=CorrelationDB()))
+    a = env.db.freeze(env.p)
+    hint = str(uuid4())
+    headers = {corr.HEADER_NAME: hint}
+    answers = [json.dumps(dict(version="blackeye_keep_change_v1", action="CHANGE", correction_text=value))
+               for value in ("SYNTHETIC_PRIVATE_ALPHA", "SYNTHETIC_PRIVATE_BETA")]
+    with caplog.at_level(logging.DEBUG):
+        for value in (answers[0], answers[1], answers[1]):
+            response = env.client.patch(f'{BASE}/tests/attempts/{a["id"]}/answers',
+                json={"q_num": 1, "user_answer": value}, headers=headers)
+            assert response.status_code == 200, response.text
+        assert a["answers"] == [{"q_num": 1, "user_answer": answers[1]}]
+        first = env.client.post(f'{BASE}/tests/attempts/{a["id"]}/submit', headers=headers)
+        retry = env.client.post(f'{BASE}/tests/attempts/{a["id"]}/submit', headers=headers)
+    assert first.status_code == retry.status_code == 200
+    assert first.content == retry.content
+    saves = [row for row in stored if row["p_operation"] == "save"]
+    submits = [row for row in stored if row["p_operation"] == "submit"]
+    assert len(saves) == 3 and len(submits) == 2
+    assert len({r["p_input_digest"] for r in saves}) == 1
+    assert len({r["p_input_digest"] for r in submits}) == 1
+    assert saves[0]["p_input_digest"] != submits[0]["p_input_digest"]
+    assert all(row["p_client_operation_id"] == hint and row["p_canonical_attempt_id"] == a["id"] for row in stored)
+    assert len({r["p_operation_id"] for r in stored}) == 5
+    for sentinel in ("SYNTHETIC_PRIVATE_ALPHA", "SYNTHETIC_PRIVATE_BETA"):
+        assert sentinel not in json.dumps(stored) + caplog.text
+    for endpoint in (lr.patch_listening_test_attempt_answer, lr.submit_listening_test_attempt):
+        assert endpoint.__core_correlation_fields__ == ("attempt_id",)
+
+
+def test_submit_service_receives_authenticated_actor_and_rejects_other_owner(env, monkeypatch):
+    attempt = env.db.freeze(env.p)
+    actual_submit = svc.submit
+    calls = []
+    def submit(db, row, user_id):
+        calls.append(user_id)
+        return actual_submit(db, row, user_id)
+    monkeypatch.setattr(svc, "submit", submit)
+    response = env.client.post(f'{BASE}/tests/attempts/{attempt["id"]}/submit')
+    assert response.status_code == 200, response.text
+    assert calls == [env.actor["id"]]
+    assert next(params for name, params in env.db.rpcs if name == "fn_submit_blackeye_attempt")["p_user_id"] == env.actor["id"]
+    env.db.calls.clear()
+    env.db.rpcs.clear()
+    for status in ("in_progress", "submitted"):
+        with pytest.raises(HTTPException) as error:
+            actual_submit(env.db, dict(attempt, status=status), str(uuid4()))
+        assert error.value.status_code == 404
+    assert env.db.rpcs == [] and env.db.calls == []
+
+
 def test_pre_submit_projection_has_no_key_material(env):
     response = start(env)
     assert response.status_code == 200
@@ -156,19 +222,52 @@ def test_pre_submit_projection_has_no_key_material(env):
         assert text not in response.text
 
 
+def inventory_path(path):
+    """Classify resource paths regardless of the identifier parameter's name."""
+    return "{" in path and bool(re.search(
+        r"^/(?:admin|api)/(?:listening|mock-corrections|core-attempt-evidence|exam-content|"
+        r"reading/(?:content/tests|test)|exams|exercises|grammar-lessons/attempts)(?:/|$)"
+        r"|^/admin/cohorts/[^/]+/lessons/", path))
+
+
 def test_route_inventory_new_identifier_routes_require_classification():
     from main import app
     expected = set(ROUTE_INVENTORY.splitlines()) | set(INDEPENDENT_DOMAIN_ROUTES.splitlines())
     actual = {f"{method} {route.path}" for route in app.routes for method in getattr(route, "methods", ())
-              if any("{" + key + "}" in route.path for key in
-                     ("attempt_id", "test_id", "content_id", "exercise_id", "programme_id", "lesson_id", "canonical_attempt_id"))}
+              if inventory_path(route.path)}
     assert actual == expected
     # Black Eye uses the positive routes in plan.md. Every other entry is a
     # generic deny/exclude boundary, or a dictation-attempt table that admission
     # cannot populate. Behavioral matrix above pins 422 and 503 before private IO.
 
 
-ROUTE_INVENTORY = """DELETE /admin/listening/exercises/{exercise_id}
+@pytest.mark.parametrize("parameter", ["drill_id", "renamed", "id"])
+def test_inventory_detects_drill_resource_with_any_parameter_name(parameter):
+    assert inventory_path(f"/admin/listening/drills/{{{parameter}}}/publish")
+
+
+def test_drill_publish_denies_blackeye_before_private_io(env, monkeypatch):
+    from routers import admin_class_assignments
+    monkeypatch.setattr(lr, "_staff_admin_guard", admin_class_assignments.require_admin)
+    env.app.include_router(lr.admin_router)
+    env.actor["admin"] = True
+    response = env.client.post(f'/admin/listening/drills/{env.p["id"]}/publish')
+    assert response.status_code == 404
+    assert env.db.rpcs == []
+    assert not any(patch or t not in {"listening_tests"} for t, _, patch in env.db.calls)
+
+
+ROUTE_INVENTORY = """GET /admin/listening/dictation-reports/{session_id}
+GET /api/listening/source-collections/80-days/days/{day_number}
+GET /api/listening/source-collections/80-days/days/{day_number}/audio
+GET /api/listening/tests/dictation/session/by-request/{client_request_id}
+GET /api/listening/tests/dictation/session/{session_id}
+POST /admin/listening/drills/{drill_id}/publish
+POST /admin/listening/drills/{drill_id}/sync
+POST /admin/listening/packages/{package_id}/archive
+POST /admin/listening/packages/{package_id}/publish
+POST /api/listening/source-collections/80-days/days/{day_number}/study
+DELETE /admin/listening/exercises/{exercise_id}
 DELETE /admin/listening/exercises/{exercise_id}/map-image
 DELETE /admin/listening/tests/{test_id}
 DELETE /admin/listening/tests/{test_id}/hard
@@ -427,10 +526,22 @@ def test_frozen_owner_check_when_live_identity_changes(env, admin):
     assert not any('marking_rows' in cols for _,cols,_ in env.db.calls)
 
 
-# These identifiers resolve only in Reading, Grammar, D1 or class-lesson tables.
-# Black Eye admission cannot populate those namespaces. All polymorphic
-# Listening targets above require an explicit deny/exclude boundary.
-INDEPENDENT_DOMAIN_ROUTES = """DELETE /admin/cohorts/{cohort_id}/lessons/{lesson_id}
+# These paths resolve in Reading, Grammar, D1, class-lesson or correction-only
+# namespaces (Black Eye has no correction capture/admission in PR1). The mixed
+# class-assignment correction route uses guard_generic_assignment before IO;
+# mock-exam assignment is also closed to Black Eye. Classify all by resource
+# path, including share capabilities and session IDs, not parameter spelling.
+INDEPENDENT_DOMAIN_ROUTES = """GET /admin/mock-corrections/content-versions/{content_version}/health
+GET /admin/mock-corrections/items/{item_attempt_id}/timeline
+GET /admin/reading/content/tests/{test_uuid}/preview
+GET /api/exercises/d1/sessions/{session_id}
+GET /api/reading/test/share/{share_token}/boot
+PATCH /admin/mock-corrections/class-assignments/{assignment_id}
+PATCH /admin/mock-corrections/mock-exams/{exam_id}
+POST /admin/mock-corrections/content-versions/{content_version}/approve
+POST /api/exercises/d1/sessions/{session_id}/complete
+POST /api/reading/test/share/{share_token}/attempts
+DELETE /admin/cohorts/{cohort_id}/lessons/{lesson_id}
 DELETE /admin/reading/content/tests/{test_id}
 GET /admin/grammar-lessons/attempts/{attempt_id}
 GET /admin/reading/content/tests/{test_id}
