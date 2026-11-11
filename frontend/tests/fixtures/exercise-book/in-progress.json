@@ -1,0 +1,31 @@
+{
+  "attempt": {
+    "attempt_id": "00000000-0000-4000-8000-000000000062",
+    "test_id": "00000000-0000-4000-8000-000000000032",
+    "binding": {
+      "programme_id": "blackeye-v5-upper-listening",
+      "collection_id": "blackeye-v5-upper",
+      "source_contract": "blackeye_u1_v1",
+      "unit_id": "U1",
+      "activity_id": "U1-A02",
+      "content_revision": "blackeye-u1-content-v1-000000000002",
+      "policy_revision": "selfcheck-v1"
+    },
+    "context": {
+      "kind": "assigned",
+      "class_assignment_item_id": "00000000-0000-4000-8000-000000000021",
+      "assignment_id": "00000000-0000-4000-8000-000000000002",
+      "cohort_id": "00000000-0000-4000-8000-000000000001"
+    },
+    "status": "in_progress",
+    "answers": [
+      {
+        "q_num": 1,
+        "source_item_id": "A02-c1",
+        "user_answer": "Monday"
+      }
+    ],
+    "submitted_at": null,
+    "result_summary": null
+  }
+}

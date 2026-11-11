@@ -1,0 +1,90 @@
+{
+  "_note": "Fixed bodies of contract §0. The body never echoes client values. 401, a plain 403, 404 and the duplicate-state 409 have no named code in v1, so these bodies carry none and the client derives the code from the status.",
+  "unauthenticated": {
+    "status": 401,
+    "body": {
+      "detail": "Bạn cần đăng nhập."
+    }
+  },
+  "forbidden": {
+    "status": 403,
+    "body": {
+      "detail": "Bạn chưa được cấp quyền."
+    }
+  },
+  "step_up_required": {
+    "status": 403,
+    "body": {
+      "detail": "Cần xác thực lại.",
+      "code": "step_up_required"
+    }
+  },
+  "not_owner": {
+    "status": 403,
+    "body": {
+      "detail": "Bạn chưa được cấp quyền.",
+      "code": "not_owner"
+    }
+  },
+  "not_found": {
+    "status": 404,
+    "body": {
+      "detail": "Không tìm thấy."
+    }
+  },
+  "stale_revision": {
+    "status": 409,
+    "body": {
+      "detail": "Nội dung đã đổi.",
+      "code": "stale_revision"
+    }
+  },
+  "idempotency_conflict": {
+    "status": 409,
+    "body": {
+      "detail": "Yêu cầu bị trùng.",
+      "code": "idempotency_conflict"
+    }
+  },
+  "attempt_changed": {
+    "status": 409,
+    "body": {
+      "detail": "Bài đã đổi.",
+      "code": "attempt_changed"
+    }
+  },
+  "conflict": {
+    "status": 409,
+    "body": {
+      "detail": "Trạng thái đã như vậy."
+    }
+  },
+  "activity_locked": {
+    "status": 422,
+    "body": {
+      "detail": "Activity chưa mở.",
+      "code": "activity_locked"
+    }
+  },
+  "past_due": {
+    "status": 422,
+    "body": {
+      "detail": "Đã quá hạn.",
+      "code": "past_due"
+    }
+  },
+  "validation": {
+    "status": 422,
+    "body": {
+      "detail": "Dữ liệu không hợp lệ.",
+      "code": "validation"
+    }
+  },
+  "unavailable": {
+    "status": 503,
+    "body": {
+      "detail": "Hệ thống chưa sẵn sàng.",
+      "code": "unavailable"
+    }
+  }
+}
