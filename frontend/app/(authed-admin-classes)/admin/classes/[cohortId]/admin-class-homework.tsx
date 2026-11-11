@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
-import { AdminBlackEyeHomework } from '@/components/admin-blackeye-homework';
 import { Dialog, Field, messageOf, StatusBanner } from '@/components/admin-directory-ui';
 import type { ApiGetJson } from '@/lib/openapi-contract';
 import { assignmentHref } from '@/lib/admin-writing-assignments-model.mjs';
@@ -499,7 +498,6 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
     <section id="acx-panel-homework" className="acd-workspace ach-workspace" role="tabpanel" aria-labelledby="acx-tab-homework">
       <div className="acx-section-head"><div><p className="acd-eyebrow">Công việc của lớp</p><h2>Bài tập</h2><p>Theo dõi hạn, phạm vi người nhận và tình hình nộp từ sổ cái chuẩn. Hạn được đặt theo giờ Việt Nam.</p></div><div className="ach-section-actions"><a className="adm-btn-secondary" href={assignmentHref({}, { cohortId })}>Giao Writing cho lớp</a><button className="adm-btn-primary" type="button" onClick={() => setEditor(homeworkDraft() as HomeworkDraft)} disabled={busy}>Giao bài lớp</button></div></div>
       <StatusBanner banner={banner} />
-      <AdminBlackEyeHomework cohortId={cohortId} />
       {pendingExplanationAssignments.length ? <section className="acd-warning"><strong>Đang chờ duyệt web explanation</strong><div className="ach-section-actions">{pendingExplanationAssignments.map((assignment) => <button className="adm-btn-secondary adm-btn-sm" type="button" key={assignment.id} disabled={busy} onClick={() => setConfirm({ kind: 'release-explanations', assignment })}>{assignment.title}</button>)}</div></section> : null}
       {reconcileFailed && <div className="acd-warning" role="alert">Chưa đối chiếu được một số bài đã nộp; các con số bên dưới có thể còn thiếu. Tải lại để thử đối chiếu lại.</div>}
       {error && <div className={assignments ? 'acd-warning' : 'acd-state is-error'} role="alert"><strong>Không đọc được danh sách bài giao</strong><span>{error}{assignments ? ' Danh sách dưới đây là ảnh chụp trước đó.' : ''}</span><button className="adm-btn-secondary" type="button" onClick={() => void loadAssignments()} disabled={loading}>Thử lại</button></div>}

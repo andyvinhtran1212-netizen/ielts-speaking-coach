@@ -83,6 +83,69 @@ def validate_form_response_cells(programme_id, item_ids, item_count, *, blackeye
         raise PackageValidationError("Form response-cell count invalid")
 
 
+def _blackeye_import_fields(paper, protected_form):
+    """Project the package-authored public contract and protected review together.
+
+    Numeric revisions are the package's explicit DB mapping, not hashes of keys.
+    They must describe the eventual published paper's counters (376 checks them
+    again at admission). Never invent an answer-set identity or context here.
+    """
+    from models.listening_blackeye import (
+        BlackEyeContext, BlackEyeReviewItem, BlackEyeTranscript,
+    )
+    from services.listening_blackeye import activity_from_paper
+
+    try:
+        activity, binding = activity_from_paper(paper)
+        if not re.fullmatch(
+            r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}",
+            binding.answer_set_revision,
+        ):
+            raise ValueError("UUID spelling required by 376")
+        mapping = paper["metadata"]["blackeye_db_revisions"]
+        if (not isinstance(mapping, dict)
+                or set(mapping) != {"paper_revision", "policy_revision"}
+                or any(type(v) is not int or not 0 <= v <= 2**63 - 1 for v in mapping.values())):
+            raise ValueError("DB revision mapping")
+        # 295 inserts both counters at zero; first publication with 306/353
+        # active advances only policy_revision. The RPC cannot import arbitrary
+        # counters, and package metadata is immutable afterwards. Reject an
+        # unattainable mapping before storing an unusable paper.
+        if mapping != {"paper_revision": 0, "policy_revision": 1}:
+            raise ValueError("first-publication DB revisions")
+        context = BlackEyeContext.model_validate(paper["metadata"]["blackeye_context"])
+        if context.kind != "standalone":
+            raise ValueError("PR1 assignment seam closed")
+        review = protected_form["blackeye_review"]
+        if review["binding"] != binding.model_dump():
+            raise ValueError("review binding")
+        records = review["items"]
+        if (not isinstance(records, list)
+                or [(r["q_num"], r["source_item_id"]) for r in records]
+                != [(i.q_num, i.source_item_id) for i in activity.items]):
+            raise ValueError("review cells")
+        items = []
+        for record in records:
+            values = {k: record[k] for k in BlackEyeReviewItem.model_fields
+                      if k not in {"saved_response", "blank"}}
+            validated = BlackEyeReviewItem(**values, saved_response="", blank=True)
+            items.append(validated.model_dump(exclude={"saved_response", "blank"}))
+        if not isinstance(review["transcript"], list):
+            raise ValueError("review transcript")
+        transcript = [BlackEyeTranscript(text=t["text"], start=None, end=None).model_dump()
+                      for t in review["transcript"]]
+        public = activity.model_dump(exclude={"test_id", "binding"})
+        public["binding"] = binding.model_dump()
+        return {
+            "blackeye": public,
+            "blackeye_db_revisions": dict(mapping),
+            "blackeye_context": context.model_dump(),
+        }, {"binding": binding.model_dump(), "items": items, "transcript": transcript}
+    except Exception:
+        # No source text, references, transcript or private identity in errors.
+        raise PackageValidationError("Black Eye import contract invalid") from None
+
+
 @dataclass(frozen=True)
 class PackageLocation:
     release_root: Path
@@ -959,6 +1022,10 @@ def build_import_plan(location: PackageLocation, *, imported_by: str | None = No
             if any(item_id not in item_map for item_id in item_ids):
                 raise PackageValidationError(f"Form trỏ item ngoài lesson: {form_id}")
             protected_form = protected_forms.get(form_id) or {}
+            if location.programme_id == "blackeye-v5-upper-listening":
+                blackeye_metadata, blackeye_review = _blackeye_import_fields(
+                    form["blackeye_paper"], protected_form,
+                )
             form_stimulus_ids = protected_form.get("stimulus_ids")
             if not form_stimulus_ids:
                 form_stimulus_ids = []
@@ -1160,6 +1227,9 @@ def build_import_plan(location: PackageLocation, *, imported_by: str | None = No
                     for sequence, stimulus_id in enumerate(form_stimulus_ids, start=1)
                 ],
             })
+            if location.programme_id == "blackeye-v5-upper-listening":
+                forms[-1]["metadata"].update(blackeye_metadata)
+                forms[-1]["exercise_payload"]["blackeye_review"] = blackeye_review
 
     editorial_metadata_changes = _approved_editorial_metadata(location, manifest, lessons)
     editorial_projection, editorial_report = _approved_editorial_projection(

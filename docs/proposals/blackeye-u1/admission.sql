@@ -107,6 +107,7 @@ BEGIN
     RETURN NEW;
 END $$;
 REVOKE ALL ON FUNCTION public.fn_guard_blackeye_admission() FROM PUBLIC,anon,authenticated;
+-- Replace atomically without requiring CREATE OR REPLACE TRIGGER (PG14+).
 DROP TRIGGER IF EXISTS trg_zz_blackeye_admission ON public.listening_test_attempts;
 CREATE TRIGGER trg_zz_blackeye_admission BEFORE INSERT ON public.listening_test_attempts
  FOR EACH ROW EXECUTE FUNCTION public.fn_guard_blackeye_admission();
@@ -117,7 +118,7 @@ CREATE TRIGGER trg_zz_blackeye_admission BEFORE INSERT ON public.listening_test_
 CREATE OR REPLACE FUNCTION public.fn_acquire_blackeye_attempt(
     p_test_id UUID,p_user_id UUID,p_binding JSONB,p_renderer_affinity_protocol TEXT DEFAULT 'legacy')
 RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$
-DECLARE paper JSONB; full_binding JSONB; visible JSONB; attempt JSONB; snapshot JSONB;
+DECLARE paper JSONB; full_binding JSONB; visible JSONB; attempt JSONB; snapshot JSONB; acquired RECORD;
 BEGIN
     IF auth.role() IS DISTINCT FROM 'service_role' OR p_test_id IS NULL OR p_user_id IS NULL THEN
         RAISE EXCEPTION 'blackeye_forbidden';
@@ -147,23 +148,20 @@ BEGIN
         RAISE EXCEPTION 'blackeye_invalid_binding';
     END IF;
     IF p_binding IS DISTINCT FROM visible THEN RAISE EXCEPTION 'blackeye_stale'; END IF;
-    -- Q-16: reuse only a live attempt. Retain submitted and expired rows.
+    -- Never let 295's duplicate repair/abandon path modify Black Eye history.
     IF (SELECT count(*) FROM public.listening_test_attempts a WHERE a.test_id=p_test_id
-        AND a.user_id=p_user_id AND a.class_assignment_item_id IS NULL AND a.sitting_id IS NULL
-        AND a.status='in_progress' AND a.resume_expires_at>clock_timestamp())>1 THEN
+        AND a.user_id=p_user_id AND a.class_assignment_item_id IS NULL AND a.sitting_id IS NULL)>1 THEN
         RAISE EXCEPTION 'blackeye_unavailable';
     END IF;
     SELECT to_jsonb(a) INTO attempt FROM public.listening_test_attempts a WHERE a.test_id=p_test_id
-        AND a.user_id=p_user_id AND a.class_assignment_item_id IS NULL AND a.sitting_id IS NULL
-        AND a.status='in_progress' AND a.resume_expires_at>clock_timestamp() FOR UPDATE;
+        AND a.user_id=p_user_id AND a.class_assignment_item_id IS NULL AND a.sitting_id IS NULL FOR UPDATE;
     IF attempt IS NULL THEN
-        INSERT INTO public.listening_test_attempts
-            (test_id,user_id,status,answers,scoring_policy,started_at,resume_expires_at,
-             renderer_affinity,attempt_purpose)
-        VALUES (p_test_id,p_user_id,'in_progress','[]'::jsonb,'report_only',clock_timestamp(),
-                clock_timestamp()+interval '24 hours',
-                CASE WHEN p_renderer_affinity_protocol='claim-v1' THEN NULL ELSE 'legacy' END,'practice')
-        RETURNING to_jsonb(listening_test_attempts.*) INTO attempt;
+        SELECT * INTO acquired FROM public.fn_acquire_listening_programme_attempt_v2(
+            p_test_id,p_user_id,p_renderer_affinity_protocol);
+        SELECT to_jsonb(a) INTO attempt FROM public.listening_test_attempts a WHERE a.id=acquired.attempt_id;
+    ELSIF attempt->>'status' NOT IN ('in_progress','submitted') OR
+          (attempt->>'status'='in_progress' AND (attempt->>'resume_expires_at')::TIMESTAMPTZ<=clock_timestamp()) THEN
+        RAISE EXCEPTION 'blackeye_invalid_inactive';
     END IF;
     SELECT to_jsonb(s) INTO snapshot FROM public.mock_paper_attempt_snapshots s
         WHERE s.skill='listening' AND s.attempt_id=(attempt->>'id')::UUID
@@ -174,7 +172,7 @@ BEGIN
     END IF;
     -- Existing attempts retain their original answer set even after a key-only
     -- publication. Public equality does not compare/echo the hidden identity.
-    IF ((snapshot#>'{paper_row,metadata,blackeye,binding}')-'answer_set_revision') IS DISTINCT FROM p_binding THEN
+    IF (snapshot#>'{paper_row,metadata,blackeye,binding}'-'answer_set_revision') IS DISTINCT FROM p_binding THEN
         RAISE EXCEPTION 'blackeye_stale';
     END IF;
     RETURN attempt;
@@ -222,4 +220,34 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.fn_submit_blackeye_attempt(UUID,UUID,JSONB,JSONB) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.fn_submit_blackeye_attempt(UUID,UUID,JSONB,JSONB) TO service_role;
+
+-- Re-application must leave the enabled guard and all three definers intact.
+DO $$
+DECLARE signature TEXT; function_oid OID;
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_trigger t
+        WHERE t.tgrelid='public.listening_test_attempts'::pg_catalog.regclass
+          AND t.tgname='trg_zz_blackeye_admission' AND t.tgenabled='O'
+          AND NOT t.tgisinternal
+          AND t.tgfoid=pg_catalog.to_regprocedure('public.fn_guard_blackeye_admission()')) THEN
+        RAISE EXCEPTION 'blackeye_admission_trigger_postcondition_failed' USING ERRCODE='55000';
+    END IF;
+    FOREACH signature IN ARRAY ARRAY[
+        'public.fn_guard_blackeye_admission()',
+        'public.fn_acquire_blackeye_attempt(uuid,uuid,jsonb,text)',
+        'public.fn_submit_blackeye_attempt(uuid,uuid,jsonb,jsonb)']
+    LOOP
+        function_oid:=pg_catalog.to_regprocedure(signature);
+        IF function_oid IS NULL OR NOT EXISTS (
+            SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=function_oid AND p.prosecdef
+              AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp'])
+           OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p,
+               LATERAL pg_catalog.aclexplode(COALESCE(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
+               WHERE p.oid=function_oid AND a.grantee=0 AND a.privilege_type='EXECUTE')
+           OR pg_catalog.has_function_privilege('anon',function_oid,'EXECUTE')
+           OR pg_catalog.has_function_privilege('authenticated',function_oid,'EXECUTE') THEN
+            RAISE EXCEPTION 'blackeye_admission_function_postcondition_failed: %', signature USING ERRCODE='55000';
+        END IF;
+    END LOOP;
+END $$;
 COMMIT;

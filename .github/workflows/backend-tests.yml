@@ -55,6 +55,7 @@ env:
     tests/test_rls_no_inline_admin_role_policy.py
     tests/test_class_action_log_postgres.py
     tests/test_client_write_invariant_postgres.py
+    tests/test_blackeye_admission_postgres.py
     tests/test_mock_paper_policy_postgres.py
     tests/test_mock_private_draft_postgres.py
     tests/test_activate_rate_limit.py

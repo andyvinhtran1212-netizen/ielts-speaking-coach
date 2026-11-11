@@ -667,5 +667,3 @@ spec 0052 và Q-1..Q-16 theo đề xuất; FD mở PR spec".
   (F11). Không đổi quyết định Q-1..Q-16 hay D-1..D-5, không mở rộng phạm vi.
 
 - 2026-11-11 (Leader decision, CR #2281 R1 P2-4): FR-015/T004 amended: proposal SQL lands in PR1 as numbered migration 376 marked pending_feature in forward-policy.tsv, merged unexecuted (No apply on merge). T004 = SA SQL review + anh Vinh run approval; staging first, production only at T014.
-
-- 2026-11-11, Q-16 (Leader clarification): PR2 accepts only `replay_policy='allowed'`: a learner may start a new attempt after expiry or submission; expired unsubmitted work and submitted work are retained, never overwritten. `once` and other values return 422.

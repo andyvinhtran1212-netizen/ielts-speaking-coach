@@ -20,14 +20,17 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-11-11 the highest is `377`, reserved by Leader for
-BLACKEYE-0052 course 2 grants; the next new migration is `378`, after checking the shared
-register. `377_blackeye_course2_grants.sql` is the unexecuted, grant-list-only
-PR2 file (`pending_feature`, group `blackeye_grants`); its manual rollback is
-`rollback/377_blackeye_course2_grants.sql`. No apply on merge. Both 376 and 377 require
+sequence is dense. As of 2026-11-10 the highest is `376`, reserved by Leader for
+BLACKEYE-0052 admission; the next new migration is `378`, after checking the shared
+register (377 is reserved for Black Eye PR2). Migration 376 is unexecuted in this PR and requires
 separate SA review and owner approval to run. Its manual rollback is under
-`rollback/376_blackeye_admission.sql`. Reservations 370–375 remain held by their
-owners; do not reuse them.
+`rollback/376_blackeye_admission.sql`: it keeps the trigger as a deny-all Black Eye
+guard and removes the two RPCs, retaining data, widened CHECKs and the ledger row.
+It refuses published/public Black Eye content under SHARE locks with a 5-second
+lock timeout. Re-apply replaces the trigger atomically using DROP/CREATE and
+checks trigger/security/ACL postconditions before commit; a ledger change still
+requires a separate reviewed decision. No PostgreSQL 14+ live-version assumption
+is needed. Reservations 370–375 remain held by their owners; do not reuse them.
 `368` is PC-J619 (#2242); `367` is PC-J612 (#2243); `366` is PC-J611, #2241;
 `365` is PC-J603, #2238; `363` is PC-J538, `361` is PC-J358, #2180; `360` is
 PC-J192, INSTRUCTORGIVE-0044. Check staging, every open PR and the migration

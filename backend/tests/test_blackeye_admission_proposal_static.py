@@ -22,22 +22,11 @@ def assert_narrow_sql(sql):
         exact = rf"ALTER\s+TABLE\s+public\.{table}\s+DROP\s+CONSTRAINT\s+{table}_programme_id_check\s*;"
         assert len(re.findall(exact, remaining, re.I)) == 1
         remaining = re.sub(exact, "", remaining, flags=re.I)
-    trigger_drop = 'DROP TRIGGER IF EXISTS trg_zz_blackeye_admission ON public.listening_test_attempts;'
+    # 376 must replace its own trigger inside the same transaction on PG <14.
+    trigger_drop = "DROP TRIGGER IF EXISTS trg_zz_blackeye_admission ON public.listening_test_attempts;"
     assert remaining.count(trigger_drop) == 1
-    remaining = remaining.replace(trigger_drop, '', 1)
+    remaining = remaining.replace(trigger_drop, "", 1)
     assert not re.search(r"\bDROP\b", remaining, re.I), "non-whitelisted DROP"
-    approved_insert = """INSERT INTO public.listening_test_attempts
-            (test_id,user_id,status,answers,scoring_policy,started_at,resume_expires_at,
-             renderer_affinity,attempt_purpose)
-        VALUES (p_test_id,p_user_id,'in_progress','[]'::jsonb,'report_only',clock_timestamp(),
-                clock_timestamp()+interval '24 hours',
-                CASE WHEN p_renderer_affinity_protocol='claim-v1' THEN NULL ELSE 'legacy' END,'practice')
-        RETURNING to_jsonb(listening_test_attempts.*) INTO attempt;"""
-    assert remaining.count(approved_insert) == 1
-    acquire = remaining[remaining.index("CREATE OR REPLACE FUNCTION public.fn_acquire_blackeye_attempt("):]
-    assert approved_insert in acquire[:acquire.index("END $$;")]
-    remaining = remaining.replace(approved_insert, "", 1)
-
     # Permit exactly the authorized submit UPDATE, inside its sole function.
     # Keep the destructive-statement scan over every other function and SQL.
     approved_update = """UPDATE public.listening_test_attempts SET status='submitted',submitted_at=clock_timestamp(),
@@ -66,7 +55,7 @@ def check_values(sql, table):
     return re.findall(r"'([^']*)'", matches[0])
 
 
-def test_sql_only_three_approved_drops_and_no_destructive_statement():
+def test_sql_only_three_check_drops_and_one_trigger_replacement():
     assert_narrow_sql(SQL)
 
 
@@ -81,6 +70,7 @@ def test_each_legacy_value_preserved_byte_exact_only_blackeye_added(table):
 
 @pytest.mark.parametrize("bad", ["DROP TABLE public.listening_tests;", "ALTER TABLE public.listening_tests DROP COLUMN metadata;",
     "ALTER TABLE public.listening_tests DROP CONSTRAINT another_check;", "DELETE FROM public.listening_test_attempts;",
+    "DROP TRIGGER IF EXISTS trg_zz_blackeye_admission ON public.listening_test_attempts;",
     "UPDATE public.listening_tests SET status='published';", "CREATE TABLE public.unapproved(id int);",
     "TRUNCATE public.listening_test_attempts;", "GRANT EXECUTE ON FUNCTION public.fn_acquire_blackeye_attempt(UUID,UUID,JSONB,TEXT) TO authenticated;"])
 def test_sql_safety_assertion_rejects_mutated_unapproved_operation(bad):
@@ -97,11 +87,11 @@ def test_definer_search_path_grants_and_atomic_admission_source_invariants():
     assert "REVOKE ALL ON FUNCTION public.fn_acquire_blackeye_attempt(UUID,UUID,JSONB,TEXT) FROM PUBLIC,anon,authenticated;" in clean
     assert "GRANT EXECUTE ON FUNCTION public.fn_acquire_blackeye_attempt(UUID,UUID,JSONB,TEXT) TO service_role;" in clean
     acquire = dict(functions)["fn_acquire_blackeye_attempt"]
-    assert acquire.index("fn_lock_mock_paper") < acquire.index("full_binding:=") < acquire.index("INSERT INTO public.listening_test_attempts")
+    assert acquire.index("fn_lock_mock_paper") < acquire.index("full_binding:=") < acquire.index("fn_acquire_listening_programme_attempt_v2")
     assert "pg_advisory_xact_lock" in acquire and "FOR UPDATE" in acquire
     assert "p_binding ? 'answer_set_revision'" in acquire
     assert "full_binding-'answer_set_revision'" in acquire
-    assert "(snapshot#>'{paper_row,metadata,blackeye,binding}')-'answer_set_revision'" in acquire
+    assert "snapshot#>'{paper_row,metadata,blackeye,binding}'-'answer_set_revision'" in acquire
     assert "mock_paper_attempt_snapshots" in acquire
     assert "fn_mock_admission_contract_active()" in acquire
     guard = dict(functions)["fn_guard_blackeye_admission"]
@@ -131,7 +121,11 @@ def test_unnumbered_proposal_is_not_a_forward_migration_or_ci_script_input():
     for table in TABLES:
         assert f"SELECT 1 FROM public.{table}" in rollback
     assert "status='published'" in rollback and "is_public IS TRUE" in rollback
-    assert "DROP TRIGGER IF EXISTS trg_zz_blackeye_admission" in rollback
+    assert "SET LOCAL lock_timeout = '5s';" in rollback
+    assert "DROP TRIGGER" not in uncomment(rollback)
+    assert "DROP FUNCTION IF EXISTS public.fn_guard_blackeye_admission" not in rollback
+    assert "RAISE EXCEPTION 'blackeye_unavailable'" in rollback
+    assert "rollback_376_guard_not_enabled" in rollback
     assert not re.search(r"\b(?:DELETE|TRUNCATE|UPDATE)\b", uncomment(rollback), re.I)
     # No workflow or runnable script references the proposal. Its only reader is
     # this source-only test; selecting it in regular CI cannot execute the SQL.
@@ -139,6 +133,20 @@ def test_unnumbered_proposal_is_not_a_forward_migration_or_ci_script_input():
         for path in root.rglob("*"):
             if path.is_file() and path.suffix in {".py", ".sh", ".sql", ".yml", ".yaml"}:
                 assert_no_proposal_script_input(path, path.read_text())
+
+
+def test_reapply_and_postconditions_precede_commit_and_pg17_runs_runtime_suite():
+    clean = uncomment(SQL)
+    assert clean.index("DROP TRIGGER IF EXISTS trg_zz_blackeye_admission") < clean.index("CREATE TRIGGER trg_zz_blackeye_admission")
+    for clause in ("t.tgenabled='O'", "t.tgfoid=pg_catalog.to_regprocedure(",
+                   "p.prosecdef", "p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']",
+                   "a.grantee=0", "has_function_privilege('anon'", "has_function_privilege('authenticated'",
+                   "blackeye_admission_trigger_postcondition_failed", "blackeye_admission_function_postcondition_failed"):
+        assert clause in clean
+    assert clean.index("blackeye_admission_function_postcondition_failed") < clean.index("COMMIT;")
+    workflow = (MIGRATIONS.parent.parent / '.github/workflows/backend-tests.yml').read_text()
+    pg17_list = workflow.split('PG17_TEST_FILES: >-', 1)[1].split('\njobs:', 1)[0]
+    assert 'tests/test_blackeye_admission_postgres.py' in pg17_list
 
 
 @pytest.mark.parametrize("bad", [
@@ -189,11 +197,3 @@ def test_strict_proposal_isolation_applies_to_every_script_path():
         for text in ("-- fn_acquire_blackeye_attempt", "SELECT public.fn_acquire_blackeye_attempt("):
             with pytest.raises(AssertionError):
                 assert_no_proposal_script_input(path, text)
-
-
-def test_q16_new_attempt_preserves_expired_and_submitted_work():
-    acquire = SQL[SQL.index('CREATE OR REPLACE FUNCTION public.fn_acquire_blackeye_attempt('):SQL.index('-- A service-only submit boundary;')]
-    assert "a.status='in_progress' AND a.resume_expires_at>clock_timestamp()" in acquire
-    assert "fn_acquire_listening_programme_attempt_v2" not in acquire
-    assert not re.search(r"\b(?:UPDATE|DELETE)\s+public\.", acquire, re.I)
-    assert "INSERT INTO public.listening_test_attempts" in acquire

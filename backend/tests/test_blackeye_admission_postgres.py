@@ -15,6 +15,11 @@ MIGRATION = Path(__file__).resolve().parents[1] / "migrations/376_blackeye_admis
 ROLLBACK = MIGRATION.parent / "rollback/376_blackeye_admission.sql"
 
 
+def migration_source(schema):
+    return MIGRATION.read_text().replace("public.", f"{schema}.").replace(
+        "auth.role()", "current_setting('request.jwt.claim.role',true)")
+
+
 @pytest.fixture(scope="module")
 def blackeye_schema(probe):
     schema = "blackeye_376_" + uuid4().hex
@@ -45,11 +50,9 @@ def blackeye_schema(probe):
           AS 'SELECT to_jsonb(t) FROM {schema}.listening_tests t WHERE id=$2';
         CREATE FUNCTION {schema}.fn_mock_admission_contract_active() RETURNS boolean LANGUAGE sql AS 'SELECT false';
         """)
-        source = MIGRATION.read_text().replace("public.", f"{schema}.")
         # Auth API is supplied by Supabase; the disposable schema uses a role
         # claim expression without installing/changing a shared auth schema.
-        source = source.replace("auth.role()", "current_setting('request.jwt.claim.role',true)")
-        psql(source)
+        psql(migration_source(schema))
         yield schema
     finally:
         psql(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
@@ -59,6 +62,8 @@ def test_376_definers_catalog_search_path_and_client_acl(blackeye_schema):
     schema = blackeye_schema
     rows = json.loads(psql(f"""SELECT json_agg(json_build_object('name',p.proname,'definer',p.prosecdef,
       'config',p.proconfig,'anon',has_function_privilege('anon',p.oid,'EXECUTE'),
+      'public',EXISTS(SELECT 1 FROM aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a
+        WHERE a.grantee=0 AND a.privilege_type='EXECUTE'),
       'authenticated',has_function_privilege('authenticated',p.oid,'EXECUTE'),
       'service',has_function_privilege('service_role',p.oid,'EXECUTE')))
       FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
@@ -67,7 +72,7 @@ def test_376_definers_catalog_search_path_and_client_acl(blackeye_schema):
     for row in rows:
         assert row['definer'] is True
         assert row['config'] == ['search_path=pg_catalog, pg_temp']
-        assert row['anon'] is False and row['authenticated'] is False
+        assert row['anon'] is False and row['authenticated'] is False and row['public'] is False
         if row['name'] in {'fn_acquire_blackeye_attempt', 'fn_submit_blackeye_attempt'}:
             assert row['service'] is True
 
@@ -216,65 +221,93 @@ def test_rollback_refuses_published_content_then_succeeds(blackeye_schema, table
         psql(f"DELETE FROM {schema}.{table} WHERE id='{row_id}'")
     try:
         psql(rollback)
-        assert psql(trigger) == '0'
+        assert psql(trigger) == '1'
+        assert psql(f"SELECT to_regprocedure('{schema}.fn_acquire_blackeye_attempt(uuid,uuid,jsonb,text)') IS NULL AND to_regprocedure('{schema}.fn_submit_blackeye_attempt(uuid,uuid,jsonb,jsonb)') IS NULL") == 't'
     finally:
         # Restore only this disposable schema for other module tests.
-        source = MIGRATION.read_text().replace('public.', schema + '.')
-        psql(source.replace('auth.role()', "current_setting('request.jwt.claim.role',true)"))
+        psql(migration_source(schema))
 
 
-def test_q16_acquire_retains_submitted_and_expired_attempts(blackeye_schema):
-    """Execute the real acquire/guard; synthetic adapters stand in for 306 IO."""
-    from test_listening_blackeye import paper
+def admission_catalog(schema):
+    return json.loads(psql(f"""SELECT json_build_object(
+      'functions',(SELECT json_agg(json_build_object('name',p.proname,'definer',p.prosecdef,
+        'config',p.proconfig,'acl',p.proacl::text) ORDER BY p.proname)
+        FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+        WHERE n.nspname='{schema}' AND p.proname IN
+          ('fn_guard_blackeye_admission','fn_acquire_blackeye_attempt','fn_submit_blackeye_attempt')),
+      'trigger',(SELECT json_build_object('enabled',t.tgenabled,'function',t.tgfoid::regprocedure::text,
+        'type',t.tgtype) FROM pg_trigger t WHERE t.tgrelid='{schema}.listening_test_attempts'::regclass
+        AND t.tgname='trg_zz_blackeye_admission'))"""))
+
+
+def test_apply_rollback_deny_all_then_reapply_preserves_catalog(blackeye_schema):
     schema = blackeye_schema
-    test = paper(activity='U1-A02')
-    package, content, user = uuid4(), uuid4(), uuid4()
-    test['content_package_id'] = str(package)
-    payload = test['metadata']['blackeye']
-    review = dict(binding=payload['binding'], items=[dict(q_num=i['q_num'],source_item_id=i['source_item_id'],scoring_mode='SELF-CHECK') for i in payload['items']],transcript=[])
-    def literal(value): return "'" + json.dumps(value).replace("'", "''") + "'::jsonb"
-    psql(f'''ALTER TABLE {schema}.listening_content_packages ADD COLUMN IF NOT EXISTS status text;
-      ALTER TABLE {schema}.listening_tests ADD COLUMN IF NOT EXISTS status text, ADD COLUMN IF NOT EXISTS is_public boolean,
-        ADD COLUMN scoring_policy text, ADD COLUMN content_package_id uuid,
-        ADD COLUMN mock_content_revision bigint, ADD COLUMN policy_revision bigint;
-      ALTER TABLE {schema}.listening_test_attempts ALTER COLUMN id SET DEFAULT gen_random_uuid();
-      ALTER TABLE {schema}.listening_test_attempts ADD COLUMN started_at timestamptz,
-        ADD COLUMN renderer_affinity text;
-      CREATE TABLE {schema}.listening_content(id uuid,test_id uuid,status text);
-      CREATE TABLE {schema}.listening_exercises(content_id uuid,status text,payload jsonb);
-      INSERT INTO {schema}.listening_content_packages(id,programme_id,status)
-        VALUES ('{package}','blackeye-v5-upper-listening','published');
-      INSERT INTO {schema}.listening_tests(id,programme_id,metadata,status,is_public,scoring_policy,
-        content_package_id,mock_content_revision,policy_revision)
-        VALUES ('{test['id']}','blackeye-v5-upper-listening',{literal(test['metadata'])},'published',true,
-        'report_only','{package}',973821,973822);
-      INSERT INTO {schema}.listening_content VALUES ('{content}','{test['id']}','published');
-      INSERT INTO {schema}.listening_exercises VALUES ('{content}','published',{literal({'blackeye_review':review})});
-      CREATE FUNCTION {schema}.synthetic_revision_adapter() RETURNS trigger LANGUAGE plpgsql AS $$
-        BEGIN NEW.paper_revision:=973821; NEW.policy_revision:=973822; RETURN NEW; END $$;
-      CREATE TRIGGER trg_mock_paper_attempt BEFORE INSERT ON {schema}.listening_test_attempts
-        FOR EACH ROW EXECUTE FUNCTION {schema}.synthetic_revision_adapter();
-      CREATE FUNCTION {schema}.synthetic_snapshot_adapter() RETURNS trigger LANGUAGE plpgsql AS $$
-        BEGIN INSERT INTO {schema}.mock_paper_attempt_snapshots
-          VALUES ('listening',NEW.id,NEW.test_id,NEW.paper_revision,NEW.policy_revision,
-            {schema}.fn_mock_paper_row('listening',NEW.test_id)); RETURN NEW; END $$;
-      CREATE TRIGGER trg_capture_mock_paper_snapshot AFTER INSERT ON {schema}.listening_test_attempts
-        FOR EACH ROW EXECUTE FUNCTION {schema}.synthetic_snapshot_adapter();
-      CREATE OR REPLACE FUNCTION {schema}.fn_mock_admission_contract_active() RETURNS boolean LANGUAGE sql AS 'SELECT true';''')
-    binding = {k:v for k,v in payload['binding'].items() if k != 'answer_set_revision'}
-    query = f"SET ROLE service_role; SET request.jwt.claim.role='service_role'; SELECT {schema}.fn_acquire_blackeye_attempt('{test['id']}','{user}',{literal(binding)})"
+    before = admission_catalog(schema)
+    psql(migration_source(schema))  # Re-apply even without rollback.
+    assert admission_catalog(schema) == before
+    rollback = ROLLBACK.read_text().replace('public.', schema + '.')
     try:
-        first = json.loads(psql(query))
-        assert json.loads(psql(query))['id'] == first['id']
-        psql(f"UPDATE {schema}.listening_test_attempts SET status='submitted',submitted_at=now(),answers='[{{\"q_num\":1,\"user_answer\":\"synthetic kept work\"}}]' WHERE id='{first['id']}'")
-        second = json.loads(psql(query))
-        assert second['id'] != first['id']
-        psql(f"UPDATE {schema}.listening_test_attempts SET resume_expires_at=now()-interval '1 second' WHERE id='{second['id']}'")
-        third = json.loads(psql(query))
-        assert third['id'] not in (first['id'],second['id'])
-        assert psql(f"SELECT count(*) FROM {schema}.listening_test_attempts WHERE test_id='{test['id']}'") == '3'
-        preserved = json.loads(psql(f"SELECT to_jsonb(a) FROM {schema}.listening_test_attempts a WHERE id='{first['id']}'"))
-        assert preserved['status'] == 'submitted' and preserved['answers'][0]['user_answer'] == 'synthetic kept work'
-        assert psql(f"SELECT status FROM {schema}.listening_test_attempts WHERE id='{second['id']}'") == 'in_progress'
+        psql(rollback)
+        psql(rollback)  # The deny-all rollback is also repeatable.
+        remaining = admission_catalog(schema)
+        assert [row['name'] for row in remaining['functions']] == ['fn_guard_blackeye_admission']
+        assert remaining['functions'][0] == next(row for row in before['functions'] if row['name'] == 'fn_guard_blackeye_admission')
+        assert remaining['trigger'] == before['trigger']
+        # The guard must deny both recognition paths even after later publication,
+        # regardless of the original admission machinery being active.
+        psql(f"CREATE OR REPLACE FUNCTION {schema}.fn_mock_admission_contract_active() RETURNS boolean LANGUAGE sql AS 'SELECT true'")
+        for programme, metadata in [('blackeye-v5-upper-listening', '{}'), ('ielts', '{"blackeye":{}}')]:
+            paper = uuid4()
+            psql(f"INSERT INTO {schema}.listening_tests(id,programme_id,metadata,status,is_public) VALUES ('{paper}','{programme}','{metadata}','published',true)")
+            with pytest.raises(RuntimeError, match='blackeye_unavailable'):
+                psql(f"INSERT INTO {schema}.listening_test_attempts(id,test_id) VALUES ('{uuid4()}','{paper}')")
+            assert psql(f"SELECT count(*) FROM {schema}.listening_test_attempts WHERE test_id='{paper}'") == '0'
+            psql(f"DELETE FROM {schema}.listening_tests WHERE id='{paper}'")
+        ordinary = uuid4()
+        psql(f"INSERT INTO {schema}.listening_tests(id,programme_id) VALUES ('{ordinary}','ielts')")
+        psql(f"INSERT INTO {schema}.listening_test_attempts(id,test_id) VALUES ('{uuid4()}','{ordinary}')")
+        assert psql(f"SELECT count(*) FROM {schema}.listening_test_attempts WHERE test_id='{ordinary}'") == '1'
     finally:
         psql(f"CREATE OR REPLACE FUNCTION {schema}.fn_mock_admission_contract_active() RETURNS boolean LANGUAGE sql AS 'SELECT false'")
+        # No migration-ledger writes: this test exercises the SQL body only.
+        psql(migration_source(schema))
+    assert admission_catalog(schema) == before
+    test_376_definers_catalog_search_path_and_client_acl(schema)
+
+
+@pytest.mark.parametrize('mutation', [
+    'DROP TRIGGER trg_zz_blackeye_admission ON {schema}.listening_test_attempts',
+    'ALTER TABLE {schema}.listening_test_attempts DISABLE TRIGGER trg_zz_blackeye_admission',
+    """CREATE FUNCTION {schema}.wrong_guard() RETURNS trigger LANGUAGE plpgsql AS 'BEGIN RETURN NEW; END;';
+       DROP TRIGGER trg_zz_blackeye_admission ON {schema}.listening_test_attempts;
+       CREATE TRIGGER trg_zz_blackeye_admission BEFORE INSERT ON {schema}.listening_test_attempts
+       FOR EACH ROW EXECUTE FUNCTION {schema}.wrong_guard()""",
+])
+def test_trigger_postcondition_rejects_missing_disabled_or_wrong_function(blackeye_schema, mutation):
+    postcondition = migration_source(blackeye_schema).rsplit('DO $$', 1)[1].split('COMMIT;', 1)[0]
+    with pytest.raises(RuntimeError, match='blackeye_admission_trigger_postcondition_failed'):
+        psql('BEGIN; ' + mutation.format(schema=blackeye_schema) + '; DO $$' + postcondition + 'COMMIT;')
+
+
+@pytest.mark.parametrize('signature', [
+    'fn_guard_blackeye_admission()',
+    'fn_acquire_blackeye_attempt(uuid,uuid,jsonb,text)',
+    'fn_submit_blackeye_attempt(uuid,uuid,jsonb,jsonb)',
+])
+@pytest.mark.parametrize('mutation', [
+    'ALTER FUNCTION {function} SECURITY INVOKER',
+    'ALTER FUNCTION {function} SET search_path=public',
+    'GRANT EXECUTE ON FUNCTION {function} TO PUBLIC',
+    'GRANT EXECUTE ON FUNCTION {function} TO anon',
+    'GRANT EXECUTE ON FUNCTION {function} TO authenticated',
+])
+def test_function_postcondition_rejects_unsafe_definer_path_or_acl(blackeye_schema, signature, mutation):
+    postcondition = migration_source(blackeye_schema).rsplit('DO $$', 1)[1].split('COMMIT;', 1)[0]
+    with pytest.raises(RuntimeError, match='blackeye_admission_function_postcondition_failed'):
+        psql('BEGIN; ' + mutation.format(function=blackeye_schema + '.' + signature) + '; DO $$' + postcondition + 'COMMIT;')
+
+
+def test_function_postcondition_rejects_missing_rpc(blackeye_schema):
+    postcondition = migration_source(blackeye_schema).rsplit('DO $$', 1)[1].split('COMMIT;', 1)[0]
+    with pytest.raises(RuntimeError, match='blackeye_admission_function_postcondition_failed'):
+        psql(f'BEGIN; DROP FUNCTION {blackeye_schema}.fn_submit_blackeye_attempt(uuid,uuid,jsonb,jsonb); DO $$' + postcondition + 'COMMIT;')

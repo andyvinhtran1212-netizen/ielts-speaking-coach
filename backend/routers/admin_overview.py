@@ -304,18 +304,27 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
     # Listening attempts (last 30d for activity + avg) + total count.
     # Nguồn: listening_test_attempts — nơi lesson/mini + drill + full test
     # thật sự ghi (audit 2026-07-17; listening_attempts cũ đã chết từ 05/2026).
-    listening_recent = _safe_select(
-        (await run_in_threadpool(blackeye.exclude_tests, supabase_admin, supabase_admin.table("listening_test_attempts")
-        .select("id, user_id, test_id, status, score, grading_details, "
-                "created_at, submitted_at")))
-        .gte("created_at", iso_30d),
-        "listening_recent", partial_failures,
-    )
-    listening_total = _safe_count(
-        (await run_in_threadpool(blackeye.exclude_tests, supabase_admin, supabase_admin.table("listening_test_attempts")
-        .select("id", count="exact", head=True))),
-        "listening_total", partial_failures,
-    )
+    # Identity lookup failures must omit Listening data, never read unfiltered rows.
+    try:
+        listening_recent = _safe_select(
+            (await run_in_threadpool(blackeye.exclude_tests, supabase_admin, supabase_admin.table("listening_test_attempts")
+            .select("id, user_id, test_id, status, score, grading_details, "
+                    "created_at, submitted_at")))
+            .gte("created_at", iso_30d),
+            "listening_recent", partial_failures,
+        )
+    except Exception as exc:
+        _record_partial(partial_failures, "listening_recent", exc)
+        listening_recent = []
+    try:
+        listening_total = _safe_count(
+            (await run_in_threadpool(blackeye.exclude_tests, supabase_admin, supabase_admin.table("listening_test_attempts")
+            .select("id", count="exact", head=True))),
+            "listening_total", partial_failures,
+        )
+    except Exception as exc:
+        _record_partial(partial_failures, "listening_total", exc)
+        listening_total = 0
     reading_recent = _safe_reading_attempt_window(iso_30d, snapshot_to, partial_failures)
     reading_total = _safe_count(
         supabase_admin.table("reading_test_attempts")

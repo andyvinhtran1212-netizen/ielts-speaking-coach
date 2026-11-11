@@ -41,7 +41,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from fastapi.routing import APIRoute
 from fastapi.exceptions import RequestValidationError
 from models.listening_blackeye import (
-    BlackEyePlayer, BlackEyePlaybackAck,
     BlackEyeLearnerBinding, BlackEyeAttemptState, BlackEyeActivityReview,
     BlackEyeUnitPublic, BlackEyeSaveAck, BlackEyeInProgress,
 )
@@ -6240,7 +6239,7 @@ async def admin_listening_player_preview(
     return _assemble_listening_player_payload(rows[0])
 
 
-@user_router.get("/tests/{test_id}", response_model=BlackEyePlayer | ListeningPlayerResponse)
+@user_router.get("/tests/{test_id}", response_model=ListeningPlayerResponse)
 async def get_published_listening_test(
     test_id: uuid.UUID,
     class_item: str | None = None,
@@ -6271,12 +6270,8 @@ async def get_published_listening_test(
         raise HTTPException(404, "Test bundle not found or not published")
     test = res.data[0]
     if blackeye.is_blackeye(test):
-        result = await run_in_threadpool(blackeye.player, supabase_admin, test, _user['id'],
-            attempt_id=str(attempt_id) if attempt_id else None, class_item=class_item,
-            sitting_id=str(sitting_id) if sitting_id else None)
-        from fastapi.encoders import jsonable_encoder
-        from starlette.responses import JSONResponse
-        return JSONResponse(jsonable_encoder(result), headers={'Cache-Control': 'private, no-store'})
+        await run_in_threadpool(blackeye.require_published, supabase_admin, test)
+        raise HTTPException(503, "Black Eye player contract unavailable.")
     decision = _assert_listening_exam_content_allowed(test, _user.get("id"), class_item, sitting_id=sitting_id)
     from services.mock_paper_policy import owned_delivery_snapshot, attempt_receipt
     attempt, snapshot = owned_delivery_snapshot(supabase_admin, "listening", test_id, _user["id"], decision,
@@ -7997,7 +7992,7 @@ def _fetch_attempt_or_404(attempt_id: str, user_id: str) -> dict:
     return row
 
 
-@user_router.post("/tests/attempts/{attempt_id}/playback-started", response_model=BlackEyePlaybackAck | dict[str, Any])
+@user_router.post("/tests/attempts/{attempt_id}/playback-started")
 async def acknowledge_listening_attempt_playback_started(
     attempt_id: uuid.UUID,
     body: _ListeningAttemptPlaybackStartedRequest,
@@ -8014,10 +8009,7 @@ async def acknowledge_listening_attempt_playback_started(
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(str(attempt_id), user["id"])
     if await run_in_threadpool(blackeye.attempt_is_blackeye, supabase_admin, attempt):
-        result = await run_in_threadpool(blackeye.playback_started, supabase_admin, attempt)
-        from fastapi.encoders import jsonable_encoder
-        from starlette.responses import JSONResponse
-        return JSONResponse(jsonable_encoder(result), headers={'Cache-Control': 'private, no-store'})
+        raise HTTPException(503, "Black Eye player contract unavailable.")
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt không còn hoạt động.")
     require_resume_active(attempt)

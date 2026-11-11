@@ -19,27 +19,28 @@ report. Expected answers travel in the POST body, never the URL. Missing admissi
 Admission remains standalone-only; PR2 must open the class assignment seam.
 
 `backend/migrations/rollback/376_blackeye_admission.sql` is manual rollback SQL,
-not a forward-runner input. It removes only the new trigger/functions and keeps
-widened CHECK constraints, attempts and snapshots. It refuses to run while any
+not a forward-runner input. It drops the two service RPCs and replaces the guard
+function with a deny-all Black Eye guard, keeping the enabled trigger, widened
+CHECK constraints, attempts and snapshots. It refuses to run while any
 Black Eye package/lesson/test is published or any Black Eye test is public;
 archive/hide or remove the content under separate authorization first. The check
-holds table locks through guard removal to prevent concurrent publication. Roll back
+holds SHARE table locks through guard replacement to prevent concurrent publication;
+a local 5-second lock timeout bounds lock waits. The retained guard rejects every
+Black Eye INSERT with `blackeye_unavailable`, including metadata-only Black Eye
+papers and content published after rollback; other Listening INSERTs pass. Roll back
 application code with it; do not enable generic Black Eye delivery. No historical
 rows are rewritten. Reapplying after rollback requires a separately reviewed
-migration-ledger decision.
+migration-ledger decision. Migration 376 replaces its trigger with transactional
+DROP/CREATE rather than requiring PostgreSQL 14+ syntax; repository CI images
+are PG16/17, but neither live database version is established here. Before
+commit, catalog postconditions require the enabled trigger to target the guard
+and all three functions to remain SECURITY DEFINER with exactly
+`search_path = pg_catalog, pg_temp` and no PUBLIC/anon/authenticated EXECUTE.
+The disposable PG17 suite covers apply, repeated rollback, deny-all/generic
+INSERT behavior, re-apply with catalog equality, and unsafe-catalog rejection.
 
 Static verification: `backend/tests/test_blackeye_admission_proposal_static.py`.
 Local HTTP contracts and all fixtures are synthetic. No book content, answers,
 audio uploads, staging/prod writes, live migration runs or environment changes are
 part of this PR. Catalog/grant runtime checks, independent SA review, and MV1
 closure remain release gates; static tests do not prove live database behavior.
-
-Migration **377**, `backend/migrations/377_blackeye_course2_grants.sql`, is the
-unexecuted grant-list-only file for FR-027 (`pending_feature`, `blackeye_grants`).
-No apply on merge; separate SA review and Vinh run approval, staging first under
-the advisory lock; production only at T014. It seeds no grants. CV-1 remains
-open: no grant/revoke route or UI exists. Creator-only authorization remains.
-The grant and audit tables store append-only grant/revoke events; old events
-cannot be updated, deleted or truncated. Self-grants fail. Manual rollback
-refuses to remove existing history. The next new migration remains **378**,
-after checking `/workspace/cc-jobs/migrations-register.md`.

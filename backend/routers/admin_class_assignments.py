@@ -77,7 +77,7 @@ from services.class_assignment_service import (
     reconcile_test_attempts,
 )
 from services.class_membership_service import student_is_active_in_cohort
-from models.listening_blackeye import BlackEyeActivityReview, BlackEyeAssignmentProgress, BlackEyeSourceCatalog, BlackEyeAssignmentCreate, BlackEyeAssignmentReceipt
+from models.listening_blackeye import BlackEyeActivityReview
 from services import listening_blackeye as blackeye
 
 logger = logging.getLogger(__name__)
@@ -92,23 +92,6 @@ class _AssignmentRoute(APIRoute):
                 await require_admin(request.headers.get("authorization"))
                 await run_in_threadpool(blackeye.guard_generic_assignment, supabase_admin,
                                         assignment_id, request.path_params.get("cohort_id"))
-            blackeye_surface = ('/listening-source-' in request.url.path
-                                or request.url.path.endswith('/listening-review'))
-            if blackeye_surface:
-                # Authenticate before body validation, then sanitize every
-                # command error; never echo recipient identifiers or bindings.
-                from fastapi.exceptions import RequestValidationError
-                try:
-                    await require_admin(request.headers.get('authorization'))
-                    response = await original(request)
-                    response.headers['Cache-Control'] = 'private, no-store'
-                    return response
-                except RequestValidationError:
-                    raise HTTPException(422, 'Invalid Black Eye request.',
-                        headers={'Cache-Control': 'private, no-store'}) from None
-                except HTTPException as exc:
-                    exc.headers = {**(exc.headers or {}), 'Cache-Control': 'private, no-store'}
-                    raise
             return await original(request)
         return handler
 
@@ -3111,34 +3094,16 @@ async def delete_assignment(
         )
 
 
-def _blackeye_response(value):
-    from fastapi.encoders import jsonable_encoder
-    from starlette.responses import JSONResponse
-    return JSONResponse(jsonable_encoder(value), headers={'Cache-Control': 'private, no-store'})
-
-
-@router.get('/{cohort_id}/listening-source-catalog', response_model=BlackEyeSourceCatalog)
-async def blackeye_source_catalog(cohort_id: str, authorization: str | None = Header(default=None)):
-    actor = await require_admin(authorization)
-    return _blackeye_response(await run_in_threadpool(blackeye.admin_catalog, supabase_admin, actor['id'], cohort_id))
-
-
-@router.post('/{cohort_id}/listening-source-assignments', response_model=BlackEyeAssignmentReceipt)
-async def blackeye_source_assign(cohort_id: str, body: BlackEyeAssignmentCreate,
-    authorization: str | None = Header(default=None)):
-    actor = await require_admin(authorization)
-    await run_in_threadpool(blackeye.catalog_authority, supabase_admin, actor['id'], cohort_id)
-    # Multi-activity fanout conflicts with UNIQUE(assignment_id,student_id).
-    # Keep admission closed until the ledger decision; never partially assign.
+@router.get("/{cohort_id}/listening-source-catalog")
+@router.post("/{cohort_id}/listening-source-assignments")
+@router.get("/{cohort_id}/listening-source-assignments/{assignment_id}")
+async def blackeye_assignment_closed(
+    cohort_id: str, assignment_id: str | None = None,
+    authorization: str | None = Header(default=None),
+):
+    # One precise seam: no catalog, recipients, receipt, generic give or DML.
+    await require_admin(authorization)
     blackeye.assignment_seam()
-
-
-@router.get('/{cohort_id}/listening-source-assignments/{assignment_id}', response_model=BlackEyeAssignmentReceipt)
-async def blackeye_source_receipt(cohort_id: str, assignment_id: str,
-    authorization: str | None = Header(default=None)):
-    actor = await require_admin(authorization)
-    return _blackeye_response(await run_in_threadpool(blackeye.assignment_receipt, supabase_admin,
-        actor['id'], cohort_id, assignment_id))
 
 
 @router.get("/{cohort_id}/assignments/{assignment_id}/items/{item_id}/listening-review",
@@ -3152,14 +3117,3 @@ async def blackeye_teacher_review(
     from starlette.responses import JSONResponse
     result = await run_in_threadpool(blackeye.teacher_review, supabase_admin, actor["id"], cohort_id, assignment_id, item_id)
     return JSONResponse(jsonable_encoder(result), headers={"Cache-Control": "private, no-store"})
-
-
-@router.get('/{cohort_id}/listening-source-assignments/{assignment_id}/progress', response_model=BlackEyeAssignmentProgress)
-async def blackeye_assignment_progress(cohort_id: str, assignment_id: str,
-    authorization: str | None = Header(default=None)):
-    actor = await require_admin(authorization)
-    from fastapi.encoders import jsonable_encoder
-    from starlette.responses import JSONResponse
-    result = await run_in_threadpool(blackeye.assignment_progress, supabase_admin,
-        actor['id'], cohort_id, assignment_id)
-    return JSONResponse(jsonable_encoder(result), headers={'Cache-Control': 'private, no-store'})

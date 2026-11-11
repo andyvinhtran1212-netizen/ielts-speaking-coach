@@ -28,7 +28,7 @@ SIDES = [
     ("get", "review-flags", None, 422),
     ("patch", "review-flags", {"q_num": 1, "flagged": True, "expected_revision": 0, "operation_id": "00000000-0000-0000-0000-000000000003"}, 422),
     ("post", "renderer-affinity", {"renderer_affinity": "next"}, 503),
-    ("post", "playback-started", {"playback_claim_id": "00000000-0000-0000-0000-000000000001"}, 200),
+    ("post", "playback-started", {"playback_claim_id": "00000000-0000-0000-0000-000000000001"}, 503),
     ("post", "post-test-capture", {"items": []}, 422),
     ("post", "items/1/events", {"event_id": "00000000-0000-0000-0000-000000000002", "event_name": "correction_result_seen"}, 422),
 ]
@@ -60,12 +60,7 @@ def test_generic_side_route_denials_precede_private_io(env, monkeypatch, method,
     r = getattr(env.client, method)(f'{prefix}/{a["id"]}/{suffix}', **({"json": body} if body else {}))
     assert r.status_code == status, r.text
     assert env.db.rpcs == []
-    assert not any("marking_rows" in cols or (t == "mock_paper_attempt_snapshots" and cols == "*") for t, cols, patch in env.db.calls)
-    patches = [patch for _, _, patch in env.db.calls if patch]
-    if suffix == 'playback-started':
-        assert len(patches) == 1 and set(patches[0]) == {'playback_started_at'}
-    else:
-        assert patches == []
+    assert not any(patch or "marking_rows" in cols or (t == "mock_paper_attempt_snapshots" and cols == "*") for t, cols, patch in env.db.calls)
 
 
 def test_windows_programme_and_in_progress_seams(env):
