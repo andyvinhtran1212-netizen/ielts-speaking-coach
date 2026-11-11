@@ -447,7 +447,9 @@ def require_recent_mfa(auth_user: dict, authorization: str | None, *,
     if fresh and not cooloff:
         return
     if enforce:
-        raise step_up_required_exception(cooloff=cooloff)
+        exc = step_up_required_exception(cooloff=cooloff)
+        exc.detail["max_age_seconds"] = max_age
+        raise exc
     _log_step_up_would_block(user_id, assurance, now, cooloff=cooloff)
 
 

@@ -1,8 +1,9 @@
-"""D2 HTTP/service contract tests on strict §8 v1.3 query doubles.
+"""D2 HTTP/service contract tests on strict §8 v1.3.1 query doubles.
 
 These do not claim PG atomicity/RLS proof; D1 integration remains a merge gate.
 """
 from copy import deepcopy
+import base64
 from datetime import datetime, timedelta, timezone
 import inspect
 import json
@@ -19,6 +20,7 @@ from routers import admin_class_assignments as ar, listening as lr
 from services import exercise_book_api as svc, listening_blackeye as be, staff_guard
 
 ADMIN_GUARD = ar.require_admin
+TOKEN_CLAIMS = staff_guard._token_claims
 C = "00000000-0000-4000-8000-000000000001"
 A = "00000000-0000-4000-8000-000000000002"
 I = "00000000-0000-4000-8000-000000000003"
@@ -76,7 +78,7 @@ class D1DB(FakeDB):
     def rpc(self, name, params):
         if name not in SIGNATURES:
             return super().rpc(name, params)
-        assert set(params) == set(SIGNATURES[name].split()), (name, params.keys())
+        assert list(params) == SIGNATURES[name].split(), (name, params.keys())
         # The double cannot independently authenticate; the route inventory
         # below pins how the actor is obtained and forwarded.
         self.rpcs.append((name, deepcopy(params)))
@@ -275,6 +277,19 @@ def test_cursor_validation_is_fixed_and_zero_rpc(book, value):
     assert value not in r.text and not book.db.rpcs
 
 
+@pytest.mark.parametrize("kind,path", [
+    ("admin-assignments", ADMIN + "/listening-source-assignments"),
+    ("learner-assignments", BASE + "/exercise-book-assignments"),
+])
+@pytest.mark.parametrize("values", [[None, G], [123, G], [[], G], ["2026-11-11T00:00:00Z", None],
+    ["2026-11-11T00:00:00Z", 123], ["2026-11-11T00:00:00Z", {}]])
+def test_assignment_cursor_nonstring_elements_return_validation(book, kind, path, values):
+    r = book.client.get(path, params={"cursor": svc.encode_cursor(kind, values)})
+    assert r.status_code == 422 and r.json() == dict(detail=svc.MESSAGES[422], code="validation")
+    assert r.headers["cache-control"] == "private, no-store"
+    assert not book.db.rpcs and not book.db.calls and not book.db.mutations
+
+
 @pytest.mark.parametrize("method,suffix", [("get", ""), ("get", "/log"), ("post", "")])
 @pytest.mark.parametrize("failure", ["missing", "old", "cooloff"])
 def test_grant_step_up_enforced_when_global_flag_false(book, monkeypatch, method, suffix, failure):
@@ -292,8 +307,100 @@ def test_grant_step_up_enforced_when_global_flag_false(book, monkeypatch, method
         monkeypatch.setattr(ar, "_staff_admin_guard", changed_factor)
     body = dict(grantee_id=G, role="teacher", action="grant", reason="Mục đích giả", request_id=A)
     r = getattr(book.client, method)(ADMIN + "/exercise-book-grants" + suffix, **({"json": body} if method == "post" else {}))
-    assert r.status_code == 403 and r.json()["code"] == "step_up_required", r.text
+    expected = dict(detail=svc.MESSAGES[403], code="step_up_required", next_step="challenge", max_age_seconds=600)
+    if failure == "cooloff":
+        expected["reason"] = "new_factor_cooloff"
+    assert r.status_code == 403 and r.json() == expected, r.text
+    dto.ExerciseBookError.model_validate(r.json())
+    assert r.headers["cache-control"] == "private, no-store"
     assert not book.db.rpcs and not book.db.calls and not book.db.mutations
+
+
+@pytest.mark.parametrize("method,suffix", [("get", ""), ("get", "/log"), ("post", "")])
+def test_grant_mfa_enrollment_envelope(book, monkeypatch, method, suffix):
+    async def needs_mfa(auth):
+        raise staff_guard.mfa_required_exception("enroll")
+    monkeypatch.setattr(ar, "_staff_admin_guard", needs_mfa)
+    body = dict(grantee_id=G, role="assigner", action="grant", reason="Mục đích giả", request_id=A)
+    r = getattr(book.client, method)(ADMIN + "/exercise-book-grants" + suffix, **({"json": body} if method == "post" else {}))
+    assert r.status_code == 403 and r.json() == dict(detail=svc.MESSAGES[403], code="mfa_required", next_step="enroll")
+    assert r.headers["cache-control"] == "private, no-store"
+    assert not book.db.rpcs and not book.db.calls and not book.db.mutations
+
+
+@pytest.mark.parametrize("code", ["step_up_required", "mfa_required", "not_owner"])
+@pytest.mark.parametrize("fields,kept", [
+    (dict(next_step="challenge", max_age_seconds=600, reason="new_factor_cooloff"),
+     dict(next_step="challenge", max_age_seconds=600, reason="new_factor_cooloff")),
+    (dict(next_step="SECRET_123", max_age_seconds=True, reason={"secret": "SENTINEL"}), {}),
+    (dict(next_step=3, max_age_seconds="600", reason="private text"), {}),
+])
+def test_book_exception_copies_only_safe_mfa_fields(code, fields, kept):
+    response = ar._book_exception(HTTPException(403, dict(code=code, message="SENTINEL", extra="SENTINEL", **fields)))
+    assert json.loads(response.body) == dict(detail=svc.MESSAGES[403], code=code,
+        **(kept if code != "not_owner" else {}))
+
+
+@pytest.mark.parametrize("session_id", [None, G, "s" * 64, "s" * 65, 123, {"id": G}])
+def test_grant_session_id_n6_validation(book, session_id):
+    book.claims["session_id"] = session_id
+    r = book.client.post(ADMIN + "/exercise-book-grants", json=dict(grantee_id=G,
+        role="assigner", action="grant", reason="Mục đích giả", request_id=A))
+    valid = session_id is None or isinstance(session_id, str) and len(session_id) <= 64
+    if valid:
+        assert r.status_code == 201, r.text
+        assert book.db.rpcs[-1][1]["p_auth_session_id"] == session_id
+    else:
+        assert r.status_code == 422 and r.json() == dict(detail=svc.MESSAGES[422], code="validation")
+        assert not book.db.rpcs and not book.db.mutations
+
+
+@pytest.mark.parametrize("method,suffix,rpc_name", [
+    ("get", "", "fn_list_cohort_grants"),
+    ("get", "/log", "fn_read_cohort_grant_log"),
+    ("post", "", "fn_record_cohort_grant"),
+])
+@pytest.mark.parametrize("wrong_subject", [False, True])
+def test_grant_identity_and_step_up_come_only_from_accepted_token(book, monkeypatch, method, suffix, rpc_name, wrong_subject):
+    monkeypatch.setattr(staff_guard, "_token_claims", TOKEN_CLAIMS)
+    claims = dict(book.claims, sub=G if wrong_subject else book.actor["id"])
+    payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).decode().rstrip("=")
+    headers = {"Authorization": f"Bearer synthetic.{payload}.synthetic"}
+    body = dict(grantee_id=G, role="assigner", action="grant", reason="Mục đích giả", request_id=A)
+    r = getattr(book.client, method)(ADMIN + "/exercise-book-grants" + suffix,
+        headers=headers, params=dict(actor_id=G, user_id=G, step_up_at=now(), auth_session_id="SPOOFED"),
+        **({"json": body} if method == "post" else {}))
+    if wrong_subject:
+        assert r.status_code == 403 and r.json()["code"] == "step_up_required"
+        assert not book.db.rpcs and not book.db.mutations
+    else:
+        assert r.status_code == (201 if method == "post" else 200), r.text
+        name, params = book.db.rpcs[-1]
+        assert name == rpc_name and params["p_actor_id"] == book.actor["id"]
+        assert params["p_step_up_at"] == datetime.fromtimestamp(claims["amr"][0]["timestamp"], timezone.utc).isoformat()
+        if method == "post":
+            assert params["p_auth_session_id"] == claims["session_id"]
+
+
+@pytest.mark.parametrize("method,suffix", [("get", ""), ("get", "/log"), ("post", "")])
+def test_grant_db_clock_refusal_logs_no_identity_or_body(book, caplog, method, suffix):
+    book.db.errors = [DBError("EB403", "step_up_required")]
+    body = dict(grantee_id=G, role="teacher", action="grant", reason="SENTINEL_REASON", request_id=A)
+    r = getattr(book.client, method)(ADMIN + "/exercise-book-grants" + suffix, **({"json": body} if method == "post" else {}))
+    assert r.status_code == 403 and r.json()["code"] == "step_up_required"
+    records = [r.getMessage() for r in caplog.records if r.name == svc.__name__]
+    assert len(records) == 1 and records[0].endswith("step_up_required reason=db_clock")
+    for secret in (G, book.actor["id"], "SENTINEL_REASON", "SECRET_DB"):
+        assert secret not in r.text + caplog.text
+    assert not book.db.mutations
+
+
+def test_owner_has_only_implicit_assigner_access(book):
+    assert book.db.is_owner and book.db.roles == ["assigner"]
+    assert svc.access(book.db, book.actor["id"], C) == dict(is_owner=True, roles=["assigner"])
+    r = book.client.get(ADMIN + "/listening-source-catalog")
+    assert r.status_code == 200, r.text
+    assert book.db.roles == ["assigner"]
 
 
 def test_grants_read_write_replay_verified_session_and_empty_owner(book):

@@ -1,4 +1,4 @@
-"""Exercise-book HTTP adapter for FD's D↔E contract §8 (v1.3).
+"""Exercise-book HTTP adapter for FD's D↔E contract §8 (v1.3.1).
 
 All RPC identities are supplied by authenticated route handlers. No generic
 assignment writers, client-supplied actors, or private payload logging.
@@ -58,6 +58,8 @@ def rpc(db, name, params):
                 continue
             mapped = ERRORS.get(state, {}).get(message)
             if mapped:
+                if mapped == (403, "step_up_required"):
+                    logger.warning("%s step_up_required reason=db_clock", name)
                 fail(*mapped)
             # Only fixed function name and allowlisted SQLSTATE. Never reason,
             # grantee, actor, client text, exception message or traceback.
@@ -251,7 +253,9 @@ def decode_cursor(cursor, kind):
             if len(values) != 1 or type(values[0]) is not int or values[0] < 1:
                 raise ValueError()
         else:
-            if len(values) != 2 or datetime.fromisoformat(values[0].replace("Z", "+00:00")).utcoffset() is None:
+            if len(values) != 2 or not all(isinstance(value, str) for value in values):
+                raise ValueError()
+            if datetime.fromisoformat(values[0].replace("Z", "+00:00")).utcoffset() is None:
                 raise ValueError()
             UUID(values[1])
         return values
@@ -333,6 +337,8 @@ def grants(db, actor_id, cohort_id, step_up_at):
 
 
 def record_grant(db, actor_id, cohort_id, step_up_at, session_id, body):
+    if session_id is not None and (not isinstance(session_id, str) or len(session_id) > 64):
+        fail(422, "validation")
     value = object_result(rpc(db, "fn_record_cohort_grant", {
         "p_actor_id": actor_id, "p_step_up_at": step_up_at, "p_cohort_id": cohort_id,
         "p_programme_id": dto.PROGRAMME, "p_grantee_id": body.grantee_id,

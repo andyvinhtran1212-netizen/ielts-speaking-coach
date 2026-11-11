@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import logging
 import random
+import re
 import hashlib
 import json
 from datetime import datetime, timedelta, timezone
@@ -3148,7 +3149,15 @@ def _book_exception(exc):
             422: "validation", 503: "unavailable"}[status_code]
     if isinstance(exc.detail, dict):
         code = exc.detail.get("code", code)
-    return _book_error(status_code, code)
+    payload = {"detail": books.MESSAGES[status_code], "code": code}
+    if status_code == 403 and code in {"step_up_required", "mfa_required"} and isinstance(exc.detail, dict):
+        for key in ("next_step", "reason"):
+            value = exc.detail.get(key)
+            if isinstance(value, str) and re.fullmatch(r"[a-z_]+", value):
+                payload[key] = value
+        if type(exc.detail.get("max_age_seconds")) is int:
+            payload["max_age_seconds"] = exc.detail["max_age_seconds"]
+    return _book_response(payload, status_code)
 
 
 @router.get("/{cohort_id}/listening-source-catalog", response_model=book_dto.BlackEyeSourceCatalog, responses=BOOK_ERRORS)

@@ -17853,6 +17853,12 @@ export interface components {
             detail: string;
             /** Code */
             code: string;
+            /** Next Step */
+            next_step?: string | null;
+            /** Max Age Seconds */
+            max_age_seconds?: number | null;
+            /** Reason */
+            reason?: string | null;
         };
         /** ExerciseBookGrant */
         ExerciseBookGrant: {

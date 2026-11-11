@@ -436,3 +436,6 @@ class ExerciseBookGrantLog(BlackEyeModel):
 class ExerciseBookError(BlackEyeModel):
     detail: str
     code: str
+    next_step: Annotated[str, Field(pattern=r"^[a-z_]+$")] | None = None
+    max_age_seconds: int | None = None
+    reason: Annotated[str, Field(pattern=r"^[a-z_]+$")] | None = None
