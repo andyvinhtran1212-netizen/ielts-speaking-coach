@@ -92,6 +92,7 @@ There are + plural noun
 ```
 
 **Giới thiệu sự tồn tại:**
+
 - **There is** a problem with this approach.
 - **There are** several reasons why people immigrate.
 - **There is** some evidence to support this theory.
@@ -99,17 +100,20 @@ There are + plural noun
 - **There is** no easy solution to this issue.
 
 **Mô tả một địa điểm:**
+
 - **There is** a large park near my house.
 - **There are** three universities in this city.
 - **There is** a café on the corner.
 
 **Nói về sự tồn tại trừu tượng:**
+
 - **There is** a strong correlation between education and income.
 - **There are** two sides to every argument.
 - **There has been** a significant increase in temperatures.
 - **There were** many challenges during the project.
 
 **Phủ định:**
+
 - **There is no** reason to panic.
 - **There are no** simple answers.
 - **There isn't** enough time.
@@ -290,9 +294,11 @@ Khi "there" chỉ nơi chốn, nó là trạng từ, không phải chủ ngữ h
 ### Đáp án
 
 **Điền:**
+
 1. There is | 2. It is | 3. There are | 4. It is | 5. There is | 6. It is | 7. There are | 8. It is
 
 **Sửa lỗi:**
+
 1. **There are** many challenges...
 2. **It is** very important to vote...
 3. **There is** a large stadium...

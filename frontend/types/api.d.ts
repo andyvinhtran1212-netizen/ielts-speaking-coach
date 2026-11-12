@@ -2069,6 +2069,23 @@ export interface paths {
         patch: operations["update_lesson_admin_cohorts__cohort_id__lessons__lesson_id__patch"];
         trace?: never;
     };
+    "/admin/cohorts/{cohort_id}/listening-skill-drills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Assignable Listening Drills */
+        get: operations["list_assignable_listening_drills_admin_cohorts__cohort_id__listening_skill_drills_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/cohorts/{cohort_id}/assignments": {
         parameters: {
             query?: never;
@@ -8056,6 +8073,23 @@ export interface paths {
          *     /tests/{test_id}/attempts/in-progress — see that endpoint's docstring.
          */
         post: operations["start_listening_test_attempt_api_listening_tests__test_id__attempts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/skill-drill-playback/{attempt_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record Skill Drill Playback */
+        post: operations["record_skill_drill_playback_api_listening_skill_drill_playback__attempt_id__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -16646,6 +16680,23 @@ export interface components {
              */
             draft_text: string;
         };
+        /** DrillPlaybackCheckpoint */
+        DrillPlaybackCheckpoint: {
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "listening" | "dictation";
+            /**
+             * Page Id
+             * Format: uuid
+             */
+            page_id: string;
+            /** Plays */
+            plays: number;
+            /** Played Ms */
+            played_ms: number;
+        };
         /**
          * DuePatch
          * @description Đổi hạn nộp.
@@ -23198,6 +23249,16 @@ export interface components {
              * @enum {string}
              */
             kind: "daily" | "lesson";
+            /**
+             * Listening Skill Drill
+             * @default false
+             */
+            listening_skill_drill: boolean;
+            /**
+             * Dictation Required
+             * @default false
+             */
+            dictation_required: boolean;
             /** Due Days */
             due_days?: number | null;
             /** Title */
@@ -27087,6 +27148,39 @@ export interface operations {
                 "application/json": components["schemas"]["LessonPatch"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_assignable_listening_drills_admin_cohorts__cohort_id__listening_skill_drills_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -36635,7 +36729,9 @@ export interface operations {
     };
     get_listening_test_dictation_api_listening_tests__test_id__dictation_get: {
         parameters: {
-            query?: never;
+            query?: {
+                class_item?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -36736,6 +36832,7 @@ export interface operations {
         parameters: {
             query: {
                 section_num: number;
+                class_item?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -36789,6 +36886,7 @@ export interface operations {
         parameters: {
             query: {
                 section_num: number;
+                class_item?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -37190,6 +37288,41 @@ export interface operations {
                 content: {
                     "application/json": unknown;
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_skill_drill_playback_api_listening_skill_drill_playback__attempt_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DrillPlaybackCheckpoint"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

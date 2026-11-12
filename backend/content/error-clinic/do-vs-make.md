@@ -233,11 +233,13 @@ Khi nói đến một **hoạt động** mà không chỉ rõ tên cụ thể:
 ### Speaking — dùng tự nhiên trong Part 1 và 3:
 
 **Part 1 (Câu hỏi về thói quen):**
+
 - "I usually **do** exercise in the morning — mainly jogging or yoga."
 - "After school I'd **do** my homework first, then help with the cooking."
 - "**Making** friends in a new city is never easy, but joining clubs helps."
 
 **Part 3 (Thảo luận ý kiến):**
+
 - "Governments need to **make** more effort to invest in education."
 - "Companies **do** a lot of research before **making** major decisions."
 - "**Making** a significant difference requires more than just **doing** small tasks."
@@ -277,9 +279,11 @@ Khi nói đến một **hoạt động** mà không chỉ rõ tên cụ thể:
 ### Đáp án
 
 **Điền DO/MAKE:**
+
 1. do | 2. made | 3. do | 4. make | 5. do | 6. do | 7. make | 8. make | 9. make | 10. do / make (a presentation; give cũng thông dụng)
 
 **Sửa lỗi:**
+
 1. I want to **do** exercise more regularly.
 2. The government **made** a big mistake by raising taxes.
 3. She is **making** a phone call right now.
@@ -301,6 +305,7 @@ Khi nói đến một **hoạt động** mà không chỉ rõ tên cụ thể:
 | damage, harm | a promise, a suggestion |
 
 **Mẹo nhớ nhanh:**
+
 - **DO** = thực hiện hoạt động, nhiệm vụ
 - **MAKE** = tạo ra kết quả, đưa ra quyết định, gây ra trạng thái
 - Khi không chắc: tra collocation dictionary — **đừng dịch từ tiếng Việt**.

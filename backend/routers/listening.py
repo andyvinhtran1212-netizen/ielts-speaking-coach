@@ -36,6 +36,7 @@ from fastapi import (
     APIRouter, File, Header, HTTPException, Query,
     UploadFile,
 )
+from postgrest.exceptions import APIError
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
 
@@ -5877,13 +5878,15 @@ async def list_published_listening_tests(
     user_submitted_count: dict[str, int] = {}
     if test_ids:
         try:
-            att_res = (
+            attempt_query = (
                 supabase_admin.table("listening_test_attempts")
                 .select("test_id,score,status")
                 .eq("user_id", user["id"])
                 .in_("test_id", test_ids)
-                .execute()
             )
+            if selected_type == "drill":
+                attempt_query = attempt_query.is_("class_assignment_item_id", "null").is_("sitting_id", "null")
+            att_res = attempt_query.execute()
             for att in att_res.data or []:
                 tid = att.get("test_id")
                 if not tid:
@@ -6178,10 +6181,29 @@ async def get_published_listening_test(
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
     test = res.data[0]
-    decision = _assert_listening_exam_content_allowed(test, _user.get("id"), class_item, sitting_id=sitting_id)
+    free_drill = test.get("test_type") == "drill" and test.get("is_public") and not class_item and not sitting_id
+    # The generic delivery resolver considers all open class and public
+    # attempts when no class_item is passed. Select the public scope
+    # explicitly so a simultaneous homework attempt is never ambiguous.
+    decision = _assert_listening_exam_content_allowed(
+        test, _user.get("id"), class_item, sitting_id=sitting_id,
+        purpose="practice" if free_drill else "delivery")
+    if free_drill and not attempt_id:
+        free_query = (supabase_admin.table("listening_test_attempts").select("id")
+                      .eq("user_id", _user["id"]).eq("test_id", test_id).eq("status", "in_progress")
+                      .is_("class_assignment_item_id", "null").is_("sitting_id", "null")
+                      .gt("resume_expires_at", datetime.now(timezone.utc).isoformat())
+                      .order("created_at", desc=True).limit(1))
+        free_attempts = (await run_in_threadpool(free_query.execute)).data or []
+        if free_attempts:
+            decision["attempt_id"] = free_attempts[0]["id"]
     from services.mock_paper_policy import owned_delivery_snapshot, attempt_receipt
     attempt, snapshot = owned_delivery_snapshot(supabase_admin, "listening", test_id, _user["id"], decision,
                                                attempt_id=attempt_id)
+    if (attempt is not None and test.get("test_type") == "drill" and not sitting_id
+            and decision["attempt_purpose"] != "mock_delivery"
+            and attempt.get("class_assignment_item_id") != class_item):
+        raise HTTPException(404, "Lượt làm không thuộc ngữ cảnh bài nghe này.")
     if snapshot is not None:
         test = snapshot["paper_row"]
     include_audio = True
@@ -6200,6 +6222,18 @@ async def get_published_listening_test(
         from services.mock_attempt_flags import review_flag_state
         payload.update(attempt_receipt(attempt))
         payload.update(review_flag_state(supabase_admin, "listening", attempt))
+    if class_item and test.get("test_type") == "drill":
+        from services.listening_drill_homework import drill_config
+        try:
+            assignment = await run_in_threadpool(
+                validate_class_item_for_test, supabase_admin, _user["id"], class_item,
+                skill="listening", test_id=test_id)
+        except (ItemNotFoundError, TaskMismatchError) as exc:
+            raise HTTPException(404, str(exc)) from exc
+        except DeadlinePassedError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        if config := drill_config(assignment):
+            payload["skill_drill_homework"] = config
     return payload
 
 
@@ -6256,6 +6290,7 @@ def _section_cue_start(cue_points: list, section_num) -> float | None:
 async def get_listening_test_dictation(
     test_id: str,
     authorization: str | None = Header(default=None),
+    class_item: str | None = None,
 ):
     """Boot test-linked dictation.
 
@@ -6280,6 +6315,12 @@ async def get_listening_test_dictation(
     test = res.data[0]
     _assert_listening_exam_content_allowed(test, _user.get("id"), allow_public=False)
 
+    config = None
+    done = {}
+    if class_item:
+        config = await run_in_threadpool(_class_drill_dictation_config, _user["id"], class_item, test_id)
+        done = await run_in_threadpool(_class_drill_dictation_done, class_item)
+
     audio_url, audio_path, audio_duration = _student_audio_url_for_test(test)
     if not audio_url:
         raise HTTPException(
@@ -6296,6 +6337,8 @@ async def get_listening_test_dictation(
     cue_points = test.get("cue_points") or []
     sections_out: list[dict] = []
     for s in (sec_res.data or []):
+        if config is not None and s["section_num"] not in config["sections"]:
+            continue
         units = _dictation_units(s)
         sentences = [u["text"] for u in units]
         # Per-sentence audio windows (turn timing) when available → the
@@ -6325,6 +6368,8 @@ async def get_listening_test_dictation(
         "audio_duration_seconds": audio_duration,
         "cue_points":             cue_points,
         "sections":               sections_out,
+        **({"completed_sections": done, "dictation_required": config["dictation_required"]}
+           if config is not None else {}),
     }
 
 
@@ -6512,13 +6557,11 @@ def _dictation_attempt_or_404(
 ) -> dict:
     res = (
         supabase_admin.table("dictation_attempts").select("*")
-        .eq("id", attempt_id).limit(1).execute()
+        .eq("id", attempt_id).eq("user_id", user_id).limit(1).execute()
     )
     if not res.data:
         raise HTTPException(404, "Không tìm thấy lượt chép chính tả.")
     row = res.data[0]
-    if row.get("user_id") != user_id:
-        raise HTTPException(403, "Lượt chép chính tả thuộc học viên khác.")
     if require_in_progress and row.get("status") != "in_progress":
         raise HTTPException(409, "Lượt chép chính tả này đã kết thúc.")
     if require_in_progress:
@@ -6560,27 +6603,67 @@ def _dictation_attempt_response(row: dict) -> dict:
     }
 
 
+def _class_drill_dictation_config(user_id: str, class_item: str, test_id: str) -> dict:
+    from services.listening_drill_homework import drill_config
+
+    try:
+        assignment = validate_class_item_for_test(
+            supabase_admin, user_id, class_item, skill="listening", test_id=test_id)
+    except (ItemNotFoundError, TaskMismatchError) as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except DeadlinePassedError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    config = drill_config(assignment)
+    if config is None or not config.get("sections"):
+        raise HTTPException(404, "Bài giao không có phần chép chính tả.")
+    submitted = (supabase_admin.table("listening_test_attempts").select("id")
+                 .eq("class_assignment_item_id", class_item).eq("user_id", user_id)
+                 .eq("test_id", test_id).eq("status", "submitted").limit(1).execute().data)
+    if not submitted:
+        raise HTTPException(409, "Hãy nộp phần nghe trước khi chép chính tả.")
+    return config
+
+
+def _class_drill_dictation_done(class_item: str) -> dict[int, str]:
+    from services.listening_drill_homework import evidence_by_item
+
+    reports = evidence_by_item(supabase_admin, [class_item]).get(class_item, [])
+    return {row["section_num"]: row["id"] for row in reports}
+
+
+def _validate_class_dictation_section(user_id: str, class_item: str, test_id: str, section_num: int) -> None:
+    config = _class_drill_dictation_config(user_id, class_item, test_id)
+    if section_num not in config["sections"]:
+        raise HTTPException(404, "Đoạn này không thuộc bài chép chính tả được giao.")
+
+
 def _find_latest_in_progress_dictation_attempt(
-    user_id: str,
-    test_id: str,
-    section_num: int,
+    user_id: str, test_id: str, section_num: int, class_item: str | None = None,
 ) -> dict | None:
-    res = (
-        supabase_admin.table("dictation_attempts").select("*")
-        .eq("user_id", user_id).eq("test_id", test_id)
-        .eq("section_num", section_num).eq("status", "in_progress")
-        .order("created_at", desc=True).limit(1).execute()
-    )
+    def query():
+        return (supabase_admin.table("dictation_attempts").select("*")
+                .eq("user_id", user_id).eq("test_id", test_id)
+                .eq("section_num", section_num).eq("status", "in_progress")
+                .order("created_at", desc=True).limit(1))
+
+    try:
+        scoped = (query().eq("class_assignment_item_id", class_item) if class_item
+                  else query().is_("class_assignment_item_id", "null"))
+        res = scoped.execute()
+    except APIError as exc:
+        # Older databases have only the public attempt scope. Never use the
+        # unfiltered read for homework or on an unrelated database failure.
+        if class_item or exc.code != "42703" or "class_assignment_item_id" not in str(exc.message):
+            raise
+        res = query().execute()
     return res.data[0] if res.data else None
 
 
 def _find_in_progress_dictation_attempt(
-    user_id: str,
-    test_id: str,
-    section_num: int,
+    user_id: str, test_id: str, section_num: int, class_item: str | None = None,
 ) -> dict | None:
     """Read-only resume lookup; expired audit rows are not resumable."""
-    row = _find_latest_in_progress_dictation_attempt(user_id, test_id, section_num)
+    row = _find_latest_in_progress_dictation_attempt(user_id, test_id, section_num, class_item)
     return row if row and is_resume_active(row) else None
 
 
@@ -6612,10 +6695,13 @@ async def get_in_progress_dictation_attempt(
     test_id: str,
     section_num: int = Query(ge=1),
     authorization: str | None = Header(default=None),
+    class_item: str | None = None,
 ):
     user = await _require_auth(authorization)
     _published_test_for_dictation(test_id, user.get("id"))
-    row = _find_in_progress_dictation_attempt(user["id"], test_id, section_num)
+    if class_item:
+        await run_in_threadpool(_validate_class_dictation_section, user["id"], class_item, test_id, section_num)
+    row = _find_in_progress_dictation_attempt(user["id"], test_id, section_num, class_item)
     return {"attempt": _dictation_attempt_response(row) if row else None}
 
 
@@ -6627,12 +6713,17 @@ async def start_dictation_attempt(
     section_num: int = Query(ge=1),
     body: DictationAttemptStartRequest | None = None,
     authorization: str | None = Header(default=None),
+    class_item: str | None = None,
 ):
     """Resume the one active section attempt, or create it without destroying progress."""
     user = await _require_auth(authorization)
     _published_test_for_dictation(test_id, user.get("id"))
+    if class_item:
+        await run_in_threadpool(_validate_class_dictation_section, user["id"], class_item, test_id, section_num)
+    if class_item and section_num in await run_in_threadpool(_class_drill_dictation_done, class_item):
+        raise HTTPException(409, "Đoạn chính tả này đã nộp.")
     previous = _find_latest_in_progress_dictation_attempt(
-        user["id"], test_id, section_num,
+        user["id"], test_id, section_num, class_item,
     )
     if previous and is_resume_active(previous):
         bind_owned_attempt(previous)
@@ -6687,6 +6778,8 @@ async def start_dictation_attempt(
         "created_at": now,
         "updated_at": now,
     }
+    if class_item:
+        payload["class_assignment_item_id"] = class_item
     if requested_version:
         payload.update(grading_version=requested_version, reference_sha256=frozen_hash)
     affinity_aware = body is not None and body.renderer_affinity_protocol == "claim-v1"
@@ -6698,7 +6791,7 @@ async def start_dictation_attempt(
         if not _is_unique_violation(exc):
             logger.error("[dictation-attempt] create failed: %s", exc)
             raise HTTPException(500, "Không tạo được lượt chép chính tả.")
-        existing = _find_in_progress_dictation_attempt(user["id"], test_id, section_num)
+        existing = _find_in_progress_dictation_attempt(user["id"], test_id, section_num, class_item)
         if not existing:
             raise HTTPException(409, "Không thể xác định lượt chép chính tả đang mở.")
         bind_owned_attempt(existing)
@@ -6763,6 +6856,9 @@ async def grade_and_save_dictation_attempt_sentence(
         str(attempt_id), user["id"], require_in_progress=True,
     )
     bind_owned_attempt(attempt)
+    if class_item := attempt.get("class_assignment_item_id"):
+        await run_in_threadpool(_validate_class_dictation_section, user["id"], class_item,
+                                attempt["test_id"], attempt["section_num"])
     _published_test_for_dictation(attempt["test_id"], user.get("id"))
     units = attempt.get("units_snapshot") or []
     if not units:
@@ -6938,6 +7034,9 @@ async def submit_listening_dictation_session(
             raise HTTPException(409, "Lượt chép chính tả này đã kết thúc.")
         _dictation_policy(require_write_contract, attempt, grading_version=body.grading_version,
                           acknowledged_reference_sha256=body.reference_sha256)
+        if class_item := attempt.get("class_assignment_item_id"):
+            await run_in_threadpool(_validate_class_dictation_section, user["id"], class_item,
+                                    body.test_id, body.section_num)
         _assert_dictation_attempt_submission(attempt, body)
     elif body.grading_version == LEXICAL_POLICY_VERSION or body.reference_sha256 is not None:
         raise HTTPException(409, {"error_code": "dictation_versioned_attempt_required",
@@ -7016,6 +7115,8 @@ async def submit_listening_dictation_session(
         "started_at":         body.started_at,
         "completed_at":       datetime.now(timezone.utc).isoformat(),
     }
+    if attempt and attempt.get("class_assignment_item_id"):
+        row["class_assignment_item_id"] = attempt["class_assignment_item_id"]
     if attempt and attempt.get("grading_version"):
         row.update(grading_version=attempt["grading_version"], reference_sha256=attempt.get("reference_sha256"))
     # Preserve the legacy no-receipt write shape during a migration-first
@@ -7607,6 +7708,12 @@ async def get_in_progress_listening_attempt(
         query = query.is_("class_assignment_item_id", "null")
     elif class_item:
         query = query.eq("class_assignment_item_id", class_item)
+    elif not sitting_id:
+        test_query = supabase_admin.table("listening_tests").select("test_type").eq("id", test_id).limit(1)
+        kind = (await run_in_threadpool(test_query.execute)).data or []
+        if kind and kind[0].get("test_type") == "drill":
+            query = query.is_("class_assignment_item_id", "null")
+
 
     if sitting_id:
         query = query.eq("sitting_id", sitting_id)
@@ -7673,7 +7780,7 @@ async def start_listening_test_attempt(
     test_res = (
         supabase_admin.table("listening_tests")
         .select("id,status,exam_only,is_public,public_practice_enabled,full_audio_storage_path,"
-                "assembled_audio_storage_path,scoring_policy,content_package_id")
+                "assembled_audio_storage_path,scoring_policy,content_package_id,test_type")
         .eq("id", test_id)
         .limit(1)
         .execute()
@@ -7802,6 +7909,10 @@ async def start_listening_test_attempt(
             .is_("class_assignment_item_id", "null")
             .is_("sitting_id", "null")
         )
+    if test_row.get("test_type") == "drill":
+        abandon_query = (abandon_query.eq("class_assignment_item_id", class_item) if class_item
+                         else abandon_query.is_("class_assignment_item_id", "null"))
+        abandon_query = abandon_query.is_("sitting_id", "null")
     abandoned_result = abandon_query.execute()
     note_abandoned_exam_attempts(abandoned_result, test_id=test_id, user_id=user["id"])
 
@@ -7851,16 +7962,80 @@ def _fetch_attempt_or_404(attempt_id: str, user_id: str) -> dict:
         supabase_admin.table("listening_test_attempts")
         .select("*")
         .eq("id", attempt_id)
+        .eq("user_id", user_id)
         .limit(1)
         .execute()
     )
     if not res.data:
         raise HTTPException(404, "Attempt not found")
     row = res.data[0]
-    if row.get("user_id") != user_id:
-        raise HTTPException(403, "Attempt belongs to another user")
     return row
 
+
+class DrillPlaybackCheckpoint(BaseModel):
+    stage: Literal["listening", "dictation"]
+    page_id: uuid.UUID
+    plays: int = Field(ge=0, le=120)
+    played_ms: int = Field(ge=0, le=3600000)
+
+
+_drill_checkpoint_requests: dict[str, deque[float]] = {}
+
+
+def _limit_drill_checkpoint_requests(user_id: str) -> None:
+    now = time.monotonic()
+    cutoff = now - 60
+    if len(_drill_checkpoint_requests) > 4096:
+        for key in [key for key, hits in _drill_checkpoint_requests.items() if not hits or hits[-1] <= cutoff]:
+            del _drill_checkpoint_requests[key]
+    hits = _drill_checkpoint_requests.setdefault(user_id, deque())
+    while hits and hits[0] <= cutoff:
+        hits.popleft()
+    if len(hits) >= 60:
+        retry = max(1, int(hits[0] - cutoff) + 1)
+        raise HTTPException(429, "Đang gửi quá nhiều cập nhật audio.", headers={"Retry-After": str(retry)})
+    hits.append(now)
+
+
+@user_router.post("/skill-drill-playback/{attempt_id}", status_code=204)
+async def record_skill_drill_playback(
+    attempt_id: uuid.UUID, body: DrillPlaybackCheckpoint,
+    authorization: str | None = Header(default=None),
+):
+    user = await _require_auth(authorization)
+    _limit_drill_checkpoint_requests(user["id"])
+    await run_in_threadpool(_record_skill_drill_playback, str(attempt_id), body, user["id"])
+
+
+def _record_skill_drill_playback(attempt_id: str, body: DrillPlaybackCheckpoint, user_id: str) -> None:
+    from services.listening_drill_homework import drill_config
+    lookup = _fetch_attempt_or_404 if body.stage == "listening" else _dictation_attempt_or_404
+    attempt = lookup(attempt_id, user_id)
+    item_id = attempt.get("class_assignment_item_id")
+    if not item_id:
+        raise HTTPException(404, "Lượt làm không thuộc bài luyện kỹ năng được giao.")
+    if attempt.get("status") != "in_progress":
+        raise HTTPException(409, "Lượt làm bài đã kết thúc.")
+    try:
+        assignment = validate_class_item_for_test(
+            supabase_admin, user_id, item_id, skill="listening", test_id=attempt["test_id"])
+    except (ItemNotFoundError, TaskMismatchError) as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except DeadlinePassedError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    if drill_config(assignment) is None:
+        raise HTTPException(404, "Lượt làm không thuộc bài luyện kỹ năng được giao.")
+    try:
+        supabase_admin.rpc("fn_record_listening_drill_playback_v2", {
+            "p_item_id": item_id, "p_stage": body.stage, "p_attempt_id": attempt_id,
+            "p_page_id": str(body.page_id), "p_plays": body.plays, "p_played_ms": body.played_ms,
+        }).execute()
+    except APIError as exc:
+        if exc.code == "55000" and exc.message == "skill_drill_attempt_inactive":
+            raise HTTPException(409, "Lượt làm bài đã kết thúc.") from exc
+        if exc.code == "55000" and exc.message == "skill_drill_checkpoint_scope":
+            raise HTTPException(404, "Không tìm thấy trang phát audio của lượt làm bài.") from exc
+        raise
 
 @user_router.post("/tests/attempts/{attempt_id}/playback-started")
 async def acknowledge_listening_attempt_playback_started(

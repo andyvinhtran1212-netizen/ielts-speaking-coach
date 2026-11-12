@@ -134,6 +134,7 @@ Because có thể mở đầu câu trong IELTS Writing; viết đủ mệnh đ�
 - Many people struggle with English **because of** its complex **grammar**.
 
 Có thể đứng đầu câu:
+
 - **Because of** the **traffic**, I arrived late.
 - **Because of** rising **costs**, many businesses had to close.
 
@@ -293,9 +294,11 @@ Dùng "because" thay cho "because of":
 ### Đáp án
 
 **Chọn:**
+
 1. because of | 2. because | 3. because of | 4. because | 5. Because of | 6. because | 7. because of | 8. Because of
 
 **Viết lại:**
+
 1. She cried **because of** her disappointment.
 2. He left **because of** the unbearable noise.
 3. They succeeded **because of** their effective cooperation.
@@ -315,5 +318,6 @@ Dùng "because" thay cho "because of":
 | **Tương đương** | since, as, given that | due to, owing to, as a result of |
 
 **Kiểm tra nhanh:** Sau "because/because of" là gì?
+
 - Bổ ngữ trực tiếp là mệnh đề đầy đủ → **BECAUSE**. Động từ nằm trong mệnh đề quan hệ của cụm danh từ không quyết định lựa chọn.
 - Bổ ngữ là cụm danh từ hoặc V-ing → **BECAUSE OF**: because of the rain / missing the train / the storm that hit the coast.

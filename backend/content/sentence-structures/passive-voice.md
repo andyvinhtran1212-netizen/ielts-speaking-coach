@@ -82,11 +82,12 @@ Câu bị động (Passive Voice) là khi đối tượng chịu tác động c�
 ## Tại sao quan trọng
 
 Câu bị động:
+
 1. Nhấn mạnh vào **kết quả / đối tượng** thay vì người thực hiện
 2. Dùng khi người thực hiện **không biết**, **không quan trọng**, hoặc **hiển nhiên**
 3. Phổ biến trong văn học thuật, báo chí, IELTS Writing Task 1
 
-Thiếu câu bị động trong IELTS Writing giới hạn điểm Grammatical Range nghiêm trọng.
+Bị động là một trong các cấu trúc thể hiện độ đa dạng ở tiêu chí Grammatical Range and Accuracy, nhất là trong Task 1 dạng quy trình; dùng đúng chỗ quan trọng hơn dùng nhiều.
 
 <!-- anchor: passive-voice.structure.be-pp -->
 ## Cấu trúc cơ bản
@@ -120,8 +121,8 @@ Subject + be (chia theo thì) + past participle + (by + agent)
 
 | | Câu | Phân tích |
 |--|-----|-----------|
-| **Active** | Shakespeare **wrote** *Hamlet* in 1600. | Subject=Shakespeare, V=wrote, O=Hamlet |
-| **Passive** | *Hamlet* **was written** by Shakespeare in 1600. | O→Subject, wrote→was written |
+| **Active** | Shakespeare **wrote** *Hamlet* around 1600. | Subject=Shakespeare, V=wrote, O=Hamlet |
+| **Passive** | *Hamlet* **was written** by Shakespeare around 1600. | O→Subject, wrote→was written |
 
 | | Câu | Phân tích |
 |--|-----|-----------|
@@ -230,7 +231,7 @@ Subject + is/are + V3 + to-infinitive
 - ❌ The truth is being known by everyone.
 - ✅ The truth is known by everyone. (know chỉ trạng thái biết trong câu này, nên dùng bị động đơn; với động từ khác, cần xét nghĩa và ngữ cảnh trước khi chọn tiếp diễn.)
 
-### Lỗi 4: Nhầm active và passive với "born"
+### Lỗi 4: Viết sai dạng V3 "born" (❌ borned)
 
 - ❌ I was borned in 1999.
 - ✅ I was born in 1999. (born không thêm -ed — đây là past participle đặc biệt)
@@ -243,6 +244,7 @@ Subject + is/are + V3 + to-infinitive
 ### Lỗi 6: Dùng bị động cho động từ nội động (intransitive verbs)
 
 Các động từ như arrive/happen/occur/exist không có tân ngữ trực tiếp trong nghĩa đang xét, nên không tạo bị động thông thường từ tân ngữ ấy. Phân biệt bị động có giới từ: **The bed has been slept in**, **The office was broken into** vẫn hợp lệ:
+
 - ❌ The accident was happened yesterday.
 - ✅ The accident **happened** yesterday.
 - ❌ The problem was occurred due to human error.
@@ -254,7 +256,7 @@ Các động từ như arrive/happen/occur/exist không có tân ngữ trực ti
 
 - A significant increase **was recorded** in 2020.
 - The highest figures **were observed** in urban areas.
-- A steady growth **can be seen** throughout the period.
+- Steady growth **can be seen** throughout the period.
 
 ### Writing Task 1 — mô tả quy trình
 
@@ -272,7 +274,7 @@ Các động từ như arrive/happen/occur/exist không có tân ngữ trực ti
 
 - My phone **was stolen** on the subway.
 - The concert **was cancelled** due to bad weather.
-- I **was told** to apply for this position by my manager.
+- I **was advised** by my manager to apply for this position.
 
 ## Bài tập luyện
 
@@ -295,6 +297,7 @@ Các động từ như arrive/happen/occur/exist không có tân ngữ trực ti
 ### Đáp án
 
 **Chuyển sang bị động:**
+
 1. A new planet **was discovered** (by scientists) in 2023.
 2. Three new products **have been launched** (by the company) this year.
 3. New regulations **will be introduced** (by the government) next month.
@@ -302,9 +305,10 @@ Các động từ như arrive/happen/occur/exist không có tân ngữ trực ti
 5. It **is widely believed** that technology improves our lives.
 
 **Sửa lỗi:**
+
 1. The accident **happened** on the highway. (happen = intransitive)
 2. The project **has been completed** by the team.
-3. ✅ Đúng rồi! (rice is grown — nhưng "is being grown" cũng có thể chấp nhận được trong ngữ cảnh đặc biệt)
+3. Rice **is grown** in many countries around the world. (sự thật chung → bị động hiện tại đơn, không dùng tiếp diễn)
 4. She was **born** in a small village. (born — không thêm -d/-ed)
 5. The results **will be announced** next week.
 
@@ -325,6 +329,7 @@ Các động từ như arrive/happen/occur/exist không có tân ngữ trực ti
 **Khi nào KHÔNG dùng:** động từ nội động (happen, occur, arrive...) / bị động tiếp diễn khi động từ chỉ một trạng thái ổn định, như know trong ví dụ trên; không áp dụng thành lệnh cấm cho mọi nghĩa của mọi stative verb.
 
 **Reporting passive phổ biến trong IELTS:**
+
 - It is believed / reported / suggested / known that...
 - ...is expected / considered / said to...
 
@@ -332,23 +337,24 @@ Các động từ như arrive/happen/occur/exist không có tân ngữ trực ti
 
 <!-- anchor: passive-voice.when-not-to-use.speaking -->
 
-Người học VN thường over-use passive trong Speaking → bài nói nghe sách vở, không tự nhiên, hạ Fluency. Quy tắc:
+Người học VN hay lạm dụng bị động khi nói → nghe sách vở, kém tự nhiên. Quy tắc:
 
 **Tránh passive khi:**
-1. Khi người thực hiện là chủ đề đang theo dõi, active có thể trực tiếp hơn: "The chef cooked the meal".
-2. Không đổi mọi câu cá nhân sang active: **I was born in Hanoi**, **I was offered a place** tự nhiên trong Speaking.
-3. Chọn voice theo mạch thông tin. Passive có thể giữ đối tượng làm chủ đề và đặt người thực hiện quan trọng ở cuối: "The meal was cooked by the chef" không yếu chỉ vì đã biết chef.
+
+1. Kể việc chính mình làm: *I cooked dinner* (không nói *Dinner was cooked by me*).
+2. Người làm là thông tin chính và đang là chủ đề: *My mum taught me to swim*. (Nhưng *I was born…*, *I was offered a place…* vẫn tự nhiên.)
 
 **Dùng passive khi:**
-1. Agent unknown hoặc irrelevant: "My phone was stolen yesterday." (không biết ai trộm)
-2. Process description (academic register): "The data was collected over 6 months."
-3. Maintaining topic continuity: "The company was founded in 1990. It was acquired in 2010." (the company / it stays in subject position)
+
+1. Không biết hoặc không cần nêu người làm: "My phone was stolen yesterday." (không biết ai trộm)
+2. Mô tả quy trình (văn phong học thuật): "The data was collected over 6 months."
+3. Giữ chủ đề xuyên suốt: "The company was founded in 1990. It was acquired in 2010." (the company/it luôn ở vị trí chủ ngữ)
 
 ## Lưu ý — VN bị/được không phải lúc nào cũng map sang passive
 
 <!-- anchor: passive-voice.vietnamese-pitfall.bi-duoc-overuse -->
 
-Tiếng Việt có "bị" (negative outcome) và "được" (positive outcome) — cả hai có thể dịch là passive trong English, nhưng không bắt buộc.
+Tiếng Việt có "bị" (kết quả xấu) và "được" (kết quả tốt) — cả hai có thể dịch là passive trong English, nhưng không bắt buộc.
 
 "Tôi **bị** mất ví" — không cần passive: "I lost my wallet" (active, idiomatic) tốt hơn "My wallet was lost (by me)".
 

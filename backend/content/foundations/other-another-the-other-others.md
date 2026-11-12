@@ -87,6 +87,7 @@ Hiểu đúng 5 từ này giúp bạn diễn đạt chính xác và tự nhiên 
 "Another" = **an + other** → luôn dùng với danh từ **đếm được số ít**.
 
 Có hai nghĩa chính:
+
 - **Thêm một cái nữa** (one more): "Can I have another cup?"
 - **Một cái khác** (a different one): "This room is too small. Let's find another one."
 
@@ -95,6 +96,7 @@ another + singular countable noun
 ```
 
 **Ví dụ:**
+
 - Would you like **another slice** of cake?
 - I need to try **another approach** — this one isn't working.
 - She applied to **another university** after being rejected.
@@ -102,6 +104,7 @@ another + singular countable noun
 - That's **another matter** entirely — let's not mix the two.
 
 **Dùng "another" như đại từ (không có noun sau):**
+
 - "This pen doesn't work." — "Here, use **another** (one)."
 - I didn't like that idea — do you have **another**?
 
@@ -116,6 +119,7 @@ another + singular countable noun
 "Other" là **tính từ** (determiner) — luôn đứng trước danh từ.
 
 Dùng với:
+
 - **Danh từ số nhiều** (plural countable)
 - **Danh từ không đếm được** (uncountable)
 
@@ -127,6 +131,7 @@ other + uncountable noun
 ```
 
 **Với plural noun:**
+
 - **Other students** in the class performed better.
 - There are **other ways** to solve this problem.
 - She has **other plans** for the weekend.
@@ -134,11 +139,13 @@ other + uncountable noun
 - We considered **other options** before making a decision.
 
 **Với uncountable noun:**
+
 - I need **other information** to make my decision.
 - They discussed **other research** on the same topic.
 - Is there **other evidence** to support this claim?
 
 **Dùng "other" như đại từ (số nhiều):**
+
 - Some students passed; **others** (= other students) failed.
   *(Khi "other" dùng như đại từ số nhiều, ta thêm -s: "others")*
 
@@ -154,16 +161,19 @@ the other + plural noun (những cái còn lại đã xác định)
 ```
 
 **Số ít — trong hai vật/người:**
+
 - I have two hands. One is hurt, and **the other** (hand) is fine.
 - He has two children. One is a doctor; **the other** is a teacher.
 - I've visited one of the two museums. I'll visit **the other** tomorrow.
 
 **Số nhiều — trong nhóm đã biết:**
+
 - Five students came early; **the other students** arrived late.
 - Some people agreed; **the other people** in the room were skeptical.
 - Two of the candidates were qualified; **the other candidates** were rejected.
 
 **Cụm cố định hay dùng:**
+
 - **on the other hand** — mặt khác
 - **the other day** — hôm trước (một ngày không xác định gần đây)
 - **in other words** — nói cách khác *(dùng "other" không có "the")*
@@ -180,6 +190,7 @@ Others + verb (không theo sau noun)
 ```
 
 **Ví dụ:**
+
 - **Others** may disagree with my opinion.
 - Some prefer city life; **others** prefer the countryside.
 - I finished my work early, but **others** are still working.
@@ -202,6 +213,7 @@ The others + verb (không theo sau noun)
 ```
 
 **Ví dụ:**
+
 - Three students arrived on time. **The others** were all late.
 - I've read two of the books. **The others** are still on my shelf.
 - Some of the team left early. **The others** stayed until midnight.
@@ -329,6 +341,7 @@ THE OTHERS = đại từ (= phần còn lại đã biết)
 ```
 
 **Kiểm tra nhanh:**
+
 - Có danh từ số ít đếm được sau không? → **another**
 - Có danh từ số nhiều sau không? → **other**
 - Nói đến "cái còn lại" đã biết? → **the other** (có noun) hoặc **the others** (không có noun)

@@ -66,11 +66,13 @@ anchors:
 ## Tại sao quan trọng
 
 Adverbs giúp câu văn chính xác và phong phú hơn đáng kể:
+
 - Phân biệt "She **quickly** left" và "She left" — adverb cho biết *cách thức*
 - "I **always** exercise in the morning" — adverb cho biết *tần suất*
 - "**Unfortunately**, the plan failed" — adverb bình luận cả câu
 
 Trong IELTS:
+
 - Frequency adverbs (always, often, sometimes...) rất cần thiết trong Speaking Part 1
 - Degree adverbs (very, quite, rather, extremely...) giúp diễn đạt mức độ chính xác
 - Sentence adverbs (However, Moreover, Furthermore...) là công cụ liên kết câu trong Writing
@@ -79,17 +81,20 @@ Trong IELTS:
 ## Định nghĩa
 
 **Adverb** bổ nghĩa cho:
+
 1. **Động từ:** She speaks *quietly*.
 2. **Tính từ:** It's *extremely* cold today.
 3. **Adverb khác:** She sang *incredibly well*.
 4. **Cả câu:** *Unfortunately*, he didn't pass.
 
 Cách nhận biết adverb thường gặp nhất: thêm **-ly** vào tính từ.
+
 - quick → quick**ly**
 - careful → careful**ly**
 - sudden → sudden**ly**
 
 Nhưng không phải tất cả adverbs đều kết thúc bằng -ly:
+
 - fast, hard, late, early, just, still, already, soon, here, there, always, never...
 
 > **Chú ý bẫy:** Một số từ kết thúc bằng -ly nhưng là **tính từ**, không phải adverb:
@@ -189,6 +194,7 @@ degree adverb + adjective/adverb
 - I'm **completely** exhausted.
 
 **Chú ý:** "very" không dùng với comparative adjectives:
+
 - ❌ SAI: It's very better.
 - ✅ ĐÚNG: It's **much** better. / It's **far** better.
 
@@ -205,6 +211,7 @@ Trả lời **When?** (Khi nào?)
 | eventually, finally | **Eventually**, she agreed. |
 
 **Vị trí:** Thường đứng cuối câu hoặc đầu câu (khi muốn nhấn mạnh).
+
 - She arrived **yesterday**.
 - **Yesterday**, she arrived unexpectedly.
 
@@ -218,6 +225,7 @@ Trả lời **Where?** (Ở đâu?)
 - The children were playing **outside**.
 
 **Vị trí:** Thường đứng cuối câu, trước time adverbs nếu dùng cùng nhau; có thể đổi vị trí để đặt trọng tâm:
+
 - I'll meet you **here tomorrow**. *(place → time)*
 
 ### 6. Sentence Adverbs (Trạng từ bình luận cả câu)
@@ -331,14 +339,17 @@ Xem thêm bài [Adjective vs. Adverb](/grammar/modifiers/adjective-vs-adverb) đ
 ## Lưu ý cho người học Việt Nam
 
 Trong tiếng Việt, cùng một từ có thể đóng nhiều vai trò:
+
 - "cô ấy chạy **nhanh**" (nhanh → mô tả động từ)
 - "cô ấy **nhanh** lắm" (nhanh → tính từ)
 
 Trong tiếng Anh, cần phân biệt rõ:
+
 - "She runs **quickly**." (adverb — mô tả động từ, thêm -ly)
 - "She is **quick**." (adjective — mô tả danh từ/chủ ngữ, không thêm -ly)
 
 **Mẹo nhớ vị trí frequency adverbs (quan trọng nhất):**
+
 - Trước động từ thường: I **always** walk.
 - Sau "be": She **is always** on time.
 - Sau auxiliary: He **has never** been late.
@@ -348,11 +359,13 @@ Trong tiếng Anh, cần phân biệt rõ:
 ### IELTS Speaking — Mẫu câu hữu ích
 
 **Dùng frequency adverbs (Part 1):**
+
 - "I **usually** spend my evenings reading or watching documentaries."
 - "I **rarely** eat fast food — maybe once a month at most."
 - "I **often** feel **quite** stressed during exam periods."
 
 **Dùng degree adverbs (Part 2, 3):**
+
 - "It was an **absolutely** unforgettable experience."
 - "The impact was **considerably** greater than I expected."
 - "I feel **fairly** confident about this, although there are **certainly** challenges."
@@ -360,11 +373,13 @@ Trong tiếng Anh, cần phân biệt rõ:
 ### IELTS Writing — Mẫu câu hữu ích
 
 **Linking (sentence adverbs):**
+
 - "**However**, this approach is not without its drawbacks."
 - "**Furthermore**, evidence **consistently** shows that..."
 - "**Consequently**, the government **urgently** needs to act."
 
 **Boosting + Hedging (stance adverbs — trạng từ thể hiện mức chắc chắn):**
+
 - "This is **arguably** one of the most important issues of our time."
 - "The data **strongly** suggests a correlation between the two factors."
 - "While **generally** effective, this policy has **occasionally** produced unintended consequences."
@@ -399,6 +414,7 @@ Trong tiếng Anh, cần phân biệt rõ:
 ### Đáp án
 
 **Chọn đúng:**
+
 1. **careful** (tính từ — mô tả "driver")
 2. **carefully** (adverb — mô tả "drives")
 3. **well** (adverb — mô tả "speaks")
@@ -407,12 +423,14 @@ Trong tiếng Anh, cần phân biệt rõ:
 6. **soft** (tính từ — mô tả "voice")
 
 **Vị trí frequency adverb:**
+
 1. I **rarely** eat breakfast before 8am.
 2. She **is always** on time for meetings.
 3. They **have often** discussed this topic.
 4. He **never** arrives late.
 
 **Sửa lỗi:**
+
 1. She explained the concept **clearly**.
 2. I like Italian food **very much**.
 3. He speaks **in a friendly way**. (hoặc: He is **friendly** when he speaks.)
