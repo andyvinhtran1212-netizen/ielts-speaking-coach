@@ -6,6 +6,7 @@ synthetic identities. No staging/production credentials or provider calls.
 import asyncio
 import itertools
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -17,9 +18,9 @@ from test_listening_blackeye import paper
 
 M = Path(__file__).resolve().parents[1] / 'migrations'
 RPCS = {
- 'fn_record_cohort_grant': ('p_actor_id uuid, p_step_up_at timestamp with time zone, p_cohort_id uuid, p_programme_id text, p_grantee_id uuid, p_role text, p_action text, p_reason text, p_request_id uuid', 'TABLE(event_id uuid, seq bigint, occurred_at timestamp with time zone, replayed boolean)'),
- 'fn_list_cohort_grants': ('p_actor_id uuid, p_cohort_id uuid, p_programme_id text', 'TABLE(grantee_id uuid, display_name text, role text, state text, last_event_seq bigint, last_event_at timestamp with time zone)'),
- 'fn_read_cohort_grant_log': ('p_actor_id uuid, p_cohort_id uuid, p_programme_id text, p_limit integer, p_before_seq bigint', 'TABLE(event_id uuid, seq bigint, actor_id uuid, grantee_id uuid, role text, action text, occurred_at timestamp with time zone, reason text, request_id uuid)'),
+ 'fn_record_cohort_grant': ('p_actor_id uuid, p_step_up_at timestamp with time zone, p_cohort_id uuid, p_programme_id text, p_grantee_id uuid, p_role text, p_action text, p_reason text, p_request_id uuid, p_auth_session_id text', 'TABLE(event_id uuid, seq bigint, occurred_at timestamp with time zone, replayed boolean)'),
+ 'fn_list_cohort_grants': ('p_actor_id uuid, p_step_up_at timestamp with time zone, p_cohort_id uuid, p_programme_id text', 'TABLE(grantee_id uuid, display_name text, role text, state text, last_event_seq bigint, last_event_at timestamp with time zone)'),
+ 'fn_read_cohort_grant_log': ('p_actor_id uuid, p_step_up_at timestamp with time zone, p_cohort_id uuid, p_programme_id text, p_limit integer, p_before_seq bigint', 'TABLE(event_id uuid, seq bigint, actor_id uuid, grantee_id uuid, role text, action text, occurred_at timestamp with time zone, reason text, request_id uuid)'),
  'fn_exercise_book_actor_access': ('p_actor_id uuid, p_cohort_id uuid, p_programme_id text', 'TABLE(is_owner boolean, roles text[])'),
  'fn_create_exercise_book_assignment': ('p_actor_id uuid, p_request_id uuid, p_cohort_id uuid, p_programme_id text, p_activities jsonb, p_recipient_ids uuid[], p_due_at timestamp with time zone, p_deadline_timezone text, p_replay_policy text, p_title text', 'jsonb'),
  'fn_close_exercise_book_assignment': ('p_actor_id uuid, p_cohort_id uuid, p_assignment_id uuid, p_reason text', 'jsonb'),
@@ -28,7 +29,7 @@ RPCS = {
  'fn_list_learner_exercise_book_assignments': ('p_user_id uuid, p_limit integer, p_before_due_at timestamp with time zone, p_before_id uuid', 'jsonb'),
  'fn_acquire_exercise_book_assigned_attempt': ('p_user_id uuid, p_item_id uuid, p_test_id uuid, p_binding jsonb, p_renderer_affinity_protocol text', 'jsonb'),
  'fn_save_exercise_book_answer': ('p_user_id uuid, p_attempt_id uuid, p_q_num integer, p_user_answer text, p_client_seq bigint', 'TABLE(attempt_id uuid, answer_count integer, client_seq bigint, applied boolean)'),
- 'fn_submit_exercise_book_assigned_attempt': ('p_user_id uuid, p_attempt_id uuid, p_expected_answers jsonb, p_result_summary jsonb, p_confirm_blank boolean', 'jsonb'),
+ 'fn_submit_exercise_book_assigned_attempt': ('p_user_id uuid, p_attempt_id uuid, p_expected_answers jsonb, p_confirm_blank boolean', 'jsonb'),
 }
 PROGRAMME = 'blackeye-v5-upper-listening'
 
@@ -169,7 +170,7 @@ def acquire(d):
 def test_catalog_exact_signatures_defaults_acl_rls_publication(book_schema):
     s=book_schema
     rows=query(f"SELECT p.proname,pg_get_function_identity_arguments(p.oid) args,pg_get_function_result(p.oid) result,p.pronargdefaults defaults,p.prosecdef,p.proconfig,p.oid FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=$1",s)
-    defaults={'fn_read_cohort_grant_log':2,'fn_create_exercise_book_assignment':3,'fn_list_exercise_book_assignments':3,'fn_list_learner_exercise_book_assignments':3,'fn_acquire_exercise_book_assigned_attempt':1,'fn_submit_exercise_book_assigned_attempt':1}
+    defaults={'fn_record_cohort_grant':1,'fn_read_cohort_grant_log':2,'fn_create_exercise_book_assignment':3,'fn_list_exercise_book_assignments':3,'fn_list_learner_exercise_book_assignments':3,'fn_acquire_exercise_book_assigned_attempt':1,'fn_submit_exercise_book_assigned_attempt':1}
     assert {x['proname'] for x in rows if x['proname'] in RPCS}==RPCS.keys()
     for x in rows:
         name=x['proname']
@@ -181,7 +182,7 @@ def test_catalog_exact_signatures_defaults_acl_rls_publication(book_schema):
             assert x['prosecdef'] and x['proconfig']==['search_path=pg_catalog, pg_temp']
             for role in ('anon','authenticated','service_role'):
                 assert value('SELECT has_function_privilege($1,$2::oid,\'EXECUTE\')',role,x['oid']) is (role=='service_role' and name in RPCS)
-    tables=('exercise_book_registry','exercise_book_grant_owners','exercise_book_cohort_grants','exercise_book_cohort_grant_log','class_assignment_activities','exercise_book_attempt_links')
+    tables=('exercise_book_registry','exercise_book_grant_owners','exercise_book_grant_owner_audit','exercise_book_cohort_grants','exercise_book_cohort_grant_log','class_assignment_activities','exercise_book_attempt_links')
     for t in tables:
         assert value('SELECT relrowsecurity FROM pg_class WHERE oid=$1::regclass',s+'.'+t)
         assert value('SELECT count(*) FROM pg_policies WHERE schemaname=$1 AND tablename=$2',s,t)==0
@@ -193,16 +194,20 @@ def test_catalog_exact_signatures_defaults_acl_rls_publication(book_schema):
 def test_owner_fail_closed_suspension_direct_write_and_audit(seed):
     d=seed;s=d['s']
     assert rpc(s,'fn_exercise_book_actor_access',d['teacher'],d['cohort'],PROGRAMME)==[{'is_owner':False,'roles':[]}]
-    assert rpc(s,'fn_exercise_book_actor_access',d['owner'],d['cohort'],PROGRAMME)[0]['roles']==['assigner','teacher']
-    assert value(f"SELECT count(*) FROM {s}.staff_security_audit WHERE detail->>'scope'='exercise_book_grant_owner'")>0
-    assert value(f"SELECT count(*) FROM {s}.owner_alert_outbox WHERE payload->'after' ? 'exercise_book_grant_owner'")>0
+    assert rpc(s,'fn_exercise_book_actor_access',d['owner'],d['cohort'],PROGRAMME)[0]['roles']==['assigner']
+    audit=query(f"SELECT * FROM {s}.exercise_book_grant_owner_audit WHERE after->>'user_id'=$1",str(d['owner']))
+    assert len(audit)==1 and audit[0]['op']=='INSERT'
+    assert audit[0]['source']=='out_of_band' and audit[0]['db_user']
+    assert audit[0]['before'] is None
+    assert value(f'SELECT count(*) FROM {s}.staff_security_audit')==0
+    assert value(f'SELECT count(*) FROM {s}.owner_alert_outbox')==0
     for table,cols,vals in [('exercise_book_grant_owners','user_id',f"'{d['teacher']}'"),('exercise_book_cohort_grants','actor_id',f"'{d['owner']}'")]:
         with pytest.raises(asyncpg.InsufficientPrivilegeError):query(f'SET ROLE service_role; INSERT INTO {s}.{table}({cols}) VALUES({vals})')
     query(f'UPDATE {s}.users SET suspended_at=now() WHERE id=$1',d['owner'])
     assert rpc(s,'fn_exercise_book_actor_access',d['owner'],d['cohort'],PROGRAMME)[0]['roles']==[]
-    with pytest.raises(asyncpg.PostgresError,match='not_owner'):rpc(s,'fn_list_cohort_grants',d['owner'],d['cohort'],PROGRAMME)
+    with pytest.raises(asyncpg.PostgresError,match='not_owner'):rpc(s,'fn_list_cohort_grants',d['owner'],datetime.now(timezone.utc),d['cohort'],PROGRAMME)
     query(f'DELETE FROM {s}.exercise_book_grant_owners')
-    with pytest.raises(asyncpg.PostgresError,match='not_owner'):rpc(s,'fn_list_cohort_grants',d['owner'],d['cohort'],PROGRAMME)
+    with pytest.raises(asyncpg.PostgresError,match='not_owner'):rpc(s,'fn_list_cohort_grants',d['owner'],datetime.now(timezone.utc),d['cohort'],PROGRAMME)
 
 
 def test_grant_step_up_replay_sequence_revoke_append_only(seed):
@@ -225,16 +230,16 @@ def test_grant_step_up_replay_sequence_revoke_append_only(seed):
     assert last['seq']>first['seq']
     assert rpc(s,'fn_exercise_book_actor_access',d['teacher'],d['cohort'],PROGRAMME)[0]['roles']==[]
     query(f'UPDATE {s}.users SET display_name=NULL WHERE id=$1',d['teacher'])
-    grant=rpc(s,'fn_list_cohort_grants',d['owner'],d['cohort'],PROGRAMME)[0]
+    grant=rpc(s,'fn_list_cohort_grants',d['owner'],datetime.now(timezone.utc),d['cohort'],PROGRAMME)[0]
     assert grant['state']=='revoked' and grant['display_name']=='synthetic@example.invalid'
-    logs=rpc(s,'fn_read_cohort_grant_log',d['owner'],d['cohort'],PROGRAMME)
+    logs=rpc(s,'fn_read_cohort_grant_log',d['owner'],datetime.now(timezone.utc),d['cohort'],PROGRAMME)
     assert [x['seq'] for x in logs]==[last['seq'],first['seq']]
     for t in ('exercise_book_cohort_grants','exercise_book_cohort_grant_log'):
         for command in (f"UPDATE {s}.{t} SET reason='changed'",f'DELETE FROM {s}.{t}',f'TRUNCATE {s}.{t} CASCADE'):
             with pytest.raises(asyncpg.PostgresError,match='append_only'):query(command)
 
 
-@pytest.mark.parametrize('state',["is_active=false","suspended_at=now()","role='user'"])
+@pytest.mark.parametrize('state',["is_active=false","suspended_at=now()","role='user'","role='instructor'"])
 def test_revoke_ineligible_grantee_survives_reactivation(seed,state):
     from datetime import datetime,timezone
     d=seed;s=d['s'];now=datetime.now(timezone.utc)
@@ -246,8 +251,146 @@ def test_revoke_ineligible_grantee_survives_reactivation(seed,state):
     revoked=rpc(s,'fn_record_cohort_grant',*args,'revoke','synthetic lifecycle',uuid4())[0]
     query(f"UPDATE {s}.users SET is_active=true,suspended_at=NULL,role='admin' WHERE id=$1",d['teacher'])
     assert rpc(s,'fn_exercise_book_actor_access',d['teacher'],d['cohort'],PROGRAMME)[0]['roles']==[]
-    latest=rpc(s,'fn_list_cohort_grants',d['owner'],d['cohort'],PROGRAMME)[0]
+    latest=rpc(s,'fn_list_cohort_grants',d['owner'],datetime.now(timezone.utc),d['cohort'],PROGRAMME)[0]
     assert latest['state']=='revoked' and latest['last_event_seq']==revoked['seq']
+
+
+@pytest.mark.parametrize('session',[None,str(uuid4()),'A._:-09','a'*64])
+def test_grant_session_is_logged_and_refresh_replay_preserves_original(seed,session):
+    d=seed;s=d['s']
+    args=[d['owner'],datetime.now(timezone.utc),d['cohort'],PROGRAMME,d['teacher'],
+          'assigner','grant','synthetic session',uuid4(),session]
+    first=rpc(s,'fn_record_cohort_grant',*args)[0]
+    for table,key in [('exercise_book_cohort_grants','id'),('exercise_book_cohort_grant_log','event_id')]:
+        assert value(f'SELECT auth_session_id FROM {s}.{table} WHERE {key}=$1',first['event_id'])==session
+    args[-1]='refreshed-session'
+    assert rpc(s,'fn_record_cohort_grant',*args)[0]==first|{'replayed':True}
+    assert value(f'SELECT auth_session_id FROM {s}.exercise_book_cohort_grants WHERE id=$1',first['event_id'])==session
+    assert value(f'SELECT auth_session_id FROM {s}.exercise_book_cohort_grant_log WHERE event_id=$1',first['event_id'])==session
+
+
+@pytest.mark.parametrize('session',['','a'*65,'contains space','line\nbreak','tab\tvalue','é'])
+def test_invalid_grant_session_leaves_no_event_or_log(seed,session):
+    d=seed;s=d['s']
+    with pytest.raises(asyncpg.PostgresError,match='validation') as exc:
+        rpc(s,'fn_record_cohort_grant',d['owner'],datetime.now(timezone.utc),d['cohort'],PROGRAMME,
+            d['teacher'],'assigner','grant','synthetic',uuid4(),session)
+    assert exc.value.sqlstate=='EB422'
+    for table in ('exercise_book_cohort_grants','exercise_book_cohort_grant_log'):
+        assert value(f'SELECT count(*) FROM {s}.{table} WHERE cohort_id=$1',d['cohort'])==0
+
+
+def test_instructor_grant_is_validation_and_writes_nothing(seed):
+    d=seed;s=d['s']
+    query(f"UPDATE {s}.users SET role='instructor' WHERE id=$1",d['teacher'])
+    with pytest.raises(asyncpg.PostgresError,match='validation') as exc:
+        rpc(s,'fn_record_cohort_grant',d['owner'],datetime.now(timezone.utc),d['cohort'],PROGRAMME,
+            d['teacher'],'teacher','grant','synthetic',uuid4())
+    assert exc.value.sqlstate=='EB422'
+    for table in ('exercise_book_cohort_grants','exercise_book_cohort_grant_log'):
+        assert value(f'SELECT count(*) FROM {s}.{table} WHERE cohort_id=$1',d['cohort'])==0
+    assert rpc(s,'fn_exercise_book_actor_access',d['teacher'],d['cohort'],PROGRAMME)==[{'is_owner':False,'roles':[]}]
+
+
+@pytest.mark.parametrize('name',['fn_list_cohort_grants','fn_read_cohort_grant_log'])
+def test_grant_reads_enforce_owner_step_up_cohort_limit_order(seed,name):
+    d=seed;s=d['s'];now=datetime.now(timezone.utc)
+    rpc(s,'fn_record_cohort_grant',d['owner'],now,d['cohort'],PROGRAMME,
+        d['teacher'],'assigner','grant','synthetic',uuid4())
+    for step in (None,now-timedelta(seconds=601),now+timedelta(seconds=31)):
+        # Unknown cohort cannot hide a missing step-up check.
+        with pytest.raises(asyncpg.PostgresError,match='step_up_required') as exc:
+            rpc(s,name,d['owner'],step,uuid4(),PROGRAMME)
+        assert exc.value.sqlstate=='EB403'
+    assert len(rpc(s,name,d['owner'],now-timedelta(seconds=599),d['cohort'],PROGRAMME))==1
+    with pytest.raises(asyncpg.PostgresError,match='not_owner'):
+        rpc(s,name,d['teacher'],None,d['cohort'],PROGRAMME)
+    for state in ('suspended_at=now()','is_active=false',"role='instructor'"):
+        query(f'UPDATE {s}.users SET {state} WHERE id=$1',d['owner'])
+        with pytest.raises(asyncpg.PostgresError,match='not_owner'):
+            rpc(s,name,d['owner'],now,d['cohort'],PROGRAMME)
+        query(f"UPDATE {s}.users SET suspended_at=NULL,is_active=true,role='admin' WHERE id=$1",d['owner'])
+    with pytest.raises(asyncpg.PostgresError,match='not_found'):
+        rpc(s,name,d['owner'],now,uuid4(),PROGRAMME)
+    if name=='fn_read_cohort_grant_log':
+        with pytest.raises(asyncpg.PostgresError,match='not_found'):
+            rpc(s,name,d['owner'],now,uuid4(),PROGRAMME,0)
+        with pytest.raises(asyncpg.PostgresError,match='validation'):
+            rpc(s,name,d['owner'],now,d['cohort'],PROGRAMME,0)
+
+
+@pytest.mark.parametrize('name',['fn_list_cohort_grants','fn_read_cohort_grant_log'])
+def test_grant_read_exact_clock_boundaries(seed,name):
+    d=seed;s=d['s']
+
+    async def check():
+        connection=await asyncpg.connect(DB)
+        transaction=connection.transaction()
+        await transaction.start()
+        try:
+            definition=await connection.fetchval('SELECT pg_get_functiondef($1::regproc)',s+'.'+name)
+            # Freeze only the disposable function's wall clock inside a rolled
+            # back transaction, so exact boundaries have no network time drift.
+            await connection.execute(definition.replace('clock_timestamp()',"'2030-01-01T00:00:00Z'::timestamptz"))
+            await connection.execute("SET LOCAL ROLE service_role; SET LOCAL request.jwt.claim.role='service_role'")
+            frozen=datetime(2030,1,1,tzinfo=timezone.utc)
+            for delta in (-600,30):
+                await connection.fetch(f'SELECT * FROM {s}.{name}($1,$2,$3,$4)',
+                                       d['owner'],frozen+timedelta(seconds=delta),d['cohort'],PROGRAMME)
+            for delta in (-600.000001,30.000001):
+                with pytest.raises(asyncpg.PostgresError,match='step_up_required'):
+                    async with connection.transaction():
+                        await connection.fetch(f'SELECT * FROM {s}.{name}($1,$2,$3,$4)',
+                                               d['owner'],frozen+timedelta(seconds=delta),d['cohort'],PROGRAMME)
+        finally:
+            await transaction.rollback()
+            await connection.close()
+    asyncio.run(check())
+
+
+def test_owner_audit_records_all_operations_and_cannot_be_rewritten(seed):
+    d=seed;s=d['s']
+    query(f'UPDATE {s}.exercise_book_grant_owners SET step_up_max_seconds=600 WHERE user_id=$1',d['owner'])
+    query(f'DELETE FROM {s}.exercise_book_grant_owners WHERE user_id=$1',d['owner'])
+    rows=query(f"SELECT op,before,after FROM {s}.exercise_book_grant_owner_audit WHERE COALESCE(after,before)->>'user_id'=$1 ORDER BY id",str(d['owner']))
+    assert [x['op'] for x in rows]==['INSERT','UPDATE','DELETE']
+    assert rows[0]['before'] is None and rows[-1]['after'] is None
+    assert json.loads(rows[1]['before'])['user_id']==str(d['owner'])
+    assert json.loads(rows[1]['after'])['user_id']==str(d['owner'])
+    for statement in ('UPDATE {s}.exercise_book_grant_owner_audit SET source=\'service\'',
+                      'DELETE FROM {s}.exercise_book_grant_owner_audit',
+                      'TRUNCATE {s}.exercise_book_grant_owner_audit'):
+        with pytest.raises(asyncpg.PostgresError,match='append_only'):
+            query(statement.format(s=s))
+    with pytest.raises(asyncpg.CheckViolationError):
+        query(f'INSERT INTO {s}.exercise_book_grant_owners(user_id,step_up_max_seconds) VALUES($1,599)',d['owner'])
+
+
+@pytest.mark.parametrize('sequence',['exercise_book_cohort_grants_seq_seq','exercise_book_grant_owner_audit_id_seq'])
+def test_sequence_acl_postcondition_rejects_each_application_role(book_schema,sequence):
+    s=book_schema
+    post=(M/'377_exercise_book_cohort_grants.sql').read_text().rsplit('DO $$',1)[1].split('COMMIT;',1)[0]
+    post='DO $$'+post.replace('public.',s+'.')
+    for role in ('PUBLIC','anon','authenticated','service_role'):
+        with pytest.raises(asyncpg.PostgresError,match='exercise_book_sequence_postcondition') as exc:
+            query(f'BEGIN; GRANT USAGE ON SEQUENCE {s}.{sequence} TO {role}; '+post+' COMMIT;')
+        assert exc.value.sqlstate=='55000'
+    for role in ('anon','authenticated','service_role'):
+        for privilege in ('USAGE','SELECT','UPDATE'):
+            assert not value('SELECT has_sequence_privilege($1,$2,$3)',role,s+'.'+sequence,privilege)
+
+
+@pytest.mark.parametrize('name',['fn_close_exercise_book_assignment','fn_read_exercise_book_progress'])
+def test_ungranted_admin_cannot_probe_existing_or_missing_assignment(seed,name):
+    d=seed;s=d['s'];create(d)
+    for assignment in (d['request'],uuid4()):
+        extra=['synthetic'] if name=='fn_close_exercise_book_assignment' else []
+        with pytest.raises(asyncpg.PostgresError,match='not_granted') as exc:
+            rpc(s,name,d['teacher'],d['cohort'],assignment,*extra)
+        assert exc.value.sqlstate=='EB403'
+    with pytest.raises(asyncpg.PostgresError,match='not_found') as exc:
+        rpc(s,name,d['owner'],d['cohort'],uuid4(),*extra)
+    assert exc.value.sqlstate=='EB404'
 
 
 def test_create_replay_conflict_atomic_fanout_progress_and_owner_log(seed):
@@ -284,11 +427,11 @@ def test_acquire_save_sequences_submit_computes_summary_retry_immutability(seed)
     assert not save(2,'AB')['applied']
     answers=value(f'SELECT answers FROM {s}.listening_test_attempts WHERE id=$1',aid)
     assert answers==[{'q_num':1,'user_answer':'A'}]
-    with pytest.raises(asyncpg.PostgresError,match='validation'):rpc(s,'fn_submit_exercise_book_assigned_attempt',d['user'],aid,json.dumps(answers),'{}')
-    result=rpc(s,'fn_submit_exercise_book_assigned_attempt',d['user'],aid,json.dumps(answers),'{"score":99,"blank_count":0}',True)
+    with pytest.raises(asyncpg.PostgresError,match='validation'):rpc(s,'fn_submit_exercise_book_assigned_attempt',d['user'],aid,json.dumps(answers))
+    result=rpc(s,'fn_submit_exercise_book_assigned_attempt',d['user'],aid,json.dumps(answers),True)
     assert result['status']=='submitted' and result['result_summary']['score'] is None and result['result_summary']['blank_count']>0
-    assert rpc(s,'fn_submit_exercise_book_assigned_attempt',d['user'],aid,json.dumps(answers),'{}',True)['replayed']
-    with pytest.raises(asyncpg.PostgresError,match='attempt_changed'):rpc(s,'fn_submit_exercise_book_assigned_attempt',d['user'],aid,'[]','{}',True)
+    assert rpc(s,'fn_submit_exercise_book_assigned_attempt',d['user'],aid,json.dumps(answers),True)['replayed']
+    with pytest.raises(asyncpg.PostgresError,match='attempt_changed'):rpc(s,'fn_submit_exercise_book_assigned_attempt',d['user'],aid,'[]',True)
     retry=acquire(d)
     assert retry['id']!=aid
     listed=rpc(s,'fn_list_learner_exercise_book_assignments',d['user'])['items'][0]['activities'][0]
@@ -312,7 +455,7 @@ def test_idor_uniform_missing_wrong_cohort_other_user_and_self_study(seed):
     # Existing self-study RPC returns a single jsonb column.
     standalone=json.loads(next(iter(standalone.values())))
     for owner,attempt in ((uuid4(),a['id']),(d['user'],uuid4()),(d['user'],standalone['id'])):
-        for fn,args in [('fn_save_exercise_book_answer',[owner,attempt,1,'synthetic',1]),('fn_submit_exercise_book_assigned_attempt',[owner,attempt,'[]','{}',True])]:
+        for fn,args in [('fn_save_exercise_book_answer',[owner,attempt,1,'synthetic',1]),('fn_submit_exercise_book_assigned_attempt',[owner,attempt,'[]',True])]:
             with pytest.raises(asyncpg.PostgresError,match='not_found') as e:rpc(s,fn,*args)
             assert e.value.sqlstate=='EB404'
 
@@ -324,7 +467,7 @@ def test_deadline_on_every_write(seed,operation):
     with pytest.raises(asyncpg.PostgresError,match='past_due'):
         if operation=='acquire':acquire(d)
         elif operation=='save':rpc(s,'fn_save_exercise_book_answer',d['user'],a['id'],1,'synthetic',1)
-        else:rpc(s,'fn_submit_exercise_book_assigned_attempt',d['user'],a['id'],'[]','{}',True)
+        else:rpc(s,'fn_submit_exercise_book_assigned_attempt',d['user'],a['id'],'[]',True)
 
 
 def test_resolver_all_courses_differential_and_book_fail_closed(seed):
@@ -455,15 +598,44 @@ def test_rollback_refuses_history_and_restores_exact_bodies_retains_grant_audit(
         from datetime import datetime,timezone
         clean=globals()['seed'].__wrapped__(s)  # isolated DB schema, synthetic data, no assignment
         rpc(s,'fn_record_cohort_grant',clean['owner'],datetime.now(timezone.utc),clean['cohort'],PROGRAMME,clean['teacher'],'assigner','grant','synthetic',uuid4())
-        before=value(f'SELECT count(*) FROM {s}.staff_security_audit')
+        before=value(f'SELECT count(*) FROM {s}.exercise_book_grant_owner_audit')
         migrate(s,'378_exercise_book_assignments.sql',rollback=True)
         for name,definition in BASE_DEFS[s].items():
             assert value('SELECT pg_get_functiondef($1::regprocedure)',s+'.'+name)==definition
         migrate(s,'377_exercise_book_cohort_grants.sql',rollback=True)
         assert value(f'SELECT count(*) FROM {s}.exercise_book_cohort_grants')==1
         assert value(f'SELECT count(*) FROM {s}.exercise_book_cohort_grant_log')==1
-        assert value(f'SELECT count(*) FROM {s}.staff_security_audit')==before
-        assert value(f'SELECT count(*) FROM {s}.owner_alert_outbox')>0
+        assert value(f'SELECT count(*) FROM {s}.exercise_book_grant_owner_audit')==before
+        assert value(f'SELECT count(*) FROM {s}.owner_alert_outbox')==0
+    finally:gen.close()
+
+
+@pytest.mark.parametrize('drift',[
+    'SECURITY INVOKER',
+    'SET search_path=public',
+    'GRANT EXECUTE',
+    'body',
+])
+def test_rollback_resolver_postcondition_rejects_drift_atomically(drift):
+    gen=_book_schema();s=next(gen)
+    try:
+        script=(M/'rollback/378_exercise_book_assignments.sql').read_text()
+        signature=f'{s}.fn_resolve_mock_paper_access(text,uuid,uuid,text,uuid,uuid,boolean)'
+        script=script.replace('public.',s+'.').replace('auth.role()',"current_setting('request.jwt.claim.role',true)")
+        if drift=='body':
+            # Whitespace preserves behavior but must still fail the exact hash.
+            marker=f'CREATE OR REPLACE FUNCTION {s}.fn_resolve_mock_paper_access('
+            before,resolver=script.split(marker,1)
+            script=before+marker+resolver.replace('AS $$','AS $$\n-- injected body drift',1)
+        else:
+            mutation=(f'GRANT EXECUTE ON FUNCTION {signature} TO authenticated;' if drift=='GRANT EXECUTE'
+                      else f'ALTER FUNCTION {signature} {drift};')
+            script=script.replace("DO $$ BEGIN\n IF to_regclass",mutation+"\nDO $$ BEGIN\n IF to_regclass",1)
+        with pytest.raises(asyncpg.PostgresError,match='exercise_book_resolver_rollback_postcondition') as exc:
+            query(script)
+        assert exc.value.sqlstate=='55000'
+        assert value('SELECT to_regclass($1) IS NOT NULL',s+'.class_assignment_activities')
+        assert value('SELECT to_regclass($1) IS NOT NULL',s+'.exercise_book_attempt_links')
     finally:gen.close()
 
 
@@ -513,8 +685,8 @@ def test_keep_change_validation_and_summary_matches_backend(book_schema):
     rpc(s,'fn_save_exercise_book_answer',d['user'],a['id'],1,text,4)
     answers=value(f'SELECT answers FROM {s}.listening_test_attempts WHERE id=$1',a['id'])
     with pytest.raises(asyncpg.PostgresError,match='validation'):
-        rpc(s,'fn_submit_exercise_book_assigned_attempt',d['user'],a['id'],json.dumps(answers),'{}',False)
-    result=rpc(s,'fn_submit_exercise_book_assigned_attempt',d['user'],a['id'],json.dumps(answers),'{}',True)
+        rpc(s,'fn_submit_exercise_book_assigned_attempt',d['user'],a['id'],json.dumps(answers),False)
+    result=rpc(s,'fn_submit_exercise_book_assigned_attempt',d['user'],a['id'],json.dumps(answers),True)
     from services.listening_blackeye import decode_answer
     items=paper(activity='U1-A03')['metadata']['blackeye']['items']
     # Match the actual Python decoder used by PR1/D2's response mapper.

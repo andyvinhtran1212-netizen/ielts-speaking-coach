@@ -33,7 +33,7 @@ def test_grant_revoke_log_readback_and_mutation_rejection(seed):
     d=seed;s=d['s']
     for action in ('grant','revoke'):
         rpc(s,'fn_record_cohort_grant',d['owner'],datetime.now(timezone.utc),d['cohort'],PROGRAMME,d['teacher'],'teacher',action,'synthetic '+action,uuid4())
-    rows=rpc(s,'fn_read_cohort_grant_log',d['owner'],d['cohort'],PROGRAMME)
+    rows=rpc(s,'fn_read_cohort_grant_log',d['owner'],datetime.now(timezone.utc),d['cohort'],PROGRAMME)
     assert [r['action'] for r in rows]==['revoke','grant']
     assert all(r['actor_id']==d['owner'] and r['grantee_id']==d['teacher'] and r['reason'] for r in rows)
     for table in ('exercise_book_cohort_grants','exercise_book_cohort_grant_log'):

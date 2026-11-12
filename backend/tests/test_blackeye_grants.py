@@ -5,7 +5,7 @@ import hashlib
 
 ROOT = Path(__file__).resolve().parents[1]
 SQL = (ROOT / 'migrations/377_exercise_book_cohort_grants.sql').read_text()
-TABLES = ('exercise_book_registry','exercise_book_grant_owners','exercise_book_cohort_grants','exercise_book_cohort_grant_log')
+TABLES = ('exercise_book_registry','exercise_book_grant_owners','exercise_book_grant_owner_audit','exercise_book_cohort_grants','exercise_book_cohort_grant_log')
 
 
 def test_377_pending_feature_reserved_and_no_client_grants_or_policies():
@@ -25,11 +25,14 @@ def test_377_pending_feature_reserved_and_no_client_grants_or_policies():
     assert len(functions)==10
     assert SQL.count('SECURITY DEFINER SET search_path = pg_catalog, pg_temp')==len(functions)
     assert 'CHECK (actor_id <> grantee_id)' in SQL
-    assert SQL.count('BEFORE UPDATE OR DELETE OR TRUNCATE')==2
+    assert SQL.count('BEFORE UPDATE OR DELETE OR TRUNCATE')==3
     assert 'INSERT INTO public.exercise_book_cohort_grant_log' in SQL
     assert not re.search(r'INSERT INTO public\.exercise_book_grant_owners',SQL)
     assert 'suspended_at IS NULL' in SQL and 'FOR SHARE OF o,u' in SQL
-    assert 'fn_staff_security_record' in SQL
+    assert 'INSERT INTO public.exercise_book_grant_owner_audit' in SQL
+    assert 'fn_staff_security_record' not in SQL and 'owner_alert_outbox' not in SQL
+    assert 'CHECK (step_up_max_seconds = 600)' in SQL
+    assert 'make_interval(secs=>' not in SQL
 
 
 def test_no_http_grant_writer_is_registered():
@@ -56,7 +59,10 @@ def test_378_has_no_shared_unique_or_request_table_and_is_pg17_gated():
     sql=(ROOT/'migrations/378_exercise_book_assignments.sql').read_text()
     assert not re.search(r'ALTER TABLE public\.(class_assignments|class_assignment_items).*?UNIQUE',sql,re.S|re.I)
     assert re.findall(r'CREATE TABLE public\.(\w+)',sql)==['class_assignment_activities','exercise_book_attempt_links']
-    assert 'request_fingerprint' in sql and 'p_result_summary is ignored' in sql
+    assert 'request_fingerprint' in sql
+    submit=sql.split('CREATE FUNCTION public.fn_submit_exercise_book_assigned_attempt(',1)[1].split('END $$;',1)[0]
+    assert 'p_result_summary' not in submit
+    assert 'p_expected_answers jsonb,p_confirm_blank boolean DEFAULT false' in submit
     workflow=(ROOT.parent/'.github/workflows/backend-tests.yml').read_text()
     pg17=workflow.split('PG17_TEST_FILES: >-',1)[1].split('jobs:',1)[0]
     for name in ('test_blackeye_admission_postgres.py','test_blackeye_grants_postgres.py','test_exercise_book_postgres.py'):

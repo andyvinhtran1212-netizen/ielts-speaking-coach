@@ -667,3 +667,5 @@ spec 0052 và Q-1..Q-16 theo đề xuất; FD mở PR spec".
   (F11). Không đổi quyết định Q-1..Q-16 hay D-1..D-5, không mở rộng phạm vi.
 
 - 2026-11-11 (Leader decision, CR #2281 R1 P2-4): FR-015/T004 amended: proposal SQL lands in PR1 as numbered migration 376 marked pending_feature in forward-policy.tsv, merged unexecuted (No apply on merge). T004 = SA SQL review + anh Vinh run approval; staging first, production only at T014.
+
+- 2026-11-12 (CV-1, Vinh t1676s5620; admin-only decision t1766s5978; D↔E SQL contract v1.3.2 §8.15, FD signed, Leader co-signed 11:04): CV-1 đã chốt: chỉ anh Vinh cấp/thu quyền cohort, xác định bằng bảng owner singleton mặc định rỗng, không seed UUID; chủ có sẵn quyền assigner, không teacher, cấm tự cấp. PR2 chỉ cấp cho tài khoản admin active, không bị tạm khóa; instructor nhận EB422 validation, không ghi hàng; quyền giáo viên để release sau. Các ghi chú CV-1 còn mở phía trên được thay thế bởi quyết định này; giữ nguyên văn yêu cầu đã duyệt. Chạy migration và chèn owner cần duyệt riêng, không được suy ra từ merge PR.

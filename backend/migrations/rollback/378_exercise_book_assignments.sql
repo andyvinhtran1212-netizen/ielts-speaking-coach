@@ -14,7 +14,7 @@ DROP TRIGGER trg_zz_exercise_book_attempt_immutable ON public.listening_test_att
 DROP TRIGGER trg_zzz_exercise_book_link ON public.listening_test_attempts;
 DROP FUNCTION public.fn_eb_attempt_immutable();
 DROP FUNCTION public.fn_eb_link_attempt();
-DROP FUNCTION public.fn_submit_exercise_book_assigned_attempt(uuid,uuid,jsonb,jsonb,boolean);
+DROP FUNCTION public.fn_submit_exercise_book_assigned_attempt(uuid,uuid,jsonb,boolean);
 DROP FUNCTION public.fn_save_exercise_book_answer(uuid,uuid,integer,text,bigint);
 DROP FUNCTION public.fn_eb_answer_blank(jsonb,text);
 DROP FUNCTION public.fn_eb_attempt_cell(uuid,uuid);
@@ -361,6 +361,18 @@ REVOKE ALL ON FUNCTION public.fn_resolve_mock_paper_access(text,uuid,uuid,text,u
 GRANT EXECUTE ON FUNCTION public.fn_resolve_mock_paper_access(text,uuid,uuid,text,uuid,uuid,boolean) TO service_role;
 DO $$ BEGIN
  IF to_regclass('public.class_assignment_activities') IS NOT NULL OR to_regclass('public.exercise_book_attempt_links') IS NOT NULL THEN
-   RAISE EXCEPTION 'exercise_book_rollback_postcondition'; END IF;
+   RAISE EXCEPTION 'exercise_book_rollback_postcondition' USING ERRCODE='55000'; END IF;
+ IF NOT EXISTS (
+   SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+   WHERE p.oid=to_regprocedure('public.fn_resolve_mock_paper_access(text,uuid,uuid,text,uuid,uuid,boolean)')
+     AND p.prosecdef AND p.proconfig=ARRAY['search_path=public, pg_temp']
+     -- Normalize only the fixture schema; hash is the reviewed 316 prosrc.
+     AND md5(replace(p.prosrc,quote_ident(n.nspname)||'.','public'||'.'))='fcd2f9207d09772069219d6631b34d8a'
+     AND NOT EXISTS (SELECT 1 FROM aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a
+       WHERE a.grantee=0 AND a.privilege_type='EXECUTE')
+     AND NOT has_function_privilege('anon',p.oid,'EXECUTE')
+     AND NOT has_function_privilege('authenticated',p.oid,'EXECUTE')
+     AND has_function_privilege('service_role',p.oid,'EXECUTE')) THEN
+   RAISE EXCEPTION 'exercise_book_resolver_rollback_postcondition' USING ERRCODE='55000'; END IF;
 END $$;
 COMMIT;

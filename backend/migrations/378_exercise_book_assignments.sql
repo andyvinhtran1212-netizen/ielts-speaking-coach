@@ -223,12 +223,18 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pg
 DECLARE programme text; assignment public.class_assignments%ROWTYPE;
 BEGIN
     IF auth.role() IS DISTINCT FROM 'service_role' THEN RAISE insufficient_privilege; END IF;
+    -- Authorize the path cohort before probing the assignment UUID.
+    SELECT r.programme_id INTO programme FROM public.cohorts co
+      JOIN public.courses course ON course.id=co.course_id
+      JOIN public.exercise_book_registry r ON r.course_code=course.code
+      WHERE co.id=p_cohort_id;
+    IF NOT FOUND THEN RAISE EXCEPTION 'not_found' USING ERRCODE='EB404'; END IF;
+    PERFORM public.fn_eb_roles(p_actor_id,p_cohort_id,programme,true);
     SELECT c.programme_id INTO programme FROM public.class_assignment_activities c
       JOIN public.class_assignments a ON a.id=c.assignment_id
-      WHERE a.id=p_assignment_id AND a.cohort_id=p_cohort_id AND a.skill='listening' LIMIT 1;
+      WHERE a.id=p_assignment_id AND a.cohort_id=p_cohort_id AND a.skill='listening'
+        AND c.programme_id=programme LIMIT 1;
     IF NOT FOUND THEN RAISE EXCEPTION 'not_found' USING ERRCODE='EB404'; END IF;
-    PERFORM pg_advisory_xact_lock_shared(hashtextextended('eb_grant:'||p_cohort_id||':'||programme,0));
-    PERFORM public.fn_eb_roles(p_actor_id,p_cohort_id,programme,true);
     IF p_reason IS NULL OR length(btrim(p_reason)) NOT BETWEEN 1 AND 500 THEN RAISE EXCEPTION 'validation' USING ERRCODE='EB422'; END IF;
     SELECT a.* INTO assignment FROM public.class_assignments a WHERE a.id=p_assignment_id AND a.cohort_id=p_cohort_id FOR UPDATE;
     IF assignment.status='archived' THEN RAISE EXCEPTION 'already_archived' USING ERRCODE='EB409'; END IF;
@@ -282,11 +288,18 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pg
 DECLARE programme text; result jsonb;
 BEGIN
     IF auth.role() IS DISTINCT FROM 'service_role' THEN RAISE insufficient_privilege; END IF;
-    SELECT c.programme_id INTO programme FROM public.class_assignment_activities c
-      JOIN public.class_assignments a ON a.id=c.assignment_id
-      WHERE a.id=p_assignment_id AND a.cohort_id=p_cohort_id AND a.skill='listening' LIMIT 1;
+    -- Authorize the path cohort before probing the assignment UUID.
+    SELECT r.programme_id INTO programme FROM public.cohorts co
+      JOIN public.courses course ON course.id=co.course_id
+      JOIN public.exercise_book_registry r ON r.course_code=course.code
+      WHERE co.id=p_cohort_id;
     IF NOT FOUND THEN RAISE EXCEPTION 'not_found' USING ERRCODE='EB404'; END IF;
     PERFORM public.fn_eb_roles(p_actor_id,p_cohort_id,programme);
+    SELECT c.programme_id INTO programme FROM public.class_assignment_activities c
+      JOIN public.class_assignments a ON a.id=c.assignment_id
+      WHERE a.id=p_assignment_id AND a.cohort_id=p_cohort_id AND a.skill='listening'
+        AND c.programme_id=programme LIMIT 1;
+    IF NOT FOUND THEN RAISE EXCEPTION 'not_found' USING ERRCODE='EB404'; END IF;
     WITH cells AS MATERIALIZED (SELECT * FROM public.fn_eb_cells(p_assignment_id))
     SELECT jsonb_build_object('assignment_id',p_assignment_id,'cohort_id',p_cohort_id,
       'activities',(SELECT COALESCE(jsonb_agg(jsonb_build_object('activity_key',c.activity_key,'test_id',c.test_id,'position',c.position)
@@ -456,10 +469,9 @@ BEGIN
     RETURN QUERY SELECT a.id,jsonb_array_length(a.answers),p_client_seq,true;
 END $$;
 
--- Signature retained for D2 v1.1 compatibility. p_result_summary is ignored:
--- the report is derived here from frozen cells and the persisted answers.
+-- Contract v1.3.2: derive the report from frozen cells and persisted answers.
 CREATE FUNCTION public.fn_submit_exercise_book_assigned_attempt(p_user_id uuid,p_attempt_id uuid,
- p_expected_answers jsonb,p_result_summary jsonb,p_confirm_blank boolean DEFAULT false) RETURNS jsonb
+ p_expected_answers jsonb,p_confirm_blank boolean DEFAULT false) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$
 DECLARE cell jsonb; a public.listening_test_attempts%ROWTYPE; reg public.exercise_book_registry%ROWTYPE; n integer; blanks integer; frozen_items jsonb;
 BEGIN
@@ -817,8 +829,8 @@ GRANT EXECUTE ON FUNCTION public.fn_acquire_exercise_book_assigned_attempt(uuid,
 REVOKE ALL ON FUNCTION public.fn_eb_attempt_cell(uuid,uuid) FROM PUBLIC,anon,authenticated,service_role;
 REVOKE ALL ON FUNCTION public.fn_save_exercise_book_answer(uuid,uuid,integer,text,bigint) FROM PUBLIC,anon,authenticated,service_role;
 GRANT EXECUTE ON FUNCTION public.fn_save_exercise_book_answer(uuid,uuid,integer,text,bigint) TO service_role;
-REVOKE ALL ON FUNCTION public.fn_submit_exercise_book_assigned_attempt(uuid,uuid,jsonb,jsonb,boolean) FROM PUBLIC,anon,authenticated,service_role;
-GRANT EXECUTE ON FUNCTION public.fn_submit_exercise_book_assigned_attempt(uuid,uuid,jsonb,jsonb,boolean) TO service_role;
+REVOKE ALL ON FUNCTION public.fn_submit_exercise_book_assigned_attempt(uuid,uuid,jsonb,boolean) FROM PUBLIC,anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public.fn_submit_exercise_book_assigned_attempt(uuid,uuid,jsonb,boolean) TO service_role;
 REVOKE ALL ON FUNCTION public.fn_eb_activity_insert_guard() FROM PUBLIC,anon,authenticated,service_role;
 REVOKE ALL ON FUNCTION public.fn_eb_link_guard() FROM PUBLIC,anon,authenticated,service_role;
 REVOKE ALL ON FUNCTION public.fn_guard_blackeye_admission() FROM PUBLIC,anon,authenticated,service_role;
@@ -977,7 +989,7 @@ BEGIN
       OR has_function_privilege('anon',function_oid,'EXECUTE') OR has_function_privilege('authenticated',function_oid,'EXECUTE')
       OR has_function_privilege('service_role',function_oid,'EXECUTE') IS DISTINCT FROM allowed THEN
         RAISE EXCEPTION 'exercise_book_function_postcondition' USING ERRCODE='55000'; END IF;
-    signature:='public.fn_submit_exercise_book_assigned_attempt(uuid,uuid,jsonb,jsonb,boolean)'; allowed:=true;
+    signature:='public.fn_submit_exercise_book_assigned_attempt(uuid,uuid,jsonb,boolean)'; allowed:=true;
     function_oid:=to_regprocedure(signature);
     IF function_oid IS NULL OR (SELECT count(*) FROM pg_proc p WHERE p.pronamespace=(SELECT pronamespace FROM pg_proc WHERE oid=function_oid) AND p.proname=(SELECT proname FROM pg_proc WHERE oid=function_oid))<>1
       OR NOT EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid=function_oid AND p.prosecdef

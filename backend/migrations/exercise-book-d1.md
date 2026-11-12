@@ -4,31 +4,34 @@
 has no staging or production executor. Run 376 → 377 → 378 only in a separately
 approved release, staging first through the advisory-locked runner; production
 requires direct specific owner approval at T014. 376 and its proposal mirror
-are byte-identical to PR1 `2f0aaf9a79f4b91031fb48805c5a66d1bdbe9529`.
+are byte-identical to PR1 `3f41c672f`.
 
-This job is pinned to D↔E v1.1 §8 (8c7365d95bea), which supplies the twelve
-RPC signatures. Leader's 15:35 handoff explicitly keeps this running job pinned;
-v1.3 (b0736b75cf99) is assigned to the subsequent delta round. Do not integrate
-D2/E until its newer signatures and policy changes are reconciled. In particular,
-this patch retains the v1.1 summary argument (ignored), nine-argument grant write,
-and grant reads without a step-up parameter; these are not the v1.3 signatures. All product
-RPCs require service_role; actors/users come from D2's freshly verified token.
-The DB rechecks active/not-suspended staff and cohort grants under locks. The
-owner has implicit assigner/teacher rights; every other global admin needs an
-explicit latest-sequence grant. Grant eligibility checks apply to new grants;
-revoking an existing grantee remains possible after suspension, deactivation or
-demotion, so reactivation cannot revive a grant the owner revoked. `service_role` has SELECT only on the six new
-tables, no direct writes, no internal-function EXECUTE and no sequence access.
-RLS is enabled without policies; none of these tables is published to Realtime.
-Postconditions and PG17 tests enforce these properties even under permissive
-Supabase default privileges.
+D↔E SQL contract **v1.3.2 §8.15**, FD signed and Leader co-signed on
+2026-11-12 at 11:04, governs all twelve RPCs. PR1 R12b
+`3f41c672f` is merged without changing 376. Grant writes accept an optional
+validated `auth_session_id`; list/log require `p_step_up_at` at position 2;
+submit accepts persisted expected answers and blank confirmation, with no
+caller-supplied result summary. Session IDs are audit correlation only, never
+MFA proof or part of the replay fingerprint; replay retains the first session.
+
+All product RPCs require service_role; actors/users come from D2's freshly
+verified token. The DB rechecks active, unsuspended admin accounts and cohort
+grants under locks. The owner has only implicit `assigner` rights, which suffice
+for progress/review; every other admin needs an explicit latest-sequence grant.
+Per Vinh t1766s5978, instructor grants return `EB422 validation` and write no
+event/log. Instructor access is deferred. Revocation remains possible after a
+grantee's suspension, deactivation or demotion, so reactivation cannot revive
+revoked access. `service_role` has SELECT only on all seven new tables, no direct
+writes, no internal-function EXECUTE and no sequence access. RLS is enabled
+without policies; these tables are not published to Realtime. Postconditions
+and PG17 tests enforce this under permissive Supabase defaults.
 
 ## Owner bootstrap and audit
 
 `exercise_book_grant_owners` starts empty and is constrained to at most one row.
 There is no API, RPC or service_role write grant to populate it. Empty, inactive,
 suspended and non-admin owners fail closed. The approved default window is
-600 seconds, with a maximum of 600. DB checks use `clock_timestamp()` and allow
+a fixed 600 seconds (CHECK = 600; SQL uses the constant, not the column). DB checks use `clock_timestamp()` and allow
 at most 30 seconds of future clock skew. This fails closed more strictly than
 the backend's 300-second tolerance.
 
@@ -37,20 +40,20 @@ then prepare a separate, exact, one-off SQL file outside this repository with
 that literal UUID. Independently review its hash before Vinh approves running
 that exact file. The transaction must lock the owner table, require emptiness,
 lock/recheck the active unsuspended admin row, insert exactly one owner with
-600 seconds, and read back the owner/config plus its audit and outbox IDs.
+600 seconds, and read back the owner/config plus its dedicated owner audit ID.
 Record the approved script SHA and readback in that future execution result.
 An existing/mismatched owner means stop; do not UPSERT or replace it. No real
 UUID, script execution, owner verification or bootstrap completion is claimed
 by this PR.
 
-Every owner insert/update/delete uses 332's append-only `staff_security_audit`
-and `owner_alert_outbox`. The existing event `role_changed` denotes a privilege
-change; `detail.scope=exercise_book_grant_owner` distinguishes this configuration
-from `users.role`. Before/after include the complete owner row, source is
-`service` or `out_of_band`, and operator is the DB session user. TRUNCATE is
-refused. No alert is sent by this PR. Grant events and their immutable log keep
-step_up_at and request_id for correlation. The service-role contract provides
-no verified GoTrue session_id to SQL; D2 must not fabricate one.
+Every owner insert/update/delete writes exactly one row to the dedicated
+`exercise_book_grant_owner_audit`: complete before/after owner rows, operation,
+DB session user and `service`/`out_of_band` source. UPDATE, DELETE and TRUNCATE
+are refused on that audit; TRUNCATE is also refused on owners, grants and grant
+log. There is no shared 332 audit event, outbox entry or automatic notification.
+Grant events and their immutable log retain step_up_at, request_id and validated
+GoTrue auth_session_id (NULL or `^[A-Za-z0-9._:-]{1,64}$`). D2 passes NULL for a
+missing/invalid verified claim and does not log session values.
 
 The DB step-up check defends against D2 omission; it is **not independent MFA
 verification**. D2 must enforce recent MFA and the factor-change cool-off for
@@ -84,7 +87,7 @@ so the 24-hour TTL CHECK cannot fail from microsecond skew.
 Save serializes on the attempt row; client_seq is per question. Older/equal
 sequence values return current state without applying. Submit checks persisted
 answers under that same lock and computes the summary from the frozen snapshot;
-`p_result_summary` is retained for signature compatibility but ignored. Blank
+there is no `p_result_summary` input. Blank
 confirmation is required. Exact submitted replay is allowed; differing answers
 get `attempt_changed`. No completion, artifact or score fields on the parent item
 are changed. Closed assignments and overdue writes fail closed; an already
@@ -107,15 +110,56 @@ drops the new RPCs/triggers before children, restores 376/316 bodies exactly,
 and asserts the resulting catalog. The class_action_log CHECK is discovered and checked against 198 before widening,
 then validated and checked again before COMMIT. The extended CHECK remains
 to preserve any audit evidence. 377 disables four product RPCs but retains all
-registry/owner/grant/log rows and owner/grant audit guards; existing 332 audit
-and outbox evidence is never deleted.
+registry/owner/grant/log rows, the dedicated owner audit and all audit guards.
+Both rollback postconditions raise 55000. The 378 rollback verifies the restored
+316 resolver body hash, SECURITY DEFINER, search_path and service-only ACL.
 
 User/paper/item deletion can fail with RESTRICT or immutable-identity errors.
-That is expected. Retire by archive. Erasure requires a separate owner-approved,
-security-reviewed procedure: preserve IDs and audit linkage, pseudonymise free
-text reasons under an explicit exception, and reconcile retained evidence.
+This includes standalone Black Eye attempts captured in 306 snapshots: the
+shared users cascade must not remove frozen evidence. Archive is supported;
+physical erasure is not implemented here. Removing RESTRICT or bypassing the
+immutable triggers would change retention and data scope without approval.
+
+### Erasure request runbook (SA-2282-R1-F8)
+
+1. Release Manager owns the request. Stop a generic account-delete retry after
+   RESTRICT/`attempt_changed`; retain the error code without parameters/PII.
+   Archive/deactivate through the existing approved account workflow as needed;
+   do not disable constraints, triggers or RLS to force deletion.
+2. Inventory READ-ONLY the affected user's owner/grant/log references, assignment
+   items and activity/attempt links, standalone Listening attempts, 306 frozen
+   snapshots and shared class-action rows. Record row IDs/counts and hashes in
+   the access-controlled request package. Include historical grants/owner audit
+   JSON and free-text reasons; do not copy production data to staging.
+3. Obtain Vinh's specific decision on retention versus pseudonymisation versus
+   physical deletion, with the affected scope. No prior merge or migration
+   approval supplies this decision. Escalate conflicting retention requirements
+   before preparing a write. Security Auditor reviews the exact one-off SQL,
+   rollback/backup package, row counts/hashes and any narrowly scoped trigger
+   exception. Release Manager obtains approval for that script hash/executor.
+4. Prefer an approved pseudonymisation procedure that preserves stable IDs and
+   audit linkage. It must explicitly cover identity text in historical JSON,
+   reasons and snapshots; changing only users.display_name is insufficient.
+   The append-only guards deliberately require a separately reviewed exception.
+   Physical erasure requires its own ordered dependent-row plan and authorization.
+5. In the separately authorized execution workflow, lock and compare the approved
+   IDs/counts/hashes; stop on any mismatch. Apply once using the required write
+   journal and advisory-locked runner. Read back exact postconditions, retained
+   linkage and absence of scoped identifying text, then check unaffected records.
+   Roll back only using the approved package if postconditions fail. Record the
+   execution result privately; never record sensitive before-images in git/logs.
+
+This PR supplies the runbook, not approval or an erasure executor. The existing
+immutable trigger still checks every Listening UPDATE/DELETE, including other
+programmes. It probes indexed attempt links/snapshots, and a paper lookup on
+UPDATE. Keep that coverage: an attempt-purpose shortcut could bypass frozen
+Black Eye evidence or a change into a book paper. The R2 RESULT records synthetic
+PG17 save/submit latency with and without this trigger, including sample count
+and local-only limitations. Production latency remains an RM apply-plan check.
+
 D2/E must label reason inputs as a non-PII purpose and exclude them from logs.
-There is no erasure or real-data operation in this PR.
+Shared class-action routes must exclude/authorize book rows before exposing close
+reasons (D2 scope). No erasure or real-data operation runs in this PR.
 
 ## D2/E preservation and verification
 
