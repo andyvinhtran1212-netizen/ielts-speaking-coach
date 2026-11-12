@@ -31,6 +31,7 @@ from routers import listening as listening_router
 EXERCISE_ONE = "00000000-0000-0000-0000-000000000101"
 EXERCISE_TWO = "00000000-0000-0000-0000-000000000102"
 EXERCISE_MISSING = "00000000-0000-0000-0000-000000000199"
+ORDINARY_TEST = "00000000-0000-0000-0000-000000000201"
 
 
 # ── _validate_dictation_segments unit tests ──────────────────────────
@@ -233,6 +234,10 @@ class _FakeTableQuery:
                 r.update(self._update)
             return _FakeRes(matched)
         rows = list(self._parent.canned.get(self._table, []))
+        if (self._table == "listening_exercises" and self._parent.remove_after_identity_read
+                and self._parent.selects[-1] == (self._table, "id,content_id")):
+            self._parent.canned[self._table] = []
+            self._parent.remove_after_identity_read = False
         for col, val in self._filters:
             rows = [
                 r for r in rows
@@ -272,6 +277,9 @@ class _FakeStorage:
 class _FakeAdminClient:
     def __init__(self, canned=None):
         self.canned = canned or {}
+        self.canned.setdefault("listening_tests", [
+            {"id": ORDINARY_TEST, "programme_id": "ielts", "metadata": {}},
+        ])
         self.inserts: list[tuple] = []
         self.updates: list[tuple] = []
         self.selects: list[tuple[str, str | None]] = []
@@ -280,6 +288,7 @@ class _FakeAdminClient:
         self.unique_violation_on_insert = False
         self.unique_violation_on_update = False
         self.concurrent_insert_row: dict | None = None
+        self.remove_after_identity_read = False
         self.storage = _FakeStorage(self)
 
     def table(self, name):
@@ -308,9 +317,10 @@ def _run(coro): return asyncio.run(coro)
 # ── POST /admin/listening/exercises ──────────────────────────────────
 
 
-def _content_row(content_id="c1", duration=15):
+def _content_row(content_id="c1", duration=15, test_id=None):
     return {
         "id": content_id,
+        "test_id": test_id,
         "status": "published",
         "audio_duration_seconds": duration,
         "transcript": "Hello world.",
@@ -466,7 +476,7 @@ def test_admin_exercise_versioned_update_targets_exact_block(monkeypatch):
         "order_num": 2, "status": "published", "segments": _good_segments(),
         "updated_at": "2026-08-14T00:00:00+00:00",
     }
-    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": [first, second]})
+    fake = _FakeAdminClient({"listening_content": [_content_row(test_id=ORDINARY_TEST)], "listening_exercises": [first, second]})
     _patch_admin_client(monkeypatch, fake)
     authz = _patch_admin_auth(monkeypatch)
 
@@ -490,7 +500,7 @@ def test_admin_exercise_versioned_update_rejects_stale_block(monkeypatch):
         "order_num": 1, "status": "draft", "segments": _good_segments(),
         "updated_at": "2026-08-14T00:00:00+00:00",
     }
-    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": [row]})
+    fake = _FakeAdminClient({"listening_content": [_content_row(test_id=ORDINARY_TEST)], "listening_exercises": [row]})
     _patch_admin_client(monkeypatch, fake)
     authz = _patch_admin_auth(monkeypatch)
     body = listening_router.ListeningExerciseUpsertRequest(
@@ -547,7 +557,7 @@ def test_admin_exercise_atomic_version_race_is_conflict(monkeypatch):
         "order_num": 1, "status": "draft", "segments": _good_segments(),
         "updated_at": "2026-08-14T00:00:00+00:00",
     }
-    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": [row]})
+    fake = _FakeAdminClient({"listening_content": [_content_row(test_id=ORDINARY_TEST)], "listening_exercises": [row]})
     fake.drop_updates = True
     _patch_admin_client(monkeypatch, fake)
     authz = _patch_admin_auth(monkeypatch)
@@ -567,7 +577,7 @@ def test_admin_exercise_exact_update_requires_version(monkeypatch):
         "order_num": 1, "status": "draft", "segments": _good_segments(),
         "updated_at": "2026-08-14T00:00:00+00:00",
     }
-    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": [row]})
+    fake = _FakeAdminClient({"listening_content": [_content_row(test_id=ORDINARY_TEST)], "listening_exercises": [row]})
     _patch_admin_client(monkeypatch, fake)
     authz = _patch_admin_auth(monkeypatch)
     body = listening_router.ListeningExerciseUpsertRequest(
@@ -598,7 +608,12 @@ def test_admin_exercise_exact_update_rejects_non_uuid_identity(monkeypatch):
 
 
 def test_admin_exercise_exact_missing_never_falls_through_to_create(monkeypatch):
-    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": []})
+    # The guard must resolve the identity first; model a concurrent deletion
+    # before the upsert's canonical read, preserving its existing 409 contract.
+    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": [
+        {"id": EXERCISE_MISSING, "content_id": "c1"},
+    ]})
+    fake.remove_after_identity_read = True
     _patch_admin_client(monkeypatch, fake)
     authz = _patch_admin_auth(monkeypatch)
     body = listening_router.ListeningExerciseUpsertRequest(
@@ -619,7 +634,8 @@ def test_admin_exercise_exact_identity_mismatch_is_conflict(monkeypatch):
         "order_num": 2, "status": "draft", "segments": _good_segments(),
         "updated_at": "2026-08-14T00:00:00+00:00",
     }
-    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": [row]})
+    fake = _FakeAdminClient({"listening_content": [_content_row(), _content_row("other")],
+                             "listening_exercises": [row]})
     _patch_admin_client(monkeypatch, fake)
     authz = _patch_admin_auth(monkeypatch)
     body = listening_router.ListeningExerciseUpsertRequest(
@@ -640,7 +656,7 @@ def test_admin_exercise_segments_only_update_preserves_existing_payload(monkeypa
         "payload": {"instructions": "Keep me", "tolerance": 0.8},
         "updated_at": "2026-08-14T00:00:00+00:00",
     }
-    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": [row]})
+    fake = _FakeAdminClient({"listening_content": [_content_row(test_id=ORDINARY_TEST)], "listening_exercises": [row]})
     _patch_admin_client(monkeypatch, fake)
     authz = _patch_admin_auth(monkeypatch)
     body = listening_router.ListeningExerciseUpsertRequest(
@@ -659,7 +675,7 @@ def test_admin_exercise_archived_status_round_trips(monkeypatch):
         "order_num": 1, "status": "published", "segments": _good_segments(),
         "updated_at": "2026-08-14T00:00:00+00:00",
     }
-    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": [row]})
+    fake = _FakeAdminClient({"listening_content": [_content_row(test_id=ORDINARY_TEST)], "listening_exercises": [row]})
     _patch_admin_client(monkeypatch, fake)
     authz = _patch_admin_auth(monkeypatch)
     body = listening_router.ListeningExerciseUpsertRequest(
